@@ -1,0 +1,156 @@
+{
+  "source_sha256": {
+    "crates/tickwire-control/src/lib.rs": "196048f06d2348a51a3704dfbd6b4744f82dad23addabb64e62924d1ab11afc7",
+    "crates/tickwire-control/src/requests.rs": "c9f7cbafbbb12ba06754a5a8af0dee4ae697d61ec411ad224592c6bf93c5873a",
+    "tla/execution_models/control_requests/L1_session/02_models/L1_ControlSession.tla": "f58fde1089e9b492a2d3f5ff5fc38ecde679d77f00aece5958dbeca911eaca78",
+    "tla/execution_models/control_requests/L1_session/02_models/L1_ControlSession.cfg": "67d46a815de2fd36f680dfb16a1850757bba80d37edeb17b2c249cf2b056a5c8",
+    "tla/execution_models/control_requests/L1_session/02_models/L1_ControlSession_two.cfg": "cf7fbedc27705fbbdc603b96721cf9c56043a1f6a6a521cab5fdffca01da2867",
+    "tla/execution_models/control_requests/L1_session/02_models/L1_ControlSession_renew.cfg": "3e12a41e54eb0c31e25128bb29edf7842c138f451ca67438b9bcd481e01a5ecf"
+  },
+  "runs": [
+    {
+      "config": "L1_ControlSession.cfg",
+      "generated": 28744,
+      "distinct": 1566,
+      "depth": 8,
+      "coverage": [
+        {
+          "action": "Init",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "Admit",
+          "distinct": 180,
+          "generated": 8676
+        },
+        {
+          "action": "RejectFrame",
+          "distinct": 84,
+          "generated": 1446
+        },
+        {
+          "action": "Close",
+          "distinct": 196,
+          "generated": 4818
+        },
+        {
+          "action": "Renew",
+          "distinct": 196,
+          "generated": 8676
+        },
+        {
+          "action": "Next",
+          "distinct": 461,
+          "generated": 783
+        },
+        {
+          "action": "Next",
+          "distinct": 280,
+          "generated": 2896
+        },
+        {
+          "action": "Next",
+          "distinct": 168,
+          "generated": 1448
+        }
+      ]
+    },
+    {
+      "config": "L1_ControlSession_renew.cfg",
+      "generated": 76195,
+      "distinct": 3804,
+      "depth": 9,
+      "coverage": [
+        {
+          "action": "Init",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "Admit",
+          "distinct": 360,
+          "generated": 17496
+        },
+        {
+          "action": "RejectFrame",
+          "distinct": 168,
+          "generated": 2916
+        },
+        {
+          "action": "Close",
+          "distinct": 532,
+          "generated": 19908
+        },
+        {
+          "action": "Renew",
+          "distinct": 406,
+          "generated": 23328
+        },
+        {
+          "action": "Next",
+          "distinct": 1121,
+          "generated": 1902
+        },
+        {
+          "action": "Next",
+          "distinct": 760,
+          "generated": 7096
+        },
+        {
+          "action": "Next",
+          "distinct": 456,
+          "generated": 3548
+        }
+      ]
+    },
+    {
+      "config": "L1_ControlSession_two.cfg",
+      "generated": 103144,
+      "distinct": 3926,
+      "depth": 8,
+      "coverage": [
+        {
+          "action": "Init",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "Admit",
+          "distinct": 792,
+          "generated": 49464
+        },
+        {
+          "action": "RejectFrame",
+          "distinct": 156,
+          "generated": 4122
+        },
+        {
+          "action": "Close",
+          "distinct": 364,
+          "generated": 11582
+        },
+        {
+          "action": "Renew",
+          "distinct": 364,
+          "generated": 24732
+        },
+        {
+          "action": "Next",
+          "distinct": 1353,
+          "generated": 1963
+        },
+        {
+          "action": "Next",
+          "distinct": 560,
+          "generated": 7520
+        },
+        {
+          "action": "Next",
+          "distinct": 336,
+          "generated": 3760
+        }
+      ]
+    }
+  ]
+}

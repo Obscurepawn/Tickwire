@@ -1,0 +1,111 @@
+{
+  "source_sha256": {
+    "crates/tickwire-control/src/lib.rs": "196048f06d2348a51a3704dfbd6b4744f82dad23addabb64e62924d1ab11afc7",
+    "crates/tickwire-control/src/requests.rs": "c9f7cbafbbb12ba06754a5a8af0dee4ae697d61ec411ad224592c6bf93c5873a",
+    "tla/execution_models/control_requests/L0_registry/02_models/L0_ControlRequests.tla": "0d010a4b8427a1b9a174899d6c9cdae0d96e559b9c21e9a662e41eccd57aaf4b",
+    "tla/execution_models/control_requests/L0_registry/02_models/L0_ControlRequests.cfg": "3933bbba5a72282fd81d8c9a33b2c87dd60547e3e67dfb7b2c28622acf1a08c8",
+    "tla/execution_models/control_requests/L0_registry/02_models/L0_ControlRequests_two.cfg": "b338dcfb94debb157959f31a0c33960018c0a5ce1eb451882b693e1e08af079e",
+    "tla/execution_models/control_requests/L0_registry/02_models/L0_ControlRequests_pending.cfg": "18bc968293150d83e920c067cdda43de11ecc849bf789501f11d5b55875ebb80"
+  },
+  "runs": [
+    {
+      "config": "L0_ControlRequests.cfg",
+      "generated": 5682,
+      "distinct": 370,
+      "depth": 6,
+      "coverage": [
+        {
+          "action": "Init",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "ArmFailure",
+          "distinct": 173,
+          "generated": 185
+        },
+        {
+          "action": "Admit",
+          "distinct": 132,
+          "generated": 4440
+        },
+        {
+          "action": "Complete",
+          "distinct": 40,
+          "generated": 704
+        },
+        {
+          "action": "BadCompletion",
+          "distinct": 24,
+          "generated": 352
+        }
+      ]
+    },
+    {
+      "config": "L0_ControlRequests_pending.cfg",
+      "generated": 352574,
+      "distinct": 13442,
+      "depth": 10,
+      "coverage": [
+        {
+          "action": "Init",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "ArmFailure",
+          "distinct": 6031,
+          "generated": 6721
+        },
+        {
+          "action": "Admit",
+          "distinct": 3570,
+          "generated": 241956
+        },
+        {
+          "action": "Complete",
+          "distinct": 2460,
+          "generated": 69264
+        },
+        {
+          "action": "BadCompletion",
+          "distinct": 1380,
+          "generated": 34632
+        }
+      ]
+    },
+    {
+      "config": "L0_ControlRequests_two.cfg",
+      "generated": 28026,
+      "distinct": 1570,
+      "depth": 8,
+      "coverage": [
+        {
+          "action": "Init",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "ArmFailure",
+          "distinct": 701,
+          "generated": 785
+        },
+        {
+          "action": "Admit",
+          "distinct": 420,
+          "generated": 18840
+        },
+        {
+          "action": "Complete",
+          "distinct": 280,
+          "generated": 5600
+        },
+        {
+          "action": "BadCompletion",
+          "distinct": 168,
+          "generated": 2800
+        }
+      ]
+    }
+  ]
+}

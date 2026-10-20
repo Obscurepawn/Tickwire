@@ -11,9 +11,9 @@ Status: active
 | 范围 | 当前实现 | 后续验收 |
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
-| P1 行情与 IPC | 批量有界盘口、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd 权限、固定记录 SPSC/广播及 1～32 消费进程测试 | 少量散布改量性能、Arena、bank 轮换、进程死亡回收与业务进程接线 |
+| P1 行情与 IPC | 批量有界盘口、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd 权限、固定记录 SPSC/广播及 1～32 消费进程测试；Unix SEQPACKET/SCM_RIGHTS 与认证会话 | 少量散布改量性能、Arena、bank 轮换、进程死亡回收与业务进程接线 |
 | P2 风控与执行 | 定点风险公式、订单状态、预留/去重/发送门禁、服务接口与 Mock | 完整保证金账户/归属、行情风控接入、协议认证/网关、条件订单和限流 |
-| P3 发布与恢复 | journal Mock 与冻结恢复原语 | 真实 WAL/闭包、策略升级/回滚、多 exec 协调、对账和配置发布 |
+| P3 发布与恢复 | journal Mock 与冻结恢复原语；真实物理 WAL/分段/同步恢复 | 业务日志适配与恢复依赖闭包、策略升级/回滚、多 exec 协调、对账和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
 | P5 资格 | 尚未开始 | 测试网、Linux 多进程全链路、延迟、压力、72 小时长跑和受控上线 |
 
@@ -24,13 +24,14 @@ Status: active
 - [风险接口](../docs/implementation/risk-interface.md)，[风险规格](implementation/risk-core.md)。
 - [IPC 接口](../docs/implementation/ipc-interface.md)，[IPC 规格](implementation/ipc-codec.md)。
 - [共享 ring 接口](../docs/implementation/shm-ring-interface.md)，[ring 规格](implementation/shm-ring.md)与[Linux 映射规格](implementation/shm-mapping.md)。
+- [控制会话](../docs/implementation/control-session-interface.md)、[传输边界](../docs/implementation/control-transport-interface.md)与[物理日志](../docs/implementation/journal-interface.md)；各自规格位于 `specs/implementation/`。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
 
 基础命令为 `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`，并保留原设计契约检查。模型使用固定 TLC 版本执行，范围、有限域与未覆盖行为写进各层输出。
 
-当前 `./scripts/check-rust.sh` 在 macOS 通过 202 项测试，`./scripts/check-linux.sh` 在 Linux aarch64 通过 223 项测试，均含 1 项编译失败 doctest。[macOS 输出](../docs/validation/rust-tests.log)、[Linux 输出及 SHM 回归](../docs/validation/shm/README.md)和[执行模块失败回归记录](../docs/validation/execution-tdd-red.log)保留实际证据：
+上一阶段 `04351db` 的 `./scripts/check-rust.sh` 在 macOS 通过 202 项测试，`./scripts/check-linux.sh` 在 Linux aarch64 通过 223 项测试，均含 1 项编译失败 doctest。[macOS 输出](../docs/validation/rust-tests.log)、[Linux 输出及 SHM 回归](../docs/validation/shm/README.md)和[执行模块失败回归记录](../docs/validation/execution-tdd-red.log)保留实际证据：
 
 | 模块 | Rust 测试数 | 覆盖内容 |
 |---|---:|---|
@@ -76,6 +77,22 @@ TLC 1.7.4 对执行模块的三个有限模型运行了九组配置，均通过�
 
 已有未跟踪性能审阅文档属于用户工作树内容，本轮不改写或提交。
 
+## 控制与物理日志阶段
+
+新增模块均完成接口、Red/Green、规格与独立源码审核：
+
+| 模块 | 验证 | 完成边界 |
+| --- | --- | --- |
+| tickwire-control | 13 项逻辑测试；Linux 独立 exec 子进程握手与重试测试，另 1 个显式 ignored helper 由父测试运行 | registry + 内核身份认证；租约关闭；存储确认 Received 后一次交付票据；准确终态重放 |
+| tickwire-control-sys | macOS 不支持平台测试；Linux 15 项（含 4 个子进程辅助入口），fmt/clippy | SEQPACKET 一帧一包、SCM_RIGHTS、CLOEXEC、超时、畸形包 FD 回收、真实连接 peer credentials |
+| tickwire-journal | macOS/Linux 各 21 项，另 1 个 ignored helper 由四个 SIGKILL 场景运行；fmt/clippy | 完整批写入并成功 sync_data 后的物理收据；分段/manifest；验证后修复末尾 |
+
+[控制会话证据](../docs/validation/control-session/README.md)、[传输证据](../docs/validation/control-transport/README.md)与[日志证据](../docs/validation/journal/README.md)保存命令和实际输出。Linux 综合用例持有未 reap 的 Child 句柄，比较实际子进程 PID/UID/GID；owner 版本从 0 变为 7 后，同一请求仍返回版本 1 的原响应，执行票据只交付一次。
+
+请求登记 L0 的三组模型分别检查 370、1,570、13,442 个不同状态；会话组合 L1 分别检查 1,566、3,926、3,804 个状态，全部通过。物理日志 L0 三组分别检查 1,816、2,695、45,883 个状态，覆盖写入、同步、收据与恢复边界。每组 Next 动作均生成后继，完整范围见 [control_requests](../tla/execution_models/control_requests/ROADMAP.md) 和 [physical_journal](../tla/execution_models/physical_journal/ROADMAP.md)。这些模型尚未组合 owner 副作用、真实 SQL/KV 或跨主机复制。
+
+盘口的小批散布优化仍在独立性能复测：已保留一次发现循环相邻尾延迟退化的完整结果，并补确定性工作量 Red/Green。该优化的源码与最终性能证据会形成后续单独提交，本阶段不先宣称完成。
+
 ## 接续工作
 
-盘口继续分析少量乱序散布更新的成本，并保留当前结构更新收益。共享内存下一步实现生产控制连接、FD 交付、Arena 与 bank 轮换，把当前库级闭环接成独立 md/strategy/exec 进程。真实 journal 与恢复闭包、配置发布、完整风险账户和可替换的交易所网络适配器仍是后续必做项。
+将已验证的控制连接与 FD 交付接入真实 md/strategy/exec 进程，补齐 JOIN 的不可变快照基线、Arena、bank 轮换与退出回收。物理 WAL 继续接到业务日志和恢复依赖闭包；配置发布、完整风险账户、可替换交易所网络适配器及 P4/P5 验收仍按原目标推进。

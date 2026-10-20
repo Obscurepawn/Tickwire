@@ -1,0 +1,53 @@
+   Compiling tickwire-control-sys v0.1.0 (/work/crates/tickwire-control-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.86s
+     Running unittests src/lib.rs (target/linux-control/debug/deps/tickwire_control_sys-23cf7c61f34e0a06)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/platform.rs (target/linux-control/debug/deps/platform-3f4aa16379d4b207)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport.rs (target/linux-control/debug/deps/transport-0d9e6ecc6e6c80e0)
+
+running 10 tests
+test inherited_peer_child ... ok
+test existing_paths_and_replacements_are_not_removed ... ok
+test pathname_child ... ok
+test rejection_child ... ok
+test shared_os_monotonic_clock ... ok
+
+running 1 test
+test inherited_peer_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+test complete_packets_and_owned_close_on_exec_fds ... ok
+
+running 1 test
+test inherited_socketpair_peer_pid_is_creator_after_real_fork_exec ... ok
+
+running 1 test
+test pathname_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+test independent_exec_connect_has_child_credentials_and_shared_clock ... ok
+test timeout_eof_and_sender_validation ... ok
+test rejection_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.04s
+
+test malformed_packets_close_all_fds_in_isolated_process ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+   Doc-tests tickwire_control_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

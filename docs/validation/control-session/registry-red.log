@@ -1,0 +1,142 @@
+   Compiling tickwire-control v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control)
+error[E0433]: cannot find type `MockRequestStore` in this scope
+   --> crates/tickwire-control/tests/session.rs:182:21
+    |
+182 |     let mut store = MockRequestStore::new(2).unwrap();
+    |                     ^^^^^^^^^^^^^^^^ use of undeclared type `MockRequestStore`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:184:45
+    |
+184 |     let Admission::Execute(ticket) = server.admit(&mut store, &bytes, 102, 4).unwrap() else { panic!() };
+    |                                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:185:29
+    |
+185 |     assert!(matches!(server.admit(&mut store, &bytes, 103, 9).unwrap(), Admission::Pending));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:188:47
+    |
+188 |     let Admission::Completed(stored) = server.admit(&mut store, &bytes, 104, 9).unwrap() else { panic!() };
+    |                                               ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:191:29
+    |
+191 |     assert!(matches!(server.admit(&mut store, &request(&client, 17, 4), 105, 9), Err(Error::Version)));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:192:29
+    |
+192 |     assert!(matches!(server.admit(&mut store, &request(&client, 16, 5), 106, 5), Err(Error::Conflict)));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0433]: cannot find type `MockRequestStore` in this scope
+   --> crates/tickwire-control/tests/session.rs:197:21
+    |
+197 |     let mut store = MockRequestStore::new(1).unwrap();
+    |                     ^^^^^^^^^^^^^^^^ use of undeclared type `MockRequestStore`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:200:29
+    |
+200 |     assert!(matches!(server.admit(&mut store, &bytes, 102, 0), Err(Error::Store)));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:201:45
+    |
+201 |     let Admission::Execute(ticket) = server.admit(&mut store, &bytes, 103, 0).unwrap() else { panic!() };
+    |                                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:204:29
+    |
+204 |     assert!(matches!(server.admit(&mut store, &bytes, 104, 0).unwrap(), Admission::Pending));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:206:29
+    |
+206 |     assert!(matches!(server.admit(&mut store, &request(&client, 17, 1), 105, 1), Err(Error::Capacity)));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:207:29
+    |
+207 |     assert!(matches!(server.admit(&mut store, &bytes, 106, 2).unwrap(), Admission::Completed(_)));
+    |                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0433]: cannot find type `MockRequestStore` in this scope
+   --> crates/tickwire-control/tests/session.rs:212:21
+    |
+212 |     let mut store = MockRequestStore::new(1).unwrap();
+    |                     ^^^^^^^^^^^^^^^^ use of undeclared type `MockRequestStore`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:214:45
+    |
+214 |     let Admission::Execute(ticket) = server.admit(&mut store, &bytes, 102, 0).unwrap() else { panic!() };
+    |                                             ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0599]: no method named `admit` found for struct `tickwire_control::Session` in the current scope
+   --> crates/tickwire-control/tests/session.rs:222:32
+    |
+222 |     assert!(matches!(recreated.admit(&mut store, &bytes, 103, 99).unwrap(), Admission::Completed(_)));
+    |                                ^^^^^ method not found in `tickwire_control::Session`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:222:77
+    |
+222 |     assert!(matches!(recreated.admit(&mut store, &bytes, 103, 99).unwrap(), Admission::Completed(_)));
+    |                                                                             ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:184:9
+    |
+184 |     let Admission::Execute(ticket) = server.admit(&mut store, &bytes, 102, 4).unwrap() else { panic!() };
+    |         ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:185:73
+    |
+185 |     assert!(matches!(server.admit(&mut store, &bytes, 103, 9).unwrap(), Admission::Pending));
+    |                                                                         ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:188:9
+    |
+188 |     let Admission::Completed(stored) = server.admit(&mut store, &bytes, 104, 9).unwrap() else { panic!() };
+    |         ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:214:9
+    |
+214 |     let Admission::Execute(ticket) = server.admit(&mut store, &bytes, 102, 0).unwrap() else { panic!() };
+    |         ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:201:9
+    |
+201 |     let Admission::Execute(ticket) = server.admit(&mut store, &bytes, 103, 0).unwrap() else { panic!() };
+    |         ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:204:73
+    |
+204 |     assert!(matches!(server.admit(&mut store, &bytes, 104, 0).unwrap(), Admission::Pending));
+    |                                                                         ^^^^^^^^^ use of undeclared type `Admission`
+
+error[E0433]: cannot find type `Admission` in this scope
+   --> crates/tickwire-control/tests/session.rs:207:73
+    |
+207 |     assert!(matches!(server.admit(&mut store, &bytes, 106, 2).unwrap(), Admission::Completed(_)));
+    |                                                                         ^^^^^^^^^ use of undeclared type `Admission`
+
+Some errors have detailed explanations: E0433, E0599.
+For more information about an error, try `rustc --explain E0433`.
+error: could not compile `tickwire-control` (test "session") due to 23 previous errors

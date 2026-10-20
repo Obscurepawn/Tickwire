@@ -45,3 +45,18 @@
 - Reviewed: root 与 risk_core 独立审查模型；market_core 复核映射生命周期与 NonNull 修复。
 - Output: [L0 输出](execution_models/broadcast_ring/L0_publish_borrow_reclaim/05_output.md)
 - Last synced: 2026-10-20，NonNull 表示不改变协议迁移，源码哈希/anchors 更新后沿用相同模型结果。
+
+## control_requests / L0_registry + L1_session — PASS（2026-10-20）
+
+- L0: 370 / 1,570 / 13,442 distinct，depth 6/8/10；L1: 1,566 / 3,926 / 3,804 distinct，depth 8/8/9。
+- Source: tickwire-control 的 Session/MockRequestStore；独立 ipc_codec 源码/模型审核通过。每个配置全部 Next 动作生成后继。
+- 范围：已认证请求、串行调用、一次出票、重试先于版本、终态不覆盖、Mock 失败；L1 增加同时间域租约及永久关闭。字节解析、实际 OS 身份、业务副作用和持久 owner 恢复另验。
+- 源码审查完善响应 opcode/Status version 关联和期限耗尽错误分类，保留 Rust Red/Green；没有将其归因为 TLC 反例。
+- Output: [L0](execution_models/control_requests/L0_registry/05_output.md)、[L1](execution_models/control_requests/L1_session/05_output.md)。
+
+## physical_journal / L0_batch_sync_recovery — PASS（2026-10-20）
+
+- 1,816 / 2,695 / 45,883 distinct；depth 18/20/28；三配置 16 个 Next 动作均生成后继。
+- 固定单段、帧粒度物理内容见证；写入/同步/收据分离、poison、崩溃、末尾修复与可选外部可信前缀。root 独立源码/模型审阅，ipc_codec 独立帧 codec 审阅。
+- 段/manifest 目录事务的形式模型待 L1；实际文件、短写、同步失败与四个 SIGKILL 边界有 Rust 回归。设备掉电与跨主机复制不在当前结论内。
+- Output: [L0](execution_models/physical_journal/L0_batch_sync_recovery/05_output.md)。

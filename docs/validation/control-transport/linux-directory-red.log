@@ -1,0 +1,22 @@
+   Compiling tickwire-control-sys v0.1.0 (/work/crates/tickwire-control-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.76s
+     Running tests/transport.rs (target/linux-control/debug/deps/transport-0d9e6ecc6e6c80e0)
+
+running 1 test
+test private_directory_rejects_unprotected_writable_parent ... FAILED
+
+failures:
+
+---- private_directory_rejects_unprotected_writable_parent stdout ----
+
+thread 'private_directory_rejects_unprotected_writable_parent' (108) panicked at crates/tickwire-control-sys/tests/transport.rs:159:5:
+assertion failed: matches!(result, Err(Error::InsecureDirectory))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    private_directory_rejects_unprotected_writable_parent
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-control-sys --test transport`

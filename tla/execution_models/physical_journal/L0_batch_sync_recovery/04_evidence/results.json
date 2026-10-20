@@ -1,0 +1,242 @@
+{
+  "date": "2026-10-20",
+  "tool": "TLC 1.7.4 jar (runtime reports 2.19)",
+  "workers": 1,
+  "results": {
+    "primary": {
+      "exit": 0,
+      "generated": 2423,
+      "distinct": 1816,
+      "depth": 18,
+      "runner_seconds": 1,
+      "actions": {
+        "BeginAppend": {
+          "distinct": 39,
+          "generated": 67
+        },
+        "RejectInvalid": {
+          "distinct": 0,
+          "generated": 170
+        },
+        "WriteFrame": {
+          "distinct": 117,
+          "generated": 117
+        },
+        "WriteFailure": {
+          "distinct": 117,
+          "generated": 117
+        },
+        "SyncFailure": {
+          "distinct": 39,
+          "generated": 39
+        },
+        "SyncSuccess": {
+          "distinct": 39,
+          "generated": 39
+        },
+        "ReturnReceipt": {
+          "distinct": 39,
+          "generated": 39
+        },
+        "RejectPoisoned": {
+          "distinct": 0,
+          "generated": 294
+        },
+        "BeginRecovery": {
+          "distinct": 455,
+          "generated": 494
+        },
+        "RecoveryReject": {
+          "distinct": 317,
+          "generated": 317
+        },
+        "RepairTail": {
+          "distinct": 138,
+          "generated": 138
+        },
+        "RecoverySyncFailure": {
+          "distinct": 138,
+          "generated": 138
+        },
+        "RecoverySyncSuccess": {
+          "distinct": 130,
+          "generated": 138
+        },
+        "Crash": {
+          "distinct": 61,
+          "generated": 111
+        },
+        "CorruptFrame": {
+          "distinct": 153,
+          "generated": 153
+        },
+        "LoseWholeTail": {
+          "distinct": 33,
+          "generated": 51
+        }
+      }
+    },
+    "batch": {
+      "exit": 0,
+      "generated": 3518,
+      "distinct": 2695,
+      "depth": 20,
+      "runner_seconds": 1,
+      "actions": {
+        "BeginAppend": {
+          "distinct": 43,
+          "generated": 87
+        },
+        "RejectInvalid": {
+          "distinct": 0,
+          "generated": 217
+        },
+        "WriteFrame": {
+          "distinct": 172,
+          "generated": 172
+        },
+        "WriteFailure": {
+          "distinct": 172,
+          "generated": 172
+        },
+        "SyncFailure": {
+          "distinct": 43,
+          "generated": 43
+        },
+        "SyncSuccess": {
+          "distinct": 43,
+          "generated": 43
+        },
+        "ReturnReceipt": {
+          "distinct": 43,
+          "generated": 43
+        },
+        "RejectPoisoned": {
+          "distinct": 0,
+          "generated": 396
+        },
+        "BeginRecovery": {
+          "distinct": 719,
+          "generated": 772
+        },
+        "RecoveryReject": {
+          "distinct": 538,
+          "generated": 538
+        },
+        "RepairTail": {
+          "distinct": 181,
+          "generated": 181
+        },
+        "RecoverySyncFailure": {
+          "distinct": 181,
+          "generated": 181
+        },
+        "RecoverySyncSuccess": {
+          "distinct": 173,
+          "generated": 181
+        },
+        "Crash": {
+          "distinct": 86,
+          "generated": 161
+        },
+        "CorruptFrame": {
+          "distinct": 264,
+          "generated": 264
+        },
+        "LoseWholeTail": {
+          "distinct": 36,
+          "generated": 66
+        }
+      }
+    },
+    "scaling": {
+      "exit": 0,
+      "generated": 61476,
+      "distinct": 45883,
+      "depth": 28,
+      "runner_seconds": 3,
+      "actions": {
+        "BeginAppend": {
+          "distinct": 579,
+          "generated": 1097
+        },
+        "RejectInvalid": {
+          "distinct": 0,
+          "generated": 2858
+        },
+        "WriteFrame": {
+          "distinct": 1737,
+          "generated": 1737
+        },
+        "WriteFailure": {
+          "distinct": 1737,
+          "generated": 1737
+        },
+        "SyncFailure": {
+          "distinct": 579,
+          "generated": 579
+        },
+        "SyncSuccess": {
+          "distinct": 579,
+          "generated": 579
+        },
+        "ReturnReceipt": {
+          "distinct": 579,
+          "generated": 579
+        },
+        "RejectPoisoned": {
+          "distinct": 0,
+          "generated": 4789
+        },
+        "BeginRecovery": {
+          "distinct": 14690,
+          "generated": 15282
+        },
+        "RecoveryReject": {
+          "distinct": 10507,
+          "generated": 10507
+        },
+        "RepairTail": {
+          "distinct": 2503,
+          "generated": 4183
+        },
+        "RecoverySyncFailure": {
+          "distinct": 2473,
+          "generated": 2503
+        },
+        "RecoverySyncSuccess": {
+          "distinct": 2278,
+          "generated": 2503
+        },
+        "Crash": {
+          "distinct": 2477,
+          "generated": 6066
+        },
+        "CorruptFrame": {
+          "distinct": 4380,
+          "generated": 4857
+        },
+        "LoseWholeTail": {
+          "distinct": 784,
+          "generated": 1619
+        }
+      }
+    }
+  },
+  "sha256": {
+    "crates/tickwire-journal/Cargo.toml": "9dc50a686368fd538d2d6ccaa13091760b118296094f726c5cbac3bbe2ad2276",
+    "crates/tickwire-journal/src/frame.rs": "5fab642e44de34ee181380ea8bfe5ae627f23cff06d3b5894fd2dd8f4d05215f",
+    "crates/tickwire-journal/src/journal.rs": "a1bcdbba99bd513e1639ad6e1e355ae196e586e580aded85f5417d63c57eb360",
+    "crates/tickwire-journal/src/lib.rs": "1beee66473e8b42a63f4fa988fe2a1887f44ce659e4d1977c075c6417999c94b",
+    "crates/tickwire-journal/src/store.rs": "c2204c83957e615755d9466a861c2c970c1deba0515ae5333946ba4aa0e51b4b",
+    "crates/tickwire-journal/tests/frame.rs": "d918f1ee3d3d5e330d543fe5d88eab334ca74851a1758cc9e3c8fba865e2fda2",
+    "crates/tickwire-journal/tests/journal.rs": "844b85c20babf4a9ed597d668bb20838049465554dd63dc1c2f470243433de9e",
+    "crates/tickwire-journal/tests/manifest.rs": "c1f116b87186562dca1c560e227f33f38cc1de4b3a8bf702e6067102eab521bf",
+    "crates/tickwire-journal/tests/process.rs": "1f789daebd63979140c4e80bfbae18eac9ceaea786a4b2062a7dedc49653fee9",
+    "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal.cfg": "f66f829ee1b33b521c972eb5d6ae1c07b9ca2da931995720e649e5770a554b40",
+    "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal.tla": "30686a51a2468e36e649820f440bfcfd02f224ee83abe0ad6ef63ba5c081ee7a",
+    "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal_batch.cfg": "8409d8bd62fa23194f372c76c25014fa883dac15ddda6ec1550556875263f5a9",
+    "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal_scaling.cfg": "ded98b2f90cd3abe4377b24aa067b820e713f2153b69384539239b0f22648de1",
+    "tla/tools/tla2tools.jar": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
+  }
+}

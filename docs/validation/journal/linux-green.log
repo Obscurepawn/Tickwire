@@ -1,0 +1,65 @@
+Linux 6.8.0-117-generic aarch64 GNU/Linux
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+   Compiling tickwire-journal v0.1.0 ($REPO/crates/tickwire-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.95s
+     Running unittests src/lib.rs (target/linux-journal/debug/deps/tickwire_journal-e3d55026f64af016)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/frame.rs (target/linux-journal/debug/deps/frame-2e0fcb1b3036ae02)
+
+running 6 tests
+test castagnoli_known_vectors ... ok
+test exact_contract_layout_and_hash_scope ... ok
+test all_contract_types_roundtrip_and_nonzero_flags_rejected ... ok
+test codec_constants_match_authoritative_contract ... ok
+test every_single_bit_error_is_detected ... ok
+test truncation_and_oversize_are_errors_without_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/journal.rs (target/linux-journal/debug/deps/journal-d8411ae4fc3643ce)
+
+running 12 tests
+test newly_created_directory_is_owner_only ... ok
+test manifest_damage_and_concurrent_writer_fail_closed ... ok
+test frontier_ahead_or_different_hash_never_repairs_files ... ok
+test committed_corruption_and_required_missing_tail_quarantine_without_mutation ... ok
+test correctly_checksummed_epoch_rollback_sequence_gap_and_identity_change_quarantine ... ok
+test oversized_batch_does_not_split_or_modify_files ... ok
+test orphan_empty_rotation_segment_is_adopted_but_missing_declared_segment_quarantines ... ok
+test rotation_preserves_chain_and_epoch_floor_and_missing_segment_fails ... ok
+test synchronized_batches_reopen_and_continue_sequences ... ok
+test unsealed_middle_and_sealed_tail_corruption_are_not_discarded ... ok
+test short_write_and_failed_sync_never_return_receipt_and_poison_writer ... ok
+test every_unfinished_final_batch_prefix_recovers_only_previous_batch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.86s
+
+     Running tests/manifest.rs (target/linux-journal/debug/deps/manifest-ac9a5299861164ca)
+
+running 2 tests
+test one_data_sync_per_closed_batch_and_no_manifest_per_batch ... ok
+test manifest_failure_before_publish_or_after_rename_poisons_then_recovers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/process.rs (target/linux-journal/debug/deps/process-f233eb6cd053f8ad)
+
+running 2 tests
+test crash_child ... ignored, child entry point; parent runs it in a separate process
+SIGKILL boundary=partial_write recovered_records=1 discarded_bytes=372
+SIGKILL boundary=before_sync recovered_records=3 discarded_bytes=0
+SIGKILL boundary=after_sync recovered_records=3 discarded_bytes=0
+SIGKILL boundary=after_receipt recovered_records=3 discarded_bytes=0
+test sigkill_at_write_sync_and_receipt_boundaries_preserves_complete_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+   Doc-tests tickwire_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

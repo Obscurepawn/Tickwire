@@ -1,0 +1,4 @@
+  ok execution_models/physical_journal/L0_batch_sync_recovery: 439 line anchor(s) -> execution_models/physical_journal/L0_batch_sync_recovery/02_models/anchors.lock
+anchors.sh update: baselined 1 level(s); 439 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)
+anchors.sh check: 439 anchor line(s) across 1 lock(s); 0 changed
+no drift — cited lines unchanged since baseline

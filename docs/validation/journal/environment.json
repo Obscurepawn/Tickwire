@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-20",
+  "native": "macOS 15.7 arm64",
+  "linux": "Linux 6.8.0-117-generic aarch64 GNU/Linux",
+  "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+  "linux_image": "rust:1.99.1-bookworm@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29",
+  "native_tests": 21,
+  "linux_tests": 21,
+  "ignored_helpers": 1,
+  "sigkill_children_executed_per_platform": 4,
+  "real_power_loss_tested": false,
+  "physical_receipt_is_execution_commit_proof": false,
+  "commands": [
+    "cargo test --locked -p tickwire-journal -- --nocapture",
+    "cargo fmt -p tickwire-journal -- --check",
+    "cargo clippy --locked -p tickwire-journal --all-targets -- -D warnings"
+  ],
+  "sha256": {
+    "crates/tickwire-journal/Cargo.toml": "9dc50a686368fd538d2d6ccaa13091760b118296094f726c5cbac3bbe2ad2276",
+    "crates/tickwire-journal/src/frame.rs": "5fab642e44de34ee181380ea8bfe5ae627f23cff06d3b5894fd2dd8f4d05215f",
+    "crates/tickwire-journal/src/journal.rs": "a1bcdbba99bd513e1639ad6e1e355ae196e586e580aded85f5417d63c57eb360",
+    "crates/tickwire-journal/src/lib.rs": "1beee66473e8b42a63f4fa988fe2a1887f44ce659e4d1977c075c6417999c94b",
+    "crates/tickwire-journal/src/store.rs": "c2204c83957e615755d9466a861c2c970c1deba0515ae5333946ba4aa0e51b4b",
+    "crates/tickwire-journal/tests/frame.rs": "d918f1ee3d3d5e330d543fe5d88eab334ca74851a1758cc9e3c8fba865e2fda2",
+    "crates/tickwire-journal/tests/journal.rs": "844b85c20babf4a9ed597d668bb20838049465554dd63dc1c2f470243433de9e",
+    "crates/tickwire-journal/tests/manifest.rs": "c1f116b87186562dca1c560e227f33f38cc1de4b3a8bf702e6067102eab521bf",
+    "crates/tickwire-journal/tests/process.rs": "1f789daebd63979140c4e80bfbae18eac9ceaea786a4b2062a7dedc49653fee9",
+    "specs/contracts/replication-profile-v1.json": "14d3accf6035fc59b02e12822cba1e9253362ea35f730d172fc2e0f1d483528a"
+  }
+}

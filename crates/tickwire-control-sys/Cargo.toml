@@ -1,0 +1,11 @@
+[package]
+name = "tickwire-control-sys"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish.workspace = true
+
+# Audited OS boundary; this does not change the workspace unsafe prohibition.
+[dependencies]
+libc = "0.2"
+tickwire-ipc = { path = "../tickwire-ipc" }

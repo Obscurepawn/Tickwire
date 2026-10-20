@@ -1,0 +1,38 @@
+{
+  "captured_utc": "2026-10-20T10:20:14.660422+00:00",
+  "linux": {
+    "image": "rust:1.99.1-bookworm@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29",
+    "kernel": "6.8.0-117-generic",
+    "architecture": "aarch64",
+    "page_bytes": 4096,
+    "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+    "target_dir": "target/linux-control",
+    "runner": "docs/validation/control-transport/run-linux.sh",
+    "result": "PASS: fmt, 15 test entries (11 scenarios + 4 helper entries), clippy -D warnings",
+    "log": "linux-final.log"
+  },
+  "native": {
+    "system": "Darwin",
+    "release": "24.6.0",
+    "machine": "arm64",
+    "result": "PASS: 1 non-Linux UnsupportedPlatform test, clippy -D warnings",
+    "logs": [
+      "native-green.log",
+      "native-clippy.log"
+    ]
+  },
+  "source_hashes": {
+    "crates/tickwire-control-sys/src/lib.rs": "04f197ac391c38fbc44fc8c0ad435238543b31824221d9304779bff177e0e717",
+    "crates/tickwire-control-sys/src/linux.rs": "e688859f0f6d76e91127a394a7a4d30b253f7309f467ba06c93986e22b6ff692",
+    "crates/tickwire-control-sys/src/unsupported.rs": "0c83c0ca80d6336b5e6ebeeca96cee82bf242e7d2457ede86b59181136c49035",
+    "crates/tickwire-control-sys/tests/platform.rs": "ba5b64d43802dff11bd78c240e5432af9d90e1be4d9d3d6b90cdaae9234517fa",
+    "crates/tickwire-control-sys/tests/transport.rs": "6d0e2cc323b7633887e83cbdf71f34cadc23daa90e4d4ae0dc88d6378f941ef1",
+    "crates/tickwire-ipc/src/config.rs": "b7f6370e78480af392e1d56a326bedb258ef12f2229a8ad8968070432f3be784",
+    "crates/tickwire-ipc/src/lib.rs": "8c19b646508bcf26e5e05af93448fedcdbcb04daeac8f1412b89582bc0571ba5",
+    "crates/tickwire-ipc/src/snapshot.rs": "ba97935fac85548455a31d96de6c213bd9ed05e6af9a5bdffd331e709d0b0f96",
+    "crates/tickwire-ipc/src/wire.rs": "4e1d42fdfd74e7fb5ae4a2dc3e3c02c6ac653f84a0978b719e972d3abc5e0907",
+    "crates/tickwire-control-sys/Cargo.toml": "11e84dd3f60d0b560e301f5216df5bdf82e21889b0b283b435cfc2a65d83b2e6",
+    "crates/tickwire-ipc/Cargo.toml": "081dd3087ac4b61a723ba7ee1db0abd973ed4fc33581c12f59c8a6748172aff8",
+    "specs/contracts/ipc-wire-v1.json": "510051cb069f0e2457c0714f71e57bdfe54bdce15db99b164f589777ea4f3dd4"
+  }
+}

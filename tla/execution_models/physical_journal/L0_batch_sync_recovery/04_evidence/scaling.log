@@ -1,0 +1,282 @@
+>>> TLC module=L0_PhysicalJournal cfg=L0_PhysicalJournal_scaling.cfg workers=1
+>>> jar=$REPO/tla/tools/tla2tools.jar
+>>> dir=$REPO/tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=$TMP/tickwire-wal-tlc-l26qpi28
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 42 and seed 2908069705365944200 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file $REPO/tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal.tla
+Parsing file /private$TMP/tickwire-wal-tlc-l26qpi28/Integers.tla
+Parsing file /private$TMP/tickwire-wal-tlc-l26qpi28/Sequences.tla
+Parsing file /private$TMP/tickwire-wal-tlc-l26qpi28/FiniteSets.tla
+Parsing file /private$TMP/tickwire-wal-tlc-l26qpi28/TLC.tla
+Parsing file /private$TMP/tickwire-wal-tlc-l26qpi28/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_PhysicalJournal
+Starting... (2026-10-20 18:22:18)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 18:22:19.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.9E-11
+The coverage statistics at 2026-10-20 18:22:21
+<Init line 46, col 1 to line 46, col 4 of module L0_PhysicalJournal>: 1:1
+  line 46, col 9 to line 50, col 58 of module L0_PhysicalJournal: 1
+<BeginAppend line 53, col 1 to line 53, col 14 of module L0_PhysicalJournal>: 579:1097
+  line 54, col 8 to line 54, col 19 of module L0_PhysicalJournal: 92863
+  |line 54, col 8 to line 54, col 11 of module L0_PhysicalJournal: 91766
+  line 54, col 24 to line 54, col 39 of module L0_PhysicalJournal: 1097
+  |line 54, col 24 to line 54, col 30 of module L0_PhysicalJournal: 5716
+  |line 54, col 32 to line 54, col 39 of module L0_PhysicalJournal: 5716
+  line 54, col 44 to line 54, col 53 of module L0_PhysicalJournal: 2379
+  |line 54, col 44 to line 54, col 44 of module L0_PhysicalJournal: 1282
+  |line 54, col 50 to line 54, col 53 of module L0_PhysicalJournal: 1282
+  line 54, col 58 to line 54, col 67 of module L0_PhysicalJournal: 1097
+  |line 54, col 58 to line 54, col 58 of module L0_PhysicalJournal: 1282
+  |line 54, col 61 to line 54, col 67 of module L0_PhysicalJournal: 1282
+  line 55, col 8 to line 56, col 45 of module L0_PhysicalJournal: 1097
+<RejectInvalid line 57, col 1 to line 57, col 13 of module L0_PhysicalJournal>: 0:2858
+  line 57, col 21 to line 57, col 32 of module L0_PhysicalJournal: 48741
+  |line 57, col 21 to line 57, col 24 of module L0_PhysicalJournal: 45883
+  line 57, col 37 to line 57, col 47 of module L0_PhysicalJournal: 2858
+<WriteFrame line 59, col 1 to line 59, col 10 of module L0_PhysicalJournal>: 1737:1737
+  line 60, col 8 to line 60, col 21 of module L0_PhysicalJournal: 47620
+  |line 60, col 8 to line 60, col 11 of module L0_PhysicalJournal: 45883
+  line 60, col 26 to line 60, col 40 of module L0_PhysicalJournal: 1737
+  line 61, col 8 to line 62, col 76 of module L0_PhysicalJournal: 1737
+<WriteFailure line 63, col 1 to line 63, col 12 of module L0_PhysicalJournal>: 1737:1737
+  line 63, col 20 to line 63, col 33 of module L0_PhysicalJournal: 47620
+  |line 63, col 20 to line 63, col 23 of module L0_PhysicalJournal: 45883
+  line 63, col 38 to line 63, col 66 of module L0_PhysicalJournal: 1737
+<SyncFailure line 65, col 1 to line 65, col 11 of module L0_PhysicalJournal>: 579:579
+  line 65, col 19 to line 65, col 32 of module L0_PhysicalJournal: 46462
+  |line 65, col 19 to line 65, col 22 of module L0_PhysicalJournal: 45883
+  line 65, col 37 to line 65, col 65 of module L0_PhysicalJournal: 579
+<SyncSuccess line 66, col 1 to line 66, col 11 of module L0_PhysicalJournal>: 579:579
+  line 67, col 8 to line 67, col 21 of module L0_PhysicalJournal: 46462
+  |line 67, col 8 to line 67, col 11 of module L0_PhysicalJournal: 45883
+  line 68, col 8 to line 68, col 80 of module L0_PhysicalJournal: 579
+<ReturnReceipt line 70, col 1 to line 70, col 13 of module L0_PhysicalJournal>: 579:579
+  line 71, col 8 to line 71, col 23 of module L0_PhysicalJournal: 46462
+  |line 71, col 8 to line 71, col 11 of module L0_PhysicalJournal: 45883
+  line 72, col 8 to line 73, col 65 of module L0_PhysicalJournal: 579
+<RejectPoisoned line 74, col 1 to line 74, col 14 of module L0_PhysicalJournal>: 0:4789
+  line 74, col 22 to line 74, col 36 of module L0_PhysicalJournal: 50672
+  |line 74, col 22 to line 74, col 25 of module L0_PhysicalJournal: 45883
+  line 74, col 41 to line 74, col 51 of module L0_PhysicalJournal: 4789
+<BeginRecovery line 92, col 1 to line 92, col 20 of module L0_PhysicalJournal>: 14690:15282
+  line 93, col 8 to line 93, col 18 of module L0_PhysicalJournal: 107048
+  |line 93, col 8 to line 93, col 11 of module L0_PhysicalJournal: 91766
+  line 93, col 23 to line 93, col 39 of module L0_PhysicalJournal: 30564
+  |line 93, col 23 to line 93, col 27 of module L0_PhysicalJournal: 15282
+  |line 93, col 33 to line 93, col 39 of module L0_PhysicalJournal: 15282
+  line 94, col 8 to line 95, col 55 of module L0_PhysicalJournal: 15282
+  |line 94, col 11 to line 95, col 55 of module L0_PhysicalJournal: 15282
+  ||line 94, col 12 to line 94, col 12 of module L0_PhysicalJournal: 15282
+  ||line 94, col 32 to line 94, col 64 of module L0_PhysicalJournal: 15282
+  |||line 94, col 35 to line 94, col 39 of module L0_PhysicalJournal: 15282
+  |||line 94, col 46 to line 94, col 54 of module L0_PhysicalJournal: 7641
+  |||line 94, col 61 to line 94, col 64 of module L0_PhysicalJournal: 7641
+  ||line 95, col 21 to line 95, col 37 of module L0_PhysicalJournal: 15282
+<RecoveryReject line 96, col 1 to line 96, col 14 of module L0_PhysicalJournal>: 10507:10507
+  line 97, col 8 to line 97, col 22 of module L0_PhysicalJournal: 56390
+  |line 97, col 8 to line 97, col 11 of module L0_PhysicalJournal: 45883
+  line 97, col 27 to line 97, col 39 of module L0_PhysicalJournal: 25197
+  |line 97, col 28 to line 97, col 39 of module L0_PhysicalJournal: 14690
+  ||line 41, col 17 to line 41, col 73 of module L0_PhysicalJournal: 14690
+  |||line 41, col 17 to line 41, col 43 of module L0_PhysicalJournal: 14690
+  ||||line 41, col 17 to line 41, col 25 of module L0_PhysicalJournal: 14690
+  ||||line 41, col 30 to line 41, col 43 of module L0_PhysicalJournal: 5201
+  |||||line 31, col 5 to line 39, col 53 of module L0_PhysicalJournal: 5201
+  ||||||line 31, col 8 to line 38, col 40 of module L0_PhysicalJournal: 5201
+  |||||||line 32, col 9 to line 38, col 40 of module L0_PhysicalJournal: 17478
+  |||||||line 31, col 17 to line 31, col 25 of module L0_PhysicalJournal: 5201
+  ||||||line 39, col 8 to line 39, col 53 of module L0_PhysicalJournal: 5201
+  |||||||line 39, col 28 to line 39, col 53 of module L0_PhysicalJournal: 13567
+  |||||||line 39, col 17 to line 39, col 25 of module L0_PhysicalJournal: 5201
+  |||||line 41, col 36 to line 41, col 42 of module L0_PhysicalJournal: 5201
+  |||line 41, col 48 to line 41, col 73 of module L0_PhysicalJournal: 5201
+  ||||line 27, col 16 to line 27, col 53 of module L0_PhysicalJournal: 5201
+  |||||line 27, col 16 to line 27, col 29 of module L0_PhysicalJournal: 5201
+  |||||line 27, col 34 to line 27, col 53 of module L0_PhysicalJournal: 4221
+  ||||line 41, col 55 to line 41, col 64 of module L0_PhysicalJournal: 5201
+  ||||line 41, col 66 to line 41, col 72 of module L0_PhysicalJournal: 5201
+  line 98, col 8 to line 98, col 38 of module L0_PhysicalJournal: 10507
+<RepairTail line 100, col 1 to line 100, col 10 of module L0_PhysicalJournal>: 2503:4183
+  line 101, col 8 to line 101, col 22 of module L0_PhysicalJournal: 50066
+  |line 101, col 8 to line 101, col 11 of module L0_PhysicalJournal: 45883
+  line 41, col 17 to line 41, col 25 of module L0_PhysicalJournal: 18873
+  |line 41, col 17 to line 41, col 23 of module L0_PhysicalJournal: 14690
+  line 31, col 8 to line 38, col 40 of module L0_PhysicalJournal: 725
+  |line 32, col 12 to line 32, col 44 of module L0_PhysicalJournal: 33596
+  ||line 32, col 12 to line 32, col 21 of module L0_PhysicalJournal: 17478
+  ||line 32, col 25 to line 32, col 44 of module L0_PhysicalJournal: 17478
+  |line 33, col 12 to line 33, col 41 of module L0_PhysicalJournal: 33596
+  ||line 33, col 12 to line 33, col 21 of module L0_PhysicalJournal: 17478
+  ||line 33, col 25 to line 33, col 41 of module L0_PhysicalJournal: 17478
+  |line 34, col 12 to line 34, col 30 of module L0_PhysicalJournal: 33596
+  ||line 34, col 12 to line 34, col 21 of module L0_PhysicalJournal: 17478
+  ||line 34, col 27 to line 34, col 30 of module L0_PhysicalJournal: 17478
+  |line 35, col 12 to line 35, col 36 of module L0_PhysicalJournal: 33596
+  ||line 35, col 12 to line 35, col 20 of module L0_PhysicalJournal: 17478
+  ||line 35, col 26 to line 35, col 36 of module L0_PhysicalJournal: 17478
+  |line 37, col 16 to line 37, col 42 of module L0_PhysicalJournal: 33596
+  ||line 37, col 16 to line 37, col 25 of module L0_PhysicalJournal: 17478
+  ||line 37, col 29 to line 37, col 42 of module L0_PhysicalJournal: 17478
+  |line 38, col 16 to line 38, col 40 of module L0_PhysicalJournal: 33596
+  ||line 38, col 16 to line 38, col 24 of module L0_PhysicalJournal: 17478
+  ||line 38, col 28 to line 38, col 40 of module L0_PhysicalJournal: 17478
+  |line 31, col 17 to line 31, col 25 of module L0_PhysicalJournal: 5201
+  line 39, col 8 to line 39, col 53 of module L0_PhysicalJournal: 857
+  |line 39, col 28 to line 39, col 53 of module L0_PhysicalJournal: 12660
+  ||line 39, col 28 to line 39, col 37 of module L0_PhysicalJournal: 13567
+  ||line 39, col 42 to line 39, col 53 of module L0_PhysicalJournal: 13567
+  |line 39, col 17 to line 39, col 25 of module L0_PhysicalJournal: 5201
+  line 41, col 36 to line 41, col 42 of module L0_PhysicalJournal: 5201
+  line 27, col 16 to line 27, col 29 of module L0_PhysicalJournal: 4183
+  |line 27, col 16 to line 27, col 21 of module L0_PhysicalJournal: 5201
+  |line 27, col 24 to line 27, col 29 of module L0_PhysicalJournal: 5201
+  line 27, col 34 to line 27, col 53 of module L0_PhysicalJournal: 8404
+  |line 27, col 34 to line 27, col 34 of module L0_PhysicalJournal: 4221
+  |line 27, col 36 to line 27, col 53 of module L0_PhysicalJournal: 4221
+  line 41, col 55 to line 41, col 64 of module L0_PhysicalJournal: 5201
+  line 41, col 66 to line 41, col 72 of module L0_PhysicalJournal: 5201
+  line 102, col 8 to line 103, col 77 of module L0_PhysicalJournal: 4183
+<RecoverySyncFailure line 104, col 1 to line 104, col 19 of module L0_PhysicalJournal>: 2473:2503
+  line 105, col 8 to line 105, col 26 of module L0_PhysicalJournal: 48386
+  |line 105, col 8 to line 105, col 11 of module L0_PhysicalJournal: 45883
+  line 105, col 31 to line 105, col 59 of module L0_PhysicalJournal: 2503
+<RecoverySyncSuccess line 106, col 1 to line 106, col 19 of module L0_PhysicalJournal>: 2278:2503
+  line 107, col 8 to line 107, col 26 of module L0_PhysicalJournal: 48386
+  |line 107, col 8 to line 107, col 11 of module L0_PhysicalJournal: 45883
+  line 108, col 8 to line 109, col 76 of module L0_PhysicalJournal: 2503
+  |line 108, col 11 to line 109, col 76 of module L0_PhysicalJournal: 2503
+  ||line 108, col 12 to line 108, col 12 of module L0_PhysicalJournal: 2503
+  ||line 108, col 21 to line 108, col 34 of module L0_PhysicalJournal: 2503
+  ||line 108, col 37 to line 108, col 65 of module L0_PhysicalJournal: 2503
+  ||line 109, col 17 to line 109, col 34 of module L0_PhysicalJournal: 2503
+  |||line 40, col 17 to line 40, col 55 of module L0_PhysicalJournal: 2503
+  ||||line 40, col 20 to line 40, col 27 of module L0_PhysicalJournal: 2503
+  ||||line 40, col 41 to line 40, col 55 of module L0_PhysicalJournal: 1944
+  |||line 109, col 27 to line 109, col 33 of module L0_PhysicalJournal: 2503
+  ||line 109, col 37 to line 109, col 61 of module L0_PhysicalJournal: 2503
+<Next line 111, col 1 to line 111, col 4 of module L0_PhysicalJournal (115 9 115 44)>: 2477:6066
+  line 79, col 8 to line 79, col 94 of module L0_PhysicalJournal: 60477
+  |line 79, col 8 to line 79, col 11 of module L0_PhysicalJournal: 54411
+  |line 79, col 17 to line 79, col 94 of module L0_PhysicalJournal: 54411
+  line 80, col 8 to line 80, col 27 of module L0_PhysicalJournal: 6066
+  |line 80, col 8 to line 80, col 16 of module L0_PhysicalJournal: 36263
+  |line 80, col 18 to line 80, col 27 of module L0_PhysicalJournal: 36263
+  line 80, col 32 to line 80, col 50 of module L0_PhysicalJournal: 12132
+  |line 80, col 32 to line 80, col 36 of module L0_PhysicalJournal: 6066
+  |line 80, col 42 to line 80, col 50 of module L0_PhysicalJournal: 6066
+  ||line 42, col 14 to line 44, col 25 of module L0_PhysicalJournal: 6066
+  |||line 42, col 17 to line 42, col 41 of module L0_PhysicalJournal: 6066
+  |||line 43, col 10 to line 43, col 63 of module L0_PhysicalJournal: 5746
+  ||||line 43, col 11 to line 43, col 29 of module L0_PhysicalJournal: 12466
+  ||||line 43, col 38 to line 43, col 62 of module L0_PhysicalJournal: 5746
+  |||line 44, col 10 to line 44, col 25 of module L0_PhysicalJournal: 320
+  line 81, col 8 to line 82, col 68 of module L0_PhysicalJournal: 6066
+  line 115, col 39 to line 115, col 43 of module L0_PhysicalJournal: 6066
+  line 115, col 22 to line 115, col 30 of module L0_PhysicalJournal: 45883
+  |line 42, col 14 to line 44, col 25 of module L0_PhysicalJournal: 45883
+  ||line 42, col 17 to line 42, col 41 of module L0_PhysicalJournal: 45883
+  ||line 43, col 10 to line 43, col 63 of module L0_PhysicalJournal: 44303:95554
+  |||line 43, col 11 to line 43, col 29 of module L0_PhysicalJournal: 51251
+  |||line 43, col 38 to line 43, col 62 of module L0_PhysicalJournal: 44303
+  ||line 44, col 10 to line 44, col 25 of module L0_PhysicalJournal: 1580:4740
+<Next line 111, col 1 to line 111, col 4 of module L0_PhysicalJournal (116 9 116 57)>: 4380:4857
+  line 85, col 8 to line 85, col 18 of module L0_PhysicalJournal: 213549
+  |line 85, col 8 to line 85, col 11 of module L0_PhysicalJournal: 208692
+  line 85, col 23 to line 85, col 34 of module L0_PhysicalJournal: 40275
+  |line 85, col 24 to line 85, col 34 of module L0_PhysicalJournal: 35418
+  line 85, col 39 to line 85, col 67 of module L0_PhysicalJournal: 9714
+  |line 85, col 39 to line 85, col 39 of module L0_PhysicalJournal: 4857
+  |line 85, col 45 to line 85, col 67 of module L0_PhysicalJournal: 4857
+  line 86, col 8 to line 86, col 48 of module L0_PhysicalJournal: 4857
+  line 116, col 56 to line 116, col 56 of module L0_PhysicalJournal: 4857
+  line 116, col 18 to line 116, col 40 of module L0_PhysicalJournal: 45883
+<Next line 111, col 1 to line 111, col 4 of module L0_PhysicalJournal (117 9 117 67)>: 784:1619
+  line 88, col 8 to line 88, col 18 of module L0_PhysicalJournal: 71183
+  |line 88, col 8 to line 88, col 11 of module L0_PhysicalJournal: 69564
+  line 88, col 23 to line 88, col 34 of module L0_PhysicalJournal: 13425
+  |line 88, col 24 to line 88, col 34 of module L0_PhysicalJournal: 11806
+  line 88, col 39 to line 88, col 76 of module L0_PhysicalJournal: 3238
+  |line 88, col 39 to line 88, col 39 of module L0_PhysicalJournal: 1619
+  |line 88, col 45 to line 88, col 76 of module L0_PhysicalJournal: 1619
+  line 89, col 8 to line 90, col 55 of module L0_PhysicalJournal: 1619
+  line 117, col 66 to line 117, col 66 of module L0_PhysicalJournal: 1619
+  line 117, col 18 to line 117, col 49 of module L0_PhysicalJournal: 45883
+<TypeOK line 122, col 1 to line 122, col 6 of module L0_PhysicalJournal>
+  line 123, col 5 to line 126, col 49 of module L0_PhysicalJournal: 45883
+<ReceiptHasCompletedSync line 127, col 1 to line 127, col 23 of module L0_PhysicalJournal>
+  line 127, col 28 to line 127, col 70 of module L0_PhysicalJournal: 45883
+  |line 127, col 51 to line 127, col 70 of module L0_PhysicalJournal: 63950
+  |line 127, col 43 to line 127, col 48 of module L0_PhysicalJournal: 45883
+<ReceiptNamesWholeBatch line 128, col 1 to line 128, col 22 of module L0_PhysicalJournal>
+  line 128, col 27 to line 129, col 60 of module L0_PhysicalJournal: 45883
+  |line 129, col 5 to line 129, col 60 of module L0_PhysicalJournal: 63950
+  ||line 129, col 5 to line 129, col 42 of module L0_PhysicalJournal: 63950
+  ||line 129, col 47 to line 129, col 60 of module L0_PhysicalJournal: 63950
+  |||line 31, col 5 to line 39, col 53 of module L0_PhysicalJournal: 63950
+  ||||line 31, col 8 to line 38, col 40 of module L0_PhysicalJournal: 63950
+  |||||line 32, col 9 to line 38, col 40 of module L0_PhysicalJournal: 268365
+  |||||line 31, col 17 to line 31, col 25 of module L0_PhysicalJournal: 63950
+  ||||line 39, col 8 to line 39, col 53 of module L0_PhysicalJournal: 63950
+  |||||line 39, col 28 to line 39, col 53 of module L0_PhysicalJournal: 204415
+  |||||line 39, col 17 to line 39, col 25 of module L0_PhysicalJournal: 63950
+  |||line 129, col 53 to line 129, col 59 of module L0_PhysicalJournal: 63950
+  |line 128, col 42 to line 128, col 47 of module L0_PhysicalJournal: 45883
+<LivePositionMatchesClosedBytes line 130, col 1 to line 130, col 30 of module L0_PhysicalJournal>
+  line 130, col 35 to line 131, col 89 of module L0_PhysicalJournal: 45883
+  |line 130, col 35 to line 130, col 46 of module L0_PhysicalJournal: 45883
+  |line 131, col 5 to line 131, col 89 of module L0_PhysicalJournal: 2858
+  ||line 131, col 5 to line 131, col 76 of module L0_PhysicalJournal: 2858
+  |||line 131, col 5 to line 131, col 46 of module L0_PhysicalJournal: 2858
+  ||||line 131, col 5 to line 131, col 18 of module L0_PhysicalJournal: 2858
+  |||||line 31, col 5 to line 39, col 53 of module L0_PhysicalJournal: 2858
+  ||||||line 31, col 8 to line 38, col 40 of module L0_PhysicalJournal: 2858
+  |||||||line 32, col 9 to line 38, col 40 of module L0_PhysicalJournal: 11082
+  |||||||line 31, col 17 to line 31, col 25 of module L0_PhysicalJournal: 2858
+  ||||||line 39, col 8 to line 39, col 53 of module L0_PhysicalJournal: 2858
+  |||||||line 39, col 28 to line 39, col 53 of module L0_PhysicalJournal: 8717
+  |||||||line 39, col 17 to line 39, col 25 of module L0_PhysicalJournal: 2858
+  |||||line 131, col 11 to line 131, col 17 of module L0_PhysicalJournal: 2858
+  ||||line 131, col 23 to line 131, col 46 of module L0_PhysicalJournal: 2858
+  |||line 131, col 51 to line 131, col 76 of module L0_PhysicalJournal: 2858
+  ||||line 131, col 51 to line 131, col 57 of module L0_PhysicalJournal: 2858
+  ||||line 131, col 59 to line 131, col 76 of module L0_PhysicalJournal: 2858
+  |||||line 40, col 17 to line 40, col 55 of module L0_PhysicalJournal: 2858
+  ||||||line 40, col 20 to line 40, col 27 of module L0_PhysicalJournal: 2858
+  ||||||line 40, col 41 to line 40, col 55 of module L0_PhysicalJournal: 2365
+  |||||line 131, col 69 to line 131, col 75 of module L0_PhysicalJournal: 2858
+  ||line 131, col 81 to line 131, col 89 of module L0_PhysicalJournal: 2858
+<RequiredPrefixSurvivesRecovery line 132, col 1 to line 132, col 30 of module L0_PhysicalJournal>
+  line 132, col 35 to line 132, col 76 of module L0_PhysicalJournal: 45883
+  |line 132, col 35 to line 132, col 46 of module L0_PhysicalJournal: 45883
+  |line 132, col 51 to line 132, col 76 of module L0_PhysicalJournal: 2858
+<QuarantinePreservesEvidence line 133, col 1 to line 133, col 27 of module L0_PhysicalJournal>
+  line 133, col 32 to line 133, col 69 of module L0_PhysicalJournal: 45883
+  |line 133, col 32 to line 133, col 48 of module L0_PhysicalJournal: 45883
+  |line 133, col 53 to line 133, col 69 of module L0_PhysicalJournal: 10507
+<RepairOnlyDropsUnsealedTail line 134, col 1 to line 134, col 27 of module L0_PhysicalJournal>
+  line 135, col 5 to line 137, col 53 of module L0_PhysicalJournal: 45883
+<NoAcknowledgedLossUnderSupportedCrash line 138, col 1 to line 138, col 37 of module L0_PhysicalJournal>
+  line 138, col 42 to line 139, col 50 of module L0_PhysicalJournal: 45883
+  |line 138, col 43 to line 138, col 67 of module L0_PhysicalJournal: 45883
+  ||line 138, col 43 to line 138, col 54 of module L0_PhysicalJournal: 45883
+  ||line 138, col 59 to line 138, col 67 of module L0_PhysicalJournal: 33066
+  |line 139, col 5 to line 139, col 50 of module L0_PhysicalJournal: 9231
+  ||line 139, col 28 to line 139, col 50 of module L0_PhysicalJournal: 10811
+  ||line 139, col 20 to line 139, col 25 of module L0_PhysicalJournal: 9231
+End of statistics.
+61476 states generated, 45883 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 28.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 14 and the 95th percentile is 2).
+Finished in 02s at (2026-10-20 18:22:21)
+>>> elapsed: 3s (exit 0)

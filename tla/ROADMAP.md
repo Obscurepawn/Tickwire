@@ -8,6 +8,8 @@
 | book_generation | Spot/Futures 桥接、旧 generation、容量失效 | 未建模 | 接口与单元测试已实现 |
 | risk_reservation | 多资产预留与费用清算 | 未建模 | 衔接 execution 的资金分录 |
 | broadcast_ring L0 | 固定 bank 发布、慢消费者、借用和协作回收 | 五配置 PASS | L1 身份控制与 bank 轮换，L2 进程退出回收 |
+| control_requests L0/L1 | 请求登记、终态重放、期限与续租 | 六配置 PASS | L2 真实持久 owner 恢复 |
+| physical_journal L0 | 物理批写入、同步、收据、崩溃与恢复 | 三配置 PASS | L1 分段/manifest 目录事务 |
 | budget_lease / strategy_handoff / multi_exec_activation | 授权、旧发送者隔离与多进程恢复 | 未建模 | 先实现可检验的控制面与运行时 |
 
 下一命令和开放问题位于 [submission TODO](execution_models/submission/TODO.md)。

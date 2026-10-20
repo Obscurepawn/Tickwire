@@ -1,0 +1,34 @@
+>>> TLC module=L0_PhysicalJournal cfg=L0_PhysicalJournal.cfg workers=1
+>>> jar=$REPO/tla/tools/tla2tools.jar
+>>> dir=$REPO/tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=$TMP/tickwire-wal-tlc-6bjckskm
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 31 and seed 509808261812146493 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file $REPO/tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal.tla
+***Parse Error***
+Was expecting "= or ,"
+Encountered "=<" at line 82, column 45 and token "required"
+
+Residual stack trace follows:
+Except Spec starting at line 82, column 35.
+Some [] Form starting at line 81, column 11.
+ExtendableExpr starting at line 81, column 11.
+ExtendableExpr starting at line 81, column 8.
+Expression starting at line 81, column 8.
+
+
+Fatal errors while parsing TLA+ spec in file L0_PhysicalJournal
+
+tla2sany.semantic.AbortException
+*** Abort messages: 1
+
+In module L0_PhysicalJournal
+
+Could not parse module L0_PhysicalJournal from file L0_PhysicalJournal.tla
+
+
+Starting... (2026-10-20 18:16:36)
+Error: Parsing or semantic analysis failed.
+Finished in 00s at (2026-10-20 18:16:36)
+>>> elapsed: 1s (exit 150)

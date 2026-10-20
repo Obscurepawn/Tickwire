@@ -1,0 +1,297 @@
+>>> TLC module=L1_ControlSession cfg=L1_ControlSession_renew.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/control_requests/L1_session/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+Picked up JAVA_TOOL_OPTIONS: -Djava.io.tmpdir=/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp5vhm5jpv
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 121 and seed 5411943560413746738 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/control_requests/L1_session/02_models/L1_ControlSession.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp5vhm5jpv/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp5vhm5jpv/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp5vhm5jpv/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp5vhm5jpv/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L1_ControlSession
+Starting... (2026-10-20 18:16:17)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 18:16:17.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.5E-11
+The coverage statistics at 2026-10-20 18:16:18
+<Init line 29, col 1 to line 29, col 4 of module L1_ControlSession>: 1:1
+  line 30, col 3 to line 38, col 39 of module L1_ControlSession: 1
+<Admit line 84, col 1 to line 84, col 14 of module L1_ControlSession>: 360:17496
+  line 24, col 17 to line 24, col 23 of module L1_ControlSession: 154440
+  |line 24, col 18 to line 24, col 23 of module L1_ControlSession: 136944
+  line 24, col 28 to line 24, col 37 of module L1_ControlSession: 17496
+  |line 24, col 28 to line 24, col 28 of module L1_ControlSession: 69120
+  |line 24, col 31 to line 24, col 37 of module L1_ControlSession: 69120
+  line 24, col 42 to line 24, col 51 of module L1_ControlSession: 17496
+  |line 24, col 42 to line 24, col 42 of module L1_ControlSession: 44328
+  |line 24, col 44 to line 24, col 51 of module L1_ControlSession: 44328
+  line 85, col 16 to line 85, col 16 of module L1_ControlSession: 69120
+  line 55, col 9 to line 55, col 97 of module L1_ControlSession: 17496
+  |line 55, col 20 to line 55, col 97 of module L1_ControlSession: 17496
+  ||line 55, col 23 to line 55, col 27 of module L1_ControlSession: 17496
+  |||line 48, col 16 to line 49, col 85 of module L1_ControlSession: 17496
+  ||||line 48, col 16 to line 49, col 48 of module L1_ControlSession: 17496
+  |||||line 48, col 16 to line 48, col 42 of module L1_ControlSession: 17496
+  ||||||line 48, col 16 to line 48, col 33 of module L1_ControlSession: 17496
+  |||||||line 48, col 16 to line 48, col 20 of module L1_ControlSession: 17496
+  |||||||line 48, col 25 to line 48, col 33 of module L1_ControlSession: 8748
+  ||||||line 48, col 38 to line 48, col 42 of module L1_ControlSession: 828
+  |||||line 49, col 19 to line 49, col 48 of module L1_ControlSession: 276
+  ||||line 49, col 53 to line 49, col 85 of module L1_ControlSession: 276
+  ||line 55, col 34 to line 55, col 84 of module L1_ControlSession: 276
+  ||line 55, col 91 to line 55, col 97 of module L1_ControlSession: 17220
+  line 56, col 9 to line 56, col 70 of module L1_ControlSession: 17496
+  |line 56, col 19 to line 56, col 70 of module L1_ControlSession: 17496
+  ||line 56, col 22 to line 56, col 26 of module L1_ControlSession: 17496
+  |||line 48, col 16 to line 49, col 85 of module L1_ControlSession: 17496
+  ||||line 48, col 16 to line 49, col 48 of module L1_ControlSession: 17496
+  |||||line 48, col 16 to line 48, col 42 of module L1_ControlSession: 17496
+  ||||||line 48, col 16 to line 48, col 33 of module L1_ControlSession: 17496
+  |||||||line 48, col 16 to line 48, col 20 of module L1_ControlSession: 17496
+  |||||||line 48, col 25 to line 48, col 33 of module L1_ControlSession: 8748
+  ||||||line 48, col 38 to line 48, col 42 of module L1_ControlSession: 828
+  |||||line 49, col 19 to line 49, col 48 of module L1_ControlSession: 276
+  ||||line 49, col 53 to line 49, col 85 of module L1_ControlSession: 276
+  ||line 56, col 33 to line 56, col 58 of module L1_ControlSession: 276
+  ||line 56, col 65 to line 56, col 70 of module L1_ControlSession: 17220
+  line 57, col 9 to line 57, col 71 of module L1_ControlSession: 17496
+  |line 57, col 23 to line 57, col 71 of module L1_ControlSession: 17496
+  ||line 57, col 26 to line 57, col 30 of module L1_ControlSession: 17496
+  |||line 48, col 16 to line 49, col 85 of module L1_ControlSession: 17496
+  ||||line 48, col 16 to line 49, col 48 of module L1_ControlSession: 17496
+  |||||line 48, col 16 to line 48, col 42 of module L1_ControlSession: 17496
+  ||||||line 48, col 16 to line 48, col 33 of module L1_ControlSession: 17496
+  |||||||line 48, col 16 to line 48, col 20 of module L1_ControlSession: 17496
+  |||||||line 48, col 25 to line 48, col 33 of module L1_ControlSession: 8748
+  ||||||line 48, col 38 to line 48, col 42 of module L1_ControlSession: 828
+  |||||line 49, col 19 to line 49, col 48 of module L1_ControlSession: 276
+  ||||line 49, col 53 to line 49, col 85 of module L1_ControlSession: 276
+  ||line 57, col 37 to line 57, col 55 of module L1_ControlSession: 276
+  ||line 57, col 62 to line 57, col 71 of module L1_ControlSession: 17220
+  line 58, col 9 to line 58, col 21 of module L1_ControlSession: 17496
+  line 59, col 9 to line 59, col 34 of module L1_ControlSession: 17496
+  line 60, col 9 to line 60, col 85 of module L1_ControlSession: 17496
+  |line 60, col 16 to line 60, col 85 of module L1_ControlSession: 17496
+  ||line 28, col 23 to line 28, col 76 of module L1_ControlSession: 17496
+  ||line 60, col 23 to line 60, col 28 of module L1_ControlSession: 17496
+  |||line 50, col 17 to line 54, col 61 of module L1_ControlSession: 17496
+  ||||line 50, col 20 to line 50, col 23 of module L1_ControlSession: 17496
+  ||||line 51, col 22 to line 54, col 61 of module L1_ControlSession: 8748
+  |||||line 51, col 25 to line 51, col 32 of module L1_ControlSession: 8748
+  |||||line 51, col 39 to line 52, col 80 of module L1_ControlSession: 7920
+  ||||||line 51, col 42 to line 51, col 60 of module L1_ControlSession: 7920
+  ||||||line 52, col 27 to line 52, col 80 of module L1_ControlSession: 3960
+  |||||line 53, col 22 to line 54, col 61 of module L1_ControlSession: 828
+  ||||||line 53, col 25 to line 53, col 29 of module L1_ControlSession: 828
+  ||||||line 54, col 22 to line 54, col 61 of module L1_ControlSession: 276
+  ||line 60, col 34 to line 60, col 84 of module L1_ControlSession: 17496
+  |||line 60, col 37 to line 60, col 54 of module L1_ControlSession: 17496
+  ||||line 60, col 37 to line 60, col 42 of module L1_ControlSession: 17496
+  |||||line 50, col 17 to line 54, col 61 of module L1_ControlSession: 17496
+  ||||||line 50, col 20 to line 50, col 23 of module L1_ControlSession: 17496
+  ||||||line 51, col 22 to line 54, col 61 of module L1_ControlSession: 8748
+  |||||||line 51, col 25 to line 51, col 32 of module L1_ControlSession: 8748
+  |||||||line 51, col 39 to line 52, col 80 of module L1_ControlSession: 7920
+  ||||||||line 51, col 42 to line 51, col 60 of module L1_ControlSession: 7920
+  ||||||||line 52, col 27 to line 52, col 80 of module L1_ControlSession: 3960
+  |||||||line 53, col 22 to line 54, col 61 of module L1_ControlSession: 828
+  ||||||||line 53, col 25 to line 53, col 29 of module L1_ControlSession: 828
+  ||||||||line 54, col 22 to line 54, col 61 of module L1_ControlSession: 276
+  |||line 60, col 61 to line 60, col 77 of module L1_ControlSession: 2712
+  line 61, col 9 to line 61, col 67 of module L1_ControlSession: 17496
+  |line 61, col 27 to line 61, col 66 of module L1_ControlSession: 17496
+  ||line 61, col 27 to line 61, col 43 of module L1_ControlSession: 17496
+  |||line 61, col 27 to line 61, col 31 of module L1_ControlSession: 17496
+  |||line 61, col 36 to line 61, col 43 of module L1_ControlSession: 8748
+  ||line 61, col 48 to line 61, col 66 of module L1_ControlSession: 7920
+  line 85, col 31 to line 85, col 31 of module L1_ControlSession: 17496
+  line 85, col 33 to line 85, col 33 of module L1_ControlSession: 17496
+  line 85, col 35 to line 85, col 35 of module L1_ControlSession: 828
+  line 85, col 41 to line 85, col 50 of module L1_ControlSession: 17496
+  line 86, col 6 to line 86, col 57 of module L1_ControlSession: 17496
+<RejectFrame line 89, col 1 to line 89, col 14 of module L1_ControlSession>: 168:2916
+  line 24, col 17 to line 24, col 23 of module L1_ControlSession: 25740
+  |line 24, col 18 to line 24, col 23 of module L1_ControlSession: 22824
+  line 24, col 28 to line 24, col 37 of module L1_ControlSession: 2916
+  |line 24, col 28 to line 24, col 28 of module L1_ControlSession: 11520
+  |line 24, col 31 to line 24, col 37 of module L1_ControlSession: 11520
+  line 24, col 42 to line 24, col 51 of module L1_ControlSession: 2916
+  |line 24, col 42 to line 24, col 42 of module L1_ControlSession: 7388
+  |line 24, col 44 to line 24, col 51 of module L1_ControlSession: 7388
+  line 90, col 16 to line 90, col 16 of module L1_ControlSession: 11520
+  line 90, col 22 to line 90, col 31 of module L1_ControlSession: 2916
+  line 91, col 6 to line 91, col 58 of module L1_ControlSession: 2916
+  line 92, col 6 to line 92, col 100 of module L1_ControlSession: 2916
+<Close line 95, col 1 to line 95, col 8 of module L1_ControlSession>: 532:19908
+  line 96, col 6 to line 96, col 18 of module L1_ControlSession: 42732
+  |line 96, col 7 to line 96, col 18 of module L1_ControlSession: 22824
+  ||line 24, col 17 to line 24, col 51 of module L1_ControlSession: 22824
+  |||line 24, col 17 to line 24, col 37 of module L1_ControlSession: 22824
+  ||||line 24, col 17 to line 24, col 23 of module L1_ControlSession: 22824
+  ||||line 24, col 28 to line 24, col 37 of module L1_ControlSession: 11520
+  |||line 24, col 42 to line 24, col 51 of module L1_ControlSession: 7388
+  ||line 96, col 17 to line 96, col 17 of module L1_ControlSession: 11520
+  line 96, col 23 to line 96, col 34 of module L1_ControlSession: 19908
+  line 97, col 6 to line 97, col 56 of module L1_ControlSession: 19908
+  |line 97, col 15 to line 97, col 56 of module L1_ControlSession: 19908
+  ||line 97, col 18 to line 97, col 36 of module L1_ControlSession: 19908
+  |||line 97, col 18 to line 97, col 23 of module L1_ControlSession: 19908
+  |||line 97, col 28 to line 97, col 36 of module L1_ControlSession: 8604
+  ||line 97, col 43 to line 97, col 49 of module L1_ControlSession: 15436
+  ||line 97, col 56 to line 97, col 56 of module L1_ControlSession: 4472
+  line 98, col 6 to line 98, col 60 of module L1_ControlSession: 19908
+  |line 98, col 21 to line 98, col 60 of module L1_ControlSession: 19908
+  ||line 98, col 24 to line 98, col 29 of module L1_ControlSession: 19908
+  ||line 98, col 36 to line 98, col 48 of module L1_ControlSession: 11304
+  ||line 98, col 55 to line 98, col 60 of module L1_ControlSession: 8604
+  line 99, col 6 to line 99, col 75 of module L1_ControlSession: 19908
+  |line 99, col 11 to line 99, col 75 of module L1_ControlSession: 19908
+  ||line 28, col 23 to line 28, col 76 of module L1_ControlSession: 19908
+  ||line 99, col 18 to line 99, col 68 of module L1_ControlSession: 19908
+  |||line 99, col 21 to line 99, col 40 of module L1_ControlSession: 19908
+  ||||line 99, col 21 to line 99, col 27 of module L1_ControlSession: 19908
+  ||||line 99, col 32 to line 99, col 40 of module L1_ControlSession: 8604
+  line 100, col 6 to line 100, col 25 of module L1_ControlSession: 19908
+  line 101, col 6 to line 101, col 79 of module L1_ControlSession: 19908
+<Renew line 104, col 1 to line 104, col 12 of module L1_ControlSession>: 406:23328
+  line 24, col 17 to line 24, col 23 of module L1_ControlSession: 205920
+  |line 24, col 18 to line 24, col 23 of module L1_ControlSession: 182592
+  line 24, col 28 to line 24, col 37 of module L1_ControlSession: 23328
+  |line 24, col 28 to line 24, col 28 of module L1_ControlSession: 92160
+  |line 24, col 31 to line 24, col 37 of module L1_ControlSession: 92160
+  line 24, col 42 to line 24, col 51 of module L1_ControlSession: 23328
+  |line 24, col 42 to line 24, col 42 of module L1_ControlSession: 59104
+  |line 24, col 44 to line 24, col 51 of module L1_ControlSession: 59104
+  line 105, col 16 to line 105, col 16 of module L1_ControlSession: 92160
+  line 105, col 22 to line 105, col 31 of module L1_ControlSession: 23328
+  line 107, col 12 to line 107, col 56 of module L1_ControlSession: 23328
+  |line 107, col 22 to line 107, col 56 of module L1_ControlSession: 23328
+  ||line 107, col 25 to line 107, col 29 of module L1_ControlSession: 23328
+  |||line 106, col 19 to line 106, col 33 of module L1_ControlSession: 23328
+  ||||line 106, col 19 to line 106, col 19 of module L1_ControlSession: 23328
+  ||||line 106, col 24 to line 106, col 33 of module L1_ControlSession: 11664
+  ||line 107, col 36 to line 107, col 42 of module L1_ControlSession: 1912
+  ||line 107, col 49 to line 107, col 56 of module L1_ControlSession: 21416
+  line 108, col 12 to line 108, col 50 of module L1_ControlSession: 23328
+  |line 108, col 22 to line 108, col 50 of module L1_ControlSession: 23328
+  ||line 108, col 25 to line 108, col 29 of module L1_ControlSession: 23328
+  |||line 106, col 19 to line 106, col 33 of module L1_ControlSession: 23328
+  ||||line 106, col 19 to line 106, col 19 of module L1_ControlSession: 23328
+  ||||line 106, col 24 to line 106, col 33 of module L1_ControlSession: 11664
+  ||line 108, col 36 to line 108, col 36 of module L1_ControlSession: 1912
+  ||line 108, col 43 to line 108, col 50 of module L1_ControlSession: 21416
+  line 109, col 12 to line 109, col 97 of module L1_ControlSession: 23328
+  |line 109, col 17 to line 109, col 97 of module L1_ControlSession: 23328
+  ||line 28, col 23 to line 28, col 76 of module L1_ControlSession: 23328
+  ||line 109, col 24 to line 109, col 90 of module L1_ControlSession: 23328
+  |||line 109, col 27 to line 109, col 28 of module L1_ControlSession: 23328
+  |||line 109, col 51 to line 109, col 90 of module L1_ControlSession: 11664
+  line 110, col 6 to line 110, col 25 of module L1_ControlSession: 23328
+  line 111, col 6 to line 111, col 82 of module L1_ControlSession: 23328
+<Next line 113, col 1 to line 113, col 4 of module L1_ControlSession (113 10 113 34)>: 1121:1902
+  line 42, col 6 to line 42, col 10 of module L1_ControlSession: 5706
+  |line 42, col 7 to line 42, col 10 of module L1_ControlSession: 3804
+  line 42, col 15 to line 42, col 26 of module L1_ControlSession: 1902
+  line 43, col 6 to line 43, col 74 of module L1_ControlSession: 1902
+  line 23, col 16 to line 23, col 75 of module L1_ControlSession: 1902
+<Next line 113, col 1 to line 113, col 4 of module L1_ControlSession (117 42 117 69)>: 760:7096
+  line 65, col 6 to line 65, col 16 of module L1_ControlSession: 7096
+  |line 65, col 6 to line 65, col 14 of module L1_ControlSession: 7608
+  line 69, col 12 to line 69, col 81 of module L1_ControlSession: 7096
+  |line 69, col 23 to line 69, col 81 of module L1_ControlSession: 7096
+  ||line 69, col 26 to line 69, col 30 of module L1_ControlSession: 7096
+  |||line 66, col 19 to line 66, col 46 of module L1_ControlSession: 7096
+  ||||line 66, col 19 to line 66, col 23 of module L1_ControlSession: 7096
+  ||||line 66, col 28 to line 66, col 46 of module L1_ControlSession: 3548
+  ||line 69, col 37 to line 69, col 68 of module L1_ControlSession: 1012
+  ||line 69, col 75 to line 69, col 81 of module L1_ControlSession: 6084
+  line 70, col 12 to line 70, col 86 of module L1_ControlSession: 7096
+  |line 70, col 27 to line 70, col 86 of module L1_ControlSession: 7096
+  ||line 70, col 30 to line 70, col 34 of module L1_ControlSession: 7096
+  |||line 66, col 19 to line 66, col 46 of module L1_ControlSession: 7096
+  ||||line 66, col 19 to line 66, col 23 of module L1_ControlSession: 7096
+  ||||line 66, col 28 to line 66, col 46 of module L1_ControlSession: 3548
+  ||line 70, col 41 to line 70, col 69 of module L1_ControlSession: 1012
+  ||line 70, col 76 to line 70, col 86 of module L1_ControlSession: 6084
+  line 71, col 12 to line 71, col 54 of module L1_ControlSession: 7096
+  |line 71, col 19 to line 71, col 54 of module L1_ControlSession: 7096
+  ||line 28, col 23 to line 28, col 76 of module L1_ControlSession: 7096
+  ||line 71, col 26 to line 71, col 31 of module L1_ControlSession: 7096
+  |||line 67, col 20 to line 68, col 100 of module L1_ControlSession: 7096
+  ||||line 67, col 23 to line 67, col 26 of module L1_ControlSession: 7096
+  ||||line 68, col 25 to line 68, col 100 of module L1_ControlSession: 3548
+  |||||line 68, col 28 to line 68, col 69 of module L1_ControlSession: 3548
+  ||||||line 68, col 28 to line 68, col 46 of module L1_ControlSession: 3548
+  ||||||line 68, col 51 to line 68, col 69 of module L1_ControlSession: 2536
+  ||line 71, col 35 to line 71, col 51 of module L1_ControlSession: 7096
+  line 72, col 6 to line 72, col 18 of module L1_ControlSession: 7096
+  line 73, col 6 to line 73, col 27 of module L1_ControlSession: 7096
+  line 74, col 6 to line 74, col 36 of module L1_ControlSession: 7096
+  line 117, col 51 to line 117, col 51 of module L1_ControlSession: 7608
+  line 117, col 53 to line 117, col 53 of module L1_ControlSession: 7096
+  line 23, col 16 to line 23, col 75 of module L1_ControlSession: 7096
+<Next line 113, col 1 to line 113, col 4 of module L1_ControlSession (118 28 118 58)>: 456:3548
+  line 78, col 6 to line 78, col 16 of module L1_ControlSession: 3548
+  |line 78, col 6 to line 78, col 14 of module L1_ControlSession: 3804
+  line 79, col 6 to line 79, col 52 of module L1_ControlSession: 3548
+  line 80, col 6 to line 80, col 27 of module L1_ControlSession: 3548
+  line 81, col 6 to line 81, col 61 of module L1_ControlSession: 3548
+  line 118, col 42 to line 118, col 42 of module L1_ControlSession: 3804
+  line 23, col 16 to line 23, col 75 of module L1_ControlSession: 3548
+<TypeOK line 120, col 1 to line 120, col 6 of module L1_ControlSession>
+  line 120, col 11 to line 122, col 55 of module L1_ControlSession: 3804
+<AtMostOneTicket line 123, col 1 to line 123, col 15 of module L1_ControlSession>
+  line 123, col 20 to line 123, col 46 of module L1_ControlSession: 3804
+<RegistrationBeforeTicket line 124, col 1 to line 124, col 24 of module L1_ControlSession>
+  line 124, col 29 to line 124, col 72 of module L1_ControlSession: 3804
+  |line 124, col 44 to line 124, col 72 of module L1_ControlSession: 3804
+  ||line 124, col 44 to line 124, col 54 of module L1_ControlSession: 3804
+  ||line 124, col 59 to line 124, col 72 of module L1_ControlSession: 3548
+  |line 124, col 38 to line 124, col 41 of module L1_ControlSession: 3804
+<NoEviction line 125, col 1 to line 125, col 10 of module L1_ControlSession>
+  line 125, col 15 to line 125, col 35 of module L1_ControlSession: 3804
+<ImmutableTerminal line 126, col 1 to line 126, col 17 of module L1_ControlSession>
+  line 126, col 22 to line 126, col 88 of module L1_ControlSession: 3804
+  |line 126, col 37 to line 126, col 88 of module L1_ControlSession: 3804
+  ||line 126, col 37 to line 126, col 52 of module L1_ControlSession: 3804
+  ||line 126, col 57 to line 126, col 88 of module L1_ControlSession: 2536
+  |line 126, col 31 to line 126, col 34 of module L1_ControlSession: 3804
+<CapacityBound line 127, col 1 to line 127, col 13 of module L1_ControlSession>
+  line 127, col 18 to line 127, col 86 of module L1_ControlSession: 3804
+  |line 127, col 18 to line 127, col 48 of module L1_ControlSession: 3804
+  |line 127, col 53 to line 127, col 86 of module L1_ControlSession: 3804
+  ||line 127, col 53 to line 127, col 72 of module L1_ControlSession: 3804
+  |||line 127, col 65 to line 127, col 71 of module L1_ControlSession: 3804
+  ||||line 27, col 12 to line 27, col 51 of module L1_ControlSession: 3804
+  |||||line 27, col 30 to line 27, col 50 of module L1_ControlSession: 3548
+  |||||line 27, col 19 to line 27, col 26 of module L1_ControlSession: 3804
+  ||line 127, col 75 to line 127, col 86 of module L1_ControlSession: 3804
+<RetryBeforeVersion line 128, col 1 to line 128, col 18 of module L1_ControlSession>
+  line 128, col 23 to line 131, col 41 of module L1_ControlSession: 3804
+  |line 128, col 23 to line 128, col 35 of module L1_ControlSession: 3804
+  |line 129, col 3 to line 131, col 41 of module L1_ControlSession: 144
+<SessionTypes line 132, col 1 to line 132, col 12 of module L1_ControlSession>
+  line 132, col 17 to line 133, col 68 of module L1_ControlSession: 3804
+<NoAdmissionAfterClosure line 134, col 1 to line 134, col 23 of module L1_ControlSession>
+  line 134, col 28 to line 134, col 57 of module L1_ControlSession: 3804
+  |line 134, col 28 to line 134, col 33 of module L1_ControlSession: 3804
+  |line 134, col 38 to line 134, col 57 of module L1_ControlSession: 1884
+<NoLiveExpiredDispatch line 135, col 1 to line 135, col 21 of module L1_ControlSession>
+  line 135, col 26 to line 135, col 74 of module L1_ControlSession: 3804
+  |line 135, col 26 to line 135, col 43 of module L1_ControlSession: 3804
+  |line 135, col 48 to line 135, col 74 of module L1_ControlSession: 48
+End of statistics.
+76195 states generated, 3804 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 9.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 23 and the 95th percentile is 4).
+Finished in 01s at (2026-10-20 18:16:18)
+>>> elapsed: 1s (exit 0)
