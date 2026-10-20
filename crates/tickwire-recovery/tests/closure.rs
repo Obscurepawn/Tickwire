@@ -92,6 +92,48 @@ fn complete_closure_publishes_and_reopens_exact_binding() {
     wrong.intent_exec_epoch += 1;
     assert!(p.verify(&wrong).is_err());
 }
+
+#[test]
+fn command_dependency_is_checked_and_preserved_in_private_capability() {
+    let (mut p, mut m) = fixture();
+    let bytes = b"immutable-command";
+    let hash = p.put_object(bytes).unwrap();
+    m.objects.push(DependencyObject {
+        kind: COMMAND_DEPENDENCY_KIND,
+        content_hash: hash,
+        byte_length: bytes.len() as u64,
+        schema_id: 1,
+        owner_identity: [1; 16],
+    });
+    m.edges.push((0, 12));
+    let cap = p.publish(&m).unwrap();
+    assert_eq!(cap.command_digest(), Some(hash));
+    assert_eq!(p.verify(&m.binding).unwrap(), cap);
+    assert_eq!(
+        RecoveryManifest::decode(&m.canonical_bytes().unwrap()).unwrap(),
+        m
+    );
+
+    let (mut p, mut missing) = fixture();
+    missing.objects.push(m.objects[12]);
+    assert!(p.publish(&missing).is_err());
+    assert!(p.verify(&missing.binding).is_err());
+
+    let (mut p, mut ambiguous) = fixture();
+    for bytes in [b"first-command".as_slice(), b"second-command".as_slice()] {
+        ambiguous.objects.push(DependencyObject {
+            kind: COMMAND_DEPENDENCY_KIND,
+            content_hash: p.put_object(bytes).unwrap(),
+            byte_length: bytes.len() as u64,
+            schema_id: 1,
+            owner_identity: [1; 16],
+        });
+    }
+    ambiguous
+        .objects
+        .sort_unstable_by_key(|o| (o.kind, o.content_hash));
+    assert!(p.publish(&ambiguous).is_err());
+}
 #[test]
 fn binding_is_immutable_and_identical_publish_is_idempotent() {
     let (mut p, m) = fixture();

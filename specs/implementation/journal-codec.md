@@ -1,5 +1,7 @@
 # 业务日志 codec 实现规格
 
+当前格式已升级为[命令绑定 schema 2](command-binding.md)。下文保留 schema 1 的实现过程与测试记录，原测试样本用于检查旧格式拒绝。
+
 本阶段落实 [先行接口](../../docs/implementation/journal-codec-interface.md)：独立 crate 编码 PreparedIntent、Fill、Fee、Terminal、AbortedBeforeSend，计算业务摘要和逻辑数据链。现有 execution、Mock、物理 WAL 与已冻结 TLA 模型保持原接口；真实业务 Journal 的接入另行实现。
 
 ## 实现与不变量

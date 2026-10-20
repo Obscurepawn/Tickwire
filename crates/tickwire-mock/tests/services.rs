@@ -16,6 +16,7 @@ fn gate() -> Gate {
 }
 fn req() -> OrderRequest {
     OrderRequest {
+        command_digest: [9; 32],
         key: OrderKey {
             venue: 7,
             account: 9,

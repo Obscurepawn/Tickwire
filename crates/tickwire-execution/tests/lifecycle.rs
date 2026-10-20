@@ -16,6 +16,7 @@ fn gate() -> Gate {
 }
 fn request(id: u64) -> OrderRequest {
     OrderRequest {
+        command_digest: [9; 32],
         key: OrderKey {
             venue: 1,
             account: 1,
@@ -57,6 +58,44 @@ fn ready(e: &mut Engine<8, 8>, id: u64) {
         CommitProfile::LocalDurable,
     )
     .unwrap();
+}
+
+#[test]
+fn missing_command_digest_cannot_reserve_or_recover() {
+    let mut e = engine();
+    let original = e.clone();
+    let mut q = request(1);
+    q.command_digest = [0; 32];
+    assert_eq!(e.reserve(q), Err(Error::InvalidRequest));
+    assert_eq!(e, original);
+    assert_eq!(
+        e.recover_intent(DurableRecord {
+            request: q,
+            sequence: 1
+        }),
+        Err(Error::InvalidRequest)
+    );
+    assert_eq!(e, original);
+}
+
+#[test]
+fn commit_receipt_for_another_command_is_rejected() {
+    let mut e = engine();
+    e.reserve(request(1)).unwrap();
+    let mut record = e.durable_record(1).unwrap();
+    record.request.command_digest[0] ^= 1;
+    assert_eq!(
+        e.accept_commit(
+            CommitReceipt {
+                record,
+                local_durable: true,
+                replica_durable: false,
+            },
+            CommitProfile::LocalDurable,
+        ),
+        Err(Error::ReceiptMismatch)
+    );
+    assert_eq!(e.begin_send(1), Err(Error::NotDurable));
 }
 
 #[test]

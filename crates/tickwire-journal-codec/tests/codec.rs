@@ -13,6 +13,7 @@ fn order() -> OrderIdentity {
 }
 fn prepared() -> PreparedIntent {
     PreparedIntent {
+        command_digest: [9; 32],
         order: order(),
         quantity: 4,
         unit_budget: 10,
@@ -77,6 +78,7 @@ fn maximum() -> Record {
     r.journal_seq = u64::MAX;
     r.writer_exec_epoch = u64::MAX;
     r.event = Event::PreparedIntent(PreparedIntent {
+        command_digest: [255; 32],
         order: OrderIdentity {
             venue: u32::MAX,
             account: u64::MAX,
@@ -135,7 +137,39 @@ struct GoldenInteger {
     wire: String,
 }
 fn golden() -> Golden {
-    serde_json::from_str(include_str!("golden.json")).unwrap()
+    serde_json::from_str(include_str!("golden-v2.json")).unwrap()
+}
+
+#[test]
+fn schema_one_cannot_supply_a_bound_command() {
+    let legacy: Golden = serde_json::from_str(include_str!("golden.json")).unwrap();
+    for event in legacy.events {
+        assert_eq!(decode(&unhex(&event.wire)), Err(DecodeError::Schema));
+    }
+    assert_eq!(
+        decode(&unhex(&legacy.maximum.wire)),
+        Err(DecodeError::Schema)
+    );
+}
+
+#[test]
+fn command_digest_survives_replay_and_changes_business_identity() {
+    let original = record("prepared");
+    assert_eq!(decode(&encode(&original)), Ok(original));
+    let Event::PreparedIntent(mut p) = original.event else {
+        unreachable!()
+    };
+    for index in 0..32 {
+        p.command_digest[index] ^= 1;
+        let changed = Record {
+            event: Event::PreparedIntent(p),
+            ..original
+        };
+        assert_ne!(business_digest(&original), business_digest(&changed));
+        assert_ne!(encode(&original), encode(&changed));
+        assert_eq!(decode(&encode(&changed)), Ok(changed));
+        p.command_digest[index] ^= 1;
+    }
 }
 
 #[test]
@@ -241,7 +275,7 @@ fn rejects_noncanonical_and_out_of_range_integer_representations() {
 fn rejects_schema_map_key_length_and_type_variants() {
     let base = fee_wire();
     let mut cases = Vec::new();
-    for (index, replacement) in [(0, 0xbf), (0, 0xa6), (0, 0xa8), (0, 0x87), (2, 2)] {
+    for (index, replacement) in [(0, 0xbf), (0, 0xa6), (0, 0xa8), (0, 0x87), (2, 1)] {
         let mut b = base.clone();
         b[index] = replacement;
         cases.push(b);
@@ -251,7 +285,7 @@ fn rejects_schema_map_key_length_and_type_variants() {
     b.extend_from_slice(&base[1..]);
     cases.push(b);
     let mut b = base[..2].to_vec();
-    b.extend_from_slice(&[0x18, 1]);
+    b.extend_from_slice(&[0x18, 2]);
     b.extend_from_slice(&base[3..]);
     cases.push(b);
     // Domain byte string: wrong length and attacker-controlled huge length.
@@ -337,7 +371,7 @@ fn business_digest_ignores_writer_and_journal_placement() {
     let mut changed = original;
     changed.risk_domain_id[0] ^= 1;
     mutations.push(changed);
-    for field in 0..14 {
+    for field in 0..15 {
         let mut p = prepared();
         match field {
             0 => p.order.venue += 1,
@@ -354,6 +388,7 @@ fn business_digest_ignores_writer_and_journal_placement() {
             11 => p.recovery_object += 1,
             12 => p.commit_profile = CommitProfile::SyncReplica,
             13 => p.order.intent_exec_epoch += 1,
+            14 => p.command_digest[0] ^= 1,
             _ => unreachable!(),
         }
         let mut changed = original;

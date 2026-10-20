@@ -3,7 +3,7 @@ EXTENDS Naturals, Sequences, FiniteSets, TLC
 
 \* var <-> code map; all paths relative to repository root.
 \* live/durable/frozen: Engine order/send/terminal/durable + global frozen
-\*   crates/tickwire-execution/src/lib.rs:138-153,276-339,351-390,407-436
+\*   crates/tickwire-execution/src/lib.rs:140-155; crates/tickwire-execution/src/lib.rs:279-342; crates/tickwire-execution/src/lib.rs:354-393; crates/tickwire-execution/src/lib.rs:410-439
 \* journal: actual MockJournal.events, not grouped views
 \*   crates/tickwire-mock/src/lib.rs:76-160
 \* pc/cur: serial &mut MockRuntime call stack, crates/tickwire-mock/src/lib.rs:225-277
@@ -34,7 +34,7 @@ Init == /\ live = Empty /\ durable = {} /\ frozen = FALSE /\ journal = <<>>
         /\ rebuilt = Empty /\ pos = 1 /\ crashes = 0
 
 \* MockRuntime.submit + Engine.reserve: crates/tickwire-mock/src/lib.rs:225-233;
-\* crates/tickwire-execution/src/lib.rs:276-299. Legal dependencies abstracted successful.
+\* crates/tickwire-execution/src/lib.rs:279-302. Legal dependencies abstracted successful.
 Reserve(o) == /\ pc = "Idle" /\ ~frozen /\ o \notin used
               /\ Held(live) + Budget(o) <= Capital
               /\ live' = [live EXCEPT ![o] = "Reserved"] /\ used' = used \cup {o}
@@ -56,10 +56,10 @@ PersistIntent == /\ pc = "Commit"
 \* Loss after persistence: crates/tickwire-mock/src/lib.rs:149-151.
 LoseReceipt == /\ pc = "Receipt" /\ pc' = "Idle"
                /\ UNCHANGED <<live, durable, frozen, journal, cur, used, sent, rebuilt, pos, crashes>>
-\* Matching LocalDurable receipt: crates/tickwire-execution/src/lib.rs:308-320.
+\* Matching LocalDurable receipt: crates/tickwire-execution/src/lib.rs:311-323.
 AcceptReceipt == /\ pc = "Receipt" /\ durable' = durable \cup {cur} /\ pc' = "Begin"
                  /\ UNCHANGED <<live, frozen, journal, cur, used, sent, rebuilt, pos, crashes>>
-\* Before handing bytes to adapter: crates/tickwire-execution/src/lib.rs:322-339.
+\* Before handing bytes to adapter: crates/tickwire-execution/src/lib.rs:325-342.
 BeginSend == /\ pc = "Begin" /\ live[cur] = "Reserved" /\ cur \in durable /\ ~frozen
              /\ live' = [live EXCEPT ![cur] = "Pending"] /\ pc' = "Dispatch"
              /\ UNCHANGED <<durable, frozen, journal, cur, used, sent, rebuilt, pos, crashes>>
@@ -84,7 +84,7 @@ PersistRelease == /\ pc \in {"AbortAppend", "TerminalAppend"}
                   /\ pc' = IF pc = "AbortAppend" THEN "AbortApply" ELSE "TerminalApply"
                   /\ UNCHANGED <<live, durable, frozen, cur, used, sent, rebuilt, pos, crashes>>
 \* Exact identity is fixed in this model. NoBytes and zero-fill terminal reducers:
-\* crates/tickwire-execution/src/ports.rs:76-108; crates/tickwire-execution/src/lib.rs:359-372,407-436.
+\* crates/tickwire-execution/src/ports.rs:76-108; crates/tickwire-execution/src/lib.rs:362-375; crates/tickwire-execution/src/lib.rs:410-439.
 ApplyRelease == /\ pc \in {"AbortApply", "TerminalApply"}
                 /\ live' = [live EXCEPT ![cur] = IF pc = "AbortApply" THEN "Abort" ELSE "Terminal"]
                 /\ pc' = "Idle"
@@ -94,7 +94,7 @@ Crash == /\ crashes < MaxCrashes /\ crashes' = crashes + 1
          /\ frozen' = TRUE /\ rebuilt' = Empty /\ pos' = 1 /\ pc' = "Recover"
          /\ UNCHANGED <<live, durable, journal, cur, used, sent>>
 \* Ordered replay, not grouped projections. Every event checks its current predecessor.
-\* crates/tickwire-mock/src/lib.rs:285-289; crates/tickwire-execution/src/lib.rs:504-528;
+\* crates/tickwire-mock/src/lib.rs:285-289; crates/tickwire-execution/src/lib.rs:507-531;
 \* crates/tickwire-execution/src/ports.rs:76-108.
 ReplayOne ==
   /\ pc = "Recover" /\ pos <= Len(journal)

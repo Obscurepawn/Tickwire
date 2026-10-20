@@ -33,6 +33,8 @@ impl OrderKey {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct OrderRequest {
     pub key: OrderKey,
+    /// Digest of the immutable, complete venue command.
+    pub command_digest: [u8; 32],
     pub quantity: u64,
     pub unit_budget: i128,
     pub fee_budget: i128,
@@ -261,6 +263,7 @@ impl<const N: usize, const T: usize> Engine<N, T> {
     }
     fn checked_budget(r: OrderRequest) -> Result<i128, Error> {
         if r.quantity == 0
+            || r.command_digest == [0; 32]
             || r.unit_budget <= 0
             || r.fee_budget < 0
             || r.key.intent == 0

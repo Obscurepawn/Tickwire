@@ -63,6 +63,7 @@ fn gate() -> ex::Gate {
 }
 fn request(id: u64) -> ex::OrderRequest {
     ex::OrderRequest {
+        command_digest: recovery::digest(&mock_command(id)),
         key: ex::OrderKey {
             venue: 1,
             account: 2,
@@ -79,6 +80,9 @@ fn request(id: u64) -> ex::OrderRequest {
         recovery_object: id,
         commit_profile: ex::CommitProfile::LocalDurable,
     }
+}
+fn mock_command(id: u64) -> Vec<u8> {
+    format!("mock-command:{id}").into_bytes()
 }
 fn identity(id: u64, seq: u64) -> codec::OrderIdentity {
     codec::OrderIdentity {
@@ -134,13 +138,11 @@ fn input_chunk() -> (Vec<u8>, recovery::InputBoundary) {
         },
     )
 }
-impl<S: recovery::BlobStore> CommitAuthorizer for MockAuthorizer<S> {
-    fn current_gate(&mut self) -> std::result::Result<ex::Gate, AuthorizationError> {
-        Ok(gate())
-    }
-    fn authorize(
+impl<S: recovery::BlobStore> MockAuthorizer<S> {
+    fn authorize_mode(
         &mut self,
         r: AuthorizationRequest<'_>,
+        include_command: bool,
     ) -> std::result::Result<recovery::VerifiedClosure, AuthorizationError> {
         let mut p = self.0.lock().unwrap();
         let mut objects = Vec::new();
@@ -168,6 +170,18 @@ impl<S: recovery::BlobStore> CommitAuthorizer for MockAuthorizer<S> {
             schema_id: 1,
             owner_identity: [1; 16],
         });
+        if include_command {
+            let bytes = mock_command(r.record.request.key.intent);
+            let hash = p.put_object(&bytes).map_err(AuthorizationError::Recovery)?;
+            objects.push(recovery::DependencyObject {
+                kind: recovery::COMMAND_DEPENDENCY_KIND,
+                content_hash: hash,
+                byte_length: bytes.len() as u64,
+                schema_id: 1,
+                owner_identity: [1; 16],
+            });
+        }
+        let edges = (1..objects.len() as u16).map(|i| (0, i)).collect();
         let manifest = recovery::RecoveryManifest {
             binding: *r.binding,
             logical_strategy_id: 1,
@@ -179,10 +193,22 @@ impl<S: recovery::BlobStore> CommitAuthorizer for MockAuthorizer<S> {
             pin_id: [5; 16],
             input_boundary: boundary,
             objects,
-            edges: (1..12).map(|i| (0, i)).collect(),
+            edges,
         };
         p.publish(&manifest).map_err(AuthorizationError::Recovery)
     }
+}
+impl<S: recovery::BlobStore> CommitAuthorizer for MockAuthorizer<S> {
+    fn current_gate(&mut self) -> std::result::Result<ex::Gate, AuthorizationError> {
+        Ok(gate())
+    }
+    fn authorize(
+        &mut self,
+        r: AuthorizationRequest<'_>,
+    ) -> std::result::Result<recovery::VerifiedClosure, AuthorizationError> {
+        self.authorize_mode(r, true)
+    }
+
     fn verify_recovery(
         &mut self,
         r: AuthorizationRequest<'_>,
@@ -467,6 +493,76 @@ fn commit_is_idempotent_but_changed_intent_is_rejected() {
 }
 
 #[test]
+fn command_digest_is_recovered_from_actual_wal_and_rebinding_conflicts() {
+    let d = Directory::new();
+    let authorizer = MockAuthorizer::default();
+    let mut live = create(&d, authorizer.clone(), SpyExchange::default());
+    let q = request(1);
+    live.submit(q).unwrap();
+    let mut changed = q;
+    changed.command_digest[31] ^= 1;
+    assert!(matches!(live.submit(changed), Err(Error::Conflict)));
+    assert!(live.view().frozen);
+    drop(live);
+    let recovered = reopen(&d, authorizer).unwrap();
+    assert_eq!(recovered.order(1).unwrap().request, q);
+    assert!(recovered.view().frozen);
+}
+
+#[test]
+fn closure_without_full_command_cannot_authorize_wal() {
+    let d = Directory::new();
+    let mut a = MockAuthorizer::default();
+    let record = ex::DurableRecord {
+        request: request(1),
+        sequence: 1,
+    };
+    let event = intent_record(&config(), 7, 1, record);
+    let binding = closure_binding(&event).unwrap();
+    let bytes = codec::business_payload(&event);
+    let cap = a
+        .authorize_mode(
+            AuthorizationRequest {
+                binding: &binding,
+                record: &record,
+                intent_payload: &bytes,
+            },
+            false,
+        )
+        .unwrap();
+    let mut j = BusinessJournal::create(FileBackend::open(d.wal()).unwrap(), config(), 7).unwrap();
+    assert!(j.commit_intent(record, &cap).is_err());
+    assert_eq!(j.position(), 0);
+}
+
+#[test]
+fn closure_with_matching_intent_but_another_command_is_rejected() {
+    let d = Directory::new();
+    let mut a = MockAuthorizer::default();
+    let mut q = request(1);
+    q.command_digest[0] ^= 1;
+    let record = ex::DurableRecord {
+        request: q,
+        sequence: 1,
+    };
+    let event = intent_record(&config(), 7, 1, record);
+    let binding = closure_binding(&event).unwrap();
+    let bytes = codec::business_payload(&event);
+    let cap = a
+        .authorize(AuthorizationRequest {
+            binding: &binding,
+            record: &record,
+            intent_payload: &bytes,
+        })
+        .unwrap();
+    assert_eq!(cap.binding(), &binding);
+    assert_ne!(cap.command_digest(), Some(q.command_digest));
+    let mut j = BusinessJournal::create(FileBackend::open(d.wal()).unwrap(), config(), 7).unwrap();
+    assert!(j.commit_intent(record, &cap).is_err());
+    assert_eq!(j.position(), 0);
+}
+
+#[test]
 fn recovered_commit_retry_keeps_original_position_across_writer_change() {
     let d = Directory::new();
     let mut a = MockAuthorizer::default();
@@ -697,6 +793,7 @@ fn ordered_abort_before_next_intent_avoids_recovery_arithmetic_overflow() {
     first.fee_budget = 1;
     let mut second = first;
     second.key.intent = 2;
+    second.command_digest = recovery::digest(&mock_command(2));
     second.recovery_object = 2;
     r.submit(first).unwrap();
     r.submit(second).unwrap();

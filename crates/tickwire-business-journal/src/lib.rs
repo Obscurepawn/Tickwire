@@ -247,6 +247,9 @@ impl<S: Backend> BusinessJournal<S> {
         if closure.binding() != &closure_binding(&event)? {
             return Err(Error::Invalid("closure does not bind intent"));
         }
+        if closure.command_digest() != Some(record.request.command_digest) {
+            return Err(Error::Invalid("closure does not include command"));
+        }
         if let Some((old, receipt)) = self.intents.get(&record.request.key.intent)
             && *old == record
         {
@@ -340,6 +343,7 @@ pub fn intent_record(
         journal_seq,
         writer_exec_epoch,
         event: codec::Event::PreparedIntent(codec::PreparedIntent {
+            command_digest: r.command_digest,
             order: codec::OrderIdentity {
                 venue: r.key.venue,
                 account: r.key.account,
@@ -385,6 +389,7 @@ fn request_from_record(record: &Record) -> Result<DurableRecord> {
     Ok(DurableRecord {
         sequence: p.order.intent_seq,
         request: OrderRequest {
+            command_digest: p.command_digest,
             key: tickwire_execution::OrderKey {
                 venue: p.order.venue,
                 account: p.order.account,

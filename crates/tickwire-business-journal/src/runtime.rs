@@ -70,7 +70,9 @@ impl<S: Backend, A: CommitAuthorizer, E: Exchange, const N: usize, const T: usiz
                         intent_payload: &bytes,
                     })
                     .map_err(Error::Authorization)?;
-                if cap.binding() != &binding {
+                if cap.binding() != &binding
+                    || cap.command_digest() != Some(record.request.command_digest)
+                {
                     return Err(Error::Quarantined("recovery closure mismatch"));
                 }
                 runtime.engine.recover_intent(record)?;

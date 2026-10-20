@@ -1,0 +1,169 @@
+   Compiling tickwire-recovery v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-recovery)
+   Compiling tickwire-business-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-business-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.72s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_business_journal-09dd436a59d5d462)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime.rs (target/debug/deps/runtime-a6d36f0fc4069500)
+
+running 27 tests
+test cwd_child ... ignored, subprocess helper
+test file_crash_child ... ignored, subprocess helper
+test closure_without_full_command_cannot_authorize_wal ... ok
+test external_abort_cannot_release_an_order ... ok
+test commit_is_idempotent_but_changed_intent_is_rejected ... ok
+test command_digest_is_recovered_from_actual_wal_and_rebinding_conflicts ... ok
+test abort_sync_failure_retains_reservation_and_freezes ... ok
+test conflicting_original_order_identity_is_preserved_and_quarantined ... ok
+test fact_duplicates_are_durable_but_counted_once ... ok
+test final_gate_expiry_during_io_keeps_durable_reservation_without_sending ... ok
+test empty_recovery_is_frozen_and_bootstrap_capital_cannot_change ... ok
+test missing_closure_stops_recovery_instead_of_republishing ... ok
+test prepared_sync_failure_never_sends_and_keeps_reservation ... ok
+
+running 1 test
+test invalid_fact_is_preserved_then_live_and_recovery_freeze ... ok
+test no_bytes_is_durable_before_release_and_replays_in_order ... ok
+test ordered_abort_before_next_intent_avoids_recovery_arithmetic_overflow ... ok
+test real_wal_reopens_committed_order_frozen_without_exchange_call ... ok
+test recovered_commit_retry_keeps_original_position_across_writer_change ... ok
+test recovered_writer_can_append_old_order_facts_but_never_send ... ok
+test cwd_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 26 filtered out; finished in 0.18s
+
+test sync_replica_has_no_implicit_mock_or_local_downgrade ... ok
+test relative_backend_remains_bound_to_locked_directory_after_cwd_change ... ok
+test verified_closure_for_another_intent_cannot_authorize_wal_or_send ... ok
+test terminal_missing_fill_details_and_late_fees_replay_exactly ... ok
+test torn_abort_keeps_reserve_then_recovery_discards_only_unsealed_tail ... ok
+test valid_physical_frame_with_invalid_business_payload_cannot_recover ... ok
+test final_gate_revalidates_all_authority_and_validity_fields ... ok
+test actual_process_kill_replays_synced_wal_and_file_closure_frozen ... ok
+
+test result: ok. 25 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.80s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_execution-b02c596d66112e7a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-6029a68673101233)
+
+running 18 tests
+test a_fee_fact_blocks_a_contradictory_no_bytes_callback ... ok
+test authoritative_spend_above_budget_is_recorded_and_freezes_admission ... ok
+test commit_receipt_for_another_command_is_rejected ... ok
+test cannot_send_before_durable_and_gate_is_checked_again ... ok
+test competing_strategies_share_atomic_reservation ... ok
+test crash_recovery_marks_every_committed_intent_as_maybe_sent ... ok
+test explicit_unknown_freezes_the_shared_pool_without_releasing_reservation ... ok
+test idempotent_commit_cannot_erase_live_state ... ok
+test fill_before_ack_duplicates_out_of_order_and_fee_tail ... ok
+test invalid_fill_and_conflicting_duplicate_are_atomic ... ok
+test missing_command_digest_cannot_reserve_or_recover ... ok
+test no_bytes_release_does_not_invent_fee_payment ... ok
+test sync_profile_requires_matching_replica_receipt ... ok
+test synchronous_profile_cannot_be_downgraded_by_the_receipt_caller ... ok
+test terminal_before_trade_details_keeps_missing_fill_budget ... ok
+test timeout_not_found_and_cancel_request_keep_unknown_reserved ... ok
+test unaccountable_external_fact_freezes_new_risk ... ok
+test wrong_domain_and_expired_intents_are_rejected ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_journal_codec-b23aae5ebfe89a59)
+
+running 1 test
+test chain::tests::exhausted_sequence_does_not_wrap_or_mutate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codec.rs (target/debug/deps/codec-00bd6e3a90f0d738)
+
+running 14 tests
+test genesis_binds_domain_and_epoch_while_business_hash_binds_all_fact_fields ... ok
+test journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup ... ok
+test maximum_size_and_extreme_i128_are_exact ... ok
+test rejects_schema_map_key_length_and_type_variants ... ok
+test business_digest_ignores_writer_and_journal_placement ... ok
+test independent_golden_events_takeover_and_logical_prefixes ... ok
+test rfc_integer_golden_boundaries_round_trip_in_fee_field ... ok
+test schema_one_cannot_supply_a_bound_command ... ok
+test same_late_fact_keeps_business_digest_across_writer_takeover ... ok
+test command_digest_survives_replay_and_changes_business_identity ... ok
+test sequence_identity_epoch_and_hash_failures_are_atomic ... ok
+test rejects_all_truncations_trailing_data_and_excess_length ... ok
+test rejects_noncanonical_and_out_of_range_integer_representations ... ok
+test accepted_mutated_inputs_reencode_to_exactly_the_same_bytes ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_mock-dc00f80319976e0b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/services.rs (target/debug/deps/services-6cd5148e0fed07a2)
+
+running 21 tests
+test an_abort_before_its_intent_cannot_recover_a_live_engine ... ok
+test committed_but_lost_storage_receipt_is_recovered_conservatively ... ok
+test accepted_order_ack_loss_and_recovery_do_not_resubmit ... ok
+test abort_record_binds_epoch_request_and_sequence_before_releasing ... ok
+test duplicate_abort_is_idempotent_but_fee_evidence_rejects_abort ... ok
+test durable_abort_prevents_reholding_released_budget_on_restart ... ok
+test even_empty_journal_restart_requires_recovery_authorization ... ok
+test failed_abort_persistence_retains_reservation_and_freezes ... ok
+test facts_are_not_applied_when_storage_fails ... ok
+test failed_recovery_cannot_leave_the_old_engine_authorized ... ok
+test healthy_async_pending_response_is_distinct_from_timeout ... ok
+test journal_events_preserve_order_without_duplicating_idempotent_commit ... ok
+test kv_failure_never_reaches_journal_or_exchange ... ok
+test missing_recovery_dependency_prevents_commit ... ok
+test no_bytes_abort_survives_restart ... ok
+test persisted_abort_is_recovered_even_before_live_apply ... ok
+test recovery_replays_terminal_release_before_later_intent ... ok
+test relational_cas_and_immutable_kv_contracts ... ok
+test storage_failure_never_reaches_exchange ... ok
+test synchronous_replica_pending_does_not_fall_back_to_local ... ok
+test venue_identity_is_not_binance_specific_and_domains_cannot_mix ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/spot-roundtrip.rs (target/debug/examples/spot_roundtrip-66ad52c0772ab950)
+
+running 1 test
+test roundtrip_is_deterministic_and_recovery_preserves_accounting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_recovery-1fe6695a32efdef5)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/closure.rs (target/debug/deps/closure-7cf43628175ac10f)
+
+running 13 tests
+test descriptor_and_graph_bounds_precede_blob_reads ... ok
+test failed_manifest_sync_cannot_produce_binding ... ok
+test command_dependency_is_checked_and_preserved_in_private_capability ... ok
+test decision_coverage_comes_from_actual_bytes ... ok
+test missing_kind_cycles_missing_bytes_and_wrong_binding_are_rejected ... ok
+test complete_closure_publishes_and_reopens_exact_binding ... ok
+test binding_is_immutable_and_identical_publish_is_idempotent ... ok
+test revalidation_reestablishes_storage_completion_before_issuing_capability ... ok
+test partial_binding_publication_retries_sync_before_receipt ... ok
+test split_input_chunks_are_ordered_by_sequence_and_gaps_overlaps_fail ... ok
+test canonical_manifest_rejects_every_truncation_and_nonminimal_schema ... ok
+test malformed_input_bytes_with_correct_object_hash_are_rejected ... ok
+test file_store_reopens_pins_and_detects_corruption_with_real_bytes ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.29s

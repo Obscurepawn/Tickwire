@@ -8,7 +8,7 @@
 
 | 键 | 字段 | 类型与含义 |
 | --- | --- | --- |
-| 0 | schema_version | 固定整数 1 |
+| 0 | schema_version | 固定整数 2 |
 | 1 | risk_domain_id | 16 字节 byte string，与物理帧 domain 一致 |
 | 2 | journal_epoch | 16 字节 byte string，与物理帧 stream_epoch 一致 |
 | 3 | journal_seq | u64，全事件日志序号 |
@@ -20,7 +20,7 @@ payload 公共键为 `0 venue:u32`、`1 account:u64`、`2 product`、`3 intent_i
 
 | 事件 | 额外键及类型 |
 | --- | --- |
-| PreparedIntent | 6 quantity:u64；7 unit_budget:i128；8 fee_budget:i128；9 strategy_generation:u64；10 config_revision:u64；11 deadline:u64；12 recovery_object:u64；13 commit_profile |
+| PreparedIntent | 6 quantity:u64；7 unit_budget:i128；8 fee_budget:i128；9 strategy_generation:u64；10 config_revision:u64；11 deadline:u64；12 recovery_object:u64；13 commit_profile；14 command_digest:bytes(32) |
 | Fill | 6 trade_id:u64；7 quantity:u64；8 cost:i128 |
 | Fee | 6 fee_id:u64；7 amount:i128 |
 | Terminal | 6 status；7 cumulative:u64 |
@@ -34,7 +34,7 @@ codec 保留 u64 与 i128 的全部数值，包括零数量和负成本等需要
 
 map 长度固定，键升序，整数和长度使用最短表示。未知、缺失、重复、乱序键、尾随内容、不定长项、浮点数和 schema 以外的 CBOR 类型均拒绝。i128 优先使用 major type 0/1；需要更大幅度时使用 tag 2/3，后接 9–16 字节、无前导零的大端 byte string。负整数的幅度是 `-1-value`，因此无需对 `i128::MIN` 求负；正负幅度都不得超过 `i128::MAX`。这采用 [RFC 8949 §3.4.3](https://www.rfc-editor.org/rfc/rfc8949.html#section-3.4.3) 和 [§4.2.1–4.2.2](https://www.rfc-editor.org/rfc/rfc8949.html#section-4.2.1) 的确定性规则。
 
-Schema 1 最长记录为 201 字节：信封 62 字节，加所有整数取最大编码长度时的 PreparedIntent payload 139 字节。解码先检查总长度，随后按固定文法读取，不分配输入声明长度对应的缓冲区。
+Schema 2 最长记录为 236 字节：信封 62 字节，加所有整数取最大编码长度时的 PreparedIntent payload 174 字节。解码先检查总长度，随后按固定文法读取，不分配输入声明长度对应的缓冲区。
 
 `encode(&Record) -> Vec<u8>` 产生唯一字节表示；`decode(&[u8]) -> Result<Record, DecodeError>` 要求完整消耗输入。`business_digest(&Record)` 返回稳定业务摘要，`logical_payload_hash(&Record)` 再绑定写入者代次。`LogicalChain::new(domain, journal_epoch)` 从原始流 genesis 开始，`append` 检查身份、连续序号与写入者代次后前进；`verify_and_append` 额外比对调用者提供的期望逻辑哈希。任何错误保持原链状态不变。
 
@@ -44,16 +44,16 @@ Schema 1 最长记录为 201 字节：信封 62 字节，加所有整数取最�
 
 ```text
 business_digest = SHA256(CBOR([
-  "tickwire.business-event", 1, domain, type, payload
+  "tickwire.business-event", 2, domain, type, payload
 ]))
 logical_payload_hash = SHA256(CBOR([
-  "tickwire.logical-payload", 1, writer_exec_epoch, business_digest
+  "tickwire.logical-payload", 2, writer_exec_epoch, business_digest
 ]))
 genesis = SHA256(CBOR([
-  "tickwire.logical-genesis", 1, domain, journal_epoch
+  "tickwire.logical-genesis", 2, domain, journal_epoch
 ]))
 H_i = SHA256(H_previous || CBOR([
-  "tickwire.logical-record", 1, domain, journal_epoch,
+  "tickwire.logical-record", 2, domain, journal_epoch,
   journal_seq, type, logical_payload_hash
 ]))
 ```
@@ -65,3 +65,5 @@ H_i = SHA256(H_previous || CBOR([
 原始流从 journal_seq 1 开始；codec 本身能保留任意 u64，连续性由链检查。重复回报可占新的 journal_seq，交易结果记录去重由业务内核处理；重复或跳过已有日志位置则拒绝。当前链仅支持同一 journal_epoch 从 genesis 重放。主设计要求正常 epoch 提升保留已验证前驱并继续序号，该转换留给后续证明层，不在此接口中重置序号模拟提升。
 
 物理 WAL 和此 codec 各自校验自己的字段；未来适配器还需比对 domain、journal_epoch、journal_seq、writer_exec_epoch，验证依赖闭包及恢复冻结，再形成业务提交证明。这里没有 `durable=true` 一类可由调用者构造的授权标志。
+
+完整命令与恢复对象的核对见[命令绑定接口](command-binding-interface.md)。schema 1 样本保留为历史格式，当前解码器拒绝该版本；缺失摘要不能升级为默认值。

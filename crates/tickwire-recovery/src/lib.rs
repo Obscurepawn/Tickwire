@@ -10,6 +10,7 @@ mod files;
 pub use files::FileBlobStore;
 
 pub type Hash = [u8; 32];
+pub const COMMAND_DEPENDENCY_KIND: u8 = 13;
 pub const MAX_OBJECT_BYTES: usize = 64 * 1024 * 1024;
 pub const MAX_CLOSURE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MAX_MANIFEST_BYTES: usize = 1024 * 1024;
@@ -65,7 +66,7 @@ pub struct InputBoundary {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DependencyObject {
-    /// 1..=12, in replication-profile-v1 required_dependency_kinds order.
+    /// 1..=12 are the required recovery kinds; 13 is a complete venue command.
     pub kind: u8,
     pub content_hash: Hash,
     pub byte_length: u64,
@@ -91,6 +92,7 @@ pub struct RecoveryManifest {
 pub struct VerifiedClosure {
     binding: ClosureBinding,
     root: Hash,
+    command_digest: Option<Hash>,
 }
 impl VerifiedClosure {
     pub fn binding(&self) -> &ClosureBinding {
@@ -98,6 +100,10 @@ impl VerifiedClosure {
     }
     pub fn manifest_root(&self) -> Hash {
         self.root
+    }
+    /// Present only when the manifest includes a verified, synchronized command object.
+    pub fn command_digest(&self) -> Option<Hash> {
+        self.command_digest
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -167,6 +173,7 @@ impl<S: BlobStore> Persistence<S> {
         Ok(VerifiedClosure {
             binding: manifest.binding,
             root,
+            command_digest: command_digest(manifest),
         })
     }
     pub fn verify(&mut self, binding: &ClosureBinding) -> Result<VerifiedClosure> {
@@ -191,6 +198,7 @@ impl<S: BlobStore> Persistence<S> {
         Ok(VerifiedClosure {
             binding: *binding,
             root,
+            command_digest: command_digest(&m),
         })
     }
     fn check(&mut self, m: &RecoveryManifest) -> Result<()> {
@@ -233,6 +241,14 @@ impl<S: BlobStore> Persistence<S> {
         }
         Ok(())
     }
+}
+
+fn command_digest(manifest: &RecoveryManifest) -> Option<Hash> {
+    manifest
+        .objects
+        .iter()
+        .find(|object| object.kind == COMMAND_DEPENDENCY_KIND)
+        .map(|object| object.content_hash)
 }
 
 pub fn binding_key(binding: &ClosureBinding) -> StoreKey {
@@ -279,8 +295,9 @@ fn validate_shape(m: &RecoveryManifest) -> Result<()> {
     let mut intent = 0;
     let mut grant = 0;
     let mut operation = 0;
+    let mut commands = 0;
     for (index, o) in m.objects.iter().enumerate() {
-        if !(1..=12).contains(&o.kind)
+        if !(1..=COMMAND_DEPENDENCY_KIND).contains(&o.kind)
             || o.schema_id == 0
             || o.owner_identity == [0; 16]
             || o.content_hash == [0; 32]
@@ -309,10 +326,11 @@ fn validate_shape(m: &RecoveryManifest) -> Result<()> {
             }
             4 if o.content_hash == m.action_grant_ref => grant += 1,
             7 if o.content_hash == m.operation_ref => operation += 1,
+            COMMAND_DEPENDENCY_KIND => commands += 1,
             _ => {}
         }
     }
-    if kinds != 0xfff || intent != 1 || grant != 1 || operation != 1 {
+    if kinds & 0xfff != 0xfff || intent != 1 || grant != 1 || operation != 1 || commands > 1 {
         return Err(Error::Invalid("required dependencies"));
     }
     let n = m.objects.len();

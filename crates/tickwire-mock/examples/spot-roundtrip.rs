@@ -116,6 +116,7 @@ fn run_scenario() -> (usize, i128, i128, bool) {
     };
     let mut services = MockRuntime::<8, 8>::new(domain, 1000, gate).unwrap();
     let request = OrderRequest {
+        command_digest: [9; 32],
         key: OrderKey {
             venue: domain.venue,
             account: domain.account,

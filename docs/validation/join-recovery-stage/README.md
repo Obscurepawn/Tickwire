@@ -7,7 +7,7 @@
 | macOS | `./scripts/check-rust.sh`，退出码 0 | [macos.log](macos.log) |
 | Linux aarch64 | `./scripts/check-linux.sh`，退出码 0 | [linux.log](linux.log) |
 | 运行源码 | 102 个源码、Cargo 配置和检查脚本摘要 | [source.sha256](source.sha256) |
-| Mock 中止与恢复 | 未发送中止先保存再释放；按实际事件顺序重放 | [测试与审阅](../mock-abort/README.md) |
+| Mock 中止与恢复 | 未发送中止先保存再释放；按实际事件顺序重放 | [测试与审阅](../mock-abort/report.md) |
 | 业务日志 | 23 项测试；真实文件、同步错误、SIGKILL 和目录固定 | [测试与审阅](../business-journal/README.md) |
 | 恢复依赖 | 12 项测试；独立基准样本、对象与输入验证、同步重试 | [测试与审阅](../recovery-closure/README.md) |
 | JOIN | owner、Supervisor 与 consumer 三进程；真实 FD 交付、追平和退出 | [测试与审阅](../join/README.md) |

@@ -7,6 +7,7 @@
 | execution/submission L2 | 成交/费用/终态、重复/冲突、容量/上界、Mock 事实重放 | 历史版本 PASS v2；L2-001 已修复验证 | 当前事件顺序下的交易结果记录组合模型与 L3 激活 |
 | mock_abort L0 | 未发送中止先保存再释放，按事件顺序恢复，失败保持冻结 | 三配置 PASS | 成交、费用与终态的完整组合 |
 | recovery_closure L0 | 对象、manifest、绑定、同步结果与验证结果交付 | 三配置 PASS | 依赖释放、多持有者及回收 |
+| business_journal L1 | 命令摘要、完整命令依赖、冲突和冻结恢复 | 三配置 PASS | 完整参数与真实网络发送组合 |
 | business_journal L0 | 恢复依赖验证、WAL 同步、最终发送检查、中止和冻结恢复 | 三配置 PASS | 交易结果记录、同步副本及恢复后激活 |
 | book_state L0/L1 | Spot/Futures 桥接、旧 generation、失败原子性与有限深度知识 | 八配置 PASS | 真实适配器、快照/增量接线与 exec 行情门禁组合 |
 | risk_reservation | 多资产预留与费用清算 | 未建模 | 衔接 execution 的资金分录 |

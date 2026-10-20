@@ -1,32 +1,32 @@
 ---------------------------- MODULE L0_CommitGate ----------------------------
 EXTENDS Naturals, FiniteSets, TLC
 
-\* var <-> code map; Init: crates/tickwire-execution/src/lib.rs:219-232 (repo-relative paths)
-\* Orders, Slots: bounded Engine<N,T>.orders, crates/tickwire-execution/src/lib.rs:212
-\* Budget, Capital: checked_budget and Engine.capital, crates/tickwire-execution/src/lib.rs:262
-\* present, profile: orders and immutable request.commit_profile, crates/tickwire-execution/src/lib.rs:276
-\* send, terminal, durable, held: Order fields/held(), crates/tickwire-execution/src/lib.rs:138
-\* local, replica: trusted CommitReceipt completion evidence, crates/tickwire-execution/src/lib.rs:103
+\* var <-> code map; Init: crates/tickwire-execution/src/lib.rs:221-234 (repo-relative paths)
+\* Orders, Slots: bounded Engine<N,T>.orders, crates/tickwire-execution/src/lib.rs:214
+\* Budget, Capital: checked_budget and Engine.capital, crates/tickwire-execution/src/lib.rs:264
+\* present, profile: orders and immutable request.commit_profile, crates/tickwire-execution/src/lib.rs:279
+\* send, terminal, durable, held: Order fields/held(), crates/tickwire-execution/src/lib.rs:140
+\* local, replica: trusted CommitReceipt completion evidence, crates/tickwire-execution/src/lib.rs:105
 \*   These sets DENOTE completed record writes, not acknowledgements accepted by Engine.
-\* gateOpen: conjunction Gate::permits, crates/tickwire-execution/src/lib.rs:60
-\* frozen: Engine::freeze, crates/tickwire-execution/src/lib.rs:238
-\* sendCount: history witness counting successful begin_send returns, crates/tickwire-execution/src/lib.rs:322
-\* Reserve -> reserve: crates/tickwire-execution/src/lib.rs:276
-\* PersistLocal/PersistReplica -> receipt environment: crates/tickwire-execution/src/lib.rs:103
-\* AcceptCommit -> accept_commit exact profile/local/replica guards: crates/tickwire-execution/src/lib.rs:308
-\* BeginSend -> writes MayHaveSent before returning: crates/tickwire-execution/src/lib.rs:337
-\* Ack -> ack: crates/tickwire-execution/src/lib.rs:384
-\* Uncertain -> uncertain and not_found: crates/tickwire-execution/src/lib.rs:374
-\* AbortUnsent -> abort_unsent: crates/tickwire-execution/src/lib.rs:341
-\* NoBytes -> transport_rejected_without_bytes: crates/tickwire-execution/src/lib.rs:352
-\* NoBytesRejected -> error freezes without releasing: crates/tickwire-execution/src/lib.rs:352-373
-\* ToggleGate -> update_gate: crates/tickwire-execution/src/lib.rs:234
-\* Freeze -> freeze: crates/tickwire-execution/src/lib.rs:238
+\* gateOpen: conjunction Gate::permits, crates/tickwire-execution/src/lib.rs:62
+\* frozen: Engine::freeze, crates/tickwire-execution/src/lib.rs:240
+\* sendCount: history witness counting successful begin_send returns, crates/tickwire-execution/src/lib.rs:325
+\* Reserve -> reserve: crates/tickwire-execution/src/lib.rs:279
+\* PersistLocal/PersistReplica -> receipt environment: crates/tickwire-execution/src/lib.rs:105
+\* AcceptCommit -> accept_commit exact profile/local/replica guards: crates/tickwire-execution/src/lib.rs:311
+\* BeginSend -> writes MayHaveSent before returning: crates/tickwire-execution/src/lib.rs:340
+\* Ack -> ack: crates/tickwire-execution/src/lib.rs:387
+\* Uncertain -> uncertain and not_found: crates/tickwire-execution/src/lib.rs:377
+\* AbortUnsent -> abort_unsent: crates/tickwire-execution/src/lib.rs:344
+\* NoBytes -> transport_rejected_without_bytes: crates/tickwire-execution/src/lib.rs:355
+\* NoBytesRejected -> error freezes without releasing: crates/tickwire-execution/src/lib.rs:355-376
+\* ToggleGate -> update_gate: crates/tickwire-execution/src/lib.rs:236
+\* Freeze -> freeze: crates/tickwire-execution/src/lib.rs:240
 \* FAULTS: none at L0. Single-owner API calls; fills/fees/terminal reports at L2.
-\* Full-body drift anchors: crates/tickwire-execution/src/lib.rs:60-71
-\* crates/tickwire-execution/src/lib.rs:138-181
-\* crates/tickwire-execution/src/lib.rs:234-239
-\* crates/tickwire-execution/src/lib.rs:262-392
+\* Full-body drift anchors: crates/tickwire-execution/src/lib.rs:62-73
+\* crates/tickwire-execution/src/lib.rs:140-183
+\* crates/tickwire-execution/src/lib.rs:236-241
+\* crates/tickwire-execution/src/lib.rs:264-395
 
 CONSTANTS Orders, Slots, Budget, Capital
 Profiles == {"Local", "Replica"}

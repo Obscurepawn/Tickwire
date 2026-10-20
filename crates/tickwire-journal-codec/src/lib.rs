@@ -8,8 +8,8 @@ use cbor::{Reader, Writer};
 use sha2::{Digest, Sha256};
 
 pub type Hash = [u8; 32];
-pub const SCHEMA_VERSION: u64 = 1;
-pub const MAX_ENCODED_EVENT_BYTES: usize = 201;
+pub const SCHEMA_VERSION: u64 = 2;
+pub const MAX_ENCODED_EVENT_BYTES: usize = 236;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Product {
@@ -40,6 +40,7 @@ pub struct OrderIdentity {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PreparedIntent {
     pub order: OrderIdentity,
+    pub command_digest: Hash,
     pub quantity: u64,
     pub unit_budget: i128,
     pub fee_budget: i128,
@@ -131,7 +132,7 @@ impl Event {
     }
 }
 
-/// Encodes schema 1. No business authorization or economic validation is performed.
+/// Encodes schema 2. No business authorization or economic validation is performed.
 pub fn encode(record: &Record) -> Vec<u8> {
     let mut w = Writer::new();
     w.map(7);
@@ -152,7 +153,7 @@ pub fn encode(record: &Record) -> Vec<u8> {
     w.finish()
 }
 
-/// Requires exactly one canonical schema-1 record, with no trailing bytes.
+/// Requires exactly one canonical schema-2 record, with no trailing bytes.
 pub fn decode(bytes: &[u8]) -> Result<Record, DecodeError> {
     if bytes.len() > MAX_ENCODED_EVENT_BYTES {
         return Err(DecodeError::TooLong);
@@ -218,7 +219,7 @@ pub fn logical_payload_hash(record: &Record) -> Hash {
 
 fn write_payload(w: &mut Writer, event: &Event) {
     let len = match event {
-        Event::PreparedIntent(_) => 14,
+        Event::PreparedIntent(_) => 15,
         Event::Fill { .. } => 9,
         Event::Fee { .. } | Event::Terminal { .. } => 8,
         Event::AbortedBeforeSend { .. } => 6,
@@ -261,6 +262,8 @@ fn write_payload(w: &mut Writer, event: &Event) {
                 CommitProfile::LocalDurable => 1,
                 CommitProfile::SyncReplica => 2,
             });
+            w.uint(14);
+            w.bytes(&p.command_digest);
         }
         Event::Fill {
             trade_id,
@@ -300,7 +303,7 @@ fn write_payload(w: &mut Writer, event: &Event) {
 
 fn read_payload(r: &mut Reader<'_>, kind: u64) -> Result<Event, DecodeError> {
     r.map(match kind {
-        1 => 14,
+        1 => 15,
         2 => 9,
         3 | 4 => 8,
         5 => 6,
@@ -352,8 +355,11 @@ fn read_payload(r: &mut Reader<'_>, kind: u64) -> Result<Event, DecodeError> {
                 2 => CommitProfile::SyncReplica,
                 _ => return Err(DecodeError::Enum),
             };
+            r.key(14)?;
+            let command_digest = r.bytes()?;
             Event::PreparedIntent(PreparedIntent {
                 order,
+                command_digest,
                 quantity,
                 unit_budget,
                 fee_budget,

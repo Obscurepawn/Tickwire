@@ -2,13 +2,13 @@
 EXTENDS Naturals, Sequences, FiniteSets, TLC
 CONSTANTS Orders, Capital, MaxCrashes
 \* var <-> code: one synchronous &mut Runtime; no concurrent method calls.
-\* pc/current: call stack, crates/tickwire-business-journal/src/runtime.rs:83-169.
-\* disk/cache: complete physical prefixes; crates/tickwire-business-journal/src/lib.rs:301-326.
-\* closure: verified persistent binding; crates/tickwire-business-journal/src/runtime.rs:131-139.
-\* held/prepared/aborted: reducer subset, crates/tickwire-execution/src/lib.rs:276-345.
-\* frozen/recovering/index: crates/tickwire-business-journal/src/runtime.rs:41-81,166-168.
-\* live: current_gate sampled after I/O, crates/tickwire-business-journal/src/runtime.rs:90,140-151.
-\* called/noBytes/released/sentFresh: historical witnesses of submit/release, crates/tickwire-business-journal/src/runtime.rs:152-161.
+\* pc/current: call stack, crates/tickwire-business-journal/src/runtime.rs:85-171.
+\* disk/cache: complete physical prefixes; crates/tickwire-business-journal/src/lib.rs:304-329.
+\* closure: verified persistent binding; crates/tickwire-business-journal/src/runtime.rs:133-141.
+\* held/prepared/aborted: reducer subset, crates/tickwire-execution/src/lib.rs:279-348.
+\* frozen/recovering/index: crates/tickwire-business-journal/src/runtime.rs:41-83; crates/tickwire-business-journal/src/runtime.rs:168-170.
+\* live: current_gate sampled after I/O, crates/tickwire-business-journal/src/runtime.rs:92; crates/tickwire-business-journal/src/runtime.rs:142-153.
+\* called/noBytes/released/sentFresh: historical witnesses of submit/release, crates/tickwire-business-journal/src/runtime.rs:154-163.
 \* crashes: bounded process failures; file child test preserves actual files.
 VARIABLE s
 vars == <<s>>
@@ -22,7 +22,7 @@ Init == s=[pc |-> "Idle",current |-> 1,disk |-> <<>>,cache |-> <<>>,
     noBytes |-> {},released |-> {},sentFresh |-> {},live |-> TRUE,
     frozen |-> FALSE,recovering |-> FALSE,index |-> 1,crashes |-> 0]
 
-\* reserve uses a fresh gate and available capital, crates/tickwire-business-journal/src/runtime.rs:83-99.
+\* reserve uses a fresh gate and available capital, crates/tickwire-business-journal/src/runtime.rs:85-101.
 Reserve(i) == /\ s.pc="Idle" /\ ~s.frozen /\ s.live /\ i \in Ids
     /\ i \notin s.prepared \cup s.held /\ Cardinality(s.held)<Capital
     /\ s'=[s EXCEPT !.current=i,!.held=@ \cup {i},!.pc="Authorize"]

@@ -12,6 +12,8 @@ kind 12 保存实际有序输入块。块带 stream、起始序号、前缀 hash
 
 输入块由受信输入 sequencer 或隔离适配器提交。这里验证完整字节及顺序；是否确为策略处理的全部输入仍依赖该采集边界。`deterministic_replay` 与 `declared_rebuild` 保持显式类型，不能在缺少输入时自动切换。
 
+种类 13 保存完整交易命令，最多一个。`VerifiedClosure.command_digest()` 只返回实际校验并同步的该对象摘要；没有种类 13 时返回 `None`。schema 2 业务日志要求它与意图的命令摘要一致，详见[命令绑定接口](command-binding-interface.md)。
+
 ## 文件完成点
 
 `BlobStore::put_sync` 必须幂等，已有键的不同字节返回冲突。`FileBlobStore` 对私有目录持有独占文件锁；先写临时文件并同步，再 rename 到固定内容键，最后同步目录。重试遇到相同文件时仍同步文件与目录，覆盖上次 rename 成功而目录同步失败的情况。`publish` 和恢复用 `verify` 都重新完成各依赖、manifest、binding 的同步后才签发能力；只读到正确字节不足以证明先前的目录同步完成。读取限制实际字节数，拒绝符号链接和非普通文件；父目录及已有目录必须来自受信部署。

@@ -26,6 +26,8 @@ pub trait CommitAuthorizer {
 
 runtime 将 capability 的 risk_domain_id、intent_id、intent_exec_epoch、business_digest、strategy_generation、config_revision、recovery_object 与当前意图逐项比较；不匹配时不写 PreparedIntent、不调用 Exchange。闭包服务持久化不可变的 binding→manifest_root 映射及 pin，恢复按同一绑定重验，避免把可变 u64 对象标识当成内容根。当前实现只开放 LocalDurable；SyncReplica 在指定镜像证明接口完成前拒绝。
 
+业务日志 schema 2 还要求 capability 的 `command_digest()` 等于请求的必填摘要。首次提交、幂等返回及恢复都检查完整命令依赖，不能只验证意图摘要而遗漏命令字节。
+
 ## 身份、顺序与恢复
 
 物理 DataRecord.exec_epoch 对应 codec.writer_exec_epoch；原订单 request.epoch 对应 intent_exec_epoch。PreparedIntent 两者相等；迟到事实保留原订单代次，写入时使用当前 writer 代次。按配置核对 risk_domain_id 与 venue/account/product，journal_seq 来自连续物理记录序号，intent_seq 保留 reducer 的意图编号。Engine 当前按 intent_id 查找，因此本阶段仍要求同一风险域内 intent_id 不跨代次重用。
@@ -48,6 +50,6 @@ runtime 将 capability 的 risk_domain_id、intent_id、intent_exec_epoch、busi
 
 BusinessJournal 是存储原语；公开的 append_fact 本身不提供交易权限。Runtime 私有持有它，不开放可变引用。只有 runtime 的受信授权服务与新鲜门可以启动发送。测试 MockAuthorizer 使用任意示例授权对象，闭包格式和持久化是真实实现，策略授权语义仍是显式 Mock。
 
-新建 FileBackend 复用物理目录的排他锁，固定 canonical 路径，进程切换工作目录不改变后续 I/O 目标。目录建立和重试都同步父目录；正常批次不因此增加一次同步。已有物理格式和 codec 原像保持不变。
+新建 FileBackend 复用物理目录的排他锁，固定 canonical 路径，进程切换工作目录不改变后续 I/O 目标。目录建立和重试都同步父目录；正常批次不因此增加一次同步。物理格式保持不变；业务 codec 的命令绑定升级见[命令绑定接口](command-binding-interface.md)。
 
 业务 WAL L0 检查新增的提交、中止和冻结恢复顺序。完整签名 LocalCommitProof、MirrorCommitProof、真实策略权限提供者、可信资本来源、防回滚、恢复后重新授权及快照压缩仍未实现。进程终止测试覆盖进程崩溃，不覆盖实际掉电。

@@ -100,3 +100,10 @@
 - 四配置不同状态 2,181 / 321,256 / 172 / 7,652，深度 23/35/14/25；主配置各 22 个 Next 动作、两组 wrap 各 16 个动作全部触发。
 - risk 独立源码、模型及最终日志审阅通过，1221 行锚点；[输出](execution_models/join_owner/L0_pending_activation/05_output.md)。
 - 共用截止时间、固定认证身份与有限借用窗口；持久登记、独立截止、bank 轮换和死亡回收待后续。旧 ring 模型只发生行号变化，720 行锚点重审通过，状态公式未变。
+
+## business_journal / L1_command_binding — PASS（2026-10-20）
+
+- 源码：execution command_digest；codec schema 2；recovery kind 13；BusinessJournal 提交及 Runtime 恢复的精确命令依赖检查。
+- 三配置：376 / 2664 / 7326 个不同状态；10 个不变量、全部 29 个 Next 动作可达。
+- 单所有者、完整日志前缀、同步失败与最多两次崩溃；same-intent 变更冻结，恢复保持原摘要。
+- 精确同请求幂等返回由 Rust 回归覆盖；完整命令语义和网络字节仍待网关组合。下层四个当前模型只更新源码锚点，公式不变，旧锁与映射见 docs/validation/command-binding。

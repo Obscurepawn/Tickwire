@@ -6,7 +6,7 @@
 
 ## 当前源码锚点
 
-- `crates/tickwire-recovery/src/lib.rs:145-235`：对象保存、Publish/Verify 及依赖重新同步。
+- `crates/tickwire-recovery/src/lib.rs:151-243`：对象保存、Publish/Verify 及依赖重新同步。
 - `crates/tickwire-recovery/src/files.rs:15-60`：目录创建、重开、父目录同步。
 - `crates/tickwire-recovery/src/files.rs:98-147`：同内容重试、临时文件同步、rename、目录同步与错误返回。
 

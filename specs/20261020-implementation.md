@@ -4,7 +4,7 @@ Status: active
 
 实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。每个模块依次交付接口设计、先失败后通过的测试、实现规格和源码对应的 TLA+ 模型。外部存储通过抽象与 MockService 完成本地链路，交易所通过可扩展适配接口接入。
 
-每完成一个可验证阶段即提交并推送远端，保存对应 Specs、测试和模型结果；提交范围限定为该阶段修改，推送后核对远端 SHA。该节奏于 2026-10-20 由用户授权。
+每完成一个可验证阶段即提交并推送远端，保存对应 Specs、测试和模型结果；提交范围限定为该阶段修改，推送后核对远端 SHA。
 
 ## 实施状态
 
@@ -26,6 +26,7 @@ Status: active
 - [控制会话](../docs/implementation/control-session-interface.md)、[传输边界](../docs/implementation/control-transport-interface.md)与[物理日志](../docs/implementation/journal-interface.md)；各自规格位于 `specs/implementation/`。
 - [不可变资源](implementation/immutable-resource.md)、[Topic 快照构造](implementation/topic-snapshot-builder.md)、[快照接收](implementation/topic-snapshot.md)与[业务日志编码](implementation/journal-codec.md)。
 - [JOIN 协调](implementation/join.md)、[业务日志与恢复](implementation/business-journal.md)、[恢复依赖](implementation/recovery-closure.md)与[Mock 中止重放](implementation/mock-abort.md)。
+- [完整命令摘要与日志绑定](implementation/command-binding.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
@@ -75,8 +76,6 @@ TLC 1.7.4 对执行模块的三个有限模型运行了九组配置，均通过�
 模型检查完整发布、活跃借用与未读记录不被覆盖、释放前缀、实际 cursor 退出证据以及 Freeze。身份固定、序号和借用窗口有限；CPU 弱内存、生产控制身份和跨 bank 轮换由后续验收覆盖。
 
 单元、集成测试与形式化验证保存可复现的命令和结果；部分覆盖的用例标明实际范围。INV-1～INV-14 继续约束实现。
-
-已有未跟踪性能审阅文档属于用户工作树内容，本轮不改写或提交。
 
 ## 控制与物理日志阶段
 

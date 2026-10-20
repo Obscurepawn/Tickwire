@@ -1,0 +1,357 @@
+>>> TLC module=L1_CommandBinding cfg=L1_CommandBinding_competing.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/business_journal/L1_command_binding/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed -8181659883761288593 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/business_journal/L1_command_binding/02_models/L1_CommandBinding.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L1_CommandBinding
+Starting... (2026-10-20 19:50:25)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 19:50:25.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.6E-13
+The coverage statistics at 2026-10-20 19:50:25
+<Init line 26, col 1 to line 26, col 4 of module L1_CommandBinding>: 1:1
+  line 26, col 9 to line 31, col 74 of module L1_CommandBinding: 1
+<Reserve line 36, col 1 to line 36, col 12 of module L1_CommandBinding>: 24:24
+  line 36, col 20 to line 36, col 30 of module L1_CommandBinding: 10680
+  |line 36, col 20 to line 36, col 23 of module L1_CommandBinding: 10656
+  line 36, col 35 to line 36, col 43 of module L1_CommandBinding: 2952
+  |line 36, col 36 to line 36, col 43 of module L1_CommandBinding: 2928
+  line 36, col 48 to line 36, col 53 of module L1_CommandBinding: 224
+  |line 36, col 48 to line 36, col 48 of module L1_CommandBinding: 200
+  line 36, col 58 to line 36, col 66 of module L1_CommandBinding: 224
+  |line 36, col 58 to line 36, col 58 of module L1_CommandBinding: 200
+  |line 36, col 64 to line 36, col 66 of module L1_CommandBinding: 200
+  line 36, col 71 to line 36, col 83 of module L1_CommandBinding: 224
+  |line 36, col 71 to line 36, col 71 of module L1_CommandBinding: 200
+  |line 36, col 77 to line 36, col 83 of module L1_CommandBinding: 200
+  line 37, col 8 to line 37, col 21 of module L1_CommandBinding: 224
+  |line 37, col 8 to line 37, col 19 of module L1_CommandBinding: 200
+  line 37, col 26 to line 37, col 52 of module L1_CommandBinding: 24
+  |line 37, col 26 to line 37, col 44 of module L1_CommandBinding: 40
+  |line 37, col 46 to line 37, col 52 of module L1_CommandBinding: 40
+  line 38, col 8 to line 39, col 54 of module L1_CommandBinding: 24
+<ReserveMissing line 40, col 1 to line 40, col 14 of module L1_CommandBinding>: 9:10
+  line 40, col 22 to line 40, col 32 of module L1_CommandBinding: 2673
+  |line 40, col 22 to line 40, col 25 of module L1_CommandBinding: 2664
+  line 40, col 37 to line 40, col 45 of module L1_CommandBinding: 741
+  |line 40, col 38 to line 40, col 45 of module L1_CommandBinding: 732
+  line 40, col 50 to line 40, col 55 of module L1_CommandBinding: 59
+  |line 40, col 50 to line 40, col 50 of module L1_CommandBinding: 50
+  line 40, col 60 to line 40, col 74 of module L1_CommandBinding: 59
+  |line 40, col 61 to line 40, col 74 of module L1_CommandBinding: 50
+  line 41, col 22 to line 41, col 35 of module L1_CommandBinding: 60
+  |line 41, col 22 to line 41, col 33 of module L1_CommandBinding: 50
+  line 42, col 8 to line 42, col 40 of module L1_CommandBinding: 10
+  line 41, col 17 to line 41, col 19 of module L1_CommandBinding: 25
+<Rebind line 43, col 1 to line 43, col 11 of module L1_CommandBinding>: 24:160
+  line 43, col 19 to line 43, col 29 of module L1_CommandBinding: 16144
+  |line 43, col 19 to line 43, col 22 of module L1_CommandBinding: 15984
+  line 43, col 34 to line 43, col 42 of module L1_CommandBinding: 4552
+  |line 43, col 35 to line 43, col 42 of module L1_CommandBinding: 4392
+  line 43, col 47 to line 43, col 52 of module L1_CommandBinding: 460
+  |line 43, col 47 to line 43, col 47 of module L1_CommandBinding: 300
+  line 44, col 8 to line 44, col 16 of module L1_CommandBinding: 460
+  |line 44, col 8 to line 44, col 8 of module L1_CommandBinding: 300
+  |line 44, col 14 to line 44, col 16 of module L1_CommandBinding: 300
+  line 44, col 21 to line 44, col 34 of module L1_CommandBinding: 460
+  |line 44, col 21 to line 44, col 32 of module L1_CommandBinding: 300
+  line 44, col 39 to line 44, col 55 of module L1_CommandBinding: 400
+  |line 44, col 39 to line 44, col 39 of module L1_CommandBinding: 240
+  |line 44, col 45 to line 44, col 55 of module L1_CommandBinding: 240
+  line 44, col 60 to line 44, col 73 of module L1_CommandBinding: 400
+  |line 44, col 60 to line 44, col 60 of module L1_CommandBinding: 240
+  |line 44, col 62 to line 44, col 73 of module L1_CommandBinding: 240
+  line 45, col 8 to line 45, col 34 of module L1_CommandBinding: 160
+<Authorize line 51, col 1 to line 51, col 9 of module L1_CommandBinding>: 24:48
+  line 51, col 17 to line 51, col 32 of module L1_CommandBinding: 2712
+  |line 51, col 17 to line 51, col 20 of module L1_CommandBinding: 2664
+  line 52, col 8 to line 53, col 67 of module L1_CommandBinding: 48
+<AuthorizeFailed line 54, col 1 to line 54, col 15 of module L1_CommandBinding>: 48:48
+  line 54, col 23 to line 54, col 38 of module L1_CommandBinding: 2712
+  |line 54, col 23 to line 54, col 26 of module L1_CommandBinding: 2664
+  line 54, col 43 to line 54, col 81 of module L1_CommandBinding: 48
+<MissingCommand line 55, col 1 to line 55, col 14 of module L1_CommandBinding>: 48:48
+  line 55, col 22 to line 55, col 37 of module L1_CommandBinding: 2712
+  |line 55, col 22 to line 55, col 25 of module L1_CommandBinding: 2664
+  line 56, col 8 to line 56, col 83 of module L1_CommandBinding: 48
+<WrongBinding line 57, col 1 to line 57, col 15 of module L1_CommandBinding>: 48:48
+  line 57, col 23 to line 57, col 38 of module L1_CommandBinding: 5376
+  |line 57, col 23 to line 57, col 26 of module L1_CommandBinding: 5328
+  line 57, col 43 to line 57, col 55 of module L1_CommandBinding: 144
+  |line 57, col 43 to line 57, col 43 of module L1_CommandBinding: 96
+  |line 57, col 49 to line 57, col 55 of module L1_CommandBinding: 96
+  line 57, col 60 to line 57, col 81 of module L1_CommandBinding: 144
+  |line 57, col 60 to line 57, col 60 of module L1_CommandBinding: 96
+  |line 57, col 62 to line 57, col 81 of module L1_CommandBinding: 96
+  line 58, col 8 to line 58, col 62 of module L1_CommandBinding: 48
+<RejectCommand line 59, col 1 to line 59, col 13 of module L1_CommandBinding>: 32:48
+  line 59, col 21 to line 59, col 40 of module L1_CommandBinding: 2712
+  |line 59, col 21 to line 59, col 24 of module L1_CommandBinding: 2664
+  line 59, col 45 to line 59, col 83 of module L1_CommandBinding: 48
+<RejectBinding line 60, col 1 to line 60, col 13 of module L1_CommandBinding>: 32:48
+  line 60, col 21 to line 60, col 40 of module L1_CommandBinding: 2712
+  |line 60, col 21 to line 60, col 24 of module L1_CommandBinding: 2664
+  line 60, col 45 to line 60, col 83 of module L1_CommandBinding: 48
+<WriteIntent line 64, col 1 to line 64, col 11 of module L1_CommandBinding>: 24:48
+  line 64, col 19 to line 64, col 36 of module L1_CommandBinding: 2712
+  |line 64, col 19 to line 64, col 22 of module L1_CommandBinding: 2664
+  line 65, col 8 to line 65, col 105 of module L1_CommandBinding: 48
+<SyncIntent line 66, col 1 to line 66, col 10 of module L1_CommandBinding>: 24:48
+  line 66, col 18 to line 66, col 34 of module L1_CommandBinding: 2712
+  |line 66, col 18 to line 66, col 21 of module L1_CommandBinding: 2664
+  line 66, col 39 to line 66, col 87 of module L1_CommandBinding: 48
+<PublishIntent line 67, col 1 to line 67, col 13 of module L1_CommandBinding>: 24:48
+  line 67, col 21 to line 67, col 40 of module L1_CommandBinding: 2712
+  |line 67, col 21 to line 67, col 24 of module L1_CommandBinding: 2664
+  line 68, col 8 to line 68, col 62 of module L1_CommandBinding: 48
+<GateExpire line 72, col 1 to line 72, col 10 of module L1_CommandBinding>: 120:120
+  line 72, col 18 to line 72, col 23 of module L1_CommandBinding: 2784
+  |line 72, col 18 to line 72, col 18 of module L1_CommandBinding: 2664
+  line 72, col 28 to line 72, col 99 of module L1_CommandBinding: 1912
+  |line 72, col 28 to line 72, col 31 of module L1_CommandBinding: 1792
+  |line 72, col 37 to line 72, col 99 of module L1_CommandBinding: 1792
+  line 73, col 8 to line 73, col 33 of module L1_CommandBinding: 120
+<Send line 74, col 1 to line 74, col 4 of module L1_CommandBinding>: 24:24
+  line 74, col 12 to line 74, col 22 of module L1_CommandBinding: 2688
+  |line 74, col 12 to line 74, col 15 of module L1_CommandBinding: 2664
+  line 74, col 27 to line 74, col 32 of module L1_CommandBinding: 72
+  |line 74, col 27 to line 74, col 27 of module L1_CommandBinding: 48
+  line 75, col 8 to line 75, col 103 of module L1_CommandBinding: 24
+<GateRejected line 76, col 1 to line 76, col 12 of module L1_CommandBinding>: 24:24
+  line 76, col 20 to line 76, col 30 of module L1_CommandBinding: 2688
+  |line 76, col 20 to line 76, col 23 of module L1_CommandBinding: 2664
+  line 76, col 35 to line 76, col 41 of module L1_CommandBinding: 72
+  |line 76, col 36 to line 76, col 41 of module L1_CommandBinding: 48
+  line 76, col 46 to line 76, col 84 of module L1_CommandBinding: 24
+<PendingOrAck line 77, col 1 to line 77, col 12 of module L1_CommandBinding>: 20:24
+  line 77, col 20 to line 77, col 34 of module L1_CommandBinding: 2688
+  |line 77, col 20 to line 77, col 23 of module L1_CommandBinding: 2664
+  line 77, col 39 to line 77, col 63 of module L1_CommandBinding: 24
+<Unknown line 78, col 1 to line 78, col 7 of module L1_CommandBinding>: 24:24
+  line 78, col 15 to line 78, col 29 of module L1_CommandBinding: 2688
+  |line 78, col 15 to line 78, col 18 of module L1_CommandBinding: 2664
+  line 78, col 34 to line 78, col 72 of module L1_CommandBinding: 24
+<NoBytes line 82, col 1 to line 82, col 7 of module L1_CommandBinding>: 24:24
+  line 82, col 15 to line 82, col 29 of module L1_CommandBinding: 2688
+  |line 82, col 15 to line 82, col 18 of module L1_CommandBinding: 2664
+  line 82, col 34 to line 82, col 93 of module L1_CommandBinding: 24
+<WriteAbort line 83, col 1 to line 83, col 10 of module L1_CommandBinding>: 24:24
+  line 83, col 18 to line 83, col 34 of module L1_CommandBinding: 2688
+  |line 83, col 18 to line 83, col 21 of module L1_CommandBinding: 2664
+  line 84, col 8 to line 84, col 103 of module L1_CommandBinding: 24
+<SyncAbort line 85, col 1 to line 85, col 9 of module L1_CommandBinding>: 24:24
+  line 85, col 17 to line 85, col 32 of module L1_CommandBinding: 2688
+  |line 85, col 17 to line 85, col 20 of module L1_CommandBinding: 2664
+  line 85, col 37 to line 85, col 79 of module L1_CommandBinding: 24
+<Release line 86, col 1 to line 86, col 7 of module L1_CommandBinding>: 20:24
+  line 86, col 15 to line 86, col 28 of module L1_CommandBinding: 2688
+  |line 86, col 15 to line 86, col 18 of module L1_CommandBinding: 2664
+  line 87, col 8 to line 88, col 63 of module L1_CommandBinding: 24
+<WriteFailed line 92, col 1 to line 92, col 21 of module L1_CommandBinding>: 144:144
+  line 92, col 29 to line 92, col 65 of module L1_CommandBinding: 5472
+  |line 92, col 29 to line 92, col 32 of module L1_CommandBinding: 5328
+  |line 92, col 38 to line 92, col 65 of module L1_CommandBinding: 5328
+  line 92, col 70 to line 92, col 89 of module L1_CommandBinding: 288
+  |line 92, col 70 to line 92, col 77 of module L1_CommandBinding: 144
+  |line 92, col 83 to line 92, col 89 of module L1_CommandBinding: 144
+  line 93, col 8 to line 95, col 41 of module L1_CommandBinding: 144
+  |line 93, col 11 to line 95, col 41 of module L1_CommandBinding: 144
+  ||line 93, col 12 to line 93, col 12 of module L1_CommandBinding: 144
+  ||line 93, col 29 to line 95, col 14 of module L1_CommandBinding: 144
+  |||line 93, col 32 to line 93, col 39 of module L1_CommandBinding: 144
+  |||line 94, col 14 to line 94, col 113 of module L1_CommandBinding: 72
+  ||line 95, col 28 to line 95, col 40 of module L1_CommandBinding: 144
+<SyncFailed line 96, col 1 to line 96, col 16 of module L1_CommandBinding>: 72:144
+  line 96, col 24 to line 96, col 58 of module L1_CommandBinding: 5472
+  |line 96, col 24 to line 96, col 27 of module L1_CommandBinding: 5328
+  |line 96, col 33 to line 96, col 58 of module L1_CommandBinding: 5328
+  line 96, col 63 to line 96, col 78 of module L1_CommandBinding: 288
+  |line 96, col 63 to line 96, col 66 of module L1_CommandBinding: 144
+  |line 96, col 72 to line 96, col 78 of module L1_CommandBinding: 144
+  line 97, col 8 to line 97, col 81 of module L1_CommandBinding: 144
+  |line 97, col 11 to line 97, col 81 of module L1_CommandBinding: 144
+  ||line 97, col 12 to line 97, col 12 of module L1_CommandBinding: 144
+  ||line 97, col 28 to line 97, col 54 of module L1_CommandBinding: 144
+  |||line 97, col 31 to line 97, col 34 of module L1_CommandBinding: 144
+  |||line 97, col 41 to line 97, col 47 of module L1_CommandBinding: 72
+  ||line 97, col 68 to line 97, col 80 of module L1_CommandBinding: 144
+<Crash line 101, col 1 to line 101, col 11 of module L1_CommandBinding>: 306:1764
+  line 101, col 19 to line 101, col 29 of module L1_CommandBinding: 7092
+  |line 101, col 19 to line 101, col 22 of module L1_CommandBinding: 5328
+  line 101, col 34 to line 101, col 53 of module L1_CommandBinding: 1764
+  |line 101, col 34 to line 101, col 42 of module L1_CommandBinding: 4716
+  |line 101, col 44 to line 101, col 53 of module L1_CommandBinding: 4716
+  line 101, col 58 to line 101, col 73 of module L1_CommandBinding: 3528
+  |line 101, col 58 to line 101, col 61 of module L1_CommandBinding: 1764
+  |line 101, col 67 to line 101, col 73 of module L1_CommandBinding: 1764
+  line 103, col 8 to line 105, col 52 of module L1_CommandBinding: 1764
+  |line 103, col 11 to line 105, col 52 of module L1_CommandBinding: 1764
+  ||line 103, col 12 to line 103, col 12 of module L1_CommandBinding: 1764
+  ||line 103, col 28 to line 103, col 32 of module L1_CommandBinding: 1764
+  |||line 102, col 19 to line 102, col 50 of module L1_CommandBinding: 1764
+  ||||line 102, col 22 to line 102, col 25 of module L1_CommandBinding: 1764
+  ||||line 102, col 32 to line 102, col 38 of module L1_CommandBinding: 882
+  ||||line 102, col 45 to line 102, col 50 of module L1_CommandBinding: 882
+  ||line 103, col 42 to line 103, col 46 of module L1_CommandBinding: 1764
+  |||line 102, col 19 to line 102, col 50 of module L1_CommandBinding: 1764
+  ||||line 102, col 22 to line 102, col 25 of module L1_CommandBinding: 1764
+  ||||line 102, col 32 to line 102, col 38 of module L1_CommandBinding: 882
+  ||||line 102, col 45 to line 102, col 50 of module L1_CommandBinding: 882
+  ||line 103, col 60 to line 103, col 68 of module L1_CommandBinding: 1764
+  ||line 103, col 70 to line 103, col 82 of module L1_CommandBinding: 1764
+  ||line 104, col 11 to line 104, col 22 of module L1_CommandBinding: 1764
+  ||line 104, col 24 to line 104, col 50 of module L1_CommandBinding: 1764
+  ||line 104, col 52 to line 104, col 64 of module L1_CommandBinding: 1764
+  ||line 105, col 11 to line 105, col 27 of module L1_CommandBinding: 1764
+  ||line 105, col 39 to line 105, col 51 of module L1_CommandBinding: 1764
+<Recover line 106, col 1 to line 106, col 7 of module L1_CommandBinding>: 306:306
+  line 106, col 15 to line 106, col 25 of module L1_CommandBinding: 2970
+  |line 106, col 15 to line 106, col 18 of module L1_CommandBinding: 2664
+  line 106, col 30 to line 106, col 56 of module L1_CommandBinding: 306
+<ReplayPrepared line 107, col 1 to line 107, col 14 of module L1_CommandBinding>: 336:336
+  line 107, col 22 to line 107, col 34 of module L1_CommandBinding: 3000
+  |line 107, col 22 to line 107, col 25 of module L1_CommandBinding: 2664
+  line 107, col 39 to line 107, col 58 of module L1_CommandBinding: 336
+  |line 107, col 39 to line 107, col 45 of module L1_CommandBinding: 858
+  |line 107, col 48 to line 107, col 58 of module L1_CommandBinding: 858
+  line 109, col 11 to line 109, col 27 of module L1_CommandBinding: 912
+  |line 109, col 11 to line 109, col 16 of module L1_CommandBinding: 576
+  line 109, col 32 to line 109, col 55 of module L1_CommandBinding: 672
+  |line 109, col 32 to line 109, col 39 of module L1_CommandBinding: 336
+  |line 109, col 41 to line 109, col 55 of module L1_CommandBinding: 336
+  line 109, col 60 to line 109, col 81 of module L1_CommandBinding: 672
+  |line 109, col 60 to line 109, col 67 of module L1_CommandBinding: 336
+  |line 109, col 73 to line 109, col 81 of module L1_CommandBinding: 336
+  line 110, col 11 to line 111, col 62 of module L1_CommandBinding: 336
+<ReplayAbort line 112, col 1 to line 112, col 11 of module L1_CommandBinding>: 216:240
+  line 112, col 19 to line 112, col 31 of module L1_CommandBinding: 2904
+  |line 112, col 19 to line 112, col 22 of module L1_CommandBinding: 2664
+  line 112, col 36 to line 112, col 55 of module L1_CommandBinding: 240
+  |line 112, col 36 to line 112, col 42 of module L1_CommandBinding: 858
+  |line 112, col 45 to line 112, col 55 of module L1_CommandBinding: 858
+  line 114, col 11 to line 114, col 26 of module L1_CommandBinding: 816
+  |line 114, col 11 to line 114, col 16 of module L1_CommandBinding: 576
+  line 114, col 31 to line 114, col 49 of module L1_CommandBinding: 480
+  |line 114, col 31 to line 114, col 34 of module L1_CommandBinding: 240
+  |line 114, col 40 to line 114, col 49 of module L1_CommandBinding: 240
+  line 115, col 11 to line 116, col 62 of module L1_CommandBinding: 240
+<ReplayFailed line 117, col 1 to line 117, col 12 of module L1_CommandBinding>: 336:336
+  line 117, col 20 to line 117, col 32 of module L1_CommandBinding: 3000
+  |line 117, col 20 to line 117, col 23 of module L1_CommandBinding: 2664
+  line 117, col 37 to line 117, col 56 of module L1_CommandBinding: 336
+  |line 117, col 37 to line 117, col 43 of module L1_CommandBinding: 858
+  |line 117, col 46 to line 117, col 56 of module L1_CommandBinding: 858
+  line 117, col 61 to line 117, col 91 of module L1_CommandBinding: 912
+  |line 117, col 61 to line 117, col 80 of module L1_CommandBinding: 576
+  line 118, col 8 to line 118, col 49 of module L1_CommandBinding: 336
+<RecoveryDone line 119, col 1 to line 119, col 12 of module L1_CommandBinding>: 282:282
+  line 119, col 20 to line 119, col 32 of module L1_CommandBinding: 2946
+  |line 119, col 20 to line 119, col 23 of module L1_CommandBinding: 2664
+  line 119, col 37 to line 119, col 57 of module L1_CommandBinding: 1140
+  |line 119, col 37 to line 119, col 43 of module L1_CommandBinding: 858
+  |line 119, col 45 to line 119, col 57 of module L1_CommandBinding: 858
+  line 119, col 62 to line 119, col 86 of module L1_CommandBinding: 282
+<TypeOK line 131, col 1 to line 131, col 6 of module L1_CommandBinding>
+  line 131, col 11 to line 135, col 34 of module L1_CommandBinding: 2664
+<DurablePrefix line 136, col 1 to line 136, col 13 of module L1_CommandBinding>
+  line 136, col 18 to line 136, col 70 of module L1_CommandBinding: 2664
+<AcceptedDigestNeverChanges line 137, col 1 to line 137, col 26 of module L1_CommandBinding>
+  line 137, col 31 to line 137, col 88 of module L1_CommandBinding: 2664
+  |line 137, col 45 to line 137, col 88 of module L1_CommandBinding: 5328
+  ||line 137, col 45 to line 137, col 58 of module L1_CommandBinding: 5328
+  ||line 137, col 63 to line 137, col 88 of module L1_CommandBinding: 2512
+  |line 137, col 40 to line 137, col 42 of module L1_CommandBinding: 2664
+<EveryLoggedCommandHasObject line 138, col 1 to line 138, col 27 of module L1_CommandBinding>
+  line 138, col 32 to line 139, col 104 of module L1_CommandBinding: 2664
+  |line 139, col 12 to line 139, col 21 of module L1_CommandBinding: 5856
+  |line 139, col 26 to line 139, col 104 of module L1_CommandBinding: 5856
+  |line 138, col 41 to line 138, col 55 of module L1_CommandBinding: 2664
+<EverySentDigestWasCommitted line 140, col 1 to line 140, col 27 of module L1_CommandBinding>
+  line 140, col 32 to line 141, col 95 of module L1_CommandBinding: 2664
+  |line 141, col 5 to line 141, col 95 of module L1_CommandBinding: 2856
+  ||line 141, col 5 to line 141, col 69 of module L1_CommandBinding: 2856
+  |||line 141, col 5 to line 141, col 29 of module L1_CommandBinding: 2856
+  |||line 141, col 34 to line 141, col 69 of module L1_CommandBinding: 2856
+  ||||line 23, col 18 to line 23, col 56 of module L1_CommandBinding: 2856
+  |||||line 23, col 39 to line 23, col 56 of module L1_CommandBinding: 4232
+  |||||line 23, col 27 to line 23, col 36 of module L1_CommandBinding: 2856
+  ||||line 141, col 38 to line 141, col 43 of module L1_CommandBinding: 2856
+  ||||line 141, col 56 to line 141, col 59 of module L1_CommandBinding: 2856
+  ||||line 141, col 61 to line 141, col 68 of module L1_CommandBinding: 2856
+  ||line 141, col 74 to line 141, col 95 of module L1_CommandBinding: 2856
+  |line 140, col 41 to line 140, col 46 of module L1_CommandBinding: 2664
+<NoEarlyRelease line 142, col 1 to line 142, col 14 of module L1_CommandBinding>
+  line 142, col 19 to line 142, col 95 of module L1_CommandBinding: 2664
+  |line 142, col 40 to line 142, col 95 of module L1_CommandBinding: 2160
+  ||line 142, col 40 to line 142, col 54 of module L1_CommandBinding: 2160
+  ||line 142, col 59 to line 142, col 95 of module L1_CommandBinding: 2160
+  |||line 23, col 18 to line 23, col 56 of module L1_CommandBinding: 2160
+  ||||line 23, col 39 to line 23, col 56 of module L1_CommandBinding: 4672
+  ||||line 23, col 27 to line 23, col 36 of module L1_CommandBinding: 2160
+  |||line 142, col 63 to line 142, col 68 of module L1_CommandBinding: 2160
+  |||line 142, col 80 to line 142, col 80 of module L1_CommandBinding: 2160
+  |||line 142, col 82 to line 142, col 94 of module L1_CommandBinding: 2160
+  |line 142, col 28 to line 142, col 37 of module L1_CommandBinding: 2664
+<OrderedAbort line 143, col 1 to line 143, col 12 of module L1_CommandBinding>
+  line 143, col 17 to line 144, col 94 of module L1_CommandBinding: 2664
+  |line 144, col 12 to line 144, col 20 of module L1_CommandBinding: 5712
+  |line 144, col 25 to line 144, col 94 of module L1_CommandBinding: 5712
+  ||line 144, col 25 to line 144, col 40 of module L1_CommandBinding: 5712
+  ||line 144, col 45 to line 144, col 94 of module L1_CommandBinding: 2352
+  |||line 23, col 18 to line 23, col 56 of module L1_CommandBinding: 2352
+  ||||line 23, col 39 to line 23, col 56 of module L1_CommandBinding: 2992
+  ||||line 23, col 27 to line 23, col 36 of module L1_CommandBinding: 2352
+  |||line 144, col 49 to line 144, col 68 of module L1_CommandBinding: 2352
+  |||line 144, col 81 to line 144, col 84 of module L1_CommandBinding: 2352
+  |||line 144, col 86 to line 144, col 93 of module L1_CommandBinding: 2352
+  |line 143, col 26 to line 143, col 39 of module L1_CommandBinding: 2664
+<RecoveredStaysFrozen line 145, col 1 to line 145, col 20 of module L1_CommandBinding>
+  line 145, col 25 to line 145, col 48 of module L1_CommandBinding: 2664
+  |line 145, col 25 to line 145, col 36 of module L1_CommandBinding: 2664
+  |line 145, col 41 to line 145, col 48 of module L1_CommandBinding: 1782
+<ReservationBound line 146, col 1 to line 146, col 16 of module L1_CommandBinding>
+  line 146, col 21 to line 146, col 48 of module L1_CommandBinding: 2664
+<RecoveredHold line 147, col 1 to line 147, col 13 of module L1_CommandBinding>
+  line 147, col 18 to line 148, col 104 of module L1_CommandBinding: 2664
+  |line 147, col 18 to line 147, col 44 of module L1_CommandBinding: 2664
+  ||line 147, col 18 to line 147, col 29 of module L1_CommandBinding: 2664
+  ||line 147, col 34 to line 147, col 44 of module L1_CommandBinding: 1782
+  |line 148, col 5 to line 148, col 104 of module L1_CommandBinding: 282
+  ||line 148, col 5 to line 148, col 10 of module L1_CommandBinding: 282
+  ||line 148, col 12 to line 148, col 104 of module L1_CommandBinding: 282
+  |||line 148, col 24 to line 148, col 103 of module L1_CommandBinding: 564
+  ||||line 148, col 24 to line 148, col 61 of module L1_CommandBinding: 564
+  |||||line 23, col 18 to line 23, col 56 of module L1_CommandBinding: 564
+  ||||||line 23, col 39 to line 23, col 56 of module L1_CommandBinding: 696
+  ||||||line 23, col 27 to line 23, col 36 of module L1_CommandBinding: 564
+  |||||line 148, col 28 to line 148, col 33 of module L1_CommandBinding: 564
+  |||||line 148, col 46 to line 148, col 46 of module L1_CommandBinding: 432
+  |||||line 148, col 48 to line 148, col 60 of module L1_CommandBinding: 432
+  ||||line 148, col 66 to line 148, col 103 of module L1_CommandBinding: 296
+  |||||line 148, col 67 to line 148, col 103 of module L1_CommandBinding: 296
+  ||||||line 23, col 18 to line 23, col 56 of module L1_CommandBinding: 296
+  |||||||line 23, col 39 to line 23, col 56 of module L1_CommandBinding: 656
+  |||||||line 23, col 27 to line 23, col 36 of module L1_CommandBinding: 296
+  ||||||line 148, col 71 to line 148, col 76 of module L1_CommandBinding: 296
+  ||||||line 148, col 88 to line 148, col 88 of module L1_CommandBinding: 296
+  ||||||line 148, col 90 to line 148, col 102 of module L1_CommandBinding: 296
+  |||line 148, col 19 to line 148, col 21 of module L1_CommandBinding: 282
+End of statistics.
+4491 states generated, 2664 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 27.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 4).
+Finished in 01s at (2026-10-20 19:50:25)
+>>> elapsed: 2s (exit 0)

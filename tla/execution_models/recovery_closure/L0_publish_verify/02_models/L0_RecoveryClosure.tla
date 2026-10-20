@@ -2,26 +2,26 @@
 EXTENDS Naturals, Integers, FiniteSets, TLC
 CONSTANTS Roots, Dependencies, MaxCalls, MaxCrashes
 \* var <-> code, single owner with &mut Persistence and exclusive directory lock.
-\* pc/mode/root/index: synchronous continuation, crates/tickwire-recovery/src/lib.rs:145-235.
+\* pc/mode/root/index: synchronous continuation, crates/tickwire-recovery/src/lib.rs:151-243.
 \* cache/disk: visible immutable fixed keys vs synchronized contents, crates/tickwire-recovery/src/files.rs:83-148.
 \* exists/parent: directory visible vs parent-dir sync complete, crates/tickwire-recovery/src/files.rs:15-60.
-\* key/value: pending object/manifest/binding, crates/tickwire-recovery/src/lib.rs:152-190,238-243.
-\* valid: the check() input coverage success/failure exit, crates/tickwire-recovery/src/lib.rs:215-233.
-\* issued: ghost history of returned private VerifiedClosure, crates/tickwire-recovery/src/lib.rs:167-170,191-194.
+\* key/value: pending object/manifest/binding, crates/tickwire-recovery/src/lib.rs:158-197; crates/tickwire-recovery/src/lib.rs:254-259.
+\* valid: the check() input coverage success/failure exit, crates/tickwire-recovery/src/lib.rs:223-241.
+\* issued: ghost history of returned private VerifiedClosure, crates/tickwire-recovery/src/lib.rs:173-177; crates/tickwire-recovery/src/lib.rs:198-202.
 \* counters: finite calls/faults only. No mutation/deletion of durable objects is exposed.
 \* ACTIONS (fault injection follows PLAN; all writes are serialized):
 \* Open/RootSync/ParentSync/OpenFailure: crates/tickwire-recovery/src/files.rs:15-60
-\* Seed: crates/tickwire-recovery/src/lib.rs:152-158
-\* BeginPublish/RejectShape: crates/tickwire-recovery/src/lib.rs:160-161,196-197
-\* BeginVerify/Lookup: crates/tickwire-recovery/src/lib.rs:172-188
-\* CheckObject/CheckInputs: crates/tickwire-recovery/src/lib.rs:196-234
-\* PrepareBinding: crates/tickwire-recovery/src/lib.rs:165-166,190
+\* Seed: crates/tickwire-recovery/src/lib.rs:158-164
+\* BeginPublish/RejectShape: crates/tickwire-recovery/src/lib.rs:166-167; crates/tickwire-recovery/src/lib.rs:204-205
+\* BeginVerify/Lookup: crates/tickwire-recovery/src/lib.rs:179-195
+\* CheckObject/CheckInputs: crates/tickwire-recovery/src/lib.rs:204-242
+\* PrepareBinding: crates/tickwire-recovery/src/lib.rs:171-172; crates/tickwire-recovery/src/lib.rs:197
 \* Put: crates/tickwire-recovery/src/files.rs:107-118
 \* TempWrite/FileSyncNew/Rename: crates/tickwire-recovery/src/files.rs:138-142
 \* FileSyncExisting/DirSync: crates/tickwire-recovery/src/files.rs:112-114,142-143
 \* IoFailure: Result error exits at crates/tickwire-recovery/src/files.rs:107-147
-\* ReturnPut: sequential ? continuations, crates/tickwire-recovery/src/lib.rs:157-158,164-166,188-190,212-214
-\* Deliver: crates/tickwire-recovery/src/lib.rs:167-170,191-194
+\* ReturnPut: sequential ? continuations, crates/tickwire-recovery/src/lib.rs:163-164; crates/tickwire-recovery/src/lib.rs:170-172; crates/tickwire-recovery/src/lib.rs:195-197; crates/tickwire-recovery/src/lib.rs:220-222
+\* Deliver: crates/tickwire-recovery/src/lib.rs:173-177; crates/tickwire-recovery/src/lib.rs:198-202
 \* Crash: tolerated loss of unsynchronized directory names, file/dir completion split
 \*   crates/tickwire-recovery/src/files.rs:139-142; previously synchronized names survive.
 VARIABLE s

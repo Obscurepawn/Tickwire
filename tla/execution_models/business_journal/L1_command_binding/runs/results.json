@@ -1,0 +1,389 @@
+[
+  {
+    "config": "primary",
+    "generated": 670,
+    "distinct": 376,
+    "depth": 15,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Reserve": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "ReserveMissing": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Rebind": {
+        "distinct": 4,
+        "generated": 16
+      },
+      "Authorize": {
+        "distinct": 4,
+        "generated": 8
+      },
+      "AuthorizeFailed": {
+        "distinct": 8,
+        "generated": 8
+      },
+      "MissingCommand": {
+        "distinct": 8,
+        "generated": 8
+      },
+      "WrongBinding": {
+        "distinct": 8,
+        "generated": 8
+      },
+      "RejectCommand": {
+        "distinct": 8,
+        "generated": 8
+      },
+      "RejectBinding": {
+        "distinct": 8,
+        "generated": 8
+      },
+      "WriteIntent": {
+        "distinct": 4,
+        "generated": 8
+      },
+      "SyncIntent": {
+        "distinct": 4,
+        "generated": 8
+      },
+      "PublishIntent": {
+        "distinct": 4,
+        "generated": 8
+      },
+      "GateExpire": {
+        "distinct": 20,
+        "generated": 20
+      },
+      "Send": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "GateRejected": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "PendingOrAck": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "Unknown": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "NoBytes": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "WriteAbort": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "SyncAbort": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "Release": {
+        "distinct": 4,
+        "generated": 4
+      },
+      "WriteFailed": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "SyncFailed": {
+        "distinct": 12,
+        "generated": 24
+      },
+      "Crash": {
+        "distinct": 58,
+        "generated": 308
+      },
+      "Recover": {
+        "distinct": 58,
+        "generated": 58
+      },
+      "ReplayPrepared": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "ReplayAbort": {
+        "distinct": 4,
+        "generated": 8
+      },
+      "ReplayFailed": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "RecoveryDone": {
+        "distinct": 54,
+        "generated": 54
+      }
+    },
+    "verdict": "PASS"
+  },
+  {
+    "config": "competing",
+    "generated": 4491,
+    "distinct": 2664,
+    "depth": 27,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Reserve": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "ReserveMissing": {
+        "distinct": 9,
+        "generated": 10
+      },
+      "Rebind": {
+        "distinct": 24,
+        "generated": 160
+      },
+      "Authorize": {
+        "distinct": 24,
+        "generated": 48
+      },
+      "AuthorizeFailed": {
+        "distinct": 48,
+        "generated": 48
+      },
+      "MissingCommand": {
+        "distinct": 48,
+        "generated": 48
+      },
+      "WrongBinding": {
+        "distinct": 48,
+        "generated": 48
+      },
+      "RejectCommand": {
+        "distinct": 32,
+        "generated": 48
+      },
+      "RejectBinding": {
+        "distinct": 32,
+        "generated": 48
+      },
+      "WriteIntent": {
+        "distinct": 24,
+        "generated": 48
+      },
+      "SyncIntent": {
+        "distinct": 24,
+        "generated": 48
+      },
+      "PublishIntent": {
+        "distinct": 24,
+        "generated": 48
+      },
+      "GateExpire": {
+        "distinct": 120,
+        "generated": 120
+      },
+      "Send": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "GateRejected": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "PendingOrAck": {
+        "distinct": 20,
+        "generated": 24
+      },
+      "Unknown": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "NoBytes": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "WriteAbort": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "SyncAbort": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "Release": {
+        "distinct": 20,
+        "generated": 24
+      },
+      "WriteFailed": {
+        "distinct": 144,
+        "generated": 144
+      },
+      "SyncFailed": {
+        "distinct": 72,
+        "generated": 144
+      },
+      "Crash": {
+        "distinct": 306,
+        "generated": 1764
+      },
+      "Recover": {
+        "distinct": 306,
+        "generated": 306
+      },
+      "ReplayPrepared": {
+        "distinct": 336,
+        "generated": 336
+      },
+      "ReplayAbort": {
+        "distinct": 216,
+        "generated": 240
+      },
+      "ReplayFailed": {
+        "distinct": 336,
+        "generated": 336
+      },
+      "RecoveryDone": {
+        "distinct": 282,
+        "generated": 282
+      }
+    },
+    "verdict": "PASS"
+  },
+  {
+    "config": "recovery",
+    "generated": 14799,
+    "distinct": 7326,
+    "depth": 29,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Reserve": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "ReserveMissing": {
+        "distinct": 9,
+        "generated": 10
+      },
+      "Rebind": {
+        "distinct": 40,
+        "generated": 288
+      },
+      "Authorize": {
+        "distinct": 40,
+        "generated": 80
+      },
+      "AuthorizeFailed": {
+        "distinct": 80,
+        "generated": 80
+      },
+      "MissingCommand": {
+        "distinct": 80,
+        "generated": 80
+      },
+      "WrongBinding": {
+        "distinct": 80,
+        "generated": 80
+      },
+      "RejectCommand": {
+        "distinct": 48,
+        "generated": 80
+      },
+      "RejectBinding": {
+        "distinct": 48,
+        "generated": 80
+      },
+      "WriteIntent": {
+        "distinct": 40,
+        "generated": 80
+      },
+      "SyncIntent": {
+        "distinct": 40,
+        "generated": 80
+      },
+      "PublishIntent": {
+        "distinct": 40,
+        "generated": 80
+      },
+      "GateExpire": {
+        "distinct": 200,
+        "generated": 200
+      },
+      "Send": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "GateRejected": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "PendingOrAck": {
+        "distinct": 36,
+        "generated": 40
+      },
+      "Unknown": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "NoBytes": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "WriteAbort": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "SyncAbort": {
+        "distinct": 40,
+        "generated": 40
+      },
+      "Release": {
+        "distinct": 36,
+        "generated": 40
+      },
+      "WriteFailed": {
+        "distinct": 240,
+        "generated": 240
+      },
+      "SyncFailed": {
+        "distinct": 120,
+        "generated": 240
+      },
+      "Crash": {
+        "distinct": 996,
+        "generated": 7788
+      },
+      "Recover": {
+        "distinct": 996,
+        "generated": 996
+      },
+      "ReplayPrepared": {
+        "distinct": 1248,
+        "generated": 1248
+      },
+      "ReplayAbort": {
+        "distinct": 464,
+        "generated": 544
+      },
+      "ReplayFailed": {
+        "distinct": 1248,
+        "generated": 1248
+      },
+      "RecoveryDone": {
+        "distinct": 916,
+        "generated": 916
+      }
+    },
+    "verdict": "PASS"
+  }
+]
