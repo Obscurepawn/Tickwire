@@ -1,0 +1,297 @@
+>>> TLC module=L0_BookState cfg=L0_SpotScaling.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/book_state/L0_lifecycle/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 10 and seed -1133368401003163858 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/book_state/L0_lifecycle/02_models/L0_BookState.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_BookState
+Starting... (2026-10-20 18:44:42)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 18:44:42.
+Progress(5) at 2026-10-20 18:44:45: 811,375 states generated (811,375 s/min), 3,379 distinct states found (3,379 ds/min), 2,285 states left on queue.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.4E-9
+  based on the actual fingerprints:  val = 1.2E-12
+The coverage statistics at 2026-10-20 18:44:54
+<Init line 54, col 1 to line 54, col 4 of module L0_BookState>: 1:1
+  line 54, col 9 to line 56, col 42 of module L0_BookState: 1
+<SnapshotAccepted line 59, col 1 to line 59, col 16 of module L0_BookState>: 108:27972
+  line 36, col 18 to line 36, col 51 of module L0_BookState: 9276
+  |line 36, col 18 to line 36, col 22 of module L0_BookState: 8499
+  |line 36, col 28 to line 36, col 51 of module L0_BookState: 8499
+  line 62, col 7 to line 62, col 45 of module L0_BookState: 27972
+  line 61, col 15 to line 61, col 17 of module L0_BookState: 777
+  line 61, col 26 to line 61, col 33 of module L0_BookState: 777
+  line 61, col 42 to line 61, col 49 of module L0_BookState: 777
+  line 63, col 5 to line 63, col 38 of module L0_BookState: 27972
+  line 64, col 5 to line 64, col 24 of module L0_BookState: 27972
+  line 64, col 29 to line 64, col 46 of module L0_BookState: 27972
+<SnapshotRejected line 65, col 1 to line 65, col 16 of module L0_BookState>: 111:777
+  line 36, col 18 to line 36, col 51 of module L0_BookState: 9276
+  |line 36, col 18 to line 36, col 22 of module L0_BookState: 8499
+  |line 36, col 28 to line 36, col 51 of module L0_BookState: 8499
+  line 66, col 22 to line 66, col 39 of module L0_BookState: 777
+  line 67, col 5 to line 67, col 34 of module L0_BookState: 777
+  line 67, col 39 to line 67, col 61 of module L0_BookState: 777
+<SnapshotWrongIdentity line 68, col 1 to line 68, col 21 of module L0_BookState>: 870:8499
+  line 69, col 5 to line 69, col 18 of module L0_BookState: 8499
+  line 69, col 23 to line 69, col 48 of module L0_BookState: 8499
+<SnapshotBadState line 70, col 1 to line 70, col 16 of module L0_BookState>: 759:7722
+  line 71, col 5 to line 71, col 18 of module L0_BookState: 16221
+  |line 71, col 6 to line 71, col 18 of module L0_BookState: 8499
+  line 71, col 23 to line 71, col 36 of module L0_BookState: 7722
+  line 71, col 41 to line 71, col 63 of module L0_BookState: 7722
+<ApplyAccepted line 74, col 1 to line 74, col 13 of module L0_BookState>: 324:2327940
+  line 35, col 14 to line 35, col 43 of module L0_BookState: 11226
+  |line 35, col 14 to line 35, col 18 of module L0_BookState: 8499
+  |line 35, col 24 to line 35, col 43 of module L0_BookState: 8499
+  line 78, col 10 to line 78, col 51 of module L0_BookState: 13292100
+  |line 78, col 10 to line 78, col 41 of module L0_BookState: 11508480
+  ||line 40, col 2 to line 49, col 15 of module L0_BookState: 11508480
+  |||line 40, col 5 to line 40, col 17 of module L0_BookState: 11508480
+  |||line 41, col 7 to line 49, col 15 of module L0_BookState: 7192800
+  ||||line 41, col 10 to line 41, col 24 of module L0_BookState: 7192800
+  ||||line 42, col 4 to line 43, col 55 of module L0_BookState: 7192800
+  |||||line 42, col 7 to line 42, col 21 of module L0_BookState: 7192800
+  |||||line 43, col 9 to line 43, col 55 of module L0_BookState: 2818800
+  ||line 78, col 19 to line 78, col 23 of module L0_BookState: 11508480
+  ||line 78, col 26 to line 78, col 30 of module L0_BookState: 11508480
+  line 50, col 17 to line 50, col 26 of module L0_BookState: 3032640
+  |line 50, col 17 to line 50, col 21 of module L0_BookState: 2488320
+  |line 50, col 25 to line 50, col 26 of module L0_BookState: 2488320
+  line 50, col 31 to line 50, col 40 of module L0_BookState: 1783620
+  |line 50, col 31 to line 50, col 31 of module L0_BookState: 2488320
+  |line 50, col 36 to line 50, col 40 of module L0_BookState: 2488320
+  line 78, col 66 to line 78, col 66 of module L0_BookState: 2488320
+  line 79, col 10 to line 79, col 42 of module L0_BookState: 2327940
+  line 80, col 10 to line 80, col 62 of module L0_BookState: 2327940
+  line 76, col 18 to line 76, col 20 of module L0_BookState: 3996
+  line 76, col 33 to line 76, col 35 of module L0_BookState: 3996
+  line 76, col 51 to line 76, col 63 of module L0_BookState: 3996
+  line 76, col 72 to line 76, col 76 of module L0_BookState: 3996
+  line 77, col 16 to line 77, col 23 of module L0_BookState: 3996
+  line 77, col 32 to line 77, col 39 of module L0_BookState: 3996
+  line 81, col 5 to line 81, col 19 of module L0_BookState: 2327940
+  line 81, col 24 to line 81, col 43 of module L0_BookState: 2327940
+  line 81, col 48 to line 81, col 64 of module L0_BookState: 2327940
+<ApplyStale line 82, col 1 to line 82, col 10 of module L0_BookState>: 432:121500
+  line 35, col 14 to line 35, col 43 of module L0_BookState: 12495
+  |line 35, col 14 to line 35, col 18 of module L0_BookState: 8499
+  |line 35, col 24 to line 35, col 43 of module L0_BookState: 8499
+  line 85, col 8 to line 85, col 49 of module L0_BookState: 441180
+  |line 85, col 8 to line 85, col 39 of module L0_BookState: 319680
+  ||line 40, col 2 to line 49, col 15 of module L0_BookState: 319680
+  |||line 40, col 5 to line 40, col 17 of module L0_BookState: 319680
+  |||line 41, col 7 to line 49, col 15 of module L0_BookState: 199800
+  ||||line 41, col 10 to line 41, col 24 of module L0_BookState: 199800
+  ||||line 42, col 4 to line 43, col 55 of module L0_BookState: 199800
+  |||||line 42, col 7 to line 42, col 21 of module L0_BookState: 199800
+  |||||line 43, col 9 to line 43, col 55 of module L0_BookState: 78300
+  ||line 85, col 17 to line 85, col 21 of module L0_BookState: 319680
+  ||line 85, col 24 to line 85, col 28 of module L0_BookState: 319680
+  line 84, col 18 to line 84, col 20 of module L0_BookState: 3996
+  line 84, col 33 to line 84, col 35 of module L0_BookState: 3996
+  line 84, col 51 to line 84, col 63 of module L0_BookState: 3996
+  line 86, col 5 to line 86, col 18 of module L0_BookState: 121500
+  line 86, col 23 to line 86, col 37 of module L0_BookState: 121500
+<ApplyBadSequence line 87, col 1 to line 87, col 16 of module L0_BookState>: 432:129060
+  line 35, col 14 to line 35, col 43 of module L0_BookState: 12495
+  |line 35, col 14 to line 35, col 18 of module L0_BookState: 8499
+  |line 35, col 24 to line 35, col 43 of module L0_BookState: 8499
+  line 90, col 8 to line 90, col 49 of module L0_BookState: 448740
+  |line 90, col 8 to line 90, col 39 of module L0_BookState: 319680
+  ||line 40, col 2 to line 49, col 15 of module L0_BookState: 319680
+  |||line 40, col 5 to line 40, col 17 of module L0_BookState: 319680
+  |||line 41, col 7 to line 49, col 15 of module L0_BookState: 199800
+  ||||line 41, col 10 to line 41, col 24 of module L0_BookState: 199800
+  ||||line 42, col 4 to line 43, col 55 of module L0_BookState: 199800
+  |||||line 42, col 7 to line 42, col 21 of module L0_BookState: 199800
+  |||||line 43, col 9 to line 43, col 55 of module L0_BookState: 78300
+  ||line 90, col 17 to line 90, col 21 of module L0_BookState: 319680
+  ||line 90, col 24 to line 90, col 28 of module L0_BookState: 319680
+  line 89, col 18 to line 89, col 20 of module L0_BookState: 3996
+  line 89, col 33 to line 89, col 35 of module L0_BookState: 3996
+  line 89, col 51 to line 89, col 63 of module L0_BookState: 3996
+  line 91, col 5 to line 91, col 22 of module L0_BookState: 129060
+  line 91, col 27 to line 91, col 56 of module L0_BookState: 129060
+  line 92, col 5 to line 92, col 27 of module L0_BookState: 129060
+<ApplyBadClock line 93, col 1 to line 93, col 13 of module L0_BookState>: 162:78300
+  line 35, col 14 to line 35, col 43 of module L0_BookState: 10119
+  |line 35, col 14 to line 35, col 18 of module L0_BookState: 8499
+  |line 35, col 24 to line 35, col 43 of module L0_BookState: 8499
+  line 96, col 10 to line 96, col 51 of module L0_BookState: 1357020
+  |line 96, col 10 to line 96, col 41 of module L0_BookState: 1278720
+  ||line 40, col 2 to line 49, col 15 of module L0_BookState: 1278720
+  |||line 40, col 5 to line 40, col 17 of module L0_BookState: 1278720
+  |||line 41, col 7 to line 49, col 15 of module L0_BookState: 799200
+  ||||line 41, col 10 to line 41, col 24 of module L0_BookState: 799200
+  ||||line 42, col 4 to line 43, col 55 of module L0_BookState: 799200
+  |||||line 42, col 7 to line 42, col 21 of module L0_BookState: 799200
+  |||||line 43, col 9 to line 43, col 55 of module L0_BookState: 313200
+  ||line 96, col 19 to line 96, col 23 of module L0_BookState: 1278720
+  ||line 96, col 26 to line 96, col 30 of module L0_BookState: 1278720
+  line 96, col 56 to line 96, col 68 of module L0_BookState: 354780
+  |line 96, col 57 to line 96, col 68 of module L0_BookState: 276480
+  ||line 50, col 17 to line 50, col 40 of module L0_BookState: 276480
+  |||line 50, col 17 to line 50, col 26 of module L0_BookState: 276480
+  |||line 50, col 31 to line 50, col 40 of module L0_BookState: 216000
+  ||line 96, col 67 to line 96, col 67 of module L0_BookState: 216000
+  line 95, col 18 to line 95, col 20 of module L0_BookState: 3996
+  line 95, col 33 to line 95, col 35 of module L0_BookState: 3996
+  line 95, col 51 to line 95, col 63 of module L0_BookState: 3996
+  line 95, col 72 to line 95, col 76 of module L0_BookState: 3996
+  line 97, col 5 to line 97, col 22 of module L0_BookState: 78300
+  line 97, col 27 to line 97, col 56 of module L0_BookState: 78300
+  line 98, col 5 to line 98, col 24 of module L0_BookState: 78300
+<ApplyBadPayload line 99, col 1 to line 99, col 15 of module L0_BookState>: 297:258660
+  line 35, col 14 to line 35, col 43 of module L0_BookState: 11226
+  |line 35, col 14 to line 35, col 18 of module L0_BookState: 8499
+  |line 35, col 24 to line 35, col 43 of module L0_BookState: 8499
+  line 102, col 10 to line 102, col 51 of module L0_BookState: 1476900
+  |line 102, col 10 to line 102, col 41 of module L0_BookState: 1278720
+  ||line 40, col 2 to line 49, col 15 of module L0_BookState: 1278720
+  |||line 40, col 5 to line 40, col 17 of module L0_BookState: 1278720
+  |||line 41, col 7 to line 49, col 15 of module L0_BookState: 799200
+  ||||line 41, col 10 to line 41, col 24 of module L0_BookState: 799200
+  ||||line 42, col 4 to line 43, col 55 of module L0_BookState: 799200
+  |||||line 42, col 7 to line 42, col 21 of module L0_BookState: 799200
+  |||||line 43, col 9 to line 43, col 55 of module L0_BookState: 313200
+  ||line 102, col 19 to line 102, col 23 of module L0_BookState: 1278720
+  ||line 102, col 26 to line 102, col 30 of module L0_BookState: 1278720
+  line 50, col 17 to line 50, col 26 of module L0_BookState: 336960
+  |line 50, col 17 to line 50, col 21 of module L0_BookState: 276480
+  |line 50, col 25 to line 50, col 26 of module L0_BookState: 276480
+  line 50, col 31 to line 50, col 40 of module L0_BookState: 198180
+  |line 50, col 31 to line 50, col 31 of module L0_BookState: 276480
+  |line 50, col 36 to line 50, col 40 of module L0_BookState: 276480
+  line 102, col 66 to line 102, col 66 of module L0_BookState: 276480
+  line 101, col 18 to line 101, col 20 of module L0_BookState: 3996
+  line 101, col 33 to line 101, col 35 of module L0_BookState: 3996
+  line 101, col 51 to line 101, col 63 of module L0_BookState: 3996
+  line 101, col 72 to line 101, col 76 of module L0_BookState: 3996
+  line 103, col 5 to line 103, col 22 of module L0_BookState: 258660
+  line 103, col 27 to line 103, col 56 of module L0_BookState: 258660
+  line 104, col 5 to line 104, col 26 of module L0_BookState: 258660
+<ApplyWrongIdentity line 105, col 1 to line 105, col 18 of module L0_BookState>: 870:8499
+  line 105, col 26 to line 105, col 39 of module L0_BookState: 8499
+  line 105, col 44 to line 105, col 66 of module L0_BookState: 8499
+<ApplyBadState line 106, col 1 to line 106, col 13 of module L0_BookState>: 438:4503
+  line 106, col 21 to line 106, col 30 of module L0_BookState: 13002
+  |line 106, col 22 to line 106, col 30 of module L0_BookState: 8499
+  line 106, col 35 to line 106, col 48 of module L0_BookState: 4503
+  line 106, col 53 to line 106, col 72 of module L0_BookState: 4503
+<RebuildAccepted line 109, col 1 to line 109, col 15 of module L0_BookState>: 2:8499
+  line 110, col 30 to line 110, col 43 of module L0_BookState: 8499
+  |line 110, col 30 to line 110, col 30 of module L0_BookState: 25497
+  |line 110, col 34 to line 110, col 43 of module L0_BookState: 25497
+  line 110, col 48 to line 110, col 62 of module L0_BookState: 8499
+  line 110, col 14 to line 110, col 24 of module L0_BookState: 8499
+  line 111, col 5 to line 111, col 54 of module L0_BookState: 8499
+  line 112, col 5 to line 112, col 45 of module L0_BookState: 8499
+<RebuildRejected line 113, col 1 to line 113, col 15 of module L0_BookState>: 870:16998
+  line 114, col 27 to line 114, col 41 of module L0_BookState: 16998
+  |line 114, col 27 to line 114, col 27 of module L0_BookState: 25497
+  |line 114, col 32 to line 114, col 41 of module L0_BookState: 25497
+  line 114, col 14 to line 114, col 24 of module L0_BookState: 8499
+  line 115, col 5 to line 115, col 18 of module L0_BookState: 16998
+  line 115, col 23 to line 115, col 44 of module L0_BookState: 16998
+<InvalidateAccepted line 117, col 1 to line 117, col 18 of module L0_BookState>: 435:8499
+  line 118, col 5 to line 118, col 22 of module L0_BookState: 8499
+  line 118, col 27 to line 118, col 56 of module L0_BookState: 8499
+  line 118, col 61 to line 118, col 81 of module L0_BookState: 8499
+<InvalidateWrongGeneration line 119, col 1 to line 119, col 25 of module L0_BookState>: 870:16998
+  line 120, col 27 to line 120, col 40 of module L0_BookState: 42495
+  |line 120, col 27 to line 120, col 27 of module L0_BookState: 25497
+  |line 120, col 31 to line 120, col 40 of module L0_BookState: 25497
+  line 120, col 14 to line 120, col 24 of module L0_BookState: 8499
+  line 121, col 5 to line 121, col 18 of module L0_BookState: 16998
+  line 121, col 23 to line 121, col 50 of module L0_BookState: 16998
+<ViewAccepted line 124, col 1 to line 124, col 12 of module L0_BookState>: 567:5751
+  line 125, col 5 to line 125, col 18 of module L0_BookState: 11739
+  |line 125, col 5 to line 125, col 9 of module L0_BookState: 8499
+  line 127, col 10 to line 127, col 21 of module L0_BookState: 5751
+  |line 127, col 10 to line 127, col 12 of module L0_BookState: 12960
+  |line 127, col 17 to line 127, col 21 of module L0_BookState: 12960
+  line 127, col 26 to line 127, col 50 of module L0_BookState: 5751
+  |line 127, col 26 to line 127, col 36 of module L0_BookState: 8262
+  |line 127, col 41 to line 127, col 50 of module L0_BookState: 8262
+  line 127, col 55 to line 127, col 68 of module L0_BookState: 5751
+  line 126, col 16 to line 126, col 20 of module L0_BookState: 3240
+  line 128, col 5 to line 128, col 18 of module L0_BookState: 5751
+  line 128, col 23 to line 128, col 39 of module L0_BookState: 5751
+<ViewNotLive line 129, col 1 to line 129, col 11 of module L0_BookState>: 546:5259
+  line 129, col 19 to line 129, col 32 of module L0_BookState: 13758
+  |line 129, col 19 to line 129, col 23 of module L0_BookState: 8499
+  line 129, col 37 to line 129, col 50 of module L0_BookState: 5259
+  line 129, col 55 to line 129, col 75 of module L0_BookState: 5259
+<ViewClockRegressed line 130, col 1 to line 130, col 18 of module L0_BookState>: 243:4698
+  line 131, col 5 to line 131, col 18 of module L0_BookState: 10929
+  |line 131, col 5 to line 131, col 9 of module L0_BookState: 8499
+  line 131, col 41 to line 131, col 51 of module L0_BookState: 4698
+  |line 131, col 41 to line 131, col 43 of module L0_BookState: 12960
+  |line 131, col 47 to line 131, col 51 of module L0_BookState: 12960
+  line 131, col 34 to line 131, col 38 of module L0_BookState: 3240
+  line 132, col 5 to line 132, col 18 of module L0_BookState: 4698
+  line 132, col 23 to line 132, col 41 of module L0_BookState: 4698
+<ViewStale line 133, col 1 to line 133, col 9 of module L0_BookState>: 162:2511
+  line 134, col 5 to line 134, col 18 of module L0_BookState: 10200
+  |line 134, col 5 to line 134, col 9 of module L0_BookState: 8499
+  line 134, col 41 to line 134, col 52 of module L0_BookState: 2511
+  |line 134, col 41 to line 134, col 43 of module L0_BookState: 12960
+  |line 134, col 48 to line 134, col 52 of module L0_BookState: 12960
+  line 134, col 57 to line 134, col 78 of module L0_BookState: 2511
+  |line 134, col 57 to line 134, col 65 of module L0_BookState: 8262
+  |line 134, col 69 to line 134, col 78 of module L0_BookState: 8262
+  line 134, col 34 to line 134, col 38 of module L0_BookState: 3240
+  line 135, col 5 to line 135, col 18 of module L0_BookState: 2511
+  line 135, col 23 to line 135, col 41 of module L0_BookState: 2511
+<TypeOK line 143, col 1 to line 143, col 6 of module L0_BookState>
+  line 143, col 11 to line 146, col 31 of module L0_BookState: 8499
+<Lifecycle line 147, col 1 to line 147, col 9 of module L0_BookState>
+  line 147, col 14 to line 149, col 57 of module L0_BookState: 8499
+  |line 147, col 14 to line 148, col 56 of module L0_BookState: 8499
+  ||line 147, col 14 to line 147, col 63 of module L0_BookState: 8499
+  |||line 147, col 18 to line 147, col 62 of module L0_BookState: 8499
+  ||||line 147, col 18 to line 147, col 35 of module L0_BookState: 8499
+  ||||line 147, col 40 to line 147, col 62 of module L0_BookState: 21
+  ||line 148, col 6 to line 148, col 55 of module L0_BookState: 8499
+  |||line 148, col 6 to line 148, col 23 of module L0_BookState: 8499
+  |||line 148, col 28 to line 148, col 55 of module L0_BookState: 756
+  |line 149, col 6 to line 149, col 56 of module L0_BookState: 8499
+  ||line 149, col 6 to line 149, col 19 of module L0_BookState: 8499
+  ||line 149, col 24 to line 149, col 56 of module L0_BookState: 3240
+<SnapshotIsNotLive line 150, col 1 to line 150, col 17 of module L0_BookState>
+  line 150, col 22 to line 150, col 77 of module L0_BookState: 8499
+  |line 150, col 22 to line 150, col 41 of module L0_BookState: 8499
+  |line 150, col 46 to line 150, col 77 of module L0_BookState: 108
+<RebuildClears line 151, col 1 to line 151, col 13 of module L0_BookState>
+  line 151, col 18 to line 151, col 82 of module L0_BookState: 8499
+  |line 151, col 18 to line 151, col 36 of module L0_BookState: 8499
+  |line 151, col 41 to line 151, col 82 of module L0_BookState: 2
+<ViewIsCurrentAtCreation line 152, col 1 to line 152, col 23 of module L0_BookState>
+  line 152, col 28 to line 153, col 68 of module L0_BookState: 8499
+  |line 152, col 28 to line 152, col 43 of module L0_BookState: 8499
+  |line 153, col 2 to line 153, col 68 of module L0_BookState: 567
+<FailuresInvalidate line 154, col 1 to line 154, col 18 of module L0_BookState>
+  line 154, col 23 to line 155, col 21 of module L0_BookState: 8499
+  |line 154, col 23 to line 154, col 95 of module L0_BookState: 8499
+  |line 155, col 5 to line 155, col 21 of module L0_BookState: 1002
+End of statistics.
+3042646 states generated, 8499 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 6.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 31 and the 95th percentile is 9).
+Finished in 12s at (2026-10-20 18:44:54)
+>>> elapsed: 12s (exit 0)

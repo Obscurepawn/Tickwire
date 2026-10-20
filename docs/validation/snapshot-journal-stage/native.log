@@ -1,0 +1,640 @@
+   Compiling tickwire-journal-codec v0.1.0 ($REPO/crates/tickwire-journal-codec)
+   Compiling tickwire-snapshot v0.1.0 ($REPO/crates/tickwire-snapshot)
+   Compiling tickwire-shm v0.1.0 ($REPO/crates/tickwire-shm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.24s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_book-60316b1fa9ab4537)
+
+running 5 tests
+test work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update ... ok
+test work_tests::large_batch_has_bounded_price_comparisons ... ok
+test work_tests::unordered_small_replacements_have_a_bounded_comparison_budget ... ok
+test work_tests::one_replacement_does_not_scan_or_copy_the_full_book ... ok
+test work_tests::wrapped_adjacent_batches_keep_the_adjacent_lookup_budget ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.51s
+
+     Running tests/batch.rs (target/debug/deps/batch-62f11905df710d85)
+
+running 2 tests
+test full_capacity_replacement_and_reverse_batches_preserve_unknown_coverage ... ok
+test bad_large_second_side_never_commits_first_side_or_sequence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/book.rs (target/debug/deps/book-4852ae3d54ec5253)
+
+running 22 tests
+test complete_empty_snapshot_has_known_zero_and_empty_best ... ok
+test capacity_checks_final_batch_before_any_side_changes ... ok
+test bid_and_ask_moves_can_cross_old_opposite_quote_but_not_final_quote ... ok
+test duplicate_event_does_not_refresh_freshness_and_backward_clock_is_rejected ... ok
+test event_update_limit_and_invalid_range_fail_closed ... ok
+test external_buffer_loss_and_disconnect_require_current_generation ... ok
+test futures_bridge_rejects_spot_next_id_and_missing_pu ... ok
+test futures_equal_snapshot_id_bridges_then_requires_pu ... ok
+test malformed_batches_do_not_partially_modify_either_side ... ok
+test no_event_is_applied_before_snapshot_and_generation_never_wraps ... ok
+test rebuild_requires_new_generation_and_old_snapshot_cannot_reactivate ... ok
+test snapshot_capacity_duplicate_price_and_zero_capacity_fail_closed ... ok
+test snapshot_errors_are_atomic_and_rebuild_is_required ... ok
+test snapshot_needs_bridge_and_spot_boundary_matrix ... ok
+test spot_overlapping_updates_stale_and_gap ... ok
+test storage_can_use_an_independent_exchange_policy ... ok
+test truncated_snapshot_retains_unknown_depth_and_best_quote_uncertainty ... ok
+test u64_max_snapshot_never_overflows_spot_next_update_check ... ok
+test unsorted_snapshots_and_updates_are_normalized ... ok
+test wrong_key_and_generation_cannot_poison_live_book ... ok
+test zero_deletes_and_absent_zero_is_idempotent ... ok
+test replay_matches_independent_btree_map_oracle ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/differential.rs (target/debug/deps/differential-cee2864aa0a335bf)
+
+running 1 test
+test independent_small_books_match_btree_map ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/no_alloc.rs (target/debug/deps/no_alloc-f8ea2344724957f6)
+
+running 3 tests
+test construction_snapshot_updates_views_and_rebuild_allocate_nothing ... ok
+test unordered_small_quantity_batches_allocate_nothing ... ok
+test sorted_work_area_and_bulk_merge_allocate_nothing ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/small_batch.rs (target/debug/deps/small_batch-f35c04c4e6e9d120)
+
+running 3 tests
+test absent_positive_fallback_and_zero_delete_keep_final_capacity_semantics ... ok
+test scattered_replacements_handle_collisions_and_preserve_coverage ... ok
+test late_duplicate_or_missing_price_cannot_partially_commit_either_side ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running benches/batch_apply.rs (target/debug/deps/batch_apply-7365064d2306701d)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,0,42,42,42
+replace_natural,32,2,1000,750,875,1000,2667
+replace_natural,32,16,1000,1625,2792,4125,19708
+replace_natural,512,2,1000,875,1000,1042,1083
+replace_natural,512,16,1000,1667,2375,4291,9500
+replace_natural,512,64,1000,3875,7709,16708,18791
+replace_shuffle,512,512,1000,123917,171792,310625,356708
+churn_natural,512,4,1000,1208,1334,1375,1375
+churn_shuffle,512,256,1000,75208,140000,238875,280000
+replace_natural,4096,2,1000,1042,1750,14584,178417
+replace_natural,4096,16,1000,1875,3166,69333,271209
+replace_natural,4096,64,1000,4084,5042,7125,7333
+replace_natural,4096,512,1000,22417,116500,148625,223500
+replace_reverse,4096,512,1000,23625,138833,144334,162209
+replace_shuffle,4096,512,1000,125041,422083,4100583,7252166
+churn_natural,4096,4,1000,1292,1417,1500,1541
+churn_shuffle,4096,256,1000,80708,283792,506166,670500
+     Running benches/depth_apply.rs (target/debug/deps/depth_apply-15d778a571b4033e)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,0,42,125,125
+replace,32,2,1000,792,958,959,3833
+replace,32,16,1000,1584,2459,18209,34917
+replace,512,2,1000,917,1042,1084,1750
+replace,512,16,1000,1709,3167,70458,285167
+replace,512,64,1000,3958,6916,7166,36083
+top_churn,512,4,1000,1208,1375,1542,1583
+replace,4096,2,1000,1042,1834,19875,68750
+replace,4096,16,1000,1833,2083,2542,2708
+replace,4096,64,1000,4083,4625,7083,7166
+top_churn,4096,4,1000,1291,1500,29709,105625
+     Running benches/sparse_apply.rs (target/debug/deps/sparse_apply-b454017a21e11038)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,0,42,125,13875
+replace_scatter_shuffle,512,16,1000,3750,4167,21917,26666
+replace_scatter_shuffle,512,64,1000,11916,24042,92500,124500
+replace_scatter_shuffle,512,512,1000,126417,183959,290458,371709
+churn_scatter_shuffle,512,256,1000,85000,128292,207042,255375
+replace_scatter_shuffle,4096,16,1000,4459,4792,4917,5000
+replace_scatter_shuffle,4096,64,1000,14417,22875,40708,61042
+replace_scatter_shuffle,4096,512,1000,218959,3228334,14471875,17899667
+churn_scatter_shuffle,4096,256,1000,168583,311375,524416,1312791
+     Running unittests src/lib.rs (target/debug/deps/tickwire_control-ccc02af1a508d539)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/session.rs (target/debug/deps/session-89bbee5729c1b354)
+
+running 13 tests
+test handshake_and_frame_bind_both_processes_and_instances ... ok
+test mandatory_features_and_architecture_must_be_compatible ... ok
+test frame_identity_epoch_and_control_kind_are_checked ... ok
+test hello_must_match_registered_generation_and_artifact_hashes ... ok
+test expired_or_regressed_clock_never_reopens_a_session ... ok
+test lease_arithmetic_exhaustion_is_distinct_from_actual_session_expiry ... ok
+test kernel_identity_cannot_be_replaced_by_hello_claims ... ok
+test renew_is_nonce_bound_and_strictly_increasing ... ok
+test capacity_preserves_old_results_and_storage_failure_never_returns_a_ticket ... ok
+test completion_is_correlated_immutable_and_survives_session_recreation_in_shared_store ... ok
+test terminal_response_must_match_request_kind_and_reported_state_version ... ok
+test requests_are_registered_before_one_ticket_and_retried_before_version_check ... ok
+test welcome_cannot_redirect_the_session_or_claim_extra_capability ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport_linux.rs (target/debug/deps/transport_linux-fedabef8fe0907a1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_control_sys-5f3dc06627cf3ae1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/platform.rs (target/debug/deps/platform-366bb4ebed6da924)
+
+running 1 test
+test production_transport_is_linux_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport.rs (target/debug/deps/transport-90e84116c412d5ab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_execution-b02c596d66112e7a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-6029a68673101233)
+
+running 16 tests
+test a_fee_fact_blocks_a_contradictory_no_bytes_callback ... ok
+test authoritative_spend_above_budget_is_recorded_and_freezes_admission ... ok
+test cannot_send_before_durable_and_gate_is_checked_again ... ok
+test competing_strategies_share_atomic_reservation ... ok
+test crash_recovery_marks_every_committed_intent_as_maybe_sent ... ok
+test explicit_unknown_freezes_the_shared_pool_without_releasing_reservation ... ok
+test idempotent_commit_cannot_erase_live_state ... ok
+test fill_before_ack_duplicates_out_of_order_and_fee_tail ... ok
+test no_bytes_release_does_not_invent_fee_payment ... ok
+test invalid_fill_and_conflicting_duplicate_are_atomic ... ok
+test sync_profile_requires_matching_replica_receipt ... ok
+test synchronous_profile_cannot_be_downgraded_by_the_receipt_caller ... ok
+test terminal_before_trade_details_keeps_missing_fill_budget ... ok
+test timeout_not_found_and_cancel_request_keep_unknown_reserved ... ok
+test unaccountable_external_fact_freezes_new_risk ... ok
+test wrong_domain_and_expired_intents_are_rejected ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_ipc-392f47358bc2b1f3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/layouts.rs (target/debug/deps/layouts-5b51749c454839a7)
+
+running 36 tests
+test layout_configcontrolbody ... ok
+test layout_arenaclass ... ok
+test layout_depthlevel ... ok
+test layout_freezebody ... ok
+test layout_execleasebody ... ok
+test layout_arenablockheader ... ok
+test layout_grantbody ... ok
+test layout_hellobody ... ok
+test layout_controlenvelope ... ok
+test layout_instrumententry ... ok
+test layout_intentrecord ... ok
+test layout_joinbody ... ok
+test layout_marketbody ... ok
+test layout_intentbody ... ok
+test layout_marketrecord ... ok
+test layout_offerprefix ... ok
+test layout_ownershiprecord ... ok
+test layout_ownershipbody ... ok
+test layout_querybody ... ok
+test layout_quiescebody ... ok
+test layout_recordheader ... ok
+test layout_reportbody ... ok
+test layout_reportrecord ... ok
+test layout_resourceackbody ... ok
+test layout_resourcedescriptor ... ok
+test layout_resyncbody ... ok
+test layout_snapshotheader ... ok
+test layout_snapshotsection ... ok
+test layout_statusbody ... ok
+test layout_switchbody ... ok
+test layout_topicsnapshotentry ... ok
+test layout_triggerref ... ok
+test layout_welcomebody ... ok
+test layout_cursorpage ... ok
+test layout_producerpage ... ok
+test layout_resourceheader ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/semantics.rs (target/debug/deps/semantics-bc42ec7053b08aa6)
+
+running 11 tests
+test record_crc_enabled_covers_payload_and_header ... ok
+test every_data_vector_passes_production_validation ... ok
+test feature_gate_precedes_configuration_body_parse ... ok
+test arena_payload_identity_bounds_order_and_padding ... ok
+test snapshot_truncation_hash_and_untrusted_offsets ... ok
+test truncated_record_and_control_frame_never_panic ... ok
+test generated_layouts_match_current_contract ... ok
+test crc_reference_and_corruption ... ok
+test unknown_control_enum_and_bad_fd_offer_are_rejected ... ok
+test record_tags_offsets_and_unused_fields_are_rejected ... ok
+test all_declared_semantic_cases ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/vectors.rs (target/debug/deps/vectors-396921f0ca864106)
+
+running 63 tests
+test golden_config_apply_frame_envelope ... ok
+test golden_config_apply_body ... ok
+test golden_config_file_durable_body ... ok
+test golden_config_file_durable_frame_envelope ... ok
+test golden_config_apply_frame ... ok
+test golden_config_runtime_applied_frame_envelope ... ok
+test golden_config_runtime_applied_body ... ok
+test golden_config_file_durable_frame ... ok
+test golden_config_succeeded_body ... ok
+test golden_config_runtime_applied_frame ... ok
+test golden_config_succeeded_frame_envelope ... ok
+test golden_config_succeeded_frame ... ok
+test golden_depth_arena_header ... ok
+test golden_depth_inline_two_levels ... ok
+test golden_cursor_page_active ... ok
+test golden_depth_level_signed ... ok
+test golden_exec_lease_applied_frame ... ok
+test golden_exec_lease_applied_frame_envelope ... ok
+test golden_exec_lease_challenge ... ok
+test golden_freeze_body ... ok
+test golden_fill_report ... ok
+test golden_freeze_complete_frame ... ok
+test golden_freeze_envelope ... ok
+test golden_instrument_btcusdt ... ok
+test golden_join_normalized_snapshot ... ok
+test golden_join_snapshot ... ok
+test golden_new_limit_intent ... ok
+test golden_normalized_child_header ... ok
+test golden_normalized_depth_1 ... ok
+test golden_normalized_depth_2 ... ok
+test golden_normalized_manifest_entry ... ok
+test golden_normalized_manifest_header ... ok
+test golden_normalized_section_1 ... ok
+test golden_normalized_section_2 ... ok
+test golden_normalized_state_feed ... ok
+test golden_normalized_resource_header ... ok
+test golden_normalized_state_quote ... ok
+test golden_normalized_state_mark ... ok
+test golden_normalized_state_trade ... ok
+test golden_quiesce_applied ... ok
+test golden_quiesce_applied_frame_envelope ... ok
+test golden_quiesce_applied_frame ... ok
+test golden_quiesce_request ... ok
+test golden_release_risk_body ... ok
+test golden_quote_one ... ok
+test golden_switch_applied ... ok
+test golden_switch_applied_frame_envelope ... ok
+test golden_switch_applied_frame ... ok
+test golden_switch_resync_frame_envelope ... ok
+test golden_switch_resync_frame ... ok
+test golden_switch_resync_required ... ok
+test golden_topic_manifest_entry_1 ... ok
+test golden_topic_manifest_entry_2 ... ok
+test golden_topic_manifest_header ... ok
+test golden_topic_member_1_header ... ok
+test golden_topic_member_1_level_1 ... ok
+test golden_topic_member_1_level_2 ... ok
+test golden_normalized_topic_snapshot ... ok
+test golden_topic_member_2_header ... ok
+test golden_topic_manifest_resource_header ... ok
+test golden_topic_member_2_level_1 ... ok
+test golden_topic_member_2_level_2 ... ok
+test golden_topic_manifest_two_instruments ... ok
+
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_journal-e510366aa5b49d00)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/frame.rs (target/debug/deps/frame-1f93329de63a0d09)
+
+running 6 tests
+test castagnoli_known_vectors ... ok
+test exact_contract_layout_and_hash_scope ... ok
+test all_contract_types_roundtrip_and_nonzero_flags_rejected ... ok
+test codec_constants_match_authoritative_contract ... ok
+test every_single_bit_error_is_detected ... ok
+test truncation_and_oversize_are_errors_without_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/journal.rs (target/debug/deps/journal-60c5e34100f0bc38)
+
+running 12 tests
+test newly_created_directory_is_owner_only ... ok
+test oversized_batch_does_not_split_or_modify_files ... ok
+test manifest_damage_and_concurrent_writer_fail_closed ... ok
+test frontier_ahead_or_different_hash_never_repairs_files ... ok
+test correctly_checksummed_epoch_rollback_sequence_gap_and_identity_change_quarantine ... ok
+test synchronized_batches_reopen_and_continue_sequences ... ok
+test rotation_preserves_chain_and_epoch_floor_and_missing_segment_fails ... ok
+test orphan_empty_rotation_segment_is_adopted_but_missing_declared_segment_quarantines ... ok
+test short_write_and_failed_sync_never_return_receipt_and_poison_writer ... ok
+test committed_corruption_and_required_missing_tail_quarantine_without_mutation ... ok
+test unsealed_middle_and_sealed_tail_corruption_are_not_discarded ... ok
+test every_unfinished_final_batch_prefix_recovers_only_previous_batch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.18s
+
+     Running tests/manifest.rs (target/debug/deps/manifest-68404fed5def3ece)
+
+running 2 tests
+test one_data_sync_per_closed_batch_and_no_manifest_per_batch ... ok
+test manifest_failure_before_publish_or_after_rename_poisons_then_recovers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/process.rs (target/debug/deps/process-8d8168c731db4da6)
+
+running 2 tests
+test crash_child ... ignored, child entry point; parent runs it in a separate process
+test sigkill_at_write_sync_and_receipt_boundaries_preserves_complete_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_journal_codec-7d24b5955c64b0f8)
+
+running 1 test
+test chain::tests::exhausted_sequence_does_not_wrap_or_mutate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codec.rs (target/debug/deps/codec-7f8963497f611e46)
+
+running 12 tests
+test genesis_binds_domain_and_epoch_while_business_hash_binds_all_fact_fields ... ok
+test journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup ... ok
+test business_digest_ignores_writer_and_journal_placement ... ok
+test maximum_size_and_extreme_i128_are_exact ... ok
+test rejects_schema_map_key_length_and_type_variants ... ok
+test rfc_integer_golden_boundaries_round_trip_in_fee_field ... ok
+test independent_golden_events_takeover_and_logical_prefixes ... ok
+test same_late_fact_keeps_business_digest_across_writer_takeover ... ok
+test sequence_identity_epoch_and_hash_failures_are_atomic ... ok
+test rejects_all_truncations_trailing_data_and_excess_length ... ok
+test rejects_noncanonical_and_out_of_range_integer_representations ... ok
+test accepted_mutated_inputs_reencode_to_exactly_the_same_bytes ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_mock-b26f4d63821c19ea)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/services.rs (target/debug/deps/services-48d9995e1f703df7)
+
+running 12 tests
+test committed_but_lost_storage_receipt_is_recovered_conservatively ... ok
+test accepted_order_ack_loss_and_recovery_do_not_resubmit ... ok
+test facts_are_not_applied_when_storage_fails ... ok
+test even_empty_journal_restart_requires_recovery_authorization ... ok
+test healthy_async_pending_response_is_distinct_from_timeout ... ok
+test failed_recovery_cannot_leave_the_old_engine_authorized ... ok
+test kv_failure_never_reaches_journal_or_exchange ... ok
+test missing_recovery_dependency_prevents_commit ... ok
+test storage_failure_never_reaches_exchange ... ok
+test relational_cas_and_immutable_kv_contracts ... ok
+test venue_identity_is_not_binance_specific_and_domains_cannot_mix ... ok
+test synchronous_replica_pending_does_not_fall_back_to_local ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/spot-roundtrip.rs (target/debug/examples/spot_roundtrip-bf1aa9cf234e6dc8)
+
+running 1 test
+test roundtrip_is_deterministic_and_recovery_preserves_accounting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_risk-79bc3aa1e4e7711b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/boundaries.rs (target/debug/deps/boundaries-10126b5f44008dba)
+
+running 17 tests
+test baseline_requires_explained_locked_assets ... ok
+test fees_exceeding_received_amount_require_external_inventory ... ok
+test decimals_preserve_precision_scale_and_minimum ... ok
+test bracket_continuity_and_qualification_are_enforced ... ok
+test hedge_capital_rejects_wrong_order_direction_for_the_envelope ... ok
+test invalid_collateral_excludes_assets_but_preserves_liabilities ... ok
+test funding_counts_and_exit_fees_are_charged_before_new_positions_fill ... ok
+test late_unrecordable_settlement_evidence_reopens_reconciliation ... ok
+test products_cancel_decimal_powers_before_checked_multiply ... ok
+test reduce_allocation_respects_mode_step_and_real_position ... ok
+test reservation_failures_preserve_financial_state_and_overflow_closes_gate ... ok
+test scale_conversion_is_explicit_and_rounds_toward_requested_bound ... ok
+test settlement_overflow_is_atomic ... ok
+test settlement_timer_does_not_release_and_duplicate_income_is_idempotent ... ok
+test signed_division_overflow_and_zero_are_errors ... ok
+test division_matches_small_exact_integer_oracle ... ok
+test signed_division_rounds_outward_without_minimum_negation ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contract_vectors.rs (target/debug/deps/contract_vectors-a136c91fb1a7b8e0)
+
+running 1 test
+test all_design_vectors_match_public_calculators ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_shm-4483966d7147f7fb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mapped.rs (target/debug/deps/mapped-e20c662c595bd603)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol.rs (target/debug/deps/protocol-e7ddd14e19506b2d)
+
+running 13 tests
+test a_batch_is_all_or_nothing_and_blocks_membership_and_freeze ... ok
+test application_does_not_release_a_live_borrow ... ok
+test capacity_is_protected_by_every_reader ... ok
+test cutoff_never_publishes_a_partial_batch ... ok
+test invalid_or_stale_cursor_updates_cannot_release_capacity ... ok
+test join_invalidates_the_no_reader_cached_minimum ... ok
+test local_window_is_bounded_even_after_early_release ... ok
+test malformed_batches_and_sequence_exhaustion_do_not_change_state ... ok
+test old_quiesce_ack_cannot_remove_a_new_subscription ... ok
+test pending_join_baseline_cannot_be_advanced_by_a_cursor ... ok
+test quiesce_requires_every_borrow_but_not_business_application ... ok
+test reader_keeps_release_and_application_gaps_separate ... ok
+test reader_rejects_regressing_published_and_future_application ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_shm_sys-a0ff8066be85e299)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/immutable.rs (target/debug/deps/immutable-8e5e9c03ae472bc0)
+
+running 1 test
+test immutable_production_mapping_requires_linux ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mapping.rs (target/debug/deps/mapping-80f642064747d379)
+
+running 1 test
+test production_mapping_rejects_non_linux ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/process.rs (target/debug/deps/process-5b288fc1b1534f66)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_snapshot-a26404835afff357)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/immutable_linux.rs (target/debug/deps/immutable_linux-42933b36faa39705)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/validation.rs (target/debug/deps/validation-7e236454061d390d)
+
+running 12 tests
+test complete_multi_instrument_cut_requires_every_member ... ok
+test required_state_must_itself_be_live ... ok
+test duplicate_member_snapshot_identity_is_not_a_valid_baseline ... ok
+test nonlive_member_remains_present_but_cannot_be_ready ... ok
+test golden_normalized_bundle_has_checked_members_and_deadline ... ok
+test missing_required_state_blocks_readiness_but_preserves_the_member ... ok
+test unknown_capability_catalog_and_trusted_identity_are_rejected ... ok
+test local_observation_times_cannot_follow_the_snapshot_creation ... ok
+test records_bind_topic_producer_and_manifest_feed_state ... ok
+test creation_child_expiry_and_join_deadline_are_enforced ... ok
+test resource_join_and_top_identity_conflicts_are_rejected_despite_valid_hashes ... ok
+test every_truncated_bundle_is_rejected_without_panicking ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.12s
+   Doc-tests tickwire_book
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_execution
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_ipc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal_codec
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_mock
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_risk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_shm
+
+running 1 test
+test crates/tickwire-shm/src/mapped.rs - mapped::RecordBorrow<'_,B>::bytes (line 478) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+   Doc-tests tickwire_shm_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_snapshot
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking tickwire-journal-codec v0.1.0 ($REPO/crates/tickwire-journal-codec)
+    Checking tickwire-snapshot v0.1.0 ($REPO/crates/tickwire-snapshot)
+    Checking tickwire-shm v0.1.0 ($REPO/crates/tickwire-shm)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.68s

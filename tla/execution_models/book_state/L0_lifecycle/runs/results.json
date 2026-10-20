@@ -1,0 +1,368 @@
+{
+  "source": "crates/tickwire-book/src/lib.rs",
+  "source_sha256": "37beb8dcd515b76a8c3bec0a2cd46a1c3c2431375276810b45818b8b35fd04a3",
+  "module_sha256": "6da82cdf8a4f9b4a9a1416f9c78c668d32df6e5b665aad0609e161f9177bf4b3",
+  "verdict": "PASS",
+  "configs": {
+    "L0_BookState": {
+      "generated": 111457,
+      "distinct": 1392,
+      "depth": 6,
+      "elapsed_seconds": 2,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 24,
+          "generated": 2184
+        },
+        "SnapshotRejected": {
+          "distinct": 26,
+          "generated": 182
+        },
+        "SnapshotWrongIdentity": {
+          "distinct": 148,
+          "generated": 1392
+        },
+        "SnapshotBadState": {
+          "distinct": 122,
+          "generated": 1210
+        },
+        "ApplyAccepted": {
+          "distinct": 48,
+          "generated": 60288
+        },
+        "ApplyStale": {
+          "distinct": 72,
+          "generated": 10592
+        },
+        "ApplyBadSequence": {
+          "distinct": 72,
+          "generated": 7808
+        },
+        "ApplyBadClock": {
+          "distinct": 16,
+          "generated": 2688
+        },
+        "ApplyBadPayload": {
+          "distinct": 40,
+          "generated": 15072
+        },
+        "ApplyWrongIdentity": {
+          "distinct": 148,
+          "generated": 1392
+        },
+        "ApplyBadState": {
+          "distinct": 76,
+          "generated": 760
+        },
+        "RebuildAccepted": {
+          "distinct": 1,
+          "generated": 696
+        },
+        "RebuildRejected": {
+          "distinct": 148,
+          "generated": 2088
+        },
+        "InvalidateAccepted": {
+          "distinct": 74,
+          "generated": 1392
+        },
+        "InvalidateWrongGeneration": {
+          "distinct": 148,
+          "generated": 1392
+        },
+        "ViewAccepted": {
+          "distinct": 80,
+          "generated": 784
+        },
+        "ViewNotLive": {
+          "distinct": 100,
+          "generated": 928
+        },
+        "ViewClockRegressed": {
+          "distinct": 32,
+          "generated": 448
+        },
+        "ViewStale": {
+          "distinct": 16,
+          "generated": 160
+        }
+      },
+      "cfg_sha256": "d2a01f2e33c384069d7d8ed63c4828b1691c67232e3ea75976de81bd75683017",
+      "log_sha256": "b65f5d39f17666cbd04519c6cc27fcb76e32e224676d47c8a953d2f587f06fe9"
+    },
+    "L0_SpotScaling": {
+      "generated": 3042646,
+      "distinct": 8499,
+      "depth": 6,
+      "elapsed_seconds": 12,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 108,
+          "generated": 27972
+        },
+        "SnapshotRejected": {
+          "distinct": 111,
+          "generated": 777
+        },
+        "SnapshotWrongIdentity": {
+          "distinct": 870,
+          "generated": 8499
+        },
+        "SnapshotBadState": {
+          "distinct": 759,
+          "generated": 7722
+        },
+        "ApplyAccepted": {
+          "distinct": 324,
+          "generated": 2327940
+        },
+        "ApplyStale": {
+          "distinct": 432,
+          "generated": 121500
+        },
+        "ApplyBadSequence": {
+          "distinct": 432,
+          "generated": 129060
+        },
+        "ApplyBadClock": {
+          "distinct": 162,
+          "generated": 78300
+        },
+        "ApplyBadPayload": {
+          "distinct": 297,
+          "generated": 258660
+        },
+        "ApplyWrongIdentity": {
+          "distinct": 870,
+          "generated": 8499
+        },
+        "ApplyBadState": {
+          "distinct": 438,
+          "generated": 4503
+        },
+        "RebuildAccepted": {
+          "distinct": 2,
+          "generated": 8499
+        },
+        "RebuildRejected": {
+          "distinct": 870,
+          "generated": 16998
+        },
+        "InvalidateAccepted": {
+          "distinct": 435,
+          "generated": 8499
+        },
+        "InvalidateWrongGeneration": {
+          "distinct": 870,
+          "generated": 16998
+        },
+        "ViewAccepted": {
+          "distinct": 567,
+          "generated": 5751
+        },
+        "ViewNotLive": {
+          "distinct": 546,
+          "generated": 5259
+        },
+        "ViewClockRegressed": {
+          "distinct": 243,
+          "generated": 4698
+        },
+        "ViewStale": {
+          "distinct": 162,
+          "generated": 2511
+        }
+      },
+      "cfg_sha256": "f2f1692e7fb8d630a3688e538fe8437676f6292cdeac82cbe7b3f67512c7ebe2",
+      "log_sha256": "73f425f7754ffa80baa01d50b9ea3048a2ae77ac959c7e5b4b5ae4d20b01b145"
+    },
+    "L0_UsdM": {
+      "generated": 115809,
+      "distinct": 1880,
+      "depth": 6,
+      "elapsed_seconds": 2,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 24,
+          "generated": 2088
+        },
+        "SnapshotRejected": {
+          "distinct": 26,
+          "generated": 174
+        },
+        "SnapshotWrongIdentity": {
+          "distinct": 196,
+          "generated": 1880
+        },
+        "SnapshotBadState": {
+          "distinct": 170,
+          "generated": 1706
+        },
+        "ApplyAccepted": {
+          "distinct": 72,
+          "generated": 53696
+        },
+        "ApplyStale": {
+          "distinct": 88,
+          "generated": 10176
+        },
+        "ApplyBadSequence": {
+          "distinct": 96,
+          "generated": 17176
+        },
+        "ApplyBadClock": {
+          "distinct": 32,
+          "generated": 1792
+        },
+        "ApplyBadPayload": {
+          "distinct": 72,
+          "generated": 13424
+        },
+        "ApplyWrongIdentity": {
+          "distinct": 196,
+          "generated": 1880
+        },
+        "ApplyBadState": {
+          "distinct": 100,
+          "generated": 1024
+        },
+        "RebuildAccepted": {
+          "distinct": 1,
+          "generated": 940
+        },
+        "RebuildRejected": {
+          "distinct": 196,
+          "generated": 2820
+        },
+        "InvalidateAccepted": {
+          "distinct": 98,
+          "generated": 1880
+        },
+        "InvalidateWrongGeneration": {
+          "distinct": 196,
+          "generated": 1880
+        },
+        "ViewAccepted": {
+          "distinct": 120,
+          "generated": 1176
+        },
+        "ViewNotLive": {
+          "distinct": 124,
+          "generated": 1184
+        },
+        "ViewClockRegressed": {
+          "distinct": 48,
+          "generated": 672
+        },
+        "ViewStale": {
+          "distinct": 24,
+          "generated": 240
+        }
+      },
+      "cfg_sha256": "4af2cd22251c68145d2c8eb5416ed54b8832393a900a78ebea8a8d67e3a071a2",
+      "log_sha256": "d4e591bfc91df56aa99dd4a481565b93527f366f8f402eafa05e840f0e638aa0"
+    },
+    "L0_UsdMScaling": {
+      "generated": 2220496,
+      "distinct": 10524,
+      "depth": 6,
+      "elapsed_seconds": 14,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 108,
+          "generated": 27000
+        },
+        "SnapshotRejected": {
+          "distinct": 111,
+          "generated": 750
+        },
+        "SnapshotWrongIdentity": {
+          "distinct": 1086,
+          "generated": 10524
+        },
+        "SnapshotBadState": {
+          "distinct": 975,
+          "generated": 9774
+        },
+        "ApplyAccepted": {
+          "distinct": 432,
+          "generated": 1519236
+        },
+        "ApplyStale": {
+          "distinct": 513,
+          "generated": 112050
+        },
+        "ApplyBadSequence": {
+          "distinct": 540,
+          "generated": 239382
+        },
+        "ApplyBadClock": {
+          "distinct": 243,
+          "generated": 30780
+        },
+        "ApplyBadPayload": {
+          "distinct": 432,
+          "generated": 168804
+        },
+        "ApplyWrongIdentity": {
+          "distinct": 1086,
+          "generated": 10524
+        },
+        "ApplyBadState": {
+          "distinct": 546,
+          "generated": 5691
+        },
+        "RebuildAccepted": {
+          "distinct": 2,
+          "generated": 10524
+        },
+        "RebuildRejected": {
+          "distinct": 1086,
+          "generated": 21048
+        },
+        "InvalidateAccepted": {
+          "distinct": 543,
+          "generated": 10524
+        },
+        "InvalidateWrongGeneration": {
+          "distinct": 1086,
+          "generated": 21048
+        },
+        "ViewAccepted": {
+          "distinct": 432,
+          "generated": 4104
+        },
+        "ViewNotLive": {
+          "distinct": 654,
+          "generated": 6420
+        },
+        "ViewClockRegressed": {
+          "distinct": 324,
+          "generated": 6156
+        },
+        "ViewStale": {
+          "distinct": 324,
+          "generated": 6156
+        }
+      },
+      "cfg_sha256": "c92332471c687c47dddadb3c55090f7a7c5a66960b3bbdf8019f9568516d883e",
+      "log_sha256": "182e19b547189f5b11806e5e892584c3f9f89eca7da215d2aa9001d550e563cc"
+    }
+  }
+}

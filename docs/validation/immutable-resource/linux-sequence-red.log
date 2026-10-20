@@ -1,0 +1,22 @@
+   Compiling tickwire-shm-sys v0.1.0 (/work/crates/tickwire-shm-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.38s
+     Running tests/immutable.rs (target/linux-immutable/debug/deps/immutable-0704871d7b004d60)
+
+running 1 test
+test linux::resource_ranges_and_immutable_shapes_are_checked_before_data_use ... FAILED
+
+failures:
+
+---- linux::resource_ranges_and_immutable_shapes_are_checked_before_data_use stdout ----
+
+thread 'linux::resource_ranges_and_immutable_shapes_are_checked_before_data_use' (125) panicked at crates/tickwire-shm-sys/tests/immutable.rs:396:13:
+case 7
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    linux::resource_ranges_and_immutable_shapes_are_checked_before_data_use
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-shm-sys --test immutable`

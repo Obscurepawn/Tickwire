@@ -1,0 +1,6 @@
+  ok execution_models/book_state/L0_lifecycle: 214 line anchor(s) -> execution_models/book_state/L0_lifecycle/02_models/anchors.lock
+  ok execution_models/book_state/L1_coverage: 211 line anchor(s) -> execution_models/book_state/L1_coverage/02_models/anchors.lock
+anchors.sh update: baselined 2 level(s); 425 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)
+
+anchors.sh check: 425 anchor line(s) across 2 lock(s); 0 changed
+no drift — cited lines unchanged since baseline

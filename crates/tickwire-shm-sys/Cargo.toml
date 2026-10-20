@@ -9,3 +9,5 @@ publish.workspace = true
 # unsafe policy; the workspace-level prohibition is not changed.
 [dependencies]
 libc = "0.2"
+sha2 = "0.10"
+tickwire-ipc = { path = "../tickwire-ipc" }

@@ -1,0 +1,20 @@
+[package]
+name = "tickwire-snapshot"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tickwire-ipc = { path = "../tickwire-ipc" }
+
+[dev-dependencies]
+serde_json = "1"
+sha2 = "0.10"
+
+[target.'cfg(target_os = "linux")'.dev-dependencies]
+tickwire-shm-sys = { path = "../tickwire-shm-sys" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+
+[lints]
+workspace = true

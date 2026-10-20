@@ -11,9 +11,9 @@ Status: active
 | 范围 | 当前实现 | 后续验收 |
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
-| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd 权限、固定记录 SPSC/广播及 1～32 消费进程测试；Unix SEQPACKET/SCM_RIGHTS 与认证会话 | 不可变 JOIN 基线、Arena、bank 轮换、进程死亡回收与业务进程接线 |
+| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照接收、SPSC/广播及 1～32 消费进程测试；Unix SEQPACKET/SCM_RIGHTS 与认证会话 | JOIN 基线构造与 owner/cursor 协调、Arena、bank 轮换、进程死亡回收与业务进程接线 |
 | P2 风控与执行 | 定点风险公式、订单状态、预留/去重/发送门禁、服务接口与 Mock | 完整保证金账户/归属、行情风控接入、协议认证/网关、条件订单和限流 |
-| P3 发布与恢复 | journal Mock 与冻结恢复原语；真实物理 WAL/分段/同步恢复 | 业务日志适配与恢复依赖闭包、策略升级/回滚、多 exec 协调、对账和配置发布 |
+| P3 发布与恢复 | journal Mock 与冻结恢复原语；真实物理 WAL/分段/同步恢复；确定性业务事件与逻辑链编码 | 业务日志适配与恢复依赖闭包、策略升级/回滚、多 exec 协调、对账和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
 | P5 资格 | 尚未开始 | 测试网、Linux 多进程全链路、延迟、压力、72 小时长跑和受控上线 |
 
@@ -25,6 +25,7 @@ Status: active
 - [IPC 接口](../docs/implementation/ipc-interface.md)，[IPC 规格](implementation/ipc-codec.md)。
 - [共享 ring 接口](../docs/implementation/shm-ring-interface.md)，[ring 规格](implementation/shm-ring.md)与[Linux 映射规格](implementation/shm-mapping.md)。
 - [控制会话](../docs/implementation/control-session-interface.md)、[传输边界](../docs/implementation/control-transport-interface.md)与[物理日志](../docs/implementation/journal-interface.md)；各自规格位于 `specs/implementation/`。
+- [不可变资源](implementation/immutable-resource.md)、[Topic 快照接收](implementation/topic-snapshot.md)与[业务日志编码](implementation/journal-codec.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
@@ -97,7 +98,21 @@ TLC 1.7.4 对执行模块的三个有限模型运行了九组配置，均通过�
 
 以 `df8bd2d` 为基线，相邻和散布两套相同负载各运行五轮，每负载每轮采样 200,000 次。M1 Pro/macOS 上，4096 档、双侧合计 16/64 项散布改量的每轮 p50 中位数为 958/4000 → 542/2000 ns；相邻改量的 p50 中位数均保持基线值。512 档、512 项散布改量仍有 +0.5% 的 p50 变化，两组运行范围重叠；全部原始分位数、最大值和被淘汰候选均保留在[完整报告](../docs/validation/book-small-batch/report.md)。
 
-计时范围是 `Book::apply` 到读取有效 view 和最优买卖价结束，使用单个热缓存实例，未包含网络、解码、IPC 或持久化。当前结果支持保留该实现；多标的、真实录包和目标 Linux 主机的性能资格仍待 P5 验收。book 生命周期的源码对应 TLA+ 模型单独推进。
+计时范围是 `Book::apply` 到读取有效 view 和最优买卖价结束，使用单个热缓存实例，未包含网络、解码、IPC 或持久化。当前结果支持保留该实现；多标的、真实录包和目标 Linux 主机的性能资格仍待 P5 验收。
+
+盘口源码对应的 [TLA+ L0/L1](../tla/execution_models/book_state/ROADMAP.md) 八组配置通过。L0 的 Spot 主/扩展检查 1,392/8,499 个不同状态，USD-M 主/扩展为 1,880/10,524；L1 的 Bid 主/扩展为 1,471/7,050，Ask 主/扩展为 1,471/8,244。每组分别覆盖全部 19 或 15 个 Next 动作。L1 保留覆盖范围外的隐藏价位见证，检查已知数量/最优价与真实内容一致，以及 Unknown 不被当成零；实际排序算法、适配器正确性和未来 exec 行情门禁没有被这一有限模型证明。
+
+## 不可变快照与业务日志阶段
+
+macOS 和 Linux 的全仓格式、全部 targets、doctest 与 Clippy 检查通过，实际输出见[阶段验证](../docs/validation/snapshot-journal-stage/README.md)。
+
+| 模块 | 专项验证 | 完成边界 |
+| --- | --- | --- |
+| 不可变资源 | Linux shm-sys 21 个入口、依赖 ring 24 项和 1 项 compile-fail doctest；macOS 2 项 | 私有 pwrite 完成后设置 `0x0f`；实际只读 FD 与安全只读切片；认证预期身份/hash、范围和零页尾校验 |
+| Topic 快照接收 | 12 项纯 Rust；Linux 另有 2 个跨进程测试入口（含 helper） | 完整成员与共同 S，JOIN/资源/状态身份及期限；SCM_RIGHTS 交付后接收校验；错误资源拒绝与 FD/映射回收 |
+| 业务日志 codec | 13 项测试、6 个记录/17 个整数黄金向量、591 个截断与 99,840 个单字节变异 | 最多 201 字节确定性 CBOR；原订单代次与 writer 代次分开；稳定业务摘要和绑定 writer 的逻辑链 |
+
+快照通过校验不会自行改变 owner/cursor 状态。业务 codec 也没有生成可直接授权发送的提交证明；真实 WAL、依赖闭包与执行恢复的适配器仍须连接这些已验证原语。
 
 ## 接续工作
 

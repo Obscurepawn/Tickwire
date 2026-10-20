@@ -14,7 +14,13 @@ use std::sync::atomic::{AtomicU64, Ordering, fence};
 pub const PAGE_BYTES: usize = 4096;
 pub const ISOLATION_BYTES: usize = 128;
 pub const SINGLE_WRITER_SEALS: i32 = 0x17;
+pub const IMMUTABLE_SEALS: i32 = 0x0f;
 pub type Result<T> = std::result::Result<T, Error>;
+
+mod immutable;
+mod resource;
+pub use immutable::ImmutableMapping;
+pub use resource::ImmutableResource;
 
 #[derive(Debug)]
 pub enum Error {
@@ -33,6 +39,10 @@ pub enum Error {
         actual: i32,
     },
     NotSealed,
+    Wire(tickwire_ipc::Error),
+    Identity,
+    Checksum,
+    InvalidLayout(&'static str),
     System {
         operation: &'static str,
         source: io::Error,

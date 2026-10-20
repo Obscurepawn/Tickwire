@@ -1,0 +1,304 @@
+{
+  "source": "crates/tickwire-book/src/lib.rs",
+  "source_sha256": "37beb8dcd515b76a8c3bec0a2cd46a1c3c2431375276810b45818b8b35fd04a3",
+  "module_sha256": "c7e9ed09928e3faa69856693e8fdc2a68d537268a66a94a53f47a70a83c14e6e",
+  "verdict": "PASS",
+  "configs": {
+    "L1_BookCoverage": {
+      "generated": 45523,
+      "distinct": 1471,
+      "depth": 6,
+      "elapsed_seconds": 3,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 52,
+          "generated": 13865
+        },
+        "SnapshotRejected": {
+          "distinct": 52,
+          "generated": 235
+        },
+        "ApplyAccepted": {
+          "distinct": 136,
+          "generated": 22194
+        },
+        "CapacityRejected": {
+          "distinct": 84,
+          "generated": 2106
+        },
+        "Invalidate": {
+          "distinct": 136,
+          "generated": 1471
+        },
+        "IgnoreStale": {
+          "distinct": 188,
+          "generated": 900
+        },
+        "RejectIdentity": {
+          "distinct": 333,
+          "generated": 1471
+        },
+        "Rebuild": {
+          "distinct": 8,
+          "generated": 725
+        },
+        "ObserveKnownBest": {
+          "distinct": 56,
+          "generated": 288
+        },
+        "ObserveHiddenBest": {
+          "distinct": 36,
+          "generated": 190
+        },
+        "ObserveUnknownZero": {
+          "distinct": 66,
+          "generated": 446
+        },
+        "ObserveKnownZero": {
+          "distinct": 64,
+          "generated": 462
+        },
+        "ObserveKnownBeyondCoverage": {
+          "distinct": 60,
+          "generated": 380
+        },
+        "ObserveCompleteEmpty": {
+          "distinct": 2,
+          "generated": 10
+        },
+        "ObserveNotLive": {
+          "distinct": 197,
+          "generated": 779
+        }
+      },
+      "cfg_sha256": "a9d196bb1e035129849ba5c44aae825376356ba5ee4b33bc9c7c3e81aac5f4c4",
+      "log_sha256": "fe0601a23fae53c912695bd447f65e0044c94b4b72495817d41904a98d3055db"
+    },
+    "L1_Ask": {
+      "generated": 45523,
+      "distinct": 1471,
+      "depth": 6,
+      "elapsed_seconds": 1,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 52,
+          "generated": 13865
+        },
+        "SnapshotRejected": {
+          "distinct": 52,
+          "generated": 235
+        },
+        "ApplyAccepted": {
+          "distinct": 136,
+          "generated": 22194
+        },
+        "CapacityRejected": {
+          "distinct": 84,
+          "generated": 2106
+        },
+        "Invalidate": {
+          "distinct": 136,
+          "generated": 1471
+        },
+        "IgnoreStale": {
+          "distinct": 188,
+          "generated": 900
+        },
+        "RejectIdentity": {
+          "distinct": 333,
+          "generated": 1471
+        },
+        "Rebuild": {
+          "distinct": 8,
+          "generated": 725
+        },
+        "ObserveKnownBest": {
+          "distinct": 56,
+          "generated": 288
+        },
+        "ObserveHiddenBest": {
+          "distinct": 36,
+          "generated": 190
+        },
+        "ObserveUnknownZero": {
+          "distinct": 66,
+          "generated": 446
+        },
+        "ObserveKnownZero": {
+          "distinct": 64,
+          "generated": 462
+        },
+        "ObserveKnownBeyondCoverage": {
+          "distinct": 60,
+          "generated": 380
+        },
+        "ObserveCompleteEmpty": {
+          "distinct": 2,
+          "generated": 10
+        },
+        "ObserveNotLive": {
+          "distinct": 197,
+          "generated": 779
+        }
+      },
+      "cfg_sha256": "47d5707a12d5cc8a0bc173d17390393a6946a9e80dfe36747a515c8f78efa105",
+      "log_sha256": "4ad1f434cc1723be6e5aa3c83800508c09abb184034d2da84ac3ac3b814835d4"
+    },
+    "L1_AskScaling": {
+      "generated": 585796,
+      "distinct": 8244,
+      "depth": 6,
+      "elapsed_seconds": 4,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 276,
+          "generated": 223344
+        },
+        "SnapshotRejected": {
+          "distinct": 276,
+          "generated": 1269
+        },
+        "ApplyAccepted": {
+          "distinct": 777,
+          "generated": 250344
+        },
+        "CapacityRejected": {
+          "distinct": 501,
+          "generated": 67800
+        },
+        "Invalidate": {
+          "distinct": 777,
+          "generated": 8244
+        },
+        "IgnoreStale": {
+          "distinct": 1053,
+          "generated": 4971
+        },
+        "RejectIdentity": {
+          "distinct": 1885,
+          "generated": 8244
+        },
+        "Rebuild": {
+          "distinct": 54,
+          "generated": 8166
+        },
+        "ObserveKnownBest": {
+          "distinct": 330,
+          "generated": 1662
+        },
+        "ObserveHiddenBest": {
+          "distinct": 228,
+          "generated": 1176
+        },
+        "ObserveUnknownZero": {
+          "distinct": 291,
+          "generated": 1797
+        },
+        "ObserveKnownZero": {
+          "distinct": 264,
+          "generated": 1698
+        },
+        "ObserveKnownBeyondCoverage": {
+          "distinct": 420,
+          "generated": 2688
+        },
+        "ObserveCompleteEmpty": {
+          "distinct": 3,
+          "generated": 15
+        },
+        "ObserveNotLive": {
+          "distinct": 1108,
+          "generated": 4377
+        }
+      },
+      "cfg_sha256": "e5f79b09854ef5aeb0eab6afdb3ad2e751359d3ad1661d8bb2acc912ef03fbdf",
+      "log_sha256": "fbb06197a2e4e63747930e73052450d74677a96fa73f240b20c890780b6dd7ce"
+    },
+    "L1_BidScaling": {
+      "generated": 519202,
+      "distinct": 7050,
+      "depth": 6,
+      "elapsed_seconds": 6,
+      "actions": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "SnapshotAccepted": {
+          "distinct": 186,
+          "generated": 129822
+        },
+        "SnapshotRejected": {
+          "distinct": 186,
+          "generated": 843
+        },
+        "ApplyAccepted": {
+          "distinct": 663,
+          "generated": 333630
+        },
+        "CapacityRejected": {
+          "distinct": 477,
+          "generated": 14589
+        },
+        "Invalidate": {
+          "distinct": 663,
+          "generated": 7050
+        },
+        "IgnoreStale": {
+          "distinct": 849,
+          "generated": 4299
+        },
+        "RejectIdentity": {
+          "distinct": 1545,
+          "generated": 7050
+        },
+        "Rebuild": {
+          "distinct": 32,
+          "generated": 7005
+        },
+        "ObserveKnownBest": {
+          "distinct": 300,
+          "generated": 1629
+        },
+        "ObserveHiddenBest": {
+          "distinct": 174,
+          "generated": 975
+        },
+        "ObserveUnknownZero": {
+          "distinct": 393,
+          "generated": 3180
+        },
+        "ObserveKnownZero": {
+          "distinct": 315,
+          "generated": 2649
+        },
+        "ObserveKnownBeyondCoverage": {
+          "distinct": 381,
+          "generated": 2970
+        },
+        "ObserveCompleteEmpty": {
+          "distinct": 3,
+          "generated": 15
+        },
+        "ObserveNotLive": {
+          "distinct": 882,
+          "generated": 3495
+        }
+      },
+      "cfg_sha256": "db58172451702bc89cc0fc39c9164a5569363e67f1278e9feae4de1ea6cb2c08",
+      "log_sha256": "24111184823bbeb0fa7f2b8d2d9e35f242177f166104659e31b7507aade6087e"
+    }
+  }
+}

@@ -1,0 +1,737 @@
+Linux 6.8.0-117-generic aarch64 GNU/Linux
+4096
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 2 components
+   Compiling tickwire-journal-codec v0.1.0 (/work/crates/tickwire-journal-codec)
+   Compiling tickwire-shm-sys v0.1.0 (/work/crates/tickwire-shm-sys)
+   Compiling tickwire-snapshot v0.1.0 (/work/crates/tickwire-snapshot)
+   Compiling tickwire-book v0.1.0 (/work/crates/tickwire-book)
+   Compiling tickwire-shm v0.1.0 (/work/crates/tickwire-shm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.96s
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_book-8e56e650fe076afc)
+
+running 5 tests
+test work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update ... ok
+test work_tests::large_batch_has_bounded_price_comparisons ... ok
+test work_tests::one_replacement_does_not_scan_or_copy_the_full_book ... ok
+test work_tests::unordered_small_replacements_have_a_bounded_comparison_budget ... ok
+test work_tests::wrapped_adjacent_batches_keep_the_adjacent_lookup_budget ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.56s
+
+     Running tests/batch.rs (target/linux-check/debug/deps/batch-e5fa41ef302a29c9)
+
+running 2 tests
+test full_capacity_replacement_and_reverse_batches_preserve_unknown_coverage ... ok
+test bad_large_second_side_never_commits_first_side_or_sequence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/book.rs (target/linux-check/debug/deps/book-55f1ba2730009a41)
+
+running 22 tests
+test complete_empty_snapshot_has_known_zero_and_empty_best ... ok
+test bid_and_ask_moves_can_cross_old_opposite_quote_but_not_final_quote ... ok
+test capacity_checks_final_batch_before_any_side_changes ... ok
+test event_update_limit_and_invalid_range_fail_closed ... ok
+test external_buffer_loss_and_disconnect_require_current_generation ... ok
+test duplicate_event_does_not_refresh_freshness_and_backward_clock_is_rejected ... ok
+test futures_bridge_rejects_spot_next_id_and_missing_pu ... ok
+test no_event_is_applied_before_snapshot_and_generation_never_wraps ... ok
+test futures_equal_snapshot_id_bridges_then_requires_pu ... ok
+test rebuild_requires_new_generation_and_old_snapshot_cannot_reactivate ... ok
+test snapshot_errors_are_atomic_and_rebuild_is_required ... ok
+test spot_overlapping_updates_stale_and_gap ... ok
+test malformed_batches_do_not_partially_modify_either_side ... ok
+test storage_can_use_an_independent_exchange_policy ... ok
+test snapshot_capacity_duplicate_price_and_zero_capacity_fail_closed ... ok
+test snapshot_needs_bridge_and_spot_boundary_matrix ... ok
+test truncated_snapshot_retains_unknown_depth_and_best_quote_uncertainty ... ok
+test u64_max_snapshot_never_overflows_spot_next_update_check ... ok
+test wrong_key_and_generation_cannot_poison_live_book ... ok
+test zero_deletes_and_absent_zero_is_idempotent ... ok
+test unsorted_snapshots_and_updates_are_normalized ... ok
+test replay_matches_independent_btree_map_oracle ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/differential.rs (target/linux-check/debug/deps/differential-468fd4d843e26b63)
+
+running 1 test
+test independent_small_books_match_btree_map ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/no_alloc.rs (target/linux-check/debug/deps/no_alloc-2bff8be9aa50cc74)
+
+running 3 tests
+test construction_snapshot_updates_views_and_rebuild_allocate_nothing ... ok
+test unordered_small_quantity_batches_allocate_nothing ... ok
+test sorted_work_area_and_bulk_merge_allocate_nothing ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/small_batch.rs (target/linux-check/debug/deps/small_batch-923cd2f8306dc420)
+
+running 3 tests
+test absent_positive_fallback_and_zero_delete_keep_final_capacity_semantics ... ok
+test scattered_replacements_handle_collisions_and_preserve_coverage ... ok
+test late_duplicate_or_missing_price_cannot_partially_commit_either_side ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running benches/batch_apply.rs (target/linux-check/debug/deps/batch_apply-ede665077be5642c)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,41,42,42,917
+replace_natural,32,2,1000,751,876,24179,30682
+replace_natural,32,16,1000,1584,2460,11881,12673
+replace_natural,512,2,1000,875,1000,1042,6545
+replace_natural,512,16,1000,1668,2376,7087,12589
+replace_natural,512,64,1000,3752,6920,26263,55945
+replace_shuffle,512,512,1000,125938,358971,762756,768551
+churn_natural,512,4,1000,1168,1292,1334,7504
+churn_shuffle,512,256,1000,73746,128147,181049,247707
+replace_natural,4096,2,1000,2834,21886,531766,565658
+replace_natural,4096,16,1000,1792,2793,7879,50859
+replace_natural,4096,64,1000,4002,6253,30515,37018
+replace_natural,4096,512,1000,22053,112806,121727,138569
+replace_reverse,4096,512,1000,23345,143655,181966,337877
+replace_shuffle,4096,512,1000,125688,241746,599758,684509
+churn_natural,4096,4,1000,1251,1417,1501,6837
+churn_shuffle,4096,256,1000,80666,131440,193638,274471
+     Running benches/depth_apply.rs (target/linux-check/debug/deps/depth_apply-86aa610042f3e2ed)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,41,42,42,42
+replace,32,2,1000,793,959,23220,26930
+replace,32,16,1000,1626,11422,280765,399241
+replace,512,2,1000,876,1001,1042,7337
+replace,512,16,1000,1667,2418,7420,12173
+replace,512,64,1000,3752,6837,12382,12632
+top_churn,512,4,1000,1208,1584,35893,50817
+replace,4096,2,1000,1001,2001,5253,10589
+replace,4096,16,1000,1793,2168,68451,78497
+replace,4096,64,1000,4002,7045,29807,32057
+top_churn,4096,4,1000,1251,1376,4086,35727
+     Running benches/sparse_apply.rs (target/linux-check/debug/deps/sparse_apply-b437aaa18aeeddc3)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,41,42,42,83
+replace_scatter_shuffle,512,16,1000,3669,8129,38686,38936
+replace_scatter_shuffle,512,64,1000,11422,22803,49191,60280
+replace_scatter_shuffle,512,512,1000,126147,202685,288853,322619
+churn_scatter_shuffle,512,256,1000,84667,207020,472486,499958
+replace_scatter_shuffle,4096,16,1000,4461,8254,36685,42313
+replace_scatter_shuffle,4096,64,1000,14840,125854,1067408,1604052
+replace_scatter_shuffle,4096,512,1000,222469,302098,476543,739060
+churn_scatter_shuffle,4096,256,1000,171455,282146,510806,1473957
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_control-025b758d951c6a2f)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/session.rs (target/linux-check/debug/deps/session-d1034906d362f561)
+
+running 13 tests
+test handshake_and_frame_bind_both_processes_and_instances ... ok
+test expired_or_regressed_clock_never_reopens_a_session ... ok
+test kernel_identity_cannot_be_replaced_by_hello_claims ... ok
+test frame_identity_epoch_and_control_kind_are_checked ... ok
+test capacity_preserves_old_results_and_storage_failure_never_returns_a_ticket ... ok
+test hello_must_match_registered_generation_and_artifact_hashes ... ok
+test completion_is_correlated_immutable_and_survives_session_recreation_in_shared_store ... ok
+test lease_arithmetic_exhaustion_is_distinct_from_actual_session_expiry ... ok
+test renew_is_nonce_bound_and_strictly_increasing ... ok
+test mandatory_features_and_architecture_must_be_compatible ... ok
+test terminal_response_must_match_request_kind_and_reported_state_version ... ok
+test welcome_cannot_redirect_the_session_or_claim_extra_capability ... ok
+test requests_are_registered_before_one_ticket_and_retried_before_version_check ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport_linux.rs (target/linux-check/debug/deps/transport_linux-b404caa2da54a42d)
+
+running 2 tests
+test session_child ... ignored, executed only by the parent process integration test
+
+running 1 test
+test session_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+test authenticated_exec_child_retries_receive_one_saved_result ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_control_sys-23cf7c61f34e0a06)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/platform.rs (target/linux-check/debug/deps/platform-3f4aa16379d4b207)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport.rs (target/linux-check/debug/deps/transport-0d9e6ecc6e6c80e0)
+
+running 15 tests
+test cloexec_child ... ok
+test inherited_peer_child ... ok
+
+running 1 test
+test inherited_peer_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+test complete_packets_and_owned_close_on_exec_fds ... ok
+test existing_paths_and_replacements_are_not_removed ... ok
+test pathname_child ... ok
+test inherited_socketpair_peer_pid_is_creator_after_real_fork_exec ... ok
+test private_directory_rejects_unprotected_writable_parent ... ok
+test rejection_child ... ok
+test shared_os_monotonic_clock ... ok
+test restrictive_permissions_and_cleanup_keep_unrelated_entries ... ok
+
+running 1 test
+test pathname_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+
+running 1 test
+
+running 1 test
+test cloexec_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+test independent_exec_connect_has_child_credentials_and_shared_clock ... ok
+test received_descriptor_does_not_survive_exec ... ok
+test timeout_eof_and_sender_validation ... ok
+test full_send_queue_expires_without_signals_or_partial_success ... ok
+test rejection_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.08s
+
+test malformed_packets_close_all_fds_in_isolated_process ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_execution-fcc4cf532acf0116)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lifecycle.rs (target/linux-check/debug/deps/lifecycle-7dbac82ef89fbe47)
+
+running 16 tests
+test a_fee_fact_blocks_a_contradictory_no_bytes_callback ... ok
+test authoritative_spend_above_budget_is_recorded_and_freezes_admission ... ok
+test cannot_send_before_durable_and_gate_is_checked_again ... ok
+test competing_strategies_share_atomic_reservation ... ok
+test crash_recovery_marks_every_committed_intent_as_maybe_sent ... ok
+test explicit_unknown_freezes_the_shared_pool_without_releasing_reservation ... ok
+test fill_before_ack_duplicates_out_of_order_and_fee_tail ... ok
+test invalid_fill_and_conflicting_duplicate_are_atomic ... ok
+test no_bytes_release_does_not_invent_fee_payment ... ok
+test sync_profile_requires_matching_replica_receipt ... ok
+test terminal_before_trade_details_keeps_missing_fill_budget ... ok
+test idempotent_commit_cannot_erase_live_state ... ok
+test unaccountable_external_fact_freezes_new_risk ... ok
+test synchronous_profile_cannot_be_downgraded_by_the_receipt_caller ... ok
+test wrong_domain_and_expired_intents_are_rejected ... ok
+test timeout_not_found_and_cancel_request_keep_unknown_reserved ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_ipc-795cf9362ca343ab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/layouts.rs (target/linux-check/debug/deps/layouts-ebe9b3aaa4c580fd)
+
+running 36 tests
+test layout_configcontrolbody ... ok
+test layout_controlenvelope ... ok
+test layout_depthlevel ... ok
+test layout_arenaclass ... ok
+test layout_arenablockheader ... ok
+test layout_execleasebody ... ok
+test layout_freezebody ... ok
+test layout_grantbody ... ok
+test layout_hellobody ... ok
+test layout_instrumententry ... ok
+test layout_marketrecord ... ok
+test layout_joinbody ... ok
+test layout_marketbody ... ok
+test layout_intentbody ... ok
+test layout_intentrecord ... ok
+test layout_offerprefix ... ok
+test layout_ownershiprecord ... ok
+test layout_querybody ... ok
+test layout_ownershipbody ... ok
+test layout_quiescebody ... ok
+test layout_reportrecord ... ok
+test layout_recordheader ... ok
+test layout_reportbody ... ok
+test layout_resourcedescriptor ... ok
+test layout_resourceackbody ... ok
+test layout_resyncbody ... ok
+test layout_snapshotsection ... ok
+test layout_snapshotheader ... ok
+test layout_statusbody ... ok
+test layout_switchbody ... ok
+test layout_topicsnapshotentry ... ok
+test layout_welcomebody ... ok
+test layout_triggerref ... ok
+test layout_cursorpage ... ok
+test layout_producerpage ... ok
+test layout_resourceheader ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/semantics.rs (target/linux-check/debug/deps/semantics-4fcd9897d5118987)
+
+running 11 tests
+test feature_gate_precedes_configuration_body_parse ... ok
+test arena_payload_identity_bounds_order_and_padding ... ok
+test every_data_vector_passes_production_validation ... ok
+test crc_reference_and_corruption ... ok
+test generated_layouts_match_current_contract ... ok
+test record_crc_enabled_covers_payload_and_header ... ok
+test snapshot_truncation_hash_and_untrusted_offsets ... ok
+test truncated_record_and_control_frame_never_panic ... ok
+test unknown_control_enum_and_bad_fd_offer_are_rejected ... ok
+test record_tags_offsets_and_unused_fields_are_rejected ... ok
+test all_declared_semantic_cases ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/vectors.rs (target/linux-check/debug/deps/vectors-2d1ea5bcd0766478)
+
+running 63 tests
+test golden_config_file_durable_body ... ok
+test golden_config_apply_body ... ok
+test golden_config_file_durable_frame_envelope ... ok
+test golden_config_apply_frame ... ok
+test golden_config_apply_frame_envelope ... ok
+test golden_config_runtime_applied_body ... ok
+test golden_config_runtime_applied_frame_envelope ... ok
+test golden_config_succeeded_body ... ok
+test golden_config_runtime_applied_frame ... ok
+test golden_config_file_durable_frame ... ok
+test golden_depth_arena_header ... ok
+test golden_depth_level_signed ... ok
+test golden_cursor_page_active ... ok
+test golden_exec_lease_applied_frame_envelope ... ok
+test golden_config_succeeded_frame ... ok
+test golden_exec_lease_challenge ... ok
+test golden_exec_lease_applied_frame ... ok
+test golden_fill_report ... ok
+test golden_config_succeeded_frame_envelope ... ok
+test golden_depth_inline_two_levels ... ok
+test golden_freeze_body ... ok
+test golden_freeze_envelope ... ok
+test golden_instrument_btcusdt ... ok
+test golden_join_normalized_snapshot ... ok
+test golden_join_snapshot ... ok
+test golden_normalized_depth_1 ... ok
+test golden_normalized_child_header ... ok
+test golden_normalized_manifest_entry ... ok
+test golden_normalized_depth_2 ... ok
+test golden_normalized_manifest_header ... ok
+test golden_normalized_section_2 ... ok
+test golden_freeze_complete_frame ... ok
+test golden_normalized_state_mark ... ok
+test golden_new_limit_intent ... ok
+test golden_normalized_resource_header ... ok
+test golden_normalized_section_1 ... ok
+test golden_quiesce_applied ... ok
+test golden_normalized_state_quote ... ok
+test golden_normalized_state_feed ... ok
+test golden_normalized_state_trade ... ok
+test golden_quiesce_applied_frame_envelope ... ok
+test golden_quiesce_applied_frame ... ok
+test golden_quiesce_request ... ok
+test golden_release_risk_body ... ok
+test golden_switch_applied_frame_envelope ... ok
+test golden_quote_one ... ok
+test golden_switch_applied_frame ... ok
+test golden_switch_applied ... ok
+test golden_normalized_topic_snapshot ... ok
+test golden_switch_resync_frame_envelope ... ok
+test golden_switch_resync_frame ... ok
+test golden_switch_resync_required ... ok
+test golden_topic_manifest_entry_1 ... ok
+test golden_topic_manifest_entry_2 ... ok
+test golden_topic_manifest_header ... ok
+test golden_topic_member_1_header ... ok
+test golden_topic_member_1_level_1 ... ok
+test golden_topic_manifest_resource_header ... ok
+test golden_topic_member_1_level_2 ... ok
+test golden_topic_member_2_level_1 ... ok
+test golden_topic_member_2_level_2 ... ok
+test golden_topic_member_2_header ... ok
+test golden_topic_manifest_two_instruments ... ok
+
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_journal-d5e4d0b33b5c9bef)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/frame.rs (target/linux-check/debug/deps/frame-7333e485e106250f)
+
+running 6 tests
+test castagnoli_known_vectors ... ok
+test exact_contract_layout_and_hash_scope ... ok
+test all_contract_types_roundtrip_and_nonzero_flags_rejected ... ok
+test codec_constants_match_authoritative_contract ... ok
+test every_single_bit_error_is_detected ... ok
+test truncation_and_oversize_are_errors_without_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/journal.rs (target/linux-check/debug/deps/journal-f6b89ce62850c90a)
+
+running 12 tests
+test newly_created_directory_is_owner_only ... ok
+test manifest_damage_and_concurrent_writer_fail_closed ... ok
+test frontier_ahead_or_different_hash_never_repairs_files ... ok
+test committed_corruption_and_required_missing_tail_quarantine_without_mutation ... ok
+test oversized_batch_does_not_split_or_modify_files ... ok
+test correctly_checksummed_epoch_rollback_sequence_gap_and_identity_change_quarantine ... ok
+test orphan_empty_rotation_segment_is_adopted_but_missing_declared_segment_quarantines ... ok
+test synchronized_batches_reopen_and_continue_sequences ... ok
+test rotation_preserves_chain_and_epoch_floor_and_missing_segment_fails ... ok
+test unsealed_middle_and_sealed_tail_corruption_are_not_discarded ... ok
+test short_write_and_failed_sync_never_return_receipt_and_poison_writer ... ok
+test every_unfinished_final_batch_prefix_recovers_only_previous_batch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.49s
+
+     Running tests/manifest.rs (target/linux-check/debug/deps/manifest-c8fac18eb9dc00b7)
+
+running 2 tests
+test one_data_sync_per_closed_batch_and_no_manifest_per_batch ... ok
+test manifest_failure_before_publish_or_after_rename_poisons_then_recovers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/process.rs (target/linux-check/debug/deps/process-45289b788da63e83)
+
+running 2 tests
+test crash_child ... ignored, child entry point; parent runs it in a separate process
+test sigkill_at_write_sync_and_receipt_boundaries_preserves_complete_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_journal_codec-714a07d1bb83b002)
+
+running 1 test
+test chain::tests::exhausted_sequence_does_not_wrap_or_mutate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codec.rs (target/linux-check/debug/deps/codec-c23c541bb847657a)
+
+running 12 tests
+test business_digest_ignores_writer_and_journal_placement ... ok
+test journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup ... ok
+test genesis_binds_domain_and_epoch_while_business_hash_binds_all_fact_fields ... ok
+test maximum_size_and_extreme_i128_are_exact ... ok
+test independent_golden_events_takeover_and_logical_prefixes ... ok
+test rejects_all_truncations_trailing_data_and_excess_length ... ok
+test rejects_noncanonical_and_out_of_range_integer_representations ... ok
+test rejects_schema_map_key_length_and_type_variants ... ok
+test sequence_identity_epoch_and_hash_failures_are_atomic ... ok
+test same_late_fact_keeps_business_digest_across_writer_takeover ... ok
+test rfc_integer_golden_boundaries_round_trip_in_fee_field ... ok
+test accepted_mutated_inputs_reencode_to_exactly_the_same_bytes ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_mock-f4addd00cb09a63d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/services.rs (target/linux-check/debug/deps/services-d5f5d73c608fbece)
+
+running 12 tests
+test accepted_order_ack_loss_and_recovery_do_not_resubmit ... ok
+test committed_but_lost_storage_receipt_is_recovered_conservatively ... ok
+test even_empty_journal_restart_requires_recovery_authorization ... ok
+test facts_are_not_applied_when_storage_fails ... ok
+test failed_recovery_cannot_leave_the_old_engine_authorized ... ok
+test kv_failure_never_reaches_journal_or_exchange ... ok
+test missing_recovery_dependency_prevents_commit ... ok
+test healthy_async_pending_response_is_distinct_from_timeout ... ok
+test relational_cas_and_immutable_kv_contracts ... ok
+test synchronous_replica_pending_does_not_fall_back_to_local ... ok
+test storage_failure_never_reaches_exchange ... ok
+test venue_identity_is_not_binance_specific_and_domains_cannot_mix ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/spot-roundtrip.rs (target/linux-check/debug/examples/spot_roundtrip-b77466c682129660)
+
+running 1 test
+test roundtrip_is_deterministic_and_recovery_preserves_accounting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_risk-5cceef8f93000c03)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/boundaries.rs (target/linux-check/debug/deps/boundaries-fba5f4bcb858e68b)
+
+running 17 tests
+test baseline_requires_explained_locked_assets ... ok
+test bracket_continuity_and_qualification_are_enforced ... ok
+test decimals_preserve_precision_scale_and_minimum ... ok
+test funding_counts_and_exit_fees_are_charged_before_new_positions_fill ... ok
+test invalid_collateral_excludes_assets_but_preserves_liabilities ... ok
+test products_cancel_decimal_powers_before_checked_multiply ... ok
+test late_unrecordable_settlement_evidence_reopens_reconciliation ... ok
+test reservation_failures_preserve_financial_state_and_overflow_closes_gate ... ok
+test hedge_capital_rejects_wrong_order_direction_for_the_envelope ... ok
+test scale_conversion_is_explicit_and_rounds_toward_requested_bound ... ok
+test settlement_overflow_is_atomic ... ok
+test reduce_allocation_respects_mode_step_and_real_position ... ok
+test signed_division_overflow_and_zero_are_errors ... ok
+test fees_exceeding_received_amount_require_external_inventory ... ok
+test signed_division_rounds_outward_without_minimum_negation ... ok
+test settlement_timer_does_not_release_and_duplicate_income_is_idempotent ... ok
+test division_matches_small_exact_integer_oracle ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contract_vectors.rs (target/linux-check/debug/deps/contract_vectors-34a854833b4fbefd)
+
+running 1 test
+test all_design_vectors_match_public_calculators ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_shm-da07c1c4cc039dba)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mapped.rs (target/linux-check/debug/deps/mapped-e9e7a12350747c3d)
+
+running 11 tests
+test descriptor_mismatch_is_rejected ... ok
+test bank_admission_respects_the_advertised_consumer_limit ... ok
+test forgotten_guard_prevents_reuse_and_quiescence ... ok
+test freeze_preserves_bytes_for_an_outstanding_reader ... ok
+test pure_state_quiescence_cannot_detach_a_real_live_borrow ... ok
+test required_abi_features_and_generation_limits_are_enforced ... ok
+test shared_reader_child ... ok
+test mapped_broadcast_borrows_the_same_record_and_protects_gaps ... ok
+test wrong_batch_is_rejected_before_any_bytes_are_published ... ok
+test repeated_quiesce_does_not_reopen_a_completed_cursor ... ok
+test real_process_broadcast_to_1_2_4_8_16_32_consumers ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests/protocol.rs (target/linux-check/debug/deps/protocol-d3aadeba2941d1fc)
+
+running 13 tests
+test application_does_not_release_a_live_borrow ... ok
+test a_batch_is_all_or_nothing_and_blocks_membership_and_freeze ... ok
+test capacity_is_protected_by_every_reader ... ok
+test cutoff_never_publishes_a_partial_batch ... ok
+test invalid_or_stale_cursor_updates_cannot_release_capacity ... ok
+test join_invalidates_the_no_reader_cached_minimum ... ok
+test local_window_is_bounded_even_after_early_release ... ok
+test malformed_batches_and_sequence_exhaustion_do_not_change_state ... ok
+test pending_join_baseline_cannot_be_advanced_by_a_cursor ... ok
+test old_quiesce_ack_cannot_remove_a_new_subscription ... ok
+test reader_keeps_release_and_application_gaps_separate ... ok
+test reader_rejects_regressing_published_and_future_application ... ok
+test quiesce_requires_every_borrow_but_not_business_application ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_shm_sys-6be920e3fcb2276f)
+
+running 2 tests
+test os_tests::read_only_mapping_cannot_be_upgraded_to_write ... ok
+test os_tests::kernel_maps_are_shared_and_excluded_from_fork ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/immutable.rs (target/linux-check/debug/deps/immutable-0704871d7b004d60)
+
+running 10 tests
+test linux::immutable_rejection_child ... ok
+test linux::invalid_lengths_names_and_file_types_are_rejected ... ok
+test linux::complete_private_bytes_become_safe_readonly_mappings ... ok
+test linux::rejects_every_missing_seal_and_mutable_writer_profile ... ok
+test linux::immutable_seals_deny_write_resize_new_writer_and_permission_upgrade ... ok
+test linux::kernel_requires_all_shared_writable_mappings_to_end_before_write_seal ... ok
+
+running 1 test
+test linux::identity_hash_reserved_bytes_and_zero_tail_are_independent_checks ... ok
+test linux::resource_wrapper_binds_complete_header_object_hash_and_content ... ok
+test linux::resource_ranges_and_immutable_shapes_are_checked_before_data_use ... ok
+test linux::immutable_rejection_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.05s
+
+test linux::rejected_fds_and_mappings_are_closed_in_isolated_process ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/mapping.rs (target/linux-check/debug/deps/mapping-c6abec22ad3beed1)
+
+running 7 tests
+test linux::kernel_denies_new_writer_file_writes_and_resize ... ok
+test linux::bounds_alignment_and_lengths_fail_before_access ... ok
+test linux::reader_requires_every_seal_and_the_single_writer_profile ... ok
+test linux::reader_rejects_unsealed_files_and_wrong_file_types ... ok
+test linux::reader_sets_close_on_exec_on_received_fd ... ok
+test linux::repeated_sealing_is_idempotent_and_creation_is_zero_filled ... ok
+test linux::writer_must_exist_before_locked_seals_and_reader_offer ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/process.rs (target/linux-check/debug/deps/process-6aed4c39f1f2909b)
+
+running 2 tests
+test child_entry ... ok
+test child_read_only_acquire_observes_parent_payload ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/linux-check/debug/deps/tickwire_snapshot-edfcc456f36f96d9)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/immutable_linux.rs (target/linux-check/debug/deps/immutable_linux-9c1ecb406f1d7ea1)
+
+running 2 tests
+test immutable_snapshot_receiver ... ok
+
+running 1 test
+test immutable_snapshot_receiver ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.01s
+
+test immutable_snapshot_crosses_scm_rights_into_independent_exec ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/validation.rs (target/linux-check/debug/deps/validation-2a561ba93643361b)
+
+running 12 tests
+test golden_normalized_bundle_has_checked_members_and_deadline ... ok
+test complete_multi_instrument_cut_requires_every_member ... ok
+test duplicate_member_snapshot_identity_is_not_a_valid_baseline ... ok
+test local_observation_times_cannot_follow_the_snapshot_creation ... ok
+test missing_required_state_blocks_readiness_but_preserves_the_member ... ok
+test nonlive_member_remains_present_but_cannot_be_ready ... ok
+test required_state_must_itself_be_live ... ok
+test unknown_capability_catalog_and_trusted_identity_are_rejected ... ok
+test creation_child_expiry_and_join_deadline_are_enforced ... ok
+test records_bind_topic_producer_and_manifest_feed_state ... ok
+test resource_join_and_top_identity_conflicts_are_rejected_despite_valid_hashes ... ok
+test every_truncated_bundle_is_rejected_without_panicking ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.32s
+   Doc-tests tickwire_book
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_execution
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_ipc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal_codec
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_mock
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_risk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_shm
+
+running 1 test
+test crates/tickwire-shm/src/mapped.rs - mapped::RecordBorrow<'_,B>::bytes (line 478) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+   Doc-tests tickwire_shm_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_snapshot
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking tickwire-journal-codec v0.1.0 (/work/crates/tickwire-journal-codec)
+    Checking tickwire-shm-sys v0.1.0 (/work/crates/tickwire-shm-sys)
+    Checking tickwire-snapshot v0.1.0 (/work/crates/tickwire-snapshot)
+    Checking tickwire-shm v0.1.0 (/work/crates/tickwire-shm)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.61s

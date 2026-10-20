@@ -60,3 +60,13 @@
 - 固定单段、帧粒度物理内容见证；写入/同步/收据分离、poison、崩溃、末尾修复与可选外部可信前缀。root 独立源码/模型审阅，ipc_codec 独立帧 codec 审阅。
 - 段/manifest 目录事务的形式模型待 L1；实际文件、短写、同步失败与四个 SIGKILL 边界有 Rust 回归。设备掉电与跨主机复制不在当前结论内。
 - Output: [L0](execution_models/physical_journal/L0_batch_sync_recovery/05_output.md)。
+
+## book_state / L0_lifecycle + L1_coverage — PASS（2026-10-20）
+
+- L0 Spot 主/扩展：1,392 / 8,499 distinct；USD-M 主/扩展：1,880 / 10,524 distinct；四配置 depth 6，各 19 个 Next 动作生成后继。
+- L1 Bid 主/扩展：1,471 / 7,050 distinct；Ask 主/扩展：1,471 / 8,244 distinct；四配置 depth 6，各 15 个 Next 动作生成后继。
+- Source: `crates/tickwire-book/src/lib.rs` SHA-256 `37beb8dcd515b76a8c3bec0a2cd46a1c3c2431375276810b45818b8b35fd04a3`，与已提交性能候选相同。
+- L0 转录单所有者 API、Spot/USD-M 判定顺序、Bridge/Live/Invalid/rebuild、调用时 freshness、双侧失败原子性。L1 使用真实完整侧的隐藏价位见证，检查 Known 数量/最优价正确，Unknown 不伪装成零，增量保持 coverage。
+- 限定：有限 generation/id/time/price 域；L1 假定适配器提供真实快照及完整已接受变化，没有证明 L0→L1 形式细化；不验证数组排序/合并、性能或未实现的自动风险门禁。
+- Finding: 无源码缺陷候选；模型初次语法修正单独归档，未当作系统反例。root 独立源码/模型审阅通过。
+- Output: [L0](execution_models/book_state/L0_lifecycle/05_output.md)、[L1](execution_models/book_state/L1_coverage/05_output.md)。

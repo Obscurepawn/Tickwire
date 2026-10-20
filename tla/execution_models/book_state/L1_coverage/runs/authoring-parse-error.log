@@ -1,0 +1,32 @@
+>>> TLC module=L1_BookCoverage cfg=L1_BookCoverage.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/book_state/L1_coverage/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 59 and seed -5345324721515506762 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/book_state/L1_coverage/02_models/L1_BookCoverage.tla
+***Parse Error***
+Encountered "local" at line 141, column 35 and token "<"
+
+Residual stack trace follows:
+Some [] Form starting at line 140, column 20.
+ExtendableExpr starting at line 140, column 20.
+Expression starting at line 140, column 18.
+Definition starting at line 140, column 1.
+Module body starting at line 3, column 1.
+
+
+Fatal errors while parsing TLA+ spec in file L1_BookCoverage
+
+tla2sany.semantic.AbortException
+*** Abort messages: 1
+
+In module L1_BookCoverage
+
+Could not parse module L1_BookCoverage from file L1_BookCoverage.tla
+
+
+Starting... (2026-10-20 18:43:08)
+Error: Parsing or semantic analysis failed.
+Finished in 00s at (2026-10-20 18:43:08)
+>>> elapsed: 0s (exit 150)

@@ -1,0 +1,37 @@
+Actual invocation from /Users/bytedance/Tickwire:
+docker run --rm --init --mount type=bind,source=/Users/bytedance/Tickwire,target=/work --mount type=bind,source=/Users/bytedance/Tickwire/.tools/linux-cargo-registry,target=/usr/local/cargo/registry -w /work -e CARGO_TARGET_DIR=/work/target/linux-snapshot -e RUSTUP_TOOLCHAIN=1.99.1 rust:1.99.1-bookworm@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29 cargo test -p tickwire-snapshot --test immutable_linux -- --nocapture
+
+Unmodified captured output:
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling serde_core v1.0.229
+   Compiling serde_json v1.0.145
+   Compiling ryu v1.0.23
+   Compiling generic-array v0.14.7
+   Compiling memchr v2.8.3
+   Compiling itoa v1.0.18
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling cpufeatures v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling tickwire-ipc v0.1.0 (/work/crates/tickwire-ipc)
+   Compiling tickwire-snapshot v0.1.0 (/work/crates/tickwire-snapshot)
+   Compiling tickwire-control-sys v0.1.0 (/work/crates/tickwire-control-sys)
+   Compiling tickwire-shm-sys v0.1.0 (/work/crates/tickwire-shm-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.88s
+     Running tests/immutable_linux.rs (target/linux-snapshot/debug/deps/immutable_linux-d2fecc1727154f1f)
+
+running 2 tests
+test immutable_snapshot_receiver ... ok
+
+running 1 test
+test immutable_snapshot_receiver ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.01s
+
+test immutable_snapshot_crosses_scm_rights_into_independent_exec ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s

@@ -1,0 +1,6 @@
+{
+  "crates/tickwire-journal-codec/src/chain.rs": "bde0da5a5b5cca4d63a218f22b77a48f8b6cba217a5759ddc6dd42268f2a46fd",
+  "crates/tickwire-journal-codec/src/lib.rs": "1b76bf88d7d58f4fd2be04b017c8049fd328ce91cdc5f66c6ae59a908102a9a8",
+  "crates/tickwire-journal-codec/src/cbor.rs": "2452f35cb5c353531ba31673e1f4f12513abb48e80fff112d73d29472682002d",
+  "crates/tickwire-journal-codec/tests/codec.rs": "d3e32465ebcc25d266642c784ebe8523c01a63e678d92a100cf254a19d2e9cea"
+}

@@ -1,0 +1,15 @@
+{
+  "local_markdown_links_checked": 24,
+  "broken_links": 0,
+  "style_documents": 18,
+  "style_threshold_warnings": 0,
+  "all_final_log_config_model_hashes_match": true,
+  "source_unchanged": true,
+  "source_anchors": 425,
+  "next_actions_all_generated_nonzero": true,
+  "next_actions_per_config": {
+    "L0": 19,
+    "L1": 15
+  },
+  "configs_passed": 8
+}

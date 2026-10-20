@@ -1,6 +1,6 @@
 # Tickwire TLA+ 验证
 
-`execution_models/submission` 按 L0 提交门禁、L1 崩溃与回执丢失建立模型；每级保存输入、源码映射、抽象依据、配置、运行证据和结论。待验证的完整范围见 [ROADMAP](ROADMAP.md)。
+`execution_models/` 保存执行提交与经济事实、共享 ring、控制会话、物理日志和盘口状态的分层模型。每级保存输入、源码映射、抽象依据、配置、运行证据和结论。各层当前结果及待验证范围见 [ROADMAP](ROADMAP.md)。
 
 从仓库根目录运行：
 

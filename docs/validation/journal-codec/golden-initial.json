@@ -1,0 +1,109 @@
+{
+  "genesis": "bfb72fb2bf4b21f42f5917080a52d6bab4ba83a6bd0a80e957312c39e3d748a0",
+  "events": [
+    {
+      "name": "prepared",
+      "wire": "a700010150000102030405060708090a0b0c0d0e0f0250101112131415161718191a1b1c1d1e1f03010407050106ad000101020201030304090504060a0702080809090a0a0b0b0c01",
+      "business_digest": "cacfd156336a58812ab5c30f92456492e05e46d25bc6cfdb58c0c3aba5dd9a54",
+      "logical_hash": "2484802e5ae52bc445145d7f039b55b2a9ae58319568e33a922e383f72e63f85"
+    },
+    {
+      "name": "fill",
+      "wire": "a700010150000102030405060708090a0b0c0d0e0f0250101112131415161718191a1b1c1d1e1f03020407050206a800010102020103030409050406020714",
+      "business_digest": "e2e2b2ecda0d3895fae2a9fa8c611ae313959846707e256bdbc5521874695dbd",
+      "logical_hash": "f132dc8f093c6e4d66ab8808248ebe35762bc120f01af79ebf7b86a40cfaf376"
+    },
+    {
+      "name": "fee",
+      "wire": "a700010150000102030405060708090a0b0c0d0e0f0250101112131415161718191a1b1c1d1e1f03030407050306a70001010202010303040905050620",
+      "business_digest": "8bff02eaaa2b9b8c94129d55724dff8739832d8a22e569a294e636f2a2a8f9f1",
+      "logical_hash": "50c05229739765c388ba291f4073a37e16870f92195688154f197c6137ba2ab7"
+    },
+    {
+      "name": "terminal",
+      "wire": "a700010150000102030405060708090a0b0c0d0e0f0250101112131415161718191a1b1c1d1e1f03040407050406a70001010202010303040905020602",
+      "business_digest": "e6e3580bca06b28d2b5f5e6c603eb00cd778202be51913cebb7d76c0a0ef84d5",
+      "logical_hash": "0517a6e0ef4100445adea70c0173cc2a6bedf541e0f3eb2f4561762947c0c0d8"
+    },
+    {
+      "name": "aborted",
+      "wire": "a700010150000102030405060708090a0b0c0d0e0f0250101112131415161718191a1b1c1d1e1f03050407050506a500010102020103030409",
+      "business_digest": "3147718d9cc0c509374eef71fdab6143ddc9cb59a2b8a322b304d4d087a2b318",
+      "logical_hash": "a29c982a73fce774b6755f60f840680879f226fa757827a13c7838326694688a"
+    }
+  ],
+  "integers": [
+    {
+      "value": "0",
+      "wire": "00"
+    },
+    {
+      "value": "23",
+      "wire": "17"
+    },
+    {
+      "value": "24",
+      "wire": "1818"
+    },
+    {
+      "value": "255",
+      "wire": "18ff"
+    },
+    {
+      "value": "256",
+      "wire": "190100"
+    },
+    {
+      "value": "1000000",
+      "wire": "1a000f4240"
+    },
+    {
+      "value": "1000000000000",
+      "wire": "1b000000e8d4a51000"
+    },
+    {
+      "value": "-1",
+      "wire": "20"
+    },
+    {
+      "value": "-24",
+      "wire": "37"
+    },
+    {
+      "value": "-25",
+      "wire": "3818"
+    },
+    {
+      "value": "-1000",
+      "wire": "3903e7"
+    },
+    {
+      "value": "18446744073709551615",
+      "wire": "1bffffffffffffffff"
+    },
+    {
+      "value": "18446744073709551616",
+      "wire": "c249010000000000000000"
+    },
+    {
+      "value": "-18446744073709551616",
+      "wire": "3bffffffffffffffff"
+    },
+    {
+      "value": "-18446744073709551617",
+      "wire": "c349010000000000000000"
+    },
+    {
+      "value": "170141183460469231731687303715884105727",
+      "wire": "c2507fffffffffffffffffffffffffffffff"
+    },
+    {
+      "value": "-170141183460469231731687303715884105728",
+      "wire": "c3507fffffffffffffffffffffffffffffff"
+    }
+  ],
+  "maximum": {
+    "wire": "a700010150000102030405060708090a0b0c0d0e0f0250101112131415161718191a1b1c1d1e1f031bffffffffffffffff041bffffffffffffffff050106ad001affffffff011bffffffffffffffff0202031bffffffffffffffff041bffffffffffffffff051bffffffffffffffff06c2507fffffffffffffffffffffffffffffff07c3507fffffffffffffffffffffffffffffff081bffffffffffffffff091bffffffffffffffff0a1bffffffffffffffff0b1bffffffffffffffff0c02",
+    "business_digest": "ffcc6025cf269b55f434cec35a815a3c19f6fcce8fb5a2e3cf8c5144e3a03277"
+  }
+}

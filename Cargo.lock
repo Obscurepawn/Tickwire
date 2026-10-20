@@ -206,6 +206,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-journal-codec"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
 name = "tickwire-mock"
 version = "0.1.0"
 dependencies = [
@@ -236,6 +245,19 @@ name = "tickwire-shm-sys"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "sha2",
+ "tickwire-ipc",
+]
+
+[[package]]
+name = "tickwire-snapshot"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "tickwire-control-sys",
+ "tickwire-ipc",
+ "tickwire-shm-sys",
 ]
 
 [[package]]

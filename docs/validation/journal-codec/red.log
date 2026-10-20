@@ -1,0 +1,91 @@
+   Compiling tickwire-journal-codec v0.1.0 ($REPO/crates/tickwire-journal-codec)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.06s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_journal_codec-b23aae5ebfe89a59)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codec.rs (target/debug/deps/codec-00bd6e3a90f0d738)
+
+running 10 tests
+test business_digest_ignores_only_journal_placement ... FAILED
+test journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup ... FAILED
+test maximum_size_and_extreme_i128_are_exact ... FAILED
+test sequence_identity_epoch_and_hash_failures_are_atomic ... FAILED
+test rejects_schema_map_key_length_and_type_variants ... FAILED
+test five_independent_golden_events_and_logical_prefixes ... FAILED
+test accepted_mutated_inputs_reencode_to_exactly_the_same_bytes ... FAILED
+test rfc_integer_golden_boundaries_round_trip_in_fee_field ... FAILED
+test rejects_all_truncations_trailing_data_and_excess_length ... FAILED
+test rejects_noncanonical_and_out_of_range_integer_representations ... FAILED
+
+failures:
+
+---- business_digest_ignores_only_journal_placement stdout ----
+
+thread 'business_digest_ignores_only_journal_placement' (4813064) panicked at crates/tickwire-journal-codec/src/lib.rs:113:5:
+not yet implemented: TDD interface
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup stdout ----
+
+thread 'journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup' (4813066) panicked at crates/tickwire-journal-codec/src/lib.rs:117:9:
+not yet implemented: TDD interface
+
+---- maximum_size_and_extreme_i128_are_exact stdout ----
+
+thread 'maximum_size_and_extreme_i128_are_exact' (4813067) panicked at crates/tickwire-journal-codec/src/lib.rs:107:5:
+not yet implemented: TDD interface
+
+---- sequence_identity_epoch_and_hash_failures_are_atomic stdout ----
+
+thread 'sequence_identity_epoch_and_hash_failures_are_atomic' (4813072) panicked at crates/tickwire-journal-codec/src/lib.rs:117:9:
+not yet implemented: TDD interface
+
+---- rejects_schema_map_key_length_and_type_variants stdout ----
+
+thread 'rejects_schema_map_key_length_and_type_variants' (4813070) panicked at crates/tickwire-journal-codec/src/lib.rs:110:5:
+not yet implemented: TDD interface
+
+---- five_independent_golden_events_and_logical_prefixes stdout ----
+
+thread 'five_independent_golden_events_and_logical_prefixes' (4813065) panicked at crates/tickwire-journal-codec/src/lib.rs:117:9:
+not yet implemented: TDD interface
+
+---- accepted_mutated_inputs_reencode_to_exactly_the_same_bytes stdout ----
+
+thread 'accepted_mutated_inputs_reencode_to_exactly_the_same_bytes' (4813063) panicked at crates/tickwire-journal-codec/src/lib.rs:110:5:
+not yet implemented: TDD interface
+
+---- rfc_integer_golden_boundaries_round_trip_in_fee_field stdout ----
+
+thread 'rfc_integer_golden_boundaries_round_trip_in_fee_field' (4813071) panicked at crates/tickwire-journal-codec/src/lib.rs:107:5:
+not yet implemented: TDD interface
+
+---- rejects_all_truncations_trailing_data_and_excess_length stdout ----
+
+thread 'rejects_all_truncations_trailing_data_and_excess_length' (4813068) panicked at crates/tickwire-journal-codec/src/lib.rs:110:5:
+not yet implemented: TDD interface
+
+---- rejects_noncanonical_and_out_of_range_integer_representations stdout ----
+
+thread 'rejects_noncanonical_and_out_of_range_integer_representations' (4813069) panicked at crates/tickwire-journal-codec/src/lib.rs:110:5:
+not yet implemented: TDD interface
+
+
+failures:
+    accepted_mutated_inputs_reencode_to_exactly_the_same_bytes
+    business_digest_ignores_only_journal_placement
+    five_independent_golden_events_and_logical_prefixes
+    journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup
+    maximum_size_and_extreme_i128_are_exact
+    rejects_all_truncations_trailing_data_and_excess_length
+    rejects_noncanonical_and_out_of_range_integer_representations
+    rejects_schema_map_key_length_and_type_variants
+    rfc_integer_golden_boundaries_round_trip_in_fee_field
+    sequence_identity_epoch_and_hash_failures_are_atomic
+
+test result: FAILED. 0 passed; 10 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-journal-codec --test codec`

@@ -1,0 +1,48 @@
+{
+  "rustc": "1.99.1 (58cf8f9c3 2026-10-13)",
+  "cargo": "1.99.1 (5f94df478 2026-08-27)",
+  "host": "aarch64-apple-darwin",
+  "test_results": {
+    "unit_passed": 1,
+    "integration_passed": 12,
+    "doctests": 0,
+    "failed": 0,
+    "clippy": "PASS -D warnings",
+    "fmt": "PASS",
+    "independent_golden_check": "PASS"
+  },
+  "finite_checks": {
+    "single_byte_mutations": 99840,
+    "truncated_prefixes": 591,
+    "integer_golden_vectors": 17,
+    "record_lengths": [
+      75,
+      65,
+      63,
+      63,
+      59,
+      65
+    ],
+    "maximum_record_bytes": 201
+  },
+  "review": {
+    "reviewer": "root independent agent",
+    "source_review": "PASS after original-intent epoch correction",
+    "discovery": "source review plus compiled Rust failing assertion, not TLC",
+    "parser_integer_reviewer": "ipc_codec independent agent, read-only RFC/source review PASS; no test rerun",
+    "parser_sha256": "2452f35cb5c353531ba31673e1f4f12513abb48e80fff112d73d29472682002d"
+  },
+  "scope": "content codec and same-journal-epoch logical chain; no business Journal adapter, closure, signature proof, I/O or performance claim",
+  "sha256": {
+    "crates/tickwire-journal-codec/Cargo.toml": "59cb6b6e371f93310a90781ad6148eea5a1ccb2e01b37158855ea3e9ef36a83d",
+    "crates/tickwire-journal-codec/src/cbor.rs": "2452f35cb5c353531ba31673e1f4f12513abb48e80fff112d73d29472682002d",
+    "crates/tickwire-journal-codec/src/chain.rs": "65be3045fe7476b6617561014b92610a3e653a2fe53a10db66a569a997452e9f",
+    "crates/tickwire-journal-codec/src/lib.rs": "ed18a34c755b857336479df771cd532be80354476bca01ff51f78e58bb01c499",
+    "crates/tickwire-journal-codec/tests/codec.rs": "1eb306f6449b21fdfb8563aed6daeeca88e31c99adea3f09bb36f75ce2100687",
+    "crates/tickwire-journal-codec/tests/golden.json": "ddc95ec07265e2d92844ebedd091a13c8a984db2f1753c24ebeec896db20b573",
+    "docs/implementation/journal-codec-interface.md": "ad67c4591f3dd9e93bdb5f9a45744f070a3e17eeb365f34e1082d2b8479fed94",
+    "specs/implementation/journal-codec.md": "57db297f2e30fce32e7b2f5e0f3089eae7f58e83ef590e7832c3a559b4d06ad9",
+    "specs/contracts/replication-profile-v1.json": "14d3accf6035fc59b02e12822cba1e9253362ea35f730d172fc2e0f1d483528a",
+    "docs/validation/journal-codec/generate-vectors.py": "a929e7b868456d7acff17deeb87aa7d2714d78263c20076806027197d16631d8"
+  }
+}

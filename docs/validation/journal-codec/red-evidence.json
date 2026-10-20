@@ -1,0 +1,13 @@
+{
+  "command": "PATH=\"$HOME/.cargo/bin:$PATH\" cargo test -p tickwire-journal-codec",
+  "exit_code": 101,
+  "compiled": true,
+  "tests_failed": 10,
+  "tests_passed": 0,
+  "pre_implementation_sha256": {
+    "docs/implementation/journal-codec-interface.md": "a232a544567d15392cc1c691426e89bfcb15105e6a79c05565f406c6c1a50b22",
+    "crates/tickwire-journal-codec/src/lib.rs": "0025fbbbac65de872e059d5daacb8afc8422bc42225fe2975f2bb762f476e87d",
+    "crates/tickwire-journal-codec/tests/codec.rs": "c0b3d651019dc395843e627dab5a5d2112ff5fef9a7cd54d6f4ecc9cffbd45a7",
+    "crates/tickwire-journal-codec/tests/golden.json": "504bb8195bffc9020c76b88cd9c7243330c15b11d466329a773fba542438dbcd"
+  }
+}
