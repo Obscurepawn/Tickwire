@@ -1,0 +1,369 @@
+-------------------------- MODULE L0_AccountGateway_v2 --------------------------
+EXTENDS Naturals, Integers, FiniteSets, Sequences, TLC
+CONSTANTS Intents, NewIds, Capital, Bytes, AcceptChunk, InputRecordBound, MaxCrashes, SequenceBase, SequenceLimit
+ASSUME /\ Intents=1..Cardinality(Intents) /\ NewIds \subseteq Intents /\ 1 \in NewIds
+ /\ Capital>=2 /\ Bytes>0 /\ AcceptChunk>0 /\ InputRecordBound>=3 /\ MaxCrashes>0 /\ SequenceBase>=0 /\ SequenceLimit>SequenceBase
+VARIABLE p
+vars == <<p>>
+(* var/code map: one serial owner; phase is inside a synchronous API call.
+ account/candidate: AccountGateway::submit/abort clones and publications
+   crates/tickwire-account-gateway/src/lib.rs:243-312
+   crates/tickwire-account-gateway/src/lib.rs:489-525
+ log/disk/row/poison: ordered canonical record; completed sync vs public prefix
+   crates/tickwire-account-journal/src/lib.rs:242-284
+   crates/tickwire-account-gateway/src/lib.rs:403-418
+ closures/caps: verified baseline + record + preceding history, private receipt
+   crates/tickwire-account-gateway/src/binding.rs:57-106
+   crates/tickwire-account-gateway/src/lib.rs:270-312
+ status/pending/current/resume: Entry and private send-slot ownership
+   crates/tickwire-account-gateway/src/lib.rs:93-131
+   crates/tickwire-account-gateway/src/lib.rs:313-399
+ halted/conn: halt closes connection, not just Account::freeze
+   crates/tickwire-account-gateway/src/lib.rs:515-525
+ accepted/wire/send/ready/driveOk: TLS application-prefix and local flush
+   crates/tickwire-transport/src/connection.rs:90-237
+   crates/tickwire-transport/src/connection.rs:269-397
+ gate/market/snapshotFresh/fresh: current permits + account check + Instant
+   crates/tickwire-account-gateway/src/binding.rs:107-119
+   crates/tickwire-account/src/admission.rs:360-386
+   crates/tickwire-transport/src/connection.rs:178-200
+ account durable order state vs recoveryUnknown/frozen: fixed Spot instance
+   crates/tickwire-account/src/admission.rs:4-102
+   crates/tickwire-account/src/admission.rs:411-435
+   crates/tickwire-account/src/events.rs:3-113
+   crates/tickwire-account/src/events.rs:137-277
+   crates/tickwire-account/src/events.rs:352-416
+   crates/tickwire-account/src/lib.rs:30-68
+   crates/tickwire-account/src/lib.rs:225-255
+   crates/tickwire-account/src/lib.rs:271-282
+   crates/tickwire-account/src/recovery.rs:8-103
+ recovered: no Connection or CommittedAdmission after replay
+   crates/tickwire-account-gateway/src/lib.rs:178-213
+   crates/tickwire-account-gateway/src/recovery.rs:31-80
+ enqueues/firstGood/releases/appliedFacts/budgetFailures/allApplied/crashes: witnesses.
+ Faults: bounded crash, complete unacknowledged last append or torn last append,
+ failed sync, nonblocking IO, deadline and trusted control changes.
+ No TLS cryptography, byte codec, manifest transaction or full risk-domain proof. *)
+Qty == 2
+States == {"None","Queued","Sending","Flushed","Unknown","Aborted"}
+EmptyStatus == [i \in Intents |-> "None"]
+Unknown(s) == [i \in Intents |-> IF s[i] \in {"None","Aborted"} THEN s[i] ELSE "Unknown"]
+EmptyAccount == [adm |-> {},aborted |-> {},confirmed |-> {},observedUnknown |-> {},
+ recoveryUnknown |-> {},terminal |-> {},cumulative |-> {},unreconciled |-> {},
+ fills |-> {},seq |-> SequenceBase,frozen |-> FALSE]
+UnknownOrders(a) == a.observedUnknown \cup a.recoveryUnknown
+OrderProjection(a) == <<a.adm,a.aborted,a.confirmed,a.observedUnknown,
+                       a.terminal,a.cumulative,a.unreconciled,a.fills>>
+Freeze(a) == [a EXCEPT !.frozen=TRUE]
+Reserved(a) == LET open==(a.adm \cap NewIds) \ (a.aborted \cup a.cumulative)
+               IN Qty*Cardinality(open)-Cardinality(a.fills \cap open)
+Spent(a) == Cardinality(a.fills)
+Eval(a) == IF Reserved(a)+Spent(a)>Capital THEN Freeze(a) ELSE a
+AdmitAllowed(a,i,clock) == i \notin a.adm /\
+ IF i \in NewIds THEN ~a.frozen /\ clock /\ Reserved(a)+Spent(a)+Qty<=Capital
+ ELSE 1 \in a.adm
+AdmitState(a,i) == [a EXCEPT !.adm=@ \cup {i},!.seq=@+1]
+AbortAllowed(a,i) == i \in a.adm /\
+ (i \notin NewIds \/ i \in a.aborted \/
+  i \notin (a.confirmed \cup UnknownOrders(a) \cup a.terminal \cup a.fills))
+AbortState(a,i) == IF i \notin NewIds \/ i \in a.aborted THEN a
+ ELSE [a EXCEPT !.aborted=@ \cup {i},!.seq=@+1]
+(* ACK reopens an aborted order. Unknown alone has no native ID in this input.
+ Fill: one trade ID, quantity/price/quote=1, no fees; normal/Unknown/
+ canceled(cumulative=1)/canceled(missing cumulative) observations are atomic. *)
+FactCandidate(a,k,i,v) ==
+ IF k="K" THEN Eval([a EXCEPT !.confirmed=@ \cup {i},!.aborted=@ \ {i},
+      !.frozen=@ \/ i \in a.aborted,!.seq=@+1])
+ ELSE IF k="U" THEN [a EXCEPT !.observedUnknown=@ \cup {i},!.frozen=TRUE,!.seq=@+1]
+ ELSE LET b == [a EXCEPT !.fills=@ \cup {i},!.aborted=@ \ {i},
+          !.confirmed=IF v#1 THEN @ \cup {i} ELSE @,
+          !.observedUnknown=IF v=1 THEN @ \cup {i} ELSE @,
+          !.terminal=IF v \in {2,3} THEN @ \cup {i} ELSE @,
+          !.cumulative=IF v=2 THEN @ \cup {i} ELSE @,
+          !.unreconciled=IF v=3 THEN @ \cup {i} ELSE @,
+          !.frozen=@ \/ i \in a.aborted \/ v \in {1,3}]
+      IN IF OrderProjection(b)=OrderProjection(a) THEN b
+         ELSE Eval([b EXCEPT !.seq=@+1])
+Row(k,i,v,n,seq) == [kind |-> k,id |-> i,variant |-> v,position |-> n,
+ imageSeq |-> seq,amount |-> IF k="A" /\ i \in NewIds THEN Qty ELSE 0]
+BlankRow == Row("X",1,0,0,0)
+Step(a,r) ==
+ IF r.kind="A" THEN
+  IF AdmitAllowed(a,r.id,TRUE) /\ a.seq<SequenceLimit /\ r.imageSeq=a.seq+1 /\
+     r.amount=(IF r.id \in NewIds THEN Qty ELSE 0)
+  THEN [a |-> AdmitState(a,r.id),ok |-> TRUE] ELSE [a |-> Freeze(a),ok |-> FALSE]
+ ELSE IF r.kind="B" THEN
+  IF AbortAllowed(a,r.id) /\ AbortState(a,r.id).seq<=SequenceLimit
+  THEN [a |-> AbortState(a,r.id),ok |-> TRUE]
+  ELSE [a |-> Freeze(a),ok |-> FALSE]
+ ELSE IF r.kind="X" \/ r.id \notin (a.adm \cap NewIds)
+ THEN [a |-> Freeze(a),ok |-> FALSE]
+ ELSE LET b==FactCandidate(a,r.kind,r.id,r.variant)
+      IN IF b.seq<=SequenceLimit THEN [a |-> b,ok |-> TRUE]
+         ELSE [a |-> Freeze(a),ok |-> FALSE]
+RECURSIVE Replay(_,_)
+Replay(q,n) == IF n=0 THEN [a |-> EmptyAccount,ok |-> TRUE]
+ ELSE LET before==Replay(q,n-1) after==Step(before.a,q[n])
+      IN [a |-> after.a,ok |-> before.ok /\ after.ok]
+Pre(q,n) == IF n=0 THEN <<>> ELSE SubSeq(q,1,n)
+Prefix(a,b) == Len(a)<=Len(b) /\ a=Pre(b,Len(a))
+RecordIds(q,k) == {q[j].id:j \in {i \in 1..Len(q):q[i].kind=k}}
+DurableAccount(a) == <<OrderProjection(a),a.seq>>
+Present == {i \in Intents:p.status[i]#"None"}
+Boundary == p.phase="Boundary"
+CanMutate == Boundary /\ ~p.halted
+HasPending == p.pending \in Intents
+LiveSend == p.send \in {"Queued","Accepted"}
+DriveFresh == IF HasPending THEN p.fresh[p.pending] ELSE TRUE
+CanDrive == p.phase="Drive" /\ p.conn
+NBytes(i) == 1..(IF Bytes-p.accepted[i]<AcceptChunk THEN Bytes-p.accepted[i] ELSE AcceptChunk)
+FinalPermit(i) == p.gate /\
+ (i \notin NewIds \/ (p.market /\ p.snapshotFresh /\ ~p.account.frozen /\
+  i \notin p.account.aborted /\ i \notin UnknownOrders(p.account) /\
+  i \notin p.account.terminal))
+Halt(x) == [x EXCEPT !.halted=TRUE,!.account=Freeze(@),!.conn=FALSE,!.ready=FALSE,
+ !.pending=0,!.status=Unknown(@),!.phase="Boundary",!.current=0]
+Init == p=[phase |-> "Boundary",current |-> 0,resume |-> "Boundary",
+ account |-> EmptyAccount,candidate |-> EmptyAccount,status |-> EmptyStatus,
+ pending |-> 0,halted |-> FALSE,conn |-> TRUE,ready |-> FALSE,
+ log |-> <<>>,disk |-> <<>>,row |-> BlankRow,poison |-> FALSE,recovered |-> FALSE,allApplied |-> TRUE,
+ closures |-> [i \in Intents |-> [record |-> BlankRow,preceding |-> <<>>]],caps |-> {},
+ accepted |-> [i \in Intents |-> 0],wire |-> [i \in Intents |-> 0],
+ enqueues |-> [i \in Intents |-> 0],firstGood |-> {},releases |-> {},appliedFacts |-> {},budgetFailures |-> {},
+ send |-> "Idle",driveOk |-> TRUE,gate |-> TRUE,market |-> TRUE,snapshotFresh |-> TRUE,
+ fresh |-> [i \in Intents |-> TRUE],crashes |-> 0]
+
+(* Submit builds a candidate and full image before external closure IO.
+ crates/tickwire-account-gateway/src/lib.rs:214-285. *)
+RejectPreparation == /\ CanMutate /\ ~HasPending /\ Present#Intents /\ UNCHANGED p
+Prepare(i) == /\ CanMutate /\ ~HasPending /\ i \notin Present
+ /\ Len(p.log)<InputRecordBound /\ p.fresh[i] /\ AdmitAllowed(p.account,i,p.snapshotFresh)
+ /\ p.account.seq<SequenceLimit
+ /\ LET a==AdmitState(p.account,i) r==Row("A",i,0,Len(p.log)+1,a.seq)
+    IN p'=[p EXCEPT !.candidate=a,!.row=r,!.current=i,!.phase="Closure"]
+RejectAdmission(i) == /\ CanMutate /\ ~HasPending /\ i \notin Present
+ /\ (~p.fresh[i] \/ ~AdmitAllowed(p.account,i,p.snapshotFresh)) /\ UNCHANGED p
+AdmissionOverflow(i) == /\ CanMutate /\ ~HasPending /\ i \notin Present
+ /\ Len(p.log)<InputRecordBound /\ p.fresh[i] /\ AdmitAllowed(p.account,i,p.snapshotFresh)
+ /\ p.account.seq=SequenceLimit /\ p'=[p EXCEPT !.account=Freeze(@)]
+ClosureOk == /\ p.phase="Closure"
+ /\ p'=[p EXCEPT !.closures[p.current]=[record |-> p.row,preceding |-> p.log],!.phase="SyncIntent"]
+ClosureFail == /\ p.phase="Closure" /\ p'=Halt(p)
+(* Lost append result retains candidate reserve even if the tail is absent.
+ crates/tickwire-account-gateway/src/lib.rs:286-312. *)
+IntentSyncOk == /\ p.phase="SyncIntent"
+ /\ p'=[p EXCEPT !.disk=Append(@,p.row),!.log=Append(@,p.row),!.phase="PublishIntent"]
+IntentSyncFail == \E keep \in BOOLEAN:
+ /\ p.phase="SyncIntent"
+ /\ p'=Halt([p EXCEPT !.disk=IF keep THEN Append(@,p.row) ELSE @,
+      !.poison=TRUE,!.account=p.candidate])
+PublishIntent == /\ p.phase="PublishIntent"
+ /\ p'=[p EXCEPT !.account=p.candidate,!.caps=@ \cup {p.current},
+      !.status[p.current]="Queued",!.phase="Queue"]
+QueueOk == /\ p.phase="Queue" /\ p.conn
+ /\ p'=[p EXCEPT !.pending=p.current,!.enqueues[p.current]=@+1,
+      !.send="Queued",!.phase="Boundary",!.current=0]
+QueueFail == /\ p.phase="Queue" /\ ~p.conn
+ /\ p'=[p EXCEPT !.phase="CheckAbort",!.resume="QueueFail"]
+Retry(i) == /\ Boundary /\ i \in Present /\ UNCHANGED p
+Conflict(i) == /\ Boundary /\ i \in Present /\ p'=Halt(p)
+RejectUnavailable == /\ Boundary /\ (p.halted \/ HasPending \/ Present=Intents)
+ /\ UNCHANGED p
+(* Time and control can change during IO, not account state between API steps. *)
+GateChange == /\ p.phase \notin {"Crashed","Rejected"}
+ /\ p'=[p EXCEPT !.gate=~@]
+MarketChange == /\ p.phase \notin {"Crashed","Rejected"}
+ /\ p'=[p EXCEPT !.market=~@]
+SnapshotExpire == /\ p.phase \notin {"Crashed","Rejected"} /\ p.snapshotFresh
+ /\ p'=[p EXCEPT !.snapshotFresh=FALSE]
+Expire(i) == /\ p.phase \notin {"Crashed","Rejected"} /\ p.fresh[i]
+ /\ p'=[p EXCEPT !.fresh[i]=FALSE]
+
+(* External records remain writable after halt, unless the log is poisoned.
+ crates/tickwire-account-gateway/src/lib.rs:400-418. *)
+PrepareFact == \E k \in {"K","U","F","X"},i \in NewIds,v \in 0..3:
+ /\ Boundary /\ ~p.poison /\ Len(p.log)<InputRecordBound /\ i \in p.account.adm
+ /\ (k#"F" => v=0)
+ /\ p'=[p EXCEPT !.row=Row(k,i,v,Len(p.log)+1,0),!.phase="SyncFact"]
+RejectPublicFact == /\ Boundary /\ UNCHANGED p
+RejectPoisonFact == /\ Boundary /\ p.poison /\ p'=Halt(p)
+FactSyncOk == /\ p.phase="SyncFact"
+ /\ p'=[p EXCEPT !.disk=Append(@,p.row),!.log=Append(@,p.row),!.phase="ApplyFact"]
+FactSyncFail == \E keep \in BOOLEAN:
+ /\ p.phase="SyncFact"
+ /\ p'=Halt([p EXCEPT !.disk=IF keep THEN Append(@,p.row) ELSE @,!.poison=TRUE])
+ApplyFact == /\ p.phase="ApplyFact"
+ /\ p'=[p EXCEPT !.account=Step(@,p.row).a,!.appliedFacts=@ \cup {p.row},
+      !.allApplied=@ /\ Step(p.account,p.row).ok,!.phase="Boundary"]
+
+(* Local abort is prevalidated; no known-impossible decision is appended.
+ crates/tickwire-account-gateway/src/lib.rs:489-513. *)
+CheckAbort == /\ p.phase="CheckAbort" /\ AbortAllowed(p.account,p.current)
+ /\ AbortState(p.account,p.current).seq<=SequenceLimit
+ /\ p'=[p EXCEPT !.candidate=AbortState(p.account,p.current),
+      !.row=Row("B",p.current,0,Len(p.log)+1,0),!.phase="SyncAbort"]
+RejectAbort == /\ p.phase="CheckAbort"
+ /\ (~AbortAllowed(p.account,p.current) \/ AbortState(p.account,p.current).seq>SequenceLimit) /\ p'=Halt(p)
+AbortSyncOk == /\ p.phase="SyncAbort"
+ /\ p'=[p EXCEPT !.disk=Append(@,p.row),!.log=Append(@,p.row),!.phase="PublishAbort"]
+AbortSyncFail == \E keep \in BOOLEAN:
+ /\ p.phase="SyncAbort"
+ /\ p'=Halt([p EXCEPT !.disk=IF keep THEN Append(@,p.row) ELSE @,!.poison=TRUE])
+PublishAbort == /\ p.phase="PublishAbort"
+ /\ LET q==[p EXCEPT !.account=p.candidate,!.status[p.current]="Aborted",
+       !.releases=@ \cup {p.current},!.pending=0,!.send="Idle",!.current=0,
+       !.phase=IF p.resume="QueueFail" THEN "Boundary" ELSE p.resume]
+    IN p'=IF p.resume="QueueFail" THEN Halt(q) ELSE q
+
+(* One poll: drive -> settle -> try_send -> end; no other API interleaves.
+ crates/tickwire-account-gateway/src/lib.rs:326-382. *)
+PollStart == /\ CanMutate /\ p'=[p EXCEPT !.phase="Drive",!.driveOk=TRUE]
+DriveBudgetError == /\ p.phase="Drive"
+ /\ p'=[p EXCEPT !.driveOk=FALSE,!.phase="Settle",
+      !.budgetFailures=IF HasPending THEN @ \cup {p.pending} ELSE @]
+DriveIdle == /\ CanDrive /\ DriveFresh /\ p'=[p EXCEPT !.phase="Settle"]
+DriveReady == /\ CanDrive /\ DriveFresh /\ ~p.ready
+ /\ p'=[p EXCEPT !.ready=TRUE,!.phase="Settle"]
+DriveFlush(n) == /\ CanDrive /\ DriveFresh /\ HasPending /\ p.send="Accepted"
+ /\ n \in 1..(p.accepted[p.pending]-p.wire[p.pending])
+ /\ LET w==p.wire[p.pending]+n
+    IN p'=[p EXCEPT !.wire[p.pending]=w,!.send=IF w=Bytes THEN "Flushed" ELSE @,
+        !.phase="Settle"]
+DriveExpire == /\ CanDrive /\ HasPending /\ ~p.fresh[p.pending] /\ LiveSend
+ /\ LET zero==p.accepted[p.pending]=0
+    IN p'=[p EXCEPT !.send=IF zero THEN "NoBytes" ELSE "Failed",
+       !.conn=IF zero THEN @ ELSE FALSE,!.ready=IF zero THEN @ ELSE FALSE,
+       !.driveOk=zero,!.phase="Settle"]
+DriveFailure == /\ p.phase="Drive"
+ /\ p'=[p EXCEPT !.conn=FALSE,!.ready=FALSE,!.driveOk=FALSE,
+      !.send=IF HasPending /\ LiveSend THEN
+        IF p.accepted[p.pending]=0 THEN "NoBytes" ELSE "Failed" ELSE @,
+      !.phase="Settle"]
+DriveFlushThenClose == /\ CanDrive /\ DriveFresh /\ HasPending /\ p.send="Accepted"
+ /\ p.accepted[p.pending]=Bytes /\ p.wire[p.pending]<Bytes
+ /\ p'=[p EXCEPT !.wire[p.pending]=Bytes,!.send="Flushed",!.conn=FALSE,
+      !.ready=FALSE,!.driveOk=FALSE,!.phase="Settle"]
+(* apply_report only sees the current private slot. Tokens are never supplied
+ by public callers, so a forged/mismatched report is outside this topology.
+ crates/tickwire-account-gateway/src/lib.rs:460-487. *)
+SettleNone == /\ p.phase="Settle" /\ ~HasPending /\ p'=[p EXCEPT !.phase="EndPoll"]
+SettleLive == /\ p.phase="Settle" /\ HasPending /\ LiveSend
+ /\ p'=[p EXCEPT !.status[p.pending]=IF p.send="Accepted" THEN "Sending" ELSE @,
+      !.phase=IF p.driveOk THEN "Try" ELSE "EndPoll"]
+SettleFlushed == /\ p.phase="Settle" /\ HasPending /\ p.send="Flushed"
+ /\ p'=[p EXCEPT !.status[p.pending]="Flushed",!.pending=0,!.send="Idle",!.phase="EndPoll"]
+SettleNoBytes == /\ p.phase="Settle" /\ HasPending /\ p.send="NoBytes"
+ /\ p'=[p EXCEPT !.current=p.pending,!.phase="CheckAbort",!.resume="EndPoll"]
+SettleFailed == /\ p.phase="Settle" /\ HasPending /\ p.send="Failed"
+ /\ p'=Halt(p)
+TryExpire == /\ p.phase="Try" /\ ~p.fresh[p.pending]
+ /\ IF p.accepted[p.pending]>0 THEN p'=Halt(p)
+    ELSE p'=[p EXCEPT !.send="NoBytes",!.current=p.pending,
+         !.phase="CheckAbort",!.resume="EndPoll"]
+TryNotReady == /\ p.phase="Try" /\ p.fresh[p.pending] /\ ~p.ready
+ /\ p'=[p EXCEPT !.phase="EndPoll"]
+FirstGateDenied == /\ p.phase="Try" /\ p.ready /\ p.fresh[p.pending]
+ /\ p.accepted[p.pending]=0 /\ ~FinalPermit(p.pending)
+ /\ p'=[p EXCEPT !.send="NoBytes",!.current=p.pending,
+      !.phase="CheckAbort",!.resume="EndPoll"]
+ExpireInsideGate == /\ p.phase="Try" /\ p.ready /\ p.fresh[p.pending]
+ /\ p.accepted[p.pending]=0 /\ FinalPermit(p.pending)
+ /\ p'=[p EXCEPT !.fresh[p.pending]=FALSE,!.send="NoBytes",!.current=p.pending,
+      !.phase="CheckAbort",!.resume="EndPoll"]
+TryBlocked == /\ p.phase="Try" /\ p.ready /\ p.fresh[p.pending]
+ /\ (p.accepted[p.pending]>0 \/ FinalPermit(p.pending))
+ /\ p'=[p EXCEPT !.phase="EndPoll"]
+FirstAccept(n) == /\ p.phase="Try" /\ p.ready /\ p.fresh[p.pending]
+ /\ p.accepted[p.pending]=0 /\ FinalPermit(p.pending) /\ n \in NBytes(p.pending)
+ /\ p'=[p EXCEPT !.accepted[p.pending]=n,!.firstGood=@ \cup {p.pending},
+      !.send="Accepted",!.status[p.pending]="Sending",!.phase="EndPoll"]
+ContinueAccept(n) == /\ p.phase="Try" /\ p.ready /\ p.fresh[p.pending]
+ /\ p.accepted[p.pending]>0 /\ n \in NBytes(p.pending)
+ /\ p'=[p EXCEPT !.accepted[p.pending]=@+n,!.send="Accepted",
+      !.status[p.pending]="Sending",!.phase="EndPoll"]
+TryFailure == /\ p.phase="Try" /\ p.ready /\ p.fresh[p.pending]
+ /\ p.accepted[p.pending]<Bytes /\ (p.accepted[p.pending]>0 \/ FinalPermit(p.pending))
+ /\ IF p.accepted[p.pending]>0 THEN p'=Halt(p)
+    ELSE p'=[p EXCEPT !.conn=FALSE,!.ready=FALSE,!.send="NoBytes",
+         !.current=p.pending,!.phase="CheckAbort",!.resume="EndPoll"]
+PollEnd == /\ p.phase="EndPoll"
+ /\ p'=IF p.driveOk THEN [p EXCEPT !.phase="Boundary"] ELSE Halt(p)
+CancelZero == /\ CanMutate /\ HasPending /\ p.accepted[p.pending]=0
+ /\ p'=[p EXCEPT !.send="NoBytes",!.current=p.pending,
+      !.phase="CheckAbort",!.resume="Boundary"]
+CancelAccepted == /\ CanMutate /\ HasPending /\ p.accepted[p.pending]>0
+ /\ p'=Halt(p)
+
+(* Crash may retain the complete current append, never a fabricated replacement.
+ AccountJournal supplies verified, ordered, resynchronized complete records.
+ crates/tickwire-account-journal/src/lib.rs:150-240
+ crates/tickwire-account-gateway/src/lib.rs:178-213. *)
+Crash == \E keep \in BOOLEAN:
+ /\ p.phase \notin {"Crashed","Rejected"} /\ p.crashes<MaxCrashes
+ /\ p'=[p EXCEPT !.disk=IF keep /\ p.phase \in {"SyncIntent","SyncFact","SyncAbort"}
+        THEN Append(@,p.row) ELSE @,
+      !.phase="Crashed",!.current=0,!.resume="Boundary",!.status=EmptyStatus,
+      !.pending=0,!.send="Idle",!.conn=FALSE,!.ready=FALSE,!.halted=TRUE,
+      !.account=Freeze(EmptyAccount),!.candidate=EmptyAccount,!.caps={},
+      !.driveOk=FALSE,!.recovered=FALSE,!.crashes=@+1]
+ClosuresValid(q) == \A j \in 1..Len(q):q[j].kind="A" =>
+ p.closures[q[j].id]=[record |-> q[j],preceding |-> Pre(q,j-1)]
+RecoverOk == /\ p.phase="Crashed" /\ Replay(p.disk,Len(p.disk)).ok /\ ClosuresValid(p.disk)
+ /\ LET a==Replay(p.disk,Len(p.disk)).a
+    IN p'=[p EXCEPT !.account=[a EXCEPT !.frozen=TRUE,
+         !.recoveryUnknown=@ \cup ((a.adm \cap NewIds) \ a.aborted)],
+       !.status=[i \in Intents |-> IF i \in RecordIds(p.disk,"B") THEN "Aborted"
+          ELSE IF i \in RecordIds(p.disk,"A") THEN "Unknown" ELSE "None"],
+       !.log=p.disk,!.poison=FALSE,!.recovered=TRUE,!.allApplied=TRUE,!.phase="Boundary"]
+RecoverInvalid == /\ p.phase="Crashed"
+ /\ (~Replay(p.disk,Len(p.disk)).ok \/ ~ClosuresValid(p.disk))
+ /\ p'=[p EXCEPT !.phase="Rejected"]
+RecoverUnavailable == /\ p.phase="Crashed" /\ p'=[p EXCEPT !.phase="Rejected"]
+
+Next == RejectPreparation \/ ClosureOk \/ ClosureFail \/ IntentSyncOk \/ IntentSyncFail
+ \/ PublishIntent \/ QueueOk \/ QueueFail \/ RejectUnavailable
+ \/ GateChange \/ MarketChange \/ SnapshotExpire
+ \/ PrepareFact \/ RejectPublicFact \/ RejectPoisonFact \/ FactSyncOk \/ FactSyncFail \/ ApplyFact
+ \/ CheckAbort \/ RejectAbort \/ AbortSyncOk \/ AbortSyncFail \/ PublishAbort
+ \/ PollStart \/ DriveBudgetError \/ DriveIdle \/ DriveReady \/ DriveExpire \/ DriveFailure
+ \/ DriveFlushThenClose \/ SettleNone \/ SettleLive \/ SettleFlushed \/ SettleNoBytes \/ SettleFailed
+ \/ TryExpire \/ TryNotReady \/ FirstGateDenied \/ ExpireInsideGate \/ TryBlocked \/ TryFailure
+ \/ PollEnd \/ CancelZero \/ CancelAccepted \/ Crash \/ RecoverOk \/ RecoverInvalid \/ RecoverUnavailable
+ \/ (\E i \in Intents:Prepare(i) \/ RejectAdmission(i) \/ AdmissionOverflow(i) \/ Retry(i) \/ Conflict(i) \/ Expire(i))
+ \/ (\E n \in 1..Bytes:DriveFlush(n) \/ FirstAccept(n) \/ ContinueAccept(n))
+Spec == Init /\ [][Next]_vars
+TypeOK == /\ p.allApplied \in BOOLEAN /\ p.status \in [Intents -> States] /\ p.pending \in Intents \cup {0}
+ /\ p.account.adm \subseteq Intents /\ p.account.aborted \subseteq (p.account.adm \cap NewIds)
+ /\ p.account.fills \subseteq (p.account.adm \cap NewIds)
+ /\ p.account.confirmed \subseteq (p.account.adm \cap NewIds)
+ /\ UnknownOrders(p.account) \subseteq (p.account.adm \cap NewIds)
+ /\ p.account.terminal \subseteq (p.account.adm \cap NewIds)
+ /\ p.account.cumulative \subseteq p.account.terminal
+ /\ p.account.unreconciled \subseteq p.account.terminal
+ /\ p.account.seq \in SequenceBase..SequenceLimit
+ /\ p.accepted \in [Intents -> 0..Bytes] /\ p.wire \in [Intents -> 0..Bytes]
+ /\ p.caps \subseteq Intents /\ p.releases \subseteq Intents
+ /\ Len(p.log)<=InputRecordBound+1 /\ Len(p.disk)<=InputRecordBound+1 /\ p.crashes \in 0..MaxCrashes
+DurableBeforeOutput == \A i \in Intents:p.accepted[i]>0 =>
+ i \in RecordIds(p.disk,"A") /\ ClosuresValid(p.disk)
+DurableBeforeQueue == \A i \in Intents:p.enqueues[i]>0 => i \in RecordIds(p.disk,"A")
+FreshFirstOutput == \A i \in Intents:p.accepted[i]>0 => i \in p.firstGood
+AbortEvidence == \A i \in RecordIds(p.disk,"B"):p.accepted[i]=0
+ReleaseAfterSync == p.releases \subseteq RecordIds(p.disk,"B")
+NoImpossibleAbort == \A j \in 1..Len(p.disk):p.disk[j].kind="B" =>
+ AbortAllowed(Replay(p.disk,j-1).a,p.disk[j].id)
+FactsAfterSync == \A r \in p.appliedFacts:\E j \in 1..Len(p.disk):p.disk[j]=r
+NoReplay == \A i \in Intents:p.enqueues[i]<=1
+PrefixEvidence == \A i \in Intents:p.wire[i]<=p.accepted[i]
+FlushedIsLocal == \A i \in Intents:p.status[i]="Flushed" => p.wire[i]=Bytes
+HaltedCloses == p.halted => ~p.conn /\ p.pending=0 /\ p.account.frozen
+RecoveredNoCapability == p.recovered => p.halted /\ p.caps={} /\ ~p.conn
+PublicPrefix == Prefix(p.log,p.disk)
+PendingIdentity == HasPending => p.pending \in Present /\ p.pending \in p.caps
+GoodAccountBound == ~p.account.frozen => Reserved(p.account)+Spent(p.account)<=Capital
+NoBudgetRefund == p.budgetFailures \cap RecordIds(p.disk,"B")={}
+CapabilitiesOwned == p.caps \subseteq p.account.adm
+SuccessfulPrefixReplays == Boundary /\ ~p.poison /\ p.allApplied => Replay(p.log,Len(p.log)).ok
+AccountPrefix == Boundary /\ ~p.poison =>
+ DurableAccount(p.account)=DurableAccount(Replay(p.log,Len(p.log)).a)
+=============================================================================

@@ -1,0 +1,21 @@
+   Compiling tickwire-account-gateway v0.1.0 (<repo>/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.58s
+     Running tests/recovery_metadata.rs (target/debug/deps/recovery_metadata-6c4aaf446d4f544b)
+
+running 1 test
+initial=18446744073709551613; repeated Unknown result=Ok(Duplicate)
+MAX reopen error: Some(Journal(Account(Risk(ArithmeticOverflow))))
+
+thread 'repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate' (5871107) panicked at crates/tickwire-account-gateway/tests/recovery_metadata.rs:72:9:
+new persistent observation cannot be acknowledged at the sequence limit
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate ... FAILED
+
+failures:
+
+failures:
+    repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `-p tickwire-account-gateway --test recovery_metadata`

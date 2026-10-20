@@ -1,0 +1,11 @@
+   Compiling tickwire-account-gateway v0.1.0 (/work/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.49s
+     Running tests/recovery_metadata.rs (target/linux-check/debug/deps/recovery_metadata-254b4cf34871d5f1)
+
+running 4 tests
+test local_freeze_does_not_hide_a_new_incomplete_terminal_observation ... ok
+test repeated_unknown_after_recovery_preserves_account_and_metadata_sequence ... ok
+test repeated_unknown_with_last_available_sequence_reopens_at_max ... ok
+test repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s

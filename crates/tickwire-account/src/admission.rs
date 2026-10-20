@@ -251,7 +251,9 @@ impl Account {
                     notional: Fixed::zero(asset_scale(&p.instrument.settlement)?)?,
                     paid: BTreeMap::new(),
                     terminal_cumulative: None,
-                    unknown: false,
+                    observed_unknown: false,
+                    recovery_unknown: false,
+                    observation_unreconciled: false,
                     terminal: false,
                     fees_closed: false,
                     aborted: false,
@@ -375,7 +377,7 @@ impl Account {
             if self
                 .orders
                 .get(key)
-                .is_none_or(|o| o.aborted || o.unknown || o.terminal)
+                .is_none_or(|o| o.aborted || o.unknown() || o.terminal)
             {
                 return Err(Error::Unreconciled);
             }
@@ -415,7 +417,7 @@ impl Account {
         }
         if a.orders.iter().any(|key| {
             let o = &self.orders[key];
-            o.economic || o.confirmed || o.terminal || o.unknown
+            o.economic || o.confirmed || o.terminal || o.unknown()
         }) {
             return self.freeze_error(Error::Unreconciled);
         }

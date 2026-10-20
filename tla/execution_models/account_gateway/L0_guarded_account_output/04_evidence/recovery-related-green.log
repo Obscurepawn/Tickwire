@@ -1,0 +1,250 @@
+   Compiling tickwire-account v0.1.0 (<repo>/crates/tickwire-account)
+   Compiling tickwire-account-codec v0.1.0 (<repo>/crates/tickwire-account-codec)
+   Compiling tickwire-account-gateway v0.1.0 (<repo>/crates/tickwire-account-gateway)
+   Compiling tickwire-account-journal v0.1.0 (<repo>/crates/tickwire-account-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.60s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_account-e2ed0913dea795e8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/admission.rs (target/debug/deps/admission-8926909d1397b16a)
+
+running 10 tests
+test all_asset_candidate_failure_preserves_the_preexisting_order ... ok
+test cancel_replace_reserves_old_and_new_together_without_optimistic_netting ... ok
+test exclusive_fee_pool_cannot_also_fund_a_sell ... ok
+test exact_retry_is_idempotent_and_changed_price_conflicts ... ok
+test full_spot_command_reserves_only_the_spent_asset ... ok
+test deficit_freezes_new_orders_but_not_cancel_of_an_existing_order ... ok
+test native_market_cannot_turn_a_last_price_into_a_hard_bound ... ok
+test stale_inputs_fail_before_reserving ... ok
+test typed_spot_advanced_commands_do_not_inherit_basic_order_admission ... ok
+test unknown_order_keeps_all_reservations_and_allows_a_targeted_cancel ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/edge_cases.rs (target/debug/deps/edge_cases-65420837b8bfdef4)
+
+running 8 tests
+test spot_and_derivative_assets_cannot_be_shared_through_the_same_wallet_id ... ok
+test unknown_locked_coverage_is_never_applied_to_a_new_order ... ok
+test unproven_external_credit_is_booked_without_becoming_spendable ... ok
+test arithmetic_overflow_retains_previous_reservation_and_the_unapplied_event ... ok
+test per_fill_rounding_tail_uses_explicit_fill_bound_not_lot_step ... ok
+test external_position_change_preserves_allocated_reductions_and_attribution ... ok
+test asset_unit_mismatch_is_rejected_without_partial_debits ... ok
+test late_commission_after_reconciliation_reopens_risk_and_books_the_actual_debit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/facts.rs (target/debug/deps/facts-a304c53e5e0e37f8)
+
+running 15 tests
+test actual_fee_above_bound_freezes_even_when_balance_can_pay ... ok
+test abort_is_idempotent_but_an_actual_late_fill_is_still_booked ... ok
+test exchange_acknowledgment_blocks_a_later_no_bytes_abort ... ok
+test acknowledgment_after_abort_reopens_the_order_and_freezes ... ok
+test accepted_actual_quote_above_buy_budget_freezes_even_with_spare_funds ... ok
+test duplicate_conflicting_trade_freezes_without_replacing_the_fact ... ok
+test final_admission_check_rechecks_the_original_command_deadline ... ok
+test fees_and_rebates_are_signed_original_asset_cashflow ... ok
+test new_fill_cannot_silently_exceed_a_previously_closed_cumulative ... ok
+test actual_fill_after_a_zero_fill_terminal_is_not_dropped_on_observation_conflict ... ok
+test partial_fill_books_two_assets_and_original_strategy_once_across_connections ... ok
+test repeated_trade_still_applies_a_new_terminal_observation_without_double_cashflow ... ok
+test repeated_trade_still_applies_a_new_unknown_observation_without_double_cashflow ... ok
+test zero_fee_is_an_economic_fact_and_prevents_abort ... ok
+test terminal_missing_fill_details_retains_principal_until_late_fill ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/futures.rs (target/debug/deps/futures-586e55b89133f8c7)
+
+running 10 tests
+test delivery_policy_does_not_inherit_perpetual_funding_reserve ... ok
+test linear_capital_and_venue_shadow_are_distinct_from_cash_asset_reservations ... ok
+test fees_consume_the_original_shadow_fee_allowance_without_double_debit ... ok
+test shared_wallet_gross_limit_includes_offsetting_strategy_positions ... ok
+test external_nonsettlement_debit_cannot_be_subtracted_as_settlement_atoms ... ok
+test finite_model_instance_uses_four_capital_atoms_and_three_fee_atoms ... ok
+test reduce_allocations_cannot_share_the_same_actual_position ... ok
+test usdc_wallet_cannot_borrow_spare_usdt_collateral ... ok
+test fill_beyond_a_previous_terminal_cumulative_freezes_even_with_partial_observation ... ok
+test hedge_long_and_short_reduce_tickets_are_separate_and_fill_with_actual_pnl ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/nonincreasing.rs (target/debug/deps/nonincreasing-2d474dca7e8bbbd1)
+
+running 5 tests
+test stale_cancel_still_requires_live_request_identity_and_ownership ... ok
+test nonincreasing_actions_do_not_require_the_old_risk_policy_version ... ok
+test a_previously_admitted_cancel_is_still_valid_after_account_expiry ... ok
+test explicit_freeze_preserves_liability_and_allows_only_nonincreasing_actions ... ok
+test stale_account_still_admits_owned_cancel_and_query ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/recovery.rs (target/debug/deps/recovery-cc08bf06503cec04)
+
+running 3 tests
+test ordered_abort_is_replayed_before_recovery_freezes_unresolved_requests ... ok
+test tampered_multi_asset_budget_is_not_a_recovery_capability ... ok
+test replay_recomputes_and_checks_the_complete_admission_then_returns_frozen_unknown ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_account_codec-455e49f5e372fa80)
+
+running 2 tests
+test cbor::tests::integer_boundaries_use_preferred_encoding ... ok
+test cbor::tests::nonpreferred_bignum_and_integer_overflow_reject ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/baseline.rs (target/debug/deps/baseline-e0fc292c813babef)
+
+running 6 tests
+test adversarial_lengths_and_invalid_inputs_reject ... ok
+test asset_and_policy_identity_cannot_be_silently_replaced ... ok
+test collections_have_one_order_and_duplicates_reject ... ok
+test changes_to_fees_wallet_units_and_revision_change_identity ... ok
+test complete_spot_and_futures_baselines_roundtrip ... ok
+test every_prefix_truncation_and_trailing_data_reject ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/file_replay.rs (target/debug/deps/file_replay-4e2e436a8b801858)
+
+running 1 test
+test real_blob_and_wal_reopen_restore_spot_and_usdm_resources ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/nonincreasing.rs (target/debug/deps/nonincreasing-c8af30f186659a9e)
+
+running 4 tests
+test a_query_image_cannot_claim_the_opposite_action_classification ... ok
+test an_admission_image_cannot_disguise_a_new_order_as_nonincreasing ... ok
+test new_orders_still_require_the_recorded_risk_version ... ok
+test an_owned_cancel_or_query_with_old_risk_version_roundtrips_and_replays ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/records.rs (target/debug/deps/records-213d7c3dad69438c)
+
+running 3 tests
+test every_recovery_input_has_lossless_record_and_distinct_tag ... ok
+test envelope_and_admission_bindings_reject_substitution ... ok
+test truncated_corrupted_and_noncanonical_embedded_records_reject ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/vectors.rs (target/debug/deps/vectors-7b299ae3e08a2172)
+
+running 4 tests
+test independently_encoded_minimum_i128_cashflow_is_preserved ... ok
+test alternate_order_is_rejected_by_decode ... ok
+test independent_reference_baselines_match_exact_bytes_and_hash ... ok
+test all_single_byte_changes_have_one_accepted_representation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.36s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_account_gateway-035702bcfb598c69)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_rest.rs (target/debug/deps/binance_rest-14dfffecbf9cd764)
+
+running 2 tests
+test spot_signed_tls_request_with_real_wal_and_recovery_files ... ok
+test usdm_signed_tls_request_with_real_wal_and_recovery_files ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-4475400fb94893ab)
+
+running 12 tests
+test exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record ... ok
+test public_fact_entry_cannot_forge_admission_or_zero_acceptance ... ok
+test aborted_admission_remains_aborted_after_reopen ... ok
+test frozen_recovery_accepts_durable_reconciliation_but_never_new_admission ... ok
+test recovered_admission_is_unknown_with_no_active_receipt_or_resend ... ok
+test reducer_error_preserves_external_input_and_recovery_refuses_to_skip_it ... ok
+test zero_io_budget_is_not_evidence_for_refunding_an_order ... ok
+test missing_baseline_or_history_object_rejects_recovery ... ok
+test externally_frozen_account_can_still_cancel_and_query_on_healthy_connection ... ok
+test dependency_rejection_or_foreign_account_binding_never_queues_or_reserves ... ok
+test repeated_trade_keeps_new_observation_and_replays_cashflow_once ... ok
+test every_fresh_gate_requirement_is_checked_before_first_acceptance ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.21s
+
+     Running tests/persistence_failures.rs (target/debug/deps/persistence_failures-261e60aaf353fbbd)
+
+running 7 tests
+test torn_admit_retains_live_reserve_without_output_then_recovers_empty_prefix ... ok
+test lost_abort_sync_reply_releases_only_when_replayed_from_complete_tail ... ok
+test lost_admit_sync_reply_recovers_unknown_without_issuing_send_capability ... ok
+test lost_venue_event_sync_reply_replays_complete_fact_without_output ... ok
+test torn_venue_event_is_not_applied_before_wal_completion ... ok
+test torn_abort_never_releases_before_sync_and_keeps_committed_admission ... ok
+test observed_order_rejects_local_abort_before_writing_an_unreplayable_record ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+     Running tests/recovery_metadata.rs (target/debug/deps/recovery_metadata-6c4aaf446d4f544b)
+
+running 4 tests
+test local_freeze_does_not_hide_a_new_incomplete_terminal_observation ... ok
+test repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate ... ok
+test repeated_unknown_with_last_available_sequence_reopens_at_max ... ok
+test repeated_unknown_after_recovery_preserves_account_and_metadata_sequence ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.22s
+
+     Running tests/submission.rs (target/debug/deps/submission-024f6290d3e829ef)
+
+running 4 tests
+test commit_reserves_once_and_retry_does_not_repeat_any_side_effect ... ok
+test futures_admission_uses_real_capital_hold_without_scalar_budget ... ok
+test partial_acceptance_retains_account_resources_after_local_cancellation ... ok
+test final_gate_rejection_is_durably_aborted_before_release ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_account_journal-10ba362be884f24f)
+
+running 1 test
+test history::tests::independent_python_samples_bind_bootstrap_and_writer_epoch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistence.rs (target/debug/deps/persistence-3eec4cde95fc1c7d)
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+
+running 1 test
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.04s

@@ -1,0 +1,54 @@
+   Compiling tickwire-account-gateway v0.1.0 (<repo>/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.32s
+     Running tests/recovery_metadata.rs (target/debug/deps/recovery_metadata-6c4aaf446d4f544b)
+
+running 4 tests
+local freeze: Duplicate; sequence 2 -> 3
+
+thread 'local_freeze_does_not_hide_a_new_incomplete_terminal_observation' (5869874) panicked at crates/tickwire-account-gateway/tests/recovery_metadata.rs:160:5:
+assertion `left == right` failed
+  left: 2
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test local_freeze_does_not_hide_a_new_incomplete_terminal_observation ... FAILED
+initial=18446744073709551613; repeated Unknown result=Ok(Duplicate)
+
+thread 'repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate' (5869876) panicked at crates/tickwire-account-gateway/tests/recovery_metadata.rs:64:9:
+new persistent observation cannot be acknowledged at the sequence limit
+initial=18446744073709551612; repeated Unknown result=Ok(Duplicate)
+initial=0; repeated Unknown result=Ok(Duplicate)
+test repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate ... FAILED
+ledger sequence: 18446744073709551614 -> 18446744073709551615
+base before=AssetView { total: Fixed { atoms: 100040000, scale: 8 }, reserved: Fixed { atoms: 0, scale: 8 }, available: Fixed { atoms: 100040000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000, scale: 8 }, 8: Fixed { atoms: 40000, scale: 8 }} }; after=AssetView { total: Fixed { atoms: 100040000, scale: 8 }, reserved: Fixed { atoms: 0, scale: 8 }, available: Fixed { atoms: 100040000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000, scale: 8 }, 8: Fixed { atoms: 40000, scale: 8 }} }
+quote before=AssetView { total: Fixed { atoms: 98000000000, scale: 8 }, reserved: Fixed { atoms: 3600000000, scale: 8 }, available: Fixed { atoms: 94400000000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000000, scale: 8 }, 8: Fixed { atoms: -2000000000, scale: 8 }} }; after=AssetView { total: Fixed { atoms: 98000000000, scale: 8 }, reserved: Fixed { atoms: 3600000000, scale: 8 }, available: Fixed { atoms: 94400000000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000000, scale: 8 }, 8: Fixed { atoms: -2000000000, scale: 8 }} }
+order before=OrderView { key: OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }, command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], strategy: 8, original_quantity: Fixed { atoms: 100000, scale: 8 }, filled_quantity: Fixed { atoms: 40000, scale: 8 }, remaining_quantity: Fixed { atoms: 60000, scale: 8 }, reduce_allocation: Fixed { atoms: 0, scale: 8 }, unknown: true, terminal: false, fee_reconciled: false, aborted: false, confirmed: true }; after=OrderView { key: OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }, command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], strategy: 8, original_quantity: Fixed { atoms: 100000, scale: 8 }, filled_quantity: Fixed { atoms: 40000, scale: 8 }, remaining_quantity: Fixed { atoms: 60000, scale: 8 }, reduce_allocation: Fixed { atoms: 0, scale: 8 }, unknown: true, terminal: false, fee_reconciled: false, aborted: false, confirmed: true }
+admission before=AdmissionImage { command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], intent: IntentKey { epoch: 4, intent_id: 3 }, account_epoch: 1, ledger_sequence: 18446744073709551613, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, deadline: 100, resources: [AssetAmount { key: AssetKey { wallet_id: 1, asset_id: 2 }, amount: Fixed { atoms: 6000000000, scale: 8 } }], capital_holds: [], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true }; after=AdmissionImage { command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], intent: IntentKey { epoch: 4, intent_id: 3 }, account_epoch: 1, ledger_sequence: 18446744073709551613, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, deadline: 100, resources: [AssetAmount { key: AssetKey { wallet_id: 1, asset_id: 2 }, amount: Fixed { atoms: 6000000000, scale: 8 } }], capital_holds: [], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true }
+
+thread 'repeated_unknown_with_last_available_sequence_reopens_at_max' (5869877) panicked at crates/tickwire-account-gateway/tests/recovery_metadata.rs:111:5:
+assertion `left == right` failed
+  left: 18446744073709551614
+ right: 18446744073709551615
+ledger sequence: 2 -> 3
+base before=AssetView { total: Fixed { atoms: 100040000, scale: 8 }, reserved: Fixed { atoms: 0, scale: 8 }, available: Fixed { atoms: 100040000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000, scale: 8 }, 8: Fixed { atoms: 40000, scale: 8 }} }; after=AssetView { total: Fixed { atoms: 100040000, scale: 8 }, reserved: Fixed { atoms: 0, scale: 8 }, available: Fixed { atoms: 100040000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000, scale: 8 }, 8: Fixed { atoms: 40000, scale: 8 }} }
+quote before=AssetView { total: Fixed { atoms: 98000000000, scale: 8 }, reserved: Fixed { atoms: 3600000000, scale: 8 }, available: Fixed { atoms: 94400000000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000000, scale: 8 }, 8: Fixed { atoms: -2000000000, scale: 8 }} }; after=AssetView { total: Fixed { atoms: 98000000000, scale: 8 }, reserved: Fixed { atoms: 3600000000, scale: 8 }, available: Fixed { atoms: 94400000000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000000, scale: 8 }, 8: Fixed { atoms: -2000000000, scale: 8 }} }
+order before=OrderView { key: OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }, command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], strategy: 8, original_quantity: Fixed { atoms: 100000, scale: 8 }, filled_quantity: Fixed { atoms: 40000, scale: 8 }, remaining_quantity: Fixed { atoms: 60000, scale: 8 }, reduce_allocation: Fixed { atoms: 0, scale: 8 }, unknown: true, terminal: false, fee_reconciled: false, aborted: false, confirmed: true }; after=OrderView { key: OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }, command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], strategy: 8, original_quantity: Fixed { atoms: 100000, scale: 8 }, filled_quantity: Fixed { atoms: 40000, scale: 8 }, remaining_quantity: Fixed { atoms: 60000, scale: 8 }, reduce_allocation: Fixed { atoms: 0, scale: 8 }, unknown: true, terminal: false, fee_reconciled: false, aborted: false, confirmed: true }
+admission before=AdmissionImage { command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], intent: IntentKey { epoch: 4, intent_id: 3 }, account_epoch: 1, ledger_sequence: 1, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, deadline: 100, resources: [AssetAmount { key: AssetKey { wallet_id: 1, asset_id: 2 }, amount: Fixed { atoms: 6000000000, scale: 8 } }], capital_holds: [], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true }; after=AdmissionImage { command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], intent: IntentKey { epoch: 4, intent_id: 3 }, account_epoch: 1, ledger_sequence: 1, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, deadline: 100, resources: [AssetAmount { key: AssetKey { wallet_id: 1, asset_id: 2 }, amount: Fixed { atoms: 6000000000, scale: 8 } }], capital_holds: [], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true }
+
+thread 'repeated_unknown_after_recovery_preserves_account_and_metadata_sequence' (5869875) panicked at crates/tickwire-account-gateway/tests/recovery_metadata.rs:111:5:
+assertion `left == right` failed
+  left: 2
+ right: 3
+test repeated_unknown_with_last_available_sequence_reopens_at_max ... FAILED
+test repeated_unknown_after_recovery_preserves_account_and_metadata_sequence ... FAILED
+
+failures:
+
+failures:
+    local_freeze_does_not_hide_a_new_incomplete_terminal_observation
+    repeated_unknown_after_recovery_preserves_account_and_metadata_sequence
+    repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate
+    repeated_unknown_with_last_available_sequence_reopens_at_max
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+error: test failed, to rerun pass `-p tickwire-account-gateway --test recovery_metadata`

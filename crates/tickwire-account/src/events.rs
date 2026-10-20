@@ -41,7 +41,6 @@ impl Account {
         };
         let key = self.resolve_order(identity, id.instrument_id)?;
         let prior_order = self.orders[&key].clone();
-        let prior_frozen = self.frozen;
         self.bind_native(&key, identity)?;
         let economic = match &event.body {
             v::VenueEventBody::Fill(fill) => Some((
@@ -76,7 +75,9 @@ impl Account {
                 if let v::VenueEventBody::Fill(fill) = &event.body {
                     self.observe(&key, &fill.observation)?;
                 }
-                if self.orders[&key] != prior_order || self.frozen != prior_frozen {
+                // Local freeze/recovery flags are not durable observations.
+                // Observe records every new anomaly on the order itself.
+                if self.orders[&key] != prior_order {
                     self.next_sequence()?;
                     return Ok(Applied::New);
                 }
@@ -383,7 +384,7 @@ impl Account {
                 | v::OrderStatus::Rejected
         );
         if observation.status == v::OrderStatus::Unknown {
-            o.unknown = true;
+            o.observed_unknown = true;
             self.frozen = true;
         }
         if terminal {
@@ -391,10 +392,12 @@ impl Account {
             if let Some(cum) = observation.cumulative_quantity {
                 let cum = exact_decimal(cum, o.original.scale())?;
                 if cum.atoms() < o.filled.atoms() || cum.atoms() > o.original.atoms() {
+                    o.observation_unreconciled = true;
                     self.frozen = true;
                 }
                 if let Some(old) = o.terminal_cumulative {
                     if old != cum {
+                        o.observation_unreconciled = true;
                         self.frozen = true;
                         o.terminal_cumulative = Some(old.max(cum)?);
                     }
@@ -405,6 +408,7 @@ impl Account {
                     o.reduce = o.reduce.zero_like();
                 }
             } else {
+                o.observation_unreconciled = true;
                 self.frozen = true;
             }
         }

@@ -1,0 +1,1235 @@
+{
+  "module": "tla/execution_models/account_gateway/L0_guarded_account_output/02_models/L0_AccountGateway_v2.tla",
+  "model_sha256": "838b6b5de7eab345acbd5d6ce3939493d3d20909c4db42b50d5c9514131c9b43",
+  "jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "source_sha256": {
+    "crates/tickwire-account-gateway/src/binding.rs": "79aaa25bb53f50bdd80509cabc34d2c367cac3cbd015330092b41af31b3e3a6d",
+    "crates/tickwire-account-gateway/src/lib.rs": "6d49841ad2bbbaf73e35c1d82072682ba19a5a5932ec64d87a6ae685476f31b6",
+    "crates/tickwire-account-gateway/src/recovery.rs": "ef19baaac5833865c5ce1a1f95f3f4f71c469dfe4606ddb730f43f7087e9253a",
+    "crates/tickwire-account-journal/src/lib.rs": "80df1827271774bb67af1c30639c9e13a0d2fb1336c65f2bcf7527025e73c705",
+    "crates/tickwire-account/src/admission.rs": "ff66c4cc03980edea2833adfab6185b90b7c448d6c18c9f333b34fcda19921e5",
+    "crates/tickwire-account/src/events.rs": "bea5fe90512721bf243d37ae6f99ee9bb8a00f64c7aec86cb9245a5065079118",
+    "crates/tickwire-account/src/lib.rs": "b458072fb96be96e099ffdaf39ddf8313ece7546fa4221beda514b255070941e",
+    "crates/tickwire-account/src/recovery.rs": "5149ca4bf3dec3efadd9e9c29901fe6d28d4467439321122ea9a32d68c0896ba",
+    "crates/tickwire-transport/src/connection.rs": "3a9380094dc089b5d18c37277c1fe09478689fd934cc892edc1a5d5e648b6613"
+  },
+  "anchors": {
+    "lines": 1576,
+    "sha256": "5cbcb0501cf8d3eca71c898383ce3f7c477c3eca3b33d9380665068517f368b6"
+  },
+  "runs": [
+    {
+      "name": "L0_AccountGateway_v2",
+      "generated": 5967655,
+      "distinct": 961560,
+      "depth": 50,
+      "duration": "02min 35s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1,
+          "line": 126
+        },
+        "RejectPreparation": {
+          "distinct": 0,
+          "generated": 3264,
+          "line": 138
+        },
+        "Prepare": {
+          "distinct": 208,
+          "generated": 216,
+          "line": 139
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 1760,
+          "line": 144
+        },
+        "AdmissionOverflow": {
+          "distinct": 0,
+          "generated": 0,
+          "line": 146
+        },
+        "ClosureOk": {
+          "distinct": 208,
+          "generated": 464,
+          "line": 149
+        },
+        "ClosureFail": {
+          "distinct": 164,
+          "generated": 464,
+          "line": 151
+        },
+        "IntentSyncOk": {
+          "distinct": 208,
+          "generated": 464,
+          "line": 154
+        },
+        "IntentSyncFail": {
+          "distinct": 328,
+          "generated": 928,
+          "line": 156
+        },
+        "PublishIntent": {
+          "distinct": 208,
+          "generated": 464,
+          "line": 160
+        },
+        "QueueOk": {
+          "distinct": 192,
+          "generated": 432,
+          "line": 163
+        },
+        "QueueFail": {
+          "distinct": 16,
+          "generated": 32,
+          "line": 166
+        },
+        "Retry": {
+          "distinct": 0,
+          "generated": 370112,
+          "line": 168
+        },
+        "Conflict": {
+          "distinct": 2920,
+          "generated": 370112,
+          "line": 169
+        },
+        "RejectUnavailable": {
+          "distinct": 0,
+          "generated": 365008,
+          "line": 170
+        },
+        "GateChange": {
+          "distinct": 579,
+          "generated": 674136,
+          "line": 173
+        },
+        "MarketChange": {
+          "distinct": 72,
+          "generated": 674136,
+          "line": 175
+        },
+        "SnapshotExpire": {
+          "distinct": 196,
+          "generated": 337068,
+          "line": 177
+        },
+        "Expire": {
+          "distinct": 367040,
+          "generated": 671816,
+          "line": 179
+        },
+        "PrepareFact": {
+          "distinct": 44408,
+          "generated": 240464,
+          "line": 184
+        },
+        "RejectPublicFact": {
+          "distinct": 0,
+          "generated": 327264,
+          "line": 188
+        },
+        "RejectPoisonFact": {
+          "distinct": 0,
+          "generated": 171968,
+          "line": 189
+        },
+        "FactSyncOk": {
+          "distinct": 44408,
+          "generated": 98672,
+          "line": 190
+        },
+        "FactSyncFail": {
+          "distinct": 76048,
+          "generated": 197344,
+          "line": 192
+        },
+        "ApplyFact": {
+          "distinct": 16160,
+          "generated": 98672,
+          "line": 195
+        },
+        "CheckAbort": {
+          "distinct": 1464,
+          "generated": 4720,
+          "line": 201
+        },
+        "RejectAbort": {
+          "distinct": 1728,
+          "generated": 7968,
+          "line": 205
+        },
+        "AbortSyncOk": {
+          "distinct": 1464,
+          "generated": 2592,
+          "line": 207
+        },
+        "AbortSyncFail": {
+          "distinct": 2272,
+          "generated": 5184,
+          "line": 209
+        },
+        "PublishAbort": {
+          "distinct": 1464,
+          "generated": 2592,
+          "line": 212
+        },
+        "PollStart": {
+          "distinct": 8648,
+          "generated": 19104,
+          "line": 220
+        },
+        "DriveBudgetError": {
+          "distinct": 8464,
+          "generated": 19104,
+          "line": 221
+        },
+        "DriveIdle": {
+          "distinct": 5313,
+          "generated": 11480,
+          "line": 224
+        },
+        "DriveReady": {
+          "distinct": 663,
+          "generated": 1496,
+          "line": 225
+        },
+        "DriveFlush": {
+          "distinct": 3552,
+          "generated": 4736,
+          "line": 227
+        },
+        "DriveExpire": {
+          "distinct": 1208,
+          "generated": 6856,
+          "line": 232
+        },
+        "DriveFailure": {
+          "distinct": 7528,
+          "generated": 19104,
+          "line": 237
+        },
+        "DriveFlushThenClose": {
+          "distinct": 1184,
+          "generated": 2368,
+          "line": 242
+        },
+        "SettleNone": {
+          "distinct": 3456,
+          "generated": 13312,
+          "line": 249
+        },
+        "SettleLive": {
+          "distinct": 11888,
+          "generated": 27424,
+          "line": 250
+        },
+        "SettleFlushed": {
+          "distinct": 2368,
+          "generated": 4736,
+          "line": 253
+        },
+        "SettleNoBytes": {
+          "distinct": 1304,
+          "generated": 4488,
+          "line": 255
+        },
+        "SettleFailed": {
+          "distinct": 4736,
+          "generated": 9472,
+          "line": 257
+        },
+        "TryExpire": {
+          "distinct": 0,
+          "generated": 6856,
+          "line": 259
+        },
+        "TryNotReady": {
+          "distinct": 480,
+          "generated": 936,
+          "line": 263
+        },
+        "FirstGateDenied": {
+          "distinct": 577,
+          "generated": 1034,
+          "line": 265
+        },
+        "ExpireInsideGate": {
+          "distinct": 135,
+          "generated": 168,
+          "line": 269
+        },
+        "TryBlocked": {
+          "distinct": 2127,
+          "generated": 5576,
+          "line": 273
+        },
+        "FirstAccept": {
+          "distinct": 150,
+          "generated": 168,
+          "line": 276
+        },
+        "ContinueAccept": {
+          "distinct": 2368,
+          "generated": 2368,
+          "line": 280
+        },
+        "TryFailure": {
+          "distinct": 1319,
+          "generated": 2872,
+          "line": 284
+        },
+        "PollEnd": {
+          "distinct": 13248,
+          "generated": 39680,
+          "line": 289
+        },
+        "CancelZero": {
+          "distinct": 1184,
+          "generated": 4240,
+          "line": 291
+        },
+        "CancelAccepted": {
+          "distinct": 3552,
+          "generated": 9472,
+          "line": 294
+        },
+        "Crash": {
+          "distinct": 143712,
+          "generated": 834864,
+          "line": 301
+        },
+        "RecoverOk": {
+          "distinct": 26928,
+          "generated": 116224,
+          "line": 311
+        },
+        "RecoverInvalid": {
+          "distinct": 27488,
+          "generated": 27488,
+          "line": 318
+        },
+        "RecoverUnavailable": {
+          "distinct": 116224,
+          "generated": 143712,
+          "line": 321
+        }
+      },
+      "log": "tla/execution_models/account_gateway/L0_guarded_account_output/04_evidence/L0_AccountGateway_v2.log",
+      "log_sha256": "031579189bdd8c87993bac0358fd3f7e9ca3b998e37fde90c556fe303ff34ad7",
+      "cfg_sha256": "03d255806566c49a978b70817876e3aaf0efb9e55a9f05c0965e784ad632c9e2"
+    },
+    {
+      "name": "L0_AccountGateway_v2_boundary",
+      "generated": 5456397,
+      "distinct": 892832,
+      "depth": 50,
+      "duration": "02min 03s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1,
+          "line": 126
+        },
+        "RejectPreparation": {
+          "distinct": 0,
+          "generated": 3600,
+          "line": 138
+        },
+        "Prepare": {
+          "distinct": 40,
+          "generated": 48,
+          "line": 139
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 1928,
+          "line": 144
+        },
+        "AdmissionOverflow": {
+          "distinct": 120,
+          "generated": 288,
+          "line": 146
+        },
+        "ClosureOk": {
+          "distinct": 40,
+          "generated": 128,
+          "line": 149
+        },
+        "ClosureFail": {
+          "distinct": 36,
+          "generated": 128,
+          "line": 151
+        },
+        "IntentSyncOk": {
+          "distinct": 40,
+          "generated": 128,
+          "line": 154
+        },
+        "IntentSyncFail": {
+          "distinct": 72,
+          "generated": 256,
+          "line": 156
+        },
+        "PublishIntent": {
+          "distinct": 40,
+          "generated": 128,
+          "line": 160
+        },
+        "QueueOk": {
+          "distinct": 40,
+          "generated": 128,
+          "line": 163
+        },
+        "QueueFail": {
+          "distinct": 0,
+          "generated": 0,
+          "line": 166
+        },
+        "Retry": {
+          "distinct": 0,
+          "generated": 318480,
+          "line": 168
+        },
+        "Conflict": {
+          "distinct": 2328,
+          "generated": 318480,
+          "line": 169
+        },
+        "RejectUnavailable": {
+          "distinct": 0,
+          "generated": 314016,
+          "line": 170
+        },
+        "GateChange": {
+          "distinct": 313,
+          "generated": 616096,
+          "line": 173
+        },
+        "MarketChange": {
+          "distinct": 42,
+          "generated": 616096,
+          "line": 175
+        },
+        "SnapshotExpire": {
+          "distinct": 136,
+          "generated": 308048,
+          "line": 177
+        },
+        "Expire": {
+          "distinct": 339032,
+          "generated": 613856,
+          "line": 179
+        },
+        "PrepareFact": {
+          "distinct": 43568,
+          "generated": 237216,
+          "line": 184
+        },
+        "RejectPublicFact": {
+          "distinct": 0,
+          "generated": 290512,
+          "line": 188
+        },
+        "RejectPoisonFact": {
+          "distinct": 0,
+          "generated": 163328,
+          "line": 189
+        },
+        "FactSyncOk": {
+          "distinct": 43568,
+          "generated": 96992,
+          "line": 190
+        },
+        "FactSyncFail": {
+          "distinct": 72688,
+          "generated": 193984,
+          "line": 192
+        },
+        "ApplyFact": {
+          "distinct": 20008,
+          "generated": 96992,
+          "line": 195
+        },
+        "CheckAbort": {
+          "distinct": 856,
+          "generated": 2768,
+          "line": 201
+        },
+        "RejectAbort": {
+          "distinct": 1728,
+          "generated": 15744,
+          "line": 205
+        },
+        "AbortSyncOk": {
+          "distinct": 856,
+          "generated": 1616,
+          "line": 207
+        },
+        "AbortSyncFail": {
+          "distinct": 1344,
+          "generated": 3232,
+          "line": 209
+        },
+        "PublishAbort": {
+          "distinct": 856,
+          "generated": 1616,
+          "line": 212
+        },
+        "PollStart": {
+          "distinct": 7544,
+          "generated": 17136,
+          "line": 220
+        },
+        "DriveBudgetError": {
+          "distinct": 7401,
+          "generated": 17136,
+          "line": 221
+        },
+        "DriveIdle": {
+          "distinct": 4585,
+          "generated": 10368,
+          "line": 224
+        },
+        "DriveReady": {
+          "distinct": 639,
+          "generated": 1472,
+          "line": 225
+        },
+        "DriveFlush": {
+          "distinct": 3168,
+          "generated": 4224,
+          "line": 227
+        },
+        "DriveExpire": {
+          "distinct": 1056,
+          "generated": 6192,
+          "line": 232
+        },
+        "DriveFailure": {
+          "distinct": 6607,
+          "generated": 17136,
+          "line": 237
+        },
+        "DriveFlushThenClose": {
+          "distinct": 1056,
+          "generated": 2112,
+          "line": 242
+        },
+        "SettleNone": {
+          "distinct": 3152,
+          "generated": 11968,
+          "line": 249
+        },
+        "SettleLive": {
+          "distinct": 10560,
+          "generated": 24768,
+          "line": 250
+        },
+        "SettleFlushed": {
+          "distinct": 2112,
+          "generated": 4224,
+          "line": 253
+        },
+        "SettleNoBytes": {
+          "distinct": 1128,
+          "generated": 4080,
+          "line": 255
+        },
+        "SettleFailed": {
+          "distinct": 4224,
+          "generated": 8448,
+          "line": 257
+        },
+        "TryExpire": {
+          "distinct": 0,
+          "generated": 6192,
+          "line": 259
+        },
+        "TryNotReady": {
+          "distinct": 456,
+          "generated": 912,
+          "line": 263
+        },
+        "FirstGateDenied": {
+          "distinct": 524,
+          "generated": 976,
+          "line": 265
+        },
+        "ExpireInsideGate": {
+          "distinct": 76,
+          "generated": 82,
+          "line": 269
+        },
+        "TryBlocked": {
+          "distinct": 1980,
+          "generated": 4634,
+          "line": 273
+        },
+        "FirstAccept": {
+          "distinct": 80,
+          "generated": 82,
+          "line": 276
+        },
+        "ContinueAccept": {
+          "distinct": 2112,
+          "generated": 2112,
+          "line": 280
+        },
+        "TryFailure": {
+          "distinct": 1132,
+          "generated": 2358,
+          "line": 284
+        },
+        "PollEnd": {
+          "distinct": 11216,
+          "generated": 35360,
+          "line": 289
+        },
+        "CancelZero": {
+          "distinct": 1056,
+          "generated": 3936,
+          "line": 291
+        },
+        "CancelAccepted": {
+          "distinct": 3168,
+          "generated": 8448,
+          "line": 294
+        },
+        "Crash": {
+          "distinct": 138368,
+          "generated": 769472,
+          "line": 301
+        },
+        "RecoverOk": {
+          "distinct": 13312,
+          "generated": 58272,
+          "line": 311
+        },
+        "RecoverInvalid": {
+          "distinct": 80096,
+          "generated": 80096,
+          "line": 318
+        },
+        "RecoverUnavailable": {
+          "distinct": 58272,
+          "generated": 138368,
+          "line": 321
+        }
+      },
+      "log": "tla/execution_models/account_gateway/L0_guarded_account_output/04_evidence/L0_AccountGateway_v2_boundary.log",
+      "log_sha256": "3dea39e97bf07fe3165934baab0d842928c63aceeadcef8588e52b0d94da361e",
+      "cfg_sha256": "16b98148185ec517f38fe80265d9b5e309828e44f7ca59c1962a0263bf343d4a"
+    },
+    {
+      "name": "L0_AccountGateway_v2_two",
+      "generated": 12639561,
+      "distinct": 2024848,
+      "depth": 50,
+      "duration": "05min 06s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1,
+          "line": 126
+        },
+        "RejectPreparation": {
+          "distinct": 0,
+          "generated": 6464,
+          "line": 138
+        },
+        "Prepare": {
+          "distinct": 132,
+          "generated": 168,
+          "line": 139
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 9168,
+          "line": 144
+        },
+        "AdmissionOverflow": {
+          "distinct": 0,
+          "generated": 0,
+          "line": 146
+        },
+        "ClosureOk": {
+          "distinct": 132,
+          "generated": 672,
+          "line": 149
+        },
+        "ClosureFail": {
+          "distinct": 88,
+          "generated": 672,
+          "line": 151
+        },
+        "IntentSyncOk": {
+          "distinct": 132,
+          "generated": 672,
+          "line": 154
+        },
+        "IntentSyncFail": {
+          "distinct": 176,
+          "generated": 1344,
+          "line": 156
+        },
+        "PublishIntent": {
+          "distinct": 132,
+          "generated": 672,
+          "line": 160
+        },
+        "QueueOk": {
+          "distinct": 120,
+          "generated": 608,
+          "line": 163
+        },
+        "QueueFail": {
+          "distinct": 12,
+          "generated": 64,
+          "line": 166
+        },
+        "Retry": {
+          "distinct": 0,
+          "generated": 808256,
+          "line": 168
+        },
+        "Conflict": {
+          "distinct": 5976,
+          "generated": 808256,
+          "line": 169
+        },
+        "RejectUnavailable": {
+          "distinct": 0,
+          "generated": 798688,
+          "line": 170
+        },
+        "GateChange": {
+          "distinct": 254,
+          "generated": 1401936,
+          "line": 173
+        },
+        "MarketChange": {
+          "distinct": 406,
+          "generated": 1401936,
+          "line": 175
+        },
+        "SnapshotExpire": {
+          "distinct": 1736,
+          "generated": 700968,
+          "line": 177
+        },
+        "Expire": {
+          "distinct": 738848,
+          "generated": 1397248,
+          "line": 179
+        },
+        "PrepareFact": {
+          "distinct": 98728,
+          "generated": 595616,
+          "line": 184
+        },
+        "RejectPublicFact": {
+          "distinct": 0,
+          "generated": 683136,
+          "line": 188
+        },
+        "RejectPoisonFact": {
+          "distinct": 0,
+          "generated": 361088,
+          "line": 189
+        },
+        "FactSyncOk": {
+          "distinct": 98728,
+          "generated": 209440,
+          "line": 190
+        },
+        "FactSyncFail": {
+          "distinct": 166992,
+          "generated": 418880,
+          "line": 192
+        },
+        "ApplyFact": {
+          "distinct": 33200,
+          "generated": 209440,
+          "line": 195
+        },
+        "CheckAbort": {
+          "distinct": 1928,
+          "generated": 4096,
+          "line": 201
+        },
+        "RejectAbort": {
+          "distinct": 5760,
+          "generated": 17216,
+          "line": 205
+        },
+        "AbortSyncOk": {
+          "distinct": 1928,
+          "generated": 4096,
+          "line": 207
+        },
+        "AbortSyncFail": {
+          "distinct": 3120,
+          "generated": 8192,
+          "line": 209
+        },
+        "PublishAbort": {
+          "distinct": 1928,
+          "generated": 4096,
+          "line": 212
+        },
+        "PollStart": {
+          "distinct": 18128,
+          "generated": 38400,
+          "line": 220
+        },
+        "DriveBudgetError": {
+          "distinct": 17792,
+          "generated": 38400,
+          "line": 221
+        },
+        "DriveIdle": {
+          "distinct": 10943,
+          "generated": 23184,
+          "line": 224
+        },
+        "DriveReady": {
+          "distinct": 1913,
+          "generated": 2960,
+          "line": 225
+        },
+        "DriveFlush": {
+          "distinct": 7392,
+          "generated": 9856,
+          "line": 227
+        },
+        "DriveExpire": {
+          "distinct": 3264,
+          "generated": 14192,
+          "line": 232
+        },
+        "DriveFailure": {
+          "distinct": 15792,
+          "generated": 38400,
+          "line": 237
+        },
+        "DriveFlushThenClose": {
+          "distinct": 2464,
+          "generated": 4928,
+          "line": 242
+        },
+        "SettleNone": {
+          "distinct": 6856,
+          "generated": 25888,
+          "line": 249
+        },
+        "SettleLive": {
+          "distinct": 26240,
+          "generated": 56768,
+          "line": 250
+        },
+        "SettleFlushed": {
+          "distinct": 4928,
+          "generated": 9856,
+          "line": 253
+        },
+        "SettleNoBytes": {
+          "distinct": 3621,
+          "generated": 9264,
+          "line": 255
+        },
+        "SettleFailed": {
+          "distinct": 9856,
+          "generated": 19712,
+          "line": 257
+        },
+        "TryExpire": {
+          "distinct": 0,
+          "generated": 14192,
+          "line": 259
+        },
+        "TryNotReady": {
+          "distinct": 1408,
+          "generated": 1872,
+          "line": 263
+        },
+        "FirstGateDenied": {
+          "distinct": 1773,
+          "generated": 2392,
+          "line": 265
+        },
+        "ExpireInsideGate": {
+          "distinct": 51,
+          "generated": 72,
+          "line": 269
+        },
+        "TryBlocked": {
+          "distinct": 4407,
+          "generated": 10216,
+          "line": 273
+        },
+        "FirstAccept": {
+          "distinct": 72,
+          "generated": 72,
+          "line": 276
+        },
+        "ContinueAccept": {
+          "distinct": 4928,
+          "generated": 4928,
+          "line": 280
+        },
+        "TryFailure": {
+          "distinct": 2515,
+          "generated": 5144,
+          "line": 284
+        },
+        "PollEnd": {
+          "distinct": 26592,
+          "generated": 79456,
+          "line": 289
+        },
+        "CancelZero": {
+          "distinct": 3224,
+          "generated": 8672,
+          "line": 291
+        },
+        "CancelAccepted": {
+          "distinct": 7392,
+          "generated": 19712,
+          "line": 294
+        },
+        "Crash": {
+          "distinct": 311456,
+          "generated": 1725024,
+          "line": 301
+        },
+        "RecoverOk": {
+          "distinct": 59928,
+          "generated": 254752,
+          "line": 311
+        },
+        "RecoverInvalid": {
+          "distinct": 56704,
+          "generated": 56704,
+          "line": 318
+        },
+        "RecoverUnavailable": {
+          "distinct": 254752,
+          "generated": 311456,
+          "line": 321
+        }
+      },
+      "log": "tla/execution_models/account_gateway/L0_guarded_account_output/04_evidence/L0_AccountGateway_v2_two.log",
+      "log_sha256": "2689f7c7fcb16e3548f783c1a3acc8c3d56382c862fabee1058f35f5a776fff4",
+      "cfg_sha256": "5787cae2dbf51b0fe1cb7bf37a255e660501b4d1b8b14ba5c941ffb346d99438"
+    },
+    {
+      "name": "L0_AccountGateway_v2_crashes",
+      "generated": 9600215,
+      "distinct": 1793656,
+      "depth": 50,
+      "duration": "04min 13s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1,
+          "line": 126
+        },
+        "RejectPreparation": {
+          "distinct": 0,
+          "generated": 3264,
+          "line": 138
+        },
+        "Prepare": {
+          "distinct": 208,
+          "generated": 216,
+          "line": 139
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 1760,
+          "line": 144
+        },
+        "AdmissionOverflow": {
+          "distinct": 0,
+          "generated": 0,
+          "line": 146
+        },
+        "ClosureOk": {
+          "distinct": 208,
+          "generated": 464,
+          "line": 149
+        },
+        "ClosureFail": {
+          "distinct": 164,
+          "generated": 464,
+          "line": 151
+        },
+        "IntentSyncOk": {
+          "distinct": 208,
+          "generated": 464,
+          "line": 154
+        },
+        "IntentSyncFail": {
+          "distinct": 328,
+          "generated": 928,
+          "line": 156
+        },
+        "PublishIntent": {
+          "distinct": 208,
+          "generated": 464,
+          "line": 160
+        },
+        "QueueOk": {
+          "distinct": 192,
+          "generated": 432,
+          "line": 163
+        },
+        "QueueFail": {
+          "distinct": 16,
+          "generated": 32,
+          "line": 166
+        },
+        "Retry": {
+          "distinct": 0,
+          "generated": 604128,
+          "line": 168
+        },
+        "Conflict": {
+          "distinct": 2920,
+          "generated": 604128,
+          "line": 169
+        },
+        "RejectUnavailable": {
+          "distinct": 0,
+          "generated": 599120,
+          "line": 170
+        },
+        "GateChange": {
+          "distinct": 579,
+          "generated": 981624,
+          "line": 173
+        },
+        "MarketChange": {
+          "distinct": 72,
+          "generated": 981624,
+          "line": 175
+        },
+        "SnapshotExpire": {
+          "distinct": 196,
+          "generated": 490812,
+          "line": 177
+        },
+        "Expire": {
+          "distinct": 536896,
+          "generated": 979304,
+          "line": 179
+        },
+        "PrepareFact": {
+          "distinct": 64680,
+          "generated": 567280,
+          "line": 184
+        },
+        "RejectPublicFact": {
+          "distinct": 0,
+          "generated": 543808,
+          "line": 188
+        },
+        "RejectPoisonFact": {
+          "distinct": 0,
+          "generated": 262912,
+          "line": 189
+        },
+        "FactSyncOk": {
+          "distinct": 64680,
+          "generated": 144144,
+          "line": 190
+        },
+        "FactSyncFail": {
+          "distinct": 116592,
+          "generated": 288288,
+          "line": 192
+        },
+        "ApplyFact": {
+          "distinct": 26656,
+          "generated": 144144,
+          "line": 195
+        },
+        "CheckAbort": {
+          "distinct": 1464,
+          "generated": 4720,
+          "line": 201
+        },
+        "RejectAbort": {
+          "distinct": 1728,
+          "generated": 7968,
+          "line": 205
+        },
+        "AbortSyncOk": {
+          "distinct": 1464,
+          "generated": 2592,
+          "line": 207
+        },
+        "AbortSyncFail": {
+          "distinct": 2272,
+          "generated": 5184,
+          "line": 209
+        },
+        "PublishAbort": {
+          "distinct": 1464,
+          "generated": 2592,
+          "line": 212
+        },
+        "PollStart": {
+          "distinct": 8648,
+          "generated": 19104,
+          "line": 220
+        },
+        "DriveBudgetError": {
+          "distinct": 8464,
+          "generated": 19104,
+          "line": 221
+        },
+        "DriveIdle": {
+          "distinct": 5313,
+          "generated": 11480,
+          "line": 224
+        },
+        "DriveReady": {
+          "distinct": 663,
+          "generated": 1496,
+          "line": 225
+        },
+        "DriveFlush": {
+          "distinct": 3552,
+          "generated": 4736,
+          "line": 227
+        },
+        "DriveExpire": {
+          "distinct": 1208,
+          "generated": 6856,
+          "line": 232
+        },
+        "DriveFailure": {
+          "distinct": 7528,
+          "generated": 19104,
+          "line": 237
+        },
+        "DriveFlushThenClose": {
+          "distinct": 1184,
+          "generated": 2368,
+          "line": 242
+        },
+        "SettleNone": {
+          "distinct": 3456,
+          "generated": 13312,
+          "line": 249
+        },
+        "SettleLive": {
+          "distinct": 11888,
+          "generated": 27424,
+          "line": 250
+        },
+        "SettleFlushed": {
+          "distinct": 2368,
+          "generated": 4736,
+          "line": 253
+        },
+        "SettleNoBytes": {
+          "distinct": 1304,
+          "generated": 4488,
+          "line": 255
+        },
+        "SettleFailed": {
+          "distinct": 4736,
+          "generated": 9472,
+          "line": 257
+        },
+        "TryExpire": {
+          "distinct": 0,
+          "generated": 6856,
+          "line": 259
+        },
+        "TryNotReady": {
+          "distinct": 480,
+          "generated": 936,
+          "line": 263
+        },
+        "FirstGateDenied": {
+          "distinct": 577,
+          "generated": 1034,
+          "line": 265
+        },
+        "ExpireInsideGate": {
+          "distinct": 135,
+          "generated": 168,
+          "line": 269
+        },
+        "TryBlocked": {
+          "distinct": 2127,
+          "generated": 5576,
+          "line": 273
+        },
+        "FirstAccept": {
+          "distinct": 150,
+          "generated": 168,
+          "line": 276
+        },
+        "ContinueAccept": {
+          "distinct": 2368,
+          "generated": 2368,
+          "line": 280
+        },
+        "TryFailure": {
+          "distinct": 1319,
+          "generated": 2872,
+          "line": 284
+        },
+        "PollEnd": {
+          "distinct": 13248,
+          "generated": 39680,
+          "line": 289
+        },
+        "CancelZero": {
+          "distinct": 1184,
+          "generated": 4240,
+          "line": 291
+        },
+        "CancelAccepted": {
+          "distinct": 3552,
+          "generated": 9472,
+          "line": 294
+        },
+        "Crash": {
+          "distinct": 406016,
+          "generated": 1348272,
+          "line": 301
+        },
+        "RecoverOk": {
+          "distinct": 72976,
+          "generated": 338272,
+          "line": 311
+        },
+        "RecoverInvalid": {
+          "distinct": 67744,
+          "generated": 67744,
+          "line": 318
+        },
+        "RecoverUnavailable": {
+          "distinct": 338272,
+          "generated": 406016,
+          "line": 321
+        }
+      },
+      "log": "tla/execution_models/account_gateway/L0_guarded_account_output/04_evidence/L0_AccountGateway_v2_crashes.log",
+      "log_sha256": "be701eb8c593d95083ca6fe7eed7af3d56aa3fbf041cff241eb645a979c96700",
+      "cfg_sha256": "cf9203e633cddd60c15cc988219eba016e5056a970148d275e7cf9a9b5aac3e7"
+    }
+  ],
+  "invariants": 20,
+  "reviews": [
+    "root: source, model, allApplied and final source/model/cfg/log/anchors hashes and coverage PASS; no duplicate TLC run",
+    "ipc_codec: source, model, allApplied and final 9 source/model/4 cfg/4 log/1576 anchors hashes, counts and coverage independently verified PASS; no duplicate TLC run"
+  ]
+}

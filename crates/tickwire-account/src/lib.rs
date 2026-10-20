@@ -40,7 +40,9 @@ struct Order {
     notional: Fixed,
     paid: BTreeMap<AssetKey, Fixed>,
     terminal_cumulative: Option<Fixed>,
-    unknown: bool,
+    observed_unknown: bool,
+    recovery_unknown: bool,
+    observation_unreconciled: bool,
     terminal: bool,
     fees_closed: bool,
     aborted: bool,
@@ -53,6 +55,9 @@ struct Order {
     shadow_fee_credit: Fixed,
 }
 impl Order {
+    fn unknown(&self) -> bool {
+        self.observed_unknown || self.recovery_unknown
+    }
     fn remaining(&self) -> Result<Fixed> {
         if self.aborted || self.terminal && self.terminal_cumulative == Some(self.filled) {
             Ok(self.original.zero_like())
@@ -240,7 +245,7 @@ impl Account {
                 filled_quantity: o.filled,
                 remaining_quantity: o.remaining().ok()?,
                 reduce_allocation: o.reduce,
-                unknown: o.unknown,
+                unknown: o.unknown(),
                 terminal: o.terminal,
                 fee_reconciled: o.fees_closed,
                 aborted: o.aborted,

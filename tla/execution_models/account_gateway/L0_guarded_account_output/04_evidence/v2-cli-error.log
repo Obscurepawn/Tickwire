@@ -1,0 +1,8 @@
+>>> TLC module=L0_AccountGateway_v2 cfg=L0_AccountGateway_v2.cfg workers=1
+>>> jar=<repo>/tla/tools/tla2tools.jar
+>>> dir=<repo>/tla/execution_models/account_gateway/L0_guarded_account_output/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Error: Error: unrecognized option: --config
+Usage: java tlc2.TLC [-option] inputfile
+>>> elapsed: 2s (exit 1)

@@ -21,7 +21,7 @@ vars == <<s>>
  seen/aborted/ledger/ri/frozen/returned/unknown: finite Spot reducer instance
    crates/tickwire-account/src/recovery.rs:17-43
    crates/tickwire-account/src/recovery.rs:91-101
-   crates/tickwire-account/src/admission.rs:409-434
+   crates/tickwire-account/src/admission.rs:411-436
  ack/crashes/configOK: observer witnesses and caller-selected bounded inputs.
    crates/tickwire-account-journal/src/lib.rs:86-105
    crates/tickwire-account-journal/src/history.rs:17-59

@@ -137,3 +137,18 @@
 - 创建依赖顺序、写入/同步/收据分离、poison、未回执完整尾、required 精确前缀、结构与历史闭包校验、账户重放和冻结返回。
 - root 与 ipc_codec 独立源码/模型审阅通过；582 个源码行锚点零漂移。初次目录同步反例为模型遗漏，已据源码修正并保留记录，无开放源码候选。
 - 有限范围只包含一代原意图的 Admit/Aborted、writer 接管及 Spot 数量 1/价格 1/零费实例；物理字节、分段目录事务和网络发送不在本级证明内。见[输出](execution_models/account_journal/L0_ordered_recovery/05_output.md)。
+
+## account / account_journal 恢复元数据源码同步（2026-10-20）
+
+- 账户将持久 Unknown/终态异常观察与恢复附加 Unknown、本地冻结分开；重复成交的新观察计数不再依赖临时状态。
+- Account L0/L1 没有恢复入口与账本序号；AccountJournal L0 只有 Admit/Aborted。三个原模型的动作与不变量不变，仅更新源码行号，2,121 个当前锚点零漂移，未重跑 TLC。
+- 原始模型、配置、锁、结果和修复前源码保存在 [同步证据](../docs/validation/account-recovery-metadata/sync.md)。新增恢复序号性质与真实 Red/Green 由 AccountGateway 阶梯单独跟踪。
+
+## account_gateway / L0_guarded_account_output — PASS
+
+- Scope: 单所有者 Account、AccountJournal、Connection；有序 WAL、候选账户发布、首次输出、零接受中止和冻结恢复。有限 Spot 买入输入，完整 Fill 与订单观察原子应用。
+- Finding: retired(fixed, validated by L0_AccountGateway_v2)。恢复 Unknown 和本地 frozen 曾改变重复观察计数；真实普通/MAX/frozen-only Red 与独立审阅确认，修复保留有效 Unknown 但分开持久状态。
+- Fix: 账户私有 observed_unknown/recovery_unknown/observation_unreconciled；重复成交不依赖全局 frozen。四项回归通过，最终模型保留全部持久状态+seq 及 SuccessfulPrefixReplays。
+- TLC: primary/boundary/two/crashes distinct 为 961560 / 892832 / 2024848 / 1793656，深度均 50，20 项不变量通过；58 个入口在配置合集中均 generated>0，1576 行源码锚点零漂移。
+- Evidence: `execution_models/account_gateway/L0_guarded_account_output/03_run_log.md`、`04_counterexamples.md`、`04_evidence/results.json`；旧反例和新性质前一轮保存在各自历史目录。root 与 IPC 独立复核源码和模型。
+- Watch: 当前模型不包括实际回报关联、连接重建、恢复激活与新基线切换；这些行为在相应实现完成后单独扩展。原始全仓检查和补强测试的文本版本由 `docs/validation/account-recovery-metadata/workspace-results.json` 分别绑定。

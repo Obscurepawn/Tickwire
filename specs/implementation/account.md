@@ -28,6 +28,10 @@ Spot 按 `last_quote` 记录实际报价支出，不把成交价乘数量当交�
 
 `RecoveryRecord` 包含 Admit、VenueEvent、Aborted、FeesReconciled、UnattributedCashFlow、ExternalPosition、TransferAsset、TransferPosition。Admit 保存完整规范命令、历史评估时刻和 AdmissionImage。恢复从同一 Snapshot/Catalog 重算预留，逐字段核对 image，然后按实际顺序重放；有缺失引用、内容冲突或预留不一致则拒绝。返回账户始终冻结；外层负责 WAL 前缀完整性、依赖闭包和来源验证。
 
+订单内部独立保存 `observed_unknown`、`recovery_unknown` 和单调的 `observation_unreconciled`。前者来自交易所记录，第二项仅在恢复结束时设置；第三项记录终态累计量缺失、越界或冲突。公开 Unknown 是前两者的或值，继续阻止新增风险和矛盾中止。重复成交比较订单变化，冻结状态本身不参与去重。因此本地冻结与恢复注入不会改变持久观察的计数，重放得到相同 `ledger_sequence`。这些私有字段不改变规范记录或基线的编码。
+
+序号使用检查加法。成功接纳的相同有序记录在普通序号和上限附近都保持重放一致；真正需要越过 `u64::MAX` 的输入在线返回错误，保持原财务状态并冻结。已保存但未成功应用的记录仍导致恢复失败。相关实际反例、边界回归和修复记录见 [恢复序号验证](../../docs/validation/account-recovery-metadata/README.md)。
+
 测试覆盖资产单位、费用尾额、第三币种池、成交与费用去重、返佣、终态缺失详情、未知结果、ACK/中止冲突、USD-M OneWay/Hedge 减仓、钱包隔离、影子扣款和恢复。真实命令与日志见 [验证记录](../../docs/validation/account/README.md)。形式模型分为 Spot 成交费用顺序和 USD-M 减仓/影子账两层，有限输入与源码映射见 [模型计划](../../tla/execution_models/account/PLAN.md)。
 
 当前基线尚不导入旧存活订单 coverage，且没有在线基线替换、解冻或目录升级记录。动态 closePosition、SpotAdvanced/SOR/peg 风险界、完整撤改单及条件父子生命周期、跨币抵押仍返回明确错误或等待后续接口。账户实现采用候选克隆和有界集合，尚未测量发送前风险检查延迟。

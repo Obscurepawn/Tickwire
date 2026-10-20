@@ -12,7 +12,7 @@
 | book_state L0/L1 | Spot/Futures 桥接、旧 generation、失败原子性与有限深度知识 | 八配置 PASS | 真实适配器、快照/增量接线与 exec 行情门禁组合 |
 | account L0/L1 | Spot 资源与迟到事件、USD-M 资金和减仓预留、费用清算及冻结恢复 | 六配置 PASS | 账户、真实 WAL 与发送门禁组合；跨币种保证金 |
 | account_journal L0 | 依赖创建、完整批同步、历史前缀、逐条闭包与冻结重放 | 三配置 PASS | 其余事实变体、基线切换与分段目录事务 |
-| account_gateway L0 | 账户、WAL、首次发送门禁及零接受中止的组合 | 建模中 | 实际业务回报关联、会话恢复与接管后激活 |
+| account_gateway L0 | 账户、WAL、首次发送门禁及零接受中止的组合 | PASS；恢复序号缺陷已修复，v2 四配置通过 | 实际业务回报关联、会话恢复与接管后激活 |
 | binance_depth_sync L0 | 连接代次、缓存、快照令牌与原子回放 | 建模中 | 多源切换与进程发布组合 |
 | broadcast_ring L0 | 固定 bank 发布、慢消费者、借用和协作回收 | 五配置 PASS | L1 身份控制与 bank 轮换，L2 进程退出回收 |
 | join_owner L0 | 保留快照基线、双资源交付、真实游标追平、原登记版本和协作退出 | 四配置 PASS | 持久请求登记、独立截止时间、bank 轮换及死亡回收 |
@@ -23,3 +23,5 @@
 | budget_lease / strategy_handoff / multi_exec_activation | 授权、旧发送者隔离与多进程恢复 | 未建模 | 先实现可检验的控制面与运行时 |
 
 下一命令和开放问题位于 [submission TODO](execution_models/submission/TODO.md)。
+
+账户恢复元数据修复后，account L0/L1 与 account_journal L0 的既有状态转移保持相同，已同步源码锚点并保留原材料，历史配置未重跑。修复涉及的恢复序号一致性由 account_gateway L0 v2 承担。

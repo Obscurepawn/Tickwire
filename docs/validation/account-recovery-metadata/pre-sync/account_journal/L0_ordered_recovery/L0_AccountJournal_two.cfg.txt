@@ -1,0 +1,25 @@
+SPECIFICATION Spec
+CONSTANTS
+ Orders = 2
+ Capital = 1
+ MaxRecords = 3
+ CrashLimit = 1
+ BadSeeds = TRUE
+CHECK_DEADLOCK FALSE
+INVARIANTS
+ TypeOK
+ DependencyFirst
+ NoLostReceipt
+ ReceiptDependencies
+ PublishedHistory
+ PoisonKeepsPrefix
+ RequiredBeforeMutation
+ RecoveredFrozen
+ RecoveryNotExposed
+ VerifiedPreceding
+ ReturnedChecked
+ ReplayConservation
+ DiskPrefix
+ PublicStructure
+ HistoryPrefix
+ ReturnedReplay

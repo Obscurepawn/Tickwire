@@ -4,21 +4,21 @@ CONSTANTS Orders, InitialBase, InitialQuote, FeeValues
 ASSUME /\ Orders = 1..Cardinality(Orders) /\ Orders # {}
        /\ InitialBase >= 2 /\ InitialQuote >= 4 /\ FeeValues \subseteq 0..4
 \* var <-> code map:
-\* orders: Account.orders/admissions, crates/tickwire-account/src/lib.rs:82-100
+\* orders: Account.orders/admissions, crates/tickwire-account/src/lib.rs:87-105
 \* filled/trades/fees/paid/economic: checked fact application and dedup.
-\*   crates/tickwire-account/src/events.rs:19-111
+\*   crates/tickwire-account/src/events.rs:19-112
 \* totalBase/totalQuote/baseOwner/quoteOwner: cashflow + original attribution.
-\*   crates/tickwire-account/src/events.rs:152-286
+\*   crates/tickwire-account/src/events.rs:153-287
 \* terminal/cum/unknown/closed/aborted: Order lifecycle and missing-detail hold.
-\*   crates/tickwire-account/src/lib.rs:54-64
-\*   crates/tickwire-account/src/events.rs:351-410
+\*   crates/tickwire-account/src/lib.rs:56-69
+\*   crates/tickwire-account/src/events.rs:352-414
 \* frozen: conflict/overflow/deficit gate, not rejection of actual economics.
 \*   crates/tickwire-account/src/events.rs:3-17
-\*   crates/tickwire-account/src/events.rs:89-111
+\*   crates/tickwire-account/src/events.rs:90-112
 \* admission's all-asset candidate: crates/tickwire-account/src/admission.rs:4-31
-\*   crates/tickwire-account/src/admission.rs:269-335
+\*   crates/tickwire-account/src/admission.rs:271-337
 \* reserve formula: crates/tickwire-account/src/calculation.rs:134-259
-\* abort/reconcile: crates/tickwire-account/src/admission.rs:409-449
+\* abort/reconcile: crates/tickwire-account/src/admission.rs:411-451
 \* Valid finite instance: qty2, buy cap2, fee rate1/2, maximum_fills2.
 \* No concurrent writers, no WAL fault model; upstream durable-fact obligation.
 VARIABLE s
@@ -45,7 +45,7 @@ Init == s = [orders |-> {}, filled |-> [o \in Orders |-> 0],
              unknown |-> [o \in Orders |-> FALSE], closed |-> [o \in Orders |-> FALSE],
              aborted |-> [o \in Orders |-> FALSE], frozen |-> FALSE]
 
-\* crates/tickwire-account/src/admission.rs:4-31; crates/tickwire-account/src/admission.rs:269-335
+\* crates/tickwire-account/src/admission.rs:4-31; crates/tickwire-account/src/admission.rs:271-337
 Admit(o) == /\ o \notin s.orders /\ ~s.frozen
             /\ LET t == [s EXCEPT !.orders = @ \cup {o}] IN
                /\ FreeBase(t) >= 0 /\ FreeQuote(t) >= 0 /\ s' = t
@@ -54,7 +54,7 @@ RejectAdmission(o) == /\ o \notin s.orders
                       /\ UNCHANGED s
 RetryAdmission(o) == /\ o \in s.orders /\ UNCHANGED s
 ConflictAdmission(o) == /\ o \in s.orders /\ s' = [s EXCEPT !.frozen = TRUE]
-\* crates/tickwire-account/src/events.rs:152-269; crates/tickwire-account/src/events.rs:136-150
+\* crates/tickwire-account/src/events.rs:153-270; crates/tickwire-account/src/events.rs:137-151
 Fill(o,k,cost) ==
     /\ o \in s.orders /\ k \in 1..2 /\ s.trades[o][k] = 0 /\ cost \in 1..2
     /\ LET t == [s EXCEPT !.trades[o][k] = cost, !.filled[o] = @ + 1,
@@ -67,7 +67,7 @@ Fill(o,k,cost) ==
 ReplayFill(o,k) == /\ o \in s.orders /\ s.trades[o][k] # 0 /\ UNCHANGED s
 ConflictFill(o,k) == /\ o \in s.orders /\ s.trades[o][k] # 0
                      /\ s' = [s EXCEPT !.frozen = TRUE]
-\* crates/tickwire-account/src/events.rs:288-342; zero fees are economic evidence.
+\* crates/tickwire-account/src/events.rs:289-343; zero fees are economic evidence.
 Fee(o,n) ==
     /\ o \in s.orders /\ s.fees[o] = -1 /\ n \in FeeValues
     /\ LET t == [s EXCEPT !.fees[o] = n, !.paid[o] = n,
@@ -78,7 +78,7 @@ Fee(o,n) ==
        IN s' = FreezeDeficit(t)
 ReplayFee(o) == /\ o \in s.orders /\ s.fees[o] # -1 /\ UNCHANGED s
 ConflictFee(o) == /\ o \in s.orders /\ s.fees[o] # -1 /\ s' = [s EXCEPT !.frozen = TRUE]
-\* A nonterminal unknown observation. crates/tickwire-account/src/events.rs:351-410
+\* A nonterminal unknown observation. crates/tickwire-account/src/events.rs:352-414
 Unknown(o) == /\ o \in s.orders /\ ~s.unknown[o]
               /\ s' = [s EXCEPT !.unknown[o] = TRUE, !.frozen = TRUE]
 \* Same terminal may be reported again; conflicting cumulative freezes, max retained.
@@ -91,8 +91,8 @@ Terminal(o,n) ==
     /\ s' = [s EXCEPT !.terminal[o] = TRUE, !.confirmed[o] = TRUE, !.cum[o] = Max(@,n),
                       !.aborted[o] = FALSE, !.closed[o] = IF s.aborted[o] THEN FALSE ELSE @,
                       !.frozen = @ \/ s.aborted[o] \/ n < s.filled[o] \/ (s.cum[o] # -1 /\ s.cum[o] # n)]
-\* crates/tickwire-account/src/admission.rs:435-449
-\* crates/tickwire-account/src/events.rs:71-83; duplicate economics still observe.
+\* crates/tickwire-account/src/admission.rs:437-451
+\* crates/tickwire-account/src/events.rs:70-84; duplicate economics still observe.
 ReplayFillUnknown(o,k) == /\ o \in s.orders /\ s.trades[o][k] # 0
                          /\ s' = [s EXCEPT !.unknown[o] = TRUE, !.frozen = TRUE]
 ReplayFillTerminal(o,k,n) == /\ o \in s.orders /\ s.trades[o][k] # 0 /\ Terminal(o,n)
@@ -101,7 +101,7 @@ Reconcile(o) == /\ o \in s.orders /\ s.terminal[o] /\ s.cum[o] = s.filled[o]
 RejectReconcile(o) == /\ o \in s.orders /\ (~s.terminal[o] \/ s.cum[o] # s.filled[o])
                       /\ s' = [s EXCEPT !.frozen = TRUE]
 \* Trusted journaled AbortedBeforeSend only; not a proof of WAL synchronization.
-\* crates/tickwire-account/src/admission.rs:409-432
+\* crates/tickwire-account/src/admission.rs:411-434
 Abort(o) == /\ o \in s.orders /\ ~s.aborted[o] /\ ~s.economic[o]
             /\ ~s.confirmed[o] /\ ~s.terminal[o] /\ ~s.unknown[o]
             /\ s' = [s EXCEPT !.aborted[o] = TRUE, !.closed[o] = TRUE]

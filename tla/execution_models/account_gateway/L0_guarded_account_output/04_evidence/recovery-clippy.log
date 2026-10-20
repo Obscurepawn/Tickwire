@@ -1,0 +1,14 @@
+    Checking ring v0.17.14
+    Checking tickwire-recovery v0.1.0 (<repo>/crates/tickwire-recovery)
+    Checking tickwire-account v0.1.0 (<repo>/crates/tickwire-account)
+    Checking tickwire-business-journal v0.1.0 (<repo>/crates/tickwire-business-journal)
+    Checking tickwire-account-codec v0.1.0 (<repo>/crates/tickwire-account-codec)
+    Checking rustls-webpki v0.103.16
+    Checking tickwire-binance v0.1.0 (<repo>/crates/tickwire-binance)
+    Checking rcgen v0.14.10
+    Checking rustls v0.23.46
+    Checking tickwire-account-journal v0.1.0 (<repo>/crates/tickwire-account-journal)
+    Checking tickwire-transport v0.1.0 (<repo>/crates/tickwire-transport)
+    Checking tickwire-gateway v0.1.0 (<repo>/crates/tickwire-gateway)
+    Checking tickwire-account-gateway v0.1.0 (<repo>/crates/tickwire-account-gateway)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.07s

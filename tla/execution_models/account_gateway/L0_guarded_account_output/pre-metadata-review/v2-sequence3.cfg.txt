@@ -1,0 +1,32 @@
+SPECIFICATION Spec
+CONSTANTS
+ Intents = {1,2}
+ NewIds = {1}
+ Capital = 2
+ Bytes = 2
+ AcceptChunk = 1
+ InputRecordBound = 3
+ MaxCrashes = 1
+ SequenceBase = 0
+ SequenceLimit = 3
+CHECK_DEADLOCK FALSE
+INVARIANTS
+ TypeOK
+ DurableBeforeOutput
+ DurableBeforeQueue
+ FreshFirstOutput
+ AbortEvidence
+ ReleaseAfterSync
+ NoImpossibleAbort
+ FactsAfterSync
+ NoReplay
+ PrefixEvidence
+ FlushedIsLocal
+ HaltedCloses
+ RecoveredNoCapability
+ PublicPrefix
+ PendingIdentity
+ GoodAccountBound
+ AccountPrefix
+ NoBudgetRefund
+ CapabilitiesOwned

@@ -694,12 +694,12 @@
     "crates/tickwire-account-journal/src/backend.rs": "4452ce5a864ece0ae75b4b6ee7b435db0665d06dbd5f3d1456b31e12ca1f493d",
     "crates/tickwire-account-journal/src/identity.rs": "370d7ddfed90876c66e2df8a6c9bec073566d56f4f592eac0be4dbc3a4bd3012",
     "crates/tickwire-account-journal/src/history.rs": "9e39295dab19b09e41d8bc39d9ccb95348d00887a1309c95fad1fbf58bc93568",
-    "crates/tickwire-account/src/recovery.rs": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
-    "crates/tickwire-account/src/admission.rs": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
+    "crates/tickwire-account/src/recovery.rs": "5149ca4bf3dec3efadd9e9c29901fe6d28d4467439321122ea9a32d68c0896ba",
+    "crates/tickwire-account/src/admission.rs": "ff66c4cc03980edea2833adfab6185b90b7c448d6c18c9f333b34fcda19921e5",
     "crates/tickwire-journal/src/store.rs": "a89877845f1ea5afbc1bed6556e70522981f12f412ab110162f8f4eefcea827d",
     "crates/tickwire-journal/src/journal.rs": "5bfb70d5f16a51a20086ad9eb9d1d78dbd09c400709f48272dbc18c85665d7f3",
-    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla": "7136cafc8ec97353e34e94acc7ca39951d6d3b6ba577cd1ab18f060b2e67e021",
-    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/anchors.lock": "555b89d10fa359b43fd87b2fab7326d82241bf2de3cce44d07159b34ff8db9ef",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla": "ee53dfc9af867495786a152387c3ec1e2e2cdf1b55554457637eb922b0157489",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/anchors.lock": "b2818d542ddc8e830a17da6e16c31eb0740154ac2d22297d26e5daf29bc67524",
     "tla/tools/tla2tools.jar": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
     "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_two.cfg": "42173eea0a1d8704f0c87c26bcff6b42fa099f72add4b7e191e43884258ae070",
     "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.cfg": "f8a119f87694cff78c5f6674f2ac07655050c5a7d97e57e697c556333021d5f9",
@@ -712,5 +712,16 @@
     "root: independent complete source/model mapping review; no open candidate",
     "ipc_codec: independent source/model mapping plus all final statistics, 43 coverage entries per cfg, 582 anchors and frozen source hashes verified; no open candidate"
   ],
-  "scope": "Single owner; fixed baseline; finite Admit and Aborted inputs; physical complete-batch contract; no gateway output, segment/manifest transaction or power-loss proof"
+  "scope": "Single owner; fixed baseline; finite Admit and Aborted inputs; physical complete-batch contract; no gateway output, segment/manifest transaction or power-loss proof",
+  "source_sync": {
+    "reason": "Persistent observation metadata is separate from local recovery/freeze overlays. Existing levels omit the changed sequence/duplicate outcome, and keep the same financial or Admit/Aborted projection.",
+    "tlc_rerun": false,
+    "action_text_unchanged": true,
+    "action_line_positions_unchanged": true,
+    "historical_results": "docs/validation/account-recovery-metadata/pre-sync/account_journal/L0_ordered_recovery/results.json",
+    "checked_model": "docs/validation/account-recovery-metadata/pre-sync/account_journal/L0_ordered_recovery/L0_AccountJournal.tla.txt",
+    "checked_model_sha256": "7136cafc8ec97353e34e94acc7ca39951d6d3b6ba577cd1ab18f060b2e67e021",
+    "current_model_changes": "source-anchor comments only",
+    "new_behaviors": "account_gateway recovery metadata regression and v2 composition; no new ledger consistency claim for these three old levels"
+  }
 }

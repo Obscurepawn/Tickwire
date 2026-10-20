@@ -1,0 +1,52 @@
+{
+  "source_commit": "2ab7b1ac1c6b0d81c190fd8e4efa6be91d0d9ab7",
+  "source_changes": {
+    "crates/tickwire-account/src/lib.rs": {
+      "before_sha256": "2dd967338cc28f5d9116106764403048685746679618557bd78d9915d4587408",
+      "after_sha256": "b458072fb96be96e099ffdaf39ddf8313ece7546fa4221beda514b255070941e"
+    },
+    "crates/tickwire-account/src/admission.rs": {
+      "before_sha256": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
+      "after_sha256": "ff66c4cc03980edea2833adfab6185b90b7c448d6c18c9f333b34fcda19921e5"
+    },
+    "crates/tickwire-account/src/events.rs": {
+      "before_sha256": "ed88bf90a18ba9e2891b199a8c3fa79560635cd582e9d99450cbea9f55305355",
+      "after_sha256": "bea5fe90512721bf243d37ae6f99ee9bb8a00f64c7aec86cb9245a5065079118"
+    },
+    "crates/tickwire-account/src/recovery.rs": {
+      "before_sha256": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
+      "after_sha256": "5149ca4bf3dec3efadd9e9c29901fe6d28d4467439321122ea9a32d68c0896ba"
+    }
+  },
+  "tlc_rerun": false,
+  "levels": [
+    {
+      "level": "account/L0_spot_facts",
+      "current_model": "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla",
+      "archived_model": "docs/validation/account-recovery-metadata/pre-sync/account/L0_spot_facts/L0_SpotFacts_v3.tla.txt",
+      "before_model_sha256": "0388188b2b3ce3bc86d5b8f8e34120f5234021a2d5bfba2149797ad43859a0df",
+      "after_model_sha256": "9fc265309e980efce6643e098d0a7efe13d88f28d685fc9a93e739567a27d207",
+      "logic_unchanged": true,
+      "line_count_unchanged": true
+    },
+    {
+      "level": "account/L1_reduce_shadow",
+      "current_model": "tla/execution_models/account/L1_reduce_shadow/02_models/L1_ReduceShadow.tla",
+      "archived_model": "docs/validation/account-recovery-metadata/pre-sync/account/L1_reduce_shadow/L1_ReduceShadow.tla.txt",
+      "before_model_sha256": "099f5f157098a1c373e9fff0a2e3c80c0a9a83bc56fe38be4f458076cde9a8cc",
+      "after_model_sha256": "33b39e843507bd071c30166bba4af7dfc8ca3c6fca90bf4bcb67ec3a605b0aaf",
+      "logic_unchanged": true,
+      "line_count_unchanged": true
+    },
+    {
+      "level": "account_journal/L0_ordered_recovery",
+      "current_model": "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla",
+      "archived_model": "docs/validation/account-recovery-metadata/pre-sync/account_journal/L0_ordered_recovery/L0_AccountJournal.tla.txt",
+      "before_model_sha256": "7136cafc8ec97353e34e94acc7ca39951d6d3b6ba577cd1ab18f060b2e67e021",
+      "after_model_sha256": "ee53dfc9af867495786a152387c3ec1e2e2cdf1b55554457637eb922b0157489",
+      "logic_unchanged": true,
+      "line_count_unchanged": true
+    }
+  ],
+  "anchor_check": "anchors.sh check: 2121 anchor line(s) across 3 lock(s); 0 changed\nno drift — cited lines unchanged since baseline"
+}

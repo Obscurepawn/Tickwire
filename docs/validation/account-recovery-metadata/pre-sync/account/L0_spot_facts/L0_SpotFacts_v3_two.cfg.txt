@@ -1,0 +1,7 @@
+SPECIFICATION Spec
+CONSTANTS
+Orders = {1, 2}
+InitialBase = 4
+InitialQuote = 8
+FeeValues = {0, 1, 3}
+INVARIANTS TypeOK NoOpenDeficit AttributionConserved NoDuplicateEconomics NoAbortAfterEconomics MissingDetailsRetained ZeroFeeIsEvidence UnknownFreezes NoAbortAfterConfirmation TerminalContradictionFreezes

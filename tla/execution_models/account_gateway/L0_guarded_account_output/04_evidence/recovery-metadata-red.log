@@ -1,0 +1,35 @@
+   Compiling ring v0.17.14
+   Compiling tickwire-recovery v0.1.0 (<repo>/crates/tickwire-recovery)
+   Compiling tickwire-business-journal v0.1.0 (<repo>/crates/tickwire-business-journal)
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (<repo>/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling rustls v0.23.46
+   Compiling tickwire-transport v0.1.0 (<repo>/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (<repo>/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (<repo>/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.56s
+     Running tests/recovery_metadata.rs (target/debug/deps/recovery_metadata-6c4aaf446d4f544b)
+
+running 1 test
+ledger sequence: 2 -> 3
+base before=AssetView { total: Fixed { atoms: 100040000, scale: 8 }, reserved: Fixed { atoms: 0, scale: 8 }, available: Fixed { atoms: 100040000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000, scale: 8 }, 8: Fixed { atoms: 40000, scale: 8 }} }; after=AssetView { total: Fixed { atoms: 100040000, scale: 8 }, reserved: Fixed { atoms: 0, scale: 8 }, available: Fixed { atoms: 100040000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000, scale: 8 }, 8: Fixed { atoms: 40000, scale: 8 }} }
+quote before=AssetView { total: Fixed { atoms: 98000000000, scale: 8 }, reserved: Fixed { atoms: 3600000000, scale: 8 }, available: Fixed { atoms: 94400000000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000000, scale: 8 }, 8: Fixed { atoms: -2000000000, scale: 8 }} }; after=AssetView { total: Fixed { atoms: 98000000000, scale: 8 }, reserved: Fixed { atoms: 3600000000, scale: 8 }, available: Fixed { atoms: 94400000000, scale: 8 }, deficit: Fixed { atoms: 0, scale: 8 }, ownership: {0: Fixed { atoms: 100000000000, scale: 8 }, 8: Fixed { atoms: -2000000000, scale: 8 }} }
+order before=OrderView { key: OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }, command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], strategy: 8, original_quantity: Fixed { atoms: 100000, scale: 8 }, filled_quantity: Fixed { atoms: 40000, scale: 8 }, remaining_quantity: Fixed { atoms: 60000, scale: 8 }, reduce_allocation: Fixed { atoms: 0, scale: 8 }, unknown: true, terminal: false, fee_reconciled: false, aborted: false, confirmed: true }; after=OrderView { key: OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }, command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], strategy: 8, original_quantity: Fixed { atoms: 100000, scale: 8 }, filled_quantity: Fixed { atoms: 40000, scale: 8 }, remaining_quantity: Fixed { atoms: 60000, scale: 8 }, reduce_allocation: Fixed { atoms: 0, scale: 8 }, unknown: true, terminal: false, fee_reconciled: false, aborted: false, confirmed: true }
+admission before=AdmissionImage { command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], intent: IntentKey { epoch: 4, intent_id: 3 }, account_epoch: 1, ledger_sequence: 1, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, deadline: 100, resources: [AssetAmount { key: AssetKey { wallet_id: 1, asset_id: 2 }, amount: Fixed { atoms: 6000000000, scale: 8 } }], capital_holds: [], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true }; after=AdmissionImage { command_digest: [211, 93, 169, 172, 160, 150, 241, 150, 162, 137, 103, 178, 33, 224, 181, 253, 184, 218, 242, 58, 32, 184, 194, 189, 225, 196, 24, 182, 210, 47, 180, 26], intent: IntentKey { epoch: 4, intent_id: 3 }, account_epoch: 1, ledger_sequence: 1, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, deadline: 100, resources: [AssetAmount { key: AssetKey { wallet_id: 1, asset_id: 2 }, amount: Fixed { atoms: 6000000000, scale: 8 } }], capital_holds: [], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true }
+
+thread 'repeated_unknown_after_recovery_preserves_account_and_metadata_sequence' (5850272) panicked at crates/tickwire-account-gateway/tests/recovery_metadata.rs:76:5:
+assertion `left == right` failed
+  left: 2
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test repeated_unknown_after_recovery_preserves_account_and_metadata_sequence ... FAILED
+
+failures:
+
+failures:
+    repeated_unknown_after_recovery_preserves_account_and_metadata_sequence
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+error: test failed, to rerun pass `-p tickwire-account-gateway --test recovery_metadata`

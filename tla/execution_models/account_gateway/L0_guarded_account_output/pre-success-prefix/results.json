@@ -1,0 +1,45 @@
+{
+  "model_sha256": "a545db3ed5d4e67b10e988f3a26be6d7ddf4c401e1333c93d6b7a9e53f70167a",
+  "runs": [
+    {
+      "configuration": "L0_AccountGateway_v2",
+      "generated": 5972071,
+      "distinct": 961560,
+      "depth": 50,
+      "sequence_limit": 3
+    },
+    {
+      "configuration": "L0_AccountGateway_v2_boundary",
+      "generated": 5456397,
+      "distinct": 892832,
+      "depth": 50,
+      "sequence_limit": 3
+    },
+    {
+      "configuration": "L0_AccountGateway_v2_two",
+      "generated": 12639561,
+      "distinct": 2024848,
+      "depth": 50,
+      "sequence_limit": 4
+    },
+    {
+      "configuration": "L0_AccountGateway_v2_crashes",
+      "generated": 9600215,
+      "distinct": 1793656,
+      "depth": 50,
+      "sequence_limit": 4
+    }
+  ],
+  "files_sha256": {
+    "L0_AccountGateway_v2.cfg.txt": "0a3b0a0165673f9d86fe99c5c70eed7ed3b3a9652d875593a45a80d23b846d66",
+    "L0_AccountGateway_v2.log": "b37630cb6e9b729b98ec7a4727bc5b94b958452ae0340f4eea13ae18e1ce7635",
+    "L0_AccountGateway_v2.tla.txt": "a545db3ed5d4e67b10e988f3a26be6d7ddf4c401e1333c93d6b7a9e53f70167a",
+    "L0_AccountGateway_v2_boundary.cfg.txt": "9602d1200f8e20b8620b3081d0e5e2e092fc2ddeb85ef598697f67d5cba147ac",
+    "L0_AccountGateway_v2_boundary.log": "1d2e204212cfe5d9e0922b98dd874a3c670912f17b9a0d12abdd305d53d2b788",
+    "L0_AccountGateway_v2_crashes.cfg.txt": "5bbb0c0ba0782a39c5fcbb3ec7dc6a7e8f7dbaefc9a603973387be7d08a92ad1",
+    "L0_AccountGateway_v2_crashes.log": "2d5846325940008fe0ae51743164b87079c693931cd1aa0a031def5fbe71d56b",
+    "L0_AccountGateway_v2_two.cfg.txt": "6802a209557d3c3a92428aaf33dfa10b3aec7f5e203edd99a44615a0606c32ae",
+    "L0_AccountGateway_v2_two.log": "d5b490b94077f7321cb4cbab0105de2e550fe1dc2c910b9cb4fad7c2d6f91ae1",
+    "README.md": "ce9ba3adadca5309330da60b7c58ca60337ab5e470ef6e17b0411d6b0b1317e2"
+  }
+}

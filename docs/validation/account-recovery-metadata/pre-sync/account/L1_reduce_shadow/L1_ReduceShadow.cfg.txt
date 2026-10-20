@@ -1,0 +1,9 @@
+SPECIFICATION Spec
+CONSTANTS
+Orders = {1,2}
+ReduceOrders = {1,2}
+StartPosition = 2
+Wallet = 16
+Available = 16
+FeeValues = {0,1,4}
+INVARIANTS TypeOK NoOpenDeficit NoOpenOverallocation AttributionConserved NoDuplicateEffects NoUnprovenShadowRelease NoAbortAfterEvidence ZeroFeeIsEvidence MissingDetailsRetained UnknownFreezes TerminalContradictionFreezes ExternalFreezes

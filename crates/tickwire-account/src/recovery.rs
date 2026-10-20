@@ -95,7 +95,7 @@ impl Account {
                     || order.terminal_cumulative != Some(order.filled)
                     || !order.fees_closed)
             {
-                order.unknown = true;
+                order.recovery_unknown = true;
             }
         }
         Ok(account)

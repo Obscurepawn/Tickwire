@@ -1,0 +1,61 @@
+{
+  "status": "PASS",
+  "base_commit": "2ab7b1ac1c6b0d81c190fd8e4efa6be91d0d9ab7",
+  "source_files": 213,
+  "full_workspace_manifest": "workspace-sources-before-test-strengthening.sha256",
+  "final_manifest": "workspace-sources.sha256",
+  "strengthened_test": {
+    "path": "crates/tickwire-account-gateway/tests/recovery_metadata.rs",
+    "before_sha256": "8f1fa1dd20e2109231859d07a91558eedd219bfe7c5fae9d8ce81f5f916c5547",
+    "after_sha256": "3b6e1b80b3cc45e6b9aa1a2bba3ca6efa6343dfd8bd020b956dcb17a5e728c21"
+  },
+  "platforms": {
+    "macos": {
+      "workspace": {
+        "passed": 653,
+        "failed": 0,
+        "ignored_helpers": 3,
+        "exit_code": 0,
+        "log": "workspace-macos.log",
+        "sha256": "ab5003b2c09885b7ffbd277a37c7298d7588c66d838a56c06257a1ac16cfce30"
+      },
+      "strengthened": {
+        "passed": 4,
+        "failed": 0,
+        "ignored_helpers": 0,
+        "exit_code": 0,
+        "log": "strengthened-macos.log",
+        "sha256": "3c7bafd0928ef76c80e8093076e82c78d4425dd7646a4775478463b01727532e",
+        "raw_sha256": "fef7ac071f4d06e6ccafcdc2358053976423335b53ee909a02ea151ca1171da1",
+        "raw_archive": "strengthened-macos.raw.log.gz",
+        "normalization": "Only blank lines at end of log removed; exact original bytes retained in raw archive."
+      },
+      "format": "PASS",
+      "workspace_clippy": "PASS"
+    },
+    "linux": {
+      "workspace": {
+        "passed": 726,
+        "failed": 0,
+        "ignored_helpers": 5,
+        "exit_code": 0,
+        "log": "workspace-linux.log",
+        "sha256": "bcf88ddcafd656c79f130c23cc76a5cb99f980e82214fecf4a0a2a2ed0bed96a"
+      },
+      "strengthened": {
+        "passed": 4,
+        "failed": 0,
+        "ignored_helpers": 0,
+        "exit_code": 0,
+        "log": "strengthened-linux.log",
+        "sha256": "8db5780da2327426e51e37ff0d1a3126f1d65c446f6e1b1344122bb3dcfadfb4",
+        "raw_sha256": "69e289acc0e72dd89be4c6e0ae9153dde34533a984e7100987db17066f71707b",
+        "raw_archive": "strengthened-linux.raw.log.gz",
+        "normalization": "Only blank lines at end of log removed; exact original bytes retained in raw archive."
+      },
+      "format": "PASS",
+      "workspace_clippy": "PASS"
+    }
+  },
+  "scope": "The full workspace ran with the earlier regression test. The final test only adds assertions; the four implementation files are identical. The final four-test target was rerun on both platforms."
+}

@@ -324,10 +324,10 @@
   "sha256": {
     "crates/tickwire-account/src/calculation.rs": "d49599d201b7c23099fdf49d6d8f7670172a1db5aaed6c6428062c599e036c61",
     "crates/tickwire-account/src/types.rs": "c80afaba8a2961cef8d856ec5d8d02646d8d2e2d3c4cc55a57a5911c80186051",
-    "crates/tickwire-account/src/events.rs": "ed88bf90a18ba9e2891b199a8c3fa79560635cd582e9d99450cbea9f55305355",
-    "crates/tickwire-account/src/recovery.rs": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
-    "crates/tickwire-account/src/lib.rs": "2dd967338cc28f5d9116106764403048685746679618557bd78d9915d4587408",
-    "crates/tickwire-account/src/admission.rs": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
+    "crates/tickwire-account/src/events.rs": "bea5fe90512721bf243d37ae6f99ee9bb8a00f64c7aec86cb9245a5065079118",
+    "crates/tickwire-account/src/recovery.rs": "5149ca4bf3dec3efadd9e9c29901fe6d28d4467439321122ea9a32d68c0896ba",
+    "crates/tickwire-account/src/lib.rs": "b458072fb96be96e099ffdaf39ddf8313ece7546fa4221beda514b255070941e",
+    "crates/tickwire-account/src/admission.rs": "ff66c4cc03980edea2833adfab6185b90b7c448d6c18c9f333b34fcda19921e5",
     "crates/tickwire-account/src/external.rs": "9e899f0c26b2d6e351c57a52ce879c6c3561ce7ed5015745ff41cf6517ea1a07",
     "crates/tickwire-risk/src/futures.rs": "6a27fc57ce29cfd216daa394efe281ff891b86e94799cc7e048aae3c8f72b742",
     "crates/tickwire-risk/src/fixed.rs": "dba172501f42227291df2aff86025ac08326fcfe1fafb4826a1f325ead167cd1",
@@ -335,9 +335,9 @@
     "crates/tickwire-risk/src/lib.rs": "1b3b2afa36a1f6233bb4565605b33442ea388e25b807cc0eed015f4ad8462159",
     "crates/tickwire-risk/src/reservation.rs": "1b0e944708fe471ca7becfe592920dd7dc5d2cf7f96536f658bdcd0403ec6a01",
     "crates/tickwire-risk/src/spot.rs": "8065e520a16a4853df358c5d77b3eae4dcf62358b432a0207a8c0fe583d9c13d",
-    "tla/execution_models/account/L1_reduce_shadow/02_models/L1_ReduceShadow.tla": "099f5f157098a1c373e9fff0a2e3c80c0a9a83bc56fe38be4f458076cde9a8cc",
+    "tla/execution_models/account/L1_reduce_shadow/02_models/L1_ReduceShadow.tla": "33b39e843507bd071c30166bba4af7dfc8ca3c6fca90bf4bcb67ec3a605b0aaf",
     "tla/tools/tla2tools.jar": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
-    "tla/execution_models/account/L1_reduce_shadow/02_models/anchors.lock": "070b547f13596fb675157c2b848d7aa8f00f22704e990efbaeddda44508e9c1f"
+    "tla/execution_models/account/L1_reduce_shadow/02_models/anchors.lock": "eb4fccccae687453952ac5ba8967d2b56d2d5e71b57d78749aa160c680c0445f"
   },
   "independent_review": [
     "root: source and model mapping",
@@ -345,14 +345,27 @@
   ],
   "scope": "finite concrete inputs; atomic single-owner API; no WAL/network fault model",
   "source_sync": {
-    "reason": "Cancel/Query account-expiry exemption and owner-triggered freeze are outside this finite valid-baseline risk-increasing input domain",
+    "reason": "Persistent observation metadata is separate from local recovery/freeze overlays. Existing levels omit the changed sequence/duplicate outcome, and keep the same financial or Admit/Aborted projection.",
     "tlc_rerun": false,
     "action_text_unchanged": true,
     "action_line_positions_unchanged": true,
-    "historical_results": "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/results.json",
-    "checked_model": "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/L1_ReduceShadow.tla",
-    "checked_model_sha256": "1d0c0d74322e1548ae7ac8c5192d4a9387fd61cb29906c28f8c82fb9e6ee7e07",
+    "historical_results": "docs/validation/account-recovery-metadata/pre-sync/account/L1_reduce_shadow/results.json",
+    "checked_model": "docs/validation/account-recovery-metadata/pre-sync/account/L1_reduce_shadow/L1_ReduceShadow.tla.txt",
+    "checked_model_sha256": "099f5f157098a1c373e9fff0a2e3c80c0a9a83bc56fe38be4f458076cde9a8cc",
     "current_model_changes": "source-anchor comments only",
-    "new_behaviors": "covered by crates/tickwire-account/tests/nonincreasing.rs; not claimed as TLC coverage"
-  }
+    "new_behaviors": "account_gateway recovery metadata regression and v2 composition; no new ledger consistency claim for these three old levels"
+  },
+  "source_sync_history": [
+    {
+      "reason": "Cancel/Query account-expiry exemption and owner-triggered freeze are outside this finite valid-baseline risk-increasing input domain",
+      "tlc_rerun": false,
+      "action_text_unchanged": true,
+      "action_line_positions_unchanged": true,
+      "historical_results": "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/results.json",
+      "checked_model": "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/L1_ReduceShadow.tla",
+      "checked_model_sha256": "1d0c0d74322e1548ae7ac8c5192d4a9387fd61cb29906c28f8c82fb9e6ee7e07",
+      "current_model_changes": "source-anchor comments only",
+      "new_behaviors": "covered by crates/tickwire-account/tests/nonincreasing.rs; not claimed as TLC coverage"
+    }
+  ]
 }

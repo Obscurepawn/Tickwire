@@ -1,0 +1,346 @@
+{
+  "result": "PASS",
+  "invariants": 10,
+  "runs": [
+    {
+      "config": "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.cfg",
+      "log": "tla/execution_models/account/L0_spot_facts/04_evidence/primary.log",
+      "command": "java -Xmx2g -cp tla/tools/tla2tools.jar tlc2.TLC -workers 1 -coverage 1 -metadir /tmp/tickwire-account-locked-L0_spot_facts-primary -config tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.cfg tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla",
+      "generated": 7892392,
+      "distinct": 176596,
+      "queue": 0,
+      "depth": 16,
+      "duration": "40s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "Admit": {
+          "distinct": 8,
+          "generated": 8
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 2756
+        },
+        "RetryAdmission": {
+          "distinct": 0,
+          "generated": 352092
+        },
+        "ConflictAdmission": {
+          "distinct": 4,
+          "generated": 352092
+        },
+        "Fill": {
+          "distinct": 704,
+          "generated": 547696
+        },
+        "ReplayFill": {
+          "distinct": 0,
+          "generated": 430336
+        },
+        "ConflictFill": {
+          "distinct": 0,
+          "generated": 430336
+        },
+        "Fee": {
+          "distinct": 6920,
+          "generated": 268836
+        },
+        "ReplayFee": {
+          "distinct": 0,
+          "generated": 262480
+        },
+        "ConflictFee": {
+          "distinct": 0,
+          "generated": 262480
+        },
+        "Unknown": {
+          "distinct": 52,
+          "generated": 176954
+        },
+        "Acknowledge": {
+          "distinct": 19,
+          "generated": 352092
+        },
+        "Terminal": {
+          "distinct": 131218,
+          "generated": 1056276
+        },
+        "ReplayFillUnknown": {
+          "distinct": 0,
+          "generated": 430336
+        },
+        "ReplayFillTerminal": {
+          "distinct": 0,
+          "generated": 1291008
+        },
+        "Reconcile": {
+          "distinct": 37658,
+          "generated": 60616
+        },
+        "RejectReconcile": {
+          "distinct": 0,
+          "generated": 299624
+        },
+        "Abort": {
+          "distinct": 12,
+          "generated": 842
+        },
+        "ReplayAbort": {
+          "distinct": 0,
+          "generated": 1940
+        },
+        "RejectAbort": {
+          "distinct": 0,
+          "generated": 1136996
+        },
+        "RejectFact": {
+          "distinct": 0,
+          "generated": 176595
+        }
+      },
+      "sha256": "2523b3ffd8be016381211e83c68b4e9945b02ba5a96e58352355fbdb88c6f937",
+      "log_sha256": "4dd0495e6fb95ff02f2e1e403f3cd593364e6851b84c4a1d4cd9f42be4ff3556"
+    },
+    {
+      "config": "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3_two.cfg",
+      "log": "tla/execution_models/account/L0_spot_facts/04_evidence/two.log",
+      "command": "java -Djava.io.tmpdir=/tmp/tickwire-account-java-l0-two -Xmx2g -cp tla/tools/tla2tools.jar tlc2.TLC -workers 1 -coverage 1 -metadir /tmp/tickwire-account-locked-L0_spot_facts-two -config tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3_two.cfg tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla",
+      "generated": 8626384,
+      "distinct": 192984,
+      "queue": 0,
+      "depth": 15,
+      "duration": "36s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "Admit": {
+          "distinct": 5,
+          "generated": 264
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 868
+        },
+        "RetryAdmission": {
+          "distinct": 0,
+          "generated": 384868
+        },
+        "ConflictAdmission": {
+          "distinct": 5,
+          "generated": 384868
+        },
+        "Fill": {
+          "distinct": 1161,
+          "generated": 596880
+        },
+        "ReplayFill": {
+          "distinct": 0,
+          "generated": 471296
+        },
+        "ConflictFill": {
+          "distinct": 0,
+          "generated": 471296
+        },
+        "Fee": {
+          "distinct": 7263,
+          "generated": 294204
+        },
+        "ReplayFee": {
+          "distinct": 0,
+          "generated": 286800
+        },
+        "ConflictFee": {
+          "distinct": 0,
+          "generated": 286800
+        },
+        "Unknown": {
+          "distinct": 27,
+          "generated": 209726
+        },
+        "Acknowledge": {
+          "distinct": 13,
+          "generated": 384868
+        },
+        "Terminal": {
+          "distinct": 140606,
+          "generated": 1154604
+        },
+        "ReplayFillUnknown": {
+          "distinct": 0,
+          "generated": 471296
+        },
+        "ReplayFillTerminal": {
+          "distinct": 0,
+          "generated": 1413888
+        },
+        "Reconcile": {
+          "distinct": 43890,
+          "generated": 69576
+        },
+        "RejectReconcile": {
+          "distinct": 0,
+          "generated": 324728
+        },
+        "Abort": {
+          "distinct": 13,
+          "generated": 1102
+        },
+        "ReplayAbort": {
+          "distinct": 0,
+          "generated": 1940
+        },
+        "RejectAbort": {
+          "distinct": 0,
+          "generated": 1223528
+        },
+        "RejectFact": {
+          "distinct": 0,
+          "generated": 192983
+        }
+      },
+      "sha256": "a62dad46b9e9acb3b24a2c1fa118c67458a8fe0668c3cc608bdbbb202697c305",
+      "log_sha256": "3f6692b0deebfa9466bac143b825f7cb3a821b6b981f29c135c2722250c44523"
+    },
+    {
+      "config": "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3_tight.cfg",
+      "log": "tla/execution_models/account/L0_spot_facts/04_evidence/tight.log",
+      "command": "java -Xmx2g -cp tla/tools/tla2tools.jar tlc2.TLC -workers 1 -coverage 1 -metadir /tmp/tickwire-account-locked-L0_spot_facts-tight -config tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3_tight.cfg tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla",
+      "generated": 8053279,
+      "distinct": 180131,
+      "queue": 0,
+      "depth": 16,
+      "duration": "41s",
+      "coverage": {
+        "Init": {
+          "distinct": 1,
+          "generated": 1
+        },
+        "Admit": {
+          "distinct": 34,
+          "generated": 50
+        },
+        "RejectAdmission": {
+          "distinct": 0,
+          "generated": 2130
+        },
+        "RetryAdmission": {
+          "distinct": 0,
+          "generated": 359218
+        },
+        "ConflictAdmission": {
+          "distinct": 4,
+          "generated": 359218
+        },
+        "Fill": {
+          "distinct": 1351,
+          "generated": 557280
+        },
+        "ReplayFill": {
+          "distinct": 0,
+          "generated": 439796
+        },
+        "ConflictFill": {
+          "distinct": 0,
+          "generated": 439796
+        },
+        "Fee": {
+          "distinct": 9784,
+          "generated": 275976
+        },
+        "ReplayFee": {
+          "distinct": 0,
+          "generated": 267226
+        },
+        "ConflictFee": {
+          "distinct": 0,
+          "generated": 267226
+        },
+        "Unknown": {
+          "distinct": 221,
+          "generated": 184080
+        },
+        "Acknowledge": {
+          "distinct": 58,
+          "generated": 359218
+        },
+        "Terminal": {
+          "distinct": 137621,
+          "generated": 1077654
+        },
+        "ReplayFillUnknown": {
+          "distinct": 0,
+          "generated": 439796
+        },
+        "ReplayFillTerminal": {
+          "distinct": 0,
+          "generated": 1319388
+        },
+        "Reconcile": {
+          "distinct": 31019,
+          "generated": 62160
+        },
+        "RejectReconcile": {
+          "distinct": 0,
+          "generated": 303576
+        },
+        "Abort": {
+          "distinct": 38,
+          "generated": 884
+        },
+        "ReplayAbort": {
+          "distinct": 0,
+          "generated": 1884
+        },
+        "RejectAbort": {
+          "distinct": 0,
+          "generated": 1156592
+        },
+        "RejectFact": {
+          "distinct": 0,
+          "generated": 180130
+        }
+      },
+      "sha256": "9ce821e5653ce6abdbfea801a502fae27c9cb33d692c97d55d9fbc6c0affa3de",
+      "log_sha256": "45ccaf4c3d1ee24e7701124759b1020a1b9828d38d0ceabfab825a084e37055f"
+    }
+  ],
+  "sha256": {
+    "crates/tickwire-account/src/calculation.rs": "d49599d201b7c23099fdf49d6d8f7670172a1db5aaed6c6428062c599e036c61",
+    "crates/tickwire-account/src/types.rs": "c80afaba8a2961cef8d856ec5d8d02646d8d2e2d3c4cc55a57a5911c80186051",
+    "crates/tickwire-account/src/events.rs": "ed88bf90a18ba9e2891b199a8c3fa79560635cd582e9d99450cbea9f55305355",
+    "crates/tickwire-account/src/recovery.rs": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
+    "crates/tickwire-account/src/lib.rs": "2dd967338cc28f5d9116106764403048685746679618557bd78d9915d4587408",
+    "crates/tickwire-account/src/admission.rs": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
+    "crates/tickwire-account/src/external.rs": "9e899f0c26b2d6e351c57a52ce879c6c3561ce7ed5015745ff41cf6517ea1a07",
+    "crates/tickwire-risk/src/futures.rs": "6a27fc57ce29cfd216daa394efe281ff891b86e94799cc7e048aae3c8f72b742",
+    "crates/tickwire-risk/src/fixed.rs": "dba172501f42227291df2aff86025ac08326fcfe1fafb4826a1f325ead167cd1",
+    "crates/tickwire-risk/src/settlement.rs": "41b76c85722d618cd9fe43dc93ea9bf1840a6263d4b1c67a9441858b3c1f172c",
+    "crates/tickwire-risk/src/lib.rs": "1b3b2afa36a1f6233bb4565605b33442ea388e25b807cc0eed015f4ad8462159",
+    "crates/tickwire-risk/src/reservation.rs": "1b0e944708fe471ca7becfe592920dd7dc5d2cf7f96536f658bdcd0403ec6a01",
+    "crates/tickwire-risk/src/spot.rs": "8065e520a16a4853df358c5d77b3eae4dcf62358b432a0207a8c0fe583d9c13d",
+    "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla": "0388188b2b3ce3bc86d5b8f8e34120f5234021a2d5bfba2149797ad43859a0df",
+    "tla/tools/tla2tools.jar": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+    "tla/execution_models/account/L0_spot_facts/02_models/anchors.lock": "ce8cd897871c9dd9225bed8e18467531694bbff987b52684f19b13aebb59a4c0"
+  },
+  "independent_review": [
+    "root: source and model mapping",
+    "ipc_codec: source and model mapping, final action coverage"
+  ],
+  "scope": "finite concrete inputs; atomic single-owner API; no WAL/network fault model",
+  "source_sync": {
+    "reason": "Cancel/Query account-expiry exemption and owner-triggered freeze are outside this finite valid-baseline risk-increasing input domain",
+    "tlc_rerun": false,
+    "action_text_unchanged": true,
+    "action_line_positions_unchanged": true,
+    "historical_results": "docs/validation/account/pre-stale-cancel/L0_spot_facts/results.json",
+    "checked_model": "docs/validation/account/pre-stale-cancel/L0_spot_facts/L0_SpotFacts_v3.tla",
+    "checked_model_sha256": "c6bb74f2867d1c4a13618e8239e2fa37a60f5e96ce07de619c5f14b543ce0834",
+    "current_model_changes": "source-anchor comments only",
+    "new_behaviors": "covered by crates/tickwire-account/tests/nonincreasing.rs; not claimed as TLC coverage"
+  }
+}

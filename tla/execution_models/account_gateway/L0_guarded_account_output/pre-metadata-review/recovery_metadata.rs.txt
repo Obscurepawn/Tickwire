@@ -1,0 +1,77 @@
+mod common;
+use common::*;
+use tickwire_account::Applied;
+use tickwire_account_gateway::AccountGateway;
+use tickwire_account_journal::FileBackend;
+use tickwire_venue as v;
+
+fn reopen(dir: &Directory, authority: MockAuthority) -> Gateway {
+    let (baseline, _) = baseline(false);
+    let mut config = config(&baseline);
+    config.writer_epoch = 5;
+    AccountGateway::recover(
+        FileBackend::open(&dir.0).unwrap(),
+        config,
+        authority,
+        TestEncoder,
+        None,
+    )
+    .unwrap()
+}
+
+#[test]
+fn repeated_unknown_after_recovery_preserves_account_and_metadata_sequence() {
+    let (dir, command, mut gateway, authority, peer) = make(false, 1);
+    gateway.submit(command.clone(), 60, until()).unwrap();
+    let original_image = gateway.account().admission(intent()).unwrap().image();
+    let key = original_image.orders[0].clone();
+    drop(gateway);
+    assert!(peer.join().unwrap().is_empty());
+
+    let mut restored = reopen(&dir, authority.clone());
+    assert!(restored.account().order(&key).unwrap().unknown);
+    assert!(restored.committed(intent()).is_none());
+    let mut trade = fixture::fill(command.command(), "same-trade", "0.0004", "50000", "20");
+    assert_eq!(
+        restored.record_event(fixture::event(trade.clone())).unwrap(),
+        Applied::New
+    );
+    let v::VenueEventBody::Fill(ref mut fill) = trade.body else {
+        unreachable!()
+    };
+    fill.observation.status = v::OrderStatus::Unknown;
+    assert_eq!(
+        restored.record_event(fixture::event(trade)).unwrap(),
+        Applied::Duplicate
+    );
+    let before_sequence = restored.account().ledger_sequence();
+    let before_base = restored.account().asset(fixture::key(1)).unwrap();
+    let before_quote = restored.account().asset(fixture::key(2)).unwrap();
+    let before_order = restored.account().order(&key).unwrap();
+    let before_image = restored.account().admission(intent()).unwrap().image();
+    let before_status = restored.status(intent());
+    assert_eq!(restored.journal_position(), 3);
+    assert_eq!(before_image, original_image);
+    drop(restored);
+
+    let reopened = reopen(&dir, authority);
+    let after_sequence = reopened.account().ledger_sequence();
+    let after_base = reopened.account().asset(fixture::key(1)).unwrap();
+    let after_quote = reopened.account().asset(fixture::key(2)).unwrap();
+    let after_order = reopened.account().order(&key).unwrap();
+    let after_image = reopened.account().admission(intent()).unwrap().image();
+    println!("ledger sequence: {before_sequence} -> {after_sequence}");
+    println!("base before={before_base:?}; after={after_base:?}");
+    println!("quote before={before_quote:?}; after={after_quote:?}");
+    println!("order before={before_order:?}; after={after_order:?}");
+    println!("admission before={before_image:?}; after={after_image:?}");
+    assert_eq!(reopened.journal_position(), 3);
+    assert_eq!(before_base, after_base);
+    assert_eq!(before_quote, after_quote);
+    assert_eq!(before_order, after_order);
+    assert_eq!(before_image, after_image);
+    assert_eq!(before_status, reopened.status(intent()));
+    assert!(reopened.halted() && reopened.account().frozen());
+    assert!(reopened.committed(intent()).is_none());
+    assert_eq!(before_sequence, after_sequence);
+}
