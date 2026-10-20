@@ -88,3 +88,45 @@ fn one_replacement_does_not_scan_or_copy_the_full_book() {
     );
     assert!(moved <= 4, "single replacement moved {moved} levels");
 }
+
+#[test]
+fn unordered_small_replacements_have_a_bounded_comparison_budget() {
+    let mut book = book::<4096, 64>();
+    let updates = core::array::from_fn::<_, 32, _>(|i| {
+        let rank = ((i * 13) % 32) * 73;
+        level(10_000 - 2 * rank as i64, 2)
+    });
+    work::reset();
+    book.apply(event(&updates)).unwrap();
+    let (comparisons, moved) = work::counts();
+    std::println!("32 scattered replacements: comparisons={comparisons}, writes={moved}");
+    // Budget: one logarithmic lookup per input, a bounded duplicate check,
+    // and only the changed levels written. No wall-clock assertion.
+    assert!(comparisons <= 32 * 15, "{comparisons} comparisons");
+    assert_eq!(moved, 32);
+}
+
+#[test]
+fn wrapped_adjacent_batches_keep_the_adjacent_lookup_budget() {
+    for start in [4095usize, 4080] {
+        for reverse in [false, true] {
+            let mut book = book::<4096, 64>();
+            let mut updates = core::array::from_fn::<_, 32, _>(|i| {
+                level(10_000 - 2 * ((start + i) % 4096) as i64, 2)
+            });
+            if reverse {
+                updates.reverse();
+            }
+            work::reset();
+            book.apply(event(&updates)).unwrap();
+            let (comparisons, moved) = work::counts();
+            std::println!(
+                "wrapped start={start} reverse={reverse}: comparisons={comparisons}, writes={moved}"
+            );
+            // A cyclically ordered batch needs two distant lookups after sorting,
+            // not one independent binary search per changed rank.
+            assert!(comparisons <= 250, "{comparisons} comparisons");
+            assert_eq!(moved, 32);
+        }
+    }
+}

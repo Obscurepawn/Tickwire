@@ -1,0 +1,24 @@
+baseline_source_sha256=72ebec60cac15453f6c1eea46345ef63dc1cf138a7ba4a57986ab89922c75256
+lookup_experiment=hybrid
+stages,depth,updates_total,kind,copy_ns,sort_ns,locate_plan_ns,final_plan_ns
+   Compiling tickwire-book v0.1.0 (/private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-book-stages-11ix8wsx)
+    Finished `bench` profile [optimized] target(s) in 2.98s
+     Running benches/stages.rs (target/release/deps/stages-7fd89e6a1cc68728)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,100000,41,42,42,89792
+stages,512,16,replace,43.06,100.24,431.42,39.30
+replace_scatter_shuffle,512,16,100000,667,1000,3167,94875
+stages,512,64,replace,50.82,726.12,609.25,39.40
+replace_scatter_shuffle,512,64,100000,1500,1792,9458,106583
+stages,512,512,replace,288.96,6702.59,1658.03,40.70
+replace_scatter_shuffle,512,512,100000,8917,10250,24625,112709
+stages,512,256,churn,153.40,3580.31,4059.79,39.00
+churn_scatter_shuffle,512,256,100000,10083,11500,26167,87916
+stages,4096,16,replace,38.60,90.11,587.49,35.82
+replace_scatter_shuffle,4096,16,100000,833,1000,1584,21500
+stages,4096,64,replace,47.07,690.14,2178.81,36.69
+replace_scatter_shuffle,4096,64,100000,3000,3541,10334,52666
+stages,4096,512,replace,276.58,6713.94,17032.25,37.78
+replace_scatter_shuffle,4096,512,100000,24041,31958,55375,227667
+stages,4096,256,churn,165.62,3601.86,7815.72,37.19
+churn_scatter_shuffle,4096,256,100000,28083,36459,119416,9108042

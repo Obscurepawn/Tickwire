@@ -393,7 +393,36 @@ fn prepare_side<const N: usize>(
         }
         target.level = *level;
     }
-    updates.sort_unstable_by(|a, b| compare_prices(side, a.level.price, b.level.price));
+    let small = input.len() <= 32;
+    let directions = if small {
+        input_directions(side, input)
+    } else {
+        3
+    };
+    let unordered_replacements =
+        small && directions == 3 && input.iter().all(|level| level.quantity.0 > 0);
+    let cyclic = if unordered_replacements {
+        cyclic_order(side, input)
+    } else {
+        None
+    };
+    if unordered_replacements
+        && cyclic.is_none()
+        && let Some(plan) = prepare_replacements(side, levels, updates)?
+    {
+        return Ok(plan);
+    }
+    match (directions, cyclic) {
+        (_, Some((split, reverse))) => {
+            updates.rotate_left(split);
+            if reverse {
+                updates.reverse();
+            }
+        }
+        (0 | 1, _) => {}
+        (2, _) => updates.reverse(),
+        _ => updates.sort_unstable_by(|a, b| compare_prices(side, a.level.price, b.level.price)),
+    }
     let mut removed = 0;
     let mut added = 0;
     let mut removed_prefix = 0;
@@ -413,16 +442,17 @@ fn prepare_side<const N: usize>(
             return Err(BookError::DuplicatePrice { side });
         }
         let update = &mut updates[index];
-        // Sorted updates can reuse the next old position. A distant next price
-        // uses binary search over the remaining suffix rather than scanning it.
+        // Adjacent updates reuse the next position. For a distant price, fixed
+        // full-book bounds avoid making every probe address depend on the
+        // previous search result; no full-book scan is performed.
         (update.index, update.exists) = if cursor < levels.len
             && compare_prices(side, levels.data[cursor].price, update.level.price).is_eq()
         {
             (cursor, true)
         } else {
-            match locate(&levels.as_slice()[cursor..], side, update.level.price) {
-                Ok(index) => (cursor + index, true),
-                Err(index) => (cursor + index, false),
+            match locate(levels.as_slice(), side, update.level.price) {
+                Ok(index) => (index, true),
+                Err(index) => (index, false),
             }
         };
         cursor = update.index + usize::from(update.exists);
@@ -462,6 +492,78 @@ fn prepare_side<const N: usize>(
         start,
         end,
     })
+}
+
+fn input_directions(side: Side, input: &[Level]) -> u8 {
+    // This replaces the small ordered batch's sorting pass. Unordered batches
+    // stop as soon as both directions occur; adjacent equal prices are checked
+    // by the selected plan, including after reversing a descending input.
+    let mut directions = 0u8;
+    for pair in input.windows(2) {
+        directions |= match compare_prices(side, pair[0].price, pair[1].price) {
+            core::cmp::Ordering::Less => 1,
+            core::cmp::Ordering::Greater => 2,
+            core::cmp::Ordering::Equal => 0,
+        };
+        if directions == 3 {
+            break;
+        }
+    }
+    directions
+}
+
+fn cyclic_order(side: Side, input: &[Level]) -> Option<(usize, bool)> {
+    // The caller has already observed both directions. A single wrap in either
+    // order should retain the sorted plan's adjacent-position reuse.
+    let direction = compare_prices(side, input[input.len() - 1].price, input[0].price);
+    if direction.is_eq() {
+        return None;
+    }
+    let mut split = None;
+    for (index, pair) in input.windows(2).enumerate() {
+        let step = compare_prices(side, pair[0].price, pair[1].price);
+        if !step.is_eq() && step != direction {
+            if split.is_some() {
+                return None;
+            }
+            split = Some(index + 1);
+        }
+    }
+    split.map(|index| (index, direction.is_gt()))
+}
+
+// Bounded, unordered quantity-only plan. The bitset is a collision filter, not
+// a uniqueness proof: matching bits always receive an exact price check.
+fn prepare_replacements<const N: usize>(
+    side: Side,
+    levels: &Levels<N>,
+    updates: &mut [PreparedLevel],
+) -> Result<Option<SidePlan>, BookError> {
+    let mut seen = 0u64;
+    for i in 0..updates.len() {
+        let level = updates[i].level;
+        let Ok(index) = levels.locate(side, level.price) else {
+            return Ok(None);
+        };
+        let bit = 1u64 << (index & 63);
+        if seen & bit != 0
+            && updates[..i]
+                .iter()
+                .any(|prior| compare_prices(side, prior.level.price, level.price).is_eq())
+        {
+            return Err(BookError::DuplicatePrice { side });
+        }
+        seen |= bit;
+        updates[i].index = index;
+        updates[i].exists = true;
+    }
+    Ok(Some(SidePlan {
+        best: levels.as_slice().first().map(|l| l.price),
+        new_len: levels.len,
+        structural: false,
+        start: 0,
+        end: 0,
+    }))
 }
 
 fn locate(levels: &[Level], side: Side, price: PriceTicks) -> Result<usize, usize> {

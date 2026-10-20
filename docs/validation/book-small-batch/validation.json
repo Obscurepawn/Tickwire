@@ -1,0 +1,20 @@
+{
+  "tests": 36,
+  "table_validation": {
+    "primary": {
+      "rows": 170,
+      "groups": 34,
+      "rounds_per_group": 5,
+      "samples_per_row": 200000,
+      "source_and_harness_hash_match": true
+    },
+    "sparse": {
+      "rows": 90,
+      "groups": 18,
+      "rounds_per_group": 5,
+      "samples_per_row": 200000,
+      "source_and_harness_hash_match": true
+    }
+  },
+  "source_sha256": "37beb8dcd515b76a8c3bec0a2cd46a1c3c2431375276810b45818b8b35fd04a3"
+}

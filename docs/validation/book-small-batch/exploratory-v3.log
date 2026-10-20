@@ -1,0 +1,20 @@
+   Compiling tickwire-book v0.1.0 (/private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-book-compare-6z0ohfbq/before)
+    Finished `bench` profile [optimized] target(s) in 2.77s
+  Executable benches/batch_apply.rs (target/release/deps/batch_apply-3bf433229559af31)
+   Compiling tickwire-book v0.1.0 (/private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-book-compare-6z0ohfbq/after)
+    Finished `bench` profile [optimized] target(s) in 2.41s
+  Executable benches/batch_apply.rs (target/release/deps/batch_apply-3bf433229559af31)
+round=1 variant=before
+round=1 variant=after
+round=2 variant=after
+round=2 variant=before
+   Compiling tickwire-book v0.1.0 (/private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-book-compare-w5__p6fi/before)
+    Finished `bench` profile [optimized] target(s) in 2.30s
+  Executable benches/batch_apply.rs (target/release/deps/batch_apply-3bf433229559af31)
+   Compiling tickwire-book v0.1.0 (/private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-book-compare-w5__p6fi/after)
+    Finished `bench` profile [optimized] target(s) in 2.33s
+  Executable benches/batch_apply.rs (target/release/deps/batch_apply-3bf433229559af31)
+round=1 variant=before
+round=1 variant=after
+round=2 variant=after
+round=2 variant=before

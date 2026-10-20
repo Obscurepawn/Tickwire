@@ -141,3 +141,63 @@ fn sorted_work_area_and_bulk_merge_allocate_nothing() {
     TRACK.with(|track| track.set(false));
     assert_eq!(ALLOCATIONS.with(Cell::get), 0);
 }
+
+#[test]
+fn unordered_small_quantity_batches_allocate_nothing() {
+    let key = BookKey {
+        venue: 1,
+        instrument: 2,
+        source: 3,
+    };
+    let make = |p, q| Level {
+        price: PriceTicks(p),
+        quantity: QtyLots(q),
+    };
+    let bids = core::array::from_fn::<_, 512, _>(|i| make(10_000 - 2 * i as i64, 1));
+    let asks = core::array::from_fn::<_, 512, _>(|i| make(20_000 + 2 * i as i64, 1));
+    let bid_updates =
+        core::array::from_fn::<_, 32, _>(|i| make(10_000 - 2 * (((i * 13) % 32) * 13) as i64, 3));
+    let ask_updates =
+        core::array::from_fn::<_, 32, _>(|i| make(20_000 + 2 * (((i * 13) % 32) * 13) as i64, 4));
+    let cyclic_bids =
+        core::array::from_fn::<_, 32, _>(|i| make(10_000 - 2 * ((i + 500) % 512) as i64, 5));
+    let cyclic_asks =
+        core::array::from_fn::<_, 32, _>(|i| make(20_000 + 2 * ((i + 500) % 512) as i64, 6));
+    ALLOCATIONS.with(|count| count.set(0));
+    TRACK.with(|track| track.set(true));
+    let mut book: Book<BinanceSpot, 512, 64> = Book::new(key, 1);
+    book.install_snapshot(Snapshot {
+        key,
+        generation: 1,
+        last_update_id: 1,
+        bids: &bids,
+        asks: &asks,
+        bids_complete: false,
+        asks_complete: false,
+    })
+    .unwrap();
+    for id in 2..1002 {
+        book.apply(DepthEvent {
+            key,
+            generation: 1,
+            first_update_id: id,
+            last_update_id: id,
+            previous_update_id: None,
+            received_at_ns: id,
+            bids: if id % 2 == 0 {
+                &bid_updates
+            } else {
+                &cyclic_bids
+            },
+            asks: if id % 2 == 0 {
+                &ask_updates
+            } else {
+                &cyclic_asks
+            },
+        })
+        .unwrap();
+        assert_eq!(book.view(id, 0).unwrap().known_bids().len(), 512);
+    }
+    TRACK.with(|track| track.set(false));
+    assert_eq!(ALLOCATIONS.with(Cell::get), 0);
+}

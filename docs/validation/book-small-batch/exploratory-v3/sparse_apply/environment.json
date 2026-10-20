@@ -1,0 +1,29 @@
+{
+  "before_revision": "df8bd2dfab8193f0a647d17e344ca7ed54577132",
+  "harness": "sparse_apply",
+  "source_sha256": {
+    "before": "72ebec60cac15453f6c1eea46345ef63dc1cf138a7ba4a57986ab89922c75256",
+    "after": "056d91ef95d4a5412ef27169b7003e64359816e3a96353ece8221b3c008beb3d",
+    "harness": "0ac79506677ba773a32ed0e4737ccbc510a10f32ae2dd64d527fb56be4f0bbef"
+  },
+  "compiler": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+  "platform": "macOS-15.7-arm64-arm-64bit",
+  "cpu": "Apple M1 Pro",
+  "profile": {
+    "opt-level": 3,
+    "overflow-checks": true,
+    "lto": "thin",
+    "codegen-units": 1
+  },
+  "samples_per_case_per_round": 20000,
+  "rounds": 2,
+  "warmup_events_per_case": 10000,
+  "timing": "Instant before apply through view+best_bid+best_ask; generation and sample push outside",
+  "limitations": [
+    "synthetic normalized input",
+    "no affinity or CPU isolation",
+    "macOS timer quantization; raw elapsed values, no timer-overhead subtraction",
+    "excludes feed decode, transport, queues, strategy, IPC and persistence"
+  ],
+  "command": "crates/tickwire-book/benches/compare.py --before-rev df8bd2dfab8193f0a647d17e344ca7ed54577132 --samples 20000 --rounds 2 --harness sparse_apply --output docs/validation/book-small-batch/exploratory-v3/sparse_apply"
+}

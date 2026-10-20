@@ -1,0 +1,88 @@
+   Compiling tickwire-book v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-book)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.43s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_book-60316b1fa9ab4537)
+
+running 5 tests
+128-update moved levels: 128
+test work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update ... ok
+512-update price comparisons: 6188
+test work_tests::large_batch_has_bounded_price_comparisons ... ok
+single replacement comparisons=15 moved=1; Book<4096,512> bytes=213096
+test work_tests::one_replacement_does_not_scan_or_copy_the_full_book ... ok
+wrapped start=4095 reverse=false: comparisons=111, writes=32
+32 scattered replacements: comparisons=422, writes=32
+test work_tests::unordered_small_replacements_have_a_bounded_comparison_budget ... ok
+wrapped start=4095 reverse=true: comparisons=140, writes=32
+wrapped start=4080 reverse=false: comparisons=125, writes=32
+wrapped start=4080 reverse=true: comparisons=125, writes=32
+test work_tests::wrapped_adjacent_batches_keep_the_adjacent_lookup_budget ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+     Running tests/batch.rs (target/debug/deps/batch-62f11905df710d85)
+
+running 2 tests
+test full_capacity_replacement_and_reverse_batches_preserve_unknown_coverage ... ok
+test bad_large_second_side_never_commits_first_side_or_sequence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/book.rs (target/debug/deps/book-4852ae3d54ec5253)
+
+running 22 tests
+test futures_bridge_rejects_spot_next_id_and_missing_pu ... ok
+test bid_and_ask_moves_can_cross_old_opposite_quote_but_not_final_quote ... ok
+test duplicate_event_does_not_refresh_freshness_and_backward_clock_is_rejected ... ok
+test futures_equal_snapshot_id_bridges_then_requires_pu ... ok
+test capacity_checks_final_batch_before_any_side_changes ... ok
+test external_buffer_loss_and_disconnect_require_current_generation ... ok
+test no_event_is_applied_before_snapshot_and_generation_never_wraps ... ok
+test malformed_batches_do_not_partially_modify_either_side ... ok
+test complete_empty_snapshot_has_known_zero_and_empty_best ... ok
+test event_update_limit_and_invalid_range_fail_closed ... ok
+test rebuild_requires_new_generation_and_old_snapshot_cannot_reactivate ... ok
+test snapshot_capacity_duplicate_price_and_zero_capacity_fail_closed ... ok
+test snapshot_errors_are_atomic_and_rebuild_is_required ... ok
+test snapshot_needs_bridge_and_spot_boundary_matrix ... ok
+test spot_overlapping_updates_stale_and_gap ... ok
+test storage_can_use_an_independent_exchange_policy ... ok
+test truncated_snapshot_retains_unknown_depth_and_best_quote_uncertainty ... ok
+test u64_max_snapshot_never_overflows_spot_next_update_check ... ok
+test unsorted_snapshots_and_updates_are_normalized ... ok
+test wrong_key_and_generation_cannot_poison_live_book ... ok
+test zero_deletes_and_absent_zero_is_idempotent ... ok
+test replay_matches_independent_btree_map_oracle ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/differential.rs (target/debug/deps/differential-cee2864aa0a335bf)
+
+running 1 test
+40000 differential batches: 30822 applied, 9178 atomic capacity rejections
+test independent_small_books_match_btree_map ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/no_alloc.rs (target/debug/deps/no_alloc-f8ea2344724957f6)
+
+running 3 tests
+test construction_snapshot_updates_views_and_rebuild_allocate_nothing ... ok
+test unordered_small_quantity_batches_allocate_nothing ... ok
+test sorted_work_area_and_bulk_merge_allocate_nothing ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/small_batch.rs (target/debug/deps/small_batch-f35c04c4e6e9d120)
+
+running 3 tests
+test absent_positive_fallback_and_zero_delete_keep_final_capacity_semantics ... ok
+test scattered_replacements_handle_collisions_and_preserve_coverage ... ok
+test late_duplicate_or_missing_price_cannot_partially_commit_either_side ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests tickwire_book
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
