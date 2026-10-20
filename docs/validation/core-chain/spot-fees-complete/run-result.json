@@ -1,0 +1,12 @@
+{
+  "account_fill_verified": true,
+  "account_report": "/lab/run/account-report.json",
+  "account_wal": "/lab/run/exec/account",
+  "event": "laboratory_spot_fill_complete",
+  "fixture_audit": "/lab/run/fixture.jsonl",
+  "input_wal": "/lab/run/exec/input",
+  "logs": "/lab/run/logs",
+  "mirror_records_verified": 8,
+  "mirror_wal": "/lab/run/mirror/journal",
+  "worker_report_position_verified": 8
+}

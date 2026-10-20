@@ -24,10 +24,40 @@ use tickwire_strategy_sdk::{
     worker,
 };
 use tickwire_supervisor::{AuthenticatedChild, LaunchSpec, Registry};
+mod preflight;
+mod readiness;
+mod remote;
+pub use remote::{RemoteHostedStrategy, RemoteLaunch};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;
+
+fn retire_owned_child(registry: &mut Registry, instance: [u8; 16]) -> Result<()> {
+    let exited = registry.terminate(instance)?;
+    eprintln!(
+        "{}",
+        serde_json::json!({"event":"strategy_retired","instance":exited.instance(),
+            "generation":exited.generation(),"worker_pid":exited.pid(),"exit_status":exited.status().to_string()})
+    );
+    Ok(())
+}
+
+#[cfg(test)]
+mod retirement_tests {
+    use super::*;
+
+    #[test]
+    fn retirement_requires_an_actual_owned_child_exit() {
+        let mut registry = Registry::new(1).unwrap();
+        assert!(matches!(
+            retire_owned_child(&mut registry, [7; 16]),
+            Err(Error::Supervisor(tickwire_supervisor::Error::Identity))
+        ));
+    }
+}
 
 #[derive(Debug)]
 pub enum Error {
+    Release(tickwire_release::Error),
+    Source(tickwire_market_source::Error),
     Invalid,
     NotReady,
     Busy,
@@ -60,6 +90,8 @@ macro_rules! from {
         }
     };
 }
+from!(tickwire_market_source::Error, Source);
+from!(tickwire_release::Error, Release);
 from!(std::io::Error, Io);
 from!(tickwire_strategy_sdk::Error, Sdk);
 from!(tickwire_supervisor::Error, Supervisor);
@@ -246,10 +278,13 @@ impl ChildHandles {
         self.market.process
     }
 }
+pub type MarketCallback = Box<dyn FnMut(&tickwire_binance_public::Notice<'_>) -> bool>;
 pub struct Started<R, const M: usize> {
+    readiness: readiness::ReadyProof,
+    report_sub: tickwire_shm::SubscriptionKey,
     reports: Reports,
     pub publisher: SharedPublisher<M>,
-    pub strategy: RuntimeStrategy<R, Box<dyn FnMut(&tickwire_binance_public::Notice<'_>) -> bool>>,
+    pub strategy: RuntimeStrategy<R, MarketCallback>,
     pub child: ChildHandles,
 }
 fn write_json<T: serde::Serialize>(path: &Path, value: &T) -> Result<()> {
@@ -448,6 +483,7 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         write_json(&config.bootstrap.join_file, &bootstrap)?;
         Ok(j)
     })?;
+    preflight::prepare(&config.bootstrap, &config.spec)?;
     write_json(&config.bootstrap_file, &config.bootstrap)?;
     config.spec.arguments = vec![
         "--bootstrap".into(),
@@ -676,6 +712,8 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         Box::new(move |n| sink.notice(n));
     let strategy = RuntimeStrategy::new(receiver, resolver, callback);
     Ok(Started {
+        readiness: readiness::ReadyProof::new(&config.bootstrap)?,
+        report_sub,
         reports,
         publisher,
         strategy,
@@ -724,6 +762,9 @@ pub struct HostedStrategy<R, const M: usize> {
     version: u64,
     error: Option<Error>,
     logical_strategy_id: u64,
+    identity: ([u8; 16], u64),
+    forwarding: bool,
+    domain: tickwire_clock::ClockDomain,
     rotation: Option<Box<dyn RotationSource<R, M>>>,
     retired: Vec<tickwire_join::JoinOwner<M>>,
 }
@@ -756,6 +797,12 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
             sink,
             policy,
             logical_strategy_id: config.spec.identity.logical_strategy,
+            identity: (
+                config.spec.identity.instance,
+                config.spec.identity.generation,
+            ),
+            forwarding: true,
+            domain,
             launch: Some(config),
             resolver: Some(resolver),
             started: None,
@@ -775,6 +822,12 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
                 .started
                 .as_ref()
                 .is_some_and(|s| s.strategy.error().is_some())
+    }
+    pub fn set_shadow(&mut self) {
+        self.forwarding = false;
+    }
+    pub fn instance(&self) -> Option<([u8; 16], u64)> {
+        Some(self.identity)
     }
     pub fn child(&mut self) -> Option<&mut ChildHandles> {
         self.started.as_mut().map(|s| &mut s.child)
@@ -806,6 +859,175 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
 impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Strategy
     for HostedStrategy<R, M>
 {
+    fn handover_quiesce(&mut self, change: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.logical_strategy_id != change.logical_strategy_id {
+            return false;
+        }
+        if self.instance().is_some_and(|i| {
+            i == (change.old_instance, change.old_generation)
+                || i == (change.new_instance, change.new_generation)
+        }) {
+            self.forwarding = false;
+            if self.instance() == Some((change.old_instance, change.old_generation))
+                && let Some(s) = &mut self.started
+            {
+                s.readiness.pause_on_capture();
+            }
+            true
+        } else {
+            false
+        }
+    }
+    fn handover_activate(&mut self, change: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.logical_strategy_id != change.logical_strategy_id {
+            return false;
+        }
+        match self.instance() {
+            Some(i) if i == (change.new_instance, change.new_generation) => {
+                if self.failed() {
+                    return false;
+                }
+                let allowed = SystemClock::new(self.domain)
+                    .and_then(|mut c| c.sample())
+                    .ok()
+                    .is_some_and(|n| {
+                        self.policy
+                            .strategy_instance_authorized(
+                                self.logical_strategy_id,
+                                i.0,
+                                i.1,
+                                n.monotonic,
+                            )
+                            .unwrap_or(false)
+                    });
+                if allowed {
+                    self.forwarding = true;
+                }
+                allowed
+            }
+            Some(i) if i == (change.old_instance, change.old_generation) => {
+                self.forwarding = false;
+                let result = (|| {
+                    self.policy
+                        .stop_strategy_instance(self.logical_strategy_id, i.0, i.1)?;
+                    if let Some(s) = &mut self.started {
+                        // A missing QUIESCED reply may still end in a real child
+                        // exit. Only the Registry's exit observation completes
+                        // retirement; it does not invent released cursor watermarks.
+                        let _ = s.stop(Instant::now() + Duration::from_millis(100));
+                        retire_owned_child(&mut s.child.registry, i.0)?;
+                    }
+                    Ok(())
+                })();
+                self.launch = None;
+                let retired = result.is_ok();
+                if retired {
+                    self.started.take();
+                }
+                self.error = Some(result.err().unwrap_or(Error::NotReady));
+                retired
+            }
+            _ => false,
+        }
+    }
+    fn handover_halt(&mut self, logical: u64) -> bool {
+        if logical != self.logical_strategy_id {
+            return false;
+        }
+        self.forwarding = false;
+        true
+    }
+    fn release_preflight(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+        roots: [[u8; 32]; 3],
+    ) -> Option<Vec<Vec<u8>>> {
+        if self.identity != (instance, generation) || self.error.is_some() {
+            return None;
+        }
+        let result = (|| -> Result<_> {
+            let s = self.started.as_mut().ok_or(Error::NotReady)?;
+            s.child.registry.process(s.child.instance)?;
+            let now = SystemClock::new(s.child.domain)?
+                .sample()?
+                .monotonic
+                .nanos();
+            s.readiness.poll(&mut s.child.report, now)?;
+            s.readiness.release_objects(roots)
+        })();
+        match result {
+            Ok(v) => v,
+            Err(e) => {
+                self.error = Some(e);
+                None
+            }
+        }
+    }
+    fn handover_checkpoint(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+    ) -> Option<(tickwire_runtime::node::HandoverReadiness, Vec<Vec<u8>>)> {
+        if self.identity != (instance, generation) || self.error.is_some() {
+            return None;
+        }
+        let s = self.started.as_mut()?;
+        let refreshed = (|| -> Result<_> {
+            s.child.registry.process(s.child.instance)?;
+            let mut clock = SystemClock::new(s.child.domain)?;
+            s.readiness
+                .capture(&mut s.child.report, &s.reports, s.report_sub, &mut clock)
+        })();
+        let want = match refreshed {
+            Ok(w) => w,
+            Err(e) => {
+                self.error = Some(e);
+                return None;
+            }
+        };
+        let objects = self.handover_objects(&want)?;
+        Some((want, objects))
+    }
+    fn handover_objects(
+        &mut self,
+        want: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<Vec<Vec<u8>>> {
+        if self.identity != (want.instance_id, want.strategy_generation) || self.error.is_some() {
+            return None;
+        }
+        let s = self.started.as_mut()?;
+        if s.child.registry.process(s.child.instance).is_err() {
+            return None;
+        }
+        s.readiness
+            .objects(&s.reports, s.report_sub, want)
+            .ok()
+            .flatten()
+    }
+    fn handover_ready(&mut self, want: &tickwire_runtime::node::HandoverReadiness) -> bool {
+        let result = (|| -> Result<bool> {
+            let Some(s) = &mut self.started else {
+                return Ok(false);
+            };
+            s.child.registry.process(s.child.instance)?;
+            let now = SystemClock::new(s.child.domain)?
+                .sample()?
+                .monotonic
+                .nanos();
+            s.readiness.poll(&mut s.child.report, now)?;
+            s.readiness
+                .confirm(&s.reports, s.report_sub, &s.child.report, now)?;
+            s.readiness.matches(&s.reports, s.report_sub, want)
+        })();
+        match result {
+            Ok(v) => v,
+            Err(e) => {
+                self.error = Some(e);
+                false
+            }
+        }
+    }
     fn on_market(&mut self, n: &tickwire_binance_public::Notice<'_>) -> bool {
         self.error.is_none() && self.sink.notice(n)
     }
@@ -827,6 +1049,12 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
             return None;
         }
         let started = self.started.as_mut()?;
+        if !self.forwarding {
+            if let Err(e) = started.strategy.drain_shadow(32) {
+                self.error = Some(e.into());
+            }
+            return None;
+        }
         let submission = tickwire_runtime::node::Strategy::next(&mut started.strategy, a, h, now);
         if started.strategy.error().is_some() {
             if let Err(e) = self.invalidate_generation() {
@@ -975,6 +1203,17 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
         })
     }
     fn maintain(&mut self, now: tickwire_binance_clock::LocalTime) -> Result<()> {
+        if let Some(s) = &mut self.started {
+            s.readiness
+                .poll(&mut s.child.report, now.monotonic.nanos())?;
+            s.child.registry.process(s.child.instance)?;
+            s.readiness.confirm(
+                &s.reports,
+                s.report_sub,
+                &s.child.report,
+                now.monotonic.nanos(),
+            )?;
+        }
         let child_failed = if let Some(s) = &mut self.started {
             !s.child.registry.observe_exits()?.is_empty() || s.strategy.error().is_some()
         } else {
@@ -989,7 +1228,11 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
         }
         self.invalidate_generation()?;
         if self.started.is_some() {
-            self.policy.stop_strategy(self.logical_strategy_id)?;
+            self.policy.stop_strategy_instance(
+                self.logical_strategy_id,
+                self.identity.0,
+                self.identity.1,
+            )?;
         }
         if let Some(mut old) = self.started.take() {
             let _ = old.stop(Instant::now() + Duration::from_secs(1));
@@ -1011,7 +1254,10 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
         let Some(plan) = source.next(&h, sequence)? else {
             return Ok(());
         };
-        if plan.launch.spec.identity.logical_strategy != self.logical_strategy_id {
+        if plan.launch.spec.identity.logical_strategy != self.logical_strategy_id
+            || plan.launch.spec.identity.instance == self.identity.0
+            || plan.launch.spec.identity.generation <= self.identity.1
+        {
             return Err(Error::Invalid);
         }
         let old = self
@@ -1037,6 +1283,10 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
             }
             Ok(())
         })?;
+        self.identity = (
+            plan.launch.spec.identity.instance,
+            plan.launch.spec.identity.generation,
+        );
         self.launch = Some(plan.launch);
         self.resolver = Some(plan.resolver);
         Ok(())

@@ -47,6 +47,7 @@ pub struct ReportWriter<B> {
     baseline_sequence: u64,
     last_position: u64,
     last_digest: [u8; 32],
+    account_input: Option<tickwire_account_codec::InputSeal>,
 }
 impl<B: BlobStore> ReportWriter<B> {
     pub fn new(publisher: Publisher<1>, store: B, identity: ReportIdentity) -> Result<Self> {
@@ -59,6 +60,7 @@ impl<B: BlobStore> ReportWriter<B> {
             baseline_sequence: 0,
             last_position: 0,
             last_digest: [0; 32],
+            account_input: None,
         })
     }
     pub fn publisher(&mut self) -> &mut Publisher<1> {
@@ -66,6 +68,29 @@ impl<B: BlobStore> ReportWriter<B> {
     }
     pub fn last_position(&self) -> u64 {
         self.last_position
+    }
+    /// The baseline occupies the first report slot; ordered records follow one-for-one.
+    pub fn account_input_digest(&self, position: u64) -> Option<[u8; 32]> {
+        self.account_input
+            .as_ref()
+            .filter(|s| s.position() == position)
+            .map(|s| s.digest())
+    }
+    pub fn confirms_cursor(
+        &self,
+        sub: SubscriptionKey,
+        position: u64,
+        sequence: u64,
+    ) -> Result<bool> {
+        if self.baseline.is_none()
+            || position > self.last_position
+            || self.baseline_sequence.checked_add(position) != Some(sequence)
+            || sub.instance.to_le_bytes() != self.identity.instance_id
+        {
+            return Ok(false);
+        }
+        let cursor = self.publisher.cursor_watermarks(sub)?;
+        Ok(cursor.applied >= sequence && cursor.released >= sequence)
     }
     pub fn publish_baseline(&mut self, baseline: &CanonicalBaseline, now: u64) -> Result<u64> {
         if baseline.snapshot().scope.risk_domain_id != self.identity.risk_domain {
@@ -79,6 +104,10 @@ impl<B: BlobStore> ReportWriter<B> {
             };
         }
         let sequence = self.publish(780, 11, 0, baseline.digest(), baseline.bytes(), now)?;
+        self.account_input = Some(
+            tickwire_account_codec::InputSeal::new(baseline.digest())
+                .map_err(|_| Error::Identity)?,
+        );
         self.baseline = Some(baseline.digest());
         self.baseline_sequence = sequence;
         Ok(sequence)
@@ -98,7 +127,10 @@ impl<B: BlobStore> ReportWriter<B> {
         if position != self.last_position.checked_add(1).ok_or(Error::Bounds)? {
             return Err(Error::Identity);
         }
+        let mut account_input = self.account_input.clone().ok_or(Error::NotReady)?;
+        account_input.apply(record).map_err(|_| Error::Identity)?;
         let sequence = self.publish(781, 12, position, record.digest(), record.bytes(), now)?;
+        self.account_input = Some(account_input);
         self.last_position = position;
         self.last_digest = record.digest();
         Ok(sequence)
@@ -202,12 +234,20 @@ impl ReportReceiver {
     pub fn last_position(&self) -> u64 {
         self.last_position
     }
+    pub fn last_ring_sequence(&self) -> Result<u64> {
+        self.bank
+            .first_seq
+            .checked_add(self.last_position)
+            .ok_or(Error::Bounds)
+    }
     pub fn start_quiesce(&self) {
         self.reader.start_quiesce();
     }
     pub fn quiesced(&self) -> Result<tickwire_shm::Quiesced> {
         Ok(self.reader.quiesced()?)
     }
+    // Fallible polling distinguishes an empty live ring from an exhausted iterator.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<AccountReport>> {
         let Some(guard) = self.reader.borrow()? else {
             return Ok(None);

@@ -8,7 +8,17 @@ fn main() {
 #[allow(unsafe_code)]
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
-    if args.next().as_deref() != Some(std::ffi::OsStr::new("--bootstrap")) {
+    let mode = args.next();
+    if mode.as_deref() == Some(std::ffi::OsStr::new("--restore-probe")) {
+        let path = args.next().ok_or("missing probe path")?;
+        if args.next().is_some() {
+            return Err("unexpected argument".into());
+        }
+        let job = worker::read_config(std::path::Path::new(&path), 2 * 1024 * 1024)?;
+        tickwire_strategy_sdk::preflight::run_probe(&job)?;
+        return Ok(());
+    }
+    if mode.as_deref() != Some(std::ffi::OsStr::new("--bootstrap")) {
         return Err("usage: tickwire-strategy-worker --bootstrap PATH".into());
     }
     let path = args.next().ok_or("missing bootstrap path")?;
@@ -16,6 +26,18 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("unexpected argument".into());
     }
     let config: Bootstrap = worker::read_config(std::path::Path::new(&path), 2 * 1024 * 1024)?;
+    if let Some(job_path) = &config.preflight_job {
+        let job: tickwire_strategy_sdk::preflight::Job =
+            worker::read_config(job_path, 2 * 1024 * 1024)?;
+        let effective = std::fs::read(&path)?;
+        let (strategy, completed) =
+            tickwire_strategy_sdk::preflight::start(&job, &config, &effective)?;
+        // SAFETY: the same qualified supervisor contract applies after actual restoration.
+        unsafe {
+            worker::run_restored(config, strategy, completed)?;
+        }
+        return Ok(());
+    }
     if config.demo_enabled {
         let path = config
             .demo_command_file

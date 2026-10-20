@@ -118,6 +118,63 @@ fn complete_packets_and_owned_close_on_exec_fds() {
 }
 
 #[test]
+fn try_accept_observes_empty_and_already_queued_connections() {
+    let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-try-accept").unwrap();
+    let path = dir.path().join("control.sock");
+    let listener = ControlListener::bind(&path).unwrap();
+    assert!(listener.try_accept().unwrap().is_none());
+    let _client = Connection::connect(&path, deadline()).unwrap();
+    let server = listener
+        .try_accept()
+        .unwrap()
+        .expect("an already queued connection must be attempted without a deadline");
+    assert_eq!(server.peer_credentials().pid, std::process::id());
+    // SAFETY: server owns this descriptor throughout both fcntl calls.
+    assert_ne!(
+        unsafe { libc::fcntl(server.as_fd().as_raw_fd(), libc::F_GETFD) } & libc::FD_CLOEXEC,
+        0
+    );
+    assert_ne!(
+        unsafe { libc::fcntl(server.as_fd().as_raw_fd(), libc::F_GETFL) } & libc::O_NONBLOCK,
+        0
+    );
+    assert!(listener.try_accept().unwrap().is_none());
+}
+
+#[test]
+fn try_recv_drains_queued_frames_and_fds_before_closed() {
+    let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-try-recv").unwrap();
+    let path = dir.path().join("control.sock");
+    let listener = ControlListener::bind(&path).unwrap();
+    let mut client = Connection::connect(&path, deadline()).unwrap();
+    let mut server = listener.accept(deadline()).unwrap();
+    assert!(server.try_recv().unwrap().is_none());
+    let file = File::open("/dev/null").unwrap();
+    for count in [0, 1, 16] {
+        client
+            .send(&frame(count), &vec![file.as_fd(); count], deadline())
+            .unwrap();
+    }
+    drop(client);
+    for count in [0, 1, 16] {
+        let received = server
+            .try_recv()
+            .unwrap()
+            .expect("queued packet must be received even after the sender closes");
+        assert_eq!(received.bytes(), frame(count));
+        assert_eq!(received.fds().len(), count);
+        for fd in received.fds() {
+            // SAFETY: each received descriptor remains owned by received.
+            assert_ne!(
+                unsafe { libc::fcntl(fd.as_raw_fd(), libc::F_GETFD) } & libc::FD_CLOEXEC,
+                0
+            );
+        }
+    }
+    assert!(matches!(server.try_recv(), Err(Error::Closed)));
+}
+
+#[test]
 fn timeout_eof_and_sender_validation() {
     let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-control").unwrap();
     let path = dir.path().join("control.sock");
@@ -315,6 +372,18 @@ fn malformed_packets_close_all_fds_in_isolated_process() {
 }
 
 #[test]
+fn try_recv_malformed_packets_close_all_fds_in_isolated_process() {
+    wait_child(
+        std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "rejection_child", "--nocapture"])
+            .env("TICKWIRE_REJECTION_CHILD", "1")
+            .env("TICKWIRE_TRY_RECEIVE", "1")
+            .spawn()
+            .unwrap(),
+    );
+}
+
+#[test]
 fn rejection_child() {
     if std::env::var_os("TICKWIRE_REJECTION_CHILD").is_none() {
         return;
@@ -325,6 +394,15 @@ fn rejection_child() {
     let mut client = Connection::connect(&path, deadline()).unwrap();
     let mut server = listener.accept(deadline()).unwrap();
     let file = File::open("/dev/null").unwrap();
+    let receive = |server: &mut Connection| {
+        if std::env::var_os("TICKWIRE_TRY_RECEIVE").is_some() {
+            server.try_recv().map(|received| {
+                received.expect("raw_send completed before the single receive attempt")
+            })
+        } else {
+            server.recv(deadline())
+        }
+    };
     let raw_fd = file.as_raw_fd();
     let count_fds = || std::fs::read_dir("/proc/self/fd").unwrap().count();
     let baseline = count_fds();
@@ -352,7 +430,7 @@ fn rejection_child() {
     for _ in 0..32 {
         for (name, bytes, count, expected) in &cases {
             raw_send(client.as_fd(), bytes, &vec![raw_fd; *count]);
-            let error = match server.recv(deadline()) {
+            let error = match receive(&mut server) {
                 Ok(_) => panic!("{name}: invalid frame accepted"),
                 Err(error) => error,
             };
@@ -366,13 +444,13 @@ fn rejection_child() {
             assert_eq!(kind, *expected, "{name}");
             assert_eq!(count_fds(), baseline, "{name}: received descriptors leaked");
             client.send(&frame(0), &[], deadline()).unwrap();
-            assert_eq!(server.recv(deadline()).unwrap().bytes(), frame(0));
+            assert_eq!(receive(&mut server).unwrap().bytes(), frame(0));
         }
     }
     client
         .send(&frame(16), &[file.as_fd(); 16], deadline())
         .unwrap();
-    let received = server.recv(deadline()).unwrap();
+    let received = receive(&mut server).unwrap();
     assert_eq!(count_fds(), baseline + 16);
     let (_, fds) = received.into_parts();
     drop(fds);

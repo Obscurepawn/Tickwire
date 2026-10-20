@@ -1,0 +1,27 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-host v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-host)
+   Compiling tickwire-app v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-app)
+   Compiling tickwire-lab v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-lab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.79s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_lab-6c9d39696b9d9f04)
+
+running 1 test
+test generate::tests::handover_generation_publishes_one_final_scenario_and_refuses_reuse ... FAILED
+
+failures:
+
+---- generate::tests::handover_generation_publishes_one_final_scenario_and_refuses_reuse stdout ----
+
+thread 'generate::tests::handover_generation_publishes_one_final_scenario_and_refuses_reuse' (7000049) panicked at crates/tickwire-lab/src/generate.rs:640:9:
+assertion `left == right` failed
+  left: 4
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    generate::tests::handover_generation_publishes_one_final_scenario_and_refuses_reuse
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.85s
+
+error: test failed, to rerun pass `-p tickwire-lab --lib`

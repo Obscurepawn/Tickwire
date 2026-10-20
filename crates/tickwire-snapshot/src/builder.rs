@@ -314,7 +314,10 @@ pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
 
 /// Build kind-7 members preserving exact side boundaries and all known outliers.
 /// The authenticated resource must require ExactDepthCoverage (feature bit 6).
-pub fn build_topic_with_coverage(request: &BuildRequest<'_>, coverage: &[DepthCoverage]) -> Result<BuiltTopic> {
+pub fn build_topic_with_coverage(
+    request: &BuildRequest<'_>,
+    coverage: &[DepthCoverage],
+) -> Result<BuiltTopic> {
     build(request, Some(coverage))
 }
 fn build(request: &BuildRequest<'_>, coverage: Option<&[DepthCoverage]>) -> Result<BuiltTopic> {
@@ -323,10 +326,18 @@ fn build(request: &BuildRequest<'_>, coverage: Option<&[DepthCoverage]>) -> Resu
         return Err(Error::UnsupportedFeature);
     }
     if let Some(values) = coverage {
-        if values.len() != request.members.len() { return Err(Error::Bounds); }
+        if values.len() != request.members.len() {
+            return Err(Error::Bounds);
+        }
         for (c, m) in values.iter().zip(request.members) {
             validate_depth_coverage(c)?;
-            if m.coverage_flags != if c.bid_kind == 1 && c.ask_kind == 1 { 0 } else { 3 } {
+            if m.coverage_flags
+                != if c.bid_kind == 1 && c.ask_kind == 1 {
+                    0
+                } else {
+                    3
+                }
+            {
                 return Err(Error::Malformed);
             }
         }
@@ -424,12 +435,16 @@ fn build(request: &BuildRequest<'_>, coverage: Option<&[DepthCoverage]>) -> Resu
         depth.encode(&mut bytes[offset + 320..offset + 384])?;
         if let Some(values) = coverage {
             let coverage_offset = depth_offset + depth_length;
-            values[index].encode(&mut bytes[coverage_offset..coverage_offset+32])?;
+            values[index].encode(&mut bytes[coverage_offset..coverage_offset + 32])?;
             SnapshotSection {
-                section_kind: 3, entry_bytes: 32, entry_count: 1,
-                offset: coverage_offset as u64, length: 32,
-                entries_hash: hash(&bytes[coverage_offset..coverage_offset+32]),
-            }.encode(&mut bytes[offset+384..offset+448])?;
+                section_kind: 3,
+                entry_bytes: 32,
+                entry_count: 1,
+                offset: coverage_offset as u64,
+                length: 32,
+                entries_hash: hash(&bytes[coverage_offset..coverage_offset + 32]),
+            }
+            .encode(&mut bytes[offset + 384..offset + 448])?;
         }
         let header = SnapshotHeader {
             magic: *b"TWSNP001",
@@ -547,9 +562,14 @@ mod arithmetic_tests {
     use super::*;
     #[test]
     fn unrepresentable_layouts_are_rejected_without_slices_or_allocation() {
-        assert_eq!(member_bytes(usize::MAX, 0, 0), Err(Error::Bounds));
-        assert_eq!(member_bytes(1, usize::MAX, 1), Err(Error::Bounds));
-        assert_eq!(member_bytes(1, usize::MAX / 16, 0), Err(Error::Bounds));
+        for exact in [false, true] {
+            assert_eq!(member_bytes(usize::MAX, 0, 0, exact), Err(Error::Bounds));
+            assert_eq!(member_bytes(1, usize::MAX, 1, exact), Err(Error::Bounds));
+            assert_eq!(
+                member_bytes(1, usize::MAX / 16, 0, exact),
+                Err(Error::Bounds)
+            );
+        }
         assert_eq!(page(usize::MAX), Err(Error::Bounds));
     }
 }

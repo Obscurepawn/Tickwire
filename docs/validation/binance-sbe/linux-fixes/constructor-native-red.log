@@ -1,0 +1,23 @@
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.21s
+     Running tests/constructor_stack.rs (target/debug/deps/constructor_stack-6072435a35824e0a)
+
+running 2 tests
+test constructor_stack_child ... ok
+
+thread 'production_depth_owners_construct_on_default_worker_stack' (7083489) panicked at crates/tickwire-binance-public/tests/constructor_stack.rs:12:5:
+
+thread '<unknown>' (7083492) has overflowed its stack
+fatal runtime error: stack overflow, aborting
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test production_depth_owners_construct_on_default_worker_stack ... FAILED
+
+failures:
+
+failures:
+    production_depth_owners_construct_on_default_worker_stack
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p tickwire-binance-public --test constructor_stack`

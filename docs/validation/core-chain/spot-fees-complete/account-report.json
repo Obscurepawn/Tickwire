@@ -1,0 +1,140 @@
+{
+  "account_epoch": 1,
+  "account_records": 8,
+  "account_stream": "34343434343434343434343434343434",
+  "assets": [
+    {
+      "asset_id": 1,
+      "available": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "deficit": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "ownership": [
+        {
+          "quantity": {
+            "atoms": "100000000",
+            "scale": 8
+          },
+          "strategy_id": 0
+        },
+        {
+          "quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "strategy_id": 8
+        }
+      ],
+      "reserved": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "symbol": "BTC",
+      "total": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "wallet_id": 1
+    },
+    {
+      "asset_id": 2,
+      "available": {
+        "atoms": "94000000000",
+        "scale": 8
+      },
+      "deficit": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "ownership": [
+        {
+          "quantity": {
+            "atoms": "100000000000",
+            "scale": 8
+          },
+          "strategy_id": 0
+        },
+        {
+          "quantity": {
+            "atoms": "-6000000000",
+            "scale": 8
+          },
+          "strategy_id": 8
+        }
+      ],
+      "reserved": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "symbol": "USDT",
+      "total": {
+        "atoms": "94000000000",
+        "scale": 8
+      },
+      "wallet_id": 1
+    }
+  ],
+  "baseline_sha256": "837496f5c614334df2f3109feb7be3d448d3c6a1b7baab7047b7d4d7d4ebf906",
+  "discarded_tail_bytes": {
+    "account": 0,
+    "input": 0
+  },
+  "export_directory": "/lab/run/export",
+  "format": "tickwire.offline-replay.v1",
+  "frozen": true,
+  "history_sha256": "c659e757bc1b12f9c39aa4f0cdbaf32b764c23b1a526f76df3597b44fe7e9668",
+  "input_facts_not_in_account": 0,
+  "input_quarantines_and_gaps": 0,
+  "input_records": 16,
+  "input_stream": "35353535353535353535353535353535",
+  "ledger_sequence": 8,
+  "orders": [
+    {
+      "aborted": false,
+      "client_id": "lab-spot-1",
+      "command_sha256": "737f1e65ecb7525426ae7f9f079e8707e55f6774c24bff12eb877271edd07417",
+      "confirmed": true,
+      "fee_reconciled": true,
+      "filled_quantity": {
+        "atoms": "100000",
+        "scale": 8
+      },
+      "intent_epoch": 4,
+      "intent_id": 3,
+      "manager_generation": 5,
+      "manager_instance": "02020202020202020202020202020202",
+      "origin_generation": 5,
+      "origin_instance": "02020202020202020202020202020202",
+      "original_quantity": {
+        "atoms": "100000",
+        "scale": 8
+      },
+      "owner_revision": 1,
+      "reduce_allocation": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "remaining_quantity": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "strategy_id": 8,
+      "terminal": true,
+      "unknown": false
+    }
+  ],
+  "pending_orders": [],
+  "positions": [],
+  "rejected_event_sha256": null,
+  "required_frontier": null,
+  "scope": {
+    "account": 2,
+    "environment": "Test",
+    "risk_domain_id": "01010101010101010101010101010101",
+    "venue": 1
+  }
+}

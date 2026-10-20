@@ -1,0 +1,10 @@
+   Compiling tickwire-app v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.25s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_app-422a208ae71aa5a3)
+
+running 3 tests
+test replay::tests::export_source_names_and_capacity_are_bounded ... ok
+test replay::tests::report_preserves_i128_exactly ... ok
+test replay::income_tests::synchronized_income_import_is_pending_until_exact_account_baseline_is_durable ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 23 filtered out; finished in 0.38s

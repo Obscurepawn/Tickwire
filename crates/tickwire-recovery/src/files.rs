@@ -15,46 +15,62 @@ impl FileBlobReader {
     pub fn open(root: impl AsRef<Path>, owner: u32) -> Result<Self> {
         let root = root.as_ref();
         Self::directory(root, owner)?;
-        Ok(Self { root: fs::canonicalize(root)?, owner })
+        Ok(Self {
+            root: fs::canonicalize(root)?,
+            owner,
+        })
     }
     fn directory(root: &Path, owner: u32) -> Result<()> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            let m=fs::symlink_metadata(root)?;
-            if !m.file_type().is_dir() || m.uid()!=owner || m.mode()&0o027!=0 {
-                return Err(Error::Invalid("read-only object directory owner/permissions"));
+            let m = fs::symlink_metadata(root)?;
+            if !m.file_type().is_dir() || m.uid() != owner || m.mode() & 0o027 != 0 {
+                return Err(Error::Invalid(
+                    "read-only object directory owner/permissions",
+                ));
             }
             Ok(())
         }
         #[cfg(not(unix))]
-        { let _=(root,owner); Err(Error::Invalid("unsupported object directory platform")) }
+        {
+            let _ = (root, owner);
+            Err(Error::Invalid("unsupported object directory platform"))
+        }
     }
     pub fn get_object(&self, digest: Hash, limit: usize) -> Result<Vec<u8>> {
-        if digest==[0;32] || limit==0 || limit>MAX_OBJECT_BYTES {return Err(Error::Capacity);}
-        Self::directory(&self.root,self.owner)?;
-        let hex:String=digest.iter().map(|b|format!("{b:02x}")).collect();
-        let mut options=OpenOptions::new();
+        if digest == [0; 32] || limit == 0 || limit > MAX_OBJECT_BYTES {
+            return Err(Error::Capacity);
+        }
+        Self::directory(&self.root, self.owner)?;
+        let hex: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+        let mut options = OpenOptions::new();
         options.read(true);
         #[cfg(unix)]
         {
             use std::os::unix::fs::OpenOptionsExt;
-            options.custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC|libc::O_NONBLOCK);
+            options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK);
         }
-        let file=options.open(self.root.join(format!("object-{hex}")))?;
-        let meta=file.metadata()?;
-        if !meta.file_type().is_file() || meta.len()>limit as u64 {return Err(Error::Capacity);}
+        let file = options.open(self.root.join(format!("object-{hex}")))?;
+        let meta = file.metadata()?;
+        if !meta.file_type().is_file() || meta.len() > limit as u64 {
+            return Err(Error::Capacity);
+        }
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            if meta.uid()!=self.owner || meta.mode()&0o027!=0 {
+            if meta.uid() != self.owner || meta.mode() & 0o027 != 0 {
                 return Err(Error::Invalid("read-only object file owner/permissions"));
             }
         }
-        let mut bytes=Vec::new();
-        file.take(limit as u64+1).read_to_end(&mut bytes)?;
-        if bytes.len()>limit {return Err(Error::Capacity);}
-        if <[u8;32]>::from(Sha256::digest(&bytes))!=digest {return Err(Error::Conflict);}
+        let mut bytes = Vec::new();
+        file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(Error::Capacity);
+        }
+        if <[u8; 32]>::from(Sha256::digest(&bytes)) != digest {
+            return Err(Error::Conflict);
+        }
         Ok(bytes)
     }
 }
@@ -118,6 +134,8 @@ impl FileBlobStore {
             StoreKey::Object(h) => ("object", h),
             StoreKey::Manifest(h) => ("manifest", h),
             StoreKey::Binding(h) => ("binding", h),
+            StoreKey::ReplicaEntry(h) => ("replica-entry", h),
+            StoreKey::ReplicaStream(h) => ("replica-stream", h),
         };
         let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
         self.root.join(format!("{tag}-{hex}"))
@@ -154,6 +172,8 @@ impl BlobStore for FileBlobStore {
             StoreKey::Object(_) => MAX_OBJECT_BYTES,
             StoreKey::Manifest(_) => MAX_MANIFEST_BYTES,
             StoreKey::Binding(_) => 32,
+            StoreKey::ReplicaEntry(_) => 65536,
+            StoreKey::ReplicaStream(_) => 65536,
         };
         if bytes.is_empty() || bytes.len() > limit {
             return Err(Error::Capacity);

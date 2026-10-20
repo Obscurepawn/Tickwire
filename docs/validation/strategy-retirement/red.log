@@ -1,0 +1,50 @@
+   Compiling tickwire-ipc v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-ipc)
+   Compiling tickwire-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-journal)
+   Compiling tickwire-recovery v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-recovery)
+   Compiling tickwire-quota v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-quota)
+   Compiling tickwire-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account)
+   Compiling tickwire-control v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control)
+   Compiling tickwire-control-sys v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control-sys)
+   Compiling tickwire-shm-sys v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-shm-sys)
+   Compiling tickwire-snapshot v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-snapshot)
+   Compiling tickwire-business-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-business-journal)
+   Compiling tickwire-account-codec v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-codec)
+   Compiling tickwire-shm v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-shm)
+   Compiling tickwire-control-store v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control-store)
+   Compiling tickwire-supervisor v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-supervisor)
+   Compiling tickwire-account-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-journal)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+   Compiling tickwire-join v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-join)
+   Compiling tickwire-market-source v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-market-source)
+   Compiling tickwire-market-publisher v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-market-publisher)
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+   Compiling tickwire-binance-quota v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-quota)
+   Compiling tickwire-binance-execution v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-execution)
+   Compiling tickwire-md v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-md)
+   Compiling tickwire-runtime v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-runtime-policy v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime-policy)
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-host v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 13.23s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_host-c2b3dddbe88698c5)
+
+running 1 test
+test retirement_tests::retirement_requires_an_actual_owned_child_exit ... FAILED
+
+failures:
+
+---- retirement_tests::retirement_requires_an_actual_owned_child_exit stdout ----
+
+thread 'retirement_tests::retirement_requires_an_actual_owned_child_exit' (6858256) panicked at crates/tickwire-strategy-host/src/lib.rs:44:9:
+assertion failed: matches!(retire_owned_child(&mut registry, [7; 16]),
+    Err(Error::Supervisor(tickwire_supervisor::Error::Identity)))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    retirement_tests::retirement_requires_an_actual_owned_child_exit
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-strategy-host --lib`

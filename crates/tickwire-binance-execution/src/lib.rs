@@ -356,6 +356,21 @@ pub struct GateAuthority<A, C, B> {
     shared: SharedSessionState<C, B>,
 }
 impl<A: Authority, C: SessionClock, B: DeliveryBudget> Authority for GateAuthority<A, C, B> {
+    fn verify_handover(
+        &mut self,
+        baseline: &tickwire_account_codec::CanonicalBaseline,
+        record: &tickwire_account_codec::CanonicalRecord,
+        prior: &[tickwire_account_codec::CanonicalRecord],
+    ) -> std::result::Result<(), AuthorityError> {
+        self.inner.verify_handover(baseline, record, prior)
+    }
+    fn commit_state(
+        &mut self,
+        admission: &tickwire_account::Admission,
+        receipt: &tickwire_account_journal::AppendReceipt,
+    ) -> core::result::Result<tickwire_account_gateway::CommitState, AuthorityError> {
+        self.inner.commit_state(admission, receipt)
+    }
     fn prepare(
         &mut self,
         request: AdmissionRequest<'_>,

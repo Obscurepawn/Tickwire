@@ -10,7 +10,7 @@ fn positive(d: Decimal) -> Result<(), Error> {
         Err(Error::Quantity)
     }
 }
-fn asset(a: &AssetRef) -> Result<(), Error> {
+pub(crate) fn asset(a: &AssetRef) -> Result<(), Error> {
     if a.id == 0 || a.version == 0 || !(-38..=38).contains(&a.exponent) {
         return Err(Error::Instrument);
     }
@@ -49,7 +49,7 @@ fn price(value: Decimal, instrument: &InstrumentBinding) -> Result<(), Error> {
         Err(Error::Price)
     }
 }
-fn instrument(i: &InstrumentBinding, p: Product) -> Result<(), Error> {
+pub(crate) fn instrument(i: &InstrumentBinding, p: Product) -> Result<(), Error> {
     if i.instrument_id == 0
         || i.instrument_version == 0
         || i.catalog_version == 0
@@ -510,7 +510,7 @@ fn observation(o: &OrderObservation) -> Result<(), Error> {
     }
     Ok(())
 }
-fn cashflow(delta: &AssetDelta) -> Result<(), Error> {
+pub(crate) fn cashflow(delta: &AssetDelta) -> Result<(), Error> {
     asset(&delta.asset)?;
     if delta.amount.coefficient() != 0
         && !exact_units(delta.amount, Decimal::new(1, delta.asset.exponent)?)
@@ -519,7 +519,7 @@ fn cashflow(delta: &AssetDelta) -> Result<(), Error> {
     }
     Ok(())
 }
-fn fees(v: &BoundedList<AssetDelta, 8>) -> Result<(), Error> {
+pub(crate) fn fees(v: &BoundedList<AssetDelta, 8>) -> Result<(), Error> {
     for (n, delta) in v.as_slice().iter().enumerate() {
         cashflow(delta)?;
         if v.as_slice()[..n]

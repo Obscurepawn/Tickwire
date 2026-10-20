@@ -1,0 +1,29 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.39s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_app-ef29491fc35e5ff0)
+
+running 3 tests
+test lifecycle::operation_halt_tests::current_operation_failure_closes_its_gate_and_workers ... ok
+test lifecycle::operation_halt_tests::stale_released_history_cannot_halt_the_next_prepared_operation ... FAILED
+test lifecycle::operation_halt_tests::delayed_explicit_halt_cannot_close_a_successor ... FAILED
+
+failures:
+
+---- lifecycle::operation_halt_tests::stale_released_history_cannot_halt_the_next_prepared_operation stdout ----
+
+thread 'lifecycle::operation_halt_tests::stale_released_history_cannot_halt_the_next_prepared_operation' (6890191) panicked at crates/tickwire-app/src/lifecycle.rs:1077:9:
+assertion failed: p.handover_is_current(&new.gate, now()).unwrap()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- lifecycle::operation_halt_tests::delayed_explicit_halt_cannot_close_a_successor stdout ----
+
+thread 'lifecycle::operation_halt_tests::delayed_explicit_halt_cannot_close_a_successor' (6890190) panicked at crates/tickwire-app/src/lifecycle.rs:1087:9:
+assertion failed: p.handover_is_current(&new.gate, now()).unwrap()
+
+
+failures:
+    lifecycle::operation_halt_tests::delayed_explicit_halt_cannot_close_a_successor
+    lifecycle::operation_halt_tests::stale_released_history_cannot_halt_the_next_prepared_operation
+
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 18 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

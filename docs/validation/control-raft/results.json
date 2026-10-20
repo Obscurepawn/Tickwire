@@ -1,0 +1,29 @@
+{
+  "module": "tickwire-control-raft",
+  "native_tests": {
+    "passed": 8,
+    "failed": 0,
+    "log": "final-tests.log"
+  },
+  "clippy": {
+    "result": "PASS",
+    "command": "cargo clippy --locked -p tickwire-app -p tickwire-lab -p tickwire-md -p tickwire-control-raft --all-targets -- -D warnings",
+    "log": "clippy-aggregate.log"
+  },
+  "initial_behavior_failures": 4,
+  "additional_panics_reproduced": [
+    "malformed_append_indices",
+    "heartbeat_commit_out_of_range"
+  ],
+  "physical_sync_cut_points": 6,
+  "raft_version": "0.7.0",
+  "raft_crate_sha256": "f12688b23a649902762d4c11d854d73c49c9b93138f2de16403ef9f571ad5bae",
+  "source_manifest": "source.sha256",
+  "tla": "deferred_until_all_system_code_complete",
+  "not_implemented": [
+    "snapshot_transfer",
+    "voter_replacement",
+    "network_service",
+    "business_control_reducer"
+  ]
+}

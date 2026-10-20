@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-binance-public v0.1.0 (/work/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 51.84s
+     Running tests/constructor_stack.rs (/target/debug/deps/constructor_stack-4ec2a9d16a9ca9d3)
+
+running 2 tests
+test constructor_stack_child ... ok
+test production_depth_owners_construct_on_default_worker_stack ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Compiling tickwire-md v0.1.0 (/work/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.44s
+     Running tests/sbe_publication.rs (/target/debug/deps/sbe_publication-e4816de4b9e6669e)
+
+running 3 tests
+test network::raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner ... ok
+
+thread 'actual_binary_wss_publishes_exact_normalized_records_into_shared_memory' (331) has overflowed its stack
+fatal runtime error: stack overflow, aborting
+error: test failed, to rerun pass `-p tickwire-md --test sbe_publication`
+
+Caused by:
+  process didn't exit successfully: `/target/debug/deps/sbe_publication-e4816de4b9e6669e --nocapture` (signal: 6, SIGABRT: process abort signal)

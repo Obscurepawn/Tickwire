@@ -28,36 +28,42 @@ pub enum Error {
 }
 pub type Result<T> = core::result::Result<T, Error>;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub enum ScopeKind {
     Ip,
     Uid,
     Account,
     Connection,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct BucketId {
     pub namespace: [u8; 16],
     pub scope: ScopeKind,
     pub subject: [u8; 16],
     pub pool: u64,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 pub struct WindowKey {
     pub bucket: BucketId,
     pub window: u64,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Class {
     Normal,
     Recovery,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Cost {
     pub window: WindowKey,
     pub units: u64,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct WindowConfig {
     pub key: WindowKey,
     pub revision: u64,
@@ -66,7 +72,7 @@ pub struct WindowConfig {
     pub limit: u64,
     pub recovery_reserve: u64,
 }
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ConsumerId {
     pub instance: [u8; 16],
     pub generation: u64,
@@ -102,15 +108,16 @@ impl Snapshot {
         self.supervisor_generation
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct ConsumerRecord {
     id: ConsumerId,
     supervisor_generation: u64,
+    #[serde(with = "files::domain_codec")]
     domain: ClockDomain,
     lease_until_ns: u64,
     closed: bool,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 struct GrantRecord {
     id: u64,
     request_id: u64,
@@ -909,3 +916,5 @@ mod preparation_tests {
         assert_eq!(local.owner.lease_until_ns, 190);
     }
 }
+
+pub mod files;

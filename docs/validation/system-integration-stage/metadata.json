@@ -1,0 +1,14 @@
+{
+  "source": "/Users/bytedance/Tickwire/.tools/final-system-check-20261020T204555Z/source",
+  "files": 2505,
+  "source_files": 473,
+  "created": "2026-10-20T20:46:51.103876+00:00",
+  "head": "6c99661aa48470087797f48069ce9521899b89c0",
+  "excluded": [
+    "docs/assets/design-review-perf-2026-10-20.html",
+    "docs/design-review-perf-2026-10-20.md"
+  ],
+  "copy_method": "SHA checked before and after; unchanged F files retain identical mtime; changed files use fresh mtime",
+  "mtime_reuse_count": 2406,
+  "mtime_basis": "/Users/bytedance/Tickwire/.tools/current-system-check-20261020T203009Z/source"
+}

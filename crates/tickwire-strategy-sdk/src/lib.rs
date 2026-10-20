@@ -1,11 +1,16 @@
 //! Strategy-owned market replica and canonical-command SPSC publication.
 #![deny(unsafe_code)]
 pub mod bootstrap;
+pub mod checkpoint;
+pub mod handover;
 pub mod market;
 pub mod outbound;
+pub mod preflight;
 pub mod recovery;
 #[allow(unsafe_code)]
 pub mod reports;
+pub mod restore;
+pub mod retirement;
 #[cfg(feature = "runtime")]
 #[allow(unsafe_code)]
 pub mod runtime;
@@ -17,6 +22,11 @@ use tickwire_venue::CanonicalCommand;
 
 #[derive(Debug)]
 pub enum Error {
+    Context {
+        stage: &'static str,
+        source: Box<Error>,
+    },
+    Source(tickwire_market_source::Error),
     Wire(tickwire_ipc::Error),
     Join(tickwire_join::Error),
     Ring(tickwire_shm::MappedError),
@@ -27,11 +37,21 @@ pub enum Error {
     Io(std::io::Error),
     Json(serde_json::Error),
     Clock(tickwire_clock_sys::Error),
+    Release(tickwire_release::Error),
+    Restore(restore::Error),
     Identity,
     Bounds,
     Stale,
     NotReady,
     Deadline,
+}
+impl Error {
+    pub(crate) fn context(self, stage: &'static str) -> Self {
+        Self::Context {
+            stage,
+            source: Box::new(self),
+        }
+    }
 }
 pub type Result<T> = std::result::Result<T, Error>;
 impl std::fmt::Display for Error {
@@ -49,6 +69,7 @@ macro_rules! from {
         }
     };
 }
+from!(tickwire_market_source::Error, Source);
 from!(tickwire_ipc::Error, Wire);
 from!(tickwire_join::Error, Join);
 from!(tickwire_shm::MappedError, Ring);
@@ -59,6 +80,8 @@ from!(tickwire_control_sys::Error, Transport);
 from!(std::io::Error, Io);
 from!(serde_json::Error, Json);
 from!(tickwire_clock_sys::Error, Clock);
+from!(tickwire_release::Error, Release);
+from!(restore::Error, Restore);
 pub trait Strategy {
     /// Exact initial strategy state for its approved replay/checkpoint schema.
     fn checkpoint(&self) -> Result<Vec<u8>> {
@@ -89,12 +112,14 @@ impl Strategy for ObserveOnly {
 /// context are supplied by the launcher; this strategy never invents credentials.
 pub struct FixedDemo {
     command: Option<CanonicalCommand>,
+    original: CanonicalCommand,
     minimum_bid_ticks: i64,
     enabled: bool,
 }
 impl FixedDemo {
     pub fn new(command: CanonicalCommand, minimum_bid_ticks: i64, enabled: bool) -> Self {
         Self {
+            original: command.clone(),
             command: Some(command),
             minimum_bid_ticks,
             enabled,
@@ -104,9 +129,9 @@ impl FixedDemo {
 impl Strategy for FixedDemo {
     fn checkpoint(&self) -> Result<Vec<u8>> {
         let mut b = b"TWFD0001".to_vec();
-        b.push(u8::from(self.enabled));
+        b.push(u8::from(self.enabled && self.command.is_some()));
         b.extend(self.minimum_bid_ticks.to_le_bytes());
-        let cmd = self.command.as_ref().ok_or(Error::NotReady)?;
+        let cmd = self.command.as_ref().unwrap_or(&self.original);
         b.extend((cmd.bytes().len() as u32).to_le_bytes());
         b.extend(cmd.bytes());
         Ok(b)
@@ -135,5 +160,8 @@ impl Strategy for FixedDemo {
     }
 }
 
+#[cfg(test)]
+#[path = "../../tickwire-account/tests/common/mod.rs"]
+mod account_fixture;
 #[cfg(test)]
 mod test_command;

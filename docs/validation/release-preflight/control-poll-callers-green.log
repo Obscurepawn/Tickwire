@@ -1,0 +1,72 @@
+   Compiling tickwire-control-sys v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control-sys)
+   Compiling tickwire-join v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-join)
+   Compiling tickwire-supervisor v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-supervisor)
+   Compiling tickwire-market-source v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-market-source)
+   Compiling tickwire-market-publisher v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-market-publisher)
+   Compiling tickwire-runtime v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-md v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-md)
+   Compiling tickwire-runtime-policy v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime-policy)
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-host v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.16s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_market_source-89546d99708b1213)
+
+running 8 tests
+test shm::catchup_tests::retained_prefix_keeps_exact_record_payload_and_apply_time_with_atomic_bounds ... ok
+test replica::tests::failed_batch_keeps_both_sides_and_closes_visibility ... ok
+test replica::tests::exact_coverage_and_original_receive_time_survive_outside_updates ... ok
+test replica::tests::a_sequence_gap_cannot_revive_the_replica ... ok
+test retirement::tests::retirement_requests_and_receipts_bind_exact_subscription_and_evidence ... ok
+test protocol::activation_tests::catchup_response_does_not_extend_the_session_lease ... ok
+test protocol::activation_tests::received_catchup_can_repeat_before_applied_activation ... ok
+test protocol::activation_tests::activation_rejects_wrong_binding_or_completion_class ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_md-e342521fb76a8970)
+
+running 7 tests
+test config::tests::public_owner_budget_covers_full_depth_fifo_and_both_connections ... ok
+test server::retirement_tests::verified_detach_does_not_invalidate_other_subscribers ... ok
+test config::tests::resource_template_preserves_full_depth_and_unique_control_identity ... ok
+test server::admission_tests::request_key_does_not_replace_peer_and_sender_identity_checks ... ok
+test server::admission_tests::epoch_zero_hello_selects_its_admission_and_completes_real_handshake ... ok
+test config::tests::deployment_example_contains_two_independent_owners_and_shared_topic ... ok
+test server::admission_tests::one_lookup_key_cannot_select_two_different_admissions ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_host-821e22bdf9271f85)
+
+running 2 tests
+test retirement_tests::retirement_requires_an_actual_owned_child_exit ... ok
+test preflight::persistence_tests::failed_object_sync_requires_a_real_file_sync_again_before_directory_sync ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_sdk-fb8f9840dd9ad1bb)
+
+running 20 tests
+test recovery::tests::administrative_commands_need_no_new_order_identity ... ok
+test checkpoint::tests::cached_or_other_challenge_ready_is_not_fresh_checkpoint_completion ... ok
+test recovery::tests::execution_callback_preserves_canonical_record_position_and_actual_time ... ok
+test outbound::tests::immutable_command_is_stored_before_a_reference_exists ... ok
+test handover::tests::checkpoint_requires_exact_instance_cut_and_nonempty_strategy_state ... ok
+test recovery::tests::input_payloads_keep_complete_ring_and_external_arena_bytes ... ok
+test outbound::tests::full_reference_keeps_digest_triggers_and_explicit_scope ... ok
+test restore::tests::callback_errors_and_invalid_outputs_cannot_finish_restore ... ok
+test restore::tests::default_factory_does_not_claim_restore_completion ... ok
+test restore::tests::old_authority_changed_action_and_unknown_schema_are_rejected ... ok
+test restore::tests::spent_legacy_action_is_not_rearmed_and_authority_is_from_target ... ok
+test retirement::tests::retirement_reply_cannot_replace_the_requested_cursor_or_evidence ... ok
+test restore::tests::spent_v2_action_survives_restore_with_changed_threshold ... ok
+test worker::publication_tests::failed_preparation_never_samples_or_publishes ... ok
+test handover::tests::account_mirror_seals_ordered_callbacks_and_rejects_missing_or_replayed_records ... ok
+test worker::publication_tests::publication_samples_after_preparation_and_checks_the_current_deadline ... ok
+test restore::tests::actual_source_closure_is_checked_before_running_restore ... ok
+test restore::tests::completion_requires_actual_target_output_probe_and_complete_source_callbacks ... ok
+test preflight::tests::every_recovery_input_is_bound_to_the_actual_template_and_artifact_path ... ok
+test handover::tests::objects_rejects_rehashed_inputs_without_the_account_callback ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+

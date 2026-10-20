@@ -1,0 +1,22 @@
+use std::{io::{Read,Write},os::{fd::AsRawFd,unix::{net::UnixStream,process::CommandExt}},process::Command};
+use tickwire_account_journal::FileBackend;
+unsafe extern "C" { fn read(fd:i32, p:*mut std::ffi::c_void,n:usize)->isize; fn write(fd:i32,p:*const std::ffi::c_void,n:usize)->isize; }
+fn main(){
+ let root=std::env::temp_dir().join(format!("tickwire-fork-window-{}",std::process::id()));
+ std::fs::create_dir(&root).unwrap(); let wal=root.join("wal");
+ let backend=FileBackend::open(&wal).unwrap();
+ let (mut parent,child)=UnixStream::pair().unwrap();
+ let task=std::thread::spawn(move|| {
+  let mut command=Command::new("/bin/true");
+  // Test-only scheduling: two async-signal-safe syscalls hold the real child
+  // after fork and before exec; no lock owner is modified or unlocked.
+  unsafe { command.pre_exec(move|| { let mut b=1u8; let fd=child.as_raw_fd(); if write(fd,(&b as *const u8).cast(),1)!=1 || read(fd,(&mut b as *mut u8).cast(),1)!=1 {return Err(std::io::Error::last_os_error())} Ok(()) }); }
+  command.status().unwrap()
+ });
+ let mut b=[0u8];parent.read_exact(&mut b).unwrap();
+ drop(backend);
+ match FileBackend::open(&wal){Ok(_)=>panic!("expected inherited lock to remain held before exec"),Err(e)=>println!("parent owner dropped; child still pre-exec; reopen={e}")};
+ parent.write_all(&[1]).unwrap();assert!(task.join().unwrap().success());
+ drop(FileBackend::open(&wal).unwrap());println!("child exec+exit completed; exact same WAL reopened successfully");
+ std::fs::remove_dir_all(root).unwrap();
+}

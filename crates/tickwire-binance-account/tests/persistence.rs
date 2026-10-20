@@ -36,6 +36,7 @@ fn fixture() -> (Config, tickwire_venue::CanonicalCommand) {
             baseline: CanonicalBaseline::new(snapshot, catalog).unwrap(),
             account_stream: [2; 16],
             max_records: 32,
+            income_baseline_authority: None,
             max_registrations: 8,
             max_raw_bytes: 32_768,
             max_retained_bytes: 1 << 20,

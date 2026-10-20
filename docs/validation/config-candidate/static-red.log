@@ -1,0 +1,64 @@
+   Compiling tickwire-config v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-config)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.83s
+     Running tests/static_semantics.rs (.tools/config-target/debug/deps/static_semantics-bd37e6f77f843713)
+
+running 6 tests
+test reference_resource_accounting_matches_independent_deployment_contract ... FAILED
+test shared_cpu_memory_capacity_and_invalid_bank_geometry_are_rejected ... FAILED
+test failure_domain_and_distinct_lease_expiries_remain_independent ... FAILED
+test strategy_budget_currency_and_order_bound_match_the_account ... FAILED
+test duplicate_identity_missing_references_and_strategy_roles_are_rejected ... FAILED
+test parameter_depth_and_secret_keys_cannot_hide_inside_freeform_params ... FAILED
+
+failures:
+
+---- reference_resource_accounting_matches_independent_deployment_contract stdout ----
+
+thread 'reference_resource_accounting_matches_independent_deployment_contract' (6989723) panicked at crates/tickwire-config/tests/static_semantics.rs:26:5:
+assertion `left == right` failed
+  left: 0
+ right: 32
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- shared_cpu_memory_capacity_and_invalid_bank_geometry_are_rejected stdout ----
+
+thread 'shared_cpu_memory_capacity_and_invalid_bank_geometry_are_rejected' (6989724) panicked at crates/tickwire-config/tests/static_semantics.rs:54:9:
+assertion failed: changed(mutation).validate_static().is_err()
+
+---- failure_domain_and_distinct_lease_expiries_remain_independent stdout ----
+
+thread 'failure_domain_and_distinct_lease_expiries_remain_independent' (6989721) panicked at crates/tickwire-config/tests/static_semantics.rs:66:9:
+assertion failed: changed(mutation).validate_static().is_err()
+
+---- strategy_budget_currency_and_order_bound_match_the_account stdout ----
+
+thread 'strategy_budget_currency_and_order_bound_match_the_account' (6989725) panicked at crates/tickwire-config/tests/static_semantics.rs:77:9:
+assertion failed: changed(mutation).validate_static().is_err()
+
+---- duplicate_identity_missing_references_and_strategy_roles_are_rejected stdout ----
+
+thread 'duplicate_identity_missing_references_and_strategy_roles_are_rejected' (6989720) panicked at crates/tickwire-config/tests/static_semantics.rs:42:9:
+assertion failed: changed(mutation).validate_static().is_err()
+
+---- parameter_depth_and_secret_keys_cannot_hide_inside_freeform_params stdout ----
+
+thread 'parameter_depth_and_secret_keys_cannot_hide_inside_freeform_params' (6989722) panicked at crates/tickwire-config/tests/static_semantics.rs:85:5:
+assertion failed: changed(|v|
+                {
+                    let mut p = json!({"leaf":1});
+                    for _ in 0..16 { p = json!({"nested": p}); }
+                    v["strategies"][0]["params"] = p;
+                }).validate_static().is_err()
+
+
+failures:
+    duplicate_identity_missing_references_and_strategy_roles_are_rejected
+    failure_domain_and_distinct_lease_expiries_remain_independent
+    parameter_depth_and_secret_keys_cannot_hide_inside_freeform_params
+    reference_resource_accounting_matches_independent_deployment_contract
+    shared_cpu_memory_capacity_and_invalid_bank_geometry_are_rejected
+    strategy_budget_currency_and_order_bound_match_the_account
+
+test result: FAILED. 0 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+error: test failed, to rerun pass `-p tickwire-config --test static_semantics`

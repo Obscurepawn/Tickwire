@@ -1,0 +1,39 @@
+[package]
+name = "tickwire-lab"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "=1.0.145"
+ring = "=0.17.14"
+rcgen = "=0.14.10"
+sha2 = "=0.10.9"
+sha1 = "=0.10.6"
+base64 = "=0.22.1"
+tickwire-account = { path = "../tickwire-account" }
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-account-journal = { path = "../tickwire-account-journal" }
+tickwire-app = { path = "../tickwire-app" }
+tickwire-binance-quota = { path = "../tickwire-binance-quota" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-clock-sys = { path = "../tickwire-clock-sys" }
+tickwire-fencing = { path = "../tickwire-fencing" }
+tickwire-lifecycle = { path = "../tickwire-lifecycle" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-market-source = { path = "../tickwire-market-source" }
+tickwire-md = { path = "../tickwire-md" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-release = { path = "../tickwire-release" }
+tickwire-replica = { path = "../tickwire-replica" }
+tickwire-runtime-policy = { path = "../tickwire-runtime-policy" }
+tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }

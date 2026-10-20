@@ -1,0 +1,28 @@
+{
+  "scope": "bounded terminal fee maintenance and same-cut attempt reset; pure units only",
+  "command": "cargo test -p tickwire-app --lib reconciliation::tests -- --nocapture",
+  "tests": [
+    "reconciliation::tests::healthy_terminal_fee_maintenance_is_bounded_and_idle_only",
+    "reconciliation::tests::successful_attempt_reloads_new_orders_in_the_same_private_cut"
+  ],
+  "red": {
+    "compiled": true,
+    "passed": 0,
+    "failed": 2,
+    "log": "red.log"
+  },
+  "green": {
+    "passed": 2,
+    "failed": 0,
+    "log": "green.log"
+  },
+  "source_sha256": {
+    "crates/tickwire-app/src/reconciliation.rs": "e866ed9cf4fa2488da9236a2a03d58e2de3065483f420f539bc6a726d70b986c",
+    "docs/implementation/reconciliation-controller-interface.md": "dc05e8501da270e5d7c5586b87a4bf8efd78178834d0d1b74ebac1e1da9a8b1f",
+    "specs/implementation/reconciliation-controller.md": "51d063e0912e62b6612e2655832f7142ade434e0f0f003c9e8e072e72a2a1c67"
+  },
+  "log_sha256": {
+    "red.log": "07111b276f9ffd74b640feb9b1d10bcf3a4be3f5762e9373dcd3007db9e70074",
+    "green.log": "5096f97d406397d132b9edb006709578c73ee500fc8197082f4427aeb8de82af"
+  }
+}

@@ -1,0 +1,28 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.94s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_sdk-fb8f9840dd9ad1bb)
+
+running 20 tests
+test checkpoint::tests::cached_or_other_challenge_ready_is_not_fresh_checkpoint_completion ... ok
+test recovery::tests::administrative_commands_need_no_new_order_identity ... ok
+test outbound::tests::immutable_command_is_stored_before_a_reference_exists ... ok
+test handover::tests::checkpoint_requires_exact_instance_cut_and_nonempty_strategy_state ... ok
+test recovery::tests::execution_callback_preserves_canonical_record_position_and_actual_time ... ok
+test recovery::tests::input_payloads_keep_complete_ring_and_external_arena_bytes ... ok
+test outbound::tests::full_reference_keeps_digest_triggers_and_explicit_scope ... ok
+test restore::tests::callback_errors_and_invalid_outputs_cannot_finish_restore ... ok
+test handover::tests::account_mirror_seals_ordered_callbacks_and_rejects_missing_or_replayed_records ... ok
+test restore::tests::default_factory_does_not_claim_restore_completion ... ok
+test restore::tests::old_authority_changed_action_and_unknown_schema_are_rejected ... ok
+test restore::tests::spent_legacy_action_is_not_rearmed_and_authority_is_from_target ... ok
+test restore::tests::spent_v2_action_survives_restore_with_changed_threshold ... ok
+test worker::publication_tests::failed_preparation_never_samples_or_publishes ... ok
+test retirement::tests::retirement_reply_cannot_replace_the_requested_cursor_or_evidence ... ok
+test worker::publication_tests::publication_samples_after_preparation_and_checks_the_current_deadline ... ok
+test restore::tests::actual_source_closure_is_checked_before_running_restore ... ok
+test restore::tests::completion_requires_actual_target_output_probe_and_complete_source_callbacks ... ok
+test preflight::tests::every_recovery_input_is_bound_to_the_actual_template_and_artifact_path ... ok
+test handover::tests::objects_rejects_rehashed_inputs_without_the_account_callback ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+

@@ -1,0 +1,39 @@
+
+     Running tests/persistence.rs (/target/debug/deps/persistence-8f743e21266cc8d4)
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... FAILED
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+failures:
+
+---- historical_verifier_failure_and_forged_admission_image_stop_recovery stdout ----
+
+thread 'historical_verifier_failure_and_forged_admission_image_stop_recovery' (18914) panicked at crates/tickwire-account-journal/tests/persistence.rs:30:47:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "lock acquisition failed because the operation would block" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    historical_verifier_failure_and_forged_admission_image_stop_recovery
+
+test result: FAILED. 16 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s
+
+error: test failed, to rerun pass `-p tickwire-account-journal --test persistence`

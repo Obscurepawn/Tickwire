@@ -347,6 +347,30 @@ impl ControlListener {
             }
         }
     }
+    /// Attempts one nonblocking accept. `None` means the queue is empty.
+    /// EINTR is returned as a system error; this method does not retry or poll.
+    pub fn try_accept(&self) -> Result<Option<Connection>> {
+        // SAFETY: null address outputs are permitted; our listener is nonblocking.
+        let fd = unsafe {
+            libc::accept4(
+                self.fd.as_raw_fd(),
+                std::ptr::null_mut(),
+                std::ptr::null_mut(),
+                libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK,
+            )
+        };
+        if fd >= 0 {
+            return Connection::from_fd(owned(fd, "accept4")?).map(Some);
+        }
+        let source = io::Error::last_os_error();
+        if source.kind() == io::ErrorKind::WouldBlock {
+            return Ok(None);
+        }
+        Err(Error::System {
+            operation: "accept4",
+            source,
+        })
+    }
 }
 impl AsFd for ControlListener {
     fn as_fd(&self) -> BorrowedFd<'_> {
@@ -515,57 +539,77 @@ impl Connection {
         let mut bytes = vec![0; MAX_FRAME_BYTES];
         loop {
             remaining_ms(deadline)?;
-            let mut ancillary = AncillaryBuffer::new();
-            let mut iov = libc::iovec {
-                iov_base: bytes.as_mut_ptr().cast(),
-                iov_len: bytes.len(),
-            };
-            // SAFETY: zero is valid for unused msghdr fields.
-            let mut msg: libc::msghdr = unsafe { zeroed() };
-            msg.msg_iov = &mut iov;
-            msg.msg_iovlen = 1;
-            msg.msg_control = ancillary.words.as_mut_ptr().cast();
-            msg.msg_controllen = ancillary.bytes();
-            // SAFETY: all output buffers are writable and live; kernel atomically applies CLOEXEC.
-            let n = unsafe {
-                libc::recvmsg(
-                    self.fd.as_raw_fd(),
-                    &mut msg,
-                    libc::MSG_DONTWAIT | libc::MSG_CMSG_CLOEXEC,
-                )
-            };
-            if n < 0 {
-                match io::Error::last_os_error().kind() {
-                    io::ErrorKind::Interrupted => continue,
-                    io::ErrorKind::WouldBlock => {
-                        ready(&self.fd, libc::POLLIN, deadline)?;
-                        continue;
-                    }
-                    _ => return Err(system("recvmsg")),
-                }
+            match self.recv_once(&mut bytes) {
+                Ok(Some(fds)) => return Ok(ReceivedFrame { bytes, fds }),
+                Ok(None) => ready(&self.fd, libc::POLLIN, deadline)?,
+                Err(Error::System { source, .. })
+                    if source.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error),
             }
-            // This must precede every payload/flag rejection: all delivered FDs are owned.
-            let (fds, malformed) = ancillary.take_fds(msg.msg_controllen)?;
-            if msg.msg_flags & (libc::MSG_TRUNC | libc::MSG_CTRUNC) != 0 {
-                return Err(Error::Truncated);
-            }
-            if malformed {
-                return Err(Error::Ancillary);
-            }
-            if n == 0 {
-                return Err(Error::Closed);
-            }
-            bytes.truncate(n as usize);
-            let frame = tickwire_ipc::ControlFrame::decode(&bytes).map_err(Error::Protocol)?;
-            let expected = usize::from(frame.envelope.fd_count);
-            if fds.len() != expected {
-                return Err(Error::FdCount {
-                    expected,
-                    actual: fds.len(),
-                });
-            }
-            return Ok(ReceivedFrame { bytes, fds });
         }
+    }
+    /// Attempts one nonblocking receive, with the same frame and FD validation as `recv`.
+    /// `None` means no packet is available. EOF remains `Error::Closed`.
+    /// EINTR is returned as a system error; this method does not retry or poll.
+    pub fn try_recv(&mut self) -> Result<Option<ReceivedFrame>> {
+        let mut bytes = vec![0; MAX_FRAME_BYTES];
+        Ok(self
+            .recv_once(&mut bytes)?
+            .map(|fds| ReceivedFrame { bytes, fds }))
+    }
+    // One recvmsg only; owning delivered descriptors and frame validation are shared
+    // by the deadline-based and immediate APIs.
+    fn recv_once(&self, bytes: &mut Vec<u8>) -> Result<Option<Vec<OwnedFd>>> {
+        let mut ancillary = AncillaryBuffer::new();
+        let mut iov = libc::iovec {
+            iov_base: bytes.as_mut_ptr().cast(),
+            iov_len: bytes.len(),
+        };
+        // SAFETY: zero is valid for unused msghdr fields.
+        let mut msg: libc::msghdr = unsafe { zeroed() };
+        msg.msg_iov = &mut iov;
+        msg.msg_iovlen = 1;
+        msg.msg_control = ancillary.words.as_mut_ptr().cast();
+        msg.msg_controllen = ancillary.bytes();
+        // SAFETY: all output buffers are writable and live; kernel atomically applies CLOEXEC.
+        let n = unsafe {
+            libc::recvmsg(
+                self.fd.as_raw_fd(),
+                &mut msg,
+                libc::MSG_DONTWAIT | libc::MSG_CMSG_CLOEXEC,
+            )
+        };
+        if n < 0 {
+            let source = io::Error::last_os_error();
+            if source.kind() == io::ErrorKind::WouldBlock {
+                return Ok(None);
+            }
+            return Err(Error::System {
+                operation: "recvmsg",
+                source,
+            });
+        }
+        // This must precede every payload/flag rejection: all delivered FDs are owned.
+        let (fds, malformed) = ancillary.take_fds(msg.msg_controllen)?;
+        if msg.msg_flags & (libc::MSG_TRUNC | libc::MSG_CTRUNC) != 0 {
+            return Err(Error::Truncated);
+        }
+        if malformed {
+            return Err(Error::Ancillary);
+        }
+        if n == 0 {
+            return Err(Error::Closed);
+        }
+        bytes.truncate(n as usize);
+        let frame = tickwire_ipc::ControlFrame::decode(bytes).map_err(Error::Protocol)?;
+        let expected = usize::from(frame.envelope.fd_count);
+        if fds.len() != expected {
+            return Err(Error::FdCount {
+                expected,
+                actual: fds.len(),
+            });
+        }
+        Ok(Some(fds))
     }
 }
 impl AsFd for Connection {

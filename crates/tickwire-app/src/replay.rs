@@ -105,6 +105,42 @@ struct Historical<'a> {
     input: &'a AccountIngress<FileStore>,
 }
 impl RecoveryVerifier for Historical<'_> {
+    fn verify_income_baseline(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::IncomeBaseline(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_income_baseline(baseline, &account, preceding, binding)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
+    fn verify_handover(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        prior: &[CanonicalRecord],
+    ) -> std::result::Result<(), VerificationError> {
+        tickwire_runtime::authority::verify_handover_objects(
+            &self.persistence,
+            baseline,
+            record,
+            prior,
+        )
+        .map_err(|_| VerificationError::Invalid)
+    }
     fn verify_admission(
         &mut self,
         baseline: &CanonicalBaseline,
@@ -239,6 +275,10 @@ fn pair_input(
     journal: &AccountJournal<FileBackend>,
 ) -> Result<usize> {
     let mut events = BTreeMap::new();
+    let account_inputs: BTreeMap<_, _> = input
+        .account_inputs()
+        .map(|(key, e)| (key.sequence, e))
+        .collect();
     for record in input.stored_events() {
         if let StoredDecision::Bound(event) = record.decision {
             events.insert(record.input.sequence, event);
@@ -257,12 +297,33 @@ fn pair_input(
             ));
         }
     }
+    for (stream, sequence, event) in journal.ingress_account_inputs() {
+        if stream == input.input_stream() && account_inputs.get(&sequence).copied() != Some(event) {
+            return Err(invalid(
+                "account WAL references missing or conflicting account input",
+            ));
+        }
+    }
+    let pending = account_inputs.into_iter().filter(|(sequence,input_event)| {
+        !matches!(journal.ingress_record(input.input_stream(),*sequence),Some(RecoveryRecord::IngressAccountInput{input,..}) if input.as_ref()==*input_event)
+    }).count();
+    let mut pending_imports = 0;
+    for binding in input.income_import_bindings() {
+        let binding = binding?;
+        if !journal.records().iter().any(|r| {
+            matches!(r.record(), RecoveryRecord::IncomeBaseline(applied) if applied.as_ref() == &binding)
+        }) {
+            pending_imports += 1;
+        }
+    }
     Ok(events
         .into_iter()
         .filter(|(sequence, event)| {
             journal.ingress_event(input.input_stream(), *sequence) != Some(*event)
         })
-        .count())
+        .count()
+        + pending
+        + pending_imports)
 }
 fn report(recovered: &Recovered) -> Result<Value> {
     let baseline = recovered.journal.baseline();
@@ -295,7 +356,7 @@ fn report(recovered: &Recovered) -> Result<Value> {
         let o = account
             .order(key)
             .ok_or_else(|| invalid("missing account order"))?;
-        let item = json!({"intent_epoch":key.intent.epoch,"intent_id":key.intent.intent_id,"client_id":key.client_id.as_str(),"command_sha256":hex(&o.command_digest),"strategy_id":o.strategy,"original_quantity":fixed(o.original_quantity),"filled_quantity":fixed(o.filled_quantity),"remaining_quantity":fixed(o.remaining_quantity),"reduce_allocation":fixed(o.reduce_allocation),"unknown":o.unknown,"terminal":o.terminal,"fee_reconciled":o.fee_reconciled,"aborted":o.aborted,"confirmed":o.confirmed});
+        let item = json!({"intent_epoch":key.intent.epoch,"intent_id":key.intent.intent_id,"client_id":key.client_id.as_str(),"command_sha256":hex(&o.command_digest),"strategy_id":o.strategy,"origin_instance":hex(&o.origin.instance),"origin_generation":o.origin.generation,"manager_instance":hex(&o.manager.instance),"manager_generation":o.manager.generation,"owner_revision":o.owner_revision,"original_quantity":fixed(o.original_quantity),"filled_quantity":fixed(o.filled_quantity),"remaining_quantity":fixed(o.remaining_quantity),"reduce_allocation":fixed(o.reduce_allocation),"unknown":o.unknown,"terminal":o.terminal,"fee_reconciled":o.fee_reconciled,"aborted":o.aborted,"confirmed":o.confirmed});
         if !o.aborted && (!o.terminal || !o.fee_reconciled || o.unknown) {
             pending.push(json!({"intent_epoch":key.intent.epoch,"intent_id":key.intent.intent_id,"client_id":key.client_id.as_str(),"unknown":o.unknown,"open":!o.terminal,"fees_pending":!o.fee_reconciled}));
         }
@@ -326,6 +387,9 @@ fn kind(record: &RecoveryRecord) -> &'static str {
         RecoveryRecord::TransferPosition { .. } => "transfer_position",
         RecoveryRecord::IngressEvent { .. } => "ingress_event",
         RecoveryRecord::Reactivated(_) => "reactivated",
+        RecoveryRecord::StrategyHandover(_) => "strategy_handover",
+        RecoveryRecord::IngressAccountInput { .. } => "ingress_account_input",
+        RecoveryRecord::IncomeBaseline(_) => "income_baseline",
     }
 }
 #[derive(Default)]
@@ -486,6 +550,10 @@ impl Drop for Scratch {
         let _ = fs::remove_dir_all(&self.0);
     }
 }
+
+#[cfg(test)]
+#[path = "replay_income_tests.rs"]
+mod income_tests;
 
 #[cfg(test)]
 mod tests {

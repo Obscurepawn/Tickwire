@@ -1,0 +1,648 @@
+{
+  "identity": {
+    "instance": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "generation": 1,
+    "role": 2,
+    "logical_strategy": 0,
+    "host_boot": [
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8
+    ],
+    "namespace": [
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9,
+      9
+    ],
+    "build_hash": [
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10
+    ],
+    "qualification_hash": [
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11,
+      11
+    ],
+    "manifest_hash": [
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12,
+      12
+    ],
+    "arch": 2,
+    "trust_profile": 1
+  },
+  "clock_generation": 1,
+  "socket": "/opt/tickwire/md/market.sock",
+  "admission_directory": "/opt/tickwire/md/admissions",
+  "quota_directory": "/opt/tickwire/md/quota",
+  "quota": {
+    "supervisor_generation": 1,
+    "consumer_instance": [
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40,
+      40
+    ],
+    "consumer_generation": 1,
+    "consumer_lease_until_ns": 1000000000000000,
+    "producer_id": [
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41,
+      41
+    ],
+    "policy_generation": 1,
+    "policy_starts_ns": 0,
+    "policy_ends_ns": 1000000000000000,
+    "windows": [
+      {
+        "name": "approved-md-budget",
+        "namespace": [
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30,
+          30
+        ],
+        "scope": "ip",
+        "subject": [
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31,
+          31
+        ],
+        "pool": 1,
+        "window": 1,
+        "revision": 1,
+        "starts_ns": 0,
+        "ends_ns": 1000000000000000,
+        "limit": 1000,
+        "recovery_reserve": 100
+      }
+    ],
+    "grants": [
+      {
+        "request_id": 1,
+        "class": "normal",
+        "expires_ns": 1000000000000000,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 900
+          }
+        ]
+      }
+    ],
+    "rules": [
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "stream",
+          "kind": "connect"
+        },
+        "class": "normal",
+        "api_weight": 0,
+        "websocket_messages": 0,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 1
+          }
+        ]
+      },
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "stream",
+          "kind": "upgrade"
+        },
+        "class": "normal",
+        "api_weight": 0,
+        "websocket_messages": 0,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 1
+          }
+        ]
+      },
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "stream",
+          "kind": "subscribe"
+        },
+        "class": "normal",
+        "api_weight": 0,
+        "websocket_messages": 1,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 1
+          }
+        ]
+      },
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "stream",
+          "kind": "pong"
+        },
+        "class": "normal",
+        "api_weight": 0,
+        "websocket_messages": 1,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 1
+          }
+        ]
+      },
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "stream",
+          "kind": "close"
+        },
+        "class": "normal",
+        "api_weight": 0,
+        "websocket_messages": 1,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 1
+          }
+        ]
+      },
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "snapshot",
+          "kind": "connect"
+        },
+        "class": "normal",
+        "api_weight": 0,
+        "websocket_messages": 0,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 1
+          }
+        ]
+      },
+      {
+        "source": "spot_production",
+        "action": {
+          "family": "public",
+          "lane": "snapshot",
+          "kind": "snapshot"
+        },
+        "class": "normal",
+        "api_weight": 250,
+        "websocket_messages": 0,
+        "costs": [
+          {
+            "window": "approved-md-budget",
+            "units": 250
+          }
+        ]
+      }
+    ]
+  },
+  "control_directory": "/opt/tickwire/md/control",
+  "control_stream": [
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50,
+    50
+  ],
+  "control_domain": [
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51,
+    51
+  ],
+  "control_writer_epoch": 1,
+  "feeds": [
+    {
+      "owner_id": [
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233,
+        233
+      ],
+      "source": "spot_production",
+      "instrument": {
+        "id": 1001,
+        "version": 1,
+        "catalog_version": 1,
+        "catalog_hash": [
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34
+        ],
+        "symbol": "BTCUSDT",
+        "base": {
+          "id": 1,
+          "version": 1,
+          "symbol": "BTC",
+          "exponent": -8
+        },
+        "quote": {
+          "id": 3,
+          "version": 1,
+          "symbol": "USDT",
+          "exponent": -8
+        },
+        "settlement": {
+          "id": 3,
+          "version": 1,
+          "symbol": "USDT",
+          "exponent": -8
+        },
+        "price_tick": "0.01",
+        "quantity_step": "0.00001",
+        "expiry_utc_ns": null
+      },
+      "venue_id": 1,
+      "stream_id": 1001,
+      "first_connection_epoch": 1,
+      "first_operation": 1,
+      "initial_book_generation": 1,
+      "snapshot_limit": 5000,
+      "stream_address": "stream.binance.com:9443",
+      "snapshot_address": "api.binance.com:443",
+      "trust_anchors": [
+        "/opt/tickwire/ca/root.der"
+      ],
+      "topics": [
+        101,
+        102
+      ]
+    },
+    {
+      "owner_id": [
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234,
+        234
+      ],
+      "source": "spot_production",
+      "instrument": {
+        "id": 1002,
+        "version": 1,
+        "catalog_version": 1,
+        "catalog_hash": [
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34,
+          34
+        ],
+        "symbol": "ETHUSDT",
+        "base": {
+          "id": 2,
+          "version": 1,
+          "symbol": "ETH",
+          "exponent": -8
+        },
+        "quote": {
+          "id": 3,
+          "version": 1,
+          "symbol": "USDT",
+          "exponent": -8
+        },
+        "settlement": {
+          "id": 3,
+          "version": 1,
+          "symbol": "USDT",
+          "exponent": -8
+        },
+        "price_tick": "0.01",
+        "quantity_step": "0.0001",
+        "expiry_utc_ns": null
+      },
+      "venue_id": 1,
+      "stream_id": 1002,
+      "first_connection_epoch": 1,
+      "first_operation": 1,
+      "initial_book_generation": 1,
+      "snapshot_limit": 5000,
+      "stream_address": "stream.binance.com:9443",
+      "snapshot_address": "api.binance.com:443",
+      "trust_anchors": [
+        "/opt/tickwire/ca/root.der"
+      ],
+      "topics": [
+        101
+      ]
+    }
+  ],
+  "topics": [
+    {
+      "resource": "/opt/tickwire/md/topic-101.bin",
+      "instrument_set_version": 1,
+      "maximum_levels": 5000,
+      "maximum_cache_bytes": 1048576,
+      "maximum_snapshot_bytes": 2097152,
+      "maximum_delta_bytes": 2097152
+    },
+    {
+      "resource": "/opt/tickwire/md/topic-102.bin",
+      "instrument_set_version": 1,
+      "maximum_levels": 5000,
+      "maximum_cache_bytes": 1048576,
+      "maximum_snapshot_bytes": 2097152,
+      "maximum_delta_bytes": 2097152
+    }
+  ],
+  "maximum_idle_ns": 1000000
+}

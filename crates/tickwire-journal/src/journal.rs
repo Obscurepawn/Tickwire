@@ -152,6 +152,7 @@ pub struct Journal<S: Store> {
     manifest: ManifestBody,
     position: Position,
     poisoned: bool,
+    durable: Option<PhysicalFrontier>,
 }
 impl<S: Store> Journal<S> {
     pub fn create(mut store: S, config: Config) -> Result<Self, Error> {
@@ -172,6 +173,7 @@ impl<S: Store> Journal<S> {
             manifest,
             position: Position::empty(),
             poisoned: false,
+            durable: None,
         })
     }
     /// Validate all bytes before truncating only the last unfinished batch.
@@ -364,6 +366,7 @@ impl<S: Store> Journal<S> {
                 manifest,
                 position,
                 poisoned: false,
+                durable: recovery.frontier.clone(),
             },
             recovery,
         ))
@@ -479,9 +482,166 @@ impl<S: Store> Journal<S> {
         }
         self.position = next;
         self.manifest = manifest;
-        Ok(PhysicalSyncReceipt {
-            frontier: self.position.frontier(&self.manifest.config),
+        let frontier = self.position.frontier(&self.manifest.config);
+        self.durable = Some(frontier.clone());
+        Ok(PhysicalSyncReceipt { frontier })
+    }
+    pub fn durable_frontier(&self) -> Option<&PhysicalFrontier> {
+        self.durable.as_ref()
+    }
+    /// Export only bytes covered by a completed synchronization. The capability
+    /// cannot be constructed from caller-supplied records or a naked watermark.
+    pub fn export_durable(
+        &mut self,
+        first_seq: u64,
+        max_records: usize,
+        max_bytes: usize,
+    ) -> Result<DurableExport, Error> {
+        if self.poisoned {
+            return Err(Error::Poisoned);
+        }
+        if first_seq == 0
+            || max_records == 0
+            || max_records > BATCH_MAX_RECORDS
+            || max_bytes == 0
+            || max_bytes > BATCH_MAX_BYTES
+        {
+            return Err(Error::Invalid("export bounds"));
+        }
+        let frontier = self.durable.clone();
+        let terminal = frontier.as_ref().map_or(0, |f| f.last_seq);
+        if first_seq > terminal.saturating_add(1) {
+            return Err(Error::Invalid("export sequence gap"));
+        }
+        let mut records = Vec::new();
+        let mut retained = 0usize;
+        let mut full = false;
+        let mut hash = [0; 32];
+        let mut lsn = 0u64;
+        let mut seq = 0u64;
+        let mut batch = 0u64;
+        let mut epoch = 0u64;
+        let mut open: Option<(u64, u64, u64)> = None;
+        if let Some(end) = &frontier {
+            for id in 1..=end.segment_id {
+                let bytes = self
+                    .store
+                    .read_segment(id, self.manifest.config.segment_max_bytes)?;
+                let limit = if id == end.segment_id {
+                    usize::try_from(end.end_offset)
+                        .map_err(|_| Error::Quarantined("export offset"))?
+                } else {
+                    bytes.len()
+                };
+                if limit > bytes.len() || limit == 0 {
+                    return Err(Error::Quarantined("export missing durable bytes"));
+                }
+                let mut offset = 0usize;
+                while offset < limit {
+                    let f = frame::decode(&bytes[offset..limit])?;
+                    let h = &f.header;
+                    if h.stream_epoch != self.manifest.config.stream_epoch
+                        || h.domain != self.manifest.config.domain
+                        || h.segment_id != id
+                        || h.lsn != lsn
+                        || h.previous_hash != hash
+                    {
+                        return Err(Error::Quarantined("export physical chain"));
+                    }
+                    match (open, h.frame_type) {
+                        (None, FrameType::BatchBegin)
+                            if h.record_seq
+                                == seq
+                                    .checked_add(1)
+                                    .ok_or(Error::Quarantined("export sequence"))?
+                                && h.batch_number
+                                    == batch
+                                        .checked_add(1)
+                                        .ok_or(Error::Quarantined("export batch"))?
+                                && h.exec_epoch > 0
+                                && h.exec_epoch >= epoch
+                                && f.payload.is_empty() =>
+                        {
+                            open = Some((h.batch_number, h.exec_epoch, 0));
+                        }
+                        (Some((number, owner, count)), FrameType::DataRecord)
+                            if h.batch_number == number
+                                && h.exec_epoch == owner
+                                && h.record_seq
+                                    == seq
+                                        .checked_add(1)
+                                        .ok_or(Error::Quarantined("export sequence"))?
+                                && count < BATCH_MAX_RECORDS as u64 =>
+                        {
+                            seq = h.record_seq;
+                            open = Some((number, owner, count + 1));
+                            if seq >= first_seq && !full {
+                                if records.len() >= max_records
+                                    || retained
+                                        .checked_add(f.payload.len())
+                                        .is_none_or(|n| n > max_bytes)
+                                {
+                                    full = true;
+                                } else {
+                                    retained += f.payload.len();
+                                    records.push(Record {
+                                        seq,
+                                        exec_epoch: owner,
+                                        payload: f.payload.to_vec(),
+                                    });
+                                }
+                            }
+                        }
+                        (Some((number, owner, count)), FrameType::BatchSeal)
+                            if count > 0
+                                && h.batch_number == number
+                                && h.exec_epoch == owner
+                                && h.record_seq == seq
+                                && f.payload.is_empty() =>
+                        {
+                            batch = number;
+                            epoch = owner;
+                            open = None;
+                        }
+                        _ => return Err(Error::Quarantined("export batch structure")),
+                    }
+                    offset = offset
+                        .checked_add(f.total_len)
+                        .ok_or(Error::Quarantined("export offset"))?;
+                    lsn = lsn
+                        .checked_add(f.total_len as u64)
+                        .ok_or(Error::Quarantined("export LSN"))?;
+                    hash = f.hash;
+                }
+                if open.is_some() {
+                    return Err(Error::Quarantined("export unsealed segment"));
+                }
+            }
+            if seq != end.last_seq
+                || hash != end.seal_hash
+                || lsn != end.end_lsn
+                || batch != end.batch_number
+                || epoch != end.exec_epoch
+            {
+                return Err(Error::Quarantined("export frontier changed"));
+            }
+        }
+        if first_seq <= terminal && records.is_empty() {
+            return Err(Error::Invalid("export record exceeds requested byte bound"));
+        }
+        Ok(DurableExport {
+            config: self.manifest.config.clone(),
+            frontier,
+            records,
         })
+    }
+    /// Consumes the writer and keeps its storage lock. The returned owner has no
+    /// append/into_store method; fencing of other execution outputs is separate.
+    pub fn close_for_recovery(self) -> Result<ClosedJournal<S>, Error> {
+        if self.poisoned {
+            return Err(Error::Poisoned);
+        }
+        Ok(ClosedJournal { journal: self })
     }
     pub fn into_store(self) -> S {
         self.store
@@ -489,5 +649,42 @@ impl<S: Store> Journal<S> {
     /// The persisted stream identity, including when the journal is empty.
     pub fn config(&self) -> &Config {
         &self.manifest.config
+    }
+}
+
+/// Content read back from a journal's synchronized prefix.
+pub struct DurableExport {
+    config: Config,
+    frontier: Option<PhysicalFrontier>,
+    records: Vec<Record>,
+}
+impl DurableExport {
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+    pub fn frontier(&self) -> Option<&PhysicalFrontier> {
+        self.frontier.as_ref()
+    }
+    pub fn records(&self) -> &[Record] {
+        &self.records
+    }
+}
+pub struct ClosedJournal<S: Store> {
+    journal: Journal<S>,
+}
+impl<S: Store> ClosedJournal<S> {
+    pub fn config(&self) -> &Config {
+        self.journal.config()
+    }
+    pub fn durable_frontier(&self) -> Option<&PhysicalFrontier> {
+        self.journal.durable_frontier()
+    }
+    pub fn export_durable(
+        &mut self,
+        first: u64,
+        records: usize,
+        bytes: usize,
+    ) -> Result<DurableExport, Error> {
+        self.journal.export_durable(first, records, bytes)
     }
 }

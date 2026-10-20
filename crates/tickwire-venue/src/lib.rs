@@ -1,10 +1,12 @@
 //! Immutable, bounded exchange commands and facts with deterministic CBOR identities.
 #![forbid(unsafe_code)]
 
+mod account;
 mod cbor;
 mod codec;
 mod types;
 mod validate;
+pub use account::*;
 use codec::Codec;
 use sha2::{Digest, Sha256};
 pub use types::*;

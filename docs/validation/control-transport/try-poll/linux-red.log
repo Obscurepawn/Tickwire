@@ -1,0 +1,57 @@
+Linux 6.8.0-117-generic aarch64 GNU/Linux
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+   Compiling version_check v0.9.5
+   Compiling generic-array v0.14.7
+   Compiling typenum v1.20.1
+   Compiling libc v0.2.191
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling cpufeatures v0.2.17
+   Compiling cfg-if v1.0.5
+   Compiling sha2 v0.10.9
+   Compiling tickwire-ipc v0.1.0 (/work/crates/tickwire-ipc)
+   Compiling tickwire-control-sys v0.1.0 (/work/crates/tickwire-control-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.39s
+     Running tests/transport.rs (/target/linux-control-try/debug/deps/transport-0d9e6ecc6e6c80e0)
+
+running 3 tests
+test try_accept_observes_empty_and_already_queued_connections ... 
+thread 'try_accept_observes_empty_and_already_queued_connections' (355) panicked at crates/tickwire-control-sys/tests/transport.rs:125:35:
+called `Result::unwrap()` on an `Err` value: Timeout
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+test try_recv_drains_queued_frames_and_fds_before_closed ... 
+thread 'try_recv_drains_queued_frames_and_fds_before_closed' (356) panicked at crates/tickwire-control-sys/tests/transport.rs:151:31:
+called `Result::unwrap()` on an `Err` value: Timeout
+FAILED
+test try_recv_malformed_packets_close_all_fds_in_isolated_process ... 
+running 1 test
+test rejection_child ... 
+thread 'rejection_child' (359) panicked at crates/tickwire-control-sys/tests/transport.rs:442:22:
+short: unexpected Timeout
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    rejection_child
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.00s
+
+
+thread 'try_recv_malformed_packets_close_all_fds_in_isolated_process' (357) panicked at crates/tickwire-control-sys/tests/transport.rs:351:13:
+child failed: exit status: 101
+FAILED
+
+failures:
+
+failures:
+    try_accept_observes_empty_and_already_queued_connections
+    try_recv_drains_queued_frames_and_fds_before_closed
+    try_recv_malformed_packets_close_all_fds_in_isolated_process
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-control-sys --test transport`

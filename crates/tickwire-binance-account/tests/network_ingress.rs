@@ -27,6 +27,7 @@ fn config(b: &tickwire_account_codec::CanonicalBaseline) -> Config {
         baseline: b.clone(),
         account_stream: [2; 16],
         max_records: 64,
+        income_baseline_authority: None,
         max_registrations: 16,
         max_raw_bytes: 32_768,
         max_retained_bytes: 1 << 20,

@@ -16,8 +16,10 @@ impl<S: Store> AccountIngress<S> {
             return Err(Error::Identity);
         }
         for record in &self.records {
-            if let Record::Rest(rest)=record {
-                if gateway.command(intent(&rest.command))!=Some(&rest.command) {return Err(Error::Identity);}
+            if let Record::Rest(rest) = record
+                && gateway.command(intent(&rest.command)) != Some(&rest.command)
+            {
+                return Err(Error::Identity);
             }
         }
         // Every already-applied key in this input stream must have its exact input.
@@ -28,11 +30,24 @@ impl<S: Store> AccountIngress<S> {
                     .ok()
                     .and_then(|n| n.checked_sub(1))
                     .ok_or(Error::Identity)?;
-                if self.effect(index) != Some(event)
-                {
+                if self.effect(index) != Some(event) {
                     return Err(Error::Identity);
                 }
             }
+        }
+        for (stream, sequence, event) in gateway.ingress_account_inputs() {
+            if stream == self.config.physical.stream_epoch {
+                let index = usize::try_from(sequence)
+                    .ok()
+                    .and_then(|n| n.checked_sub(1))
+                    .ok_or(Error::Identity)?;
+                if self.account_effect(index) != Some(event) {
+                    return Err(Error::Identity);
+                }
+            }
+        }
+        for binding in gateway.account().income_baselines() {
+            self.income_coverage_object(binding)?;
         }
         Ok(())
     }
@@ -69,7 +84,10 @@ impl<S: Store> AccountIngress<S> {
                     return Err(error);
                 }
             }
-            v::CommandBody::Cancel(_) | v::CommandBody::Query(_) | v::CommandBody::CancelList(_) if ids.is_empty() => {}
+            v::CommandBody::Cancel(_)
+            | v::CommandBody::Query(_)
+            | v::CommandBody::CancelList(_)
+                if ids.is_empty() => {}
             _ => return Err(Error::Unsupported),
         }
         gateway
@@ -153,6 +171,21 @@ impl<S: Store> AccountIngress<S> {
                     }
                 }
             }
+            Decision::AccountBound(event) => {
+                match gateway.record_account_input(key.stream, key.sequence, *event) {
+                    Ok(applied) => {
+                        self.cursor = self.records.len();
+                        Ok(Outcome::Applied {
+                            input: key,
+                            applied,
+                        })
+                    }
+                    Err(error) => {
+                        self.stopped = true;
+                        Err(Error::Gateway(error))
+                    }
+                }
+            }
             Decision::Quarantine(reason) => {
                 self.cursor = self.records.len();
                 Ok(Outcome::Quarantined { input: key, reason })
@@ -164,6 +197,29 @@ impl<S: Store> AccountIngress<S> {
         gateway: &AccountGateway<B, A, E>,
         event: &PrivateEvent<'_>,
     ) -> Decision {
+        if matches!(
+            event.body(),
+            tickwire_binance::events::PrivateBody::UsdmAccount { .. }
+        ) {
+            let Ok(input) = account_facts::bind_observation(
+                &self.config.baseline,
+                event.session().identity(),
+                event.body(),
+                event.event_time_ns(),
+                event.transaction_time_ns(),
+            ) else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            if gateway
+                .account()
+                .clone()
+                .apply_account_input(&input)
+                .is_err()
+            {
+                return Decision::Quarantine(QuarantineReason::AccountRejected);
+            }
+            return Decision::AccountBound(Box::new(input));
+        }
         let tickwire_binance::events::PrivateBody::Order(order) = event.body() else {
             return Decision::Quarantine(QuarantineReason::AccountReconciliation);
         };
@@ -265,6 +321,24 @@ impl<S: Store> AccountIngress<S> {
             {
                 self.stopped = true;
                 return Err(Error::Gateway(error));
+            }
+            if let Some(input) = self.account_effect(self.cursor)
+                && let Err(error) = gateway.record_account_input(
+                    self.config.physical.stream_epoch,
+                    self.cursor as u64 + 1,
+                    input.clone(),
+                )
+            {
+                self.stopped = true;
+                return Err(Error::Gateway(error));
+            }
+            if let Record::IncomeImport(record) = &self.records[self.cursor] {
+                let binding = self.import_binding(record, self.cursor as u64 + 1)?;
+                if gateway.account().income_baseline(binding.wallet_id) != Some(&binding) {
+                    gateway
+                        .install_income_baseline(binding, &mut self.activation_verifier())
+                        .map_err(Error::Gateway)?;
+                }
             }
             self.cursor += 1;
             processed += 1;

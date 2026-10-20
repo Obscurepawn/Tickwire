@@ -26,6 +26,9 @@ impl ControlListener {
     pub fn accept(&self, _deadline: Instant) -> Result<Connection> {
         Err(Error::UnsupportedPlatform)
     }
+    pub fn try_accept(&self) -> Result<Option<Connection>> {
+        Err(Error::UnsupportedPlatform)
+    }
 }
 pub struct Connection {
     _private: (),
@@ -46,6 +49,9 @@ impl Connection {
         Err(Error::UnsupportedPlatform)
     }
     pub fn recv(&mut self, _deadline: Instant) -> Result<ReceivedFrame> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn try_recv(&mut self) -> Result<Option<ReceivedFrame>> {
         Err(Error::UnsupportedPlatform)
     }
 }

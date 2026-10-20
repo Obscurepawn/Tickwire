@@ -5,17 +5,19 @@ use tickwire_account::{Applied, IntentKey};
 use tickwire_account_codec::CanonicalBaseline;
 use tickwire_journal::{Journal, PhysicalFrontier, store::Store};
 use tickwire_venue::{self as v, CanonicalCommand, CanonicalEvent};
+pub mod account_facts;
 mod codec;
-mod registry;
-mod runtime;
-pub mod rest;
 pub mod reconciliation;
+mod registry;
+pub mod rest;
+mod runtime;
 use codec::Record;
 use registry::Registration;
 pub const MAX_RECORD_BYTES: usize = 60 * 1024;
 
 #[derive(Clone)]
 pub struct Config {
+    pub income_baseline_authority: Option<reconciliation::income_import::IncomeBaselineAuthority>,
     pub physical: tickwire_journal::Config,
     pub writer_epoch: u64,
     pub baseline: CanonicalBaseline,
@@ -80,6 +82,7 @@ pub enum Outcome {
 #[derive(Clone, Copy, Debug)]
 pub enum StoredDecision<'a> {
     Bound(&'a CanonicalEvent),
+    AccountBound(&'a v::CanonicalAccountInput),
     Quarantine(QuarantineReason),
 }
 #[derive(Clone, Copy)]
@@ -103,6 +106,7 @@ struct SourceMeta {
 #[derive(Clone)]
 enum Decision {
     Bound(Box<CanonicalEvent>),
+    AccountBound(Box<v::CanonicalAccountInput>),
     Quarantine(QuarantineReason),
 }
 pub struct AccountIngress<S: Store> {
@@ -113,6 +117,22 @@ pub struct AccountIngress<S: Store> {
     retained: usize,
     cursor: usize,
     stopped: bool,
+}
+impl<S: Store> AccountIngress<S> {
+    /// Consume the input owner and retain its exclusive storage lock without append access.
+    pub fn close_for_recovery(self) -> Result<tickwire_journal::ClosedJournal<S>> {
+        self.journal.close_for_recovery().map_err(Into::into)
+    }
+    pub fn export_durable(
+        &mut self,
+        first_sequence: u64,
+        maximum_records: usize,
+        maximum_bytes: usize,
+    ) -> Result<tickwire_journal::DurableExport> {
+        self.journal
+            .export_durable(first_sequence, maximum_records, maximum_bytes)
+            .map_err(Into::into)
+    }
 }
 impl<S: Store> AccountIngress<S> {
     pub fn create(store: S, config: Config) -> Result<Self> {
@@ -156,7 +176,7 @@ impl<S: Store> AccountIngress<S> {
         };
         let expected = codec::config(&input.config);
         let mut writer = 0;
-        let mut effects: Option<(u64,usize,usize)> = None;
+        let mut effects: Option<(u64, usize, usize, bool)> = None;
         for physical in recovered.records {
             if physical.seq != input.records.len() as u64 + 1
                 || physical.exec_epoch < writer
@@ -167,7 +187,14 @@ impl<S: Store> AccountIngress<S> {
             }
             writer = physical.exec_epoch;
             let record = codec::decode(&physical.payload)?;
-            if effects.is_some() && !matches!(record,Record::RestEffect{..}) {return Err(Error::Identity);}
+            if effects.is_some()
+                && !matches!(
+                    record,
+                    Record::RestEffect { .. } | Record::IncomeEffect { .. }
+                )
+            {
+                return Err(Error::Identity);
+            }
             match &record {
                 Record::Config(bytes) if input.records.is_empty() && *bytes == expected => {}
                 Record::Config(_) => return Err(Error::Identity),
@@ -191,20 +218,73 @@ impl<S: Store> AccountIngress<S> {
                     if let Decision::Bound(event) = decision {
                         input.check_event(meta, event)?;
                         registry::learn(&mut input.registry, event)?;
+                    } else if let Decision::AccountBound(event) = decision {
+                        input.check_account_event(meta, raw, event)?;
                     }
                 }
-                Record::Snapshot(record) => {if record.raw.len()>input.config.max_raw_bytes {return Err(Error::Capacity);}}
+                Record::Snapshot(record) => {
+                    if record.raw.len() > input.config.max_raw_bytes {
+                        return Err(Error::Capacity);
+                    }
+                }
                 Record::Rest(record) => {
                     input.validate_rest(record)?;
-                    if record.command.command().context.request.intent_exec_epoch>physical.exec_epoch {return Err(Error::Identity);}
-                    if !record.events.is_empty() {effects=Some((physical.seq,0,record.events.len()));}
+                    if record.command.command().context.request.intent_exec_epoch
+                        > physical.exec_epoch
+                    {
+                        return Err(Error::Identity);
+                    }
+                    if !record.events.is_empty() {
+                        effects = Some((physical.seq, 0, record.events.len(), false));
+                    }
                 }
-                Record::RestEffect{response,index} => {
-                    let Some((expected,next,count))=effects else{return Err(Error::Identity);};
-                    if *response!=expected || *index as usize!=next || physical.seq!=expected+next as u64+1 {return Err(Error::Identity);}
-                    let Some(Record::Rest(header))=input.records.get(expected as usize-1) else{return Err(Error::Identity);};
-                    registry::learn(&mut input.registry,&header.events[next])?;
-                    effects=if next+1==count{None}else{Some((expected,next+1,count))};
+                Record::IncomeImport(record) => {
+                    input.validate_import(record, physical.seq, physical.exec_epoch)?;
+                }
+                Record::Income(record) => {
+                    input.validate_income(record)?;
+                    if record.query.purpose == reconciliation::income::IncomeUse::Account
+                        && !record.rows.is_empty()
+                    {
+                        effects = Some((physical.seq, 0, record.rows.len(), true));
+                    }
+                }
+                Record::IncomeEffect { response, index } => {
+                    let Some((expected, next, count, true)) = effects else {
+                        return Err(Error::Identity);
+                    };
+                    if *response != expected
+                        || *index as usize != next
+                        || physical.seq != expected + next as u64 + 1
+                    {
+                        return Err(Error::Identity);
+                    }
+                    effects = if next + 1 == count {
+                        None
+                    } else {
+                        Some((expected, next + 1, count, true))
+                    };
+                }
+                Record::RestEffect { response, index } => {
+                    let Some((expected, next, count, false)) = effects else {
+                        return Err(Error::Identity);
+                    };
+                    if *response != expected
+                        || *index as usize != next
+                        || physical.seq != expected + next as u64 + 1
+                    {
+                        return Err(Error::Identity);
+                    }
+                    let Some(Record::Rest(header)) = input.records.get(expected as usize - 1)
+                    else {
+                        return Err(Error::Identity);
+                    };
+                    registry::learn(&mut input.registry, &header.events[next])?;
+                    effects = if next + 1 == count {
+                        None
+                    } else {
+                        Some((expected, next + 1, count, false))
+                    };
                 }
                 // Epoch zero is the authenticated owner's initial disconnected
                 // gap, before its first network connection has been assigned.
@@ -222,7 +302,9 @@ impl<S: Store> AccountIngress<S> {
             }
             input.records.push(record);
         }
-        if effects.is_some() {return Err(Error::Identity);}
+        if effects.is_some() {
+            return Err(Error::Identity);
+        }
         Ok(input)
     }
     pub fn register_command(&mut self, command: CanonicalCommand, ids: &[[u8; 16]]) -> Result<()> {
@@ -259,8 +341,12 @@ impl<S: Store> AccountIngress<S> {
     pub fn position(&self) -> u64 {
         self.records.len() as u64
     }
-    pub fn applied_position(&self) -> u64 { self.cursor as u64 }
-    pub fn input_stream(&self) -> [u8;16] { self.config.physical.stream_epoch }
+    pub fn applied_position(&self) -> u64 {
+        self.cursor as u64
+    }
+    pub fn input_stream(&self) -> [u8; 16] {
+        self.config.physical.stream_epoch
+    }
     pub fn stopped(&self) -> bool {
         self.stopped
     }
@@ -301,6 +387,7 @@ impl<S: Store> AccountIngress<S> {
                     raw,
                     decision: match decision {
                         Decision::Bound(event) => StoredDecision::Bound(event),
+                        Decision::AccountBound(event) => StoredDecision::AccountBound(event),
                         Decision::Quarantine(reason) => StoredDecision::Quarantine(*reason),
                     },
                 })
@@ -334,6 +421,49 @@ impl<S: Store> AccountIngress<S> {
             stream: self.config.physical.stream_epoch,
             sequence: self.position(),
         })
+    }
+    fn check_account_event(
+        &self,
+        meta: &SourceMeta,
+        raw: &[u8],
+        event: &v::CanonicalAccountInput,
+    ) -> Result<()> {
+        let actual = account_facts::decode_observation(
+            &self.config.baseline,
+            meta,
+            raw,
+            self.config.max_raw_bytes,
+        )?;
+        if &actual != event {
+            return Err(Error::Identity);
+        }
+        Ok(())
+    }
+    pub fn account_inputs(&self) -> impl Iterator<Item = (InputKey, &v::CanonicalAccountInput)> {
+        self.records.iter().enumerate().filter_map(|(index, _)| {
+            self.account_effect(index).map(|e| {
+                (
+                    InputKey {
+                        stream: self.input_stream(),
+                        sequence: index as u64 + 1,
+                    },
+                    e,
+                )
+            })
+        })
+    }
+    pub(crate) fn account_effect(&self, index: usize) -> Option<&v::CanonicalAccountInput> {
+        match self.records.get(index)? {
+            Record::Event(_, _, Decision::AccountBound(event)) => Some(event),
+            Record::IncomeEffect { response, index } => match self
+                .records
+                .get(usize::try_from(*response).ok()?.checked_sub(1)?)?
+            {
+                Record::Income(record) => record.rows.get(*index as usize),
+                _ => None,
+            },
+            _ => None,
+        }
     }
     fn check_event(&self, meta: &SourceMeta, event: &CanonicalEvent) -> Result<()> {
         let id = &event.event().identity;
@@ -378,6 +508,9 @@ fn product(config: &Config) -> Result<v::Product> {
     Ok(p)
 }
 fn validate_config(config: &Config) -> Result<()> {
+    if let Some(authority) = &config.income_baseline_authority {
+        authority.validate()?;
+    }
     if config.physical.domain != config.baseline.snapshot().scope.risk_domain_id
         || config.account_stream == [0; 16]
         || config.account_stream == config.physical.stream_epoch

@@ -1,0 +1,12 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.89s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_binance_account-a03cc569f55f2b5b)
+
+running 3 tests
+test reconciliation::income::tests::income_preserves_exchange_key_signed_amount_and_component_reference ... ok
+test reconciliation::income::tests::income_bounds_duplicate_keys_and_saturation_are_explicit ... ok
+test reconciliation::income::tests::scan_covers_every_interval_leaf_and_rejects_saturated_millisecond ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+

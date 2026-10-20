@@ -11,6 +11,8 @@ use tickwire_clock::{ClockDomain, MonoTime};
 use tickwire_runtime::authority::GateProvider;
 use tickwire_venue::{CanonicalCommand, CommandBody, Hash, Product};
 pub mod bootstrap;
+mod lifecycle;
+pub use lifecycle::{HandoverBinding, HandoverGate};
 pub const MAX_STRATEGIES: usize = 1024;
 pub const MAX_FEEDS: usize = 256;
 pub const MAX_FEED_MARKS: usize = 1024;
@@ -197,6 +199,9 @@ impl PolicyClock for tickwire_clock_sys::SystemClock {
 #[derive(Clone)]
 struct GrantSlot {
     epoch: u64,
+    highest_generation: u64,
+    last_instance: [u8; 16],
+    generation_revoked: bool,
     current: Option<StrategyGrant>,
 }
 #[derive(Clone)]
@@ -238,6 +243,7 @@ struct State {
     management_epoch: u64,
     management: Option<ManagementGrant>,
     strategies: BTreeMap<u64, GrantSlot>,
+    handovers: BTreeMap<u64, lifecycle::Slot>,
     feeds: BTreeMap<FeedKey, Feed>,
     private: Private,
 }
@@ -274,6 +280,7 @@ impl ControlPlane {
             management_epoch: 0,
             management: None,
             strategies: BTreeMap::new(),
+            handovers: BTreeMap::new(),
             feeds: BTreeMap::new(),
             private: Private {
                 epoch: 0,
@@ -330,6 +337,9 @@ impl ControlPlane {
         }
         s.control_revision = revision;
         s.mode = mode;
+        if mode != Mode::Trading {
+            lifecycle::close_all(&mut s)?;
+        }
         Ok(())
     }
     pub fn set_versions(&self, revision: u64, versions: Versions) -> Result<()> {
@@ -344,6 +354,7 @@ impl ControlPlane {
         }
         s.control_revision = revision;
         s.config.versions = versions;
+        lifecycle::close_all(&mut s)?;
         Ok(())
     }
     pub fn install_owner_lease(&self, lease: OwnerLease) -> Result<()> {
@@ -398,10 +409,12 @@ impl ControlPlane {
         s.mode = Mode::Stopped;
         for grant in s.strategies.values_mut() {
             grant.current = None;
+            grant.generation_revoked = true;
         }
         s.management = None;
         s.private.reconciled = None;
         s.private.revocation = revocation;
+        lifecycle::close_all(&mut s)?;
         Ok(())
     }
     pub fn revoke_owner(&self, lease_epoch: u64) -> Result<()> {
@@ -411,6 +424,7 @@ impl ControlPlane {
         }
         s.lease_epoch = lease_epoch;
         s.owner = None;
+        lifecycle::close_all(&mut s)?;
         Ok(())
     }
     pub fn install_strategy_grant(&self, grant: StrategyGrant) -> Result<()> {
@@ -444,6 +458,12 @@ impl ControlPlane {
                     Err(Error::Stale)
                 };
             }
+            if grant.strategy_generation < old.highest_generation
+                || (grant.strategy_generation == old.highest_generation
+                    && (old.generation_revoked || grant.instance_id != old.last_instance))
+            {
+                return Err(Error::Stale);
+            }
         } else if s.strategies.len() >= s.config.max_strategies {
             return Err(Error::Capacity);
         }
@@ -451,6 +471,9 @@ impl ControlPlane {
             grant.logical_strategy_id,
             GrantSlot {
                 epoch: grant.authorization_epoch,
+                highest_generation: grant.strategy_generation,
+                last_instance: grant.instance_id,
+                generation_revoked: false,
                 current: Some(grant),
             },
         );
@@ -470,10 +493,17 @@ impl ControlPlane {
         if !s.strategies.contains_key(&strategy) && s.strategies.len() >= s.config.max_strategies {
             return Err(Error::Capacity);
         }
+        let previous = s.strategies.get(&strategy);
+        let highest_generation = previous.map_or(0, |p| p.highest_generation);
+        let last_instance = previous.map_or([0; 16], |p| p.last_instance);
+        lifecycle::close_one(&mut s, strategy)?;
         s.strategies.insert(
             strategy,
             GrantSlot {
                 epoch: authorization_epoch,
+                highest_generation,
+                last_instance,
+                generation_revoked: true,
                 current: None,
             },
         );
@@ -488,6 +518,64 @@ impl ControlPlane {
         let mut s = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
         if let Some(slot) = s.strategies.get_mut(&strategy) {
             slot.current = None;
+            slot.generation_revoked = true;
+        }
+        lifecycle::close_one(&mut s, strategy)?;
+        Ok(())
+    }
+    /// Observe only the current exact instance grant, never a logical-ID substitute.
+    pub fn strategy_instance_authorized(
+        &self,
+        logical: u64,
+        instance: [u8; 16],
+        generation: u64,
+        now: MonoTime,
+    ) -> Result<bool> {
+        let s = self.0.try_borrow().map_err(|_| Error::Busy)?;
+        if logical == 0 || instance == [0; 16] || generation == 0 || now.domain() != s.config.domain
+        {
+            return Err(Error::Identity);
+        }
+        Ok(!s.faulted
+            && s.mode != Mode::Stopped
+            && s.last_mono.is_none_or(|t| now.nanos() >= t)
+            && s.handovers.get(&logical).is_none_or(|h| h.released)
+            && s.strategies
+                .get(&logical)
+                .and_then(|g| g.current.as_ref())
+                .is_some_and(|g| {
+                    g.instance_id == instance
+                        && g.strategy_generation == generation
+                        && g.config_revision == s.config.versions.config_revision
+                        && now.nanos() < g.valid_until_ns
+                }))
+    }
+    /// A failed shadow cannot revoke a different active instance sharing its logical ID.
+    pub fn stop_strategy_instance(
+        &self,
+        logical: u64,
+        instance: [u8; 16],
+        generation: u64,
+    ) -> Result<()> {
+        if logical == 0 || instance == [0; 16] || generation == 0 {
+            return Err(Error::Identity);
+        }
+        let mut s = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        let applies = s
+            .strategies
+            .get(&logical)
+            .and_then(|g| g.current.as_ref())
+            .is_some_and(|g| g.instance_id == instance && g.strategy_generation == generation);
+        let gate_applies = s.handovers.get(&logical).is_some_and(|h| {
+            h.binding.instance_id == instance && h.binding.strategy_generation == generation
+        });
+        if applies {
+            let slot = s.strategies.get_mut(&logical).ok_or(Error::Identity)?;
+            slot.current = None;
+            slot.generation_revoked = true;
+        }
+        if applies || gate_applies {
+            lifecycle::close_one(&mut s, logical)?;
         }
         Ok(())
     }
@@ -824,6 +912,18 @@ impl ControlPlane {
         } else if let Some(g) = management {
             until = until.min(g.valid_until_ns);
         }
+        if !administrative
+            && s.handovers
+                .get(&strategy.logical_strategy_id)
+                .is_some_and(|h| {
+                    !h.released
+                        || h.private_revocation != s.private.revocation
+                        || h.binding.instance_id != strategy.instance_id
+                        || h.binding.strategy_generation != r.strategy_generation
+                })
+        {
+            return Err(Error::Denied);
+        }
         let market_valid = if administrative {
             false
         } else {
@@ -975,6 +1075,46 @@ pub struct NodeObserver {
     plane: ControlPlane,
 }
 impl tickwire_runtime::node::Observer for NodeObserver {
+    fn market_observed(&mut self, o: tickwire_runtime::market::FeedObservation) -> bool {
+        let key = FeedKey {
+            topic_id: o.key.topic_id,
+            instrument_id: o.key.instrument_id,
+        };
+        if self
+            .plane
+            .update_feed(FeedUpdate {
+                key,
+                instrument_version: o.instrument_version,
+                feed_generation: o.feed_generation,
+                ring_epoch: o.ring_epoch,
+                sequence: o.sequence,
+                published_at: o.published_at,
+            })
+            .is_err()
+        {
+            return false;
+        }
+        o.live
+            || self
+                .plane
+                .invalidate_feed(key, o.feed_generation, o.ring_epoch)
+                .is_ok()
+    }
+    fn market_invalidated(&mut self, o: tickwire_runtime::market::Invalidation) -> bool {
+        let key = FeedKey {
+            topic_id: o.key.topic_id,
+            instrument_id: o.key.instrument_id,
+        };
+        match self
+            .plane
+            .invalidate_feed(key, o.feed_generation, o.ring_epoch)
+        {
+            Ok(()) => true,
+            // A failed JOIN can end before the first accepted observation.
+            Err(Error::Identity) => true,
+            Err(_) => false,
+        }
+    }
     fn private_source(&mut self, token: &tickwire_binance_private::GapToken) -> bool {
         self.plane.private_source(token).is_ok()
     }

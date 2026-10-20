@@ -113,9 +113,16 @@ fn member(raw: &[u8], index: usize) -> Result<Member<'_>> {
     let depth =
         SnapshotSection::decode(range(raw, off.checked_add(320).ok_or(Error::Bounds)?, 64)?)?;
     let coverage = if header.snapshot_kind == 7 {
-        let section = SnapshotSection::decode(range(raw, off.checked_add(384).ok_or(Error::Bounds)?, 64)?)?;
-        Some(DepthCoverage::decode(range(raw, section.offset, section.length)?)?)
-    } else { None };
+        let section =
+            SnapshotSection::decode(range(raw, off.checked_add(384).ok_or(Error::Bounds)?, 64)?)?;
+        Some(DepthCoverage::decode(range(
+            raw,
+            section.offset,
+            section.length,
+        )?)?)
+    } else {
+        None
+    };
     Ok(Member {
         entry,
         header,

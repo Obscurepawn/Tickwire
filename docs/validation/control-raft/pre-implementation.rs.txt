@@ -1,0 +1,67 @@
+//! Durable adapter for the fixed control consensus group.
+#![forbid(unsafe_code)]
+
+pub use raft::eraftpb::{Message, MessageType};
+use tickwire_journal::store::Store;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Error {
+    Identity,
+    Bounds,
+    Store,
+    Corrupt,
+    NotLeader,
+    NotReady,
+    Protocol,
+    Poisoned,
+}
+pub type Result<T> = core::result::Result<T, Error>;
+#[derive(Clone)]
+pub struct Config {
+    pub physical: tickwire_journal::Config,
+    pub node_id: u64,
+    pub voters: [u64; 3],
+    pub writer_epoch: u64,
+    pub max_command_bytes: usize,
+    pub max_retained_bytes: usize,
+}
+#[derive(Debug)]
+pub struct Applied {
+    index: u64,
+    term: u64,
+    command: Vec<u8>,
+}
+impl Applied {
+    pub fn index(&self) -> u64 { self.index }
+    pub fn term(&self) -> u64 { self.term }
+    pub fn command(&self) -> &[u8] { &self.command }
+}
+#[derive(Default)]
+pub struct Output {
+    pub messages: Vec<Message>,
+    pub applied: Vec<Applied>,
+}
+#[derive(Debug)]
+pub struct Proposal;
+#[derive(Debug)]
+pub struct ReadId;
+#[derive(Debug)]
+pub struct ReadBarrier;
+pub struct Node<S: Store> {
+    _store: S,
+    _config: Config,
+}
+impl<S: Store> Node<S> {
+    pub fn create(store:S, config:Config) -> Result<Self> { Ok(Self {_store:store, _config:config}) }
+    pub fn recover(store:S, config:Config) -> Result<Self> { Self::create(store,config) }
+    pub fn tick(&mut self) -> Result<()> { Ok(()) }
+    pub fn campaign(&mut self) -> Result<()> { Ok(()) }
+    pub fn step(&mut self, _peer:u64, _message:Message) -> Result<()> { Ok(()) }
+    pub fn drive(&mut self) -> Result<Output> { Ok(Output::default()) }
+    pub fn propose(&mut self, _command:Vec<u8>) -> Result<Proposal> { Err(Error::NotLeader) }
+    pub fn request_read(&mut self) -> Result<ReadId> { Err(Error::NotLeader) }
+    pub fn take_read(&mut self, _id:&ReadId) -> Result<Option<ReadBarrier>> { Ok(None) }
+    pub fn is_leader(&self) -> bool { false }
+    pub fn applied_index(&self) -> u64 { 0 }
+    pub fn history(&self) -> Vec<Applied> { Vec::new() }
+}

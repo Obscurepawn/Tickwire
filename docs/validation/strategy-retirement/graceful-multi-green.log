@@ -1,0 +1,20 @@
+   Compiling tickwire-replica v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-replica)
+   Compiling tickwire-md v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-md)
+   Compiling tickwire-runtime-policy v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime-policy)
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-host v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-host)
+   Compiling tickwire-app v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.75s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_app-f1e628c68790b27c)
+
+running 7 tests
+test strategy::multi_tests::failed_old_retirement_keeps_the_new_instance_paused ... ok
+test strategy::multi_tests::exact_instances_switch_and_repeated_activation_does_not_restop_retired_child ... ok
+test strategy::multi_tests::duplicate_logical_owners_and_unbounded_members_are_rejected ... ok
+test strategy::multi_tests::host_rotation_refreshes_cached_identity_before_the_next_switch ... ok
+test strategy::multi_tests::next_shadow_reuses_retired_slot_without_reusing_identity_or_generation ... ok
+test strategy::multi_tests::failed_shadow_does_not_revoke_the_other_instance_of_the_same_strategy ... ok
+test strategy::multi_tests::a_failed_child_loses_its_grant_without_stopping_the_healthy_child ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s
+

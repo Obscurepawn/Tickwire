@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v protoc >/dev/null 2>&1; then
+  version="$(protoc --version)"
+  if [[ "$version" == "libprotoc 3."* ]]; then
+    exec protoc "$@"
+  fi
+fi
+
+case "$(uname -s)/$(uname -m)" in
+  Darwin/arm64|Darwin/x86_64) compiler=protoc-osx-x86_64 ;;
+  Linux/aarch64|Linux/arm64) compiler=protoc-linux-aarch_64 ;;
+  Linux/x86_64) compiler=protoc-linux-x86_64 ;;
+  *) printf '%s\n' 'Set PROTOC to a protobuf 3.x compiler for this build host.' >&2; exit 1 ;;
+esac
+registry_root="${CARGO_HOME:-$HOME/.cargo}/registry/src"
+for dependency in "$registry_root"/*/protobuf-build-0.14.1; do
+  if [[ -x "$dependency/bin/$compiler" ]]; then
+    exec "$dependency/bin/$compiler" "$@"
+  fi
+done
+printf '%s\n' 'protobuf-build 0.14.1 bundled compiler not found; run cargo fetch first.' >&2
+exit 1

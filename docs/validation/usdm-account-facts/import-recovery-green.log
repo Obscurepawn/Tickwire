@@ -1,0 +1,15 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.69s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_binance_account-a03cc569f55f2b5b)
+
+running 3 tests
+test reconciliation::income_import::tests::risk_admin_cannot_replace_missing_query_evidence ... ok
+test reconciliation::income_import::tests::complete_queries_require_separate_risk_admin_approval ... ok
+test reconciliation::income_import::tests::persisted_approval_reopens_with_original_acceptance_and_preserves_coverage ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.01s
+

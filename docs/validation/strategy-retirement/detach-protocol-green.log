@@ -1,0 +1,10 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-market-source v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-market-source)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.16s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_market_source-3ed6d51b4457f0f6)
+
+running 1 test
+test retirement::tests::retirement_requests_and_receipts_bind_exact_subscription_and_evidence ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+

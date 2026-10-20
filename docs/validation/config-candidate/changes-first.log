@@ -1,0 +1,28 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-config v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-config)
+warning: field `risk_relaxation` is never read
+  --> crates/tickwire-config/src/changes.rs:34:5
+   |
+28 | pub struct Change {
+   |            ------ field in this struct
+...
+34 |     risk_relaxation: bool,
+   |     ^^^^^^^^^^^^^^^
+   |
+   = note: `Change` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-config` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.17s
+     Running tests/changes.rs (target/debug/deps/changes-81fc4809493a8c3e)
+
+running 6 tests
+test strategy_parameters_quiesce_until_pinned_schema_proves_hot_and_delivery_is_complete ... ok
+test shared_policy_dependency_cannot_be_hidden_by_single_account_scope ... ok
+test identity_environment_and_monetary_units_are_forbidden_at_runtime ... ok
+test buffering_and_market_age_have_opposite_protection_directions ... ok
+test exact_budget_tightening_is_hot_and_relaxation_requires_joint_roles ... ok
+test logging_is_hot_but_listener_and_storage_paths_require_replacement ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+

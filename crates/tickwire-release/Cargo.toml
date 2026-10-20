@@ -1,0 +1,18 @@
+[package]
+name = "tickwire-release"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tickwire-handover = { path = "../tickwire-handover" }
+libc = "0.2"
+sha2 = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tickwire-lifecycle = { path = "../tickwire-lifecycle" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+
+[lints]
+workspace = true

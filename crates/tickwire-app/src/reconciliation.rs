@@ -23,6 +23,7 @@ use tickwire_runtime::{
 };
 use tickwire_runtime_policy::{ControlPlane, ReconciliationRequest};
 use tickwire_transport::{IoBudget, Limits, mio, rustls};
+pub mod income;
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,15 +34,57 @@ pub struct Config {
     pub first_execution_connection_epoch: u64,
     pub retry_ns: u64,
     pub valid_for_ns: u64,
+    #[serde(default = "default_fee_maintenance_interval_ns")]
+    pub fee_maintenance_interval_ns: u64,
+    #[serde(default)]
+    pub income_baseline_import: Option<income::Config>,
+}
+
+fn default_fee_maintenance_interval_ns() -> u64 {
+    1_000_000_000
+}
+
+#[derive(Default)]
+struct OrderWork {
+    orders: VecDeque<OrderQuery>,
+    loaded: bool,
+    observed: bool,
+    next_trade: u64,
+    maintenance_at: u64,
+}
+impl OrderWork {
+    fn reset(&mut self) {
+        self.orders.clear();
+        self.loaded = false;
+        self.observed = false;
+        self.next_trade = 0;
+    }
+    fn load(&mut self, orders: impl Iterator<Item = OrderQuery>) {
+        if !self.loaded {
+            self.orders = orders.collect();
+            self.loaded = true;
+        }
+    }
+    fn completed(&mut self, now: u64, interval: u64) {
+        self.reset();
+        self.maintenance_at = now.saturating_add(interval);
+    }
+    fn should_start(
+        &self,
+        healthy: bool,
+        sender_busy: bool,
+        now: u64,
+        terminal_fees_pending: bool,
+    ) -> bool {
+        !healthy || (!sender_busy && now >= self.maintenance_at && terminal_fees_pending)
+    }
 }
 pub struct Controller<'a> {
     reader: AccountSnapshotReader,
     order_reader: ReadOnlyOrderReader,
     trades: ReadOnlyReconciler,
-    orders: VecDeque<OrderQuery>,
-    orders_loaded: bool,
-    order_observed: bool,
-    next_trade: u64,
+    income: Option<income::Work>,
+    work: OrderWork,
     config: Config,
     binding: ReadBinding,
     plane: ControlPlane,
@@ -75,6 +118,7 @@ impl<'a> Controller<'a> {
             || binding.owner_id != config.reader_id
             || config.retry_ns == 0
             || config.valid_for_ns == 0
+            || config.fee_maintenance_interval_ns == 0
             || config.first_execution_connection_epoch == 0
             || reader_config.first_connection_epoch != config.first_request_epoch
             || writer_epoch == 0
@@ -89,15 +133,18 @@ impl<'a> Controller<'a> {
         let limits = reader_config.limits;
         let order_reader = ReadOnlyOrderReader::new(reader_config.clone())?;
         let trades = ReadOnlyReconciler::new(reader_config.clone())?;
+        let income = config
+            .income_baseline_import
+            .clone()
+            .map(|c| income::Work::new(c, reader_config.clone()))
+            .transpose()?;
         let reader = AccountSnapshotReader::new(reader_config)?;
         Ok(Self {
             reader,
             order_reader,
             trades,
-            orders: VecDeque::new(),
-            orders_loaded: false,
-            order_observed: false,
-            next_trade: 0,
+            income,
+            work: OrderWork::default(),
             execution_epoch: config.first_execution_connection_epoch,
             config,
             binding,
@@ -120,10 +167,10 @@ impl<'a> Controller<'a> {
         self.reader.cancel();
         self.order_reader.cancel();
         self.trades.cancel();
-        self.orders.clear();
-        self.orders_loaded = false;
-        self.order_observed = false;
-        self.next_trade = 0;
+        if let Some(income) = &mut self.income {
+            income.reset();
+        }
+        self.work.reset();
         self.snapshots.clear();
         self.registered = None;
         self.retry_at = now.saturating_add(self.config.retry_ns);
@@ -153,10 +200,10 @@ impl<'a> Controller<'a> {
             self.reader.cancel();
             self.order_reader.cancel();
             self.trades.cancel();
-            self.orders.clear();
-            self.orders_loaded = false;
-            self.order_observed = false;
-            self.next_trade = 0;
+            if let Some(income) = &mut self.income {
+                income.reset();
+            }
+            self.work.reset();
             self.snapshots.clear();
             self.registered = None;
             self.retry_at = 0;
@@ -170,7 +217,19 @@ impl<'a> Controller<'a> {
             .plane
             .private_frontier()
             .map_err(|_| node::Error::Strategy)?;
-        if frontier.reconciled && !node.account().frozen() && !node.rest().gateway().halted() {
+        let healthy =
+            frontier.reconciled && !node.account().frozen() && !node.rest().gateway().halted();
+        let terminal_fees_pending = node.account().order_keys().any(|key| {
+            node.account()
+                .order(key)
+                .is_some_and(|order| order.terminal && !order.aborted && !order.fee_reconciled)
+        });
+        if !self.work.should_start(
+            healthy,
+            node.rest().busy(),
+            now.monotonic.nanos(),
+            terminal_fees_pending,
+        ) {
             return Ok(());
         }
         if now.monotonic.nanos() < self.retry_at {
@@ -184,32 +243,103 @@ impl<'a> Controller<'a> {
         if !calibrated {
             return Ok(());
         }
-        if !self.orders_loaded {
+        if !self.work.loaded {
             let input = node
                 .with_account_resources(|owner, _, _| owner.begin_reconciliation(&gap))?
                 .map_err(node::Error::Account)?;
             self.plane
                 .input_applied(input.stream, node.rest().applied_position())
                 .map_err(|_| node::Error::Strategy)?;
-            self.orders = node
-                .rest()
-                .reconciliation_orders()
-                .into_iter()
-                .map(|order| OrderQuery {
-                    intent: order.intent,
-                    order_id: order.order_id,
-                    private_connection_epoch: cut.0,
-                    gap_generation: cut.1,
-                })
-                .collect();
-            self.orders_loaded = true;
+            self.work.load(
+                node.rest()
+                    .reconciliation_orders()
+                    .into_iter()
+                    .map(|order| OrderQuery {
+                        intent: order.intent,
+                        order_id: order.order_id,
+                        private_connection_epoch: cut.0,
+                        gap_generation: cut.1,
+                    }),
+            );
         }
-        if let Some(query) = self.orders.front().copied() {
+        if let Some(income) = &mut self.income
+            && node
+                .account()
+                .income_baseline(income.config.wallet_id)
+                .is_none()
+            && let Some(query) = income.query(cut).map_err(node::Error::Account)?
+        {
             let scope = self.scope.clone();
             let binding = self.binding.clone();
             let delivery = self.delivery_ns;
             let credentials = &self.credentials;
-            if !self.order_observed {
+            let result = node.with_account_resources(|owner, time, quota| {
+                let mut budget =
+                    move |_: &private::AccountScope,
+                          _: &private::SignedTime,
+                          _: &private::ClockSample| Ok(delivery);
+                let mut clock = ClockAdapter::new(time, scope, &mut budget)
+                    .map_err(tickwire_binance_account::Error::Clock)?;
+                let mut permit = quota.read(binding);
+                if !income.reader.busy() {
+                    income
+                        .reader
+                        .start(owner, query, credentials, &mut clock, &mut permit)?;
+                }
+                income.reader.poll(
+                    owner,
+                    &mut clock,
+                    &mut permit,
+                    IoBudget {
+                        max_syscalls: 16,
+                        max_bytes: 64 * 1024,
+                    },
+                )
+            })?;
+            match result {
+                Ok(Some(outcome)) => {
+                    self.registered = None;
+                    self.plane
+                        .input_applied(outcome.input.stream, outcome.through_sequence)
+                        .map_err(|_| node::Error::Strategy)?;
+                    let Some(evidence) = outcome.evidence else {
+                        self.retry(now.monotonic.nanos(), "income query unavailable");
+                        return Ok(());
+                    };
+                    income
+                        .scan
+                        .as_mut()
+                        .expect("active income scan")
+                        .accept(&evidence)
+                        .map_err(node::Error::Account)?;
+                }
+                Ok(None) => {}
+                Err(tickwire_binance_account::Error::Stopped) => {
+                    self.retry(
+                        now.monotonic.nanos(),
+                        "income query permission or deadline expired",
+                    );
+                    return Ok(());
+                }
+                Err(e) => return Err(node::Error::Account(e)),
+            }
+            if let Some(epoch) = income.reader.request_epoch() {
+                if self.registered == Some((4, epoch)) {
+                    income.reader.reregister(registry, mio::Token(7))
+                } else {
+                    income.reader.register(registry, mio::Token(7))
+                }
+                .map_err(node::Error::Account)?;
+                self.registered = Some((4, epoch));
+            }
+            return Ok(());
+        }
+        if let Some(query) = self.work.orders.front().copied() {
+            let scope = self.scope.clone();
+            let binding = self.binding.clone();
+            let delivery = self.delivery_ns;
+            let credentials = &self.credentials;
+            if !self.work.observed {
                 let reader = &mut self.order_reader;
                 let result = node.with_account_resources(|owner, time, quota| {
                     let mut budget =
@@ -242,7 +372,7 @@ impl<'a> Controller<'a> {
                             self.retry(now.monotonic.nanos(), "order query unavailable");
                             return Ok(());
                         }
-                        self.order_observed = true;
+                        self.work.observed = true;
                     }
                     Ok(None) => {}
                     Err(tickwire_binance_account::Error::Stopped) => {
@@ -268,7 +398,7 @@ impl<'a> Controller<'a> {
                 let trade = TradeQuery {
                     intent: query.intent,
                     order_id: query.order_id,
-                    from_id: self.next_trade,
+                    from_id: self.work.next_trade,
                     limit: 16,
                     private_connection_epoch: cut.0,
                     gap_generation: cut.1,
@@ -309,9 +439,9 @@ impl<'a> Controller<'a> {
                                 owner.complete_trade_reconciliation(query)
                             })? {
                                 Ok(()) => {
-                                    self.orders.pop_front();
-                                    self.order_observed = false;
-                                    self.next_trade = 0;
+                                    self.work.orders.pop_front();
+                                    self.work.observed = false;
+                                    self.work.next_trade = 0;
                                 }
                                 Err(
                                     tickwire_binance_account::Error::Conflict
@@ -326,7 +456,7 @@ impl<'a> Controller<'a> {
                                 Err(error) => return Err(node::Error::Account(error)),
                             }
                         } else {
-                            self.next_trade = page.next_from_id.ok_or(node::Error::Config)?;
+                            self.work.next_trade = page.next_from_id.ok_or(node::Error::Config)?;
                         }
                     }
                     Ok(None) => {}
@@ -351,79 +481,128 @@ impl<'a> Controller<'a> {
             }
             return Ok(());
         }
-        let scope = self.scope.clone();
-        let binding = self.binding.clone();
-        let delivery = self.delivery_ns;
-        let reader = &mut self.reader;
-        let credentials = &self.credentials;
-        let next_kind = match self.snapshots.len() {
-            0 => SnapshotKind::Account,
-            1 => SnapshotKind::OpenOrders,
-            _ => SnapshotKind::ConditionalOrders,
-        };
-        let polled = node.with_account_resources(|owner, time, quota| {
-            let mut budget =
-                move |_: &private::AccountScope,
-                      _: &private::SignedTime,
-                      _: &private::ClockSample| Ok(delivery);
-            let mut clock = ClockAdapter::new(time, scope, &mut budget)
-                .map_err(tickwire_binance_account::Error::Clock)?;
-            let mut permit = quota.read(binding);
-            if !reader.busy() {
-                reader.start(
+        if self.snapshots.len() < 3 {
+            let scope = self.scope.clone();
+            let binding = self.binding.clone();
+            let delivery = self.delivery_ns;
+            let reader = &mut self.reader;
+            let credentials = &self.credentials;
+            let next_kind = match self.snapshots.len() {
+                0 => SnapshotKind::Account,
+                1 => SnapshotKind::OpenOrders,
+                _ => SnapshotKind::ConditionalOrders,
+            };
+            let polled = node.with_account_resources(|owner, time, quota| {
+                let mut budget =
+                    move |_: &private::AccountScope,
+                          _: &private::SignedTime,
+                          _: &private::ClockSample| Ok(delivery);
+                let mut clock = ClockAdapter::new(time, scope, &mut budget)
+                    .map_err(tickwire_binance_account::Error::Clock)?;
+                let mut permit = quota.read(binding);
+                if !reader.busy() {
+                    reader.start(
+                        owner,
+                        SnapshotQuery {
+                            kind: next_kind,
+                            private_connection_epoch: cut.0,
+                            gap_generation: cut.1,
+                        },
+                        credentials,
+                        &mut clock,
+                        &mut permit,
+                    )?;
+                }
+                reader.poll(
                     owner,
-                    SnapshotQuery {
-                        kind: next_kind,
-                        private_connection_epoch: cut.0,
-                        gap_generation: cut.1,
-                    },
-                    credentials,
                     &mut clock,
                     &mut permit,
-                )?;
-            }
-            reader.poll(
-                owner,
-                &mut clock,
-                &mut permit,
-                IoBudget {
-                    max_syscalls: 16,
-                    max_bytes: 64 * 1024,
-                },
-            )
-        })?;
-        let outcome = match polled {
-            Ok(outcome) => outcome,
-            Err(tickwire_binance_account::Error::Stopped) => {
-                self.retry(now.monotonic.nanos(), "read permission or request expired");
-                return Ok(());
-            }
-            Err(error) => return Err(node::Error::Account(error)),
-        };
-        if let Some(outcome) = outcome {
-            self.registered = None;
-            self.plane
-                .input_applied(outcome.input.stream, outcome.through_sequence)
-                .map_err(|_| node::Error::Strategy)?;
-            let Some(evidence) = outcome.evidence else {
-                self.retry(now.monotonic.nanos(), "remote snapshot unavailable");
-                return Ok(());
+                    IoBudget {
+                        max_syscalls: 16,
+                        max_bytes: 64 * 1024,
+                    },
+                )
+            })?;
+            let outcome = match polled {
+                Ok(outcome) => outcome,
+                Err(tickwire_binance_account::Error::Stopped) => {
+                    self.retry(now.monotonic.nanos(), "read permission or request expired");
+                    return Ok(());
+                }
+                Err(error) => return Err(node::Error::Account(error)),
             };
-            self.snapshots.push(evidence);
-        }
-        if let Some(epoch) = self.reader.request_epoch() {
-            if self.registered == Some((3, epoch)) {
-                self.reader.reregister(registry, mio::Token(7))
-            } else {
-                self.reader.register(registry, mio::Token(7))
+            if let Some(outcome) = outcome {
+                self.registered = None;
+                self.plane
+                    .input_applied(outcome.input.stream, outcome.through_sequence)
+                    .map_err(|_| node::Error::Strategy)?;
+                let Some(evidence) = outcome.evidence else {
+                    self.retry(now.monotonic.nanos(), "remote snapshot unavailable");
+                    return Ok(());
+                };
+                self.snapshots.push(evidence);
             }
-            .map_err(node::Error::Account)?;
-            self.registered = Some((3, epoch));
+            if let Some(epoch) = self.reader.request_epoch() {
+                if self.registered == Some((3, epoch)) {
+                    self.reader.reregister(registry, mio::Token(7))
+                } else {
+                    self.reader.register(registry, mio::Token(7))
+                }
+                .map_err(node::Error::Account)?;
+                self.registered = Some((3, epoch));
+            }
         }
         if self.snapshots.len() != 3 {
             return Ok(());
         }
         let fresh = node.local_time()?;
+        if let Some(income) = &mut self.income
+            && node
+                .account()
+                .income_baseline(income.config.wallet_id)
+                .is_none()
+        {
+            let request = income
+                .request(cut, &self.snapshots)
+                .map_err(|_| node::Error::Config)?;
+            let proposal = node
+                .rest()
+                .propose_income_import(request)
+                .map_err(node::Error::Account)?;
+            let controller = node
+                .rest()
+                .ingress()
+                .income_baseline_authority()
+                .ok_or(node::Error::Config)?
+                .controller_id;
+            let approval = income
+                .files(proposal, controller, self.writer_epoch, fresh.monotonic)
+                .map_err(|_| node::Error::Config)?;
+            let Some((proposal, approval)) = approval else {
+                return Ok(());
+            };
+            let accepted = node.local_time()?.monotonic;
+            node.with_account_resources(|owner, _, _| {
+                owner.import_income_baseline(proposal, approval, accepted)
+            })?
+            .map_err(node::Error::Account)?;
+            let input = node
+                .rest()
+                .latest_applied_input()
+                .ok_or(node::Error::Config)?;
+            self.plane
+                .input_applied(input.stream, input.sequence)
+                .map_err(|_| node::Error::Strategy)?;
+            // Installing coverage advances the ledger. Fresh snapshots must bind
+            // that new ledger before the normal activation protocol can run.
+            self.snapshots.clear();
+            income.reset();
+            eprintln!(
+                "{}",
+                serde_json::json!({"event":"income_baseline_imported","input_sequence":input.sequence,"ledger_sequence":node.account().ledger_sequence()})
+            );
+            return Ok(());
+        }
         let until = fresh
             .monotonic
             .nanos()
@@ -488,10 +667,59 @@ impl<'a> Controller<'a> {
                 .checked_add(1)
                 .ok_or(node::Error::Config)?;
         }
+        self.work.completed(
+            fresh.monotonic.nanos(),
+            self.config.fee_maintenance_interval_ns,
+        );
         eprintln!(
             "{}",
             serde_json::json!({"event":"account_reconciled","connection_epoch":cut.0,"gap_generation":cut.1,"ledger_sequence":node.account().ledger_sequence()})
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn healthy_terminal_fee_maintenance_is_bounded_and_idle_only() {
+        let work = OrderWork {
+            maintenance_at: 100,
+            ..OrderWork::default()
+        };
+        assert!(!work.should_start(true, false, 100, false));
+        assert!(!work.should_start(true, true, 100, true));
+        assert!(!work.should_start(true, false, 99, true));
+        assert!(work.should_start(true, false, 100, true));
+        assert!(work.should_start(false, true, 99, false));
+    }
+
+    #[test]
+    fn successful_attempt_reloads_new_orders_in_the_same_private_cut() {
+        let mut work = OrderWork::default();
+        work.load(std::iter::empty());
+        assert!(work.loaded);
+        work.completed(100, 50);
+        assert!(!work.loaded);
+        assert_eq!(work.maintenance_at, 150);
+        let query = OrderQuery {
+            intent: tickwire_account::IntentKey {
+                epoch: 4,
+                intent_id: 3,
+            },
+            order_id: [7; 16],
+            private_connection_epoch: 1,
+            gap_generation: 1,
+        };
+        work.load(std::iter::once(query));
+        assert_eq!(work.orders.front(), Some(&query));
+        work.observed = true;
+        work.next_trade = 34;
+        work.reset();
+        assert!(work.orders.is_empty());
+        assert!(!work.loaded && !work.observed);
+        assert_eq!(work.next_trade, 0);
     }
 }

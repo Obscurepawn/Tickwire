@@ -4350,6 +4350,292 @@
         }
       ],
       "description": "Versioned exact side coverage; absent prices are known zero only inside that side boundary."
+    },
+    {
+      "name": "HandoverReadyBody",
+      "size": 192,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "instance_id",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "logical_strategy_id",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "strategy_generation",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "exec_report_sequence",
+          "type": "u64",
+          "offset": 32,
+          "size": 8
+        },
+        {
+          "name": "report_ring_sequence",
+          "type": "u64",
+          "offset": 40,
+          "size": 8
+        },
+        {
+          "name": "ledger_sequence",
+          "type": "u64",
+          "offset": 48,
+          "size": 8
+        },
+        {
+          "name": "checkpoint_digest",
+          "type": "bytes",
+          "offset": 56,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "orders_digest",
+          "type": "bytes",
+          "offset": 88,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "input_seal_digest",
+          "type": "bytes",
+          "offset": 120,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "checkpoint_bytes",
+          "type": "u64",
+          "offset": 152,
+          "size": 8
+        },
+        {
+          "name": "input_seal_bytes",
+          "type": "u64",
+          "offset": 160,
+          "size": 8
+        },
+        {
+          "name": "ready_sequence",
+          "type": "u64",
+          "offset": 168,
+          "size": 8
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 176,
+          "size": 16,
+          "count": 16,
+          "reserved": true
+        }
+      ],
+      "description": "Qualified strategy callback completion plus durable checkpoint/input seal; host validates actual report cursor and immutable objects."
+    },
+    {
+      "name": "RestoreAppliedBody",
+      "size": 128,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "instance_id",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "logical_strategy_id",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "strategy_generation",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "receipt_digest",
+          "type": "bytes",
+          "offset": 32,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "receipt_bytes",
+          "type": "u64",
+          "offset": 64,
+          "size": 8
+        },
+        {
+          "name": "receipt_sequence",
+          "type": "u64",
+          "offset": 72,
+          "size": 8
+        },
+        {
+          "name": "release_manifest_digest",
+          "type": "bytes",
+          "offset": 80,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "schema",
+          "type": "u16",
+          "offset": 112,
+          "size": 2
+        },
+        {
+          "name": "completion_kind",
+          "type": "u16",
+          "offset": 114,
+          "size": 2
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 116,
+          "size": 12,
+          "count": 12,
+          "reserved": true
+        }
+      ],
+      "description": "Qualified process completed actual restore or rollback probe, synchronized output and canonical receipt; receiver verifies Registry identity and complete release binding."
+    },
+    {
+      "name": "CheckpointSealBody",
+      "size": 96,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "instance_id",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "logical_strategy_id",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "strategy_generation",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "challenge",
+          "type": "bytes",
+          "offset": 32,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "report_sequence",
+          "type": "u64",
+          "offset": 48,
+          "size": 8
+        },
+        {
+          "name": "valid_until_mono_ns",
+          "type": "u64",
+          "offset": 56,
+          "size": 8
+        },
+        {
+          "name": "seal_mode",
+          "type": "u16",
+          "offset": 64,
+          "size": 2
+        },
+        {
+          "name": "schema",
+          "type": "u16",
+          "offset": 66,
+          "size": 2
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 68,
+          "size": 28,
+          "count": 28,
+          "reserved": true
+        }
+      ],
+      "description": "Fresh checkpoint request after callbacks through report_sequence. Mode 0 captures; mode 1 additionally pauses all future strategy callbacks. No cached READY satisfies the challenge."
+    },
+    {
+      "name": "CheckpointSealReplyBody",
+      "size": 256,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "challenge",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "report_sequence",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "seal_mode",
+          "type": "u16",
+          "offset": 24,
+          "size": 2
+        },
+        {
+          "name": "schema",
+          "type": "u16",
+          "offset": 26,
+          "size": 2
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 28,
+          "size": 4,
+          "count": 4,
+          "reserved": true
+        },
+        {
+          "name": "ready",
+          "type": "HandoverReadyBody",
+          "offset": 32,
+          "size": 192
+        },
+        {
+          "name": "reserved_1",
+          "type": "bytes",
+          "offset": 224,
+          "size": 32,
+          "count": 32,
+          "reserved": true
+        }
+      ],
+      "description": "Response after fresh callback checkpoint and complete input seal synchronization; request challenge and exact report cut remain bound."
     }
   ],
   "enums": {
@@ -5165,6 +5451,46 @@
       "response_opcode": 49,
       "allowed_flags": [
         1
+      ]
+    },
+    {
+      "id": 37,
+      "name": "STRATEGY_READY",
+      "body_layout": "HandoverReadyBody",
+      "response_layout": null,
+      "response_opcode": null,
+      "allowed_flags": [
+        32
+      ]
+    },
+    {
+      "id": 38,
+      "name": "RESTORE_APPLIED",
+      "body_layout": "RestoreAppliedBody",
+      "response_layout": null,
+      "response_opcode": null,
+      "allowed_flags": [
+        32
+      ]
+    },
+    {
+      "id": 39,
+      "name": "CHECKPOINT_SEAL",
+      "body_layout": "CheckpointSealBody",
+      "response_layout": "CheckpointSealReplyBody",
+      "response_opcode": 40,
+      "allowed_flags": [
+        1
+      ]
+    },
+    {
+      "id": 40,
+      "name": "CHECKPOINT_SEALED",
+      "body_layout": "CheckpointSealReplyBody",
+      "response_layout": null,
+      "response_opcode": null,
+      "allowed_flags": [
+        10
       ]
     },
     {

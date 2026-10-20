@@ -9,6 +9,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+tickwire-handover = { path = "../tickwire-handover" }
+tickwire-release = { path = "../tickwire-release" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-account = { path = "../tickwire-account" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
@@ -24,6 +26,10 @@ tickwire-binance-session = { path = "../tickwire-binance-session" }
 tickwire-book = { path = "../tickwire-book" }
 tickwire-clock = { path = "../tickwire-clock" }
 tickwire-journal = { path = "../tickwire-journal" }
+tickwire-market-source = { path = "../tickwire-market-source" }
 tickwire-recovery = { path = "../tickwire-recovery" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
+
+[dev-dependencies]
+tickwire-risk = { path = "../tickwire-risk" }

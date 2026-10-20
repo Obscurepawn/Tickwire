@@ -60,6 +60,24 @@ pub struct Submission {
     pub deadline: Instant,
     pub recovery: RecoveryBundle,
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HandoverReadiness {
+    pub instance_id: [u8; 16],
+    pub strategy_generation: u64,
+    pub checkpoint_digest: [u8; 32],
+    pub exec_report_sequence: u64,
+    pub orders_digest: [u8; 32],
+    pub ledger_sequence: u64,
+    pub input_seal_digest: [u8; 32],
+}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StrategySwitch {
+    pub logical_strategy_id: u64,
+    pub old_instance: [u8; 16],
+    pub old_generation: u64,
+    pub new_instance: [u8; 16],
+    pub new_generation: u64,
+}
 /// Immutable durable history; each strategy owns its independent delivery cursor.
 pub trait AccountHistory {
     fn baseline(&self) -> &tickwire_account_codec::CanonicalBaseline;
@@ -89,6 +107,40 @@ impl<B: Backend, A: Authority, E: Encoder> AccountHistory
 /// The same interface can be implemented by an in-process strategy or an
 /// authenticated strategy-IPC consumer. It never receives mutable account state.
 pub trait Strategy {
+    /// True only after the qualified child completed callbacks and synchronized
+    /// the referenced checkpoint/ordered inputs at this exact account boundary.
+    fn handover_ready(&mut self, _readiness: &HandoverReadiness) -> bool {
+        false
+    }
+    fn handover_objects(&mut self, _readiness: &HandoverReadiness) -> Option<Vec<Vec<u8>>> {
+        None
+    }
+    /// Latest authenticated checkpoint, after actual callback/cursor verification.
+    fn handover_checkpoint(
+        &mut self,
+        _instance: [u8; 16],
+        _generation: u64,
+    ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
+        None
+    }
+    /// Synchronized preflight evidence for exactly these three immutable roots.
+    fn release_preflight(
+        &mut self,
+        _instance: [u8; 16],
+        _generation: u64,
+        _roots: [[u8; 32]; 3],
+    ) -> Option<Vec<Vec<u8>>> {
+        None
+    }
+    fn handover_quiesce(&mut self, _switch: &StrategySwitch) -> bool {
+        false
+    }
+    fn handover_activate(&mut self, _switch: &StrategySwitch) -> bool {
+        false
+    }
+    fn handover_halt(&mut self, _logical_strategy_id: u64) -> bool {
+        false
+    }
     fn on_account_history(&mut self, history: &dyn AccountHistory) {
         if !self.on_account_baseline(history.baseline(), history.account()) {
             return;
@@ -140,6 +192,36 @@ pub trait Strategy {
     fn on_health(&mut self, _health: Health, _now: LocalTime) {}
 }
 impl<T: Strategy + ?Sized> Strategy for Box<T> {
+    fn handover_ready(&mut self, r: &HandoverReadiness) -> bool {
+        (**self).handover_ready(r)
+    }
+    fn handover_objects(&mut self, r: &HandoverReadiness) -> Option<Vec<Vec<u8>>> {
+        (**self).handover_objects(r)
+    }
+    fn handover_checkpoint(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+    ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
+        (**self).handover_checkpoint(instance, generation)
+    }
+    fn release_preflight(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+        roots: [[u8; 32]; 3],
+    ) -> Option<Vec<Vec<u8>>> {
+        (**self).release_preflight(instance, generation, roots)
+    }
+    fn handover_quiesce(&mut self, s: &StrategySwitch) -> bool {
+        (**self).handover_quiesce(s)
+    }
+    fn handover_activate(&mut self, s: &StrategySwitch) -> bool {
+        (**self).handover_activate(s)
+    }
+    fn handover_halt(&mut self, id: u64) -> bool {
+        (**self).handover_halt(id)
+    }
     fn on_account_history(&mut self, history: &dyn AccountHistory) {
         (**self).on_account_history(history)
     }
@@ -188,6 +270,12 @@ impl<T: Strategy + ?Sized> Strategy for Box<T> {
 /// Trusted runtime notifications for the control owner. A Receiving state alone
 /// does not acknowledge reconciliation or authorize account activation.
 pub trait Observer {
+    fn market_observed(&mut self, _observation: crate::market::FeedObservation) -> bool {
+        true
+    }
+    fn market_invalidated(&mut self, _invalidation: crate::market::Invalidation) -> bool {
+        true
+    }
     /// The continuous, fully processed input-WAL prefix, including non-event
     /// records and REST child effects. Notifications may advance by a batch.
     fn input_applied(
@@ -230,6 +318,15 @@ impl public::PublicSink for NoPublisher {
 struct Fanout<'a, S, O> {
     strategy: &'a mut S,
     output: &'a mut O,
+}
+struct MarketObserver<'a>(&'a mut dyn Observer);
+impl crate::market::MarketSink for MarketObserver<'_> {
+    fn observed(&mut self, observation: crate::market::FeedObservation) -> bool {
+        self.0.market_observed(observation)
+    }
+    fn invalidated(&mut self, invalidation: crate::market::Invalidation) -> bool {
+        self.0.market_invalidated(invalidation)
+    }
 }
 impl<S: Strategy, O: public::PublicSink> public::PublicSink for Fanout<'_, S, O> {
     fn on_notice(&mut self, n: public::Notice<'_>) -> bool {
@@ -294,6 +391,8 @@ pub struct CoreNode<
     O: public::PublicSink,
 {
     market: public::PublicDepthClient<P, MC, L, U, B>,
+    external_market: Option<Box<dyn crate::market::MarketSource + 'a>>,
+    external_market_failed: bool,
     private: private::PrivateClient<'a>,
     rest: RestOwner<IS, AS, A, E>,
     session: SharedSessionState<BinanceTimeClient<TC>, DB>,
@@ -363,6 +462,8 @@ where
         }
         Ok(Self {
             market,
+            external_market: None,
+            external_market_failed: false,
             private,
             rest,
             session,
@@ -386,6 +487,22 @@ where
     }
     pub fn account(&self) -> &Account {
         self.rest.account()
+    }
+    /// Installs an independently authenticated MD subscription before the first
+    /// turn. The local public client remains unstarted and opens no connection.
+    pub fn set_market_source(
+        &mut self,
+        source: Box<dyn crate::market::MarketSource + 'a>,
+    ) -> Result<()> {
+        if self.next_calibration != 0
+            || self.stopped
+            || self.external_market.is_some()
+            || source.domain() != self.bindings.time.domain
+        {
+            return Err(Error::Config);
+        }
+        self.external_market = Some(source);
+        Ok(())
     }
     pub fn strategy(&self) -> &S {
         &self.strategy
@@ -412,6 +529,21 @@ where
         let rest = &mut self.rest;
         self.session
             .with_resources(|time, quota| operation(rest, time, quota))
+            .map_err(Error::Shared)
+    }
+    pub fn with_strategy_and_account_resources<T>(
+        &mut self,
+        operation: impl FnOnce(
+            &mut S,
+            &mut RestOwner<IS, AS, A, E>,
+            &mut BinanceTimeClient<TC>,
+            &mut quota::Endpoint,
+        ) -> T,
+    ) -> Result<T> {
+        let strategy = &mut self.strategy;
+        let rest = &mut self.rest;
+        self.session
+            .with_resources(|time, quota| operation(strategy, rest, time, quota))
             .map_err(Error::Shared)
     }
     pub fn local_time(&self) -> Result<LocalTime> {
@@ -468,32 +600,56 @@ where
                 Ok(())
             })
             .map_err(Error::Shared)??;
-        let binding = self.bindings.public;
-        let market = &mut self.market;
-        let mut sink = Fanout {
-            strategy: &mut self.strategy,
-            output: &mut self.output,
-        };
-        let mut budget = self.config.public;
-        budget.io = io;
-        let md = self
-            .session
-            .with_resources(|_, quota| -> Result<public::PollReport> {
-                let mut permit = quota.public(binding);
-                if market.status().phase == public::Phase::Idle {
-                    match market.start(&mut permit) {
-                        Ok(()) | Err(public::Error::Denied | public::Error::Transport) => {}
-                        Err(e) => return Err(Error::Market(e)),
+        if let Some(market) = &mut self.external_market {
+            if !self.external_market_failed {
+                let mut sink = MarketObserver(self.observer.as_mut());
+                match market.poll(
+                    reading.local.monotonic,
+                    self.config.maximum_book_age_ns,
+                    self.config.public.max_notifications,
+                    &mut sink,
+                ) {
+                    Ok(md) => {
+                        report.market_messages = md.records;
+                        report.runnable |= md.runnable;
+                        report.next_deadline_ns = md.next_deadline_ns;
+                    }
+                    Err(_) => {
+                        // A market failure closes its dependent risk gates while
+                        // the account continues processing facts and cancellations.
+                        self.external_market_failed = true;
+                        market.stop(&mut sink).map_err(|_| Error::Strategy)?;
                     }
                 }
-                market
-                    .poll(&mut permit, budget, &mut sink)
-                    .map_err(Error::Market)
-            })
-            .map_err(Error::Shared)??;
-        report.market_messages = md.decoded;
-        report.runnable |= md.runnable;
-        report.next_deadline_ns = md.next_deadline_ns;
+            }
+        } else {
+            let binding = self.bindings.public;
+            let market = &mut self.market;
+            let mut sink = Fanout {
+                strategy: &mut self.strategy,
+                output: &mut self.output,
+            };
+            let mut budget = self.config.public;
+            budget.io = io;
+            let md = self
+                .session
+                .with_resources(|_, quota| -> Result<public::PollReport> {
+                    let mut permit = quota.public(binding);
+                    if market.status().phase == public::Phase::Idle {
+                        match market.start(&mut permit) {
+                            Ok(()) | Err(public::Error::Denied | public::Error::Transport) => {}
+                            Err(e) => return Err(Error::Market(e)),
+                        }
+                    }
+                    market
+                        .poll(&mut permit, budget, &mut sink)
+                        .map_err(Error::Market)
+                })
+                .map_err(Error::Shared)??;
+            report.market_messages = md.decoded;
+            report.runnable |= md.runnable;
+            report.next_deadline_ns = md.next_deadline_ns;
+        }
         let binding = self.bindings.private.clone();
         let scope = binding.scope.clone();
         let delivery_ns = self.config.private_delivery_budget_ns;
@@ -588,9 +744,18 @@ where
             return Err(Error::Strategy);
         }
         self.strategy.on_account_history(self.rest.gateway());
+        // Polling the account sender may run an authorization callback that
+        // samples a newer trusted time. Health must follow that callback with
+        // a fresh sample instead of presenting the pre-poll time as current.
+        let fresh = self.time()?;
         report.health = Health {
             calibrated: fresh.signed.is_some(),
-            market_live: self.market.view(self.config.maximum_book_age_ns).is_ok(),
+            market_live: if let Some(market) = &self.external_market {
+                !self.external_market_failed
+                    && market.is_live(fresh.local.monotonic, self.config.maximum_book_age_ns)
+            } else {
+                self.market.view(self.config.maximum_book_age_ns).is_ok()
+            },
             private_receiving: self.private.status().phase == private::Phase::Receiving,
             account_frozen: self.rest.account().frozen(),
             sender_halted: self.rest.gateway().halted(),
@@ -603,6 +768,9 @@ where
             if self.rest.busy() {
                 break;
             }
+            // Prior submissions may synchronize recovery data and sample the
+            // policy clock. Each new callback starts with a current sample.
+            let fresh = self.time()?;
             let Some(submission) =
                 self.strategy
                     .next(self.rest.account(), report.health, fresh.local)
@@ -616,10 +784,11 @@ where
             self.recovery
                 .stage(submission.recovery)
                 .map_err(Error::Recovery)?;
+            let submitted_at = self.time()?;
             let result = self.rest.submit(
                 submission.command.clone(),
                 &submission.order_ids,
-                fresh.local.monotonic.nanos(),
+                submitted_at.local.monotonic.nanos(),
                 submission.deadline,
             );
             self.strategy.on_submission(&submission.command, &result);
@@ -649,22 +818,28 @@ where
         self.stopped = true;
         self.rest.stop_sending();
         let _ = self.private.stop(private::StopMode::Disconnect);
-        let mut sink = Fanout {
-            strategy: &mut self.strategy,
-            output: &mut self.output,
-        };
-        let _ = self.market.stop(&mut sink);
+        if let Some(market) = &mut self.external_market {
+            let _ = market.stop(&mut MarketObserver(self.observer.as_mut()));
+        } else {
+            let mut sink = Fanout {
+                strategy: &mut self.strategy,
+                output: &mut self.output,
+            };
+            let _ = self.market.stop(&mut sink);
+        }
     }
     fn registrations(&mut self, registry: &mio::Registry) -> Result<()> {
-        self.market
-            .reregister(
-                registry,
-                public::IoTokens {
-                    stream: mio::Token(1),
-                    snapshot: mio::Token(2),
-                },
-            )
-            .map_err(Error::Market)?;
+        if self.external_market.is_none() {
+            self.market
+                .reregister(
+                    registry,
+                    public::IoTokens {
+                        stream: mio::Token(1),
+                        snapshot: mio::Token(2),
+                    },
+                )
+                .map_err(Error::Market)?;
+        }
         self.private
             .reregister(
                 registry,

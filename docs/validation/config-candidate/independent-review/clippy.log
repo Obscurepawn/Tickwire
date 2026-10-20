@@ -1,0 +1,3 @@
+    Blocking waiting for file lock on build directory
+    Checking tickwire-config v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-config)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.21s

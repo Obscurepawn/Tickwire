@@ -58,13 +58,100 @@ pub(crate) fn baseline(s: &mut Snapshot, c: &mut Catalog) -> Result<(), Error> {
 }
 pub(crate) fn record(r: &RecoveryRecord) -> Result<(), Error> {
     match r {
-        RecoveryRecord::Reactivated(b)=>{
-            if b.venue_available.len()>MAX_ASSETS||b.venue_available.windows(2).any(|p|p[0].0>=p[1].0)||b.venue_available.iter().any(|(wallet,amount)|*wallet==0||amount.atoms()<0){return Err(Error::Field);}
+        RecoveryRecord::IncomeBaseline(b) => {
+            if b.scope.risk_domain_id == [0; 16]
+                || b.scope.venue == 0
+                || b.scope.account == 0
+                || b.account_epoch == 0
+                || b.wallet_id == 0
+                || b.through_time_ms == 0
+                || b.coverage_digest == [0; 32]
+                || b.baseline_digest == [0; 32]
+                || b.input_stream == [0; 16]
+                || b.through_sequence == 0
+            {
+                return Err(Error::Field);
+            }
+            bound(b.covered.len(), MAX_BASELINE_INCOMES)?;
+            let mut keys = std::collections::BTreeSet::new();
+            for input in &b.covered {
+                let id = &input.input().identity;
+                let tickwire_venue::AccountInputBody::Income(row) = &input.input().body else {
+                    return Err(Error::Field);
+                };
+                if id.risk_domain_id != b.scope.risk_domain_id
+                    || id.venue != b.scope.venue
+                    || id.account != b.scope.account
+                    || id.environment != b.scope.environment
+                    || id.wallet_id != b.wallet_id
+                    || row.venue_time_ms > b.through_time_ms
+                {
+                    return Err(Error::Field);
+                }
+                if !keys.insert((&row.income_type, &row.transaction_id)) {
+                    return Err(Error::Duplicate);
+                }
+            }
+        }
+        RecoveryRecord::StrategyHandover(h) => {
+            if h.scope.risk_domain_id == [0; 16]
+                || h.scope.venue == 0
+                || h.scope.account == 0
+                || h.account_epoch == 0
+                || h.writer_epoch == 0
+                || h.operation_id == [0; 16]
+                || h.operation_revision == 0
+                || h.logical_strategy_id == 0
+                || h.expected_orders_digest == [0; 32]
+                || h.from.instance == [0; 16]
+                || h.to.instance == [0; 16]
+                || h.from.instance == h.to.instance
+                || h.from.generation == 0
+                || h.to.generation <= h.from.generation
+                || h.checkpoint_digest == [0; 32]
+                || h.input_seal_digest == [0; 32]
+                || h.evaluated_at >= h.valid_until
+            {
+                return Err(Error::Field);
+            }
+        }
+        RecoveryRecord::Reactivated(b) => {
+            if b.venue_available.len() > MAX_ASSETS
+                || b.venue_available.windows(2).any(|p| p[0].0 >= p[1].0)
+                || b.venue_available
+                    .iter()
+                    .any(|(wallet, amount)| *wallet == 0 || amount.atoms() < 0)
+            {
+                return Err(Error::Field);
+            }
 
-            if b.scope.risk_domain_id==[0;16]||b.scope.venue==0||b.scope.account==0||b.account_epoch==0||b.baseline_digest==[0;32]||b.history_digest==[0;32]||b.query_coverage_digest==[0;32]||b.input_stream==[0;16]||b.private_connection_epoch==0||b.gap_generation==0||b.through_sequence==0||b.clock_boot_id==[0;16]||b.clock_generation==0||b.evaluated_at>=b.valid_until||b.writer_epoch==0||b.execution_connection_epoch==0{return Err(Error::Field);}
+            if b.scope.risk_domain_id == [0; 16]
+                || b.scope.venue == 0
+                || b.scope.account == 0
+                || b.account_epoch == 0
+                || b.baseline_digest == [0; 32]
+                || b.history_digest == [0; 32]
+                || b.query_coverage_digest == [0; 32]
+                || b.input_stream == [0; 16]
+                || b.private_connection_epoch == 0
+                || b.gap_generation == 0
+                || b.through_sequence == 0
+                || b.clock_boot_id == [0; 16]
+                || b.clock_generation == 0
+                || b.evaluated_at >= b.valid_until
+                || b.writer_epoch == 0
+                || b.execution_connection_epoch == 0
+            {
+                return Err(Error::Field);
+            }
         }
 
         RecoveryRecord::IngressEvent {
+            input_stream,
+            input_sequence,
+            ..
+        }
+        | RecoveryRecord::IngressAccountInput {
             input_stream,
             input_sequence,
             ..

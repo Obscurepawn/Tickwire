@@ -1,0 +1,18 @@
+{
+  "crates/tickwire-control-sys/Cargo.toml": "11e84dd3f60d0b560e301f5216df5bdf82e21889b0b283b435cfc2a65d83b2e6",
+  "crates/tickwire-control-sys/src/lib.rs": "04f197ac391c38fbc44fc8c0ad435238543b31824221d9304779bff177e0e717",
+  "crates/tickwire-control-sys/src/linux.rs": "6071ea69ae74e722639a429b21568e3da7d6ea4786d651557583c3133fcb5b46",
+  "crates/tickwire-control-sys/src/unsupported.rs": "6ab9c122e92f2b32564b3a0d9994315236e7fb614c44b63547b0a293e0cf7dbd",
+  "crates/tickwire-control-sys/tests/platform.rs": "ba5b64d43802dff11bd78c240e5432af9d90e1be4d9d3d6b90cdaae9234517fa",
+  "crates/tickwire-control-sys/tests/transport.rs": "567a772fcd7a4d123cb7774cfd0da08afbb512555aa74c34d9502b76f0b5cbbd",
+  "crates/tickwire-ipc/Cargo.toml": "081dd3087ac4b61a723ba7ee1db0abd973ed4fc33581c12f59c8a6748172aff8",
+  "crates/tickwire-ipc/src/config.rs": "b7f6370e78480af392e1d56a326bedb258ef12f2229a8ad8968070432f3be784",
+  "crates/tickwire-ipc/src/lib.rs": "d69b013e9bb2d53990cd278c82c0d561c3a432c2c1f60c29ecc108688b398f7f",
+  "crates/tickwire-ipc/src/snapshot.rs": "26c9e698d2fed16331ca2db2f479af1649a38471a2c60596676f7bafb51821f8",
+  "crates/tickwire-ipc/src/wire.rs": "8994681963ed7c5d997dea4e1519b1a3a42977e292beb755e95d6244e81b2c67",
+  "crates/tickwire-ipc/tests/layout_extensions.rs": "889ec56dc84d032671261e8721435803b63d27aa6e6365f5ea2c5c47f94ab0fb",
+  "crates/tickwire-ipc/tests/layouts.rs": "ce6714c1560a98eda3fb9c33273ef1126fe7f8acb18fe9dc77b6ae9cc28d50d0",
+  "crates/tickwire-ipc/tests/release_layouts.rs": "9b8932aaef4e45421bdd86501cb7831e548970fa87959d5d0368cf33bf63ef13",
+  "crates/tickwire-ipc/tests/semantics.rs": "222103f1b044094c8ba8a4a3d59ca88a58f1d53977d4c473a12c1e47c59f2903",
+  "crates/tickwire-ipc/tests/vectors.rs": "846c94286c222ae6e66c8c605ea9439d1e88bcc31973fc340c6d73f6f7df22b7"
+}

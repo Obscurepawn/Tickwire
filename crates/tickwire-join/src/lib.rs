@@ -102,6 +102,7 @@ struct Entry {
     bank_ready: bool,
     snapshot_ready: bool,
     cursor_registered: bool,
+    catchup_seen: Option<Watermarks>,
     activated: Option<Watermarks>,
     quiesce: Option<(ControlEnvelope, QuiesceBody)>,
     detached: Option<QuiesceBody>,
@@ -237,7 +238,8 @@ impl<const M: usize> JoinOwner<M> {
     }
     /// Freeze at the current complete prefix while retaining every reader gate.
     pub fn freeze_for_successor(&mut self, ring_epoch: u64) -> Result<tickwire_shm::Freeze> {
-        self.publisher.prepare_freeze(ring_epoch, self.publisher.published())?;
+        self.publisher
+            .prepare_freeze(ring_epoch, self.publisher.published())?;
         Ok(self.publisher.freeze()?)
     }
     pub fn registry(&self) -> &TopicRegistry {
@@ -317,7 +319,7 @@ impl<const M: usize> JoinOwner<M> {
         let sub = registration.subscription;
         let h = self.header();
         require(
-            registration.identity.role == 3
+            matches!(registration.identity.role, 3 | 4)
                 && registration.identity.instance == sub.instance.to_le_bytes()
                 && registration.identity.host_boot == h.host_boot_id
                 && registration.identity.namespace == h.namespace_id
@@ -387,6 +389,7 @@ impl<const M: usize> JoinOwner<M> {
             bank_ready: false,
             snapshot_ready: false,
             cursor_registered: false,
+            catchup_seen: None,
             activated: None,
             quiesce: None,
             detached: None,
@@ -568,13 +571,37 @@ impl<const M: usize> JoinOwner<M> {
             },
         )?
         .check_readiness(now)?;
+        if self.catchup_target(sub)?.is_some() {
+            return Err(Error::Ring(tickwire_shm::MappedError::Protocol(
+                tickwire_shm::Error::Cursor,
+            )));
+        }
         // Current published is fixed during this exclusive owner call.
+        let e = &self.entries[index];
         let watermarks =
             self.publisher
                 .activate_join(sub, e.join.snapshot_seq, self.publisher.published())?;
         self.entries[index].stage = Stage::Active;
         self.entries[index].activated = Some(watermarks);
         Ok(watermarks)
+    }
+    /// Samples only the registered, qualified cursor. A lagging reader keeps its
+    /// original pending gate; malformed or regressing watermarks remain errors.
+    pub fn catchup_target(&mut self, sub: SubscriptionKey) -> Result<Option<u64>> {
+        let index = self.index(sub)?;
+        let e = &self.entries[index];
+        if e.stage != Stage::Delivered || !e.cursor_registered {
+            return Err(Error::NotReady);
+        }
+        let actual = self.publisher.cursor_watermarks(sub)?;
+        let target = catchup_watermarks(
+            e.join.snapshot_seq,
+            e.catchup_seen,
+            self.publisher.published(),
+            actual,
+        )?;
+        self.entries[index].catchup_seen = Some(actual);
+        Ok(target)
     }
     pub fn expire(&mut self, now: u64) {
         let regressed = now < self.last_now;
@@ -674,3 +701,69 @@ impl<const M: usize> JoinOwner<M> {
 #[allow(unsafe_code)]
 mod mapped;
 pub use mapped::JoinConsumer;
+
+fn catchup_watermarks(
+    baseline: u64,
+    previous: Option<Watermarks>,
+    published: u64,
+    actual: Watermarks,
+) -> Result<Option<u64>> {
+    if actual.applied < baseline
+        || actual.released < baseline
+        || actual.applied > actual.read
+        || actual.released > actual.read
+        || actual.read > published
+        || previous.is_some_and(|p| {
+            actual.read < p.read || actual.applied < p.applied || actual.released < p.released
+        })
+    {
+        return Err(Error::Ring(tickwire_shm::MappedError::Protocol(
+            tickwire_shm::Error::Cursor,
+        )));
+    }
+    Ok((actual.applied < published).then_some(published))
+}
+
+#[cfg(test)]
+mod catchup_tests {
+    use super::*;
+    fn at(n: u64) -> Watermarks {
+        Watermarks {
+            read: n,
+            applied: n,
+            released: n,
+        }
+    }
+    #[test]
+    fn publication_advancing_between_ready_attempts_requires_another_catchup() {
+        assert_eq!(catchup_watermarks(10, None, 13, at(10)).unwrap(), Some(13));
+        assert_eq!(
+            catchup_watermarks(10, Some(at(10)), 16, at(13)).unwrap(),
+            Some(16)
+        );
+        assert_eq!(
+            catchup_watermarks(10, Some(at(13)), 16, at(16)).unwrap(),
+            None
+        );
+    }
+    #[test]
+    fn malformed_and_regressing_cursors_are_errors_not_retry_targets() {
+        for actual in [
+            at(9),
+            at(17),
+            Watermarks {
+                read: 12,
+                applied: 13,
+                released: 12,
+            },
+            Watermarks {
+                read: 12,
+                applied: 12,
+                released: 13,
+            },
+        ] {
+            assert!(catchup_watermarks(10, None, 16, actual).is_err());
+        }
+        assert!(catchup_watermarks(10, Some(at(13)), 16, at(12)).is_err());
+    }
+}

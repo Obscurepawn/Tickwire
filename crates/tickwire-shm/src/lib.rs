@@ -1,10 +1,13 @@
 //! Single-owner publication and borrow state for shared-memory banks.
 #![deny(unsafe_code)]
 
+mod arena;
 #[allow(unsafe_code)]
 mod mapped;
-mod arena;
-pub use mapped::{MappedError, MarketMessage, Publisher, RecordBorrow, Subscriber, configure_market_arena};
+pub use mapped::{
+    MappedError, MarketMessage, Publisher, RecordBorrow, Subscriber, configure_market_arena,
+    validate_bank,
+};
 
 const SEQUENCE_LIMIT: u64 = 1 << 63;
 

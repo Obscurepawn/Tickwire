@@ -19,7 +19,13 @@ use tickwire_binance_private as private;
 use tickwire_binance_public as public;
 use tickwire_binance_quota::Endpoint;
 use tickwire_journal::{PhysicalFrontier, store::FileStore};
-use tickwire_recovery::FileBlobStore;
+use tickwire_recovery::{FileBlobStore, SharedBlobStore};
+pub type SharedRecoveryStore = SharedBlobStore<FileBlobStore>;
+#[derive(Default)]
+pub struct Services {
+    pub recovery_store: Option<SharedRecoveryStore>,
+    pub commit_policy: Option<Box<dyn crate::authority::CommitPolicy>>,
+}
 
 #[derive(Clone, Copy)]
 pub struct FixedDeliveryBudget(pub u64);
@@ -41,6 +47,8 @@ pub struct Directories {
     pub input: PathBuf,
     pub recovery: PathBuf,
 }
+// Startup-only descriptor retains both physical frontiers without heap indirection.
+#[allow(clippy::large_enum_variant)]
 pub enum OpenMode {
     Create,
     RecoverFrozen {
@@ -81,7 +89,7 @@ pub type FileNode<'a, P, G, S, O, const L: usize, const U: usize, const B: usize
     FixedDeliveryBudget,
     FileStore,
     FileBackend,
-    GateAuthority<LocalAuthority<FileBlobStore, G>, Time, FixedDeliveryBudget>,
+    GateAuthority<LocalAuthority<SharedRecoveryStore, G>, Time, FixedDeliveryBudget>,
     RestEncoder<'a, Time, FixedDeliveryBudget>,
     S,
     O,
@@ -92,6 +100,8 @@ pub type FileNode<'a, P, G, S, O, const L: usize, const U: usize, const B: usize
 
 /// Constructs real TLS clients and local WAL owners. Credentials and authority
 /// policy are explicit caller inputs; this function does not grant trading rights.
+// Startup binds independently owned network, policy, clock and strategy services.
+#[allow(clippy::too_many_arguments)]
 pub fn open<'a, P, G, S, O, const L: usize, const U: usize, const B: usize>(
     config: Configuration,
     networks: Networks,
@@ -102,6 +112,38 @@ pub fn open<'a, P, G, S, O, const L: usize, const U: usize, const B: usize>(
     strategy: S,
     output: O,
     observer: Box<dyn Observer + 'a>,
+) -> node::Result<FileNode<'a, P, G, S, O, L, U, B>>
+where
+    P: public::DepthPolicy,
+    G: GateProvider,
+    S: Strategy,
+    O: public::PublicSink,
+{
+    open_with_services(
+        config,
+        networks,
+        credentials,
+        authentication,
+        quota,
+        policy,
+        strategy,
+        output,
+        observer,
+        Services::default(),
+    )
+}
+#[allow(clippy::too_many_arguments)]
+pub fn open_with_services<'a, P, G, S, O, const L: usize, const U: usize, const B: usize>(
+    config: Configuration,
+    networks: Networks,
+    credentials: Credentials<'a>,
+    authentication: private::Authentication<'a>,
+    quota: Endpoint,
+    policy: G,
+    strategy: S,
+    output: O,
+    observer: Box<dyn Observer + 'a>,
+    services: Services,
 ) -> node::Result<FileNode<'a, P, G, S, O, L, U, B>>
 where
     P: public::DepthPolicy,
@@ -143,10 +185,24 @@ where
     .map_err(node::Error::Shared)?;
     let queue = RecoveryQueue::new(config.maximum_staged_commands, config.maximum_staged_bytes)
         .map_err(node::Error::Recovery)?;
-    let blobs = FileBlobStore::open(&config.directories.recovery).map_err(|e| {
-        node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e))
-    })?;
-    let authority = shared.authority(LocalAuthority::new(blobs, queue.clone(), policy));
+    let blobs =
+        if let Some(store) = services.recovery_store {
+            store
+        } else {
+            SharedBlobStore::new(FileBlobStore::open(&config.directories.recovery).map_err(
+                |e| node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e)),
+            )?)
+        };
+    let mut local = LocalAuthority::new(
+        blobs,
+        queue.clone(),
+        policy,
+        config.command_binding.owner_id,
+    );
+    if let Some(commit) = services.commit_policy {
+        local = local.with_commit_policy(commit);
+    }
+    let authority = shared.authority(local);
     let encoder = shared.encoder(credentials);
     let backend = FileBackend::open(&config.directories.account).map_err(node::Error::Io)?;
     let input = FileStore::open(&config.directories.input).map_err(node::Error::Io)?;
@@ -171,7 +227,7 @@ where
         } => {
             let ingress = AccountIngress::recover(input, config.input, input_required.as_ref())
                 .map_err(node::Error::Account)?;
-            let mut verifier=ingress.activation_verifier();
+            let mut verifier = ingress.activation_verifier();
             let gateway = AccountGateway::recover_with_reactivation(
                 backend,
                 config.account,

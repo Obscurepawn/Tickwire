@@ -13,6 +13,55 @@ pub const MAX_ADMISSION_ORDERS: usize = 3;
 pub const MAX_OWNERS: usize = 1024;
 pub const MAX_BRACKETS: usize = 128;
 pub type Hash = [u8; 32];
+/// A deterministic seal over exactly the canonical reports applied by a
+/// strategy. Its digest is independent of a process's volatile receive cursor.
+#[derive(Clone, Debug)]
+pub struct InputSeal {
+    baseline: Hash,
+    position: u64,
+    digest: Hash,
+    object: Vec<u8>,
+}
+impl InputSeal {
+    pub fn new(baseline: Hash) -> Result<Self, Error> {
+        if baseline == [0; 32] {
+            return Err(Error::Field);
+        }
+        let mut object = b"tickwire.account-input-seal.v1".to_vec();
+        object.extend(baseline);
+        let digest = Sha256::digest(&object).into();
+        Ok(Self {
+            baseline,
+            position: 0,
+            digest,
+            object,
+        })
+    }
+    pub fn apply(&mut self, record: &CanonicalRecord) -> Result<(), Error> {
+        if record.baseline() != self.baseline
+            || self.position.checked_add(1) != Some(record.sequence())
+        {
+            return Err(Error::Field);
+        }
+        let mut object = b"tickwire.account-input-seal.step.v1".to_vec();
+        object.extend(self.digest);
+        object.extend(record.sequence().to_le_bytes());
+        object.extend(record.digest());
+        self.digest = Sha256::digest(&object).into();
+        self.position = record.sequence();
+        self.object = object;
+        Ok(())
+    }
+    pub fn position(&self) -> u64 {
+        self.position
+    }
+    pub fn digest(&self) -> Hash {
+        self.digest
+    }
+    pub fn object_bytes(&self) -> &[u8] {
+        &self.object
+    }
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
     Bounds,
@@ -38,6 +87,9 @@ pub struct CanonicalRecord {
 impl CanonicalRecord {
     pub fn new(baseline: Hash, sequence: u64, record: RecoveryRecord) -> Result<Self, Error> {
         if baseline == [0; 32] || sequence == 0 {
+            return Err(Error::Field);
+        }
+        if matches!(&record, RecoveryRecord::IncomeBaseline(b) if b.baseline_digest!=baseline) {
             return Err(Error::Field);
         }
         validate::record(&record)?;

@@ -1,0 +1,40 @@
+    Checking getrandom v0.2.17
+    Checking serde v1.0.229
+   Compiling raft-proto v0.7.0
+    Checking serde_json v1.0.145
+    Checking rand_core v0.6.4
+    Checking erased-serde v0.3.31
+    Checking rand_chacha v0.3.1
+    Checking tickwire-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-journal)
+    Checking rand v0.8.8
+    Checking slog v2.8.2
+    Checking raft v0.7.0
+    Checking tickwire-control-raft v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control-raft)
+error: using `contains()` instead of `iter().any()` is more efficient
+  --> crates/tickwire-control-raft/src/storage.rs:22:16
+   |
+22 |             || self.voters.iter().any(|id| *id == 0)
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: try: `self.voters.contains(&0)`
+   |
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#manual_contains
+   = note: `-D clippy::manual-contains` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::manual_contains)]`
+
+error: field assignment outside of initializer for an instance created with Default::default()
+  --> crates/tickwire-control-raft/src/storage.rs:57:9
+   |
+57 |         conf.voters = config.voters.to_vec();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+note: consider initializing the variable with `raft::prelude::ConfState { voters: config.voters.to_vec(), ..Default::default() }` and removing relevant reassignments
+  --> crates/tickwire-control-raft/src/storage.rs:56:9
+   |
+56 |         let mut conf = ConfState::default();
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#field_reassign_with_default
+   = note: `-D clippy::field-reassign-with-default` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(clippy::field_reassign_with_default)]`
+
+error: could not compile `tickwire-control-raft` (lib test) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `tickwire-control-raft` (lib) due to 2 previous errors

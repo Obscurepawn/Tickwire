@@ -1,0 +1,10 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.41s
+     Running tests/sbe_depth.rs (target/debug/deps/sbe_depth-c1c88733b9e25908)
+
+running 1 test
+test production_binary_depth_decodes_on_default_worker_stack ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+

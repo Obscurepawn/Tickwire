@@ -64,6 +64,10 @@ impl Account {
             return Err(Error::Catalog);
         }
         let strategy = ctx.strategy.logical_strategy_id;
+        let manager = ManagerIdentity {
+            instance: ctx.strategy.instance_id,
+            generation: r.strategy_generation,
+        };
         if !p.strategy_limits.iter().any(|x| x.0 == strategy) {
             return Err(Error::Identity);
         }
@@ -80,7 +84,7 @@ impl Account {
         if !increases {
             match &c.body {
                 v::CommandBody::Cancel(target) | v::CommandBody::Query(target) => {
-                    self.check_target(target, strategy, p.instrument.instrument_id)?
+                    self.check_target(target, strategy, manager, p.instrument.instrument_id)?
                 }
                 _ => return Err(Error::Unsupported),
             }
@@ -111,11 +115,11 @@ impl Account {
                 replacement,
                 ..
             } => {
-                self.check_target(target, strategy, p.instrument.instrument_id)?;
+                self.check_target(target, strategy, manager, p.instrument.instrument_id)?;
                 vec![replacement.clone()]
             }
             v::CommandBody::Cancel(target) | v::CommandBody::Query(target) => {
-                self.check_target(target, strategy, p.instrument.instrument_id)?;
+                self.check_target(target, strategy, manager, p.instrument.instrument_id)?;
                 vec![]
             }
             _ => return Err(Error::Unsupported),
@@ -243,6 +247,14 @@ impl Account {
                     digest: command.digest(),
                     instrument: p.instrument.instrument_id,
                     strategy,
+                    origin: ManagerIdentity {
+                        instance: ctx.strategy.instance_id,
+                        generation: r.strategy_generation,
+                    },
+                    manager: ManagerIdentity {
+                        instance: ctx.strategy.instance_id,
+                        generation: r.strategy_generation,
+                    },
                     spec,
                     original: q,
                     filled: qzero,
@@ -337,7 +349,13 @@ impl Account {
         self.admissions.insert(key, admission.clone());
         Ok(admission)
     }
-    fn check_target(&self, target: &v::OrderTarget, strategy: u64, instrument: u64) -> Result<()> {
+    fn check_target(
+        &self,
+        target: &v::OrderTarget,
+        strategy: u64,
+        manager: ManagerIdentity,
+        instrument: u64,
+    ) -> Result<()> {
         let found = self.orders.values().find(|o| {
             o.instrument == instrument
                 && o.key.intent.epoch == target.original_intent_exec_epoch
@@ -352,7 +370,10 @@ impl Account {
                 && o.internal_id.is_none_or(|id| id == target.order_id)
         });
         let o = found.ok_or(Error::UnknownOrder)?;
-        if o.strategy != strategy || o.owner_revision != target.expected_owner_revision {
+        if o.strategy != strategy
+            || o.manager != manager
+            || o.owner_revision != target.expected_owner_revision
+        {
             return Err(Error::Identity);
         }
         Ok(())

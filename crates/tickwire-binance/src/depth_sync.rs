@@ -122,7 +122,9 @@ pub enum Outcome {
 pub struct DepthSync<P, const LEVELS: usize, const UPDATES: usize, const BUFFER: usize> {
     config: Config,
     context: DepthContext,
-    book: Book<P, LEVELS, UPDATES>,
+    // Allocate the fixed-capacity book once. Keeping its large arrays inline
+    // multiplies constructor stack frames through the network owner's wrappers.
+    book: Box<Book<P, LEVELS, UPDATES>>,
     buffer: VecDeque<DepthUpdate<UPDATES>>,
     state: State,
     connection: Option<ConnectionToken>,
@@ -185,7 +187,7 @@ impl<P: DepthPolicy, const L: usize, const U: usize, const B: usize> DepthSync<P
             .map_err(|_| SyncError::InvalidConfig)?;
         Ok(Self {
             context,
-            book: Book::new(config.key, config.initial_book_generation),
+            book: Box::new(Book::new(config.key, config.initial_book_generation)),
             buffer,
             state: State::Disconnected,
             connection: None,
@@ -282,6 +284,9 @@ impl<P: DepthPolicy, const L: usize, const U: usize, const B: usize> DepthSync<P
             Ok(v) => v,
             Err(e) => return self.rebuild(RebuildReason::Decode(e)),
         };
+        self.apply_update(update)
+    }
+    fn apply_update(&mut self, update: DepthUpdate<U>) -> Result<Outcome, SyncError> {
         let event = update.event();
         if event
             .bids
@@ -314,6 +319,30 @@ impl<P: DepthPolicy, const L: usize, const U: usize, const B: usize> DepthSync<P
             }
             Err(e) => self.rebuild(RebuildReason::Book(e)),
         }
+    }
+    /// SBE data uses the same token, buffering, snapshot bridge and book sequencing.
+    pub fn on_sbe_delta(
+        &mut self,
+        token: ConnectionToken,
+        bytes: &[u8],
+        received: u64,
+    ) -> Result<Outcome, SyncError> {
+        if self.connection != Some(token) {
+            return Ok(Outcome::IgnoredObsolete);
+        }
+        if !self.observe_clock(received)? {
+            return Ok(Outcome::Rebuild(RebuildReason::ClockRegressed));
+        }
+        let update = match feed::decode_sbe_diff::<U>(
+            bytes,
+            &self.context,
+            received,
+            self.config.max_message_bytes,
+        ) {
+            Ok(v) => v,
+            Err(e) => return self.rebuild(RebuildReason::Decode(e)),
+        };
+        self.apply_update(update)
     }
     pub fn on_snapshot(
         &mut self,

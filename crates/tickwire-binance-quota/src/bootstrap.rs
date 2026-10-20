@@ -135,6 +135,7 @@ pub enum ReadKind {
     OpenOrders,
     ConditionalOrders,
     OrderQuery,
+    Income,
 }
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -179,6 +180,7 @@ pub enum Command {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    GuardianConnect,
     Read {
         kind: ReadKind,
     },
@@ -201,6 +203,7 @@ impl Action {
     pub fn build(self) -> super::Action {
         use super::{Action as A, CommandAction as C};
         match self {
+            Self::GuardianConnect => A::GuardianConnect,
             Self::Read { kind } => A::Read(match kind {
                 ReadKind::Connect => super::ReadAction::Connect,
                 ReadKind::TradePage => super::ReadAction::TradePage,
@@ -208,6 +211,7 @@ impl Action {
                 ReadKind::OpenOrders => super::ReadAction::OpenOrders,
                 ReadKind::ConditionalOrders => super::ReadAction::ConditionalOrders,
                 ReadKind::OrderQuery => super::ReadAction::OrderQuery,
+                ReadKind::Income => super::ReadAction::Income,
             }),
             Self::Time { kind } => match kind {
                 TimeKind::Connect => A::TimeConnect,

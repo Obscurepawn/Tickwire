@@ -1,0 +1,13 @@
+   Compiling tickwire-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.66s
+     Running tests/account_inputs.rs (target/debug/deps/account_inputs-a673e9a4c2618ad7)
+
+running 5 tests
+test unresolved_income_requires_baseline_and_holds_debit_without_inventing_cashflow ... ok
+test positive_unattributed_funding_is_booked_but_unavailable ... ok
+test observations_never_apply_balance_change_as_a_second_cashflow ... ok
+test funding_covered_by_baseline_and_reconnect_repeats_never_book_twice ... ok
+test income_and_native_fill_share_pnl_and_commission_in_either_arrival_order ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

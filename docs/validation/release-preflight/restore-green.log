@@ -1,0 +1,12 @@
+   Compiling tickwire-release v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-release)
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.70s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_sdk-048453bd1006198f)
+
+running 3 tests
+test restore::tests::default_factory_does_not_claim_restore_completion ... ok
+test restore::tests::spent_v2_action_survives_restore_with_changed_threshold ... ok
+test restore::tests::spent_legacy_action_is_not_rearmed_and_authority_is_from_target ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+

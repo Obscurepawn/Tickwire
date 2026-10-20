@@ -1,0 +1,757 @@
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+7aecb3f9f1340b0d8b8a70e944d727fdc375fe66c1c2f41f4d474b93bc1720a0  /target/debug/deps/persistence-8f743e21266cc8d4
+
+running 1 test
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.02s
+
+parallel iteration=1
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=2
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=3
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+parallel iteration=4
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=5
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=6
+
+running 17 tests
+
+running 1 test
+test child_append_then_exit_without_destructors ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=7
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+parallel iteration=8
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=9
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=10
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+parallel iteration=11
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+parallel iteration=12
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=13
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=14
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+parallel iteration=15
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=16
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+parallel iteration=17
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=18
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=19
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=20
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=21
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=22
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=23
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=24
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=25
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=26
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=27
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+parallel iteration=28
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=29
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+parallel iteration=30
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+
+running 1 test
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s

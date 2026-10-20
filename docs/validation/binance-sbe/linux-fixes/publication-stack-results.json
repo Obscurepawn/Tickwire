@@ -1,0 +1,19 @@
+{
+  "parent": ".tools/retirement-sbe-boxed-check",
+  "snapshot": ".tools/sbe-stack-check/source",
+  "image": "rust:1.99.1-bookworm@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29",
+  "command": "cargo test --locked -p tickwire-md --test sbe_publication actual_binary -- --nocapture",
+  "red_manifest_sha256": "3f469f8174876249fea7ef0cc9f9e7eed9baba159bdbdd02ef4f3489cb1c45c1",
+  "green_manifest_sha256": "f42c7c3f26d9bf9a1ba36e871cba9487573cc3af631885b72a799692ffbe0151",
+  "changed_from_red": {
+    "crates/tickwire-binance/src/feed/sbe.rs": "75e3eea627dfbac53b5641cd379321857bb97652f002794dc159368bf3eb7d2f",
+    "crates/tickwire-binance/tests/sbe_depth.rs": "e105fd0dee814e38dfd79cca1b1cfb81fd0961704f3b3b032b8d8a63db1401a6",
+    "crates/tickwire-md/tests/sbe_publication.rs": "b45d87a1ceb615747d883da22d1e3f547907def31531d93b16da1bb5061b1899"
+  },
+  "red_exit": 101,
+  "green_exit": 0,
+  "tests": {
+    "passed": 1,
+    "filtered": 2
+  }
+}

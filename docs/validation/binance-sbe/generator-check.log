@@ -1,0 +1,6 @@
+Generated schema constants and four independently encoded literal fixtures are byte-identical.
+7b2348fb90e1a8ac17a4d52c94efebc63fddc8794c90cec20f01d70c2ce85af5  crates/tickwire-binance-sbe/src/schema.rs
+a8f511f14f76a048e7daaa843826e282ace37e1f1993c82a3d5d64c1cbcc2a31  crates/tickwire-binance-sbe/tests/fixtures/diff.hex
+61c9aecaf249e97d03a6f4c2f25fbe1bfc8104a590ba0fb7524f4af50228fb58  crates/tickwire-binance-sbe/tests/fixtures/partial.hex
+76cd7a34f0bc2c6c8d48d53f55210bd7d6436a0a6750925a84b48bc11888f914  crates/tickwire-binance-sbe/tests/fixtures/quote.hex
+86525c0f43113c5e7b59ea823be214cbfbcb214f783e7f279d39b30d60354683  crates/tickwire-binance-sbe/tests/fixtures/trades.hex

@@ -210,6 +210,7 @@ impl Account {
             }
         }
         for (&key, a) in &self.assets {
+            add(&mut out, key, self.pending_account_debit(key)?)?;
             if a.baseline.exclusive_fee_pool {
                 let pool = a
                     .baseline
@@ -248,15 +249,19 @@ impl Account {
                 remaining_reserve: reserved,
             }],
         )?;
-        let deficit = calculated
+        let spendable = self
+            .account_effective_total(key)?
+            .checked_sub(a.baseline.nontrade_locked)?
+            .checked_sub(reserved)?;
+        let free = calculated
             .local_free
             .min(calculated.venue_cap)?
-            .min(zero)?
-            .checked_neg()?;
+            .min(spendable)?;
+        let deficit = free.min(zero)?.checked_neg()?;
         Ok(AssetView {
             total: calculated.total_assets,
             reserved,
-            available: calculated.available,
+            available: free.positive_part(),
             deficit,
             ownership: a.ownership.clone(),
         })
@@ -416,11 +421,13 @@ impl Account {
             let collateral = if a.baseline.exclusive_fee_pool {
                 a.baseline.free.zero_like()
             } else {
-                a.baseline
-                    .free
-                    .checked_add(a.baseline.locked)?
-                    .checked_add(a.cashflow)?
+                let key = AssetKey {
+                    wallet_id: wallet,
+                    asset_id: asset,
+                };
+                self.account_effective_total(key)?
                     .checked_sub(a.baseline.nontrade_locked)?
+                    .checked_sub(self.pending_account_debit(key)?)?
             };
             if capital.atoms() > collateral.atoms() {
                 return Err(Error::InsufficientCapital);

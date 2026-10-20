@@ -22,4 +22,16 @@
 
 策略换代使用控制面提供的新身份、资源头与恢复配置。发布者冻结旧 bank，取得实际退出或 quiesce 结果，并保留旧映射；新 bank 的起始序号来自旧 bank 的真实发布水位。旧资源的保留数量有上限，耗尽后等待管理操作，不复用仍可能被读取的存储。
 
-`strategy.mode="multi"` 在一个账户 owner 上公平轮询最多 32 个策略实例。每个成员拥有独立意图和回报通道，成员的逻辑策略 ID 唯一，禁止嵌套。独立行情发布者使用不同 topic ID，并在各自授权中声明对应 feed；一个成员失效时撤销该成员授权，其他成员继续处理。相同逻辑策略的在线换代由该成员内部的 rotation 配置负责。
+`strategy.mode="multi"` 在一个账户 owner 上公平轮询最多 32 个策略实例，禁止嵌套。同一逻辑策略可同时有一个 Active 和一个更高代次的 Shadow；每个实例拥有独立意图和回报通道。多个实例可以直接 JOIN 同一 MD topic；各自创建本地行情发布者时，topic ID 才须不同。一个成员失效时仅撤销其精确实例和代次的授权，其他成员继续处理。
+
+## 动态加载与交接
+
+配置 `shadow_loader` 后，控制端向私有 inbox 原子发布 `<sequence:020>.json`。`tickwire_app::launch::Request` 绑定执行器身份、writer epoch、逻辑策略、新实例和代次，以及 HostConfig、Bootstrap 的完整 SHA-256。HostConfig 必须是 `shadow=true`。加载器先同步 Decision，再构造真实子进程，最后同步注册结果；注册成功不授予交易权，也不代表 READY。重启只恢复已使用的请求、实例和最高代次，不重新启动历史注册的子进程。
+
+Shadow 与 Active 独立消费同一账户基线及顺序记录。Host 只有在认证 READY、实际报告 cursor、完整检查点依赖和账户 InputSeal 一致时才确认追平。交接使用[生命周期执行端](lifecycle-executor-interface.md)的 Prepare、Commit、Release：Prepare 暂停两实例的意图转发，Commit 同步账户的 `StrategyHandover`，Release 验证另行安装的新实例授权后切换转发。
+
+新实例授权在 Prepare 已应用后安装；提前安装会改变最高策略代次，使 `begin_handover` 拒绝该操作。`install_strategy_grant` 不改变交接闸门版本，安装本身也不打开尚未 Release 的闸门。新授权的有效期不能超过交接期限。
+
+当前 Host 在 Release 完成前终止旧实例并等待持有的 `Child` 实际退出。只有 `Registry::terminate` 返回退出观察后才记录 `strategy_retired`（精确 PID、实例、代次和退出状态），并允许新实例激活。终止失败时返回失败，两者保持暂停，由生命周期执行端转入 Halted；已有订单和可能已发送请求的责任不因此释放。这是本地实例退休的完成条件，不是全域 Finalized 凭据。
+
+协调器重启先发出本轮 QueryApplied，收齐回复且显式配置 `resume_after_queries=true` 后才能恢复操作。执行器重启则恢复为 Halted，旧 Release 不重新授予权限；下一次发布或回滚需要新实例、更高代次及新的生命周期操作。

@@ -173,6 +173,9 @@ pub struct OrderView {
     pub key: OrderKey,
     pub command_digest: v::Hash,
     pub strategy: u64,
+    pub origin: ManagerIdentity,
+    pub manager: ManagerIdentity,
+    pub owner_revision: u64,
     pub original_quantity: Fixed,
     pub filled_quantity: Fixed,
     pub remaining_quantity: Fixed,
@@ -248,6 +251,13 @@ impl Admission {
 /// never the clock at which recovery happens. This enum is data, not an authorization proof.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecoveryRecord {
+    IncomeBaseline(Box<IncomeBaseline>),
+    IngressAccountInput {
+        input_stream: [u8; 16],
+        input_sequence: u64,
+        input: Box<v::CanonicalAccountInput>,
+    },
+    StrategyHandover(Box<StrategyHandover>),
     Reactivated(Box<Reactivation>),
     Admit {
         command: Box<v::CanonicalCommand>,
@@ -294,26 +304,68 @@ pub enum RecoveryRecord {
     },
 }
 
+/// Baseline income coverage is data. The durable gateway must verify its raw
+/// query/snapshot dependencies before publishing or replaying it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IncomeBaseline {
+    pub scope: Scope,
+    pub account_epoch: u64,
+    pub ledger_sequence: u64,
+    pub wallet_id: u64,
+    pub through_time_ms: u64,
+    pub coverage_digest: v::Hash,
+    pub baseline_digest: v::Hash,
+    pub input_stream: [u8; 16],
+    pub through_sequence: u64,
+    pub covered: Vec<v::CanonicalAccountInput>,
+}
+pub const MAX_BASELINE_INCOMES: usize = 128;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ManagerIdentity {
+    pub instance: [u8; 16],
+    pub generation: u64,
+}
+/// One atomic transfer of all order-management responsibilities for a logical
+/// strategy. The exact preceding ledger and complete order set are bound.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StrategyHandover {
+    pub scope: Scope,
+    pub account_epoch: u64,
+    pub writer_epoch: u64,
+    pub operation_id: [u8; 16],
+    pub operation_revision: u64,
+    pub logical_strategy_id: u64,
+    pub expected_ledger_sequence: u64,
+    pub expected_orders_digest: v::Hash,
+    pub from: ManagerIdentity,
+    pub to: ManagerIdentity,
+    pub checkpoint_digest: v::Hash,
+    pub input_seal_digest: v::Hash,
+    pub evaluated_at: u64,
+    pub valid_until: u64,
+}
+
 /// Persisted account-reconciliation decision. Its external evidence is verified
 /// before publication and again before historical replay.
-#[derive(Debug,Clone,PartialEq,Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Reactivation {
-    pub scope:Scope,
-    pub product:v::Product,
-    pub account_epoch:u64,
-    pub ledger_sequence:u64,
-    pub baseline_digest:v::Hash,
-    pub history_digest:v::Hash,
-    pub input_stream:[u8;16],
-    pub private_connection_epoch:u64,
-    pub gap_generation:u64,
-    pub through_sequence:u64,
-    pub query_coverage_digest:v::Hash,
-    pub clock_boot_id:[u8;16],
-    pub clock_generation:u64,
-    pub evaluated_at:u64,
-    pub valid_until:u64,
-    pub writer_epoch:u64,
-    pub execution_connection_epoch:u64,
-    pub venue_available:Vec<(u64,Fixed)>,
+    pub scope: Scope,
+    pub product: v::Product,
+    pub account_epoch: u64,
+    pub ledger_sequence: u64,
+    pub baseline_digest: v::Hash,
+    pub history_digest: v::Hash,
+    pub input_stream: [u8; 16],
+    pub private_connection_epoch: u64,
+    pub gap_generation: u64,
+    pub through_sequence: u64,
+    pub query_coverage_digest: v::Hash,
+    pub clock_boot_id: [u8; 16],
+    pub clock_generation: u64,
+    pub evaluated_at: u64,
+    pub valid_until: u64,
+    pub writer_epoch: u64,
+    pub execution_connection_epoch: u64,
+    pub venue_available: Vec<(u64, Fixed)>,
 }

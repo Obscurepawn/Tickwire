@@ -455,7 +455,13 @@ fn unknown_control_enum_and_bad_fd_offer_are_rejected() {
 fn generated_layouts_match_current_contract() {
     let digest: [u8; 32] =
         Sha256::digest(include_bytes!("../../../specs/contracts/ipc-wire-v1.json")).into();
-    assert_eq!(WIRE_LAYOUT_COUNT, 36);
+    let contract: Value =
+        serde_json::from_slice(include_bytes!("../../../specs/contracts/ipc-wire-v1.json"))
+            .unwrap();
+    assert_eq!(
+        WIRE_LAYOUT_COUNT,
+        contract["layouts"].as_array().unwrap().len()
+    );
     assert_eq!(
         WIRE_CONTRACT_SHA256, digest,
         "run tools/generate.py wire after changing the contract"

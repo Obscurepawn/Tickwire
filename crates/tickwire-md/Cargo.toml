@@ -1,0 +1,39 @@
+[package]
+name = "tickwire-md"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[dependencies]
+tickwire-market-source = { path = "../tickwire-market-source" }
+tickwire-market-publisher = { path = "../tickwire-market-publisher" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-public = { path = "../tickwire-binance-public" }
+tickwire-binance-quota = { path = "../tickwire-binance-quota" }
+tickwire-quota = { path = "../tickwire-quota" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-clock-sys = { path = "../tickwire-clock-sys" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+tickwire-book = { path = "../tickwire-book" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-join = { path = "../tickwire-join" }
+tickwire-snapshot = { path = "../tickwire-snapshot" }
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+tickwire-control-store = { path = "../tickwire-control-store" }
+tickwire-journal = { path = "../tickwire-journal" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+libc = "0.2"
+
+[dev-dependencies]
+tickwire-binance-clock = { path = "../tickwire-binance-clock" }
+rcgen = "=0.14.10"
+base64 = "=0.22.1"
+sha1 = "=0.10.6"

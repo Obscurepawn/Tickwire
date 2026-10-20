@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/binance/binance-spot-api-docs",
+  "commit": "f4a9c0be68235f758b46f571f7313c63d1306b25",
+  "path": "sbe/schemas/stream_1_0.xml",
+  "sha256": "6ea328467e144311b1f1efff38e9fe613829997f041dd02a3b7077885d10a1f7",
+  "schema_id": 1,
+  "version": 0
+}

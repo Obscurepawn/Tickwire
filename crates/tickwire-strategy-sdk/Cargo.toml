@@ -9,6 +9,9 @@ publish.workspace = true
 unsafe_op_in_unsafe_fn = "deny"
 
 [dependencies]
+tickwire-release = { path = "../tickwire-release" }
+tickwire-handover = { path = "../tickwire-handover" }
+tickwire-market-source = { path = "../tickwire-market-source" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-ipc = { path = "../tickwire-ipc" }
 tickwire-join = { path = "../tickwire-join" }
@@ -27,7 +30,7 @@ tickwire-clock = { path = "../tickwire-clock" }
 tickwire-clock-sys = { path = "../tickwire-clock-sys" }
 libc = "0.2"
 tickwire-runtime = { path = "../tickwire-runtime", optional = true }
-tickwire-account = { path = "../tickwire-account", optional = true }
+tickwire-account = { path = "../tickwire-account" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway", optional = true }
 tickwire-binance-account = { path = "../tickwire-binance-account", optional = true }
 tickwire-binance-clock = { path = "../tickwire-binance-clock", optional = true }
@@ -35,4 +38,7 @@ tickwire-binance-public = { path = "../tickwire-binance-public", optional = true
 
 [features]
 default = ["runtime"]
-runtime = ["dep:tickwire-runtime","dep:tickwire-account","dep:tickwire-account-gateway","dep:tickwire-binance-account","dep:tickwire-binance-clock","dep:tickwire-binance-public"]
+runtime = ["dep:tickwire-runtime","dep:tickwire-account-gateway","dep:tickwire-binance-account","dep:tickwire-binance-clock","dep:tickwire-binance-public"]
+
+[dev-dependencies]
+tickwire-risk = { path = "../tickwire-risk" }

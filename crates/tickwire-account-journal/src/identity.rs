@@ -86,8 +86,47 @@ pub(crate) fn record(
     record: &RecoveryRecord,
 ) -> Result<()> {
     match record {
-        RecoveryRecord::Reactivated(b)=>{
-            if b.scope!=c.scope||b.baseline_digest!=c.baseline_digest||b.account_epoch!=baseline.snapshot().account_epoch||b.writer_epoch!=writer||baseline.catalog().entries.iter().any(|p|p.product!=b.product){return Err(Error::Identity);}
+        RecoveryRecord::IngressAccountInput { input, .. } => {
+            let id = &input.input().identity;
+            scope(c, id.risk_domain_id, id.venue, id.account, id.environment)?;
+            if !baseline
+                .catalog()
+                .entries
+                .iter()
+                .any(|p| p.wallet_id == id.wallet_id && p.futures.is_some())
+            {
+                return Err(Error::Identity);
+            }
+        }
+        RecoveryRecord::IncomeBaseline(b) => {
+            if b.scope != c.scope
+                || b.baseline_digest != c.baseline_digest
+                || b.account_epoch != baseline.snapshot().account_epoch
+            {
+                return Err(Error::Identity);
+            }
+        }
+        RecoveryRecord::StrategyHandover(h) => {
+            if h.scope != c.scope
+                || h.account_epoch != baseline.snapshot().account_epoch
+                || h.writer_epoch != writer
+            {
+                return Err(Error::Identity);
+            }
+        }
+        RecoveryRecord::Reactivated(b) => {
+            if b.scope != c.scope
+                || b.baseline_digest != c.baseline_digest
+                || b.account_epoch != baseline.snapshot().account_epoch
+                || b.writer_epoch != writer
+                || baseline
+                    .catalog()
+                    .entries
+                    .iter()
+                    .any(|p| p.product != b.product)
+            {
+                return Err(Error::Identity);
+            }
         }
 
         RecoveryRecord::Admit {

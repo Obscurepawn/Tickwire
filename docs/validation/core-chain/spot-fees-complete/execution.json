@@ -1,0 +1,6 @@
+{
+  "command": "./scripts/run-core-chain-linux.sh spot-fill",
+  "exit_code": 0,
+  "retained_volume": "tickwire-lab-20261020T193851Z-71891",
+  "source_frozen_during_run": true
+}

@@ -75,9 +75,14 @@ impl Account {
                 if let v::VenueEventBody::Fill(fill) = &event.body {
                     self.observe(&key, &fill.observation)?;
                 }
+                let components_changed = if let v::VenueEventBody::Fill(fill) = &event.body {
+                    self.register_fill_components(&key, &p, fill)?
+                } else {
+                    false
+                };
                 // Local freeze/recovery flags are not durable observations.
                 // Observe records every new anomaly on the order itself.
-                if self.orders[&key] != prior_order {
+                if self.orders[&key] != prior_order || components_changed {
                     self.next_sequence()?;
                     return Ok(Applied::New);
                 }
@@ -90,6 +95,7 @@ impl Account {
         match &event.body {
             v::VenueEventBody::Fill(fill) => {
                 self.apply_fill(&key, &p, fill)?;
+                self.register_fill_components(&key, &p, fill)?;
                 self.observe(&key, &fill.observation)?;
             }
             v::VenueEventBody::Fee { deltas, .. } => {
@@ -339,7 +345,7 @@ impl Account {
         }
         Ok(())
     }
-    fn add_uncovered(&mut self, wallet: u64, amount: Fixed) -> Result<()> {
+    pub(super) fn add_uncovered(&mut self, wallet: u64, amount: Fixed) -> Result<()> {
         let old = self
             .uncovered_debits
             .get(&wallet)

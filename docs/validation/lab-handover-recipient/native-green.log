@@ -1,0 +1,19 @@
+   Compiling tickwire-lab v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-lab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.03s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_lab-6c9d39696b9d9f04)
+
+running 11 tests
+test fixture::tests::masked_frame_and_unmasked_rejection ... ok
+test handover::tests::shadow_requires_the_same_complete_account_prefix ... ok
+test fixture::tests::partial_http_and_smuggling_rejected ... ok
+test fixture::tests::websocket_signature_covers_received_numeric_representation ... ok
+test launch::tests::result_check_requires_exact_economic_fill ... ok
+test generate::tests::policy_and_baseline_are_real_and_start_without_reconciliation ... ok
+test handover::tests::shadow_command_binds_new_authority_without_reusing_order_identity ... ok
+test generate::tests::generated_replica_pending_capacity_is_accepted_by_real_source ... ok
+test generate::tests::all_rules_deserialize_to_actual_quota_actions ... ok
+test generate::tests::generated_deployment_schema_and_account_configuration_are_valid ... ok
+test generate::tests::handover_generation_publishes_one_final_scenario_and_refuses_reuse ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.79s
+

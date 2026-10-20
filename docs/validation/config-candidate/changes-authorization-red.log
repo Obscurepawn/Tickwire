@@ -1,0 +1,35 @@
+   Compiling tickwire-config v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-config)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.62s
+     Running tests/changes.rs (target/debug/deps/changes-81fc4809493a8c3e)
+
+running 8 tests
+test shared_policy_dependency_cannot_be_hidden_by_single_account_scope ... ok
+test risk_admin_for_another_account_cannot_authorize_this_account_relaxation ... FAILED
+test unassigned_policy_is_cluster_scoped_and_hidden_from_account_readers ... FAILED
+test strategy_parameters_quiesce_until_pinned_schema_proves_hot_and_delivery_is_complete ... ok
+test exact_budget_tightening_is_hot_and_relaxation_requires_joint_roles ... ok
+test buffering_and_market_age_have_opposite_protection_directions ... ok
+test identity_environment_and_monetary_units_are_forbidden_at_runtime ... ok
+test logging_is_hot_but_listener_and_storage_paths_require_replacement ... ok
+
+failures:
+
+---- risk_admin_for_another_account_cannot_authorize_this_account_relaxation stdout ----
+
+thread 'risk_admin_for_another_account_cannot_authorize_this_account_relaxation' (7081491) panicked at crates/tickwire-config/tests/changes.rs:165:5:
+assertion failed: changes.authorize_commit(&authority).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- unassigned_policy_is_cluster_scoped_and_hidden_from_account_readers stdout ----
+
+thread 'unassigned_policy_is_cluster_scoped_and_hidden_from_account_readers' (7081494) panicked at crates/tickwire-config/tests/changes.rs:178:5:
+assertion failed: changes.visible_changes(&account).unwrap().is_empty()
+
+
+failures:
+    risk_admin_for_another_account_cannot_authorize_this_account_relaxation
+    unassigned_policy_is_cluster_scoped_and_hidden_from_account_readers
+
+test result: FAILED. 6 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+error: test failed, to rerun pass `-p tickwire-config --test changes`

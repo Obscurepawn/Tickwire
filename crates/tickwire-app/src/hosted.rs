@@ -5,7 +5,7 @@ use crate::{
     invalid,
     strategy::{AppStrategy, RecoveryFiles},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
 use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_runtime::files;
@@ -19,11 +19,17 @@ use tickwire_strategy_sdk::{
 };
 use tickwire_venue::CanonicalCommand;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostConfig {
+    #[serde(default)]
+    pub shadow: bool,
     pub bootstrap: PathBuf,
+    #[serde(default)]
     pub market_resource: PathBuf,
+    /// Private MD admission directory shared with the trusted launcher.
+    #[serde(default)]
+    pub md_admission_directory: Option<PathBuf>,
     pub executable: PathBuf,
     pub working_directory: PathBuf,
     pub uid: u32,
@@ -112,6 +118,45 @@ impl RecoveryResolver for Files {
 }
 struct Strategy(HostedStrategy<Files, 1>);
 impl tickwire_runtime::node::Strategy for Strategy {
+    fn handover_checkpoint(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+    ) -> Option<(tickwire_runtime::node::HandoverReadiness, Vec<Vec<u8>>)> {
+        tickwire_runtime::node::Strategy::handover_checkpoint(&mut self.0, instance, generation)
+    }
+    fn release_preflight(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+        roots: [[u8; 32]; 3],
+    ) -> Option<Vec<Vec<u8>>> {
+        tickwire_runtime::node::Strategy::release_preflight(
+            &mut self.0,
+            instance,
+            generation,
+            roots,
+        )
+    }
+    fn handover_ready(&mut self, r: &tickwire_runtime::node::HandoverReadiness) -> bool {
+        tickwire_runtime::node::Strategy::handover_ready(&mut self.0, r)
+    }
+    fn handover_objects(
+        &mut self,
+        r: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<Vec<Vec<u8>>> {
+        tickwire_runtime::node::Strategy::handover_objects(&mut self.0, r)
+    }
+    fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        tickwire_runtime::node::Strategy::handover_quiesce(&mut self.0, c)
+    }
+    fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        tickwire_runtime::node::Strategy::handover_activate(&mut self.0, c)
+    }
+    fn handover_halt(&mut self, id: u64) -> bool {
+        tickwire_runtime::node::Strategy::handover_halt(&mut self.0, id)
+    }
+
     fn on_market(&mut self, n: &tickwire_binance_public::Notice<'_>) -> bool {
         tickwire_runtime::node::Strategy::on_market(&mut self.0, n)
     }
@@ -151,6 +196,104 @@ impl tickwire_runtime::node::Strategy for Strategy {
     }
 }
 impl AppStrategy for Strategy {
+    fn instance(&self) -> Option<([u8; 16], u64)> {
+        self.0.instance()
+    }
+    fn set_shadow(&mut self) -> bool {
+        self.0.set_shadow();
+        true
+    }
+    fn failed(&self) -> bool {
+        self.0.failed()
+    }
+}
+struct RemoteStrategy(tickwire_strategy_host::RemoteHostedStrategy<Files>);
+impl tickwire_runtime::node::Strategy for RemoteStrategy {
+    fn handover_checkpoint(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+    ) -> Option<(tickwire_runtime::node::HandoverReadiness, Vec<Vec<u8>>)> {
+        tickwire_runtime::node::Strategy::handover_checkpoint(&mut self.0, instance, generation)
+    }
+    fn release_preflight(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+        roots: [[u8; 32]; 3],
+    ) -> Option<Vec<Vec<u8>>> {
+        tickwire_runtime::node::Strategy::release_preflight(
+            &mut self.0,
+            instance,
+            generation,
+            roots,
+        )
+    }
+    fn handover_ready(&mut self, r: &tickwire_runtime::node::HandoverReadiness) -> bool {
+        tickwire_runtime::node::Strategy::handover_ready(&mut self.0, r)
+    }
+    fn handover_objects(
+        &mut self,
+        r: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<Vec<Vec<u8>>> {
+        tickwire_runtime::node::Strategy::handover_objects(&mut self.0, r)
+    }
+    fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        tickwire_runtime::node::Strategy::handover_quiesce(&mut self.0, c)
+    }
+    fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        tickwire_runtime::node::Strategy::handover_activate(&mut self.0, c)
+    }
+    fn handover_halt(&mut self, id: u64) -> bool {
+        tickwire_runtime::node::Strategy::handover_halt(&mut self.0, id)
+    }
+
+    fn on_market(&mut self, n: &tickwire_binance_public::Notice<'_>) -> bool {
+        tickwire_runtime::node::Strategy::on_market(&mut self.0, n)
+    }
+    fn next(
+        &mut self,
+        a: &tickwire_account::Account,
+        h: tickwire_runtime::node::Health,
+        n: tickwire_binance_clock::LocalTime,
+    ) -> Option<tickwire_runtime::node::Submission> {
+        tickwire_runtime::node::Strategy::next(&mut self.0, a, h, n)
+    }
+    fn on_account_baseline(
+        &mut self,
+        b: &tickwire_account_codec::CanonicalBaseline,
+        a: &tickwire_account::Account,
+    ) -> bool {
+        tickwire_runtime::node::Strategy::on_account_baseline(&mut self.0, b, a)
+    }
+    fn account_report_position(&self) -> Option<u64> {
+        tickwire_runtime::node::Strategy::account_report_position(&self.0)
+    }
+    fn on_account_record(
+        &mut self,
+        p: u64,
+        r: &tickwire_account_codec::CanonicalRecord,
+        b: &tickwire_account_codec::CanonicalBaseline,
+        a: &tickwire_account::Account,
+    ) -> bool {
+        tickwire_runtime::node::Strategy::on_account_record(&mut self.0, p, r, b, a)
+    }
+    fn on_submission(
+        &mut self,
+        c: &CanonicalCommand,
+        r: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+    ) {
+        tickwire_runtime::node::Strategy::on_submission(&mut self.0, c, r);
+    }
+}
+impl AppStrategy for RemoteStrategy {
+    fn instance(&self) -> Option<([u8; 16], u64)> {
+        Some(self.0.instance())
+    }
+    fn set_shadow(&mut self) -> bool {
+        self.0.set_shadow();
+        true
+    }
     fn failed(&self) -> bool {
         self.0.failed()
     }
@@ -187,8 +330,27 @@ fn components(
             return Err(invalid("hosted paths must be absolute"));
         }
     }
-    let bootstrap: Bootstrap =
+    let mut bootstrap: Bootstrap =
         serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
+    if let Some(path) = &bootstrap.preflight_job {
+        let job: tickwire_strategy_sdk::preflight::Job =
+            serde_json::from_slice(&read_file(path, 2 * 1024 * 1024)?)?;
+        let bundle = job.bundle.load(&job.operation)?;
+        let release = bundle.verify_operation(&job.operation, &job.member)?;
+        let loaded = tickwire_release::files::load(&release.target.files, &job.target_files)?;
+        if loaded.bytes(&tickwire_release::Role::HostConfig)
+            != Some(serde_json::to_vec(config)?.as_slice())
+            || loaded.bytes(&tickwire_release::Role::Bootstrap)
+                != Some(read_file(&config.bootstrap, 2 * 1024 * 1024)?.as_slice())
+            || !config.shadow
+            || !bootstrap.handover_enabled
+        {
+            return Err(invalid("preflight actual HostConfig or Bootstrap"));
+        }
+    }
+    if config.shadow {
+        bootstrap.handover_enabled = true;
+    }
     if !bootstrap.report_directory.is_absolute() {
         return Err(invalid("report directory must be absolute"));
     }
@@ -361,6 +523,14 @@ pub fn build(
     runtime: &files::Configuration,
     policy: ControlPlane,
 ) -> Result<Box<dyn AppStrategy>> {
+    let mut bootstrap: Bootstrap =
+        serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
+    if config.shadow {
+        bootstrap.handover_enabled = true;
+    }
+    if bootstrap.external_market.is_some() {
+        return build_remote(config, runtime, policy, bootstrap);
+    }
     let context = Context {
         depth: runtime.market.depth.clone(),
         source: runtime.market.source,
@@ -385,6 +555,9 @@ pub fn build(
             context.depth.instrument.instrument_version,
         )?
     };
+    if config.shadow {
+        strategy.set_shadow();
+    }
     if let Some(directory) = &config.rotation_directory {
         if !directory.is_absolute() || config.first_rotation_sequence == 0 {
             return Err(invalid("rotation directory/sequence"));
@@ -396,4 +569,77 @@ pub fn build(
         }));
     }
     Ok(Box::new(Strategy(strategy)))
+}
+
+fn build_remote(
+    config: &HostConfig,
+    runtime: &files::Configuration,
+    policy: ControlPlane,
+    bootstrap: Bootstrap,
+) -> Result<Box<dyn AppStrategy>> {
+    let external = bootstrap
+        .external_market
+        .as_ref()
+        .ok_or_else(|| invalid("external MD configuration"))?;
+    let directory = config
+        .md_admission_directory
+        .as_ref()
+        .ok_or_else(|| invalid("MD admission directory required"))?;
+    if !directory.is_absolute()
+        || !config.executable.is_absolute()
+        || !config.working_directory.is_absolute()
+        || !config.directory_parent.is_absolute()
+        || !config.recovery_directory.is_absolute()
+        || external.domain()? != runtime.time.domain
+        || bootstrap.risk_domain != runtime.command_binding.risk_domain_id
+        || bootstrap.market.local.identity() != external.endpoint.local.identity()
+    {
+        return Err(invalid("remote MD launcher binding"));
+    }
+    if let Some(path) = &bootstrap.recovery_template {
+        let template: tickwire_strategy_sdk::recovery::Template =
+            serde_json::from_slice(&read_file(path, 2 * 1024 * 1024)?)?;
+        if template.output_directory != config.recovery_directory {
+            return Err(invalid("worker recovery directory"));
+        }
+    } else if bootstrap.demo_enabled {
+        return Err(invalid("demo recovery template required"));
+    }
+    let launch = tickwire_strategy_host::RemoteLaunch {
+        spec: tickwire_supervisor::LaunchSpec {
+            identity: external.endpoint.local.identity(),
+            executable: config.executable.clone(),
+            arguments: Vec::new(),
+            working_directory: config.working_directory.clone(),
+            environment: BTreeMap::new(),
+            uid: config.uid,
+            gid: config.gid,
+            inherit_output: true,
+        },
+        bootstrap,
+        directory_parent: config.directory_parent.clone(),
+        supervisor: config.supervisor.identity(),
+        parent_process: tickwire_control::ProcessIdentity {
+            pid: std::process::id(),
+            uid: config.uid,
+            gid: config.gid,
+        },
+        md_admission_directory: directory.clone(),
+        snapshot_id: config.snapshot_id,
+    };
+    // SAFETY: deployment binds qualified builds and exact MD identity; Registry
+    // retains the spawned child and authenticates its real intent/report peers.
+    let mut strategy = unsafe {
+        tickwire_strategy_host::RemoteHostedStrategy::launch(
+            launch,
+            Files {
+                directory: config.recovery_directory.clone(),
+            },
+            policy,
+        )?
+    };
+    if config.shadow {
+        strategy.set_shadow();
+    }
+    Ok(Box::new(RemoteStrategy(strategy)))
 }

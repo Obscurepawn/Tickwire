@@ -19,6 +19,23 @@ use tickwire_runtime::{files, node};
 use tickwire_transport::{Limits, rustls};
 use tickwire_venue::{Environment, Product};
 
+pub const PUBLIC_BOOK_LEVELS: usize = 5000;
+pub const PUBLIC_DEPTH_UPDATES: usize = 5000;
+pub const PUBLIC_BUFFERED_EVENTS: usize = 64;
+
+fn public_limits(io: Limits) -> public::Limits {
+    public::Limits {
+        io,
+        request_bytes: 16 * 1024,
+        message_bytes: 1024 * 1024,
+        http_bytes: 4 * 1024 * 1024,
+        http_headers: 64,
+        control_frames: 16,
+        timestamp_segments: 1024,
+        total_buffer_bytes: 64 * 1024 * 1024,
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Deployment {
@@ -43,9 +60,21 @@ pub struct Deployment {
     pub policy: tickwire_runtime_policy::bootstrap::Config,
     pub quota: tickwire_binance_quota::bootstrap::Config,
     pub strategy: crate::strategy::Config,
+    /// Authenticated direct MD subscriptions. Empty selects the local public client.
+    #[serde(default)]
+    pub market_sources: Vec<tickwire_market_source::ConnectConfig>,
+    #[serde(default)]
+    pub replication: Option<crate::replication::Config>,
+    #[serde(default)]
+    pub lifecycle: Option<crate::lifecycle::Config>,
+    #[serde(default)]
+    pub shadow_loader: Option<crate::launch::Config>,
     pub reconciliation: crate::reconciliation::Config,
     #[serde(default)]
-    pub control:Option<crate::control::Config>,
+    pub income_baseline_authority:
+        Option<tickwire_binance_account::reconciliation::income_import::IncomeBaselineAuthority>,
+    #[serde(default)]
+    pub control: Option<crate::control::Config>,
     pub stop_file: PathBuf,
     pub maximum_runtime_ns: u64,
 }
@@ -366,16 +395,7 @@ impl Deployment {
                 backoff_ns: 100_000_000,
                 max_backoff_ns: 30_000_000_000,
             },
-            limits: public::Limits {
-                io,
-                request_bytes: 16 * 1024,
-                message_bytes: 1024 * 1024,
-                http_bytes: 4 * 1024 * 1024,
-                http_headers: 64,
-                control_frames: 16,
-                timestamp_segments: 1024,
-                total_buffer_bytes: 16 * 1024 * 1024,
-            },
+            limits: public_limits(io),
         };
         let c = &self.clock;
         Ok(files::Configuration {
@@ -410,6 +430,7 @@ impl Deployment {
                 max_intents: t.maximum_intents,
             },
             input: tickwire_binance_account::Config {
+                income_baseline_authority: self.income_baseline_authority.clone(),
                 physical: physical(self.input_stream),
                 writer_epoch: self.writer_epoch,
                 baseline,
@@ -495,5 +516,98 @@ impl Deployment {
             maximum_staged_commands: 32,
             maximum_staged_bytes: 128 * 1024 * 1024,
         })
+    }
+}
+
+#[cfg(test)]
+#[path = "../../tickwire-binance/tests/common/mod.rs"]
+mod venue_fixture;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct UnusedClock;
+    impl time::MonotonicClock for UnusedClock {
+        fn sample(&mut self) -> time::Result<time::LocalTime> {
+            panic!("constructing the public owner must not sample or perform I/O");
+        }
+    }
+
+    fn construct<P: public::DepthPolicy>(source: Source, snapshot_limit: usize) {
+        let mut instrument = venue_fixture::command().context.instrument;
+        if P::MARKET == Market::Usdm {
+            instrument.contract = tickwire_venue::ContractKind::Perpetual;
+        }
+        let config = public::Config {
+            owner_id: [1; 16],
+            source,
+            domain: ClockDomain::new([2; 16], 1).unwrap(),
+            first_connection_epoch: 1,
+            first_operation: 1,
+            depth: public::DepthConfig {
+                instrument,
+                key: tickwire_book::BookKey {
+                    venue: 1,
+                    instrument: 12,
+                    source: 1,
+                },
+                time_unit: public::TimeUnit::Milliseconds,
+                snapshot_limit,
+                max_message_bytes: 1024 * 1024,
+                initial_book_generation: 1,
+                previous_connection_epoch: 0,
+            },
+            subscribe: public::SubscribeMode::RawUrl,
+            speed: public::DepthSpeed::Ms100,
+            timing: public::Timing {
+                connect_ns: 1_000_000_000,
+                request_ns: 1_000_000_000,
+                first_event_ns: 30_000_000_000,
+                heartbeat_ns: 600_000_000_000,
+                pong_ns: 5_000_000_000,
+                rotate_ns: 82_800_000_000_000,
+                backoff_ns: 100_000_000,
+                max_backoff_ns: 30_000_000_000,
+            },
+            limits: public_limits(Limits::default()),
+        };
+        let network = || public::NetworkConfig {
+            stream_address: "127.0.0.1:1".parse().unwrap(),
+            snapshot_address: "127.0.0.1:2".parse().unwrap(),
+            tls: Arc::new(
+                rustls::ClientConfig::builder()
+                    .with_root_certificates(rustls::RootCertStore::empty())
+                    .with_no_client_auth(),
+            ),
+        };
+        type Client<P> = public::PublicDepthClient<
+            P,
+            UnusedClock,
+            PUBLIC_BOOK_LEVELS,
+            PUBLIC_DEPTH_UPDATES,
+            PUBLIC_BUFFERED_EVENTS,
+        >;
+        let mut undersized = config.clone();
+        undersized.limits.total_buffer_bytes = 16 * 1024 * 1024;
+        assert!(matches!(
+            Client::<P>::new(undersized, network(), UnusedClock),
+            Err(public::Error::Bounds)
+        ));
+        assert!(Client::<P>::new(config, network(), UnusedClock).is_ok());
+    }
+
+    #[test]
+    fn public_owner_constructs_at_both_products_maximum_snapshot_depth() {
+        // The production owner is large; avoid the test harness's 2 MiB stack.
+        std::thread::Builder::new()
+            .stack_size(32 * 1024 * 1024)
+            .spawn(|| {
+                construct::<tickwire_book::BinanceSpot>(Source::SpotTest, 5000);
+                construct::<tickwire_book::BinanceUsdM>(Source::UsdmTest, 1000);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 }

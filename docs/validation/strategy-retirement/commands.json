@@ -1,0 +1,26 @@
+[
+  {
+    "command": [
+      "/Users/bytedance/.cargo/bin/cargo",
+      "test",
+      "-p",
+      "tickwire-strategy-host",
+      "--lib",
+      "retirement_tests"
+    ],
+    "log": "host-green.log",
+    "exit": 0
+  },
+  {
+    "command": [
+      "/Users/bytedance/.cargo/bin/cargo",
+      "test",
+      "-p",
+      "tickwire-app",
+      "--lib",
+      "failed_old_retirement_keeps_the_new_instance_paused"
+    ],
+    "log": "multi-green.log",
+    "exit": 0
+  }
+]

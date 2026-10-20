@@ -6,11 +6,57 @@ pub(crate) struct Verifier<'a, A: Authority> {
     pub reactivation: &'a mut dyn ReactivationVerifier,
 }
 impl<A: Authority> RecoveryVerifier for Verifier<'_, A> {
-    fn verify_reactivation(&mut self,baseline:&CanonicalBaseline,record:&CanonicalRecord,preceding:&HistoryFrontier,prior:&[CanonicalRecord])->std::result::Result<(),VerificationError>{
-        let RecoveryRecord::Reactivated(binding)=record.record() else{return Err(VerificationError::Invalid);};
-        let inputs:Vec<_>=prior.iter().map(|r|r.record().clone()).collect();
-        let account=Account::recover(baseline.snapshot().clone(),baseline.catalog().clone(),&inputs).map_err(|_|VerificationError::Invalid)?;
-        self.reactivation.verify(baseline,&account,preceding,binding).map_err(|_|VerificationError::Invalid)
+    fn verify_income_baseline(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::IncomeBaseline(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let records: Vec<_> = prior.iter().map(|r| r.record().clone()).collect();
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &records,
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.reactivation
+            .verify_income_baseline(baseline, &account, preceding, binding)
+            .map_err(|_| VerificationError::Invalid)
+    }
+    fn verify_handover(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        prior: &[CanonicalRecord],
+    ) -> std::result::Result<(), VerificationError> {
+        self.authority
+            .verify_handover(baseline, record, prior)
+            .map_err(|_| VerificationError::Invalid)
+    }
+    fn verify_reactivation(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::Reactivated(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let inputs: Vec<_> = prior.iter().map(|r| r.record().clone()).collect();
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &inputs,
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.reactivation
+            .verify(baseline, &account, preceding, binding)
+            .map_err(|_| VerificationError::Invalid)
     }
 
     fn verify_admission(
@@ -85,6 +131,9 @@ pub(crate) fn entries(
 }
 pub(crate) fn apply_fact(account: &mut Account, record: &RecoveryRecord) -> Result<Applied> {
     match record {
+        RecoveryRecord::IngressAccountInput { input, .. } => account.apply_account_input(input),
+        RecoveryRecord::IncomeBaseline(_) => return Err(Error::Invalid),
+        RecoveryRecord::StrategyHandover(h) => account.apply_strategy_handover(h),
         RecoveryRecord::VenueEvent(event) | RecoveryRecord::IngressEvent { event, .. } => {
             account.apply_event(event)
         }
@@ -118,7 +167,9 @@ pub(crate) fn apply_fact(account: &mut Account, record: &RecoveryRecord) -> Resu
         } => account
             .transfer_position_attribution(*instrument, *side, *from, *to, *quantity)
             .map(|()| Applied::New),
-        RecoveryRecord::Reactivated(_) | RecoveryRecord::Admit { .. } | RecoveryRecord::Aborted { .. } => {
+        RecoveryRecord::Reactivated(_)
+        | RecoveryRecord::Admit { .. }
+        | RecoveryRecord::Aborted { .. } => {
             return Err(Error::Invalid);
         }
     }

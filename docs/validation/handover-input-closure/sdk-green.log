@@ -1,0 +1,13 @@
+   Compiling tickwire-handover v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-handover)
+   Compiling tickwire-runtime v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.52s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_sdk-4f41411fcc3f245c)
+
+running 3 tests
+test handover::tests::checkpoint_requires_exact_instance_cut_and_nonempty_strategy_state ... ok
+test handover::tests::account_mirror_seals_ordered_callbacks_and_rejects_missing_or_replayed_records ... ok
+test handover::tests::objects_rejects_rehashed_inputs_without_the_account_callback ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.07s
+

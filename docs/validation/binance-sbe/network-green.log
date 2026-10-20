@@ -1,0 +1,13 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-venue v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-venue)
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.85s
+     Running tests/sbe_network.rs (target/debug/deps/sbe_network-d28bf5575b66ca26)
+
+running 2 tests
+test raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner ... ok
+test explicit_sbe_buffers_binary_before_text_subscription_ack ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+

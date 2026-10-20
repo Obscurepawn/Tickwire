@@ -2,10 +2,10 @@
 #![forbid(unsafe_code)]
 use sha2::{Digest, Sha256};
 use tickwire_binance::{
-    feed::{DepthContext, TimeUnit, decode_diff},
+    feed::{DepthContext, TimeUnit, decode_diff, decode_sbe_diff},
     request::Market,
 };
-use tickwire_binance_public::{Notice, PublicSink, SyncOutcome};
+use tickwire_binance_public::{DepthEncoding, Notice, PublicSink, SyncOutcome};
 use tickwire_book::{BestLevel, BookKey, BookView, Side, SideCoverage};
 use tickwire_ipc::*;
 use tickwire_join::{JoinOwner, JoinPlan};
@@ -405,6 +405,7 @@ impl<const M: usize> TopicPublisher<M> {
                 view,
                 raw_delta,
                 received_mono_ns,
+                encoding,
                 ..
             } => {
                 if matches!(outcome, SyncOutcome::Rebuild(_) | SyncOutcome::Disconnected) {
@@ -422,7 +423,8 @@ impl<const M: usize> TopicPublisher<M> {
                     return Ok(());
                 }
                 let was_blocked = self.needs_bank;
-                let result = self.apply_view(index, view, *raw_delta, *received_mono_ns, now);
+                let result =
+                    self.apply_view(index, view, *raw_delta, *encoding, *received_mono_ns, now);
                 if result.is_err() || (!was_blocked && self.needs_bank) {
                     self.fault(instrument, faults);
                 }
@@ -443,6 +445,7 @@ impl<const M: usize> TopicPublisher<M> {
         index: usize,
         view: &BookView<'_>,
         raw: Option<&[u8]>,
+        encoding: DepthEncoding,
         received: Option<u64>,
         now: u64,
     ) -> Result<()> {
@@ -547,7 +550,12 @@ impl<const M: usize> TopicPublisher<M> {
         let mut records = Vec::with_capacity(3);
         let mut levels = Vec::new();
         if let Some(raw) = raw {
-            let decoded = decode_diff::<4096>(
+            row.context.set_generation(view.generation());
+            let decode = match encoding {
+                DepthEncoding::Json => decode_diff::<4096>,
+                DepthEncoding::SpotSbeV1 => decode_sbe_diff::<4096>,
+            };
+            let decoded = decode(
                 raw,
                 &row.context,
                 received.unwrap_or(view.received_at_ns()),
@@ -564,7 +572,7 @@ impl<const M: usize> TopicPublisher<M> {
                 price_ticks: l.price.0,
                 qty_lots: l.quantity.0,
             }));
-            levels[..event.bids.len()].sort_unstable_by(|a, b| b.price_ticks.cmp(&a.price_ticks));
+            levels[..event.bids.len()].sort_unstable_by_key(|a| std::cmp::Reverse(a.price_ticks));
             levels[event.bids.len()..].sort_unstable_by_key(|l| l.price_ticks);
             let mut record = MarketRecord {
                 header: header(

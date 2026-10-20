@@ -1,0 +1,461 @@
+//! Host-owned completion: files + authenticated Registry child + actual probe exit.
+use super::*;
+use tickwire_release::{Object, Role, files, receipt::Receipt};
+use tickwire_strategy_sdk::preflight::{Job, ObjectFile, ProbeJob};
+
+fn object_file(directory: &Path, object: Object) -> ObjectFile {
+    ObjectFile {
+        path: directory.join(format!(
+            "{}.bin",
+            object
+                .digest
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        )),
+        object,
+    }
+}
+/// Finalize only fields derived by Host. The signed Bootstrap template is checked
+/// before any child is created; an unbound template cannot become a runtime job.
+pub(crate) fn prepare(config: &Bootstrap, spec: &LaunchSpec) -> Result<()> {
+    let Some(path) = &config.preflight_job else {
+        return Ok(());
+    };
+    let mut job: Job = worker::read_config(path, 2 * 1024 * 1024)?;
+    let bundle = job.bundle.load(&job.operation)?;
+    let release = bundle.verify_operation(&job.operation, &job.member)?;
+    let loaded = files::load(&release.target.files, &job.target_files)?;
+    let rollback = files::load(&release.rollback.files, &job.rollback_files)?;
+    job.source.objects()?;
+    let template: Bootstrap =
+        serde_json::from_slice(loaded.bytes(&Role::Bootstrap).ok_or(Error::Invalid)?)
+            .map_err(|_| Error::Invalid)?;
+    tickwire_strategy_sdk::preflight::verify_bootstrap(&template, config)?;
+    tickwire_strategy_sdk::preflight::verify_recovery_inputs(
+        config.recovery_template.as_deref(),
+        &loaded,
+    )?;
+    let rollback_template: Bootstrap =
+        serde_json::from_slice(rollback.bytes(&Role::Bootstrap).ok_or(Error::Invalid)?)
+            .map_err(|_| Error::Invalid)?;
+    tickwire_strategy_sdk::preflight::verify_recovery_inputs(
+        rollback_template.recovery_template.as_deref(),
+        &rollback,
+    )?;
+    if spec.identity != config.report.local.identity()
+        || spec.identity.instance != job.member.new_instance
+        || spec.identity.generation != job.member.new_generation
+        || spec.identity.logical_strategy != job.operation.logical_strategy_id
+        || spec.identity.build_hash != loaded.object(&Role::Binary).ok_or(Error::Invalid)?.digest
+        || std::fs::canonicalize(&spec.executable)?
+            != std::fs::canonicalize(loaded.path(&Role::Binary).ok_or(Error::Invalid)?)?
+    {
+        return Err(Error::Invalid);
+    }
+    loaded.recheck()?;
+    rollback.recheck()?;
+    job.effective_bootstrap = Object::of(&serde_json::to_vec(config).map_err(|_| Error::Invalid)?);
+    write_json(path, &job)
+}
+
+pub(crate) struct Proof {
+    job: Job,
+    bootstrap: Bootstrap,
+    primary: Option<(Receipt, Vec<u8>)>,
+    completed: Option<Vec<Vec<u8>>>,
+}
+impl Proof {
+    pub fn new(config: &Bootstrap) -> Result<Option<Self>> {
+        let Some(path) = &config.preflight_job else {
+            return Ok(None);
+        };
+        let job: Job = worker::read_config(path, 2 * 1024 * 1024)?;
+        job.effective_bootstrap.verify(
+            &serde_json::to_vec(config).map_err(|_| Error::Invalid)?,
+            2 * 1024 * 1024,
+        )?;
+        Ok(Some(Self {
+            job,
+            bootstrap: config.clone(),
+            primary: None,
+            completed: None,
+        }))
+    }
+    pub fn observe(
+        &mut self,
+        envelope: &ControlEnvelope,
+        raw: &[u8],
+        lane: &mut AuthenticatedChild,
+    ) -> Result<()> {
+        let body = tickwire_ipc::RestoreAppliedBody::decode(raw)?;
+        let expected = &self.bootstrap.report.local;
+        if envelope.opcode != 38
+            || envelope.flags != 32
+            || envelope.request_id != expected.instance
+            || envelope.expected_state_version != 0
+            || body.schema != 1
+            || body.completion_kind != 1
+            || body.receipt_sequence != 1
+            || body.instance_id != expected.instance
+            || body.strategy_generation != expected.generation
+            || body.logical_strategy_id != expected.logical_strategy
+            || lane.session.peer() != &expected.identity()
+        {
+            return Err(Error::Invalid);
+        }
+        let bytes = object_file(
+            &self.job.output_directory,
+            Object {
+                digest: body.receipt_digest,
+                bytes: body.receipt_bytes,
+            },
+        )
+        .read()?;
+        let receipt = Receipt::decode(&bytes)?;
+        let bundle = self.job.bundle.load(&self.job.operation)?;
+        let release = bundle.verify_operation(&self.job.operation, &self.job.member)?;
+        receipt.verify(&release, None)?;
+        verify_process(&receipt, lane)?;
+        if receipt.effective_bootstrap_digest != self.job.effective_bootstrap.digest
+            || body.release_manifest_digest != receipt.roots[0]
+        {
+            return Err(Error::Invalid);
+        }
+        let proof = tickwire_recovery::HandoverSeal::decode(&self.job.source.proof.read()?)?;
+        if receipt.source_report_position != proof.report_position {
+            return Err(Error::Invalid);
+        }
+        object_file(&self.job.output_directory, receipt.output).read()?;
+        if let Some((previous, previous_bytes)) = &self.primary
+            && (previous != &receipt || previous_bytes != &bytes)
+        {
+            return Err(Error::Invalid);
+        }
+        self.primary = Some((receipt, bytes));
+        let objects = self.objects(bundle.roots())?.ok_or(Error::NotReady)?;
+        let completion = objects.first().ok_or(Error::Invalid)?;
+        let status = tickwire_ipc::StatusBody {
+            subject_id: body.instance_id,
+            original_request_id: envelope.request_id,
+            original_control_epoch: envelope.control_epoch,
+            state_version: body.receipt_sequence,
+            state: 3,
+            result_hash: tickwire_recovery::digest(completion),
+            ..Default::default()
+        };
+        let reply = lane.session.encode(
+            ControlEnvelope {
+                opcode: 49,
+                flags: 10,
+                request_id: envelope.request_id,
+                expected_state_version: envelope.expected_state_version,
+                ..Default::default()
+            },
+            &wire_bytes(&status)?,
+        )?;
+        lane.connection
+            .send(&reply, &[], Instant::now() + Duration::from_secs(1))?;
+        Ok(())
+    }
+    pub fn objects(&mut self, roots: [[u8; 32]; 3]) -> Result<Option<Vec<Vec<u8>>>> {
+        if roots
+            != [
+                self.job.operation.artifacts_digest,
+                self.job.operation.checkpoint_digest,
+                self.job.operation.rollback_digest,
+            ]
+        {
+            return Ok(None);
+        }
+        if let Some(objects) = &self.completed {
+            return Ok(Some(objects.clone()));
+        }
+        let Some((primary, primary_bytes)) = self.primary.clone() else {
+            return Ok(None);
+        };
+        let objects = self.probe(&primary, &primary_bytes)?;
+        self.completed = Some(objects.clone());
+        Ok(Some(objects))
+    }
+    fn probe(&self, primary: &Receipt, primary_bytes: &[u8]) -> Result<Vec<Vec<u8>>> {
+        let bundle = self.job.bundle.load(&self.job.operation)?;
+        let release = bundle.verify_operation(&self.job.operation, &self.job.member)?;
+        let files = files::load(&release.rollback.files, &self.job.rollback_files)?;
+        let rollback: Bootstrap =
+            serde_json::from_slice(files.bytes(&Role::Bootstrap).ok_or(Error::Invalid)?)
+                .map_err(|_| Error::Invalid)?;
+        let id = rollback.report.local.identity();
+        if id != rollback.market.local.identity()
+            || id.instance == primary.process.instance
+            || id.instance == release.target.member.old_instance
+            || id.logical_strategy != primary.logical_strategy
+            || id.role != 3
+            || id.build_hash != files.object(&Role::Binary).ok_or(Error::Invalid)?.digest
+            || rollback.report.peer.identity() != self.bootstrap.report.peer.identity()
+        {
+            return Err(Error::Invalid);
+        }
+        let parent = self.job.output_directory.parent().ok_or(Error::Invalid)?;
+        let directory = PrivateDirectory::create_in(parent, "tickwire-rollback")?;
+        let mut endpoint = rollback.report.clone();
+        endpoint.path = directory.path().join("probe.sock");
+        endpoint.peer_pid = self.bootstrap.report.peer_pid;
+        endpoint.peer_uid = self.bootstrap.report.peer_uid;
+        endpoint.peer_gid = self.bootstrap.report.peer_gid;
+        let listener = ControlListener::bind(&endpoint.path)?;
+        let effective_path = directory.path().join("target.json");
+        write_json(&effective_path, &self.bootstrap)?;
+        let output_directory = directory.path().join("output");
+        let job = ProbeJob {
+            primary: self.job.clone(),
+            target_bootstrap: ObjectFile {
+                path: effective_path,
+                object: self.job.effective_bootstrap,
+            },
+            parent_receipt: object_file(&self.job.output_directory, Object::of(primary_bytes)),
+            target_output: object_file(&self.job.output_directory, primary.output),
+            endpoint: endpoint.clone(),
+            output_directory: output_directory.clone(),
+        };
+        let job_path = directory.path().join("probe.json");
+        write_json(&job_path, &job)?;
+        files.recheck()?;
+        let mut registry = Registry::new(1)?;
+        let child = registry.spawn(LaunchSpec {
+            identity: id.clone(),
+            executable: files.path(&Role::Binary).ok_or(Error::Invalid)?.to_owned(),
+            arguments: vec![
+                "--restore-probe".into(),
+                job_path.to_str().ok_or(Error::Invalid)?.into(),
+            ],
+            working_directory: directory.path().to_owned(),
+            environment: Default::default(),
+            uid: primary.process.uid,
+            gid: primary.process.gid,
+            inherit_output: true,
+        })?;
+        let mut clock = SystemClock::new(
+            tickwire_clock::ClockDomain::new(id.host_boot, self.bootstrap.clock_generation)
+                .map_err(|_| Error::Invalid)?,
+        )?;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        let mut lane = registry.accept(
+            &listener,
+            server_policy(&endpoint, child),
+            clock.sample()?.monotonic.nanos(),
+            deadline,
+        )?;
+        let packet = lane.connection.recv(deadline)?;
+        if !packet.fds().is_empty() {
+            return Err(Error::Invalid);
+        }
+        let frame = lane
+            .session
+            .validate(packet.bytes(), clock.sample()?.monotonic.nanos())?;
+        let envelope = frame.envelope.clone();
+        let body = tickwire_ipc::RestoreAppliedBody::decode(frame.body)?;
+        if envelope.opcode != 38
+            || envelope.flags != 32
+            || envelope.expected_state_version != 1
+            || envelope.request_id != body.receipt_digest[..16]
+            || body.receipt_sequence != 1
+            || body.schema != 1
+            || body.completion_kind != 2
+            || body.instance_id != id.instance
+            || body.strategy_generation != id.generation
+            || body.logical_strategy_id != id.logical_strategy
+            || body.release_manifest_digest != primary.roots[0]
+        {
+            return Err(Error::Invalid);
+        }
+        let bytes = object_file(
+            &output_directory,
+            Object {
+                digest: body.receipt_digest,
+                bytes: body.receipt_bytes,
+            },
+        )
+        .read()?;
+        let receipt = Receipt::decode(&bytes)?;
+        receipt.verify(&release, Some(primary))?;
+        verify_process(&receipt, &lane)?;
+        if receipt.effective_bootstrap_digest
+            != files.object(&Role::Bootstrap).ok_or(Error::Invalid)?.digest
+        {
+            return Err(Error::Invalid);
+        }
+        let output = object_file(&output_directory, receipt.output).read()?;
+        let reply = lane.session.encode(
+            ControlEnvelope {
+                opcode: 49,
+                flags: 10,
+                request_id: envelope.request_id,
+                expected_state_version: 1,
+                ..Default::default()
+            },
+            &wire_bytes(&tickwire_strategy_sdk::preflight::applied_status(
+                &body,
+                envelope.request_id,
+                envelope.control_epoch,
+            ))?,
+        )?;
+        lane.connection.send(&reply, &[], deadline)?;
+        loop {
+            if let Some(exit) = registry
+                .observe_exits()?
+                .into_iter()
+                .find(|e| e.instance() == id.instance)
+            {
+                if !exit.status().success() {
+                    return Err(Error::Invalid);
+                }
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::NotReady);
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        // Persist probe evidence outside the temporary process directory before
+        // treating completion as reusable by this live Host.
+        for value in [&bytes, &output] {
+            persist_object(&self.job.output_directory, value)?;
+        }
+        let completion = tickwire_release::receipt::Completion {
+            schema: 1,
+            operation: self.job.operation.clone(),
+            roots: bundle.roots(),
+            member: self.job.member.clone(),
+            logical_strategy: primary.logical_strategy,
+            restored: Object::of(primary_bytes),
+            rollback: Object::of(&bytes),
+        };
+        completion.verify(&release, primary_bytes, &bytes)?;
+        let completion = completion.bytes()?;
+        persist_object(&self.job.output_directory, &completion)?;
+        let mut objects = vec![
+            completion,
+            self.job.bundle.manifest.read()?,
+            self.job.bundle.migration.read()?,
+            self.job.bundle.rollback.read()?,
+            primary_bytes.to_vec(),
+            object_file(&self.job.output_directory, primary.output).read()?,
+            bytes,
+            output,
+        ];
+        objects.extend(self.job.source.objects()?);
+        Ok(objects)
+    }
+}
+fn verify_process(receipt: &Receipt, lane: &AuthenticatedChild) -> Result<()> {
+    if receipt.process.instance != lane.session.peer().instance
+        || receipt.process.generation != lane.session.peer().generation
+        || receipt.process.pid != lane.process.pid
+        || receipt.process.uid != lane.process.uid
+        || receipt.process.gid != lane.process.gid
+        || receipt.binary_digest != lane.session.peer().build_hash
+    {
+        return Err(Error::Invalid);
+    }
+    Ok(())
+}
+fn persist_object(directory: &Path, bytes: &[u8]) -> Result<()> {
+    persist_object_with_sync(directory, bytes, &mut File::sync_all)
+}
+fn persist_object_with_sync(
+    directory: &Path,
+    bytes: &[u8],
+    sync: &mut impl FnMut(&File) -> std::io::Result<()>,
+) -> Result<()> {
+    let path = object_file(directory, Object::of(bytes)).path;
+    let file = match OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+    {
+        Ok(mut f) => {
+            f.write_all(bytes)?;
+            f
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+            object_file(directory, Object::of(bytes)).read()?;
+            File::open(&path)?
+        }
+        Err(e) => return Err(e.into()),
+    };
+    // A previous file-sync failure may leave identical readable bytes. Establish
+    // the file completion point on both paths before publishing its directory.
+    sync(&file)?;
+    sync(&File::open(directory)?)?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod persistence_tests {
+    use super::*;
+    #[test]
+    fn failed_object_sync_requires_a_real_file_sync_again_before_directory_sync() {
+        struct Directory(std::path::PathBuf);
+        impl Directory {
+            fn path(&self) -> &Path {
+                &self.0
+            }
+        }
+        impl Drop for Directory {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let path = std::env::temp_dir().join(format!(
+            "tickwire-preflight-sync-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&path)
+            .unwrap();
+        let directory = Directory(path);
+        let bytes = b"actual preflight completion bytes";
+        let path = object_file(directory.path(), Object::of(bytes)).path;
+        let mut calls = Vec::new();
+        let mut fail_file = |file: &File| {
+            let regular = file.metadata()?.is_file();
+            calls.push(regular);
+            if regular {
+                Err(std::io::Error::other("injected file-sync failure"))
+            } else {
+                Ok(())
+            }
+        };
+        assert!(persist_object_with_sync(directory.path(), bytes, &mut fail_file).is_err());
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        assert!(
+            persist_object_with_sync(directory.path(), bytes, &mut fail_file).is_err(),
+            "visible identical bytes after a failed file sync do not establish durability"
+        );
+        assert_eq!(calls, [true, true]);
+        let mut order = Vec::new();
+        persist_object_with_sync(directory.path(), bytes, &mut |file| {
+            order.push(file.metadata()?.is_file());
+            file.sync_all()
+        })
+        .unwrap();
+        assert_eq!(order, [true, false]);
+        std::fs::write(&path, b"corrupt retained completion").unwrap();
+        let mut synced = false;
+        assert!(
+            persist_object_with_sync(directory.path(), bytes, &mut |_| {
+                synced = true;
+                Ok(())
+            })
+            .is_err()
+        );
+        assert!(!synced);
+    }
+}

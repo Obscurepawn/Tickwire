@@ -86,6 +86,22 @@ pub struct NetworkConfig {
     pub snapshot_address: SocketAddr,
     pub tls: Arc<rustls::ClientConfig>,
 }
+/// Explicit access to the official Spot SBE endpoint. The server validates key type;
+/// this client never logs the key or sends it to the REST snapshot endpoint.
+pub struct SbeAccess {
+    api_key: String,
+}
+impl SbeAccess {
+    pub fn ed25519_api_key(api_key: String) -> Result<Self> {
+        if api_key.is_empty()
+            || api_key.len() > 512
+            || !api_key.bytes().all(|b| b.is_ascii_alphanumeric())
+        {
+            return Err(Error::Invalid);
+        }
+        Ok(Self { api_key })
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Lane {
     Stream,
@@ -148,13 +164,19 @@ pub struct GapNotice {
     pub book_generation: u64,
     pub reason: Error,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DepthEncoding {
+    Json,
+    SpotSbeV1,
+}
 pub enum Notice<'a> {
     Sync {
         connection_epoch: u64,
         book_generation: u64,
         received_mono_ns: Option<u64>,
-        /// Original unwrapped event, including exchange E/T. Borrowed only here.
+        /// Exact JSON event or SBE binary frame; borrowed only during this callback.
         raw_delta: Option<&'a [u8]>,
+        encoding: DepthEncoding,
         outcome: SyncOutcome,
         view: Option<BookView<'a>>,
     },

@@ -1,0 +1,29 @@
+   Compiling tickwire-handover v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-handover)
+   Compiling tickwire-replica v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-replica)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.89s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_handover-eafdb179f07f69d1)
+
+running 6 tests
+test tests::callback_sequence_and_canonical_baseline_are_both_bound ... ok
+test tests::complete_callbacks_replay_and_match_the_actual_history ... ok
+test tests::self_consistent_alternate_history_cannot_replace_actual_wal_bytes ... ok
+test tests::claimed_ledger_or_orders_must_match_replay_even_after_rehashing ... ok
+test tests::inputs_require_genesis_and_exact_seal_object ... ok
+test tests::missing_duplicate_reordered_or_unwrapped_callbacks_are_rejected ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_replica-366999a1793935c0)
+
+running 8 tests
+test worker::tests::concurrent_pending_publication_does_not_look_like_clock_rollback ... ok
+test tests::stream_binds_commit_mode_and_profile ... ok
+test tests::canonical_batches_and_input_prefix_reject_truncation_or_gaps ... ok
+test tests::closed_source_retains_export_and_required_prefix_blocks_missing_tail ... ok
+test tests::restart_reuses_immutable_dependency_selection ... ok
+test tests::actual_export_required_and_sync_failure_cannot_ack ... ok
+test tests::restore_does_not_fill_live_pending_queue_and_late_restore_rejects ... ok
+test tests::duplicate_prefix_ack_is_exact_and_new_boot_requires_new_ack ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

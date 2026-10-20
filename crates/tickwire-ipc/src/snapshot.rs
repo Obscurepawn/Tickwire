@@ -220,7 +220,11 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
                 check(h.entry_count == if exact { 3 } else { 2 } && h.entry_bytes == 64)?;
                 let state = SnapshotSection::decode(&payload[..64])?;
                 let depth = SnapshotSection::decode(&payload[64..128])?;
-                let coverage = if exact { Some(SnapshotSection::decode(&payload[128..192])?) } else { None };
+                let coverage = if exact {
+                    Some(SnapshotSection::decode(&payload[128..192])?)
+                } else {
+                    None
+                };
                 if let Some(c) = &coverage {
                     check(c.section_kind == 3 && c.entry_bytes == 32 && c.entry_count == 1)?;
                 }
@@ -248,16 +252,27 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
                     } else if section.section_kind == 2 {
                         validate_levels(part, h.bid_count, h.ask_count)?;
                         if exact {
-                            for bytes in part.chunks_exact(16) {
+                            for bytes in part.as_chunks::<16>().0 {
                                 let level = DepthLevel::decode(bytes)?;
                                 check(level.price_ticks > 0 && level.qty_lots > 0)?;
                             }
                         }
                     } else {
-                        check(section.section_kind == 3 && section.entry_bytes == 32 && section.entry_count == 1)?;
+                        check(
+                            section.section_kind == 3
+                                && section.entry_bytes == 32
+                                && section.entry_count == 1,
+                        )?;
                         let c = DepthCoverage::decode(part)?;
                         validate_depth_coverage(&c)?;
-                        check(h.coverage_flags == if c.bid_kind == 1 && c.ask_kind == 1 { 0 } else { 3 })?;
+                        check(
+                            h.coverage_flags
+                                == if c.bid_kind == 1 && c.ask_kind == 1 {
+                                    0
+                                } else {
+                                    3
+                                },
+                        )?;
                     }
                     offset = offset.checked_add(section.length).ok_or(Error::Bounds)?;
                 }
@@ -324,8 +339,13 @@ fn validate_state_records(raw: &[u8], snapshot: &SnapshotHeader) -> Result<()> {
 }
 
 pub fn validate_depth_coverage(c: &DepthCoverage) -> Result<()> {
-    if c.version != 1 { return Err(Error::UnsupportedFeature); }
-    for (kind, boundary) in [(c.bid_kind, c.bid_boundary_ticks), (c.ask_kind, c.ask_boundary_ticks)] {
+    if c.version != 1 {
+        return Err(Error::UnsupportedFeature);
+    }
+    for (kind, boundary) in [
+        (c.bid_kind, c.bid_boundary_ticks),
+        (c.ask_kind, c.ask_boundary_ticks),
+    ] {
         match kind {
             0 | 1 if boundary == 0 => {}
             2 if boundary > 0 => {}

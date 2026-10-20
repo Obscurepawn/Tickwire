@@ -1,0 +1,26 @@
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.22s
+     Running tests/constructor_stack.rs (target/debug/deps/constructor_stack-6072435a35824e0a)
+
+running 2 tests
+test constructor_stack_child ... ok
+test production_depth_owners_construct_on_default_worker_stack ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/sbe_config.rs (target/debug/deps/sbe_config-cb3db1139409ee13)
+
+running 2 tests
+test api_key_rejects_empty_oversized_and_header_injection ... ok
+test sbe_only_accepts_exact_product_endpoint_timing_and_stream_speed ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/sbe_network.rs (target/debug/deps/sbe_network-d28bf5575b66ca26)
+
+running 2 tests
+test raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner ... ok
+test explicit_sbe_buffers_binary_before_text_subscription_ack ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+

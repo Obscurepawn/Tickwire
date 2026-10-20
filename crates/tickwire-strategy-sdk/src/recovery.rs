@@ -68,6 +68,7 @@ impl InputJournal for NoJournal {
     }
 }
 pub struct RecoveryWriter {
+    preflight: Option<[u8; 32]>,
     template: Template,
     dependencies: Vec<DependencyFile>,
     rows: Vec<Row>,
@@ -87,7 +88,7 @@ pub fn order_count(c: &CanonicalCommand) -> usize {
         _ => 1,
     }
 }
-fn read(path: &Path, max: usize) -> Result<Vec<u8>> {
+pub(crate) fn read(path: &Path, max: usize) -> Result<Vec<u8>> {
     let f = OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
@@ -131,7 +132,7 @@ fn immutable(path: &Path, bytes: &[u8]) -> Result<()> {
 fn name(h: [u8; 32]) -> String {
     h.iter().map(|v| format!("{v:02x}")).collect()
 }
-fn object(root: &Path, bytes: &[u8]) -> Result<(PathBuf, [u8; 32])> {
+pub(crate) fn object(root: &Path, bytes: &[u8]) -> Result<(PathBuf, [u8; 32])> {
     let h = digest(bytes);
     let p = root.join(format!("{}.bin", name(h)));
     immutable(&p, bytes)?;
@@ -238,6 +239,7 @@ impl RecoveryWriter {
             });
         }
         let mut out = Self {
+            preflight: None,
             template,
             dependencies,
             rows: Vec::new(),
@@ -252,8 +254,91 @@ impl RecoveryWriter {
         }
         Ok(out)
     }
+    pub(crate) fn seal_handover(
+        &self,
+        mut body: tickwire_ipc::HandoverReadyBody,
+        state: &[u8],
+        account_seal: &tickwire_account_codec::InputSeal,
+    ) -> Result<tickwire_ipc::HandoverReadyBody> {
+        if !self.active
+            || state.is_empty()
+            || state.len() > MAX_OBJECT_BYTES / 2
+            || account_seal.position() != body.exec_report_sequence
+        {
+            return Err(Error::NotReady);
+        }
+        let rows = self
+            .rows
+            .iter()
+            .map(|r| InputRecord {
+                kind: r.kind,
+                payload: &r.bytes,
+            })
+            .collect::<Vec<_>>();
+        let inputs = encode_inputs(self.template.input_stream, 1, [0; 32], &rows)?;
+        let (_, input_digest) = object(&self.template.output_directory, &inputs.bytes)?;
+        let mut checkpoint = b"TWHS0001".to_vec();
+        checkpoint.extend(body.instance_id);
+        checkpoint.extend(body.strategy_generation.to_le_bytes());
+        checkpoint.extend(body.logical_strategy_id.to_le_bytes());
+        checkpoint.extend(body.exec_report_sequence.to_le_bytes());
+        checkpoint.extend(body.ledger_sequence.to_le_bytes());
+        checkpoint.extend(body.orders_digest);
+        checkpoint.extend((state.len() as u64).to_le_bytes());
+        checkpoint.extend(state);
+        let (_, digest) = object(&self.template.output_directory, &checkpoint)?;
+        let (_, account_hash) =
+            object(&self.template.output_directory, account_seal.object_bytes())?;
+        body.checkpoint_digest = digest;
+        body.checkpoint_bytes = checkpoint.len() as u64;
+        let seal = crate::handover::InputSeal {
+            version: if self.preflight.is_some() { 2 } else { 1 },
+            preflight_receipt_digest: self.preflight,
+            owner: self.template.owner,
+            instance: body.instance_id,
+            generation: body.strategy_generation,
+            logical_strategy: body.logical_strategy_id,
+            report_position: body.exec_report_sequence,
+            ledger_sequence: body.ledger_sequence,
+            orders_digest: body.orders_digest,
+            checkpoint_digest: digest,
+            checkpoint_bytes: checkpoint.len() as u64,
+            account_input_digest: account_hash,
+            account_input_bytes: account_seal.object_bytes().len() as u64,
+            input_digest,
+            input_bytes: inputs.bytes.len() as u64,
+            dependencies: self
+                .dependencies
+                .iter()
+                .map(|d| (u16::from(d.kind), d.digest))
+                .collect(),
+        };
+        let bytes = seal.bytes()?;
+        let (_, hash) = object(&self.template.output_directory, &bytes)?;
+        body.input_seal_digest = hash;
+        body.input_seal_bytes = bytes.len() as u64;
+        Ok(body)
+    }
     pub fn set_active(&mut self) {
         self.active = true;
+    }
+    pub(crate) fn install_preflight(
+        &mut self,
+        root: [u8; 32],
+        verified: tickwire_release::closure::Verified,
+    ) -> Result<()> {
+        if self.active || self.preflight.is_some() {
+            return Err(Error::Identity);
+        }
+        let raw = verified.completion.bytes()?;
+        if digest(&raw) != root {
+            return Err(Error::Identity);
+        }
+        for bytes in verified.objects {
+            object(&self.template.output_directory, &bytes)?;
+        }
+        self.preflight = Some(root);
+        Ok(())
     }
     fn push(&mut self, kind: u8, bytes: Vec<u8>) -> Result<()> {
         let size = self
@@ -273,7 +358,7 @@ impl RecoveryWriter {
     pub fn prepare(&mut self, command: &CanonicalCommand) -> Result<()> {
         if !self.active
             || self.template.order_ids.len() != order_count(command)
-            || self.template.order_ids.iter().any(|v| *v == [0; 16])
+            || self.template.order_ids.contains(&[0; 16])
         {
             return Err(Error::Identity);
         }
@@ -491,6 +576,7 @@ mod tests {
             order_ids: vec![],
         };
         let mut writer = RecoveryWriter {
+            preflight: None,
             template,
             dependencies: vec![],
             rows: vec![],
@@ -554,6 +640,7 @@ mod tests {
             order_ids: vec![],
         };
         let mut writer = RecoveryWriter {
+            preflight: None,
             template,
             dependencies: vec![],
             rows: vec![],

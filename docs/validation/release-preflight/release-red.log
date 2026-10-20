@@ -1,0 +1,39 @@
+   Compiling tickwire-lifecycle v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-lifecycle)
+   Compiling tickwire-release v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-release)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.89s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_release-72ec71312559955d)
+
+running 3 tests
+test tests::capability_or_missing_exact_input_cannot_be_declared_away ... FAILED
+test tests::exact_operation_and_every_member_field_are_bound ... FAILED
+test tests::formatted_json_is_not_a_canonical_release ... FAILED
+
+failures:
+
+---- tests::capability_or_missing_exact_input_cannot_be_declared_away stdout ----
+
+thread 'tests::capability_or_missing_exact_input_cannot_be_declared_away' (6947650) panicked at crates/tickwire-release/src/tests.rs:30:2:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(Unsupported)
+
+---- tests::exact_operation_and_every_member_field_are_bound stdout ----
+
+thread 'tests::exact_operation_and_every_member_field_are_bound' (6947651) panicked at crates/tickwire-release/src/tests.rs:19:2:
+assertion failed: matches!(b.verify_operation(&wrong,&wrong.members[0]),Err(Error::Identity))
+
+---- tests::formatted_json_is_not_a_canonical_release stdout ----
+
+thread 'tests::formatted_json_is_not_a_canonical_release' (6947652) panicked at crates/tickwire-release/src/tests.rs:25:2:
+assertion failed: matches!(ReleaseBundle::decode(&b,&encode(&s).unwrap(),&encode(&r).unwrap()),Err(Error::Encoding))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    tests::capability_or_missing_exact_input_cannot_be_declared_away
+    tests::exact_operation_and_every_member_field_are_bound
+    tests::formatted_json_is_not_a_canonical_release
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-release --lib`

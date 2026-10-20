@@ -60,6 +60,7 @@ struct Budget {
 pub struct PublicDepthClient<P, C, const L: usize, const U: usize, const B: usize> {
     config: Config,
     network: NetworkConfig,
+    sbe: Option<SbeAccess>,
     sync: DepthSync<P, L, U, B>,
     clock: C,
     last: Option<LocalTime>,
@@ -96,6 +97,7 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
             next_operation: Some(config.first_operation),
             config,
             network,
+            sbe: None,
             sync,
             clock,
             last: None,
@@ -111,6 +113,24 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
             failures: 0,
             http_first: false,
         })
+    }
+    /// SBE currently serves Spot production diff depth; REST snapshot remains JSON.
+    pub fn new_sbe(
+        config: Config,
+        network: NetworkConfig,
+        clock: C,
+        access: SbeAccess,
+    ) -> Result<Self> {
+        if config.source != Source::SpotProduction
+            || P::MARKET != tickwire_binance::request::Market::Spot
+            || config.depth.time_unit != TimeUnit::Microseconds
+            || config.speed != DepthSpeed::Default
+        {
+            return Err(Error::Invalid);
+        }
+        let mut client = Self::new(config, network, clock)?;
+        client.sbe = Some(access);
+        Ok(client)
     }
     fn local(&mut self) -> Result<LocalTime> {
         let now = self.clock.sample().map_err(|_| Error::Clock)?;
@@ -254,17 +274,30 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
         if !allowed {
             return Err(Error::Denied);
         }
-        let (host, _, _) = protocol::endpoints(self.config.source);
+        let host = if self.sbe.is_some() {
+            "stream-sbe.binance.com"
+        } else {
+            protocol::endpoints(self.config.source).0
+        };
         let mut net = self.open_net(
             self.network.stream_address,
             host,
             after,
             self.config.timing.connect_ns,
         )?;
+        let path = if self.sbe.is_some() {
+            protocol::sbe_path(&self.config)
+        } else {
+            protocol::path(&self.config)
+        };
+        let headers = self
+            .sbe
+            .as_ref()
+            .map(|s| [("X-MBX-APIKEY", s.api_key.as_str())]);
         let handshake = ws::ClientHandshake::new(
             host,
-            &protocol::path(&self.config),
-            &[],
+            &path,
+            headers.as_ref().map_or(&[], |h| h.as_slice()),
             self.config.limits.request_bytes,
         )
         .map_err(|_| Error::Protocol)?;
@@ -531,6 +564,11 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
             book_generation: self.sync.generation(),
             received_mono_ns: event.map(|(stamp, _)| stamp),
             raw_delta: event.map(|(_, bytes)| bytes),
+            encoding: if self.sbe.is_some() {
+                DepthEncoding::SpotSbeV1
+            } else {
+                DepthEncoding::Json
+            },
             outcome,
             view,
         }) {
@@ -622,7 +660,17 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
                         ws::Opcode::Close => {
                             self.close_frame(lane, &message.payload)?;
                         }
-                        ws::Opcode::Binary => return Err(Error::Protocol),
+                        ws::Opcode::Binary => {
+                            if self.sbe.is_none() {
+                                return Err(Error::Protocol);
+                            }
+                            let bytes = &message.payload;
+                            let outcome = self
+                                .sync
+                                .on_sbe_delta(self.token.ok_or(Error::State)?, bytes, stamp)
+                                .map_err(Error::Sync)?;
+                            self.depth_outcome(lane, outcome, bytes, stamp, sink, b, r)?;
+                        }
                         ws::Opcode::Text => match protocol::incoming(
                             &message.payload,
                             &protocol::stream(&self.config),
@@ -639,20 +687,14 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
                                 }
                             }
                             protocol::Incoming::Depth(bytes) => {
+                                if self.sbe.is_some() {
+                                    return Err(Error::Protocol);
+                                }
                                 let outcome = self
                                     .sync
                                     .on_delta(self.token.ok_or(Error::State)?, bytes, stamp)
                                     .map_err(Error::Sync)?;
-                                lane.first_event = true;
-                                if matches!(outcome, SyncOutcome::Rebuild(_)) {
-                                    self.snapshot = None;
-                                    lane.first_event = false;
-                                    lane.phase_deadline = add(
-                                        self.local()?.monotonic.nanos(),
-                                        self.config.timing.first_event_ns,
-                                    )?;
-                                }
-                                self.notice_sync(outcome, Some((stamp, bytes)), stamp, sink, b, r)?;
+                                self.depth_outcome(lane, outcome, bytes, stamp, sink, b, r)?;
                             }
                         },
                     }
@@ -660,6 +702,28 @@ impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B:
             }
         }
         Ok(())
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn depth_outcome(
+        &mut self,
+        lane: &mut StreamLane,
+        outcome: SyncOutcome,
+        bytes: &[u8],
+        stamp: u64,
+        sink: &mut impl PublicSink,
+        b: &mut Budget,
+        r: &mut PollReport,
+    ) -> Result<()> {
+        lane.first_event = true;
+        if matches!(outcome, SyncOutcome::Rebuild(_)) {
+            self.snapshot = None;
+            lane.first_event = false;
+            lane.phase_deadline = add(
+                self.local()?.monotonic.nanos(),
+                self.config.timing.first_event_ns,
+            )?;
+        }
+        self.notice_sync(outcome, Some((stamp, bytes)), stamp, sink, b, r)
     }
     fn close_frame(&mut self, lane: &mut StreamLane, payload: &[u8]) -> Result<()> {
         if let Some(token) = self.token.take() {

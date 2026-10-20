@@ -1,0 +1,4 @@
+[env]
+# protobuf-build 0.14.1 omits Apple Silicon from its bundled-tool selector.
+# Keep the fixed dependency's compiler usable on every supported build host.
+PROTOC = { value = "scripts/protoc-raft", relative = true }

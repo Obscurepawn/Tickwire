@@ -3,12 +3,24 @@ use crate::*;
 #[derive(Clone)]
 pub(crate) enum Record {
     Config(Vec<u8>),
+    Income(crate::reconciliation::income::IncomeRecord),
+    IncomeImport(crate::reconciliation::income_import::ImportRecord),
+    IncomeEffect {
+        response: u64,
+        index: u8,
+    },
     Register(CanonicalCommand, Vec<[u8; 16]>),
     Event(SourceMeta, Vec<u8>, Decision),
     Rest(crate::rest::RestRecord),
     Snapshot(crate::reconciliation::bootstrap::SnapshotRecord),
-    RestEffect { response:u64, index:u8 },
-    BeginReconciliation {epoch:u64,generation:u64},
+    RestEffect {
+        response: u64,
+        index: u8,
+    },
+    BeginReconciliation {
+        epoch: u64,
+        generation: u64,
+    },
     Gap {
         epoch: u64,
         generation: u64,
@@ -30,6 +42,11 @@ pub(crate) fn config(config: &Config) -> Vec<u8> {
     ] {
         bytes.extend((value as u64).to_le_bytes());
     }
+    if let Some(authority) = &config.income_baseline_authority {
+        bytes.extend(b"income-risk-admin.v1");
+        bytes.extend(authority.controller_id);
+        bytes.extend(authority.public_key);
+    }
     bytes
 }
 fn blob(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
@@ -48,6 +65,46 @@ fn blob(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
 pub(crate) fn encode(record: &Record) -> Result<Vec<u8>> {
     let mut out = b"TWAI0001".to_vec();
     match record {
+        Record::IncomeImport(record) => {
+            out.push(13);
+            out.extend(record.writer.to_le_bytes());
+            out.extend(record.accepted.to_le_bytes());
+            blob(&mut out, record.proposal.bytes())?;
+            blob(&mut out, record.approval.payload())?;
+            out.extend(record.approval.signature());
+        }
+        Record::Income(record) => {
+            out.push(11);
+            for n in [
+                record.query.start_time_ms,
+                record.query.end_time_ms,
+                record.query.private_connection_epoch,
+                record.query.gap_generation,
+                record.epoch,
+                record.received,
+                record.clock_generation,
+            ] {
+                out.extend(n.to_le_bytes());
+            }
+            out.extend(record.query.limit.to_le_bytes());
+            out.push(match record.query.purpose {
+                crate::reconciliation::income::IncomeUse::BaselineCoverage => 1,
+                crate::reconciliation::income::IncomeUse::Account => 2,
+            });
+            out.extend(record.clock_boot_id);
+            out.extend(record.status.to_le_bytes());
+            out.push(u8::from(record.accepted));
+            blob(&mut out, &record.raw)?;
+            out.push(record.rows.len() as u8);
+            for row in &record.rows {
+                blob(&mut out, row.bytes())?;
+            }
+        }
+        Record::IncomeEffect { response, index } => {
+            out.push(12);
+            out.extend(response.to_le_bytes());
+            out.push(*index);
+        }
         Record::Config(bytes) => {
             out.push(1);
             blob(&mut out, bytes)?;
@@ -73,33 +130,80 @@ pub(crate) fn encode(record: &Record) -> Result<Vec<u8>> {
                     out.push(1);
                     blob(&mut out, event.bytes())?;
                 }
+                Decision::AccountBound(event) => {
+                    out.push(3);
+                    blob(&mut out, event.bytes())?;
+                }
                 Decision::Quarantine(reason) => {
                     out.push(2);
                     out.push(reason_code(*reason));
                 }
             }
         }
-        Record::Snapshot(record)=>{
-            out.push(8);out.push(match record.query.kind{crate::reconciliation::bootstrap::SnapshotKind::Account=>1,crate::reconciliation::bootstrap::SnapshotKind::OpenOrders=>2,crate::reconciliation::bootstrap::SnapshotKind::ConditionalOrders=>3});
-            out.extend(record.query.private_connection_epoch.to_le_bytes());out.extend(record.query.gap_generation.to_le_bytes());out.extend(record.epoch.to_le_bytes());out.extend(record.received.to_le_bytes());out.extend(record.clock_boot_id);out.extend(record.clock_generation.to_le_bytes());out.extend(record.ledger.to_le_bytes());out.extend(record.status.to_le_bytes());out.push(u8::from(record.complete));blob(&mut out,&record.raw)?;
+        Record::Snapshot(record) => {
+            out.push(8);
+            out.push(match record.query.kind {
+                crate::reconciliation::bootstrap::SnapshotKind::Account => 1,
+                crate::reconciliation::bootstrap::SnapshotKind::OpenOrders => 2,
+                crate::reconciliation::bootstrap::SnapshotKind::ConditionalOrders => 3,
+            });
+            out.extend(record.query.private_connection_epoch.to_le_bytes());
+            out.extend(record.query.gap_generation.to_le_bytes());
+            out.extend(record.epoch.to_le_bytes());
+            out.extend(record.received.to_le_bytes());
+            out.extend(record.clock_boot_id);
+            out.extend(record.clock_generation.to_le_bytes());
+            out.extend(record.ledger.to_le_bytes());
+            out.extend(record.status.to_le_bytes());
+            out.push(u8::from(record.complete));
+            blob(&mut out, &record.raw)?;
         }
-        Record::BeginReconciliation{epoch,generation}=>{out.push(10);out.extend(epoch.to_le_bytes());out.extend(generation.to_le_bytes());}
+        Record::BeginReconciliation { epoch, generation } => {
+            out.push(10);
+            out.extend(epoch.to_le_bytes());
+            out.extend(generation.to_le_bytes());
+        }
         Record::Rest(record) => {
-            if record.query.is_some() && record.order_query.is_some(){return Err(Error::Encoding);}
-            if let Some(query)=record.order_query {out.push(9);out.extend(query.order_id);out.extend(query.private_connection_epoch.to_le_bytes());out.extend(query.gap_generation.to_le_bytes());}
-            else if let Some(query)=record.query {
-                out.push(7);out.extend(query.order_id);out.extend(query.from_id.to_le_bytes());out.extend(query.limit.to_le_bytes());out.extend(query.private_connection_epoch.to_le_bytes());out.extend(query.gap_generation.to_le_bytes());
-            } else {out.push(5);}
+            if record.query.is_some() && record.order_query.is_some() {
+                return Err(Error::Encoding);
+            }
+            if let Some(query) = record.order_query {
+                out.push(9);
+                out.extend(query.order_id);
+                out.extend(query.private_connection_epoch.to_le_bytes());
+                out.extend(query.gap_generation.to_le_bytes());
+            } else if let Some(query) = record.query {
+                out.push(7);
+                out.extend(query.order_id);
+                out.extend(query.from_id.to_le_bytes());
+                out.extend(query.limit.to_le_bytes());
+                out.extend(query.private_connection_epoch.to_le_bytes());
+                out.extend(query.gap_generation.to_le_bytes());
+            } else {
+                out.push(5);
+            }
             blob(&mut out, record.command.bytes())?;
             out.extend(record.epoch.to_le_bytes());
             out.extend(record.received.to_le_bytes());
             out.extend(record.status.to_le_bytes());
             blob(&mut out, &record.raw)?;
-            out.push(match record.disposition { crate::rest::RestDisposition::Observed=>1,crate::rest::RestDisposition::NeedsReconciliation=>2,crate::rest::RestDisposition::Rejected=>3,crate::rest::RestDisposition::Unknown=>4,crate::rest::RestDisposition::NoBytes=>return Err(Error::Encoding) });
+            out.push(match record.disposition {
+                crate::rest::RestDisposition::Observed => 1,
+                crate::rest::RestDisposition::NeedsReconciliation => 2,
+                crate::rest::RestDisposition::Rejected => 3,
+                crate::rest::RestDisposition::Unknown => 4,
+                crate::rest::RestDisposition::NoBytes => return Err(Error::Encoding),
+            });
             out.push(record.events.len() as u8);
-            for event in &record.events {blob(&mut out,event.bytes())?;}
+            for event in &record.events {
+                blob(&mut out, event.bytes())?;
+            }
         }
-        Record::RestEffect {response,index}=>{out.push(6);out.extend(response.to_le_bytes());out.push(*index);}
+        Record::RestEffect { response, index } => {
+            out.push(6);
+            out.extend(response.to_le_bytes());
+            out.push(*index);
+        }
         Record::Gap {
             epoch,
             generation,
@@ -153,8 +257,89 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
     if r.take(8)? != b"TWAI0001" {
         return Err(Error::Encoding);
     }
-    let tag=r.byte()?;
+    let tag = r.byte()?;
     let record = match tag {
+        13 => {
+            use crate::reconciliation::income_import::{
+                ImportRecord, IncomeImportProposal, SignedIncomeApproval,
+            };
+            let writer = r.u64()?;
+            let accepted = r.u64()?;
+            let proposal = IncomeImportProposal::decode(r.blob()?)?;
+            let payload = r.blob()?;
+            let signature = r.take(64)?;
+            let approval = SignedIncomeApproval::new(payload, signature)?;
+            Record::IncomeImport(ImportRecord {
+                proposal,
+                approval,
+                accepted,
+                writer,
+            })
+        }
+        11 => {
+            use crate::reconciliation::income::{IncomeQuery, IncomeRecord, IncomeUse};
+            let start_time_ms = r.u64()?;
+            let end_time_ms = r.u64()?;
+            let private_connection_epoch = r.u64()?;
+            let gap_generation = r.u64()?;
+            let epoch = r.u64()?;
+            let received = r.u64()?;
+            let clock_generation = r.u64()?;
+            let limit = u16::from_le_bytes(r.take(2)?.try_into().unwrap());
+            let purpose = match r.byte()? {
+                1 => IncomeUse::BaselineCoverage,
+                2 => IncomeUse::Account,
+                _ => return Err(Error::Encoding),
+            };
+            let query = IncomeQuery {
+                start_time_ms,
+                end_time_ms,
+                limit,
+                private_connection_epoch,
+                gap_generation,
+                purpose,
+            };
+            query.validate()?;
+            let clock_boot_id = r.take(16)?.try_into().unwrap();
+            let status = u16::from_le_bytes(r.take(2)?.try_into().unwrap());
+            let accepted = r.bool()?;
+            let raw = r.blob()?.to_vec();
+            let count = r.byte()?;
+            if count > 16
+                || u16::from(count) > limit
+                || epoch == 0
+                || clock_generation == 0
+                || clock_boot_id == [0; 16]
+                || (!accepted && count != 0)
+            {
+                return Err(Error::Encoding);
+            }
+            let mut rows = Vec::with_capacity(count as usize);
+            for _ in 0..count {
+                rows.push(
+                    v::CanonicalAccountInput::decode(r.blob()?).map_err(|_| Error::Encoding)?,
+                );
+            }
+            Record::Income(IncomeRecord {
+                query,
+                epoch,
+                received,
+                clock_boot_id,
+                clock_generation,
+                status,
+                accepted,
+                raw,
+                rows,
+            })
+        }
+        12 => {
+            let response = r.u64()?;
+            let index = r.byte()?;
+            if response == 0 || index >= 16 {
+                return Err(Error::Encoding);
+            }
+            Record::IncomeEffect { response, index }
+        }
         1 => Record::Config(r.blob()?.to_vec()),
         2 => {
             let command = CanonicalCommand::decode(r.blob()?).map_err(|_| Error::Encoding)?;
@@ -187,6 +372,9 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
                     CanonicalEvent::decode(r.blob()?).map_err(|_| Error::Encoding)?,
                 )),
                 2 => Decision::Quarantine(reason(r.byte()?)?),
+                3 => Decision::AccountBound(Box::new(
+                    v::CanonicalAccountInput::decode(r.blob()?).map_err(|_| Error::Encoding)?,
+                )),
                 _ => return Err(Error::Encoding),
             };
             Record::Event(
@@ -214,31 +402,141 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
             }
         }
         5 | 7 | 9 => {
-            let order_query=if tag==9{Some((r.take(16)?.try_into().unwrap(),r.u64()?,r.u64()?))}else{None};
-            let query=if tag==7 {Some((r.take(16)?.try_into().unwrap(),r.u64()?,u16::from_le_bytes(r.take(2)?.try_into().unwrap()),r.u64()?,r.u64()?))}else{None};
-            let command=CanonicalCommand::decode(r.blob()?).map_err(|_|Error::Encoding)?;
-            let epoch=r.u64()?;let received=r.u64()?;
-            let status=u16::from_le_bytes(r.take(2)?.try_into().unwrap());
-            if status!=0 && !(100..600).contains(&status) {return Err(Error::Encoding);}
-            let raw=r.blob()?.to_vec();
-            let disposition=match r.byte()? {1=>crate::rest::RestDisposition::Observed,2=>crate::rest::RestDisposition::NeedsReconciliation,3=>crate::rest::RestDisposition::Rejected,4=>crate::rest::RestDisposition::Unknown,_=>return Err(Error::Encoding)};
-            let count=r.byte()?;if count>if tag==7{16}else{3} {return Err(Error::Encoding);}
-            let mut events=Vec::new();for _ in 0..count {events.push(CanonicalEvent::decode(r.blob()?).map_err(|_|Error::Encoding)?);}
-            let query=query.map(|(order_id,from_id,limit,private_connection_epoch,gap_generation)|crate::reconciliation::TradeQuery{intent:intent(&command),order_id,from_id,limit,private_connection_epoch,gap_generation});
-            if let Some(query)=query {query.validate()?;}
-            let order_query=order_query.map(|(order_id,private_connection_epoch,gap_generation)|crate::reconciliation::orders::OrderQuery{intent:intent(&command),order_id,private_connection_epoch,gap_generation});
-            if let Some(q)=order_query{q.validate()?;}
-            Record::Rest(crate::rest::RestRecord{command,query,order_query,epoch,received,status,raw,disposition,events})
+            let order_query = if tag == 9 {
+                Some((r.take(16)?.try_into().unwrap(), r.u64()?, r.u64()?))
+            } else {
+                None
+            };
+            let query = if tag == 7 {
+                Some((
+                    r.take(16)?.try_into().unwrap(),
+                    r.u64()?,
+                    u16::from_le_bytes(r.take(2)?.try_into().unwrap()),
+                    r.u64()?,
+                    r.u64()?,
+                ))
+            } else {
+                None
+            };
+            let command = CanonicalCommand::decode(r.blob()?).map_err(|_| Error::Encoding)?;
+            let epoch = r.u64()?;
+            let received = r.u64()?;
+            let status = u16::from_le_bytes(r.take(2)?.try_into().unwrap());
+            if status != 0 && !(100..600).contains(&status) {
+                return Err(Error::Encoding);
+            }
+            let raw = r.blob()?.to_vec();
+            let disposition = match r.byte()? {
+                1 => crate::rest::RestDisposition::Observed,
+                2 => crate::rest::RestDisposition::NeedsReconciliation,
+                3 => crate::rest::RestDisposition::Rejected,
+                4 => crate::rest::RestDisposition::Unknown,
+                _ => return Err(Error::Encoding),
+            };
+            let count = r.byte()?;
+            if count > if tag == 7 { 16 } else { 3 } {
+                return Err(Error::Encoding);
+            }
+            let mut events = Vec::new();
+            for _ in 0..count {
+                events.push(CanonicalEvent::decode(r.blob()?).map_err(|_| Error::Encoding)?);
+            }
+            let query = query.map(
+                |(order_id, from_id, limit, private_connection_epoch, gap_generation)| {
+                    crate::reconciliation::TradeQuery {
+                        intent: intent(&command),
+                        order_id,
+                        from_id,
+                        limit,
+                        private_connection_epoch,
+                        gap_generation,
+                    }
+                },
+            );
+            if let Some(query) = query {
+                query.validate()?;
+            }
+            let order_query =
+                order_query.map(|(order_id, private_connection_epoch, gap_generation)| {
+                    crate::reconciliation::orders::OrderQuery {
+                        intent: intent(&command),
+                        order_id,
+                        private_connection_epoch,
+                        gap_generation,
+                    }
+                });
+            if let Some(q) = order_query {
+                q.validate()?;
+            }
+            Record::Rest(crate::rest::RestRecord {
+                command,
+                query,
+                order_query,
+                epoch,
+                received,
+                status,
+                raw,
+                disposition,
+                events,
+            })
         }
-        6 => {let response=r.u64()?;let index=r.byte()?;if response==0||index>=16 {return Err(Error::Encoding);}Record::RestEffect{response,index}}
-        8=>{
-            use crate::reconciliation::bootstrap::{SnapshotKind,SnapshotQuery,SnapshotRecord};
-            let kind=match r.byte()?{1=>SnapshotKind::Account,2=>SnapshotKind::OpenOrders,3=>SnapshotKind::ConditionalOrders,_=>return Err(Error::Encoding)};
-            let query=SnapshotQuery{kind,private_connection_epoch:r.u64()?,gap_generation:r.u64()?};query.validate()?;
-            let epoch=r.u64()?;let received=r.u64()?;let clock_boot_id=r.take(16)?.try_into().unwrap();let clock_generation=r.u64()?;let ledger=r.u64()?;let status=u16::from_le_bytes(r.take(2)?.try_into().unwrap());let complete=r.bool()?;let raw=r.blob()?.to_vec();
-            if epoch==0||clock_boot_id==[0;16]||clock_generation==0||complete&&status!=200{return Err(Error::Encoding);}Record::Snapshot(SnapshotRecord{query,epoch,received,clock_boot_id,clock_generation,ledger,status,complete,raw})
+        6 => {
+            let response = r.u64()?;
+            let index = r.byte()?;
+            if response == 0 || index >= 16 {
+                return Err(Error::Encoding);
+            }
+            Record::RestEffect { response, index }
         }
-        10=>{let epoch=r.u64()?;let generation=r.u64()?;if epoch==0||generation==0{return Err(Error::Encoding);}Record::BeginReconciliation{epoch,generation}}
+        8 => {
+            use crate::reconciliation::bootstrap::{SnapshotKind, SnapshotQuery, SnapshotRecord};
+            let kind = match r.byte()? {
+                1 => SnapshotKind::Account,
+                2 => SnapshotKind::OpenOrders,
+                3 => SnapshotKind::ConditionalOrders,
+                _ => return Err(Error::Encoding),
+            };
+            let query = SnapshotQuery {
+                kind,
+                private_connection_epoch: r.u64()?,
+                gap_generation: r.u64()?,
+            };
+            query.validate()?;
+            let epoch = r.u64()?;
+            let received = r.u64()?;
+            let clock_boot_id = r.take(16)?.try_into().unwrap();
+            let clock_generation = r.u64()?;
+            let ledger = r.u64()?;
+            let status = u16::from_le_bytes(r.take(2)?.try_into().unwrap());
+            let complete = r.bool()?;
+            let raw = r.blob()?.to_vec();
+            if epoch == 0
+                || clock_boot_id == [0; 16]
+                || clock_generation == 0
+                || complete && status != 200
+            {
+                return Err(Error::Encoding);
+            }
+            Record::Snapshot(SnapshotRecord {
+                query,
+                epoch,
+                received,
+                clock_boot_id,
+                clock_generation,
+                ledger,
+                status,
+                complete,
+                raw,
+            })
+        }
+        10 => {
+            let epoch = r.u64()?;
+            let generation = r.u64()?;
+            if epoch == 0 || generation == 0 {
+                return Err(Error::Encoding);
+            }
+            Record::BeginReconciliation { epoch, generation }
+        }
         _ => return Err(Error::Encoding),
     };
     if r.position != bytes.len() || encode(&record)? != bytes {

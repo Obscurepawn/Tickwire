@@ -1,0 +1,11 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account)
+   Compiling tickwire-account-codec v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-codec)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.66s
+     Running tests/account_inputs.rs (target/debug/deps/account_inputs-98e5d3b9ec7b9c30)
+
+running 1 test
+test canonical_account_input_and_baseline_roundtrip_and_replay_exactly ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

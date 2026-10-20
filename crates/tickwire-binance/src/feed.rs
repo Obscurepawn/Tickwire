@@ -10,6 +10,8 @@ use tickwire_book::{BookKey, DepthEvent, Level, PriceTicks, QtyLots, Snapshot};
 use tickwire_venue::{ContractKind, InstrumentBinding};
 mod metadata;
 pub use metadata::*;
+mod sbe;
+pub use sbe::decode_sbe_diff;
 
 pub const MAX_MARKET_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_DEPTH_LEVELS: usize = 5000;
@@ -41,6 +43,10 @@ pub struct DepthContext {
     quantity_step: Decimal,
 }
 impl DepthContext {
+    /// Follow a source owner's validated book generation without rebuilding catalog strings.
+    pub fn set_generation(&mut self, generation: u64) {
+        self.generation = generation;
+    }
     pub fn new(
         market: Market,
         instrument: InstrumentBinding,

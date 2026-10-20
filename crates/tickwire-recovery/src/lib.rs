@@ -4,7 +4,9 @@
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, io};
 mod codec;
+mod handover;
 mod inputs;
+pub use handover::HandoverSeal;
 pub use inputs::{EncodedInputs, InputRecord, encode_inputs};
 mod files;
 pub use files::{FileBlobReader, FileBlobStore};
@@ -39,6 +41,12 @@ impl std::error::Error for Error {}
 pub type Result<T> = std::result::Result<T, Error>;
 pub fn digest(bytes: &[u8]) -> Hash {
     Sha256::digest(bytes).into()
+}
+fn replica_key(stream: Hash, sequence: u64) -> StoreKey {
+    let mut bytes = b"tickwire.replica.entry-locator.v1".to_vec();
+    bytes.extend(stream);
+    bytes.extend(sequence.to_le_bytes());
+    StoreKey::ReplicaEntry(digest(&bytes))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,11 +121,41 @@ pub enum StoreKey {
     Object(Hash),
     Manifest(Hash),
     Binding(Hash),
+    /// Immutable replication metadata locator, independently namespaced.
+    ReplicaEntry(Hash),
+    ReplicaStream(Hash),
 }
 /// A trusted service implementation must honor successful synchronization.
 pub trait BlobStore {
     fn get(&self, key: StoreKey, max_bytes: usize) -> Result<Vec<u8>>;
     fn put_sync(&mut self, key: StoreKey, bytes: &[u8]) -> Result<()>;
+}
+/// One exclusive store owner shared by a bounded persistence/replication worker.
+/// Locks cover one local file operation and are never held over network I/O.
+pub struct SharedBlobStore<S>(std::sync::Arc<std::sync::Mutex<S>>);
+impl<S> Clone for SharedBlobStore<S> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+impl<S> SharedBlobStore<S> {
+    pub fn new(store: S) -> Self {
+        Self(std::sync::Arc::new(std::sync::Mutex::new(store)))
+    }
+}
+impl<S: BlobStore> BlobStore for SharedBlobStore<S> {
+    fn get(&self, key: StoreKey, limit: usize) -> Result<Vec<u8>> {
+        self.0
+            .lock()
+            .map_err(|_| Error::Invalid("shared recovery owner poisoned"))?
+            .get(key, limit)
+    }
+    fn put_sync(&mut self, key: StoreKey, bytes: &[u8]) -> Result<()> {
+        self.0
+            .lock()
+            .map_err(|_| Error::Invalid("shared recovery owner poisoned"))?
+            .put_sync(key, bytes)
+    }
 }
 /// Explicit test double: successful put models reliable persistence, not real I/O.
 #[derive(Default)]
@@ -156,6 +194,58 @@ impl<S: BlobStore> Persistence<S> {
     }
     pub fn into_store(self) -> S {
         self.store
+    }
+    pub fn read_replica_entry(&self, stream: Hash, sequence: u64) -> Result<Vec<u8>> {
+        if stream == [0; 32] || sequence == 0 {
+            return Err(Error::Invalid("replica locator"));
+        }
+        self.store.get(replica_key(stream, sequence), 65536)
+    }
+    pub fn put_replica_entry(&mut self, stream: Hash, sequence: u64, bytes: &[u8]) -> Result<()> {
+        if stream == [0; 32] || sequence == 0 || bytes.is_empty() || bytes.len() > 65536 {
+            return Err(Error::Capacity);
+        }
+        self.store.put_sync(replica_key(stream, sequence), bytes)
+    }
+    /// Pin the configuration of one execution source. A retry may synchronize
+    /// identical bytes, but cannot change its durability mode or mirror.
+    pub fn bind_replica_stream(&mut self, identity: &[u8], bytes: &[u8]) -> Result<()> {
+        if identity.is_empty() || identity.len() > 1024 || bytes.is_empty() || bytes.len() > 65536 {
+            return Err(Error::Capacity);
+        }
+        let mut key = b"tickwire.replica.source-configuration.v1".to_vec();
+        key.extend(identity);
+        self.store
+            .put_sync(StoreKey::ReplicaStream(digest(&key)), bytes)
+    }
+    /// Read immutable content without creating a durability capability.
+    pub fn read_object(&self, hash: Hash, max_bytes: usize) -> Result<Vec<u8>> {
+        if max_bytes == 0 || max_bytes > MAX_OBJECT_BYTES {
+            return Err(Error::Capacity);
+        }
+        let bytes = self.store.get(StoreKey::Object(hash), max_bytes)?;
+        if digest(&bytes) != hash {
+            return Err(Error::Conflict);
+        }
+        Ok(bytes)
+    }
+    pub fn read_manifest(&self, binding: &ClosureBinding) -> Result<RecoveryManifest> {
+        let root: Hash = self
+            .store
+            .get(binding_key(binding), 32)?
+            .try_into()
+            .map_err(|_| Error::Invalid("binding length"))?;
+        let bytes = self
+            .store
+            .get(StoreKey::Manifest(root), MAX_MANIFEST_BYTES)?;
+        if digest(&bytes) != root {
+            return Err(Error::Conflict);
+        }
+        let manifest = RecoveryManifest::decode(&bytes)?;
+        if manifest.binding != *binding {
+            return Err(Error::Conflict);
+        }
+        Ok(manifest)
     }
     pub fn put_object(&mut self, bytes: &[u8]) -> Result<Hash> {
         if bytes.is_empty() || bytes.len() > MAX_OBJECT_BYTES {

@@ -259,11 +259,47 @@ structure!(AdmissionImage; command_digest,intent,account_epoch,ledger_sequence,r
     resources=>MAX_ASSETS,capital_holds=>MAX_ASSETS,orders=>MAX_ADMISSION_ORDERS,increases);
 
 structure!(Reactivation; scope,product,account_epoch,ledger_sequence,baseline_digest,history_digest,input_stream,private_connection_epoch,gap_generation,through_sequence,query_coverage_digest,clock_boot_id,clock_generation,evaluated_at,valid_until,writer_epoch,execution_connection_epoch,venue_available);
+structure!(ManagerIdentity; instance,generation);
+structure!(StrategyHandover; scope,account_epoch,writer_epoch,operation_id,operation_revision,logical_strategy_id,expected_ledger_sequence,expected_orders_digest,from,to,checkpoint_digest,input_seal_digest,evaluated_at,valid_until);
+impl Codec for v::CanonicalAccountInput {
+    fn write(&self, w: &mut Writer) {
+        w.bytes(self.bytes());
+    }
+    fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+        v::CanonicalAccountInput::decode(r.blob(v::MAX_ACCOUNT_INPUT_BYTES)?).map_err(Error::Venue)
+    }
+}
+structure!(IncomeBaseline; scope,account_epoch,ledger_sequence,wallet_id,through_time_ms,coverage_digest,baseline_digest,input_stream,through_sequence,covered=>MAX_BASELINE_INCOMES);
 
 impl Codec for RecoveryRecord {
     fn write(&self, w: &mut Writer) {
         match self {
-            Self::Reactivated(binding)=>{w.array(2);w.uint(10);binding.as_ref().write(w);}
+            Self::IncomeBaseline(b) => {
+                w.array(2);
+                w.uint(13);
+                b.as_ref().write(w);
+            }
+            Self::IngressAccountInput {
+                input_stream,
+                input_sequence,
+                input,
+            } => {
+                w.array(4);
+                w.uint(12);
+                input_stream.write(w);
+                input_sequence.write(w);
+                input.as_ref().write(w);
+            }
+            Self::StrategyHandover(h) => {
+                w.array(2);
+                w.uint(11);
+                h.as_ref().write(w);
+            }
+            Self::Reactivated(binding) => {
+                w.array(2);
+                w.uint(10);
+                binding.as_ref().write(w);
+            }
             Self::Admit {
                 command,
                 evaluated_at,
@@ -359,7 +395,14 @@ impl Codec for RecoveryRecord {
     }
     fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
         Ok(match (r.len(4, 6)?, r.uint()?) {
-            (2, 10)=>Self::Reactivated(Box::new(Codec::read(r)?)),
+            (2, 13) => Self::IncomeBaseline(Box::new(Codec::read(r)?)),
+            (4, 12) => Self::IngressAccountInput {
+                input_stream: Codec::read(r)?,
+                input_sequence: Codec::read(r)?,
+                input: Box::new(Codec::read(r)?),
+            },
+            (2, 11) => Self::StrategyHandover(Box::new(Codec::read(r)?)),
+            (2, 10) => Self::Reactivated(Box::new(Codec::read(r)?)),
             (4, 1) => Self::Admit {
                 command: Box::new(
                     v::CanonicalCommand::decode(r.blob(v::MAX_CANONICAL_BYTES)?)

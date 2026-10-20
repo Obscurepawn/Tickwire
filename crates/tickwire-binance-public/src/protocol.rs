@@ -154,6 +154,15 @@ pub(crate) fn path(c: &Config) -> String {
     }
     path
 }
+pub(crate) fn sbe_path(c: &Config) -> String {
+    match c.subscribe {
+        SubscribeMode::RawUrl => format!(
+            "/ws/{}@depth",
+            encoded(&c.depth.instrument.symbol.as_str().to_lowercase())
+        ),
+        SubscribeMode::Explicit => "/ws".into(),
+    }
+}
 pub(crate) fn weight(c: &Config) -> u32 {
     let n = c.depth.snapshot_limit;
     match c.source {

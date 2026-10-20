@@ -11,11 +11,31 @@ use tickwire_runtime::{
 };
 use tickwire_venue::CanonicalCommand;
 pub trait AppStrategy: Strategy {
+    fn instance(&self) -> Option<([u8; 16], u64)> {
+        None
+    }
+    fn set_shadow(&mut self) -> bool {
+        false
+    }
+    fn add_shadow(
+        &mut self,
+        _logical_strategy_id: u64,
+        _strategy: Box<dyn AppStrategy>,
+    ) -> Result<()> {
+        Err(invalid(
+            "strategy does not support dynamic shadow instances",
+        ))
+    }
+    fn discard_shadow(&mut self, _instance: [u8; 16], _generation: u64) -> bool {
+        false
+    }
     fn failed(&self) -> bool;
 }
 
 #[derive(Deserialize)]
 #[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+// Deserialized once during startup; keep the existing public configuration shape.
+#[allow(clippy::large_enum_variant)]
 pub enum Config {
     Observe,
     Multi {
@@ -35,6 +55,8 @@ pub enum Config {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberConfig {
+    #[serde(default)]
+    pub shadow: bool,
     pub logical_strategy_id: u64,
     pub strategy: Box<Config>,
 }
@@ -280,6 +302,9 @@ impl AppStrategy for FileStrategy {
 
 struct Member {
     id: u64,
+    shadow: bool,
+    retired: bool,
+    instance: Option<([u8; 16], u64)>,
     strategy: Option<Box<dyn AppStrategy>>,
 }
 /// Bounded independent strategy owners sharing one execution/account owner.
@@ -289,38 +314,145 @@ pub struct MultiStrategy {
     next: usize,
     policy: tickwire_runtime_policy::ControlPlane,
     fatal: bool,
+    seen_instances: std::collections::BTreeSet<[u8; 16]>,
+    seen_generations: std::collections::BTreeSet<(u64, u64)>,
+    highest_generation: std::collections::BTreeMap<u64, u64>,
 }
 impl MultiStrategy {
     pub fn new(
         members: Vec<(u64, Box<dyn AppStrategy>)>,
         policy: tickwire_runtime_policy::ControlPlane,
     ) -> Result<Self> {
+        Self::new_modes(
+            members.into_iter().map(|(id, s)| (id, false, s)).collect(),
+            policy,
+        )
+    }
+    pub fn new_modes(
+        mut members: Vec<(u64, bool, Box<dyn AppStrategy>)>,
+        policy: tickwire_runtime_policy::ControlPlane,
+    ) -> Result<Self> {
         if members.is_empty() || members.len() > 32 {
             return Err(invalid("multi requires 1..32 strategies"));
         }
         let mut seen = std::collections::BTreeSet::new();
-        if members.iter().any(|(id, _)| *id == 0 || !seen.insert(*id)) {
-            return Err(invalid("multi strategy identities"));
+        for (id, shadow, strategy) in &mut members {
+            if *id == 0 || !seen.insert((*id, *shadow)) {
+                return Err(invalid("multi strategy identities/modes"));
+            }
+            if *shadow && (strategy.instance().is_none() || !strategy.set_shadow()) {
+                return Err(invalid("shadow requires qualified hosted instance"));
+            }
         }
-        Ok(Self {
-            members: members
-                .into_iter()
-                .map(|(id, strategy)| Member {
-                    id,
-                    strategy: Some(strategy),
-                })
-                .collect(),
+        for (id, shadow, strategy) in &members {
+            if *shadow {
+                let (instance, generation) = strategy
+                    .instance()
+                    .ok_or_else(|| invalid("shadow instance"))?;
+                let active = members
+                    .iter()
+                    .find(|(other, shadow, _)| other == id && !*shadow)
+                    .ok_or_else(|| invalid("shadow requires an active peer"))?;
+                let (old, old_generation) = active
+                    .2
+                    .instance()
+                    .ok_or_else(|| invalid("active handover instance"))?;
+                if old == instance || old_generation >= generation {
+                    return Err(invalid("shadow generation must follow active instance"));
+                }
+            }
+        }
+        let mut out = Self {
+            members: vec![],
             next: 0,
             policy,
             fatal: false,
-        })
+            seen_instances: Default::default(),
+            seen_generations: Default::default(),
+            highest_generation: Default::default(),
+        };
+        for (id, shadow, strategy) in members {
+            let instance = strategy.instance();
+            if let Some(identity) = instance {
+                out.remember(id, identity)?;
+            }
+            out.members.push(Member {
+                id,
+                shadow,
+                retired: false,
+                instance,
+                strategy: Some(strategy),
+            });
+        }
+        Ok(out)
+    }
+    fn remember(&mut self, id: u64, (instance, generation): ([u8; 16], u64)) -> Result<()> {
+        if instance == [0; 16]
+            || generation == 0
+            || self.seen_instances.len() >= 4096
+            || self.seen_instances.contains(&instance)
+            || self.seen_generations.contains(&(id, generation))
+        {
+            return Err(invalid(
+                "strategy instance reused or history capacity exhausted",
+            ));
+        }
+        self.seen_instances.insert(instance);
+        self.seen_generations.insert((id, generation));
+        self.highest_generation
+            .entry(id)
+            .and_modify(|g| *g = (*g).max(generation))
+            .or_insert(generation);
+        Ok(())
+    }
+    fn refresh_instance(&mut self, index: usize) {
+        let Some(strategy) = self.members[index].strategy.as_ref() else {
+            return;
+        };
+        let actual = strategy.instance();
+        if actual == self.members[index].instance {
+            return;
+        }
+        let id = self.members[index].id;
+        let valid = actual.is_some_and(|new| {
+            self.members[index]
+                .instance
+                .is_some_and(|old| new.1 > old.1)
+        });
+        if !valid || actual.is_some_and(|new| self.remember(id, new).is_err()) {
+            if let Some((instance, generation)) = actual
+                && self
+                    .policy
+                    .stop_strategy_instance(id, instance, generation)
+                    .is_err()
+            {
+                self.fatal = true;
+            }
+            self.stop(index);
+            return;
+        }
+        if let Some((instance, generation)) = self.members[index].instance
+            && self
+                .policy
+                .stop_strategy_instance(id, instance, generation)
+                .is_err()
+        {
+            self.fatal = true;
+        }
+        self.members[index].instance = actual;
     }
     fn stop(&mut self, index: usize) {
         let member = &mut self.members[index];
         if member.strategy.is_none() {
             return;
         }
-        if self.policy.stop_strategy(member.id).is_err() {
+        let stop = if let Some((instance, generation)) = member.instance {
+            self.policy
+                .stop_strategy_instance(member.id, instance, generation)
+        } else {
+            self.policy.stop_strategy(member.id)
+        };
+        if stop.is_err() {
             self.fatal = true;
         }
         // Dropping HostedStrategy drops its Registry, which terminates and waits
@@ -328,10 +460,11 @@ impl MultiStrategy {
         member.strategy.take();
         eprintln!(
             "{}",
-            serde_json::json!({"event":"strategy_stopped","logical_strategy_id":member.id})
+            serde_json::json!({"event":"strategy_stopped","logical_strategy_id":member.id,"instance":member.instance,"retired":member.retired})
         );
     }
     fn failed_member(&mut self, index: usize) {
+        self.refresh_instance(index);
         if self.members[index]
             .strategy
             .as_ref()
@@ -342,11 +475,197 @@ impl MultiStrategy {
     }
 }
 impl AppStrategy for MultiStrategy {
+    fn discard_shadow(&mut self, instance: [u8; 16], generation: u64) -> bool {
+        let Some(index) = self
+            .members
+            .iter()
+            .position(|m| m.shadow && !m.retired && m.instance == Some((instance, generation)))
+        else {
+            return false;
+        };
+        self.stop(index);
+        self.members[index].retired = true;
+        true
+    }
+    fn add_shadow(&mut self, id: u64, mut strategy: Box<dyn AppStrategy>) -> Result<()> {
+        if self.fatal || id == 0 {
+            return Err(invalid("multi is stopped"));
+        }
+        for index in 0..self.members.len() {
+            self.failed_member(index);
+        }
+        if self.fatal {
+            return Err(invalid("multi is stopped"));
+        }
+        let actual = strategy
+            .instance()
+            .ok_or_else(|| invalid("shadow requires qualified hosted instance"))?;
+        if !self
+            .members
+            .iter()
+            .any(|m| m.id == id && !m.shadow && !m.retired && m.strategy.is_some())
+            || self
+                .members
+                .iter()
+                .any(|m| m.id == id && m.shadow && !m.retired && m.strategy.is_some())
+            || self
+                .highest_generation
+                .get(&id)
+                .is_none_or(|old| actual.1 <= *old)
+        {
+            return Err(invalid(
+                "shadow needs one active predecessor and a newer generation",
+            ));
+        }
+        let free = self
+            .members
+            .iter()
+            .position(|m| m.retired || m.strategy.is_none());
+        if free.is_none() && self.members.len() >= 32 {
+            return Err(invalid("multi capacity"));
+        }
+        if !strategy.set_shadow() {
+            return Err(invalid("shadow forwarding control"));
+        }
+        self.remember(id, actual)?;
+        let new = Member {
+            id,
+            shadow: true,
+            retired: false,
+            instance: Some(actual),
+            strategy: Some(strategy),
+        };
+        if let Some(index) = free {
+            self.members[index] = new;
+        } else {
+            self.members.push(new);
+        }
+        Ok(())
+    }
     fn failed(&self) -> bool {
         self.fatal
     }
 }
 impl Strategy for MultiStrategy {
+    fn handover_checkpoint(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+    ) -> Option<(tickwire_runtime::node::HandoverReadiness, Vec<Vec<u8>>)> {
+        self.members
+            .iter_mut()
+            .filter(|m| !m.retired)
+            .find(|m| {
+                m.strategy.as_ref().and_then(|s| s.instance()) == Some((instance, generation))
+            })?
+            .strategy
+            .as_mut()?
+            .handover_checkpoint(instance, generation)
+    }
+    fn release_preflight(
+        &mut self,
+        instance: [u8; 16],
+        generation: u64,
+        roots: [[u8; 32]; 3],
+    ) -> Option<Vec<Vec<u8>>> {
+        self.members
+            .iter_mut()
+            .filter(|m| !m.retired)
+            .find(|m| {
+                m.strategy.as_ref().and_then(|s| s.instance()) == Some((instance, generation))
+            })?
+            .strategy
+            .as_mut()?
+            .release_preflight(instance, generation, roots)
+    }
+    fn handover_ready(&mut self, r: &tickwire_runtime::node::HandoverReadiness) -> bool {
+        self.members
+            .iter_mut()
+            .find(|m| m.instance == Some((r.instance_id, r.strategy_generation)))
+            .and_then(|m| m.strategy.as_mut())
+            .is_some_and(|s| s.handover_ready(r))
+    }
+    fn handover_objects(
+        &mut self,
+        r: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<Vec<Vec<u8>>> {
+        self.members
+            .iter_mut()
+            .find(|m| m.instance == Some((r.instance_id, r.strategy_generation)))?
+            .strategy
+            .as_mut()?
+            .handover_objects(r)
+    }
+    fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        let old = self.members.iter().position(|m| {
+            m.id == c.logical_strategy_id && m.instance == Some((c.old_instance, c.old_generation))
+        });
+        let new = self.members.iter().position(|m| {
+            m.id == c.logical_strategy_id && m.instance == Some((c.new_instance, c.new_generation))
+        });
+        let (Some(old), Some(new)) = (old, new) else {
+            return false;
+        };
+        if old == new || c.new_generation <= c.old_generation || self.members[new].retired {
+            return false;
+        }
+        self.members[old].shadow = true;
+        self.members[new].shadow = true;
+        let a = self.members[old]
+            .strategy
+            .as_mut()
+            .is_some_and(|s| s.handover_quiesce(c));
+        let b = self.members[new]
+            .strategy
+            .as_mut()
+            .is_some_and(|s| s.handover_quiesce(c));
+        a && b
+    }
+    fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        let old = self.members.iter().position(|m| {
+            m.id == c.logical_strategy_id && m.instance == Some((c.old_instance, c.old_generation))
+        });
+        let new = self.members.iter().position(|m| {
+            m.id == c.logical_strategy_id && m.instance == Some((c.new_instance, c.new_generation))
+        });
+        let (Some(old), Some(new)) = (old, new) else {
+            return false;
+        };
+        if old == new || c.new_generation <= c.old_generation || self.members[new].retired {
+            return false;
+        }
+        let old_stopped = self.members[old].retired
+            || self.members[old]
+                .strategy
+                .as_mut()
+                .is_some_and(|s| s.handover_activate(c));
+        self.members[old].shadow = true;
+        if !old_stopped {
+            return false;
+        }
+        self.members[old].retired = true;
+        self.members[old].strategy.take();
+        let activated = self.members[new]
+            .strategy
+            .as_mut()
+            .is_some_and(|s| s.handover_activate(c));
+        if activated {
+            self.members[new].shadow = false;
+        }
+        activated
+    }
+    fn handover_halt(&mut self, id: u64) -> bool {
+        let mut found = false;
+        let mut ok = true;
+        for m in self.members.iter_mut().filter(|m| m.id == id) {
+            found = true;
+            m.shadow = true;
+            if let Some(s) = &mut m.strategy {
+                ok &= s.handover_halt(id);
+            }
+        }
+        found && ok
+    }
     fn on_market(&mut self, notice: &Notice<'_>) -> bool {
         if self.fatal {
             return false;
@@ -375,8 +694,8 @@ impl Strategy for MultiStrategy {
                 continue;
             };
             let command = strategy.next(account, health, now);
-            if strategy.failed() {
-                self.stop(i);
+            self.failed_member(i);
+            if self.members[i].strategy.is_none() {
                 continue;
             }
             if let Some(command) = command {
@@ -387,8 +706,23 @@ impl Strategy for MultiStrategy {
                     .strategy
                     .logical_strategy_id
                     != self.members[i].id
+                    || self.members[i]
+                        .instance
+                        .is_some_and(|(instance, generation)| {
+                            command.command.command().context.strategy.instance_id != instance
+                                || command
+                                    .command
+                                    .command()
+                                    .context
+                                    .request
+                                    .strategy_generation
+                                    != generation
+                        })
                 {
                     self.stop(i);
+                    continue;
+                }
+                if self.members[i].shadow {
                     continue;
                 }
                 return Some(command);
@@ -404,11 +738,13 @@ impl Strategy for MultiStrategy {
             tickwire_binance_account::Error,
         >,
     ) {
-        if let Some(i) = self
-            .members
-            .iter()
-            .position(|m| m.id == command.command().context.strategy.logical_strategy_id)
-        {
+        if let Some(i) = self.members.iter().position(|m| {
+            m.id == command.command().context.strategy.logical_strategy_id
+                && m.instance.is_none_or(|(instance, generation)| {
+                    instance == command.command().context.strategy.instance_id
+                        && generation == command.command().context.request.strategy_generation
+                })
+        }) {
             if let Some(s) = &mut self.members[i].strategy {
                 s.on_submission(command, result);
             }
@@ -580,5 +916,325 @@ mod multi_tests {
             )
             .is_err()
         );
+    }
+    struct Qualified {
+        id: Rc<Cell<([u8; 16], u64)>>,
+        shadow: Rc<Cell<bool>>,
+        keep_running: bool,
+        activates: Rc<Cell<u32>>,
+        retire_ok: bool,
+    }
+    impl AppStrategy for Qualified {
+        fn instance(&self) -> Option<([u8; 16], u64)> {
+            Some(self.id.get())
+        }
+        fn set_shadow(&mut self) -> bool {
+            self.shadow.set(true);
+            true
+        }
+        fn failed(&self) -> bool {
+            false
+        }
+    }
+    impl Strategy for Qualified {
+        fn on_market(&mut self, _: &Notice<'_>) -> bool {
+            self.keep_running
+        }
+        fn next(&mut self, _: &Account, _: Health, _: LocalTime) -> Option<Submission> {
+            None
+        }
+        fn on_submission(
+            &mut self,
+            _: &CanonicalCommand,
+            _: &std::result::Result<
+                tickwire_account_gateway::Status,
+                tickwire_binance_account::Error,
+            >,
+        ) {
+        }
+        fn handover_quiesce(&mut self, _: &tickwire_runtime::node::StrategySwitch) -> bool {
+            self.shadow.set(true);
+            true
+        }
+        fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+            self.activates.set(self.activates.get() + 1);
+            if self.id.get() == (c.old_instance, c.old_generation) && !self.retire_ok {
+                return false;
+            }
+            self.shadow
+                .set(self.id.get() != (c.new_instance, c.new_generation));
+            true
+        }
+        fn handover_halt(&mut self, _: u64) -> bool {
+            self.shadow.set(true);
+            true
+        }
+    }
+    fn qualified(
+        id: ([u8; 16], u64),
+        keep_running: bool,
+        shadow: Rc<Cell<bool>>,
+        activates: Rc<Cell<u32>>,
+    ) -> Box<dyn AppStrategy> {
+        Box::new(Qualified {
+            id: Rc::new(Cell::new(id)),
+            keep_running,
+            shadow,
+            activates,
+            retire_ok: true,
+        })
+    }
+    #[test]
+    fn failed_old_retirement_keeps_the_new_instance_paused() {
+        let old_shadow = Rc::new(Cell::new(false));
+        let new_shadow = Rc::new(Cell::new(false));
+        let new_activates = Rc::new(Cell::new(0));
+        let mut multi = MultiStrategy::new_modes(
+            vec![
+                (
+                    1,
+                    false,
+                    Box::new(Qualified {
+                        id: Rc::new(Cell::new(([1; 16], 1))),
+                        shadow: old_shadow.clone(),
+                        keep_running: true,
+                        activates: Rc::new(Cell::new(0)),
+                        retire_ok: false,
+                    }) as Box<dyn AppStrategy>,
+                ),
+                (
+                    1,
+                    true,
+                    qualified(
+                        ([2; 16], 2),
+                        true,
+                        new_shadow.clone(),
+                        new_activates.clone(),
+                    ),
+                ),
+            ],
+            policy(),
+        )
+        .unwrap();
+        let change = tickwire_runtime::node::StrategySwitch {
+            logical_strategy_id: 1,
+            old_instance: [1; 16],
+            old_generation: 1,
+            new_instance: [2; 16],
+            new_generation: 2,
+        };
+        assert!(multi.handover_quiesce(&change));
+        assert!(!multi.handover_activate(&change));
+        assert_eq!(new_activates.get(), 0);
+        assert!(old_shadow.get() && new_shadow.get());
+        assert!(!multi.members[0].retired);
+        assert!(multi.handover_halt(1));
+        assert!(new_shadow.get());
+    }
+
+    #[test]
+    fn exact_instances_switch_and_repeated_activation_does_not_restop_retired_child() {
+        let old = Rc::new(Cell::new(false));
+        let new = Rc::new(Cell::new(false));
+        let stops = Rc::new(Cell::new(0));
+        let starts = Rc::new(Cell::new(0));
+        let mut multi = MultiStrategy::new_modes(
+            vec![
+                (
+                    1,
+                    false,
+                    qualified(([1; 16], 1), true, old.clone(), stops.clone()),
+                ),
+                (
+                    1,
+                    true,
+                    qualified(([2; 16], 2), true, new.clone(), starts.clone()),
+                ),
+            ],
+            policy(),
+        )
+        .unwrap();
+        assert!(!old.get());
+        assert!(new.get());
+        let mut change = tickwire_runtime::node::StrategySwitch {
+            logical_strategy_id: 1,
+            old_instance: [1; 16],
+            old_generation: 1,
+            new_instance: [2; 16],
+            new_generation: 2,
+        };
+        change.new_generation = 3;
+        assert!(!multi.handover_quiesce(&change));
+        assert!(!old.get());
+        change.new_generation = 2;
+        assert!(multi.handover_quiesce(&change));
+        assert!(old.get());
+        assert!(new.get());
+        assert!(multi.handover_activate(&change));
+        assert!(old.get());
+        assert!(!new.get());
+        assert!(multi.handover_activate(&change));
+        assert_eq!(stops.get(), 1);
+        assert_eq!(starts.get(), 2);
+        assert!(multi.members[0].retired);
+        assert!(!multi.members[1].shadow);
+        assert!(multi.handover_halt(1));
+        assert!(new.get());
+    }
+    #[test]
+    fn failed_shadow_does_not_revoke_the_other_instance_of_the_same_strategy() {
+        use tickwire_runtime_policy::{Actions, StrategyGrant};
+        let p = policy();
+        let grant = StrategyGrant {
+            logical_strategy_id: 1,
+            instance_id: [1; 16],
+            strategy_generation: 1,
+            authorization_epoch: 3,
+            config_revision: 1,
+            valid_until_ns: 1000,
+            actions: Actions {
+                submit: false,
+                cancel: true,
+                query: true,
+                amend: false,
+            },
+            required_feeds: vec![],
+        };
+        p.install_strategy_grant(grant.clone()).unwrap();
+        let mut multi = MultiStrategy::new_modes(
+            vec![
+                (
+                    1,
+                    false,
+                    qualified(
+                        ([1; 16], 1),
+                        true,
+                        Rc::new(Cell::new(false)),
+                        Rc::new(Cell::new(0)),
+                    ),
+                ),
+                (
+                    1,
+                    true,
+                    qualified(
+                        ([2; 16], 2),
+                        false,
+                        Rc::new(Cell::new(false)),
+                        Rc::new(Cell::new(0)),
+                    ),
+                ),
+            ],
+            p.clone(),
+        )
+        .unwrap();
+        assert!(
+            multi.on_market(&Notice::Gap(tickwire_binance_public::GapNotice {
+                connection_epoch: 1,
+                book_generation: 1,
+                reason: tickwire_binance_public::Error::Closed,
+            }))
+        );
+        assert!(multi.members[0].strategy.is_some());
+        assert!(multi.members[1].strategy.is_none());
+        assert_eq!(p.install_strategy_grant(grant), Ok(()));
+        assert!(!multi.failed());
+    }
+    #[test]
+    fn next_shadow_reuses_retired_slot_without_reusing_identity_or_generation() {
+        let make = |(byte, generation)| {
+            qualified(
+                ([byte; 16], generation),
+                true,
+                Rc::new(Cell::new(false)),
+                Rc::new(Cell::new(0)),
+            )
+        };
+        let mut multi = MultiStrategy::new_modes(
+            vec![(1, false, make((1, 1))), (1, true, make((2, 2)))],
+            policy(),
+        )
+        .unwrap();
+        let first = tickwire_runtime::node::StrategySwitch {
+            logical_strategy_id: 1,
+            old_instance: [1; 16],
+            old_generation: 1,
+            new_instance: [2; 16],
+            new_generation: 2,
+        };
+        assert!(multi.handover_quiesce(&first));
+        assert!(multi.handover_activate(&first));
+        assert!(multi.add_shadow(1, make((1, 3))).is_err());
+        assert!(multi.add_shadow(1, make((3, 2))).is_err());
+        multi.add_shadow(1, make((3, 3))).unwrap();
+        assert_eq!(multi.members.len(), 2);
+        assert!(multi.add_shadow(1, make((4, 4))).is_err());
+        let next = tickwire_runtime::node::StrategySwitch {
+            logical_strategy_id: 1,
+            old_instance: [2; 16],
+            old_generation: 2,
+            new_instance: [3; 16],
+            new_generation: 3,
+        };
+        assert!(multi.handover_quiesce(&next));
+        assert!(multi.handover_activate(&next));
+        assert!(
+            multi
+                .members
+                .iter()
+                .any(|m| m.instance == Some(([3; 16], 3)) && !m.shadow)
+        );
+    }
+    #[test]
+    fn host_rotation_refreshes_cached_identity_before_the_next_switch() {
+        let identity = Rc::new(Cell::new(([1; 16], 1)));
+        let strategy = Box::new(Qualified {
+            id: identity.clone(),
+            keep_running: true,
+            shadow: Rc::new(Cell::new(false)),
+            activates: Rc::new(Cell::new(0)),
+            retire_ok: true,
+        });
+        let mut multi = MultiStrategy::new_modes(vec![(1, false, strategy)], policy()).unwrap();
+        identity.set(([2; 16], 2));
+        let notice = Notice::Gap(tickwire_binance_public::GapNotice {
+            connection_epoch: 1,
+            book_generation: 1,
+            reason: tickwire_binance_public::Error::Closed,
+        });
+        assert!(multi.on_market(&notice));
+        assert_eq!(multi.members[0].instance, Some(([2; 16], 2)));
+        assert_eq!(multi.highest_generation.get(&1), Some(&2));
+        assert!(
+            multi
+                .add_shadow(
+                    1,
+                    qualified(
+                        ([3; 16], 2),
+                        true,
+                        Rc::new(Cell::new(false)),
+                        Rc::new(Cell::new(0))
+                    )
+                )
+                .is_err()
+        );
+        multi
+            .add_shadow(
+                1,
+                qualified(
+                    ([3; 16], 3),
+                    true,
+                    Rc::new(Cell::new(false)),
+                    Rc::new(Cell::new(0)),
+                ),
+            )
+            .unwrap();
+        let switch = tickwire_runtime::node::StrategySwitch {
+            logical_strategy_id: 1,
+            old_instance: [2; 16],
+            old_generation: 2,
+            new_instance: [3; 16],
+            new_generation: 3,
+        };
+        assert!(multi.handover_quiesce(&switch));
     }
 }

@@ -1,0 +1,17 @@
+[package]
+name = "tickwire-control-raft"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+raft = { version = "=0.7.0", default-features = false, features = ["protobuf-codec"] }
+protobuf = "=2.28.0"
+slog = "2"
+getrandom = "0.2"
+sha2 = "0.10"
+tickwire-journal = { path = "../tickwire-journal" }
+
+[lints]
+workspace = true

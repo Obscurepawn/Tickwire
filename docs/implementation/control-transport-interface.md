@@ -14,6 +14,7 @@ impl ControlListener {
     pub fn bind(path: &Path) -> Result<Self>;
     pub fn bind_with_mode(path: &Path, mode: u32) -> Result<Self>;
     pub fn accept(&self, deadline: Instant) -> Result<Connection>;
+    pub fn try_accept(&self) -> Result<Option<Connection>>;
 }
 impl Connection {
     pub fn connect(path: &Path, deadline: Instant) -> Result<Self>;
@@ -21,6 +22,7 @@ impl Connection {
     pub fn send(&mut self, bytes: &[u8], fds: &[BorrowedFd<'_>],
                 deadline: Instant) -> Result<()>;
     pub fn recv(&mut self, deadline: Instant) -> Result<ReceivedFrame>;
+    pub fn try_recv(&mut self) -> Result<Option<ReceivedFrame>>;
 }
 impl ReceivedFrame {
     pub fn bytes(&self) -> &[u8];
@@ -32,6 +34,8 @@ impl ReceivedFrame {
 发送前调用现有 `ControlFrame::decode`，并核对实际 FD 数。发送借用 FD，发送者始终保留自己的描述符；内核为接收方建立独立描述符。接收使用 `MSG_CMSG_CLOEXEC`，先将内核交付的全部 FD 纳入 `OwnedFd`，再检查数据/辅助数据截断、cmsg 类型和长度、CRC、完整 body、FD 数及索引唯一性。失败丢弃整帧，RAII 关闭该帧全部已交付 FD；内核关闭因辅助缓冲不足而未交付的多余 FD。`ReceivedFrame` 只有私有字段，不提供可绕过校验的构造器。[Linux unix(7)](https://man7.org/linux/man-pages/man7/unix.7.html)、[recvmsg(2)](https://man7.org/linux/man-pages/man2/recvmsg.2.html)
 
 socket 和 accept 原子设置 CLOEXEC/NONBLOCK；收发再使用非阻塞标志，`poll` 根据同一个绝对 `Instant` 截止点等待。EINTR、EAGAIN 均重新计算剩余时间，不续期。发送使用 `MSG_NOSIGNAL`；成功意味着该完整数据报已交给本机内核，不表示接收方已应用。[accept4(2)](https://man7.org/linux/man-pages/man2/accept.2.html)
+
+事件循环使用 `try_accept` / `try_recv`：每次只尝试一次非阻塞 `accept4` / `recvmsg`，没有期限采样或 `poll`；内核返回 EAGAIN/EWOULDBLOCK 时返回 `Ok(None)`。成功接收返回 `Some`，EOF 仍为 `Error::Closed`，畸形帧仍拒绝并关闭收到的全部 FD。EINTR 作为 `Error::System` 返回，由调用方决定下一轮是否重试，函数内部不循环。成功 accept 后另执行一次 `SO_PEERCRED` 查询。接口限制的是系统调用次数和缓冲大小，不保证调用耗时上界。不能用 `recv(now + 1µs)` 代替此接口：分配缓冲或线程调度可能先耗尽期限，导致已有数据也未被读取。
 
 `monotonic_ns` 直接读取 `CLOCK_MONOTONIC`，供同主机、同 Linux time namespace 的进程比较应用 deadline；`Instant` 只用于本进程阻塞预算。launcher 保持这些进程在同一个 time namespace，因为该 namespace 可为单调时钟设置不同偏移。该时钟不计系统 suspend 时间，部署中的休眠处理由上层健康检查关闭相关风险门。[clock_gettime(2)](https://man7.org/linux/man-pages/man2/clock_gettime.2.html)、[time_namespaces(7)](https://man7.org/linux/man-pages/man7/time_namespaces.7.html)
 

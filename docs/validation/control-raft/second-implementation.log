@@ -1,0 +1,12 @@
+   Compiling tickwire-control-raft v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control-raft)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.79s
+     Running tests/cluster.rs (target/debug/deps/cluster-d5c40a2f0189b0d3)
+
+running 4 tests
+test bootstrap_requires_three_distinct_bound_voters_and_recovery_identity_matches ... ok
+test authenticated_sender_and_network_message_kind_are_checked ... ok
+test isolated_leader_cannot_complete_a_safe_read_or_new_command ... ok
+test three_real_file_voters_commit_and_recover_the_same_complete_commands ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.64s
+

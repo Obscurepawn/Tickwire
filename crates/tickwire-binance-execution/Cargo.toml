@@ -10,7 +10,9 @@ workspace = true
 
 [dependencies]
 tickwire-account = { path = "../tickwire-account" }
+tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
+tickwire-account-journal = { path = "../tickwire-account-journal" }
 tickwire-binance = { path = "../tickwire-binance" }
 tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 tickwire-binance-quota = { path = "../tickwire-binance-quota" }

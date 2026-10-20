@@ -1,0 +1,66 @@
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+warning: unused imports: `Account` and `IncomeBaseline`
+ --> crates/tickwire-binance-account/src/reconciliation/income_import.rs:4:24
+  |
+4 | use tickwire_account::{Account, IncomeBaseline};
+  |                        ^^^^^^^  ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `AuthorityError`
+ --> crates/tickwire-binance-account/src/reconciliation/income_import.rs:6:32
+  |
+6 | use tickwire_account_gateway::{AuthorityError, ReactivationVerifier};
+  |                                ^^^^^^^^^^^^^^
+
+warning: unused import: `tickwire_account_journal::HistoryFrontier`
+ --> crates/tickwire-binance-account/src/reconciliation/income_import.rs:7:5
+  |
+7 | use tickwire_account_journal::HistoryFrontier;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `ReactivationVerifier`
+ --> crates/tickwire-binance-account/src/reconciliation/income_import.rs:6:48
+  |
+6 | use tickwire_account_gateway::{AuthorityError, ReactivationVerifier};
+  |                                                ^^^^^^^^^^^^^^^^^^^^
+
+warning: fields `proposal`, `approval`, `authority`, `accepted`, and `writer` are never read
+  --> crates/tickwire-binance-account/src/reconciliation/income_import.rs:73:34
+   |
+73 | ...ct VerifiedIncomeImport {proposal:IncomeImportProposal,approval:SignedIncomeApproval,authority:IncomeBaselineAuthority,accepted:u64,writer:u64}
+   |       --------------------  ^^^^^^^^                      ^^^^^^^^                      ^^^^^^^^^                         ^^^^^^^^     ^^^^^^
+   |       |
+   |       fields in this struct
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `ImportRecord` is never constructed
+  --> crates/tickwire-binance-account/src/reconciliation/income_import.rs:75:19
+   |
+75 | pub(crate) struct ImportRecord {pub proposal:IncomeImportProposal,pub approval:SignedIncomeApproval,pub accepted:u64,pub writer:u64}
+   |                   ^^^^^^^^^^^^
+
+warning: `tickwire-binance-account` (lib test) generated 6 warnings (run `cargo fix --lib -p tickwire-binance-account --tests` to apply 3 suggestions)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.94s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_binance_account-a03cc569f55f2b5b)
+
+running 2 tests
+test reconciliation::income_import::tests::complete_queries_require_separate_risk_admin_approval ... FAILED
+test reconciliation::income_import::tests::risk_admin_cannot_replace_missing_query_evidence ... ok
+
+failures:
+
+---- reconciliation::income_import::tests::complete_queries_require_separate_risk_admin_approval stdout ----
+
+thread 'reconciliation::income_import::tests::complete_queries_require_separate_risk_admin_approval' (7098785) panicked at crates/tickwire-binance-account/src/reconciliation/income_import.rs:160:99:
+called `Result::unwrap()` on an `Err` value: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    reconciliation::income_import::tests::complete_queries_require_separate_risk_admin_approval
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 17 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-binance-account --lib`

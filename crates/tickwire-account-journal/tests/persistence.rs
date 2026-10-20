@@ -4,7 +4,7 @@ use std::{
     fs, io,
     path::PathBuf,
     sync::{
-        Arc,
+        Arc, RwLock,
         atomic::{AtomicU8, AtomicU64, Ordering},
     },
 };
@@ -13,6 +13,11 @@ use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord};
 use tickwire_account_journal::*;
 use tickwire_journal::{Journal, store::Store};
 use tickwire_venue as v;
+
+// A forked child retains unrelated file-lock descriptions until exec. Keep the
+// spawn test exclusive so other tests can drop/reopen their WAL without that
+// temporary inherited owner. Ordinary file tests still run concurrently.
+static FORK_BARRIER: RwLock<()> = RwLock::new(());
 
 struct Temp(PathBuf);
 impl Temp {
@@ -98,6 +103,7 @@ impl RecoveryVerifier for Verify {
 }
 #[test]
 fn file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, _, _) = setup();
     let j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -119,6 +125,7 @@ fn file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock() 
 }
 #[test]
 fn admission_retry_is_exact_and_conflict_poison_does_not_advance() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, _, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c, b).unwrap();
@@ -144,6 +151,7 @@ fn admission_retry_is_exact_and_conflict_poison_does_not_advance() {
 }
 #[test]
 fn replay_recomputes_admission_and_remains_frozen_with_no_new_admit() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, _, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -174,6 +182,7 @@ fn replay_recomputes_admission_and_remains_frozen_with_no_new_admit() {
 }
 #[test]
 fn historical_verifier_failure_and_forged_admission_image_stop_recovery() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     for forged in [false, true] {
         let t = Temp::new();
         let (b, c, _, mut r) = setup();
@@ -198,6 +207,7 @@ fn historical_verifier_failure_and_forged_admission_image_stop_recovery() {
 }
 #[test]
 fn duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, cmd, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -231,6 +241,7 @@ fn duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequen
 }
 #[test]
 fn baseline_and_bootstrap_substitution_reject_before_replay() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     for mode in 0..5 {
         let t = Temp::new();
         let (b, mut c, _, r) = setup();
@@ -316,6 +327,7 @@ impl Backend for Fault {
 }
 #[test]
 fn partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     for failure in [1, 2] {
         let t = Temp::new();
         let (b, c, _, r) = setup();
@@ -347,6 +359,7 @@ fn partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes() {
 }
 #[test]
 fn trusted_frontier_mismatch_rejects_without_truncating_partial_tail() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, _, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -374,6 +387,7 @@ fn trusted_frontier_mismatch_rejects_without_truncating_partial_tail() {
 
 #[test]
 fn failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     for failure in [3, 4] {
         let t = Temp::new();
         let (b, c, _, _) = setup();
@@ -413,6 +427,7 @@ fn failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_parti
 
 #[test]
 fn child_append_then_exit_without_destructors() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let Some(path) = std::env::var_os("TICKWIRE_ACCOUNT_JOURNAL_CHILD") else {
         return;
     };
@@ -435,6 +450,7 @@ fn child_append_then_exit_without_destructors() {
 
 #[test]
 fn independent_exec_process_reopens_only_synchronized_history_as_frozen() {
+    let _fork_barrier = FORK_BARRIER.write().unwrap();
     let t = Temp::new();
     let status = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
@@ -461,6 +477,7 @@ fn independent_exec_process_reopens_only_synchronized_history_as_frozen() {
 }
 #[test]
 fn forged_record_sequence_or_baseline_is_rejected() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     // A complete physical batch can still have a false account envelope or writer binding.
     for mode in 0..5 {
         let t = Temp::new();
@@ -488,6 +505,7 @@ fn forged_record_sequence_or_baseline_is_rejected() {
 }
 #[test]
 fn writer_epoch_and_complete_event_identity_are_checked() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, cmd, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -540,6 +558,7 @@ fn writer_epoch_and_complete_event_identity_are_checked() {
 }
 #[test]
 fn rejected_account_fact_remains_durable_and_recovery_does_not_skip_it() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, _, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -560,6 +579,7 @@ fn rejected_account_fact_remains_durable_and_recovery_does_not_skip_it() {
 }
 #[test]
 fn all_eight_record_kinds_replay_in_one_real_file_order() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (s, catalog, cmd) = futures_fixture();
     let baseline = CanonicalBaseline::new(s, catalog).unwrap();
@@ -688,6 +708,7 @@ fn all_eight_record_kinds_replay_in_one_real_file_order() {
 
 #[test]
 fn history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (b, c, cmd, r) = setup();
     let mut j = AccountJournal::create(t.backend(), c.clone(), b.clone()).unwrap();
@@ -739,6 +760,7 @@ fn history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_pr
 
 #[test]
 fn history_digest_is_the_actual_recovery_object_content_address() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let t = Temp::new();
     let (baseline, config, _, admit) = setup();
     let mut journal = AccountJournal::create(t.backend(), config, baseline).unwrap();

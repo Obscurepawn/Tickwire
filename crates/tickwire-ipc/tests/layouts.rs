@@ -242,7 +242,7 @@ fn layout_intentbody() {
         assert_eq!(IntentBody::decode(&vec![0; length]), Err(Error::Bounds));
         assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
     }
-    for i in 304..384 {
+    for i in 340..384 {
         raw[i] = 1;
         assert_eq!(IntentBody::decode(&raw), Err(Error::ReservedNonzero));
         raw[i] = 0;
@@ -668,6 +668,115 @@ fn layout_resyncbody() {
     for i in 112..128 {
         raw[i] = 1;
         assert_eq!(ResyncBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_depthcoverage() {
+    let value = DepthCoverage::default();
+    let mut raw = vec![0xCC; 32];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(DepthCoverage::decode(&raw).unwrap(), value);
+    for length in [0, 31, 33] {
+        assert_eq!(DepthCoverage::decode(&vec![0; length]), Err(Error::Bounds));
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 4..8 {
+        raw[i] = 1;
+        assert_eq!(DepthCoverage::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_handoverreadybody() {
+    let value = HandoverReadyBody::default();
+    let mut raw = vec![0xCC; 192];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(HandoverReadyBody::decode(&raw).unwrap(), value);
+    for length in [0, 191, 193] {
+        assert_eq!(
+            HandoverReadyBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 176..192 {
+        raw[i] = 1;
+        assert_eq!(HandoverReadyBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_restoreappliedbody() {
+    let value = RestoreAppliedBody::default();
+    let mut raw = vec![0xCC; 128];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(RestoreAppliedBody::decode(&raw).unwrap(), value);
+    for length in [0, 127, 129] {
+        assert_eq!(
+            RestoreAppliedBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 116..128 {
+        raw[i] = 1;
+        assert_eq!(
+            RestoreAppliedBody::decode(&raw),
+            Err(Error::ReservedNonzero)
+        );
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_checkpointsealbody() {
+    let value = CheckpointSealBody::default();
+    let mut raw = vec![0xCC; 96];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(CheckpointSealBody::decode(&raw).unwrap(), value);
+    for length in [0, 95, 97] {
+        assert_eq!(
+            CheckpointSealBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 68..96 {
+        raw[i] = 1;
+        assert_eq!(
+            CheckpointSealBody::decode(&raw),
+            Err(Error::ReservedNonzero)
+        );
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_checkpointsealreplybody() {
+    let value = CheckpointSealReplyBody::default();
+    let mut raw = vec![0xCC; 256];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(CheckpointSealReplyBody::decode(&raw).unwrap(), value);
+    for length in [0, 255, 257] {
+        assert_eq!(
+            CheckpointSealReplyBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 28..32 {
+        raw[i] = 1;
+        assert_eq!(
+            CheckpointSealReplyBody::decode(&raw),
+            Err(Error::ReservedNonzero)
+        );
+        raw[i] = 0;
+    }
+    for i in 224..256 {
+        raw[i] = 1;
+        assert_eq!(
+            CheckpointSealReplyBody::decode(&raw),
+            Err(Error::ReservedNonzero)
+        );
         raw[i] = 0;
     }
 }

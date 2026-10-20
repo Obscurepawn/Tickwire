@@ -34,8 +34,14 @@ tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
 
 tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
+tickwire-release = { path = "../tickwire-release" }
+tickwire-handover = { path = "../tickwire-handover" }
 tickwire-strategy-host = { path = "../tickwire-strategy-host" }
 tickwire-market-publisher = { path = "../tickwire-market-publisher" }
+tickwire-market-source = { path = "../tickwire-market-source" }
+tickwire-replica = { path = "../tickwire-replica" }
+tickwire-lifecycle = { path = "../tickwire-lifecycle" }
+tickwire-fencing = { path = "../tickwire-fencing" }
 tickwire-supervisor = { path = "../tickwire-supervisor" }
 tickwire-control = { path = "../tickwire-control" }
 tickwire-control-store = { path = "../tickwire-control-store" }
@@ -43,3 +49,7 @@ tickwire-join = { path = "../tickwire-join" }
 tickwire-ipc = { path = "../tickwire-ipc" }
 tickwire-shm = { path = "../tickwire-shm" }
 tickwire-snapshot = { path = "../tickwire-snapshot" }
+
+[dev-dependencies]
+ring = "0.17.14"
+tickwire-risk = { path = "../tickwire-risk" }

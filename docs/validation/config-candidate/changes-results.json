@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "module": "tickwire-config",
+  "passed": 29,
+  "failed": 0,
+  "ignored": 0,
+  "tests": "changes-final-green.log",
+  "clippy": "changes-final-clippy.log",
+  "source_manifest": "source.sha256",
+  "covers": [
+    "strict_candidate",
+    "static_validation",
+    "permission_projection",
+    "change_classification",
+    "role_bound_account_authorization"
+  ],
+  "does_not_cover": [
+    "deployed_configuration_authority",
+    "configuration_materialization",
+    "runtime_application",
+    "configuration_control_service"
+  ],
+  "tla": "deferred_until_all_system_code_complete"
+}

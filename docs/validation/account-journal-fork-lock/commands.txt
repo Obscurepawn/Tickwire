@@ -1,0 +1,14 @@
+# Focused live checks, native PATH includes $HOME/.cargo/bin; Linux workdir /work
+cargo test -p tickwire-account-journal --test persistence -- --test-threads=32 --nocapture
+cargo clippy -p tickwire-account-journal --test persistence -- -D warnings
+
+# Controlled Linux mechanism witness, against the retained F rlib
+rustc --edition=2024 /work/.tools/account-journal-fork-review/fork_window.rs --extern tickwire_account_journal=/target/debug/deps/libtickwire_account_journal-b486dd0dd729c3b8.rlib -L dependency=/target/debug/deps -o /tmp/tickwire-fork-window
+/tmp/tickwire-fork-window
+
+# Original F executable retained for the single-test and 30 full-binary attempts
+/target/debug/deps/persistence-8f743e21266cc8d4 --exact historical_verifier_failure_and_forged_admission_image_stop_recovery --nocapture
+/target/debug/deps/persistence-8f743e21266cc8d4 --test-threads=32 --nocapture
+
+# Additional scheduling attempt, copied F test source with only a 300 ms pre_exec delay
+CARGO_TARGET_DIR=/target cargo test --manifest-path /tmp/tickwire-fork-fixture-review/Cargo.toml --test persistence -- --test-threads=32 --nocapture

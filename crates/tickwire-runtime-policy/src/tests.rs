@@ -61,6 +61,104 @@ fn grant() -> StrategyGrant {
         }],
     }
 }
+#[test]
+fn shadow_failure_preserves_the_exact_active_grant_and_its_expiry() {
+    let (plane, _, _, _) = setup();
+    prepare(&plane);
+    plane.stop_strategy_instance(8, [73; 16], 6).unwrap();
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [2; 16], 5, now(70)),
+        Ok(true)
+    );
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [73; 16], 6, now(70)),
+        Ok(false)
+    );
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [2; 16], 5, now(1000)),
+        Ok(false)
+    );
+    plane.stop_strategy_instance(8, [2; 16], 5).unwrap();
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [2; 16], 5, now(70)),
+        Ok(false)
+    );
+    assert_eq!(plane.install_strategy_grant(grant()), Err(Error::Stale));
+}
+#[test]
+fn handover_closes_instance_activation_until_its_exact_release() {
+    let (plane, _, _, _) = setup();
+    prepare(&plane);
+    let binding = HandoverBinding {
+        operation_id: [71; 16],
+        operation_revision: 1,
+        members_digest: [72; 32],
+        logical_strategy_id: 8,
+        instance_id: [73; 16],
+        strategy_generation: 6,
+        valid_until_ns: 1000,
+    };
+    let prepared = plane.begin_handover(binding).unwrap();
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [2; 16], 5, now(70)),
+        Ok(false)
+    );
+    let committed = plane.handover_committed(&prepared, 10, [74; 32]).unwrap();
+    let mut target = grant();
+    target.instance_id = [73; 16];
+    target.strategy_generation = 6;
+    target.authorization_epoch = 10;
+    plane.release_handover(&committed, target, now(70)).unwrap();
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [73; 16], 6, now(71)),
+        Ok(true)
+    );
+    plane.stop_strategy_instance(8, [2; 16], 5).unwrap();
+    assert_eq!(
+        plane.strategy_instance_authorized(8, [73; 16], 6, now(71)),
+        Ok(true)
+    );
+}
+#[test]
+fn closed_handover_gate_rejects_an_old_group_release() {
+    let (plane, _, _, _) = setup();
+    prepare(&plane);
+    let binding = HandoverBinding {
+        operation_id: [71; 16],
+        operation_revision: 1,
+        members_digest: [72; 32],
+        logical_strategy_id: 8,
+        instance_id: [73; 16],
+        strategy_generation: 6,
+        valid_until_ns: 1000,
+    };
+    let prepared = plane.begin_handover(binding.clone()).unwrap();
+    let committed = plane.handover_committed(&prepared, 10, [74; 32]).unwrap();
+    let mut target = grant();
+    target.instance_id = binding.instance_id;
+    target.strategy_generation = 6;
+    target.authorization_epoch = 10;
+    plane.stop_strategy(8).unwrap();
+    assert_eq!(
+        plane.release_handover(&committed, target, now(70)),
+        Err(Error::Stale)
+    );
+    assert!(
+        plane.handover_gate(8).unwrap().unwrap().risk_gate_revision > committed.risk_gate_revision
+    );
+}
+#[test]
+fn revoke_never_restores_an_old_generation_with_a_new_authorization_epoch() {
+    let (plane, _, _, _) = setup();
+    prepare(&plane);
+    plane.stop_strategy(8).unwrap();
+    let mut old = grant();
+    old.authorization_epoch += 1;
+    assert_eq!(plane.install_strategy_grant(old.clone()), Err(Error::Stale));
+    old.strategy_generation += 1;
+    old.instance_id = [75; 16];
+    plane.install_strategy_grant(old).unwrap();
+}
 fn owner() -> OwnerLease {
     OwnerLease {
         executor_id: [1; 16],
@@ -273,4 +371,40 @@ fn current_clock_domain_and_monotonicity_are_sticky() {
     assert!(provider.current(&c, &a).is_err());
     provider.clock.0 = now(61);
     assert!(provider.current(&c, &a).is_err());
+}
+
+#[test]
+fn health_must_sample_after_a_gate_callback_advanced_the_shared_clock() {
+    use tickwire_runtime::node::{Health, Observer};
+
+    let local = |n| tickwire_binance_clock::LocalTime {
+        instant: std::time::Instant::now(),
+        monotonic: now(n),
+    };
+    let (stale, _, command, admission) = setup();
+    prepare(&stale);
+    stale
+        .complete_reconciliation(reconciliation(&stale), &mut Verifier)
+        .unwrap();
+    let sampled_before_poll = local(60);
+    assert!(stale.evaluate(&command, &admission, now(61)).is_ok());
+    assert!(
+        !stale
+            .observer()
+            .health(Health::default(), sampled_before_poll)
+    );
+    // A later timestamp cannot undo a real observer rollback fault.
+    assert_eq!(
+        stale.evaluate(&command, &admission, now(62)),
+        Err(Error::Clock)
+    );
+
+    let (fresh, _, command, admission) = setup();
+    prepare(&fresh);
+    fresh
+        .complete_reconciliation(reconciliation(&fresh), &mut Verifier)
+        .unwrap();
+    assert!(fresh.evaluate(&command, &admission, now(61)).is_ok());
+    assert!(fresh.observer().health(Health::default(), local(62)));
+    assert!(fresh.evaluate(&command, &admission, now(63)).is_ok());
 }

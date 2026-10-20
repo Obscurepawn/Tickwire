@@ -1,0 +1,169 @@
+   Compiling tickwire-venue v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-venue)
+warning: unused imports: `Reader`, `Writer`, and `codec::Codec`
+ --> crates/tickwire-venue/src/account.rs:2:20
+  |
+2 | use crate::{cbor::{Reader, Writer}, codec::Codec, *};
+  |                    ^^^^^^  ^^^^^^   ^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+warning: `tickwire-venue` (lib) generated 1 warning (run `cargo fix --lib -p tickwire-venue` to apply 1 suggestion)
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+warning: field `api_key` is never read
+  --> crates/tickwire-binance-public/src/lib.rs:92:5
+   |
+91 | pub struct SbeAccess {
+   |            --------- field in this struct
+92 |     api_key: String,
+   |     ^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-binance-public` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.66s
+     Running tests/sbe_network.rs (target/debug/deps/sbe_network-d28bf5575b66ca26)
+
+running 2 tests
+test explicit_sbe_buffers_binary_before_text_subscription_ack ... FAILED
+test raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner ... FAILED
+
+failures:
+
+---- explicit_sbe_buffers_binary_before_text_subscription_ack stdout ----
+
+thread '<unnamed>' (7013977) panicked at crates/tickwire-binance-public/tests/sbe_network.rs:25:9:
+GET /ws?timeUnit=MICROSECOND HTTP/1.1
+Host: stream.binance.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Version: 13
+Sec-WebSocket-Key: +nNkt4MKFkjTv+nfQqAgqw==
+Content-Length: 0
+
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'explicit_sbe_buffers_binary_before_text_subscription_ack' (7013972) panicked at crates/tickwire-binance-public/tests/sbe_network.rs:53:5:
+assertion `left == right` failed: [
+    GapNotice {
+        connection_epoch: 1,
+        book_generation: 1,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 2,
+        book_generation: 2,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 3,
+        book_generation: 3,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 4,
+        book_generation: 4,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 5,
+        book_generation: 5,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 6,
+        book_generation: 6,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 7,
+        book_generation: 7,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 8,
+        book_generation: 8,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 9,
+        book_generation: 9,
+        reason: Transport,
+    },
+]
+  left: Disconnected
+ right: Live
+
+---- raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner stdout ----
+
+thread '<unnamed>' (7013976) panicked at crates/tickwire-binance-public/tests/sbe_network.rs:25:9:
+GET /ws/btcusdt@depth?timeUnit=MICROSECOND HTTP/1.1
+Host: stream.binance.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Version: 13
+Sec-WebSocket-Key: kMXPB0BbA+llAtk5Zf64yg==
+Content-Length: 0
+
+
+
+thread 'raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner' (7013973) panicked at crates/tickwire-binance-public/tests/sbe_network.rs:53:5:
+assertion `left == right` failed: [
+    GapNotice {
+        connection_epoch: 1,
+        book_generation: 1,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 2,
+        book_generation: 2,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 3,
+        book_generation: 3,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 4,
+        book_generation: 4,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 5,
+        book_generation: 5,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 6,
+        book_generation: 6,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 7,
+        book_generation: 7,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 8,
+        book_generation: 8,
+        reason: Transport,
+    },
+    GapNotice {
+        connection_epoch: 9,
+        book_generation: 9,
+        reason: Transport,
+    },
+]
+  left: Disconnected
+ right: Live
+
+
+failures:
+    explicit_sbe_buffers_binary_before_text_subscription_ack
+    raw_sbe_binary_wss_and_rest_snapshot_share_typed_depth_owner
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.00s
+
+error: test failed, to rerun pass `-p tickwire-binance-public --test sbe_network`

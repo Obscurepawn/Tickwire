@@ -35,3 +35,8 @@ serde = "1"
 sha2 = "=0.10.9"
 
 tickwire-account-codec = { path = "../tickwire-account-codec" }
+
+tickwire-market-source = { path = "../tickwire-market-source" }
+
+tickwire-md = { path = "../tickwire-md" }
+tickwire-release = { path = "../tickwire-release" }

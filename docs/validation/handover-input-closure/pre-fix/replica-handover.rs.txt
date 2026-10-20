@@ -1,0 +1,176 @@
+//! Verify and enumerate the complete strategy handover closure.
+use crate::*;
+use tickwire_recovery::{EncodedInputs, HandoverSeal};
+
+pub(crate) fn dependencies<S: BlobStore>(
+    p: &Persistence<S>,
+    stream: &Stream,
+    entry: &Entry,
+) -> Result<Vec<ObjectRef>> {
+    if entry.kind != 11 {
+        return Ok(Vec::new());
+    }
+    let (objects, _, _) = inspect(p, stream, entry)?;
+    Ok(objects)
+}
+pub(crate) fn verify_history<S: BlobStore>(
+    p: &Persistence<S>,
+    stream: &Stream,
+    entry: &Entry,
+    history: &[Entry],
+) -> Result<()> {
+    if entry.kind != 11 {
+        return Ok(());
+    }
+    let (_, records, _) = inspect(p, stream, entry)?;
+    for (index, record) in records.iter().enumerate() {
+        if history.get(index).map(|e| (e.sequence, e.payload.hash))
+            != Some((record.sequence(), record.digest()))
+        {
+            return Err(Error::Conflict);
+        }
+    }
+    Ok(())
+}
+pub(crate) fn verify<S: BlobStore>(
+    p: &mut Persistence<S>,
+    stream: &Stream,
+    entry: &Entry,
+) -> Result<()> {
+    let objects = dependencies(p, stream, entry)?;
+    crate::source::verify_objects(p, &objects)
+}
+fn inspect<S: BlobStore>(
+    p: &Persistence<S>,
+    stream: &Stream,
+    entry: &Entry,
+) -> Result<(
+    Vec<ObjectRef>,
+    Vec<tickwire_account_codec::CanonicalRecord>,
+    HandoverSeal,
+)> {
+    let Format::Account { baseline } = stream.format else {
+        return Err(Error::Conflict);
+    };
+    let payload = p.read_object(entry.payload.hash, entry.payload.bytes as usize)?;
+    let record = tickwire_account_codec::CanonicalRecord::decode(&payload)
+        .map_err(|_| Error::Invalid("handover record"))?;
+    let tickwire_account::RecoveryRecord::StrategyHandover(binding) = record.record() else {
+        return Err(Error::Conflict);
+    };
+    if !entry
+        .extra_objects
+        .iter()
+        .any(|r| r.hash == binding.input_seal_digest)
+        || !entry
+            .extra_objects
+            .iter()
+            .any(|r| r.hash == binding.checkpoint_digest)
+    {
+        return Err(Error::Missing);
+    }
+    let seal =
+        HandoverSeal::decode(&p.read_object(binding.input_seal_digest, HandoverSeal::MAX_BYTES)?)?;
+    if binding.scope.risk_domain_id != stream.domain
+        || binding.writer_epoch != entry.writer_epoch
+        || seal.instance != binding.to.instance
+        || seal.generation != binding.to.generation
+        || seal.logical_strategy != binding.logical_strategy_id
+        || seal.ledger_sequence != binding.expected_ledger_sequence
+        || seal.orders_digest != binding.expected_orders_digest
+        || seal.checkpoint_digest != binding.checkpoint_digest
+        || seal.report_position.checked_add(1) != Some(entry.sequence)
+    {
+        return Err(Error::Conflict);
+    }
+    let mut objects = Vec::new();
+    let mut total = 0usize;
+    for hash in seal.roots() {
+        let bytes = p.read_object(hash, MAX_OBJECT_BYTES)?;
+        total = total
+            .checked_add(bytes.len())
+            .filter(|n| *n <= MAX_OBJECT_BYTES * 2)
+            .ok_or(Error::Bounds)?;
+        objects.push(ObjectRef::new(&bytes)?);
+    }
+    seal.verify_checkpoint(
+        &p.read_object(seal.checkpoint_digest, seal.checkpoint_bytes as usize)?,
+    )?;
+    let inputs = p.read_object(seal.input_digest, seal.input_bytes as usize)?;
+    if inputs.len() as u64 != seal.input_bytes {
+        return Err(Error::Conflict);
+    }
+    let decoded = EncodedInputs::decode(inputs)?;
+    if decoded.boundary.first_sequence != 1 || decoded.boundary.previous_hash != [0; 32] {
+        return Err(Error::Missing);
+    }
+    let mut baseline_bytes = None;
+    let mut records = Vec::new();
+    let mut pos = 68;
+    let mut account_seal =
+        tickwire_account_codec::InputSeal::new(baseline).map_err(|_| Error::Conflict)?;
+    let count = u32::from_be_bytes(decoded.bytes[32..36].try_into().unwrap());
+    for _ in 0..count {
+        let kind = decoded.bytes[pos + 8];
+        let len = u32::from_be_bytes(decoded.bytes[pos + 9..pos + 13].try_into().unwrap()) as usize;
+        let body = &decoded.bytes[pos + 13..pos + 13 + len];
+        pos += 13 + len;
+        if kind != 2 {
+            continue;
+        }
+        if body.len() < 29
+            || &body[..8] != b"TWAI0001"
+            || body.len() != 29 + u32::from_le_bytes(body[25..29].try_into().unwrap()) as usize
+        {
+            return Err(Error::Invalid("handover account input"));
+        }
+        let position = u64::from_le_bytes(body[17..25].try_into().unwrap());
+        match body[8] {
+            0 if position == 0 && baseline_bytes.is_none() && records.is_empty() => {
+                let b = tickwire_account_codec::CanonicalBaseline::decode(&body[29..])
+                    .map_err(|_| Error::Conflict)?;
+                if b.digest() != baseline || b.snapshot().scope != binding.scope {
+                    return Err(Error::Conflict);
+                }
+                baseline_bytes = Some(b);
+            }
+            1 if baseline_bytes.is_some() => {
+                let r = tickwire_account_codec::CanonicalRecord::decode(&body[29..])
+                    .map_err(|_| Error::Conflict)?;
+                if position != records.len() as u64 + 1 || position != r.sequence() {
+                    return Err(Error::Gap {
+                        next: records.len() as u64 + 1,
+                    });
+                }
+                account_seal.apply(&r).map_err(|_| Error::Conflict)?;
+                records.push(r);
+            }
+            _ => return Err(Error::Conflict),
+        }
+    }
+    let b = baseline_bytes.ok_or(Error::Missing)?;
+    if records.len() as u64 != seal.report_position
+        || account_seal.digest() != seal.account_input_digest
+        || account_seal.object_bytes().len() as u64 != seal.account_input_bytes
+        || p.read_object(seal.account_input_digest, seal.account_input_bytes as usize)?
+            != account_seal.object_bytes()
+    {
+        return Err(Error::Conflict);
+    }
+    let records_for_replay = records
+        .iter()
+        .map(|r| r.record().clone())
+        .collect::<Vec<_>>();
+    let account = tickwire_account::Account::recover(
+        b.snapshot().clone(),
+        b.catalog().clone(),
+        &records_for_replay,
+    )
+    .map_err(|_| Error::Conflict)?;
+    if account.ledger_sequence() != seal.ledger_sequence
+        || account.strategy_orders_digest(seal.logical_strategy) != seal.orders_digest
+    {
+        return Err(Error::Conflict);
+    }
+    Ok((objects, records, seal))
+}

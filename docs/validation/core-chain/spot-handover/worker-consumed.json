@@ -1,0 +1,52 @@
+{
+  "retirement": {
+    "event": "strategy_retired",
+    "exit_status": "exit status: 0",
+    "generation": 5,
+    "instance": [
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2,
+      2
+    ],
+    "worker_pid": 1966
+  },
+  "successor_consumed": {
+    "account_position": 9,
+    "event": "strategy_reports_consumed",
+    "generation": 6,
+    "instance": [
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6,
+      6
+    ],
+    "ready_sequence": 8,
+    "report_sequence": 10,
+    "worker_pid": 1974
+  }
+}

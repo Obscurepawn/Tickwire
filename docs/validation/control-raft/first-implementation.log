@@ -1,0 +1,11 @@
+   Compiling tickwire-control-raft v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-control-raft)
+error[E0560]: struct `raft::Config` has no field named `disable_proposal_forwarding`
+   --> crates/tickwire-control-raft/src/lib.rs:118:13
+    |
+118 |             disable_proposal_forwarding: true,
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^ `raft::Config` does not have this field
+    |
+    = note: available fields are: `skip_bcast_commit`, `batch_append`, `priority`
+
+For more information about this error, try `rustc --explain E0560`.
+error: could not compile `tickwire-control-raft` (lib) due to 1 previous error

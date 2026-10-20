@@ -1,0 +1,8 @@
+{"event":"started","recover":false}
+{"checkpoint_digest":[143,147,85,109,132,97,34,74,166,179,58,187,124,37,34,219,61,132,111,149,125,216,109,238,208,0,93,82,101,176,21,233],"event":"strategy_ready","exec_report_sequence":0,"generation":5,"input_seal_digest":[98,29,81,145,208,106,36,114,19,195,227,110,57,185,177,155,49,254,244,94,120,60,205,250,95,119,89,32,58,232,221,120],"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":1,"worker_pid":11998}
+{"account_position":0,"event":"strategy_reports_consumed","generation":5,"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ready_sequence":1,"report_sequence":1,"worker_pid":11998}
+{"connection_epoch":1,"event":"account_reconciled","gap_generation":1,"ledger_sequence":1}
+strategy worker stopped: Identity
+{"checkpoint_digest":[179,158,14,99,193,172,94,26,3,152,124,22,253,244,67,161,1,98,178,118,23,148,4,72,176,45,126,167,40,96,156,217],"event":"strategy_ready","exec_report_sequence":1,"generation":5,"input_seal_digest":[67,235,143,127,236,239,33,180,251,237,75,119,87,151,240,21,136,154,48,180,145,191,185,206,170,56,234,245,157,30,216,117],"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ledger_sequence":1,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":2,"worker_pid":11998}
+{"account_position":1,"event":"strategy_reports_consumed","generation":5,"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ready_sequence":2,"report_sequence":2,"worker_pid":11998}
+{"error":"strategy failure stopped the execution runtime","event":"fatal"}

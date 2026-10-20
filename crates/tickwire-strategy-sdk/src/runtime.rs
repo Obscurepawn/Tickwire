@@ -132,6 +132,30 @@ impl<R: RecoveryResolver, N: FnMut(&tickwire_binance_public::Notice<'_>) -> bool
     pub fn resolver_mut(&mut self) -> &mut R {
         &mut self.resolver
     }
+    /// Drain shadow decisions without resolving/admitting or submitting them.
+    /// The worker already persisted canonical bytes and actual decision inputs.
+    pub fn drain_shadow(&mut self, budget: usize) -> Result<usize> {
+        if budget == 0 || budget > 4096 {
+            return Err(Error::Bounds);
+        }
+        let mut count = 0;
+        while count < budget {
+            let command = if let Some(c) = self.pending.take() {
+                c
+            } else {
+                let Some(c) = self.receiver.next_command()? else {
+                    break;
+                };
+                c
+            };
+            eprintln!(
+                "{}",
+                serde_json::json!({"event":"shadow_intent","instance":command.command().context.strategy.instance_id,"digest":command.digest()})
+            );
+            count += 1;
+        }
+        Ok(count)
+    }
     fn next_inner(
         &mut self,
         health: Health,

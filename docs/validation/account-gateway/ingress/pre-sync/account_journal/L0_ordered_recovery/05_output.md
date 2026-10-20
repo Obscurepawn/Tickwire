@@ -23,4 +23,4 @@
 
 有限记录只有 Admit 和 Aborted，原订单属于一代，恢复 writer 可提升到下一代。账户为明确的 Spot 数量 1、限价 1、零费用实例。SHA-256 用无碰撞符号表示；物理批次接口是本级输入契约，未重新证明字节编码、分段切换、manifest 事务或设备掉电行为。
 
-root 与 ipc_codec 已独立对照冻结源码审阅模型，无开放候选。初模的目录同步反例被源码否定，归因为模型遗漏，记录在 [04_counterexamples.md](04_counterexamples.md)。582 个源码行锚点校验零漂移，最终文件哈希保存在 [results.json](04_evidence/results.json)。
+root 与 ipc_codec 已独立对照冻结源码审阅模型，无开放候选。初模的目录同步反例被源码否定，归因为模型遗漏，记录在 [04_counterexamples.md](04_counterexamples.md)。582 个源码行锚点校验零漂移，最终文件哈希保存在 [results.json](results.json)。

@@ -1,9 +1,11 @@
 //! Single-owner multi-asset reservations and economic attribution.
 #![forbid(unsafe_code)]
+mod account_inputs;
 mod admission;
 mod calculation;
 mod events;
 mod external;
+mod handover;
 mod recovery;
 mod types;
 use std::collections::{BTreeMap, BTreeSet};
@@ -32,6 +34,8 @@ struct Order {
     digest: v::Hash,
     instrument: u64,
     strategy: u64,
+    origin: ManagerIdentity,
+    manager: ManagerIdentity,
     spec: v::OrderSpec,
     original: Fixed,
     filled: Fixed,
@@ -97,6 +101,8 @@ pub struct Account {
     admissions: BTreeMap<IntentKey, Admission>,
     facts: BTreeMap<FactKey, EconomicFact>,
     external_facts: BTreeMap<(u8, String), external::ExternalValue>,
+    account_inputs: account_inputs::AccountInputs,
+    handovers: BTreeMap<([u8; 16], u64), StrategyHandover>,
     venue_available: BTreeMap<u64, Fixed>,
     shadow_holds: BTreeMap<IntentKey, Vec<CapitalHold>>,
     uncovered_debits: BTreeMap<u64, Fixed>,
@@ -131,6 +137,8 @@ impl Account {
             admissions: BTreeMap::new(),
             facts: BTreeMap::new(),
             external_facts: BTreeMap::new(),
+            account_inputs: account_inputs::AccountInputs::default(),
+            handovers: BTreeMap::new(),
             venue_available: BTreeMap::new(),
             shadow_holds: BTreeMap::new(),
             uncovered_debits: BTreeMap::new(),
@@ -229,8 +237,12 @@ impl Account {
     pub fn freeze(&mut self) {
         self.frozen = true;
     }
-    pub fn order_keys(&self) -> impl Iterator<Item=&OrderKey> { self.orders.keys() }
-    pub fn account_epoch(&self) -> u64 { self.epoch }
+    pub fn order_keys(&self) -> impl Iterator<Item = &OrderKey> {
+        self.orders.keys()
+    }
+    pub fn account_epoch(&self) -> u64 {
+        self.epoch
+    }
     pub fn ledger_sequence(&self) -> u64 {
         self.sequence
     }
@@ -243,6 +255,9 @@ impl Account {
                 key: key.clone(),
                 command_digest: o.digest,
                 strategy: o.strategy,
+                origin: o.origin,
+                manager: o.manager,
+                owner_revision: o.owner_revision,
                 original_quantity: o.original,
                 filled_quantity: o.filled,
                 remaining_quantity: o.remaining().ok()?,
@@ -255,9 +270,16 @@ impl Account {
             })
         })
     }
-    pub fn position_entry_bound(&self,instrument:u64,side:v::PositionSide)->Result<Option<Fixed>> {
+    pub fn position_entry_bound(
+        &self,
+        instrument: u64,
+        side: v::PositionSide,
+    ) -> Result<Option<Fixed>> {
         self.catalog.get(&instrument).ok_or(Error::Catalog)?;
-        Ok(self.positions.get(&(instrument,side_code(side))).map(|p|p.entry))
+        Ok(self
+            .positions
+            .get(&(instrument, side_code(side)))
+            .map(|p| p.entry))
     }
     pub fn position(
         &self,

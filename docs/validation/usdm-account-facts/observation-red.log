@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 14.45s
+     Running tests/account_observation.rs (target/debug/deps/account_observation-2e21e75348883495)
+
+running 2 tests
+test observation_rejects_wrong_account_and_unknown_asset ... ok
+test sparse_funding_observation_preserves_raw_cash_fields_without_local_order ... FAILED
+
+failures:
+
+---- sparse_funding_observation_preserves_raw_cash_fields_without_local_order stdout ----
+
+thread 'sparse_funding_observation_preserves_raw_cash_fields_without_local_order' (7056281) panicked at crates/tickwire-binance-account/tests/account_observation.rs:15:114:
+called `Result::unwrap()` on an `Err` value: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    sparse_funding_observation_preserves_raw_cash_fields_without_local_order
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-binance-account --test account_observation`

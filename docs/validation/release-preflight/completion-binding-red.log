@@ -1,0 +1,48 @@
+   Compiling tickwire-lifecycle v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-lifecycle)
+   Compiling tickwire-handover v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-handover)
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+   Compiling tickwire-binance-session v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-session)
+   Compiling tickwire-binance-quota v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-quota)
+   Compiling tickwire-release v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-release)
+   Compiling tickwire-binance-execution v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-execution)
+   Compiling tickwire-runtime v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.04s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_sdk-fb8f9840dd9ad1bb)
+
+running 19 tests
+test checkpoint::tests::cached_or_other_challenge_ready_is_not_fresh_checkpoint_completion ... ok
+test recovery::tests::administrative_commands_need_no_new_order_identity ... ok
+test recovery::tests::execution_callback_preserves_canonical_record_position_and_actual_time ... ok
+test outbound::tests::immutable_command_is_stored_before_a_reference_exists ... ok
+test handover::tests::checkpoint_requires_exact_instance_cut_and_nonempty_strategy_state ... ok
+test outbound::tests::full_reference_keeps_digest_triggers_and_explicit_scope ... ok
+test recovery::tests::input_payloads_keep_complete_ring_and_external_arena_bytes ... ok
+test restore::tests::callback_errors_and_invalid_outputs_cannot_finish_restore ... ok
+test restore::tests::default_factory_does_not_claim_restore_completion ... ok
+test restore::tests::spent_legacy_action_is_not_rearmed_and_authority_is_from_target ... ok
+test restore::tests::spent_v2_action_survives_restore_with_changed_threshold ... ok
+test restore::tests::old_authority_changed_action_and_unknown_schema_are_rejected ... ok
+test retirement::tests::retirement_reply_cannot_replace_the_requested_cursor_or_evidence ... ok
+test worker::publication_tests::failed_preparation_never_samples_or_publishes ... ok
+test worker::publication_tests::publication_samples_after_preparation_and_checks_the_current_deadline ... ok
+test handover::tests::account_mirror_seals_ordered_callbacks_and_rejects_missing_or_replayed_records ... ok
+test restore::tests::actual_source_closure_is_checked_before_running_restore ... ok
+test restore::tests::completion_requires_actual_target_output_probe_and_complete_source_callbacks ... FAILED
+test handover::tests::objects_rejects_rehashed_inputs_without_the_account_callback ... ok
+
+failures:
+
+---- restore::tests::completion_requires_actual_target_output_probe_and_complete_source_callbacks stdout ----
+
+thread 'restore::tests::completion_requires_actual_target_output_probe_and_complete_source_callbacks' (7120582) panicked at crates/tickwire-strategy-sdk/src/restore_tests.rs:459:5:
+assertion failed: wrong.verify(&release, &a.bytes().unwrap(), &b.bytes().unwrap()).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    restore::tests::completion_requires_actual_target_output_probe_and_complete_source_callbacks
+
+test result: FAILED. 18 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+error: test failed, to rerun pass `-p tickwire-strategy-sdk --lib`

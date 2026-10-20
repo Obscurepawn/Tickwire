@@ -1,0 +1,535 @@
+//! Static topology and resource checks. Deployment evidence is checked separately.
+
+use crate::{Error, Result};
+use serde_json::Value;
+use std::collections::{BTreeMap, BTreeSet};
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Resources {
+    pub strategy_instances: usize,
+    pub strategy_domain_pairs: usize,
+    pub banks_and_cursors: u64,
+    pub snapshots: u64,
+    pub projection_objects: u64,
+    pub total_shared_bytes: u64,
+}
+
+fn check_that(condition: bool, check: &'static str) -> Result<()> {
+    if condition {
+        Ok(())
+    } else {
+        Err(Error::Semantic(check))
+    }
+}
+fn string<'a>(value: &'a Value, field: &str) -> Result<&'a str> {
+    value[field].as_str().ok_or(Error::Schema)
+}
+fn number(value: &Value, field: &str) -> Result<u64> {
+    value[field].as_u64().ok_or(Error::Schema)
+}
+fn array<'a>(value: &'a Value, field: &str) -> Result<&'a [Value]> {
+    value[field]
+        .as_array()
+        .map(Vec::as_slice)
+        .ok_or(Error::Schema)
+}
+fn id(value: &Value) -> Result<String> {
+    match value {
+        Value::String(s) => Ok(s.clone()),
+        Value::Number(n) => n.as_u64().map(|n| n.to_string()).ok_or(Error::Schema),
+        _ => Err(Error::Schema),
+    }
+}
+fn keyed<'a>(rows: &'a [Value], field: &str) -> Result<BTreeMap<String, &'a Value>> {
+    let mut result = BTreeMap::new();
+    for row in rows {
+        check_that(
+            result.insert(id(&row[field])?, row).is_none(),
+            "duplicate_id",
+        )?;
+    }
+    Ok(result)
+}
+fn lookup<'a>(map: &BTreeMap<String, &'a Value>, key: &Value) -> Result<&'a Value> {
+    map.get(&id(key)?)
+        .copied()
+        .ok_or(Error::Semantic("missing_reference"))
+}
+fn ids(values: &[Value]) -> Result<BTreeSet<String>> {
+    let set = values.iter().map(id).collect::<Result<BTreeSet<_>>>()?;
+    check_that(set.len() == values.len(), "duplicate_reference")?;
+    Ok(set)
+}
+fn add(a: u64, b: u64) -> Result<u64> {
+    a.checked_add(b).ok_or(Error::Capacity)
+}
+fn mul(a: u64, b: u64) -> Result<u64> {
+    a.checked_mul(b).ok_or(Error::Capacity)
+}
+fn sum(values: impl IntoIterator<Item = u64>) -> Result<u64> {
+    values.into_iter().try_fold(0, add)
+}
+pub(crate) fn decimal_le(left: &str, right: &str) -> Result<bool> {
+    fn parts(s: &str) -> Result<(&str, &str)> {
+        let (whole, fraction) = s.split_once('.').unwrap_or((s, ""));
+        check_that(
+            !whole.is_empty()
+                && whole.bytes().all(|x| x.is_ascii_digit())
+                && fraction.bytes().all(|x| x.is_ascii_digit()),
+            "decimal",
+        )?;
+        Ok((
+            whole.trim_start_matches('0'),
+            fraction.trim_end_matches('0'),
+        ))
+    }
+    let (a, af) = parts(left)?;
+    let (b, bf) = parts(right)?;
+    let order = a.len().cmp(&b.len()).then(a.cmp(b));
+    if !order.is_eq() {
+        return Ok(order.is_lt());
+    }
+    let length = af.len().max(bf.len());
+    Ok(af
+        .bytes()
+        .chain(std::iter::repeat(b'0'))
+        .take(length)
+        .cmp(bf.bytes().chain(std::iter::repeat(b'0')).take(length))
+        .is_le())
+}
+
+pub(crate) fn check(c: &Value) -> Result<Resources> {
+    let hosts = keyed(array(c, "hosts")?, "id")?;
+    let procs = keyed(array(c, "processes")?, "id")?;
+    let accounts = keyed(array(c, "accounts")?, "id")?;
+    let venues = keyed(array(c, "venues")?, "id")?;
+    let policies = keyed(array(c, "risk_policies")?, "id")?;
+    let ipc = &c["ipc"];
+    let topics = keyed(array(ipc, "topics")?, "id")?;
+    let mut domains = BTreeSet::new();
+    let mut owners = BTreeSet::new();
+    let mut cpus: BTreeMap<&str, BTreeSet<u64>> = BTreeMap::new();
+    let mut memory: BTreeMap<&str, u64> = BTreeMap::new();
+    for h in hosts.values() {
+        let cores = number(h, "physical_cores")?;
+        for cpu in array(h, "housekeeping_cpus")? {
+            check_that(
+                cpu.as_u64().ok_or(Error::Schema)? < cores,
+                "housekeeping_cpu",
+            )?;
+        }
+    }
+    for p in procs.values() {
+        let h = lookup(&hosts, &p["host_id"])?;
+        let host = string(h, "id")?;
+        let role = string(p, "role")?;
+        check_that(number(p, "numa_node")? < number(h, "numa_nodes")?, "numa")?;
+        let used = cpus.entry(host).or_default();
+        for cpu in array(p, "cpus")? {
+            let n = cpu.as_u64().ok_or(Error::Schema)?;
+            check_that(n < number(h, "physical_cores")?, "cpu_range")?;
+            if role != "supervisor" {
+                check_that(
+                    !array(h, "housekeeping_cpus")?.contains(cpu) && used.insert(n),
+                    "cpu_sharing",
+                )?;
+            }
+        }
+        check_that(
+            string(h, "role")? != "control-only" || role == "supervisor",
+            "control_host_role",
+        )?;
+        let total = memory.entry(host).or_default();
+        *total = add(*total, number(p, "memory_limit_bytes")?)?;
+    }
+    for h in hosts.values() {
+        check_that(
+            add(
+                *memory.get(string(h, "id")?).unwrap_or(&0),
+                number(h, "shm_budget_bytes")?,
+            )? <= number(h, "memory_bytes")?,
+            "host_memory",
+        )?;
+    }
+    for venue in venues.values() {
+        check_that(
+            venue["environment"] == c["identity"]["environment"],
+            "venue_environment",
+        )?;
+    }
+    for a in accounts.values() {
+        check_that(
+            domains.insert(id(&a["risk_domain_id"])?),
+            "risk_domain_owner",
+        )?;
+        let venue = lookup(&venues, &a["venue_id"])?;
+        let policy = lookup(&policies, &a["risk_policy_id"])?;
+        check_that(
+            owners.insert((
+                string(venue, "product")?,
+                string(a, "account_identity_ref")?,
+            )),
+            "duplicate_account_owner",
+        )?;
+        let owner = lookup(&procs, &a["exec_process_id"])?;
+        let standby = lookup(&procs, &a["standby_exec_process_id"])?;
+        check_that(
+            string(owner, "role")? == "exec"
+                && string(standby, "role")? == "exec"
+                && string(owner, "activation")? == "active"
+                && string(standby, "activation")? == "standby",
+            "executor_role",
+        )?;
+        check_that(
+            lookup(&hosts, &owner["host_id"])?["failure_domain"]
+                != lookup(&hosts, &standby["host_id"])?["failure_domain"],
+            "replica_failure_domain",
+        )?;
+        check_that(
+            standby["host_id"] == c["replication"]["receiver_host_id"],
+            "replica_host",
+        )?;
+        for guardian in array(a, "guardian_process_ids")? {
+            check_that(
+                string(lookup(&procs, guardian)?, "role")? == "guardian",
+                "guardian_role",
+            )?;
+        }
+        let spot = string(venue, "product")? == "Spot";
+        for field in ["position_mode", "margin_mode", "asset_mode"] {
+            check_that(
+                (string(a, field)? == "NotApplicable") == spot,
+                "account_mode",
+            )?;
+        }
+        for contract in array(a, "instrument_overrides")? {
+            check_that(
+                (string(contract, "contract_kind")? == "Spot") == spot,
+                "contract_product",
+            )?;
+            check_that(
+                array(a, "allowed_symbols")?.contains(&contract["symbol"]),
+                "contract_symbol",
+            )?;
+            check_that(
+                (number(contract, "expiry_epoch_ms")? > 0)
+                    == (string(contract, "contract_kind")? == "Delivery"),
+                "contract_expiry",
+            )?;
+        }
+        check_that(
+            decimal_le(
+                string(policy, "max_order_quote")?,
+                string(policy, "max_gross_quote")?,
+            )?,
+            "policy_order_budget",
+        )?;
+    }
+    let mut states = BTreeSet::new();
+    let mut processes = BTreeSet::new();
+    let mut consumers: BTreeMap<String, u64> = BTreeMap::new();
+    let mut pairs = 0u64;
+    let mut active = 0usize;
+    let mut shadow = 0usize;
+    for strategy in array(c, "strategies")? {
+        let p = lookup(&procs, &strategy["process_id"])?;
+        let role = string(strategy, "role")?;
+        check_that(
+            string(p, "role")? == "strategy"
+                && string(p, "activation")? == role.to_ascii_lowercase(),
+            "strategy_role",
+        )?;
+        check_that(
+            states.insert((id(&strategy["logical_strategy_id"])?, role))
+                && processes.insert(string(strategy, "process_id")?),
+            "strategy_identity",
+        )?;
+        if role == "Active" {
+            active += 1;
+        } else {
+            shadow += 1;
+        }
+        let account_ids = ids(array(strategy, "account_ids")?)?;
+        let budgets = keyed(array(strategy, "risk_budgets")?, "account_id")?;
+        check_that(
+            account_ids == budgets.keys().cloned().collect(),
+            "budget_accounts",
+        )?;
+        for account in &account_ids {
+            let a = accounts
+                .get(account)
+                .ok_or(Error::Semantic("account_reference"))?;
+            let policy = lookup(&policies, &a["risk_policy_id"])?;
+            let budget = budgets[account];
+            check_that(
+                budget["quote_asset"] == policy["quote_asset"],
+                "budget_currency",
+            )?;
+            check_that(
+                decimal_le(
+                    string(budget, "max_order_quote")?,
+                    string(budget, "max_gross_quote")?,
+                )? && decimal_le(
+                    string(budget, "max_order_quote")?,
+                    string(policy, "max_order_quote")?,
+                )?,
+                "strategy_order_budget",
+            )?;
+        }
+        pairs = add(pairs, account_ids.len() as u64)?;
+        for topic in ids(array(strategy, "topic_ids")?)? {
+            check_that(topics.contains_key(&topic), "topic_reference")?;
+            let count = consumers.entry(topic).or_default();
+            *count = add(*count, 1)?;
+        }
+        parameters(&strategy["params"], 16)?;
+    }
+    for p in procs.values() {
+        check_that(
+            string(p, "role")? != "strategy" || processes.contains(string(p, "id")?),
+            "strategy_payload",
+        )?;
+    }
+    check_that(active <= 16 && shadow <= 16, "strategy_capacity")?;
+    for (key, topic) in &topics {
+        let publisher = lookup(&procs, &topic["publisher_process_id"])?;
+        let standby = lookup(&procs, &topic["standby_publisher_process_id"])?;
+        check_that(
+            string(publisher, "role")? == "md"
+                && string(standby, "role")? == "md"
+                && publisher["activation"] == "active"
+                && standby["activation"] == "standby",
+            "publisher_role",
+        )?;
+        check_that(
+            add(*consumers.get(key).unwrap_or(&0), accounts.len() as u64)?
+                <= number(topic, "consumer_limit")?,
+            "consumer_capacity",
+        )?;
+    }
+    let resources = resources(ipc, &topics, pairs, accounts.len() as u64, active + shadow)?;
+    for h in hosts.values() {
+        if string(h, "role")? == "trading" {
+            check_that(
+                resources.total_shared_bytes <= number(h, "shm_budget_bytes")?,
+                "shm_capacity",
+            )?;
+        }
+    }
+    let control = &c["control"];
+    let voters = keyed(array(control, "voters")?, "node_id")?;
+    let mut voter_hosts = BTreeSet::new();
+    let mut voter_domains = BTreeSet::new();
+    for v in voters.values() {
+        let host = lookup(&hosts, &v["host_id"])?;
+        voter_hosts.insert(string(host, "id")?);
+        voter_domains.insert(string(host, "failure_domain")?);
+    }
+    check_that(
+        voters.len() == 3 && voter_hosts.len() == 3 && voter_domains.len() == 3,
+        "voter_failure_domains",
+    )?;
+    for (object, fields) in [
+        (ipc, &["resource_heartbeat_ms", "resource_session_ms"][..]),
+        (
+            control,
+            &[
+                "exec_grant_renew_ms",
+                "exec_grant_lifetime_ms",
+                "strategy_grant_lifetime_ms",
+            ],
+        ),
+        (
+            control,
+            &["strategy_progress_interval_ms", "strategy_suspect_after_ms"],
+        ),
+        (
+            control,
+            &["heartbeat_ms", "election_min_ms", "election_max_ms"],
+        ),
+        (&c["replication"], &["lag_warn_ms", "lag_freeze_ms"]),
+        (&c["journal"], &["disk_warn_percent", "disk_freeze_percent"]),
+        (&c["timeouts"], &["reconnect_min_ms", "reconnect_max_ms"]),
+    ] {
+        for field in fields.windows(2) {
+            check_that(
+                number(object, field[0])? < number(object, field[1])?,
+                "timeout_order",
+            )?;
+        }
+    }
+    check_that(
+        number(control, "tick_ms")? <= number(control, "heartbeat_ms")?,
+        "raft_tick",
+    )?;
+    for binding in array(control, "role_bindings")? {
+        for account in array(binding, "account_ids")? {
+            lookup(&accounts, account)?;
+        }
+    }
+    if string(&c["identity"], "mode")? == "live" {
+        live_references(c, &mut Vec::new())?;
+    }
+    Ok(resources)
+}
+
+fn resources(
+    ipc: &Value,
+    topics: &BTreeMap<String, &Value>,
+    pairs: u64,
+    account_count: u64,
+    strategy_instances: usize,
+) -> Result<Resources> {
+    for field in ["market_capacity", "intent_capacity", "report_capacity"] {
+        check_that(number(ipc, field)?.is_power_of_two(), "ring_capacity")?;
+    }
+    check_that(
+        number(ipc, "ring_high_watermark_records")? < number(ipc, "ring_stop_claiming_records")?
+            && number(ipc, "ring_stop_claiming_records")? < number(ipc, "market_capacity")?,
+        "ring_watermarks",
+    )?;
+    let classes = keyed(array(ipc, "market_arena_classes")?, "class_id")?;
+    let mut arena_bytes = 0;
+    for class in classes.values() {
+        let block = number(class, "block_bytes")?;
+        check_that(
+            block >= 128 && block % 128 == 0 && number(class, "payload_limit")? <= block - 128,
+            "arena_geometry",
+        )?;
+        arena_bytes = add(arena_bytes, mul(block, number(class, "block_count")?)?)?;
+    }
+    check_that(
+        arena_bytes == number(ipc, "market_arena_bytes_per_bank")?,
+        "arena_capacity",
+    )?;
+    let market_banks = mul(topics.len() as u64, number(ipc, "market_banks")?)?;
+    let market_cursors = mul(
+        sum(topics
+            .values()
+            .map(|t| number(t, "consumer_limit"))
+            .collect::<Result<Vec<_>>>()?)?,
+        number(ipc, "market_banks")?,
+    )?;
+    let market_bytes = sum([
+        8192,
+        mul(
+            number(ipc, "market_capacity")?,
+            number(ipc, "market_record_bytes")?,
+        )?,
+        arena_bytes,
+    ])?;
+    let intent_bytes = add(
+        8192,
+        mul(
+            number(ipc, "intent_capacity")?,
+            number(ipc, "intent_record_bytes")?,
+        )?,
+    )?;
+    let report_bytes = add(
+        8192,
+        mul(
+            number(ipc, "report_capacity")?,
+            number(ipc, "report_record_bytes")?,
+        )?,
+    )?;
+    let pair_bytes = add(
+        mul(number(ipc, "intent_banks")?, add(intent_bytes, 8192)?)?,
+        mul(number(ipc, "report_banks")?, add(report_bytes, 8192)?)?,
+    )?;
+    let banks_and_cursors = sum([
+        mul(market_banks, market_bytes)?,
+        mul(market_cursors, 8192)?,
+        mul(pairs, pair_bytes)?,
+    ])?;
+    let snapshots = mul(
+        mul(
+            add(topics.len() as u64, account_count)?,
+            number(ipc, "snapshots_per_owner")?,
+        )?,
+        number(ipc, "snapshot_max_bytes")?,
+    )?;
+    let projection_objects = mul(
+        number(ipc, "config_projection_max_objects")?,
+        add(4096, number(ipc, "config_projection_max_bytes")?)?,
+    )?;
+    Ok(Resources {
+        strategy_instances,
+        strategy_domain_pairs: pairs as usize,
+        banks_and_cursors,
+        snapshots,
+        projection_objects,
+        total_shared_bytes: sum([
+            banks_and_cursors,
+            snapshots,
+            projection_objects,
+            number(ipc, "relay_budget_bytes")?,
+        ])?,
+    })
+}
+
+fn parameters(value: &Value, depth: usize) -> Result<()> {
+    match value {
+        Value::Object(map) => {
+            let next = depth.checked_sub(1).ok_or(Error::Depth)?;
+            for (key, value) in map {
+                check_that(
+                    !["api_key", "private_key", "password", "token", "secret"]
+                        .contains(&key.to_ascii_lowercase().as_str()),
+                    "secret_parameter",
+                )?;
+                parameters(value, next)?;
+            }
+        }
+        Value::Array(values) => {
+            let next = depth.checked_sub(1).ok_or(Error::Depth)?;
+            for v in values {
+                parameters(v, next)?;
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn live_references(value: &Value, path: &mut Vec<String>) -> Result<()> {
+    if path.len() == 3 && path[0] == "strategies" && path[2] == "params" {
+        // Parameter values are governed by the pinned parameter schema.
+        // Projection separately enforces every embedded secret:// reference.
+        return Ok(());
+    }
+    match value {
+        Value::String(s) => {
+            let field = path.last().map(String::as_str).unwrap_or("");
+            if field.ends_with("_ref") || field.ends_with("_uri") || field.ends_with("_dir") {
+                check_that(
+                    !s.contains("REQUIRED")
+                        && !s.contains(".invalid")
+                        && !s.starts_with("artifact://fixture/")
+                        && !s.starts_with("secret://fixture/"),
+                    "live_reference",
+                )?;
+            }
+            if path.len() == 3 && path[0] == "venues" && field == "transport" {
+                check_that(s != "mock", "live_reference")?;
+            }
+            Ok(())
+        }
+        Value::Object(map) => {
+            for (key, v) in map {
+                path.push(key.clone());
+                live_references(v, path)?;
+                path.pop();
+            }
+            Ok(())
+        }
+        Value::Array(values) => {
+            for (index, v) in values.iter().enumerate() {
+                path.push(index.to_string());
+                live_references(v, path)?;
+                path.pop();
+            }
+            Ok(())
+        }
+        _ => Ok(()),
+    }
+}

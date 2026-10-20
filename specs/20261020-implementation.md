@@ -2,7 +2,7 @@
 
 Status: active
 
-实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。当前优先完成并串通行情、策略、下单、私有回报、入账和恢复的核心运行链路，开发期间只运行必要的编译与单元测试。接口决策随实现记录，集成回归、故障注入、独立复审、Linux 检查及形式化验证统一放到核心链路完成后，从各模块到全局核心链路执行。既有验证结果保留其原始源码范围，不自动覆盖后续改动。
+实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。行情、策略、下单、私有回报、入账、费用核对，以及 schema2 迁移预检、回滚探测和策略交接的 Spot 链路已在 Linux 独立进程中运行通过。当前继续完成通用策略输入回放、配置发布、完整账户行为和恢复接管，同时对固定源码快照执行模块及全仓检查。接口决策随实现记录，开发期间继续必要的单元测试、进程集成、故障注入和源码复审。全部代码开发完成后，再按最终源码逐模块执行 TLA+，然后验证全局组合；开发中不启动新的形式化检查。既有验证结果保留其原始源码范围，不自动覆盖后续改动。
 
 实现按可编译阶段提交并推送远端，规格索引与完整验证证据集中收尾；提交范围限定为本任务修改，推送后核对远端 SHA。
 
@@ -11,10 +11,12 @@ Status: active
 | 范围 | 当前实现 | 后续验收 |
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
-| P1 行情与 IPC | 批量有界盘口、小批散布改量、Spot/USD-M 深度解码与快照/增量重同步；固定 wire codec、Linux memfd、快照构造与接收、广播及跨进程 JOIN | Arena、bank 轮换、进程死亡回收与完整业务进程接入 |
-| P2 风控与执行 | 定点风险公式、Spot 多资产与 USD-M 账户、真实账户 WAL 与恢复依赖绑定、账户发送协调、Binance REST 签名及私有事件解码 | 发送组合形式模型、行情风控、协议会话与业务回报关联、剩余订单类型和限流 |
-| P3 发布与恢复 | 有序 journal Mock；真实物理 WAL/分段/同步恢复；业务日志适配、恢复依赖保存与验证；恢复后保持冻结 | 策略升级/回滚、多 exec 协调、对账、恢复后授权和配置发布 |
-| P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
+| P1 行情与 IPC | 独立行情进程、Spot/USD-M 深度同步、Linux memfd、完整快照和增量追平、实际跨进程 JOIN；独立策略的意图与账户回报通道 | 轮换和死亡回收组合、更多实例及双产品进程场景 |
+| P2 风控与执行 | Spot 多资产与 USD-M 账户、真实账户 WAL 和恢复对象、签名 REST、私有会话和回报入账、共享限流与校准时钟；Spot 实际进程链包含终态费用核对 | 双产品组合、剩余订单类型、完整风险范围和新增组合模型 |
+| P3 发布与恢复 | 动态 Shadow 加载、真实 READY/消费水位、签名多域协调器及执行端、持久管理权交接；schema2 实际迁移、独立回滚探测和旧实例退出 | 泛型策略完整输入尾部回放、多域组合、协调器与 exec 重启、配置发布 |
+| P4 故障与接管 | 账户及输入依赖的 mTLS 镜像复制、异步/同步提交模式、guardian、源封口和冻结恢复入口；三 voter 持久 Raft 基础库 | 实际隔离与恢复接管、同步镜像故障、认证共识网络及统一控制业务接线 |
+
+本阶段[双平台完整验证](../docs/validation/system-integration-stage/README.md)与 [schema2 多进程交接](../docs/validation/core-chain/spot-handover-v2/README.md)已经归档。配置候选、USD-M 收入事实与审批基线、SBE 深度发布和控制共识各自的实现边界见[剩余代码清单](../docs/implementation/remaining-code-audit.md)。
 
 ## 核心运行程序
 
@@ -22,7 +24,9 @@ Status: active
 
 独立策略进程通过真实 JOIN 和 SPSC 通道收发行情、完整规范意图及账户回报。完整恢复对象、真实消费输入和调用时刻在意图发布前保存。策略换代、回报积压与多策略轮询沿各自通道和授权推进。运行接口见[主程序](../docs/implementation/runtime-app-interface.md)、[策略进程](../docs/implementation/strategy-runtime-interface.md)和[账户对账](../docs/implementation/binance-account-reconciliation-interface.md)。
 
-这些新增组合当前只执行必要编译和纯单元测试；全链路运行、进程故障和形式验证按本阶段顺序统一执行。原有阶段结果仍对应各自冻结源码。
+Linux 首轮完整成交验证得到 BTC 1.001、USDT 940；4 条账户记录与镜像逐条一致，9 条输入记录均完成处理，策略进程确认消费到账户水位 4。[运行证据](../docs/validation/core-chain/run7/README.md)和[脚本复跑](../docs/validation/core-chain/script-reproduction/README.md)保存源码、二进制、实际日志及离线报告。该版本尚未独立闭合手续费，也未执行最终源封口或策略交接；后续结果另行保存。
+
+修复终态订单维护调度后，新的 Linux 进程运行完成订单查询、成交查询和 `FeesReconciled` 入账。离线报告确认订单终态、`fee_reconciled=true`、`unknown=false`，且无待处理订单；8 条账户记录与镜像逐条一致，16 条输入记录完整，策略确认消费至账户水位 8。[费用闭合验证](../docs/validation/core-chain/spot-fees-complete/README.md)保存该次独立源码与二进制摘要。
 
 ## 模块入口
 
@@ -39,11 +43,12 @@ Status: active
 - [账户接口](../docs/implementation/account-interface.md)、[账户规格](implementation/account.md)、[账户恢复编码](implementation/account-codec.md)与 [Spot 请求扩展](implementation/binance-request-extensions.md)。
 - [账户日志](implementation/account-journal.md)、[恢复依赖绑定](implementation/account-recovery-binding.md)与[账户发送协调](implementation/account-gateway.md)。
 - [Binance 行情与私有事件](implementation/binance-streams.md)、[盘口启动和重同步](implementation/binance-depth-sync.md)。
+- [多域交接协调器](../docs/implementation/lifecycle-coordinator-interface.md)、[交接执行端](../docs/implementation/lifecycle-executor-interface.md)、[复制与冻结接管](../docs/implementation/replica-interface.md)和 [guardian](../docs/implementation/guardian-interface.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
 
-核心运行链路完成后，统一执行 `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和原设计契约检查。模型使用固定 TLC 版本执行，范围、有限域与未覆盖行为写进各层输出。下文数字为已有阶段的历史证据。
+核心运行链路完成后，统一执行 `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和原设计契约检查。全部代码完成后，重新核对每个模块的模型与最终源码，逐模块运行 TLA+，再运行覆盖跨模块状态转换、并发交错和崩溃恢复的全局组合模型。模型使用固定 TLC 版本执行，范围、有限域、动作覆盖与未覆盖行为写进各层输出；发现反例后先独立核对真实实现，再修复并复跑相关模块及组合模型。下文数字为已有阶段的历史证据。
 
 上一阶段 `04351db` 的 `./scripts/check-rust.sh` 在 macOS 通过 202 项测试，`./scripts/check-linux.sh` 在 Linux aarch64 通过 223 项测试，均含 1 项编译失败 doctest。[macOS 输出](../docs/validation/rust-tests.log)、[Linux 输出及 SHM 回归](../docs/validation/shm/README.md)和[执行模块失败回归记录](../docs/validation/execution-tdd-red.log)保留实际证据：
 

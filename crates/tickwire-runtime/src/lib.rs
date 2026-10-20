@@ -3,3 +3,4 @@
 pub mod authority;
 pub mod files;
 pub mod node;
+pub use tickwire_market_source as market;

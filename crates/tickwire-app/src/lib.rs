@@ -3,6 +3,8 @@
 pub mod config;
 #[allow(unsafe_code)]
 pub mod hosted;
+#[allow(unsafe_code)]
+pub mod market;
 pub mod reconciliation;
 pub mod strategy;
 pub type Error = Box<dyn std::error::Error>;
@@ -13,4 +15,8 @@ pub(crate) fn invalid(message: &str) -> Error {
 
 pub mod control;
 
+pub mod failover;
+pub mod launch;
+pub mod lifecycle;
 pub mod replay;
+pub mod replication;

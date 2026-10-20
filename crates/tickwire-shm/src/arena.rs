@@ -18,7 +18,9 @@ pub(crate) fn validate(h: &ResourceHeader, slots_end: u64) -> Result<(), MappedE
     if count == 0 {
         return if h.arena_offset == 0
             && h.arena_bytes == 0
-            && h.class_descriptors.iter().all(|c| *c == ArenaClass::default())
+            && h.class_descriptors
+                .iter()
+                .all(|c| *c == ArenaClass::default())
             && h.resource_bytes == slots_end
             && h.required_features & 2 == 0
         {
@@ -71,7 +73,9 @@ pub(crate) fn validate(h: &ResourceHeader, slots_end: u64) -> Result<(), MappedE
 impl Arena {
     pub fn new(h: &ResourceHeader) -> Self {
         let free = std::array::from_fn(|i| {
-            (0..h.class_descriptors[i].block_count).rev().collect::<Vec<_>>()
+            (0..h.class_descriptors[i].block_count)
+                .rev()
+                .collect::<Vec<_>>()
         });
         let count = free.iter().map(Vec::len).sum();
         Self {
@@ -96,7 +100,11 @@ impl Arena {
             .position(|c| bytes <= c.payload_limit)
             .ok_or(MappedError::Layout)?;
         let block = self.free[class].pop().ok_or(Error::ArenaExhausted)?;
-        Ok(Allocation { class, block, sequence })
+        Ok(Allocation {
+            class,
+            block,
+            sequence,
+        })
     }
     pub fn rollback(&mut self, a: Allocation) {
         self.free[a.class].push(a.block);
@@ -119,12 +127,20 @@ mod tests {
             ..Default::default()
         };
         h.class_descriptors[0] = ArenaClass {
-            class_id: 1, block_bytes: 512, block_count: 1,
-            payload_limit: 384, offset: 8192, length: 512,
+            class_id: 1,
+            block_bytes: 512,
+            block_count: 1,
+            payload_limit: 384,
+            offset: 8192,
+            length: 512,
         };
         h.class_descriptors[1] = ArenaClass {
-            class_id: 2, block_bytes: 1152, block_count: 1,
-            payload_limit: 1024, offset: 8704, length: 1152,
+            class_id: 2,
+            block_bytes: 1152,
+            block_count: 1,
+            payload_limit: 1024,
+            offset: 8704,
+            length: 1152,
         };
         h.arena_bytes = 1664;
         h.resource_bytes = 9856;
@@ -137,7 +153,10 @@ mod tests {
         let mut a = Arena::new(&h);
         let first = a.reserve(&h, 208, 4).unwrap();
         a.commit(first);
-        assert!(matches!(a.reserve(&h, 208, 5), Err(MappedError::Protocol(Error::ArenaExhausted))));
+        assert!(matches!(
+            a.reserve(&h, 208, 5),
+            Err(MappedError::Protocol(Error::ArenaExhausted))
+        ));
         a.reclaim(3);
         assert!(a.reserve(&h, 208, 5).is_err());
         a.reclaim(4);

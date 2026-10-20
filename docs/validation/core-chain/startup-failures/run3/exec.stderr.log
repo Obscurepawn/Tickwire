@@ -1,0 +1,2 @@
+strategy worker stopped: Source(Transport(Closed))
+{"error":"strategy startup: Supervisor(Transport(Timeout))","event":"fatal"}

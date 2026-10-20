@@ -1,0 +1,31 @@
+    Checking tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+warning: struct `Income` is never constructed
+  --> crates/tickwire-binance-account/src/reconciliation/income.rs:28:8
+   |
+28 | struct Income<'a> {
+   |        ^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: struct `Rows` is never constructed
+  --> crates/tickwire-binance-account/src/reconciliation/income.rs:38:8
+   |
+38 | struct Rows(usize);
+   |        ^^^^
+
+warning: function `bind` is never used
+  --> crates/tickwire-binance-account/src/reconciliation/income.rs:58:15
+   |
+58 | pub(crate) fn bind(baseline:&CanonicalBaseline,query:IncomeQuery,raw:&[u8])->Result<Vec<v::CanonicalAccountInput>>{
+   |               ^^^^
+
+warning: `tickwire-binance-account` (lib) generated 3 warnings
+    Checking tickwire-binance-quota v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-quota)
+    Checking tickwire-binance-execution v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-execution)
+    Checking tickwire-md v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-md)
+    Checking tickwire-runtime v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime)
+    Checking tickwire-strategy-sdk v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-sdk)
+    Checking tickwire-runtime-policy v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-runtime-policy)
+    Checking tickwire-strategy-host v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-strategy-host)
+    Checking tickwire-app v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-app)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 4.92s

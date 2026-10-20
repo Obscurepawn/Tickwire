@@ -1,0 +1,26 @@
+[package]
+name = "tickwire-guardian"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10.6"
+tickwire-fencing = { path = "../tickwire-fencing" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-clock = { path = "../tickwire-binance-clock" }
+tickwire-binance-quota = { path = "../tickwire-binance-quota" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-quota = { path = "../tickwire-quota" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+ring = "0.17.14"

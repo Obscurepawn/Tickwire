@@ -49,6 +49,7 @@ pub enum CommandAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
+    GuardianConnect,
     TimeConnect,
     TimeQuery,
     PrivateStreamConnect,
@@ -84,12 +85,14 @@ pub enum ReadAction {
     OpenOrders,
     ConditionalOrders,
     OrderQuery,
+    Income,
 }
 #[derive(Clone, Copy, Debug)]
 pub enum ReadQuery {
     Trade(read::TradeQuery),
     Snapshot(read::bootstrap::SnapshotQuery),
     Order(read::orders::OrderQuery),
+    Income(read::income::IncomeQuery),
 }
 #[derive(Clone, Debug)]
 pub struct ReadBinding {
@@ -185,6 +188,24 @@ fn validate_policy(policy: &Policy) -> Result<()> {
     Ok(())
 }
 impl Endpoint {
+    /// Independent guardian connection identity; no order/API weight is implied.
+    pub fn consume_guardian_connect(
+        &mut self,
+        binding: &CommandBinding,
+        connection_epoch: u64,
+        now: MonoTime,
+    ) -> Result<Consumed> {
+        self.binding(binding.owner_id, binding.domain, now)?;
+        if connection_epoch == 0 || binding.risk_domain_id == [0; 16] || binding.account == 0 {
+            return Err(Error::Identity);
+        }
+        let source = command_source(binding.product, binding.environment)?;
+        let mut key = identity(6, binding.owner_id, source);
+        key.extend(binding.risk_domain_id);
+        key.extend(binding.account.to_le_bytes());
+        key.extend(connection_epoch.to_le_bytes());
+        self.consume(key, &[], source, Action::GuardianConnect, 0, 0, now)
+    }
     pub fn new(
         limiter: quota::ExecLimiter,
         producer: [u8; 16],
@@ -417,6 +438,26 @@ impl Endpoint {
         let source = private_source(scope);
         let mut content = Vec::new();
         let (family, request_action) = match query {
+            ReadQuery::Income(q) => {
+                q.validate().map_err(|_| Error::Identity)?;
+                if scope.market != tickwire_binance::request::Market::Usdm {
+                    return Err(Error::Identity);
+                }
+                for n in [
+                    q.start_time_ms,
+                    q.end_time_ms,
+                    u64::from(q.limit),
+                    q.private_connection_epoch,
+                    q.gap_generation,
+                ] {
+                    content.extend_from_slice(&n.to_le_bytes());
+                }
+                content.push(match q.purpose {
+                    read::income::IncomeUse::BaselineCoverage => 1,
+                    read::income::IncomeUse::Account => 2,
+                });
+                (4, ReadAction::Income)
+            }
             ReadQuery::Order(q) => {
                 if q.intent.epoch == 0
                     || q.intent.intent_id == 0
@@ -539,6 +580,9 @@ impl Endpoint {
     pub fn consumer(&self) -> &quota::ExecLimiter {
         &self.limiter
     }
+    pub fn producer_id(&self) -> [u8; 16] {
+        self.producer
+    }
     pub fn install(&mut self, grant: quota::Grant, now: MonoTime) -> Result<()> {
         self.limiter.install(grant, now).map_err(Into::into)
     }
@@ -646,6 +690,26 @@ impl read::orders::OrderPermit for ReadPermit<'_> {
             &self.binding,
             scope,
             ReadQuery::Order(*query),
+            epoch,
+            operation,
+            now.monotonic,
+        );
+        self.endpoint.allowed(result)
+    }
+}
+impl read::income::IncomePermit for ReadPermit<'_> {
+    fn allow(
+        &mut self,
+        scope: &private::AccountScope,
+        query: &read::income::IncomeQuery,
+        epoch: u64,
+        operation: read::ReadOperation,
+        now: &private::ClockSample,
+    ) -> bool {
+        let result = self.endpoint.consume_read(
+            &self.binding,
+            scope,
+            ReadQuery::Income(*query),
             epoch,
             operation,
             now.monotonic,
@@ -792,6 +856,7 @@ fn transport_code(t: Transport) -> u8 {
 }
 fn action_bytes(a: Action) -> Vec<u8> {
     let tag = match a {
+        Action::GuardianConnect => 21,
         Action::TimeConnect => 1,
         Action::TimeQuery => 2,
         Action::PrivateStreamConnect => 3,
@@ -819,6 +884,7 @@ fn action_bytes(a: Action) -> Vec<u8> {
                     ReadAction::OpenOrders => 4,
                     ReadAction::ConditionalOrders => 5,
                     ReadAction::OrderQuery => 6,
+                    ReadAction::Income => 7,
                 },
             ];
         }
