@@ -1,0 +1,188 @@
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.39s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_binance-95368e58c9a97599)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/depth_sync.rs (target/debug/deps/depth_sync-8f8ff17b5f7d6792)
+
+running 18 tests
+test configuration_and_generation_exhaustion_fail_closed ... ok
+test gap_late_in_buffer_replay_never_exposes_partly_replayed_live_book ... ok
+test reconnect_ignores_old_connection_snapshot_and_disconnect_callbacks_before_parsing ... ok
+test over_limit_snapshot_and_total_update_budget_rebuild_before_install ... ok
+test expiry_and_retries_invalidate_old_request_tokens_without_discarding_deltas ... ok
+test overflow_drops_entire_attempt_and_old_snapshot_cannot_restore_it ... ok
+test removing_last_visible_price_keeps_unknown_coverage_after_live_transition ... ok
+test disconnect_closes_live_and_duplicate_close_is_harmless ... ok
+test book_capacity_and_duplicate_batch_fail_closed_after_valid_bridge ... ok
+test current_malformed_delta_snapshot_and_clock_regression_require_new_attempt ... ok
+test request_requires_first_message_and_readiness_and_valid_future_deadline ... ok
+test response_at_deadline_cannot_install_and_transport_http_failure_can_retry ... ok
+test snapshot_ahead_of_buffer_waits_for_a_future_bridge_without_freshening ... ok
+test snapshot_request_encodes_unicode_once_and_product_path_is_fixed ... ok
+test spot_buffers_before_subscription_then_replays_stale_and_adjacent_bridge ... ok
+test spot_retries_snapshot_older_than_original_first_u_without_losing_cache ... ok
+test usdm_keeps_equal_watermark_bridge_then_requires_pu ... ok
+test usdm_strict_stale_filter_and_larger_first_u_force_rebuild ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/depth_sync_server.rs (target/debug/deps/depth_sync_server-f35d00614200e072)
+
+running 2 tests
+test spot_real_wss_before_https_gap_rebuild_and_new_connection ... ok
+test usdm_real_wss_before_https_gap_rebuild_and_new_connection ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/feed.rs (target/debug/deps/feed-a0184abdaa42d242)
+
+running 11 tests
+test decoder_preserves_duplicate_updates_for_the_atomic_book_validator ... ok
+test depth_rejects_wrong_products_missing_previous_and_wrong_symbol ... ok
+test exchange_information_preserves_unknown_rules_and_uses_filter_grids ... ok
+test identifiers_above_binary_float_precision_and_time_units_are_exact ... ok
+test known_duplicate_fields_and_invalid_ranges_cannot_override_prior_values ... ok
+test malformed_arrays_numbers_and_nonintegral_grid_values_are_rejected ... ok
+test message_and_level_capacity_fail_without_delivering_a_prefix ... ok
+test mixed_cm_metadata_is_retained_but_never_classified_as_usdm ... ok
+test spot_snapshot_and_next_update_feed_the_real_sequence_policy ... ok
+test combined_stream_identity_excludes_partial_and_rpi_depth ... ok
+test usdm_preserves_pu_and_accepts_the_snapshot_in_the_first_range ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/market_server.rs (target/debug/deps/market_server-3ce865cc7d16548b)
+
+running 2 tests
+test spot_chunked_https_snapshot_and_fragmented_wss_update_reach_live_book ... ok
+test usdm_chunked_https_snapshot_and_fragmented_wss_update_reach_live_book ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/private_events.rs (target/debug/deps/private_events-b927e04f27cee2f5)
+
+running 18 tests
+test sparse_arrays_reject_capacity_and_duplicate_keys_atomically ... ok
+test spot_balance_and_external_lock_are_sparse_distinct_updates ... ok
+test absent_usdm_pnl_is_retained_and_only_blocks_trade_binding ... ok
+test exact_trade_binds_only_to_original_command_and_asset_catalog ... ok
+test sparse_usdm_update_may_omit_unchanged_balance_or_position_collection ... ok
+test list_and_algo_statuses_do_not_fabricate_child_terminal_facts ... ok
+test binding_rejects_account_product_order_symbol_and_asset_conflicts ... ok
+test rebates_preserve_sign_and_finer_than_asset_units_is_rejected ... ok
+test canceled_order_matches_original_client_and_does_not_create_a_fill ... ok
+test spot_trade_preserves_exact_ids_cash_and_subscription ... ok
+test unknown_event_and_termination_remain_explicit ... ok
+test malformed_decimal_duplicate_field_missing_fee_and_overflow_fail ... ok
+test unknown_order_status_is_not_normalized_to_new_or_terminal ... ok
+test usdm_binding_preserves_reported_pnl_without_inventing_quote_cash ... ok
+test usdm_cm_marker_cannot_be_bound_as_linear_order ... ok
+test usdm_trade_keeps_pnl_separate_from_commission ... ok
+test usdm_sparse_funding_account_and_config_keep_original_units ... ok
+test wrapper_epoch_time_unit_and_product_are_explicit ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/private_server.rs (target/debug/deps/private_server-4a799d6e6cfe9323)
+
+running 2 tests
+test usdm_private_wss_fragments_bind_exact_trade_to_original_command ... ok
+test spot_private_wss_fragments_bind_exact_trade_to_original_command ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/protocol_primitives.rs (target/debug/deps/protocol_primitives-b79d2c21a75911c0)
+
+running 15 tests
+test fix_sender_comp_id_rejects_printable_but_unlisted_punctuation_atomically ... ok
+test decimal_invalid_precision_and_rescale_fail_without_rounding ... ok
+test json_numbers_reject_non_json_leading_zero_spellings_without_mutating_params ... ok
+test bad_keys_and_fix_field_injection_are_rejected ... ok
+test decimal_exact_conversion_and_i128_minimum ... ok
+test official_spot_rest_hmac_ascii_vector ... ok
+test official_spot_rest_unicode_is_percent_encoded_before_signing ... ok
+test rest_preimage_does_not_insert_a_separator_between_query_and_body ... ok
+test parameter_limits_reject_duplicates_reserved_keys_and_capacity ... ok
+test output_capacity_failure_is_atomic_for_all_encoders ... ok
+test endpoint_algorithm_matrix_rejects_unsupported_combination ... ok
+test websocket_uses_raw_utf8_while_rest_escapes_values_once ... ok
+test official_spot_ws_vector_sorts_keys_without_changing_decimal_strings ... ok
+test official_fix_ed25519_vector_and_distinct_preimage ... ok
+test rsa_pkcs1_sha256_matches_independent_openssl_vector ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_server.rs (target/debug/deps/protocol_server-1d2611e36c3ce6ca)
+
+running 2 tests
+test prepared_usdm_websocket_hmac_ed25519_and_unknown_response_over_actual_tls ... ok
+test prepared_rest_all_three_signatures_over_actual_tls_and_chunked_reply ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/request_extensions.rs (target/debug/deps/request_extensions-6d0f47125f90e54d)
+
+running 10 tests
+test list_conditional_trailing_iceberg_and_shared_stp_survive ... ok
+test list_shared_fields_are_never_silently_discarded ... ok
+test maker_icebergs_and_partial_peg_preserve_each_leg ... ok
+test illegal_list_roles_fail_before_any_prepared_request ... ok
+test peg_fields_are_prefixed_for_every_list_role ... ok
+test advanced_request_budget_and_identity_checks_remain_exact ... ok
+test sor_routes_only_explicit_command_and_keeps_base_quantity ... ok
+test peg_new_cancel_replace_preserve_price_and_exact_offset_pair ... ok
+test all_list_endpoints_and_exact_leg_fields ... ok
+test real_network::extensions_cross_real_tls_http_and_wss_with_verified_signature ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/requests.rs (target/debug/deps/requests-393f17615ca97d7a)
+
+running 14 tests
+test account_environment_and_market_mismatch_never_produce_request ... ok
+test capacity_and_timing_failure_are_explicit ... ok
+test rest_request_uses_product_endpoint_and_encoded_query_exactly ... ok
+test spot_new_ws_contains_complete_typed_order_and_original_digest ... ok
+test spot_fractional_recv_window_is_a_json_number_with_exact_milliseconds ... ok
+test spot_market_sell_quote_quantity_is_sent_as_exact_string ... ok
+test usdm_algo_close_position_uses_distinct_method_and_exclusive_fields ... ok
+test post_only_spot_is_limit_maker_without_tif ... ok
+test spot_cancel_replace_and_priority_amend_are_distinct ... ok
+test cancel_and_query_preserve_original_target_identity ... ok
+test usdm_gtd_is_milliseconds_with_seconds_precision ... ok
+test usdm_limit_hedge_mode_sends_position_side_without_reduce_only ... ok
+test usdm_modify_keeps_side_price_quantity_and_target ... ok
+test usdm_trailing_algo_uses_activate_price_and_callback_percent ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/responses.rs (target/debug/deps/responses-8b06fc042bc02be9)
+
+running 14 tests
+test backend_timeout_and_unknown_new_error_codes_do_not_authorize_release ... ok
+test futures_documented_503_failures_are_distinguished_from_unknown ... ok
+test not_found_rate_limits_auth_and_partial_results_are_preserved ... ok
+test partial_cancel_replace_retains_both_result_branches ... ok
+test new_order_status_is_preserved_without_assuming_terminal ... ok
+test rest_error_and_success_use_http_status_without_losing_error_code ... ok
+test algo_identity_is_not_interchanged_with_child_order_identity ... ok
+test malformed_http_200_error_and_non_success_status_never_become_success ... ok
+test invalid_or_ambiguous_envelopes_are_rejected ... ok
+test typed_order_ack_does_not_invent_status_or_quantity ... ok
+test typed_order_exact_decimals_and_fill_payload_are_preserved ... ok
+test typed_order_rejects_wrong_types_duplicates_negative_quantities_and_missing_identity ... ok
+test unknown_errors_never_turn_into_authoritative_rejection ... ok
+test websocket_envelope_preserves_correlation_raw_result_and_rate_limits ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.23s
+   Doc-tests tickwire_binance
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

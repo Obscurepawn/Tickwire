@@ -134,6 +134,110 @@ fn command_dependency_is_checked_and_preserved_in_private_capability() {
         .sort_unstable_by_key(|o| (o.kind, o.content_hash));
     assert!(p.publish(&ambiguous).is_err());
 }
+
+fn with_account_dependencies() -> (Persistence<MockBlobStore>, RecoveryManifest) {
+    let (mut p, mut m) = fixture();
+    for (kind, bytes) in [
+        (COMMAND_DEPENDENCY_KIND, b"complete-command".as_slice()),
+        (
+            ACCOUNT_BASELINE_DEPENDENCY_KIND,
+            b"complete-account-baseline".as_slice(),
+        ),
+        (
+            ACCOUNT_HISTORY_DEPENDENCY_KIND,
+            b"exact-account-history-prefix".as_slice(),
+        ),
+    ] {
+        m.objects.push(DependencyObject {
+            kind,
+            content_hash: p.put_object(bytes).unwrap(),
+            byte_length: bytes.len() as u64,
+            schema_id: 1,
+            owner_identity: [1; 16],
+        });
+    }
+    m.edges = (1..m.objects.len() as u16).map(|i| (0, i)).collect();
+    (p, m)
+}
+
+#[test]
+fn account_dependencies_are_bound_to_the_verified_capability() {
+    let (mut p, m) = with_account_dependencies();
+    let cap = p.publish(&m).unwrap();
+    assert_eq!(cap.command_digest(), Some(digest(b"complete-command")));
+    assert_eq!(
+        cap.account_baseline_digest(),
+        Some(digest(b"complete-account-baseline"))
+    );
+    assert_eq!(
+        cap.account_history_digest(),
+        Some(digest(b"exact-account-history-prefix"))
+    );
+    assert_eq!(p.verify(&m.binding).unwrap(), cap);
+    assert_eq!(
+        RecoveryManifest::decode(&m.canonical_bytes().unwrap()).unwrap(),
+        m
+    );
+
+    let (mut p, legacy) = fixture();
+    let old = p.publish(&legacy).unwrap();
+    assert_eq!(old.account_baseline_digest(), None);
+    assert_eq!(old.account_history_digest(), None);
+}
+
+#[test]
+fn account_dependencies_require_one_pair_and_one_complete_command() {
+    for missing_kind in [
+        COMMAND_DEPENDENCY_KIND,
+        ACCOUNT_BASELINE_DEPENDENCY_KIND,
+        ACCOUNT_HISTORY_DEPENDENCY_KIND,
+    ] {
+        let (mut p, mut m) = with_account_dependencies();
+        m.objects.retain(|o| o.kind != missing_kind);
+        m.edges.clear();
+        assert!(p.publish(&m).is_err());
+    }
+    for kind in [
+        ACCOUNT_BASELINE_DEPENDENCY_KIND,
+        ACCOUNT_HISTORY_DEPENDENCY_KIND,
+    ] {
+        let (mut p, mut m) = with_account_dependencies();
+        m.objects.push(DependencyObject {
+            kind,
+            content_hash: p.put_object(b"second-account-object").unwrap(),
+            byte_length: 21,
+            schema_id: 1,
+            owner_identity: [1; 16],
+        });
+        m.objects.sort_unstable_by_key(|o| (o.kind, o.content_hash));
+        m.edges.clear();
+        assert!(p.publish(&m).is_err());
+    }
+}
+
+#[test]
+fn missing_account_bytes_cannot_create_or_repair_a_verified_closure() {
+    for kind in [
+        ACCOUNT_BASELINE_DEPENDENCY_KIND,
+        ACCOUNT_HISTORY_DEPENDENCY_KIND,
+    ] {
+        let (source, m) = with_account_dependencies();
+        let source = source.into_store();
+        let mut p = Persistence::new(MockBlobStore::default());
+        for object in &m.objects {
+            if object.kind != kind {
+                p.put_object(
+                    &source
+                        .get(StoreKey::Object(object.content_hash), MAX_OBJECT_BYTES)
+                        .unwrap(),
+                )
+                .unwrap();
+            }
+        }
+        assert!(p.publish(&m).is_err());
+        assert!(p.verify(&m.binding).is_err());
+    }
+}
 #[test]
 fn binding_is_immutable_and_identical_publish_is_idempotent() {
     let (mut p, m) = fixture();

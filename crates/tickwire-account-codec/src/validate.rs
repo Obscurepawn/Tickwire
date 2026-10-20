@@ -74,13 +74,21 @@ pub(crate) fn record(r: &RecoveryRecord) -> Result<(), Error> {
                 epoch: c.request.intent_exec_epoch,
                 intent_id: c.request.intent_id,
             };
+            let increases = !matches!(
+                command.command().body,
+                tickwire_venue::CommandBody::Cancel(_)
+                    | tickwire_venue::CommandBody::Query(_)
+                    | tickwire_venue::CommandBody::CancelList(_)
+                    | tickwire_venue::CommandBody::CancelAlgo(_)
+            );
             if a.command_digest != command.digest()
                 || a.intent != key
+                || a.increases != increases
                 || a.account_epoch == 0
                 || a.ledger_sequence == 0
                 || a.deadline != c.request.deadline
                 || *evaluated_at >= a.deadline
-                || a.revisions.risk != c.strategy.risk_policy_version
+                || (increases && a.revisions.risk != c.strategy.risk_policy_version)
                 || a.resources.iter().any(|x| x.amount.atoms() <= 0)
                 || a.capital_holds.iter().any(|x| x.amount.atoms() <= 0)
                 || a.orders.iter().any(|o| o.intent != key)

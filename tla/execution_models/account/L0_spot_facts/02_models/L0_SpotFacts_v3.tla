@@ -16,9 +16,9 @@ ASSUME /\ Orders = 1..Cardinality(Orders) /\ Orders # {}
 \*   crates/tickwire-account/src/events.rs:3-17
 \*   crates/tickwire-account/src/events.rs:89-111
 \* admission's all-asset candidate: crates/tickwire-account/src/admission.rs:4-31
-\*   crates/tickwire-account/src/admission.rs:268-334
+\*   crates/tickwire-account/src/admission.rs:269-335
 \* reserve formula: crates/tickwire-account/src/calculation.rs:134-259
-\* abort/reconcile: crates/tickwire-account/src/admission.rs:408-448
+\* abort/reconcile: crates/tickwire-account/src/admission.rs:409-449
 \* Valid finite instance: qty2, buy cap2, fee rate1/2, maximum_fills2.
 \* No concurrent writers, no WAL fault model; upstream durable-fact obligation.
 VARIABLE s
@@ -45,7 +45,7 @@ Init == s = [orders |-> {}, filled |-> [o \in Orders |-> 0],
              unknown |-> [o \in Orders |-> FALSE], closed |-> [o \in Orders |-> FALSE],
              aborted |-> [o \in Orders |-> FALSE], frozen |-> FALSE]
 
-\* crates/tickwire-account/src/admission.rs:4-31; crates/tickwire-account/src/admission.rs:268-334
+\* crates/tickwire-account/src/admission.rs:4-31; crates/tickwire-account/src/admission.rs:269-335
 Admit(o) == /\ o \notin s.orders /\ ~s.frozen
             /\ LET t == [s EXCEPT !.orders = @ \cup {o}] IN
                /\ FreeBase(t) >= 0 /\ FreeQuote(t) >= 0 /\ s' = t
@@ -91,7 +91,7 @@ Terminal(o,n) ==
     /\ s' = [s EXCEPT !.terminal[o] = TRUE, !.confirmed[o] = TRUE, !.cum[o] = Max(@,n),
                       !.aborted[o] = FALSE, !.closed[o] = IF s.aborted[o] THEN FALSE ELSE @,
                       !.frozen = @ \/ s.aborted[o] \/ n < s.filled[o] \/ (s.cum[o] # -1 /\ s.cum[o] # n)]
-\* crates/tickwire-account/src/admission.rs:434-448
+\* crates/tickwire-account/src/admission.rs:435-449
 \* crates/tickwire-account/src/events.rs:71-83; duplicate economics still observe.
 ReplayFillUnknown(o,k) == /\ o \in s.orders /\ s.trades[o][k] # 0
                          /\ s' = [s EXCEPT !.unknown[o] = TRUE, !.frozen = TRUE]
@@ -101,7 +101,7 @@ Reconcile(o) == /\ o \in s.orders /\ s.terminal[o] /\ s.cum[o] = s.filled[o]
 RejectReconcile(o) == /\ o \in s.orders /\ (~s.terminal[o] \/ s.cum[o] # s.filled[o])
                       /\ s' = [s EXCEPT !.frozen = TRUE]
 \* Trusted journaled AbortedBeforeSend only; not a proof of WAL synchronization.
-\* crates/tickwire-account/src/admission.rs:408-431
+\* crates/tickwire-account/src/admission.rs:409-432
 Abort(o) == /\ o \in s.orders /\ ~s.aborted[o] /\ ~s.economic[o]
             /\ ~s.confirmed[o] /\ ~s.terminal[o] /\ ~s.unknown[o]
             /\ s' = [s EXCEPT !.aborted[o] = TRUE, !.closed[o] = TRUE]

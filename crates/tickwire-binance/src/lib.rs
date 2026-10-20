@@ -4,6 +4,9 @@
 pub mod auth;
 mod buffer;
 pub mod decimal;
+pub mod depth_sync;
+pub mod events;
+pub mod feed;
 pub mod params;
 pub mod request;
 pub mod response;

@@ -572,6 +572,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-account-gateway"
+version = "0.1.0"
+dependencies = [
+ "rcgen",
+ "ring",
+ "tickwire-account",
+ "tickwire-account-codec",
+ "tickwire-account-journal",
+ "tickwire-binance",
+ "tickwire-gateway",
+ "tickwire-journal",
+ "tickwire-recovery",
+ "tickwire-risk",
+ "tickwire-transport",
+ "tickwire-venue",
+]
+
+[[package]]
+name = "tickwire-account-journal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-account",
+ "tickwire-account-codec",
+ "tickwire-journal",
+ "tickwire-recovery",
+ "tickwire-risk",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-binance"
 version = "0.1.0"
 dependencies = [
@@ -581,6 +614,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
+ "tickwire-book",
  "tickwire-transport",
  "tickwire-venue",
 ]

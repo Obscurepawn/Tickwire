@@ -1,0 +1,24 @@
+   Compiling tickwire-account-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.58s
+     Running tests/persistence.rs (target/debug/deps/persistence-001e076278c7dbf0)
+
+running 1 test
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... FAILED
+
+failures:
+
+---- history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix stdout ----
+
+thread 'history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix' (5592555) panicked at crates/tickwire-account-journal/tests/persistence.rs:264:40:
+assertion `left != right` failed
+  left: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+ right: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.21s
+
+error: test failed, to rerun pass `-p tickwire-account-journal --test persistence`

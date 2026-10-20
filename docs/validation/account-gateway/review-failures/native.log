@@ -1,0 +1,25 @@
+$ /Users/bytedance/.cargo/bin/cargo test -p tickwire-account-gateway --test persistence_failures
+   Compiling ring v0.17.14
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.35s
+     Running tests/persistence_failures.rs (target/debug/deps/persistence_failures-261e60aaf353fbbd)
+
+running 7 tests
+test torn_admit_retains_live_reserve_without_output_then_recovers_empty_prefix ... ok
+test lost_admit_sync_reply_recovers_unknown_without_issuing_send_capability ... ok
+test torn_abort_never_releases_before_sync_and_keeps_committed_admission ... ok
+test lost_abort_sync_reply_releases_only_when_replayed_from_complete_tail ... ok
+test observed_order_rejects_local_abort_before_writing_an_unreplayable_record ... ok
+test torn_venue_event_is_not_applied_before_wal_completion ... ok
+test lost_venue_event_sync_reply_replays_complete_fact_without_output ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+
+exit_code=0

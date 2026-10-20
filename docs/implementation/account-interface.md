@@ -15,11 +15,13 @@
 | Spot/线性 USD-M 的 Limit、StopLimit、TakeProfitLimit，明确 Base 数量 | 逐币种及资本计算 |
 | 普通 SpotList | 所有腿分别预留，不依靠互斥关系少留资金 |
 | 普通 CancelReplace | 保留旧单责任，再为新单预留 |
-| Cancel、Query | 校验原订单及策略归属；冻结后仍可接纳；不释放旧单 |
+| Cancel、Query | 校验身份、目录、原订单及策略归属和请求期限；账户快照过期或冻结后仍可接纳，不释放旧单 |
 | 原生 Market、Quote 数量、动态 ClosePosition | `UnboundedExecution` |
 | Modify、Amend、CancelList、CancelAlgo、SpotAdvanced | `Unsupported` |
 
 原生 Market 按风险设计拒绝，没有使用最新价乘滑点构造虚假硬界。受限主动成交可用明确 IOC Limit 表达。USD-M OneWay reduceOnly 和 Hedge 指定侧减仓只分配实际仓位中尚未被占用的额度；不会把潜在开仓、虚拟净仓或别的订单额度重复分给新单。
+
+账户快照时效和风险策略版本只约束新增风险；`Cancel/Query` 不依赖这两项条件。发送前的 `check_admission` 对所有动作核对原 Admission、账户代次和请求期限，对新增风险再核对快照时效、冻结、订单状态与额度。`freeze()` 单向关闭新增风险，保留账目、预留和序号，重复调用不产生额外变化；日志或传输故障的所有者可用它关闭准入。
 
 ## 交易结果与恢复
 

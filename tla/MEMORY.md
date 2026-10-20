@@ -85,7 +85,8 @@
 - 区分对象与 manifest、不可变绑定、重命名可见、目录同步和结果交付；多个未完成目录项可分别保留或丢失。
 - 三配置不同状态 2,345 / 15,097 / 3,898，深度 51/56/66；每组 Init 和 22 个 Next 动作均触发。
 - 独立审阅指出首版故障域遗漏，修正后保持原规模重跑；初版保存在 pre-review，没有归为 Rust 缺陷。
-- 当前 203 行锚点、范围与记录见 [输出](execution_models/recovery_closure/L0_publish_verify/05_output.md)。字节解析、输入采集和业务授权不由该模型证明。
+- 原始运行保留 203 行锚点，范围与记录见 [输出](execution_models/recovery_closure/L0_publish_verify/05_output.md)。字节解析、输入采集和业务授权不由该模型证明。
+- 本次同步更新为 214 行锚点，持久化状态公式与三配置不变，沿用原始 TLC 结果；kind 13～15 的形状检查和账户摘要不在旧模型覆盖内。旧源码、锁及日志保留于 `docs/validation/account-recovery-binding/pre-sync/`。
 
 ## business_journal / L0_commit_abort_recovery — PASS（2026-10-20）
 
@@ -128,3 +129,11 @@
 - 按账户同步 API 转录准入、成交与费用、重复事件后的状态观察、终态累计、未发送中止和异常冻结。L1 增加 USD-M 资金预留、费用额度与减仓一致性。
 - root 与 ipc_codec 独立审查模型和源码；market_core 独立复核 ACK/中止、重复成交后的新观察、终态后的迟到成交三项真实 Rust 修复。问题来自源码审查及实际回归，未归因为 TLC 发现。
 - 固定版本、有限账户和订单域；无跨币种保证金、在线基线切换或与真实发送协调的组合证明。完整源码锚点、配置及逐项范围见[账户路线](execution_models/account/ROADMAP.md)。
+- 撤单/查询允许使用已过期的账户基线，新增显式 freeze 接口；旧模型没有这些动作。本次只同步锚点和范围，六组历史结果仍限于原有固定有效基线实例。
+
+## account_journal / L0_ordered_recovery — PASS（2026-10-20）
+
+- 三配置不同状态 52,700 / 748,060 / 125,574，深度 52/52/66；16 项不变量、Init 与 42 个 Next 动作全部通过并触达。
+- 创建依赖顺序、写入/同步/收据分离、poison、未回执完整尾、required 精确前缀、结构与历史闭包校验、账户重放和冻结返回。
+- root 与 ipc_codec 独立源码/模型审阅通过；582 个源码行锚点零漂移。初次目录同步反例为模型遗漏，已据源码修正并保留记录，无开放源码候选。
+- 有限范围只包含一代原意图的 Admit/Aborted、writer 接管及 Spot 数量 1/价格 1/零费实例；物理字节、分段目录事务和网络发送不在本级证明内。见[输出](execution_models/account_journal/L0_ordered_recovery/05_output.md)。

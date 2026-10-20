@@ -1,0 +1,21 @@
+{
+  "repository": "binance/binance-spot-api-docs",
+  "commit": "f4a9c0be68235f758b46f571f7313c63d1306b25",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/rest-api.md",
+      "sha256": "a44f55c8ca08a391417aa3a98b3bf4715c99317081d07567b32d088c71181454",
+      "bytes": 207083
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/web-socket-streams.md",
+      "sha256": "9d2ba84d1b8a006a832a06de8786374666c0f5eb9ec82326ade8fc180b2ce8c1",
+      "bytes": 26845
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/user-data-stream.md",
+      "sha256": "b626046d64becb27d9969ea540edfb28f6fadef1442cc51a217ab312de977a8a",
+      "bytes": 14303
+    }
+  ]
+}

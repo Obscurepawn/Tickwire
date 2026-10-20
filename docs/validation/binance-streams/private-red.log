@@ -1,0 +1,53 @@
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+warning: fields `stream` and `unit` are never read
+  --> crates/tickwire-binance/src/events.rs:28:5
+   |
+25 | pub struct SessionContext {
+   |            -------------- fields in this struct
+...
+28 |     stream: PrivateStream,
+   |     ^^^^^^
+29 |     unit: TimeUnit,
+   |     ^^^^
+   |
+   = note: `SessionContext` has derived impls for the traits `Debug` and `Clone`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-binance` (lib) generated 1 warning
+warning: unused import: `common::*`
+ --> crates/tickwire-binance/tests/private_events.rs:2:5
+  |
+2 | use common::*;
+  |     ^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-binance` (test "private_events") generated 1 warning (run `cargo fix --test "private_events" -p tickwire-binance` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.91s
+     Running tests/private_events.rs (target/debug/deps/private_events-b927e04f27cee2f5)
+
+running 2 tests
+test spot_trade_preserves_exact_ids_cash_and_subscription ... FAILED
+test usdm_trade_keeps_pnl_separate_from_commission ... FAILED
+
+failures:
+
+---- spot_trade_preserves_exact_ids_cash_and_subscription stdout ----
+
+thread 'spot_trade_preserves_exact_ids_cash_and_subscription' (5460955) panicked at crates/tickwire-binance/tests/private_events.rs:14:69:
+called `Result::unwrap()` on an `Err` value: InvalidResponse
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- usdm_trade_keeps_pnl_separate_from_commission stdout ----
+
+thread 'usdm_trade_keeps_pnl_separate_from_commission' (5460956) panicked at crates/tickwire-binance/tests/private_events.rs:24:69:
+called `Result::unwrap()` on an `Err` value: InvalidResponse
+
+
+failures:
+    spot_trade_preserves_exact_ids_cash_and_subscription
+    usdm_trade_keeps_pnl_separate_from_commission
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-binance --test private_events`

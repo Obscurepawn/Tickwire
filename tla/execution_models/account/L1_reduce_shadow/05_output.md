@@ -15,3 +15,5 @@ PASS。三个配置均完整穷举，检查 12 个不变量。本级覆盖USD-M 
 一次公开账户调用是原子动作，符合源码独占 `&mut self` 加候选整体替换。Fill 的空内嵌费用与已确认非终态观察组成一个完整输入，独立 Fee/Terminal 表示随后另一次调用。有限参数直接对应可执行 Rust 实例；身份/字节解析、i128 全域、其他产品参数、WAL 同步与恢复资格未纳入本级性质。
 
 源代码、配置、工具和最终日志摘要保存在 `04_evidence/results.json`，精确引用行由 `02_models/anchors.lock` 固定。已完成独立审阅、全部 cfg、动作覆盖及范围核对；后续源码语义变动需重新审查和运行。
+
+本次源码同步只调整 Cancel/Query 的快照时效检查，并新增所有者主动冻结入口。模型选定的准入均为基线有效期内的增险命令，没有撤单、查询或外部 freeze 调用；转移与不变量不变，未重跑 TLC。已按最新源码刷新引用行，原模型、源码摘要和锁记录保存在 `docs/validation/account/pre-stale-cancel/`。新增行为由 `tests/nonincreasing.rs` 的真实 Red→Green 覆盖。

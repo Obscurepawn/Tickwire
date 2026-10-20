@@ -1,0 +1,39 @@
+# Binance 盘口同步协调实现规格
+
+## 范围与状态
+
+[接口](../../docs/implementation/binance-depth-sync-interface.md) 对应独立的 `tickwire_binance::depth_sync` 模块。`DepthSync` 固定目录与产品，通过 sealed `DepthPolicy` 绑定现有 `BinanceSpot` 或 `BinanceUsdM`；它持有实际 Book，不替换序列规则，也不另建简化盘口。feed/events 旧实现不变，现有 transport 通过真实 HTTP 响应体和 WebSocket 消息驱动该接口。
+
+| 状态 | 已知信息 | 允许的下一步 |
+| --- | --- | --- |
+| Disconnected | 没有当前连接，可保留失效诊断内容 | 更大连接代次的 connect |
+| Buffering | 已开始接收当前连接增量；订阅确认与首消息分别记录 | 满足两条件后请求快照，继续有界缓存 |
+| Bridging | 快照安装成功，缓存均过旧，尚无可应用事件 | 等待当前连接后续增量 |
+| Live | 全部缓存已按序回放，至少一次实际更新 | 连续增量与按接收时间检查的新鲜视图 |
+| Exhausted | Book generation 或请求序号无法继续增加 | 更换持有全新外部代次范围的 owner |
+
+外部无法取得可变 Book。一次快照回放在单次 `&mut self` 调用内完成，回放后段失败时清空本轮，前段临时 Live 状态不会交付。
+
+连接代次与 Book generation 分别增加：连接重建必须有更大 epoch，同连接的缓存丢失/解码错误/序列断档也增加 Book generation。快照令牌绑定 BookKey、连接 epoch、Book generation、请求序号。旧连接消息、旧请求完成、重复完成、迟到断连在任何解码与时钟处理前被忽略；当前状态不会受其坏 JSON 或倒退时间影响。
+
+## 序列、失败与容量
+
+Spot 快照落后于本轮最早缓存 U 时返回 TooOld，保留缓存重试；满足前置条件后交由 Book 丢弃过旧事件并检查相邻更新。USD-M 保留等于快照 L 的首事件并检查其覆盖范围，后续使用 pu。快照领先于全部缓存时保持 Bridging，REST 完成和旧增量均不刷新 view 的接收时间。
+
+HTTP 非 200、HTTP 传输失败和快照期限到达取消当前请求但保留缓存。期限包含边界：`now >= deadline` 即超时。新请求序号严格增加；旧响应不重开盘口。模块不自行重试网络请求，调用者可以按返回的 HTTP 状态与自身限流安排退避。
+
+坏报文、双侧增量总数超额、FIFO 已满、重复价位/非法价位、Book 容量不足或断档都会清空当前同步轮次，保留同连接已确认订阅。之后至少收到新一条增量，才可以发新的快照请求。断连则取消订阅状态，需要新连接代次重新确认。
+
+构造参数限制 `LEVELS/UPDATES=1..5000`、`BUFFER=1..4096`、输入消息至多 16 MiB、FIFO 预留对象大小至多 64 MiB。REST limit 不超过 Book 单侧容量；USD-M 仅接受官方档数集合 5/10/20/50/100/500/1000。返回超过所请求 limit 的快照被拒绝，不截掉尾部。UTF-8 symbol 仅在构造请求 path 时进行一次百分号编码。
+
+快照来自有深度限制的 REST 接口，双侧 complete 始终为 false。增量可插入外侧价位，但没有观察到的外侧数量继续 Unknown；删除最后一个可确定的最优价位后 best 也可能为 Unknown。配置、JSON 解码及重建允许内存分配，本模块没有热路径零分配或延迟指标承诺。
+
+## 验证
+
+初始接口可编译；12 项行为测试全部因状态协调尚未实现而断言失败，保存[实际 Red 日志](../../docs/validation/binance-depth-sync/red.log)和当时实现。实现后这 12 项全部通过，再增加 6 项边界测试与 2 项实际 HTTPS/WSS 集成测试。
+
+单元/行为测试覆盖首消息与订阅双条件、Spot 首 U 重试与 L+1 桥接、USD-M 等 L 首事件与严格旧事件过滤、pu 断档、快照领先缓存、旧连接和请求、超时边界、非 200 与传输重试、缓存溢出、回放后段失败、断连幂等、时钟回退、目录路径编码、总更新数量、快照深度、Book 容量、重复价位及 Unknown。
+
+协议集成测试使用真实 TCP/TLS、HTTP chunked 解码、WebSocket 分片和客户端掩码，服务器断言先收到订阅才处理 REST；增量在 HTTP 请求期间继续进入 FIFO。同一健康 WebSocket 发生缺口后重新取快照；收到 Close 后建立第二条实际 WSS 连接、使用新 epoch，旧连接及请求回调无效。Spot 与 USD-M 分别运行同一生产协调器和各自真实 Book policy。
+
+[验证报告](../../docs/validation/binance-depth-sync/report.md)记录平台、测试数量、命令、源码摘要和来源；本阶段没有新增 TLA 模型。自动私有登录/续期、网络连接轮换调度及风险门禁发布仍属于其他 owner。

@@ -2,6 +2,8 @@
 
 接口位于 [account-codec-interface.md](../../implementation/account-codec-interface.md)，完整字段与边界见[实现规格](../../../specs/implementation/account-codec.md)。
 
+后续 Cancel/Query 风险版本与增险标识校验的增量记录位于 [nonincreasing/README.md](nonincreasing/README.md)。下列原始日志、`results.json` 和源码摘要保留原批次内容，没有用新检查覆盖旧结论。
+
 `baseline-red.log` 保留接口可编译但 6 项行为失败的输出；`records-red.log` 保留恢复记录接口的 3 项行为失败。`records-fixture-first.log`、`records-fixture-deadline.log` 单独记录测试装置的名称冲突和过期时间输入，未作为实现缺陷。`green-initial.log` 是实现初期的类型别名编译问题。
 
 `native.log` 包含单元、协议边界和真实文件重放测试。`reference_vectors.py` 独立声明输入并实现递归 CBOR 编码，不调用 Rust 编码器；生成结果保存在 `vectors/` 和 `reference-vectors.log`。输入单位与字段分别来自测试构造的 Spot 和 USD-M 账户。

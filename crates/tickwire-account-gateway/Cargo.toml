@@ -1,0 +1,25 @@
+[package]
+name = "tickwire-account-gateway"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-account = { path = "../tickwire-account" }
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-account-journal = { path = "../tickwire-account-journal" }
+tickwire-gateway = { path = "../tickwire-gateway" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+
+[dev-dependencies]
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-risk = { path = "../tickwire-risk" }
+rcgen = "=0.14.10"
+ring = "=0.17.14"

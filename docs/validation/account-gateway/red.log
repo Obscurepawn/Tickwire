@@ -1,0 +1,49 @@
+   Compiling tickwire-recovery v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-recovery)
+   Compiling tickwire-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account)
+   Compiling tickwire-business-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-business-journal)
+   Compiling tickwire-account-codec v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-codec)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-journal)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.95s
+     Running tests/submission.rs (target/debug/deps/submission-024f6290d3e829ef)
+
+running 4 tests
+test futures_admission_uses_real_capital_hold_without_scalar_budget ... FAILED
+test partial_acceptance_retains_account_resources_after_local_cancellation ... FAILED
+test commit_reserves_once_and_retry_does_not_repeat_any_side_effect ... FAILED
+test final_gate_rejection_is_durably_aborted_before_release ... FAILED
+
+failures:
+
+---- futures_admission_uses_real_capital_hold_without_scalar_budget stdout ----
+
+thread 'futures_admission_uses_real_capital_hold_without_scalar_budget' (5682413) panicked at crates/tickwire-account-gateway/tests/common/mod.rs:163:112:
+called `Result::unwrap()` on an `Err` value: Halted
+
+---- partial_acceptance_retains_account_resources_after_local_cancellation stdout ----
+
+thread 'partial_acceptance_retains_account_resources_after_local_cancellation' (5682414) panicked at crates/tickwire-account-gateway/tests/common/mod.rs:163:112:
+called `Result::unwrap()` on an `Err` value: Halted
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- commit_reserves_once_and_retry_does_not_repeat_any_side_effect stdout ----
+
+thread 'commit_reserves_once_and_retry_does_not_repeat_any_side_effect' (5682411) panicked at crates/tickwire-account-gateway/tests/common/mod.rs:163:112:
+called `Result::unwrap()` on an `Err` value: Halted
+
+---- final_gate_rejection_is_durably_aborted_before_release stdout ----
+
+thread 'final_gate_rejection_is_durably_aborted_before_release' (5682412) panicked at crates/tickwire-account-gateway/tests/common/mod.rs:163:112:
+called `Result::unwrap()` on an `Err` value: Halted
+
+
+failures:
+    commit_reserves_once_and_retry_does_not_repeat_any_side_effect
+    final_gate_rejection_is_durably_aborted_before_release
+    futures_admission_uses_real_capital_hold_without_scalar_budget
+    partial_acceptance_retains_account_resources_after_local_cancellation
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p tickwire-account-gateway --test submission`

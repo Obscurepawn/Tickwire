@@ -4,5 +4,11 @@
   "fences": "PASS",
   "independent_review": "risk_core source/model mapping PASS",
   "next_actions": 22,
-  "coverage_entries_including_init": 23
+  "coverage_entries_including_init": 23,
+  "source_sync": {
+    "tlc_rerun": false,
+    "current_anchor_lines": 214,
+    "formula_and_configs_unchanged": true,
+    "specific_kind_13_14_15_rules_covered": false
+  }
 }

@@ -1,4 +1,4 @@
-# 当前 L0 实际运行
+# L0 历史实际运行
 
 三组原配置保持 Roots、Dependencies、MaxCalls、MaxCrashes 不变，扩大故障选择后全部重新执行。TLC release 1.7.4（程序显示 2.19），Java 1.8.0_462，单 worker，`-coverage 1`。jar SHA-256 为 `936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88`。
 
@@ -47,3 +47,7 @@ bash /Users/bytedance/.codex/skills/vibe-tla/scripts/run_tlc.sh tla/execution_mo
 | Crash | 971 | 7997 | 2057 |
 
 原始日志：[主配置](runs/L0_RecoveryClosure.log)、[竞争配置](runs/L0_Conflict.log)、[多依赖配置](runs/L0_MultipleDependencies.log)。首次模型编写错误日志和三份修正前正式日志原样保存在 [pre-review](pre-review/README.md)，旧故障域的结果不替代本次结果。脚本完成后已清理 TLC scratch。
+
+## 本次源码同步
+
+本次仅更新注释中的源码位置及适用范围，没有执行 TLC。上面的状态数、时间、覆盖计数和原始日志均来自此前扩大脏键存活组合后的实际运行。`runs/results.json` 与三份 TLC 日志保持逐字不变；当前模型去除注释后与归档模型相同，三个 cfg 也逐字相同。比对和当前锚点结果见 [同步记录](../../../../docs/validation/account-recovery-binding/sync.md)。

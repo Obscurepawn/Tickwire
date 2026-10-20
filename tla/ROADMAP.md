@@ -11,6 +11,9 @@
 | business_journal L0 | 恢复依赖验证、WAL 同步、最终发送检查、中止和冻结恢复 | 三配置 PASS | 交易结果记录、同步副本及恢复后激活 |
 | book_state L0/L1 | Spot/Futures 桥接、旧 generation、失败原子性与有限深度知识 | 八配置 PASS | 真实适配器、快照/增量接线与 exec 行情门禁组合 |
 | account L0/L1 | Spot 资源与迟到事件、USD-M 资金和减仓预留、费用清算及冻结恢复 | 六配置 PASS | 账户、真实 WAL 与发送门禁组合；跨币种保证金 |
+| account_journal L0 | 依赖创建、完整批同步、历史前缀、逐条闭包与冻结重放 | 三配置 PASS | 其余事实变体、基线切换与分段目录事务 |
+| account_gateway L0 | 账户、WAL、首次发送门禁及零接受中止的组合 | 建模中 | 实际业务回报关联、会话恢复与接管后激活 |
+| binance_depth_sync L0 | 连接代次、缓存、快照令牌与原子回放 | 建模中 | 多源切换与进程发布组合 |
 | broadcast_ring L0 | 固定 bank 发布、慢消费者、借用和协作回收 | 五配置 PASS | L1 身份控制与 bank 轮换，L2 进程退出回收 |
 | join_owner L0 | 保留快照基线、双资源交付、真实游标追平、原登记版本和协作退出 | 四配置 PASS | 持久请求登记、独立截止时间、bank 轮换及死亡回收 |
 | control_requests L0/L1 | 请求登记、终态重放、期限与续租 | 六配置 PASS | L2 真实持久 owner 恢复 |

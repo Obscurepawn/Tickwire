@@ -5,7 +5,7 @@ ASSUME /\ Orders = 1..Cardinality(Orders) /\ Orders # {}
        /\ ReduceOrders \subseteq Orders /\ StartPosition \in 0..2
        /\ Wallet >= StartPosition /\ Available >= 0 /\ FeeValues \subseteq 0..4
 \* var <-> code: s.orders/admitted/H/credit -> Account.admissions/shadow_holds,
-\* Order.shadow_fee_credit; crates/tickwire-account/src/admission.rs:268-334.
+\* Order.shadow_fee_credit; crates/tickwire-account/src/admission.rs:269-335.
 \* q/positionOwner/unattributed -> Position.quantity/ownership;
 \* crates/tickwire-account/src/events.rs:413-471; crates/tickwire-account/src/external.rs:70-122.
 \* filled/paid/fee/economic/confirmed/terminal/cum/closed/aborted/unknown/reduce
@@ -13,7 +13,7 @@ ASSUME /\ Orders = 1..Cardinality(Orders) /\ Orders # {}
 \* crates/tickwire-account/src/events.rs:19-109; crates/tickwire-account/src/events.rs:351-410.
 \* total/cashOwner/D -> cashflow/ownership/uncovered_debits;
 \* crates/tickwire-account/src/events.rs:271-349.
-\* frozen -> Account.frozen, gate checked in crates/tickwire-account/src/admission.rs:357-382;
+\* frozen -> Account.frozen, gate checked in crates/tickwire-account/src/admission.rs:358-383;
 \* crates/tickwire-account/src/events.rs:3-17; crates/tickwire-account/src/events.rs:473-493.
 \* Every call is atomic under Account's unique &mut owner; no storage model.
 VARIABLE s
@@ -44,7 +44,7 @@ NewOrder(t,o) == [t EXCEPT !.orders=@\cup{o},!.reduce[o]=IF o\in ReduceOrders TH
 CanAdmit(o) == /\ ~s.frozen /\ o\notin s.orders
  /\ (o\notin ReduceOrders \/ (s.q>0 /\ Allocated(s)+1<=s.q))
  /\ Capital(NewOrder(s,o))<=s.total /\ CashReserve(NewOrder(s,o))<=s.total /\ Shadow(s)>=4
-\* crates/tickwire-account/src/admission.rs:139-192; crates/tickwire-account/src/admission.rs:268-334.
+\* crates/tickwire-account/src/admission.rs:140-193; crates/tickwire-account/src/admission.rs:269-335.
 Admit(o) == /\ CanAdmit(o) /\ s'=[NewOrder(s,o) EXCEPT !.hold[o]=4,!.credit[o]=3]
 RejectAdmission(o) == /\ o\notin s.orders /\ ~CanAdmit(o) /\ UNCHANGED s
 RetryAdmission(o) == /\ o\in s.orders /\ UNCHANGED s
@@ -76,12 +76,12 @@ Terminal(o,n) == /\ o\in s.orders /\ n\in 0..1
      !.frozen=@\/s.aborted[o]\/n<s.filled[o]\/(s.cum[o]#-1/\s.cum[o]#n)]
 ReplayFillUnknown(o) == /\ s.filled[o]=1 /\ Unknown(o)
 ReplayFillTerminal(o,n) == /\ s.filled[o]=1 /\ Terminal(o,n)
-\* crates/tickwire-account/src/admission.rs:434-448.
+\* crates/tickwire-account/src/admission.rs:435-449.
 Reconcile(o) == /\ o\in s.orders /\ s.terminal[o] /\ s.cum[o]=s.filled[o]
  /\ s'=[s EXCEPT !.closed[o]=TRUE]
 RejectReconcile(o) == /\ o\in s.orders /\ (~s.terminal[o]\/s.cum[o]#s.filled[o])
  /\ s'=[s EXCEPT !.frozen=TRUE]
-\* crates/tickwire-account/src/admission.rs:408-431; trusted durable abort input.
+\* crates/tickwire-account/src/admission.rs:409-432; trusted durable abort input.
 Abort(o) == /\ o\in s.orders /\ ~s.aborted[o] /\ ~s.economic[o]
  /\ ~s.confirmed[o] /\ ~s.unknown[o] /\ ~s.terminal[o]
  /\ s'=[s EXCEPT !.aborted[o]=TRUE,!.closed[o]=TRUE,!.reduce[o]=0,!.hold[o]=0]

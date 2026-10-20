@@ -66,7 +66,7 @@ pub struct InputBoundary {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DependencyObject {
-    /// 1..=12 are the required recovery kinds; 13 is a complete venue command.
+    /// 1..=12 are required; 13 is a command; 14/15 are the paired account baseline/history.
     pub kind: u8,
     pub content_hash: Hash,
     pub byte_length: u64,
@@ -93,6 +93,8 @@ pub struct VerifiedClosure {
     binding: ClosureBinding,
     root: Hash,
     command_digest: Option<Hash>,
+    account_baseline_digest: Option<Hash>,
+    account_history_digest: Option<Hash>,
 }
 impl VerifiedClosure {
     pub fn binding(&self) -> &ClosureBinding {
@@ -174,6 +176,8 @@ impl<S: BlobStore> Persistence<S> {
             binding: manifest.binding,
             root,
             command_digest: command_digest(manifest),
+            account_baseline_digest: dependency_digest(manifest, ACCOUNT_BASELINE_DEPENDENCY_KIND),
+            account_history_digest: dependency_digest(manifest, ACCOUNT_HISTORY_DEPENDENCY_KIND),
         })
     }
     pub fn verify(&mut self, binding: &ClosureBinding) -> Result<VerifiedClosure> {
@@ -199,6 +203,8 @@ impl<S: BlobStore> Persistence<S> {
             binding: *binding,
             root,
             command_digest: command_digest(&m),
+            account_baseline_digest: dependency_digest(&m, ACCOUNT_BASELINE_DEPENDENCY_KIND),
+            account_history_digest: dependency_digest(&m, ACCOUNT_HISTORY_DEPENDENCY_KIND),
         })
     }
     fn check(&mut self, m: &RecoveryManifest) -> Result<()> {
@@ -244,10 +250,14 @@ impl<S: BlobStore> Persistence<S> {
 }
 
 fn command_digest(manifest: &RecoveryManifest) -> Option<Hash> {
+    dependency_digest(manifest, COMMAND_DEPENDENCY_KIND)
+}
+
+fn dependency_digest(manifest: &RecoveryManifest, kind: u8) -> Option<Hash> {
     manifest
         .objects
         .iter()
-        .find(|object| object.kind == COMMAND_DEPENDENCY_KIND)
+        .find(|object| object.kind == kind)
         .map(|object| object.content_hash)
 }
 
@@ -296,8 +306,10 @@ fn validate_shape(m: &RecoveryManifest) -> Result<()> {
     let mut grant = 0;
     let mut operation = 0;
     let mut commands = 0;
+    let mut account_baselines = 0;
+    let mut account_histories = 0;
     for (index, o) in m.objects.iter().enumerate() {
-        if !(1..=COMMAND_DEPENDENCY_KIND).contains(&o.kind)
+        if !(1..=ACCOUNT_HISTORY_DEPENDENCY_KIND).contains(&o.kind)
             || o.schema_id == 0
             || o.owner_identity == [0; 16]
             || o.content_hash == [0; 32]
@@ -327,11 +339,18 @@ fn validate_shape(m: &RecoveryManifest) -> Result<()> {
             4 if o.content_hash == m.action_grant_ref => grant += 1,
             7 if o.content_hash == m.operation_ref => operation += 1,
             COMMAND_DEPENDENCY_KIND => commands += 1,
+            ACCOUNT_BASELINE_DEPENDENCY_KIND => account_baselines += 1,
+            ACCOUNT_HISTORY_DEPENDENCY_KIND => account_histories += 1,
             _ => {}
         }
     }
     if kinds & 0xfff != 0xfff || intent != 1 || grant != 1 || operation != 1 || commands > 1 {
         return Err(Error::Invalid("required dependencies"));
+    }
+    if (account_baselines != 0 || account_histories != 0)
+        && (account_baselines != 1 || account_histories != 1 || commands != 1)
+    {
+        return Err(Error::Invalid("account dependency pair"));
     }
     let n = m.objects.len();
     let mut degree = vec![0usize; n];
@@ -362,4 +381,16 @@ fn validate_shape(m: &RecoveryManifest) -> Result<()> {
         return Err(Error::Invalid("dependency cycle"));
     }
     Ok(())
+}
+
+pub const ACCOUNT_BASELINE_DEPENDENCY_KIND: u8 = 14;
+pub const ACCOUNT_HISTORY_DEPENDENCY_KIND: u8 = 15;
+
+impl VerifiedClosure {
+    pub fn account_baseline_digest(&self) -> Option<Hash> {
+        self.account_baseline_digest
+    }
+    pub fn account_history_digest(&self) -> Option<Hash> {
+        self.account_history_digest
+    }
 }

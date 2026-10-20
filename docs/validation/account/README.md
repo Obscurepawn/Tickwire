@@ -1,6 +1,6 @@
 # 账户模块验证记录
 
-当前源码在 macOS 与真实 Linux 容器各通过 46 项测试，Clippy `-D warnings` 与格式检查通过。两层账户模型共六个配置完整穷举通过；每层所有具名 Next 动作都生成过状态。
+当前源码在 macOS 与真实 Linux 容器各通过 51 项测试，Clippy `-D warnings` 与格式检查通过。两层账户模型共六个配置完整穷举通过；每层所有具名 Next 动作都生成过状态。
 
 ## 实际 Red 与修复
 
@@ -17,6 +17,7 @@
 | `recovery-red.log` | 3 项顺序恢复、完整 image 比较和冻结 | `recovery-green.log` |
 | `external-unit-red.log` | 1 项非结算币扣款混入结算原子数 | `external-unit-green.log` |
 | `late-terminal-red.log` | 1 项旧终态累计小于后来成交而未冻结 | `late-terminal-green.log` |
+| `stale-cancel-red.log` | 4 项撤单/查询被账户快照时效或增险策略版本阻断；1 项新增 freeze 空实现 | `stale-cancel-green.log` |
 
 基本准入阶段实际使用 `cargo test -p tickwire-account`；各项回归可按以下文件与筛选入口重跑，均加 `PATH="$HOME/.cargo/bin:$PATH"`：
 
@@ -51,7 +52,11 @@ docker run --rm --init \
   bash -c 'uname -srmo; rustc --version; cargo test --locked -p tickwire-account'
 ```
 
-测试数量：admission 10、edge_cases 8、facts 15、futures 10、recovery 3。`finite_model_instance_uses_four_capital_atoms_and_three_fee_atoms` 直接调用真实公式，核对 L1 有限输入的 H=4、费用预留=3、成交/费用/终态后 H 仍保留。无忽略测试。
+测试数量：admission 10、edge_cases 8、facts 15、futures 10、nonincreasing 5、recovery 3。`finite_model_instance_uses_four_capital_atoms_and_three_fee_atoms` 直接调用真实公式，核对 L1 有限输入的 H=4、费用预留=3、成交/费用/终态后 H 仍保留。无忽略测试。
+
+撤单时效问题由 root 在接入账户 Gateway 时对照主设计发现，本模块独立复核并用 `cargo test -p tickwire-account --test nonincreasing` 取得编译成功后的 5 项断言失败。随后限制快照时效和风险策略版本仅检查增险动作，保留撤单/查询的身份、所有权和请求期限；`freeze()` 的空实现改为单向置位。最终整套测试为 `stale-cancel-green.log` 与 `stale-cancel-linux.log`，静态检查为 `stale-cancel-clippy.log`、`stale-cancel-fmt.log`；原先 46 项输出保留。
+
+这次增量没有改变两层模型选定的有效基线下增险输入。模型仅更新源码行引用，未重跑 TLC；旧模型、对应源码与摘要、anchors 保存在 `pre-stale-cancel/`，当前映射的同步说明写在各层结果文件。Cancel/Query 和所有者主动 freeze 由上述 Rust 回归验证，不加入旧模型的形式覆盖声明。
 
 模型 [L0](../../../tla/execution_models/account/L0_spot_facts/05_output.md) 与 [L1](../../../tla/execution_models/account/L1_reduce_shadow/05_output.md) 各记录精确配置、命令、最终覆盖计数、源码与工具 hash。root 和 IPC 对最终模型做独立源码映射审阅；market 对 ACK、重复观察与迟到终态修复分别复查。审阅者没有声称重新运行全部 TLC。
 

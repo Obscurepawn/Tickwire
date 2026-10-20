@@ -1,0 +1,44 @@
+info: syncing channel updates for 1.99.1-aarch64-unknown-linux-gnu
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 2 components
+   Compiling tickwire-recovery v0.1.0 (/work/crates/tickwire-recovery)
+   Compiling tickwire-account-codec v0.1.0 (/work/crates/tickwire-account-codec)
+   Compiling tickwire-account-journal v0.1.0 (/work/crates/tickwire-account-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.48s
+     Running unittests src/lib.rs (target/linux-account-journal/debug/deps/tickwire_account_journal-63d63ab63d739229)
+
+running 1 test
+test history::tests::independent_python_samples_bind_bootstrap_and_writer_epoch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/persistence.rs (target/linux-account-journal/debug/deps/persistence-e23997c74940ffc8)
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+
+running 1 test
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+   Doc-tests tickwire_account_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

@@ -1,8 +1,8 @@
 {
   "result": "PASS",
   "rust_tests": {
-    "native": 46,
-    "linux_aarch64": 46
+    "native": 51,
+    "linux_aarch64": 51
   },
   "clippy": "PASS -D warnings",
   "format": "PASS",
@@ -23,11 +23,11 @@
     }
   },
   "sha256": {
-    "crates/tickwire-account/src/admission.rs": "956ec198b034486f43995f6d130221dacd74254ded0e7fd857c4a9c7e276e9b2",
+    "crates/tickwire-account/src/admission.rs": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
     "crates/tickwire-account/src/calculation.rs": "d49599d201b7c23099fdf49d6d8f7670172a1db5aaed6c6428062c599e036c61",
     "crates/tickwire-account/src/events.rs": "ed88bf90a18ba9e2891b199a8c3fa79560635cd582e9d99450cbea9f55305355",
     "crates/tickwire-account/src/external.rs": "9e899f0c26b2d6e351c57a52ce879c6c3561ce7ed5015745ff41cf6517ea1a07",
-    "crates/tickwire-account/src/lib.rs": "1f33c53fda92ee6e75e1e131fd69e9314d2913ab29050c0529f3a56b64e634e2",
+    "crates/tickwire-account/src/lib.rs": "2dd967338cc28f5d9116106764403048685746679618557bd78d9915d4587408",
     "crates/tickwire-account/src/recovery.rs": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
     "crates/tickwire-account/src/types.rs": "c80afaba8a2961cef8d856ec5d8d02646d8d2e2d3c4cc55a57a5911c80186051",
     "crates/tickwire-account/tests/admission.rs": "ca9a5eaefe2e4836005dd760923d0e82f23cac0baa0e9d4dfe8ba51a226caefc",
@@ -67,7 +67,32 @@
     "docs/validation/account/reduce-consistency-guard.log": "6caf3db39626520bf7e5b77789480468f6019de7be1b271d2d2a65a416f16b14",
     "docs/validation/account/replay-observation-green.log": "f66d28f91396a85bf815152ba90efc8044dfb8e360d25b4cbfe95573520dff18",
     "docs/validation/account/replay-observation-red.log": "c8930caceb5ef38567d28f6bb696d84c346d7b00f1c9f903eb3c8edfa445a38f",
-    "tla/execution_models/account/L0_spot_facts/04_evidence/results.json": "a9597df2965efc92e6a4449fc5b219709575950aa029657c4fbddc4a77ce990c",
-    "tla/execution_models/account/L1_reduce_shadow/04_evidence/results.json": "93c3b7126d5913fd101162fabf1990128167d9b9a20a0c17c135ff8669410c9f"
+    "tla/execution_models/account/L0_spot_facts/04_evidence/results.json": "18b3988fc3b3bec8e9b302c3d1100ea1b320ebb1a87a5fbc01f746eae04fbc40",
+    "tla/execution_models/account/L1_reduce_shadow/04_evidence/results.json": "47dd318b316a2b2bf5d037b235becde502b5391282c463719619e5a62a9d2f1c",
+    "crates/tickwire-account/tests/nonincreasing.rs": "ef2b751ff60c028ac83f60c3aa9760cca6472d9fa584ba40fe5f463f450b541b",
+    "docs/validation/account/stale-cancel-clippy.log": "7f2f37d03da3b1f7c6b3f8a8c276ba5976cc6562a28c3f2a9c3b7458faf0dd2f",
+    "docs/validation/account/stale-cancel-fmt.log": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "docs/validation/account/stale-cancel-green.log": "70e751ab5606d150b20182fde4e853087c75eb507e1de8f89e87a6a301a2d076",
+    "docs/validation/account/stale-cancel-red.log": "7ecc277a033f91d65a9fb659dc21d87f1ab37a0c433066a38a4826e57fad1967",
+    "docs/validation/account/stale-cancel-linux.log": "dbac76932b31fef059c95e65421937d0c8fa61c8484abd78db775b942912ecfc",
+    "docs/validation/account/stale-cancel-anchors.log": "0087fdbbf177ac89a41a3c3768d36fe3d5fdf126252c455144a7a40b7f6bbf33",
+    "docs/validation/account/pre-stale-cancel/lib.rs": "1f33c53fda92ee6e75e1e131fd69e9314d2913ab29050c0529f3a56b64e634e2",
+    "docs/validation/account/pre-stale-cancel/results.json": "b7ad47cfae0b7452713d7b915f1ef8b6de5f6fcb0e38c855034989b9f68a4647",
+    "docs/validation/account/pre-stale-cancel/admission.rs": "956ec198b034486f43995f6d130221dacd74254ded0e7fd857c4a9c7e276e9b2",
+    "docs/validation/account/pre-stale-cancel/L0_spot_facts/results.json": "a9597df2965efc92e6a4449fc5b219709575950aa029657c4fbddc4a77ce990c",
+    "docs/validation/account/pre-stale-cancel/L0_spot_facts/L0_SpotFacts_v3.tla": "c6bb74f2867d1c4a13618e8239e2fa37a60f5e96ce07de619c5f14b543ce0834",
+    "docs/validation/account/pre-stale-cancel/L0_spot_facts/05_output.md": "2f55bd0753520d86ac69938450a3ecd2394621772ee030eab1fe9a7e1fbb4091",
+    "docs/validation/account/pre-stale-cancel/L0_spot_facts/anchors.lock": "a890f37deca2dfb906b32529894329fc57b720a2ee72c2b78971143a78d61f1c",
+    "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/results.json": "93c3b7126d5913fd101162fabf1990128167d9b9a20a0c17c135ff8669410c9f",
+    "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/05_output.md": "8a714fc210b1ef7cdf00ea6edc9ede010c0a807c74affcc79743a9b25d59e96c",
+    "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/L1_ReduceShadow.tla": "1d0c0d74322e1548ae7ac8c5192d4a9387fd61cb29906c28f8c82fb9e6ee7e07",
+    "docs/validation/account/pre-stale-cancel/L1_reduce_shadow/anchors.lock": "eb2fba38b3ca8077a6b0e863773c365a8b5483684dc28e0ef65767f29e8cf01b"
+  },
+  "incremental_validation": {
+    "behavioral_red_failures": 5,
+    "new_tests": 5,
+    "source_review_finding": "account snapshot expiry blocked owned Cancel/Query",
+    "logs": "docs/validation/account/stale-cancel-*.log",
+    "model_sync": "1523 anchors, no drift; model action text unchanged; retained previous TLC results"
   }
 }

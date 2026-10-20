@@ -1,0 +1,42 @@
+[
+  {
+    "product": "Spot",
+    "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/web-socket-streams.md",
+    "revision": "f4a9c0be68235f758b46f571f7313c63d1306b25",
+    "facts": {
+      "order": [
+        "subscribe",
+        "buffer first U",
+        "request snapshot",
+        "replay in receipt order"
+      ],
+      "retry_snapshot": "L < first buffered U",
+      "discard_buffered": "u <= L",
+      "apply": "u > L and U <= L + 1",
+      "snapshot_limit_per_side": 5000,
+      "outside_snapshot": "Unknown unless individually observed; no complete-book claim"
+    },
+    "bytes": 26845,
+    "sha256": "9d2ba84d1b8a006a832a06de8786374666c0f5eb9ec82326ade8fc180b2ce8c1"
+  },
+  {
+    "product": "USD-M",
+    "url": "https://developers.binance.com/en/docs/products/derivatives-trading-usds-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly.md",
+    "revision": "Retrieved content hash; publisher does not supply immutable revision",
+    "facts": {
+      "order": [
+        "subscribe public depth",
+        "buffer",
+        "request snapshot",
+        "replay in receipt order"
+      ],
+      "discard_buffered": "u < L",
+      "first_apply": "U <= L <= u",
+      "subsequent_apply": "pu == previous applied u",
+      "snapshot_limit_in_example": 1000,
+      "quantity": "absolute; zero deletes, including absent price"
+    },
+    "bytes": 1112,
+    "sha256": "3cb2268d6a07f841627b164ec4b32eb9e4faa2a76dc2b5357c2ed8bd025e03db"
+  }
+]

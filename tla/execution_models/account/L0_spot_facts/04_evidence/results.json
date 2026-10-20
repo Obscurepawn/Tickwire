@@ -314,8 +314,8 @@
     "crates/tickwire-account/src/types.rs": "c80afaba8a2961cef8d856ec5d8d02646d8d2e2d3c4cc55a57a5911c80186051",
     "crates/tickwire-account/src/events.rs": "ed88bf90a18ba9e2891b199a8c3fa79560635cd582e9d99450cbea9f55305355",
     "crates/tickwire-account/src/recovery.rs": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
-    "crates/tickwire-account/src/lib.rs": "1f33c53fda92ee6e75e1e131fd69e9314d2913ab29050c0529f3a56b64e634e2",
-    "crates/tickwire-account/src/admission.rs": "956ec198b034486f43995f6d130221dacd74254ded0e7fd857c4a9c7e276e9b2",
+    "crates/tickwire-account/src/lib.rs": "2dd967338cc28f5d9116106764403048685746679618557bd78d9915d4587408",
+    "crates/tickwire-account/src/admission.rs": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
     "crates/tickwire-account/src/external.rs": "9e899f0c26b2d6e351c57a52ce879c6c3561ce7ed5015745ff41cf6517ea1a07",
     "crates/tickwire-risk/src/futures.rs": "6a27fc57ce29cfd216daa394efe281ff891b86e94799cc7e048aae3c8f72b742",
     "crates/tickwire-risk/src/fixed.rs": "dba172501f42227291df2aff86025ac08326fcfe1fafb4826a1f325ead167cd1",
@@ -323,13 +323,24 @@
     "crates/tickwire-risk/src/lib.rs": "1b3b2afa36a1f6233bb4565605b33442ea388e25b807cc0eed015f4ad8462159",
     "crates/tickwire-risk/src/reservation.rs": "1b0e944708fe471ca7becfe592920dd7dc5d2cf7f96536f658bdcd0403ec6a01",
     "crates/tickwire-risk/src/spot.rs": "8065e520a16a4853df358c5d77b3eae4dcf62358b432a0207a8c0fe583d9c13d",
-    "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla": "c6bb74f2867d1c4a13618e8239e2fa37a60f5e96ce07de619c5f14b543ce0834",
+    "tla/execution_models/account/L0_spot_facts/02_models/L0_SpotFacts_v3.tla": "0388188b2b3ce3bc86d5b8f8e34120f5234021a2d5bfba2149797ad43859a0df",
     "tla/tools/tla2tools.jar": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
-    "tla/execution_models/account/L0_spot_facts/02_models/anchors.lock": "a890f37deca2dfb906b32529894329fc57b720a2ee72c2b78971143a78d61f1c"
+    "tla/execution_models/account/L0_spot_facts/02_models/anchors.lock": "ce8cd897871c9dd9225bed8e18467531694bbff987b52684f19b13aebb59a4c0"
   },
   "independent_review": [
     "root: source and model mapping",
     "ipc_codec: source and model mapping, final action coverage"
   ],
-  "scope": "finite concrete inputs; atomic single-owner API; no WAL/network fault model"
+  "scope": "finite concrete inputs; atomic single-owner API; no WAL/network fault model",
+  "source_sync": {
+    "reason": "Cancel/Query account-expiry exemption and owner-triggered freeze are outside this finite valid-baseline risk-increasing input domain",
+    "tlc_rerun": false,
+    "action_text_unchanged": true,
+    "action_line_positions_unchanged": true,
+    "historical_results": "docs/validation/account/pre-stale-cancel/L0_spot_facts/results.json",
+    "checked_model": "docs/validation/account/pre-stale-cancel/L0_spot_facts/L0_SpotFacts_v3.tla",
+    "checked_model_sha256": "c6bb74f2867d1c4a13618e8239e2fa37a60f5e96ce07de619c5f14b543ce0834",
+    "current_model_changes": "source-anchor comments only",
+    "new_behaviors": "covered by crates/tickwire-account/tests/nonincreasing.rs; not claimed as TLC coverage"
+  }
 }

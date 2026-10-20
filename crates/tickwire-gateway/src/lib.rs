@@ -571,3 +571,15 @@ fn restore_record(p: codec::PreparedIntent) -> DurableRecord {
         },
     }
 }
+
+impl EncodedRequest {
+    pub fn command_digest(&self) -> [u8; 32] {
+        self.digest
+    }
+    pub fn authority(&self) -> &str {
+        &self.authority
+    }
+    pub fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}

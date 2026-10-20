@@ -1,0 +1,64 @@
+    Blocking waiting for file lock on build directory
+   Compiling ring v0.17.14
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.86s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_account_gateway-035702bcfb598c69)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_rest.rs (target/debug/deps/binance_rest-14dfffecbf9cd764)
+
+running 2 tests
+test spot_signed_tls_request_with_real_wal_and_recovery_files ... ok
+test usdm_signed_tls_request_with_real_wal_and_recovery_files ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.66s
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-4475400fb94893ab)
+
+running 12 tests
+test public_fact_entry_cannot_forge_admission_or_zero_acceptance ... ok
+test exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record ... ok
+test frozen_recovery_accepts_durable_reconciliation_but_never_new_admission ... ok
+test aborted_admission_remains_aborted_after_reopen ... ok
+test recovered_admission_is_unknown_with_no_active_receipt_or_resend ... ok
+test reducer_error_preserves_external_input_and_recovery_refuses_to_skip_it ... ok
+test zero_io_budget_is_not_evidence_for_refunding_an_order ... ok
+test externally_frozen_account_can_still_cancel_and_query_on_healthy_connection ... ok
+test repeated_trade_keeps_new_observation_and_replays_cashflow_once ... ok
+test dependency_rejection_or_foreign_account_binding_never_queues_or_reserves ... ok
+test missing_baseline_or_history_object_rejects_recovery ... ok
+test every_fresh_gate_requirement_is_checked_before_first_acceptance ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.85s
+
+     Running tests/persistence_failures.rs (target/debug/deps/persistence_failures-261e60aaf353fbbd)
+
+running 7 tests
+test torn_admit_retains_live_reserve_without_output_then_recovers_empty_prefix ... ok
+test lost_admit_sync_reply_recovers_unknown_without_issuing_send_capability ... ok
+test torn_venue_event_is_not_applied_before_wal_completion ... ok
+test torn_abort_never_releases_before_sync_and_keeps_committed_admission ... ok
+test lost_abort_sync_reply_releases_only_when_replayed_from_complete_tail ... ok
+test observed_order_rejects_local_abort_before_writing_an_unreplayable_record ... ok
+test lost_venue_event_sync_reply_replays_complete_fact_without_output ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/submission.rs (target/debug/deps/submission-024f6290d3e829ef)
+
+running 4 tests
+test commit_reserves_once_and_retry_does_not_repeat_any_side_effect ... ok
+test futures_admission_uses_real_capital_hold_without_scalar_budget ... ok
+test partial_acceptance_retains_account_resources_after_local_cancellation ... ok
+test final_gate_rejection_is_durably_aborted_before_release ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s

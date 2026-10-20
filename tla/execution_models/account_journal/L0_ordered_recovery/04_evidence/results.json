@@ -1,0 +1,716 @@
+{
+  "result": "PASS",
+  "invariants": 16,
+  "next_actions": 42,
+  "initial_states": 7,
+  "runs": [
+    {
+      "config": "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.cfg",
+      "log": "tla/execution_models/account_journal/L0_ordered_recovery/04_evidence/L0_AccountJournal.log",
+      "command": "bash \"$HOME/.codex/skills/vibe-tla/scripts/run_tlc.sh\" tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.cfg --det --coverage",
+      "generated": 220837,
+      "distinct": 52700,
+      "queue": 0,
+      "depth": 52,
+      "duration": "05s",
+      "elapsed_seconds": 6,
+      "coverage": {
+        "Init": {
+          "distinct": 7,
+          "generated": 7,
+          "line": 65
+        },
+        "StartCreate": {
+          "distinct": 18,
+          "generated": 18,
+          "line": 68
+        },
+        "RejectCreate": {
+          "distinct": 0,
+          "generated": 10486,
+          "line": 70
+        },
+        "CreateFile": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 71
+        },
+        "WriteFile": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 74
+        },
+        "SyncFile": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 78
+        },
+        "SyncDirectory": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 81
+        },
+        "CreateFailure": {
+          "distinct": 106,
+          "generated": 216,
+          "line": 86
+        },
+        "PrepareAdmit": {
+          "distinct": 756,
+          "generated": 756,
+          "line": 91
+        },
+        "PrepareAbort": {
+          "distinct": 1800,
+          "generated": 1800,
+          "line": 98
+        },
+        "RetryAdmit": {
+          "distinct": 0,
+          "generated": 1836,
+          "line": 102
+        },
+        "ConflictAdmit": {
+          "distinct": 1836,
+          "generated": 1836,
+          "line": 104
+        },
+        "RejectPoison": {
+          "distinct": 0,
+          "generated": 9684,
+          "line": 107
+        },
+        "RejectRecoveredAdmit": {
+          "distinct": 0,
+          "generated": 518,
+          "line": 108
+        },
+        "RejectCapacity": {
+          "distinct": 0,
+          "generated": 1724,
+          "line": 109
+        },
+        "WriteTail": {
+          "distinct": 2556,
+          "generated": 2556,
+          "line": 113
+        },
+        "SealBatch": {
+          "distinct": 2556,
+          "generated": 2556,
+          "line": 115
+        },
+        "SyncBatch": {
+          "distinct": 2556,
+          "generated": 2556,
+          "line": 117
+        },
+        "PublishReceipt": {
+          "distinct": 2548,
+          "generated": 2556,
+          "line": 119
+        },
+        "AppendFailure": {
+          "distinct": 7848,
+          "generated": 10224,
+          "line": 122
+        },
+        "StartRecover": {
+          "distinct": 4856,
+          "generated": 122880,
+          "line": 132
+        },
+        "CheckConfig": {
+          "distinct": 2372,
+          "generated": 2372,
+          "line": 143
+        },
+        "RejectConfig": {
+          "distinct": 2384,
+          "generated": 2484,
+          "line": 145
+        },
+        "CheckPhysical": {
+          "distinct": 2320,
+          "generated": 2320,
+          "line": 152
+        },
+        "RejectPhysical": {
+          "distinct": 0,
+          "generated": 52,
+          "line": 154
+        },
+        "CheckRequired": {
+          "distinct": 1524,
+          "generated": 2320,
+          "line": 157
+        },
+        "RejectRequired": {
+          "distinct": 796,
+          "generated": 796,
+          "line": 159
+        },
+        "SyncRecovery": {
+          "distinct": 1524,
+          "generated": 1524,
+          "line": 163
+        },
+        "RecoveryIoFailure": {
+          "distinct": 2653,
+          "generated": 11072,
+          "line": 165
+        },
+        "CheckStructure": {
+          "distinct": 1442,
+          "generated": 1442,
+          "line": 175
+        },
+        "RejectStructure": {
+          "distinct": 0,
+          "generated": 82,
+          "line": 177
+        },
+        "VerifyClosure": {
+          "distinct": 308,
+          "generated": 308,
+          "line": 183
+        },
+        "RejectClosure": {
+          "distinct": 352,
+          "generated": 616,
+          "line": 186
+        },
+        "VerifierUnavailable": {
+          "distinct": 176,
+          "generated": 924,
+          "line": 189
+        },
+        "SkipClosure": {
+          "distinct": 1902,
+          "generated": 1902,
+          "line": 192
+        },
+        "AdvanceHistory": {
+          "distinct": 2210,
+          "generated": 2210,
+          "line": 194
+        },
+        "BeginReplay": {
+          "distinct": 826,
+          "generated": 826,
+          "line": 196
+        },
+        "ReplayAdmit": {
+          "distinct": 66,
+          "generated": 66,
+          "line": 204
+        },
+        "ReplayAbort": {
+          "distinct": 36,
+          "generated": 36,
+          "line": 208
+        },
+        "RejectReplay": {
+          "distinct": 764,
+          "generated": 764,
+          "line": 213
+        },
+        "FreezeRecovered": {
+          "distinct": 62,
+          "generated": 62,
+          "line": 215
+        },
+        "ReturnRecovered": {
+          "distinct": 58,
+          "generated": 62,
+          "line": 217
+        },
+        "Crash": {
+          "distinct": 3266,
+          "generated": 16172,
+          "line": 229
+        }
+      }
+    },
+    {
+      "config": "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_two.cfg",
+      "log": "tla/execution_models/account_journal/L0_ordered_recovery/04_evidence/L0_AccountJournal_two.log",
+      "command": "bash \"$HOME/.codex/skills/vibe-tla/scripts/run_tlc.sh\" tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_two.cfg --det --coverage",
+      "generated": 3211231,
+      "distinct": 748060,
+      "queue": 0,
+      "depth": 52,
+      "duration": "01min 19s",
+      "elapsed_seconds": 80,
+      "coverage": {
+        "Init": {
+          "distinct": 7,
+          "generated": 7,
+          "line": 65
+        },
+        "StartCreate": {
+          "distinct": 18,
+          "generated": 18,
+          "line": 68
+        },
+        "RejectCreate": {
+          "distinct": 0,
+          "generated": 149956,
+          "line": 70
+        },
+        "CreateFile": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 71
+        },
+        "WriteFile": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 74
+        },
+        "SyncFile": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 78
+        },
+        "SyncDirectory": {
+          "distinct": 54,
+          "generated": 54,
+          "line": 81
+        },
+        "CreateFailure": {
+          "distinct": 106,
+          "generated": 216,
+          "line": 86
+        },
+        "PrepareAdmit": {
+          "distinct": 16200,
+          "generated": 16200,
+          "line": 91
+        },
+        "PrepareAbort": {
+          "distinct": 21576,
+          "generated": 21576,
+          "line": 98
+        },
+        "RetryAdmit": {
+          "distinct": 0,
+          "generated": 29160,
+          "line": 102
+        },
+        "ConflictAdmit": {
+          "distinct": 29160,
+          "generated": 29160,
+          "line": 104
+        },
+        "RejectPoison": {
+          "distinct": 0,
+          "generated": 144624,
+          "line": 107
+        },
+        "RejectRecoveredAdmit": {
+          "distinct": 0,
+          "generated": 7392,
+          "line": 108
+        },
+        "RejectCapacity": {
+          "distinct": 0,
+          "generated": 32688,
+          "line": 109
+        },
+        "WriteTail": {
+          "distinct": 37776,
+          "generated": 37776,
+          "line": 113
+        },
+        "SealBatch": {
+          "distinct": 37776,
+          "generated": 37776,
+          "line": 115
+        },
+        "SyncBatch": {
+          "distinct": 37776,
+          "generated": 37776,
+          "line": 117
+        },
+        "PublishReceipt": {
+          "distinct": 37744,
+          "generated": 37776,
+          "line": 119
+        },
+        "AppendFailure": {
+          "distinct": 115464,
+          "generated": 151104,
+          "line": 122
+        },
+        "StartRecover": {
+          "distinct": 67288,
+          "generated": 1795024,
+          "line": 132
+        },
+        "CheckConfig": {
+          "distinct": 33588,
+          "generated": 33588,
+          "line": 143
+        },
+        "RejectConfig": {
+          "distinct": 33600,
+          "generated": 33700,
+          "line": 145
+        },
+        "CheckPhysical": {
+          "distinct": 33536,
+          "generated": 33536,
+          "line": 152
+        },
+        "RejectPhysical": {
+          "distinct": 0,
+          "generated": 52,
+          "line": 154
+        },
+        "CheckRequired": {
+          "distinct": 22320,
+          "generated": 33536,
+          "line": 157
+        },
+        "RejectRequired": {
+          "distinct": 11216,
+          "generated": 11216,
+          "line": 159
+        },
+        "SyncRecovery": {
+          "distinct": 22320,
+          "generated": 22320,
+          "line": 163
+        },
+        "RecoveryIoFailure": {
+          "distinct": 38001,
+          "generated": 156732,
+          "line": 165
+        },
+        "CheckStructure": {
+          "distinct": 21932,
+          "generated": 21932,
+          "line": 175
+        },
+        "RejectStructure": {
+          "distinct": 0,
+          "generated": 388,
+          "line": 177
+        },
+        "VerifyClosure": {
+          "distinct": 7144,
+          "generated": 7144,
+          "line": 183
+        },
+        "RejectClosure": {
+          "distinct": 7232,
+          "generated": 14288,
+          "line": 186
+        },
+        "VerifierUnavailable": {
+          "distinct": 3616,
+          "generated": 21432,
+          "line": 189
+        },
+        "SkipClosure": {
+          "distinct": 19708,
+          "generated": 19708,
+          "line": 192
+        },
+        "AdvanceHistory": {
+          "distinct": 26852,
+          "generated": 26852,
+          "line": 194
+        },
+        "BeginReplay": {
+          "distinct": 7644,
+          "generated": 7644,
+          "line": 196
+        },
+        "ReplayAdmit": {
+          "distinct": 1172,
+          "generated": 1172,
+          "line": 204
+        },
+        "ReplayAbort": {
+          "distinct": 232,
+          "generated": 232,
+          "line": 208
+        },
+        "RejectReplay": {
+          "distinct": 7320,
+          "generated": 7320,
+          "line": 213
+        },
+        "FreezeRecovered": {
+          "distinct": 324,
+          "generated": 324,
+          "line": 215
+        },
+        "ReturnRecovered": {
+          "distinct": 320,
+          "generated": 324,
+          "line": 217
+        },
+        "Crash": {
+          "distinct": 48876,
+          "generated": 229346,
+          "line": 229
+        }
+      }
+    },
+    {
+      "config": "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_crashes.cfg",
+      "log": "tla/execution_models/account_journal/L0_ordered_recovery/04_evidence/L0_AccountJournal_crashes.log",
+      "command": "bash \"$HOME/.codex/skills/vibe-tla/scripts/run_tlc.sh\" tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_crashes.cfg --det --coverage",
+      "generated": 615434,
+      "distinct": 125574,
+      "queue": 0,
+      "depth": 66,
+      "duration": "13s",
+      "elapsed_seconds": 15,
+      "coverage": {
+        "Init": {
+          "distinct": 7,
+          "generated": 7,
+          "line": 65
+        },
+        "StartCreate": {
+          "distinct": 27,
+          "generated": 27,
+          "line": 68
+        },
+        "RejectCreate": {
+          "distinct": 0,
+          "generated": 31315,
+          "line": 70
+        },
+        "CreateFile": {
+          "distinct": 81,
+          "generated": 81,
+          "line": 71
+        },
+        "WriteFile": {
+          "distinct": 81,
+          "generated": 81,
+          "line": 74
+        },
+        "SyncFile": {
+          "distinct": 81,
+          "generated": 81,
+          "line": 78
+        },
+        "SyncDirectory": {
+          "distinct": 81,
+          "generated": 81,
+          "line": 81
+        },
+        "CreateFailure": {
+          "distinct": 178,
+          "generated": 324,
+          "line": 86
+        },
+        "PrepareAdmit": {
+          "distinct": 1134,
+          "generated": 1134,
+          "line": 91
+        },
+        "PrepareAbort": {
+          "distinct": 2936,
+          "generated": 2936,
+          "line": 98
+        },
+        "RetryAdmit": {
+          "distinct": 0,
+          "generated": 2754,
+          "line": 102
+        },
+        "ConflictAdmit": {
+          "distinct": 2754,
+          "generated": 2754,
+          "line": 104
+        },
+        "RejectPoison": {
+          "distinct": 0,
+          "generated": 15234,
+          "line": 107
+        },
+        "RejectRecoveredAdmit": {
+          "distinct": 0,
+          "generated": 1049,
+          "line": 108
+        },
+        "RejectCapacity": {
+          "distinct": 0,
+          "generated": 2740,
+          "line": 109
+        },
+        "WriteTail": {
+          "distinct": 4070,
+          "generated": 4070,
+          "line": 113
+        },
+        "SealBatch": {
+          "distinct": 4070,
+          "generated": 4070,
+          "line": 115
+        },
+        "SyncBatch": {
+          "distinct": 4070,
+          "generated": 4070,
+          "line": 117
+        },
+        "PublishReceipt": {
+          "distinct": 4038,
+          "generated": 4070,
+          "line": 119
+        },
+        "AppendFailure": {
+          "distinct": 12480,
+          "generated": 16280,
+          "line": 122
+        },
+        "StartRecover": {
+          "distinct": 14084,
+          "generated": 368400,
+          "line": 132
+        },
+        "CheckConfig": {
+          "distinct": 6954,
+          "generated": 6954,
+          "line": 143
+        },
+        "RejectConfig": {
+          "distinct": 4654,
+          "generated": 7130,
+          "line": 145
+        },
+        "CheckPhysical": {
+          "distinct": 6874,
+          "generated": 6874,
+          "line": 152
+        },
+        "RejectPhysical": {
+          "distinct": 0,
+          "generated": 80,
+          "line": 154
+        },
+        "CheckRequired": {
+          "distinct": 4516,
+          "generated": 6874,
+          "line": 157
+        },
+        "RejectRequired": {
+          "distinct": 2358,
+          "generated": 2358,
+          "line": 159
+        },
+        "SyncRecovery": {
+          "distinct": 4516,
+          "generated": 4516,
+          "line": 163
+        },
+        "RecoveryIoFailure": {
+          "distinct": 5178,
+          "generated": 32428,
+          "line": 165
+        },
+        "CheckStructure": {
+          "distinct": 3988,
+          "generated": 3988,
+          "line": 175
+        },
+        "RejectStructure": {
+          "distinct": 0,
+          "generated": 528,
+          "line": 177
+        },
+        "VerifyClosure": {
+          "distinct": 712,
+          "generated": 712,
+          "line": 183
+        },
+        "RejectClosure": {
+          "distinct": 704,
+          "generated": 1232,
+          "line": 186
+        },
+        "VerifierUnavailable": {
+          "distinct": 352,
+          "generated": 1944,
+          "line": 189
+        },
+        "SkipClosure": {
+          "distinct": 6240,
+          "generated": 6240,
+          "line": 192
+        },
+        "AdvanceHistory": {
+          "distinct": 6952,
+          "generated": 6952,
+          "line": 194
+        },
+        "BeginReplay": {
+          "distinct": 2756,
+          "generated": 2756,
+          "line": 196
+        },
+        "ReplayAdmit": {
+          "distinct": 228,
+          "generated": 228,
+          "line": 204
+        },
+        "ReplayAbort": {
+          "distinct": 159,
+          "generated": 159,
+          "line": 208
+        },
+        "RejectReplay": {
+          "distinct": 2549,
+          "generated": 2549,
+          "line": 213
+        },
+        "FreezeRecovered": {
+          "distinct": 207,
+          "generated": 207,
+          "line": 215
+        },
+        "ReturnRecovered": {
+          "distinct": 143,
+          "generated": 207,
+          "line": 217
+        },
+        "Crash": {
+          "distinct": 15362,
+          "generated": 58960,
+          "line": 229
+        }
+      }
+    }
+  ],
+  "sha256": {
+    "crates/tickwire-account-journal/src/lib.rs": "80df1827271774bb67af1c30639c9e13a0d2fb1336c65f2bcf7527025e73c705",
+    "crates/tickwire-account-journal/src/backend.rs": "4452ce5a864ece0ae75b4b6ee7b435db0665d06dbd5f3d1456b31e12ca1f493d",
+    "crates/tickwire-account-journal/src/identity.rs": "370d7ddfed90876c66e2df8a6c9bec073566d56f4f592eac0be4dbc3a4bd3012",
+    "crates/tickwire-account-journal/src/history.rs": "9e39295dab19b09e41d8bc39d9ccb95348d00887a1309c95fad1fbf58bc93568",
+    "crates/tickwire-account/src/recovery.rs": "556260014f85bd05ebeb03349a393bb0c5709f2c9f6af033138a89cf49e0e5ae",
+    "crates/tickwire-account/src/admission.rs": "d5c846d093a2bc69cd092859225024a2b8682edbdf2a098617c8ef68278afb31",
+    "crates/tickwire-journal/src/store.rs": "a89877845f1ea5afbc1bed6556e70522981f12f412ab110162f8f4eefcea827d",
+    "crates/tickwire-journal/src/journal.rs": "5bfb70d5f16a51a20086ad9eb9d1d78dbd09c400709f48272dbc18c85665d7f3",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla": "7136cafc8ec97353e34e94acc7ca39951d6d3b6ba577cd1ab18f060b2e67e021",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/anchors.lock": "555b89d10fa359b43fd87b2fab7326d82241bf2de3cce44d07159b34ff8db9ef",
+    "tla/tools/tla2tools.jar": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_two.cfg": "42173eea0a1d8704f0c87c26bcff6b42fa099f72add4b7e191e43884258ae070",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.cfg": "f8a119f87694cff78c5f6674f2ac07655050c5a7d97e57e697c556333021d5f9",
+    "tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal_crashes.cfg": "033255468471c7954339e15b6dfb613f45afb438b2333eb7c4107bf571d4feb5",
+    "tla/execution_models/account_journal/L0_ordered_recovery/04_evidence/L0_AccountJournal.log": "0050f77cddfc92f36b60a071891b33ce68e4217588bf16be5e177bb0d09aae9b",
+    "tla/execution_models/account_journal/L0_ordered_recovery/04_evidence/L0_AccountJournal_two.log": "7b4a1d14d4237dcc5af140a3c5f34a1d72ef770be24ce29c98b6f097a8cc6b24",
+    "tla/execution_models/account_journal/L0_ordered_recovery/04_evidence/L0_AccountJournal_crashes.log": "ddba1e9297ae3e5e10879c36ddc65fba341c53f4d3ba482637cc86233e2aa82d"
+  },
+  "source_review": [
+    "root: independent complete source/model mapping review; no open candidate",
+    "ipc_codec: independent source/model mapping plus all final statistics, 43 coverage entries per cfg, 582 anchors and frozen source hashes verified; no open candidate"
+  ],
+  "scope": "Single owner; fixed baseline; finite Admit and Aborted inputs; physical complete-batch contract; no gateway output, segment/manifest transaction or power-loss proof"
+}

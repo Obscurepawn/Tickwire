@@ -1,0 +1,99 @@
+   Compiling tickwire-account-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.80s
+     Running tests/persistence.rs (target/debug/deps/persistence-ba343bae21167fec)
+
+running 12 tests
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... FAILED
+test baseline_and_bootstrap_substitution_reject_before_replay ... FAILED
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... FAILED
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... FAILED
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... FAILED
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... FAILED
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... FAILED
+test forged_record_sequence_or_baseline_is_rejected ... FAILED
+test all_eight_record_kinds_replay_in_one_real_file_order ... FAILED
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... FAILED
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... FAILED
+test writer_epoch_and_complete_event_identity_are_checked ... FAILED
+
+failures:
+
+---- file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock stdout ----
+
+thread 'file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock' (5580363) panicked at crates/tickwire-account-journal/tests/persistence.rs:61:67:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- baseline_and_bootstrap_substitution_reject_before_replay stdout ----
+
+thread 'baseline_and_bootstrap_substitution_reject_before_replay' (5580361) panicked at crates/tickwire-account-journal/tests/persistence.rs:125:118:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes stdout ----
+
+thread 'partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes' (5580366) panicked at crates/tickwire-account-journal/tests/persistence.rs:164:106:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- historical_verifier_failure_and_forged_admission_image_stop_recovery stdout ----
+
+thread 'historical_verifier_failure_and_forged_admission_image_stop_recovery' (5580365) panicked at crates/tickwire-account-journal/tests/persistence.rs:101:75:
+called `Result::unwrap()` on an `Err` value: Poisoned
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- rejected_account_fact_remains_durable_and_recovery_does_not_skip_it stdout ----
+
+thread 'rejected_account_fact_remains_durable_and_recovery_does_not_skip_it' (5580367) panicked at crates/tickwire-account-journal/tests/persistence.rs:214:110:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence stdout ----
+
+thread 'duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence' (5580362) panicked at crates/tickwire-account-journal/tests/persistence.rs:110:112:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- replay_recomputes_admission_and_remains_frozen_with_no_new_admit stdout ----
+
+thread 'replay_recomputes_admission_and_remains_frozen_with_no_new_admit' (5580368) panicked at crates/tickwire-account-journal/tests/persistence.rs:84:110:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- forged_record_sequence_or_baseline_is_rejected stdout ----
+
+thread 'forged_record_sequence_or_baseline_is_rejected' (5580364) panicked at crates/tickwire-account-journal/tests/persistence.rs:188:70:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- all_eight_record_kinds_replay_in_one_real_file_order stdout ----
+
+thread 'all_eight_record_kinds_replay_in_one_real_file_order' (5580360) panicked at crates/tickwire-account-journal/tests/persistence.rs:247:83:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- admission_retry_is_exact_and_conflict_poison_does_not_advance stdout ----
+
+thread 'admission_retry_is_exact_and_conflict_poison_does_not_advance' (5580359) panicked at crates/tickwire-account-journal/tests/persistence.rs:73:94:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- trusted_frontier_mismatch_rejects_without_truncating_partial_tail stdout ----
+
+thread 'trusted_frontier_mismatch_rejects_without_truncating_partial_tail' (5580377) panicked at crates/tickwire-account-journal/tests/persistence.rs:176:110:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+---- writer_epoch_and_complete_event_identity_are_checked stdout ----
+
+thread 'writer_epoch_and_complete_event_identity_are_checked' (5580378) panicked at crates/tickwire-account-journal/tests/persistence.rs:198:112:
+called `Result::unwrap()` on an `Err` value: Poisoned
+
+
+failures:
+    admission_retry_is_exact_and_conflict_poison_does_not_advance
+    all_eight_record_kinds_replay_in_one_real_file_order
+    baseline_and_bootstrap_substitution_reject_before_replay
+    duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence
+    file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock
+    forged_record_sequence_or_baseline_is_rejected
+    historical_verifier_failure_and_forged_admission_image_stop_recovery
+    partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes
+    rejected_account_fact_remains_durable_and_recovery_does_not_skip_it
+    replay_recomputes_admission_and_remains_frozen_with_no_new_admit
+    trusted_frontier_mismatch_rejects_without_truncating_partial_tail
+    writer_epoch_and_complete_event_identity_are_checked
+
+test result: FAILED. 0 passed; 12 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-account-journal --test persistence`

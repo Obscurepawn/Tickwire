@@ -1,0 +1,40 @@
+   Compiling ring v0.17.14
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling rustls v0.23.46
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.97s
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-4475400fb94893ab)
+
+running 12 tests
+test exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record ... ok
+test public_fact_entry_cannot_forge_admission_or_zero_acceptance ... ok
+test recovered_admission_is_unknown_with_no_active_receipt_or_resend ... ok
+test externally_frozen_account_can_still_cancel_and_query_on_healthy_connection ... FAILED
+test frozen_recovery_accepts_durable_reconciliation_but_never_new_admission ... ok
+test aborted_admission_remains_aborted_after_reopen ... ok
+test reducer_error_preserves_external_input_and_recovery_refuses_to_skip_it ... ok
+test zero_io_budget_is_not_evidence_for_refunding_an_order ... ok
+test missing_baseline_or_history_object_rejects_recovery ... ok
+test repeated_trade_keeps_new_observation_and_replays_cashflow_once ... ok
+test dependency_rejection_or_foreign_account_binding_never_queues_or_reserves ... ok
+test every_fresh_gate_requirement_is_checked_before_first_acceptance ... ok
+
+failures:
+
+---- externally_frozen_account_can_still_cancel_and_query_on_healthy_connection stdout ----
+
+thread 'externally_frozen_account_can_still_cancel_and_query_on_healthy_connection' (5733435) panicked at crates/tickwire-account-gateway/tests/lifecycle.rs:170:39:
+called `Result::unwrap()` on an `Err` value: Authority(Recovery(Conflict))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    externally_frozen_account_can_still_cancel_and_query_on_healthy_connection
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s
+
+error: test failed, to rerun pass `-p tickwire-account-gateway --test lifecycle`

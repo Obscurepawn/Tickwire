@@ -220,6 +220,10 @@ impl Account {
     pub fn frozen(&self) -> bool {
         self.frozen
     }
+    /// Closes risk-increasing admission without changing balances, reservations or sequence.
+    pub fn freeze(&mut self) {
+        self.frozen = true;
+    }
     pub fn ledger_sequence(&self) -> u64 {
         self.sequence
     }

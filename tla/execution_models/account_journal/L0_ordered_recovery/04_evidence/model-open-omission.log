@@ -1,0 +1,1915 @@
+>>> TLC module=L0_AccountJournal cfg=L0_AccountJournal.cfg workers=1
+>>> jar=tla/tools/tla2tools.jar
+>>> dir=tla/execution_models/account_journal/L0_ordered_recovery/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 94 and seed 5262961191201460048 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file tla/execution_models/account_journal/L0_ordered_recovery/02_models/L0_AccountJournal.tla
+Parsing file /private<temporary>/Naturals.tla
+Parsing file /private<temporary>/Integers.tla
+Parsing file /private<temporary>/Sequences.tla
+Parsing file /private<temporary>/FiniteSets.tla
+Parsing file /private<temporary>/TLC.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_AccountJournal
+Starting... (2026-10-20 21:21:16)
+Computing initial states...
+Computed 2 initial states...
+Computed 4 initial states...
+Finished computing initial states: 7 distinct states generated at 2026-10-20 21:21:16.
+Error: Invariant ReceiptDependencies is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+s = [ writer |-> 1,
+  phase |-> "down",
+  files |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  stable |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 2: <StartCreate line 67, col 16 to line 68, col 58 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "base-create",
+  files |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  stable |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 3: <CreateFile line 71, col 2 to line 72, col 57 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "base-write",
+  files |-> [base |-> 1, boot |-> 0, physical |-> 0],
+  stable |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 4: <WriteFile line 74, col 2 to line 75, col 56 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "base-sync",
+  files |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  stable |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 5: <SyncFile line 77, col 2 to line 78, col 63 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "base-dir",
+  files |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  stable |-> [base |-> 0, boot |-> 0, physical |-> 0],
+  fsynced |-> {"base"},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 6: <SyncDirectory line 80, col 2 to line 83, col 32 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "boot-create",
+  files |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  stable |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 7: <CreateFile line 71, col 2 to line 72, col 57 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "boot-write",
+  files |-> [base |-> 2, boot |-> 1, physical |-> 0],
+  stable |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 8: <WriteFile line 74, col 2 to line 75, col 56 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "boot-sync",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  stable |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 9: <SyncFile line 77, col 2 to line 78, col 63 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "boot-dir",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  stable |-> [base |-> 2, boot |-> 0, physical |-> 0],
+  fsynced |-> {"boot"},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 10: <SyncDirectory line 80, col 2 to line 83, col 32 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "physical-create",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 11: <CreateFile line 71, col 2 to line 72, col 57 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "physical-write",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 1],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 12: <WriteFile line 74, col 2 to line 75, col 56 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "physical-sync",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 13: <CreateFailure line 84, col 18 to line 85, col 32 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "down",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 14: <StartRecover line 127, col 17 to line 135, col 73 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "config",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 15: <CheckConfig line 137, col 16 to line 138, col 36 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "physical",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 16: <CheckPhysical line 141, col 18 to line 142, col 36 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "required",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 17: <CheckRequired line 146, col 18 to line 147, col 54 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "recover-sync",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 18: <SyncRecovery line 152, col 17 to line 153, col 53 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "structure",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 19: <CheckStructure line 164, col 19 to line 165, col 35 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "closure",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 20: <BeginReplay line 185, col 16 to line 186, col 34 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "replay",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> FALSE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 21: <FreezeRecovered line 204, col 20 to line 205, col 79 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "return",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> FALSE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 22: <ReturnRecovered line 206, col 20 to line 209, col 38 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "open",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> TRUE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 23: <PrepareAbort line 97, col 2 to line 99, col 27 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "append-tail",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |->
+      [ id |-> 1,
+        kind |-> "B",
+        original |-> 1,
+        writer |-> 1,
+        seq |-> 1,
+        binding |-> 1,
+        variant |-> 0,
+        imageSeq |-> 0 ],
+  recovered |-> TRUE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 24: <WriteTail line 111, col 14 to line 112, col 52 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "append-seal",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |-> <<>>,
+  disk |-> <<>>,
+  tail |-> TRUE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |->
+      [ id |-> 1,
+        kind |-> "B",
+        original |-> 1,
+        writer |-> 1,
+        seq |-> 1,
+        binding |-> 1,
+        variant |-> 0,
+        imageSeq |-> 0 ],
+  recovered |-> TRUE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 25: <SealBatch line 113, col 14 to line 114, col 82 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "append-sync",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  disk |-> <<>>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |->
+      [ id |-> 1,
+        kind |-> "B",
+        original |-> 1,
+        writer |-> 1,
+        seq |-> 1,
+        binding |-> 1,
+        variant |-> 0,
+        imageSeq |-> 0 ],
+  recovered |-> TRUE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 26: <SyncBatch line 115, col 14 to line 116, col 58 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "append-publish",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  disk |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  tail |-> FALSE,
+  visible |-> <<>>,
+  history |-> <<>>,
+  ack |-> <<>>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |->
+      [ id |-> 1,
+        kind |-> "B",
+        original |-> 1,
+        writer |-> 1,
+        seq |-> 1,
+        binding |-> 1,
+        variant |-> 0,
+        imageSeq |-> 0 ],
+  recovered |-> TRUE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+State 27: <PublishReceipt line 117, col 19 to line 119, col 38 of module L0_AccountJournal>
+s = [ writer |-> 1,
+  phase |-> "open",
+  files |-> [base |-> 2, boot |-> 2, physical |-> 2],
+  stable |-> [base |-> 2, boot |-> 2, physical |-> 0],
+  fsynced |-> {},
+  cache |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  disk |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  tail |-> FALSE,
+  visible |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  history |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  ack |->
+      << [ id |-> 1,
+           kind |-> "B",
+           original |-> 1,
+           writer |-> 1,
+           seq |-> 1,
+           binding |-> 1,
+           variant |-> 0,
+           imageSeq |-> 0 ] >>,
+  poison |-> FALSE,
+  hold |-> <<>>,
+  pending |-> "none",
+  recovered |-> TRUE,
+  target |-> 1,
+  configOK |-> TRUE,
+  required |-> [present |-> FALSE, prefix |-> <<>>],
+  prefix |-> <<>>,
+  requiredBefore |-> <<<<>>, <<>>, FALSE>>,
+  rejected |-> FALSE,
+  closures |->
+      << [ present |-> FALSE,
+           record |->
+               [ id |-> 1,
+                 kind |-> "A",
+                 original |-> 1,
+                 writer |-> 1,
+                 seq |-> 1,
+                 binding |-> 1,
+                 variant |-> 0,
+                 imageSeq |-> 1 ],
+           preceding |-> <<>> ] >>,
+  verified |-> {},
+  ci |-> 1,
+  ri |-> 1,
+  seen |-> {},
+  aborted |-> {},
+  ledger |-> 0,
+  frozen |-> TRUE,
+  returned |-> <<>>,
+  unknown |-> {},
+  crashes |-> 0 ]
+
+The coverage statistics at 2026-10-20 21:21:18
+<Init line 64, col 1 to line 64, col 4 of module L0_AccountJournal>: 14:14
+  line 64, col 25 to line 64, col 36 of module L0_AccountJournal: 14
+  |line 64, col 27 to line 64, col 36 of module L0_AccountJournal: 14
+  ||line 55, col 15 to line 63, col 68 of module L0_AccountJournal: 14
+  |||line 55, col 44 to line 55, col 84 of module L0_AccountJournal: 14
+  ||||line 55, col 47 to line 55, col 53 of module L0_AccountJournal: 14
+  ||||line 55, col 60 to line 55, col 69 of module L0_AccountJournal: 2
+  ||||line 55, col 76 to line 55, col 84 of module L0_AccountJournal: 12
+  |||line 56, col 13 to line 56, col 53 of module L0_AccountJournal: 14
+  ||||line 56, col 16 to line 56, col 22 of module L0_AccountJournal: 14
+  ||||line 56, col 29 to line 56, col 38 of module L0_AccountJournal: 2
+  ||||line 56, col 45 to line 56, col 53 of module L0_AccountJournal: 12
+  |||line 56, col 56 to line 56, col 69 of module L0_AccountJournal: 14
+  |||line 57, col 2 to line 57, col 12 of module L0_AccountJournal: 14
+  |||line 57, col 15 to line 57, col 24 of module L0_AccountJournal: 14
+  |||line 57, col 27 to line 57, col 40 of module L0_AccountJournal: 14
+  |||line 57, col 43 to line 57, col 58 of module L0_AccountJournal: 14
+  |||line 57, col 61 to line 57, col 76 of module L0_AccountJournal: 14
+  |||line 58, col 2 to line 58, col 13 of module L0_AccountJournal: 14
+  |||line 58, col 16 to line 58, col 31 of module L0_AccountJournal: 14
+  |||line 58, col 34 to line 58, col 46 of module L0_AccountJournal: 14
+  |||line 59, col 2 to line 59, col 20 of module L0_AccountJournal: 14
+  |||line 59, col 51 to line 59, col 67 of module L0_AccountJournal: 14
+  |||line 60, col 2 to line 60, col 49 of module L0_AccountJournal: 14
+  |||line 60, col 52 to line 60, col 74 of module L0_AccountJournal: 14
+  |||line 60, col 77 to line 60, col 94 of module L0_AccountJournal: 14
+  |||line 61, col 2 to line 61, col 81 of module L0_AccountJournal: 14
+  |||line 61, col 84 to line 61, col 98 of module L0_AccountJournal: 14
+  |||line 61, col 101 to line 61, col 115 of module L0_AccountJournal: 14
+  |||line 62, col 22 to line 62, col 32 of module L0_AccountJournal: 14
+  |||line 62, col 35 to line 62, col 48 of module L0_AccountJournal: 14
+  |||line 63, col 2 to line 63, col 17 of module L0_AccountJournal: 14
+  |||line 63, col 20 to line 63, col 36 of module L0_AccountJournal: 14
+  |||line 63, col 39 to line 63, col 52 of module L0_AccountJournal: 14
+  ||line 64, col 35 to line 64, col 35 of module L0_AccountJournal: 14
+  line 64, col 18 to line 64, col 22 of module L0_AccountJournal: 2
+<StartCreate line 67, col 1 to line 67, col 11 of module L0_AccountJournal>: 18:19
+  line 67, col 19 to line 67, col 32 of module L0_AccountJournal: 11246
+  |line 67, col 19 to line 67, col 25 of module L0_AccountJournal: 11227
+  line 67, col 37 to line 67, col 54 of module L0_AccountJournal: 2331
+  |line 67, col 37 to line 67, col 43 of module L0_AccountJournal: 2312
+  |line 67, col 45 to line 67, col 54 of module L0_AccountJournal: 2312
+  line 68, col 5 to line 68, col 58 of module L0_AccountJournal: 19
+<RejectCreate line 69, col 1 to line 69, col 12 of module L0_AccountJournal>: 0:2293
+  line 69, col 20 to line 69, col 33 of module L0_AccountJournal: 13519
+  |line 69, col 20 to line 69, col 26 of module L0_AccountJournal: 11226
+  line 69, col 38 to line 69, col 55 of module L0_AccountJournal: 4604
+  |line 69, col 38 to line 69, col 44 of module L0_AccountJournal: 2311
+  |line 69, col 46 to line 69, col 55 of module L0_AccountJournal: 2311
+  line 69, col 60 to line 69, col 70 of module L0_AccountJournal: 2293
+<CreateFile line 70, col 1 to line 70, col 10 of module L0_AccountJournal (71 2 72 57)>: 54:57
+  line 71, col 5 to line 71, col 30 of module L0_AccountJournal: 33732
+  |line 71, col 5 to line 71, col 11 of module L0_AccountJournal: 33675
+  |line 71, col 14 to line 71, col 30 of module L0_AccountJournal: 33675
+  line 72, col 5 to line 72, col 57 of module L0_AccountJournal: 57
+<WriteFile line 73, col 1 to line 73, col 9 of module L0_AccountJournal (74 2 75 56)>: 54:57
+  line 74, col 5 to line 74, col 29 of module L0_AccountJournal: 33723
+  |line 74, col 5 to line 74, col 11 of module L0_AccountJournal: 33666
+  |line 74, col 14 to line 74, col 29 of module L0_AccountJournal: 33666
+  line 75, col 5 to line 75, col 56 of module L0_AccountJournal: 57
+<SyncFile line 76, col 1 to line 76, col 8 of module L0_AccountJournal (77 2 78 63)>: 54:57
+  line 77, col 5 to line 77, col 28 of module L0_AccountJournal: 33714
+  |line 77, col 5 to line 77, col 11 of module L0_AccountJournal: 33657
+  |line 77, col 14 to line 77, col 28 of module L0_AccountJournal: 33657
+  line 78, col 5 to line 78, col 63 of module L0_AccountJournal: 57
+<SyncDirectory line 79, col 1 to line 79, col 13 of module L0_AccountJournal (80 2 83 32)>: 54:56
+  line 80, col 5 to line 80, col 27 of module L0_AccountJournal: 33707
+  |line 80, col 5 to line 80, col 11 of module L0_AccountJournal: 33651
+  |line 80, col 14 to line 80, col 27 of module L0_AccountJournal: 33651
+  line 81, col 5 to line 83, col 32 of module L0_AccountJournal: 56
+  |line 81, col 8 to line 83, col 32 of module L0_AccountJournal: 56
+  ||line 81, col 9 to line 81, col 9 of module L0_AccountJournal: 56
+  ||line 81, col 18 to line 81, col 33 of module L0_AccountJournal: 56
+  ||line 81, col 36 to line 81, col 47 of module L0_AccountJournal: 56
+  ||line 82, col 14 to line 83, col 31 of module L0_AccountJournal: 56
+  |||line 82, col 19 to line 82, col 43 of module L0_AccountJournal: 56
+  |||line 82, col 48 to line 82, col 76 of module L0_AccountJournal: 37
+<CreateFailure line 84, col 1 to line 84, col 13 of module L0_AccountJournal>: 92:217
+  line 84, col 21 to line 84, col 44 of module L0_AccountJournal: 11433
+  |line 84, col 21 to line 84, col 27 of module L0_AccountJournal: 11216
+  |line 84, col 33 to line 84, col 44 of module L0_AccountJournal: 11216
+  line 85, col 5 to line 85, col 32 of module L0_AccountJournal: 217
+<PrepareAdmit line 89, col 1 to line 89, col 12 of module L0_AccountJournal (90 2 95 79)>: 348:348
+  line 90, col 5 to line 90, col 18 of module L0_AccountJournal: 67638
+  |line 90, col 5 to line 90, col 11 of module L0_AccountJournal: 67290
+  line 90, col 23 to line 90, col 31 of module L0_AccountJournal: 15462
+  |line 90, col 24 to line 90, col 31 of module L0_AccountJournal: 15114
+  line 90, col 36 to line 90, col 47 of module L0_AccountJournal: 1686
+  |line 90, col 37 to line 90, col 47 of module L0_AccountJournal: 1338
+  line 91, col 5 to line 91, col 29 of module L0_AccountJournal: 348
+  |line 91, col 5 to line 91, col 18 of module L0_AccountJournal: 1140
+  |line 91, col 20 to line 91, col 29 of module L0_AccountJournal: 1140
+  line 91, col 34 to line 91, col 62 of module L0_AccountJournal: 1488
+  |line 91, col 34 to line 91, col 35 of module L0_AccountJournal: 1140
+  |line 91, col 44 to line 91, col 62 of module L0_AccountJournal: 1140
+  ||line 36, col 16 to line 36, col 64 of module L0_AccountJournal: 1140
+  |||line 36, col 17 to line 36, col 23 of module L0_AccountJournal: 792
+  |||line 36, col 33 to line 36, col 63 of module L0_AccountJournal: 1140:1932
+  ||||line 36, col 50 to line 36, col 62 of module L0_AccountJournal: 1200
+  ||||line 36, col 40 to line 36, col 48 of module L0_AccountJournal: 1140
+  ||line 91, col 53 to line 91, col 61 of module L0_AccountJournal: 1140
+  line 95, col 8 to line 95, col 79 of module L0_AccountJournal: 348
+  |line 95, col 11 to line 95, col 79 of module L0_AccountJournal: 348
+  ||line 95, col 12 to line 95, col 12 of module L0_AccountJournal: 348
+  ||line 95, col 31 to line 95, col 31 of module L0_AccountJournal: 348
+  |||line 92, col 14 to line 92, col 72 of module L0_AccountJournal: 348
+  ||||line 39, col 24 to line 40, col 73 of module L0_AccountJournal: 348
+  ||||line 92, col 22 to line 92, col 23 of module L0_AccountJournal: 348
+  ||||line 92, col 25 to line 92, col 32 of module L0_AccountJournal: 348
+  ||||line 92, col 34 to line 92, col 49 of module L0_AccountJournal: 348
+  ||||line 92, col 51 to line 92, col 51 of module L0_AccountJournal: 348
+  ||||line 92, col 53 to line 92, col 71 of module L0_AccountJournal: 348
+  |||||line 92, col 53 to line 92, col 69 of module L0_AccountJournal: 348
+  ||||||line 38, col 14 to line 38, col 62 of module L0_AccountJournal: 348
+  |||||||line 38, col 14 to line 38, col 37 of module L0_AccountJournal: 348
+  ||||||||line 38, col 26 to line 38, col 36 of module L0_AccountJournal: 348
+  |||||||||line 36, col 16 to line 36, col 64 of module L0_AccountJournal: 348
+  ||||||||||line 36, col 33 to line 36, col 63 of module L0_AccountJournal: 348:348
+  |||||||||||line 36, col 50 to line 36, col 62 of module L0_AccountJournal: 264
+  |||||||||||line 36, col 40 to line 36, col 48 of module L0_AccountJournal: 348
+  |||||||line 38, col 39 to line 38, col 62 of module L0_AccountJournal: 348
+  ||||||||line 38, col 51 to line 38, col 61 of module L0_AccountJournal: 348
+  |||||||||line 37, col 16 to line 37, col 64 of module L0_AccountJournal: 348
+  ||||||||||line 37, col 17 to line 37, col 23 of module L0_AccountJournal: 264
+  ||||||||||line 37, col 33 to line 37, col 63 of module L0_AccountJournal: 348:612
+  |||||||||||line 37, col 50 to line 37, col 62 of module L0_AccountJournal: 264
+  |||||||||||line 37, col 40 to line 37, col 48 of module L0_AccountJournal: 348
+  ||||||line 92, col 60 to line 92, col 68 of module L0_AccountJournal: 348
+  ||line 95, col 57 to line 95, col 78 of module L0_AccountJournal: 348
+  ||line 95, col 72 to line 95, col 78 of module L0_AccountJournal: 348
+  |||line 93, col 20 to line 94, col 83 of module L0_AccountJournal: 348
+  ||||line 93, col 21 to line 93, col 43 of module L0_AccountJournal: 348
+  ||||line 93, col 56 to line 93, col 56 of module L0_AccountJournal: 348
+  |||||line 92, col 14 to line 92, col 72 of module L0_AccountJournal: 348
+  ||||||line 39, col 24 to line 40, col 73 of module L0_AccountJournal: 348
+  ||||||line 92, col 22 to line 92, col 23 of module L0_AccountJournal: 348
+  ||||||line 92, col 25 to line 92, col 32 of module L0_AccountJournal: 348
+  ||||||line 92, col 34 to line 92, col 49 of module L0_AccountJournal: 348
+  ||||||line 92, col 51 to line 92, col 51 of module L0_AccountJournal: 348
+  ||||||line 92, col 53 to line 92, col 71 of module L0_AccountJournal: 348
+  |||||||line 92, col 53 to line 92, col 69 of module L0_AccountJournal: 348
+  ||||||||line 38, col 14 to line 38, col 62 of module L0_AccountJournal: 348
+  |||||||||line 38, col 14 to line 38, col 37 of module L0_AccountJournal: 348
+  ||||||||||line 38, col 26 to line 38, col 36 of module L0_AccountJournal: 348
+  |||||||||||line 36, col 16 to line 36, col 64 of module L0_AccountJournal: 348
+  ||||||||||||line 36, col 33 to line 36, col 63 of module L0_AccountJournal: 348:348
+  |||||||||||||line 36, col 50 to line 36, col 62 of module L0_AccountJournal: 264
+  |||||||||||||line 36, col 40 to line 36, col 48 of module L0_AccountJournal: 348
+  |||||||||line 38, col 39 to line 38, col 62 of module L0_AccountJournal: 348
+  ||||||||||line 38, col 51 to line 38, col 61 of module L0_AccountJournal: 348
+  |||||||||||line 37, col 16 to line 37, col 64 of module L0_AccountJournal: 348
+  ||||||||||||line 37, col 17 to line 37, col 23 of module L0_AccountJournal: 264
+  ||||||||||||line 37, col 33 to line 37, col 63 of module L0_AccountJournal: 348:612
+  |||||||||||||line 37, col 50 to line 37, col 62 of module L0_AccountJournal: 264
+  |||||||||||||line 37, col 40 to line 37, col 48 of module L0_AccountJournal: 348
+  ||||||||line 92, col 60 to line 92, col 68 of module L0_AccountJournal: 348
+  ||||line 94, col 24 to line 94, col 82 of module L0_AccountJournal: 348
+  |||||line 94, col 27 to line 94, col 35 of module L0_AccountJournal: 348
+  |||||line 94, col 42 to line 94, col 67 of module L0_AccountJournal: 116
+  |||||line 94, col 74 to line 94, col 82 of module L0_AccountJournal: 232
+<PrepareAbort line 96, col 1 to line 96, col 12 of module L0_AccountJournal (97 2 99 27)>: 444:445
+  line 97, col 5 to line 97, col 18 of module L0_AccountJournal: 22874
+  |line 97, col 5 to line 97, col 11 of module L0_AccountJournal: 22429
+  line 97, col 23 to line 97, col 31 of module L0_AccountJournal: 5482
+  |line 97, col 24 to line 97, col 31 of module L0_AccountJournal: 5037
+  line 97, col 36 to line 97, col 60 of module L0_AccountJournal: 445
+  line 98, col 5 to line 99, col 27 of module L0_AccountJournal: 445
+<RetryAdmit line 100, col 1 to line 100, col 10 of module L0_AccountJournal>: 0:132
+  line 100, col 18 to line 100, col 31 of module L0_AccountJournal: 11346
+  |line 100, col 18 to line 100, col 24 of module L0_AccountJournal: 11214
+  line 100, col 36 to line 100, col 44 of module L0_AccountJournal: 2650
+  |line 100, col 37 to line 100, col 44 of module L0_AccountJournal: 2518
+  line 100, col 49 to line 100, col 60 of module L0_AccountJournal: 354
+  |line 100, col 50 to line 100, col 60 of module L0_AccountJournal: 222
+  line 101, col 5 to line 101, col 26 of module L0_AccountJournal: 322
+  |line 101, col 5 to line 101, col 23 of module L0_AccountJournal: 190
+  ||line 36, col 16 to line 36, col 64 of module L0_AccountJournal: 190
+  |||line 36, col 17 to line 36, col 23 of module L0_AccountJournal: 132
+  |||line 36, col 33 to line 36, col 63 of module L0_AccountJournal: 190:322
+  ||||line 36, col 50 to line 36, col 62 of module L0_AccountJournal: 200
+  ||||line 36, col 40 to line 36, col 48 of module L0_AccountJournal: 190
+  ||line 101, col 14 to line 101, col 22 of module L0_AccountJournal: 190
+  |line 101, col 25 to line 101, col 26 of module L0_AccountJournal: 190
+  line 101, col 31 to line 101, col 41 of module L0_AccountJournal: 132
+<ConflictAdmit line 102, col 1 to line 102, col 13 of module L0_AccountJournal>: 132:132
+  line 102, col 21 to line 102, col 34 of module L0_AccountJournal: 11346
+  |line 102, col 21 to line 102, col 27 of module L0_AccountJournal: 11214
+  line 102, col 39 to line 102, col 47 of module L0_AccountJournal: 2650
+  |line 102, col 40 to line 102, col 47 of module L0_AccountJournal: 2518
+  line 102, col 52 to line 102, col 63 of module L0_AccountJournal: 354
+  |line 102, col 53 to line 102, col 63 of module L0_AccountJournal: 222
+  line 103, col 5 to line 103, col 26 of module L0_AccountJournal: 322
+  |line 103, col 5 to line 103, col 23 of module L0_AccountJournal: 190
+  ||line 36, col 16 to line 36, col 64 of module L0_AccountJournal: 190
+  |||line 36, col 17 to line 36, col 23 of module L0_AccountJournal: 132
+  |||line 36, col 33 to line 36, col 63 of module L0_AccountJournal: 190:322
+  ||||line 36, col 50 to line 36, col 62 of module L0_AccountJournal: 200
+  ||||line 36, col 40 to line 36, col 48 of module L0_AccountJournal: 190
+  ||line 103, col 14 to line 103, col 22 of module L0_AccountJournal: 190
+  |line 103, col 25 to line 103, col 26 of module L0_AccountJournal: 190
+  line 104, col 5 to line 104, col 49 of module L0_AccountJournal: 132
+<RejectPoison line 105, col 1 to line 105, col 12 of module L0_AccountJournal>: 0:2296
+  line 105, col 20 to line 105, col 33 of module L0_AccountJournal: 13510
+  |line 105, col 20 to line 105, col 26 of module L0_AccountJournal: 11214
+  line 105, col 38 to line 105, col 45 of module L0_AccountJournal: 4814
+  |line 105, col 38 to line 105, col 38 of module L0_AccountJournal: 2518
+  line 105, col 50 to line 105, col 60 of module L0_AccountJournal: 2296
+<RejectRecoveredAdmit line 106, col 1 to line 106, col 20 of module L0_AccountJournal>: 0:32
+  line 106, col 28 to line 106, col 41 of module L0_AccountJournal: 11246
+  |line 106, col 28 to line 106, col 34 of module L0_AccountJournal: 11214
+  line 106, col 46 to line 106, col 54 of module L0_AccountJournal: 2550
+  |line 106, col 47 to line 106, col 54 of module L0_AccountJournal: 2518
+  line 106, col 59 to line 106, col 69 of module L0_AccountJournal: 254
+  |line 106, col 59 to line 106, col 59 of module L0_AccountJournal: 222
+  line 106, col 74 to line 106, col 84 of module L0_AccountJournal: 32
+<RejectCapacity line 107, col 1 to line 107, col 14 of module L0_AccountJournal>: 0:0
+  line 107, col 22 to line 107, col 35 of module L0_AccountJournal: 11214
+  line 107, col 40 to line 107, col 48 of module L0_AccountJournal: 2518
+  line 107, col 53 to line 107, col 77 of module L0_AccountJournal: 222
+  line 108, col 5 to line 108, col 15 of module L0_AccountJournal: 0
+<WriteTail line 111, col 1 to line 111, col 9 of module L0_AccountJournal>: 764:765
+  line 111, col 17 to line 111, col 37 of module L0_AccountJournal: 11979
+  |line 111, col 17 to line 111, col 23 of module L0_AccountJournal: 11214
+  line 112, col 5 to line 112, col 52 of module L0_AccountJournal: 765
+<SealBatch line 113, col 1 to line 113, col 9 of module L0_AccountJournal>: 740:741
+  line 113, col 17 to line 113, col 37 of module L0_AccountJournal: 11954
+  |line 113, col 17 to line 113, col 23 of module L0_AccountJournal: 11213
+  line 114, col 5 to line 114, col 82 of module L0_AccountJournal: 741
+<SyncBatch line 115, col 1 to line 115, col 9 of module L0_AccountJournal>: 660:661
+  line 115, col 17 to line 115, col 37 of module L0_AccountJournal: 11873
+  |line 115, col 17 to line 115, col 23 of module L0_AccountJournal: 11212
+  line 116, col 5 to line 116, col 58 of module L0_AccountJournal: 661
+<PublishReceipt line 117, col 1 to line 117, col 14 of module L0_AccountJournal>: 649:650
+  line 117, col 22 to line 117, col 45 of module L0_AccountJournal: 11860
+  |line 117, col 22 to line 117, col 28 of module L0_AccountJournal: 11211
+  line 118, col 5 to line 119, col 38 of module L0_AccountJournal: 649
+  |line 118, col 8 to line 119, col 38 of module L0_AccountJournal: 650
+<AppendFailure line 120, col 1 to line 120, col 13 of module L0_AccountJournal>: 2252:2824
+  line 120, col 21 to line 120, col 75 of module L0_AccountJournal: 13373
+  |line 120, col 21 to line 120, col 27 of module L0_AccountJournal: 11209
+  |line 120, col 33 to line 120, col 75 of module L0_AccountJournal: 11209
+  line 122, col 2 to line 123, col 38 of module L0_AccountJournal: 2824
+  line 121, col 14 to line 121, col 73 of module L0_AccountJournal: 2164
+  |line 121, col 17 to line 121, col 37 of module L0_AccountJournal: 2164
+  |line 121, col 44 to line 121, col 59 of module L0_AccountJournal: 660:1980
+  |line 121, col 66 to line 121, col 73 of module L0_AccountJournal: 1504:3008
+<StartRecover line 127, col 1 to line 127, col 12 of module L0_AccountJournal>: 1976:24728
+  line 131, col 5 to line 131, col 18 of module L0_AccountJournal: 146112
+  |line 131, col 5 to line 131, col 11 of module L0_AccountJournal: 121384
+  line 132, col 5 to line 135, col 73 of module L0_AccountJournal: 24728
+  line 127, col 26 to line 127, col 29 of module L0_AccountJournal: 11209
+  line 127, col 39 to line 127, col 45 of module L0_AccountJournal: 11209
+  line 128, col 10 to line 130, col 77 of module L0_AccountJournal: 11209
+  |line 128, col 10 to line 129, col 68 of module L0_AccountJournal: 11209
+  |line 130, col 12 to line 130, col 76 of module L0_AccountJournal: 11209
+  ||line 130, col 15 to line 130, col 25 of module L0_AccountJournal: 11209
+  ||line 130, col 32 to line 130, col 33 of module L0_AccountJournal: 3281:3281
+  ||line 130, col 40 to line 130, col 76 of module L0_AccountJournal: 7928:15856
+<CheckConfig line 137, col 1 to line 137, col 11 of module L0_AccountJournal>: 768:769
+  line 137, col 19 to line 137, col 34 of module L0_AccountJournal: 11977
+  |line 137, col 19 to line 137, col 25 of module L0_AccountJournal: 11208
+  line 136, col 16 to line 136, col 25 of module L0_AccountJournal: 2418
+  |line 136, col 16 to line 136, col 16 of module L0_AccountJournal: 1649
+  line 136, col 30 to line 136, col 46 of module L0_AccountJournal: 1594
+  |line 136, col 30 to line 136, col 44 of module L0_AccountJournal: 825
+  line 136, col 51 to line 136, col 67 of module L0_AccountJournal: 1574
+  |line 136, col 51 to line 136, col 65 of module L0_AccountJournal: 805
+  line 138, col 5 to line 138, col 36 of module L0_AccountJournal: 769
+<RejectConfig line 139, col 1 to line 139, col 12 of module L0_AccountJournal>: 760:880
+  line 139, col 20 to line 139, col 35 of module L0_AccountJournal: 12087
+  |line 139, col 20 to line 139, col 26 of module L0_AccountJournal: 11207
+  line 139, col 40 to line 139, col 51 of module L0_AccountJournal: 2528
+  |line 139, col 41 to line 139, col 51 of module L0_AccountJournal: 1648
+  ||line 136, col 16 to line 136, col 67 of module L0_AccountJournal: 1648
+  |||line 136, col 16 to line 136, col 46 of module L0_AccountJournal: 1648
+  ||||line 136, col 16 to line 136, col 25 of module L0_AccountJournal: 1648
+  ||||line 136, col 30 to line 136, col 46 of module L0_AccountJournal: 824
+  |||line 136, col 51 to line 136, col 67 of module L0_AccountJournal: 804
+  line 140, col 5 to line 140, col 32 of module L0_AccountJournal: 880
+<CheckPhysical line 141, col 1 to line 141, col 13 of module L0_AccountJournal>: 556:557
+  line 141, col 21 to line 141, col 38 of module L0_AccountJournal: 11764
+  |line 141, col 21 to line 141, col 27 of module L0_AccountJournal: 11207
+  line 141, col 43 to line 141, col 63 of module L0_AccountJournal: 1158
+  |line 141, col 43 to line 141, col 61 of module L0_AccountJournal: 601
+  line 142, col 5 to line 142, col 36 of module L0_AccountJournal: 557
+<RejectPhysical line 143, col 1 to line 143, col 14 of module L0_AccountJournal>: 0:44
+  line 143, col 22 to line 143, col 39 of module L0_AccountJournal: 11250
+  |line 143, col 22 to line 143, col 28 of module L0_AccountJournal: 11206
+  line 143, col 44 to line 143, col 64 of module L0_AccountJournal: 644
+  |line 143, col 44 to line 143, col 62 of module L0_AccountJournal: 600
+  line 144, col 5 to line 144, col 32 of module L0_AccountJournal: 44
+<CheckRequired line 146, col 1 to line 146, col 13 of module L0_AccountJournal>: 344:554
+  line 146, col 21 to line 146, col 38 of module L0_AccountJournal: 11551
+  |line 146, col 21 to line 146, col 27 of module L0_AccountJournal: 11206
+  line 145, col 18 to line 145, col 36 of module L0_AccountJournal: 762
+  |line 145, col 19 to line 145, col 36 of module L0_AccountJournal: 553
+  line 35, col 16 to line 35, col 29 of module L0_AccountJournal: 345
+  |line 35, col 16 to line 35, col 21 of module L0_AccountJournal: 553
+  |line 35, col 24 to line 35, col 29 of module L0_AccountJournal: 553
+  line 35, col 34 to line 35, col 48 of module L0_AccountJournal: 866
+  |line 35, col 34 to line 35, col 34 of module L0_AccountJournal: 521
+  |line 35, col 36 to line 35, col 48 of module L0_AccountJournal: 521
+  ||line 34, col 13 to line 34, col 47 of module L0_AccountJournal: 521
+  |||line 34, col 16 to line 34, col 18 of module L0_AccountJournal: 521
+  |||line 34, col 25 to line 34, col 28 of module L0_AccountJournal: 209
+  |||line 34, col 35 to line 34, col 47 of module L0_AccountJournal: 312
+  ||line 35, col 42 to line 35, col 47 of module L0_AccountJournal: 521
+  line 145, col 48 to line 145, col 64 of module L0_AccountJournal: 553
+  line 145, col 66 to line 145, col 72 of module L0_AccountJournal: 553
+  line 147, col 5 to line 147, col 54 of module L0_AccountJournal: 554
+<RejectRequired line 148, col 1 to line 148, col 14 of module L0_AccountJournal>: 208:208
+  line 148, col 22 to line 148, col 39 of module L0_AccountJournal: 11413
+  |line 148, col 22 to line 148, col 28 of module L0_AccountJournal: 11205
+  line 148, col 44 to line 148, col 57 of module L0_AccountJournal: 760
+  |line 148, col 45 to line 148, col 57 of module L0_AccountJournal: 552
+  ||line 145, col 18 to line 145, col 73 of module L0_AccountJournal: 552
+  |||line 145, col 18 to line 145, col 36 of module L0_AccountJournal: 552
+  |||line 145, col 41 to line 145, col 73 of module L0_AccountJournal: 344
+  ||||line 35, col 16 to line 35, col 48 of module L0_AccountJournal: 344
+  |||||line 35, col 16 to line 35, col 29 of module L0_AccountJournal: 344
+  |||||line 35, col 34 to line 35, col 48 of module L0_AccountJournal: 312
+  ||||line 145, col 48 to line 145, col 64 of module L0_AccountJournal: 344
+  ||||line 145, col 66 to line 145, col 72 of module L0_AccountJournal: 344
+  line 149, col 5 to line 149, col 49 of module L0_AccountJournal: 208
+<SyncRecovery line 152, col 1 to line 152, col 12 of module L0_AccountJournal>: 232:233
+  line 152, col 20 to line 152, col 41 of module L0_AccountJournal: 11438
+  |line 152, col 20 to line 152, col 26 of module L0_AccountJournal: 11205
+  line 153, col 5 to line 153, col 53 of module L0_AccountJournal: 233
+<RecoveryIoFailure line 154, col 1 to line 154, col 17 of module L0_AccountJournal>: 801:3032
+  line 154, col 25 to line 154, col 83 of module L0_AccountJournal: 14236
+  |line 154, col 25 to line 154, col 31 of module L0_AccountJournal: 11204
+  |line 154, col 37 to line 154, col 83 of module L0_AccountJournal: 11204
+  line 155, col 5 to line 155, col 32 of module L0_AccountJournal: 3032
+<CheckStructure line 164, col 1 to line 164, col 14 of module L0_AccountJournal>: 128:129
+  line 164, col 22 to line 164, col 40 of module L0_AccountJournal: 11333
+  |line 164, col 22 to line 164, col 28 of module L0_AccountJournal: 11204
+  line 157, col 5 to line 161, col 42 of module L0_AccountJournal: 33
+  |line 158, col 8 to line 158, col 17 of module L0_AccountJournal: 222
+  ||line 158, col 8 to line 158, col 15 of module L0_AccountJournal: 126
+  ||line 158, col 17 to line 158, col 17 of module L0_AccountJournal: 126
+  |line 158, col 22 to line 158, col 35 of module L0_AccountJournal: 218
+  ||line 158, col 22 to line 158, col 33 of module L0_AccountJournal: 122
+  |line 158, col 40 to line 158, col 59 of module L0_AccountJournal: 214
+  ||line 158, col 40 to line 158, col 50 of module L0_AccountJournal: 118
+  ||line 158, col 56 to line 158, col 59 of module L0_AccountJournal: 118
+  |line 159, col 8 to line 159, col 39 of module L0_AccountJournal: 208
+  ||line 159, col 8 to line 159, col 20 of module L0_AccountJournal: 112
+  ||line 159, col 26 to line 159, col 39 of module L0_AccountJournal: 112
+  |line 160, col 9 to line 160, col 50 of module L0_AccountJournal: 60
+  ||line 160, col 9 to line 160, col 21 of module L0_AccountJournal: 108
+  ||line 160, col 26 to line 160, col 50 of module L0_AccountJournal: 82
+  |||line 160, col 26 to line 160, col 38 of module L0_AccountJournal: 46
+  |||line 160, col 40 to line 160, col 50 of module L0_AccountJournal: 46
+  |line 161, col 9 to line 161, col 41 of module L0_AccountJournal: 96
+  ||line 161, col 9 to line 161, col 11 of module L0_AccountJournal: 108
+  ||line 161, col 16 to line 161, col 41 of module L0_AccountJournal: 6
+  |line 157, col 14 to line 157, col 22 of module L0_AccountJournal: 153
+  line 162, col 5 to line 163, col 62 of module L0_AccountJournal: 33
+  |line 163, col 5 to line 163, col 62 of module L0_AccountJournal: 60
+  ||line 163, col 6 to line 163, col 54 of module L0_AccountJournal: 108
+  |||line 163, col 6 to line 163, col 35 of module L0_AccountJournal: 108
+  ||||line 163, col 6 to line 163, col 18 of module L0_AccountJournal: 108
+  ||||line 163, col 23 to line 163, col 35 of module L0_AccountJournal: 48
+  |||line 163, col 40 to line 163, col 54 of module L0_AccountJournal: 48
+  ||line 163, col 60 to line 163, col 62 of module L0_AccountJournal: 84
+  |||line 163, col 60 to line 163, col 60 of module L0_AccountJournal: 48
+  |||line 163, col 62 to line 163, col 62 of module L0_AccountJournal: 48
+  |line 162, col 16 to line 162, col 24 of module L0_AccountJournal: 133
+  line 164, col 60 to line 164, col 66 of module L0_AccountJournal: 153
+  line 164, col 68 to line 164, col 75 of module L0_AccountJournal: 112
+  line 165, col 5 to line 165, col 35 of module L0_AccountJournal: 129
+<RejectStructure line 166, col 1 to line 166, col 15 of module L0_AccountJournal>: 0:24
+  line 166, col 23 to line 166, col 41 of module L0_AccountJournal: 11227
+  |line 166, col 23 to line 166, col 29 of module L0_AccountJournal: 11203
+  line 166, col 46 to line 166, col 78 of module L0_AccountJournal: 176
+  |line 166, col 47 to line 166, col 78 of module L0_AccountJournal: 152
+  ||line 157, col 2 to line 163, col 62 of module L0_AccountJournal: 152
+  |||line 157, col 5 to line 161, col 42 of module L0_AccountJournal: 152
+  ||||line 158, col 5 to line 161, col 42 of module L0_AccountJournal: 126
+  |||||line 158, col 8 to line 158, col 59 of module L0_AccountJournal: 126
+  ||||||line 158, col 8 to line 158, col 35 of module L0_AccountJournal: 126
+  |||||||line 158, col 8 to line 158, col 17 of module L0_AccountJournal: 126
+  |||||||line 158, col 22 to line 158, col 35 of module L0_AccountJournal: 122
+  ||||||line 158, col 40 to line 158, col 59 of module L0_AccountJournal: 118
+  |||||line 159, col 8 to line 159, col 39 of module L0_AccountJournal: 112
+  |||||line 160, col 9 to line 160, col 50 of module L0_AccountJournal: 108
+  ||||||line 160, col 9 to line 160, col 21 of module L0_AccountJournal: 108
+  ||||||line 160, col 26 to line 160, col 50 of module L0_AccountJournal: 46
+  |||||line 161, col 9 to line 161, col 41 of module L0_AccountJournal: 108
+  ||||||line 161, col 9 to line 161, col 11 of module L0_AccountJournal: 108
+  ||||||line 161, col 16 to line 161, col 41 of module L0_AccountJournal: 6
+  ||||line 157, col 14 to line 157, col 22 of module L0_AccountJournal: 152
+  |||line 162, col 5 to line 163, col 62 of module L0_AccountJournal: 132
+  ||||line 163, col 5 to line 163, col 62 of module L0_AccountJournal: 104
+  |||||line 163, col 6 to line 163, col 54 of module L0_AccountJournal: 104
+  ||||||line 163, col 6 to line 163, col 35 of module L0_AccountJournal: 104
+  |||||||line 163, col 6 to line 163, col 18 of module L0_AccountJournal: 104
+  |||||||line 163, col 23 to line 163, col 35 of module L0_AccountJournal: 44
+  ||||||line 163, col 40 to line 163, col 54 of module L0_AccountJournal: 44
+  |||||line 163, col 60 to line 163, col 62 of module L0_AccountJournal: 44
+  ||||line 162, col 16 to line 162, col 24 of module L0_AccountJournal: 132
+  ||line 166, col 62 to line 166, col 68 of module L0_AccountJournal: 152
+  ||line 166, col 70 to line 166, col 77 of module L0_AccountJournal: 112
+  line 167, col 5 to line 167, col 32 of module L0_AccountJournal: 24
+<VerifyClosure line 172, col 1 to line 172, col 13 of module L0_AccountJournal>: 12:12
+  line 172, col 21 to line 172, col 37 of module L0_AccountJournal: 11215
+  |line 172, col 21 to line 172, col 27 of module L0_AccountJournal: 11203
+  line 172, col 42 to line 172, col 59 of module L0_AccountJournal: 12
+  |line 172, col 42 to line 172, col 45 of module L0_AccountJournal: 89
+  |line 172, col 48 to line 172, col 59 of module L0_AccountJournal: 89
+  line 173, col 5 to line 173, col 26 of module L0_AccountJournal: 60
+  |line 173, col 5 to line 173, col 22 of module L0_AccountJournal: 48
+  line 171, col 20 to line 171, col 91 of module L0_AccountJournal: 48
+  |line 171, col 20 to line 171, col 35 of module L0_AccountJournal: 36
+  |line 171, col 37 to line 171, col 91 of module L0_AccountJournal: 36
+  line 173, col 44 to line 173, col 56 of module L0_AccountJournal: 36
+  line 174, col 5 to line 174, col 61 of module L0_AccountJournal: 12
+<RejectClosure line 175, col 1 to line 175, col 13 of module L0_AccountJournal>: 0:24
+  line 175, col 21 to line 175, col 37 of module L0_AccountJournal: 11227
+  |line 175, col 21 to line 175, col 27 of module L0_AccountJournal: 11203
+  line 175, col 42 to line 175, col 59 of module L0_AccountJournal: 24
+  |line 175, col 42 to line 175, col 45 of module L0_AccountJournal: 89
+  |line 175, col 48 to line 175, col 59 of module L0_AccountJournal: 89
+  line 176, col 5 to line 176, col 26 of module L0_AccountJournal: 72
+  |line 176, col 5 to line 176, col 22 of module L0_AccountJournal: 48
+  line 176, col 31 to line 176, col 58 of module L0_AccountJournal: 60
+  |line 176, col 32 to line 176, col 58 of module L0_AccountJournal: 36
+  line 177, col 5 to line 177, col 32 of module L0_AccountJournal: 24
+<VerifierUnavailable line 178, col 1 to line 178, col 19 of module L0_AccountJournal>: 0:36
+  line 178, col 27 to line 178, col 43 of module L0_AccountJournal: 11239
+  |line 178, col 27 to line 178, col 33 of module L0_AccountJournal: 11203
+  line 178, col 48 to line 178, col 65 of module L0_AccountJournal: 36
+  |line 178, col 48 to line 178, col 51 of module L0_AccountJournal: 89
+  |line 178, col 54 to line 178, col 65 of module L0_AccountJournal: 89
+  line 179, col 5 to line 179, col 26 of module L0_AccountJournal: 84
+  |line 179, col 5 to line 179, col 22 of module L0_AccountJournal: 48
+  line 180, col 5 to line 180, col 32 of module L0_AccountJournal: 36
+<SkipClosure line 181, col 1 to line 181, col 11 of module L0_AccountJournal>: 12:12
+  line 181, col 19 to line 181, col 35 of module L0_AccountJournal: 11215
+  |line 181, col 19 to line 181, col 25 of module L0_AccountJournal: 11203
+  line 181, col 40 to line 181, col 57 of module L0_AccountJournal: 12
+  |line 181, col 40 to line 181, col 43 of module L0_AccountJournal: 89
+  |line 181, col 46 to line 181, col 57 of module L0_AccountJournal: 89
+  line 182, col 5 to line 182, col 26 of module L0_AccountJournal: 60
+  |line 182, col 5 to line 182, col 22 of module L0_AccountJournal: 48
+  line 182, col 31 to line 182, col 61 of module L0_AccountJournal: 12
+<AdvanceHistory line 183, col 1 to line 183, col 14 of module L0_AccountJournal>: 8:8
+  line 183, col 22 to line 183, col 38 of module L0_AccountJournal: 11211
+  |line 183, col 22 to line 183, col 28 of module L0_AccountJournal: 11203
+  line 184, col 5 to line 184, col 79 of module L0_AccountJournal: 8
+<BeginReplay line 185, col 1 to line 185, col 11 of module L0_AccountJournal>: 40:41
+  line 185, col 19 to line 185, col 35 of module L0_AccountJournal: 11244
+  |line 185, col 19 to line 185, col 25 of module L0_AccountJournal: 11203
+  line 185, col 40 to line 185, col 58 of module L0_AccountJournal: 130
+  |line 185, col 40 to line 185, col 43 of module L0_AccountJournal: 89
+  |line 185, col 45 to line 185, col 58 of module L0_AccountJournal: 89
+  line 186, col 5 to line 186, col 34 of module L0_AccountJournal: 41
+<ReplayAdmit line 193, col 1 to line 193, col 11 of module L0_AccountJournal>: 0:0
+  line 193, col 19 to line 193, col 34 of module L0_AccountJournal: 11202
+  line 193, col 39 to line 193, col 56 of module L0_AccountJournal: 33
+  line 196, col 8 to line 196, col 65 of module L0_AccountJournal: 0
+<ReplayAbort line 197, col 1 to line 197, col 11 of module L0_AccountJournal>: 0:0
+  line 197, col 19 to line 197, col 34 of module L0_AccountJournal: 11202
+  line 197, col 39 to line 197, col 56 of module L0_AccountJournal: 33
+  line 200, col 8 to line 201, col 62 of module L0_AccountJournal: 0
+<RejectReplay line 202, col 1 to line 202, col 12 of module L0_AccountJournal>: 0:0
+  line 202, col 20 to line 202, col 35 of module L0_AccountJournal: 11202
+  line 202, col 40 to line 202, col 57 of module L0_AccountJournal: 33
+  line 203, col 36 to line 203, col 63 of module L0_AccountJournal: 0
+<FreezeRecovered line 204, col 1 to line 204, col 15 of module L0_AccountJournal>: 32:33
+  line 204, col 23 to line 204, col 38 of module L0_AccountJournal: 11235
+  |line 204, col 23 to line 204, col 29 of module L0_AccountJournal: 11202
+  line 204, col 43 to line 204, col 61 of module L0_AccountJournal: 66
+  |line 204, col 43 to line 204, col 46 of module L0_AccountJournal: 33
+  |line 204, col 48 to line 204, col 61 of module L0_AccountJournal: 33
+  line 205, col 5 to line 205, col 79 of module L0_AccountJournal: 33
+<ReturnRecovered line 206, col 1 to line 206, col 15 of module L0_AccountJournal>: 32:33
+  line 206, col 23 to line 206, col 38 of module L0_AccountJournal: 11234
+  |line 206, col 23 to line 206, col 29 of module L0_AccountJournal: 11201
+  line 207, col 5 to line 209, col 38 of module L0_AccountJournal: 33
+<Crash line 218, col 1 to line 218, col 5 of module L0_AccountJournal>: 976:5477
+  line 218, col 13 to line 218, col 32 of module L0_AccountJournal: 3145
+  |line 218, col 13 to line 218, col 21 of module L0_AccountJournal: 11200
+  |line 218, col 23 to line 218, col 32 of module L0_AccountJournal: 11200
+  line 218, col 37 to line 218, col 50 of module L0_AccountJournal: 6468
+  |line 218, col 37 to line 218, col 43 of module L0_AccountJournal: 3323
+  line 220, col 6 to line 220, col 44 of module L0_AccountJournal: 4141
+  |line 220, col 6 to line 220, col 9 of module L0_AccountJournal: 8282
+  |line 220, col 15 to line 220, col 20 of module L0_AccountJournal: 4809
+  ||line 220, col 15 to line 220, col 15 of module L0_AccountJournal: 4141
+  |line 220, col 25 to line 220, col 43 of module L0_AccountJournal: 668
+  ||line 220, col 25 to line 220, col 30 of module L0_AccountJournal: 4141
+  ||line 220, col 32 to line 220, col 43 of module L0_AccountJournal: 4141
+  line 221, col 5 to line 225, col 55 of module L0_AccountJournal: 5477
+  line 219, col 14 to line 219, col 26 of module L0_AccountJournal: 3145
+  |line 214, col 18 to line 217, col 29 of module L0_AccountJournal: 3145:287497
+  ||line 214, col 42 to line 217, col 28 of module L0_AccountJournal: 287497
+  |||line 215, col 2 to line 217, col 28 of module L0_AccountJournal: 416541
+  ||||line 215, col 5 to line 215, col 17 of module L0_AccountJournal: 416541
+  ||||line 215, col 24 to line 215, col 29 of module L0_AccountJournal: 405861
+  ||||line 216, col 7 to line 217, col 28 of module L0_AccountJournal: 10680
+  |||||line 216, col 10 to line 216, col 24 of module L0_AccountJournal: 10680
+  |||||line 216, col 31 to line 216, col 53 of module L0_AccountJournal: 1729
+  |||||line 217, col 7 to line 217, col 28 of module L0_AccountJournal: 8951
+  |||line 214, col 51 to line 214, col 55 of module L0_AccountJournal: 287497
+  ||line 214, col 25 to line 214, col 39 of module L0_AccountJournal: 3145:862491
+  line 219, col 35 to line 219, col 50 of module L0_AccountJournal: 3145:17037
+  line 219, col 62 to line 219, col 68 of module L0_AccountJournal: 3145
+<TypeOK line 239, col 1 to line 239, col 6 of module L0_AccountJournal>
+  line 239, col 11 to line 243, col 54 of module L0_AccountJournal: 13207
+<DependencyFirst line 244, col 1 to line 244, col 15 of module L0_AccountJournal>
+  line 244, col 21 to line 245, col 41 of module L0_AccountJournal: 13207
+  |line 244, col 21 to line 244, col 41 of module L0_AccountJournal: 13207
+  |line 245, col 2 to line 245, col 41 of module L0_AccountJournal: 12639
+<NoLostReceipt line 246, col 1 to line 246, col 13 of module L0_AccountJournal>
+  line 246, col 18 to line 246, col 37 of module L0_AccountJournal: 13207
+  |line 35, col 16 to line 35, col 48 of module L0_AccountJournal: 13207
+  ||line 35, col 16 to line 35, col 29 of module L0_AccountJournal: 13207
+  ||line 35, col 34 to line 35, col 48 of module L0_AccountJournal: 13207
+  |||line 35, col 34 to line 35, col 34 of module L0_AccountJournal: 13207
+  |||line 35, col 36 to line 35, col 48 of module L0_AccountJournal: 13207
+  ||||line 34, col 13 to line 34, col 47 of module L0_AccountJournal: 13207
+  |||||line 34, col 16 to line 34, col 18 of module L0_AccountJournal: 13207
+  |||||line 34, col 25 to line 34, col 28 of module L0_AccountJournal: 3434
+  |||||line 34, col 35 to line 34, col 47 of module L0_AccountJournal: 9773
+  ||||line 35, col 42 to line 35, col 47 of module L0_AccountJournal: 13207
+  |line 246, col 25 to line 246, col 29 of module L0_AccountJournal: 13207
+  |line 246, col 31 to line 246, col 36 of module L0_AccountJournal: 13207
+<ReceiptDependencies line 247, col 1 to line 247, col 19 of module L0_AccountJournal>
+  line 247, col 24 to line 247, col 55 of module L0_AccountJournal: 13207
+  |line 247, col 24 to line 247, col 33 of module L0_AccountJournal: 13207
+  |line 247, col 38 to line 247, col 55 of module L0_AccountJournal: 9773
+<PublishedHistory line 248, col 1 to line 248, col 16 of module L0_AccountJournal>
+  line 248, col 21 to line 248, col 68 of module L0_AccountJournal: 13206
+  |line 248, col 21 to line 248, col 39 of module L0_AccountJournal: 13206
+  |line 248, col 44 to line 248, col 68 of module L0_AccountJournal: 13206
+  ||line 35, col 16 to line 35, col 48 of module L0_AccountJournal: 13206
+  |||line 35, col 16 to line 35, col 29 of module L0_AccountJournal: 13206
+  |||line 35, col 34 to line 35, col 48 of module L0_AccountJournal: 13206
+  ||||line 35, col 34 to line 35, col 34 of module L0_AccountJournal: 13206
+  ||||line 35, col 36 to line 35, col 48 of module L0_AccountJournal: 13206
+  |||||line 34, col 13 to line 34, col 47 of module L0_AccountJournal: 13206
+  ||||||line 34, col 16 to line 34, col 18 of module L0_AccountJournal: 13206
+  ||||||line 34, col 25 to line 34, col 28 of module L0_AccountJournal: 8470
+  ||||||line 34, col 35 to line 34, col 47 of module L0_AccountJournal: 4736
+  |||||line 35, col 42 to line 35, col 47 of module L0_AccountJournal: 13206
+  ||line 248, col 51 to line 248, col 59 of module L0_AccountJournal: 13206
+  ||line 248, col 61 to line 248, col 67 of module L0_AccountJournal: 13206
+<PoisonKeepsPrefix line 249, col 1 to line 249, col 17 of module L0_AccountJournal>
+  line 249, col 22 to line 249, col 49 of module L0_AccountJournal: 13206
+  |line 249, col 22 to line 249, col 29 of module L0_AccountJournal: 13206
+  |line 249, col 34 to line 249, col 49 of module L0_AccountJournal: 2384
+<RequiredBeforeMutation line 250, col 1 to line 250, col 22 of module L0_AccountJournal>
+  line 250, col 27 to line 251, col 43 of module L0_AccountJournal: 13206
+  |line 250, col 27 to line 250, col 36 of module L0_AccountJournal: 13206
+  |line 251, col 2 to line 251, col 43 of module L0_AccountJournal: 208
+<RecoveredFrozen line 252, col 1 to line 252, col 15 of module L0_AccountJournal>
+  line 252, col 20 to line 252, col 42 of module L0_AccountJournal: 13206
+  |line 252, col 20 to line 252, col 30 of module L0_AccountJournal: 13206
+  |line 252, col 35 to line 252, col 42 of module L0_AccountJournal: 204
+<RecoveryNotExposed line 253, col 1 to line 253, col 18 of module L0_AccountJournal>
+  line 253, col 23 to line 253, col 85 of module L0_AccountJournal: 13206
+  |line 253, col 23 to line 253, col 47 of module L0_AccountJournal: 13206
+  |line 253, col 52 to line 253, col 85 of module L0_AccountJournal: 4108
+<VerifiedPreceding line 254, col 1 to line 254, col 17 of module L0_AccountJournal>
+  line 254, col 22 to line 255, col 99 of module L0_AccountJournal: 13206
+  |line 255, col 2 to line 255, col 99 of module L0_AccountJournal: 20
+  |line 254, col 31 to line 254, col 40 of module L0_AccountJournal: 13206
+<ReturnedChecked line 256, col 1 to line 256, col 15 of module L0_AccountJournal>
+  line 256, col 20 to line 258, col 73 of module L0_AccountJournal: 13206
+<ReplayConservation line 259, col 1 to line 259, col 18 of module L0_AccountJournal>
+  line 259, col 23 to line 259, col 62 of module L0_AccountJournal: 13206
+End of statistics.
+48587 states generated, 13207 distinct states found, 2005 states left on queue.
+The depth of the complete state graph search is 27.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 12 and the 95th percentile is 4).
+Finished in 02s at (2026-10-20 21:21:18)
+>>> elapsed: 3s (exit 12)

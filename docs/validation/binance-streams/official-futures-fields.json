@@ -1,0 +1,415 @@
+{
+  "repository": "binance/binance-connector-python",
+  "commit": "a54ec0b312c36706dc1d0b2cb33c658d55b72e89",
+  "note": "字段名与类型由官方生成模型 AST 提取；未采用其所有字段 Optional 的宽松业务校验。sha256 是下载的完整原始文件哈希。",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/account_update.py",
+      "sha256": "5a7c7cd87f1a582d2daef0767b56b369731cfbf26c049eb6838b9b74044cab9a",
+      "fields": [
+        {
+          "name": "E",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "T",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "a",
+          "type": "Optional[AccountUpdateA]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/account_update_a.py",
+      "sha256": "aa606e16bc4ccec54ea14486e0ff5fb3cf81f448d2df3e1dc07b0de0ce0421c7",
+      "fields": [
+        {
+          "name": "m",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "B",
+          "type": "Optional[List[AccountUpdateABInner]]"
+        },
+        {
+          "name": "P",
+          "type": "Optional[List[AccountUpdateAPInner]]"
+        },
+        {
+          "name": "S",
+          "type": "Optional[StrictStr]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/account_update_ab_inner.py",
+      "sha256": "5364197d714687cbac0c36afbc6ecadd92e75f0d81944f983f478b404caeb8e1",
+      "fields": [
+        {
+          "name": "a",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "wb",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "cw",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "bc",
+          "type": "Optional[StrictStr]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/account_update_ap_inner.py",
+      "sha256": "4a71b3392d7d5c51f38c6239fcf5aaf35e3f39ba75bcc6535af6c8b486636d6e",
+      "fields": [
+        {
+          "name": "s",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "pa",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ep",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "bep",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "cr",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "up",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "mt",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "iw",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ps",
+          "type": "Optional[StrictStr]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/algo_update.py",
+      "sha256": "b59d596d7623866190e7dd90015e38f77540924a77c69d66250d7a4d813b7224",
+      "fields": [
+        {
+          "name": "T",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "E",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "o",
+          "type": "Optional[AlgoUpdateO]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/algo_update_o.py",
+      "sha256": "d370ea89c9dec56b6ba711dddc7ddd00f470a5814d2dcc9747d4f4d8acca8ea2",
+      "fields": [
+        {
+          "name": "caid",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "aid",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "at",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "o",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "s",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "S",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ps",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "f",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "q",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "X",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ai",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ap",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "aq",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "act",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "tp",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "p",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "V",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "wt",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "pm",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "cp",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "pP",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "R",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "tt",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "gtd",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "rm",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ia",
+          "type": "Optional[StrictBool]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/order_trade_update.py",
+      "sha256": "bf881e86164a13672dc5148446c007e8fc2d98f21e408b95bba52dbf0ae4a8db",
+      "fields": [
+        {
+          "name": "E",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "T",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "o",
+          "type": "Optional[OrderTradeUpdateO]"
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/binance/binance-connector-python/a54ec0b312c36706dc1d0b2cb33c658d55b72e89/clients/derivatives_trading_usds_futures/src/binance_sdk_derivatives_trading_usds_futures/websocket_streams/models/order_trade_update_o.py",
+      "sha256": "d8894d5000d9ee6ac1cecbbc823fd25834c6b8ad02c52e2f6b0f36fc08f781d7",
+      "fields": [
+        {
+          "name": "s",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "c",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "S",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "o",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "f",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "q",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "p",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ap",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "sp",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "x",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "X",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "i",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "M",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "l",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "z",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "L",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "N",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "n",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "T",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "t",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "b",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "a",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "m",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "R",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "wt",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ot",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "ps",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "cp",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "AP",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "cr",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "pP",
+          "type": "Optional[StrictBool]"
+        },
+        {
+          "name": "si",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "ss",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "rp",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "V",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "pm",
+          "type": "Optional[StrictStr]"
+        },
+        {
+          "name": "gtd",
+          "type": "Optional[StrictInt]"
+        },
+        {
+          "name": "er",
+          "type": "Optional[StrictStr]"
+        }
+      ]
+    }
+  ]
+}

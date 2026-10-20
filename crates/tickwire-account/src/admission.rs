@@ -41,9 +41,17 @@ impl Account {
         {
             return Err(Error::Identity);
         }
-        if now >= self.valid_until
-            || now >= r.deadline
-            || ctx.strategy.risk_policy_version != self.revisions.risk
+        let increases = !matches!(
+            c.body,
+            v::CommandBody::Cancel(_)
+                | v::CommandBody::Query(_)
+                | v::CommandBody::CancelList(_)
+                | v::CommandBody::CancelAlgo(_)
+        );
+        if now >= r.deadline
+            || (increases
+                && (now >= self.valid_until
+                    || ctx.strategy.risk_policy_version != self.revisions.risk))
         {
             return Err(Error::Stale);
         }
@@ -59,13 +67,6 @@ impl Account {
         if !p.strategy_limits.iter().any(|x| x.0 == strategy) {
             return Err(Error::Identity);
         }
-        let increases = !matches!(
-            c.body,
-            v::CommandBody::Cancel(_)
-                | v::CommandBody::Query(_)
-                | v::CommandBody::CancelList(_)
-                | v::CommandBody::CancelAlgo(_)
-        );
         if increases && self.frozen {
             return Err(Error::Frozen);
         }
@@ -361,7 +362,7 @@ impl Account {
         {
             return Err(Error::Identity);
         }
-        if now >= self.valid_until || now >= a.deadline {
+        if now >= a.deadline || (a.increases && now >= self.valid_until) {
             return Err(Error::Stale);
         }
         if !a.increases {

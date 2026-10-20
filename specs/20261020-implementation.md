@@ -11,8 +11,8 @@ Status: active
 | 范围 | 当前实现 | 后续验收 |
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
-| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照构造与接收、SPSC/广播及 1～32 消费进程测试；认证会话与三进程 JOIN 集成 | Arena、bank 轮换、进程死亡回收与完整业务进程接入 |
-| P2 风控与执行 | 定点风险公式、Spot 多资产与 USD-M 账户、归属/预留/去重、完整命令编码与持久绑定、真实 TLS 发送协调及 Binance REST 接线 | 账户与发送协调组合、行情风控、协议会话与业务回报、剩余订单类型和限流 |
+| P1 行情与 IPC | 批量有界盘口、小批散布改量、Spot/USD-M 深度解码与快照/增量重同步；固定 wire codec、Linux memfd、快照构造与接收、广播及跨进程 JOIN | Arena、bank 轮换、进程死亡回收与完整业务进程接入 |
+| P2 风控与执行 | 定点风险公式、Spot 多资产与 USD-M 账户、真实账户 WAL 与恢复依赖绑定、账户发送协调、Binance REST 签名及私有事件解码 | 发送组合形式模型、行情风控、协议会话与业务回报关联、剩余订单类型和限流 |
 | P3 发布与恢复 | 有序 journal Mock；真实物理 WAL/分段/同步恢复；业务日志适配、恢复依赖保存与验证；恢复后保持冻结 | 策略升级/回滚、多 exec 协调、对账、恢复后授权和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
 
@@ -29,6 +29,8 @@ Status: active
 - [完整命令摘要与日志绑定](implementation/command-binding.md)。
 - [交易所命令与事件](implementation/venue.md)、[非阻塞网络](implementation/transport.md)、[Binance 协议](implementation/binance-protocol.md)与[持久发送协调](implementation/gateway.md)。
 - [账户接口](../docs/implementation/account-interface.md)、[账户规格](implementation/account.md)、[账户恢复编码](implementation/account-codec.md)与 [Spot 请求扩展](implementation/binance-request-extensions.md)。
+- [账户日志](implementation/account-journal.md)、[恢复依赖绑定](implementation/account-recovery-binding.md)与[账户发送协调](implementation/account-gateway.md)。
+- [Binance 行情与私有事件](implementation/binance-streams.md)、[盘口启动和重同步](implementation/binance-depth-sync.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
@@ -148,3 +150,11 @@ macOS/Linux 全仓测试与 Clippy 通过，新增四组模型共 13 个配置�
 Spot 请求增加 OCO、OTO、OTOCO、peg 与 SOR 的类型化参数和 REST/WebSocket 编码。新增 17 项测试包含十次实际 TLS 签名请求，以及旧命令字节兼容和旧解码器拒绝新增标签的检查。请求编码完成不自动赋予对应账户准入资格。
 
 账户 L0/L1 共六组模型通过，全部 Next 动作均生成后继状态，覆盖迟到成交、重复观察、终态累计、费用与减仓预留。接口边界、完整有限域和运行记录见[账户验证](../docs/validation/account/README.md)、[恢复编码验证](../docs/validation/account-codec/README.md)、[请求扩展验证](../docs/validation/binance-request-extensions/README.md)与[账户模型](../tla/execution_models/account/ROADMAP.md)。
+
+## 账户日志、发送组合与盘口同步
+
+账户日志按原顺序保存八类恢复记录，逐条准入绑定完整基线和此前日志前缀。发送协调器使用同一个账户管理资金，在依赖与 Admit 同步完成后才排队；部分接受后保留责任，零接受中止通过账户预校验并同步后才释放。恢复没有网络连接或自动重发。账户冻结后，健康连接仍允许满足当前授权和期限的撤单、查询。
+
+Binance 普通 JSON 深度及私有事件已接入类型化解码；盘口协调器在订阅后缓存增量、取得 REST 快照、按产品序列规则桥接。旧连接和旧请求回调不改变当前盘口，溢出、断档和重连关闭可见性并重新同步。私有流登录续期、轮换、业务关联和完整进程接线仍继续实现。
+
+本阶段新增组合模型独立于已有账户、物理日志和传输模型。各模型的状态、范围与证据以 `tla/execution_models/` 对应输出为准；旧模型的 PASS 不代替新增组合验证。
