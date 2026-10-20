@@ -8,9 +8,11 @@
 | --- | --- | --- | --- |
 | L0_commit_gate | 单所有者订单提交状态机 | faithful transcription | reserve、accept_commit、begin_send、ack、uncertain/not_found、abort_unsent、NoBytesAccepted、gate 更新 |
 | L1_crash_receipt | 外部持久记录与 exec 崩溃恢复 | faithful fault injection | dependency 写入、journal commit/失败/丢回执、发送前后崩溃、restart/recover_intent |
-| L2_economic_facts | 成交/费用/终态的重放与未知累计成交 | 计划 | fill、fee、terminal、去重容量与冲突冻结 |
+| L2_economic_facts | 成交/费用/终态的重放与未知累计成交 | faithful transcription | fill、fee、terminal、去重容量、冲突/溢出冻结、Mock 有序重放 |
 | L3_activation | 恢复闭锁后的新 epoch 激活 | 计划 | 尚缺少完整 runtime 激活代码，先不编造 |
 
 L0 将可信回执来源抽象成独立 local/replica 完成集合；L1 用真实 MockJournal 的调用顺序替换这个边界。只有正向“接受可信完成信息”的逻辑被验证；真实磁盘、远端复制、账户对账、旧进程 fencing 继续留在后续验证范围。
 
 `Gate::permits` 的布尔门控在模型中合并为一个谓词，其值由调用者更新。模型不证明调用者按真实时间刷新 `Gate.now`；配置版本、行情 freshness、账户恢复、epoch/generation 等每个实参的含义已经由实际代码和单元测试固定。
+
+L2 按完整同步 record/restart 调用转录，检查 1–2 笔订单的单结算资产支出账本。L2-001 修复前模型与反例归档，唯一 live 模型为 v2；事实追加与 apply 之间的崩溃尚未在本层注入。

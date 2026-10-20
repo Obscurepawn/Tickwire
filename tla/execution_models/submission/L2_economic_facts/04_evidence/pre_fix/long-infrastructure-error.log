@@ -1,0 +1,25 @@
+>>> TLC module=L2_EconomicFacts cfg=L2_EconomicFacts_long.cfg workers=1
+>>> jar=$REPO/tla/tools/tla2tools.jar
+>>> dir=$REPO/tla/execution_models/submission/L2_economic_facts/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 2 and seed -4350884075528902501 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file $REPO/tla/execution_models/submission/L2_economic_facts/02_models/L2_EconomicFacts.tla
+Parsing file $TMP/Integers.tla
+Parsing file $TMP/FiniteSets.tla
+Parsing file $TMP/Sequences.tla
+Parsing file $TMP/TLC.tla
+Parsing file $TMP/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L2_EconomicFacts
+Starting... (2026-10-20 17:22:09)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 17:22:09.
+Progress(7) at 2026-10-20 17:22:12: 49,698 states generated (49,698 s/min), 31,881 distinct states found (31,881 ds/min), 29,058 states left on queue.
+Error: when writing the disk (StatePoolWriter.run):
+states/26-10-20-17-22-09/26 (No such file or directory)
+>>> elapsed: 28s (exit 1)

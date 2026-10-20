@@ -222,3 +222,41 @@ fn healthy_async_pending_response_is_distinct_from_timeout() {
     assert!(r.engine.frozen());
     assert_eq!(r.engine.held(), 204);
 }
+
+#[test]
+fn failed_recovery_cannot_leave_the_old_engine_authorized() {
+    let mut r = MockRuntime::<8, 8>::new(req().key.domain(), i128::MAX, gate()).unwrap();
+    let mut first = req();
+    first.quantity = 2;
+    first.unit_budget = 1;
+    first.fee_budget = 1;
+    r.exchange.next_outcome = SubmitOutcome::NoBytesAccepted;
+    r.submit(first, CommitProfile::LocalDurable).unwrap();
+    let mut second = first;
+    second.key.intent = 2;
+    second.recovery_object = 2;
+    r.submit(second, CommitProfile::LocalDurable).unwrap();
+    r.record_fill(
+        2,
+        Fill {
+            trade_id: 1,
+            quantity: 2,
+            cost: i128::MAX - 3,
+        },
+    )
+    .unwrap();
+    assert_eq!(r.engine.available(), 2);
+    assert!(!r.engine.frozen());
+    // A has no durable local terminal fact. Recovery conservatively re-reserves it,
+    // so replaying B would make total liability MAX+1 and must fail atomically.
+    assert_eq!(r.restart(), Err(RuntimeError::Domain(Error::Overflow)));
+    assert_eq!(r.engine.available(), 2);
+    assert!(r.engine.frozen());
+    let mut third = first;
+    third.key.intent = 3;
+    third.recovery_object = 3;
+    third.quantity = 1;
+    third.fee_budget = 0;
+    assert!(r.submit(third, CommitProfile::LocalDurable).is_err());
+    assert_eq!(r.exchange.submit_calls, 2);
+}

@@ -1,0 +1,2 @@
+cd8bde270ac257b296100979621c60c64f965e42
+All source.sha256 entries match this commit. Historical model/config/logs are archived alongside.

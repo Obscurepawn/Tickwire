@@ -1,0 +1,2 @@
+  ok execution_models/broadcast_ring/L0_publish_borrow_reclaim: 638 line anchor(s) -> execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/anchors.lock
+anchors.sh update: baselined 1 level(s); 638 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)

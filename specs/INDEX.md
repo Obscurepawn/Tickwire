@@ -12,4 +12,4 @@
 
 ## Completed
 
-- [Binance 现货与合约生产交易系统详细设计](20261020-binance-ultra-low-latency.md)：v0.3 设计产物完成，包含多进程/多策略、共享广播、复制与接管、二进制 ABI、风控、部署及配置控制 API；Rust 实现与生产资格验证尚未开始。
+- [Binance 现货与合约生产交易系统详细设计](20261020-binance-ultra-low-latency.md)：v0.3 设计产物完成，包含多进程/多策略、共享广播、复制与接管、二进制 ABI、风控、部署及配置控制 API；Rust 实现正在进行，生产资格验证尚未开始。

@@ -196,6 +196,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-shm"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+ "tickwire-ipc",
+ "tickwire-shm-sys",
+]
+
+[[package]]
+name = "tickwire-shm-sys"
+version = "0.1.0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "typenum"
 version = "1.20.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

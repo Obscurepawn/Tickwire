@@ -1,0 +1,41 @@
+info: syncing channel updates for 1.99.1-aarch64-unknown-linux-gnu
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 2 components
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded cfg-if v1.0.5
+  Downloaded sha2 v0.10.9
+  Downloaded typenum v1.20.1
+  Downloaded version_check v0.9.5
+  Downloaded crypto-common v0.1.7
+  Downloaded cpufeatures v0.2.17
+  Downloaded generic-array v0.14.7
+  Downloaded block-buffer v0.10.4
+  Downloaded libc v0.2.191
+  Downloaded digest v0.10.7
+   Compiling tickwire-shm v0.1.0 (/work/crates/tickwire-shm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.61s
+     Running tests/mapped.rs (target/linux-root/debug/deps/mapped-0e90dacd3aa5c48b)
+
+running 5 tests
+test freeze_preserves_bytes_for_an_outstanding_reader ... ok
+test descriptor_mismatch_is_rejected ... ok
+test pure_state_quiescence_cannot_detach_a_real_live_borrow ... FAILED
+test mapped_broadcast_borrows_the_same_record_and_protects_gaps ... ok
+test wrong_batch_is_rejected_before_any_bytes_are_published ... ok
+
+failures:
+
+---- pure_state_quiescence_cannot_detach_a_real_live_borrow stdout ----
+
+thread 'pure_state_quiescence_cannot_detach_a_real_live_borrow' (137) panicked at crates/tickwire-shm/tests/mapped.rs:141:5:
+assertion failed: p.detach(fabricated.quiesced().unwrap()).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    pure_state_quiescence_cannot_detach_a_real_live_borrow
+
+test result: FAILED. 4 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-shm --test mapped`

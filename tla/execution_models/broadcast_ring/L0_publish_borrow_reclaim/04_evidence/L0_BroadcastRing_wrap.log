@@ -1,0 +1,444 @@
+>>> TLC module=L0_BroadcastRing cfg=L0_BroadcastRing_wrap.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 110 and seed 6588437852263679119 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_BroadcastRing
+Starting... (2026-10-20 17:46:10)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 17:46:10.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.7E-11
+The coverage statistics at 2026-10-20 17:46:11
+<Init line 75, col 1 to line 75, col 4 of module L0_BroadcastRing>: 1:1
+  line 76, col 3 to line 84, col 18 of module L0_BroadcastRing: 1
+<Observe line 102, col 1 to line 102, col 10 of module L0_BroadcastRing>: 33:3744
+  line 59, col 13 to line 59, col 22 of module L0_BroadcastRing: 15068
+  |line 59, col 13 to line 59, col 18 of module L0_BroadcastRing: 11324
+  line 103, col 18 to line 103, col 32 of module L0_BroadcastRing: 10868
+  |line 103, col 18 to line 103, col 28 of module L0_BroadcastRing: 7124
+  line 104, col 6 to line 104, col 51 of module L0_BroadcastRing: 3744
+  line 105, col 6 to line 105, col 43 of module L0_BroadcastRing: 3744
+  line 106, col 6 to line 106, col 41 of module L0_BroadcastRing: 3744
+<Claim line 108, col 1 to line 108, col 8 of module L0_BroadcastRing>: 1446:4914
+  line 59, col 13 to line 59, col 22 of module L0_BroadcastRing: 27562
+  |line 59, col 13 to line 59, col 18 of module L0_BroadcastRing: 22648
+  line 109, col 18 to line 109, col 34 of module L0_BroadcastRing: 19162
+  |line 109, col 18 to line 109, col 23 of module L0_BroadcastRing: 14248
+  line 109, col 39 to line 109, col 49 of module L0_BroadcastRing: 15490
+  |line 109, col 39 to line 109, col 39 of module L0_BroadcastRing: 10576
+  |line 109, col 45 to line 109, col 49 of module L0_BroadcastRing: 10576
+  line 110, col 6 to line 110, col 22 of module L0_BroadcastRing: 4914
+  |line 110, col 6 to line 110, col 12 of module L0_BroadcastRing: 10576
+  |line 110, col 17 to line 110, col 22 of module L0_BroadcastRing: 10576
+  line 44, col 17 to line 44, col 32 of module L0_BroadcastRing: 12654
+  |line 44, col 17 to line 44, col 17 of module L0_BroadcastRing: 7740
+  |line 44, col 23 to line 44, col 32 of module L0_BroadcastRing: 7740
+  line 110, col 37 to line 110, col 43 of module L0_BroadcastRing: 7740
+  line 111, col 7 to line 111, col 17 of module L0_BroadcastRing: 9828
+  |line 111, col 7 to line 111, col 12 of module L0_BroadcastRing: 7740
+  |line 111, col 16 to line 111, col 17 of module L0_BroadcastRing: 7740
+  line 111, col 22 to line 111, col 38 of module L0_BroadcastRing: 2826
+  |line 111, col 22 to line 111, col 28 of module L0_BroadcastRing: 7740
+  |line 111, col 33 to line 111, col 38 of module L0_BroadcastRing: 7740
+  line 114, col 9 to line 117, col 43 of module L0_BroadcastRing: 4914
+  |line 114, col 14 to line 117, col 43 of module L0_BroadcastRing: 4914
+  ||line 114, col 17 to line 114, col 37 of module L0_BroadcastRing: 4914
+  |||line 114, col 17 to line 114, col 25 of module L0_BroadcastRing: 4914
+  ||||line 114, col 17 to line 114, col 20 of module L0_BroadcastRing: 4914
+  ||||line 114, col 22 to line 114, col 25 of module L0_BroadcastRing: 4914
+  |||||line 113, col 18 to line 113, col 31 of module L0_BroadcastRing: 4914
+  ||||||line 61, col 14 to line 61, col 57 of module L0_BroadcastRing: 4914
+  |||||||line 61, col 17 to line 61, col 28 of module L0_BroadcastRing: 4914
+  |||||||line 61, col 35 to line 61, col 44 of module L0_BroadcastRing: 700
+  |||||||line 61, col 51 to line 61, col 57 of module L0_BroadcastRing: 4214
+  ||||||line 62, col 6 to line 62, col 52 of module L0_BroadcastRing: 4914
+  |||||||line 62, col 9 to line 62, col 27 of module L0_BroadcastRing: 4914
+  |||||||line 62, col 34 to line 62, col 43 of module L0_BroadcastRing: 1672
+  |||||||line 62, col 50 to line 62, col 52 of module L0_BroadcastRing: 3242
+  ||||||line 113, col 27 to line 113, col 30 of module L0_BroadcastRing: 4914
+  |||line 114, col 30 to line 114, col 37 of module L0_BroadcastRing: 4914
+  ||line 115, col 19 to line 116, col 59 of module L0_BroadcastRing: 3812
+  |||line 115, col 20 to line 115, col 20 of module L0_BroadcastRing: 3812
+  |||line 115, col 39 to line 115, col 42 of module L0_BroadcastRing: 3812
+  ||||line 113, col 18 to line 113, col 31 of module L0_BroadcastRing: 3812
+  |||||line 61, col 14 to line 61, col 57 of module L0_BroadcastRing: 3812
+  ||||||line 61, col 17 to line 61, col 28 of module L0_BroadcastRing: 3812
+  ||||||line 61, col 35 to line 61, col 44 of module L0_BroadcastRing: 700
+  ||||||line 61, col 51 to line 61, col 57 of module L0_BroadcastRing: 3112
+  |||||line 62, col 6 to line 62, col 52 of module L0_BroadcastRing: 3812
+  ||||||line 62, col 9 to line 62, col 27 of module L0_BroadcastRing: 3812
+  ||||||line 62, col 34 to line 62, col 43 of module L0_BroadcastRing: 570
+  ||||||line 62, col 50 to line 62, col 52 of module L0_BroadcastRing: 3242
+  |||||line 113, col 27 to line 113, col 30 of module L0_BroadcastRing: 3812
+  |||line 115, col 45 to line 115, col 61 of module L0_BroadcastRing: 3812
+  |||line 116, col 28 to line 116, col 40 of module L0_BroadcastRing: 3812
+  |||line 116, col 43 to line 116, col 58 of module L0_BroadcastRing: 3812
+  ||line 117, col 19 to line 117, col 43 of module L0_BroadcastRing: 1102
+  line 118, col 6 to line 118, col 41 of module L0_BroadcastRing: 4914
+<Write line 120, col 1 to line 120, col 5 of module L0_BroadcastRing>: 946:2886
+  line 121, col 6 to line 121, col 14 of module L0_BroadcastRing: 14210
+  |line 121, col 7 to line 121, col 14 of module L0_BroadcastRing: 11324
+  line 121, col 19 to line 121, col 34 of module L0_BroadcastRing: 2886
+  |line 121, col 19 to line 121, col 24 of module L0_BroadcastRing: 4200
+  |line 121, col 29 to line 121, col 34 of module L0_BroadcastRing: 4200
+  line 122, col 6 to line 122, col 57 of module L0_BroadcastRing: 2886
+  line 123, col 6 to line 123, col 33 of module L0_BroadcastRing: 2886
+  line 124, col 6 to line 124, col 33 of module L0_BroadcastRing: 2886
+<Publish line 126, col 1 to line 126, col 7 of module L0_BroadcastRing>: 255:1314
+  line 127, col 6 to line 127, col 14 of module L0_BroadcastRing: 12638
+  |line 127, col 7 to line 127, col 14 of module L0_BroadcastRing: 11324
+  line 127, col 19 to line 127, col 35 of module L0_BroadcastRing: 5514
+  |line 127, col 19 to line 127, col 24 of module L0_BroadcastRing: 4200
+  |line 127, col 28 to line 127, col 35 of module L0_BroadcastRing: 4200
+  line 128, col 6 to line 129, col 80 of module L0_BroadcastRing: 1314
+  |line 128, col 11 to line 129, col 80 of module L0_BroadcastRing: 1314
+  ||line 128, col 12 to line 128, col 12 of module L0_BroadcastRing: 1314
+  ||line 128, col 21 to line 128, col 34 of module L0_BroadcastRing: 1314
+  ||line 129, col 28 to line 129, col 79 of module L0_BroadcastRing: 1314
+  |||line 129, col 34 to line 129, col 78 of module L0_BroadcastRing: 1314
+  ||||line 129, col 61 to line 129, col 78 of module L0_BroadcastRing: 1486
+  ||||line 129, col 43 to line 129, col 57 of module L0_BroadcastRing: 1314
+  line 130, col 6 to line 130, col 41 of module L0_BroadcastRing: 1314
+<Abort line 132, col 1 to line 132, col 5 of module L0_BroadcastRing>: 500:4200
+  line 133, col 6 to line 133, col 14 of module L0_BroadcastRing: 15524
+  |line 133, col 7 to line 133, col 14 of module L0_BroadcastRing: 11324
+  line 134, col 6 to line 134, col 56 of module L0_BroadcastRing: 4200
+  line 135, col 6 to line 135, col 41 of module L0_BroadcastRing: 4200
+<Prepare line 137, col 1 to line 137, col 15 of module L0_BroadcastRing>: 256:7376
+  line 59, col 13 to line 59, col 22 of module L0_BroadcastRing: 41348
+  |line 59, col 13 to line 59, col 18 of module L0_BroadcastRing: 33972
+  line 138, col 18 to line 138, col 34 of module L0_BroadcastRing: 28748
+  |line 138, col 18 to line 138, col 23 of module L0_BroadcastRing: 21372
+  line 138, col 39 to line 138, col 53 of module L0_BroadcastRing: 7376
+  |line 138, col 39 to line 138, col 44 of module L0_BroadcastRing: 15864
+  |line 138, col 49 to line 138, col 53 of module L0_BroadcastRing: 15864
+  line 44, col 17 to line 44, col 32 of module L0_BroadcastRing: 20404
+  |line 44, col 17 to line 44, col 17 of module L0_BroadcastRing: 13028
+  |line 44, col 23 to line 44, col 32 of module L0_BroadcastRing: 13028
+  line 138, col 68 to line 138, col 73 of module L0_BroadcastRing: 13028
+  line 139, col 7 to line 139, col 17 of module L0_BroadcastRing: 16716
+  |line 139, col 7 to line 139, col 12 of module L0_BroadcastRing: 13028
+  |line 139, col 16 to line 139, col 17 of module L0_BroadcastRing: 13028
+  line 139, col 22 to line 139, col 36 of module L0_BroadcastRing: 16716
+  |line 139, col 22 to line 139, col 27 of module L0_BroadcastRing: 13028
+  |line 139, col 31 to line 139, col 36 of module L0_BroadcastRing: 13028
+  line 140, col 6 to line 140, col 36 of module L0_BroadcastRing: 7376
+  line 141, col 6 to line 141, col 41 of module L0_BroadcastRing: 7376
+<Freeze line 143, col 1 to line 143, col 6 of module L0_BroadcastRing>: 464:3436
+  line 59, col 13 to line 59, col 22 of module L0_BroadcastRing: 14760
+  |line 59, col 13 to line 59, col 18 of module L0_BroadcastRing: 11324
+  line 144, col 18 to line 144, col 28 of module L0_BroadcastRing: 10560
+  |line 144, col 18 to line 144, col 23 of module L0_BroadcastRing: 7124
+  |line 144, col 27 to line 144, col 28 of module L0_BroadcastRing: 7124
+  line 144, col 33 to line 144, col 46 of module L0_BroadcastRing: 8960
+  |line 144, col 33 to line 144, col 37 of module L0_BroadcastRing: 5524
+  |line 144, col 41 to line 144, col 46 of module L0_BroadcastRing: 5524
+  line 145, col 6 to line 147, col 53 of module L0_BroadcastRing: 3436
+  |line 145, col 11 to line 147, col 53 of module L0_BroadcastRing: 3436
+  ||line 145, col 14 to line 145, col 30 of module L0_BroadcastRing: 3436
+  ||line 145, col 37 to line 145, col 37 of module L0_BroadcastRing: 1836
+  ||line 146, col 16 to line 147, col 53 of module L0_BroadcastRing: 1600
+  line 148, col 6 to line 148, col 41 of module L0_BroadcastRing: 3436
+<Borrow line 150, col 1 to line 150, col 9 of module L0_BroadcastRing>: 14:162
+  line 151, col 6 to line 151, col 26 of module L0_BroadcastRing: 11486
+  |line 151, col 6 to line 151, col 16 of module L0_BroadcastRing: 11324
+  |line 151, col 22 to line 151, col 26 of module L0_BroadcastRing: 11324
+  line 151, col 31 to line 151, col 47 of module L0_BroadcastRing: 5886
+  |line 151, col 32 to line 151, col 47 of module L0_BroadcastRing: 5724
+  line 152, col 6 to line 152, col 25 of module L0_BroadcastRing: 162
+  |line 152, col 6 to line 152, col 10 of module L0_BroadcastRing: 1722
+  |line 152, col 15 to line 152, col 25 of module L0_BroadcastRing: 1722
+  line 44, col 17 to line 44, col 32 of module L0_BroadcastRing: 1884
+  |line 44, col 17 to line 44, col 17 of module L0_BroadcastRing: 1722
+  |line 44, col 23 to line 44, col 32 of module L0_BroadcastRing: 1722
+  line 152, col 40 to line 152, col 44 of module L0_BroadcastRing: 1722
+  line 152, col 50 to line 152, col 66 of module L0_BroadcastRing: 162
+  |line 152, col 50 to line 152, col 54 of module L0_BroadcastRing: 1722
+  |line 152, col 58 to line 152, col 66 of module L0_BroadcastRing: 1722
+  line 153, col 6 to line 153, col 40 of module L0_BroadcastRing: 162
+  |line 153, col 6 to line 153, col 14 of module L0_BroadcastRing: 1722
+  |line 153, col 18 to line 153, col 40 of module L0_BroadcastRing: 1722
+  line 155, col 9 to line 155, col 47 of module L0_BroadcastRing: 162
+  |line 155, col 9 to line 155, col 37 of module L0_BroadcastRing: 162
+  ||line 155, col 9 to line 155, col 9 of module L0_BroadcastRing: 162
+  ||line 155, col 11 to line 155, col 37 of module L0_BroadcastRing: 162
+  |||line 40, col 14 to line 40, col 36 of module L0_BroadcastRing: 162
+  ||||line 40, col 17 to line 40, col 22 of module L0_BroadcastRing: 162
+  ||||line 40, col 29 to line 40, col 29 of module L0_BroadcastRing: 152
+  ||||line 40, col 36 to line 40, col 36 of module L0_BroadcastRing: 10
+  |||line 155, col 16 to line 155, col 25 of module L0_BroadcastRing: 162
+  |||line 155, col 27 to line 155, col 36 of module L0_BroadcastRing: 162
+  |line 155, col 42 to line 155, col 47 of module L0_BroadcastRing: 162
+  line 156, col 9 to line 158, col 77 of module L0_BroadcastRing: 162
+  line 159, col 6 to line 159, col 39 of module L0_BroadcastRing: 162
+<BorrowIdle line 161, col 1 to line 161, col 13 of module L0_BroadcastRing>: 17:820
+  line 162, col 6 to line 162, col 26 of module L0_BroadcastRing: 12144
+  |line 162, col 6 to line 162, col 16 of module L0_BroadcastRing: 11324
+  |line 162, col 22 to line 162, col 26 of module L0_BroadcastRing: 11324
+  line 162, col 31 to line 162, col 47 of module L0_BroadcastRing: 6544
+  |line 162, col 32 to line 162, col 47 of module L0_BroadcastRing: 5724
+  line 163, col 6 to line 163, col 25 of module L0_BroadcastRing: 820
+  |line 163, col 6 to line 163, col 10 of module L0_BroadcastRing: 1722
+  |line 163, col 15 to line 163, col 25 of module L0_BroadcastRing: 1722
+  line 44, col 17 to line 44, col 32 of module L0_BroadcastRing: 2542
+  |line 44, col 17 to line 44, col 17 of module L0_BroadcastRing: 1722
+  |line 44, col 23 to line 44, col 32 of module L0_BroadcastRing: 1722
+  line 163, col 40 to line 163, col 44 of module L0_BroadcastRing: 1722
+  line 164, col 7 to line 164, col 23 of module L0_BroadcastRing: 1722
+  line 164, col 28 to line 164, col 75 of module L0_BroadcastRing: 820
+  |line 164, col 28 to line 164, col 66 of module L0_BroadcastRing: 1722
+  ||line 164, col 28 to line 164, col 36 of module L0_BroadcastRing: 1722
+  ||line 164, col 38 to line 164, col 66 of module L0_BroadcastRing: 1722
+  |||line 164, col 40 to line 164, col 66 of module L0_BroadcastRing: 1722
+  ||||line 40, col 14 to line 40, col 36 of module L0_BroadcastRing: 1722
+  |||||line 40, col 17 to line 40, col 22 of module L0_BroadcastRing: 1722
+  |||||line 40, col 29 to line 40, col 29 of module L0_BroadcastRing: 1598
+  |||||line 40, col 36 to line 40, col 36 of module L0_BroadcastRing: 124
+  ||||line 164, col 45 to line 164, col 54 of module L0_BroadcastRing: 1722
+  ||||line 164, col 56 to line 164, col 65 of module L0_BroadcastRing: 1722
+  |line 164, col 70 to line 164, col 75 of module L0_BroadcastRing: 1722
+  line 165, col 6 to line 165, col 42 of module L0_BroadcastRing: 820
+  line 166, col 6 to line 166, col 39 of module L0_BroadcastRing: 820
+<StartQuiesce line 186, col 1 to line 186, col 15 of module L0_BroadcastRing>: 861:1722
+  line 187, col 6 to line 187, col 26 of module L0_BroadcastRing: 13046
+  |line 187, col 6 to line 187, col 16 of module L0_BroadcastRing: 11324
+  |line 187, col 22 to line 187, col 26 of module L0_BroadcastRing: 11324
+  line 187, col 31 to line 187, col 47 of module L0_BroadcastRing: 7446
+  |line 187, col 32 to line 187, col 47 of module L0_BroadcastRing: 5724
+  line 188, col 6 to line 188, col 61 of module L0_BroadcastRing: 1722
+  line 189, col 6 to line 189, col 39 of module L0_BroadcastRing: 1722
+<Quiesced line 191, col 1 to line 191, col 11 of module L0_BroadcastRing>: 668:3606
+  line 192, col 6 to line 192, col 26 of module L0_BroadcastRing: 14930
+  |line 192, col 6 to line 192, col 16 of module L0_BroadcastRing: 11324
+  |line 192, col 22 to line 192, col 26 of module L0_BroadcastRing: 11324
+  line 192, col 31 to line 192, col 46 of module L0_BroadcastRing: 9330
+  |line 192, col 31 to line 192, col 36 of module L0_BroadcastRing: 5724
+  line 192, col 51 to line 192, col 66 of module L0_BroadcastRing: 7608
+  |line 192, col 51 to line 192, col 61 of module L0_BroadcastRing: 4002
+  |line 192, col 65 to line 192, col 66 of module L0_BroadcastRing: 4002
+  line 193, col 6 to line 193, col 84 of module L0_BroadcastRing: 3606
+  line 194, col 6 to line 194, col 39 of module L0_BroadcastRing: 3606
+<RejectForged line 202, col 1 to line 202, col 15 of module L0_BroadcastRing>: 1867:3734
+  line 59, col 13 to line 59, col 22 of module L0_BroadcastRing: 15058
+  |line 59, col 13 to line 59, col 18 of module L0_BroadcastRing: 11324
+  line 203, col 18 to line 203, col 38 of module L0_BroadcastRing: 10858
+  |line 203, col 18 to line 203, col 28 of module L0_BroadcastRing: 7124
+  |line 203, col 34 to line 203, col 38 of module L0_BroadcastRing: 7124
+  line 203, col 43 to line 203, col 63 of module L0_BroadcastRing: 7478
+  |line 203, col 44 to line 203, col 63 of module L0_BroadcastRing: 3744
+  ||line 68, col 3 to line 73, col 27 of module L0_BroadcastRing: 3744
+  |||line 68, col 6 to line 68, col 39 of module L0_BroadcastRing: 3744
+  |||line 69, col 6 to line 69, col 76 of module L0_BroadcastRing: 1428
+  ||||line 69, col 6 to line 69, col 54 of module L0_BroadcastRing: 1428
+  |||||line 69, col 6 to line 69, col 32 of module L0_BroadcastRing: 1428
+  |||||line 69, col 37 to line 69, col 54 of module L0_BroadcastRing: 10
+  ||||line 69, col 59 to line 69, col 76 of module L0_BroadcastRing: 10
+  |||line 70, col 6 to line 70, col 28 of module L0_BroadcastRing: 10
+  |||line 71, col 6 to line 71, col 46 of module L0_BroadcastRing: 10
+  |||line 72, col 6 to line 72, col 40 of module L0_BroadcastRing: 10
+  |||line 73, col 6 to line 73, col 27 of module L0_BroadcastRing: 10
+  ||line 203, col 54 to line 203, col 54 of module L0_BroadcastRing: 3744
+  ||line 203, col 56 to line 203, col 62 of module L0_BroadcastRing: 1428
+  line 204, col 6 to line 204, col 34 of module L0_BroadcastRing: 3734
+  line 205, col 6 to line 205, col 34 of module L0_BroadcastRing: 3734
+<SuffixNext line 207, col 1 to line 207, col 10 of module L0_BroadcastRing (215 25 215 59)>: 52:872
+  line 169, col 6 to line 169, col 22 of module L0_BroadcastRing: 1744
+  |line 169, col 6 to line 169, col 6 of module L0_BroadcastRing: 872
+  |line 169, col 12 to line 169, col 22 of module L0_BroadcastRing: 872
+  line 170, col 6 to line 170, col 38 of module L0_BroadcastRing: 872
+  line 171, col 6 to line 171, col 37 of module L0_BroadcastRing: 1744
+  |line 171, col 6 to line 171, col 33 of module L0_BroadcastRing: 872
+  |line 171, col 37 to line 171, col 37 of module L0_BroadcastRing: 872
+  line 171, col 42 to line 171, col 70 of module L0_BroadcastRing: 1744
+  |line 171, col 43 to line 171, col 70 of module L0_BroadcastRing: 872
+  line 173, col 9 to line 174, col 67 of module L0_BroadcastRing: 872
+  |line 173, col 16 to line 174, col 67 of module L0_BroadcastRing: 872
+  ||line 173, col 17 to line 173, col 19 of module L0_BroadcastRing: 872
+  ||line 173, col 28 to line 173, col 45 of module L0_BroadcastRing: 872
+  ||line 173, col 48 to line 173, col 66 of module L0_BroadcastRing: 872
+  ||line 174, col 20 to line 174, col 66 of module L0_BroadcastRing: 872
+  ||line 174, col 31 to line 174, col 66 of module L0_BroadcastRing: 872
+  |||line 64, col 3 to line 66, col 61 of module L0_BroadcastRing: 872
+  ||||line 39, col 11 to line 39, col 46 of module L0_BroadcastRing: 872
+  |||||line 39, col 28 to line 39, col 46 of module L0_BroadcastRing: 1744
+  ||||||line 39, col 41 to line 39, col 46 of module L0_BroadcastRing: 3568
+  ||||||line 39, col 37 to line 39, col 37 of module L0_BroadcastRing: 1744
+  |||||line 39, col 24 to line 39, col 24 of module L0_BroadcastRing: 872
+  ||||line 64, col 7 to line 66, col 60 of module L0_BroadcastRing: 872:7056
+  |||||line 65, col 5 to line 66, col 59 of module L0_BroadcastRing: 1984
+  ||||||line 66, col 7 to line 66, col 59 of module L0_BroadcastRing: 1272
+  ||||||line 65, col 14 to line 65, col 25 of module L0_BroadcastRing: 1984
+  |||||line 64, col 14 to line 64, col 29 of module L0_BroadcastRing: 872
+  |||line 174, col 44 to line 174, col 48 of module L0_BroadcastRing: 872
+  |||line 174, col 56 to line 174, col 65 of module L0_BroadcastRing: 872
+  line 175, col 6 to line 175, col 39 of module L0_BroadcastRing: 872
+  line 215, col 56 to line 215, col 56 of module L0_BroadcastRing: 872
+  line 215, col 58 to line 215, col 58 of module L0_BroadcastRing: 872
+  line 215, col 34 to line 215, col 44 of module L0_BroadcastRing: 11324
+<SuffixNext line 207, col 1 to line 207, col 10 of module L0_BroadcastRing (216 25 216 72)>: 3354:31670
+  line 178, col 6 to line 178, col 38 of module L0_BroadcastRing: 20878
+  line 179, col 7 to line 179, col 21 of module L0_BroadcastRing: 10792
+  |line 179, col 7 to line 179, col 7 of module L0_BroadcastRing: 20878
+  |line 179, col 12 to line 179, col 21 of module L0_BroadcastRing: 20878
+  line 179, col 26 to line 179, col 57 of module L0_BroadcastRing: 41756
+  |line 179, col 26 to line 179, col 53 of module L0_BroadcastRing: 20878
+  |line 179, col 57 to line 179, col 57 of module L0_BroadcastRing: 20878
+  line 180, col 6 to line 183, col 71 of module L0_BroadcastRing: 31670
+  |line 180, col 13 to line 183, col 71 of module L0_BroadcastRing: 31670
+  ||line 180, col 16 to line 180, col 30 of module L0_BroadcastRing: 31670
+  ||line 180, col 37 to line 180, col 39 of module L0_BroadcastRing: 21584
+  ||line 181, col 24 to line 181, col 69 of module L0_BroadcastRing: 10086
+  ||line 182, col 14 to line 183, col 71 of module L0_BroadcastRing: 10086
+  |||line 182, col 15 to line 182, col 17 of module L0_BroadcastRing: 10086
+  |||line 182, col 26 to line 182, col 43 of module L0_BroadcastRing: 10086
+  |||line 183, col 24 to line 183, col 70 of module L0_BroadcastRing: 10086
+  |||line 183, col 35 to line 183, col 70 of module L0_BroadcastRing: 10086
+  ||||line 64, col 3 to line 66, col 61 of module L0_BroadcastRing: 10086
+  |||||line 39, col 11 to line 39, col 46 of module L0_BroadcastRing: 10086
+  ||||||line 39, col 28 to line 39, col 46 of module L0_BroadcastRing: 18450
+  |||||||line 39, col 41 to line 39, col 46 of module L0_BroadcastRing: 36900
+  |||||||line 39, col 37 to line 39, col 37 of module L0_BroadcastRing: 18450
+  ||||||line 39, col 24 to line 39, col 24 of module L0_BroadcastRing: 10086
+  |||||line 64, col 7 to line 66, col 60 of module L0_BroadcastRing: 10086:73800
+  ||||||line 65, col 5 to line 66, col 59 of module L0_BroadcastRing: 27060
+  |||||||line 66, col 7 to line 66, col 59 of module L0_BroadcastRing: 20418
+  |||||||line 65, col 14 to line 65, col 25 of module L0_BroadcastRing: 27060
+  ||||||line 64, col 14 to line 64, col 29 of module L0_BroadcastRing: 10086
+  ||||line 183, col 60 to line 183, col 69 of module L0_BroadcastRing: 10086
+  line 184, col 6 to line 184, col 39 of module L0_BroadcastRing: 31670
+  line 216, col 69 to line 216, col 69 of module L0_BroadcastRing: 20878
+  line 216, col 71 to line 216, col 71 of module L0_BroadcastRing: 20878
+  line 216, col 34 to line 216, col 59 of module L0_BroadcastRing: 11324
+<SuffixNext line 207, col 1 to line 207, col 10 of module L0_BroadcastRing (219 25 219 69)>: 590:834
+  line 68, col 6 to line 68, col 20 of module L0_BroadcastRing: 23342
+  |line 68, col 6 to line 68, col 16 of module L0_BroadcastRing: 22508
+  line 68, col 25 to line 68, col 39 of module L0_BroadcastRing: 12272
+  |line 68, col 25 to line 68, col 35 of module L0_BroadcastRing: 11438
+  line 69, col 6 to line 69, col 12 of module L0_BroadcastRing: 5384
+  |line 69, col 6 to line 69, col 6 of module L0_BroadcastRing: 4550
+  line 69, col 17 to line 69, col 32 of module L0_BroadcastRing: 5384
+  |line 69, col 17 to line 69, col 20 of module L0_BroadcastRing: 4550
+  |line 69, col 24 to line 69, col 32 of module L0_BroadcastRing: 4550
+  line 69, col 37 to line 69, col 54 of module L0_BroadcastRing: 3114
+  |line 69, col 37 to line 69, col 41 of module L0_BroadcastRing: 2280
+  |line 69, col 45 to line 69, col 54 of module L0_BroadcastRing: 2280
+  line 69, col 59 to line 69, col 76 of module L0_BroadcastRing: 2160
+  |line 69, col 59 to line 69, col 63 of module L0_BroadcastRing: 1326
+  |line 69, col 67 to line 69, col 76 of module L0_BroadcastRing: 1326
+  line 70, col 6 to line 70, col 28 of module L0_BroadcastRing: 2160
+  |line 70, col 6 to line 70, col 16 of module L0_BroadcastRing: 1326
+  |line 70, col 20 to line 70, col 28 of module L0_BroadcastRing: 1326
+  line 59, col 13 to line 59, col 22 of module L0_BroadcastRing: 2160
+  |line 59, col 13 to line 59, col 18 of module L0_BroadcastRing: 1326
+  line 71, col 18 to line 71, col 29 of module L0_BroadcastRing: 1668
+  |line 71, col 18 to line 71, col 21 of module L0_BroadcastRing: 834
+  |line 71, col 25 to line 71, col 29 of module L0_BroadcastRing: 834
+  line 71, col 34 to line 71, col 46 of module L0_BroadcastRing: 834
+  line 72, col 6 to line 72, col 40 of module L0_BroadcastRing: 834
+  line 44, col 17 to line 44, col 32 of module L0_BroadcastRing: 1668
+  |line 44, col 17 to line 44, col 17 of module L0_BroadcastRing: 834
+  |line 44, col 23 to line 44, col 32 of module L0_BroadcastRing: 834
+  line 73, col 16 to line 73, col 26 of module L0_BroadcastRing: 834
+  line 198, col 6 to line 198, col 36 of module L0_BroadcastRing: 834
+  line 199, col 6 to line 199, col 50 of module L0_BroadcastRing: 834
+  line 200, col 6 to line 200, col 39 of module L0_BroadcastRing: 834
+  line 219, col 66 to line 219, col 66 of module L0_BroadcastRing: 22508
+  line 219, col 68 to line 219, col 68 of module L0_BroadcastRing: 4550
+  line 219, col 34 to line 219, col 55 of module L0_BroadcastRing: 11324:33832
+<TypeOK line 227, col 1 to line 227, col 6 of module L0_BroadcastRing>
+  line 228, col 3 to line 238, col 38 of module L0_BroadcastRing: 11324
+<WatermarkOrder line 240, col 1 to line 240, col 14 of module L0_BroadcastRing>
+  line 241, col 3 to line 247, col 54 of module L0_BroadcastRing: 11324
+  |line 242, col 5 to line 247, col 54 of module L0_BroadcastRing: 11324
+  ||line 242, col 8 to line 242, col 61 of module L0_BroadcastRing: 11324
+  ||line 243, col 8 to line 243, col 57 of module L0_BroadcastRing: 11324
+  ||line 244, col 8 to line 244, col 55 of module L0_BroadcastRing: 11324
+  ||line 245, col 8 to line 245, col 62 of module L0_BroadcastRing: 11324
+  |||line 245, col 31 to line 245, col 62 of module L0_BroadcastRing: 872
+  |||line 245, col 17 to line 245, col 27 of module L0_BroadcastRing: 11324
+  ||line 246, col 8 to line 246, col 41 of module L0_BroadcastRing: 11324
+  ||line 247, col 8 to line 247, col 54 of module L0_BroadcastRing: 11324
+  |||line 247, col 8 to line 247, col 44 of module L0_BroadcastRing: 11324
+  ||||line 247, col 8 to line 247, col 16 of module L0_BroadcastRing: 11324
+  ||||line 247, col 18 to line 247, col 44 of module L0_BroadcastRing: 11324
+  |||||line 40, col 14 to line 40, col 36 of module L0_BroadcastRing: 11324
+  ||||||line 40, col 17 to line 40, col 22 of module L0_BroadcastRing: 11324
+  ||||||line 40, col 29 to line 40, col 29 of module L0_BroadcastRing: 11076
+  ||||||line 40, col 36 to line 40, col 36 of module L0_BroadcastRing: 248
+  |||||line 247, col 23 to line 247, col 32 of module L0_BroadcastRing: 11324
+  |||||line 247, col 34 to line 247, col 43 of module L0_BroadcastRing: 11324
+  |||line 247, col 49 to line 247, col 54 of module L0_BroadcastRing: 11324
+  |line 241, col 12 to line 241, col 18 of module L0_BroadcastRing: 11324
+<ConservativeCache line 249, col 1 to line 249, col 17 of module L0_BroadcastRing>
+  line 249, col 22 to line 249, col 58 of module L0_BroadcastRing: 11324
+  |line 249, col 22 to line 249, col 33 of module L0_BroadcastRing: 11324
+  |line 249, col 38 to line 249, col 58 of module L0_BroadcastRing: 10082
+  ||line 249, col 38 to line 249, col 44 of module L0_BroadcastRing: 10082
+  ||line 249, col 49 to line 249, col 58 of module L0_BroadcastRing: 10082
+  |||line 58, col 15 to line 58, col 78 of module L0_BroadcastRing: 10082
+  ||||line 58, col 18 to line 58, col 29 of module L0_BroadcastRing: 10082
+  ||||line 58, col 36 to line 58, col 40 of module L0_BroadcastRing: 4358
+  ||||line 58, col 47 to line 58, col 78 of module L0_BroadcastRing: 5724
+<CompleteBeforePublication line 250, col 1 to line 250, col 25 of module L0_BroadcastRing>
+  line 250, col 30 to line 250, col 39 of module L0_BroadcastRing: 11324
+<MemberGate line 251, col 1 to line 251, col 10 of module L0_BroadcastRing>
+  line 252, col 3 to line 256, col 50 of module L0_BroadcastRing: 11324
+  |line 253, col 5 to line 256, col 50 of module L0_BroadcastRing: 5724
+  ||line 253, col 8 to line 253, col 30 of module L0_BroadcastRing: 5724
+  ||line 254, col 9 to line 254, col 46 of module L0_BroadcastRing: 5724
+  ||line 255, col 8 to line 255, col 34 of module L0_BroadcastRing: 5724
+  ||line 256, col 9 to line 256, col 49 of module L0_BroadcastRing: 5724
+  |||line 256, col 9 to line 256, col 17 of module L0_BroadcastRing: 5724
+  |||line 256, col 22 to line 256, col 49 of module L0_BroadcastRing: 1980
+  |line 252, col 12 to line 252, col 18 of module L0_BroadcastRing: 11324
+<NoOverwriteBorrow line 257, col 1 to line 257, col 17 of module L0_BroadcastRing>
+  line 258, col 3 to line 258, col 64 of module L0_BroadcastRing: 11324
+  |line 258, col 22 to line 258, col 64 of module L0_BroadcastRing: 11324
+  ||line 258, col 45 to line 258, col 64 of module L0_BroadcastRing: 872
+  ||line 258, col 31 to line 258, col 41 of module L0_BroadcastRing: 11324
+  |line 258, col 12 to line 258, col 18 of module L0_BroadcastRing: 11324
+<UnreadProtected line 259, col 1 to line 259, col 15 of module L0_BroadcastRing>
+  line 260, col 3 to line 260, col 73 of module L0_BroadcastRing: 11324
+  |line 260, col 22 to line 260, col 73 of module L0_BroadcastRing: 5724
+  ||line 260, col 54 to line 260, col 73 of module L0_BroadcastRing: 357494
+  ||line 260, col 31 to line 260, col 50 of module L0_BroadcastRing: 5724
+  |line 260, col 12 to line 260, col 18 of module L0_BroadcastRing: 11324
+<DetachedSafe line 261, col 1 to line 261, col 12 of module L0_BroadcastRing>
+  line 262, col 3 to line 264, col 52 of module L0_BroadcastRing: 11324
+  |line 262, col 22 to line 264, col 52 of module L0_BroadcastRing: 11324
+  ||line 262, col 22 to line 262, col 34 of module L0_BroadcastRing: 11324
+  ||line 263, col 5 to line 264, col 52 of module L0_BroadcastRing: 5600
+  |line 262, col 12 to line 262, col 18 of module L0_BroadcastRing: 11324
+<FreezeBoundary line 265, col 1 to line 265, col 14 of module L0_BroadcastRing>
+  line 266, col 3 to line 268, col 74 of module L0_BroadcastRing: 11324
+  |line 266, col 7 to line 266, col 70 of module L0_BroadcastRing: 11324
+  ||line 266, col 7 to line 266, col 21 of module L0_BroadcastRing: 11324
+  ||line 266, col 26 to line 266, col 70 of module L0_BroadcastRing: 1836
+  |line 267, col 7 to line 268, col 73 of module L0_BroadcastRing: 11324
+  ||line 267, col 7 to line 267, col 15 of module L0_BroadcastRing: 11324
+  ||line 267, col 20 to line 268, col 73 of module L0_BroadcastRing: 4200
+  |||line 267, col 20 to line 268, col 40 of module L0_BroadcastRing: 4200
+  |||line 268, col 46 to line 268, col 72 of module L0_BroadcastRing: 4200
+  ||||line 268, col 46 to line 268, col 54 of module L0_BroadcastRing: 4200
+  ||||line 268, col 59 to line 268, col 72 of module L0_BroadcastRing: 2450
+End of statistics.
+71291 states generated, 11324 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 21.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 8 and the 95th percentile is 3).
+Finished in 01s at (2026-10-20 17:46:11)
+>>> elapsed: 3s (exit 0)

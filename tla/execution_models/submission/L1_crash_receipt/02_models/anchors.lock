@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-10-20T17:07:42
+# anchors.lock — written by anchors.sh update on 2026-10-20T17:27:56
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 crates/tickwire-execution/src/lib.rs	138	7e493023a69a2a965884e7e52ce72a82656b81e0d6533d01c344b2e201b0edcc
 crates/tickwire-execution/src/lib.rs	139	336a7979eb11602c0844f08e5c64fc540c0ca197402802bc1746138352ce1de0
@@ -315,17 +315,19 @@ crates/tickwire-mock/src/lib.rs	234	b17e351a96d51a7c25660188a12a8aa38d8da9e1e19d
 crates/tickwire-mock/src/lib.rs	235	28d86778615f6af47bb1bc4f40face756749768e5111f114cfa234a5060c25af
 crates/tickwire-mock/src/lib.rs	264	b5df5770834c739c78843b290904c988f3d97ac69840a862561123d6487c2f95
 crates/tickwire-mock/src/lib.rs	265	d6677cb718f2f1dc09988f968e9a1bf94ffdc9327e694ee8120502d7e195970c
-crates/tickwire-mock/src/lib.rs	266	83b1c09586cc059da88cd261b9bb12b8dd838362cf3d729a33c0e2e1b2d9c45b
-crates/tickwire-mock/src/lib.rs	267	f64bc156990cc2bbc929e559e4da2e64a809a0bce37019999f4f1b94ce4b9f0d
-crates/tickwire-mock/src/lib.rs	268	54a0f2f5814d2dd813a3cf3504b0101366066761eb651eee443c4419743de434
-crates/tickwire-mock/src/lib.rs	269	42ee48f32633b4d9e9210509ea307d816f86904def5faf496c28a0797c7f30b3
-crates/tickwire-mock/src/lib.rs	270	2a44168318e224e1f830fe9ab620aa00dd4f7b3fb19ef4399abf59593cf0756d
-crates/tickwire-mock/src/lib.rs	271	2bf635c204baa3c8714c78eb8c18a2653a153d8cc1c1839bc18f7baa921e691b
-crates/tickwire-mock/src/lib.rs	272	e1f4ed1fb693e2d14c3b9d09c56603f42b22094598730f9b62c2d11ba9704489
-crates/tickwire-mock/src/lib.rs	273	2a44168318e224e1f830fe9ab620aa00dd4f7b3fb19ef4399abf59593cf0756d
-crates/tickwire-mock/src/lib.rs	274	6e4aef456e8652a9d2e4fa9791157f6951ee5f14c750b74888a768bc86999a52
-crates/tickwire-mock/src/lib.rs	275	b17e351a96d51a7c25660188a12a8aa38d8da9e1e19daab6db33a962053f3f59
-crates/tickwire-mock/src/lib.rs	276	28d86778615f6af47bb1bc4f40face756749768e5111f114cfa234a5060c25af
+crates/tickwire-mock/src/lib.rs	266	f645e3ae60f91c2ac3ea06a6fc83834c9d7c11776876b209d02fcd997cbee282
+crates/tickwire-mock/src/lib.rs	267	0bf161d29a4b66ae8e3dbe6eeb1f71a690070bd5da22bc4283e5642e0841af92
+crates/tickwire-mock/src/lib.rs	268	83b1c09586cc059da88cd261b9bb12b8dd838362cf3d729a33c0e2e1b2d9c45b
+crates/tickwire-mock/src/lib.rs	269	f64bc156990cc2bbc929e559e4da2e64a809a0bce37019999f4f1b94ce4b9f0d
+crates/tickwire-mock/src/lib.rs	270	54a0f2f5814d2dd813a3cf3504b0101366066761eb651eee443c4419743de434
+crates/tickwire-mock/src/lib.rs	271	42ee48f32633b4d9e9210509ea307d816f86904def5faf496c28a0797c7f30b3
+crates/tickwire-mock/src/lib.rs	272	2a44168318e224e1f830fe9ab620aa00dd4f7b3fb19ef4399abf59593cf0756d
+crates/tickwire-mock/src/lib.rs	273	2bf635c204baa3c8714c78eb8c18a2653a153d8cc1c1839bc18f7baa921e691b
+crates/tickwire-mock/src/lib.rs	274	e1f4ed1fb693e2d14c3b9d09c56603f42b22094598730f9b62c2d11ba9704489
+crates/tickwire-mock/src/lib.rs	275	2a44168318e224e1f830fe9ab620aa00dd4f7b3fb19ef4399abf59593cf0756d
+crates/tickwire-mock/src/lib.rs	276	6e4aef456e8652a9d2e4fa9791157f6951ee5f14c750b74888a768bc86999a52
+crates/tickwire-mock/src/lib.rs	277	b17e351a96d51a7c25660188a12a8aa38d8da9e1e19daab6db33a962053f3f59
+crates/tickwire-mock/src/lib.rs	278	28d86778615f6af47bb1bc4f40face756749768e5111f114cfa234a5060c25af
 crates/tickwire-mock/src/lib.rs	54	d5824cd6f1c6c02ed446453d7054ad07b6c1fff12700f6743c5108e1b23e229d
 crates/tickwire-mock/src/lib.rs	55	96005a7c1a9d51b669ac7041447a6bda96a59e80010bdce2ac29387506778fff
 crates/tickwire-mock/src/lib.rs	56	6656a648f5f6c5e869678d514ef53d85fd0836b82bd9c1986e5c87c43290bfbd

@@ -1,0 +1,22 @@
+   Compiling tickwire-mock v0.1.0 ($REPO/crates/tickwire-mock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.91s
+     Running tests/services.rs (target/debug/deps/services-6cd5148e0fed07a2)
+
+running 1 test
+test failed_recovery_cannot_leave_the_old_engine_authorized ... FAILED
+
+failures:
+
+---- failed_recovery_cannot_leave_the_old_engine_authorized stdout ----
+
+thread 'failed_recovery_cannot_leave_the_old_engine_authorized' (4542977) panicked at crates/tickwire-mock/tests/services.rs:246:5:
+assertion failed: r.engine.frozen()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    failed_recovery_cannot_leave_the_old_engine_authorized
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-mock --test services`

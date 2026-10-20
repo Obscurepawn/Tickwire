@@ -18,8 +18,8 @@ while IFS= read -r cfg; do
   [[ -n "$model" && "$model" != *$'\n'* ]] || { echo "Ambiguous model directory: $dir" >&2; exit 1; }
   scratch="$(mktemp -d)"
   trap 'rm -rf "$scratch"' EXIT
-  mkdir -p "$scratch/states"
-  (cd "$dir" && java -XX:+UseParallelGC -cp "$jar" tlc2.TLC -workers 1 -coverage 1 -metadir "$scratch/states" -config "$(basename "$cfg")" "$(basename "$model")") | tee "$scratch/tlc.log"
+  mkdir -p "$scratch/states" "$scratch/java"
+  (cd "$dir" && java -Djava.io.tmpdir="$scratch/java" -XX:+UseParallelGC -cp "$jar" tlc2.TLC -workers 1 -coverage 1 -metadir "$scratch/states" -config "$(basename "$cfg")" "$(basename "$model")") | tee "$scratch/tlc.log"
   # Coverage prints distinct:generated. A stuttering/redundant action may have
   # zero distinct states but must still generate successors in these configs.
   awk '

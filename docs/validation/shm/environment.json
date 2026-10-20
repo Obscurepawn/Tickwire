@@ -1,0 +1,27 @@
+{
+  "checked_on": "2026-10-20",
+  "native_tests_including_doctest": 202,
+  "linux_tests_including_doctest_and_child_helpers": 223,
+  "native_command": "./scripts/check-rust.sh",
+  "linux_command": "./scripts/check-linux.sh",
+  "exit_codes": {
+    "native": 0,
+    "linux": 0
+  },
+  "linux_image": "rust:1.99.1-bookworm@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29",
+  "source_sha256": {
+    "crates/tickwire-shm/Cargo.toml": "a3bc7820360f185dd6a14f351572970ec31339de8d5aca520d668cf125867dcd",
+    "crates/tickwire-shm/src/lib.rs": "80495a2e78e345f6db22cc11f91516bbe375d0a3efe69c6a54567aece6046887",
+    "crates/tickwire-shm/src/mapped.rs": "84ff9c227c79600ead7d00485d114e862c117a3ae1693c06d91b57ab2ce2241d",
+    "crates/tickwire-shm/tests/mapped.rs": "a9c0f23a7e89a288672c1ad911e5dc36eb5f17c0f3d80bb30b0ff1ce5f92b1cc",
+    "crates/tickwire-shm/tests/protocol.rs": "cce4da8628fd868c2187e0be99c8c41da63dbaf5546f31b2532c226ca913d8b1",
+    "crates/tickwire-shm-sys/Cargo.toml": "bbe0119d28cb23f60ef09d220601e4e07588b083b5f715cee9cc6194b59cadc7",
+    "crates/tickwire-shm-sys/src/lib.rs": "9f93a8bbc2b13127a8172f659f01375a66e07500bb83ed609c01d20a5aeb764b",
+    "crates/tickwire-shm-sys/tests/mapping.rs": "b4f728da5da873c7f7f93ae3b43f1cfa192598d1eaa684664cd8f3fef28e82b3",
+    "crates/tickwire-shm-sys/tests/process.rs": "a4ace7478b5fa27e84588c265b3f2c6495c36d2dde5b62a41efd0013163be4f5",
+    "Cargo.lock": "03ff69d1634097a863e0acd5b5de77b3c81cb1a26a6b199a3d283245415dd705",
+    "rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33",
+    "scripts/check-linux.sh": "05db07005a57edf6077fcfc3905c1b1d1e24d19d6ac13f40bdde1cc28ca348f7",
+    "scripts/check-rust.sh": "6c74398024539ba240b6e71d37beaeeb90000654d2287d5cee3bf3053b423de3"
+  }
+}

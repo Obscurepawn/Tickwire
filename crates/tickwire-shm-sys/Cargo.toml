@@ -1,0 +1,11 @@
+[package]
+name = "tickwire-shm-sys"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish.workspace = true
+
+# This crate is the audited OS/atomic boundary. Other crates retain their own
+# unsafe policy; the workspace-level prohibition is not changed.
+[dependencies]
+libc = "0.2"

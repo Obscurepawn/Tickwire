@@ -263,6 +263,8 @@ impl<const N: usize, const T: usize> MockRuntime<N, T> {
     }
     /// Journal and exchange survive this simulated exec-process crash. No permission is restored.
     pub fn restart(&mut self) -> Result<(), RuntimeError> {
+        // Failed reconstruction must not leave the previous live engine authorized.
+        self.engine.freeze();
         let mut engine = Engine::new(self.domain, self.capital, self.gate)?;
         engine.freeze();
         for record in self.journal.committed() {

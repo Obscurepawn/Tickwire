@@ -1,7 +1,7 @@
 {
   "checked_on": "2026-10-20",
   "scope": "design_artifacts_only_not_runtime_tests",
-  "command": "/tmp/tickwire-design-validation-env/bin/python scripts/verify-design-contracts.py --openapi",
+  "command": "/tmp/tickwire-check-env/bin/python scripts/verify-design-contracts.py --openapi",
   "exit_code": 0,
   "result": {
     "scope": "design_artifacts_only_not_runtime_tests",

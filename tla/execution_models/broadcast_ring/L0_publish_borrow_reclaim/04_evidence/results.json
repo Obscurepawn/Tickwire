@@ -1,0 +1,409 @@
+{
+  "runs": [
+    {
+      "config": "L0_BroadcastRing.cfg",
+      "generated": 196588,
+      "distinct": 29889,
+      "depth": 25,
+      "seconds": 3,
+      "result": "PASS"
+    },
+    {
+      "config": "L0_BroadcastRing_two_readers.cfg",
+      "generated": 9587623,
+      "distinct": 930364,
+      "depth": 33,
+      "seconds": 92,
+      "result": "PASS"
+    },
+    {
+      "config": "L0_BroadcastRing_wrap.cfg",
+      "generated": 71291,
+      "distinct": 11324,
+      "depth": 21,
+      "seconds": 3,
+      "result": "PASS"
+    },
+    {
+      "config": "L0_BroadcastRing_pending_wrap.cfg",
+      "generated": 84451,
+      "distinct": 12834,
+      "depth": 21,
+      "seconds": 3,
+      "result": "PASS"
+    },
+    {
+      "config": "L0_BroadcastRing_wrap_two.cfg",
+      "generated": 341833,
+      "distinct": 40796,
+      "depth": 24,
+      "seconds": 6,
+      "result": "PASS"
+    }
+  ],
+  "coverage": {
+    "L0_BroadcastRing": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Join": {
+        "distinct": 35,
+        "generated": 40
+      },
+      "Ready": {
+        "distinct": 2406,
+        "generated": 2604
+      },
+      "Observe": {
+        "distinct": 788,
+        "generated": 14796
+      },
+      "Claim": {
+        "distinct": 2831,
+        "generated": 7643
+      },
+      "Write": {
+        "distinct": 1763,
+        "generated": 5362
+      },
+      "Publish": {
+        "distinct": 666,
+        "generated": 2471
+      },
+      "Abort": {
+        "distinct": 1160,
+        "generated": 7833
+      },
+      "Prepare": {
+        "distinct": 602,
+        "generated": 19048
+      },
+      "Freeze": {
+        "distinct": 2051,
+        "generated": 12532
+      },
+      "Borrow": {
+        "distinct": 269,
+        "generated": 2160
+      },
+      "BorrowIdle": {
+        "distinct": 12,
+        "generated": 8760
+      },
+      "StartQuiesce": {
+        "distinct": 2955,
+        "generated": 8668
+      },
+      "Quiesced": {
+        "distinct": 3091,
+        "generated": 12692
+      },
+      "RejectForged": {
+        "distinct": 1782,
+        "generated": 18030
+      },
+      "Release": {
+        "distinct": 3299,
+        "generated": 8472
+      },
+      "Apply": {
+        "distinct": 5050,
+        "generated": 62530
+      },
+      "Detach": {
+        "distinct": 1128,
+        "generated": 2946
+      }
+    },
+    "L0_BroadcastRing_two_readers": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Join": {
+        "distinct": 2672,
+        "generated": 5368
+      },
+      "Ready": {
+        "distinct": 125696,
+        "generated": 309960
+      },
+      "Observe": {
+        "distinct": 8930,
+        "generated": 970340
+      },
+      "Claim": {
+        "distinct": 33555,
+        "generated": 85848
+      },
+      "Write": {
+        "distinct": 17406,
+        "generated": 47543
+      },
+      "Publish": {
+        "distinct": 11498,
+        "generated": 23434
+      },
+      "Abort": {
+        "distinct": 18492,
+        "generated": 70977
+      },
+      "Prepare": {
+        "distinct": 10213,
+        "generated": 596834
+      },
+      "Freeze": {
+        "distinct": 96495,
+        "generated": 560970
+      },
+      "Borrow": {
+        "distinct": 10350,
+        "generated": 96984
+      },
+      "BorrowIdle": {
+        "distinct": 768,
+        "generated": 636168
+      },
+      "StartQuiesce": {
+        "distinct": 106712,
+        "generated": 530432
+      },
+      "Quiesced": {
+        "distinct": 120396,
+        "generated": 848744
+      },
+      "RejectForged": {
+        "distinct": 82334,
+        "generated": 1400756
+      },
+      "Release": {
+        "distinct": 70110,
+        "generated": 348720
+      },
+      "Apply": {
+        "distinct": 137376,
+        "generated": 2828108
+      },
+      "Detach": {
+        "distinct": 77360,
+        "generated": 226436
+      }
+    },
+    "L0_BroadcastRing_wrap": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Observe": {
+        "distinct": 33,
+        "generated": 3744
+      },
+      "Claim": {
+        "distinct": 1446,
+        "generated": 4914
+      },
+      "Write": {
+        "distinct": 946,
+        "generated": 2886
+      },
+      "Publish": {
+        "distinct": 255,
+        "generated": 1314
+      },
+      "Abort": {
+        "distinct": 500,
+        "generated": 4200
+      },
+      "Prepare": {
+        "distinct": 256,
+        "generated": 7376
+      },
+      "Freeze": {
+        "distinct": 464,
+        "generated": 3436
+      },
+      "Borrow": {
+        "distinct": 14,
+        "generated": 162
+      },
+      "BorrowIdle": {
+        "distinct": 17,
+        "generated": 820
+      },
+      "StartQuiesce": {
+        "distinct": 861,
+        "generated": 1722
+      },
+      "Quiesced": {
+        "distinct": 668,
+        "generated": 3606
+      },
+      "RejectForged": {
+        "distinct": 1867,
+        "generated": 3734
+      },
+      "Release": {
+        "distinct": 52,
+        "generated": 872
+      },
+      "Apply": {
+        "distinct": 3354,
+        "generated": 31670
+      },
+      "Detach": {
+        "distinct": 590,
+        "generated": 834
+      }
+    },
+    "L0_BroadcastRing_pending_wrap": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Ready": {
+        "distinct": 424,
+        "generated": 424
+      },
+      "Observe": {
+        "distinct": 440,
+        "generated": 4724
+      },
+      "Claim": {
+        "distinct": 1834,
+        "generated": 6424
+      },
+      "Write": {
+        "distinct": 1106,
+        "generated": 2886
+      },
+      "Publish": {
+        "distinct": 490,
+        "generated": 1314
+      },
+      "Abort": {
+        "distinct": 874,
+        "generated": 4200
+      },
+      "Prepare": {
+        "distinct": 531,
+        "generated": 9188
+      },
+      "Freeze": {
+        "distinct": 877,
+        "generated": 4040
+      },
+      "Borrow": {
+        "distinct": 26,
+        "generated": 282
+      },
+      "BorrowIdle": {
+        "distinct": 68,
+        "generated": 1120
+      },
+      "StartQuiesce": {
+        "distinct": 361,
+        "generated": 2282
+      },
+      "Quiesced": {
+        "distinct": 887,
+        "generated": 4236
+      },
+      "RejectForged": {
+        "distinct": 265,
+        "generated": 5234
+      },
+      "Release": {
+        "distinct": 964,
+        "generated": 1672
+      },
+      "Apply": {
+        "distinct": 3096,
+        "generated": 35420
+      },
+      "Detach": {
+        "distinct": 590,
+        "generated": 1004
+      }
+    },
+    "L0_BroadcastRing_wrap_two": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Observe": {
+        "distinct": 374,
+        "generated": 41552
+      },
+      "Claim": {
+        "distinct": 3140,
+        "generated": 12360
+      },
+      "Write": {
+        "distinct": 1220,
+        "generated": 3136
+      },
+      "Publish": {
+        "distinct": 632,
+        "generated": 1568
+      },
+      "Abort": {
+        "distinct": 1264,
+        "generated": 4704
+      },
+      "Prepare": {
+        "distinct": 1159,
+        "generated": 30264
+      },
+      "Freeze": {
+        "distinct": 2801,
+        "generated": 20960
+      },
+      "Borrow": {
+        "distinct": 12,
+        "generated": 1176
+      },
+      "BorrowIdle": {
+        "distinct": 84,
+        "generated": 7784
+      },
+      "StartQuiesce": {
+        "distinct": 1110,
+        "generated": 14392
+      },
+      "Quiesced": {
+        "distinct": 1923,
+        "generated": 29512
+      },
+      "RejectForged": {
+        "distinct": 15141,
+        "generated": 40376
+      },
+      "Release": {
+        "distinct": 24,
+        "generated": 4704
+      },
+      "Apply": {
+        "distinct": 6847,
+        "generated": 118648
+      },
+      "Detach": {
+        "distinct": 5064,
+        "generated": 10696
+      }
+    }
+  },
+  "artifact_hashes": {
+    "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing.cfg": "743b73fc4265bd975dabbbac99eea6f62967e73926ae2695b1fd8cf4d0be6894",
+    "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing.tla": "5d9aec84c028e7d75b60363ee57067e35e6e56b8f7c0b99f21250872fb4d98bc",
+    "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing_pending_wrap.cfg": "60b815059e7fb50fa770df296b47fade91526036f9484c43dead3655325ee161",
+    "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing_two_readers.cfg": "c2b84e9049dc41e74a15d40586534ff67218263452d957872c9eb4e823f69c7e",
+    "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing_wrap.cfg": "de1ac8e6aa92c1f6fb56c4f1012f17a81a7723e2b8c94c3f6ccf2e2e528030ba",
+    "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/L0_BroadcastRing_wrap_two.cfg": "70bb5ca7c7dfb0fe5566697105af126ea78ae66ff2ac2d945ec0f0f4485b1539"
+  },
+  "tlc_jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "source_hashes": {
+    "crates/tickwire-shm/src/lib.rs": "80495a2e78e345f6db22cc11f91516bbe375d0a3efe69c6a54567aece6046887",
+    "crates/tickwire-shm/src/mapped.rs": "84ff9c227c79600ead7d00485d114e862c117a3ae1693c06d91b57ab2ce2241d"
+  }
+}

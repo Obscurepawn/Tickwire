@@ -14,3 +14,7 @@
 | 空 journal 重启恢复了原 gate 权限 | `even_empty_journal_restart_requires_recovery_authorization` 失败，断言 `r.engine.frozen()` 为假 | restart 新建 Engine 后立即 freeze；相同回归通过，当前 L1 RecoveryStaysFrozen 通过 | retired: fixed |
 
 本次独立复验 `cargo test -p tickwire-execution -p tickwire-mock`：16 个执行测试、11 个 mock 测试通过，含 PendingResponse 正常等待后超时冻结的回归。原 Red 日志由本次工具读取核实，其中两个断言均真实失败；复验针对修复后的当前工作树。费用事实后迟到 NoBytes、显式 Unknown 冻结共享池也有独立回归测试，但前者的经济交错没有包含在 L1。
+
+## 2026-10-20 L2 修复后的非语义漂移同步
+
+MockRuntime::restart 新增入口 `self.engine.freeze()`，当前完整函数范围为 `crates/tickwire-mock/src/lib.rs:265-278`。L1 的输入域没有经济事实日志，因此只包含恢复成功分支；该新增冻结在 L1 的原子 Restart 成功结果中已由 `frozen=TRUE` 表达。事实重放提前返回的失败分支由 L2-001 反例与 v2 模型负责，L1 的既有状态迁移和固定 05 输出保持不变。anchors.lock 已对完整新函数重新锁定；当前 Mock 源码 SHA-256 为 `38b2aef9958ad86fb3e9b453916080189549af8b994413c2e0f03eb49ebfee56`。

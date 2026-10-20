@@ -1,0 +1,25 @@
+=== coverage: L0_BroadcastRing  (cfg=L0_BroadcastRing.cfg) ===
+  ACTION                         distinct  generated  status
+  ------                         --------  ---------  ------
+  Init                                  1          1  OK
+  Join                                 35         40  OK
+  Ready                              2406       2604  OK
+  Observe                             788      14796  OK
+  Claim                              2831       7643  OK
+  Write                              1763       5362  OK
+  Publish                             666       2471  OK
+  Abort                              1160       7833  OK
+  Prepare                             602      19048  OK
+  Freeze                             2051      12532  OK
+  Borrow                              269       2160  OK
+  BorrowIdle                           12       8760  OK
+  StartQuiesce                       2955       8668  OK
+  Quiesced                           3091      12692  OK
+  RejectForged                       1782      18030  OK
+  SuffixNext                         3299       8472  OK
+  SuffixNext                         5050      62530  OK
+  SuffixNext                         1128       2946  OK
+  ----
+  all 18 action(s) fired.
+
+RESULT: all actions fired in every cfg checked.
