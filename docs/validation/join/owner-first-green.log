@@ -1,0 +1,11 @@
+   Compiling tickwire-join v0.1.0 (/work/crates/tickwire-join)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.93s
+     Running tests/owner.rs (target/linux-join/debug/deps/owner-fb375bd6c9ba1c08)
+
+running 4 tests
+test active_subscriber_session_cannot_impersonate_supervisor_join_authority ... ok
+test builder_failure_retains_pending_gate_and_pending_request_does_not_reexecute ... ok
+test successful_builder_binds_real_pending_gate_and_exact_retry_is_replayed ... ok
+test invalid_request_does_not_admit_a_member ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s

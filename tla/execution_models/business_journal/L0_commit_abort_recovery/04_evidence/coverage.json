@@ -1,0 +1,368 @@
+{
+  "L0_BusinessJournal.cfg": [
+    {
+      "action": "Init",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "Reserve",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "Authorize",
+      "distinct": 1,
+      "generated": 2
+    },
+    {
+      "action": "AuthorizeFailed",
+      "distinct": 2,
+      "generated": 2
+    },
+    {
+      "action": "WriteIntent",
+      "distinct": 1,
+      "generated": 2
+    },
+    {
+      "action": "SyncIntent",
+      "distinct": 1,
+      "generated": 2
+    },
+    {
+      "action": "PublishIntent",
+      "distinct": 1,
+      "generated": 2
+    },
+    {
+      "action": "GateExpire",
+      "distinct": 5,
+      "generated": 5
+    },
+    {
+      "action": "Send",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "GateRejected",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "PendingOrAck",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "Unknown",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "NoBytes",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "WriteAbort",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "SyncAbort",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "Release",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "WriteFailed",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "SyncFailed",
+      "distinct": 3,
+      "generated": 6
+    },
+    {
+      "action": "Crash",
+      "distinct": 10,
+      "generated": 60
+    },
+    {
+      "action": "Recover",
+      "distinct": 10,
+      "generated": 10
+    },
+    {
+      "action": "ReplayPrepared",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "ReplayAbort",
+      "distinct": 1,
+      "generated": 2
+    },
+    {
+      "action": "ReplayFailed",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "RecoveryDone",
+      "distinct": 9,
+      "generated": 9
+    }
+  ],
+  "L0_BusinessJournal_competing.cfg": [
+    {
+      "action": "Init",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "Reserve",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "Authorize",
+      "distinct": 4,
+      "generated": 8
+    },
+    {
+      "action": "AuthorizeFailed",
+      "distinct": 8,
+      "generated": 8
+    },
+    {
+      "action": "WriteIntent",
+      "distinct": 4,
+      "generated": 8
+    },
+    {
+      "action": "SyncIntent",
+      "distinct": 4,
+      "generated": 8
+    },
+    {
+      "action": "PublishIntent",
+      "distinct": 4,
+      "generated": 8
+    },
+    {
+      "action": "GateExpire",
+      "distinct": 20,
+      "generated": 20
+    },
+    {
+      "action": "Send",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "GateRejected",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "PendingOrAck",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "Unknown",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "NoBytes",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "WriteAbort",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "SyncAbort",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "Release",
+      "distinct": 4,
+      "generated": 4
+    },
+    {
+      "action": "WriteFailed",
+      "distinct": 24,
+      "generated": 24
+    },
+    {
+      "action": "SyncFailed",
+      "distinct": 12,
+      "generated": 24
+    },
+    {
+      "action": "Crash",
+      "distinct": 40,
+      "generated": 234
+    },
+    {
+      "action": "Recover",
+      "distinct": 40,
+      "generated": 40
+    },
+    {
+      "action": "ReplayPrepared",
+      "distinct": 44,
+      "generated": 44
+    },
+    {
+      "action": "ReplayAbort",
+      "distinct": 24,
+      "generated": 28
+    },
+    {
+      "action": "ReplayFailed",
+      "distinct": 44,
+      "generated": 44
+    },
+    {
+      "action": "RecoveryDone",
+      "distinct": 36,
+      "generated": 36
+    }
+  ],
+  "L0_BusinessJournal_scaling.cfg": [
+    {
+      "action": "Init",
+      "distinct": 1,
+      "generated": 1
+    },
+    {
+      "action": "Reserve",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "Authorize",
+      "distinct": 6,
+      "generated": 12
+    },
+    {
+      "action": "AuthorizeFailed",
+      "distinct": 12,
+      "generated": 12
+    },
+    {
+      "action": "WriteIntent",
+      "distinct": 6,
+      "generated": 12
+    },
+    {
+      "action": "SyncIntent",
+      "distinct": 6,
+      "generated": 12
+    },
+    {
+      "action": "PublishIntent",
+      "distinct": 6,
+      "generated": 12
+    },
+    {
+      "action": "GateExpire",
+      "distinct": 30,
+      "generated": 30
+    },
+    {
+      "action": "Send",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "GateRejected",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "PendingOrAck",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "Unknown",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "NoBytes",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "WriteAbort",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "SyncAbort",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "Release",
+      "distinct": 6,
+      "generated": 6
+    },
+    {
+      "action": "WriteFailed",
+      "distinct": 36,
+      "generated": 36
+    },
+    {
+      "action": "SyncFailed",
+      "distinct": 18,
+      "generated": 36
+    },
+    {
+      "action": "Crash",
+      "distinct": 120,
+      "generated": 934
+    },
+    {
+      "action": "Recover",
+      "distinct": 120,
+      "generated": 120
+    },
+    {
+      "action": "ReplayPrepared",
+      "distinct": 152,
+      "generated": 152
+    },
+    {
+      "action": "ReplayAbort",
+      "distinct": 52,
+      "generated": 64
+    },
+    {
+      "action": "ReplayFailed",
+      "distinct": 152,
+      "generated": 152
+    },
+    {
+      "action": "RecoveryDone",
+      "distinct": 108,
+      "generated": 108
+    }
+  ]
+}

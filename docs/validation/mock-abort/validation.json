@@ -1,0 +1,13 @@
+{
+  "rust": {
+    "execution_tests": 16,
+    "services_tests": 21,
+    "doc_tests": 0,
+    "fmt": "PASS",
+    "clippy_all_targets": "PASS"
+  },
+  "docs": 13,
+  "local_links": 17,
+  "fences": "PASS",
+  "independent_review": "risk_core source/model mapping PASS"
+}

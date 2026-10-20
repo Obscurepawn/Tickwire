@@ -1,5 +1,5 @@
 //! Service boundaries shared by live adapters and deterministic mocks.
-use crate::{CommitReceipt, DurableRecord, Engine, Error, Fill, OrderRequest, Terminal};
+use crate::{CommitReceipt, DurableRecord, Engine, Error, Fill, OrderRequest, SendState, Terminal};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServiceError {
     Unavailable,
@@ -13,7 +13,7 @@ pub trait Journal {
     /// Reactor adapters return Pending while asynchronous persistence is in progress.
     fn commit(&mut self, record: DurableRecord) -> Result<CommitReceipt, ServiceError>;
     fn committed(&self) -> &[DurableRecord];
-    /// Persist a received economic fact before applying it to the account.
+    /// Persist a received economic or trusted transport fact before applying it.
     fn append_fact(&mut self, fact: ExecutionFact) -> Result<(), ServiceError>;
     fn facts(&self) -> &[ExecutionFact];
 }
@@ -50,6 +50,11 @@ pub trait ObjectStore {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ExecutionFact {
+    /// Only a trusted transport proof that no output-capable bytes were accepted.
+    /// The complete record binds the original request, epoch, and journal sequence.
+    AbortedBeforeSend {
+        record: DurableRecord,
+    },
     Fill {
         intent: u64,
         fill: Fill,
@@ -68,6 +73,32 @@ pub enum ExecutionFact {
 impl ExecutionFact {
     pub fn apply<const N: usize, const T: usize>(self, e: &mut Engine<N, T>) -> Result<(), Error> {
         match self {
+            Self::AbortedBeforeSend { record } => {
+                let intent = record.request.key.intent;
+                let current = match e.durable_record(intent) {
+                    Ok(current) => current,
+                    Err(error) => {
+                        e.freeze();
+                        return Err(error);
+                    }
+                };
+                if current != record {
+                    e.freeze();
+                    return Err(Error::ReceiptMismatch);
+                }
+                let order = e.order(intent)?;
+                if order.send == SendState::NotSubmitted
+                    && order.terminal == Some(Terminal::Rejected)
+                    && order.fee_released
+                    && order.filled == 0
+                    && order.observed_filled == 0
+                    && order.spent == 0
+                    && order.fees_paid == 0
+                {
+                    return Ok(());
+                }
+                e.transport_rejected_without_bytes(intent)
+            }
             Self::Fill { intent, fill } => e.fill(intent, fill),
             Self::Fee { intent, id, amount } => e.fee(intent, id, amount),
             Self::Terminal {

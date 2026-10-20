@@ -1,6 +1,6 @@
 # L2 建模依据
 
-新增关注点是同一笔订单的经济事实如何改变已花费金额、未结预留，以及重复、冲突和迟到事实的处理。模式为 faithful transcription；Mock 自带的 append 失败和同步 restart 按已有方法转录，不引入并发写 Engine 的线程。
+新增关注点是同一笔订单的交易结果记录如何改变已花费金额、未结预留，以及重复、冲突和迟到事实的处理。模式为 faithful transcription；Mock 自带的 append 失败和同步 restart 按已有方法转录，不引入并发写 Engine 的线程。
 
 `Engine` 和 `MockRuntime` 的变更方法均持有 `&mut self`。一个调用结束后才开始下一个调用；各笔订单的回报可以任意交错。`Record` 中 journal 追加成功后，即使 apply 返回错误，原始事实也留在日志。`Restart` 先冻结原 Engine，再建局部 Engine 并逐条重放；失败保留已冻结的原 Engine 和金额，成功发布冻结的局部 Engine。此入口冻结由 L2-001 的 Rust 回归与 v2 模型验证。
 

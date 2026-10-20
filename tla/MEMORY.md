@@ -1,5 +1,7 @@
 # Tickwire TLA+ 工作索引
 
+当前源码提示：submission L1/L2 的 Mock 分组重放语义已被统一事件流替换，下方旧条目保留其历史结论；现行中止重放见 mock_abort，真实业务日志见 business_journal。
+
 ## execution / submission / L0_commit_gate — PASS（2026-10-20）
 
 - Mode: transcription
@@ -22,11 +24,11 @@
 - Output: [L1 输出](execution_models/submission/L1_crash_receipt/05_output.md)
 - Last synced: 2026-10-20，完整函数范围重新锚定。
 
-两个本轮独立源码审查发现已由 Rust Red/Green 确认并修复，记录于 [L1 notes](execution_models/submission/L1_crash_receipt/06_notes.md)；不是 TLC 发现。L2 已完成经济事实与恢复失败分支验证，见下方条目；既有 PASS 不覆盖实盘传输/真实持久化或完整生产系统。
+两个本轮独立源码审查发现已由 Rust Red/Green 确认并修复，记录于 [L1 notes](execution_models/submission/L1_crash_receipt/06_notes.md)；不是 TLC 发现。L2 已完成交易结果记录与恢复失败分支验证，见下方条目；既有 PASS 不覆盖实盘传输/真实持久化或完整生产系统。
 
 ## execution / submission / L2_economic_facts — PASS v2（2026-10-20）
 
-- Mode: transcription，完整同步 record/restart；单结算资产经济事实与一次有序重放。
+- Mode: transcription，完整同步 record/restart；单结算资产交易结果记录与一次有序重放。
 - Property: 唯一事件账本、池合计、重复幂等、失败原子性、缺失成交预留、费用证据阻止 NoBytes 释放、deficit/恢复失败冻结。
 - Code anchors: `crates/tickwire-execution/src/lib.rs:138-245`、`:262-339`、`:352-528`；`crates/tickwire-mock/src/lib.rs:104-114`、`:236-278`；`crates/tickwire-execution/src/ports.rs:51-80`；444 行 anchors 检查无漂移。
 - TLC: primary 24,036 / long 280,458 / boundary 1,495,032 / scaling 1,485,288 distinct；完整深度分别 8/9/11/11；每 cfg 全部 18 个 Next 动作生成。
@@ -70,3 +72,31 @@
 - 限定：有限 generation/id/time/price 域；L1 假定适配器提供真实快照及完整已接受变化，没有证明 L0→L1 形式细化；不验证数组排序/合并、性能或未实现的自动风险门禁。
 - Finding: 无源码缺陷候选；模型初次语法修正单独归档，未当作系统反例。root 独立源码/模型审阅通过。
 - Output: [L0](execution_models/book_state/L0_lifecycle/05_output.md)、[L1](execution_models/book_state/L1_coverage/05_output.md)。
+
+## mock_abort / L0_ordered_abort — PASS（2026-10-20）
+
+- 当前 Mock 中止先保存再释放，intent/fact 按实际事件顺序重放；零成交、零费用、LocalDurable 范围。
+- 三配置不同状态 2,051 / 457 / 102,149，深度 26/22/40；各 15 个 Next 动作均触发。
+- root、risk 独立源码及模型审阅通过；运行结果及 426 行锚点见 [输出](execution_models/mock_abort/L0_ordered_abort/05_output.md)。
+- 旧 submission L1/L2 保留历史源码与结果；当前完整成交、费用、终态组合仍需新版本模型。
+
+## recovery_closure / L0_publish_verify — PASS（2026-10-20）
+
+- 区分对象与 manifest、不可变绑定、重命名可见、目录同步和结果交付；多个未完成目录项可分别保留或丢失。
+- 三配置不同状态 2,345 / 15,097 / 3,898，深度 51/56/66；每组 Init 和 22 个 Next 动作均触发。
+- 独立审阅指出首版故障域遗漏，修正后保持原规模重跑；初版保存在 pre-review，没有归为 Rust 缺陷。
+- 当前 203 行锚点、范围与记录见 [输出](execution_models/recovery_closure/L0_publish_verify/05_output.md)。字节解析、输入采集和业务授权不由该模型证明。
+
+## business_journal / L0_commit_abort_recovery — PASS（2026-10-20）
+
+- 串行 runtime：授权和恢复依赖完成、WAL 写入与同步、最终发送检查、中止保存后释放，以及冻结重放。
+- 三配置不同状态 72 / 345 / 879，深度 14/26/28；每组 23 个 Next 动作均触发。
+- root、ipc 独立审阅通过；332 行锚点及运行记录见 [输出](execution_models/business_journal/L0_commit_abort_recovery/05_output.md)。
+- 固定身份、无成交与费用的有限范围；后续纳入交易结果组合、writer 变化、镜像与恢复后激活。最终检查边界不表示网卡实际发包期限。
+
+## join_owner / L0_pending_activation — PASS（2026-10-20）
+
+- 保留 S、构造与交付失败保留门禁、双资源就绪、真实 cursor 追平、原登记版本、幂等激活与协作退出。
+- 四配置不同状态 2,181 / 321,256 / 172 / 7,652，深度 23/35/14/25；主配置各 22 个 Next 动作、两组 wrap 各 16 个动作全部触发。
+- risk 独立源码、模型及最终日志审阅通过，1221 行锚点；[输出](execution_models/join_owner/L0_pending_activation/05_output.md)。
+- 共用截止时间、固定认证身份与有限借用窗口；持久登记、独立截止、bank 轮换和死亡回收待后续。旧 ring 模型只发生行号变化，720 行锚点重审通过，状态公式未变。

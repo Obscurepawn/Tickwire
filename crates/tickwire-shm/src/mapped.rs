@@ -186,6 +186,9 @@ impl<const M: usize> Publisher<M> {
     pub fn published(&self) -> u64 {
         self.protocol.published()
     }
+    pub fn membership_version(&self) -> u64 {
+        self.protocol.membership_version()
+    }
     pub fn reader_fd(&self) -> Result<OwnedFd> {
         Ok(self.bank.duplicate_fd()?)
     }
@@ -225,8 +228,77 @@ impl<const M: usize> Publisher<M> {
         });
         Ok(())
     }
+    /// Register the actual cursor while preserving the original pending gate.
+    ///
+    /// # Safety
+    /// The same peer, immutable-header, atomic-width, and truthful release
+    /// requirements as `register_cursor` apply.
+    pub unsafe fn register_pending_cursor(
+        &mut self,
+        sub: SubscriptionKey,
+        fd: OwnedFd,
+    ) -> Result<()> {
+        let index = self.protocol.member_index(sub)?;
+        if self.cursors[index].is_some() || self.protocol.members[index].unwrap().active {
+            return Err(Error::Identity.into());
+        }
+        let cursor = ReaderMapping::map(fd, 8192)?;
+        verify_header(&cursor, &cursor_header(&self.header, sub)?)?;
+        self.cursors[index] = Some(Cursor {
+            key: sub,
+            mapping: cursor,
+        });
+        Ok(())
+    }
+    /// Activate only the registered cursor for this exact pending baseline.
+    pub fn activate_join(
+        &mut self,
+        sub: SubscriptionKey,
+        baseline: u64,
+        minimum_applied: u64,
+    ) -> Result<Watermarks> {
+        let index = self.protocol.member_index(sub)?;
+        let member = self.protocol.members[index].unwrap();
+        let cursor = self.cursors[index].as_ref().ok_or(Error::NotActive)?;
+        if baseline != member.baseline || minimum_applied < baseline {
+            return Err(Error::Cursor.into());
+        }
+        // SAFETY: pending registration established the cursor's immutable identity,
+        // unique writer, u64-only accesses and truthful release discipline.
+        // Read read_seq last: a later read prefix covers both earlier samples.
+        // Publisher mutation is serialized by &mut self throughout this method.
+        let actual = unsafe {
+            if cursor.mapping.load_u64_acquire(PAGE + 384)? != 3 {
+                return Err(Error::NotActive.into());
+            }
+            let applied = cursor.mapping.load_u64_acquire(PAGE + 128)?;
+            let released = cursor.mapping.load_u64_acquire(RELEASED)?;
+            let read = cursor.mapping.load_u64_acquire(PAGE)?;
+            Watermarks {
+                read,
+                applied,
+                released,
+            }
+        };
+        if actual.applied < baseline
+            || actual.released < baseline
+            || actual.applied > actual.read
+            || actual.released > actual.read
+            || actual.read > self.protocol.published()
+            || actual.applied < minimum_applied
+        {
+            return Err(Error::Cursor.into());
+        }
+        // Every fallible identity/watermark check precedes this single transition.
+        self.protocol.join_ready(sub, actual.released)?;
+        Ok(actual)
+    }
     fn refresh(&mut self) -> Result<()> {
         for c in self.cursors.iter().flatten() {
+            let index = self.protocol.member_index(c.key)?;
+            if !self.protocol.members[index].unwrap().active {
+                continue;
+            }
             // SAFETY: cursor identity/atomic discipline established by register_cursor.
             let released = unsafe { c.mapping.load_u64_acquire(RELEASED)? };
             self.protocol.observe_release(c.key, released)?;
@@ -314,6 +386,19 @@ impl<const M: usize> Publisher<M> {
                 .store_u64_release(PAGE + 384, self.protocol.membership_version())?;
         }
         Ok(())
+    }
+    /// Validate final watermarks against the actual registered Quiesced cursor.
+    pub fn detach_registered(
+        &mut self,
+        sub: SubscriptionKey,
+        final_watermarks: Watermarks,
+    ) -> Result<()> {
+        // A control ACK alone grants nothing: detach checks the actual mapping's
+        // generation-bound header, lifecycle, quiesced_seq and exact watermarks.
+        self.detach(Quiesced {
+            key: sub,
+            watermarks: final_watermarks,
+        })
     }
 }
 

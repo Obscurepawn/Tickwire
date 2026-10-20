@@ -1,0 +1,218 @@
+{
+  "primary": {
+    "generated": 3013,
+    "distinct": 2051,
+    "depth": 26,
+    "elapsed_s": 2,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Reserve": {
+        "distinct": 14,
+        "generated": 14
+      },
+      "Retry": {
+        "distinct": 28,
+        "generated": 76
+      },
+      "CommitFail": {
+        "distinct": 28,
+        "generated": 42
+      },
+      "PersistIntent": {
+        "distinct": 28,
+        "generated": 42
+      },
+      "LoseReceipt": {
+        "distinct": 14,
+        "generated": 28
+      },
+      "AcceptReceipt": {
+        "distinct": 28,
+        "generated": 28
+      },
+      "BeginSend": {
+        "distinct": 28,
+        "generated": 28
+      },
+      "Dispatch": {
+        "distinct": 98,
+        "generated": 112
+      },
+      "StartTerminal": {
+        "distinct": 176,
+        "generated": 296
+      },
+      "FactFail": {
+        "distinct": 58,
+        "generated": 204
+      },
+      "PersistRelease": {
+        "distinct": 204,
+        "generated": 204
+      },
+      "ApplyRelease": {
+        "distinct": 148,
+        "generated": 204
+      },
+      "Crash": {
+        "distinct": 295,
+        "generated": 645
+      },
+      "ReplayOne": {
+        "distinct": 794,
+        "generated": 794
+      },
+      "FinishRecovery": {
+        "distinct": 109,
+        "generated": 295
+      }
+    }
+  },
+  "boundary": {
+    "generated": 637,
+    "distinct": 457,
+    "depth": 22,
+    "elapsed_s": 1,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Reserve": {
+        "distinct": 6,
+        "generated": 6
+      },
+      "Retry": {
+        "distinct": 6,
+        "generated": 12
+      },
+      "CommitFail": {
+        "distinct": 6,
+        "generated": 12
+      },
+      "PersistIntent": {
+        "distinct": 6,
+        "generated": 12
+      },
+      "LoseReceipt": {
+        "distinct": 6,
+        "generated": 6
+      },
+      "AcceptReceipt": {
+        "distinct": 6,
+        "generated": 6
+      },
+      "BeginSend": {
+        "distinct": 6,
+        "generated": 6
+      },
+      "Dispatch": {
+        "distinct": 24,
+        "generated": 24
+      },
+      "StartTerminal": {
+        "distinct": 36,
+        "generated": 36
+      },
+      "FactFail": {
+        "distinct": 6,
+        "generated": 42
+      },
+      "PersistRelease": {
+        "distinct": 42,
+        "generated": 42
+      },
+      "ApplyRelease": {
+        "distinct": 30,
+        "generated": 42
+      },
+      "Crash": {
+        "distinct": 67,
+        "generated": 145
+      },
+      "ReplayOne": {
+        "distinct": 178,
+        "generated": 178
+      },
+      "FinishRecovery": {
+        "distinct": 31,
+        "generated": 67
+      }
+    }
+  },
+  "scaling": {
+    "generated": 158415,
+    "distinct": 102149,
+    "depth": 40,
+    "elapsed_s": 4,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Reserve": {
+        "distinct": 231,
+        "generated": 315
+      },
+      "Retry": {
+        "distinct": 549,
+        "generated": 1470
+      },
+      "CommitFail": {
+        "distinct": 549,
+        "generated": 780
+      },
+      "PersistIntent": {
+        "distinct": 549,
+        "generated": 780
+      },
+      "LoseReceipt": {
+        "distinct": 231,
+        "generated": 549
+      },
+      "AcceptReceipt": {
+        "distinct": 549,
+        "generated": 549
+      },
+      "BeginSend": {
+        "distinct": 549,
+        "generated": 549
+      },
+      "Dispatch": {
+        "distinct": 1878,
+        "generated": 2196
+      },
+      "StartTerminal": {
+        "distinct": 4896,
+        "generated": 8676
+      },
+      "FactFail": {
+        "distinct": 1539,
+        "generated": 5445
+      },
+      "PersistRelease": {
+        "distinct": 5445,
+        "generated": 5445
+      },
+      "ApplyRelease": {
+        "distinct": 4347,
+        "generated": 5445
+      },
+      "Crash": {
+        "distinct": 13697,
+        "generated": 50280
+      },
+      "ReplayOne": {
+        "distinct": 62238,
+        "generated": 62238
+      },
+      "FinishRecovery": {
+        "distinct": 4901,
+        "generated": 13697
+      }
+    }
+  }
+}

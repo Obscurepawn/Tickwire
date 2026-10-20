@@ -1,0 +1,11 @@
+{
+  "crates/tickwire-shm/src/mapped.rs:206-269": "crates/tickwire-shm/src/mapped.rs:209-341",
+  "crates/tickwire-shm/src/mapped.rs:288-317": "crates/tickwire-shm/src/mapped.rs:360-402",
+  "crates/tickwire-shm/src/mapped.rs:320-462": "crates/tickwire-shm/src/mapped.rs:405-547",
+  "crates/tickwire-shm/src/mapped.rs:465-496": "crates/tickwire-shm/src/mapped.rs:550-581",
+  "crates/tickwire-shm/src/mapped.rs:434-462": "crates/tickwire-shm/src/mapped.rs:519-547",
+  "crates/tickwire-shm/src/mapped.rs:254-268": "crates/tickwire-shm/src/mapped.rs:326-340",
+  "crates/tickwire-shm/src/mapped.rs:212-226": "crates/tickwire-shm/src/mapped.rs:215-229",
+  "crates/tickwire-shm/src/mapped.rs:254-269": "crates/tickwire-shm/src/mapped.rs:326-341",
+  "crates/tickwire-shm/src/mapped.rs:444-462": "crates/tickwire-shm/src/mapped.rs:529-547"
+}

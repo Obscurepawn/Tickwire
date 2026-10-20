@@ -1,0 +1,29 @@
+{
+  "native": "Darwin arm64",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "commands": [
+    "cargo test --locked -p tickwire-business-journal",
+    "cargo test --locked -p tickwire-journal -p tickwire-journal-codec",
+    "cargo fmt -p tickwire-business-journal -- --check",
+    "cargo clippy --locked -p tickwire-business-journal -p tickwire-journal -p tickwire-journal-codec --all-targets -- -D warnings"
+  ],
+  "business_tests": 23,
+  "ignored_subprocess_entries": 2,
+  "sources_sha256": {
+    "crates/tickwire-business-journal/src/backend.rs": "c30b7aaba5224b27ec01a78c497115d62d4a89cea9261b993471a78c7008fbba",
+    "crates/tickwire-business-journal/src/lib.rs": "3e172670f1521e8adbd4da7115f249750a120663c8cb5cc375ceb2da35d4114d",
+    "crates/tickwire-business-journal/src/runtime.rs": "d5d1f74b525dbd5bbb1dbd862e42bfc2e6d83df3724712c14abd9168c67af4c5",
+    "crates/tickwire-business-journal/tests/runtime.rs": "3cd6d27d6d5cbe824611053719337ed6ebe24d5ac5d11f13409136bae9de952c",
+    "crates/tickwire-execution/src/lib.rs": "5301707994841e97e9efc7e3a3a16a9cc14178151e01ac3ba87e9fa6b2febb99",
+    "crates/tickwire-execution/src/ports.rs": "3264abdbe76b3874d1965d05001e6766817eba20a57aa545b20ba2a403d00f0b",
+    "crates/tickwire-journal/src/journal.rs": "5bfb70d5f16a51a20086ad9eb9d1d78dbd09c400709f48272dbc18c85665d7f3",
+    "crates/tickwire-journal/src/store.rs": "a89877845f1ea5afbc1bed6556e70522981f12f412ab110162f8f4eefcea827d",
+    "crates/tickwire-journal-codec/src/lib.rs": "8677551787b1806b0b20ca24f78b1effd519dbdc99d9093bfd0c5ef9c28ae6a8",
+    "crates/tickwire-recovery/src/codec.rs": "63941ced652dfa6e102bccc7b452bdbe1c165b63c3be720dabdaf11e7b767af9",
+    "crates/tickwire-recovery/src/files.rs": "a2fd768b26eb9d9bf386f6bd6edd41602ab0189c72d763ce3de0ac6482342f75",
+    "crates/tickwire-recovery/src/inputs.rs": "b8f9e8a0e0444cfb3e19e0826baa84e768ebbadb03c0ebd9482764d157a5fed7",
+    "crates/tickwire-recovery/src/lib.rs": "a2f76cb9db5e4c656635f585e5d6218bf0ba5d9fdcc527e0c893e257fc204dce",
+    "crates/tickwire-business-journal/Cargo.toml": "c3aff9ec73a03cf155180f7bc1536ecad8acdea191d5cb422465290ab6f0b438"
+  },
+  "recorded_utc": "2026-10-20T11:24:24.761561+00:00"
+}

@@ -1,0 +1,224 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 23 and seed -6460028867537091111 with 1 worker on 10 cores with 1820MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/recovery_closure/L0_publish_verify/02_models/L0_RecoveryClosure.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.U59LdFkaF1/java/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.U59LdFkaF1/java/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.U59LdFkaF1/java/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.U59LdFkaF1/java/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.U59LdFkaF1/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_RecoveryClosure
+Starting... (2026-10-20 19:08:12)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 19:08:12.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.5E-12
+The coverage statistics at 2026-10-20 19:08:13
+<Init line 23, col 1 to line 23, col 4 of module L0_RecoveryClosure>: 1:1
+  line 23, col 9 to line 25, col 81 of module L0_RecoveryClosure: 1
+<Open line 28, col 1 to line 28, col 4 of module L0_RecoveryClosure>: 322:324
+  line 28, col 12 to line 28, col 22 of module L0_RecoveryClosure: 4482
+  |line 28, col 12 to line 28, col 15 of module L0_RecoveryClosure: 4158
+  line 28, col 27 to line 28, col 69 of module L0_RecoveryClosure: 324
+<RootSync line 29, col 1 to line 29, col 8 of module L0_RecoveryClosure>: 322:322
+  line 29, col 16 to line 29, col 30 of module L0_RecoveryClosure: 4480
+  |line 29, col 16 to line 29, col 19 of module L0_RecoveryClosure: 4158
+  line 29, col 35 to line 29, col 65 of module L0_RecoveryClosure: 322
+<ParentSync line 30, col 1 to line 30, col 10 of module L0_RecoveryClosure>: 113:322
+  line 30, col 18 to line 30, col 34 of module L0_RecoveryClosure: 4480
+  |line 30, col 18 to line 30, col 21 of module L0_RecoveryClosure: 4158
+  line 30, col 39 to line 30, col 77 of module L0_RecoveryClosure: 322
+<OpenFailure line 31, col 1 to line 31, col 11 of module L0_RecoveryClosure>: 2:644
+  line 31, col 19 to line 31, col 52 of module L0_RecoveryClosure: 4802
+  |line 31, col 19 to line 31, col 22 of module L0_RecoveryClosure: 4158
+  |line 31, col 28 to line 31, col 52 of module L0_RecoveryClosure: 4158
+  line 31, col 57 to line 31, col 81 of module L0_RecoveryClosure: 644
+<Seed line 34, col 1 to line 34, col 7 of module L0_RecoveryClosure>: 314:816
+  line 34, col 15 to line 34, col 25 of module L0_RecoveryClosure: 9132
+  |line 34, col 15 to line 34, col 18 of module L0_RecoveryClosure: 8316
+  line 34, col 30 to line 34, col 45 of module L0_RecoveryClosure: 816
+  |line 34, col 30 to line 34, col 36 of module L0_RecoveryClosure: 1784
+  |line 34, col 38 to line 34, col 45 of module L0_RecoveryClosure: 1784
+  line 34, col 50 to line 34, col 65 of module L0_RecoveryClosure: 1632
+  |line 34, col 50 to line 34, col 50 of module L0_RecoveryClosure: 816
+  |line 34, col 56 to line 34, col 65 of module L0_RecoveryClosure: 816
+  line 35, col 8 to line 35, col 75 of module L0_RecoveryClosure: 816
+<BeginPublish line 36, col 1 to line 36, col 17 of module L0_RecoveryClosure>: 200:816
+  line 36, col 25 to line 36, col 35 of module L0_RecoveryClosure: 9132
+  |line 36, col 25 to line 36, col 28 of module L0_RecoveryClosure: 8316
+  line 36, col 40 to line 36, col 55 of module L0_RecoveryClosure: 816
+  |line 36, col 40 to line 36, col 46 of module L0_RecoveryClosure: 1784
+  |line 36, col 48 to line 36, col 55 of module L0_RecoveryClosure: 1784
+  line 36, col 60 to line 36, col 72 of module L0_RecoveryClosure: 1632
+  |line 36, col 60 to line 36, col 60 of module L0_RecoveryClosure: 816
+  |line 36, col 66 to line 36, col 72 of module L0_RecoveryClosure: 816
+  line 36, col 77 to line 36, col 89 of module L0_RecoveryClosure: 1632
+  |line 36, col 77 to line 36, col 77 of module L0_RecoveryClosure: 816
+  |line 36, col 83 to line 36, col 89 of module L0_RecoveryClosure: 816
+  line 37, col 8 to line 37, col 91 of module L0_RecoveryClosure: 816
+<BeginVerify line 38, col 1 to line 38, col 14 of module L0_RecoveryClosure>: 100:408
+  line 38, col 22 to line 38, col 32 of module L0_RecoveryClosure: 4566
+  |line 38, col 22 to line 38, col 25 of module L0_RecoveryClosure: 4158
+  line 38, col 37 to line 38, col 52 of module L0_RecoveryClosure: 408
+  |line 38, col 37 to line 38, col 43 of module L0_RecoveryClosure: 892
+  |line 38, col 45 to line 38, col 52 of module L0_RecoveryClosure: 892
+  line 38, col 57 to line 38, col 69 of module L0_RecoveryClosure: 816
+  |line 38, col 57 to line 38, col 57 of module L0_RecoveryClosure: 408
+  |line 38, col 63 to line 38, col 69 of module L0_RecoveryClosure: 408
+  line 39, col 8 to line 39, col 94 of module L0_RecoveryClosure: 408
+<RejectShape line 40, col 1 to line 40, col 11 of module L0_RecoveryClosure>: 408:408
+  line 40, col 19 to line 40, col 29 of module L0_RecoveryClosure: 4566
+  |line 40, col 19 to line 40, col 22 of module L0_RecoveryClosure: 4158
+  line 40, col 34 to line 40, col 49 of module L0_RecoveryClosure: 408
+  |line 40, col 34 to line 40, col 40 of module L0_RecoveryClosure: 892
+  |line 40, col 42 to line 40, col 49 of module L0_RecoveryClosure: 892
+  line 40, col 54 to line 40, col 78 of module L0_RecoveryClosure: 408
+<Lookup line 41, col 1 to line 41, col 6 of module L0_RecoveryClosure>: 50:100
+  line 41, col 14 to line 41, col 26 of module L0_RecoveryClosure: 4258
+  |line 41, col 14 to line 41, col 17 of module L0_RecoveryClosure: 4158
+  line 42, col 8 to line 43, col 52 of module L0_RecoveryClosure: 100
+  |line 42, col 11 to line 43, col 52 of module L0_RecoveryClosure: 100
+  ||line 42, col 12 to line 42, col 12 of module L0_RecoveryClosure: 100
+  ||line 42, col 26 to line 43, col 51 of module L0_RecoveryClosure: 100
+  |||line 42, col 29 to line 42, col 103 of module L0_RecoveryClosure: 100
+  ||||line 42, col 29 to line 42, col 51 of module L0_RecoveryClosure: 100
+  ||||line 42, col 56 to line 42, col 103 of module L0_RecoveryClosure: 6
+<CheckObject line 44, col 1 to line 44, col 11 of module L0_RecoveryClosure>: 140:260
+  line 44, col 19 to line 44, col 30 of module L0_RecoveryClosure: 4418
+  |line 44, col 19 to line 44, col 22 of module L0_RecoveryClosure: 4158
+  line 44, col 35 to line 44, col 55 of module L0_RecoveryClosure: 260
+  |line 44, col 35 to line 44, col 41 of module L0_RecoveryClosure: 320
+  |line 44, col 44 to line 44, col 55 of module L0_RecoveryClosure: 320
+  line 46, col 8 to line 46, col 82 of module L0_RecoveryClosure: 260
+<CheckInputs line 47, col 1 to line 47, col 11 of module L0_RecoveryClosure>: 32:34
+  line 47, col 19 to line 47, col 30 of module L0_RecoveryClosure: 4192
+  |line 47, col 19 to line 47, col 22 of module L0_RecoveryClosure: 4158
+  line 47, col 35 to line 47, col 56 of module L0_RecoveryClosure: 354
+  |line 47, col 35 to line 47, col 41 of module L0_RecoveryClosure: 320
+  |line 47, col 43 to line 47, col 56 of module L0_RecoveryClosure: 320
+  line 48, col 8 to line 49, col 75 of module L0_RecoveryClosure: 34
+<PrepareBinding line 50, col 1 to line 50, col 14 of module L0_RecoveryClosure>: 16:16
+  line 50, col 22 to line 50, col 33 of module L0_RecoveryClosure: 4174
+  |line 50, col 22 to line 50, col 25 of module L0_RecoveryClosure: 4158
+  line 50, col 38 to line 50, col 59 of module L0_RecoveryClosure: 336
+  |line 50, col 38 to line 50, col 44 of module L0_RecoveryClosure: 320
+  |line 50, col 46 to line 50, col 59 of module L0_RecoveryClosure: 320
+  line 51, col 8 to line 51, col 60 of module L0_RecoveryClosure: 16
+<Put line 54, col 1 to line 54, col 3 of module L0_RecoveryClosure>: 474:474
+  line 54, col 11 to line 54, col 20 of module L0_RecoveryClosure: 4632
+  |line 54, col 11 to line 54, col 14 of module L0_RecoveryClosure: 4158
+  line 55, col 8 to line 56, col 91 of module L0_RecoveryClosure: 474
+  |line 55, col 11 to line 56, col 91 of module L0_RecoveryClosure: 474
+  ||line 55, col 12 to line 55, col 12 of module L0_RecoveryClosure: 474
+  ||line 55, col 26 to line 56, col 90 of module L0_RecoveryClosure: 474
+  |||line 55, col 29 to line 55, col 44 of module L0_RecoveryClosure: 474
+  |||line 56, col 30 to line 56, col 90 of module L0_RecoveryClosure: 362
+<TempWrite line 57, col 1 to line 57, col 9 of module L0_RecoveryClosure>: 112:112
+  line 57, col 17 to line 57, col 32 of module L0_RecoveryClosure: 4270
+  |line 57, col 17 to line 57, col 20 of module L0_RecoveryClosure: 4158
+  line 57, col 37 to line 57, col 68 of module L0_RecoveryClosure: 112
+<FileSyncNew line 58, col 1 to line 58, col 11 of module L0_RecoveryClosure>: 112:112
+  line 58, col 19 to line 58, col 36 of module L0_RecoveryClosure: 4270
+  |line 58, col 19 to line 58, col 22 of module L0_RecoveryClosure: 4158
+  line 58, col 41 to line 58, col 67 of module L0_RecoveryClosure: 112
+<Rename line 59, col 1 to line 59, col 6 of module L0_RecoveryClosure>: 112:112
+  line 59, col 14 to line 59, col 26 of module L0_RecoveryClosure: 4270
+  |line 59, col 14 to line 59, col 17 of module L0_RecoveryClosure: 4158
+  line 59, col 31 to line 59, col 81 of module L0_RecoveryClosure: 112
+<FileSyncExisting line 60, col 1 to line 60, col 16 of module L0_RecoveryClosure>: 298:362
+  line 60, col 24 to line 60, col 46 of module L0_RecoveryClosure: 4520
+  |line 60, col 24 to line 60, col 27 of module L0_RecoveryClosure: 4158
+  line 60, col 51 to line 60, col 78 of module L0_RecoveryClosure: 362
+<DirSync line 61, col 1 to line 61, col 7 of module L0_RecoveryClosure>: 296:410
+  line 61, col 15 to line 61, col 28 of module L0_RecoveryClosure: 4568
+  |line 61, col 15 to line 61, col 18 of module L0_RecoveryClosure: 4158
+  line 61, col 33 to line 61, col 83 of module L0_RecoveryClosure: 410
+<IoFailure line 62, col 1 to line 62, col 15 of module L0_RecoveryClosure>: 199:2216
+  line 62, col 23 to line 62, col 96 of module L0_RecoveryClosure: 10532
+  |line 62, col 23 to line 62, col 26 of module L0_RecoveryClosure: 8316
+  |line 62, col 32 to line 62, col 96 of module L0_RecoveryClosure: 8316
+  line 63, col 8 to line 63, col 23 of module L0_RecoveryClosure: 4432
+  |line 63, col 8 to line 63, col 11 of module L0_RecoveryClosure: 2216
+  |line 63, col 17 to line 63, col 23 of module L0_RecoveryClosure: 2216
+  line 64, col 8 to line 64, col 85 of module L0_RecoveryClosure: 2216
+  |line 64, col 11 to line 64, col 85 of module L0_RecoveryClosure: 2216
+  ||line 64, col 12 to line 64, col 12 of module L0_RecoveryClosure: 2216
+  ||line 64, col 40 to line 64, col 84 of module L0_RecoveryClosure: 2216
+  |||line 64, col 43 to line 64, col 64 of module L0_RecoveryClosure: 2216
+  ||||line 64, col 43 to line 64, col 46 of module L0_RecoveryClosure: 2216
+  ||||line 64, col 51 to line 64, col 64 of module L0_RecoveryClosure: 1108
+  |||line 64, col 71 to line 64, col 77 of module L0_RecoveryClosure: 410
+<ReturnPut line 65, col 1 to line 65, col 9 of module L0_RecoveryClosure>: 210:296
+  line 65, col 17 to line 65, col 31 of module L0_RecoveryClosure: 4454
+  |line 65, col 17 to line 65, col 20 of module L0_RecoveryClosure: 4158
+  line 66, col 8 to line 66, col 79 of module L0_RecoveryClosure: 296
+<Deliver line 67, col 1 to line 67, col 7 of module L0_RecoveryClosure>: 4:10
+  line 67, col 15 to line 67, col 26 of module L0_RecoveryClosure: 4168
+  |line 67, col 15 to line 67, col 18 of module L0_RecoveryClosure: 4158
+  line 67, col 31 to line 67, col 52 of module L0_RecoveryClosure: 330
+  |line 67, col 31 to line 67, col 37 of module L0_RecoveryClosure: 320
+  |line 67, col 39 to line 67, col 52 of module L0_RecoveryClosure: 320
+  line 68, col 8 to line 68, col 57 of module L0_RecoveryClosure: 10
+<Next line 75, col 1 to line 75, col 4 of module L0_RecoveryClosure (80 9 80 77)>: 321:2165
+  line 71, col 27 to line 71, col 37 of module L0_RecoveryClosure: 12921
+  |line 71, col 27 to line 71, col 30 of module L0_RecoveryClosure: 10756
+  line 71, col 42 to line 71, col 61 of module L0_RecoveryClosure: 2165
+  |line 71, col 42 to line 71, col 50 of module L0_RecoveryClosure: 10108
+  |line 71, col 52 to line 71, col 61 of module L0_RecoveryClosure: 10108
+  line 72, col 8 to line 72, col 36 of module L0_RecoveryClosure: 6491
+  |line 72, col 8 to line 72, col 15 of module L0_RecoveryClosure: 4326
+  |line 72, col 21 to line 72, col 36 of module L0_RecoveryClosure: 4326
+  line 72, col 41 to line 72, col 55 of module L0_RecoveryClosure: 6491
+  |line 72, col 41 to line 72, col 43 of module L0_RecoveryClosure: 4326
+  |line 72, col 49 to line 72, col 55 of module L0_RecoveryClosure: 4326
+  line 72, col 61 to line 72, col 75 of module L0_RecoveryClosure: 4
+  |line 72, col 61 to line 72, col 68 of module L0_RecoveryClosure: 4326
+  |line 72, col 73 to line 72, col 75 of module L0_RecoveryClosure: 2161
+  line 73, col 8 to line 74, col 87 of module L0_RecoveryClosure: 2165
+  |line 73, col 11 to line 74, col 87 of module L0_RecoveryClosure: 2165
+  ||line 73, col 12 to line 73, col 12 of module L0_RecoveryClosure: 2165
+  ||line 73, col 41 to line 73, col 71 of module L0_RecoveryClosure: 2165
+  |||line 73, col 44 to line 73, col 46 of module L0_RecoveryClosure: 2165
+  |||line 73, col 53 to line 73, col 60 of module L0_RecoveryClosure: 2163
+  |||line 73, col 67 to line 73, col 71 of module L0_RecoveryClosure: 2
+  ||line 74, col 16 to line 74, col 46 of module L0_RecoveryClosure: 2165
+  |||line 74, col 19 to line 74, col 21 of module L0_RecoveryClosure: 2165
+  |||line 74, col 28 to line 74, col 35 of module L0_RecoveryClosure: 2163
+  |||line 74, col 42 to line 74, col 46 of module L0_RecoveryClosure: 2
+  ||line 74, col 48 to line 74, col 59 of module L0_RecoveryClosure: 2165
+  ||line 74, col 61 to line 74, col 72 of module L0_RecoveryClosure: 2165
+  ||line 74, col 74 to line 74, col 86 of module L0_RecoveryClosure: 2165
+  line 80, col 65 to line 80, col 72 of module L0_RecoveryClosure: 4326
+  line 80, col 74 to line 80, col 76 of module L0_RecoveryClosure: 4326
+  line 80, col 25 to line 80, col 40 of module L0_RecoveryClosure: 4158:23230
+  line 80, col 50 to line 80, col 56 of module L0_RecoveryClosure: 4158
+<TypeOK line 82, col 1 to line 82, col 6 of module L0_RecoveryClosure>
+  line 82, col 11 to line 83, col 91 of module L0_RecoveryClosure: 4158
+<ProofHasDurableClosure line 84, col 1 to line 84, col 22 of module L0_RecoveryClosure>
+  line 84, col 27 to line 84, col 75 of module L0_RecoveryClosure: 4158
+  |line 84, col 46 to line 84, col 75 of module L0_RecoveryClosure: 258
+  ||line 84, col 46 to line 84, col 63 of module L0_RecoveryClosure: 258
+  |||line 21, col 18 to line 22, col 68 of module L0_RecoveryClosure: 258
+  ||||line 21, col 21 to line 21, col 78 of module L0_RecoveryClosure: 258
+  |||||line 21, col 47 to line 21, col 78 of module L0_RecoveryClosure: 516
+  |||||line 21, col 30 to line 21, col 44 of module L0_RecoveryClosure: 258
+  ||||line 22, col 21 to line 22, col 68 of module L0_RecoveryClosure: 258
+  |||line 84, col 55 to line 84, col 55 of module L0_RecoveryClosure: 258
+  |||line 84, col 57 to line 84, col 62 of module L0_RecoveryClosure: 258
+  ||line 84, col 68 to line 84, col 75 of module L0_RecoveryClosure: 258
+  |line 84, col 36 to line 84, col 43 of module L0_RecoveryClosure: 4158
+<NoUnopenedIO line 85, col 1 to line 85, col 12 of module L0_RecoveryClosure>
+  line 85, col 17 to line 85, col 72 of module L0_RecoveryClosure: 4158
+  |line 85, col 17 to line 85, col 60 of module L0_RecoveryClosure: 4158
+  |line 85, col 65 to line 85, col 72 of module L0_RecoveryClosure: 3190
+End of statistics.
+10740 states generated, 4158 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 66.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 7 and the 95th percentile is 3).
+Finished in 01s at (2026-10-20 19:08:13)

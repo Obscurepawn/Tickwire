@@ -1,0 +1,26 @@
+[
+  {
+    "config": "tla/execution_models/business_journal/L0_commit_abort_recovery/02_models/L0_BusinessJournal.cfg",
+    "exit_code": 0,
+    "wall_seconds": 1.226257085800171,
+    "generated": 130,
+    "distinct": 72,
+    "depth": 14
+  },
+  {
+    "config": "tla/execution_models/business_journal/L0_commit_abort_recovery/02_models/L0_BusinessJournal_competing.cfg",
+    "exit_code": 0,
+    "wall_seconds": 1.4039208889007568,
+    "generated": 571,
+    "distinct": 345,
+    "depth": 26
+  },
+  {
+    "config": "tla/execution_models/business_journal/L0_commit_abort_recovery/02_models/L0_BusinessJournal_scaling.cfg",
+    "exit_code": 0,
+    "wall_seconds": 1.3010129928588867,
+    "generated": 1747,
+    "distinct": 879,
+    "depth": 28
+  }
+]

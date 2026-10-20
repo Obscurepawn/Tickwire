@@ -1,0 +1,59 @@
+   Compiling tickwire-mock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-mock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.23s
+     Running tests/services.rs (target/debug/deps/services-6cd5148e0fed07a2)
+
+running 16 tests
+test accepted_order_ack_loss_and_recovery_do_not_resubmit ... ok
+test even_empty_journal_restart_requires_recovery_authorization ... ok
+test committed_but_lost_storage_receipt_is_recovered_conservatively ... ok
+test facts_are_not_applied_when_storage_fails ... ok
+test failed_recovery_cannot_leave_the_old_engine_authorized ... ok
+test kv_failure_never_reaches_journal_or_exchange ... ok
+test healthy_async_pending_response_is_distinct_from_timeout ... ok
+test missing_recovery_dependency_prevents_commit ... ok
+test durable_abort_prevents_reholding_released_budget_on_restart ... FAILED
+test failed_abort_persistence_retains_reservation_and_freezes ... FAILED
+test no_bytes_abort_survives_restart ... FAILED
+test recovery_replays_terminal_release_before_later_intent ... FAILED
+test relational_cas_and_immutable_kv_contracts ... ok
+test storage_failure_never_reaches_exchange ... ok
+test synchronous_replica_pending_does_not_fall_back_to_local ... ok
+test venue_identity_is_not_binance_specific_and_domains_cannot_mix ... ok
+
+failures:
+
+---- durable_abort_prevents_reholding_released_budget_on_restart stdout ----
+
+thread 'durable_abort_prevents_reholding_released_budget_on_restart' (4955652) panicked at crates/tickwire-mock/tests/services.rs:250:17:
+called `Result::unwrap()` on an `Err` value: Domain(Overflow)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- failed_abort_persistence_retains_reservation_and_freezes stdout ----
+
+thread 'failed_abort_persistence_retains_reservation_and_freezes' (4955655) panicked at crates/tickwire-mock/tests/services.rs:283:5:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(Service(Unavailable))
+
+---- no_bytes_abort_survives_restart stdout ----
+
+thread 'no_bytes_abort_survives_restart' (4955660) panicked at crates/tickwire-mock/tests/services.rs:270:5:
+assertion `left == right` failed
+  left: 102
+ right: 0
+
+---- recovery_replays_terminal_release_before_later_intent stdout ----
+
+thread 'recovery_replays_terminal_release_before_later_intent' (4955661) panicked at crates/tickwire-mock/tests/services.rs:311:17:
+called `Result::unwrap()` on an `Err` value: Domain(Overflow)
+
+
+failures:
+    durable_abort_prevents_reholding_released_budget_on_restart
+    failed_abort_persistence_retains_reservation_and_freezes
+    no_bytes_abort_survives_restart
+    recovery_replays_terminal_release_before_later_intent
+
+test result: FAILED. 12 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-mock --test services`

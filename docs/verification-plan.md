@@ -100,13 +100,13 @@
 | I-43 | 快照正文/依赖、SnapshotPublish、CURRENT rename/目录同步各切点失败；只安装同一完整边界，不混装状态/applied/ConfState；尾部半批可丢弃，封口中部损坏须隔离 | INV-2/3/7，P3/P4 |
 | I-44 | 控制 Raft Ready 批次异步持久完成乱序、term/vote/commit 落盘失败及旧任期多数副本；连续持久前缀之前不发肯定响应，本任期 barrier 提交并应用前不签发控制证明 | INV-6/7/8，P3/P4 |
 | I-45 | 控制成员 `{A,B,C}→{A,B,D}` 的 learner 安装/重启、joint/leave-joint 与分区交错；A/C 互通不足以离开 joint，旧 voter 在离开记录提交应用前不退役 | INV-6/7/8，P3/P4 |
-| I-46 | 复制延迟越过 100/1,000 ms 与磁盘 80%/90% 保护线；告警/禁增险按提交模式执行，事实与取消继续，保留未复制尾部或固定完整快照及后缀，不按年龄删活依赖 | INV-1/2/7，P3/P4 |
+| I-46 | 复制延迟越过 100/1,000 ms 与磁盘 80%/90% 保护线；按配置告警或禁止增险；继续处理交易结果并执行允许的撤单，保留未复制尾部或完整快照及后续记录，不按保存时间删除仍被引用的依赖对象 | INV-1/2/7，P3/P4 |
 | I-47 | 检查点、实际输入 sequencer、对象存储、依赖释放与快照压缩并发；缺一输入或 blob 时本地/镜像都不出完整收据，Unknown/发布/安装快照的 pin 阻止回收 | INV-2/7/12/13，P3/P4 |
 | I-48 | 多标的 topic 持续更新时 JOIN 与 Freeze 并发；清单完整捕获同一 S，集合变化拒绝旧计划，全部成员通过校验才 Ready，子对象不藏在对象/字节预算之外 | INV-5/11/14，P1/P3 |
 | I-49 | 实际控制通道按 opcode 解码 QUIESCE/SWITCH/EXEC_LEASE/配置响应；资源会话、exec 短租约和策略期限独立，结构有效但已过期 RELEASE_RISK 被拒绝 | INV-6/8/11/12/14，P1/P3 |
 | I-50 | 通过文件导入和配置 API 分别提交同一候选，所有固定目标 desired/runtime/effective 的全局版本及预期投影一致；两个文件重解析并与持久收据匹配后才 Succeeded | INV-7/8/14，P2/P3 |
 | I-51 | 并发同 ETag、同键同/异内容、提交后响应丢失与身份撤权；只建一个 revision/operation，重试重新授权；watch 重复/重连可去重，压缩游标返回 410 后重读状态 | INV-8/12/14，P2/P3 |
-| I-52 | ConfigPrepared、desired write/fsync/rename/目录同步、ConfigApply、runtime 切换、effective 同步和收据/ACK 每一步崩溃；按日志恢复同版本，不重复经济动作，不凭 mtime 选版本 | INV-2/7/8，P3/P4 |
+| I-52 | ConfigPrepared、desired write/fsync/rename/目录同步、ConfigApply、runtime 切换、effective 同步和收据/ACK 每一步崩溃；按日志恢复同版本，不重复交易操作，不凭 mtime 选版本 | INV-2/7/8，P3/P4 |
 | I-53 | 注入 ENOSPC、EIO、只读盘、权限漂移和目录同步失败；desired 未持久不应用，runtime 已应用但 effective 失败则 Stalled/冻结，补写同版本后才可完成 | INV-1/7/8，P3/P4 |
 | I-54 | 配置部分主机离线/超时、控制 leader 变化、目标退休和操作被替代；固定目标不被悄悄删除，逐目标版本可查询，跨域屏障保持，resume/supersedes 覆盖残留版本与旧屏障 | INV-6/7/8/12，P3/P4 |
 | I-55 | 单账户身份使用 head/scoped-patch 及查询视图；无权对象存在/旧值/secret 引用不泄露，共享政策的间接影响须获全部依赖授权；NoOp delivery 不扩权，成功仍按完整集合而非可见子集计算 | INV-8/12/14，P2/P3 |
@@ -117,7 +117,7 @@
 | I-60 | 回滚旧配置时已有新成交/新 schema/撤销凭据/账户模式变化；生成新 revision 并重验依赖和权限，订单、费用、去重、ID 高水位与代次均不回退；生产模板占位/fixture 不准入 live | INV-1/2/3/7/8/12，P2/P3 |
 | I-61 | 实际降限额分别执行 reject_if_exceeded/freeze_until_within/cancel_then_freeze；全部潜在暴露参与判断，撤单未终态继续占额，文件完成不替代恢复增险所需的新授权 | INV-1/2/8/9/10，P2/P3 |
 | I-62 | 交割窗口叠加时钟误差、挂单/条件单、结算延期、公开价格与账户事实乱序；进入 ExpiryReduceOnly/AwaitingSettlement 后不按时间清仓，净额合并记录不重复扣费，差额冻结待解释 | INV-1/2/3/7/10，P2/P4 |
-| I-63 | 参考部署的物理核/NUMA/SMT、cgroup、锁页/预触页、SHM/快照/投影/并存实例和磁盘预算真实准入；物理页只计一次，额外发布或跨 NUMA 提交模式不能借用未核算容量 | INV-5/7/11/14，P1/P5 |
+| I-63 | 参考部署的物理核/NUMA/SMT、cgroup、锁页/预触页、SHM/快照/投影/并存实例和磁盘预算真实准入；物理页只计一次，额外发布或跨 NUMA 部署不能借用未核算容量 | INV-5/7/11/14，P1/P5 |
 | I-64 | 默认与同步提交模式各测完整明文行情至 socket 接收的分布，并覆盖本地输入闭包/flush/镜像等待；按负载记录全部尝试、过期、拒绝、背压和丢样，不相加分段分位数 | INV-5/7/11/14，P5 |
 | I-65 | 72 小时共置长跑覆盖 32 策略实例、规定突发、发布/回滚、慢消费者、复制/磁盘扰动及恢复；有界恢复负载之外或证据不足保持冻结，不因 30 秒目标到期强制放行 | INV-1～14，P4/P5 |
 

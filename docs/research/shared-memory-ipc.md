@@ -147,7 +147,7 @@ publisher 在移除已消失接收者的连接时，使用其已投递 offset �
 
 策略逻辑更新与 transport 更新应分开：
 
-- **只更新策略逻辑**：稳定 SDK、同一 IPC 版本和兼容 payload 保持不变；新策略进程预热行情、取得执行状态、完成 Ready 后，执行 owner 切换获准的 strategy generation。旧 generation 的在途意图继续按 ID 对账，不重复产生经济动作。
+- **只更新策略逻辑**：稳定 SDK、同一 IPC 版本和兼容 payload 保持不变；新策略进程预热行情、取得执行状态、完成 Ready 后，执行 owner 切换获准的 strategy generation。旧 generation 的在途意图继续按 ID 对账，不重复产生交易操作。
 - **变更消息布局**：建立新的 topic/schema epoch，按订阅者逐个迁移；需要兼容转换时由明确的桥接组件承担。两套服务的并存内存和 CPU 纳入容量预算。
 - **升级 iceoryx2 版本**：新旧版本使用不同 namespace／服务资源；通过兼容桥接或生产者双发布逐 topic 迁移。保留与旧版本匹配的清理工具，直到旧资源退役；不要让新库直接清理旧库资源或强制忽略版本检查。
 

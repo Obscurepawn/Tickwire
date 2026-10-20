@@ -486,4 +486,8 @@ impl<S: Store> Journal<S> {
     pub fn into_store(self) -> S {
         self.store
     }
+    /// The persisted stream identity, including when the journal is empty.
+    pub fn config(&self) -> &Config {
+        &self.manifest.config
+    }
 }

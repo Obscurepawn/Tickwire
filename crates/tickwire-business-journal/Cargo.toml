@@ -1,0 +1,18 @@
+[package]
+name = "tickwire-business-journal"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tickwire-execution = { path = "../tickwire-execution" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-journal-codec = { path = "../tickwire-journal-codec" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+sha2 = "=0.10.9"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.145"
+
+[lints]
+workspace = true

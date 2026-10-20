@@ -1,0 +1,27 @@
+   Compiling tickwire-join v0.1.0 (/work/crates/tickwire-join)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.00s
+     Running tests/flow.rs (target/linux-join/debug/deps/flow-08d1ff0e57122c63)
+
+running 5 tests
+test failed_socket_delivery_keeps_pending_membership ... ok
+test expired_join_retains_advanced_pending_cursor_gate ... ok
+
+thread 'actual_quiescence_is_required_and_conflicting_duplicate_ack_is_rejected' (116) panicked at crates/tickwire-join/tests/flow.rs:179:5:
+assertion failed: f.owner.quiesced(f.reg.subscription, &mut f.os, &conflict, NOW).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test actual_quiescence_is_required_and_conflicting_duplicate_ack_is_rejected ... FAILED
+test wrong_read_ready_and_join_ready_do_not_overwrite_bindings ... ok
+
+thread 'shared_read_ready_cannot_activate_without_cursor_or_catchup' (119) panicked at crates/tickwire-join/tests/flow.rs:107:26:
+called `Result::unwrap()` on an `Err` value: Ring(Protocol(Cursor))
+test shared_read_ready_cannot_activate_without_cursor_or_catchup ... FAILED
+
+failures:
+
+failures:
+    actual_quiescence_is_required_and_conflicting_duplicate_ack_is_rejected
+    shared_read_ready_cannot_activate_without_cursor_or_catchup
+
+test result: FAILED. 3 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p tickwire-join --test flow`

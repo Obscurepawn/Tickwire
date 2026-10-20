@@ -73,11 +73,17 @@ impl ObjectStore for MockKv {
     }
 }
 pub use tickwire_execution::ports::ExecutionFact as Fact;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MockJournalEvent {
+    Intent(DurableRecord),
+    Fact(Fact),
+}
 #[derive(Debug, Clone)]
 pub struct MockJournal {
     pub objects: MockKv,
     records: Vec<DurableRecord>,
     facts: Vec<Fact>,
+    events: Vec<MockJournalEvent>,
     pub fail_next_commit: bool,
     pub lose_next_receipt: bool,
     pub replica_ready: bool,
@@ -89,11 +95,18 @@ impl Default for MockJournal {
             objects: MockKv::default(),
             records: Vec::new(),
             facts: Vec::new(),
+            events: Vec::new(),
             fail_next_commit: false,
             lose_next_receipt: false,
             replica_ready: true,
             fail_next_fact: false,
         }
+    }
+}
+impl MockJournal {
+    /// Actual append order; grouped `committed()` and `facts()` are inspection views.
+    pub fn events(&self) -> &[MockJournalEvent] {
+        &self.events
     }
 }
 /// Exact test dependency bytes; production will use the content-addressed RecoveryManifest ABI.
@@ -106,6 +119,7 @@ impl Journal for MockJournal {
             return Err(ServiceError::Unavailable);
         }
         self.facts.push(f);
+        self.events.push(MockJournalEvent::Fact(f));
         Ok(())
     }
 
@@ -130,6 +144,7 @@ impl Journal for MockJournal {
             }
         } else {
             self.records.push(record);
+            self.events.push(MockJournalEvent::Intent(record));
         }
         if std::mem::take(&mut self.lose_next_receipt) {
             return Err(ServiceError::Unavailable);
@@ -229,7 +244,7 @@ impl<const N: usize, const T: usize> MockRuntime<N, T> {
             SubmitOutcome::PendingResponse => {}
             SubmitOutcome::Acknowledged => self.engine.ack(id)?,
             SubmitOutcome::MayHaveSent => self.engine.uncertain(id)?,
-            SubmitOutcome::NoBytesAccepted => self.engine.transport_rejected_without_bytes(id)?,
+            SubmitOutcome::NoBytesAccepted => self.record(Fact::AbortedBeforeSend { record })?,
         }
         Ok(())
     }
@@ -267,11 +282,11 @@ impl<const N: usize, const T: usize> MockRuntime<N, T> {
         self.engine.freeze();
         let mut engine = Engine::new(self.domain, self.capital, self.gate)?;
         engine.freeze();
-        for record in self.journal.committed() {
-            engine.recover_intent(*record)?;
-        }
-        for fact in self.journal.facts() {
-            fact.apply(&mut engine)?;
+        for event in self.journal.events() {
+            match *event {
+                MockJournalEvent::Intent(record) => engine.recover_intent(record)?,
+                MockJournalEvent::Fact(fact) => fact.apply(&mut engine)?,
+            }
         }
         self.engine = engine;
         Ok(())

@@ -6,7 +6,7 @@ CONSTANTS MaxCalls, MaxCrashes, RecordsPerBatch
 \* s.pc/pos/epoch: Journal position and synchronous call continuation
 \*   crates/tickwire-journal/src/journal.rs:150-175,371-484
 \* s.cache/disk: FileStore write_all / sync_data content boundaries
-\*   crates/tickwire-journal/src/store.rs:135-154
+\*   crates/tickwire-journal/src/store.rs:143-162
 \* s.pending/written/calls: encoded batch / write_all fragments, bounded calls
 \*   crates/tickwire-journal/src/journal.rs:379-457
 \* s.acks/lastAck/synced: proof prefix and ghost completed-sync history
@@ -55,7 +55,7 @@ BeginAppend(e) ==
     /\ s'=[s EXCEPT !.pc="Writing", !.pending=Frames(s.pos+1,e,s.calls+1),
                     !.written=0, !.calls=@+1]
 RejectInvalid == /\ s.pc="Ready" /\ UNCHANGED s
-\* crates/tickwire-journal/src/store.rs:135-141: partial write_all progress; only one owner can append.
+\* crates/tickwire-journal/src/store.rs:143-149: partial write_all progress; only one owner can append.
 WriteFrame ==
     /\ s.pc="Writing" /\ s.written<Width
     /\ s'=[s EXCEPT !.cache=Append(@,s.pending[s.written+1]), !.written=@+1,

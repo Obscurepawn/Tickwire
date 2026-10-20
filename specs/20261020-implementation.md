@@ -2,7 +2,7 @@
 
 Status: active
 
-目标保留[详细设计](20261020-binance-ultra-low-latency.md)的完整 P0～P5 范围。每个模块依次交付接口设计、先失败后通过的测试、实现规格和源码对应的 TLA+ 模型。用户允许外部存储通过抽象与 MockService 完成本地链路，并要求交易所接入可扩展。
+实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。每个模块依次交付接口设计、先失败后通过的测试、实现规格和源码对应的 TLA+ 模型。外部存储通过抽象与 MockService 完成本地链路，交易所通过可扩展适配接口接入。
 
 每完成一个可验证阶段即提交并推送远端，保存对应 Specs、测试和模型结果；提交范围限定为该阶段修改，推送后核对远端 SHA。该节奏于 2026-10-20 由用户授权。
 
@@ -11,11 +11,10 @@ Status: active
 | 范围 | 当前实现 | 后续验收 |
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
-| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照构造与接收、SPSC/广播及 1～32 消费进程测试；Unix SEQPACKET/SCM_RIGHTS 与认证会话 | JOIN owner/cursor 协调、Arena、bank 轮换、进程死亡回收与业务进程接入 |
+| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照构造与接收、SPSC/广播及 1～32 消费进程测试；认证会话与三进程 JOIN 集成 | Arena、bank 轮换、进程死亡回收与完整业务进程接入 |
 | P2 风控与执行 | 定点风险公式、订单状态、预留/去重/发送门禁、服务接口与 Mock | 完整保证金账户/归属、行情风控接入、协议认证/网关、条件订单和限流 |
-| P3 发布与恢复 | journal Mock 与冻结恢复原语；真实物理 WAL/分段/同步恢复；确定性业务事件与逻辑链编码 | 业务日志适配与恢复依赖闭包、策略升级/回滚、多 exec 协调、对账和配置发布 |
+| P3 发布与恢复 | 有序 journal Mock；真实物理 WAL/分段/同步恢复；业务日志适配、恢复依赖保存与验证；恢复后保持冻结 | 策略升级/回滚、多 exec 协调、对账、恢复后授权和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
-| P5 资格 | 尚未开始 | 测试网、Linux 多进程全链路、延迟、压力、72 小时长跑和受控上线 |
 
 ## 模块入口
 
@@ -26,6 +25,7 @@ Status: active
 - [共享 ring 接口](../docs/implementation/shm-ring-interface.md)，[ring 规格](implementation/shm-ring.md)与[Linux 映射规格](implementation/shm-mapping.md)。
 - [控制会话](../docs/implementation/control-session-interface.md)、[传输边界](../docs/implementation/control-transport-interface.md)与[物理日志](../docs/implementation/journal-interface.md)；各自规格位于 `specs/implementation/`。
 - [不可变资源](implementation/immutable-resource.md)、[Topic 快照构造](implementation/topic-snapshot-builder.md)、[快照接收](implementation/topic-snapshot.md)与[业务日志编码](implementation/journal-codec.md)。
+- [JOIN 协调](implementation/join.md)、[业务日志与恢复](implementation/business-journal.md)、[恢复依赖](implementation/recovery-closure.md)与[Mock 中止重放](implementation/mock-abort.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
@@ -55,10 +55,10 @@ TLC 1.7.4 对执行模块的三个有限模型运行了九组配置，均通过�
 | L1 崩溃与回执：primary | 6,539 | 1,744 | 14 |
 | L1 崩溃与回执：scaling | 417,807 | 96,828 | 22 |
 | L1 正常等待回执：pending | 833,051 | 186,148 | 22 |
-| L2 经济事实 v2：primary | 139,711 | 24,036 | 8 |
-| L2 经济事实 v2：long | 1,591,624 | 280,458 | 9 |
-| L2 经济事实 v2：boundary | 14,397,539 | 1,495,032 | 11 |
-| L2 经济事实 v2：scaling | 14,278,433 | 1,485,288 | 11 |
+| L2 交易结果记录 v2：primary | 139,711 | 24,036 | 8 |
+| L2 交易结果记录 v2：long | 1,591,624 | 280,458 | 9 |
+| L2 交易结果记录 v2：boundary | 14,397,539 | 1,495,032 | 11 |
+| L2 交易结果记录 v2：scaling | 14,278,433 | 1,485,288 | 11 |
 
 [L0 记录](../tla/execution_models/submission/L0_commit_gate/03_run_log.md)、[L1 记录](../tla/execution_models/submission/L1_crash_receipt/03_run_log.md)与 [L2 记录](../tla/execution_models/submission/L2_economic_facts/03_run_log.md)包含动作覆盖、源码哈希和有限域。L2 增加成交、费用、终态、去重及算术边界，发现恢复重放失败时旧引擎仍保留交易授权的问题。实际 Rust 回归确认后，`MockRuntime::restart` 改为先冻结旧引擎；四组 v2 配置与回归均通过。模型按同步 API 边界执行，真实磁盘和 journal append/apply 之间的进程崩溃留待下一层。
 
@@ -74,7 +74,7 @@ TLC 1.7.4 对执行模块的三个有限模型运行了九组配置，均通过�
 
 模型检查完整发布、活跃借用与未读记录不被覆盖、释放前缀、实际 cursor 退出证据以及 Freeze。身份固定、序号和借用窗口有限；CPU 弱内存、生产控制身份和跨 bank 轮换由后续验收覆盖。
 
-全目标完成要以[验证方案](../docs/verification-plan.md)的 U-01～U-30、I-01～I-65、INV-1～INV-14 和 P0～P5 退出条件逐项提供证据。若一个用例目前只覆盖部分场景，仍标记为部分完成。真实主机、账户资格、凭证及隔离后端尚未提供，因此本地 Mock 回归不能填充生产资格项。
+单元、集成测试与形式化验证保存可复现的命令和结果；部分覆盖的用例标明实际范围。INV-1～INV-14 继续约束实现。
 
 已有未跟踪性能审阅文档属于用户工作树内容，本轮不改写或提交。
 
@@ -118,6 +118,14 @@ macOS 和 Linux 的全仓格式、全部 targets、doctest 与 Clippy 检查通�
 
 快照构造器已实现完整成员集合、共同序号 S、状态与深度编码、摘要及 JOIN 绑定。先检查全部大小和容量，再分配输出；非 Live 成员保留在快照中，构造成功不授予交易资格。18 项新增构造与算术测试及 12 项既有接收测试在 macOS/Linux 通过，Linux 另通过 2 个既有跨进程接收入口，格式与 Clippy 通过。实际失败测试、最终输出和独立基准样本比对见[验证报告](../docs/validation/topic-snapshot-builder/report.md)。涉及 owner、pending gate 和 JOIN_READY 的状态迁移在 JOIN 协调模块中继续验证。
 
+## JOIN 与业务恢复阶段
+
+三进程 JOIN 已串起认证请求、快照构造、bank/snapshot 的 FD 交付、真实 cursor 登记、追平激活和协作退出。失败订阅保留原门禁，重复 READY 和退出确认返回原结果；当前每个 owner 最多累计登记 M 次，持久请求恢复与进程死亡回收仍待实现。
+
+业务日志将原有 codec、真实 WAL 与执行内核连接起来，先验证授权和恢复依赖，再同步意图，发送前刷新时效检查；未发送中止先保存后释放。恢复按原事件顺序执行并保持冻结。外部授权由接口提供，测试采用明确的 Mock；完整签名证明、同步副本及恢复后的重新授权尚未实现。
+
+macOS/Linux 全仓测试与 Clippy 通过，新增四组模型共 13 个配置全部通过。测试、源码摘要和模型范围见[阶段验证](../docs/validation/join-recovery-stage/README.md)。旧 Mock 恢复模型保留为历史版本，不把其原有通过结果当作当前实现的完整组合证明。
+
 ## 接续工作
 
-将已验证的控制连接与 FD 交付接入真实 md/strategy/exec 进程，补齐 JOIN 的不可变快照基线、Arena、bank 轮换与退出回收。物理 WAL 继续接到业务日志和恢复依赖闭包；配置发布、完整风险账户、可替换交易所网络适配器及 P4/P5 验收仍按原目标推进。
+按官方协议实现完整 Binance 连接器，并用协议 Mock 验证同一实现。继续组合 md/strategy/exec 业务进程，补齐 Arena、bank 轮换、退出回收、配置发布、完整风险账户、复制及接管逻辑。所有模块继续按接口、TDD、Specs、形式化验证的顺序推进。

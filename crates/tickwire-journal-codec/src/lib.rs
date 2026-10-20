@@ -188,6 +188,12 @@ pub fn decode(bytes: &[u8]) -> Result<Record, DecodeError> {
 /// Hashes type, business fields (including the original intent epoch) and domain.
 /// Writer epoch, journal placement and physical WAL placement are excluded.
 pub fn business_digest(record: &Record) -> Hash {
+    Sha256::digest(business_payload(record)).into()
+}
+
+/// Returns the exact canonical preimage of `business_digest`, suitable for an
+/// immutable intent-payload dependency object. This is not the WAL envelope.
+pub fn business_payload(record: &Record) -> Vec<u8> {
     let mut w = Writer::new();
     w.array(5);
     w.text("tickwire.business-event");
@@ -195,7 +201,7 @@ pub fn business_digest(record: &Record) -> Hash {
     w.bytes(&record.risk_domain_id);
     w.uint(record.event.kind());
     write_payload(&mut w, &record.event);
-    Sha256::digest(w.finish()).into()
+    w.finish()
 }
 
 /// Binds this log writer's epoch to the stable business event digest.

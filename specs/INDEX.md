@@ -8,7 +8,7 @@
 
 ## Active
 
-- [Rust 实现与验证](20261020-implementation.md)：已启动接口、TDD、Specs 与 TLA+ 流程；外部存储和交易所通过可替换接口与 MockService 验证。
+- [Rust 实现与验证](20261020-implementation.md)：接口、TDD、Specs 与 TLA+ 流程；外部存储可用 Mock，Binance 连接器完整实现并由官方协议 Mock 测试。
 
 ## Completed
 

@@ -168,6 +168,19 @@ name = "tickwire-book"
 version = "0.1.0"
 
 [[package]]
+name = "tickwire-business-journal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-execution",
+ "tickwire-journal",
+ "tickwire-journal-codec",
+ "tickwire-recovery",
+]
+
+[[package]]
 name = "tickwire-control"
 version = "0.1.0"
 dependencies = [
@@ -197,6 +210,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-join"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "tickwire-control",
+ "tickwire-control-sys",
+ "tickwire-ipc",
+ "tickwire-shm",
+ "tickwire-shm-sys",
+ "tickwire-snapshot",
+]
+
+[[package]]
 name = "tickwire-journal"
 version = "0.1.0"
 dependencies = [
@@ -222,6 +249,13 @@ dependencies = [
  "tickwire-execution",
  "tickwire-ipc",
  "tickwire-risk",
+]
+
+[[package]]
+name = "tickwire-recovery"
+version = "0.1.0"
+dependencies = [
+ "sha2",
 ]
 
 [[package]]

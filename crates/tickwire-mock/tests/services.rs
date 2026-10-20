@@ -224,7 +224,7 @@ fn healthy_async_pending_response_is_distinct_from_timeout() {
 }
 
 #[test]
-fn failed_recovery_cannot_leave_the_old_engine_authorized() {
+fn durable_abort_prevents_reholding_released_budget_on_restart() {
     let mut r = MockRuntime::<8, 8>::new(req().key.domain(), i128::MAX, gate()).unwrap();
     let mut first = req();
     first.quantity = 2;
@@ -247,10 +247,12 @@ fn failed_recovery_cannot_leave_the_old_engine_authorized() {
     .unwrap();
     assert_eq!(r.engine.available(), 2);
     assert!(!r.engine.frozen());
-    // A has no durable local terminal fact. Recovery conservatively re-reserves it,
-    // so replaying B would make total liability MAX+1 and must fail atomically.
-    assert_eq!(r.restart(), Err(RuntimeError::Domain(Error::Overflow)));
+    r.restart().unwrap();
     assert_eq!(r.engine.available(), 2);
+    assert_eq!(
+        r.engine.order(1).unwrap().terminal,
+        Some(Terminal::Rejected)
+    );
     assert!(r.engine.frozen());
     let mut third = first;
     third.key.intent = 3;
@@ -259,4 +261,234 @@ fn failed_recovery_cannot_leave_the_old_engine_authorized() {
     third.fee_budget = 0;
     assert!(r.submit(third, CommitProfile::LocalDurable).is_err());
     assert_eq!(r.exchange.submit_calls, 2);
+}
+
+#[test]
+fn no_bytes_abort_survives_restart() {
+    let mut r = runtime();
+    r.exchange.next_outcome = SubmitOutcome::NoBytesAccepted;
+    r.submit(req(), CommitProfile::LocalDurable).unwrap();
+    assert_eq!(r.engine.held(), 0);
+    r.restart().unwrap();
+    assert_eq!(r.engine.held(), 0);
+    assert_eq!(r.engine.order(1).unwrap().send, SendState::NotSubmitted);
+    assert_eq!(
+        r.engine.order(1).unwrap().terminal,
+        Some(Terminal::Rejected)
+    );
+    assert!(r.engine.frozen());
+    assert_eq!(r.exchange.submit_calls, 1);
+    assert!(r.exchange.accepted.is_empty());
+}
+
+#[test]
+fn failed_abort_persistence_retains_reservation_and_freezes() {
+    let mut r = runtime();
+    r.exchange.next_outcome = SubmitOutcome::NoBytesAccepted;
+    r.journal.fail_next_fact = true;
+    assert_eq!(
+        r.submit(req(), CommitProfile::LocalDurable),
+        Err(RuntimeError::Service(ServiceError::Unavailable))
+    );
+    assert_eq!(r.engine.held(), 102);
+    assert_eq!(r.engine.order(1).unwrap().send, SendState::MayHaveSent);
+    assert!(r.engine.frozen());
+    assert!(r.journal.facts().is_empty());
+    r.restart().unwrap();
+    assert_eq!(r.engine.held(), 102);
+    assert!(r.engine.frozen());
+    assert_eq!(r.exchange.submit_calls, 1);
+}
+
+#[test]
+fn recovery_replays_terminal_release_before_later_intent() {
+    let mut r = MockRuntime::<8, 8>::new(req().key.domain(), i128::MAX, gate()).unwrap();
+    let first = OrderRequest {
+        quantity: 1,
+        unit_budget: 1,
+        fee_budget: 0,
+        ..req()
+    };
+    r.submit(first, CommitProfile::LocalDurable).unwrap();
+    r.record_terminal(1, Terminal::Rejected, 0).unwrap();
+    let second = OrderRequest {
+        key: OrderKey {
+            intent: 2,
+            ..first.key
+        },
+        recovery_object: 2,
+        unit_budget: i128::MAX,
+        ..first
+    };
+    r.submit(second, CommitProfile::LocalDurable).unwrap();
+    assert_eq!(r.engine.held(), i128::MAX);
+    r.restart().unwrap();
+    assert_eq!(r.engine.held(), i128::MAX);
+    assert_eq!(r.engine.spent(), 0);
+    assert!(r.engine.frozen());
+}
+
+#[test]
+fn failed_recovery_cannot_leave_the_old_engine_authorized() {
+    let mut r = runtime();
+    r.submit(req(), CommitProfile::LocalDurable).unwrap();
+    // A persisted but unappliable fact must stop recovery and freeze the old engine.
+    r.journal
+        .append_fact(Fact::Fill {
+            intent: 99,
+            fill: Fill {
+                trade_id: 1,
+                quantity: 1,
+                cost: 1,
+            },
+        })
+        .unwrap();
+    assert_eq!(r.restart(), Err(RuntimeError::Domain(Error::NotFound)));
+    assert_eq!(r.engine.held(), 102);
+    assert!(r.engine.frozen());
+    let mut second = req();
+    second.key.intent = 2;
+    second.recovery_object = 2;
+    assert!(r.submit(second, CommitProfile::LocalDurable).is_err());
+    assert_eq!(r.exchange.submit_calls, 1);
+}
+
+#[test]
+fn abort_record_binds_epoch_request_and_sequence_before_releasing() {
+    for field in 0..4 {
+        let mut r = runtime();
+        r.exchange.next_outcome = SubmitOutcome::PendingResponse;
+        r.submit(req(), CommitProfile::LocalDurable).unwrap();
+        let before = *r.engine.order(1).unwrap();
+        let mut record = r.engine.durable_record(1).unwrap();
+        match field {
+            0 => record.sequence += 1,
+            1 => record.request.epoch += 1,
+            2 => record.request.quantity += 1,
+            _ => record.request.key.account += 1,
+        }
+        assert_eq!(
+            Fact::AbortedBeforeSend { record }.apply(&mut r.engine),
+            Err(Error::ReceiptMismatch)
+        );
+        assert_eq!(*r.engine.order(1).unwrap(), before);
+        assert_eq!((r.engine.spent(), r.engine.held()), (0, 102));
+        assert!(r.engine.frozen());
+    }
+    let mut r = runtime();
+    let record = DurableRecord {
+        request: req(),
+        sequence: 1,
+    };
+    assert_eq!(
+        Fact::AbortedBeforeSend { record }.apply(&mut r.engine),
+        Err(Error::NotFound)
+    );
+    assert!(r.engine.frozen());
+    assert_eq!(r.engine.held(), 0);
+}
+
+#[test]
+fn duplicate_abort_is_idempotent_but_fee_evidence_rejects_abort() {
+    let mut r = runtime();
+    r.exchange.next_outcome = SubmitOutcome::NoBytesAccepted;
+    r.submit(req(), CommitProfile::LocalDurable).unwrap();
+    let fact = r.journal.facts()[0];
+    let before = *r.engine.order(1).unwrap();
+    fact.apply(&mut r.engine).unwrap();
+    assert_eq!(*r.engine.order(1).unwrap(), before);
+    r.journal.append_fact(fact).unwrap();
+    r.restart().unwrap();
+    assert_eq!(*r.engine.order(1).unwrap(), before);
+    assert_eq!(r.engine.held(), 0);
+
+    for amount in [0, 1] {
+        let mut r = runtime();
+        r.exchange.next_outcome = SubmitOutcome::PendingResponse;
+        r.submit(req(), CommitProfile::LocalDurable).unwrap();
+        r.record_fee(1, 1, amount).unwrap();
+        let before = *r.engine.order(1).unwrap();
+        let record = r.engine.durable_record(1).unwrap();
+        assert_eq!(
+            Fact::AbortedBeforeSend { record }.apply(&mut r.engine),
+            Err(Error::InvalidEvent)
+        );
+        assert_eq!(*r.engine.order(1).unwrap(), before);
+        assert!(r.engine.frozen());
+    }
+}
+
+#[test]
+fn persisted_abort_is_recovered_even_before_live_apply() {
+    let mut r = runtime();
+    r.exchange.next_outcome = SubmitOutcome::PendingResponse;
+    r.submit(req(), CommitProfile::LocalDurable).unwrap();
+    // Simulate the durable-fact/live-apply crash boundary for a trusted NoBytes proof.
+    let record = r.engine.durable_record(1).unwrap();
+    r.journal
+        .append_fact(Fact::AbortedBeforeSend { record })
+        .unwrap();
+    assert_eq!(r.engine.held(), 102);
+    r.restart().unwrap();
+    assert_eq!(r.engine.held(), 0);
+    assert_eq!(
+        r.engine.order(1).unwrap().terminal,
+        Some(Terminal::Rejected)
+    );
+    assert!(r.engine.frozen());
+}
+
+#[test]
+fn journal_events_preserve_order_without_duplicating_idempotent_commit() {
+    let mut r = runtime();
+    r.journal.lose_next_receipt = true;
+    assert!(r.submit(req(), CommitProfile::LocalDurable).is_err());
+    let first = r.engine.durable_record(1).unwrap();
+    assert_eq!(r.journal.events(), &[MockJournalEvent::Intent(first)]);
+    r.exchange.next_outcome = SubmitOutcome::NoBytesAccepted;
+    r.resume_submit(1, CommitProfile::LocalDurable).unwrap();
+    let second_request = OrderRequest {
+        key: OrderKey {
+            intent: 2,
+            ..req().key
+        },
+        recovery_object: 2,
+        ..req()
+    };
+    r.submit(second_request, CommitProfile::LocalDurable)
+        .unwrap();
+    let second = r.engine.durable_record(2).unwrap();
+    r.record_terminal(2, Terminal::Rejected, 0).unwrap();
+    let abort = Fact::AbortedBeforeSend { record: first };
+    let terminal = Fact::Terminal {
+        intent: 2,
+        status: Terminal::Rejected,
+        cumulative: 0,
+    };
+    assert_eq!(
+        r.journal.events(),
+        &[
+            MockJournalEvent::Intent(first),
+            MockJournalEvent::Fact(abort),
+            MockJournalEvent::Intent(second),
+            MockJournalEvent::Fact(terminal),
+        ]
+    );
+    assert_eq!(r.journal.committed(), &[first, second]);
+    assert_eq!(r.journal.facts(), &[abort, terminal]);
+}
+
+#[test]
+fn an_abort_before_its_intent_cannot_recover_a_live_engine() {
+    let mut r = runtime();
+    let record = DurableRecord {
+        request: req(),
+        sequence: 1,
+    };
+    r.journal
+        .append_fact(Fact::AbortedBeforeSend { record })
+        .unwrap();
+    assert_eq!(r.restart(), Err(RuntimeError::Domain(Error::NotFound)));
+    assert!(r.engine.frozen());
+    assert!(r.engine.order(1).is_err());
 }

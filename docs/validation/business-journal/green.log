@@ -1,0 +1,50 @@
+   Compiling tickwire-business-journal v0.1.0 ($REPO/crates/tickwire-business-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.31s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_business_journal-09dd436a59d5d462)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime.rs (target/debug/deps/runtime-a6d36f0fc4069500)
+
+running 25 tests
+test cwd_child ... ignored, subprocess helper
+test file_crash_child ... ignored, subprocess helper
+test empty_recovery_is_frozen_and_bootstrap_capital_cannot_change ... ok
+test commit_is_idempotent_but_changed_intent_is_rejected ... ok
+test external_abort_cannot_release_an_order ... ok
+test abort_sync_failure_retains_reservation_and_freezes ... ok
+test final_gate_expiry_during_io_keeps_durable_reservation_without_sending ... ok
+test invalid_fact_is_preserved_then_live_and_recovery_freeze ... ok
+test fact_duplicates_are_durable_but_counted_once ... ok
+test conflicting_original_order_identity_is_preserved_and_quarantined ... ok
+
+running 1 test
+test missing_closure_stops_recovery_instead_of_republishing ... ok
+test prepared_sync_failure_never_sends_and_keeps_reservation ... ok
+test no_bytes_is_durable_before_release_and_replays_in_order ... ok
+test cwd_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 24 filtered out; finished in 0.20s
+
+test recovered_commit_retry_keeps_original_position_across_writer_change ... ok
+test ordered_abort_before_next_intent_avoids_recovery_arithmetic_overflow ... ok
+test real_wal_reopens_committed_order_frozen_without_exchange_call ... ok
+test relative_backend_remains_bound_to_locked_directory_after_cwd_change ... ok
+test recovered_writer_can_append_old_order_facts_but_never_send ... ok
+test sync_replica_has_no_implicit_mock_or_local_downgrade ... ok
+test verified_closure_for_another_intent_cannot_authorize_wal_or_send ... ok
+test torn_abort_keeps_reserve_then_recovery_discards_only_unsealed_tail ... ok
+test terminal_missing_fill_details_and_late_fees_replay_exactly ... ok
+test valid_physical_frame_with_invalid_business_payload_cannot_recover ... ok
+test final_gate_revalidates_all_authority_and_validity_fields ... ok
+test actual_process_kill_replays_synced_wal_and_file_closure_frozen ... ok
+
+test result: ok. 23 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.65s
+
+   Doc-tests tickwire_business_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

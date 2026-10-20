@@ -22,7 +22,7 @@
 
 ## 修复后的 v2
 
-最终模型将经济事实按 Fill/Fee/Terminal、Duplicate、Invalid/Conflict/Capacity/Overflow 拆成命名动作，便于逐项验证覆盖；状态迁移与最初的合并动作相同。拆分前 v2 primary 也通过（24,036 distinct），scaling 通过（1,485,288 distinct，14,278,433 generated，5 分 05 秒）；最终结论采用下面重新跑完的命名动作版。
+最终模型将交易结果记录按 Fill/Fee/Terminal、Duplicate、Invalid/Conflict/Capacity/Overflow 拆成命名动作，便于逐项验证覆盖；状态迁移与最初的合并动作相同。拆分前 v2 primary 也通过（24,036 distinct），scaling 通过（1,485,288 distinct，14,278,433 generated，5 分 05 秒）；最终结论采用下面重新跑完的命名动作版。
 
 一次并行启动遇到 TLC 解包标准模块时的 `NullPointerException`，未产生模型结论。此后 Java 临时目录也按进程隔离。实际完整配置运行方式如下；这里以用户主目录定位已安装 skill，与运行时绝对路径等价。
 

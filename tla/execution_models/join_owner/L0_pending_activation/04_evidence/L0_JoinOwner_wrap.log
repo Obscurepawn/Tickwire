@@ -1,0 +1,307 @@
+COMMAND: java -Djava.io.tmpdir=/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/java -XX:+UseParallelGC -Xmx2g -cp /Users/bytedance/Tickwire/tla/tools/tla2tools.jar tlc2.TLC -workers 1 -coverage 1 -metadir /var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/states -config L0_JoinOwner_wrap.cfg L0_JoinOwner.tla
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 72 and seed 6950843387667156029 with 1 worker on 10 cores with 1820MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/join_owner/L0_pending_activation/02_models/L0_JoinOwner.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/java/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/java/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/java/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/java/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-join-tlc-443plf0d/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_JoinOwner
+Starting... (2026-10-20 19:28:08)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 19:28:08.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.3E-14
+The coverage statistics at 2026-10-20 19:28:08
+<Init line 34, col 1 to line 34, col 4 of module L0_JoinOwner>: 1:1
+  line 35, col 2 to line 46, col 40 of module L0_JoinOwner: 1
+<RetryPrepare line 61, col 1 to line 61, col 15 of module L0_JoinOwner>: 0:172
+  line 62, col 5 to line 62, col 10 of module L0_JoinOwner: 344
+  |line 62, col 5 to line 62, col 8 of module L0_JoinOwner: 172
+  line 62, col 15 to line 62, col 40 of module L0_JoinOwner: 344
+  |line 62, col 15 to line 62, col 30 of module L0_JoinOwner: 172
+  line 63, col 5 to line 63, col 18 of module L0_JoinOwner: 172
+<Borrow line 94, col 1 to line 94, col 9 of module L0_JoinOwner>: 3:12
+  line 95, col 5 to line 95, col 23 of module L0_JoinOwner: 184
+  |line 95, col 5 to line 95, col 14 of module L0_JoinOwner: 172
+  line 95, col 28 to line 95, col 44 of module L0_JoinOwner: 184
+  |line 95, col 28 to line 95, col 37 of module L0_JoinOwner: 172
+  line 95, col 49 to line 95, col 65 of module L0_JoinOwner: 184
+  |line 95, col 49 to line 95, col 63 of module L0_JoinOwner: 172
+  line 96, col 5 to line 96, col 23 of module L0_JoinOwner: 12
+  |line 96, col 5 to line 96, col 17 of module L0_JoinOwner: 76
+  |line 96, col 21 to line 96, col 23 of module L0_JoinOwner: 76
+  line 96, col 28 to line 96, col 80 of module L0_JoinOwner: 12
+  |line 96, col 28 to line 96, col 76 of module L0_JoinOwner: 16
+  ||line 96, col 28 to line 96, col 40 of module L0_JoinOwner: 16
+  ||line 96, col 42 to line 96, col 76 of module L0_JoinOwner: 16
+  |||line 24, col 14 to line 24, col 36 of module L0_JoinOwner: 16
+  ||||line 24, col 17 to line 24, col 22 of module L0_JoinOwner: 16
+  ||||line 24, col 29 to line 24, col 29 of module L0_JoinOwner: 12
+  ||||line 24, col 36 to line 24, col 36 of module L0_JoinOwner: 4
+  |||line 96, col 47 to line 96, col 60 of module L0_JoinOwner: 16
+  |||line 96, col 62 to line 96, col 75 of module L0_JoinOwner: 16
+  line 97, col 5 to line 97, col 50 of module L0_JoinOwner: 24
+  |line 97, col 5 to line 97, col 34 of module L0_JoinOwner: 12
+  |line 97, col 36 to line 97, col 50 of module L0_JoinOwner: 12
+  line 98, col 5 to line 98, col 57 of module L0_JoinOwner: 12
+  line 99, col 5 to line 99, col 55 of module L0_JoinOwner: 12
+<Release line 101, col 1 to line 101, col 10 of module L0_JoinOwner>: 5:48
+  line 102, col 5 to line 102, col 19 of module L0_JoinOwner: 220
+  |line 102, col 5 to line 102, col 14 of module L0_JoinOwner: 172
+  line 103, col 5 to line 103, col 69 of module L0_JoinOwner: 48
+  line 104, col 5 to line 104, col 55 of module L0_JoinOwner: 48
+<Apply line 105, col 1 to line 105, col 8 of module L0_JoinOwner>: 10:50
+  line 106, col 5 to line 106, col 23 of module L0_JoinOwner: 222
+  |line 106, col 5 to line 106, col 14 of module L0_JoinOwner: 172
+  line 106, col 28 to line 106, col 44 of module L0_JoinOwner: 222
+  |line 106, col 28 to line 106, col 37 of module L0_JoinOwner: 172
+  line 106, col 49 to line 106, col 78 of module L0_JoinOwner: 50
+  |line 106, col 49 to line 106, col 62 of module L0_JoinOwner: 172
+  |line 106, col 66 to line 106, col 78 of module L0_JoinOwner: 172
+  line 107, col 5 to line 107, col 52 of module L0_JoinOwner: 50
+  line 108, col 5 to line 108, col 55 of module L0_JoinOwner: 50
+<Ready line 117, col 1 to line 117, col 23 of module L0_JoinOwner>: 2:2
+  line 112, col 5 to line 112, col 10 of module L0_JoinOwner: 690
+  |line 112, col 5 to line 112, col 8 of module L0_JoinOwner: 688
+  line 112, col 15 to line 112, col 27 of module L0_JoinOwner: 690
+  |line 112, col 16 to line 112, col 27 of module L0_JoinOwner: 688
+  line 112, col 32 to line 112, col 59 of module L0_JoinOwner: 346
+  |line 112, col 32 to line 112, col 47 of module L0_JoinOwner: 344
+  line 113, col 5 to line 113, col 22 of module L0_JoinOwner: 22
+  |line 113, col 5 to line 113, col 14 of module L0_JoinOwner: 20
+  line 113, col 27 to line 113, col 44 of module L0_JoinOwner: 22
+  |line 113, col 27 to line 113, col 36 of module L0_JoinOwner: 20
+  line 113, col 49 to line 113, col 65 of module L0_JoinOwner: 22
+  |line 113, col 49 to line 113, col 58 of module L0_JoinOwner: 20
+  line 114, col 5 to line 114, col 21 of module L0_JoinOwner: 22
+  |line 114, col 5 to line 114, col 19 of module L0_JoinOwner: 20
+  line 114, col 26 to line 114, col 44 of module L0_JoinOwner: 2
+  |line 114, col 26 to line 114, col 39 of module L0_JoinOwner: 20
+  |line 114, col 42 to line 114, col 44 of module L0_JoinOwner: 20
+  line 115, col 5 to line 115, col 35 of module L0_JoinOwner: 2
+  |line 115, col 5 to line 115, col 19 of module L0_JoinOwner: 8
+  |line 115, col 22 to line 115, col 35 of module L0_JoinOwner: 8
+  line 115, col 40 to line 115, col 68 of module L0_JoinOwner: 2
+  |line 115, col 40 to line 115, col 53 of module L0_JoinOwner: 8
+  |line 115, col 56 to line 115, col 68 of module L0_JoinOwner: 8
+  line 116, col 5 to line 116, col 33 of module L0_JoinOwner: 2
+  |line 116, col 5 to line 116, col 18 of module L0_JoinOwner: 8
+  |line 116, col 21 to line 116, col 33 of module L0_JoinOwner: 8
+  line 116, col 38 to line 116, col 55 of module L0_JoinOwner: 2
+  |line 116, col 38 to line 116, col 50 of module L0_JoinOwner: 8
+  |line 116, col 53 to line 116, col 55 of module L0_JoinOwner: 8
+  line 118, col 14 to line 118, col 14 of module L0_JoinOwner: 344
+  line 118, col 20 to line 118, col 41 of module L0_JoinOwner: 10
+  |line 118, col 20 to line 118, col 24 of module L0_JoinOwner: 8
+  |line 118, col 26 to line 118, col 41 of module L0_JoinOwner: 8
+  line 118, col 46 to line 118, col 53 of module L0_JoinOwner: 2
+  line 119, col 5 to line 120, col 62 of module L0_JoinOwner: 2
+  line 121, col 5 to line 121, col 55 of module L0_JoinOwner: 2
+<RetryReady line 122, col 1 to line 122, col 13 of module L0_JoinOwner>: 0:28
+  line 123, col 5 to line 123, col 10 of module L0_JoinOwner: 200
+  |line 123, col 5 to line 123, col 8 of module L0_JoinOwner: 172
+  line 123, col 15 to line 123, col 39 of module L0_JoinOwner: 200
+  |line 123, col 15 to line 123, col 30 of module L0_JoinOwner: 172
+  line 124, col 5 to line 124, col 18 of module L0_JoinOwner: 28
+<RejectReady line 125, col 1 to line 125, col 29 of module L0_JoinOwner>: 0:1256
+  line 126, col 5 to line 126, col 10 of module L0_JoinOwner: 1346
+  |line 126, col 5 to line 126, col 8 of module L0_JoinOwner: 688
+  line 126, col 15 to line 126, col 40 of module L0_JoinOwner: 1346
+  |line 126, col 15 to line 126, col 30 of module L0_JoinOwner: 688
+  line 127, col 6 to line 127, col 14 of module L0_JoinOwner: 1032
+  |line 127, col 7 to line 127, col 14 of module L0_JoinOwner: 688
+  line 127, col 19 to line 127, col 42 of module L0_JoinOwner: 1032
+  |line 127, col 19 to line 127, col 23 of module L0_JoinOwner: 688
+  |line 127, col 27 to line 127, col 42 of module L0_JoinOwner: 688
+  line 127, col 48 to line 127, col 59 of module L0_JoinOwner: 1256
+  |line 127, col 49 to line 127, col 59 of module L0_JoinOwner: 688
+  ||line 112, col 2 to line 116, col 55 of module L0_JoinOwner: 688
+  |||line 112, col 5 to line 112, col 59 of module L0_JoinOwner: 688
+  ||||line 112, col 5 to line 112, col 27 of module L0_JoinOwner: 688
+  ||||line 112, col 32 to line 112, col 59 of module L0_JoinOwner: 344
+  |||line 113, col 5 to line 113, col 65 of module L0_JoinOwner: 20
+  |||line 114, col 5 to line 114, col 44 of module L0_JoinOwner: 20
+  |||line 115, col 5 to line 115, col 68 of module L0_JoinOwner: 8
+  |||line 116, col 5 to line 116, col 55 of module L0_JoinOwner: 8
+  ||line 127, col 58 to line 127, col 58 of module L0_JoinOwner: 344
+  line 127, col 64 to line 127, col 90 of module L0_JoinOwner: 1248
+  |line 127, col 64 to line 127, col 79 of module L0_JoinOwner: 680
+  line 128, col 5 to line 128, col 18 of module L0_JoinOwner: 1256
+<Expire line 130, col 1 to line 130, col 6 of module L0_JoinOwner>: 86:86
+  line 131, col 5 to line 131, col 10 of module L0_JoinOwner: 258
+  |line 131, col 5 to line 131, col 8 of module L0_JoinOwner: 172
+  line 131, col 15 to line 131, col 27 of module L0_JoinOwner: 258
+  |line 131, col 16 to line 131, col 27 of module L0_JoinOwner: 172
+  line 132, col 5 to line 132, col 22 of module L0_JoinOwner: 86
+  line 133, col 5 to line 134, col 66 of module L0_JoinOwner: 86
+  line 135, col 5 to line 135, col 42 of module L0_JoinOwner: 86
+<StartQuiesce line 137, col 1 to line 137, col 15 of module L0_JoinOwner>: 19:136
+  line 138, col 5 to line 138, col 10 of module L0_JoinOwner: 308
+  |line 138, col 5 to line 138, col 8 of module L0_JoinOwner: 172
+  line 138, col 15 to line 138, col 69 of module L0_JoinOwner: 308
+  |line 138, col 15 to line 138, col 30 of module L0_JoinOwner: 172
+  |line 138, col 39 to line 138, col 69 of module L0_JoinOwner: 172
+  line 139, col 5 to line 139, col 52 of module L0_JoinOwner: 136
+  line 140, col 5 to line 140, col 55 of module L0_JoinOwner: 136
+<StopReader line 142, col 1 to line 142, col 13 of module L0_JoinOwner>: 19:38
+  line 143, col 5 to line 143, col 23 of module L0_JoinOwner: 210
+  |line 143, col 5 to line 143, col 14 of module L0_JoinOwner: 172
+  line 143, col 28 to line 143, col 55 of module L0_JoinOwner: 210
+  |line 143, col 28 to line 143, col 43 of module L0_JoinOwner: 172
+  line 143, col 60 to line 143, col 76 of module L0_JoinOwner: 136
+  |line 143, col 60 to line 143, col 74 of module L0_JoinOwner: 98
+  line 144, col 5 to line 144, col 41 of module L0_JoinOwner: 38
+  line 145, col 5 to line 145, col 55 of module L0_JoinOwner: 38
+<Quiesced line 146, col 1 to line 146, col 11 of module L0_JoinOwner>: 11:22
+  line 147, col 5 to line 147, col 23 of module L0_JoinOwner: 194
+  |line 147, col 5 to line 147, col 14 of module L0_JoinOwner: 172
+  line 147, col 28 to line 147, col 44 of module L0_JoinOwner: 194
+  |line 147, col 28 to line 147, col 42 of module L0_JoinOwner: 172
+  line 147, col 49 to line 147, col 64 of module L0_JoinOwner: 60
+  |line 147, col 50 to line 147, col 64 of module L0_JoinOwner: 38
+  line 148, col 5 to line 148, col 32 of module L0_JoinOwner: 44
+  |line 148, col 5 to line 148, col 17 of module L0_JoinOwner: 22
+  |line 148, col 19 to line 148, col 32 of module L0_JoinOwner: 22
+  line 149, col 5 to line 149, col 41 of module L0_JoinOwner: 22
+  line 150, col 5 to line 150, col 55 of module L0_JoinOwner: 22
+<Detach line 153, col 1 to line 153, col 9 of module L0_JoinOwner>: 11:88
+  line 154, col 5 to line 154, col 10 of module L0_JoinOwner: 776
+  |line 154, col 5 to line 154, col 8 of module L0_JoinOwner: 688
+  line 154, col 15 to line 154, col 42 of module L0_JoinOwner: 776
+  |line 154, col 15 to line 154, col 30 of module L0_JoinOwner: 688
+  line 154, col 47 to line 154, col 63 of module L0_JoinOwner: 480
+  |line 154, col 47 to line 154, col 56 of module L0_JoinOwner: 392
+  line 155, col 5 to line 155, col 21 of module L0_JoinOwner: 480
+  |line 155, col 5 to line 155, col 19 of module L0_JoinOwner: 392
+  line 155, col 26 to line 155, col 53 of module L0_JoinOwner: 176
+  |line 155, col 26 to line 155, col 39 of module L0_JoinOwner: 88
+  |line 155, col 41 to line 155, col 53 of module L0_JoinOwner: 88
+  line 156, col 5 to line 156, col 56 of module L0_JoinOwner: 88
+  line 158, col 5 to line 159, col 68 of module L0_JoinOwner: 88
+  line 160, col 5 to line 160, col 22 of module L0_JoinOwner: 88
+  line 160, col 27 to line 160, col 69 of module L0_JoinOwner: 88
+<RetryDetach line 161, col 1 to line 161, col 14 of module L0_JoinOwner>: 0:144
+  line 162, col 5 to line 162, col 10 of module L0_JoinOwner: 832
+  |line 162, col 5 to line 162, col 8 of module L0_JoinOwner: 688
+  line 162, col 15 to line 162, col 41 of module L0_JoinOwner: 832
+  |line 162, col 15 to line 162, col 30 of module L0_JoinOwner: 688
+  line 164, col 5 to line 164, col 18 of module L0_JoinOwner: 144
+<RejectDetach line 165, col 1 to line 165, col 15 of module L0_JoinOwner>: 0:536
+  line 166, col 5 to line 166, col 10 of module L0_JoinOwner: 1224
+  |line 166, col 5 to line 166, col 8 of module L0_JoinOwner: 688
+  line 166, col 15 to line 166, col 59 of module L0_JoinOwner: 1224
+  |line 166, col 15 to line 166, col 30 of module L0_JoinOwner: 688
+  |line 166, col 36 to line 166, col 59 of module L0_JoinOwner: 688
+  line 169, col 5 to line 169, col 18 of module L0_JoinOwner: 536
+<Publish line 172, col 1 to line 172, col 7 of module L0_JoinOwner>: 5:34
+  line 173, col 5 to line 173, col 10 of module L0_JoinOwner: 206
+  |line 173, col 5 to line 173, col 8 of module L0_JoinOwner: 172
+  line 173, col 15 to line 173, col 24 of module L0_JoinOwner: 34
+  |line 173, col 15 to line 173, col 17 of module L0_JoinOwner: 172
+  |line 173, col 19 to line 173, col 24 of module L0_JoinOwner: 172
+  line 173, col 29 to line 173, col 51 of module L0_JoinOwner: 34
+  |line 173, col 29 to line 173, col 41 of module L0_JoinOwner: 70
+  ||line 173, col 29 to line 173, col 31 of module L0_JoinOwner: 70
+  ||line 173, col 33 to line 173, col 41 of module L0_JoinOwner: 70
+  |||line 173, col 35 to line 173, col 41 of module L0_JoinOwner: 70
+  ||||line 27, col 12 to line 27, col 69 of module L0_JoinOwner: 70
+  |||||line 27, col 15 to line 27, col 26 of module L0_JoinOwner: 70
+  |||||line 27, col 33 to line 27, col 35 of module L0_JoinOwner: 12
+  |||||line 27, col 42 to line 27, col 69 of module L0_JoinOwner: 58
+  ||||||line 23, col 11 to line 23, col 46 of module L0_JoinOwner: 58
+  ||||||line 27, col 46 to line 27, col 68 of module L0_JoinOwner: 58:174
+  |||||||line 27, col 47 to line 27, col 53 of module L0_JoinOwner: 58
+  ||||||||line 26, col 12 to line 26, col 72 of module L0_JoinOwner: 58
+  |||||||||line 26, col 15 to line 26, col 31 of module L0_JoinOwner: 58
+  |||||||||line 26, col 38 to line 26, col 51 of module L0_JoinOwner: 22
+  |||||||||line 26, col 58 to line 26, col 72 of module L0_JoinOwner: 36
+  ||||||||line 27, col 52 to line 27, col 52 of module L0_JoinOwner: 58
+  |||||||line 27, col 61 to line 27, col 67 of module L0_JoinOwner: 58
+  |line 173, col 44 to line 173, col 51 of module L0_JoinOwner: 70
+  line 174, col 5 to line 174, col 64 of module L0_JoinOwner: 34
+  line 175, col 5 to line 175, col 51 of module L0_JoinOwner: 34
+<PublishFull line 176, col 1 to line 176, col 11 of module L0_JoinOwner>: 0:36
+  line 177, col 5 to line 177, col 10 of module L0_JoinOwner: 208
+  |line 177, col 5 to line 177, col 8 of module L0_JoinOwner: 172
+  line 177, col 15 to line 177, col 24 of module L0_JoinOwner: 36
+  |line 177, col 15 to line 177, col 17 of module L0_JoinOwner: 172
+  |line 177, col 19 to line 177, col 24 of module L0_JoinOwner: 172
+  line 177, col 29 to line 177, col 50 of module L0_JoinOwner: 36
+  |line 177, col 29 to line 177, col 41 of module L0_JoinOwner: 70
+  ||line 177, col 29 to line 177, col 31 of module L0_JoinOwner: 70
+  ||line 177, col 33 to line 177, col 41 of module L0_JoinOwner: 70
+  |||line 177, col 35 to line 177, col 41 of module L0_JoinOwner: 70
+  ||||line 27, col 12 to line 27, col 69 of module L0_JoinOwner: 70
+  |||||line 27, col 15 to line 27, col 26 of module L0_JoinOwner: 70
+  |||||line 27, col 33 to line 27, col 35 of module L0_JoinOwner: 12
+  |||||line 27, col 42 to line 27, col 69 of module L0_JoinOwner: 58
+  ||||||line 23, col 11 to line 23, col 46 of module L0_JoinOwner: 58
+  ||||||line 27, col 46 to line 27, col 68 of module L0_JoinOwner: 58:174
+  |||||||line 27, col 47 to line 27, col 53 of module L0_JoinOwner: 58
+  ||||||||line 26, col 12 to line 26, col 72 of module L0_JoinOwner: 58
+  |||||||||line 26, col 15 to line 26, col 31 of module L0_JoinOwner: 58
+  |||||||||line 26, col 38 to line 26, col 51 of module L0_JoinOwner: 22
+  |||||||||line 26, col 58 to line 26, col 72 of module L0_JoinOwner: 36
+  ||||||||line 27, col 52 to line 27, col 52 of module L0_JoinOwner: 58
+  |||||||line 27, col 61 to line 27, col 67 of module L0_JoinOwner: 58
+  |line 177, col 43 to line 177, col 50 of module L0_JoinOwner: 70
+  line 178, col 5 to line 178, col 18 of module L0_JoinOwner: 36
+<TypeOK line 193, col 1 to line 193, col 6 of module L0_JoinOwner>
+  line 194, col 2 to line 199, col 71 of module L0_JoinOwner: 172
+<Safety line 200, col 1 to line 200, col 6 of module L0_JoinOwner>
+  line 201, col 2 to line 213, col 68 of module L0_JoinOwner: 172
+  |line 201, col 5 to line 201, col 44 of module L0_JoinOwner: 172
+  ||line 201, col 24 to line 201, col 44 of module L0_JoinOwner: 136
+  |||line 201, col 24 to line 201, col 34 of module L0_JoinOwner: 136
+  ||||line 201, col 24 to line 201, col 26 of module L0_JoinOwner: 136
+  ||||line 201, col 28 to line 201, col 34 of module L0_JoinOwner: 136
+  |||||line 26, col 12 to line 26, col 72 of module L0_JoinOwner: 136
+  ||||||line 26, col 15 to line 26, col 31 of module L0_JoinOwner: 136
+  ||||||line 26, col 38 to line 26, col 51 of module L0_JoinOwner: 100
+  ||||||line 26, col 58 to line 26, col 72 of module L0_JoinOwner: 36
+  |||||line 201, col 33 to line 201, col 33 of module L0_JoinOwner: 136
+  |||line 201, col 37 to line 201, col 44 of module L0_JoinOwner: 136
+  ||line 201, col 14 to line 201, col 20 of module L0_JoinOwner: 172
+  |line 202, col 5 to line 202, col 84 of module L0_JoinOwner: 172
+  ||line 202, col 24 to line 202, col 84 of module L0_JoinOwner: 172
+  |||line 202, col 24 to line 202, col 38 of module L0_JoinOwner: 172
+  |||line 202, col 43 to line 202, col 84 of module L0_JoinOwner: 48
+  ||line 202, col 14 to line 202, col 20 of module L0_JoinOwner: 172
+  |line 203, col 5 to line 204, col 58 of module L0_JoinOwner: 172
+  ||line 203, col 24 to line 204, col 58 of module L0_JoinOwner: 136
+  |||line 203, col 24 to line 203, col 42 of module L0_JoinOwner: 136
+  |||line 204, col 7 to line 204, col 58 of module L0_JoinOwner: 136
+  ||||line 204, col 41 to line 204, col 58 of module L0_JoinOwner: 30
+  ||||line 204, col 16 to line 204, col 37 of module L0_JoinOwner: 136
+  ||line 203, col 14 to line 203, col 20 of module L0_JoinOwner: 172
+  |line 205, col 5 to line 208, col 47 of module L0_JoinOwner: 172
+  ||line 205, col 24 to line 208, col 47 of module L0_JoinOwner: 172
+  |||line 205, col 24 to line 205, col 40 of module L0_JoinOwner: 172
+  |||line 206, col 7 to line 208, col 47 of module L0_JoinOwner: 120
+  ||line 205, col 14 to line 205, col 20 of module L0_JoinOwner: 172
+  |line 209, col 5 to line 212, col 51 of module L0_JoinOwner: 172
+  ||line 209, col 24 to line 212, col 51 of module L0_JoinOwner: 172
+  |||line 209, col 24 to line 209, col 50 of module L0_JoinOwner: 172
+  |||line 210, col 7 to line 212, col 51 of module L0_JoinOwner: 36
+  ||line 209, col 14 to line 209, col 20 of module L0_JoinOwner: 172
+  |line 213, col 5 to line 213, col 68 of module L0_JoinOwner: 172
+  ||line 213, col 24 to line 213, col 68 of module L0_JoinOwner: 136
+  |||line 213, col 24 to line 213, col 41 of module L0_JoinOwner: 136
+  |||line 213, col 46 to line 213, col 68 of module L0_JoinOwner: 36
+  ||line 213, col 14 to line 213, col 20 of module L0_JoinOwner: 172
+<Binding line 214, col 1 to line 214, col 7 of module L0_JoinOwner>
+  line 215, col 2 to line 218, col 109 of module L0_JoinOwner: 172
+End of statistics.
+2689 states generated, 172 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 14.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 3).
+Finished in 00s at (2026-10-20 19:28:08)

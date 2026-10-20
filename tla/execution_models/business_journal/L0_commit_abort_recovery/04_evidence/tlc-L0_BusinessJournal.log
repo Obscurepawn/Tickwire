@@ -1,0 +1,261 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 26 and seed -4347020349035370313 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file $REPO/tla/execution_models/business_journal/L0_commit_abort_recovery/02_models/L0_BusinessJournal.tla
+Parsing file /private$TMP/Naturals.tla
+Parsing file /private$TMP/Sequences.tla
+Parsing file /private$TMP/FiniteSets.tla
+Parsing file /private$TMP/TLC.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_BusinessJournal
+Starting... (2026-10-20 19:24:21)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 19:24:21.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.3E-16
+The coverage statistics at 2026-10-20 19:24:21
+<Init line 20, col 1 to line 20, col 4 of module L0_BusinessJournal>: 1:1
+  line 20, col 9 to line 23, col 68 of module L0_BusinessJournal: 1
+<Reserve line 26, col 1 to line 26, col 10 of module L0_BusinessJournal>: 1:1
+  line 26, col 18 to line 26, col 28 of module L0_BusinessJournal: 73
+  |line 26, col 18 to line 26, col 21 of module L0_BusinessJournal: 72
+  line 26, col 33 to line 26, col 41 of module L0_BusinessJournal: 26
+  |line 26, col 34 to line 26, col 41 of module L0_BusinessJournal: 25
+  line 26, col 46 to line 26, col 51 of module L0_BusinessJournal: 4
+  |line 26, col 46 to line 26, col 46 of module L0_BusinessJournal: 3
+  line 26, col 56 to line 26, col 64 of module L0_BusinessJournal: 4
+  |line 26, col 56 to line 26, col 56 of module L0_BusinessJournal: 3
+  |line 26, col 62 to line 26, col 64 of module L0_BusinessJournal: 3
+  line 27, col 8 to line 27, col 38 of module L0_BusinessJournal: 4
+  |line 27, col 8 to line 27, col 8 of module L0_BusinessJournal: 3
+  |line 27, col 17 to line 27, col 38 of module L0_BusinessJournal: 3
+  line 27, col 43 to line 27, col 69 of module L0_BusinessJournal: 1
+  line 28, col 8 to line 28, col 67 of module L0_BusinessJournal: 1
+<Authorize line 29, col 1 to line 29, col 9 of module L0_BusinessJournal>: 1:2
+  line 29, col 17 to line 29, col 32 of module L0_BusinessJournal: 74
+  |line 29, col 17 to line 29, col 20 of module L0_BusinessJournal: 72
+  line 30, col 8 to line 30, col 68 of module L0_BusinessJournal: 2
+<AuthorizeFailed line 31, col 1 to line 31, col 15 of module L0_BusinessJournal>: 2:2
+  line 31, col 23 to line 31, col 38 of module L0_BusinessJournal: 74
+  |line 31, col 23 to line 31, col 26 of module L0_BusinessJournal: 72
+  line 32, col 8 to line 32, col 46 of module L0_BusinessJournal: 2
+<WriteIntent line 35, col 1 to line 35, col 11 of module L0_BusinessJournal>: 1:2
+  line 35, col 19 to line 35, col 36 of module L0_BusinessJournal: 74
+  |line 35, col 19 to line 35, col 22 of module L0_BusinessJournal: 72
+  line 36, col 8 to line 36, col 84 of module L0_BusinessJournal: 2
+<SyncIntent line 37, col 1 to line 37, col 10 of module L0_BusinessJournal>: 1:2
+  line 37, col 18 to line 37, col 34 of module L0_BusinessJournal: 74
+  |line 37, col 18 to line 37, col 21 of module L0_BusinessJournal: 72
+  line 38, col 8 to line 38, col 56 of module L0_BusinessJournal: 2
+<PublishIntent line 39, col 1 to line 39, col 13 of module L0_BusinessJournal>: 1:2
+  line 39, col 21 to line 39, col 40 of module L0_BusinessJournal: 74
+  |line 39, col 21 to line 39, col 24 of module L0_BusinessJournal: 72
+  line 40, col 8 to line 40, col 62 of module L0_BusinessJournal: 2
+<GateExpire line 41, col 1 to line 41, col 10 of module L0_BusinessJournal>: 5:5
+  line 41, col 18 to line 41, col 23 of module L0_BusinessJournal: 77
+  |line 41, col 18 to line 41, col 18 of module L0_BusinessJournal: 72
+  line 41, col 28 to line 41, col 99 of module L0_BusinessJournal: 56
+  |line 41, col 28 to line 41, col 31 of module L0_BusinessJournal: 51
+  |line 41, col 37 to line 41, col 99 of module L0_BusinessJournal: 51
+  line 42, col 8 to line 42, col 33 of module L0_BusinessJournal: 5
+<Send line 44, col 1 to line 44, col 4 of module L0_BusinessJournal>: 1:1
+  line 44, col 12 to line 44, col 22 of module L0_BusinessJournal: 73
+  |line 44, col 12 to line 44, col 15 of module L0_BusinessJournal: 72
+  line 44, col 27 to line 44, col 32 of module L0_BusinessJournal: 3
+  |line 44, col 27 to line 44, col 27 of module L0_BusinessJournal: 2
+  line 45, col 8 to line 46, col 77 of module L0_BusinessJournal: 1
+<GateRejected line 47, col 1 to line 47, col 12 of module L0_BusinessJournal>: 1:1
+  line 47, col 20 to line 47, col 30 of module L0_BusinessJournal: 73
+  |line 47, col 20 to line 47, col 23 of module L0_BusinessJournal: 72
+  line 47, col 35 to line 47, col 41 of module L0_BusinessJournal: 3
+  |line 47, col 36 to line 47, col 41 of module L0_BusinessJournal: 2
+  line 48, col 8 to line 48, col 46 of module L0_BusinessJournal: 1
+<PendingOrAck line 49, col 1 to line 49, col 12 of module L0_BusinessJournal>: 1:1
+  line 49, col 20 to line 49, col 34 of module L0_BusinessJournal: 73
+  |line 49, col 20 to line 49, col 23 of module L0_BusinessJournal: 72
+  line 49, col 39 to line 49, col 63 of module L0_BusinessJournal: 1
+<Unknown line 50, col 1 to line 50, col 7 of module L0_BusinessJournal>: 1:1
+  line 50, col 15 to line 50, col 29 of module L0_BusinessJournal: 73
+  |line 50, col 15 to line 50, col 18 of module L0_BusinessJournal: 72
+  line 50, col 34 to line 50, col 72 of module L0_BusinessJournal: 1
+<NoBytes line 51, col 1 to line 51, col 7 of module L0_BusinessJournal>: 1:1
+  line 51, col 15 to line 51, col 29 of module L0_BusinessJournal: 73
+  |line 51, col 15 to line 51, col 18 of module L0_BusinessJournal: 72
+  line 52, col 8 to line 52, col 67 of module L0_BusinessJournal: 1
+<WriteAbort line 53, col 1 to line 53, col 10 of module L0_BusinessJournal>: 1:1
+  line 53, col 18 to line 53, col 34 of module L0_BusinessJournal: 73
+  |line 53, col 18 to line 53, col 21 of module L0_BusinessJournal: 72
+  line 54, col 8 to line 54, col 82 of module L0_BusinessJournal: 1
+<SyncAbort line 55, col 1 to line 55, col 9 of module L0_BusinessJournal>: 1:1
+  line 55, col 17 to line 55, col 32 of module L0_BusinessJournal: 73
+  |line 55, col 17 to line 55, col 20 of module L0_BusinessJournal: 72
+  line 55, col 37 to line 55, col 79 of module L0_BusinessJournal: 1
+<Release line 56, col 1 to line 56, col 7 of module L0_BusinessJournal>: 1:1
+  line 56, col 15 to line 56, col 28 of module L0_BusinessJournal: 73
+  |line 56, col 15 to line 56, col 18 of module L0_BusinessJournal: 72
+  line 57, col 8 to line 58, col 63 of module L0_BusinessJournal: 1
+<WriteFailed line 61, col 1 to line 61, col 21 of module L0_BusinessJournal>: 6:6
+  line 61, col 29 to line 61, col 65 of module L0_BusinessJournal: 150
+  |line 61, col 29 to line 61, col 32 of module L0_BusinessJournal: 144
+  |line 61, col 38 to line 61, col 65 of module L0_BusinessJournal: 144
+  line 61, col 70 to line 61, col 89 of module L0_BusinessJournal: 12
+  |line 61, col 70 to line 61, col 77 of module L0_BusinessJournal: 6
+  |line 61, col 83 to line 61, col 89 of module L0_BusinessJournal: 6
+  line 62, col 8 to line 63, col 47 of module L0_BusinessJournal: 6
+  |line 62, col 11 to line 63, col 47 of module L0_BusinessJournal: 6
+  ||line 62, col 12 to line 62, col 12 of module L0_BusinessJournal: 6
+  ||line 62, col 29 to line 62, col 131 of module L0_BusinessJournal: 6
+  |||line 62, col 32 to line 62, col 39 of module L0_BusinessJournal: 6
+  |||line 62, col 46 to line 62, col 124 of module L0_BusinessJournal: 3
+  ||line 63, col 34 to line 63, col 46 of module L0_BusinessJournal: 6
+<SyncFailed line 64, col 1 to line 64, col 16 of module L0_BusinessJournal>: 3:6
+  line 64, col 24 to line 64, col 58 of module L0_BusinessJournal: 150
+  |line 64, col 24 to line 64, col 27 of module L0_BusinessJournal: 144
+  |line 64, col 33 to line 64, col 58 of module L0_BusinessJournal: 144
+  line 64, col 63 to line 64, col 78 of module L0_BusinessJournal: 12
+  |line 64, col 63 to line 64, col 66 of module L0_BusinessJournal: 6
+  |line 64, col 72 to line 64, col 78 of module L0_BusinessJournal: 6
+  line 65, col 8 to line 65, col 81 of module L0_BusinessJournal: 6
+  |line 65, col 11 to line 65, col 81 of module L0_BusinessJournal: 6
+  ||line 65, col 12 to line 65, col 12 of module L0_BusinessJournal: 6
+  ||line 65, col 28 to line 65, col 54 of module L0_BusinessJournal: 6
+  |||line 65, col 31 to line 65, col 34 of module L0_BusinessJournal: 6
+  |||line 65, col 41 to line 65, col 47 of module L0_BusinessJournal: 3
+  ||line 65, col 68 to line 65, col 80 of module L0_BusinessJournal: 6
+<Crash line 68, col 1 to line 68, col 11 of module L0_BusinessJournal>: 10:60
+  line 68, col 19 to line 68, col 29 of module L0_BusinessJournal: 204
+  |line 68, col 19 to line 68, col 22 of module L0_BusinessJournal: 144
+  line 68, col 34 to line 68, col 53 of module L0_BusinessJournal: 60
+  |line 68, col 34 to line 68, col 42 of module L0_BusinessJournal: 124
+  |line 68, col 44 to line 68, col 53 of module L0_BusinessJournal: 124
+  line 68, col 58 to line 68, col 73 of module L0_BusinessJournal: 120
+  |line 68, col 58 to line 68, col 61 of module L0_BusinessJournal: 60
+  |line 68, col 67 to line 68, col 73 of module L0_BusinessJournal: 60
+  line 70, col 8 to line 71, col 79 of module L0_BusinessJournal: 60
+  |line 70, col 11 to line 71, col 79 of module L0_BusinessJournal: 60
+  ||line 70, col 12 to line 70, col 12 of module L0_BusinessJournal: 60
+  ||line 70, col 28 to line 70, col 32 of module L0_BusinessJournal: 60
+  |||line 69, col 19 to line 69, col 50 of module L0_BusinessJournal: 60
+  ||||line 69, col 22 to line 69, col 25 of module L0_BusinessJournal: 60
+  ||||line 69, col 32 to line 69, col 38 of module L0_BusinessJournal: 30
+  ||||line 69, col 45 to line 69, col 50 of module L0_BusinessJournal: 30
+  ||line 70, col 42 to line 70, col 46 of module L0_BusinessJournal: 60
+  |||line 69, col 19 to line 69, col 50 of module L0_BusinessJournal: 60
+  ||||line 69, col 22 to line 69, col 25 of module L0_BusinessJournal: 60
+  ||||line 69, col 32 to line 69, col 38 of module L0_BusinessJournal: 30
+  ||||line 69, col 45 to line 69, col 50 of module L0_BusinessJournal: 30
+  ||line 70, col 60 to line 70, col 68 of module L0_BusinessJournal: 60
+  ||line 70, col 70 to line 70, col 82 of module L0_BusinessJournal: 60
+  ||line 71, col 11 to line 71, col 22 of module L0_BusinessJournal: 60
+  ||line 71, col 24 to line 71, col 36 of module L0_BusinessJournal: 60
+  ||line 71, col 38 to line 71, col 54 of module L0_BusinessJournal: 60
+  ||line 71, col 66 to line 71, col 78 of module L0_BusinessJournal: 60
+<Recover line 72, col 1 to line 72, col 7 of module L0_BusinessJournal>: 10:10
+  line 72, col 15 to line 72, col 25 of module L0_BusinessJournal: 82
+  |line 72, col 15 to line 72, col 18 of module L0_BusinessJournal: 72
+  line 72, col 30 to line 72, col 56 of module L0_BusinessJournal: 10
+<ReplayPrepared line 73, col 1 to line 73, col 14 of module L0_BusinessJournal>: 6:6
+  line 73, col 22 to line 73, col 34 of module L0_BusinessJournal: 78
+  |line 73, col 22 to line 73, col 25 of module L0_BusinessJournal: 72
+  line 73, col 39 to line 73, col 58 of module L0_BusinessJournal: 6
+  |line 73, col 39 to line 73, col 45 of module L0_BusinessJournal: 17
+  |line 73, col 48 to line 73, col 58 of module L0_BusinessJournal: 17
+  line 75, col 11 to line 75, col 27 of module L0_BusinessJournal: 14
+  |line 75, col 11 to line 75, col 16 of module L0_BusinessJournal: 8
+  line 75, col 32 to line 75, col 49 of module L0_BusinessJournal: 12
+  |line 75, col 32 to line 75, col 35 of module L0_BusinessJournal: 6
+  |line 75, col 41 to line 75, col 49 of module L0_BusinessJournal: 6
+  line 76, col 11 to line 76, col 81 of module L0_BusinessJournal: 6
+<ReplayAbort line 77, col 1 to line 77, col 11 of module L0_BusinessJournal>: 1:2
+  line 77, col 19 to line 77, col 31 of module L0_BusinessJournal: 74
+  |line 77, col 19 to line 77, col 22 of module L0_BusinessJournal: 72
+  line 77, col 36 to line 77, col 55 of module L0_BusinessJournal: 2
+  |line 77, col 36 to line 77, col 42 of module L0_BusinessJournal: 17
+  |line 77, col 45 to line 77, col 55 of module L0_BusinessJournal: 17
+  line 79, col 11 to line 79, col 26 of module L0_BusinessJournal: 10
+  |line 79, col 11 to line 79, col 16 of module L0_BusinessJournal: 8
+  line 79, col 31 to line 79, col 49 of module L0_BusinessJournal: 4
+  |line 79, col 31 to line 79, col 34 of module L0_BusinessJournal: 2
+  |line 79, col 40 to line 79, col 49 of module L0_BusinessJournal: 2
+  line 80, col 11 to line 81, col 62 of module L0_BusinessJournal: 2
+<ReplayFailed line 82, col 1 to line 82, col 12 of module L0_BusinessJournal>: 6:6
+  line 82, col 20 to line 82, col 32 of module L0_BusinessJournal: 78
+  |line 82, col 20 to line 82, col 23 of module L0_BusinessJournal: 72
+  line 82, col 37 to line 82, col 56 of module L0_BusinessJournal: 6
+  |line 82, col 37 to line 82, col 43 of module L0_BusinessJournal: 17
+  |line 82, col 46 to line 82, col 56 of module L0_BusinessJournal: 17
+  line 83, col 8 to line 83, col 38 of module L0_BusinessJournal: 14
+  |line 83, col 8 to line 83, col 27 of module L0_BusinessJournal: 8
+  line 84, col 8 to line 84, col 49 of module L0_BusinessJournal: 6
+<RecoveryDone line 85, col 1 to line 85, col 12 of module L0_BusinessJournal>: 9:9
+  line 85, col 20 to line 85, col 32 of module L0_BusinessJournal: 81
+  |line 85, col 20 to line 85, col 23 of module L0_BusinessJournal: 72
+  line 85, col 37 to line 85, col 57 of module L0_BusinessJournal: 26
+  |line 85, col 37 to line 85, col 43 of module L0_BusinessJournal: 17
+  |line 85, col 45 to line 85, col 57 of module L0_BusinessJournal: 17
+  line 86, col 8 to line 86, col 32 of module L0_BusinessJournal: 9
+<TypeOK line 95, col 1 to line 95, col 6 of module L0_BusinessJournal>
+  line 95, col 11 to line 97, col 60 of module L0_BusinessJournal: 72
+<DurablePrefix line 98, col 1 to line 98, col 13 of module L0_BusinessJournal>
+  line 98, col 18 to line 98, col 70 of module L0_BusinessJournal: 72
+<SendRequiresClosureAndWal line 99, col 1 to line 99, col 25 of module L0_BusinessJournal>
+  line 99, col 30 to line 99, col 91 of module L0_BusinessJournal: 72
+  |line 99, col 49 to line 99, col 91 of module L0_BusinessJournal: 30
+  |line 99, col 39 to line 99, col 46 of module L0_BusinessJournal: 72
+<EverySendFresh line 100, col 1 to line 100, col 14 of module L0_BusinessJournal>
+  line 100, col 19 to line 100, col 38 of module L0_BusinessJournal: 72
+<NoEarlyRelease line 101, col 1 to line 101, col 14 of module L0_BusinessJournal>
+  line 101, col 19 to line 101, col 81 of module L0_BusinessJournal: 72
+  |line 101, col 40 to line 101, col 81 of module L0_BusinessJournal: 7
+  ||line 101, col 40 to line 101, col 54 of module L0_BusinessJournal: 7
+  ||line 101, col 59 to line 101, col 81 of module L0_BusinessJournal: 7
+  |||line 17, col 16 to line 17, col 52 of module L0_BusinessJournal: 7
+  ||||line 17, col 37 to line 17, col 52 of module L0_BusinessJournal: 14
+  ||||line 17, col 25 to line 17, col 34 of module L0_BusinessJournal: 7
+  |||line 101, col 63 to line 101, col 68 of module L0_BusinessJournal: 7
+  |||line 101, col 80 to line 101, col 80 of module L0_BusinessJournal: 7
+  |line 101, col 28 to line 101, col 37 of module L0_BusinessJournal: 72
+<OrderedAbort line 102, col 1 to line 102, col 12 of module L0_BusinessJournal>
+  line 102, col 17 to line 103, col 81 of module L0_BusinessJournal: 72
+  |line 103, col 5 to line 103, col 81 of module L0_BusinessJournal: 60
+  ||line 103, col 5 to line 103, col 28 of module L0_BusinessJournal: 60
+  ||line 103, col 33 to line 103, col 81 of module L0_BusinessJournal: 13
+  |line 102, col 26 to line 102, col 39 of module L0_BusinessJournal: 72
+<RecoveredStaysFrozen line 104, col 1 to line 104, col 20 of module L0_BusinessJournal>
+  line 104, col 25 to line 104, col 48 of module L0_BusinessJournal: 72
+  |line 104, col 25 to line 104, col 36 of module L0_BusinessJournal: 72
+  |line 104, col 41 to line 104, col 48 of module L0_BusinessJournal: 42
+<ReservationBound line 105, col 1 to line 105, col 16 of module L0_BusinessJournal>
+  line 105, col 21 to line 105, col 48 of module L0_BusinessJournal: 72
+<RecoveredHold line 106, col 1 to line 106, col 13 of module L0_BusinessJournal>
+  line 106, col 18 to line 107, col 76 of module L0_BusinessJournal: 72
+  |line 106, col 18 to line 106, col 44 of module L0_BusinessJournal: 72
+  ||line 106, col 18 to line 106, col 29 of module L0_BusinessJournal: 72
+  ||line 106, col 34 to line 106, col 44 of module L0_BusinessJournal: 42
+  |line 107, col 5 to line 107, col 76 of module L0_BusinessJournal: 9
+  ||line 107, col 5 to line 107, col 10 of module L0_BusinessJournal: 9
+  ||line 107, col 12 to line 107, col 76 of module L0_BusinessJournal: 9
+  |||line 107, col 24 to line 107, col 75 of module L0_BusinessJournal: 9
+  ||||line 107, col 24 to line 107, col 47 of module L0_BusinessJournal: 9
+  |||||line 17, col 16 to line 17, col 52 of module L0_BusinessJournal: 9
+  ||||||line 17, col 37 to line 17, col 52 of module L0_BusinessJournal: 5
+  ||||||line 17, col 25 to line 17, col 34 of module L0_BusinessJournal: 9
+  |||||line 107, col 28 to line 107, col 33 of module L0_BusinessJournal: 9
+  |||||line 107, col 46 to line 107, col 46 of module L0_BusinessJournal: 5
+  ||||line 107, col 52 to line 107, col 75 of module L0_BusinessJournal: 5
+  |||||line 107, col 53 to line 107, col 75 of module L0_BusinessJournal: 5
+  ||||||line 17, col 16 to line 17, col 52 of module L0_BusinessJournal: 5
+  |||||||line 17, col 37 to line 17, col 52 of module L0_BusinessJournal: 6
+  |||||||line 17, col 25 to line 17, col 34 of module L0_BusinessJournal: 5
+  ||||||line 107, col 57 to line 107, col 62 of module L0_BusinessJournal: 5
+  ||||||line 107, col 74 to line 107, col 74 of module L0_BusinessJournal: 5
+  |||line 107, col 19 to line 107, col 21 of module L0_BusinessJournal: 9
+End of statistics.
+130 states generated, 72 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 14.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 5 and the 95th percentile is 4).
+Finished in 00s at (2026-10-20 19:24:21)

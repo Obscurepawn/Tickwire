@@ -139,7 +139,7 @@ InstrumentCatalog 的 entry 是 InstrumentEntry（256 字节），按 instrument
 
 ### 4.1 意图
 
-意图的稳定去重键为 `(logical_strategy_id, risk_scope, strategy_generation, intent_seq)`；instance、channel 和 exec generation 必须与已绑定身份一致。`economic_intent_id` 标识持续经济动作；原请求确认丢失时用 QUERY 查询原键。同一键不同规范化业务内容为 IdempotencyConflict；规范化内容包含全部 IntentBody 与公共头的 instrument/scope/producer generation，不含 transport sequence、时间戳测量字段和 CRC。策略不能为未解决的同一经济动作换 ID 重试。
+意图的稳定去重键为 `(logical_strategy_id, risk_scope, strategy_generation, intent_seq)`；instance、channel 和 exec generation 必须与已绑定身份一致。`economic_intent_id` 标识持续交易操作；原请求确认丢失时用 QUERY 查询原键。同一键不同规范化业务内容为 IdempotencyConflict；规范化内容包含全部 IntentBody 与公共头的 instrument/scope/producer generation，不含 transport sequence、时间戳测量字段和 CRC。策略不能为未解决的同一交易操作换 ID 重试。
 
 `intent_seq` 在一个策略授权代次/风险域内从 1 连续分配；队列满而未发布时不消耗序号。接收端在明确的 channel 恢复后可接受已接纳键的精确重试，但新键出现缺口时返回 SequenceGap 并要求查账。重试必须保留业务 created/valid_until 与内容，不能刷新期限。transport sequence 在新 channel 从 1 开始，intent_seq 不因此归零。订单身份由 exec 分配，New 的 order_id 为零；Cancel/Amend/Modify 必须携带既有 order_id 和 expected_owner_revision。
 
@@ -165,7 +165,7 @@ ReportBody 的 instance/strategy_generation 指当前接收/管理实例，origi
 | Fill | status=当前 order_status；quantity=原订单量、cumulative_qty=累计成交、leaves_qty=已知剩余量、price_ticks=订单价；last_qty/last_price_ticks=本笔成交；intent/economic/order/reservation 身份、owner_revision、venue_order/trade ID 及各自长度、send_state/cancel_state、side/position_side 均可携带；fee_units/fee_asset_id/asset_version/asset_exponent 说明费用；fee_units 为对策略资产的有符号现金流，扣费为负、返佣为正 |
 | Balance | header.instrument_id=0；fee_asset_id 指资产，asset_version/exponent 指单位；quantity=总资产、cumulative_qty=可用、leaves_qty=交易所锁定，value_0=本地额外预留，aux_version=账户基线版本；均为该资产最小计数单位，不把查询快照重复入账 |
 | Position | quantity=净 lots；Hedge 按 position_side 独立行；price=入场价，value_0=已实现损益、value_1=未实现损益、value_2=保证金，现金数值用 fee_asset_id/exponent 的单位；aux_version=持仓版本 |
-| Reservation | status=reservation_state；reservation/order/intent 身份；quantity=预留 lots，value_0=原预留资产单位、value_1=剩余、value_2=已转经济事实；fee_asset_id/exponent 固定资产单位 |
+| Reservation | status=reservation_state；reservation/order/intent 身份；quantity=预留 lots，value_0=原预留资产单位、value_1=剩余、value_2=已确认成交及费用所消耗的金额；fee_asset_id/exponent 固定资产单位 |
 | GrantState | status=control_state；authorization_epoch/strategy_generation/exec_generation、aux_version=risk_gate_revision、value_0=permissions、value_1=valid_until_mono_ns；不是策略自发授权 |
 | ResyncRequired | reason、aux_version=最后可回放 journal 序号；保持处理账户事实，停止向满队列强行写，控制 STATUS 同时发布缺口状态 |
 | LedgerAdjustment | aux_id=不可复用账项 ID、aux_version=更正版本；fee_units=有符号资产变更，reason 表示错误码时仅用于拒绝，业务调整类别用 status：1资金费、2费用更正、3强平、4ADL、5外部调整、6归属移交；Correction 位明确更正 |

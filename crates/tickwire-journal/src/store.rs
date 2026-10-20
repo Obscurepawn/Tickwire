@@ -35,12 +35,13 @@ impl FileStore {
             builder.mode(0o700);
         }
         match builder.create(&root) {
-            Ok(()) => {
-                File::open(root.parent().unwrap_or(Path::new(".")))?.sync_all()?;
-            }
+            Ok(()) => {}
             Err(e) if e.kind() == io::ErrorKind::AlreadyExists && root.is_dir() => {}
             Err(e) => return Err(e),
         }
+        // Keep the lock and all subsequent I/O on the same directory even if
+        // the process later changes its working directory.
+        let root = fs::canonicalize(&root)?;
         let lock = OpenOptions::new()
             .read(true)
             .write(true)
@@ -51,6 +52,13 @@ impl FileStore {
             .map_err(|e| io::Error::other(e.to_string()))?;
         lock.sync_all()?;
         File::open(&root)?.sync_all()?;
+        // An earlier create may have made root visible but failed its parent
+        // synchronization. Reopening must finish that publication as well.
+        let parent = root
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        File::open(parent)?.sync_all()?;
         Ok(Self { root, _lock: lock })
     }
     pub fn segment_path(&self, id: u64) -> PathBuf {

@@ -1,0 +1,30 @@
+   Compiling tickwire-journal v0.1.0 ($REPO/crates/tickwire-journal)
+   Compiling tickwire-business-journal v0.1.0 ($REPO/crates/tickwire-business-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.10s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_business_journal-09dd436a59d5d462)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime.rs (target/debug/deps/runtime-a6d36f0fc4069500)
+
+running 10 tests
+test empty_recovery_is_frozen_and_bootstrap_capital_cannot_change ... ok
+test sync_replica_has_no_implicit_mock_or_local_downgrade ... ok
+test abort_sync_failure_retains_reservation_and_freezes ... ok
+test commit_is_idempotent_but_changed_intent_is_rejected ... ok
+test missing_closure_stops_recovery_instead_of_republishing ... ok
+test real_wal_reopens_committed_order_frozen_without_exchange_call ... ok
+test invalid_fact_is_preserved_then_live_and_recovery_freeze ... ok
+test fact_duplicates_are_durable_but_counted_once ... ok
+test terminal_missing_fill_details_and_late_fees_replay_exactly ... ok
+test no_bytes_is_durable_before_release_and_replays_in_order ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.31s
+
+   Doc-tests tickwire_business_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

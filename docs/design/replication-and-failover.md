@@ -43,7 +43,7 @@
 
 ## 3. 本地提交、逐单状态与批处理
 
-默认路径为 `Received → Prepared → LocalDurable → Applied/Accepted → final_send_gate → MayHaveSent`。`Prepared` 保存完整动作、不可复用订单 ID、风险预留、经济动作键、策略/执行代次、已应用授权引用和 `RecoveryManifest`。同步提交模式在 `LocalDurable` 之后增加 `MirrorDurable` 条件，达到它才可 Accepted。
+默认路径为 `Received → Prepared → LocalDurable → Applied/Accepted → final_send_gate → MayHaveSent`。`Prepared` 保存完整动作、不可复用订单 ID、风险预留、交易操作去重键、策略/执行代次、已应用授权引用和 `RecoveryManifest`。同步提交模式在 `LocalDurable` 之后增加 `MirrorDurable` 条件，达到它才可 Accepted。
 
 提交记录包含“此动作在提交后可能发送”的语义。崩溃发生在发送与本地回调之间时，恢复仍将该意图视为可能已发；不能因没有 `MayHaveSent` 回调就推断未发送。这样无需在正常路径额外做一次“已发送标记”的同步提交。确定未进入输出缓冲的 `AbortedBeforeSend` 必须持久记录后才释放预留。
 
@@ -152,7 +152,7 @@ exec 将证明绑定 `(domain, intent_id, payload_hash, manifest_root, exec_epoc
 1. 冻结新授权，触发实际隔离。exec 主循环进度每 10 ms 更新，50 ms 无进展即怀疑；独立心跳线程不能掩盖主循环卡死。本地终止预算 500 ms、网络隔离预算 2,000 ms，电源隔离使用剩余预算，隔离总截止时间 5,000 ms；超过即 Frozen，不假设隔离成功。
 2. 原盘可读时，在旧写者已隔离后取得**完整源前缀证明 `SourceRecoverySeal`**：可由健康源写入 FreezeSeal 并关闭写入，或由可信恢复工具读取隔离主机的盘、校验最后完整批次和全部闭包，记录最终 F、哈希、存储身份及 FenceEvidence。源退出前最后一个 ACK 不是 SourceRecoverySeal。
 3. 新主取得 snapshot+日志+闭包至 F；缺多少复制多少，核对源封口证明并持久化 `PrefixComplete`。备用盘上的最大 seq、低复制延迟或静默一段时间都不能替代 F。原盘暂时不可用时保持 Frozen 等待取回。
-4. guardian 正式清理；新 exec 建立并缓存私有流，查询全部未决意图、普通/条件/子单、成交、余额与持仓，通过重叠窗口、完整分页和幂等合并重建经济事实。可能晚到的旧请求保持跟踪，一次 not found 或超时不释放预留。
+4. guardian 正式清理；新 exec 建立并缓存私有流，查询全部未决意图、普通/条件/子单、成交、余额与持仓，通过重叠窗口、完整分页和幂等合并重建交易结果记录。可能晚到的旧请求保持跟踪，一次 not found 或超时不释放预留。
 5. 写入新 `ReconciliationBaseline`、订单/成交去重与新 exec epoch，恢复策略检查点/输入或声明重建状态，重建发布 operation 实际管理权。回放输出不得进入真实交易入口。
 6. 控制组提交拟 ExecutionGrant，新 exec 本地持久化 `GrantPrepared`，绑定完整前缀、隔离/对账/策略屏障和控制挑战期限。隔离控制器复核旧 deny，为新身份返回 `EgressReady`。
 7. exec 本地持久化并应用 `ActivateExecution`，再次验证控制授权、全部屏障和新出口，再开放最终发送门禁。旧主回归只作为隔离备机重建，丢弃旧发送缓冲和授权；迟到回调按原动作身份合并，不重发。
@@ -180,7 +180,7 @@ exec 将证明绑定 `(domain, intent_id, payload_hash, manifest_root, exec_epoc
 | ID | 注入序列 | 必须观察到的状态 |
 |---|---|---|
 | `RF-01` | 默认提交模式本地 flush 前杀 exec | 无 Accepted/发送；丢弃未封口尾部 |
-| `RF-02` | 默认提交模式本地提交并发送、远端未复制时杀进程，本地盘完整 | 从原盘恢复原 ID/预留；策略重试不产生新经济动作 |
+| `RF-02` | 默认提交模式本地提交并发送、远端未复制时杀进程，本地盘完整 | 从原盘恢复原 ID/预留；策略重试不产生新交易操作 |
 | `RF-03` | 默认提交模式原机与盘永久丢失，远端缺尾部 | EvidenceLost/Frozen，不凭备机水位自动提升 |
 | `RF-04` | 备机收到日志但缺策略检查点/blob | received 可前进，durable 不前进；不可用它证明完整恢复 |
 | `RF-05` | 控制 leader 仅有旧任期多数副本，没有本任期 barrier | 不签发新的控制提交证明和执行授权 |

@@ -13,6 +13,6 @@
 | 省略不会改变状态的错误回执/重复 reserve 调用 | 错误返回等价于 stutter，不会隐藏状态安全违规 |
 | 有限 Orders、Slots、Budget、Capital | primary 让资金限制生效，scaling 让订单槽限制生效；没有用状态截断删除故障路径 |
 
-UnknownKeepsReservation 只针对没有经济事实的本级状态机；有成交后剩余预留的真实公式在 L2 才能验证。L0 不检查 live-lock 或最终成交，环境允许永久不返回 ACK。
+UnknownKeepsReservation 只针对没有交易结果记录的本级状态机；有成交后剩余预留的真实公式在 L2 才能验证。L0 不检查 live-lock 或最终成交，环境允许永久不返回 ACK。
 
-`NoBytesRejected` 单独表示矛盾或不存在订单的 NoBytes 回调：实现返回错误并冻结准入，保留资金和订单状态。本级排除了经济事实，因此 `filled=observed_filled=0`；包含费用或成交后的矛盾回调由 L2 继续检查。
+`NoBytesRejected` 单独表示矛盾或不存在订单的 NoBytes 回调：实现返回错误并冻结准入，保留资金和订单状态。本级排除了交易结果记录，因此 `filled=observed_filled=0`；包含费用或成交后的矛盾回调由 L2 继续检查。

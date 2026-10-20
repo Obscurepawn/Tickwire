@@ -1,0 +1,62 @@
+   Compiling tickwire-shm v0.1.0 (/work/crates/tickwire-shm)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.10s
+     Running unittests src/lib.rs (target/linux-join/debug/deps/tickwire_shm-da07c1c4cc039dba)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/join_pending.rs (target/linux-join/debug/deps/join_pending-a01bb1846057e67f)
+
+running 6 tests
+test detach_registered_requires_actual_quiescence_and_exact_final_watermarks ... ok
+test quiescing_cursor_cannot_be_activated_even_at_baseline ... ok
+test pending_cursor_release_does_not_advance_gate_before_activation ... ok
+test missing_or_duplicate_cursor_does_not_activate_or_replace_registration ... ok
+test failed_activation_preserves_gate_and_requires_actual_applied_prefix ... ok
+test another_join_keeps_its_own_pending_baseline_after_first_activation ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mapped.rs (target/linux-join/debug/deps/mapped-e9e7a12350747c3d)
+
+running 11 tests
+test bank_admission_respects_the_advertised_consumer_limit ... ok
+test descriptor_mismatch_is_rejected ... ok
+test pure_state_quiescence_cannot_detach_a_real_live_borrow ... ok
+test forgotten_guard_prevents_reuse_and_quiescence ... ok
+test freeze_preserves_bytes_for_an_outstanding_reader ... ok
+test shared_reader_child ... ok
+test required_abi_features_and_generation_limits_are_enforced ... ok
+test repeated_quiesce_does_not_reopen_a_completed_cursor ... ok
+test wrong_batch_is_rejected_before_any_bytes_are_published ... ok
+test mapped_broadcast_borrows_the_same_record_and_protects_gaps ... ok
+test real_process_broadcast_to_1_2_4_8_16_32_consumers ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.35s
+
+     Running tests/protocol.rs (target/linux-join/debug/deps/protocol-d3aadeba2941d1fc)
+
+running 13 tests
+test a_batch_is_all_or_nothing_and_blocks_membership_and_freeze ... ok
+test application_does_not_release_a_live_borrow ... ok
+test capacity_is_protected_by_every_reader ... ok
+test cutoff_never_publishes_a_partial_batch ... ok
+test invalid_or_stale_cursor_updates_cannot_release_capacity ... ok
+test join_invalidates_the_no_reader_cached_minimum ... ok
+test local_window_is_bounded_even_after_early_release ... ok
+test malformed_batches_and_sequence_exhaustion_do_not_change_state ... ok
+test old_quiesce_ack_cannot_remove_a_new_subscription ... ok
+test reader_keeps_release_and_application_gaps_separate ... ok
+test pending_join_baseline_cannot_be_advanced_by_a_cursor ... ok
+test reader_rejects_regressing_published_and_future_application ... ok
+test quiesce_requires_every_borrow_but_not_business_application ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_shm
+
+running 1 test
+test crates/tickwire-shm/src/mapped.rs - mapped::RecordBorrow<'_,B>::bytes (line 563) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s

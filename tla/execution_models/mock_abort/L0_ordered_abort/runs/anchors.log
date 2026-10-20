@@ -1,0 +1,4 @@
+  ok execution_models/mock_abort/L0_ordered_abort: 426 line anchor(s) -> execution_models/mock_abort/L0_ordered_abort/02_models/anchors.lock
+anchors.sh update: baselined 1 level(s); 426 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)
+anchors.sh check: 426 anchor line(s) across 1 lock(s); 0 changed
+no drift — cited lines unchanged since baseline

@@ -1,0 +1,302 @@
+{
+  "L0_RecoveryClosure": {
+    "generated": 5093,
+    "distinct": 2345,
+    "depth": 51,
+    "elapsed_s": 1,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Open": {
+        "distinct": 222,
+        "generated": 224
+      },
+      "RootSync": {
+        "distinct": 222,
+        "generated": 222
+      },
+      "ParentSync": {
+        "distinct": 65,
+        "generated": 222
+      },
+      "OpenFailure": {
+        "distinct": 2,
+        "generated": 444
+      },
+      "Seed": {
+        "distinct": 116,
+        "generated": 239
+      },
+      "BeginPublish": {
+        "distinct": 124,
+        "generated": 478
+      },
+      "BeginVerify": {
+        "distinct": 62,
+        "generated": 239
+      },
+      "RejectShape": {
+        "distinct": 236,
+        "generated": 239
+      },
+      "Lookup": {
+        "distinct": 40,
+        "generated": 62
+      },
+      "CheckObject": {
+        "distinct": 80,
+        "generated": 146
+      },
+      "CheckInputs": {
+        "distinct": 34,
+        "generated": 44
+      },
+      "PrepareBinding": {
+        "distinct": 22,
+        "generated": 22
+      },
+      "Put": {
+        "distinct": 240,
+        "generated": 240
+      },
+      "TempWrite": {
+        "distinct": 26,
+        "generated": 26
+      },
+      "FileSyncNew": {
+        "distinct": 26,
+        "generated": 26
+      },
+      "Rename": {
+        "distinct": 26,
+        "generated": 26
+      },
+      "FileSyncExisting": {
+        "distinct": 204,
+        "generated": 214
+      },
+      "DirSync": {
+        "distinct": 164,
+        "generated": 230
+      },
+      "IoFailure": {
+        "distinct": 77,
+        "generated": 596
+      },
+      "ReturnPut": {
+        "distinct": 131,
+        "generated": 164
+      },
+      "Deliver": {
+        "distinct": 4,
+        "generated": 18
+      },
+      "Crash": {
+        "distinct": 221,
+        "generated": 971
+      }
+    }
+  },
+  "L0_Conflict": {
+    "generated": 37333,
+    "distinct": 15097,
+    "depth": 56,
+    "elapsed_s": 2,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Open": {
+        "distinct": 1267,
+        "generated": 1269
+      },
+      "RootSync": {
+        "distinct": 1267,
+        "generated": 1267
+      },
+      "ParentSync": {
+        "distinct": 456,
+        "generated": 1267
+      },
+      "OpenFailure": {
+        "distinct": 2,
+        "generated": 2534
+      },
+      "Seed": {
+        "distinct": 952,
+        "generated": 2276
+      },
+      "BeginPublish": {
+        "distinct": 1032,
+        "generated": 4552
+      },
+      "BeginVerify": {
+        "distinct": 516,
+        "generated": 2276
+      },
+      "RejectShape": {
+        "distinct": 1132,
+        "generated": 1138
+      },
+      "Lookup": {
+        "distinct": 372,
+        "generated": 516
+      },
+      "CheckObject": {
+        "distinct": 464,
+        "generated": 1124
+      },
+      "CheckInputs": {
+        "distinct": 136,
+        "generated": 160
+      },
+      "PrepareBinding": {
+        "distinct": 80,
+        "generated": 80
+      },
+      "Put": {
+        "distinct": 1524,
+        "generated": 1524
+      },
+      "TempWrite": {
+        "distinct": 408,
+        "generated": 408
+      },
+      "FileSyncNew": {
+        "distinct": 408,
+        "generated": 408
+      },
+      "Rename": {
+        "distinct": 408,
+        "generated": 408
+      },
+      "FileSyncExisting": {
+        "distinct": 982,
+        "generated": 1108
+      },
+      "DirSync": {
+        "distinct": 778,
+        "generated": 1390
+      },
+      "IoFailure": {
+        "distinct": 1032,
+        "generated": 4792
+      },
+      "ReturnPut": {
+        "distinct": 594,
+        "generated": 778
+      },
+      "Deliver": {
+        "distinct": 20,
+        "generated": 60
+      },
+      "Crash": {
+        "distinct": 1266,
+        "generated": 7997
+      }
+    }
+  },
+  "L0_MultipleDependencies": {
+    "generated": 9456,
+    "distinct": 3898,
+    "depth": 66,
+    "elapsed_s": 1,
+    "actions": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "Open": {
+        "distinct": 316,
+        "generated": 318
+      },
+      "RootSync": {
+        "distinct": 316,
+        "generated": 316
+      },
+      "ParentSync": {
+        "distinct": 107,
+        "generated": 316
+      },
+      "OpenFailure": {
+        "distinct": 2,
+        "generated": 632
+      },
+      "Seed": {
+        "distinct": 314,
+        "generated": 800
+      },
+      "BeginPublish": {
+        "distinct": 200,
+        "generated": 800
+      },
+      "BeginVerify": {
+        "distinct": 100,
+        "generated": 400
+      },
+      "RejectShape": {
+        "distinct": 400,
+        "generated": 400
+      },
+      "Lookup": {
+        "distinct": 50,
+        "generated": 100
+      },
+      "CheckObject": {
+        "distinct": 122,
+        "generated": 242
+      },
+      "CheckInputs": {
+        "distinct": 22,
+        "generated": 24
+      },
+      "PrepareBinding": {
+        "distinct": 12,
+        "generated": 12
+      },
+      "Put": {
+        "distinct": 446,
+        "generated": 446
+      },
+      "TempWrite": {
+        "distinct": 112,
+        "generated": 112
+      },
+      "FileSyncNew": {
+        "distinct": 112,
+        "generated": 112
+      },
+      "Rename": {
+        "distinct": 112,
+        "generated": 112
+      },
+      "FileSyncExisting": {
+        "distinct": 274,
+        "generated": 334
+      },
+      "DirSync": {
+        "distinct": 220,
+        "generated": 386
+      },
+      "IoFailure": {
+        "distinct": 191,
+        "generated": 1306
+      },
+      "ReturnPut": {
+        "distinct": 150,
+        "generated": 220
+      },
+      "Deliver": {
+        "distinct": 4,
+        "generated": 10
+      },
+      "Crash": {
+        "distinct": 315,
+        "generated": 2057
+      }
+    }
+  }
+}

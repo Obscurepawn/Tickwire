@@ -9,20 +9,20 @@ EXTENDS Naturals, Integers, FiniteSets, TLC
 \* rdr: Reader watermarks/completion/live borrows/quiescing,
 \*   crates/tickwire-shm/src/lib.rs:417-431; released and applied are independent
 \*   contiguous completion prefixes. life/qseq/token are mapped cursor evidence:
-\*   crates/tickwire-shm/src/mapped.rs:434-462.
+\*   crates/tickwire-shm/src/mapped.rs:519-547.
 \* payload: ordinary slot bytes represented by their sequence tag,
-\*   crates/tickwire-shm/src/mapped.rs:254-268.
+\*   crates/tickwire-shm/src/mapped.rs:326-340.
 \* rejected and p.complete: history-only error/publication witnesses, no code state.
 \* Join: crates/tickwire-shm/src/lib.rs:194-233
-\* Ready: crates/tickwire-shm/src/mapped.rs:212-226
+\* Ready: crates/tickwire-shm/src/mapped.rs:215-229
 \* Observe: crates/tickwire-shm/src/lib.rs:251-273
 \* Claim: crates/tickwire-shm/src/lib.rs:275-312 (includes Full cache mutation)
-\* Write/Publish/Abort: crates/tickwire-shm/src/mapped.rs:254-269
+\* Write/Publish/Abort: crates/tickwire-shm/src/mapped.rs:326-341
 \* Prepare/Freeze: crates/tickwire-shm/src/lib.rs:333-370
 \* Borrow/BorrowIdle: crates/tickwire-shm/src/lib.rs:466-496
 \* Release/Apply: crates/tickwire-shm/src/lib.rs:498-541
-\* StartQuiesce/Quiesced: crates/tickwire-shm/src/mapped.rs:444-462
-\* Detach/RejectForged: crates/tickwire-shm/src/mapped.rs:288-317
+\* StartQuiesce/Quiesced: crates/tickwire-shm/src/mapped.rs:529-547
+\* Detach/RejectForged: crates/tickwire-shm/src/mapped.rs:360-402
 \* Faults: arbitrary progress stalls (no fairness), including forgotten guards.
 \* Not modeled: malicious unsafe peers, CPU weak-memory litmus, bank rotation.
 

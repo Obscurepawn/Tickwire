@@ -1,0 +1,24 @@
+   Compiling tickwire-execution v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-execution)
+   Compiling tickwire-mock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-mock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.15s
+     Running tests/services.rs (target/debug/deps/services-6cd5148e0fed07a2)
+
+running 16 tests
+test even_empty_journal_restart_requires_recovery_authorization ... ok
+test accepted_order_ack_loss_and_recovery_do_not_resubmit ... ok
+test durable_abort_prevents_reholding_released_budget_on_restart ... ok
+test facts_are_not_applied_when_storage_fails ... ok
+test failed_abort_persistence_retains_reservation_and_freezes ... ok
+test failed_recovery_cannot_leave_the_old_engine_authorized ... ok
+test committed_but_lost_storage_receipt_is_recovered_conservatively ... ok
+test healthy_async_pending_response_is_distinct_from_timeout ... ok
+test kv_failure_never_reaches_journal_or_exchange ... ok
+test missing_recovery_dependency_prevents_commit ... ok
+test no_bytes_abort_survives_restart ... ok
+test relational_cas_and_immutable_kv_contracts ... ok
+test recovery_replays_terminal_release_before_later_intent ... ok
+test storage_failure_never_reaches_exchange ... ok
+test synchronous_replica_pending_does_not_fall_back_to_local ... ok
+test venue_identity_is_not_binance_specific_and_domains_cannot_mix ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

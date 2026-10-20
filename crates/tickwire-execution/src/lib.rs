@@ -500,7 +500,7 @@ impl<const N: usize, const T: usize> Engine<N, T> {
         self.frozen |= liability > self.capital;
         Ok(())
     }
-    /// Replay committed intents before replaying facts; recovery NEVER emits a new submit.
+    /// Replay journal order, introducing each intent before its facts; recovery never submits.
     pub fn recover_intent(&mut self, r: DurableRecord) -> Result<(), Error> {
         if r.request.key.domain() != self.domain {
             return Err(Error::WrongDomain);

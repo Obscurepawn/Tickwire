@@ -9,9 +9,9 @@
 ## Fidelity & coverage
 
 - Fidelity: 19 transitions modeled, all cited file:line; 0 UNCLEAR/TODO within the stated scope; abstractions listed in [01_reasoning.md](01_reasoning.md). 两个历史计数分别保留 dispatch 与 accepted 行为，避免只检查状态标签。
-- Code coverage: modeled all 6 selected mock API surfaces — MockKv.put_immutable、MockJournal.commit、MockExchange.submit、MockRuntime.submit/resume_submit/restart — and 11 of the 16 Engine mutating APIs from L0's denominator, adding recover_intent. 经济事实重放循环固定为空；服务错误有抽象，具体字段与算术边界由 Rust 测试覆盖。这是设计接口覆盖，不是行覆盖率。
+- Code coverage: modeled all 6 selected mock API surfaces — MockKv.put_immutable、MockJournal.commit、MockExchange.submit、MockRuntime.submit/resume_submit/restart — and 11 of the 16 Engine mutating APIs from L0's denominator, adding recover_intent. 交易结果记录重放循环固定为空；服务错误有抽象，具体字段与算术边界由 Rust 测试覆盖。这是设计接口覆盖，不是行覆盖率。
 - Model coverage: TLC --coverage — all 19 Next actions fired in all three configurations, plus Init. scaling 中 CommitAndLoseReceipt 产生 65,424 个后继状态；Crash 产生 76,328 个，Restart 产生 5,944 个；均来自实际运行输出。
 
 `risk_core` 独立复核了同步调用栈、持久内容与回执区别、恢复预算和冻结前提，结论为在提交/回执丢失/崩溃范围内忠实。每个 intent 具有独立 recovery_object；跨 intent 共用 key 冲突、真实 fsync/复制、fill/fee/terminal、事实日志重放、多 exec fencing 和恢复后新 epoch 激活未建模。PendingResponse 保留 MayHaveSent 且不主动冻结；本级未加入其后异步 ACK 调用，独立 ack 迁移已在 L0 覆盖。
 
-现有代码没有解冻 API，所以本级没有“恢复后最终能继续交易”的活性结论。下一步为 L2 经济事实和重复回报，再为已实现的激活逻辑建立 L3。
+现有代码没有解冻 API，所以本级没有“恢复后最终能继续交易”的活性结论。下一步为 L2 交易结果记录和重复回报，再为已实现的激活逻辑建立 L3。

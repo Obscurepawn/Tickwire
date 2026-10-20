@@ -1,0 +1,482 @@
+{
+  "mode": "transcription with build/delivery failures and deadline rejection",
+  "source_sha256": {
+    "crates/tickwire-join/src/lib.rs": "fe1e3927171f0c54a81116243039b19714144d3082b274f7df2cfc973833d974",
+    "crates/tickwire-join/src/mapped.rs": "de6f6f86a763c7722fed5902a00466555d3bc28e5ca22f6648a1a17fabfbb776",
+    "crates/tickwire-shm/src/lib.rs": "80495a2e78e345f6db22cc11f91516bbe375d0a3efe69c6a54567aece6046887",
+    "crates/tickwire-shm/src/mapped.rs": "6d41869e10b403077d3267928baefa329124675b8237ac9be6388ff9df60c7ca"
+  },
+  "model_sha256": {
+    "tla/execution_models/join_owner/L0_pending_activation/02_models/L0_JoinOwner.tla": "b51b6341709b59518532cc972cb00b821c87c5d2e93645af68bb509f4df2f4ca",
+    "tla/execution_models/join_owner/L0_pending_activation/02_models/L0_JoinOwner.cfg": "728ef8413370d5068e7f92ba77766d6adc30157c320bb4ac2d297d08041abf14",
+    "tla/execution_models/join_owner/L0_pending_activation/02_models/L0_JoinOwner_two.cfg": "6e440e42c41ee91382765359c348ddcbefe16a7abc3905e9a2aa58543b3d7e78",
+    "tla/execution_models/join_owner/L0_pending_activation/02_models/L0_JoinOwner_wrap.cfg": "986d32f6715d2246e917c4b4a7977cbad29eceadf00eaf2a1747431bc67fb983",
+    "tla/execution_models/join_owner/L0_pending_activation/02_models/L0_JoinOwner_wrap_two.cfg": "bc640ce8624bbbd521475b290dc1ce1a6840cb4b83f60701efb470597c9916c5"
+  },
+  "semantic_model_sha256": "ab7ec7b772bd4b6e9e2d1e180bce1db996739b8d9e9f3b1078b3076f5cfe845b",
+  "tlc_jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "anchors": 1221,
+  "results": [
+    {
+      "config": "L0_JoinOwner.cfg",
+      "returncode": 0,
+      "seconds": 1.922,
+      "counts": [
+        "34226",
+        "2181",
+        "0"
+      ],
+      "depth": [
+        "23"
+      ],
+      "actions": [
+        {
+          "action": "Init line 34, col 1 to line 34, col 4 of module L0_JoinOwner",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "Prepare line 49, col 1 to line 49, col 10 of module L0_JoinOwner",
+          "distinct": 3,
+          "generated": 3
+        },
+        {
+          "action": "Build line 56, col 1 to line 56, col 11 of module L0_JoinOwner",
+          "distinct": 6,
+          "generated": 6
+        },
+        {
+          "action": "RetryPrepare line 61, col 1 to line 61, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 2172
+        },
+        {
+          "action": "Deliver line 65, col 1 to line 65, col 13 of module L0_JoinOwner",
+          "distinct": 156,
+          "generated": 400
+        },
+        {
+          "action": "Attach line 71, col 1 to line 71, col 9 of module L0_JoinOwner",
+          "distinct": 18,
+          "generated": 36
+        },
+        {
+          "action": "Load line 76, col 1 to line 76, col 10 of module L0_JoinOwner",
+          "distinct": 36,
+          "generated": 72
+        },
+        {
+          "action": "Register line 81, col 1 to line 81, col 11 of module L0_JoinOwner",
+          "distinct": 6,
+          "generated": 94
+        },
+        {
+          "action": "ReadReady line 87, col 1 to line 87, col 17 of module L0_JoinOwner",
+          "distinct": 132,
+          "generated": 872
+        },
+        {
+          "action": "Borrow line 94, col 1 to line 94, col 9 of module L0_JoinOwner",
+          "distinct": 30,
+          "generated": 184
+        },
+        {
+          "action": "Release line 101, col 1 to line 101, col 10 of module L0_JoinOwner",
+          "distinct": 34,
+          "generated": 544
+        },
+        {
+          "action": "Apply line 105, col 1 to line 105, col 8 of module L0_JoinOwner",
+          "distinct": 82,
+          "generated": 640
+        },
+        {
+          "action": "Ready line 117, col 1 to line 117, col 23 of module L0_JoinOwner",
+          "distinct": 9,
+          "generated": 9
+        },
+        {
+          "action": "RetryReady line 122, col 1 to line 122, col 13 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 84
+        },
+        {
+          "action": "RejectReady line 125, col 1 to line 125, col 29 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 17004
+        },
+        {
+          "action": "Expire line 130, col 1 to line 130, col 6 of module L0_JoinOwner",
+          "distinct": 989,
+          "generated": 1189
+        },
+        {
+          "action": "StartQuiesce line 137, col 1 to line 137, col 15 of module L0_JoinOwner",
+          "distinct": 198,
+          "generated": 1952
+        },
+        {
+          "action": "StopReader line 142, col 1 to line 142, col 13 of module L0_JoinOwner",
+          "distinct": 230,
+          "generated": 460
+        },
+        {
+          "action": "Quiesced line 146, col 1 to line 146, col 11 of module L0_JoinOwner",
+          "distinct": 150,
+          "generated": 300
+        },
+        {
+          "action": "Detach line 153, col 1 to line 153, col 9 of module L0_JoinOwner",
+          "distinct": 88,
+          "generated": 704
+        },
+        {
+          "action": "RetryDetach line 161, col 1 to line 161, col 14 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 880
+        },
+        {
+          "action": "RejectDetach line 165, col 1 to line 165, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 5904
+        },
+        {
+          "action": "Publish line 172, col 1 to line 172, col 7 of module L0_JoinOwner",
+          "distinct": 13,
+          "generated": 716
+        }
+      ]
+    },
+    {
+      "config": "L0_JoinOwner_two.cfg",
+      "returncode": 0,
+      "seconds": 79.547,
+      "counts": [
+        "14022367",
+        "321256",
+        "0"
+      ],
+      "depth": [
+        "35"
+      ],
+      "actions": [
+        {
+          "action": "Init line 34, col 1 to line 34, col 4 of module L0_JoinOwner",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "Prepare line 49, col 1 to line 49, col 10 of module L0_JoinOwner",
+          "distinct": 703,
+          "generated": 784
+        },
+        {
+          "action": "Build line 56, col 1 to line 56, col 11 of module L0_JoinOwner",
+          "distinct": 918,
+          "generated": 1568
+        },
+        {
+          "action": "RetryPrepare line 61, col 1 to line 61, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 639512
+        },
+        {
+          "action": "Deliver line 65, col 1 to line 65, col 13 of module L0_JoinOwner",
+          "distinct": 26536,
+          "generated": 129632
+        },
+        {
+          "action": "Attach line 71, col 1 to line 71, col 9 of module L0_JoinOwner",
+          "distinct": 3693,
+          "generated": 13788
+        },
+        {
+          "action": "Load line 76, col 1 to line 76, col 10 of module L0_JoinOwner",
+          "distinct": 7386,
+          "generated": 27576
+        },
+        {
+          "action": "Register line 81, col 1 to line 81, col 11 of module L0_JoinOwner",
+          "distinct": 1228,
+          "generated": 30116
+        },
+        {
+          "action": "ReadReady line 87, col 1 to line 87, col 17 of module L0_JoinOwner",
+          "distinct": 21624,
+          "generated": 263744
+        },
+        {
+          "action": "Borrow line 94, col 1 to line 94, col 9 of module L0_JoinOwner",
+          "distinct": 4188,
+          "generated": 47708
+        },
+        {
+          "action": "Release line 101, col 1 to line 101, col 10 of module L0_JoinOwner",
+          "distinct": 4774,
+          "generated": 140110
+        },
+        {
+          "action": "Apply line 105, col 1 to line 105, col 8 of module L0_JoinOwner",
+          "distinct": 11300,
+          "generated": 164748
+        },
+        {
+          "action": "Ready line 117, col 1 to line 117, col 23 of module L0_JoinOwner",
+          "distinct": 1736,
+          "generated": 3364
+        },
+        {
+          "action": "RetryReady line 122, col 1 to line 122, col 13 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 18792
+        },
+        {
+          "action": "RejectReady line 125, col 1 to line 125, col 29 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 8205572
+        },
+        {
+          "action": "Expire line 130, col 1 to line 130, col 6 of module L0_JoinOwner",
+          "distinct": 130580,
+          "generated": 189892
+        },
+        {
+          "action": "StartQuiesce line 137, col 1 to line 137, col 15 of module L0_JoinOwner",
+          "distinct": 30504,
+          "generated": 565644
+        },
+        {
+          "action": "StopReader line 142, col 1 to line 142, col 13 of module L0_JoinOwner",
+          "distinct": 36341,
+          "generated": 129160
+        },
+        {
+          "action": "Quiesced line 146, col 1 to line 146, col 11 of module L0_JoinOwner",
+          "distinct": 25147,
+          "generated": 88686
+        },
+        {
+          "action": "Detach line 153, col 1 to line 153, col 9 of module L0_JoinOwner",
+          "distinct": 14294,
+          "generated": 303144
+        },
+        {
+          "action": "RetryDetach line 161, col 1 to line 161, col 14 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 443208
+        },
+        {
+          "action": "RejectDetach line 165, col 1 to line 165, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 2598480
+        },
+        {
+          "action": "Publish line 172, col 1 to line 172, col 7 of module L0_JoinOwner",
+          "distinct": 303,
+          "generated": 17138
+        }
+      ]
+    },
+    {
+      "config": "L0_JoinOwner_wrap.cfg",
+      "returncode": 0,
+      "seconds": 1.291,
+      "counts": [
+        "2689",
+        "172",
+        "0"
+      ],
+      "depth": [
+        "14"
+      ],
+      "actions": [
+        {
+          "action": "Init line 34, col 1 to line 34, col 4 of module L0_JoinOwner",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "RetryPrepare line 61, col 1 to line 61, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 172
+        },
+        {
+          "action": "Borrow line 94, col 1 to line 94, col 9 of module L0_JoinOwner",
+          "distinct": 3,
+          "generated": 12
+        },
+        {
+          "action": "Release line 101, col 1 to line 101, col 10 of module L0_JoinOwner",
+          "distinct": 5,
+          "generated": 48
+        },
+        {
+          "action": "Apply line 105, col 1 to line 105, col 8 of module L0_JoinOwner",
+          "distinct": 10,
+          "generated": 50
+        },
+        {
+          "action": "Ready line 117, col 1 to line 117, col 23 of module L0_JoinOwner",
+          "distinct": 2,
+          "generated": 2
+        },
+        {
+          "action": "RetryReady line 122, col 1 to line 122, col 13 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 28
+        },
+        {
+          "action": "RejectReady line 125, col 1 to line 125, col 29 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 1256
+        },
+        {
+          "action": "Expire line 130, col 1 to line 130, col 6 of module L0_JoinOwner",
+          "distinct": 86,
+          "generated": 86
+        },
+        {
+          "action": "StartQuiesce line 137, col 1 to line 137, col 15 of module L0_JoinOwner",
+          "distinct": 19,
+          "generated": 136
+        },
+        {
+          "action": "StopReader line 142, col 1 to line 142, col 13 of module L0_JoinOwner",
+          "distinct": 19,
+          "generated": 38
+        },
+        {
+          "action": "Quiesced line 146, col 1 to line 146, col 11 of module L0_JoinOwner",
+          "distinct": 11,
+          "generated": 22
+        },
+        {
+          "action": "Detach line 153, col 1 to line 153, col 9 of module L0_JoinOwner",
+          "distinct": 11,
+          "generated": 88
+        },
+        {
+          "action": "RetryDetach line 161, col 1 to line 161, col 14 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 144
+        },
+        {
+          "action": "RejectDetach line 165, col 1 to line 165, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 536
+        },
+        {
+          "action": "Publish line 172, col 1 to line 172, col 7 of module L0_JoinOwner",
+          "distinct": 5,
+          "generated": 34
+        },
+        {
+          "action": "PublishFull line 176, col 1 to line 176, col 11 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 36
+        }
+      ]
+    },
+    {
+      "config": "L0_JoinOwner_wrap_two.cfg",
+      "returncode": 0,
+      "seconds": 3.507,
+      "counts": [
+        "336733",
+        "7652",
+        "0"
+      ],
+      "depth": [
+        "25"
+      ],
+      "actions": [
+        {
+          "action": "Init line 34, col 1 to line 34, col 4 of module L0_JoinOwner",
+          "distinct": 1,
+          "generated": 1
+        },
+        {
+          "action": "RetryPrepare line 61, col 1 to line 61, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 15304
+        },
+        {
+          "action": "Borrow line 94, col 1 to line 94, col 9 of module L0_JoinOwner",
+          "distinct": 158,
+          "generated": 1096
+        },
+        {
+          "action": "Release line 101, col 1 to line 101, col 10 of module L0_JoinOwner",
+          "distinct": 245,
+          "generated": 4320
+        },
+        {
+          "action": "Apply line 105, col 1 to line 105, col 8 of module L0_JoinOwner",
+          "distinct": 515,
+          "generated": 4588
+        },
+        {
+          "action": "Ready line 117, col 1 to line 117, col 23 of module L0_JoinOwner",
+          "distinct": 72,
+          "generated": 140
+        },
+        {
+          "action": "RetryReady line 122, col 1 to line 122, col 13 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 2664
+        },
+        {
+          "action": "RejectReady line 125, col 1 to line 125, col 29 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 182128
+        },
+        {
+          "action": "Expire line 130, col 1 to line 130, col 6 of module L0_JoinOwner",
+          "distinct": 3826,
+          "generated": 3826
+        },
+        {
+          "action": "StartQuiesce line 137, col 1 to line 137, col 15 of module L0_JoinOwner",
+          "distinct": 849,
+          "generated": 12016
+        },
+        {
+          "action": "StopReader line 142, col 1 to line 142, col 13 of module L0_JoinOwner",
+          "distinct": 889,
+          "generated": 3364
+        },
+        {
+          "action": "Quiesced line 146, col 1 to line 146, col 11 of module L0_JoinOwner",
+          "distinct": 506,
+          "generated": 1924
+        },
+        {
+          "action": "Detach line 153, col 1 to line 153, col 9 of module L0_JoinOwner",
+          "distinct": 506,
+          "generated": 11544
+        },
+        {
+          "action": "RetryDetach line 161, col 1 to line 161, col 14 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 19728
+        },
+        {
+          "action": "RejectDetach line 165, col 1 to line 165, col 15 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 71640
+        },
+        {
+          "action": "Publish line 172, col 1 to line 172, col 7 of module L0_JoinOwner",
+          "distinct": 85,
+          "generated": 578
+        },
+        {
+          "action": "PublishFull line 176, col 1 to line 176, col 11 of module L0_JoinOwner",
+          "distinct": 0,
+          "generated": 1872
+        }
+      ]
+    }
+  ],
+  "notes": "After the recorded runs, only source-reference comments were qualified to repository-relative paths; action text, line positions, and configurations did not change."
+}

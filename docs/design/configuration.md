@@ -14,7 +14,7 @@
 |---|---|
 | [system-config.schema.json](../../specs/contracts/system-config.schema.json) | JSON Schema 2020-12 数据模型；TOML 解析后按相同模型校验，未知字段拒绝 |
 | [control-api.openapi.json](../../specs/contracts/control-api.openapi.json) | OpenAPI 3.1.1 请求、响应、状态码、认证与操作状态契约 |
-| [reference.toml](../../config/reference.toml) | `TW-LD-ASYNC-16x2-v1` 合成资格配置；可解析并通过结构校验，使用模拟交易接口和 fixture 引用 |
+| [reference.toml](../../config/reference.toml) | `TW-LD-ASYNC-16x2-v1` 使用模拟输入的验收配置；可解析并通过结构校验，使用模拟交易接口和 fixture 引用 |
 | [production.template.toml](../../config/production.template.toml) | 生产输入模板；`REQUIRED` 项故意无法通过校验，填入实际部署证据后再计划和提交 |
 | [deployment-reference-v1.json](../../specs/contracts/deployment-reference-v1.json) | 技术部署、容量与目标的参考清单，不覆盖运行配置的版本协议 |
 | 控制组 `ConfigCommitted` | 集群期望配置、不可变 revision、内容哈希、目标集合及操作的权威事实 |
@@ -38,7 +38,7 @@ TOML（Tom's Obvious Minimal Language）用于人工编写候选文件；JSON（
 
 ## 2. 配置分域与实际部署输入
 
-`additionalProperties=false` 约束所有固定结构。策略 `params` 的键和值先经过基础类型限制，再按策略发布文件绑定的不可变参数 schema 校验；缺少该 schema 时不能提交或激活。`artifact://...@sha256:...` 指向内容寻址的不含敏感信息的对象，`secret://<provider>/<path>/<version>` 指向外部凭据存储中的固定版本；引用变更本身也进入配置 diff。
+`additionalProperties=false` 约束所有固定结构。策略 `params` 的键和值先经过基础类型限制，再按策略发布文件绑定的不可变参数 schema 校验；缺少该 schema 时不能提交或激活。`artifact://...@sha256:...` 指向内容寻址的发布对象，不存放密钥等凭据，`secret://<provider>/<path>/<version>` 指向外部凭据存储中的固定版本；引用变更本身也进入配置 diff。
 
 | 顶层域 | 关键字段与作用 | 参考配置 |
 |---|---|---|
@@ -128,13 +128,13 @@ Schema 上的 `x-change-class` 是字段族的保守默认值；下表对具体�
 
 ### 3.1 降低限额时处理已有暴露
 
-plan 返回当时的持仓、已挂单、pending/Unknown 预留、条件结构、策略与账户总暴露；exec 在真正应用边界重新计算。任何已有经济事实都保持原 ID、数量和归属，不能为通过新限额删除预留。
+plan 返回当时的持仓、已挂单、pending/Unknown 预留、条件结构、策略与账户总暴露；exec 在真正应用边界重新计算。任何已有交易结果记录都保持原 ID、数量和归属，不能为通过新限额删除预留。
 
 | `exposure_policy` / `on_limit_decrease` | 已有暴露超过新限额时的行为 |
 |---|---|
 | `reject_if_exceeded` | 拒绝应用，保持旧有效版本并返回 `RiskExposureExceeded`；已提交 desired 保留，操作 Stalled，等待重新计划或显式修复 |
 | `freeze_until_within` | 接受更严格限额，禁止增加相应风险，继续成交入账、查询及可证明减险的操作；已有挂单不自动取消；降至限额内并经资格屏障后才恢复增险 |
-| `cancel_then_freeze` | 先冻结，再按已批准计划发起可取消订单的撤单；撤单动作拥有独立经济动作键并持久化。收到终态前不释放预留，Unknown 继续占额；不自动平持仓 |
+| `cancel_then_freeze` | 先冻结，再按已批准计划发起可取消订单的撤单；撤单动作拥有独立交易操作去重键并持久化。收到终态前不释放预留，Unknown 继续占额；不自动平持仓 |
 
 只有 `cancel_then_freeze` 计划明确列出取消范围并获相应账户操作权限，才允许取消；客户端通过 `accepted_actions` 承认计划列出的动作。配置限额更新可以完成而风险域仍处于 `Frozen`，响应明确报告这一状态。`Succeeded` 证明版本和文件收敛，不表示敞口已经下降或交易已恢复。
 
@@ -286,7 +286,7 @@ desired 和 effective 的短暂不同是正常状态，查询必须如实显示�
 | ConfigPrepared 前失败 | 目标未接受，旧 effective 继续有效；operation 等待或 Stalled |
 | desired temp 写入/同步/rename/目录同步失败 | 不应用运行时；保留旧有效配置和 Prepared，报告 LocalPersistenceFailed；孤立 temp 在核验后清理 |
 | desired 已持久、ConfigApply 尚未提交 | desired 可领先 effective；重启验证 journal 后重新检查前置条件，不能仅凭 desired 文件直接交易 |
-| ConfigApply 已持久、运行时替换前崩溃 | 重放 ConfigApply 在同一事件顺序恢复新配置；不重新执行已编号经济动作 |
+| ConfigApply 已持久、运行时替换前崩溃 | 重放 ConfigApply 在同一事件顺序恢复新配置；不重新执行已编号交易操作 |
 | RuntimeApplied 后 effective 写入失败 | 运行时可能已是新版本；保持/重新关闭受影响增险闸门，报告 Stalled；修复后补写同版本文件，不能声称成功或盲目回退内存 |
 | effective 已同步，完成收据尚未持久 | 重启交叉核验文件 hash、ConfigApply 和事件边界后补记收据；mtime 不构成证据 |
 | 本地收据已持久，上传 ACK 丢失 | 重发相同收据；控制组按 operation/target/revision/hash 去重 |
@@ -370,14 +370,14 @@ secret 引用由进程身份和用途授权：策略没有正常下单凭据；e
 | CFG-01 | 同一 TOML/JSON 候选产生相同规范化内容哈希；未知字段、小数浮点、重复键和类型混淆被拒绝 |
 | CFG-02 | 同 ETag 并发提交只准入一个；失去响应后同键返回原 operation；相同键不同内容冲突 |
 | CFG-03 | API 更改后所有目标 desired/runtime/effective 同全局 revision/hash，逐目标匹配预期 projection hash/policy revision；两个文件可按独立schema解析并与收据一致 |
-| CFG-04 | 在每个 write/fsync/rename/directory-fsync/journal/ACK 切点注入崩溃；恢复只使用可证明的配置，不重复经济动作 |
+| CFG-04 | 在每个 write/fsync/rename/directory-fsync/journal/ACK 切点注入崩溃；恢复只使用可证明的配置，不重复交易操作 |
 | CFG-05 | ENOSPC、EIO、只读盘、权限变更和目录同步失败均不能得到 Succeeded；RuntimeApplied 后失败仍冻结并恢复同版本 |
 | CFG-06 | 节点离线、代次切换、部分应用、控制 leader 切换与超时可查询；不删除目标、不把 Raft commit 当完成 |
 | CFG-07 | Hot/Quiesce/RollingRestart/ForbiddenRuntime 与字段表一致；风险放宽、mode、endpoint、ABI 不能绕过校验 |
 | CFG-08 | 降限额覆盖持仓、挂单、pending、Unknown 和条件子单；三个 exposure policy 行为可区分，撤单未终态不释放 |
 | CFG-09 | live 拒绝全部 fixture/REQUIRED/未解析依赖；凭据只通过 secret refs；日志、文件和错误没有 secret bytes |
 | CFG-10 | 手改文件、mtime 伪造、symlink/hardlink、路径替换与权限漂移触发隔离；生成文件不回流成第二写者 |
-| CFG-11 | 旧配置回滚遇到新成交、新状态 schema、撤销凭据或变化的账户模式时重新校验；经济事实与代次不回退 |
+| CFG-11 | 旧配置回滚遇到新成交、新状态 schema、撤销凭据或变化的账户模式时重新校验；交易结果记录与代次不回退 |
 | CFG-12 | 订阅变更和 bank 扩容计入冻结资源；三种 lease/freshness 独立；到期合约保护按固定目录与结算事实执行 |
 | CFG-13 | 形式模型探索 commit/apply/file-durable/ACK/崩溃交错；不变量为 Success ⇒ 全部目标应用与文件证据匹配，旧 revision 不能复活授权 |
 | CFG-14 | 窄账户 scoped-patch 只能改变获授权 mutation/dependency；数组下标、test/copy/move 和共享政策越权被拒绝；NoOp delivery 不扩权也不减少完成集合 |

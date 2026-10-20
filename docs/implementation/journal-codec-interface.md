@@ -62,6 +62,6 @@ H_i = SHA256(H_previous || CBOR([
 
 逻辑链采用 [replication profile 的逻辑数据链](../../specs/contracts/replication-profile-v1.json)，其中公式的 `payload_hash` 明确取 `logical_payload_hash`，从而绑定写入者代次；再绑定日志代次和位置。物理 LSN、批次与分段不参与这些哈希。未来证明接口需分别引用业务内容摘要和逻辑载荷摘要，不能将二者当作同一字段互换。
 
-原始流从 journal_seq 1 开始；codec 本身能保留任意 u64，连续性由链检查。重复回报可占新的 journal_seq，经济去重由业务内核处理；重复或跳过已有日志位置则拒绝。当前链仅支持同一 journal_epoch 从 genesis 重放。主设计要求正常 epoch 提升保留已验证前驱并继续序号，该转换留给后续证明层，不在此接口中重置序号模拟提升。
+原始流从 journal_seq 1 开始；codec 本身能保留任意 u64，连续性由链检查。重复回报可占新的 journal_seq，交易结果记录去重由业务内核处理；重复或跳过已有日志位置则拒绝。当前链仅支持同一 journal_epoch 从 genesis 重放。主设计要求正常 epoch 提升保留已验证前驱并继续序号，该转换留给后续证明层，不在此接口中重置序号模拟提升。
 
 物理 WAL 和此 codec 各自校验自己的字段；未来适配器还需比对 domain、journal_epoch、journal_seq、writer_exec_epoch，验证依赖闭包及恢复冻结，再形成业务提交证明。这里没有 `durable=true` 一类可由调用者构造的授权标志。
