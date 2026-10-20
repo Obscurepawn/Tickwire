@@ -6,7 +6,7 @@
 | --- | --- |
 | macOS arm64 全仓格式、全部 targets、doctest、Clippy | [native.log](native.log)，`scripts/check-rust.sh` 返回 0 |
 | Linux aarch64 同一组全仓检查 | [linux.log](linux.log)，`scripts/check-linux.sh` 返回 0，镜像摘要由脚本固定 |
-| 设计契约与黄金向量、风险、配置、部署算术 | [contracts.log](contracts.log)，验证器返回 0 |
+| 设计契约与测试向量、风险、配置、部署算术 | [contracts.log](contracts.log)，验证器返回 0 |
 | 本地文档引用及图片资产 | [documentation.log](documentation.log)，验证器返回 0 |
 | 源码锚点与盘口模型证据核对 | [model-audit.json](model-audit.json)，9 组锁共 2,888 行无漂移，八组新配置摘要/状态数/动作覆盖匹配原始 TLC 输出 |
 

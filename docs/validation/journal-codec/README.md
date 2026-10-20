@@ -6,14 +6,14 @@
 | --- | --- |
 | [red.log](red.log)、[red-evidence.json](red-evidence.json) | 编译成功后 10 项行为测试失败；记录实施前的接口、源码、测试与 fixture SHA |
 | [identity-red.log](identity-red.log) | 首轮实现上添加接管后业务摘要稳定性断言，编译成功后实际失败 |
-| [green-initial.log](green-initial.log)、[golden-initial.json](golden-initial.json) | 身份修正前的 12 项测试与黄金数据，仅保存为历史证据 |
+| [green-initial.log](green-initial.log)、[golden-initial.json](golden-initial.json) | 身份修正前的 12 项测试与基准数据，仅保存为历史证据 |
 | [green.log](green.log) | 最终 1 项单元测试与 12 项集成测试通过，0 doctest |
 | [clippy.log](clippy.log) | `cargo clippy -p tickwire-journal-codec --all-targets -- -D warnings` 通过 |
 | [fmt.log](fmt.log) | `cargo fmt -p tickwire-journal-codec --check` 通过，成功时无输出 |
 | [vectors.log](vectors.log) | 独立 Python 编码器重算，与固定 golden.json 相同 |
 | [environment.json](environment.json) | 工具链、验证范围、源码与契约 SHA |
 
-日志中的仓库绝对路径归一化为 `$REPO`，保留命令结果与断言。最终六条事件记录的黄金字节分别为 75、65、63、63、59、65 字节；最大记录为 201 字节。591 个截断输入被拒绝；99,840 个单字节变异中所有被接受者都重新编码为原输入。
+日志中的仓库绝对路径归一化为 `$REPO`，保留命令结果与断言。最终六条事件记录的预期字节分别为 75、65、63、63、59、65 字节；最大记录为 201 字节。591 个截断输入被拒绝；99,840 个单字节变异中所有被接受者都重新编码为原输入。
 
 `generate-vectors.py` 是独立的有限数据编码参考。其整数结果先与 [RFC 8949 附录 A](https://www.rfc-editor.org/rfc/rfc8949.html#appendix-A) 固定实例核对，再用 Python hashlib 计算固定 SHA-256 期望。使用 `--check` 只比较，不重写 fixture：
 

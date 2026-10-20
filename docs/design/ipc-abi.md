@@ -4,7 +4,7 @@
 
 应用二进制接口（Application Binary Interface，ABI）规定进程如何解释相同字节；进程间通信（Inter-Process Communication，IPC）在这里包含共享内存记录和控制消息。本文把[共享内存所有权](shared-memory-ipc.md)与[策略生命周期](strategy-lifecycle.md)落实为独立实现可以互通的格式。正文中的“必须”“拒绝”均是协议要求。
 
-机器可读定义是 [ipc-wire-v1.json](../../specs/contracts/ipc-wire-v1.json)，黄金编码样例是 [ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json)。JSON 的 `layouts` 给出每个字段的 `type/offset/size/count`，偏移相对于该布局的起点；嵌套布局加上父字段偏移。每一字节都有归属，包括显式保留区。消息的语义以本文为准，数值和偏移以 JSON 为准；两者不一致时实现不得自行选择，必须修正规格后准入。
+机器可读定义是 [ipc-wire-v1.json](../../specs/contracts/ipc-wire-v1.json)，编码基准样例是 [ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json)。JSON 的 `layouts` 给出每个字段的 `type/offset/size/count`，偏移相对于该布局的起点；嵌套布局加上父字段偏移。每一字节都有归属，包括显式保留区。消息的语义以本文为准，数值和偏移以 JSON 为准；两者不一致时实现不得自行选择，必须修正规格后准入。
 
 ## 1. 编码、身份与兼容性
 
@@ -23,12 +23,12 @@
 
 | 提供方与使用方 | 行为 |
 |---|---|
-| ABI 1.0 ↔ 1.0、架构画像相同 | HELLO 选择共同 feature 集后建立新资源 |
+| ABI 1.0 ↔ 1.0、架构配置相同 | HELLO 选择共同 feature 集后建立新资源 |
 | ABI 1.0 ↔ 将来的 1.x | 只有双方能显式协商降到 1.0，且发送端确实按 1.0 的长度、枚举和零保留区编码时才连接 |
 | ABI major 不同 | 拒绝直接映射；使用新 namespace/新资源和明确的版本桥 |
 | 布局相同但 required feature 未获支持 | 拒绝；不能忽略 arena、只读原子或快照等必需语义 |
 | 策略版本不同、wire ABI 相同 | 可并存；仍独立验证策略状态 schema、恢复契约与 exec 授权 |
-| x86_64 与 aarch64 | wire 字节一致；共享同一主机资源只允许匹配该主机的目标画像，资格测试分别完成 |
+| x86_64 与 aarch64 | wire 字节一致；共享同一主机资源只允许匹配该主机的目标平台配置，资格测试分别完成 |
 | qualified_sdk 与 isolated_adapter | wire 一致，权限不同；后者只能给可信 adapter 传有界内核消息，没有数据面可写 FD |
 
 `required_features` 表示本资源实际使用且接收方必须支持的位；`optional_features` 只广告能力，不准擅自改变已选编码。默认公共必需位为 2、3、4；带 arena 的 MarketBank 另要求位 1。ConfigControlV1 使用预留 feature 位 5：HELLO 声明配置角色时必须同时在 required_features 中声明位 5，接收端先检查必需 feature；WELCOME 确认该位后，才能发送 opcode 80–84 或使用 ConfigProjection 资源；未支持方拒绝 UnsupportedFeature，不能退回无收据的文件覆盖。此扩展只新增布局、资源种类和操作码，原有 ABI 1.0 字段与既有编码向量不变。逐记录 CRC32C 是位 0，可在建通道时启用；不能逐条改变通道设置。CRC32C 是 Castagnoli 循环冗余校验，用于发现编码/存储损坏，不提供身份认证。其反射多项式 `0x82f63b78`、初值与最终异或值 `0xffffffff`；`123456789` 校验值为 `e3069283`。
@@ -58,10 +58,10 @@ ResourceHeader.magic 为 ASCII `TWIPC001`，endian=1、atomic_width=8（字节�
 
 1. supervisor 创建 memfd、设置长度并初始化，登记唯一写者及全部映射持有人。资源 offer 先只发给写者，`access=ExistingWriterMapping`；写者建立 RW 映射，返回匹配 offer、资源、头部 hash、长度和注册代次的 `MAP_WRITER`。
 2. 创建方核验 ACK，撤销自己的临时写映射，设置并读回 `F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_FUTURE_WRITE | F_SEAL_SEAL`，本规范单写资源要求 seal 数值 `0x17`。保留写者已有映射是有意授权；封印不撤销它。
-3. 此后才能向读者发 `access=ReadOnly` 的资源 offer。读者核验 FD 数量、文件类型/长度、seals、头部摘要、身份与目标画像，只建立 RO 映射，再发 `READ_READY`。读者不得执行任何 RMW。
+3. 此后才能向读者发 `access=ReadOnly` 的资源 offer。读者核验 FD 数量、文件类型/长度、seals、头部摘要、身份与目标平台配置，只建立 RO 映射，再发 `READ_READY`。读者不得执行任何 RMW。
 4. owner 收齐必需确认后以 `ACTIVATE_RESOURCE` 应用激活。任何失败都关闭收到的未注册 FD，撤销准备状态；不能以收到 offer 或 mmap 成功代替 ReadReady。
 
-不可变快照先完成内容和 hash、撤销所有可写映射，再使用 `F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL`（`0x0f`），不走保留 writer 映射的画像。消息截断、控制辅助数据截断、重复/越界 FD index 或数量不符导致整帧拒绝，并关闭本帧收到的所有 FD。`SCM_RIGHTS` 不会自动降低描述符权限，因此未封印对象不能先交给只读方。[Linux 文件封印](https://man7.org/linux/man-pages/man2/F_ADD_SEALS.2const.html)、[Unix 域 socket](https://man7.org/linux/man-pages/man7/unix.7.html)
+不可变快照先完成内容和 hash、撤销所有可写映射，再使用 `F_SEAL_WRITE | F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL`（`0x0f`），不采用保留 writer 映射的方式。消息截断、控制辅助数据截断、重复/越界 FD index 或数量不符导致整帧拒绝，并关闭本帧收到的所有 FD。`SCM_RIGHTS` 不会自动降低描述符权限，因此未封印对象不能先交给只读方。[Linux 文件封印](https://man7.org/linux/man-pages/man2/F_ADD_SEALS.2const.html)、[Unix 域 socket](https://man7.org/linux/man-pages/man7/unix.7.html)
 
 ### 2.3 发布、消费与原子区
 
@@ -111,7 +111,7 @@ Depth topic 的子 snapshot_kind=MarketDepth；其他状态型 topic 使用 snap
 
 StateRecords 从子对象起点+384 开始，entry_bytes=512；按 message_type 升序保存最多一条 Quote、Trade、MarkFunding、FeedState，FeedState 必须存在，其他项是否必需由该标的在 topic 的注册能力集合决定，缺必需状态不能 Ready。DepthLevels 紧接状态记录，entry_bytes=16，先买后卖；层数必须等于 SnapshotHeader.bid_count+ask_count。两个 section 的 length 都等于 count×entry_bytes，数据连续放置，最后补零到页边界，禁止重叠或外部指针。各段通过描述符 hash 与子对象 hash 共同绑定同一 S、feed/catalog/instrument 版本；最后成交仍只表示最新事件，不能替代逐笔历史日志。已有单一事件类的 MarketDepth/MarketInstrumentState 子对象继续有效。
 
-一个清单连同所有子对象共用 64 MiB 上限，在每 owner 的 8 个快照对象配额中占 1 个；每个子对象至少一页，全部字节都计入该对象与既定 512 MiB owner 预算。对子集合单独分配 64 MiB 或把子对象藏在预算外均不允许。完整清单无法装入预算时拒绝该订阅/部署画像，不能降成部分标的清单或把多标的 topic 改成单标的来通过此契约。清单作为一个资源登记 holders；任何子借用未结束都阻止整个清单回收。
+一个清单连同所有子对象共用 64 MiB 上限，在每 owner 的 8 个快照对象配额中占 1 个；每个子对象至少一页，全部字节都计入该对象与既定 512 MiB owner 预算。对子集合单独分配 64 MiB 或把子对象藏在预算外均不允许。完整清单无法装入预算时拒绝该订阅/部署配置，不能降成部分标的清单或把多标的 topic 改成单标的来通过此契约。清单作为一个资源登记 holders；任何子借用未结束都阻止整个清单回收。
 
 ExecutionState 的 entry 固定 512 字节，使用 ReportRecord 或 OrderOwnership 消息体的 OwnershipRecord；消息 type 标识订单、预留、余额、持仓、授权及父子关联。每种事实按稳定 identity 排序，`RecordHeader.sequence` 是 1 起的快照行号，`exec_journal_seq <= SnapshotHeader.sequence`，无历史成交重放副作用。快照先完整装载到新视图再原子替换，S+1 后的 journal 增量继续按去重契约应用。每一活动/Unknown 订单必须有 OrderState 与 OrderOwnership 行，关联列表/algo 结构必须包含父、子关系；缺任一项不能 Ready。
 
@@ -156,7 +156,7 @@ qualified SDK 的 publish 消耗唯一写 guard，发布到 release 前不能再
 
 report_seq 是每个 `(exec_generation, subscriber_instance, report_subscription_generation)` 的连续订阅事件序号；正常 channel 重建与回放不重编号，新的订阅代次才重新从 1 开始。RecordHeader.sequence 是当前 channel 的传输序号，两者不能混用。exec_journal_seq 是风险域 reducer 的事实顺序，某订阅过滤掉其他策略事件时允许该字段跳号；report_seq 不允许跳号。
 
-ReportBody 的 instance/strategy_generation 指当前接收/管理实例，origin 身份由 OrderOwnership 完整报告。成交/费用永远按原订单归属入账；先到成交后到 ACK 不回退累计数量。venue_order_id 最长 64 字节、venue_trade_id 最长 32 字节，按长度保存 ASCII，不补 NUL；交易所身份需更长时拒绝该适配器画像，不能截断。内部 order_id 是固定 16 字节。
+ReportBody 的 instance/strategy_generation 指当前接收/管理实例，origin 身份由 OrderOwnership 完整报告。成交/费用永远按原订单归属入账；先到成交后到 ACK 不回退累计数量。venue_order_id 最长 64 字节、venue_trade_id 最长 32 字节，按长度保存 ASCII，不补 NUL；交易所身份需更长时拒绝该适配器配置，不能截断。内部 order_id 是固定 16 字节。
 
 | 回报消息 | 字段含义 |
 |---|---|
@@ -254,13 +254,13 @@ QUERY 按 query_kind/subject/original key 查真实状态；intent 查询使用 
 
 ConfigControlBody.operation_id/operation_revision 必须等于 envelope 中的同名字段。process_id/target_host_id 是稳定配置 ID，分别以 u16 长度加 bytes[96] 表示；实际配置场景只接受 1–63 字节的 `^[a-z][a-z0-9-]{0,62}$`，尾部补零。UUID 从 HTTP 的规范文本按 hex 从左到右解码为 16 字节，不使用 bytes_le。稳定 ID 与运行身份分开：expected_instance_id、expected_boot_id 是目标运行实例及进程 boot，expected_host_boot_id 是目标主机 OS boot，expected_exec_generation 对 exec 必填，对其他角色为零；instance_slot_id 绑定稳定或滚动替代槽。它们都由原计划、受认证注册表与接管证明确定，不能由收件方换成“当前碰巧活着”的实例。
 
-Hot/Quiesce/NoOpRevisionAdvance 使用原 target 身份。RollingRestart 的 CONFIG_PREPARE 可以准备原计划的 predecessor；向 successor 发 CONFIG_APPLY 前必须有非零 successor_binding_hash、SuccessorBinding 位及已持久的 SuccessorBound 对象，证明当前 expected instance/boot/generation、slot、host 和工件正是原计划的一次性 successor。其父子身份转换和退休/切换证明沿配置契约核验；计划外重启、第二个 boot 或任意更换主机都拒绝，不能只更新 expected 字段继续旧 operation。
+Hot/Quiesce/NoOpRevisionAdvance 使用原 target 身份。RollingRestart 的 CONFIG_PREPARE 可以准备原计划的 predecessor；向 successor 发 CONFIG_APPLY 前必须有非零 successor_binding_hash、SuccessorBinding 位及已持久的 SuccessorBound 对象，证明当前 expected instance/boot/generation、slot、host 和发布文件正是原计划的一次性 successor。其父子身份转换和退休/切换证明沿配置契约核验；计划外重启、第二个 boot 或任意更换主机都拒绝，不能只更新 expected 字段继续旧 operation。
 
 config_revision/base_revision 与 global_config_hash/base_global_config_hash 绑定整个已提交配置链。expected_runtime_revision 单独绑定计划看到的该目标真实版本：恢复已有部分应用或合法 supersedes 时它可能落后于全局 base_revision，但这种差异必须由原计划明确包含。首次应用必须核验当前 runtime revision 恰好等于 expected_runtime_revision，且新 config_revision 更高；当前目标已是更新版本时返回 VersionConflict，不能回写旧配置。先按持久 operation/target/phase 幂等键查原结果，再做首次应用的版本比较；相同键同内容返回原事实，同键异内容拒绝。envelope.expected_state_version 与 body.state_revision 比较的是该目标的配置状态版本，不与 exec 每笔成交的 journal 序号混用。
 
 哈希具有不同用途：global_config_hash 是完整规范化配置的 JCS 内容摘要；projection_hash 是该目标获授权 payload 的 JCS 摘要；projection_policy_revision 固定投影规则；projection_object_hash 是实际交付对象全部原始字节的摘要。完整交付对象还包含配置契约规定的全局版本、目标身份和投影政策等元数据，因此对象 hash 与业务 projection hash 不必相同。control_commit_ref 的 32 字节是 `artifact://...@sha256:<hex>` 提交证明的 SHA-256 部分；接收方从受认证对象服务解析该证明，核验 operation、base/new revision/hash、固定 target_set_hash、分类、权限和投影。不得将 body 中自报的 hash 直接视为提交或授权证明。
 
-投影最多 4 MiB。projection_transport=AuthenticatedObjectService（1）时 projection_resource_id 为零，按允许的内容地址服务取 exact projection_object_bytes 字节并校验 hash；不能把任意客户端 URL 当成对象服务。transport=ImmutableMemfdResource（2）时先用已有 RESOURCE_OFFER/READ_READY 交付 ConfigProjection（kind 9）只读资源，再在 CONFIG_APPLY 中引用 resource_id，配置帧 fd_count=0。该资源头部不变，数据从 4096 开始，capacity=projection_object_bytes、record_bytes=1，resource_bytes=align_up(4096+object_bytes,4096)，零页尾不参与 projection_object_hash；全文件使用 0x0f immutable seals。consumer_instance 必须是获权目标；给 runtime 的 FD 只含其投影，不能交付完整全局配置再靠应用自觉过滤。projection_format=1/2 分别为 TOML/JSON，解析与秘密引用规则沿配置契约。
+投影最多 4 MiB。projection_transport=AuthenticatedObjectService（1）时 projection_resource_id 为零，按允许的内容地址服务取 exact projection_object_bytes 字节并校验 hash；不能把任意客户端 URL 当成对象服务。transport=ImmutableMemfdResource（2）时先用已有 RESOURCE_OFFER/READ_READY 交付 ConfigProjection（kind 9）只读资源，再在 CONFIG_APPLY 中引用 resource_id，配置帧 fd_count=0。该资源头部不变，数据从 4096 开始，capacity=projection_object_bytes、record_bytes=1，resource_bytes=align_up(4096+object_bytes,4096)，零页尾不参与 projection_object_hash；全文件使用 0x0f immutable seals。consumer_instance 必须是获权目标；给 runtime 的 FD 只含其投影，不能交付完整全局配置再靠应用自觉过滤。projection_format=1/2 分别为 TOML/JSON，解析与凭据引用规则沿配置契约。
 
 每个收据 hash 指向不可变对象，包含 operation/target set、process/host、revision/global hash、目标 projection/hash/policy、slot、actual instance/boot/generation、事件序号、发行者身份和 journal 提交证明。对象 hash 不认证发行者；Controller 与物化服务必须核验可信对象服务或 journal 记录中的真实 issuer。收据定位 URI 在被哈希 payload 之外，不能把含自身 SHA-256 的 receipt_ref 递归放入自身内容。不同目标的 projection_hash 可以不同，成功要求每个目标匹配它在计划中的预期投影，而非所有进程拿到同一投影。
 
@@ -274,7 +274,7 @@ CONFIG_STATUS 查询使用 Request、config_status=Query，至少绑定 operatio
 
 ## 6. 默认部署尺寸与容量边界
 
-默认单机 64 物理核、256 GiB；2 个行情 product/shard topic、2 个 exec 风险域，最多 16 Active +16 Shadow 实例。单 topic 最多 40 个注册消费者（含策略、exec、relay 与预留），每个 subscriber/bank 都有独立 Cursor。行情资格输入为总计 100000 个完整事件/秒、每 topic 50000，允许 3 倍速率持续 100 ms；合成意图总量 1000/秒。这些是待验收画像，不能由容量算式替代实测。
+默认单机 64 物理核、256 GiB；2 个行情 product/shard topic、2 个 exec 风险域，最多 16 Active +16 Shadow 实例。单 topic 最多 40 个注册消费者（含策略、exec、relay 与预留），每个 subscriber/bank 都有独立 Cursor。行情资格输入为总计 100000 个完整事件/秒、每 topic 50000，允许 3 倍速率持续 100 ms；合成意图总量 1000/秒。这些是待验收的负载与容量配置，不能由容量算式替代实测。
 
 | 资源 | 单份字节数 | 最大数量 | 合计字节 |
 |---|---:|---:|---:|
@@ -296,11 +296,11 @@ CONFIG_STATUS 查询使用 Request、config_status=Query，至少绑定 operatio
 
 SPSC 换代先撤销旧 channel 的新接纳权，取得唯一写者 Freeze ACK 或实际 writer 退出证明，记录旧 published 末序号与最后 intent_seq/report_seq，再激活绑定新 channel_epoch 的 replacement。旧 holders 可继续安全读取旧 bank；只有它们全部释放/退出才回收该 bank。旧传输序号不延续到新 channel，新传输序号从 1 开始，业务 intent_seq/report_seq 按去重与回放契约衔接，未解决意图按原键查询，回报缺口按快照/回放补齐。若 writer 未安全冻结、两 bank 都被合法 holders 占据，或恢复覆盖无法建立，保持 Frozen。日常 strategy 重启与 ABI major 迁移均遵守此预算和身份边界，不增设第三 bank。
 
-4 个 bank 是此画像的资源预算：1 Active、1 Preparing、至多 2 Retiring；既有 Retiring 不可回收时不无限分配。每个 md/exec owner 另预留最多 8 个 64 MiB 快照，4 个 owner 合计 2 GiB；这是总快照资源预算，包含目录和正在构建的对象，不给每种对象各加一份。bank/cursor 加快照共 5644025856 字节（约 5.2564 GiB），纳入单机 8 GiB SHM 总上限；ConfigProjection 另限每主机 128 个存活对象，准备、当前与退休对象共同计数，最坏 128×(4096+4194304)=537395200 字节；bank/cursor、快照与投影合计 6181421056 字节。再计入 256 MiB 中继预算，总提交 SHM 为 6449856512 字节，距 8 GiB 上限剩余 2140078080 字节；其他有界资源仍须计入同一上限，不能视为可无限增设 bank 或保留旧投影的许可。策略本地书、输入日志/WAL、TLS、控制缓存和线程栈由部署清单另计；不能把这里的 SHM 数字当整机常驻内存。
+4 个 bank 是这套配置的资源预算：1 Active、1 Preparing、至多 2 Retiring；既有 Retiring 不可回收时不无限分配。每个 md/exec owner 另预留最多 8 个 64 MiB 快照，4 个 owner 合计 2 GiB；这是总快照资源预算，包含目录和正在构建的对象，不给每种对象各加一份。bank/cursor 加快照共 5644025856 字节（约 5.2564 GiB），纳入单机 8 GiB SHM 总上限；ConfigProjection 另限每主机 128 个存活对象，准备、当前与退休对象共同计数，最坏 128×(4096+4194304)=537395200 字节；bank/cursor、快照与投影合计 6181421056 字节。再计入 256 MiB 中继预算，总提交 SHM 为 6449856512 字节，距 8 GiB 上限剩余 2140078080 字节；其他有界资源仍须计入同一上限，不能视为可无限增设 bank 或保留旧投影的许可。策略本地书、输入日志/WAL、TLS、控制缓存和线程栈由部署清单另计；不能把这里的 SHM 数字当整机常驻内存。
 
 record 高水位为 49152，停止领取普通新记录的水位为 57344；到达高水位立即启动慢读者处置/换 bank，剩余容量为准备与完整事件封口保留。每次批次至多 64 条，在领取前必须同时检查 record 差值、每 class 空闲块和有效 payload 总长≤4 MiB。最大 class 的 64 块占 8 MiB 实际 arena（包含零尾部），不能只按有效 payload 计费。
 
-任一 arena class 使用达到 75% 或不足再容纳一个 64 条最坏批次时触发准备；保留空闲字节分别至少 65536/262144/1048576/8388608。这些是各 class 的块字节，不是可跨 class 借用的“总空闲”。默认每秒事件数量画像还必须附实际 payload class 分布；持续大深度流可能先耗尽 class 4。发布前拿不到完整所需资源则不发布半条事件，达到保护边界即使有其余小块也停止该源并 Invalid。四个 bank 全被 holders 占据、计划 cutoff 无法准备完成或无法满足重建覆盖时，同样停止相关新增风险；exec 继续撤单和处理私有事实。
+任一 arena class 使用达到 75% 或不足再容纳一个 64 条最坏批次时触发准备；保留空闲字节分别至少 65536/262144/1048576/8388608。这些是各 class 的块字节，不是可跨 class 借用的“总空闲”。默认事件速率配置还必须附实际 payload class 分布；持续大深度流可能先耗尽 class 4。发布前拿不到完整所需资源则不发布半条事件，达到保护边界即使有其余小块也停止该源并 Invalid。四个 bank 全被 holders 占据、计划 cutoff 无法准备完成或无法满足重建覆盖时，同样停止相关新增风险；exec 继续撤单和处理私有事实。
 
 ## 7. 精确字段表
 
@@ -1287,7 +1287,9 @@ JSON 中每条消息的 allowed_fields 是完整白名单，未列字段必须�
 | `instrument_flags` | 0=TradingEnabled |
 | `position_modes` | 0=OneWay；1=Hedge |
 
-## 9. 黄金编码样例与验证边界
+## 9. 编码基准样例与验证边界
+
+基准样例保存预先核对并固定的输入和预期字节。测试将编码结果与这些字节逐项比较，避免用同一段被测代码生成预期结果。
 
 向量文件保存完整 hex、明确字段值、byte_length、SHA-256 和“未列字段补零”的规则。它包含 quote、inline depth、arena block header、1024 字节 New 意图、含负费用与负指数的 Fill、多标的 TopicSnapshotManifest 的完整 16 KiB 文件、NormalizedMarket 混合状态与深度的完整 12 KiB 文件、配置应用/运行时/文件/完成控制帧、JOIN、FREEZE、QUIESCE/SWITCH 的结构化响应、exec 短租约、RELEASE_RISK、完整控制帧、instrument 精度和独立 Cursor 页。可以从 JSON 字段直接编码，再逐字节与 hex 比较；完整 control frame 的 parts 指向 envelope/body 两个向量；CompositeFile 的 segments 给出文件偏移与对应向量，未列区间补零。多标的样例同时检查资源头摘要、清单行摘要、两个子对象摘要、各自条目摘要以及完整文件摘要。
 

@@ -22,7 +22,7 @@
 | 其他进程的本地配置 journal 和 applied 状态 | 对应进程已应用版本与恢复证据 |
 | 本机 `desired.toml` / `effective.toml` | 从上述事实生成的进程权限投影；分别表示收到的已提交期望版本与已应用版本 |
 
-TOML（Tom's Obvious Minimal Language）用于人工编写候选文件；JSON（JavaScript Object Notation）用于 API 数据模型。两种输入都先转为同一个严格类型树。策略参数容器深度最多 16 层，并受请求字节上限和工件 schema 双重约束。金额、费率和其他精确小数使用十进制字符串；时限和容量使用字段名注明单位的整数。禁止浮点数、NaN、无穷大、TOML 原生日期时间、重复键、未知字段和隐式单位转换；JSON 整数限定在精确安全范围内。revision 和可能达到 64 位的日志序号以十进制字符串传输，语义上必须小于 `2^63`。
+TOML（Tom's Obvious Minimal Language）用于人工编写候选文件；JSON（JavaScript Object Notation）用于 API 数据模型。两种输入都先转为同一个严格类型树。策略参数容器深度最多 16 层，并受请求字节上限和随发布文件提供的 schema 双重约束。金额、费率和其他精确小数使用十进制字符串；时限和容量使用字段名注明单位的整数。禁止浮点数、NaN、无穷大、TOML 原生日期时间、重复键、未知字段和隐式单位转换；JSON 整数限定在精确安全范围内。revision 和可能达到 64 位的日志序号以十进制字符串传输，语义上必须小于 `2^63`。
 
 全局配置内容哈希为 `SHA-256(JCS(full_config))`。JSON 规范化方案（JSON Canonicalization Scheme，JCS）固定键序、字符串和数字编码，使 TOML 排版、注释和对象键顺序不改变内容身份。数组顺序保留；计划器不得在哈希后重排数组。显式默认值在哈希前补全，计划内保存最终完整树，之后不再依赖版本变化的隐式默认值。完整候选不含 `_materialization`；生成的进程文件使用独立的 `ProcessProjection` schema，元数据不进入权限 payload 的哈希。另记录最终 TOML 字节的 `render_hash`。[JCS 规范](https://www.rfc-editor.org/rfc/rfc8785.html)
 
@@ -38,22 +38,22 @@ TOML（Tom's Obvious Minimal Language）用于人工编写候选文件；JSON（
 
 ## 2. 配置分域与实际部署输入
 
-`additionalProperties=false` 约束所有固定结构。策略 `params` 的键和值先经过基础类型限制，再按策略工件绑定的不可变参数 schema 校验；缺少该 schema 时不能提交或激活。`artifact://...@sha256:...` 指向内容寻址的非秘密对象，`secret://<provider>/<path>/<version>` 指向外部秘密存储中的固定版本；引用变更本身也进入配置 diff。
+`additionalProperties=false` 约束所有固定结构。策略 `params` 的键和值先经过基础类型限制，再按策略发布文件绑定的不可变参数 schema 校验；缺少该 schema 时不能提交或激活。`artifact://...@sha256:...` 指向内容寻址的不含敏感信息的对象，`secret://<provider>/<path>/<version>` 指向外部凭据存储中的固定版本；引用变更本身也进入配置 diff。
 
 | 顶层域 | 关键字段与作用 | 参考配置 |
 |---|---|---|
-| `identity` | schema、cluster、namespace、运行模式、交易环境、部署画像 | qualification / simulated；画像 `TW-LD-ASYNC-16x2-v1` |
+| `identity` | schema、cluster、namespace、运行模式、交易环境、部署配置 | qualification / simulated；配置方案 `TW-LD-ASYNC-16x2-v1` |
 | `hosts` | 主机、故障域、物理核与内存、NUMA、SHM 预算、系统核 | A/B 各 64 核、256 GiB；C 8 核、32 GiB；交易主机 SHM 各 8 GiB |
-| `processes` | 稳定进程 ID、角色、主机、Active/Standby/Shadow、工件、操作系统身份、CPU、内存、重启策略 | A 为两行情、两执行域与 16 Active＋16 Shadow；B 预热行情和只读执行恢复 |
+| `processes` | 稳定进程 ID、角色、主机、Active/Standby/Shadow、发布文件、操作系统身份、CPU、内存、重启策略 | A 为两行情、两执行域与 16 Active＋16 Shadow；B 预热行情和只读执行恢复 |
 | `venues` | Binance 产品和环境、协议、REST/订单/行情/私有流地址、协议和标的目录、请求窗口、心跳/轮换、凭据引用 | Spot 与 Usdm 独立；资格配置使用 mock 和 `.invalid` 地址 |
-| `ipc` | ABI、架构画像、页和隔离尺寸、ring/arena/bank、批量上限、topic、资源会话 | 两个 NormalizedMarket topic，各 4 banks、65,536×512 字节、每 bank 256 MiB arena、40 consumers |
-| `strategies` | 逻辑 ID、进程、Active/Shadow、账户域、订阅、状态/参数/恢复 schema、参数、逐账户 risk_budgets、信任画像 | 16 组逻辑策略，每组一个 Active 和至多一个 Shadow，可订阅两个账户域 |
+| `ipc` | ABI、架构配置、页和隔离尺寸、ring/arena/bank、批量上限、topic、资源会话 | 两个 NormalizedMarket topic，各 4 banks、65,536×512 字节、每 bank 256 MiB arena、40 consumers |
+| `strategies` | 逻辑 ID、进程、Active/Shadow、账户域、订阅、状态/参数/恢复 schema、参数、逐账户 risk_budgets、信任模式 | 16 组逻辑策略，每组一个 Active 和至多一个 Shadow，可订阅两个账户域 |
 | `accounts` | 真实账户身份、产品风险域、主备 exec、guardian、凭据、模式快照、标的、限流政策 | 现货和合约两个域；不以产品名推导实际账户权限 |
 | `risk_policies` | 单笔/总毛敞口/订单数/日损限额，行情年龄、费用和保证金缓冲，费用/档位/交割证据，降限额策略 | 合成测试金额；真实金额必须由部署输入给出 |
-| `journal` | 提交画像、目录、分段/帧、合批阈值、pending 容量、快照、磁盘保护线 | LocalDurable+AsyncReplica；32 条/64 KiB/25 µs 合批上限；80% 告警、90% 冻结增险 |
+| `journal` | 提交模式、目录、分段/帧、合批阈值、pending 容量、快照、磁盘保护线 | LocalDurable+AsyncReplica；32 条/64 KiB/25 µs 合批上限；80% 告警、90% 冻结增险 |
 | `replication` | 接收主机、协议、认证、批量、在途上限、复制落后阈值、同步等待 | 100 ms 告警、1,000 ms 冻结；禁止自动降级异步 |
 | `control` | 三 voter、地址和身份、Raft 参数、角色绑定、计划期限、操作期限、幂等保留、授权期限 | tick 10 ms、heartbeat 50 ms、选举 500～1,000 ms；配置操作默认 120 s |
-| `local_config` | 生成文件根目录、权限、投影政策版本/工件、固定引导 locator、保留版本、持久化、漂移与恢复政策 | 0600 文件、0700 目录、至少两份 last-good |
+| `local_config` | 生成文件根目录、权限、投影政策版本/发布文件、固定引导 locator、保留版本、持久化、漂移与恢复政策 | 0600 文件、0700 目录、至少两份 last-good |
 | `observability` | metrics 地址和认证、诊断等级、采样、直方图、审计目录和保留 | 有界标签、引用脱敏；审计不受诊断采样丢弃 |
 | `timeouts` | 意图期限、私有流新鲜度、校时偏移、quiesce/退出、未知单查询、重连 | 单位在字段名中固定，不能靠加长超时绕过账户未知状态 |
 | `qualification` | 部署清单、权限、主机、掉电/隔离/风险验收证据和完整发送目标 | 默认 p99 300 µs、p99.9 1,000 µs；SyncReplica 候选 2,000/5,000 µs |
@@ -75,18 +75,18 @@ TOML（Tom's Obvious Minimal Language）用于人工编写候选文件；JSON（
 
 ### 2.2 生产必填内容
 
-`mode=live` 必须同时为 `environment=production`，所有 venue 也必须一致。生产校验器拒绝 `REQUIRED`、fixture 引用、`.invalid` 地址、mock transport、未解析工件和未经授权的秘密引用。至少补齐：
+`mode=live` 必须同时为 `environment=production`，所有 venue 也必须一致。生产校验器拒绝 `REQUIRED`、fixture 引用、`.invalid` 地址、mock transport、未解析发布文件和未经授权的凭据引用。至少补齐：
 
 1. 实际 cluster/namespace、主机与故障域、CPU/NUMA/网卡/存储清单、隔离设备与身份。控制 voter 的三个故障域必须独立；C 不存订单 WAL。
 2. 经固定协议清单验证的 Binance 地址、协议、schema、心跳、轮换和请求期限；Spot FIX SBE 另要求 `fix_session_ref`，其中固定会话地址、端口、身份、认证和序号恢复政策，不能仅替换 WS URL。
 3. 真实账户/子账户身份、产品权限、单向/双向持仓、全仓/逐仓、单资产/多资产模式、执行所有者和 guardian 权限；只读查询核对，不能自动修改交易所模式使检查通过。
 4. 实际标的目录、精度/过滤器、资产指数、费用、风险档位、资金费和结算规则，以及账户/IP/UID 限流预算。费用和档位可存于不可变 schedule 对象，API 传引用和哈希，exec 校验实际内容与来源新鲜度。
-5. 账户与每策略的明确风险预算、策略二进制/参数 schema/状态迁移/恢复工件、受审计 SDK 资格和操作角色。
-6. 固定版本秘密引用与信任根，以及部署、掉电、隔离、风险计算和完整链路资格证据。引用存在且哈希正确只证明对象身份，不能代替报告中的验收结果。
+5. 账户与每策略的明确风险预算、策略二进制/参数 schema/状态迁移/恢复所需文件、受审计 SDK 资格和操作角色。
+6. 固定版本凭据引用与信任根，以及部署、掉电、隔离、风险计算和完整链路资格证据。引用存在且哈希正确只证明对象身份，不能代替报告中的验收结果。
 
 每个策略的 `risk_budgets` 按 account ID 和 quote asset 明确计价，由对应账户 exec 独立执行；跨账户总暴露不能借用一个没有单写所有者的共享预留。每策略预算是上限，不是预分配可用资金；即使策略上限合计高于账户限额，每次实际预留仍必须同时通过账户总限额。
 
-`reference.toml` 的 fixture 哈希是合成名字的内容标识，仓库没有为这些引用提供可交易的账户、秘密或工件。因此它通过的是配置解析与静态一致性校验；`validation_level=deployment` 仍会要求解析真实依赖。生产模板里的技术容量也要对实际机器验证，不能只替换字符串占位。
+`reference.toml` 的 fixture 哈希是合成名字的内容标识，仓库没有为这些引用提供可交易的账户、凭据或发布文件。因此它通过的是配置解析与静态一致性校验；`validation_level=deployment` 仍会要求解析真实依赖。生产模板里的技术容量也要对实际机器验证，不能只替换字符串占位。
 
 ### 2.3 永续与交割合约
 
@@ -102,8 +102,8 @@ Schema 的 `x-semantic-checks` 列出 CFG-S01～CFG-S12；这些是实现必须�
 - ring 容量为二的幂；布局等于固定 ABI；arena 实际 class 分配、headers、游标、全部 live/frozen banks、SPSC、快照和 relay 合计不超过主机预算。改变配置不能省略仍被 pin 的旧 bank。
 - CPU 和 NUMA 存在；热循环核不重叠；内存和文件描述符预算可容纳；主备故障域分离；三控制 voter 的身份与故障域唯一。
 - 心跳小于所属会话期限，续期小于短期执行期限，progress 小于 suspect；选举、复制告警/冻结、磁盘告警/冻结和重连上下界顺序正确。
-- 请求中的来源、工件、秘密、账户模式和策略参数匹配固定 schema；含凭据材料的字段或参数拒绝。修改 classification 由服务端从旧值、新值与运行事实计算，客户端不能自报为 Hot。
-- 计划保存 base ETag、候选哈希、目标成员集合及其代次、资格证据和作用域；commit 和 apply 时重新验证当前事实。预览时的余额、订单、秘密可用性和磁盘余量不能作为未来应用一定成功的保证。
+- 请求中的来源、发布文件、凭据、账户模式和策略参数匹配固定 schema；含凭据内容的字段或参数拒绝。修改 classification 由服务端从旧值、新值与运行事实计算，客户端不能自报为 Hot。
+- 计划保存 base ETag、候选哈希、目标成员集合及其代次、资格证据和作用域；commit 和 apply 时重新验证当前事实。预览时的余额、订单、凭据可用性和磁盘余量不能作为未来应用一定成功的保证。
 
 ## 3. 运行时更改分类
 
@@ -112,8 +112,8 @@ Schema 上的 `x-change-class` 是字段族的保守默认值；下表对具体�
 | 分类 | 允许的典型更改 | 应用规则 |
 |---|---|---|
 | `Hot` | 诊断日志级别、采样率；参数 schema 明确标为 Hot 且不改变状态布局的策略参数；可立即安全收紧的风险限额 | 单写 reducer 在一个事件边界替换不可变配置视图；保存旧/新哈希和水位。改变诊断等级不删除交易审计 |
-| `Quiesce` | 放宽风险预算；需暂停的策略参数/订阅/权限；费用和档位引用；限流预算；凭据版本轮换；账户会话切换；提交画像变更 | 关闭受影响域增险入口，排清或保守保留未决意图，完成领域屏障/对账/依赖检查后应用；按计划条件恢复资格 |
-| `RollingRestart` | 二进制与 SDK、CPU/NUMA、内存与文件描述符、journal/审计/配置目录、metrics/控制监听地址、IPC 容量/布局画像、影响连接器结构的配置 | 创建替代实例或新资源，校验恢复和接管；按生命周期切代次；不得同时重启主备或失去控制多数派 |
+| `Quiesce` | 放宽风险预算；需暂停的策略参数/订阅/权限；费用和档位引用；限流预算；凭据版本轮换；账户会话切换；提交模式变更 | 关闭受影响域增险入口，排清或保守保留未决意图，完成领域屏障/对账/依赖检查后应用；按计划条件恢复资格 |
+| `RollingRestart` | 二进制与 SDK、CPU/NUMA、内存与文件描述符、journal/审计/配置目录、metrics/控制监听地址、IPC 容量/布局配置、影响连接器结构的配置 | 创建替代实例或新资源，校验恢复和接管；按生命周期切代次；不得同时重启主备或失去控制多数派 |
 | `ForbiddenRuntime` | cluster/namespace、live/qualification 或生产/模拟环境切换；账户身份/资金风险域重解释；原地修改 wire ABI major、金额单位和历史精度；关闭持久化/审计/fencing；回退序号/代次 | 运行时 API 拒绝。需要另建部署/namespace 和迁移计划，经过离线准入；不能强制标成 Hot |
 
 补充规则：
@@ -148,7 +148,7 @@ plan 返回当时的持仓、已挂单、pending/Unknown 预留、条件结构�
 | `POST /v1/config/preview` | 候选、原因、apply ceiling、exposure policy、If-Match；200 `Plan` | 不持久化的 diff/预检查；preview ID 不能 commit |
 | `POST /v1/config/plans` | 同上，加 Idempotency-Key；201 `Plan` 和 Location | 保存不可变计划、diff、依赖闭包、目标集合和期限；未改变 desired |
 | `GET /v1/config/plans/{plan_id}` | 200 `Plan` | 查询分类、动作、必需角色、截止时间及问题 |
-| `GET /v1/config/plans/{plan_id}/diff` | 200 `DiffEntry[]` | 字段路径、前后值、分类、目标和前置条件；秘密只显示引用 |
+| `GET /v1/config/plans/{plan_id}/diff` | 200 `DiffEntry[]` | 字段路径、前后值、分类、目标和前置条件；凭据只显示引用 |
 | `POST /v1/config/commits` | plan ID、candidate hash、accepted actions、原因、If-Match、Idempotency-Key；202 `Operation` | 原子提交 desired 和 operation；随后执行分发、应用与文件同步 |
 | `GET /v1/config/head` | 200 `Head`、ETag | 只读 revision/hash/ETag/提交时间；窄账户编辑者据此取得基线，不读取其他账户配置 |
 | `GET /v1/config/desired` | 200 `Desired`、ETag | 当前控制组已提交完整配置及 commit 引用 |
@@ -236,7 +236,7 @@ watch 的事件 ID 单调且持久化，交付至少一次；客户端按 ID 去
 
 返回统一 `Error{code,message,request_id,retryable,operation_id?,field_errors[]}`。400 为语法/编码错误，401/403 为认证/权限，404 为不存在，409 为计划/幂等/操作冲突，410 为过期计划或压缩游标，412 为 ETag 冲突，413 为尺寸超限，422 为配置/风险/依赖校验不通过，428 为缺少 If-Match，429 为限流，503 为控制组或必要依赖不可用。
 
-已准入操作的写盘失败保存为 target error `LocalPersistenceFailed`，operation 进入 Stalled；查询该资源可返回 HTTP 200，但状态必须保留失败事实，绝不能返回 `Succeeded`。运行时变更禁止、风险超限、工件/秘密无效、回滚不安全和漂移分别使用 `RuntimeChangeForbidden`、`RiskExposureExceeded`、`ArtifactUnavailable/SecretReferenceInvalid`、`UnsafeRollback`、`ConfigDrift`。校验错误只包含允许公开的字段路径和引用，不回显可能含秘密的原始值。
+已准入操作的写盘失败保存为 target error `LocalPersistenceFailed`，operation 进入 Stalled；查询该资源可返回 HTTP 200，但状态必须保留失败事实，绝不能返回 `Succeeded`。运行时变更禁止、风险超限、发布文件/凭据无效、回滚不安全和漂移分别使用 `RuntimeChangeForbidden`、`RiskExposureExceeded`、`ArtifactUnavailable/SecretReferenceInvalid`、`UnsafeRollback`、`ConfigDrift`。校验错误只包含允许公开的字段路径和引用，不回显可能含凭据的原始值。
 
 ## 5. 本机配置文件如何同步到可恢复状态
 
@@ -252,7 +252,7 @@ watch 的事件 ID 单调且持久化，交付至少一次；客户端按 ID 去
   config.journal
 ```
 
-完整集群配置只存于控制状态和配置物化服务的私有 authority 目录；不把全量文件或全量 FD 交给策略和其他普通进程。投影器按固定 `local_config.projection_policy_revision/projection_policy_ref` 从已提交完整配置计算每个 target 的 payload。策略只得到自己的工件、参数、风险预算、订阅与无凭据账户视图；exec/guardian 只得到自己授权风险域和用途的秘密引用；控制、复制和 metrics 身份也按用途过滤。字段包含规则与完整对象授权都属于投影政策，隐藏整个不需要的字段，不能靠“接收方只使用自己的部分”保护其他内容。
+完整集群配置只存于控制状态和配置物化服务的私有 authority 目录；不把全量文件或全量 FD 交给策略和其他普通进程。投影器按固定 `local_config.projection_policy_revision/projection_policy_ref` 从已提交完整配置计算每个 target 的 payload。策略只得到自己的发布文件、参数、风险预算、订阅与无凭据账户视图；exec/guardian 只得到自己授权风险域和用途的凭据引用；控制、复制和 metrics 身份也按用途过滤。字段包含规则与完整对象授权都属于投影政策，隐藏整个不需要的字段，不能靠“接收方只使用自己的部分”保护其他内容。
 
 `desired.toml` 与 `effective.toml` 使用 [ProcessProjection](../../specs/contracts/system-config.schema.json#/$defs/ProcessProjection)：包含 `projection_schema_version`、权限内 `payload` 和 `_materialization`。它们独立校验，不要求补齐全量配置的必填域。`projection_hash=SHA-256(JCS(payload))`；每个目标的预期值和 policy revision 在计划中固定并由控制提交证明绑定，接收方不能自行扩展字段后重算哈希。不同目标的 projection hash 可以不同，相同全局 revision/hash 不证明收到的 payload 有权访问。
 
@@ -263,7 +263,7 @@ watch 的事件 ID 单调且持久化，交付至少一次；客户端按 ID 去
 1. **验证控制提交。** 物化服务检查控制提交证明、目标身份、预期实例代次、schema、投影 policy revision/预期 hash、全部依赖和操作幂等映射。旧 revision 或相同 revision 不同 hash 拒绝；相同身份、全局版本和投影返回已有进展。
 2. **准备恢复证据。** 对交易相关变更按计划关闭增险闸门。物化服务在私有 journal 保存 `ConfigPrepared(old_revision/hash,new_revision/hash,operation,target,commit_ref)` 与完整配置对象引用；逐目标 journal 只保存该目标的权限投影、绑定和恢复证据。相关记录与依赖先完成同步。任何文件操作前保留当前已验证 effective 为 last-good，至少保留最近两代；它不是自动回滚授权。
 3. **持久保存 desired。** 在目标目录创建独占临时文件，写全权限投影 TOML，校验独立 schema、全局绑定、projection/render hash，设置属主和模式，`fsync(temp)`，同目录原子 `rename(temp,desired.toml)`，再 `fsync(directory)`。随后 journal 保存 DesiredMaterialized 与文件收据。这个步骤完成才允许运行时开始应用。
-4. **在事件边界应用。** exec 将 `ConfigApply` 导入本风险域日志，保存新/旧全局版本、projection hash/policy revision、控制证明、策略/风险政策版本和精确事件边界；日志及依赖完成本地持久化后，单写 reducer 才替换不可变配置视图。同步画像对需要进入恢复闭包的记录遵循其镜像持久化规则。其他进程使用自己的可靠配置 journal 和输入 sequencer 固定应用位置。事件处理不可跨边界混用旧/新参数；引用旧配置的未完成意图保留原版本，并在最终发送闸门验证新约束。
+4. **在事件边界应用。** exec 将 `ConfigApply` 导入本风险域日志，保存新/旧全局版本、projection hash/policy revision、控制证明、策略/风险政策版本和精确事件边界；日志及依赖完成本地持久化后，单写 reducer 才替换不可变配置视图。同步提交模式对需要进入恢复闭包的记录遵循其镜像持久化规则。其他进程使用自己的可靠配置 journal 和输入 sequencer 固定应用位置。事件处理不可跨边界混用旧/新参数；引用旧配置的未完成意图保留原版本，并在最终发送闸门验证新约束。
 5. **持久保存 effective。** 运行时返回包含本次 boot、实际事件序号、revision/hash 与已持久 ConfigApply 证明的 applied receipt；物化服务核验后，按相同 `temp → fsync → rename → directory fsync` 顺序保存 `effective.toml`。再把 EffectiveMaterialized 收据写入本地 journal 并同步。成功响应同时包含运行时 applied 和文件持久收据，不能只上报已 rename。
 6. **汇总与解闸。** 控制组收齐固定目标集合的收据，校验相同全局 revision/hash、各目标预期 projection hash/policy revision、实例和 locator 代次及 target membership，并持久写入 OperationSucceeded。涉及跨账户的一致风险变化时，所有参与域在应用和文件收敛之前保持组增险屏障；放开屏障要有新的有效授权。降限额后仍超限的域按计划继续 Frozen，事实与减险处理持续运行。
 
@@ -305,7 +305,7 @@ desired 只表示控制组意图，用来恢复尚未完成的 operation；它�
 
 ### 5.4 RollingRestart 的计划内实例转换
 
-稳定 `process_id` 表示部署位置，不等于某次进程 boot。计划给 RollingRestart target 保存旧 `expected_boot_id/expected_exec_generation`，同时预分配 `planned_successor={replacement_slot_id,host_id,generation,artifact_hash,bootstrap_nonce}`。这些值参与 membership hash。受认证启动器使用一次性 nonce 启动指定工件，并将实际新 boot 绑定到该 slot；控制组和本地 journal 持久记录 `SuccessorBound`。nonce 只用于一次绑定，同 slot 不接受第二个 boot，新 boot 的主机/工件/代次必须与计划一致。
+稳定 `process_id` 表示部署位置，不等于某次进程 boot。计划给 RollingRestart target 保存旧 `expected_boot_id/expected_exec_generation`，同时预分配 `planned_successor={replacement_slot_id,host_id,generation,artifact_hash,bootstrap_nonce}`。这些值参与 membership hash。受认证启动器使用一次性 nonce 启动指定发布文件，并将实际新 boot 绑定到该 slot；控制组和本地 journal 持久记录 `SuccessorBound`。nonce 只用于一次绑定，同 slot 不接受第二个 boot，新 boot 的主机/发布文件/代次必须与计划一致。
 
 旧实例先完成 `PredecessorQuiesced`，exec 还需持久撤销其发送资格，保存交接水位和恢复闭包。按角色要求取得真实退出或隔离证明，记录 `PredecessorRetired`；资源引用没有释放时保留旧 bank。新实例可以先无交易权预热，但不能与旧实例共享发送权。控制面普通 leader 变更不改变 target boot，不需要重做该步骤。
 
@@ -343,19 +343,19 @@ desired 只表示控制组意图，用来恢复尚未完成的 operation；它�
 
 此协议迁移的是配置存储。`journal.root_dir` 改动还必须按[持久化与接管](replication-and-failover.md)封口业务日志、搬运完整恢复闭包并验证新位置，不能复制正在写入的订单 WAL 后重开。审计目录迁移同样需要其写者屏障和完整尾部证明；配置 locator 先使启动器找到经验证的有效投影，再由该投影和对应存储迁移证明定位其他目录。
 
-## 6. 安全文件写入与秘密管理
+## 6. 安全文件写入与凭据管理
 
 物化根目录由部署管理员创建并固定所有者，生成服务持目录文件描述符进行相对操作。文件描述符（File Descriptor，FD）引用已经打开的文件或目录；这里使用它避免在字符串路径验证和实际打开之间被替换路径。实现采用 `openat2` 的 `RESOLVE_BENEATH/RESOLVE_NO_SYMLINKS` 或等价的逐级无符号链接检查，不跟随 symlink，不允许 `..`、绝对子路径、非预期 mount、设备文件或目录属主漂移。临时文件使用不可预测名字、`O_CREAT|O_EXCL|O_NOFOLLOW`，生成后校验 regular file、属主、mode 与 link count；rename 的目标和临时文件必须在同一受控目录和文件系统中。平台缺少相同保护时停止物化，不能降级为任意路径写入。
 
-secret 引用由进程身份和用途授权：策略没有正常下单凭据；exec 与 guardian 分别解析自己有权使用的秘密。秘密只在运行时签名/握手边界存在，配置、candidate、diff、operation、TOML、last-good、journal 和审计仅保存引用。API 拒绝明文 `api_key/private_key/password/token` 类字段；策略参数 schema 不得声明用于夹带凭据的自由文本入口。正文、错误和日志不得回显未通过校验的原始输入。
+secret 引用由进程身份和用途授权：策略没有正常下单凭据；exec 与 guardian 分别解析自己有权使用的凭据。凭据只在运行时签名/握手边界存在，配置、candidate、diff、operation、TOML、last-good、journal 和审计仅保存引用。API 拒绝明文 `api_key/private_key/password/token` 类字段；策略参数 schema 不得声明用于夹带凭据的自由文本入口。正文、错误和日志不得回显未通过校验的原始输入。
 
-引用必须固定版本，禁止 `latest`。轮换先验证新身份与权限，建立新会话并完成恢复，再切换后续动作；旧未知订单继续绑定原会话和 ID。回滚时旧秘密版本已撤销，则计划拒绝或选用新的有效版本，不能为了恢复旧 TOML 重新启用失效凭据。紧急撤销发生后立即收紧执行权限，不等待常规配置 operation 收敛。
+引用必须固定版本，禁止 `latest`。轮换先验证新身份与权限，建立新会话并完成恢复，再切换后续动作；旧未知订单继续绑定原会话和 ID。回滚时旧凭据版本已撤销，则计划拒绝或选用新的有效版本，不能为了恢复旧 TOML 重新启用失效凭据。紧急撤销发生后立即收紧执行权限，不等待常规配置 operation 收敛。
 
 审计记录调用者、证书身份、原因、base/new revision、hash、计划/操作 ID、分类、目标、授权决策、应用水位、文件收据和错误。完整 desired/revision 配置要求调用者有其中全部账户和集群拓扑的读取权，不向只具单账户权限的用户返回其他账户引用。窄范围身份使用 head 与 scoped-patch，并查询自己可读的 effective 和 plan/operation 视图；可见视图明确标识 scoped，并保留完整 delivery 的不透明集合哈希。完整配置接口不返回缺字段的脱敏配置树，避免把不可再次提交的内容误认作候选。
 
 ## 7. 回滚与重新计划
 
-回滚读取旧 revision 的配置值，创建新候选，再执行正常 plan/commit。它只恢复配置意图：成交、费用、持仓、预留、订单去重、client order ID、高水位、策略/执行代次以及撤销授权不回退。旧代码缺少当前状态 schema、旧标的过滤器已失效、旧秘密已撤销或当前持仓不满足旧模式时，返回 UnsafeRollback 或形成新的迁移计划。
+回滚读取旧 revision 的配置值，创建新候选，再执行正常 plan/commit。它只恢复配置意图：成交、费用、持仓、预留、订单去重、client order ID、高水位、策略/执行代次以及撤销授权不回退。旧代码缺少当前状态 schema、旧标的过滤器已失效、旧凭据已撤销或当前持仓不满足旧模式时，返回 UnsafeRollback 或形成新的迁移计划。
 
 例如将总毛敞口从 100,000 降至 50,000 后，已经产生的持仓仍为 70,000；freeze_until_within 可以使新限额生效并保持 Frozen。随后“回滚到 100,000”是一项风险放宽，需要新的 risk-admin 权限、版本和资格屏障。取消请求已经发出时，回滚限额也不会复活该订单或重发原交易。部分目标更新失败时，优先补齐同 revision；选择恢复旧参数则通过新 revision 对所有目标重新计划，不逐台手工覆盖 effective。
 
@@ -377,7 +377,7 @@ secret 引用由进程身份和用途授权：策略没有正常下单凭据；e
 | CFG-08 | 降限额覆盖持仓、挂单、pending、Unknown 和条件子单；三个 exposure policy 行为可区分，撤单未终态不释放 |
 | CFG-09 | live 拒绝全部 fixture/REQUIRED/未解析依赖；凭据只通过 secret refs；日志、文件和错误没有 secret bytes |
 | CFG-10 | 手改文件、mtime 伪造、symlink/hardlink、路径替换与权限漂移触发隔离；生成文件不回流成第二写者 |
-| CFG-11 | 旧配置回滚遇到新成交、新状态 schema、撤销秘密或变化的账户模式时重新校验；经济事实与代次不回退 |
+| CFG-11 | 旧配置回滚遇到新成交、新状态 schema、撤销凭据或变化的账户模式时重新校验；经济事实与代次不回退 |
 | CFG-12 | 订阅变更和 bank 扩容计入冻结资源；三种 lease/freshness 独立；到期合约保护按固定目录与结算事实执行 |
 | CFG-13 | 形式模型探索 commit/apply/file-durable/ACK/崩溃交错；不变量为 Success ⇒ 全部目标应用与文件证据匹配，旧 revision 不能复活授权 |
 | CFG-14 | 窄账户 scoped-patch 只能改变获授权 mutation/dependency；数组下标、test/copy/move 和共享政策越权被拒绝；NoOp delivery 不扩权也不减少完成集合 |
@@ -385,7 +385,7 @@ secret 引用由进程身份和用途授权：策略没有正常下单凭据；e
 | CFG-16 | RollingRestart 只接受计划内 successor slot/build/boot 绑定；旧撤权/退休、新 staging、OwnerCutover 每个切点崩溃后保持单写者和代次正确 |
 | CFG-17 | root 迁移覆盖 Prepared/Copied/locator rename/目录同步/Activated/旧根退役切点；启动器只选固定 locator，双写、按 mtime 选根和漏算 locator generation 的完成收据均被拒绝 |
 
-机器可读契约固定了字段、端点和静态边界；实际掉电持久性、多进程事件边界、秘密存储接入、真实 Binance 会话和更新期间完整延迟必须由实现阶段提供相应证据。
+机器可读契约固定了字段、端点和静态边界；实际掉电持久性、多进程事件边界、凭据存储接入、真实 Binance 会话和更新期间完整延迟必须由实现阶段提供相应证据。
 
 ## 9. 规范依据
 

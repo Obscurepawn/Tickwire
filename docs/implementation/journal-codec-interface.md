@@ -1,6 +1,6 @@
 # 业务日志编码与逻辑链
 
-`tickwire-journal-codec` 把执行内核的有界支出意图、成交、费用、终态与发送前中止事实编码为确定性 CBOR。它独立于 execution、Mock 和物理 WAL；输出可直接作为现有 WAL v1 的 `DataRecord.payload`。本切片提供内容编解码和逻辑链计算，不签发提交、依赖闭包或交易授权证明。
+`tickwire-journal-codec` 把执行内核的有界支出意图、成交、费用、终态与发送前中止事实编码为确定性 CBOR。它独立于 execution、Mock 和物理 WAL；输出可直接作为现有 WAL v1 的 `DataRecord.payload`。本阶段提供内容编解码和逻辑链计算，不签发提交、依赖闭包或交易授权证明。
 
 ## Schema 1
 

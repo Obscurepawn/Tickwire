@@ -1,0 +1,21 @@
+   Compiling tickwire-snapshot v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-snapshot)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.12s
+     Running tests/builder.rs (target/debug/deps/builder-5dc8af3ef02d8aef)
+
+running 14 tests
+test rejects_expired_future_and_observation_time_conflicts ... ok
+test rejects_missing_duplicate_unordered_or_mismatched_registry_members ... ok
+test full_multi_instrument_cut_keeps_nonlive_missing_states_and_unknown_depth ... ok
+test exact_page_budget_is_accepted_and_one_byte_less_is_rejected ... ok
+test invalid_depth_is_rejected_without_sanitizing_order_or_quantities ... ok
+test depth_crosses_multiple_pages_with_exact_offsets_and_zero_padding ... ok
+test constructs_the_complete_independent_golden_bundle ... ok
+test rejects_mixed_cut_generation_catalog_and_future_member_events ... ok
+test same_snapshot_id_for_two_different_members_is_rejected ... ok
+test overlarge_depth_is_rejected_by_complete_object_budget_before_encoding ... ok
+test sequence_limit_leaves_room_for_j_and_zero_cut_can_bootstrap ... ok
+test unordered_states_are_canonical_and_keep_times_and_recompute_crc ... ok
+test rejects_bad_state_types_duplicates_missing_feed_and_original_sequence ... ok
+test join_identity_and_existing_binding_conflicts_are_not_overwritten ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s

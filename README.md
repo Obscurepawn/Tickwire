@@ -1,13 +1,13 @@
 # Tickwire
 
-面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟交易系统。v0.3 详细设计已完成，当前正在实现盘口、风险、IPC 与执行内核。外部存储和交易所通过服务接口接入，已有本地 MockService 闭环；完整生产链路仍在开发。
+面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟交易系统。v0.3 详细设计已完成，当前正在实现盘口、风险、IPC 与执行内核。外部存储和交易所通过服务接口接入，已有本地 MockService 完整调用链；完整生产链路仍在开发。
 
 目标设计采用独立行情进程、每策略实例独立进程、按账户风险域独立的执行进程，以及控制监督与紧急执行进程。固定记录共享广播 ring 已实现 Linux 映射、单写权限、受保护借用和协作退出，并通过最多 32 个消费者进程的传输测试。业务进程、bank 切换、真实持久化意图、后台复制与控制面共识仍在开发。
 
 - [生产系统设计](docs/design/binance-ultra-low-latency.md)：进程、协议、风控、订单、恢复、完整链路延迟与上线门禁。
 - [共享内存 IPC 机制](docs/design/shared-memory-ipc.md)与[二进制 ABI](docs/design/ipc-abi.md)：广播游标、bank 切换、精确布局、消息编号、资源权限和编码向量。
 - [多策略生命周期](docs/design/strategy-lifecycle.md)：独立发布、Shadow、存量订单/持仓原位移交、跨域协调和回滚。
-- [复制与故障接管](docs/design/replication-and-failover.md)：本地日志、异步副本、执行权隔离、恢复证据及可选同步画像。
+- [复制与故障接管](docs/design/replication-and-failover.md)：本地日志、异步副本、执行权隔离、恢复证据及可选同步提交模式。
 - [风险计算](docs/design/risk-calculations.md)：现货与合约的预留、费用、保证金、减险规则及数值案例。
 - [部署与 SLO](docs/design/deployment-and-slo.md)：主备拓扑、16 Active＋16 Shadow 参考容量、CPU/内存/磁盘预算及测量合同。
 - [配置文件与控制 API](docs/design/configuration.md)：校验、计划、发布、回滚、本地文件持久同步、进程授权投影和崩溃恢复；附[参考配置](config/reference.toml)、[生产输入模板](config/production.template.toml)、[配置 schema](specs/contracts/system-config.schema.json)和[OpenAPI](specs/contracts/control-api.openapi.json)。

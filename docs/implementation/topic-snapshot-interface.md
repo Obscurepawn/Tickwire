@@ -4,7 +4,7 @@
 
 ## 构造与验证边界
 
-`tickwire-snapshot` 负责完整字节对象的规范构造和上下文校验；当前已实现接收校验器，构造器仍待实现。`tickwire-shm-sys::ImmutableMapping` 负责 0x0f seals 与只读映射。两层都不自行签发 JOIN_READY 或交易授权。
+`tickwire-snapshot` 已实现完整字节对象的规范构造和上下文校验；构造 API 见[TopicSnapshot 构造接口](topic-snapshot-builder-interface.md)。`tickwire-shm-sys::ImmutableMapping` 负责 0x0f seals 与只读映射。两层都不自行签发 JOIN_READY 或交易授权。
 
 构造输入包含可信资源身份、同一目录版本/hash、完整且有序的 instrument/version 集合、集合版本、共同 feed generation、S、创建/截止时间及各成员状态。每个 NormalizedMarket 成员具有自身 snapshot ID、最后实际事件序号、FeedState、最新 Quote/Trade/MarkFunding（按登记能力要求存在）以及买卖深度和覆盖信息。最后实际事件序号可以小于 S，但所有子快照的截面都必须是 S。
 
@@ -22,7 +22,7 @@
 
 ## 接收校验 API
 
-第一项实现切片是纯安全 Rust 的接收校验器，构造器和 JOIN owner 协调器随后接入。接口如下：
+纯安全 Rust 的接收校验器接口如下，构造器使用同一校验器复核最终输出；JOIN owner 负责连接发布边界和 cursor：
 
 ```rust
 pub struct InstrumentSpec {
@@ -47,4 +47,4 @@ pub fn validate<'a>(bytes: &'a [u8], context: &JoinContext<'_>)
 
 `check_readiness(now)` 在每次调用时检查时间没有早于验证时刻，且未达到任何成员、清单或 JOIN 的最早截止时间；还要求所有 FeedState 为 Live，具备登记要求的状态，且这些必需状态本身也为 Live。缺状态和非 Live 成员保持在对象内，该方法返回 `NotReady`，不能通过删除成员伪造 Ready。该检查只描述快照基线，逐状态行情新鲜度、实际 cursor、资源会话及 exec 增险授权仍由对应所有者检查。该值是调用时的判断，不是可以长期缓存的交易许可。
 
-TDD 先以现有完整黄金文件确认兼容，再通过重新计算合法 hash 的身份/时间/状态冲突输入，验证新增业务约束；单纯破坏摘要不能代替这些测试。多标的构造、快照交付与待加入读者的满环背压将在 owner 协调切片验收，并以真实状态迁移建立有限 TLA+ 模型。
+TDD 先以现有完整基准样本确认兼容，再通过重新计算合法 hash 的身份/时间/状态冲突输入，验证新增业务约束；单纯破坏摘要不能代替这些测试。多标的构造、快照交付与待加入读者的满环背压将在 owner 协调模块的集成测试中验收，并以真实状态迁移建立有限 TLA+ 模型。

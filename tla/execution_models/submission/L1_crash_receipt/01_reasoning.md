@@ -10,7 +10,7 @@
 | 不可变恢复对象 | 每个 intent 使用独立 recovery_object；request 除 profile 外按 intent 固定，对象内容相等简化为 profile 相等，真实 API 逐字节比较；跨 intent 共用对象 key 的冲突不在本级 |
 | journal 内容与回执 | journal 是成功保存的记录集合；receiptReplica 是某次回执的副本完成位；不会把丢回执解释为没有记录 |
 | journal identity/sequence 去重 | 显式保存 journalProfile/journalSeq，冲突不允许写入 |
-| caller 传入 commit profile | StartSubmit/Resume 分别枚举匹配和不匹配的 profile，RejectReceipt 覆盖画像降级拒绝 |
+| caller 传入 commit profile | StartSubmit/Resume 分别枚举匹配和不匹配的 profile，RejectReceipt 覆盖提交模式降级拒绝 |
 | dispatch/accepted 次数 | 独立历史计数跨崩溃存活，NoBytes 不增加 accepted，但仍增加 dispatch |
 | 进程死亡 | 清除 Engine 和待处理调用，保留 journal/objects/exchange；恢复按真实代码整体替换 Engine |
 | 不可用服务、配置冲突 | 错误返回简化成 DependencyFailure/CommitFailure 或调用前 stutter；失败不产生虚构 durable 记录 |

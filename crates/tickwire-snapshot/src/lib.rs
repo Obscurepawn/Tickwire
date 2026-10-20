@@ -2,6 +2,9 @@
 #![forbid(unsafe_code)]
 use tickwire_ipc::*;
 
+mod builder;
+pub use builder::*;
+
 pub const QUOTE: u8 = 1;
 pub const TRADE: u8 = 2;
 pub const MARK_FUNDING: u8 = 4;

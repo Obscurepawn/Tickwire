@@ -4,9 +4,9 @@
 
 ## 会话身份与协商
 
-`Policy` 由可信 launcher 提供：本端与对端的 instance、generation、角色、logical strategy、host boot、namespace、架构、trust profile 和工件哈希；`ProcessIdentity` 是来自内核的对端 PID/UID/GID。launcher 持有活进程句柄，防止注册生命周期内 PID 被重用，并为每次新会话分配未使用的 epoch/nonce。本库不自行从 HELLO 建立注册表。
+`Policy` 由可信 launcher 提供：本端与对端的 instance、generation、角色、logical strategy、host boot、namespace、架构、trust profile 和发布文件哈希；`ProcessIdentity` 是来自内核的对端 PID/UID/GID。launcher 持有活进程句柄，防止注册生命周期内 PID 被重用，并为每次新会话分配未使用的 epoch/nonce。本库不自行从 HELLO 建立注册表。
 
-服务端先比较内核身份，再验证 HELLO 的完整登记身份、ABI 1.0、页/隔离/原子宽度及必需特性。特性位 2/3/4 是当前画像的必需能力，配置控制角色还需位 5；未知必需位拒绝，已知共同能力写入 WELCOME。客户端核对内核对端、request ID、双方 instance、epoch、host boot、角色、trust、nonce、能力和期限。
+服务端先比较内核身份，再验证 HELLO 的完整登记身份、ABI 1.0、页/隔离/原子宽度及必需特性。特性位 2/3/4 是当前协议配置的必需能力，配置控制角色还需位 5；未知必需位拒绝，已知共同能力写入 WELCOME。客户端核对内核对端、request ID、双方 instance、epoch、host boot、角色、trust、nonce、能力和期限。
 
 帧使用现有 128 字节 envelope 和 CRC，长度最多 65536 字节。会话帧逐个检查身份、epoch、请求 ID、协商特性与长度；HELLO/WELCOME 不能重复作为已建立会话内操作。控制命令业务权限、报文 body 与资源绑定由其 owner 在此后继续检查。
 

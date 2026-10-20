@@ -2,7 +2,7 @@
 
 这次修改保留 `Book::apply`、独立 `SequencePolicy`、双侧原子失败和 `Unknown` 覆盖规则。更新在实例内的固定工作区排序，定位结果复用于容量验证、最优价检查和提交；纯改量直接写旧位置，插删只合并受影响的连续区间。小更新没有被统一改成全簿扫描。
 
-旧版为 commit `cd8bde270ac257b296100979621c60c64f965e42`。对照脚本读取该版本的库源码，与当前库分别放入临时独立 crate，再复制同一份基准程序并使用相同编译画像。测量结果对应的库与基准 SHA-256 位于环境文件，复跑时可据此检查代码是否变化。
+旧版为 commit `cd8bde270ac257b296100979621c60c64f965e42`。对照脚本读取该版本的库源码，与当前库分别放入临时独立 crate，再复制同一份基准程序并使用相同编译配置。测量结果对应的库与基准 SHA-256 位于环境文件，复跑时可据此检查代码是否变化。
 
 ## 算法与内存成本
 
@@ -72,7 +72,7 @@ python3 crates/tickwire-book/benches/compare.py \
 
 2 项改量的 p50 基本保持 84 ns、p99 同为 167 ns；p99.9 的中位数观测从 250 ns 上升到 583 ns，新版五轮范围为 208–1,292 ns。因此本轮只确认小包没有新增全簿扫描及中位耗时退化，没有确认小包尾延迟改善。空计时区间 p50 中位数为 0 ns、p99 为 42 ns，短包差异受计时量化和运行间干扰影响。
 
-稀疏扩展使用相同编译画像、每轮样本数和五轮交替次序；所有输入均打乱。逐轮统计、运行间范围与代码摘要分别见 [sparse/results.csv](sparse/results.csv)、[sparse/summary.csv](sparse/summary.csv) 和 [sparse/environment.json](sparse/environment.json)。
+稀疏扩展使用相同编译配置、每轮样本数和五轮交替次序；所有输入均打乱。逐轮统计、运行间范围与代码摘要分别见 [sparse/results.csv](sparse/results.csv)、[sparse/summary.csv](sparse/summary.csv) 和 [sparse/environment.json](sparse/environment.json)。
 
 | 每侧档数 / 散布更新数 | 旧版 p50 / p99 / p99.9 | 新版 p50 / p99 / p99.9 |
 | --- | ---: | ---: |

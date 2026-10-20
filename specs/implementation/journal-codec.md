@@ -1,6 +1,6 @@
 # 业务日志 codec 实现规格
 
-本切片落实 [先行接口](../../docs/implementation/journal-codec-interface.md)：独立 crate 编码 PreparedIntent、Fill、Fee、Terminal、AbortedBeforeSend，计算业务摘要和逻辑数据链。现有 execution、Mock、物理 WAL 与已冻结 TLA 模型保持原接口；真实业务 Journal 的接线另行实现。
+本阶段落实 [先行接口](../../docs/implementation/journal-codec-interface.md)：独立 crate 编码 PreparedIntent、Fill、Fee、Terminal、AbortedBeforeSend，计算业务摘要和逻辑数据链。现有 execution、Mock、物理 WAL 与已冻结 TLA 模型保持原接口；真实业务 Journal 的接入另行实现。
 
 ## 实现与不变量
 
@@ -20,7 +20,7 @@
 PATH="$HOME/.cargo/bin:$PATH" cargo test -p tickwire-journal-codec
 ```
 
-首轮实现的 12 项测试通过后，独立审查发现原 schema 把写入者代次与订单代次合并，接管后的迟到事实无法同时表达二者。先添加 `same_late_fact_keeps_business_digest_across_writer_takeover`，实际得到编译成功后的摘要相等断言失败：[接管 Red](../../docs/validation/journal-codec/identity-red.log)。随后为尚未发布的 schema 补上原订单代次并采用两层摘要。原 [Green](../../docs/validation/journal-codec/green-initial.log) 和 [黄金文件](../../docs/validation/journal-codec/golden-initial.json) 仅作修正前证据，当前接口以 crate 内 golden.json 为准。
+首轮实现的 12 项测试通过后，独立审查发现原 schema 把写入者代次与订单代次合并，接管后的迟到事实无法同时表达二者。先添加 `same_late_fact_keeps_business_digest_across_writer_takeover`，实际得到编译成功后的摘要相等断言失败：[接管 Red](../../docs/validation/journal-codec/identity-red.log)。随后为尚未发布的 schema 补上原订单代次并采用两层摘要。原 [Green](../../docs/validation/journal-codec/green-initial.log) 和 [基准样本](../../docs/validation/journal-codec/golden-initial.json) 仅作修正前证据，当前接口以 crate 内 golden.json 为准。
 
 最终为 **13 项测试通过**，包括 1 项单元测试、12 项集成测试、0 项 doctest。验证使用 rustc/cargo 1.99.1，主机为 aarch64-apple-darwin。命令与 [Green 日志](../../docs/validation/journal-codec/green.log) 对应：
 
@@ -39,11 +39,11 @@ PATH="$HOME/.cargo/bin:$PATH" cargo test -p tickwire-journal-codec same_late_fac
 
 首轮 Clippy 提示测试辅助函数用 `as_chunks::<2>()` 替代固定大小的 `chunks_exact(2)`，调整后通过。生产 codec 无此修改。
 
-## 黄金数据与拒绝边界
+## 基准数据与拒绝边界
 
-黄金文件由独立 Python 编码器产生，不调用 Rust crate。生成器先核对 RFC 8949 附录 A 的整数实例，再固定五种事件及一条接管后迟到 Fill，共六条记录的完整 bytes、业务摘要、逻辑载荷摘要、genesis 与连续逻辑哈希；另有 17 个整数边界和 201 字节最大记录。这组数据验证编码及内容链，未作为业务 reducer 的合法订单流程。Rust 测试直接比较文件中的固定期望值，不调用被测实现生成期望。
+基准样本由独立 Python 编码器产生，不调用 Rust crate。生成器先核对 RFC 8949 附录 A 的整数实例，再固定五种事件及一条接管后迟到 Fill，共六条记录的完整 bytes、业务摘要、逻辑载荷摘要、genesis 与连续逻辑哈希；另有 17 个整数边界和 201 字节最大记录。这组数据验证编码及内容链，未作为业务 reducer 的合法订单流程。Rust 测试直接比较文件中的固定期望值，不调用被测实现生成期望。
 
-拒绝测试覆盖未知/缺失/重复/乱序键、错 schema、enum 与类型、非最短整数/长度/tag、前导零或超范围 bignum、浮点、不定长项、超长、尾随字节和恶意声明长度。七条黄金记录共 **591 个截断位置**全部拒绝；六条基础记录共 **99,840 个单字节变异**逐一解码，凡被接受者都要求重新编码与输入逐字节一致。该检查只覆盖这些有限输入，不是任意字节流的形式证明。
+拒绝测试覆盖未知/缺失/重复/乱序键、错 schema、enum 与类型、非最短整数/长度/tag、前导零或超范围 bignum、浮点、不定长项、超长、尾随字节和恶意声明长度。七条基准记录共 **591 个截断位置**全部拒绝；六条基础记录共 **99,840 个单字节变异**逐一解码，凡被接受者都要求重新编码与输入逐字节一致。该检查只覆盖这些有限输入，不是任意字节流的形式证明。
 
 ## 后续适配边界
 

@@ -44,5 +44,12 @@
     "specs/implementation/journal-codec.md": "57db297f2e30fce32e7b2f5e0f3089eae7f58e83ef590e7832c3a559b4d06ad9",
     "specs/contracts/replication-profile-v1.json": "14d3accf6035fc59b02e12822cba1e9253362ea35f730d172fc2e0f1d483528a",
     "docs/validation/journal-codec/generate-vectors.py": "a929e7b868456d7acff17deeb87aa7d2714d78263c20076806027197d16631d8"
+  },
+  "documentation_update": {
+    "scope": "Chinese wording only; original sha256 values above retain the verification-time document versions. Source, fixtures and raw logs are unchanged by this edit.",
+    "current_sha256": {
+      "docs/implementation/journal-codec-interface.md": "9a0a632165e3a28720eab0bba03cc3afebc63797d6b89e089f8cdcaa33c94e19",
+      "specs/implementation/journal-codec.md": "e49aed02c9c61f1dcd61343b29edc0ab55d6f1dbdbe73c5a689de13aea2aec04"
+    }
   }
 }

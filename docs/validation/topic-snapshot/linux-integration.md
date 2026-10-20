@@ -4,7 +4,7 @@
 
 父进程在 0700 私有目录中监听 Unix pathname SOCK_SEQPACKET，持有尚未回收的 Child，并对 accept 后的 SO_PEERCRED 核验精确 PID、UID 和 GID。子进程独立 connect，反向核对父 PID。资源经 SCM_RIGHTS 传递；父关闭本次资源的全部映射和 FD 后发送 barrier，子收到后才映射并验证，因而成功读取不依赖父仍持有源引用。
 
-子进程在接收前，从编译进测试的黄金数据固定 expected ResourceHeader、JOIN hash、目录 hash 和标的能力集合。入站描述符与这些预期核对；文件内容不会被用于自填 expected identity/hash。有效资源依次经过 `ImmutableMapping::map`、`validate_resource`、`tickwire_snapshot::validate` 和 `check_readiness`，最终核对完整状态行、深度、共同截面及覆盖标志。
+子进程在接收前，从编译进测试的基准数据固定 expected ResourceHeader、JOIN hash、目录 hash 和标的能力集合。入站描述符与这些预期核对；文件内容不会被用于自填 expected identity/hash。有效资源依次经过 `ImmutableMapping::map`、`validate_resource`、`tickwire_snapshot::validate` 和 `check_readiness`，最终核对完整状态行、深度、共同截面及覆盖标志。
 
 同一真实连接还交付两个已经正确封印的坏文件：一个保留资源头但改动子对象内容，另一个修改资源 ID。前者返回 Checksum，后者返回 Identity。每轮结束时，子进程的 FD 数回到基线，`/proc/self/maps` 中也没有该资源映射；成功和失败分支均覆盖回收。
 

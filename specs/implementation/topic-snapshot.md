@@ -17,6 +17,6 @@ Status: implemented receiver validation; builder and JOIN coordinator pending
 
 ## 验证与后续
 
-接收校验使用现有完整黄金文件、重新计算合法摘要后的身份/时间冲突、多标的共同截面、缺少状态、重复 snapshot ID、全部文件截断边界测试。Red/Green 和独立审核记录位于[验证目录](../../docs/validation/topic-snapshot/README.md)。
+接收校验使用现有完整基准样本、重新计算合法摘要后的身份/时间冲突、多标的共同截面、缺少状态、重复 snapshot ID、全部文件截断边界测试。Red/Green 和独立审核记录位于[验证目录](../../docs/validation/topic-snapshot/README.md)。
 
 当前只处理不可变输入上的有限检查，没有新增会发生交错的 JOIN 状态机。源码对应 TLA+ 验证将在 owner 的 pending gate、快照交付、cursor 初始 S、JOIN_READY 和失败回收接通后建立；现有 ring 模型继续覆盖 pending gate 的防覆盖行为。生产快照构造、控制资源登记与完整多进程行情链路尚未完成。

@@ -2,7 +2,7 @@
 
 模式为 faithful transcription。实际 Engine 使用 `&mut self`，订单状态迁移不会被另一个 reducer 调用插入；模型以一次公共方法成功作为一个原子动作。环境可以在两次调用间改变 gate、完成本地写入或完成复制。
 
-模型具体保留订单槽存在性、固定提交画像、发送状态、终态、durable、资金占用、local/replica 完成证据。`sendCount` 是附加历史见证，计数成功的 begin_send 返回，防止仅凭最终标签遗漏重复提交。L0 的 NoBytes 分支只允许传输层真实没有接受输出字节时调用。
+模型具体保留订单槽存在性、固定提交模式、发送状态、终态、durable、资金占用、local/replica 完成证据。`sendCount` 是附加历史见证，计数成功的 begin_send 返回，防止仅凭最终标签遗漏重复提交。L0 的 NoBytes 分支只允许传输层真实没有接受输出字节时调用。
 
 | 抽象 | 对本级性质的影响 |
 | --- | --- |

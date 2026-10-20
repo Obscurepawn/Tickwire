@@ -4,9 +4,9 @@ Status: active（核心 reducer 与服务回归已运行；系统实现继续进
 
 ## 接口与状态
 
-接口设计见 [execution-interface.md](../../docs/implementation/execution-interface.md)。实现位于 `tickwire-execution`，外部服务测试实现位于 `tickwire-mock`。`OrderRequest` 固定账户域、唯一意图、数量、单位支出上界、费用预算、恢复对象、授权版本、期限和提交画像；收据不能改变原意图的画像。
+接口设计见 [execution-interface.md](../../docs/implementation/execution-interface.md)。实现位于 `tickwire-execution`，外部服务测试实现位于 `tickwire-mock`。`OrderRequest` 固定账户域、唯一意图、数量、单位支出上界、费用预算、恢复对象、授权版本、期限和提交模式；收据不能改变原意图的提交模式。
 
-一次准入原子地预留 `quantity × unit_budget + fee_budget`。订单持久化后才可尝试发送；调用任何交易所适配器前先变为 `MayHaveSent`。本地成功提交、提交收据丢失、交易所 ACK 丢失是不同事件。默认画像不等副本；显式同步画像等同一记录的副本持久收据。
+一次准入原子地预留 `quantity × unit_budget + fee_budget`。订单持久化后才可尝试发送；调用任何交易所适配器前先变为 `MayHaveSent`。本地成功提交、提交收据丢失、交易所 ACK 丢失是不同事件。默认提交模式不等副本；显式同步提交模式等同一记录的副本持久收据。
 
 `spent` 只记录实际成交支出和费用。`held` 由尚可能成交的数量、终态中尚缺明细的累计成交量与费用尾款组成。拒绝未发送意图通过 `fee_released` 释放尾款，不增加 `fees_paid`。成交与费用身份分别去重，不用最大成交 ID 跳过乱序事件。真实支出超过资本时保留事实、暴露负可用额并冻结新增风险。
 
@@ -17,7 +17,7 @@ Status: active（核心 reducer 与服务回归已运行；系统实现继续进
 1. 先写 `tests/lifecycle.rs`，`cargo test -p tickwire-execution` 因缺少 `Gate`、`Engine` 等接口失败，再实现接口与 reducer；首批 11 项通过。
 2. 添加 `no_bytes_release_does_not_invent_fee_payment`，观察失败：`fees_paid` 为 2，期望为 0；改为独立 `fee_released`，回归通过。
 3. 独立源码审查发现去重容量耗尽未冻结。添加 `unaccountable_external_fact_freezes_new_risk`，观察 `assert!(e.frozen())` 失败；为外部事实错误统一冻结，回归通过。
-4. 增加提交画像不可降级回归，固定画像存于请求及持久记录；首轮扩展到 14 项通过。
+4. 增加提交模式不可降级回归，固定提交模式存于请求及持久记录；首轮扩展到 14 项通过。
 5. 继续独立审查：费用事实后迟到的 `NoBytesAccepted` 原本会释放本金，正费用和零费用回归均先失败；现费用确认发送，矛盾回调冻结。明确 Unknown 原本只保留占额，未落实共享池冻结；先失败回归后修复，生命周期共 16 项通过。
 6. MockService 先写 9 项测试，因尚无 `MockRuntime` 等类型失败；实现 SQL CAS、不可变 KV、journal 提交/收据故障、交易所 ACK 丢失与恢复后全部通过。随后增加空 journal 重启回归，修复重启时沿用旧授权的问题，服务回归扩展到 10 项通过。
 7. 非阻塞适配器新增正常等待回报的 `PendingResponse`，先验证缺失分支编译失败；正常等待时允许预算内并发，明确超时后冻结，服务回归共 11 项通过。

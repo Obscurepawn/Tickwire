@@ -15,7 +15,7 @@ RO 共享映射沿用 MADV_DONTFORK，Drop 先 munmap 再关闭 FD。`bytes()` �
 独立 `resource.rs` 消费不可变映射并验证以下内容：
 
 - 完整 ResourceHeader 解码与零保留区、全字段精确匹配已认证 expected、头部 SHA-256（仅将 descriptor_hash 字段置零）。
-- 固定 ABI/schema/目标架构/页画像、已知 feature、非零资源/生产者/host boot/namespace 身份，生产者 generation 合法，其他身份计数均小于 `2^63`。
+- 固定 ABI/schema/目标架构/页配置、已知 feature、非零资源/生产者/host boot/namespace 身份，生产者 generation 合法，其他身份计数均小于 `2^63`。
 - kind 5–9、slot_offset=4096，producer/cursor/arena 区域及 class descriptors 均无效并置零，实际文件长度与资源头一致。
 - 对象不超过 64 MiB；`4096 + content_bytes` 的加法、页补齐和范围合法；外层页尾全零；整文件 SHA-256 与已认证对象哈希一致。
 - kind 9 的 consumer 非零、配置 feature 已声明、record_bytes=1、capacity=content_bytes，投影不超过 4 MiB。
@@ -27,7 +27,7 @@ expected header 与 object hash 必须来自已认证 registry、资源描述符
 
 ## 验证与边界
 
-完整 TDD 与实测归档见[验证记录](../../docs/validation/immutable-resource/README.md)。Linux aarch64 上的新用例验证了正确内容、真正只读的 CLOEXEC FD、所有 seal 缺项/错误画像拒绝、写/扩缩容/RW mmap/mprotect 拒绝、真实 EBUSY→撤销映射→成功封印，以及错误返回后的 FD 和映射回收。
+完整 TDD 与实测归档见[验证记录](../../docs/validation/immutable-resource/README.md)。Linux aarch64 上的新用例验证了正确内容、真正只读的 CLOEXEC FD、所有 seal 缺项/错误配置拒绝、写/扩缩容/RW mmap/mprotect 拒绝、真实 EBUSY→撤销映射→成功封印，以及错误返回后的 FD 和映射回收。
 
 实现前的功能 Red 是 9 个主场景失败；首轮 Green 后补查发现 `channel_epoch=2^63` 未被通用资源包装拒绝，再以真实 Red 固定边界并修复。头部哈希负测让 expected 与损坏头的字段保持相同，独立验证 hash 计算，而非靠字段不相等提前拒绝。
 

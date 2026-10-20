@@ -2,7 +2,7 @@
 
 结果为 PASS。primary 穷举 2,236 个不同状态，scaling 穷举 9,076 个不同状态，两者最大深度均为 15。准确命令、全部计数和逐动作覆盖见 [运行记录](03_run_log.md)。本级没有 TLC 反例或开放 candidate。
 
-在选定的无经济事实提交状态机中，检查通过的契约是：资金和订单槽不会超额准入；一次 intent 至多成功返回一次 begin_send；成功进入发送之前存在符合固定 Local/Replica 画像的可信完成证据；MayHaveSent 保留全部预算；不存在订单的槽没有占用。显式 Unknown 冻结共享池，NoBytesRejected 冻结但不释放，成功 NoBytes 与未发送撤销释放预算。
+在选定的无经济事实提交状态机中，检查通过的契约是：资金和订单槽不会超额准入；一次 intent 至多成功返回一次 begin_send；成功进入发送之前存在符合固定 Local/Replica 提交模式的可信完成证据；MayHaveSent 保留全部预算；不存在订单的槽没有占用。显式 Unknown 冻结共享池，NoBytesRejected 冻结但不释放，成功 NoBytes 与未发送撤销释放预算。
 
 后一级可使用这些条件：固定订单身份、可信 CommitReceipt、可信 NoBytesAccepted、单所有者方法调用。L0 把完整 DurableRecord 的内容身份固定，因此不覆盖错误 request/sequence 回执；L1 进一步保留 profile 与 sequence，Rust 回归检查全结构体相等。global gateOpen 是实际 Gate::permits 的合取谓词，不证明真实时间刷新、行情新鲜度和账户恢复事实本身。
 

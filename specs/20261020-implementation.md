@@ -11,7 +11,7 @@ Status: active
 | 范围 | 当前实现 | 后续验收 |
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
-| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照接收、SPSC/广播及 1～32 消费进程测试；Unix SEQPACKET/SCM_RIGHTS 与认证会话 | JOIN 基线构造与 owner/cursor 协调、Arena、bank 轮换、进程死亡回收与业务进程接线 |
+| P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照构造与接收、SPSC/广播及 1～32 消费进程测试；Unix SEQPACKET/SCM_RIGHTS 与认证会话 | JOIN owner/cursor 协调、Arena、bank 轮换、进程死亡回收与业务进程接入 |
 | P2 风控与执行 | 定点风险公式、订单状态、预留/去重/发送门禁、服务接口与 Mock | 完整保证金账户/归属、行情风控接入、协议认证/网关、条件订单和限流 |
 | P3 发布与恢复 | journal Mock 与冻结恢复原语；真实物理 WAL/分段/同步恢复；确定性业务事件与逻辑链编码 | 业务日志适配与恢复依赖闭包、策略升级/回滚、多 exec 协调、对账和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
@@ -25,7 +25,7 @@ Status: active
 - [IPC 接口](../docs/implementation/ipc-interface.md)，[IPC 规格](implementation/ipc-codec.md)。
 - [共享 ring 接口](../docs/implementation/shm-ring-interface.md)，[ring 规格](implementation/shm-ring.md)与[Linux 映射规格](implementation/shm-mapping.md)。
 - [控制会话](../docs/implementation/control-session-interface.md)、[传输边界](../docs/implementation/control-transport-interface.md)与[物理日志](../docs/implementation/journal-interface.md)；各自规格位于 `specs/implementation/`。
-- [不可变资源](implementation/immutable-resource.md)、[Topic 快照接收](implementation/topic-snapshot.md)与[业务日志编码](implementation/journal-codec.md)。
+- [不可变资源](implementation/immutable-resource.md)、[Topic 快照构造](implementation/topic-snapshot-builder.md)、[快照接收](implementation/topic-snapshot.md)与[业务日志编码](implementation/journal-codec.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
@@ -38,9 +38,9 @@ Status: active
 |---|---:|---|
 | `tickwire-book` | 30 | 协议/存储/边界、确定性工作量和无分配；8,000 批参考模型、960,000 次查询及独立 40,000 批差分 |
 | `tickwire-risk` | 18 | 17 项边界，1 项执行全部 21 数值向量/131 预期字段 |
-| `tickwire-ipc` | 110 | 36 布局、63 黄金向量、11 项语义/畸形输入测试；包含全部 25 semantic_cases |
+| `tickwire-ipc` | 110 | 36 布局、63 测试向量、11 项语义/畸形输入测试；包含全部 25 semantic_cases |
 | `tickwire-execution` | 16 | 预算、提交、发送、去重、费用尾款、未知冻结和恢复 |
-| `tickwire-mock` | 13 | 12 项服务故障/恢复测试，1 项 Spot 本地闭环 example 测试；含恢复失败仍须冻结旧引擎的回归 |
+| `tickwire-mock` | 13 | 12 项服务故障/恢复测试，1 项 Spot 本地完整流程 example 测试；含恢复失败仍须冻结旧引擎的回归 |
 | `tickwire-shm` | macOS 14 / Linux 25 | 13 项协议、1 项引用生命周期 doctest；Linux 另有 11 项映射/多进程测试，含 1 项子进程辅助入口 |
 | `tickwire-shm-sys` | macOS 1 / Linux 11 | macOS 拒绝不支持平台；Linux seals/权限/边界与跨进程发布，含 1 项子进程辅助入口 |
 
@@ -110,9 +110,13 @@ macOS 和 Linux 的全仓格式、全部 targets、doctest 与 Clippy 检查通�
 | --- | --- | --- |
 | 不可变资源 | Linux shm-sys 21 个入口、依赖 ring 24 项和 1 项 compile-fail doctest；macOS 2 项 | 私有 pwrite 完成后设置 `0x0f`；实际只读 FD 与安全只读切片；认证预期身份/hash、范围和零页尾校验 |
 | Topic 快照接收 | 12 项纯 Rust；Linux 另有 2 个跨进程测试入口（含 helper） | 完整成员与共同 S，JOIN/资源/状态身份及期限；SCM_RIGHTS 交付后接收校验；错误资源拒绝与 FD/映射回收 |
-| 业务日志 codec | 13 项测试、6 个记录/17 个整数黄金向量、591 个截断与 99,840 个单字节变异 | 最多 201 字节确定性 CBOR；原订单代次与 writer 代次分开；稳定业务摘要和绑定 writer 的逻辑链 |
+| 业务日志 codec | 13 项测试、6 个记录/17 个整数测试向量、591 个截断与 99,840 个单字节变异 | 最多 201 字节确定性 CBOR；原订单代次与 writer 代次分开；稳定业务摘要和绑定 writer 的逻辑链 |
 
 快照通过校验不会自行改变 owner/cursor 状态。业务 codec 也没有生成可直接授权发送的提交证明；真实 WAL、依赖闭包与执行恢复的适配器仍须连接这些已验证原语。
+
+## Topic 快照构造阶段
+
+快照构造器已实现完整成员集合、共同序号 S、状态与深度编码、摘要及 JOIN 绑定。先检查全部大小和容量，再分配输出；非 Live 成员保留在快照中，构造成功不授予交易资格。18 项新增构造与算术测试及 12 项既有接收测试在 macOS/Linux 通过，Linux 另通过 2 个既有跨进程接收入口，格式与 Clippy 通过。实际失败测试、最终输出和独立基准样本比对见[验证报告](../docs/validation/topic-snapshot-builder/report.md)。涉及 owner、pending gate 和 JOIN_READY 的状态迁移在 JOIN 协调模块中继续验证。
 
 ## 接续工作
 

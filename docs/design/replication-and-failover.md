@@ -8,7 +8,7 @@
 
 本文具体化[主设计](binance-ultra-low-latency.md)第 8、9、12 节，与[策略生命周期](strategy-lifecycle.md)和[共享内存 IPC](shared-memory-ipc.md)共同生效。参数、证据字段和故障场景见 [replication-profile-v1.json](../../specs/contracts/replication-profile-v1.json)。数量和时限是参考生产配置，不表示用户已有这些硬件或完成验收。
 
-## 1. 两种明确的提交画像
+## 1. 两种明确的提交模式
 
 | 项目 | 默认 `LocalDurable+AsyncReplica` | 可选 `SyncReplica` |
 |---|---|---|
@@ -21,7 +21,7 @@
 | 镜像不可用 | 本地继续持久化，备机标为不可提升；复制延迟达到保护期限后禁增险 | 未达到镜像确认的意图不 Accepted、不发送；不自动降级异步 |
 | 自动提升条件 | 取得原盘完整前缀/源封口证明并补齐，实际隔离、对账和恢复完成 | 指定镜像证明覆盖所有可能发送意图，实际隔离、对账和恢复完成；恢复新的同步镜像后再增险 |
 
-这里的恢复点目标（Recovery Point Objective，RPO）描述故障后允许丢失的记录范围。默认画像只在本地可靠存储仍可读取的故障范围内保证已接纳意图可恢复；异步复制延迟不是已保证的 RPO 上限。`SyncReplica` 的跨机零丢失范围是**可能发送的意图及恢复闭包**，并不表示交易所尚未交付的成交回报已经存在本地。
+这里的恢复点目标（Recovery Point Objective，RPO）描述故障后允许丢失的记录范围。默认提交模式只在本地可靠存储仍可读取的故障范围内保证已接纳意图可恢复；异步复制延迟不是已保证的 RPO 上限。`SyncReplica` 的跨机零丢失范围是**可能发送的意图及恢复闭包**，并不表示交易所尚未交付的成交回报已经存在本地。
 
 参考部署为两个交易主机 A/B，分别承载单写主执行者与 warm standby，位于独立故障域；每个参考主机至少 64 个物理核、256 GiB 内存。控制组在 A/B/C 三个独立故障域各有一个有状态 voter，C 为至少 8 个物理核、32 GiB 内存的控制专用主机；它持久保存完整控制状态，不冒充订单日志副本或无数据 witness。跨可用区会增加同步镜像等待，按真实拓扑压测。guardian 和隔离控制接口至少有一套位于当前 exec 故障域之外。
 
@@ -29,7 +29,7 @@
 
 每个风险域由一个 exec 单写订单、资金预留、授权和账户事实，**该域本地 journal 是业务顺序的权威来源**。复制端按这个顺序保存并重放，不参与选举，不创造另一套可独立提交的业务事实。备用 exec 无正常交易出口。共享账户不能因为有多个数据副本就产生多个风险所有者。
 
-只有 `control` 运行一个 Raft 组，保存配置、发布 operation、制品目录、拟执行权、隔离请求/证据和共享限流授权。控制指令提交后，exec 把指令及其证明导入本域 journal，本地持久化并应用后返回 `AppliedReceipt`。控制组提交不等于 exec 已应用，跨风险域发布继续按生命周期契约逐域确认，没有全局原子提交。
+只有 `control` 运行一个 Raft 组，保存配置、发布 operation、发布文件目录、拟执行权、隔离请求/证据和共享限流授权。控制指令提交后，exec 把指令及其证明导入本域 journal，本地持久化并应用后返回 `AppliedReceipt`。控制组提交不等于 exec 已应用，跨风险域发布继续按生命周期契约逐域确认，没有全局原子提交。
 
 选定 TiKV **raft-rs `raft = "=0.7.0"`**，固定 `v0.7.0` 提交 `10c6e9db6792b85c81784e44fc278f895d5f0ab0`；crate SHA-256 为 `f12688b23a649902762d4c11d854d73c49c9b93138f2de16403ef9f571ad5bae`。使用 `RawNode`、`Storage` 和 `ConfChangeV2`，Tickwire 实现存储/网络适配器。`MemStorage` 不进入生产持久化路径，升级重跑崩溃与配置变更测试。[raft-rs 0.7.0](https://docs.rs/raft/0.7.0/raft/)
 
@@ -43,7 +43,7 @@
 
 ## 3. 本地提交、逐单状态与批处理
 
-默认路径为 `Received → Prepared → LocalDurable → Applied/Accepted → final_send_gate → MayHaveSent`。`Prepared` 保存完整动作、不可复用订单 ID、风险预留、经济动作键、策略/执行代次、已应用授权引用和 `RecoveryManifest`。同步画像在 `LocalDurable` 之后增加 `MirrorDurable` 条件，达到它才可 Accepted。
+默认路径为 `Received → Prepared → LocalDurable → Applied/Accepted → final_send_gate → MayHaveSent`。`Prepared` 保存完整动作、不可复用订单 ID、风险预留、经济动作键、策略/执行代次、已应用授权引用和 `RecoveryManifest`。同步提交模式在 `LocalDurable` 之后增加 `MirrorDurable` 条件，达到它才可 Accepted。
 
 提交记录包含“此动作在提交后可能发送”的语义。崩溃发生在发送与本地回调之间时，恢复仍将该意图视为可能已发；不能因没有 `MayHaveSent` 回调就推断未发送。这样无需在正常路径额外做一次“已发送标记”的同步提交。确定未进入输出缓冲的 `AbortedBeforeSend` 必须持久记录后才释放预留。
 
@@ -53,7 +53,7 @@ pending 预留参与后续风控，防止一批订单重复占用同一余额；
 
 发送前重新检查 exec 权限、策略代次、发布 operation、期限、行情/账户状态与预留。等待本地落盘、同步镜像或 socket 可写期间发生撤权，旧记录即使已经持久化也不得绕过此门禁。`Accepted` 仍不表示交易所接受。
 
-默认路径的完整延迟包含本地输入闭包、合批等待、flush、状态应用、编码签名、IPC 与 socket 排队，参考资格目标为 p99 ≤ 300 µs、p99.9 ≤ 1 ms；同步画像再加入镜像网络和存储等待，其参考候选目标为 p99 ≤ 2 ms、p99.9 ≤ 5 ms。两种画像都等待完整实测，不复用分位数，不拿纯计算小于 100 µs 代替完整发送结论。部署清单分别报告完整 `t_plain→t_socket_accepted` 与 `t_risk_done→t_commit`；控制 Raft 不在逐单路径。
+默认路径的完整延迟包含本地输入闭包、合批等待、flush、状态应用、编码签名、IPC 与 socket 排队，参考资格目标为 p99 ≤ 300 µs、p99.9 ≤ 1 ms；同步提交模式再加入镜像网络和存储等待，其参考候选目标为 p99 ≤ 2 ms、p99.9 ≤ 5 ms。两种提交模式都等待完整实测，不复用分位数，不拿纯计算小于 100 µs 代替完整发送结论。部署清单分别报告完整 `t_plain→t_socket_accepted` 与 `t_risk_done→t_commit`；控制 Raft 不在逐单路径。
 
 ## 4. WAL 帧、水位与崩溃恢复
 
@@ -67,14 +67,14 @@ pending 预留参与后续风控，防止一批订单重复占用同一余额；
 |---|---|
 | `last_seq` | 本地已编号追加的末端，可含未提交批次 |
 | `local_durable_seq` | 本地完整批次与恢复闭包已同步的连续前缀 |
-| `commit_seq` | 当前画像满足发送前条件的连续前缀：默认等于 local durable；同步画像还受 mirror durable 限制 |
+| `commit_seq` | 当前提交模式满足发送前条件的连续前缀：默认等于 local durable；同步提交模式还受 mirror durable 限制 |
 | `applied_seq` | 本进程 reducer 已应用的提交前缀 |
 | `snapshot_seq` | 已验证状态快照对应的事件边界 |
 | `replica_received_seq` | 备机已收到的连续序号，不代表持久化 |
 | `replica_durable_seq` | 备机日志及闭包完成同步的连续前缀 |
 | `replica_applied_seq` | 备机只读 reducer 已重放的位置 |
 
-正常本地满足 `snapshot_seq ≤ applied_seq ≤ commit_seq ≤ local_durable_seq ≤ last_seq`。同步画像的 commit 还要求匹配镜像的 `replica_durable_seq` 覆盖；异步画像不要求这项条件。备机比源端已看到的 ACK 更靠前是允许的，收到的尾部仍按原意图保守对账，不当作一次新交易。
+正常本地满足 `snapshot_seq ≤ applied_seq ≤ commit_seq ≤ local_durable_seq ≤ last_seq`。同步提交模式的 commit 还要求匹配镜像的 `replica_durable_seq` 覆盖；异步复制模式不要求这项条件。备机比源端已看到的 ACK 更靠前是允许的，收到的尾部仍按原意图保守对账，不当作一次新交易。
 
 重启只丢弃最后没有完整 seal 的未完成批次；封口批次 CRC/哈希错误、中部洞、epoch 回退或依赖丢失都进入 `StorageQuarantined`，不能截断已确认历史后继续交易。恢复从同一快照边界重放完整已提交批次；applied 数字不能脱离状态独立恢复。未提交尾部不会直接触发外部动作。
 
@@ -98,15 +98,15 @@ pending 预留参与后续风控，防止一批订单重复占用同一余额；
 
 ## 6. 恢复依赖闭包与提交证明
 
-`RecoveryManifest` 的内容根覆盖不可变依赖图：意图/预留/去重、授权、发布 operation、策略工件/模型/配置/schema，以及策略检查点和输入。当前意图叶子只哈希不含 manifest 引用的 payload，Raft/本地日志 envelope 再引用 manifest 根，提交证明绑定二者，避免自引用。存储收据与动态 pin 持有者是旁附证据，不参与内容根。
+`RecoveryManifest` 的内容根覆盖不可变依赖图：意图/预留/去重、授权、发布 operation、策略发布文件/模型/配置/schema，以及策略检查点和输入。当前意图叶子只哈希不含 manifest 引用的 payload，Raft/本地日志 envelope 再引用 manifest 根，提交证明绑定二者，避免自引用。存储收据与动态 pin 持有者是旁附证据，不参与内容根。
 
 `deterministic_replay` 必须保存检查点、随机状态/逻辑时间，以及直到决策边界的实际有序输入，覆盖行情、exec 回报、定时器、配置和模型更新。可信 SDK 输入 sequencer 或隔离适配器固定次序，独立持久化服务验证连续字节与哈希链后出具覆盖收据；策略自报水位无效。md 的 Disruptor 共享广播不改成复制日志，只有策略恢复所需的实际输入通过可靠通道转为内容寻址 blob。
 
-`declared_rebuild` 保存经批准的重建契约、所需行情窗口与账户事实、预热及验证条件。不能在丢失精确输入后临时更改恢复语义。默认画像要求完整闭包在当前本地可靠存储完成；复制端只有自己也保存完整闭包，才确认相应 durable seq。同步画像要求本地和指定镜像均满足闭包，因此不能只镜像订单 WAL 而把策略状态留在原机。
+`declared_rebuild` 保存经批准的重建契约、所需行情窗口与账户事实、预热及验证条件。不能在丢失精确输入后临时更改恢复语义。默认提交模式要求完整闭包在当前本地可靠存储完成；复制端只有自己也保存完整闭包，才确认相应 durable seq。同步提交模式要求本地和指定镜像均满足闭包，因此不能只镜像订单 WAL 而把策略状态留在原机。
 
 对象采用临时文件、内容校验、同步、rename 和目录同步后发布。代码等大对象预置，输入以 256 KiB/50 µs 上限的批次持续落盘，意图等待其决策边界。live intent、未知订单、保留快照、发布 operation 和待安装快照持有 pin；只有持久 DependencyRelease 且不存在活引用，才能回收。未知订单的依赖不能按保留天数直接删除。
 
-证明分成三个类型：`LocalCommitProof` 证明本地完整批次及闭包，默认 Accepted 依赖它；`MirrorCommitProof` 在本地证明上加入指定镜像同 epoch/seq/hash 的持久收据，只有同步画像使用；`ControlCommitProof` 证明控制 Raft 的当前任期安全前缀和有效 membership 多数派。三者不能互换，数据域没有一个虚构的 Raft term。
+证明分成三个类型：`LocalCommitProof` 证明本地完整批次及闭包，默认 Accepted 依赖它；`MirrorCommitProof` 在本地证明上加入指定镜像同 epoch/seq/hash 的持久收据，只有同步提交模式使用；`ControlCommitProof` 证明控制 Raft 的当前任期安全前缀和有效 membership 多数派。三者不能互换，数据域没有一个虚构的 Raft term。
 
 exec 将证明绑定 `(domain, intent_id, payload_hash, manifest_root, exec_epoch, strategy_generation, action_grant_ref, operation_revision)` 并核对自己的 applied 结果。证据使用简明二进制对象表示（Concise Binary Object Representation，CBOR）确定性编码，禁止重复键、浮点数和不定长项；签名使用 Ed25519，加入记录类型/schema 域分隔。哈希与签名说明内容及来源，不代替实际存储语义。[CBOR 确定性编码](https://www.rfc-editor.org/rfc/rfc8949.html#section-4.2.1)
 
@@ -147,7 +147,7 @@ exec 将证明绑定 `(domain, intent_id, payload_hash, manifest_root, exec_epoc
 
 ## 9. 提升算法与证据缺口
 
-默认异步画像使用以下顺序，控制 operation 保存每一步结果，重试沿用原操作键：
+默认异步复制模式使用以下顺序，控制 operation 保存每一步结果，重试沿用原操作键：
 
 1. 冻结新授权，触发实际隔离。exec 主循环进度每 10 ms 更新，50 ms 无进展即怀疑；独立心跳线程不能掩盖主循环卡死。本地终止预算 500 ms、网络隔离预算 2,000 ms，电源隔离使用剩余预算，隔离总截止时间 5,000 ms；超过即 Frozen，不假设隔离成功。
 2. 原盘可读时，在旧写者已隔离后取得**完整源前缀证明 `SourceRecoverySeal`**：可由健康源写入 FreezeSeal 并关闭写入，或由可信恢复工具读取隔离主机的盘、校验最后完整批次和全部闭包，记录最终 F、哈希、存储身份及 FenceEvidence。源退出前最后一个 ACK 不是 SourceRecoverySeal。
@@ -159,7 +159,7 @@ exec 将证明绑定 `(domain, intent_id, payload_hash, manifest_root, exec_epoc
 
 如果原主机和本地存储永久丢失，异步备机没有 F，就无法证明不存在未复制但已经发送的订单。进入 `EvidenceLost`，保留所有已有预留，导出已知前缀、订单 ID 命名空间、复制缺口和交易所查询覆盖。即使查询找回了订单与成交，也可能找不回授权细节、策略有序输入或随机状态；不能把经济对账完成等同于精确状态恢复。
 
-恢复人员必须逐项记录交易所事实能证明什么、历史可查询范围和仍未解决项。若完整证据最终无法取得，原精确恢复契约不能继续宣称成立；只能依据另行批准的灾难恢复/策略状态重建变更，在闭合账户事实、定义剩余未知风险及新策略基线后决定是否恢复。人工签字本身不补齐缺失数据，未能约束的账户风险继续冻结。默认画像因此不承诺原存储永久丢失后的固定恢复时间目标（Recovery Time Objective，RTO）。
+恢复人员必须逐项记录交易所事实能证明什么、历史可查询范围和仍未解决项。若完整证据最终无法取得，原精确恢复契约不能继续宣称成立；只能依据另行批准的灾难恢复/策略状态重建变更，在闭合账户事实、定义剩余未知风险及新策略基线后决定是否恢复。人工签字本身不补齐缺失数据，未能约束的账户风险继续冻结。默认提交模式因此不承诺原存储永久丢失后的固定恢复时间目标（Recovery Time Objective，RTO）。
 
 进程故障、本地盘完整，以及指定负载下的已完整复制接管，可在部署清单中设置 30,000 ms 恢复资格目标；对账阶段预算 20,000 ms、策略恢复 5,000 ms，阶段预算不能延长总期限。超时产生具体未决项，不自动 Active；源盘等待、EvidenceLost 和交易所历史不足不纳入这个固定目标。
 
@@ -179,9 +179,9 @@ exec 将证明绑定 `(domain, intent_id, payload_hash, manifest_root, exec_epoc
 
 | ID | 注入序列 | 必须观察到的状态 |
 |---|---|---|
-| `RF-01` | 默认画像本地 flush 前杀 exec | 无 Accepted/发送；丢弃未封口尾部 |
-| `RF-02` | 默认画像本地提交并发送、远端未复制时杀进程，本地盘完整 | 从原盘恢复原 ID/预留；策略重试不产生新经济动作 |
-| `RF-03` | 默认画像原机与盘永久丢失，远端缺尾部 | EvidenceLost/Frozen，不凭备机水位自动提升 |
+| `RF-01` | 默认提交模式本地 flush 前杀 exec | 无 Accepted/发送；丢弃未封口尾部 |
+| `RF-02` | 默认提交模式本地提交并发送、远端未复制时杀进程，本地盘完整 | 从原盘恢复原 ID/预留；策略重试不产生新经济动作 |
+| `RF-03` | 默认提交模式原机与盘永久丢失，远端缺尾部 | EvidenceLost/Frozen，不凭备机水位自动提升 |
 | `RF-04` | 备机收到日志但缺策略检查点/blob | received 可前进，durable 不前进；不可用它证明完整恢复 |
 | `RF-05` | 控制 leader 仅有旧任期多数副本，没有本任期 barrier | 不签发新的控制提交证明和执行授权 |
 | `RF-06` | 控制 joint `{A,B,C}→{A,B,D}`，B 故障、D 分区，仅 A/C 互通 | 旧集合多数派不够，不退出 joint、不提前回收 C |

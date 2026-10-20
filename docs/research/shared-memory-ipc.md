@@ -49,7 +49,7 @@ Rust crate 的 ring 使用 `Box<[UnsafeCell<E>]>`，builder 用 `Arc`、`Vec` �
 
 生产者写完完整槽位后以 Release 发布连续 committed sequence；消费者通过具有 acquire 语义的 `acquire_observe` 观察发布进度，再访问不可变 payload；消费者结束全部借用后以 Release 推进 `released_seq`，生产者通过同一抽象观察。动态成员增减与缓存的最小 gating 值也属于同一协议：由 publisher 在事件边界登记新读者的 JoinSeq／gating，配合一致快照建立订阅起点；新读者不能追读该起点之前已可能被复用的内容。
 
-这里的 acquire 语义不等于在只读映射上直接调用 `AtomicU64::load(Ordering::Acquire)`。本轮读取的 Rust 1.99.1 官方文档只对列出的目标及足够小的 Relaxed 原子加载给出只读内存保证，并建议以 Relaxed load 后接 Acquire fence 获取 acquire 效果。Tickwire 在获准的 64 位目标上使用对齐 `AtomicU64` 的 Relaxed load＋`std::sync::atomic::fence(Ordering::Acquire)`，仅在观察到相应 Release 发布值之后读取其保护的数据；只读页禁止直接 Acquire load 和任何读改写操作。拥有写权限的一端用 Release store。发布序号和消费者释放水位的两个方向都执行这一约束，目标／宽度不满足时拒绝该部署画像。[Rust 只读内存上的原子操作][rust-ro-atomics]
+这里的 acquire 语义不等于在只读映射上直接调用 `AtomicU64::load(Ordering::Acquire)`。本轮读取的 Rust 1.99.1 官方文档只对列出的目标及足够小的 Relaxed 原子加载给出只读内存保证，并建议以 Relaxed load 后接 Acquire fence 获取 acquire 效果。Tickwire 在获准的 64 位目标上使用对齐 `AtomicU64` 的 Relaxed load＋`std::sync::atomic::fence(Ordering::Acquire)`，仅在观察到相应 Release 发布值之后读取其保护的数据；只读页禁止直接 Acquire load 和任何读改写操作。拥有写权限的一端用 Release store。发布序号和消费者释放水位的两个方向都执行这一约束，目标／宽度不满足时拒绝该部署配置。[Rust 只读内存上的原子操作][rust-ro-atomics]
 
 payload、发布元数据与每个消费者的 cursor 控制页分别授权。策略只读 payload，仅能写自己的 cursor／状态页；不能把所有策略进度放在每个策略都可写的一张共享页中。SDK 不允许引用逃出读取 guard；异步计算需要先复制自己所需的小型快照。布局、原子宽度和内存顺序在实际 Linux／CPU 目标上验证。
 
@@ -195,7 +195,7 @@ Aeron 应进入生产基准而不是仅作概念参考；评估项包括 Driver 
 | 门槛 | 必须产生的证据 | 不通过时的结果 |
 | --- | --- | --- |
 | 版本与来源 | 锁定库、传递依赖、feature、发布包校验和、协议布局和许可证；所有进程检查 namespace／SDK／schema | 拒绝加入对应服务 |
-| 只读原子视图 | 固定目标、原子宽度和对齐；实际 RO 映射测试发布序号与释放水位的 Relaxed load＋Acquire fence，核对所依赖的 Rust 文档保证 | 禁止直接用 RO Acquire load／RMW，拒绝不满足平台画像的部署 |
+| 只读原子视图 | 固定目标、原子宽度和对齐；实际 RO 映射测试发布序号与释放水位的 Relaxed load＋Acquire fence，核对所依赖的 Rust 文档保证 | 禁止直接用 RO Acquire load／RMW，拒绝不满足平台要求的部署 |
 | 消息与业务确认 | 测试 `0` 接收者、部分投递、连接变化、重复／乱序、队列满、ACK 丢失；执行端意图 ID 幂等，明确 Received／Accepted／持久化／交易所状态 | 意图保持未确认或拒绝入场，不能凭传输成功放行 |
 | 慢消费者隔离 | 某策略停止取样、取样后永久暂停、长时间计算；健康策略继续满足约定延迟，内存占用与丢弃计数符合上限 | 停该订阅者增险、重建流或更换拓扑，不扩大无限缓存 |
 | 内存与崩溃 | 在 loan、发布、接收、返还、注册、清理各阶段注入 `SIGKILL`；区别 `SIGSTOP`；测试 publisher／subscriber 退出次序、持有 Sample 时关闭端口、反复重启和旧连接缓存耗尽 | 保留未确认资源；定位回收缺陷，不能用超时强制复用 |

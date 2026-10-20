@@ -1,8 +1,8 @@
 # 控制会话与请求登记
 
-`tickwire-control` 在现有二进制 ABI 上验证控制会话。Linux 传输由 `tickwire-control-sys` 提供；系统读取的 PID/UID/GID 与监督器预先登记的实例、代次、host boot、namespace、角色及工件哈希共同确定身份。HELLO 中的声明不能替换登记信息。
+`tickwire-control` 在现有二进制 ABI 上验证控制会话。Linux 传输由 `tickwire-control-sys` 提供；系统读取的 PID/UID/GID 与监督器预先登记的实例、代次、host boot、namespace、角色及发布文件哈希共同确定身份。HELLO 中的声明不能替换登记信息。
 
-服务端先验证 HELLO、共同 ABI/feature、架构与页画像，再分配控制 epoch、不可复用 nonce 和资源会话截止时间，返回 WELCOME。客户端核对内核对端身份、请求关联、服务端实例、host boot、协商结果与截止时间。控制帧均使用既有 128 字节 envelope、准确 body 长度和 CRC。
+服务端先验证 HELLO、共同 ABI/feature、架构与页配置，再分配控制 epoch、不可复用 nonce 和资源会话截止时间，返回 WELCOME。客户端核对内核对端身份、请求关联、服务端实例、host boot、协商结果与截止时间。控制帧均使用既有 128 字节 envelope、准确 body 长度和 CRC。
 
 `Session` 保存两个端点及协商结果，验证 sender/target、epoch、frame 上限、feature 与严格 `now < deadline`。时间来自同一主机、同一 Linux time namespace 的 CLOCK_MONOTONIC；时间倒退或过期使会话永久关闭。资源会话续租只更新自身 revision/deadline，不能恢复交易授权，也不能解除共享内存容量门禁。
 

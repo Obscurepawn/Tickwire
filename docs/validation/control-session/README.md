@@ -10,7 +10,7 @@
 - `linux-green.log`：固定 Rust 1.99.1 bookworm 镜像执行 `cargo test --locked -p tickwire-control`，13 项逻辑测试和 1 项实际 exec 子进程测试通过；1 个 helper 在主测试列表 ignored，由父进程明确启动并通过。
 - `anchors-update.log`、`anchors-check.log`：L0/L1 共 384 个源码行锚点，检查无漂移。
 
-Linux 环境和镜像与 [check-linux.sh](../../../scripts/check-linux.sh) 相同。综合测试通过 pathname socket 独立 connect，父进程始终保留 Child 句柄；实际 kernel PID/UID/GID 与 launcher 输入比较后才完成握手。两个进程继承同一 Linux time namespace。测试工件哈希是固定 fixture，生产 launcher 的签名/资格登记仍需集成。
+Linux 环境和镜像与 [check-linux.sh](../../../scripts/check-linux.sh) 相同。综合测试通过 pathname socket 独立 connect，父进程始终保留 Child 句柄；实际 kernel PID/UID/GID 与 launcher 输入比较后才完成握手。两个进程继承同一 Linux time namespace。测试发布文件哈希是固定 fixture，生产 launcher 的签名/资格登记仍需集成。
 
 父进程只登记并交付一次执行票据，保存版本 1 的完整响应；owner 当前版本改成 7 后重试，仍返回原有响应。MockRequestStore 在父进程内存中，测试不包含 owner 重启或真实持久后端。
 

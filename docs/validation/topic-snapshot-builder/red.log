@@ -1,0 +1,34 @@
+   Compiling tickwire-snapshot v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-snapshot)
+warning: method `clear_bindings` is never used
+  --> crates/tickwire-snapshot/tests/builder.rs:42:8
+   |
+18 | impl Fixture {
+   | ------------ method in this implementation
+...
+42 |     fn clear_bindings(&mut self) {
+   |        ^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-snapshot` (test "builder") generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.55s
+     Running tests/builder.rs (target/debug/deps/builder-5dc8af3ef02d8aef)
+
+running 1 test
+test constructs_the_complete_independent_golden_bundle ... FAILED
+
+failures:
+
+---- constructs_the_complete_independent_golden_bundle stdout ----
+
+thread 'constructs_the_complete_independent_golden_bundle' (4909844) panicked at crates/tickwire-snapshot/tests/builder.rs:49:95:
+called `Result::unwrap()` on an `Err` value: UnsupportedOperation
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    constructs_the_complete_independent_golden_bundle
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p tickwire-snapshot --test builder`

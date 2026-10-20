@@ -19,9 +19,9 @@ python3 -m venv /tmp/tickwire-design-validation-env
 | [verify-config-contract.py](verify-config-contract.py) | 全量与投影 schema、参考 TOML、跨字段约束、接口引用及负例；生产模板含未填写输入，必须拒绝 |
 | [verify-documentation.py](verify-documentation.py) | 本地链接文件存在、参考链接定义、代码块闭合、测试计划编号、图片格式、图资产哈希与交互图交付记录 |
 
-`reference.toml` 是模拟环境的结构与容量参考，其中的 fixture 工件、秘密引用和模拟入口没有部署到运行环境。生产模板中的 `REQUIRED` 必须替换为实际输入，并通过完整运行时准入与资格验证。文件解析成功不能替代这些验证。
+`reference.toml` 是模拟环境的结构与容量参考，其中的 示例文件、凭据引用和模拟入口没有部署到运行环境。生产模板中的 `REQUIRED` 必须替换为实际输入，并通过完整运行时准入与资格验证。文件解析成功不能替代这些验证。
 
-Rust 实现使用 `./scripts/check-rust.sh` 执行格式、全 workspace 回归（含 example、基准 smoke 和编译失败 doctest）及 Clippy。`cargo run -p tickwire-mock --example spot-roundtrip` 运行本地业务闭环。
+Rust 实现使用 `./scripts/check-rust.sh` 执行格式、全 workspace 回归（含 example、基准 smoke 和编译失败 doctest）及 Clippy。`cargo run -p tickwire-mock --example spot-roundtrip` 运行本地完整业务流程。
 
 `./scripts/check-linux.sh` 在固定摘要的官方 Rust 1.99.1 容器中执行同一组检查，包含真实 Linux memfd、seals、映射权限和 1/2/4/8/16/32 个消费者进程测试。需要已运行的 Docker daemon（macOS 可使用 Colima）；首次下载镜像和 Rust 组件。依赖缓存放在已忽略的 `.tools/linux-cargo-registry`，构建目录为 `target/linux-check`，不影响宿主机工具链。底层映射测试保留 `/proc` FD 与管道夹具；`tickwire-control-sys` 已独立验证 pathname SEQPACKET、SCM_RIGHTS、CLOEXEC 与真实 peer credentials，`tickwire-control` 的 exec 子进程测试验证认证握手和请求去重。业务进程的资源准入与 JOIN 快照仍在集成。
 

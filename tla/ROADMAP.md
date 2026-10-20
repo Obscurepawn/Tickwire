@@ -2,7 +2,7 @@
 
 | 阶梯 | 当前范围 | 状态 | 后续 |
 | --- | --- | --- | --- |
-| execution/submission L0 | 预留、回执画像、发送、未知结果、未发送撤销 | PASS | L1 |
+| execution/submission L0 | 预留、回执模式、发送、未知结果、未发送撤销 | PASS | L1 |
 | execution/submission L1 | 日志回执丢失、提交失败、正常等待与未知结果、发送边界崩溃、恢复 | PASS | L2 |
 | execution/submission L2 | 成交/费用/终态、重复/冲突、容量/上界、Mock 事实重放 | PASS v2；L2-001 已修复验证 | 真实日志崩溃边界与 L3 激活 |
 | book_state L0/L1 | Spot/Futures 桥接、旧 generation、失败原子性与有限深度知识 | 八配置 PASS | 真实适配器、快照/增量接线与 exec 行情门禁组合 |
