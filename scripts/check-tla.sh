@@ -11,25 +11,23 @@ if [[ ! -f "$jar" ]]; then
 fi
 actual="$(shasum -a 256 "$jar" | cut -d ' ' -f 1)"
 [[ "$actual" == "$expected" ]] || { echo 'TLC jar checksum mismatch' >&2; exit 1; }
-while IFS= read -r cfg; do
-  dir="$(dirname "$cfg")"
+scratch="$(mktemp -d)"
+trap 'rm -rf "$scratch"' EXIT
+while IFS= read -r dir; do
   # Every directory has one model and its primary/scaling configurations.
   model="$(find "$dir" -maxdepth 1 -name '*.tla' ! -name '*_TTrace_*' -print)"
   [[ -n "$model" && "$model" != *$'\n'* ]] || { echo "Ambiguous model directory: $dir" >&2; exit 1; }
-  scratch="$(mktemp -d)"
-  trap 'rm -rf "$scratch"' EXIT
-  mkdir -p "$scratch/states" "$scratch/java"
-  (cd "$dir" && java -Djava.io.tmpdir="$scratch/java" -XX:+UseParallelGC -cp "$jar" tlc2.TLC -workers 1 -coverage 1 -metadir "$scratch/states" -config "$(basename "$cfg")" "$(basename "$model")") | tee "$scratch/tlc.log"
-  # Coverage prints distinct:generated. A stuttering/redundant action may have
-  # zero distinct states but must still generate successors in these configs.
-  awk '
-    /^<[^>]+>: [0-9]+:[0-9]+$/ {
-      count++
-      split($0, values, ":")
-      if (values[3] + 0 == 0) { print "Uncovered action: " $0; failed=1 }
-    }
-    END { if (count == 0 || failed) exit 1 }
-  ' "$scratch/tlc.log"
-  rm -rf "$scratch"
-  trap - EXIT
-done < <(find tla/execution_models -path '*/02_models/*.cfg' -print | sort)
+  group="$(mktemp -d "$scratch/model.XXXXXX")"
+  logs=()
+  while IFS= read -r cfg; do
+    run="$(mktemp -d "$group/run.XXXXXX")"
+    mkdir -p "$run/states" "$run/java"
+    (cd "$dir" && java -Djava.io.tmpdir="$run/java" -XX:+UseParallelGC -cp "$jar" tlc2.TLC -workers 1 -coverage 1 -metadir "$run/states" -config "$(basename "$cfg")" "$(basename "$model")") | tee "$run/tlc.log"
+    logs+=("$run/tlc.log")
+    rm -rf "$run/states" "$run/java"
+  done < <(find "$dir" -maxdepth 1 -name '*.cfg' -print | sort)
+  # Every cfg must finish successfully. Only final coverage blocks count;
+  # boundary configurations may exercise complementary action entries.
+  python3 scripts/tlc_coverage.py --model "$(basename "$model" .tla)" "${logs[@]}"
+  rm -rf "$group"
+done < <(find tla/execution_models -path '*/02_models/*.cfg' -exec dirname {} \; | sort -u)
