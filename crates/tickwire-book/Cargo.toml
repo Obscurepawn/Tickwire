@@ -1,0 +1,13 @@
+[package]
+name = "tickwire-book"
+version = "0.1.0"
+edition = "2024"
+license.workspace = true
+publish.workspace = true
+description = "Bounded order book reducer with explicit venue sequence policies"
+
+[dependencies]
+
+[[bench]]
+name = "depth_apply"
+harness = false

@@ -1,0 +1,15 @@
+[package]
+name = "tickwire-mock"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+
+[dependencies]
+tickwire-execution = { path = "../tickwire-execution" }
+
+tickwire-book = { path = "../tickwire-book" }
+tickwire-risk = { path = "../tickwire-risk" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+
+[lints]
+workspace = true

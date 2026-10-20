@@ -1,0 +1,943 @@
+    Updating crates.io index
+     Locking 21 packages to highest Rust 1.99.1 compatible versions
+      Adding generic-array v0.14.7 (available: v0.14.9)
+      Adding serde_json v1.0.145 (available: v1.0.154)
+      Adding sha2 v0.10.9 (available: v0.11.1)
+ Downloading crates ...
+  Downloaded crypto-common v0.1.7
+  Downloaded block-buffer v0.10.4
+  Downloaded cfg-if v1.0.5
+  Downloaded generic-array v0.14.7
+  Downloaded itoa v1.0.18
+  Downloaded version_check v0.9.5
+  Downloaded sha2 v0.10.9
+  Downloaded cpufeatures v0.2.17
+  Downloaded digest v0.10.7
+  Downloaded ryu v1.0.23
+  Downloaded serde_core v1.0.229
+  Downloaded memchr v2.8.3
+  Downloaded typenum v1.20.1
+  Downloaded serde_json v1.0.145
+  Downloaded libc v0.2.191
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling libc v0.2.191
+   Compiling serde_core v1.0.229
+   Compiling cfg-if v1.0.5
+   Compiling serde_json v1.0.145
+   Compiling itoa v1.0.18
+   Compiling ryu v1.0.23
+   Compiling memchr v2.8.3
+   Compiling generic-array v0.14.7
+   Compiling cpufeatures v0.2.17
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling digest v0.10.7
+   Compiling sha2 v0.10.9
+   Compiling tickwire-ipc v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-ipc)
+error[E0422]: cannot find struct, variant or union type `MarketRecord` in this scope
+ --> crates/tickwire-ipc/tests/vectors.rs:6:13
+  |
+6 | let value = MarketRecord { header: RecordHeader { sequence: 1, message_type: 257, schema_major: 1, header_bytes: 128, body_bytes: 384...
+  |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+ --> crates/tickwire-ipc/tests/vectors.rs:6:36
+  |
+6 | let value = MarketRecord { header: RecordHeader { sequence: 1, message_type: 257, schema_major: 1, header_bytes: 128, body_bytes: 384...
+  |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketBody` in this scope
+ --> crates/tickwire-ipc/tests/vectors.rs:6:276
+  |
+6 | ...ument_version: 5, ..Default::default() }, body: MarketBody { bid_price_ticks: 6500000, bid_qty_lots: 200, ask_price_ticks: 6500001...
+  |                                                    ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketRecord` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:13
+   |
+12 | let value = MarketRecord { header: RecordHeader { sequence: 1, message_type: 259, schema_major: 1, header_bytes: 128, payload_kind: ...
+   |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:36
+   |
+12 | let value = MarketRecord { header: RecordHeader { sequence: 1, message_type: 259, schema_major: 1, header_bytes: 128, payload_kind: ...
+   |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:313
+   |
+12 | ...ment_version: 5, ..Default::default() }, body: MarketBody { venue_seq_first: 100, venue_seq_last: 101, venue_seq_previous: 99, bo...
+   |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:502
+   |
+12 | ...feed_state: 2, depth_flags: 1, inline_levels: [DepthLevel { price_ticks: 6500000, qty_lots: 200, ..Default::default() },DepthLeve...
+   |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:575
+   |
+12 | ...6500000, qty_lots: 200, ..Default::default() },DepthLevel { price_ticks: 6500001, qty_lots: 0, ..Default::default() },DepthLevel:...
+   |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ArenaBlockHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:18:13
+   |
+18 | let value = ArenaBlockHeader { allocation_seq: 17, payload_length: 208, class_id: 1, ring_epoch: 9, resource_id: [1,0,0,0,0,0,0,0,0,...
+   |             ^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `IntentRecord` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:13
+   |
+24 | let value = IntentRecord { header: RecordHeader { sequence: 1, message_type: 513, schema_major: 1, header_bytes: 128, body_bytes: 89...
+   |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:36
+   |
+24 | let value = IntentRecord { header: RecordHeader { sequence: 1, message_type: 513, schema_major: 1, header_bytes: 128, body_bytes: 89...
+   |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `IntentBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:278
+   |
+24 | ...ment_version: 5, ..Default::default() }, body: IntentBody { logical_strategy_id: 11, instance_id: [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...
+   |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1007
+   |
+24 | ...ersion: 3, order_config_version: 4, triggers: [TriggerRef { topic_id: 7, feed_generation: 3, ring_epoch: 9, sequence: 101, instru...
+   |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ReportRecord` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:30:13
+   |
+30 | let value = ReportRecord { header: RecordHeader { sequence: 1, message_type: 771, schema_major: 1, header_bytes: 128, body_bytes: 38...
+   |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:30:36
+   |
+30 | let value = ReportRecord { header: RecordHeader { sequence: 1, message_type: 771, schema_major: 1, header_bytes: 128, body_bytes: 38...
+   |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ReportBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:30:277
+   |
+30 | ...ment_version: 5, ..Default::default() }, body: ReportBody { logical_strategy_id: 11, instance_id: [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...
+   |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `FreezeBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:36:13
+   |
+36 | let value = FreezeBody { freeze_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], old_resource_id: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], new_resou...
+   |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SwitchBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:42:13
+   |
+42 | let value = SwitchBody { freeze_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], subscriber_instance: [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], subsc...
+   |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `JoinBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:48:13
+   |
+48 | let value = JoinBody { subscriber_instance: [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], logical_strategy_id: 11, subscription_generation: 6, ...
+   |             ^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `GrantBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:54:13
+   |
+54 | let value = GrantBody { logical_strategy_id: 11, instance_id: [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], strategy_generation: 18, exec_gener...
+   |             ^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:60:13
+   |
+60 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 18, frame_bytes: 256, flags...
+   |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `InstrumentEntry` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:73:13
+   |
+73 | let value = InstrumentEntry { instrument_id: 1001, instrument_version: 5, catalog_version: 5, venue: 1, product: 1, price_exponent: ...
+   |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:79:13
+   |
+79 | let value = DepthLevel { price_ticks: 6500000, qty_lots: 0, ..Default::default() };
+   |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `CursorPage` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:85:13
+   |
+85 | let value = CursorPage { read_seq: 101, applied_seq: 100, released_seq: 99, lifecycle: 3, outstanding_borrows: 2, observed_membershi...
+   |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:91:13
+   |
+91 | let value = SnapshotHeader { magic: [84,87,83,78,80,48,48,49], snapshot_kind: 1, schema_major: 1, entry_bytes: 16, entry_count: 2, e...
+   |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:97:13
+   |
+97 | let value = DepthLevel { price_ticks: 6500000, qty_lots: 100, ..Default::default() };
+   |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:103:13
+    |
+103 | let value = DepthLevel { price_ticks: 6500001, qty_lots: 200, ..Default::default() };
+    |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `TopicSnapshotEntry` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:109:13
+    |
+109 | let value = TopicSnapshotEntry { instrument_id: 1001, instrument_version: 5, snapshot_id: [10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], snaps...
+    |             ^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:115:13
+    |
+115 | let value = SnapshotHeader { magic: [84,87,83,78,80,48,48,49], snapshot_kind: 1, schema_major: 1, entry_bytes: 16, entry_count: 2, ...
+    |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:121:13
+    |
+121 | let value = DepthLevel { price_ticks: 350000, qty_lots: 100, ..Default::default() };
+    |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:127:13
+    |
+127 | let value = DepthLevel { price_ticks: 350001, qty_lots: 200, ..Default::default() };
+    |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `TopicSnapshotEntry` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:133:13
+    |
+133 | let value = TopicSnapshotEntry { instrument_id: 1002, instrument_version: 6, snapshot_id: [11,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], snaps...
+    |             ^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:139:13
+    |
+139 | let value = SnapshotHeader { magic: [84,87,83,78,80,48,48,49], snapshot_kind: 4, schema_major: 1, entry_bytes: 128, entry_count: 2,...
+    |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ResourceHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:145:13
+    |
+145 | let value = ResourceHeader { magic: [84,87,73,80,67,48,48,49], abi_major: 1, header_bytes: 4096, resource_kind: 8, target_arch: 1, ...
+    |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `QuiesceBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:166:13
+    |
+166 | let value = QuiesceBody { subscriber_instance: [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], bank_resource_id: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...
+    |             ^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `QuiesceBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:172:13
+    |
+172 | let value = QuiesceBody { subscriber_instance: [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], bank_resource_id: [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,...
+    |             ^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SwitchBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:178:13
+    |
+178 | let value = SwitchBody { freeze_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], subscriber_instance: [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], subs...
+    |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:184:13
+    |
+184 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 20, frame_bytes: 256, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:197:13
+    |
+197 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 19, frame_bytes: 320, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:210:13
+    |
+210 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 19, frame_bytes: 320, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ExecLeaseBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:223:13
+    |
+223 | let value = ExecLeaseBody { exec_instance: [2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], exec_generation: 9, risk_scope: 20, host_boot_id: [8,...
+    |             ^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:229:13
+    |
+229 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 54, frame_bytes: 256, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:242:13
+    |
+242 | let value = ConfigControlBody { operation_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], operation_revision: 1, process_id_length: 9, targe...
+    |             ^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:248:13
+    |
+248 | let value = ConfigControlBody { operation_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], operation_revision: 1, process_id_length: 9, targe...
+    |             ^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:254:13
+    |
+254 | let value = ConfigControlBody { operation_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], operation_revision: 1, process_id_length: 9, targe...
+    |             ^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:260:13
+    |
+260 | let value = ConfigControlBody { operation_id: [4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], operation_revision: 1, config_status: 10, config_r...
+    |             ^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:266:13
+    |
+266 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 81, frame_bytes: 896, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:279:13
+    |
+279 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 82, frame_bytes: 896, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:292:13
+    |
+292 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 83, frame_bytes: 896, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:305:13
+    |
+305 | let value = ControlEnvelope { magic: [84,87,67,84,76,48,48,49], abi_major: 1, header_bytes: 128, opcode: 84, frame_bytes: 896, flag...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:318:13
+    |
+318 | let value = MarketRecord { header: RecordHeader { sequence: 1, message_type: 257, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:318:36
+    |
+318 | let value = MarketRecord { header: RecordHeader { sequence: 1, message_type: 257, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:318:276
+    |
+318 | ...ment_version: 5, ..Default::default() }, body: MarketBody { bid_price_ticks: 6500000, bid_qty_lots: 100, ask_price_ticks: 650000...
+    |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:324:13
+    |
+324 | let value = MarketRecord { header: RecordHeader { sequence: 2, message_type: 258, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:324:36
+    |
+324 | let value = MarketRecord { header: RecordHeader { sequence: 2, message_type: 258, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:324:276
+    |
+324 | ...ment_version: 5, ..Default::default() }, body: MarketBody { trade_id: 123, price_ticks: 6500000, qty_lots: 25, feed_state: 2, si...
+    |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:330:13
+    |
+330 | let value = MarketRecord { header: RecordHeader { sequence: 3, message_type: 260, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:330:36
+    |
+330 | let value = MarketRecord { header: RecordHeader { sequence: 3, message_type: 260, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:330:276
+    |
+330 | ...ment_version: 5, ..Default::default() }, body: MarketBody { mark_price_ticks: 6500000, index_price_ticks: 6499999, funding_rate_...
+    |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:336:13
+    |
+336 | let value = MarketRecord { header: RecordHeader { sequence: 4, message_type: 261, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |             ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `RecordHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:336:36
+    |
+336 | let value = MarketRecord { header: RecordHeader { sequence: 4, message_type: 261, schema_major: 1, header_bytes: 128, body_bytes: 3...
+    |                                    ^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `MarketBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:336:276
+    |
+336 | ...ment_version: 5, ..Default::default() }, body: MarketBody { feed_state: 2, ..Default::default() }, ..Default::default() };
+    |                                                   ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:342:13
+    |
+342 | let value = DepthLevel { price_ticks: 6500000, qty_lots: 100, ..Default::default() };
+    |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:348:13
+    |
+348 | let value = DepthLevel { price_ticks: 6500001, qty_lots: 200, ..Default::default() };
+    |             ^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotSection` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:354:13
+    |
+354 | let value = SnapshotSection { section_kind: 1, entry_bytes: 512, entry_count: 4, offset: 8576, length: 2048, entries_hash: [6,67,62...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotSection` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:360:13
+    |
+360 | let value = SnapshotSection { section_kind: 2, entry_bytes: 16, entry_count: 2, offset: 10624, length: 32, entries_hash: [213,15,20...
+    |             ^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:366:13
+    |
+366 | let value = SnapshotHeader { magic: [84,87,83,78,80,48,48,49], snapshot_kind: 6, schema_major: 1, entry_bytes: 64, entry_count: 2, ...
+    |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `TopicSnapshotEntry` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:372:13
+    |
+372 | let value = TopicSnapshotEntry { instrument_id: 1001, instrument_version: 5, snapshot_id: [18,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], snaps...
+    |             ^^^^^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:378:13
+    |
+378 | let value = SnapshotHeader { magic: [84,87,83,78,80,48,48,49], snapshot_kind: 4, schema_major: 1, entry_bytes: 128, entry_count: 1,...
+    |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `ResourceHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:384:13
+    |
+384 | let value = ResourceHeader { magic: [84,87,73,80,67,48,48,49], abi_major: 1, header_bytes: 4096, resource_kind: 8, target_arch: 1, ...
+    |             ^^^^^^^^^^^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `JoinBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:407:13
+    |
+407 | let value = JoinBody { subscriber_instance: [3,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], logical_strategy_id: 11, subscription_generation: 6,...
+    |             ^^^^^^^^ not found in this scope
+
+warning: unused import: `tickwire_ipc::*`
+ --> crates/tickwire-ipc/tests/vectors.rs:2:5
+  |
+2 | use tickwire_ipc::*;
+  |     ^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0433]: cannot find type `MarketRecord` in this scope
+ --> crates/tickwire-ipc/tests/vectors.rs:8:12
+  |
+8 | assert_eq!(MarketRecord::decode(&expected).unwrap(), value);
+  |            ^^^^^^^^^^^^ use of undeclared type `MarketRecord`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:646
+   |
+12 | ...001, qty_lots: 0, ..Default::default() },DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:668
+   |
+12 | ...fault::default() },DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:690
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:712
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:734
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:756
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:778
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default()]...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:800
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default()], ..Default::default()...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:822
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default(),DepthLevel::default()], ..Default::default() }, ..Default::default...
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:12:844
+   |
+12 | ...thLevel::default(),DepthLevel::default(),DepthLevel::default()], ..Default::default() }, ..Default::default() };
+   |                                             ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `MarketRecord` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:14:12
+   |
+14 | assert_eq!(MarketRecord::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^ use of undeclared type `MarketRecord`
+
+error[E0433]: cannot find type `ArenaBlockHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:20:12
+   |
+20 | assert_eq!(ArenaBlockHeader::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^^^^^ use of undeclared type `ArenaBlockHeader`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1212
+   |
+24 | ...e: 2, product: 1, ..Default::default() },TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1234
+   |
+24 | ...fault::default() },TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1256
+   |
+24 | ...ggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),...
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1278
+   |
+24 | ...ggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default()]...
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1300
+   |
+24 | ...ggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default()], ..Default::default()...
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1322
+   |
+24 | ...ggerRef::default(),TriggerRef::default(),TriggerRef::default(),TriggerRef::default()], ..Default::default() }, ..Default::default...
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `TriggerRef` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:24:1344
+   |
+24 | ...ggerRef::default(),TriggerRef::default(),TriggerRef::default()], ..Default::default() }, ..Default::default() };
+   |                                             ^^^^^^^^^^ use of undeclared type `TriggerRef`
+
+error[E0433]: cannot find type `IntentRecord` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:26:12
+   |
+26 | assert_eq!(IntentRecord::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^ use of undeclared type `IntentRecord`
+
+error[E0433]: cannot find type `ReportRecord` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:32:12
+   |
+32 | assert_eq!(ReportRecord::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^ use of undeclared type `ReportRecord`
+
+error[E0433]: cannot find type `FreezeBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:38:12
+   |
+38 | assert_eq!(FreezeBody::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^ use of undeclared type `FreezeBody`
+
+error[E0433]: cannot find type `SwitchBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:44:12
+   |
+44 | assert_eq!(SwitchBody::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^ use of undeclared type `SwitchBody`
+
+error[E0433]: cannot find type `JoinBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:50:12
+   |
+50 | assert_eq!(JoinBody::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^ use of undeclared type `JoinBody`
+
+error[E0433]: cannot find type `GrantBody` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:56:12
+   |
+56 | assert_eq!(GrantBody::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^ use of undeclared type `GrantBody`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:62:12
+   |
+62 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:69:32
+   |
+69 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+   |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `InstrumentEntry` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:75:12
+   |
+75 | assert_eq!(InstrumentEntry::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^^^^ use of undeclared type `InstrumentEntry`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:81:12
+   |
+81 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `CursorPage` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:87:12
+   |
+87 | assert_eq!(CursorPage::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^ use of undeclared type `CursorPage`
+
+error[E0433]: cannot find type `SnapshotHeader` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:93:12
+   |
+93 | assert_eq!(SnapshotHeader::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^^^^^ use of undeclared type `SnapshotHeader`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+  --> crates/tickwire-ipc/tests/vectors.rs:99:12
+   |
+99 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+   |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:105:12
+    |
+105 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `TopicSnapshotEntry` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:111:12
+    |
+111 | assert_eq!(TopicSnapshotEntry::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^^ use of undeclared type `TopicSnapshotEntry`
+
+error[E0433]: cannot find type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:117:12
+    |
+117 | assert_eq!(SnapshotHeader::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^ use of undeclared type `SnapshotHeader`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:123:12
+    |
+123 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:129:12
+    |
+129 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `TopicSnapshotEntry` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:135:12
+    |
+135 | assert_eq!(TopicSnapshotEntry::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^^ use of undeclared type `TopicSnapshotEntry`
+
+error[E0433]: cannot find type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:141:12
+    |
+141 | assert_eq!(SnapshotHeader::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^ use of undeclared type `SnapshotHeader`
+
+error[E0433]: cannot find type `ResourceHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:147:12
+    |
+147 | assert_eq!(ResourceHeader::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^ use of undeclared type `ResourceHeader`
+
+error[E0433]: cannot find type `QuiesceBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:168:12
+    |
+168 | assert_eq!(QuiesceBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^ use of undeclared type `QuiesceBody`
+
+error[E0433]: cannot find type `QuiesceBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:174:12
+    |
+174 | assert_eq!(QuiesceBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^ use of undeclared type `QuiesceBody`
+
+error[E0433]: cannot find type `SwitchBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:180:12
+    |
+180 | assert_eq!(SwitchBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^ use of undeclared type `SwitchBody`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:186:12
+    |
+186 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:193:32
+    |
+193 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:199:12
+    |
+199 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:206:32
+    |
+206 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:212:12
+    |
+212 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:219:32
+    |
+219 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ExecLeaseBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:225:12
+    |
+225 | assert_eq!(ExecLeaseBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^ use of undeclared type `ExecLeaseBody`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:231:12
+    |
+231 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:238:32
+    |
+238 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:244:12
+    |
+244 | assert_eq!(ConfigControlBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^ use of undeclared type `ConfigControlBody`
+
+error[E0433]: cannot find type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:250:12
+    |
+250 | assert_eq!(ConfigControlBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^ use of undeclared type `ConfigControlBody`
+
+error[E0433]: cannot find type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:256:12
+    |
+256 | assert_eq!(ConfigControlBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^ use of undeclared type `ConfigControlBody`
+
+error[E0433]: cannot find type `ConfigControlBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:262:12
+    |
+262 | assert_eq!(ConfigControlBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^ use of undeclared type `ConfigControlBody`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:268:12
+    |
+268 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:275:32
+    |
+275 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:281:12
+    |
+281 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:288:32
+    |
+288 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:294:12
+    |
+294 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:301:32
+    |
+301 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `ControlEnvelope` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:307:12
+    |
+307 | assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `ControlEnvelope`
+
+error[E0433]: cannot find type `ControlFrame` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:314:32
+    |
+314 | assert_eq!(encoded, expected); ControlFrame::decode(&expected).unwrap();
+    |                                ^^^^^^^^^^^^ use of undeclared type `ControlFrame`
+
+error[E0433]: cannot find type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:320:12
+    |
+320 | assert_eq!(MarketRecord::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^ use of undeclared type `MarketRecord`
+
+error[E0433]: cannot find type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:326:12
+    |
+326 | assert_eq!(MarketRecord::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^ use of undeclared type `MarketRecord`
+
+error[E0433]: cannot find type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:332:12
+    |
+332 | assert_eq!(MarketRecord::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^ use of undeclared type `MarketRecord`
+
+error[E0433]: cannot find type `MarketRecord` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:338:12
+    |
+338 | assert_eq!(MarketRecord::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^ use of undeclared type `MarketRecord`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:344:12
+    |
+344 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `DepthLevel` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:350:12
+    |
+350 | assert_eq!(DepthLevel::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^ use of undeclared type `DepthLevel`
+
+error[E0433]: cannot find type `SnapshotSection` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:356:12
+    |
+356 | assert_eq!(SnapshotSection::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `SnapshotSection`
+
+error[E0433]: cannot find type `SnapshotSection` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:362:12
+    |
+362 | assert_eq!(SnapshotSection::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^ use of undeclared type `SnapshotSection`
+
+error[E0433]: cannot find type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:368:12
+    |
+368 | assert_eq!(SnapshotHeader::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^ use of undeclared type `SnapshotHeader`
+
+error[E0433]: cannot find type `TopicSnapshotEntry` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:374:12
+    |
+374 | assert_eq!(TopicSnapshotEntry::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^^^^^ use of undeclared type `TopicSnapshotEntry`
+
+error[E0433]: cannot find type `SnapshotHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:380:12
+    |
+380 | assert_eq!(SnapshotHeader::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^ use of undeclared type `SnapshotHeader`
+
+error[E0433]: cannot find type `ResourceHeader` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:386:12
+    |
+386 | assert_eq!(ResourceHeader::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^^^^^^^ use of undeclared type `ResourceHeader`
+
+error[E0433]: cannot find type `JoinBody` in this scope
+   --> crates/tickwire-ipc/tests/vectors.rs:409:12
+    |
+409 | assert_eq!(JoinBody::decode(&expected).unwrap(), value);
+    |            ^^^^^^^^ use of undeclared type `JoinBody`
+
+Some errors have detailed explanations: E0422, E0433.
+For more information about an error, try `rustc --explain E0422`.
+warning: `tickwire-ipc` (test "vectors") generated 1 warning
+error: could not compile `tickwire-ipc` (test "vectors") due to 149 previous errors; 1 warning emitted

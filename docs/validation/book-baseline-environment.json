@@ -1,0 +1,22 @@
+{
+  "platform": "macOS-15.7-arm64-arm-64bit",
+  "machine": "arm64",
+  "cpu": "Apple M1 Pro",
+  "compiler": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+  "command": "cargo bench -p tickwire-book --bench depth_apply",
+  "timing": "Instant per apply+view+best_bid+best_ask, no overhead subtraction",
+  "samples_per_case": 1000000,
+  "warmup_events": 10000,
+  "source_sha256": {
+    "crates/tickwire-book/src/lib.rs": "efc82ab8f4c924fef82c45611985372f7f05ca4c21b2974199c6c80ce9bb8d87",
+    "crates/tickwire-book/benches/depth_apply.rs": "24ea40cad243a96292d254e814067dbadb02004bd6293a7a300ccc194e3c633f",
+    "Cargo.lock": "ba3cee4a57ef1615b04b6607d0ad02f3c7dd6220877f76ee8e70e80b349e8f8d",
+    "rust-toolchain.toml": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
+  },
+  "limitations": [
+    "macOS development machine; no affinity or CPU isolation",
+    "other development and TLC work ran concurrently",
+    "synthetic normalized levels; excludes decoding, queues, IPC, storage, TLS",
+    "timer p50 0 ns and quantization around 41-42 ns; short durations resolution-limited"
+  ]
+}

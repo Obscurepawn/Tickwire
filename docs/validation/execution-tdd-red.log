@@ -1,0 +1,171 @@
+=== tickwire-execution-red ===
+   Compiling tickwire-execution v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-execution)
+error[E0425]: cannot find type `Gate` in this scope
+ --> crates/tickwire-execution/tests/lifecycle.rs:3:14
+  |
+3 | fn gate() -> Gate {
+  |              ^^^^ not found in this scope
+
+error[E0422]: cannot find struct, variant or union type `Gate` in this scope
+ --> crates/tickwire-execution/tests/lifecycle.rs:4:5
+  |
+4 |     Gate { epoch: 1, strategy_generation: 1, config_revision: 1, now: 10,
+  |     ^^^^ not found in this scope
+
+error[E0425]: cannot find type `OrderRequest` in this scope
+ --> crates/tickwire-execution/tests/lifecycle.rs:8:24
+  |
+
+=== tickwire-execution-fee-red ===
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-6029a68673101233)
+
+running 1 test
+test no_bytes_release_does_not_invent_fee_payment ... FAILED
+
+failures:
+
+---- no_bytes_release_does_not_invent_fee_payment stdout ----
+
+thread 'no_bytes_release_does_not_invent_fee_payment' (4397946) panicked at crates/tickwire-execution/tests/lifecycle.rs:117:25:
+assertion `left == right` failed
+  left: 2
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    no_bytes_release_does_not_invent_fee_payment
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 11 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-execution --test lifecycle`
+
+=== tickwire-execution-fact-red ===
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-6029a68673101233)
+
+running 1 test
+test unaccountable_external_fact_freezes_new_risk ... FAILED
+
+failures:
+
+---- unaccountable_external_fact_freezes_new_risk stdout ----
+
+thread 'unaccountable_external_fact_freezes_new_risk' (4400918) panicked at crates/tickwire-execution/tests/lifecycle.rs:323:2:
+assertion failed: e.frozen()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    unaccountable_external_fact_freezes_new_risk
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-execution --test lifecycle`
+
+=== tickwire-execution-fee-proof-red ===
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-6029a68673101233)
+
+running 1 test
+test a_fee_fact_blocks_a_contradictory_no_bytes_callback ... FAILED
+
+failures:
+
+---- a_fee_fact_blocks_a_contradictory_no_bytes_callback stdout ----
+
+thread 'a_fee_fact_blocks_a_contradictory_no_bytes_callback' (4430700) panicked at crates/tickwire-execution/tests/lifecycle.rs:352:9:
+assertion `left == right` failed
+  left: Ok(())
+ right: Err(InvalidEvent)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_fee_fact_blocks_a_contradictory_no_bytes_callback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-execution --test lifecycle`
+
+=== tickwire-execution-unknown-red ===
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-6029a68673101233)
+
+running 1 test
+test explicit_unknown_freezes_the_shared_pool_without_releasing_reservation ... FAILED
+
+failures:
+
+---- explicit_unknown_freezes_the_shared_pool_without_releasing_reservation stdout ----
+
+thread 'explicit_unknown_freezes_the_shared_pool_without_releasing_reservation' (4435035) panicked at crates/tickwire-execution/tests/lifecycle.rs:367:29:
+assertion failed: e.frozen()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    explicit_unknown_freezes_the_shared_pool_without_releasing_reservation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-execution --test lifecycle`
+
+=== tickwire-mock-red ===
+info: syncing channel updates for 1.99.1-aarch64-apple-darwin
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 5 components
+warn: the missing active toolchain `1.99.1-aarch64-apple-darwin` has been auto-installed
+warn: this might cause rustup commands to take longer time to finish than expected
+info: you may opt out with `RUSTUP_AUTO_INSTALL=0` or `rustup set auto-install disable`
+   Compiling tickwire-mock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-mock)
+error[E0425]: cannot find type `MockRuntime` in this scope
+ --> crates/tickwire-mock/tests/services.rs:5:15
+  |
+5 | fn runtime()->MockRuntime<8,8> {MockRuntime::new(req().key.domain(),205,gate()).unwrap()}
+  |               ^^^^^^^^^^^ not found in this scope
+
+warning: unused import: `tickwire_mock::*`
+ --> crates/tickwire-mock/tests/services.rs:2:5
+  |
+
+=== tickwire-mock-empty-red ===
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/services.rs (target/debug/deps/services-9e77a0f4496271b0)
+
+running 1 test
+test even_empty_journal_restart_requires_recovery_authorization ... FAILED
+
+failures:
+
+---- even_empty_journal_restart_requires_recovery_authorization stdout ----
+
+thread 'even_empty_journal_restart_requires_recovery_authorization' (4406718) panicked at crates/tickwire-mock/tests/services.rs:203:43:
+assertion failed: r.engine.frozen()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    even_empty_journal_restart_requires_recovery_authorization
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-mock --test services`
+
+=== tickwire-mock-pending-red ===
+   Compiling tickwire-mock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-mock)
+error[E0599]: no variant, associated function, or constant named `PendingResponse` found for enum `tickwire_execution::ports::SubmitOutcome` in the current scope
+   --> crates/tickwire-mock/tests/services.rs:211:64
+    |
+211 |     let mut r=runtime();r.exchange.next_outcome=SubmitOutcome::PendingResponse;
+    |                                                                ^^^^^^^^^^^^^^^ variant, associated function, or constant not found in `tickwire_execution::ports::SubmitOutcome`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `tickwire-mock` (test "services") due to 1 previous error

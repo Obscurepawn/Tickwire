@@ -1,6 +1,6 @@
 # Tickwire 生产验证方案：多进程、多策略与源码对应的 TLA+
 
-版本：v0.3 · 2026-10-20 · 生产目标的验证契约；以下 Rust、多进程与 TLC 检查尚未执行。
+版本：v0.3 · 2026-10-20 · 生产目标的完整验证契约；Rust 与 TLC 已开始分项执行，当前证据见[实现规格](../specs/20261020-implementation.md)，真实多进程与生产资格尚未完成。
 
 这份方案落实[系统设计](design/binance-ultra-low-latency.md)中的 INV-1～INV-14，以及 v0.3 的持久化、IPC 字节布局、风控计算、配置和部署契约。每个实现 PR 都必须提供相应的单元测试、集成测试和模型检查证据；文档检查通过不代表交易系统已经通过这些验证。
 
@@ -149,7 +149,7 @@ Property tests 生成的是有效业务事件及明确标记的异常事件，�
 
 ## 3. vibe-tla 工作方式
 
-使用本机的 [vibe-tla 技能](/home/obscure/.codex/skills/vibe-tla/SKILL.md)。它要求每个模型转换都锚定实际 `file:line`，因此当前不把设计伪代码当生产源码建模。
+使用本机的 [vibe-tla 技能](https://github.com/Obscurepawn/PowerfulSkills/blob/1b8c85aa487cc898bb83226e52c9f780507ba25d/skills/vibe-tla/SKILL.md)。它要求每个模型转换都锚定实际 `file:line`，因此当前不把设计伪代码当生产源码建模。
 
 当 P1 出现实际 Rust 状态机后，在 Agent 中执行以下技能命令；这些不是 shell 命令：
 
@@ -160,7 +160,7 @@ Property tests 生成的是有效业务事件及明确标记的异常事件，�
 /vibe-tla coverage order
 ```
 
-指定本地仓库路径，避免全局安装的技能误用其他 active repo。模型工作区为该仓库的 `tla/`。初始化会创建 PROFILE/MEMORY/LESSONS/ROADMAP，并验证 Java/TLC 工具链；当前交付没有运行这一步，也没有声称完成 smoke test。
+指定本地仓库路径，避免全局安装的技能误用其他 active repo。模型工作区为该仓库的 `tla/`。Rust 实现阶段已完成初始化与 TLC smoke test；后续模型执行记录、覆盖与未完成层见该工作区。
 
 以后触及已建模逻辑时执行 `/vibe-tla sync <component>`；新阶梯层使用 `advance`，中断工作用 `resume`，发现真实问题后走 `review → fix → 重跑`。candidate 不等于 confirmed；独立 review 必须尝试推翻反例的代码可达性和环境前提。
 

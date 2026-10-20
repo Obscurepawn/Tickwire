@@ -1,0 +1,9 @@
+/target/
+/.tools/
+/tla/tools/
+/tla/config.env
+/tla/.active/
+**/states/
+**/*_TTrace_*.tla
+__pycache__/
+.DS_Store

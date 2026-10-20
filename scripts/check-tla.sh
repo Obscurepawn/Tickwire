@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Reproduce the submitted finite models using the pinned upstream TLC jar.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+repo_dir="$PWD"
+jar="$repo_dir/tla/tools/tla2tools.jar"
+expected=936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
+if [[ ! -f "$jar" ]]; then
+  mkdir -p "$(dirname "$jar")"
+  curl --proto '=https' --tlsv1.2 -fL --retry 3 https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar -o "$jar"
+fi
+actual="$(shasum -a 256 "$jar" | cut -d ' ' -f 1)"
+[[ "$actual" == "$expected" ]] || { echo 'TLC jar checksum mismatch' >&2; exit 1; }
+while IFS= read -r cfg; do
+  dir="$(dirname "$cfg")"
+  # Every directory has one model and its primary/scaling configurations.
+  model="$(find "$dir" -maxdepth 1 -name '*.tla' ! -name '*_TTrace_*' -print)"
+  [[ -n "$model" && "$model" != *$'\n'* ]] || { echo "Ambiguous model directory: $dir" >&2; exit 1; }
+  scratch="$(mktemp -d)"
+  trap 'rm -rf "$scratch"' EXIT
+  mkdir -p "$scratch/states"
+  (cd "$dir" && java -XX:+UseParallelGC -cp "$jar" tlc2.TLC -workers 1 -coverage 1 -metadir "$scratch/states" -config "$(basename "$cfg")" "$(basename "$model")") | tee "$scratch/tlc.log"
+  # Coverage prints distinct:generated. A stuttering/redundant action may have
+  # zero distinct states but must still generate successors in these configs.
+  awk '
+    /^<[^>]+>: [0-9]+:[0-9]+$/ {
+      count++
+      split($0, values, ":")
+      if (values[3] + 0 == 0) { print "Uncovered action: " $0; failed=1 }
+    }
+    END { if (count == 0 || failed) exit 1 }
+  ' "$scratch/tlc.log"
+  rm -rf "$scratch"
+  trap - EXIT
+done < <(find tla/execution_models -path '*/02_models/*.cfg' -print | sort)
