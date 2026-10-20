@@ -1,0 +1,30 @@
+   Compiling tickwire-book v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-book)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.36s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_book-60316b1fa9ab4537)
+
+running 3 tests
+test work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update ... FAILED
+test work_tests::large_batch_has_bounded_price_comparisons ... FAILED
+test work_tests::one_replacement_does_not_scan_or_copy_the_full_book ... ok
+
+failures:
+
+---- work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update stdout ----
+
+thread 'work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update' (4513640) panicked at crates/tickwire-book/src/work_tests.rs:39:5:
+128 updates moved 126912 levels
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- work_tests::large_batch_has_bounded_price_comparisons stdout ----
+
+thread 'work_tests::large_batch_has_bounded_price_comparisons' (4513641) panicked at crates/tickwire-book/src/work_tests.rs:26:5:
+512 updates used 273920 price comparisons
+
+
+failures:
+    work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update
+    work_tests::large_batch_has_bounded_price_comparisons
+
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+error: test failed, to rerun pass `-p tickwire-book --lib`

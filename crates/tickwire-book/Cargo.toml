@@ -11,3 +11,11 @@ description = "Bounded order book reducer with explicit venue sequence policies"
 [[bench]]
 name = "depth_apply"
 harness = false
+
+[[bench]]
+name = "batch_apply"
+harness = false
+
+[[bench]]
+name = "sparse_apply"
+harness = false

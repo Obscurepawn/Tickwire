@@ -31,7 +31,7 @@ current-generation gap / malformed / capacity / explicit invalidate
 2. 两侧分别计算最终存活数，最终值不超过 `N`；同批删除释放的空间可以供新增价位使用。
 3. 最终已知最优买卖价不交叉，接收时间不早于上一次已应用事件。
 
-全部成立后，先删除零数量价位，再更新或插入非零价位，最后提交水位、接收时间和 `Live`。调用过程由 `&mut Book` 单独拥有状态，不向外暴露中间数据。校验失败仅改变有效状态，保留上次提交的两边价位、水位和时间。`diagnostic_levels` 明确属于诊断接口；策略读取使用 `view`。
+全部成立后提交两侧价位，再提交水位、接收时间和 `Live`。更新工作区按侧排序并缓存旧位置：纯改量按缓存位置直接写入；插删将受影响区间与更新合并到固定数组，忽略零数量，并在净长度变化时一次搬移后方价位。调用过程由 `&mut Book` 单独拥有状态，不向外暴露中间数据。校验失败仅改变有效状态，保留上次提交的两边价位、水位和时间。`diagnostic_levels` 明确属于诊断接口；策略读取使用 `view`。
 
 快照每边输入条数上限也是 `N`，包括零数量条目；快照允许无序输入并在装入时排序。大于该预算时返回容量错误。增量的重复价格被拒绝而非静默选择一个值，其他交易所的适配器可以按其协议预先合并。
 
@@ -59,6 +59,10 @@ cargo test -p tickwire-book
 cargo clippy -p tickwire-book --all-targets -- -D warnings
 ```
 
-数组内移位使更新最坏成本为 `O(M*N + M²)`，构造空间为 `O(N)`，快照校验和排序最坏 `O(N²)`。分配证据覆盖 reducer，不包含传输层、TLS、JSON/SBE 解码和 IPC 发布。当前没有实盘录包、Linux 延迟分位数或本模块 TLC 运行结果；首次缓存快照重试、shadow book 的原子切换、FIX/SBE 的独立字段解码仍需在上层实现并验证。
+批量优化增加 3 个确定性工作量测试、2 个批量边界测试、1 个大批量零分配测试，并保留独立审阅者的 40,000 批差分程序为回归测试，当前合计 30 项。修改前的真实失败为：512 项改量在插桩处记录 273,920 次价格比较，128 项插删仅 `copy_within` 就搬移 126,912 个价位。优化后分别记录 6,188 次比较、128 个合并区与盘口价位写入；单项改量记录 15 次比较、写入 1 个价位。计数器只存在于 `cfg(test)`，用于发现重复查找与整尾搬移，不是 CPU 指令或全部内存写入计数；计数范围、完整 Red/Green、负载和 release 对照见[优化证据](../../docs/validation/book-optimization/report.md)。
+
+两组 release 对照均完成五轮，每轮、每负载、每实现采样 200,000 次，分别覆盖相邻和散布价位。当前检查点保留结构变化的收益，并记录散布改量退化：4096 档、16/64 项乱序散布改量的五轮 p50 中位数分别从 667/2,833 ns 增至 958/4,042 ns；256 项散布插删从 147,625 ns 降至 33,333 ns。下阶段先分析小批散布改量的排序、工作区和定位成本，再决定专用分支；这些反例负载与完整 p99/p99.9 继续作为验收依据。测量来自未绑核的 Apple M1 Pro 开发机，计时覆盖 `apply + view + best_bid + best_ask`。
+
+当前增量每侧最坏成本为 `O(K log K + K log L)`，有插删时再加 `O(L+K)`，其中 `K<=M`、`L<=N`。实例空间为 `O(N+M)`；当前 64 位字段载荷为 `48N+32M` 字节，另加元数据。快照仍沿用校验和插入基线，最坏 `O(N²)`，本轮没有优化或测量快照安装。分配证据覆盖 reducer，不包含传输层、TLS、JSON/SBE 解码和 IPC 发布。当前没有实盘录包、Linux 延迟分位数或本模块 TLC 运行结果；首次缓存快照重试、shadow book 的原子切换、FIX/SBE 的独立字段解码仍需在上层实现并验证。
 
 协议来源：[Spot 官方规则](https://github.com/binance/binance-spot-api-docs/blob/master/web-socket-streams.md#how-to-manage-a-local-order-book-correctly)、[USDⓈ-M 官方规则](https://developers.binance.com/en/docs/products/derivatives-trading-usds-futures/websocket-market-streams/How-to-manage-a-local-order-book-correctly)。Spot 初始化文字与应用步骤的边界差异记录于接口设计，测试固定了主设计 §6 选择的 `L+1` 判定。

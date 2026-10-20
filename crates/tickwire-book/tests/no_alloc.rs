@@ -87,3 +87,57 @@ fn construction_snapshot_updates_views_and_rebuild_allocate_nothing() {
     TRACK.with(|track| track.set(false));
     assert_eq!(ALLOCATIONS.with(Cell::get), 0);
 }
+
+#[test]
+fn sorted_work_area_and_bulk_merge_allocate_nothing() {
+    let key = BookKey {
+        venue: 1,
+        instrument: 2,
+        source: 3,
+    };
+    let make = |p, q| Level {
+        price: PriceTicks(p),
+        quantity: QtyLots(q),
+    };
+    let bids = core::array::from_fn::<_, 512, _>(|i| make(10_000 - 2 * i as i64, 1));
+    let asks = core::array::from_fn::<_, 512, _>(|i| make(20_000 + 2 * i as i64, 1));
+    let mut updates = [make(1, 0); 256];
+    ALLOCATIONS.with(|count| count.set(0));
+    TRACK.with(|track| track.set(true));
+    let mut book: Book<BinanceSpot, 512, 256> = Book::new(key, 1);
+    book.install_snapshot(Snapshot {
+        key,
+        generation: 1,
+        last_update_id: 1,
+        bids: &bids,
+        asks: &asks,
+        bids_complete: false,
+        asks_complete: false,
+    })
+    .unwrap();
+    for iteration in 0..1000 {
+        for rank in 0..128 {
+            let from = iteration % 2;
+            let to = 1 - from;
+            // Input is interleaved and reversed relative to the side order.
+            updates[2 * rank] = make(10_000 - 2 * rank as i64 + from, 0);
+            updates[2 * rank + 1] = make(10_000 - 2 * rank as i64 + to, 3);
+        }
+        updates.reverse();
+        let id = iteration as u64 + 2;
+        book.apply(DepthEvent {
+            key,
+            generation: 1,
+            first_update_id: id,
+            last_update_id: id,
+            previous_update_id: None,
+            received_at_ns: id,
+            bids: &updates,
+            asks: &[],
+        })
+        .unwrap();
+        assert_eq!(book.view(id, 0).unwrap().known_bids().len(), 512);
+    }
+    TRACK.with(|track| track.set(false));
+    assert_eq!(ALLOCATIONS.with(Cell::get), 0);
+}

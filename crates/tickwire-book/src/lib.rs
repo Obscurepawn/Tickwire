@@ -7,6 +7,51 @@
 
 use core::marker::PhantomData;
 
+#[cfg(test)]
+mod work_tests;
+// Count algorithmic work in unit tests; production builds contain no counters.
+#[cfg(test)]
+extern crate std;
+#[cfg(test)]
+mod work {
+    std::thread_local! {
+        static COUNTS: core::cell::Cell<(usize, usize)> = const { core::cell::Cell::new((0, 0)) };
+    }
+    pub fn comparison() {
+        COUNTS.with(|c| {
+            let (a, b) = c.get();
+            c.set((a + 1, b));
+        });
+    }
+    pub fn moved(n: usize) {
+        COUNTS.with(|c| {
+            let (a, b) = c.get();
+            c.set((a, b + n));
+        });
+    }
+    pub fn reset() {
+        COUNTS.with(|c| c.set((0, 0)));
+    }
+    pub fn counts() -> (usize, usize) {
+        COUNTS.with(core::cell::Cell::get)
+    }
+}
+
+fn compare_prices(side: Side, a: PriceTicks, b: PriceTicks) -> core::cmp::Ordering {
+    #[cfg(test)]
+    work::comparison();
+    match side {
+        Side::Bid => b.cmp(&a),
+        Side::Ask => a.cmp(&b),
+    }
+}
+
+fn move_levels(levels: &mut [Level], range: core::ops::Range<usize>, destination: usize) {
+    #[cfg(test)]
+    work::moved(range.len());
+    levels.copy_within(range, destination);
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BookKey {
     pub venue: u32,
@@ -220,6 +265,26 @@ const EMPTY_LEVEL: Level = Level {
     quantity: QtyLots(0),
 };
 
+#[derive(Clone, Copy, Debug)]
+struct PreparedLevel {
+    level: Level,
+    index: usize,
+    exists: bool,
+}
+const EMPTY_UPDATE: PreparedLevel = PreparedLevel {
+    level: EMPTY_LEVEL,
+    index: 0,
+    exists: false,
+};
+
+struct SidePlan {
+    best: Option<PriceTicks>,
+    new_len: usize,
+    structural: bool,
+    start: usize,
+    end: usize,
+}
+
 #[derive(Debug)]
 struct Levels<const N: usize> {
     data: [Level; N],
@@ -245,7 +310,7 @@ impl<const N: usize> Levels<N> {
     fn apply_validated(&mut self, side: Side, updates: &[Level]) {
         for level in updates.iter().filter(|level| level.quantity.0 == 0) {
             if let Ok(index) = self.locate(side, level.price) {
-                self.data.copy_within(index + 1..self.len, index);
+                move_levels(&mut self.data, index + 1..self.len, index);
                 self.len -= 1;
             }
         }
@@ -253,20 +318,154 @@ impl<const N: usize> Levels<N> {
             match self.locate(side, level.price) {
                 Ok(index) => self.data[index] = *level,
                 Err(index) => {
-                    self.data.copy_within(index..self.len, index + 1);
+                    move_levels(&mut self.data, index..self.len, index + 1);
                     self.data[index] = *level;
                     self.len += 1;
                 }
             }
         }
     }
+
+    fn apply_prepared(
+        &mut self,
+        side: Side,
+        updates: &[PreparedLevel],
+        plan: &SidePlan,
+        scratch: &mut [Level; N],
+    ) {
+        if !plan.structural {
+            for update in updates.iter().filter(|u| u.exists) {
+                self.data[update.index] = update.level;
+                #[cfg(test)]
+                work::moved(1);
+            }
+            return;
+        }
+        // Merge only the affected span. The unaffected tail moves once, and
+        // equal-size replacement (including top churn) never moves that tail.
+        let mut old = plan.start;
+        let mut next = 0;
+        let mut written = 0;
+        while old < plan.end || next < updates.len() {
+            let take_update = next < updates.len()
+                && (old == plan.end
+                    || !compare_prices(side, updates[next].level.price, self.data[old].price)
+                        .is_gt());
+            let level = if take_update {
+                let update = updates[next];
+                next += 1;
+                if update.exists {
+                    old += 1;
+                }
+                if update.level.quantity.0 == 0 {
+                    continue;
+                }
+                update.level
+            } else {
+                let level = self.data[old];
+                old += 1;
+                level
+            };
+            scratch[written] = level;
+            written += 1;
+            #[cfg(test)]
+            work::moved(1);
+        }
+        if self.len != plan.new_len {
+            move_levels(&mut self.data, plan.end..self.len, plan.start + written);
+        }
+        self.data[plan.start..plan.start + written].copy_from_slice(&scratch[..written]);
+        #[cfg(test)]
+        work::moved(written);
+        self.len = plan.new_len;
+    }
+}
+
+fn prepare_side<const N: usize>(
+    side: Side,
+    levels: &Levels<N>,
+    input: &[Level],
+    updates: &mut [PreparedLevel],
+) -> Result<SidePlan, BookError> {
+    for (target, level) in updates.iter_mut().zip(input) {
+        if level.price.0 <= 0 || level.quantity.0 < 0 {
+            return Err(BookError::InvalidLevel);
+        }
+        target.level = *level;
+    }
+    updates.sort_unstable_by(|a, b| compare_prices(side, a.level.price, b.level.price));
+    let mut removed = 0;
+    let mut added = 0;
+    let mut removed_prefix = 0;
+    let mut start = levels.len;
+    let mut end = 0;
+    let mut new_best = None;
+    let mut cursor = 0;
+    for index in 0..updates.len() {
+        if index > 0
+            && compare_prices(
+                side,
+                updates[index - 1].level.price,
+                updates[index].level.price,
+            )
+            .is_eq()
+        {
+            return Err(BookError::DuplicatePrice { side });
+        }
+        let update = &mut updates[index];
+        // Sorted updates can reuse the next old position. A distant next price
+        // uses binary search over the remaining suffix rather than scanning it.
+        (update.index, update.exists) = if cursor < levels.len
+            && compare_prices(side, levels.data[cursor].price, update.level.price).is_eq()
+        {
+            (cursor, true)
+        } else {
+            match locate(&levels.as_slice()[cursor..], side, update.level.price) {
+                Ok(index) => (cursor + index, true),
+                Err(index) => (cursor + index, false),
+            }
+        };
+        cursor = update.index + usize::from(update.exists);
+        if update.exists && update.level.quantity.0 == 0 {
+            removed += 1;
+            if update.index == removed_prefix {
+                removed_prefix += 1;
+            }
+        } else if !update.exists && update.level.quantity.0 > 0 {
+            added += 1;
+        }
+        if update.exists || update.level.quantity.0 > 0 {
+            start = start.min(update.index);
+            end = end.max(update.index + usize::from(update.exists));
+        }
+        if new_best.is_none() && update.level.quantity.0 > 0 {
+            new_best = Some(update.level.price);
+        }
+    }
+    let new_len = (levels.len - removed)
+        .checked_add(added)
+        .filter(|len| *len <= N)
+        .ok_or(BookError::Capacity { side })?;
+    let existing_best = levels.as_slice().get(removed_prefix).map(|l| l.price);
+    let best = match (existing_best, new_best) {
+        (Some(a), Some(b)) => Some(if compare_prices(side, a, b).is_lt() {
+            a
+        } else {
+            b
+        }),
+        (a, b) => a.or(b),
+    };
+    Ok(SidePlan {
+        best,
+        new_len,
+        structural: removed != 0 || added != 0,
+        start,
+        end,
+    })
 }
 
 fn locate(levels: &[Level], side: Side, price: PriceTicks) -> Result<usize, usize> {
-    levels.binary_search_by(|level| match side {
-        Side::Bid => price.cmp(&level.price),
-        Side::Ask => level.price.cmp(&price),
-    })
+    levels.binary_search_by(|level| compare_prices(side, level.price, price))
 }
 
 #[derive(Debug)]
@@ -280,6 +479,8 @@ pub struct Book<P, const LEVELS: usize, const MAX_UPDATES: usize> {
     asks: Levels<LEVELS>,
     bids_coverage: SideCoverage,
     asks_coverage: SideCoverage,
+    updates: [PreparedLevel; MAX_UPDATES],
+    merge: [Level; LEVELS],
     policy: PhantomData<P>,
 }
 
@@ -295,6 +496,8 @@ impl<P: SequencePolicy, const N: usize, const M: usize> Book<P, N, M> {
             asks: Levels::new(),
             bids_coverage: SideCoverage::Unknown,
             asks_coverage: SideCoverage::Unknown,
+            updates: [EMPTY_UPDATE; M],
+            merge: [EMPTY_LEVEL; N],
             policy: PhantomData,
         }
     }
@@ -369,13 +572,32 @@ impl<P: SequencePolicy, const N: usize, const M: usize> Book<P, N, M> {
         {
             return self.fail(BookError::ClockRegressed);
         }
-        let validation = self.validate_event(event);
-        if let Err(error) = validation {
-            return self.fail(error);
+        if event
+            .bids
+            .len()
+            .checked_add(event.asks.len())
+            .is_none_or(|n| n > M)
+        {
+            return self.fail(BookError::TooManyUpdates);
         }
-
-        self.bids.apply_validated(Side::Bid, event.bids);
-        self.asks.apply_validated(Side::Ask, event.asks);
+        let plans = (|| {
+            let (bids, asks) =
+                self.updates[..event.bids.len() + event.asks.len()].split_at_mut(event.bids.len());
+            let bid_plan = prepare_side(Side::Bid, &self.bids, event.bids, bids)?;
+            let ask_plan = prepare_side(Side::Ask, &self.asks, event.asks, asks)?;
+            validate_spread(bid_plan.best, ask_plan.best)?;
+            Ok((bid_plan, ask_plan))
+        })();
+        let (bid_plan, ask_plan) = match plans {
+            Ok(plans) => plans,
+            Err(error) => return self.fail(error),
+        };
+        let (bids, asks) =
+            self.updates[..event.bids.len() + event.asks.len()].split_at(event.bids.len());
+        self.bids
+            .apply_prepared(Side::Bid, bids, &bid_plan, &mut self.merge);
+        self.asks
+            .apply_prepared(Side::Ask, asks, &ask_plan, &mut self.merge);
         self.last_update_id = Some(event.last_update_id);
         self.last_event_at_ns = Some(event.received_at_ns);
         self.state = BookState::Live;
@@ -464,25 +686,6 @@ impl<P: SequencePolicy, const N: usize, const M: usize> Book<P, N, M> {
         self.state = BookState::Invalid(reason);
         Err(error)
     }
-
-    fn validate_event(&self, event: DepthEvent<'_>) -> Result<(), BookError> {
-        if event
-            .bids
-            .len()
-            .checked_add(event.asks.len())
-            .is_none_or(|count| count > M)
-        {
-            return Err(BookError::TooManyUpdates);
-        }
-        validate_levels(Side::Bid, event.bids)?;
-        validate_levels(Side::Ask, event.asks)?;
-        validate_capacity(&self.bids, Side::Bid, event.bids)?;
-        validate_capacity(&self.asks, Side::Ask, event.asks)?;
-        validate_spread(
-            final_best(self.bids.as_slice(), Side::Bid, event.bids),
-            final_best(self.asks.as_slice(), Side::Ask, event.asks),
-        )
-    }
 }
 
 fn validate_levels(side: Side, levels: &[Level]) -> Result<(), BookError> {
@@ -492,7 +695,7 @@ fn validate_levels(side: Side, levels: &[Level]) -> Result<(), BookError> {
         }
         if levels[..index]
             .iter()
-            .any(|earlier| earlier.price == level.price)
+            .any(|earlier| compare_prices(side, earlier.price, level.price).is_eq())
         {
             return Err(BookError::DuplicatePrice { side });
         }
@@ -513,38 +716,13 @@ fn validate_snapshot<const N: usize>(snapshot: Snapshot<'_>) -> Result<(), BookE
     )
 }
 
-fn validate_capacity<const N: usize>(
-    levels: &Levels<N>,
-    side: Side,
-    updates: &[Level],
-) -> Result<(), BookError> {
-    let mut removed = 0;
-    let mut added = 0;
-    for level in updates {
-        match (
-            levels.locate(side, level.price).is_ok(),
-            level.quantity.0 == 0,
-        ) {
-            (true, true) => removed += 1,
-            (false, false) => added += 1,
-            _ => {}
-        }
-    }
-    if (levels.len - removed)
-        .checked_add(added)
-        .is_none_or(|count| count > N)
-    {
-        Err(BookError::Capacity { side })
-    } else {
-        Ok(())
-    }
-}
-
 fn final_best(levels: &[Level], side: Side, updates: &[Level]) -> Option<PriceTicks> {
     // Existing levels are sorted. The first one not overwritten is their best.
-    let existing = levels
-        .iter()
-        .find(|level| !updates.iter().any(|update| update.price == level.price));
+    let existing = levels.iter().find(|level| {
+        !updates
+            .iter()
+            .any(|update| compare_prices(side, update.price, level.price).is_eq())
+    });
     let mut best = existing.map(|level| level.price);
     for update in updates.iter().filter(|level| level.quantity.0 > 0) {
         best = Some(match best {
