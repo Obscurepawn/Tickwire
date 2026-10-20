@@ -1,0 +1,13 @@
+stateDiagram-v2
+    [*] --> Prepared: 风控通过并预留
+    Prepared --> LocalRejected: 能证明未交给传输层
+    Prepared --> InFlight: 传输层可能已发送
+    InFlight --> Working: 交易所确认
+    InFlight --> Unknown: 超时或连接中断
+    InFlight --> Terminal: 拒绝或先到的终态回报
+    Working --> Working: 部分成交或取消待决
+    Working --> Terminal: 全成或权威撤销/过期
+    Unknown --> Working: 查询或回报确认存活
+    Unknown --> Terminal: 查询或回报确认终态
+    LocalRejected --> [*]
+    Terminal --> [*]

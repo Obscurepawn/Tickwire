@@ -1,0 +1,2428 @@
+# Tickwire live deployment INPUT TEMPLATE. This intentionally fails validation.
+# Replace every REQUIRED value and all technical assumptions with verified deployment inputs.
+# Never place secret bytes here; credential/identity fields accept only versioned secret:// refs.
+# Host inventory, CPU/NUMA map, endpoint protocol timings, mode snapshots, fees, tiers, limits,
+# strategy artifacts/parameters, RBAC subjects and qualification evidence all require review.
+# Import the completed candidate through validate -> plan -> commit; do not edit generated files.
+[identity]
+schema_version = 1
+cluster_id = "REQUIRED_CLUSTER_ID"
+namespace_id = "REQUIRED_NAMESPACE_UUID"
+mode = "live"
+environment = "production"
+deployment_profile = "TW-LD-ASYNC-16x2-v1"
+
+[[hosts]]
+id = "host-a"
+role = "trading"
+failure_domain = "REQUIRED_FAILURE_DOMAIN"
+physical_cores = 64
+memory_bytes = 274877906944
+numa_nodes = 2
+shm_budget_bytes = 8589934592
+housekeeping_cpus = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+]
+
+[[hosts]]
+id = "host-b"
+role = "trading"
+failure_domain = "REQUIRED_FAILURE_DOMAIN"
+physical_cores = 64
+memory_bytes = 274877906944
+numa_nodes = 2
+shm_budget_bytes = 8589934592
+housekeeping_cpus = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+]
+
+[[hosts]]
+id = "ctl-c"
+role = "control-only"
+failure_domain = "REQUIRED_FAILURE_DOMAIN"
+physical_cores = 8
+memory_bytes = 34359738368
+numa_nodes = 1
+shm_budget_bytes = 0
+housekeeping_cpus = [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+]
+
+[[processes]]
+id = "supervisor-host-a"
+host_id = "host-a"
+role = "supervisor"
+activation = "active"
+cpus = [
+    2,
+    3,
+]
+numa_node = 0
+memory_limit_bytes = 1073741824
+artifact_ref = "REQUIRED:/processes/0/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-config"
+
+[[processes]]
+id = "supervisor-host-b"
+host_id = "host-b"
+role = "supervisor"
+activation = "active"
+cpus = [
+    2,
+    3,
+]
+numa_node = 0
+memory_limit_bytes = 1073741824
+artifact_ref = "REQUIRED:/processes/1/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-config"
+
+[[processes]]
+id = "supervisor-ctl-c"
+host_id = "ctl-c"
+role = "supervisor"
+activation = "active"
+cpus = [
+    2,
+    3,
+]
+numa_node = 0
+memory_limit_bytes = 1073741824
+artifact_ref = "REQUIRED:/processes/2/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-config"
+
+[[processes]]
+id = "md-spot-a"
+host_id = "host-a"
+role = "md"
+activation = "active"
+cpus = [
+    8,
+]
+numa_node = 0
+memory_limit_bytes = 4294967296
+artifact_ref = "REQUIRED:/processes/3/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-md"
+
+[[processes]]
+id = "exec-spot-a"
+host_id = "host-a"
+role = "exec"
+activation = "active"
+cpus = [
+    10,
+]
+numa_node = 0
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/4/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-exec"
+
+[[processes]]
+id = "replicator-spot-a"
+host_id = "host-a"
+role = "replicator"
+activation = "active"
+cpus = [
+    13,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/5/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-replicator"
+
+[[processes]]
+id = "md-usdm-a"
+host_id = "host-a"
+role = "md"
+activation = "active"
+cpus = [
+    9,
+]
+numa_node = 0
+memory_limit_bytes = 4294967296
+artifact_ref = "REQUIRED:/processes/6/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-md"
+
+[[processes]]
+id = "exec-usdm-a"
+host_id = "host-a"
+role = "exec"
+activation = "active"
+cpus = [
+    11,
+]
+numa_node = 0
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/7/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-exec"
+
+[[processes]]
+id = "replicator-usdm-a"
+host_id = "host-a"
+role = "replicator"
+activation = "active"
+cpus = [
+    14,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/8/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-replicator"
+
+[[processes]]
+id = "guardian-a"
+host_id = "host-a"
+role = "guardian"
+activation = "active"
+cpus = [
+    12,
+]
+numa_node = 0
+memory_limit_bytes = 1073741824
+artifact_ref = "REQUIRED:/processes/9/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-guardian"
+
+[[processes]]
+id = "recorder-a"
+host_id = "host-a"
+role = "recorder"
+activation = "active"
+cpus = [
+    15,
+]
+numa_node = 0
+memory_limit_bytes = 4294967296
+artifact_ref = "REQUIRED:/processes/10/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-recorder"
+
+[[processes]]
+id = "input-writer-a"
+host_id = "host-a"
+role = "input-writer"
+activation = "active"
+cpus = [
+    48,
+    49,
+    50,
+    51,
+]
+numa_node = 1
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/11/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-input-writer"
+
+[[processes]]
+id = "snapshot-worker-a"
+host_id = "host-a"
+role = "snapshot-worker"
+activation = "active"
+cpus = [
+    52,
+    53,
+    54,
+    55,
+]
+numa_node = 1
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/12/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-snapshot-worker"
+
+[[processes]]
+id = "md-spot-b"
+host_id = "host-b"
+role = "md"
+activation = "standby"
+cpus = [
+    8,
+]
+numa_node = 0
+memory_limit_bytes = 4294967296
+artifact_ref = "REQUIRED:/processes/13/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-md"
+
+[[processes]]
+id = "exec-spot-b"
+host_id = "host-b"
+role = "exec"
+activation = "standby"
+cpus = [
+    10,
+]
+numa_node = 0
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/14/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-exec"
+
+[[processes]]
+id = "replicator-spot-b"
+host_id = "host-b"
+role = "replicator"
+activation = "active"
+cpus = [
+    13,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/15/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-replicator"
+
+[[processes]]
+id = "md-usdm-b"
+host_id = "host-b"
+role = "md"
+activation = "standby"
+cpus = [
+    9,
+]
+numa_node = 0
+memory_limit_bytes = 4294967296
+artifact_ref = "REQUIRED:/processes/16/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-md"
+
+[[processes]]
+id = "exec-usdm-b"
+host_id = "host-b"
+role = "exec"
+activation = "standby"
+cpus = [
+    11,
+]
+numa_node = 0
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/17/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-exec"
+
+[[processes]]
+id = "replicator-usdm-b"
+host_id = "host-b"
+role = "replicator"
+activation = "active"
+cpus = [
+    14,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/18/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-replicator"
+
+[[processes]]
+id = "guardian-b"
+host_id = "host-b"
+role = "guardian"
+activation = "active"
+cpus = [
+    12,
+]
+numa_node = 0
+memory_limit_bytes = 1073741824
+artifact_ref = "REQUIRED:/processes/19/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-guardian"
+
+[[processes]]
+id = "recorder-b"
+host_id = "host-b"
+role = "recorder"
+activation = "active"
+cpus = [
+    15,
+]
+numa_node = 0
+memory_limit_bytes = 4294967296
+artifact_ref = "REQUIRED:/processes/20/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-recorder"
+
+[[processes]]
+id = "input-writer-b"
+host_id = "host-b"
+role = "input-writer"
+activation = "active"
+cpus = [
+    48,
+    49,
+    50,
+    51,
+]
+numa_node = 1
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/21/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-input-writer"
+
+[[processes]]
+id = "snapshot-worker-b"
+host_id = "host-b"
+role = "snapshot-worker"
+activation = "active"
+cpus = [
+    52,
+    53,
+    54,
+    55,
+]
+numa_node = 1
+memory_limit_bytes = 8589934592
+artifact_ref = "REQUIRED:/processes/22/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-snapshot-worker"
+
+[[processes]]
+id = "strategy-01-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    16,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/23/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-01-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    32,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/24/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-02-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    17,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/25/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-02-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    33,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/26/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-03-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    18,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/27/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-03-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    34,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/28/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-04-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    19,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/29/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-04-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    35,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/30/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-05-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    20,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/31/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-05-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    36,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/32/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-06-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    21,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/33/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-06-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    37,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/34/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-07-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    22,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/35/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-07-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    38,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/36/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-08-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    23,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/37/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-08-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    39,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/38/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-09-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    24,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/39/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-09-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    40,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/40/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-10-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    25,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/41/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-10-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    41,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/42/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-11-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    26,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/43/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-11-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    42,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/44/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-12-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    27,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/45/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-12-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    43,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/46/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-13-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    28,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/47/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-13-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    44,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/48/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-14-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    29,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/49/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-14-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    45,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/50/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-15-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    30,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/51/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-15-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    46,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/52/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-16-active"
+host_id = "host-a"
+role = "strategy"
+activation = "active"
+cpus = [
+    31,
+]
+numa_node = 0
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/53/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[processes]]
+id = "strategy-16-shadow"
+host_id = "host-a"
+role = "strategy"
+activation = "shadow"
+cpus = [
+    47,
+]
+numa_node = 1
+memory_limit_bytes = 2147483648
+artifact_ref = "REQUIRED:/processes/54/artifact_ref"
+restart_policy = "recover-gated"
+os_identity = "tickwire-strategy"
+
+[[venues]]
+id = "binance-spot"
+venue = "Binance"
+product = "Spot"
+environment = "production"
+transport = "ws-api"
+rest_uri = "REQUIRED:/venues/0/rest_uri"
+order_ws_uri = "REQUIRED:/venues/0/order_ws_uri"
+market_ws_uri = "REQUIRED:/venues/0/market_ws_uri"
+private_ws_uri = "REQUIRED:/venues/0/private_ws_uri"
+protocol_manifest_ref = "REQUIRED:/venues/0/protocol_manifest_ref"
+instrument_catalog_ref = "REQUIRED:/venues/0/instrument_catalog_ref"
+recv_window_ms = 5000
+heartbeat_ms = 10000
+rotate_after_ms = 82800000
+request_timeout_ms = 5000
+credential_ref = "REQUIRED:/venues/0/credential_ref"
+
+[[venues]]
+id = "binance-usdm"
+venue = "Binance"
+product = "Usdm"
+environment = "production"
+transport = "ws-api"
+rest_uri = "REQUIRED:/venues/1/rest_uri"
+order_ws_uri = "REQUIRED:/venues/1/order_ws_uri"
+market_ws_uri = "REQUIRED:/venues/1/market_ws_uri"
+private_ws_uri = "REQUIRED:/venues/1/private_ws_uri"
+protocol_manifest_ref = "REQUIRED:/venues/1/protocol_manifest_ref"
+instrument_catalog_ref = "REQUIRED:/venues/1/instrument_catalog_ref"
+recv_window_ms = 5000
+heartbeat_ms = 10000
+rotate_after_ms = 82800000
+request_timeout_ms = 5000
+credential_ref = "REQUIRED:/venues/1/credential_ref"
+
+[ipc]
+abi_major = 1
+abi_minor = 0
+architecture = "Linux_x86_64_le_4k"
+page_bytes = 4096
+isolation_bytes = 128
+market_banks = 4
+market_capacity = 65536
+market_record_bytes = 512
+market_arena_bytes_per_bank = 268435456
+intent_banks = 2
+intent_capacity = 4096
+intent_record_bytes = 1024
+report_banks = 2
+report_capacity = 8192
+report_record_bytes = 512
+max_batch_records = 64
+max_batch_payload_bytes = 4194304
+resource_session_ms = 3000
+resource_heartbeat_ms = 500
+market_arena_classes = [
+    { class_id = 1, block_bytes = 1024, block_count = 32768, payload_limit = 896 },
+    { class_id = 2, block_bytes = 4096, block_count = 16384, payload_limit = 3968 },
+    { class_id = 3, block_bytes = 16384, block_count = 4096, payload_limit = 16256 },
+    { class_id = 4, block_bytes = 131072, block_count = 768, payload_limit = 65536 },
+]
+snapshots_per_owner = 8
+snapshot_max_bytes = 67108864
+relay_budget_bytes = 268435456
+ring_high_watermark_records = 49152
+ring_stop_claiming_records = 57344
+config_projection_max_objects = 128
+config_projection_max_bytes = 4194304
+
+[[ipc.topics]]
+id = 1
+name = "spot-normalized"
+product = "Spot"
+stream = "NormalizedMarket"
+publisher_process_id = "md-spot-a"
+standby_publisher_process_id = "md-spot-b"
+qos = "StrictTrading"
+consumer_limit = 40
+
+[[ipc.topics]]
+id = 2
+name = "usdm-normalized"
+product = "Usdm"
+stream = "NormalizedMarket"
+publisher_process_id = "md-usdm-a"
+standby_publisher_process_id = "md-usdm-b"
+qos = "StrictTrading"
+consumer_limit = 40
+
+[[strategies]]
+logical_strategy_id = 1
+process_id = "strategy-01-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/0/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/0/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/0/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 1
+process_id = "strategy-01-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/1/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/1/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/1/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 2
+process_id = "strategy-02-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/2/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/2/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/2/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 2
+process_id = "strategy-02-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/3/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/3/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/3/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 3
+process_id = "strategy-03-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/4/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/4/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/4/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 3
+process_id = "strategy-03-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/5/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/5/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/5/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 4
+process_id = "strategy-04-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/6/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/6/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/6/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 4
+process_id = "strategy-04-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/7/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/7/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/7/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 5
+process_id = "strategy-05-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/8/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/8/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/8/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 5
+process_id = "strategy-05-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/9/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/9/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/9/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 6
+process_id = "strategy-06-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/10/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/10/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/10/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 6
+process_id = "strategy-06-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/11/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/11/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/11/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 7
+process_id = "strategy-07-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/12/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/12/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/12/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 7
+process_id = "strategy-07-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/13/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/13/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/13/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 8
+process_id = "strategy-08-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/14/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/14/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/14/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 8
+process_id = "strategy-08-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/15/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/15/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/15/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 9
+process_id = "strategy-09-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/16/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/16/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/16/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 9
+process_id = "strategy-09-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/17/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/17/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/17/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 10
+process_id = "strategy-10-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/18/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/18/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/18/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 10
+process_id = "strategy-10-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/19/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/19/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/19/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 11
+process_id = "strategy-11-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/20/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/20/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/20/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 11
+process_id = "strategy-11-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/21/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/21/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/21/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 12
+process_id = "strategy-12-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/22/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/22/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/22/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 12
+process_id = "strategy-12-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/23/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/23/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/23/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 13
+process_id = "strategy-13-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/24/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/24/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/24/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 13
+process_id = "strategy-13-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/25/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/25/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/25/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 14
+process_id = "strategy-14-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/26/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/26/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/26/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 14
+process_id = "strategy-14-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/27/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/27/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/27/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 15
+process_id = "strategy-15-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/28/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/28/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/28/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 15
+process_id = "strategy-15-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/29/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/29/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/29/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 16
+process_id = "strategy-16-active"
+role = "Active"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/30/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/30/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/30/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies]]
+logical_strategy_id = 16
+process_id = "strategy-16-shadow"
+role = "Shadow"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+topic_ids = [
+    1,
+    2,
+]
+state_schema_ref = "REQUIRED:/strategies/31/state_schema_ref"
+parameter_schema_ref = "REQUIRED:/strategies/31/parameter_schema_ref"
+recovery_contract_ref = "REQUIRED:/strategies/31/recovery_contract_ref"
+subscriptions_on_loss = "freeze-new-risk"
+trust_profile = "qualified_sdk"
+
+[strategies.params]
+spread_bps = "REQUIRED_PARAMETER"
+quote_quantity = "REQUIRED_PARAMETER"
+signal_window_events = "REQUIRED_PARAMETER"
+
+[[strategies.risk_budgets]]
+account_id = "spot-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[strategies.risk_budgets]]
+account_id = "usdm-main"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 64
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+
+[[accounts]]
+id = "spot-main"
+venue_id = "binance-spot"
+risk_domain_id = 1
+account_identity_ref = "REQUIRED:/accounts/0/account_identity_ref"
+exec_process_id = "exec-spot-a"
+standby_exec_process_id = "exec-spot-b"
+guardian_process_ids = [
+    "guardian-a",
+    "guardian-b",
+]
+credential_ref = "REQUIRED:/accounts/0/credential_ref"
+guardian_credential_ref = "REQUIRED:/accounts/0/guardian_credential_ref"
+risk_policy_id = "spot-risk"
+position_mode = "NotApplicable"
+margin_mode = "NotApplicable"
+asset_mode = "NotApplicable"
+mode_snapshot_ref = "REQUIRED:/accounts/0/mode_snapshot_ref"
+allowed_symbols = [
+    "REQUIRED_SYMBOL",
+]
+rate_limit_policy_ref = "REQUIRED:/accounts/0/rate_limit_policy_ref"
+instrument_overrides = []
+
+[[accounts]]
+id = "usdm-main"
+venue_id = "binance-usdm"
+risk_domain_id = 2
+account_identity_ref = "REQUIRED:/accounts/1/account_identity_ref"
+exec_process_id = "exec-usdm-a"
+standby_exec_process_id = "exec-usdm-b"
+guardian_process_ids = [
+    "guardian-a",
+    "guardian-b",
+]
+credential_ref = "REQUIRED:/accounts/1/credential_ref"
+guardian_credential_ref = "REQUIRED:/accounts/1/guardian_credential_ref"
+risk_policy_id = "usdm-risk"
+position_mode = "OneWay"
+margin_mode = "Cross"
+asset_mode = "SingleAsset"
+mode_snapshot_ref = "REQUIRED:/accounts/1/mode_snapshot_ref"
+allowed_symbols = [
+    "REQUIRED_SYMBOL",
+]
+rate_limit_policy_ref = "REQUIRED:/accounts/1/rate_limit_policy_ref"
+instrument_overrides = []
+
+[[risk_policies]]
+id = "spot-risk"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 1024
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+max_market_age_us = 100000
+fee_buffer_rate = "REQUIRED_DECIMAL"
+margin_buffer_rate = "REQUIRED_DECIMAL"
+fee_snapshot_ref = "REQUIRED:/risk_policies/0/fee_snapshot_ref"
+risk_tier_snapshot_ref = "REQUIRED:/risk_policies/0/risk_tier_snapshot_ref"
+on_limit_decrease = "freeze_until_within"
+allow_external_mutation = false
+delivery_guard_seconds = 0
+settlement_policy = "NotApplicable"
+settlement_schedule_ref = "REQUIRED:/risk_policies/0/settlement_schedule_ref"
+settlement_fee_schedule_ref = "REQUIRED:/risk_policies/0/settlement_fee_schedule_ref"
+auto_rollover = false
+expiry_resets_positions = false
+
+[[risk_policies]]
+id = "usdm-risk"
+quote_asset = "USDT"
+max_order_quote = "REQUIRED_DECIMAL"
+max_gross_quote = "REQUIRED_DECIMAL"
+max_open_orders = 1024
+max_daily_loss_quote = "REQUIRED_DECIMAL"
+max_market_age_us = 100000
+fee_buffer_rate = "REQUIRED_DECIMAL"
+margin_buffer_rate = "REQUIRED_DECIMAL"
+fee_snapshot_ref = "REQUIRED:/risk_policies/1/fee_snapshot_ref"
+risk_tier_snapshot_ref = "REQUIRED:/risk_policies/1/risk_tier_snapshot_ref"
+on_limit_decrease = "freeze_until_within"
+allow_external_mutation = false
+delivery_guard_seconds = 1800
+settlement_policy = "venue-facts-required"
+settlement_schedule_ref = "REQUIRED:/risk_policies/1/settlement_schedule_ref"
+settlement_fee_schedule_ref = "REQUIRED:/risk_policies/1/settlement_fee_schedule_ref"
+auto_rollover = false
+expiry_resets_positions = false
+
+[journal]
+commit_profile = "LocalDurable+AsyncReplica"
+root_dir = "/var/lib/tickwire/journal"
+segment_bytes = 268435456
+max_frame_bytes = 1048576
+group_max_records = 32
+group_max_bytes = 65536
+group_max_wait_us = 25
+pending_new_risk_bytes = 16777216
+snapshot_every_records = 100000
+snapshot_every_bytes = 536870912
+retained_snapshot_count = 2
+disk_warn_percent = 80
+disk_freeze_percent = 90
+
+[replication]
+enabled = true
+receiver_host_id = "host-b"
+protocol_ref = "REQUIRED:/replication/protocol_ref"
+mtls_identity_ref = "REQUIRED:/replication/mtls_identity_ref"
+batch_max_delay_us = 1000
+batch_max_bytes = 65536
+max_inflight_batches = 128
+out_of_order_bytes = 8388608
+lag_warn_ms = 100
+lag_freeze_ms = 1000
+on_freeze = "freeze-new-risk"
+mirror_wait_timeout_ms = 5000
+automatic_async_fallback = false
+
+[control]
+listen_uri = "REQUIRED:/control/listen_uri"
+voters = [
+    { node_id = 1, host_id = "host-a", peer_uri = "REQUIRED:/control/voters/0/peer_uri" },
+    { node_id = 2, host_id = "host-b", peer_uri = "REQUIRED:/control/voters/1/peer_uri" },
+    { node_id = 3, host_id = "ctl-c", peer_uri = "REQUIRED:/control/voters/2/peer_uri" },
+]
+raft_impl = "raft-rs-0.7.0"
+tick_ms = 10
+heartbeat_ms = 50
+election_min_ms = 500
+election_max_ms = 1000
+pre_vote = true
+check_quorum = true
+read_only_mode = "Safe"
+exec_grant_lifetime_ms = 100
+exec_grant_renew_ms = 25
+strategy_grant_lifetime_ms = 60000
+strategy_progress_interval_ms = 10
+strategy_suspect_after_ms = 50
+mtls_identity_ref = "REQUIRED:/control/mtls_identity_ref"
+client_ca_bundle_ref = "REQUIRED:/control/client_ca_bundle_ref"
+operation_timeout_ms = 120000
+plan_ttl_ms = 60000
+idempotency_retention_days = 90
+max_request_bytes = 4194304
+
+[[control.role_bindings]]
+subject = "REQUIRED:/control/role_bindings/0/subject"
+role = "viewer"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+
+[[control.role_bindings]]
+subject = "REQUIRED:/control/role_bindings/1/subject"
+role = "config-editor"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+
+[[control.role_bindings]]
+subject = "REQUIRED:/control/role_bindings/2/subject"
+role = "config-operator"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+
+[[control.role_bindings]]
+subject = "REQUIRED:/control/role_bindings/3/subject"
+role = "risk-admin"
+account_ids = [
+    "spot-main",
+    "usdm-main",
+]
+
+[[control.role_bindings]]
+subject = "REQUIRED:/control/role_bindings/4/subject"
+role = "cluster-admin"
+account_ids = []
+
+[local_config]
+root_dir = "/var/lib/tickwire/config"
+file_mode = "0600"
+directory_mode = "0700"
+owner = "tickwire-config"
+retain_last_good = 2
+durability = "fsync-file-rename-fsync-directory"
+manual_edit_policy = "quarantine-and-reconcile"
+startup_policy = "journal-verified-effective-then-reconcile"
+strict_drift_gate = true
+journal_max_bytes = 268435456
+projection_policy_revision = 1
+projection_policy_ref = "REQUIRED:/local_config/projection_policy_ref"
+bootstrap_locator_path = "/etc/tickwire/bootstrap/config-locator.toml"
+
+[observability]
+metrics_listen_uri = "REQUIRED:/observability/metrics_listen_uri"
+metrics_identity_ref = "REQUIRED:/observability/metrics_identity_ref"
+diagnostic_level = "info"
+sample_per_million = 1000
+histogram_profile_ref = "REQUIRED:/observability/histogram_profile_ref"
+audit_root_dir = "/var/lib/tickwire/audit"
+audit_retention_days = 90
+secret_redaction = true
+labels_policy = "bounded-no-secrets-no-order-id"
+log_max_bytes = 4294967296
+
+[timeouts]
+intent_ttl_us = 5000
+private_stream_stale_ms = 5000
+clock_max_offset_us = 1000
+quiesce_timeout_ms = 30000
+shutdown_timeout_ms = 60000
+unknown_order_query_ms = 1000
+reconnect_min_ms = 100
+reconnect_max_ms = 30000
+fencing_deadline_ms = 5000
+takeover_deadline_ms = 30000
+
+[qualification]
+deployment_manifest_ref = "REQUIRED:/qualification/deployment_manifest_ref"
+protocol_entitlements_ref = "REQUIRED:/qualification/protocol_entitlements_ref"
+host_inventory_ref = "REQUIRED:/qualification/host_inventory_ref"
+storage_power_loss_report_ref = "REQUIRED:/qualification/storage_power_loss_report_ref"
+network_isolation_report_ref = "REQUIRED:/qualification/network_isolation_report_ref"
+risk_acceptance_ref = "REQUIRED:/qualification/risk_acceptance_ref"
+full_send_p99_us = 300
+full_send_p999_us = 1000
+sync_send_p99_us = 2000
+sync_send_p999_us = 5000

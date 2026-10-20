@@ -1,0 +1,1042 @@
+{
+  "contract_name": "tickwire-replication-profile",
+  "contract_version": 1,
+  "design_version": "0.3",
+  "profile_id": "LocalDurable+AsyncReplica",
+  "default_profile": "LocalDurable+AsyncReplica",
+  "status": "design_reference_not_implemented_or_qualified",
+  "updated_at": "2026-10-20",
+  "document": "../../docs/design/replication-and-failover.md",
+  "topology": {
+    "execution_hosts": 2,
+    "execution_replicas": 2,
+    "control_voters": 3,
+    "control_quorum_size": 2,
+    "trading_host_ids": [
+      "A",
+      "B"
+    ],
+    "control_only_host_ids": [
+      "C"
+    ],
+    "control_voter_ids": [
+      "A",
+      "B",
+      "C"
+    ],
+    "control_voters_all_have_control_state": true,
+    "control_only_hosts_hold_order_wal": false,
+    "trading_host_min_physical_cores": 64,
+    "trading_host_min_ram_gib": 256,
+    "control_only_host_min_physical_cores": 8,
+    "control_only_host_min_ram_gib": 32,
+    "execution_hosts_in_distinct_fault_domains": true,
+    "control_voters_in_distinct_fault_domains": true,
+    "data_less_control_witnesses": 0,
+    "hardware_is_qualification_reference_not_existing_inventory": true
+  },
+  "profiles": {
+    "LocalDurable+AsyncReplica": {
+      "default": true,
+      "single_writer_per_risk_domain": true,
+      "data_consensus": "none",
+      "local_durable_intent_before_send": true,
+      "local_complete_dependency_closure_before_send": true,
+      "remote_ack_before_accepted_or_send": false,
+      "replication_mode": "background_async_contiguous_prefix_with_full_closure",
+      "execution_replicas": 2,
+      "cross_host_permanent_storage_loss_rpo_zero": false,
+      "rpo_scope": "accepted_intents_recoverable_if_original_reliable_storage_is_readable",
+      "missing_remote_tail_action": "EvidenceLost_Frozen_no_automatic_resume",
+      "automatic_promotion_requires_source_recovery_seal": true,
+      "fixed_rto_for_permanent_source_storage_loss": false,
+      "async_replica_loss_action": "warn_then_freeze_new_risk_at_configured_lag_threshold"
+    },
+    "SyncReplica": {
+      "default": false,
+      "selection_requires": "explicit_business_requirement_for_cross_host_zero_loss_of_potentially_sent_intents_and_acceptance_of_measured_sync_latency",
+      "single_writer_per_risk_domain": true,
+      "data_consensus": "none",
+      "execution_replicas": 2,
+      "local_and_designated_mirror_complete_closure_before_send": true,
+      "remote_ack_before_accepted_or_send": true,
+      "mirror_assignment_in_control_and_local_journal": true,
+      "local_and_mirror_flush_may_overlap_with_transfer": true,
+      "additional_per_intent_source_flush_for_mirror_ack_required": false,
+      "missing_ack_after_restart_proves_unsent": false,
+      "cross_host_rpo_zero_scope": "potentially_sent_intents_and_complete_recovery_dependencies_with_healthy_designated_mirror",
+      "mirror_unavailable_action": "no_new_accepted_or_increasing_risk_send",
+      "automatic_async_downgrade_allowed": false,
+      "promotion_requires_mirror_recovery_seal": true,
+      "resume_new_risk_requires_replacement_sync_mirror": true,
+      "fixed_rto_when_mirror_or_venue_unavailable": false,
+      "switch_from_async_requires": "freeze_source_seal_complete_mirror_sync_and_new_assignment_epoch"
+    }
+  },
+  "groups": {
+    "control_raft_group_count": 1,
+    "risk_data_raft_group_count": 0,
+    "risk_journal_count_rule": "one_single_writer_local_journal_per_risk_domain",
+    "risk_journal_authoritative": true,
+    "control_command_requires_local_journal_import_and_apply": true,
+    "per_intent_control_group_round_trip_required": false,
+    "active_exec_must_be_colocated_with_control_leader": false,
+    "control_leader_change_alone_requires_exec_restart": false,
+    "cross_risk_group_atomic_commit_claimed": false
+  },
+  "control_raft": {
+    "tick_interval_ms": 10,
+    "heartbeat_tick": 5,
+    "heartbeat_interval_ms": 50,
+    "election_tick": 50,
+    "min_election_tick": 50,
+    "max_election_tick_exclusive": 100,
+    "election_timeout_min_ms": 500,
+    "election_timeout_max_exclusive_ms": 1000,
+    "check_quorum": true,
+    "pre_vote": true,
+    "read_only_option": "Safe",
+    "skip_bcast_commit": false,
+    "batch_append": true,
+    "max_size_per_msg_bytes": 65536,
+    "max_inflight_msgs": 128,
+    "max_uncommitted_size_bytes": 16777216,
+    "max_committed_size_per_ready_bytes": 1048576,
+    "leader_current_term_barrier_required": true,
+    "old_term_replica_count_alone_may_commit": false,
+    "persist_term_vote_before_positive_vote": true,
+    "persist_commit_before_apply_or_external_ack": true,
+    "ordered_ready_persistence_required": true,
+    "transport": "mutual_tls_with_cluster_group_node_incarnation_binding",
+    "durable_receipt_signature": "Ed25519_per_batch",
+    "commit_proof_is_byzantine_certificate": false,
+    "logical_log_prefix_hash": "SHA256(previous_logical_hash_and_canonical_cluster_group_index_term_entry_type_payload_hash)",
+    "logical_prefix_hash_equals_physical_wal_hash": false,
+    "scope": "control_plane_only",
+    "stable_voters": 3,
+    "stable_quorum_size": 2,
+    "all_voters_have_control_log_snapshot_and_referenced_artifacts": true,
+    "persist_control_entries_and_referenced_artifacts_before_positive_append_ack": true
+  },
+  "engine": {
+    "name": "raft-rs",
+    "crate": "raft",
+    "version": "0.7.0",
+    "cargo_requirement": "=0.7.0",
+    "git_tag": "v0.7.0",
+    "git_commit": "10c6e9db6792b85c81784e44fc278f895d5f0ab0",
+    "crate_sha256": "f12688b23a649902762d4c11d854d73c49c9b93138f2de16403ef9f571ad5bae",
+    "repository": "https://github.com/tikv/raft-rs",
+    "documentation": "https://docs.rs/raft/0.7.0/raft/",
+    "protocol_source": "https://raw.githubusercontent.com/tikv/raft-rs/10c6e9db6792b85c81784e44fc278f895d5f0ab0/proto/proto/eraftpb.proto",
+    "raft_paper": "https://raft.github.io/raft.pdf",
+    "storage_adapter": "tickwire_segmented_wal_and_content_addressed_blobs",
+    "raw_node_ready_mode": "advance_append_async_then_ordered_on_persist_ready",
+    "production_mem_storage_allowed": false,
+    "scope": "control_plane_only"
+  },
+  "batching": {
+    "intent_batch_max_entries": 32,
+    "intent_batch_max_bytes": 65536,
+    "intent_batch_max_oldest_wait_us": 25,
+    "flush_on_first_limit": true,
+    "input_blob_batch_max_bytes": 262144,
+    "input_blob_max_oldest_wait_us": 50,
+    "max_new_risk_pending_bytes_per_domain": 16777216,
+    "pending_limit_action": "reject_new_prepared_preserve_fact_and_revocation_capacity",
+    "local_dependencies_and_local_flush_in_default_latency": true,
+    "remote_replication_wait_in_default_latency": false,
+    "remote_replication_wait_in_sync_latency": true,
+    "separate_data_raft_commit_flush_required": false
+  },
+  "qualification_targets": {
+    "measured": false,
+    "LocalDurable+AsyncReplica": {
+      "complete_tick_to_socket_p99_us": 300,
+      "complete_tick_to_socket_p999_us": 1000,
+      "includes_local_wal_and_exact_replay_dependencies": true,
+      "includes_remote_replication_wait": false
+    },
+    "SyncReplica": {
+      "complete_tick_to_socket_p99_us": 2000,
+      "complete_tick_to_socket_p999_us": 5000,
+      "includes_local_and_mirror_flush_and_exact_replay_dependencies": true,
+      "topology_must_match_measured_deployment": true
+    },
+    "sum_of_segment_percentiles_allowed": false,
+    "sub_100us_complete_path_claimed": false,
+    "bounded_recovery_qualification_target_ms": 30000,
+    "bounded_recovery_scope": "process_failure_with_intact_source_storage_or_proven_complete_replica_under_declared_load_and_healthy_external_services",
+    "source_disk_wait_or_evidence_lost_has_fixed_rto": false
+  },
+  "wal": {
+    "format_version": 1,
+    "byte_order": "little_endian",
+    "frame_magic_ascii": "TWAL0001",
+    "frame_end_magic_ascii": "TEND",
+    "header_bytes": 136,
+    "trailer_bytes": 40,
+    "alignment_bytes": 8,
+    "segment_max_bytes": 268435456,
+    "frame_max_bytes": 1048576,
+    "frame_min_bytes": 176,
+    "hash": "SHA-256",
+    "checksum": "CRC-32C",
+    "padding_value": 0,
+    "header_fields": [
+      {
+        "name": "magic",
+        "type": "bytes",
+        "bytes": 8
+      },
+      {
+        "name": "version",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "header_len",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "total_len",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "frame_type",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "flags",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "payload_len",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "stream_epoch",
+        "type": "uuid",
+        "bytes": 16
+      },
+      {
+        "name": "domain_or_group_id",
+        "type": "uuid",
+        "bytes": 16
+      },
+      {
+        "name": "segment_id",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "lsn",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "record_seq_or_raft_index",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "exec_epoch_or_raft_term",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "batch_number",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "previous_frame_hash",
+        "type": "sha256",
+        "bytes": 32
+      },
+      {
+        "name": "header_crc32c",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "payload_crc32c",
+        "type": "u32",
+        "bytes": 4
+      }
+    ],
+    "trailer_fields": [
+      {
+        "name": "frame_hash",
+        "type": "sha256",
+        "bytes": 32
+      },
+      {
+        "name": "repeated_total_len",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "end_magic",
+        "type": "bytes",
+        "bytes": 4
+      }
+    ],
+    "frame_types": {
+      "BatchBegin": 1,
+      "DataRecord": 2,
+      "RaftEntry": 3,
+      "RaftHardState": 4,
+      "ControlTruncateSuffix": 5,
+      "SnapshotPublish": 6,
+      "ControlConfState": 7,
+      "ControlCommitWatermark": 8,
+      "DependencyPin": 9,
+      "DependencyRelease": 10,
+      "SourceFreezeSeal": 11,
+      "BatchSeal": 12
+    },
+    "header_crc_input": "header_with_header_crc32c_zero_and_actual_payload_crc32c",
+    "payload_crc_input": "payload_without_padding",
+    "frame_hash_input": "header_payload_zero_padding_repeated_total_len_end_magic",
+    "sync_primitive": "fdatasync",
+    "sync_directory_on_create_rename_or_unlink": true,
+    "positive_receipt_requires_completed_sync": true,
+    "recoverable_torn_tail": "incomplete_final_unsealed_ready_batch_only",
+    "sealed_batch_corruption_action": {
+      "control_log": "StorageQuarantined_rebuild_from_verified_control_quorum",
+      "risk_journal": "StorageQuarantined_restore_only_from_proven_complete_source_or_replica_else_EvidenceLost_Frozen"
+    },
+    "data_positive_receipt_requires_full_closed_batch_and_dependency_sync": true,
+    "data_default_commit_seq_equals_local_durable_seq": true,
+    "data_sync_commit_requires_designated_mirror_durable_seq": true,
+    "data_watermark_order": [
+      "snapshot_seq",
+      "applied_seq",
+      "commit_seq",
+      "local_durable_seq",
+      "last_seq"
+    ],
+    "replica_watermarks": [
+      "replica_received_seq",
+      "replica_durable_seq",
+      "replica_applied_seq"
+    ],
+    "data_same_epoch_conflict_action": "quarantine_no_automatic_truncation_or_overwrite",
+    "data_epoch_transition_requires_complete_prefix_proof": true,
+    "control_conflicting_uncommitted_suffix_replacement": "append_atomic_truncate_and_replacement_batch_then_change_log_view",
+    "control_truncate_committed_prefix_allowed": false,
+    "control_restart_confstate_source": "same_snapshot_boundary_as_config_applied",
+    "control_replay_persisted_commit_and_membership_before_vote_or_business_network": true,
+    "restart_applied_state_source": "same_verified_snapshot_then_committed_prefix_replay",
+    "logical_data_hash_chain": "SHA256(previous_logical_hash_and_canonical_domain_journal_epoch_seq_type_payload_hash)",
+    "logical_hash_equals_physical_wal_frame_hash": false
+  },
+  "async_replication": {
+    "protocol_version": 1,
+    "message_types": [
+      "ReplicaHello",
+      "AppendBatch",
+      "NeedRange",
+      "DurableAck",
+      "SnapshotOffer",
+      "SnapshotInstalled",
+      "SourceRecoverySeal"
+    ],
+    "transport": "mutual_tls",
+    "batch_interval_ms": 1,
+    "batch_max_bytes": 65536,
+    "max_inflight_batches": 128,
+    "out_of_order_buffer_max_bytes": 8388608,
+    "gap_action": "NeedRange_and_bounded_buffer_then_backpressure",
+    "same_epoch_seq_different_hash_action": "quarantine_session_no_automatic_overwrite",
+    "ack_after_full_local_dependency_closure_and_flush": true,
+    "received_is_not_durable": true,
+    "ack_lost_action": "retry_same_epoch_seq_and_hash",
+    "receiver_restart_requires_fresh_storage_verification": true,
+    "lag_warning_ms": 100,
+    "lag_hard_ms": 1000,
+    "lag_hard_action": "freeze_new_increasing_risk_preserve_facts_and_cancel",
+    "lag_measurements": [
+      "source_durable_minus_replica_durable_seq",
+      "unreplicated_bytes",
+      "oldest_unreplicated_record_age"
+    ],
+    "lag_threshold_is_guaranteed_rpo": false,
+    "retain_unacknowledged_log_or_pinned_complete_snapshot_and_suffix": true,
+    "disk_usage_warning_percent": 80,
+    "disk_usage_stop_new_risk_percent": 90,
+    "delete_unreplicated_tail_to_continue_sending_allowed": false,
+    "snapshot_plus_contiguous_tail_required_for_catchup": true,
+    "low_lag_or_last_ack_alone_authorizes_promotion": false,
+    "source_seal_after_actual_fence_required_for_default_promotion": true
+  },
+  "dependencies": {
+    "manifest_name": "RecoveryManifest",
+    "manifest_version": 1,
+    "hash": "SHA-256",
+    "content_addressed": true,
+    "acyclic_graph_required": true,
+    "current_intent_leaf_excludes_manifest_reference": true,
+    "receipt_issuer": "trusted_persistence_service",
+    "strategy_self_report_is_receipt": false,
+    "exact_input_order_issuer": "qualified_sdk_input_sequencer_or_trusted_isolated_adapter",
+    "input_order_required": [
+      "market",
+      "execution_report",
+      "timer",
+      "configuration",
+      "model_update"
+    ],
+    "recovery_modes": [
+      "deterministic_replay",
+      "declared_rebuild"
+    ],
+    "required_dependency_kinds": [
+      "intent_payload",
+      "risk_reservation",
+      "dedup_state",
+      "strategy_or_risk_action_grant",
+      "execution_grant",
+      "imported_control_directive",
+      "rollout_operation_revision",
+      "strategy_artifact",
+      "model_and_configuration",
+      "protocol_and_state_schema",
+      "strategy_checkpoint_or_approved_rebuild_contract",
+      "ordered_inputs_or_required_rebuild_window"
+    ],
+    "external_url_alone_is_durable_dependency": false,
+    "pin_owners": [
+      "live_intent",
+      "unresolved_order",
+      "retained_snapshot",
+      "rollout_operation",
+      "installing_snapshot"
+    ],
+    "garbage_collection_requires_committed_release_and_no_live_pin": true,
+    "unresolved_order_can_expire_dependency_pins": false,
+    "capacity_exhaustion_action": "deny_new_admission_and_increasing_risk_preserve_existing_recovery",
+    "default_requires_complete_closure_on_source": true,
+    "replica_durable_ack_requires_complete_closure_on_that_replica": true,
+    "sync_requires_complete_closure_on_source_and_designated_mirror": true,
+    "all_market_events_put_in_data_raft": false,
+    "required_strategy_inputs_stored_as_content_addressed_blobs": true,
+    "profile_switch_cannot_retroactively_make_async_tail_synchronous": true
+  },
+  "snapshot": {
+    "trigger_committed_entries_since_last": 100000,
+    "trigger_wal_bytes_since_last": 536870912,
+    "trigger_on_first_limit": true,
+    "transfer_chunk_bytes": 4194304,
+    "retained_snapshot_generations": 2,
+    "boundary": "one_immutable_applied_state_index",
+    "required_metadata": [
+      "journal_epoch_or_control_term",
+      "seq_or_control_index",
+      "logical_prefix_hash",
+      "state_schema",
+      "reducer_build_hash",
+      "dependency_pin_set",
+      "snapshot_hash",
+      "control_ConfState_when_applicable"
+    ],
+    "install_requires_local_dependency_closure": true,
+    "atomic_publish": "synchronized_snapshot_and_wal_publish_record_then_current_manifest_rename_and_directory_sync",
+    "network_transfer_complete_is_install_complete": false,
+    "install_emits_external_trading_effects": false,
+    "dedup_and_id_highwater_survive_compaction": true,
+    "default_compaction_requires": "complete_local_snapshot_and_pinned_replica_catchup_snapshot_or_unacked_log",
+    "sync_compaction_requires": "source_and_designated_mirror_keep_recoverable_snapshot_and_suffix_for_all_potential_sends"
+  },
+  "membership": {
+    "control_protocol": "ConfChangeV2",
+    "control_voter_change_transition": "Explicit",
+    "control_max_concurrent_changes": 1,
+    "control_max_additional_learners": 1,
+    "control_max_nodes_during_replacement": 4,
+    "control_configuration_effective_at": "committed_entry_apply_conf_change",
+    "control_persist_conf_state_before_application_receipt": true,
+    "control_promotion_requires_snapshot_log_and_restart_check": true,
+    "control_joint_quorum_rule": "majority_of_old_and_majority_of_new",
+    "control_leave_joint_requires_empty_confchangev2_commit_and_apply": true,
+    "control_old_voter_retirement_before_leave_joint_allowed": false,
+    "local_membership_file_override_allowed": false,
+    "data_replica_replacement_uses_joint_consensus": false,
+    "data_async_replacement_requires": "control_registration_then_snapshot_complete_closure_contiguous_log_and_ReplicaReady",
+    "data_sync_replacement_requires": "freeze_source_seal_catchup_and_new_mirror_assignment_epoch"
+  },
+  "execution_authority": {
+    "states": [
+      "Standby",
+      "Active",
+      "FreezeRequested",
+      "FencePending",
+      "Fenced",
+      "Recovering",
+      "GrantPrepared",
+      "EvidenceLost",
+      "Frozen"
+    ],
+    "intent_states": [
+      "Received",
+      "Prepared",
+      "LocalDurable",
+      "MirrorDurable",
+      "Applied",
+      "Accepted",
+      "MayHaveSent",
+      "AbortedBeforeSend",
+      "Unknown"
+    ],
+    "grant_types": [
+      "StrategyGrant",
+      "ExecutorRiskAction",
+      "GuardianEmergencyGrant",
+      "ExecutionGrant"
+    ],
+    "control_lease_lifetime_ms": 100,
+    "control_lease_renew_interval_ms": 25,
+    "control_lease_deadline_origin": "local_challenge_send_monotonic_time_in_current_boot",
+    "delayed_renewal_restarts_lifetime": false,
+    "old_boot_challenge_reusable": false,
+    "final_send_gate_revalidation_required": true,
+    "control_command_commit_alone_activates_exec": false,
+    "raft_term_alone_fences_binance": false,
+    "lease_expiry_alone_is_fencing_proof": false,
+    "physical_identity_fencing_required_before_new_exec": true,
+    "fencing_eliminates_previously_egressed_requests": false,
+    "timeout_may_release_unknown_reservation": false,
+    "activation_requires": [
+      "current_applied_exec_epoch",
+      "fresh_persistent_old_identity_isolation",
+      "fence_evidence_in_control_and_local_journal",
+      "source_recovery_seal_for_default_or_mirror_recovery_seal_for_sync",
+      "complete_recovery_dependency_closure",
+      "durable_reconciliation_baseline",
+      "strategy_recovery_and_operation_barriers",
+      "unexpired_control_challenge",
+      "new_identity_egress_ready",
+      "durable_and_applied_activate_execution",
+      "replacement_designated_mirror_if_sync_profile"
+    ],
+    "data_raft_term_exists": false
+  },
+  "fencing": {
+    "executor_main_loop_progress_interval_ms": 10,
+    "executor_main_loop_suspect_ms": 50,
+    "local_process_termination_budget_ms": 500,
+    "external_network_fence_budget_ms": 2000,
+    "power_fence_max_remaining_budget_ms": 2500,
+    "overall_fence_deadline_ms": 5000,
+    "reconciliation_stage_budget_ms": 20000,
+    "strategy_recovery_stage_budget_ms": 5000,
+    "overall_takeover_deadline_ms": 30000,
+    "stage_timeouts_may_extend_overall_deadline": false,
+    "timeout_action": "Frozen_with_specific_unresolved_evidence",
+    "isolation_controller_in_independent_fault_domain": true,
+    "out_of_band_management_required": true,
+    "identity": [
+      "host_id",
+      "boot_id",
+      "exec_instance_id",
+      "exec_epoch",
+      "network_identity",
+      "credential_access_identity"
+    ],
+    "external_network_fence_requires": [
+      "all_registered_egress_blocked",
+      "existing_connection_state_removed_or_vnic_or_port_disabled",
+      "device_revision_readback",
+      "independent_probe",
+      "persistent_deny_tombstone"
+    ],
+    "process_fence_requires": [
+      "restart_disabled",
+      "pidfd_exit",
+      "exec_cgroup_empty",
+      "persistent_external_network_identity_deny"
+    ],
+    "power_fence_requires": [
+      "out_of_band_power_off_readback",
+      "restart_or_network_identity_deny_persists"
+    ],
+    "single_failed_ping_sufficient": false,
+    "pid_number_or_sigstop_sufficient": false,
+    "security_group_new_connections_only_deny_sufficient": false,
+    "revoke_local_api_secret_alone_sufficient": false,
+    "old_identity_unfenced_during_takeover": false,
+    "stale_enable_request_action": "reject_by_identity_tombstone_and_monotonic_revision",
+    "fresh_readback_before_activation_required": true,
+    "enable_requires_current_control_read_index": true,
+    "unresolved_stale_device_enable_action": "independent_port_or_power_fence_else_Frozen",
+    "takeover_deadline_scope": "intact_source_storage_or_proven_complete_replica_under_declared_load_and_healthy_external_services",
+    "permanent_source_storage_loss_or_evidence_lost_fixed_rto": false
+  },
+  "guardian": {
+    "independent_pre_authorized_cancel_only": true,
+    "pre_fence_allowed_actions": [
+      "query",
+      "cancel_under_existing_emergency_grant"
+    ],
+    "post_fence_cleanup_covers": [
+      "ordinary_orders",
+      "order_lists",
+      "algo_orders",
+      "triggered_child_orders"
+    ],
+    "emergency_grant_must_be_committed_while_healthy": true,
+    "new_normal_execution_grant_derived_from_emergency_grant": false,
+    "automatic_market_close_derived_from_cancel_only": false,
+    "independent_emergency_log_required": true,
+    "quorum_unavailable_action": "best_effort_pre_authorized_cancel_with_local_audit_then_reconcile",
+    "audit_replication_unavailable_flag": "audit_degraded",
+    "unknown_reservation_release_on_cancel_request": false,
+    "venue_native_cancel_only_key_permission_assumed": false
+  },
+  "evidence_encoding": {
+    "format": "CBOR",
+    "deterministic_encoding": "RFC8949_4.2.1",
+    "duplicate_map_keys_allowed": false,
+    "floating_point_allowed": false,
+    "indefinite_lengths_allowed": false,
+    "set_order": "ascending_node_id",
+    "signature_domain_separator": "tickwire_record_type_and_schema_version",
+    "logical_hash_chain_genesis_binding": [
+      "stream_epoch",
+      "domain_or_group_id"
+    ]
+  },
+  "evidence_contracts": {
+    "LocalCommitProof": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "journal_epoch",
+        "exec_epoch",
+        "profile_version",
+        "first_seq",
+        "commit_seq",
+        "logical_prefix_hash",
+        "intent_id",
+        "payload_hash",
+        "manifest_root",
+        "action_grant_ref",
+        "strategy_generation",
+        "operation_revision",
+        "source_host_id",
+        "source_boot_id",
+        "storage_batch_id",
+        "completed_sync_id",
+        "signature"
+      ],
+      "proves": "source_contiguous_closed_batch_and_complete_dependency_closure_durable"
+    },
+    "DurableAck": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "journal_epoch",
+        "source_exec_epoch",
+        "receiver_id",
+        "receiver_boot_id",
+        "mirror_assignment_epoch_when_sync",
+        "last_seq",
+        "logical_prefix_hash",
+        "dependency_root",
+        "storage_batch_id",
+        "completed_sync_id",
+        "signature"
+      ],
+      "proves": "receiver_contiguous_prefix_and_complete_dependency_closure_durable",
+      "does_not_prove": "source_has_no_later_potentially_sent_intents"
+    },
+    "MirrorCommitProof": {
+      "required_fields": [
+        "schema_version",
+        "local_commit_proof",
+        "designated_mirror_id",
+        "mirror_assignment_epoch",
+        "mirror_durable_ack",
+        "profile_version"
+      ],
+      "checks": [
+        "exact_same_domain_epoch_seq_hash_and_manifest",
+        "active_designated_mirror_assignment",
+        "local_and_mirror_flush_complete"
+      ]
+    },
+    "ControlCommitProof": {
+      "required_fields": [
+        "schema_version",
+        "cluster_epoch",
+        "group_id",
+        "entry_index",
+        "entry_term",
+        "entry_hash",
+        "current_term_anchor_index",
+        "current_term_anchor_term",
+        "prefix_proof",
+        "membership_hash",
+        "voters",
+        "voters_outgoing",
+        "durable_receipts",
+        "leader_persisted_commit_index"
+      ],
+      "checks": [
+        "raft_reports_committed",
+        "current_term_anchor_covers_target",
+        "stable_or_joint_durable_quorum"
+      ]
+    },
+    "AppliedReceipt": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "journal_epoch",
+        "exec_instance_id",
+        "exec_epoch",
+        "request_id",
+        "request_hash",
+        "operation_id",
+        "operation_revision",
+        "entry_seq",
+        "applied_seq",
+        "result_hash",
+        "profile_commit_proof_ref"
+      ]
+    },
+    "RecoveryManifest": {
+      "required_fields": [
+        "schema_version",
+        "manifest_root",
+        "risk_domain_id",
+        "intent_payload_hash",
+        "logical_strategy_id",
+        "instance_id",
+        "strategy_generation",
+        "exec_epoch",
+        "action_grant_ref",
+        "operation_ref",
+        "recovery_mode",
+        "decision_input_boundary",
+        "fault_model_id",
+        "dependency_objects",
+        "dependency_edges",
+        "pin_id"
+      ],
+      "hash_scope": "canonical_immutable_graph_descriptors_excluding_manifest_root_storage_receipts_and_live_pin_owners",
+      "dag_required": true
+    },
+    "DependencyObject": {
+      "required_fields": [
+        "kind",
+        "content_hash",
+        "byte_length",
+        "schema_id",
+        "owner_identity",
+        "coverage_ranges",
+        "storage_receipts",
+        "pin_owners"
+      ],
+      "coverage_rules": [
+        "no_gaps",
+        "ordered_input_hash_chain_matches_decision_boundary",
+        "every_durable_ack_issuer_has_all_reachable_objects_locally"
+      ]
+    },
+    "FenceEvidence": {
+      "required_fields": [
+        "schema_version",
+        "operation_id",
+        "operation_revision",
+        "control_commit_ref",
+        "risk_domain_id",
+        "old_identity",
+        "registered_egress_set_hash",
+        "controller_id",
+        "controller_boot_id",
+        "request_nonce",
+        "device_actions",
+        "deny_tombstone_revision",
+        "credential_access_revocation",
+        "process_or_power_or_network_isolation_result",
+        "fresh_readback",
+        "probe_results",
+        "completed_at",
+        "clock_domain",
+        "signature"
+      ],
+      "device_action_required_fields": [
+        "device_id",
+        "target_identity",
+        "action_id",
+        "requested_revision",
+        "observed_revision",
+        "effective_state",
+        "completion_receipt_hash"
+      ],
+      "signature_scope": "canonical_all_fields_except_signature"
+    },
+    "ExecutionGrant": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "new_exec_identity",
+        "exec_epoch",
+        "control_commit_ref",
+        "local_grant_prepared_seq",
+        "profile_version",
+        "source_or_mirror_recovery_seal_ref",
+        "fence_evidence_hash",
+        "reconciliation_baseline_hash",
+        "recovery_manifest_root",
+        "strategy_barriers",
+        "operation_revision",
+        "challenge_id",
+        "challenge_boot_id",
+        "challenge_send_mono_ns",
+        "valid_until_mono_ns",
+        "allowed_actions"
+      ]
+    },
+    "EgressReady": {
+      "required_fields": [
+        "schema_version",
+        "new_exec_identity",
+        "execution_grant_hash",
+        "old_identity_deny_revision",
+        "fresh_readback_hash",
+        "new_egress_policy_revision",
+        "controller_id",
+        "signature"
+      ]
+    },
+    "ReconciliationBaseline": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "exec_epoch",
+        "complete_prefix_proof_ref",
+        "fence_evidence_ref",
+        "private_stream_capture_boundary",
+        "query_windows_and_pagination",
+        "order_and_child_order_facts",
+        "trade_dedup_state",
+        "balances_and_positions",
+        "reservations",
+        "resolved_intent_results",
+        "unresolved_intents",
+        "restricted_risk_contract_ref",
+        "baseline_hash"
+      ],
+      "unknowns_may_be_suppressed_by_timeout": false
+    },
+    "SourceRecoverySeal": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "old_journal_epoch",
+        "old_exec_identity",
+        "fence_evidence_ref",
+        "source_storage_identity",
+        "source_terminal_seq",
+        "source_logical_prefix_hash",
+        "source_snapshot_ref",
+        "complete_dependency_root",
+        "verification_method",
+        "verifier_id",
+        "signature"
+      ],
+      "verification_methods": [
+        "source_freeze_seal_with_writer_closed",
+        "trusted_offline_scan_of_fenced_original_storage"
+      ],
+      "last_replica_ack_is_equivalent": false
+    },
+    "MirrorRecoverySeal": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "old_journal_epoch",
+        "old_exec_identity",
+        "fence_evidence_ref",
+        "profile_version",
+        "designated_mirror_id",
+        "mirror_assignment_epoch",
+        "mirror_terminal_seq",
+        "mirror_prefix_hash",
+        "complete_dependency_root",
+        "old_ingest_epoch_closed",
+        "signature"
+      ],
+      "valid_only_for_profile": "SyncReplica"
+    },
+    "ReplicaReady": {
+      "required_fields": [
+        "schema_version",
+        "risk_domain_id",
+        "receiver_id",
+        "receiver_boot_id",
+        "journal_epoch",
+        "snapshot_seq",
+        "durable_seq",
+        "applied_seq",
+        "logical_prefix_hash",
+        "dependency_root",
+        "restart_verification_ref"
+      ]
+    }
+  },
+  "deterministic_scenarios": [
+    {
+      "id": "RF-01",
+      "injection": "default_exec_dies_before_local_flush",
+      "expect": [
+        "no_accepted_or_send",
+        "discard_only_unsealed_tail"
+      ]
+    },
+    {
+      "id": "RF-02",
+      "injection": "default_exec_dies_after_send_before_replication_with_original_disk_intact",
+      "expect": [
+        "recover_original_id_and_reservation",
+        "retry_same_economic_action"
+      ]
+    },
+    {
+      "id": "RF-03",
+      "injection": "default_primary_and_storage_permanently_lost_remote_tail_missing",
+      "expect": [
+        "EvidenceLost_Frozen",
+        "no_automatic_promotion_from_replica_watermark"
+      ]
+    },
+    {
+      "id": "RF-04",
+      "injection": "replica_receives_log_without_strategy_checkpoint_or_input_blob",
+      "expect": [
+        "received_may_advance_durable_must_not",
+        "no_complete_recovery_claim"
+      ]
+    },
+    {
+      "id": "RF-05",
+      "injection": "control_old_term_majority_without_current_term_barrier",
+      "expect": [
+        "no_new_control_commit_proof_or_execution_grant"
+      ]
+    },
+    {
+      "id": "RF-06",
+      "injection": "control_joint_A_B_C_to_A_B_D_B_down_D_partitioned_only_A_C_connected",
+      "expect": [
+        "old_majority_alone_cannot_commit",
+        "no_early_C_retirement"
+      ]
+    },
+    {
+      "id": "RF-07",
+      "injection": "crash_after_snapshot_sync_before_current_directory_sync",
+      "expect": [
+        "select_complete_generation",
+        "never_mix_old_state_and_new_applied"
+      ]
+    },
+    {
+      "id": "RF-08",
+      "injection": "torn_unsealed_tail_or_corrupt_sealed_middle_batch",
+      "expect": [
+        "only_unsealed_tail_may_be_discarded",
+        "sealed_corruption_quarantines_storage"
+      ]
+    },
+    {
+      "id": "RF-09",
+      "injection": "resume_sigstopped_exec_with_stale_renewal_and_enable",
+      "expect": [
+        "no_lease_extension_from_receive_time",
+        "old_identity_stays_denied"
+      ]
+    },
+    {
+      "id": "RF-10",
+      "injection": "old_request_reaches_venue_after_fence",
+      "expect": [
+        "unknown_stays_reserved_until_evidence",
+        "timeout_does_not_activate"
+      ]
+    },
+    {
+      "id": "RF-11",
+      "injection": "control_quorum_unavailable_existing_guardian_grant_valid",
+      "expect": [
+        "bounded_query_cancel_with_audit",
+        "no_normal_new_order_or_new_exec_right"
+      ]
+    },
+    {
+      "id": "RF-12",
+      "injection": "strategy_generation_revoked_during_local_or_mirror_commit",
+      "expect": [
+        "final_send_gate_rejects_old_generation",
+        "track_original_intent_until_resolved"
+      ]
+    },
+    {
+      "id": "RF-13",
+      "injection": "sync_local_flush_complete_mirror_flush_or_ack_missing",
+      "expect": [
+        "no_accepted_or_send",
+        "no_async_downgrade"
+      ]
+    },
+    {
+      "id": "RF-14",
+      "injection": "sync_mirror_ack_then_source_permanently_lost",
+      "expect": [
+        "recover_possible_sends_from_mirror",
+        "fence_reconcile_and_establish_replacement_mirror_before_new_risk"
+      ]
+    },
+    {
+      "id": "RF-15",
+      "injection": "async_same_epoch_seq_has_different_hashes",
+      "expect": [
+        "quarantine_replication_session",
+        "no_automatic_overwrite"
+      ]
+    },
+    {
+      "id": "RF-16",
+      "injection": "async_replication_disconnected_until_disk_protection_threshold",
+      "expect": [
+        "retain_unreplicated_prefix_and_dependencies",
+        "freeze_new_risk"
+      ]
+    }
+  ],
+  "implementation_evidence": {
+    "rust_implementation_available": false,
+    "real_power_loss_storage_tests_passed": false,
+    "async_replica_promotion_tests_passed": false,
+    "sync_mirror_commit_tests_passed": false,
+    "external_fencing_integration_tests_passed": false,
+    "full_latency_benchmark_passed": false,
+    "tlc_run_claimed": false,
+    "candidate_models": [
+      "local_commit",
+      "async_replica_promotion",
+      "sync_mirror_commit",
+      "dependency_closure",
+      "control_membership_joint",
+      "exec_fencing"
+    ]
+  }
+}

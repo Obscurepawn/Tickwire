@@ -1,0 +1,25 @@
+sequenceDiagram
+    participant S as tickwire-supervisor
+    participant O as 旧策略进程
+    participant N as 新策略进程
+    participant E as 一个 tickwire-exec
+    Note over S,E: 单个 exec 的升级过程；跨 exec 的撤销与授权分别确认，不构成原子切换
+    S->>N: 启动 shadow，接入行情广播 ring<br/>创建意图 / 回报通道的新 generation
+    N->>N: 预热行情，不发交易意图
+    N-->>S: shadow 就绪
+    S->>E: 撤销旧 strategy epoch
+    E->>E: 事件边界撤销旧 epoch<br/>拒绝旧意图并持久化交接屏障
+    E-->>S: 返回屏障序号与持久化水位
+    S->>O: 停止产出并保存交接检查点
+    O-->>N: 策略检查点与处理水位
+    Note over E: 已发送订单和 Unknown 继续占额<br/>回报继续入账，不因策略退出释放
+    E-->>N: 屏障对应的订单 / 仓位快照<br/>以及后续回报
+    N->>N: 载入检查点并追平状态
+    N-->>S: 状态与回报水位已追平
+    S->>E: 授权新 strategy epoch<br/>绑定新 generation 与预算
+    E->>E: 持久化新授权
+    E-->>S: 返回授权生效序号
+    S->>N: 授权生效，可发送新意图
+    S->>O: 退出旧策略进程
+    N->>E: 有界共享内存通道：意图<br/>携带新 epoch 与 generation
+    E-->>N: 有界共享内存通道：接收结果与订单回报

@@ -1,0 +1,22 @@
+sequenceDiagram
+    participant S as tickwire-supervisor
+    participant E as tickwire-exec
+    participant B as Binance
+    participant J as exec 内部 writer
+    Note over S,E: 策略进程禁发新意图<br/>exec 拒绝旧 epoch 与旧 generation
+    S->>E: 设置 Recovering，禁增险
+    S->>S: 协同 guardian 隔离旧 sender<br/>验证实际隔离已经生效
+    E->>J: 载入完整检查点与已持久化日志
+    E->>B: 建立私有流，缓存带代次事件
+    E->>B: 查询订单与条件结构<br/>分页补成交、余额和持仓
+    B-->>E: 分页结果与缓存的实时回报
+    E->>E: 幂等合并并解释差额
+    E->>B: 重查差异与撤单结果
+    E->>J: 持久化对账基线与新 generation
+    alt 差异闭合且数据有效
+        E-->>S: Reconciled：报告新 generation
+        S->>E: 授权策略 epoch 并确认通道就绪
+        Note over S,E: 策略收到新授权与回报基线后<br/>才能恢复发送意图
+    else 仍有未知或差额
+        E-->>S: 继续冻结并输出待决项
+    end

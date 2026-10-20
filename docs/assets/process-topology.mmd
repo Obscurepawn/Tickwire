@@ -1,0 +1,31 @@
+flowchart LR
+    BMD["Binance 公共行情<br/>Spot / USDⓈ-M"] -->|"TLS / WS"| MD["tickwire-md<br/>按产品独立进程<br/>拥有行情连接与订单簿"]
+    MD -->|"单次发布"| Q["共享行情广播 ring<br/>Disruptor 模型 · 单份 payload<br/>各消费者独立 cursor / gating"]
+    subgraph ST["各策略独立进程 · 可独立升级 · 无交易权限"]
+        A["Strategy A"]
+        C["Strategy B"]
+    end
+    Q -->|"行情消费游标"| A
+    Q -->|"行情消费游标"| C
+    A <-->|"意图 → · ← 回报<br/>独立有界共享内存<br/>SPSC 通道"| E["tickwire-exec<br/>按账户风险域独立进程<br/>OMS + 逐单风控 + gateway<br/>私有账户流<br/>唯一正常策略发单者"]
+    C <-->|"意图 → · ← 回报<br/>独立有界共享内存<br/>SPSC 通道"| E
+    Q -->|"参考价格消费游标"| E
+    E <-->|"正常订单与私有回报 / TLS"| BT["Binance 交易与账户<br/>Spot / USDⓈ-M"]
+    S["tickwire-supervisor<br/>UDS 控制各进程生命周期<br/>授予共享限流预算"]
+    S -.->|"UDS / 远端认证控制"| G["tickwire-guardian<br/>独立安全执行进程<br/>支持备用主机部署<br/>检测 exec 失活<br/>实际隔离旧 sender 后查询与撤单<br/>无正常策略发单入口"]
+    G -->|"独立预认证连接<br/>查询与撤销挂单 / 条件结构"| BT
+    Q -.->|"独立 QoS / 采集中继"| R["tickwire-recorder<br/>可选独立录制进程"]
+    E -->|"内部 writer 持久化"| W[("WAL / 检查点")]
+    N["示意 1 个 md、2 个策略及 1 个 exec<br/>多产品 / 多账户按同样边界展开<br/>省略 supervisor 到其余进程的<br/>UDS 配置、授权与预算连线"]
+    classDef live fill:#e5f5f2,stroke:#0d9488,color:#133b36,stroke-width:2px
+    classDef strategy fill:#f0edf8,stroke:#9370c6,color:#46305f,stroke-width:2px
+    classDef support fill:#edf2fb,stroke:#5274ac,color:#243855
+    classDef safety fill:#fff3df,stroke:#bd7b19,color:#6a4510,stroke-width:2px
+    classDef ring fill:#f5edff,stroke:#8b5cf6,color:#51318a,stroke-width:2px
+    classDef note fill:#f8fafc,stroke:#cbd5e1,color:#475569,stroke-dasharray:4 3
+    class MD,E live
+    class A,C strategy
+    class S,BMD,BT,R,W support
+    class G safety
+    class Q ring
+    class N note

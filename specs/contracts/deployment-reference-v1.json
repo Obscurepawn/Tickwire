@@ -1,0 +1,326 @@
+{
+  "format": "tickwire-deployment-reference-1",
+  "profile_id": "TW-LD-ASYNC-16x2-v1",
+  "design_version": "0.3",
+  "purpose": "reference_capacity_slo_and_qualification_not_observed_inventory_or_runtime_configuration",
+  "default_storage_profile": "LocalDurable+AsyncReplica",
+  "data_plane_consensus": false,
+  "control_plane": {
+    "voters": [
+      "host-a",
+      "host-b",
+      "ctl-c"
+    ],
+    "quorum": 2,
+    "implementation": "raft-rs 0.7.0",
+    "per_order_round_trip": false
+  },
+  "hosts": [
+    {
+      "id": "host-a",
+      "role": "trading_primary",
+      "physical_cores": 64,
+      "memory_bytes": 274877906944,
+      "network_bits_per_second": 25000000000,
+      "usable_persistent_bytes": 17592186044416,
+      "fault_domain": "zone-a",
+      "holds_order_wal": true
+    },
+    {
+      "id": "host-b",
+      "role": "warm_standby",
+      "physical_cores": 64,
+      "memory_bytes": 274877906944,
+      "network_bits_per_second": 25000000000,
+      "usable_persistent_bytes": 17592186044416,
+      "fault_domain": "zone-b",
+      "holds_order_wal": true
+    },
+    {
+      "id": "ctl-c",
+      "role": "control_only",
+      "physical_cores": 8,
+      "memory_bytes": 34359738368,
+      "network_bits_per_second": 1000000000,
+      "usable_persistent_bytes": 274877906944,
+      "fault_domain": "zone-c",
+      "holds_order_wal": false
+    }
+  ],
+  "isolation": {
+    "same_region": true,
+    "distinct_host_and_power_domains": true,
+    "control_domains": 3,
+    "data_hosts": 2,
+    "smt_hot_siblings_excluded": true,
+    "cgroup_v2_required": true,
+    "swap_for_hot_workloads": false,
+    "lock_and_prefault_hot_shm": true,
+    "fork_inherits_data_mappings": false,
+    "production_cpu_mapping_must_be_measured": true
+  },
+  "cpu_reference": {
+    "os_control_irq": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "md": [
+      8,
+      9
+    ],
+    "exec": [
+      10,
+      11
+    ],
+    "guardian": [
+      12
+    ],
+    "journal_replication": [
+      13,
+      14
+    ],
+    "recorder": [
+      15
+    ],
+    "active_strategies": [
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ],
+    "shadow_strategies": [
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42,
+      43,
+      44,
+      45,
+      46,
+      47
+    ],
+    "checkpoint_input_metrics_and_spare": [
+      48,
+      49,
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57,
+      58,
+      59,
+      60,
+      61,
+      62,
+      63
+    ]
+  },
+  "process_capacity": {
+    "md_per_trading_host": 2,
+    "exec_risk_domains": 2,
+    "active_strategies": 16,
+    "shadow_strategies": 16,
+    "max_strategy_instances": 32,
+    "strategy_domain_pairs": 64,
+    "market_topics": 2,
+    "consumers_per_topic": 40,
+    "topic_event_class": "NormalizedMarket",
+    "topic_keys": [
+      "binance.spot.core.NormalizedMarket.lossless.v1",
+      "binance.usdm.core.NormalizedMarket.lossless.v1"
+    ],
+    "recorder_requires_separate_qos_relay": true
+  },
+  "shm": {
+    "market_banks_per_topic": 4,
+    "spsc_banks_per_direction": 2,
+    "all_bank_and_cursor_bytes": 3496542208,
+    "snapshot_owners": 4,
+    "snapshot_objects_per_owner": 8,
+    "snapshot_max_bytes": 67108864,
+    "snapshot_budget_bytes": 2147483648,
+    "base_allocated_bytes": 5644025856,
+    "resource_limit_bytes": 8589934592,
+    "reserved_remaining_bytes": 2140078080,
+    "market_capacity_records": 65536,
+    "market_record_bytes": 512,
+    "market_arena_bytes_per_bank": 268435456,
+    "intent_capacity_records": 4096,
+    "intent_record_bytes": 1024,
+    "report_capacity_records": 8192,
+    "report_record_bytes": 512,
+    "cursor_resource_bytes": 8192,
+    "relay_budget_bytes": 268435456,
+    "committed_budget_bytes": 6449856512,
+    "config_projection_max_objects": 128,
+    "config_projection_max_bytes": 4194304,
+    "config_projection_header_bytes": 4096,
+    "config_projection_budget_bytes": 537395200
+  },
+  "memory_unique_budget_bytes": {
+    "shared_memory": 8589934592,
+    "strategy_private": 68719476736,
+    "market_private": 17179869184,
+    "execution_private": 34359738368,
+    "journal_input_cache": 51539607552,
+    "control_guardian_metrics": 17179869184,
+    "os_and_io_reserve": 25769803776,
+    "unallocated_headroom": 51539607552
+  },
+  "load_contract": {
+    "total_market_events_per_second": 100000,
+    "market_events_per_second_per_topic": 50000,
+    "burst_multiplier": 3,
+    "burst_duration_ms": 100,
+    "strategies_receive_all_topics_for_capacity_test": true,
+    "max_consumer_instances_under_test": 32,
+    "synthetic_order_intents_per_second_total": 1000,
+    "mean_serialized_market_bytes_for_disk_budget": 1024,
+    "ordered_input_reference_bytes": 64,
+    "mean_order_journal_bytes_per_intent": 4096,
+    "disk_framing_overhead_numerator": 5,
+    "disk_framing_overhead_denominator": 4,
+    "trace_nominal_bytes_per_second": 389120000,
+    "strategy_checkpoint_max_bytes": 268435456,
+    "strategy_checkpoint_interval_seconds": 60,
+    "checkpoint_stop_the_world_budget_us": 100,
+    "checkpoint_worst_case_bytes_per_second": 143165577,
+    "total_nominal_disk_bytes_per_second": 532285577,
+    "hot_retention_seconds": 21600,
+    "hot_retention_nominal_bytes": 11497368463200,
+    "intent_expiry_ms": 5,
+    "max_recovery_active_orders": 4096,
+    "max_recovery_unknown_intents": 64,
+    "max_recovery_fills_to_fetch": 100000
+  },
+  "storage_qualification": {
+    "power_loss_protected_media": true,
+    "filesystem_durability_power_cut_test": true,
+    "minimum_sustained_write_bytes_per_second": 2147483648,
+    "group_commit_entries": 32,
+    "group_commit_bytes": 65536,
+    "group_commit_max_oldest_wait_us": 25,
+    "input_blob_batch_bytes": 262144,
+    "input_blob_max_oldest_wait_us": 50,
+    "local_commit_p99_us": 200,
+    "local_commit_p999_us": 800,
+    "disk_warning_percent": 80,
+    "disk_stop_new_risk_percent": 90,
+    "unresolved_dependency_gc_by_age_allowed": false,
+    "archive_retention_reference_days": 30,
+    "archive_retention_is_legal_compliance_claim": false
+  },
+  "timing": {
+    "ipc_resource_session_lease_ms": 3000,
+    "ipc_resource_session_heartbeat_ms": 500,
+    "execution_authority_lease_ms": 100,
+    "execution_authority_renew_ms": 25,
+    "strategy_grant_lifetime_ms": 60000,
+    "main_loop_progress_interval_ms": 10,
+    "main_loop_suspect_ms": 50,
+    "async_replica_lag_warning_ms": 100,
+    "async_replica_lag_freeze_ms": 1000,
+    "control_raft_tick_ms": 10,
+    "control_raft_heartbeat_ms": 50,
+    "control_raft_election_min_ms": 500,
+    "control_raft_election_max_exclusive_ms": 1000,
+    "fencing_deadline_ms": 5000,
+    "takeover_deadline_ms": 30000,
+    "config_operation_default_deadline_ms": 120000
+  },
+  "slo": {
+    "measured": false,
+    "normal": {
+      "ipc_p99_us": 2,
+      "ipc_p999_us": 5,
+      "core_step_p99_us": 10,
+      "core_step_p999_us": 25,
+      "complete_tick_to_socket_p99_us": 300,
+      "complete_tick_to_socket_p999_us": 1000,
+      "complete_includes_local_flush_and_dependency_closure": true,
+      "complete_waits_for_remote_replica": false
+    },
+    "sync_replica_optional": {
+      "complete_tick_to_socket_p99_us": 2000,
+      "complete_tick_to_socket_p999_us": 5000,
+      "includes_remote_flush": true
+    },
+    "recovery": {
+      "intact_source_or_proven_complete_replica_target_ms": 30000,
+      "permanent_source_loss_missing_tail_has_fixed_rto": false,
+      "missing_evidence_expected_state": "EvidenceLost/Frozen",
+      "strategy_handoff_target_ms_after_shadow_ready": 1000,
+      "handoff_scope": "compatible_state_and_bounded_catchup_under_declared_load"
+    },
+    "tail_evidence": {
+      "warmup_seconds": 600,
+      "baseline_duration_seconds": 3600,
+      "soak_seconds": 259200,
+      "minimum_samples_for_p999": 1000000,
+      "coordinated_omission_allowed": false,
+      "all_attempts_and_rejections_recorded": true,
+      "percentiles_summed": false,
+      "trace_drops_in_qualification_allowed": false
+    }
+  },
+  "qualification_only": {
+    "synthetic_capital_usdt_per_domain": "100000.00000000",
+    "is_actual_account_value": false,
+    "venue": "local_exchange_simulator",
+    "risk_vector_file": "risk-vectors-v1.json",
+    "production_credentials_allowed": false
+  },
+  "runtime_binding_required": [
+    "real_host_inventory_and_cpu_numa_map",
+    "account_ids_and_product_modes",
+    "enabled_symbols_and_instrument_metadata_hash",
+    "approved_capital_and_strategy_limits",
+    "venue_fee_bracket_and_collateral_schedule_evidence",
+    "secret_store_references",
+    "venue_endpoint_environment_allowlist",
+    "fencing_backend_identity_and_test_evidence",
+    "qualification_report_hash",
+    "config_signer_and_authorization_policy"
+  ],
+  "contract_references": {
+    "ipc": "ipc-wire-v1.json",
+    "replication": "replication-profile-v1.json",
+    "risk_vectors": "risk-vectors-v1.json",
+    "runtime_schema": "system-config.schema.json"
+  },
+  "not_guaranteed": [
+    "exchange_latency_or_profit",
+    "host_storage_loss_rpo_zero_in_default_profile",
+    "automatic_resume_from_incomplete_replica",
+    "runtime_interface_implemented",
+    "measured_latency_targets"
+  ]
+}

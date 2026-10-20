@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "revision": "v0.3-detailed-contracts-and-config-materialization",
+  "reviewDate": "2026-10-20",
+  "archify": {
+    "version": "2.17",
+    "diagramType": "architecture",
+    "html": {
+      "path": "tickwire-architecture.html",
+      "sha256": "462c18a0250623426052f6ec8b8af53270b75989e6f12c7d183b32fea7a4710d",
+      "bytes": 808758
+    },
+    "deliveryReceipt": {
+      "path": "tickwire-architecture.delivery.json",
+      "sha256": "cfaf2e2206da85d7131a2fc1b37d391a0c03a095e703fe820479b1fbfed3b018",
+      "bytes": 664
+    },
+    "browserReceipt": {
+      "path": "tickwire-architecture.visual-check.json",
+      "sha256": "f08985f70ef96343db7dce4462f6bb9f20eb27b852855da1e2dd1d2f3d89e5c8",
+      "bytes": 17802
+    },
+    "perceptualReview": {
+      "path": "tickwire-architecture.review.json",
+      "sha256": "7d985ea6164580b27bc6c1310e5274358c0f58b2f714952898e15d6a9145bcd5",
+      "bytes": 1220
+    },
+    "validation": "9/9 showcase, 0 errors, 0 warnings",
+    "browserEvidence": "passed",
+    "visualReview": "passed",
+    "finalRevisionCorrectionRounds": 0,
+    "viewports": [
+      {
+        "width": 1440,
+        "height": 900,
+        "overflowX": false,
+        "overflowY": false
+      },
+      {
+        "width": 1600,
+        "height": 1000,
+        "overflowX": false,
+        "overflowY": false
+      },
+      {
+        "width": 1920,
+        "height": 1080,
+        "overflowX": false,
+        "overflowY": false
+      },
+      {
+        "width": 2048,
+        "height": 1320,
+        "overflowX": false,
+        "overflowY": false
+      }
+    ]
+  },
+  "mermaidCliVersion": "11.17.0",
+  "diagrams": [
+    {
+      "name": "tickwire-architecture",
+      "source": {
+        "path": "tickwire-architecture.json",
+        "sha256": "a40edf6a6066d29069eac3569bc21b1d6c309b26320b6a7f0f5c21aad152bd0c",
+        "bytes": 5337
+      },
+      "svg": {
+        "path": "tickwire-architecture.svg",
+        "sha256": "7e20b7075cbabc3229a86f22c44c6a039a47385d3249b3e119bdd3e95fd0cb6c",
+        "bytes": 151591,
+        "viewBox": "0 0 1353.6 850",
+        "width": "1353.5999755859375",
+        "height": "850"
+      },
+      "png": {
+        "path": "tickwire-architecture.png",
+        "sha256": "c2082573a2dc263dd3115340acfdd34c87eb3f1d7801290dc74808abd7069f51",
+        "bytes": 475281,
+        "pixelSize": [
+          4060,
+          2550
+        ]
+      },
+      "changedInThisRevision": true
+    },
+    {
+      "name": "process-topology",
+      "source": {
+        "path": "process-topology.mmd",
+        "sha256": "7873a5c5d6c9624c4790468866b893181147a6e483b99a9d5e73060dd2a45e52",
+        "bytes": 2255
+      },
+      "svg": {
+        "path": "process-topology.svg",
+        "sha256": "eb87703ab0d4f31e31ff96f2d5e2f47a1cd18ad75130f7c07e72cf8b2d5272a2",
+        "bytes": 34193,
+        "viewBox": "0 0 2362.828125 711",
+        "width": "100%",
+        "height": null
+      },
+      "png": {
+        "path": "process-topology.png",
+        "sha256": "c3c21e0ae1673868aff3b76435e4a3502b6e89d4b37e39df64717a729153ad27",
+        "bytes": 328577,
+        "pixelSize": [
+          3568,
+          1074
+        ]
+      },
+      "changedInThisRevision": true
+    },
+    {
+      "name": "recovery-sequence",
+      "source": {
+        "path": "recovery-sequence.mmd",
+        "sha256": "fe0e78171902e734183302e9c20ebe01d4de0945c13fb870845e65aff72f75ef",
+        "bytes": 1050
+      },
+      "svg": {
+        "path": "recovery-sequence.svg",
+        "sha256": "8f4eefacd762bb12188dd6c26820bd27ed8bd8ac1ee7371be18f03268d79e47f",
+        "bytes": 31367,
+        "viewBox": "-69 -10 1099 1058.5",
+        "width": "1099",
+        "height": "1058.5"
+      },
+      "png": {
+        "path": "recovery-sequence.png",
+        "sha256": "ac9861270bcc6a3c36cbb56e20e545580bef2155dd5108c0dabc51701e57f00d",
+        "bytes": 265622,
+        "pixelSize": [
+          2198,
+          2146
+        ]
+      },
+      "changedInThisRevision": false
+    },
+    {
+      "name": "strategy-rollout",
+      "source": {
+        "path": "strategy-rollout.mmd",
+        "sha256": "086ffcf8847512e97fc97756dd4059d202692f4002f1c9b35792263c442e18c6",
+        "bytes": 1343
+      },
+      "svg": {
+        "path": "strategy-rollout.svg",
+        "sha256": "2879601f61c901c7fb46294c46b776333af8e06db9c805ab842111493128f2da",
+        "bytes": 33509,
+        "viewBox": "-50 -10 1215 1311",
+        "width": "1215",
+        "height": "1311"
+      },
+      "png": {
+        "path": "strategy-rollout.png",
+        "sha256": "dcddec9dd0e460ea6aab623497c51bdbd432ab2cd0733ff8f676bdefbef414de",
+        "bytes": 347033,
+        "pixelSize": [
+          2430,
+          2666
+        ]
+      },
+      "changedInThisRevision": false
+    },
+    {
+      "name": "order-state",
+      "source": {
+        "path": "order-state.mmd",
+        "sha256": "a42de28b991d51a5ae8bd4f30a46745f13256748be7ebb2baee221234cdfd1be",
+        "bytes": 582
+      },
+      "svg": {
+        "path": "order-state.svg",
+        "sha256": "54c6e676f378732219d22b25fd45dbc4e5a775c4bd8fe48e6d93930de1cd6ba3",
+        "bytes": 40406,
+        "viewBox": "0 0 621.89453125 688",
+        "width": "100%",
+        "height": null
+      },
+      "png": {
+        "path": "order-state.png",
+        "sha256": "29682c83c5ef96bb3f533aeb5dd30b3b650cca75d978627a3ca86de058dce3e2",
+        "bytes": 154062,
+        "pixelSize": [
+          1244,
+          1376
+        ]
+      },
+      "changedInThisRevision": false
+    },
+    {
+      "name": "config-release",
+      "source": {
+        "path": "config-release.mmd",
+        "sha256": "44466d53feb48c439f2c008ffadd0408801cd350e55fd38b987846d0b4bfe7db",
+        "bytes": 1061
+      },
+      "svg": {
+        "path": "config-release.svg",
+        "sha256": "b0912fa4a7ae6fa805e0dba03ba16e03c68bceb4c5c4ac4376a888c323cafaa6",
+        "bytes": 32694,
+        "viewBox": "-50 -10 1164 1240.5",
+        "width": "1164",
+        "height": "1240.5"
+      },
+      "png": {
+        "path": "config-release.png",
+        "sha256": "301ff3d8dc9e9c8da312528bfd8c3604985fdc55719d02f25cd3f3667ef598d5",
+        "bytes": 265749,
+        "pixelSize": [
+          2328,
+          2498
+        ]
+      },
+      "changedInThisRevision": true
+    }
+  ],
+  "browserScreenshots": [
+    {
+      "path": "tickwire-architecture.visual-check.1440x900.light.png",
+      "sha256": "64976ed0c9429c2e10b03cc7e0e11721955c2d6e423c6d16d424d8e5a954aa49",
+      "bytes": 103582,
+      "pixelSize": [
+        1440,
+        900
+      ],
+      "theme": "light"
+    },
+    {
+      "path": "tickwire-architecture.visual-check.1440x900.dark.png",
+      "sha256": "e1678f4c90e0eb8b3c220933b25e4c0db0fb7c0b55b0965314b29e77aa236c36",
+      "bytes": 105320,
+      "pixelSize": [
+        1440,
+        900
+      ],
+      "theme": "dark"
+    },
+    {
+      "path": "tickwire-architecture.visual-check.2048x1320.light.png",
+      "sha256": "f092856418b001f7988d4819e9ea9fb8efb68caca9239b87d8255dbb7646d9ba",
+      "bytes": 139874,
+      "pixelSize": [
+        2048,
+        1320
+      ],
+      "theme": "light"
+    },
+    {
+      "path": "tickwire-architecture.visual-check.2048x1320.dark.png",
+      "sha256": "05e151f675cc8af4ddad1b218af493a227d33f67700cbecead518c44c47bfdce",
+      "bytes": 140770,
+      "pixelSize": [
+        2048,
+        1320
+      ],
+      "theme": "dark"
+    }
+  ]
+}

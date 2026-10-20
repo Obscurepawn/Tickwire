@@ -1,0 +1,3120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tickwire.invalid/contracts/system-config.schema.json",
+  "title": "Tickwire system configuration v1",
+  "description": "Design contract. TOML is parsed into this JSON data model. Source candidates have no _materialization. ProcessProjection and ProjectionObject define independent permission-scoped runtime representations. x-change-class is a conservative family default; field rules and semantic checks in configuration.md are mandatory.",
+  "type": "object",
+  "properties": {
+    "identity": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "cluster_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "namespace_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "qualification",
+            "live"
+          ]
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "simulated",
+            "production"
+          ]
+        },
+        "deployment_profile": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9-]{0,95}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "cluster_id",
+        "namespace_id",
+        "mode",
+        "environment",
+        "deployment_profile"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "ForbiddenRuntime"
+    },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Host"
+      },
+      "minItems": 3,
+      "x-change-class": "RollingRestart"
+    },
+    "processes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Process"
+      },
+      "minItems": 1,
+      "x-change-class": "RollingRestart"
+    },
+    "venues": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Venue"
+      },
+      "minItems": 1,
+      "x-change-class": "Quiesce"
+    },
+    "ipc": {
+      "type": "object",
+      "properties": {
+        "abi_major": {
+          "const": 1
+        },
+        "abi_minor": {
+          "const": 0
+        },
+        "architecture": {
+          "type": "string",
+          "enum": [
+            "Linux_x86_64_le_4k",
+            "Linux_aarch64_le_4k"
+          ]
+        },
+        "page_bytes": {
+          "const": 4096
+        },
+        "isolation_bytes": {
+          "const": 128
+        },
+        "market_banks": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 16
+        },
+        "market_capacity": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 16777216
+        },
+        "market_record_bytes": {
+          "const": 512
+        },
+        "market_arena_bytes_per_bank": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 4294967296
+        },
+        "intent_banks": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 16
+        },
+        "intent_capacity": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 1048576
+        },
+        "intent_record_bytes": {
+          "const": 1024
+        },
+        "report_banks": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 16
+        },
+        "report_capacity": {
+          "type": "integer",
+          "minimum": 64,
+          "maximum": 1048576
+        },
+        "report_record_bytes": {
+          "const": 512
+        },
+        "max_batch_records": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "max_batch_payload_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        },
+        "resource_session_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 60000
+        },
+        "resource_heartbeat_ms": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 30000
+        },
+        "topics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Topic"
+          },
+          "minItems": 1
+        },
+        "market_arena_classes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "class_id": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4
+              },
+              "block_bytes": {
+                "type": "integer",
+                "minimum": 256,
+                "maximum": 131072
+              },
+              "block_count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 16777216
+              },
+              "payload_limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 65536
+              }
+            },
+            "required": [
+              "class_id",
+              "block_bytes",
+              "block_count",
+              "payload_limit"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1,
+          "maxItems": 4
+        },
+        "snapshots_per_owner": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "snapshot_max_bytes": {
+          "type": "integer",
+          "minimum": 4096,
+          "maximum": 67108864
+        },
+        "relay_budget_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967296
+        },
+        "ring_high_watermark_records": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "ring_stop_claiming_records": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "config_projection_max_objects": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "config_projection_max_bytes": {
+          "type": "integer",
+          "minimum": 4096,
+          "maximum": 4194304
+        }
+      },
+      "required": [
+        "abi_major",
+        "abi_minor",
+        "architecture",
+        "page_bytes",
+        "isolation_bytes",
+        "market_banks",
+        "market_capacity",
+        "market_record_bytes",
+        "market_arena_bytes_per_bank",
+        "intent_banks",
+        "intent_capacity",
+        "intent_record_bytes",
+        "report_banks",
+        "report_capacity",
+        "report_record_bytes",
+        "max_batch_records",
+        "max_batch_payload_bytes",
+        "resource_session_ms",
+        "resource_heartbeat_ms",
+        "topics",
+        "market_arena_classes",
+        "snapshots_per_owner",
+        "snapshot_max_bytes",
+        "relay_budget_bytes",
+        "ring_high_watermark_records",
+        "ring_stop_claiming_records",
+        "config_projection_max_objects",
+        "config_projection_max_bytes"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "RollingRestart"
+    },
+    "strategies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Strategy"
+      },
+      "minItems": 1,
+      "x-change-class": "Quiesce"
+    },
+    "accounts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Account"
+      },
+      "minItems": 1,
+      "x-change-class": "Quiesce"
+    },
+    "risk_policies": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/RiskPolicy"
+      },
+      "minItems": 1,
+      "x-change-class": "Quiesce"
+    },
+    "journal": {
+      "type": "object",
+      "properties": {
+        "commit_profile": {
+          "type": "string",
+          "enum": [
+            "LocalDurable+AsyncReplica",
+            "SyncReplica"
+          ]
+        },
+        "root_dir": {
+          "type": "string",
+          "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
+        },
+        "segment_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 1099511627776
+        },
+        "max_frame_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 1073741824
+        },
+        "group_max_records": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "group_max_bytes": {
+          "type": "integer",
+          "minimum": 4096,
+          "maximum": 16777216
+        },
+        "group_max_wait_us": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100000
+        },
+        "pending_new_risk_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 1073741824
+        },
+        "snapshot_every_records": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "snapshot_every_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 9007199254740991
+        },
+        "retained_snapshot_count": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 64
+        },
+        "disk_warn_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99
+        },
+        "disk_freeze_percent": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 99
+        }
+      },
+      "required": [
+        "commit_profile",
+        "root_dir",
+        "segment_bytes",
+        "max_frame_bytes",
+        "group_max_records",
+        "group_max_bytes",
+        "group_max_wait_us",
+        "pending_new_risk_bytes",
+        "snapshot_every_records",
+        "snapshot_every_bytes",
+        "retained_snapshot_count",
+        "disk_warn_percent",
+        "disk_freeze_percent"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "RollingRestart"
+    },
+    "replication": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "const": true
+        },
+        "receiver_host_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "protocol_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "mtls_identity_ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        },
+        "batch_max_delay_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "batch_max_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 16777216
+        },
+        "max_inflight_batches": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        },
+        "out_of_order_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1073741824
+        },
+        "lag_warn_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "lag_freeze_ms": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 60000
+        },
+        "on_freeze": {
+          "const": "freeze-new-risk"
+        },
+        "mirror_wait_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "automatic_async_fallback": {
+          "const": false
+        }
+      },
+      "required": [
+        "enabled",
+        "receiver_host_id",
+        "protocol_ref",
+        "mtls_identity_ref",
+        "batch_max_delay_us",
+        "batch_max_bytes",
+        "max_inflight_batches",
+        "out_of_order_bytes",
+        "lag_warn_ms",
+        "lag_freeze_ms",
+        "on_freeze",
+        "mirror_wait_timeout_ms",
+        "automatic_async_fallback"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "Quiesce"
+    },
+    "control": {
+      "type": "object",
+      "properties": {
+        "listen_uri": {
+          "type": "string",
+          "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "voters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Voter"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "raft_impl": {
+          "const": "raft-rs-0.7.0"
+        },
+        "tick_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "heartbeat_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "election_min_ms": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 60000
+        },
+        "election_max_ms": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 60000
+        },
+        "pre_vote": {
+          "const": true
+        },
+        "check_quorum": {
+          "const": true
+        },
+        "read_only_mode": {
+          "const": "Safe"
+        },
+        "exec_grant_lifetime_ms": {
+          "type": "integer",
+          "minimum": 10,
+          "maximum": 1000
+        },
+        "exec_grant_renew_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "strategy_grant_lifetime_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 600000
+        },
+        "strategy_progress_interval_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "strategy_suspect_after_ms": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 10000
+        },
+        "mtls_identity_ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        },
+        "client_ca_bundle_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "role_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RoleBinding"
+          },
+          "minItems": 1
+        },
+        "operation_timeout_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 3600000
+        },
+        "plan_ttl_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 600000
+        },
+        "idempotency_retention_days": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3650
+        },
+        "max_request_bytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 16777216
+        }
+      },
+      "required": [
+        "listen_uri",
+        "voters",
+        "raft_impl",
+        "tick_ms",
+        "heartbeat_ms",
+        "election_min_ms",
+        "election_max_ms",
+        "pre_vote",
+        "check_quorum",
+        "read_only_mode",
+        "exec_grant_lifetime_ms",
+        "exec_grant_renew_ms",
+        "strategy_grant_lifetime_ms",
+        "strategy_progress_interval_ms",
+        "strategy_suspect_after_ms",
+        "mtls_identity_ref",
+        "client_ca_bundle_ref",
+        "role_bindings",
+        "operation_timeout_ms",
+        "plan_ttl_ms",
+        "idempotency_retention_days",
+        "max_request_bytes"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "Quiesce"
+    },
+    "local_config": {
+      "type": "object",
+      "properties": {
+        "root_dir": {
+          "type": "string",
+          "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
+        },
+        "file_mode": {
+          "const": "0600"
+        },
+        "directory_mode": {
+          "const": "0700"
+        },
+        "owner": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "retain_last_good": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 128
+        },
+        "durability": {
+          "const": "fsync-file-rename-fsync-directory"
+        },
+        "manual_edit_policy": {
+          "const": "quarantine-and-reconcile"
+        },
+        "startup_policy": {
+          "const": "journal-verified-effective-then-reconcile"
+        },
+        "strict_drift_gate": {
+          "const": true
+        },
+        "journal_max_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 1099511627776
+        },
+        "projection_policy_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "projection_policy_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "bootstrap_locator_path": {
+          "const": "/etc/tickwire/bootstrap/config-locator.toml"
+        }
+      },
+      "required": [
+        "root_dir",
+        "file_mode",
+        "directory_mode",
+        "owner",
+        "retain_last_good",
+        "durability",
+        "manual_edit_policy",
+        "startup_policy",
+        "strict_drift_gate",
+        "journal_max_bytes",
+        "projection_policy_revision",
+        "projection_policy_ref",
+        "bootstrap_locator_path"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "RollingRestart"
+    },
+    "observability": {
+      "type": "object",
+      "properties": {
+        "metrics_listen_uri": {
+          "type": "string",
+          "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "metrics_identity_ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        },
+        "diagnostic_level": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ]
+        },
+        "sample_per_million": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "histogram_profile_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "audit_root_dir": {
+          "type": "string",
+          "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
+        },
+        "audit_retention_days": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3650
+        },
+        "secret_redaction": {
+          "const": true
+        },
+        "labels_policy": {
+          "const": "bounded-no-secrets-no-order-id"
+        },
+        "log_max_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 1099511627776
+        }
+      },
+      "required": [
+        "metrics_listen_uri",
+        "metrics_identity_ref",
+        "diagnostic_level",
+        "sample_per_million",
+        "histogram_profile_ref",
+        "audit_root_dir",
+        "audit_retention_days",
+        "secret_redaction",
+        "labels_policy",
+        "log_max_bytes"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "Hot"
+    },
+    "timeouts": {
+      "type": "object",
+      "properties": {
+        "intent_ttl_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        },
+        "private_stream_stale_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "clock_max_offset_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "quiesce_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        },
+        "shutdown_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        },
+        "unknown_order_query_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "reconnect_min_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "reconnect_max_ms": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 600000
+        },
+        "fencing_deadline_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        },
+        "takeover_deadline_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600000
+        }
+      },
+      "required": [
+        "intent_ttl_us",
+        "private_stream_stale_ms",
+        "clock_max_offset_us",
+        "quiesce_timeout_ms",
+        "shutdown_timeout_ms",
+        "unknown_order_query_ms",
+        "reconnect_min_ms",
+        "reconnect_max_ms",
+        "fencing_deadline_ms",
+        "takeover_deadline_ms"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "Quiesce"
+    },
+    "qualification": {
+      "type": "object",
+      "properties": {
+        "deployment_manifest_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "protocol_entitlements_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "host_inventory_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "storage_power_loss_report_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "network_isolation_report_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "risk_acceptance_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "full_send_p99_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "full_send_p999_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "sync_send_p99_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "sync_send_p999_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        }
+      },
+      "required": [
+        "deployment_manifest_ref",
+        "protocol_entitlements_ref",
+        "host_inventory_ref",
+        "storage_power_loss_report_ref",
+        "network_isolation_report_ref",
+        "risk_acceptance_ref",
+        "full_send_p99_us",
+        "full_send_p999_us",
+        "sync_send_p99_us",
+        "sync_send_p999_us"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "Quiesce"
+    }
+  },
+  "required": [
+    "identity",
+    "hosts",
+    "processes",
+    "venues",
+    "ipc",
+    "strategies",
+    "accounts",
+    "risk_policies",
+    "journal",
+    "replication",
+    "control",
+    "local_config",
+    "observability",
+    "timeouts",
+    "qualification"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "Host": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "trading",
+            "control-only"
+          ]
+        },
+        "failure_domain": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "physical_cores": {
+          "type": "integer",
+          "minimum": 8,
+          "maximum": 4096
+        },
+        "memory_bytes": {
+          "type": "integer",
+          "minimum": 34359738368,
+          "maximum": 9007199254740991
+        },
+        "numa_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 32
+        },
+        "shm_budget_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "housekeeping_cpus": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "failure_domain",
+        "physical_cores",
+        "memory_bytes",
+        "numa_nodes",
+        "shm_budget_bytes",
+        "housekeeping_cpus"
+      ],
+      "additionalProperties": false
+    },
+    "Process": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "host_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "supervisor",
+            "md",
+            "exec",
+            "strategy",
+            "guardian",
+            "replicator",
+            "recorder",
+            "input-writer",
+            "snapshot-worker"
+          ]
+        },
+        "activation": {
+          "type": "string",
+          "enum": [
+            "active",
+            "standby",
+            "shadow"
+          ]
+        },
+        "cpus": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "numa_node": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31
+        },
+        "memory_limit_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 9007199254740991
+        },
+        "artifact_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "restart_policy": {
+          "type": "string",
+          "enum": [
+            "recover-gated",
+            "never"
+          ]
+        },
+        "os_identity": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "required": [
+        "id",
+        "host_id",
+        "role",
+        "activation",
+        "cpus",
+        "numa_node",
+        "memory_limit_bytes",
+        "artifact_ref",
+        "restart_policy",
+        "os_identity"
+      ],
+      "additionalProperties": false
+    },
+    "Venue": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "venue": {
+          "const": "Binance"
+        },
+        "product": {
+          "type": "string",
+          "enum": [
+            "Spot",
+            "Usdm"
+          ]
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "simulated",
+            "production"
+          ]
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "mock",
+            "ws-api",
+            "fix-sbe"
+          ]
+        },
+        "rest_uri": {
+          "type": "string",
+          "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "order_ws_uri": {
+          "type": "string",
+          "pattern": "^wss://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "market_ws_uri": {
+          "type": "string",
+          "pattern": "^wss://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "private_ws_uri": {
+          "type": "string",
+          "pattern": "^wss://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "protocol_manifest_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "instrument_catalog_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "recv_window_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "heartbeat_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "rotate_after_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 86400000
+        },
+        "request_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "credential_ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        },
+        "fix_session_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "venue",
+        "product",
+        "environment",
+        "transport",
+        "rest_uri",
+        "order_ws_uri",
+        "market_ws_uri",
+        "private_ws_uri",
+        "protocol_manifest_ref",
+        "instrument_catalog_ref",
+        "recv_window_ms",
+        "heartbeat_ms",
+        "rotate_after_ms",
+        "request_timeout_ms",
+        "credential_ref"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "transport": {
+                "const": "fix-sbe"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fix_session_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "Topic": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "product": {
+          "type": "string",
+          "enum": [
+            "Spot",
+            "Usdm"
+          ]
+        },
+        "stream": {
+          "const": "NormalizedMarket"
+        },
+        "publisher_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "standby_publisher_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "qos": {
+          "const": "StrictTrading"
+        },
+        "consumer_limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1024
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "product",
+        "stream",
+        "publisher_process_id",
+        "standby_publisher_process_id",
+        "qos",
+        "consumer_limit"
+      ],
+      "additionalProperties": false
+    },
+    "RiskPolicy": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "quote_asset": {
+          "type": "string",
+          "pattern": "^[A-Z0-9]{1,16}$"
+        },
+        "max_order_quote": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "max_gross_quote": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "max_open_orders": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "max_daily_loss_quote": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "max_market_age_us": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        },
+        "fee_buffer_rate": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "margin_buffer_rate": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "fee_snapshot_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "risk_tier_snapshot_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "on_limit_decrease": {
+          "type": "string",
+          "enum": [
+            "reject_if_exceeded",
+            "freeze_until_within",
+            "cancel_then_freeze"
+          ]
+        },
+        "allow_external_mutation": {
+          "const": false
+        },
+        "delivery_guard_seconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "settlement_policy": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "venue-facts-required"
+          ]
+        },
+        "settlement_schedule_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "settlement_fee_schedule_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "auto_rollover": {
+          "const": false
+        },
+        "expiry_resets_positions": {
+          "const": false
+        }
+      },
+      "required": [
+        "id",
+        "quote_asset",
+        "max_order_quote",
+        "max_gross_quote",
+        "max_open_orders",
+        "max_daily_loss_quote",
+        "max_market_age_us",
+        "fee_buffer_rate",
+        "margin_buffer_rate",
+        "fee_snapshot_ref",
+        "risk_tier_snapshot_ref",
+        "on_limit_decrease",
+        "allow_external_mutation",
+        "delivery_guard_seconds",
+        "settlement_policy",
+        "settlement_schedule_ref",
+        "settlement_fee_schedule_ref",
+        "auto_rollover",
+        "expiry_resets_positions"
+      ],
+      "additionalProperties": false
+    },
+    "Account": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "venue_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "risk_domain_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "account_identity_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "exec_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "standby_exec_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "guardian_process_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "credential_ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        },
+        "risk_policy_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "position_mode": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "OneWay",
+            "Hedge"
+          ]
+        },
+        "margin_mode": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "Cross",
+            "Isolated"
+          ]
+        },
+        "asset_mode": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "SingleAsset",
+            "MultiAsset"
+          ]
+        },
+        "mode_snapshot_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "allowed_symbols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{1,32}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "rate_limit_policy_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "instrument_overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "pattern": "^[A-Z0-9_]{1,32}$"
+              },
+              "contract_kind": {
+                "type": "string",
+                "enum": [
+                  "Spot",
+                  "Perpetual",
+                  "Delivery"
+                ]
+              },
+              "expiry_epoch_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "delivery_guard_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 86400
+              },
+              "settlement_schedule_ref": {
+                "type": "string",
+                "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "symbol",
+              "contract_kind",
+              "expiry_epoch_ms",
+              "delivery_guard_seconds",
+              "settlement_schedule_ref"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "guardian_credential_ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        }
+      },
+      "required": [
+        "id",
+        "venue_id",
+        "risk_domain_id",
+        "account_identity_ref",
+        "exec_process_id",
+        "standby_exec_process_id",
+        "guardian_process_ids",
+        "credential_ref",
+        "risk_policy_id",
+        "position_mode",
+        "margin_mode",
+        "asset_mode",
+        "mode_snapshot_ref",
+        "allowed_symbols",
+        "rate_limit_policy_ref",
+        "instrument_overrides",
+        "guardian_credential_ref"
+      ],
+      "additionalProperties": false
+    },
+    "Strategy": {
+      "type": "object",
+      "properties": {
+        "logical_strategy_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "Active",
+            "Shadow"
+          ]
+        },
+        "account_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "topic_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "state_schema_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "parameter_schema_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "recovery_contract_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "params": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 256,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "not": {
+              "pattern": "(^|_)(secret|password|private_key|api_key|token)(_|$)"
+            }
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/ParameterValue"
+          }
+        },
+        "subscriptions_on_loss": {
+          "type": "string",
+          "enum": [
+            "freeze-new-risk",
+            "stop"
+          ]
+        },
+        "trust_profile": {
+          "type": "string",
+          "enum": [
+            "qualified_sdk",
+            "isolated_adapter"
+          ]
+        },
+        "risk_budgets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "account_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "quote_asset": {
+                "type": "string",
+                "pattern": "^[A-Z0-9]{1,16}$"
+              },
+              "max_order_quote": {
+                "type": "string",
+                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+              },
+              "max_gross_quote": {
+                "type": "string",
+                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+              },
+              "max_open_orders": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1000000
+              },
+              "max_daily_loss_quote": {
+                "type": "string",
+                "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+              }
+            },
+            "required": [
+              "account_id",
+              "quote_asset",
+              "max_order_quote",
+              "max_gross_quote",
+              "max_open_orders",
+              "max_daily_loss_quote"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "logical_strategy_id",
+        "process_id",
+        "role",
+        "account_ids",
+        "topic_ids",
+        "state_schema_ref",
+        "parameter_schema_ref",
+        "recovery_contract_ref",
+        "params",
+        "subscriptions_on_loss",
+        "trust_profile",
+        "risk_budgets"
+      ],
+      "additionalProperties": false
+    },
+    "ParameterValue": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "string",
+          "maxLength": 256
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ParameterValue"
+          },
+          "minItems": 0,
+          "maxItems": 1024
+        },
+        {
+          "type": "object",
+          "maxProperties": 256,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "not": {
+              "pattern": "(^|_)(secret|password|private_key|api_key|token)(_|$)"
+            }
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/ParameterValue"
+          }
+        }
+      ]
+    },
+    "Voter": {
+      "type": "object",
+      "properties": {
+        "node_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "host_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "peer_uri": {
+          "type": "string",
+          "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        }
+      },
+      "required": [
+        "node_id",
+        "host_id",
+        "peer_uri"
+      ],
+      "additionalProperties": false
+    },
+    "RoleBinding": {
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "string",
+          "pattern": "^spiffe://[a-z0-9.-]+/[a-zA-Z0-9/_-]+$"
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "viewer",
+            "config-editor",
+            "config-operator",
+            "risk-admin",
+            "cluster-admin"
+          ]
+        },
+        "account_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "subject",
+        "role",
+        "account_ids"
+      ],
+      "additionalProperties": false
+    },
+    "Materialization": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "projection_kind": {
+          "type": "string",
+          "enum": [
+            "desired",
+            "effective"
+          ]
+        },
+        "target_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "operation_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "control_commit_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "process_boot_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "applied_event_seq": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]{0,18})$"
+        },
+        "journal_receipt_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "render_version": {
+          "const": 1
+        },
+        "global_config_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "projection_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "projection_policy_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "instance_slot_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "revision",
+        "projection_kind",
+        "target_process_id",
+        "operation_id",
+        "control_commit_ref",
+        "process_boot_id",
+        "applied_event_seq",
+        "journal_receipt_ref",
+        "render_version",
+        "global_config_hash",
+        "projection_hash",
+        "projection_policy_revision",
+        "instance_slot_id"
+      ],
+      "additionalProperties": false
+    },
+    "AccountView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "venue_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "risk_domain_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "exec_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "standby_exec_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "guardian_process_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,62}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "risk_policy_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "position_mode": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "OneWay",
+            "Hedge"
+          ]
+        },
+        "margin_mode": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "Cross",
+            "Isolated"
+          ]
+        },
+        "asset_mode": {
+          "type": "string",
+          "enum": [
+            "NotApplicable",
+            "SingleAsset",
+            "MultiAsset"
+          ]
+        },
+        "mode_snapshot_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "allowed_symbols": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z0-9_]{1,32}$"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "rate_limit_policy_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "instrument_overrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "symbol": {
+                "type": "string",
+                "pattern": "^[A-Z0-9_]{1,32}$"
+              },
+              "contract_kind": {
+                "type": "string",
+                "enum": [
+                  "Spot",
+                  "Perpetual",
+                  "Delivery"
+                ]
+              },
+              "expiry_epoch_ms": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "delivery_guard_seconds": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 86400
+              },
+              "settlement_schedule_ref": {
+                "type": "string",
+                "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "symbol",
+              "contract_kind",
+              "expiry_epoch_ms",
+              "delivery_guard_seconds",
+              "settlement_schedule_ref"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "venue_id",
+        "risk_domain_id",
+        "exec_process_id",
+        "standby_exec_process_id",
+        "guardian_process_ids",
+        "risk_policy_id",
+        "position_mode",
+        "margin_mode",
+        "asset_mode",
+        "mode_snapshot_ref",
+        "allowed_symbols",
+        "rate_limit_policy_ref",
+        "instrument_overrides"
+      ],
+      "additionalProperties": false
+    },
+    "VenueView": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "venue": {
+          "const": "Binance"
+        },
+        "product": {
+          "type": "string",
+          "enum": [
+            "Spot",
+            "Usdm"
+          ]
+        },
+        "environment": {
+          "type": "string",
+          "enum": [
+            "simulated",
+            "production"
+          ]
+        },
+        "transport": {
+          "type": "string",
+          "enum": [
+            "mock",
+            "ws-api",
+            "fix-sbe"
+          ]
+        },
+        "rest_uri": {
+          "type": "string",
+          "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "order_ws_uri": {
+          "type": "string",
+          "pattern": "^wss://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "market_ws_uri": {
+          "type": "string",
+          "pattern": "^wss://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "private_ws_uri": {
+          "type": "string",
+          "pattern": "^wss://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "protocol_manifest_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "instrument_catalog_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "recv_window_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "heartbeat_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "rotate_after_ms": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 86400000
+        },
+        "request_timeout_ms": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60000
+        },
+        "fix_session_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "id",
+        "venue",
+        "product",
+        "environment",
+        "transport",
+        "rest_uri",
+        "order_ws_uri",
+        "market_ws_uri",
+        "private_ws_uri",
+        "protocol_manifest_ref",
+        "instrument_catalog_ref",
+        "recv_window_ms",
+        "heartbeat_ms",
+        "rotate_after_ms",
+        "request_timeout_ms"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "transport": {
+                "const": "fix-sbe"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "fix_session_ref"
+            ]
+          }
+        }
+      ]
+    },
+    "SecretBinding": {
+      "type": "object",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "enum": [
+            "execution",
+            "guardian",
+            "market-data",
+            "control",
+            "replication",
+            "metrics",
+            "artifact-client"
+          ]
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+        },
+        "account_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        }
+      },
+      "required": [
+        "purpose",
+        "ref"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectionPayload": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": "object",
+          "properties": {
+            "schema_version": {
+              "const": 1
+            },
+            "cluster_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            },
+            "namespace_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "qualification",
+                "live"
+              ]
+            },
+            "environment": {
+              "type": "string",
+              "enum": [
+                "simulated",
+                "production"
+              ]
+            },
+            "deployment_profile": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9-]{0,95}$"
+            }
+          },
+          "required": [
+            "schema_version",
+            "cluster_id",
+            "namespace_id",
+            "mode",
+            "environment",
+            "deployment_profile"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "ForbiddenRuntime"
+        },
+        "process": {
+          "$ref": "#/$defs/Process"
+        },
+        "host": {
+          "$ref": "#/$defs/Host"
+        },
+        "ipc": {
+          "type": "object",
+          "properties": {
+            "abi_major": {
+              "const": 1
+            },
+            "abi_minor": {
+              "const": 0
+            },
+            "architecture": {
+              "type": "string",
+              "enum": [
+                "Linux_x86_64_le_4k",
+                "Linux_aarch64_le_4k"
+              ]
+            },
+            "page_bytes": {
+              "const": 4096
+            },
+            "isolation_bytes": {
+              "const": 128
+            },
+            "market_banks": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 16
+            },
+            "market_capacity": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 16777216
+            },
+            "market_record_bytes": {
+              "const": 512
+            },
+            "market_arena_bytes_per_bank": {
+              "type": "integer",
+              "minimum": 1048576,
+              "maximum": 4294967296
+            },
+            "intent_banks": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 16
+            },
+            "intent_capacity": {
+              "type": "integer",
+              "minimum": 64,
+              "maximum": 1048576
+            },
+            "intent_record_bytes": {
+              "const": 1024
+            },
+            "report_banks": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 16
+            },
+            "report_capacity": {
+              "type": "integer",
+              "minimum": 64,
+              "maximum": 1048576
+            },
+            "report_record_bytes": {
+              "const": 512
+            },
+            "max_batch_records": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "max_batch_payload_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4194304
+            },
+            "resource_session_ms": {
+              "type": "integer",
+              "minimum": 100,
+              "maximum": 60000
+            },
+            "resource_heartbeat_ms": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 30000
+            },
+            "topics": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Topic"
+              },
+              "minItems": 1
+            },
+            "market_arena_classes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "class_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4
+                  },
+                  "block_bytes": {
+                    "type": "integer",
+                    "minimum": 256,
+                    "maximum": 131072
+                  },
+                  "block_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16777216
+                  },
+                  "payload_limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65536
+                  }
+                },
+                "required": [
+                  "class_id",
+                  "block_bytes",
+                  "block_count",
+                  "payload_limit"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1,
+              "maxItems": 4
+            },
+            "snapshots_per_owner": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 64
+            },
+            "snapshot_max_bytes": {
+              "type": "integer",
+              "minimum": 4096,
+              "maximum": 67108864
+            },
+            "relay_budget_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967296
+            },
+            "ring_high_watermark_records": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16777216
+            },
+            "ring_stop_claiming_records": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16777216
+            },
+            "config_projection_max_objects": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            },
+            "config_projection_max_bytes": {
+              "type": "integer",
+              "minimum": 4096,
+              "maximum": 4194304
+            }
+          },
+          "required": [
+            "abi_major",
+            "abi_minor",
+            "architecture",
+            "page_bytes",
+            "isolation_bytes",
+            "market_banks",
+            "market_capacity",
+            "market_record_bytes",
+            "market_arena_bytes_per_bank",
+            "intent_banks",
+            "intent_capacity",
+            "intent_record_bytes",
+            "report_banks",
+            "report_capacity",
+            "report_record_bytes",
+            "max_batch_records",
+            "max_batch_payload_bytes",
+            "resource_session_ms",
+            "resource_heartbeat_ms",
+            "topics",
+            "market_arena_classes",
+            "snapshots_per_owner",
+            "snapshot_max_bytes",
+            "relay_budget_bytes",
+            "ring_high_watermark_records",
+            "ring_stop_claiming_records",
+            "config_projection_max_objects",
+            "config_projection_max_bytes"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "RollingRestart"
+        },
+        "strategy": {
+          "$ref": "#/$defs/Strategy"
+        },
+        "account_views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/AccountView"
+          },
+          "minItems": 0
+        },
+        "venue_views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VenueView"
+          },
+          "minItems": 0
+        },
+        "risk_policies": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/RiskPolicy"
+          },
+          "minItems": 0
+        },
+        "journal": {
+          "type": "object",
+          "properties": {
+            "commit_profile": {
+              "type": "string",
+              "enum": [
+                "LocalDurable+AsyncReplica",
+                "SyncReplica"
+              ]
+            },
+            "root_dir": {
+              "type": "string",
+              "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
+            },
+            "segment_bytes": {
+              "type": "integer",
+              "minimum": 1048576,
+              "maximum": 1099511627776
+            },
+            "max_frame_bytes": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 1073741824
+            },
+            "group_max_records": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "group_max_bytes": {
+              "type": "integer",
+              "minimum": 4096,
+              "maximum": 16777216
+            },
+            "group_max_wait_us": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            },
+            "pending_new_risk_bytes": {
+              "type": "integer",
+              "minimum": 1048576,
+              "maximum": 1073741824
+            },
+            "snapshot_every_records": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "snapshot_every_bytes": {
+              "type": "integer",
+              "minimum": 1048576,
+              "maximum": 9007199254740991
+            },
+            "retained_snapshot_count": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 64
+            },
+            "disk_warn_percent": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 99
+            },
+            "disk_freeze_percent": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 99
+            }
+          },
+          "required": [
+            "commit_profile",
+            "root_dir",
+            "segment_bytes",
+            "max_frame_bytes",
+            "group_max_records",
+            "group_max_bytes",
+            "group_max_wait_us",
+            "pending_new_risk_bytes",
+            "snapshot_every_records",
+            "snapshot_every_bytes",
+            "retained_snapshot_count",
+            "disk_warn_percent",
+            "disk_freeze_percent"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "RollingRestart"
+        },
+        "replication": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "const": true
+            },
+            "receiver_host_id": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            },
+            "protocol_ref": {
+              "type": "string",
+              "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+            },
+            "mtls_identity_ref": {
+              "type": "string",
+              "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+            },
+            "batch_max_delay_us": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "batch_max_bytes": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 16777216
+            },
+            "max_inflight_batches": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "out_of_order_bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1073741824
+            },
+            "lag_warn_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            },
+            "lag_freeze_ms": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 60000
+            },
+            "on_freeze": {
+              "const": "freeze-new-risk"
+            },
+            "mirror_wait_timeout_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            },
+            "automatic_async_fallback": {
+              "const": false
+            }
+          },
+          "required": [
+            "enabled",
+            "receiver_host_id",
+            "protocol_ref",
+            "mtls_identity_ref",
+            "batch_max_delay_us",
+            "batch_max_bytes",
+            "max_inflight_batches",
+            "out_of_order_bytes",
+            "lag_warn_ms",
+            "lag_freeze_ms",
+            "on_freeze",
+            "mirror_wait_timeout_ms",
+            "automatic_async_fallback"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "Quiesce"
+        },
+        "control": {
+          "type": "object",
+          "properties": {
+            "listen_uri": {
+              "type": "string",
+              "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+            },
+            "voters": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Voter"
+              },
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "raft_impl": {
+              "const": "raft-rs-0.7.0"
+            },
+            "tick_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "heartbeat_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            },
+            "election_min_ms": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 60000
+            },
+            "election_max_ms": {
+              "type": "integer",
+              "minimum": 3,
+              "maximum": 60000
+            },
+            "pre_vote": {
+              "const": true
+            },
+            "check_quorum": {
+              "const": true
+            },
+            "read_only_mode": {
+              "const": "Safe"
+            },
+            "exec_grant_lifetime_ms": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 1000
+            },
+            "exec_grant_renew_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            },
+            "strategy_grant_lifetime_ms": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 600000
+            },
+            "strategy_progress_interval_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "strategy_suspect_after_ms": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10000
+            },
+            "mtls_identity_ref": {
+              "type": "string",
+              "pattern": "^secret://(vault|systemd|fixture)/[a-z0-9][a-z0-9/_-]*/[1-9][0-9]*$"
+            },
+            "client_ca_bundle_ref": {
+              "type": "string",
+              "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+            },
+            "role_bindings": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/RoleBinding"
+              },
+              "minItems": 1
+            },
+            "operation_timeout_ms": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 3600000
+            },
+            "plan_ttl_ms": {
+              "type": "integer",
+              "minimum": 1000,
+              "maximum": 600000
+            },
+            "idempotency_retention_days": {
+              "type": "integer",
+              "minimum": 30,
+              "maximum": 3650
+            },
+            "max_request_bytes": {
+              "type": "integer",
+              "minimum": 1024,
+              "maximum": 16777216
+            }
+          },
+          "required": [
+            "listen_uri",
+            "voters",
+            "raft_impl",
+            "tick_ms",
+            "heartbeat_ms",
+            "election_min_ms",
+            "election_max_ms",
+            "pre_vote",
+            "check_quorum",
+            "read_only_mode",
+            "exec_grant_lifetime_ms",
+            "exec_grant_renew_ms",
+            "strategy_grant_lifetime_ms",
+            "strategy_progress_interval_ms",
+            "strategy_suspect_after_ms",
+            "mtls_identity_ref",
+            "client_ca_bundle_ref",
+            "role_bindings",
+            "operation_timeout_ms",
+            "plan_ttl_ms",
+            "idempotency_retention_days",
+            "max_request_bytes"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "Quiesce"
+        },
+        "local_config": {
+          "type": "object",
+          "properties": {
+            "root_dir": {
+              "type": "string",
+              "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
+            },
+            "file_mode": {
+              "const": "0600"
+            },
+            "directory_mode": {
+              "const": "0700"
+            },
+            "owner": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,62}$"
+            },
+            "retain_last_good": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 128
+            },
+            "durability": {
+              "const": "fsync-file-rename-fsync-directory"
+            },
+            "manual_edit_policy": {
+              "const": "quarantine-and-reconcile"
+            },
+            "startup_policy": {
+              "const": "journal-verified-effective-then-reconcile"
+            },
+            "strict_drift_gate": {
+              "const": true
+            },
+            "journal_max_bytes": {
+              "type": "integer",
+              "minimum": 1048576,
+              "maximum": 1099511627776
+            },
+            "projection_policy_revision": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "projection_policy_ref": {
+              "type": "string",
+              "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+            },
+            "bootstrap_locator_path": {
+              "const": "/etc/tickwire/bootstrap/config-locator.toml"
+            }
+          },
+          "required": [
+            "root_dir",
+            "file_mode",
+            "directory_mode",
+            "owner",
+            "retain_last_good",
+            "durability",
+            "manual_edit_policy",
+            "startup_policy",
+            "strict_drift_gate",
+            "journal_max_bytes",
+            "projection_policy_revision",
+            "projection_policy_ref",
+            "bootstrap_locator_path"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "RollingRestart"
+        },
+        "observability": {
+          "$ref": "#/$defs/ObservabilityView"
+        },
+        "timeouts": {
+          "type": "object",
+          "properties": {
+            "intent_ttl_us": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000000
+            },
+            "private_stream_stale_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            },
+            "clock_max_offset_us": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "quiesce_timeout_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600000
+            },
+            "shutdown_timeout_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600000
+            },
+            "unknown_order_query_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            },
+            "reconnect_min_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 60000
+            },
+            "reconnect_max_ms": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 600000
+            },
+            "fencing_deadline_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600000
+            },
+            "takeover_deadline_ms": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600000
+            }
+          },
+          "required": [
+            "intent_ttl_us",
+            "private_stream_stale_ms",
+            "clock_max_offset_us",
+            "quiesce_timeout_ms",
+            "shutdown_timeout_ms",
+            "unknown_order_query_ms",
+            "reconnect_min_ms",
+            "reconnect_max_ms",
+            "fencing_deadline_ms",
+            "takeover_deadline_ms"
+          ],
+          "additionalProperties": false,
+          "x-change-class": "Quiesce"
+        },
+        "secret_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SecretBinding"
+          },
+          "minItems": 0
+        },
+        "account_identity_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "account_id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,62}$"
+              },
+              "ref": {
+                "type": "string",
+                "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "account_id",
+              "ref"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "identity",
+        "process",
+        "host",
+        "secret_bindings"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "process": {
+                "properties": {
+                  "role": {
+                    "const": "strategy"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "strategy"
+            ],
+            "properties": {
+              "secret_bindings": {
+                "maxItems": 0
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "control"
+                  ]
+                },
+                {
+                  "required": [
+                    "replication"
+                  ]
+                },
+                {
+                  "required": [
+                    "account_identity_refs"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "ObservabilityView": {
+      "type": "object",
+      "properties": {
+        "metrics_listen_uri": {
+          "type": "string",
+          "pattern": "^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?(/[a-zA-Z0-9/_-]*)?$"
+        },
+        "diagnostic_level": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ]
+        },
+        "sample_per_million": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "histogram_profile_ref": {
+          "type": "string",
+          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
+        },
+        "audit_retention_days": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 3650
+        },
+        "secret_redaction": {
+          "const": true
+        },
+        "labels_policy": {
+          "const": "bounded-no-secrets-no-order-id"
+        },
+        "log_max_bytes": {
+          "type": "integer",
+          "minimum": 1048576,
+          "maximum": 1099511627776
+        }
+      },
+      "required": [
+        "metrics_listen_uri",
+        "diagnostic_level",
+        "sample_per_million",
+        "histogram_profile_ref",
+        "audit_retention_days",
+        "secret_redaction",
+        "labels_policy",
+        "log_max_bytes"
+      ],
+      "additionalProperties": false,
+      "x-change-class": "Hot"
+    },
+    "ProcessProjection": {
+      "type": "object",
+      "properties": {
+        "projection_schema_version": {
+          "const": 1
+        },
+        "payload": {
+          "$ref": "#/$defs/ProjectionPayload"
+        },
+        "_materialization": {
+          "$ref": "#/$defs/Materialization"
+        }
+      },
+      "required": [
+        "projection_schema_version",
+        "payload",
+        "_materialization"
+      ],
+      "additionalProperties": false
+    },
+    "ProjectionObject": {
+      "type": "object",
+      "properties": {
+        "projection_schema_version": {
+          "const": 1
+        },
+        "global_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "global_config_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "projection_policy_revision": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "target_process_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "projection_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "payload": {
+          "$ref": "#/$defs/ProjectionPayload"
+        }
+      },
+      "required": [
+        "projection_schema_version",
+        "global_revision",
+        "global_config_hash",
+        "projection_policy_revision",
+        "target_process_id",
+        "projection_hash",
+        "payload"
+      ],
+      "additionalProperties": false
+    },
+    "ConfigLocator": {
+      "type": "object",
+      "properties": {
+        "locator_version": {
+          "const": 1
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "cluster_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "active_root": {
+          "type": "string",
+          "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
+        },
+        "migration_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "manifest_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "previous_locator_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "checksum": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "locator_version",
+        "generation",
+        "cluster_id",
+        "active_root",
+        "migration_id",
+        "manifest_hash",
+        "previous_locator_hash",
+        "checksum"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "mode": {
+                "const": "live"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "environment": {
+                "const": "production"
+              }
+            }
+          },
+          "venues": {
+            "items": {
+              "properties": {
+                "environment": {
+                  "const": "production"
+                },
+                "transport": {
+                  "enum": [
+                    "ws-api",
+                    "fix-sbe"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "mode": {
+                "const": "qualification"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "identity": {
+            "properties": {
+              "environment": {
+                "const": "simulated"
+              }
+            }
+          },
+          "venues": {
+            "items": {
+              "properties": {
+                "environment": {
+                  "const": "simulated"
+                },
+                "transport": {
+                  "enum": [
+                    "mock"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "x-semantic-checks": [
+    "CFG-S01 unique IDs, references, process roles and account risk-domain ownership",
+    "CFG-S02 finite JSON-safe integers; decimal strings; no TOML datetime, float, unresolved placeholder or source _materialization",
+    "CFG-S03 logical strategy <=1 Active plus <=1 Shadow; combined instance and subscription budgets",
+    "CFG-S04 ring power-of-two, ABI record sizes, actual arena class allocation and all resources <= host SHM budget",
+    "CFG-S05 CPU and NUMA inventory, exclusive hot-loop cores, physical and OS-identity containment",
+    "CFG-S06 replica failure domain differs from source; voters span three failure domains; no control-only order WAL",
+    "CFG-S07 heartbeat and renewal < respective lifetime; election/replication/disk thresholds ordered",
+    "CFG-S08 account/product/modes and signed venue metadata, fees, tiers, budgets and entitlements match",
+    "CFG-S09 live forbids fixture/.invalid/REQUIRED; resolves immutable artifacts and authorized secret refs; validates complete deployment manifest",
+    "CFG-S10 strategy parameters validate pinned parameter schema; restricted type registry determines Hot versus Quiesce",
+    "CFG-S11 no unreferenced identities or secret material; secure endpoint allowlist, namespace/environment consistency",
+    "CFG-S12 plans bind whole base ETag, target membership, desired hash, qualification and classification; semantic revalidation at commit/apply"
+  ]
+}

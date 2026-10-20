@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant U as 管理客户端
+    participant C as 控制面
+    participant M as 本机配置物化服务
+    participant P as 目标进程
+    U->>C: 校验与计划<br/>候选配置 + base ETag
+    C-->>U: diff、变更类别与影响范围
+    U->>C: 提交计划<br/>If-Match + Idempotency-Key
+    C->>C: 持久提交新 revision 与 operation
+    C-->>U: 202：操作已准入
+    C->>M: 固定目标、投影与控制提交证明
+    M->>M: 持久 ConfigPrepared<br/>原子保存 desired.toml
+    M->>P: 准备并应用版本化配置
+    P->>P: 持久 ConfigApply<br/>在事件边界应用
+    P-->>M: RuntimeApplied 与实际水位
+    M->>M: 写 effective 临时文件<br/>fsync → rename → 目录 fsync
+    M-->>C: 运行时与文件持久收据
+    C->>C: 核对全部目标的版本与哈希
+    U->>C: 查询 operation
+    alt 所有目标均匹配
+        C-->>U: Succeeded：运行时与文件已同步
+    else 写盘失败或部分目标未完成
+        C-->>U: Stalled / 进行中<br/>列出未完成目标
+    end

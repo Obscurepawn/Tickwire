@@ -1,0 +1,612 @@
+{
+  "schema_version": 1,
+  "contract": "tickwire-risk-vectors-v1",
+  "synthetic": true,
+  "production_parameters": false,
+  "valuation_date": "2026-10-20",
+  "decimal_encoding": "base10 strings; exact integer parsing; never JSON float",
+  "default_scales": {
+    "quantity": 8,
+    "price": 8,
+    "money": 8,
+    "rate": 8
+  },
+  "rounding": {
+    "liability": "ceil",
+    "asset": "floor",
+    "signed_floor": "toward negative infinity",
+    "signed_ceil": "toward positive infinity"
+  },
+  "arithmetic": "checked i128; overflow rejects without mutating reservations",
+  "notes": [
+    "All values are synthetic algorithm examples, not observed account values or investment recommendations.",
+    "Cases that set rounding tails to zero isolate the named formula; production reserves require bounded per-fill rounding tails.",
+    "BNB formula returns an estimate; strict asset availability also excludes the shared exclusive fee pool.",
+    "Pressure bounds are system policies, not exchange price guarantees or an exact liquidation model."
+  ],
+  "cases": [
+    {
+      "id": "spot_partial_fill",
+      "formula": "SPOT_PARTIAL_FILL",
+      "input": {
+        "original_quantity": "10",
+        "buy_cap": "100",
+        "fill_quantity": "4",
+        "fill_price": "99",
+        "fee_tail": "0"
+      },
+      "expected": {
+        "original_reserve": "1000.00000000",
+        "actual_debit": "396.00000000",
+        "remaining_quantity": "6.00000000",
+        "remaining_reserve": "600.00000000",
+        "released_upper_bound": "4.00000000",
+        "debit_plus_reserve": "996.00000000"
+      }
+    },
+    {
+      "id": "spot_received_fee",
+      "formula": "SPOT_RECEIVED_FEE",
+      "input": {
+        "side": "BUY",
+        "received_asset": "BTC",
+        "received_amount": "2",
+        "standard_rate": "0.001",
+        "tax_rate": "0.0002",
+        "special_rate": "0.0003",
+        "rounding_tail": "0"
+      },
+      "expected": {
+        "standard_fee": "0.00200000",
+        "tax_fee": "0.00040000",
+        "special_fee": "0.00060000",
+        "total_fee": "0.00300000",
+        "net_received": "1.99700000",
+        "existing_base_inventory_reserve": "0.00000000"
+      }
+    },
+    {
+      "id": "spot_third_asset_fee",
+      "formula": "SPOT_THIRD_ASSET_FEE_ESTIMATE",
+      "input": {
+        "side": "SELL",
+        "received_quote": "20000",
+        "standard_rate": "0.001",
+        "tax_rate": "0.0001",
+        "special_rate": "0",
+        "discount_assumed": "1",
+        "bnb_quote_low": "200",
+        "bnb_fee_pool_balance": "0.5",
+        "rounding_tail": "0"
+      },
+      "expected": {
+        "fee_quote_upper": "22.00000000",
+        "bnb_fee_estimate": "0.11000000",
+        "fallback_net_received_quote": "19978.00000000",
+        "exclusive_fee_pool_reserve": "0.50000000",
+        "bnb_available_for_other_actions": "0.00000000"
+      }
+    },
+    {
+      "id": "spot_baseline_dedup",
+      "formula": "SPOT_AVAILABLE",
+      "input": {
+        "free0": "600",
+        "locked0": "400",
+        "nontrade_locked": "0",
+        "net_cashflow_after_baseline": "0",
+        "credits_after_baseline": "0",
+        "other_debits": "0",
+        "orders": [
+          {
+            "id": "old",
+            "coverage": "400",
+            "actual_debit": "0",
+            "remaining_reserve": "400"
+          },
+          {
+            "id": "new",
+            "coverage": "0",
+            "actual_debit": "0",
+            "remaining_reserve": "200"
+          }
+        ]
+      },
+      "expected": {
+        "total_assets": "1000.00000000",
+        "local_free": "400.00000000",
+        "venue_cap": "400.00000000",
+        "available": "400.00000000"
+      }
+    },
+    {
+      "id": "spot_baseline_partial_then_cancel",
+      "formula": "SPOT_AVAILABLE",
+      "input": {
+        "free0": "600",
+        "locked0": "400",
+        "nontrade_locked": "0",
+        "net_cashflow_after_baseline": "-196",
+        "credits_after_baseline": "204",
+        "other_debits": "0",
+        "orders": [
+          {
+            "id": "old",
+            "coverage": "400",
+            "actual_debit": "196",
+            "remaining_reserve": "0"
+          }
+        ],
+        "release_evidence": "authoritative terminal cumulative fill and one-shot baseline lock release"
+      },
+      "expected": {
+        "total_assets": "804.00000000",
+        "local_free": "804.00000000",
+        "venue_cap": "804.00000000",
+        "available": "804.00000000"
+      }
+    },
+    {
+      "id": "one_way_opposing_orders",
+      "formula": "ONE_WAY_ENVELOPE",
+      "input": {
+        "position": "2",
+        "pending_buy": "3",
+        "pending_sell": "6",
+        "stress_price_high": "110"
+      },
+      "expected": {
+        "position_min": "-4.00000000",
+        "position_max": "5.00000000",
+        "max_abs_position": "5.00000000",
+        "capital_quantity": "11.00000000",
+        "capital_notional": "1210.00000000",
+        "all_filled_position": "-1.00000000"
+      }
+    },
+    {
+      "id": "hedge_mode",
+      "formula": "HEDGE_ENVELOPE",
+      "input": {
+        "long": "4",
+        "short": "3",
+        "open_long": "2",
+        "open_short": "5",
+        "close_long": "1",
+        "close_short": "2",
+        "stress_price_high": "110"
+      },
+      "expected": {
+        "long_max": "6.00000000",
+        "short_max": "8.00000000",
+        "net_min": "-5.00000000",
+        "net_max": "5.00000000",
+        "capital_quantity": "17.00000000",
+        "capital_notional": "1870.00000000"
+      }
+    },
+    {
+      "id": "tier_crossing",
+      "formula": "MM_TIER_AND_UPPER",
+      "input": {
+        "notionals": [
+          "49000",
+          "50000",
+          "51000"
+        ],
+        "bracket_interpretation": "effective_as_returned",
+        "notional_coef": "1",
+        "brackets": [
+          {
+            "floor": "0",
+            "cap": "50000",
+            "rate": "0.004",
+            "cum": "0",
+            "max_initial_leverage": "20"
+          },
+          {
+            "floor": "50000",
+            "cap": "250000",
+            "rate": "0.008",
+            "cum": "200",
+            "max_initial_leverage": "10"
+          }
+        ]
+      },
+      "expected": {
+        "tiers": [
+          "1",
+          "2",
+          "2"
+        ],
+        "tier_maintenance": [
+          "196.00000000",
+          "200.00000000",
+          "208.00000000"
+        ],
+        "upper_maintenance": [
+          "196.00000000",
+          "400.00000000",
+          "408.00000000"
+        ]
+      }
+    },
+    {
+      "id": "notional_coefficient_unknown",
+      "formula": "BRACKET_QUALIFICATION",
+      "input": {
+        "notional_coef": "1.5",
+        "bracket_interpretation": "unverified"
+      },
+      "expected": {
+        "decision": "REJECT",
+        "reason": "BRACKET_SEMANTICS_UNVERIFIED",
+        "multiply_returned_caps": false
+      }
+    },
+    {
+      "id": "collateral_haircut",
+      "formula": "COLLATERAL_VALUE",
+      "input": {
+        "assets": [
+          {
+            "asset": "BTC",
+            "balance": "0.1",
+            "valuation_low": "20000",
+            "valuation_high": "22000",
+            "eligible_ratio": "0.9",
+            "ratio_valid": true
+          },
+          {
+            "asset": "USDT",
+            "balance": "1000",
+            "valuation_low": "1",
+            "valuation_high": "1",
+            "eligible_ratio": "1",
+            "ratio_valid": true
+          },
+          {
+            "asset": "USDC",
+            "balance": "-100",
+            "valuation_low": "0.99",
+            "valuation_high": "1.01",
+            "eligible_ratio": "0.8",
+            "ratio_valid": true
+          }
+        ],
+        "invalidate_asset": "BTC"
+      },
+      "expected": {
+        "components": [
+          "1800.00000000",
+          "1000.00000000",
+          "-101.00000000"
+        ],
+        "collateral_value": "2699.00000000",
+        "collateral_after_invalidation": "899.00000000"
+      }
+    },
+    {
+      "id": "unknown_cancel_replace_algo",
+      "formula": "POTENTIAL_ORDER_SUM",
+      "input": {
+        "orders": [
+          {
+            "id": "old_unknown",
+            "quantity": "4",
+            "buy_cap": "100"
+          },
+          {
+            "id": "replacement_unknown",
+            "quantity": "5",
+            "buy_cap": "101"
+          },
+          {
+            "id": "algo_potential_child",
+            "quantity": "2",
+            "buy_cap": "110"
+          }
+        ],
+        "has_unknown": true
+      },
+      "expected": {
+        "reserves": [
+          "400.00000000",
+          "505.00000000",
+          "220.00000000"
+        ],
+        "total_reserve": "1125.00000000",
+        "release_on_timeout": "0.00000000",
+        "new_risk_decision": "REJECT",
+        "reason": "UNKNOWN_EXPOSURE"
+      }
+    },
+    {
+      "id": "shared_funds",
+      "formula": "SERIAL_RESERVATION",
+      "input": {
+        "available": "1000",
+        "requests": [
+          {
+            "strategy": "A",
+            "amount": "600"
+          },
+          {
+            "strategy": "B",
+            "amount": "600"
+          }
+        ]
+      },
+      "expected": {
+        "decisions": [
+          "ACCEPT",
+          "REJECT"
+        ],
+        "available_after_each": [
+          "400.00000000",
+          "400.00000000"
+        ],
+        "second_reason": "INSUFFICIENT_ASSET"
+      }
+    },
+    {
+      "id": "reduce_allocation",
+      "formula": "REDUCE_ALLOCATION",
+      "input": {
+        "actual_long": "5",
+        "existing_allocations": [
+          "3"
+        ],
+        "requested_quantity": "4",
+        "allow_partial_reduce": true
+      },
+      "expected": {
+        "reducible_before": "2.00000000",
+        "allocated_quantity": "2.00000000",
+        "reducible_after": "0.00000000",
+        "position_side": "BOTH",
+        "side": "SELL",
+        "reduce_only": true
+      }
+    },
+    {
+      "id": "fixed_rounding_and_overflow",
+      "formula": "FIXED_POINT_BOUNDARIES",
+      "input": {
+        "quantity_atoms": "1",
+        "price_atoms": "123456789",
+        "quantity_scale": 8,
+        "price_scale": 8,
+        "money_scale": 8,
+        "signed_numerator": "-5",
+        "signed_denominator": "2",
+        "overflow_left": "170141183460469231731687303715884105727",
+        "overflow_right": "2"
+      },
+      "expected": {
+        "notional_floor_atoms": "1",
+        "notional_ceil_atoms": "2",
+        "notional_floor": "0.00000001",
+        "notional_ceil": "0.00000002",
+        "signed_floor": "-3",
+        "signed_ceil": "-2",
+        "overflow_decision": "REJECT",
+        "overflow_reason": "ARITHMETIC_OVERFLOW"
+      }
+    },
+    {
+      "id": "capital_with_funding",
+      "formula": "FUTURES_CAPITAL",
+      "input": {
+        "position_long": "2",
+        "entry": "100",
+        "price_low": "90",
+        "price_high": "110",
+        "buy_quantity": "3",
+        "buy_cap": "105",
+        "sell_quantity": "6",
+        "sell_floor": "95",
+        "effective_leverage": "5",
+        "maintenance_rate_upper": "0.01",
+        "maintenance_addon": "5",
+        "execution_fee_rate": "0.001",
+        "exit_fee_rate": "0.001",
+        "funding_rate_abs_upper": "0.0001",
+        "funding_settlements": "2",
+        "pending_outbound": "50",
+        "capital_buffer": "10",
+        "collateral_value": "1000",
+        "rounding_tails": "0"
+      },
+      "expected": {
+        "capital_quantity": "11.00000000",
+        "capital_notional": "1210.00000000",
+        "initial_charge": "242.00000000",
+        "maintenance_upper": "12.10000000",
+        "position_loss": "20.00000000",
+        "order_loss": "135.00000000",
+        "execution_fee": "0.97500000",
+        "exit_fee": "0.55000000",
+        "funding_reserve": "0.24200000",
+        "capital": "458.76700000",
+        "local_headroom": "541.23300000",
+        "exit_quantity": "5.00000000"
+      }
+    },
+    {
+      "id": "strategy_netting",
+      "formula": "STRATEGY_ACCOUNT_NETTING",
+      "input": {
+        "strategy_positions": [
+          "5",
+          "-3"
+        ],
+        "price": "100",
+        "strategy_a_sell": "5"
+      },
+      "expected": {
+        "account_position_before": "2.00000000",
+        "strategy_gross_notional_before": "800.00000000",
+        "account_net_notional_before": "200.00000000",
+        "account_position_after": "-3.00000000",
+        "account_net_notional_after": "300.00000000",
+        "risk_class": "ACCOUNT_INCREASING"
+      }
+    },
+    {
+      "id": "venue_shadow_cap",
+      "formula": "VENUE_SHADOW_CAP",
+      "input": {
+        "available0": "500",
+        "uncovered_holds": [
+          "200"
+        ],
+        "uncovered_other_debits": "20",
+        "market_additional_hold": "50",
+        "new_capital_delta": "231"
+      },
+      "expected": {
+        "shadow_available": "230.00000000",
+        "decision": "REJECT",
+        "reason": "VENUE_AVAILABLE_CAP"
+      }
+    },
+    {
+      "id": "per_fill_fee_rounding",
+      "formula": "FEE_ROUNDING_TAIL",
+      "input": {
+        "received_amount": "0.00000003",
+        "fee_rate": "0.001",
+        "maximum_remaining_fills": "3",
+        "fee_asset_quantum": "0.00000001"
+      },
+      "expected": {
+        "aggregate_fee_ceil": "0.00000001",
+        "rounding_tail": "0.00000003",
+        "fee_reserve": "0.00000004"
+      }
+    },
+    {
+      "id": "negative_short_loss",
+      "formula": "SIGNED_POSITION_LOSS",
+      "input": {
+        "position_mode": "ONE_WAY",
+        "position": "-1",
+        "entry": "100",
+        "price_low": "90",
+        "price_high": "110"
+      },
+      "expected": {
+        "absolute_quantity": "1.00000000",
+        "stress_price": "110.00000000",
+        "position_loss": "10.00000000"
+      }
+    },
+    {
+      "id": "post_fill_exit_fee",
+      "formula": "POST_FILL_EXIT_FEE",
+      "input": {
+        "position_mode": "ONE_WAY",
+        "position": "0",
+        "buy_quantity": "1",
+        "sell_quantity": "0",
+        "buy_cap": "90",
+        "fill_quantity": "1",
+        "fill_price": "90",
+        "price_low": "90",
+        "price_high": "110",
+        "effective_leverage": "10",
+        "maintenance_rate_upper": "0",
+        "maintenance_addon": "0",
+        "execution_fee_rate": "0.001",
+        "exit_fee_rate": "0.001",
+        "funding_reserve": "0",
+        "pending_outbound": "0",
+        "capital_buffer": "0",
+        "wallet_before": "11.09",
+        "rounding_tails": "0"
+      },
+      "expected": {
+        "max_abs_position": "1.00000000",
+        "initial_charge_before": "11.00000000",
+        "position_loss_before": "0.00000000",
+        "order_loss_before": "0.00000000",
+        "execution_fee_before": "0.09000000",
+        "exit_fee_before": "0.11000000",
+        "capital_before": "11.20000000",
+        "local_headroom_before": "-0.11000000",
+        "decision": "REJECT",
+        "reason": "INSUFFICIENT_COLLATERAL",
+        "hypothetical_position_after": "1.00000000",
+        "hypothetical_wallet_after": "11.00000000",
+        "hypothetical_exit_fee_after": "0.11000000",
+        "hypothetical_capital_after": "11.11000000",
+        "hypothetical_local_headroom_after": "-0.11000000",
+        "minimum_wallet_before": "11.20000000",
+        "adequately_funded_wallet_after": "11.11000000",
+        "adequately_funded_headroom_after": "0.00000000"
+      }
+    },
+    {
+      "id": "linear_delivery_settlement",
+      "formula": "LINEAR_SETTLEMENT_RECONCILE",
+      "input": {
+        "product": "USDS_M_LINEAR_DELIVERY",
+        "funding_mode": "NONE",
+        "quantity_unit": "BTC",
+        "price_unit": "USDT/BTC",
+        "settlement_asset": "USDT",
+        "fee_rate_unit": "dimensionless",
+        "position_signed": "2",
+        "entry_price": "100",
+        "estimated_settlement_price": "109",
+        "actual_settlement_price": "110",
+        "stress_price_high": "120",
+        "settlement_fee_rate_upper": "0.001",
+        "actual_fee_rate_for_reference": "0.001",
+        "settlement_rounding_buffer": "0",
+        "wallet_before": "1000",
+        "actual_income_components": [
+          {
+            "canonical_type": "SETTLEMENT_PNL",
+            "income_id": "synthetic-pnl-1",
+            "amount": "20"
+          },
+          {
+            "canonical_type": "SETTLEMENT_FEE",
+            "income_id": "synthetic-fee-1",
+            "amount": "-0.22"
+          }
+        ],
+        "observed_wallet_after": "1019.78",
+        "unresolved_orders_at_timer": 1,
+        "complete_account_facts_at_timer": false,
+        "unresolved_orders_after_reconcile": 0,
+        "actual_position_after_reconcile": "0",
+        "complete_account_facts_after_reconcile": true,
+        "expiry_no_increase_window_ms": 1800000,
+        "unresolved_order_class_at_timer": "CANCEL_PENDING_REDUCE_ONLY"
+      },
+      "expected": {
+        "funding_reserve": "0.00000000",
+        "fee_reserve_before": "0.24000000",
+        "reference_pnl": "20.00000000",
+        "reference_fee": "0.22000000",
+        "reference_net": "19.78000000",
+        "actual_net_income": "19.78000000",
+        "expected_wallet_from_actual_income": "1019.78000000",
+        "wallet_reconciliation_difference": "0.00000000",
+        "reference_vs_actual_difference": "0.00000000",
+        "position_after_timer": "2.00000000",
+        "fee_reserve_after_timer": "0.24000000",
+        "released_on_timer": "0.00000000",
+        "estimated_price_income_booked": "0.00000000",
+        "state_after_timer": "AWAITING_SETTLEMENT",
+        "position_after_reconcile": "0.00000000",
+        "remaining_fee_reserve_released": "0.02000000",
+        "state_after_reconcile": "SETTLED_RECONCILED",
+        "automatically_roll_position": false
+      }
+    }
+  ]
+}

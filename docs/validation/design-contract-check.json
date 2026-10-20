@@ -1,0 +1,84 @@
+{
+  "checked_on": "2026-10-20",
+  "scope": "design_artifacts_only_not_runtime_tests",
+  "command": "/tmp/tickwire-design-validation-env/bin/python scripts/verify-design-contracts.py --openapi",
+  "exit_code": 0,
+  "result": {
+    "scope": "design_artifacts_only_not_runtime_tests",
+    "ipc": {
+      "result": "PASS",
+      "layouts": 36,
+      "fields_checked": 624,
+      "vectors_roundtripped": 63,
+      "data_message_ids": 26,
+      "control_opcodes": 31,
+      "crc32c_checks": 19,
+      "semantic_cases": 25,
+      "unchanged_abi_vectors": 37,
+      "bank_and_cursor_bytes": 3496542208,
+      "all_committed_shm_bytes": 6449856512,
+      "local_links": "PASS"
+    },
+    "risk": {
+      "cases": 21,
+      "expected_fields": 131,
+      "failures": []
+    },
+    "deployment": {
+      "profile": "TW-LD-ASYNC-16x2-v1",
+      "bank_cursor_bytes": 3496542208,
+      "shm_committed_bytes": 6449856512,
+      "shm_limit_bytes": 8589934592,
+      "nominal_disk_bytes_per_second": 532285577,
+      "retention_bytes": 11497368463200,
+      "data_raft_groups": 0
+    },
+    "configuration": {
+      "reference_schema_errors": 0,
+      "production_template_expected_rejections": 413,
+      "openapi": "openapi_spec_validator_pass",
+      "api_operations": 16,
+      "api_refs": 251
+    },
+    "config_semantics": {
+      "reference_schema_errors": 0,
+      "template_expected_errors": 413,
+      "cross_field_checks": "passed",
+      "deployment_and_ipc_consistency": "passed",
+      "openapi_complete_check": "run_repository_validator_with_openapi",
+      "openapi_operations": 16,
+      "openapi_refs_resolved": 251,
+      "negative_cases_passed": 17,
+      "candidate_variants_passed": 3,
+      "projection_and_locator_examples": "passed",
+      "capacity": {
+        "strategy_instances": 32,
+        "active": 16,
+        "shadow": 16,
+        "strategy_domain_pairs": 64,
+        "bank_and_cursor_bytes": 3496542208,
+        "snapshot_bytes": 2147483648,
+        "projection_object_bytes": 537395200,
+        "total_with_relay_bytes": 6449856512,
+        "relay_budget_bytes": 268435456
+      }
+    }
+  },
+  "inputs_sha256": {
+    "config/production.template.toml": "0d472b3366476ba13359c41a093fc36bf127d9108ebfbba32881be85335a429e",
+    "config/reference.toml": "24b645271ad27839460be8403e6b96d2bbdc89ac78863af8e2a9d860125957db",
+    "scripts/requirements-design.txt": "cec3d642345bcf9e350fe8b57f4d996dfcc8eb95abded868adebe523586bf719",
+    "scripts/verify-config-contract.py": "cb2f5a2b80d0f9076e7823dc0afa22182a493e90935b0679a3931e87f7702135",
+    "scripts/verify-design-contracts.py": "7c75a8081ca2813ded0eec975d5c330f105bc0365bf8df99ec58f331df995645",
+    "scripts/verify-documentation.py": "7f98fd4b603ef6a0a0436dac4544f85b16a5f4d629b9673b0480cda1d531c09d",
+    "scripts/verify-ipc-contract.py": "e7c05db1a505d9707a3c103d6518d62fac33950a58d1879b47ac6306e6b16ff9",
+    "scripts/verify-risk-vectors.py": "590cb222deaf6aec9809e6d15a4611fb82e5824ca46543c0c44aa61a67da3f5c",
+    "specs/contracts/control-api.openapi.json": "7cca59e2342e2037f0c7cafe54fed7d73630aecf5774622c22c2895229b68e8c",
+    "specs/contracts/deployment-reference-v1.json": "5b4af7724d37ce187a5f2bc98219e100887f42419ec023a2d6ff310395b936e8",
+    "specs/contracts/ipc-vectors-v1.json": "7ec78ca2d57bdd453cad9790471b7a2b4bc1c71fcf9b81ded487725856c3c488",
+    "specs/contracts/ipc-wire-v1.json": "510051cb069f0e2457c0714f71e57bdfe54bdce15db99b164f589777ea4f3dd4",
+    "specs/contracts/replication-profile-v1.json": "14d3accf6035fc59b02e12822cba1e9253362ea35f730d172fc2e0f1d483528a",
+    "specs/contracts/risk-vectors-v1.json": "32082fc7e83b8a891b48b74c68cf9ea476ea249d7e468ad7e30a6e26bb256b00",
+    "specs/contracts/system-config.schema.json": "fff3ff5fbce3f92f0a62aea18d0360c336c1594b045d27200358c8978cb03e8c"
+  }
+}
