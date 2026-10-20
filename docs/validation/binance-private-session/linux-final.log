@@ -1,0 +1,216 @@
+info: syncing channel updates for 1.99.1-aarch64-unknown-linux-gnu
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 2 components
+    Updating crates.io index
+ Downloading crates ...
+  Downloaded untrusted v0.9.0
+  Downloaded block-buffer v0.10.4
+  Downloaded sha1 v0.10.6
+  Downloaded subtle v2.6.1
+  Downloaded version_check v0.9.5
+  Downloaded lazy_static v1.5.1
+  Downloaded cpufeatures v0.2.17
+  Downloaded num-conv v0.2.2
+  Downloaded time-core v0.1.9
+  Downloaded rusticata-macros v4.1.0
+  Downloaded powerfmt v0.2.1
+  Downloaded crypto-common v0.1.7
+  Downloaded generic-array v0.14.7
+  Downloaded asn1-rs-impl v0.2.0
+  Downloaded cfg-if v1.0.5
+  Downloaded asn1-rs-derive v0.6.0
+  Downloaded itoa v1.0.18
+  Downloaded thiserror v2.0.21
+  Downloaded oid-registry v0.8.1
+  Downloaded sha2 v0.10.9
+  Downloaded thiserror-impl v2.0.21
+  Downloaded autocfg v1.5.1
+  Downloaded data-encoding v2.11.1
+  Downloaded zeroize v1.9.1
+  Downloaded num-integer v0.1.47
+  Downloaded synstructure v0.13.2
+  Downloaded bit-vec v0.9.1
+  Downloaded digest v0.10.7
+  Downloaded displaydoc v0.2.7
+  Downloaded pem v4.0.0
+  Downloaded shlex v2.0.1
+  Downloaded find-msvc-tools v0.1.15
+  Downloaded quote v1.0.47
+  Downloaded deranged v0.5.9
+  Downloaded time-macros v0.2.32
+  Downloaded unicode-ident v1.0.27
+  Downloaded getrandom v0.2.17
+  Downloaded yasna v0.6.0
+  Downloaded once_cell v1.21.4
+  Downloaded getrandom v0.3.4
+  Downloaded rustls-pki-types v1.15.1
+  Downloaded serde_derive v1.0.229
+  Downloaded serde_core v1.0.229
+  Downloaded httparse v1.10.1
+  Downloaded ryu v1.0.23
+  Downloaded num-traits v0.2.19
+  Downloaded proc-macro2 v1.0.107
+  Downloaded rcgen v0.14.10
+  Downloaded minimal-lexical v0.2.1
+  Downloaded serde v1.0.229
+  Downloaded der-parser v10.0.0
+  Downloaded rustls-webpki v0.103.16
+  Downloaded base64 v0.22.1
+  Downloaded asn1-rs v0.7.2
+  Downloaded base64 v0.23.1
+  Downloaded x509-parser v0.18.1
+  Downloaded memchr v2.8.3
+  Downloaded mio v1.2.4
+  Downloaded nom v7.1.3
+  Downloaded typenum v1.20.1
+  Downloaded num-bigint v0.4.8
+  Downloaded cc v1.9.0
+  Downloaded serde_json v1.0.145
+  Downloaded time v0.3.55
+  Downloaded syn v2.0.119
+  Downloaded rustls v0.23.46
+  Downloaded syn v3.0.9
+  Downloaded libc v0.2.191
+  Downloaded ring v0.17.14
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling version_check v0.9.5
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling typenum v1.20.1
+   Compiling cc v1.9.0
+   Compiling proc-macro2 v1.0.107
+   Compiling untrusted v0.9.0
+   Compiling generic-array v0.14.7
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling zeroize v1.9.1
+   Compiling serde_core v1.0.229
+   Compiling ring v0.17.14
+   Compiling rustls-pki-types v1.15.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling httparse v1.10.1
+   Compiling getrandom v0.2.17
+   Compiling cpufeatures v0.2.17
+   Compiling syn v3.0.9
+   Compiling serde v1.0.229
+   Compiling getrandom v0.3.4
+   Compiling rustls v0.23.46
+   Compiling serde_json v1.0.145
+   Compiling sha2 v0.10.9
+   Compiling itoa v1.0.18
+   Compiling ryu v1.0.23
+   Compiling serde_derive v1.0.229
+   Compiling base64 v0.22.1
+   Compiling memchr v2.8.3
+   Compiling time-core v0.1.9
+   Compiling once_cell v1.21.4
+   Compiling powerfmt v0.2.1
+   Compiling num-conv v0.2.2
+   Compiling deranged v0.5.9
+   Compiling subtle v2.6.1
+   Compiling tickwire-venue v0.1.0 (/work/crates/tickwire-venue)
+   Compiling time v0.3.55
+   Compiling sha1 v0.10.6
+   Compiling mio v1.2.4
+   Compiling base64 v0.23.1
+   Compiling tickwire-book v0.1.0 (/work/crates/tickwire-book)
+   Compiling pem v4.0.0
+   Compiling yasna v0.6.0
+   Compiling tickwire-clock v0.1.0 (/work/crates/tickwire-clock)
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/work/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/work/crates/tickwire-transport)
+   Compiling tickwire-binance-private v0.1.0 (/work/crates/tickwire-binance-private)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 51.75s
+     Running unittests src/lib.rs (target/linux-private/debug/deps/tickwire_binance_private-6f7790199e50419d)
+
+running 2 tests
+test client::counter_boundaries::exhausted_gap_cannot_leave_receiving_status ... ok
+test client::counter_boundaries::exhausted_backoff_cannot_leave_receiving_status ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/clock_binding.rs (target/linux-private/debug/deps/clock_binding-4e5153a5765e3d3d)
+
+running 6 tests
+test prepared_signature_requires_matching_product_environment_and_clock_domain ... ok
+test an_original_signature_cannot_be_refreshed_using_a_new_clock_domain ... ok
+test delivery_budget_is_rechecked_after_external_permission ... ok
+test uncertainty_interval_is_checked_before_first_tls_acceptance ... ok
+test changing_clock_domain_permanently_stops_the_current_owner ... ok
+test explicit_clock_domain_error_inside_first_acceptance_is_permanent ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/failures.rs (target/linux-private/debug/deps/failures-e6edeae47af88014)
+
+running 13 tests
+test invalid_transport_limits_and_early_data_are_rejected_before_connect ... ok
+test duplicate_subscription_identity_fields_fail_closed ... ok
+test listen_key_is_redacted_from_delivered_event_debug ... ok
+test one_message_budget_eventually_delivers_buffered_events_without_more_network_input ... ok
+test complete_events_buffered_before_eof_are_drained_with_bounded_work ... ok
+test server_timeout_error_after_acceptance_is_not_a_definite_rejection ... ok
+test rate_limit_cooldown_blocks_reconnect_attempts ... ok
+test signature_expiring_inside_permission_callback_has_no_application_bytes ... ok
+test upgrade_permission_denial_emits_no_http_request ... ok
+test early_event_overflow_and_sink_failure_both_remove_receiving_qualification ... ok
+test server_close_is_echoed_through_control_permission ... ok
+test subscription_ack_and_eof_in_one_read_never_publish_healthy_state ... ok
+test accepted_request_timeout_is_unknown_and_old_reply_cannot_activate_new_epoch ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/protocol_server.rs (target/linux-private/debug/deps/protocol_server-9c9c5218c7c5a187)
+
+running 6 tests
+test usdm_create_renew_order_event_and_terminal_close_use_real_https_wss ... ok
+test spot_hmac_signature_subscription_over_actual_wss ... ok
+test spot_rsa_signature_subscription_over_actual_wss ... ok
+test spot_ed25519_signature_subscription_over_actual_wss ... ok
+test spot_ed25519_logon_and_subscription_over_actual_wss ... ok
+test fractional_windows_with_trailing_zero_sign_actual_wss_numbers ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/requests.rs (target/linux-private/debug/deps/requests-7467d47ed67168e6)
+
+running 6 tests
+test wrong_product_key_algorithm_bounds_and_missing_clock_are_rejected ... ok
+test unsubscribe_binds_subscription_zero_and_queries_have_no_signature ... ok
+test signature_subscription_hmac_signs_the_actual_parameters ... ok
+test usdm_has_api_key_only_and_no_invented_listen_key_parameter ... ok
+test queued_signature_expires_and_calibration_loss_is_not_a_fresh_clock ... ok
+test logon_uses_ed25519_and_explicit_key_subscription ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/spot_lifecycle.rs (target/linux-private/debug/deps/spot_lifecycle-f600ac02b69daa20)
+
+running 4 tests
+test more_than_32_fragments_resume_without_waiting_for_new_input ... ok
+test authenticated_logon_response_must_echo_the_expected_key ... ok
+test mio_registration_drives_the_real_connection ... ok
+test termination_shutdown_revocation_and_wrong_subscription_all_revoke_health ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+     Running tests/usdm_lifecycle.rs (target/linux-private/debug/deps/usdm_lifecycle-aee00dbefc4fc636)
+
+running 4 tests
+test premature_delete_response_preserves_partial_acceptance_and_remote_ownership ... ok
+test unknown_delete_is_terminal_and_keeps_remote_ownership_uncertain ... ok
+test lease_expiry_cannot_be_reversed_by_late_successful_renewal ... ok
+test expired_key_recreates_same_string_with_new_connection_identity ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.23s
+
+   Doc-tests tickwire_binance_private
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

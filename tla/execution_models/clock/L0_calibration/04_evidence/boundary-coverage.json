@@ -1,0 +1,23 @@
+{
+  "model": "L0_Calibration",
+  "runs": 1,
+  "entries": 16,
+  "generated": {
+    "Init line 244, col 1 to line 244, col 4 of module L0_Calibration": 2,
+    "Advance line 289, col 1 to line 289, col 7 of module L0_Calibration (290 2 291 78)": 54333,
+    "Capture line 292, col 1 to line 292, col 7 of module L0_Calibration": 3356,
+    "Jump line 294, col 1 to line 294, col 4 of module L0_Calibration": 8456,
+    "Apply line 263, col 1 to line 263, col 29 of module L0_Calibration (296 10 296 74)": 29875,
+    "FinishNormal line 297, col 1 to line 297, col 12 of module L0_Calibration": 19374,
+    "FinishBad line 300, col 1 to line 300, col 9 of module L0_Calibration (301 2 302 88)": 33030,
+    "FinishStale line 303, col 1 to line 303, col 11 of module L0_Calibration": 57775,
+    "Cancel line 306, col 1 to line 306, col 6 of module L0_Calibration": 11010,
+    "CancelStale line 308, col 1 to line 308, col 11 of module L0_Calibration": 57775,
+    "Apply line 263, col 1 to line 263, col 29 of module L0_Calibration (310 9 310 73)": 29875,
+    "ReadBackwards line 311, col 1 to line 311, col 13 of module L0_Calibration": 29605,
+    "Apply line 263, col 1 to line 263, col 29 of module L0_Calibration (313 20 313 84)": 29875,
+    "Apply line 263, col 1 to line 263, col 29 of module L0_Calibration (314 27 314 94)": 59638,
+    "CheckSend line 315, col 1 to line 315, col 9 of module L0_Calibration": 39276,
+    "Apply line 263, col 1 to line 263, col 29 of module L0_Calibration (317 17 317 109)": 29875
+  }
+}

@@ -1,0 +1,20 @@
+[package]
+name = "tickwire-market-publisher"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-public = { path = "../tickwire-binance-public" }
+tickwire-book = { path = "../tickwire-book" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-join = { path = "../tickwire-join" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-snapshot = { path = "../tickwire-snapshot" }
+tickwire-venue = { path = "../tickwire-venue" }
+sha2 = "=0.10.9"

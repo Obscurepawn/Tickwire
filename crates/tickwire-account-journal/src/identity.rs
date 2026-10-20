@@ -86,6 +86,10 @@ pub(crate) fn record(
     record: &RecoveryRecord,
 ) -> Result<()> {
     match record {
+        RecoveryRecord::Reactivated(b)=>{
+            if b.scope!=c.scope||b.baseline_digest!=c.baseline_digest||b.account_epoch!=baseline.snapshot().account_epoch||b.writer_epoch!=writer||baseline.catalog().entries.iter().any(|p|p.product!=b.product){return Err(Error::Identity);}
+        }
+
         RecoveryRecord::Admit {
             command, expected, ..
         } => {
@@ -106,7 +110,7 @@ pub(crate) fn record(
                 return Err(Error::Identity);
             }
         }
-        RecoveryRecord::VenueEvent(event) => {
+        RecoveryRecord::VenueEvent(event) | RecoveryRecord::IngressEvent { event, .. } => {
             let event = event.event();
             let id = &event.identity;
             scope(c, id.risk_domain_id, id.venue, id.account, id.environment)?;

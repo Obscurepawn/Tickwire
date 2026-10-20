@@ -1,0 +1,25 @@
+{
+  "source_sha256": {
+    "crates/tickwire-binance-private/Cargo.toml": "7d35d55d6c9fd016546639ee113d2cbc841f7bc338e261557cb9bd81f61c6457",
+    "crates/tickwire-binance-private/src/client.rs": "8dd9b7d27a3e41a9479f24ae0f8116855eecedef4b708911b4aa2d32a8215f3c",
+    "crates/tickwire-binance-private/src/lib.rs": "b8542f6a4e103b961c5240b0b4e93735343ff08f226c9f1e45b5192754d112a3",
+    "crates/tickwire-binance-private/src/request.rs": "0152f8986c40ccb13a0d02e16e71e112b52e51051ac01248b6454d68ece12cd5",
+    "crates/tickwire-binance-private/src/response.rs": "0742718db2e6273921dae92f6a8cde84224b240856c23d8dc55a52b5dd0a7e90",
+    "crates/tickwire-binance-private/src/session.rs": "53de2236eb9d9157831f32623be984a4bdd432702d75fd4a0eb53172e4638f59",
+    "crates/tickwire-binance-private/tests/clock_binding.rs": "e0ded48f775eeee88ba0a485077ddb3216f300085ee919b4e96aa49f83d596f0",
+    "crates/tickwire-binance-private/tests/common/mod.rs": "f91fe5e5fd1a32a3e397e770b11faa44a0a6b88f758e582afe9e81e4023eacd4",
+    "crates/tickwire-binance-private/tests/failures.rs": "ef57274fc4021c666fe56d05b7ab875e94547943d309c6dbaa518c3787c67e97",
+    "crates/tickwire-binance-private/tests/protocol_server.rs": "d0dbb57b1384414112c641b32954b6aec9703c8e7e51b88934b5e9156b5a37cc",
+    "crates/tickwire-binance-private/tests/requests.rs": "fc7cdb12615f14ef9ad5662fa7ae6d428d64c998cc2ddf27ff929c07bd9fbb90",
+    "crates/tickwire-binance-private/tests/spot_lifecycle.rs": "e5182d4a5748ba5f0cbb354c0330aeb874a76563afa77496f8f221fd545bd0ef",
+    "crates/tickwire-binance-private/tests/usdm_lifecycle.rs": "06f8d4ec2c9e5f343a785b9c9ec316cb498520aaea2e264d1ab3703e620e15c7"
+  },
+  "clock_dependency_sha256": {
+    "crates/tickwire-clock/src/lib.rs": "14cb9c43701fec8ea9339a5009b497bc0e629a9bae8aa3d8f22caa8a5cd0ffb2"
+  },
+  "native_tests": 41,
+  "linux_tests": 41,
+  "linux_image": "rust@sha256:e12566d5abc17a0da741628782cdb504b68b8961f5bfcf677936bf3e8b32de29",
+  "native": "macOS-15.7-arm64-arm-64bit",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+}

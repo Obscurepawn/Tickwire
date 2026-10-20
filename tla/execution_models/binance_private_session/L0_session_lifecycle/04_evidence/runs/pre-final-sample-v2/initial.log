@@ -1,0 +1,33 @@
+>>> TLC module=L0_PrivateSession cfg=L0_PrivateSession.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/binance_private_session/L0_session_lifecycle/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 15 and seed -3017992443698484361 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/binance_private_session/L0_session_lifecycle/02_models/L0_PrivateSession.tla
+***Parse Error***
+Was expecting "= or ,"
+Encountered "=<" at line 30, column 52 and token "events" 
+
+Residual stack trace follows:
+Except Spec starting at line 30, column 44.
+Some [] Form starting at line 29, column 13.
+ExtendableExpr starting at line 29, column 13.
+Expression starting at line 29, column 13.
+Definition starting at line 29, column 1.
+
+
+Fatal errors while parsing TLA+ spec in file L0_PrivateSession
+
+tla2sany.semantic.AbortException
+*** Abort messages: 1
+
+In module L0_PrivateSession
+
+Could not parse module L0_PrivateSession from file L0_PrivateSession.tla
+
+
+Starting... (2026-10-21 00:21:14)
+Error: Parsing or semantic analysis failed.
+Finished in 00s at (2026-10-21 00:21:14)
+>>> elapsed: 0s (exit 150)

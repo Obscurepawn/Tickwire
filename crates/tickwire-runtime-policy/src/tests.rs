@@ -1,0 +1,276 @@
+use super::*;
+use tickwire_account::Account;
+#[path = "../../tickwire-account/tests/common/mod.rs"]
+mod fixture;
+fn domain() -> ClockDomain {
+    ClockDomain::new([8; 16], 1).unwrap()
+}
+fn now(n: u64) -> MonoTime {
+    MonoTime::new(domain(), n)
+}
+fn feed_key() -> FeedKey {
+    FeedKey {
+        topic_id: 1,
+        instrument_id: 12,
+    }
+}
+fn setup() -> (ControlPlane, Account, CanonicalCommand, Admission) {
+    let (mut account, c) = fixture::setup();
+    let command = fixture::canonical(c);
+    let admission = account.admit(&command, 60).unwrap();
+    let plane = ControlPlane::new(Config {
+        scope: fixture::fixture().0.scope,
+        product: Product::Spot,
+        executor_id: [1; 16],
+        owner_generation: 1,
+        writer_epoch: 4,
+        domain: domain(),
+        versions: Versions {
+            config_revision: 6,
+            risk_policy_version: 10,
+            order_config_version: 11,
+            catalog_version: 14,
+            catalog_hash: [5; 32],
+        },
+        max_strategies: 4,
+        max_feeds: 4,
+        marks_per_feed: 2,
+    })
+    .unwrap();
+    (plane, account, command, admission)
+}
+fn grant() -> StrategyGrant {
+    StrategyGrant {
+        logical_strategy_id: 8,
+        instance_id: [2; 16],
+        strategy_generation: 5,
+        authorization_epoch: 9,
+        config_revision: 6,
+        valid_until_ns: 1000,
+        actions: Actions {
+            submit: true,
+            cancel: true,
+            query: true,
+            amend: true,
+        },
+        required_feeds: vec![FeedRequirement {
+            key: feed_key(),
+            instrument_version: 13,
+            max_age_ns: 30,
+            max_sequence_lag: 2,
+        }],
+    }
+}
+fn owner() -> OwnerLease {
+    OwnerLease {
+        executor_id: [1; 16],
+        owner_generation: 1,
+        writer_epoch: 4,
+        lease_epoch: 1,
+        domain: domain(),
+        valid_until_ns: 1000,
+        isolation_record: [1; 32],
+    }
+}
+fn prepare(plane: &ControlPlane) {
+    plane.install_owner_lease(owner()).unwrap();
+    plane.install_strategy_grant(grant()).unwrap();
+    plane.set_mode(1, Mode::Trading).unwrap();
+    plane
+        .update_feed(FeedUpdate {
+            key: feed_key(),
+            instrument_version: 13,
+            feed_generation: 1,
+            ring_epoch: 1,
+            sequence: 1,
+            published_at: now(48),
+        })
+        .unwrap();
+    plane.private_connected(1).unwrap();
+    plane.private_gap(1, 1).unwrap();
+    plane.private_connected(1).unwrap();
+}
+struct Verifier;
+impl ReconciliationVerifier for Verifier {
+    fn verify(&mut self, r: &ReconciliationRequest) -> Result<()> {
+        if r.query_coverage_digest != [3; 32] {
+            Err(Error::Unreconciled)
+        } else {
+            Ok(())
+        }
+    }
+}
+fn reconciliation(plane: &ControlPlane) -> ReconciliationRequest {
+    let f = plane.private_frontier().unwrap();
+    ReconciliationRequest {
+        scope: fixture::fixture().0.scope,
+        product: Product::Spot,
+        input_stream: [9; 16],
+        writer_epoch: 4,
+        connection_epoch: f.connection_epoch,
+        gap_generation: f.gap_generation,
+        through_sequence: f.through_sequence,
+        account_epoch: 1,
+        ledger_sequence: 0,
+        baseline_digest: [1; 32],
+        history_digest: [2; 32],
+        query_coverage_digest: [3; 32],
+        valid_until: now(1000),
+    }
+}
+#[test]
+fn initial_and_receiving_states_cannot_trade_until_reconciliation() {
+    let (p, _, c, a) = setup();
+    assert!(p.evaluate(&c, &a, now(60)).is_err());
+    prepare(&p);
+    assert_eq!(p.evaluate(&c, &a, now(60)), Err(Error::Unreconciled));
+    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
+        .unwrap();
+    let gate = p.evaluate(&c, &a, now(60)).unwrap();
+    assert!(gate.market_valid);
+    assert_eq!(gate.lease_until, 78); // feed publication + max age is a final-gate deadline
+}
+#[test]
+fn phases_do_not_mint_source_gaps_and_new_writer_revokes_old_permissions() {
+    let (p, _, _, _) = setup();
+    prepare(&p);
+    p.private_disconnected(1).unwrap();
+    p.private_connected(1).unwrap();
+    p.private_uncertain(1).unwrap();
+    assert_eq!(p.private_frontier().unwrap().gap_generation, 1);
+    let mut next = owner();
+    next.writer_epoch += 1;
+    next.lease_epoch += 1;
+    p.replace_writer(2, next).unwrap();
+    let s = p.0.borrow();
+    assert_eq!(s.mode, Mode::Stopped);
+    assert!(s.strategies.values().all(|g| g.current.is_none()));
+    assert!(s.private.reconciled.is_none());
+    drop(s);
+    assert!(p.install_owner_lease(owner()).is_err());
+    assert!(p.install_strategy_grant(grant()).is_err());
+}
+#[test]
+fn revoked_grants_and_gap_tokens_cannot_be_reinstalled_or_replayed() {
+    let (p, _, c, a) = setup();
+    prepare(&p);
+    let old = reconciliation(&p);
+    p.complete_reconciliation(old.clone(), &mut Verifier)
+        .unwrap();
+    p.private_gap(1, 2).unwrap();
+    p.private_connected(1).unwrap();
+    assert!(p.complete_reconciliation(old, &mut Verifier).is_err());
+    assert!(p.evaluate(&c, &a, now(60)).is_err());
+    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
+        .unwrap();
+    p.revoke_strategy(8, 9).unwrap();
+    assert!(p.install_strategy_grant(grant()).is_err());
+    assert!(p.evaluate(&c, &a, now(60)).is_err());
+}
+#[test]
+fn market_generations_missing_dependencies_and_expiry_deny() {
+    let (p, _, c, a) = setup();
+    prepare(&p);
+    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
+        .unwrap();
+    assert!(p.evaluate(&c, &a, now(78)).is_err());
+    let (p, _, c, a) = setup();
+    prepare(&p);
+    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
+        .unwrap();
+    p.update_feed(FeedUpdate {
+        key: feed_key(),
+        instrument_version: 13,
+        feed_generation: 2,
+        ring_epoch: 2,
+        sequence: 1,
+        published_at: now(49),
+    })
+    .unwrap();
+    assert!(p.evaluate(&c, &a, now(60)).is_err());
+    let mut g = grant();
+    g.authorization_epoch = 10;
+    g.required_feeds.push(FeedRequirement {
+        key: FeedKey {
+            topic_id: 2,
+            instrument_id: 12,
+        },
+        instrument_version: 13,
+        max_age_ns: 30,
+        max_sequence_lag: 0,
+    });
+    p.install_strategy_grant(g).unwrap();
+    assert!(p.evaluate(&c, &a, now(60)).is_err());
+}
+#[test]
+fn reconciliation_rechecks_live_prefix_after_the_verifier_returns() {
+    struct Racing {
+        plane: ControlPlane,
+    }
+    impl ReconciliationVerifier for Racing {
+        fn verify(&mut self, _: &ReconciliationRequest) -> Result<()> {
+            self.plane.private_gap(1, 2)
+        }
+    }
+    let (p, _, c, a) = setup();
+    prepare(&p);
+    assert!(
+        p.complete_reconciliation(reconciliation(&p), &mut Racing { plane: p.clone() })
+            .is_err()
+    );
+    assert!(p.evaluate(&c, &a, now(60)).is_err());
+}
+#[test]
+fn management_query_survives_strategy_revoke_and_private_gap() {
+    let (p, mut account, c, _) = setup();
+    prepare(&p);
+    p.revoke_strategy(8, 9).unwrap();
+    p.private_gap(1, 2).unwrap();
+    p.invalidate_feed(feed_key(), 1, 1).unwrap();
+    p.install_management_grant(ManagementGrant {
+        authorization_epoch: 10,
+        config_revision: 6,
+        valid_until_ns: 1000,
+        cancel: true,
+        query: true,
+        strategies: vec![8],
+    })
+    .unwrap();
+    let mut query = c.command().clone();
+    query.context.request.intent_id = 4;
+    query.context.strategy.authorization_epoch = 10;
+    query.body = CommandBody::Query(tickwire_venue::OrderTarget {
+        order_id: [9; 16],
+        expected_owner_revision: 1,
+        original_intent_exec_epoch: 4,
+        client_id: Some(fixture::venue::text("test-1")),
+        venue_order_id: None,
+    });
+    let query = fixture::canonical(query);
+    let admitted = account.admit(&query, 60).unwrap();
+    assert!(p.evaluate(&query, &admitted, now(60)).is_ok());
+    p.revoke_owner(1).unwrap();
+    assert!(p.evaluate(&query, &admitted, now(60)).is_err());
+}
+#[test]
+fn current_clock_domain_and_monotonicity_are_sticky() {
+    struct Clock(MonoTime);
+    impl PolicyClock for Clock {
+        fn domain(&self) -> ClockDomain {
+            domain()
+        }
+        fn sample(&mut self) -> Result<MonoTime> {
+            Ok(self.0)
+        }
+    }
+    let (p, _, c, a) = setup();
+    prepare(&p);
+    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
+        .unwrap();
+    let mut provider = p.provider(Clock(now(60))).unwrap();
+    assert!(provider.current(&c, &a).is_ok());
+    provider.clock.0 = now(59);
+    assert!(provider.current(&c, &a).is_err());
+    provider.clock.0 = now(61);
+    assert!(provider.current(&c, &a).is_err());
+}

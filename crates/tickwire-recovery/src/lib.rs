@@ -7,7 +7,7 @@ mod codec;
 mod inputs;
 pub use inputs::{EncodedInputs, InputRecord, encode_inputs};
 mod files;
-pub use files::FileBlobStore;
+pub use files::{FileBlobReader, FileBlobStore};
 
 pub type Hash = [u8; 32];
 pub const COMMAND_DEPENDENCY_KIND: u8 = 13;

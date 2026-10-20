@@ -4,7 +4,7 @@
 use tickwire_ipc::{ControlEnvelope, ControlFrame, HelloBody, WelcomeBody, Wire, crc32c};
 
 const LIMIT: u64 = 1 << 63;
-const KNOWN_FEATURES: u64 = 0x3f;
+const KNOWN_FEATURES: u64 = 0x1ff;
 const REQUIRED_FEATURES: u64 = 0x1c;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

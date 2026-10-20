@@ -2,9 +2,9 @@
 
 Status: active
 
-实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。每个模块依次交付接口设计、先失败后通过的测试、实现规格和源码对应的 TLA+ 模型。外部存储通过抽象与 MockService 完成本地链路，交易所通过可扩展适配接口接入。
+实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。当前优先完成并串通行情、策略、下单、私有回报、入账和恢复的核心运行链路，开发期间只运行必要的编译与单元测试。接口决策随实现记录，集成回归、故障注入、独立复审、Linux 检查及形式化验证统一放到核心链路完成后，从各模块到全局核心链路执行。既有验证结果保留其原始源码范围，不自动覆盖后续改动。
 
-每完成一个可验证阶段即提交并推送远端，保存对应 Specs、测试和模型结果；提交范围限定为该阶段修改，推送后核对远端 SHA。
+实现按可编译阶段提交并推送远端，规格索引与完整验证证据集中收尾；提交范围限定为本任务修改，推送后核对远端 SHA。
 
 ## 实施状态
 
@@ -15,6 +15,14 @@ Status: active
 | P2 风控与执行 | 定点风险公式、Spot 多资产与 USD-M 账户、真实账户 WAL 与恢复依赖绑定、账户发送协调、Binance REST 签名及私有事件解码 | 发送组合形式模型、行情风控、协议会话与业务回报关联、剩余订单类型和限流 |
 | P3 发布与恢复 | 有序 journal Mock；真实物理 WAL/分段/同步恢复；业务日志适配、恢复依赖保存与验证；恢复后保持冻结 | 策略升级/回滚、多 exec 协调、对账、恢复后授权和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
+
+## 核心运行程序
+
+`tickwire-app` 已装配系统时钟校准、共享额度、公共行情、私有流、账户输入 WAL、签名 REST 下单与恢复对账。对账按原订单状态查询、完整成交分页、费用闭合、账户及两类挂单快照的顺序执行；激活记录绑定已同步的输入和账户日志前缀，恢复不会重发旧意图。
+
+独立策略进程通过真实 JOIN 和 SPSC 通道收发行情、完整规范意图及账户回报。完整恢复对象、真实消费输入和调用时刻在意图发布前保存。策略换代、回报积压与多策略轮询沿各自通道和授权推进。运行接口见[主程序](../docs/implementation/runtime-app-interface.md)、[策略进程](../docs/implementation/strategy-runtime-interface.md)和[账户对账](../docs/implementation/binance-account-reconciliation-interface.md)。
+
+这些新增组合当前只执行必要编译和纯单元测试；全链路运行、进程故障和形式验证按本阶段顺序统一执行。原有阶段结果仍对应各自冻结源码。
 
 ## 模块入口
 
@@ -35,7 +43,7 @@ Status: active
 
 ## 验证与完成要求
 
-基础命令为 `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check`，并保留原设计契约检查。模型使用固定 TLC 版本执行，范围、有限域与未覆盖行为写进各层输出。
+核心运行链路完成后，统一执行 `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和原设计契约检查。模型使用固定 TLC 版本执行，范围、有限域与未覆盖行为写进各层输出。下文数字为已有阶段的历史证据。
 
 上一阶段 `04351db` 的 `./scripts/check-rust.sh` 在 macOS 通过 202 项测试，`./scripts/check-linux.sh` 在 Linux aarch64 通过 223 项测试，均含 1 项编译失败 doctest。[macOS 输出](../docs/validation/rust-tests.log)、[Linux 输出及 SHM 回归](../docs/validation/shm/README.md)和[执行模块失败回归记录](../docs/validation/execution-tdd-red.log)保留实际证据：
 

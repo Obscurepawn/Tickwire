@@ -1,0 +1,71 @@
+command: ["/Users/bytedance/.cargo/bin/cargo", "test", "-p", "tickwire-account-gateway", "--test", "ingress"]
+    Blocking waiting for file lock on build directory
+   Compiling ring v0.17.14
+   Compiling tickwire-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account)
+   Compiling tickwire-account-codec v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-codec)
+   Compiling tickwire-account-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-journal)
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.90s
+     Running tests/ingress.rs (target/debug/deps/ingress-029e32dd9ac1041e)
+
+running 6 tests
+test invalid_event_is_not_logged_and_freeze_does_not_halt_fact_processing ... FAILED
+test conflicting_input_halts_without_appending_or_publishing ... FAILED
+test lost_ingress_sync_reply_recovers_complete_record_once ... FAILED
+test explicit_gap_freeze_preserves_late_fact_admission ... FAILED
+test torn_ingress_append_recovers_prefix_then_accepts_retry ... FAILED
+test committed_input_retry_and_restart_do_not_repeat_reducer_or_wal ... FAILED
+
+failures:
+
+---- invalid_event_is_not_logged_and_freeze_does_not_halt_fact_processing stdout ----
+
+thread 'invalid_event_is_not_logged_and_freeze_does_not_halt_fact_processing' (6364916) panicked at crates/tickwire-account-gateway/tests/ingress.rs:52:5:
+assertion failed: matches!(g.record_ingress_event(STREAM,1,event(&c,"before-admit")),Err(Error::Account(_)))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- conflicting_input_halts_without_appending_or_publishing stdout ----
+
+thread 'conflicting_input_halts_without_appending_or_publishing' (6364914) panicked at crates/tickwire-account-gateway/tests/ingress.rs:43:59:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+---- lost_ingress_sync_reply_recovers_complete_record_once stdout ----
+
+thread 'lost_ingress_sync_reply_recovers_complete_record_once' (6364917) panicked at crates/tickwire-account-gateway/tests/ingress.rs:70:5:
+assertion failed: matches!(g.record_ingress_event(STREAM,1,e.clone()),Err(Error::Journal(_)))
+
+---- explicit_gap_freeze_preserves_late_fact_admission stdout ----
+
+thread 'explicit_gap_freeze_preserves_late_fact_admission' (6364915) panicked at crates/tickwire-account-gateway/tests/ingress.rs:61:66:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+---- torn_ingress_append_recovers_prefix_then_accepts_retry stdout ----
+
+thread 'torn_ingress_append_recovers_prefix_then_accepts_retry' (6364918) panicked at crates/tickwire-account-gateway/tests/ingress.rs:70:5:
+assertion failed: matches!(g.record_ingress_event(STREAM,1,e.clone()),Err(Error::Journal(_)))
+
+---- committed_input_retry_and_restart_do_not_repeat_reducer_or_wal stdout ----
+
+thread 'committed_input_retry_and_restart_do_not_repeat_reducer_or_wal' (6364913) panicked at crates/tickwire-account-gateway/tests/ingress.rs:24:59:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+
+failures:
+    committed_input_retry_and_restart_do_not_repeat_reducer_or_wal
+    conflicting_input_halts_without_appending_or_publishing
+    explicit_gap_freeze_preserves_late_fact_admission
+    invalid_event_is_not_logged_and_freeze_does_not_halt_fact_processing
+    lost_ingress_sync_reply_recovers_complete_record_once
+    torn_ingress_append_recovers_prefix_then_accepts_retry
+
+test result: FAILED. 0 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+error: test failed, to rerun pass `-p tickwire-account-gateway --test ingress`
+
+exit 101

@@ -1,0 +1,8 @@
+Paused by explicit user priority change via root on 2026-10-21T01:15:59.002529+08:00
+SIGSTOP preserves live processes and all state directories; these expanded runs are incomplete, not PASS.
+Resume only on renewed authorization: kill -CONT 94824 95685
+L0_SpotBuffered: Progress(14) at 2026-10-21 01:15:06: 687,497,299 states generated (6,647,505 s/min), 32,077,264 distinct states found (55,564 ds/min), 1,518,827 states left on queue.
+L0_UsdMBuffered: Progress(13) at 2026-10-21 01:15:13: 575,253,035 states generated (6,866,852 s/min), 29,687,340 distinct states found (134,441 ds/min), 4,605,509 states left on queue.
+  PID STAT  %CPU    RSS      TIME  ELAPSED
+94824 T     47.4 999456  97:26.31 03:33:58
+95685 T     48.4 883200  94:34.09 03:30:49

@@ -1,0 +1,18 @@
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+error[E0369]: binary operation `==` cannot be applied to type `std::result::Result<PollReport, tickwire_binance_private::Error>`
+   --> crates/tickwire-binance-private/tests/failures.rs:75:223
+    |
+ 75 | ...}}Ok(())});sink_error=r==Err(Error::Sink);if !sink_error {r.unwrap();}thread::yield_now();}
+    |                          -^^---------------- std::result::Result<PollReport, tickwire_binance_private::Error>
+    |                          |
+    |                          std::result::Result<PollReport, tickwire_binance_private::Error>
+    |
+note: `PollReport` does not implement `PartialEq`
+   --> crates/tickwire-binance-private/src/session.rs:107:1
+    |
+107 | pub struct PollReport {
+    | ^^^^^^^^^^^^^^^^^^^^^ `PollReport` is defined in another crate
+
+For more information about this error, try `rustc --explain E0369`.
+error: could not compile `tickwire-binance-private` (test "failures") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

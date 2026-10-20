@@ -1,0 +1,15 @@
+[package]
+name = "tickwire-supervisor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+sha2 = "=0.10.9"

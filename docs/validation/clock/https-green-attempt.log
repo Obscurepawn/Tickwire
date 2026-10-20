@@ -1,0 +1,42 @@
+   Compiling tickwire-binance-clock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-clock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.75s
+     Running tests/https.rs (target/debug/deps/https-118d5c75f96aced9)
+
+running 9 tests
+test connection_permission_is_required_and_exhausted_epochs_are_never_reused ... ok
+test sample_begins_after_request_permit_and_ends_after_complete_response ... ok
+test non_success_status_preserves_rate_limit_metadata_without_calibration ... ok
+test a_reply_before_complete_application_acceptance_cannot_calibrate ... ok
+test clock_owner_rechecks_fresh_time_before_sending_an_old_signed_stamp ... ok
+test cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket ... FAILED
+test each_product_and_environment_uses_its_authenticated_host_and_empty_time_get ... ok
+test duplicate_wrong_typed_zero_and_truncated_time_responses_are_rejected ... ok
+test fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget ... FAILED
+
+failures:
+
+---- cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket stdout ----
+
+thread '<unnamed>' (6141131) panicked at crates/tickwire-binance-clock/tests/https.rs:329:9:
+assertion failed: old.read(&mut b).is_err() || b == [0]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket' (6141117) panicked at crates/tickwire-binance-clock/tests/https.rs:336:5:
+assertion failed: out.calibration.is_ok()
+
+---- fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget stdout ----
+
+thread 'fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget' (6141122) panicked at crates/tickwire-binance-clock/tests/https.rs:256:5:
+Err(Timeout)
+
+thread '<unnamed>' (6141129) panicked at crates/tickwire-binance-clock/tests/https.rs:124:35:
+called `Result::unwrap()` on an `Err` value: Kind(UnexpectedEof)
+
+
+failures:
+    cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket
+    fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget
+
+test result: FAILED. 7 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.01s
+
+error: test failed, to rerun pass `-p tickwire-binance-clock --test https`

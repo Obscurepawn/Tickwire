@@ -1,0 +1,30 @@
+Resource observation 2026-10-21T00:22:04.156498+08:00
+
+$ df -h .
+Filesystem      Size    Used   Avail Capacity iused ifree %iused  Mounted on
+/dev/disk3s1   460Gi   331Gi    81Gi    81%    9.6M  851M    1%   /System/Volumes/Data
+exit 0
+
+$ du -sh tla/execution_models/binance_depth_sync/L0_coordinator/02_models/states tla/execution_models/binance_depth_sync/L0_coordinator/runs/parallel-usdm/states
+1.2G	tla/execution_models/binance_depth_sync/L0_coordinator/02_models/states
+1.2G	tla/execution_models/binance_depth_sync/L0_coordinator/runs/parallel-usdm/states
+exit 0
+
+$ ps -p 94824,95685 -o pid,etime,time,%cpu,rss,stat
+  PID  ELAPSED      TIME  %CPU    RSS STAT
+94824 02:40:03  54:57.54 126.2 3102768 R   
+95685 02:36:54  52:03.21  96.6 3071456 R   
+exit 0
+
+$ sysctl hw.memsize
+hw.memsize: 34359738368
+exit 0
+
+$ sysctl vm.swapusage
+vm.swapusage: total = 21504.00M  used = 20532.81M  free = 971.19M  (encrypted)
+exit 0
+
+$ memory_pressure -Q
+The system has 34359738368 (2097152 pages with a page size of 16384).
+System-wide memory free percentage: 39%
+exit 0

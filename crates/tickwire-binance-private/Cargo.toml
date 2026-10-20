@@ -1,0 +1,24 @@
+[package]
+name = "tickwire-binance-private"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+sha2 = "0.10.9"
+
+[dev-dependencies]
+rcgen = "=0.14.10"
+ring = "=0.17.14"
+base64 = "=0.22.1"
+sha1 = "=0.10.6"

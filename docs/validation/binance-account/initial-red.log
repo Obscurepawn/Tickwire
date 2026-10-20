@@ -1,0 +1,37 @@
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.21s
+     Running tests/persistence.rs (target/debug/deps/persistence-48ed687fe4ea88f8)
+
+running 3 tests
+test exact_registration_retry_does_not_append_but_changed_id_conflicts ... FAILED
+test different_baseline_cannot_reopen_the_input_log ... FAILED
+test file_reopen_preserves_registered_command_and_sequence ... FAILED
+
+failures:
+
+---- exact_registration_retry_does_not_append_but_changed_id_conflicts stdout ----
+
+thread 'exact_registration_retry_does_not_append_but_changed_id_conflicts' (6340694) panicked at crates/tickwire-binance-account/tests/persistence.rs:52:92:
+called `Result::unwrap()` on an `Err` value: Unimplemented
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- different_baseline_cannot_reopen_the_input_log stdout ----
+
+thread 'different_baseline_cannot_reopen_the_input_log' (6340693) panicked at crates/tickwire-binance-account/tests/persistence.rs:63:89:
+called `Result::unwrap()` on an `Err` value: Unimplemented
+
+---- file_reopen_preserves_registered_command_and_sequence stdout ----
+
+thread 'file_reopen_preserves_registered_command_and_sequence' (6340695) panicked at crates/tickwire-binance-account/tests/persistence.rs:39:100:
+called `Result::unwrap()` on an `Err` value: Unimplemented
+
+
+failures:
+    different_baseline_cannot_reopen_the_input_log
+    exact_registration_retry_does_not_append_but_changed_id_conflicts
+    file_reopen_preserves_registered_command_and_sequence
+
+test result: FAILED. 0 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p tickwire-binance-account --test persistence`

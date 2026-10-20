@@ -1,0 +1,75 @@
+    Checking tickwire-binance-session v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-session)
+error[E0428]: the name `calibrated` is defined multiple times
+  --> crates/tickwire-binance-session/tests/integration.rs:92:1
+   |
+60 | fn calibrated() -> Fixture {
+   | -------------------------- previous definition of the value `calibrated` here
+...
+92 | fn calibrated() -> Fixture {
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^ `calibrated` redefined here
+   |
+   = note: `calibrated` must be defined only once in the value namespace of this module
+
+error: free function without a body
+  --> crates/tickwire-binance-session/tests/integration.rs:56:1
+   |
+56 | / fn certs() -> (
+57 | |     Arc<clock::rustls::ClientConfig>,
+58 | |     Arc<clock::rustls::ServerConfig>,
+59 | | );
+   | |  ^ help: provide a definition for the function: `{ <body> }`
+   | |__|
+   |
+
+error[E0308]: mismatched types
+  --> crates/tickwire-binance-session/tests/integration.rs:77:9
+   |
+77 | /         Arc::new(
+78 | |             clock::rustls::ClientConfig::builder()
+79 | |                 .with_root_certificates(roots)
+80 | |                 .with_no_client_auth(),
+81 | |         ),
+   | |_________^ expected `BinanceTimeClient<Local>`, found `Arc<ClientConfig>`
+   |
+   = note: expected struct `tickwire_binance_clock::BinanceTimeClient<Local>`
+              found struct `std::sync::Arc<tickwire_binance_private::rustls::ClientConfig>`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-binance-session/tests/integration.rs:82:18
+    |
+ 82 |         Arc::new(server),
+    |         -------- ^^^^^^ expected `Atomic<u64>`, found `ServerConfig`
+    |         |
+    |         arguments to this function are incorrect
+    |
+    = note: expected struct `std::sync::atomic::Atomic<u64>`
+               found struct `tickwire_binance_private::rustls::ServerConfig`
+note: associated function defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/sync.rs:437:12
+    |
+437 |     pub fn new(data: T) -> Arc<T> {
+    |            ^^^
+
+error[E0308]: mismatched types
+  --> crates/tickwire-binance-session/tests/integration.rs:76:5
+   |
+60 |   fn calibrated() -> Fixture {
+   |                      ------- expected `(BinanceTimeClient<Local>, Arc<Atomic<u64>>, Arc<Atomic<u64>>, _, _)` because of return type
+...
+76 | /     (
+77 | |         Arc::new(
+78 | |             clock::rustls::ClientConfig::builder()
+79 | |                 .with_root_certificates(roots)
+...  |
+82 | |         Arc::new(server),
+83 | |     )
+   | |_____^ expected a tuple with 5 elements, found one with 2 elements
+   |
+   = note: expected tuple `(BinanceTimeClient<Local>, Arc<Atomic<u64>>, Arc<Atomic<u64>>, _, _)`
+              found tuple `(tickwire_binance_clock::BinanceTimeClient<Local>, std::sync::Arc<std::sync::atomic::Atomic<u64>>)`
+   = note: the full name for the type has been written to '/Users/bytedance/Tickwire/target/debug/deps/integration-2b8dbb9536cdc5f5.long-type-5900261928796244892.txt'
+   = note: consider using `--verbose` to print the full type name to the console
+
+Some errors have detailed explanations: E0308, E0428.
+For more information about an error, try `rustc --explain E0308`.
+error: could not compile `tickwire-binance-session` (test "integration") due to 5 previous errors

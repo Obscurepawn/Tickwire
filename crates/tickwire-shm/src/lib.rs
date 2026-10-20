@@ -3,7 +3,8 @@
 
 #[allow(unsafe_code)]
 mod mapped;
-pub use mapped::{MappedError, Publisher, RecordBorrow, Subscriber};
+mod arena;
+pub use mapped::{MappedError, MarketMessage, Publisher, RecordBorrow, Subscriber, configure_market_arena};
 
 const SEQUENCE_LIMIT: u64 = 1 << 63;
 
@@ -51,6 +52,7 @@ pub enum Error {
     OutstandingWrite,
     OutstandingRead,
     Full,
+    ArenaExhausted,
     Cursor,
     Cutover,
     BorrowCapacity,

@@ -1,0 +1,43 @@
+------------------------------- MODULE ClockWords -------------------------------
+EXTENDS Integers, Sequences, FiniteSets, TLC
+(* Exact base-1000 representation used only to work around TLC IntValue's int32.
+ Source arithmetic: crates/tickwire-clock/src/lib.rs:395-409. No time-unit scaling.
+ 10 limbs hold [0,10^30); selected inputs never overflow this representation. *)
+Base == 1000
+Digits == 10
+Word == [1..Digits -> 0..(Base-1)]
+Zero == [i \in 1..Digits |-> 0]
+Small(n) == [i \in 1..Digits |-> CASE i=1 -> n % Base
+ [] i=2 -> (n \div Base) % Base [] i=3 -> (n \div 1000000) % Base
+ [] i=4 -> n \div 1000000000 [] OTHER -> 0]
+One == Small(1)
+Ms == Small(1000000)
+Us == Small(1000)
+Second == Small(1000000000)
+Max64 == <<615,551,709,73,744,446,18,0,0,0>>
+Lt(a,b) == \E i \in 1..Digits: a[i]<b[i] /\ \A j \in (i+1)..Digits: a[j]=b[j]
+Le(a,b) == a=b \/ Lt(a,b)
+MinW(a,b) == IF Le(a,b) THEN a ELSE b
+MaxW(a,b) == IF Le(a,b) THEN b ELSE a
+RECURSIVE Carry(_,_,_), Borrow(_,_,_)
+Carry(a,b,i) == IF i=0 THEN 0 ELSE (a[i]+b[i]+Carry(a,b,i-1)) \div Base
+Add(a,b) == [i \in 1..Digits |-> (a[i]+b[i]+Carry(a,b,i-1)) % Base]
+Borrow(a,b,i) == IF i=0 THEN 0 ELSE IF a[i]-Borrow(a,b,i-1)<b[i] THEN 1 ELSE 0
+Sub(a,b) == [i \in 1..Digits |-> LET d==a[i]-b[i]-Borrow(a,b,i-1)
+                                 IN IF d<0 THEN d+Base ELSE d]
+SatSub(a,b) == IF Lt(a,b) THEN Zero ELSE Sub(a,b)
+Shift(a,k) == [i \in 1..Digits |-> IF i>k THEN a[i-k] ELSE 0]
+Drop(a,k) == [i \in 1..Digits |-> IF i+k<=Digits THEN a[i+k] ELSE 0]
+CeilDrop(a,k) == Add(Drop(a,k),IF \E i \in 1..k:a[i]#0 THEN One ELSE Zero)
+Half(a) == [i \in 1..Digits |-> (a[i]+(IF i<Digits THEN Base*(a[i+1]%2) ELSE 0)) \div 2]
+Mid(a,b) == Add(a,Half(Sub(b,a)))
+Quantized(a,k) == Shift(Drop(a,k),k)
+(* For the selected true drift fractions 0,1/1e9,1e6/1e9. *)
+FractionCeil(a,d) == IF d=0 THEN Zero ELSE CeilDrop(a,IF d=1 THEN 3 ELSE 1)
+Up(a,d) == Add(a,FractionCeil(a,d))
+Down(a,d) == Sub(a,FractionCeil(a,d))
+Scaled(a) == Shift(a,3)
+DriftPart(a,d) == IF d=0 THEN Zero ELSE Shift(a,IF d=1 THEN 0 ELSE 2)
+AdvanceTruth(a,d,rate) == CASE rate=-1 -> Sub(Scaled(a),DriftPart(a,d))
+ [] rate=0 -> Scaled(a) [] rate=1 -> Add(Scaled(a),DriftPart(a,d))
+=============================================================================

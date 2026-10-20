@@ -1,0 +1,29 @@
+[package]
+name = "tickwire-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-account = { path = "../tickwire-account" }
+tickwire-account-gateway = { path = "../tickwire-account-gateway" }
+tickwire-account-journal = { path = "../tickwire-account-journal" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-account = { path = "../tickwire-binance-account" }
+tickwire-binance-clock = { path = "../tickwire-binance-clock" }
+tickwire-binance-execution = { path = "../tickwire-binance-execution" }
+tickwire-binance-private = { path = "../tickwire-binance-private" }
+tickwire-binance-public = { path = "../tickwire-binance-public" }
+tickwire-binance-quota = { path = "../tickwire-binance-quota" }
+tickwire-binance-session = { path = "../tickwire-binance-session" }
+tickwire-book = { path = "../tickwire-book" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }

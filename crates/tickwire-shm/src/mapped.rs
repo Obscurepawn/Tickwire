@@ -4,7 +4,7 @@ use crate::{
 };
 use sha2::{Digest, Sha256};
 use std::{cell::RefCell, os::fd::OwnedFd, ptr::NonNull};
-use tickwire_ipc::{ResourceHeader, Wire};
+use tickwire_ipc::{ArenaBlockHeader, DepthLevel, MarketRecord, ResourceHeader, Wire};
 use tickwire_shm_sys::{ReaderMapping, WriterMapping};
 
 const PAGE: usize = 4096;
@@ -87,11 +87,6 @@ fn validate_bank(h: &ResourceHeader) -> Result<()> {
         || h.producer_page_offset != PAGE as u64
         || h.slot_offset != SLOTS as u64
         || h.cursor_page_offset != 0
-        || h.arena_offset != 0
-        || h.arena_bytes != 0
-        || h.arena_class_count != 0
-        || h.class_descriptors.iter().any(|c| *c != Default::default())
-        || h.resource_bytes != SLOTS as u64 + u64::from(h.capacity) * u64::from(h.record_bytes)
         || h.first_seq == 0
         || h.first_seq >= 1 << 63
         || h.cutover_seq != h.first_seq - 1
@@ -100,13 +95,18 @@ fn validate_bank(h: &ResourceHeader) -> Result<()> {
         || !(1..1 << 63).contains(&h.initial_membership_version)
         || h.max_consumers == 0
         || h.max_consumers > 32
-        || h.required_features != 0x1c
+        || h.required_features & 0x1c != 0x1c
+        || h.required_features & !0xdf != 0
         || h.schema_major != 1
         || h.schema_minor != 0
         || h.clock_domain != 1
     {
         return Err(MappedError::Layout);
     }
+    crate::arena::validate(
+        h,
+        SLOTS as u64 + u64::from(h.capacity) * u64::from(h.record_bytes),
+    )?;
     Ok(())
 }
 fn cursor_header(bank: &ResourceHeader, sub: SubscriptionKey) -> Result<ResourceHeader> {
@@ -124,6 +124,10 @@ fn cursor_header(bank: &ResourceHeader, sub: SubscriptionKey) -> Result<Resource
     h.producer_page_offset = 0;
     h.cursor_page_offset = 4096;
     h.max_consumers = 1;
+    h.arena_offset = 0;
+    h.arena_bytes = 0;
+    h.arena_class_count = 0;
+    h.class_descriptors = Default::default();
     hash_header(&mut h)?;
     Ok(h)
 }
@@ -142,13 +146,45 @@ struct Cursor {
     key: SubscriptionKey,
     mapping: ReaderMapping,
 }
-/// A fixed-record Linux broadcast/SPSC writer. Each record starts with its u64 sequence.
-/// Arena payloads and control-plane FD delivery are separate subsequent SDK modules.
+/// A Linux broadcast/SPSC writer. Arena blocks share the record's release lifetime.
 pub struct Publisher<const M: usize> {
     header: ResourceHeader,
     bank: WriterMapping,
     protocol: Producer<M>,
     cursors: [Option<Cursor>; M],
+    arena: crate::arena::Arena,
+    block_scratch: Vec<u8>,
+}
+/// A complete market message. Depth levels are bids followed by asks.
+pub struct MarketMessage<'a> {
+    pub record: &'a MarketRecord,
+    pub levels: &'a [DepthLevel],
+}
+/// Configure ordered arena classes on a not-yet-created market bank. Each pair
+/// is (payload byte limit, block count); at most capacity blocks are useful.
+pub fn configure_market_arena(header: &mut ResourceHeader, classes: &[(u32,u32)]) -> Result<()> {
+    if classes.is_empty() || classes.len() > 4 { return Err(MappedError::Layout); }
+    let mut h = header.clone();
+    h.arena_offset = SLOTS as u64 + u64::from(h.capacity)*u64::from(h.record_bytes);
+    h.class_descriptors=Default::default();
+    h.arena_class_count=classes.len() as u16;
+    h.required_features|=2;
+    let mut cursor=h.arena_offset;
+    for (i,&(limit,count)) in classes.iter().enumerate() {
+        if limit > 65536 {return Err(MappedError::Layout);}
+        let block=(128+limit).div_ceil(128)*128;
+        let length=u64::from(block)*u64::from(count);
+        h.class_descriptors[i]=tickwire_ipc::ArenaClass {
+            class_id:i as u16+1, block_bytes:block, block_count:count,
+            payload_limit:limit, offset:cursor, length,
+        };
+        cursor=cursor.checked_add(length).ok_or(MappedError::Layout)?;
+    }
+    h.arena_bytes=cursor-h.arena_offset;
+    h.resource_bytes=cursor;
+    validate_bank(&h)?;
+    *header=h;
+    Ok(())
 }
 impl<const M: usize> Publisher<M> {
     pub fn create(mut header: ResourceHeader) -> Result<Self> {
@@ -171,6 +207,9 @@ impl<const M: usize> Publisher<M> {
         bank.seal_for_readers()?;
         protocol.activate()?;
         Ok(Self {
+            arena: crate::arena::Arena::new(&header),
+            block_scratch: vec![0; header.class_descriptors.iter()
+                .map(|c| c.block_bytes as usize).max().unwrap_or(0).max(320)],
             header,
             bank,
             protocol,
@@ -320,6 +359,13 @@ impl<const M: usize> Publisher<M> {
             {
                 return Err(MappedError::Layout);
             }
+            // Only publish_market may create an arena reference. A safe byte
+            // publisher cannot point a reader at an unrelated mutable block.
+            if self.header.resource_kind == 1
+                && bytes.get(20..22) == Some(&2u16.to_le_bytes())
+            {
+                return Err(MappedError::Layout);
+            }
         }
         self.refresh()?;
         let claim = self.protocol.claim(records.len() as u8)?;
@@ -338,6 +384,129 @@ impl<const M: usize> Publisher<M> {
         unsafe {
             self.bank.store_u64_release(PUBLISHED, claim.last())?;
         }
+        Ok(self.protocol.publish(claim)?)
+    }
+
+    /// Publish a complete batch after reserving every record and arena block.
+    /// No allocation occurs here; a failed batch never advances publication.
+    pub fn publish_market(&mut self, messages: &[MarketMessage<'_>]) -> Result<u64> {
+        if self.header.resource_kind != 1 || messages.is_empty() || messages.len() > 64 {
+            return Err(Error::BatchSize.into());
+        }
+        self.refresh()?;
+        self.arena.reclaim(self.protocol.refresh_min());
+        let mut allocations = [None; 64];
+        let mut images = [[0u8; 512]; 64];
+        let prepare = (|| {
+            for (i, m) in messages.iter().enumerate() {
+                let mut record = m.record.clone();
+                let expected = self.published().checked_add(i as u64 + 1)
+                    .filter(|s| *s < 1 << 63).ok_or(Error::SequenceExhausted)?;
+                if record.header.sequence != expected || !(257..=263).contains(&record.header.message_type) {
+                    return Err(MappedError::Layout);
+                }
+                if record.header.message_type == 259 {
+                    let count = record.body.bid_count.checked_add(record.body.ask_count)
+                        .ok_or(MappedError::Layout)?;
+                    if count as usize != m.levels.len() || count > 4096 {
+                        return Err(MappedError::Layout);
+                    }
+                    let length = count as usize * 16;
+                    // Scratch is at least 320 bytes; external classes cover larger payloads.
+                    if length + 128 > self.block_scratch.len() {
+                        return Err(MappedError::Layout);
+                    }
+                    for (level, out) in m.levels.iter().zip(self.block_scratch[128..128+length].chunks_exact_mut(16)) {
+                        level.encode(out)?;
+                    }
+                    tickwire_ipc::validate_depth_payload(&self.block_scratch[128..128+length],
+                        record.body.bid_count, record.body.ask_count)?;
+                    record.body.level_count = count;
+                    record.body.inline_levels = Default::default();
+                    record.header.payload_length = length as u32;
+                    record.header.payload_crc32c = if record.header.flags & 8 != 0 {
+                        tickwire_ipc::crc32c(&self.block_scratch[128..128+length])
+                    } else { 0 };
+                    record.header.payload_offset = 0;
+                    record.header.arena_class = 0;
+                    record.header.allocation_seq = 0;
+                    if count <= 12 {
+                        record.header.payload_kind = 1;
+                        record.body.inline_levels[..count as usize].clone_from_slice(m.levels);
+                    } else {
+                        let a = self.arena.reserve(&self.header, length as u32, expected)?;
+                        allocations[i] = Some(a);
+                        let class = &self.header.class_descriptors[a.class];
+                        record.header.payload_kind = 2;
+                        record.header.payload_offset = class.offset
+                            + u64::from(a.block) * u64::from(class.block_bytes) + 128;
+                        record.header.arena_class = class.class_id;
+                        record.header.allocation_seq = expected;
+                    }
+                } else if !m.levels.is_empty() {
+                    return Err(MappedError::Layout);
+                }
+                record.header.record_crc32c = 0;
+                record.encode(&mut images[i])?;
+                if record.header.flags & 8 != 0 {
+                    let mut crc_image = images[i];
+                    crc_image[112..120].fill(0);
+                    record.header.record_crc32c = tickwire_ipc::crc32c(&crc_image);
+                    record.encode(&mut images[i])?;
+                }
+                tickwire_ipc::decode_record(&images[i])?;
+            }
+            Ok(())
+        })();
+        if let Err(e) = prepare {
+            for a in allocations.into_iter().flatten() { self.arena.rollback(a); }
+            return Err(e);
+        }
+        let claim = match self.protocol.claim(messages.len() as u8) {
+            Ok(c) => c,
+            Err(e) => {
+                for a in allocations.into_iter().flatten() { self.arena.rollback(a); }
+                return Err(e.into());
+            }
+        };
+        let write = (|| {
+            for (i, m) in messages.iter().enumerate() {
+                if let Some(a) = allocations[i] {
+                    let class = &self.header.class_descriptors[a.class];
+                    let block = &mut self.block_scratch[..class.block_bytes as usize];
+                    block.fill(0);
+                    let record = MarketRecord::decode(&images[i])?;
+                    ArenaBlockHeader {
+                        allocation_seq: a.sequence,
+                        payload_length: record.header.payload_length,
+                        class_id: class.class_id,
+                        ring_epoch: self.header.ring_epoch,
+                        resource_id: self.header.resource_id,
+                        payload_crc32c: record.header.payload_crc32c,
+                    }.encode(&mut block[..128])?;
+                    for (level, out) in m.levels.iter().zip(block[128..].chunks_exact_mut(16)) {
+                        level.encode(out)?;
+                    }
+                    let offset = class.offset + u64::from(a.block) * u64::from(class.block_bytes);
+                    // SAFETY: allocator owns this unpublished block; old holders
+                    // ended before reclaim, and no record references it yet.
+                    unsafe { self.bank.write_bytes(offset as usize, block)?; }
+                }
+                let slot = self.protocol.slot(claim.first() + i as u64)?;
+                // SAFETY: the batch claim protects this unpublished slot.
+                unsafe { self.bank.write_bytes(SLOTS + slot * 512, &images[i])?; }
+            }
+            Ok::<_, MappedError>(())
+        })();
+        if let Err(e) = write {
+            self.protocol.abort(claim)?;
+            for a in allocations.into_iter().flatten() { self.arena.rollback(a); }
+            return Err(e);
+        }
+        // SAFETY: both slots and their immutable blocks are complete. This is
+        // the only publication store, after all fallible preparation and writes.
+        unsafe { self.bank.store_u64_release(PUBLISHED, claim.last())?; }
+        for a in allocations.into_iter().flatten() { self.arena.commit(a); }
         Ok(self.protocol.publish(claim)?)
     }
     pub fn prepare_freeze(&mut self, successor: u64, cutoff: u64) -> Result<()> {
@@ -416,6 +585,8 @@ impl<const B: usize> Subscriber<B> {
     /// keep this exact subscription gated at baseline until this reader quiesces
     /// or its process and all registered holders exit. No writer may mutate the
     /// header, published slots, or reuse the bank for another generation.
+    /// Arena blocks referenced by a published record obey the same retention
+    /// rule; only SDK-created, sequence-bound references may be published.
     pub unsafe fn attach(
         fd: OwnedFd,
         header: ResourceHeader,
@@ -571,6 +742,40 @@ impl<const B: usize> RecordBorrow<'_, B> {
         // SAFETY: the live lease prevents reuse, owner keeps the mapping alive,
         // and the resulting reference is limited to this borrow of the guard.
         unsafe { self.bytes.as_ref() }
+    }
+    /// The depth payload is retained by this guard, including an external block.
+    /// No reference over unrelated, concurrently writable bank bytes is formed.
+    pub fn depth_payload(&self) -> Result<&[u8]> {
+        let tickwire_ipc::Record::Market(record) = tickwire_ipc::decode_record(self.bytes())? else {
+            return Err(MappedError::Layout);
+        };
+        if record.header.message_type != 259 {
+            return Err(MappedError::Layout);
+        }
+        let h = &record.header;
+        if h.payload_kind == 1 {
+            return Ok(&self.bytes()[320..320+h.payload_length as usize]);
+        }
+        let resource = &self.owner.header;
+        let class = resource.class_descriptors[..resource.arena_class_count as usize]
+            .iter().find(|c| h.payload_length <= c.payload_limit)
+            .ok_or(MappedError::Layout)?;
+        let offset = h.payload_offset.checked_sub(128).ok_or(MappedError::Layout)?;
+        let relative = offset.checked_sub(class.offset).ok_or(MappedError::Layout)?;
+        if h.arena_class != class.class_id
+            || relative % u64::from(class.block_bytes) != 0
+            || relative / u64::from(class.block_bytes) >= u64::from(class.block_count)
+        {
+            return Err(MappedError::Layout);
+        }
+        // SAFETY: attach requires a truthful SDK publisher. publish_market
+        // created this sequence-bound reference, and this live record lease
+        // protects exactly this block from writes until the guard is dropped.
+        let block = unsafe {
+            self.owner.bank.read_bytes(offset as usize, class.block_bytes as usize)?
+        };
+        tickwire_ipc::validate_arena_block(&record, block, resource, class)?;
+        Ok(&block[128..128+h.payload_length as usize])
     }
 }
 impl<const B: usize> Drop for RecordBorrow<'_, B> {

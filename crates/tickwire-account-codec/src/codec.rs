@@ -258,9 +258,12 @@ structure!(CapitalHold; wallet_id,settlement_asset,amount);
 structure!(AdmissionImage; command_digest,intent,account_epoch,ledger_sequence,revisions,deadline,
     resources=>MAX_ASSETS,capital_holds=>MAX_ASSETS,orders=>MAX_ADMISSION_ORDERS,increases);
 
+structure!(Reactivation; scope,product,account_epoch,ledger_sequence,baseline_digest,history_digest,input_stream,private_connection_epoch,gap_generation,through_sequence,query_coverage_digest,clock_boot_id,clock_generation,evaluated_at,valid_until,writer_epoch,execution_connection_epoch,venue_available);
+
 impl Codec for RecoveryRecord {
     fn write(&self, w: &mut Writer) {
         match self {
+            Self::Reactivated(binding)=>{w.array(2);w.uint(10);binding.as_ref().write(w);}
             Self::Admit {
                 command,
                 evaluated_at,
@@ -271,6 +274,17 @@ impl Codec for RecoveryRecord {
                 w.bytes(command.bytes());
                 evaluated_at.write(w);
                 expected.write(w)
+            }
+            Self::IngressEvent {
+                input_stream,
+                input_sequence,
+                event,
+            } => {
+                w.array(4);
+                w.uint(9);
+                input_stream.write(w);
+                input_sequence.write(w);
+                w.bytes(event.bytes());
             }
             Self::VenueEvent(e) => {
                 w.array(2);
@@ -345,6 +359,7 @@ impl Codec for RecoveryRecord {
     }
     fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
         Ok(match (r.len(4, 6)?, r.uint()?) {
+            (2, 10)=>Self::Reactivated(Box::new(Codec::read(r)?)),
             (4, 1) => Self::Admit {
                 command: Box::new(
                     v::CanonicalCommand::decode(r.blob(v::MAX_CANONICAL_BYTES)?)
@@ -356,6 +371,14 @@ impl Codec for RecoveryRecord {
             (2, 2) => Self::VenueEvent(Box::new(
                 v::CanonicalEvent::decode(r.blob(v::MAX_CANONICAL_BYTES)?).map_err(Error::Venue)?,
             )),
+            (4, 9) => Self::IngressEvent {
+                input_stream: Codec::read(r)?,
+                input_sequence: Codec::read(r)?,
+                event: Box::new(
+                    v::CanonicalEvent::decode(r.blob(v::MAX_CANONICAL_BYTES)?)
+                        .map_err(Error::Venue)?,
+                ),
+            },
             (3, 3) => Self::Aborted {
                 intent: Codec::read(r)?,
                 command_digest: Codec::read(r)?,

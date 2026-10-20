@@ -1,0 +1,51 @@
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.90s
+     Running tests/network.rs (target/debug/deps/network-eb6a6779f6b53853)
+
+running 4 tests
+test spot_test_explicit_buffers_data_before_ack ... FAILED
+test spot_production_raw_owner_bridges_real_wss_and_https ... FAILED
+test usdm_test_explicit_combined_buffers_data_before_ack ... FAILED
+test usdm_production_raw_owner_bridges_real_wss_and_https ... FAILED
+
+failures:
+
+---- spot_test_explicit_buffers_data_before_ack stdout ----
+
+thread 'spot_test_explicit_buffers_data_before_ack' (6320399) panicked at crates/tickwire-binance-public/tests/network.rs:44:5:
+assertion `left == right` failed: real WSS and HTTPS must bridge the book
+  left: Disconnected
+ right: Live
+
+---- spot_production_raw_owner_bridges_real_wss_and_https stdout ----
+
+thread 'spot_production_raw_owner_bridges_real_wss_and_https' (6320398) panicked at crates/tickwire-binance-public/tests/network.rs:44:5:
+assertion `left == right` failed: real WSS and HTTPS must bridge the book
+  left: Disconnected
+ right: Live
+
+---- usdm_test_explicit_combined_buffers_data_before_ack stdout ----
+
+thread 'usdm_test_explicit_combined_buffers_data_before_ack' (6320401) panicked at crates/tickwire-binance-public/tests/network.rs:44:5:
+assertion `left == right` failed: real WSS and HTTPS must bridge the book
+  left: Disconnected
+ right: Live
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- usdm_production_raw_owner_bridges_real_wss_and_https stdout ----
+
+thread 'usdm_production_raw_owner_bridges_real_wss_and_https' (6320400) panicked at crates/tickwire-binance-public/tests/network.rs:44:5:
+assertion `left == right` failed: real WSS and HTTPS must bridge the book
+  left: Disconnected
+ right: Live
+
+
+failures:
+    spot_production_raw_owner_bridges_real_wss_and_https
+    spot_test_explicit_buffers_data_before_ack
+    usdm_production_raw_owner_bridges_real_wss_and_https
+    usdm_test_explicit_combined_buffers_data_before_ack
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.01s
+
+error: test failed, to rerun pass `-p tickwire-binance-public --test network`

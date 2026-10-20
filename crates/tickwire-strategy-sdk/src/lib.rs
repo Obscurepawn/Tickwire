@@ -1,0 +1,139 @@
+//! Strategy-owned market replica and canonical-command SPSC publication.
+#![deny(unsafe_code)]
+pub mod bootstrap;
+pub mod market;
+pub mod outbound;
+pub mod recovery;
+#[allow(unsafe_code)]
+pub mod reports;
+#[cfg(feature = "runtime")]
+#[allow(unsafe_code)]
+pub mod runtime;
+#[allow(unsafe_code)]
+pub mod worker;
+pub use market::{MarketReplica, MarketView};
+pub use outbound::{CommandStore, IntentWriter, StoredCommand};
+use tickwire_venue::CanonicalCommand;
+
+#[derive(Debug)]
+pub enum Error {
+    Wire(tickwire_ipc::Error),
+    Join(tickwire_join::Error),
+    Ring(tickwire_shm::MappedError),
+    Storage(tickwire_recovery::Error),
+    Command(tickwire_venue::Error),
+    Control(tickwire_control::Error),
+    Transport(tickwire_control_sys::Error),
+    Io(std::io::Error),
+    Json(serde_json::Error),
+    Clock(tickwire_clock_sys::Error),
+    Identity,
+    Bounds,
+    Stale,
+    NotReady,
+    Deadline,
+}
+pub type Result<T> = std::result::Result<T, Error>;
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl std::error::Error for Error {}
+macro_rules! from {
+    ($t:ty,$v:ident) => {
+        impl From<$t> for Error {
+            fn from(e: $t) -> Self {
+                Self::$v(e)
+            }
+        }
+    };
+}
+from!(tickwire_ipc::Error, Wire);
+from!(tickwire_join::Error, Join);
+from!(tickwire_shm::MappedError, Ring);
+from!(tickwire_recovery::Error, Storage);
+from!(tickwire_venue::Error, Command);
+from!(tickwire_control::Error, Control);
+from!(tickwire_control_sys::Error, Transport);
+from!(std::io::Error, Io);
+from!(serde_json::Error, Json);
+from!(tickwire_clock_sys::Error, Clock);
+pub trait Strategy {
+    /// Exact initial strategy state for its approved replay/checkpoint schema.
+    fn checkpoint(&self) -> Result<Vec<u8>> {
+        Err(Error::NotReady)
+    }
+    /// Ordered execution-owned account baseline and durable records. The worker
+    /// retains the exact canonical object as a recovery input before this call.
+    fn on_report(
+        &mut self,
+        _report: &crate::reports::AccountReport,
+        _now_ns: u64,
+    ) -> Result<Option<CanonicalCommand>> {
+        Ok(None)
+    }
+    fn on_market(&mut self, view: MarketView<'_>, now_ns: u64) -> Result<Option<CanonicalCommand>>;
+}
+#[derive(Default)]
+pub struct ObserveOnly;
+impl Strategy for ObserveOnly {
+    fn checkpoint(&self) -> Result<Vec<u8>> {
+        Ok(b"TWOBS001".to_vec())
+    }
+    fn on_market(&mut self, _: MarketView<'_>, _: u64) -> Result<Option<CanonicalCommand>> {
+        Ok(None)
+    }
+}
+/// Explicit opt-in, single-shot demonstration. The complete order and authority
+/// context are supplied by the launcher; this strategy never invents credentials.
+pub struct FixedDemo {
+    command: Option<CanonicalCommand>,
+    minimum_bid_ticks: i64,
+    enabled: bool,
+}
+impl FixedDemo {
+    pub fn new(command: CanonicalCommand, minimum_bid_ticks: i64, enabled: bool) -> Self {
+        Self {
+            command: Some(command),
+            minimum_bid_ticks,
+            enabled,
+        }
+    }
+}
+impl Strategy for FixedDemo {
+    fn checkpoint(&self) -> Result<Vec<u8>> {
+        let mut b = b"TWFD0001".to_vec();
+        b.push(u8::from(self.enabled));
+        b.extend(self.minimum_bid_ticks.to_le_bytes());
+        let cmd = self.command.as_ref().ok_or(Error::NotReady)?;
+        b.extend((cmd.bytes().len() as u32).to_le_bytes());
+        b.extend(cmd.bytes());
+        Ok(b)
+    }
+    fn on_market(&mut self, view: MarketView<'_>, now: u64) -> Result<Option<CanonicalCommand>> {
+        if !self.enabled || !view.live() {
+            return Ok(None);
+        }
+        let Some(template) = &self.command else {
+            return Ok(None);
+        };
+        if template.command().context.instrument.instrument_id != view.instrument()
+            || view
+                .best_bid()
+                .is_none_or(|l| l.price_ticks < self.minimum_bid_ticks)
+            || now >= template.command().context.request.deadline
+        {
+            return Ok(None);
+        }
+        let mut command = template.command().clone();
+        command.context.strategy.created_mono_ns = now;
+        command.context.triggers = tickwire_venue::BoundedList::new(vec![view.trigger_at(now)])?;
+        let out = CanonicalCommand::new(command)?;
+        self.command = None;
+        Ok(Some(out))
+    }
+}
+
+#[cfg(test)]
+mod test_command;

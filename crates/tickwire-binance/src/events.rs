@@ -281,3 +281,12 @@ pub fn decode_private<'a, const N: usize>(
 ) -> Result<PrivateEvent<'a>> {
     decode::decode::<N>(session, bytes, max_bytes, received_mono_ns)
 }
+
+impl SessionContext {
+    pub fn stream(&self) -> PrivateStream {
+        self.stream
+    }
+    pub fn time_unit(&self) -> TimeUnit {
+        self.unit
+    }
+}

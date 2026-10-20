@@ -9,6 +9,12 @@ pub struct EncodedInputs {
     pub bytes: Vec<u8>,
     pub boundary: InputBoundary,
 }
+impl EncodedInputs {
+    pub fn decode(bytes: Vec<u8>) -> Result<Self> {
+        let boundary = inspect(&bytes)?;
+        Ok(Self { bytes, boundary })
+    }
+}
 fn chain(previous: Hash, row: &[u8]) -> Hash {
     let mut h = Sha256::new();
     h.update(b"tickwire.input-row.v1");

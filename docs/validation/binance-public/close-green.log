@@ -1,0 +1,18 @@
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.98s
+     Running tests/control.rs (target/debug/deps/control-125651529d637a18)
+
+running 1 test
+test ping_and_close_echo_the_original_payload_then_rebuild ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/network.rs (target/debug/deps/network-eb6a6779f6b53853)
+
+running 4 tests
+test spot_production_raw_owner_bridges_real_wss_and_https ... ok
+test usdm_production_raw_owner_bridges_real_wss_and_https ... ok
+test usdm_test_explicit_combined_buffers_data_before_ack ... ok
+test spot_test_explicit_buffers_data_before_ack ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s

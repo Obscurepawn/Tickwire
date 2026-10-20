@@ -117,8 +117,8 @@ pub(super) fn validate(
     )?;
     require(
         header.required_features & 0x1c == 0x1c
-            && header.required_features & !0x3f == 0
-            && header.optional_features & !0x3f == 0,
+            && header.required_features & !0xff == 0
+            && header.optional_features & !0xff == 0,
         "immutable resource features",
     )?;
     require(

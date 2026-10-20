@@ -1,0 +1,40 @@
+>>> TLC module=ClockWordsCheck cfg=ClockWordsCheck.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/clock/L0_calibration/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 111 and seed 2306654477287086908 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/clock/L0_calibration/02_models/ClockWordsCheck.tla
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/clock/L0_calibration/02_models/ClockWords.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module ClockWords
+Semantic processing of module ClockWordsCheck
+Starting... (2026-10-21 00:18:22)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-21 00:18:23.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 0.0
+The coverage statistics at 2026-10-21 00:18:23
+<Init line 4, col 1 to line 4, col 4 of module ClockWordsCheck>: 1:1
+  line 4, col 9 to line 4, col 18 of module ClockWordsCheck: 1
+<Next line 5, col 1 to line 5, col 4 of module ClockWordsCheck>: 1:1
+  line 5, col 12 to line 5, col 16 of module ClockWordsCheck: 3
+  |line 5, col 13 to line 5, col 16 of module ClockWordsCheck: 2
+  line 5, col 21 to line 5, col 30 of module ClockWordsCheck: 1
+End of statistics.
+2 states generated, 2 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 2.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 1 and the 95th percentile is 1).
+Finished in 01s at (2026-10-21 00:18:23)
+>>> elapsed: 1s (exit 0)

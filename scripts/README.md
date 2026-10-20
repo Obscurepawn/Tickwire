@@ -25,6 +25,8 @@ Rust 实现使用 `./scripts/check-rust.sh` 执行格式、全 workspace 回归�
 
 `./scripts/check-linux.sh` 在固定摘要的官方 Rust 1.99.1 容器中执行同一组检查，包含真实 Linux memfd、seals、映射权限和 1/2/4/8/16/32 个消费者进程测试。需要已运行的 Docker daemon（macOS 可使用 Colima）；首次下载镜像和 Rust 组件。依赖缓存放在已忽略的 `.tools/linux-cargo-registry`，构建目录为 `target/linux-check`，不影响宿主机工具链。底层映射测试保留 `/proc` FD 与管道夹具；`tickwire-control-sys` 已独立验证 pathname SEQPACKET、SCM_RIGHTS、CLOEXEC 与真实 peer credentials，`tickwire-control` 的 exec 子进程测试验证认证握手和请求去重。业务进程的资源准入与 JOIN 快照仍在集成。
 
-`./scripts/check-tla.sh` 校验固定 TLC 1.7.4 jar 的 SHA-256，顺序运行每个模型的全部 cfg；首次会下载 jar，需要 Java。每组配置都须成功完成探索且队列为空。[tlc_coverage.py](tlc_coverage.py) 只读取每次运行的最后一份完整覆盖统计，并对同一模型的全部配置汇总 `generated` 计数；每个入口至少生成一次后才通过。不同配置可以分别覆盖正常分支和边界分支，运行中的中间统计不参与判断。运行 `python3 -m unittest discover -s scripts -p test_tlc_coverage.py` 可检查解析器，包括已保存的四组 AccountGateway 日志。
+`./scripts/check-tla.sh` 校验固定 TLC 1.7.4 jar 的 SHA-256，把每个模型及其全部 cfg 复制到独立临时目录后顺序运行，并输出实际模型 SHA-256；首次会下载 jar，需要 Java。每组配置都须成功完成探索且队列为空。[tlc_coverage.py](tlc_coverage.py) 只读取每次运行的最后一份完整覆盖统计，并对同一模型各配置中出现的动作并集汇总 `generated` 计数；并集中每个入口至少生成一次后才通过。不同配置可以分别选择产品分支或边界分支；同名动作的源码定位必须一致，运行中的中间统计不参与判断。
+
+日志无法展示所有配置都未选择的分支，因此完整场景集合还需结合各模型的配置清单与源码映射检查。运行 `python3 -m unittest discover -s scripts -p test_tlc_coverage.py` 可检查解析器，包括 AccountGateway、私有会话的实际日志和小模型的真实 TLC 调用。
 
 详细结果与有限域保存在 `tla/`。完整性能基准单独执行 `cargo bench -p tickwire-book --bench depth_apply`，避免把调试构建的基准 smoke 当成性能数据。

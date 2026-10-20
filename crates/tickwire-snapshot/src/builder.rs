@@ -88,12 +88,12 @@ fn sequence(value: u64) -> Result<()> {
 fn page(value: usize) -> Result<usize> {
     Ok(value.checked_add(4095).ok_or(Error::Bounds)? & !4095)
 }
-fn member_bytes(states: usize, bids: usize, asks: usize) -> Result<usize> {
+fn member_bytes(states: usize, bids: usize, asks: usize, exact: bool) -> Result<usize> {
     let levels = bids.checked_add(asks).ok_or(Error::Bounds)?;
     let depth = levels.checked_mul(16).ok_or(Error::Bounds)?;
     let state = states.checked_mul(512).ok_or(Error::Bounds)?;
     page(
-        384usize
+        (if exact { 480usize } else { 384usize })
             .checked_add(state)
             .and_then(|n| n.checked_add(depth))
             .ok_or(Error::Bounds)?,
@@ -249,8 +249,8 @@ fn check_context(request: &BuildRequest<'_>, set_hash: [u8; 32]) -> Result<JoinB
     {
         return Err(Error::UnsupportedArchitecture);
     }
-    if r.required_features & !63 != 0
-        || r.optional_features & !63 != 0
+    if r.required_features & !255 != 0
+        || r.optional_features & !255 != 0
         || r.required_features & 0x1c != 0x1c
     {
         return Err(Error::UnsupportedFeature);
@@ -309,6 +309,28 @@ fn check_context(request: &BuildRequest<'_>, set_hash: [u8; 32]) -> Result<JoinB
 /// Build a complete immutable byte image. The caller owns the fixed publication
 /// cut and its pending gate; neither is advanced or released by this function.
 pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
+    build(request, None)
+}
+
+/// Build kind-7 members preserving exact side boundaries and all known outliers.
+/// The authenticated resource must require ExactDepthCoverage (feature bit 6).
+pub fn build_topic_with_coverage(request: &BuildRequest<'_>, coverage: &[DepthCoverage]) -> Result<BuiltTopic> {
+    build(request, Some(coverage))
+}
+fn build(request: &BuildRequest<'_>, coverage: Option<&[DepthCoverage]>) -> Result<BuiltTopic> {
+    let exact = coverage.is_some();
+    if exact != (request.resource.required_features & 64 != 0) {
+        return Err(Error::UnsupportedFeature);
+    }
+    if let Some(values) = coverage {
+        if values.len() != request.members.len() { return Err(Error::Bounds); }
+        for (c, m) in values.iter().zip(request.members) {
+            validate_depth_coverage(c)?;
+            if m.coverage_flags != if c.bid_kind == 1 && c.ask_kind == 1 { 0 } else { 3 } {
+                return Err(Error::Malformed);
+            }
+        }
+    }
     let count = request.instruments.len();
     if !(1..=4096).contains(&count)
         || request.byte_limit == 0
@@ -330,7 +352,7 @@ pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
     )?;
     let mut total = member_start;
     for m in request.members {
-        let bytes = member_bytes(m.states.len(), m.bids.len(), m.asks.len())?;
+        let bytes = member_bytes(m.states.len(), m.bids.len(), m.asks.len(), exact)?;
         total = total.checked_add(bytes).ok_or(Error::Bounds)?;
         if total > request.byte_limit {
             return Err(Error::Bounds);
@@ -367,9 +389,10 @@ pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
     bytes.resize(total, 0);
     let mut offset = member_start;
     for (index, m) in request.members.iter().enumerate() {
-        let size = member_bytes(m.states.len(), m.bids.len(), m.asks.len())?;
+        let size = member_bytes(m.states.len(), m.bids.len(), m.asks.len(), exact)?;
         let (order, feed_state) = state_order(m)?;
-        let state_offset = offset + 384;
+        let descriptors_end = offset + if exact { 448 } else { 384 };
+        let state_offset = descriptors_end;
         for (row, &i) in order[..m.states.len()].iter().enumerate() {
             let mut image = [0; 512];
             normalize_record(&m.states[i], row as u64 + 1, &mut image)?;
@@ -399,12 +422,21 @@ pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
         };
         state.encode(&mut bytes[offset + 256..offset + 320])?;
         depth.encode(&mut bytes[offset + 320..offset + 384])?;
+        if let Some(values) = coverage {
+            let coverage_offset = depth_offset + depth_length;
+            values[index].encode(&mut bytes[coverage_offset..coverage_offset+32])?;
+            SnapshotSection {
+                section_kind: 3, entry_bytes: 32, entry_count: 1,
+                offset: coverage_offset as u64, length: 32,
+                entries_hash: hash(&bytes[coverage_offset..coverage_offset+32]),
+            }.encode(&mut bytes[offset+384..offset+448])?;
+        }
         let header = SnapshotHeader {
             magic: *b"TWSNP001",
-            snapshot_kind: 6,
+            snapshot_kind: if exact { 7 } else { 6 },
             schema_major: 1,
             entry_bytes: 64,
-            entry_count: 2,
+            entry_count: if exact { 3 } else { 2 },
             entry_offset: (offset + 256) as u32,
             snapshot_id: m.snapshot_id,
             channel_id: request.resource.channel_id,
@@ -413,7 +445,7 @@ pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
             instrument_id: m.instrument_id,
             instrument_version: m.instrument_version,
             catalog_hash: request.catalog_hash,
-            entries_hash: hash(&bytes[offset + 256..offset + 384]),
+            entries_hash: hash(&bytes[offset + 256..descriptors_end]),
             bid_count: m.bids.len() as u32,
             ask_count: m.asks.len() as u32,
             coverage_depth: m.coverage_depth,
@@ -435,7 +467,7 @@ pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
             snapshot_seq: request.sequence,
             feed_generation: m.feed_generation,
             catalog_version: m.catalog_version,
-            snapshot_kind: 6,
+            snapshot_kind: if exact { 7 } else { 6 },
             feed_state,
             last_instrument_event_seq: m.last_event_sequence,
             snapshot_offset: offset as u64,

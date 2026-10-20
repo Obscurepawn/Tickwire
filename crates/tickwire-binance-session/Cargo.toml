@@ -1,0 +1,21 @@
+[package]
+name = "tickwire-binance-session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-binance-clock = { path = "../tickwire-binance-clock" }
+tickwire-binance-private = { path = "../tickwire-binance-private" }
+tickwire-clock = { path = "../tickwire-clock" }
+
+[dev-dependencies]
+rcgen = "=0.14.10"
+ring = "=0.17.14"
+base64 = "=0.22.1"
+sha1 = "=0.10.6"
+serde_json = { version = "1.0", features = ["raw_value"] }

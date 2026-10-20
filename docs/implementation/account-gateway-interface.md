@@ -35,6 +35,10 @@ AccountGateway::recover(backend, config, authority, encoder, required_frontier)
 
 交易所事件整体写入并同步 WAL 后，才调用 `Account::apply_event`。不拆分成交中的费用和订单观察，不在日志层按 trade ID 丢弃重复输入。费用闭合、外部现金流、外部仓位及两类归属转移也走同一顺序入口。公共事实入口不接受调用方构造的 Admit 或 Aborted。
 
+已由独立输入日志同步保存的事件使用 `record_ingress_event(input_stream, input_sequence, event)`。网关先查持久输入键：完整事件相同即返回 Duplicate，不再调用账户 reducer；冲突停止发送。首次处理先在候选账户执行完整事件，失败只冻结原账户且不向账户 WAL 追加已知不可重放的记录；成功后同步 IngressEvent，再发布候选账户。同步结果不确定时保留原账户并停止发送，重开依据实际完整尾部重建索引。普通 `record_fact` 拒绝 IngressEvent，不能绕过该顺序。
+
+`command(IntentKey)`、`baseline()`、`journal_config()`、`ingress_event(stream, sequence)` 和 `ingress_events()` 均为只读接口。最后一个迭代器按输入键排序，用于检查账户已处理的输入仍在上游日志中，不作为事实重放顺序。`freeze_account()` 只冻结增险，保留后续事实处理能力。
+
 账户拒绝已保存的输入时保留原记录并冻结，恢复不能跳过该输入。账户查询接口只返回不可变引用或视图，调用者不能绕过协调器修改账户。
 
 ## 恢复与验证

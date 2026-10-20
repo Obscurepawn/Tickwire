@@ -1,0 +1,66 @@
+$ cargo test -p tickwire-binance-private --test requests
+   Compiling ring v0.17.14
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 21.19s
+     Running tests/requests.rs (target/debug/deps/requests-b5488e7439d5e478)
+
+running 6 tests
+test queued_signature_expires_and_calibration_loss_is_not_a_fresh_clock ... FAILED
+test unsubscribe_binds_subscription_zero_and_queries_have_no_signature ... FAILED
+test usdm_has_api_key_only_and_no_invented_listen_key_parameter ... FAILED
+test wrong_product_key_algorithm_bounds_and_missing_clock_are_rejected ... FAILED
+test signature_subscription_hmac_signs_the_actual_parameters ... FAILED
+test logon_uses_ed25519_and_explicit_key_subscription ... FAILED
+
+failures:
+
+---- queued_signature_expires_and_calibration_loss_is_not_a_fresh_clock stdout ----
+
+thread 'queued_signature_expires_and_calibration_loss_is_not_a_fresh_clock' (5886482) panicked at crates/tickwire-binance-private/tests/requests.rs:75:139:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- unsubscribe_binds_subscription_zero_and_queries_have_no_signature stdout ----
+
+thread 'unsubscribe_binds_subscription_zero_and_queries_have_no_signature' (5886484) panicked at crates/tickwire-binance-private/tests/requests.rs:64:123:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- usdm_has_api_key_only_and_no_invented_listen_key_parameter stdout ----
+
+thread 'usdm_has_api_key_only_and_no_invented_listen_key_parameter' (5886485) panicked at crates/tickwire-binance-private/tests/requests.rs:50:123:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- wrong_product_key_algorithm_bounds_and_missing_clock_are_rejected stdout ----
+
+thread 'wrong_product_key_algorithm_bounds_and_missing_clock_are_rejected' (5886486) panicked at crates/tickwire-binance-private/tests/requests.rs:91:5:
+assertion `left == right` failed
+  left: Unsupported
+ right: Identity
+
+---- signature_subscription_hmac_signs_the_actual_parameters stdout ----
+
+thread 'signature_subscription_hmac_signs_the_actual_parameters' (5886483) panicked at crates/tickwire-binance-private/tests/requests.rs:14:157:
+called `Result::unwrap()` on an `Err` value: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- logon_uses_ed25519_and_explicit_key_subscription stdout ----
+
+thread 'logon_uses_ed25519_and_explicit_key_subscription' (5886481) panicked at crates/tickwire-binance-private/tests/requests.rs:33:139:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+
+failures:
+    logon_uses_ed25519_and_explicit_key_subscription
+    queued_signature_expires_and_calibration_loss_is_not_a_fresh_clock
+    signature_subscription_hmac_signs_the_actual_parameters
+    unsubscribe_binds_subscription_zero_and_queries_have_no_signature
+    usdm_has_api_key_only_and_no_invented_listen_key_parameter
+    wrong_product_key_algorithm_bounds_and_missing_clock_are_rejected
+
+test result: FAILED. 0 passed; 6 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-binance-private --test requests`

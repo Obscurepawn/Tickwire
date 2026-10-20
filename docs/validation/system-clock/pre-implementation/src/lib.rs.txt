@@ -1,0 +1,128 @@
+//! Suspend-aware native monotonic time, bound to one externally assigned domain.
+#![deny(unsafe_op_in_unsafe_fn)]
+use std::{io, time::Instant};
+use tickwire_clock::{ClockDomain, MonoTime};
+
+#[derive(Debug)]
+pub enum Error {
+    Unsupported,
+    InvalidTime,
+    Overflow,
+    Backwards,
+    Faulted,
+    System(io::Error),
+}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl std::error::Error for Error {}
+pub type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Clone, Copy, Debug)]
+pub struct SystemSample {
+    pub instant: Instant,
+    pub monotonic: MonoTime,
+}
+#[derive(Default)]
+struct Guard {
+    last: Option<(Instant, u64)>,
+    faulted: bool,
+}
+impl Guard {
+    fn observe(&mut self, _instant: Instant, _nanos: u64) -> Result<()> {
+        Err(Error::Unsupported)
+    }
+    fn fail(&mut self) {
+        self.faulted = true;
+    }
+}
+pub struct SystemClock {
+    domain: ClockDomain,
+    guard: Guard,
+}
+impl SystemClock {
+    pub fn new(domain: ClockDomain) -> Result<Self> {
+        let mut clock = Self {
+            domain,
+            guard: Guard::default(),
+        };
+        clock.sample()?;
+        Ok(clock)
+    }
+    pub fn domain(&self) -> ClockDomain {
+        self.domain
+    }
+    pub fn sample(&mut self) -> Result<SystemSample> {
+        Err(Error::Unsupported)
+    }
+}
+fn decode_timespec(_seconds: i128, _nanos: i128) -> Result<u64> {
+    Err(Error::Unsupported)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    #[test]
+    fn timespec_keeps_nanoseconds_and_checks_maximum_exactly() {
+        assert_eq!(decode_timespec(12, 345).unwrap(), 12_000_000_345);
+        assert_eq!(
+            decode_timespec(
+                (u64::MAX / 1_000_000_000) as i128,
+                (u64::MAX % 1_000_000_000) as i128
+            )
+            .unwrap(),
+            u64::MAX
+        );
+        assert!(matches!(
+            decode_timespec(
+                (u64::MAX / 1_000_000_000) as i128,
+                (u64::MAX % 1_000_000_000) as i128 + 1
+            ),
+            Err(Error::Overflow)
+        ));
+    }
+    #[test]
+    fn invalid_timespec_fields_are_never_cast_to_unsigned() {
+        for (s, n) in [(-1, 0), (0, -1), (0, 1_000_000_000)] {
+            assert!(matches!(decode_timespec(s, n), Err(Error::InvalidTime)));
+        }
+        assert!(matches!(
+            decode_timespec(i128::MAX, 0),
+            Err(Error::Overflow)
+        ));
+    }
+    #[test]
+    fn same_tick_is_valid_but_monotonic_rollback_is_permanent() {
+        let now = Instant::now();
+        let mut guard = Guard::default();
+        guard.observe(now, 10).unwrap();
+        guard.observe(now, 10).unwrap();
+        assert!(matches!(guard.observe(now, 9), Err(Error::Backwards)));
+        assert!(matches!(guard.observe(now, 20), Err(Error::Faulted)));
+    }
+    #[test]
+    fn instant_rollback_is_permanent_even_when_native_time_advances() {
+        let now = Instant::now();
+        let mut guard = Guard::default();
+        guard.observe(now + Duration::from_millis(1), 10).unwrap();
+        assert!(matches!(guard.observe(now, 11), Err(Error::Backwards)));
+        assert!(matches!(
+            guard.observe(now + Duration::from_secs(1), 12),
+            Err(Error::Faulted)
+        ));
+    }
+    #[test]
+    fn native_error_cannot_be_cleared_by_a_later_success() {
+        let mut guard = Guard::default();
+        guard.fail();
+        assert!(matches!(
+            guard.observe(Instant::now(), 10),
+            Err(Error::Faulted)
+        ));
+    }
+}

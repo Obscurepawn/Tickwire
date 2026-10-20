@@ -1,0 +1,25 @@
+{
+  "command": "cargo test -p tickwire-binance-clock --test https",
+  "compiled": true,
+  "passed": 0,
+  "failed": 9,
+  "exit_code": 101,
+  "files": [
+    {
+      "path": "crates/tickwire-binance-clock/Cargo.toml",
+      "sha256": "4f558814310f40655cc5964cfc36ea9d2c712c1bd8c8e1fb24dfc1045bee9995",
+      "snapshot": "docs/validation/clock/network-pre-implementation/Cargo.toml.txt"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/src/lib.rs",
+      "sha256": "234c74db520bb045204dce6f280c113532c3e2858bea9a1a171f6836ea794592",
+      "snapshot": "docs/validation/clock/network-pre-implementation/src/lib.rs.txt"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/tests/https.rs",
+      "sha256": "1c60c921fea4d20191b5277c2528c748e3a6202e6e57678afa416bdda44bb787",
+      "snapshot": "docs/validation/clock/network-pre-implementation/tests/https.rs.txt"
+    }
+  ],
+  "log": "https-red.log"
+}

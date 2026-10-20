@@ -1,0 +1,34 @@
+command: ["/Users/bytedance/.cargo/bin/cargo", "test", "-p", "tickwire-account-codec", "-p", "tickwire-account-gateway", "--test", "ingress"]
+   Compiling ring v0.17.14
+   Compiling tickwire-account-codec v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-codec)
+   Compiling tickwire-account-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-journal)
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+   Compiling tickwire-account-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-account-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.71s
+     Running tests/ingress.rs (target/debug/deps/ingress-1514db1c4f597112)
+
+running 2 tests
+test ingress_zero_identity_is_rejected ... ok
+test tag9_roundtrips_and_binds_both_input_coordinates ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/ingress.rs (target/debug/deps/ingress-029e32dd9ac1041e)
+
+running 6 tests
+test invalid_event_is_not_logged_and_freeze_does_not_halt_fact_processing ... ok
+test conflicting_input_halts_without_appending_or_publishing ... ok
+test explicit_gap_freeze_preserves_late_fact_admission ... ok
+test torn_ingress_append_recovers_prefix_then_accepts_retry ... ok
+test committed_input_retry_and_restart_do_not_repeat_reducer_or_wal ... ok
+test lost_ingress_sync_reply_recovers_complete_record_once ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+
+exit 0

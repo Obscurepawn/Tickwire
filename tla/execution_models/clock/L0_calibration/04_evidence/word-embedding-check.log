@@ -1,0 +1,3 @@
+79 independent Python cases and 4 order/identity checks
+Archived oracle matches; helper and ArithmeticOK are identical to embedded main-module text.
+Self-test module: /private/tmp/tickwire-clock-word-check/ClockWordsCheck.tla

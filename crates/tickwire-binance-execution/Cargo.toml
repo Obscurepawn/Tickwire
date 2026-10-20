@@ -1,0 +1,24 @@
+[package]
+name = "tickwire-binance-execution"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-account = { path = "../tickwire-account" }
+tickwire-account-gateway = { path = "../tickwire-account-gateway" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-clock = { path = "../tickwire-binance-clock" }
+tickwire-binance-quota = { path = "../tickwire-binance-quota" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-gateway = { path = "../tickwire-gateway" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+
+[dev-dependencies]
+tickwire-quota = { path = "../tickwire-quota" }

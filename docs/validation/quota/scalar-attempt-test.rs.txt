@@ -1,0 +1,14 @@
+use quota_scalar_attempt_red::*;
+#[test]
+fn independent_owners_with_local_sequence_one_do_not_conflict() {
+ let now=MonoTime::new(ClockDomain::new([1;16],1).unwrap(),0);
+ let key=WindowKey{bucket:BucketId{namespace:[2;16],scope:ScopeKind::Ip,subject:[3;16],pool:1},window:1};
+ let cost=Cost{window:key,units:1};
+ let mut c=Coordinator::open(MockQuotaStore::default(),1,now).unwrap();
+ c.add_window(WindowConfig{key,revision:1,starts_ns:0,ends_ns:100,limit:10,recovery_reserve:0},now).unwrap();
+ let mut e=c.register_consumer(ConsumerId{instance:[4;16],generation:1},90,now).unwrap();
+ let grant=c.issue(1,&e,Class::Normal,&[Cost{window:key,units:2}],80,now).unwrap();e.install(grant,now).unwrap();
+ // Two independent request owners each start numbering at one. The scalar API cannot carry their distinct producer identities.
+ assert_eq!(e.consume(1,[7;32],Class::Normal,&[cost],now),Ok(Consumed::New));
+ assert_eq!(e.consume(1,[8;32],Class::Normal,&[cost],now),Ok(Consumed::New));
+}

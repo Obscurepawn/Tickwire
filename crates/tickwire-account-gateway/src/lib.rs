@@ -1,6 +1,6 @@
 //! One account owner, one ordered journal, and fresh authorization at first output.
 #![forbid(unsafe_code)]
-use std::{collections::BTreeMap, time::Instant};
+use std::{collections::{BTreeMap, VecDeque}, time::Instant};
 use tickwire_account::{Account, Admission, Applied, IntentKey, RecoveryRecord};
 use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord};
 use tickwire_account_journal::{AccountJournal, AppendReceipt, Backend, HistoryFrontier};
@@ -79,6 +79,17 @@ pub trait Authority {
         admission: &Admission,
     ) -> std::result::Result<Gate, AuthorityError>;
 }
+/// Verifies durable, authenticated remote observations against this exact account prefix.
+pub trait ReactivationVerifier {
+    fn verify(&mut self, baseline:&CanonicalBaseline, account:&Account,
+        preceding:&HistoryFrontier, binding:&tickwire_account::Reactivation)
+        ->std::result::Result<(),AuthorityError>;
+}
+struct RejectReactivation;
+impl ReactivationVerifier for RejectReactivation {
+    fn verify(&mut self,_:&CanonicalBaseline,_:&Account,_:&HistoryFrontier,_:&tickwire_account::Reactivation)->std::result::Result<(),AuthorityError>{Err(AuthorityError::Denied)}
+}
+pub struct ActivationReceipt { pub ledger_sequence:u64, pub history_digest:Hash }
 pub struct Config {
     pub journal: tickwire_account_journal::Config,
     pub writer_epoch: u64,
@@ -109,6 +120,12 @@ impl CommittedAdmission {
         self.receipt.record_digest()
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OutputProgress {
+    pub accepted_bytes: usize,
+    pub total_bytes: usize,
+}
+
 pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     journal: AccountJournal<S>,
     account: Account,
@@ -117,6 +134,8 @@ pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     encoder: E,
     connection: Option<Connection>,
     max_send_bytes: usize,
+    retained_receive: VecDeque<u8>,
+    max_receive_bytes: usize,
     entries: BTreeMap<IntentKey, Entry>,
     pending: Option<(IntentKey, u64)>,
     halted: bool,
@@ -127,6 +146,7 @@ struct Entry {
     evaluated_at: u64,
     increases: bool,
     status: Status,
+    output: Option<OutputProgress>,
 }
 impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     pub fn create(
@@ -152,6 +172,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             .try_into()
             .map_err(|_| Error::Identity)?;
         let max_send_bytes = connection.limits.max_send_bytes;
+        let max_receive_bytes = connection.limits.max_receive_bytes;
         let connection = Connection::connect(
             connection.address,
             Security::Tls {
@@ -171,6 +192,8 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             encoder,
             connection: Some(connection),
             max_send_bytes,
+            max_receive_bytes,
+            retained_receive: VecDeque::new(),
             entries: BTreeMap::new(),
             pending: None,
             halted: false,
@@ -179,10 +202,16 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     pub fn recover(
         backend: S,
         config: Config,
-        mut authority: A,
+        authority: A,
         encoder: E,
         required: Option<&PhysicalFrontier>,
     ) -> Result<Self> {
+        Self::recover_with_reactivation(backend,config,authority,encoder,required,&mut RejectReactivation)
+    }
+    pub fn recover_with_reactivation(
+        backend:S,config:Config,mut authority:A,encoder:E,required:Option<&PhysicalFrontier>,
+        verifier:&mut impl ReactivationVerifier,
+    )->Result<Self>{
         binding::config(&config)?;
         let recovered = AccountJournal::recover(
             backend,
@@ -190,7 +219,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             config.writer_epoch,
             required,
             &mut recovery::Verifier {
-                authority: &mut authority,
+                authority: &mut authority, reactivation: verifier,
             },
         )
         .map_err(Error::Journal)?;
@@ -204,6 +233,8 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             encoder,
             connection: None,
             max_send_bytes: 0,
+            max_receive_bytes: 0,
+            retained_receive: VecDeque::new(),
             entries,
             pending: None,
             halted: true,
@@ -308,6 +339,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 evaluated_at,
                 increases,
                 status: Status::Queued,
+                output: Some(OutputProgress { accepted_bytes: 0, total_bytes: wire.bytes().len() }),
             },
         );
         match self.connection.as_mut().ok_or(Error::Halted)?.queue(send) {
@@ -397,13 +429,94 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         };
         self.apply_report(report)
     }
+    /// The input owner has already persisted the raw observation. Publish only
+    /// after this journal synchronizes the validated account transition.
+    pub fn record_ingress_event(
+        &mut self,
+        input_stream: [u8; 16],
+        input_sequence: u64,
+        event: CanonicalEvent,
+    ) -> Result<Applied> {
+        if let Some(old) = self.journal.ingress_event(input_stream, input_sequence) {
+            if old == &event {
+                return Ok(Applied::Duplicate);
+            }
+            self.halt();
+            return Err(Error::Conflict);
+        }
+        let mut candidate = self.account.clone();
+        let applied = match candidate.apply_event(&event) {
+            Ok(applied) => applied,
+            Err(error) => {
+                self.account.freeze();
+                return Err(Error::Account(error));
+            }
+        };
+        if let Err(error) = self.journal.append(RecoveryRecord::IngressEvent {
+            input_stream,
+            input_sequence,
+            event: Box::new(event),
+        }) {
+            self.halt();
+            return Err(Error::Journal(error));
+        }
+        self.account = candidate;
+        Ok(applied)
+    }
+    pub fn ingress_event(&self, stream: [u8; 16], sequence: u64) -> Option<&CanonicalEvent> {
+        self.journal.ingress_event(stream, sequence)
+    }
+    pub fn ingress_events(&self) -> impl Iterator<Item = ([u8; 16], u64, &CanonicalEvent)> {
+        self.journal.ingress_events()
+    }
+    pub fn command(&self, key: IntentKey) -> Option<&CanonicalCommand> {
+        self.entries.get(&key).map(|e| &e.command)
+    }
+    pub fn baseline(&self) -> &CanonicalBaseline {
+        self.journal.baseline()
+    }
+    pub fn history_frontier(&self)->&HistoryFrontier {self.journal.history_frontier()}
+    pub fn journal_config(&self) -> &tickwire_account_journal::Config {
+        self.journal.config()
+    }
+    pub fn freeze_account(&mut self) {
+        self.account.freeze();
+    }
+    pub fn writer_epoch(&self)->u64 {self.config.writer_epoch}
+    /// Synchronize the verified activation before publishing the unfrozen account.
+    /// A healthy existing sender can keep its writer; recovery requires a fresh connection.
+    pub fn reactivate(&mut self,binding:tickwire_account::Reactivation,
+        connection:Option<ConnectionConfig>,verifier:&mut impl ReactivationVerifier)->Result<ActivationReceipt>{
+        if self.pending.is_some()||!self.retained_receive.is_empty(){return Err(Error::Busy);}
+        if binding.baseline_digest!=self.baseline().digest()||binding.history_digest!=self.history_frontier().digest()
+            ||binding.scope!=self.config.journal.scope||binding.ledger_sequence!=self.account.ledger_sequence(){return Err(Error::Identity);}
+        if self.halted!=connection.is_some() || (!self.halted&&binding.writer_epoch!=self.config.writer_epoch)
+            || (self.halted&&!self.journal.recovered()&&binding.writer_epoch<=self.config.writer_epoch){return Err(Error::Identity);}
+        verifier.verify(self.baseline(),&self.account,self.history_frontier(),&binding).map_err(Error::Authority)?;
+        let mut candidate=self.account.clone();
+        candidate.apply_reactivation(&binding).map_err(Error::Account)?;
+        let replacement=if let Some(c)=connection {
+            let limits=c.limits;
+            let server_name=self.config.route.authority.clone().try_into().map_err(|_|Error::Identity)?;
+            Some((Connection::connect(c.address,Security::Tls{server_name,config:c.tls},limits,c.connect_deadline)?,limits))
+        }else{None};
+        if let Err(error)=self.journal.append_reactivation(binding.clone()){self.halt();return Err(Error::Journal(error));}
+        self.account=candidate;self.config.writer_epoch=binding.writer_epoch;
+        if let Some((connection,limits))=replacement{self.connection=Some(connection);self.max_send_bytes=limits.max_send_bytes;self.max_receive_bytes=limits.max_receive_bytes;}
+        self.halted=false;
+        // Historical command keys remain in entries, so retries return their old outcome.
+        Ok(ActivationReceipt{ledger_sequence:self.account.ledger_sequence(),history_digest:self.history_frontier().digest()})
+    }
     pub fn record_event(&mut self, event: CanonicalEvent) -> Result<Applied> {
         self.record_fact(RecoveryRecord::VenueEvent(Box::new(event)))
     }
     pub fn record_fact(&mut self, record: RecoveryRecord) -> Result<Applied> {
         if matches!(
             record,
-            RecoveryRecord::Admit { .. } | RecoveryRecord::Aborted { .. }
+            RecoveryRecord::Admit { .. }
+                | RecoveryRecord::Aborted { .. }
+                | RecoveryRecord::IngressEvent { .. }
+                | RecoveryRecord::Reactivated(_)
         ) {
             return Err(Error::Invalid);
         }
@@ -426,6 +539,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     pub fn account(&self) -> &Account {
         &self.account
     }
+    /// Ordered durable account records after the supplied exclusive WAL cursor.
+    /// This includes local outcomes as well as externally received facts.
+    pub fn journal_records_after(&self,position:u64,maximum:usize)->Result<impl Iterator<Item=(u64,&CanonicalRecord)>> {
+        let start=usize::try_from(position).map_err(|_|Error::Invalid)?;
+        if start>self.journal.records().len()||maximum==0{return Err(Error::Invalid);}
+        Ok(self.journal.records()[start..].iter().take(maximum).enumerate().map(move |(index,record)|(position+index as u64+1,record)))
+    }
     pub fn journal_position(&self) -> u64 {
         self.journal.position()
     }
@@ -433,8 +553,15 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         self.halted
     }
     pub fn read(&mut self, out: &mut [u8]) -> usize {
-        self.connection.as_mut().map_or(0, |c| c.read(out))
+        let retained = out.len().min(self.retained_receive.len());
+        for slot in &mut out[..retained] { *slot = self.retained_receive.pop_front().unwrap(); }
+        retained + self.connection.as_mut().map_or(0, |c| c.read(&mut out[retained..]))
     }
+    /// Volatile evidence from this process. Recovery never fabricates output progress.
+    pub fn output_progress(&self, intent: IntentKey) -> Option<OutputProgress> {
+        self.entries.get(&intent).and_then(|e| e.output)
+    }
+    pub fn stop_sending(&mut self) { self.halt(); }
     pub fn register(
         &mut self,
         registry: &tickwire_transport::mio::Registry,
@@ -462,6 +589,12 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if token != report.id {
             self.halt();
             return Err(Error::Identity);
+        }
+        if let Some(output) = self.entries.get_mut(&key).and_then(|e| e.output.as_mut()) {
+            if report.accepted_bytes < output.accepted_bytes || report.accepted_bytes > output.total_bytes {
+                self.halt(); return Err(Error::Invalid);
+            }
+            output.accepted_bytes = report.accepted_bytes;
         }
         match report.state {
             SendState::Queued => {}
@@ -515,6 +648,17 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     fn halt(&mut self) {
         self.halted = true;
         self.account.freeze();
+        if let Some(connection) = self.connection.as_mut() {
+            let mut bytes = [0u8; 4096];
+            loop {
+                let available = self.max_receive_bytes.saturating_sub(self.retained_receive.len());
+                if available == 0 { break; }
+                let limit = available.min(bytes.len());
+                let n = connection.read(&mut bytes[..limit]);
+                if n == 0 { break; }
+                self.retained_receive.extend(&bytes[..n]);
+            }
+        }
         self.connection = None;
         self.pending = None;
         for entry in self.entries.values_mut() {

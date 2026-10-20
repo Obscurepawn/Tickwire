@@ -1,0 +1,30 @@
+# Binance 公共深度网络 owner
+
+`tickwire-binance-public` 将生产 TCP/TLS、HTTP、WebSocket 编解码器接到现有 `DepthSync`。固定产品、环境、目录和单一标的后，owner 建立公共 WSS 订阅，收到首条增量后请求 HTTPS 快照，完成缓存回放并交付借用 BookView。它同时处理 Ping/Pong、Close、限流反馈、断档重建、退避重连和 24 小时寿命前的主动轮换。
+
+[接口](../../docs/implementation/binance-public-session-interface.md)固定四组产品/环境端点。测试只替换远端 TLS 服务、时间和额度来源，使用相同 owner、协议解码器、序列 policy 与 Book。
+
+## 状态与时间顺序
+
+WebSocket 连接代次与 Book generation 各自递增。断档清空本轮盘口缓存并申请新快照，同一健康连接保留订阅。连接关闭则先撤销 Book，再建立新连接和新 generation。计数耗尽、时间回退或固定域改变使来源永久停止。
+
+每批解密字节带原接收时间；完整消息使用最后完成字节所属批次的时间。WS 解码的 `Yielded` 继续调度，`NeedInput` 才允许快照动作推进协调器时钟。申请、完成、失败和超时四类快照动作均遵守这一顺序。排空期间暂停新 WS 读取，快照不会被持续输入无限推迟。
+
+发送前在 transport 的首次接受闭包内检查许可，许可回调后重新读取单调时间并检查消息与连接硬期限。零接受重试重新检查当前许可；已接受前缀只继续原报文。两条连接共享本轮 I/O 预算。
+
+Close 在撤销 Book 后进入有期限的 `Closing`，完成已接受的帧并回送原载荷。通知回调返回 false 时停止来源。每次 Sync 通知提供原增量和可选 BookView 的短期借用，发布层可在该完成点构造 MarketRecord。
+
+## 当前实现与证据
+
+| 检查 | 实际结果 |
+| --- | --- |
+| 初始四组网络行为 | 先编译通过并实际断言失败，随后四组完整 WSS＋HTTPS 桥接通过 |
+| Ping/Pong 与 Close | Close 先出现服务端 EOF 的 Red；修复后原载荷回送通过 |
+| 长时间运行后的断档 | 先复现旧首条增量期限误断开健康连接；修复后同连接重建通过 |
+| 小预算、快照成功与传输失败 | 两项通过；同一 WS 批次时间不变，成功/失败回调均等待旧完整消息 |
+| 有限快照 | 覆盖外数量保持 Unknown，未声明全量盘口 |
+| 安静 WS 的快照重试 | 先复现 2 秒冷却却报告 30 秒心跳期限；修复后报告实际可重试时间并完成同连接快照 |
+
+最终 9 项原生 focused 测试、格式与 Clippy 检查通过，具体日志见[验证记录](../../docs/validation/binance-public/report.md)。初次证书夹具类型推断失败和 accepted socket 的 nonblocking 设置错误各自保留原记录，未作为行为 Red。
+
+后续发布模块负责 Book 到 MarketRecord/SHM 的字段映射和失效发布。目录加载、SBE、FIX、其他行情类型及多标的复用连接仍各自实现；本 owner 的产品开关仅表示已编码的 JSON diff-depth 协议。

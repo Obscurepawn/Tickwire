@@ -1,0 +1,47 @@
+command: ["/Users/bytedance/.cargo/bin/cargo", "test", "-p", "tickwire-quota", "--test", "quota"]
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-quota v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-quota)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 12.40s
+     Running tests/quota.rs (target/debug/deps/quota-4ab08c05ca91ad65)
+
+running 4 tests
+test restart_retains_unacknowledged_allocations_and_does_not_remint_owner ... FAILED
+test shared_multi_bucket_allocation_and_local_consumption_are_atomic ... FAILED
+test recovery_capacity_and_stopped_receipt_do_not_regrant_spent_units ... FAILED
+test exact_retry_rechecks_expiry_and_never_refunds_a_no_bytes_attempt ... FAILED
+
+failures:
+
+---- restart_retains_unacknowledged_allocations_and_does_not_remint_owner stdout ----
+
+thread 'restart_retains_unacknowledged_allocations_and_does_not_remint_owner' (6339446) panicked at crates/tickwire-quota/tests/quota.rs:17:37:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- shared_multi_bucket_allocation_and_local_consumption_are_atomic stdout ----
+
+thread 'shared_multi_bucket_allocation_and_local_consumption_are_atomic' (6339447) panicked at crates/tickwire-quota/tests/quota.rs:17:37:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- recovery_capacity_and_stopped_receipt_do_not_regrant_spent_units stdout ----
+
+thread 'recovery_capacity_and_stopped_receipt_do_not_regrant_spent_units' (6339445) panicked at crates/tickwire-quota/tests/quota.rs:17:37:
+called `Result::unwrap()` on an `Err` value: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- exact_retry_rechecks_expiry_and_never_refunds_a_no_bytes_attempt stdout ----
+
+thread 'exact_retry_rechecks_expiry_and_never_refunds_a_no_bytes_attempt' (6339444) panicked at crates/tickwire-quota/tests/quota.rs:17:37:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+
+failures:
+    exact_retry_rechecks_expiry_and_never_refunds_a_no_bytes_attempt
+    recovery_capacity_and_stopped_receipt_do_not_regrant_spent_units
+    restart_retains_unacknowledged_allocations_and_does_not_remint_owner
+    shared_multi_bucket_allocation_and_local_consumption_are_atomic
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-quota --test quota`
+
+exit: 101

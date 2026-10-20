@@ -1,0 +1,279 @@
+>>> TLC module=L0_NativeOwner cfg=L0_NativeOwner_generic.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/system_clock/L0_native_owner/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+Picked up JAVA_TOOL_OPTIONS: -Xmx2g -Djava.io.tmpdir=/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-system-clock-java-hfckefu6
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 11 and seed 5372075351475122905 with 1 worker on 10 cores with 1820MB heap and 64MB offheap memory [pid: 47996] (Mac OS X 15.7 aarch64, Homebrew 24.0.2 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/system_clock/L0_native_owner/02_models/L0_NativeOwner.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-system-clock-java-hfckefu6/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-system-clock-java-hfckefu6/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-system-clock-java-hfckefu6/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-system-clock-java-hfckefu6/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tickwire-system-clock-java-hfckefu6/TLC.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_NativeOwner
+Starting... (2026-10-21 00:45:57)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-21 00:45:57.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.0E-12
+The coverage statistics at 2026-10-21 00:45:58
+<Init line 73, col 1 to line 73, col 4 of module L0_NativeOwner>: 1:1
+  line 73, col 9 to line 78, col 46 of module L0_NativeOwner: 1
+<NewGeneric line 114, col 1 to line 114, col 10 of module L0_NativeOwner>: 1:1
+  line 114, col 18 to line 114, col 31 of module L0_NativeOwner: 2432
+  |line 114, col 18 to line 114, col 21 of module L0_NativeOwner: 2431
+  line 114, col 36 to line 114, col 51 of module L0_NativeOwner: 2432
+  |line 114, col 36 to line 114, col 42 of module L0_NativeOwner: 2431
+  line 115, col 5 to line 115, col 83 of module L0_NativeOwner: 1
+<Generic line 152, col 1 to line 152, col 12 of module L0_NativeOwner>: 1569:16416
+  line 152, col 20 to line 152, col 33 of module L0_NativeOwner: 82053
+  |line 152, col 20 to line 152, col 23 of module L0_NativeOwner: 65637
+  line 152, col 38 to line 152, col 53 of module L0_NativeOwner: 82053
+  |line 152, col 38 to line 152, col 44 of module L0_NativeOwner: 65637
+  line 79, col 10 to line 79, col 25 of module L0_NativeOwner: 16416
+  |line 79, col 10 to line 79, col 16 of module L0_NativeOwner: 65610
+  |line 79, col 18 to line 79, col 25 of module L0_NativeOwner: 65610
+  line 152, col 67 to line 152, col 87 of module L0_NativeOwner: 56052
+  |line 152, col 67 to line 152, col 80 of module L0_NativeOwner: 39636
+  line 84, col 2 to line 96, col 98 of module L0_NativeOwner: 16416
+  |line 84, col 5 to line 96, col 98 of module L0_NativeOwner: 16416
+  ||line 84, col 6 to line 84, col 6 of module L0_NativeOwner: 16416
+  ||line 84, col 15 to line 84, col 31 of module L0_NativeOwner: 16416
+  ||line 84, col 33 to line 84, col 39 of module L0_NativeOwner: 16416
+  ||line 84, col 50 to line 84, col 77 of module L0_NativeOwner: 16416
+  |||line 84, col 53 to line 84, col 58 of module L0_NativeOwner: 16416
+  |||line 84, col 65 to line 84, col 65 of module L0_NativeOwner: 729
+  |||line 84, col 72 to line 84, col 77 of module L0_NativeOwner: 15687
+  ||line 85, col 9 to line 85, col 36 of module L0_NativeOwner: 16416
+  |||line 85, col 12 to line 85, col 17 of module L0_NativeOwner: 16416
+  |||line 85, col 24 to line 85, col 24 of module L0_NativeOwner: 729
+  |||line 85, col 31 to line 85, col 36 of module L0_NativeOwner: 15687
+  ||line 86, col 12 to line 86, col 85 of module L0_NativeOwner: 16416
+  |||line 86, col 12 to line 86, col 20 of module L0_NativeOwner: 16416
+  |||line 86, col 26 to line 86, col 84 of module L0_NativeOwner: 16416
+  ||||line 86, col 26 to line 86, col 48 of module L0_NativeOwner: 16416
+  |||||line 86, col 26 to line 86, col 31 of module L0_NativeOwner: 16416
+  |||||line 86, col 36 to line 86, col 48 of module L0_NativeOwner: 729
+  ||||line 86, col 54 to line 86, col 83 of module L0_NativeOwner: 576
+  ||line 87, col 13 to line 87, col 91 of module L0_NativeOwner: 16416
+  |||line 87, col 13 to line 87, col 22 of module L0_NativeOwner: 16416
+  |||line 87, col 28 to line 87, col 90 of module L0_NativeOwner: 16416
+  ||||line 87, col 28 to line 87, col 33 of module L0_NativeOwner: 16416
+  ||||line 87, col 38 to line 87, col 90 of module L0_NativeOwner: 729
+  ||line 88, col 2 to line 88, col 73 of module L0_NativeOwner: 16416
+  ||line 89, col 2 to line 89, col 94 of module L0_NativeOwner: 16416
+  ||line 90, col 17 to line 90, col 117 of module L0_NativeOwner: 16416
+  |||line 90, col 17 to line 90, col 30 of module L0_NativeOwner: 16416
+  |||line 90, col 36 to line 90, col 116 of module L0_NativeOwner: 16416
+  ||||line 90, col 36 to line 90, col 61 of module L0_NativeOwner: 16416
+  ||||line 90, col 67 to line 90, col 115 of module L0_NativeOwner: 12069
+  ||line 91, col 2 to line 91, col 86 of module L0_NativeOwner: 16416
+  ||line 92, col 2 to line 92, col 100 of module L0_NativeOwner: 16416
+  ||line 93, col 2 to line 93, col 83 of module L0_NativeOwner: 16416
+  ||line 94, col 19 to line 95, col 112 of module L0_NativeOwner: 16416
+  |||line 94, col 19 to line 94, col 34 of module L0_NativeOwner: 16416
+  |||line 95, col 5 to line 95, col 111 of module L0_NativeOwner: 16416
+  ||||line 95, col 5 to line 95, col 89 of module L0_NativeOwner: 16416
+  |||||line 95, col 5 to line 95, col 67 of module L0_NativeOwner: 16416
+  |||||line 95, col 72 to line 95, col 89 of module L0_NativeOwner: 10944
+  ||||line 95, col 94 to line 95, col 111 of module L0_NativeOwner: 6618
+  ||line 96, col 16 to line 96, col 97 of module L0_NativeOwner: 16416
+  |||line 96, col 16 to line 96, col 28 of module L0_NativeOwner: 16416
+  |||line 96, col 34 to line 96, col 96 of module L0_NativeOwner: 16416
+  ||||line 96, col 34 to line 96, col 63 of module L0_NativeOwner: 16416
+  ||||line 96, col 68 to line 96, col 96 of module L0_NativeOwner: 2432
+  line 155, col 15 to line 155, col 15 of module L0_NativeOwner: 16416
+  |line 154, col 12 to line 154, col 66 of module L0_NativeOwner: 16416
+  ||line 154, col 13 to line 154, col 13 of module L0_NativeOwner: 16416
+  ||line 154, col 31 to line 154, col 38 of module L0_NativeOwner: 16416
+  |||line 154, col 31 to line 154, col 32 of module L0_NativeOwner: 16416
+  ||||line 153, col 13 to line 153, col 38 of module L0_NativeOwner: 16416
+  |||||line 61, col 24 to line 69, col 77 of module L0_NativeOwner: 16416
+  ||||||line 61, col 27 to line 61, col 40 of module L0_NativeOwner: 16416
+  ||||||line 63, col 7 to line 69, col 77 of module L0_NativeOwner: 16416
+  |||||||line 63, col 10 to line 63, col 15 of module L0_NativeOwner: 16416
+  |||||||line 63, col 22 to line 64, col 45 of module L0_NativeOwner: 5472
+  ||||||||line 63, col 33 to line 63, col 83 of module L0_NativeOwner: 5472
+  |||||||||line 63, col 36 to line 63, col 50 of module L0_NativeOwner: 5472
+  |||||||||line 63, col 57 to line 63, col 76 of module L0_NativeOwner: 3040
+  |||||||||line 63, col 83 to line 63, col 83 of module L0_NativeOwner: 2432
+  ||||||||line 64, col 24 to line 64, col 32 of module L0_NativeOwner: 5472
+  |||||||line 65, col 7 to line 69, col 77 of module L0_NativeOwner: 10944
+  ||||||||line 65, col 10 to line 65, col 34 of module L0_NativeOwner: 10944
+  |||||||||line 65, col 10 to line 65, col 19 of module L0_NativeOwner: 10944
+  |||||||||line 65, col 24 to line 65, col 34 of module L0_NativeOwner: 10638
+  ||||||||line 66, col 7 to line 66, col 88 of module L0_NativeOwner: 4326
+  ||||||||line 68, col 14 to line 68, col 40 of module L0_NativeOwner: 6618
+  |||||||||line 54, col 20 to line 58, col 64 of module L0_NativeOwner: 6618
+  ||||||||||line 54, col 23 to line 54, col 36 of module L0_NativeOwner: 6618
+  ||||||||||line 54, col 43 to line 54, col 73 of module L0_NativeOwner: 4584
+  ||||||||||line 55, col 7 to line 58, col 64 of module L0_NativeOwner: 2034
+  |||||||||||line 55, col 10 to line 55, col 14 of module L0_NativeOwner: 2034
+  |||||||||||line 55, col 21 to line 55, col 76 of module L0_NativeOwner: 1017
+  |||||||||||line 56, col 7 to line 58, col 64 of module L0_NativeOwner: 1017
+  ||||||||||||line 56, col 10 to line 56, col 29 of module L0_NativeOwner: 1017
+  |||||||||||||line 56, col 10 to line 56, col 15 of module L0_NativeOwner: 1017
+  |||||||||||||line 56, col 20 to line 56, col 29 of module L0_NativeOwner: 864
+  ||||||||||||line 57, col 7 to line 57, col 76 of module L0_NativeOwner: 288
+  ||||||||||||line 58, col 7 to line 58, col 64 of module L0_NativeOwner: 729
+  |||||||||line 68, col 23 to line 68, col 28 of module L0_NativeOwner: 6618
+  |||||||||line 68, col 32 to line 68, col 39 of module L0_NativeOwner: 2034
+  ||||||||line 67, col 19 to line 67, col 40 of module L0_NativeOwner: 6618
+  ||||||||line 69, col 10 to line 69, col 77 of module L0_NativeOwner: 6618
+  |||||line 153, col 26 to line 153, col 33 of module L0_NativeOwner: 16416
+  |||||line 153, col 35 to line 153, col 35 of module L0_NativeOwner: 10944
+  |||||line 153, col 37 to line 153, col 37 of module L0_NativeOwner: 16416
+  ||line 154, col 56 to line 154, col 65 of module L0_NativeOwner: 16416
+  |||line 154, col 58 to line 154, col 65 of module L0_NativeOwner: 16416
+  ||||line 154, col 58 to line 154, col 59 of module L0_NativeOwner: 16416
+  |||||line 153, col 13 to line 153, col 38 of module L0_NativeOwner: 16416
+  ||||||line 61, col 24 to line 69, col 77 of module L0_NativeOwner: 16416
+  |||||||line 61, col 27 to line 61, col 40 of module L0_NativeOwner: 16416
+  |||||||line 63, col 7 to line 69, col 77 of module L0_NativeOwner: 16416
+  ||||||||line 63, col 10 to line 63, col 15 of module L0_NativeOwner: 16416
+  ||||||||line 63, col 22 to line 64, col 45 of module L0_NativeOwner: 5472
+  |||||||||line 63, col 33 to line 63, col 83 of module L0_NativeOwner: 5472
+  ||||||||||line 63, col 36 to line 63, col 50 of module L0_NativeOwner: 5472
+  ||||||||||line 63, col 57 to line 63, col 76 of module L0_NativeOwner: 3040
+  ||||||||||line 63, col 83 to line 63, col 83 of module L0_NativeOwner: 2432
+  |||||||||line 64, col 24 to line 64, col 32 of module L0_NativeOwner: 5472
+  ||||||||line 65, col 7 to line 69, col 77 of module L0_NativeOwner: 10944
+  |||||||||line 65, col 10 to line 65, col 34 of module L0_NativeOwner: 10944
+  ||||||||||line 65, col 10 to line 65, col 19 of module L0_NativeOwner: 10944
+  ||||||||||line 65, col 24 to line 65, col 34 of module L0_NativeOwner: 10638
+  |||||||||line 66, col 7 to line 66, col 88 of module L0_NativeOwner: 4326
+  |||||||||line 68, col 14 to line 68, col 40 of module L0_NativeOwner: 6618
+  ||||||||||line 54, col 20 to line 58, col 64 of module L0_NativeOwner: 6618
+  |||||||||||line 54, col 23 to line 54, col 36 of module L0_NativeOwner: 6618
+  |||||||||||line 54, col 43 to line 54, col 73 of module L0_NativeOwner: 4584
+  |||||||||||line 55, col 7 to line 58, col 64 of module L0_NativeOwner: 2034
+  ||||||||||||line 55, col 10 to line 55, col 14 of module L0_NativeOwner: 2034
+  ||||||||||||line 55, col 21 to line 55, col 76 of module L0_NativeOwner: 1017
+  ||||||||||||line 56, col 7 to line 58, col 64 of module L0_NativeOwner: 1017
+  |||||||||||||line 56, col 10 to line 56, col 29 of module L0_NativeOwner: 1017
+  ||||||||||||||line 56, col 10 to line 56, col 15 of module L0_NativeOwner: 1017
+  ||||||||||||||line 56, col 20 to line 56, col 29 of module L0_NativeOwner: 864
+  |||||||||||||line 57, col 7 to line 57, col 76 of module L0_NativeOwner: 288
+  |||||||||||||line 58, col 7 to line 58, col 64 of module L0_NativeOwner: 729
+  ||||||||||line 68, col 23 to line 68, col 28 of module L0_NativeOwner: 6618
+  ||||||||||line 68, col 32 to line 68, col 39 of module L0_NativeOwner: 2034
+  |||||||||line 67, col 19 to line 67, col 40 of module L0_NativeOwner: 6618
+  |||||||||line 69, col 10 to line 69, col 77 of module L0_NativeOwner: 6618
+  ||||||line 153, col 26 to line 153, col 33 of module L0_NativeOwner: 16416
+  ||||||line 153, col 35 to line 153, col 35 of module L0_NativeOwner: 10944
+  ||||||line 153, col 37 to line 153, col 37 of module L0_NativeOwner: 16416
+  line 155, col 17 to line 155, col 17 of module L0_NativeOwner: 10944
+  line 155, col 19 to line 155, col 24 of module L0_NativeOwner: 16416
+  |line 155, col 19 to line 155, col 20 of module L0_NativeOwner: 16416
+  ||line 153, col 13 to line 153, col 38 of module L0_NativeOwner: 16416
+  |||line 61, col 24 to line 69, col 77 of module L0_NativeOwner: 16416
+  ||||line 61, col 27 to line 61, col 40 of module L0_NativeOwner: 16416
+  ||||line 63, col 7 to line 69, col 77 of module L0_NativeOwner: 16416
+  |||||line 63, col 10 to line 63, col 15 of module L0_NativeOwner: 16416
+  |||||line 63, col 22 to line 64, col 45 of module L0_NativeOwner: 5472
+  ||||||line 63, col 33 to line 63, col 83 of module L0_NativeOwner: 5472
+  |||||||line 63, col 36 to line 63, col 50 of module L0_NativeOwner: 5472
+  |||||||line 63, col 57 to line 63, col 76 of module L0_NativeOwner: 3040
+  |||||||line 63, col 83 to line 63, col 83 of module L0_NativeOwner: 2432
+  ||||||line 64, col 24 to line 64, col 32 of module L0_NativeOwner: 5472
+  |||||line 65, col 7 to line 69, col 77 of module L0_NativeOwner: 10944
+  ||||||line 65, col 10 to line 65, col 34 of module L0_NativeOwner: 10944
+  |||||||line 65, col 10 to line 65, col 19 of module L0_NativeOwner: 10944
+  |||||||line 65, col 24 to line 65, col 34 of module L0_NativeOwner: 10638
+  ||||||line 66, col 7 to line 66, col 88 of module L0_NativeOwner: 4326
+  ||||||line 68, col 14 to line 68, col 40 of module L0_NativeOwner: 6618
+  |||||||line 54, col 20 to line 58, col 64 of module L0_NativeOwner: 6618
+  ||||||||line 54, col 23 to line 54, col 36 of module L0_NativeOwner: 6618
+  ||||||||line 54, col 43 to line 54, col 73 of module L0_NativeOwner: 4584
+  ||||||||line 55, col 7 to line 58, col 64 of module L0_NativeOwner: 2034
+  |||||||||line 55, col 10 to line 55, col 14 of module L0_NativeOwner: 2034
+  |||||||||line 55, col 21 to line 55, col 76 of module L0_NativeOwner: 1017
+  |||||||||line 56, col 7 to line 58, col 64 of module L0_NativeOwner: 1017
+  ||||||||||line 56, col 10 to line 56, col 29 of module L0_NativeOwner: 1017
+  |||||||||||line 56, col 10 to line 56, col 15 of module L0_NativeOwner: 1017
+  |||||||||||line 56, col 20 to line 56, col 29 of module L0_NativeOwner: 864
+  ||||||||||line 57, col 7 to line 57, col 76 of module L0_NativeOwner: 288
+  ||||||||||line 58, col 7 to line 58, col 64 of module L0_NativeOwner: 729
+  |||||||line 68, col 23 to line 68, col 28 of module L0_NativeOwner: 6618
+  |||||||line 68, col 32 to line 68, col 39 of module L0_NativeOwner: 2034
+  ||||||line 67, col 19 to line 67, col 40 of module L0_NativeOwner: 6618
+  ||||||line 69, col 10 to line 69, col 77 of module L0_NativeOwner: 6618
+  |||line 153, col 26 to line 153, col 33 of module L0_NativeOwner: 16416
+  |||line 153, col 35 to line 153, col 35 of module L0_NativeOwner: 10944
+  |||line 153, col 37 to line 153, col 37 of module L0_NativeOwner: 16416
+  line 155, col 33 to line 155, col 33 of module L0_NativeOwner: 16416
+<ClientFatalSticky line 160, col 1 to line 160, col 17 of module L0_NativeOwner>: 860:860
+  line 160, col 25 to line 160, col 40 of module L0_NativeOwner: 3291
+  |line 160, col 25 to line 160, col 31 of module L0_NativeOwner: 2431
+  line 79, col 10 to line 79, col 25 of module L0_NativeOwner: 860
+  |line 79, col 10 to line 79, col 16 of module L0_NativeOwner: 2430
+  |line 79, col 18 to line 79, col 25 of module L0_NativeOwner: 2430
+  line 160, col 54 to line 160, col 74 of module L0_NativeOwner: 2328
+  |line 160, col 54 to line 160, col 67 of module L0_NativeOwner: 1468
+  line 84, col 2 to line 96, col 98 of module L0_NativeOwner: 860
+  |line 84, col 5 to line 96, col 98 of module L0_NativeOwner: 860
+  ||line 84, col 6 to line 84, col 6 of module L0_NativeOwner: 860
+  ||line 84, col 15 to line 84, col 31 of module L0_NativeOwner: 860
+  ||line 84, col 33 to line 84, col 39 of module L0_NativeOwner: 860
+  ||line 84, col 41 to line 84, col 77 of module L0_NativeOwner: 860
+  ||line 85, col 2 to line 85, col 36 of module L0_NativeOwner: 860
+  ||line 86, col 2 to line 86, col 85 of module L0_NativeOwner: 860
+  ||line 87, col 2 to line 87, col 91 of module L0_NativeOwner: 860
+  ||line 88, col 2 to line 88, col 73 of module L0_NativeOwner: 860
+  ||line 89, col 2 to line 89, col 94 of module L0_NativeOwner: 860
+  ||line 90, col 17 to line 90, col 117 of module L0_NativeOwner: 860
+  |||line 90, col 17 to line 90, col 30 of module L0_NativeOwner: 860
+  |||line 90, col 36 to line 90, col 116 of module L0_NativeOwner: 860
+  ||||line 90, col 36 to line 90, col 61 of module L0_NativeOwner: 860
+  ||||line 90, col 67 to line 90, col 115 of module L0_NativeOwner: 540
+  ||line 91, col 2 to line 91, col 86 of module L0_NativeOwner: 860
+  ||line 92, col 2 to line 92, col 100 of module L0_NativeOwner: 860
+  ||line 93, col 2 to line 93, col 83 of module L0_NativeOwner: 860
+  ||line 94, col 2 to line 95, col 112 of module L0_NativeOwner: 860
+  ||line 96, col 2 to line 96, col 97 of module L0_NativeOwner: 860
+  line 162, col 12 to line 162, col 66 of module L0_NativeOwner: 860
+  line 162, col 75 to line 162, col 80 of module L0_NativeOwner: 860
+<TypeOK line 175, col 1 to line 175, col 6 of module L0_NativeOwner>
+  line 175, col 11 to line 178, col 54 of module L0_NativeOwner: 2431
+<ConstructBeforePublish line 179, col 1 to line 179, col 22 of module L0_NativeOwner>
+  line 179, col 27 to line 180, col 49 of module L0_NativeOwner: 2431
+<ConstructorFailureUnpublished line 181, col 1 to line 181, col 29 of module L0_NativeOwner>
+  line 181, col 34 to line 181, col 108 of module L0_NativeOwner: 2431
+<OrderedOutputs line 182, col 1 to line 182, col 14 of module L0_NativeOwner>
+  line 182, col 19 to line 182, col 27 of module L0_NativeOwner: 2431
+<FixedDomainOutputs line 183, col 1 to line 183, col 18 of module L0_NativeOwner>
+  line 183, col 23 to line 183, col 32 of module L0_NativeOwner: 2431
+<NativeFaultSticky line 184, col 1 to line 184, col 17 of module L0_NativeOwner>
+  line 184, col 22 to line 184, col 37 of module L0_NativeOwner: 2431
+<ClientFaultSticky line 185, col 1 to line 185, col 17 of module L0_NativeOwner>
+  line 185, col 22 to line 185, col 37 of module L0_NativeOwner: 2431
+<CoreFaultSticky line 186, col 1 to line 186, col 15 of module L0_NativeOwner>
+  line 186, col 20 to line 186, col 33 of module L0_NativeOwner: 2431
+<NoReadAfterNativeFault line 187, col 1 to line 187, col 22 of module L0_NativeOwner>
+  line 187, col 27 to line 187, col 42 of module L0_NativeOwner: 2431
+<NoProviderAfterClientFault line 188, col 1 to line 188, col 26 of module L0_NativeOwner>
+  line 188, col 31 to line 188, col 48 of module L0_NativeOwner: 2431
+<NativeFailureKeepsLast line 189, col 1 to line 189, col 22 of module L0_NativeOwner>
+  line 189, col 27 to line 189, col 40 of module L0_NativeOwner: 2431
+<InstantUpdatedBeforeCore line 190, col 1 to line 190, col 24 of module L0_NativeOwner>
+  line 190, col 29 to line 190, col 44 of module L0_NativeOwner: 2431
+<TemporaryFailureNotFatal line 191, col 1 to line 191, col 24 of module L0_NativeOwner>
+  line 191, col 29 to line 191, col 41 of module L0_NativeOwner: 2431
+<NoOutputAfterFatal line 192, col 1 to line 192, col 18 of module L0_NativeOwner>
+  line 192, col 23 to line 192, col 113 of module L0_NativeOwner: 2431
+  |line 192, col 23 to line 192, col 37 of module L0_NativeOwner: 2431
+  |line 192, col 43 to line 192, col 112 of module L0_NativeOwner: 45
+End of statistics.
+17278 states generated, 2431 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 21 and the 95th percentile is 9).
+Finished in 01s at (2026-10-21 00:45:58)
+>>> elapsed: 2s (exit 0)

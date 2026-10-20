@@ -1,0 +1,39 @@
+{
+  "base_commit": "d792e8058a52151056155b68f01460442c9ddaef",
+  "source_tree": "82663225f002904e4e34c44e761ff560a4defb08",
+  "source_manifest": "workspace-sources.sha256",
+  "source_files": 241,
+  "checks": {
+    "macos": {
+      "tests_passed": 753,
+      "tests_failed": 0,
+      "test_helpers_ignored": 3,
+      "test_summary_blocks": 142,
+      "format": "pass",
+      "doctests": "pass",
+      "clippy": "pass",
+      "initial_command_exit": 0,
+      "log": "workspace-macos.log",
+      "log_sha256": "072d1d8badda321e038d7cd9812657338e0026a4def2edad5b894d3e4d58fd3d"
+    },
+    "linux": {
+      "tests_passed": 826,
+      "tests_failed": 0,
+      "test_helpers_ignored": 5,
+      "test_summary_blocks": 151,
+      "format": "pass",
+      "doctests": "pass",
+      "clippy": "pass in separate clean build directory",
+      "initial_command_exit": 101,
+      "log": "workspace-linux.log",
+      "log_sha256": "bf4aab73e9045233f9a43a78fd9a73329ed4fd3c07c7dd28bbb38a9f4e880cc4",
+      "clippy_retry": {
+        "exit": 0,
+        "target": "fresh container-local /tmp directory",
+        "log": "workspace-linux-clippy-clean.log",
+        "log_sha256": "3ab9319bb7bc127a21ee23b9cf2ea0514b955425413ba04a25903bff011352f8",
+        "reason": "Initial Clippy reported E0463 for mio and rustls after all tests completed; same frozen sources and pinned toolchain passed with clean build artifacts. Root cause was not established."
+      }
+    }
+  }
+}

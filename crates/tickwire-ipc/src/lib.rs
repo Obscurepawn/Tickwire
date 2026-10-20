@@ -142,7 +142,7 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
         }
     }
     let size = match h.message_type {
-        257..=263 | 769..=779 => 512,
+        257..=263 | 769..=781 => 512,
         513..=520 => 1024,
         _ => return Err(Error::UnknownMessage),
     };
@@ -275,6 +275,53 @@ fn validate_levels(raw: &[u8], bids: u32, asks: u32) -> Result<()> {
     Ok(())
 }
 
+/// Validate already encoded absolute depth updates without accessing a mapped bank.
+pub fn validate_depth_payload(raw: &[u8], bids: u32, asks: u32) -> Result<()> {
+    if bids.checked_add(asks).ok_or(Error::Bounds)? > 4096 {
+        return Err(Error::Bounds);
+    }
+    validate_levels(raw, bids, asks)
+}
+
+/// Validate exactly one immutable, retained block, never a slice over mutable neighbours.
+pub fn validate_arena_block(
+    record: &MarketRecord,
+    bytes: &[u8],
+    resource: &ResourceHeader,
+    class: &ArenaClass,
+) -> Result<()> {
+    let h = &record.header;
+    if bytes.len() != class.block_bytes as usize || bytes.len() < 128 {
+        return Err(Error::Bounds);
+    }
+    let block = ArenaBlockHeader::decode(&bytes[..128])?;
+    if block.resource_id != resource.resource_id
+        || block.ring_epoch != resource.ring_epoch
+        || block.allocation_seq != h.sequence
+        || h.allocation_seq != h.sequence
+        || block.payload_length != h.payload_length
+        || block.class_id != h.arena_class
+        || block.class_id != class.class_id
+    {
+        return Err(Error::Identity);
+    }
+    let payload = bounded(bytes, 128, u64::from(h.payload_length))?;
+    validate_depth_payload(payload, record.body.bid_count, record.body.ask_count)?;
+    zero(bounded(
+        bytes,
+        128 + u64::from(h.payload_length),
+        u64::from(class.block_bytes)
+            .checked_sub(128 + u64::from(h.payload_length))
+            .ok_or(Error::Bounds)?,
+    )?)?;
+    if block.payload_crc32c != h.payload_crc32c
+        || (h.flags & 8 != 0 && crc32c(payload) != h.payload_crc32c)
+    {
+        return Err(Error::Checksum);
+    }
+    Ok(())
+}
+
 /// Immutable arena bytes after the caller has observed publication and retained its borrow.
 pub fn validate_arena_payload(
     record: &MarketRecord,
@@ -331,31 +378,7 @@ pub fn validate_arena_payload(
         return Err(Error::Bounds);
     }
     let bytes = bounded(bank, offset, u64::from(class.block_bytes))?;
-    let block = ArenaBlockHeader::decode(&bytes[..128])?;
-    if block.resource_id != resource.resource_id
-        || block.ring_epoch != resource.ring_epoch
-        || block.allocation_seq != h.sequence
-        || h.allocation_seq != h.sequence
-        || block.payload_length != h.payload_length
-        || block.class_id != h.arena_class
-    {
-        return Err(Error::Identity);
-    }
-    let payload = bounded(bytes, 128, u64::from(h.payload_length))?;
-    validate_levels(payload, record.body.bid_count, record.body.ask_count)?;
-    zero(bounded(
-        bytes,
-        128 + u64::from(h.payload_length),
-        u64::from(class.block_bytes)
-            .checked_sub(128 + u64::from(h.payload_length))
-            .ok_or(Error::Bounds)?,
-    )?)?;
-    if block.payload_crc32c != h.payload_crc32c
-        || (h.flags & 8 != 0 && crc32c(payload) != h.payload_crc32c)
-    {
-        return Err(Error::Checksum);
-    }
-    Ok(())
+    validate_arena_block(record, bytes, resource, class)
 }
 
 #[derive(Debug, Clone)]

@@ -1,0 +1,11 @@
+[package]
+name = "tickwire-clock-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Audited native clock boundary; callers keep their unsafe-code prohibition.
+[dependencies]
+libc = "0.2"
+tickwire-clock = { path = "../tickwire-clock" }

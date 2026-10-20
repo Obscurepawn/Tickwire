@@ -248,12 +248,18 @@ impl Admission {
 /// never the clock at which recovery happens. This enum is data, not an authorization proof.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecoveryRecord {
+    Reactivated(Box<Reactivation>),
     Admit {
         command: Box<v::CanonicalCommand>,
         evaluated_at: u64,
         expected: AdmissionImage,
     },
     VenueEvent(Box<v::CanonicalEvent>),
+    IngressEvent {
+        input_stream: [u8; 16],
+        input_sequence: u64,
+        event: Box<v::CanonicalEvent>,
+    },
     Aborted {
         intent: IntentKey,
         command_digest: v::Hash,
@@ -286,4 +292,28 @@ pub enum RecoveryRecord {
         to: u64,
         quantity: Fixed,
     },
+}
+
+/// Persisted account-reconciliation decision. Its external evidence is verified
+/// before publication and again before historical replay.
+#[derive(Debug,Clone,PartialEq,Eq)]
+pub struct Reactivation {
+    pub scope:Scope,
+    pub product:v::Product,
+    pub account_epoch:u64,
+    pub ledger_sequence:u64,
+    pub baseline_digest:v::Hash,
+    pub history_digest:v::Hash,
+    pub input_stream:[u8;16],
+    pub private_connection_epoch:u64,
+    pub gap_generation:u64,
+    pub through_sequence:u64,
+    pub query_coverage_digest:v::Hash,
+    pub clock_boot_id:[u8;16],
+    pub clock_generation:u64,
+    pub evaluated_at:u64,
+    pub valid_until:u64,
+    pub writer_epoch:u64,
+    pub execution_connection_epoch:u64,
+    pub venue_available:Vec<(u64,Fixed)>,
 }

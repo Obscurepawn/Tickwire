@@ -1,0 +1,22 @@
+{
+  "source_and_log_sha256": {
+    "scripts/tlc_coverage.py": "1c90b8016d34b6da056fac84811d88a03a1950ffff4e006b8973b66799d0b821",
+    "scripts/test_tlc_coverage.py": "8049222342b4cb0d9de1f50da454546168631d6dd379b020ee646305f847b3e2",
+    "scripts/check-tla.sh": "711426398e0a2034e91c8f8fe295c4c542b27e738b5f4c3df54c3c6d8bff0df2",
+    "docs/validation/tlc-coverage/conditional-green.log": "e8475dd9122ccf965822797fb2a24ca12d34d4531ccfb1833432a3f185d1a65d",
+    "docs/validation/tlc-coverage/conditional-red.log": "e5c41ad4793c4671ff8d39f2c3f507a92bcb3c71521b5d8bb582230ff9fb410e"
+  },
+  "red": {
+    "parser_errors": 2,
+    "fixture_expectation_failure": 1,
+    "reason": "The earlier parser incorrectly required the same reported action set in every product configuration; one separate tiny-model expectation also overstated TLC branch reporting."
+  },
+  "green": {
+    "tests": 20,
+    "failed": 0,
+    "skipped": 0,
+    "includes": "17 parser cases with four actual gateway and four actual private-session logs; three real tiny TLC runner cases."
+  },
+  "scope": "Aggregate the union of entries actually reported by TLC, preserve action source positions, and require independent successful completion for every configuration. Does not infer unreported static branches.",
+  "review": "market_core independently reviewed updated parser and runner changes; 17 parser cases independently passed."
+}

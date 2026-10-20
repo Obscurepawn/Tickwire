@@ -1,0 +1,25 @@
+   Compiling rcgen v0.14.10
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.26s
+     Running tests/rebuild.rs (target/debug/deps/rebuild-b3de0ad1eb2c8da2)
+
+running 1 test
+test a_late_gap_rebuilds_on_the_same_healthy_subscription ... FAILED
+
+failures:
+
+---- a_late_gap_rebuilds_on_the_same_healthy_subscription stdout ----
+
+thread 'a_late_gap_rebuilds_on_the_same_healthy_subscription' (6373659) panicked at crates/tickwire-binance-public/tests/rebuild.rs:38:5:
+assertion `left == right` failed: [GapNotice { connection_epoch: 1, book_generation: 2, reason: Timeout }]
+  left: Disconnected
+ right: Live
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_late_gap_rebuilds_on_the_same_healthy_subscription
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.01s
+
+error: test failed, to rerun pass `-p tickwire-binance-public --test rebuild`

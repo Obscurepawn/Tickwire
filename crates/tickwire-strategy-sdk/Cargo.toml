@@ -1,0 +1,38 @@
+[package]
+name = "tickwire-strategy-sdk"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[dependencies]
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-join = { path = "../tickwire-join" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-shm-sys = { path = "../tickwire-shm-sys" }
+tickwire-snapshot = { path = "../tickwire-snapshot" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-venue = { path = "../tickwire-venue" }
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+sha2 = "=0.10.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-clock-sys = { path = "../tickwire-clock-sys" }
+libc = "0.2"
+tickwire-runtime = { path = "../tickwire-runtime", optional = true }
+tickwire-account = { path = "../tickwire-account", optional = true }
+tickwire-account-gateway = { path = "../tickwire-account-gateway", optional = true }
+tickwire-binance-account = { path = "../tickwire-binance-account", optional = true }
+tickwire-binance-clock = { path = "../tickwire-binance-clock", optional = true }
+tickwire-binance-public = { path = "../tickwire-binance-public", optional = true }
+
+[features]
+default = ["runtime"]
+runtime = ["dep:tickwire-runtime","dep:tickwire-account","dep:tickwire-account-gateway","dep:tickwire-binance-account","dep:tickwire-binance-clock","dep:tickwire-binance-public"]

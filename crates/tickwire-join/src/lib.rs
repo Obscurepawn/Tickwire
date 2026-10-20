@@ -185,6 +185,10 @@ fn cursor_header(bank: &ResourceHeader, sub: SubscriptionKey) -> Result<Resource
     h.producer_page_offset = 0;
     h.cursor_page_offset = 4096;
     h.max_consumers = 1;
+    h.arena_offset = 0;
+    h.arena_bytes = 0;
+    h.arena_class_count = 0;
+    h.class_descriptors = Default::default();
     h.descriptor_hash = [0; 32];
     h.descriptor_hash = Sha256::digest(encode(&h)?).into();
     Ok(h)
@@ -227,6 +231,14 @@ impl<const M: usize> JoinOwner<M> {
     }
     pub fn publish(&mut self, records: &[&[u8]]) -> Result<u64> {
         Ok(self.publisher.publish(records)?)
+    }
+    pub fn publish_market(&mut self, messages: &[tickwire_shm::MarketMessage<'_>]) -> Result<u64> {
+        Ok(self.publisher.publish_market(messages)?)
+    }
+    /// Freeze at the current complete prefix while retaining every reader gate.
+    pub fn freeze_for_successor(&mut self, ring_epoch: u64) -> Result<tickwire_shm::Freeze> {
+        self.publisher.prepare_freeze(ring_epoch, self.publisher.published())?;
+        Ok(self.publisher.freeze()?)
     }
     pub fn registry(&self) -> &TopicRegistry {
         &self.registry

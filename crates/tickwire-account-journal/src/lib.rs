@@ -68,6 +68,8 @@ pub enum VerificationError {
     Unavailable,
 }
 pub trait RecoveryVerifier {
+    fn verify_reactivation(&mut self,_baseline:&CanonicalBaseline,_record:&CanonicalRecord,_preceding:&HistoryFrontier,_prior:&[CanonicalRecord])->std::result::Result<(),VerificationError>{Err(VerificationError::Invalid)}
+
     fn verify_admission(
         &mut self,
         baseline: &CanonicalBaseline,
@@ -110,8 +112,10 @@ pub struct AccountJournal<S: Backend> {
     writer_epoch: u64,
     records: Vec<CanonicalRecord>,
     admissions: BTreeMap<IntentKey, (usize, AppendReceipt)>,
+    ingress: BTreeMap<([u8; 16], u64), (usize, AppendReceipt)>,
     poisoned: bool,
     recovered: bool,
+    recovery_writer_floor: Option<u64>,
     history: HistoryFrontier,
 }
 pub struct Recovered<S: Backend> {
@@ -142,8 +146,10 @@ impl<S: Backend> AccountJournal<S> {
             baseline,
             records: Vec::new(),
             admissions: BTreeMap::new(),
+            ingress: BTreeMap::new(),
             poisoned: false,
             recovered: false,
+            recovery_writer_floor: None,
             history,
         })
     }
@@ -179,6 +185,7 @@ impl<S: Backend> AccountJournal<S> {
         }
         let mut records = Vec::with_capacity(recovery.records.len());
         let mut admissions = BTreeMap::new();
+        let mut ingress = BTreeMap::new();
         let mut previous_epoch = expected.initial_writer_epoch;
         for raw in &recovery.records {
             identity::epoch(raw.exec_epoch)?;
@@ -204,16 +211,27 @@ impl<S: Backend> AccountJournal<S> {
                 let receipt = receipt(&record, recovery.frontier.as_ref().ok_or(Error::Sequence)?);
                 admissions.insert(key, (records.len(), receipt));
             }
+            if let Some(key) = ingress_key(record.record()) {
+                if ingress.contains_key(&key) {
+                    return Err(Error::Conflict);
+                }
+                let receipt = receipt(&record, recovery.frontier.as_ref().ok_or(Error::Sequence)?);
+                ingress.insert(key, (records.len(), receipt));
+            }
             records.push(record);
         }
         // Nothing is returned until all structural checks, historical closures and
         // deterministic reducer replay have succeeded.
         let mut history = HistoryFrontier::empty(&expected)?;
-        for (record, physical_record) in records.iter().zip(&recovery.records) {
+        for (index,(record, physical_record)) in records.iter().zip(&recovery.records).enumerate() {
             if admission_key(record.record()).is_some() {
                 verifier
                     .verify_admission(&baseline, record, &history)
                     .map_err(Error::Verification)?;
+            }
+            if let RecoveryRecord::Reactivated(binding)=record.record() {
+                if binding.history_digest!=history.digest(){return Err(Error::Identity);}
+                verifier.verify_reactivation(&baseline,record,&history,&records[..index]).map_err(Error::Verification)?;
             }
             history = history.advance(physical_record.exec_epoch, record);
         }
@@ -223,6 +241,7 @@ impl<S: Backend> AccountJournal<S> {
             baseline.catalog().clone(),
             &inputs,
         )?;
+        let recovery_writer_floor=recovery.records.last().map_or(expected.initial_writer_epoch,|r|r.exec_epoch);
         Ok(Recovered {
             journal: Self {
                 physical,
@@ -231,8 +250,10 @@ impl<S: Backend> AccountJournal<S> {
                 writer_epoch: new_writer_epoch,
                 records,
                 admissions,
+                ingress,
                 poisoned: false,
                 recovered: true,
+                recovery_writer_floor: Some(recovery_writer_floor),
                 history,
             },
             account,
@@ -243,12 +264,26 @@ impl<S: Backend> AccountJournal<S> {
         if self.poisoned {
             return Err(Error::Poisoned);
         }
+        if let RecoveryRecord::Reactivated(binding)=&record {
+            if binding.history_digest!=self.history.digest(){return Err(Error::Identity);}
+            if self.recovery_writer_floor.is_some_and(|floor|binding.writer_epoch<=floor){return Err(Error::Epoch);}
+        }
         let key = admission_key(&record);
         if key.is_some() && self.recovered {
             return Err(Error::Recovered);
         }
         if let Some(key) = key
             && let Some((index, receipt)) = self.admissions.get(&key)
+        {
+            if self.records[*index].record() == &record {
+                return Ok(receipt.clone());
+            }
+            self.poisoned = true;
+            return Err(Error::Conflict);
+        }
+        let input = ingress_key(&record);
+        if let Some(key) = input
+            && let Some((index, receipt)) = self.ingress.get(&key)
         {
             if self.records[*index].record() == &record {
                 return Ok(receipt.clone());
@@ -279,9 +314,27 @@ impl<S: Backend> AccountJournal<S> {
             self.admissions
                 .insert(key, (self.records.len(), receipt.clone()));
         }
+        if let Some(key) = input {
+            self.ingress
+                .insert(key, (self.records.len(), receipt.clone()));
+        }
+        if matches!(encoded.record(),RecoveryRecord::Reactivated(_)){self.recovered=false;self.recovery_writer_floor=None;}
         self.records.push(encoded);
         self.history = next_history;
         Ok(receipt)
+    }
+    pub fn append_reactivation(&mut self,binding:tickwire_account::Reactivation)->Result<AppendReceipt>{
+        if binding.writer_epoch<self.writer_epoch || self.recovery_writer_floor.is_some_and(|floor|binding.writer_epoch<=floor) {return Err(Error::Epoch);}
+        identity::epoch(binding.writer_epoch)?;
+        let record=RecoveryRecord::Reactivated(Box::new(binding.clone()));
+        identity::record(&self.config,&self.baseline,binding.writer_epoch,&record)?;
+        CanonicalRecord::new(self.config.baseline_digest,self.position()+1,record)?;
+        if binding.history_digest!=self.history.digest(){return Err(Error::Identity);}
+        let old_writer=self.writer_epoch;
+        self.writer_epoch=binding.writer_epoch;
+        let result=self.append(RecoveryRecord::Reactivated(Box::new(binding)));
+        if result.is_err()&&!self.poisoned{self.writer_epoch=old_writer;}
+        result
     }
     pub fn position(&self) -> u64 {
         self.records.len() as u64
@@ -298,6 +351,28 @@ impl<S: Backend> AccountJournal<S> {
     pub fn records(&self) -> &[CanonicalRecord] {
         &self.records
     }
+    /// Exact durable input identity; lookup never invokes the account reducer.
+    pub fn ingress_event(
+        &self,
+        stream: [u8; 16],
+        sequence: u64,
+    ) -> Option<&tickwire_venue::CanonicalEvent> {
+        let (index, _) = self.ingress.get(&(stream, sequence))?;
+        match self.records[*index].record() {
+            RecoveryRecord::IngressEvent { event, .. } => Some(event),
+            _ => unreachable!("ingress index contains only ingress records"),
+        }
+    }
+    pub fn ingress_events(
+        &self,
+    ) -> impl Iterator<Item = ([u8; 16], u64, &tickwire_venue::CanonicalEvent)> {
+        self.ingress.iter().map(|((stream, sequence), (index, _))| {
+            let RecoveryRecord::IngressEvent { event, .. } = self.records[*index].record() else {
+                unreachable!("ingress index")
+            };
+            (*stream, *sequence, event.as_ref())
+        })
+    }
     pub fn baseline(&self) -> &CanonicalBaseline {
         &self.baseline
     }
@@ -306,6 +381,16 @@ impl<S: Backend> AccountJournal<S> {
     }
     pub fn history_frontier(&self) -> &HistoryFrontier {
         &self.history
+    }
+}
+fn ingress_key(record: &RecoveryRecord) -> Option<([u8; 16], u64)> {
+    match record {
+        RecoveryRecord::IngressEvent {
+            input_stream,
+            input_sequence,
+            ..
+        } => Some((*input_stream, *input_sequence)),
+        _ => None,
     }
 }
 fn admission_key(record: &RecoveryRecord) -> Option<IntentKey> {

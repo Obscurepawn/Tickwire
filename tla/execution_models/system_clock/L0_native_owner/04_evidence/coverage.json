@@ -1,0 +1,29 @@
+{
+  "model": "L0_NativeOwner",
+  "runs": 4,
+  "entries": 21,
+  "generated": {
+    "Init line 74, col 1 to line 74, col 4 of module L0_NativeOwner": 4,
+    "NewSuccess line 105, col 1 to line 105, col 10 of module L0_NativeOwner": 25,
+    "NewFailure line 107, col 1 to line 107, col 10 of module L0_NativeOwner": 6,
+    "MoveToClient line 113, col 1 to line 113, col 12 of module L0_NativeOwner": 1938,
+    "DirectEqual line 123, col 1 to line 123, col 11 of module L0_NativeOwner": 132,
+    "DirectAdvance line 124, col 1 to line 124, col 13 of module L0_NativeOwner": 612,
+    "DirectInstantRollback line 127, col 1 to line 127, col 21 of module L0_NativeOwner": 432,
+    "DirectNativeRollback line 129, col 1 to line 129, col 20 of module L0_NativeOwner": 684,
+    "DirectReadFailure line 131, col 1 to line 131, col 17 of module L0_NativeOwner": 396,
+    "DirectSticky line 132, col 1 to line 132, col 12 of module L0_NativeOwner": 607,
+    "ClientNativeSuccess line 145, col 1 to line 145, col 19 of module L0_NativeOwner": 9804,
+    "ClientNativeRollback line 147, col 1 to line 147, col 20 of module L0_NativeOwner": 24186,
+    "ClientNativeFailure line 149, col 1 to line 149, col 19 of module L0_NativeOwner": 6822,
+    "ClientNativeSticky line 150, col 1 to line 150, col 18 of module L0_NativeOwner": 1214,
+    "ClientFatalSticky line 167, col 1 to line 167, col 17 of module L0_NativeOwner": 10034,
+    "NewGeneric line 115, col 1 to line 115, col 10 of module L0_NativeOwner": 1,
+    "GenericSuccess line 159, col 1 to line 159, col 14 of module L0_NativeOwner": 5472,
+    "GenericWrongDomain line 161, col 1 to line 161, col 18 of module L0_NativeOwner": 5472,
+    "GenericPermanent line 163, col 1 to line 163, col 16 of module L0_NativeOwner": 3040,
+    "GenericTemporary line 165, col 1 to line 165, col 16 of module L0_NativeOwner": 2432,
+    "NewUnsupported line 109, col 1 to line 109, col 14 of module L0_NativeOwner": 1
+  },
+  "model_sha256": "f1d8faeb257415b5bdac4f9a121e3e8e1cfd7777f8d4df0e418449bc84658a87"
+}

@@ -1,0 +1,9 @@
+# Binance 配额适配
+
+`tickwire-binance-quota` 将时间查询、私有控制、公共行情和完整交易命令映射到同一 `ExecLimiter`。费用表精确匹配 Source 与动作，包含完整桶列表、费用类别和网络报告权重；未配置或报告不符即拒绝。
+
+每个 Endpoint 固定 policy generation、有效期和 supervisor 分配的 producer ID。完整尝试身份最多4096条，不淘汰；私有请求还绑定账户、凭据代次、连接代次和内容摘要。精确重试重新检查原授权期限，冲突冻结。公共429/418反馈冻结整个共享消费者。`consumer()` 只提供 supervisor 发放和续租需要的只读引用。
+
+交易命令费用在首次接受字节的当前门禁内消费。命令摘要、原意图代次和通道均参与去重。拒绝、零字节或不确定发送不退还已消费额度。
+
+后续控制面负责端点费用配置、共同时间域映射、授权窗口轮换和权威反馈传播；模块没有内置交易所限额。接口见 [Binance 请求额度适配器](../../docs/implementation/binance-quota-interface.md)。

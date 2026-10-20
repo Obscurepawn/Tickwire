@@ -1,0 +1,38 @@
+command: ["/Users/bytedance/.cargo/bin/cargo", "test", "-p", "tickwire-binance-session", "--test", "integration", "mono_expiry_during", "--", "--nocapture"]
+   Compiling ring v0.17.14
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+   Compiling rcgen v0.14.10
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+   Compiling tickwire-binance-clock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-clock)
+   Compiling tickwire-binance-session v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-session)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.59s
+     Running tests/integration.rs (target/debug/deps/integration-3e933e101db8071a)
+
+running 2 tests
+
+thread 'mono_expiry_during_first_budget_check_rejects_before_acceptance' (6322956) panicked at crates/tickwire-binance-session/tests/integration.rs:452:5:
+assertion `left == right` failed
+  left: 2
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+budget call 2: mono=2s, request deadline=1s, calibration expiry=10s, peer decrypted bytes=219, outcome=MayHaveApplied
+test mono_expiry_during_first_budget_check_rejects_before_acceptance ... FAILED
+
+thread 'mono_expiry_during_second_budget_check_rejects_before_acceptance' (6322957) panicked at crates/tickwire-binance-session/tests/integration.rs:473:5:
+assertion `left == right` failed
+  left: MayHaveApplied
+ right: NoBytes
+test mono_expiry_during_second_budget_check_rejects_before_acceptance ... FAILED
+
+failures:
+
+failures:
+    mono_expiry_during_first_budget_check_rejects_before_acceptance
+    mono_expiry_during_second_budget_check_rejects_before_acceptance
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.02s
+
+error: test failed, to rerun pass `-p tickwire-binance-session --test integration`

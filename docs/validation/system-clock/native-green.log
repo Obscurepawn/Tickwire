@@ -1,0 +1,56 @@
+   Compiling tickwire-clock-sys v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-clock-sys)
+   Compiling tickwire-binance-clock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-clock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.81s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_binance_clock-28fcb6c68f660dbb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/https.rs (target/debug/deps/https-02e4584851339815)
+
+running 15 tests
+test a_monotonic_network_deadline_overflow_revokes_clock_use ... ok
+test connection_permission_is_required_and_exhausted_epochs_are_never_reused ... ok
+test a_trusted_ca_cannot_substitute_a_certificate_for_a_different_host ... ok
+test network_owner_marks_instant_rollback_as_a_permanent_clock_fault ... ok
+test an_oversized_declared_http_body_is_rejected_before_reading_its_payload ... ok
+test clock_owner_rechecks_fresh_time_before_sending_an_old_signed_stamp ... ok
+test a_failed_second_sample_keeps_the_first_calibrations_original_expiry ... ok
+test a_reply_before_complete_application_acceptance_cannot_calibrate ... ok
+test cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket ... ok
+test non_success_status_preserves_rate_limit_metadata_without_calibration ... ok
+test sample_begins_after_request_permit_and_ends_after_complete_response ... ok
+test a_zero_accept_attempt_rechecks_the_current_query_permission ... ok
+test fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget ... ok
+test each_product_and_environment_uses_its_authenticated_host_and_empty_time_get ... ok
+test duplicate_wrong_typed_zero_and_truncated_time_responses_are_rejected ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/system_clock.rs (target/debug/deps/system_clock-e5f2227977243c51)
+
+running 1 test
+test native_provider_implements_the_production_network_clock_contract ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/tickwire_clock_sys-9854f81fc9193ea7)
+
+running 5 tests
+test tests::instant_rollback_is_permanent_even_when_native_time_advances ... ok
+test tests::invalid_timespec_fields_are_never_cast_to_unsigned ... ok
+test tests::native_error_cannot_be_cleared_by_a_later_success ... ok
+test tests::same_tick_is_valid_but_monotonic_rollback_is_permanent ... ok
+test tests::timespec_keeps_nanoseconds_and_checks_maximum_exactly ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/native.rs (target/debug/deps/native-fd35ef50eeb49b91)
+
+running 2 tests
+test actual_native_clock_keeps_its_domain_and_monotonic_order ... ok
+test actual_native_clock_advances_while_the_thread_is_parked ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,42 @@
+//! Durable private-event input and order identity registration.
+#![forbid(unsafe_code)]
+use tickwire_account::IntentKey;
+use tickwire_account_codec::CanonicalBaseline;
+use tickwire_journal::{PhysicalFrontier, store::Store};
+use tickwire_venue::CanonicalCommand;
+
+#[derive(Clone)]
+pub struct Config {
+    pub physical: tickwire_journal::Config,
+    pub writer_epoch: u64,
+    pub baseline: CanonicalBaseline,
+    pub max_records: usize,
+    pub max_registrations: usize,
+    pub max_raw_bytes: usize,
+    pub max_retained_bytes: usize,
+}
+#[derive(Debug)]
+pub enum Error {
+    Unimplemented,
+}
+pub type Result<T> = std::result::Result<T, Error>;
+pub struct AccountIngress<S: Store> {
+    _store: std::marker::PhantomData<S>,
+}
+impl<S: Store> AccountIngress<S> {
+    pub fn create(_: S, _: Config) -> Result<Self> {
+        Err(Error::Unimplemented)
+    }
+    pub fn recover(_: S, _: Config, _: Option<&PhysicalFrontier>) -> Result<Self> {
+        Err(Error::Unimplemented)
+    }
+    pub fn register_command(&mut self, _: CanonicalCommand, _: &[[u8; 16]]) -> Result<()> {
+        Err(Error::Unimplemented)
+    }
+    pub fn registered(&self, _: IntentKey) -> Option<&CanonicalCommand> {
+        None
+    }
+    pub fn position(&self) -> u64 {
+        0
+    }
+}

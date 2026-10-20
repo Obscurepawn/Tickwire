@@ -5,6 +5,60 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Read-only access to a trusted writer's private object directory. This reader
+/// neither locks the writer nor synchronizes files nor creates recovery authority.
+pub struct FileBlobReader {
+    root: PathBuf,
+    owner: u32,
+}
+impl FileBlobReader {
+    pub fn open(root: impl AsRef<Path>, owner: u32) -> Result<Self> {
+        let root = root.as_ref();
+        Self::directory(root, owner)?;
+        Ok(Self { root: fs::canonicalize(root)?, owner })
+    }
+    fn directory(root: &Path, owner: u32) -> Result<()> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let m=fs::symlink_metadata(root)?;
+            if !m.file_type().is_dir() || m.uid()!=owner || m.mode()&0o027!=0 {
+                return Err(Error::Invalid("read-only object directory owner/permissions"));
+            }
+            Ok(())
+        }
+        #[cfg(not(unix))]
+        { let _=(root,owner); Err(Error::Invalid("unsupported object directory platform")) }
+    }
+    pub fn get_object(&self, digest: Hash, limit: usize) -> Result<Vec<u8>> {
+        if digest==[0;32] || limit==0 || limit>MAX_OBJECT_BYTES {return Err(Error::Capacity);}
+        Self::directory(&self.root,self.owner)?;
+        let hex:String=digest.iter().map(|b|format!("{b:02x}")).collect();
+        let mut options=OpenOptions::new();
+        options.read(true);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            options.custom_flags(libc::O_NOFOLLOW|libc::O_CLOEXEC|libc::O_NONBLOCK);
+        }
+        let file=options.open(self.root.join(format!("object-{hex}")))?;
+        let meta=file.metadata()?;
+        if !meta.file_type().is_file() || meta.len()>limit as u64 {return Err(Error::Capacity);}
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if meta.uid()!=self.owner || meta.mode()&0o027!=0 {
+                return Err(Error::Invalid("read-only object file owner/permissions"));
+            }
+        }
+        let mut bytes=Vec::new();
+        file.take(limit as u64+1).read_to_end(&mut bytes)?;
+        if bytes.len()>limit {return Err(Error::Capacity);}
+        if <[u8;32]>::from(Sha256::digest(&bytes))!=digest {return Err(Error::Conflict);}
+        Ok(bytes)
+    }
+}
+
 /// Exclusive, trusted private directory; no deletion API is exposed.
 pub struct FileBlobStore {
     root: PathBuf,

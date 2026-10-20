@@ -229,6 +229,8 @@ impl Account {
     pub fn freeze(&mut self) {
         self.frozen = true;
     }
+    pub fn order_keys(&self) -> impl Iterator<Item=&OrderKey> { self.orders.keys() }
+    pub fn account_epoch(&self) -> u64 { self.epoch }
     pub fn ledger_sequence(&self) -> u64 {
         self.sequence
     }
@@ -252,6 +254,10 @@ impl Account {
                 confirmed: o.confirmed,
             })
         })
+    }
+    pub fn position_entry_bound(&self,instrument:u64,side:v::PositionSide)->Result<Option<Fixed>> {
+        self.catalog.get(&instrument).ok_or(Error::Catalog)?;
+        Ok(self.positions.get(&(instrument,side_code(side))).map(|p|p.entry))
     }
     pub fn position(
         &self,

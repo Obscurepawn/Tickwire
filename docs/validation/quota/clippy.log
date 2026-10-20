@@ -1,0 +1,8 @@
+command: ["/Users/bytedance/.cargo/bin/cargo", "clippy", "-p", "tickwire-quota", "--all-targets", "--", "-D", "warnings"]
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on build directory
+    Checking tickwire-quota v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-quota)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.66s
+
+exit: 0

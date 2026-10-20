@@ -1,0 +1,476 @@
+[
+  {
+    "name": "MAX_plus_one",
+    "expression": "Add(<<615,551,709,73,744,446,18,0,0,0>>,One)",
+    "expected_decimal": "18446744073709551616",
+    "expected_digits": "<<616,551,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "MAX_round_trip",
+    "expression": "Sub(<<616,551,709,73,744,446,18,0,0,0>>,One)",
+    "expected_decimal": "18446744073709551615",
+    "expected_digits": "<<615,551,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "borrow_across_second",
+    "expression": "Sub(Second,One)",
+    "expected_decimal": "999999999",
+    "expected_digits": "<<999,999,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "carry_across_nine_limbs",
+    "expression": "Add(<<999,999,999,999,999,999,999,999,999,0>>,One)",
+    "expected_decimal": "1000000000000000000000000000",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,1>>"
+  },
+  {
+    "name": "half_odd_MAX",
+    "expression": "Half(<<615,551,709,73,744,446,18,0,0,0>>)",
+    "expected_decimal": "9223372036854775807",
+    "expected_digits": "<<807,775,854,36,372,223,9,0,0,0>>"
+  },
+  {
+    "name": "midpoint_near_MAX",
+    "expression": "Mid(<<598,551,709,73,744,446,18,0,0,0>>,<<615,551,709,73,744,446,18,0,0,0>>)",
+    "expected_decimal": "18446744073709551606",
+    "expected_digits": "<<606,551,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "up_0_0",
+    "expression": "Up(<<0,0,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_0_0",
+    "expression": "Down(<<0,0,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_0_1",
+    "expression": "Up(<<0,0,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_0_1",
+    "expression": "Down(<<0,0,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_0_1000000",
+    "expression": "Up(<<0,0,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_0_1000000",
+    "expression": "Down(<<0,0,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1_0",
+    "expression": "Up(<<1,0,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1",
+    "expected_digits": "<<1,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1_0",
+    "expression": "Down(<<1,0,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1",
+    "expected_digits": "<<1,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1_1",
+    "expression": "Up(<<1,0,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "2",
+    "expected_digits": "<<2,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1_1",
+    "expression": "Down(<<1,0,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1_1000000",
+    "expression": "Up(<<1,0,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "2",
+    "expected_digits": "<<2,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1_1000000",
+    "expression": "Down(<<1,0,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_999_0",
+    "expression": "Up(<<999,0,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "999",
+    "expected_digits": "<<999,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_999_0",
+    "expression": "Down(<<999,0,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "999",
+    "expected_digits": "<<999,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_999_1",
+    "expression": "Up(<<999,0,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000",
+    "expected_digits": "<<0,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_999_1",
+    "expression": "Down(<<999,0,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "998",
+    "expected_digits": "<<998,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_999_1000000",
+    "expression": "Up(<<999,0,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "1000",
+    "expected_digits": "<<0,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_999_1000000",
+    "expression": "Down(<<999,0,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "998",
+    "expected_digits": "<<998,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000_0",
+    "expression": "Up(<<0,1,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1000",
+    "expected_digits": "<<0,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000_0",
+    "expression": "Down(<<0,1,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1000",
+    "expected_digits": "<<0,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000_1",
+    "expression": "Up(<<0,1,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1001",
+    "expected_digits": "<<1,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000_1",
+    "expression": "Down(<<0,1,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "999",
+    "expected_digits": "<<999,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000_1000000",
+    "expression": "Up(<<0,1,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "1001",
+    "expected_digits": "<<1,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000_1000000",
+    "expression": "Down(<<0,1,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "999",
+    "expected_digits": "<<999,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1001_0",
+    "expression": "Up(<<1,1,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1001",
+    "expected_digits": "<<1,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1001_0",
+    "expression": "Down(<<1,1,0,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1001",
+    "expected_digits": "<<1,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1001_1",
+    "expression": "Up(<<1,1,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1002",
+    "expected_digits": "<<2,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1001_1",
+    "expression": "Down(<<1,1,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000",
+    "expected_digits": "<<0,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1001_1000000",
+    "expression": "Up(<<1,1,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "1003",
+    "expected_digits": "<<3,1,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1001_1000000",
+    "expression": "Down(<<1,1,0,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "999",
+    "expected_digits": "<<999,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_999999999_0",
+    "expression": "Up(<<999,999,999,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "999999999",
+    "expected_digits": "<<999,999,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_999999999_0",
+    "expression": "Down(<<999,999,999,0,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "999999999",
+    "expected_digits": "<<999,999,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_999999999_1",
+    "expression": "Up(<<999,999,999,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000000000",
+    "expected_digits": "<<0,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_999999999_1",
+    "expression": "Down(<<999,999,999,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "999999998",
+    "expected_digits": "<<998,999,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_999999999_1000000",
+    "expression": "Up(<<999,999,999,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "1000999999",
+    "expected_digits": "<<999,999,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_999999999_1000000",
+    "expression": "Down(<<999,999,999,0,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "998999999",
+    "expected_digits": "<<999,999,998,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000000000_0",
+    "expression": "Up(<<0,0,0,1,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1000000000",
+    "expected_digits": "<<0,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000000000_0",
+    "expression": "Down(<<0,0,0,1,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1000000000",
+    "expected_digits": "<<0,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000000000_1",
+    "expression": "Up(<<0,0,0,1,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000000001",
+    "expected_digits": "<<1,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000000000_1",
+    "expression": "Down(<<0,0,0,1,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "999999999",
+    "expected_digits": "<<999,999,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000000000_1000000",
+    "expression": "Up(<<0,0,0,1,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "1001000000",
+    "expected_digits": "<<0,0,1,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000000000_1000000",
+    "expression": "Down(<<0,0,0,1,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "999000000",
+    "expected_digits": "<<0,0,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000000001_0",
+    "expression": "Up(<<1,0,0,1,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1000000001",
+    "expected_digits": "<<1,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000000001_0",
+    "expression": "Down(<<1,0,0,1,0,0,0,0,0,0>>,0)",
+    "expected_decimal": "1000000001",
+    "expected_digits": "<<1,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000000001_1",
+    "expression": "Up(<<1,0,0,1,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000000003",
+    "expected_digits": "<<3,0,0,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000000001_1",
+    "expression": "Down(<<1,0,0,1,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "999999999",
+    "expected_digits": "<<999,999,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_1000000001_1000000",
+    "expression": "Up(<<1,0,0,1,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "1001000002",
+    "expected_digits": "<<2,0,1,1,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "down_1000000001_1000000",
+    "expression": "Down(<<1,0,0,1,0,0,0,0,0,0>>,1000000)",
+    "expected_decimal": "999000000",
+    "expected_digits": "<<0,0,999,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "up_18446744073709551615_0",
+    "expression": "Up(<<615,551,709,73,744,446,18,0,0,0>>,0)",
+    "expected_decimal": "18446744073709551615",
+    "expected_digits": "<<615,551,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "down_18446744073709551615_0",
+    "expression": "Down(<<615,551,709,73,744,446,18,0,0,0>>,0)",
+    "expected_decimal": "18446744073709551615",
+    "expected_digits": "<<615,551,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "up_18446744073709551615_1",
+    "expression": "Up(<<615,551,709,73,744,446,18,0,0,0>>,1)",
+    "expected_decimal": "18446744092156295689",
+    "expected_digits": "<<689,295,156,92,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "down_18446744073709551615_1",
+    "expression": "Down(<<615,551,709,73,744,446,18,0,0,0>>,1)",
+    "expected_decimal": "18446744055262807541",
+    "expected_digits": "<<541,807,262,55,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "up_18446744073709551615_1000000",
+    "expression": "Up(<<615,551,709,73,744,446,18,0,0,0>>,1000000)",
+    "expected_decimal": "18465190817783261167",
+    "expected_digits": "<<167,261,783,817,190,465,18,0,0,0>>"
+  },
+  {
+    "name": "down_18446744073709551615_1000000",
+    "expression": "Down(<<615,551,709,73,744,446,18,0,0,0>>,1000000)",
+    "expected_decimal": "18428297329635842063",
+    "expected_digits": "<<63,842,635,329,297,428,18,0,0,0>>"
+  },
+  {
+    "name": "quantized_999999_1",
+    "expression": "Quantized(<<999,999,0,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "999000",
+    "expected_digits": "<<0,999,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "quantized_999999_2",
+    "expression": "Quantized(<<999,999,0,0,0,0,0,0,0,0>>,2)",
+    "expected_decimal": "0",
+    "expected_digits": "<<0,0,0,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "quantized_1000000_1",
+    "expression": "Quantized(<<0,0,1,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000000",
+    "expected_digits": "<<0,0,1,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "quantized_1000000_2",
+    "expression": "Quantized(<<0,0,1,0,0,0,0,0,0,0>>,2)",
+    "expected_decimal": "1000000",
+    "expected_digits": "<<0,0,1,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "quantized_1000001_1",
+    "expression": "Quantized(<<1,0,1,0,0,0,0,0,0,0>>,1)",
+    "expected_decimal": "1000000",
+    "expected_digits": "<<0,0,1,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "quantized_1000001_2",
+    "expression": "Quantized(<<1,0,1,0,0,0,0,0,0,0>>,2)",
+    "expected_decimal": "1000000",
+    "expected_digits": "<<0,0,1,0,0,0,0,0,0,0>>"
+  },
+  {
+    "name": "quantized_18446744073709551615_1",
+    "expression": "Quantized(<<615,551,709,73,744,446,18,0,0,0>>,1)",
+    "expected_decimal": "18446744073709551000",
+    "expected_digits": "<<0,551,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "quantized_18446744073709551615_2",
+    "expression": "Quantized(<<615,551,709,73,744,446,18,0,0,0>>,2)",
+    "expected_decimal": "18446744073709000000",
+    "expected_digits": "<<0,0,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "ms_product_18446744073709",
+    "expression": "Shift(<<709,73,744,446,18,0,0,0,0,0>>,2)",
+    "expected_decimal": "18446744073709000000",
+    "expected_digits": "<<0,0,709,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "ms_product_18446744073710",
+    "expression": "Shift(<<710,73,744,446,18,0,0,0,0,0>>,2)",
+    "expected_decimal": "18446744073710000000",
+    "expected_digits": "<<0,0,710,73,744,446,18,0,0,0>>"
+  },
+  {
+    "name": "truth_0_-1",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,0,-1)",
+    "expected_decimal": "18446744073709551615000000000",
+    "expected_digits": "<<0,0,0,615,551,709,73,744,446,18>>"
+  },
+  {
+    "name": "truth_0_0",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,0,0)",
+    "expected_decimal": "18446744073709551615000000000",
+    "expected_digits": "<<0,0,0,615,551,709,73,744,446,18>>"
+  },
+  {
+    "name": "truth_0_1",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,0,1)",
+    "expected_decimal": "18446744073709551615000000000",
+    "expected_digits": "<<0,0,0,615,551,709,73,744,446,18>>"
+  },
+  {
+    "name": "truth_1_-1",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,1,-1)",
+    "expected_decimal": "18446744055262807541290448385",
+    "expected_digits": "<<385,448,290,541,807,262,55,744,446,18>>"
+  },
+  {
+    "name": "truth_1_0",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,1,0)",
+    "expected_decimal": "18446744073709551615000000000",
+    "expected_digits": "<<0,0,0,615,551,709,73,744,446,18>>"
+  },
+  {
+    "name": "truth_1_1",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,1,1)",
+    "expected_decimal": "18446744092156295688709551615",
+    "expected_digits": "<<615,551,709,688,295,156,92,744,446,18>>"
+  },
+  {
+    "name": "truth_1000000_-1",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,1000000,-1)",
+    "expected_decimal": "18428297329635842063385000000",
+    "expected_digits": "<<0,0,385,63,842,635,329,297,428,18>>"
+  },
+  {
+    "name": "truth_1000000_0",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,1000000,0)",
+    "expected_decimal": "18446744073709551615000000000",
+    "expected_digits": "<<0,0,0,615,551,709,73,744,446,18>>"
+  },
+  {
+    "name": "truth_1000000_1",
+    "expression": "AdvanceTruth(<<615,551,709,73,744,446,18,0,0,0>>,1000000,1)",
+    "expected_decimal": "18465190817783261166615000000",
+    "expected_digits": "<<0,0,615,166,261,783,817,190,465,18>>"
+  }
+]

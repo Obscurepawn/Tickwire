@@ -1,0 +1,62 @@
+    Checking tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+error: called `map(f)` on an `Option` value where `f` is a closure that returns the unit type `()`
+   --> crates/tickwire-binance-private/src/client.rs:947:13
+    |
+947 |             self.stream.as_mut().map(|s| s.needs_input = false);
+    |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#option_map_unit_fn
+    = note: `-D clippy::option-map-unit-fn` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::option_map_unit_fn)]`
+help: use `if let` instead
+    |
+947 -             self.stream.as_mut().map(|s| s.needs_input = false);
+947 +             if let Some(s) = self.stream.as_mut() { ... }
+    |
+
+error: this `if` statement can be collapsed
+   --> crates/tickwire-binance-private/src/request.rs:107:5
+    |
+107 | /     if let Authentication::SpotLogon { signing_key, .. } = auth {
+108 | |         if !Endpoint::SpotSessionLogon.permits(signing_key.algorithm()) {
+109 | |             return Err(Error::Unsupported);
+110 | |         }
+111 | |     }
+    | |_____^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#collapsible_if
+    = note: `-D clippy::collapsible-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+    |
+107 ~     if let Authentication::SpotLogon { signing_key, .. } = auth
+108 ~         && !Endpoint::SpotSessionLogon.permits(signing_key.algorithm()) {
+109 |             return Err(Error::Unsupported);
+110 ~         }
+    |
+
+error: large size difference between variants
+   --> crates/tickwire-binance-private/src/session.rs:176:1
+    |
+176 | / pub enum Delivery<'a> {
+177 | |     State(SessionStatus),
+    | |     -------------------- the second-largest variant contains at least 96 bytes
+178 | |     Gap(GapNotice),
+179 | |     Event(PrivateEvent<'a>),
+    | |     ----------------------- the largest variant contains at least 304 bytes
+180 | |     Control(ControlOutcome),
+181 | | }
+    | |_^ the entire enum is at least 304 bytes
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#large_enum_variant
+    = note: `-D clippy::large-enum-variant` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::large_enum_variant)]`
+help: consider boxing the large fields or introducing indirection in some other way to reduce the total size of the enum
+    |
+179 -     Event(PrivateEvent<'a>),
+179 +     Event(Box<PrivateEvent<'a>>),
+    |
+
+error: could not compile `tickwire-binance-private` (lib test) due to 3 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `tickwire-binance-private` (lib) due to 3 previous errors

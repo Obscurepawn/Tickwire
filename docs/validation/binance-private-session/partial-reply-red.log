@@ -1,0 +1,24 @@
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.72s
+     Running tests/usdm_lifecycle.rs (target/debug/deps/usdm_lifecycle-f32814930a1adebb)
+
+running 1 test
+test premature_delete_response_preserves_partial_acceptance_and_remote_ownership ... FAILED
+
+failures:
+
+---- premature_delete_response_preserves_partial_acceptance_and_remote_ownership stdout ----
+
+thread 'premature_delete_response_preserves_partial_acceptance_and_remote_ownership' (6076611) panicked at crates/tickwire-binance-private/tests/usdm_lifecycle.rs:63:5:
+assertion `left == right` failed
+  left: None
+ right: Some(MayHaveApplied)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    premature_delete_response_preserves_partial_acceptance_and_remote_ownership
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.03s
+
+error: test failed, to rerun pass `-p tickwire-binance-private --test usdm_lifecycle`

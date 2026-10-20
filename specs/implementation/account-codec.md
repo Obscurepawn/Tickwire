@@ -43,6 +43,10 @@
 | 6 | ExternalPosition | 来源 ID、标的、持仓侧、数量、入场价界 |
 | 7 | TransferAsset | 钱包/资产、原策略、目标策略、金额 |
 | 8 | TransferPosition | 标的、持仓侧、原策略、目标策略、数量 |
+| 9 | IngressEvent | 16字节输入流、非零输入序号、完整规范交易所事件 |
+| 10 | Reactivated | 完整对账绑定及按 wallet 排序的远端可用余额 |
+
+tag9 的 body 为四元素 CBOR 数组 `[9, input_stream, input_sequence, event_bytes]`，全零 stream 和零 sequence 拒绝。schema 仍为1；原1至8标签、字段顺序及字节保持不变。旧解码器遇到未知tag9返回错误，不能把它当作普通 VenueEvent 丢掉输入身份。兼容回归实际运行已提交版本 `d792e8058a52151056155b68f01460442c9ddaef` 的旧编码器，保存全部8类完整字节，再与当前编码逐字节比较。
 
 `AdmissionImage` 保存命令摘要、原意图键、账户代次、预留产生时的账本序号、全部风险修订、期限、逐资产资源、资本占用、子订单键和增险标识。编码器核对命令关联和基本字段条件；恢复时还必须重新计算预留并精确比较整个 image。该 image 不具备 `Admission` 的授权能力。
 
@@ -66,3 +70,5 @@
 - 真实文件对象/WAL 的 Spot 与 USD-M 重放，检查资产、预留、资本影子额度和未决状态。
 
 执行命令与实际输出见[编码验证](../../docs/validation/account-codec/README.md)。
+
+`Reactivated` 使用 `[10, binding]`，binding 为18成员定长数组，字段顺序对应 `Reactivation`：账户范围、产品、账户代次、激活前账本序号、基线摘要、前置历史摘要、输入流、私有连接代次、缺口代次、已处理输入前缀、快照覆盖摘要、时钟boot ID、时钟代次、核验时间、有效期、writer代次、发送连接代次、远端可用余额。余额按 wallet 严格递增，数量有界且非负；应用时还要求完整匹配原账户的钱包与精度。旧标签的字段和编码不变；旧解码器会拒绝未知tag10。

@@ -1,0 +1,33 @@
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.94s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_binance_private-1e6de429cebc4bd7)
+
+running 2 tests
+test client::counter_boundaries::exhausted_gap_cannot_leave_receiving_status ... FAILED
+test client::counter_boundaries::exhausted_backoff_cannot_leave_receiving_status ... FAILED
+
+failures:
+
+---- client::counter_boundaries::exhausted_gap_cannot_leave_receiving_status stdout ----
+
+thread 'client::counter_boundaries::exhausted_gap_cannot_leave_receiving_status' (6155911) panicked at crates/tickwire-binance-private/src/client.rs:1463:9:
+assertion `left == right` failed
+  left: Receiving
+ right: Exhausted
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- client::counter_boundaries::exhausted_backoff_cannot_leave_receiving_status stdout ----
+
+thread 'client::counter_boundaries::exhausted_backoff_cannot_leave_receiving_status' (6155910) panicked at crates/tickwire-binance-private/src/client.rs:1472:9:
+assertion `left == right` failed
+  left: Receiving
+ right: Exhausted
+
+
+failures:
+    client::counter_boundaries::exhausted_backoff_cannot_leave_receiving_status
+    client::counter_boundaries::exhausted_gap_cannot_leave_receiving_status
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-binance-private --lib`

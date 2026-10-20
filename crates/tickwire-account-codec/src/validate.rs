@@ -58,6 +58,17 @@ pub(crate) fn baseline(s: &mut Snapshot, c: &mut Catalog) -> Result<(), Error> {
 }
 pub(crate) fn record(r: &RecoveryRecord) -> Result<(), Error> {
     match r {
+        RecoveryRecord::Reactivated(b)=>{
+            if b.venue_available.len()>MAX_ASSETS||b.venue_available.windows(2).any(|p|p[0].0>=p[1].0)||b.venue_available.iter().any(|(wallet,amount)|*wallet==0||amount.atoms()<0){return Err(Error::Field);}
+
+            if b.scope.risk_domain_id==[0;16]||b.scope.venue==0||b.scope.account==0||b.account_epoch==0||b.baseline_digest==[0;32]||b.history_digest==[0;32]||b.query_coverage_digest==[0;32]||b.input_stream==[0;16]||b.private_connection_epoch==0||b.gap_generation==0||b.through_sequence==0||b.clock_boot_id==[0;16]||b.clock_generation==0||b.evaluated_at>=b.valid_until||b.writer_epoch==0||b.execution_connection_epoch==0{return Err(Error::Field);}
+        }
+
+        RecoveryRecord::IngressEvent {
+            input_stream,
+            input_sequence,
+            ..
+        } if *input_stream == [0; 16] || *input_sequence == 0 => return Err(Error::Field),
         RecoveryRecord::Admit {
             command,
             evaluated_at,

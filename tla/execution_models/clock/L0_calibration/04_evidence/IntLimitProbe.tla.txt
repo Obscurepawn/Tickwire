@@ -1,0 +1,7 @@
+---- MODULE IntLimitProbe ----
+EXTENDS Integers
+VARIABLE x
+Init == x = 2147483647 + 1
+Next == UNCHANGED x
+Spec == Init /\ [][Next]_x
+====

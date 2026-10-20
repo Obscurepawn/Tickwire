@@ -1,0 +1,31 @@
+{
+  "source_sha256": {
+    "crates/tickwire-clock/Cargo.toml": "da4232067e4ff3931a4ea4bed8db86b35de800fb7322d288f845334c8a5507f2",
+    "crates/tickwire-clock/src/lib.rs": "14cb9c43701fec8ea9339a5009b497bc0e629a9bae8aa3d8f22caa8a5cd0ffb2",
+    "crates/tickwire-clock/tests/calibration.rs": "e2a9b1b266acb78d5a68f8ffb68ff45ee818b8006ba701858f88d9f03788ca40",
+    "crates/tickwire-binance-clock/Cargo.toml": "4f558814310f40655cc5964cfc36ea9d2c712c1bd8c8e1fb24dfc1045bee9995",
+    "crates/tickwire-binance-clock/src/client.rs": "646a9ae21ebcf2238df6721d3b603ac95a6463d10ff0595f02ac8ca62064a77f",
+    "crates/tickwire-binance-clock/src/lib.rs": "997d22cb15b738e6628991f6c5e69d6803ba5370a52ae8d52734bc67df971a12",
+    "crates/tickwire-binance-clock/tests/https.rs": "dcc9c1e7d2ba57864f88e20192767f7405081656536a6f84f8e67d8f8668d8f8"
+  },
+  "base_commit": "cadf5101706f1e226cabc8dd07fa8ba17c6f6cde",
+  "native": {
+    "core_tests": 25,
+    "network_tests": 15,
+    "clippy": "pass"
+  },
+  "linux": {
+    "core_tests": 25,
+    "network_tests": 15,
+    "doctests": "pass",
+    "clippy": "not run in this focused check"
+  },
+  "logs_sha256": {
+    "core-final-green.log": "a74dff4354f7e3e9646c09bbb2c73c31064df5bb995fe4e0f6aa83b90e552939",
+    "core-final-clippy.log": "553b131626ea2a4a0893a67d3a36a0b27cf59a49ea19c92d5cfdf5d4ed690533",
+    "network-expanded-green.log": "f196766403b40c08630eca0c5a3040a7cb81d4fbab9137d9681edb52f263c150",
+    "network-expanded-clippy.log": "2dc2c016d50c2cc44fe48b9bdd4266f3953f7dca688a1495cecac6202933f297",
+    "linux-focused.log": "a29f26d864790f025b6d13871b7fd2939fe7a7d9f9cfa9b7bd01cb7278079baa"
+  },
+  "scope": "Calibration core and HTTPS time client; excludes private session adapter and platform monotonic clock."
+}

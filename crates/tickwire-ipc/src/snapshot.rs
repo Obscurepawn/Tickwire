@@ -49,7 +49,7 @@ pub fn validate_resource_shape(
             let width = match (kind, s.snapshot_kind) {
                 (5, 1) => 16,
                 (5, 5) | (6, 2) => 512,
-                (5, 6) => 64,
+                (5, 6 | 7) => 64,
                 (7, 3) => 256,
                 (8, 4) => 128,
                 _ => return Err(Error::Malformed),
@@ -98,7 +98,7 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
     {
         return Err(Error::UnsupportedArchitecture);
     }
-    if r.required_features & !63 != 0 || r.optional_features & !63 != 0 {
+    if r.required_features & !511 != 0 || r.optional_features & !511 != 0 {
         return Err(Error::UnsupportedFeature);
     }
     check(
@@ -174,6 +174,9 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
         hash_eq(member, &e.snapshot_hash)?;
         let h = SnapshotHeader::decode(&member[..256])?;
         validate_snapshot_header(&h)?;
+        if (h.snapshot_kind == 7) != (r.required_features & 64 != 0) {
+            return Err(Error::UnsupportedFeature);
+        }
         check(
             h.snapshot_id == e.snapshot_id
                 && h.object_bytes == e.snapshot_bytes
@@ -212,18 +215,23 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
                 validate_state_records(payload, &h)?;
                 256 + length
             }
-            6 => {
-                check(h.entry_count == 2 && h.entry_bytes == 64)?;
+            6 | 7 => {
+                let exact = h.snapshot_kind == 7;
+                check(h.entry_count == if exact { 3 } else { 2 } && h.entry_bytes == 64)?;
                 let state = SnapshotSection::decode(&payload[..64])?;
-                let depth = SnapshotSection::decode(&payload[64..])?;
+                let depth = SnapshotSection::decode(&payload[64..128])?;
+                let coverage = if exact { Some(SnapshotSection::decode(&payload[128..192])?) } else { None };
+                if let Some(c) = &coverage {
+                    check(c.section_kind == 3 && c.entry_bytes == 32 && c.entry_count == 1)?;
+                }
                 check(
                     state.section_kind == 1
                         && depth.section_kind == 2
                         && state.entry_bytes == 512
                         && depth.entry_bytes == 16,
                 )?;
-                let mut offset = cursor + 384;
-                for section in [&state, &depth] {
+                let mut offset = cursor + 256 + length;
+                for section in [&state, &depth].into_iter().chain(coverage.as_ref()) {
                     check(
                         section.offset == offset
                             && section.length
@@ -237,8 +245,19 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
                     hash_eq(part, &section.entries_hash)?;
                     if section.section_kind == 1 {
                         validate_state_records(part, &h)?;
-                    } else {
+                    } else if section.section_kind == 2 {
                         validate_levels(part, h.bid_count, h.ask_count)?;
+                        if exact {
+                            for bytes in part.chunks_exact(16) {
+                                let level = DepthLevel::decode(bytes)?;
+                                check(level.price_ticks > 0 && level.qty_lots > 0)?;
+                            }
+                        }
+                    } else {
+                        check(section.section_kind == 3 && section.entry_bytes == 32 && section.entry_count == 1)?;
+                        let c = DepthCoverage::decode(part)?;
+                        validate_depth_coverage(&c)?;
+                        check(h.coverage_flags == if c.bid_kind == 1 && c.ask_kind == 1 { 0 } else { 3 })?;
                     }
                     offset = offset.checked_add(section.length).ok_or(Error::Bounds)?;
                 }
@@ -270,7 +289,7 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
 fn validate_snapshot_header(s: &SnapshotHeader) -> Result<()> {
     schema(s.schema_major, s.schema_minor)?;
     check(
-        s.magic == *b"TWSNP001" && (1..=6).contains(&s.snapshot_kind) && s.coverage_flags & !3 == 0,
+        s.magic == *b"TWSNP001" && (1..=7).contains(&s.snapshot_kind) && s.coverage_flags & !3 == 0,
     )?;
     seq(s.sequence)?;
     Ok(())
@@ -298,8 +317,20 @@ fn validate_state_records(raw: &[u8], snapshot: &SnapshotHeader) -> Result<()> {
         prior = h.message_type;
         feed |= h.message_type == 261;
     }
-    if snapshot.snapshot_kind == 6 && !feed {
+    if matches!(snapshot.snapshot_kind, 6 | 7) && !feed {
         return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+pub fn validate_depth_coverage(c: &DepthCoverage) -> Result<()> {
+    if c.version != 1 { return Err(Error::UnsupportedFeature); }
+    for (kind, boundary) in [(c.bid_kind, c.bid_boundary_ticks), (c.ask_kind, c.ask_boundary_ticks)] {
+        match kind {
+            0 | 1 if boundary == 0 => {}
+            2 if boundary > 0 => {}
+            _ => return Err(Error::Malformed),
+        }
     }
     Ok(())
 }

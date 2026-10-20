@@ -1,0 +1,15 @@
+>>> TLC module=L0_Calibration cfg=L0_Calibration_boundary.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/tmp/tickwire-clock-final/boundary
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 22 and seed 3354750079836839517 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /private/tmp/tickwire-clock-final/boundary/L0_Calibration.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+
+Fatal errors while parsing TLA+ spec in file L0_Calibration
+
+java.lang.NullPointerException
+Starting... (2026-10-21 00:30:19)
+Error: Parsing or semantic analysis failed. Module-Table lookup failure for module name L0_Calibration derived from L0_Calibration file name.
+Finished in 00s at (2026-10-21 00:30:19)
+>>> elapsed: 1s (exit 150)

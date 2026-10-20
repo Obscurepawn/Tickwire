@@ -1,0 +1,82 @@
+   Compiling tickwire-binance-clock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-clock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.60s
+     Running tests/https.rs (target/debug/deps/https-118d5c75f96aced9)
+
+running 9 tests
+test connection_permission_is_required_and_exhausted_epochs_are_never_reused ... FAILED
+test a_reply_before_complete_application_acceptance_cannot_calibrate ... FAILED
+test cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket ... FAILED
+test clock_owner_rechecks_fresh_time_before_sending_an_old_signed_stamp ... FAILED
+test fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget ... FAILED
+test each_product_and_environment_uses_its_authenticated_host_and_empty_time_get ... FAILED
+test non_success_status_preserves_rate_limit_metadata_without_calibration ... FAILED
+test sample_begins_after_request_permit_and_ends_after_complete_response ... FAILED
+test duplicate_wrong_typed_zero_and_truncated_time_responses_are_rejected ... FAILED
+
+failures:
+
+---- connection_permission_is_required_and_exhausted_epochs_are_never_reused stdout ----
+
+thread 'connection_permission_is_required_and_exhausted_epochs_are_never_reused' (6132952) panicked at crates/tickwire-binance-clock/tests/https.rs:365:5:
+assertion `left == right` failed
+  left: Err(Unsupported)
+ right: Err(Denied)
+
+---- a_reply_before_complete_application_acceptance_cannot_calibrate stdout ----
+
+thread 'a_reply_before_complete_application_acceptance_cannot_calibrate' (6132949) panicked at crates/tickwire-binance-clock/tests/https.rs:308:30:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket stdout ----
+
+thread 'cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket' (6132950) panicked at crates/tickwire-binance-clock/tests/https.rs:323:5:
+assertion `left == right` failed
+  left: Err(Unsupported)
+ right: Ok(1)
+
+---- clock_owner_rechecks_fresh_time_before_sending_an_old_signed_stamp stdout ----
+
+thread 'clock_owner_rechecks_fresh_time_before_sending_an_old_signed_stamp' (6132951) panicked at crates/tickwire-binance-clock/tests/https.rs:342:30:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget stdout ----
+
+thread 'fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget' (6132955) panicked at crates/tickwire-binance-clock/tests/https.rs:233:30:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- each_product_and_environment_uses_its_authenticated_host_and_empty_time_get stdout ----
+
+thread 'each_product_and_environment_uses_its_authenticated_host_and_empty_time_get' (6132954) panicked at crates/tickwire-binance-clock/tests/https.rs:168:33:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- non_success_status_preserves_rate_limit_metadata_without_calibration stdout ----
+
+thread 'non_success_status_preserves_rate_limit_metadata_without_calibration' (6132956) panicked at crates/tickwire-binance-clock/tests/https.rs:286:30:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- sample_begins_after_request_permit_and_ends_after_complete_response stdout ----
+
+thread 'sample_begins_after_request_permit_and_ends_after_complete_response' (6132957) panicked at crates/tickwire-binance-clock/tests/https.rs:204:31:
+called `Result::unwrap()` on an `Err` value: Unsupported
+
+---- duplicate_wrong_typed_zero_and_truncated_time_responses_are_rejected stdout ----
+
+thread 'duplicate_wrong_typed_zero_and_truncated_time_responses_are_rejected' (6132953) panicked at crates/tickwire-binance-clock/tests/https.rs:270:34:
+called `Result::unwrap()` on an `Err` value: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_reply_before_complete_application_acceptance_cannot_calibrate
+    cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket
+    clock_owner_rechecks_fresh_time_before_sending_an_old_signed_stamp
+    connection_permission_is_required_and_exhausted_epochs_are_never_reused
+    duplicate_wrong_typed_zero_and_truncated_time_responses_are_rejected
+    each_product_and_environment_uses_its_authenticated_host_and_empty_time_get
+    fragmented_complete_response_is_kept_when_peer_closes_with_tiny_io_budget
+    non_success_status_preserves_rate_limit_metadata_without_calibration
+    sample_begins_after_request_permit_and_ends_after_complete_response
+
+test result: FAILED. 0 passed; 9 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-binance-clock --test https`

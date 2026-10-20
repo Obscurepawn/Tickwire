@@ -1,0 +1,11 @@
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s
+     Running tests/failures.rs (target/debug/deps/failures-df65b55e539abd9e)
+
+running 4 tests
+test signature_expiring_inside_permission_callback_has_no_application_bytes ... ok
+test listen_key_is_redacted_from_delivered_event_debug ... ok
+test one_message_budget_eventually_delivers_buffered_events_without_more_network_input ... ok
+test duplicate_subscription_identity_fields_fail_closed ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s

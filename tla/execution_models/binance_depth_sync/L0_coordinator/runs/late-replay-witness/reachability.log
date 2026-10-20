@@ -1,0 +1,184 @@
+>>> TLC module=L0_LateReplayProbe cfg=L0_LateReplayProbe.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/binance_depth_sync/L0_coordinator/runs/late-replay-witness
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 97 and seed -9066866077529557801 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/binance_depth_sync/L0_coordinator/runs/late-replay-witness/L0_LateReplayProbe.tla
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/binance_depth_sync/L0_coordinator/runs/late-replay-witness/L0_DepthSync.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_DepthSync
+Semantic processing of module L0_LateReplayProbe
+Starting... (2026-10-20 21:41:42)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 21:41:42.
+Error: Invariant WitnessNotReached is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ outcome = "Init"
+/\ s = [ lastConn |-> 0,
+  gen |-> 0,
+  req |-> 0,
+  clock |-> -1,
+  buf |-> <<>>,
+  first |-> -1,
+  conn |-> 0,
+  phase |-> "Disconnected",
+  pending |-> None,
+  sub |-> FALSE,
+  book |->
+      [gen |-> 0, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 2: <Connect line 83, col 2 to line 86, col 86 of module L0_DepthSync>
+/\ outcome = "Connect"
+/\ s = [ lastConn |-> 1,
+  gen |-> 1,
+  req |-> 0,
+  clock |-> -1,
+  buf |-> <<>>,
+  first |-> -1,
+  conn |-> 1,
+  phase |-> "Buffering",
+  pending |-> None,
+  sub |-> FALSE,
+  book |->
+      [gen |-> 1, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 3: <Subscribe line 90, col 14 to line 91, col 55 of module L0_DepthSync>
+/\ outcome = "Subscribe"
+/\ s = [ lastConn |-> 1,
+  gen |-> 1,
+  req |-> 0,
+  clock |-> -1,
+  buf |-> <<>>,
+  first |-> -1,
+  conn |-> 1,
+  phase |-> "Buffering",
+  pending |-> None,
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 4: <DeltaBuffer line 126, col 16 to line 132, col 86 of module L0_DepthSync>
+/\ outcome = "Buffered"
+/\ s = [ lastConn |-> 1,
+  gen |-> 1,
+  req |-> 0,
+  clock |-> 0,
+  buf |->
+      << [ gen |-> 1,
+           stamp |-> 0,
+           first |-> 0,
+           last |-> 1,
+           previous |-> 0,
+           qty |-> 1,
+           valid |-> TRUE ] >>,
+  first |-> 0,
+  conn |-> 1,
+  phase |-> "Buffering",
+  pending |-> None,
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 5: <Request line 101, col 2 to line 108, col 63 of module L0_DepthSync>
+/\ outcome = "Request"
+/\ s = [ lastConn |-> 1,
+  gen |-> 1,
+  req |-> 1,
+  clock |-> 0,
+  buf |->
+      << [ gen |-> 1,
+           stamp |-> 0,
+           first |-> 0,
+           last |-> 1,
+           previous |-> 0,
+           qty |-> 1,
+           valid |-> TRUE ] >>,
+  first |-> 0,
+  conn |-> 1,
+  phase |-> "Buffering",
+  pending |-> [token |-> [gen |-> 1, req |-> 1, conn |-> 1], deadline |-> 1],
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {[gen |-> 1, req |-> 1, conn |-> 1]}
+
+State 6: <DeltaBuffer line 126, col 16 to line 132, col 86 of module L0_DepthSync>
+/\ outcome = "Buffered"
+/\ s = [ lastConn |-> 1,
+  gen |-> 1,
+  req |-> 1,
+  clock |-> 0,
+  buf |->
+      << [ gen |-> 1,
+           stamp |-> 0,
+           first |-> 0,
+           last |-> 1,
+           previous |-> 0,
+           qty |-> 1,
+           valid |-> TRUE ],
+         [ gen |-> 1,
+           stamp |-> 0,
+           first |-> 2,
+           last |-> 2,
+           previous |-> 0,
+           qty |-> 1,
+           valid |-> FALSE ] >>,
+  first |-> 0,
+  conn |-> 1,
+  phase |-> "Buffering",
+  pending |-> [token |-> [gen |-> 1, req |-> 1, conn |-> 1], deadline |-> 1],
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {[gen |-> 1, req |-> 1, conn |-> 1]}
+
+State 7: <SnapshotValid line 178, col 18 to line 178, col 76 of module L0_DepthSync>
+/\ outcome = "LateReplayFailure"
+/\ s = [ lastConn |-> 1,
+  gen |-> 2,
+  req |-> 1,
+  clock |-> 0,
+  buf |-> <<>>,
+  first |-> -1,
+  conn |-> 1,
+  phase |-> "Buffering",
+  pending |-> None,
+  sub |-> TRUE,
+  book |->
+      [gen |-> 2, stamp |-> -1, qty |-> 0, id |-> -1, phase |-> "Awaiting"],
+  origin |-> None ]
+/\ viewNow = -1
+/\ issued = {[gen |-> 1, req |-> 1, conn |-> 1]}
+
+12801 states generated, 146 distinct states found, 68 states left on queue.
+The depth of the complete state graph search is 7.
+The average outdegree of the complete state graph is 2 (minimum is 0, the maximum 18 and the 95th percentile is 7).
+Finished in 00s at (2026-10-20 21:41:42)
+>>> elapsed: 2s (exit 12)

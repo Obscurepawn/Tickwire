@@ -1,0 +1,39 @@
+   Compiling tickwire-clock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-clock)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.42s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_clock-345f9b7055a634f6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/calibration.rs (target/debug/deps/calibration-56016247ec11679a)
+
+running 25 tests
+test a_bad_latency_sample_does_not_extend_the_old_expiry ... ok
+test a_new_calibration_rechecks_the_exact_old_timestamp ... ok
+test a_new_sample_after_expiry_does_not_assume_old_clock_continuity ... ok
+test a_rejected_wide_sample_keeps_an_existing_narrow_calibration ... ok
+test a_server_time_jump_revokes_the_old_calibration_and_stamp ... ok
+test asymmetric_round_trip_keeps_the_whole_uncertainty_interval ... ok
+test backward_local_time_faults_the_clock_until_a_new_domain_is_created ... ok
+test drift_rounds_each_bound_outward_instead_of_rounding_to_nearest ... ok
+test epoch_and_interval_arithmetic_overflow_fault_instead_of_wrapping ... ok
+test error_grows_with_age_and_reading_stops_at_the_width_limit ... ok
+test expiry_is_exclusive_and_a_send_budget_must_fit_before_it ... ok
+test extrapolation_overflow_revokes_a_still_young_calibration ... ok
+test no_timestamp_exists_before_calibration_and_only_one_sample_is_pending ... ok
+test old_replies_are_rejected_before_examining_their_clock_or_payload ... ok
+test recv_window_equality_is_allowed_but_one_microsecond_less_is_not ... ok
+test recv_window_precision_matches_each_product ... ok
+test sample_serial_exhaustion_cannot_reuse_a_token ... ok
+test signature_precision_is_explicit_and_usdm_rejects_microseconds ... ok
+test send_budget_overflow_revokes_calibration ... ok
+test stamps_from_another_environment_or_domain_do_not_touch_current_time ... ok
+test the_one_second_future_boundary_is_strict ... ok
+test transmission_budget_uses_the_server_rate_upper_bound ... ok
+test wrong_clock_domain_faults_a_live_clock ... ok
+test wrong_source_tokens_cannot_close_a_current_sample ... ok
+test zero_limits_and_unbounded_rate_error_are_invalid_configuration ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

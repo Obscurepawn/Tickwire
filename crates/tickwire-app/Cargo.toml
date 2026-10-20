@@ -1,0 +1,45 @@
+[package]
+name = "tickwire-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tickwire-account = { path = "../tickwire-account" }
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-account-gateway = { path = "../tickwire-account-gateway" }
+tickwire-account-journal = { path = "../tickwire-account-journal" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-account = { path = "../tickwire-binance-account" }
+tickwire-binance-clock = { path = "../tickwire-binance-clock" }
+tickwire-binance-execution = { path = "../tickwire-binance-execution" }
+tickwire-binance-private = { path = "../tickwire-binance-private" }
+tickwire-binance-public = { path = "../tickwire-binance-public" }
+tickwire-binance-quota = { path = "../tickwire-binance-quota" }
+tickwire-binance-session = { path = "../tickwire-binance-session" }
+tickwire-book = { path = "../tickwire-book" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-quota = { path = "../tickwire-quota" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-runtime = { path = "../tickwire-runtime" }
+tickwire-runtime-policy = { path = "../tickwire-runtime-policy" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+
+tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
+tickwire-strategy-host = { path = "../tickwire-strategy-host" }
+tickwire-market-publisher = { path = "../tickwire-market-publisher" }
+tickwire-supervisor = { path = "../tickwire-supervisor" }
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-store = { path = "../tickwire-control-store" }
+tickwire-join = { path = "../tickwire-join" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-snapshot = { path = "../tickwire-snapshot" }

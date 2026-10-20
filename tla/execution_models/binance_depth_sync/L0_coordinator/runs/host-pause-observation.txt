@@ -1,0 +1,6 @@
+Observed local time: 2026-10-20T23:35:32.848085+08:00
+PID ELAPSED CPU_TIME PCPU COMMAND
+94824    01:53:31  11:47.77  71.2 /usr/bin/java -XX:+UseParallelGC -cp /Users/bytedance/Tickwire/tla/tools/tla2tools.jar tlc2.TLC -workers 1 -config L0_SpotBuffered.cfg L0_DepthSync.tla -coverage 1
+95685    01:50:22   8:40.49  91.7 /usr/bin/java -XX:+UseParallelGC -cp /Users/bytedance/Tickwire/tla/tools/tla2tools.jar tlc2.TLC -workers 1 -config L0_UsdMBuffered.cfg L0_DepthSync.tla -coverage 1
+
+Wall elapsed differs substantially from accumulated process CPU time; it is not active CPU duration.

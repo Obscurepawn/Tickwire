@@ -1,0 +1,9 @@
+   Compiling tickwire-binance-account v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-account)
+error[E0599]: no method named `clone` found for struct `tickwire_account_gateway::Config` in the current scope
+   --> crates/tickwire-binance-account/tests/network_ingress.rs:155:14
+    |
+155 |         gcfg.clone(), baseline, auth.clone(), gateway::TestEncoder, connection,
+    |              ^^^^^ method not found in `tickwire_account_gateway::Config`
+
+For more information about this error, try `rustc --explain E0599`.
+error: could not compile `tickwire-binance-account` (test "network_ingress") due to 1 previous error

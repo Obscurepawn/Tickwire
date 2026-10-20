@@ -2,6 +2,7 @@
 """Validate completed TLC runs and aggregate final action coverage."""
 from pathlib import Path
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -77,14 +78,17 @@ def check_logs(paths: list[Path], model: str) -> dict:
     if not paths:
         raise CoverageError("at least one completed configuration is required")
     totals: dict[str, int] = {}
+    declarations: dict[str, str] = {}
     for path in paths:
         try:
             counts = final_counts(path.read_text(), model)
         except (OSError, UnicodeError, CoverageError) as error:
             raise CoverageError(f"{path}: {error}") from error
-        if totals and totals.keys() != counts.keys():
-            raise CoverageError(f"{path}: final action entries differ across configurations")
         for key, value in counts.items():
+            name = key.split(" line ", 1)[0]
+            if name in declarations and declarations[name] != key:
+                raise CoverageError(f"{path}: declaration changed for action {name}")
+            declarations[name] = key
             totals[key] = totals.get(key, 0) + value
     missing = [key for key, value in totals.items() if value == 0]
     if missing:
@@ -95,11 +99,16 @@ def check_logs(paths: list[Path], model: str) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, help="Exact TLA module name")
+    parser.add_argument("--model-file", type=Path, help="Frozen source used for all configurations")
     parser.add_argument("logs", nargs="+", type=Path)
     args = parser.parse_args()
     try:
         result = check_logs(args.logs, args.model)
-    except CoverageError as error:
+        if args.model_file is not None:
+            if args.model_file.stem != args.model:
+                raise CoverageError("model filename must match module name")
+            result["model_sha256"] = hashlib.sha256(args.model_file.read_bytes()).hexdigest()
+    except (OSError, CoverageError) as error:
         print(error, file=sys.stderr)
         return 1
     print(json.dumps(result, indent=2))

@@ -1,0 +1,23 @@
+SPECIFICATION Spec
+CONSTANTS
+ Scenario = "rounding"
+ MaxCalls = 5
+ MaxTokens = 2
+ MaxStamps = 2
+CHECK_DEADLOCK FALSE
+INVARIANTS
+ TypeOK
+ FaultClears
+ PendingIdentity
+ AnchorIdentity
+ SerialNotReused
+ StaleDoesNotTouchClock
+ ObservedTimeMonotone
+ SuccessfulReadBounded
+ ExactSignedTimestamp
+ SuccessfulSendBounded
+ ContinuousIntervalContainsTruth
+ ContinuousSendWithinWindow
+ RejectedSampleRetainsAnchor
+ ReadNeverExtendsExpiry
+ FaultRevokesCalls

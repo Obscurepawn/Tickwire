@@ -77,6 +77,8 @@ pub struct Member<'a> {
     pub header: SnapshotHeader,
     pub state_records: &'a [u8],
     pub depth_levels: &'a [u8],
+    /// None is the legacy kind-6 format, which carries no exact side boundary.
+    pub coverage: Option<DepthCoverage>,
 }
 fn range(raw: &[u8], offset: u64, length: u64) -> Result<&[u8]> {
     let end = offset.checked_add(length).ok_or(Error::Bounds)?;
@@ -103,18 +105,23 @@ fn member(raw: &[u8], index: usize) -> Result<Member<'_>> {
     let entry = TopicSnapshotEntry::decode(range(raw, 4352 + index as u64 * 128, 128)?)?;
     let off = entry.snapshot_offset;
     let header = SnapshotHeader::decode(range(raw, off, 256)?)?;
-    if header.snapshot_kind != 6 {
+    if !matches!(header.snapshot_kind, 6 | 7) {
         return Err(Error::UnsupportedOperation);
     }
     let state =
         SnapshotSection::decode(range(raw, off.checked_add(256).ok_or(Error::Bounds)?, 64)?)?;
     let depth =
         SnapshotSection::decode(range(raw, off.checked_add(320).ok_or(Error::Bounds)?, 64)?)?;
+    let coverage = if header.snapshot_kind == 7 {
+        let section = SnapshotSection::decode(range(raw, off.checked_add(384).ok_or(Error::Bounds)?, 64)?)?;
+        Some(DepthCoverage::decode(range(raw, section.offset, section.length)?)?)
+    } else { None };
     Ok(Member {
         entry,
         header,
         state_records: range(raw, state.offset, state.length)?,
         depth_levels: range(raw, depth.offset, depth.length)?,
+        coverage,
     })
 }
 

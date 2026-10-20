@@ -1,0 +1,749 @@
+{
+  "model_sha256": "32489c18202b648c398d802889a7dd62230d03c2564abf28810a99e26e567c49",
+  "jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "source_sha256": {
+    "crates/tickwire-binance-private/src/client.rs": "129280e192417481fb198d955c8c66ea17820e557644aa33837aa4cc6dc92a5b",
+    "crates/tickwire-binance-private/src/lib.rs": "b8542f6a4e103b961c5240b0b4e93735343ff08f226c9f1e45b5192754d112a3",
+    "crates/tickwire-binance-private/src/request.rs": "0152f8986c40ccb13a0d02e16e71e112b52e51051ac01248b6454d68ece12cd5",
+    "crates/tickwire-binance-private/src/response.rs": "0742718db2e6273921dae92f6a8cde84224b240856c23d8dc55a52b5dd0a7e90",
+    "crates/tickwire-binance-private/src/session.rs": "53de2236eb9d9157831f32623be984a4bdd432702d75fd4a0eb53172e4638f59",
+    "crates/tickwire-transport/src/connection.rs": "3a9380094dc089b5d18c37277c1fe09478689fd934cc892edc1a5d5e648b6613"
+  },
+  "configs": [
+    {
+      "name": "L0_PrivateSession_v2.cfg",
+      "sha256": "0ae3f86a398e58efddc2e4e21d691822403fa6679c9bd4ff01e1354874b79081",
+      "log": "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/L0_PrivateSession_v2.log",
+      "log_sha256": "13d0bd9b13e24930a6490eec62c1e511010f43de7ea47b0511480444525c0f8a",
+      "generated": 25503,
+      "distinct": 12588,
+      "depth": 27,
+      "wall_seconds": 2.079,
+      "exit_code": 0,
+      "coverage": {
+        "Init": {
+          "line": 51,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Connect": {
+          "line": 58,
+          "distinct": 51,
+          "generated": 51
+        },
+        "Upgrade": {
+          "line": 64,
+          "distinct": 51,
+          "generated": 51
+        },
+        "Plan": {
+          "line": 69,
+          "distinct": 336,
+          "generated": 408
+        },
+        "GateStart": {
+          "line": 72,
+          "distinct": 698,
+          "generated": 698
+        },
+        "GateCallbacksReady": {
+          "line": 76,
+          "distinct": 408,
+          "generated": 698
+        },
+        "GateBudgetExpires": {
+          "line": 79,
+          "distinct": 408,
+          "generated": 698
+        },
+        "FinalSampleExpired": {
+          "line": 84,
+          "distinct": 358,
+          "generated": 408
+        },
+        "FirstAccept": {
+          "line": 86,
+          "distinct": 672,
+          "generated": 816
+        },
+        "GateBlocked": {
+          "line": 91,
+          "distinct": 220,
+          "generated": 408
+        },
+        "GateReject": {
+          "line": 93,
+          "distinct": 241,
+          "generated": 698
+        },
+        "GateDomainFault": {
+          "line": 94,
+          "distinct": 385,
+          "generated": 1514
+        },
+        "GateExpires": {
+          "line": 96,
+          "distinct": 241,
+          "generated": 698
+        },
+        "Continue": {
+          "line": 98,
+          "distinct": 0,
+          "generated": 408
+        },
+        "RequestExpires": {
+          "line": 101,
+          "distinct": 1315,
+          "generated": 1514
+        },
+        "OldReply": {
+          "line": 106,
+          "distinct": 0,
+          "generated": 1514
+        },
+        "PrematureReply": {
+          "line": 109,
+          "distinct": 787,
+          "generated": 1106
+        },
+        "ReplySuccess": {
+          "line": 121,
+          "distinct": 718,
+          "generated": 816
+        },
+        "ReplyEOF": {
+          "line": 125,
+          "distinct": 105,
+          "generated": 123
+        },
+        "ReplyReject": {
+          "line": 129,
+          "distinct": 358,
+          "generated": 408
+        },
+        "ReplyUnknown": {
+          "line": 131,
+          "distinct": 358,
+          "generated": 408
+        },
+        "CloseRemote": {
+          "line": 138,
+          "distinct": 285,
+          "generated": 473
+        },
+        "Disconnect": {
+          "line": 143,
+          "distinct": 2406,
+          "generated": 3393
+        },
+        "NetworkFailure": {
+          "line": 146,
+          "distinct": 566,
+          "generated": 2446
+        },
+        "DomainFault": {
+          "line": 147,
+          "distinct": 0,
+          "generated": 3392
+        },
+        "SinkFailure": {
+          "line": 150,
+          "distinct": 0,
+          "generated": 258
+        },
+        "QueueEvent": {
+          "line": 154,
+          "distinct": 554,
+          "generated": 554
+        },
+        "Overflow": {
+          "line": 158,
+          "distinct": 0,
+          "generated": 210
+        },
+        "StreamEOF": {
+          "line": 161,
+          "distinct": 368,
+          "generated": 473
+        },
+        "Deliver": {
+          "line": 163,
+          "distinct": 258,
+          "generated": 258
+        },
+        "BadEvent": {
+          "line": 167,
+          "distinct": 96,
+          "generated": 258
+        },
+        "DrainDone": {
+          "line": 169,
+          "distinct": 344,
+          "generated": 344
+        }
+      }
+    },
+    {
+      "name": "L0_PrivateSession_v2_buffer.cfg",
+      "sha256": "0a3e338c9faa45780364eb950755c790ef06bab0a8d24b46a163bce9bd65cd92",
+      "log": "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/L0_PrivateSession_v2_buffer.log",
+      "log_sha256": "d471d3cc4256e3b438ca80f7f6677e1df440e33e4724b431d3b981effb15c7c8",
+      "generated": 2343,
+      "distinct": 1097,
+      "depth": 20,
+      "wall_seconds": 1.681,
+      "exit_code": 0,
+      "coverage": {
+        "Init": {
+          "line": 51,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Connect": {
+          "line": 58,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Upgrade": {
+          "line": 64,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Plan": {
+          "line": 69,
+          "distinct": 28,
+          "generated": 34
+        },
+        "GateStart": {
+          "line": 72,
+          "distinct": 52,
+          "generated": 52
+        },
+        "GateCallbacksReady": {
+          "line": 76,
+          "distinct": 34,
+          "generated": 52
+        },
+        "GateBudgetExpires": {
+          "line": 79,
+          "distinct": 34,
+          "generated": 52
+        },
+        "FinalSampleExpired": {
+          "line": 84,
+          "distinct": 30,
+          "generated": 34
+        },
+        "FirstAccept": {
+          "line": 86,
+          "distinct": 56,
+          "generated": 68
+        },
+        "GateBlocked": {
+          "line": 91,
+          "distinct": 18,
+          "generated": 34
+        },
+        "GateReject": {
+          "line": 93,
+          "distinct": 18,
+          "generated": 52
+        },
+        "GateDomainFault": {
+          "line": 94,
+          "distinct": 21,
+          "generated": 120
+        },
+        "GateExpires": {
+          "line": 96,
+          "distinct": 18,
+          "generated": 52
+        },
+        "Continue": {
+          "line": 98,
+          "distinct": 0,
+          "generated": 34
+        },
+        "RequestExpires": {
+          "line": 101,
+          "distinct": 108,
+          "generated": 120
+        },
+        "OldReply": {
+          "line": 106,
+          "distinct": 0,
+          "generated": 120
+        },
+        "PrematureReply": {
+          "line": 109,
+          "distinct": 60,
+          "generated": 86
+        },
+        "ReplySuccess": {
+          "line": 121,
+          "distinct": 62,
+          "generated": 68
+        },
+        "ReplyEOF": {
+          "line": 125,
+          "distinct": 7,
+          "generated": 7
+        },
+        "ReplyReject": {
+          "line": 129,
+          "distinct": 30,
+          "generated": 34
+        },
+        "ReplyUnknown": {
+          "line": 131,
+          "distinct": 30,
+          "generated": 34
+        },
+        "CloseRemote": {
+          "line": 138,
+          "distinct": 27,
+          "generated": 67
+        },
+        "Disconnect": {
+          "line": 143,
+          "distinct": 176,
+          "generated": 306
+        },
+        "NetworkFailure": {
+          "line": 146,
+          "distinct": 54,
+          "generated": 222
+        },
+        "DomainFault": {
+          "line": 147,
+          "distinct": 0,
+          "generated": 305
+        },
+        "SinkFailure": {
+          "line": 150,
+          "distinct": 0,
+          "generated": 62
+        },
+        "QueueEvent": {
+          "line": 154,
+          "distinct": 56,
+          "generated": 70
+        },
+        "Overflow": {
+          "line": 158,
+          "distinct": 0,
+          "generated": 32
+        },
+        "StreamEOF": {
+          "line": 161,
+          "distinct": 60,
+          "generated": 67
+        },
+        "Deliver": {
+          "line": 163,
+          "distinct": 62,
+          "generated": 62
+        },
+        "BadEvent": {
+          "line": 167,
+          "distinct": 21,
+          "generated": 62
+        },
+        "DrainDone": {
+          "line": 169,
+          "distinct": 32,
+          "generated": 32
+        }
+      }
+    },
+    {
+      "name": "L0_PrivateSession_v2_logon.cfg",
+      "sha256": "6ccceacfd16056bdc96d1d488a027d0e0084a493ca0c569c56c734aca6f063ca",
+      "log": "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/L0_PrivateSession_v2_logon.log",
+      "log_sha256": "bac1ce71617a1bfda6f5a462b4182a56e2147df363f69768fe18b85efcc5f645",
+      "generated": 3781,
+      "distinct": 2055,
+      "depth": 28,
+      "wall_seconds": 1.447,
+      "exit_code": 0,
+      "coverage": {
+        "Init": {
+          "line": 51,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Connect": {
+          "line": 58,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Upgrade": {
+          "line": 64,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Plan": {
+          "line": 69,
+          "distinct": 81,
+          "generated": 85
+        },
+        "GateStart": {
+          "line": 72,
+          "distinct": 130,
+          "generated": 130
+        },
+        "GateCallbacksReady": {
+          "line": 76,
+          "distinct": 85,
+          "generated": 130
+        },
+        "GateBudgetExpires": {
+          "line": 79,
+          "distinct": 85,
+          "generated": 130
+        },
+        "FinalSampleExpired": {
+          "line": 84,
+          "distinct": 83,
+          "generated": 85
+        },
+        "FirstAccept": {
+          "line": 86,
+          "distinct": 162,
+          "generated": 170
+        },
+        "GateBlocked": {
+          "line": 91,
+          "distinct": 43,
+          "generated": 85
+        },
+        "GateReject": {
+          "line": 93,
+          "distinct": 44,
+          "generated": 130
+        },
+        "GateDomainFault": {
+          "line": 94,
+          "distinct": 51,
+          "generated": 300
+        },
+        "GateExpires": {
+          "line": 96,
+          "distinct": 44,
+          "generated": 130
+        },
+        "Continue": {
+          "line": 98,
+          "distinct": 0,
+          "generated": 85
+        },
+        "RequestExpires": {
+          "line": 101,
+          "distinct": 293,
+          "generated": 300
+        },
+        "OldReply": {
+          "line": 106,
+          "distinct": 0,
+          "generated": 300
+        },
+        "PrematureReply": {
+          "line": 109,
+          "distinct": 168,
+          "generated": 215
+        },
+        "ReplySuccess": {
+          "line": 121,
+          "distinct": 166,
+          "generated": 170
+        },
+        "ReplyEOF": {
+          "line": 125,
+          "distinct": 6,
+          "generated": 6
+        },
+        "ReplyReject": {
+          "line": 129,
+          "distinct": 83,
+          "generated": 85
+        },
+        "ReplyUnknown": {
+          "line": 131,
+          "distinct": 83,
+          "generated": 85
+        },
+        "CloseRemote": {
+          "line": 138,
+          "distinct": 26,
+          "generated": 40
+        },
+        "Disconnect": {
+          "line": 143,
+          "distinct": 180,
+          "generated": 242
+        },
+        "NetworkFailure": {
+          "line": 146,
+          "distinct": 105,
+          "generated": 426
+        },
+        "DomainFault": {
+          "line": 147,
+          "distinct": 0,
+          "generated": 241
+        },
+        "SinkFailure": {
+          "line": 150,
+          "distinct": 0,
+          "generated": 24
+        },
+        "QueueEvent": {
+          "line": 154,
+          "distinct": 38,
+          "generated": 38
+        },
+        "Overflow": {
+          "line": 158,
+          "distinct": 0,
+          "generated": 30
+        },
+        "StreamEOF": {
+          "line": 161,
+          "distinct": 34,
+          "generated": 40
+        },
+        "Deliver": {
+          "line": 163,
+          "distinct": 24,
+          "generated": 24
+        },
+        "BadEvent": {
+          "line": 167,
+          "distinct": 10,
+          "generated": 24
+        },
+        "DrainDone": {
+          "line": 169,
+          "distinct": 28,
+          "generated": 28
+        }
+      }
+    },
+    {
+      "name": "L0_PrivateSession_v2_usdm.cfg",
+      "sha256": "69fc167a0430bd744cce58709859a0f05deb6e0df8dfc5a213561931bd28069c",
+      "log": "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/L0_PrivateSession_v2_usdm.log",
+      "log_sha256": "927f5506e8c0d08d0aea46254416690c62eea6fb8c34f0b7ec0fceabc1d7b044",
+      "generated": 591692,
+      "distinct": 296402,
+      "depth": 34,
+      "wall_seconds": 19.06,
+      "exit_code": 0,
+      "coverage": {
+        "Init": {
+          "line": 51,
+          "distinct": 1,
+          "generated": 1
+        },
+        "Connect": {
+          "line": 58,
+          "distinct": 2551,
+          "generated": 2551
+        },
+        "Upgrade": {
+          "line": 64,
+          "distinct": 1618,
+          "generated": 1944
+        },
+        "Plan": {
+          "line": 69,
+          "distinct": 2938,
+          "generated": 2938
+        },
+        "GateStart": {
+          "line": 72,
+          "distinct": 10540,
+          "generated": 10618
+        },
+        "GateCallbacksReady": {
+          "line": 76,
+          "distinct": 5579,
+          "generated": 10540
+        },
+        "GateBudgetExpires": {
+          "line": 79,
+          "distinct": 5579,
+          "generated": 10540
+        },
+        "FinalSampleExpired": {
+          "line": 84,
+          "distinct": 4098,
+          "generated": 5579
+        },
+        "FirstAccept": {
+          "line": 86,
+          "distinct": 9340,
+          "generated": 11158
+        },
+        "GateBlocked": {
+          "line": 91,
+          "distinct": 3869,
+          "generated": 5579
+        },
+        "GateReject": {
+          "line": 93,
+          "distinct": 3480,
+          "generated": 10540
+        },
+        "GateDomainFault": {
+          "line": 94,
+          "distinct": 8265,
+          "generated": 21698
+        },
+        "GateExpires": {
+          "line": 96,
+          "distinct": 3480,
+          "generated": 10540
+        },
+        "Continue": {
+          "line": 98,
+          "distinct": 0,
+          "generated": 5579
+        },
+        "RequestExpires": {
+          "line": 101,
+          "distinct": 15852,
+          "generated": 21776
+        },
+        "LeaseExpires": {
+          "line": 103,
+          "distinct": 19109,
+          "generated": 35464
+        },
+        "PrematureReply": {
+          "line": 109,
+          "distinct": 10780,
+          "generated": 16197
+        },
+        "ReplySuccess": {
+          "line": 121,
+          "distinct": 9946,
+          "generated": 11158
+        },
+        "ReplyReject": {
+          "line": 129,
+          "distinct": 4098,
+          "generated": 5579
+        },
+        "ReplyUnknown": {
+          "line": 131,
+          "distinct": 4075,
+          "generated": 5579
+        },
+        "Renew": {
+          "line": 134,
+          "distinct": 1993,
+          "generated": 2852
+        },
+        "CloseRemote": {
+          "line": 138,
+          "distinct": 5701,
+          "generated": 10191
+        },
+        "Disconnect": {
+          "line": 143,
+          "distinct": 94862,
+          "generated": 124996
+        },
+        "NetworkFailure": {
+          "line": 146,
+          "distinct": 15165,
+          "generated": 42163
+        },
+        "DomainFault": {
+          "line": 147,
+          "distinct": 0,
+          "generated": 124995
+        },
+        "SinkFailure": {
+          "line": 150,
+          "distinct": 0,
+          "generated": 12118
+        },
+        "QueueEvent": {
+          "line": 154,
+          "distinct": 4876,
+          "generated": 4876
+        },
+        "Overflow": {
+          "line": 158,
+          "distinct": 0,
+          "generated": 2168
+        },
+        "StreamEOF": {
+          "line": 161,
+          "distinct": 21799,
+          "generated": 21799
+        },
+        "Deliver": {
+          "line": 163,
+          "distinct": 8800,
+          "generated": 12118
+        },
+        "BadEvent": {
+          "line": 167,
+          "distinct": 2268,
+          "generated": 12118
+        },
+        "DrainDone": {
+          "line": 169,
+          "distinct": 15740,
+          "generated": 15740
+        }
+      }
+    }
+  ],
+  "source_unchanged_during_run": true,
+  "model": "tla/execution_models/binance_private_session/L0_session_lifecycle/02_models/L0_PrivateSession_v2.tla",
+  "coverage_union": [
+    "BadEvent",
+    "CloseRemote",
+    "Connect",
+    "Continue",
+    "Deliver",
+    "Disconnect",
+    "DomainFault",
+    "DrainDone",
+    "FinalSampleExpired",
+    "FirstAccept",
+    "GateBlocked",
+    "GateBudgetExpires",
+    "GateCallbacksReady",
+    "GateDomainFault",
+    "GateExpires",
+    "GateReject",
+    "GateStart",
+    "Init",
+    "LeaseExpires",
+    "NetworkFailure",
+    "OldReply",
+    "Overflow",
+    "Plan",
+    "PrematureReply",
+    "QueueEvent",
+    "Renew",
+    "ReplyEOF",
+    "ReplyReject",
+    "ReplySuccess",
+    "ReplyUnknown",
+    "RequestExpires",
+    "SinkFailure",
+    "StreamEOF",
+    "Upgrade"
+  ],
+  "reviews": {
+    "source": "root and risk_core PASS; read-only",
+    "v2": "pending independent review"
+  },
+  "anchors_sha256": "5cb70bd8964753cec5cafbbf3aa487a2a0b6837bd5833bec23b6290045ffd58d"
+}

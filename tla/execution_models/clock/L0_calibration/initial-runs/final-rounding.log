@@ -1,0 +1,25 @@
+>>> TLC module=L0_Calibration cfg=L0_Calibration_rounding.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/tmp/tickwire-clock-final/rounding
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 126 and seed 574798824596019629 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /private/tmp/tickwire-clock-final/rounding/L0_Calibration.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_Calibration
+Starting... (2026-10-21 00:30:19)
+Computing initial states...
+Finished computing initial states: 2 distinct states generated at 2026-10-21 00:30:20.
+Progress(5) at 2026-10-21 00:30:23: 6,869 states generated (6,869 s/min), 2,934 distinct states found (2,934 ds/min), 2,489 states left on queue.
+Progress(7) at 2026-10-21 00:31:23: 170,473 states generated (163,604 s/min), 44,637 distinct states found (41,703 ds/min), 33,819 states left on queue.
+Progress(7) at 2026-10-21 00:32:23: 264,971 states generated (94,498 s/min), 64,098 distinct states found (19,461 ds/min), 47,082 states left on queue.
+Progress(7) at 2026-10-21 00:33:23: 353,985 states generated (89,014 s/min), 82,000 distinct states found (17,902 ds/min), 59,168 states left on queue.
+>>> elapsed: 244s (exit 143)

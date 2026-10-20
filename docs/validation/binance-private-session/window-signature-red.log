@@ -1,0 +1,27 @@
+   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.15s
+     Running tests/protocol_server.rs (target/debug/deps/protocol_server-85970e15d1e9509a)
+
+running 1 test
+test fractional_windows_with_trailing_zero_sign_actual_wss_numbers ... FAILED
+
+failures:
+
+---- fractional_windows_with_trailing_zero_sign_actual_wss_numbers stdout ----
+
+thread '<unnamed>' (6077119) panicked at crates/tickwire-binance-private/tests/common/mod.rs:51:185:
+assertion `left == right` failed
+  left: "945fae816e0fbcffe47d911b01c556431d80b7666b2af5385be2057a959c937f"
+ right: "91bc1b9434c4358141de55c6316511c6e97b4e838def5c70e5172e6c3a3ef93e"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'fractional_windows_with_trailing_zero_sign_actual_wss_numbers' (6077118) panicked at crates/tickwire-binance-private/tests/protocol_server.rs:26:9:
+client=SessionStatus { phase: Backoff, connection_epoch: 12, subscription_id: None, lease_until_ns: None, renew_at_ns: None, request: None, remote_close_unknown: false, registration_changed: false }
+
+
+failures:
+    fractional_windows_with_trailing_zero_sign_actual_wss_numbers
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 6.00s
+
+error: test failed, to rerun pass `-p tickwire-binance-private --test protocol_server`

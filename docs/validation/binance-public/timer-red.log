@@ -1,0 +1,24 @@
+   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.02s
+     Running tests/timer.rs (target/debug/deps/timer-05b12ddfc1513081)
+
+running 1 test
+test a_quiet_stream_wakes_at_the_snapshot_retry_permission ... FAILED
+
+failures:
+
+---- a_quiet_stream_wakes_at_the_snapshot_retry_permission stdout ----
+
+thread 'a_quiet_stream_wakes_at_the_snapshot_retry_permission' (6413152) panicked at crates/tickwire-binance-public/tests/timer.rs:84:5:
+assertion `left == right` failed
+  left: Some(30000000000)
+ right: Some(2000000000)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    a_quiet_stream_wakes_at_the_snapshot_retry_permission
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p tickwire-binance-public --test timer`

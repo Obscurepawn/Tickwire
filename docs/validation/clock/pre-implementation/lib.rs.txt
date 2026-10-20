@@ -1,0 +1,156 @@
+//! Exchange-time intervals mapped onto one suspend-aware monotonic clock domain.
+#![forbid(unsafe_code)]
+
+pub const PPB: u64 = 1_000_000_000;
+pub const MILLISECOND: u64 = 1_000_000;
+pub const MICROSECOND: u64 = 1_000;
+pub const SECOND: u64 = 1_000_000_000;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Error {
+    Invalid,
+    Busy,
+    Stale,
+    Domain,
+    TimeBackwards,
+    Overflow,
+    Uncalibrated,
+    Expired,
+    Uncertain,
+    RoundTrip,
+    ClockJump,
+    Faulted,
+    Future,
+    TooOld,
+    Unsupported,
+}
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Source {
+    SpotProduction,
+    SpotTest,
+    UsdmProduction,
+    UsdmTest,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TimeUnit {
+    Milliseconds,
+    Microseconds,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ClockDomain {
+    boot_id: [u8; 16],
+    generation: u64,
+}
+impl ClockDomain {
+    pub fn new(boot_id: [u8; 16], generation: u64) -> Result<Self> {
+        if boot_id == [0; 16] || generation == 0 {
+            return Err(Error::Invalid);
+        }
+        Ok(Self {
+            boot_id,
+            generation,
+        })
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct MonoTime {
+    domain: ClockDomain,
+    ns: u64,
+}
+impl MonoTime {
+    pub fn new(domain: ClockDomain, ns: u64) -> Self {
+        Self { domain, ns }
+    }
+    pub fn nanos(self) -> u64 {
+        self.ns
+    }
+    pub fn domain(self) -> ClockDomain {
+        self.domain
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CalibrationConfig {
+    pub max_round_trip_ns: u64,
+    pub max_width_ns: u64,
+    pub max_age_ns: u64,
+    pub quantization_error_ns: u64,
+    pub drift_ppb: u64,
+    pub max_adjustment_ns: u64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SampleToken {
+    domain: ClockDomain,
+    source: Source,
+    serial: u64,
+    sent_ns: u64,
+}
+impl SampleToken {
+    pub fn serial(&self) -> u64 {
+        self.serial
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Reading {
+    pub lower_ns: u64,
+    pub upper_ns: u64,
+    pub sampled_at_ns: u64,
+    pub valid_until_ns: u64,
+    pub sample_serial: u64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SignedTime {
+    domain: ClockDomain,
+    source: Source,
+    timestamp: u64,
+    unit: TimeUnit,
+    sample_serial: u64,
+}
+impl SignedTime {
+    pub fn timestamp(&self) -> u64 {
+        self.timestamp
+    }
+    pub fn unit(&self) -> TimeUnit {
+        self.unit
+    }
+    pub fn sample_serial(&self) -> u64 {
+        self.sample_serial
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CalibrationStatus {
+    Uncalibrated,
+    Calibrated {
+        sample_serial: u64,
+        valid_until_ns: u64,
+    },
+    Faulted(Error),
+}
+pub struct Calibrator;
+impl Calibrator {
+    pub fn new(_: CalibrationConfig, _: Source, _: ClockDomain, _: u64) -> Result<Self> {
+        Ok(Self)
+    }
+    pub fn begin(&mut self, _: MonoTime) -> Result<SampleToken> {
+        Err(Error::Unsupported)
+    }
+    pub fn finish(&mut self, _: &SampleToken, _: MonoTime, _: u64) -> Result<Reading> {
+        Err(Error::Unsupported)
+    }
+    pub fn cancel(&mut self, _: &SampleToken) -> Result<()> {
+        Err(Error::Unsupported)
+    }
+    pub fn read(&mut self, _: MonoTime) -> Result<Reading> {
+        Err(Error::Uncalibrated)
+    }
+    pub fn sign_time(&mut self, _: MonoTime, _: TimeUnit) -> Result<SignedTime> {
+        Err(Error::Uncalibrated)
+    }
+    pub fn check_send(&mut self, _: &SignedTime, _: MonoTime, _: u64, _: u64) -> Result<()> {
+        Err(Error::Uncalibrated)
+    }
+    pub fn status(&self) -> CalibrationStatus {
+        CalibrationStatus::Uncalibrated
+    }
+}

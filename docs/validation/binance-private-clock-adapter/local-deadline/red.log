@@ -1,0 +1,25 @@
+command: ["/Users/bytedance/.cargo/bin/cargo", "test", "-p", "tickwire-binance-session", "--test", "integration", "mono_expiry_during", "--", "--nocapture"]
+   Compiling tickwire-binance-session v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-session)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.46s
+     Running tests/integration.rs (target/debug/deps/integration-3e933e101db8071a)
+
+running 2 tests
+budget call 2: mono=2s, request deadline=1s, calibration expiry=10s, peer decrypted bytes=219, outcome=MayHaveApplied
+
+thread 'mono_expiry_during_second_budget_check_rejects_before_acceptance' (6324652) panicked at crates/tickwire-binance-session/tests/integration.rs:473:5:
+assertion `left == right` failed
+  left: MayHaveApplied
+ right: NoBytes
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test mono_expiry_during_second_budget_check_rejects_before_acceptance ... FAILED
+budget call 1: mono=2s, request deadline=1s, calibration expiry=10s, peer decrypted bytes=0, outcome=NoBytes
+test mono_expiry_during_first_budget_check_rejects_before_acceptance ... ok
+
+failures:
+
+failures:
+    mono_expiry_during_second_budget_check_rejects_before_acceptance
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-binance-session --test integration`

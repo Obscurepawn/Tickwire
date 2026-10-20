@@ -1,0 +1,410 @@
+>>> TLC module=L0_DepthSync cfg=L0_DepthSync.cfg workers=1
+>>> jar=/Users/bytedance/Tickwire/tla/tools/tla2tools.jar
+>>> dir=/Users/bytedance/Tickwire/tla/execution_models/binance_depth_sync/L0_coordinator/02_models
+>>> note: TLC_TIMEOUT=1800s set but no timeout/gtimeout binary — running unbounded
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 75 and seed -5214212187935915760 with 1 worker on 10 cores with 7282MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/binance_depth_sync/L0_coordinator/02_models/L0_DepthSync.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Integers.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Sequences.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_DepthSync
+Starting... (2026-10-20 21:28:41)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 21:28:41.
+Error: Evaluating invariant PendingBelongs failed.
+Attempted to check equality of record:
+[token |-> [conn |-> 1, gen |-> 1, req |-> 1], deadline |-> 1]
+with non-record
+"None"
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ outcome = "Init"
+/\ s = [ conn |-> 0,
+  gen |-> 0,
+  req |-> 0,
+  phase |-> "Disconnected",
+  buf |-> <<>>,
+  first |-> -1,
+  pending |-> "None",
+  sub |-> FALSE,
+  book |->
+      [gen |-> 0, id |-> -1, stamp |-> -1, qty |-> 0, phase |-> "Awaiting"],
+  origin |-> "None",
+  clock |-> -1,
+  lastConn |-> 0 ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 2: <Connect line 84, col 2 to line 87, col 86 of module L0_DepthSync>
+/\ outcome = "Connect"
+/\ s = [ conn |-> 1,
+  gen |-> 1,
+  req |-> 0,
+  phase |-> "Buffering",
+  buf |-> <<>>,
+  first |-> -1,
+  pending |-> "None",
+  sub |-> FALSE,
+  book |->
+      [gen |-> 1, id |-> -1, stamp |-> -1, qty |-> 0, phase |-> "Awaiting"],
+  origin |-> "None",
+  clock |-> -1,
+  lastConn |-> 1 ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 3: <Subscribe line 91, col 14 to line 92, col 55 of module L0_DepthSync>
+/\ outcome = "Subscribe"
+/\ s = [ conn |-> 1,
+  gen |-> 1,
+  req |-> 0,
+  phase |-> "Buffering",
+  buf |-> <<>>,
+  first |-> -1,
+  pending |-> "None",
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, id |-> -1, stamp |-> -1, qty |-> 0, phase |-> "Awaiting"],
+  origin |-> "None",
+  clock |-> -1,
+  lastConn |-> 1 ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 4: <DeltaBuffer line 127, col 16 to line 132, col 86 of module L0_DepthSync>
+/\ outcome = "Buffered"
+/\ s = [ conn |-> 1,
+  gen |-> 1,
+  req |-> 0,
+  phase |-> "Buffering",
+  buf |->
+      << [ gen |-> 1,
+           stamp |-> 0,
+           qty |-> 0,
+           first |-> 0,
+           last |-> 0,
+           previous |-> 0,
+           valid |-> FALSE ] >>,
+  first |-> 0,
+  pending |-> "None",
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, id |-> -1, stamp |-> -1, qty |-> 0, phase |-> "Awaiting"],
+  origin |-> "None",
+  clock |-> 0,
+  lastConn |-> 1 ]
+/\ viewNow = -1
+/\ issued = {}
+
+State 5: <Request line 102, col 2 to line 109, col 63 of module L0_DepthSync>
+/\ outcome = "Request"
+/\ s = [ conn |-> 1,
+  gen |-> 1,
+  req |-> 1,
+  phase |-> "Buffering",
+  buf |->
+      << [ gen |-> 1,
+           stamp |-> 0,
+           qty |-> 0,
+           first |-> 0,
+           last |-> 0,
+           previous |-> 0,
+           valid |-> FALSE ] >>,
+  first |-> 0,
+  pending |-> [token |-> [conn |-> 1, gen |-> 1, req |-> 1], deadline |-> 1],
+  sub |-> TRUE,
+  book |->
+      [gen |-> 1, id |-> -1, stamp |-> -1, qty |-> 0, phase |-> "Awaiting"],
+  origin |-> "None",
+  clock |-> 0,
+  lastConn |-> 1 ]
+/\ viewNow = -1
+/\ issued = {[conn |-> 1, gen |-> 1, req |-> 1]}
+
+The coverage statistics at 2026-10-20 21:28:41
+<Init line 77, col 1 to line 77, col 4 of module L0_DepthSync>: 2:2
+  line 77, col 9 to line 80, col 58 of module L0_DepthSync: 2
+<Connect line 83, col 1 to line 83, col 7 of module L0_DepthSync>: 4:106
+  line 84, col 5 to line 84, col 25 of module L0_DepthSync: 304
+  |line 84, col 5 to line 84, col 11 of module L0_DepthSync: 198
+  line 84, col 30 to line 84, col 50 of module L0_DepthSync: 106
+  |line 84, col 30 to line 84, col 39 of module L0_DepthSync: 196
+  |line 84, col 43 to line 84, col 50 of module L0_DepthSync: 196
+  line 85, col 5 to line 86, col 92 of module L0_DepthSync: 106
+  |line 85, col 10 to line 86, col 92 of module L0_DepthSync: 106
+  ||line 85, col 13 to line 85, col 31 of module L0_DepthSync: 106
+  ||line 85, col 38 to line 85, col 47 of module L0_DepthSync: 4
+  ||line 86, col 15 to line 86, col 92 of module L0_DepthSync: 102
+  line 87, col 5 to line 87, col 20 of module L0_DepthSync: 106
+  line 87, col 25 to line 87, col 86 of module L0_DepthSync: 106
+<ConnectRejected line 88, col 1 to line 88, col 15 of module L0_DepthSync>: 177:194
+  line 88, col 23 to line 88, col 41 of module L0_DepthSync: 199
+  |line 88, col 23 to line 88, col 29 of module L0_DepthSync: 197
+  line 88, col 46 to line 88, col 57 of module L0_DepthSync: 192
+  |line 88, col 46 to line 88, col 55 of module L0_DepthSync: 197
+  line 89, col 23 to line 89, col 44 of module L0_DepthSync: 194
+  line 89, col 49 to line 89, col 73 of module L0_DepthSync: 194
+<Subscribe line 91, col 1 to line 91, col 9 of module L0_DepthSync>: 168:188
+  line 91, col 17 to line 91, col 26 of module L0_DepthSync: 385
+  |line 91, col 17 to line 91, col 22 of module L0_DepthSync: 197
+  line 91, col 31 to line 91, col 54 of module L0_DepthSync: 188
+  line 92, col 17 to line 92, col 32 of module L0_DepthSync: 188
+  line 92, col 37 to line 92, col 55 of module L0_DepthSync: 188
+<OldConnection line 94, col 1 to line 94, col 13 of module L0_DepthSync>: 88:96
+  line 94, col 46 to line 94, col 55 of module L0_DepthSync: 379
+  |line 94, col 46 to line 94, col 46 of module L0_DepthSync: 283
+  |line 94, col 50 to line 94, col 55 of module L0_DepthSync: 283
+  line 94, col 30 to line 94, col 42 of module L0_DepthSync: 196
+  line 95, col 21 to line 95, col 42 of module L0_DepthSync: 96
+  line 95, col 47 to line 95, col 69 of module L0_DepthSync: 96
+<OldSnapshot line 97, col 1 to line 97, col 11 of module L0_DepthSync>: 0:0
+  line 97, col 19 to line 97, col 81 of module L0_DepthSync: 196
+  line 98, col 19 to line 98, col 40 of module L0_DepthSync: 0
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 0
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 0
+<Request line 101, col 1 to line 101, col 7 of module L0_DepthSync>: 1:3
+  line 45, col 17 to line 45, col 37 of module L0_DepthSync: 198
+  |line 45, col 17 to line 45, col 23 of module L0_DepthSync: 196
+  line 45, col 42 to line 45, col 46 of module L0_DepthSync: 189
+  |line 45, col 42 to line 45, col 42 of module L0_DepthSync: 187
+  line 45, col 51 to line 45, col 62 of module L0_DepthSync: 12
+  |line 45, col 51 to line 45, col 57 of module L0_DepthSync: 10
+  |line 45, col 61 to line 45, col 62 of module L0_DepthSync: 10
+  line 102, col 21 to line 102, col 34 of module L0_DepthSync: 5
+  |line 102, col 21 to line 102, col 29 of module L0_DepthSync: 3
+  |line 102, col 31 to line 102, col 34 of module L0_DepthSync: 3
+  line 44, col 17 to line 44, col 28 of module L0_DepthSync: 11
+  line 44, col 33 to line 44, col 44 of module L0_DepthSync: 2
+  |line 44, col 33 to line 44, col 33 of module L0_DepthSync: 11
+  |line 44, col 38 to line 44, col 44 of module L0_DepthSync: 11
+  line 104, col 19 to line 104, col 19 of module L0_DepthSync: 11
+  line 104, col 25 to line 104, col 34 of module L0_DepthSync: 2
+  |line 104, col 25 to line 104, col 32 of module L0_DepthSync: 11
+  |line 104, col 34 to line 104, col 34 of module L0_DepthSync: 11
+  line 106, col 12 to line 107, col 104 of module L0_DepthSync: 2
+  |line 106, col 17 to line 107, col 104 of module L0_DepthSync: 3
+  line 108, col 12 to line 108, col 77 of module L0_DepthSync: 2
+  |line 108, col 22 to line 108, col 77 of module L0_DepthSync: 3
+  line 103, col 14 to line 103, col 18 of module L0_DepthSync: 3
+  line 103, col 34 to line 103, col 38 of module L0_DepthSync: 3
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 2
+  |line 46, col 28 to line 46, col 28 of module L0_DepthSync: 3
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 2
+  |line 46, col 44 to line 46, col 45 of module L0_DepthSync: 3
+  line 109, col 12 to line 109, col 62 of module L0_DepthSync: 3
+<RequestBadState line 110, col 1 to line 110, col 15 of module L0_DepthSync>: 177:193
+  line 110, col 23 to line 110, col 35 of module L0_DepthSync: 387
+  |line 110, col 24 to line 110, col 35 of module L0_DepthSync: 194
+  ||line 45, col 17 to line 45, col 62 of module L0_DepthSync: 194
+  |||line 45, col 17 to line 45, col 46 of module L0_DepthSync: 194
+  ||||line 45, col 17 to line 45, col 37 of module L0_DepthSync: 194
+  ||||line 45, col 42 to line 45, col 46 of module L0_DepthSync: 185
+  |||line 45, col 51 to line 45, col 62 of module L0_DepthSync: 8
+  line 110, col 40 to line 110, col 61 of module L0_DepthSync: 193
+  line 110, col 66 to line 110, col 90 of module L0_DepthSync: 193
+<RequestBadDeadline line 111, col 1 to line 111, col 18 of module L0_DepthSync>: 2:3
+  line 45, col 17 to line 45, col 37 of module L0_DepthSync: 195
+  |line 45, col 17 to line 45, col 23 of module L0_DepthSync: 194
+  line 45, col 42 to line 45, col 46 of module L0_DepthSync: 186
+  |line 45, col 42 to line 45, col 42 of module L0_DepthSync: 185
+  line 45, col 51 to line 45, col 62 of module L0_DepthSync: 9
+  |line 45, col 51 to line 45, col 57 of module L0_DepthSync: 8
+  |line 45, col 61 to line 45, col 62 of module L0_DepthSync: 8
+  line 44, col 17 to line 44, col 28 of module L0_DepthSync: 4
+  line 44, col 33 to line 44, col 44 of module L0_DepthSync: 3
+  |line 44, col 33 to line 44, col 33 of module L0_DepthSync: 4
+  |line 44, col 38 to line 44, col 44 of module L0_DepthSync: 4
+  line 112, col 55 to line 112, col 55 of module L0_DepthSync: 4
+  line 112, col 61 to line 112, col 71 of module L0_DepthSync: 3
+  |line 112, col 61 to line 112, col 68 of module L0_DepthSync: 4
+  |line 112, col 71 to line 112, col 71 of module L0_DepthSync: 4
+  line 112, col 76 to line 112, col 90 of module L0_DepthSync: 3
+  line 113, col 5 to line 113, col 20 of module L0_DepthSync: 3
+  line 113, col 25 to line 113, col 52 of module L0_DepthSync: 3
+  line 112, col 14 to line 112, col 18 of module L0_DepthSync: 1
+  line 112, col 34 to line 112, col 38 of module L0_DepthSync: 1
+<RequestPending line 114, col 1 to line 114, col 14 of module L0_DepthSync>: 0:0
+  line 45, col 17 to line 45, col 37 of module L0_DepthSync: 194
+  line 45, col 42 to line 45, col 46 of module L0_DepthSync: 185
+  line 45, col 51 to line 45, col 62 of module L0_DepthSync: 8
+  line 114, col 38 to line 114, col 53 of module L0_DepthSync: 1
+  line 115, col 75 to line 115, col 89 of module L0_DepthSync: 0
+  line 116, col 5 to line 116, col 20 of module L0_DepthSync: 0
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 0
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 0
+<ClockRegression line 120, col 1 to line 120, col 15 of module L0_DepthSync>: 3:84
+  line 120, col 23 to line 120, col 32 of module L0_DepthSync: 278
+  |line 120, col 23 to line 120, col 28 of module L0_DepthSync: 194
+  line 120, col 54 to line 120, col 66 of module L0_DepthSync: 454
+  |line 120, col 55 to line 120, col 66 of module L0_DepthSync: 370
+  ||line 44, col 17 to line 44, col 44 of module L0_DepthSync: 370
+  |||line 44, col 17 to line 44, col 28 of module L0_DepthSync: 370
+  |||line 44, col 33 to line 44, col 44 of module L0_DepthSync: 338
+  ||line 120, col 65 to line 120, col 65 of module L0_DepthSync: 338
+  line 120, col 46 to line 120, col 50 of module L0_DepthSync: 185
+  line 121, col 5 to line 121, col 15 of module L0_DepthSync: 84
+  |line 121, col 8 to line 121, col 15 of module L0_DepthSync: 84
+  ||line 41, col 13 to line 42, col 115 of module L0_DepthSync: 84
+  |||line 41, col 16 to line 41, col 36 of module L0_DepthSync: 84
+  |||line 41, col 43 to line 41, col 52 of module L0_DepthSync: 43
+  |||line 42, col 18 to line 42, col 115 of module L0_DepthSync: 41
+  ||line 121, col 14 to line 121, col 14 of module L0_DepthSync: 84
+  line 121, col 20 to line 121, col 35 of module L0_DepthSync: 84
+  line 121, col 40 to line 121, col 64 of module L0_DepthSync: 84
+<DeltaInvalid line 123, col 1 to line 123, col 12 of module L0_DepthSync>: 8:318
+  line 123, col 20 to line 123, col 29 of module L0_DepthSync: 379
+  |line 123, col 20 to line 123, col 25 of module L0_DepthSync: 194
+  line 44, col 17 to line 44, col 28 of module L0_DepthSync: 402
+  |line 44, col 17 to line 44, col 23 of module L0_DepthSync: 370
+  |line 44, col 27 to line 44, col 28 of module L0_DepthSync: 370
+  line 44, col 33 to line 44, col 44 of module L0_DepthSync: 286
+  |line 44, col 33 to line 44, col 33 of module L0_DepthSync: 370
+  |line 44, col 38 to line 44, col 44 of module L0_DepthSync: 370
+  line 124, col 35 to line 124, col 35 of module L0_DepthSync: 370
+  line 124, col 41 to line 124, col 62 of module L0_DepthSync: 318
+  |line 124, col 44 to line 124, col 62 of module L0_DepthSync: 318
+  ||line 41, col 13 to line 42, col 115 of module L0_DepthSync: 318
+  |||line 41, col 16 to line 41, col 36 of module L0_DepthSync: 318
+  |||line 41, col 43 to line 41, col 52 of module L0_DepthSync: 157
+  |||line 42, col 18 to line 42, col 115 of module L0_DepthSync: 161
+  ||line 124, col 50 to line 124, col 61 of module L0_DepthSync: 318
+  line 125, col 5 to line 125, col 20 of module L0_DepthSync: 318
+  line 125, col 25 to line 125, col 46 of module L0_DepthSync: 318
+  line 124, col 14 to line 124, col 18 of module L0_DepthSync: 185
+<DeltaBuffer line 127, col 1 to line 127, col 11 of module L0_DepthSync>: 486:12720
+  line 127, col 19 to line 127, col 28 of module L0_DepthSync: 379
+  |line 127, col 19 to line 127, col 24 of module L0_DepthSync: 194
+  line 127, col 33 to line 127, col 51 of module L0_DepthSync: 370
+  |line 127, col 33 to line 127, col 39 of module L0_DepthSync: 185
+  line 44, col 17 to line 44, col 28 of module L0_DepthSync: 16080
+  |line 44, col 17 to line 44, col 23 of module L0_DepthSync: 14800
+  |line 44, col 27 to line 44, col 28 of module L0_DepthSync: 14800
+  line 44, col 33 to line 44, col 44 of module L0_DepthSync: 11440
+  |line 44, col 33 to line 44, col 33 of module L0_DepthSync: 14800
+  |line 44, col 38 to line 44, col 44 of module L0_DepthSync: 14800
+  line 129, col 19 to line 129, col 19 of module L0_DepthSync: 14800
+  line 130, col 9 to line 131, col 93 of module L0_DepthSync: 12720
+  |line 130, col 12 to line 131, col 93 of module L0_DepthSync: 12720
+  ||line 130, col 15 to line 130, col 33 of module L0_DepthSync: 12720
+  ||line 130, col 40 to line 130, col 58 of module L0_DepthSync: 9680
+  |||line 41, col 13 to line 42, col 115 of module L0_DepthSync: 9680
+  ||||line 41, col 16 to line 41, col 36 of module L0_DepthSync: 9680
+  ||||line 41, col 43 to line 41, col 52 of module L0_DepthSync: 4800
+  ||||line 42, col 18 to line 42, col 115 of module L0_DepthSync: 4880
+  |||line 130, col 46 to line 130, col 57 of module L0_DepthSync: 9680
+  ||line 131, col 18 to line 131, col 93 of module L0_DepthSync: 3040
+  line 132, col 5 to line 132, col 20 of module L0_DepthSync: 12720
+  line 132, col 25 to line 132, col 86 of module L0_DepthSync: 12720
+  line 128, col 31 to line 128, col 45 of module L0_DepthSync: 370
+  |line 52, col 16 to line 54, col 64 of module L0_DepthSync: 370:15170
+  ||line 52, col 17 to line 53, col 63 of module L0_DepthSync: 14800
+  ||line 54, col 25 to line 54, col 30 of module L0_DepthSync: 370
+  ||line 54, col 39 to line 54, col 48 of module L0_DepthSync: 370
+  ||line 54, col 57 to line 54, col 63 of module L0_DepthSync: 370
+  |line 128, col 38 to line 128, col 38 of module L0_DepthSync: 370
+  |line 128, col 40 to line 128, col 44 of module L0_DepthSync: 370
+  line 128, col 14 to line 128, col 18 of module L0_DepthSync: 185
+<DeltaApply line 134, col 1 to line 134, col 10 of module L0_DepthSync>: 0:0
+  line 134, col 18 to line 134, col 27 of module L0_DepthSync: 193
+  line 134, col 32 to line 134, col 62 of module L0_DepthSync: 184
+  line 138, col 12 to line 139, col 67 of module L0_DepthSync: 0
+  line 140, col 12 to line 141, col 82 of module L0_DepthSync: 0
+  line 142, col 5 to line 142, col 20 of module L0_DepthSync: 0
+  line 142, col 25 to line 142, col 35 of module L0_DepthSync: 0
+<SnapshotExpired line 145, col 1 to line 145, col 15 of module L0_DepthSync>: 0:0
+  line 145, col 20 to line 145, col 38 of module L0_DepthSync: 193
+  line 147, col 25 to line 147, col 63 of module L0_DepthSync: 0
+  line 148, col 5 to line 148, col 20 of module L0_DepthSync: 0
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 0
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 0
+<SnapshotHttpFailure line 149, col 1 to line 149, col 19 of module L0_DepthSync>: 0:0
+  line 149, col 24 to line 149, col 42 of module L0_DepthSync: 193
+  line 151, col 25 to line 151, col 63 of module L0_DepthSync: 0
+  line 152, col 5 to line 152, col 20 of module L0_DepthSync: 0
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 0
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 0
+<SnapshotInvalid line 154, col 1 to line 154, col 15 of module L0_DepthSync>: 0:0
+  line 154, col 20 to line 154, col 38 of module L0_DepthSync: 193
+  line 156, col 25 to line 156, col 70 of module L0_DepthSync: 0
+  line 157, col 5 to line 157, col 20 of module L0_DepthSync: 0
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 0
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 0
+<SnapshotValid line 159, col 1 to line 159, col 13 of module L0_DepthSync>: 0:0
+  line 159, col 18 to line 159, col 36 of module L0_DepthSync: 193
+  line 166, col 15 to line 169, col 82 of module L0_DepthSync: 0
+  line 170, col 15 to line 173, col 94 of module L0_DepthSync: 0
+  line 174, col 5 to line 174, col 20 of module L0_DepthSync: 0
+  line 174, col 25 to line 174, col 35 of module L0_DepthSync: 0
+<SnapshotTransportFailure line 176, col 1 to line 176, col 24 of module L0_DepthSync>: 0:0
+  line 176, col 29 to line 176, col 47 of module L0_DepthSync: 193
+  line 177, col 41 to line 177, col 79 of module L0_DepthSync: 0
+  line 178, col 5 to line 178, col 20 of module L0_DepthSync: 0
+  line 46, col 17 to line 46, col 28 of module L0_DepthSync: 0
+  line 46, col 33 to line 46, col 45 of module L0_DepthSync: 0
+<Expire line 180, col 1 to line 180, col 6 of module L0_DepthSync>: 259:332
+  line 182, col 10 to line 182, col 17 of module L0_DepthSync: 386
+  line 182, col 24 to line 182, col 55 of module L0_DepthSync: 18
+  line 44, col 17 to line 44, col 28 of module L0_DepthSync: 398
+  |line 44, col 17 to line 44, col 23 of module L0_DepthSync: 368
+  |line 44, col 27 to line 44, col 28 of module L0_DepthSync: 368
+  line 44, col 33 to line 44, col 44 of module L0_DepthSync: 284
+  |line 44, col 33 to line 44, col 33 of module L0_DepthSync: 368
+  |line 44, col 38 to line 44, col 44 of module L0_DepthSync: 368
+  line 183, col 25 to line 183, col 25 of module L0_DepthSync: 368
+  line 185, col 15 to line 186, col 69 of module L0_DepthSync: 314
+  line 181, col 14 to line 181, col 18 of module L0_DepthSync: 193
+  line 187, col 5 to line 187, col 20 of module L0_DepthSync: 332
+  line 187, col 25 to line 187, col 35 of module L0_DepthSync: 332
+<Disconnect line 189, col 1 to line 189, col 10 of module L0_DepthSync>: 8:184
+  line 189, col 18 to line 189, col 27 of module L0_DepthSync: 377
+  |line 189, col 18 to line 189, col 23 of module L0_DepthSync: 193
+  line 190, col 5 to line 190, col 94 of module L0_DepthSync: 184
+  line 191, col 5 to line 191, col 20 of module L0_DepthSync: 184
+  line 191, col 25 to line 191, col 44 of module L0_DepthSync: 184
+<View line 193, col 1 to line 193, col 4 of module L0_DepthSync>: 356:386
+  line 195, col 7 to line 198, col 80 of module L0_DepthSync: 386
+  line 194, col 14 to line 194, col 18 of module L0_DepthSync: 193
+  line 199, col 5 to line 199, col 26 of module L0_DepthSync: 386
+<TypeOK line 208, col 1 to line 208, col 6 of module L0_DepthSync>
+  line 208, col 11 to line 215, col 31 of module L0_DepthSync: 1738
+  |line 208, col 11 to line 213, col 49 of module L0_DepthSync: 1738
+  |line 214, col 5 to line 215, col 31 of module L0_DepthSync: 1738
+  ||line 214, col 29 to line 215, col 31 of module L0_DepthSync: 1608
+  ||line 214, col 14 to line 214, col 26 of module L0_DepthSync: 1738
+<PendingBelongs line 216, col 1 to line 216, col 14 of module L0_DepthSync>
+  line 216, col 19 to line 218, col 75 of module L0_DepthSync: 1738
+<LiveHasCompleteReplay line 219, col 1 to line 219, col 21 of module L0_DepthSync>
+  line 219, col 26 to line 222, col 38 of module L0_DepthSync: 1737
+<FirstIsBuffered line 223, col 1 to line 223, col 15 of module L0_DepthSync>
+  line 223, col 20 to line 225, col 67 of module L0_DepthSync: 1737
+  |line 223, col 20 to line 223, col 38 of module L0_DepthSync: 1737
+  |line 224, col 2 to line 225, col 67 of module L0_DepthSync: 1690
+  ||line 224, col 5 to line 224, col 43 of module L0_DepthSync: 1690
+  ||line 225, col 6 to line 225, col 66 of module L0_DepthSync: 1690
+  |||line 225, col 9 to line 225, col 19 of module L0_DepthSync: 1690
+  |||line 225, col 26 to line 225, col 35 of module L0_DepthSync: 83
+  |||line 225, col 42 to line 225, col 66 of module L0_DepthSync: 1607
+<ClosedNotVisible line 226, col 1 to line 226, col 16 of module L0_DepthSync>
+  line 226, col 21 to line 227, col 52 of module L0_DepthSync: 1737
+  |line 226, col 21 to line 226, col 60 of module L0_DepthSync: 1737
+  |line 227, col 2 to line 227, col 52 of module L0_DepthSync: 47
+<FailuresClose line 228, col 1 to line 228, col 13 of module L0_DepthSync>
+  line 228, col 18 to line 229, col 87 of module L0_DepthSync: 1737
+  |line 228, col 18 to line 229, col 67 of module L0_DepthSync: 1737
+  |line 229, col 72 to line 229, col 87 of module L0_DepthSync: 19
+<ViewFreshAtCreation line 230, col 1 to line 230, col 19 of module L0_DepthSync>
+  line 230, col 24 to line 231, col 76 of module L0_DepthSync: 1737
+End of statistics.
+14538 states generated, 1738 distinct states found, 1544 states left on queue.
+The depth of the complete state graph search is 5.
+The average outdegree of the complete state graph is 7 (minimum is 0, the maximum 31 and the 95th percentile is 8).
+Finished in 00s at (2026-10-20 21:28:41)
+>>> elapsed: 2s (exit 76)

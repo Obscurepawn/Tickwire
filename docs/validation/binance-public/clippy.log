@@ -1,0 +1,28 @@
+    Blocking waiting for file lock on package cache
+    Checking ring v0.17.14
+    Checking rustls-webpki v0.103.16
+    Checking tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+    Checking rcgen v0.14.10
+    Checking rustls v0.23.46
+    Checking tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+    Checking tickwire-binance-clock v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-clock)
+    Checking tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
+error: this function has too many arguments (8/7)
+   --> crates/tickwire-binance-public/src/client.rs:487:5
+    |
+487 | /     fn notice_sync(
+488 | |         &mut self,
+489 | |         outcome: SyncOutcome,
+490 | |         stamp: Option<u64>,
+...   |
+495 | |         r: &mut PollReport,
+496 | |     ) -> Result<()> {
+    | |___________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#too_many_arguments
+    = note: `-D clippy::too-many-arguments` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::too_many_arguments)]`
+
+error: could not compile `tickwire-binance-public` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `tickwire-binance-public` (lib test) due to 1 previous error

@@ -1,0 +1,10 @@
+{
+  "source_sha256": {
+    "crates/tickwire-clock-sys/Cargo.toml": "88c4cee5533311daad8bf83b2a9c1198a653011214cd55be3f7a22297ac33c82",
+    "crates/tickwire-clock-sys/tests/native.rs": "0bd3e1b8068593d17c06f4a6e1229ef0b3be9209486bbf998b83ad31b4c55ae7",
+    "crates/tickwire-clock-sys/src/lib.rs": "1806f1d4ee3ec482e9e219842fb907ab156fdb17917bf9d5b9a2b6cc1a3a78e6"
+  },
+  "passed": 0,
+  "failed": 7,
+  "compile": "success"
+}

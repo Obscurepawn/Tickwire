@@ -1408,11 +1408,24 @@
           "size": 8
         },
         {
+          "name": "command_digest",
+          "type": "bytes",
+          "count": 32,
+          "offset": 304,
+          "size": 32
+        },
+        {
+          "name": "command_bytes",
+          "type": "u32",
+          "offset": 336,
+          "size": 4
+        },
+        {
           "name": "reserved_0",
           "type": "bytes",
-          "count": 80,
-          "offset": 304,
-          "size": 80,
+          "count": 44,
+          "offset": 340,
+          "size": 44,
           "reserved": true
         },
         {
@@ -4285,6 +4298,58 @@
         }
       ],
       "description": ""
+    },
+    {
+      "name": "DepthCoverage",
+      "size": 32,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "version",
+          "type": "u16",
+          "offset": 0,
+          "size": 2
+        },
+        {
+          "name": "bid_kind",
+          "type": "u8",
+          "offset": 2,
+          "size": 1
+        },
+        {
+          "name": "ask_kind",
+          "type": "u8",
+          "offset": 3,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "count": 4,
+          "offset": 4,
+          "size": 4,
+          "reserved": true
+        },
+        {
+          "name": "bid_boundary_ticks",
+          "type": "i64",
+          "offset": 8,
+          "size": 8
+        },
+        {
+          "name": "ask_boundary_ticks",
+          "type": "i64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "source_book_generation",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        }
+      ],
+      "description": "Versioned exact side coverage; absent prices are known zero only inside that side boundary."
     }
   ],
   "enums": {
@@ -4576,7 +4641,8 @@
       "InstrumentCatalog": 3,
       "TopicSnapshotManifest": 4,
       "MarketInstrumentState": 5,
-      "NormalizedMarketSnapshot": 6
+      "NormalizedMarketSnapshot": 6,
+      "NormalizedMarketSnapshotV2": 7
     },
     "control_state": {
       "Received": 1,
@@ -4633,6 +4699,11 @@
       "RateLimited": 42,
       "InternalFault": 43,
       "VenueRejected": 44
+    },
+    "depth_coverage_kind": {
+      "Unknown": 0,
+      "Complete": 1,
+      "Through": 2
     }
   },
   "bitsets": {
@@ -4658,7 +4729,10 @@
       "MultiTrigger8": 2,
       "ImmutableSnapshots": 3,
       "QualifiedReadOnlyAtomic64": 4,
-      "ConfigControlV1": 5
+      "ConfigControlV1": 5,
+      "ExactDepthCoverage": 6,
+      "CanonicalIntentReference": 7,
+      "CanonicalAccountReference": 8
     },
     "record_flags": {
       "SourceTimeValid": 0,
@@ -4900,6 +4974,20 @@
       "channel": "ExecutionReport",
       "body_layout": "OwnershipBody",
       "description": "origin, current manager and list/algo parent-child relationships"
+    },
+    {
+      "id": 780,
+      "name": "CanonicalAccountBaseline",
+      "channel": "ExecutionReport",
+      "body_layout": "ReportBody",
+      "description": "SHA-256 reference to complete durable canonical account data"
+    },
+    {
+      "id": 781,
+      "name": "CanonicalAccountRecord",
+      "channel": "ExecutionReport",
+      "body_layout": "ReportBody",
+      "description": "SHA-256 reference to complete durable canonical account data"
     }
   ],
   "control_opcodes": [
@@ -5511,7 +5599,9 @@
         "trigger_count",
         "triggers",
         "valid_until_mono_ns",
-        "working_price"
+        "working_price",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 1
     },
@@ -5538,7 +5628,9 @@
         "recovery_manifest_hash",
         "risk_policy_version",
         "strategy_generation",
-        "valid_until_mono_ns"
+        "valid_until_mono_ns",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 2
     },
@@ -5580,7 +5672,9 @@
         "trigger_count",
         "triggers",
         "valid_until_mono_ns",
-        "working_price"
+        "working_price",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 3
     },
@@ -5610,7 +5704,9 @@
         "strategy_generation",
         "trigger_count",
         "triggers",
-        "valid_until_mono_ns"
+        "valid_until_mono_ns",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 4
     },
@@ -5645,7 +5741,9 @@
         "strategy_generation",
         "trigger_count",
         "triggers",
-        "valid_until_mono_ns"
+        "valid_until_mono_ns",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 5
     },
@@ -5672,7 +5770,9 @@
         "recovery_manifest_hash",
         "risk_policy_version",
         "strategy_generation",
-        "valid_until_mono_ns"
+        "valid_until_mono_ns",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 6
     },
@@ -5700,7 +5800,9 @@
         "recovery_manifest_hash",
         "risk_policy_version",
         "strategy_generation",
-        "valid_until_mono_ns"
+        "valid_until_mono_ns",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 7
     },
@@ -5728,7 +5830,9 @@
         "recovery_manifest_hash",
         "risk_policy_version",
         "strategy_generation",
-        "valid_until_mono_ns"
+        "valid_until_mono_ns",
+        "command_digest",
+        "command_bytes"
       ],
       "command_kind": 8
     },
@@ -6080,6 +6184,52 @@
         "status",
         "reason"
       ]
+    },
+    "CanonicalAccountBaseline": {
+      "message_id": 780,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "logical_strategy_id",
+        "instance_id",
+        "strategy_generation",
+        "exec_generation",
+        "exec_journal_seq",
+        "report_seq",
+        "event_mono_ns",
+        "report_kind",
+        "aux_id",
+        "aux_version",
+        "value_0",
+        "value_1",
+        "value_validity"
+      ],
+      "value_validity_allowed_mask": 384,
+      "value_validity_required_mask": 384,
+      "report_kind": 11
+    },
+    "CanonicalAccountRecord": {
+      "message_id": 781,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "logical_strategy_id",
+        "instance_id",
+        "strategy_generation",
+        "exec_generation",
+        "exec_journal_seq",
+        "report_seq",
+        "event_mono_ns",
+        "report_kind",
+        "aux_id",
+        "aux_version",
+        "value_0",
+        "value_1",
+        "value_validity"
+      ],
+      "value_validity_allowed_mask": 384,
+      "value_validity_required_mask": 384,
+      "report_kind": 12
     }
   },
   "report_value_fields": [

@@ -1,0 +1,92 @@
+//! Supervisor allocations and single-owner local request quota consumption.
+#![forbid(unsafe_code)]
+
+pub use tickwire_clock::{ClockDomain, MonoTime};
+
+pub const MAX_WINDOWS: usize = 256;
+pub const MAX_CONSUMERS: usize = 256;
+pub const MAX_GRANTS: usize = 4096;
+pub const MAX_COSTS: usize = 16;
+pub const MAX_ATTEMPTS: usize = 4096;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Error {
+    Invalid,
+    Domain,
+    ClockRegression,
+    Expired,
+    Frozen,
+    Cooldown,
+    Capacity,
+    Exhausted,
+    Conflict,
+    AlreadyIssued,
+    Identity,
+    Store,
+    Poisoned,
+    Unsupported,
+}
+pub type Result<T> = core::result::Result<T, Error>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ScopeKind { Ip, Uid, Account, Connection }
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct BucketId {
+    pub namespace: [u8; 16],
+    pub scope: ScopeKind,
+    pub subject: [u8; 16],
+    pub pool: u64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct WindowKey { pub bucket: BucketId, pub window: u64 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Class { Normal, Recovery }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Cost { pub window: WindowKey, pub units: u64 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WindowConfig {
+    pub key: WindowKey,
+    pub revision: u64,
+    pub starts_ns: u64,
+    pub ends_ns: u64,
+    pub limit: u64,
+    pub recovery_reserve: u64,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConsumerId { pub instance: [u8; 16], pub generation: u64 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Consumed { New, Duplicate }
+
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Snapshot { pub revision: u64 }
+pub trait QuotaStore {
+    fn load(&mut self) -> Result<Snapshot>;
+    fn compare_exchange(&mut self, expected_revision: u64, next: &Snapshot) -> Result<()>;
+}
+#[derive(Clone, Default)]
+pub struct MockQuotaStore;
+impl QuotaStore for MockQuotaStore {
+    fn load(&mut self) -> Result<Snapshot> { Ok(Snapshot::default()) }
+    fn compare_exchange(&mut self, _: u64, _: &Snapshot) -> Result<()> { Ok(()) }
+}
+pub struct Coordinator<S: QuotaStore> { store: S }
+pub struct ExecLimiter;
+pub struct Grant;
+pub struct StoppedReceipt;
+impl<S: QuotaStore> Coordinator<S> {
+    pub fn open(store: S, _: u64, _: MonoTime) -> Result<Self> { Ok(Self { store }) }
+    pub fn add_window(&mut self, _: WindowConfig, _: MonoTime) -> Result<()> { Err(Error::Unsupported) }
+    pub fn register_consumer(&mut self, _: ConsumerId, _: u64, _: MonoTime) -> Result<ExecLimiter> { Err(Error::Unsupported) }
+    pub fn issue(&mut self, _: u64, _: &ExecLimiter, _: Class, _: &[Cost], _: u64, _: MonoTime) -> Result<Grant> { Err(Error::Unsupported) }
+    pub fn reclaim(&mut self, _: StoppedReceipt, _: MonoTime) -> Result<()> { Err(Error::Unsupported) }
+    pub fn accounted(&self, _: WindowKey) -> Result<u64> { Err(Error::Unsupported) }
+    pub fn into_store(self) -> S { self.store }
+}
+impl ExecLimiter {
+    pub fn install(&mut self, _: Grant, _: MonoTime) -> Result<()> { Err(Error::Unsupported) }
+    pub fn consume(&mut self, _: u64, _: [u8; 32], _: Class, _: &[Cost], _: MonoTime) -> Result<Consumed> { Err(Error::Unsupported) }
+    pub fn stop(self) -> StoppedReceipt { StoppedReceipt }
+    pub fn remaining(&self, _: WindowKey, _: Class) -> u64 { 0 }
+    pub fn cooldown(&mut self, _: u64, _: MonoTime) -> Result<()> { Err(Error::Unsupported) }
+    pub fn freeze(&mut self) {}
+}

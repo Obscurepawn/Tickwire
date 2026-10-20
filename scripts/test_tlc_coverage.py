@@ -80,11 +80,18 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(CoverageError):
             self.check(run(1, 1) + run(1, 1))
 
-    def test_different_model_and_action_sets_are_rejected(self):
+    def test_different_models_and_moved_declarations_are_rejected(self):
         with self.assertRaises(CoverageError):
             self.check(run(1, 1), run(1, 1, "Other"))
         with self.assertRaises(CoverageError):
-            self.check(run(1, 1), run(1, 1).replace("<B line", "<C line"))
+            self.check(run(1, 1), run(1, 1).replace("<B line 3", "<B line 4"))
+
+    def test_conditional_next_actions_are_merged_across_configurations(self):
+        only_a = run(2, 0).replace(
+            "<B line 3, col 1 to line 3, col 1 of module Example>: 0:0\n", "")
+        only_b = run(0, 3).replace(
+            "<A line 2, col 1 to line 2, col 1 of module Example>: 0:0\n", "")
+        self.assertEqual(sorted(self.check(only_a, only_b)["generated"].values()), [2, 2, 3])
 
     def test_duplicate_and_malformed_entries_are_rejected(self):
         entry = "<A line 2, col 1 to line 2, col 1 of module Example>: 0:1\n"
@@ -116,9 +123,19 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(result["entries"], 58)
         self.assertTrue(all(value > 0 for value in result["generated"].values()))
 
+    def test_private_product_configs_have_complementary_next_branches(self):
+        directory = Path(__file__).resolve().parents[1] / (
+            "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence"
+        )
+        paths = [directory / f"L0_PrivateSession{suffix}.log"
+                 for suffix in ("", "_logon", "_usdm", "_buffer")]
+        result = check_logs(paths, "L0_PrivateSession")
+        self.assertEqual(result["runs"], 4)
+        self.assertEqual(result["entries"], 31)
+
 
 class RunnerTests(unittest.TestCase):
-    def exercise(self, invariant):
+    def exercise(self, invariant, conditional=False):
         repo = Path(__file__).resolve().parents[1]
         jar = repo / "tla/tools/tla2tools.jar"
         if not jar.exists() or shutil.which("java") is None:
@@ -134,18 +151,25 @@ class RunnerTests(unittest.TestCase):
             (tools / "tla2tools.jar").symlink_to(jar)
             models = root / "tla/execution_models/tiny/02_models"
             models.mkdir(parents=True)
+            next_expr = "IF Mode = 1 THEN ModeA ELSE ModeB" if conditional else "A \\/ B"
+            branches = (
+                "Shared == /\\ x = 1 /\\ UNCHANGED x\n"
+                "ModeA == Shared \\/ A\nModeB == Shared \\/ B\n"
+            ) if conditional else ""
             (models / "Tiny.tla").write_text(
                 "---- MODULE Tiny ----\nEXTENDS Naturals\n"
                 "CONSTANT Mode\nVARIABLE x\n"
                 "Init == x = 0\n"
                 "A == /\\ Mode = 1 /\\ x = 0 /\\ x' = 1\n"
                 "B == /\\ Mode = 2 /\\ x = 0 /\\ x' = 1\n"
-                "Next == A \\/ B\n"
-                f"Safe == {invariant}\n====\n"
+                f"{branches}"
+                f"Next == {next_expr}\n"
+                f"Safe == {invariant}\nSpec == Init /\\ [][Next]_x\n====\n"
             )
             for mode in (1, 2):
+                behavior = "SPECIFICATION Spec" if conditional else "INIT Init\nNEXT Next"
                 (models / f"mode{mode}.cfg").write_text(
-                    f"CONSTANT Mode = {mode}\nINIT Init\nNEXT Next\n"
+                    f"CONSTANT Mode = {mode}\n{behavior}\n"
                     "INVARIANT Safe\nCHECK_DEADLOCK FALSE\n"
                 )
             return subprocess.run(
@@ -165,6 +189,13 @@ class RunnerTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Invariant Safe is violated.", result.stdout)
         self.assertNotIn('"runs": 2', result.stdout)
+
+    def test_runner_accepts_conditional_next_root_coverage(self):
+        result = self.exercise("x \\in 0..1", conditional=True)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        # TLC reports the small conditional expression as one Next entry.
+        # The actual private-session logs above exercise branch-specific entries.
+        self.assertIn('"entries": 2', result.stdout)
 
 
 if __name__ == "__main__":
