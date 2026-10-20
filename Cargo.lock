@@ -552,6 +552,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-account"
+version = "0.1.0"
+dependencies = [
+ "tickwire-risk",
+ "tickwire-venue",
+]
+
+[[package]]
+name = "tickwire-account-codec"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+ "tickwire-account",
+ "tickwire-journal",
+ "tickwire-recovery",
+ "tickwire-risk",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-binance"
 version = "0.1.0"
 dependencies = [

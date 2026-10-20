@@ -364,6 +364,41 @@ pub struct ListOrder {
     pub kind: ListKind,
     pub legs: BoundedList<OrderSpec, 3>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PegPriceType {
+    Primary,
+    Market,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Peg {
+    pub price_type: PegPriceType,
+    /// Existing book price levels, 0..=100; None omits both offset fields.
+    pub offset_levels: Option<u16>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpotOrder {
+    pub order: OrderSpec,
+    pub peg: Option<Peg>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SpotAdvancedList {
+    pub list_id: [u8; 16],
+    pub client_id: ClientId,
+    pub kind: ListKind,
+    pub legs: BoundedList<SpotOrder, 3>,
+}
+/// Schema 1 command tag 11; old OrderSpec and command encodings remain unchanged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SpotAdvancedCommand {
+    New(SpotOrder),
+    CancelReplace {
+        target: OrderTarget,
+        replacement: SpotOrder,
+        mode: CancelReplaceMode,
+    },
+    List(SpotAdvancedList),
+    SorNew(OrderSpec),
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ListTarget {
     pub list_id: [u8; 16],
@@ -415,6 +450,7 @@ pub enum CommandBody {
     CancelList(ListTarget),
     Algo(AlgoOrder),
     CancelAlgo(AlgoTarget),
+    SpotAdvanced(SpotAdvancedCommand),
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command {

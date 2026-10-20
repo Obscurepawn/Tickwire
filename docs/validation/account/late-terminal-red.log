@@ -1,0 +1,24 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-venue v0.1.0 (<REPO>/crates/tickwire-venue)
+   Compiling tickwire-account v0.1.0 (<REPO>/crates/tickwire-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.65s
+     Running tests/facts.rs (target/debug/deps/facts-3e9843fb6fe887bf)
+
+running 1 test
+test new_fill_cannot_silently_exceed_a_previously_closed_cumulative ... FAILED
+
+failures:
+
+---- new_fill_cannot_silently_exceed_a_previously_closed_cumulative stdout ----
+
+thread 'new_fill_cannot_silently_exceed_a_previously_closed_cumulative' (5439517) panicked at crates/tickwire-account/tests/facts.rs:213:5:
+assertion failed: a.frozen()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    new_fill_cannot_silently_exceed_a_previously_closed_cumulative
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-account --test facts`

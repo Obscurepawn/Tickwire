@@ -85,6 +85,9 @@ fn instrument(i: &InstrumentBinding, p: Product) -> Result<(), Error> {
     Ok(())
 }
 fn order(o: &OrderSpec, c: &CommandContext) -> Result<(), Error> {
+    order_with_peg(o, c, None)
+}
+fn order_with_peg(o: &OrderSpec, c: &CommandContext, peg: Option<Peg>) -> Result<(), Error> {
     let p = c.request.product;
     let i = &c.instrument;
     match (p, o.mode) {
@@ -118,8 +121,27 @@ fn order(o: &OrderSpec, c: &CommandContext) -> Result<(), Error> {
             | OrderType::TakeProfitLimit
             | OrderType::TakeProfitMarket
     );
-    if o.price.is_some() != limit || o.time_in_force.is_some() != limit {
+    if (o.price.is_some() && !limit)
+        || (limit && o.price.is_none() && peg.is_none())
+        || o.time_in_force.is_some() != limit
+    {
         return Err(Error::OrderCombination);
+    }
+    if let Some(peg) = peg {
+        if p != Product::Spot || o.mode != ProductMode::Spot {
+            return Err(Error::ProductCombination);
+        }
+        if !limit || peg.offset_levels.is_some_and(|n| n > 100) {
+            return Err(Error::OrderCombination);
+        }
+        match (o.order_type, o.time_in_force, peg.price_type) {
+            (OrderType::Limit, Some(TimeInForce::PostOnly), PegPriceType::Market) => {
+                return Err(Error::OrderCombination);
+            }
+            (OrderType::Limit, Some(TimeInForce::Gtc | TimeInForce::PostOnly), _) => {}
+            (OrderType::Limit, _, PegPriceType::Primary) => return Err(Error::OrderCombination),
+            _ => {}
+        }
     }
     if conditional {
         if o.trigger.is_none() && !(p == Product::Spot && o.trailing.is_some()) {
@@ -199,7 +221,10 @@ fn order(o: &OrderSpec, c: &CommandContext) -> Result<(), Error> {
         quantity(v, i)?;
         if !limit
             || !matches!(o.quantity, Quantity::Base(_))
-            || o.time_in_force != Some(TimeInForce::Gtc)
+            || !(o.time_in_force == Some(TimeInForce::Gtc)
+                || (p == Product::Spot
+                    && o.order_type == OrderType::Limit
+                    && o.time_in_force == Some(TimeInForce::PostOnly)))
         {
             return Err(Error::OrderCombination);
         }
@@ -285,12 +310,77 @@ pub(crate) fn command(c: &Command) -> Result<(), Error> {
             | CommandBody::CancelReplace { .. }
             | CommandBody::Modify(_)
             | CommandBody::SpotList(_)
+            | CommandBody::SpotAdvanced(_)
             | CommandBody::Algo(_)
     ) && (ctx.triggers.as_slice().is_empty() || !nonzero(&s.recovery_manifest_hash))
     {
         return Err(Error::Identity);
     }
     match &c.body {
+        CommandBody::SpotAdvanced(a) => {
+            if r.product != Product::Spot {
+                return Err(Error::ProductCombination);
+            }
+            match a {
+                SpotAdvancedCommand::New(o) => {
+                    if o.peg.is_none() {
+                        return Err(Error::OrderCombination);
+                    }
+                    order_with_peg(&o.order, ctx, o.peg)?;
+                }
+                SpotAdvancedCommand::CancelReplace {
+                    target: t,
+                    replacement: o,
+                    ..
+                } => {
+                    target(t, ctx)?;
+                    if o.peg.is_none() {
+                        return Err(Error::OrderCombination);
+                    }
+                    order_with_peg(&o.order, ctx, o.peg)?;
+                }
+                SpotAdvancedCommand::List(l) => {
+                    let legs = l.legs.as_slice();
+                    if !nonzero(&l.list_id)
+                        || legs.len() != if l.kind == ListKind::Otoco { 3 } else { 2 }
+                        || !legs.iter().any(|o| o.peg.is_some())
+                    {
+                        return Err(Error::OrderCombination);
+                    }
+                    for (n, o) in legs.iter().enumerate() {
+                        if o.order.mode != ProductMode::Spot {
+                            return Err(Error::ProductCombination);
+                        }
+                        order_with_peg(&o.order, ctx, o.peg)?;
+                        if l.kind == ListKind::Oto
+                            && n > 0
+                            && matches!(o.order.quantity, Quantity::Quote(_))
+                        {
+                            return Err(Error::OrderCombination);
+                        }
+                        if o.order.client_id == l.client_id
+                            || legs[..n]
+                                .iter()
+                                .any(|prior| prior.order.client_id == o.order.client_id)
+                        {
+                            return Err(Error::Duplicate);
+                        }
+                    }
+                }
+                SpotAdvancedCommand::SorNew(o) => {
+                    order(o, ctx)?;
+                    if o.mode != ProductMode::Spot {
+                        return Err(Error::ProductCombination);
+                    }
+                    if !matches!(o.order_type, OrderType::Limit | OrderType::Market)
+                        || !matches!(o.quantity, Quantity::Base(_))
+                        || o.time_in_force == Some(TimeInForce::PostOnly)
+                    {
+                        return Err(Error::OrderCombination);
+                    }
+                }
+            }
+        }
         CommandBody::New(o) => order(o, ctx)?,
         CommandBody::Cancel(t) | CommandBody::Query(t) => target(t, ctx)?,
         CommandBody::CancelReplace {

@@ -12,7 +12,7 @@ Status: active
 |---|---|---|
 | P0 契约与工具链 | Rust 1.99.1 workspace；既有 ABI/风险向量接入 Rust 回归 | 双产品协议 fixtures、SBE/schema 锁定、生产能力核验 |
 | P1 行情与 IPC | 批量有界盘口与小批散布改量优化、Spot/Futures 独立序号策略、固定 wire codec；Linux memfd、不可变快照构造与接收、SPSC/广播及 1～32 消费进程测试；认证会话与三进程 JOIN 集成 | Arena、bank 轮换、进程死亡回收与完整业务进程接入 |
-| P2 风控与执行 | 定点风险公式、订单状态、预留/去重、完整命令编码与持久绑定、真实 TLS 发送协调及 Binance REST 接线 | 完整保证金账户/归属、行情风控、协议会话与业务回报、条件订单和限流 |
+| P2 风控与执行 | 定点风险公式、Spot 多资产与 USD-M 账户、归属/预留/去重、完整命令编码与持久绑定、真实 TLS 发送协调及 Binance REST 接线 | 账户与发送协调组合、行情风控、协议会话与业务回报、剩余订单类型和限流 |
 | P3 发布与恢复 | 有序 journal Mock；真实物理 WAL/分段/同步恢复；业务日志适配、恢复依赖保存与验证；恢复后保持冻结 | 策略升级/回滚、多 exec 协调、对账、恢复后授权和配置发布 |
 | P4 故障与接管 | 注入存储失败、收据丢失和交易所 ACK 丢失 | 副本、控制共识、guardian、实际隔离与灾难恢复 |
 
@@ -28,6 +28,7 @@ Status: active
 - [JOIN 协调](implementation/join.md)、[业务日志与恢复](implementation/business-journal.md)、[恢复依赖](implementation/recovery-closure.md)与[Mock 中止重放](implementation/mock-abort.md)。
 - [完整命令摘要与日志绑定](implementation/command-binding.md)。
 - [交易所命令与事件](implementation/venue.md)、[非阻塞网络](implementation/transport.md)、[Binance 协议](implementation/binance-protocol.md)与[持久发送协调](implementation/gateway.md)。
+- [账户接口](../docs/implementation/account-interface.md)、[账户规格](implementation/account.md)、[账户恢复编码](implementation/account-codec.md)与 [Spot 请求扩展](implementation/binance-request-extensions.md)。
 - 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
 
 ## 验证与完成要求
@@ -137,3 +138,13 @@ macOS/Linux 全仓测试与 Clippy 通过，新增四组模型共 13 个配置�
 `tickwire-binance` 实现 HMAC/RSA/Ed25519 签名、Spot/USD-M 已列明的订单请求、错误分类和类型化响应。`tickwire-gateway` 将完整命令闭包、真实 WAL、最终门禁与同一 TLS 连接组合。Spot 和 USD-M REST 集成由本地协议服务器检查实际收到的参数及签名；零接受中止先保存，部分接受与恢复保留 Unknown。
 
 当前验证使用明确的授权与对象存储 Mock，业务日志和网络传输执行真实 I/O。完整账户风险、业务 ACK/成交关联、行情与私有流会话、列表和剩余协议组合继续按各模块接口推进。测试记录见[发送协调验证](../docs/validation/gateway/README.md)。
+
+## 账户、恢复编码与 Spot 请求扩展阶段
+
+`tickwire-account` 实现 Spot 多资产资源与 USD-M 单结算资产账户，维护策略归属、订单预留、成交和费用去重、终态累计、减仓与费用清算。准入结果绑定完整命令、账户代次和风险版本；恢复按原顺序重新计算准入并核对记录，完成后保持冻结。46 项测试在 macOS/Linux 通过。当前基线不导入已有活动订单，跨币种保证金、在线更换基线及部分复杂订单的风险计算仍待实现。
+
+`tickwire-account-codec` 为完整账户基线和八类恢复记录提供有界、确定性的 CBOR 编码与摘要。16 项测试包含独立 Python 基准样本、截断和单字节变异、实际文件对象与 WAL 重开恢复；恢复后的资源与运行中的账户逐项比较。账户、恢复编码和发送协调的生产组合仍须在执行模块中接通。
+
+Spot 请求增加 OCO、OTO、OTOCO、peg 与 SOR 的类型化参数和 REST/WebSocket 编码。新增 17 项测试包含十次实际 TLS 签名请求，以及旧命令字节兼容和旧解码器拒绝新增标签的检查。请求编码完成不自动赋予对应账户准入资格。
+
+账户 L0/L1 共六组模型通过，全部 Next 动作均生成后继状态，覆盖迟到成交、重复观察、终态累计、费用与减仓预留。接口边界、完整有限域和运行记录见[账户验证](../docs/validation/account/README.md)、[恢复编码验证](../docs/validation/account-codec/README.md)、[请求扩展验证](../docs/validation/binance-request-extensions/README.md)与[账户模型](../tla/execution_models/account/ROADMAP.md)。

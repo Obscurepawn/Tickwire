@@ -1,0 +1,266 @@
+info: syncing channel updates for 1.99.1-aarch64-unknown-linux-gnu
+info: latest update on 2026-10-15 for version 1.99.1 (58cf8f9c3 2026-10-13)
+info: downloading 2 components
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling shlex v2.0.1
+   Compiling find-msvc-tools v0.1.15
+   Compiling cc v1.9.0
+   Compiling proc-macro2 v1.0.107
+   Compiling untrusted v0.9.0
+   Compiling generic-array v0.14.7
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.27
+   Compiling serde_core v1.0.229
+   Compiling ring v0.17.14
+   Compiling zeroize v1.9.1
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling rustls-pki-types v1.15.1
+   Compiling cpufeatures v0.2.17
+   Compiling getrandom v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling syn v3.0.9
+   Compiling serde v1.0.229
+   Compiling time-core v0.1.9
+   Compiling tickwire-venue v0.1.0 (/work/crates/tickwire-venue)
+   Compiling rustls v0.23.46
+   Compiling httparse v1.10.1
+   Compiling powerfmt v0.2.1
+   Compiling deranged v0.5.9
+   Compiling num-conv v0.2.2
+   Compiling serde_json v1.0.145
+   Compiling getrandom v0.3.4
+   Compiling time v0.3.55
+   Compiling serde_derive v1.0.229
+   Compiling once_cell v1.21.4
+   Compiling itoa v1.0.18
+   Compiling ryu v1.0.23
+   Compiling subtle v2.6.1
+   Compiling memchr v2.8.3
+   Compiling base64 v0.22.1
+   Compiling base64 v0.23.1
+   Compiling pem v4.0.0
+   Compiling yasna v0.6.0
+   Compiling sha1 v0.10.6
+   Compiling mio v1.2.4
+   Compiling tickwire-book v0.1.0 (/work/crates/tickwire-book)
+   Compiling rustls-webpki v0.103.16
+   Compiling rcgen v0.14.10
+   Compiling tickwire-binance v0.1.0 (/work/crates/tickwire-binance)
+   Compiling tickwire-transport v0.1.0 (/work/crates/tickwire-transport)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 01s
+     Running unittests src/lib.rs (target/linux-binance-extensions/debug/deps/tickwire_binance-5df7f80d042d2747)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/feed.rs (target/linux-binance-extensions/debug/deps/feed-463259ecaf186e3e)
+
+running 11 tests
+test known_duplicate_fields_and_invalid_ranges_cannot_override_prior_values ... ok
+test decoder_preserves_duplicate_updates_for_the_atomic_book_validator ... ok
+test combined_stream_identity_excludes_partial_and_rpi_depth ... ok
+test depth_rejects_wrong_products_missing_previous_and_wrong_symbol ... ok
+test exchange_information_preserves_unknown_rules_and_uses_filter_grids ... ok
+test identifiers_above_binary_float_precision_and_time_units_are_exact ... ok
+test mixed_cm_metadata_is_retained_but_never_classified_as_usdm ... ok
+test message_and_level_capacity_fail_without_delivering_a_prefix ... ok
+test malformed_arrays_numbers_and_nonintegral_grid_values_are_rejected ... ok
+test usdm_preserves_pu_and_accepts_the_snapshot_in_the_first_range ... ok
+test spot_snapshot_and_next_update_feed_the_real_sequence_policy ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/market_server.rs (target/linux-binance-extensions/debug/deps/market_server-daae0700370b468e)
+
+running 2 tests
+test spot_chunked_https_snapshot_and_fragmented_wss_update_reach_live_book ... ok
+test usdm_chunked_https_snapshot_and_fragmented_wss_update_reach_live_book ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/protocol_primitives.rs (target/linux-binance-extensions/debug/deps/protocol_primitives-af458050d6c19e41)
+
+running 15 tests
+test decimal_exact_conversion_and_i128_minimum ... ok
+test decimal_invalid_precision_and_rescale_fail_without_rounding ... ok
+test json_numbers_reject_non_json_leading_zero_spellings_without_mutating_params ... ok
+test bad_keys_and_fix_field_injection_are_rejected ... ok
+test fix_sender_comp_id_rejects_printable_but_unlisted_punctuation_atomically ... ok
+test endpoint_algorithm_matrix_rejects_unsupported_combination ... ok
+test official_spot_ws_vector_sorts_keys_without_changing_decimal_strings ... ok
+test output_capacity_failure_is_atomic_for_all_encoders ... ok
+test official_spot_rest_hmac_ascii_vector ... ok
+test rest_preimage_does_not_insert_a_separator_between_query_and_body ... ok
+test parameter_limits_reject_duplicates_reserved_keys_and_capacity ... ok
+test official_fix_ed25519_vector_and_distinct_preimage ... ok
+test official_spot_rest_unicode_is_percent_encoded_before_signing ... ok
+test websocket_uses_raw_utf8_while_rest_escapes_values_once ... ok
+test rsa_pkcs1_sha256_matches_independent_openssl_vector ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_server.rs (target/linux-binance-extensions/debug/deps/protocol_server-1981e085e962ba68)
+
+running 2 tests
+test prepared_rest_all_three_signatures_over_actual_tls_and_chunked_reply ... ok
+test prepared_usdm_websocket_hmac_ed25519_and_unknown_response_over_actual_tls ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/request_extensions.rs (target/linux-binance-extensions/debug/deps/request_extensions-8c1f514049503048)
+
+running 10 tests
+test list_shared_fields_are_never_silently_discarded ... ok
+test illegal_list_roles_fail_before_any_prepared_request ... ok
+test list_conditional_trailing_iceberg_and_shared_stp_survive ... ok
+test advanced_request_budget_and_identity_checks_remain_exact ... ok
+test maker_icebergs_and_partial_peg_preserve_each_leg ... ok
+test peg_new_cancel_replace_preserve_price_and_exact_offset_pair ... ok
+test peg_fields_are_prefixed_for_every_list_role ... ok
+test sor_routes_only_explicit_command_and_keeps_base_quantity ... ok
+test all_list_endpoints_and_exact_leg_fields ... ok
+test real_network::extensions_cross_real_tls_http_and_wss_with_verified_signature ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/requests.rs (target/linux-binance-extensions/debug/deps/requests-132d5a1aa1f30628)
+
+running 14 tests
+test account_environment_and_market_mismatch_never_produce_request ... ok
+test capacity_and_timing_failure_are_explicit ... ok
+test post_only_spot_is_limit_maker_without_tif ... ok
+test rest_request_uses_product_endpoint_and_encoded_query_exactly ... ok
+test spot_cancel_replace_and_priority_amend_are_distinct ... ok
+test cancel_and_query_preserve_original_target_identity ... ok
+test spot_fractional_recv_window_is_a_json_number_with_exact_milliseconds ... ok
+test spot_market_sell_quote_quantity_is_sent_as_exact_string ... ok
+test spot_new_ws_contains_complete_typed_order_and_original_digest ... ok
+test usdm_limit_hedge_mode_sends_position_side_without_reduce_only ... ok
+test usdm_trailing_algo_uses_activate_price_and_callback_percent ... ok
+test usdm_modify_keeps_side_price_quantity_and_target ... ok
+test usdm_algo_close_position_uses_distinct_method_and_exclusive_fields ... ok
+test usdm_gtd_is_milliseconds_with_seconds_precision ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/responses.rs (target/linux-binance-extensions/debug/deps/responses-670c46071fd5caf8)
+
+running 14 tests
+test futures_documented_503_failures_are_distinguished_from_unknown ... ok
+test backend_timeout_and_unknown_new_error_codes_do_not_authorize_release ... ok
+test algo_identity_is_not_interchanged_with_child_order_identity ... ok
+test malformed_http_200_error_and_non_success_status_never_become_success ... ok
+test invalid_or_ambiguous_envelopes_are_rejected ... ok
+test new_order_status_is_preserved_without_assuming_terminal ... ok
+test rest_error_and_success_use_http_status_without_losing_error_code ... ok
+test typed_order_ack_does_not_invent_status_or_quantity ... ok
+test unknown_errors_never_turn_into_authoritative_rejection ... ok
+test typed_order_exact_decimals_and_fill_payload_are_preserved ... ok
+test typed_order_rejects_wrong_types_duplicates_negative_quantities_and_missing_identity ... ok
+test not_found_rate_limits_auth_and_partial_results_are_preserved ... ok
+test websocket_envelope_preserves_correlation_raw_result_and_rate_limits ... ok
+test partial_cancel_replace_retains_both_result_branches ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/linux-binance-extensions/debug/deps/tickwire_venue-c26a16284f380ce9)
+
+running 2 tests
+test cbor::tests::integer_boundaries_use_preferred_encoding ... ok
+test cbor::tests::nonpreferred_bignum_and_integer_overflow_reject ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commands.rs (target/linux-binance-extensions/debug/deps/commands-345728a34f1c8126)
+
+running 12 tests
+test cross_product_and_inapplicable_parameters_are_rejected ... ok
+test gtd_iceberg_and_grid_validation ... ok
+test derivative_trailing_and_delivery_are_distinct ... ok
+test each_product_contract_and_list_kind_roundtrips ... ok
+test all_ten_command_branches_preserve_complete_content ... ok
+test every_request_context_field_is_digest_bound ... ok
+test list_client_identity_and_future_target_epoch_reject ... ok
+test oto_pending_quote_amount_remains_unsupported ... ok
+test spot_market_sell_accepts_a_quote_amount_target ... ok
+test order_parameters_and_trigger_observations_are_digest_bound ... ok
+test spot_conditional_trailing_keeps_base_type_and_units ... ok
+test price_grid_matches_independent_bounded_integer_arithmetic ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/contract.rs (target/linux-binance-extensions/debug/deps/contract-5b6351335dff1998)
+
+running 5 tests
+test market_with_price_is_rejected ... ok
+test decimal_normalization_and_minimum_integer ... ok
+test economic_fields_change_the_digest ... ok
+test complete_command_is_immutable_and_canonical_roundtrip ... ok
+test unicode_catalog_symbols_are_preserved_without_folding ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/events.rs (target/linux-binance-extensions/debug/deps/events-73b45d5197422c53)
+
+running 7 tests
+test duplicate_asset_line_and_conflicting_internal_identity_reject ... ok
+test reported_quote_amounts_and_realized_pnl_are_preserved ... ok
+test minimum_i128_fee_is_preserved_without_negating_it ... ok
+test signed_multi_asset_fees_and_native_ids_survive ... ok
+test unknown_internal_order_retains_native_evidence ... ok
+test standalone_order_and_fee_events_roundtrip ... ok
+test parent_native_ids_and_rejection_text_are_preserved ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/spot_extensions.rs (target/linux-binance-extensions/debug/deps/spot_extensions-9b6ba2d60da93cc5)
+
+running 7 tests
+test advanced_lists_reject_duplicate_ids_missing_peg_and_wrong_arity ... ok
+test peg_requires_bound_product_triggers_and_recovery ... ok
+test peg_and_sor_roundtrip_all_subtags_without_changing_legacy_schema ... ok
+test advanced_rejects_invalid_combinations_and_duplicate_representations ... ok
+test peg_fields_and_sor_routing_are_part_of_digest ... ok
+test strict_tag11_lengths_enums_truncation_and_trailing_data ... ok
+test old_tags_keep_every_byte_and_digest ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/strict.rs (target/linux-binance-extensions/debug/deps/strict-502c3be1c69e0ba0)
+
+running 5 tests
+test length_bombs_and_oversized_identifiers_reject_before_allocation ... ok
+test decimal_text_parser_is_exact_and_bounded ... ok
+test non_shortest_header_unknown_schema_and_domain_reject ... ok
+test equivalent_non_normalized_decimal_is_not_an_alternate_command_encoding ... ok
+test each_truncated_prefix_and_trailing_data_reject ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vectors.rs (target/linux-binance-extensions/debug/deps/vectors-d415ec69f94c00bf)
+
+running 4 tests
+test independently_transcribed_full_command_vector ... ok
+test independently_transcribed_reported_cash_fields ... ok
+test independently_transcribed_multi_asset_event_vectors ... ok
+test every_single_byte_mutation_is_rejected_or_canonical_for_the_decoded_value ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests tickwire_binance
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_venue
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

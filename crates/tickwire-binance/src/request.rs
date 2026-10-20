@@ -355,6 +355,51 @@ fn command_params(
             order_params(p, order, market, false, timestamp, stamp)?;
             (Method::Post, order_path, "order.place")
         }
+        CommandBody::SpotList(l) if market == Market::Spot => {
+            let legs: Vec<_> = l.legs.as_slice().iter().map(|o| (o, None)).collect();
+            list_params(p, &l.client_id, l.kind, &legs)?
+        }
+        CommandBody::SpotAdvanced(a) if market == Market::Spot => match a {
+            SpotAdvancedCommand::New(o) => {
+                order_params(p, &o.order, market, false, timestamp, stamp)?;
+                peg_params(p, o.peg)?;
+                (Method::Post, order_path, "order.place")
+            }
+            SpotAdvancedCommand::CancelReplace {
+                target,
+                replacement,
+                mode,
+            } => {
+                order_target(p, target, market, true)?;
+                order_params(p, &replacement.order, market, false, timestamp, stamp)?;
+                peg_params(p, replacement.peg)?;
+                p.text(
+                    "cancelReplaceMode",
+                    match mode {
+                        CancelReplaceMode::StopOnFailure => "STOP_ON_FAILURE",
+                        CancelReplaceMode::AllowFailure => "ALLOW_FAILURE",
+                    },
+                )?;
+                (
+                    Method::Post,
+                    "/api/v3/order/cancelReplace",
+                    "order.cancelReplace",
+                )
+            }
+            SpotAdvancedCommand::List(l) => {
+                let legs: Vec<_> = l
+                    .legs
+                    .as_slice()
+                    .iter()
+                    .map(|o| (&o.order, o.peg))
+                    .collect();
+                list_params(p, &l.client_id, l.kind, &legs)?
+            }
+            SpotAdvancedCommand::SorNew(o) => {
+                order_params(p, o, market, false, timestamp, stamp)?;
+                (Method::Post, "/api/v3/sor/order", "sor.order.place")
+            }
+        },
         CommandBody::Cancel(t) => {
             order_target(p, t, market, false)?;
             (Method::Delete, order_path, "order.cancel")
@@ -441,6 +486,164 @@ fn command_params(
             (Method::Delete, "/api/v3/orderList", "orderList.cancel")
         }
         _ => return Err(Error::UnsupportedCommand),
+    })
+}
+fn peg_params(p: &mut OwnedParams, peg: Option<Peg>) -> Result<()> {
+    if let Some(peg) = peg {
+        p.text(
+            "pegPriceType",
+            match peg.price_type {
+                PegPriceType::Primary => "PRIMARY_PEG",
+                PegPriceType::Market => "MARKET_PEG",
+            },
+        )?;
+        if let Some(levels) = peg.offset_levels {
+            p.text("pegOffsetType", "PRICE_LEVEL")?;
+            p.integer("pegOffsetValue", u64::from(levels))?;
+        }
+    }
+    Ok(())
+}
+// Every allowed leg field has a fixed endpoint spelling. Unknown fields fail closed.
+type LegKeys = [&'static str; 12];
+macro_rules! leg_keys {
+    ($prefix:literal) => {
+        [
+            concat!($prefix, "Type"),
+            concat!($prefix, "ClientOrderId"),
+            concat!($prefix, "Price"),
+            concat!($prefix, "TimeInForce"),
+            concat!($prefix, "StopPrice"),
+            concat!($prefix, "TrailingDelta"),
+            concat!($prefix, "IcebergQty"),
+            concat!($prefix, "Side"),
+            concat!($prefix, "Quantity"),
+            concat!($prefix, "PegPriceType"),
+            concat!($prefix, "PegOffsetType"),
+            concat!($prefix, "PegOffsetValue"),
+        ]
+    };
+}
+fn list_params(
+    p: &mut OwnedParams,
+    id: &ClientId,
+    kind: ListKind,
+    legs: &[(&OrderSpec, Option<Peg>)],
+) -> Result<(Method, &'static str, &'static str)> {
+    if legs.len() != if kind == ListKind::Otoco { 3 } else { 2 } {
+        return Err(Error::InvalidParameter);
+    }
+    client_id(id.as_str(), Market::Spot)?;
+    if legs.iter().any(|(o, _)| {
+        !matches!(o.quantity, Quantity::Base(_))
+            || o.self_trade_prevention != legs[0].0.self_trade_prevention
+    }) {
+        return Err(Error::InvalidParameter);
+    }
+    if kind != ListKind::Oco && legs[0].0.order_type != OrderType::Limit {
+        return Err(Error::InvalidParameter);
+    }
+    if kind != ListKind::Oto {
+        let first = usize::from(kind == ListKind::Otoco);
+        let a = legs[first].0;
+        let b = legs[first + 1].0;
+        let stop =
+            |o: &OrderSpec| matches!(o.order_type, OrderType::StopLimit | OrderType::StopMarket);
+        let profit = |o: &OrderSpec| {
+            matches!(
+                o.order_type,
+                OrderType::TakeProfitLimit | OrderType::TakeProfitMarket
+            )
+        };
+        let maker = |o: &OrderSpec| {
+            o.order_type == OrderType::Limit && o.time_in_force == Some(TimeInForce::PostOnly)
+        };
+        if a.side != b.side
+            || a.quantity != b.quantity
+            || !((stop(a) && profit(b)) || ((profit(a) || maker(a)) && stop(b)))
+        {
+            return Err(Error::InvalidParameter);
+        }
+        p.text(
+            if kind == ListKind::Oco {
+                "side"
+            } else {
+                "pendingSide"
+            },
+            side(a.side),
+        )?;
+        let Quantity::Base(qty) = a.quantity else {
+            return Err(Error::InvalidParameter);
+        };
+        p.decimal(
+            if kind == ListKind::Oco {
+                "quantity"
+            } else {
+                "pendingQuantity"
+            },
+            qty,
+        )?;
+    }
+    p.text("listClientOrderId", id.as_str())?;
+    let keys: &[LegKeys] = match kind {
+        ListKind::Oco => &[leg_keys!("above"), leg_keys!("below")],
+        ListKind::Oto => &[leg_keys!("working"), leg_keys!("pending")],
+        ListKind::Otoco => &[
+            leg_keys!("working"),
+            leg_keys!("pendingAbove"),
+            leg_keys!("pendingBelow"),
+        ],
+    };
+    for (index, ((order, peg), keys)) in legs.iter().zip(keys).enumerate() {
+        let mut fields = OwnedParams::new();
+        // Spot uses neither timestamp nor GTD; these arguments cannot affect the leg.
+        order_params(
+            &mut fields,
+            order,
+            Market::Spot,
+            false,
+            0,
+            Timestamp::Milliseconds(0),
+        )?;
+        peg_params(&mut fields, *peg)?;
+        if kind == ListKind::Oco
+            && order.time_in_force == Some(TimeInForce::PostOnly)
+            && order.iceberg_quantity.is_some()
+        {
+            // The OCO parameter table requires GTC alongside aboveIcebergQty.
+            fields.text("timeInForce", "GTC")?;
+        }
+        let own_quantity = kind == ListKind::Oto || (kind == ListKind::Otoco && index == 0);
+        for (name, value) in fields.0 {
+            let key = match name {
+                "type" => keys[0],
+                "newClientOrderId" => keys[1],
+                "price" => keys[2],
+                "timeInForce" => keys[3],
+                "stopPrice" => keys[4],
+                "trailingDelta" => keys[5],
+                "icebergQty" => keys[6],
+                "side" if own_quantity => keys[7],
+                "quantity" if own_quantity => keys[8],
+                "side" | "quantity" => continue,
+                "pegPriceType" => keys[9],
+                "pegOffsetType" => keys[10],
+                "pegOffsetValue" => keys[11],
+                "selfTradePreventionMode" if index == 0 => "selfTradePreventionMode",
+                "selfTradePreventionMode" => continue,
+                _ => return Err(Error::UnsupportedCommand),
+            };
+            p.add(key, value)?;
+        }
+    }
+    Ok(match kind {
+        ListKind::Oco => (Method::Post, "/api/v3/orderList/oco", "orderList.place.oco"),
+        ListKind::Oto => (Method::Post, "/api/v3/orderList/oto", "orderList.place.oto"),
+        ListKind::Otoco => (
+            Method::Post,
+            "/api/v3/orderList/otoco",
+            "orderList.place.otoco",
+        ),
     })
 }
 fn side(s: Side) -> &'static str {

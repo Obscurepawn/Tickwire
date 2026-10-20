@@ -1,0 +1,25 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running tests/futures.rs (target/debug/deps/futures-2b16a3c1b536313f)
+
+running 3 tests
+test reduce_allocations_cannot_share_the_same_actual_position ... ok
+test linear_capital_and_venue_shadow_are_distinct_from_cash_asset_reservations ... ok
+test shared_wallet_gross_limit_includes_offsetting_strategy_positions ... FAILED
+
+failures:
+
+---- shared_wallet_gross_limit_includes_offsetting_strategy_positions stdout ----
+
+thread 'shared_wallet_gross_limit_includes_offsetting_strategy_positions' (5319759) panicked at crates/tickwire-account/tests/futures.rs:32:5:
+assertion `left == right` failed
+  left: Ok(Admission { digest: [224, 254, 104, 152, 129, 15, 248, 199, 117, 49, 70, 22, 170, 9, 75, 161, 158, 50, 202, 192, 251, 14, 5, 188, 206, 3, 162, 26, 171, 38, 23, 110], key: IntentKey { epoch: 4, intent_id: 3 }, epoch: 1, sequence: 1, revisions: Revisions { risk: 10, fee: 1, bracket: 1, collateral: 1, valuation: 1 }, resources: [], capital: [CapitalHold { wallet_id: 1, settlement_asset: 2, amount: Fixed { atoms: 1000000000, scale: 8 } }], orders: [OrderKey { intent: IntentKey { epoch: 4, intent_id: 3 }, client_id: BoundedText("test-1") }], increases: true })
+ right: Err(Limit)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shared_wallet_gross_limit_includes_offsetting_strategy_positions
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-account --test futures`

@@ -168,6 +168,7 @@ enumeration!(WorkingPrice;Contract=1,Mark=2,Index=3);
 enumeration!(OrderType;Limit=1,Market=2,StopLimit=3,StopMarket=4,TakeProfitLimit=5,TakeProfitMarket=6,TrailingStop=7);
 enumeration!(CancelReplaceMode;StopOnFailure=1,AllowFailure=2);
 enumeration!(ListKind;Oco=1,Oto=2,Otoco=3);
+enumeration!(PegPriceType;Primary=1,Market=2);
 enumeration!(OptionRight;Call=1,Put=2);
 enumeration!(OrderStatus;Pending=1,New=2,PartiallyFilled=3,Filled=4,Canceled=5,Expired=6,Rejected=7,Unknown=8);
 enumeration!(Liquidity;Unknown=0,Maker=1,Taker=2);
@@ -395,6 +396,11 @@ impl Codec for CommandBody {
                 w.uint(10);
                 x.write(w)
             }
+            Self::SpotAdvanced(x) => {
+                w.array(2);
+                w.uint(11);
+                x.write(w)
+            }
         }
     }
     fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
@@ -418,6 +424,52 @@ impl Codec for CommandBody {
             (2, 8) => Ok(Self::CancelList(Codec::read(r)?)),
             (2, 9) => Ok(Self::Algo(Codec::read(r)?)),
             (2, 10) => Ok(Self::CancelAlgo(Codec::read(r)?)),
+            (2, 11) => Ok(Self::SpotAdvanced(Codec::read(r)?)),
+            _ => Err(Error::Enum),
+        }
+    }
+}
+impl Codec for SpotAdvancedCommand {
+    fn write(&self, w: &mut Writer) {
+        match self {
+            Self::New(o) => {
+                w.array(2);
+                w.uint(1);
+                o.write(w);
+            }
+            Self::CancelReplace {
+                target,
+                replacement,
+                mode,
+            } => {
+                w.array(4);
+                w.uint(2);
+                target.write(w);
+                replacement.write(w);
+                mode.write(w);
+            }
+            Self::List(l) => {
+                w.array(2);
+                w.uint(3);
+                l.write(w);
+            }
+            Self::SorNew(o) => {
+                w.array(2);
+                w.uint(4);
+                o.write(w);
+            }
+        }
+    }
+    fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+        match (r.len(4, 4)?, r.uint()?) {
+            (2, 1) => Ok(Self::New(Codec::read(r)?)),
+            (4, 2) => Ok(Self::CancelReplace {
+                target: Codec::read(r)?,
+                replacement: Codec::read(r)?,
+                mode: Codec::read(r)?,
+            }),
+            (2, 3) => Ok(Self::List(Codec::read(r)?)),
+            (2, 4) => Ok(Self::SorNew(Codec::read(r)?)),
             _ => Err(Error::Enum),
         }
     }
@@ -489,6 +541,9 @@ structure!(Trailing;activation_price,working_price,distance);
 structure!(OrderSpec;client_id,side,order_type,quantity,price,time_in_force,position_side,mode,reduce_only,self_trade_prevention,trigger,trailing,iceberg_quantity);
 structure!(OrderTarget;order_id,expected_owner_revision,original_intent_exec_epoch,client_id,venue_order_id);
 structure!(ListOrder;list_id,client_id,kind,legs);
+structure!(Peg;price_type,offset_levels);
+structure!(SpotOrder;order,peg);
+structure!(SpotAdvancedList;list_id,client_id,kind,legs);
 structure!(ListTarget;list_id,expected_owner_revision,original_intent_exec_epoch,client_id,venue_list_id);
 structure!(AlgoOrder;parent_order_id,order);
 structure!(AlgoTarget;parent_order_id,expected_owner_revision,original_intent_exec_epoch,client_id,venue_algo_id);

@@ -1,0 +1,40 @@
+   Compiling tickwire-account-codec v0.1.0 (<REPO>/crates/tickwire-account-codec)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.22s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_account_codec-37c9bd9849e2740d)
+
+running 2 tests
+test cbor::tests::integer_boundaries_use_preferred_encoding ... ok
+test cbor::tests::nonpreferred_bignum_and_integer_overflow_reject ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/baseline.rs (target/debug/deps/baseline-10c5240b38b477da)
+
+running 6 tests
+test asset_and_policy_identity_cannot_be_silently_replaced ... ok
+test adversarial_lengths_and_invalid_inputs_reject ... ok
+test collections_have_one_order_and_duplicates_reject ... ok
+test changes_to_fees_wallet_units_and_revision_change_identity ... ok
+test complete_spot_and_futures_baselines_roundtrip ... ok
+test every_prefix_truncation_and_trailing_data_reject ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/records.rs (target/debug/deps/records-365c22ced27c2b2b)
+
+running 3 tests
+test every_recovery_input_has_lossless_record_and_distinct_tag ... ok
+test envelope_and_admission_bindings_reject_substitution ... ok
+test truncated_corrupted_and_noncanonical_embedded_records_reject ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vectors.rs (target/debug/deps/vectors-1840a8b7cac35bae)
+
+running 4 tests
+test independently_encoded_minimum_i128_cashflow_is_preserved ... ok
+test alternate_order_is_rejected_by_decode ... ok
+test independent_reference_baselines_match_exact_bytes_and_hash ... ok
+test all_single_byte_changes_have_one_accepted_representation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s

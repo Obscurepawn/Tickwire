@@ -1,0 +1,2697 @@
+   Compiling tickwire-account v0.1.0 (<REPO>/crates/tickwire-account)
+   Compiling tickwire-account-codec v0.1.0 (<REPO>/crates/tickwire-account-codec)
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:76:52
+    |
+ 76 | fn read_vec<T:Codec>(r:&mut Reader<'_>,max:usize)->Result<Vec<T>,Error>{
+    |                                                    ^^^^^^       ------ help: remove the unnecessary generic argument
+    |                                                    |
+    |                                                    expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/validate.rs:9:61
+    |
+  9 | fn sort_unique<T,K:Ord>(items:&mut [T],key:impl Fn(&T)->K)->Result<(),Error>{
+    |                                                             ^^^^^^   ------ help: remove the unnecessary generic argument
+    |                                                             |
+    |                                                             expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/validate.rs:13:52
+    |
+ 13 | fn unique<T,K:Ord>(items:&[T],key:impl Fn(&T)->K)->Result<(),Error>{
+    |                                                    ^^^^^^   ------ help: remove the unnecessary generic argument
+    |                                                    |
+    |                                                    expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:8:36
+    |
+  8 |     fn read(r: &mut Reader<'_>) -> Result<Self, Error>;
+    |                                    ^^^^^^     ------- help: remove the unnecessary generic argument
+    |                                    |
+    |                                    expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:35:33
+    |
+ 35 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{r.bytes()}
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:56:33
+    |
+ 56 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{Self::new(r.text(N)?).map_err(|_|Error::Text)}
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:60:33
+    |
+ 60 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{Self::new(r.text(N)?).map_err(|_|Error::Text)}
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:64:33
+    |
+ 64 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:70:33
+    |
+ 70 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{r.array(2)?;Ok((A::read(r)?,B::read(r)?))}
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:74:33
+    |
+ 74 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{read_vec(r,MAX_OWNERS)}
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:14:44
+    |
+ 14 |             fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+    |                                            ^^^^^^     ------- help: remove the unnecessary generic argument
+    |                                            |
+    |                                            expected 1 generic argument
+...
+ 20 | unsigned!(u8,u32,u64);
+    | --------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `unsigned` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:23:33
+    |
+ 23 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:29:33
+    |
+ 29 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:39:33
+    |
+ 39 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:46:33
+    |
+ 46 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:103:41
+    |
+103 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+109 | enumeration!(v::Environment; Production=1,Test=2);
+    | ------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:103:41
+    |
+103 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+110 | enumeration!(v::Product; Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6);
+    | ------------------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:103:41
+    |
+103 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+111 | enumeration!(v::PositionSide; Both=1,Long=2,Short=3);
+    | ---------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:103:41
+    |
+103 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+112 | enumeration!(v::PositionMode; OneWay=1,Hedge=2);
+    | ----------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:103:41
+    |
+103 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+113 | enumeration!(v::MarginMode; Cross=1,Isolated=2);
+    | ----------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:103:41
+    |
+103 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+114 | enumeration!(v::OptionRight; Call=1,Put=2);
+    | ------------------------------------------ in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:126:33
+    |
+126 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+136 | structure!(v::AssetRef; id,version,symbol,exponent);
+    | --------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |               fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                           ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                           |
+    |                                           expected 1 generic argument
+...
+137 | / structure!(v::InstrumentBinding; instrument_id,instrument_version,catalog_version,catalog_hash,symbol,
+138 | |     base,quote,settlement,price_tick,quantity_step,contract);
+    | |____________________________________________________________- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+139 | structure!(AssetKey; wallet_id,asset_id);
+    | ---------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+140 | structure!(AssetAmount; key,amount);
+    | ----------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+141 | structure!(IntentKey; epoch,intent_id);
+    | -------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+142 | structure!(OrderKey; intent,client_id);
+    | -------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+143 | structure!(Scope; risk_domain_id,venue,environment,account);
+    | ----------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+144 | structure!(Revisions; risk,fee,bracket,collateral,valuation);
+    | ------------------------------------------------------------ in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+145 | structure!(AssetSnapshot; key,asset,free,locked,nontrade_locked,exclusive_fee_pool,ownership=>MAX_OWNERS);
+    | --------------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+146 | structure!(PositionSnapshot; instrument_id,side,quantity,entry_bound,ownership=>MAX_OWNERS);
+    | ------------------------------------------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |               fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                           ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                           |
+    |                                           expected 1 generic argument
+...
+147 | / structure!(Snapshot; scope,account_epoch,ledger_sequence,revisions,valid_until,assets=>MAX_ASSETS,
+148 | |     positions=>2*MAX_INSTRUMENTS,venue_available=>MAX_ASSETS);
+    | |_____________________________________________________________- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:151:33
+    |
+151 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{r.array(3)?;Ok([Codec::read(r)?,Codec::read(r)?,Codec::read(r)?])}
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+153 | structure!(FeePolicy; rates,maximum_fills,exclusive_pool);
+    | --------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+154 | structure!(Bracket; floor,cap,rate,cumulative,max_initial_leverage);
+    | ------------------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |               fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                           ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                           |
+    |                                           expected 1 generic argument
+...
+155 | / structure!(FuturesPolicy; position_mode,margin_mode,stress_low,stress_high,configured_leverage,venue_leverage,
+156 | |     brackets=>MAX_BRACKETS,maintenance_addon,exit_fee_rate,funding_rate_abs_upper,funding_settlements,
+157 | |     pending_outbound,capital_buffer);
+    | |____________________________________- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |               fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                           ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                           |
+    |                                           expected 1 generic argument
+...
+158 | / structure!(InstrumentPolicy; instrument,product,wallet_id,fees,futures,max_absolute_position,max_gross_quantity,
+159 | |     strategy_limits=>MAX_OWNERS);
+    | |________________________________- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+160 | structure!(Catalog; entries=>MAX_INSTRUMENTS);
+    | --------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |             fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                         ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                         |
+    |                                         expected 1 generic argument
+...
+161 | structure!(CapitalHold; wallet_id,settlement_asset,amount);
+    | ---------------------------------------------------------- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:92:41
+    |
+ 92 |               fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                           ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                           |
+    |                                           expected 1 generic argument
+...
+162 | / structure!(AdmissionImage; command_digest,intent,account_epoch,ledger_sequence,revisions,deadline,
+163 | |     resources=>MAX_ASSETS,capital_holds=>MAX_ASSETS,orders=>MAX_ORDERS,increases);
+    | |_________________________________________________________________________________- in this macro invocation
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/codec.rs:182:33
+    |
+182 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ^^^^^^     ------ help: remove the unnecessary generic argument
+    |                                 |
+    |                                 expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/validate.rs:6:30
+    |
+  6 | fn bound(n:usize,max:usize)->Result<(),Error>{
+    |                              ^^^^^^   ------ help: remove the unnecessary generic argument
+    |                              |
+    |                              expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/validate.rs:20:57
+    |
+ 20 | pub(crate) fn baseline(s:&mut Snapshot,c:&mut Catalog)->Result<(),Error>{
+    |                                                         ^^^^^^   ------ help: remove the unnecessary generic argument
+    |                                                         |
+    |                                                         expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0107]: type alias takes 1 generic argument but 2 generic arguments were supplied
+   --> crates/tickwire-account-codec/src/validate.rs:44:42
+    |
+ 44 | pub(crate) fn record(r:&RecoveryRecord)->Result<(),Error>{
+    |                                          ^^^^^^   ------ help: remove the unnecessary generic argument
+    |                                          |
+    |                                          expected 1 generic argument
+    |
+note: type alias defined here, with 1 generic parameter: `T`
+   --> crates/tickwire-account/src/types.rs:215:10
+    |
+215 | pub type Result<T> = std::result::Result<T, Error>;
+    |          ^^^^^^ -
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:15:40
+    |
+ 15 |                 Self::try_from(r.uint()?).map_err(|_| Error::IntegerOverflow)
+    |                                  ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                  |
+    |                                  this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+ 20 | unsigned!(u8,u32,u64);
+    | --------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `unsigned` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:15:17
+    |
+ 14 |             fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+    |                                            ------------------- expected `std::result::Result<u8, tickwire_account::Error>` because of return type
+ 15 |                 Self::try_from(r.uint()?).map_err(|_| Error::IntegerOverflow)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+...
+ 20 | unsigned!(u8,u32,u64);
+    | --------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: this error originates in the macro `unsigned` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:15:17
+    |
+ 14 |             fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+    |                                            ------------------- expected `std::result::Result<u32, tickwire_account::Error>` because of return type
+ 15 |                 Self::try_from(r.uint()?).map_err(|_| Error::IntegerOverflow)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+...
+ 20 | unsigned!(u8,u32,u64);
+    | --------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: this error originates in the macro `unsigned` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:15:17
+    |
+ 14 |             fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+    |                                            ------------------- expected `std::result::Result<u64, tickwire_account::Error>` because of return type
+ 15 |                 Self::try_from(r.uint()?).map_err(|_| Error::IntegerOverflow)
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+...
+ 20 | unsigned!(u8,u32,u64);
+    | --------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: this error originates in the macro `unsigned` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:24:23
+    |
+ 24 |         match r.uint()?{0=>Ok(false),1=>Ok(true),_=>Err(Error::Field)}
+    |                 ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                 |
+    |                 this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:24:57
+    |
+ 24 |         match r.uint()?{0=>Ok(false),1=>Ok(true),_=>Err(Error::Field)}
+    |                                                     --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                     |
+    |                                                     arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:24:53
+    |
+ 24 |         match r.uint()?{0=>Ok(false),1=>Ok(true),_=>Err(Error::Field)}
+    |                                                     ^^^^------------^
+    |                                                         |
+    |                                                         this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:30:31
+    |
+ 30 |         Self::try_from(r.int()?).map_err(|_|Error::IntegerOverflow)
+    |                          -----^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                          |
+    |                          this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:30:9
+    |
+ 29 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ------------------ expected `std::result::Result<i8, tickwire_account::Error>` because of return type
+ 30 |         Self::try_from(r.int()?).map_err(|_|Error::IntegerOverflow)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:35:52
+    |
+ 35 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{r.bytes()}
+    |                                 ------------------ ^^^^^^^^^ expected `Result<[u8; N], Error>`, found `Result<[u8; _], Error>`
+    |                                 |
+    |                                 expected `std::result::Result<[u8; N], tickwire_account::Error>` because of return type
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:40:19
+    |
+ 40 |         r.array(2)?;
+    |           --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |           |
+    |           this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:41:34
+    |
+ 41 |         Fixed::from_atoms(r.int()?,u8::read(r)?).map_err(|_|Error::Field)
+    |                             -----^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                             |
+    |                             this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:41:9
+    |
+ 39 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{
+    |                                 ------------------ expected `std::result::Result<tickwire_account::Fixed, tickwire_account::Error>` because of return type
+ 40 |         r.array(2)?;
+ 41 |         Fixed::from_atoms(r.int()?,u8::read(r)?).map_err(|_|Error::Field)
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:47:19
+    |
+ 47 |         r.array(2)?;
+    |           --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |           |
+    |           this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:48:22
+    |
+ 48 |         let n=r.int()?;let exp=i8::read(r)?;
+    |                 -----^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                 |
+    |                 this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:49:62
+    |
+ 49 |         let v=v::Decimal::new(n,exp).map_err(|_|Error::Field)?;
+    |               ---------------------- ------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |               |                      |
+    |               |                      this can't be annotated with `?` because it has type `Result<_, Error>`
+    |               this has type `Result<_, tickwire_venue::Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:50:64
+    |
+ 50 |         if v.coefficient()!=n || v.exponent()!=exp {return Err(Error::NonCanonical);}
+    |                                                            --- ^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                            |
+    |                                                            arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:50:60
+    |
+ 50 |         if v.coefficient()!=n || v.exponent()!=exp {return Err(Error::NonCanonical);}
+    |                                                            ^^^^-------------------^
+    |                                                                |
+    |                                                                this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:56:71
+    |
+ 56 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{Self::new(r.text(N)?).map_err(|_|Error::Text)}
+    |                                                                -------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                                                |
+    |                                                                this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:56:52
+    |
+ 56 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{Self::new(r.text(N)?).map_err(|_|Error::Text)}
+    |                                 ------------------ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                 |
+    |                                 expected `std::result::Result<BoundedText<N>, tickwire_account::Error>` because of return type
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:60:71
+    |
+ 60 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{Self::new(r.text(N)?).map_err(|_|Error::Text)}
+    |                                                                -------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                                                |
+    |                                                                this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:60:52
+    |
+ 60 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{Self::new(r.text(N)?).map_err(|_|Error::Text)}
+    |                                 ------------------ ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                 |
+    |                                 expected `std::result::Result<BoundedSymbol<N>, tickwire_account::Error>` because of return type
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:65:25
+    |
+ 65 |         match r.len(4,1)?{0=>Ok(None),1=>Ok(Some(T::read(r)?)),_=>unreachable!()}
+    |                 --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                 |
+    |                 this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:70:62
+    |
+ 70 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{r.array(2)?;Ok((A::read(r)?,B::read(r)?))}
+    |                                                      --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                                      |
+    |                                                      this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:77:23
+    |
+ 76 | fn read_vec<T:Codec>(r:&mut Reader<'_>,max:usize)->Result<Vec<T>,Error>{
+    |                                                    -------------------- expected `tickwire_account::Error` because of this
+ 77 |     let n=r.len(4,max)?;
+    |             ----------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |             |
+    |             this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:104:31
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                         ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+109 | enumeration!(v::Environment; Production=1,Test=2);
+    | ------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:104:63
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                           |
+    |                                                           arguments to this enum variant are incorrect
+...
+109 | enumeration!(v::Environment; Production=1,Test=2);
+    | ------------------------------------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:104:59
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           ^^^^------------^
+    |                                                               |
+    |                                                               this argument influences the type of `Err`
+...
+109 | enumeration!(v::Environment; Production=1,Test=2);
+    | ------------------------------------------------- in this macro invocation
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:104:31
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                         ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+110 | enumeration!(v::Product; Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6);
+    | ------------------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:104:63
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                           |
+    |                                                           arguments to this enum variant are incorrect
+...
+110 | enumeration!(v::Product; Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6);
+    | ------------------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:104:59
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           ^^^^------------^
+    |                                                               |
+    |                                                               this argument influences the type of `Err`
+...
+110 | enumeration!(v::Product; Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6);
+    | ------------------------------------------------------------------------------------------------------------- in this macro invocation
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:104:31
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                         ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+111 | enumeration!(v::PositionSide; Both=1,Long=2,Short=3);
+    | ---------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:104:63
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                           |
+    |                                                           arguments to this enum variant are incorrect
+...
+111 | enumeration!(v::PositionSide; Both=1,Long=2,Short=3);
+    | ---------------------------------------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:104:59
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           ^^^^------------^
+    |                                                               |
+    |                                                               this argument influences the type of `Err`
+...
+111 | enumeration!(v::PositionSide; Both=1,Long=2,Short=3);
+    | ---------------------------------------------------- in this macro invocation
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:104:31
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                         ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+112 | enumeration!(v::PositionMode; OneWay=1,Hedge=2);
+    | ----------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:104:63
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                           |
+    |                                                           arguments to this enum variant are incorrect
+...
+112 | enumeration!(v::PositionMode; OneWay=1,Hedge=2);
+    | ----------------------------------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:104:59
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           ^^^^------------^
+    |                                                               |
+    |                                                               this argument influences the type of `Err`
+...
+112 | enumeration!(v::PositionMode; OneWay=1,Hedge=2);
+    | ----------------------------------------------- in this macro invocation
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:104:31
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                         ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+113 | enumeration!(v::MarginMode; Cross=1,Isolated=2);
+    | ----------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:104:63
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                           |
+    |                                                           arguments to this enum variant are incorrect
+...
+113 | enumeration!(v::MarginMode; Cross=1,Isolated=2);
+    | ----------------------------------------------- in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:104:59
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           ^^^^------------^
+    |                                                               |
+    |                                                               this argument influences the type of `Err`
+...
+113 | enumeration!(v::MarginMode; Cross=1,Isolated=2);
+    | ----------------------------------------------- in this macro invocation
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:104:31
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                         ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                         |
+    |                         this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+114 | enumeration!(v::OptionRight; Call=1,Put=2);
+    | ------------------------------------------ in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:104:63
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                           |
+    |                                                           arguments to this enum variant are incorrect
+...
+114 | enumeration!(v::OptionRight; Call=1,Put=2);
+    | ------------------------------------------ in this macro invocation
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:104:59
+    |
+104 |                 match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Field)}
+    |                                                           ^^^^------------^
+    |                                                               |
+    |                                                               this argument influences the type of `Err`
+...
+114 | enumeration!(v::OptionRight; Call=1,Put=2);
+    | ------------------------------------------ in this macro invocation
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+    = note: this error originates in the macro `enumeration` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:127:26
+    |
+127 |         match (r.len(4,4)?,r.uint()?){
+    |                  --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                  |
+    |                  this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:127:36
+    |
+127 |         match (r.len(4,4)?,r.uint()?){
+    |                              ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                              |
+    |                              this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:132:20
+    |
+132 |             _=>Err(Error::Field)
+    |                --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                |
+    |                arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:132:16
+    |
+132 |             _=>Err(Error::Field)
+    |                ^^^^------------^
+    |                    |
+    |                    this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+136 | structure!(v::AssetRef; id,version,symbol,exponent);
+    | --------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                   r.array([$(stringify!($f)),+].len())?;
+    |                     ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                     |
+    |                     this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+137 | / structure!(v::InstrumentBinding; instrument_id,instrument_version,catalog_version,catalog_hash,symbol,
+138 | |     base,quote,settlement,price_tick,quantity_step,contract);
+    | |____________________________________________________________- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+139 | structure!(AssetKey; wallet_id,asset_id);
+    | ---------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+140 | structure!(AssetAmount; key,amount);
+    | ----------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+141 | structure!(IntentKey; epoch,intent_id);
+    | -------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+142 | structure!(OrderKey; intent,client_id);
+    | -------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+143 | structure!(Scope; risk_domain_id,venue,environment,account);
+    | ----------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+144 | structure!(Revisions; risk,fee,bracket,collateral,valuation);
+    | ------------------------------------------------------------ in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+145 | structure!(AssetSnapshot; key,asset,free,locked,nontrade_locked,exclusive_fee_pool,ownership=>MAX_OWNERS);
+    | --------------------------------------------------------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+146 | structure!(PositionSnapshot; instrument_id,side,quantity,entry_bound,ownership=>MAX_OWNERS);
+    | ------------------------------------------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                   r.array([$(stringify!($f)),+].len())?;
+    |                     ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                     |
+    |                     this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+147 | / structure!(Snapshot; scope,account_epoch,ledger_sequence,revisions,valid_until,assets=>MAX_ASSETS,
+148 | |     positions=>2*MAX_INSTRUMENTS,venue_available=>MAX_ASSETS);
+    | |_____________________________________________________________- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:151:62
+    |
+151 |     fn read(r:&mut Reader<'_>)->Result<Self,Error>{r.array(3)?;Ok([Codec::read(r)?,Codec::read(r)?,Codec::read(r)?])}
+    |                                                      --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                                      |
+    |                                                      this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+153 | structure!(FeePolicy; rates,maximum_fills,exclusive_pool);
+    | --------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+154 | structure!(Bracket; floor,cap,rate,cumulative,max_initial_leverage);
+    | ------------------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                   r.array([$(stringify!($f)),+].len())?;
+    |                     ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                     |
+    |                     this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+155 | / structure!(FuturesPolicy; position_mode,margin_mode,stress_low,stress_high,configured_leverage,venue_leverage,
+156 | |     brackets=>MAX_BRACKETS,maintenance_addon,exit_fee_rate,funding_rate_abs_upper,funding_settlements,
+157 | |     pending_outbound,capital_buffer);
+    | |____________________________________- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                   r.array([$(stringify!($f)),+].len())?;
+    |                     ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                     |
+    |                     this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+158 | / structure!(InstrumentPolicy; instrument,product,wallet_id,fees,futures,max_absolute_position,max_gross_quantity,
+159 | |     strategy_limits=>MAX_OWNERS);
+    | |________________________________- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+160 | structure!(Catalog; entries=>MAX_INSTRUMENTS);
+    | --------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                 r.array([$(stringify!($f)),+].len())?;
+    |                   ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                   |
+    |                   this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+161 | structure!(CapitalHold; wallet_id,settlement_asset,amount);
+    | ---------------------------------------------------------- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:93:53
+    |
+ 93 |                   r.array([$(stringify!($f)),+].len())?;
+    |                     ----------------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                     |
+    |                     this can't be annotated with `?` because it has type `Result<_, Error>`
+...
+162 | / structure!(AdmissionImage; command_digest,intent,account_epoch,ledger_sequence,revisions,deadline,
+163 | |     resources=>MAX_ASSETS,capital_holds=>MAX_ASSETS,orders=>MAX_ORDERS,increases);
+    | |_________________________________________________________________________________- in this macro invocation
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+    = note: this error originates in the macro `structure` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:183:29
+    |
+183 |         Ok(match (r.len(4,6)?,r.uint()?){
+    |                     --------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                     |
+    |                     this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:183:39
+    |
+183 |         Ok(match (r.len(4,6)?,r.uint()?){
+    |                                 ------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                 |
+    |                                 this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:185:92
+    |
+185 |                 command:Box::new(v::CanonicalCommand::decode(r.blob(v::MAX_CANONICAL_BYTES)?).map_err(Error::Venue)?),
+    |                                                                ----------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                                                |
+    |                                                                this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:185:116
+    |
+185 |                 command:Box::new(v::CanonicalCommand::decode(r.blob(v::MAX_CANONICAL_BYTES)?).map_err(Error::Venue)?),
+    |                                  ------------------------------------------------------------ ---------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                  |                                                            |
+    |                                  |                                                            this can't be annotated with `?` because it has type `Result<_, Error>`
+    |                                  this has type `Result<_, tickwire_venue::Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:187:102
+    |
+187 |             (2,2)=>Self::VenueEvent(Box::new(v::CanonicalEvent::decode(r.blob(v::MAX_CANONICAL_BYTES)?).map_err(Error::Venue)?)),
+    |                                                                          ----------------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                                                          |
+    |                                                                          this can't be annotated with `?` because it has type `Result<_, Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0277]: `?` couldn't convert the error to `tickwire_account::Error`
+   --> crates/tickwire-account-codec/src/codec.rs:187:126
+    |
+187 |             (2,2)=>Self::VenueEvent(Box::new(v::CanonicalEvent::decode(r.blob(v::MAX_CANONICAL_BYTES)?).map_err(Error::Venue)?)),
+    |                                              ---------------------------------------------------------- ---------------------^ the trait `From<Error>` is not implemented for `tickwire_account::Error`
+    |                                              |                                                          |
+    |                                              |                                                          this can't be annotated with `?` because it has type `Result<_, Error>`
+    |                                              this has type `Result<_, tickwire_venue::Error>`
+    |
+note: `Error` needs to implement `Into<tickwire_account::Error>`
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+    = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+help: the trait `From<Error>` is not implemented for `tickwire_account::Error`
+      but trait `From<RiskError>` is implemented for it
+   --> crates/tickwire-account/src/types.rs:210:1
+    |
+210 | impl From<tickwire_risk::RiskError> for Error {
+    | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: for that trait implementation, expected `RiskError`, found `Error`
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/codec.rs:194:27
+    |
+194 |             _=>return Err(Error::Field)
+    |                       --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                       |
+    |                       arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/codec.rs:194:23
+    |
+194 |             _=>return Err(Error::Field)
+    |                       ^^^^------------^
+    |                           |
+    |                           this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/validate.rs:7:19
+    |
+  7 |     if n>max {Err(Error::Bounds)} else {Ok(())}
+    |               --- ^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |               |
+    |               arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/validate.rs:7:15
+    |
+  7 |     if n>max {Err(Error::Bounds)} else {Ok(())}
+    |               ^^^^-------------^
+    |                   |
+    |                   this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/validate.rs:11:61
+    |
+ 11 |     if items.windows(2).any(|w|key(&w[0])==key(&w[1])) {Err(Error::Duplicate)} else {Ok(())}
+    |                                                         --- ^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                         |
+    |                                                         arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/validate.rs:11:57
+    |
+ 11 |     if items.windows(2).any(|w|key(&w[0])==key(&w[1])) {Err(Error::Duplicate)} else {Ok(())}
+    |                                                         ^^^^----------------^
+    |                                                             |
+    |                                                             this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/validate.rs:15:55
+    |
+ 15 |     if items.iter().any(|x|!keys.insert(key(x))) {Err(Error::Duplicate)} else {Ok(())}
+    |                                                   --- ^^^^^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                   |
+    |                                                   arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/validate.rs:15:51
+    |
+ 15 |     if items.iter().any(|x|!keys.insert(key(x))) {Err(Error::Duplicate)} else {Ok(())}
+    |                                                   ^^^^----------------^
+    |                                                       |
+    |                                                       this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/validate.rs:62:28
+    |
+ 62 |                 return Err(Error::Field);
+    |                        --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                        |
+    |                        arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/validate.rs:62:24
+    |
+ 62 |                 return Err(Error::Field);
+    |                        ^^^^------------^
+    |                            |
+    |                            this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/validate.rs:66:94
+    |
+ 66 |             if intent.epoch==0 || intent.intent_id==0 || *command_digest==[0;32] {return Err(Error::Field);}
+    |                                                                                          --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                                                          |
+    |                                                                                          arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/validate.rs:66:90
+    |
+ 66 |             if intent.epoch==0 || intent.intent_id==0 || *command_digest==[0;32] {return Err(Error::Field);}
+    |                                                                                          ^^^^------------^
+    |                                                                                              |
+    |                                                                                              this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0308]: mismatched types
+   --> crates/tickwire-account-codec/src/validate.rs:69:103
+    |
+ 69 |             if order.intent.epoch==0 || order.intent.intent_id==0 || cumulative.atoms()<0 {return Err(Error::Field);}
+    |                                                                                                   --- ^^^^^^^^^^^^ expected `tickwire_account::Error`, found `Error`
+    |                                                                                                   |
+    |                                                                                                   arguments to this enum variant are incorrect
+    |
+    = note: `Error` and `tickwire_account::Error` have similar names, but are actually distinct types
+note: `Error` is defined in the current crate
+   --> crates/tickwire-account-codec/src/lib.rs:15:1
+    |
+ 15 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+note: `tickwire_account::Error` is defined in crate `tickwire_account`
+   --> crates/tickwire-account/src/types.rs:192:1
+    |
+192 | pub enum Error {
+    | ^^^^^^^^^^^^^^
+help: the type constructed contains `Error` due to the type of the argument passed
+   --> crates/tickwire-account-codec/src/validate.rs:69:99
+    |
+ 69 |             if order.intent.epoch==0 || order.intent.intent_id==0 || cumulative.atoms()<0 {return Err(Error::Field);}
+    |                                                                                                   ^^^^------------^
+    |                                                                                                       |
+    |                                                                                                       this argument influences the type of `Err`
+note: tuple variant defined here
+   --> /Users/bytedance/.rustup/toolchains/1.99.1-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/result.rs:567:5
+    |
+567 |     Err(#[stable(feature = "rust1", since = "1.0.0")] E),
+    |     ^^^
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:39:34
+   |
+39 |         validate::record(&record)?;
+   |         -------------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |         |
+   |         this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:51:41
+   |
+51 |         let baseline=Codec::read(&mut r)?;
+   |                      -------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |                      |
+   |                      this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:52:41
+   |
+52 |         let sequence=Codec::read(&mut r)?;
+   |                      -------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |                      |
+   |                      this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:53:48
+   |
+53 |         let record=RecoveryRecord::read(&mut r)?;
+   |                    ----------------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |                    |
+   |                    this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:74:56
+   |
+74 |         validate::baseline(&mut snapshot, &mut catalog)?;
+   |         -----------------------------------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |         |
+   |         this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:88:44
+   |
+88 |         let snapshot=Snapshot::read(&mut r)?;
+   |                      ----------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |                      |
+   |                      this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+error[E0277]: `?` couldn't convert the error to `Error`
+  --> crates/tickwire-account-codec/src/lib.rs:89:42
+   |
+89 |         let catalog=Catalog::read(&mut r)?;
+   |                     ---------------------^ the trait `From<tickwire_account::Error>` is not implemented for `Error`
+   |                     |
+   |                     this can't be annotated with `?` because it has type `Result<_, tickwire_account::Error>`
+   |
+note: `Error` needs to implement `From<tickwire_account::Error>`
+  --> crates/tickwire-account-codec/src/lib.rs:15:1
+   |
+15 | pub enum Error {
+   | ^^^^^^^^^^^^^^
+   = note: the question mark operation (`?`) implicitly performs a conversion on the error value using the `From` trait
+
+Some errors have detailed explanations: E0107, E0277, E0308.
+For more information about an error, try `rustc --explain E0107`.
+error: could not compile `tickwire-account-codec` (lib) due to 126 previous errors
+warning: build failed, waiting for other jobs to finish...

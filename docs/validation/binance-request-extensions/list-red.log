@@ -1,0 +1,47 @@
+warning: fields `market`, `instrument`, and `time_unit` are never read
+  --> crates/tickwire-binance/src/feed.rs:13:5
+   |
+12 | pub struct DepthContext {
+   |            ------------ fields in this struct
+13 |     market: Market,
+   |     ^^^^^^
+14 |     instrument: InstrumentBinding,
+   |     ^^^^^^^^^^
+...
+17 |     time_unit: TimeUnit,
+   |     ^^^^^^^^^
+   |
+   = note: `DepthContext` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-binance` (lib) generated 1 warning
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.11s
+     Running tests/request_extensions.rs (target/debug/deps/request_extensions-6d0f47125f90e54d)
+
+running 3 tests
+test list_conditional_trailing_iceberg_and_shared_stp_survive ... FAILED
+test all_list_endpoints_and_exact_leg_fields ... FAILED
+test list_shared_fields_are_never_silently_discarded ... ok
+
+failures:
+
+---- list_conditional_trailing_iceberg_and_shared_stp_survive stdout ----
+
+thread 'list_conditional_trailing_iceberg_and_shared_stp_survive' (5418602) panicked at crates/tickwire-binance/tests/request_extensions.rs:38:62:
+called `Result::unwrap()` on an `Err` value: UnsupportedCommand
+
+---- all_list_endpoints_and_exact_leg_fields stdout ----
+
+thread 'all_list_endpoints_and_exact_leg_fields' (5418601) panicked at crates/tickwire-binance/tests/request_extensions.rs:44:54:
+called `Result::unwrap()` on an `Err` value: UnsupportedCommand
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    all_list_endpoints_and_exact_leg_fields
+    list_conditional_trailing_iceberg_and_shared_stp_survive
+
+test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-binance --test request_extensions`

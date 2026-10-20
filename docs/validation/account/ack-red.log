@@ -1,0 +1,31 @@
+   Compiling tickwire-account v0.1.0 (<REPO>/crates/tickwire-account)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.84s
+     Running tests/facts.rs (target/debug/deps/facts-3e9843fb6fe887bf)
+
+running 2 tests
+test exchange_acknowledgment_blocks_a_later_no_bytes_abort ... FAILED
+test acknowledgment_after_abort_reopens_the_order_and_freezes ... FAILED
+
+failures:
+
+---- exchange_acknowledgment_blocks_a_later_no_bytes_abort stdout ----
+
+thread 'exchange_acknowledgment_blocks_a_later_no_bytes_abort' (5387346) panicked at crates/tickwire-account/tests/facts.rs:152:5:
+assertion `left == right` failed
+  left: Ok(New)
+ right: Err(Unreconciled)
+
+---- acknowledgment_after_abort_reopens_the_order_and_freezes stdout ----
+
+thread 'acknowledgment_after_abort_reopens_the_order_and_freezes' (5387345) panicked at crates/tickwire-account/tests/facts.rs:159:41:
+assertion failed: a.frozen()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    acknowledgment_after_abort_reopens_the_order_and_freezes
+    exchange_acknowledgment_blocks_a_later_no_bytes_abort
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-account --test facts`
