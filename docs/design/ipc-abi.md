@@ -143,7 +143,7 @@ InstrumentCatalog 的 entry 是 InstrumentEntry（256 字节），按 instrument
 
 `intent_seq` 在一个策略授权代次/风险域内从 1 连续分配；队列满而未发布时不消耗序号。接收端在明确的 channel 恢复后可接受已接纳键的精确重试，但新键出现缺口时返回 SequenceGap 并要求查账。重试必须保留业务 created/valid_until 与内容，不能刷新期限。transport sequence 在新 channel 从 1 开始，intent_seq 不因此归零。订单身份由 exec 分配，New 的 order_id 为零；Cancel/Amend/Modify 必须携带既有 order_id 和 expected_owner_revision。
 
-- New：qty_lots>0；Limit/PostOnly 等价型必须有正 price_ticks；Market price_ticks=0。QuoteAmount 位只用于经产品能力确认的现货 Market 买单，此时 quote_amount_units>0、qty_lots=0。条件类型须有正 stop_price_ticks，working_price、PriceProtect、ClosePosition 按产品能力组合验证。
+- New：按基础资产计量时 qty_lots>0；Limit/PostOnly 等价型必须有正 price_ticks；Market price_ticks=0。QuoteAmount 位用于经产品能力确认的现货 Market 买单或卖单，此时 quote_amount_units>0、qty_lots=0，分别表示拟支出的报价资产金额或拟收到的报价资产金额。OTO 待触发单和 SOR 不支持这一数量方式，见 [Spot 订单参数](https://github.com/binance/binance-spot-api-docs/blob/f4a9c0be68235f758b46f571f7313c63d1306b25/rest-api.md#new-order-trade)。协议可表达的订单仍须通过[风险准入](risk-calculations.md)。条件类型须有正 stop_price_ticks，working_price、PriceProtect、ClosePosition 按产品能力组合验证。
 - Cancel/QueryOrder：order_id 非零，数量和价格字段为零；CancelList/CancelAlgo 分别使用 list_id/parent_order_id，普通 order_id 可零。撤单仍验证管理权与当前动作授权。
 - CancelReplace：order_id 指旧单，price/qty 描述新单，使用新的 intent_seq；按最坏新旧并存预留。AmendKeepPriority 只允许原单减量且 price=0；Modify 用明确新价新量。三者不可混用，未知结果保留原身份与占用。
 - created_mono_ns <= now < valid_until_mono_ns，且 valid_until 不能超过当前授权/控制租约。expire_utc_ns 只用于 GTD；它不替代本地意图期限。

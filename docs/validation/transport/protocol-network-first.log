@@ -1,0 +1,18 @@
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.14s
+     Running tests/network.rs (target/debug/deps/network-d136f2dd3640bd08)
+
+running 11 tests
+test bounded_receive_and_budget ... ok
+test partial_tcp_write_is_accepted_and_cancel_cannot_be_no_bytes ... ok
+test actual_backpressure_keeps_partial_write_without_reauthorizing ... ok
+test tls_bad_hostname_fails_before_application_acceptance ... ok
+test deadline_after_tls_acceptance_closes_and_preserves_count ... ok
+test tls_acceptance_precedes_ciphertext_flush_and_failure_keeps_evidence ... ok
+test https_request_and_chunked_response_use_real_tls_socket ... ok
+test fix_frames_share_the_same_tls_transport ... ok
+test websocket_upgrade_masked_output_fragmented_input_over_tls ... ok
+test queued_deadline_never_resurrects ... ok
+test queued_drive_never_outputs_and_denial_is_terminal ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s

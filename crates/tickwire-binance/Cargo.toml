@@ -1,0 +1,21 @@
+[package]
+name = "tickwire-binance"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+base64 = "0.22.1"
+ring = "0.17.14"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0", features = ["raw_value"] }
+tickwire-venue = { path = "../tickwire-venue" }
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+tickwire-transport = { path = "../tickwire-transport" }
+rcgen = "=0.14.10"
+sha1 = "=0.10.6"

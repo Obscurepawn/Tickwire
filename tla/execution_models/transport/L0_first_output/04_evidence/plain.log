@@ -1,0 +1,270 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 61 and seed -1529508678211824893 with 1 worker on 10 cores with 1820MB heap and 64MB offheap memory (Mac OS X 15.7 aarch64, Amazon.com Inc. 1.8.0_462 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /Users/bytedance/Tickwire/tla/execution_models/transport/L0_first_output/02_models/L0_FirstOutput.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.jrmz6XdVUl/java/Naturals.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.jrmz6XdVUl/java/FiniteSets.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.jrmz6XdVUl/java/TLC.tla
+Parsing file /private/var/folders/k1/qfpwv6xx3r3c15rfc1b6h_680000gn/T/tmp.jrmz6XdVUl/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_FirstOutput
+Starting... (2026-10-20 19:57:38)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-20 19:57:38.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.1E-12
+The coverage statistics at 2026-10-20 19:57:38
+<Init line 20, col 1 to line 20, col 4 of module L0_FirstOutput>: 1:1
+  line 21, col 2 to line 25, col 56 of module L0_FirstOutput: 1
+<Queue line 27, col 1 to line 27, col 8 of module L0_FirstOutput>: 39:264
+  line 18, col 9 to line 18, col 23 of module L0_FirstOutput: 8760
+  |line 18, col 9 to line 18, col 12 of module L0_FirstOutput: 8496
+  line 28, col 13 to line 28, col 21 of module L0_FirstOutput: 4704
+  |line 28, col 13 to line 28, col 19 of module L0_FirstOutput: 4440
+  line 28, col 26 to line 28, col 41 of module L0_FirstOutput: 264
+  |line 28, col 26 to line 28, col 31 of module L0_FirstOutput: 1344
+  |line 28, col 34 to line 28, col 41 of module L0_FirstOutput: 1344
+  line 28, col 46 to line 28, col 61 of module L0_FirstOutput: 528
+  |line 28, col 46 to line 28, col 46 of module L0_FirstOutput: 264
+  |line 28, col 52 to line 28, col 61 of module L0_FirstOutput: 264
+  line 29, col 5 to line 29, col 39 of module L0_FirstOutput: 264
+  line 30, col 5 to line 30, col 44 of module L0_FirstOutput: 264
+  line 31, col 5 to line 31, col 43 of module L0_FirstOutput: 264
+  line 32, col 5 to line 32, col 76 of module L0_FirstOutput: 264
+<Connect line 34, col 1 to line 34, col 7 of module L0_FirstOutput>: 4:296
+  line 35, col 5 to line 35, col 21 of module L0_FirstOutput: 3128
+  |line 35, col 5 to line 35, col 8 of module L0_FirstOutput: 2832
+  line 35, col 26 to line 35, col 67 of module L0_FirstOutput: 296
+  line 36, col 5 to line 36, col 101 of module L0_FirstOutput: 296
+<TryPending line 46, col 1 to line 46, col 10 of module L0_FirstOutput>: 0:48
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 2880
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 2832
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1752
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 1704
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 1704
+  line 19, col 20 to line 19, col 42 of module L0_FirstOutput: 48
+  |line 19, col 20 to line 19, col 22 of module L0_FirstOutput: 600
+  |line 19, col 26 to line 19, col 42 of module L0_FirstOutput: 600
+  line 47, col 14 to line 47, col 27 of module L0_FirstOutput: 348
+  |line 47, col 14 to line 47, col 17 of module L0_FirstOutput: 300
+  line 47, col 32 to line 47, col 45 of module L0_FirstOutput: 48
+<TryZero line 48, col 1 to line 48, col 7 of module L0_FirstOutput>: 0:294
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 3042
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 2832
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1914
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 1704
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 1704
+  line 19, col 20 to line 19, col 42 of module L0_FirstOutput: 210
+  |line 19, col 20 to line 19, col 22 of module L0_FirstOutput: 600
+  |line 19, col 26 to line 19, col 42 of module L0_FirstOutput: 600
+  line 49, col 14 to line 49, col 25 of module L0_FirstOutput: 510
+  |line 49, col 14 to line 49, col 17 of module L0_FirstOutput: 300
+  line 49, col 31 to line 49, col 49 of module L0_FirstOutput: 168
+  |line 49, col 31 to line 49, col 47 of module L0_FirstOutput: 252
+  line 49, col 54 to line 49, col 57 of module L0_FirstOutput: 126
+  line 50, col 5 to line 50, col 18 of module L0_FirstOutput: 294
+<Deny line 52, col 1 to line 52, col 4 of module L0_FirstOutput>: 0:42
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 2874
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 2832
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1746
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 1704
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 1704
+  line 19, col 20 to line 19, col 42 of module L0_FirstOutput: 42
+  |line 19, col 20 to line 19, col 22 of module L0_FirstOutput: 600
+  |line 19, col 26 to line 19, col 42 of module L0_FirstOutput: 600
+  line 53, col 14 to line 53, col 25 of module L0_FirstOutput: 342
+  |line 53, col 14 to line 53, col 17 of module L0_FirstOutput: 300
+  line 53, col 30 to line 53, col 48 of module L0_FirstOutput: 294
+  |line 53, col 30 to line 53, col 46 of module L0_FirstOutput: 252
+  line 53, col 53 to line 53, col 57 of module L0_FirstOutput: 126
+  |line 53, col 54 to line 53, col 57 of module L0_FirstOutput: 84
+  line 54, col 5 to line 54, col 46 of module L0_FirstOutput: 42
+  line 55, col 5 to line 55, col 100 of module L0_FirstOutput: 42
+<ExpireInGate line 57, col 1 to line 57, col 12 of module L0_FirstOutput>: 18:42
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 2874
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 2832
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1746
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 1704
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 1704
+  line 19, col 20 to line 19, col 42 of module L0_FirstOutput: 42
+  |line 19, col 20 to line 19, col 22 of module L0_FirstOutput: 600
+  |line 19, col 26 to line 19, col 42 of module L0_FirstOutput: 600
+  line 58, col 14 to line 58, col 25 of module L0_FirstOutput: 342
+  |line 58, col 14 to line 58, col 17 of module L0_FirstOutput: 300
+  line 58, col 30 to line 58, col 48 of module L0_FirstOutput: 294
+  |line 58, col 30 to line 58, col 46 of module L0_FirstOutput: 252
+  line 58, col 53 to line 58, col 56 of module L0_FirstOutput: 42
+  line 59, col 5 to line 59, col 72 of module L0_FirstOutput: 42
+  line 60, col 5 to line 60, col 96 of module L0_FirstOutput: 42
+<FirstAccept line 62, col 1 to line 62, col 14 of module L0_FirstOutput>: 72:168
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 8622
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 8496
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 5238
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 5112
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 5112
+  line 19, col 20 to line 19, col 42 of module L0_FirstOutput: 126
+  |line 19, col 20 to line 19, col 22 of module L0_FirstOutput: 1800
+  |line 19, col 26 to line 19, col 42 of module L0_FirstOutput: 1800
+  line 63, col 14 to line 63, col 25 of module L0_FirstOutput: 1026
+  |line 63, col 14 to line 63, col 17 of module L0_FirstOutput: 900
+  line 63, col 30 to line 63, col 52 of module L0_FirstOutput: 882
+  |line 63, col 30 to line 63, col 43 of module L0_FirstOutput: 756
+  line 63, col 57 to line 63, col 60 of module L0_FirstOutput: 126
+  line 64, col 5 to line 64, col 18 of module L0_FirstOutput: 252
+  |line 64, col 5 to line 64, col 5 of module L0_FirstOutput: 126
+  |line 64, col 11 to line 64, col 18 of module L0_FirstOutput: 126
+  line 64, col 24 to line 64, col 27 of module L0_FirstOutput: 252
+  |line 64, col 25 to line 64, col 27 of module L0_FirstOutput: 126
+  line 64, col 33 to line 64, col 43 of module L0_FirstOutput: 168
+  |line 64, col 34 to line 64, col 43 of module L0_FirstOutput: 126
+  line 64, col 48 to line 64, col 67 of module L0_FirstOutput: 42
+  |line 64, col 48 to line 64, col 48 of module L0_FirstOutput: 126
+  |line 64, col 51 to line 64, col 67 of module L0_FirstOutput: 126
+  line 65, col 5 to line 65, col 44 of module L0_FirstOutput: 168
+  line 66, col 5 to line 66, col 51 of module L0_FirstOutput: 168
+  line 67, col 5 to line 67, col 58 of module L0_FirstOutput: 168
+  line 68, col 5 to line 68, col 43 of module L0_FirstOutput: 168
+  line 69, col 5 to line 69, col 89 of module L0_FirstOutput: 168
+  line 70, col 5 to line 70, col 66 of module L0_FirstOutput: 168
+<Continue line 72, col 1 to line 72, col 11 of module L0_FirstOutput>: 0:420
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 8748
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 8496
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 5364
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 5112
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 5112
+  line 19, col 20 to line 19, col 42 of module L0_FirstOutput: 252
+  |line 19, col 20 to line 19, col 22 of module L0_FirstOutput: 1800
+  |line 19, col 26 to line 19, col 42 of module L0_FirstOutput: 1800
+  line 73, col 14 to line 73, col 25 of module L0_FirstOutput: 1152
+  |line 73, col 14 to line 73, col 17 of module L0_FirstOutput: 900
+  line 73, col 30 to line 73, col 57 of module L0_FirstOutput: 1008
+  |line 73, col 30 to line 73, col 43 of module L0_FirstOutput: 756
+  line 74, col 5 to line 74, col 38 of module L0_FirstOutput: 756
+  |line 74, col 5 to line 74, col 5 of module L0_FirstOutput: 504
+  |line 74, col 11 to line 74, col 38 of module L0_FirstOutput: 504
+  line 74, col 44 to line 74, col 47 of module L0_FirstOutput: 504
+  |line 74, col 45 to line 74, col 47 of module L0_FirstOutput: 252
+  line 74, col 53 to line 74, col 63 of module L0_FirstOutput: 420
+  |line 74, col 54 to line 74, col 63 of module L0_FirstOutput: 252
+  line 74, col 68 to line 74, col 87 of module L0_FirstOutput: 168
+  |line 74, col 68 to line 74, col 68 of module L0_FirstOutput: 252
+  |line 74, col 71 to line 74, col 87 of module L0_FirstOutput: 252
+  line 75, col 5 to line 75, col 46 of module L0_FirstOutput: 420
+  line 76, col 5 to line 76, col 60 of module L0_FirstOutput: 420
+  line 77, col 5 to line 77, col 43 of module L0_FirstOutput: 420
+  line 78, col 5 to line 78, col 107 of module L0_FirstOutput: 420
+  line 79, col 5 to line 79, col 77 of module L0_FirstOutput: 420
+<ExpireQueued line 87, col 1 to line 87, col 12 of module L0_FirstOutput>: 6:132
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 2964
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 2832
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1836
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 1704
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 1704
+  line 88, col 15 to line 88, col 36 of module L0_FirstOutput: 132
+  |line 88, col 15 to line 88, col 17 of module L0_FirstOutput: 600
+  |line 88, col 20 to line 88, col 36 of module L0_FirstOutput: 600
+  line 88, col 41 to line 88, col 59 of module L0_FirstOutput: 432
+  |line 88, col 41 to line 88, col 57 of module L0_FirstOutput: 300
+  line 89, col 5 to line 89, col 46 of module L0_FirstOutput: 132
+  line 90, col 5 to line 90, col 100 of module L0_FirstOutput: 132
+<ExpireAccepted line 91, col 1 to line 91, col 14 of module L0_FirstOutput>: 0:168
+  line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 3000
+  |line 17, col 11 to line 17, col 17 of module L0_FirstOutput: 2832
+  line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1872
+  |line 17, col 26 to line 17, col 39 of module L0_FirstOutput: 1704
+  |line 17, col 45 to line 17, col 68 of module L0_FirstOutput: 1704
+  line 92, col 15 to line 92, col 36 of module L0_FirstOutput: 168
+  |line 92, col 15 to line 92, col 17 of module L0_FirstOutput: 600
+  |line 92, col 20 to line 92, col 36 of module L0_FirstOutput: 600
+  line 92, col 41 to line 92, col 59 of module L0_FirstOutput: 168
+  |line 92, col 41 to line 92, col 57 of module L0_FirstOutput: 300
+  line 93, col 5 to line 93, col 99 of module L0_FirstOutput: 168
+  line 94, col 5 to line 94, col 75 of module L0_FirstOutput: 168
+<CancelQueued line 96, col 1 to line 96, col 12 of module L0_FirstOutput>: 36:264
+  line 97, col 5 to line 97, col 15 of module L0_FirstOutput: 3096
+  |line 97, col 5 to line 97, col 11 of module L0_FirstOutput: 2832
+  line 97, col 20 to line 97, col 42 of module L0_FirstOutput: 1968
+  |line 97, col 20 to line 97, col 33 of module L0_FirstOutput: 1704
+  line 98, col 5 to line 98, col 46 of module L0_FirstOutput: 264
+  line 99, col 5 to line 99, col 100 of module L0_FirstOutput: 264
+<CancelAccepted line 100, col 1 to line 100, col 14 of module L0_FirstOutput>: 72:504
+  line 18, col 9 to line 18, col 23 of module L0_FirstOutput: 3336
+  |line 18, col 9 to line 18, col 12 of module L0_FirstOutput: 2832
+  line 101, col 13 to line 101, col 23 of module L0_FirstOutput: 1984
+  |line 101, col 13 to line 101, col 19 of module L0_FirstOutput: 1480
+  line 101, col 28 to line 101, col 46 of module L0_FirstOutput: 504
+  |line 101, col 28 to line 101, col 44 of module L0_FirstOutput: 1032
+  line 102, col 5 to line 102, col 54 of module L0_FirstOutput: 504
+  line 103, col 5 to line 103, col 76 of module L0_FirstOutput: 504
+  line 104, col 5 to line 104, col 75 of module L0_FirstOutput: 504
+<FailConnection line 106, col 1 to line 106, col 14 of module L0_FirstOutput>: 46:1480
+  line 18, col 9 to line 18, col 23 of module L0_FirstOutput: 4312
+  |line 18, col 9 to line 18, col 12 of module L0_FirstOutput: 2832
+  line 107, col 13 to line 107, col 26 of module L0_FirstOutput: 1480
+  line 107, col 31 to line 107, col 41 of module L0_FirstOutput: 1480
+  line 107, col 46 to line 107, col 62 of module L0_FirstOutput: 1480
+  line 108, col 5 to line 108, col 114 of module L0_FirstOutput: 1480
+  |line 108, col 12 to line 108, col 114 of module L0_FirstOutput: 1480
+  ||line 108, col 15 to line 108, col 20 of module L0_FirstOutput: 1480
+  |||line 17, col 11 to line 17, col 68 of module L0_FirstOutput: 1480
+  ||||line 17, col 11 to line 17, col 21 of module L0_FirstOutput: 1480
+  ||||line 17, col 26 to line 17, col 68 of module L0_FirstOutput: 1032
+  ||line 108, col 27 to line 108, col 103 of module L0_FirstOutput: 600
+  ||line 108, col 110 to line 108, col 114 of module L0_FirstOutput: 880
+  line 109, col 5 to line 109, col 75 of module L0_FirstOutput: 1480
+<Take line 111, col 1 to line 111, col 4 of module L0_FirstOutput>: 201:1104
+  line 112, col 5 to line 112, col 15 of module L0_FirstOutput: 3936
+  |line 112, col 5 to line 112, col 11 of module L0_FirstOutput: 2832
+  line 112, col 20 to line 112, col 46 of module L0_FirstOutput: 2808
+  |line 112, col 20 to line 112, col 33 of module L0_FirstOutput: 1704
+  |line 112, col 39 to line 112, col 46 of module L0_FirstOutput: 1704
+  line 112, col 51 to line 112, col 60 of module L0_FirstOutput: 1104
+  line 113, col 5 to line 113, col 98 of module L0_FirstOutput: 1104
+<ToggleGate line 115, col 1 to line 115, col 10 of module L0_FirstOutput>: 495:2832
+  line 115, col 15 to line 115, col 25 of module L0_FirstOutput: 2832
+  line 115, col 30 to line 115, col 126 of module L0_FirstOutput: 2832
+<Tick line 116, col 1 to line 116, col 4 of module L0_FirstOutput>: 1842:2124
+  line 116, col 9 to line 116, col 19 of module L0_FirstOutput: 2124
+  |line 116, col 9 to line 116, col 11 of module L0_FirstOutput: 2832
+  |line 116, col 13 to line 116, col 19 of module L0_FirstOutput: 2832
+  line 116, col 24 to line 116, col 33 of module L0_FirstOutput: 2124
+  line 116, col 38 to line 116, col 135 of module L0_FirstOutput: 2124
+<TypeOK line 124, col 1 to line 124, col 6 of module L0_FirstOutput>
+  line 124, col 11 to line 128, col 59 of module L0_FirstOutput: 2832
+<NoBytesTruth line 129, col 1 to line 129, col 12 of module L0_FirstOutput>
+  line 129, col 17 to line 129, col 102 of module L0_FirstOutput: 2832
+  |line 129, col 31 to line 129, col 102 of module L0_FirstOutput: 5664
+  ||line 129, col 31 to line 129, col 72 of module L0_FirstOutput: 5664
+  ||line 129, col 77 to line 129, col 102 of module L0_FirstOutput: 2904
+  |line 129, col 26 to line 129, col 28 of module L0_FirstOutput: 2832
+<AcceptedEvidence line 130, col 1 to line 130, col 16 of module L0_FirstOutput>
+  line 130, col 21 to line 130, col 115 of module L0_FirstOutput: 2832
+  |line 130, col 35 to line 130, col 115 of module L0_FirstOutput: 5664
+  ||line 130, col 35 to line 130, col 47 of module L0_FirstOutput: 5664
+  ||line 130, col 52 to line 130, col 115 of module L0_FirstOutput: 2760
+  |line 130, col 30 to line 130, col 32 of module L0_FirstOutput: 2832
+<LocalOutput line 131, col 1 to line 131, col 11 of module L0_FirstOutput>
+  line 131, col 16 to line 131, col 111 of module L0_FirstOutput: 2832
+  |line 131, col 30 to line 131, col 111 of module L0_FirstOutput: 5664
+  ||line 131, col 30 to line 131, col 49 of module L0_FirstOutput: 5664
+  ||line 131, col 55 to line 131, col 110 of module L0_FirstOutput: 5664
+  |||line 131, col 55 to line 131, col 72 of module L0_FirstOutput: 5664
+  |||line 131, col 77 to line 131, col 110 of module L0_FirstOutput: 1752
+  |line 131, col 25 to line 131, col 27 of module L0_FirstOutput: 2832
+<BufferOwnership line 132, col 1 to line 132, col 15 of module L0_FirstOutput>
+  line 132, col 20 to line 133, col 71 of module L0_FirstOutput: 2832
+<PlainImmediate line 134, col 1 to line 134, col 14 of module L0_FirstOutput>
+  line 134, col 19 to line 134, col 58 of module L0_FirstOutput: 2832
+  |line 134, col 19 to line 134, col 22 of module L0_FirstOutput: 2832
+  |line 134, col 27 to line 134, col 58 of module L0_FirstOutput: 2832
+  ||line 134, col 40 to line 134, col 58 of module L0_FirstOutput: 5664
+  ||line 134, col 36 to line 134, col 38 of module L0_FirstOutput: 2832
+End of statistics.
+10183 states generated, 2832 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 13.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 8 and the 95th percentile is 3).
+Finished in 00s at (2026-10-20 19:57:38)

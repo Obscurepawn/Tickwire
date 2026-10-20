@@ -1,0 +1,71 @@
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.29s
+     Running tests/framing.rs (target/debug/deps/framing-f747dab896a1f36d)
+
+running 8 tests
+test http_fragmented_chunked_trailers_and_pipeline ... FAILED
+test ws_fragmentation_with_interleaved_ping ... FAILED
+test ws_protocol_errors_and_limits ... FAILED
+test http_ambiguous_length_and_truncated_eof_rejected ... FAILED
+test http_request_injection_and_explicit_lengths ... FAILED
+test fix_fragmented_body_length_checksum ... FAILED
+test ws_upgrade_validates_server_accept ... FAILED
+test ws_mask_roundtrip_and_random_masks ... FAILED
+
+failures:
+
+---- http_fragmented_chunked_trailers_and_pipeline stdout ----
+
+thread 'http_fragmented_chunked_trailers_and_pipeline' (5158747) panicked at crates/tickwire-transport/tests/framing.rs:3:348:
+called `Option::unwrap()` on a `None` value
+
+---- ws_fragmentation_with_interleaved_ping stdout ----
+
+thread 'ws_fragmentation_with_interleaved_ping' (5158749) panicked at crates/tickwire-transport/tests/framing.rs:6:205:
+called `Option::unwrap()` on a `None` value
+
+---- ws_protocol_errors_and_limits stdout ----
+
+thread 'ws_protocol_errors_and_limits' (5158751) panicked at crates/tickwire-transport/tests/framing.rs:7:246:
+[129, 128]
+
+---- http_ambiguous_length_and_truncated_eof_rejected stdout ----
+
+thread 'http_ambiguous_length_and_truncated_eof_rejected' (5158746) panicked at crates/tickwire-transport/tests/framing.rs:4:369:
+assertion failed: d.next_response().is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- http_request_injection_and_explicit_lengths stdout ----
+
+thread 'http_request_injection_and_explicit_lengths' (5158748) panicked at crates/tickwire-transport/tests/framing.rs:2:136:
+called `Result::unwrap()` on an `Err` value: Protocol("not implemented")
+
+---- fix_fragmented_body_length_checksum stdout ----
+
+thread 'fix_fragmented_body_length_checksum' (5158745) panicked at crates/tickwire-transport/tests/framing.rs:9:112:
+called `Result::unwrap()` on an `Err` value: Protocol("not implemented")
+
+---- ws_upgrade_validates_server_accept stdout ----
+
+thread 'ws_upgrade_validates_server_accept' (5158752) panicked at crates/tickwire-transport/tests/framing.rs:8:281:
+called `Option::unwrap()` on a `None` value
+
+---- ws_mask_roundtrip_and_random_masks stdout ----
+
+thread 'ws_mask_roundtrip_and_random_masks' (5158750) panicked at crates/tickwire-transport/tests/framing.rs:5:188:
+index out of bounds: the len is 0 but the index is 0
+
+
+failures:
+    fix_fragmented_body_length_checksum
+    http_ambiguous_length_and_truncated_eof_rejected
+    http_fragmented_chunked_trailers_and_pipeline
+    http_request_injection_and_explicit_lengths
+    ws_fragmentation_with_interleaved_ping
+    ws_mask_roundtrip_and_random_masks
+    ws_protocol_errors_and_limits
+    ws_upgrade_validates_server_accept
+
+test result: FAILED. 0 passed; 8 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-transport --test framing`

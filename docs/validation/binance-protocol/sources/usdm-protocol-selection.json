@@ -1,0 +1,65 @@
+{
+  "capture_date": "2026-10-20",
+  "capture_method": "Official documentation text reader; selected protocol field names, types, enum values, and rules transcribed below. SHA256SUMS hashes this selected capture, not the full live HTML page. Direct urllib requests returned HTTP 202 with empty body; no empty page was treated as protocol evidence.",
+  "sources": [
+    {
+      "url": "https://developers.binance.com/en/docs/products/derivatives-trading-usds-futures/websocket-api-general-info",
+      "sections": ["WebSocket API General Info", "SIGNED request example (Ed25519)", "Log in with API key (SIGNED)"],
+      "protocol": {
+        "production": "wss://ws-fapi.binance.com/ws-fapi/v1",
+        "test": "wss://testnet.binancefuture.com/ws-fapi/v1",
+        "timestamp": "JSON integer, UTC milliseconds",
+        "decimal": "JSON string",
+        "signature_preimage": "Sort all params except signature by key, join key=value with &; retain exact string values",
+        "documented_per_request_algorithms": ["HMAC-SHA256", "Ed25519"],
+        "session.logon": "Ed25519 only",
+        "rsa_ws": "Not confirmed by this selected source; implementation rejects rather than infers support"
+      }
+    },
+    {
+      "url": "https://developers.binance.com/en/docs/products/derivatives-trading-usds-futures/general-info",
+      "sections": ["SIGNED Endpoint Examples for POST /fapi/v1/order", "HTTP Return Codes"],
+      "protocol": {
+        "rest_algorithms": ["HMAC-SHA256", "RSA PKCS#1 v1.5 SHA-256"],
+        "rest_preimage": "Exact query bytes concatenated with exact request-body bytes, with no inserted separator",
+        "http_503_unknown": "Unknown error, please check your request or try again later.",
+        "http_503_failed": ["Service Unavailable.", "Internal error; unable to process your request. Please try again."],
+        "system_overload_code": -1008,
+        "ed25519_rest": "Not confirmed by this selected source; implementation rejects rather than infers support"
+      }
+    },
+    {
+      "url": "https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/ws-api/trade",
+      "sections": ["New Order (TRADE)", "New Algo Order (TRADE)", "Modify Order (TRADE)", "Cancel Algo Order (TRADE)"],
+      "protocol": {
+        "new_method": "order.place",
+        "new_types": ["LIMIT", "MARKET"],
+        "algo_method": "algoOrder.place",
+        "algoType": "CONDITIONAL",
+        "algo_types": ["STOP_MARKET", "TAKE_PROFIT_MARKET", "STOP", "TAKE_PROFIT", "TRAILING_STOP_MARKET"],
+        "algo_price_fields": ["triggerPrice", "activatePrice", "callbackRate"],
+        "callbackRate_percent_range": ["0.1", "10"],
+        "algo_boolean_strings": {"closePosition":["true","false"],"reduceOnly":["true","false"],"priceProtect":["true","false"]},
+        "closePosition": "Only STOP_MARKET/TAKE_PROFIT_MARKET; omit quantity and reduceOnly; hedge BUY/LONG and SELL/SHORT combinations rejected",
+        "goodTillDate": "UTC milliseconds; ignore subsecond precision; strictly greater than current time plus 600 seconds and less than 253402300799000",
+        "modify_required": ["symbol", "side", "quantity", "price", "timestamp"],
+        "modify_reduceOnly": "Validation against original order; does not change its reduceOnly attribute",
+        "cancel_algo_method": "algoOrder.cancel",
+        "cancel_algo_target": ["algoId", "clientAlgoId"],
+        "cancel_algo_symbol": "Not a documented parameter",
+        "response_algo_identity": ["algoId", "clientAlgoId", "algoStatus"],
+        "response_order_identity": ["orderId", "clientOrderId", "status"]
+      }
+    },
+    {
+      "url": "https://developers.binance.com/en/docs/catalog/core-trading-derivatives-trading-usd-s-m-futures/api/rest-api/trade",
+      "sections": ["New Algo Order (TRADE)", "New Order (TRADE)", "Modify Order (TRADE)"],
+      "protocol": {
+        "ordinary_order": "/fapi/v1/order",
+        "algo_order": "/fapi/v1/algoOrder",
+        "key_header": "X-MBX-APIKEY",
+        "gtd_response_example": 1693207680000
+      }
+    }
+  ]
+}

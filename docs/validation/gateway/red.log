@@ -1,0 +1,83 @@
+   Compiling tickwire-journal-codec v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-journal-codec)
+   Compiling tickwire-recovery v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-recovery)
+   Compiling tickwire-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-journal)
+   Compiling tickwire-business-journal v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-business-journal)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+warning: fields `digest`, `authority`, and `bytes` are never read
+  --> crates/tickwire-gateway/src/lib.rs:54:5
+   |
+53 | pub struct EncodedRequest {
+   |            -------------- fields in this struct
+54 |     digest: [u8; 32],
+   |     ^^^^^^
+55 |     authority: String,
+   |     ^^^^^^^^^
+56 |     bytes: Vec<u8>,
+   |     ^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-gateway` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.14s
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-4f77c6f5665729e4)
+
+running 7 tests
+test failed_abort_sync_does_not_publish_releasable_state ... FAILED
+test partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues ... FAILED
+test waiting_gate_expiry_records_abort_before_reporting_release ... FAILED
+test recovered_zero_byte_abort_stays_aborted_and_missing_command_fails ... FAILED
+test failed_intent_sync_never_outputs ... FAILED
+test recovered_intent_is_frozen_unknown_even_when_send_never_started ... FAILED
+test command_is_synced_before_any_application_output ... FAILED
+
+failures:
+
+---- failed_abort_sync_does_not_publish_releasable_state stdout ----
+
+thread 'failed_abort_sync_does_not_publish_releasable_state' (5298603) panicked at crates/tickwire-gateway/tests/lifecycle.rs:127:36:
+called `Result::unwrap()` on an `Err` value: Invalid
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues stdout ----
+
+thread 'partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues' (5298605) panicked at crates/tickwire-gateway/tests/lifecycle.rs:70:27:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+---- waiting_gate_expiry_records_abort_before_reporting_release stdout ----
+
+thread 'waiting_gate_expiry_records_abort_before_reporting_release' (5298608) panicked at crates/tickwire-gateway/tests/lifecycle.rs:46:36:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+---- recovered_zero_byte_abort_stays_aborted_and_missing_command_fails stdout ----
+
+thread 'recovered_zero_byte_abort_stays_aborted_and_missing_command_fails' (5298607) panicked at crates/tickwire-gateway/tests/lifecycle.rs:223:36:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+---- failed_intent_sync_never_outputs stdout ----
+
+thread 'failed_intent_sync_never_outputs' (5298604) panicked at crates/tickwire-gateway/tests/lifecycle.rs:102:5:
+assertion failed: matches!(s.submit(record(&c), c, end()), Err(Error::Journal(_)))
+
+---- recovered_intent_is_frozen_unknown_even_when_send_never_started stdout ----
+
+thread 'recovered_intent_is_frozen_unknown_even_when_send_never_started' (5298606) panicked at crates/tickwire-gateway/tests/lifecycle.rs:186:27:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+---- command_is_synced_before_any_application_output stdout ----
+
+thread 'command_is_synced_before_any_application_output' (5298602) panicked at crates/tickwire-gateway/tests/lifecycle.rs:22:47:
+called `Result::unwrap()` on an `Err` value: Invalid
+
+
+failures:
+    command_is_synced_before_any_application_output
+    failed_abort_sync_does_not_publish_releasable_state
+    failed_intent_sync_never_outputs
+    partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues
+    recovered_intent_is_frozen_unknown_even_when_send_never_started
+    recovered_zero_byte_abort_stays_aborted_and_missing_command_fails
+    waiting_gate_expiry_records_abort_before_reporting_release
+
+test result: FAILED. 0 passed; 7 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p tickwire-gateway --test lifecycle`

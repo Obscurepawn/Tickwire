@@ -1,0 +1,90 @@
+Linux 6.8.0-117-generic aarch64 GNU/Linux
+rustc 1.99.1 (58cf8f9c3 2026-10-13)
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling generic-array v0.14.7
+   Compiling block-buffer v0.10.4
+   Compiling crypto-common v0.1.7
+   Compiling digest v0.10.7
+   Compiling cpufeatures v0.2.17
+   Compiling sha2 v0.10.9
+   Compiling tickwire-venue v0.1.0 (/work/crates/tickwire-venue)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.11s
+     Running unittests src/lib.rs (target/linux-venue/debug/deps/tickwire_venue-f4ceca6244402ba6)
+
+running 2 tests
+test cbor::tests::integer_boundaries_use_preferred_encoding ... ok
+test cbor::tests::nonpreferred_bignum_and_integer_overflow_reject ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commands.rs (target/linux-venue/debug/deps/commands-b1b446306bb8d315)
+
+running 12 tests
+test cross_product_and_inapplicable_parameters_are_rejected ... ok
+test derivative_trailing_and_delivery_are_distinct ... ok
+test each_product_contract_and_list_kind_roundtrips ... ok
+test gtd_iceberg_and_grid_validation ... ok
+test every_request_context_field_is_digest_bound ... ok
+test all_ten_command_branches_preserve_complete_content ... ok
+test list_client_identity_and_future_target_epoch_reject ... ok
+test order_parameters_and_trigger_observations_are_digest_bound ... ok
+test oto_pending_quote_amount_remains_unsupported ... ok
+test spot_conditional_trailing_keeps_base_type_and_units ... ok
+test spot_market_sell_accepts_a_quote_amount_target ... ok
+test price_grid_matches_independent_bounded_integer_arithmetic ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/contract.rs (target/linux-venue/debug/deps/contract-c067b7c9c255144a)
+
+running 5 tests
+test decimal_normalization_and_minimum_integer ... ok
+test market_with_price_is_rejected ... ok
+test complete_command_is_immutable_and_canonical_roundtrip ... ok
+test unicode_catalog_symbols_are_preserved_without_folding ... ok
+test economic_fields_change_the_digest ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/events.rs (target/linux-venue/debug/deps/events-397db82e5877097b)
+
+running 7 tests
+test duplicate_asset_line_and_conflicting_internal_identity_reject ... ok
+test standalone_order_and_fee_events_roundtrip ... ok
+test signed_multi_asset_fees_and_native_ids_survive ... ok
+test minimum_i128_fee_is_preserved_without_negating_it ... ok
+test parent_native_ids_and_rejection_text_are_preserved ... ok
+test reported_quote_amounts_and_realized_pnl_are_preserved ... ok
+test unknown_internal_order_retains_native_evidence ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/strict.rs (target/linux-venue/debug/deps/strict-53738842bcff22f7)
+
+running 5 tests
+test length_bombs_and_oversized_identifiers_reject_before_allocation ... ok
+test decimal_text_parser_is_exact_and_bounded ... ok
+test non_shortest_header_unknown_schema_and_domain_reject ... ok
+test equivalent_non_normalized_decimal_is_not_an_alternate_command_encoding ... ok
+test each_truncated_prefix_and_trailing_data_reject ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vectors.rs (target/linux-venue/debug/deps/vectors-393003ee492db08b)
+
+running 4 tests
+test independently_transcribed_reported_cash_fields ... ok
+test independently_transcribed_multi_asset_event_vectors ... ok
+test independently_transcribed_full_command_vector ... ok
+test every_single_byte_mutation_is_rejected_or_canonical_for_the_decoded_value ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests tickwire_venue
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

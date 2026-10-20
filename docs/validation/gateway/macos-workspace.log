@@ -1,0 +1,1161 @@
+   Compiling libc v0.2.191
+   Compiling cfg-if v1.0.5
+   Compiling version_check v0.9.5
+   Compiling typenum v1.20.1
+   Compiling serde_core v1.0.229
+   Compiling serde_json v1.0.145
+   Compiling ryu v1.0.23
+   Compiling itoa v1.0.18
+   Compiling memchr v2.8.3
+   Compiling proc-macro2 v1.0.107
+   Compiling unicode-ident v1.0.27
+   Compiling quote v1.0.47
+   Compiling serde v1.0.229
+   Compiling shlex v2.0.1
+   Compiling generic-array v0.14.7
+   Compiling find-msvc-tools v0.1.15
+   Compiling untrusted v0.9.0
+   Compiling zeroize v1.9.1
+   Compiling cc v1.9.0
+   Compiling httparse v1.10.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling rustls v0.23.46
+   Compiling getrandom v0.3.4
+   Compiling base64 v0.22.1
+   Compiling time-core v0.1.9
+   Compiling num-conv v0.2.2
+   Compiling once_cell v1.21.4
+   Compiling powerfmt v0.2.1
+   Compiling deranged v0.5.9
+   Compiling subtle v2.6.1
+   Compiling ring v0.17.14
+   Compiling cpufeatures v0.2.17
+   Compiling getrandom v0.2.17
+   Compiling syn v3.0.9
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling mio v1.2.4
+   Compiling base64 v0.23.1
+   Compiling digest v0.10.7
+   Compiling tickwire-execution v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-execution)
+   Compiling sha2 v0.10.9
+   Compiling time v0.3.55
+   Compiling sha1 v0.10.6
+   Compiling pem v4.0.0
+   Compiling tickwire-ipc v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-ipc)
+   Compiling tickwire-venue v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-venue)
+   Compiling tickwire-book v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-book)
+   Compiling tickwire-recovery v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-recovery)
+   Compiling tickwire-journal-codec v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-journal-codec)
+   Compiling tickwire-risk v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-risk)
+   Compiling yasna v0.6.0
+   Compiling serde_derive v1.0.229
+   Compiling tickwire-shm-sys v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-shm-sys)
+   Compiling tickwire-shm v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-shm)
+   Compiling tickwire-snapshot v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-snapshot)
+   Compiling tickwire-control-sys v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-control-sys)
+   Compiling tickwire-control v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-control)
+   Compiling tickwire-join v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-join)
+   Compiling tickwire-mock v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-mock)
+   Compiling tickwire-journal v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-journal)
+   Compiling tickwire-business-journal v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-business-journal)
+   Compiling rustls-webpki v0.103.16
+   Compiling rcgen v0.14.10
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-binance)
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-transport)
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.32s
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_binance-5f6dc33142c09937)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_primitives.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/protocol_primitives-221699b10aac7ae2)
+
+running 15 tests
+test fix_sender_comp_id_rejects_printable_but_unlisted_punctuation_atomically ... ok
+test bad_keys_and_fix_field_injection_are_rejected ... ok
+test official_spot_rest_unicode_is_percent_encoded_before_signing ... ok
+test decimal_invalid_precision_and_rescale_fail_without_rounding ... ok
+test decimal_exact_conversion_and_i128_minimum ... ok
+test official_spot_rest_hmac_ascii_vector ... ok
+test official_spot_ws_vector_sorts_keys_without_changing_decimal_strings ... ok
+test output_capacity_failure_is_atomic_for_all_encoders ... ok
+test parameter_limits_reject_duplicates_reserved_keys_and_capacity ... ok
+test rest_preimage_does_not_insert_a_separator_between_query_and_body ... ok
+test websocket_uses_raw_utf8_while_rest_escapes_values_once ... ok
+test endpoint_algorithm_matrix_rejects_unsupported_combination ... ok
+test official_fix_ed25519_vector_and_distinct_preimage ... ok
+test json_numbers_reject_non_json_leading_zero_spellings_without_mutating_params ... ok
+test rsa_pkcs1_sha256_matches_independent_openssl_vector ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_server.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/protocol_server-760b231bbcd6638b)
+
+running 2 tests
+test prepared_usdm_websocket_hmac_ed25519_and_unknown_response_over_actual_tls ... ok
+test prepared_rest_all_three_signatures_over_actual_tls_and_chunked_reply ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/requests.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/requests-0dc4e12dfef4378d)
+
+running 14 tests
+test account_environment_and_market_mismatch_never_produce_request ... ok
+test capacity_and_timing_failure_are_explicit ... ok
+test rest_request_uses_product_endpoint_and_encoded_query_exactly ... ok
+test spot_market_sell_quote_quantity_is_sent_as_exact_string ... ok
+test post_only_spot_is_limit_maker_without_tif ... ok
+test spot_new_ws_contains_complete_typed_order_and_original_digest ... ok
+test usdm_algo_close_position_uses_distinct_method_and_exclusive_fields ... ok
+test spot_cancel_replace_and_priority_amend_are_distinct ... ok
+test spot_fractional_recv_window_is_a_json_number_with_exact_milliseconds ... ok
+test cancel_and_query_preserve_original_target_identity ... ok
+test usdm_gtd_is_milliseconds_with_seconds_precision ... ok
+test usdm_limit_hedge_mode_sends_position_side_without_reduce_only ... ok
+test usdm_modify_keeps_side_price_quantity_and_target ... ok
+test usdm_trailing_algo_uses_activate_price_and_callback_percent ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/responses.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/responses-1c441e0fd170d9c8)
+
+running 14 tests
+test backend_timeout_and_unknown_new_error_codes_do_not_authorize_release ... ok
+test not_found_rate_limits_auth_and_partial_results_are_preserved ... ok
+test futures_documented_503_failures_are_distinguished_from_unknown ... ok
+test partial_cancel_replace_retains_both_result_branches ... ok
+test invalid_or_ambiguous_envelopes_are_rejected ... ok
+test rest_error_and_success_use_http_status_without_losing_error_code ... ok
+test malformed_http_200_error_and_non_success_status_never_become_success ... ok
+test typed_order_ack_does_not_invent_status_or_quantity ... ok
+test new_order_status_is_preserved_without_assuming_terminal ... ok
+test algo_identity_is_not_interchanged_with_child_order_identity ... ok
+test typed_order_exact_decimals_and_fill_payload_are_preserved ... ok
+test typed_order_rejects_wrong_types_duplicates_negative_quantities_and_missing_identity ... ok
+test unknown_errors_never_turn_into_authoritative_rejection ... ok
+test websocket_envelope_preserves_correlation_raw_result_and_rate_limits ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_book-60316b1fa9ab4537)
+
+running 5 tests
+test work_tests::large_batch_has_bounded_price_comparisons ... ok
+test work_tests::bulk_structure_changes_do_not_move_a_tail_for_every_update ... ok
+test work_tests::unordered_small_replacements_have_a_bounded_comparison_budget ... ok
+test work_tests::one_replacement_does_not_scan_or_copy_the_full_book ... ok
+test work_tests::wrapped_adjacent_batches_keep_the_adjacent_lookup_budget ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/batch.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/batch-62f11905df710d85)
+
+running 2 tests
+test full_capacity_replacement_and_reverse_batches_preserve_unknown_coverage ... ok
+test bad_large_second_side_never_commits_first_side_or_sequence ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/book.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/book-4852ae3d54ec5253)
+
+running 22 tests
+test bid_and_ask_moves_can_cross_old_opposite_quote_but_not_final_quote ... ok
+test complete_empty_snapshot_has_known_zero_and_empty_best ... ok
+test event_update_limit_and_invalid_range_fail_closed ... ok
+test capacity_checks_final_batch_before_any_side_changes ... ok
+test external_buffer_loss_and_disconnect_require_current_generation ... ok
+test duplicate_event_does_not_refresh_freshness_and_backward_clock_is_rejected ... ok
+test futures_bridge_rejects_spot_next_id_and_missing_pu ... ok
+test futures_equal_snapshot_id_bridges_then_requires_pu ... ok
+test malformed_batches_do_not_partially_modify_either_side ... ok
+test no_event_is_applied_before_snapshot_and_generation_never_wraps ... ok
+test rebuild_requires_new_generation_and_old_snapshot_cannot_reactivate ... ok
+test snapshot_capacity_duplicate_price_and_zero_capacity_fail_closed ... ok
+test snapshot_errors_are_atomic_and_rebuild_is_required ... ok
+test snapshot_needs_bridge_and_spot_boundary_matrix ... ok
+test spot_overlapping_updates_stale_and_gap ... ok
+test storage_can_use_an_independent_exchange_policy ... ok
+test truncated_snapshot_retains_unknown_depth_and_best_quote_uncertainty ... ok
+test u64_max_snapshot_never_overflows_spot_next_update_check ... ok
+test unsorted_snapshots_and_updates_are_normalized ... ok
+test wrong_key_and_generation_cannot_poison_live_book ... ok
+test zero_deletes_and_absent_zero_is_idempotent ... ok
+test replay_matches_independent_btree_map_oracle ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/differential.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/differential-cee2864aa0a335bf)
+
+running 1 test
+test independent_small_books_match_btree_map ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/no_alloc.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/no_alloc-f8ea2344724957f6)
+
+running 3 tests
+test construction_snapshot_updates_views_and_rebuild_allocate_nothing ... ok
+test unordered_small_quantity_batches_allocate_nothing ... ok
+test sorted_work_area_and_bulk_merge_allocate_nothing ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/small_batch.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/small_batch-f35c04c4e6e9d120)
+
+running 3 tests
+test absent_positive_fallback_and_zero_delete_keep_final_capacity_semantics ... ok
+test scattered_replacements_handle_collisions_and_preserve_coverage ... ok
+test late_duplicate_or_missing_price_cannot_partially_commit_either_side ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running benches/batch_apply.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/batch_apply-7365064d2306701d)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,0,42,125,125
+replace_natural,32,2,1000,833,2584,30416,170042
+replace_natural,32,16,1000,1625,2459,27166,42541
+replace_natural,512,2,1000,916,1083,16167,16917
+replace_natural,512,16,1000,1667,2333,2458,2459
+replace_natural,512,64,1000,3916,6875,7250,7291
+replace_shuffle,512,512,1000,125750,199167,315500,336542
+churn_natural,512,4,1000,1250,1500,1583,1583
+churn_shuffle,512,256,1000,75417,120875,279250,323667
+replace_natural,4096,2,1000,1041,1167,3500,10833
+replace_natural,4096,16,1000,1875,2958,19709,37334
+replace_natural,4096,64,1000,4042,4292,7125,7208
+replace_natural,4096,512,1000,22375,119833,160875,172541
+replace_reverse,4096,512,1000,23416,138792,169125,180917
+replace_shuffle,4096,512,1000,123709,164791,468209,860959
+churn_natural,4096,4,1000,1209,1375,1458,1458
+churn_shuffle,4096,256,1000,81958,110750,579917,645250
+     Running benches/depth_apply.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/depth_apply-15d778a571b4033e)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,0,42,42,42
+replace,32,2,1000,792,958,3083,13208
+replace,32,16,1000,1625,2375,2541,4500
+replace,512,2,1000,917,1083,7541,14833
+replace,512,16,1000,1709,2375,2584,2750
+replace,512,64,1000,3834,6833,7333,13625
+top_churn,512,4,1000,1209,1416,1500,1542
+replace,4096,2,1000,1042,1792,7291,12000
+replace,4096,16,1000,1791,2042,2500,2708
+replace,4096,64,1000,4208,6666,76375,170791
+top_churn,4096,4,1000,1292,1458,1500,1542
+     Running benches/sparse_apply.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/sparse_apply-b454017a21e11038)
+workload,levels_per_side,updates_total,samples,p50_ns,p99_ns,p999_ns,max_ns
+timer,0,0,1000,0,42,125,12667
+replace_scatter_shuffle,512,16,1000,3750,4250,18125,19708
+replace_scatter_shuffle,512,64,1000,11375,12042,20042,32833
+replace_scatter_shuffle,512,512,1000,124792,209417,505750,901250
+churn_scatter_shuffle,512,256,1000,84541,116917,261125,1345875
+replace_scatter_shuffle,4096,16,1000,4541,4917,5083,5292
+replace_scatter_shuffle,4096,64,1000,14750,16209,69750,133583
+replace_scatter_shuffle,4096,512,1000,217958,304541,424833,486375
+churn_scatter_shuffle,4096,256,1000,169250,246458,303333,344583
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_business_journal-8933167c1470b15b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/runtime-1690a91773125c10)
+
+running 28 tests
+test cwd_child ... ignored, subprocess helper
+test closure_without_full_command_cannot_authorize_wal ... ok
+test file_crash_child ... ignored, subprocess helper
+test closure_with_matching_intent_but_another_command_is_rejected ... ok
+test commit_is_idempotent_but_changed_intent_is_rejected ... ok
+test abort_sync_failure_retains_reservation_and_freezes ... ok
+test external_abort_cannot_release_an_order ... ok
+test command_digest_is_recovered_from_actual_wal_and_rebinding_conflicts ... ok
+test empty_recovery_is_frozen_and_bootstrap_capital_cannot_change ... ok
+test conflicting_original_order_identity_is_preserved_and_quarantined ... ok
+test fact_duplicates_are_durable_but_counted_once ... ok
+test final_gate_expiry_during_io_keeps_durable_reservation_without_sending ... ok
+test missing_closure_stops_recovery_instead_of_republishing ... ok
+test invalid_fact_is_preserved_then_live_and_recovery_freeze ... ok
+
+running 1 test
+test prepared_sync_failure_never_sends_and_keeps_reservation ... ok
+test no_bytes_is_durable_before_release_and_replays_in_order ... ok
+test real_wal_reopens_committed_order_frozen_without_exchange_call ... ok
+test recovered_commit_retry_keeps_original_position_across_writer_change ... ok
+test ordered_abort_before_next_intent_avoids_recovery_arithmetic_overflow ... ok
+test sync_replica_has_no_implicit_mock_or_local_downgrade ... test cwd_child ... okok
+
+
+test recovered_writer_can_append_old_order_facts_but_never_send ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.20s
+
+test relative_backend_remains_bound_to_locked_directory_after_cwd_change ... ok
+test verified_closure_for_another_intent_cannot_authorize_wal_or_send ... ok
+test torn_abort_keeps_reserve_then_recovery_discards_only_unsealed_tail ... ok
+test terminal_missing_fill_details_and_late_fees_replay_exactly ... ok
+test valid_physical_frame_with_invalid_business_payload_cannot_recover ... ok
+test final_gate_revalidates_all_authority_and_validity_fields ... ok
+test actual_process_kill_replays_synced_wal_and_file_closure_frozen ... ok
+
+test result: ok. 26 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 2.21s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_control-ccc02af1a508d539)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/session.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/session-89bbee5729c1b354)
+
+running 13 tests
+test handshake_and_frame_bind_both_processes_and_instances ... ok
+test expired_or_regressed_clock_never_reopens_a_session ... ok
+test kernel_identity_cannot_be_replaced_by_hello_claims ... ok
+test renew_is_nonce_bound_and_strictly_increasing ... ok
+test capacity_preserves_old_results_and_storage_failure_never_returns_a_ticket ... ok
+test lease_arithmetic_exhaustion_is_distinct_from_actual_session_expiry ... ok
+test mandatory_features_and_architecture_must_be_compatible ... ok
+test frame_identity_epoch_and_control_kind_are_checked ... ok
+test hello_must_match_registered_generation_and_artifact_hashes ... ok
+test terminal_response_must_match_request_kind_and_reported_state_version ... ok
+test requests_are_registered_before_one_ticket_and_retried_before_version_check ... ok
+test welcome_cannot_redirect_the_session_or_claim_extra_capability ... ok
+test completion_is_correlated_immutable_and_survives_session_recreation_in_shared_store ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport_linux.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/transport_linux-fedabef8fe0907a1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_control_sys-5f3dc06627cf3ae1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/platform.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/platform-366bb4ebed6da924)
+
+running 1 test
+test production_transport_is_linux_only ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/transport-90e84116c412d5ab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_execution-b02c596d66112e7a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/lifecycle.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/lifecycle-6029a68673101233)
+
+running 18 tests
+test a_fee_fact_blocks_a_contradictory_no_bytes_callback ... ok
+test authoritative_spend_above_budget_is_recorded_and_freezes_admission ... ok
+test cannot_send_before_durable_and_gate_is_checked_again ... ok
+test commit_receipt_for_another_command_is_rejected ... ok
+test competing_strategies_share_atomic_reservation ... ok
+test crash_recovery_marks_every_committed_intent_as_maybe_sent ... ok
+test explicit_unknown_freezes_the_shared_pool_without_releasing_reservation ... ok
+test fill_before_ack_duplicates_out_of_order_and_fee_tail ... ok
+test idempotent_commit_cannot_erase_live_state ... ok
+test invalid_fill_and_conflicting_duplicate_are_atomic ... ok
+test missing_command_digest_cannot_reserve_or_recover ... ok
+test no_bytes_release_does_not_invent_fee_payment ... ok
+test sync_profile_requires_matching_replica_receipt ... ok
+test synchronous_profile_cannot_be_downgraded_by_the_receipt_caller ... ok
+test terminal_before_trade_details_keeps_missing_fill_budget ... ok
+test timeout_not_found_and_cancel_request_keep_unknown_reserved ... ok
+test unaccountable_external_fact_freezes_new_risk ... ok
+test wrong_domain_and_expired_intents_are_rejected ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_gateway-cddb0143f5d216bd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_rest.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/binance_rest-20a9aaf89983bb12)
+
+running 5 tests
+test identity_time_and_http_capacity_fail_before_a_prepared_request ... ok
+test unavailable_trusted_clock_leaves_no_intent_and_no_application_bytes ... ok
+test usdm_rest_real_wal_closure_final_gate_and_tls ... ok
+test spot_rest_real_wal_closure_final_gate_and_tls ... ok
+test real_signed_request_gate_denial_is_durable_abort_with_zero_application_bytes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/lifecycle.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/lifecycle-19a22f52e0022ce4)
+
+running 12 tests
+test failed_abort_sync_does_not_publish_releasable_state ... ok
+test partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues ... ok
+test failed_intent_sync_never_outputs ... ok
+test conflicting_duplicate_freezes_an_existing_queued_command ... ok
+test command_is_synced_before_any_application_output ... ok
+test recovery_with_new_writer_keeps_original_command_epoch_and_rejects_new_submissions ... ok
+test recovered_intent_is_frozen_unknown_even_when_send_never_started ... ok
+test recovered_zero_byte_abort_stays_aborted_and_missing_command_fails ... ok
+test waiting_gate_expiry_records_abort_before_reporting_release ... ok
+test transport_deadline_before_handshake_aborts_without_sampling_a_gate ... ok
+test record_and_wire_binding_mismatches_cannot_commit ... ok
+test every_final_gate_condition_is_checked_after_queueing ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.29s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_ipc-e3e651e45cd0005a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/layouts.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/layouts-c8f8084c2fbc2d77)
+
+running 36 tests
+test layout_configcontrolbody ... ok
+test layout_depthlevel ... ok
+test layout_arenaclass ... ok
+test layout_arenablockheader ... ok
+test layout_controlenvelope ... ok
+test layout_execleasebody ... ok
+test layout_freezebody ... ok
+test layout_hellobody ... ok
+test layout_grantbody ... ok
+test layout_instrumententry ... ok
+test layout_intentrecord ... ok
+test layout_intentbody ... ok
+test layout_marketbody ... ok
+test layout_joinbody ... ok
+test layout_marketrecord ... ok
+test layout_offerprefix ... ok
+test layout_ownershiprecord ... ok
+test layout_ownershipbody ... ok
+test layout_querybody ... ok
+test layout_quiescebody ... ok
+test layout_recordheader ... ok
+test layout_reportrecord ... ok
+test layout_resourcedescriptor ... ok
+test layout_reportbody ... ok
+test layout_resourceackbody ... ok
+test layout_resyncbody ... ok
+test layout_snapshotheader ... ok
+test layout_snapshotsection ... ok
+test layout_statusbody ... ok
+test layout_switchbody ... ok
+test layout_topicsnapshotentry ... ok
+test layout_triggerref ... ok
+test layout_welcomebody ... ok
+test layout_cursorpage ... ok
+test layout_producerpage ... ok
+test layout_resourceheader ... ok
+
+test result: ok. 36 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/semantics.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/semantics-0c51c5852efdcb18)
+
+running 11 tests
+test arena_payload_identity_bounds_order_and_padding ... ok
+test every_data_vector_passes_production_validation ... ok
+test feature_gate_precedes_configuration_body_parse ... ok
+test record_crc_enabled_covers_payload_and_header ... ok
+test crc_reference_and_corruption ... ok
+test truncated_record_and_control_frame_never_panic ... ok
+test generated_layouts_match_current_contract ... ok
+test snapshot_truncation_hash_and_untrusted_offsets ... ok
+test unknown_control_enum_and_bad_fd_offer_are_rejected ... ok
+test record_tags_offsets_and_unused_fields_are_rejected ... ok
+test all_declared_semantic_cases ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/vectors.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/vectors-5ae6f546dd9b1560)
+
+running 63 tests
+test golden_config_file_durable_frame_envelope ... ok
+test golden_config_apply_body ... ok
+test golden_config_file_durable_body ... ok
+test golden_config_apply_frame_envelope ... ok
+test golden_config_runtime_applied_body ... ok
+test golden_config_runtime_applied_frame_envelope ... ok
+test golden_config_succeeded_body ... ok
+test golden_config_runtime_applied_frame ... ok
+test golden_config_file_durable_frame ... ok
+test golden_config_apply_frame ... ok
+test golden_config_succeeded_frame_envelope ... ok
+test golden_config_succeeded_frame ... ok
+test golden_depth_arena_header ... ok
+test golden_cursor_page_active ... ok
+test golden_depth_inline_two_levels ... ok
+test golden_depth_level_signed ... ok
+test golden_exec_lease_applied_frame_envelope ... ok
+test golden_exec_lease_applied_frame ... ok
+test golden_exec_lease_challenge ... ok
+test golden_fill_report ... ok
+test golden_freeze_body ... ok
+test golden_freeze_envelope ... ok
+test golden_freeze_complete_frame ... ok
+test golden_instrument_btcusdt ... ok
+test golden_join_normalized_snapshot ... ok
+test golden_join_snapshot ... ok
+test golden_normalized_child_header ... ok
+test golden_new_limit_intent ... ok
+test golden_normalized_depth_1 ... ok
+test golden_normalized_depth_2 ... ok
+test golden_normalized_manifest_entry ... ok
+test golden_normalized_manifest_header ... ok
+test golden_normalized_section_1 ... ok
+test golden_normalized_section_2 ... ok
+test golden_normalized_state_feed ... ok
+test golden_normalized_resource_header ... ok
+test golden_normalized_state_mark ... ok
+test golden_normalized_state_quote ... ok
+test golden_normalized_state_trade ... ok
+test golden_quiesce_applied ... ok
+test golden_quiesce_applied_frame_envelope ... ok
+test golden_quiesce_applied_frame ... ok
+test golden_quiesce_request ... ok
+test golden_quote_one ... ok
+test golden_switch_applied ... ok
+test golden_release_risk_body ... ok
+test golden_switch_applied_frame ... ok
+test golden_switch_applied_frame_envelope ... ok
+test golden_switch_resync_frame ... ok
+test golden_switch_resync_frame_envelope ... ok
+test golden_switch_resync_required ... ok
+test golden_topic_manifest_entry_1 ... ok
+test golden_normalized_topic_snapshot ... ok
+test golden_topic_manifest_entry_2 ... ok
+test golden_topic_manifest_header ... ok
+test golden_topic_member_1_header ... ok
+test golden_topic_member_1_level_1 ... ok
+test golden_topic_member_1_level_2 ... ok
+test golden_topic_manifest_resource_header ... ok
+test golden_topic_member_2_header ... ok
+test golden_topic_member_2_level_1 ... ok
+test golden_topic_member_2_level_2 ... ok
+test golden_topic_manifest_two_instruments ... ok
+
+test result: ok. 63 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_join-23fbb6630ce60693)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/flow.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/flow-e45c90cef619eb79)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/owner.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/owner-35895ee120bbaf93)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/process_linux.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/process_linux-4dbc55972ecb6da4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_journal-3cba0a40aafdbc75)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/frame.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/frame-6c719f4cb022dd82)
+
+running 6 tests
+test castagnoli_known_vectors ... ok
+test all_contract_types_roundtrip_and_nonzero_flags_rejected ... ok
+test exact_contract_layout_and_hash_scope ... ok
+test codec_constants_match_authoritative_contract ... ok
+test every_single_bit_error_is_detected ... ok
+test truncation_and_oversize_are_errors_without_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/journal.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/journal-9bb4e36972a8fd2a)
+
+running 12 tests
+test newly_created_directory_is_owner_only ... ok
+test manifest_damage_and_concurrent_writer_fail_closed ... ok
+test oversized_batch_does_not_split_or_modify_files ... ok
+test frontier_ahead_or_different_hash_never_repairs_files ... ok
+test orphan_empty_rotation_segment_is_adopted_but_missing_declared_segment_quarantines ... ok
+test synchronized_batches_reopen_and_continue_sequences ... ok
+test committed_corruption_and_required_missing_tail_quarantine_without_mutation ... ok
+test correctly_checksummed_epoch_rollback_sequence_gap_and_identity_change_quarantine ... ok
+test rotation_preserves_chain_and_epoch_floor_and_missing_segment_fails ... ok
+test short_write_and_failed_sync_never_return_receipt_and_poison_writer ... ok
+test unsealed_middle_and_sealed_tail_corruption_are_not_discarded ... ok
+test every_unfinished_final_batch_prefix_recovers_only_previous_batch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 21.24s
+
+     Running tests/manifest.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/manifest-71308d14a3d17ebd)
+
+running 2 tests
+test one_data_sync_per_closed_batch_and_no_manifest_per_batch ... ok
+test manifest_failure_before_publish_or_after_rename_poisons_then_recovers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/process.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/process-0242e63ec8c42373)
+
+running 2 tests
+test crash_child ... ignored, child entry point; parent runs it in a separate process
+test sigkill_at_write_sync_and_receipt_boundaries_preserves_complete_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_journal_codec-985150d25f2525bd)
+
+running 1 test
+test chain::tests::exhausted_sequence_does_not_wrap_or_mutate ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/codec.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/codec-8c8111e1323ab753)
+
+running 14 tests
+test journal_sequence_is_distinct_from_intent_sequence_and_economic_dedup ... ok
+test business_digest_ignores_writer_and_journal_placement ... ok
+test genesis_binds_domain_and_epoch_while_business_hash_binds_all_fact_fields ... ok
+test maximum_size_and_extreme_i128_are_exact ... ok
+test rejects_schema_map_key_length_and_type_variants ... ok
+test independent_golden_events_takeover_and_logical_prefixes ... ok
+test same_late_fact_keeps_business_digest_across_writer_takeover ... ok
+test rfc_integer_golden_boundaries_round_trip_in_fee_field ... ok
+test command_digest_survives_replay_and_changes_business_identity ... ok
+test schema_one_cannot_supply_a_bound_command ... ok
+test sequence_identity_epoch_and_hash_failures_are_atomic ... ok
+test rejects_all_truncations_trailing_data_and_excess_length ... ok
+test rejects_noncanonical_and_out_of_range_integer_representations ... ok
+test accepted_mutated_inputs_reencode_to_exactly_the_same_bytes ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_mock-b26f4d63821c19ea)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/services.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/services-48d9995e1f703df7)
+
+running 21 tests
+test committed_but_lost_storage_receipt_is_recovered_conservatively ... ok
+test an_abort_before_its_intent_cannot_recover_a_live_engine ... ok
+test accepted_order_ack_loss_and_recovery_do_not_resubmit ... ok
+test even_empty_journal_restart_requires_recovery_authorization ... ok
+test duplicate_abort_is_idempotent_but_fee_evidence_rejects_abort ... ok
+test abort_record_binds_epoch_request_and_sequence_before_releasing ... ok
+test facts_are_not_applied_when_storage_fails ... ok
+test durable_abort_prevents_reholding_released_budget_on_restart ... ok
+test failed_recovery_cannot_leave_the_old_engine_authorized ... ok
+test healthy_async_pending_response_is_distinct_from_timeout ... ok
+test failed_abort_persistence_retains_reservation_and_freezes ... ok
+test journal_events_preserve_order_without_duplicating_idempotent_commit ... ok
+test kv_failure_never_reaches_journal_or_exchange ... ok
+test missing_recovery_dependency_prevents_commit ... ok
+test no_bytes_abort_survives_restart ... ok
+test persisted_abort_is_recovered_even_before_live_apply ... ok
+test relational_cas_and_immutable_kv_contracts ... ok
+test recovery_replays_terminal_release_before_later_intent ... ok
+test storage_failure_never_reaches_exchange ... ok
+test synchronous_replica_pending_does_not_fall_back_to_local ... ok
+test venue_identity_is_not_binance_specific_and_domains_cannot_mix ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests examples/spot-roundtrip.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/examples/spot_roundtrip-bf1aa9cf234e6dc8)
+
+running 1 test
+test roundtrip_is_deterministic_and_recovery_preserves_accounting ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_recovery-a023ef9a15f4bae6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/closure.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/closure-87e2fcc5cd1cab14)
+
+running 13 tests
+test descriptor_and_graph_bounds_precede_blob_reads ... ok
+test complete_closure_publishes_and_reopens_exact_binding ... ok
+test failed_manifest_sync_cannot_produce_binding ... ok
+test decision_coverage_comes_from_actual_bytes ... ok
+test missing_kind_cycles_missing_bytes_and_wrong_binding_are_rejected ... ok
+test binding_is_immutable_and_identical_publish_is_idempotent ... ok
+test partial_binding_publication_retries_sync_before_receipt ... ok
+test revalidation_reestablishes_storage_completion_before_issuing_capability ... ok
+test command_dependency_is_checked_and_preserved_in_private_capability ... ok
+test split_input_chunks_are_ordered_by_sequence_and_gaps_overlaps_fail ... ok
+test canonical_manifest_rejects_every_truncation_and_nonminimal_schema ... ok
+test malformed_input_bytes_with_correct_object_hash_are_rejected ... ok
+test file_store_reopens_pins_and_detects_corruption_with_real_bytes ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_risk-c514caf5770de7ce)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/boundaries.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/boundaries-6b26e8a347c43f55)
+
+running 17 tests
+test baseline_requires_explained_locked_assets ... ok
+test decimals_preserve_precision_scale_and_minimum ... ok
+test bracket_continuity_and_qualification_are_enforced ... ok
+test fees_exceeding_received_amount_require_external_inventory ... ok
+test funding_counts_and_exit_fees_are_charged_before_new_positions_fill ... ok
+test hedge_capital_rejects_wrong_order_direction_for_the_envelope ... ok
+test invalid_collateral_excludes_assets_but_preserves_liabilities ... ok
+test late_unrecordable_settlement_evidence_reopens_reconciliation ... ok
+test products_cancel_decimal_powers_before_checked_multiply ... ok
+test reduce_allocation_respects_mode_step_and_real_position ... ok
+test reservation_failures_preserve_financial_state_and_overflow_closes_gate ... ok
+test scale_conversion_is_explicit_and_rounds_toward_requested_bound ... ok
+test settlement_overflow_is_atomic ... ok
+test settlement_timer_does_not_release_and_duplicate_income_is_idempotent ... ok
+test division_matches_small_exact_integer_oracle ... ok
+test signed_division_overflow_and_zero_are_errors ... ok
+test signed_division_rounds_outward_without_minimum_negation ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/contract_vectors.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/contract_vectors-0a27a60d0652e9dc)
+
+running 1 test
+test all_design_vectors_match_public_calculators ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_shm-4483966d7147f7fb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/join_pending.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/join_pending-76911192212b0e76)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mapped.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/mapped-e20c662c595bd603)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/protocol-e7ddd14e19506b2d)
+
+running 13 tests
+test a_batch_is_all_or_nothing_and_blocks_membership_and_freeze ... ok
+test application_does_not_release_a_live_borrow ... ok
+test cutoff_never_publishes_a_partial_batch ... ok
+test capacity_is_protected_by_every_reader ... ok
+test invalid_or_stale_cursor_updates_cannot_release_capacity ... ok
+test join_invalidates_the_no_reader_cached_minimum ... ok
+test local_window_is_bounded_even_after_early_release ... ok
+test malformed_batches_and_sequence_exhaustion_do_not_change_state ... ok
+test pending_join_baseline_cannot_be_advanced_by_a_cursor ... ok
+test old_quiesce_ack_cannot_remove_a_new_subscription ... ok
+test quiesce_requires_every_borrow_but_not_business_application ... ok
+test reader_keeps_release_and_application_gaps_separate ... ok
+test reader_rejects_regressing_published_and_future_application ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_shm_sys-a0ff8066be85e299)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/immutable.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/immutable-8e5e9c03ae472bc0)
+
+running 1 test
+test immutable_production_mapping_requires_linux ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/mapping.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/mapping-80f642064747d379)
+
+running 1 test
+test production_mapping_rejects_non_linux ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/process.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/process-5b288fc1b1534f66)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_snapshot-85dc73e8ea73ac62)
+
+running 1 test
+test builder::arithmetic_tests::unrepresentable_layouts_are_rejected_without_slices_or_allocation ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/builder.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/builder-1dc39a586e280ca6)
+
+running 17 tests
+test invalid_depth_is_rejected_without_sanitizing_order_or_quantities ... ok
+test exact_page_budget_is_accepted_and_one_byte_less_is_rejected ... ok
+test full_multi_instrument_cut_keeps_nonlive_missing_states_and_unknown_depth ... ok
+test constructs_the_complete_independent_golden_bundle ... ok
+test budget_covers_manifest_padding_and_all_members_together ... ok
+test depth_crosses_multiple_pages_with_exact_offsets_and_zero_padding ... ok
+test rejects_expired_future_and_observation_time_conflicts ... ok
+test rejects_mixed_cut_generation_catalog_and_future_member_events ... ok
+test rejects_missing_duplicate_unordered_or_mismatched_registry_members ... ok
+test overlarge_depth_is_rejected_by_complete_object_budget_before_encoding ... ok
+test sequence_limit_leaves_room_for_j_and_zero_cut_can_bootstrap ... ok
+test same_snapshot_id_for_two_different_members_is_rejected ... ok
+test unordered_states_are_canonical_and_keep_times_and_recompute_crc ... ok
+test rejects_bad_state_types_duplicates_missing_feed_and_original_sequence ... ok
+test profile_invalid_time_coverage_and_nonlive_states_are_checked ... ok
+test join_identity_and_existing_binding_conflicts_are_not_overwritten ... ok
+test complete_registry_limit_and_manifest_alignment_are_supported ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.54s
+
+     Running tests/immutable_linux.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/immutable_linux-7fd0fb906cfdf615)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/validation.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/validation-28a7f99ac1afd346)
+
+running 12 tests
+test required_state_must_itself_be_live ... ok
+test golden_normalized_bundle_has_checked_members_and_deadline ... ok
+test nonlive_member_remains_present_but_cannot_be_ready ... ok
+test missing_required_state_blocks_readiness_but_preserves_the_member ... ok
+test local_observation_times_cannot_follow_the_snapshot_creation ... ok
+test unknown_capability_catalog_and_trusted_identity_are_rejected ... ok
+test complete_multi_instrument_cut_requires_every_member ... ok
+test duplicate_member_snapshot_identity_is_not_a_valid_baseline ... ok
+test records_bind_topic_producer_and_manifest_feed_state ... ok
+test creation_child_expiry_and_join_deadline_are_enforced ... ok
+test resource_join_and_top_identity_conflicts_are_rejected_despite_valid_hashes ... ok
+test every_truncated_bundle_is_rejected_without_panicking ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_transport-fd516a5d6d776cfd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/framing.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/framing-f747dab896a1f36d)
+
+running 12 tests
+test http_ambiguous_length_and_truncated_eof_rejected ... ok
+test chunk_size_over_limit_rejected_before_body_arrives ... ok
+test http_fragmented_chunked_trailers_and_pipeline ... ok
+test incomplete_frame_eof_and_abnormal_websocket_close_are_errors ... ok
+test fix_fragmented_body_length_checksum ... ok
+test head_length_is_metadata_not_body_allocation ... ok
+test http_request_injection_and_explicit_lengths ... ok
+test ws_fragmentation_with_interleaved_ping ... ok
+test websocket_budget_yield_is_distinct_from_incomplete_network_input ... ok
+test ws_mask_roundtrip_and_random_masks ... ok
+test ws_protocol_errors_and_limits ... ok
+test ws_upgrade_validates_server_accept ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/network.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/network-d136f2dd3640bd08)
+
+running 13 tests
+test bounded_receive_and_budget ... ok
+test deadline_after_tls_acceptance_closes_and_preserves_count ... ok
+test partial_tcp_write_is_accepted_and_cancel_cannot_be_no_bytes ... ok
+test actual_backpressure_keeps_partial_write_without_reauthorizing ... ok
+test tls_acceptance_precedes_ciphertext_flush_and_failure_keeps_evidence ... ok
+test https_request_and_chunked_response_use_real_tls_socket ... ok
+test fix_frames_share_the_same_tls_transport ... ok
+test unready_queue_never_calls_gate_and_terminal_slot_reuses_new_id ... ok
+test tls_bad_hostname_fails_before_application_acceptance ... ok
+test decrypted_plaintext_respects_each_drive_budget ... ok
+test websocket_upgrade_masked_output_fragmented_input_over_tls ... ok
+test queued_deadline_never_resurrects ... ok
+test queued_drive_never_outputs_and_denial_is_terminal ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running unittests src/lib.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/tickwire_venue-2f8657e6ed9b171f)
+
+running 2 tests
+test cbor::tests::nonpreferred_bignum_and_integer_overflow_reject ... ok
+test cbor::tests::integer_boundaries_use_preferred_encoding ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/commands.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/commands-0a639e9c7e5489fe)
+
+running 12 tests
+test gtd_iceberg_and_grid_validation ... ok
+test list_client_identity_and_future_target_epoch_reject ... ok
+test cross_product_and_inapplicable_parameters_are_rejected ... ok
+test derivative_trailing_and_delivery_are_distinct ... ok
+test oto_pending_quote_amount_remains_unsupported ... ok
+test order_parameters_and_trigger_observations_are_digest_bound ... ok
+test each_product_contract_and_list_kind_roundtrips ... ok
+test spot_market_sell_accepts_a_quote_amount_target ... ok
+test all_ten_command_branches_preserve_complete_content ... ok
+test every_request_context_field_is_digest_bound ... ok
+test spot_conditional_trailing_keeps_base_type_and_units ... ok
+test price_grid_matches_independent_bounded_integer_arithmetic ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+     Running tests/contract.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/contract-720a012a61d0bfe9)
+
+running 5 tests
+test market_with_price_is_rejected ... ok
+test decimal_normalization_and_minimum_integer ... ok
+test economic_fields_change_the_digest ... ok
+test complete_command_is_immutable_and_canonical_roundtrip ... ok
+test unicode_catalog_symbols_are_preserved_without_folding ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/events.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/events-325bba22e0d7f03d)
+
+running 7 tests
+test duplicate_asset_line_and_conflicting_internal_identity_reject ... ok
+test minimum_i128_fee_is_preserved_without_negating_it ... ok
+test unknown_internal_order_retains_native_evidence ... ok
+test reported_quote_amounts_and_realized_pnl_are_preserved ... ok
+test parent_native_ids_and_rejection_text_are_preserved ... ok
+test standalone_order_and_fee_events_roundtrip ... ok
+test signed_multi_asset_fees_and_native_ids_survive ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/strict.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/strict-3b9e20440b7ba8ff)
+
+running 5 tests
+test length_bombs_and_oversized_identifiers_reject_before_allocation ... ok
+test decimal_text_parser_is_exact_and_bounded ... ok
+test non_shortest_header_unknown_schema_and_domain_reject ... ok
+test equivalent_non_normalized_decimal_is_not_an_alternate_command_encoding ... ok
+test each_truncated_prefix_and_trailing_data_reject ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vectors.rs (/Users/bytedance/Tickwire/target/network-gateway-check/debug/deps/vectors-4695d38a5321d2d9)
+
+running 4 tests
+test independently_transcribed_full_command_vector ... ok
+test independently_transcribed_reported_cash_fields ... ok
+test independently_transcribed_multi_asset_event_vectors ... ok
+test every_single_byte_mutation_is_rejected_or_canonical_for_the_decoded_value ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.61s
+   Doc-tests tickwire_binance
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_book
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_business_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_execution
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_gateway
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_ipc
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_join
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal_codec
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_mock
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_recovery
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_risk
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_shm
+
+running 1 test
+test crates/tickwire-shm/src/mapped.rs - mapped::RecordBorrow<'_,B>::bytes (line 563) - compile fail ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+
+   Doc-tests tickwire_shm_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_snapshot
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_transport
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_venue
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Checking cfg-if v1.0.5
+    Checking typenum v1.20.1
+    Checking itoa v1.0.18
+    Checking ryu v1.0.23
+    Checking memchr v2.8.3
+    Checking libc v0.2.191
+    Checking serde_core v1.0.229
+    Checking untrusted v0.9.0
+    Checking zeroize v1.9.1
+    Checking powerfmt v0.2.1
+    Checking deranged v0.5.9
+    Checking once_cell v1.21.4
+    Checking time-core v0.1.9
+    Checking num-conv v0.2.2
+    Checking rustls-pki-types v1.15.1
+    Checking base64 v0.22.1
+    Checking subtle v2.6.1
+    Checking httparse v1.10.1
+    Checking base64 v0.23.1
+    Checking tickwire-book v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-book)
+    Checking tickwire-execution v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-execution)
+    Checking tickwire-risk v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-risk)
+    Checking generic-array v0.14.7
+    Checking pem v4.0.0
+    Checking cpufeatures v0.2.17
+    Checking getrandom v0.2.17
+    Checking getrandom v0.3.4
+    Checking mio v1.2.4
+    Checking time v0.3.55
+    Checking ring v0.17.14
+    Checking block-buffer v0.10.4
+    Checking crypto-common v0.1.7
+    Checking digest v0.10.7
+    Checking yasna v0.6.0
+    Checking sha2 v0.10.9
+    Checking sha1 v0.10.6
+    Checking serde_json v1.0.145
+    Checking serde v1.0.229
+    Checking tickwire-ipc v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-ipc)
+    Checking tickwire-venue v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-venue)
+    Checking tickwire-journal-codec v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-journal-codec)
+    Checking tickwire-recovery v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-recovery)
+    Checking rustls-webpki v0.103.16
+    Checking rcgen v0.14.10
+    Checking tickwire-journal v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-journal)
+    Checking tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-binance)
+    Checking rustls v0.23.46
+    Checking tickwire-business-journal v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-business-journal)
+    Checking tickwire-shm-sys v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-shm-sys)
+    Checking tickwire-snapshot v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-snapshot)
+    Checking tickwire-control v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-control)
+    Checking tickwire-control-sys v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-control-sys)
+    Checking tickwire-mock v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-mock)
+    Checking tickwire-shm v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-shm)
+    Checking tickwire-join v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-join)
+    Checking tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-transport)
+    Checking tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/.tools/network-gateway-check-k7sj8q__/crates/tickwire-gateway)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.03s

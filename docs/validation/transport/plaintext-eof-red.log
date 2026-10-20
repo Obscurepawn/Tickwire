@@ -1,0 +1,55 @@
+   Compiling tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.33s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_transport-fd516a5d6d776cfd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/framing.rs (target/debug/deps/framing-f747dab896a1f36d)
+
+running 10 tests
+test head_length_is_metadata_not_body_allocation ... ok
+test http_ambiguous_length_and_truncated_eof_rejected ... ok
+test http_fragmented_chunked_trailers_and_pipeline ... ok
+test chunk_size_over_limit_rejected_before_body_arrives ... ok
+test fix_fragmented_body_length_checksum ... ok
+test http_request_injection_and_explicit_lengths ... ok
+test ws_fragmentation_with_interleaved_ping ... ok
+test ws_mask_roundtrip_and_random_masks ... ok
+test ws_protocol_errors_and_limits ... ok
+test ws_upgrade_validates_server_accept ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/network.rs (target/debug/deps/network-d136f2dd3640bd08)
+
+running 12 tests
+test bounded_receive_and_budget ... ok
+test partial_tcp_write_is_accepted_and_cancel_cannot_be_no_bytes ... ok
+test actual_backpressure_keeps_partial_write_without_reauthorizing ... ok
+test deadline_after_tls_acceptance_closes_and_preserves_count ... ok
+test tls_bad_hostname_fails_before_application_acceptance ... ok
+test fix_frames_share_the_same_tls_transport ... ok
+test tls_acceptance_precedes_ciphertext_flush_and_failure_keeps_evidence ... ok
+test https_request_and_chunked_response_use_real_tls_socket ... ok
+test websocket_upgrade_masked_output_fragmented_input_over_tls ... ok
+test decrypted_plaintext_respects_each_drive_budget ... FAILED
+test queued_deadline_never_resurrects ... ok
+test queued_drive_never_outputs_and_denial_is_terminal ... ok
+
+failures:
+
+---- decrypted_plaintext_respects_each_drive_budget stdout ----
+
+thread 'decrypted_plaintext_respects_each_drive_budget' (5180020) panicked at crates/tickwire-transport/tests/network.rs:531:14:
+called `Result::unwrap()` on an `Err` value: Closed
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    decrypted_plaintext_respects_each_drive_budget
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `-p tickwire-transport --test network`

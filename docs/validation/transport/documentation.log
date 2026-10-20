@@ -1,0 +1,63 @@
+{
+  "manifest_assets": 26,
+  "test_plan_cases": 95,
+  "test_plan_groups": {
+    "U": 30,
+    "I": 65
+  },
+  "markdown_files": 90,
+  "local_links": 522,
+  "reference_usages": 255,
+  "images": [
+    {
+      "name": "tickwire-architecture",
+      "size": [
+        4060,
+        2550
+      ],
+      "format": "PNG"
+    },
+    {
+      "name": "order-state",
+      "size": [
+        1244,
+        1376
+      ],
+      "format": "PNG"
+    },
+    {
+      "name": "recovery-sequence",
+      "size": [
+        2198,
+        2146
+      ],
+      "format": "PNG"
+    },
+    {
+      "name": "process-topology",
+      "size": [
+        3568,
+        1074
+      ],
+      "format": "PNG"
+    },
+    {
+      "name": "strategy-rollout",
+      "size": [
+        2430,
+        2666
+      ],
+      "format": "PNG"
+    },
+    {
+      "name": "config-release",
+      "size": [
+        2328,
+        2498
+      ],
+      "format": "PNG"
+    }
+  ],
+  "archify_receipts": "hashes and sizes match; 9 checks; 4 viewports",
+  "errors": []
+}

@@ -1,0 +1,45 @@
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.76s
+     Running tests/binance_rest.rs (target/debug/deps/binance_rest-20a9aaf89983bb12)
+
+running 4 tests
+test identity_time_and_http_capacity_fail_before_a_prepared_request ... FAILED
+test usdm_rest_real_wal_closure_final_gate_and_tls ... FAILED
+test real_signed_request_gate_denial_is_durable_abort_with_zero_application_bytes ... FAILED
+test spot_rest_real_wal_closure_final_gate_and_tls ... FAILED
+
+failures:
+
+---- identity_time_and_http_capacity_fail_before_a_prepared_request stdout ----
+
+thread 'identity_time_and_http_capacity_fail_before_a_prepared_request' (5312035) panicked at crates/tickwire-gateway/tests/binance_rest.rs:83:107:
+assertion failed: matches!(encoder.encode(&command),Err(Error::Identity))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- usdm_rest_real_wal_closure_final_gate_and_tls stdout ----
+
+thread 'usdm_rest_real_wal_closure_final_gate_and_tls' (5312038) panicked at crates/tickwire-gateway/tests/binance_rest.rs:60:60:
+called `Result::unwrap()` on an `Err` value: Encoding
+
+---- real_signed_request_gate_denial_is_durable_abort_with_zero_application_bytes stdout ----
+
+thread 'real_signed_request_gate_denial_is_durable_abort_with_zero_application_bytes' (5312036) panicked at crates/tickwire-gateway/tests/binance_rest.rs:93:171:
+called `Result::unwrap()` on an `Err` value: Encoding
+
+---- spot_rest_real_wal_closure_final_gate_and_tls stdout ----
+
+thread 'spot_rest_real_wal_closure_final_gate_and_tls' (5312037) panicked at crates/tickwire-gateway/tests/binance_rest.rs:60:60:
+called `Result::unwrap()` on an `Err` value: Encoding
+
+
+failures:
+    identity_time_and_http_capacity_fail_before_a_prepared_request
+    real_signed_request_gate_denial_is_durable_abort_with_zero_application_bytes
+    spot_rest_real_wal_closure_final_gate_and_tls
+    usdm_rest_real_wal_closure_final_gate_and_tls
+
+test result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `-p tickwire-gateway --test binance_rest`
+error: 1 target failed:
+    `-p tickwire-gateway --test binance_rest`

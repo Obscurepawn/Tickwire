@@ -1,0 +1,710 @@
+{
+  "primary": {
+    "generated": 48603,
+    "distinct": 7572,
+    "depth": 42,
+    "elapsed": "01s",
+    "pass": true,
+    "coverage": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "RejectPreparation": {
+        "distinct": 0,
+        "generated": 48
+      },
+      "Prepare": {
+        "distinct": 44,
+        "generated": 52
+      },
+      "IntentSyncOk": {
+        "distinct": 44,
+        "generated": 104
+      },
+      "IntentSyncFail": {
+        "distinct": 208,
+        "generated": 208
+      },
+      "QueueOk": {
+        "distinct": 38,
+        "generated": 88
+      },
+      "QueueFail": {
+        "distinct": 6,
+        "generated": 16
+      },
+      "Retry": {
+        "distinct": 0,
+        "generated": 5000
+      },
+      "Conflict": {
+        "distinct": 235,
+        "generated": 5000
+      },
+      "RejectUnavailable": {
+        "distinct": 0,
+        "generated": 6446
+      },
+      "GateChange": {
+        "distinct": 122,
+        "generated": 5050
+      },
+      "Expire": {
+        "distinct": 2819,
+        "generated": 6624
+      },
+      "PollStart": {
+        "distinct": 239,
+        "generated": 454
+      },
+      "DriveBudgetError": {
+        "distinct": 231,
+        "generated": 454
+      },
+      "DriveIdle": {
+        "distinct": 140,
+        "generated": 266
+      },
+      "DriveReady": {
+        "distinct": 27,
+        "generated": 44
+      },
+      "DriveFlush": {
+        "distinct": 84,
+        "generated": 112
+      },
+      "DriveExpire": {
+        "distinct": 38,
+        "generated": 156
+      },
+      "DriveFailure": {
+        "distinct": 184,
+        "generated": 454
+      },
+      "DriveFlushThenClose": {
+        "distinct": 28,
+        "generated": 56
+      },
+      "SettleNone": {
+        "distinct": 108,
+        "generated": 302
+      },
+      "SettleLive": {
+        "distinct": 300,
+        "generated": 624
+      },
+      "SettleFlushed": {
+        "distinct": 38,
+        "generated": 112
+      },
+      "SettleNoBytes": {
+        "distinct": 29,
+        "generated": 100
+      },
+      "SettleFailed": {
+        "distinct": 112,
+        "generated": 224
+      },
+      "TryExpire": {
+        "distinct": 40,
+        "generated": 156
+      },
+      "TryNotReady": {
+        "distinct": 14,
+        "generated": 16
+      },
+      "FirstGateDenied": {
+        "distinct": 8,
+        "generated": 14
+      },
+      "ExpireInsideGate": {
+        "distinct": 8,
+        "generated": 14
+      },
+      "TryBlocked": {
+        "distinct": 54,
+        "generated": 182
+      },
+      "FirstAccept": {
+        "distinct": 14,
+        "generated": 14
+      },
+      "ContinueAccept": {
+        "distinct": 56,
+        "generated": 56
+      },
+      "TryFailure": {
+        "distinct": 48,
+        "generated": 98
+      },
+      "PollEnd": {
+        "distinct": 595,
+        "generated": 1258
+      },
+      "CancelZero": {
+        "distinct": 28,
+        "generated": 88
+      },
+      "CancelAccepted": {
+        "distinct": 100,
+        "generated": 224
+      },
+      "AbortSyncOk": {
+        "distinct": 87,
+        "generated": 182
+      },
+      "AbortSyncFail": {
+        "distinct": 352,
+        "generated": 364
+      },
+      "PublishAbort": {
+        "distinct": 75,
+        "generated": 182
+      },
+      "Crash": {
+        "distinct": 346,
+        "generated": 13068
+      },
+      "RecoverOk": {
+        "distinct": 326,
+        "generated": 346
+      },
+      "RecoverReject": {
+        "distinct": 346,
+        "generated": 346
+      }
+    }
+  },
+  "three_intents": {
+    "generated": 427536,
+    "distinct": 57624,
+    "depth": 60,
+    "elapsed": "03s",
+    "pass": true,
+    "coverage": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "RejectPreparation": {
+        "distinct": 0,
+        "generated": 352
+      },
+      "Prepare": {
+        "distinct": 331,
+        "generated": 426
+      },
+      "IntentSyncOk": {
+        "distinct": 331,
+        "generated": 852
+      },
+      "IntentSyncFail": {
+        "distinct": 1704,
+        "generated": 1704
+      },
+      "QueueOk": {
+        "distinct": 267,
+        "generated": 660
+      },
+      "QueueFail": {
+        "distinct": 64,
+        "generated": 192
+      },
+      "Retry": {
+        "distinct": 0,
+        "generated": 55644
+      },
+      "Conflict": {
+        "distinct": 1680,
+        "generated": 55644
+      },
+      "RejectUnavailable": {
+        "distinct": 0,
+        "generated": 46578
+      },
+      "GateChange": {
+        "distinct": 844,
+        "generated": 38680
+      },
+      "Expire": {
+        "distinct": 22601,
+        "generated": 74106
+      },
+      "PollStart": {
+        "distinct": 1684,
+        "generated": 3362
+      },
+      "DriveBudgetError": {
+        "distinct": 1633,
+        "generated": 3362
+      },
+      "DriveIdle": {
+        "distinct": 998,
+        "generated": 1852
+      },
+      "DriveReady": {
+        "distinct": 102,
+        "generated": 176
+      },
+      "DriveFlush": {
+        "distinct": 738,
+        "generated": 984
+      },
+      "DriveExpire": {
+        "distinct": 267,
+        "generated": 1314
+      },
+      "DriveFailure": {
+        "distinct": 1434,
+        "generated": 3362
+      },
+      "DriveFlushThenClose": {
+        "distinct": 246,
+        "generated": 492
+      },
+      "SettleNone": {
+        "distinct": 444,
+        "generated": 1522
+      },
+      "SettleLive": {
+        "distinct": 2498,
+        "generated": 5256
+      },
+      "SettleFlushed": {
+        "distinct": 249,
+        "generated": 984
+      },
+      "SettleNoBytes": {
+        "distinct": 179,
+        "generated": 822
+      },
+      "SettleFailed": {
+        "distinct": 984,
+        "generated": 1968
+      },
+      "TryExpire": {
+        "distinct": 300,
+        "generated": 1314
+      },
+      "TryNotReady": {
+        "distinct": 70,
+        "generated": 84
+      },
+      "FirstGateDenied": {
+        "distinct": 53,
+        "generated": 123
+      },
+      "ExpireInsideGate": {
+        "distinct": 53,
+        "generated": 123
+      },
+      "TryBlocked": {
+        "distinct": 465,
+        "generated": 1599
+      },
+      "FirstAccept": {
+        "distinct": 123,
+        "generated": 123
+      },
+      "ContinueAccept": {
+        "distinct": 492,
+        "generated": 492
+      },
+      "TryFailure": {
+        "distinct": 353,
+        "generated": 861
+      },
+      "PollEnd": {
+        "distinct": 4380,
+        "generated": 9498
+      },
+      "CancelZero": {
+        "distinct": 156,
+        "generated": 660
+      },
+      "CancelAccepted": {
+        "distinct": 846,
+        "generated": 1968
+      },
+      "AbortSyncOk": {
+        "distinct": 558,
+        "generated": 1329
+      },
+      "AbortSyncFail": {
+        "distinct": 2604,
+        "generated": 2658
+      },
+      "PublishAbort": {
+        "distinct": 416,
+        "generated": 1329
+      },
+      "Crash": {
+        "distinct": 2542,
+        "generated": 99996
+      },
+      "RecoverOk": {
+        "distinct": 2392,
+        "generated": 2542
+      },
+      "RecoverReject": {
+        "distinct": 2542,
+        "generated": 2542
+      }
+    }
+  },
+  "larger_prefix": {
+    "generated": 72859,
+    "distinct": 11188,
+    "depth": 42,
+    "elapsed": "01s",
+    "pass": true,
+    "coverage": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "RejectPreparation": {
+        "distinct": 0,
+        "generated": 48
+      },
+      "Prepare": {
+        "distinct": 44,
+        "generated": 52
+      },
+      "IntentSyncOk": {
+        "distinct": 44,
+        "generated": 104
+      },
+      "IntentSyncFail": {
+        "distinct": 208,
+        "generated": 208
+      },
+      "QueueOk": {
+        "distinct": 38,
+        "generated": 88
+      },
+      "QueueFail": {
+        "distinct": 6,
+        "generated": 16
+      },
+      "Retry": {
+        "distinct": 0,
+        "generated": 7508
+      },
+      "Conflict": {
+        "distinct": 347,
+        "generated": 7508
+      },
+      "RejectUnavailable": {
+        "distinct": 0,
+        "generated": 9934
+      },
+      "GateChange": {
+        "distinct": 156,
+        "generated": 7534
+      },
+      "Expire": {
+        "distinct": 4367,
+        "generated": 9940
+      },
+      "PollStart": {
+        "distinct": 351,
+        "generated": 678
+      },
+      "DriveBudgetError": {
+        "distinct": 343,
+        "generated": 678
+      },
+      "DriveIdle": {
+        "distinct": 168,
+        "generated": 378
+      },
+      "DriveReady": {
+        "distinct": 27,
+        "generated": 44
+      },
+      "DriveFlush": {
+        "distinct": 168,
+        "generated": 280
+      },
+      "DriveExpire": {
+        "distinct": 38,
+        "generated": 268
+      },
+      "DriveFailure": {
+        "distinct": 296,
+        "generated": 678
+      },
+      "DriveFlushThenClose": {
+        "distinct": 28,
+        "generated": 84
+      },
+      "SettleNone": {
+        "distinct": 108,
+        "generated": 302
+      },
+      "SettleLive": {
+        "distinct": 524,
+        "generated": 1072
+      },
+      "SettleFlushed": {
+        "distinct": 38,
+        "generated": 112
+      },
+      "SettleNoBytes": {
+        "distinct": 29,
+        "generated": 100
+      },
+      "SettleFailed": {
+        "distinct": 224,
+        "generated": 448
+      },
+      "TryExpire": {
+        "distinct": 60,
+        "generated": 268
+      },
+      "TryNotReady": {
+        "distinct": 14,
+        "generated": 16
+      },
+      "FirstGateDenied": {
+        "distinct": 8,
+        "generated": 14
+      },
+      "ExpireInsideGate": {
+        "distinct": 8,
+        "generated": 14
+      },
+      "TryBlocked": {
+        "distinct": 82,
+        "generated": 350
+      },
+      "FirstAccept": {
+        "distinct": 28,
+        "generated": 28
+      },
+      "ContinueAccept": {
+        "distinct": 126,
+        "generated": 196
+      },
+      "TryFailure": {
+        "distinct": 108,
+        "generated": 224
+      },
+      "PollEnd": {
+        "distinct": 989,
+        "generated": 2070
+      },
+      "CancelZero": {
+        "distinct": 28,
+        "generated": 88
+      },
+      "CancelAccepted": {
+        "distinct": 192,
+        "generated": 448
+      },
+      "AbortSyncOk": {
+        "distinct": 87,
+        "generated": 182
+      },
+      "AbortSyncFail": {
+        "distinct": 352,
+        "generated": 364
+      },
+      "PublishAbort": {
+        "distinct": 75,
+        "generated": 182
+      },
+      "Crash": {
+        "distinct": 506,
+        "generated": 19340
+      },
+      "RecoverOk": {
+        "distinct": 466,
+        "generated": 506
+      },
+      "RecoverReject": {
+        "distinct": 506,
+        "generated": 506
+      }
+    }
+  },
+  "two_crashes": {
+    "generated": 52995,
+    "distinct": 8610,
+    "depth": 42,
+    "elapsed": "01s",
+    "pass": true,
+    "coverage": {
+      "Init": {
+        "distinct": 1,
+        "generated": 1
+      },
+      "RejectPreparation": {
+        "distinct": 0,
+        "generated": 48
+      },
+      "Prepare": {
+        "distinct": 44,
+        "generated": 52
+      },
+      "IntentSyncOk": {
+        "distinct": 44,
+        "generated": 104
+      },
+      "IntentSyncFail": {
+        "distinct": 208,
+        "generated": 208
+      },
+      "QueueOk": {
+        "distinct": 38,
+        "generated": 88
+      },
+      "QueueFail": {
+        "distinct": 6,
+        "generated": 16
+      },
+      "Retry": {
+        "distinct": 0,
+        "generated": 5576
+      },
+      "Conflict": {
+        "distinct": 235,
+        "generated": 5576
+      },
+      "RejectUnavailable": {
+        "distinct": 0,
+        "generated": 7032
+      },
+      "GateChange": {
+        "distinct": 122,
+        "generated": 5396
+      },
+      "Expire": {
+        "distinct": 2819,
+        "generated": 7548
+      },
+      "PollStart": {
+        "distinct": 239,
+        "generated": 454
+      },
+      "DriveBudgetError": {
+        "distinct": 231,
+        "generated": 454
+      },
+      "DriveIdle": {
+        "distinct": 140,
+        "generated": 266
+      },
+      "DriveReady": {
+        "distinct": 27,
+        "generated": 44
+      },
+      "DriveFlush": {
+        "distinct": 84,
+        "generated": 112
+      },
+      "DriveExpire": {
+        "distinct": 38,
+        "generated": 156
+      },
+      "DriveFailure": {
+        "distinct": 184,
+        "generated": 454
+      },
+      "DriveFlushThenClose": {
+        "distinct": 28,
+        "generated": 56
+      },
+      "SettleNone": {
+        "distinct": 108,
+        "generated": 302
+      },
+      "SettleLive": {
+        "distinct": 300,
+        "generated": 624
+      },
+      "SettleFlushed": {
+        "distinct": 38,
+        "generated": 112
+      },
+      "SettleNoBytes": {
+        "distinct": 29,
+        "generated": 100
+      },
+      "SettleFailed": {
+        "distinct": 112,
+        "generated": 224
+      },
+      "TryExpire": {
+        "distinct": 40,
+        "generated": 156
+      },
+      "TryNotReady": {
+        "distinct": 14,
+        "generated": 16
+      },
+      "FirstGateDenied": {
+        "distinct": 8,
+        "generated": 14
+      },
+      "ExpireInsideGate": {
+        "distinct": 8,
+        "generated": 14
+      },
+      "TryBlocked": {
+        "distinct": 54,
+        "generated": 182
+      },
+      "FirstAccept": {
+        "distinct": 14,
+        "generated": 14
+      },
+      "ContinueAccept": {
+        "distinct": 56,
+        "generated": 56
+      },
+      "TryFailure": {
+        "distinct": 48,
+        "generated": 98
+      },
+      "PollEnd": {
+        "distinct": 595,
+        "generated": 1258
+      },
+      "CancelZero": {
+        "distinct": 28,
+        "generated": 88
+      },
+      "CancelAccepted": {
+        "distinct": 100,
+        "generated": 224
+      },
+      "AbortSyncOk": {
+        "distinct": 87,
+        "generated": 182
+      },
+      "AbortSyncFail": {
+        "distinct": 352,
+        "generated": 364
+      },
+      "PublishAbort": {
+        "distinct": 75,
+        "generated": 182
+      },
+      "Crash": {
+        "distinct": 692,
+        "generated": 13760
+      },
+      "RecoverOk": {
+        "distinct": 672,
+        "generated": 692
+      },
+      "RecoverReject": {
+        "distinct": 692,
+        "generated": 692
+      }
+    }
+  }
+}

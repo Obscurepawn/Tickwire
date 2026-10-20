@@ -1,0 +1,5 @@
+{
+  "source": "Generated local test key; independently signed by openssl dgst -sha256 -sign",
+  "preimage": "symbol=BTCUSDT&side=SELL&type=LIMIT&timeInForce=GTC&quantity=1&price=0.2&timestamp=1668481559918&recvWindow=5000",
+  "signature_base64": "p5M8zOGFDi1j/u564p6REbTZ5U6IS240xhp4MdkfA9ra9M6zW9E1kbwK6KsuhWIFU/AdQM2AuNhe44AxCc3yRfrY/ECOT3gUPoU8TS8sbaSAFewYQ4NwPjHhCdi7clsLtP3dXD8NcdpMr0K+AZMSXu6VftKZFChzQKlI5H5MV3JWZi0dyLriCYzFlYAvePqH8lB2o4CsLSq+h90b5qrf3I7wW1W2Vyn7zA5z9WLQASC8A8ihMZwnP7bF5wa1cYsuCTNwJ67kKol2bVWw4K9IBCCYzTtk2mK1/7U9bCQYe/hrp8KvtIBYhf1iLYvzfYWpFnKhp9nBtGLouJ3QHH9/wQ=="
+}

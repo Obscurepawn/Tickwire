@@ -1,0 +1,5 @@
+10e12d26b0cfc08b61e65568ab830f6532c72a7927ee55ce7e01f6017d781473  crates/tickwire-gateway/src/lib.rs
+8e1c1a11990ec56165a186f97449791bf0ccf1bf321d5d8b36593a60ab6ce15b  crates/tickwire-gateway/tests/common/command.rs
+b1c482863d0b579fde8470013623ac799a02e4628d9b74ab000cfcc9035d14af  crates/tickwire-gateway/tests/common/mod.rs
+9949490a2eedbfbf5eeddb35cdde7ef87e90c6501056a920e2fafdcb368c8fdc  crates/tickwire-gateway/tests/lifecycle.rs
+4738bd9a87fc9842b239df2264187de3dd36ec47daba8d195f416908adc66cab  docs/implementation/gateway-interface.md

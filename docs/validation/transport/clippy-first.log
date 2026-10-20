@@ -1,0 +1,137 @@
+    Checking untrusted v0.9.0
+    Checking zeroize v1.9.1
+    Checking time-core v0.1.9
+    Checking powerfmt v0.2.1
+    Checking num-conv v0.2.2
+    Checking deranged v0.5.9
+    Checking getrandom v0.2.17
+    Checking once_cell v1.21.4
+    Checking subtle v2.6.1
+    Checking base64 v0.23.1
+    Checking httparse v1.10.1
+    Checking sha1 v0.10.6
+    Checking getrandom v0.3.4
+    Checking mio v1.2.4
+    Checking rustls-pki-types v1.15.1
+    Checking ring v0.17.14
+    Checking base64 v0.22.1
+    Checking pem v4.0.0
+    Checking time v0.3.55
+    Checking rustls-webpki v0.103.16
+    Checking yasna v0.6.0
+    Checking rustls v0.23.46
+    Checking rcgen v0.14.10
+    Checking tickwire-transport v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-transport)
+error: this `if` statement can be collapsed
+   --> crates/tickwire-transport/src/connection.rs:135:9
+    |
+135 | /         if let Some(s) = self.send.as_mut() {
+136 | |             if matches!(s.report.state, SendState::Queued | SendState::MayHaveSent) {
+137 | |                 s.report.state = if s.report.accepted_bytes == 0 {
+138 | |                     SendState::NoBytes(why)
+...   |
+143 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#collapsible_if
+    = note: `-D clippy::collapsible-if` implied by `-D warnings`
+    = help: to override `-D warnings` add `#[allow(clippy::collapsible_if)]`
+help: collapse nested if block
+    |
+135 ~         if let Some(s) = self.send.as_mut()
+136 ~             && matches!(s.report.state, SendState::Queued | SendState::MayHaveSent) {
+137 |                 s.report.state = if s.report.accepted_bytes == 0 {
+...
+141 |                 };
+142 ~             }
+    |
+
+error: this `if` statement can be collapsed
+   --> crates/tickwire-transport/src/connection.rs:230:9
+    |
+230 | /         if self.socket.is_some() && self.tls.as_ref().is_none_or(|t| !t.wants_write()) {
+231 | |             if let Some(s) = self.send.as_mut() {
+232 | |                 if s.report.state == SendState::MayHaveSent
+233 | |                     && s.report.accepted_bytes == s.report.total_bytes
+...   |
+238 | |         }
+    | |_________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+230 ~         if self.socket.is_some() && self.tls.as_ref().is_none_or(|t| !t.wants_write())
+231 ~             && let Some(s) = self.send.as_mut() {
+232 |                 if s.report.state == SendState::MayHaveSent
+...
+236 |                 }
+237 ~             }
+    |
+
+error: this `if` statement can be collapsed
+   --> crates/tickwire-transport/src/connection.rs:231:13
+    |
+231 | /             if let Some(s) = self.send.as_mut() {
+232 | |                 if s.report.state == SendState::MayHaveSent
+233 | |                     && s.report.accepted_bytes == s.report.total_bytes
+...   |
+237 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+231 ~             if let Some(s) = self.send.as_mut()
+232 ~                 && s.report.state == SendState::MayHaveSent
+233 |                     && s.report.accepted_bytes == s.report.total_bytes
+234 |                 {
+235 |                     s.report.state = SendState::Flushed
+236 ~                 }
+    |
+
+error: this `if` statement can be collapsed
+   --> crates/tickwire-transport/src/connection.rs:320:13
+    |
+320 | /             if let Some(tls) = self.tls.as_mut() {
+321 | |                 if tls.wants_write() {
+322 | |                     let mut io = BudgetIo {
+323 | |                         socket: self.socket.as_mut().unwrap(),
+...   |
+336 | |             }
+    | |_____________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+320 ~             if let Some(tls) = self.tls.as_mut()
+321 ~                 && tls.wants_write() {
+322 |                     let mut io = BudgetIo {
+...
+334 |                     }
+335 ~                 }
+    |
+
+error: this `if` statement can be collapsed
+   --> crates/tickwire-transport/src/connection.rs:368:25
+    |
+368 | /                         if let Some(tls) = self.tls.as_mut() {
+369 | |                             if let Err(e) = tls.process_new_packets() {
+370 | |                                 self.fail(Failure::Tls);
+371 | |                                 return Err(e.into());
+372 | |                             }
+373 | |                         }
+    | |_________________________^
+    |
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#collapsible_if
+help: collapse nested if block
+    |
+368 ~                         if let Some(tls) = self.tls.as_mut()
+369 ~                             && let Err(e) = tls.process_new_packets() {
+370 |                                 self.fail(Failure::Tls);
+371 |                                 return Err(e.into());
+372 ~                             }
+    |
+
+error: could not compile `tickwire-transport` (lib test) due to 5 previous errors
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `tickwire-transport` (lib) due to 5 previous errors

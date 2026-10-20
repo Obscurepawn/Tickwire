@@ -1,0 +1,22 @@
+   Compiling tickwire-venue v0.1.0 (<REPO>/crates/tickwire-venue)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.07s
+     Running tests/commands.rs (target/debug/deps/commands-d8f868f75b3e311a)
+
+running 1 test
+test spot_market_sell_accepts_a_quote_amount_target ... FAILED
+
+failures:
+
+---- spot_market_sell_accepts_a_quote_amount_target stdout ----
+
+thread 'spot_market_sell_accepts_a_quote_amount_target' (5262755) panicked at crates/tickwire-venue/tests/commands.rs:7:46:
+called `Result::unwrap()` on an `Err` value: OrderCombination
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    spot_market_sell_accepts_a_quote_amount_target
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-venue --test commands`

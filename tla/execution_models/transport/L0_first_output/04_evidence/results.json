@@ -1,0 +1,423 @@
+[
+  {
+    "config": "primary",
+    "generated": 2733,
+    "distinct": 688,
+    "depth": 14,
+    "actions": [
+      {
+        "name": "Init",
+        "distinct": 1,
+        "generated": 1
+      },
+      {
+        "name": "Queue",
+        "distinct": 3,
+        "generated": 96
+      },
+      {
+        "name": "Connect",
+        "distinct": 4,
+        "generated": 80
+      },
+      {
+        "name": "Handshake",
+        "distinct": 112,
+        "generated": 160
+      },
+      {
+        "name": "FlushHandshake",
+        "distinct": 0,
+        "generated": 80
+      },
+      {
+        "name": "TryPending",
+        "distinct": 0,
+        "generated": 24
+      },
+      {
+        "name": "TryZero",
+        "distinct": 0,
+        "generated": 66
+      },
+      {
+        "name": "Deny",
+        "distinct": 0,
+        "generated": 12
+      },
+      {
+        "name": "ExpireInGate",
+        "distinct": 6,
+        "generated": 12
+      },
+      {
+        "name": "FirstAccept",
+        "distinct": 6,
+        "generated": 6
+      },
+      {
+        "name": "Continue",
+        "distinct": 12,
+        "generated": 12
+      },
+      {
+        "name": "Flush",
+        "distinct": 24,
+        "generated": 24
+      },
+      {
+        "name": "ExpireQueued",
+        "distinct": 0,
+        "generated": 48
+      },
+      {
+        "name": "ExpireAccepted",
+        "distinct": 0,
+        "generated": 36
+      },
+      {
+        "name": "CancelQueued",
+        "distinct": 6,
+        "generated": 96
+      },
+      {
+        "name": "CancelAccepted",
+        "distinct": 42,
+        "generated": 96
+      },
+      {
+        "name": "FailConnection",
+        "distinct": 5,
+        "generated": 440
+      },
+      {
+        "name": "Take",
+        "distinct": 70,
+        "generated": 240
+      },
+      {
+        "name": "ToggleGate",
+        "distinct": 59,
+        "generated": 688
+      },
+      {
+        "name": "Tick",
+        "distinct": 338,
+        "generated": 516
+      }
+    ],
+    "log_sha256": "a78352e5014b03e04a305fcbbab7b23b9729be56b159ccc51c49ea21b64c9c33"
+  },
+  {
+    "config": "two_sends",
+    "generated": 14793,
+    "distinct": 3928,
+    "depth": 20,
+    "actions": [
+      {
+        "name": "Init",
+        "distinct": 1,
+        "generated": 1
+      },
+      {
+        "name": "Queue",
+        "distinct": 75,
+        "generated": 456
+      },
+      {
+        "name": "Connect",
+        "distinct": 4,
+        "generated": 296
+      },
+      {
+        "name": "Handshake",
+        "distinct": 296,
+        "generated": 592
+      },
+      {
+        "name": "FlushHandshake",
+        "distinct": 0,
+        "generated": 296
+      },
+      {
+        "name": "TryPending",
+        "distinct": 0,
+        "generated": 96
+      },
+      {
+        "name": "TryZero",
+        "distinct": 0,
+        "generated": 444
+      },
+      {
+        "name": "Deny",
+        "distinct": 14,
+        "generated": 66
+      },
+      {
+        "name": "ExpireInGate",
+        "distinct": 33,
+        "generated": 66
+      },
+      {
+        "name": "FirstAccept",
+        "distinct": 37,
+        "generated": 42
+      },
+      {
+        "name": "Continue",
+        "distinct": 84,
+        "generated": 84
+      },
+      {
+        "name": "Flush",
+        "distinct": 168,
+        "generated": 168
+      },
+      {
+        "name": "ExpireQueued",
+        "distinct": 6,
+        "generated": 228
+      },
+      {
+        "name": "ExpireAccepted",
+        "distinct": 0,
+        "generated": 252
+      },
+      {
+        "name": "CancelQueued",
+        "distinct": 44,
+        "generated": 456
+      },
+      {
+        "name": "CancelAccepted",
+        "distinct": 289,
+        "generated": 672
+      },
+      {
+        "name": "FailConnection",
+        "distinct": 63,
+        "generated": 2240
+      },
+      {
+        "name": "Take",
+        "distinct": 532,
+        "generated": 1464
+      },
+      {
+        "name": "ToggleGate",
+        "distinct": 348,
+        "generated": 3928
+      },
+      {
+        "name": "Tick",
+        "distinct": 1934,
+        "generated": 2946
+      }
+    ],
+    "log_sha256": "8e55351266d82faf2a89554045cbd4a8c948f18d5d4d21d26b8eedfa8615dc30"
+  },
+  {
+    "config": "larger_buffer",
+    "generated": 21975,
+    "distinct": 5944,
+    "depth": 20,
+    "actions": [
+      {
+        "name": "Init",
+        "distinct": 1,
+        "generated": 1
+      },
+      {
+        "name": "Queue",
+        "distinct": 75,
+        "generated": 456
+      },
+      {
+        "name": "Connect",
+        "distinct": 4,
+        "generated": 296
+      },
+      {
+        "name": "Handshake",
+        "distinct": 296,
+        "generated": 592
+      },
+      {
+        "name": "FlushHandshake",
+        "distinct": 0,
+        "generated": 296
+      },
+      {
+        "name": "TryPending",
+        "distinct": 0,
+        "generated": 96
+      },
+      {
+        "name": "TryZero",
+        "distinct": 0,
+        "generated": 948
+      },
+      {
+        "name": "Deny",
+        "distinct": 14,
+        "generated": 66
+      },
+      {
+        "name": "ExpireInGate",
+        "distinct": 33,
+        "generated": 66
+      },
+      {
+        "name": "FirstAccept",
+        "distinct": 74,
+        "generated": 84
+      },
+      {
+        "name": "Continue",
+        "distinct": 168,
+        "generated": 420
+      },
+      {
+        "name": "Flush",
+        "distinct": 336,
+        "generated": 588
+      },
+      {
+        "name": "ExpireQueued",
+        "distinct": 6,
+        "generated": 228
+      },
+      {
+        "name": "ExpireAccepted",
+        "distinct": 0,
+        "generated": 588
+      },
+      {
+        "name": "CancelQueued",
+        "distinct": 44,
+        "generated": 456
+      },
+      {
+        "name": "CancelAccepted",
+        "distinct": 578,
+        "generated": 1344
+      },
+      {
+        "name": "FailConnection",
+        "distinct": 63,
+        "generated": 2912
+      },
+      {
+        "name": "Take",
+        "distinct": 821,
+        "generated": 2136
+      },
+      {
+        "name": "ToggleGate",
+        "distinct": 459,
+        "generated": 5944
+      },
+      {
+        "name": "Tick",
+        "distinct": 2972,
+        "generated": 4458
+      }
+    ],
+    "log_sha256": "6758753fc06e01821c52f8f93b55a69980c36d19f2638e9b0b1b7af872e735c4"
+  },
+  {
+    "config": "plain",
+    "generated": 10183,
+    "distinct": 2832,
+    "depth": 13,
+    "actions": [
+      {
+        "name": "Init",
+        "distinct": 1,
+        "generated": 1
+      },
+      {
+        "name": "Queue",
+        "distinct": 39,
+        "generated": 264
+      },
+      {
+        "name": "Connect",
+        "distinct": 4,
+        "generated": 296
+      },
+      {
+        "name": "TryPending",
+        "distinct": 0,
+        "generated": 48
+      },
+      {
+        "name": "TryZero",
+        "distinct": 0,
+        "generated": 294
+      },
+      {
+        "name": "Deny",
+        "distinct": 0,
+        "generated": 42
+      },
+      {
+        "name": "ExpireInGate",
+        "distinct": 18,
+        "generated": 42
+      },
+      {
+        "name": "FirstAccept",
+        "distinct": 72,
+        "generated": 168
+      },
+      {
+        "name": "Continue",
+        "distinct": 0,
+        "generated": 420
+      },
+      {
+        "name": "ExpireQueued",
+        "distinct": 6,
+        "generated": 132
+      },
+      {
+        "name": "ExpireAccepted",
+        "distinct": 0,
+        "generated": 168
+      },
+      {
+        "name": "CancelQueued",
+        "distinct": 36,
+        "generated": 264
+      },
+      {
+        "name": "CancelAccepted",
+        "distinct": 72,
+        "generated": 504
+      },
+      {
+        "name": "FailConnection",
+        "distinct": 46,
+        "generated": 1480
+      },
+      {
+        "name": "Take",
+        "distinct": 201,
+        "generated": 1104
+      },
+      {
+        "name": "ToggleGate",
+        "distinct": 495,
+        "generated": 2832
+      },
+      {
+        "name": "Tick",
+        "distinct": 1842,
+        "generated": 2124
+      }
+    ],
+    "log_sha256": "df0ab373ceca76ffcaa39b8bb3d633ea892638e9378900f9dd29cafc0d380635"
+  }
+]

@@ -1,0 +1,41 @@
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.15s
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-19a22f52e0022ce4)
+
+running 8 tests
+test command_is_synced_before_any_application_output ... FAILED
+test failed_abort_sync_does_not_publish_releasable_state ... ok
+test waiting_gate_expiry_records_abort_before_reporting_release ... FAILED
+test failed_intent_sync_never_outputs ... ok
+test partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues ... FAILED
+test recovered_intent_is_frozen_unknown_even_when_send_never_started ... ok
+test recovered_zero_byte_abort_stays_aborted_and_missing_command_fails ... ok
+test record_and_wire_binding_mismatches_cannot_commit ... ok
+
+failures:
+
+---- command_is_synced_before_any_application_output stdout ----
+
+thread 'command_is_synced_before_any_application_output' (5308988) panicked at crates/tickwire-gateway/tests/common/mod.rs:421:58:
+called `Result::unwrap()` on an `Err` value: Transport(Io(Custom { kind: UnexpectedEof, error: "peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof" }))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- waiting_gate_expiry_records_abort_before_reporting_release stdout ----
+
+thread 'waiting_gate_expiry_records_abort_before_reporting_release' (5308995) panicked at crates/tickwire-gateway/tests/common/mod.rs:421:58:
+called `Result::unwrap()` on an `Err` value: Transport(Io(Custom { kind: UnexpectedEof, error: "peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof" }))
+
+---- partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues stdout ----
+
+thread 'partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues' (5308991) panicked at crates/tickwire-gateway/tests/common/mod.rs:421:58:
+called `Result::unwrap()` on an `Err` value: Transport(Io(Custom { kind: UnexpectedEof, error: "peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof" }))
+
+
+failures:
+    command_is_synced_before_any_application_output
+    partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues
+    waiting_gate_expiry_records_abort_before_reporting_release
+
+test result: FAILED. 5 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+error: test failed, to rerun pass `-p tickwire-gateway --test lifecycle`

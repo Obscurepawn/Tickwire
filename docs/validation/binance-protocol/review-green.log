@@ -1,0 +1,30 @@
+   Compiling tickwire-binance v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.38s
+     Running tests/protocol_primitives.rs (target/debug/deps/protocol_primitives-221699b10aac7ae2)
+
+running 15 tests
+test decimal_invalid_precision_and_rescale_fail_without_rounding ... ok
+test fix_sender_comp_id_rejects_printable_but_unlisted_punctuation_atomically ... ok
+test json_numbers_reject_non_json_leading_zero_spellings_without_mutating_params ... ok
+test bad_keys_and_fix_field_injection_are_rejected ... ok
+test decimal_exact_conversion_and_i128_minimum ... ok
+test official_spot_rest_hmac_ascii_vector ... ok
+test official_spot_rest_unicode_is_percent_encoded_before_signing ... ok
+test output_capacity_failure_is_atomic_for_all_encoders ... ok
+test official_spot_ws_vector_sorts_keys_without_changing_decimal_strings ... ok
+test parameter_limits_reject_duplicates_reserved_keys_and_capacity ... ok
+test rest_preimage_does_not_insert_a_separator_between_query_and_body ... ok
+test endpoint_algorithm_matrix_rejects_unsupported_combination ... ok
+test websocket_uses_raw_utf8_while_rest_escapes_values_once ... ok
+test official_fix_ed25519_vector_and_distinct_preimage ... ok
+test rsa_pkcs1_sha256_matches_independent_openssl_vector ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/protocol_server.rs (target/debug/deps/protocol_server-760b231bbcd6638b)
+
+running 2 tests
+test prepared_usdm_websocket_hmac_ed25519_and_unknown_response_over_actual_tls ... ok
+test prepared_rest_all_three_signatures_over_actual_tls_and_chunked_reply ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s

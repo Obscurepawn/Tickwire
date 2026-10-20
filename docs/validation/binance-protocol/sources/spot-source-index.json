@@ -1,0 +1,35 @@
+{
+  "commit": "f4a9c0be68235f758b46f571f7313c63d1306b25",
+  "files": [
+    {
+      "path": "rest-api.md",
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/rest-api.md",
+      "sha256": "a44f55c8ca08a391417aa3a98b3bf4715c99317081d07567b32d088c71181454",
+      "bytes": 207083
+    },
+    {
+      "path": "web-socket-api.md",
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/web-socket-api.md",
+      "sha256": "c756a298e8c2f09060a2e27c5e00e9a085cf085216375e1d2abb9d0c3e342bd8",
+      "bytes": 305570
+    },
+    {
+      "path": "fix-api.md",
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/fix-api.md",
+      "sha256": "8d9a589e0d71bb6038b8423ad01efb4a7c7b1e9ae11c6cc486182382ac9be2c0",
+      "bytes": 190086
+    },
+    {
+      "path": "faqs/api_key_types.md",
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/faqs/api_key_types.md",
+      "sha256": "7897f8ea48e8700b67de598833fb10756d2de7985c7a1d11f6c72d9c2d20ff12",
+      "bytes": 3189
+    },
+    {
+      "path": "errors.md",
+      "url": "https://raw.githubusercontent.com/binance/binance-spot-api-docs/f4a9c0be68235f758b46f571f7313c63d1306b25/errors.md",
+      "sha256": "0c553c5c214837b302a55f9dfb32afda07f748f480c84503cd7ae43d4b886b2c",
+      "bytes": 30398
+    }
+  ]
+}

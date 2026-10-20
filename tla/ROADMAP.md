@@ -15,6 +15,8 @@
 | join_owner L0 | 保留快照基线、双资源交付、真实游标追平、原登记版本和协作退出 | 四配置 PASS | 持久请求登记、独立截止时间、bank 轮换及死亡回收 |
 | control_requests L0/L1 | 请求登记、终态重放、期限与续租 | 六配置 PASS | L2 真实持久 owner 恢复 |
 | physical_journal L0 | 物理批写入、同步、收据、崩溃与恢复 | 三配置 PASS | L1 分段/manifest 目录事务 |
+| transport L0 | 首次明文接受、当前门禁、TLS 冲刷、零接受终态和部分写 | 四配置 PASS | 协议会话与跨连接恢复 |
+| gateway L0 | 持久命令、真实传输调用顺序、首次门禁、中止发布与冻结恢复 | 四配置 PASS | 连接代次、业务回报关联及恢复后激活 |
 | budget_lease / strategy_handoff / multi_exec_activation | 授权、旧发送者隔离与多进程恢复 | 未建模 | 先实现可检验的控制面与运行时 |
 
 下一命令和开放问题位于 [submission TODO](execution_models/submission/TODO.md)。

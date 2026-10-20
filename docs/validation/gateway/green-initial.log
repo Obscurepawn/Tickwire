@@ -1,0 +1,65 @@
+   Compiling tickwire-gateway v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-gateway)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.99s
+     Running tests/lifecycle.rs (target/debug/deps/lifecycle-4f77c6f5665729e4)
+
+running 8 tests
+test failed_abort_sync_does_not_publish_releasable_state ... FAILED
+test failed_intent_sync_never_outputs ... FAILED
+test recovered_intent_is_frozen_unknown_even_when_send_never_started ... FAILED
+test waiting_gate_expiry_records_abort_before_reporting_release ... FAILED
+test recovered_zero_byte_abort_stays_aborted_and_missing_command_fails ... FAILED
+test command_is_synced_before_any_application_output ... FAILED
+test partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues ... FAILED
+test record_and_wire_binding_mismatches_cannot_commit ... ok
+
+failures:
+
+---- failed_abort_sync_does_not_publish_releasable_state stdout ----
+
+thread 'failed_abort_sync_does_not_publish_releasable_state' (5305666) panicked at crates/tickwire-gateway/tests/lifecycle.rs:127:36:
+called `Result::unwrap()` on an `Err` value: Identity
+
+---- failed_intent_sync_never_outputs stdout ----
+
+thread 'failed_intent_sync_never_outputs' (5305667) panicked at crates/tickwire-gateway/tests/lifecycle.rs:102:5:
+assertion failed: matches!(s.submit(record(&c), c, end()), Err(Error::Journal(_)))
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- recovered_intent_is_frozen_unknown_even_when_send_never_started stdout ----
+
+thread 'recovered_intent_is_frozen_unknown_even_when_send_never_started' (5305670) panicked at crates/tickwire-gateway/tests/lifecycle.rs:186:27:
+called `Result::unwrap()` on an `Err` value: Identity
+
+---- waiting_gate_expiry_records_abort_before_reporting_release stdout ----
+
+thread 'waiting_gate_expiry_records_abort_before_reporting_release' (5305672) panicked at crates/tickwire-gateway/tests/lifecycle.rs:46:36:
+called `Result::unwrap()` on an `Err` value: Identity
+
+---- recovered_zero_byte_abort_stays_aborted_and_missing_command_fails stdout ----
+
+thread 'recovered_zero_byte_abort_stays_aborted_and_missing_command_fails' (5305671) panicked at crates/tickwire-gateway/tests/lifecycle.rs:223:36:
+called `Result::unwrap()` on an `Err` value: Identity
+
+---- command_is_synced_before_any_application_output stdout ----
+
+thread 'command_is_synced_before_any_application_output' (5305665) panicked at crates/tickwire-gateway/tests/lifecycle.rs:22:47:
+called `Result::unwrap()` on an `Err` value: Identity
+
+---- partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues stdout ----
+
+thread 'partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues' (5305668) panicked at crates/tickwire-gateway/tests/lifecycle.rs:70:27:
+called `Result::unwrap()` on an `Err` value: Identity
+
+
+failures:
+    command_is_synced_before_any_application_output
+    failed_abort_sync_does_not_publish_releasable_state
+    failed_intent_sync_never_outputs
+    partial_acceptance_cancel_stays_unknown_and_duplicate_never_requeues
+    recovered_intent_is_frozen_unknown_even_when_send_never_started
+    recovered_zero_byte_abort_stays_aborted_and_missing_command_fails
+    waiting_gate_expiry_records_abort_before_reporting_release
+
+test result: FAILED. 1 passed; 7 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+error: test failed, to rerun pass `-p tickwire-gateway --test lifecycle`

@@ -1,0 +1,20 @@
+[package]
+name = "tickwire-transport"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+mio = { version = "=1.2.4", default-features = false, features = ["net", "os-poll"] }
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }
+httparse = "=1.10.1"
+base64 = "=0.22.1"
+sha1 = "=0.10.6"
+getrandom = "=0.3.4"
+
+[dev-dependencies]
+rcgen = "=0.14.10"
