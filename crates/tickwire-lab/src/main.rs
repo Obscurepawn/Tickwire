@@ -11,9 +11,10 @@ fn execute() -> tickwire_lab::Result<()> {
         [op,config,gate,binary] if op=="child-exec"=>tickwire_lab::launch::child_exec(Path::new(config),Path::new(gate),Path::new(binary)),
         [op,kind_flag,kind,flag,out,bins_flag,bins] if op=="generate"&&kind_flag=="--scenario"&&flag=="--out"&&bins_flag=="--bin-dir"=>{
             let s=match kind.as_str(){
+                "spot-handover-custom"=>tickwire_lab::generate::generate_custom_handover(Path::new(out),Path::new(bins))?,
                 "spot-handover"=>tickwire_lab::generate::generate_handover(Path::new(out),Path::new(bins))?,
                 "spot-fill"=>tickwire_lab::generate::generate(Path::new(out),Path::new(bins))?,
-                _=>return Err("expected spot-fill or spot-handover".into()),
+                _=>return Err("expected spot-fill, spot-handover or spot-handover-custom".into()),
             };
             println!("{}",serde_json::to_string_pretty(&s)?);Ok(())
         },
@@ -25,6 +26,6 @@ fn execute() -> tickwire_lab::Result<()> {
             let s=tickwire_lab::Scenario::read(Path::new(path))?;
             match op.as_str(){"serve"=>tickwire_lab::fixture::serve(&s),"run"=>tickwire_lab::launch::run(&s),_=>Err("expected serve or run".into())}
         },
-        _=>Err("usage: tickwire-lab generate [--scenario spot-fill|spot-handover] --out /new/directory --bin-dir /target/debug | serve|run --config /scenario.json".into()),
+        _=>Err("usage: tickwire-lab generate [--scenario spot-fill|spot-handover|spot-handover-custom] --out /new/directory --bin-dir /target/debug | serve|run --config /scenario.json".into()),
     }
 }

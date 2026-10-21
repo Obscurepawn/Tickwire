@@ -534,8 +534,80 @@ pub struct FillEvent {
     /// Each amount is signed asset cash flow: debit negative, rebate positive.
     pub fees: BoundedList<AssetDelta, 8>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StructureKind {
+    Oco,
+    Oto,
+    Otoco,
+    Algo,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StructureStatus {
+    Pending,
+    Live,
+    Triggered,
+    Terminal,
+    Rejected,
+    Unknown,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructureIdentity {
+    pub structure_id: [u8; 16],
+    pub original_intent_id: u64,
+    pub original_intent_exec_epoch: u64,
+    pub kind: StructureKind,
+    pub client_id: ClientId,
+    pub venue_parent_id: Option<VenueOrderId>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructureChild {
+    pub order: OrderIdentity,
+    /// Actual exchange client ID when it differs from the original reserved leg.
+    pub reported_client_id: Option<ClientId>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructureObservation {
+    pub parent: StructureIdentity,
+    pub status: StructureStatus,
+    pub venue_status: BoundedText<32>,
+    pub children: BoundedList<StructureChild, 3>,
+}
+/// Exchange execution IDs are not assumed equal across protocol sources.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum AmendmentSource {
+    RestResponse,
+    RestHistory,
+    PrivateStream,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AmendmentObservation {
+    pub order: OrderIdentity,
+    pub request_intent_id: u64,
+    pub request_intent_exec_epoch: u64,
+    pub request_digest: Hash,
+    pub execution_source: AmendmentSource,
+    pub execution_id: u64,
+    pub previous_quantity: Decimal,
+    pub new_quantity: Decimal,
+    /// History rows have no order status/cumulative quantity; absence stays absent.
+    pub observation: Option<OrderObservation>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AmendmentRejection {
+    pub order: OrderIdentity,
+    pub request_intent_id: u64,
+    pub request_intent_exec_epoch: u64,
+    pub request_digest: Hash,
+    pub venue_code: BoundedText<32>,
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VenueEventBody {
+    /// Schema 3/tag 6. Only a matched amendment result changes effective quantity.
+    Amendment(Box<AmendmentObservation>),
+    /// Schema 3/tag 7. A rejected management request, not a rejected order.
+    AmendmentRejected(Box<AmendmentRejection>),
+    /// Schema 2/tag 5. Parent state never substitutes for individual leg results.
+    Structure(Box<StructureObservation>),
     Order(Box<OrderObservation>),
     Fill(Box<FillEvent>),
     Fee {

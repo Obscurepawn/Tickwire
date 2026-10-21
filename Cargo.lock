@@ -498,6 +498,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "log"
+version = "0.4.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f9f8bd3e56ce4dfc153cf470fffbfa98c7620958b312ca5c3a4b8d5181fd13c6"
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -522,6 +528,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1788edb87fdc09c7e26304471e2f5be8cdefb1b6930d6e3985fc02ff53bf86ee"
 dependencies = [
  "libc",
+ "log",
  "wasi",
  "windows-sys 0.61.2",
 ]
@@ -1226,9 +1233,13 @@ dependencies = [
 name = "tickwire-app"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "libc",
+ "rcgen",
  "ring",
  "serde",
  "serde_json",
+ "sha1",
  "tickwire-account",
  "tickwire-account-codec",
  "tickwire-account-gateway",
@@ -1326,17 +1337,28 @@ dependencies = [
 name = "tickwire-binance-execution"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
+ "rcgen",
+ "serde_json",
+ "sha1",
+ "sha2",
  "tickwire-account",
  "tickwire-account-codec",
  "tickwire-account-gateway",
  "tickwire-account-journal",
  "tickwire-binance",
+ "tickwire-binance-account",
  "tickwire-binance-clock",
+ "tickwire-binance-private",
  "tickwire-binance-quota",
  "tickwire-clock",
+ "tickwire-fencing",
  "tickwire-gateway",
+ "tickwire-journal",
  "tickwire-quota",
  "tickwire-recovery",
+ "tickwire-replica",
+ "tickwire-risk",
  "tickwire-transport",
  "tickwire-venue",
 ]
@@ -1450,12 +1472,85 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-config-fs"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.2.17",
+ "libc",
+ "sha2",
+ "tickwire-journal",
+]
+
+[[package]]
+name = "tickwire-config-journal"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-config-fs",
+ "tickwire-journal",
+]
+
+[[package]]
+name = "tickwire-config-materializer"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "sha2",
+ "tickwire-config",
+ "tickwire-config-fs",
+ "tickwire-config-journal",
+ "tickwire-journal",
+]
+
+[[package]]
+name = "tickwire-config-service"
+version = "0.1.0"
+dependencies = [
+ "httparse",
+ "jsonschema",
+ "rcgen",
+ "ring",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-config",
+ "tickwire-control-raft",
+ "tickwire-journal",
+ "time",
+ "x509-parser",
+]
+
+[[package]]
 name = "tickwire-control"
 version = "0.1.0"
 dependencies = [
  "sha2",
  "tickwire-control-sys",
  "tickwire-ipc",
+]
+
+[[package]]
+name = "tickwire-control-peer"
+version = "0.1.0"
+dependencies = [
+ "getrandom 0.2.17",
+ "libc",
+ "mio",
+ "protobuf",
+ "rcgen",
+ "ring",
+ "rustls",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-config-service",
+ "tickwire-control-raft",
+ "tickwire-journal",
+ "time",
+ "x509-parser",
 ]
 
 [[package]]
@@ -1617,6 +1712,7 @@ dependencies = [
  "tickwire-replica",
  "tickwire-runtime-policy",
  "tickwire-shm",
+ "tickwire-strategy-example",
  "tickwire-strategy-sdk",
  "tickwire-transport",
  "tickwire-venue",
@@ -1755,6 +1851,7 @@ dependencies = [
  "tickwire-account",
  "tickwire-account-codec",
  "tickwire-account-journal",
+ "tickwire-binance-account",
  "tickwire-clock",
  "tickwire-fencing",
  "tickwire-handover",
@@ -1843,6 +1940,20 @@ dependencies = [
  "tickwire-control-sys",
  "tickwire-ipc",
  "tickwire-shm-sys",
+]
+
+[[package]]
+name = "tickwire-strategy-example"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tickwire-ipc",
+ "tickwire-recovery",
+ "tickwire-release",
+ "tickwire-snapshot",
+ "tickwire-strategy-sdk",
+ "tickwire-venue",
 ]
 
 [[package]]

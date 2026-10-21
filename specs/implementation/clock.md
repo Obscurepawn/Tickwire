@@ -18,4 +18,4 @@
 
 签名时间为区间中点按指定单位向下量化后的精确值；USD-M 只允许毫秒。`check_send` 首先拒绝其他产品、环境或时钟域的签名，再验证窗口精度与上限，重新读取当前区间。正常刷新校准后，旧签名仍检查原来的 `T`，不要求样本序号相同。发送须满足 `T<L+1秒`、`U+ceil(B×(1+d))<=T+W` 和 `now+B<valid_until`；比较中的差值保持数学有符号含义，溢出撤销校准。
 
-行为回归与真实 Red/Green 见 `docs/validation/clock/core-results.json`。25 项测试覆盖向外舍入、全部完成边界、旧回复、故障撤销、旧签名重新检查及 u64 溢出；量化误差下界由独立源码审查提出，随后取得真实 Red 并修复。形式验证当前在 `tla/execution_models/clock/L0_calibration`，结果按实际运行另行记录。
+行为回归与真实 Red/Green 的历史日志曾位于已删除的 `docs/validation/clock/core-results.json`。25 项测试覆盖向外舍入、全部完成边界、旧回复、故障撤销、旧签名重新检查及 u64 溢出；量化误差下界由独立源码审查提出，随后取得真实 Red 并修复。形式验证当前在 `tla/execution_models/clock/L0_calibration`，结果按实际运行另行记录。

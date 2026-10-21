@@ -6,6 +6,73 @@ pub(crate) struct Verifier<'a, A: Authority> {
     pub reactivation: &'a mut dyn ReactivationVerifier,
 }
 impl<A: Authority> RecoveryVerifier for Verifier<'_, A> {
+    fn verify_income_association(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::IncomeObservationsAssociated(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.reactivation
+            .verify_income_association(baseline, &account, preceding, prior, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+    fn verify_uncreated_algo(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::UncreatedAlgoClosed(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let records: Vec<_> = prior.iter().map(|r| r.record().clone()).collect();
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &records,
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.reactivation
+            .verify_uncreated_algo(baseline, &account, preceding, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
+    fn verify_account_inputs_closure(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::AccountInputsReconciled(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let records: Vec<_> = prior.iter().map(|r| r.record().clone()).collect();
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &records,
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.reactivation
+            .verify_account_inputs_closure(baseline, &account, preceding, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
     fn verify_income_baseline(
         &mut self,
         baseline: &CanonicalBaseline,
@@ -132,7 +199,12 @@ pub(crate) fn entries(
 pub(crate) fn apply_fact(account: &mut Account, record: &RecoveryRecord) -> Result<Applied> {
     match record {
         RecoveryRecord::IngressAccountInput { input, .. } => account.apply_account_input(input),
-        RecoveryRecord::IncomeBaseline(_) => return Err(Error::Invalid),
+        RecoveryRecord::UncreatedAlgoClosed(_)
+        | RecoveryRecord::IncomeObservationsAssociated(_)
+        | RecoveryRecord::AccountInputsReconciled(_)
+        | RecoveryRecord::IncomeBaseline(_) => {
+            return Err(Error::Invalid);
+        }
         RecoveryRecord::StrategyHandover(h) => account.apply_strategy_handover(h),
         RecoveryRecord::VenueEvent(event) | RecoveryRecord::IngressEvent { event, .. } => {
             account.apply_event(event)

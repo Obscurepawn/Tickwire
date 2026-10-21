@@ -86,7 +86,22 @@ pub struct CanonicalEvent {
 impl CanonicalEvent {
     pub fn new(event: VenueEvent) -> Result<Self, Error> {
         validate::event(&event)?;
-        let bytes = encode("tickwire.venue-event", &event.identity, &event.body);
+        let version = if matches!(
+            event.body,
+            VenueEventBody::Amendment(_) | VenueEventBody::AmendmentRejected(_)
+        ) {
+            3
+        } else if matches!(event.body, VenueEventBody::Structure(_)) {
+            2
+        } else {
+            1
+        };
+        let bytes = encode_versioned(
+            "tickwire.venue-event",
+            version,
+            &event.identity,
+            &event.body,
+        );
         if bytes.len() > MAX_CANONICAL_BYTES {
             return Err(Error::Bounds);
         }
@@ -98,7 +113,20 @@ impl CanonicalEvent {
         })
     }
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
-        let (identity, body) = decode("tickwire.venue-event", bytes)?;
+        let (version, identity, body) = decode_versioned("tickwire.venue-event", bytes)?;
+        let expected = if matches!(
+            body,
+            VenueEventBody::Amendment(_) | VenueEventBody::AmendmentRejected(_)
+        ) {
+            3
+        } else if matches!(body, VenueEventBody::Structure(_)) {
+            2
+        } else {
+            1
+        };
+        if version != expected {
+            return Err(Error::Schema);
+        }
         let result = Self::new(VenueEvent { identity, body })?;
         if result.bytes() != bytes {
             return Err(Error::NonCanonical);
@@ -117,25 +145,36 @@ impl CanonicalEvent {
 }
 
 fn encode<A: Codec, B: Codec>(domain: &str, a: &A, b: &B) -> Vec<u8> {
+    encode_versioned(domain, SCHEMA_VERSION, a, b)
+}
+fn encode_versioned<A: Codec, B: Codec>(domain: &str, version: u64, a: &A, b: &B) -> Vec<u8> {
     let mut w = cbor::Writer::new();
     w.array(4);
     w.text(domain);
-    w.uint(SCHEMA_VERSION);
+    w.uint(version);
     a.write(&mut w);
     b.write(&mut w);
     w.finish()
 }
 fn decode<A: Codec, B: Codec>(domain: &str, bytes: &[u8]) -> Result<(A, B), Error> {
+    let (version, a, b) = decode_versioned(domain, bytes)?;
+    if version != SCHEMA_VERSION {
+        return Err(Error::Schema);
+    }
+    Ok((a, b))
+}
+fn decode_versioned<A: Codec, B: Codec>(domain: &str, bytes: &[u8]) -> Result<(u64, A, B), Error> {
     if bytes.len() > MAX_CANONICAL_BYTES {
         return Err(Error::Bounds);
     }
     let mut r = cbor::Reader::new(bytes);
     r.array(4)?;
-    if r.text(32)? != domain || r.uint()? != SCHEMA_VERSION {
+    if r.text(32)? != domain {
         return Err(Error::Schema);
     }
+    let version = r.uint()?;
     let a = A::read(&mut r)?;
     let b = B::read(&mut r)?;
     r.end()?;
-    Ok((a, b))
+    Ok((version, a, b))
 }

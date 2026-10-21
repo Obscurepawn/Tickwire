@@ -38,6 +38,6 @@ Runtime 私有拥有 engine/journal，不提供可变引用。`CommitAuthorizer`
 
 ## 验收
 
-`docs/validation/business-journal` 保存接口桩行为 Red、接管幂等 Red、等待期间过期 Red、native/Linux Green、格式/Clippy 和源码摘要。真实文件测试包括 Prepared/Aborted 同步失败、部分 Aborted 写入、两个子进程 SIGKILL 边界以及相对目录打开后 CWD 改变。
+历史验证覆盖接口桩行为 Red、接管幂等 Red、等待期间过期 Red、native/Linux Green、格式/Clippy 和源码摘要（原始日志曾存于已删除的 `docs/validation/business-journal`）。真实文件测试包括 Prepared/Aborted 同步失败、部分 Aborted 写入、两个子进程 SIGKILL 边界以及相对目录打开后 CWD 改变。
 
 TLA 的 business_journal L0 检查新增完成顺序；交易结果记录组合与跨 writer 身份模型留待后续层。签名证明、镜像确认、真实策略授权、可信资本、防回滚和掉电实验不在本契约已完成范围。

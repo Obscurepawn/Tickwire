@@ -1,6 +1,6 @@
 # 恢复依赖保存与验证
 
-`tickwire-recovery` 提供统一的 `BlobStore` 接口、内存 Mock 和真实文件后端。业务日志提交前，`Persistence::publish` 验证并同步恢复所需的全部对象，最后返回无法由调用方直接构造的 `VerifiedClosure`。重启后的 `verify` 读取原绑定，重新核验内容并确认同步完成。接口见[恢复依赖接口](../../docs/implementation/recovery-closure-interface.md)，测试与审阅见[验证记录](../../docs/validation/recovery-closure/README.md)。
+`tickwire-recovery` 提供统一的 `BlobStore` 接口、内存 Mock 和真实文件后端。业务日志提交前，`Persistence::publish` 验证并同步恢复所需的全部对象，最后返回无法由调用方直接构造的 `VerifiedClosure`。重启后的 `verify` 读取原绑定，重新核验内容并确认同步完成。接口见恢复依赖接口，测试与审阅见验证记录。
 
 ## 对象与绑定
 

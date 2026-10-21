@@ -1,7 +1,0 @@
-{
-  "started_utc": "2026-10-20T10:24:15.261642+00:00",
-  "source_sha256": "37beb8dcd515b76a8c3bec0a2cd46a1c3c2431375276810b45818b8b35fd04a3",
-  "cooperating_tasks": "root, ipc_codec and risk_core confirmed compiler, tests, TLC and commit-hook/scanner work paused before start",
-  "isolation": "No OS-level CPU isolation or affinity; system/background processes remain",
-  "completed_utc": "2026-10-20T10:29:13.586023+00:00"
-}

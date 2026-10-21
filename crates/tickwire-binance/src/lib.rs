@@ -7,6 +7,7 @@ pub mod decimal;
 pub mod depth_sync;
 pub mod events;
 pub mod feed;
+pub mod market;
 pub mod params;
 pub mod request;
 pub mod response;

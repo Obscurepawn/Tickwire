@@ -306,3 +306,144 @@ fn heartbeat_cannot_commit_beyond_the_actual_local_log() {
     message.commit = 1;
     assert_eq!(node.step(2, message), Err(Error::Protocol));
 }
+
+#[test]
+fn bounded_ready_turns_yield_without_poisoning_and_preserve_applied_commands() {
+    use tickwire_control_raft::driver::{ReadyBudget, Role};
+    let mut cluster = Cluster::new();
+    cluster.nodes[0].campaign().unwrap();
+    let budget = ReadyBudget::new(1).unwrap();
+    for _ in 0..32 {
+        let mut messages = Vec::new();
+        for node in &mut cluster.nodes {
+            messages.extend(node.drive_bounded(budget).unwrap().messages);
+        }
+        for message in messages {
+            cluster.nodes[(message.to - 1) as usize]
+                .step(message.from, message)
+                .unwrap();
+        }
+    }
+    assert_eq!(cluster.nodes[0].status().role, Role::Leader);
+    cluster.nodes[0].propose(b"bounded".to_vec()).unwrap();
+    for _ in 0..32 {
+        let mut messages = Vec::new();
+        for node in &mut cluster.nodes {
+            messages.extend(node.drive_bounded(budget).unwrap().messages);
+        }
+        for message in messages {
+            cluster.nodes[(message.to - 1) as usize]
+                .step(message.from, message)
+                .unwrap();
+        }
+    }
+    for node in &cluster.nodes {
+        assert!(!node.status().poisoned);
+        assert_eq!(node.history()[0].command(), b"bounded");
+        let membership = node.current_membership();
+        assert_eq!(membership.voters(), &[1, 2, 3]);
+        assert!(membership.voters_outgoing().is_empty());
+        assert_eq!(membership.applied_index(), 0);
+        assert_eq!(node.status().committed, node.applied_index());
+    }
+    assert!(ReadyBudget::new(0).is_err());
+    assert!(ReadyBudget::new(129).is_err());
+}
+
+#[test]
+fn confstate_apply_sync_failures_withhold_messages_and_recover_one_complete_membership() {
+    use protobuf::Message as _;
+    use tickwire_control_raft::membership::MembershipAction;
+    for failure in 1..=6 {
+        let dir = Directory::new();
+        let fault = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let mut node = Node::create(
+            FaultFile {
+                file: dir.open(1),
+                fault: fault.clone(),
+            },
+            config(1),
+        )
+        .unwrap();
+        let expected = node.current_membership().digest();
+        let mut context = vec![0; 88];
+        context[..8].copy_from_slice(b"TWMC0001");
+        context[8..24].fill(33);
+        context[24..56].copy_from_slice(&expected);
+        context[56] = 1;
+        context[64..72].copy_from_slice(&4u64.to_le_bytes());
+        let cc = raft::eraftpb::ConfChangeV2 {
+            changes: vec![raft::eraftpb::ConfChangeSingle {
+                node_id: 4,
+                change_type: raft::eraftpb::ConfChangeType::AddLearnerNode,
+                ..Default::default()
+            }]
+            .into(),
+            ..Default::default()
+        };
+        let mut m = append_message();
+        m.entries[0].set_entry_type(raft::eraftpb::EntryType::EntryConfChangeV2);
+        m.entries[0].data = cc.write_to_bytes().unwrap().into();
+        m.entries[0].context = context.into();
+        node.step(2, m).unwrap();
+        fault.store(failure, Ordering::Relaxed);
+        assert!(node.drive().is_err(), "conf sync cut {failure}");
+        assert_eq!(node.campaign(), Err(Error::Poisoned));
+        drop(node);
+        let mut recovered = Node::recover(dir.open(1), config(1)).unwrap();
+        recovered.drive().unwrap();
+        if let Some(receipt) = recovered.membership_receipt([33; 16]) {
+            assert_eq!(
+                receipt.request().action,
+                MembershipAction::AddLearner { node_id: 4 }
+            );
+            assert_eq!(recovered.current_membership().learners(), &[4]);
+            assert_eq!(recovered.current_membership().applied_index(), 1);
+        } else {
+            assert!(recovered.current_membership().learners().is_empty());
+        }
+    }
+}
+
+#[test]
+fn canceled_read_tickets_stay_bounded_without_quorum_then_release_on_completion() {
+    let mut c = Cluster::new();
+    c.elect(0);
+    let keep = c.nodes[0].request_read().unwrap();
+    for _ in 0..1023 {
+        let canceled = c.nodes[0].request_read().unwrap();
+        assert!(c.nodes[0].cancel_read(&canceled).unwrap());
+        assert!(!c.nodes[0].cancel_read(&canceled).unwrap());
+        assert!(!c.nodes[1].cancel_read(&canceled).unwrap());
+        assert!(c.nodes[0].take_read(&canceled).is_err());
+    }
+    assert!(matches!(c.nodes[0].request_read(), Err(Error::Bounds)));
+    c.pump(None);
+    assert!(c.nodes[0].take_read(&keep).unwrap().is_some());
+    assert!(!c.nodes[0].cancel_read(&keep).unwrap());
+    for _ in 0..1024 {
+        c.nodes[0].request_read().unwrap();
+    }
+    assert!(matches!(c.nodes[0].request_read(), Err(Error::Bounds)));
+}
+
+#[test]
+fn dropped_completed_tickets_are_reaped_but_isolated_drops_keep_underlying_read_budget() {
+    let mut c = Cluster::new();
+    c.elect(0);
+    let keep = c.nodes[0].request_read().unwrap();
+    for _ in 0..1100 {
+        let ticket = c.nodes[0].request_read().unwrap();
+        c.pump(None);
+        drop(ticket);
+    }
+    assert!(c.nodes[0].take_read(&keep).unwrap().is_some());
+    for _ in 0..1024 {
+        drop(c.nodes[0].request_read().unwrap());
+    }
+    assert!(matches!(c.nodes[0].request_read(), Err(Error::Bounds)));
+    c.pump(None);
+    let ticket = c.nodes[0].request_read().unwrap();
+    c.pump(None);
+    assert!(c.nodes[0].take_read(&ticket).unwrap().is_some());
+}

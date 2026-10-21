@@ -1,6 +1,0 @@
-{
-  "source_files_matched": 469,
-  "deployed_binaries_matched": 6,
-  "account_records_equal_to_mirror": 9,
-  "method": "SHA256 source files against frozen F2; SHA256 six retained deployed binaries; exported canonical account bytes compared with mirror content objects; sequence order was checked by the scenario owner"
-}

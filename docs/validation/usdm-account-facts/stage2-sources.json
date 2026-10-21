@@ -1,9 +1,0 @@
-{
-  "stage": "initial income owner scan and approval file integration",
-  "files": {
-    "crates/tickwire-app/src/reconciliation.rs": "7aeca3de8b2ab38a4cb62eba91bdeef2081056d00f1653ea9ae81136f0d82296",
-    "crates/tickwire-app/src/reconciliation/income.rs": "97b2ec80642062b4f179a5d283387733c39cb674b965fc582afbcbea4df9b7c7",
-    "crates/tickwire-binance-account/src/reconciliation/income_import.rs": "a4d201dcb4d32bf325037bb74f3ff0472783484abff154f561ccd687c2c03772"
-  },
-  "post_test_lint_change": "income.rs: modulo divisibility -> is_multiple_of; chunks_exact(2) -> as_chunks::<2>().0.iter(); no behavior change, root unified Clippy recheck pending"
-}

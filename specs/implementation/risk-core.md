@@ -1,6 +1,6 @@
 # Risk Core 实现契约
 
-实现目录为 [`crates/tickwire-risk`](../../crates/tickwire-risk)，接口决策见 [`risk-interface.md`](../../docs/implementation/risk-interface.md)。该库是无运行时依赖的安全 Rust 计算库，禁止 `unsafe`，不调用外部存储或交易所。`serde_json = 1.0.145` 只用于测试读取已有合成向量。
+实现目录为 [`crates/tickwire-risk`](../../crates/tickwire-risk)，接口决策见 `risk-interface.md`。该库是无运行时依赖的安全 Rust 计算库，禁止 `unsafe`，不调用外部存储或交易所。`serde_json = 1.0.145` 只用于测试读取已有合成向量。
 
 ## 计算与提交边界
 

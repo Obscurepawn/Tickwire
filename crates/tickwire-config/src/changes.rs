@@ -32,7 +32,31 @@ impl Authority {
     pub fn from_grants(grants: Vec<RoleGrant>) -> Self {
         Self { grants }
     }
-    fn covers(&self, roles: &[Role], accounts: &BTreeSet<String>, cluster: bool) -> bool {
+    /// Reading requires at least one current role covering the whole requested
+    /// scope. This does not grant mutation, commit or risk-administration rights.
+    pub fn authorize_read(&self, accounts: &BTreeSet<String>, cluster: bool) -> Result<()> {
+        if self.covers(
+            &[
+                Role::Viewer,
+                Role::Editor,
+                Role::Operator,
+                Role::RiskAdmin,
+                Role::ClusterAdmin,
+            ],
+            accounts,
+            cluster,
+        ) {
+            Ok(())
+        } else {
+            Err(auth_error())
+        }
+    }
+    pub(crate) fn covers(
+        &self,
+        roles: &[Role],
+        accounts: &BTreeSet<String>,
+        cluster: bool,
+    ) -> bool {
         let grants: Vec<_> = self
             .grants
             .iter()
@@ -490,7 +514,7 @@ fn classify(
     };
     Ok(result)
 }
-fn scope(path: &[String], old: &Value, new: &Value) -> BTreeSet<String> {
+pub(crate) fn scope(path: &[String], old: &Value, new: &Value) -> BTreeSet<String> {
     let mut result = BTreeSet::new();
     let group = path.first().map(String::as_str).unwrap_or("");
     let id = path.get(1).and_then(|s| s.strip_prefix('@'));

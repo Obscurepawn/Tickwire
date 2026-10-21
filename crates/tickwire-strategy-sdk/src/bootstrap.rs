@@ -48,6 +48,8 @@ pub struct Bootstrap {
     /// Private loader-written job. If present, normal un-restored startup is rejected.
     #[serde(default)]
     pub preflight_job: Option<PathBuf>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub factory: Option<crate::registered::FactoryBinding>,
     pub demo_enabled: bool,
     pub demo_command_file: Option<PathBuf>,
     pub demo_minimum_bid_ticks: i64,

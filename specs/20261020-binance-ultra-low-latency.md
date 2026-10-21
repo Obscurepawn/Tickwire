@@ -15,7 +15,7 @@ Updated: 2026-10-20
 
 ## Scope
 
-[主设计](../docs/design/binance-ultra-low-latency.md)、[共享内存机制](../docs/design/shared-memory-ipc.md)、[IPC ABI](../docs/design/ipc-abi.md)、[策略生命周期](../docs/design/strategy-lifecycle.md)、[复制与接管](../docs/design/replication-and-failover.md)、[风险计算](../docs/design/risk-calculations.md)、[部署与 SLO](../docs/design/deployment-and-slo.md)、[配置契约](../docs/design/configuration.md)和[验证方案](../docs/verification-plan.md)共同构成生产目标。交付范围包括 Markdown、图、机器可读契约、TOML 样例和设计校验脚本。
+主设计、共享内存机制、IPC ABI、策略生命周期、复制与接管、风险计算、部署与 SLO、配置契约和验证方案共同构成生产目标。交付范围包括 Markdown、图、机器可读契约、TOML 样例和设计校验脚本。
 
 ## Requirements and constraints
 
@@ -88,9 +88,13 @@ v0.3 详细设计已完成：复制/主备、最终 IPC ABI、风险计算、生
 
 README.md；docs/design/ 的八份设计文档；docs/verification-plan.md；docs/research/ 中的主设计版本入口；docs/assets/ 图源、导出与核验文件；docs/design-review.md；specs/contracts/；config/；scripts/；本规格与 INDEX。
 
+> 编者注（2026-10-21）：上面的 `docs/` 系列交付物当时位于仓库 `docs/` 目录；该目录后已按项目决定整体删除（git 历史仍可检索）。当前权威文档入口为 `specs/INDEX.md`（实现规格与机器契约）、`README.md` 与 `AGENTS.md`。
+
 ## Verification
 
-命令、计数和当前图字节的核验结果见[设计交付核验](../docs/design-review.md)及[脚本说明](../scripts/README.md)。机器结果保存于 docs/validation/；Rust/集成/TLC 的计划用例尚未运行。
+命令、计数和当前图字节的核验结果见设计交付核验及[脚本说明](../scripts/README.md)。机器结果保存于 docs/validation/；Rust/集成/TLC 的计划用例尚未运行。
+
+> 编者注（2026-10-21）：`docs/validation/` 的机器结果目录已随 `docs/` 删除；当前 Rust 回归以 `./scripts/check-rust.sh`、Linux 多进程以 `./scripts/check-linux.sh`、TLC 以 `./scripts/check-tla.sh` 的实际输出为准。
 
 ## Risks and open questions
 

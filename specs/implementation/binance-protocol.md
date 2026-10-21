@@ -1,6 +1,6 @@
 # Binance 签名与订单协议
 
-实现入口是 [`tickwire-binance`](../../crates/tickwire-binance/src/lib.rs)，契约见[接口](../../docs/implementation/binance-interface.md)，实际命令输出见[验证记录](../../docs/validation/binance-protocol/README.md)。
+实现入口是 [`tickwire-binance`](../../crates/tickwire-binance/src/lib.rs)，契约见接口，实际命令输出见验证记录。
 
 先落接口，再对签名、参数、十进制、命令和响应写可编译的失败测试。签名测试采用官方 HMAC/FIX Ed25519 向量和独立 OpenSSL 生成的 RSA 签名；随后实现 `SigningKey`、`Params`、`Decimal`、`prepare` 与响应解码。
 

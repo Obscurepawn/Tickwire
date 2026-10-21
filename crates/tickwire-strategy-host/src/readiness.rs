@@ -1,6 +1,12 @@
 use super::*;
 use tickwire_ipc::HandoverReadyBody;
+mod cache;
+mod capture;
+mod install;
 pub(crate) struct ReadyProof {
+    source_spec: LaunchSpec,
+    context: Option<cache::Context>,
+    cache: cache::Cache,
     directory: Option<PathBuf>,
     identity: Identity,
     last: Option<HandoverReadyBody>,
@@ -10,11 +16,12 @@ pub(crate) struct ReadyProof {
     confirmed: Option<u64>,
     seal_sequence: u64,
     pause_callbacks: bool,
+    last_install_request: Option<tickwire_ipc::ReplayControlBody>,
     preflight: Option<preflight::Proof>,
     sources: std::collections::VecDeque<(HandoverReadyBody, [u8; 32])>,
 }
 impl ReadyProof {
-    pub fn new(config: &Bootstrap) -> Result<Self> {
+    pub fn new(config: &Bootstrap, spec: &LaunchSpec) -> Result<Self> {
         let directory = if config.handover_enabled {
             let template: tickwire_strategy_sdk::recovery::Template = worker::read_config(
                 config.recovery_template.as_ref().ok_or(Error::Invalid)?,
@@ -28,6 +35,9 @@ impl ReadyProof {
             None
         };
         Ok(Self {
+            source_spec: spec.clone(),
+            context: None,
+            cache: Default::default(),
             directory,
             identity: config.market.local.identity(),
             last: None,
@@ -47,6 +57,7 @@ impl ReadyProof {
             confirmed: None,
             seal_sequence: 0,
             pause_callbacks: false,
+            last_install_request: None,
             preflight: preflight::Proof::new(config)?,
             sources: Default::default(),
         })
@@ -75,11 +86,37 @@ impl ReadyProof {
                 return Err(Error::Invalid);
             }
             let body = HandoverReadyBody::decode(frame.body)?;
-            self.observe(body, lane.process.pid)?;
+            self.observe(body, lane, now)?;
         }
         Ok(())
     }
-    fn observe(&mut self, body: HandoverReadyBody, pid: u32) -> Result<()> {
+    fn context(&mut self, lane: &AuthenticatedChild, now: u64) -> Result<cache::Context> {
+        let context = cache::Context::from_lane(lane);
+        if context.identity != self.identity
+            || !context.live(now)
+            || self.context.as_ref().is_some_and(|old| old != &context)
+        {
+            self.cache.clear();
+            self.account_input = None;
+            return Err(Error::Invalid);
+        }
+        Ok(context)
+    }
+    fn observe(
+        &mut self,
+        body: HandoverReadyBody,
+        lane: &AuthenticatedChild,
+        now: u64,
+    ) -> Result<()> {
+        let context = match self.context(lane, now) {
+            Ok(value) => value,
+            Err(error) => {
+                self.cache.clear();
+                self.account_input = None;
+                return Err(error);
+            }
+        };
+        let pid = lane.process.pid;
         if body.instance_id != self.identity.instance
             || body.strategy_generation != self.identity.generation
             || body.logical_strategy_id != self.identity.logical_strategy
@@ -96,10 +133,13 @@ impl ReadyProof {
                 return Err(Error::Invalid);
             }
         }
-        let account_input = tickwire_strategy_sdk::handover::verify(
+        let (account_input, _) = self.cache.load(
             self.directory.as_ref().ok_or(Error::Invalid)?,
+            &context,
             &body,
+            now,
         )?;
+        self.context = Some(context);
         eprintln!(
             "{}",
             serde_json::json!({"event":"strategy_ready","worker_pid":pid,"ready_sequence":body.ready_sequence,"instance":body.instance_id,"generation":body.strategy_generation,"checkpoint_digest":body.checkpoint_digest,"exec_report_sequence":body.exec_report_sequence,"orders_digest":body.orders_digest,"ledger_sequence":body.ledger_sequence,"input_seal_digest":body.input_seal_digest})
@@ -110,6 +150,29 @@ impl ReadyProof {
     }
     pub fn pause_on_capture(&mut self) {
         self.pause_callbacks = true;
+    }
+    pub fn source_replay(
+        &self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: tickwire_runtime::node::HandoverReadiness,
+        fixed_objects: Vec<Vec<u8>>,
+        current: tickwire_runtime::node::HandoverReadiness,
+        current_objects: Vec<Vec<u8>>,
+    ) -> Result<tickwire_release::replay::source::VerifiedSourceReplay> {
+        if !self.pause_callbacks {
+            return Err(Error::NotReady);
+        }
+        source_replay::run(
+            &self.source_spec,
+            self.receipt.parent().ok_or(Error::Invalid)?,
+            operation,
+            member,
+            fixed,
+            fixed_objects,
+            current,
+            current_objects,
+        )
     }
     pub fn release_objects(&mut self, roots: [[u8; 32]; 3]) -> Result<Option<Vec<Vec<u8>>>> {
         self.preflight
@@ -139,6 +202,7 @@ impl ReadyProof {
         if now >= until {
             return Err(Error::NotReady);
         }
+        let capture_context = self.context(lane, now)?;
         let body = tickwire_ipc::CheckpointSealBody {
             instance_id: self.identity.instance,
             logical_strategy_id: self.identity.logical_strategy,
@@ -161,6 +225,7 @@ impl ReadyProof {
         )?;
         let request = ControlEnvelope::decode(&raw[..128])?;
         let previous = self.last.as_ref().map_or(0, |r| r.ready_sequence);
+        let mut progress = capture::Progress::new(self.identity.clone(), self.last.clone());
         let deadline = Instant::now() + Duration::from_secs(3);
         lane.connection.send(&raw, &[], deadline)?;
         loop {
@@ -173,6 +238,9 @@ impl ReadyProof {
                 return Err(Error::NotReady);
             }
             let frame = lane.session.validate(packet.bytes(), now)?;
+            if self.context(lane, now)? != capture_context {
+                return Err(Error::Invalid);
+            }
             if frame.envelope.opcode == 38 {
                 let envelope = frame.envelope.clone();
                 let raw = frame.body.to_vec();
@@ -183,7 +251,9 @@ impl ReadyProof {
                 continue;
             }
             if frame.envelope.opcode == 37 && frame.envelope.flags == 32 {
-                self.observe(HandoverReadyBody::decode(frame.body)?, lane.process.pid)?;
+                let body = HandoverReadyBody::decode(frame.body)?;
+                self.context(lane, now)?;
+                progress.accept(&body, false, || self.observe(body.clone(), lane, now))?;
                 continue;
             }
             let reply = tickwire_strategy_sdk::checkpoint::verify_reply(
@@ -193,8 +263,14 @@ impl ReadyProof {
                 &body,
                 previous,
             )?;
-            self.observe(reply.ready, lane.process.pid)?;
-            self.confirm(reports, sub, lane, now)?;
+            self.context(lane, now)?;
+            progress.accept(&reply.ready, true, || {
+                self.observe(reply.ready.clone(), lane, now)
+            })?;
+            // The reply was received within its challenge deadline above. Disk
+            // verification may take time; the live session must still qualify
+            // when publishing the verified consumption receipt.
+            self.confirm(reports, sub, lane, clock.sample()?.monotonic.nanos())?;
             let want = self.current().ok_or(Error::NotReady)?;
             if !self.matches(reports, sub, &want)? {
                 return Err(Error::NotReady);
@@ -211,6 +287,7 @@ impl ReadyProof {
         lane: &AuthenticatedChild,
         now: u64,
     ) -> Result<()> {
+        self.context(lane, now)?;
         let Some(body) = &self.last else {
             return Ok(());
         };
@@ -285,11 +362,14 @@ impl ReadyProof {
         )
     }
     pub fn objects(
-        &self,
+        &mut self,
+        lane: &AuthenticatedChild,
+        now: u64,
         reports: &Reports,
         sub: tickwire_shm::SubscriptionKey,
         want: &tickwire_runtime::node::HandoverReadiness,
     ) -> Result<Option<Vec<Vec<u8>>>> {
+        let context = self.context(lane, now)?;
         let historical = self
             .sources
             .iter()
@@ -304,9 +384,11 @@ impl ReadyProof {
         } else {
             return Ok(None);
         };
-        let (digest, objects) = tickwire_strategy_sdk::handover::objects(
+        let (digest, objects) = self.cache.load(
             self.directory.as_ref().ok_or(Error::NotReady)?,
+            &context,
             body,
+            now,
         )?;
         if digest != expected {
             return Err(Error::Invalid);

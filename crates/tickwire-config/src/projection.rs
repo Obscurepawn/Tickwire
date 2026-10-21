@@ -92,6 +92,9 @@ impl PinnedPolicy {
     pub fn reference(&self) -> &str {
         &self.reference
     }
+    pub(crate) fn process_ids(&self) -> impl Iterator<Item = &str> {
+        self.document.targets.iter().map(|t| t.process_id.as_str())
+    }
 }
 #[derive(Debug)]
 pub struct Projection {

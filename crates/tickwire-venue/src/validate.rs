@@ -544,6 +544,54 @@ pub(crate) fn event(e: &VenueEvent) -> Result<(), Error> {
         return Err(Error::Identity);
     }
     match &e.body {
+        VenueEventBody::AmendmentRejected(a) => {
+            event_order(&a.order)?;
+            if i.product != Product::Spot
+                || a.request_intent_id == 0
+                || a.request_intent_exec_epoch == 0
+                || a.request_digest == [0; 32]
+                || a.order.venue_order_id.is_none()
+                || a.order.client_id.is_none()
+                || a.order.parent_order_id.is_some()
+                || a.order.list_id.is_some()
+                || a.order.venue_algo_id.is_some()
+                || a.order.venue_list_id.is_some()
+                || a.order.algo_client_id.is_some()
+                || a.order.list_client_id.is_some()
+            {
+                return Err(Error::Identity);
+            }
+        }
+        VenueEventBody::Amendment(a) => {
+            event_order(&a.order)?;
+            positive(a.previous_quantity)?;
+            positive(a.new_quantity)?;
+            if compare_positive(a.new_quantity, a.previous_quantity) != std::cmp::Ordering::Less {
+                return Err(Error::Quantity);
+            }
+            if i.product != Product::Spot
+                || a.request_intent_id == 0
+                || a.request_intent_exec_epoch == 0
+                || a.request_digest == [0; 32]
+                || a.order.venue_order_id.is_none()
+                || a.order.client_id.is_none()
+                || a.order.parent_order_id.is_some()
+                || a.order.list_id.is_some()
+                || a.order.venue_algo_id.is_some()
+                || a.order.venue_list_id.is_some()
+                || a.order.algo_client_id.is_some()
+                || a.order.list_client_id.is_some()
+            {
+                return Err(Error::Identity);
+            }
+            if let Some(o) = &a.observation {
+                observation(o)?;
+                if o.order != a.order || o.original_quantity != Some(a.new_quantity) {
+                    return Err(Error::Identity);
+                }
+            }
+        }
+        VenueEventBody::Structure(s) => structure(s, i.product)?,
         VenueEventBody::Order(o) => observation(o)?,
         VenueEventBody::Fill(f) => {
             observation(&f.observation)?;
@@ -565,6 +613,68 @@ pub(crate) fn event(e: &VenueEvent) -> Result<(), Error> {
             fees(deltas)?
         }
         VenueEventBody::Rejected { .. } => {}
+    }
+    Ok(())
+}
+
+fn structure(s: &StructureObservation, product: Product) -> Result<(), Error> {
+    let p = &s.parent;
+    if !nonzero(&p.structure_id) || p.original_intent_id == 0 || p.original_intent_exec_epoch == 0 {
+        return Err(Error::Identity);
+    }
+    let algo = p.kind == StructureKind::Algo;
+    if (algo && !matches!(product, Product::LinearPerpetual | Product::LinearFuture))
+        || (!algo && product != Product::Spot)
+    {
+        return Err(Error::ProductCombination);
+    }
+    let maximum = match p.kind {
+        StructureKind::Algo => 1,
+        StructureKind::Otoco => 3,
+        _ => 2,
+    };
+    let children = s.children.as_slice();
+    if children.len() > maximum {
+        return Err(Error::Bounds);
+    }
+    for (index, child) in children.iter().enumerate() {
+        let o = &child.order;
+        event_order(o)?;
+        if !nonzero(&o.order_id)
+            || o.original_intent_id != p.original_intent_id
+            || o.original_intent_exec_epoch != p.original_intent_exec_epoch
+            || o.client_id.is_none()
+            || o.venue_order_id.is_none()
+            || p.venue_parent_id.is_none()
+        {
+            return Err(Error::Identity);
+        }
+        if algo {
+            if o.parent_order_id != Some(p.structure_id)
+                || o.venue_algo_id != p.venue_parent_id
+                || o.algo_client_id.as_ref() != Some(&p.client_id)
+                || o.list_id.is_some()
+                || o.list_client_id.is_some()
+                || o.venue_list_id.is_some()
+            {
+                return Err(Error::Identity);
+            }
+        } else if o.list_id != Some(p.structure_id)
+            || o.venue_list_id != p.venue_parent_id
+            || o.list_client_id.as_ref() != Some(&p.client_id)
+            || o.parent_order_id.is_some()
+            || o.venue_algo_id.is_some()
+            || o.algo_client_id.is_some()
+        {
+            return Err(Error::Identity);
+        }
+        if children[..index].iter().any(|prior| {
+            prior.order.order_id == o.order_id
+                || prior.order.client_id == o.client_id
+                || prior.order.venue_order_id == o.venue_order_id
+        }) {
+            return Err(Error::Duplicate);
+        }
     }
     Ok(())
 }

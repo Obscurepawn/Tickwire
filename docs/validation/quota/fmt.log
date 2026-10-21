@@ -1,3 +1,0 @@
-command: ["/Users/bytedance/.cargo/bin/cargo", "fmt", "-p", "tickwire-quota"]
-
-exit: 0

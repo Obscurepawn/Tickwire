@@ -7,6 +7,8 @@ pub mod market;
 pub mod outbound;
 pub mod preflight;
 pub mod recovery;
+pub mod registered;
+pub mod replay;
 #[allow(unsafe_code)]
 pub mod reports;
 pub mod restore;
@@ -39,6 +41,7 @@ pub enum Error {
     Clock(tickwire_clock_sys::Error),
     Release(tickwire_release::Error),
     Restore(restore::Error),
+    Replay(replay::Error),
     Identity,
     Bounds,
     Stale,
@@ -82,7 +85,75 @@ from!(serde_json::Error, Json);
 from!(tickwire_clock_sys::Error, Clock);
 from!(tickwire_release::Error, Release);
 from!(restore::Error, Restore);
+from!(replay::Error, Replay);
 pub trait Strategy {
+    /// A registered target factory executes migration at the verified old cut.
+    /// Returning a candidate grants neither installation nor output authority.
+    fn prepare_replayed(
+        &self,
+        _release: &tickwire_release::MemberRelease<'_>,
+        _target: restore::Target,
+        _proof: &tickwire_release::replay::source::VerifiedSourceReplay,
+        _source: tickwire_release::replay::Source,
+        _config: tickwire_release::replay::VersionedBytes,
+    ) -> replay::Result<replay::install::Candidate<Self>>
+    where
+        Self: Sized,
+    {
+        Err(replay::Error::Unsupported)
+    }
+
+    /// None preserves the old callback API, without claiming complete-tail replay.
+    fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
+        Ok(None)
+    }
+    /// Deterministic callback variants used by the versioned input owner.
+    fn on_market_recorded(
+        &mut self,
+        view: MarketView<'_>,
+        context: &mut replay::ReplayContext<'_>,
+    ) -> Result<Option<CanonicalCommand>> {
+        self.on_market(view, context.now_ns())
+    }
+    fn on_report_recorded(
+        &mut self,
+        report: &reports::AccountReport,
+        context: &mut replay::ReplayContext<'_>,
+    ) -> Result<Option<CanonicalCommand>> {
+        self.on_report(report, context.now_ns())
+    }
+    fn on_timer(
+        &mut self,
+        _id: u64,
+        _generation: u64,
+        _context: &mut replay::ReplayContext<'_>,
+    ) -> Result<Option<CanonicalCommand>> {
+        Err(Error::NotReady)
+    }
+    fn on_external(
+        &mut self,
+        _source: &tickwire_release::replay::StreamKey,
+        _schema: u64,
+        _bytes: &[u8],
+        _context: &mut replay::ReplayContext<'_>,
+    ) -> Result<Option<CanonicalCommand>> {
+        Err(Error::NotReady)
+    }
+    fn apply_config(
+        &mut self,
+        _bytes: &[u8],
+        _context: &mut replay::ReplayContext<'_>,
+    ) -> Result<()> {
+        Err(Error::NotReady)
+    }
+    fn apply_model(
+        &mut self,
+        _id: u16,
+        _bytes: &[u8],
+        _context: &mut replay::ReplayContext<'_>,
+    ) -> Result<()> {
+        Err(Error::NotReady)
+    }
     /// Exact initial strategy state for its approved replay/checkpoint schema.
     fn checkpoint(&self) -> Result<Vec<u8>> {
         Err(Error::NotReady)
@@ -101,6 +172,33 @@ pub trait Strategy {
 #[derive(Default)]
 pub struct ObserveOnly;
 impl Strategy for ObserveOnly {
+    fn prepare_replayed(
+        &self,
+        release: &tickwire_release::MemberRelease<'_>,
+        target: restore::Target,
+        proof: &tickwire_release::replay::source::VerifiedSourceReplay,
+        source: tickwire_release::replay::Source,
+        config: tickwire_release::replay::VersionedBytes,
+    ) -> replay::Result<replay::install::Candidate<Self>> {
+        replay::install::prepare(
+            &restore::ObserveFactory,
+            release,
+            target,
+            proof,
+            source,
+            config,
+        )
+    }
+    fn apply_config(
+        &mut self,
+        bytes: &[u8],
+        context: &mut replay::ReplayContext<'_>,
+    ) -> Result<()> {
+        replay::native::apply_observe(bytes, context)
+    }
+    fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
+        Ok(Some(replay::native::observe()))
+    }
     fn checkpoint(&self) -> Result<Vec<u8>> {
         Ok(b"TWOBS001".to_vec())
     }
@@ -127,6 +225,16 @@ impl FixedDemo {
     }
 }
 impl Strategy for FixedDemo {
+    fn apply_config(
+        &mut self,
+        bytes: &[u8],
+        context: &mut replay::ReplayContext<'_>,
+    ) -> Result<()> {
+        replay::native::apply_demo(self, true, bytes, context)
+    }
+    fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
+        Ok(Some(replay::native::demo(self, restore::DEMO_V1_SCHEMA)?))
+    }
     fn checkpoint(&self) -> Result<Vec<u8>> {
         let mut b = b"TWFD0001".to_vec();
         b.push(u8::from(self.enabled && self.command.is_some()));

@@ -9,7 +9,7 @@ use tickwire_clock::{ClockDomain, MonoTime};
 use tickwire_journal::Journal;
 
 #[path = "../../tickwire-account/tests/common/mod.rs"]
-mod common;
+pub(crate) mod common;
 
 const ACCOUNT_STREAM: [u8; 16] = [2; 16];
 const INPUT_STREAM: [u8; 16] = [81; 16];
@@ -47,6 +47,7 @@ impl Fixture {
         let baseline = CanonicalBaseline::new(s, c).unwrap();
         let key = Ed25519KeyPair::from_seed_unchecked(&[42; 32]).unwrap();
         let input_config = tickwire_binance_account::Config {
+            income_association_authority: None,
             income_baseline_authority: Some(IncomeBaselineAuthority {
                 controller_id: [31; 16],
                 public_key: key.public_key().as_ref().try_into().unwrap(),
@@ -184,9 +185,9 @@ impl Fixture {
         );
         assert!(input.income_coverage_object(&self.binding).is_ok());
         let mut verifier = Historical {
-            persistence: Persistence::new(
+            persistence: Persistence::new(SharedBlobStore::new(
                 FileBlobStore::open(self.root.0.join("recovery")).unwrap(),
-            ),
+            )),
             input: &input,
         };
         let account = AccountJournal::recover(

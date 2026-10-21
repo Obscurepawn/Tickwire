@@ -70,6 +70,97 @@ impl<S: Store> AccountIngress<S> {
     }
 }
 impl<S: Store> ReactivationVerifier for ActivationVerifier<'_, S> {
+    fn verify_uncreated_algo_live(
+        &mut self,
+        b: &CanonicalBaseline,
+        a: &Account,
+        h: &HistoryFrontier,
+        v: &tickwire_account::UncreatedAlgoClosed,
+        w: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        if self.input.stopped
+            || self.input.cursor != self.input.records.len()
+            || v.through_sequence != self.input.position()
+            || w != self.input.config.writer_epoch
+        {
+            return Err(AuthorityError::Denied);
+        }
+        self.verify_uncreated_algo(b, a, h, v, w)
+    }
+    fn verify_uncreated_algo(
+        &mut self,
+        b: &CanonicalBaseline,
+        a: &Account,
+        h: &HistoryFrontier,
+        v: &tickwire_account::UncreatedAlgoClosed,
+        w: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        self.input
+            .verify_uncreated_algo(b, a, h, v, w)
+            .map_err(|_| AuthorityError::Denied)
+    }
+
+    fn verify_income_association_live(
+        &mut self,
+        b: &CanonicalBaseline,
+        a: &Account,
+        h: &HistoryFrontier,
+        prior: &[tickwire_account_codec::CanonicalRecord],
+        binding: &tickwire_account::IncomeObservationsAssociated,
+        writer: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        if self.input.stopped
+            || self.input.cursor as u64 + 1 != binding.through_sequence
+            || writer != self.input.config.writer_epoch
+        {
+            return Err(AuthorityError::Denied);
+        }
+        self.verify_income_association(b, a, h, prior, binding, writer)
+    }
+    fn verify_income_association(
+        &mut self,
+        b: &CanonicalBaseline,
+        a: &Account,
+        h: &HistoryFrontier,
+        prior: &[tickwire_account_codec::CanonicalRecord],
+        binding: &tickwire_account::IncomeObservationsAssociated,
+        writer: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        self.input
+            .verify_income_association(b, a, h, prior, binding, writer)
+            .map_err(|_| AuthorityError::Denied)
+    }
+
+    fn verify_account_inputs_closure_live(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        account: &Account,
+        preceding: &HistoryFrontier,
+        binding: &tickwire_account::AccountInputsReconciled,
+        writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        if self.input.stopped
+            || self.input.cursor != self.input.records.len()
+            || binding.through_sequence != self.input.position()
+            || writer_epoch != self.input.config.writer_epoch
+        {
+            return Err(AuthorityError::Denied);
+        }
+        self.verify_account_inputs_closure(baseline, account, preceding, binding, writer_epoch)
+    }
+
+    fn verify_account_inputs_closure(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        account: &Account,
+        preceding: &HistoryFrontier,
+        binding: &tickwire_account::AccountInputsReconciled,
+        writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        self.input
+            .verify_account_inputs_closure(baseline, account, preceding, binding, writer_epoch)
+            .map_err(|_| AuthorityError::Denied)
+    }
     fn verify_income_baseline(
         &mut self,
         baseline: &CanonicalBaseline,
@@ -93,7 +184,7 @@ impl<S: Store> ReactivationVerifier for ActivationVerifier<'_, S> {
             .map_err(|_| AuthorityError::Denied)
     }
 }
-fn digest(evidence: &[SnapshotEvidence; 3]) -> v::Hash {
+pub(super) fn digest(evidence: &[SnapshotEvidence; 3]) -> v::Hash {
     ring::digest::digest(&ring::digest::SHA256, &coverage_bytes(evidence))
         .as_ref()
         .try_into()
@@ -108,7 +199,10 @@ fn coverage_bytes(evidence: &[SnapshotEvidence; 3]) -> Vec<u8> {
     }
     bytes
 }
-fn evidence_at<S: Store>(input: &AccountIngress<S>, through: u64) -> Result<[SnapshotEvidence; 3]> {
+pub(super) fn evidence_at<S: Store>(
+    input: &AccountIngress<S>,
+    through: u64,
+) -> Result<[SnapshotEvidence; 3]> {
     let end = usize::try_from(through).map_err(|_| Error::Identity)?;
     if end == 0 || end > input.records.len() {
         return Err(Error::Identity);
@@ -137,10 +231,22 @@ fn evidence_at<S: Store>(input: &AccountIngress<S>, through: u64) -> Result<[Sna
     }
     Ok(evidence)
 }
-fn verify<S: Store>(
+pub(super) fn verify<S: Store>(
     input: &AccountIngress<S>,
     baseline: &CanonicalBaseline,
     account: &Account,
+    preceding: &HistoryFrontier,
+    binding: &Reactivation,
+) -> Result<[SnapshotEvidence; 3]> {
+    verify_with_projection(input, baseline, account, account, preceding, binding)
+}
+// Metadata still belongs to the actual pre-transition ledger. Only a verified,
+// candidate NoChild transition supplies the snapshot liability projection.
+pub(super) fn verify_with_projection<S: Store>(
+    input: &AccountIngress<S>,
+    baseline: &CanonicalBaseline,
+    account: &Account,
+    projection: &Account,
     preceding: &HistoryFrontier,
     binding: &Reactivation,
 ) -> Result<[SnapshotEvidence; 3]> {
@@ -200,7 +306,7 @@ fn verify<S: Store>(
     snapshot::verify_snapshot_with_orders(
         input.market()?,
         baseline,
-        account,
+        projection,
         evidence[0].body(),
         evidence[1].body(),
         evidence[2].body(),
@@ -317,14 +423,30 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             self.gateway.history_frontier(),
             &binding,
         )?;
-        let receipt = self
-            .gateway
-            .reactivate(
-                binding.clone(),
-                connection,
-                &mut self.ingress.activation_verifier(),
-            )
-            .map_err(Error::Gateway)?;
+        let replaced = connection.is_some();
+        let receipt = if replaced && let Some(runtime) = self.websocket.as_mut() {
+            self.gateway
+                .reactivate(
+                    binding.clone(),
+                    connection,
+                    &mut crate::ws::owner::ReconnectVerifier {
+                        input: &mut self.ingress,
+                        runtime,
+                    },
+                )
+                .map_err(Error::Gateway)?
+        } else {
+            self.gateway
+                .reactivate(
+                    binding.clone(),
+                    connection,
+                    &mut self.ingress.activation_verifier(),
+                )
+                .map_err(Error::Gateway)?
+        };
+        if replaced && self.websocket.is_some() {
+            self.finish_ws_reconnect()?;
+        }
         self.config.connection_epoch = cut.execution_connection_epoch;
         self.ingress.config.writer_epoch = cut.writer_epoch;
         Ok(ActivationProof {

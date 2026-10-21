@@ -9,6 +9,24 @@ fn main() {
 fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args_os().skip(1);
     let mode = args.next();
+    if mode.as_deref() == Some(std::ffi::OsStr::new("--replay-rollback")) {
+        let path = args.next().ok_or("missing installed rollback job")?;
+        if args.next().is_some() {
+            return Err("unexpected argument".into());
+        }
+        let job = worker::read_config(std::path::Path::new(&path), 2 * 1024 * 1024)?;
+        tickwire_strategy_sdk::replay::rollback::run_native(&job)?;
+        return Ok(());
+    }
+    if mode.as_deref() == Some(std::ffi::OsStr::new("--source-replay")) {
+        let path = args.next().ok_or("missing source replay job")?;
+        if args.next().is_some() {
+            return Err("unexpected argument".into());
+        }
+        let job = worker::read_config(std::path::Path::new(&path), 2 * 1024 * 1024)?;
+        tickwire_strategy_sdk::replay::process::run_native(&job)?;
+        return Ok(());
+    }
     if mode.as_deref() == Some(std::ffi::OsStr::new("--restore-probe")) {
         let path = args.next().ok_or("missing probe path")?;
         if args.next().is_some() {
@@ -26,6 +44,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         return Err("unexpected argument".into());
     }
     let config: Bootstrap = worker::read_config(std::path::Path::new(&path), 2 * 1024 * 1024)?;
+    if config.factory.is_some() {
+        return Err("this executable has no user factory registration".into());
+    }
     if let Some(job_path) = &config.preflight_job {
         let job: tickwire_strategy_sdk::preflight::Job =
             worker::read_config(job_path, 2 * 1024 * 1024)?;

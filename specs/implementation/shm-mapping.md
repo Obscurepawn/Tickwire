@@ -1,6 +1,6 @@
 # 共享映射实现规格与验证
 
-`tickwire-shm-sys` 已实现单写 memfd 的 Linux 映射和原子访问原语。[接口](../../docs/implementation/shm-mapping-interface.md)先于测试与实现确定；业务 ring 另行维护发布、槽位借用和释放。`unsafe` 只位于这个低层 crate 及上层 SDK 明确允许的私有边界，根 workspace 的禁止规则没有放宽。
+`tickwire-shm-sys` 已实现单写 memfd 的 Linux 映射和原子访问原语。接口先于测试与实现确定；业务 ring 另行维护发布、槽位借用和释放。`unsafe` 只位于这个低层 crate 及上层 SDK 明确允许的私有边界，根 workspace 的禁止规则没有放宽。
 
 创建顺序是 memfd → 定长零页 → RW `MAP_SHARED` → `MADV_DONTFORK` → 初始化 → 设置并读回 `0x17` seals → 允许导出 FD。读者验证普通文件、精确长度及完整单写 seal profile 后只建立 RO 映射。创建者就是此接口的唯一写者，跨进程委派写者的 MapWriter ACK 尚未实现。后续已加入[资源头身份校验](shm-ring.md)、[认证控制会话](control-session.md)与 [SCM_RIGHTS 控制传输](control-transport.md)；它们各自保留独立测试证据。
 

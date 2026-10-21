@@ -1,0 +1,37 @@
+use std::path::PathBuf;
+use tickwire_control_peer::config_runner;
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let mut config = None;
+    let mut turns = None;
+    while let Some(arg) = args.next() {
+        match arg.as_str() {
+            "--config" if config.is_none() => {
+                config = Some(args.next().map(PathBuf::from).unwrap_or_else(|| usage()))
+            }
+            "--turns" if turns.is_none() => {
+                turns = Some(
+                    args.next()
+                        .and_then(|v| v.parse::<u64>().ok())
+                        .filter(|n| *n > 0)
+                        .unwrap_or_else(|| usage()),
+                )
+            }
+            _ => usage(),
+        }
+    }
+    let path = config.unwrap_or_else(|| usage());
+    if !path.is_absolute() {
+        usage()
+    }
+    if let Err(error) = config_runner::load(&path).and_then(|c| config_runner::run(&c, turns)) {
+        eprintln!("config-server: {error:?}");
+        std::process::exit(1)
+    }
+}
+fn usage() -> ! {
+    eprintln!(
+        "usage: tickwire-config-server --config /absolute/server.json [--turns positive-count]"
+    );
+    std::process::exit(2)
+}

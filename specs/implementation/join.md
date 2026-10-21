@@ -1,6 +1,6 @@
 # JOIN owner 实现规格
 
-实现入口为 `tickwire-join`；接口及所有权边界见 [JOIN 接口](../../docs/implementation/join-interface.md)，源码为 [owner](../../crates/tickwire-join/src/lib.rs) 与 [consumer](../../crates/tickwire-join/src/mapped.rs)。
+实现入口为 `tickwire-join`；接口及所有权边界见 JOIN 接口，源码为 [owner](../../crates/tickwire-join/src/lib.rs) 与 [consumer](../../crates/tickwire-join/src/mapped.rs)。
 
 | 操作 | 成功条件与结果 | 失败后的状态 |
 | --- | --- | --- |
@@ -15,6 +15,6 @@
 
 累计历史登记数不超过 M，已 detach 条目不自动回收。错误身份与期限不通过重试变成新授权。所有者使用同步 `&mut self` 串行域，消费者可在独立进程推进 cursor；unsafe 仅位于私有 mapped 模块的已有 SDK 合同接缝。
 
-真实 Red 先取得可编译的失败测试，再实现对应行为。SDK 6 项失败测试、owner 2 项失败测试、flow 2 项失败测试均有原始日志；前两类还包括在 stub 阶段已通过的拒绝测试，具体数量见 [验证记录](../../docs/validation/join/README.md)。实际 Linux 测试包含三进程认证、SCM_RIGHTS、immutable snapshot、pending 满门禁、追平激活及持有 guard 时无法退出。TLA 只证明列出的有限状态范围，见 [模型计划](../../tla/execution_models/join_owner/PLAN.md)。
+真实 Red 先取得可编译的失败测试，再实现对应行为。SDK 6 项失败测试、owner 2 项失败测试、flow 2 项失败测试均有原始日志；前两类还包括在 stub 阶段已通过的拒绝测试，具体数量见 验证记录。实际 Linux 测试包含三进程认证、SCM_RIGHTS、immutable snapshot、pending 满门禁、追平激活及持有 guard 时无法退出。TLA 只证明列出的有限状态范围，见 [模型计划](../../tla/execution_models/join_owner/PLAN.md)。
 
 保持待实现：持久 owner/RequestStore 恢复、代次重用、Supervisor 常驻分发、真实业务状态源、死亡回收和最终 exec 增险授权。超时与 socket EOF 都没有 detach 权限。

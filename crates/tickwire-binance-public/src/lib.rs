@@ -224,3 +224,10 @@ pub struct IoTokens {
 mod client;
 mod protocol;
 pub use client::PublicDepthClient;
+pub mod event;
+pub use event::{
+    EventConfig, EventGap, EventNetworkConfig, EventNotice, EventSink, EventStatus,
+    PublicEventClient,
+};
+
+pub use event::{EventContext, EventEncoding, EventKind, StreamIdentity};

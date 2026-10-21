@@ -36,6 +36,7 @@ fn fixture() -> (Config, tickwire_venue::CanonicalCommand) {
             baseline: CanonicalBaseline::new(snapshot, catalog).unwrap(),
             account_stream: [2; 16],
             max_records: 32,
+            income_association_authority: None,
             income_baseline_authority: None,
             max_registrations: 8,
             max_raw_bytes: 32_768,
@@ -111,4 +112,40 @@ fn registration_epoch_must_match_its_physical_writer() {
         AccountIngress::recover(FileStore::open(&directory.0).unwrap(), config, None),
         Err(tickwire_binance_account::Error::Identity)
     ));
+}
+
+#[test]
+fn algo_original_command_and_potential_child_registration_survive_reopen() {
+    use tickwire_venue as v;
+    let directory = Directory::new();
+    let (mut cfg, _) = fixture();
+    let (s, c, mut command) = common::futures_fixture();
+    cfg.baseline = CanonicalBaseline::new(s, c).unwrap();
+    let v::CommandBody::New(mut spec) = command.body.clone() else {
+        unreachable!()
+    };
+    spec.order_type = v::OrderType::StopLimit;
+    spec.trigger = Some(v::Trigger {
+        price: common::venue::d(110, 0),
+        working_price: v::WorkingPrice::Contract,
+        price_protect: false,
+    });
+    command.body = v::CommandBody::Algo(v::AlgoOrder {
+        parent_order_id: [9; 16],
+        order: spec,
+    });
+    let command = common::canonical(command);
+    let mut input =
+        AccountIngress::create(FileStore::open(&directory.0).unwrap(), cfg.clone()).unwrap();
+    input
+        .register_command(command.clone(), &[[10; 16]])
+        .expect("potential child exists before trigger");
+    input
+        .register_command(command.clone(), &[[10; 16]])
+        .unwrap();
+    assert_eq!(input.position(), 2);
+    drop(input);
+    let input = AccountIngress::recover(FileStore::open(&directory.0).unwrap(), cfg, None).unwrap();
+    assert_eq!(input.registered(key()), Some(&command));
+    assert_eq!(input.position(), 2);
 }

@@ -55,7 +55,7 @@ fn records() -> Vec<RecoveryRecord> {
 #[test]
 fn tags_one_through_eight_preserve_committed_encoding() {
     let expected =
-        include_str!("../../../docs/validation/account-gateway/ingress/legacy-records.hex");
+        include_str!("data/legacy-records.hex");
     for (record, hex) in records().into_iter().zip(expected.lines()) {
         let bytes: Vec<u8> = hex
             .as_bytes()

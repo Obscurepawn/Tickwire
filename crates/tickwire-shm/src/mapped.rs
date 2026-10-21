@@ -100,7 +100,8 @@ pub fn validate_bank(h: &ResourceHeader) -> Result<()> {
         || h.max_consumers == 0
         || h.max_consumers > 32
         || h.required_features & 0x1c != 0x1c
-        || h.required_features & !0x1df != 0
+        || h.required_features & !0x3df != 0
+        || (h.required_features & 512 != 0 && h.resource_kind != 1)
         || h.schema_major != 1
         || h.schema_minor != 0
         || h.clock_domain != 1
@@ -403,6 +404,10 @@ impl<const M: usize> Publisher<M> {
                 || u64::from_le_bytes(bytes[..8].try_into().unwrap()) != expected
             {
                 return Err(MappedError::Layout);
+            }
+            if self.header.resource_kind == 1 {
+                let h=tickwire_ipc::RecordHeader::decode(&bytes[..128])?;
+                if (264..=266).contains(&h.message_type) && self.header.required_features & 512==0 { return Err(MappedError::Layout); }
             }
             // Only publish_market may create an arena reference. A safe byte
             // publisher cannot point a reader at an unrelated mutable block.

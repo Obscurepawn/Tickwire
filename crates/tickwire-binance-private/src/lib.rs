@@ -187,6 +187,14 @@ impl<'a> PrivateEvent<'a> {
 }
 
 impl PrivateEvent<'_> {
+    /// Bind an authenticated parent report to the creating command's reserved legs.
+    pub fn bind_structure(
+        &self,
+        command: &tickwire_venue::CanonicalCommand,
+        identities: &[tickwire_venue::OrderIdentity],
+    ) -> tickwire_binance::Result<tickwire_venue::CanonicalEvent> {
+        tickwire_binance::events::bind_structure(&self.0, command, identities)
+    }
     /// Bind this authenticated session event to a durable local creating command.
     pub fn bind_order(
         &self,

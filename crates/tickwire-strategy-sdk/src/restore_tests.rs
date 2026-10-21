@@ -24,6 +24,7 @@ fn input(state: Vec<u8>, schema: u64, method: Method) -> VerifiedRestoreInput {
         source_generation: 5,
         source_report_position: 0,
         callbacks: None,
+        source_runtime: None,
     }
 }
 #[test]
@@ -129,6 +130,9 @@ fn sealed_source() -> (tickwire_recovery::HandoverSeal, Vec<u8>, Vec<u8>, Vec<u8
     checkpoint.extend(state);
     let seal = tickwire_recovery::HandoverSeal {
         preflight_receipt_digest: None,
+        replay_installation_digest: None,
+        replay_restore_digest: None,
+        replay_rollback_digest: None,
         version: 1,
         owner: [2; 16],
         instance: [2; 16],

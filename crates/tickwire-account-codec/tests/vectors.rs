@@ -19,13 +19,13 @@ fn independent_reference_baselines_match_exact_bytes_and_hash() {
     for ((s, c, _), bytes, hash) in [
         (
             fixture(),
-            include_str!("../../../docs/validation/account-codec/vectors/spot-baseline.hex"),
-            include_str!("../../../docs/validation/account-codec/vectors/spot-baseline.sha256"),
+            include_str!("data/spot-baseline.hex"),
+            include_str!("data/spot-baseline.sha256"),
         ),
         (
             futures_fixture(),
-            include_str!("../../../docs/validation/account-codec/vectors/futures-baseline.hex"),
-            include_str!("../../../docs/validation/account-codec/vectors/futures-baseline.sha256"),
+            include_str!("data/futures-baseline.hex"),
+            include_str!("data/futures-baseline.sha256"),
         ),
     ] {
         let b = CanonicalBaseline::new(s, c).unwrap();
@@ -37,7 +37,7 @@ fn independent_reference_baselines_match_exact_bytes_and_hash() {
 #[test]
 fn independently_encoded_minimum_i128_cashflow_is_preserved() {
     let bytes = hex(include_str!(
-        "../../../docs/validation/account-codec/vectors/minimum-cashflow.hex"
+        "data/minimum-cashflow.hex"
     ));
     let out = CanonicalRecord::decode(&bytes).unwrap();
     assert_eq!(
@@ -51,7 +51,7 @@ fn independently_encoded_minimum_i128_cashflow_is_preserved() {
         }
     );
     let hash = hex(include_str!(
-        "../../../docs/validation/account-codec/vectors/minimum-cashflow.sha256"
+        "data/minimum-cashflow.sha256"
     ));
     assert_eq!(out.digest().as_slice(), hash);
     assert_eq!(Sha256::digest(&bytes).as_slice(), hash);
@@ -59,7 +59,7 @@ fn independently_encoded_minimum_i128_cashflow_is_preserved() {
 #[test]
 fn alternate_order_is_rejected_by_decode() {
     let bytes = hex(include_str!(
-        "../../../docs/validation/account-codec/vectors/unsorted-baseline.hex"
+        "data/unsorted-baseline.hex"
     ));
     assert_eq!(
         CanonicalBaseline::decode(&bytes).unwrap_err(),
@@ -69,7 +69,7 @@ fn alternate_order_is_rejected_by_decode() {
 #[test]
 fn all_single_byte_changes_have_one_accepted_representation() {
     let bytes = hex(include_str!(
-        "../../../docs/validation/account-codec/vectors/spot-baseline.hex"
+        "data/spot-baseline.hex"
     ));
     for offset in 0..bytes.len() {
         let mut edited = bytes.clone();

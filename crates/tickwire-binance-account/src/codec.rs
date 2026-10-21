@@ -3,6 +3,16 @@ use crate::*;
 #[derive(Clone)]
 pub(crate) enum Record {
     Config(Vec<u8>),
+    WsResponse(crate::ws::response::ResponseRecord),
+    WsSessionEvent(crate::ws::lifecycle::SessionEvent),
+    WsEffect {
+        response: u64,
+        index: u8,
+    },
+    WsSession(crate::ws::SessionRecord),
+    WsBinding(Box<crate::ws::BindingRecord>),
+    IncomeAssociation(Box<crate::reconciliation::income_association::encoding::AssociationRecord>),
+    AssociationPolicy(crate::reconciliation::income_association::policy::PolicyRecord),
     Income(crate::reconciliation::income::IncomeRecord),
     IncomeImport(crate::reconciliation::income_import::ImportRecord),
     IncomeEffect {
@@ -47,6 +57,11 @@ pub(crate) fn config(config: &Config) -> Vec<u8> {
         bytes.extend(authority.controller_id);
         bytes.extend(authority.public_key);
     }
+    if let Some(authority) = &config.income_association_authority {
+        bytes.extend(b"income-association-root.v1");
+        bytes.extend(authority.controller_id);
+        bytes.extend(authority.public_key);
+    }
     bytes
 }
 fn blob(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
@@ -65,6 +80,39 @@ fn blob(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
 pub(crate) fn encode(record: &Record) -> Result<Vec<u8>> {
     let mut out = b"TWAI0001".to_vec();
     match record {
+        Record::WsSessionEvent(r) => {
+            out.push(20);
+            blob(&mut out, &crate::ws::lifecycle::encode(r)?)?;
+        }
+        Record::WsResponse(r) => {
+            out.push(18);
+            blob(&mut out, &crate::ws::response::encode(r)?)?;
+        }
+        Record::WsEffect { response, index } => {
+            out.push(19);
+            out.extend(response.to_le_bytes());
+            out.push(*index);
+        }
+        Record::WsBinding(binding) => {
+            out.push(17);
+            blob(&mut out, &crate::ws::encode_binding(binding)?)?;
+        }
+        Record::WsSession(session) => {
+            out.push(16);
+            blob(&mut out, &crate::ws::encode_session(session)?)?;
+        }
+        Record::IncomeAssociation(r) => {
+            out.push(15);
+            out.extend(r.writer.to_le_bytes());
+            out.extend(r.accepted.to_le_bytes());
+            blob(&mut out, r.proposal.bytes())?;
+            blob(&mut out, &r.approval.bytes())?;
+        }
+
+        Record::AssociationPolicy(policy) => {
+            out.push(14);
+            blob(&mut out, &policy.bytes())?;
+        }
         Record::IncomeImport(record) => {
             out.push(13);
             out.extend(record.writer.to_le_bytes());
@@ -164,10 +212,37 @@ pub(crate) fn encode(record: &Record) -> Result<Vec<u8>> {
             out.extend(generation.to_le_bytes());
         }
         Record::Rest(record) => {
-            if record.query.is_some() && record.order_query.is_some() {
+            if [
+                record.query.is_some(),
+                record.order_query.is_some(),
+                record.structure_query.is_some(),
+                record.amendment_query.is_some(),
+            ]
+            .iter()
+            .filter(|v| **v)
+            .count()
+                > 1
+            {
                 return Err(Error::Encoding);
             }
-            if let Some(query) = record.order_query {
+            if let Some(query) = record.amendment_query {
+                query.validate()?;
+                out.push(22);
+                out.extend(query.order_id);
+                out.extend(query.from_execution_id.to_le_bytes());
+                out.extend(query.limit.to_le_bytes());
+                out.extend(query.private_connection_epoch.to_le_bytes());
+                out.extend(query.gap_generation.to_le_bytes());
+            } else if let Some(query) = record.structure_query {
+                query.validate()?;
+                out.push(21);
+                out.extend(query.structure_id);
+                out.extend(query.private_connection_epoch.to_le_bytes());
+                out.extend(query.gap_generation.to_le_bytes());
+                let domain = record.structure_domain.ok_or(Error::Encoding)?;
+                out.extend(domain.boot_id());
+                out.extend(domain.generation().to_le_bytes());
+            } else if let Some(query) = record.order_query {
                 out.push(9);
                 out.extend(query.order_id);
                 out.extend(query.private_connection_epoch.to_le_bytes());
@@ -259,6 +334,38 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
     }
     let tag = r.byte()?;
     let record = match tag {
+        20 => Record::WsSessionEvent(crate::ws::lifecycle::decode(r.blob()?)?),
+        18 => Record::WsResponse(crate::ws::response::decode(r.blob()?)?),
+        19 => {
+            let response = r.u64()?;
+            let index = r.byte()?;
+            if response == 0 || index >= 3 {
+                return Err(Error::Encoding);
+            }
+            Record::WsEffect { response, index }
+        }
+
+        17 => Record::WsBinding(Box::new(crate::ws::decode_binding(r.blob()?)?)),
+        16 => Record::WsSession(crate::ws::decode_session(r.blob()?)?),
+        15 => {
+            use crate::reconciliation::income_association::{
+                AssociationProposal, SignedAssociationApproval, encoding::AssociationRecord,
+            };
+            let writer = r.u64()?;
+            let accepted = r.u64()?;
+            let proposal = AssociationProposal::decode(r.blob()?)?;
+            let approval = SignedAssociationApproval::decode(r.blob()?)?;
+            Record::IncomeAssociation(Box::new(AssociationRecord {
+                proposal,
+                approval,
+                accepted,
+                writer,
+            }))
+        }
+
+        14 => Record::AssociationPolicy(
+            crate::reconciliation::income_association::policy::PolicyRecord::decode(r.blob()?)?,
+        ),
         13 => {
             use crate::reconciliation::income_import::{
                 ImportRecord, IncomeImportProposal, SignedIncomeApproval,
@@ -401,7 +508,31 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
                 reason,
             }
         }
-        5 | 7 | 9 => {
+        5 | 7 | 9 | 21 | 22 => {
+            let amendment_query = if tag == 22 {
+                Some((
+                    r.take(16)?.try_into().unwrap(),
+                    r.u64()?,
+                    u16::from_le_bytes(r.take(2)?.try_into().unwrap()),
+                    r.u64()?,
+                    r.u64()?,
+                ))
+            } else {
+                None
+            };
+            let structure_query = if tag == 21 {
+                Some((r.take(16)?.try_into().unwrap(), r.u64()?, r.u64()?))
+            } else {
+                None
+            };
+            let structure_domain = if tag == 21 {
+                Some(
+                    tickwire_clock::ClockDomain::new(r.take(16)?.try_into().unwrap(), r.u64()?)
+                        .map_err(|_| Error::Encoding)?,
+                )
+            } else {
+                None
+            };
             let order_query = if tag == 9 {
                 Some((r.take(16)?.try_into().unwrap(), r.u64()?, r.u64()?))
             } else {
@@ -434,7 +565,7 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
                 _ => return Err(Error::Encoding),
             };
             let count = r.byte()?;
-            if count > if tag == 7 { 16 } else { 3 } {
+            if count > if tag == 7 || tag == 22 { 16 } else { 4 } {
                 return Err(Error::Encoding);
             }
             let mut events = Vec::new();
@@ -468,8 +599,38 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<Record> {
             if let Some(q) = order_query {
                 q.validate()?;
             }
+            let structure_query =
+                structure_query.map(|(structure_id, private_connection_epoch, gap_generation)| {
+                    crate::reconciliation::structures::StructureQuery {
+                        intent: intent(&command),
+                        structure_id,
+                        private_connection_epoch,
+                        gap_generation,
+                    }
+                });
+            if let Some(q) = structure_query {
+                q.validate()?;
+            }
+            let amendment_query = amendment_query.map(
+                |(order_id, from_execution_id, limit, private_connection_epoch, gap_generation)| {
+                    crate::reconciliation::amendments::AmendmentQuery {
+                        intent: intent(&command),
+                        order_id,
+                        from_execution_id,
+                        limit,
+                        private_connection_epoch,
+                        gap_generation,
+                    }
+                },
+            );
+            if let Some(q) = amendment_query {
+                q.validate()?;
+            }
             Record::Rest(crate::rest::RestRecord {
                 command,
+                amendment_query,
+                structure_query,
+                structure_domain,
                 query,
                 order_query,
                 epoch,

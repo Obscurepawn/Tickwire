@@ -1,6 +1,6 @@
 # 交易命令和事件规范化
 
-实现目录：`crates/tickwire-venue`。接口见 [venue-interface.md](../../docs/implementation/venue-interface.md)。本模块生成完整、不可变的命令字节和 SHA-256 内容摘要，由执行器和闭包存储绑定；它不执行网络发送或资金记账。
+实现目录：`crates/tickwire-venue`。接口见 venue-interface.md。本模块生成完整、不可变的命令字节和 SHA-256 内容摘要，由执行器和闭包存储绑定；它不执行网络发送或资金记账。
 
 ## 内容和身份
 
@@ -31,7 +31,7 @@ digest  = SHA256(完整顶层编码)
 
 CBOR 整数、长度和 tag 2/3 bignum 使用最短形式；仅允许 i128 范围，负整数使用 `-1-magnitude`，覆盖 `i128::MIN`。Decimal 为 `[coefficient, exponent]`，指数 -38…38，去除可去除的尾零，零只能编码为 `[0, 0]`。不接受浮点、不定长项或非规范的等值数值。
 
-总输入先限制为 16 KiB。每个字符串、列表和固定数组先检查长度再分配；没有来自输入的递归 schema 或自由参数对象。独立尺寸计算给出的保守结构上界见 [encoding-bound.log](../../docs/validation/venue/encoding-bound.log)，其中连互斥的可选项也累计计入。
+总输入先限制为 16 KiB。每个字符串、列表和固定数组先检查长度再分配；没有来自输入的递归 schema 或自由参数对象。独立尺寸计算给出的保守结构上界见 encoding-bound.log，其中连互斥的可选项也累计计入。
 
 ## 校验和扩展
 
@@ -42,4 +42,4 @@ CBOR 整数、长度和 tag 2/3 bignum 使用最短形式；仅允许 i128 范�
 当前类型不包含任意厂商扩展。OPO/OPOCO、价格撮合档位、厂商附加策略标签或新的账户动作，通过新增明确字段/枚举和版本后的编码、检查与适配器扩展。适配器遇到尚未表达或支持的结构返回 Unsupported，在该类型开放前保留请求失败状态。
 
 
-真实失败测试、当前命令、独立测试向量和源文件摘要见 [验证目录](../../docs/validation/venue/README.md)。命令摘要的预留、闭包、WAL 和恢复绑定由执行器的 [L1_command_binding](../../tla/execution_models/business_journal/L1_command_binding/00_input.md) 模型检查；CBOR 字节解析由本模块单元与集成测试检查，不将摘要符号模型当作解析器证明。
+真实失败测试、当前命令、独立测试向量和源文件摘要见 验证目录。命令摘要的预留、闭包、WAL 和恢复绑定由执行器的 [L1_command_binding](../../tla/execution_models/business_journal/L1_command_binding/00_input.md) 模型检查；CBOR 字节解析由本模块单元与集成测试检查，不将摘要符号模型当作解析器证明。

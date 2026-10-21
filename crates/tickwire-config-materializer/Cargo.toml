@@ -1,0 +1,19 @@
+[package]
+name = "tickwire-config-materializer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tickwire-config = { path = "../tickwire-config" }
+tickwire-config-journal = { path = "../tickwire-config-journal" }
+tickwire-config-fs = { path = "../tickwire-config-fs" }
+tickwire-journal = { path = "../tickwire-journal" }
+
+[dev-dependencies]
+serde_json = "1"
+sha2 = "0.10"
+
+[lints]
+workspace = true

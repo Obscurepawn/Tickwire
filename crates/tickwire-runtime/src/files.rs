@@ -62,6 +62,7 @@ pub struct Configuration {
     pub account: tickwire_account_gateway::Config,
     pub input: tickwire_binance_account::Config,
     pub rest: RestConfig,
+    pub websocket: Option<tickwire_binance_account::ws::WsConfig>,
     pub time: time::Config,
     pub market: public::Config,
     pub private: private::SessionConfig,
@@ -75,6 +76,7 @@ pub struct Configuration {
     pub maximum_staged_bytes: usize,
 }
 pub struct Networks {
+    pub websocket: Option<ConnectionConfig>,
     pub rest: ConnectionConfig,
     pub time: time::NetworkConfig,
     pub public: public::NetworkConfig,
@@ -194,7 +196,7 @@ where
             )?)
         };
     let mut local = LocalAuthority::new(
-        blobs,
+        blobs.clone(),
         queue.clone(),
         policy,
         config.command_binding.owner_id,
@@ -202,31 +204,82 @@ where
     if let Some(commit) = services.commit_policy {
         local = local.with_commit_policy(commit);
     }
+    let websocket_settings = config
+        .websocket
+        .map(|session| {
+            execution::credential_reference(
+                &credentials,
+                config.private.scope.credential_generation,
+            )
+            .map(|credential_ref_digest| {
+                tickwire_binance_account::ws::WebSocketSettings {
+                    execution_instance: config.command_binding.owner_id,
+                    credential_ref_digest,
+                    session,
+                }
+            })
+        })
+        .transpose()
+        .map_err(node::Error::Shared)?;
     let authority = shared.authority(local);
     let encoder = shared.encoder(credentials);
     let backend = FileBackend::open(&config.directories.account).map_err(node::Error::Io)?;
     let input = FileStore::open(&config.directories.input).map_err(node::Error::Io)?;
-    let (gateway, ingress) = match config.mode {
+    let execution_connection = match (config.websocket.is_some(), networks.websocket) {
+        (true, Some(connection)) => connection,
+        (false, None) => networks.rest,
+        _ => return Err(node::Error::Config),
+    };
+    let (gateway, ingress, ws_session, opened) = match config.mode {
         OpenMode::Create => {
+            let baseline = config.input.baseline.clone();
+            let mut ingress = AccountIngress::create(input, config.input)
+                .map_err(node::Error::Account)?
+                .with_closure_store(blobs.clone());
+            let opened = shared
+                .with_resources(|clock, _| clock.sample())
+                .map_err(node::Error::Shared)?
+                .map_err(node::Error::Clock)?
+                .local;
+            let ws_session = if let Some(settings) = websocket_settings {
+                let session = ingress
+                    .reserve_ws_session(settings.execution_instance, settings.credential_ref_digest)
+                    .map_err(node::Error::Account)?;
+                let deadline = opened
+                    .monotonic
+                    .nanos()
+                    .checked_add(settings.session.control_timeout_ns)
+                    .ok_or(node::Error::Config)?;
+                shared
+                    .websocket_control(
+                        &session,
+                        tickwire_binance_account::ws::ControlAction::Connect,
+                        1,
+                        deadline,
+                    )
+                    .map_err(node::Error::Shared)?;
+                Some(session)
+            } else {
+                None
+            };
             let gateway = AccountGateway::create(
                 backend,
                 config.account,
-                config.input.baseline.clone(),
+                baseline,
                 authority,
                 encoder,
-                networks.rest,
+                execution_connection,
             )
             .map_err(|e| node::Error::Account(tickwire_binance_account::Error::Gateway(e)))?;
-            let ingress =
-                AccountIngress::create(input, config.input).map_err(node::Error::Account)?;
-            (gateway, ingress)
+            (gateway, ingress, ws_session, Some(opened))
         }
         OpenMode::RecoverFrozen {
             account_required,
             input_required,
         } => {
             let ingress = AccountIngress::recover(input, config.input, input_required.as_ref())
-                .map_err(node::Error::Account)?;
+                .map_err(node::Error::Account)?
+                .with_closure_store(blobs.clone());
             let mut verifier = ingress.activation_verifier();
             let gateway = AccountGateway::recover_with_reactivation(
                 backend,
@@ -237,11 +290,29 @@ where
                 &mut verifier,
             )
             .map_err(|e| node::Error::Account(tickwire_binance_account::Error::Gateway(e)))?;
-            (gateway, ingress)
+            (gateway, ingress, None, None)
         }
     };
-    let rest =
-        RestOwner::from_parts(ingress, gateway, config.rest).map_err(node::Error::Account)?;
+    let rest = match (websocket_settings, ws_session, opened) {
+        (Some(settings), Some(session), Some(opened)) => RestOwner::from_parts_websocket(
+            ingress,
+            gateway,
+            session,
+            Box::new(shared.clone()),
+            settings.session,
+            opened.instant,
+            opened.monotonic.nanos(),
+        ),
+        (Some(settings), None, _) => RestOwner::from_parts_websocket_recovered(
+            ingress,
+            gateway,
+            Box::new(shared.clone()),
+            settings,
+        ),
+        (None, None, _) => RestOwner::from_parts(ingress, gateway, config.rest),
+        _ => return Err(node::Error::Config),
+    }
+    .map_err(node::Error::Account)?;
     let clock = SystemClock::new(config.market.domain).map_err(|_| node::Error::Config)?;
     let public = public::PublicDepthClient::new(config.market, networks.public, clock)
         .map_err(node::Error::Market)?;

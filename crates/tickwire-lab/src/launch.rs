@@ -96,6 +96,7 @@ pub fn run(s: &Scenario) -> Result<()> {
     let pid = child.id();
     let stderr = child.stderr.take().ok_or("exec stderr")?;
     let arm = s.root.join("ARM");
+    let auto_arm = s.kind == crate::ScenarioKind::SpotFill;
     let log = s.root.join("logs/exec.stderr.log");
     let exec_log = std::thread::spawn(move || {
         let Ok(mut out) = File::create(log) else {
@@ -104,9 +105,10 @@ pub fn run(s: &Scenario) -> Result<()> {
         for line in BufReader::new(stderr).lines() {
             let Ok(line) = line else { break };
             let _ = writeln!(out, "{line}");
-            if serde_json::from_str::<Value>(&line)
-                .ok()
-                .is_some_and(|v| v["event"] == "account_reconciled")
+            if auto_arm
+                && serde_json::from_str::<Value>(&line)
+                    .ok()
+                    .is_some_and(|v| v["event"] == "account_reconciled")
                 && !arm.exists()
             {
                 let _ = crate::generate::write(&arm, b"account_reconciled\n");
@@ -116,7 +118,7 @@ pub fn run(s: &Scenario) -> Result<()> {
     children.0.push(child);
     let client: tickwire_market_source::ConnectConfig =
         serde_json::from_value(app["market_sources"][0].clone())?;
-    let supervisor = serde_json::from_value(if s.kind == crate::ScenarioKind::SpotHandover {
+    let supervisor = serde_json::from_value(if s.kind.handover() {
         app["strategy"]["members"][0]["strategy"]["config"]["supervisor"].clone()
     } else {
         app["strategy"]["config"]["supervisor"].clone()
@@ -134,7 +136,7 @@ pub fn run(s: &Scenario) -> Result<()> {
     tickwire_md::server::register_admission(&s.root.join("md/admissions"), &admission)
         .map_err(|e| e.to_string())?;
     crate::generate::write(&gate, b"admitted\n")?;
-    let mut handover = if s.kind == crate::ScenarioKind::SpotHandover {
+    let mut handover = if s.kind.handover() {
         Some(crate::handover::Driver::new(s, pid, md_pid)?)
     } else {
         None
@@ -197,7 +199,7 @@ pub fn run(s: &Scenario) -> Result<()> {
             }
         }
     }
-    if s.kind == crate::ScenarioKind::SpotHandover {
+    if s.kind.handover() {
         let mut final_s = s.clone();
         final_s.worker_bootstrap = s.root.join("next/bootstrap.json");
         check_reports(&final_s, &exported, &report, pid, count)?;
@@ -207,10 +209,11 @@ pub fn run(s: &Scenario) -> Result<()> {
     }
     check_fee_closure(s, &exported, count)?;
     crate::generate::json_file(&s.root.join("account-report.json"), &report)?;
-    let mut result = json!({"event":if s.kind==crate::ScenarioKind::SpotHandover{"laboratory_spot_handover_complete"}else{"laboratory_spot_fill_complete"},"account_fill_verified":true,"mirror_records_verified":count,"worker_report_position_verified":count,"account_report":s.root.join("account-report.json"),"fixture_audit":s.root.join("fixture.jsonl"),"account_wal":s.root.join("exec/account"),"input_wal":s.root.join("exec/input"),"mirror_wal":s.root.join("mirror/journal"),"logs":s.root.join("logs")});
-    if s.kind == crate::ScenarioKind::SpotHandover {
-        result["preflight"] =
-            serde_json::from_slice(&fs::read(s.root.join("handover/preflight-verified.json"))?)?;
+    let mut result = json!({"event":if s.kind.handover(){"laboratory_spot_handover_complete"}else{"laboratory_spot_fill_complete"},"account_fill_verified":true,"mirror_records_verified":count,"worker_report_position_verified":count,"account_report":s.root.join("account-report.json"),"fixture_audit":s.root.join("fixture.jsonl"),"account_wal":s.root.join("exec/account"),"input_wal":s.root.join("exec/input"),"mirror_wal":s.root.join("mirror/journal"),"logs":s.root.join("logs")});
+    if s.kind.handover() {
+        result["preflight"] = serde_json::from_slice(&fs::read(
+            s.root.join("handover/preflight-final-verified.json"),
+        )?)?;
     }
     crate::generate::json_file(&s.root.join("run-result.json"), &result)?;
     println!("{}", serde_json::to_string_pretty(&result)?);

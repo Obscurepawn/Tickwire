@@ -2,6 +2,7 @@
 use crate::{Result, config::read_file, invalid};
 #[path = "release_preflight.rs"]
 mod preflight;
+mod replay;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -52,6 +53,8 @@ struct State {
     committed_receipt: Option<SignedReceipt>,
     /// This process session alone may release this state.
     session: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    replay: Option<replay::Facts>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -72,6 +75,18 @@ enum Event {
     State {
         state: State,
     },
+    ReplayObservedOutcome {
+        session: u64,
+        request_id: [u8; 16],
+        request_digest: [u8; 32],
+        receipt: protocol::SignedReplayObserved,
+    },
+    ReplayOutcome {
+        session: u64,
+        request_id: [u8; 16],
+        request_digest: [u8; 32],
+        receipt: protocol::SignedReplayPrepared,
+    },
     Outcome {
         session: u64,
         request_id: [u8; 16],
@@ -80,11 +95,18 @@ enum Event {
         error: Option<String>,
     },
 }
+enum Applied {
+    Legacy(SignedReceipt),
+    Replay(protocol::SignedReplayPrepared),
+    Observed(protocol::SignedReplayObserved),
+}
 #[derive(Clone)]
 struct Outcome {
     session: u64,
     digest: [u8; 32],
     receipt: Option<SignedReceipt>,
+    replay: Option<protocol::SignedReplayPrepared>,
+    observed: Option<protocol::SignedReplayObserved>,
     error: Option<String>,
 }
 pub struct Inbox {
@@ -212,7 +234,62 @@ impl Inbox {
                         {
                             return Err(invalid("lifecycle state version"));
                         }
+                        if let Some(facts) = &state.replay {
+                            facts.follows(
+                                states.get(&key).and_then(|s: &State| s.replay.as_ref()),
+                            )?;
+                        } else if states.get(&key).is_some_and(|s: &State| s.replay.is_some()) {
+                            return Err(invalid("replay facts missing"));
+                        }
                         states.insert(key, state);
+                    }
+                    Event::ReplayObservedOutcome {
+                        session: s,
+                        request_id,
+                        request_digest,
+                        receipt,
+                    } => {
+                        if s != session
+                            || decisions.get(&request_id) != Some(&request_digest)
+                            || outcomes.contains_key(&request_id)
+                        {
+                            return Err(invalid("replay observation outcome binding"));
+                        }
+                        outcomes.insert(
+                            request_id,
+                            Outcome {
+                                session: s,
+                                digest: request_digest,
+                                receipt: None,
+                                replay: None,
+                                observed: Some(receipt),
+                                error: None,
+                            },
+                        );
+                    }
+                    Event::ReplayOutcome {
+                        session: s,
+                        request_id,
+                        request_digest,
+                        receipt,
+                    } => {
+                        if s != session
+                            || decisions.get(&request_id) != Some(&request_digest)
+                            || outcomes.contains_key(&request_id)
+                        {
+                            return Err(invalid("replay outcome binding"));
+                        }
+                        outcomes.insert(
+                            request_id,
+                            Outcome {
+                                session: s,
+                                digest: request_digest,
+                                receipt: None,
+                                replay: Some(receipt),
+                                observed: None,
+                                error: None,
+                            },
+                        );
                     }
                     Event::Outcome {
                         session: s,
@@ -234,6 +311,8 @@ impl Inbox {
                                 session: s,
                                 digest: request_digest,
                                 receipt,
+                                replay: None,
+                                observed: None,
                                 error,
                             },
                         );
@@ -252,12 +331,7 @@ impl Inbox {
             plane.stop_strategy(strategy).map_err(policy_error)?;
         }
         for state in states.values_mut() {
-            state.phase = AppliedPhase::Halted;
-            state.gate.risk_gate_revision = state
-                .gate
-                .risk_gate_revision
-                .checked_add(1)
-                .ok_or_else(|| invalid("risk gate revision"))?;
+            replay::close_after_restart(state)?;
         }
         session = session
             .checked_add(1)
@@ -364,6 +438,18 @@ impl Inbox {
                 if *previous != hash {
                     return Err(invalid("lifecycle interrupted request conflict"));
                 }
+                if let Some(result) = replay::saved_result(
+                    self.states.get(&(
+                        decoded.operation.operation_id,
+                        decoded.operation.operation_revision,
+                    )),
+                    self.session,
+                    &signed,
+                )? {
+                    self.record_replay_outcome(&decoded, hash, result)?;
+                    count += 1;
+                    continue;
+                }
                 // Never repeat an interrupted mutation under its old challenge.
                 self.record_outcome(
                     &decoded,
@@ -390,7 +476,7 @@ impl Inbox {
             self.persist(&Event::Decision {
                 session: self.session,
                 authenticated: verified.is_ok(),
-                request: signed,
+                request: signed.clone(),
             })?;
             self.decisions.insert(decoded.request_id, hash);
             let verified = match verified {
@@ -411,15 +497,31 @@ impl Inbox {
                 .sample()
                 .map_err(|_| invalid("lifecycle clock sample"))?
                 .monotonic;
-            let applied = if fresh.nanos() >= decoded.valid_until_ns
+            let applied = if decoded.operation.schema == 4 {
+                Err(invalid("declared rebuild execution is not yet configured"))
+            } else if fresh.nanos() >= decoded.valid_until_ns
                 && decoded.action != ControlAction::Halt
             {
                 Err(invalid("lifecycle request expired before application"))
             } else {
-                self.apply(verified.request(), strategy, gateway, fresh)
+                if decoded.operation.schema == 3 && decoded.action == ControlAction::Prepare {
+                    self.apply_replay_prepare(&signed, verified.request(), strategy, gateway, fresh)
+                        .map(Applied::Replay)
+                } else {
+                    self.apply(verified.request(), strategy, gateway, fresh)
+                        .and_then(|receipt| self.observe_replay_query(&signed, receipt))
+                }
             };
             match applied {
-                Ok(receipt) => self.record_outcome(&decoded, hash, Some(receipt), None)?,
+                Ok(Applied::Legacy(receipt)) => {
+                    self.record_outcome(&decoded, hash, Some(receipt), None)?
+                }
+                Ok(Applied::Observed(receipt)) => {
+                    self.record_observed_outcome(&decoded, hash, receipt)?;
+                }
+                Ok(Applied::Replay(receipt)) => {
+                    self.record_replay_outcome(&decoded, hash, receipt)?
+                }
                 Err(error) => self.record_outcome(&decoded, hash, None, Some(error.to_string()))?,
             }
             count += 1;
@@ -495,6 +597,7 @@ impl Inbox {
                 proof: None,
                 committed_receipt: None,
                 session: self.session,
+                replay: None,
             }
         };
         if state.session != self.session {
@@ -543,7 +646,12 @@ impl Inbox {
                     state.phase = AppliedPhase::Prepared;
                 }
                 ControlAction::Commit => {
-                    let release = preflight::qualify(r, strategy, gateway)?;
+                    let release = if r.operation.schema == 3 {
+                        replay::check_adoption(&state, r)?;
+                        None
+                    } else {
+                        Some(preflight::qualify(r, strategy, gateway)?)
+                    };
                     if state.phase != AppliedPhase::Prepared
                         || !self
                             .plane
@@ -559,7 +667,20 @@ impl Inbox {
                     if state.proof.as_ref() != Some(proof) {
                         return Err(invalid("readiness changed after prepare"));
                     }
-                    self.capture(strategy, gateway, r, proof, &release)?;
+                    if let Some(release) = &release {
+                        self.capture(strategy, gateway, r, proof, release)?;
+                    } else {
+                        self.capture_replay(
+                            strategy,
+                            gateway,
+                            r,
+                            proof,
+                            state
+                                .replay
+                                .as_ref()
+                                .ok_or_else(|| invalid("replay facts missing"))?,
+                        )?;
+                    }
                     let now = self
                         .clock
                         .sample()
@@ -830,19 +951,16 @@ impl Inbox {
     fn halt_state<S: Strategy>(&self, state: &mut State, strategy: &mut S) -> Result<()> {
         halt_operation(&self.plane, state, strategy)
     }
-    fn save_state(&mut self, mut state: State) -> Result<()> {
-        let key = (
-            state.operation.operation_id,
-            state.operation.operation_revision,
-        );
-        state.version = state
-            .version
-            .checked_add(1)
-            .ok_or_else(|| invalid("lifecycle state version"))?;
-        self.persist(&Event::State {
-            state: state.clone(),
-        })?;
-        self.states.insert(key, state);
+    fn save_state(&mut self, state: State) -> Result<()> {
+        if let Err(error) = replay::append_state(&mut self.wal, &mut self.states, state) {
+            self.poisoned = true;
+            for state in self.states.values() {
+                let _ = self
+                    .plane
+                    .stop_strategy(state.operation.logical_strategy_id);
+            }
+            return Err(error);
+        }
         Ok(())
     }
     fn sign(
@@ -886,16 +1004,28 @@ impl Inbox {
             session: self.session,
             digest: hash,
             receipt,
+            replay: None,
+            observed: None,
             error,
         };
+        self.outcomes.insert(r.request_id, outcome.clone());
         self.publish_outcome(r.request_id, &outcome)?;
-        self.outcomes.insert(r.request_id, outcome);
         Ok(())
     }
     fn publish_outcome(&self, id: [u8; 16], outcome: &Outcome) -> Result<()> {
         let name = id.iter().map(|b| format!("{b:02x}")).collect::<String>();
         let (path, bytes) = if outcome.session == self.session {
-            if let Some(receipt) = &outcome.receipt {
+            if let Some(receipt) = &outcome.observed {
+                (
+                    self.config.receipts_directory.join(format!("{name}.json")),
+                    serde_json::to_vec(receipt)?,
+                )
+            } else if let Some(receipt) = &outcome.replay {
+                (
+                    self.config.receipts_directory.join(format!("{name}.json")),
+                    serde_json::to_vec(receipt)?,
+                )
+            } else if let Some(receipt) = &outcome.receipt {
                 (
                     self.config.receipts_directory.join(format!("{name}.json")),
                     serde_json::to_vec(receipt)?,
@@ -1089,7 +1219,7 @@ mod operation_halt_tests {
     fn now() -> MonoTime {
         MonoTime::new(ClockDomain::new([3; 16], 1).unwrap(), 20)
     }
-    fn plane() -> ControlPlane {
+    pub(super) fn plane() -> ControlPlane {
         ControlPlane::new(PolicyConfig {
             scope: tickwire_account::Scope {
                 risk_domain_id: [1; 16],
@@ -1132,7 +1262,7 @@ mod operation_halt_tests {
             required_feeds: vec![],
         }
     }
-    fn state(plane: &ControlPlane, generation: u64) -> State {
+    pub(super) fn state(plane: &ControlPlane, generation: u64) -> State {
         let member = protocol::Member {
             risk_domain: [1; 16],
             exec_instance: [2; 16],
@@ -1178,6 +1308,7 @@ mod operation_halt_tests {
             proof: None,
             committed_receipt: None,
             session: 1,
+            replay: None,
         }
     }
     fn successors() -> (ControlPlane, State, State) {

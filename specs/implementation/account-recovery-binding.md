@@ -7,4 +7,4 @@
 5. 前缀对象包含范围、日志流、基线、记录数量和历史链摘要。完整记录仍由 WAL 保存；缺失 WAL 记录不能由前缀对象补足。
 6. kind 1～12 的既有依赖约束、不可变 manifest 绑定与完整输入覆盖规则保持有效。新增种类不改变旧 manifest 的字节编码。
 
-接口见[账户恢复依赖绑定接口](../../docs/implementation/account-recovery-binding-interface.md)，行为测试位于 `tickwire-recovery/tests/closure.rs`，真实文件组合测试位于 `tickwire-account-gateway/tests/binance_rest.rs`。
+接口见账户恢复依赖绑定接口，行为测试位于 `tickwire-recovery/tests/closure.rs`，真实文件组合测试位于 `tickwire-account-gateway/tests/binance_rest.rs`。

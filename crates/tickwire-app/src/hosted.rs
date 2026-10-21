@@ -118,6 +118,31 @@ impl RecoveryResolver for Files {
 }
 struct Strategy(HostedStrategy<Files, 1>);
 impl tickwire_runtime::node::Strategy for Strategy {
+    fn handover_finish_replay(
+        &mut self,
+        installed: tickwire_runtime::node::InstalledReplay,
+    ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        tickwire_runtime::node::Strategy::handover_finish_replay(&mut self.0, installed)
+    }
+    fn handover_install_replay(
+        &mut self,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        tickwire_runtime::node::Strategy::handover_install_replay(&mut self.0, source)
+    }
+    fn handover_replay_source(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        tickwire_runtime::node::Strategy::handover_replay_source(
+            &mut self.0,
+            operation,
+            member,
+            fixed,
+        )
+    }
     fn handover_checkpoint(
         &mut self,
         instance: [u8; 16],
@@ -209,6 +234,31 @@ impl AppStrategy for Strategy {
 }
 struct RemoteStrategy(tickwire_strategy_host::RemoteHostedStrategy<Files>);
 impl tickwire_runtime::node::Strategy for RemoteStrategy {
+    fn handover_finish_replay(
+        &mut self,
+        installed: tickwire_runtime::node::InstalledReplay,
+    ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        tickwire_runtime::node::Strategy::handover_finish_replay(&mut self.0, installed)
+    }
+    fn handover_install_replay(
+        &mut self,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        tickwire_runtime::node::Strategy::handover_install_replay(&mut self.0, source)
+    }
+    fn handover_replay_source(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        tickwire_runtime::node::Strategy::handover_replay_source(
+            &mut self.0,
+            operation,
+            member,
+            fixed,
+        )
+    }
     fn handover_checkpoint(
         &mut self,
         instance: [u8; 16],

@@ -1,7 +1,0 @@
-  ok execution_models/business_journal/L0_commit_abort_recovery: 337 line anchor(s) -> execution_models/business_journal/L0_commit_abort_recovery/02_models/anchors.lock
-anchors.sh: ambiguous anchor: runtime.rs matches several files under REPO_ROOT — cite it repo-relative [level: execution_models/business_journal/L1_command_binding]
-  ok execution_models/business_journal/L1_command_binding: 268 line anchor(s) -> execution_models/business_journal/L1_command_binding/02_models/anchors.lock
-  ok execution_models/mock_abort/L0_ordered_abort: 426 line anchor(s) -> execution_models/mock_abort/L0_ordered_abort/02_models/anchors.lock
-  ok execution_models/recovery_closure/L0_publish_verify: 211 line anchor(s) -> execution_models/recovery_closure/L0_publish_verify/02_models/anchors.lock
-  ok execution_models/submission/L0_commit_gate: 213 line anchor(s) -> execution_models/submission/L0_commit_gate/02_models/anchors.lock
-anchors.sh update: baselined 5 level(s); 1455 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)

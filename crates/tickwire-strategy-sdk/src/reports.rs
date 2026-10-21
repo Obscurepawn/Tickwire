@@ -66,6 +66,11 @@ impl<B: BlobStore> ReportWriter<B> {
     pub fn publisher(&mut self) -> &mut Publisher<1> {
         &mut self.publisher
     }
+    /// Synchronize control artifacts in the same immutable object namespace the
+    /// authenticated child reads. This never publishes a report or advances its cursor.
+    pub fn put_object(&mut self, bytes: &[u8]) -> Result<[u8; 32]> {
+        put_control_object(&mut self.store, bytes)
+    }
     pub fn last_position(&self) -> u64 {
         self.last_position
     }
@@ -190,6 +195,16 @@ impl<B: BlobStore> ReportWriter<B> {
         Ok(self.publisher.publish(&[&image])?)
     }
 }
+
+fn put_control_object(store: &mut impl BlobStore, bytes: &[u8]) -> Result<[u8; 32]> {
+    if bytes.is_empty() || bytes.len() > tickwire_recovery::MAX_OBJECT_BYTES {
+        return Err(Error::Bounds);
+    }
+    let digest = tickwire_recovery::digest(bytes);
+    store.put_sync(StoreKey::Object(digest), bytes)?;
+    Ok(digest)
+}
+
 pub struct ReportReceiver {
     reader: Subscriber<4>,
     bank: ResourceHeader,
@@ -334,5 +349,67 @@ pub fn resolve(
             position: b.exec_journal_seq,
             record,
         })
+    }
+}
+
+#[cfg(test)]
+mod control_object_tests {
+    use super::*;
+    use std::os::unix::fs::MetadataExt;
+
+    #[test]
+    fn replay_control_objects_are_readable_by_the_actual_child_reader() {
+        let path = std::env::temp_dir().join(format!(
+            "tickwire-report-control-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let mut store = tickwire_recovery::FileBlobStore::open(&path).unwrap();
+        let reader = FileBlobReader::open(&path, std::fs::metadata(&path).unwrap().uid()).unwrap();
+        // Reproduce the prior Host/worker mismatch using actual files: the
+        // preflight probe namespace is not the report object namespace.
+        let prior = b"install control";
+        let hash = tickwire_recovery::digest(prior);
+        let hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        std::fs::write(path.join(format!("{hex}.bin")), prior).unwrap();
+        assert!(reader.get_object(hash, 1024).is_err());
+        for bytes in [
+            b"install control".as_slice(),
+            b"source completion",
+            b"rollback completion",
+        ] {
+            let digest =
+                put_control_object(&mut store, bytes).expect("control writer must complete");
+            assert_eq!(reader.get_object(digest, 1024).unwrap(), bytes);
+            assert_eq!(put_control_object(&mut store, bytes).unwrap(), digest);
+        }
+        drop(store);
+        std::fs::remove_dir_all(path).unwrap();
+    }
+
+    #[test]
+    fn failed_sync_does_not_return_a_publishable_object_and_bounds_precede_store() {
+        struct Failed {
+            calls: usize,
+        }
+        impl BlobStore for Failed {
+            fn get(&self, _: StoreKey, _: usize) -> tickwire_recovery::Result<Vec<u8>> {
+                Err(tickwire_recovery::Error::Missing)
+            }
+            fn put_sync(&mut self, _: StoreKey, _: &[u8]) -> tickwire_recovery::Result<()> {
+                self.calls += 1;
+                Err(tickwire_recovery::Error::Io(std::io::Error::other(
+                    "injected sync failure",
+                )))
+            }
+        }
+        let mut store = Failed { calls: 0 };
+        assert!(put_control_object(&mut store, &[]).is_err());
+        assert_eq!(store.calls, 0);
+        assert!(put_control_object(&mut store, b"control bytes").is_err());
+        assert_eq!(store.calls, 1);
     }
 }

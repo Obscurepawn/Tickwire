@@ -263,7 +263,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             true
         }
         Ok(Self {
-            readiness: readiness::ReadyProof::new(&config.bootstrap)?,
+            readiness: readiness::ReadyProof::new(&config.bootstrap, &config.spec)?,
             report_sub,
             strategy: RuntimeStrategy::new(
                 receiver,
@@ -547,6 +547,91 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         let objects = self.handover_objects(&want)?;
         Some((want, objects))
     }
+    fn handover_replay_source(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        if self.instance() != (member.old_instance, member.old_generation)
+            || self.forwarding
+            || self.failed()
+        {
+            return None;
+        }
+        let fixed_objects = self.handover_objects(fixed)?;
+        let (current, current_objects) =
+            self.handover_checkpoint(member.old_instance, member.old_generation)?;
+        match self.readiness.source_replay(
+            operation,
+            member,
+            fixed.clone(),
+            fixed_objects,
+            current,
+            current_objects,
+        ) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.fail(e);
+                None
+            }
+        }
+    }
+    fn handover_install_replay(
+        &mut self,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        let member = &source.completion().member;
+        if self.instance() != (member.new_instance, member.new_generation)
+            || self.forwarding
+            || self.failed()
+        {
+            return None;
+        }
+        let result = (|| {
+            self.maintain()?;
+            self.readiness.install_replay(
+                &mut self.report,
+                &mut self.reports,
+                self.report_sub,
+                &mut self.clock,
+                source,
+            )
+        })();
+        match result {
+            Ok(value) => Some(value),
+            Err(e) => {
+                self.fail(e);
+                None
+            }
+        }
+    }
+    fn handover_finish_replay(
+        &mut self,
+        installed: tickwire_runtime::node::InstalledReplay,
+    ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        let member = &installed.verified().request.member;
+        if self.instance() != (member.new_instance, member.new_generation)
+            || self.forwarding
+            || self.failed()
+        {
+            return None;
+        }
+        let result = self.readiness.finish_replay(
+            &mut self.report,
+            &mut self.reports,
+            self.report_sub,
+            &mut self.clock,
+            installed,
+        );
+        match result {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.fail(e);
+                None
+            }
+        }
+    }
     fn handover_objects(
         &mut self,
         want: &tickwire_runtime::node::HandoverReadiness,
@@ -557,8 +642,9 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         {
             return None;
         }
+        let now = self.clock.sample().ok()?.monotonic.nanos();
         self.readiness
-            .objects(&self.reports, self.report_sub, want)
+            .objects(&self.report, now, &self.reports, self.report_sub, want)
             .ok()
             .flatten()
     }

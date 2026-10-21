@@ -16,7 +16,7 @@ use tickwire_account_journal::{
 };
 use tickwire_binance_account::{AccountIngress, StoredDecision};
 use tickwire_journal::store::FileStore;
-use tickwire_recovery::{ClosureBinding, FileBlobStore, Persistence};
+use tickwire_recovery::{ClosureBinding, FileBlobStore, Persistence, SharedBlobStore};
 use tickwire_venue::PositionSide;
 
 const MAX_COPY_BYTES: u64 = 512 * 1024 * 1024;
@@ -101,10 +101,79 @@ struct Recovered {
     _locks: Vec<File>,
 }
 struct Historical<'a> {
-    persistence: Persistence<FileBlobStore>,
+    persistence: Persistence<SharedBlobStore<FileBlobStore>>,
     input: &'a AccountIngress<FileStore>,
 }
 impl RecoveryVerifier for Historical<'_> {
+    fn verify_income_association(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::IncomeObservationsAssociated(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_income_association(baseline, &account, preceding, prior, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
+    fn verify_uncreated_algo(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::UncreatedAlgoClosed(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_uncreated_algo(baseline, &account, preceding, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
+    fn verify_account_inputs_closure(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::AccountInputsReconciled(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_account_inputs_closure(baseline, &account, preceding, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
     fn verify_income_baseline(
         &mut self,
         baseline: &CanonicalBaseline,
@@ -235,16 +304,18 @@ fn load(deployment: &Deployment) -> Result<Recovered> {
         copy_directory(root, &scratch.0.join(name), name, &mut budget)?;
     }
     let before_input = wal_bytes(&scratch.0.join("input"))?;
+    let shared = SharedBlobStore::new(FileBlobStore::open(scratch.0.join("recovery"))?);
     let input = AccountIngress::recover(
         FileStore::open(scratch.0.join("input"))?,
         configuration.input,
         None,
-    )?;
+    )?
+    .with_closure_store(shared.clone());
     let input_tail = before_input
         .checked_sub(wal_bytes(&scratch.0.join("input"))?)
         .ok_or_else(|| invalid("input recovery grew a journal"))?;
     let mut verifier = Historical {
-        persistence: Persistence::new(FileBlobStore::open(scratch.0.join("recovery"))?),
+        persistence: Persistence::new(shared),
         input: &input,
     };
     let recovered = AccountJournal::recover(
@@ -274,7 +345,13 @@ fn pair_input(
     input: &AccountIngress<FileStore>,
     journal: &AccountJournal<FileBackend>,
 ) -> Result<usize> {
+    input.validate_ws_origins(journal)?;
     let mut events = BTreeMap::new();
+    for response in input.stored_ws_responses() {
+        for (index, event) in response.events.iter().enumerate() {
+            events.insert(response.input.sequence + index as u64 + 1, event);
+        }
+    }
     let account_inputs: BTreeMap<_, _> = input
         .account_inputs()
         .map(|(key, e)| (key.sequence, e))
@@ -316,6 +393,10 @@ fn pair_input(
             pending_imports += 1;
         }
     }
+    for binding in input.income_association_bindings() {
+        let binding = binding?;
+        if !journal.records().iter().any(|r| matches!(r.record(),RecoveryRecord::IncomeObservationsAssociated(applied) if applied.as_ref()==&binding)) {pending_imports+=1;}
+    }
     Ok(events
         .into_iter()
         .filter(|(sequence, event)| {
@@ -356,8 +437,8 @@ fn report(recovered: &Recovered) -> Result<Value> {
         let o = account
             .order(key)
             .ok_or_else(|| invalid("missing account order"))?;
-        let item = json!({"intent_epoch":key.intent.epoch,"intent_id":key.intent.intent_id,"client_id":key.client_id.as_str(),"command_sha256":hex(&o.command_digest),"strategy_id":o.strategy,"origin_instance":hex(&o.origin.instance),"origin_generation":o.origin.generation,"manager_instance":hex(&o.manager.instance),"manager_generation":o.manager.generation,"owner_revision":o.owner_revision,"original_quantity":fixed(o.original_quantity),"filled_quantity":fixed(o.filled_quantity),"remaining_quantity":fixed(o.remaining_quantity),"reduce_allocation":fixed(o.reduce_allocation),"unknown":o.unknown,"terminal":o.terminal,"fee_reconciled":o.fee_reconciled,"aborted":o.aborted,"confirmed":o.confirmed});
-        if !o.aborted && (!o.terminal || !o.fee_reconciled || o.unknown) {
+        let item = json!({"intent_epoch":key.intent.epoch,"intent_id":key.intent.intent_id,"client_id":key.client_id.as_str(),"command_sha256":hex(&o.command_digest),"strategy_id":o.strategy,"origin_instance":hex(&o.origin.instance),"origin_generation":o.origin.generation,"manager_instance":hex(&o.manager.instance),"manager_generation":o.manager.generation,"owner_revision":o.owner_revision,"original_quantity":fixed(o.original_quantity),"filled_quantity":fixed(o.filled_quantity),"remaining_quantity":fixed(o.remaining_quantity),"reduce_allocation":fixed(o.reduce_allocation),"unknown":o.unknown,"terminal":o.terminal,"fee_reconciled":o.fee_reconciled,"aborted":o.aborted,"uncreated":o.uncreated,"confirmed":o.confirmed});
+        if !o.aborted && !o.uncreated && (!o.terminal || !o.fee_reconciled || o.unknown) {
             pending.push(json!({"intent_epoch":key.intent.epoch,"intent_id":key.intent.intent_id,"client_id":key.client_id.as_str(),"unknown":o.unknown,"open":!o.terminal,"fees_pending":!o.fee_reconciled}));
         }
         orders.push(item);
@@ -389,6 +470,9 @@ fn kind(record: &RecoveryRecord) -> &'static str {
         RecoveryRecord::Reactivated(_) => "reactivated",
         RecoveryRecord::StrategyHandover(_) => "strategy_handover",
         RecoveryRecord::IngressAccountInput { .. } => "ingress_account_input",
+        RecoveryRecord::IncomeObservationsAssociated(_) => "income_observations_associated",
+        RecoveryRecord::UncreatedAlgoClosed(_) => "uncreated_algo_closed",
+        RecoveryRecord::AccountInputsReconciled(_) => "account_inputs_reconciled",
         RecoveryRecord::IncomeBaseline(_) => "income_baseline",
     }
 }
@@ -553,7 +637,7 @@ impl Drop for Scratch {
 
 #[cfg(test)]
 #[path = "replay_income_tests.rs"]
-mod income_tests;
+pub(crate) mod income_tests;
 
 #[cfg(test)]
 mod tests {

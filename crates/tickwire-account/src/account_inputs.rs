@@ -1,4 +1,6 @@
 use super::*;
+mod association;
+mod closure;
 
 type IncomeKey = (String, String);
 type ComponentKey = (String, String, u8, u64);
@@ -8,6 +10,7 @@ enum IncomeStatus {
     Booked,
     Pending,
     Trade,
+    Reconciled,
 }
 #[derive(Debug, Clone)]
 struct IncomeEntry {
@@ -28,9 +31,14 @@ pub(super) struct AccountInputs {
     components: BTreeMap<ComponentKey, Component>,
     aliases: BTreeMap<ComponentKey, IncomeKey>,
     observations: BTreeMap<v::Hash, bool>,
+    observation_inputs: BTreeMap<v::Hash, v::CanonicalAccountInput>,
     caps: BTreeMap<AssetKey, Fixed>,
     credit_holds: BTreeMap<AssetKey, Fixed>,
     rejected: Option<v::CanonicalAccountInput>,
+    closures: BTreeMap<v::Hash, AccountInputsReconciled>,
+    associations: BTreeMap<[u8; 16], IncomeObservationsAssociated>,
+    associated_observations: BTreeMap<v::Hash, [u8; 16]>,
+    associated_incomes: BTreeMap<IncomeKey, v::Hash>,
 }
 impl AccountInputs {
     fn size(&self) -> usize {
@@ -323,6 +331,9 @@ impl Account {
                 self.account_inputs
                     .observations
                     .insert(input.digest(), unresolved);
+                self.account_inputs
+                    .observation_inputs
+                    .insert(input.digest(), input.clone());
                 self.frozen |= unresolved;
             }
             v::AccountInputBody::ExternalTrade(_) => return Err(Error::Unsupported),

@@ -1,6 +1,6 @@
 # IPC codec 实现规格
 
-实现位于 [`tickwire-ipc`](../../crates/tickwire-ipc)，接口见 [IPC 编解码接口](../../docs/implementation/ipc-interface.md)。协议源是 [ABI 1.0](../../docs/design/ipc-abi.md) 与 [机器契约](../contracts/ipc-wire-v1.json)。
+实现位于 [`tickwire-ipc`](../../crates/tickwire-ipc)，接口见 IPC 编解码接口。协议源是 ABI 1.0 与 [机器契约](../contracts/ipc-wire-v1.json)。
 
 `Wire` 处理稳定页面镜像和完整消息的固定布局；`decode_record`、`ControlFrame`、配置绑定和快照验证处理进一步的语义约束。单独调用 `Wire::decode` 只能证明长度和保留区正确，不能据此授予交易权限。
 
@@ -8,9 +8,9 @@
 
 | 编号 | 约束 | 生产入口与验证 |
 |---|---|---|
-| IPC-C01 | 36 个布局均按固定 offset 小端读写；输入与输出长度必须精确相等 | `Wire`；36 个 `layouts` 测试及 63 个 `vectors` 测试 |
+| IPC-C01 | 46 个布局均按固定 offset 小端读写；输入与输出长度必须精确相等 | `Wire`；46 个 `layouts` 测试及 63 个 `vectors` 测试 |
 | IPC-C02 | 所有显式 reserved 字节为零，编码器始终写零 | 生成的 `Wire::decode/encode`；逐个翻转全部布局的 reserved 字节 |
-| IPC-C03 | 消息类型选择唯一长度与字段白名单；未用联合体字段为零 | `decode_record` 与生成的 `validate_fields`；全部 26 个消息 ID 的静态分支 |
+| IPC-C03 | 消息类型选择唯一长度与字段白名单；未用联合体字段为零 | `decode_record` 与生成的 `validate_fields`；全部 31 个消息 ID 的静态分支 |
 | IPC-C04 | report 数值有效位满足 allowed/required mask；未声明值为零，command/report kind 匹配消息类型 | `validate_fields`；`fill_*` semantic cases |
 | IPC-C05 | depth 层数与 payload 长度相等，买价降序、卖价升序、数量非负；≤12 层内联，其余使用 arena | `decode_record`、`validate_arena_payload`；内联和 arena 边界/排序/尾部测试 |
 | IPC-C06 | arena 引用匹配 resource/ring/sequence/class，选择能容纳 payload 的最小 class，块与尾部不越界 | `validate_arena_payload`；陈旧 allocation、极大 offset、非零尾部测试 |
@@ -37,9 +37,9 @@ cargo clippy -p tickwire-ipc --all-targets -- -D warnings
 
 ## TDD 证据
 
-先将接口与生成的 golden 测试写入工作树，再运行测试。首轮因 `MarketRecord`、`RecordHeader` 等类型尚未实现而编译失败，[原始日志](../../docs/validation/ipc-tdd-red.log)已归档。随后实现固定布局、消息验证、上下文验证并加入截断和篡改用例。
+先将接口与生成的 golden 测试写入工作树，再运行测试。首轮因 `MarketRecord`、`RecordHeader` 等类型尚未实现而编译失败，原始日志已归档。随后实现固定布局、消息验证、上下文验证并加入截断和篡改用例。
 
-当前回归结果为 110 个 Rust 测试通过：36 个固定布局测试、63 个 golden vector 测试、11 个语义与异常输入测试。其中 `all_declared_semantic_cases` 实际遍历并断言契约全部 25 个案例。期望错误只用于测试断言；生产函数根据输入字段、CRC、hash 和上下文独立计算结果。Clippy 使用 `-D warnings` 通过。
+早期首轮回归为 110 个 Rust 测试通过：36 个固定布局测试、63 个 golden vector 测试、11 个语义与异常输入测试。契约随后扩展（新增布局与消息），当前工作树测试构成以源码为准：`tests/layouts.rs` 46 项、`tests/vectors.rs` 63 项、`tests/semantics.rs` 11 项、`tests/market_exact.rs` 6 项、`tests/layout_extensions.rs` 3 项、`tests/release_layouts.rs` 2 项、`tests/replay_control.rs` 1 项（精确总数与通过数以 `cargo test -p tickwire-ipc` 输出为准）。其中 `all_declared_semantic_cases` 实际遍历并断言契约全部 25 个案例。期望错误只用于测试断言；生产函数根据输入字段、CRC、hash 和上下文独立计算结果。Clippy 使用 `-D warnings` 通过。
 
 ## 后续模块的责任
 

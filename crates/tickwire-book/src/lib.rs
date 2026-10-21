@@ -1,7 +1,7 @@
 //! Bounded single-owner order book with independent venue sequence policies.
 //!
 //! Inputs borrow normalized integer levels. No transport, decoder, clock, or
-//! allocator is owned by this crate. See `docs/implementation/book-interface.md`.
+//! allocator is owned by this crate. See `specs/implementation/book-core.md`.
 #![no_std]
 #![forbid(unsafe_code)]
 

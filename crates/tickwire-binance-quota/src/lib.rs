@@ -49,6 +49,7 @@ pub enum CommandAction {
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
+    CommandSession(CommandSessionAction),
     GuardianConnect,
     TimeConnect,
     TimeQuery,
@@ -78,6 +79,15 @@ pub enum Action {
     },
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum CommandSessionAction {
+    Connect = 1,
+    Upgrade = 2,
+    Ping = 3,
+    Pong = 4,
+    Close = 5,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReadAction {
     Connect,
     TradePage,
@@ -86,6 +96,8 @@ pub enum ReadAction {
     ConditionalOrders,
     OrderQuery,
     Income,
+    StructureQuery,
+    AmendmentHistory,
 }
 #[derive(Clone, Copy, Debug)]
 pub enum ReadQuery {
@@ -93,6 +105,8 @@ pub enum ReadQuery {
     Snapshot(read::bootstrap::SnapshotQuery),
     Order(read::orders::OrderQuery),
     Income(read::income::IncomeQuery),
+    Structure(read::structures::StructureQuery),
+    Amendment(read::amendments::AmendmentQuery),
 }
 #[derive(Clone, Debug)]
 pub struct ReadBinding {
@@ -188,6 +202,48 @@ fn validate_policy(policy: &Policy) -> Result<()> {
     Ok(())
 }
 impl Endpoint {
+    pub fn consume_command_session(
+        &mut self,
+        binding: &CommandBinding,
+        session: &tickwire_binance_account::ws::SessionIdentity,
+        operation: u64,
+        action: CommandSessionAction,
+        now: MonoTime,
+    ) -> Result<Consumed> {
+        self.binding(binding.owner_id, binding.domain, now)?;
+        if operation == 0
+            || session.connection_epoch == 0
+            || session.writer_epoch == 0
+            || session.execution_instance == [0; 16]
+            || session.scope.venue != 1
+            || session.scope.risk_domain_id != binding.risk_domain_id
+            || session.scope.account != binding.account
+            || session.scope.environment != binding.environment
+            || session.product != binding.product
+        {
+            return Err(Error::Identity);
+        }
+        let source = command_source(binding.product, binding.environment)?;
+        let mut key = identity(7, binding.owner_id, source);
+        key.extend(session.input_stream);
+        key.extend(session.execution_instance);
+        key.extend(session.writer_epoch.to_le_bytes());
+        key.extend(session.connection_epoch.to_le_bytes());
+        key.extend(operation.to_le_bytes());
+        let mut content = vec![action as u8];
+        content.extend(session.account_stream);
+        content.extend(session.baseline_digest);
+        content.extend(session.credential_ref_digest);
+        self.consume(
+            key,
+            &content,
+            source,
+            Action::CommandSession(action),
+            0,
+            0,
+            now,
+        )
+    }
     /// Independent guardian connection identity; no order/API weight is implied.
     pub fn consume_guardian_connect(
         &mut self,
@@ -458,6 +514,52 @@ impl Endpoint {
                 });
                 (4, ReadAction::Income)
             }
+            ReadQuery::Amendment(q) => {
+                if scope.market != tickwire_binance::request::Market::Spot
+                    || q.intent.epoch == 0
+                    || q.intent.intent_id == 0
+                    || q.order_id == [0; 16]
+                    || q.from_execution_id > i64::MAX as u64
+                    || q.limit == 0
+                    || q.limit > 16
+                    || q.private_connection_epoch == 0
+                    || q.gap_generation == 0
+                {
+                    return Err(Error::Identity);
+                }
+                for n in [
+                    q.intent.epoch,
+                    q.intent.intent_id,
+                    q.from_execution_id,
+                    u64::from(q.limit),
+                    q.private_connection_epoch,
+                    q.gap_generation,
+                ] {
+                    content.extend_from_slice(&n.to_le_bytes());
+                }
+                content.extend_from_slice(&q.order_id);
+                (6, ReadAction::AmendmentHistory)
+            }
+            ReadQuery::Structure(q) => {
+                if q.intent.epoch == 0
+                    || q.intent.intent_id == 0
+                    || q.structure_id == [0; 16]
+                    || q.private_connection_epoch == 0
+                    || q.gap_generation == 0
+                {
+                    return Err(Error::Identity);
+                }
+                for n in [
+                    q.intent.epoch,
+                    q.intent.intent_id,
+                    q.private_connection_epoch,
+                    q.gap_generation,
+                ] {
+                    content.extend_from_slice(&n.to_le_bytes());
+                }
+                content.extend_from_slice(&q.structure_id);
+                (5, ReadAction::StructureQuery)
+            }
             ReadQuery::Order(q) => {
                 if q.intent.epoch == 0
                     || q.intent.intent_id == 0
@@ -677,6 +779,26 @@ impl read::bootstrap::SnapshotPermit for ReadPermit<'_> {
         self.endpoint.allowed(result)
     }
 }
+impl read::structures::StructurePermit for ReadPermit<'_> {
+    fn allow(
+        &mut self,
+        scope: &private::AccountScope,
+        query: &read::structures::StructureQuery,
+        epoch: u64,
+        operation: read::ReadOperation,
+        now: &private::ClockSample,
+    ) -> bool {
+        let result = self.endpoint.consume_read(
+            &self.binding,
+            scope,
+            ReadQuery::Structure(*query),
+            epoch,
+            operation,
+            now.monotonic,
+        );
+        self.endpoint.allowed(result)
+    }
+}
 impl read::orders::OrderPermit for ReadPermit<'_> {
     fn allow(
         &mut self,
@@ -690,6 +812,26 @@ impl read::orders::OrderPermit for ReadPermit<'_> {
             &self.binding,
             scope,
             ReadQuery::Order(*query),
+            epoch,
+            operation,
+            now.monotonic,
+        );
+        self.endpoint.allowed(result)
+    }
+}
+impl read::amendments::AmendmentPermit for ReadPermit<'_> {
+    fn allow(
+        &mut self,
+        scope: &private::AccountScope,
+        query: &read::amendments::AmendmentQuery,
+        epoch: u64,
+        operation: read::ReadOperation,
+        now: &private::ClockSample,
+    ) -> bool {
+        let result = self.endpoint.consume_read(
+            &self.binding,
+            scope,
+            ReadQuery::Amendment(*query),
             epoch,
             operation,
             now.monotonic,
@@ -856,6 +998,7 @@ fn transport_code(t: Transport) -> u8 {
 }
 fn action_bytes(a: Action) -> Vec<u8> {
     let tag = match a {
+        Action::CommandSession(kind) => return vec![22, kind as u8],
         Action::GuardianConnect => 21,
         Action::TimeConnect => 1,
         Action::TimeQuery => 2,
@@ -885,6 +1028,8 @@ fn action_bytes(a: Action) -> Vec<u8> {
                     ReadAction::ConditionalOrders => 5,
                     ReadAction::OrderQuery => 6,
                     ReadAction::Income => 7,
+                    ReadAction::StructureQuery => 8,
+                    ReadAction::AmendmentHistory => 9,
                 },
             ];
         }

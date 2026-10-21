@@ -351,6 +351,58 @@ fn management_query_survives_strategy_revoke_and_private_gap() {
     assert!(p.evaluate(&query, &admitted, now(60)).is_err());
 }
 #[test]
+fn reducing_amend_uses_its_strategy_permission_while_private_and_market_are_frozen() {
+    use tickwire_venue as v;
+    let (p, mut account, c, _) = setup();
+    prepare(&p);
+    let mut ack = fixture::venue::event();
+    let v::VenueEventBody::Fill(f) = ack.body else {
+        unreachable!()
+    };
+    let mut observation = f.observation;
+    observation.status = v::OrderStatus::New;
+    observation.cumulative_quantity = Some(fixture::venue::d(0, 0));
+    let target = v::OrderTarget {
+        order_id: observation.order.order_id,
+        expected_owner_revision: 1,
+        original_intent_exec_epoch: 4,
+        client_id: observation.order.client_id.clone(),
+        venue_order_id: observation.order.venue_order_id.clone(),
+    };
+    ack.body = v::VenueEventBody::Order(Box::new(observation));
+    account.apply_event(&fixture::event(ack)).unwrap();
+    account.freeze();
+    p.private_gap(1, 2).unwrap();
+    p.invalidate_feed(feed_key(), 1, 1).unwrap();
+    let mut command = c.command().clone();
+    command.context.request.intent_id = 4;
+    command.body = CommandBody::AmendKeepPriority {
+        target,
+        new_quantity: fixture::venue::d(8, -4),
+        new_client_id: Some(fixture::venue::text("test-1")),
+    };
+    let command = fixture::canonical(command);
+    let admission = account.admit(&command, 61).unwrap();
+    let gate = p
+        .evaluate(&command, &admission, now(62))
+        .expect("explicit amend grant permits a verified decrease");
+    assert!(!gate.market_valid);
+    p.revoke_strategy(8, 9).unwrap();
+    p.install_management_grant(ManagementGrant {
+        authorization_epoch: 9,
+        config_revision: 6,
+        valid_until_ns: 1000,
+        cancel: true,
+        query: true,
+        strategies: vec![8],
+    })
+    .unwrap();
+    assert!(
+        p.evaluate(&command, &admission, now(63)).is_err(),
+        "cancel/query grants cannot authorize amendment"
+    );
+}
+#[test]
 fn current_clock_domain_and_monotonicity_are_sticky() {
     struct Clock(MonoTime);
     impl PolicyClock for Clock {

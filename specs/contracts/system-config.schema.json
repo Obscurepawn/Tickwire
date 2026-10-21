@@ -547,7 +547,8 @@
           "items": {
             "$ref": "#/$defs/RoleBinding"
           },
-          "minItems": 1
+          "minItems": 1,
+          "maxItems": 4096
         },
         "operation_timeout_ms": {
           "type": "integer",
@@ -1669,7 +1670,8 @@
       "properties": {
         "subject": {
           "type": "string",
-          "pattern": "^spiffe://[a-z0-9.-]+/[a-zA-Z0-9/_-]+$"
+          "pattern": "^spiffe://[a-z0-9.-]+/[a-zA-Z0-9/_-]+$",
+          "maxLength": 256
         },
         "role": {
           "type": "string",
@@ -1689,6 +1691,11 @@
           },
           "minItems": 0,
           "uniqueItems": true
+        },
+        "cluster_scope": {
+          "type": "boolean",
+          "default": false,
+          "description": "Explicit cluster-wide scope for this role. Requires an empty account_ids array; an empty array alone grants no scope."
         }
       },
       "required": [
@@ -1696,7 +1703,28 @@
         "role",
         "account_ids"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "cluster_scope": {
+                "const": true
+              }
+            },
+            "required": [
+              "cluster_scope"
+            ]
+          },
+          "then": {
+            "properties": {
+              "account_ids": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
     },
     "Materialization": {
       "type": "object",
@@ -2586,7 +2614,8 @@
               "items": {
                 "$ref": "#/$defs/RoleBinding"
               },
-              "minItems": 1
+              "minItems": 1,
+              "maxItems": 4096
             },
             "operation_timeout_ms": {
               "type": "integer",

@@ -2,7 +2,7 @@
 
 `tickwire-binance-public` 将生产 TCP/TLS、HTTP、WebSocket 编解码器接到现有 `DepthSync`。固定产品、环境、目录和单一标的后，owner 建立公共 WSS 订阅，收到首条增量后请求 HTTPS 快照，完成缓存回放并交付借用 BookView。它同时处理 Ping/Pong、Close、限流反馈、断档重建、退避重连和 24 小时寿命前的主动轮换。
 
-[接口](../../docs/implementation/binance-public-session-interface.md)固定四组产品/环境端点。测试只替换远端 TLS 服务、时间和额度来源，使用相同 owner、协议解码器、序列 policy 与 Book。
+接口固定四组产品/环境端点。测试只替换远端 TLS 服务、时间和额度来源，使用相同 owner、协议解码器、序列 policy 与 Book。
 
 ## 状态与时间顺序
 
@@ -25,6 +25,6 @@ Close 在撤销 Book 后进入有期限的 `Closing`，完成已接受的帧并�
 | 有限快照 | 覆盖外数量保持 Unknown，未声明全量盘口 |
 | 安静 WS 的快照重试 | 先复现 2 秒冷却却报告 30 秒心跳期限；修复后报告实际可重试时间并完成同连接快照 |
 
-最终 9 项原生 focused 测试、格式与 Clippy 检查通过，具体日志见[验证记录](../../docs/validation/binance-public/report.md)。初次证书夹具类型推断失败和 accepted socket 的 nonblocking 设置错误各自保留原记录，未作为行为 Red。
+最终 9 项原生 focused 测试、格式与 Clippy 检查通过，具体日志见验证记录。初次证书夹具类型推断失败和 accepted socket 的 nonblocking 设置错误各自保留原记录，未作为行为 Red。
 
 后续发布模块负责 Book 到 MarketRecord/SHM 的字段映射和失效发布。目录加载、SBE、FIX、其他行情类型及多标的复用连接仍各自实现；本 owner 的产品开关仅表示已编码的 JSON diff-depth 协议。

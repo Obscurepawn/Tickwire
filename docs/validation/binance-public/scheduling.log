@@ -1,9 +1,0 @@
-   Compiling tickwire-binance-public v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-public)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.46s
-     Running tests/scheduling.rs (target/debug/deps/scheduling-01f816a878d3797e)
-
-running 2 tests
-test a_completed_snapshot_waits_for_buffered_ws_messages_and_preserves_arrival_time ... ok
-test a_failed_snapshot_waits_for_buffered_ws_messages_before_advancing_the_clock ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s

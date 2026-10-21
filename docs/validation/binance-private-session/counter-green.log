@@ -1,9 +1,0 @@
-   Compiling tickwire-binance-private v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-binance-private)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.14s
-     Running unittests src/lib.rs (target/debug/deps/tickwire_binance_private-1e6de429cebc4bd7)
-
-running 2 tests
-test client::counter_boundaries::exhausted_backoff_cannot_leave_receiving_status ... ok
-test client::counter_boundaries::exhausted_gap_cannot_leave_receiving_status ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s

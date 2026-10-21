@@ -6,4 +6,4 @@
 
 MD 只对真实 Detached peer 做无全 topic 失效的清理。未完成退出、伪造响应、控制超时和意外 EOF 继续走既有保守故障处理。已退休 Host 不再收到 Multi 回调；其身份仍留在有界历史中，不能重复启动。
 
-针对性 Red/Green 和当前进程验证状态见[退休证据](../../docs/validation/strategy-retirement/README.md)。
+针对性 Red/Green 和当前进程验证状态见退休证据。

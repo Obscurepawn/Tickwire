@@ -450,6 +450,14 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
     let mut subscribed = !private && path.starts_with("/ws/");
     let mut sent_fill = false;
     let mut previous_bid = "59999";
+    // Handover verifies synchronized replay and process ownership, with one
+    // source update per second. Its retained-tail owner is not a load test.
+    let market_interval = match s.scenario.kind {
+        crate::ScenarioKind::SpotHandover | crate::ScenarioKind::SpotHandoverCustom => {
+            Duration::from_secs(1)
+        }
+        crate::ScenarioKind::SpotFill => Duration::from_millis(100),
+    };
     let mut last = Instant::now() - Duration::from_secs(1);
     while !s.scenario.root.join("STOP").exists() {
         while let Some((opcode, body, n)) = decode_frame(&input)? {
@@ -498,8 +506,7 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
         if subscribed
             && private
             && !sent_fill
-            && (s.scenario.kind != crate::ScenarioKind::SpotHandover
-                || s.scenario.root.join("RELEASE_FILL").is_file())
+            && (!s.scenario.kind.handover() || s.scenario.root.join("RELEASE_FILL").is_file())
             && s.output_at
                 .lock()
                 .map_err(|_| "output lock")?
@@ -517,7 +524,7 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
             audit(s, json!({"event":"private_fill_sent","trade_id":33}))?;
             sent_fill = true;
         }
-        if subscribed && !private && last.elapsed() >= Duration::from_millis(100) {
+        if subscribed && !private && last.elapsed() >= market_interval {
             let seq = s.sequence.fetch_add(1, Ordering::AcqRel) + 1;
             let bid = if s.scenario.root.join("ARM").exists() {
                 "60000"
@@ -532,6 +539,12 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
                 &mut tls,
                 &json!({"e":"depthUpdate","E":wall(),"s":"BTCUSDT","U":seq,"u":seq,"b":bids,"a":[["60001","1"]]}),
             )?;
+            if previous_bid != bid {
+                audit(
+                    s,
+                    json!({"event":"market_arm_sent","sequence":seq,"bid":bid,"wall_ms":wall()}),
+                )?;
+            }
             previous_bid = bid;
             last = Instant::now();
         }

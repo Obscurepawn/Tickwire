@@ -137,5 +137,63 @@ fn inspect<S: BlobStore>(
             }
         }
     }
+    if seal.version == 3 {
+        let root = seal.replay_rollback_digest.ok_or(Error::Conflict)?;
+        let stages =
+            tickwire_release::replay::startup::verify_seal(&seal, &checkpoint, &inputs, |hash| {
+                p.read_object(hash, MAX_OBJECT_BYTES)
+                    .map_err(|_| tickwire_release::Error::Missing)
+            })
+            .map_err(|_| Error::Conflict)?;
+        for bytes in stages {
+            let object = ObjectRef::new(&bytes)?;
+            if !objects.contains(&object) {
+                total = total
+                    .checked_add(bytes.len())
+                    .filter(|n| *n <= tickwire_recovery::MAX_CLOSURE_BYTES as usize)
+                    .ok_or(Error::Bounds)?;
+                if objects.len() >= 512 {
+                    return Err(Error::Bounds);
+                }
+                objects.push(object);
+            }
+        }
+
+        let completed = tickwire_release::replay::rollback::verify(root, |hash| {
+            p.read_object(hash, MAX_OBJECT_BYTES)
+                .map_err(|_| tickwire_release::Error::Missing)
+        })
+        .map_err(|_| Error::Conflict)?;
+        let installed = &completed.installation;
+        installed
+            .bind_seal(&seal, &checkpoint, &inputs)
+            .map_err(|_| Error::Conflict)?;
+        let op = &installed.request.operation;
+        let member = &installed.request.member;
+        if op.operation_id != binding.operation_id
+            || op.operation_revision != binding.operation_revision
+            || op.logical_strategy_id != binding.logical_strategy_id
+            || member.risk_domain != binding.scope.risk_domain_id
+            || member.old_instance != binding.from.instance
+            || member.old_generation != binding.from.generation
+            || member.new_instance != binding.to.instance
+            || member.new_generation != binding.to.generation
+        {
+            return Err(Error::Conflict);
+        }
+        for bytes in completed.objects {
+            let object = ObjectRef::new(&bytes)?;
+            if !objects.contains(&object) {
+                total = total
+                    .checked_add(bytes.len())
+                    .filter(|n| *n <= tickwire_recovery::MAX_CLOSURE_BYTES as usize)
+                    .ok_or(Error::Bounds)?;
+                if objects.len() >= 512 {
+                    return Err(Error::Bounds);
+                }
+                objects.push(object);
+            }
+        }
+    }
     Ok((objects, verified.records().to_vec(), seal))
 }

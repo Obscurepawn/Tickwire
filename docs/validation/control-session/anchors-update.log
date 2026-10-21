@@ -1,3 +1,0 @@
-  ok L0_registry: 138 line anchor(s) -> L0_registry/02_models/anchors.lock
-  ok L1_session: 246 line anchor(s) -> L1_session/02_models/anchors.lock
-anchors.sh update: baselined 2 level(s); 384 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)

@@ -113,6 +113,7 @@ pub(crate) fn verify_input_dependencies<S: BlobStore>(
     p: &mut Persistence<S>,
     stream: &Stream,
     payload: &[u8],
+    writer_epoch: u64,
     roots: &[ObjectRef],
 ) -> Result<()> {
     let (objects, prefixes) = input_dependencies(p, stream, roots)?;
@@ -122,6 +123,50 @@ pub(crate) fn verify_input_dependencies<S: BlobStore>(
     }
     let record = tickwire_account_codec::CanonicalRecord::decode(payload)
         .map_err(|_| Error::Invalid("account record"))?;
+    if let tickwire_account::RecoveryRecord::UncreatedAlgoClosed(b) = record.record() {
+        let object = roots
+            .iter()
+            .find(|o| o.hash == b.coverage_digest)
+            .ok_or(Error::Missing)?;
+        let bytes = p.read_object(object.hash, object.bytes as usize)?;
+        let dependencies =
+            tickwire_binance_account::reconciliation::structure_closure::coverage_dependencies(
+                b,
+                &bytes,
+                writer_epoch,
+                stream.journal_epoch,
+            )
+            .map_err(|_| Error::Conflict)?;
+        let prefix = prefixes
+            .iter()
+            .find(|p| {
+                p.input_stream == dependencies.input_stream
+                    && p.through_sequence >= dependencies.through_sequence
+            })
+            .ok_or(Error::Missing)?;
+        let mut digest = ring::digest::Context::new(&ring::digest::SHA256);
+        digest.update(b"tickwire.binance.input-closure-prefix.v1");
+        digest.update(&dependencies.input_stream);
+        digest.update(&dependencies.through_sequence.to_le_bytes());
+        for e in prefix
+            .entries
+            .iter()
+            .take(dependencies.through_sequence as usize)
+        {
+            digest.update(&e.sequence.to_le_bytes());
+            digest.update(&e.object.bytes.to_le_bytes());
+            digest.update(&e.object.hash);
+        }
+        if digest.finish().as_ref() != dependencies.prefix_digest {
+            return Err(Error::Conflict);
+        }
+        for (seq, len, hash) in dependencies.references {
+            let e = prefix.entries.get(seq as usize - 1).ok_or(Error::Missing)?;
+            if e.object.bytes != len || e.object.hash != hash {
+                return Err(Error::Conflict);
+            }
+        }
+    }
     let required = match record.record() {
         tickwire_account::RecoveryRecord::IngressEvent {
             input_stream,
@@ -133,6 +178,15 @@ pub(crate) fn verify_input_dependencies<S: BlobStore>(
             input_sequence,
             ..
         } => Some((*input_stream, *input_sequence)),
+        tickwire_account::RecoveryRecord::IncomeObservationsAssociated(b) => {
+            Some((b.input_stream, b.through_sequence))
+        }
+        tickwire_account::RecoveryRecord::UncreatedAlgoClosed(b) => {
+            Some((b.input_stream, b.through_sequence))
+        }
+        tickwire_account::RecoveryRecord::AccountInputsReconciled(b) => {
+            Some((b.input_stream, b.through_sequence))
+        }
         tickwire_account::RecoveryRecord::IncomeBaseline(b) => {
             Some((b.input_stream, b.through_sequence))
         }

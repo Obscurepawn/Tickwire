@@ -172,6 +172,9 @@ enumeration!(PegPriceType;Primary=1,Market=2);
 enumeration!(OptionRight;Call=1,Put=2);
 enumeration!(OrderStatus;Pending=1,New=2,PartiallyFilled=3,Filled=4,Canceled=5,Expired=6,Rejected=7,Unknown=8);
 enumeration!(Liquidity;Unknown=0,Maker=1,Taker=2);
+enumeration!(StructureKind;Oco=1,Oto=2,Otoco=3,Algo=4);
+enumeration!(StructureStatus;Pending=1,Live=2,Triggered=3,Terminal=4,Rejected=5,Unknown=6);
+enumeration!(AmendmentSource;RestResponse=1,RestHistory=2,PrivateStream=3);
 
 impl Codec for TimeInForce {
     fn write(&self, w: &mut Writer) {
@@ -477,6 +480,21 @@ impl Codec for SpotAdvancedCommand {
 impl Codec for VenueEventBody {
     fn write(&self, w: &mut Writer) {
         match self {
+            Self::AmendmentRejected(x) => {
+                w.array(2);
+                w.uint(7);
+                x.write(w)
+            }
+            Self::Amendment(x) => {
+                w.array(2);
+                w.uint(6);
+                x.write(w)
+            }
+            Self::Structure(x) => {
+                w.array(2);
+                w.uint(5);
+                x.write(w)
+            }
             Self::Order(x) => {
                 w.array(2);
                 w.uint(1);
@@ -514,6 +532,9 @@ impl Codec for VenueEventBody {
     fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
         let n = r.len(4, 4)?;
         match (n, r.uint()?) {
+            (2, 7) => Ok(Self::AmendmentRejected(Codec::read(r)?)),
+            (2, 6) => Ok(Self::Amendment(Codec::read(r)?)),
+            (2, 5) => Ok(Self::Structure(Codec::read(r)?)),
             (2, 1) => Ok(Self::Order(Codec::read(r)?)),
             (2, 2) => Ok(Self::Fill(Codec::read(r)?)),
             (4, 3) => Ok(Self::Fee {
@@ -555,3 +576,8 @@ structure!(AssetDelta;asset,amount);
 structure!(OrderObservation;order,status,side,position_side,original_quantity,cumulative_quantity,cumulative_quote,leaves_quantity,order_price);
 structure!(FillEvent;observation,trade_id,last_quantity,last_price,last_quote,realized_pnl,liquidity,fees);
 structure!(VenueEvent;identity,body);
+structure!(StructureIdentity;structure_id,original_intent_id,original_intent_exec_epoch,kind,client_id,venue_parent_id);
+structure!(StructureChild;order,reported_client_id);
+structure!(StructureObservation;parent,status,venue_status,children);
+structure!(AmendmentObservation;order,request_intent_id,request_intent_exec_epoch,request_digest,execution_source,execution_id,previous_quantity,new_quantity,observation);
+structure!(AmendmentRejection;order,request_intent_id,request_intent_exec_epoch,request_digest,venue_code);

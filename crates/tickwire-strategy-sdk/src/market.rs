@@ -7,11 +7,26 @@ use tickwire_venue::CanonicalCommand;
 pub struct MarketReplica(core::MarketReplica);
 pub struct MarketView<'a>(core::MarketView<'a>);
 impl MarketView<'_> {
+    pub fn last_trade(&self) -> Option<&tickwire_ipc::MarketState> {
+        self.0.last_trade()
+    }
+    pub fn best_quote(&self) -> Option<&tickwire_ipc::MarketState> {
+        self.0.best_quote()
+    }
+    pub fn mark_funding(&self) -> Option<&tickwire_ipc::MarketState> {
+        self.0.mark_funding()
+    }
+    pub fn state_age_ns(&self, category: u8, now: u64) -> Option<u64> {
+        self.0.state_age_ns(category, now)
+    }
     pub fn instrument(&self) -> u64 {
         self.0.instrument()
     }
     pub fn live(&self) -> bool {
         self.0.live()
+    }
+    pub fn continuous(&self) -> bool {
+        self.0.continuous()
     }
     pub fn bids(&self) -> &[DepthLevel] {
         self.0.bids()
@@ -48,6 +63,18 @@ impl MarketView<'_> {
     }
 }
 impl MarketReplica {
+    pub fn checkpoint(&self) -> Result<Vec<u8>> {
+        Ok(self.0.checkpoint()?)
+    }
+    pub fn restore_checkpoint(bytes: &[u8], maximum_levels: usize) -> Result<Self> {
+        Ok(Self(core::MarketReplica::restore_checkpoint(
+            bytes,
+            maximum_levels,
+        )?))
+    }
+    pub fn instruments(&self) -> impl Iterator<Item = u64> + '_ {
+        self.0.instruments()
+    }
     pub fn from_core(core: core::MarketReplica) -> Self {
         Self(core)
     }

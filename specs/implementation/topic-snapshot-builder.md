@@ -1,6 +1,6 @@
 # TopicSnapshot 构造规格
 
-`tickwire-snapshot::build_topic` 已实现完整 NormalizedMarket TopicSnapshotManifest 构造，返回拥有全部字节、资源头、快照头与最终 JOIN 绑定的 `BuiltTopic`。接口见[构造接口](../../docs/implementation/topic-snapshot-builder-interface.md)，实际 Red/Green 和摘要见[验证报告](../../docs/validation/topic-snapshot-builder/report.md)。
+`tickwire-snapshot::build_topic` 已实现完整 NormalizedMarket TopicSnapshotManifest 构造，返回拥有全部字节、资源头、快照头与最终 JOIN 绑定的 `BuiltTopic`。接口见构造接口，实际 Red/Green 和摘要见验证报告。
 
 构造遵守以下行为：
 

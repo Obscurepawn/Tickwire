@@ -1,12 +1,19 @@
 //! Single-owner multi-asset reservations and economic attribution.
 #![forbid(unsafe_code)]
+#[cfg(test)]
+extern crate self as tickwire_account;
 mod account_inputs;
 mod admission;
+mod amendments;
 mod calculation;
 mod events;
 mod external;
 mod handover;
 mod recovery;
+mod structures;
+#[cfg(test)]
+#[path = "../tests/common/mod.rs"]
+mod test_common;
 mod types;
 use std::collections::{BTreeMap, BTreeSet};
 pub use tickwire_risk::Fixed;
@@ -37,7 +44,10 @@ struct Order {
     origin: ManagerIdentity,
     manager: ManagerIdentity,
     spec: v::OrderSpec,
+    amendable: bool,
     original: Fixed,
+    effective: Fixed,
+    observed_cumulative: Fixed,
     filled: Fixed,
     price: Fixed,
     received: Fixed,
@@ -50,6 +60,7 @@ struct Order {
     terminal: bool,
     fees_closed: bool,
     aborted: bool,
+    uncreated: bool,
     economic: bool,
     confirmed: bool,
     reduce: Fixed,
@@ -59,14 +70,46 @@ struct Order {
     shadow_fee_credit: Fixed,
 }
 impl Order {
+    // A contradictory venue fact restores the original liability before a later
+    // reconciliation can reenable admission. It never allocates a new ticket.
+    fn reopen_aborted(&mut self) -> Result<bool> {
+        if !self.aborted && !self.uncreated {
+            return Ok(false);
+        }
+        if self.uncreated {
+            self.observation_unreconciled = true;
+        }
+        self.aborted = false;
+        self.uncreated = false;
+        self.fees_closed = false;
+        if matches!(self.spec.mode, v::ProductMode::Derivative { .. })
+            && (self.spec.reduce_only
+                || matches!(
+                    (self.spec.position_side, self.spec.side),
+                    (v::PositionSide::Long, v::Side::Sell) | (v::PositionSide::Short, v::Side::Buy)
+                ))
+        {
+            self.reduce = self.original.checked_sub(self.filled)?.positive_part();
+        }
+        Ok(true)
+    }
     fn unknown(&self) -> bool {
         self.observed_unknown || self.recovery_unknown
     }
     fn remaining(&self) -> Result<Fixed> {
-        if self.aborted || self.terminal && self.terminal_cumulative == Some(self.filled) {
+        if self.aborted
+            || self.uncreated
+            || self.terminal
+                && self.terminal_cumulative == Some(self.filled)
+                && self.observed_cumulative.atoms() <= self.filled.atoms()
+        {
             Ok(self.original.zero_like())
         } else {
-            Ok(self.original.checked_sub(self.filled)?.positive_part())
+            Ok(self
+                .effective
+                .max(self.observed_cumulative)?
+                .checked_sub(self.filled)?
+                .positive_part())
         }
     }
 }
@@ -98,6 +141,10 @@ pub struct Account {
     catalog: BTreeMap<u64, InstrumentPolicy>,
     positions: BTreeMap<(u64, u8), Position>,
     orders: BTreeMap<OrderKey, Order>,
+    structures: BTreeMap<[u8; 16], structures::Structure>,
+    structure_management: BTreeMap<IntentKey, structures::Management>,
+    amendments: BTreeMap<IntentKey, amendments::Amendment>,
+    structure_observed: bool,
     admissions: BTreeMap<IntentKey, Admission>,
     facts: BTreeMap<FactKey, EconomicFact>,
     external_facts: BTreeMap<(u8, String), external::ExternalValue>,
@@ -134,6 +181,10 @@ impl Account {
             catalog: BTreeMap::new(),
             positions: BTreeMap::new(),
             orders: BTreeMap::new(),
+            structures: BTreeMap::new(),
+            structure_management: BTreeMap::new(),
+            amendments: BTreeMap::new(),
+            structure_observed: false,
             admissions: BTreeMap::new(),
             facts: BTreeMap::new(),
             external_facts: BTreeMap::new(),
@@ -233,6 +284,11 @@ impl Account {
     pub fn frozen(&self) -> bool {
         self.frozen
     }
+    /// Deadline supplied by the baseline or the last durable Reactivated record.
+    /// Reading it does not extend admission or clear a freeze.
+    pub fn valid_until(&self) -> u64 {
+        self.valid_until
+    }
     /// Closes risk-increasing admission without changing balances, reservations or sequence.
     pub fn freeze(&mut self) {
         self.frozen = true;
@@ -259,6 +315,7 @@ impl Account {
                 manager: o.manager,
                 owner_revision: o.owner_revision,
                 original_quantity: o.original,
+                effective_quantity: o.effective,
                 filled_quantity: o.filled,
                 remaining_quantity: o.remaining().ok()?,
                 reduce_allocation: o.reduce,
@@ -266,6 +323,7 @@ impl Account {
                 terminal: o.terminal,
                 fee_reconciled: o.fees_closed,
                 aborted: o.aborted,
+                uncreated: o.uncreated,
                 confirmed: o.confirmed,
             })
         })

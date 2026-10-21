@@ -877,6 +877,10 @@ impl ControlPlane {
         }
         let action = action(&c.body);
         let administrative = matches!(action, Action::Cancel | Action::Query);
+        // Only the account's closed Admission can classify this supported decrease.
+        // Modify and cancel-replace remain subject to trading qualification.
+        let reducing_amend =
+            matches!(c.body, CommandBody::AmendKeepPriority { .. }) && !admission.increases_risk();
         let mut until = owner.valid_until_ns;
         let grant = s
             .strategies
@@ -924,7 +928,7 @@ impl ControlPlane {
         {
             return Err(Error::Denied);
         }
-        let market_valid = if administrative {
+        let market_valid = if administrative || reducing_amend {
             false
         } else {
             if s.mode != Mode::Trading

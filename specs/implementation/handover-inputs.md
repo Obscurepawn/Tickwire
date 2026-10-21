@@ -12,4 +12,4 @@
 
 记录容量使用账户日志既有 `MAX_FACTS + MAX_ORDERS` 上限。其他输入类型保留原顺序，由各自回放器解释。共享返回类型仅允许校验成功后构造，不授予交易权限。
 
-两项实际 Red 已确认旧 runtime 会接受重新计算哈希后的缺基线、缺账户记录输入；修复后均拒绝。测试与范围见 `docs/validation/handover-input-closure/README.md`。
+两项实际 Red 已确认旧 runtime 会接受重新计算哈希后的缺基线、缺账户记录输入；修复后均拒绝。测试与范围的原始报告曾位于已删除的 `docs/validation/handover-input-closure/README.md`，当前以本 crate 测试与 `cargo test` 为准。

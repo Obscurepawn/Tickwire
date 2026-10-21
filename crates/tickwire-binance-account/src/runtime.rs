@@ -16,6 +16,12 @@ impl<S: Store> AccountIngress<S> {
             return Err(Error::Identity);
         }
         for record in &self.records {
+            if let Record::WsResponse(response) = record {
+                self.verify_ws_response(gateway, response)?;
+            }
+            if let Record::WsBinding(binding) = record {
+                self.verify_ws_binding(gateway, binding)?;
+            }
             if let Record::Rest(rest) = record
                 && gateway.command(intent(&rest.command)) != Some(&rest.command)
             {
@@ -49,6 +55,9 @@ impl<S: Store> AccountIngress<S> {
         for binding in gateway.account().income_baselines() {
             self.income_coverage_object(binding)?;
         }
+        for binding in gateway.account().income_associations() {
+            self.income_association_objects(binding)?;
+        }
         Ok(())
     }
     pub(crate) fn ready<B: Backend, A: Authority, E: Encoder>(
@@ -76,7 +85,8 @@ impl<S: Store> AccountIngress<S> {
         match command.command().body {
             v::CommandBody::New(_)
             | v::CommandBody::CancelReplace { .. }
-            | v::CommandBody::SpotList(_) => {
+            | v::CommandBody::SpotList(_)
+            | v::CommandBody::Algo(_) => {
                 if let Err(error) = self.register_command(command.clone(), ids) {
                     if self.stopped {
                         gateway.freeze_account();
@@ -87,6 +97,8 @@ impl<S: Store> AccountIngress<S> {
             v::CommandBody::Cancel(_)
             | v::CommandBody::Query(_)
             | v::CommandBody::CancelList(_)
+            | v::CommandBody::CancelAlgo(_)
+            | v::CommandBody::AmendKeepPriority { .. }
                 if ids.is_empty() => {}
             _ => return Err(Error::Unsupported),
         }
@@ -199,6 +211,32 @@ impl<S: Store> AccountIngress<S> {
     ) -> Decision {
         if matches!(
             event.body(),
+            tickwire_binance::events::PrivateBody::List(_)
+                | tickwire_binance::events::PrivateBody::Algo(_)
+        ) {
+            let mut matches = Vec::new();
+            for reg in self.registry.values() {
+                if let Ok(bound) = event.bind_structure(&reg.command, &reg.orders) {
+                    matches.push((reg, bound));
+                }
+            }
+            let [(reg, bound)] = matches.as_slice() else {
+                return Decision::Quarantine(if matches.is_empty() {
+                    QuarantineReason::UnknownOrder
+                } else {
+                    QuarantineReason::AmbiguousOrder
+                });
+            };
+            if gateway.command(intent(&reg.command)) != Some(&reg.command) {
+                return Decision::Quarantine(QuarantineReason::UnadmittedOrder);
+            }
+            if gateway.account().clone().apply_event(bound).is_err() {
+                return Decision::Quarantine(QuarantineReason::AccountRejected);
+            }
+            return Decision::Bound(Box::new(bound.clone()));
+        }
+        if matches!(
+            event.body(),
             tickwire_binance::events::PrivateBody::UsdmAccount { .. }
         ) {
             let Ok(input) = account_facts::bind_observation(
@@ -267,6 +305,29 @@ impl<S: Store> AccountIngress<S> {
         }
         let Ok(canonical) = event.bind_order(&reg.command, identity, &assets) else {
             return Decision::Quarantine(QuarantineReason::BindingConflict);
+        };
+        let canonical = if order.execution_type == "REPLACED" {
+            let Ok(bound) =
+                amendment::bind_private(gateway.account(), &reg.command, canonical, order)
+            else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            let v::VenueEventBody::Amendment(a) = &bound.event().body else {
+                unreachable!()
+            };
+            if gateway
+                .command(IntentKey {
+                    epoch: a.request_intent_exec_epoch,
+                    intent_id: a.request_intent_id,
+                })
+                .map(CanonicalCommand::digest)
+                != Some(a.request_digest)
+            {
+                return Decision::Quarantine(QuarantineReason::UnadmittedOrder);
+            }
+            bound
+        } else {
+            canonical
         };
         if gateway.account().clone().apply_event(&canonical).is_err() {
             return Decision::Quarantine(QuarantineReason::AccountRejected);
@@ -339,6 +400,15 @@ impl<S: Store> AccountIngress<S> {
                         .install_income_baseline(binding, &mut self.activation_verifier())
                         .map_err(Error::Gateway)?;
                 }
+            }
+            if let Record::IncomeAssociation(record) = &self.records[self.cursor] {
+                let binding = record
+                    .proposal
+                    .manifest
+                    .binding(record.proposal.digest(), record.approval.digest())?;
+                gateway
+                    .associate_income_observations(binding, &mut self.activation_verifier())
+                    .map_err(Error::Gateway)?;
             }
             self.cursor += 1;
             processed += 1;

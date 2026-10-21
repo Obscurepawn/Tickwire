@@ -29,6 +29,20 @@ pub struct OrderKey {
     pub client_id: v::ClientId,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StructureView {
+    pub structure_id: [u8; 16],
+    pub intent: IntentKey,
+    pub kind: v::StructureKind,
+    pub command_digest: v::Hash,
+    pub venue_parent_id: Option<v::VenueOrderId>,
+    pub confirmed: bool,
+    pub triggered: bool,
+    pub terminal: bool,
+    pub unknown: bool,
+    pub legs: Vec<OrderKey>,
+    pub children: Vec<v::StructureChild>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope {
     pub risk_domain_id: [u8; 16],
     pub venue: u32,
@@ -159,6 +173,9 @@ impl Admission {
     pub fn orders(&self) -> &[OrderKey] {
         &self.orders
     }
+    pub fn increases_risk(&self) -> bool {
+        self.increases
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AssetView {
@@ -177,6 +194,7 @@ pub struct OrderView {
     pub manager: ManagerIdentity,
     pub owner_revision: u64,
     pub original_quantity: Fixed,
+    pub effective_quantity: Fixed,
     pub filled_quantity: Fixed,
     pub remaining_quantity: Fixed,
     pub reduce_allocation: Fixed,
@@ -184,7 +202,22 @@ pub struct OrderView {
     pub terminal: bool,
     pub fee_reconciled: bool,
     pub aborted: bool,
+    pub uncreated: bool,
     pub confirmed: bool,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AmendmentView {
+    pub intent: IntentKey,
+    pub command_digest: v::Hash,
+    pub order: OrderKey,
+    pub manager: ManagerIdentity,
+    pub owner_revision: u64,
+    pub previous_quantity: Fixed,
+    pub new_quantity: Fixed,
+    pub aborted: bool,
+    pub confirmed: bool,
+    pub rejected: Option<v::BoundedText<32>>,
+    pub executions: Vec<(v::AmendmentSource, u64)>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Applied {
@@ -251,6 +284,9 @@ impl Admission {
 /// never the clock at which recovery happens. This enum is data, not an authorization proof.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RecoveryRecord {
+    UncreatedAlgoClosed(Box<UncreatedAlgoClosed>),
+    IncomeObservationsAssociated(Box<IncomeObservationsAssociated>),
+    AccountInputsReconciled(Box<AccountInputsReconciled>),
     IncomeBaseline(Box<IncomeBaseline>),
     IngressAccountInput {
         input_stream: [u8; 16],
@@ -319,6 +355,53 @@ pub struct IncomeBaseline {
     pub through_sequence: u64,
     pub covered: Vec<v::CanonicalAccountInput>,
 }
+/// Persisted closure binding. Its query/snapshot provenance is checked by the owner.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AccountInputsReconciled {
+    pub scope: Scope,
+    pub account_epoch: u64,
+    pub ledger_sequence: u64,
+    pub baseline_digest: v::Hash,
+    pub history_digest: v::Hash,
+    pub input_stream: [u8; 16],
+    pub through_sequence: u64,
+    pub state_digest: v::Hash,
+    pub coverage_digest: v::Hash,
+}
+/// Exact income identity within the binding's account scope. Amount and time
+/// remain content, never identity.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct IncomeIdentity {
+    pub income_type: v::BoundedText<64>,
+    pub transaction_id: v::BoundedText<32>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ObservationAssociation {
+    pub observation_digest: v::Hash,
+    pub incomes: Vec<IncomeIdentity>,
+}
+/// Data for a separately verified, scoped risk-admin decision. The reducer
+/// neither verifies remote evidence nor creates authorization.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IncomeObservationsAssociated {
+    pub scope: Scope,
+    pub account_epoch: u64,
+    pub ledger_sequence: u64,
+    pub wallet_id: u64,
+    pub request_id: [u8; 16],
+    pub baseline_digest: v::Hash,
+    pub history_digest: v::Hash,
+    pub input_stream: [u8; 16],
+    /// Includes the durable approval, whose manifest binds the preceding prefix.
+    pub through_sequence: u64,
+    pub state_digest: v::Hash,
+    pub manifest_digest: v::Hash,
+    pub approval_digest: v::Hash,
+    pub associations: Vec<ObservationAssociation>,
+}
+pub const MAX_ASSOCIATION_OBSERVATIONS: usize = 16;
+pub const MAX_ASSOCIATION_INCOMES: usize = 128;
+pub const MAX_ASSOCIATION_REQUESTS: usize = 1024;
 pub const MAX_BASELINE_INCOMES: usize = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -368,4 +451,23 @@ pub struct Reactivation {
     pub writer_epoch: u64,
     pub execution_connection_epoch: u64,
     pub venue_available: Vec<(u64, Fixed)>,
+}
+
+/// Persisted evidence binding, not a caller-created permission. The gateway
+/// verifies the exact parent query and full input/snapshot closure before use.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct UncreatedAlgoClosed {
+    pub scope: Scope,
+    pub account_epoch: u64,
+    pub ledger_sequence: u64,
+    pub baseline_digest: v::Hash,
+    pub history_digest: v::Hash,
+    pub input_stream: [u8; 16],
+    pub through_sequence: u64,
+    pub state_digest: v::Hash,
+    pub coverage_digest: v::Hash,
+    pub structure_id: [u8; 16],
+    pub intent: IntentKey,
+    pub command_digest: v::Hash,
+    pub venue_parent_id: v::VenueOrderId,
 }

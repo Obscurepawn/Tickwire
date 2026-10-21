@@ -118,6 +118,7 @@ pub fn config<P: DepthPolicy>(source: Source, mode: SubscribeMode) -> Config {
 pub fn certs() -> (Arc<rustls::ClientConfig>, Arc<rustls::ServerConfig>) {
     let names = [
         "stream.binance.com",
+        "stream-sbe.binance.com",
         "stream.testnet.binance.vision",
         "fstream.binance.com",
         "demo-fstream.binance.com",

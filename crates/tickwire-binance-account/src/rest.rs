@@ -5,8 +5,15 @@ use tickwire_account_gateway::{AccountGateway, Authority, Encoder, Status};
 use tickwire_account_journal::Backend;
 use tickwire_binance_private::{GapNotice, PrivateEvent};
 use tickwire_transport::{IoBudget, http::ResponseDecoder};
+pub(crate) mod amend_history;
+#[cfg(test)]
+mod amend_tests;
+mod amendment;
 pub(crate) mod binding;
 mod persistence;
+pub(crate) mod structure;
+#[cfg(test)]
+mod tests;
 
 #[derive(Clone, Copy, Debug)]
 pub struct RestConfig {
@@ -34,6 +41,9 @@ pub(crate) struct RestRecord {
     pub command: CanonicalCommand,
     pub query: Option<crate::reconciliation::TradeQuery>,
     pub order_query: Option<crate::reconciliation::orders::OrderQuery>,
+    pub structure_query: Option<crate::reconciliation::structures::StructureQuery>,
+    pub amendment_query: Option<crate::reconciliation::amendments::AmendmentQuery>,
+    pub structure_domain: Option<tickwire_clock::ClockDomain>,
     pub epoch: u64,
     pub received: u64,
     pub status: u16,
@@ -46,6 +56,9 @@ pub struct StoredRest<'a> {
     pub command: &'a CanonicalCommand,
     pub query: Option<crate::reconciliation::TradeQuery>,
     pub order_query: Option<crate::reconciliation::orders::OrderQuery>,
+    pub structure_query: Option<crate::reconciliation::structures::StructureQuery>,
+    pub amendment_query: Option<crate::reconciliation::amendments::AmendmentQuery>,
+    pub structure_domain: Option<tickwire_clock::ClockDomain>,
     pub connection_epoch: u64,
     pub received_mono_ns: u64,
     pub status: u16,
@@ -53,9 +66,9 @@ pub struct StoredRest<'a> {
     pub disposition: RestDisposition,
     pub events: &'a [CanonicalEvent],
 }
-struct Pending {
-    command: CanonicalCommand,
-    deadline: Instant,
+pub(crate) struct Pending {
+    pub(crate) command: CanonicalCommand,
+    pub(crate) deadline: Instant,
 }
 pub struct RestOwner<S: Store, B: Backend, A: Authority, E: Encoder> {
     pub(crate) ingress: AccountIngress<S>,
@@ -63,7 +76,8 @@ pub struct RestOwner<S: Store, B: Backend, A: Authority, E: Encoder> {
     pub(crate) config: RestConfig,
     decoder: ResponseDecoder,
     raw: Vec<u8>,
-    pending: Option<Pending>,
+    pub(crate) pending: Option<Pending>,
+    pub(crate) websocket: Option<crate::ws::owner::Runtime>,
     last_mono: Option<u64>,
 }
 impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
@@ -91,6 +105,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             decoder,
             raw: Vec::new(),
             pending: None,
+            websocket: None,
             last_mono: None,
         })
     }
@@ -108,6 +123,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             }
             self.gateway.stop_sending();
             return Err(Error::Conflict);
+        }
+        if self.websocket.is_some() {
+            return self.submit_websocket(command, order_ids, evaluated_at, deadline);
         }
         if self.pending.is_some() {
             return Err(Error::Busy);
@@ -138,6 +156,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             return Err(Error::Identity);
         }
         self.last_mono = Some(received_mono_ns);
+        if self.websocket.is_some() {
+            return self.poll_websocket_owner(now, received_mono_ns, budget);
+        }
         // Even an EOF/error may have left a complete response in the bounded RX queue.
         if !self.gateway.halted() {
             let _ = self.gateway.poll(now, budget);
@@ -265,6 +286,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             .map(Some)
     }
     pub fn stop_sending(&mut self) {
+        self.ingress.invalidate_ws_session();
         self.gateway.stop_sending();
     }
     pub fn latest_applied_input(&self) -> Option<InputKey> {
@@ -278,6 +300,13 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
     }
     pub fn busy(&self) -> bool {
         self.pending.is_some()
+    }
+    pub fn submission_ready(&self) -> bool {
+        !self.busy()
+            && (self.websocket.is_none()
+                || (self.websocket_ready()
+                    && !self.gateway.websocket_control_pending()
+                    && !self.websocket_deferred()))
     }
     pub fn ingest_private(&mut self, event: &PrivateEvent<'_>) -> Result<Outcome> {
         self.ingress.ingest(&mut self.gateway, event)

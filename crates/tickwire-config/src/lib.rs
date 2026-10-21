@@ -5,8 +5,16 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::sync::OnceLock;
 
+pub mod artifacts;
+pub mod capacity;
 pub mod changes;
+pub mod delivery;
+pub mod locator;
+pub mod materialized;
+pub mod patch;
+pub mod prepared;
 pub mod projection;
+pub mod projection_object;
 mod strict;
 pub mod validation;
 
@@ -81,6 +89,26 @@ impl Candidate {
     }
     pub fn hash(&self) -> Hash {
         self.hash
+    }
+    /// Complete configuration semantics, separate from general strict parsing.
+    pub fn normalized_configuration(&self, limits: Limits) -> Result<Self> {
+        self.validate_structural()?;
+        let mut value = self.value.clone();
+        for binding in value["control"]["role_bindings"]
+            .as_array_mut()
+            .ok_or(Error::Schema)?
+        {
+            binding
+                .as_object_mut()
+                .ok_or(Error::Schema)?
+                .entry("cluster_scope".to_owned())
+                .or_insert(Value::Bool(false));
+        }
+        Self::parse(
+            Format::Json,
+            &serde_json::to_vec(&value).map_err(|_| Error::Encoding)?,
+            limits,
+        )
     }
     pub fn validate_structural(&self) -> Result<()> {
         static SCHEMA: OnceLock<core::result::Result<jsonschema::Validator, ()>> = OnceLock::new();

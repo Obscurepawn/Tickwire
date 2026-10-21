@@ -1,6 +1,6 @@
 # 账户发送协调规范
 
-对应 `tickwire-account-gateway`，接口见[账户发送协调接口](../../docs/implementation/account-gateway-interface.md)。
+对应 `tickwire-account-gateway`，接口见账户发送协调接口。
 
 1. 一个实例串行持有一个账户、一个有序账户日志、一个协议编码器及一条连接。账户基线、物理日志风险域、交易所、账户、环境及目录产品与路由一致；创建 writer 等于初始 writer。Spot 与 USD-M 分别构造实例。
 2. 精确命令重试先于冻结、容量、时间和排队检查，返回已有状态，不重复编码、授权、预留或写入。同一意图的不同命令使协调器停止发送并冻结账户。

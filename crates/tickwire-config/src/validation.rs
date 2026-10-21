@@ -110,24 +110,15 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
     let mut owners = BTreeSet::new();
     let mut cpus: BTreeMap<&str, BTreeSet<u64>> = BTreeMap::new();
     let mut memory: BTreeMap<&str, u64> = BTreeMap::new();
-    for h in hosts.values() {
-        let cores = number(h, "physical_cores")?;
-        for cpu in array(h, "housekeeping_cpus")? {
-            check_that(
-                cpu.as_u64().ok_or(Error::Schema)? < cores,
-                "housekeeping_cpu",
-            )?;
-        }
-    }
+    // Schema bounds OS CPU and NUMA IDs. Actual existence, sparse numbering
+    // and SMT topology require the inventory, not counts used as ID ranges.
     for p in procs.values() {
         let h = lookup(&hosts, &p["host_id"])?;
         let host = string(h, "id")?;
         let role = string(p, "role")?;
-        check_that(number(p, "numa_node")? < number(h, "numa_nodes")?, "numa")?;
         let used = cpus.entry(host).or_default();
         for cpu in array(p, "cpus")? {
             let n = cpu.as_u64().ok_or(Error::Schema)?;
-            check_that(n < number(h, "physical_cores")?, "cpu_range")?;
             if role != "supervisor" {
                 check_that(
                     !array(h, "housekeeping_cpus")?.contains(cpu) && used.insert(n),

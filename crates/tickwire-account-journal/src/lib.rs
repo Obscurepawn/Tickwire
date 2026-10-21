@@ -72,6 +72,37 @@ pub enum VerificationError {
     Unavailable,
 }
 pub trait RecoveryVerifier {
+    fn verify_uncreated_algo(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _record: &CanonicalRecord,
+        _preceding: &HistoryFrontier,
+        _prior: &[CanonicalRecord],
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        Err(VerificationError::Invalid)
+    }
+    fn verify_income_association(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _record: &CanonicalRecord,
+        _preceding: &HistoryFrontier,
+        _prior: &[CanonicalRecord],
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        Err(VerificationError::Invalid)
+    }
+    fn verify_account_inputs_closure(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _record: &CanonicalRecord,
+        _preceding: &HistoryFrontier,
+        _prior: &[CanonicalRecord],
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        Err(VerificationError::Invalid)
+    }
+
     fn verify_income_baseline(
         &mut self,
         _baseline: &CanonicalBaseline,
@@ -134,6 +165,20 @@ impl AppendReceipt {
         &self.physical
     }
 }
+/// Original admission record and its post-record history, reconstructed from actual WAL bytes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdmissionOrigin {
+    receipt: AppendReceipt,
+    history: HistoryFrontier,
+}
+impl AdmissionOrigin {
+    pub fn receipt(&self) -> &AppendReceipt {
+        &self.receipt
+    }
+    pub fn history(&self) -> &HistoryFrontier {
+        &self.history
+    }
+}
 pub struct AccountJournal<S: Backend> {
     physical: Journal<S>,
     config: Config,
@@ -141,6 +186,9 @@ pub struct AccountJournal<S: Backend> {
     writer_epoch: u64,
     records: Vec<CanonicalRecord>,
     admissions: BTreeMap<IntentKey, (usize, AppendReceipt)>,
+    admission_origins: BTreeMap<IntentKey, AdmissionOrigin>,
+    closures: BTreeMap<Hash, (usize, AppendReceipt)>,
+    associations: BTreeMap<[u8; 16], (usize, AppendReceipt)>,
     ingress: BTreeMap<([u8; 16], u64), (usize, AppendReceipt)>,
     poisoned: bool,
     recovered: bool,
@@ -185,7 +233,10 @@ impl<S: Backend> AccountJournal<S> {
             baseline,
             records: Vec::new(),
             admissions: BTreeMap::new(),
+            admission_origins: BTreeMap::new(),
             ingress: BTreeMap::new(),
+            closures: BTreeMap::new(),
+            associations: BTreeMap::new(),
             poisoned: false,
             recovered: false,
             recovery_writer_floor: None,
@@ -224,7 +275,10 @@ impl<S: Backend> AccountJournal<S> {
         }
         let mut records = Vec::with_capacity(recovery.records.len());
         let mut admissions = BTreeMap::new();
+        let mut admission_origins = BTreeMap::new();
         let mut ingress = BTreeMap::new();
+        let mut closures = BTreeMap::new();
+        let mut associations = BTreeMap::new();
         let mut previous_epoch = expected.initial_writer_epoch;
         for raw in &recovery.records {
             identity::epoch(raw.exec_epoch)?;
@@ -257,6 +311,21 @@ impl<S: Backend> AccountJournal<S> {
                 let receipt = receipt(&record, recovery.frontier.as_ref().ok_or(Error::Sequence)?);
                 ingress.insert(key, (records.len(), receipt));
             }
+            if let RecoveryRecord::IncomeObservationsAssociated(b) = record.record() {
+                let receipt = receipt(&record, recovery.frontier.as_ref().ok_or(Error::Sequence)?);
+                if associations
+                    .insert(b.request_id, (records.len(), receipt))
+                    .is_some()
+                {
+                    return Err(Error::Conflict);
+                }
+            }
+            if let Some(key) = closure_history(record.record()) {
+                let receipt = receipt(&record, recovery.frontier.as_ref().ok_or(Error::Sequence)?);
+                if closures.insert(key, (records.len(), receipt)).is_some() {
+                    return Err(Error::Conflict);
+                }
+            }
             records.push(record);
         }
         // Nothing is returned until all structural checks, historical closures and
@@ -264,9 +333,51 @@ impl<S: Backend> AccountJournal<S> {
         let mut history = HistoryFrontier::empty(&expected)?;
         for (index, (record, physical_record)) in records.iter().zip(&recovery.records).enumerate()
         {
+            if let RecoveryRecord::IncomeObservationsAssociated(b) = record.record() {
+                if b.history_digest != history.digest() {
+                    return Err(Error::Identity);
+                }
+                verifier
+                    .verify_income_association(
+                        &baseline,
+                        record,
+                        &history,
+                        &records[..index],
+                        physical_record.exec_epoch,
+                    )
+                    .map_err(Error::Verification)?;
+            }
             if admission_key(record.record()).is_some() {
                 verifier
                     .verify_admission(&baseline, record, &history)
+                    .map_err(Error::Verification)?;
+            }
+            if let RecoveryRecord::UncreatedAlgoClosed(b) = record.record() {
+                if b.history_digest != history.digest() {
+                    return Err(Error::Identity);
+                }
+                verifier
+                    .verify_uncreated_algo(
+                        &baseline,
+                        record,
+                        &history,
+                        &records[..index],
+                        physical_record.exec_epoch,
+                    )
+                    .map_err(Error::Verification)?;
+            }
+            if let RecoveryRecord::AccountInputsReconciled(b) = record.record() {
+                if b.history_digest != history.digest() {
+                    return Err(Error::Identity);
+                }
+                verifier
+                    .verify_account_inputs_closure(
+                        &baseline,
+                        record,
+                        &history,
+                        &records[..index],
+                        physical_record.exec_epoch,
+                    )
                     .map_err(Error::Verification)?;
             }
             if let RecoveryRecord::Reactivated(binding) = record.record() {
@@ -288,6 +399,21 @@ impl<S: Backend> AccountJournal<S> {
                     .map_err(Error::Verification)?;
             }
             history = history.advance(physical_record.exec_epoch, record);
+            if let Some(key) = admission_key(record.record()) {
+                let original = receipt(
+                    record,
+                    recovery
+                        .record_frontier(record.sequence())
+                        .ok_or(Error::Sequence)?,
+                );
+                admission_origins.insert(
+                    key,
+                    AdmissionOrigin {
+                        receipt: original,
+                        history: history.clone(),
+                    },
+                );
+            }
         }
         let inputs: Vec<_> = records.iter().map(|r| r.record().clone()).collect();
         let account = Account::recover(
@@ -307,7 +433,10 @@ impl<S: Backend> AccountJournal<S> {
                 writer_epoch: new_writer_epoch,
                 records,
                 admissions,
+                admission_origins,
                 ingress,
+                closures,
+                associations,
                 poisoned: false,
                 recovered: true,
                 recovery_writer_floor: Some(recovery_writer_floor),
@@ -320,6 +449,30 @@ impl<S: Backend> AccountJournal<S> {
     pub fn append(&mut self, record: RecoveryRecord) -> Result<AppendReceipt> {
         if self.poisoned {
             return Err(Error::Poisoned);
+        }
+        if let RecoveryRecord::IncomeObservationsAssociated(b) = &record {
+            if let Some((index, receipt)) = self.associations.get(&b.request_id) {
+                if self.records[*index].record() == &record {
+                    return Ok(receipt.clone());
+                }
+                self.poisoned = true;
+                return Err(Error::Conflict);
+            }
+            if b.history_digest != self.history.digest() {
+                return Err(Error::Identity);
+            }
+        }
+        if let Some(key) = closure_history(&record) {
+            if let Some((index, receipt)) = self.closures.get(&key) {
+                if self.records[*index].record() == &record {
+                    return Ok(receipt.clone());
+                }
+                self.poisoned = true;
+                return Err(Error::Conflict);
+            }
+            if key != self.history.digest() {
+                return Err(Error::Identity);
+            }
         }
         if let RecoveryRecord::Reactivated(binding) = &record {
             if binding.history_digest != self.history.digest() {
@@ -375,6 +528,13 @@ impl<S: Backend> AccountJournal<S> {
         };
         let receipt = receipt(&encoded, sync.frontier());
         if let Some(key) = key {
+            self.admission_origins.insert(
+                key,
+                AdmissionOrigin {
+                    receipt: receipt.clone(),
+                    history: next_history.clone(),
+                },
+            );
             self.admissions
                 .insert(key, (self.records.len(), receipt.clone()));
         }
@@ -385,6 +545,14 @@ impl<S: Backend> AccountJournal<S> {
         if matches!(encoded.record(), RecoveryRecord::Reactivated(_)) {
             self.recovered = false;
             self.recovery_writer_floor = None;
+        }
+        if let Some(key) = closure_history(encoded.record()) {
+            self.closures
+                .insert(key, (self.records.len(), receipt.clone()));
+        }
+        if let RecoveryRecord::IncomeObservationsAssociated(b) = encoded.record() {
+            self.associations
+                .insert(b.request_id, (self.records.len(), receipt.clone()));
         }
         self.records.push(encoded);
         self.history = next_history;
@@ -480,6 +648,9 @@ impl<S: Backend> AccountJournal<S> {
     pub fn config(&self) -> &Config {
         &self.config
     }
+    pub fn admission_origin(&self, key: IntentKey) -> Option<&AdmissionOrigin> {
+        self.admission_origins.get(&key)
+    }
     pub fn history_frontier(&self) -> &HistoryFrontier {
         &self.history
     }
@@ -511,5 +682,13 @@ fn receipt(record: &CanonicalRecord, frontier: &PhysicalFrontier) -> AppendRecei
         sequence: record.sequence(),
         digest: record.digest(),
         physical: frontier.clone(),
+    }
+}
+
+fn closure_history(record: &RecoveryRecord) -> Option<Hash> {
+    match record {
+        RecoveryRecord::AccountInputsReconciled(b) => Some(b.history_digest),
+        RecoveryRecord::UncreatedAlgoClosed(b) => Some(b.history_digest),
+        _ => None,
     }
 }

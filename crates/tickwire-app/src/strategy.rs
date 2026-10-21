@@ -547,6 +547,59 @@ impl AppStrategy for MultiStrategy {
     }
 }
 impl Strategy for MultiStrategy {
+    fn handover_finish_replay(
+        &mut self,
+        installed: tickwire_runtime::node::InstalledReplay,
+    ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        let request = &installed.verified().request;
+        self.members
+            .iter_mut()
+            .filter(|m| !m.retired)
+            .find(|m| {
+                m.id == request.operation.logical_strategy_id
+                    && m.strategy.as_ref().and_then(|s| s.instance())
+                        == Some((request.member.new_instance, request.member.new_generation))
+            })?
+            .strategy
+            .as_mut()?
+            .handover_finish_replay(installed)
+    }
+    fn handover_install_replay(
+        &mut self,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        let c = source.completion();
+        self.members
+            .iter_mut()
+            .filter(|m| !m.retired)
+            .find(|m| {
+                m.id == c.operation.logical_strategy_id
+                    && m.strategy.as_ref().and_then(|s| s.instance())
+                        == Some((c.member.new_instance, c.member.new_generation))
+            })?
+            .strategy
+            .as_mut()?
+            .handover_install_replay(source)
+    }
+    fn handover_replay_source(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        self.members
+            .iter_mut()
+            .filter(|m| !m.retired)
+            .find(|m| {
+                m.id == operation.logical_strategy_id
+                    && m.strategy.as_ref().and_then(|s| s.instance())
+                        == Some((member.old_instance, member.old_generation))
+            })?
+            .strategy
+            .as_mut()?
+            .handover_replay_source(operation, member, fixed)
+    }
+
     fn handover_checkpoint(
         &mut self,
         instance: [u8; 16],

@@ -1,9 +1,0 @@
-   Compiling tickwire-app v0.1.0 (/Users/bytedance/Tickwire/crates/tickwire-app)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.34s
-     Running unittests src/lib.rs (target/debug/deps/tickwire_app-ef29491fc35e5ff0)
-
-running 2 tests
-test reconciliation::tests::healthy_terminal_fee_maintenance_is_bounded_and_idle_only ... ok
-test reconciliation::tests::successful_attempt_reloads_new_orders_in_the_same_private_cut ... ok
-
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.00s

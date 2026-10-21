@@ -51,13 +51,13 @@ fn config() -> CoordinatorConfig {
             .map(|m| MemberAuthority {
                 public_key: signer(m.risk_domain[0]).public_key(),
                 member: m,
-                readiness: Readiness {
+                readiness: Some(Readiness {
                     checkpoint_digest: [2; 32],
                     exec_report_sequence: 10,
                     orders_digest: [4; 32],
                     ledger_sequence: 3,
                     input_seal_digest: [5; 32],
-                },
+                }),
             })
             .collect(),
         audit: tickwire_journal::Config::new([8; 16], [9; 16]),
@@ -481,7 +481,11 @@ fn changed_pinned_readiness_or_member_identity_rejects_existing_wal() {
     let store = Mem::default();
     drop(owner(store.clone()));
     let mut c = config();
-    c.members[0].readiness.exec_report_sequence += 1;
+    c.members[0]
+        .readiness
+        .as_mut()
+        .unwrap()
+        .exec_report_sequence += 1;
     assert!(matches!(
         Coordinator::recover(store, c, 2, signer(50), None, now(10)),
         Err(Error::Identity)
@@ -501,7 +505,7 @@ fn stale_readiness_can_be_reprepared_without_undoing_another_members_commit() {
     );
     owner.ingest(sign(&first), owner.version(), now(4)).unwrap();
     let member = config().members[1].member.clone();
-    let mut proof = config().members[1].readiness.clone();
+    let mut proof = config().members[1].readiness.clone().unwrap();
     proof.exec_report_sequence = 50;
     proof.checkpoint_digest = [80; 32];
     owner
@@ -525,7 +529,7 @@ fn stale_readiness_can_be_reprepared_without_undoing_another_members_commit() {
     assert_eq!(
         owner.update_readiness(
             &member,
-            config().members[1].readiness.clone(),
+            config().members[1].readiness.clone().unwrap(),
             owner.version(),
             now(9)
         ),
@@ -659,3 +663,467 @@ fn event_journal_enforces_recoverable_event_capacity_before_writing() {
     assert_eq!(restored.append(&4096u64), Err(Error::Capacity));
     assert_eq!(restored.position(), position);
 }
+
+#[test]
+fn replay_prepared_adopts_new_ready_before_commit_and_retains_original_challenge() {
+    let mut config = config();
+    config.operation.schema = 3;
+    let store = Mem::default();
+    let mut owner = Coordinator::create(store, config.clone(), 1, signer(50), now(1)).unwrap();
+    let mut accepted = vec![];
+    for original in owner.pending_requests().to_vec() {
+        let prepare = request(&original);
+        let object = |x| ReplayObject {
+            digest: [x; 32],
+            bytes: 128,
+        };
+        let receipt = ReplayPrepared {
+            schema: 1,
+            operation: config.operation.clone(),
+            member: prepare.member.clone(),
+            challenge: original.clone(),
+            prepare: original,
+            fixed: ReplayCut {
+                checkpoint: object(30),
+                sequence: 1,
+                chain: [31; 32],
+            },
+            current: ReplayCut {
+                checkpoint: object(32),
+                sequence: 2,
+                chain: [33; 32],
+            },
+            source_completion: object(34),
+            target_install: object(35),
+            readiness: Readiness {
+                checkpoint_digest: [36; 32],
+                input_seal_digest: [37; 32],
+                exec_report_sequence: 11,
+                ledger_sequence: 4,
+                orders_digest: [38; 32],
+            },
+            state_version: 1,
+            risk_gate_revision: 7,
+            issued_ns: 2000,
+            valid_until_ns: 9000,
+        };
+        let signed = signer(receipt.member.risk_domain[0])
+            .sign_replay_prepared(&receipt)
+            .unwrap();
+        owner
+            .ingest_replay(signed.clone(), owner.version(), now(2))
+            .unwrap();
+        assert!(
+            owner
+                .ingest_replay(signed.clone(), 0, now(0))
+                .unwrap()
+                .duplicate
+        );
+        accepted.push((signed, receipt));
+    }
+    assert_eq!(owner.stage(), Stage::PreparedAll);
+    owner.begin_commit(owner.version(), now(3)).unwrap();
+    for commit in owner.pending_requests() {
+        let r = request(commit);
+        let (signed, receipt) = accepted.iter().find(|(_, p)| p.member == r.member).unwrap();
+        assert_eq!(r.schema, 2);
+        assert_eq!(r.proof.as_ref(), Some(&receipt.readiness));
+        assert_eq!(
+            r.replay.as_ref(),
+            Some(&ReplayAdoption::from_receipt(signed).unwrap())
+        );
+    }
+}
+
+fn replay_answer(original: SignedControlRequest) -> ReplayPrepared {
+    let request = request(&original);
+    let object = |x| ReplayObject {
+        digest: [x; 32],
+        bytes: 128,
+    };
+    ReplayPrepared {
+        schema: 1,
+        operation: request.operation.clone(),
+        member: request.member.clone(),
+        challenge: original.clone(),
+        prepare: original,
+        fixed: ReplayCut {
+            checkpoint: object(30),
+            sequence: 1,
+            chain: [31; 32],
+        },
+        current: ReplayCut {
+            checkpoint: object(32),
+            sequence: 2,
+            chain: [33; 32],
+        },
+        source_completion: object(34),
+        target_install: object(35),
+        readiness: Readiness {
+            checkpoint_digest: [36; 32],
+            input_seal_digest: [37; 32],
+            exec_report_sequence: 11,
+            ledger_sequence: 4,
+            orders_digest: [38; 32],
+        },
+        state_version: 1,
+        risk_gate_revision: 7,
+        issued_ns: 2000,
+        valid_until_ns: 9000,
+    }
+}
+#[test]
+fn replay_prepared_rejects_legacy_prepare_and_swapped_original_request() {
+    let mut c = config();
+    c.operation.schema = 3;
+    let mut owner = Coordinator::create(Mem::default(), c.clone(), 1, signer(50), now(1)).unwrap();
+    let initial = owner.pending_requests()[0].clone();
+    let mut receipt = replay_answer(initial.clone());
+    let mut changed = request(&initial);
+    changed.request_id = [200; 16];
+    receipt.prepare = signer(50).sign_request(&changed).unwrap();
+    receipt.challenge = receipt.prepare.clone();
+    let signed = signer(receipt.member.risk_domain[0])
+        .sign_replay_prepared(&receipt)
+        .unwrap();
+    assert_eq!(
+        owner.ingest_replay(signed, owner.version(), now(2)),
+        Err(Error::Conflict)
+    );
+    assert_eq!(owner.stage(), Stage::Preparing);
+    let legacy = sign(&answer(&request(&initial), AppliedPhase::Prepared, 1));
+    assert_eq!(
+        owner.ingest(legacy, owner.version(), now(2)),
+        Err(Error::Phase)
+    );
+    assert_ne!(owner.stage(), Stage::PreparedAll);
+}
+#[test]
+fn replay_prepared_recovery_requires_fresh_queries_and_reuses_saved_installation() {
+    let mut c = config();
+    c.operation.schema = 3;
+    let store = Mem::default();
+    let mut owner = Coordinator::create(store.clone(), c.clone(), 1, signer(50), now(1)).unwrap();
+    let mut originals = vec![];
+    for initial in owner.pending_requests().to_vec() {
+        let r = replay_answer(initial);
+        let s = signer(r.member.risk_domain[0])
+            .sign_replay_prepared(&r)
+            .unwrap();
+        owner
+            .ingest_replay(s.clone(), owner.version(), now(2))
+            .unwrap();
+        originals.push(s);
+    }
+    drop(owner);
+    let mut owner = Coordinator::recover(store, c.clone(), 2, signer(50), None, now(3)).unwrap();
+    assert_eq!(owner.stage(), Stage::Reconciling);
+    assert_eq!(
+        owner.begin_commit(owner.version(), now(4)),
+        Err(Error::Phase)
+    );
+    all(&mut owner, AppliedPhase::Prepared, 1, 4);
+    assert_eq!(owner.stage(), Stage::AwaitingResume);
+    owner.resume_after_queries(owner.version(), now(5)).unwrap();
+    assert_eq!(owner.stage(), Stage::Preparing);
+    for challenge in owner.pending_requests().to_vec() {
+        let r = request(&challenge);
+        let old = originals
+            .iter()
+            .find(|s| ReplayAdoption::from_receipt(s).unwrap() == *r.replay.as_ref().unwrap())
+            .unwrap();
+        let mut refreshed: ReplayPrepared = decode_canonical(&old.payload).unwrap();
+        refreshed.challenge = challenge;
+        refreshed.state_version = 2;
+        let signed = signer(refreshed.member.risk_domain[0])
+            .sign_replay_prepared(&refreshed)
+            .unwrap();
+        owner
+            .ingest_replay(signed, owner.version(), now(6))
+            .unwrap();
+    }
+    owner.begin_commit(owner.version(), now(7)).unwrap();
+    for signed in owner.pending_requests() {
+        let r = request(signed);
+        assert!(
+            originals
+                .iter()
+                .any(|s| ReplayAdoption::from_receipt(s).unwrap().target_install
+                    == r.replay.as_ref().unwrap().target_install)
+        );
+        assert!(
+            verify_control_request(
+                signed,
+                c.coordinator_key,
+                c.coordinator_id,
+                &r.member,
+                member_now(&r.member, 3000)
+            )
+            .is_ok()
+        );
+    }
+}
+#[test]
+fn replay_prepared_sync_failure_never_exposes_a_commit_or_adopted_readiness() {
+    let mut c = config();
+    c.operation.schema = 3;
+    let store = Mem::default();
+    let mut owner = Coordinator::create(store.clone(), c, 1, signer(50), now(1)).unwrap();
+    let r = replay_answer(owner.pending_requests()[0].clone());
+    let s = signer(r.member.risk_domain[0])
+        .sign_replay_prepared(&r)
+        .unwrap();
+    store.0.borrow_mut().fail_sync = true;
+    assert_eq!(
+        owner.ingest_replay(s, owner.version(), now(2)),
+        Err(Error::Store)
+    );
+    assert_eq!(owner.stage(), Stage::Frozen);
+    assert!(owner.pending_requests().is_empty());
+    assert!(owner.latest_receipt(r.member.risk_domain).is_none());
+}
+
+#[test]
+fn replay_refresh_changes_only_authenticated_consumption_and_not_the_fixed_install() {
+    let mut c = config();
+    c.operation.schema = 3;
+    let mut owner = Coordinator::create(Mem::default(), c.clone(), 1, signer(50), now(1)).unwrap();
+    let original = owner.pending_requests()[0].clone();
+    let r = replay_answer(original.clone());
+    let first = signer(r.member.risk_domain[0])
+        .sign_replay_prepared(&r)
+        .unwrap();
+    owner
+        .ingest_replay(first.clone(), owner.version(), now(2))
+        .unwrap();
+    owner
+        .refresh_replay(&r.member, owner.version(), now(3))
+        .unwrap();
+    let request = owner
+        .pending_requests()
+        .iter()
+        .find(|q| request(q).member == r.member)
+        .unwrap()
+        .clone();
+    let mut next = r.clone();
+    next.challenge = request.clone();
+    next.state_version += 1;
+    next.readiness.exec_report_sequence += 1;
+    next.readiness.ledger_sequence += 1;
+    next.readiness.checkpoint_digest = [81; 32];
+    next.readiness.input_seal_digest = [82; 32];
+    let signed = signer(r.member.risk_domain[0])
+        .sign_replay_prepared(&next)
+        .unwrap();
+    owner
+        .ingest_replay(signed.clone(), owner.version(), now(4))
+        .unwrap();
+    assert_eq!(next.prepare, original);
+    assert_eq!(next.fixed, r.fixed);
+    assert_eq!(next.current, r.current);
+    assert_eq!(next.target_install, r.target_install);
+    let mut changed = next;
+    changed.current.sequence += 1;
+    assert!(
+        signer(r.member.risk_domain[0])
+            .sign_replay_prepared(&changed)
+            .is_err()
+    );
+    assert!(
+        verify_control_request(
+            &request,
+            c.coordinator_key,
+            c.coordinator_id,
+            &r.member,
+            member_now(&r.member, 3000)
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn lost_replay_adoption_is_recovered_as_history_then_fresh_prepare_before_commit() {
+    let mut cfg = config();
+    cfg.operation.schema = 3;
+    let store = Mem::default();
+    let owner = Coordinator::create(store.clone(), cfg.clone(), 1, signer(50), now(1)).unwrap();
+    let originals = owner.pending_requests().to_vec();
+    drop(owner);
+    let mut owner = Coordinator::recover(store, cfg, 2, signer(50), None, now(2)).unwrap();
+    assert_eq!(
+        owner.resume_after_queries(owner.version(), now(3)),
+        Err(Error::Phase)
+    );
+    for query in owner.pending_requests().to_vec() {
+        let q = request(&query);
+        let original = originals
+            .iter()
+            .find(|r| request(r).member == q.member)
+            .unwrap()
+            .clone();
+        let mut prepared = replay_answer(original);
+        prepared.valid_until_ns = 6000;
+        let prepared = signer(q.member.risk_domain[0])
+            .sign_replay_prepared(&prepared)
+            .unwrap();
+        let mut applied = answer(&q, AppliedPhase::Prepared, 5);
+        applied.issued_ns = 7000;
+        applied.valid_until_ns = 9000;
+        let observed = signer(q.member.risk_domain[0])
+            .sign_replay_observed(&ReplayObserved {
+                schema: 1,
+                query,
+                applied,
+                prepared,
+            })
+            .unwrap();
+        owner
+            .ingest_replay_observed(observed, owner.version(), now(4))
+            .unwrap();
+    }
+    assert_eq!(owner.stage(), Stage::AwaitingResume);
+    owner.resume_after_queries(owner.version(), now(5)).unwrap();
+    assert_eq!(owner.stage(), Stage::Preparing);
+    assert_eq!(
+        owner.begin_commit(owner.version(), now(6)),
+        Err(Error::Phase)
+    );
+    for challenge in owner.pending_requests().to_vec() {
+        let r = request(&challenge);
+        assert_eq!(r.action, ControlAction::Prepare);
+        let old = r.replay.as_ref().unwrap();
+        assert!(originals.contains(&old.prepare));
+        let mut refreshed = replay_answer(challenge);
+        refreshed.prepare = old.prepare.clone();
+        refreshed.state_version = 6;
+        refreshed.issued_ns = 8000;
+        refreshed.valid_until_ns = 9900;
+        refreshed.readiness.exec_report_sequence = 12;
+        let signed = signer(refreshed.member.risk_domain[0])
+            .sign_replay_prepared(&refreshed)
+            .unwrap();
+        owner
+            .ingest_replay(signed, owner.version(), now(7))
+            .unwrap();
+    }
+    assert_eq!(owner.stage(), Stage::PreparedAll);
+    owner.begin_commit(owner.version(), now(8)).unwrap();
+    assert!(
+        owner
+            .pending_requests()
+            .iter()
+            .all(|r| request(r).proof.unwrap().exec_report_sequence == 12)
+    );
+}
+
+#[test]
+fn replay_query_rejects_halted_changed_gate_session_and_expired_member() {
+    let mut cfg = config();
+    cfg.operation.schema = 3;
+    let store = Mem::default();
+    let owner = Coordinator::create(store.clone(), cfg.clone(), 1, signer(50), now(1)).unwrap();
+    let original = owner.pending_requests()[0].clone();
+    drop(owner);
+    let mut owner = Coordinator::recover(store, cfg.clone(), 2, signer(50), None, now(2)).unwrap();
+    let query = owner.pending_requests()[0].clone();
+    let q = request(&query);
+    let prepared = signer(q.member.risk_domain[0])
+        .sign_replay_prepared(&replay_answer(original))
+        .unwrap();
+    let observed = ReplayObserved {
+        schema: 1,
+        query: query.clone(),
+        applied: answer(&q, AppliedPhase::Prepared, 5),
+        prepared,
+    };
+    let key = signer(q.member.risk_domain[0]);
+    for case in 0..4 {
+        let mut bad = observed.clone();
+        match case {
+            0 => {
+                bad.applied.phase = AppliedPhase::Halted;
+            }
+            1 => bad.applied.risk_gate_revision += 1,
+            2 => bad.applied.member.exec_epoch += 1,
+            _ => bad.applied.issued_ns = 10000,
+        }
+        assert!(key.sign_replay_observed(&bad).is_err(), "case {case}");
+    }
+    assert!(matches!(
+        verify_control_request(
+            &query,
+            cfg.coordinator_key,
+            cfg.coordinator_id,
+            &q.member,
+            member_now(&q.member, 10000)
+        ),
+        Err(Error::Expired)
+    ));
+    let mut bad = observed;
+    let mut history: ReplayPrepared = decode_canonical(&bad.prepared.payload).unwrap();
+    let mut other = request(&history.prepare);
+    other.request_id = [201; 16];
+    history.prepare = signer(50).sign_request(&other).unwrap();
+    history.challenge = history.prepare.clone();
+    bad.prepared = key.sign_replay_prepared(&history).unwrap();
+    let signed = key.sign_replay_observed(&bad).unwrap();
+    assert_eq!(
+        owner.ingest_replay_observed(signed, owner.version(), now(3)),
+        Err(Error::Conflict)
+    );
+    assert_eq!(owner.stage(), Stage::Reconciling);
+}
+
+#[test]
+fn recovery_during_readiness_refresh_preserves_the_last_completed_result() {
+    let mut cfg = config();
+    cfg.operation.schema = 3;
+    let store = Mem::default();
+    let mut owner = Coordinator::create(store.clone(), cfg.clone(), 1, signer(50), now(1)).unwrap();
+    let mut results = Vec::new();
+    for initial in owner.pending_requests().to_vec() {
+        let r = replay_answer(initial);
+        let signed = signer(r.member.risk_domain[0])
+            .sign_replay_prepared(&r)
+            .unwrap();
+        owner
+            .ingest_replay(signed.clone(), owner.version(), now(2))
+            .unwrap();
+        results.push(signed);
+    }
+    owner
+        .refresh_replay(&cfg.members[0].member, owner.version(), now(3))
+        .unwrap();
+    drop(owner);
+    let mut owner = Coordinator::recover(store, cfg, 2, signer(50), None, now(4)).unwrap();
+    for query in owner.pending_requests().to_vec() {
+        let q = request(&query);
+        let prepared = results
+            .iter()
+            .find(|s| {
+                decode_canonical::<ReplayPrepared>(&s.payload)
+                    .unwrap()
+                    .member
+                    == q.member
+            })
+            .unwrap()
+            .clone();
+        let observed = signer(q.member.risk_domain[0])
+            .sign_replay_observed(&ReplayObserved {
+                schema: 1,
+                query,
+                applied: answer(&q, AppliedPhase::Prepared, 2),
+                prepared,
+            })
+            .unwrap();
+        owner
+            .ingest_replay_observed(observed, owner.version(), now(5))
+            .unwrap();
+    }
+    owner.resume_after_queries(owner.version(), now(6)).unwrap();
+    assert_eq!(owner.stage(), Stage::Preparing);
+    assert_eq!(owner.pending_requests().len(), 2);
+}
+
+#[path = "rebuild_tests.rs"]
+mod rebuild_cases;

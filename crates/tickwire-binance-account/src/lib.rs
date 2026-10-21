@@ -6,11 +6,14 @@ use tickwire_account_codec::CanonicalBaseline;
 use tickwire_journal::{Journal, PhysicalFrontier, store::Store};
 use tickwire_venue::{self as v, CanonicalCommand, CanonicalEvent};
 pub mod account_facts;
+mod amendment;
 mod codec;
 pub mod reconciliation;
 mod registry;
 pub mod rest;
 mod runtime;
+mod structure;
+pub mod ws;
 use codec::Record;
 use registry::Registration;
 pub const MAX_RECORD_BYTES: usize = 60 * 1024;
@@ -18,6 +21,8 @@ pub const MAX_RECORD_BYTES: usize = 60 * 1024;
 #[derive(Clone)]
 pub struct Config {
     pub income_baseline_authority: Option<reconciliation::income_import::IncomeBaselineAuthority>,
+    pub income_association_authority:
+        Option<reconciliation::income_association::AssociationAuthority>,
     pub physical: tickwire_journal::Config,
     pub writer_epoch: u64,
     pub baseline: CanonicalBaseline,
@@ -117,6 +122,8 @@ pub struct AccountIngress<S: Store> {
     retained: usize,
     cursor: usize,
     stopped: bool,
+    closure_store: Option<Box<dyn reconciliation::income_closure::ClosureStore>>,
+    ws_owner: ws::WsOwner,
 }
 impl<S: Store> AccountIngress<S> {
     /// Consume the input owner and retain its exclusive storage lock without append access.
@@ -149,6 +156,8 @@ impl<S: Store> AccountIngress<S> {
             registry: BTreeMap::new(),
             cursor: 1,
             stopped: false,
+            closure_store: None,
+            ws_owner: ws::WsOwner::new(),
         })
     }
     pub fn recover(store: S, config: Config, required: Option<&PhysicalFrontier>) -> Result<Self> {
@@ -173,10 +182,12 @@ impl<S: Store> AccountIngress<S> {
             retained: 0,
             cursor: 1,
             stopped: false,
+            closure_store: None,
+            ws_owner: ws::WsOwner::new(),
         };
         let expected = codec::config(&input.config);
         let mut writer = 0;
-        let mut effects: Option<(u64, usize, usize, bool)> = None;
+        let mut effects: Option<(u64, usize, usize, u8)> = None;
         for physical in recovered.records {
             if physical.seq != input.records.len() as u64 + 1
                 || physical.exec_epoch < writer
@@ -190,7 +201,9 @@ impl<S: Store> AccountIngress<S> {
             if effects.is_some()
                 && !matches!(
                     record,
-                    Record::RestEffect { .. } | Record::IncomeEffect { .. }
+                    Record::RestEffect { .. }
+                        | Record::IncomeEffect { .. }
+                        | Record::WsEffect { .. }
                 )
             {
                 return Err(Error::Identity);
@@ -199,6 +212,40 @@ impl<S: Store> AccountIngress<S> {
                 Record::Config(bytes) if input.records.is_empty() && *bytes == expected => {}
                 Record::Config(_) => return Err(Error::Identity),
                 _ if input.records.is_empty() => return Err(Error::Identity),
+                Record::WsSessionEvent(r) => input.validate_ws_event(r, physical.exec_epoch)?,
+                Record::WsResponse(r) => {
+                    input.validate_ws_response(r, physical.exec_epoch)?;
+                    if !r.events.is_empty() {
+                        effects = Some((physical.seq, 0, r.events.len(), 2));
+                    }
+                }
+                Record::WsEffect { response, index } => {
+                    let Some((expected, next, count, 2)) = effects else {
+                        return Err(Error::Identity);
+                    };
+                    if *response != expected
+                        || *index as usize != next
+                        || physical.seq != expected + next as u64 + 1
+                    {
+                        return Err(Error::Identity);
+                    }
+                    let Some(Record::WsResponse(header)) = input.records.get(expected as usize - 1)
+                    else {
+                        return Err(Error::Identity);
+                    };
+                    registry::learn(&mut input.registry, &header.events[next])?;
+                    effects = if next + 1 == count {
+                        None
+                    } else {
+                        Some((expected, next + 1, count, 2))
+                    };
+                }
+                Record::WsBinding(binding) => {
+                    input.validate_ws_binding(binding, physical.seq, physical.exec_epoch)?;
+                }
+                Record::WsSession(session) => {
+                    input.validate_ws_session(session, physical.seq, physical.exec_epoch)?;
+                }
                 Record::Register(command, ids) => {
                     if command.command().context.request.intent_exec_epoch != physical.exec_epoch {
                         return Err(Error::Identity);
@@ -217,6 +264,12 @@ impl<S: Store> AccountIngress<S> {
                     }
                     if let Decision::Bound(event) = decision {
                         input.check_event(meta, event)?;
+                        if matches!(event.event().body, v::VenueEventBody::Structure(_)) {
+                            input.check_structure_raw(meta, raw, event)?;
+                        }
+                        if matches!(event.event().body, v::VenueEventBody::Amendment(_)) {
+                            input.check_amendment_raw(meta, raw, event)?;
+                        }
                         registry::learn(&mut input.registry, event)?;
                     } else if let Decision::AccountBound(event) = decision {
                         input.check_account_event(meta, raw, event)?;
@@ -235,8 +288,14 @@ impl<S: Store> AccountIngress<S> {
                         return Err(Error::Identity);
                     }
                     if !record.events.is_empty() {
-                        effects = Some((physical.seq, 0, record.events.len(), false));
+                        effects = Some((physical.seq, 0, record.events.len(), 0));
                     }
+                }
+                Record::IncomeAssociation(record) => {
+                    input.validate_association_record(record, physical.seq, physical.exec_epoch)?;
+                }
+                Record::AssociationPolicy(policy) => {
+                    input.validate_association_policy(policy, physical.exec_epoch)?;
                 }
                 Record::IncomeImport(record) => {
                     input.validate_import(record, physical.seq, physical.exec_epoch)?;
@@ -246,11 +305,11 @@ impl<S: Store> AccountIngress<S> {
                     if record.query.purpose == reconciliation::income::IncomeUse::Account
                         && !record.rows.is_empty()
                     {
-                        effects = Some((physical.seq, 0, record.rows.len(), true));
+                        effects = Some((physical.seq, 0, record.rows.len(), 1));
                     }
                 }
                 Record::IncomeEffect { response, index } => {
-                    let Some((expected, next, count, true)) = effects else {
+                    let Some((expected, next, count, 1)) = effects else {
                         return Err(Error::Identity);
                     };
                     if *response != expected
@@ -262,11 +321,11 @@ impl<S: Store> AccountIngress<S> {
                     effects = if next + 1 == count {
                         None
                     } else {
-                        Some((expected, next + 1, count, true))
+                        Some((expected, next + 1, count, 1))
                     };
                 }
                 Record::RestEffect { response, index } => {
-                    let Some((expected, next, count, false)) = effects else {
+                    let Some((expected, next, count, 0)) = effects else {
                         return Err(Error::Identity);
                     };
                     if *response != expected
@@ -283,7 +342,7 @@ impl<S: Store> AccountIngress<S> {
                     effects = if next + 1 == count {
                         None
                     } else {
-                        Some((expected, next + 1, count, false))
+                        Some((expected, next + 1, count, 0))
                     };
                 }
                 // Epoch zero is the authenticated owner's initial disconnected
@@ -508,6 +567,9 @@ fn product(config: &Config) -> Result<v::Product> {
     Ok(p)
 }
 fn validate_config(config: &Config) -> Result<()> {
+    if let Some(authority) = &config.income_association_authority {
+        authority.validate()?;
+    }
     if let Some(authority) = &config.income_baseline_authority {
         authority.validate()?;
     }
@@ -537,5 +599,7 @@ fn validate_config(config: &Config) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "../../tickwire-account/tests/common/mod.rs"]
-mod unit_fixture;
+#[path = "../../tickwire-account-gateway/tests/common/mod.rs"]
+mod gateway_fixture;
+#[cfg(test)]
+use gateway_fixture::fixture as unit_fixture;

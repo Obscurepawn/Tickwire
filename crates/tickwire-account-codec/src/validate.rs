@@ -58,6 +58,86 @@ pub(crate) fn baseline(s: &mut Snapshot, c: &mut Catalog) -> Result<(), Error> {
 }
 pub(crate) fn record(r: &RecoveryRecord) -> Result<(), Error> {
     match r {
+        RecoveryRecord::UncreatedAlgoClosed(b) => {
+            if b.scope.risk_domain_id == [0; 16]
+                || b.scope.venue == 0
+                || b.scope.account == 0
+                || b.account_epoch == 0
+                || b.baseline_digest == [0; 32]
+                || b.history_digest == [0; 32]
+                || b.input_stream == [0; 16]
+                || b.through_sequence == 0
+                || b.state_digest == [0; 32]
+                || b.coverage_digest == [0; 32]
+                || b.structure_id == [0; 16]
+                || b.intent.epoch == 0
+                || b.intent.intent_id == 0
+                || b.command_digest == [0; 32]
+            {
+                return Err(Error::Field);
+            }
+        }
+        RecoveryRecord::IncomeObservationsAssociated(b) => {
+            if b.scope.risk_domain_id == [0; 16]
+                || b.scope.venue == 0
+                || b.scope.account == 0
+                || b.account_epoch == 0
+                || b.wallet_id == 0
+                || b.request_id == [0; 16]
+                || b.baseline_digest == [0; 32]
+                || b.history_digest == [0; 32]
+                || b.input_stream == [0; 16]
+                || b.through_sequence == 0
+                || b.state_digest == [0; 32]
+                || b.manifest_digest == [0; 32]
+                || b.approval_digest == [0; 32]
+                || b.associations.is_empty()
+            {
+                return Err(Error::Field);
+            }
+            bound(b.associations.len(), MAX_ASSOCIATION_OBSERVATIONS)?;
+            unique(&b.associations, |group| group.observation_digest)?;
+            let mut keys = BTreeSet::new();
+            for group in &b.associations {
+                if group.observation_digest == [0; 32]
+                    || group.incomes.is_empty()
+                    || group.incomes.windows(2).any(|w| w[0] >= w[1])
+                {
+                    return Err(Error::Field);
+                }
+                for id in &group.incomes {
+                    let number = id
+                        .transaction_id
+                        .as_str()
+                        .parse::<i64>()
+                        .map_err(|_| Error::Field)?;
+                    if id.income_type.as_str() != "FUNDING_FEE"
+                        || number.to_string() != id.transaction_id.as_str()
+                    {
+                        return Err(Error::Field);
+                    }
+                    if !keys.insert(id) {
+                        return Err(Error::Duplicate);
+                    }
+                    bound(keys.len(), MAX_ASSOCIATION_INCOMES)?;
+                }
+            }
+        }
+        RecoveryRecord::AccountInputsReconciled(b) => {
+            if b.scope.risk_domain_id == [0; 16]
+                || b.scope.venue == 0
+                || b.scope.account == 0
+                || b.account_epoch == 0
+                || b.baseline_digest == [0; 32]
+                || b.history_digest == [0; 32]
+                || b.input_stream == [0; 16]
+                || b.through_sequence == 0
+                || b.state_digest == [0; 32]
+                || b.coverage_digest == [0; 32]
+            {
+                return Err(Error::Field);
+            }
+        }
         RecoveryRecord::IncomeBaseline(b) => {
             if b.scope.risk_domain_id == [0; 16]
                 || b.scope.venue == 0
@@ -178,6 +258,7 @@ pub(crate) fn record(r: &RecoveryRecord) -> Result<(), Error> {
                     | tickwire_venue::CommandBody::Query(_)
                     | tickwire_venue::CommandBody::CancelList(_)
                     | tickwire_venue::CommandBody::CancelAlgo(_)
+                    | tickwire_venue::CommandBody::AmendKeepPriority { .. }
             );
             if a.command_digest != command.digest()
                 || a.intent != key

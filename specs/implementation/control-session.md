@@ -1,6 +1,6 @@
 # 控制会话与请求登记实现规格
 
-实现位于 `crates/tickwire-control`，禁止 unsafe。接口设计见 [control-session-interface.md](../../docs/implementation/control-session-interface.md)。
+实现位于 `crates/tickwire-control`，禁止 unsafe。接口设计见 control-session-interface.md。
 
 ## 会话身份与协商
 
@@ -22,6 +22,6 @@ MockRequestStore 总容量可配置，未完成记录最多 256 条，不为腾�
 
 ## 验证证据
 
-[control-session 验证目录](../../docs/validation/control-session/) 保存初始编译 Red、完成响应语义 Red 和后续 Green。Rust 覆盖身份、协商、期限、重复/冲突、容量、存储失败和响应关联。
+control-session 验证目录 保存初始编译 Red、完成响应语义 Red 和后续 Green。Rust 覆盖身份、协商、期限、重复/冲突、容量、存储失败和响应关联。
 
 TLA+ 阶梯位于 [control_requests](../../tla/execution_models/control_requests/PLAN.md)：L0 转录串行请求登记与 Mock 故障，L1 再组合期限、续租和永久关闭。每级结论以对应输出文件和实际 TLC 日志为准；未实现的持久 owner 恢复保留为 L2。

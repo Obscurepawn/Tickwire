@@ -36,11 +36,12 @@ pub(crate) fn prepare(
     if registry.len() >= config.max_registrations {
         return Err(Error::Capacity);
     }
-    let (specs, list) = match &c.body {
+    let (specs, list, algo) = match &c.body {
         v::CommandBody::New(o) | v::CommandBody::CancelReplace { replacement: o, .. } => {
-            (vec![o], None)
+            (vec![o], None, None)
         }
-        v::CommandBody::SpotList(l) => (l.legs.as_slice().iter().collect(), Some(l)),
+        v::CommandBody::SpotList(l) => (l.legs.as_slice().iter().collect(), Some(l), None),
+        v::CommandBody::Algo(a) => (vec![&a.order], None, Some(a)),
         _ => return Err(Error::Unsupported),
     };
     if ids.len() != specs.len() || ids.is_empty() || ids.len() > 3 {
@@ -71,6 +72,14 @@ pub(crate) fn prepare(
             {
                 return Err(Error::Conflict);
             }
+            if let Some(a) = algo
+                && reg.orders.iter().any(|o| {
+                    o.parent_order_id == Some(a.parent_order_id)
+                        || o.algo_client_id.as_ref() == Some(&a.order.client_id)
+                })
+            {
+                return Err(Error::Conflict);
+            }
         }
         if orders
             .iter()
@@ -84,12 +93,12 @@ pub(crate) fn prepare(
             original_intent_exec_epoch: r.intent_exec_epoch,
             client_id: Some(spec.client_id.clone()),
             venue_order_id: None,
-            parent_order_id: None,
+            parent_order_id: algo.map(|a| a.parent_order_id),
             list_id: list.map(|l| l.list_id),
             venue_algo_id: None,
             venue_list_id: None,
             list_client_id: list.map(|l| l.client_id.clone()),
-            algo_client_id: None,
+            algo_client_id: algo.map(|a| a.order.client_id.clone()),
         });
     }
     Ok(Registration {
@@ -101,6 +110,8 @@ pub(crate) fn prepare(
 
 pub(crate) fn order(event: &CanonicalEvent) -> Result<&v::OrderIdentity> {
     match &event.event().body {
+        v::VenueEventBody::AmendmentRejected(a) => Ok(&a.order),
+        v::VenueEventBody::Amendment(a) => Ok(&a.order),
         v::VenueEventBody::Order(o) => Ok(&o.order),
         v::VenueEventBody::Fill(f) => Ok(&f.observation.order),
         _ => Err(Error::Unsupported),
@@ -110,6 +121,9 @@ pub(crate) fn learn(
     registry: &mut BTreeMap<IntentKey, Registration>,
     event: &CanonicalEvent,
 ) -> Result<()> {
+    if let v::VenueEventBody::Structure(s) = &event.event().body {
+        return learn_structure(registry, event, s);
+    }
     let id = order(event)?;
     let key = IntentKey {
         epoch: id.original_intent_exec_epoch,
@@ -156,5 +170,117 @@ pub(crate) fn learn(
         }
     }
     registry.get_mut(&key).unwrap().orders[index] = id.clone();
+    Ok(())
+}
+
+fn learn_structure(
+    registry: &mut BTreeMap<IntentKey, Registration>,
+    event: &CanonicalEvent,
+    observation: &v::StructureObservation,
+) -> Result<()> {
+    let parent = &observation.parent;
+    let key = IntentKey {
+        epoch: parent.original_intent_exec_epoch,
+        intent_id: parent.original_intent_id,
+    };
+    let reg = registry.get(&key).ok_or(Error::Identity)?;
+    let context = &reg.command.command().context;
+    let identity = &event.event().identity;
+    if context.request.risk_domain_id != identity.risk_domain_id
+        || context.request.venue != identity.venue
+        || context.request.account != identity.account
+        || context.request.environment != identity.environment
+        || context.request.product != identity.product
+        || context.instrument.instrument_id != identity.instrument_id
+        || context.instrument.instrument_version != identity.instrument_version
+    {
+        return Err(Error::Identity);
+    }
+    let algo = match &reg.command.command().body {
+        v::CommandBody::SpotList(l) => {
+            let kind = match l.kind {
+                v::ListKind::Oco => v::StructureKind::Oco,
+                v::ListKind::Oto => v::StructureKind::Oto,
+                v::ListKind::Otoco => v::StructureKind::Otoco,
+            };
+            if parent.structure_id != l.list_id
+                || parent.client_id != l.client_id
+                || parent.kind != kind
+            {
+                return Err(Error::Identity);
+            }
+            false
+        }
+        v::CommandBody::Algo(a) => {
+            if parent.structure_id != a.parent_order_id
+                || parent.client_id != a.order.client_id
+                || parent.kind != v::StructureKind::Algo
+            {
+                return Err(Error::Identity);
+            }
+            true
+        }
+        _ => return Err(Error::Identity),
+    };
+    let mut updated = reg.clone();
+    for id in &mut updated.orders {
+        let old = if algo {
+            &mut id.venue_algo_id
+        } else {
+            &mut id.venue_list_id
+        };
+        if let Some(native) = &parent.venue_parent_id {
+            if old.as_ref().is_some_and(|old| old != native) {
+                return Err(Error::Conflict);
+            }
+            *old = Some(native.clone());
+        }
+    }
+    for child in observation.children.as_slice() {
+        let index = updated
+            .orders
+            .iter()
+            .position(|o| o.order_id == child.order.order_id)
+            .ok_or(Error::Identity)?;
+        let old = &updated.orders[index];
+        let mut expected = old.clone();
+        expected.venue_order_id = child.order.venue_order_id.clone();
+        if child.order != expected
+            || child.order.venue_order_id.is_none()
+            || old
+                .venue_order_id
+                .as_ref()
+                .is_some_and(|old| Some(old) != child.order.venue_order_id.as_ref())
+        {
+            return Err(Error::Conflict);
+        }
+        updated.orders[index] = child.order.clone();
+    }
+    for (other_key, other) in registry.iter() {
+        if other.command.command().context.instrument.instrument_id != identity.instrument_id {
+            continue;
+        }
+        for old in &other.orders {
+            if *other_key != key
+                && parent.venue_parent_id.is_some()
+                && (if algo {
+                    &old.venue_algo_id
+                } else {
+                    &old.venue_list_id
+                }) == &parent.venue_parent_id
+            {
+                return Err(Error::Conflict);
+            }
+            for new in &updated.orders {
+                if old.order_id != new.order_id
+                    && new.venue_order_id.is_some()
+                    && old.venue_order_id == new.venue_order_id
+                {
+                    return Err(Error::Conflict);
+                }
+            }
+        }
+    }
+    registry.insert(key, updated);
     Ok(())
 }

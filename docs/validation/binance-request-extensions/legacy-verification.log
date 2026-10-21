@@ -1,5 +1,0 @@
-PASS: tag11 subcommand 1 -> Enum
-PASS: tag11 subcommand 2 -> Enum
-PASS: tag11 subcommand 3 -> Enum
-PASS: tag11 subcommand 4 -> Enum
-PASS: fixed commit 1d2743d7315456816d328354140ec2105754175f, all 10 old command bytes and digests

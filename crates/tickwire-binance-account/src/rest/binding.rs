@@ -8,8 +8,6 @@ use tickwire_binance::response::{self, FailureKind};
 struct Reports<'a> {
     #[serde(borrow, rename = "orderReports")]
     reports: Option<Vec<&'a RawValue>>,
-    #[serde(borrow)]
-    orders: Option<Vec<&'a RawValue>>,
     #[serde(borrow, rename = "cancelResponse")]
     cancel: Option<&'a RawValue>,
     #[serde(borrow, rename = "newOrderResponse")]
@@ -32,8 +30,47 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
 ) -> Result<(RestDisposition, Vec<CanonicalEvent>)> {
     let decoded =
         response::decode_rest(input.market()?, record.status, body).map_err(|_| Error::Encoding)?;
+    decide_decoded(
+        input,
+        gateway,
+        record,
+        decoded,
+        b"tickwire.rest.observation.v1",
+        true,
+    )
+}
+
+pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
+    input: &AccountIngress<S>,
+    gateway: &AccountGateway<B, A, E>,
+    record: &RestRecord,
+    decoded: response::Response<'_>,
+    event_domain: &[u8],
+    apply_candidate: bool,
+) -> Result<(RestDisposition, Vec<CanonicalEvent>)> {
     let mut disposition = RestDisposition::Observed;
     let value = if let Some(kind) = decoded.failure {
+        if kind == FailureKind::Rejected
+            && matches!(
+                record.command.command().body,
+                v::CommandBody::AmendKeepPriority { .. }
+            )
+        {
+            let event = super::amendment::rejection(
+                input,
+                gateway,
+                record,
+                decoded.error.as_ref().ok_or(Error::Encoding)?.code,
+            )?;
+            if apply_candidate {
+                gateway
+                    .account()
+                    .clone()
+                    .apply_event(&event)
+                    .map_err(|_| Error::Identity)?;
+            }
+            return Ok((RestDisposition::Rejected, vec![event]));
+        }
         if kind != FailureKind::Partial {
             return Ok((
                 if kind == FailureKind::Rejected {
@@ -53,14 +90,69 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
     } else {
         decoded.result.ok_or(Error::Encoding)?
     };
+    if matches!(
+        record.command.command().body,
+        v::CommandBody::AmendKeepPriority { .. }
+    ) {
+        let observed = super::amendment::bind(input, gateway, record, value.get().as_bytes())?;
+        if apply_candidate {
+            gateway
+                .account()
+                .clone()
+                .apply_event(&observed)
+                .map_err(|_| Error::Identity)?;
+        }
+        let needs = matches!(&observed.event().body, v::VenueEventBody::Amendment(a) if a.observation.as_ref().is_some_and(|o|o.cumulative_quantity.is_some_and(|q|q.coefficient()>0)));
+        return Ok((
+            if needs {
+                RestDisposition::NeedsReconciliation
+            } else {
+                RestDisposition::Observed
+            },
+            vec![observed],
+        ));
+    }
     let reports: Reports<'_> = serde_json::from_str(value.get()).map_err(|_| Error::Encoding)?;
+    let mut events = Vec::new();
+    let mut learned = input.registry.clone();
+    let mut candidate = gateway.account().clone();
+    if record.order_query.is_none()
+        && matches!(
+            record.command.command().body,
+            v::CommandBody::SpotList(_)
+                | v::CommandBody::CancelList(_)
+                | v::CommandBody::Algo(_)
+                | v::CommandBody::CancelAlgo(_)
+        )
+    {
+        let parent = super::structure::bind(input, gateway, record, value.get().as_bytes())?;
+        registry::learn(&mut learned, &parent)?;
+        if apply_candidate {
+            candidate
+                .apply_event(&parent)
+                .map_err(|_| Error::Identity)?;
+        }
+        if matches!(&parent.event().body,v::VenueEventBody::Structure(s) if s.status==v::StructureStatus::Unknown)
+        {
+            disposition = RestDisposition::NeedsReconciliation;
+        }
+        events.push(parent);
+    }
+    if record.structure_query.is_some() {
+        if events.len() != 1 {
+            return Err(Error::Identity);
+        }
+        return Ok((disposition, events));
+    }
     let rows: Vec<&RawValue> = if record.order_query.is_some() {
         vec![value]
     } else {
         match &record.command.command().body {
             v::CommandBody::SpotList(_) | v::CommandBody::CancelList(_) => {
-                reports.reports.or(reports.orders).ok_or(Error::Encoding)?
+                // Members are identities, not reports of each leg's state.
+                reports.reports.unwrap_or_default()
             }
+            v::CommandBody::Algo(_) | v::CommandBody::CancelAlgo(_) => Vec::new(),
             v::CommandBody::CancelReplace { .. } => {
                 let mut rows = Vec::new();
                 for row in [reports.cancel, reports.replacement].into_iter().flatten() {
@@ -75,12 +167,9 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
             _ => vec![value],
         }
     };
-    if rows.is_empty() || rows.len() > 3 {
+    if (rows.is_empty() && events.is_empty()) || rows.len() > 3 {
         return Err(Error::Encoding);
     }
-    let mut events = Vec::new();
-    let mut learned = input.registry.clone();
-    let mut candidate = gateway.account().clone();
     for (index, row) in rows.iter().enumerate() {
         let reply = response::decode_order(row.get().as_bytes()).map_err(|_| Error::Encoding)?;
         let extra: Extra<'_> = serde_json::from_str(row.get()).map_err(|_| Error::Encoding)?;
@@ -109,10 +198,17 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
                     continue;
                 }
                 let native = reply.order_id.to_string();
-                if id
-                    .client_id
-                    .as_ref()
-                    .is_some_and(|c| c.as_str() == reply.client_order_id)
+                let matches_client =
+                    if matches!(reg.command.command().body, v::CommandBody::Algo(_)) {
+                        id.venue_order_id
+                            .as_ref()
+                            .is_some_and(|id| id.as_str() == native)
+                    } else {
+                        id.client_id
+                            .as_ref()
+                            .is_some_and(|c| c.as_str() == reply.client_order_id)
+                    };
+                if matches_client
                     && id
                         .venue_order_id
                         .as_ref()
@@ -174,7 +270,7 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
         }
         let c = &reg.command.command().context;
         let mut hash = Context::new(&SHA256);
-        hash.update(b"tickwire.rest.observation.v1");
+        hash.update(event_domain);
         hash.update(&record.command.digest());
         hash.update(&record.epoch.to_le_bytes());
         hash.update(&record.raw);
@@ -220,7 +316,9 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
             return Err(Error::Conflict);
         }
         registry::learn(&mut learned, &event)?;
-        candidate.apply_event(&event).map_err(|_| Error::Identity)?;
+        if apply_candidate {
+            candidate.apply_event(&event).map_err(|_| Error::Identity)?;
+        }
         events.push(event);
     }
     Ok((disposition, events))
@@ -236,6 +334,7 @@ fn spec(command: &CanonicalCommand, index: usize) -> Result<&v::OrderSpec> {
             Ok(s)
         }
         v::CommandBody::SpotList(list) => list.legs.as_slice().get(index).ok_or(Error::Identity),
+        v::CommandBody::Algo(a) if index == 0 => Ok(&a.order),
         _ => Err(Error::Unsupported),
     }
 }
@@ -265,12 +364,42 @@ pub(super) fn allowed(
         return false;
     }
     match &request.command().body {
-        v::CommandBody::New(_) | v::CommandBody::SpotList(_) => request == creating,
+        v::CommandBody::New(_) | v::CommandBody::SpotList(_) | v::CommandBody::Algo(_) => {
+            request == creating
+        }
         v::CommandBody::Cancel(t) | v::CommandBody::Query(t) => target(t, id),
+        v::CommandBody::AmendKeepPriority {
+            target: t,
+            new_client_id,
+            ..
+        } => {
+            target(t, id)
+                && t.client_id == id.client_id
+                && t.venue_order_id == id.venue_order_id
+                && new_client_id == &id.client_id
+                && id.parent_order_id.is_none()
+                && id.list_id.is_none()
+        }
         v::CommandBody::CancelReplace { target: t, .. } => request == creating || target(t, id),
         v::CommandBody::CancelList(t) => {
             id.list_id == Some(t.list_id)
                 && id.original_intent_exec_epoch == t.original_intent_exec_epoch
+                && t.client_id
+                    .as_ref()
+                    .is_none_or(|c| Some(c) == id.list_client_id.as_ref())
+                && t.venue_list_id
+                    .as_ref()
+                    .is_none_or(|n| Some(n) == id.venue_list_id.as_ref())
+        }
+        v::CommandBody::CancelAlgo(t) => {
+            id.parent_order_id == Some(t.parent_order_id)
+                && id.original_intent_exec_epoch == t.original_intent_exec_epoch
+                && t.client_id
+                    .as_ref()
+                    .is_none_or(|c| Some(c) == id.algo_client_id.as_ref())
+                && t.venue_algo_id
+                    .as_ref()
+                    .is_none_or(|n| Some(n) == id.venue_algo_id.as_ref())
         }
         _ => false,
     }

@@ -14,6 +14,7 @@ use tickwire_transport::{Connection, IoBudget, PreparedSend, Security, SendRepor
 use tickwire_venue::{CanonicalCommand, CanonicalEvent, Hash};
 mod binding;
 mod recovery;
+pub mod websocket;
 
 #[derive(Debug)]
 pub enum Error {
@@ -101,6 +102,81 @@ pub trait Authority {
 }
 /// Verifies durable, authenticated remote observations against this exact account prefix.
 pub trait ReactivationVerifier {
+    /// Called only after exact-prefix verification and candidate reactivation,
+    /// immediately before a replacement connection is opened. REST needs no extra state.
+    fn before_connect(
+        &mut self,
+        _binding: &tickwire_account::Reactivation,
+    ) -> std::result::Result<(), AuthorityError> {
+        Ok(())
+    }
+
+    fn verify_income_association_live(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _account: &Account,
+        _preceding: &HistoryFrontier,
+        _prior: &[CanonicalRecord],
+        _binding: &tickwire_account::IncomeObservationsAssociated,
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        Err(AuthorityError::Denied)
+    }
+    fn verify_income_association(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _account: &Account,
+        _preceding: &HistoryFrontier,
+        _prior: &[CanonicalRecord],
+        _binding: &tickwire_account::IncomeObservationsAssociated,
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        Err(AuthorityError::Denied)
+    }
+    fn verify_uncreated_algo_live(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _account: &Account,
+        _preceding: &HistoryFrontier,
+        _binding: &tickwire_account::UncreatedAlgoClosed,
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        Err(AuthorityError::Denied)
+    }
+
+    fn verify_uncreated_algo(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _account: &Account,
+        _preceding: &HistoryFrontier,
+        _binding: &tickwire_account::UncreatedAlgoClosed,
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        Err(AuthorityError::Denied)
+    }
+
+    fn verify_account_inputs_closure_live(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _account: &Account,
+        _preceding: &HistoryFrontier,
+        _binding: &tickwire_account::AccountInputsReconciled,
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        Err(AuthorityError::Denied)
+    }
+
+    fn verify_account_inputs_closure(
+        &mut self,
+        _baseline: &CanonicalBaseline,
+        _account: &Account,
+        _preceding: &HistoryFrontier,
+        _binding: &tickwire_account::AccountInputsReconciled,
+        _writer_epoch: u64,
+    ) -> std::result::Result<(), AuthorityError> {
+        Err(AuthorityError::Denied)
+    }
+
     fn verify_income_baseline(
         &mut self,
         _baseline: &CanonicalBaseline,
@@ -183,6 +259,8 @@ pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     authority: A,
     encoder: E,
     connection: Option<Connection>,
+    websocket: Option<websocket::WebSocketState>,
+    rest_started: bool,
     max_send_bytes: usize,
     retained_receive: VecDeque<u8>,
     max_receive_bytes: usize,
@@ -241,6 +319,8 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             authority,
             encoder,
             connection: Some(connection),
+            websocket: None,
+            rest_started: false,
             max_send_bytes,
             max_receive_bytes,
             retained_receive: VecDeque::new(),
@@ -294,6 +374,8 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             authority,
             encoder,
             connection: None,
+            websocket: None,
+            rest_started: false,
             max_send_bytes: 0,
             max_receive_bytes: 0,
             retained_receive: VecDeque::new(),
@@ -319,8 +401,11 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.halted {
             return Err(Error::Halted);
         }
-        if self.pending.is_some() {
+        if self.pending.is_some() || self.websocket_blocks_application() {
             return Err(Error::Busy);
+        }
+        if self.websocket.is_none() {
+            self.rest_started = true;
         }
         if self.entries.len() >= self.config.max_intents {
             return Err(Error::Capacity);
@@ -434,6 +519,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
     }
     pub fn poll(&mut self, now: Instant, budget: IoBudget) -> Result<()> {
+        if self.websocket_blocks_application() {
+            return Err(Error::Busy);
+        }
         if self.halted {
             return Err(Error::Halted);
         }
@@ -623,6 +711,148 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         self.account = candidate;
         Ok(applied)
     }
+    /// Verify the original query closure, synchronize tag14, then publish the candidate.
+    /// This records reconciliation without granting permission to send or releasing funds.
+    pub fn close_uncreated_algo(
+        &mut self,
+        binding: tickwire_account::UncreatedAlgoClosed,
+        verifier: &mut impl ReactivationVerifier,
+    ) -> Result<Applied> {
+        if let Some(old) = self.account.uncreated_algo_closure(&binding.structure_id) {
+            if old == &binding {
+                return Ok(Applied::Duplicate);
+            }
+            self.halt();
+            return Err(Error::Conflict);
+        }
+        if self.pending.is_some() {
+            return Err(Error::Busy);
+        }
+        if binding.baseline_digest != self.baseline().digest()
+            || binding.history_digest != self.history_frontier().digest()
+            || binding.scope != self.config.journal.scope
+            || binding.ledger_sequence != self.account.ledger_sequence()
+        {
+            return Err(Error::Identity);
+        }
+        verifier
+            .verify_uncreated_algo_live(
+                self.baseline(),
+                &self.account,
+                self.history_frontier(),
+                &binding,
+                self.config.writer_epoch,
+            )
+            .map_err(Error::Authority)?;
+        let mut candidate = self.account.clone();
+        let applied = candidate
+            .close_uncreated_algo(&binding)
+            .map_err(Error::Account)?;
+        if let Err(error) = self
+            .journal
+            .append(RecoveryRecord::UncreatedAlgoClosed(Box::new(binding)))
+        {
+            self.halt();
+            return Err(Error::Journal(error));
+        }
+        self.account = candidate;
+        Ok(applied)
+    }
+    pub fn reconcile_account_inputs(
+        &mut self,
+        binding: tickwire_account::AccountInputsReconciled,
+        verifier: &mut impl ReactivationVerifier,
+    ) -> Result<Applied> {
+        if let Some(old) = self.account.account_inputs_closure(binding.history_digest) {
+            if old == &binding {
+                return Ok(Applied::Duplicate);
+            }
+            self.halt();
+            return Err(Error::Conflict);
+        }
+        if self.pending.is_some() {
+            return Err(Error::Busy);
+        }
+        if binding.baseline_digest != self.baseline().digest()
+            || binding.history_digest != self.history_frontier().digest()
+            || binding.scope != self.config.journal.scope
+            || binding.ledger_sequence != self.account.ledger_sequence()
+        {
+            return Err(Error::Identity);
+        }
+        verifier
+            .verify_account_inputs_closure_live(
+                self.baseline(),
+                &self.account,
+                self.history_frontier(),
+                &binding,
+                self.config.writer_epoch,
+            )
+            .map_err(Error::Authority)?;
+        let mut candidate = self.account.clone();
+        let applied = candidate
+            .reconcile_account_inputs(&binding)
+            .map_err(Error::Account)?;
+        if let Err(error) = self
+            .journal
+            .append(RecoveryRecord::AccountInputsReconciled(Box::new(binding)))
+        {
+            self.halt();
+            return Err(Error::Journal(error));
+        }
+        self.account = candidate;
+        Ok(applied)
+    }
+    /// Only a complete verified approval can clear observation explanations.
+    /// Candidate validation precedes durable tag15; synchronization precedes publication.
+    pub fn associate_income_observations(
+        &mut self,
+        binding: tickwire_account::IncomeObservationsAssociated,
+        verifier: &mut impl ReactivationVerifier,
+    ) -> Result<Applied> {
+        if let Some(old) = self.account.income_association(binding.request_id) {
+            if old == &binding {
+                return Ok(Applied::Duplicate);
+            }
+            self.halt();
+            return Err(Error::Conflict);
+        }
+        if self.pending.is_some() {
+            return Err(Error::Busy);
+        }
+        if binding.baseline_digest != self.baseline().digest()
+            || binding.history_digest != self.history_frontier().digest()
+            || binding.scope != self.config.journal.scope
+            || binding.ledger_sequence != self.account.ledger_sequence()
+        {
+            return Err(Error::Identity);
+        }
+        verifier
+            .verify_income_association_live(
+                self.baseline(),
+                &self.account,
+                self.history_frontier(),
+                self.journal.records(),
+                &binding,
+                self.config.writer_epoch,
+            )
+            .map_err(Error::Authority)?;
+        let mut candidate = self.account.clone();
+        let applied = candidate
+            .associate_income_observations(&binding)
+            .map_err(Error::Account)?;
+        if let Err(error) = self
+            .journal
+            .append(RecoveryRecord::IncomeObservationsAssociated(Box::new(
+                binding,
+            )))
+        {
+            self.halt();
+            return Err(Error::Journal(error));
+        }
+        self.account = candidate;
+        Ok(applied)
+    }
     pub fn install_income_baseline(
         &mut self,
         binding: tickwire_account::IncomeBaseline,
@@ -672,6 +902,12 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     }
     pub fn baseline(&self) -> &CanonicalBaseline {
         self.journal.baseline()
+    }
+    pub fn admission_origin(
+        &self,
+        key: IntentKey,
+    ) -> Option<&tickwire_account_journal::AdmissionOrigin> {
+        self.journal.admission_origin(key)
     }
     pub fn history_frontier(&self) -> &HistoryFrontier {
         self.journal.history_frontier()
@@ -724,6 +960,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             .apply_reactivation(&binding)
             .map_err(Error::Account)?;
         let replacement = if let Some(c) = connection {
+            verifier
+                .before_connect(&binding)
+                .map_err(Error::Authority)?;
             let limits = c.limits;
             let server_name = self
                 .config
@@ -755,6 +994,8 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         self.config.writer_epoch = binding.writer_epoch;
         if let Some((connection, limits)) = replacement {
             self.connection = Some(connection);
+            self.websocket = None;
+            self.rest_started = false;
             self.max_send_bytes = limits.max_send_bytes;
             self.max_receive_bytes = limits.max_receive_bytes;
         }
@@ -776,6 +1017,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 | RecoveryRecord::IngressEvent { .. }
                 | RecoveryRecord::Reactivated(_)
                 | RecoveryRecord::StrategyHandover(_)
+                | RecoveryRecord::AccountInputsReconciled(_)
+                | RecoveryRecord::UncreatedAlgoClosed(_)
+                | RecoveryRecord::IncomeObservationsAssociated(_)
                 | RecoveryRecord::IncomeBaseline(_)
                 | RecoveryRecord::IngressAccountInput { .. }
         ) {

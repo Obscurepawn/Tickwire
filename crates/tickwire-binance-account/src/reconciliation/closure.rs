@@ -27,7 +27,10 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                 }) else {
                     continue;
                 };
-                if state.aborted || (state.terminal && state.fee_reconciled && !state.unknown) {
+                if state.aborted
+                    || state.uncreated
+                    || (state.terminal && state.fee_reconciled && !state.unknown)
+                {
                     continue;
                 }
                 let mut latest_status = None;

@@ -1,9 +1,11 @@
 //! Shared original-signature state for REST encoding and the first-output gate.
 #![forbid(unsafe_code)]
+use sha2::{Digest, Sha256};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use tickwire_account::Admission;
 use tickwire_account_gateway::{AdmissionRequest, Authority, AuthorityError, Gate};
 use tickwire_binance::request::{self, Credentials, RequestOptions, Timestamp, Transport};
+use tickwire_binance_account::ws::{DurableWsBinding, SessionIdentity, SignedWire, WsRequestPlan};
 use tickwire_binance_clock::{BinanceTimeClient, ClockReading, LocalTime, MonotonicClock};
 use tickwire_binance_quota::{CommandBinding, Endpoint};
 use tickwire_clock::{ClockDomain, SignedTime, Source, TimeUnit};
@@ -25,6 +27,31 @@ pub enum Error {
     Encoding,
 }
 pub type Result<T> = core::result::Result<T, Error>;
+/// Public credential reference only: no signing secret is serialized.
+pub fn credential_reference(credentials: &Credentials<'_>, generation: u64) -> Result<Hash> {
+    if generation == 0
+        || credentials.account == 0
+        || credentials.api_key.is_empty()
+        || credentials.api_key.len() > 256
+    {
+        return Err(Error::Identity);
+    }
+    let mut h = Sha256::new();
+    h.update(b"tickwire.ws.credential-reference.v1");
+    h.update(credentials.account.to_le_bytes());
+    h.update(generation.to_le_bytes());
+    h.update([match credentials.market {
+        request::Market::Spot => 1,
+        request::Market::Usdm => 2,
+    }]);
+    h.update([match credentials.environment {
+        tickwire_venue::Environment::Production => 1,
+        tickwire_venue::Environment::Test => 2,
+    }]);
+    h.update((credentials.api_key.len() as u32).to_le_bytes());
+    h.update(credentials.api_key.as_bytes());
+    Ok(h.finalize().into())
+}
 
 /// A trusted calibrated source. Implementations check the original stamp and
 /// return the very sample used by that check, with no intervening callback.
@@ -83,6 +110,12 @@ struct SignedRequest {
     window_ns: u64,
     authority: String,
     bytes: Vec<u8>,
+    websocket: Option<SignedWebSocket>,
+}
+struct SignedWebSocket {
+    plan: WsRequestPlan,
+    wire: SignedWire,
+    binding: Option<DurableWsBinding>,
 }
 struct PreparedGate {
     stamp: SignedTime,
@@ -97,12 +130,50 @@ struct State<C, B> {
     budget: B,
     config: Config,
     signed: BTreeMap<Hash, SignedRequest>,
+    websocket: Option<SessionIdentity>,
+    plans: BTreeMap<Hash, WsRequestPlan>,
 }
 /// Clones share one runtime state. It cannot cross threads or mint send authority.
 pub struct SharedSessionState<C, B>(Rc<RefCell<State<C, B>>>);
 impl<C, B> Clone for SharedSessionState<C, B> {
     fn clone(&self) -> Self {
         Self(Rc::clone(&self.0))
+    }
+}
+impl<C: SessionClock, B: DeliveryBudget> tickwire_binance_account::ws::SessionState
+    for SharedSessionState<C, B>
+{
+    fn prepare(&mut self, plan: WsRequestPlan) -> tickwire_binance_account::Result<()> {
+        self.prepare_websocket(plan)
+            .map_err(|_| tickwire_binance_account::Error::Identity)
+    }
+    fn signed_wire(&self, digest: Hash) -> tickwire_binance_account::Result<SignedWire> {
+        self.websocket_wire(digest)
+            .map_err(|_| tickwire_binance_account::Error::Identity)
+    }
+    fn install(&mut self, binding: DurableWsBinding) -> tickwire_binance_account::Result<()> {
+        self.install_websocket_binding(binding)
+            .map_err(|_| tickwire_binance_account::Error::Identity)
+    }
+    fn feedback(&mut self, status: u16) -> tickwire_binance_account::Result<()> {
+        if matches!(status, 418 | 429) {
+            self.0
+                .try_borrow_mut()
+                .map_err(|_| tickwire_binance_account::Error::Stopped)?
+                .quota
+                .freeze();
+        }
+        Ok(())
+    }
+    fn control(
+        &mut self,
+        session: &tickwire_binance_account::ws::DurableWsSession,
+        action: tickwire_binance_account::ws::ControlAction,
+        operation: u64,
+        deadline: u64,
+    ) -> bool {
+        self.websocket_control(session, action, operation, deadline)
+            .is_ok()
     }
 }
 impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
@@ -138,7 +209,139 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             budget,
             config,
             signed: BTreeMap::new(),
+            websocket: None,
+            plans: BTreeMap::new(),
         }))))
+    }
+    pub fn websocket_control(
+        &self,
+        session: &tickwire_binance_account::ws::DurableWsSession,
+        action: tickwire_binance_account::ws::ControlAction,
+        operation: u64,
+        deadline: u64,
+    ) -> Result<()> {
+        use tickwire_binance_account::ws::ControlAction as C;
+        use tickwire_binance_quota::CommandSessionAction as Q;
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        if !session.is_current() {
+            return Err(Error::Identity);
+        }
+        let sampled = state.clock.sample().map_err(Error::Clock)?.local;
+        let now = sampled.monotonic;
+        if now.domain() != state.binding.domain || now.nanos() >= deadline {
+            return Err(Error::Denied);
+        }
+        let binding = state.binding;
+        let kind = match action {
+            C::Connect => Q::Connect,
+            C::Upgrade => Q::Upgrade,
+            C::Ping => Q::Ping,
+            C::Pong => Q::Pong,
+            C::Close => Q::Close,
+        };
+        state
+            .quota
+            .consume_command_session(&binding, session.identity(), operation, kind, now)
+            .map_err(Error::Quota)?;
+        Ok(())
+    }
+    pub fn prepare_websocket(&self, plan: WsRequestPlan) -> Result<()> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        state.bind(plan.command())?;
+        if !plan.is_current()
+            || state.signed.values().any(|r| r.websocket.is_none())
+            || state.websocket.as_ref().is_some_and(|s| {
+                s != plan.session()
+                    && (s.input_stream != plan.session().input_stream
+                        || s.account_stream != plan.session().account_stream
+                        || s.baseline_digest != plan.session().baseline_digest
+                        || s.scope != plan.session().scope
+                        || s.product != plan.session().product
+                        || s.connection_epoch >= plan.session().connection_epoch
+                        || s.writer_epoch > plan.session().writer_epoch
+                        || state.plans.values().any(WsRequestPlan::is_current))
+            })
+        {
+            return Err(Error::Identity);
+        }
+        let digest = plan.command().digest();
+        if let Some(old) = state.plans.get(&digest) {
+            return if old.input() == plan.input()
+                && old.request_id() == plan.request_id()
+                && old.is_current()
+            {
+                Ok(())
+            } else {
+                Err(Error::Identity)
+            };
+        }
+        if state.plans.len() >= state.config.max_signed_commands {
+            return Err(Error::Capacity);
+        }
+        state.websocket = Some(plan.session().clone());
+        state.plans.insert(digest, plan);
+        Ok(())
+    }
+    pub fn websocket_wire(&self, digest: Hash) -> Result<SignedWire> {
+        self.0
+            .try_borrow()
+            .map_err(|_| Error::Busy)?
+            .signed
+            .get(&digest)
+            .and_then(|r| r.websocket.as_ref())
+            .filter(|w| w.plan.is_current())
+            .map(|w| w.wire.clone())
+            .ok_or(Error::MissingSignature)
+    }
+    pub fn install_websocket_binding(&self, binding: DurableWsBinding) -> Result<()> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        let saved = state
+            .signed
+            .get_mut(&binding.command_digest())
+            .ok_or(Error::MissingSignature)?;
+        let ws = saved.websocket.as_mut().ok_or(Error::Identity)?;
+        if !binding.matches_plan(&ws.plan)
+            || binding.signed_wire() != &ws.wire
+            || binding.frame_bytes() != saved.bytes.len()
+            || binding.frame_hash() != Hash::from(Sha256::digest(&saved.bytes))
+        {
+            return Err(Error::Identity);
+        }
+        if let Some(old) = &ws.binding {
+            if old.input() != binding.input() || old.record_digest() != binding.record_digest() {
+                return Err(Error::Identity);
+            }
+            return Ok(());
+        }
+        ws.binding = Some(binding);
+        Ok(())
+    }
+    fn binding_ready(
+        &self,
+        admission: &Admission,
+        receipt: &tickwire_account_journal::AppendReceipt,
+    ) -> Result<bool> {
+        let state = self.0.try_borrow().map_err(|_| Error::Busy)?;
+        let Some(_) = state.websocket else {
+            return Ok(true);
+        };
+        let saved = state
+            .signed
+            .get(&admission.command_digest())
+            .ok_or(Error::MissingSignature)?;
+        let ws = saved.websocket.as_ref().ok_or(Error::Identity)?;
+        let Some(binding) = &ws.binding else {
+            return Ok(false);
+        };
+        if !binding.matches_plan(&ws.plan)
+            || binding.signed_wire() != &ws.wire
+            || binding.account_sequence() != receipt.sequence()
+            || binding.record_digest() != receipt.record_digest()
+            || binding.physical_frontier() != receipt.physical_frontier()
+        {
+            return Err(Error::Identity);
+        }
+        Ok(true)
     }
     pub fn encoder<'a>(&self, credentials: Credentials<'a>) -> RestEncoder<'a, C, B> {
         RestEncoder {
@@ -187,6 +390,13 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         }
         let digest = command.digest();
         if let Some(prior) = state.signed.get(&digest) {
+            if prior
+                .websocket
+                .as_ref()
+                .is_some_and(|w| !w.plan.is_current())
+            {
+                return Err(Error::Identity);
+            }
             return EncodedRequest::new(digest, prior.authority.clone(), prior.bytes.clone())
                 .map_err(|_| Error::Encoding);
         }
@@ -206,32 +416,58 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             TimeUnit::Milliseconds => Timestamp::Milliseconds(stamp.timestamp()),
             TimeUnit::Microseconds => Timestamp::Microseconds(stamp.timestamp()),
         };
+        let plan = if state.websocket.is_some() {
+            Some(
+                state
+                    .plans
+                    .get(&digest)
+                    .filter(|p| p.is_current())
+                    .ok_or(Error::Identity)?
+                    .clone(),
+            )
+        } else {
+            None
+        };
+        let transport = if plan.is_some() {
+            Transport::WebSocket
+        } else {
+            Transport::Rest
+        };
         let prepared = request::prepare(
             command,
             credentials,
             RequestOptions {
-                transport: Transport::Rest,
+                transport,
                 timestamp,
                 recv_window_micros: state.config.recv_window_micros,
-                request_id: "rest",
+                request_id: plan.as_ref().map_or("rest", |p| p.request_id().as_str()),
             },
             request::MAX_REQUEST_BYTES,
         )
         .map_err(|_| Error::Encoding)?;
-        let bytes = http::encode_request(
-            prepared.method().as_str(),
-            prepared.path(),
-            &[
-                ("Host", prepared.authority()),
-                (
-                    "X-MBX-APIKEY",
-                    prepared.api_key_header().ok_or(Error::Encoding)?,
-                ),
-            ],
-            prepared.payload(),
-            state.config.max_http_bytes,
-        )
-        .map_err(|_| Error::Encoding)?;
+        let bytes = if plan.is_some() {
+            tickwire_transport::ws::encode_client(
+                tickwire_transport::ws::Opcode::Text,
+                prepared.payload(),
+                state.config.max_http_bytes,
+            )
+            .map_err(|_| Error::Encoding)?
+        } else {
+            http::encode_request(
+                prepared.method().as_str(),
+                prepared.path(),
+                &[
+                    ("Host", prepared.authority()),
+                    (
+                        "X-MBX-APIKEY",
+                        prepared.api_key_header().ok_or(Error::Encoding)?,
+                    ),
+                ],
+                prepared.payload(),
+                state.config.max_http_bytes,
+            )
+            .map_err(|_| Error::Encoding)?
+        };
         let authority = prepared.authority().to_owned();
         let encoded = EncodedRequest::new(digest, authority.clone(), bytes.clone())
             .map_err(|_| Error::Encoding)?;
@@ -246,6 +482,21 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
                 stamp,
                 window_ns,
                 authority,
+                websocket: plan.map(|plan| SignedWebSocket {
+                    plan,
+                    binding: None,
+                    wire: SignedWire {
+                        source: stamp.source(),
+                        domain: stamp.domain(),
+                        timestamp: stamp.timestamp(),
+                        unit: stamp.unit(),
+                        window_ns,
+                        request_hash: Sha256::digest(prepared.payload()).into(),
+                        frame_hash: Sha256::digest(&bytes).into(),
+                        request_bytes: prepared.payload().len() as u32,
+                        frame_bytes: bytes.len() as u32,
+                    },
+                }),
                 bytes,
             },
         );
@@ -296,6 +547,18 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         if saved.stamp != prepared.stamp || saved.window_ns != prepared.window_ns {
             return Err(Error::Identity);
         }
+        let transport = if let Some(ws) = &saved.websocket {
+            if ws
+                .binding
+                .as_ref()
+                .is_none_or(|b| !b.matches_plan(&ws.plan) || b.signed_wire() != &ws.wire)
+            {
+                return Err(Error::Denied);
+            }
+            Transport::WebSocket
+        } else {
+            Transport::Rest
+        };
         let final_time = state
             .clock
             .check_send_sample(&prepared.stamp, prepared.window_ns, prepared.budget_ns)
@@ -313,7 +576,7 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         let binding = state.binding;
         state
             .quota
-            .consume_command(&binding, command, Transport::Rest, now)
+            .consume_command(&binding, command, transport, now)
             .map_err(Error::Quota)?;
         gate.now = now.nanos();
         Ok(gate)
@@ -369,6 +632,13 @@ impl<A: Authority, C: SessionClock, B: DeliveryBudget> Authority for GateAuthori
         admission: &tickwire_account::Admission,
         receipt: &tickwire_account_journal::AppendReceipt,
     ) -> core::result::Result<tickwire_account_gateway::CommitState, AuthorityError> {
+        if !self
+            .shared
+            .binding_ready(admission, receipt)
+            .map_err(|_| AuthorityError::Denied)?
+        {
+            return Ok(tickwire_account_gateway::CommitState::Pending);
+        }
         self.inner.commit_state(admission, receipt)
     }
     fn prepare(

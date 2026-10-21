@@ -68,6 +68,36 @@ struct Feed {
     instrument: u64,
     topics: Vec<usize>,
 }
+struct EventFeed {
+    client: public::PublicEventClient<SystemClock>,
+    binding: tickwire_binance_quota::PublicBinding,
+    instrument: u64,
+    topics: Vec<usize>,
+}
+struct EventFanout<'a> {
+    topics: &'a mut [TopicOwner],
+    targets: &'a [usize],
+    instrument: u64,
+    clock: &'a mut SystemClock,
+}
+impl public::EventSink for EventFanout<'_> {
+    fn on_event(&mut self, n: public::EventNotice<'_>) -> bool {
+        let now = match self.clock.sample() {
+            Ok(t) => t.monotonic.nanos(),
+            Err(_) => return false,
+        };
+        for &i in self.targets {
+            if let Err(e) = self.topics[i].on_event_notice(self.instrument, &n, now, &mut Faults) {
+                self.topics[i].require_rebuild();
+                eprintln!(
+                    "{}",
+                    serde_json::json!({"event":"md_event_publish_error","instrument":self.instrument,"error":e.to_string()})
+                );
+            }
+        }
+        true
+    }
+}
 struct Faults;
 impl FaultSink for Faults {
     fn invalidate(&mut self, f: Fault) {
@@ -172,7 +202,19 @@ fn topic_registry(
                 .map(|s| tickwire_snapshot::InstrumentSpec {
                     instrument_id: s.instrument.instrument_id,
                     instrument_version: s.instrument.instrument_version,
-                    required_states: tickwire_snapshot::QUOTE,
+                    required_states: c
+                        .feeds
+                        .iter()
+                        .find(|f| {
+                            f.instrument.id == s.instrument.instrument_id
+                                && f.topics.contains(&h.topic_id)
+                        })
+                        .map(|f| {
+                            f.events
+                                .iter()
+                                .fold(tickwire_snapshot::QUOTE, |bits, e| bits | e.kind.state())
+                        })
+                        .unwrap_or(tickwire_snapshot::QUOTE),
                 })
                 .collect(),
         },
@@ -232,6 +274,7 @@ pub fn run(c: Config) -> Result<()> {
     let mut poll = public::mio::Poll::new()?;
     let mut events = public::mio::Events::with_capacity(256);
     let mut feeds = Vec::new();
+    let mut event_feeds = Vec::new();
     let mut owners = BTreeSet::new();
     for f in &c.feeds {
         if !owners.insert(f.owner_id)
@@ -282,7 +325,7 @@ pub fn run(c: Config) -> Result<()> {
             },
             false,
         )?;
-        let targets = topics
+        let targets: Vec<usize> = topics
             .iter_mut()
             .enumerate()
             .filter_map(|(i, t)| {
@@ -291,6 +334,55 @@ pub fn run(c: Config) -> Result<()> {
                     .then_some(i)
             })
             .collect();
+        let mut event_kinds = BTreeSet::new();
+        let mut event_sources = BTreeSet::new();
+        if f.events.len() > 3 {
+            return Err(invalid("event owner capacity"));
+        }
+        for event in &f.events {
+            if !owners.insert(event.owner_id)
+                || !event_kinds.insert(event.kind.state())
+                || !event_sources.insert(event.stream_id)
+            {
+                return Err(invalid("duplicate event owner/kind/source"));
+            }
+            let (event_config, network) = event.build(f, domain)?;
+            for &i in &targets {
+                topics[i].configure_event(f.instrument.id, event.kind.kind(), event.stream_id)?;
+            }
+            let binding = tickwire_binance_quota::PublicBinding {
+                owner_id: event.owner_id,
+                source: f.source.build(),
+                domain,
+            };
+            let clock = SystemClock::new(domain)?;
+            let mut event_client = if let Some(path) = &event.sbe_api_key_file {
+                let bytes = config::read(path, 512)?;
+                let key = std::str::from_utf8(&bytes)
+                    .map_err(|_| invalid("SBE event API key encoding"))?
+                    .trim()
+                    .to_owned();
+                public::PublicEventClient::new_sbe(
+                    event_config,
+                    network,
+                    clock,
+                    public::SbeAccess::ed25519_api_key(key)?,
+                )?
+            } else {
+                public::PublicEventClient::new(event_config, network, clock)?
+            };
+            event_client.start(&mut quota.endpoint.public(binding))?;
+            event_client.register(
+                poll.registry(),
+                public::mio::Token(c.feeds.len() * 2 + event_feeds.len()),
+            )?;
+            event_feeds.push(EventFeed {
+                client: event_client,
+                binding,
+                instrument: f.instrument.id,
+                topics: targets.clone(),
+            });
+        }
         feeds.push(Feed {
             client,
             binding,
@@ -331,6 +423,29 @@ pub fn run(c: Config) -> Result<()> {
                     },
                     true,
                 )?;
+            }
+        }
+        for offset in 0..event_feeds.len() {
+            let i = (first + offset) % event_feeds.len();
+            let f = &mut event_feeds[i];
+            let mut sink = EventFanout {
+                topics: &mut topics,
+                targets: &f.topics,
+                instrument: f.instrument,
+                clock: &mut clock,
+            };
+            let report = f.client.poll(
+                public::PollBudget::default(),
+                &mut quota.endpoint.public(f.binding),
+                &mut sink,
+            )?;
+            runnable |= report.runnable;
+            if let Some(t) = report.next_deadline_ns {
+                next = Some(next.map_or(t, |old| old.min(t)));
+            }
+            if report.needs_registration {
+                f.client
+                    .reregister(poll.registry(), public::mio::Token(c.feeds.len() * 2 + i))?;
             }
         }
         first = (first + 1) % feeds.len();

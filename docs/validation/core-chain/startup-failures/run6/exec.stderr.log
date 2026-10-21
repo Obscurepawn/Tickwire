@@ -1,8 +1,0 @@
-{"event":"started","recover":false}
-{"checkpoint_digest":[183,165,229,86,187,197,22,83,214,175,28,234,136,159,84,29,36,198,67,109,10,168,61,92,202,248,123,79,186,78,153,181],"event":"strategy_ready","exec_report_sequence":0,"generation":5,"input_seal_digest":[211,75,63,18,192,165,130,60,139,178,215,76,63,36,203,60,233,12,115,1,181,117,192,151,52,221,47,158,157,214,132,202],"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":1,"worker_pid":13158}
-{"account_position":0,"event":"strategy_reports_consumed","generation":5,"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ready_sequence":1,"report_sequence":1,"worker_pid":13158}
-{"connection_epoch":1,"event":"account_reconciled","gap_generation":1,"ledger_sequence":1}
-{"checkpoint_digest":[229,41,191,92,172,190,71,50,220,106,137,113,26,200,164,208,31,89,7,196,94,128,35,110,130,205,56,237,228,117,130,42],"event":"strategy_ready","exec_report_sequence":1,"generation":5,"input_seal_digest":[67,145,44,106,39,142,5,4,170,151,135,96,91,13,219,101,2,197,244,69,103,67,162,85,55,130,41,1,223,92,152,35],"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ledger_sequence":1,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":2,"worker_pid":13158}
-{"account_position":1,"event":"strategy_reports_consumed","generation":5,"instance":[2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2],"ready_sequence":2,"report_sequence":2,"worker_pid":13158}
-{"event":"hosted_submission","intent":3,"result":"Ok(AwaitingCommit)"}
-{"error":"Strategy","event":"fatal"}

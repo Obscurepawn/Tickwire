@@ -1,6 +1,6 @@
 # 不可变资源实现规格
 
-`ImmutableMapping` 与 `ImmutableResource` 已按[先行接口](../../docs/implementation/immutable-resource-interface.md)加入 `tickwire-shm-sys`。原有 `WriterMapping`/`ReaderMapping` 的 `0x17` 协议保持独立；新对象使用精确 `0x0f`，没有原子访问或写接口。
+`ImmutableMapping` 与 `ImmutableResource` 已按先行接口加入 `tickwire-shm-sys`。原有 `WriterMapping`/`ReaderMapping` 的 `0x17` 协议保持独立；新对象使用精确 `0x0f`，没有原子访问或写接口。
 
 ## 创建与接收
 
@@ -27,7 +27,7 @@ expected header 与 object hash 必须来自已认证 registry、资源描述符
 
 ## 验证与边界
 
-完整 TDD 与实测归档见[验证记录](../../docs/validation/immutable-resource/README.md)。Linux aarch64 上的新用例验证了正确内容、真正只读的 CLOEXEC FD、所有 seal 缺项/错误配置拒绝、写/扩缩容/RW mmap/mprotect 拒绝、真实 EBUSY→撤销映射→成功封印，以及错误返回后的 FD 和映射回收。
+完整 TDD 与实测归档见验证记录。Linux aarch64 上的新用例验证了正确内容、真正只读的 CLOEXEC FD、所有 seal 缺项/错误配置拒绝、写/扩缩容/RW mmap/mprotect 拒绝、真实 EBUSY→撤销映射→成功封印，以及错误返回后的 FD 和映射回收。
 
 实现前的功能 Red 是 9 个主场景失败；首轮 Green 后补查发现 `channel_epoch=2^63` 未被通用资源包装拒绝，再以真实 Red 固定边界并修复。头部哈希负测让 expected 与损坏头的字段保持相同，独立验证 hash 计算，而非靠字段不相等提前拒绝。
 

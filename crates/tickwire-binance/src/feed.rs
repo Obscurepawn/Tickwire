@@ -312,7 +312,7 @@ fn check_input<const N: usize>(bytes: &[u8], max: usize) -> Result<()> {
     }
     Ok(())
 }
-fn venue_decimal(value: tickwire_venue::Decimal) -> Result<Decimal> {
+pub(crate) fn venue_decimal(value: tickwire_venue::Decimal) -> Result<Decimal> {
     if value.exponent() <= 0 {
         Decimal::new(value.coefficient(), (-value.exponent()) as u8)
     } else {
@@ -335,7 +335,7 @@ fn gcd(mut a: u128, mut b: u128) -> u128 {
     }
     a
 }
-fn units(value: Decimal, step: Decimal) -> Result<i64> {
+pub(crate) fn units(value: Decimal, step: Decimal) -> Result<i64> {
     if value.mantissa() < 0 {
         return Err(Error::InvalidDecimal);
     }

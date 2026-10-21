@@ -31,8 +31,13 @@ pub struct LocalPrefixProof {
     pub(crate) prefix: Prefix,
     pub(crate) physical: PhysicalFrontier,
     pub(crate) profile: u64,
+    dependencies: BTreeMap<u64, Vec<ObjectRef>>,
 }
 impl LocalPrefixProof {
+    /// Exact immutable Entry roots included in this prefix proof's exported batch.
+    pub fn dependencies(&self, sequence: u64) -> Option<&[ObjectRef]> {
+        self.dependencies.get(&sequence).map(Vec::as_slice)
+    }
     pub fn prefix(&self) -> Prefix {
         self.prefix
     }
@@ -231,6 +236,7 @@ impl<S: BlobStore> SourceWorker<S> {
                 &mut self.persistence,
                 s,
                 &record.payload,
+                record.exec_epoch,
                 &extra_objects,
             )?;
             let manifest = if let Some(binding) = binding {
@@ -254,6 +260,7 @@ impl<S: BlobStore> SourceWorker<S> {
                 self.frozen = true;
                 return Err(Error::Conflict);
             }
+            crate::association::verify(&mut self.persistence, s, &entry)?;
             crate::handover::verify(&mut self.persistence, s, &entry)?;
             if entry.kind == 11 {
                 let mut history = self.entries.clone();
@@ -303,6 +310,11 @@ impl<S: BlobStore> SourceWorker<S> {
             self.prefixes.push(self.prefix);
             self.entries.push(e.clone());
         }
+        let dependencies = batch
+            .entries
+            .iter()
+            .map(|e| (e.sequence, e.extra_objects.clone()))
+            .collect();
         if enqueue {
             self.pending_bytes += bytes;
             self.pending.push_back((batch, now_ns));
@@ -312,6 +324,7 @@ impl<S: BlobStore> SourceWorker<S> {
             prefix,
             physical,
             profile: self.config.profile_version,
+            dependencies,
         })
     }
     pub fn oldest_pending_ns(&self) -> Option<u64> {
@@ -636,7 +649,8 @@ pub(crate) fn verify_entry<S: BlobStore>(
         &bytes,
         &e.extra_objects,
     )?;
-    crate::input::verify_input_dependencies(p, &stream, &bytes, &e.extra_objects)?;
+    crate::input::verify_input_dependencies(p, &stream, &bytes, e.writer_epoch, &e.extra_objects)?;
+    crate::association::verify(p, &stream, e)?;
     crate::handover::verify(p, &stream, e)?;
     if kind != e.kind || binding != e.manifest.as_ref().map(|m| m.binding) {
         return Err(Error::Conflict);
@@ -691,7 +705,28 @@ pub(crate) fn classify(
             ));
         }
         R::StrategyHandover(_) => 11,
+        R::IncomeObservationsAssociated(b) => {
+            if ![b.manifest_digest, b.approval_digest]
+                .iter()
+                .all(|hash| extras.iter().any(|o| &o.hash == hash))
+            {
+                return Err(Error::Missing);
+            }
+            15
+        }
         R::IngressAccountInput { .. } => 12,
+        R::UncreatedAlgoClosed(b) => {
+            if !extras.iter().any(|o| o.hash == b.coverage_digest) {
+                return Err(Error::Missing);
+            }
+            16
+        }
+        R::AccountInputsReconciled(b) => {
+            if !extras.iter().any(|o| o.hash == b.coverage_digest) {
+                return Err(Error::Missing);
+            }
+            14
+        }
         R::IncomeBaseline(b) => {
             if !extras.iter().any(|o| o.hash == b.coverage_digest) {
                 return Err(Error::Missing);

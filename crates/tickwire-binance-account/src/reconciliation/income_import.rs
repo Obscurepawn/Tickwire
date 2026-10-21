@@ -852,13 +852,31 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use ring::signature::KeyPair;
     #[derive(Default)]
-    struct Memory {
+    pub(crate) struct Memory {
+        bootstrap: Option<Vec<u8>>,
+        baseline: Option<Vec<u8>>,
         manifest: Option<Vec<u8>>,
         segments: BTreeMap<u64, Vec<u8>>,
+    }
+    impl tickwire_account_journal::Backend for Memory {
+        fn read_bootstrap(&mut self) -> std::io::Result<Option<Vec<u8>>> {
+            Ok(self.bootstrap.clone())
+        }
+        fn publish_bootstrap(&mut self, b: &[u8]) -> std::io::Result<()> {
+            self.bootstrap = Some(b.to_vec());
+            Ok(())
+        }
+        fn read_baseline(&mut self) -> std::io::Result<Option<Vec<u8>>> {
+            Ok(self.baseline.clone())
+        }
+        fn publish_baseline(&mut self, b: &[u8]) -> std::io::Result<()> {
+            self.baseline = Some(b.to_vec());
+            Ok(())
+        }
     }
     impl Store for Memory {
         fn read_manifest(&mut self) -> std::io::Result<Option<Vec<u8>>> {
@@ -906,13 +924,23 @@ mod tests {
             Ok(())
         }
     }
-    fn http(body: &[u8]) -> Vec<u8> {
+    pub(crate) fn http(body: &[u8]) -> Vec<u8> {
         let mut out =
             format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", body.len()).into_bytes();
         out.extend(body);
         out
     }
-    fn fixture() -> (
+    pub(crate) fn fixture() -> (
+        AccountIngress<Memory>,
+        ImportRequest,
+        ring::signature::Ed25519KeyPair,
+        ClockDomain,
+    ) {
+        fixture_authority(None)
+    }
+    fn fixture_authority(
+        association: Option<crate::reconciliation::income_association::AssociationAuthority>,
+    ) -> (
         AccountIngress<Memory>,
         ImportRequest,
         ring::signature::Ed25519KeyPair,
@@ -928,6 +956,7 @@ mod tests {
         let mut input = AccountIngress::create(
             Memory::default(),
             Config {
+                income_association_authority: association,
                 income_baseline_authority: Some(authority),
                 physical: tickwire_journal::Config::new([81; 16], [1; 16]),
                 writer_epoch: 4,
@@ -1014,6 +1043,73 @@ mod tests {
             key,
             ClockDomain::new([8; 16], 1).unwrap(),
         )
+    }
+    pub(crate) fn approved_fixture() -> (
+        AccountIngress<Memory>,
+        Account,
+        tickwire_account_journal::AccountJournal<Memory>,
+        ClockDomain,
+    ) {
+        approved_fixture_authority(None)
+    }
+    pub(crate) fn approved_fixture_authority(
+        association: Option<crate::reconciliation::income_association::AssociationAuthority>,
+    ) -> (
+        AccountIngress<Memory>,
+        Account,
+        tickwire_account_journal::AccountJournal<Memory>,
+        ClockDomain,
+    ) {
+        let (mut input, request, key, domain) = fixture_authority(association);
+        let proposal = input.propose_income_import(request).unwrap();
+        let payload = proposal
+            .approval_payload(
+                [31; 16],
+                [99; 16],
+                4,
+                MonoTime::new(domain, 14),
+                MonoTime::new(domain, 100),
+            )
+            .unwrap();
+        let approval = SignedIncomeApproval::new(&payload, key.sign(&payload).as_ref()).unwrap();
+        let record = ImportRecord {
+            proposal,
+            approval,
+            accepted: 15,
+            writer: 4,
+        };
+        let sequence = input.position() + 1;
+        input.validate_import(&record, sequence, 4).unwrap();
+        let binding = input.import_binding(&record, sequence).unwrap();
+        input.append(Record::IncomeImport(record)).unwrap();
+        input.cursor = input.records.len();
+        let mut account = Account::from_snapshot(
+            input.config.baseline.snapshot().clone(),
+            input.config.baseline.catalog().clone(),
+        )
+        .unwrap();
+        account.apply_income_baseline(&binding).unwrap();
+        let config = tickwire_account_journal::Config {
+            physical: tickwire_journal::Config::new(
+                input.config.account_stream,
+                input.config.physical.domain,
+            ),
+            baseline_digest: input.config.baseline.digest(),
+            initial_writer_epoch: 4,
+            scope: input.config.baseline.snapshot().scope.clone(),
+        };
+        let mut journal = tickwire_account_journal::AccountJournal::create(
+            Memory::default(),
+            config,
+            input.config.baseline.clone(),
+        )
+        .unwrap();
+        journal
+            .append(tickwire_account::RecoveryRecord::IncomeBaseline(Box::new(
+                binding,
+            )))
+            .unwrap();
+        (input, account, journal, domain)
     }
     #[test]
     fn complete_queries_require_separate_risk_admin_approval() {

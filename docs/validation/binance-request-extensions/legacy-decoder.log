@@ -1,8 +1,0 @@
-     Locking 10 packages to highest Rust 1.99.1 compatible versions
-   Compiling tickwire-old-venue-decoder v0.0.0 (/tmp/tickwire-old-venue-decoder)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.27s
-     Running `target/legacy-capture/debug/tickwire-old-venue-decoder /Users/bytedance/Tickwire/docs/validation/binance-request-extensions/tag11-commands.txt`
-tag11 subcommand 1: Enum
-tag11 subcommand 2: Enum
-tag11 subcommand 3: Enum
-tag11 subcommand 4: Enum

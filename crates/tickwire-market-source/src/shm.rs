@@ -226,6 +226,9 @@ impl Client {
             packet.bytes(),
             current(clock, domain)?,
         )?;
+        if bank.required_features & !session.features() != 0 {
+            return Err(Error::Identity);
+        }
         let now = current(clock, domain)?;
         let expires = now
             .checked_add(

@@ -327,6 +327,45 @@ pub fn verify_handover_objects<S: BlobStore>(
             sizes.insert(tickwire_recovery::digest(bytes), bytes.len());
         }
     }
+    if seal.version == 3 {
+        let root = seal.replay_rollback_digest.ok_or_else(invalid)?;
+        let objects =
+            tickwire_release::replay::startup::verify_seal(&seal, &checkpoint, &inputs, |hash| {
+                persistence
+                    .read_object(hash, tickwire_recovery::MAX_OBJECT_BYTES)
+                    .map_err(|_| tickwire_release::Error::Missing)
+            })
+            .map_err(|_| invalid())?;
+        for bytes in objects {
+            sizes.insert(tickwire_recovery::digest(&bytes), bytes.len());
+        }
+        let completed = tickwire_release::replay::rollback::verify(root, |hash| {
+            persistence
+                .read_object(hash, tickwire_recovery::MAX_OBJECT_BYTES)
+                .map_err(|_| tickwire_release::Error::Missing)
+        })
+        .map_err(|_| invalid())?;
+        let installed = &completed.installation;
+        installed
+            .bind_seal(&seal, &checkpoint, &inputs)
+            .map_err(|_| invalid())?;
+        let op = &installed.request.operation;
+        let member = &installed.request.member;
+        if op.operation_id != h.operation_id
+            || op.operation_revision != h.operation_revision
+            || op.logical_strategy_id != h.logical_strategy_id
+            || member.risk_domain != h.scope.risk_domain_id
+            || member.old_instance != h.from.instance
+            || member.old_generation != h.from.generation
+            || member.new_instance != h.to.instance
+            || member.new_generation != h.to.generation
+        {
+            return Err(invalid());
+        }
+        for bytes in completed.objects {
+            sizes.insert(tickwire_recovery::digest(&bytes), bytes.len());
+        }
+    }
     for (_, hash) in &seal.dependencies {
         let bytes = persistence
             .read_object(*hash, tickwire_recovery::MAX_OBJECT_BYTES)

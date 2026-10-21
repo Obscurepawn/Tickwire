@@ -3,6 +3,7 @@
 #![recursion_limit = "512"]
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 pub mod fixture;
+mod flavor;
 pub mod generate;
 pub mod handover;
 pub mod launch;
@@ -16,6 +17,12 @@ pub enum ScenarioKind {
     #[default]
     SpotFill,
     SpotHandover,
+    SpotHandoverCustom,
+}
+impl ScenarioKind {
+    pub fn handover(self) -> bool {
+        self != Self::SpotFill
+    }
 }
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

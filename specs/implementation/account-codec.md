@@ -69,6 +69,10 @@ tag9 的 body 为四元素 CBOR 数组 `[9, input_stream, input_sequence, event_
 - 对基准 Spot 编码每个字节逐一替换为其余 255 个值；成功解析的输入必须保持唯一规范表示，且摘要与原内容不同。
 - 真实文件对象/WAL 的 Spot 与 USD-M 重放，检查资产、预留、资本影子额度和未决状态。
 
-执行命令与实际输出见[编码验证](../../docs/validation/account-codec/README.md)。
+执行命令与实际输出见编码验证。
 
 `Reactivated` 使用 `[10, binding]`，binding 为18成员定长数组，字段顺序对应 `Reactivation`：账户范围、产品、账户代次、激活前账本序号、基线摘要、前置历史摘要、输入流、私有连接代次、缺口代次、已处理输入前缀、快照覆盖摘要、时钟boot ID、时钟代次、核验时间、有效期、writer代次、发送连接代次、远端可用余额。余额按 wallet 严格递增，数量有界且非负；应用时还要求完整匹配原账户的钱包与精度。旧标签的字段和编码不变；旧解码器会拒绝未知tag10。
+
+## 收入核对标签 14
+
+`[14, binding]` 的 binding 是九成员定长数组：scope、account_epoch、原 ledger_sequence、baseline_digest、前序 history_digest、input_stream、through_sequence、state_digest、coverage_digest。非零身份、摘要和输入序号按 codec 校验，baseline 必须与记录信封相同；完整历史、实际查询对象及物理 writer 由 Journal/Gateway 的专用 verifier 重验。旧标签和 schema1 编码保持原义。

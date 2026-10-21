@@ -1,7 +1,0 @@
-{
-  "crates/tickwire-journal/src/store.rs": "a89877845f1ea5afbc1bed6556e70522981f12f412ab110162f8f4eefcea827d",
-  "crates/tickwire-journal/src/journal.rs": "5bfb70d5f16a51a20086ad9eb9d1d78dbd09c400709f48272dbc18c85665d7f3",
-  "crates/tickwire-journal-codec/src/lib.rs": "8677551787b1806b0b20ca24f78b1effd519dbdc99d9093bfd0c5ef9c28ae6a8",
-  "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/L0_PhysicalJournal.tla": "531fb86555578dd3d47c528a8ea81fc546e185e99a1dfd5eb44b5a928ae4cab3",
-  "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/anchors.lock": "a5f9a92d639a94fcd5742e5f37f5e1a342b50d965284c37ded08aaa40cddd437"
-}

@@ -16,12 +16,17 @@ use tickwire_transport::{
     rustls,
 };
 pub mod activation;
+pub mod amendments;
 pub mod bootstrap;
 mod closure;
 pub mod income;
+pub mod income_association;
+pub mod income_closure;
 pub mod income_import;
 pub mod orders;
 mod snapshot;
+pub mod structure_closure;
+pub mod structures;
 mod trades;
 mod wire;
 pub use closure::ReconciliationOrder;
@@ -301,6 +306,9 @@ impl ReadOnlyReconciler {
             command: p.command,
             query: Some(p.query),
             order_query: None,
+            amendment_query: None,
+            structure_query: None,
+            structure_domain: None,
             epoch: p.epoch,
             received: response.received,
             status: response.status,

@@ -1,5 +1,7 @@
 //! Laboratory scheduling around the production signed coordinator and Host.
-use crate::{Result, Scenario, ScenarioKind};
+#[cfg(test)]
+use crate::ScenarioKind;
+use crate::{Result, Scenario};
 use ring::{
     rand::SystemRandom,
     signature::{Ed25519KeyPair, KeyPair},
@@ -55,7 +57,6 @@ fn publish(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 pub(crate) fn configure(s: &mut Scenario) -> Result<()> {
-    s.kind = ScenarioKind::SpotHandover;
     let r = &s.root;
     for name in [
         "next",
@@ -95,11 +96,14 @@ pub(crate) fn configure(s: &mut Scenario) -> Result<()> {
     let mut host = old_strategy["config"].clone();
     let mut bootstrap: Bootstrap =
         serde_json::from_slice(&read(&s.worker_bootstrap, 2 * 1024 * 1024)?)?;
+    let target_binary = s.bin_directory.join(crate::flavor::binary(s.kind, false));
+    let target_hash = digest(&fs::read(&target_binary)?);
     for endpoint in [
         &mut bootstrap.market,
         &mut bootstrap.intent,
         &mut bootstrap.report,
     ] {
+        endpoint.local.build_hash = target_hash;
         endpoint.local.instance = NEW_INSTANCE;
         endpoint.local.generation = GENERATION;
         endpoint.control_epoch = 2;
@@ -140,10 +144,12 @@ pub(crate) fn configure(s: &mut Scenario) -> Result<()> {
             .map_err(|e| format!("command: {e:?}"))?;
     let command = shadow_command(&original)?;
     crate::generate::write(&r.join("next/command.bin"), command.bytes())?;
+    crate::flavor::configure(s.kind, &mut bootstrap, &r.join("next"), &command, 6_000_100)?;
     crate::generate::json_file(
         &r.join("next/bootstrap.json"),
         &serde_json::to_value(&bootstrap)?,
     )?;
+    host["executable"] = json!(target_binary);
     host["shadow"] = json!(true);
     host["bootstrap"] = json!(r.join("next/bootstrap.json"));
     host["directory_parent"] = json!(r.join("next/runtime"));
@@ -174,7 +180,8 @@ pub(crate) fn configure(s: &mut Scenario) -> Result<()> {
                 &json!({"scenario":"spot-handover","instance":NEW_INSTANCE,"generation":GENERATION}),
             )?,
             9 => serde_json::to_vec(&host)?,
-            11 => command.bytes().to_vec(),
+            8 => fs::read(&target_binary)?,
+            11 => fs::read(crate::flavor::config_path(s.kind, &r.join("next")))?,
             _ => read(&d.path, 64 * 1024 * 1024)?,
         };
         d.path = r.join(format!("next/dependencies/{}.bin", d.kind));
@@ -239,12 +246,15 @@ pub(crate) struct Driver {
     scenario: Scenario,
     coordinator: Option<Child>,
     operation: Option<Operation>,
-    requests: BTreeMap<[u8; 16], ControlAction>,
+    requests: BTreeMap<[u8; 16], SignedControlRequest>,
+    replay: Option<tickwire_lifecycle::ReplayPrepared>,
+    armed: bool,
     receipts: BTreeMap<u8, tickwire_lifecycle::AppliedReceipt>,
     keys: Value,
     launched: bool,
     grant_published: bool,
     released: bool,
+    halt_pending: bool,
     old_pid: Option<u32>,
     exec_pid: u32,
 }
@@ -267,11 +277,14 @@ impl Driver {
             coordinator: None,
             operation: None,
             requests: BTreeMap::new(),
+            replay: None,
+            armed: false,
             receipts: BTreeMap::new(),
             keys: json(&s.root.join("handover/keys.json"))?,
             launched: false,
             grant_published: false,
             released: false,
+            halt_pending: false,
             old_pid: None,
             exec_pid,
         })
@@ -281,22 +294,15 @@ impl Driver {
         Ok(tickwire_clock_sys::SystemClock::new(d)?.sample()?.monotonic)
     }
     pub(crate) fn poll(&mut self) -> Result<()> {
-        let r = &self.scenario.root;
+        let root = self.scenario.root.clone();
+        let r = &root;
         if !self.launched {
-            let audit = String::from_utf8(read(&r.join("fixture.jsonl"), 16 * 1024 * 1024)?)?;
-            if !audit
-                .lines()
-                .filter_map(|s| serde_json::from_str::<Value>(s).ok())
-                .any(|v| v["event"] == "order_accepted")
-            {
-                return Ok(());
-            }
             let old_path = r.join(format!("exec/reports/CONSUMED-{}-5.json", hex(&[2; 16])));
             if !old_path.is_file() {
                 return Ok(());
             }
             let old = json(&old_path)?;
-            if old["account_position"].as_u64().is_none_or(|v| v < 3) {
+            if old["account_position"].as_u64().is_none_or(|v| v < 1) {
                 return Ok(());
             }
             if old["host_pid"] != self.exec_pid
@@ -305,9 +311,6 @@ impl Driver {
                 || old["generation"] != 5
             {
                 return Err("preflight source process identity".into());
-            }
-            if !consumed_ack_in(&r.join("strategy/recovery"), &old)? {
-                return Ok(());
             }
             self.operation = Some(crate::preflight::prepare(&self.scenario, &old)?);
             let request = tickwire_app::launch::Request {
@@ -328,6 +331,30 @@ impl Driver {
                 &serde_json::to_vec(&request)?,
             )?;
             self.launched = true;
+        }
+        if !self.armed {
+            let path = r.join(format!(
+                "next/reports/CONSUMED-{}-6.json",
+                hex(&NEW_INSTANCE)
+            ));
+            if !path.is_file() {
+                return Ok(());
+            }
+            let next = json(&path)?;
+            if next["host_pid"] != self.exec_pid || next["host_boot"] != json!(self.scenario.boot) {
+                return Err("startup READY host identity".into());
+            }
+            let startup = crate::preflight::verify_restored(
+                &self.scenario,
+                &next,
+                self.operation.as_ref().ok_or("startup operation")?,
+            )?;
+            crate::generate::json_file(&r.join("handover/startup-verified.json"), &startup)?;
+            crate::generate::write(
+                &r.join("ARM"),
+                b"actual unspent source S and restored target acknowledged\n",
+            )?;
+            self.armed = true;
         }
         if self.coordinator.is_none() {
             let old_path = r.join(format!("exec/reports/CONSUMED-{}-5.json", hex(&[2; 16])));
@@ -377,12 +404,6 @@ impl Driver {
             if !consumed_ack(r, &next)? {
                 return Ok(());
             }
-            let preflight = crate::preflight::verify_completed(
-                &self.scenario,
-                &next,
-                self.operation.as_ref().ok_or("fixed preflight operation")?,
-            )?;
-            crate::generate::json_file(&r.join("handover/preflight-verified.json"), &preflight)?;
             self.old_pid = Some(u32::try_from(
                 old["worker_pid"].as_u64().ok_or("old worker pid")?,
             )?);
@@ -400,7 +421,7 @@ impl Driver {
                 input_seal_digest: serde_json::from_value(next["input_seal_digest"].clone())?,
             };
             let operation = self.operation.clone().ok_or("fixed release operation")?;
-            if operation.schema != 2 || operation.members != [member.clone()] {
+            if operation.schema != 3 || operation.members != [member.clone()] {
                 return Err("preflight operation changed after launch".into());
             }
             let config = json!({"coordinator":{"coordinator_id":([138;16]),"coordinator_key":self.keys["coordinator"],"operation":operation,"members":[{"member":member,"public_key":self.keys["exec"],"readiness":proof}],"audit":{"domain":([1;16]),"stream_epoch":([141;16]),"segment_max_bytes":8388608}},"writer_epoch":1,"recover":false,"resume_after_queries":false,"signer_file":r.join("keys/coordinator.pk8"),"audit_directory":r.join("handover/audit"),"receipts_directory":r.join("handover/receipts"),"requests_directory":r.join("handover/staging"),"readiness_directory":null,"maximum_wait_ns":30_000_000_000u64,"poll_interval_ns":1_000_000});
@@ -421,11 +442,17 @@ impl Driver {
         }
         self.relay()?;
         self.collect_receipts()?;
+        if self.halt_pending {
+            // The coordinator may exit immediately after persisting Halt.
+            // Keep the normal scenario loop alive for its real applied ACK;
+            // the existing scenario deadline still bounds this wait.
+            return Ok(());
+        }
         if !self.released
             && let Some(child) = &mut self.coordinator
             && let Some(status) = child.try_wait()?
         {
-            if !status.success() || self.receipts.len() != 3 {
+            if !status.success() || (self.receipts.len() != 2 || self.replay.is_none()) {
                 return Err("coordinator did not finish all applied handover phases".into());
             }
             let output = String::from_utf8(read(
@@ -456,6 +483,18 @@ impl Driver {
             if !retired || Path::new(&format!("/proc/{old}")).exists() {
                 return Err("Released receipt preceded old child retirement".into());
             }
+            let next = json(&r.join(format!(
+                "next/reports/CONSUMED-{}-6.json",
+                hex(&NEW_INSTANCE)
+            )))?;
+            let completed = crate::preflight::verify_completed(
+                &self.scenario,
+                &next,
+                self.operation.as_ref().ok_or("operation")?,
+                self.replay.as_ref().ok_or("replay Prepared")?,
+                crate::flavor::ProgressPhase::Installed,
+            )?;
+            crate::generate::json_file(&r.join("handover/preflight-verified.json"), &completed)?;
             crate::generate::write(
                 &self.scenario.root.join("RELEASE_FILL"),
                 b"signed release and old child retirement\n",
@@ -508,7 +547,10 @@ impl Driver {
             }
             if !matches!(
                 request.action,
-                ControlAction::Prepare | ControlAction::Commit | ControlAction::Release
+                ControlAction::Prepare
+                    | ControlAction::Commit
+                    | ControlAction::Release
+                    | ControlAction::Halt
             ) {
                 return Err("unexpected lifecycle action".into());
             }
@@ -519,7 +561,10 @@ impl Driver {
                     .join(path.file_name().ok_or("request filename")?),
                 &bytes,
             )?;
-            self.requests.insert(request.request_id, request.action);
+            self.requests.insert(request.request_id, signed.clone());
+            if request.action == ControlAction::Halt {
+                self.halt_pending = true;
+            }
         }
         Ok(())
     }
@@ -527,6 +572,33 @@ impl Driver {
         for path in json_paths(&self.scenario.root.join("handover/receipts"))? {
             let signed: SignedReceipt = serde_json::from_slice(&read(&path, 8 * 1024 * 1024)?)
                 .map_err(|_| "exec rejected lifecycle request; inspect receipt")?;
+            if serde_json::from_slice::<tickwire_lifecycle::ReplayPrepared>(&signed.payload).is_ok()
+            {
+                let prepared = tickwire_lifecycle::verify_replay_prepared(
+                    &tickwire_lifecycle::SignedReplayPrepared {
+                        payload: signed.payload,
+                        signature: signed.signature,
+                    },
+                    serde_json::from_value(self.keys["exec"].clone())?,
+                    self.operation.as_ref().ok_or("operation")?,
+                    self.now()?,
+                )?;
+                let challenge: tickwire_lifecycle::ControlRequest =
+                    serde_json::from_slice(&prepared.challenge.payload)?;
+                if self.requests.get(&challenge.request_id) != Some(&prepared.challenge)
+                    || prepared.fixed.sequence >= prepared.current.sequence
+                    || prepared.fixed.checkpoint == prepared.current.checkpoint
+                {
+                    return Err(
+                        "replay Prepared does not prove the requested S-to-C transition".into(),
+                    );
+                }
+                if self.replay.as_ref().is_some_and(|old| old != &prepared) {
+                    return Err("conflicting replay preparation".into());
+                }
+                self.replay = Some(prepared);
+                continue;
+            }
             let receipt = tickwire_lifecycle::verify_receipt(
                 &signed,
                 serde_json::from_value(self.keys["exec"].clone())?,
@@ -534,12 +606,19 @@ impl Driver {
                 self.now()?,
             )?;
             let (phase, action) = match receipt.phase {
-                AppliedPhase::Prepared => (1, ControlAction::Prepare),
+                AppliedPhase::Prepared => return Err("schema3 requires ReplayPrepared".into()),
                 AppliedPhase::Committed => (2, ControlAction::Commit),
                 AppliedPhase::Released => (3, ControlAction::Release),
-                AppliedPhase::Halted => return Err("handover halted".into()),
+                AppliedPhase::Halted => (4, ControlAction::Halt),
             };
-            if self.requests.get(&receipt.control_request_id) != Some(&action) {
+            if self
+                .requests
+                .get(&receipt.control_request_id)
+                .is_none_or(|r| {
+                    serde_json::from_slice::<tickwire_lifecycle::ControlRequest>(&r.payload)
+                        .map_or(true, |r| r.action != action)
+                })
+            {
                 return Err("receipt challenge mismatch".into());
             }
             if let Some(old) = self.receipts.insert(phase, receipt.clone())
@@ -547,11 +626,21 @@ impl Driver {
             {
                 return Err("different handover applied receipt".into());
             }
+            if receipt.phase == AppliedPhase::Halted {
+                // A requested Halt is a valid protocol action and still makes
+                // this success-path scenario fail, after the actual owner ACK.
+                publish(
+                    &self.scenario.root.join("handover/halted.json"),
+                    &serde_json::to_vec(&signed)?,
+                )?;
+                self.halt_pending = false;
+                return Err("handover halted after applied receipt".into());
+            }
         }
         Ok(())
     }
     pub(crate) fn finish(&self) -> Result<()> {
-        if !self.released || self.receipts.len() != 3 {
+        if !self.released || (self.receipts.len() != 2 || self.replay.is_none()) {
             return Err("handover incomplete".into());
         }
         Ok(())
@@ -647,8 +736,25 @@ pub(crate) fn check_export(
             .sample()?
             .monotonic;
     let mut phases = vec![];
+    let mut replay_prepared = None;
     for path in json_paths(&s.root.join("handover/receipts"))? {
         let signed: SignedReceipt = serde_json::from_slice(&read(&path, 8 * 1024 * 1024)?)?;
+        if serde_json::from_slice::<tickwire_lifecycle::ReplayPrepared>(&signed.payload).is_ok() {
+            let prepared = tickwire_lifecycle::verify_replay_prepared(
+                &tickwire_lifecycle::SignedReplayPrepared {
+                    payload: signed.payload,
+                    signature: signed.signature,
+                },
+                public,
+                &operation,
+                now,
+            )?;
+            if prepared.fixed.sequence >= prepared.current.sequence {
+                return Err("replay had no actual tail".into());
+            }
+            replay_prepared = Some(prepared);
+            continue;
+        }
         let receipt = tickwire_lifecycle::verify_receipt(&signed, public, &operation, now)?;
         if matches!(
             receipt.phase,
@@ -659,16 +765,33 @@ pub(crate) fn check_export(
         }
         phases.push(receipt.phase);
     }
-    if [
-        AppliedPhase::Prepared,
-        AppliedPhase::Committed,
-        AppliedPhase::Released,
-    ]
-    .iter()
-    .any(|p| !phases.contains(p))
+    if replay_prepared.is_none()
+        || [AppliedPhase::Committed, AppliedPhase::Released]
+            .iter()
+            .any(|p| !phases.contains(p))
     {
         return Err("missing signed applied phase".into());
     }
+    let ready = json(&s.root.join(format!(
+        "next/reports/CONSUMED-{}-6.json",
+        hex(&NEW_INSTANCE)
+    )))?;
+    let final_proof = crate::preflight::verify_completed(
+        s,
+        &ready,
+        &operation,
+        replay_prepared.as_ref().ok_or("replay Prepared")?,
+        crate::flavor::ProgressPhase::Final,
+    )?;
+    if final_proof["target_final_sequence"].as_u64()
+        <= final_proof["target_install_sequence"].as_u64()
+    {
+        return Err("new target has no retained C-to-D callback tail".into());
+    }
+    crate::generate::json_file(
+        &s.root.join("handover/preflight-final-verified.json"),
+        &final_proof,
+    )?;
     Ok(())
 }
 
@@ -723,6 +846,10 @@ fn consumed_ack_in(directory: &Path, ready: &Value) -> Result<bool> {
     }
     Ok(ack)
 }
+
+#[cfg(test)]
+#[path = "handover/relay_tests.rs"]
+mod relay_tests;
 
 #[cfg(test)]
 mod tests {

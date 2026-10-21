@@ -1,0 +1,31 @@
+[package]
+name = "tickwire-control-peer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+tickwire-control-raft = { path = "../tickwire-control-raft" }
+protobuf = "=2.28.0"
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring"] }
+x509-parser = "=0.18.1"
+sha2 = "0.10"
+getrandom = "0.2"
+mio = { version = "=1.2.4", features = ["os-poll", "net"] }
+
+tickwire-config-service = { path = "../tickwire-config-service" }
+tickwire-journal = { path = "../tickwire-journal" }
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.145"
+
+[target.'cfg(unix)'.dependencies]
+libc = "=0.2.191"
+
+[dev-dependencies]
+ring = "=0.17.14"
+rcgen = "=0.14.10"
+time = "=0.3.55"
+
+[lints]
+workspace = true

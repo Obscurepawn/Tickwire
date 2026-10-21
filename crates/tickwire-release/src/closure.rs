@@ -107,16 +107,35 @@ impl<F: FnMut(Hash) -> Result<Vec<u8>>> Reader<F> {
                 return Err(Error::Identity);
             }
         }
+        if source.version == 3 {
+            if source.replay_rollback_digest.is_none() {
+                return Err(Error::Identity);
+            }
+            crate::replay::startup::verify_seal_at(
+                &source,
+                &cp,
+                &self.get(source.input_digest)?,
+                &mut |h| self.get(h),
+                depth + 1,
+            )?;
+        }
         Ok((c, a, b, bundle))
     }
 }
-pub fn verify<F: FnMut(Hash) -> Result<Vec<u8>>>(root: Hash, read: F) -> Result<Verified> {
+pub fn verify<F: FnMut(Hash) -> Result<Vec<u8>>>(root: Hash, mut read: F) -> Result<Verified> {
+    verify_at(root, &mut read, 0)
+}
+pub(crate) fn verify_at(
+    root: Hash,
+    read: &mut dyn FnMut(Hash) -> Result<Vec<u8>>,
+    depth: usize,
+) -> Result<Verified> {
     let mut r = Reader {
         read,
         cache: BTreeMap::new(),
         bytes: 0,
     };
-    let (completion, restored, rollback, bundle) = r.completion(root, 0)?;
+    let (completion, restored, rollback, bundle) = r.completion(root, depth)?;
     Ok(Verified {
         completion,
         restored,

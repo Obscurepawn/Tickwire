@@ -109,6 +109,136 @@ pub struct Feed {
     #[serde(default)]
     pub sbe_api_key_file: Option<PathBuf>,
     pub topics: Vec<u64>,
+    #[serde(default)]
+    pub events: Vec<EventFeed>,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventType {
+    Trade,
+    BestBidAsk,
+    MarkFunding,
+}
+impl EventType {
+    pub fn kind(self) -> public::EventKind {
+        match self {
+            Self::Trade => public::EventKind::Trade,
+            Self::BestBidAsk => public::EventKind::BestBidAsk,
+            Self::MarkFunding => public::EventKind::MarkFunding,
+        }
+    }
+    pub fn state(self) -> u8 {
+        match self {
+            Self::Trade => 2,
+            Self::BestBidAsk => 1,
+            Self::MarkFunding => 4,
+        }
+    }
+}
+#[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EventFeed {
+    pub owner_id: [u8; 16],
+    pub stream_id: u64,
+    pub kind: EventType,
+    pub first_connection_epoch: u64,
+    pub first_operation: u64,
+    pub stream_address: String,
+    #[serde(default)]
+    pub sbe_api_key_file: Option<PathBuf>,
+    #[serde(default)]
+    pub fast_mark: bool,
+}
+impl EventFeed {
+    pub fn context(&self, feed: &Feed) -> Result<public::EventContext> {
+        let source = feed.source.build();
+        let instrument = feed.instrument.build(source)?;
+        if self.owner_id == [0; 16]
+            || self.owner_id == feed.owner_id
+            || self.stream_id == 0
+            || self.stream_id == feed.stream_id
+            || self.first_connection_epoch == 0
+            || self.first_operation == 0
+            || self.fast_mark && !matches!(self.kind, EventType::MarkFunding)
+            || self.sbe_api_key_file.is_some() && source != public::Source::SpotProduction
+        {
+            return Err(invalid("event source/product/identity"));
+        }
+        let context = public::EventContext {
+            market: if matches!(
+                source,
+                public::Source::SpotProduction | public::Source::SpotTest
+            ) {
+                tickwire_binance::request::Market::Spot
+            } else {
+                tickwire_binance::request::Market::Usdm
+            },
+            identity: public::StreamIdentity {
+                source_id: self.stream_id,
+                connection_epoch: self.first_connection_epoch,
+                instrument_id: instrument.instrument_id,
+                instrument_version: instrument.instrument_version,
+                catalog_version: instrument.catalog_version,
+                catalog_hash: instrument.catalog_hash,
+            },
+            instrument,
+            kind: self.kind.kind(),
+            time_unit: if self.sbe_api_key_file.is_some() {
+                public::TimeUnit::Microseconds
+            } else {
+                public::TimeUnit::Milliseconds
+            },
+        };
+        context
+            .stream_name(
+                if self.sbe_api_key_file.is_some() {
+                    public::EventEncoding::SpotSbeV1
+                } else {
+                    public::EventEncoding::Json
+                },
+                self.fast_mark,
+            )
+            .map_err(|e| invalid(&format!("event stream {e:?}")))?;
+        Ok(context)
+    }
+    pub fn build(
+        &self,
+        feed: &Feed,
+        domain: public::ClockDomain,
+    ) -> Result<(public::EventConfig, public::EventNetworkConfig)> {
+        let (base, network) = feed.build(domain)?;
+        let ctx = self.context(feed)?;
+        let stream_address = self
+            .stream_address
+            .to_socket_addrs()?
+            .next()
+            .ok_or_else(|| invalid("event stream address"))?;
+        Ok((
+            public::EventConfig {
+                owner_id: self.owner_id,
+                source: base.source,
+                domain,
+                first_connection_epoch: self.first_connection_epoch,
+                first_operation: self.first_operation,
+                context: ctx,
+                encoding: if self.sbe_api_key_file.is_some() {
+                    public::EventEncoding::SpotSbeV1
+                } else {
+                    public::EventEncoding::Json
+                },
+                subscribe: public::SubscribeMode::Explicit,
+                fast_mark: self.fast_mark,
+                timing: base.timing,
+                limits: base.limits,
+                max_events: 4096,
+            },
+            public::EventNetworkConfig {
+                stream_address,
+                tls: network.tls,
+            },
+        ))
+    }
 }
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -297,6 +427,13 @@ pub struct ResourceSpec {
     pub arena_classes: Vec<(u32, u32)>,
 }
 impl ResourceSpec {
+    /// Explicit feature negotiation is required before publishing types 264–266.
+    pub fn header_with_exact_events(&self) -> Result<tickwire_ipc::ResourceHeader> {
+        let mut h = self.header()?;
+        h.required_features |= tickwire_ipc::EXACT_MARKET_EVENTS;
+        tickwire_shm::validate_bank(&h)?;
+        Ok(h)
+    }
     pub fn header(&self) -> Result<tickwire_ipc::ResourceHeader> {
         use tickwire_ipc::ResourceHeader;
         if self.identity.role != 2
@@ -460,6 +597,35 @@ mod tests {
                 .symbol
                 .as_str(),
             "BTCUSDT"
+        );
+    }
+}
+
+#[cfg(test)]
+mod event_config_tests {
+    use super::*;
+    #[test]
+    fn explicit_events_bind_distinct_source_and_exact_product() {
+        let c: Config = serde_json::from_str(include_str!("../examples/md.json")).unwrap();
+        let feed = &c.feeds[0];
+        let mut e = EventFeed {
+            owner_id: [90; 16],
+            stream_id: 90,
+            kind: EventType::Trade,
+            first_connection_epoch: 1,
+            first_operation: 1,
+            stream_address: "127.0.0.1:443".into(),
+            sbe_api_key_file: None,
+            fast_mark: false,
+        };
+        assert_eq!(e.context(feed).unwrap().identity.source_id, 90);
+        e.kind = EventType::MarkFunding;
+        assert!(e.context(feed).is_err());
+        e.kind = EventType::BestBidAsk;
+        e.sbe_api_key_file = Some("key".into());
+        assert_eq!(
+            e.context(feed).unwrap().time_unit,
+            public::TimeUnit::Microseconds
         );
     }
 }

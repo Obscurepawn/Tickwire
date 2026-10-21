@@ -9,6 +9,8 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+tickwire-binance-account = { path = "../tickwire-binance-account" }
+sha2 = "=0.10.9"
 tickwire-account = { path = "../tickwire-account" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
@@ -23,4 +25,13 @@ tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
 
 [dev-dependencies]
+tickwire-replica = { path = "../tickwire-replica" }
+tickwire-fencing = { path = "../tickwire-fencing" }
+tickwire-binance-private = { path = "../tickwire-binance-private" }
+base64 = "=0.22.1"
+sha1 = "=0.10.6"
+rcgen = "=0.14.10"
+tickwire-risk = { path = "../tickwire-risk" }
+serde_json = "1.0"
+tickwire-journal = { path = "../tickwire-journal" }
 tickwire-quota = { path = "../tickwire-quota" }

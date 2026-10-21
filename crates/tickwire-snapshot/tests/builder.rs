@@ -656,3 +656,75 @@ fn profile_invalid_time_coverage_and_nonlive_states_are_checked() {
         Error::InvalidEnum
     );
 }
+
+#[test]
+fn heterogeneous_snapshot_preserves_exact_mark_and_requires_feature() {
+    let mut f = Fixture::new();
+    f.clear_bindings();
+    f.resource.required_features |= EXACT_MARKET_EVENTS;
+    let mut h = f.states[2].header.clone();
+    h.message_type = 266;
+    h.flags &= !1;
+    h.source_timestamp_ns = 0;
+    let mut exact = MarketExactRecord {
+        header: h,
+        body: MarketExactBody {
+            source_id: 7,
+            source_connection_epoch: 9,
+            source_encoding: 1,
+            feed_state: 2,
+            mark_price: DecimalWire::new(1179415, -2).unwrap(),
+            index_price: DecimalWire::new(1178462659091, -8).unwrap(),
+            ..Default::default()
+        },
+    };
+    exact.body.value_validity = 32;
+    exact.body.funding_rate = DecimalWire::new(-3, -4).unwrap();
+    let states = [
+        MarketState::from(f.states[0].clone()),
+        f.states[1].clone().into(),
+        exact.clone().into(),
+        f.states[3].clone().into(),
+    ];
+    let members = [f.member().with_states(&states)];
+    let old = f.request(&[]);
+    let req = BuildRequest {
+        resource: old.resource,
+        join: old.join,
+        catalog_hash: old.catalog_hash,
+        instrument_set_version: old.instrument_set_version,
+        sequence: old.sequence,
+        created_mono_ns: old.created_mono_ns,
+        expires_mono_ns: old.expires_mono_ns,
+        now_mono_ns: old.now_mono_ns,
+        logical_strategy_id: old.logical_strategy_id,
+        instruments: old.instruments,
+        members: &members,
+        byte_limit: old.byte_limit,
+    };
+    let built = build_topic(&req).unwrap();
+    let view = validate(
+        built.bytes(),
+        &JoinContext {
+            expected_resource: built.resource(),
+            catalog_hash: req.catalog_hash,
+            instruments: &f.specs,
+            join: built.join(),
+            now_mono_ns: req.now_mono_ns,
+        },
+    )
+    .unwrap();
+    assert!(view.check_readiness(req.now_mono_ns).is_ok());
+    let rows = view.member(0).unwrap().state_records;
+    let Record::MarketExact(decoded) = decode_record(&rows[1536..2048]).unwrap() else {
+        panic!()
+    };
+    assert_eq!(decoded.body, exact.body);
+    let mut unsupported = f.resource.clone();
+    unsupported.required_features &= !EXACT_MARKET_EVENTS;
+    let req = BuildRequest {
+        resource: &unsupported,
+        ..req
+    };
+    assert_eq!(build_topic(&req).unwrap_err(), Error::UnsupportedFeature);
+}

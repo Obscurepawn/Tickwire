@@ -269,11 +269,31 @@ impl Codec for v::CanonicalAccountInput {
         v::CanonicalAccountInput::decode(r.blob(v::MAX_ACCOUNT_INPUT_BYTES)?).map_err(Error::Venue)
     }
 }
+structure!(UncreatedAlgoClosed; scope,account_epoch,ledger_sequence,baseline_digest,history_digest,input_stream,through_sequence,state_digest,coverage_digest,structure_id,intent,command_digest,venue_parent_id);
+structure!(AccountInputsReconciled; scope,account_epoch,ledger_sequence,baseline_digest,history_digest,input_stream,through_sequence,state_digest,coverage_digest);
+structure!(IncomeIdentity; income_type,transaction_id);
+structure!(ObservationAssociation; observation_digest,incomes=>MAX_ASSOCIATION_INCOMES);
+structure!(IncomeObservationsAssociated; scope,account_epoch,ledger_sequence,wallet_id,request_id,baseline_digest,history_digest,input_stream,through_sequence,state_digest,manifest_digest,approval_digest,associations=>MAX_ASSOCIATION_OBSERVATIONS);
 structure!(IncomeBaseline; scope,account_epoch,ledger_sequence,wallet_id,through_time_ms,coverage_digest,baseline_digest,input_stream,through_sequence,covered=>MAX_BASELINE_INCOMES);
 
 impl Codec for RecoveryRecord {
     fn write(&self, w: &mut Writer) {
         match self {
+            Self::UncreatedAlgoClosed(b) => {
+                w.array(2);
+                w.uint(16);
+                b.as_ref().write(w);
+            }
+            Self::IncomeObservationsAssociated(b) => {
+                w.array(2);
+                w.uint(15);
+                b.as_ref().write(w);
+            }
+            Self::AccountInputsReconciled(b) => {
+                w.array(2);
+                w.uint(14);
+                b.as_ref().write(w);
+            }
             Self::IncomeBaseline(b) => {
                 w.array(2);
                 w.uint(13);
@@ -395,6 +415,9 @@ impl Codec for RecoveryRecord {
     }
     fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
         Ok(match (r.len(4, 6)?, r.uint()?) {
+            (2, 16) => Self::UncreatedAlgoClosed(Box::new(Codec::read(r)?)),
+            (2, 15) => Self::IncomeObservationsAssociated(Box::new(Codec::read(r)?)),
+            (2, 14) => Self::AccountInputsReconciled(Box::new(Codec::read(r)?)),
             (2, 13) => Self::IncomeBaseline(Box::new(Codec::read(r)?)),
             (4, 12) => Self::IngressAccountInput {
                 input_stream: Codec::read(r)?,

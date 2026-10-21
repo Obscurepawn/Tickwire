@@ -34,6 +34,14 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
             return Err(format!("build binary before generation: {bin}").into());
         }
     }
+    for bin in [
+        crate::flavor::binary(kind, true),
+        crate::flavor::binary(kind, false),
+    ] {
+        if !bins.join(bin).is_file() {
+            return Err(format!("build binary before generation: {bin}").into());
+        }
+    }
     fs::DirBuilder::new().mode(0o700).create(root)?;
     for d in [
         "tls",
@@ -120,7 +128,7 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
         8,
         5,
         boot,
-        digest(&fs::read(bins.join("tickwire-strategy-worker"))?),
+        digest(&fs::read(bins.join(crate::flavor::binary(kind, true)))?),
     );
     let supervisor = identity(
         9,
@@ -187,7 +195,7 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
     for (name, header) in [("intent", &intent), ("report", &report)] {
         tickwire_shm::validate_bank(header).map_err(|error|format!("generated {name} bank: features={:#x},kind={},record_bytes={},capacity={}: {error}",header.required_features,header.resource_kind,header.record_bytes,header.capacity))?;
     }
-    let bootstrap = tickwire_strategy_sdk::bootstrap::Bootstrap {
+    let mut bootstrap = tickwire_strategy_sdk::bootstrap::Bootstrap {
         version: 1,
         market: endpoint(strategy.clone(), md.clone(), "unused-market.sock"),
         external_market: Some(external),
@@ -213,10 +221,18 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
         recovery_template: Some(root.join("strategy/recovery-template.json")),
         handover_enabled: true,
         preflight_job: None,
+        factory: None,
         demo_enabled: true,
         demo_command_file: Some(root.join("strategy/command.bin")),
         demo_minimum_bid_ticks: 6_000_000,
     };
+    crate::flavor::configure(
+        kind,
+        &mut bootstrap,
+        &root.join("strategy"),
+        &command,
+        6_000_000,
+    )?;
     json_file(
         &root.join("strategy/bootstrap.json"),
         &serde_json::to_value(&bootstrap)?,
@@ -277,13 +293,14 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
     write(&root.join("stream.bin"), &stream.bytes())?;
     let network = json!({"timeout_ms":3000,"requests_per_poll":16,"bytes_per_poll":8*1024*1024});
     app["replication"] = json!({"stream_file":root.join("stream.bin"),"mirror":mirror,"mirror_server_name":"mirror.tickwire.test","tls":tls("source",digest(&mirror_cert)),"signing_key_pkcs8":root.join("keys/source-signing.pk8"),"mirror_signing_public_key":public_keys[1],"profile_version":1,"profile":{"mode":"local_durable_async","maximum_unreplicated_age_ns":30_000_000_000u64},"maximum_records":4096,"queue_capacity":8,"maximum_pending_bytes":REPLICA_PENDING_BYTES,"network":network});
+    app["strategy"]["config"]["executable"] = json!(bins.join(crate::flavor::binary(kind, true)));
     json_file(&root.join("exec/config.json"), &app)?;
     let receiver = json!({"listen":mirror,"stream_file":root.join("stream.bin"),"journal_dir":root.join("mirror/journal"),"object_dir":root.join("mirror/objects"),"receiver_id":( [60;16] ),"mirror_assignment_epoch":1,"profile_version":1,"max_records":4096,"physical":{"domain":( [1;16] ),"stream_epoch":( [61;16] ),"segment_max_bytes":8*1024*1024},"tls":tls("mirror",digest(&source_cert)),"signing_key_pkcs8":root.join("keys/mirror-signing.pk8"),"source_signing_public_key":public_keys[0],"network":network,"create":true,"required_prefix":null});
     json_file(&root.join("mirror/config.json"), &receiver)?;
-    dependencies(root, bins, &app, &baseline)?;
+    dependencies(root, bins, &app, &baseline, kind)?;
     let mut scenario = Scenario {
         schema: 1,
-        kind: ScenarioKind::SpotFill,
+        kind,
         fixture_only: true,
         root: root.into(),
         bin_directory: bins.into(),
@@ -300,7 +317,7 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
         mirror_config: root.join("mirror/config.json"),
         worker_bootstrap: root.join("strategy/bootstrap.json"),
     };
-    if kind == ScenarioKind::SpotHandover {
+    if kind.handover() {
         crate::handover::configure(&mut scenario)?;
     }
     json_file(
@@ -314,6 +331,9 @@ pub fn generate_handover(root: &Path, bins: &Path) -> Result<Scenario> {
         return Err("build tickwire-lifecycle before generating handover".into());
     }
     generate_with(root, bins, ScenarioKind::SpotHandover)
+}
+pub fn generate_custom_handover(root: &Path, bins: &Path) -> Result<Scenario> {
+    generate_with(root, bins, ScenarioKind::SpotHandoverCustom)
 }
 fn identity(
     id: u8,
@@ -463,6 +483,7 @@ fn dependencies(
     bins: &Path,
     app: &Value,
     baseline: &tickwire_account_codec::CanonicalBaseline,
+    scenario_kind: ScenarioKind,
 ) -> Result<()> {
     let mut deps = vec![];
     for kind in 2..=11u8 {
@@ -477,10 +498,13 @@ fn dependencies(
             7 => serde_json::to_vec(
                 &json!({"scenario":"spot-new-fill","revision":1,"strategy":( [2;16] ),"generation":5}),
             )?,
-            8 => fs::read(bins.join("tickwire-strategy-worker"))?,
+            8 => fs::read(bins.join(crate::flavor::binary(scenario_kind, true)))?,
             9 => serde_json::to_vec(app)?,
             10 => include_bytes!("../../../specs/contracts/ipc-wire-v1.json").to_vec(),
-            11 => fs::read(root.join("strategy/command.bin"))?,
+            11 => fs::read(crate::flavor::config_path(
+                scenario_kind,
+                &root.join("strategy"),
+            ))?,
             _ => unreachable!(),
         };
         let path = root.join(format!("strategy/dependencies/{kind}.bin"));
@@ -657,6 +681,85 @@ mod tests {
         );
         assert!(generate_handover(&run, &bins).is_err());
         assert_eq!(fs::read(run.join("scenario.json")).unwrap(), original);
+    }
+    #[test]
+    fn custom_handover_binds_independent_factory_binaries_and_canonical_parameters() {
+        struct Temp(std::path::PathBuf);
+        impl Drop for Temp {
+            fn drop(&mut self) {
+                let _ = fs::remove_dir_all(&self.0);
+            }
+        }
+        let t = Temp(std::path::PathBuf::from(format!(
+            "/tmp/tw-custom-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        )));
+        fs::create_dir(&t.0).unwrap();
+        let bins = t.0.join("bin");
+        fs::create_dir(&bins).unwrap();
+        for n in [
+            "tickwire-app",
+            "tickwire-md",
+            "tickwire-strategy-worker",
+            "tickwire-replica-receiver",
+            "tickwire-lab",
+            "tickwire-lifecycle",
+            "tickwire-counting-v1-worker",
+            "tickwire-counting-worker",
+        ] {
+            fs::write(bins.join(n), n).unwrap();
+        }
+        let s = generate_custom_handover(&t.0.join("run"), &bins).unwrap();
+        assert_eq!(s.kind, ScenarioKind::SpotHandoverCustom);
+        let old: tickwire_strategy_sdk::bootstrap::Bootstrap =
+            serde_json::from_slice(&fs::read(&s.worker_bootstrap).unwrap()).unwrap();
+        let new: tickwire_strategy_sdk::bootstrap::Bootstrap =
+            serde_json::from_slice(&fs::read(s.root.join("next/bootstrap.json")).unwrap()).unwrap();
+        for (b, dir, binary, instance, generation) in [
+            (&old, "strategy", "tickwire-counting-v1-worker", [2; 16], 5),
+            (&new, "next", "tickwire-counting-worker", [6; 16], 6),
+        ] {
+            let f = b
+                .factory
+                .as_ref()
+                .expect("custom worker requires actual registered factory");
+            assert_eq!(f.id, "counting_example");
+            assert!(!b.demo_enabled);
+            assert!(b.demo_command_file.is_none());
+            let bytes = fs::read(&f.configuration_file).unwrap();
+            assert_eq!(f.configuration, tickwire_release::Object::of(&bytes));
+            let parameters: Value = serde_json::from_slice(&bytes).unwrap();
+            let command: Vec<u8> = serde_json::from_value(parameters["command"].clone()).unwrap();
+            let c = tickwire_venue::CanonicalCommand::decode(&command).unwrap();
+            assert_eq!(c.command().context.strategy.instance_id, instance);
+            assert_eq!(c.command().context.request.strategy_generation, generation);
+            assert_eq!(c.command().context.request.config_revision, f.revision);
+            assert_eq!(
+                b.market.local.build_hash,
+                digest(&fs::read(bins.join(binary)).unwrap())
+            );
+            let template: tickwire_strategy_sdk::recovery::Template = serde_json::from_slice(
+                &fs::read(s.root.join(format!("{dir}/recovery-template.json"))).unwrap(),
+            )
+            .unwrap();
+            assert_eq!(
+                template
+                    .dependencies
+                    .iter()
+                    .find(|d| d.kind == 11)
+                    .unwrap()
+                    .digest,
+                digest(&bytes)
+            );
+        }
+        assert_ne!(
+            old.factory.unwrap().configuration,
+            new.factory.unwrap().configuration
+        );
     }
     #[test]
     fn generated_replica_pending_capacity_is_accepted_by_real_source() {

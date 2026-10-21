@@ -51,6 +51,8 @@ pub struct Deployment {
     pub account_stream: [u8; 16],
     pub input_stream: [u8; 16],
     pub first_connection_epoch: u64,
+    #[serde(default)]
+    pub trading_websocket: Option<TradingWebSocket>,
     pub instrument_id: u64,
     pub book_source: u32,
     pub credential: CredentialConfig,
@@ -74,9 +76,19 @@ pub struct Deployment {
     pub income_baseline_authority:
         Option<tickwire_binance_account::reconciliation::income_import::IncomeBaselineAuthority>,
     #[serde(default)]
+    pub income_association_authority:
+        Option<tickwire_binance_account::reconciliation::income_association::AssociationAuthority>,
+    #[serde(default)]
     pub control: Option<crate::control::Config>,
     pub stop_file: PathBuf,
     pub maximum_runtime_ns: u64,
+}
+#[derive(Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TradingWebSocket {
+    pub lifetime_ns: u64,
+    pub control_timeout_ns: u64,
+    pub max_messages_per_poll: usize,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -154,6 +166,8 @@ impl CredentialConfig {
 pub struct Network {
     /// DNS name:port or pinned IP:port. Protocol authority/SNI is fixed by product.
     pub rest: String,
+    #[serde(default)]
+    pub trading_websocket: Option<String>,
     pub time: String,
     pub public_stream: String,
     pub snapshot: String,
@@ -185,6 +199,20 @@ impl Network {
                 .ok_or_else(|| invalid("address has no DNS results"))
         }
         Ok(files::Networks {
+            websocket: self
+                .trading_websocket
+                .as_ref()
+                .map(|name| -> Result<_> {
+                    Ok(tickwire_account_gateway::ConnectionConfig {
+                        address: resolve(name)?,
+                        tls: tls.clone(),
+                        limits: Limits::default(),
+                        connect_deadline: Instant::now()
+                            .checked_add(Duration::from_nanos(connect_ns))
+                            .ok_or_else(|| invalid("connect timeout"))?,
+                    })
+                })
+                .transpose()?,
             rest: tickwire_account_gateway::ConnectionConfig {
                 address: resolve(&self.rest)?,
                 tls: tls.clone(),
@@ -305,6 +333,11 @@ impl Deployment {
         }
     }
     pub fn assemble(&self, baseline: CanonicalBaseline) -> Result<files::Configuration> {
+        if self.trading_websocket.is_some() != self.network.trading_websocket.is_some() {
+            return Err(invalid(
+                "WS settings and WS address must be configured together",
+            ));
+        }
         let scope = baseline.snapshot().scope.clone();
         let instrument = baseline
             .catalog()
@@ -342,13 +375,24 @@ impl Deployment {
             credential_generation: self.credential.generation,
         };
         let io = Limits::default();
+        if self
+            .income_association_authority
+            .as_ref()
+            .is_some_and(|a| a.execution_instance != self.owner_id)
+        {
+            return Err(invalid("income association executor identity mismatch"));
+        }
         let t = &self.tuning;
         let physical = |stream| tickwire_journal::Config {
             domain: scope.risk_domain_id,
             stream_epoch: stream,
             segment_max_bytes: t.wal_segment_bytes,
         };
-        let authority = match (source, market) {
+        let authority = match (source, self.trading_websocket.is_some()) {
+            (Source::SpotProduction, true) => "ws-api.binance.com",
+            (Source::SpotTest, true) => "ws-api.testnet.binance.vision",
+            (Source::UsdmProduction, true) => "ws-fapi.binance.com",
+            (Source::UsdmTest, true) => "testnet.binancefuture.com",
             (Source::SpotProduction, _) => "api.binance.com",
             (Source::SpotTest, _) => "testnet.binance.vision",
             (Source::UsdmProduction, _) => "fapi.binance.com",
@@ -399,6 +443,13 @@ impl Deployment {
         };
         let c = &self.clock;
         Ok(files::Configuration {
+            websocket: self
+                .trading_websocket
+                .map(|w| tickwire_binance_account::ws::WsConfig {
+                    lifetime_ns: w.lifetime_ns,
+                    control_timeout_ns: w.control_timeout_ns,
+                    max_messages_per_poll: w.max_messages_per_poll,
+                }),
             directories: files::Directories {
                 account: self.directories.account.clone(),
                 input: self.directories.input.clone(),
@@ -431,6 +482,7 @@ impl Deployment {
             },
             input: tickwire_binance_account::Config {
                 income_baseline_authority: self.income_baseline_authority.clone(),
+                income_association_authority: self.income_association_authority.clone(),
                 physical: physical(self.input_stream),
                 writer_epoch: self.writer_epoch,
                 baseline,

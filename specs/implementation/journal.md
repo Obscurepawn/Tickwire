@@ -1,6 +1,6 @@
 # 物理日志实现规格
 
-`tickwire-journal` 已实现 WAL v1 帧、数据域批次、真实文件同步、分段和 manifest 恢复。接口设计见 [journal-interface.md](../../docs/implementation/journal-interface.md)，证据见 [验证记录](../../docs/validation/journal/README.md)。它是上层持久化适配器的底层组件，当前未接入 execution 的业务 `Journal`。
+`tickwire-journal` 已实现 WAL v1 帧、数据域批次、真实文件同步、分段和 manifest 恢复。接口设计见 journal-interface.md，证据见 验证记录。它是上层持久化适配器的底层组件，当前未接入 execution 的业务 `Journal`。
 
 ## 格式与接口
 

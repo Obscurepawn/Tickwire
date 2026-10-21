@@ -3,7 +3,9 @@
 #![forbid(unsafe_code)]
 pub mod closure;
 pub mod files;
+pub mod rebuild;
 pub mod receipt;
+pub mod replay;
 use serde::{Deserialize, Serialize};
 pub use tickwire_lifecycle::{Member, Operation};
 pub type Hash = [u8; 32];

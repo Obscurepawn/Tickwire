@@ -168,7 +168,46 @@ fn ingest_directory(
                 continue;
             }
         };
-        let result = owner.ingest(signed, owner.version(), clock.sample()?.monotonic);
+        let time = clock.sample()?.monotonic;
+        let result = if serde_json::from_slice::<ReplayPrepared>(&signed.payload).is_ok() {
+            owner.ingest_replay(
+                SignedReplayPrepared {
+                    payload: signed.payload,
+                    signature: signed.signature,
+                },
+                owner.version(),
+                time,
+            )
+        } else if serde_json::from_slice::<ReplayObserved>(&signed.payload).is_ok() {
+            owner.ingest_replay_observed(
+                SignedReplayObserved {
+                    payload: signed.payload,
+                    signature: signed.signature,
+                },
+                owner.version(),
+                time,
+            )
+        } else if serde_json::from_slice::<RebuildPrepared>(&signed.payload).is_ok() {
+            owner.ingest_rebuild(
+                SignedRebuildPrepared {
+                    payload: signed.payload,
+                    signature: signed.signature,
+                },
+                owner.version(),
+                time,
+            )
+        } else if serde_json::from_slice::<RebuildObserved>(&signed.payload).is_ok() {
+            owner.ingest_rebuild_observed(
+                SignedRebuildObserved {
+                    payload: signed.payload,
+                    signature: signed.signature,
+                },
+                owner.version(),
+                time,
+            )
+        } else {
+            owner.ingest(signed, owner.version(), time)
+        };
         match result {
             Ok(_) => {}
             Err(Error::Store | Error::Capacity) => return Err(result.unwrap_err().into()),
@@ -185,7 +224,12 @@ pub struct ReadinessUpdate {
     pub operation_revision: u64,
     pub expected_version: u64,
     pub member: Member,
-    pub proof: Readiness,
+    #[serde(default)]
+    pub proof: Option<Readiness>,
+    #[serde(default)]
+    pub refresh_replay: bool,
+    #[serde(default)]
+    pub refresh_rebuild: bool,
 }
 fn ingest_readiness(
     owner: &mut Coordinator<FileStore>,
@@ -223,12 +267,20 @@ fn ingest_readiness(
             continue;
         }
         if update.expected_version == owner.version() {
-            match owner.update_readiness(
-                &update.member,
-                update.proof,
-                update.expected_version,
-                clock.sample()?.monotonic,
-            ) {
+            let time = clock.sample()?.monotonic;
+            let result = match (update.refresh_replay, update.refresh_rebuild, update.proof) {
+                (false, true, None) => {
+                    owner.refresh_rebuild(&update.member, update.expected_version, time)
+                }
+                (true, false, None) => {
+                    owner.refresh_replay(&update.member, update.expected_version, time)
+                }
+                (false, false, Some(proof)) => {
+                    owner.update_readiness(&update.member, proof, update.expected_version, time)
+                }
+                _ => Err(Error::Invalid),
+            };
+            match result {
                 Ok(_) => {}
                 Err(Error::Store | Error::Capacity) => return Err(Error::Store.into()),
                 Err(e) => eprintln!("readiness update rejected: {e}"),

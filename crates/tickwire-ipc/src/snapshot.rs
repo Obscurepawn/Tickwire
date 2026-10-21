@@ -98,7 +98,7 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
     {
         return Err(Error::UnsupportedArchitecture);
     }
-    if r.required_features & !511 != 0 || r.optional_features & !511 != 0 {
+    if r.required_features & !1023 != 0 || r.optional_features & !1023 != 0 {
         return Err(Error::UnsupportedFeature);
     }
     check(
@@ -212,7 +212,7 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
             }
             5 => {
                 check(h.entry_bytes == 512)?;
-                validate_state_records(payload, &h)?;
+                validate_state_records(payload, &h, r.required_features)?;
                 256 + length
             }
             6 | 7 => {
@@ -248,7 +248,7 @@ pub fn validate_topic_bundle(raw: &[u8], context: &TopicSnapshotContext<'_>) -> 
                     )?;
                     hash_eq(part, &section.entries_hash)?;
                     if section.section_kind == 1 {
-                        validate_state_records(part, &h)?;
+                        validate_state_records(part, &h, r.required_features)?;
                     } else if section.section_kind == 2 {
                         validate_levels(part, h.bid_count, h.ask_count)?;
                         if exact {
@@ -310,19 +310,26 @@ fn validate_snapshot_header(s: &SnapshotHeader) -> Result<()> {
     Ok(())
 }
 
-fn validate_state_records(raw: &[u8], snapshot: &SnapshotHeader) -> Result<()> {
+fn validate_state_records(raw: &[u8], snapshot: &SnapshotHeader, features: u64) -> Result<()> {
     if !raw.len().is_multiple_of(512) {
         return Err(Error::Bounds);
     }
     let mut prior = 0;
     let mut feed = false;
+    let mut categories = 0u8;
     for (i, chunk) in raw.as_chunks::<512>().0.iter().enumerate() {
-        let Record::Market(record) = decode_record(chunk)? else {
+        let record = MarketState::decode(chunk)?;
+        let h = record.header();
+        let category = market_state_category(h.message_type)?;
+        if categories & category != 0 {
             return Err(Error::Malformed);
-        };
-        let h = record.header;
+        }
+        categories |= category;
+        if h.message_type >= 264 && features & EXACT_MARKET_EVENTS == 0 {
+            return Err(Error::UnsupportedFeature);
+        }
         check(
-            matches!(h.message_type, 257 | 258 | 260 | 261)
+            matches!(h.message_type, 257 | 258 | 260 | 261 | 264..=266)
                 && h.message_type > prior
                 && h.sequence == i as u64 + 1
                 && h.instrument_id == snapshot.instrument_id

@@ -16,6 +16,15 @@ impl Account {
         let mut account = Self::from_snapshot(snapshot, catalog)?;
         for record in records {
             match record {
+                RecoveryRecord::UncreatedAlgoClosed(b) => {
+                    account.close_uncreated_algo(b)?;
+                }
+                RecoveryRecord::IncomeObservationsAssociated(b) => {
+                    account.associate_income_observations(b)?;
+                }
+                RecoveryRecord::AccountInputsReconciled(b) => {
+                    account.reconcile_account_inputs(b)?;
+                }
                 RecoveryRecord::IncomeBaseline(b) => {
                     account.apply_income_baseline(b)?;
                 }
@@ -101,6 +110,7 @@ impl Account {
         account.frozen = true;
         for order in account.orders.values_mut() {
             if !order.aborted
+                && !order.uncreated
                 && (!order.terminal
                     || order.terminal_cumulative != Some(order.filled)
                     || !order.fees_closed)

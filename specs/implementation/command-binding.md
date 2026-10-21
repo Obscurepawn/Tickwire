@@ -1,6 +1,6 @@
 # 交易命令绑定实现规格
 
-接口见[交易命令与持久意图的绑定](../../docs/implementation/command-binding-interface.md)。
+接口见交易命令与持久意图的绑定。
 
 `OrderRequest.command_digest` 是必填的 32 字节摘要，纳入内核的请求相等比较、提交收据和恢复记录。全零值在预留或恢复引入订单前被拒绝。保持固定大小的订单状态，完整命令放在不可变对象中。
 
@@ -12,14 +12,13 @@
 
 ## 测试
 
-先增加字段和行为断言，保留旧编码行为，实际得到三项失败：摘要在 CBOR 往返和文件 WAL 重放时丢失，全零摘要仍能预留。随后修正 schema 及业务校验。[失败记录](../../docs/validation/command-binding/red-all.log)与当时的[源码摘要](../../docs/validation/command-binding/red-source.sha256)保留。
+先增加字段和行为断言，保留旧编码行为，实际得到三项失败：摘要在 CBOR 往返和文件 WAL 重放时丢失，全零摘要仍能预留。随后修正 schema 及业务校验。失败记录与当时的源码摘要保留。
 
-再增加“闭包缺少完整命令时拒绝提交”的断言，实际复现旧 `commit_intent` 仍返回成功；增加种类 13 校验后通过，见[依赖检查失败记录](../../docs/validation/command-binding/dependency-red.log)。回归包括另一个命令的 capability、同意图摘要变更、真实文件恢复、命令依赖缺失/重复及原有 NoBytes 顺序。
+再增加“闭包缺少完整命令时拒绝提交”的断言，实际复现旧 `commit_intent` 仍返回成功；增加种类 13 校验后通过，见依赖检查失败记录。回归包括另一个命令的 capability、同意图摘要变更、真实文件恢复、命令依赖缺失/重复及原有 NoBytes 顺序。
 
-schema 2 的独立 Python 编码器生成固定 CBOR、业务摘要和逻辑链结果，不调用 Rust 实现：
+schema 2 的独立 Python 编码器曾生成固定 CBOR、业务摘要和逻辑链结果，不调用 Rust 实现（生成器原位于已删除的 `docs/validation/command-binding/generate-vectors.py`，命令已不可用；schema 2 回归以下方 cargo 测试为准）：
 
 ```sh
-python3 docs/validation/command-binding/generate-vectors.py --check
 cargo test -p tickwire-execution -p tickwire-journal-codec \
   -p tickwire-business-journal -p tickwire-mock -p tickwire-recovery --all-targets
 ```

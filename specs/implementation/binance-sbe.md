@@ -18,7 +18,7 @@ Notice 显式携带 DepthEncoding 和原始 Binary，MarketPublisher 直接生�
 
 ## 验证与完成边界
 
-[证据目录](../../docs/validation/binance-sbe/)保存编译后的行为 Red、整数边界、typed 协调器与真实本地 TLS/WSS 测试。测试 CA 明确覆盖正式 hostname，没有关闭 TLS 校验。基准字节由独立 Python struct.pack 脚本生成，不读取生成器常量或 XML；四份 literal fixtures 与 XML 常量再生成均逐字节相同。
+证据目录保存编译后的行为 Red、整数边界、typed 协调器与真实本地 TLS/WSS 测试。测试 CA 明确覆盖正式 hostname，没有关闭 TLS 校验。基准字节由独立 Python struct.pack 脚本生成，不读取生成器常量或 XML；四份 literal fixtures 与 XML 常量再生成均逐字节相同。
 
 Linux 专用测试 `tickwire-md --test sbe_publication` 使用真实 Publisher/Subscriber memfd 映射，串联同一 WSS owner、快照、后续 Binary、规范盘口记录和借用读取，检查价格、数量、连续更新号、微秒到纳秒换算及 payload。其执行状态以证据 README 为准。
 

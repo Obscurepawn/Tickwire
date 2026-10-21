@@ -2375,6 +2375,7 @@ account_ids = [
 subject = "REQUIRED:/control/role_bindings/4/subject"
 role = "cluster-admin"
 account_ids = []
+cluster_scope = true
 
 [local_config]
 root_dir = "/var/lib/tickwire/config"

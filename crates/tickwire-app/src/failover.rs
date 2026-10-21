@@ -506,12 +506,13 @@ pub fn seal(c: &SealConfig) -> Result<Value> {
     if raw.config() != &configured.account.journal.physical {
         return Err(invalid("source account stream"));
     }
+    let shared = SharedBlobStore::new(FileBlobStore::open(&d.directories.recovery)?);
     let mut input = AccountIngress::recover(
         FileStore::open(&d.directories.input)?,
         configured.input,
         None,
-    )?;
-    let shared = SharedBlobStore::new(FileBlobStore::open(&d.directories.recovery)?);
+    )?
+    .with_closure_store(shared.clone());
     let mut store = Persistence::new(shared.clone());
     store.put_object(baseline.bytes())?;
     store.put_object(&bootstrap)?;
@@ -527,6 +528,16 @@ pub fn seal(c: &SealConfig) -> Result<Value> {
         let record =
             CanonicalRecord::decode(&raw.payload).map_err(|_| invalid("account record"))?;
         let mut objects = vec![final_input.clone()];
+        if let RecoveryRecord::UncreatedAlgoClosed(binding) = record.record() {
+            let bytes = input.uncreated_algo_coverage_object(binding)?;
+            store.put_object(&bytes)?;
+            objects.push(ObjectRef::new(&bytes)?);
+        }
+        if let RecoveryRecord::AccountInputsReconciled(binding) = record.record() {
+            let bytes = input.account_inputs_coverage_object(binding)?;
+            store.put_object(&bytes)?;
+            objects.push(ObjectRef::new(&bytes)?);
+        }
         if let RecoveryRecord::IncomeBaseline(binding) = record.record() {
             let bytes = input.income_coverage_object(binding)?;
             store.put_object(&bytes)?;
@@ -731,7 +742,8 @@ pub fn restore(c: &RestoreConfig) -> Result<Value> {
     for directory in directories {
         create_marked_directory(directory, &marker)?;
     }
-    let mut blobs = Persistence::new(FileBlobStore::open(&d.directories.recovery)?);
+    let shared = SharedBlobStore::new(FileBlobStore::open(&d.directories.recovery)?);
+    let mut blobs = Persistence::new(shared.clone());
     mirror.copy_recovery_closure(&complete, &mut blobs)?;
     let account = mirror.materialize_account(
         &complete,
@@ -761,7 +773,8 @@ pub fn restore(c: &RestoreConfig) -> Result<Value> {
         FileStore::open(&d.directories.input)?,
         configured.input,
         Some(&input_frontier),
-    )?;
+    )?
+    .with_closure_store(shared);
     let mut verifier = Historical {
         blobs,
         input: &input,
@@ -799,10 +812,79 @@ pub fn restore(c: &RestoreConfig) -> Result<Value> {
     Ok(serde_json::to_value(report)?)
 }
 struct Historical<'a> {
-    blobs: Persistence<FileBlobStore>,
+    blobs: Persistence<SharedBlobStore<FileBlobStore>>,
     input: &'a AccountIngress<FileStore>,
 }
 impl RecoveryVerifier for Historical<'_> {
+    fn verify_income_association(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::IncomeObservationsAssociated(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_income_association(baseline, &account, preceding, prior, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
+    fn verify_uncreated_algo(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::UncreatedAlgoClosed(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_uncreated_algo(baseline, &account, preceding, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
+    fn verify_account_inputs_closure(
+        &mut self,
+        baseline: &CanonicalBaseline,
+        record: &CanonicalRecord,
+        preceding: &HistoryFrontier,
+        prior: &[CanonicalRecord],
+        writer_epoch: u64,
+    ) -> std::result::Result<(), VerificationError> {
+        let RecoveryRecord::AccountInputsReconciled(binding) = record.record() else {
+            return Err(VerificationError::Invalid);
+        };
+        let account = Account::recover(
+            baseline.snapshot().clone(),
+            baseline.catalog().clone(),
+            &prior.iter().map(|r| r.record().clone()).collect::<Vec<_>>(),
+        )
+        .map_err(|_| VerificationError::Invalid)?;
+        self.input
+            .activation_verifier()
+            .verify_account_inputs_closure(baseline, &account, preceding, binding, writer_epoch)
+            .map_err(|_| VerificationError::Invalid)
+    }
+
     fn verify_income_baseline(
         &mut self,
         baseline: &CanonicalBaseline,

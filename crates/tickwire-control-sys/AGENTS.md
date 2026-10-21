@@ -1,0 +1,56 @@
+# tickwire-control-sys
+
+## 1. 职责
+
+有界 Linux 控制报文的 OS 边界：pathname `SOCK_SEQPACKET` 面向数据报、`SCM_RIGHTS` 描述符传递、CLOEXEC、peer credentials 与私有目录管理。它是控制面认证会话（`tickwire-control`）与 JOIN/MD 等进程间 FD 交付的内核接缝；报文体继续使用 `tickwire-ipc::ControlFrame`，本 crate 不定义第二套 wire 布局。审计过的 unsafe 边界（`#![deny(unsafe_op_in_unsafe_fn)]`），workspace 的 `unsafe_code=forbid` 在此 crate 按注释说明显式放行。
+
+- `src/linux.rs`：`Connection`、`ControlListener`、`PrivateDirectory`、`monotonic_ns`。
+- `src/unsupported.rs`：非 Linux 桩（全部返回 `UnsupportedPlatform`）。
+
+## 2. 公共 API 入口
+
+- 常量：`MAX_FRAME_BYTES = 65_536`、`MAX_FDS = 16`。
+- `Connection`：`connect(path, deadline)`、`send(bytes, fds: &[BorrowedFd], deadline)`、`recv(deadline) -> ReceivedFrame`、`try_recv() -> Option<ReceivedFrame>`、`peer_credentials() -> PeerCredentials`。
+- `ControlListener`：`bind(path)`、`bind_with_mode(path, mode)`、`accept(deadline) -> Connection`、`try_accept() -> Option<Connection>`。
+- `PrivateDirectory`：`create_in(parent, prefix)`（0700 私有目录）、`path()`。
+- `monotonic_ns() -> Result<u64>`；`PeerCredentials{pid, uid, gid}`；`ReceivedFrame`（`bytes()`/`fds()`/`into_parts()`）；`Error`/`Result`。
+
+## 3. 在 workspace 中的位置
+
+- 上游依赖：`libc`、`tickwire-ipc`（`ControlFrame` 体校验）。
+- 下游消费者（已核对 Cargo.toml）：`tickwire-control`、`tickwire-join`、`tickwire-market-source`、`tickwire-md`、`tickwire-strategy-host`、`tickwire-strategy-sdk`、`tickwire-supervisor`、`tickwire-snapshot`（仅 Linux dev-dependency）。
+
+## 4. 对应规格
+
+- [../../specs/implementation/control-transport.md](../../specs/implementation/control-transport.md)（接收所有权、发送/等待/身份、try_* 单次语义）。
+
+## 5. 构建与测试
+
+```sh
+cargo build -p tickwire-control-sys     # macOS 编译通过（桩拒绝）
+cargo test -p tickwire-control-sys      # 真实报文测试全部 Linux-only
+cargo clippy -p tickwire-control-sys --all-targets -- -D warnings
+cargo fmt --check -p tickwire-control-sys
+```
+
+- `tests/transport.rs`（18 项）带 `#![cfg(target_os = "linux")]`：SEQPACKET 一包一帧、SCM_RIGHTS FD 回收、peer credentials、截断/FD 数量校验、截止点与 EINTR。
+- `tests/platform.rs`（1 项）覆盖非 Linux 拒绝路径。
+- 真实内核行为（memfd/seals 无关，但 SEQPACKET/cmsg/PEERCRED 仅 Linux）必须用 [../../scripts/check-linux.sh](../../scripts/check-linux.sh) 在固定 Docker 镜像内运行；macOS 不跑真实 socket 测试。
+- 无 bench。
+
+## 6. 关键不变量与注意事项
+
+- **FD 唯一所有权**：socket/accept/目录/inode pin 的 FD 全由 `OwnedFd` 持有；创建与 accept 原子设置 CLOEXEC+NONBLOCK；不提供接管任意裸 FD 的公开构造函数。
+- **接收**：每次 `recvmsg` 提供 65,536 字节 payload 与可容纳 16 个 FD、按 usize 对齐的辅助缓冲区，`MSG_DONTWAIT | MSG_CMSG_CLOEXEC`；成功后先把每个 SCM_RIGHTS 整数转 `OwnedFd`，再处理截断/零长/帧/FD 数量校验；任一步失败由局部对象析构关闭已交付 FD；`MSG_CTRUNC` 时内核关闭未交付的多余 FD。
+- **发送**：先结构校验与实际 FD 数核对，才 `sendmsg(MSG_DONTWAIT | MSG_NOSIGNAL)`；FD 仅借用到调用结束，发送者保留句柄；完整数据报交给内核即返回成功（接收/owner 应用是另外两个完成点）；部分发送按截断错误返回，**不重发剩余字节**。
+- **截止点**：connect/accept/send/recv 共用同一绝对 `Instant`；EINTR 不更新截止点；EAGAIN 进入剩余时间有界 poll；Unix connect 因 backlog 满返回 EAGAIN 时重试 connect，不当作已建连。
+- **try_* 单次语义**：`try_accept` 一次非阻塞 accept4 并核验 SO_PEERCRED；`try_recv` 一次 `MSG_DONTWAIT` recvmsg；EAGAIN/EWOULDBLOCK 返回 `Ok(None)`，EINTR 原样作为 `Error::System`，不等待、不内部重试、不读 `Instant`。
+- 未知 cmsg 类型拒绝整帧，但继续收集其后的 SCM_RIGHTS，避免提前遗失所有权。
+- 本层只保证报文边界与 FD 所有权；帧体语义、授权、去重由 `tickwire-control` 与上层完成。
+
+## 7. 改动检查清单
+
+1. 改 cmsg/SEQPACKET/PEERCRED 逻辑前先读 control-transport.md 接收与所有权小节。
+2. macOS 仅编译；真实行为回归走 `./scripts/check-linux.sh` Docker 全量。
+3. 新增 unsafe 保持 `unsafe_op_in_unsafe_fn` 与 SAFETY 注释；clippy `-D warnings`、`cargo fmt --check`。
+4. 报文体变化联动 `tickwire-ipc::ControlFrame::decode`，不要在本层引入 JSON 或第二套布局。

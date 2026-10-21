@@ -153,6 +153,7 @@ fn input_config(b: &CanonicalBaseline) -> tickwire_binance_account::Config {
         baseline: b.clone(),
         account_stream: ACCOUNT_STREAM,
         max_records: 64,
+        income_association_authority: None,
         income_baseline_authority: None,
         max_registrations: 8,
         max_raw_bytes: 32768,

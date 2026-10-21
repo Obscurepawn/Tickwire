@@ -2,7 +2,7 @@
 
 ## 范围与状态
 
-[接口](../../docs/implementation/binance-depth-sync-interface.md) 对应独立的 `tickwire_binance::depth_sync` 模块。`DepthSync` 固定目录与产品，通过 sealed `DepthPolicy` 绑定现有 `BinanceSpot` 或 `BinanceUsdM`；它持有实际 Book，不替换序列规则，也不另建简化盘口。feed/events 旧实现不变，现有 transport 通过真实 HTTP 响应体和 WebSocket 消息驱动该接口。
+接口 对应独立的 `tickwire_binance::depth_sync` 模块。`DepthSync` 固定目录与产品，通过 sealed `DepthPolicy` 绑定现有 `BinanceSpot` 或 `BinanceUsdM`；它持有实际 Book，不替换序列规则，也不另建简化盘口。feed/events 旧实现不变，现有 transport 通过真实 HTTP 响应体和 WebSocket 消息驱动该接口。
 
 | 状态 | 已知信息 | 允许的下一步 |
 | --- | --- | --- |
@@ -30,10 +30,10 @@ HTTP 非 200、HTTP 传输失败和快照期限到达取消当前请求但保留
 
 ## 验证
 
-初始接口可编译；12 项行为测试全部因状态协调尚未实现而断言失败，保存[实际 Red 日志](../../docs/validation/binance-depth-sync/red.log)和当时实现。实现后这 12 项全部通过，再增加 6 项边界测试与 2 项实际 HTTPS/WSS 集成测试。
+初始接口可编译；12 项行为测试全部因状态协调尚未实现而断言失败，保存实际 Red 日志和当时实现。实现后这 12 项全部通过，再增加 6 项边界测试与 2 项实际 HTTPS/WSS 集成测试。
 
 单元/行为测试覆盖首消息与订阅双条件、Spot 首 U 重试与 L+1 桥接、USD-M 等 L 首事件与严格旧事件过滤、pu 断档、快照领先缓存、旧连接和请求、超时边界、非 200 与传输重试、缓存溢出、回放后段失败、断连幂等、时钟回退、目录路径编码、总更新数量、快照深度、Book 容量、重复价位及 Unknown。
 
 协议集成测试使用真实 TCP/TLS、HTTP chunked 解码、WebSocket 分片和客户端掩码，服务器断言先收到订阅才处理 REST；增量在 HTTP 请求期间继续进入 FIFO。同一健康 WebSocket 发生缺口后重新取快照；收到 Close 后建立第二条实际 WSS 连接、使用新 epoch，旧连接及请求回调无效。Spot 与 USD-M 分别运行同一生产协调器和各自真实 Book policy。
 
-[验证报告](../../docs/validation/binance-depth-sync/report.md)记录平台、测试数量、命令、源码摘要和来源；本阶段没有新增 TLA 模型。自动私有登录/续期、网络连接轮换调度及风险门禁发布仍属于其他 owner。
+验证报告记录平台、测试数量、命令、源码摘要和来源；本阶段没有新增 TLA 模型。自动私有登录/续期、网络连接轮换调度及风险门禁发布仍属于其他 owner。

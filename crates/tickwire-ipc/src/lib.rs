@@ -5,6 +5,8 @@ mod wire;
 pub use wire::*;
 mod config;
 pub use config::*;
+mod market_exact;
+pub use market_exact::*;
 mod snapshot;
 pub use snapshot::*;
 
@@ -104,6 +106,7 @@ fn crc_masked(bytes: &[u8], zeros: core::ops::Range<usize>) -> u32 {
 #[allow(clippy::large_enum_variant)] // Fixed stack storage avoids heap allocation on record decode.
 pub enum Record {
     Market(MarketRecord),
+    MarketExact(MarketExactRecord),
     Intent(IntentRecord),
     Report(ReportRecord),
     Ownership(OwnershipRecord),
@@ -142,7 +145,7 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
         }
     }
     let size = match h.message_type {
-        257..=263 | 769..=781 => 512,
+        257..=266 | 769..=781 => 512,
         513..=520 => 1024,
         _ => return Err(Error::UnknownMessage),
     };
@@ -213,6 +216,11 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
                 }
             }
             Ok(Record::Market(r))
+        }
+        264..=266 => {
+            let r = MarketExactRecord::decode(raw)?;
+            validate_exact(&r)?;
+            Ok(Record::MarketExact(r))
         }
         513..=520 => {
             let r = IntentRecord::decode(raw)?;
@@ -421,6 +429,24 @@ impl<'a> ControlFrame<'a> {
             return Err(Error::Malformed);
         }
         validate_control_body(e.opcode, e.flags, &raw[128..])?;
+        if matches!(e.opcode, 41 | 42) {
+            let b = ReplayControlBody::decode(&raw[128..])?;
+            if is_zero(&b.instance_id)
+                || b.strategy_generation == 0
+                || b.logical_strategy_id == 0
+                || is_zero(&b.challenge)
+                || b.valid_until_mono_ns == 0
+                || is_zero(&b.object_digest)
+                || !(1..=67108864).contains(&b.object_bytes)
+                || is_zero(&b.expected_cut_digest)
+                || is_zero(&b.operation_id)
+                || b.operation_revision == 0
+                || b.schema != 1
+                || !(1..=5).contains(&b.replay_kind)
+            {
+                return Err(Error::Malformed);
+            }
+        }
         if e.opcode == 3 {
             let offer = OfferPrefix::decode(&raw[128..192])?;
             if offer.descriptor_count != e.fd_count {

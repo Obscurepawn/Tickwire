@@ -92,6 +92,7 @@ struct Submitted {
     end: u64,
     physical: tickwire_journal::PhysicalFrontier,
     records: Vec<(u64, [u8; 32])>,
+    bindings: Vec<tickwire_binance_account::ws::BindingEvidence>,
 }
 struct InputEntry {
     sequence: u64,
@@ -292,6 +293,41 @@ impl Driver {
                         self.barrier.borrow_mut().failed = true;
                         return Err(invalid("replication acknowledgement prefix"));
                     }
+                    for binding in &work.bindings {
+                        let roots = evidence
+                            .local()
+                            .dependencies(binding.account_sequence)
+                            .ok_or_else(|| invalid("WS binding missing immutable replica entry"))?;
+                        let mut covered = false;
+                        for root in roots {
+                            let bytes = self.store.read_object(root.hash, root.bytes as usize)?;
+                            if bytes.len() as u64 != root.bytes {
+                                return Err(invalid("replica dependency length"));
+                            }
+                            if bytes.starts_with(replica::INPUT_PREFIX_MAGIC) {
+                                let prefix = replica::InputPrefix::decode(&bytes)?;
+                                if prefix.input_stream == binding.input.stream
+                                    && prefix.account_stream
+                                        == evidence.local().physical().stream_epoch
+                                    && prefix
+                                        .entries
+                                        .get(binding.input.sequence as usize - 1)
+                                        .is_some_and(|e| {
+                                            e.sequence == binding.input.sequence
+                                                && e.object.hash == binding.input_record_hash
+                                        })
+                                {
+                                    covered = true;
+                                }
+                            }
+                        }
+                        if !covered {
+                            self.barrier.borrow_mut().failed = true;
+                            return Err(invalid(
+                                "immutable replica entry does not cover WS binding",
+                            ));
+                        }
+                    }
                     let mut state = self.barrier.borrow_mut();
                     for (sequence, digest) in work.records {
                         state.ready.insert(sequence, (digest, evidence.clone()));
@@ -393,10 +429,44 @@ impl Driver {
         let export = rest.with_gateway(|g| g.export_durable(self.next_account, 32, 64 * 1024))?;
         let mut extras = BTreeMap::new();
         let mut records = Vec::new();
+        let mut bindings = Vec::new();
         for raw in export.records() {
             let record = CanonicalRecord::decode(&raw.payload)
                 .map_err(|_| invalid("replication account record"))?;
+            if let RecoveryRecord::Admit { command, .. } = record.record() {
+                let r = &command.command().context.request;
+                if let Some(binding) =
+                    rest.ingress()
+                        .ws_binding_evidence(tickwire_account::IntentKey {
+                            epoch: r.intent_exec_epoch,
+                            intent_id: r.intent_id,
+                        })?
+                {
+                    if binding.account_sequence != raw.seq
+                        || binding.command_digest != command.digest()
+                    {
+                        return Err(invalid("WS admission dependency"));
+                    }
+                    bindings.push(binding);
+                }
+            }
             let mut objects = self.input_root.clone().into_iter().collect::<Vec<_>>();
+            if let RecoveryRecord::IncomeObservationsAssociated(binding) = record.record() {
+                for bytes in rest.ingress().income_association_objects(binding)? {
+                    self.store.put_object(&bytes)?;
+                    objects.push(ObjectRef::new(&bytes)?);
+                }
+            }
+            if let RecoveryRecord::UncreatedAlgoClosed(binding) = record.record() {
+                let bytes = rest.ingress().uncreated_algo_coverage_object(binding)?;
+                self.store.put_object(&bytes)?;
+                objects.push(ObjectRef::new(&bytes)?);
+            }
+            if let RecoveryRecord::AccountInputsReconciled(binding) = record.record() {
+                let bytes = rest.ingress().account_inputs_coverage_object(binding)?;
+                self.store.put_object(&bytes)?;
+                objects.push(ObjectRef::new(&bytes)?);
+            }
             if let RecoveryRecord::IncomeBaseline(binding) = record.record() {
                 let bytes = rest.ingress().income_coverage_object(binding)?;
                 self.store.put_object(&bytes)?;
@@ -443,6 +513,7 @@ impl Driver {
                     .ok_or_else(|| invalid("missing durable frontier"))?
                     .clone(),
                 records,
+                bindings,
             },
         );
         Ok(Some(replica::ExportWork {

@@ -1,6 +1,6 @@
 # 账户有序日志实现规格
 
-状态：已实现，生产接口见 [账户有序日志接口](../../docs/implementation/account-journal-interface.md)，验证记录见 [账户日志验证](../../docs/validation/account-journal/README.md)。
+状态：已实现，生产接口见 账户有序日志接口，验证记录见 账户日志验证。
 
 ## 固定绑定
 

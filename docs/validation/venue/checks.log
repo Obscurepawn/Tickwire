@@ -1,3 +1,0 @@
-cargo fmt -p tickwire-venue --check: PASS
-Scoped text whitespace check: PASS
-sha256 source lock verification: PASS

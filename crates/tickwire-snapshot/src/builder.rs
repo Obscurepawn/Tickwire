@@ -7,7 +7,7 @@ use tickwire_ipc::*;
 pub const MAX_TOPIC_SNAPSHOT_BYTES: usize = 64 * 1024 * 1024;
 
 #[derive(Debug)]
-pub struct BuildRequest<'a> {
+pub struct BuildRequest<'a, S: MarketStateRecord = MarketRecord> {
     pub resource: &'a ResourceHeader,
     pub join: &'a JoinBody,
     pub catalog_hash: [u8; 32],
@@ -18,11 +18,11 @@ pub struct BuildRequest<'a> {
     pub now_mono_ns: u64,
     pub logical_strategy_id: u64,
     pub instruments: &'a [InstrumentSpec],
-    pub members: &'a [InstrumentSnapshot<'a>],
+    pub members: &'a [InstrumentSnapshot<'a, S>],
     pub byte_limit: usize,
 }
 #[derive(Debug, Clone)]
-pub struct InstrumentSnapshot<'a> {
+pub struct InstrumentSnapshot<'a, S: MarketStateRecord = MarketRecord> {
     pub instrument_id: u64,
     pub instrument_version: u64,
     pub snapshot_id: [u8; 16],
@@ -36,9 +36,31 @@ pub struct InstrumentSnapshot<'a> {
     pub state_version: u64,
     pub coverage_depth: u32,
     pub coverage_flags: u32,
-    pub states: &'a [MarketRecord],
+    pub states: &'a [S],
     pub bids: &'a [DepthLevel],
     pub asks: &'a [DepthLevel],
+}
+impl<'a, S: MarketStateRecord> InstrumentSnapshot<'a, S> {
+    pub fn with_states<T: MarketStateRecord>(self, states: &'a [T]) -> InstrumentSnapshot<'a, T> {
+        InstrumentSnapshot {
+            instrument_id: self.instrument_id,
+            instrument_version: self.instrument_version,
+            snapshot_id: self.snapshot_id,
+            at_sequence: self.at_sequence,
+            last_event_sequence: self.last_event_sequence,
+            feed_generation: self.feed_generation,
+            catalog_version: self.catalog_version,
+            catalog_hash: self.catalog_hash,
+            created_mono_ns: self.created_mono_ns,
+            expires_mono_ns: self.expires_mono_ns,
+            state_version: self.state_version,
+            coverage_depth: self.coverage_depth,
+            coverage_flags: self.coverage_flags,
+            bids: self.bids,
+            asks: self.asks,
+            states,
+        }
+    }
 }
 #[derive(Debug)]
 pub struct BuiltTopic {
@@ -102,38 +124,46 @@ fn member_bytes(states: usize, bids: usize, asks: usize, exact: bool) -> Result<
 fn binding<T: PartialEq>(input: &T, zero: &T, actual: &T) -> Result<()> {
     same(input == zero || input == actual)
 }
-fn normalize_record(record: &MarketRecord, row: u64, out: &mut [u8; 512]) -> Result<()> {
+fn normalize_record<S: MarketStateRecord>(record: &S, row: u64, out: &mut [u8; 512]) -> Result<()> {
     let mut normalized = record.clone();
-    normalized.header.sequence = row;
-    normalized.header.record_crc32c = 0;
+    normalized.header_mut().sequence = row;
+    normalized.header_mut().record_crc32c = 0;
     normalized.encode(out)?;
-    if normalized.header.flags & 8 != 0 {
+    if normalized.header().flags & 8 != 0 {
         // All accepted snapshot records have no external payload and a zero payload CRC.
-        normalized.header.record_crc32c = crc32c(out);
+        normalized.header_mut().record_crc32c = crc32c(out);
         normalized.encode(out)?;
     }
     decode_record(out)?;
     Ok(())
 }
-fn state_order(member: &InstrumentSnapshot<'_>) -> Result<([usize; 4], u16)> {
+fn state_order<S: MarketStateRecord>(
+    member: &InstrumentSnapshot<'_, S>,
+) -> Result<([usize; 4], u16)> {
     if !(1..=4).contains(&member.states.len()) {
         return Err(Error::Bounds);
     }
     let mut order = [0, 1, 2, 3];
-    order[..member.states.len()].sort_unstable_by_key(|&i| member.states[i].header.message_type);
+    order[..member.states.len()].sort_unstable_by_key(|&i| member.states[i].header().message_type);
     let mut prior = 0;
     let mut feed = None;
+    let mut categories = 0u8;
     for &i in &order[..member.states.len()] {
         let r = &member.states[i];
-        if !matches!(r.header.message_type, 257 | 258 | 260 | 261) {
+        if !matches!(r.header().message_type, 257 | 258 | 260 | 261 | 264..=266) {
             return Err(Error::UnknownMessage);
         }
-        if r.header.message_type == prior {
+        let category = market_state_category(r.header().message_type)?;
+        if categories & category != 0 {
             return Err(Error::Malformed);
         }
-        prior = r.header.message_type;
+        categories |= category;
+        if r.header().message_type == prior {
+            return Err(Error::Malformed);
+        }
+        prior = r.header().message_type;
         if prior == 261 {
-            feed = Some(r.body.feed_state);
+            feed = Some(r.feed_state());
         }
     }
     let feed = feed.ok_or(Error::Malformed)?;
@@ -157,7 +187,10 @@ fn depth(levels: &[DepthLevel], bid: bool) -> Result<()> {
     }
     Ok(())
 }
-fn check_member(request: &BuildRequest<'_>, member: &InstrumentSnapshot<'_>) -> Result<()> {
+fn check_member<S: MarketStateRecord>(
+    request: &BuildRequest<'_, S>,
+    member: &InstrumentSnapshot<'_, S>,
+) -> Result<()> {
     same(
         member.snapshot_id != [0; 16]
             && member.at_sequence == request.sequence
@@ -179,7 +212,10 @@ fn check_member(request: &BuildRequest<'_>, member: &InstrumentSnapshot<'_>) -> 
     let (order, feed) = state_order(member)?;
     for (row, &index) in order[..member.states.len()].iter().enumerate() {
         let r = &member.states[index];
-        let h = &r.header;
+        let h = r.header();
+        if h.message_type >= 264 && request.resource.required_features & EXACT_MARKET_EVENTS == 0 {
+            return Err(Error::UnsupportedFeature);
+        }
         same(
             h.sequence <= member.last_event_sequence
                 && h.instrument_id == member.instrument_id
@@ -209,7 +245,10 @@ fn check_member(request: &BuildRequest<'_>, member: &InstrumentSnapshot<'_>) -> 
     }
     Ok(())
 }
-fn check_context(request: &BuildRequest<'_>, set_hash: [u8; 32]) -> Result<JoinBody> {
+fn check_context<S: MarketStateRecord>(
+    request: &BuildRequest<'_, S>,
+    set_hash: [u8; 32],
+) -> Result<JoinBody> {
     let r = request.resource;
     let j = request.join;
     same(
@@ -249,8 +288,8 @@ fn check_context(request: &BuildRequest<'_>, set_hash: [u8; 32]) -> Result<JoinB
     {
         return Err(Error::UnsupportedArchitecture);
     }
-    if r.required_features & !255 != 0
-        || r.optional_features & !255 != 0
+    if r.required_features & !767 != 0
+        || r.optional_features & !767 != 0
         || r.required_features & 0x1c != 0x1c
     {
         return Err(Error::UnsupportedFeature);
@@ -308,19 +347,22 @@ fn check_context(request: &BuildRequest<'_>, set_hash: [u8; 32]) -> Result<JoinB
 
 /// Build a complete immutable byte image. The caller owns the fixed publication
 /// cut and its pending gate; neither is advanced or released by this function.
-pub fn build_topic(request: &BuildRequest<'_>) -> Result<BuiltTopic> {
+pub fn build_topic<S: MarketStateRecord>(request: &BuildRequest<'_, S>) -> Result<BuiltTopic> {
     build(request, None)
 }
 
 /// Build kind-7 members preserving exact side boundaries and all known outliers.
 /// The authenticated resource must require ExactDepthCoverage (feature bit 6).
-pub fn build_topic_with_coverage(
-    request: &BuildRequest<'_>,
+pub fn build_topic_with_coverage<S: MarketStateRecord>(
+    request: &BuildRequest<'_, S>,
     coverage: &[DepthCoverage],
 ) -> Result<BuiltTopic> {
     build(request, Some(coverage))
 }
-fn build(request: &BuildRequest<'_>, coverage: Option<&[DepthCoverage]>) -> Result<BuiltTopic> {
+fn build<S: MarketStateRecord>(
+    request: &BuildRequest<'_, S>,
+    coverage: Option<&[DepthCoverage]>,
+) -> Result<BuiltTopic> {
     let exact = coverage.is_some();
     if exact != (request.resource.required_features & 64 != 0) {
         return Err(Error::UnsupportedFeature);

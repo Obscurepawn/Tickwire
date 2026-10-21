@@ -4636,6 +4636,435 @@
         }
       ],
       "description": "Response after fresh callback checkpoint and complete input seal synchronization; request challenge and exact report cut remain bound."
+    },
+    {
+      "name": "DecimalWire",
+      "size": 24,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "coefficient",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "exponent",
+          "type": "i8",
+          "offset": 16,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 17,
+          "size": 7,
+          "count": 7,
+          "reserved": true
+        }
+      ],
+      "description": "Exact public market values; feature ExactMarketEvents required."
+    },
+    {
+      "name": "MarketExactBody",
+      "size": 384,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "source_id",
+          "type": "u64",
+          "offset": 0,
+          "size": 8
+        },
+        {
+          "name": "source_connection_epoch",
+          "type": "u64",
+          "offset": 8,
+          "size": 8
+        },
+        {
+          "name": "source_schema_id",
+          "type": "u32",
+          "offset": 16,
+          "size": 4
+        },
+        {
+          "name": "source_encoding",
+          "type": "u16",
+          "offset": 20,
+          "size": 2
+        },
+        {
+          "name": "source_schema_version",
+          "type": "u16",
+          "offset": 22,
+          "size": 2
+        },
+        {
+          "name": "value_validity",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "exchange_event_ns",
+          "type": "u64",
+          "offset": 32,
+          "size": 8
+        },
+        {
+          "name": "transaction_time_ns",
+          "type": "u64",
+          "offset": 40,
+          "size": 8
+        },
+        {
+          "name": "venue_seq_first",
+          "type": "u64",
+          "offset": 48,
+          "size": 8
+        },
+        {
+          "name": "venue_seq_last",
+          "type": "u64",
+          "offset": 56,
+          "size": 8
+        },
+        {
+          "name": "trade_id",
+          "type": "u64",
+          "offset": 64,
+          "size": 8
+        },
+        {
+          "name": "price_ticks",
+          "type": "i64",
+          "offset": 72,
+          "size": 8
+        },
+        {
+          "name": "quantity_lots",
+          "type": "i64",
+          "offset": 80,
+          "size": 8
+        },
+        {
+          "name": "normal_quantity_lots",
+          "type": "i64",
+          "offset": 88,
+          "size": 8
+        },
+        {
+          "name": "bid_price_ticks",
+          "type": "i64",
+          "offset": 96,
+          "size": 8
+        },
+        {
+          "name": "bid_quantity_lots",
+          "type": "i64",
+          "offset": 104,
+          "size": 8
+        },
+        {
+          "name": "ask_price_ticks",
+          "type": "i64",
+          "offset": 112,
+          "size": 8
+        },
+        {
+          "name": "ask_quantity_lots",
+          "type": "i64",
+          "offset": 120,
+          "size": 8
+        },
+        {
+          "name": "mark_price",
+          "type": "DecimalWire",
+          "offset": 128,
+          "size": 24
+        },
+        {
+          "name": "index_price",
+          "type": "DecimalWire",
+          "offset": 152,
+          "size": 24
+        },
+        {
+          "name": "estimated_settlement_price",
+          "type": "DecimalWire",
+          "offset": 176,
+          "size": 24
+        },
+        {
+          "name": "moving_average",
+          "type": "DecimalWire",
+          "offset": 200,
+          "size": 24
+        },
+        {
+          "name": "funding_rate",
+          "type": "DecimalWire",
+          "offset": 224,
+          "size": 24
+        },
+        {
+          "name": "next_funding_utc_ns",
+          "type": "u64",
+          "offset": 248,
+          "size": 8
+        },
+        {
+          "name": "feed_state",
+          "type": "u16",
+          "offset": 256,
+          "size": 2
+        },
+        {
+          "name": "reason",
+          "type": "u16",
+          "offset": 258,
+          "size": 2
+        },
+        {
+          "name": "side",
+          "type": "u8",
+          "offset": 260,
+          "size": 1
+        },
+        {
+          "name": "trade_flags",
+          "type": "u8",
+          "offset": 261,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 262,
+          "size": 122,
+          "count": 122,
+          "reserved": true
+        }
+      ],
+      "description": "Exact public market values; feature ExactMarketEvents required."
+    },
+    {
+      "name": "MarketExactRecord",
+      "size": 512,
+      "alignment": 128,
+      "fields": [
+        {
+          "name": "header",
+          "type": "RecordHeader",
+          "offset": 0,
+          "size": 128
+        },
+        {
+          "name": "body",
+          "type": "MarketExactBody",
+          "offset": 128,
+          "size": 384
+        }
+      ],
+      "description": "Exact public market values; feature ExactMarketEvents required."
+    },
+    {
+      "name": "ReplayControlBody",
+      "size": 256,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "instance_id",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "strategy_generation",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "logical_strategy_id",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "challenge",
+          "type": "bytes",
+          "offset": 32,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "valid_until_mono_ns",
+          "type": "u64",
+          "offset": 48,
+          "size": 8
+        },
+        {
+          "name": "object_digest",
+          "type": "bytes",
+          "offset": 56,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "object_bytes",
+          "type": "u64",
+          "offset": 88,
+          "size": 8
+        },
+        {
+          "name": "expected_sequence",
+          "type": "u64",
+          "offset": 96,
+          "size": 8
+        },
+        {
+          "name": "expected_cut_digest",
+          "type": "bytes",
+          "offset": 104,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "operation_id",
+          "type": "bytes",
+          "offset": 136,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "operation_revision",
+          "type": "u64",
+          "offset": 152,
+          "size": 8
+        },
+        {
+          "name": "schema",
+          "type": "u16",
+          "offset": 160,
+          "size": 2
+        },
+        {
+          "name": "replay_kind",
+          "type": "u16",
+          "offset": 162,
+          "size": 2
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 164,
+          "size": 92,
+          "count": 92,
+          "reserved": true
+        }
+      ]
+    },
+    {
+      "name": "ReplayAppliedBody",
+      "size": 256,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "instance_id",
+          "type": "bytes",
+          "offset": 0,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "strategy_generation",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "logical_strategy_id",
+          "type": "u64",
+          "offset": 24,
+          "size": 8
+        },
+        {
+          "name": "challenge",
+          "type": "bytes",
+          "offset": 32,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "valid_until_mono_ns",
+          "type": "u64",
+          "offset": 48,
+          "size": 8
+        },
+        {
+          "name": "object_digest",
+          "type": "bytes",
+          "offset": 56,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "object_bytes",
+          "type": "u64",
+          "offset": 88,
+          "size": 8
+        },
+        {
+          "name": "expected_sequence",
+          "type": "u64",
+          "offset": 96,
+          "size": 8
+        },
+        {
+          "name": "expected_cut_digest",
+          "type": "bytes",
+          "offset": 104,
+          "size": 32,
+          "count": 32
+        },
+        {
+          "name": "operation_id",
+          "type": "bytes",
+          "offset": 136,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "operation_revision",
+          "type": "u64",
+          "offset": 152,
+          "size": 8
+        },
+        {
+          "name": "schema",
+          "type": "u16",
+          "offset": 160,
+          "size": 2
+        },
+        {
+          "name": "replay_kind",
+          "type": "u16",
+          "offset": 162,
+          "size": 2
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 164,
+          "size": 92,
+          "count": 92,
+          "reserved": true
+        }
+      ]
     }
   ],
   "enums": {
@@ -4990,6 +5419,13 @@
       "Unknown": 0,
       "Complete": 1,
       "Through": 2
+    },
+    "replay_kind": {
+      "CaptureTail": 1,
+      "SourceReplay": 2,
+      "InstallAtCut": 3,
+      "Continue": 4,
+      "AuxiliaryInput": 5
     }
   },
   "bitsets": {
@@ -5018,7 +5454,8 @@
       "ConfigControlV1": 5,
       "ExactDepthCoverage": 6,
       "CanonicalIntentReference": 7,
-      "CanonicalAccountReference": 8
+      "CanonicalAccountReference": 8,
+      "ExactMarketEvents": 9
     },
     "record_flags": {
       "SourceTimeValid": 0,
@@ -5274,6 +5711,30 @@
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
       "description": "SHA-256 reference to complete durable canonical account data"
+    },
+    {
+      "id": 264,
+      "name": "TradeExact",
+      "channel": "MarketBroadcast",
+      "body_layout": "MarketExactBody",
+      "required_feature_bit": 9,
+      "description": "Exact typed event, including original source identity and presence bits."
+    },
+    {
+      "id": 265,
+      "name": "QuoteExact",
+      "channel": "MarketBroadcast",
+      "body_layout": "MarketExactBody",
+      "required_feature_bit": 9,
+      "description": "Exact typed event, including original source identity and presence bits."
+    },
+    {
+      "id": 266,
+      "name": "MarkFundingExact",
+      "channel": "MarketBroadcast",
+      "body_layout": "MarketExactBody",
+      "required_feature_bit": 9,
+      "description": "Exact typed event, including original source identity and presence bits."
     }
   ],
   "control_opcodes": [
@@ -5492,6 +5953,26 @@
       "allowed_flags": [
         10
       ]
+    },
+    {
+      "id": 41,
+      "name": "REPLAY_CONTROL",
+      "body_layout": "ReplayControlBody",
+      "allowed_flags": [
+        1
+      ],
+      "response_layout": "ReplayAppliedBody",
+      "response_opcode": 42
+    },
+    {
+      "id": 42,
+      "name": "REPLAY_APPLIED",
+      "body_layout": "ReplayAppliedBody",
+      "allowed_flags": [
+        10
+      ],
+      "response_layout": null,
+      "response_opcode": null
     },
     {
       "id": 48,
@@ -6556,6 +7037,77 @@
       "value_validity_allowed_mask": 384,
       "value_validity_required_mask": 384,
       "report_kind": 12
+    },
+    "TradeExact": {
+      "message_id": 264,
+      "body_layout": "MarketExactBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "source_id",
+        "source_connection_epoch",
+        "source_schema_id",
+        "source_encoding",
+        "source_schema_version",
+        "value_validity",
+        "exchange_event_ns",
+        "transaction_time_ns",
+        "feed_state",
+        "reason",
+        "venue_seq_first",
+        "venue_seq_last",
+        "trade_id",
+        "price_ticks",
+        "quantity_lots",
+        "normal_quantity_lots",
+        "side",
+        "trade_flags"
+      ]
+    },
+    "QuoteExact": {
+      "message_id": 265,
+      "body_layout": "MarketExactBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "source_id",
+        "source_connection_epoch",
+        "source_schema_id",
+        "source_encoding",
+        "source_schema_version",
+        "value_validity",
+        "exchange_event_ns",
+        "transaction_time_ns",
+        "feed_state",
+        "reason",
+        "venue_seq_first",
+        "venue_seq_last",
+        "bid_price_ticks",
+        "bid_quantity_lots",
+        "ask_price_ticks",
+        "ask_quantity_lots"
+      ]
+    },
+    "MarkFundingExact": {
+      "message_id": 266,
+      "body_layout": "MarketExactBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "source_id",
+        "source_connection_epoch",
+        "source_schema_id",
+        "source_encoding",
+        "source_schema_version",
+        "value_validity",
+        "exchange_event_ns",
+        "transaction_time_ns",
+        "feed_state",
+        "reason",
+        "mark_price",
+        "index_price",
+        "estimated_settlement_price",
+        "moving_average",
+        "funding_rate",
+        "next_funding_utc_ns"
+      ]
     }
   },
   "report_value_fields": [
@@ -6944,5 +7496,30 @@
       "error_status": "matches body.status_reason; config_status Failed or Stalled"
     },
     "finalization_receipt": "Committed completion certificate binds all target receipts and expected projections, plus OperationSucceeded control-journal proof."
+  },
+  "exact_market_events": {
+    "required_feature_bit": 9,
+    "decimal_encoding": "signed two-complement little-endian coefficient bytes[16], exponent i8, reserved zero[7]",
+    "decimal_exponent_min": -38,
+    "decimal_exponent_max": 38,
+    "decimal_normalized": true,
+    "value_validity": {
+      "ExchangeEvent": 0,
+      "TransactionTime": 1,
+      "NormalQuantity": 2,
+      "EstimatedSettlement": 3,
+      "MovingAverage": 4,
+      "FundingRate": 5,
+      "NextFundingTime": 6,
+      "RawTradeRange": 7
+    },
+    "source_encoding": {
+      "Json": 1,
+      "SpotSbeV1": 2
+    },
+    "source_schema_id": {
+      "Json": 0,
+      "SpotSbeV1": 1
+    }
   }
 }

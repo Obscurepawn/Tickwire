@@ -136,6 +136,8 @@ pub enum ReadKind {
     ConditionalOrders,
     OrderQuery,
     Income,
+    StructureQuery,
+    AmendmentHistory,
 }
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -180,6 +182,9 @@ pub enum Command {
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(tag = "family", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    CommandSession {
+        kind: CommandSessionKind,
+    },
     GuardianConnect,
     Read {
         kind: ReadKind,
@@ -199,10 +204,26 @@ pub enum Action {
         action: Command,
     },
 }
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CommandSessionKind {
+    Connect,
+    Upgrade,
+    Ping,
+    Pong,
+    Close,
+}
 impl Action {
     pub fn build(self) -> super::Action {
         use super::{Action as A, CommandAction as C};
         match self {
+            Self::CommandSession { kind } => A::CommandSession(match kind {
+                CommandSessionKind::Connect => super::CommandSessionAction::Connect,
+                CommandSessionKind::Upgrade => super::CommandSessionAction::Upgrade,
+                CommandSessionKind::Ping => super::CommandSessionAction::Ping,
+                CommandSessionKind::Pong => super::CommandSessionAction::Pong,
+                CommandSessionKind::Close => super::CommandSessionAction::Close,
+            }),
             Self::GuardianConnect => A::GuardianConnect,
             Self::Read { kind } => A::Read(match kind {
                 ReadKind::Connect => super::ReadAction::Connect,
@@ -212,6 +233,8 @@ impl Action {
                 ReadKind::ConditionalOrders => super::ReadAction::ConditionalOrders,
                 ReadKind::OrderQuery => super::ReadAction::OrderQuery,
                 ReadKind::Income => super::ReadAction::Income,
+                ReadKind::StructureQuery => super::ReadAction::StructureQuery,
+                ReadKind::AmendmentHistory => super::ReadAction::AmendmentHistory,
             }),
             Self::Time { kind } => match kind {
                 TimeKind::Connect => A::TimeConnect,

@@ -3,7 +3,7 @@ use super::*;
 use tickwire_release::{Object, Role, files, receipt::Receipt};
 use tickwire_strategy_sdk::preflight::{Job, ObjectFile, ProbeJob};
 
-fn object_file(directory: &Path, object: Object) -> ObjectFile {
+pub(super) fn object_file(directory: &Path, object: Object) -> ObjectFile {
     ObjectFile {
         path: directory.join(format!(
             "{}.bin",
@@ -66,6 +66,179 @@ pub(crate) struct Proof {
     completed: Option<Vec<Vec<u8>>>,
 }
 impl Proof {
+    pub(super) fn installed_probe(
+        &self,
+        installed: &tickwire_runtime::node::InstalledReplay,
+    ) -> Result<tickwire_release::replay::rollback::Verified> {
+        use tickwire_release::replay::rollback::{
+            Completion as ReplayCompletion, Job as ReplayJob, Receipt as ReplayReceipt,
+        };
+        if self.job.operation.schema != 3
+            || self.job.operation != installed.verified().request.operation
+            || self.job.member != installed.verified().request.member
+        {
+            return Err(Error::Invalid);
+        }
+        let bundle = self.job.bundle.load(&self.job.operation)?;
+        let release = bundle.verify_operation(&self.job.operation, &self.job.member)?;
+        let files = files::load(&release.rollback.files, &self.job.rollback_files)?;
+        let bootstrap: Bootstrap =
+            serde_json::from_slice(files.bytes(&Role::Bootstrap).ok_or(Error::Invalid)?)
+                .map_err(|_| Error::Invalid)?;
+        tickwire_strategy_sdk::preflight::verify_recovery_inputs(
+            bootstrap.recovery_template.as_deref(),
+            &files,
+        )?;
+        let identity = bootstrap.report.local.identity();
+        if identity != bootstrap.market.local.identity()
+            || identity.logical_strategy != self.job.operation.logical_strategy_id
+            || [self.job.member.new_instance, self.job.member.old_instance]
+                .contains(&identity.instance)
+            || identity.build_hash != files.object(&Role::Binary).ok_or(Error::Invalid)?.digest
+        {
+            return Err(Error::Invalid);
+        }
+        let tag = identity
+            .instance
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect::<String>();
+        let completed_path = self
+            .job
+            .output_directory
+            .join(format!("C-PROBE-{tag}.json"));
+        if let Ok(meta) = std::fs::symlink_metadata(&completed_path) {
+            if !meta.is_file() || meta.len() > tickwire_release::MAX_DOCUMENT as u64 {
+                return Err(Error::Invalid);
+            }
+            let bytes = std::fs::read(&completed_path)?;
+            let completion = ReplayCompletion::decode(&bytes)?;
+            if completion.installation != installed.root() {
+                return Err(Error::Invalid);
+            }
+            File::open(&completed_path)?.sync_all()?;
+            File::open(&self.job.output_directory)?.sync_all()?;
+            return Ok(tickwire_release::replay::rollback::verify(
+                Object::of(&bytes).digest,
+                |h| read_probe_object(&self.job.output_directory, h),
+            )?);
+        }
+        let parent = self.job.output_directory.parent().ok_or(Error::Invalid)?;
+        let directory = PrivateDirectory::create_in(parent, "c-rollback")?;
+        let mut objects = Vec::new();
+        for bytes in &installed.verified().objects {
+            persist_object(&self.job.output_directory, bytes)?;
+            objects.push(object_file(&self.job.output_directory, Object::of(bytes)));
+        }
+        objects.sort_by_key(|f| f.object.digest);
+        objects.dedup_by_key(|f| f.object.digest);
+        let job = ReplayJob {
+            schema: 1,
+            installation: installed.root(),
+            objects,
+            rollback_files: self.job.rollback_files.clone(),
+            output_directory: directory.path().join("output"),
+        };
+        let bytes = job.bytes()?;
+        persist_object(&self.job.output_directory, &bytes)?;
+        let job_file = object_file(&self.job.output_directory, Object::of(&bytes));
+        files.recheck()?;
+        // Persist an attempt before spawn. An incomplete attempt is uncertainty,
+        // never permission to reuse this fixed probe identity after a restart.
+        let marker = self
+            .job
+            .output_directory
+            .join(format!("C-PROBE-{tag}.started"));
+        let mut attempt = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(marker)?;
+        attempt.write_all(&bytes)?;
+        attempt.sync_all()?;
+        File::open(&self.job.output_directory)?.sync_all()?;
+        let mut registry = Registry::new(1)?;
+        let child = registry.spawn(LaunchSpec {
+            identity: identity.clone(),
+            executable: files.path(&Role::Binary).ok_or(Error::Invalid)?.to_owned(),
+            arguments: vec![
+                "--replay-rollback".into(),
+                job_file.path.to_str().ok_or(Error::Invalid)?.into(),
+            ],
+            working_directory: directory.path().to_owned(),
+            environment: Default::default(),
+            uid: self.primary.as_ref().ok_or(Error::Invalid)?.0.process.uid,
+            gid: self.primary.as_ref().ok_or(Error::Invalid)?.0.process.gid,
+            inherit_output: true,
+        })?;
+        let deadline = Instant::now() + Duration::from_secs(10);
+        loop {
+            if let Some(exit) = registry
+                .observe_exits()?
+                .into_iter()
+                .find(|e| e.instance() == identity.instance)
+            {
+                if exit.pid() != child.pid || !exit.status().success() {
+                    return Err(Error::Invalid);
+                }
+                break;
+            }
+            if Instant::now() >= deadline {
+                return Err(Error::NotReady);
+            }
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let path = job.output_directory.join("ROLLBACK_REPLAY.json");
+        let meta = std::fs::symlink_metadata(&path)?;
+        if !meta.is_file() || meta.len() > tickwire_release::MAX_DOCUMENT as u64 {
+            return Err(Error::Invalid);
+        }
+        let bytes = std::fs::read(path)?;
+        if bytes.len() as u64 != meta.len() {
+            return Err(Error::Invalid);
+        }
+        let receipt = ReplayReceipt::decode(&bytes)?;
+        receipt.verify(installed.verified())?;
+        if receipt.job != job_file.object
+            || receipt.process.pid != child.pid
+            || receipt.process.uid != child.uid
+            || receipt.process.gid != child.gid
+            || receipt.process.instance != identity.instance
+            || receipt.process.generation != identity.generation
+        {
+            return Err(Error::Invalid);
+        }
+        let input = object_file(&job.output_directory, receipt.input_state).read()?;
+        let output = object_file(&job.output_directory, receipt.output).read()?;
+        for value in [&bytes, &input, &output] {
+            persist_object(&self.job.output_directory, value)?;
+        }
+        let completion = ReplayCompletion {
+            schema: 1,
+            installation: installed.root(),
+            rollback: Object::of(&bytes),
+        };
+        let bytes = completion.bytes()?;
+        persist_object(&self.job.output_directory, &bytes)?;
+        let verified =
+            tickwire_release::replay::rollback::verify(Object::of(&bytes).digest, |h| {
+                read_probe_object(&self.job.output_directory, h)
+            })?;
+        // Atomic named publication is safe here: all referenced objects and the
+        // successful Registry exit are already fixed; no second process runs.
+        let mut f = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(&completed_path)?;
+        f.write_all(&bytes)?;
+        f.sync_all()?;
+        File::open(&self.job.output_directory)?.sync_all()?;
+        Ok(verified)
+    }
+    pub(super) fn job(&self) -> &Job {
+        &self.job
+    }
     pub fn new(config: &Bootstrap) -> Result<Option<Self>> {
         let Some(path) = &config.preflight_job else {
             return Ok(None);
@@ -132,8 +305,12 @@ impl Proof {
         {
             return Err(Error::Invalid);
         }
-        self.primary = Some((receipt, bytes));
-        let objects = self.objects(bundle.roots())?.ok_or(Error::NotReady)?;
+        self.primary = Some((receipt.clone(), bytes.clone()));
+        let objects = if self.job.operation.schema == 3 {
+            self.startup_objects(&receipt, &bytes)?
+        } else {
+            self.objects(bundle.roots())?.ok_or(Error::NotReady)?
+        };
         let completion = objects.first().ok_or(Error::Invalid)?;
         let status = tickwire_ipc::StatusBody {
             subject_id: body.instance_id,
@@ -159,6 +336,9 @@ impl Proof {
         Ok(())
     }
     pub fn objects(&mut self, roots: [[u8; 32]; 3]) -> Result<Option<Vec<Vec<u8>>>> {
+        if self.job.operation.schema == 3 {
+            return Ok(None);
+        }
         if roots
             != [
                 self.job.operation.artifacts_digest,
@@ -177,6 +357,27 @@ impl Proof {
         let objects = self.probe(&primary, &primary_bytes)?;
         self.completed = Some(objects.clone());
         Ok(Some(objects))
+    }
+    fn startup_objects(&self, receipt: &Receipt, bytes: &[u8]) -> Result<Vec<Vec<u8>>> {
+        let completion = tickwire_release::replay::startup::Completion {
+            schema: 1,
+            operation: self.job.operation.clone(),
+            member: self.job.member.clone(),
+            restored: Object::of(bytes),
+        };
+        let mut objects = vec![
+            completion.bytes()?,
+            self.job.bundle.manifest.read()?,
+            self.job.bundle.migration.read()?,
+            self.job.bundle.rollback.read()?,
+            bytes.to_vec(),
+            object_file(&self.job.output_directory, receipt.output).read()?,
+        ];
+        objects.extend(self.job.source.objects()?);
+        for bytes in &objects {
+            persist_object(&self.job.output_directory, bytes)?;
+        }
+        Ok(objects)
     }
     fn probe(&self, primary: &Receipt, primary_bytes: &[u8]) -> Result<Vec<Vec<u8>>> {
         let bundle = self.job.bundle.load(&self.job.operation)?;
@@ -360,7 +561,25 @@ fn verify_process(receipt: &Receipt, lane: &AuthenticatedChild) -> Result<()> {
     }
     Ok(())
 }
-fn persist_object(directory: &Path, bytes: &[u8]) -> Result<()> {
+fn read_probe_object(directory: &Path, h: [u8; 32]) -> tickwire_release::Result<Vec<u8>> {
+    let path = directory.join(format!(
+        "{}.bin",
+        h.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    ));
+    let meta = std::fs::symlink_metadata(&path).map_err(|_| tickwire_release::Error::Missing)?;
+    if !meta.is_file() || meta.len() > tickwire_release::replay::MAX_BYTES as u64 {
+        return Err(tickwire_release::Error::Bounds);
+    }
+    object_file(
+        directory,
+        Object {
+            digest: h,
+            bytes: meta.len(),
+        },
+    )
+    .read()
+}
+pub(super) fn persist_object(directory: &Path, bytes: &[u8]) -> Result<()> {
     persist_object_with_sync(directory, bytes, &mut File::sync_all)
 }
 fn persist_object_with_sync(

@@ -59,7 +59,7 @@ pub struct Operation {
 }
 impl Operation {
     pub fn validate(&self) -> Result<()> {
-        if !matches!(self.schema, 1 | 2)
+        if !matches!(self.schema, 1..=4)
             || self.operation_id == [0; 16]
             || self.operation_revision == 0
             || self.logical_strategy_id == 0
@@ -212,6 +212,12 @@ pub struct ControlRequest {
     pub action: ControlAction,
     pub proof: Option<Readiness>,
     pub release: Option<SignedGroupRelease>,
+    /// Schema 2 Commit embeds the exact durably adopted installation result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay: Option<ReplayAdoption>,
+    /// Schema 3 requests bind the exact adopted schema4 rebuild result.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rebuild: Option<RebuildAdoption>,
     /// These fields are in the recipient Member's local clock domain.
     pub valid_until_ns: u64,
 }
@@ -479,7 +485,7 @@ pub fn verify_control_request(
     {
         return Err(Error::Identity);
     }
-    if request.schema != 1
+    if request.schema != control_schema(request.operation.schema)
         || request.coordinator_id != expected_coordinator
         || expected_coordinator == [0; 16]
         || request.member != *expected_member
@@ -490,11 +496,57 @@ pub fn verify_control_request(
     {
         return Err(Error::Identity);
     }
+    match (&request.replay, request.operation.schema, request.action) {
+        (Some(adopted), 3, ControlAction::Commit | ControlAction::Prepare) => {
+            adopted.validate(&request.operation, &request.member)?;
+            let prepare: ControlRequest = decode_canonical(&adopted.prepare.payload)?;
+            if request.proof.as_ref() != Some(&adopted.readiness)
+                || prepare.coordinator_id != request.coordinator_id
+            {
+                return Err(Error::Identity);
+            }
+            authenticate(
+                b"tickwire.lifecycle.control.v1",
+                &adopted.prepare.payload,
+                &adopted.prepare.signature,
+                coordinator_key,
+            )?;
+        }
+        (None, 3, ControlAction::Commit) => return Err(Error::Missing),
+        (None, _, _) => {}
+        _ => return Err(Error::Identity),
+    }
+    match (&request.rebuild, request.operation.schema, request.action) {
+        (Some(adopted), 4, ControlAction::Prepare | ControlAction::Commit) => {
+            adopted.validate(&request.operation, &request.member)?;
+            let prepare: ControlRequest = decode_canonical(&adopted.prepare.payload)?;
+            if request.proof.as_ref() != Some(&adopted.readiness)
+                || prepare.coordinator_id != request.coordinator_id
+            {
+                return Err(Error::Identity);
+            }
+            authenticate(
+                b"tickwire.lifecycle.control.v1",
+                &adopted.prepare.payload,
+                &adopted.prepare.signature,
+                coordinator_key,
+            )?;
+        }
+        (None, 4, ControlAction::Commit) => return Err(Error::Missing),
+        (None, _, _) => {}
+        _ => return Err(Error::Identity),
+    }
     match request.action {
         ControlAction::Prepare | ControlAction::Commit => {
-            let p = request.proof.as_ref().ok_or(Error::Missing)?;
-            if [p.checkpoint_digest, p.orders_digest, p.input_seal_digest].contains(&[0; 32])
-                || request.release.is_some()
+            let initial_rebuild = request.operation.schema == 4
+                && request.action == ControlAction::Prepare
+                && request.rebuild.is_none();
+            if request.proof.is_none() && !initial_rebuild {
+                return Err(Error::Missing);
+            }
+            if request.proof.as_ref().is_some_and(|p| {
+                [p.checkpoint_digest, p.orders_digest, p.input_seal_digest].contains(&[0; 32])
+            }) || request.release.is_some()
             {
                 return Err(Error::Invalid);
             }
@@ -527,6 +579,13 @@ pub fn verify_control_request(
         digest: signed.digest(),
         request,
     })
+}
+pub(crate) fn control_schema(operation: u32) -> u32 {
+    match operation {
+        3 => 2,
+        4 => 3,
+        _ => 1,
+    }
 }
 fn member_time(member: &Member, now: MonoTime) -> Result<()> {
     if now.domain().boot_id() != member.clock_boot_id
@@ -616,6 +675,10 @@ fn authenticate(domain: &[u8], payload: &[u8], signature: &[u8], key: Hash) -> R
 mod wal;
 #[doc(hidden)]
 pub use wal::Wal as EventJournal;
+mod replay;
+pub use replay::*;
+mod rebuild;
+pub use rebuild::*;
 mod coordinator;
 pub use coordinator::*;
 pub mod cli;

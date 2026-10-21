@@ -1,6 +1,6 @@
 # Linux 控制 FD 传输实现规格
 
-实现范围是 [控制传输接口](../../docs/implementation/control-transport-interface.md) 中的 pathname `SOCK_SEQPACKET`、`SCM_RIGHTS` 和内核连接身份。报文继续使用 [IPC ABI](../../docs/design/ipc-abi.md) 与 `tickwire-ipc::ControlFrame`，没有第二套 wire 布局或 JSON 运行时解析。
+实现范围是 控制传输接口 中的 pathname `SOCK_SEQPACKET`、`SCM_RIGHTS` 和内核连接身份。报文继续使用 IPC ABI 与 `tickwire-ipc::ControlFrame`，没有第二套 wire 布局或 JSON 运行时解析。
 
 ## 接收与所有权
 
@@ -19,7 +19,7 @@ connect、accept、send、recv 均使用同一绝对 `Instant` 截止点。EINTR
 
 `try_accept` 和 `try_recv` 为事件循环提供真正的单次尝试接口：前者执行一次非阻塞 accept4，成功后核验 SO_PEERCRED；后者执行一次带 MSG_DONTWAIT 的 recvmsg。两者遇 EAGAIN/EWOULDBLOCK 返回 `Ok(None)`，EINTR 原样作为 `Error::System` 返回，不等待、不内部重试，也不读取 `Instant`。成功返回 `Some`；EOF、截断、结构错误和 FD 错误保持原错误分类。`recv` 与 `try_recv` 共用 `recv_once`，原 `recv` 的绝对期限检查、poll 和 EINTR 重试顺序保留。
 
-`recv(now + 1µs)` 会在分配 64 KiB 缓冲后检查期限，已有报文也可能因期限已过而未进入 recvmsg。调用方不能用极短期限表达“检查一次队列”。本次 Linux 回归验证排队连接、0/1/16 FD 完整帧、发送端关闭前的排队帧排空、空队列与 EOF 区别，并在独立进程中对九类畸形帧逐次核对 FD 数。证据见 [单次轮询回归](../../docs/validation/control-transport/try-poll/README.md)。
+`recv(now + 1µs)` 会在分配 64 KiB 缓冲后检查期限，已有报文也可能因期限已过而未进入 recvmsg。调用方不能用极短期限表达“检查一次队列”。本次 Linux 回归验证排队连接、0/1/16 FD 完整帧、发送端关闭前的排队帧排空、空队列与 EOF 区别，并在独立进程中对九类畸形帧逐次核对 FD 数。证据见 单次轮询回归。
 
 每个连接缓存建连后的 `SO_PEERCRED`。独立子进程必须 exec 后主动连接 pathname，监督器核对未 reap 的真实 Child PID、UID、GID。父进程建立后继承给子进程的 socketpair 仍报告创建者身份，不能用于证明当前子进程身份。HELLO、身份登记、会话 epoch、nonce、feature、租约、业务权限和 FD 对应的资源头/访问权限由上层验证。
 
@@ -35,4 +35,4 @@ bind 使用已打开父目录的 `/proc/self/fd/<fd>/<name>`，拒绝已有路�
 
 unsafe 仅用于 libc 调用、C 结构输出、辅助数据读写、以及新建/接收 FD 转移到 `OwnedFd`。每处保留 Safety 注释；所有指针都指向调用期间仍存活的缓冲区。运行库不借用内核继续异步访问的内存，也不将报文字节转型为 Rust wire struct。根 workspace 的 unsafe 禁止未放宽，本 crate 是独立低层边界。
 
-Linux 以外生产入口返回 `UnsupportedPlatform`。本轮运行环境与真实 red/green 证据保存在 [验证目录](../../docs/validation/control-transport/README.md)。本轮 Linux 测试覆盖 aarch64；x86_64 上的实际运行资格、跨 UID/GID 部署、pidfd/holder registry 与远端 TLS 由后续集成完成。
+Linux 以外生产入口返回 `UnsupportedPlatform`。本轮运行环境与真实 red/green 证据保存在 验证目录。本轮 Linux 测试覆盖 aarch64；x86_64 上的实际运行资格、跨 UID/GID 部署、pidfd/holder registry 与远端 TLS 由后续集成完成。

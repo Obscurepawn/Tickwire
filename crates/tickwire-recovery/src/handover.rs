@@ -22,14 +22,33 @@ pub struct HandoverSeal {
     pub dependencies: Vec<(u16, Hash)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub preflight_receipt_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay_installation_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay_restore_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replay_rollback_digest: Option<Hash>,
 }
 impl HandoverSeal {
     pub const MAX_BYTES: usize = 16384;
     pub fn validate(&self) -> Result<()> {
         if !matches!(
-            (self.version, self.preflight_receipt_digest),
-            (1, None) | (2, Some(_))
+            (
+                self.version,
+                self.preflight_receipt_digest,
+                self.replay_restore_digest,
+                self.replay_installation_digest,
+                self.replay_rollback_digest
+            ),
+            (1, None, None, None, None)
+                | (2, Some(_), None, None, None)
+                | (3, None, Some(_), None, None)
+                | (3, None, Some(_), Some(_), None)
+                | (3, None, Some(_), Some(_), Some(_))
         ) || self.preflight_receipt_digest == Some([0; 32])
+            || self.replay_installation_digest == Some([0; 32])
+            || self.replay_restore_digest == Some([0; 32])
+            || self.replay_rollback_digest == Some([0; 32])
             || self.owner == [0; 16]
             || self.owner != self.instance
             || self.generation == 0
@@ -84,6 +103,9 @@ impl HandoverSeal {
         ];
         roots.extend(self.dependencies.iter().map(|(_, hash)| *hash));
         roots.extend(self.preflight_receipt_digest);
+        roots.extend(self.replay_installation_digest);
+        roots.extend(self.replay_restore_digest);
+        roots.extend(self.replay_rollback_digest);
         roots
     }
     pub fn verify_checkpoint(&self, bytes: &[u8]) -> Result<()> {

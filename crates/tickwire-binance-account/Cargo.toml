@@ -9,6 +9,9 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+tickwire-risk = { path = "../tickwire-risk" }
+tickwire-recovery = { path = "../tickwire-recovery" }
 tickwire-account = { path = "../tickwire-account" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
@@ -26,9 +29,6 @@ serde_json = { version = "1.0", features = ["raw_value"] }
 tickwire-clock = { path = "../tickwire-clock" }
 
 [dev-dependencies]
-tickwire-risk = { path = "../tickwire-risk" }
 tickwire-gateway = { path = "../tickwire-gateway" }
-tickwire-recovery = { path = "../tickwire-recovery" }
 rcgen = "=0.14.10"
-base64 = "=0.22.1"
 sha1 = "=0.10.6"

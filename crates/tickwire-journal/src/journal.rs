@@ -55,6 +55,23 @@ pub struct Recovery {
     pub records: Vec<Record>,
     pub frontier: Option<PhysicalFrontier>,
     pub discarded_tail_bytes: u64,
+    seals: Vec<(u64, PhysicalFrontier)>,
+    observed_exec_epoch: u64,
+}
+impl Recovery {
+    /// Highest epoch in a structurally valid, checksummed batch header,
+    /// including an unfinished last batch. It is not a synchronized frontier.
+    pub fn observed_exec_epoch(&self) -> u64 {
+        self.observed_exec_epoch
+    }
+
+    /// Original containing batch seal, read from the validated physical prefix.
+    pub fn record_frontier(&self, sequence: u64) -> Option<&PhysicalFrontier> {
+        self.seals
+            .iter()
+            .find(|(first, end)| *first <= sequence && sequence <= end.last_seq)
+            .map(|(_, end)| end)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,8 +196,18 @@ impl<S: Store> Journal<S> {
     /// Validate all bytes before truncating only the last unfinished batch.
     /// A supplied frontier must come from independent trusted evidence.
     pub fn recover(
+        store: S,
+        required: Option<&PhysicalFrontier>,
+    ) -> Result<(Self, Recovery), Error> {
+        Self::recover_checked(store, required, |_, _| Ok(()))
+    }
+
+    /// Validate the application prefix before truncation, synchronization or
+    /// manifest publication. Rejection preserves the original stored bytes.
+    pub fn recover_checked(
         mut store: S,
         required: Option<&PhysicalFrontier>,
+        validate: impl FnOnce(&Config, &Recovery) -> Result<(), Error>,
     ) -> Result<(Self, Recovery), Error> {
         let bytes = store
             .read_manifest()?
@@ -197,8 +224,10 @@ impl<S: Store> Journal<S> {
         let mut position = Position::empty();
         let mut records = Vec::new();
         let mut frontier = None;
+        let mut seals = Vec::new();
         let mut required_seen = required.is_none();
         let mut discarded = 0;
+        let mut observed_exec_epoch = 0;
         for &id in &ids {
             let bytes = store.read_segment(id, manifest.config.segment_max_bytes)?;
             if bytes.is_empty() && id != last {
@@ -276,6 +305,7 @@ impl<S: Store> Journal<S> {
                     }
                     _ => return Err(Error::Quarantined("batch structure")),
                 }
+                observed_exec_epoch = observed_exec_epoch.max(h.exec_epoch);
                 if remaining.len() < total {
                     torn = true;
                     break;
@@ -317,8 +347,10 @@ impl<S: Store> Journal<S> {
                     position.seq = h.record_seq;
                     position.epoch = h.exec_epoch;
                     position.batch = h.batch_number;
+                    let first = batch.records[0].seq;
                     records.extend(batch.records);
                     let closed = position.frontier(&manifest.config);
+                    seals.push((first, closed.clone()));
                     if required == Some(&closed) {
                         required_seen = true;
                     }
@@ -340,7 +372,15 @@ impl<S: Store> Journal<S> {
                 "trusted physical frontier missing or changed",
             ));
         }
-        // All validation, including the trusted prefix, precedes any mutation.
+        let recovery = Recovery {
+            records,
+            frontier,
+            discarded_tail_bytes: discarded,
+            seals,
+            observed_exec_epoch,
+        };
+        validate(&manifest.config, &recovery)?;
+        // Physical and application validation precede any mutation.
         if discarded > 0 {
             store.truncate_segment(last, position.offset)?;
         }
@@ -355,11 +395,6 @@ impl<S: Store> Journal<S> {
                 .ok_or(Error::Quarantined("manifest generation overflow"))?;
             store.publish_manifest(&manifest_bytes(&manifest)?)?;
         }
-        let recovery = Recovery {
-            records,
-            frontier,
-            discarded_tail_bytes: discarded,
-        };
         Ok((
             Self {
                 store,
@@ -514,6 +549,7 @@ impl<S: Store> Journal<S> {
             return Err(Error::Invalid("export sequence gap"));
         }
         let mut records = Vec::new();
+        let mut seals = Vec::new();
         let mut retained = 0usize;
         let mut full = false;
         let mut hash = [0; 32];
@@ -599,6 +635,26 @@ impl<S: Store> Journal<S> {
                                 && h.record_seq == seq
                                 && f.payload.is_empty() =>
                         {
+                            if records.first().is_some_and(|r| r.seq <= seq)
+                                && records.last().is_some_and(|r| r.seq > seq - count)
+                            {
+                                seals.push((
+                                    seq - count + 1,
+                                    PhysicalFrontier {
+                                        stream_epoch: self.manifest.config.stream_epoch,
+                                        domain: self.manifest.config.domain,
+                                        segment_id: id,
+                                        end_offset: (offset + f.total_len) as u64,
+                                        end_lsn: lsn
+                                            .checked_add(f.total_len as u64)
+                                            .ok_or(Error::Quarantined("export LSN"))?,
+                                        last_seq: seq,
+                                        exec_epoch: owner,
+                                        batch_number: number,
+                                        seal_hash: f.hash,
+                                    },
+                                ));
+                            }
                             batch = number;
                             epoch = owner;
                             open = None;
@@ -633,6 +689,7 @@ impl<S: Store> Journal<S> {
             config: self.manifest.config.clone(),
             frontier,
             records,
+            seals,
         })
     }
     /// Consumes the writer and keeps its storage lock. The returned owner has no
@@ -657,8 +714,19 @@ pub struct DurableExport {
     config: Config,
     frontier: Option<PhysicalFrontier>,
     records: Vec<Record>,
+    seals: Vec<(u64, PhysicalFrontier)>,
 }
 impl DurableExport {
+    /// Original containing seal for a record retained in this export.
+    pub fn record_frontier(&self, sequence: u64) -> Option<&PhysicalFrontier> {
+        if !self.records.iter().any(|r| r.seq == sequence) {
+            return None;
+        }
+        self.seals
+            .iter()
+            .find(|(first, end)| *first <= sequence && sequence <= end.last_seq)
+            .map(|(_, end)| end)
+    }
     pub fn config(&self) -> &Config {
         &self.config
     }

@@ -1,6 +1,7 @@
 //! Ordered prefix replication with complete local closure verification.
 #![forbid(unsafe_code)]
 mod cbor;
+mod association;
 mod handover;
 mod input;
 mod mirror;

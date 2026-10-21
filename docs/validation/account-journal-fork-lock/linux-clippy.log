@@ -1,7 +1,0 @@
-    Checking tickwire-venue v0.1.0 (/work/crates/tickwire-venue)
-    Checking tickwire-journal v0.1.0 (/work/crates/tickwire-journal)
-    Checking tickwire-recovery v0.1.0 (/work/crates/tickwire-recovery)
-    Checking tickwire-account v0.1.0 (/work/crates/tickwire-account)
-    Checking tickwire-account-codec v0.1.0 (/work/crates/tickwire-account-codec)
-    Checking tickwire-account-journal v0.1.0 (/work/crates/tickwire-account-journal)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 5.28s

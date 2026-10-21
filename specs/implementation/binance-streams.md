@@ -1,6 +1,6 @@
 # Binance 行情与私有事件解码规格
 
-实现位于 `tickwire-binance::feed` 和 `tickwire-binance::events`，接口见 [Binance 行情与私有事件解码](../../docs/implementation/binance-streams-interface.md)。它们消费 HTTP/WS 已分帧的消息；`tickwire-book`、`tickwire-venue` 和账户 owner 分别承担序列状态、规范事件与账户处理。
+实现位于 `tickwire-binance::feed` 和 `tickwire-binance::events`，接口见 Binance 行情与私有事件解码。它们消费 HTTP/WS 已分帧的消息；`tickwire-book`、`tickwire-venue` 和账户 owner 分别承担序列状态、规范事件与账户处理。
 
 ## 可检查契约
 
@@ -20,7 +20,7 @@
 
 ## TDD 与审阅
 
-每组初始失败都在接口已可编译后执行，日志保留于 [验证目录](../../docs/validation/binance-streams/report.md)。
+每组初始失败都在接口已可编译后执行，日志保留于 验证目录。
 
 | 顺序 | 失败断言 | 实现后覆盖 |
 |---|---|---|
@@ -33,7 +33,7 @@
 
 稀疏账户问题由独立源码/官方协议审阅发现，随后取得实际失败和修复日志。PnL 调整是显式兼容规则：官方生成模型标为 Optional，且说明该值属于成交；没有把旧严格处理宣称为已确认的线上故障。
 
-本阶段新增 33 项测试：11 项行情/元数据、18 项私有事件、2 项行情协议服务器和 2 项私有协议服务器。协议测试运行实际 TCP/TLS、HTTP 分块、WSS 升级及分片消息，调用同一生产解码器；行情输入进入真实 Book，私有输入进入 CanonicalEvent。已有请求、签名和回复分类测试一并回归。最终平台记录、源码哈希和独立审阅结果以 [验证报告](../../docs/validation/binance-streams/report.md) 为准。
+本阶段新增 33 项测试：11 项行情/元数据、18 项私有事件、2 项行情协议服务器和 2 项私有协议服务器。协议测试运行实际 TCP/TLS、HTTP 分块、WSS 升级及分片消息，调用同一生产解码器；行情输入进入真实 Book，私有输入进入 CanonicalEvent。已有请求、签名和回复分类测试一并回归。最终平台记录、源码哈希和独立审阅结果以 验证报告 为准。
 
 ## 后续接线
 

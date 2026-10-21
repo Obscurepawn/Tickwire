@@ -250,6 +250,9 @@ pub fn accept_offer(
     immutable: bool,
     now: u64,
 ) -> Result<OwnedFd> {
+    if h.required_features & !session.features() != 0 {
+        return Err(Error::Identity);
+    }
     let (bytes, mut fds) = packet.into_parts();
     let frame = session.validate(&bytes, now)?;
     if frame.envelope.opcode != 3

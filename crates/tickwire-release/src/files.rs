@@ -12,6 +12,18 @@ use std::{
 };
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct ObjectFile {
+    pub path: PathBuf,
+    pub object: Object,
+}
+impl ObjectFile {
+    pub fn read(&self) -> Result<Vec<u8>> {
+        read_object(&self.path, self.object)
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Location {
     pub role: Role,
     pub path: PathBuf,

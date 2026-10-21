@@ -1,3 +1,4 @@
+mod rebuild;
 use crate::wal::Wal;
 use crate::*;
 use std::collections::BTreeMap;
@@ -7,7 +8,7 @@ use tickwire_journal::{PhysicalFrontier, store::Store};
 pub struct MemberAuthority {
     pub member: Member,
     pub public_key: Hash,
-    pub readiness: Readiness,
+    pub readiness: Option<Readiness>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,12 +31,10 @@ impl CoordinatorConfig {
         for (expected, authority) in self.operation.members.iter().zip(&self.members) {
             if expected != &authority.member
                 || authority.public_key == [0; 32]
-                || [
-                    authority.readiness.checkpoint_digest,
-                    authority.readiness.orders_digest,
-                    authority.readiness.input_seal_digest,
-                ]
-                .contains(&[0; 32])
+                || (self.operation.schema != 4 && authority.readiness.is_none())
+                || authority.readiness.as_ref().is_some_and(|p| {
+                    [p.checkpoint_digest, p.orders_digest, p.input_seal_digest].contains(&[0; 32])
+                })
             {
                 return Err(Error::Identity);
             }
@@ -68,7 +67,11 @@ pub struct ApplyResult {
 #[derive(Clone)]
 struct Slot {
     latest: Option<AppliedReceipt>,
-    prepared: Option<SignedReceipt>,
+    prepared: Option<Hash>,
+    replay: Option<SignedReplayPrepared>,
+    rebuild: Option<SignedRebuildPrepared>,
+    prepare_challenge: Option<SignedControlRequest>,
+    refresh_required: bool,
     committed: Option<SignedReceipt>,
     released: Option<SignedReceipt>,
     queried: bool,
@@ -80,7 +83,7 @@ struct State {
     slots: Vec<Slot>,
     pending: Vec<SignedControlRequest>,
     pending_version: u64,
-    readiness: Vec<Readiness>,
+    readiness: Vec<Option<Readiness>>,
     release: Option<SignedGroupRelease>,
     seen: BTreeMap<Hash, ApplyResult>,
     last_ns: u64,
@@ -100,6 +103,38 @@ enum Event {
         version: u64,
         at_ns: u64,
         signed: SignedReceipt,
+    },
+    ReplayRefresh {
+        version: u64,
+        at_ns: u64,
+        member: Member,
+        request_digest: Hash,
+    },
+    ReplayPrepared {
+        version: u64,
+        at_ns: u64,
+        signed: SignedReplayPrepared,
+    },
+    ReplayObserved {
+        version: u64,
+        at_ns: u64,
+        signed: SignedReplayObserved,
+    },
+    RebuildRefresh {
+        version: u64,
+        at_ns: u64,
+        member: Member,
+        request_digest: Hash,
+    },
+    RebuildPrepared {
+        version: u64,
+        at_ns: u64,
+        signed: SignedRebuildPrepared,
+    },
+    RebuildObserved {
+        version: u64,
+        at_ns: u64,
+        signed: SignedRebuildObserved,
     },
     Resume {
         version: u64,
@@ -316,6 +351,111 @@ impl<S: Store> Coordinator<S> {
         }
         result
     }
+    pub fn refresh_replay(
+        &mut self,
+        member: &Member,
+        expected_version: u64,
+        now: MonoTime,
+    ) -> Result<ApplyResult> {
+        self.check_version(expected_version)?;
+        self.check_now(now, true)?;
+        let next = expected_version.checked_add(1).ok_or(Error::Capacity)?;
+        let request = self.replay_refresh_request(member, next)?;
+        self.commit(Event::ReplayRefresh {
+            version: next,
+            at_ns: now.nanos(),
+            member: member.clone(),
+            request_digest: request.digest(),
+        })
+    }
+    fn replay_refresh_request(&self, member: &Member, next: u64) -> Result<SignedControlRequest> {
+        if self.config.operation.schema != 3
+            || !matches!(
+                self.state.stage,
+                Stage::Preparing
+                    | Stage::PreparedAll
+                    | Stage::Committing
+                    | Stage::PartialCommitted
+                    | Stage::AwaitingResume
+            )
+        {
+            return Err(Error::Phase);
+        }
+        let i = self
+            .config
+            .members
+            .iter()
+            .position(|a| &a.member == member)
+            .ok_or(Error::Identity)?;
+        let slot = &self.state.slots[i];
+        if slot.committed.is_some()
+            || slot
+                .latest
+                .as_ref()
+                .is_none_or(|r| r.phase != AppliedPhase::Prepared)
+        {
+            return Err(Error::Phase);
+        }
+        let adopted = ReplayAdoption::from_receipt(slot.replay.as_ref().ok_or(Error::Missing)?)?;
+        self.signer.sign_request(&ControlRequest {
+            schema: 2,
+            coordinator_id: self.config.coordinator_id,
+            operation: self.config.operation.clone(),
+            member: member.clone(),
+            request_id: self.request_id(next, ControlAction::Prepare, member)?,
+            action: ControlAction::Prepare,
+            proof: Some(adopted.readiness.clone()),
+            release: None,
+            replay: Some(adopted),
+            rebuild: None,
+            valid_until_ns: member.valid_until_ns,
+        })
+    }
+    pub fn ingest_replay_observed(
+        &mut self,
+        signed: SignedReplayObserved,
+        expected_version: u64,
+        now: MonoTime,
+    ) -> Result<ApplyResult> {
+        if let Some(prior) = self.state.seen.get(&signed.digest()) {
+            let mut result = prior.clone();
+            result.duplicate = true;
+            return Ok(result);
+        }
+        self.check_version(expected_version)?;
+        self.check_now(now, true)?;
+        self.commit(Event::ReplayObserved {
+            version: expected_version.checked_add(1).ok_or(Error::Capacity)?,
+            at_ns: now.nanos(),
+            signed,
+        })
+    }
+    pub fn ingest_replay(
+        &mut self,
+        signed: SignedReplayPrepared,
+        expected_version: u64,
+        now: MonoTime,
+    ) -> Result<ApplyResult> {
+        if let Some(prior) = self.state.seen.get(&signed.digest()) {
+            let mut r = prior.clone();
+            r.duplicate = true;
+            return Ok(r);
+        }
+        self.check_version(expected_version)?;
+        self.check_now(now, true)?;
+        self.commit(Event::ReplayPrepared {
+            version: expected_version.checked_add(1).ok_or(Error::Capacity)?,
+            at_ns: now.nanos(),
+            signed,
+        })
+    }
+    fn prepared_refresh_request(&self, member: &Member, next: u64) -> Result<SignedControlRequest> {
+        match self.config.operation.schema {
+            3 => self.replay_refresh_request(member, next),
+            4 => self.rebuild_refresh_request(member, next),
+            _ => Err(Error::Phase),
+        }
+    }
     fn check_version(&self, expected: u64) -> Result<()> {
         if self.poisoned {
             return Err(Error::Store);
@@ -434,18 +574,36 @@ impl<S: Store> Coordinator<S> {
                 continue;
             }
             let request = ControlRequest {
-                schema: 1,
+                schema: control_schema(self.config.operation.schema),
                 coordinator_id: self.config.coordinator_id,
                 operation: self.config.operation.clone(),
                 member: a.member.clone(),
                 request_id: self.request_id(next, action, &a.member)?,
                 action,
                 proof: if matches!(action, ControlAction::Prepare | ControlAction::Commit) {
-                    Some(self.state.readiness[i].clone())
+                    self.state.readiness[i].clone()
                 } else {
                     None
                 },
                 release: release.clone(),
+                replay: if action == ControlAction::Commit {
+                    self.state.slots[i]
+                        .replay
+                        .as_ref()
+                        .map(ReplayAdoption::from_receipt)
+                        .transpose()?
+                } else {
+                    None
+                },
+                rebuild: if action == ControlAction::Commit {
+                    self.state.slots[i]
+                        .rebuild
+                        .as_ref()
+                        .map(RebuildAdoption::from_receipt)
+                        .transpose()?
+                } else {
+                    None
+                },
                 valid_until_ns: a.member.valid_until_ns,
             };
             requests.push(self.signer.sign_request(&request)?);
@@ -484,7 +642,9 @@ impl<S: Store> Coordinator<S> {
             .iter()
             .position(|a| &a.member == member)
             .ok_or(Error::Identity)?;
-        if self.state.slots[i].committed.is_some()
+        if self.state.slots[i].replay.is_some()
+            || self.state.slots[i].rebuild.is_some()
+            || self.state.slots[i].committed.is_some()
             || self.state.slots[i].latest.as_ref().is_some_and(|r| {
                 matches!(
                     r.phase,
@@ -504,7 +664,7 @@ impl<S: Store> Coordinator<S> {
             return Err(Error::Invalid);
         }
         self.signer.sign_request(&ControlRequest {
-            schema: 1,
+            schema: control_schema(self.config.operation.schema),
             coordinator_id: self.config.coordinator_id,
             operation: self.config.operation.clone(),
             member: member.clone(),
@@ -512,6 +672,8 @@ impl<S: Store> Coordinator<S> {
             action: ControlAction::Prepare,
             proof: Some(proof.clone()),
             release: None,
+            replay: None,
+            rebuild: None,
             valid_until_ns: member.valid_until_ns,
         })
     }
@@ -536,6 +698,12 @@ impl<S: Store> Coordinator<S> {
         let (version, at_ns) = match event {
             Event::Dispatch { version, at_ns, .. }
             | Event::Receipt { version, at_ns, .. }
+            | Event::ReplayPrepared { version, at_ns, .. }
+            | Event::ReplayObserved { version, at_ns, .. }
+            | Event::ReplayRefresh { version, at_ns, .. }
+            | Event::RebuildPrepared { version, at_ns, .. }
+            | Event::RebuildObserved { version, at_ns, .. }
+            | Event::RebuildRefresh { version, at_ns, .. }
             | Event::Resume { version, at_ns }
             | Event::Readiness { version, at_ns, .. } => (*version, *at_ns),
             Event::Config(_) => return Err(Error::Store),
@@ -574,7 +742,19 @@ impl<S: Store> Coordinator<S> {
                 self.state.pending = expected.0;
                 self.state.pending_version = version;
                 match action {
-                    ControlAction::Prepare => self.state.stage = Stage::Preparing,
+                    ControlAction::Prepare => {
+                        for request in &self.state.pending {
+                            let r: ControlRequest = decode_canonical(&request.payload)?;
+                            let i = self
+                                .config
+                                .members
+                                .iter()
+                                .position(|a| a.member == r.member)
+                                .ok_or(Error::Identity)?;
+                            self.state.slots[i].prepare_challenge = Some(request.clone());
+                        }
+                        self.state.stage = Stage::Preparing;
+                    }
                     ControlAction::Commit => {
                         self.state.stage = if self.state.pending.is_empty() {
                             Stage::CommittedAll
@@ -596,6 +776,47 @@ impl<S: Store> Coordinator<S> {
                 }
             }
             Event::Receipt { signed, .. } => self.apply_receipt(signed, version, now)?,
+            Event::ReplayPrepared { signed, .. } => self.apply_replay(signed, version, now)?,
+            Event::ReplayObserved { signed, .. } => self.apply_observed(signed, version, now)?,
+            Event::RebuildPrepared { signed, .. } => self.apply_rebuild(signed, version, now)?,
+            Event::RebuildObserved { signed, .. } => {
+                self.apply_rebuild_observed(signed, version, now)?
+            }
+            Event::ReplayRefresh {
+                member,
+                request_digest,
+                ..
+            }
+            | Event::RebuildRefresh {
+                member,
+                request_digest,
+                ..
+            } => {
+                self.check_now(now, true)?;
+                if matches!(event, Event::ReplayRefresh { .. })
+                    != (self.config.operation.schema == 3)
+                {
+                    return Err(Error::Identity);
+                }
+                let request = self.prepared_refresh_request(member, version)?;
+                if request.digest() != *request_digest {
+                    return Err(Error::Identity);
+                }
+                self.state.pending.retain(|p| {
+                    decode_canonical::<ControlRequest>(&p.payload)
+                        .is_ok_and(|r| r.member != *member)
+                });
+                let i = self
+                    .config
+                    .members
+                    .iter()
+                    .position(|a| &a.member == member)
+                    .ok_or(Error::Identity)?;
+                self.state.slots[i].prepare_challenge = Some(request.clone());
+                self.state.pending.push(request);
+                self.state.pending_version = version;
+                self.state.stage = Stage::Preparing;
+            }
             Event::Resume { .. } => {
                 self.check_now(now, true)?;
                 if self.state.stage != Stage::AwaitingResume
@@ -610,21 +831,43 @@ impl<S: Store> Coordinator<S> {
                 }) {
                     return Err(Error::Frozen);
                 }
-                self.state.stage = if self.state.slots.iter().all(|s| {
-                    s.latest
-                        .as_ref()
-                        .is_some_and(|r| r.phase == AppliedPhase::Released)
-                }) {
-                    Stage::ActiveAll
-                } else if self.state.slots.iter().all(|s| {
-                    s.latest.as_ref().is_some_and(|r| {
-                        matches!(r.phase, AppliedPhase::Committed | AppliedPhase::Released)
-                    })
-                }) {
-                    Stage::CommittedAll
+                let refresh = self
+                    .state
+                    .slots
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(i, s)| s.refresh_required.then_some(i))
+                    .collect::<Vec<_>>();
+                if !refresh.is_empty() {
+                    let requests = refresh
+                        .iter()
+                        .map(|i| {
+                            self.prepared_refresh_request(&self.config.members[*i].member, version)
+                        })
+                        .collect::<Result<Vec<_>>>()?;
+                    for (i, r) in refresh.into_iter().zip(&requests) {
+                        self.state.slots[i].prepare_challenge = Some(r.clone());
+                    }
+                    self.state.pending = requests;
+                    self.state.pending_version = version;
+                    self.state.stage = Stage::Preparing;
                 } else {
-                    Stage::PreparedAll
-                };
+                    self.state.stage = if self.state.slots.iter().all(|s| {
+                        s.latest
+                            .as_ref()
+                            .is_some_and(|r| r.phase == AppliedPhase::Released)
+                    }) {
+                        Stage::ActiveAll
+                    } else if self.state.slots.iter().all(|s| {
+                        s.latest.as_ref().is_some_and(|r| {
+                            matches!(r.phase, AppliedPhase::Committed | AppliedPhase::Released)
+                        })
+                    }) {
+                        Stage::CommittedAll
+                    } else {
+                        Stage::PreparedAll
+                    };
+                }
             }
             Event::Readiness {
                 member,
@@ -643,8 +886,9 @@ impl<S: Store> Coordinator<S> {
                     .iter()
                     .position(|a| &a.member == member)
                     .ok_or(Error::Identity)?;
-                self.state.readiness[i] = proof.clone();
+                self.state.readiness[i] = Some(proof.clone());
                 self.state.slots[i].prepared = None;
+                self.state.slots[i].prepare_challenge = Some(request.clone());
                 self.state.pending.retain(|p| {
                     decode_canonical::<ControlRequest>(&p.payload)
                         .is_ok_and(|r| r.member != *member)
@@ -658,6 +902,130 @@ impl<S: Store> Coordinator<S> {
         self.state.version = version;
         self.state.last_ns = at_ns;
         Ok(())
+    }
+    fn apply_replay(
+        &mut self,
+        signed: &SignedReplayPrepared,
+        version: u64,
+        now: MonoTime,
+    ) -> Result<()> {
+        let probe: ReplayPrepared = decode_canonical(&signed.payload)?;
+        let i = self
+            .config
+            .members
+            .iter()
+            .position(|a| a.member == probe.member)
+            .ok_or(Error::Identity)?;
+        let r = verify_replay_prepared(
+            signed,
+            self.config.members[i].public_key,
+            &self.config.operation,
+            now,
+        )?;
+        let pending = self
+            .state
+            .pending
+            .iter()
+            .position(|p| p == &r.challenge)
+            .ok_or(Error::Conflict)?;
+        let request = replay::validate(&r)?;
+        let slot = &mut self.state.slots[i];
+        if slot.committed.is_some()
+            || slot.latest.as_ref().is_some_and(|old| {
+                old.phase == AppliedPhase::Halted
+                    || r.state_version <= old.state_version
+                    || r.risk_gate_revision != old.risk_gate_revision
+            })
+        {
+            return Err(Error::Conflict);
+        }
+        match (&slot.replay, &request.replay) {
+            (Some(previous), Some(adopted))
+                if ReplayAdoption::from_receipt(previous)? == *adopted => {}
+            (None, None) if r.prepare == r.challenge => {}
+            _ => return Err(Error::Conflict),
+        }
+        // Internal phase projection only: this is never signed or returned as a
+        // legacy AppliedReceipt. The original installed proof remains in WAL.
+        slot.latest = Some(AppliedReceipt {
+            schema: 1,
+            operation_id: r.operation.operation_id,
+            operation_revision: r.operation.operation_revision,
+            members_digest: r.operation.members_digest()?,
+            logical_strategy_id: r.operation.logical_strategy_id,
+            member: r.member.clone(),
+            phase: AppliedPhase::Prepared,
+            state_version: r.state_version,
+            handover_sequence: 0,
+            handover_digest: [0; 32],
+            risk_gate_revision: r.risk_gate_revision,
+            control_request_id: request.request_id,
+            issued_ns: r.issued_ns,
+            valid_until_ns: r.valid_until_ns,
+        });
+        slot.prepared = Some(signed.digest());
+        slot.replay = Some(signed.clone());
+        slot.refresh_required = false;
+        self.state.readiness[i] = Some(r.readiness);
+        self.state.pending.remove(pending);
+        self.state.stage = self.applied_stage()?;
+        self.state.seen.insert(
+            signed.digest(),
+            ApplyResult {
+                version,
+                stage: self.state.stage,
+                duplicate: false,
+            },
+        );
+        Ok(())
+    }
+    fn apply_observed(
+        &mut self,
+        signed: &SignedReplayObserved,
+        version: u64,
+        now: MonoTime,
+    ) -> Result<()> {
+        let probe: ReplayObserved = decode_canonical(&signed.payload)?;
+        let i = self
+            .config
+            .members
+            .iter()
+            .position(|a| a.member == probe.applied.member)
+            .ok_or(Error::Identity)?;
+        let observed = verify_replay_observed(
+            signed,
+            self.config.members[i].public_key,
+            &self.config.operation,
+            now,
+        )?;
+        if !self.state.pending.contains(&observed.query) {
+            return Err(Error::Conflict);
+        }
+        let historical: ReplayPrepared = decode_canonical(&observed.prepared.payload)?;
+        let request = replay::validate(&historical)?;
+        let slot = &mut self.state.slots[i];
+        if slot.committed.is_some()
+            || slot
+                .latest
+                .as_ref()
+                .is_some_and(|p| p.phase == AppliedPhase::Halted)
+            || (slot.replay.as_ref() != Some(&observed.prepared)
+                && slot.prepare_challenge.as_ref() != Some(&historical.challenge))
+        {
+            return Err(Error::Conflict);
+        }
+        match (&slot.replay, &request.replay) {
+            (Some(previous), _) if previous == &observed.prepared => {}
+            (Some(previous), Some(adopted))
+                if ReplayAdoption::from_receipt(previous)? == *adopted => {}
+            (None, None) if historical.prepare == historical.challenge => {}
+            _ => return Err(Error::Conflict),
+        }
+        slot.prepared = Some(observed.prepared.digest());
+        slot.replay = Some(observed.prepared);
+        slot.refresh_required = true;
+        self.state.readiness[i] = Some(historical.readiness);
+        self.apply_receipt_value(observed.applied, signed.digest(), None, i, version)
     }
     fn apply_receipt(&mut self, signed: &SignedReceipt, version: u64, now: MonoTime) -> Result<()> {
         // Parse only to find a pinned key; no parsed field has authority yet.
@@ -674,6 +1042,16 @@ impl<S: Store> Coordinator<S> {
             &self.config.operation,
             now,
         )?;
+        self.apply_receipt_value(receipt, signed.digest(), Some(signed), index, version)
+    }
+    fn apply_receipt_value(
+        &mut self,
+        receipt: AppliedReceipt,
+        receipt_digest: Hash,
+        signed: Option<&SignedReceipt>,
+        index: usize,
+        version: u64,
+    ) -> Result<()> {
         let pending_index = self
             .state
             .pending
@@ -692,6 +1070,14 @@ impl<S: Store> Coordinator<S> {
             ControlAction::Halt => Some(AppliedPhase::Halted),
             ControlAction::QueryApplied => None,
         };
+        if matches!(self.config.operation.schema, 3 | 4)
+            && receipt.phase == AppliedPhase::Prepared
+            && (request.action != ControlAction::QueryApplied
+                || (self.state.slots[index].replay.is_none()
+                    && self.state.slots[index].rebuild.is_none()))
+        {
+            return Err(Error::Phase);
+        }
         if expected.is_some_and(|p| receipt.phase != p) {
             return Err(Error::Phase);
         }
@@ -741,25 +1127,35 @@ impl<S: Store> Coordinator<S> {
                 if slot.committed.is_some() {
                     return Err(Error::Conflict);
                 }
-                slot.prepared = Some(signed.clone());
+                if slot.replay.is_none() && slot.rebuild.is_none() {
+                    slot.prepared = Some(receipt_digest);
+                }
             }
             AppliedPhase::Committed => {
                 if slot.prepared.is_none() {
                     return Err(Error::Missing);
                 }
-                slot.committed = Some(signed.clone());
+                slot.committed = Some(signed.ok_or(Error::Missing)?.clone());
             }
             AppliedPhase::Released => {
                 if slot.committed.is_none() || self.state.release.is_none() {
                     return Err(Error::Missing);
                 }
-                slot.released = Some(signed.clone());
+                slot.released = Some(signed.ok_or(Error::Missing)?.clone());
             }
             AppliedPhase::Halted => {}
         }
         slot.latest = Some(receipt);
         if request.action == ControlAction::QueryApplied {
             slot.queried = true;
+            if matches!(self.config.operation.schema, 3 | 4)
+                && slot
+                    .latest
+                    .as_ref()
+                    .is_some_and(|r| r.phase == AppliedPhase::Prepared)
+            {
+                slot.refresh_required = true;
+            }
         }
         self.state.pending.remove(pending_index);
         if request.action == ControlAction::QueryApplied {
@@ -778,7 +1174,7 @@ impl<S: Store> Coordinator<S> {
             self.state.stage = self.applied_stage()?;
         }
         self.state.seen.insert(
-            signed.digest(),
+            receipt_digest,
             ApplyResult {
                 version,
                 stage: self.state.stage,
@@ -838,6 +1234,10 @@ impl State {
                 .map(|_| Slot {
                     latest: None,
                     prepared: None,
+                    replay: None,
+                    rebuild: None,
+                    prepare_challenge: None,
+                    refresh_required: false,
                     committed: None,
                     released: None,
                     queried: false,

@@ -84,12 +84,12 @@ assert len({x['id'] for x in s['messages']})==len(s['messages']);assert len({x['
 for name,c in s['message_constraints'].items():
  declared={f['name'] for f in layouts[c['body_layout']]['fields'] if not f.get('reserved')};assert set(c['allowed_fields'])<=declared
  if 'value_validity_allowed_mask'in c:assert c['value_validity_required_mask']&~c['value_validity_allowed_mask']==0
-# All local relative document links resolve, without changing unrelated files.
-import re
-text=(R/'docs/design/ipc-abi.md').read_text()
-for link in re.findall(r'\]\(([^)]+)\)',text):
- if '://' not in link:assert (R/'docs/design'/link.split('#')[0]).exists(),link
+# Note: relative-link validation for the ABI design doc lived here while the
+# doc existed under docs/design/. That directory has been removed; Markdown
+# link checking for specs/ and README/AGENTS now lives in
+# verify-documentation.py.
 import copy
+import re
 class SemanticError(Exception):pass
 def fail(code):raise SemanticError(code)
 def iszero(v):

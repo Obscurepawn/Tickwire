@@ -1,0 +1,21 @@
+[package]
+name = "tickwire-strategy-example"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[dependencies]
+tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
+tickwire-release = { path = "../tickwire-release" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-venue = { path = "../tickwire-venue" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-snapshot = { path = "../tickwire-snapshot" }

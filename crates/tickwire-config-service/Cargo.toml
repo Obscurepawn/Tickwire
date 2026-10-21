@@ -1,0 +1,26 @@
+[package]
+name = "tickwire-config-service"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+sha2 = "0.10"
+tickwire-control-raft = { path = "../tickwire-control-raft" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-config = { path = "../tickwire-config" }
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring"] }
+x509-parser = "=0.18.1"
+httparse = "=1.10.1"
+jsonschema = { version = "=0.59.0", default-features = false }
+serde_json = "=1.0.145"
+serde = { version = "1", features = ["derive"] }
+ring = "=0.17.14"
+
+[dev-dependencies]
+rcgen = "=0.14.10"
+time = "=0.3.55"
+
+[lints]
+workspace = true

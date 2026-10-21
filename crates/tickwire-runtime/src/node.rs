@@ -70,6 +70,173 @@ pub struct HandoverReadiness {
     pub ledger_sequence: u64,
     pub input_seal_digest: [u8; 32],
 }
+/// Installation-stage evidence from a qualified Host. This is not a completed
+/// release preflight: the C-state rollback probe must still succeed separately.
+pub struct InstalledReplay {
+    root: tickwire_release::Object,
+    verified: tickwire_release::replay::install::Verified,
+    readiness: HandoverReadiness,
+    worker_pid: u32,
+    objects: Vec<Vec<u8>>,
+}
+impl InstalledReplay {
+    /// The adapter must first authenticate 42/37 against its owned child and
+    /// registered report cursor. Content is independently checked here.
+    pub fn from_authenticated_child(
+        root: tickwire_release::Object,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+        readiness: HandoverReadiness,
+        worker_pid: u32,
+        objects: Vec<Vec<u8>>,
+    ) -> tickwire_release::Result<Self> {
+        use tickwire_release::{Error, Object};
+        if worker_pid == 0 || objects.len() > 512 {
+            return Err(Error::Bounds);
+        }
+        let mut total = 0usize;
+        let mut map = std::collections::BTreeMap::new();
+        for bytes in objects {
+            total = total
+                .checked_add(bytes.len())
+                .filter(|n| *n <= tickwire_recovery::MAX_CLOSURE_BYTES as usize)
+                .ok_or(Error::Bounds)?;
+            map.insert(Object::of(&bytes).digest, bytes);
+        }
+        let get = |hash: [u8; 32]| map.get(&hash).cloned().ok_or(Error::Missing);
+        root.verify(
+            &get(root.digest)?,
+            tickwire_release::replay::MAX_BYTES as u64,
+        )?;
+        let verified = tickwire_release::replay::install::verify(root.digest, get)?;
+        if verified.request.source_completion != source.root()
+            || verified.request.operation != source.completion().operation
+            || verified.request.member != source.completion().member
+            || readiness.instance_id != verified.request.target.instance
+            || readiness.strategy_generation != verified.request.target.generation
+        {
+            return Err(Error::Identity);
+        }
+        let seal = tickwire_recovery::HandoverSeal::decode(&get(readiness.input_seal_digest)?)
+            .map_err(|_| Error::Identity)?;
+        if seal.checkpoint_digest != readiness.checkpoint_digest
+            || seal.report_position != readiness.exec_report_sequence
+            || seal.ledger_sequence != readiness.ledger_sequence
+            || seal.orders_digest != readiness.orders_digest
+        {
+            return Err(Error::Identity);
+        }
+        verified.bind_seal(
+            &seal,
+            &get(seal.checkpoint_digest)?,
+            &get(seal.input_digest)?,
+        )?;
+        tickwire_release::replay::startup::verify_seal(
+            &seal,
+            &get(seal.checkpoint_digest)?,
+            &get(seal.input_digest)?,
+            get,
+        )?;
+        Ok(Self {
+            root,
+            verified,
+            readiness,
+            worker_pid,
+            objects: map.into_values().collect(),
+        })
+    }
+    pub fn root(&self) -> tickwire_release::Object {
+        self.root
+    }
+    pub fn verified(&self) -> &tickwire_release::replay::install::Verified {
+        &self.verified
+    }
+    pub fn readiness(&self) -> &HandoverReadiness {
+        &self.readiness
+    }
+    pub fn worker_pid(&self) -> u32 {
+        self.worker_pid
+    }
+    pub fn objects(&self) -> &[Vec<u8>] {
+        &self.objects
+    }
+}
+/// Actual installation followed by an owned C-state rollback probe and a fresh
+/// authenticated target READY containing that exact durable completion root.
+pub struct PreparedReplay {
+    installed: InstalledReplay,
+    root: tickwire_release::Object,
+    readiness: HandoverReadiness,
+    objects: Vec<Vec<u8>>,
+}
+impl PreparedReplay {
+    pub fn from_authenticated_ready(
+        installed: InstalledReplay,
+        root: tickwire_release::Object,
+        readiness: HandoverReadiness,
+        objects: Vec<Vec<u8>>,
+    ) -> tickwire_release::Result<Self> {
+        use tickwire_release::{Error, Object};
+        if objects.len() > 512 {
+            return Err(Error::Bounds);
+        }
+        let mut total = 0usize;
+        let mut map = std::collections::BTreeMap::new();
+        for bytes in objects {
+            total = total
+                .checked_add(bytes.len())
+                .filter(|n| *n <= tickwire_recovery::MAX_CLOSURE_BYTES as usize)
+                .ok_or(Error::Bounds)?;
+            map.insert(Object::of(&bytes).digest, bytes);
+        }
+        let get = |h| map.get(&h).cloned().ok_or(Error::Missing);
+        root.verify(
+            &get(root.digest)?,
+            tickwire_release::replay::MAX_BYTES as u64,
+        )?;
+        let done = tickwire_release::replay::rollback::verify(root.digest, get)?;
+        if done.receipt.installation != installed.root
+            || done.installation.request != installed.verified.request
+        {
+            return Err(Error::Identity);
+        }
+        let seal = tickwire_recovery::HandoverSeal::decode(&get(readiness.input_seal_digest)?)
+            .map_err(|_| Error::Identity)?;
+        if seal.replay_rollback_digest != Some(root.digest)
+            || seal.instance != readiness.instance_id
+            || seal.generation != readiness.strategy_generation
+            || seal.checkpoint_digest != readiness.checkpoint_digest
+            || seal.report_position != readiness.exec_report_sequence
+            || seal.ledger_sequence != readiness.ledger_sequence
+            || seal.orders_digest != readiness.orders_digest
+        {
+            return Err(Error::Identity);
+        }
+        tickwire_release::replay::startup::verify_seal(
+            &seal,
+            &get(seal.checkpoint_digest)?,
+            &get(seal.input_digest)?,
+            get,
+        )?;
+        Ok(Self {
+            installed,
+            root,
+            readiness,
+            objects: map.into_values().collect(),
+        })
+    }
+    pub fn installed(&self) -> &InstalledReplay {
+        &self.installed
+    }
+    pub fn root(&self) -> tickwire_release::Object {
+        self.root
+    }
+    pub fn readiness(&self) -> &HandoverReadiness {
+        &self.readiness
+    }
+    pub fn objects(&self) -> &[Vec<u8>] {
+        &self.objects
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StrategySwitch {
     pub logical_strategy_id: u64,
@@ -121,6 +288,25 @@ pub trait Strategy {
         _instance: [u8; 16],
         _generation: u64,
     ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
+        None
+    }
+    /// Host-observed execution of the registered old binary over the complete
+    /// retained S→C tail. Unsupported adapters never synthesize this evidence.
+    fn handover_replay_source(
+        &mut self,
+        _operation: &tickwire_release::Operation,
+        _member: &tickwire_release::Member,
+        _fixed: &HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        None
+    }
+    fn handover_install_replay(
+        &mut self,
+        _source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<InstalledReplay> {
+        None
+    }
+    fn handover_finish_replay(&mut self, _installed: InstalledReplay) -> Option<PreparedReplay> {
         None
     }
     /// Synchronized preflight evidence for exactly these three immutable roots.
@@ -192,6 +378,15 @@ pub trait Strategy {
     fn on_health(&mut self, _health: Health, _now: LocalTime) {}
 }
 impl<T: Strategy + ?Sized> Strategy for Box<T> {
+    fn handover_finish_replay(&mut self, installed: InstalledReplay) -> Option<PreparedReplay> {
+        (**self).handover_finish_replay(installed)
+    }
+    fn handover_install_replay(
+        &mut self,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<InstalledReplay> {
+        (**self).handover_install_replay(source)
+    }
     fn handover_ready(&mut self, r: &HandoverReadiness) -> bool {
         (**self).handover_ready(r)
     }
@@ -204,6 +399,14 @@ impl<T: Strategy + ?Sized> Strategy for Box<T> {
         generation: u64,
     ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
         (**self).handover_checkpoint(instance, generation)
+    }
+    fn handover_replay_source(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: &HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        (**self).handover_replay_source(operation, member, fixed)
     }
     fn release_preflight(
         &mut self,
@@ -513,6 +716,14 @@ where
     pub fn rest(&self) -> &RestOwner<IS, AS, A, E> {
         &self.rest
     }
+    /// Reconnect may sample the shared clock/quota itself; do not hold its RefCell borrow here.
+    pub fn with_trading_owner<T>(
+        &mut self,
+        operation: impl FnOnce(&mut RestOwner<IS, AS, A, E>) -> T,
+    ) -> T {
+        operation(&mut self.rest)
+    }
+
     pub fn session(&self) -> &SharedSessionState<BinanceTimeClient<TC>, DB> {
         &self.session
     }
@@ -765,7 +976,7 @@ where
             return Err(Error::Strategy);
         }
         for _ in 0..self.config.maximum_commands_per_turn {
-            if self.rest.busy() {
+            if !self.rest.submission_ready() {
                 break;
             }
             // Prior submissions may synchronize recovery data and sample the

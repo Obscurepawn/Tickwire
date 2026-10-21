@@ -56,6 +56,15 @@ pub(super) fn bind(
                 .ok_or(Error::Identity)?;
             (s.side, s.position_side)
         }
+        v::CommandBody::Algo(algo)
+            if identity.parent_order_id == Some(algo.parent_order_id)
+                && identity.algo_client_id.as_ref() == Some(&algo.order.client_id)
+                && identity.client_id.as_ref() == Some(&algo.order.client_id)
+                && identity.venue_algo_id.is_some()
+                && identity.venue_order_id.is_some() =>
+        {
+            (algo.order.side, algo.order.position_side)
+        }
         _ => return Err(Error::Unsupported),
     };
     let mut previous = None;
@@ -253,6 +262,52 @@ mod tests {
         assert!(fill.realized_pnl.is_some());
     }
     #[test]
+    fn algo_trade_query_uses_original_potential_leg_and_exact_native_child() {
+        let (command, mut identity, assets, query) = setup(true);
+        let mut command = command.command().clone();
+        let v::CommandBody::New(mut order) = command.body.clone() else {
+            unreachable!()
+        };
+        order.order_type = v::OrderType::StopLimit;
+        order.trigger = Some(v::Trigger {
+            price: v::Decimal::new(110, 0).unwrap(),
+            working_price: v::WorkingPrice::Contract,
+            price_protect: false,
+        });
+        command.body = v::CommandBody::Algo(v::AlgoOrder {
+            parent_order_id: [73; 16],
+            order,
+        });
+        let command = CanonicalCommand::new(command).unwrap();
+        identity.parent_order_id = Some([73; 16]);
+        identity.venue_algo_id = Some(v::VenueOrderId::new("55").unwrap());
+        identity.algo_client_id = identity.client_id.clone();
+        let raw = std::str::from_utf8(SPOT).unwrap().replace(
+            "\"time\":100",
+            "\"time\":100,\"side\":\"BUY\",\"positionSide\":\"BOTH\",\"realizedPnl\":\"0\"",
+        );
+        let events = bind(&command, &identity, &assets, query, 9, 100, raw.as_bytes()).unwrap();
+        let v::VenueEventBody::Fill(fill) = &events[0].event().body else {
+            panic!()
+        };
+        assert_eq!(fill.observation.order, identity);
+        assert_eq!(fill.fees.as_slice()[0].amount, "-0.03".parse().unwrap());
+        assert_eq!(fill.observation.cumulative_quantity, None);
+        let wrong = raw.replace("\"orderId\":77", "\"orderId\":78");
+        assert!(
+            bind(
+                &command,
+                &identity,
+                &assets,
+                query,
+                9,
+                100,
+                wrong.as_bytes()
+            )
+            .is_err()
+        );
+    }
+    #[test]
     fn raw_response_and_trade_query_round_trip_together() {
         let (c, id, a, q) = setup(false);
         let events = bind(&c, &id, &a, q, 9, 100, SPOT).unwrap();
@@ -260,6 +315,9 @@ mod tests {
             command: c,
             query: Some(q),
             order_query: None,
+            amendment_query: None,
+            structure_query: None,
+            structure_domain: None,
             epoch: 9,
             received: 100,
             status: 200,

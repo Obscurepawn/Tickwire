@@ -780,3 +780,90 @@ fn layout_checkpointsealreplybody() {
         raw[i] = 0;
     }
 }
+#[test]
+fn layout_decimalwire() {
+    let value = DecimalWire::default();
+    let mut raw = vec![0xCC; 24];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(DecimalWire::decode(&raw).unwrap(), value);
+    for length in [0, 23, 25] {
+        assert_eq!(DecimalWire::decode(&vec![0; length]), Err(Error::Bounds));
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 17..24 {
+        raw[i] = 1;
+        assert_eq!(DecimalWire::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_marketexactbody() {
+    let value = MarketExactBody::default();
+    let mut raw = vec![0xCC; 384];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(MarketExactBody::decode(&raw).unwrap(), value);
+    for length in [0, 383, 385] {
+        assert_eq!(
+            MarketExactBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 262..384 {
+        raw[i] = 1;
+        assert_eq!(MarketExactBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_marketexactrecord() {
+    let value = MarketExactRecord::default();
+    let mut raw = vec![0xCC; 512];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(MarketExactRecord::decode(&raw).unwrap(), value);
+    for length in [0, 511, 513] {
+        assert_eq!(
+            MarketExactRecord::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+}
+#[test]
+fn layout_replaycontrolbody() {
+    let value = ReplayControlBody::default();
+    let mut raw = vec![0xCC; 256];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(ReplayControlBody::decode(&raw).unwrap(), value);
+    for length in [0, 255, 257] {
+        assert_eq!(
+            ReplayControlBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 164..256 {
+        raw[i] = 1;
+        assert_eq!(ReplayControlBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_replayappliedbody() {
+    let value = ReplayAppliedBody::default();
+    let mut raw = vec![0xCC; 256];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(ReplayAppliedBody::decode(&raw).unwrap(), value);
+    for length in [0, 255, 257] {
+        assert_eq!(
+            ReplayAppliedBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 164..256 {
+        raw[i] = 1;
+        assert_eq!(ReplayAppliedBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}

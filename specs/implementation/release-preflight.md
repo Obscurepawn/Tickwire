@@ -8,4 +8,4 @@ Loader 核对签名清单所指向的实际 HostConfig/Bootstrap、RecoveryTempl
 
 本地恢复和复制端共用 `tickwire-release::closure` 验证器，递归验证 Completion、两份回执、目标/回滚输出以及固定来源的完整账户回调。保留 v1 历史字节读取，新 Prepare 明确返回 PreflightRequired；exec 重启不会从历史文件重造活进程资格。单次闭包最多 256 个不同对象、沿来源最多 16 层，并受恢复闭包字节上限限制。
 
-真实 Red/Green、定向编译和单元结果见[验证记录](../../docs/validation/release-preflight/README.md)。完整 schema2 进程场景由现有 lab 正在接入。泛型策略的行情/定时器/配置合并输入尾部重放尚未实现；当前内置策略使用 quiesce 后业务字节不变的明确条件，没有用账户追平代替完整尾部重放。
+真实 Red/Green、定向编译和单元结果见验证记录。完整 schema2 进程场景由现有 lab 正在接入。泛型策略的行情/定时器/配置合并输入尾部重放尚未实现；当前内置策略使用 quiesce 后业务字节不变的明确条件，没有用账户追平代替完整尾部重放。

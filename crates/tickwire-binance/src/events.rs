@@ -7,7 +7,9 @@ use tickwire_venue as v;
 
 mod binding;
 mod decode;
+mod structure;
 pub use binding::bind_order;
+pub use structure::{bind_structure, bind_structure_response};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SessionIdentity {

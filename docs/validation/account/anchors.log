@@ -1,6 +1,0 @@
-  ok execution_models/account/L0_spot_facts: 665 line anchor(s) -> execution_models/account/L0_spot_facts/02_models/anchors.lock
-  ok execution_models/account/L1_reduce_shadow: 858 line anchor(s) -> execution_models/account/L1_reduce_shadow/02_models/anchors.lock
-anchors.sh update: baselined 2 level(s); 1523 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)
-
-anchors.sh check: 1523 anchor line(s) across 2 lock(s); 0 changed
-no drift — cited lines unchanged since baseline

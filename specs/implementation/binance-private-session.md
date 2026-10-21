@@ -1,6 +1,6 @@
 # Binance 私有流会话规格
 
-实现：[tickwire-binance-private](../../crates/tickwire-binance-private/src/lib.rs)。公共签名及官方协议依据见[接口文档](../../docs/implementation/binance-private-session-interface.md)。
+实现：[tickwire-binance-private](../../crates/tickwire-binance-private/src/lib.rs)。公共签名及官方协议依据见接口文档。
 
 ## 身份和状态
 
@@ -42,6 +42,6 @@ ControlPermit 覆盖连接尝试、Upgrade、API 请求权重、Pong/Close 帧�
 
 ## 验证对应
 
-[验证目录](../../docs/validation/binance-private-session/README.md)保存可编译接口行为 Red、实现 Green、独立审阅发现的三个网络边界修复、typed clock 迁移前源码及迁移后的实际日志。协议服务器使用正常测试 CA，在真实 TCP/TLS/HTTP/WSS 上独立验签、注入回复与断连。单元测试使用显式校准器构造 SignedTime，没有 SystemTime 默认校准。
+验证目录保存可编译接口行为 Red、实现 Green、独立审阅发现的三个网络边界修复、typed clock 迁移前源码及迁移后的实际日志。协议服务器使用正常测试 CA，在真实 TCP/TLS/HTTP/WSS 上独立验签、注入回复与断连。单元测试使用显式校准器构造 SignedTime，没有 SystemTime 默认校准。
 
 形式阶梯只验证其 00/05 文档列出的状态迁移、令牌和完成边界。密码学、TLS 内存模型、交易所事实完整性、账户恢复与共享限流算法不进入会话状态模型；这些接口在对应模块验收。

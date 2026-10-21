@@ -33,7 +33,19 @@ impl Account {
         if id.instrument_version != p.instrument.instrument_version || id.product != p.product {
             return Err(Error::Catalog);
         }
+        if let v::VenueEventBody::Structure(s) = &event.body {
+            return self.observe_structure(s, id.instrument_id);
+        }
+        if let v::VenueEventBody::Amendment(a) = &event.body {
+            return self.observe_amendment(a, id.instrument_id);
+        }
+        if let v::VenueEventBody::AmendmentRejected(a) = &event.body {
+            return self.reject_amendment(a, id.instrument_id);
+        }
         let identity = match &event.body {
+            v::VenueEventBody::Structure(_) => return Err(Error::Unreconciled),
+            v::VenueEventBody::Amendment(_) => return Err(Error::Unreconciled),
+            v::VenueEventBody::AmendmentRejected(_) => return Err(Error::Unreconciled),
             v::VenueEventBody::Fill(fill) => &fill.observation.order,
             v::VenueEventBody::Order(o) => &o.order,
             v::VenueEventBody::Fee { order, .. } => order,
@@ -99,7 +111,7 @@ impl Account {
                 self.observe(&key, &fill.observation)?;
             }
             v::VenueEventBody::Fee { deltas, .. } => {
-                self.mark_economic(&key);
+                self.mark_economic(&key)?;
                 for delta in deltas.as_slice() {
                     self.apply_fee(&key, &p, delta)?;
                 }
@@ -140,7 +152,7 @@ impl Account {
         }
         Ok(matches[0].key.clone())
     }
-    fn bind_native(&mut self, key: &OrderKey, id: &v::OrderIdentity) -> Result<()> {
+    pub(super) fn bind_native(&mut self, key: &OrderKey, id: &v::OrderIdentity) -> Result<()> {
         let o = self.orders.get_mut(key).unwrap();
         if let Some(native) = &id.venue_order_id {
             if o.native.as_ref().is_some_and(|old| old != native) {
@@ -156,14 +168,14 @@ impl Account {
         }
         Ok(())
     }
-    fn mark_economic(&mut self, key: &OrderKey) {
+    fn mark_economic(&mut self, key: &OrderKey) -> Result<()> {
         let o = self.orders.get_mut(key).unwrap();
-        if o.aborted || o.fees_closed {
+        if o.reopen_aborted()? || o.fees_closed {
             self.frozen = true;
-            o.aborted = false;
             o.fees_closed = false;
         }
         o.economic = true;
+        Ok(())
     }
     fn apply_fill(
         &mut self,
@@ -181,7 +193,7 @@ impl Account {
         q.positive()?;
         let price = exact_decimal(fill.last_price, o.price.scale())?;
         price.positive()?;
-        self.mark_economic(key);
+        self.mark_economic(key)?;
         let count = self
             .facts
             .keys()
@@ -191,7 +203,7 @@ impl Account {
             self.frozen = true;
         }
         let filled = o.filled.checked_add(q)?;
-        if filled.atoms() > o.original.atoms()
+        if filled.atoms() > o.effective.atoms()
             || o.terminal_cumulative
                 .is_some_and(|cum| filled.atoms() > cum.atoms())
             || (o.spec.side == v::Side::Buy && price.atoms() > o.price.atoms())
@@ -274,7 +286,7 @@ impl Account {
             let current = self.orders.get_mut(key).unwrap();
             current.filled = filled;
             current.notional = o.notional.checked_add(notional)?;
-            current.reduce = o.reduce.checked_sub(q)?.positive_part();
+            current.reduce = current.reduce.checked_sub(q)?.positive_part();
         }
         for delta in fill.fees.as_slice() {
             self.apply_fee(key, p, delta)?;
@@ -355,15 +367,31 @@ impl Account {
             .insert(wallet, old.checked_add(amount)?);
         Ok(())
     }
-    fn observe(&mut self, key: &OrderKey, observation: &v::OrderObservation) -> Result<()> {
+    pub(super) fn observe(
+        &mut self,
+        key: &OrderKey,
+        observation: &v::OrderObservation,
+    ) -> Result<()> {
+        let amended = self
+            .amendments
+            .values()
+            .any(|a| a.order == *key && a.confirmed);
+        if let Some(q) = observation.original_quantity
+            && !self.known_order_quantity(key, exact_decimal(q, self.orders[key].original.scale())?)
+        {
+            return Err(Error::Conflict);
+        }
         let o = self.orders.get_mut(key).unwrap();
         if observation.side != o.spec.side || observation.position_side != o.spec.position_side {
             return Err(Error::Identity);
         }
-        if let Some(q) = observation.original_quantity
-            && exact_decimal(q, o.original.scale())? != o.original
-        {
-            return Err(Error::Conflict);
+        if amended && let Some(cum) = observation.cumulative_quantity {
+            let cum = exact_decimal(cum, o.original.scale())?;
+            o.observed_cumulative = o.observed_cumulative.max(cum)?;
+            if cum.atoms() > o.filled.atoms() || cum.atoms() > o.effective.atoms() {
+                o.observation_unreconciled = true;
+                self.frozen = true;
+            }
         }
         if matches!(
             observation.status,
@@ -376,9 +404,7 @@ impl Account {
         ) || observation.order.venue_order_id.is_some()
         {
             o.confirmed = true;
-            if o.aborted {
-                o.aborted = false;
-                o.fees_closed = false;
+            if o.reopen_aborted()? {
                 self.frozen = true;
             }
         }
@@ -397,7 +423,7 @@ impl Account {
             o.terminal = true;
             if let Some(cum) = observation.cumulative_quantity {
                 let cum = exact_decimal(cum, o.original.scale())?;
-                if cum.atoms() < o.filled.atoms() || cum.atoms() > o.original.atoms() {
+                if cum.atoms() < o.filled.atoms() || cum.atoms() > o.effective.atoms() {
                     o.observation_unreconciled = true;
                     self.frozen = true;
                 }
@@ -480,7 +506,7 @@ impl Account {
         }
         Ok(())
     }
-    fn check_reduce_consistency(&mut self) -> Result<()> {
+    pub(super) fn check_reduce_consistency(&mut self) -> Result<()> {
         let mut allocated: BTreeMap<(u64, u8), Fixed> = BTreeMap::new();
         for o in self.orders.values() {
             let key = (o.instrument, side_code(o.spec.position_side));

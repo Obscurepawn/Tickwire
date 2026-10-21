@@ -150,6 +150,14 @@ pub fn objects(root: &Path, b: &HandoverReadyBody) -> Result<([u8; 32], Vec<Vec<
         }
         out.extend(verified.objects);
     }
+    if seal.version == 3 {
+        let objects =
+            tickwire_release::replay::startup::verify_seal(&seal, &out[1], &out[2], |h| {
+                object(root, h, None).map_err(|_| tickwire_release::Error::Missing)
+            })?;
+        out.extend(objects);
+    }
+
     if out.iter().map(Vec::len).sum::<usize>() > tickwire_recovery::MAX_CLOSURE_BYTES as usize {
         return Err(Error::Bounds);
     }
@@ -241,6 +249,9 @@ mod tests {
         let dep = put(baseline.bytes());
         let mut seal = InputSeal {
             preflight_receipt_digest: None,
+            replay_installation_digest: None,
+            replay_restore_digest: None,
+            replay_rollback_digest: None,
             version: 1,
             owner: body.instance_id,
             instance: body.instance_id,
@@ -330,6 +341,9 @@ mod tests {
         bytes.extend([1, 2, 3]);
         let seal = InputSeal {
             preflight_receipt_digest: None,
+            replay_installation_digest: None,
+            replay_restore_digest: None,
+            replay_rollback_digest: None,
             version: 1,
             owner: b.instance_id,
             instance: b.instance_id,

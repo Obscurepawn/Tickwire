@@ -50,13 +50,13 @@ pub(crate) fn verify_snapshot_with_orders(
     {
         return Err(Error::Capacity);
     }
-    empty_orders(conditional_orders_body)?;
+    let waiting = conditional_orders(market, baseline, account, conditional_orders_body, registry)?;
     if account.rejected_event().is_some()
         || account.account_epoch() != baseline.snapshot().account_epoch
     {
         return Err(Error::Conflict);
     }
-    ordinary_orders(market, account, open_orders_body, registry)?;
+    ordinary_orders(market, account, open_orders_body, registry, &waiting)?;
     // One REST account has one value per asset symbol. Ambiguous local wallets
     // cannot be reconciled by copying that remote value into multiple balances.
     let mut symbols = BTreeSet::new();
@@ -110,11 +110,106 @@ struct OpenOrder<'a> {
     reduce_only: Option<bool>,
     order_list_id: Option<i64>,
 }
+fn conditional_orders(
+    market: Market,
+    baseline: &CanonicalBaseline,
+    account: &Account,
+    body: &[u8],
+    registry: &BTreeMap<IntentKey, Registration>,
+) -> Result<BTreeSet<OrderKey>> {
+    let rows: Vec<&serde_json::value::RawValue> =
+        serde_json::from_slice(body).map_err(|_| Error::Encoding)?;
+    if rows.len() > MAX_ROWS {
+        return Err(Error::Capacity);
+    }
+    let scope = &baseline.snapshot().scope;
+    let session = tickwire_binance::events::SessionIdentity {
+        risk_domain_id: scope.risk_domain_id,
+        venue: scope.venue,
+        environment: scope.environment,
+        account: scope.account,
+        connection_epoch: 1,
+    };
+    let mut seen = BTreeSet::new();
+    let mut waiting = BTreeSet::new();
+    for row in rows {
+        let mut found = None;
+        for reg in registry.values() {
+            let Ok(event) = tickwire_binance::events::bind_structure_response(
+                &session,
+                market,
+                &reg.command,
+                &reg.orders,
+                row.get().as_bytes(),
+                0,
+            ) else {
+                continue;
+            };
+            if found.is_some() {
+                return Err(Error::Identity);
+            }
+            found = Some(event);
+        }
+        let event = found.ok_or(Error::Identity)?;
+        let v::VenueEventBody::Structure(parent) = &event.event().body else {
+            return Err(Error::Identity);
+        };
+        let known = account
+            .structure(&parent.parent.structure_id)
+            .ok_or(Error::Identity)?;
+        if !seen.insert(known.structure_id)
+            || known.terminal
+            || !known.confirmed
+            || known.venue_parent_id != parent.parent.venue_parent_id
+            || known.intent.epoch != parent.parent.original_intent_exec_epoch
+            || known.intent.intent_id != parent.parent.original_intent_id
+            || !matches!(
+                parent.status,
+                v::StructureStatus::Live
+                    | v::StructureStatus::Pending
+                    | v::StructureStatus::Triggered
+            )
+            || known.children.len() != parent.children.as_slice().len()
+            || parent
+                .children
+                .as_slice()
+                .iter()
+                .any(|c| !known.children.iter().any(|old| old.order == c.order))
+        {
+            return Err(Error::Identity);
+        }
+        if known.kind == v::StructureKind::Algo && !known.triggered && known.children.is_empty() {
+            for key in known.legs {
+                let order = account.order(&key).ok_or(Error::Identity)?;
+                if order.aborted
+                    || order.uncreated
+                    || order.terminal
+                    || order.filled_quantity.atoms() != 0
+                {
+                    return Err(Error::Conflict);
+                }
+                waiting.insert(key);
+            }
+        }
+    }
+    for parent in account.structures() {
+        if !parent.terminal
+            && parent.confirmed
+            && (parent.kind != v::StructureKind::Algo || !parent.triggered)
+            && !seen.contains(&parent.structure_id)
+        {
+            return Err(Error::Conflict);
+        }
+    }
+    Ok(waiting)
+}
+
 fn ordinary_orders(
     market: Market,
     account: &Account,
     body: &[u8],
     registry: &BTreeMap<IntentKey, Registration>,
+    waiting: &BTreeSet<OrderKey>,
 ) -> Result<()> {
     let rows: Vec<OpenOrder<'_>> = serde_json::from_slice(body).map_err(|_| Error::Encoding)?;
     if rows.len() > MAX_ROWS {
@@ -125,7 +220,7 @@ fn ordinary_orders(
     for row in rows {
         if row.order_id > i64::MAX as u64
             || !native.insert((row.symbol, row.order_id))
-            || !matches!(row.status, "NEW" | "PARTIALLY_FILLED")
+            || !matches!(row.status, "NEW" | "PARTIALLY_FILLED" | "PENDING_NEW")
         {
             return Err(Error::Conflict);
         }
@@ -133,9 +228,13 @@ fn ordinary_orders(
             (reg.command.command().context.instrument.symbol.as_str() == row.symbol)
                 .then_some(())?;
             let index = reg.orders.iter().position(|o| {
-                o.client_id
+                o.venue_order_id
                     .as_ref()
-                    .is_some_and(|id| id.as_str() == row.client_order_id)
+                    .is_some_and(|id| id.as_str() == row.order_id.to_string())
+                    && (o.venue_algo_id.is_some()
+                        || o.client_id
+                            .as_ref()
+                            .is_some_and(|id| id.as_str() == row.client_order_id))
             })?;
             Some((*intent, reg, index))
         });
@@ -154,14 +253,19 @@ fn ordinary_orders(
                 .as_ref()
                 .and_then(|id| id.as_str().parse::<u64>().ok())
                 != Some(row.order_id)
-            || id.list_id.is_some()
-            || id.venue_algo_id.is_some()
-            || row.order_list_id.is_some_and(|n| n != -1)
+            || if id.list_id.is_some() {
+                id.venue_list_id
+                    .as_ref()
+                    .and_then(|s| s.as_str().parse::<i64>().ok())
+                    != row.order_list_id
+            } else {
+                row.order_list_id.is_some_and(|n| n != -1)
+            }
         {
             return Err(Error::Identity);
         }
         let order = account.order(&key).ok_or(Error::Identity)?;
-        if order.aborted || order.terminal || !order.confirmed {
+        if order.aborted || order.uncreated || order.terminal || !order.confirmed {
             return Err(Error::Conflict);
         }
         let spec = match &reg.command.command().body {
@@ -169,12 +273,32 @@ fn ordinary_orders(
             | v::CommandBody::CancelReplace {
                 replacement: spec, ..
             } => spec,
+            v::CommandBody::SpotList(list) => {
+                list.legs.as_slice().get(index).ok_or(Error::Identity)?
+            }
+            v::CommandBody::Algo(algo) => &algo.order,
             _ => return Err(Error::Unsupported),
         };
         let kind = match (market, spec.order_type, spec.time_in_force) {
             (Market::Spot, v::OrderType::Limit, Some(v::TimeInForce::PostOnly)) => "LIMIT_MAKER",
             (_, v::OrderType::Limit, _) => "LIMIT",
             (_, v::OrderType::Market, _) => "MARKET",
+            (Market::Spot, v::OrderType::StopLimit, _) => "STOP_LOSS_LIMIT",
+            (Market::Spot, v::OrderType::StopMarket, _) => "STOP_LOSS",
+            (Market::Spot, v::OrderType::TakeProfitLimit, _) => "TAKE_PROFIT_LIMIT",
+            (Market::Spot, v::OrderType::TakeProfitMarket, _) => "TAKE_PROFIT",
+            (Market::Usdm, v::OrderType::StopLimit | v::OrderType::TakeProfitLimit, _)
+                if id.venue_algo_id.is_some() =>
+            {
+                "LIMIT"
+            }
+            (
+                Market::Usdm,
+                v::OrderType::StopMarket
+                | v::OrderType::TakeProfitMarket
+                | v::OrderType::TrailingStop,
+                _,
+            ) if id.venue_algo_id.is_some() => "MARKET",
             _ => return Err(Error::Unsupported),
         };
         let tif = match spec.time_in_force {
@@ -205,7 +329,7 @@ fn ordinary_orders(
         }
         exact(row.orig_qty, order.original_quantity)?;
         exact(row.executed_qty, order.filled_quantity)?;
-        if (row.status == "NEW") != (order.filled_quantity.atoms() == 0) {
+        if (matches!(row.status, "NEW" | "PENDING_NEW")) != (order.filled_quantity.atoms() == 0) {
             return Err(Error::Conflict);
         }
         if let Some(price) = spec.price {
@@ -216,7 +340,7 @@ fn ordinary_orders(
     }
     for key in account.order_keys() {
         let order = account.order(key).ok_or(Error::Conflict)?;
-        if order.aborted {
+        if order.aborted || order.uncreated {
             continue;
         }
         if order.terminal {
@@ -226,7 +350,7 @@ fn ordinary_orders(
             {
                 return Err(Error::Conflict);
             }
-        } else if !seen.contains(key) {
+        } else if !seen.contains(key) && !waiting.contains(key) {
             return Err(Error::Conflict);
         }
     }
@@ -254,30 +378,6 @@ fn exact_venue(value: Decimal, expected: v::Decimal) -> Result<()> {
     Ok(())
 }
 
-// Reject the first element without retaining unbounded arbitrary JSON objects.
-fn empty_orders(body: &[u8]) -> Result<()> {
-    struct Empty;
-    impl<'de> serde::de::Visitor<'de> for Empty {
-        type Value = ();
-        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            f.write_str("an empty order array")
-        }
-        fn visit_seq<A: serde::de::SeqAccess<'de>>(
-            self,
-            mut seq: A,
-        ) -> core::result::Result<(), A::Error> {
-            if seq.next_element::<serde::de::IgnoredAny>()?.is_some() {
-                return Err(serde::de::Error::custom(
-                    "open order requires reconciliation",
-                ));
-            }
-            Ok(())
-        }
-    }
-    let mut de = serde_json::Deserializer::from_slice(body);
-    serde::Deserializer::deserialize_seq(&mut de, Empty).map_err(|_| Error::Conflict)?;
-    de.end().map_err(|_| Error::Encoding)
-}
 fn exact(value: Decimal, expected: Fixed) -> Result<()> {
     let value = value
         .rescale_exact(expected.scale())

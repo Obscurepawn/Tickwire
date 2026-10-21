@@ -24,6 +24,9 @@ impl<S: Store> AccountIngress<S> {
             command,
             query: None,
             order_query: None,
+            amendment_query: None,
+            structure_query: None,
+            structure_domain: None,
             epoch,
             received,
             status,
@@ -39,6 +42,62 @@ impl<S: Store> AccountIngress<S> {
         }
         self.commit_rest(gateway, record)
     }
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn persist_structure_query<B: Backend, A: Authority, E: Encoder>(
+        &mut self,
+        gateway: &mut AccountGateway<B, A, E>,
+        query: crate::reconciliation::structures::StructureQuery,
+        epoch: u64,
+        domain: tickwire_clock::ClockDomain,
+        received: u64,
+        status: u16,
+        raw: Vec<u8>,
+        body: Option<&[u8]>,
+    ) -> Result<RestOutcome> {
+        self.ready(gateway)?;
+        query.validate()?;
+        gateway.freeze_account();
+        let command = self
+            .registry
+            .get(&query.intent)
+            .ok_or(Error::Identity)?
+            .command
+            .clone();
+        if gateway.command(query.intent) != Some(&command) {
+            return Err(Error::Identity);
+        }
+        let parent = match &command.command().body {
+            v::CommandBody::SpotList(list) => list.list_id,
+            v::CommandBody::Algo(algo) => algo.parent_order_id,
+            _ => return Err(Error::Identity),
+        };
+        if parent != query.structure_id {
+            return Err(Error::Identity);
+        }
+        let mut record = RestRecord {
+            command,
+            query: None,
+            order_query: None,
+            amendment_query: None,
+            structure_query: Some(query),
+            structure_domain: Some(domain),
+            epoch,
+            received,
+            status,
+            raw,
+            disposition: RestDisposition::Unknown,
+            events: Vec::new(),
+        };
+        if let Some(body) = body
+            && let Ok((disposition, events)) = binding::decide(self, gateway, &record, body)
+            && events.len() == 1
+        {
+            record.disposition = disposition;
+            record.events = events;
+        }
+        self.commit_rest(gateway, record)
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn persist_order_query<B: Backend, A: Authority, E: Encoder>(
         &mut self,
@@ -66,6 +125,9 @@ impl<S: Store> AccountIngress<S> {
             command,
             query: None,
             order_query: Some(query),
+            amendment_query: None,
+            structure_query: None,
+            structure_domain: None,
             epoch,
             received,
             status,
@@ -145,6 +207,13 @@ impl<S: Store> AccountIngress<S> {
     pub(crate) fn effect(&self, index: usize) -> Option<&CanonicalEvent> {
         match self.records.get(index)? {
             Record::Event(_, _, Decision::Bound(event)) => Some(event),
+            Record::WsEffect { response, index } => match self
+                .records
+                .get(usize::try_from(*response).ok()?.checked_sub(1)?)?
+            {
+                Record::WsResponse(record) => record.events.get(*index as usize),
+                _ => None,
+            },
             Record::RestEffect { response, index } => match self
                 .records
                 .get(usize::try_from(*response).ok()?.checked_sub(1)?)?
@@ -171,6 +240,9 @@ impl<S: Store> AccountIngress<S> {
                     command: &record.command,
                     query: record.query,
                     order_query: record.order_query,
+                    structure_query: record.structure_query,
+                    amendment_query: record.amendment_query,
+                    structure_domain: record.structure_domain,
                     connection_epoch: record.epoch,
                     received_mono_ns: record.received,
                     status: record.status,
@@ -181,15 +253,37 @@ impl<S: Store> AccountIngress<S> {
             })
     }
     pub(crate) fn validate_rest(&self, record: &RestRecord) -> Result<()> {
-        if record.query.is_some() && record.order_query.is_some() {
+        if record.structure_query.is_some() != record.structure_domain.is_some() {
+            return Err(Error::Identity);
+        }
+        if [
+            record.query.is_some(),
+            record.order_query.is_some(),
+            record.structure_query.is_some(),
+            record.amendment_query.is_some(),
+        ]
+        .iter()
+        .filter(|v| **v)
+        .count()
+            > 1
+        {
             return Err(Error::Identity);
         }
         if record
-            .query
+            .structure_query
             .is_some_and(|q| q.intent != intent(&record.command))
+            || record
+                .query
+                .is_some_and(|q| q.intent != intent(&record.command))
             || record
                 .order_query
                 .is_some_and(|q| q.intent != intent(&record.command))
+        {
+            return Err(Error::Identity);
+        }
+        if record
+            .amendment_query
+            .is_some_and(|q| q.intent != intent(&record.command))
         {
             return Err(Error::Identity);
         }
@@ -206,12 +300,21 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Identity);
         }
-        if record.events.len() > if record.query.is_some() { 16 } else { 3 }
+        if record.events.len()
+            > if record.query.is_some() || record.amendment_query.is_some() {
+                16
+            } else {
+                4
+            }
             || record.disposition == RestDisposition::NoBytes
-            || (matches!(
-                record.disposition,
-                RestDisposition::Unknown | RestDisposition::Rejected
-            ) && !record.events.is_empty())
+            || (record.disposition == RestDisposition::Unknown && !record.events.is_empty())
+            || (record.disposition == RestDisposition::Rejected
+                && !record.events.is_empty()
+                && !(record.events.len() == 1
+                    && matches!(
+                        record.events[0].event().body,
+                        v::VenueEventBody::AmendmentRejected(_)
+                    )))
         {
             return Err(Error::Identity);
         }
@@ -221,8 +324,40 @@ impl<S: Store> AccountIngress<S> {
             micros: false,
             received: record.received,
         };
+        if record.amendment_query.is_some() {
+            super::amend_history::verify_raw(self, record)?;
+        }
         for event in &record.events {
             self.check_event(&meta, event)?;
+            if record.amendment_query.is_none()
+                && matches!(
+                    event.event().body,
+                    v::VenueEventBody::Amendment(_) | v::VenueEventBody::AmendmentRejected(_)
+                )
+            {
+                super::amendment::verify_raw(self, record, event)?;
+            }
+            if let v::VenueEventBody::Structure(s) = &event.event().body {
+                super::structure::verify_raw(self, record, event)?;
+                let key = IntentKey {
+                    epoch: s.parent.original_intent_exec_epoch,
+                    intent_id: s.parent.original_intent_id,
+                };
+                let creating = &self.registry.get(&key).ok_or(Error::Identity)?.command;
+                if record.query.is_some()
+                    || record.order_query.is_some()
+                    || record
+                        .structure_query
+                        .is_some_and(|q| q.structure_id != s.parent.structure_id || q.intent != key)
+                    || !super::structure::allowed(&record.command, creating, &s.parent)
+                {
+                    return Err(Error::Identity);
+                }
+                continue;
+            }
+            if record.structure_query.is_some() {
+                return Err(Error::Identity);
+            }
             let id = registry::order(event)?;
             let key = IntentKey {
                 epoch: id.original_intent_exec_epoch,
@@ -230,8 +365,11 @@ impl<S: Store> AccountIngress<S> {
             };
             let creating = &self.registry.get(&key).ok_or(Error::Identity)?.command;
             if record
-                .order_query
+                .amendment_query
                 .is_some_and(|q| q.order_id != id.order_id || q.intent != intent(creating))
+                || record
+                    .order_query
+                    .is_some_and(|q| q.order_id != id.order_id || q.intent != intent(creating))
                 || record
                     .query
                     .is_some_and(|q| q.order_id != id.order_id || q.intent != intent(creating))

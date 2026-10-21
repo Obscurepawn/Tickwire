@@ -1,2 +1,0 @@
-parent owner dropped; child still pre-exec; reopen=lock acquisition failed because the operation would block
-child exec+exit completed; exact same WAL reopened successfully

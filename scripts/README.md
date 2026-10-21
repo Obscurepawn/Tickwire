@@ -17,7 +17,7 @@ python3 -m venv /tmp/tickwire-design-validation-env
 | [verify-ipc-contract.py](verify-ipc-contract.py) | 布局覆盖、字段对齐、保留字节、类型宽度、编码向量与哈希、帧校验和指定语义案例 |
 | [verify-risk-vectors.py](verify-risk-vectors.py) | 使用 Decimal 重算风险案例，并逐项比对预期数值 |
 | [verify-config-contract.py](verify-config-contract.py) | 全量与投影 schema、参考 TOML、跨字段约束、接口引用及负例；生产模板含未填写输入，必须拒绝 |
-| [verify-documentation.py](verify-documentation.py) | 本地链接文件存在、参考链接定义、代码块闭合、测试计划编号、图片格式、图资产哈希与交互图交付记录 |
+| [verify-documentation.py](verify-documentation.py) | 现存 Markdown（README/AGENTS/specs/scripts）的本地链接存在性、参考链接定义与代码块闭合；`docs/` 图资产与旧验证计划随该目录删除后不再检查 |
 
 `reference.toml` 是模拟环境的结构与容量参考，其中的 示例文件、凭据引用和模拟入口没有部署到运行环境。生产模板中的 `REQUIRED` 必须替换为实际输入，并通过完整运行时准入与资格验证。文件解析成功不能替代这些验证。
 

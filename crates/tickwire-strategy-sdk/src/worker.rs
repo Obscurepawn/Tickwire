@@ -65,33 +65,6 @@ use tickwire_market_source::protocol::activated;
 pub use tickwire_market_source::protocol::{
     accept_offer, activation_ack, cursor_header, descriptor, offer_id, resource_offer,
 };
-struct Fresh<S> {
-    inner: S,
-    maximum_age: u64,
-}
-impl<S: Strategy> Strategy for Fresh<S> {
-    fn checkpoint(&self) -> Result<Vec<u8>> {
-        self.inner.checkpoint()
-    }
-    fn on_report(
-        &mut self,
-        report: &crate::reports::AccountReport,
-        now: u64,
-    ) -> Result<Option<tickwire_venue::CanonicalCommand>> {
-        self.inner.on_report(report, now)
-    }
-    fn on_market(
-        &mut self,
-        v: crate::MarketView<'_>,
-        now: u64,
-    ) -> Result<Option<tickwire_venue::CanonicalCommand>> {
-        let received = v.received_mono_ns();
-        if !v.live() || now < received || now - received > self.maximum_age {
-            return Ok(None);
-        }
-        self.inner.on_market(v, now)
-    }
-}
 /// Runs until authenticated QUIESCE, expired control lease, or a closed/invalid resource.
 /// # Safety
 /// The launcher authenticates qualified Publisher/Subscriber processes and enforces
@@ -106,9 +79,9 @@ pub unsafe fn run<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
 /// Run only the object returned by a successful, synchronized startup restoration.
 /// # Safety
 /// The caller enforces the same qualified SHM peers and resource ownership as `run`.
-pub unsafe fn run_restored(
+pub unsafe fn run_restored<S: Strategy>(
     config: Bootstrap,
-    strategy: crate::preflight::Running,
+    strategy: S,
     completed: crate::preflight::Completed,
 ) -> Result<()> {
     if config.preflight_job.is_none()
@@ -117,6 +90,10 @@ pub unsafe fn run_restored(
     {
         return Err(Error::Identity);
     }
+    completed.receipt().output.verify(
+        &strategy.checkpoint()?,
+        tickwire_recovery::MAX_OBJECT_BYTES as u64,
+    )?;
     // SAFETY: this forwards the caller's qualified resource contract unchanged.
     unsafe { run_inner(config, strategy, Some(completed)) }
 }
@@ -160,7 +137,7 @@ unsafe fn run_inner<S: Strategy>(
         baseline_now,
         catchup,
         join_config,
-        _bank,
+        bank,
         j,
     ) = if let Some(external) = &config.external_market {
         if external.endpoint.local.identity() != config.market.local.identity()
@@ -515,23 +492,38 @@ unsafe fn run_inner<S: Strategy>(
             config.preflight_job.as_ref().ok_or(Error::Identity)?,
             2 * 1024 * 1024,
         )?;
-        let verified = crate::preflight::completion(&job, completed, status.result_hash)?;
-        recovery
-            .as_mut()
-            .ok_or(Error::NotReady)?
-            .install_preflight(status.result_hash, verified)?;
+        if job.operation.schema == 3 {
+            let verified =
+                crate::preflight::startup_completion(&job, completed, status.result_hash)?;
+            recovery
+                .as_mut()
+                .ok_or(Error::NotReady)?
+                .install_replay_restore(status.result_hash, verified)?;
+        } else {
+            let verified = crate::preflight::completion(&job, completed, status.result_hash)?;
+            recovery
+                .as_mut()
+                .ok_or(Error::NotReady)?
+                .install_preflight(status.result_hash, verified)?;
+        }
     }
     if let Some(w) = &mut recovery {
         w.set_active();
     }
-    let mut strategy = Fresh {
-        inner: strategy,
-        maximum_age: config.maximum_market_age_ns,
-    };
+    let mut strategy =
+        crate::replay::live::Live::new(&config, strategy, bank, replica, now(&mut clock)?)?;
+    if let Some(anchor) = strategy.anchor_bytes()? {
+        recovery
+            .as_mut()
+            .ok_or(Error::NotReady)?
+            .merged_anchor(&anchor)?;
+    }
+    let mut merged_journal_sequence = 0;
     let mut account_mirror = crate::handover::AccountMirror::default();
     let mut ready_sequence = 0u64;
     let mut pending_seal: Option<(ControlEnvelope, tickwire_ipc::CheckpointSealBody)> = None;
     let mut callbacks_paused = false;
+    let mut pending_replay_install: Option<tickwire_ipc::ReplayControlBody> = None;
     loop {
         let n = now(&mut clock)?;
         if n >= market_session.deadline()
@@ -557,7 +549,9 @@ unsafe fn run_inner<S: Strategy>(
             if let Some(w) = &mut recovery {
                 w.account_report(&value, at)?;
             }
-            if let Some(command) = strategy.on_report(&value, at)? {
+            let commands = strategy.report(&value, at)?;
+            retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
+            for command in commands {
                 prepare_and_publish(
                     || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
                     || now(&mut clock),
@@ -574,6 +568,12 @@ unsafe fn run_inner<S: Strategy>(
             }
         }
         if config.handover_enabled && report_count > 0 {
+            if let Some((cut, _)) = strategy.committed() {
+                recovery
+                    .as_mut()
+                    .ok_or(Error::NotReady)?
+                    .merged_checkpoint(cut)?;
+            }
             ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
             let ready = account_mirror.ready(
                 &config.market.local,
@@ -604,6 +604,12 @@ unsafe fn run_inner<S: Strategy>(
                 return Err(Error::Stale);
             }
             if account_mirror.position() == Some(seal.report_sequence) {
+                if let Some((cut, _)) = strategy.committed() {
+                    recovery
+                        .as_mut()
+                        .ok_or(Error::NotReady)?
+                        .merged_checkpoint(cut)?;
+                }
                 ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
                 let ready = account_mirror.ready(
                     &config.market.local,
@@ -638,13 +644,29 @@ unsafe fn run_inner<S: Strategy>(
         let count = if callbacks_paused || pending_seal.is_some() {
             0
         } else {
-            replica.drain_recorded(
-                &consumer,
-                &mut strategy,
-                now(&mut clock)?,
-                config.poll_records,
-                &mut recovery,
-                |command, recovery| {
+            let mut count = 0;
+            while count < config.poll_records {
+                let Some(guard) = consumer.borrow()? else {
+                    break;
+                };
+                let header = tickwire_ipc::RecordHeader::decode(&guard.bytes()[..128])?;
+                let payload = if header.message_type == 259 {
+                    guard.depth_payload()?.to_vec()
+                } else {
+                    vec![]
+                };
+                let raw = guard.bytes().to_vec();
+                let seq = guard.sequence();
+                drop(guard);
+                crate::recovery::InputJournal::market(&mut recovery, &raw, &payload)?;
+                let at = now(&mut clock)?;
+                crate::recovery::InputJournal::decision(&mut recovery, header.instrument_id, at)?;
+                // The actual callback and its input/checkpoint sync complete before
+                // the consumer watermark or an intent is exposed to another owner.
+                let commands = strategy.market(&raw, &payload, at)?;
+                retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
+                consumer.apply(seq)?;
+                for command in commands {
                     prepare_and_publish(
                         || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
                         || now(&mut clock),
@@ -654,9 +676,25 @@ unsafe fn run_inner<S: Strategy>(
                                 .map(|_| ())
                         },
                     )
-                    .map_err(|e| e.context("market intent"))
-                },
-            )?
+                    .map_err(|e| e.context("market intent"))?;
+                }
+                count += 1;
+            }
+            let commands = strategy.timers(now(&mut clock)?, config.poll_records.min(32))?;
+            retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
+            for command in commands {
+                prepare_and_publish(
+                    || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
+                    || now(&mut clock),
+                    |published_at| {
+                        writer
+                            .publish(&command, &mut store, published_at)
+                            .map(|_| ())
+                    },
+                )
+                .map_err(|e| e.context("timer intent"))?;
+            }
+            count
         };
         // Each complete drain has ended all payload references before control handling.
         match market.try_recv() {
@@ -666,14 +704,12 @@ unsafe fn run_inner<S: Strategy>(
                 }
                 let envelope = ControlEnvelope::decode(&packet.bytes()[..128])?;
                 if envelope.opcode == 20 {
-                    replica.invalidate();
                     let response =
                         consumer.quiesce(&mut market_session, packet.bytes(), now(&mut clock)?)?;
                     market.send(&response, &[], Instant::now() + Duration::from_secs(1))?;
                     return Ok(());
                 }
                 market_session.validate(packet.bytes(), now(&mut clock)?)?;
-                replica.invalidate();
                 return Err(Error::NotReady);
             }
             Ok(None) => {}
@@ -694,6 +730,236 @@ unsafe fn run_inner<S: Strategy>(
                 }
                 let received_at = now(&mut clock)?;
                 let frame = report_session.validate(packet.bytes(), received_at)?;
+                if frame.envelope.opcode == 49 {
+                    let request = pending_replay_install.as_ref().ok_or(Error::Identity)?;
+                    let status = tickwire_ipc::StatusBody::decode(frame.body)?;
+                    let expected = tickwire_ipc::StatusBody {
+                        subject_id: request.instance_id,
+                        original_request_id: request.challenge,
+                        original_control_epoch: frame.envelope.control_epoch,
+                        state_version: request.expected_sequence,
+                        state: 3,
+                        result_hash: status.result_hash,
+                        ..Default::default()
+                    };
+                    if frame.envelope.flags != 10
+                        || frame.envelope.request_id != request.challenge
+                        || frame.envelope.expected_state_version != request.expected_sequence
+                        || status != expected
+                        || status.result_hash == [0; 32]
+                    {
+                        return Err(Error::Identity);
+                    }
+                    let objects = tickwire_recovery::FileBlobReader::open(
+                        &config.report_directory,
+                        config.report.peer_uid,
+                    )?;
+                    let verified =
+                        tickwire_release::replay::rollback::verify(status.result_hash, |h| {
+                            objects
+                                .get_object(h, tickwire_release::replay::MAX_BYTES)
+                                .map_err(|_| tickwire_release::Error::Missing)
+                        })?;
+                    if verified.installation.installation.request.digest != request.object_digest
+                        || verified.installation.request.operation.operation_id
+                            != request.operation_id
+                        || verified.installation.request.operation.operation_revision
+                            != request.operation_revision
+                        || now(&mut clock)? >= verified.installation.request.member.valid_until_ns
+                    {
+                        return Err(Error::Identity);
+                    }
+                    recovery
+                        .as_mut()
+                        .ok_or(Error::NotReady)?
+                        .install_replay_rollback(status.result_hash, verified)?;
+                    let (cut, _) = strategy.committed().ok_or(Error::NotReady)?;
+                    recovery
+                        .as_mut()
+                        .ok_or(Error::NotReady)?
+                        .merged_checkpoint(cut)?;
+                    ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
+                    let ready = account_mirror.ready(
+                        &config.market.local,
+                        reports.last_ring_sequence()?,
+                        ready_sequence,
+                        recovery.as_ref().ok_or(Error::NotReady)?,
+                        &strategy.checkpoint()?,
+                    )?;
+                    let raw = report_session.encode(
+                        ControlEnvelope {
+                            opcode: 37,
+                            flags: 32,
+                            request_id: request.challenge,
+                            ..Default::default()
+                        },
+                        &crate::bootstrap::wire_bytes(&ready)?,
+                    )?;
+                    report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
+                    // Retain the original challenge for exact completion retries.
+                    // RecoveryWriter rejects a different completion root.
+                    continue;
+                }
+                if frame.envelope.opcode == 41 {
+                    use tickwire_release::replay::{ControlInput, canonical};
+                    let body = tickwire_ipc::ReplayControlBody::decode(frame.body)?;
+                    let objects = tickwire_recovery::FileBlobReader::open(
+                        &config.report_directory,
+                        config.report.peer_uid,
+                    )?;
+                    let raw = objects
+                        .get_object(body.object_digest, tickwire_release::replay::MAX_BYTES)?;
+                    let input = ControlInput::decode(&raw)?;
+                    let expected = strategy.control_checkpoint(&input)?;
+                    crate::replay::control::verify_request(
+                        &frame.envelope,
+                        &body,
+                        &input,
+                        &expected,
+                        now(&mut clock)?,
+                        report_session.deadline(),
+                    )?;
+                    let mut installed_ready = false;
+                    let (object, commands) = match &input {
+                        ControlInput::Capture { pause, .. } => {
+                            let object = strategy.capture(&input)?;
+                            callbacks_paused |= *pause;
+                            (object, vec![])
+                        }
+                        ControlInput::Auxiliary { input, .. } => {
+                            if callbacks_paused || pending_seal.is_some() {
+                                return Err(Error::NotReady);
+                            }
+                            let commands = strategy.auxiliary(input.clone(), now(&mut clock)?)?;
+                            retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
+                            let (cut, commit) = strategy.committed().ok_or(Error::NotReady)?;
+                            let bytes = canonical(&(body.object_digest, cut.cut.clone(), commit))?;
+                            (strategy.store_object(&bytes)?, commands)
+                        }
+                        ControlInput::Install { request, .. } => {
+                            if pending_seal.is_some() {
+                                return Err(Error::NotReady);
+                            }
+                            let job: crate::preflight::Job = read_config(
+                                config.preflight_job.as_ref().ok_or(Error::NotReady)?,
+                                2 * 1024 * 1024,
+                            )?;
+                            if job.operation != request.operation || job.member != request.member {
+                                return Err(Error::Identity);
+                            }
+                            let bundle = job.bundle.load(&job.operation)?;
+                            let release = bundle.verify_operation(&job.operation, &job.member)?;
+                            let files = tickwire_release::files::load(
+                                &release.target.files,
+                                &job.target_files,
+                            )?;
+                            let template: Bootstrap = serde_json::from_slice(
+                                files
+                                    .bytes(&tickwire_release::Role::Bootstrap)
+                                    .ok_or(Error::Identity)?,
+                            )?;
+                            crate::preflight::verify_bootstrap(&template, &config)?;
+                            let target = crate::preflight::target(&config, &files)?;
+                            files.recheck()?;
+                            let proof = request.source_proof(|o| {
+                                objects
+                                    .get_object(o.digest, tickwire_release::replay::MAX_BYTES)
+                                    .map_err(|_| tickwire_release::Error::Missing)
+                            })?;
+                            for bytes in bundle.object_bytes()? {
+                                strategy.store_object(&bytes)?;
+                            }
+                            let root = strategy.install(
+                                &input,
+                                &release,
+                                target,
+                                &proof,
+                                config.maximum_levels,
+                                || {
+                                    let at =
+                                        now(&mut clock).map_err(|_| crate::replay::Error::Time)?;
+                                    if at >= body.valid_until_mono_ns {
+                                        return Err(crate::replay::Error::Time);
+                                    }
+                                    Ok(at)
+                                },
+                            )?;
+                            let verified = strategy.installation_objects(root)?;
+                            merged_journal_sequence = recovery
+                                .as_mut()
+                                .ok_or(Error::NotReady)?
+                                .install_replayed(root.digest, verified)?;
+                            callbacks_paused = false;
+                            installed_ready = true;
+                            (root, vec![])
+                        }
+                    };
+                    if now(&mut clock)? >= body.valid_until_mono_ns {
+                        return Err(Error::Deadline);
+                    }
+                    for command in commands {
+                        prepare_and_publish(
+                            || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
+                            || now(&mut clock),
+                            |at| writer.publish(&command, &mut store, at).map(|_| ()),
+                        )?;
+                    }
+                    let reply = tickwire_ipc::ReplayAppliedBody {
+                        instance_id: body.instance_id,
+                        strategy_generation: body.strategy_generation,
+                        logical_strategy_id: body.logical_strategy_id,
+                        challenge: body.challenge,
+                        valid_until_mono_ns: body.valid_until_mono_ns,
+                        object_digest: object.digest,
+                        object_bytes: object.bytes,
+                        expected_sequence: body.expected_sequence,
+                        expected_cut_digest: body.expected_cut_digest,
+                        operation_id: body.operation_id,
+                        operation_revision: body.operation_revision,
+                        schema: 1,
+                        replay_kind: body.replay_kind,
+                    };
+                    let raw = report_session.encode(
+                        ControlEnvelope {
+                            opcode: 42,
+                            flags: 10,
+                            ..frame.envelope.clone()
+                        },
+                        &crate::bootstrap::wire_bytes(&reply)?,
+                    )?;
+                    if now(&mut clock)? >= body.valid_until_mono_ns {
+                        return Err(Error::Deadline);
+                    }
+                    report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
+                    if installed_ready {
+                        pending_replay_install = Some(body.clone());
+                        ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
+                        let ready = account_mirror.ready(
+                            &config.market.local,
+                            reports.last_ring_sequence()?,
+                            ready_sequence,
+                            recovery.as_ref().ok_or(Error::NotReady)?,
+                            &strategy.checkpoint()?,
+                        )?;
+                        let mut request_id = config.market.local.instance;
+                        request_id[..8].copy_from_slice(&ready_sequence.to_le_bytes());
+                        let ready_raw = report_session.encode(
+                            ControlEnvelope {
+                                opcode: 37,
+                                flags: 32,
+                                request_id,
+                                ..Default::default()
+                            },
+                            &crate::bootstrap::wire_bytes(&ready)?,
+                        )?;
+                        report.send(
+                            &ready_raw,
+                            &[],
+                            Instant::now() + Duration::from_millis(100),
+                        )?;
+                    }
+                    continue;
+                }
                 if frame.envelope.opcode == 39 {
                     if !config.handover_enabled || pending_seal.is_some() {
                         return Err(Error::Identity);
@@ -784,9 +1050,27 @@ unsafe fn run_inner<S: Strategy>(
             Err(e) => return Err(e.into()),
         }
         if count == 0 && report_count == 0 {
-            std::thread::sleep(Duration::from_micros(config.idle_sleep_us));
+            let sampled = now(&mut clock)?;
+            let delay = Duration::from_micros(config.idle_sleep_us);
+            let delay = strategy
+                .next_deadline()
+                .map(|at| delay.min(Duration::from_nanos(at.saturating_sub(sampled))))
+                .unwrap_or(delay);
+            std::thread::sleep(delay);
         }
     }
+}
+
+fn retain_merged<S: Strategy>(
+    owner: &crate::replay::live::Live<S>,
+    recovery: &mut Option<crate::recovery::RecoveryWriter>,
+    sequence: &mut u64,
+) -> Result<()> {
+    for row in owner.recorded_after(*sequence) {
+        recovery.as_mut().ok_or(Error::NotReady)?.merged_row(row)?;
+        *sequence = row.sequence;
+    }
+    Ok(())
 }
 
 // Recovery preparation can block in fsync. Publication must observe the real

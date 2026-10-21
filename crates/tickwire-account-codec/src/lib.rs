@@ -92,6 +92,18 @@ impl CanonicalRecord {
         if matches!(&record, RecoveryRecord::IncomeBaseline(b) if b.baseline_digest!=baseline) {
             return Err(Error::Field);
         }
+        if matches!(&record, RecoveryRecord::IncomeObservationsAssociated(b) if b.baseline_digest!=baseline)
+        {
+            return Err(Error::Field);
+        }
+        if matches!(&record, RecoveryRecord::UncreatedAlgoClosed(b) if b.baseline_digest!=baseline)
+        {
+            return Err(Error::Field);
+        }
+        if matches!(&record, RecoveryRecord::AccountInputsReconciled(b) if b.baseline_digest!=baseline)
+        {
+            return Err(Error::Field);
+        }
         validate::record(&record)?;
         let mut w = cbor::Writer::new(MAX_RECORD_BYTES);
         w.array(5);

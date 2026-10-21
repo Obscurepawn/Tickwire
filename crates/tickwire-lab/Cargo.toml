@@ -33,6 +33,7 @@ tickwire-recovery = { path = "../tickwire-recovery" }
 tickwire-release = { path = "../tickwire-release" }
 tickwire-replica = { path = "../tickwire-replica" }
 tickwire-runtime-policy = { path = "../tickwire-runtime-policy" }
+tickwire-strategy-example = { path = "../tickwire-strategy-example" }
 tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }

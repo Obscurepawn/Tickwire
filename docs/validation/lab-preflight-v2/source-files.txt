@@ -1,7 +1,0 @@
-crates/tickwire-lab/Cargo.toml
-crates/tickwire-lab/src/lib.rs
-crates/tickwire-lab/src/preflight.rs
-crates/tickwire-lab/src/handover.rs
-crates/tickwire-lab/src/generate.rs
-crates/tickwire-lab/src/launch.rs
-crates/tickwire-lab/README.md

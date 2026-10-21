@@ -2,7 +2,7 @@
 
 Status: implemented-partial
 
-[接口](../../docs/implementation/shm-ring-interface.md)由 `tickwire-shm` 实现；[映射层](shm-mapping.md)负责 Linux memfd、权限、seals 和原子访问。一个发布者可对应 1～32 个消费者，单消费者使用同一套容量与借用规则。
+接口由 `tickwire-shm` 实现；[映射层](shm-mapping.md)负责 Linux memfd、权限、seals 和原子访问。一个发布者可对应 1～32 个消费者，单消费者使用同一套容量与借用规则。
 
 ## 状态与数据约束
 
@@ -20,7 +20,7 @@ Prepare 固定 successor/cutoff；Freeze 要求没有 claim 且恰好发布到 c
 
 ## 验证记录
 
-按接口先编写协议测试，再实现状态内核和实际映射 SDK。实际失败记录保存在 [shm 验证目录](../../docs/validation/shm/README.md)：
+按接口先编写协议测试，再实现状态内核和实际映射 SDK。实际失败记录保存在 shm 验证目录：
 
 | 回归 | 修复前现象 | 当前行为 |
 |---|---|---|

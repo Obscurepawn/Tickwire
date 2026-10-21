@@ -1,8 +1,0 @@
-{
-  "command": "./scripts/run-core-chain-linux.sh",
-  "exit_code": 0,
-  "results_directory": "/Users/bytedance/Tickwire/.tools/lab-results/20261020T192610Z-64558",
-  "retained_volume": "tickwire-lab-20261020T192610Z-64558",
-  "source_manifest": "../run7/workspace-sources.sha256",
-  "source_frozen_during_run": true
-}

@@ -47,6 +47,7 @@ impl Account {
                 | v::CommandBody::Query(_)
                 | v::CommandBody::CancelList(_)
                 | v::CommandBody::CancelAlgo(_)
+                | v::CommandBody::AmendKeepPriority { .. }
         );
         if now >= r.deadline
             || (increases
@@ -82,9 +83,17 @@ impl Account {
             intent_id: r.intent_id,
         };
         if !increases {
+            let mut structure_management = None;
             match &c.body {
                 v::CommandBody::Cancel(target) | v::CommandBody::Query(target) => {
                     self.check_target(target, strategy, manager, p.instrument.instrument_id)?
+                }
+                v::CommandBody::CancelList(_) | v::CommandBody::CancelAlgo(_) => {
+                    structure_management = Some(self.structure_management(c)?);
+                }
+                v::CommandBody::AmendKeepPriority { .. } => {
+                    let pending = self.prepare_amendment(command)?;
+                    self.amendments.insert(key, pending);
                 }
                 _ => return Err(Error::Unsupported),
             }
@@ -102,6 +111,9 @@ impl Account {
                 increases: false,
             };
             self.admissions.insert(key, a.clone());
+            if let Some(check) = structure_management {
+                self.structure_management.insert(key, check);
+            }
             return Ok(a);
         }
         let before = self.resources()?;
@@ -256,7 +268,10 @@ impl Account {
                         generation: r.strategy_generation,
                     },
                     spec,
+                    amendable: matches!(c.body, v::CommandBody::New(_)),
                     original: q,
+                    effective: q,
+                    observed_cumulative: qzero,
                     filled: qzero,
                     price,
                     received: fee_zero,
@@ -269,6 +284,7 @@ impl Account {
                     terminal: false,
                     fees_closed: false,
                     aborted: false,
+                    uncreated: false,
                     economic: false,
                     confirmed: false,
                     reduce,
@@ -280,6 +296,7 @@ impl Account {
             );
             orders.push(order_key);
         }
+        self.register_structure(c, &orders)?;
         self.evaluate()?;
         let after_capital = self.calculate_capital()?;
         let mut capital = Vec::new();
@@ -389,6 +406,12 @@ impl Account {
             return Err(Error::Stale);
         }
         if !a.increases {
+            if let Some(check) = self.amendments.get(&a.key) {
+                self.check_amendment(check)?;
+            }
+            if let Some(check) = self.structure_management.get(&a.key) {
+                self.check_structure_management(check)?;
+            }
             return Ok(());
         }
         if self.frozen {
@@ -432,6 +455,9 @@ impl Account {
     pub fn apply_abort(&mut self, a: &Admission) -> Result<Applied> {
         if self.admissions.get(&a.key) != Some(a) {
             return self.freeze_error(Error::Identity);
+        }
+        if self.amendments.contains_key(&a.key) {
+            return self.abort_amendment(a.key);
         }
         if a.orders.iter().all(|key| self.orders[key].aborted) {
             return Ok(Applied::Duplicate);

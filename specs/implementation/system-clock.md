@@ -1,6 +1,6 @@
 # 系统单调时钟实现规格
 
-实现为 `tickwire-clock-sys::SystemClock`，接口见[系统单调时钟接口](../../docs/implementation/system-clock-interface.md)。它把一次 OS 读取绑定到控制面分配的 `ClockDomain`，并为校准网络 owner 实现 `MonotonicClock`。
+实现为 `tickwire-clock-sys::SystemClock`，接口见系统单调时钟接口。它把一次 OS 读取绑定到控制面分配的 `ClockDomain`，并为校准网络 owner 实现 `MonotonicClock`。
 
 ## 构造与采样
 
@@ -28,8 +28,8 @@ provider 成功后，TimeClient 还检查 Instant 回退，再更新 `last_insta
 
 ## 实际验证与形式范围
 
-首次实现的 [Red 记录](../../docs/validation/system-clock/red.json)保存编译成功后 7 项行为失败；[最终原生检查](../../docs/validation/system-clock/native-final-green.log)包含系统时钟 7 项、HTTPS TimeClient 16 项和实际原生 adapter 1 项通过，另有 [Clippy 日志](../../docs/validation/system-clock/native-final-clippy.log)。源码与测试哈希保存在 [native-results.json](../../docs/validation/system-clock/native-results.json)。
+首次实现的 Red 记录保存编译成功后 7 项行为失败；最终原生检查包含系统时钟 7 项、HTTPS TimeClient 16 项和实际原生 adapter 1 项通过，另有 Clippy 日志。源码与测试哈希保存在 native-results.json。
 
-provider 错误曾只向调用方返回，未保留到 TimeClient 状态；[独立失败回归](../../docs/validation/system-clock/provider-fault-red.log)实际观察到 `Uncalibrated`，预期为 `Faulted(Domain)`。修复后，同一实例即使 provider 下一次恢复正常，也继续拒绝采样和新请求。此问题来自源码审阅与 Rust 回归，未归因于 TLC。
+provider 错误曾只向调用方返回，未保留到 TimeClient 状态；独立失败回归实际观察到 `Uncalibrated`，预期为 `Faulted(Domain)`。修复后，同一实例即使 provider 下一次恢复正常，也继续拒绝采样和新请求。此问题来自源码审阅与 Rust 回归，未归因于 TLC。
 
 形式模型 [system_clock/L0_native_owner](../../tla/execution_models/system_clock/L0_native_owner/05_output.md) 的四个配置已通过 14 个不变量，分别探索 3,021、2,431、18,714 和 2 个不同状态；20 个 Next 动作均实际执行。它检查构造发布、顺序和永久故障传播，实际 u64 转换边界由 Rust 测试负责。完整 TimeClient 网络和私有流时钟 adapter 的形式组合分别保留为后续任务。

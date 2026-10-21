@@ -63,6 +63,7 @@ fn fixture() -> (Endpoint, ReadBinding, WindowKey) {
             ReadAction::OpenOrders,
             ReadAction::ConditionalOrders,
             ReadAction::OrderQuery,
+            ReadAction::StructureQuery,
         ]
         .into_iter()
         .map(|a| Rule {
@@ -196,6 +197,48 @@ fn order_reader_uses_its_own_attempt_namespace() {
             intent_id: 1,
         },
         order_id: [7; 16],
+        private_connection_epoch: 2,
+        gap_generation: 3,
+    };
+    let sample = private::ClockSample {
+        instant: std::time::Instant::now(),
+        monotonic: now(1),
+        signing_time: None,
+    };
+    assert!(endpoint.read(b.clone()).allow(
+        &b.scope,
+        &query,
+        1,
+        read::ReadOperation::Connect,
+        &sample
+    ));
+    assert!(endpoint.read(b.clone()).allow(
+        &b.scope,
+        &query,
+        1,
+        read::ReadOperation::TradePage,
+        &sample
+    ));
+    assert!(endpoint.read(b.clone()).allow(
+        &b.scope,
+        &query,
+        1,
+        read::ReadOperation::TradePage,
+        &sample
+    ));
+    assert_eq!(endpoint.remaining(key, Class::Recovery), 8);
+}
+
+#[test]
+fn parent_reader_uses_exact_structure_identity_and_an_independent_attempt_namespace() {
+    use read::structures::{StructurePermit as _, StructureQuery};
+    let (mut endpoint, b, key) = fixture();
+    let query = StructureQuery {
+        intent: tickwire_account::IntentKey {
+            epoch: 1,
+            intent_id: 1,
+        },
+        structure_id: [7; 16],
         private_connection_epoch: 2,
         gap_generation: 3,
     };

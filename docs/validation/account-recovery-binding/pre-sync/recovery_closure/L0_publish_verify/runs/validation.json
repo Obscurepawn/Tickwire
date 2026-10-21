@@ -1,8 +1,0 @@
-{
-  "docs": 13,
-  "local_links": 8,
-  "fences": "PASS",
-  "independent_review": "risk_core source/model mapping PASS",
-  "next_actions": 22,
-  "coverage_entries_including_init": 23
-}

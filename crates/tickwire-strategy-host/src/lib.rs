@@ -27,6 +27,8 @@ use tickwire_supervisor::{AuthenticatedChild, LaunchSpec, Registry};
 mod preflight;
 mod readiness;
 mod remote;
+mod source_replay;
+pub mod rebuild_probe;
 pub use remote::{RemoteHostedStrategy, RemoteLaunch};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;
 
@@ -712,7 +714,7 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         Box::new(move |n| sink.notice(n));
     let strategy = RuntimeStrategy::new(receiver, resolver, callback);
     Ok(Started {
-        readiness: readiness::ReadyProof::new(&config.bootstrap)?,
+        readiness: readiness::ReadyProof::new(&config.bootstrap, &config.spec)?,
         report_sub,
         reports,
         publisher,
@@ -989,6 +991,99 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         let objects = self.handover_objects(&want)?;
         Some((want, objects))
     }
+    fn handover_replay_source(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+        fixed: &tickwire_runtime::node::HandoverReadiness,
+    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
+        if self.identity != (member.old_instance, member.old_generation)
+            || self.forwarding
+            || self.error.is_some()
+        {
+            return None;
+        }
+        let fixed_objects = self.handover_objects(fixed)?;
+        let (current, current_objects) =
+            self.handover_checkpoint(member.old_instance, member.old_generation)?;
+        let result = self.started.as_ref()?.readiness.source_replay(
+            operation,
+            member,
+            fixed.clone(),
+            fixed_objects,
+            current,
+            current_objects,
+        );
+        match result {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.error = Some(e);
+                None
+            }
+        }
+    }
+    fn handover_install_replay(
+        &mut self,
+        source: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        let member = &source.completion().member;
+        if self.identity != (member.new_instance, member.new_generation)
+            || self.forwarding
+            || self.error.is_some()
+        {
+            return None;
+        }
+        let s = self.started.as_mut()?;
+        let result = (|| {
+            s.child.registry.process(s.child.instance)?;
+            let mut clock = SystemClock::new(s.child.domain)?;
+            s.readiness.install_replay(
+                &mut s.child.report,
+                &mut s.reports,
+                s.report_sub,
+                &mut clock,
+                source,
+            )
+        })();
+        match result {
+            Ok(value) => Some(value),
+            Err(e) => {
+                self.error = Some(e);
+                None
+            }
+        }
+    }
+    fn handover_finish_replay(
+        &mut self,
+        installed: tickwire_runtime::node::InstalledReplay,
+    ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        let member = &installed.verified().request.member;
+        if self.identity != (member.new_instance, member.new_generation)
+            || self.forwarding
+            || self.error.is_some()
+        {
+            return None;
+        }
+        let s = self.started.as_mut()?;
+        let result = (|| {
+            s.child.registry.process(s.child.instance)?;
+            let mut clock = SystemClock::new(s.child.domain)?;
+            s.readiness.finish_replay(
+                &mut s.child.report,
+                &mut s.reports,
+                s.report_sub,
+                &mut clock,
+                installed,
+            )
+        })();
+        match result {
+            Ok(v) => Some(v),
+            Err(e) => {
+                self.error = Some(e);
+                None
+            }
+        }
+    }
     fn handover_objects(
         &mut self,
         want: &tickwire_runtime::node::HandoverReadiness,
@@ -1000,8 +1095,14 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         if s.child.registry.process(s.child.instance).is_err() {
             return None;
         }
+        let now = SystemClock::new(s.child.domain)
+            .ok()?
+            .sample()
+            .ok()?
+            .monotonic
+            .nanos();
         s.readiness
-            .objects(&s.reports, s.report_sub, want)
+            .objects(&s.child.report, now, &s.reports, s.report_sub, want)
             .ok()
             .flatten()
     }

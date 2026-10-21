@@ -37,17 +37,7 @@ pub fn verify_recovery_inputs(
 #[path = "preflight_tests.rs"]
 mod tests;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct ObjectFile {
-    pub path: PathBuf,
-    pub object: Object,
-}
-impl ObjectFile {
-    pub fn read(&self) -> Result<Vec<u8>> {
-        Ok(files::read_object(&self.path, self.object)?)
-    }
-}
+pub use tickwire_release::files::ObjectFile;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BundleFiles {
@@ -127,23 +117,35 @@ impl SourceFiles {
             }
             all.push(file.read()?);
         }
-        if let Some(root) = seal.preflight_receipt_digest {
+        if seal.preflight_receipt_digest.is_some() || seal.version == 3 {
             let mut extra = std::collections::BTreeMap::new();
             for f in &self.prior_preflight {
                 extra.insert(f.object.digest, f.read()?);
             }
-            let prior = tickwire_release::closure::verify(root, |h| {
-                extra
-                    .get(&h)
-                    .cloned()
-                    .ok_or(tickwire_release::Error::Missing)
-            })?;
-            if prior.completion.member.new_instance != seal.instance
-                || prior.completion.member.new_generation != seal.generation
-            {
-                return Err(Error::Identity);
+            if let Some(root) = seal.preflight_receipt_digest {
+                let prior = tickwire_release::closure::verify(root, |h| {
+                    extra
+                        .get(&h)
+                        .cloned()
+                        .ok_or(tickwire_release::Error::Missing)
+                })?;
+                if prior.completion.member.new_instance != seal.instance
+                    || prior.completion.member.new_generation != seal.generation
+                {
+                    return Err(Error::Identity);
+                }
+                all.extend(prior.objects);
             }
-            all.extend(prior.objects);
+            if seal.version == 3 {
+                let prior =
+                    tickwire_release::replay::startup::verify_seal(&seal, &all[1], &all[2], |h| {
+                        extra
+                            .get(&h)
+                            .cloned()
+                            .ok_or(tickwire_release::Error::Missing)
+                    })?;
+                all.extend(prior);
+            }
         } else if !self.prior_preflight.is_empty() {
             return Err(Error::Identity);
         }
@@ -191,6 +193,42 @@ pub fn completion(
     }
     Ok(closure)
 }
+pub fn startup_completion(
+    job: &Job,
+    completed: &Completed,
+    root: Hash,
+) -> Result<tickwire_release::replay::startup::Verified> {
+    let mut known = std::collections::BTreeMap::new();
+    for f in [
+        &job.bundle.manifest,
+        &job.bundle.migration,
+        &job.bundle.rollback,
+    ] {
+        known.insert(f.object.digest, f.read()?);
+    }
+    for b in job.source.objects()? {
+        known.insert(tickwire_recovery::digest(&b), b);
+    }
+    let closure = tickwire_release::replay::startup::verify(root, |h| {
+        if let Some(b) = known.get(&h) {
+            return Ok(b.clone());
+        }
+        let name = h.iter().map(|b| format!("{b:02x}")).collect::<String>();
+        crate::recovery::read(
+            &job.output_directory.join(format!("{name}.bin")),
+            tickwire_recovery::MAX_OBJECT_BYTES,
+        )
+        .map_err(|_| tickwire_release::Error::Missing)
+    })?;
+    if closure.completion.operation != job.operation
+        || closure.completion.member != job.member
+        || closure.completion.restored != Object::of(completed.bytes())
+        || closure.restored != *completed.receipt()
+    {
+        return Err(Error::Identity);
+    }
+    Ok(closure)
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Job {
@@ -210,7 +248,82 @@ pub enum Running {
     Observe(crate::ObserveOnly),
     Demo(restore::RestoredDemo),
 }
+struct RunningFactory(bool);
+impl restore::RestoreFactory for RunningFactory {
+    type Running = Running;
+    fn capabilities(&self) -> tickwire_release::Capabilities {
+        if self.0 {
+            restore::ObserveFactory.capabilities()
+        } else {
+            restore::FixedDemoFactory.capabilities()
+        }
+    }
+    fn configuration(
+        &self,
+        target: &restore::Target,
+    ) -> restore::Result<tickwire_release::replay::VersionedBytes> {
+        if self.0 {
+            restore::ObserveFactory.configuration(target)
+        } else {
+            restore::FixedDemoFactory.configuration(target)
+        }
+    }
+    fn restore(&self, input: &restore::VerifiedRestoreInput) -> restore::Result<Running> {
+        if self.0 {
+            restore::ObserveFactory.restore(input).map(Running::Observe)
+        } else {
+            restore::FixedDemoFactory.restore(input).map(Running::Demo)
+        }
+    }
+    fn migrate(&self, input: &restore::VerifiedRestoreInput) -> restore::Result<Running> {
+        if self.0 {
+            Err(restore::Error::Unsupported)
+        } else {
+            restore::FixedDemoFactory.migrate(input).map(Running::Demo)
+        }
+    }
+    fn validate_checkpoint(&self, bytes: &[u8]) -> restore::Result<()> {
+        if self.0 {
+            restore::ObserveFactory.validate_checkpoint(bytes)
+        } else {
+            restore::FixedDemoFactory.validate_checkpoint(bytes)
+        }
+    }
+}
 impl Strategy for Running {
+    fn prepare_replayed(
+        &self,
+        release: &tickwire_release::MemberRelease<'_>,
+        target: restore::Target,
+        proof: &tickwire_release::replay::source::VerifiedSourceReplay,
+        source: tickwire_release::replay::Source,
+        config: tickwire_release::replay::VersionedBytes,
+    ) -> crate::replay::Result<crate::replay::install::Candidate<Self>> {
+        crate::replay::install::prepare(
+            &RunningFactory(matches!(self, Self::Observe(_))),
+            release,
+            target,
+            proof,
+            source,
+            config,
+        )
+    }
+    fn apply_config(
+        &mut self,
+        bytes: &[u8],
+        context: &mut crate::replay::ReplayContext<'_>,
+    ) -> crate::Result<()> {
+        match self {
+            Self::Observe(s) => s.apply_config(bytes, context),
+            Self::Demo(s) => s.apply_config(bytes, context),
+        }
+    }
+    fn replay_registration(&self) -> Result<Option<crate::replay::native::Registration>> {
+        match self {
+            Self::Observe(s) => s.replay_registration(),
+            Self::Demo(s) => s.replay_registration(),
+        }
+    }
     fn checkpoint(&self) -> Result<Vec<u8>> {
         match self {
             Self::Observe(s) => s.checkpoint(),
@@ -323,7 +436,18 @@ pub fn verify_bootstrap(template: &Bootstrap, effective: &Bootstrap) -> Result<(
 pub fn target(config: &Bootstrap, loaded: &files::LoadedFiles) -> Result<restore::Target> {
     verify_recovery_inputs(config.recovery_template.as_deref(), loaded)?;
     let state = loaded.bytes(&Role::StrategyConfig).ok_or(Error::Identity)?;
-    let command = if config.demo_enabled {
+    let command = if let Some(factory) = &config.factory {
+        factory.validate()?;
+        if config.demo_enabled
+            || config.demo_command_file.is_some()
+            || config.demo_minimum_bid_ticks != 0
+            || loaded.path(&Role::StrategyConfig) != Some(factory.configuration_file.as_path())
+            || loaded.object(&Role::StrategyConfig) != Some(factory.configuration)
+        {
+            return Err(Error::Identity);
+        }
+        None
+    } else if config.demo_enabled {
         if config.demo_command_file.as_deref() != loaded.path(&Role::StrategyConfig) {
             return Err(Error::Identity);
         }
@@ -417,7 +541,10 @@ pub fn applied_status(
     }
 }
 #[allow(unsafe_code)]
-fn restore_probe(job: &ProbeJob) -> Result<Completed> {
+fn restore_probe_with<F: restore::RestoreFactory>(
+    job: &ProbeJob,
+    load: impl FnOnce(&Bootstrap, &files::LoadedFiles) -> Result<F>,
+) -> Result<Completed> {
     let primary = &job.primary;
     let bundle = primary.bundle.load(&primary.operation)?;
     let release = bundle.verify_operation(&primary.operation, &primary.member)?;
@@ -479,15 +606,8 @@ fn restore_probe(job: &ProbeJob) -> Result<Completed> {
     }
     target_files.recheck()?;
     rollback_files.recheck()?;
-    let state = if rollback.demo_enabled {
-        restore::execute(&restore::FixedDemoFactory, &input)?
-            .checkpoint()
-            .to_vec()
-    } else {
-        restore::execute(&restore::ObserveFactory, &input)?
-            .checkpoint()
-            .to_vec()
-    };
+    let factory = load(&rollback, &rollback_files)?;
+    let state = restore::execute(&factory, &input)?.checkpoint().to_vec();
     let receipt = tickwire_release::receipt::Receipt {
         schema: 1,
         kind: tickwire_release::receipt::Kind::RollbackProbe {
@@ -525,6 +645,17 @@ fn restore_probe(job: &ProbeJob) -> Result<Completed> {
 /// Authenticate before running the callback, acknowledge its persisted output,
 /// then exit normally. No strategy callbacks or order submission can run here.
 pub fn run_probe(job: &ProbeJob) -> Result<()> {
+    run_probe_with(job, |b, _| {
+        if b.factory.is_some() {
+            return Err(Error::NotReady);
+        }
+        Ok(RunningFactory(!b.demo_enabled))
+    })
+}
+pub fn run_probe_with<F: restore::RestoreFactory>(
+    job: &ProbeJob,
+    load: impl FnOnce(&Bootstrap, &files::LoadedFiles) -> Result<F>,
+) -> Result<()> {
     use tickwire_ipc::{ControlEnvelope, Wire};
     let domain = tickwire_clock::ClockDomain::new(
         job.endpoint.local.host_boot,
@@ -535,7 +666,7 @@ pub fn run_probe(job: &ProbeJob) -> Result<()> {
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
     let (mut connection, mut session) =
         crate::worker::connect(&job.endpoint, &mut clock, deadline, [38; 16])?;
-    let completed = restore_probe(job)?;
+    let completed = restore_probe_with(job, load)?;
     let body = applied_body(&completed);
     let id: [u8; 16] = body.receipt_digest[..16]
         .try_into()
@@ -570,12 +701,26 @@ pub fn run_probe(job: &ProbeJob) -> Result<()> {
 }
 /// The executable path is obtained from the running process, not from a claimed
 /// build hash. The parent still rechecks Registry ownership and authenticated IPC.
-#[allow(unsafe_code)]
 pub fn start(
     job: &Job,
     config: &Bootstrap,
     effective_bytes: &[u8],
 ) -> Result<(Running, Completed)> {
+    if config.factory.is_some() {
+        return Err(Error::NotReady);
+    }
+    start_with_factory(job, config, effective_bytes, |target, _| {
+        Ok(RunningFactory(target.command.is_none()))
+    })
+}
+/// The registered loader sees only files already bound to the target release.
+#[allow(unsafe_code)]
+pub fn start_with_factory<F: restore::RestoreFactory>(
+    job: &Job,
+    config: &Bootstrap,
+    effective_bytes: &[u8],
+    load: impl FnOnce(&restore::Target, &files::LoadedFiles) -> Result<F>,
+) -> Result<(F::Running, Completed)> {
     if job.schema != 1
         || !job.output_directory.is_absolute()
         || job.output_directory == config.command_directory
@@ -620,15 +765,10 @@ pub fn start(
     )?;
     loaded.recheck()?;
     rollback.recheck()?;
-    let (strategy, state) = if config.demo_enabled {
-        let restored = restore::execute(&restore::FixedDemoFactory, &input)?;
-        let state = restored.checkpoint().to_vec();
-        (Running::Demo(restored.into_strategy()), state)
-    } else {
-        let restored = restore::execute(&restore::ObserveFactory, &input)?;
-        let state = restored.checkpoint().to_vec();
-        (Running::Observe(restored.into_strategy()), state)
-    };
+    let factory = load(input.target(), &loaded)?;
+    let restored = restore::execute(&factory, &input)?;
+    let state = restored.checkpoint().to_vec();
+    let strategy = restored.into_strategy();
     let receipt = tickwire_release::receipt::Receipt {
         schema: 1,
         kind: tickwire_release::receipt::Kind::Restore,

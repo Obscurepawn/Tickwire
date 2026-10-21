@@ -1,4 +1,0 @@
-  ok execution_models/account/L0_spot_facts: 672 line anchor(s) -> execution_models/account/L0_spot_facts/02_models/anchors.lock
-  ok execution_models/account/L1_reduce_shadow: 867 line anchor(s) -> execution_models/account/L1_reduce_shadow/02_models/anchors.lock
-  ok execution_models/account_journal/L0_ordered_recovery: 582 line anchor(s) -> execution_models/account_journal/L0_ordered_recovery/02_models/anchors.lock
-anchors.sh update: baselined 3 level(s); 2121 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)

@@ -116,3 +116,73 @@ fn truncated_corrupted_and_noncanonical_embedded_records_reject() {
         Error::Bounds
     );
 }
+
+#[test]
+fn schema_two_structure_event_is_lossless_inside_existing_ingress_record() {
+    let (_, cmd) = setup();
+    let mut event = fill(&cmd, "42", "0.001", "60000", "60");
+    event.body = v::VenueEventBody::Structure(Box::new(v::StructureObservation {
+        parent: v::StructureIdentity {
+            structure_id: [71; 16],
+            original_intent_id: cmd.context.request.intent_id,
+            original_intent_exec_epoch: cmd.context.request.intent_exec_epoch,
+            kind: v::StructureKind::Oto,
+            client_id: venue::text("list-one"),
+            venue_parent_id: Some(venue::text("1234")),
+        },
+        status: v::StructureStatus::Terminal,
+        venue_status: venue::text("ALL_DONE"),
+        children: v::BoundedList::new(vec![]).unwrap(),
+    }));
+    let event = v::CanonicalEvent::new(event).unwrap();
+    let record = RecoveryRecord::IngressEvent {
+        input_stream: [9; 16],
+        input_sequence: 7,
+        event: Box::new(event.clone()),
+    };
+    let canonical = CanonicalRecord::new([7; 32], 9, record.clone()).unwrap();
+    let restored = CanonicalRecord::decode(canonical.bytes()).unwrap();
+    assert_eq!(restored.record(), &record);
+    let RecoveryRecord::IngressEvent {
+        event: embedded, ..
+    } = restored.record()
+    else {
+        unreachable!()
+    };
+    assert_eq!(embedded.bytes(), event.bytes());
+}
+
+#[test]
+fn uncreated_algo_closure_tag16_roundtrips_and_binds_baseline() {
+    use tickwire_account::*;
+    let b = UncreatedAlgoClosed {
+        scope: Scope {
+            risk_domain_id: [1; 16],
+            venue: 1,
+            environment: tickwire_venue::Environment::Test,
+            account: 2,
+        },
+        account_epoch: 1,
+        ledger_sequence: 3,
+        baseline_digest: [3; 32],
+        history_digest: [4; 32],
+        input_stream: [5; 16],
+        through_sequence: 10,
+        state_digest: [6; 32],
+        coverage_digest: [7; 32],
+        structure_id: [8; 16],
+        intent: IntentKey {
+            epoch: 2,
+            intent_id: 3,
+        },
+        command_digest: [9; 32],
+        venue_parent_id: tickwire_venue::VenueOrderId::new("42").unwrap(),
+    };
+    let record = RecoveryRecord::UncreatedAlgoClosed(Box::new(b));
+    let bytes = tickwire_account_codec::CanonicalRecord::new([3; 32], 4, record.clone()).unwrap();
+    assert_eq!(
+        tickwire_account_codec::CanonicalRecord::decode(bytes.bytes()).unwrap(),
+        bytes
+    );
+    assert!(tickwire_account_codec::CanonicalRecord::new([2; 32], 4, record).is_err());
+}

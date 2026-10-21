@@ -6,7 +6,7 @@ Status: active（核心 reducer 与服务回归已运行；系统实现继续进
 
 交易结果记录包括成交数量与金额、实际费用，以及订单已成交、已撤销、被拒绝或已到期等最终状态。执行内核据此更新订单和资金；下单请求只表示希望执行的操作，不会直接按成交入账。
 
-接口设计见 [execution-interface.md](../../docs/implementation/execution-interface.md)。实现位于 `tickwire-execution`，外部服务测试实现位于 `tickwire-mock`。`OrderRequest` 固定账户域、唯一意图、数量、单位支出上界、费用预算、恢复对象、授权版本、期限和提交模式；收据不能改变原意图的提交模式。
+接口设计见 execution-interface.md。实现位于 `tickwire-execution`，外部服务测试实现位于 `tickwire-mock`。`OrderRequest` 固定账户域、唯一意图、数量、单位支出上界、费用预算、恢复对象、授权版本、期限和提交模式；收据不能改变原意图的提交模式。
 
 一次准入原子地预留 `quantity × unit_budget + fee_budget`。订单持久化后才可尝试发送；调用任何交易所适配器前先变为 `MayHaveSent`。本地成功提交、提交收据丢失、交易所 ACK 丢失是不同事件。默认提交模式不等副本；显式同步提交模式等同一记录的副本持久收据。
 

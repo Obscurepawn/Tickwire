@@ -75,7 +75,12 @@ struct Row {
     source_generation: Option<u64>,
     revision: u64,
     last_event: u64,
-    states: Vec<MarketRecord>,
+    states: Vec<MarketState>,
+    selection: EventSelection,
+    event_sources: std::collections::BTreeMap<u8, u64>,
+    depth_state: u16,
+    depth_received: u64,
+    instrument: InstrumentBinding,
     bids: Vec<DepthLevel>,
     asks: Vec<DepthLevel>,
     coverage: DepthCoverage,
@@ -100,7 +105,7 @@ impl TopicState {
         self.rows.iter().all(|r| {
             r.states
                 .iter()
-                .any(|s| s.header.message_type == 261 && s.body.feed_state == 2)
+                .any(|s| s.header().message_type == 261 && s.feed_state() == 2)
         })
     }
     pub fn publications(&self) -> impl Iterator<Item = (u64, u64, u64, u64)> + '_ {
@@ -111,7 +116,7 @@ impl TopicState {
                 r.last_event,
                 r.states
                     .iter()
-                    .map(|s| s.header.publish_mono_ns)
+                    .map(|s| s.header().publish_mono_ns)
                     .max()
                     .unwrap_or(0),
             )
@@ -122,7 +127,7 @@ impl TopicState {
             && self.rows.iter().all(|r| {
                 r.states
                     .iter()
-                    .any(|s| s.header.message_type == 261 && s.body.feed_state == 2)
+                    .any(|s| s.header().message_type == 261 && s.feed_state() == 2)
             })
     }
     pub fn snapshot(
@@ -291,8 +296,14 @@ impl<const M: usize> TopicPublisher<M> {
             {
                 return Err(Error::Identity);
             }
-            let context = DepthContext::new(cfg.market, cfg.instrument, cfg.key, 0, cfg.time_unit)
-                .map_err(Error::Decode)?;
+            let context = DepthContext::new(
+                cfg.market,
+                cfg.instrument.clone(),
+                cfg.key,
+                0,
+                cfg.time_unit,
+            )
+            .map_err(Error::Decode)?;
             rows.push(Row {
                 spec,
                 key: cfg.key,
@@ -300,13 +311,18 @@ impl<const M: usize> TopicPublisher<M> {
                 source_generation: None,
                 revision: 0,
                 last_event: owner.published(),
-                states: vec![MarketRecord {
+                selection: EventSelection::default(),
+                event_sources: std::collections::BTreeMap::new(),
+                depth_state: 1,
+                depth_received: 0,
+                instrument: cfg.instrument,
+                states: vec![MarketState::Legacy(MarketRecord {
                     header: header(&h, spec, owner.published(), 261, 0, 0),
                     body: MarketBody {
                         feed_state: 1,
                         ..Default::default()
                     },
-                }],
+                })],
                 bids: Vec::with_capacity(limits.levels_per_side),
                 asks: Vec::with_capacity(limits.levels_per_side),
                 coverage: DepthCoverage {
@@ -434,9 +450,16 @@ impl<const M: usize> TopicPublisher<M> {
     }
     fn invalidate_row(&mut self, index: usize, now: u64, faults: &mut impl FaultSink) {
         let row = &mut self.state.rows[index];
-        if let Some(feed) = row.states.iter_mut().find(|r| r.header.message_type == 261) {
-            feed.body.feed_state = 3;
-            feed.header.publish_mono_ns = now;
+        if let Some(feed) = row
+            .states
+            .iter_mut()
+            .find(|r| r.header().message_type == 261)
+        {
+            if let MarketState::Legacy(feed) = feed {
+                feed.body.feed_state = 3;
+                feed.header.publish_mono_ns = now;
+            }
+            row.depth_state = 3;
         }
         self.fault(self.state.rows[index].spec.instrument_id, faults);
     }
@@ -526,6 +549,11 @@ impl<const M: usize> TopicPublisher<M> {
             quote.body.ask_price_ticks = l.price.0;
             quote.body.ask_qty_lots = l.quantity.0;
         }
+        row.depth_state = state;
+        row.depth_received = view.received_at_ns();
+        if !row.selection.best_bid_ask {
+            upsert(&mut row.states, quote.clone().into());
+        }
         let feed = MarketRecord {
             header: header(
                 &self.state.header,
@@ -536,11 +564,11 @@ impl<const M: usize> TopicPublisher<M> {
                 view.received_at_ns(),
             ),
             body: MarketBody {
-                feed_state: state,
+                feed_state: aggregate_state(row),
                 ..Default::default()
             },
         };
-        row.states = vec![quote, feed];
+        upsert(&mut row.states, feed.clone().into());
         self.state.dirty = true;
         if self.needs_bank {
             return Ok(());
@@ -606,7 +634,10 @@ impl<const M: usize> TopicPublisher<M> {
             }
             records.push(record);
         }
-        records.extend(row.states.iter().cloned());
+        if !row.selection.best_bid_ask {
+            records.push(quote);
+        }
+        records.push(feed);
         for (i, r) in records.iter_mut().enumerate() {
             r.header.sequence = self.owner.published() + i as u64 + 1;
         }
@@ -622,8 +653,9 @@ impl<const M: usize> TopicPublisher<M> {
             })
             .collect::<Vec<_>>();
         let published = self.owner.publish_market(&messages)?;
-        let end = records.len();
-        row.states.clone_from_slice(&records[end - 2..]);
+        for record in records.into_iter().filter(|r| r.header.message_type != 259) {
+            upsert(&mut row.states, record.into());
+        }
         row.last_event = published;
         self.state.sequence = published;
         self.state.dirty = false;
@@ -653,6 +685,7 @@ impl<const M: usize> TopicPublisher<M> {
             || replacement.published() != h.first_seq - 1
             || replacement.membership_version() != h.initial_membership_version
             || h.required_features & 0x42 != 0x42
+            || h.required_features != old.required_features
             || replacement.registry().catalog_hash != self.state.catalog
             || replacement
                 .registry()
@@ -672,13 +705,12 @@ impl<const M: usize> TopicPublisher<M> {
         self.state.header = h.clone();
         for row in &mut self.state.rows {
             for state in &mut row.states {
-                state.header.feed_generation = h.feed_generation;
-                state.header.sequence = replacement.published() + 1;
-                state.header.publish_mono_ns = now;
-                replacement.publish_market(&[MarketMessage {
-                    record: state,
-                    levels: &[],
-                }])?;
+                state.header_mut().feed_generation = h.feed_generation;
+                state.header_mut().sequence = replacement.published() + 1;
+                state.header_mut().publish_mono_ns = now;
+                let mut raw = [0; 512];
+                encode_state(state, &mut raw)?;
+                replacement.publish(&[&raw])?;
             }
             row.last_event = replacement.published();
         }
@@ -716,3 +748,6 @@ impl<const M: usize, C: FnMut() -> u64, F: FaultSink> PublicSink for Publication
         true
     }
 }
+mod events;
+pub use events::{EventSelection, event_record};
+use events::{aggregate_state, encode_state, upsert};

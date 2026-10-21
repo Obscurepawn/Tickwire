@@ -86,6 +86,19 @@ pub(crate) fn record(
     record: &RecoveryRecord,
 ) -> Result<()> {
     match record {
+        RecoveryRecord::IncomeObservationsAssociated(b) => {
+            if b.scope != c.scope
+                || b.baseline_digest != c.baseline_digest
+                || b.account_epoch != baseline.snapshot().account_epoch
+                || !baseline
+                    .catalog()
+                    .entries
+                    .iter()
+                    .any(|p| p.wallet_id == b.wallet_id && p.futures.is_some())
+            {
+                return Err(Error::Identity);
+            }
+        }
         RecoveryRecord::IngressAccountInput { input, .. } => {
             let id = &input.input().identity;
             scope(c, id.risk_domain_id, id.venue, id.account, id.environment)?;
@@ -94,6 +107,23 @@ pub(crate) fn record(
                 .entries
                 .iter()
                 .any(|p| p.wallet_id == id.wallet_id && p.futures.is_some())
+            {
+                return Err(Error::Identity);
+            }
+        }
+        RecoveryRecord::UncreatedAlgoClosed(b) => {
+            if b.scope != c.scope
+                || b.baseline_digest != c.baseline_digest
+                || b.account_epoch != baseline.snapshot().account_epoch
+                || b.intent.epoch > writer
+            {
+                return Err(Error::Identity);
+            }
+        }
+        RecoveryRecord::AccountInputsReconciled(b) => {
+            if b.scope != c.scope
+                || b.baseline_digest != c.baseline_digest
+                || b.account_epoch != baseline.snapshot().account_epoch
             {
                 return Err(Error::Identity);
             }
@@ -161,6 +191,18 @@ pub(crate) fn record(
                 return Err(Error::Identity);
             }
             let order = match &event.body {
+                v::VenueEventBody::AmendmentRejected(a) => {
+                    original_epoch(a.request_intent_exec_epoch, writer)?;
+                    Some(&a.order)
+                }
+                v::VenueEventBody::Amendment(a) => {
+                    original_epoch(a.request_intent_exec_epoch, writer)?;
+                    Some(&a.order)
+                }
+                v::VenueEventBody::Structure(s) => {
+                    original_epoch(s.parent.original_intent_exec_epoch, writer)?;
+                    None
+                }
                 v::VenueEventBody::Order(o) => Some(&o.order),
                 v::VenueEventBody::Fill(f) => Some(&f.observation.order),
                 v::VenueEventBody::Fee { order, .. } => Some(order),

@@ -4,8 +4,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 repo_dir="$PWD"
 scenario="${1:-spot-fill}"
-if [[ $# -gt 1 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover ]]; then
-  printf 'Usage: %s [spot-fill|spot-handover]\n' "$0" >&2
+profile="${2:-dev}"
+if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover && "$scenario" != spot-handover-custom ]] || [[ "$profile" != dev && "$profile" != release ]]; then
+  printf 'Usage: %s [spot-fill|spot-handover|spot-handover-custom] [dev|release]\n' "$0" >&2
   exit 2
 fi
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -25,6 +26,7 @@ trap 'exit 143' TERM
 
 printf '%s\n' "$image" > "$result_dir/image.txt"
 printf '%s\n' "$scenario" > "$result_dir/scenario.txt"
+printf '%s\n' "$profile" > "$result_dir/profile.txt"
 printf 'Results: %s\nRetained Linux volume: %s\n' "$result_dir" "$volume_name"
 docker run --rm --init --name "$container_name" --label tickwire.task=core-chain \
   --mount "type=bind,source=$repo_dir,target=/work,readonly" \
@@ -32,7 +34,7 @@ docker run --rm --init --name "$container_name" --label tickwire.task=core-chain
   --mount "type=bind,source=$repo_dir/.tools/linux-cargo-registry,target=/usr/local/cargo/registry" \
   --mount "type=bind,source=$result_dir,target=/results" \
   --mount "type=volume,source=$volume_name,target=/lab" \
-  -w /work -e "TICKWIRE_LAB_SCENARIO=$scenario" -e CARGO_TARGET_DIR=/target -e RUSTUP_TOOLCHAIN=1.99.1 \
+  -w /work -e "TICKWIRE_LAB_SCENARIO=$scenario" -e "TICKWIRE_LAB_PROFILE=$profile" -e CARGO_TARGET_DIR=/target -e RUSTUP_TOOLCHAIN=1.99.1 \
   "$image" bash -c '
     set -euo pipefail
     save_logs() {
@@ -49,11 +51,17 @@ docker run --rm --init --name "$container_name" --label tickwire.task=core-chain
     uname -srmo
     rustc --version
     stat -f -c %T /lab
-    cargo build --locked -p tickwire-lab -p tickwire-app -p tickwire-md \
-      -p tickwire-strategy-sdk -p tickwire-replica -p tickwire-lifecycle --bins
+    build_options=()
+    build_directory=/target/debug
+    if [[ "$TICKWIRE_LAB_PROFILE" == release ]]; then
+      build_options+=(--release)
+      build_directory=/target/release
+    fi
+    cargo build "${build_options[@]}" --locked -p tickwire-lab -p tickwire-app -p tickwire-md \
+      -p tickwire-strategy-sdk -p tickwire-strategy-example -p tickwire-replica -p tickwire-lifecycle --bins
     mkdir /lab/bin
-    for name in tickwire-lab tickwire-app tickwire-md tickwire-strategy-worker tickwire-replica-receiver tickwire-lifecycle; do
-      install -m 0755 "/target/debug/$name" "/lab/bin/$name"
+    for name in tickwire-lab tickwire-app tickwire-md tickwire-strategy-worker tickwire-replica-receiver tickwire-lifecycle tickwire-counting-v1-worker tickwire-counting-worker; do
+      install -m 0755 "$build_directory/$name" "/lab/bin/$name"
       strip --strip-debug "/lab/bin/$name"
     done
     sha256sum /lab/bin/* > /results/deployment-binaries-sha256.txt

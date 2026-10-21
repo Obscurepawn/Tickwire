@@ -1,6 +1,6 @@
 # Binance Spot 请求扩展规格
 
-状态：已实现。接口见[列表、挂钩价格和 SOR 请求](../../docs/implementation/binance-request-extensions-interface.md)，证据见[验证记录](../../docs/validation/binance-request-extensions/README.md)。
+状态：已实现。接口见列表、挂钩价格和 SOR 请求，证据见验证记录。
 
 ## 历史编码和新增类型
 

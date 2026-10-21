@@ -120,3 +120,24 @@ fn parameter_depth_and_secret_keys_cannot_hide_inside_freeform_params() {
         .is_err()
     );
 }
+#[test]
+fn cluster_role_scope_is_explicit_and_has_no_ambiguous_account_list() {
+    let mut value = reference().value().clone();
+    value["control"]["role_bindings"][0]["cluster_scope"] = true.into();
+    value["control"]["role_bindings"][0]["account_ids"] = serde_json::json!([]);
+    let candidate = Candidate::parse(
+        Format::Json,
+        &serde_json::to_vec(&value).unwrap(),
+        Limits::default(),
+    )
+    .unwrap();
+    candidate.validate_static().unwrap();
+    value["control"]["role_bindings"][0]["account_ids"] = serde_json::json!(["spot-main"]);
+    let ambiguous = Candidate::parse(
+        Format::Json,
+        &serde_json::to_vec(&value).unwrap(),
+        Limits::default(),
+    )
+    .unwrap();
+    assert!(ambiguous.validate_static().is_err());
+}

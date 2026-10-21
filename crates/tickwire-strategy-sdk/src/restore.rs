@@ -50,8 +50,83 @@ pub struct VerifiedRestoreInput {
     source_generation: u64,
     source_report_position: u64,
     callbacks: Option<tickwire_handover::VerifiedHandoverInputs>,
+    source_runtime: Option<tickwire_release::replay::RuntimeState>,
 }
 impl VerifiedRestoreInput {
+    pub fn for_installed_probe(
+        release: &MemberRelease<'_>,
+        target: Target,
+        installed: &tickwire_release::replay::install::Verified,
+    ) -> Result<Self> {
+        validate_target(&target)?;
+        let root =
+            tickwire_release::Object::of(&installed.continued.bytes().map_err(|_| Error::Input)?);
+        let verified = tickwire_release::replay::install::verify(root.digest, |hash| {
+            installed
+                .objects
+                .iter()
+                .find(|b| tickwire_recovery::digest(b) == hash)
+                .cloned()
+                .ok_or(tickwire_release::Error::Missing)
+        })
+        .map_err(|_| Error::Input)?;
+        let r = &verified.request;
+        if release.roots()
+            != [
+                r.operation.artifacts_digest,
+                r.operation.checkpoint_digest,
+                r.operation.rollback_digest,
+            ]
+            || release.target.member != r.member
+            || target.logical_strategy != r.operation.logical_strategy_id
+            || [r.member.old_instance, r.member.new_instance].contains(&target.instance)
+        {
+            return Err(Error::Identity);
+        }
+        let get = |hash| {
+            verified
+                .objects
+                .iter()
+                .find(|b| tickwire_recovery::digest(b) == hash)
+                .cloned()
+                .ok_or(tickwire_release::Error::Missing)
+        };
+        let source = r
+            .source_proof(|o| get(o.digest))
+            .map_err(|_| Error::Input)?;
+        let installed = tickwire_release::replay::Checkpoint::decode(
+            &get(verified.installation.checkpoint.digest).map_err(|_| Error::Input)?,
+        )
+        .map_err(|_| Error::Input)?;
+        release
+            .rollback
+            .method
+            .check_source(installed.source.state_schema)
+            .map_err(|_| Error::Unsupported)?;
+        let mut input = Self::from_replayed(
+            release,
+            Target {
+                instance: r.member.new_instance,
+                generation: r.member.new_generation,
+                logical_strategy: r.operation.logical_strategy_id,
+                command: None,
+                minimum_bid_ticks: 0,
+                enabled: false,
+            },
+            &source,
+        )?;
+        input.target = target;
+        input.method = release.rollback.method.clone();
+        input.expected = release.rollback.capabilities.clone();
+        input.state = crate::replay::application::business_bytes(&installed.business)
+            .map_err(|_| Error::State)?;
+        input.source_schema = installed.source.state_schema;
+        input.source_checkpoint = tickwire_recovery::digest(&input.state);
+        input.source_instance = installed.source.instance;
+        input.source_generation = installed.source.generation;
+        input.source_runtime = Some(installed.runtime);
+        Ok(input)
+    }
     pub fn verify(
         release: &MemberRelease<'_>,
         target: Target,
@@ -123,10 +198,74 @@ impl VerifiedRestoreInput {
             source_generation: seal.generation,
             source_report_position: seal.report_position,
             callbacks: Some(callbacks),
+            source_runtime: None,
         })
     }
     pub fn target(&self) -> &Target {
         &self.target
+    }
+    /// Migration consumes the actual old state at C and its historical
+    /// configuration. New parameters are applied separately before installation.
+    pub fn from_replayed(
+        release: &MemberRelease<'_>,
+        target: Target,
+        proof: &tickwire_release::replay::source::VerifiedSourceReplay,
+    ) -> Result<Self> {
+        validate_target(&target)?;
+        let completion = proof.completion();
+        let member = &release.migration.member;
+        if &completion.member != member
+            || completion.fixed_proof != release.migration.source_proof
+            || proof.fixed().source.state_schema != release.migration.source_schema
+            || target.instance != member.new_instance
+            || target.generation != member.new_generation
+            || target.logical_strategy != release.logical_strategy()
+        {
+            return Err(Error::Identity);
+        }
+        let find = |h: Hash| {
+            proof
+                .objects()
+                .find(|b| tickwire_recovery::digest(b) == h)
+                .ok_or(Error::Input)
+        };
+        let fixed = tickwire_recovery::HandoverSeal::decode(find(completion.fixed_proof.digest)?)
+            .map_err(|_| Error::Input)?;
+        if release.migration.source_checkpoint.digest != fixed.checkpoint_digest {
+            return Err(Error::Identity);
+        }
+        let current =
+            tickwire_recovery::HandoverSeal::decode(find(completion.current_proof.digest)?)
+                .map_err(|_| Error::Input)?;
+        let callbacks = tickwire_handover::verify(
+            &current,
+            find(current.checkpoint_digest)?,
+            find(current.input_digest)?,
+            find(current.account_input_digest)?,
+        )
+        .map_err(|_| Error::Input)?;
+        release
+            .migration
+            .method
+            .check_source(proof.current().source.state_schema)
+            .map_err(|_| Error::Unsupported)?;
+        Ok(Self {
+            target,
+            method: release.migration.method.clone(),
+            expected: release.target.capabilities.clone(),
+            state: crate::replay::application::business_bytes(&proof.current().business)
+                .map_err(|_| Error::State)?,
+            source_schema: proof.current().source.state_schema,
+            source_checkpoint: current.checkpoint_digest,
+            source_instance: current.instance,
+            source_generation: current.generation,
+            source_report_position: current.report_position,
+            callbacks: Some(callbacks),
+            source_runtime: Some(proof.current().runtime.clone()),
+        })
+    }
+    pub fn source_runtime(&self) -> Option<&tickwire_release::replay::RuntimeState> {
+        self.source_runtime.as_ref()
     }
     /// Rollback consumes the real target callback output, never the original
     /// checkpoint again. The source callback history remains fully validated.
@@ -185,6 +324,11 @@ impl VerifiedRestoreInput {
 pub trait RestoreFactory {
     type Running: Strategy;
     fn capabilities(&self) -> Capabilities;
+    /// Exact configuration derived from the qualified target, not historical
+    /// command authority. Unregistered factories cannot install replay state.
+    fn configuration(&self, _target: &Target) -> Result<tickwire_release::replay::VersionedBytes> {
+        Err(Error::Unsupported)
+    }
     fn restore(&self, _input: &VerifiedRestoreInput) -> Result<Self::Running> {
         Err(Error::Unsupported)
     }
@@ -275,6 +419,13 @@ fn base(schema: u64, methods: Vec<Method>, orders: Vec<OrderKind>) -> Capabiliti
 pub struct ObserveFactory;
 impl RestoreFactory for ObserveFactory {
     type Running = ObserveOnly;
+    fn configuration(&self, target: &Target) -> Result<tickwire_release::replay::VersionedBytes> {
+        validate_target(target)?;
+        if target.command.is_some() || target.enabled || target.minimum_bid_ticks != 0 {
+            return Err(Error::Identity);
+        }
+        Ok(crate::replay::native::observe().config)
+    }
     fn capabilities(&self) -> Capabilities {
         base(
             OBSERVE_SCHEMA,
@@ -305,10 +456,30 @@ impl RestoreFactory for ObserveFactory {
 }
 pub struct FixedDemoFactory;
 pub struct RestoredDemo {
-    inner: FixedDemo,
-    action: Hash,
+    pub(crate) inner: FixedDemo,
+    pub(crate) action: Hash,
 }
 impl Strategy for RestoredDemo {
+    fn prepare_replayed(
+        &self,
+        release: &MemberRelease<'_>,
+        target: Target,
+        proof: &tickwire_release::replay::source::VerifiedSourceReplay,
+        source: tickwire_release::replay::Source,
+        config: tickwire_release::replay::VersionedBytes,
+    ) -> crate::replay::Result<crate::replay::install::Candidate<Self>> {
+        crate::replay::install::prepare(&FixedDemoFactory, release, target, proof, source, config)
+    }
+    fn apply_config(
+        &mut self,
+        bytes: &[u8],
+        context: &mut crate::replay::ReplayContext<'_>,
+    ) -> crate::Result<()> {
+        crate::replay::native::apply_demo(&mut self.inner, false, bytes, context)
+    }
+    fn replay_registration(&self) -> crate::Result<Option<crate::replay::native::Registration>> {
+        Ok(Some(crate::replay::native::demo(&self.inner, DEMO_SCHEMA)?))
+    }
     fn checkpoint(&self) -> crate::Result<Vec<u8>> {
         let mut bytes = b"TWFD0002".to_vec();
         bytes.push(u8::from(self.inner.command.is_none()));
@@ -344,16 +515,34 @@ fn construct(input: &VerifiedRestoreInput, spent: bool, action: Hash) -> Result<
     if action_key(&command) != action {
         return Err(Error::Identity);
     }
+    let (minimum_bid_ticks, enabled) = if let Some(runtime) = &input.source_runtime {
+        let p = crate::replay::native::Parameters::decode(&runtime.config.bytes)
+            .map_err(|_| Error::Input)?;
+        (p.minimum_bid_ticks, p.enabled)
+    } else {
+        (input.target.minimum_bid_ticks, input.target.enabled)
+    };
     let inner = FixedDemo {
         original: command.clone(),
         command: if spent { None } else { Some(command) },
-        minimum_bid_ticks: input.target.minimum_bid_ticks,
-        enabled: input.target.enabled,
+        minimum_bid_ticks,
+        enabled,
     };
     Ok(RestoredDemo { inner, action })
 }
 impl RestoreFactory for FixedDemoFactory {
     type Running = RestoredDemo;
+    fn configuration(&self, target: &Target) -> Result<tickwire_release::replay::VersionedBytes> {
+        validate_target(target)?;
+        let s = FixedDemo::new(
+            target.command.clone().ok_or(Error::Identity)?,
+            target.minimum_bid_ticks,
+            target.enabled,
+        );
+        crate::replay::native::demo(&s, DEMO_SCHEMA)
+            .map(|r| r.config)
+            .map_err(|_| Error::Input)
+    }
     fn capabilities(&self) -> Capabilities {
         base(
             DEMO_SCHEMA,

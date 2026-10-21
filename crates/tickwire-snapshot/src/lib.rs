@@ -246,8 +246,8 @@ pub fn validate<'a>(bytes: &'a [u8], context: &JoinContext<'_>) -> Result<Valida
         ready &= m.entry.feed_state == 2;
         for row in m.state_records.as_chunks::<512>().0 {
             // validate_topic_bundle already checked every record and row count.
-            let record = MarketRecord::decode(row)?;
-            let h = record.header;
+            let record = MarketState::decode(row)?;
+            let h = record.header();
             identity(
                 h.topic_or_scope_id == r.topic_id && h.producer_generation == r.producer_generation,
             )?;
@@ -257,18 +257,18 @@ pub fn validate<'a>(bytes: &'a [u8], context: &JoinContext<'_>) -> Result<Valida
                 return Err(Error::Deadline);
             }
             let bit = match h.message_type {
-                257 => QUOTE,
-                258 => TRADE,
-                260 => MARK_FUNDING,
+                257 | 265 => QUOTE,
+                258 | 264 => TRADE,
+                260 | 266 => MARK_FUNDING,
                 261 => {
-                    identity(record.body.feed_state == m.entry.feed_state)?;
+                    identity(record.feed_state() == m.entry.feed_state)?;
                     0
                 }
                 _ => return Err(Error::UnknownMessage),
             };
             observed |= bit;
             if bit & required.required_states != 0 {
-                ready &= record.body.feed_state == 2;
+                ready &= record.feed_state() == 2;
             }
         }
         ready &= observed & required.required_states == required.required_states;

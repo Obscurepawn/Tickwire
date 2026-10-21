@@ -10,4 +10,4 @@ leader 接受业务提案前等待本任期 barrier 提交应用。安全读使�
 
 认证输入先核对 peer/from/to 与允许的消息种类。Append 的首 index、连续性和非递减 term 在进入 raft-rs 前检查；Heartbeat 的 commit 不得超过本地实际日志尾，包括尚未落盘的 unstable entries。两项边界均曾在实际调用中触发 raft-rs panic，现由协议错误返回替代。
 
-实际文件测试覆盖三 voter 提交与全组重启、100,000 字节命令分片、少数派隔离和重新追平、持久投票、六个同步失败切点、启动身份、错误 peer、Append 与 Heartbeat 边界，共 8 项通过。完整证据见[验证记录](../../docs/validation/control-raft/README.md)；形式验证留待全部系统代码完成后执行。
+实际文件测试覆盖三 voter 提交与全组重启、100,000 字节命令分片、少数派隔离和重新追平、持久投票、六个同步失败切点、启动身份、错误 peer、Append 与 Heartbeat 边界，共 8 项通过。完整证据见验证记录；形式验证留待全部系统代码完成后执行。

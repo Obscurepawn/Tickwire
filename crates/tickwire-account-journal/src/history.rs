@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn independent_python_samples_bind_bootstrap_and_writer_epoch() {
         let data: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../docs/validation/account-journal/history-vectors.json"
+            "../tests/data/history-vectors.json"
         ))
         .unwrap();
         let config = Config {

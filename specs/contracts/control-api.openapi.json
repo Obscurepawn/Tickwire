@@ -3810,73 +3810,24 @@
         ]
       },
       "Head": {
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "string",
-            "pattern": "^[1-9][0-9]{0,18}$"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CommittedHead"
           },
-          "config_hash": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "etag": {
-            "type": "string",
-            "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
-          },
-          "committed_at": {
-            "type": "string",
-            "format": "date-time"
+          {
+            "$ref": "#/components/schemas/BootstrapHead"
           }
-        },
-        "required": [
-          "revision",
-          "config_hash",
-          "etag",
-          "committed_at"
-        ],
-        "additionalProperties": false
+        ]
       },
       "Desired": {
-        "type": "object",
-        "properties": {
-          "revision": {
-            "type": "string",
-            "pattern": "^[1-9][0-9]{0,18}$"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/CommittedDesired"
           },
-          "config_hash": {
-            "type": "string",
-            "pattern": "^sha256:[0-9a-f]{64}$"
-          },
-          "etag": {
-            "type": "string",
-            "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
-          },
-          "control_commit_ref": {
-            "type": "string"
-          },
-          "operation_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "committed_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "config": {
-            "$ref": "system-config.schema.json"
+          {
+            "$ref": "#/components/schemas/BootstrapDesired"
           }
-        },
-        "required": [
-          "revision",
-          "config_hash",
-          "etag",
-          "control_commit_ref",
-          "operation_id",
-          "committed_at",
-          "config"
-        ],
-        "additionalProperties": false
+        ]
       },
       "Effective": {
         "type": "object",
@@ -3992,6 +3943,147 @@
           "reason"
         ],
         "additionalProperties": false
+      },
+      "CommittedHead": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "config_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "etag": {
+            "type": "string",
+            "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revision",
+          "config_hash",
+          "etag",
+          "committed_at"
+        ],
+        "additionalProperties": false
+      },
+      "BootstrapHead": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "config_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "etag": {
+            "type": "string",
+            "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
+          },
+          "origin": {
+            "type": "string",
+            "const": "bootstrap"
+          },
+          "control_commit_ref": {
+            "type": "string",
+            "pattern": "^raft:[1-9][0-9]*:[1-9][0-9]*$"
+          }
+        },
+        "required": [
+          "revision",
+          "config_hash",
+          "etag",
+          "origin",
+          "control_commit_ref"
+        ],
+        "additionalProperties": false,
+        "description": "Persisted first bootstrap head. No business operation ID or commit UTC was recorded."
+      },
+      "CommittedDesired": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "config_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "etag": {
+            "type": "string",
+            "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
+          },
+          "control_commit_ref": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "committed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "config": {
+            "$ref": "system-config.schema.json"
+          }
+        },
+        "required": [
+          "revision",
+          "config_hash",
+          "etag",
+          "control_commit_ref",
+          "operation_id",
+          "committed_at",
+          "config"
+        ],
+        "additionalProperties": false
+      },
+      "BootstrapDesired": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]{0,18}$"
+          },
+          "config_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "etag": {
+            "type": "string",
+            "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
+          },
+          "origin": {
+            "type": "string",
+            "const": "bootstrap"
+          },
+          "control_commit_ref": {
+            "type": "string",
+            "pattern": "^raft:[1-9][0-9]*:[1-9][0-9]*$"
+          },
+          "config": {
+            "$ref": "system-config.schema.json"
+          }
+        },
+        "required": [
+          "revision",
+          "config_hash",
+          "etag",
+          "origin",
+          "control_commit_ref",
+          "config"
+        ],
+        "additionalProperties": false,
+        "description": "Persisted first bootstrap head. No business operation ID or commit UTC was recorded."
       }
     }
   },

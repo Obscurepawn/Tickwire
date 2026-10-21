@@ -239,7 +239,8 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
         config.tuning.delivery_budget_ns,
         config.tuning.connect_timeout_ns,
     )
-    .map_err(|e| format!("reconciliation startup: {e}"))?;
+    .map_err(|e| format!("reconciliation startup: {e}"))?
+    .with_execution_network(networks.websocket.as_ref().unwrap_or(&networks.rest));
     let mut node = files::open_with_services::<
         P,
         _,
