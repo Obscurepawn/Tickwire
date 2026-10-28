@@ -2,6 +2,7 @@
 use crate::{Result, config::read_file, invalid};
 #[path = "release_preflight.rs"]
 mod preflight;
+mod rebuild;
 mod replay;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -55,6 +56,8 @@ struct State {
     session: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     replay: Option<replay::Facts>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rebuild: Option<rebuild::Facts>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -74,6 +77,18 @@ enum Event {
     },
     State {
         state: State,
+    },
+    RebuildObservedOutcome {
+        session: u64,
+        request_id: [u8; 16],
+        request_digest: [u8; 32],
+        receipt: protocol::SignedRebuildObserved,
+    },
+    RebuildOutcome {
+        session: u64,
+        request_id: [u8; 16],
+        request_digest: [u8; 32],
+        receipt: protocol::SignedRebuildPrepared,
     },
     ReplayObservedOutcome {
         session: u64,
@@ -97,6 +112,8 @@ enum Event {
 }
 enum Applied {
     Legacy(SignedReceipt),
+    Rebuild(protocol::SignedRebuildPrepared),
+    RebuildObserved(protocol::SignedRebuildObserved),
     Replay(protocol::SignedReplayPrepared),
     Observed(protocol::SignedReplayObserved),
 }
@@ -107,6 +124,8 @@ struct Outcome {
     receipt: Option<SignedReceipt>,
     replay: Option<protocol::SignedReplayPrepared>,
     observed: Option<protocol::SignedReplayObserved>,
+    rebuild: Option<protocol::SignedRebuildPrepared>,
+    rebuild_observed: Option<protocol::SignedRebuildObserved>,
     error: Option<String>,
 }
 pub struct Inbox {
@@ -241,7 +260,60 @@ impl Inbox {
                         } else if states.get(&key).is_some_and(|s: &State| s.replay.is_some()) {
                             return Err(invalid("replay facts missing"));
                         }
+                        rebuild::validate_state(&state, states.get(&key))?;
                         states.insert(key, state);
+                    }
+                    Event::RebuildObservedOutcome {
+                        session: s,
+                        request_id,
+                        request_digest,
+                        receipt,
+                    } => {
+                        if s != session
+                            || decisions.get(&request_id) != Some(&request_digest)
+                            || outcomes.contains_key(&request_id)
+                        {
+                            return Err(invalid("rebuild observation outcome binding"));
+                        }
+                        outcomes.insert(
+                            request_id,
+                            Outcome {
+                                session: s,
+                                digest: request_digest,
+                                receipt: None,
+                                replay: None,
+                                observed: None,
+                                rebuild: None,
+                                rebuild_observed: Some(receipt),
+                                error: None,
+                            },
+                        );
+                    }
+                    Event::RebuildOutcome {
+                        session: s,
+                        request_id,
+                        request_digest,
+                        receipt,
+                    } => {
+                        if s != session
+                            || decisions.get(&request_id) != Some(&request_digest)
+                            || outcomes.contains_key(&request_id)
+                        {
+                            return Err(invalid("rebuild outcome binding"));
+                        }
+                        outcomes.insert(
+                            request_id,
+                            Outcome {
+                                session: s,
+                                digest: request_digest,
+                                receipt: None,
+                                replay: None,
+                                observed: None,
+                                rebuild: Some(receipt),
+                                rebuild_observed: None,
+                                error: None,
+                            },
+                        );
                     }
                     Event::ReplayObservedOutcome {
                         session: s,
@@ -263,6 +335,8 @@ impl Inbox {
                                 receipt: None,
                                 replay: None,
                                 observed: Some(receipt),
+                                rebuild: None,
+                                rebuild_observed: None,
                                 error: None,
                             },
                         );
@@ -287,6 +361,8 @@ impl Inbox {
                                 receipt: None,
                                 replay: Some(receipt),
                                 observed: None,
+                                rebuild: None,
+                                rebuild_observed: None,
                                 error: None,
                             },
                         );
@@ -313,6 +389,8 @@ impl Inbox {
                                 receipt,
                                 replay: None,
                                 observed: None,
+                                rebuild: None,
+                                rebuild_observed: None,
                                 error,
                             },
                         );
@@ -450,6 +528,18 @@ impl Inbox {
                     count += 1;
                     continue;
                 }
+                if let Some(result) = rebuild::saved_result(
+                    self.states.get(&(
+                        decoded.operation.operation_id,
+                        decoded.operation.operation_revision,
+                    )),
+                    self.session,
+                    &signed,
+                )? {
+                    self.record_rebuild_outcome(&decoded, hash, result)?;
+                    count += 1;
+                    continue;
+                }
                 // Never repeat an interrupted mutation under its old challenge.
                 self.record_outcome(
                     &decoded,
@@ -497,22 +587,42 @@ impl Inbox {
                 .sample()
                 .map_err(|_| invalid("lifecycle clock sample"))?
                 .monotonic;
-            let applied = if decoded.operation.schema == 4 {
-                Err(invalid("declared rebuild execution is not yet configured"))
-            } else if fresh.nanos() >= decoded.valid_until_ns
+            let applied = if fresh.nanos() >= decoded.valid_until_ns
                 && decoded.action != ControlAction::Halt
             {
                 Err(invalid("lifecycle request expired before application"))
             } else {
-                if decoded.operation.schema == 3 && decoded.action == ControlAction::Prepare {
+                if decoded.operation.schema == 4 && decoded.action == ControlAction::Prepare {
+                    self.apply_rebuild_prepare(
+                        &signed,
+                        verified.request(),
+                        strategy,
+                        gateway,
+                        fresh,
+                    )
+                    .map(Applied::Rebuild)
+                } else if decoded.operation.schema == 3 && decoded.action == ControlAction::Prepare
+                {
                     self.apply_replay_prepare(&signed, verified.request(), strategy, gateway, fresh)
                         .map(Applied::Replay)
                 } else {
                     self.apply(verified.request(), strategy, gateway, fresh)
-                        .and_then(|receipt| self.observe_replay_query(&signed, receipt))
+                        .and_then(|receipt| {
+                            if decoded.operation.schema == 4 {
+                                self.observe_rebuild_query(&signed, receipt)
+                            } else {
+                                self.observe_replay_query(&signed, receipt)
+                            }
+                        })
                 }
             };
             match applied {
+                Ok(Applied::Rebuild(receipt)) => {
+                    self.record_rebuild_outcome(&decoded, hash, receipt)?;
+                }
+                Ok(Applied::RebuildObserved(receipt)) => {
+                    self.record_rebuild_observed_outcome(&decoded, hash, receipt)?;
+                }
                 Ok(Applied::Legacy(receipt)) => {
                     self.record_outcome(&decoded, hash, Some(receipt), None)?
                 }
@@ -598,6 +708,7 @@ impl Inbox {
                 committed_receipt: None,
                 session: self.session,
                 replay: None,
+                rebuild: None,
             }
         };
         if state.session != self.session {
@@ -646,7 +757,10 @@ impl Inbox {
                     state.phase = AppliedPhase::Prepared;
                 }
                 ControlAction::Commit => {
-                    let release = if r.operation.schema == 3 {
+                    let release = if r.operation.schema == 4 {
+                        rebuild::check_adoption(&state, r)?;
+                        None
+                    } else if r.operation.schema == 3 {
                         replay::check_adoption(&state, r)?;
                         None
                     } else {
@@ -669,6 +783,17 @@ impl Inbox {
                     }
                     if let Some(release) = &release {
                         self.capture(strategy, gateway, r, proof, release)?;
+                    } else if r.operation.schema == 4 {
+                        self.capture_rebuild(
+                            strategy,
+                            gateway,
+                            r,
+                            proof,
+                            state
+                                .rebuild
+                                .as_ref()
+                                .ok_or_else(|| invalid("rebuild facts missing"))?,
+                        )?;
                     } else {
                         self.capture_replay(
                             strategy,
@@ -1006,6 +1131,8 @@ impl Inbox {
             receipt,
             replay: None,
             observed: None,
+            rebuild: None,
+            rebuild_observed: None,
             error,
         };
         self.outcomes.insert(r.request_id, outcome.clone());
@@ -1015,7 +1142,17 @@ impl Inbox {
     fn publish_outcome(&self, id: [u8; 16], outcome: &Outcome) -> Result<()> {
         let name = id.iter().map(|b| format!("{b:02x}")).collect::<String>();
         let (path, bytes) = if outcome.session == self.session {
-            if let Some(receipt) = &outcome.observed {
+            if let Some(receipt) = &outcome.rebuild_observed {
+                (
+                    self.config.receipts_directory.join(format!("{name}.json")),
+                    serde_json::to_vec(receipt)?,
+                )
+            } else if let Some(receipt) = &outcome.rebuild {
+                (
+                    self.config.receipts_directory.join(format!("{name}.json")),
+                    serde_json::to_vec(receipt)?,
+                )
+            } else if let Some(receipt) = &outcome.observed {
                 (
                     self.config.receipts_directory.join(format!("{name}.json")),
                     serde_json::to_vec(receipt)?,
@@ -1309,6 +1446,7 @@ mod operation_halt_tests {
             committed_receipt: None,
             session: 1,
             replay: None,
+            rebuild: None,
         }
     }
     fn successors() -> (ControlPlane, State, State) {

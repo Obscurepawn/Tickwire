@@ -2,8 +2,8 @@
 //! callbacks and authenticate the control request before writing this record.
 use super::*;
 mod verify;
-pub(crate) use verify::verify_at;
 pub use verify::{Verified, verify};
+pub(crate) use verify::{business_state, verify_at};
 /// Complete content request carried by authenticated control 41/kind 3. The
 /// worker still loads its own qualified deployment files before any callback.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

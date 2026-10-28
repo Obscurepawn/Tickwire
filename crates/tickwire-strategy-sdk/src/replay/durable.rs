@@ -66,8 +66,21 @@ pub fn verify_committed_history(
 impl<S: ReplayableStrategy, B: BlobStore> DurableEngine<S, B> {
     pub fn new(anchor: VerifiedAnchor, strategy: S, mut store: B) -> Result<Self> {
         let engine = Engine::new(&anchor, strategy)?;
-        let anchor_object = put(&mut store, &anchor.checkpoint().bytes()?)?;
-        let tail = put(&mut store, &encode_tail(&anchor, &[])?)?;
+        let (durable_object, commit) = Self::genesis(&anchor, &mut store)?;
+        Ok(Self {
+            durable: anchor.checkpoint().clone(),
+            engine,
+            store,
+            anchor,
+            durable_object,
+            commit,
+            pending: vec![],
+            stopped: false,
+        })
+    }
+    fn genesis(anchor: &VerifiedAnchor, store: &mut B) -> Result<(Object, Object)> {
+        let anchor_object = put(store, &anchor.checkpoint().bytes()?)?;
+        let tail = put(store, &encode_tail(anchor, &[])?)?;
         let input_commit = InputCommit {
             schema: 2,
             anchor: anchor_object,
@@ -75,17 +88,41 @@ impl<S: ReplayableStrategy, B: BlobStore> DurableEngine<S, B> {
             checkpoint: anchor_object,
             previous_commit: None,
         };
-        let commit = put(&mut store, &input_commit.bytes()?)?;
-        Ok(Self {
+        let commit = put(store, &input_commit.bytes()?)?;
+        Ok((anchor_object, commit))
+    }
+    /// Adopt a real output-disabled execution, retaining every warm row. Only
+    /// the rebuild executor can provide this already-executed engine.
+    pub(super) fn from_recorded(
+        anchor: VerifiedAnchor,
+        engine: Engine<S>,
+        mut store: B,
+    ) -> Result<(Self, Object)> {
+        let checkpoint = engine.checkpoint()?;
+        if checkpoint.source != anchor.checkpoint().source
+            || checkpoint.runtime.effects != anchor.checkpoint().runtime.effects
+            || engine.recorded().iter().any(|row| !row.effects.is_empty())
+        {
+            return Err(Error::EffectsMismatch);
+        }
+        let tail = encode_tail(&anchor, engine.recorded())?;
+        verify_tail(&anchor, &tail, &checkpoint.cut)?;
+        let (durable_object, genesis) = Self::genesis(&anchor, &mut store)?;
+        let mut owner = Self {
             durable: anchor.checkpoint().clone(),
             engine,
             store,
             anchor,
-            durable_object: anchor_object,
-            commit,
+            durable_object,
+            commit: genesis,
             pending: vec![],
             stopped: false,
-        })
+        };
+        drop(owner.flush()?);
+        if owner.durable_checkpoint() != &checkpoint {
+            return Err(Error::StateMismatch);
+        }
+        Ok((owner, genesis))
     }
     pub fn read_object(&self, object: Object) -> Result<Vec<u8>> {
         object.validate(MAX_BYTES as u64)?;

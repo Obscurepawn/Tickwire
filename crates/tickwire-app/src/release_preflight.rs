@@ -17,11 +17,11 @@ fn object_digest(bytes: &[u8]) -> [u8; 32] {
 }
 /// Immutable bytes are hashed once at this invocation's boundary. Reads through
 /// the index keep all expected Object/length and release identity checks below.
-struct ObjectIndex<'a> {
+pub(super) struct ObjectIndex<'a> {
     objects: BTreeMap<[u8; 32], &'a [u8]>,
 }
 impl<'a> ObjectIndex<'a> {
-    fn new(objects: &'a [Vec<u8>]) -> Result<Self> {
+    pub(super) fn new(objects: &'a [Vec<u8>]) -> Result<Self> {
         if objects.len() > 512 {
             return Err(invalid("release closure object capacity"));
         }
@@ -41,7 +41,7 @@ impl<'a> ObjectIndex<'a> {
         }
         Ok(Self { objects: indexed })
     }
-    fn get(&self, hash: [u8; 32]) -> Result<&'a [u8]> {
+    pub(super) fn get(&self, hash: [u8; 32]) -> Result<&'a [u8]> {
         self.objects
             .get(&hash)
             .copied()

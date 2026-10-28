@@ -181,6 +181,24 @@ impl VerifiedSourceReplay {
                     depth + 1,
                 )?;
             }
+            if seal.version == 4 {
+                if seal.rebuild_rollback_digest.is_none() {
+                    return Err(Error::Identity);
+                }
+                crate::rebuild::install::verify_seal_at(
+                    &seal,
+                    get(Object {
+                        digest: seal.checkpoint_digest,
+                        bytes: seal.checkpoint_bytes,
+                    })?,
+                    get(Object {
+                        digest: seal.input_digest,
+                        bytes: seal.input_bytes,
+                    })?,
+                    &mut |h| map.get(&h).cloned().ok_or(Error::Missing),
+                    depth + 1,
+                )?;
+            }
         }
         let binding = Binding {
             operation_id: op.operation_id,

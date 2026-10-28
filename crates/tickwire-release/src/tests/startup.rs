@@ -82,6 +82,8 @@ fn startup_graph(dependency: Vec<u8>) -> (Hash, BTreeMap<Hash, Vec<u8>>) {
         replay_restore_digest: None,
         replay_installation_digest: None,
         replay_rollback_digest: None,
+        rebuild_installation_digest: None,
+        rebuild_rollback_digest: None,
     };
     let seal_bytes = seal.bytes().unwrap();
     let migration = &mut migrations.members[0];

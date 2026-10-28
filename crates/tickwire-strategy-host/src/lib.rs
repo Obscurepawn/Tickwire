@@ -28,6 +28,7 @@ pub mod capture;
 mod market_transition;
 mod preflight;
 mod readiness;
+pub mod rebuild;
 pub mod rebuild_probe;
 mod remote;
 mod source_replay;

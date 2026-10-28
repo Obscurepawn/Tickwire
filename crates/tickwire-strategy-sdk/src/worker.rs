@@ -1,6 +1,7 @@
 //! Qualified worker: authenticated launcher policies are the unsafe SHM admission boundary.
 use crate::bootstrap::{Bootstrap, Endpoint, JoinBootstrap};
 mod expansion;
+mod rebuild;
 use crate::market_transition as transition_control;
 use crate::{CommandStore, Error, IntentWriter, MarketReplica, Result, Strategy};
 use std::{
@@ -97,6 +98,82 @@ use tickwire_market_source::protocol::activated;
 pub use tickwire_market_source::protocol::{
     accept_offer, activation_ack, cursor_header, descriptor, offer_id, resource_offer,
 };
+pub(crate) struct IntentLane {
+    pub connection: Connection,
+    pub session: Session,
+    pub writer: IntentWriter,
+    pub store: CommandStore<tickwire_recovery::FileBlobStore>,
+}
+/// Called by qualified startup modes only, preserving the original intent
+/// mapping/cursor contract and the actual execution peer credentials.
+pub(crate) fn connect_intent(
+    config: &Bootstrap,
+    clock: &mut SystemClock,
+    deadline: Instant,
+) -> Result<IntentLane> {
+    let (mut intent, mut intent_session) = connect(&config.intent, clock, deadline, [6; 16])?;
+    let h = config.intent_resource()?;
+    if h.consumer_instance != config.intent.peer.instance
+        || h.producer_instance != config.intent.local.instance
+        || h.producer_generation != config.intent.local.generation
+        || h.host_boot_id != config.intent.local.host_boot
+        || h.namespace_id != config.intent.local.namespace
+    {
+        return Err(Error::Identity);
+    }
+    let mut publisher = Publisher::<1>::create(h)?;
+    let sub = SubscriptionKey {
+        bank: publisher.key(),
+        instance: u128::from_le_bytes(config.intent.peer.instance),
+        generation: config.intent_subscription_generation,
+        cursor: u128::from_le_bytes(config.intent_cursor_id),
+    };
+    publisher.join(sub)?;
+    let membership = publisher.membership_version();
+    let expires = intent_session.deadline();
+    let offered = resource_offer(
+        &intent_session,
+        publisher.header(),
+        [7; 16],
+        expires,
+        membership,
+        false,
+    )?;
+    let bankfd = publisher.reader_fd()?;
+    intent.send(&offered, &[bankfd.as_fd()], deadline)?;
+    let ch = cursor_header(publisher.header(), sub)?;
+    let cursor = accept_offer(
+        &mut intent_session,
+        intent.recv(deadline)?,
+        &ch,
+        [8; 16],
+        expires,
+        membership,
+        false,
+        now(clock)?,
+    )?;
+    // SAFETY: the registered execution peer is authenticated, qualified, and its
+    // cursor descriptor exactly binds the pending subscription and immutable header.
+    unsafe {
+        publisher.register_cursor(sub, cursor)?;
+    }
+    let writer = IntentWriter::new(
+        publisher,
+        config.intent.local.logical_strategy,
+        config.intent.local.instance,
+        config.intent.local.generation,
+        config.risk_domain,
+    )?;
+    let store = CommandStore::new(tickwire_recovery::FileBlobStore::open(
+        &config.command_directory,
+    )?);
+    Ok(IntentLane {
+        connection: intent,
+        session: intent_session,
+        writer,
+        store,
+    })
+}
 /// Runs until authenticated QUIESCE, expired control lease, or a closed/invalid resource.
 /// # Safety
 /// The launcher authenticates qualified Publisher/Subscriber processes and enforces
@@ -163,14 +240,14 @@ unsafe fn run_inner<S: Strategy>(
     let (
         mut market,
         mut market_session,
-        mut consumer,
+        consumer,
         mut replica,
         snapshot_bytes,
         baseline_now,
         catchup,
         join_config,
         bank,
-        mut j,
+        j,
     ) = if let Some(external) = &config.external_market {
         if external.endpoint.local.identity() != config.market.local.identity()
             || external.endpoint.peer.identity() != config.market.peer.identity()
@@ -343,62 +420,12 @@ unsafe fn run_inner<S: Strategy>(
             now(&mut clock)?,
         )?;
     }
-    let (mut intent, mut intent_session) = connect(&config.intent, &mut clock, deadline, [6; 16])?;
-    let h = config.intent_resource()?;
-    if h.consumer_instance != config.intent.peer.instance
-        || h.producer_instance != config.intent.local.instance
-        || h.producer_generation != config.intent.local.generation
-        || h.host_boot_id != config.intent.local.host_boot
-        || h.namespace_id != config.intent.local.namespace
-    {
-        return Err(Error::Identity);
-    }
-    let mut publisher = Publisher::<1>::create(h)?;
-    let sub = SubscriptionKey {
-        bank: publisher.key(),
-        instance: u128::from_le_bytes(config.intent.peer.instance),
-        generation: config.intent_subscription_generation,
-        cursor: u128::from_le_bytes(config.intent_cursor_id),
-    };
-    publisher.join(sub)?;
-    let membership = publisher.membership_version();
-    let expires = intent_session.deadline();
-    let offered = resource_offer(
-        &intent_session,
-        publisher.header(),
-        [7; 16],
-        expires,
-        membership,
-        false,
-    )?;
-    let bankfd = publisher.reader_fd()?;
-    intent.send(&offered, &[bankfd.as_fd()], deadline)?;
-    let ch = cursor_header(publisher.header(), sub)?;
-    let cursor = accept_offer(
-        &mut intent_session,
-        intent.recv(deadline)?,
-        &ch,
-        [8; 16],
-        expires,
-        membership,
-        false,
-        now(&mut clock)?,
-    )?;
-    // SAFETY: the registered execution peer is authenticated, qualified, and its
-    // cursor descriptor exactly binds the pending subscription and immutable header.
-    unsafe {
-        publisher.register_cursor(sub, cursor)?;
-    }
-    let mut writer = IntentWriter::new(
-        publisher,
-        config.intent.local.logical_strategy,
-        config.intent.local.instance,
-        config.intent.local.generation,
-        config.risk_domain,
-    )?;
-    let mut store = CommandStore::new(tickwire_recovery::FileBlobStore::open(
-        &config.command_directory,
-    )?);
+    let IntentLane {
+        connection: intent,
+        session: intent_session,
+        writer,
+        store,
+    } = connect_intent(&config, &mut clock, deadline)?;
     let (mut report, mut report_session) = connect(&config.report, &mut clock, deadline, [13; 16])?;
     let report_bank = config.report_resource()?;
     if report_bank.consumer_instance != config.report.local.instance
@@ -438,7 +465,7 @@ unsafe fn run_inner<S: Strategy>(
     )?;
     let objects =
         tickwire_recovery::FileBlobReader::open(&config.report_directory, config.report.peer_uid)?;
-    let mut reports = attach_reports(
+    let reports = attach_reports(
         fd,
         report_bank.clone(),
         report_sub,
@@ -530,7 +557,7 @@ unsafe fn run_inner<S: Strategy>(
     if let Some(w) = &mut recovery {
         w.set_active();
     }
-    let mut strategy =
+    let strategy =
         crate::replay::live::Live::new(&config, strategy, bank, replica, now(&mut clock)?)?;
     if let Some(anchor) = strategy.anchor_bytes()? {
         recovery
@@ -538,9 +565,93 @@ unsafe fn run_inner<S: Strategy>(
             .ok_or(Error::NotReady)?
             .merged_anchor(&anchor)?;
     }
-    let mut merged_journal_sequence = 0;
-    let mut account_mirror = crate::handover::AccountMirror::default();
-    let mut ready_sequence = 0u64;
+    run_attached(Attached {
+        config,
+        clock,
+        market,
+        market_session,
+        consumer,
+        j,
+        intent,
+        intent_session,
+        writer,
+        store,
+        report,
+        report_session,
+        report_bank,
+        report_sub,
+        report_membership,
+        reports,
+        recovery,
+        strategy,
+        account_mirror: crate::handover::AccountMirror::default(),
+        merged_journal_sequence: 0,
+        ready_sequence: 0,
+        rebuild_installation: None,
+    })
+}
+
+/// Resources that have already completed their real authenticated attachments.
+/// Moving this value preserves the original MD and report cursor lifetimes.
+pub(crate) struct InstalledControl {
+    pub request: tickwire_ipc::ReplayControlBody,
+    pub receipt: tickwire_release::Object,
+    pub verified: tickwire_release::rebuild::install::Verified,
+    pub capture: crate::capture::Bootstrap,
+    pub input: crate::capture::install::Request,
+    pub rollback: Option<(tickwire_ipc::ReplayControlBody, tickwire_release::Object)>,
+}
+pub(crate) struct Attached<S> {
+    pub config: Bootstrap,
+    pub clock: SystemClock,
+    pub market: Connection,
+    pub market_session: Session,
+    pub consumer: tickwire_join::JoinConsumer<4>,
+    pub j: tickwire_ipc::JoinBody,
+    pub intent: Connection,
+    pub intent_session: Session,
+    pub writer: IntentWriter,
+    pub store: CommandStore<tickwire_recovery::FileBlobStore>,
+    pub report: Connection,
+    pub report_session: Session,
+    pub report_bank: tickwire_ipc::ResourceHeader,
+    pub report_sub: SubscriptionKey,
+    pub report_membership: u64,
+    pub reports: crate::reports::ReportReceiver,
+    pub recovery: Option<crate::recovery::RecoveryWriter>,
+    pub strategy: crate::replay::live::Live<S>,
+    pub account_mirror: crate::handover::AccountMirror,
+    pub merged_journal_sequence: u64,
+    pub ready_sequence: u64,
+    pub rebuild_installation: Option<InstalledControl>,
+}
+pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
+    let Attached {
+        config,
+        mut clock,
+        mut market,
+        mut market_session,
+        mut consumer,
+        mut j,
+        mut intent,
+        mut intent_session,
+        mut writer,
+        mut store,
+        mut report,
+        mut report_session,
+        report_bank,
+        report_sub,
+        report_membership,
+        mut reports,
+        mut recovery,
+        mut strategy,
+        mut account_mirror,
+        mut merged_journal_sequence,
+        mut ready_sequence,
+        mut rebuild_installation,
+    } = state;
+    let domain = clock.domain();
+    let remote = config.external_market.is_some();
     let mut pending_seal: Option<(ControlEnvelope, tickwire_ipc::CheckpointSealBody)> = None;
     let mut callbacks_paused = false;
     let mut pending_replay_install: Option<tickwire_ipc::ReplayControlBody> = None;
@@ -982,6 +1093,72 @@ unsafe fn run_inner<S: Strategy>(
                 if frame.envelope.opcode == 41 {
                     use tickwire_release::replay::{ControlInput, canonical};
                     let body = tickwire_ipc::ReplayControlBody::decode(frame.body)?;
+                    if body.replay_kind == crate::capture::install::rollback::KIND {
+                        let installed = rebuild_installation.as_mut().ok_or(Error::NotReady)?;
+                        let object = rebuild::rollback(
+                            installed,
+                            &frame.envelope,
+                            &body,
+                            &config,
+                            &mut clock,
+                            &mut strategy,
+                            recovery.as_mut().ok_or(Error::NotReady)?,
+                            report_session.deadline(),
+                        )?;
+                        ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
+                        let ready = account_mirror.ready(
+                            &config.market.local,
+                            reports.last_ring_sequence()?,
+                            ready_sequence,
+                            recovery.as_ref().ok_or(Error::NotReady)?,
+                            &strategy.checkpoint()?,
+                        )?;
+                        let fresh = now(&mut clock)?;
+                        if fresh >= body.valid_until_mono_ns
+                            || fresh >= market_session.deadline()
+                            || fresh >= intent_session.deadline()
+                            || fresh >= report_session.deadline()
+                        {
+                            return Err(Error::Deadline);
+                        }
+                        expansion::queue(
+                            &mut expansion_replies,
+                            crate::capture::encode_reply(&report_session, &body, object)?,
+                        )?;
+                        expansion::queue(
+                            &mut expansion_replies,
+                            report_session.encode(
+                                ControlEnvelope {
+                                    opcode: 37,
+                                    flags: 32,
+                                    request_id: body.challenge,
+                                    ..Default::default()
+                                },
+                                &crate::bootstrap::wire_bytes(&ready)?,
+                            )?,
+                        )?;
+                        continue;
+                    }
+                    if body.replay_kind == crate::capture::install::KIND {
+                        let installed = rebuild_installation.as_ref().ok_or(Error::NotReady)?;
+                        let raw = if body == installed.request
+                            && frame.envelope.flags == 1
+                            && frame.envelope.status == 0
+                            && frame.envelope.request_id == body.challenge
+                            && frame.envelope.expected_state_version == 0
+                            && now(&mut clock)? < body.valid_until_mono_ns
+                        {
+                            crate::capture::encode_reply(&report_session, &body, installed.receipt)?
+                        } else {
+                            crate::capture::encode_rejection(
+                                &report_session,
+                                &body,
+                                crate::market_transition::INVALID,
+                            )?
+                        };
+                        expansion::queue(&mut expansion_replies, raw)?;
+                        continue;
+                    }
                     let objects = tickwire_recovery::FileBlobReader::open(
                         &config.report_directory,
                         config.report.peer_uid,

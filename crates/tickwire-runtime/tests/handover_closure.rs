@@ -60,6 +60,8 @@ fn fixture() -> (
         replay_installation_digest: None,
         replay_restore_digest: None,
         replay_rollback_digest: None,
+        rebuild_installation_digest: None,
+        rebuild_rollback_digest: None,
         version: 1,
         owner: new.instance,
         instance: new.instance,

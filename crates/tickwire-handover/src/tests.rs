@@ -52,6 +52,8 @@ impl Bundle {
                 replay_installation_digest: None,
                 replay_restore_digest: None,
                 replay_rollback_digest: None,
+                rebuild_installation_digest: None,
+                rebuild_rollback_digest: None,
                 version: 1,
                 owner: [1; 16],
                 instance: [1; 16],

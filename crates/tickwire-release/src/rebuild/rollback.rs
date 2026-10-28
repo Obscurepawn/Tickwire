@@ -207,8 +207,21 @@ impl Plans {
         operation: &Operation,
         member: &Member,
         forward: Forward<'_>,
-        read: impl FnMut(Hash) -> Result<Vec<u8>>,
+        mut read: impl FnMut(Hash) -> Result<Vec<u8>>,
     ) -> Result<Verified> {
+        self.verify_at(operation, member, forward, &mut read, 0)
+    }
+    pub fn verify_at(
+        &self,
+        operation: &Operation,
+        member: &Member,
+        forward: Forward<'_>,
+        read: &mut dyn FnMut(Hash) -> Result<Vec<u8>>,
+        depth: usize,
+    ) -> Result<Verified> {
+        if depth >= 16 {
+            return Err(Error::Bounds);
+        }
         let root = Object::of(&self.bytes()?);
         let fixed = forward.plans.verify(
             operation,
@@ -273,6 +286,7 @@ impl Plans {
                 &forward,
                 &fixed.end,
                 &mut objects,
+                depth,
             )?)),
         };
         Ok(Verified {
@@ -366,7 +380,9 @@ impl<R: FnMut(Hash) -> Result<Vec<u8>>> Objects<R> {
             return Err(Error::Bounds);
         }
         let bytes = (self.read)(hash)?;
-        if bytes.is_empty() || bytes.len() > replay::MAX_BYTES || Object::of(&bytes).digest != hash
+        if bytes.is_empty()
+            || bytes.len() > tickwire_recovery::MAX_OBJECT_BYTES
+            || Object::of(&bytes).digest != hash
         {
             return Err(Error::Identity);
         }

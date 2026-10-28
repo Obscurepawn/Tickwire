@@ -19,7 +19,7 @@ const REPLICA_PENDING_BYTES: usize = 8 * 1024 * 1024;
 pub fn generate(root: &Path, bins: &Path) -> Result<Scenario> {
     generate_with(root, bins, ScenarioKind::SpotFill)
 }
-fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenario> {
+pub(crate) fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenario> {
     if !root.is_absolute() || !bins.is_absolute() || root.as_os_str().len() > 65 {
         return Err("absolute root <=65 bytes and binary directory required".into());
     }
@@ -324,6 +324,9 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
     if kind.handover() {
         crate::handover::configure(&mut scenario)?;
     }
+    if kind == ScenarioKind::SpotRebuildCustom {
+        crate::rebuild::configure(&scenario)?;
+    }
     if kind == ScenarioKind::SpotMarketExpansion {
         crate::expansion::configure(&scenario)?;
     }
@@ -627,6 +630,10 @@ fn deployment(
     policy: Value,
 ) -> Value {
     json!({"baseline":root.join("baseline.bin"),"directories":{"account":root.join("exec/account"),"input":root.join("exec/input"),"recovery":root.join("exec/recovery")},"recover":false,"product":"spot","boot_id":boot,"clock_generation":1,"owner_id":( [4;16] ),"writer_epoch":4,"initial_writer_epoch":4,"account_stream":( [52;16] ),"input_stream":( [53;16] ),"first_connection_epoch":1,"instrument_id":12,"book_source":1,"credential":{"api_key_file":root.join("keys/api-key"),"signing_key_file":root.join("keys/api-secret"),"algorithm":"hmac","generation":1,"spot_logon":false},"network":{"rest":listen.to_string(),"time":listen.to_string(),"public_stream":listen.to_string(),"snapshot":listen.to_string(),"private_stream":listen.to_string(),"private_management":null,"trust_anchors":[root.join("tls/ca.der")]},"clock":{"max_round_trip_ns":500_000_000,"max_width_ns":1_000_000_000u64,"max_age_ns":30_000_000_000u64,"quantization_error_ns":1_000_000,"drift_ppb":100000,"max_adjustment_ns":1_000_000_000u64,"calibration_interval_ns":5_000_000_000u64,"calibration_retry_ns":100_000_000},"tuning":{"connect_timeout_ns":10_000_000_000u64,"request_timeout_ns":10_000_000_000u64,"delivery_budget_ns":1_000_000,"recv_window_micros":5_000_000,"maximum_book_age_ns":10_000_000_000u64,"maximum_idle_wait_ns":1_000_000,"snapshot_limit":100,"maximum_intents":64,"maximum_input_records":4096,"maximum_input_bytes":64*1024*1024,"wal_segment_bytes":8*1024*1024},"policy":policy,"quota":quota(now,expires,43,false),"strategy":{"mode":"hosted","config":{"shadow":false,"bootstrap":root.join("strategy/bootstrap.json"),"market_resource":root.join("md/topic.bin"),"md_admission_directory":root.join("md/admissions"),"executable":bins.join("tickwire-strategy-worker"),"working_directory":root,"uid":uid,"gid":gid,"supervisor":supervisor,"directory_parent":root.join("host/runtime"),"control_directory":root.join("host/control"),"control_stream":( [54;16] ),"control_domain":( [55;16] ),"control_writer_epoch":1,"snapshot_id":( [56;16] ),"market_cursor_id":( [31;16] ),"subscription_generation":1,"instrument_set_version":1,"maximum_levels_per_side":100,"maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152,"recovery_directory":root.join("strategy/recovery"),"rotation_directory":null,"first_rotation_sequence":1}},"market_sources":[exec_source],"replication":null,"lifecycle":null,"reconciliation":{"enabled":true,"reader_id":( [44;16] ),"first_request_epoch":1,"first_execution_connection_epoch":100,"retry_ns":100_000_000,"valid_for_ns":30_000_000_000u64},"control":{"inbox_directory":root.join("exec/control-inbox"),"journal_directory":root.join("exec/control-wal"),"stream_epoch":( [57;16] ),"recover":false,"segment_max_bytes":8*1024*1024,"maximum_commands":1024,"maximum_per_poll":16,"startup_consumer_lease_until_ns":expires},"stop_file":root.join("STOP"),"maximum_runtime_ns":60_000_000_000u64})
+}
+
+pub fn generate_custom_rebuild(root: &Path, bins: &Path) -> Result<Scenario> {
+    generate_with(root, bins, ScenarioKind::SpotRebuildCustom)
 }
 
 #[cfg(test)]

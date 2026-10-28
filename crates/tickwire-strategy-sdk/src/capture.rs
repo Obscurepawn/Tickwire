@@ -9,6 +9,7 @@ use tickwire_release::{
     rebuild::{Contract, window::Identity},
     replay::{Model, VersionedBytes},
 };
+pub mod install;
 pub const KIND: u16 = 8;
 pub const MAX_BYTES: usize = 2 * 1024 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -1,0 +1,2520 @@
+{
+  "schema": 1,
+  "verified_utc": "2026-10-28T11:22:52.643197+00:00",
+  "base_commit": "6d9fc5e8b861b615d632a3f03871fee1e280335a",
+  "scope": "Declared-rebuild schema4 single-domain runtime: actual CaptureOnly child, same-PID retained engine installation, live continuation, independent old-version probe, v4 recovery closure, signed App/Coordinator publication, late-fill ownership and fee closure.",
+  "source_manifest": "rebuild-runtime-source-sha256.json",
+  "source_manifest_sha256": "fb0516fcd80d07f1dc2f975e82660a2fc0f97a456caef08478b1e9b02f44344b",
+  "source_files": 847,
+  "source_unchanged_across_final_build_tests_and_process_runs": true,
+  "checks": {
+    "workspace_gate": {
+      "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+      "exit_code": 0,
+      "includes": [
+        "rustfmt check",
+        "workspace all-targets tests and benchmark smoke",
+        "doctests",
+        "workspace all-targets Clippy -D warnings"
+      ],
+      "log": "/tmp/tickwire-progress-20261028/rebuild-runtime-check-rust-final.log"
+    },
+    "design_contracts": {
+      "scope": "design_artifacts_only_not_runtime_tests",
+      "ipc": {
+        "result": "PASS",
+        "layouts": 46,
+        "fields_checked": 734,
+        "vectors_roundtripped": 88,
+        "data_message_ids": 31,
+        "control_opcodes": 37,
+        "crc32c_checks": 39,
+        "semantic_cases": 25,
+        "unchanged_abi_vectors": 37,
+        "bank_and_cursor_bytes": 3496542208,
+        "all_committed_shm_bytes": 6449856512,
+        "local_links": "PASS"
+      },
+      "risk": {
+        "cases": 21,
+        "expected_fields": 131,
+        "failures": []
+      },
+      "deployment": {
+        "profile": "TW-LD-ASYNC-16x2-v1",
+        "bank_cursor_bytes": 3496542208,
+        "shm_committed_bytes": 6449856512,
+        "shm_limit_bytes": 8589934592,
+        "nominal_disk_bytes_per_second": 532285577,
+        "retention_bytes": 11497368463200,
+        "data_raft_groups": 0
+      },
+      "configuration": {
+        "reference_schema_errors": 0,
+        "production_template_expected_rejections": 413,
+        "openapi": "openapi_spec_validator_pass",
+        "api_operations": 16,
+        "api_refs": 256
+      },
+      "config_semantics": {
+        "reference_schema_errors": 0,
+        "template_expected_errors": 413,
+        "cross_field_checks": "passed",
+        "deployment_and_ipc_consistency": "passed",
+        "openapi_complete_check": "run_repository_validator_with_openapi",
+        "openapi_operations": 16,
+        "openapi_refs_resolved": 256,
+        "negative_cases_passed": 17,
+        "candidate_variants_passed": 3,
+        "projection_and_locator_examples": "passed",
+        "capacity": {
+          "strategy_instances": 32,
+          "active": 16,
+          "shadow": 16,
+          "strategy_domain_pairs": 64,
+          "bank_and_cursor_bytes": 3496542208,
+          "snapshot_bytes": 2147483648,
+          "projection_object_bytes": 537395200,
+          "total_with_relay_bytes": 6449856512,
+          "relay_budget_bytes": 268435456
+        }
+      }
+    },
+    "prior_ipc_vectors_unchanged": 74,
+    "new_ipc_vectors": 14,
+    "sdk_without_default_features": {
+      "command": "cargo check -p tickwire-strategy-sdk --no-default-features",
+      "exit_code": 0
+    },
+    "internal_dependency_graph": {
+      "packages": 60,
+      "dependency_kinds": "all (normal, build, dev)",
+      "result": "DAG"
+    },
+    "formal_verification": {
+      "new_tlc_run": false,
+      "locks_scanned": 25,
+      "changed_historically_anchored_sources": [],
+      "audit": "rebuild-runtime-anchor-audit.json",
+      "reproducer": "rebuild-runtime-anchor-audit.py",
+      "note": "Historical proofs retain their original finite scope. New formal verification is deferred until functional development is complete."
+    },
+    "documentation": {
+      "markdown_files": 139,
+      "local_links": 488,
+      "reference_usages": 0,
+      "errors": []
+    }
+  },
+  "native_host_process_tests": {
+    "command": "TICKWIRE_CAPTURE_WORKER=/tmp/tw-rb-runtime-1-bins/tickwire-counting-worker TICKWIRE_CAPTURE_EVIDENCE=/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence TICKWIRE_REBUILD_EVIDENCE=/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target cargo test -p tickwire-strategy-host --test capture_process -- --ignored --nocapture --test-threads=1",
+    "passed": 3,
+    "failed": 0,
+    "exit_code": 0,
+    "fixture_scope": "Actual registered strategy children and real authenticated intent/report connections; MD JOIN server and memfd Publisher in a parent thread; deterministic account inputs. New commands remain zero in the same-PID fixture.",
+    "worker": {
+      "path": "/tmp/tw-rb-runtime-1-bins/tickwire-counting-worker",
+      "bytes": 6510976,
+      "sha256": "4f61f7836eff92b40e84145fd608013dae0fa98a1ab2e2ec687f2f8df0d623c8"
+    },
+    "capture": {
+      "pid": 657756,
+      "report_ring_sequence": 2,
+      "market_applied": 3,
+      "normal_md_detach_and_exit": true
+    },
+    "rebuild": {
+      "C": {
+        "business": {
+          "bytes": 14112,
+          "digest": [
+            94,
+            86,
+            228,
+            0,
+            36,
+            86,
+            14,
+            224,
+            45,
+            100,
+            150,
+            23,
+            168,
+            93,
+            38,
+            59,
+            121,
+            72,
+            237,
+            102,
+            181,
+            107,
+            2,
+            211,
+            50,
+            3,
+            141,
+            144,
+            194,
+            37,
+            39,
+            114
+          ]
+        },
+        "chain": [
+          153,
+          184,
+          111,
+          61,
+          245,
+          186,
+          40,
+          21,
+          220,
+          137,
+          69,
+          6,
+          76,
+          215,
+          133,
+          78,
+          144,
+          178,
+          244,
+          195,
+          210,
+          106,
+          96,
+          185,
+          73,
+          205,
+          145,
+          220,
+          233,
+          219,
+          92,
+          118
+        ],
+        "runtime": {
+          "bytes": 1160,
+          "digest": [
+            232,
+            198,
+            222,
+            176,
+            147,
+            11,
+            16,
+            122,
+            214,
+            26,
+            164,
+            79,
+            65,
+            184,
+            42,
+            184,
+            56,
+            245,
+            238,
+            149,
+            9,
+            193,
+            239,
+            72,
+            10,
+            121,
+            200,
+            136,
+            129,
+            246,
+            141,
+            47
+          ]
+        },
+        "sequence": 4
+      },
+      "D": {
+        "business": {
+          "bytes": 15080,
+          "digest": [
+            162,
+            206,
+            164,
+            90,
+            177,
+            63,
+            112,
+            66,
+            42,
+            71,
+            222,
+            192,
+            21,
+            111,
+            88,
+            45,
+            168,
+            53,
+            86,
+            89,
+            179,
+            141,
+            187,
+            181,
+            244,
+            86,
+            85,
+            66,
+            47,
+            11,
+            56,
+            47
+          ]
+        },
+        "chain": [
+          253,
+          239,
+          145,
+          22,
+          18,
+          137,
+          188,
+          29,
+          68,
+          72,
+          31,
+          180,
+          208,
+          139,
+          234,
+          97,
+          59,
+          164,
+          158,
+          129,
+          94,
+          111,
+          225,
+          56,
+          193,
+          60,
+          93,
+          149,
+          156,
+          178,
+          94,
+          27
+        ],
+        "runtime": {
+          "bytes": 1159,
+          "digest": [
+            188,
+            81,
+            14,
+            14,
+            21,
+            155,
+            85,
+            99,
+            124,
+            113,
+            158,
+            48,
+            42,
+            41,
+            86,
+            60,
+            57,
+            56,
+            221,
+            105,
+            216,
+            195,
+            238,
+            215,
+            72,
+            37,
+            186,
+            98,
+            110,
+            33,
+            134,
+            205
+          ]
+        },
+        "sequence": 9
+      },
+      "account_position": 1,
+      "final_seal": {
+        "bytes": 2351,
+        "digest": [
+          228,
+          141,
+          228,
+          191,
+          42,
+          29,
+          96,
+          161,
+          60,
+          84,
+          87,
+          73,
+          62,
+          188,
+          26,
+          48,
+          81,
+          129,
+          218,
+          168,
+          159,
+          51,
+          132,
+          227,
+          222,
+          127,
+          176,
+          44,
+          255,
+          230,
+          151,
+          196
+        ]
+      },
+      "installation": {
+        "bytes": 2011,
+        "digest": [
+          113,
+          1,
+          75,
+          130,
+          233,
+          141,
+          48,
+          118,
+          40,
+          89,
+          128,
+          14,
+          149,
+          222,
+          244,
+          212,
+          41,
+          176,
+          133,
+          189,
+          41,
+          251,
+          89,
+          25,
+          226,
+          212,
+          190,
+          59,
+          217,
+          133,
+          189,
+          20
+        ]
+      },
+      "intent_connection": true,
+      "new_commands": 0,
+      "pid": 657760,
+      "probe_pid": 657769,
+      "rollback": {
+        "bytes": 420,
+        "digest": [
+          118,
+          87,
+          81,
+          116,
+          53,
+          104,
+          166,
+          114,
+          210,
+          130,
+          198,
+          140,
+          182,
+          78,
+          110,
+          130,
+          74,
+          175,
+          119,
+          211,
+          240,
+          255,
+          119,
+          94,
+          240,
+          179,
+          73,
+          118,
+          166,
+          62,
+          105,
+          210
+        ]
+      },
+      "worker_sha256": [
+        79,
+        97,
+        247,
+        131,
+        110,
+        255,
+        146,
+        180,
+        14,
+        132,
+        20,
+        95,
+        214,
+        8,
+        1,
+        61,
+        174,
+        15,
+        169,
+        138,
+        26,
+        178,
+        226,
+        236,
+        104,
+        127,
+        47,
+        141,
+        240,
+        214,
+        35,
+        200
+      ]
+    },
+    "exported_objects": [
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/072d20cdd424c9a6a2c5f278318e2eb662a6055f5e108c06b60c9ea351d8d074.bin",
+        "bytes": 14243,
+        "sha256": "072d20cdd424c9a6a2c5f278318e2eb662a6055f5e108c06b60c9ea351d8d074"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/3ec89fdd2f79d3dac42fe516c98a8ba90b722ec21c16ff12f9f7b59d4d82269a.bin",
+        "bytes": 2486,
+        "sha256": "3ec89fdd2f79d3dac42fe516c98a8ba90b722ec21c16ff12f9f7b59d4d82269a"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/818d247834e06730128a0001ae86afa8a08b3dce9c1e395b94d5d51fcda3a40e.bin",
+        "bytes": 805,
+        "sha256": "818d247834e06730128a0001ae86afa8a08b3dce9c1e395b94d5d51fcda3a40e"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/9f2b1e4cf790066560ef2b00a1096113911bd4a78e817edd741c0326ae468ba5.bin",
+        "bytes": 1169,
+        "sha256": "9f2b1e4cf790066560ef2b00a1096113911bd4a78e817edd741c0326ae468ba5"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/ATTEMPT.json",
+        "bytes": 726,
+        "sha256": "fc186b8d10a82f610d609153ea99f530e7ae76b953b6db52391d2fe41c5d9d04"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/CAPTURE_WINDOW.json",
+        "bytes": 1169,
+        "sha256": "9f2b1e4cf790066560ef2b00a1096113911bd4a78e817edd741c0326ae468ba5"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/bootstrap.json",
+        "bytes": 22085,
+        "sha256": "ca824823b6b294bda99599ae16389b2a768349d321418220772dba06a5a633cb"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/dc43c54c81ed5279788ffabbabac480b27ef8243a6feb87b69be52edda5c47b7.bin",
+        "bytes": 12114,
+        "sha256": "dc43c54c81ed5279788ffabbabac480b27ef8243a6feb87b69be52edda5c47b7"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-072d20cdd424c9a6a2c5f278318e2eb662a6055f5e108c06b60c9ea351d8d074",
+        "bytes": 14243,
+        "sha256": "072d20cdd424c9a6a2c5f278318e2eb662a6055f5e108c06b60c9ea351d8d074"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-3ec89fdd2f79d3dac42fe516c98a8ba90b722ec21c16ff12f9f7b59d4d82269a",
+        "bytes": 2486,
+        "sha256": "3ec89fdd2f79d3dac42fe516c98a8ba90b722ec21c16ff12f9f7b59d4d82269a"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-818d247834e06730128a0001ae86afa8a08b3dce9c1e395b94d5d51fcda3a40e",
+        "bytes": 805,
+        "sha256": "818d247834e06730128a0001ae86afa8a08b3dce9c1e395b94d5d51fcda3a40e"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-9822ea0f88c70bae4ddf62e016924ddb28eb25bb90de07779827343db417e345",
+        "bytes": 1592,
+        "sha256": "9822ea0f88c70bae4ddf62e016924ddb28eb25bb90de07779827343db417e345"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-9f2b1e4cf790066560ef2b00a1096113911bd4a78e817edd741c0326ae468ba5",
+        "bytes": 1169,
+        "sha256": "9f2b1e4cf790066560ef2b00a1096113911bd4a78e817edd741c0326ae468ba5"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-ca824823b6b294bda99599ae16389b2a768349d321418220772dba06a5a633cb",
+        "bytes": 22085,
+        "sha256": "ca824823b6b294bda99599ae16389b2a768349d321418220772dba06a5a633cb"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-d3a2b5c1c7c14a2fb9065c043c6e6caf35adeb2bca6e9b79a28a3fc3a8d67989",
+        "bytes": 431,
+        "sha256": "d3a2b5c1c7c14a2fb9065c043c6e6caf35adeb2bca6e9b79a28a3fc3a8d67989"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-dc43c54c81ed5279788ffabbabac480b27ef8243a6feb87b69be52edda5c47b7",
+        "bytes": 12114,
+        "sha256": "dc43c54c81ed5279788ffabbabac480b27ef8243a6feb87b69be52edda5c47b7"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/export-fc186b8d10a82f610d609153ea99f530e7ae76b953b6db52391d2fe41c5d9d04",
+        "bytes": 726,
+        "sha256": "fc186b8d10a82f610d609153ea99f530e7ae76b953b6db52391d2fe41c5d9d04"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/fc186b8d10a82f610d609153ea99f530e7ae76b953b6db52391d2fe41c5d9d04.bin",
+        "bytes": 726,
+        "sha256": "fc186b8d10a82f610d609153ea99f530e7ae76b953b6db52391d2fe41c5d9d04"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/object-9822ea0f88c70bae4ddf62e016924ddb28eb25bb90de07779827343db417e345",
+        "bytes": 1592,
+        "sha256": "9822ea0f88c70bae4ddf62e016924ddb28eb25bb90de07779827343db417e345"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/object-ca824823b6b294bda99599ae16389b2a768349d321418220772dba06a5a633cb",
+        "bytes": 22085,
+        "sha256": "ca824823b6b294bda99599ae16389b2a768349d321418220772dba06a5a633cb"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/object-d3a2b5c1c7c14a2fb9065c043c6e6caf35adeb2bca6e9b79a28a3fc3a8d67989",
+        "bytes": 431,
+        "sha256": "d3a2b5c1c7c14a2fb9065c043c6e6caf35adeb2bca6e9b79a28a3fc3a8d67989"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-capture-evidence/receipt.json",
+        "bytes": 1592,
+        "sha256": "9822ea0f88c70bae4ddf62e016924ddb28eb25bb90de07779827343db417e345"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/LOCK",
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-0bd659e21a100c1c1d178b9e2ad92aec49e3f58ae70d32524adffa75c17c29ca",
+        "bytes": 2199,
+        "sha256": "0bd659e21a100c1c1d178b9e2ad92aec49e3f58ae70d32524adffa75c17c29ca"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-0d48712db173337f75e96e0de39e7a24ffe9b74eefeb3abd02f0a95cb310126b",
+        "bytes": 2472,
+        "sha256": "0d48712db173337f75e96e0de39e7a24ffe9b74eefeb3abd02f0a95cb310126b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-17c371945ba276c84448c5ed273bb1d40e3e947c2456cca3830d39bd15cc695b",
+        "bytes": 2225,
+        "sha256": "17c371945ba276c84448c5ed273bb1d40e3e947c2456cca3830d39bd15cc695b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-1d20a01f9b164672659e5e609e7fdc305dd789a74f4814845164a7dc14604d70",
+        "bytes": 527,
+        "sha256": "1d20a01f9b164672659e5e609e7fdc305dd789a74f4814845164a7dc14604d70"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-21cff682f3bf77cb3adca6bbf587b75bf7ed344dec3ba12b9464e8bb98421690",
+        "bytes": 239,
+        "sha256": "21cff682f3bf77cb3adca6bbf587b75bf7ed344dec3ba12b9464e8bb98421690"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-23aae66852759f91603b6311056847b7c1dc374d0298cdfcafa5de8d1b3ec48e",
+        "bytes": 15538,
+        "sha256": "23aae66852759f91603b6311056847b7c1dc374d0298cdfcafa5de8d1b3ec48e"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-2d944d3731ce4fde9cb25ddaffdb76afd805b2223dc1950659ee194e2b905593",
+        "bytes": 44487,
+        "sha256": "2d944d3731ce4fde9cb25ddaffdb76afd805b2223dc1950659ee194e2b905593"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-2fbe93c335e4ef8e2c402800c74873feb24e7911ca68d2652b82062ec8a2d71f",
+        "bytes": 716,
+        "sha256": "2fbe93c335e4ef8e2c402800c74873feb24e7911ca68d2652b82062ec8a2d71f"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-31d1ca80ee38ddcd26dc78e7e28925130f26d85207be251b4f5b004c1a3bfac7",
+        "bytes": 44429,
+        "sha256": "31d1ca80ee38ddcd26dc78e7e28925130f26d85207be251b4f5b004c1a3bfac7"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-3417f24c269393e4068376e6eba375bed9cd2d082b84c53deaf8bba23b9b959e",
+        "bytes": 1612,
+        "sha256": "3417f24c269393e4068376e6eba375bed9cd2d082b84c53deaf8bba23b9b959e"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-3b7c6ba35255aad7f61e2c043b69730c90af726fbda5bd4ccd1db9e029f5cb23",
+        "bytes": 22225,
+        "sha256": "3b7c6ba35255aad7f61e2c043b69730c90af726fbda5bd4ccd1db9e029f5cb23"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-41ef3f95350c7e2a716d6187938eea6f2d3972f1d895c3dd5c71c6d605985842",
+        "bytes": 407,
+        "sha256": "41ef3f95350c7e2a716d6187938eea6f2d3972f1d895c3dd5c71c6d605985842"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-422a52c00c6e3e569daeec7e8aee6844318355af0d087ce4f45bf06db355e3b4",
+        "bytes": 44445,
+        "sha256": "422a52c00c6e3e569daeec7e8aee6844318355af0d087ce4f45bf06db355e3b4"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-4555470e886ed01818a6dba30e38211b7f7dc79e1a346ad171c59610265573b7",
+        "bytes": 7699,
+        "sha256": "4555470e886ed01818a6dba30e38211b7f7dc79e1a346ad171c59610265573b7"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "bytes": 2,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-4f61f7836eff92b40e84145fd608013dae0fa98a1ab2e2ec687f2f8df0d623c8",
+        "bytes": 6510976,
+        "sha256": "4f61f7836eff92b40e84145fd608013dae0fa98a1ab2e2ec687f2f8df0d623c8"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-54009808fa0d4cbd2aff9d96582cd44c812408678f3b220ee5cb6ec75a84c470",
+        "bytes": 483,
+        "sha256": "54009808fa0d4cbd2aff9d96582cd44c812408678f3b220ee5cb6ec75a84c470"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-5a316c3ef9eeb2cb692c98a90277ea394389e206544710972cb93f32c0d84a1f",
+        "bytes": 12321,
+        "sha256": "5a316c3ef9eeb2cb692c98a90277ea394389e206544710972cb93f32c0d84a1f"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-5bb697984ad15b44cc575214af4dd33e593ea8646314dcf9dd577cfe5185bea3",
+        "bytes": 259,
+        "sha256": "5bb697984ad15b44cc575214af4dd33e593ea8646314dcf9dd577cfe5185bea3"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-6481481e694b789e7a1c56275a3543c6c910d95f8ec47ab81bb12c8d366d5e8f",
+        "bytes": 616,
+        "sha256": "6481481e694b789e7a1c56275a3543c6c910d95f8ec47ab81bb12c8d366d5e8f"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-683aca97b046c50c0f8b994760fd768080bf88bae9a576aad3ec80fb6c4d453c",
+        "bytes": 98,
+        "sha256": "683aca97b046c50c0f8b994760fd768080bf88bae9a576aad3ec80fb6c4d453c"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-6c42f2afaea231f2b2358133d72c2d79658019ee824544b33be9c8076bd869cc",
+        "bytes": 239,
+        "sha256": "6c42f2afaea231f2b2358133d72c2d79658019ee824544b33be9c8076bd869cc"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-71014b82e98d30762859800e95def4d429b085bd29fb5919e2d4be3bd985bd14",
+        "bytes": 2011,
+        "sha256": "71014b82e98d30762859800e95def4d429b085bd29fb5919e2d4be3bd985bd14"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-73994a6249ef2180b24b8d9cba970f2e5842f188fa0f82ae743ac444979094d1",
+        "bytes": 90,
+        "sha256": "73994a6249ef2180b24b8d9cba970f2e5842f188fa0f82ae743ac444979094d1"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "bytes": 4,
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-75a06ab3f12ebcd70182b3623c89d6bda6b5bd34fd58fb05a3aabc2bf7927f11",
+        "bytes": 1869,
+        "sha256": "75a06ab3f12ebcd70182b3623c89d6bda6b5bd34fd58fb05a3aabc2bf7927f11"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-765751743568a672d282c68cb64e6e824aaf77d3f0ff775ef0b34976a63e69d2",
+        "bytes": 420,
+        "sha256": "765751743568a672d282c68cb64e6e824aaf77d3f0ff775ef0b34976a63e69d2"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-7f06c842cae339465dd5544baa0a91344e81b9251eb7e612d671dd81fadc314a",
+        "bytes": 149749,
+        "sha256": "7f06c842cae339465dd5544baa0a91344e81b9251eb7e612d671dd81fadc314a"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-831fbd2f3ec961160a2d48e348fe43653eab99c4f3d3d2454caec73d64b363c4",
+        "bytes": 68,
+        "sha256": "831fbd2f3ec961160a2d48e348fe43653eab99c4f3d3d2454caec73d64b363c4"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-936db7fdf8782b349f93f2eedb2fb4e833acc511e61638ed027003fc44dbccda",
+        "bytes": 32710,
+        "sha256": "936db7fdf8782b349f93f2eedb2fb4e833acc511e61638ed027003fc44dbccda"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-9e7f3b64abd3f50b2e1358d5fb228141d391126f8e5cc57756a86dd59cae296e",
+        "bytes": 172747,
+        "sha256": "9e7f3b64abd3f50b2e1358d5fb228141d391126f8e5cc57756a86dd59cae296e"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-a0baf63ac4147061092b9c9d02fffb2d77eed948b002e9a2522dbd795d294f4b",
+        "bytes": 1169,
+        "sha256": "a0baf63ac4147061092b9c9d02fffb2d77eed948b002e9a2522dbd795d294f4b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-a3e4715092fbd8c48fabb6fac67282c49523e4b0bdaa949ace80176d1294c819",
+        "bytes": 2477,
+        "sha256": "a3e4715092fbd8c48fabb6fac67282c49523e4b0bdaa949ace80176d1294c819"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-a4facd792d156489992c5a870fa795db98e5d273073373dd6a7df42b9f23b36a",
+        "bytes": 1067,
+        "sha256": "a4facd792d156489992c5a870fa795db98e5d273073373dd6a7df42b9f23b36a"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-a59d836325d916ca027dc0023aff2ba604e1078150ddc161a0e7e397b65292c3",
+        "bytes": 819,
+        "sha256": "a59d836325d916ca027dc0023aff2ba604e1078150ddc161a0e7e397b65292c3"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-b1ec509a28bacac991e73a7438b6c31f953b9bb94118e8d67f249b9be4948f4b",
+        "bytes": 429,
+        "sha256": "b1ec509a28bacac991e73a7438b6c31f953b9bb94118e8d67f249b9be4948f4b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-b35ca7d1dec3bccaac821c075425e23fbd4062faea766be6d57a79194f3425c9",
+        "bytes": 107,
+        "sha256": "b35ca7d1dec3bccaac821c075425e23fbd4062faea766be6d57a79194f3425c9"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-b4403643c298081a6862e214c1272c5c50e34d187b3e1e4a47f93d431f34b47c",
+        "bytes": 1593,
+        "sha256": "b4403643c298081a6862e214c1272c5c50e34d187b3e1e4a47f93d431f34b47c"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-b675e71eee39e66f6f7af448db53e3acabbeb48ce678c575992322a8526d0723",
+        "bytes": 3402,
+        "sha256": "b675e71eee39e66f6f7af448db53e3acabbeb48ce678c575992322a8526d0723"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-c03b0d8893dd9a2ee7edef394242af32abe7dc8b2a2342ed9fafb37e9ee81317",
+        "bytes": 44471,
+        "sha256": "c03b0d8893dd9a2ee7edef394242af32abe7dc8b2a2342ed9fafb37e9ee81317"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-d30b9cdecdd34c66bd1f1f10d5d50f93eeda50263c8036cb7ba836647840edf3",
+        "bytes": 3416,
+        "sha256": "d30b9cdecdd34c66bd1f1f10d5d50f93eeda50263c8036cb7ba836647840edf3"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-e23bc84798e1f12048d672a3d6a207d422a1b8123325f2ea7c69bb2fc8667dbe",
+        "bytes": 62,
+        "sha256": "e23bc84798e1f12048d672a3d6a207d422a1b8123325f2ea7c69bb2fc8667dbe"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-e29f4298b9952e624226ba10d5dc80920c95e1cf9c34505cdeb6b487b4ea3d7e",
+        "bytes": 3402,
+        "sha256": "e29f4298b9952e624226ba10d5dc80920c95e1cf9c34505cdeb6b487b4ea3d7e"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-e44eef3e8cc2d442154dc2d21980d1fa0075bd4de9a62d79aa32b28c6fc51178",
+        "bytes": 165,
+        "sha256": "e44eef3e8cc2d442154dc2d21980d1fa0075bd4de9a62d79aa32b28c6fc51178"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-e48de4bf2a1d60a13c5457493ebc1a305181daa89f3384e3de7fb02cffe697c4",
+        "bytes": 2351,
+        "sha256": "e48de4bf2a1d60a13c5457493ebc1a305181daa89f3384e3de7fb02cffe697c4"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-e9c954fd50a9849a392cf108b31190d2179bac7a2e9c9d34bb60fad7013c70fa",
+        "bytes": 344667,
+        "sha256": "e9c954fd50a9849a392cf108b31190d2179bac7a2e9c9d34bb60fad7013c70fa"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-ea5051963ecf8c8f7b94d93893b409e7ce3af91969d7a05813109bceb6786db4",
+        "bytes": 2364,
+        "sha256": "ea5051963ecf8c8f7b94d93893b409e7ce3af91969d7a05813109bceb6786db4"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-eaab1d6b5fb5fddf9ed7d1b488d2edf28d534da9a4c0b9ae28ed398bc237836f",
+        "bytes": 1176,
+        "sha256": "eaab1d6b5fb5fddf9ed7d1b488d2edf28d534da9a4c0b9ae28ed398bc237836f"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/object-fcc57b05a15815d539de86e9b3968016f68fb3fc03f331667318eaebce5a47c0",
+        "bytes": 174,
+        "sha256": "fcc57b05a15815d539de86e9b3968016f68fb3fc03f331667318eaebce5a47c0"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-evidence/result.json",
+        "bytes": 1576,
+        "sha256": "578d7f4d28fdc8b122f5d76a07cdfeebef6dda38e69400ee2f255d6031d301ea"
+      }
+    ]
+  },
+  "release_scenario": {
+    "name": "spot-rebuild-custom",
+    "environment": "Linux 6.18.54.1-microsoft-standard-WSL2 x86_64 GNU/Linux",
+    "docker_used": false,
+    "profile": "release",
+    "exit_code": 0,
+    "generate_command": "/tmp/tw-rb-runtime-1-bins/tickwire-lab generate --scenario spot-rebuild-custom --out /tmp/tw-rb-runtime-1 --bin-dir /tmp/tw-rb-runtime-1-bins",
+    "run_command": "/tmp/tw-rb-runtime-1-bins/tickwire-lab run --config /tmp/tw-rb-runtime-1/scenario.json",
+    "result": {
+      "account_fill_verified": true,
+      "account_report": "/tmp/tw-rb-runtime-1/account-report.json",
+      "account_wal": "/tmp/tw-rb-runtime-1/exec/account",
+      "event": "laboratory_spot_rebuild_complete",
+      "fixture_audit": "/tmp/tw-rb-runtime-1/fixture.jsonl",
+      "input_wal": "/tmp/tw-rb-runtime-1/exec/input",
+      "logs": "/tmp/tw-rb-runtime-1/logs",
+      "mirror_records_verified": 12,
+      "mirror_wal": "/tmp/tw-rb-runtime-1/mirror/journal",
+      "preflight": {
+        "action_remains_consumed": true,
+        "capture_pid": 656772,
+        "custom_counters": {
+          "old_probe": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 5,
+            "reports": 0,
+            "schema": 92733768073217,
+            "spent": true
+          },
+          "target_at_c": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 5,
+            "reports": 0,
+            "schema": 92733768073218,
+            "spent": true
+          },
+          "target_d": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 138,
+            "reports": 9,
+            "schema": 92733768073218,
+            "spent": true
+          }
+        },
+        "fixed_roots": {
+          "contract": {
+            "bytes": 1040,
+            "digest": [
+              251,
+              103,
+              41,
+              242,
+              219,
+              234,
+              223,
+              90,
+              159,
+              194,
+              43,
+              105,
+              37,
+              176,
+              201,
+              34,
+              21,
+              117,
+              245,
+              208,
+              20,
+              203,
+              54,
+              80,
+              4,
+              217,
+              240,
+              255,
+              234,
+              0,
+              4,
+              44
+            ]
+          },
+          "inputs": {
+            "bytes": 26055,
+            "digest": [
+              252,
+              13,
+              102,
+              61,
+              202,
+              225,
+              223,
+              66,
+              240,
+              86,
+              173,
+              224,
+              20,
+              170,
+              66,
+              121,
+              93,
+              157,
+              24,
+              15,
+              69,
+              243,
+              244,
+              159,
+              39,
+              104,
+              215,
+              3,
+              163,
+              74,
+              158,
+              194
+            ]
+          },
+          "plans": {
+            "bytes": 2343,
+            "digest": [
+              211,
+              136,
+              236,
+              90,
+              185,
+              113,
+              129,
+              222,
+              227,
+              30,
+              34,
+              139,
+              254,
+              160,
+              187,
+              206,
+              67,
+              21,
+              179,
+              131,
+              134,
+              60,
+              37,
+              107,
+              169,
+              237,
+              200,
+              166,
+              251,
+              195,
+              208,
+              74
+            ]
+          },
+          "rollback_completion": {
+            "bytes": 419,
+            "digest": [
+              35,
+              189,
+              199,
+              206,
+              85,
+              143,
+              44,
+              100,
+              163,
+              254,
+              130,
+              141,
+              160,
+              234,
+              33,
+              70,
+              106,
+              72,
+              154,
+              112,
+              243,
+              172,
+              3,
+              251,
+              64,
+              115,
+              202,
+              8,
+              51,
+              66,
+              102,
+              195
+            ]
+          },
+          "rollback_plans": {
+            "bytes": 3128,
+            "digest": [
+              136,
+              25,
+              250,
+              194,
+              9,
+              61,
+              58,
+              11,
+              159,
+              168,
+              207,
+              248,
+              188,
+              194,
+              231,
+              61,
+              27,
+              236,
+              62,
+              84,
+              146,
+              248,
+              243,
+              96,
+              69,
+              64,
+              177,
+              2,
+              241,
+              180,
+              1,
+              111
+            ]
+          },
+          "target_install": {
+            "bytes": 2010,
+            "digest": [
+              144,
+              103,
+              250,
+              77,
+              190,
+              88,
+              111,
+              181,
+              144,
+              124,
+              50,
+              40,
+              144,
+              17,
+              97,
+              208,
+              231,
+              87,
+              106,
+              105,
+              52,
+              230,
+              1,
+              121,
+              161,
+              72,
+              79,
+              146,
+              3,
+              37,
+              65,
+              11
+            ]
+          },
+          "warm_completion": {
+            "bytes": 1635,
+            "digest": [
+              118,
+              157,
+              211,
+              157,
+              1,
+              22,
+              254,
+              194,
+              217,
+              156,
+              69,
+              247,
+              173,
+              44,
+              230,
+              36,
+              132,
+              136,
+              28,
+              172,
+              123,
+              51,
+              133,
+              103,
+              203,
+              10,
+              20,
+              131,
+              154,
+              176,
+              219,
+              115
+            ]
+          }
+        },
+        "installation_digest": [
+          144,
+          103,
+          250,
+          77,
+          190,
+          88,
+          111,
+          181,
+          144,
+          124,
+          50,
+          40,
+          144,
+          17,
+          97,
+          208,
+          231,
+          87,
+          106,
+          105,
+          52,
+          230,
+          1,
+          121,
+          161,
+          72,
+          79,
+          146,
+          3,
+          37,
+          65,
+          11
+        ],
+        "operation_schema": 4,
+        "prefix_verified": true,
+        "rollback_digest": {
+          "bytes": 419,
+          "digest": [
+            35,
+            189,
+            199,
+            206,
+            85,
+            143,
+            44,
+            100,
+            163,
+            254,
+            130,
+            141,
+            160,
+            234,
+            33,
+            70,
+            106,
+            72,
+            154,
+            112,
+            243,
+            172,
+            3,
+            251,
+            64,
+            115,
+            202,
+            8,
+            51,
+            66,
+            102,
+            195
+          ]
+        },
+        "rollback_exited": true,
+        "rollback_pid": 656774,
+        "target_final_sequence": 285,
+        "target_install_sequence": 10,
+        "target_pid": 656772,
+        "window_end": {
+          "accounts": [
+            {
+              "content_digest": [
+                63,
+                39,
+                108,
+                125,
+                128,
+                254,
+                113,
+                65,
+                223,
+                10,
+                63,
+                12,
+                201,
+                85,
+                7,
+                221,
+                80,
+                230,
+                86,
+                47,
+                141,
+                91,
+                154,
+                82,
+                235,
+                83,
+                31,
+                70,
+                91,
+                236,
+                195,
+                167
+              ],
+              "generation": 1,
+              "identity": [
+                233,
+                74,
+                54,
+                215,
+                156,
+                31,
+                25,
+                131,
+                30,
+                2,
+                158,
+                207,
+                222,
+                91,
+                36,
+                237,
+                143,
+                38,
+                17,
+                238,
+                45,
+                163,
+                196,
+                10,
+                225,
+                0,
+                3,
+                138,
+                212,
+                102,
+                32,
+                245
+              ],
+              "sequence": 3
+            }
+          ],
+          "external": [],
+          "markets": [
+            {
+              "content_digest": [
+                77,
+                169,
+                235,
+                21,
+                85,
+                71,
+                27,
+                44,
+                149,
+                51,
+                146,
+                224,
+                74,
+                120,
+                102,
+                202,
+                60,
+                201,
+                89,
+                16,
+                195,
+                61,
+                43,
+                220,
+                223,
+                229,
+                122,
+                208,
+                106,
+                248,
+                9,
+                222
+              ],
+              "generation": 1,
+              "identity": [
+                248,
+                183,
+                85,
+                3,
+                53,
+                215,
+                145,
+                121,
+                118,
+                234,
+                26,
+                84,
+                120,
+                200,
+                9,
+                141,
+                52,
+                199,
+                40,
+                137,
+                97,
+                241,
+                77,
+                149,
+                190,
+                122,
+                174,
+                11,
+                111,
+                139,
+                200,
+                172
+              ],
+              "sequence": 11
+            }
+          ],
+          "now_ns": 30825573704297,
+          "rows": 10
+        }
+      },
+      "worker_report_position_verified": 12
+    },
+    "account": {
+      "account_epoch": 1,
+      "account_records": 12,
+      "account_stream": "34343434343434343434343434343434",
+      "assets": [
+        {
+          "asset_id": 1,
+          "available": {
+            "atoms": "100100000",
+            "scale": 8
+          },
+          "deficit": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "ownership": [
+            {
+              "quantity": {
+                "atoms": "100000000",
+                "scale": 8
+              },
+              "strategy_id": 0
+            },
+            {
+              "quantity": {
+                "atoms": "100000",
+                "scale": 8
+              },
+              "strategy_id": 8
+            }
+          ],
+          "reserved": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "symbol": "BTC",
+          "total": {
+            "atoms": "100100000",
+            "scale": 8
+          },
+          "wallet_id": 1
+        },
+        {
+          "asset_id": 2,
+          "available": {
+            "atoms": "94000000000",
+            "scale": 8
+          },
+          "deficit": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "ownership": [
+            {
+              "quantity": {
+                "atoms": "100000000000",
+                "scale": 8
+              },
+              "strategy_id": 0
+            },
+            {
+              "quantity": {
+                "atoms": "-6000000000",
+                "scale": 8
+              },
+              "strategy_id": 8
+            }
+          ],
+          "reserved": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "symbol": "USDT",
+          "total": {
+            "atoms": "94000000000",
+            "scale": 8
+          },
+          "wallet_id": 1
+        }
+      ],
+      "baseline_sha256": "e94a36d79c1f19831e029ecfde5b24ed8f2611ee2da3c40ae100038ad46620f5",
+      "discarded_tail_bytes": {
+        "account": 0,
+        "input": 0
+      },
+      "export_directory": "/tmp/tw-rb-runtime-1/export",
+      "format": "tickwire.offline-replay.v1",
+      "frozen": true,
+      "history_sha256": "b2eae7670c9da158d21dd99cd1c1bbf8ab79c271c4f3951d9bb88a85fc619cce",
+      "input_facts_not_in_account": 0,
+      "input_quarantines_and_gaps": 0,
+      "input_records": 25,
+      "input_stream": "35353535353535353535353535353535",
+      "ledger_sequence": 12,
+      "orders": [
+        {
+          "aborted": false,
+          "client_id": "lab-spot-1",
+          "command_sha256": "7fda3b324795870f7217403a8a5d1e14f59f7d267a48a809324ee4ec62b48ada",
+          "confirmed": true,
+          "fee_reconciled": true,
+          "filled_quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "intent_epoch": 4,
+          "intent_id": 3,
+          "manager_generation": 6,
+          "manager_instance": "06060606060606060606060606060606",
+          "origin_generation": 5,
+          "origin_instance": "02020202020202020202020202020202",
+          "original_quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "owner_revision": 2,
+          "reduce_allocation": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "remaining_quantity": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "strategy_id": 8,
+          "terminal": true,
+          "uncreated": false,
+          "unknown": false
+        }
+      ],
+      "pending_orders": [],
+      "positions": [],
+      "rejected_event_sha256": null,
+      "required_frontier": null,
+      "scope": {
+        "account": 2,
+        "environment": "Test",
+        "risk_domain_id": "01010101010101010101010101010101",
+        "venue": 1
+      }
+    },
+    "metadata": {
+      "started_utc": "2026-10-28T11:15:00.205015+00:00",
+      "started_monotonic_ns": 30821120576601,
+      "scenario": "spot-rebuild-custom",
+      "profile": "release",
+      "root": "/tmp/tw-rb-runtime-1",
+      "binaries": [
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-app",
+          "bytes": 17254696,
+          "sha256": "bf184495f926c09a7b0ac063e85197077e504bfc6fafdab647e92be9d10c671d"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-counting-v1-worker",
+          "bytes": 6513224,
+          "sha256": "9db71b807763bdd8dadae3b6253bbf4d4648499c3c21e8ea7df4a2d70353d269"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-counting-worker",
+          "bytes": 6510976,
+          "sha256": "4f61f7836eff92b40e84145fd608013dae0fa98a1ab2e2ec687f2f8df0d623c8"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-lab",
+          "bytes": 12856848,
+          "sha256": "f6a80d7167f1be9b0be5b2c4b48aa3d72d61a15c629c8d6101916ecb16c82829"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-lifecycle",
+          "bytes": 1537792,
+          "sha256": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-md",
+          "bytes": 4778080,
+          "sha256": "cbd5e4fcb71c87f2250f8e2d1f57a1b87d902adf79e169b6b30aacb6f9f0358d"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-replica-receiver",
+          "bytes": 5948360,
+          "sha256": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1-bins/tickwire-strategy-worker",
+          "bytes": 5900568,
+          "sha256": "a2fffacb3005695f4a7ab2a2954240f316b20559790f00281a380f1226534cc2"
+        }
+      ],
+      "completed_utc": "2026-10-28T11:16:36.081427+00:00",
+      "completed_monotonic_ns": 30916996973588,
+      "run_exit_code": 0,
+      "source_manifest_verified": true,
+      "binary_hashes_unchanged": true,
+      "capture_pid": 656772,
+      "rollback_pid": 656774,
+      "retired": [
+        {
+          "event": "strategy_retired",
+          "exit_status": "exit status: 0",
+          "generation": 5,
+          "instance": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2
+          ],
+          "worker_pid": 656764
+        }
+      ],
+      "phases": [
+        {
+          "phase": "committed",
+          "handover_sequence": 4,
+          "handover_digest": [
+            230,
+            7,
+            136,
+            142,
+            241,
+            213,
+            102,
+            76,
+            168,
+            197,
+            243,
+            245,
+            37,
+            9,
+            167,
+            124,
+            94,
+            143,
+            153,
+            149,
+            117,
+            248,
+            89,
+            84,
+            45,
+            137,
+            242,
+            82,
+            82,
+            39,
+            52,
+            168
+          ],
+          "issued_ns": 30826909824951
+        },
+        {
+          "phase": "released",
+          "handover_sequence": 4,
+          "handover_digest": [
+            230,
+            7,
+            136,
+            142,
+            241,
+            213,
+            102,
+            76,
+            168,
+            197,
+            243,
+            245,
+            37,
+            9,
+            167,
+            124,
+            94,
+            143,
+            153,
+            149,
+            117,
+            248,
+            89,
+            84,
+            45,
+            137,
+            242,
+            82,
+            82,
+            39,
+            52,
+            168
+          ],
+          "issued_ns": 30826978701444
+        }
+      ],
+      "target_install_sequence": 10,
+      "target_final_sequence": 285,
+      "window_rows": 10,
+      "window_to_prepared_ns": 1169596212,
+      "account_records": 12,
+      "files": [
+        {
+          "path": "/tmp/tw-rb-runtime-1/run-result.json",
+          "bytes": 9986,
+          "sha256": "c1b9862dfcf9da884eeb3acb2ba1a98d44b8186a9405b36aa3e80349dd2ebb06"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/account-report.json",
+          "bytes": 3182,
+          "sha256": "15f6ab0ec76c8815648163bb0818a82bc85dcb57a94de494ff7dc354cccc1737"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/handover/captured.json",
+          "bytes": 1616,
+          "sha256": "253fbcb7e86886dc5431271a176609ffe7e193da85e97e1b381dc67b7cb8bcdd"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/handover/preflight-verified.json",
+          "bytes": 8257,
+          "sha256": "51fd36aff888464e15d6aaffe474e0e904f6c7581778e212169522eb976a7d37"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/handover/preflight-final-verified.json",
+          "bytes": 8260,
+          "sha256": "156d4d8f28813870fa196dc7dc310e77e52efde8128b2c2d1d4de89f2def2425"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/fixture.jsonl",
+          "bytes": 8036,
+          "sha256": "c4f245c70d94d92bd75ac2b080595d7ec07e6edb8b0561eabcb38a9555e0a3f4"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/export/records.jsonl",
+          "bytes": 2030,
+          "sha256": "05265af6d01cee852f50bc78030ce92311d5b77d3730cbcedfe3df1f76a79215"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/logs/exec.stderr.log",
+          "bytes": 12568,
+          "sha256": "4666b5b7a316230a533799a5cf36d390a470937bf21236fe1e15c1ae77f88290"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/logs/coordinator.stdout.log",
+          "bytes": 117,
+          "sha256": "5cd76441ef240d75ef5367f6ec8e9f8b0ed58d9cd3c8dddc56def7bf067ff1c3"
+        },
+        {
+          "path": "/tmp/tw-rb-runtime-1/logs/coordinator.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  },
+  "schema3_compatibility": {
+    "name": "spot-handover-custom",
+    "exit_code": 0,
+    "binaries": "same frozen release binaries as schema4",
+    "result": {
+      "account_fill_verified": true,
+      "account_report": "/tmp/tw-rb-compat-1/account-report.json",
+      "account_wal": "/tmp/tw-rb-compat-1/exec/account",
+      "event": "laboratory_spot_handover_complete",
+      "fixture_audit": "/tmp/tw-rb-compat-1/fixture.jsonl",
+      "input_wal": "/tmp/tw-rb-compat-1/exec/input",
+      "logs": "/tmp/tw-rb-compat-1/logs",
+      "mirror_records_verified": 12,
+      "mirror_wal": "/tmp/tw-rb-compat-1/mirror/journal",
+      "preflight": {
+        "action_pending_at_s": true,
+        "action_remains_consumed": true,
+        "custom_counters": {
+          "source_c": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 3,
+            "reports": 4,
+            "schema": 92733768073217,
+            "spent": true
+          },
+          "source_s": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 0,
+            "reports": 2,
+            "schema": 92733768073217,
+            "spent": false
+          },
+          "target_at_c": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 3,
+            "reports": 4,
+            "schema": 92733768073218,
+            "spent": true
+          },
+          "target_d": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 141,
+            "reports": 13,
+            "schema": 92733768073218,
+            "spent": true
+          }
+        },
+        "expansion_prefix": null,
+        "installation_digest": [
+          232,
+          19,
+          75,
+          59,
+          25,
+          10,
+          169,
+          129,
+          217,
+          74,
+          14,
+          250,
+          173,
+          242,
+          209,
+          245,
+          239,
+          195,
+          254,
+          65,
+          197,
+          113,
+          25,
+          224,
+          89,
+          214,
+          140,
+          74,
+          42,
+          84,
+          152,
+          223
+        ],
+        "operation_schema": 3,
+        "restore_digest": [
+          22,
+          21,
+          132,
+          149,
+          8,
+          164,
+          198,
+          39,
+          73,
+          132,
+          187,
+          98,
+          239,
+          23,
+          48,
+          253,
+          199,
+          121,
+          223,
+          171,
+          253,
+          208,
+          171,
+          176,
+          168,
+          231,
+          1,
+          223,
+          71,
+          243,
+          241,
+          86
+        ],
+        "rollback_digest": [
+          127,
+          240,
+          213,
+          162,
+          123,
+          252,
+          35,
+          147,
+          108,
+          174,
+          162,
+          72,
+          209,
+          165,
+          109,
+          5,
+          219,
+          79,
+          91,
+          20,
+          40,
+          221,
+          226,
+          6,
+          122,
+          50,
+          31,
+          153,
+          129,
+          86,
+          246,
+          14
+        ],
+        "rollback_pid": 665680,
+        "rollback_schema": 92733768073218,
+        "source_c_sequence": 10,
+        "source_replay_pid": 665679,
+        "source_report_position": 1,
+        "source_s_sequence": 2,
+        "target_continued_sequence": 0,
+        "target_final_sequence": 285,
+        "target_install_sequence": 0,
+        "target_pid": 665677,
+        "target_schema": 92733768073218
+      },
+      "worker_report_position_verified": 12
+    },
+    "retired": [
+      {
+        "event": "strategy_retired",
+        "exit_status": "exit status: 0",
+        "generation": 5,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "worker_pid": 665656
+      }
+    ],
+    "account": {
+      "account_epoch": 1,
+      "account_records": 12,
+      "account_stream": "34343434343434343434343434343434",
+      "assets": [
+        {
+          "asset_id": 1,
+          "available": {
+            "atoms": "100100000",
+            "scale": 8
+          },
+          "deficit": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "ownership": [
+            {
+              "quantity": {
+                "atoms": "100000000",
+                "scale": 8
+              },
+              "strategy_id": 0
+            },
+            {
+              "quantity": {
+                "atoms": "100000",
+                "scale": 8
+              },
+              "strategy_id": 8
+            }
+          ],
+          "reserved": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "symbol": "BTC",
+          "total": {
+            "atoms": "100100000",
+            "scale": 8
+          },
+          "wallet_id": 1
+        },
+        {
+          "asset_id": 2,
+          "available": {
+            "atoms": "94000000000",
+            "scale": 8
+          },
+          "deficit": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "ownership": [
+            {
+              "quantity": {
+                "atoms": "100000000000",
+                "scale": 8
+              },
+              "strategy_id": 0
+            },
+            {
+              "quantity": {
+                "atoms": "-6000000000",
+                "scale": 8
+              },
+              "strategy_id": 8
+            }
+          ],
+          "reserved": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "symbol": "USDT",
+          "total": {
+            "atoms": "94000000000",
+            "scale": 8
+          },
+          "wallet_id": 1
+        }
+      ],
+      "baseline_sha256": "3c7e617db4fa9a36c5c4f7a3d45cdb2de2b6bc6d64d2abb326d08d2c1bf09587",
+      "discarded_tail_bytes": {
+        "account": 0,
+        "input": 0
+      },
+      "export_directory": "/tmp/tw-rb-compat-1/export",
+      "format": "tickwire.offline-replay.v1",
+      "frozen": true,
+      "history_sha256": "aacd3e9ed48f8f98c1c2a02733b9d289c51a770a2715c14c2194546fc10d0374",
+      "input_facts_not_in_account": 0,
+      "input_quarantines_and_gaps": 0,
+      "input_records": 25,
+      "input_stream": "35353535353535353535353535353535",
+      "ledger_sequence": 12,
+      "orders": [
+        {
+          "aborted": false,
+          "client_id": "lab-spot-1",
+          "command_sha256": "7a5aa6fe524f08ef6b91e0e296945347024baa62352324b2512bce1d216512ee",
+          "confirmed": true,
+          "fee_reconciled": true,
+          "filled_quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "intent_epoch": 4,
+          "intent_id": 3,
+          "manager_generation": 6,
+          "manager_instance": "06060606060606060606060606060606",
+          "origin_generation": 5,
+          "origin_instance": "02020202020202020202020202020202",
+          "original_quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "owner_revision": 2,
+          "reduce_allocation": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "remaining_quantity": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "strategy_id": 8,
+          "terminal": true,
+          "uncreated": false,
+          "unknown": false
+        }
+      ],
+      "pending_orders": [],
+      "positions": [],
+      "rejected_event_sha256": null,
+      "required_frontier": null,
+      "scope": {
+        "account": 2,
+        "environment": "Test",
+        "risk_domain_id": "01010101010101010101010101010101",
+        "venue": 1
+      }
+    },
+    "files": [
+      {
+        "path": "/tmp/tw-rb-compat-1/run-result.json",
+        "bytes": 4633,
+        "sha256": "aff4e0e6b07795d77b45c49df41c1b26292c328347e2d39a19c314dc61887b7a"
+      },
+      {
+        "path": "/tmp/tw-rb-compat-1/account-report.json",
+        "bytes": 3181,
+        "sha256": "eb6eccfef3c2095e0fc04e5f23fd4883847a93a0e4ce5b362416d8c5d0d0f7e3"
+      },
+      {
+        "path": "/tmp/tw-rb-compat-1/fixture.jsonl",
+        "bytes": 8036,
+        "sha256": "f31189d2dd7fc4a5decf7a685af3399a0cc24aae6ae3c807cb0244e19e0ee6df"
+      },
+      {
+        "path": "/tmp/tw-rb-compat-1/logs/exec.stderr.log",
+        "bytes": 14651,
+        "sha256": "058aee3d23dc4b2dada5177e0fdcfcf4d180d09a51ffa69d8f6284fca744f3b8"
+      }
+    ]
+  },
+  "negative_and_boundary_regressions": [
+    "All persistent installation and original capture dependency roots required; exported v4 graph includes ATTEMPT, seed, original Bootstrap and SealRequest; each missing root rejected.",
+    "Wrong PID, rebound source/cut/root, missing publication bytes and malformed/noncanonical protocol rejected.",
+    "Configuration/recovery template actual paths bound to the signed artifact list; template replacement rejected after fresh digest verification.",
+    "17 MiB opaque recovery objects accepted; typed roots stay at 16 MiB; complete graph stays at 256 MiB/512 objects; recursion depth 16 rejects before reads.",
+    "Persistence failure preserves closed state; original warmed factory executes once; genesis and warm commit retained; C-after actual market/report inputs advance same owner.",
+    "Same operation/cut retry does not rerun factory; distinct probe attempt derives from full request and installation.",
+    "Fresh account qualification checked after each cold phase and before/after Prepared persistence; expired, frozen or halted account rejected."
+  ],
+  "development_failure": {
+    "scenario": "spot-rebuild-custom",
+    "profile": "dev-stripped",
+    "root": "/tmp/tw-rb-dev-3",
+    "result": "rejected_without_handover_or_release",
+    "observations": {
+      "window_end_ns": 29771586829399,
+      "prepared_issued_ns": 29795983471376,
+      "account_reactivated_at_ns": 29763282027543,
+      "account_valid_until_ns": 29793282027543,
+      "window_to_prepared_ns": 24396641977,
+      "after_account_expiry_ns": 2701443833
+    },
+    "proof": "Real same-PID installation, independent probe and RebuildPrepared precede the rejected Commit. Offline export contains Reactivated, Admit, OrderNew, OrderNew, Reactivated, and no StrategyHandover or Fill. Account renewal invalidates the lifecycle gate; no expiry or gate was relaxed.",
+    "files": [
+      {
+        "path": "/tmp/tw-rb-dev-3/logs/exec.stderr.log",
+        "sha256": "3a8fdb5537d44afd7b7b185208a364ab53ac3ec0e9ada0d921da82b88c65598b"
+      },
+      {
+        "path": "/tmp/tw-rb-dev-3/logs/coordinator.stderr.log",
+        "sha256": "86aa1d0311f50645f4fa92eeecf6deb6bbb43dbf5e8d04ebdd83ad31868d5320"
+      },
+      {
+        "path": "/tmp/tw-rb-dev-3/handover/receipts/6f4d19e07d49dd306a27fd1990cd300c.rejected",
+        "sha256": "951cff7d36a43c884c8dfcaa7305b905d1a1987bd5a5b64c8b007dfe6b2664ab"
+      },
+      {
+        "path": "/tmp/tw-rb-dev-3/diagnostic-export/records.jsonl",
+        "sha256": "fc037c75f0d8a1fcf33eaa1ec011565ac0094254667847d363d4d0a4ea2731a9"
+      }
+    ]
+  },
+  "limitations": [
+    "Single-account-domain loopback functional acceptance; no live Binance credentials, multi-domain failure campaign, production qualification or latency SLO claim.",
+    "The one-run release window-to-Prepared duration is a cold functional observation, not a trading-path latency benchmark.",
+    "Cold publication still executes synchronously. The dev build exceeded remaining account validity; no deadline was extended. Asynchronous preparation and cost optimization remain pending.",
+    "Process restart preserves durable facts and freezes; it does not automatically rerun installation/probe or restore execution authority.",
+    "The standalone Host fixture connects the real intent lane but emits no new commands; the full lab proves transfer and late settlement of an already admitted action."
+  ],
+  "logs": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-check-rust-final.log",
+      "bytes": 234476,
+      "sha256": "64db1773f198e565b3281fefac48070ee2d6080867dd7f0daccd656742483c99"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-release-build-final.log",
+      "bytes": 875,
+      "sha256": "d8228e66c6074767cfc729017a3c414086a04937769ed6c5ef55168834d14cd6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-no-default.log",
+      "bytes": 254,
+      "sha256": "18704b8643c50cf8fd33e9ee2f6928bbedb7ac8edcfe2e75f349d16e63fb4d82"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-contracts.json",
+      "bytes": 1765,
+      "sha256": "348045f80b1547ac07d2f1ee3e25b9bdae4f5b5ef85a67b871d41e29b4acf7da"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-host-tests.log",
+      "bytes": 7763,
+      "sha256": "c685c680d3c4eccd1b2cd5b7cf7b7348dcbad6c22c02ed046df602bd7f78ffa8"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-compat-generate.log",
+      "bytes": 865,
+      "sha256": "8935e3f33e98367f1deb29e657a5c91a559d71fe4a8eb1b35fcf7be6a0db1bf3"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-compat-run.log",
+      "bytes": 4634,
+      "sha256": "427461af94ae3d62a124abf8015668b0100514ec8dc0625ac4e66ae37f845748"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-lab-runtime-1-generate.log",
+      "bytes": 868,
+      "sha256": "98f1ce0ced32d5bad707bddfc8f612f9e38b7cf0e1124a33f503ffb8b1c5c6ff"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-lab-runtime-1-run.log",
+      "bytes": 9987,
+      "sha256": "f089b8564e68d3fcd20935b545c32e821e1c4a21048719613f37f8d4ce3f00b1"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-install-bindings-red.log",
+      "bytes": 1823,
+      "sha256": "3e3856a32f36a6686db5daaa0ed113f0fff1588484743498824779947d069adf"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-install-bindings-green.log",
+      "bytes": 1433,
+      "sha256": "b6b182c7fbee34292baef21eed43bd3d07f902ba3b8f9d1b7eec8b518642dcf6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-capture-closure-red.log",
+      "bytes": 1292,
+      "sha256": "903cd5cef970b6b9e552ea487dad7db8e7b0015c92fb2db4a016d73b14c9dcee"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-capture-closure-green.log",
+      "bytes": 1042,
+      "sha256": "3163f7407d195c8843102cc81cc973fe588ad6738259ebf9c61bd1354b0767a2"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-probe-graph-red.log",
+      "bytes": 1986,
+      "sha256": "7c9f1349aeb070ab4512388966610206221096d297bcbb188588e7ca9828a181"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-probe-graph-green.log",
+      "bytes": 1044,
+      "sha256": "c22a487c44183be4424f62fb82ebe0da689846ad5524b7b1d472be58beb041d6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-probe-17mib-green.log",
+      "bytes": 534,
+      "sha256": "dcdfbee6a4e1a2e42f52514424656afce0c4ea979bcb7516c0f240828355395f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-host-binding-red.log",
+      "bytes": 1757,
+      "sha256": "b70369b98c3e4d9f2b00ef89e5d82e3c66d32e511f760c208687c98c29e773de"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-host-binding-green.log",
+      "bytes": 627,
+      "sha256": "6362b8439fbd631e1ac10579cc3574e4be8e37583bb1e1abdce5a8aeeb4bff53"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-host-attempt-red.log",
+      "bytes": 1226,
+      "sha256": "540744008db74988f8c54727f82f3865171bc05ed46ac6ad06ede156f539a303"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-host-attempt-green.log",
+      "bytes": 514,
+      "sha256": "807ff75fa2fb4c372bc767fe395953d1fd22853e93aed255ca37f03764a1ebb3"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-app-account-expiry-red.log",
+      "bytes": 1655,
+      "sha256": "f4d0888ed211aa1892f54b6944d979b7ebf55cd8433fa3231cdfbdbf7ae5309e"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-app-account-expiry-green.log",
+      "bytes": 944,
+      "sha256": "24c637dafb246cb6f5b5c5d60e789403ea2d8845ba1187423f4ffb577b24f950"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/rebuild-runtime-documentation.json",
+      "bytes": 91,
+      "sha256": "8967faa409653ef9a95f6997f41a50b34dadbb7331a8149f9b07cf3b3f58b93d"
+    }
+  ]
+}

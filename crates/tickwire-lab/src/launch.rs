@@ -136,8 +136,13 @@ pub fn run(s: &Scenario) -> Result<()> {
     tickwire_md::server::register_admission(&s.root.join("md/admissions"), &admission)
         .map_err(|e| e.to_string())?;
     crate::generate::write(&gate, b"admitted\n")?;
-    let mut handover = if s.kind.handover() {
+    let mut handover = if s.kind.handover() && s.kind != crate::ScenarioKind::SpotRebuildCustom {
         Some(crate::handover::Driver::new(s, pid, md_pid)?)
+    } else {
+        None
+    };
+    let mut rebuild = if s.kind == crate::ScenarioKind::SpotRebuildCustom {
+        Some(crate::rebuild::Driver::new(s, pid, md_pid)?)
     } else {
         None
     };
@@ -149,6 +154,9 @@ pub fn run(s: &Scenario) -> Result<()> {
     let until = Instant::now() + Duration::from_secs(90);
     let exec_index = children.0.len() - 1;
     let status = loop {
+        if let Some(driver) = &mut rebuild {
+            driver.poll()?;
+        }
         if let Some(driver) = &mut expansion {
             driver.poll()?;
         }
@@ -176,6 +184,9 @@ pub fn run(s: &Scenario) -> Result<()> {
         return Err(format!("exec exited: {status}; see logs/exec.stderr.log").into());
     }
     if let Some(driver) = &handover {
+        driver.finish()?;
+    }
+    if let Some(driver) = &rebuild {
         driver.finish()?;
     }
     // All live writer handles are closed before offline recovery reads private copies.
@@ -211,7 +222,11 @@ pub fn run(s: &Scenario) -> Result<()> {
         let mut final_s = s.clone();
         final_s.worker_bootstrap = s.root.join("next/bootstrap.json");
         check_reports(&final_s, &exported, &report, pid, count)?;
-        crate::handover::check_export(s, &exported, &report, count)?;
+        if s.kind == crate::ScenarioKind::SpotRebuildCustom {
+            crate::rebuild::check_export(s, &exported, &report, count)?;
+        } else {
+            crate::handover::check_export(s, &exported, &report, count)?;
+        }
     } else {
         check_reports(s, &exported, &report, pid, count)?;
     }
@@ -249,6 +264,9 @@ pub fn run(s: &Scenario) -> Result<()> {
         }
         result["market_expansion"] = evidence.clone();
         result["event"] = json!("laboratory_spot_market_expansion_complete");
+    }
+    if s.kind == crate::ScenarioKind::SpotRebuildCustom {
+        result["event"] = json!("laboratory_spot_rebuild_complete");
     }
     crate::generate::json_file(&s.root.join("run-result.json"), &result)?;
     println!("{}", serde_json::to_string_pretty(&result)?);

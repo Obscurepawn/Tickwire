@@ -623,6 +623,59 @@ impl AppStrategy for MultiStrategy {
     }
 }
 impl Strategy for MultiStrategy {
+    fn handover_rebuild_input(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+    ) -> Option<tickwire_runtime::node::RebuildInput> {
+        self.members
+            .iter_mut()
+            .find(|m| {
+                m.id == operation.logical_strategy_id
+                    && m.instance == Some((member.new_instance, member.new_generation))
+                    && m.shadow
+                    && !m.retired
+            })?
+            .strategy
+            .as_mut()?
+            .handover_rebuild_input(operation, member)
+    }
+    fn handover_install_rebuild(
+        &mut self,
+        input: tickwire_runtime::node::RebuildInput,
+    ) -> Option<tickwire_runtime::node::InstalledRebuild> {
+        let request = input.request();
+        self.members
+            .iter_mut()
+            .find(|m| {
+                m.id == request.operation.logical_strategy_id
+                    && m.instance
+                        == Some((request.member.new_instance, request.member.new_generation))
+                    && m.shadow
+                    && !m.retired
+            })?
+            .strategy
+            .as_mut()?
+            .handover_install_rebuild(input)
+    }
+    fn handover_finish_rebuild(
+        &mut self,
+        installed: tickwire_runtime::node::InstalledRebuild,
+    ) -> Option<tickwire_runtime::node::PreparedRebuild> {
+        let request = installed.input().request();
+        self.members
+            .iter_mut()
+            .find(|m| {
+                m.id == request.operation.logical_strategy_id
+                    && m.instance
+                        == Some((request.member.new_instance, request.member.new_generation))
+                    && m.shadow
+                    && !m.retired
+            })?
+            .strategy
+            .as_mut()?
+            .handover_finish_rebuild(installed)
+    }
     fn handover_finish_replay(
         &mut self,
         installed: tickwire_runtime::node::InstalledReplay,

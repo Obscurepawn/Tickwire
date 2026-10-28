@@ -66,3 +66,16 @@ tickwire-lab generate --scenario spot-handover-custom --out /absolute/new-run --
 `spot-market-expansion` 沿用 counting v1/v2 的真实 schema3 交接。启动账户目录已包含 ETHUSDT（标的 ID 为 `u64::MAX`），初始行情只含 BTCUSDT；固定真实 S 并恢复 Shadow 后，启动器向 MD 发布审批计划，新增 ETH REST/WSS owner，三位消费者分别完成实际 Arm、QUIESCED 与新 JOIN。实验室核对 MD、执行、旧 Active、Shadow 的 PID 与启动时刻保持、MD runtime/effective 与每个消费者的 Activated/effective 一致，再要求旧 Active 的持久新流水位覆盖全体激活水位，随后推进 C、来源重放、安装、回滚探针和原账户费用闭环。
 
 `market-expanded.json` 保存扩容阶段证据，最终 `run-result.json.market_expansion` 包含同一份记录；只有最终来源 C 覆盖已核验扩容水位、原账户/镜像/交接验证也通过时才生成完整运行结果。该 loopback 功能场景不代表生产资格或性能验收。
+
+
+## 声明窗口重建与同进程安装
+
+```sh
+./scripts/run-core-chain-linux.sh spot-rebuild-custom release
+```
+
+`spot-rebuild-custom` 使用独立的 schema4 调度。旧 counting-v1 完成实际订单准入和 ACK 后，目标 counting-v2 先以 CaptureOnly 模式读取真实行情与账户前缀。动作集合绑定账户 `Admit` 中的完整规范命令；策略参数中的发单模板不能代替它。窗口封口后才固定 Plans、Manifest 与显式旧版本重建回退策略，并启动签名协调器。
+
+App 的 Prepare 驱动同一 capture PID 安装窗口、持续消费后窗输入、独立旧二进制探针和 kind10 回退根绑定。实验室逐一核对七个固定根、当前 READY、完整 v4 依赖图与安装 C→最终 D 的哈希前缀；只有真实 Commit/Release 和旧 PID 退出后才释放迟到成交。最终仍检查账户、镜像、策略回报与费用闭合，`preflight` 保存窗口、PID、根与实际状态计数。此场景不声明恢复了旧策略未公开的私有历史，也不替代生产资格或性能测量。
+
+安装与回退验证是受当前账户期限约束的冷步骤。开发构建曾在窗口封口到 Prepared 校验间耗时约 24.4 秒，超过本场景 30 秒账户有效期的剩余预算，系统因此关闭交接；该失败保留为成本边界，不通过延长账户有效期取得成功。优化构建验收仍使用相同期限和门禁。

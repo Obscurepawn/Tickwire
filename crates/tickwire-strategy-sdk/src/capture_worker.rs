@@ -1,5 +1,7 @@
-//! Qualified capture process. This owner has no user factory, strategy or intent writer.
+//! Qualified capture process; no user code runs before an authenticated installation.
+mod install;
 use crate::replay::rebuild::capture::{CaptureOnly, store::Attempt};
+use crate::reports::ReportReceiver;
 use crate::{
     Error, Result,
     capture::{Bootstrap, Receipt, SealRequest},
@@ -82,10 +84,82 @@ fn queue(outbox: &mut VecDeque<Vec<u8>>, bytes: Vec<u8>) -> Result<()> {
     Ok(())
 }
 type Pending = (SealRequest, ReplayControlBody);
+pub(crate) enum Outcome {
+    Stopped,
+    Install {
+        session: Box<CapturedSession>,
+        request: Box<crate::capture::install::Request>,
+    },
+}
+pub(crate) struct CapturedSession {
+    config: Bootstrap,
+    client: Client,
+    reports: ReportReceiver,
+    connection: tickwire_control_sys::Connection,
+    session: Session,
+    clock: SystemClock,
+    bank: ResourceHeader,
+    subscription: tickwire_shm::SubscriptionKey,
+    membership: u64,
+    sealed: Sealed,
+    install_request: ReplayControlBody,
+}
+pub(crate) struct Computed<S> {
+    pub live: crate::replay::live::Live<S>,
+    pub warm_completion: Object,
+    pub anchor: Object,
+    pub checkpoint: Object,
+    pub genesis_commit: Object,
+    pub commit: Object,
+    pub head: tickwire_release::replay::Head,
+    pub history_objects: Vec<Vec<u8>>,
+}
+impl CapturedSession {
+    pub fn check_install(&mut self, request: &crate::capture::install::Request) -> Result<()> {
+        let now = sample(&self.config, &mut self.clock)?;
+        request.validate(&self.config, self.receipt(), &self.sealed.window, now)?;
+        if self.install_request
+            != crate::capture::install::wire_request(
+                &self.config,
+                request,
+                self.sealed.window.seal(),
+                self.session.deadline(),
+            )?
+        {
+            return Err(Error::Identity);
+        }
+        sessions(&mut self.client, &self.session, now)?;
+        if now.nanos() >= self.install_request.valid_until_mono_ns
+            || !healthy(&self.config, &self.client, now)
+            || self.client.consumer.watermarks().applied != self.sealed.receipt.market_applied
+            || self.reports.last_ring_sequence()? != self.sealed.receipt.report_ring_sequence
+        {
+            return Err(Error::Identity);
+        }
+        Ok(())
+    }
+    pub fn bootstrap(&self) -> &Bootstrap {
+        &self.config
+    }
+    pub fn window(&self) -> &crate::replay::rebuild::capture::VerifiedWindow {
+        &self.sealed.window
+    }
+    pub fn receipt(&self) -> &Receipt {
+        &self.sealed.receipt
+    }
+    pub fn read_object(&self, object: Object) -> Result<Vec<u8>> {
+        let raw = FileBlobReader::open(&self.config.output_directory, self.config.report.peer_uid)?
+            .get_object(object.digest, tickwire_recovery::MAX_OBJECT_BYTES)?;
+        object.verify(&raw, tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
+        Ok(raw)
+    }
+}
 struct Sealed {
     request: SealRequest,
     body: ReplayControlBody,
     object: Object,
+    receipt: Receipt,
+    window: crate::replay::rebuild::capture::VerifiedWindow,
 }
 fn request_status(
     pending: Option<&Pending>,
@@ -104,7 +178,7 @@ fn request_status(
     None
 }
 // Called only by the qualified registered entrypoint after its static ID check.
-pub(crate) fn run(config: Bootstrap) -> Result<()> {
+pub(crate) fn run(config: Bootstrap) -> Result<Outcome> {
     let mut clock = SystemClock::new(config.market.domain()?)?;
     config.validate(sample(&config, &mut clock)?)?;
     if crate::replay::live::executable_digest()? != config.identity.binary {
@@ -286,9 +360,54 @@ pub(crate) fn run(config: Bootstrap) -> Result<()> {
                 )?;
                 connection.send(&reply, &[], until)?;
                 sample(&config, &mut clock)?;
-                return Ok(());
+                return Ok(Outcome::Stopped);
             }
             let body = ReplayControlBody::decode(frame.body)?;
+            if envelope.opcode == 41 && body.replay_kind == crate::capture::install::KIND {
+                if !outbox.is_empty() {
+                    return Err(Error::NotReady);
+                }
+                let done = sealed.take().ok_or(Error::NotReady)?;
+                let raw = reader.get_object(body.object_digest, crate::capture::MAX_BYTES)?;
+                if raw.len() as u64 != body.object_bytes {
+                    return Err(Error::Identity);
+                }
+                let request = crate::capture::install::Request::decode(&raw)?;
+                let now = sample(&config, &mut clock)?;
+                request.validate(&config, &done.receipt, &done.window, now)?;
+                crate::capture::install::verify_request(
+                    &envelope,
+                    &body,
+                    &config,
+                    &request,
+                    done.window.seal(),
+                    now,
+                    session.deadline(),
+                )?;
+                sessions(&mut client, &session, now)?;
+                if !healthy(&config, &client, now)
+                    || client.consumer.watermarks().applied != done.receipt.market_applied
+                    || reports.last_ring_sequence()? != done.receipt.report_ring_sequence
+                {
+                    return Err(Error::Identity);
+                }
+                return Ok(Outcome::Install {
+                    session: Box::new(CapturedSession {
+                        config,
+                        client,
+                        reports,
+                        connection,
+                        session,
+                        clock,
+                        bank,
+                        subscription,
+                        membership,
+                        sealed: done,
+                        install_request: body,
+                    }),
+                    request: Box::new(request),
+                });
+            }
             if envelope.opcode != 41 || body.replay_kind != crate::capture::KIND {
                 return Err(Error::Identity);
             }
@@ -527,6 +646,8 @@ pub(crate) fn run(config: Bootstrap) -> Result<()> {
                 request: request.clone(),
                 body: body.clone(),
                 object,
+                receipt,
+                window,
             });
             pending = None;
         }

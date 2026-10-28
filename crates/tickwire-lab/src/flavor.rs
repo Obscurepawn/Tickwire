@@ -13,7 +13,9 @@ use tickwire_venue::CanonicalCommand;
 pub(crate) fn custom(kind: ScenarioKind) -> bool {
     matches!(
         kind,
-        ScenarioKind::SpotHandoverCustom | ScenarioKind::SpotMarketExpansion
+        ScenarioKind::SpotHandoverCustom
+            | ScenarioKind::SpotMarketExpansion
+            | ScenarioKind::SpotRebuildCustom
     )
 }
 pub(crate) fn binary(kind: ScenarioKind, source: bool) -> &'static str {

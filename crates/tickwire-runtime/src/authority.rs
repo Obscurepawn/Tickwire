@@ -366,6 +366,49 @@ pub fn verify_handover_objects<S: BlobStore>(
             sizes.insert(tickwire_recovery::digest(&bytes), bytes.len());
         }
     }
+    if seal.version == 4 {
+        let root = seal.rebuild_installation_digest.ok_or_else(invalid)?;
+        if seal.rebuild_rollback_digest.is_none() {
+            return Err(invalid());
+        }
+        let objects =
+            tickwire_release::rebuild::install::verify_seal(&seal, &checkpoint, &inputs, |hash| {
+                persistence
+                    .read_object(hash, tickwire_recovery::MAX_OBJECT_BYTES)
+                    .map_err(|_| tickwire_release::Error::Missing)
+            })
+            .map_err(|_| invalid())?;
+        for bytes in objects {
+            sizes.insert(tickwire_recovery::digest(&bytes), bytes.len());
+        }
+        let bytes = persistence
+            .read_object(root, tickwire_release::replay::MAX_BYTES)
+            .map_err(|_| invalid())?;
+        let installed = tickwire_release::rebuild::install::verify(
+            tickwire_release::Object::of(&bytes),
+            |hash| {
+                persistence
+                    .read_object(hash, tickwire_recovery::MAX_OBJECT_BYTES)
+                    .map_err(|_| tickwire_release::Error::Missing)
+            },
+        )
+        .map_err(|_| invalid())?;
+        let request = installed.request();
+        let op = &request.operation;
+        let member = &request.member;
+        if op.schema != 4
+            || op.operation_id != h.operation_id
+            || op.operation_revision != h.operation_revision
+            || op.logical_strategy_id != h.logical_strategy_id
+            || member.risk_domain != h.scope.risk_domain_id
+            || member.old_instance != h.from.instance
+            || member.old_generation != h.from.generation
+            || member.new_instance != h.to.instance
+            || member.new_generation != h.to.generation
+        {
+            return Err(invalid());
+        }
+    }
     for (_, hash) in &seal.dependencies {
         let bytes = persistence
             .read_object(*hash, tickwire_recovery::MAX_OBJECT_BYTES)

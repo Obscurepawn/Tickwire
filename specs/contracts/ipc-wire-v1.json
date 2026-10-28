@@ -5428,7 +5428,9 @@
       "AuxiliaryInput": 5,
       "MarketArm": 6,
       "MarketCommit": 7,
-      "CaptureSeal": 8
+      "CaptureSeal": 8,
+      "RebuildInstall": 9,
+      "RebuildRollback": 10
     }
   },
   "bitsets": {
@@ -7557,5 +7559,37 @@
       "Invalid": 3
     },
     "authorization": "Existing authenticated Host report session and actual owned Registry child. Captured input facts grant neither READY nor trading authority."
+  },
+  "rebuild_install_control": {
+    "request_opcode": 41,
+    "response_opcode": 42,
+    "kind": 9,
+    "operation_id": "fixed schema4 Operation ID after input capture seal",
+    "operation_revision": "fixed schema4 Operation revision",
+    "expected_sequence": "exact captured warm row count, never reset to zero",
+    "expected_cut_digest": "SHA-256 of complete captured WindowSeal",
+    "request_object_max_bytes": 2097152,
+    "rejection_status": {
+      "Unsupported": 1,
+      "Busy": 2,
+      "Invalid": 3
+    },
+    "authorization": "Existing authenticated Host report session and same owned Registry child. Installation binds the real preserved engine and durable history; Commit/Release and execution policy remain required."
+  },
+  "rebuild_rollback_control": {
+    "request_opcode": 41,
+    "response_opcode": 42,
+    "kind": 10,
+    "operation_id": "fixed schema4 Operation ID after input capture seal",
+    "operation_revision": "fixed schema4 Operation revision",
+    "expected_sequence": "zero; no input cut advance is asserted",
+    "expected_cut_digest": "SHA-256 of original durable Installation",
+    "request_object_max_bytes": 2097152,
+    "rejection_status": {
+      "Unsupported": 1,
+      "Busy": 2,
+      "Invalid": 3
+    },
+    "authorization": "Existing authenticated Host report session and same owned Registry child. Rollback completion binds the original Installation and actual independently executed probe. New READY follows synchronized closure installation; execution policy remains required."
   }
 }

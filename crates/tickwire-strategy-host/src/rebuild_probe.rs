@@ -96,10 +96,18 @@ pub fn run(spec: &LaunchSpec, directory: &Path, job: &Job, deadline: Instant) ->
     }
     // Only this actual exit observation, coupled to the exact immutable job,
     // can produce Completed. Read-only receipt verification cannot construct it.
-    let body = serde_json::to_vec(&serde_json::json!({"schema":1,"job":Object::of(&job_bytes),
-        "receipt":Object::of(&result.receipt().bytes()?),"pid":exit.pid(),"uid":process.uid,"gid":process.gid,
-        "instance":exit.instance(),"generation":exit.generation(),"success":true}))
-    .map_err(|_| Error::Invalid)?;
+    let body = tickwire_release::rebuild::probe::Completion {
+        schema: 1,
+        job: Object::of(&job_bytes),
+        receipt: Object::of(&result.receipt().bytes()?),
+        pid: exit.pid(),
+        uid: process.uid,
+        gid: process.gid,
+        instance: exit.instance(),
+        generation: exit.generation(),
+        success: true,
+    }
+    .bytes()?;
     preflight::persist_object(directory, &body)?;
     Ok(Completed {
         result,

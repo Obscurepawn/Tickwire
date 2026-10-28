@@ -2,7 +2,7 @@ use crate::{Error, Result};
 use tickwire_ipc::{ControlEnvelope, ReplayAppliedBody, ReplayControlBody};
 use tickwire_release::Object;
 
-pub(super) fn reply(
+pub(crate) fn reply(
     envelope: &ControlEnvelope,
     body: &ReplayAppliedBody,
     request: &ReplayControlBody,
@@ -23,8 +23,8 @@ pub(super) fn reply(
         || body.operation_id != request.operation_id
         || body.operation_revision != request.operation_revision
         || body.schema != request.schema
-        || body.replay_kind != 8
-        || request.replay_kind != 8
+        || body.replay_kind != request.replay_kind
+        || !matches!(request.replay_kind, 8..=10)
         || now >= request.valid_until_mono_ns
     {
         return Err(Error::Invalid);
@@ -81,6 +81,24 @@ mod tests {
             body,
             request,
         )
+    }
+    #[test]
+    fn installed_and_rollback_replies_preserve_original_challenge_and_kind() {
+        for kind in [9, 10] {
+            let (envelope, mut body, mut request) = fixture();
+            body.replay_kind = kind;
+            request.replay_kind = kind;
+            assert!(reply(&envelope, &body, &request, 99).is_ok());
+            body.replay_kind = if kind == 9 { 10 } else { 9 };
+            assert!(reply(&envelope, &body, &request, 99).is_err());
+            body.replay_kind = kind;
+            body.challenge[0] ^= 1;
+            assert!(reply(&envelope, &body, &request, 99).is_err());
+        }
+        let (envelope, mut body, mut request) = fixture();
+        body.replay_kind = 7;
+        request.replay_kind = 7;
+        assert!(reply(&envelope, &body, &request, 99).is_err());
     }
     #[test]
     fn capture_reply_binds_every_authenticated_fact_and_bounds() {

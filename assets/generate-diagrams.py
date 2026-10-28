@@ -213,7 +213,7 @@ def market_expansion():
 def rebuild_capture():
     d=Diagram('rebuild-capture.svg', 1080, 'Tickwire · 声明重建的输入采集',
               '先采集真实输入并封口，再固定 Plans 与发布操作；采集进程尚未创建用户策略。',
-              'Host持有真实采集子进程并登记MD准入。CaptureOnly完成真实JOIN，接收执行端账户完整前缀，建立种子；仅用SDK固定观察器采集行情和账户记录。Host发起绑定合同和账户位置的封口请求，worker同步合同、种子、输入、WindowSeal和完成记录。Host重算整个窗口并核对实际PID、会话、报告游标与期限。同一子进程保持无READY和无交易输出，目标安装与发布接线待续。')
+              'Host持有真实采集子进程并登记MD准入。CaptureOnly完成真实JOIN，接收执行端账户完整前缀，建立种子；仅用SDK固定观察器采集行情和账户记录。Host发起绑定合同和账户位置的封口请求，worker同步合同、种子、输入、WindowSeal和完成记录。Host重算整个窗口并核对实际PID、会话、报告游标与期限。同一子进程保持无READY和无交易输出，等待已批准的目标安装请求。')
     xs=[168,510,862,1252]
     for x,label,w in [(xs[0],'Host / 执行端',260),(xs[1],'MD 进程',248),
                       (xs[2],'CaptureOnly 子进程',304),(xs[3],'持久对象',236)]:
@@ -240,9 +240,56 @@ def rebuild_capture():
     d.text(72,843,'Host 重读闭包并逐行重算窗口，核对当前子进程、会话和期限。',18,color=BLUE,weight=True)
     d.text(72,868,'封口成功保留事实；业务 READY 与交易输出仍关闭。',17,color=MUTED)
     d.rect(48,920,1344,130,'#fffaf1','#e7d4b5',10)
-    d.text(72,954,'后续接线：目标安装与完整 schema4 发布',21,color=AMBER,weight=True)
+    d.text(72,954,'封口之后：目标安装与 schema4 发布',21,color=AMBER,weight=True)
     d.text(72,990,'固定窗口 → 全成员 Plans / 签名 Operation → 真实工厂重建 / 持久安装 → 独立回滚探测',18,color=MUTED)
     d.text(72,1025,'安装后取得真实 READY，再经协调器采纳、Commit / Release，完成窗口后的连续接续。',18,color=MUTED)
+    d.finish()
+
+
+def rebuild_installation():
+    d=Diagram('rebuild-installation.svg', 1060, 'Tickwire · 声明重建与同进程安装',
+              '固定输入窗口先于发布操作；预热后的同一策略对象从窗口末端继续运行。',
+              '先用CaptureOnly采集真实窗口C，再固定Plans并签名Operation。执行端冻结旧策略准入并核对完整账户前缀，向原子进程发起安装。真实工厂执行一次预热，持久保存原起点、warm输入、检查点与HEAD，建立真实意图通道，同一PID消费C之后的输入。独立旧版本探针完成后，kind10同步回退闭包，新READY绑定安装和回退根。协调器采纳固定七根，再Commit和Release并使旧进程正常退出。')
+    d.text(48,139,'01  固定发布输入',17,color=BLUE,weight=True)
+    boxes=[(48,'采集并封口 C',['真实 MD JOIN + 账户报告','固定观察器 · 输出关闭']),
+           (392,'Plans / Operation',['窗口、成员与配置根固定','封口完成后签名']),
+           (736,'执行端准备',['冻结旧策略的新准入','核对真实账户 WAL / 动作']),
+           (1080,'kind9 安装请求',['认证原 report 会话','绑定同一 PID 与窗口'])]
+    for x,title,lines in boxes:
+        d.box(x,161,312,130,title,lines)
+    for left in [360,704,1048]:d.arrow([(left,226),(left+32,226)])
+    d.rect(48,332,1344,332,'#eaf4f4','#b8d9d9',16)
+    d.text(72,367,'02  同一个受监督的策略进程',22,color=TEAL,weight=True)
+    d.box(80,397,348,176,'真实工厂执行一次',[
+        '种子视图 + 完整 warm 行',
+        '核对已接纳动作仍被消费',
+        '保留预热后的策略对象'],accent=TEAL)
+    d.box(548,397,348,176,'持久安装原输入链',[
+        '起点 → genesis → warm commit',
+        '同步 checkpoint / HEAD',
+        '序号保留到 C，不重新归零'],accent=TEAL)
+    d.box(1016,397,348,176,'接入持续 worker',[
+        '原 MD / report 游标继续使用',
+        '认证真实 intent 通道',
+        '消费 C 之后的行情与账户输入'],accent=TEAL)
+    d.arrow([(428,482),(548,482)])
+    d.arrow([(896,482),(1016,482)])
+    d.text(488,459,'同一对象',17,anchor='middle',color=TEAL)
+    d.text(956,459,'同一 PID',17,anchor='middle',color=TEAL)
+    d.text(72,614,'首次 READY 来自已同步的真实业务状态；后续输入继续持久记录并推进消费证明。',19,color=TEAL)
+    d.text(72,645,'等待安装受会话期限与共享 ring 容量限制；缺口或容量失败会关闭本次尝试。',17,color=MUTED)
+    d.arrow([(1236,291),(1236,318),(500,318),(500,380),(254,380),(254,397)],muted=True)
+    d.text(48,713,'03  回退资格与发布',17,color=BLUE,weight=True)
+    for x,title,lines in [(48,'独立旧版本探针',['真实旧 binary / 工厂执行','持久对象 + 成功退出']),
+                          (392,'kind10 保存回退图',['原 worker 同步完成闭包','新 READY 绑定两类根']),
+                          (736,'协调器采纳',['固定七根与真实 READY','Prepare / Commit 持久记录']),
+                          (1080,'Release / 正常退出',['按账户风险域移交管理权','旧进程真实退订并退出'])]:
+        d.box(x,737,312,140,title,lines,accent=TEAL if x<736 else BLUE)
+    for left in [360,704,1048]:d.arrow([(left,808),(left+32,808)])
+    d.rect(48,920,1344,102,'#e8eef7','#d8e2ef',12)
+    d.text(72,956,'恢复依据',20,color=BLUE,weight=True)
+    d.text(220,956,'HandoverSeal v4：原安装根 + 独立回退根 + 完整窗口后输入',20,color=BLUE)
+    d.text(72,992,'安装与 READY 记录已完成的事实；实际交易仍经过执行端的账户、风控、授权和持久提交门禁。',18,color=MUTED)
     d.finish()
 
 
@@ -252,3 +299,4 @@ if __name__ == '__main__':
     handover()
     market_expansion()
     rebuild_capture()
+    rebuild_installation()

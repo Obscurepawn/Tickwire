@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1080" viewBox="0 0 1440 1080" role="img" aria-labelledby="diagram-title diagram-desc">
 <title id="diagram-title">Tickwire · 声明重建的输入采集</title>
-<desc id="diagram-desc">Host持有真实采集子进程并登记MD准入。CaptureOnly完成真实JOIN，接收执行端账户完整前缀，建立种子；仅用SDK固定观察器采集行情和账户记录。Host发起绑定合同和账户位置的封口请求，worker同步合同、种子、输入、WindowSeal和完成记录。Host重算整个窗口并核对实际PID、会话、报告游标与期限。同一子进程保持无READY和无交易输出，目标安装与发布接线待续。</desc>
+<desc id="diagram-desc">Host持有真实采集子进程并登记MD准入。CaptureOnly完成真实JOIN，接收执行端账户完整前缀，建立种子；仅用SDK固定观察器采集行情和账户记录。Host发起绑定合同和账户位置的封口请求，worker同步合同、种子、输入、WindowSeal和完成记录。Host重算整个窗口并核对实际PID、会话、报告游标与期限。同一子进程保持无READY和无交易输出，等待已批准的目标安装请求。</desc>
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
   <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
@@ -49,7 +49,7 @@
 <text x="72" y="843" font-size="18" text-anchor="start" style="fill:#2369b5" class="title">Host 重读闭包并逐行重算窗口，核对当前子进程、会话和期限。</text>
 <text x="72" y="868" font-size="17" text-anchor="start" style="fill:#50647d">封口成功保留事实；业务 READY 与交易输出仍关闭。</text>
 <rect x="48" y="920" width="1344" height="130" rx="10" fill="#fffaf1" stroke="#e7d4b5" stroke-width="1.5"/>
-<text x="72" y="954" font-size="21" text-anchor="start" style="fill:#a66b14" class="title">后续接线：目标安装与完整 schema4 发布</text>
+<text x="72" y="954" font-size="21" text-anchor="start" style="fill:#a66b14" class="title">封口之后：目标安装与 schema4 发布</text>
 <text x="72" y="990" font-size="18" text-anchor="start" style="fill:#50647d">固定窗口 → 全成员 Plans / 签名 Operation → 真实工厂重建 / 持久安装 → 独立回滚探测</text>
 <text x="72" y="1025" font-size="18" text-anchor="start" style="fill:#50647d">安装后取得真实 READY，再经协调器采纳、Commit / Release，完成窗口后的连续接续。</text>
 </svg>

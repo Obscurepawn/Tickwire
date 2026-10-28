@@ -468,7 +468,8 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
     let market_interval = match s.scenario.kind {
         crate::ScenarioKind::SpotHandover
         | crate::ScenarioKind::SpotHandoverCustom
-        | crate::ScenarioKind::SpotMarketExpansion => Duration::from_secs(1),
+        | crate::ScenarioKind::SpotMarketExpansion
+        | crate::ScenarioKind::SpotRebuildCustom => Duration::from_secs(1),
         crate::ScenarioKind::SpotFill => Duration::from_millis(100),
     };
     let mut last = Instant::now() - Duration::from_secs(1);

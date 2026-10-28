@@ -24,26 +24,26 @@ use tickwire_strategy_sdk::bootstrap::Bootstrap;
 
 pub(crate) const NEW_INSTANCE: [u8; 16] = [6; 16];
 const GENERATION: u64 = 6;
-fn hex(bytes: &[u8]) -> String {
+pub(crate) fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
-fn read(path: &Path, maximum: u64) -> Result<Vec<u8>> {
+pub(crate) fn read(path: &Path, maximum: u64) -> Result<Vec<u8>> {
     if fs::metadata(path)?.len() > maximum {
         return Err("laboratory input capacity".into());
     }
     Ok(fs::read(path)?)
 }
-fn json(path: &Path) -> Result<Value> {
+pub(crate) fn json(path: &Path) -> Result<Value> {
     Ok(serde_json::from_slice(&read(path, 2 * 1024 * 1024)?)?)
 }
-fn atomic_json(path: &Path, value: &Value) -> Result<()> {
+pub(crate) fn atomic_json(path: &Path, value: &Value) -> Result<()> {
     let temporary = path.with_extension("pending");
     crate::generate::json_file(&temporary, value)?;
     fs::rename(&temporary, path)?;
     File::open(path.parent().ok_or("directory")?)?.sync_all()?;
     Ok(())
 }
-fn publish(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn publish(path: &Path, bytes: &[u8]) -> Result<()> {
     if path.exists() {
         if read(path, 8 * 1024 * 1024)? != bytes {
             return Err("laboratory immutable relay conflict".into());
@@ -651,7 +651,7 @@ impl Driver {
         Ok(())
     }
 }
-fn json_paths(path: &Path) -> Result<Vec<PathBuf>> {
+pub(crate) fn json_paths(path: &Path) -> Result<Vec<PathBuf>> {
     let mut paths = vec![];
     for entry in fs::read_dir(path)? {
         let p = entry?.path();
@@ -676,7 +676,7 @@ fn same_cut(old: &Value, new: &Value) -> bool {
         .iter()
         .all(|k| old[*k] == new[*k] && !old[*k].is_null())
 }
-fn check_handover_records(
+pub(crate) fn check_handover_records(
     records: impl IntoIterator<Item = Result<tickwire_account_codec::CanonicalRecord>>,
 ) -> Result<(u64, [u8; 32])> {
     let mut handover = None;
@@ -816,7 +816,7 @@ pub(crate) fn check_export(
 fn consumed_ack(root: &Path, ready: &Value) -> Result<bool> {
     consumed_ack_in(&root.join("next/recovery"), ready)
 }
-fn consumed_ack_in(directory: &Path, ready: &Value) -> Result<bool> {
+pub(crate) fn consumed_ack_in(directory: &Path, ready: &Value) -> Result<bool> {
     let hash: [u8; 32] = serde_json::from_value(ready["input_seal_digest"].clone())?;
     let object = |hash: [u8; 32]| -> Result<Vec<u8>> {
         let bytes = read(

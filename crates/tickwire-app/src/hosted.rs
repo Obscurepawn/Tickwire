@@ -18,12 +18,24 @@ use tickwire_strategy_sdk::{
     runtime::{RecoveryResolver, ResolvedRecovery},
 };
 use tickwire_venue::CanonicalCommand;
+mod rebuild;
+
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CaptureConfig {
+    pub bootstrap: PathBuf,
+    pub publication_directory: PathBuf,
+}
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostConfig {
     #[serde(default)]
     pub shadow: bool,
+    /// Explicit capture-only launch; the ordinary bootstrap remains the fixed
+    /// runtime template for a later signed same-process installation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture: Option<CaptureConfig>,
     pub bootstrap: PathBuf,
     #[serde(default)]
     pub market_resource: PathBuf,
@@ -622,6 +634,9 @@ pub fn build(
 ) -> Result<Box<dyn AppStrategy>> {
     let mut bootstrap: Bootstrap =
         serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
+    if config.capture.is_some() {
+        return rebuild::build(config, runtime, policy, bootstrap);
+    }
     if config.shadow {
         bootstrap.handover_enabled = true;
     }

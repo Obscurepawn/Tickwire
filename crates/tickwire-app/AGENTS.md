@@ -13,7 +13,7 @@
 - `failover`：`SealConfig::read`、`RestoreConfig::read`、`validate_start(&Deployment) -> Option<(Option<PhysicalFrontier>, PhysicalFrontier)>`、`seal(&SealConfig) -> Value`、`restore(&RestoreConfig) -> Value`、`FenceAuthority`、`RestoreMode`。
 - `replication`：`Profile::{LocalDurableAsync{maximum_unreplicated_age_ns}, SyncReplica{mirror_id, assignment_epoch}}`、`Config { stream_file, mirror, mirror_server_name, tls, signing_key_pkcs8, mirror_signing_public_key, profile_version, profile, … }`、`Driver::open/replicate/start/drive`。
 - `reconciliation`：`Controller::new(...).with_execution_network(...)`、`drive<P,G,S,O,L,U,B>(node, registry)`；`Config { enabled, reader_id, first_request_epoch, first_execution_connection_epoch, retry_ns, valid_for_ns, fee_maintenance_interval_ns, income_baseline_import, income_account_scan, income_association }`；子模块 `association`、`income`。
-- `lifecycle`：`Inbox::open(...)`、`poll(strategy, gateway, now)`；`lifecycle/replay`。
+- `lifecycle`：`Inbox::open(...)`、`poll(strategy, gateway, now)`；`lifecycle/replay`、`lifecycle/rebuild`（固定窗口、实际安装与回退结果的阶段 WAL 和账户前缀门禁）。
 - `launch`：`build(strategy, settings, plane)`、`Config/Request`、`ShadowLoader::open/poll/next_sequence`。
 - `market::Sources::connect(...)`（认证直连 MD 订阅；空则选本地公共 client）；同线程可克隆冷控制句柄提供 `consumers/validate_arm/arm/commit/receipt/release`，每个成员保留当前精确 ConnectConfig。
 - `hosted::build(config, runtime, policy) -> Box<dyn AppStrategy>`（bootstrap 限定、shadow 开启 handover、远程外部市场分支）。
@@ -67,6 +67,7 @@ cargo fmt -p tickwire-app
 - `control/market/tests/clock_tests.rs` 覆盖 Arm/Commit 决定跨期限、两次实际文件同步后的过期/Binding 变化，并用真实 Sources 重新 JOIN 证明过期收据写出后仍不 release 或发布新观察。
 
 - **数据面逐单不过 raft**：正常下单/回报走私有会话与执行通道；控制面（`control::ControlInbox`、持久登记 `tickwire-control-store`）只承载控制命令与授权，不把交易数据送 Raft。
+- **schema4 生命周期接线**：`HostConfig.capture` 明确批准采集 Bootstrap 与私有 publication CAS 目录，仍保留普通 Bootstrap 为目标安装模板。`lifecycle/rebuild` 先重算封口窗口并核对当前账户的规范前缀、完整固定动作集合和双方能力，再关闭 handover gate、同 PID 安装及独立回退；七固定根按阶段同步进生命周期 WAL。当前 READY 要同时绑定安装/回退根并追平实际账户；任何后窗未列入合同的 Admit 都要求新操作。Commit/Release 复用真实账户 StrategyHandover、GroupRelease 和旧进程正常退出门禁。
 - **本地盘口槽**：`Deployment::assemble` 按规范基线完整目录顺序选取本地 `BookKey.instrument`，不窄化外部 `u64 instrument_id`；相同基线的恢复/重连保持槽位不变，venue/source 与外部 InstrumentBinding 保持原身份。槽不能跨 owner 或目录交换；见[归一化市场事件](../../specs/implementation/binance-market-events.md)。`config_instrument_tests.rs` 覆盖高位 ID、槽唯一性、同目录稳定性和 Spot/USD-M 实际 DepthSync 构造。
 - **恢复对账顺序**（`run`）：`validate_start` 先核对 failover 目录标记/完成绑定/源目标身份/基线 bootstrap/封口/输入前缀 → `settings.mode = RecoverFrozen` → 打开节点后 `while node.replay_pending(1024)? != 0 {}` 先把持久输入回放完，**才接受新的私有会话输入**，随后才 `replication.start`（`main.rs` 268-273）。
 - **reconciliation REST epoch 递增**：`first_execution_connection_epoch` 必须 `> first_connection_epoch`，构造时即拒绝（`main.rs` 215-217）；健康账户仅在 `terminal && !aborted && !fee_reconciled`、REST 空闲且达 `fee_maintenance_interval_ns`（缺省 1s，零拒绝）才启动费用维护。
@@ -82,3 +83,5 @@ cargo fmt -p tickwire-app
 3. 控制命令/票据改动联动 `tickwire-control`、`tickwire-control-store` 与 TLA `tla/execution_models/control_requests/`。
 4. failover 标记/封口格式改动联动 `tickwire-replica`、`tickwire-handover`、`tickwire-fencing` 与恢复目录布局。
 5. 本 crate 只装配与驱动，不在此处实现策略、对账算法或紧急撤单（紧急路径归 `tickwire-guardian`）。
+
+- schema4 在冷图校验/同步/安装/探针之后及 Prepared 签发前，用 fresh 单调时钟复核实际 Account 的冻结状态、valid_until 和 gateway halted；到期立即走既有 Halt 持久路径，不依赖下一主循环的续期/observer 才关闭。

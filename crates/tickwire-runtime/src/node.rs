@@ -16,6 +16,8 @@ use tickwire_binance_session::ClockAdapter;
 use tickwire_journal::store::Store;
 use tickwire_transport::{IoBudget, mio};
 use tickwire_venue::CanonicalCommand;
+mod rebuild;
+pub use rebuild::{InstalledRebuild, PreparedRebuild, RebuildInput, verify_rebuild_ready};
 
 #[derive(Debug)]
 pub enum Error {
@@ -274,6 +276,21 @@ impl<B: Backend, A: Authority, E: Encoder> AccountHistory
 /// The same interface can be implemented by an in-process strategy or an
 /// authenticated strategy-IPC consumer. It never receives mutable account state.
 pub trait Strategy {
+    /// Qualified capture and approved immutable publication inputs, before any
+    /// user rebuild factory is called. The Host authenticates the owned child.
+    fn handover_rebuild_input(
+        &mut self,
+        _operation: &tickwire_release::Operation,
+        _member: &tickwire_release::Member,
+    ) -> Option<RebuildInput> {
+        None
+    }
+    fn handover_install_rebuild(&mut self, _input: RebuildInput) -> Option<InstalledRebuild> {
+        None
+    }
+    fn handover_finish_rebuild(&mut self, _installed: InstalledRebuild) -> Option<PreparedRebuild> {
+        None
+    }
     /// True only after the qualified child completed callbacks and synchronized
     /// the referenced checkpoint/ordered inputs at this exact account boundary.
     fn handover_ready(&mut self, _readiness: &HandoverReadiness) -> bool {
@@ -378,6 +395,19 @@ pub trait Strategy {
     fn on_health(&mut self, _health: Health, _now: LocalTime) {}
 }
 impl<T: Strategy + ?Sized> Strategy for Box<T> {
+    fn handover_rebuild_input(
+        &mut self,
+        operation: &tickwire_release::Operation,
+        member: &tickwire_release::Member,
+    ) -> Option<RebuildInput> {
+        (**self).handover_rebuild_input(operation, member)
+    }
+    fn handover_install_rebuild(&mut self, input: RebuildInput) -> Option<InstalledRebuild> {
+        (**self).handover_install_rebuild(input)
+    }
+    fn handover_finish_rebuild(&mut self, installed: InstalledRebuild) -> Option<PreparedRebuild> {
+        (**self).handover_finish_rebuild(installed)
+    }
     fn handover_finish_replay(&mut self, installed: InstalledReplay) -> Option<PreparedReplay> {
         (**self).handover_finish_replay(installed)
     }

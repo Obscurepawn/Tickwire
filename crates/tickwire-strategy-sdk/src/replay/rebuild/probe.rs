@@ -1,65 +1,13 @@
 //! Isolated old-version computation. Host authenticates its owned child and exit;
 //! reading this receipt alone never establishes that a process ran.
 use super::*;
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use tickwire_release::{
-    files::{LoadedFiles, Location, ObjectFile},
+    files::{LoadedFiles, ObjectFile},
     rebuild::rollback as policy,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Job {
-    pub schema: u16,
-    pub attempt: [u8; 16],
-    pub operation: Operation,
-    pub member: Member,
-    pub plans: ObjectFile,
-    pub manifest: ObjectFile,
-    pub contract: ObjectFile,
-    pub inputs: ObjectFile,
-    pub rollback: ObjectFile,
-    pub objects: Vec<ObjectFile>,
-    pub files: Vec<Location>,
-    pub output_directory: PathBuf,
-}
-impl Job {
-    pub fn bytes(&self) -> crate::Result<Vec<u8>> {
-        Ok(canonical(self)?)
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Receipt {
-    pub schema: u16,
-    pub job: Object,
-    pub attempt: [u8; 16],
-    pub rollback: Object,
-    pub member: Member,
-    pub probe: policy::Probe,
-    pub pid: u32,
-    pub exact: bool,
-    pub anchor: Object,
-    pub transcript: Object,
-    pub checkpoint: Object,
-    pub cut: Cut,
-}
-impl Receipt {
-    pub fn bytes(&self) -> crate::Result<Vec<u8>> {
-        Ok(canonical(self)?)
-    }
-    pub fn decode(bytes: &[u8]) -> crate::Result<Self> {
-        if bytes.len() > MAX_BYTES {
-            return Err(crate::Error::Bounds);
-        }
-        let v: Self = serde_json::from_slice(bytes)?;
-        if v.schema != 1 || v.attempt == [0; 16] || v.pid == 0 || v.bytes()? != bytes {
-            return Err(crate::Error::Identity);
-        }
-        Ok(v)
-    }
-}
+use tickwire_release::rebuild::probe::validate_result;
+pub use tickwire_release::rebuild::probe::{Job, Receipt};
 /// Read-only qualification. Neither file content nor this value authenticates a child.
 pub struct Qualified {
     job: Object,
@@ -101,12 +49,17 @@ pub fn qualify(job: &Job) -> crate::Result<Qualified> {
         &job.rollback,
     ]
     .into_iter()
-    .chain(&job.objects)
+    .map(|file| (file, MAX_BYTES))
+    .chain(
+        job.objects
+            .iter()
+            .map(|file| (file, tickwire_recovery::MAX_OBJECT_BYTES)),
+    )
     .collect::<Vec<_>>();
     let mut lengths = BTreeMap::new();
     let mut total = 0u64;
-    for file in &list {
-        file.object.validate(MAX_BYTES as u64)?;
+    for (file, maximum) in &list {
+        file.object.validate(*maximum as u64)?;
         if !file.path.is_absolute() {
             return Err(crate::Error::Identity);
         }
@@ -122,7 +75,7 @@ pub fn qualify(job: &Job) -> crate::Result<Qualified> {
         }
     }
     let mut objects = BTreeMap::new();
-    for file in list {
+    for (file, _) in list {
         if let std::collections::btree_map::Entry::Vacant(e) = objects.entry(file.object.digest) {
             e.insert(file.read()?);
         }
@@ -253,60 +206,6 @@ pub fn run_with(
     }
     crate::recovery::immutable(&job.output_directory.join("REBUILD_PROBE.json"), &bytes)?;
     Ok(receipt)
-}
-
-fn validate_result(
-    input: &policy::Verified,
-    checkpoint: &Checkpoint,
-    anchor_bytes: &[u8],
-    transcript: &[u8],
-) -> crate::Result<()> {
-    if let Some(exact) = input.exact() {
-        if checkpoint != exact.checkpoint()
-            || anchor_bytes != exact.anchor().checkpoint().bytes()?
-            || transcript != encode_tail(exact.anchor(), exact.tail().rows())?
-        {
-            return Err(crate::Error::Identity);
-        }
-    } else {
-        let declared = input.declared().ok_or(crate::Error::Identity)?;
-        let source = Source {
-            logical_strategy: input.logical_strategy(),
-            instance: input.plan().probe.instance,
-            generation: input.plan().probe.generation,
-            binary_digest: declared.contract().binary,
-            state_schema: declared.contract().state_schema,
-            input_stream: input.plan().probe.input_stream,
-            clock: declared.inputs().clock.clone(),
-        };
-        if checkpoint.source != source
-            || checkpoint.runtime.effects.count != 0
-            || checkpoint.runtime.config != declared.inputs().config
-            || checkpoint.runtime.models != declared.inputs().models
-            || checkpoint.cut.sequence != declared.end().rows
-            || checkpoint.runtime.now_ns != declared.end().now_ns
-            || checkpoint.runtime.markets != declared.end().markets
-            || checkpoint.runtime.accounts != declared.end().accounts
-            || checkpoint.runtime.external != declared.end().external
-        {
-            return Err(crate::Error::Identity);
-        }
-    }
-    let anchor = Checkpoint::decode(anchor_bytes)?;
-    let models = anchor
-        .runtime
-        .models
-        .iter()
-        .map(|m| (m.id, Object::of(&m.value.bytes)))
-        .collect::<Vec<_>>();
-    let anchor = verify_anchor(
-        anchor_bytes,
-        &checkpoint.source,
-        Object::of(&anchor.runtime.config.bytes),
-        &models,
-    )?;
-    verify_tail(&anchor, transcript, &checkpoint.cut)?;
-    Ok(())
 }
 
 /// Retains verified content only. Host must separately observe its owned child's

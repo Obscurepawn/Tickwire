@@ -98,6 +98,7 @@ pub(super) fn append_state<W: tickwire_journal::store::Store>(
     } else if states.get(&key).is_some_and(|s| s.replay.is_some()) {
         return Err(invalid("replay facts missing"));
     }
+    rebuild::validate_state(&state, states.get(&key))?;
     wal.append(&Event::State {
         state: state.clone(),
     })?;
@@ -228,13 +229,15 @@ impl Inbox {
             receipt: None,
             replay: None,
             observed: Some(receipt),
+            rebuild: None,
+            rebuild_observed: None,
             error: None,
         };
         self.outcomes.insert(r.request_id, outcome.clone());
         self.publish_outcome(r.request_id, &outcome)
     }
 
-    fn sync_replay_objects(&mut self, objects: &[Vec<u8>]) -> Result<()> {
+    pub(super) fn sync_replay_objects(&mut self, objects: &[Vec<u8>]) -> Result<()> {
         if objects.len() > 512 {
             return Err(invalid("replay object capacity"));
         }
@@ -250,7 +253,11 @@ impl Inbox {
         }
         Ok(())
     }
-    fn replay_gate(&mut self, state: &State, r: &protocol::ControlRequest) -> Result<MonoTime> {
+    pub(super) fn replay_gate(
+        &mut self,
+        state: &State,
+        r: &protocol::ControlRequest,
+    ) -> Result<MonoTime> {
         let now = self
             .clock
             .sample()
@@ -324,6 +331,7 @@ impl Inbox {
                 proof: None,
                 committed_receipt: None,
                 session: self.session,
+                rebuild: None,
                 replay: Some(Facts {
                     prepare: signed.clone(),
                     startup: root,
@@ -588,6 +596,8 @@ impl Inbox {
             receipt: None,
             replay: Some(receipt),
             observed: None,
+            rebuild: None,
+            rebuild_observed: None,
             error: None,
         };
         self.outcomes.insert(r.request_id, outcome.clone());
@@ -596,7 +606,7 @@ impl Inbox {
     }
 }
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     fn object(n: u8) -> protocol::ReplayObject {
         protocol::ReplayObject {
@@ -666,7 +676,12 @@ mod tests {
         fail_after: Option<usize>,
     }
     #[derive(Clone, Default)]
-    struct Store(std::rc::Rc<std::cell::RefCell<Disk>>);
+    pub(in crate::lifecycle) struct Store(std::rc::Rc<std::cell::RefCell<Disk>>);
+    impl Store {
+        pub(in crate::lifecycle) fn fail_after(&self, n: usize) {
+            self.0.borrow_mut().fail_after = Some(n);
+        }
+    }
     impl tickwire_journal::store::Store for Store {
         fn read_manifest(&mut self) -> std::io::Result<Option<Vec<u8>>> {
             Ok(self.0.borrow().manifest.clone())

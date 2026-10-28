@@ -120,7 +120,7 @@ fn fixed_source_state(checkpoint: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn artifacts(
+pub(crate) fn artifacts(
     host: &tickwire_app::hosted::HostConfig,
     host_path: PathBuf,
     bootstrap_path: PathBuf,

@@ -37,6 +37,9 @@ fn app(checkpoint: &Checkpoint) -> Result<AppState> {
     }
     Ok(value)
 }
+pub(crate) fn business_state(checkpoint: &Checkpoint) -> Result<Vec<u8>> {
+    Ok(app(checkpoint)?.strategy)
+}
 pub struct Verified {
     pub continued: Continued,
     pub installation: Installation,

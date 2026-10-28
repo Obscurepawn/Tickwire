@@ -176,6 +176,15 @@ impl RestoreFactory for Factory {
     }
 }
 impl registered::UserFactory for Factory {
+    fn begin_rebuild(
+        &self,
+        input: &sdk::replay::rebuild::FactoryInput,
+    ) -> sdk::replay::Result<Counting> {
+        rebuild::begin(self, input)
+    }
+    fn consumed_actions(&self, checkpoint: &[u8]) -> sdk::replay::Result<Vec<[u8; 16]>> {
+        rebuild::consumed(self, checkpoint)
+    }
     fn create(&self) -> restore::Result<Counting> {
         Ok(Counting {
             state: State {

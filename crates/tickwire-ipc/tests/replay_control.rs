@@ -89,7 +89,7 @@ fn market_transition_kinds_use_existing_authenticated_control_layout() {
         }
     }
     let mut bad = body;
-    bad.replay_kind = 9;
+    bad.replay_kind = 11;
     let mut bytes = [0; 256];
     bad.encode(&mut bytes).unwrap();
     assert!(ControlFrame::decode(&frame(&bytes, 41)).is_err());
@@ -149,7 +149,7 @@ fn capture_seal_accepts_bound_success_and_explicit_rejection_only() {
     for opcode in [41, 42] {
         ControlFrame::decode(&frame(&bytes, opcode)).unwrap();
     }
-    for kind in [1, 5, 6, 7, 8, 9] {
+    for kind in [1, 5, 6, 7, 8, 9, 10, 11] {
         let mut body = body.clone();
         body.replay_kind = kind;
         body.encode(&mut bytes).unwrap();
@@ -164,9 +164,37 @@ fn capture_seal_accepts_bound_success_and_explicit_rejection_only() {
             h.encode(&mut raw[..128]).unwrap();
             assert_eq!(
                 ControlFrame::decode(&raw).is_ok(),
-                (6..=8).contains(&kind) && (1..=3).contains(&status),
+                (6..=10).contains(&kind) && (1..=3).contains(&status),
                 "kind={kind} status={status}"
             );
         }
     }
+}
+
+#[test]
+fn rebuild_install_uses_existing_layout_and_retains_window_cut() {
+    let body = ReplayControlBody {
+        instance_id: [1; 16],
+        strategy_generation: 2,
+        logical_strategy_id: 3,
+        challenge: [4; 16],
+        valid_until_mono_ns: 5,
+        object_digest: [6; 32],
+        object_bytes: 7,
+        expected_sequence: 19,
+        expected_cut_digest: [8; 32],
+        operation_id: [9; 16],
+        operation_revision: 10,
+        schema: 1,
+        replay_kind: 9,
+    };
+    let mut bytes = [0; 256];
+    body.encode(&mut bytes).unwrap();
+    for opcode in [41, 42] {
+        ControlFrame::decode(&frame(&bytes, opcode)).unwrap();
+    }
+    assert_eq!(
+        ReplayControlBody::decode(&bytes).unwrap().expected_sequence,
+        19
+    );
 }

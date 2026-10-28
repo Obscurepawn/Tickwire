@@ -4,6 +4,8 @@ use crate::{Error, Result, Strategy, restore};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tickwire_release::{Role, files::LoadedFiles, replay::VersionedBytes};
+mod rebuild;
+pub use rebuild::{RebuildConfigured, configure_rebuild};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -34,6 +36,15 @@ impl FactoryBinding {
 /// Restore/migrate/rebuild retain the default Unsupported behavior until supplied.
 pub trait UserFactory: restore::RestoreFactory + Clone {
     fn create(&self) -> restore::Result<Self::Running>;
+    fn begin_rebuild(
+        &self,
+        _input: &crate::replay::rebuild::FactoryInput,
+    ) -> crate::replay::Result<Self::Running> {
+        Err(crate::replay::Error::Unsupported)
+    }
+    fn consumed_actions(&self, _checkpoint: &[u8]) -> crate::replay::Result<Vec<[u8; 16]>> {
+        Err(crate::replay::Error::Unsupported)
+    }
 }
 pub trait Registration {
     type Factory: UserFactory;
@@ -315,7 +326,12 @@ pub unsafe fn run<R: Registration>(
             let config: crate::capture::Bootstrap =
                 crate::worker::read_config(&path, crate::capture::MAX_BYTES)?;
             capture_entry(registration, &config)?;
-            crate::capture_worker::run(config)?;
+            match crate::capture_worker::run(config)? {
+                crate::capture_worker::Outcome::Stopped => {}
+                crate::capture_worker::Outcome::Install { session, request } => {
+                    rebuild::install(registration, *session, *request)?;
+                }
+            }
         }
         "--rebuild-rollback" => {
             let job = crate::worker::read_config(&path, 2 * 1024 * 1024)?;

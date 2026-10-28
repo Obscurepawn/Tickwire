@@ -9,6 +9,7 @@ use std::{
 };
 use tickwire_recovery::{InputRecord, MAX_OBJECT_BYTES, digest, encode_inputs};
 use tickwire_venue::{CanonicalCommand, CommandBody, SpotAdvancedCommand};
+mod rebuild;
 pub const CHECKPOINT_SCHEMA: u64 = 0x545753430001;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -73,6 +74,8 @@ pub struct RecoveryWriter {
     replay_installation: Option<[u8; 32]>,
     replay_restore: Option<[u8; 32]>,
     replay_rollback: Option<[u8; 32]>,
+    rebuild_installation: Option<[u8; 32]>,
+    rebuild_rollback: Option<[u8; 32]>,
     template: Template,
     dependencies: Vec<DependencyFile>,
     rows: Vec<Row>,
@@ -269,6 +272,8 @@ impl RecoveryWriter {
             replay_installation: None,
             replay_restore: None,
             replay_rollback: None,
+            rebuild_installation: None,
+            rebuild_rollback: None,
             template,
             dependencies,
             rows: Vec::new(),
@@ -321,7 +326,9 @@ impl RecoveryWriter {
         body.checkpoint_digest = digest;
         body.checkpoint_bytes = checkpoint.len() as u64;
         let seal = crate::handover::InputSeal {
-            version: if self.replay_restore.is_some() {
+            version: if self.rebuild_installation.is_some() {
+                4
+            } else if self.replay_restore.is_some() {
                 3
             } else if self.preflight.is_some() {
                 2
@@ -332,6 +339,8 @@ impl RecoveryWriter {
             replay_installation_digest: self.replay_installation,
             replay_restore_digest: self.replay_restore,
             replay_rollback_digest: self.replay_rollback,
+            rebuild_installation_digest: self.rebuild_installation,
+            rebuild_rollback_digest: self.rebuild_rollback,
             owner: self.template.owner,
             instance: body.instance_id,
             generation: body.strategy_generation,
@@ -746,6 +755,8 @@ mod tests {
             replay_installation: None,
             replay_restore: None,
             replay_rollback: None,
+            rebuild_installation: None,
+            rebuild_rollback: None,
             template,
             dependencies: vec![],
             rows: vec![],
@@ -813,6 +824,8 @@ mod tests {
             replay_installation: None,
             replay_restore: None,
             replay_rollback: None,
+            rebuild_installation: None,
+            rebuild_rollback: None,
             template,
             dependencies: vec![],
             rows: vec![],
@@ -877,6 +890,8 @@ mod tests {
             replay_installation: None,
             replay_restore: Some([1; 32]),
             replay_rollback: None,
+            rebuild_installation: None,
+            rebuild_rollback: None,
             template: Template {
                 dependencies: vec![],
                 declared_rebuild: false,

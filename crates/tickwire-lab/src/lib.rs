@@ -10,6 +10,7 @@ pub mod handover;
 pub mod launch;
 mod model;
 mod preflight;
+mod rebuild;
 use serde::{Deserialize, Serialize};
 use std::{net::SocketAddr, path::PathBuf};
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -20,6 +21,7 @@ pub enum ScenarioKind {
     SpotHandover,
     SpotHandoverCustom,
     SpotMarketExpansion,
+    SpotRebuildCustom,
 }
 impl ScenarioKind {
     pub fn handover(self) -> bool {

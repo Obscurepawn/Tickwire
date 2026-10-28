@@ -9,6 +9,8 @@ use tickwire_release::{Member, Operation, ReleaseManifest, rebuild::*};
 pub mod capture;
 pub mod probe;
 pub mod rollback;
+mod running;
+pub use running::{PersistedRunning, RunningCandidate};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompiledFactory {
@@ -64,6 +66,12 @@ impl FactoryInput {
     }
     pub fn contract(&self) -> &Contract {
         &self.contract
+    }
+    pub fn configuration(&self) -> &VersionedBytes {
+        &self.inputs.config
+    }
+    pub fn models(&self) -> &[Model] {
+        &self.inputs.models
     }
     pub fn account(&self) -> &tickwire_account::Account {
         self.account.account()
@@ -192,6 +200,12 @@ impl QualifiedViews {
     }
 }
 impl VerifiedInput {
+    pub fn inputs(&self) -> &Inputs {
+        &self.work.inputs
+    }
+    pub fn manifest(&self) -> &ReleaseManifest {
+        &self.manifest
+    }
     pub fn contract(&self) -> &Contract {
         self.work.contract()
     }
@@ -249,31 +263,7 @@ pub trait Factory {
         Err(Error::Unsupported)
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Observation {
-    pub stream: StreamKey,
-    pub instrument: u64,
-    pub category: u8,
-    pub count: u32,
-}
-#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Completion {
-    pub schema: u16,
-    pub operation: Object,
-    pub plans: Object,
-    pub manifest: Object,
-    pub contract: Object,
-    pub inputs: Object,
-    pub anchor: Object,
-    pub checkpoint: Object,
-    pub transcript: Object,
-    pub account_position: u64,
-    pub account_seal: Hash,
-    pub observations: Vec<Observation>,
-    pub consumed_actions: Vec<[u8; 16]>,
-}
+pub use tickwire_release::rebuild::{Completion, Observation};
 pub struct Candidate {
     checkpoint: Checkpoint,
     completion: Completion,
@@ -382,7 +372,8 @@ fn view_valid<S: crate::Strategy>(
     }
     Ok(())
 }
-struct Window {
+struct Window<S: crate::Strategy> {
+    engine: Engine<application::Application<S>>,
     checkpoint: Checkpoint,
     anchor: Vec<u8>,
     transcript: Vec<u8>,
@@ -391,7 +382,7 @@ struct Window {
     observations: Vec<Observation>,
     consumed_actions: Vec<[u8; 16]>,
 }
-fn execute_window<F: Factory>(factory: &F, input: FactoryInput) -> Result<Window> {
+fn execute_window<F: Factory>(factory: &F, input: FactoryInput) -> Result<Window<F::Running>> {
     let binding = factory.binding();
     if binding.id != input.contract.factory
         || binding.binary != input.contract.binary
@@ -548,7 +539,28 @@ fn execute_window<F: Factory>(factory: &F, input: FactoryInput) -> Result<Window
     let (account_position, account_seal) = engine.strategy.0.account_seal(&account_stream)?;
     let tail = encode_tail(&anchor, engine.recorded())?;
     verify_tail(&anchor, &tail, &checkpoint.cut)?;
+    // Only remove the output-disabled adapter. The actual application, runtime,
+    // cut, retained rows and capacity accounting are moved without replay.
+    let Engine {
+        source,
+        runtime,
+        strategy: NoEffects(strategy),
+        cut,
+        poisoned,
+        rows,
+        row_bytes,
+    } = engine;
+    let engine = Engine {
+        source,
+        runtime,
+        strategy,
+        cut,
+        poisoned,
+        rows,
+        row_bytes,
+    };
     Ok(Window {
+        engine,
         checkpoint,
         anchor: start_bytes,
         transcript: tail,
@@ -569,6 +581,14 @@ fn execute_window<F: Factory>(factory: &F, input: FactoryInput) -> Result<Window
     })
 }
 pub fn execute<F: Factory>(factory: &F, input: VerifiedInput) -> Result<Candidate> {
+    Ok(execute_running(factory, input)?.candidate)
+}
+/// Execute the same bounded warm window and retain its actual running owner.
+/// The caller separately authenticates the installation request and process.
+pub fn execute_running<F: Factory>(
+    factory: &F,
+    input: VerifiedInput,
+) -> Result<RunningCandidate<F::Running>> {
     let VerifiedInput {
         operation,
         plans,
@@ -579,6 +599,16 @@ pub fn execute<F: Factory>(factory: &F, input: VerifiedInput) -> Result<Candidat
     let contract = work.contract.clone();
     let inputs = work.inputs.clone();
     let window = execute_window(factory, work)?;
+    let anchor = verify_anchor(
+        &window.anchor,
+        &window.checkpoint.source,
+        contract.config,
+        &inputs
+            .models
+            .iter()
+            .map(|m| (m.id, Object::of(&m.value.bytes)))
+            .collect::<Vec<_>>(),
+    )?;
     let mut objects = vec![
         canonical(&operation)?,
         plans.bytes()?,
@@ -607,10 +637,14 @@ pub fn execute<F: Factory>(factory: &F, input: VerifiedInput) -> Result<Candidat
     // Stable order and de-duplication are bounded by this fixed eight-object closure.
     let mut seen = BTreeSet::new();
     objects.retain(|b| seen.insert(tickwire_recovery::digest(b)));
-    Ok(Candidate {
-        checkpoint: window.checkpoint,
-        completion,
-        objects,
+    Ok(RunningCandidate {
+        candidate: Candidate {
+            checkpoint: window.checkpoint,
+            completion,
+            objects,
+        },
+        engine: window.engine,
+        anchor,
     })
 }
 #[cfg(test)]

@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1060" viewBox="0 0 1440 1060" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · 声明重建与同进程安装</title>
+<desc id="diagram-desc">先用CaptureOnly采集真实窗口C，再固定Plans并签名Operation。执行端冻结旧策略准入并核对完整账户前缀，向原子进程发起安装。真实工厂执行一次预热，持久保存原起点、warm输入、检查点与HEAD，建立真实意图通道，同一PID消费C之后的输入。独立旧版本探针完成后，kind10同步回退闭包，新READY绑定安装和回退根。协调器采纳固定七根，再Commit和Release并使旧进程正常退出。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="1060" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · 声明重建与同进程安装</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">固定输入窗口先于发布操作；预热后的同一策略对象从窗口末端继续运行。</text>
+<text x="48" y="139" font-size="17" text-anchor="start" style="fill:#2369b5" class="title">01  固定发布输入</text>
+<rect x="48" y="161" width="312" height="130" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 64 162 H 344" stroke="#2369b5" stroke-width="4"/>
+<text x="68" y="197" font-size="23" text-anchor="start" style="fill:#13263e" class="title">采集并封口 C</text>
+<text x="68" y="229" font-size="18" text-anchor="start" style="fill:#50647d">真实 MD JOIN + 账户报告</text>
+<text x="68" y="257" font-size="18" text-anchor="start" style="fill:#50647d">固定观察器 · 输出关闭</text>
+<rect x="392" y="161" width="312" height="130" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 408 162 H 688" stroke="#2369b5" stroke-width="4"/>
+<text x="412" y="197" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Plans / Operation</text>
+<text x="412" y="229" font-size="18" text-anchor="start" style="fill:#50647d">窗口、成员与配置根固定</text>
+<text x="412" y="257" font-size="18" text-anchor="start" style="fill:#50647d">封口完成后签名</text>
+<rect x="736" y="161" width="312" height="130" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 752 162 H 1032" stroke="#2369b5" stroke-width="4"/>
+<text x="756" y="197" font-size="23" text-anchor="start" style="fill:#13263e" class="title">执行端准备</text>
+<text x="756" y="229" font-size="18" text-anchor="start" style="fill:#50647d">冻结旧策略的新准入</text>
+<text x="756" y="257" font-size="18" text-anchor="start" style="fill:#50647d">核对真实账户 WAL / 动作</text>
+<rect x="1080" y="161" width="312" height="130" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1096 162 H 1376" stroke="#2369b5" stroke-width="4"/>
+<text x="1100" y="197" font-size="23" text-anchor="start" style="fill:#13263e" class="title">kind9 安装请求</text>
+<text x="1100" y="229" font-size="18" text-anchor="start" style="fill:#50647d">认证原 report 会话</text>
+<text x="1100" y="257" font-size="18" text-anchor="start" style="fill:#50647d">绑定同一 PID 与窗口</text>
+<path d="M 360 226 L 392 226" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 704 226 L 736 226" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 1048 226 L 1080 226" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="48" y="332" width="1344" height="332" rx="16" fill="#eaf4f4" stroke="#b8d9d9" stroke-width="1.5"/>
+<text x="72" y="367" font-size="22" text-anchor="start" style="fill:#087f8c" class="title">02  同一个受监督的策略进程</text>
+<rect x="80" y="397" width="348" height="176" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 96 398 H 412" stroke="#087f8c" stroke-width="4"/>
+<text x="100" y="433" font-size="23" text-anchor="start" style="fill:#13263e" class="title">真实工厂执行一次</text>
+<text x="100" y="465" font-size="18" text-anchor="start" style="fill:#50647d">种子视图 + 完整 warm 行</text>
+<text x="100" y="493" font-size="18" text-anchor="start" style="fill:#50647d">核对已接纳动作仍被消费</text>
+<text x="100" y="521" font-size="18" text-anchor="start" style="fill:#50647d">保留预热后的策略对象</text>
+<rect x="548" y="397" width="348" height="176" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 564 398 H 880" stroke="#087f8c" stroke-width="4"/>
+<text x="568" y="433" font-size="23" text-anchor="start" style="fill:#13263e" class="title">持久安装原输入链</text>
+<text x="568" y="465" font-size="18" text-anchor="start" style="fill:#50647d">起点 → genesis → warm commit</text>
+<text x="568" y="493" font-size="18" text-anchor="start" style="fill:#50647d">同步 checkpoint / HEAD</text>
+<text x="568" y="521" font-size="18" text-anchor="start" style="fill:#50647d">序号保留到 C，不重新归零</text>
+<rect x="1016" y="397" width="348" height="176" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1032 398 H 1348" stroke="#087f8c" stroke-width="4"/>
+<text x="1036" y="433" font-size="23" text-anchor="start" style="fill:#13263e" class="title">接入持续 worker</text>
+<text x="1036" y="465" font-size="18" text-anchor="start" style="fill:#50647d">原 MD / report 游标继续使用</text>
+<text x="1036" y="493" font-size="18" text-anchor="start" style="fill:#50647d">认证真实 intent 通道</text>
+<text x="1036" y="521" font-size="18" text-anchor="start" style="fill:#50647d">消费 C 之后的行情与账户输入</text>
+<path d="M 428 482 L 548 482" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 896 482 L 1016 482" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="488" y="459" font-size="17" text-anchor="middle" style="fill:#087f8c">同一对象</text>
+<text x="956" y="459" font-size="17" text-anchor="middle" style="fill:#087f8c">同一 PID</text>
+<text x="72" y="614" font-size="19" text-anchor="start" style="fill:#087f8c">首次 READY 来自已同步的真实业务状态；后续输入继续持久记录并推进消费证明。</text>
+<text x="72" y="645" font-size="17" text-anchor="start" style="fill:#50647d">等待安装受会话期限与共享 ring 容量限制；缺口或容量失败会关闭本次尝试。</text>
+<path d="M 1236 291 L 1236 318 L 500 318 L 500 380 L 254 380 L 254 397" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)"/>
+<text x="48" y="713" font-size="17" text-anchor="start" style="fill:#2369b5" class="title">03  回退资格与发布</text>
+<rect x="48" y="737" width="312" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 64 738 H 344" stroke="#087f8c" stroke-width="4"/>
+<text x="68" y="773" font-size="23" text-anchor="start" style="fill:#13263e" class="title">独立旧版本探针</text>
+<text x="68" y="805" font-size="18" text-anchor="start" style="fill:#50647d">真实旧 binary / 工厂执行</text>
+<text x="68" y="833" font-size="18" text-anchor="start" style="fill:#50647d">持久对象 + 成功退出</text>
+<rect x="392" y="737" width="312" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 408 738 H 688" stroke="#087f8c" stroke-width="4"/>
+<text x="412" y="773" font-size="23" text-anchor="start" style="fill:#13263e" class="title">kind10 保存回退图</text>
+<text x="412" y="805" font-size="18" text-anchor="start" style="fill:#50647d">原 worker 同步完成闭包</text>
+<text x="412" y="833" font-size="18" text-anchor="start" style="fill:#50647d">新 READY 绑定两类根</text>
+<rect x="736" y="737" width="312" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 752 738 H 1032" stroke="#2369b5" stroke-width="4"/>
+<text x="756" y="773" font-size="23" text-anchor="start" style="fill:#13263e" class="title">协调器采纳</text>
+<text x="756" y="805" font-size="18" text-anchor="start" style="fill:#50647d">固定七根与真实 READY</text>
+<text x="756" y="833" font-size="18" text-anchor="start" style="fill:#50647d">Prepare / Commit 持久记录</text>
+<rect x="1080" y="737" width="312" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1096 738 H 1376" stroke="#2369b5" stroke-width="4"/>
+<text x="1100" y="773" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Release / 正常退出</text>
+<text x="1100" y="805" font-size="18" text-anchor="start" style="fill:#50647d">按账户风险域移交管理权</text>
+<text x="1100" y="833" font-size="18" text-anchor="start" style="fill:#50647d">旧进程真实退订并退出</text>
+<path d="M 360 808 L 392 808" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 704 808 L 736 808" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 1048 808 L 1080 808" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="48" y="920" width="1344" height="102" rx="12" fill="#e8eef7" stroke="#d8e2ef" stroke-width="1.5"/>
+<text x="72" y="956" font-size="20" text-anchor="start" style="fill:#2369b5" class="title">恢复依据</text>
+<text x="220" y="956" font-size="20" text-anchor="start" style="fill:#2369b5">HandoverSeal v4：原安装根 + 独立回退根 + 完整窗口后输入</text>
+<text x="72" y="992" font-size="18" text-anchor="start" style="fill:#50647d">安装与 READY 记录已完成的事实；实际交易仍经过执行端的账户、风控、授权和持久提交门禁。</text>
+</svg>

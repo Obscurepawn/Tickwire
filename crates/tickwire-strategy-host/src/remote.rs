@@ -11,22 +11,22 @@ pub struct RemoteLaunch {
 }
 type Intake<R> = RuntimeStrategy<R, fn(&tickwire_binance_public::Notice<'_>) -> bool>;
 pub struct RemoteHostedStrategy<R> {
-    readiness: readiness::ReadyProof,
-    market_transition: market_transition::MarketTransition,
-    report_sub: tickwire_shm::SubscriptionKey,
-    strategy: Intake<R>,
-    reports: Reports,
-    registry: Registry,
-    identity: Identity,
-    intent: AuthenticatedChild,
-    report: AuthenticatedChild,
-    clock: SystemClock,
-    policy: ControlPlane,
-    forwarding: bool,
-    error: Option<Error>,
-    _directory: PrivateDirectory,
-    _intent_listener: ControlListener,
-    _report_listener: ControlListener,
+    pub(crate) readiness: readiness::ReadyProof,
+    pub(crate) market_transition: market_transition::MarketTransition,
+    pub(crate) report_sub: tickwire_shm::SubscriptionKey,
+    pub(crate) strategy: Intake<R>,
+    pub(crate) reports: Reports,
+    pub(crate) registry: Registry,
+    pub(crate) identity: Identity,
+    pub(crate) intent: AuthenticatedChild,
+    pub(crate) report: AuthenticatedChild,
+    pub(crate) clock: SystemClock,
+    pub(crate) policy: ControlPlane,
+    pub(crate) forwarding: bool,
+    pub(crate) error: Option<Error>,
+    pub(crate) _directory: PrivateDirectory,
+    pub(crate) _intent_listener: ControlListener,
+    pub(crate) _report_listener: ControlListener,
 }
 impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
     /// # Safety
@@ -131,68 +131,9 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             clock.sample()?.monotonic.nanos(),
             deadline,
         )?;
-        let AuthenticatedChild {
-            mut connection,
-            mut session,
-            process: actual,
-        } = authenticated;
-        let mut bank = config.bootstrap.intent_resource()?;
-        bank.descriptor_hash = [0; 32];
-        // Publisher computes this immutable digest before creating the actual mapping.
-        bank.descriptor_hash = header_hash(&bank)?;
-        let membership = bank
-            .initial_membership_version
-            .checked_add(1)
-            .ok_or(Error::Invalid)?;
-        let expires = session.deadline();
-        let fd = worker::accept_offer(
-            &mut session,
-            connection.recv(deadline)?,
-            &bank,
-            [7; 16],
-            expires,
-            membership,
-            false,
-            clock.sample()?.monotonic.nanos(),
-        )?;
-        let sub = tickwire_shm::SubscriptionKey {
-            bank: tickwire_shm::BankKey {
-                resource: u128::from_le_bytes(bank.resource_id),
-                channel: u128::from_le_bytes(bank.channel_id),
-                channel_epoch: bank.channel_epoch,
-                ring_epoch: bank.ring_epoch,
-                feed_generation: bank.feed_generation,
-            },
-            instance: u128::from_le_bytes(config.bootstrap.intent.peer.instance),
-            generation: config.bootstrap.intent_subscription_generation,
-            cursor: u128::from_le_bytes(config.bootstrap.intent_cursor_id),
-        };
-        let objects = tickwire_recovery::FileBlobReader::open(
-            &config.bootstrap.command_directory,
-            config.spec.uid,
-        )?;
-        // SAFETY: the same actual authenticated child is the sole writer and uses the qualified worker SDK.
-        let receiver = unsafe {
-            IntentReceiver::attach(
-                fd,
-                bank.clone(),
-                sub,
-                objects,
-                config.bootstrap.risk_domain,
-                config.spec.identity.logical_strategy,
-            )?
-        };
-        let cursor_header = worker::cursor_header(&bank, sub)?;
-        let cursor = receiver.cursor_fd()?;
-        let offered = worker::resource_offer(
-            &session,
-            &cursor_header,
-            [8; 16],
-            session.deadline(),
-            membership,
-            false,
-        )?;
-        connection.send(&offered, &[cursor.as_fd()], deadline)?;
+        // SAFETY: this launcher owns the qualified child authenticated above.
+        let (receiver, intent) =
+            unsafe { connect_intent(&config.bootstrap, authenticated, &mut clock, deadline)? };
         let expected = registry.process(config.spec.identity.instance)?;
         let mut report_connection = report_listener.accept(deadline)?;
         let credentials = report_connection.peer_credentials();
@@ -272,11 +213,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             policy,
             forwarding: true,
             error: None,
-            intent: AuthenticatedChild {
-                connection,
-                session,
-                process: actual,
-            },
+            intent,
             report,
             _directory: directory,
             _intent_listener: intent_listener,
@@ -334,7 +271,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
     pub fn failed(&self) -> bool {
         self.error.is_some() || self.strategy.error().is_some()
     }
-    fn fail(&mut self, e: Error) {
+    pub(crate) fn fail(&mut self, e: Error) {
         eprintln!(
             "{}",
             serde_json::json!({"event":"strategy_host_failed","instance":self.identity.instance,"generation":self.identity.generation,"error":e.to_string()})
@@ -348,7 +285,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         let _ = self.registry.terminate(self.identity.instance);
         self.error = Some(e);
     }
-    fn maintain(&mut self) -> Result<()> {
+    pub(crate) fn maintain(&mut self) -> Result<()> {
         if !self.registry.observe_exits()?.is_empty() {
             return Err(Error::NotReady);
         }
@@ -380,7 +317,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         }
         Ok(())
     }
-    fn graceful_retire(&mut self) -> Result<()> {
+    pub(crate) fn graceful_retire(&mut self) -> Result<()> {
         self.strategy.start_quiesce();
         self.registry.process(self.identity.instance)?;
         let bank = self.reports.publisher().header().clone();
@@ -822,4 +759,86 @@ pub(super) unsafe fn connect_reports(
         publisher.register_cursor(sub, cursor)?;
     }
     Ok(ReportWriter::new(publisher, objects, identity)?)
+}
+
+/// Reuses the original qualified launcher intent attachment after authenticating
+/// the actual owned process. No second process or synthetic cursor is created.
+#[allow(unsafe_code)]
+pub(crate) unsafe fn connect_intent(
+    config: &Bootstrap,
+    authenticated: AuthenticatedChild,
+    clock: &mut SystemClock,
+    deadline: Instant,
+) -> Result<(IntentReceiver, AuthenticatedChild)> {
+    let authenticated_uid = authenticated.process.uid;
+    let logical_strategy = authenticated.session.peer().logical_strategy;
+    let AuthenticatedChild {
+        mut connection,
+        mut session,
+        process: actual,
+    } = authenticated;
+    let mut bank = config.intent_resource()?;
+    bank.descriptor_hash = [0; 32];
+    // Publisher computes this immutable digest before creating the actual mapping.
+    bank.descriptor_hash = header_hash(&bank)?;
+    let membership = bank
+        .initial_membership_version
+        .checked_add(1)
+        .ok_or(Error::Invalid)?;
+    let expires = session.deadline();
+    let fd = worker::accept_offer(
+        &mut session,
+        connection.recv(deadline)?,
+        &bank,
+        [7; 16],
+        expires,
+        membership,
+        false,
+        clock.sample()?.monotonic.nanos(),
+    )?;
+    let sub = tickwire_shm::SubscriptionKey {
+        bank: tickwire_shm::BankKey {
+            resource: u128::from_le_bytes(bank.resource_id),
+            channel: u128::from_le_bytes(bank.channel_id),
+            channel_epoch: bank.channel_epoch,
+            ring_epoch: bank.ring_epoch,
+            feed_generation: bank.feed_generation,
+        },
+        instance: u128::from_le_bytes(config.intent.peer.instance),
+        generation: config.intent_subscription_generation,
+        cursor: u128::from_le_bytes(config.intent_cursor_id),
+    };
+    let objects =
+        tickwire_recovery::FileBlobReader::open(&config.command_directory, authenticated_uid)?;
+    // SAFETY: the same actual authenticated child is the sole writer and uses the qualified worker SDK.
+    let receiver = unsafe {
+        IntentReceiver::attach(
+            fd,
+            bank.clone(),
+            sub,
+            objects,
+            config.risk_domain,
+            logical_strategy,
+        )?
+    };
+    let cursor_header = worker::cursor_header(&bank, sub)?;
+    let cursor = receiver.cursor_fd()?;
+    let offered = worker::resource_offer(
+        &session,
+        &cursor_header,
+        [8; 16],
+        session.deadline(),
+        membership,
+        false,
+    )?;
+    connection.send(&offered, &[cursor.as_fd()], deadline)?;
+
+    Ok((
+        receiver,
+        AuthenticatedChild {
+            connection,
+            session,
+            process: actual,
+        },
+    ))
 }

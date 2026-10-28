@@ -117,7 +117,7 @@ impl SourceFiles {
             }
             all.push(file.read()?);
         }
-        if seal.preflight_receipt_digest.is_some() || seal.version == 3 {
+        if seal.preflight_receipt_digest.is_some() || matches!(seal.version, 3 | 4) {
             let mut extra = std::collections::BTreeMap::new();
             for f in &self.prior_preflight {
                 extra.insert(f.object.digest, f.read()?);
@@ -145,6 +145,22 @@ impl SourceFiles {
                             .ok_or(tickwire_release::Error::Missing)
                     })?;
                 all.extend(prior);
+            }
+            if seal.version == 4 {
+                if seal.rebuild_rollback_digest.is_none() {
+                    return Err(Error::Identity);
+                }
+                all.extend(tickwire_release::rebuild::install::verify_seal(
+                    &seal,
+                    &all[1],
+                    &all[2],
+                    |h| {
+                        extra
+                            .get(&h)
+                            .cloned()
+                            .ok_or(tickwire_release::Error::Missing)
+                    },
+                )?);
             }
         } else if !self.prior_preflight.is_empty() {
             return Err(Error::Identity);

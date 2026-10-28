@@ -142,3 +142,40 @@ fn fixed_old_window_cannot_replace_account_prefix_or_preheating_input() {
     f.6.clear();
     assert!(matches!(verify(&f), Err(Error::Missing)));
 }
+#[test]
+fn opaque_reader_keeps_recovery_budget_but_typed_lookup_rejects_large_cached_object() {
+    let bytes = vec![39; 17 * 1024 * 1024];
+    let object = Object::of(&bytes);
+    let mut objects = Objects {
+        read: |hash| {
+            if hash == object.digest {
+                Ok(bytes.clone())
+            } else {
+                Err(Error::Missing)
+            }
+        },
+        values: BTreeMap::new(),
+        bytes: 0,
+    };
+    assert_eq!(objects.by_hash(object.digest).unwrap(), bytes);
+    assert!(matches!(objects.get(object), Err(Error::Bounds)));
+}
+#[test]
+fn nested_old_restore_limit_is_checked_before_loading_any_object() {
+    let (op, manifest, contract, inputs, forward, plans, _) = fixture();
+    assert!(matches!(
+        plans.verify_at(
+            &op,
+            &op.members[0],
+            Forward {
+                plans: &forward,
+                contract: &contract,
+                inputs: &inputs,
+                manifest: &manifest
+            },
+            &mut |_| panic!("depth limit must precede reads"),
+            16
+        ),
+        Err(Error::Bounds)
+    ));
+}

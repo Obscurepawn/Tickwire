@@ -7,9 +7,45 @@ use crate::{
     Binding, Error, Hash, Member, Method, Object, Operation, ReleaseManifest, Result, Role,
 };
 use serde::{Deserialize, Serialize};
+pub mod install;
+pub mod probe;
 pub mod rollback;
 pub mod window;
 pub const MAX_ACTIONS: usize = 256;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Observation {
+    pub stream: StreamKey,
+    pub instrument: u64,
+    pub category: u8,
+    pub count: u32,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Completion {
+    pub schema: u16,
+    pub operation: Object,
+    pub plans: Object,
+    pub manifest: Object,
+    pub contract: Object,
+    pub inputs: Object,
+    pub anchor: Object,
+    pub checkpoint: Object,
+    pub transcript: Object,
+    pub account_position: u64,
+    pub account_seal: Hash,
+    pub observations: Vec<Observation>,
+    pub consumed_actions: Vec<[u8; 16]>,
+}
+impl Completion {
+    pub fn bytes(&self) -> Result<Vec<u8>> {
+        replay::canonical(self)
+    }
+    pub fn decode(bytes: &[u8]) -> Result<Self> {
+        decode(bytes)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Ordering {

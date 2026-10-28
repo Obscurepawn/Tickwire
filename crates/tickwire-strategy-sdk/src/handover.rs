@@ -158,6 +158,14 @@ pub fn objects(root: &Path, b: &HandoverReadyBody) -> Result<([u8; 32], Vec<Vec<
         out.extend(objects);
     }
 
+    if seal.version == 4 {
+        out.extend(tickwire_release::rebuild::install::verify_seal(
+            &seal,
+            &out[1],
+            &out[2],
+            |h| object(root, h, None).map_err(|_| tickwire_release::Error::Missing),
+        )?);
+    }
     if out.iter().map(Vec::len).sum::<usize>() > tickwire_recovery::MAX_CLOSURE_BYTES as usize {
         return Err(Error::Bounds);
     }
@@ -252,6 +260,8 @@ mod tests {
             replay_installation_digest: None,
             replay_restore_digest: None,
             replay_rollback_digest: None,
+            rebuild_installation_digest: None,
+            rebuild_rollback_digest: None,
             version: 1,
             owner: body.instance_id,
             instance: body.instance_id,
@@ -344,6 +354,8 @@ mod tests {
             replay_installation_digest: None,
             replay_restore_digest: None,
             replay_rollback_digest: None,
+            rebuild_installation_digest: None,
+            rebuild_rollback_digest: None,
             version: 1,
             owner: b.instance_id,
             instance: b.instance_id,

@@ -13,7 +13,7 @@
 ## 2. 公共 API 入口
 
 - `authority`：trait `GateProvider { current(command, admission) -> Gate }`、`CommitPolicy { state(admission, receipt) -> CommitState }`；`Dependency`、`RecoveryBundle`、`RecoveryQueue`（`new/stage/remove`）、`LocalAuthority::new/with_commit_policy`、`verify_handover_objects`。
-- `node`：`Health{calibrated, market_live, private_receiving, account_frozen, sender_halted}`（`ready()`）、`Submission`、`HandoverReadiness`、`InstalledReplay`/`PreparedReplay`、`Strategy` trait（`handover_ready/handover_objects/handover_checkpoint/handover_replay_source/handover_install_replay`）、`AccountHistory`、`Observer`、`NoObserver`/`NoPublisher`、`CoreNode`（`new/account/set_market_source/strategy/rest/session/local_time/private_status/private_gap/connection_replaced/replay_pending/step/stop/run/run_with_maintenance`）。
+- `node`：`Health{calibrated, market_live, private_receiving, account_frozen, sender_halted}`（`ready()`）、`Submission`、`HandoverReadiness`、`InstalledReplay`/`PreparedReplay`、`RebuildInput`/`InstalledRebuild`/`PreparedRebuild`、`verify_rebuild_ready`、`Strategy` trait（`handover_ready/handover_objects/handover_checkpoint/handover_replay_source/handover_install_replay/handover_rebuild_input/handover_install_rebuild/handover_finish_rebuild`）、`AccountHistory`、`Observer`、`NoObserver`/`NoPublisher`、`CoreNode`（`new/account/set_market_source/strategy/rest/session/local_time/private_status/private_gap/connection_replaced/replay_pending/step/stop/run/run_with_maintenance`）。
 - `files`：`Configuration`、`Networks`、`Directories`、`OpenMode{Create, RecoverFrozen{..}}`、`Services`、`SharedRecoveryStore`、`FileNode` 类型别名、`open`/`open_with_services`。
 
 ## 3. workspace 位置
@@ -43,6 +43,7 @@ cargo test -p tickwire-runtime
 - **显式单步 reactor**：`step` 驱动四个网络 owner 与策略，I/O 预算在四个 owner 间均分；`maximum_idle_wait_ns=0` 是忙轮询，正值才限制 reactor sleep。
 - **重建证据二次校验**：`InstalledReplay::from_authenticated_child` 先要求子进程 42/37 已认证，再独立核对 release root、install 校验、target 实例/代次与 HandoverSeal 摘要；C 态回滚探针仍须单独成功，本对象不是完整 release preflight。
 - **Strategy 不接收可变账户状态**：trait 只给只读回调/checkpoint/已认证重放证据，适配器不得合成缺失证据。
+- **schema4 发布阶段**：`RebuildInput`、`InstalledRebuild`、`PreparedRebuild` 通过三个独立 Strategy 方法交付；Host 先认证真实 Capture PID、报告游标及独立 probe 退出，runtime 构造器再核对内容闭包、预算与 v4 READY。当前 READY 必须沿安装检查点的完整 retained 输入前缀继续；最终 Prepared 和账户恢复同时要求固定安装根及回退完成根。内容对象不授予交易权，默认适配器均返回不支持。
 - `OpenMode::RecoverFrozen` 要求按给定物理 frontier 恢复，缺 frontier 不得启动为可交易状态。
 
 ## 7. 改动检查清单

@@ -23,7 +23,7 @@ Tickwire 把行情接入、策略计算和账户执行放在独立进程中，�
 |---|---|---|
 | Spot 业务链 | 公开行情、真实 JOIN、独立策略、签名 REST、私有事件入账、订单与成交查询、终态费用闭合 | 更多订单类型、会话恢复与故障组合验收 |
 | 行情与共享内存 | JSON / Spot SBE 接入，完整深度与精确事件发布，快照加增量追平；同 catalog 内运行时追加标的、真实退出与重新 JOIN | 扩容重启恢复、跨 catalog 变更、死亡回收、生产缓存与 NUMA 资格 |
-| 策略换代 | Shadow、完整输入记录、旧版本回放、持久安装与独立回滚探测；自定义 V1→V2 schema3 交接包含跨 bank 扩容输入；声明重建的真实采集与封口 | 多域故障组合、声明重建的目标安装与发布接线 |
+| 策略换代 | Shadow、完整输入记录、旧版本回放、持久安装与独立回滚探测；自定义 V1→V2 schema3 交接包含跨 bank 扩容输入；schema4 声明重建的同进程安装、独立回退和完整发布 | 多域故障组合、重启恢复、发布冷步骤的异步化 |
 | 账户与恢复 | 定点风险、多资产账户、有序 WAL、依赖闭包、冻结恢复与有序前缀复制 | USDⓈ-M 完整业务场景、外部成交及强平 / ADL 等事实分类 |
 | 控制与配置 | 认证连接、持久 Raft、mTLS、快照、成员管理、配置对象和本地物化 | 常规配置计划与提交、操作状态和 watch 的业务接线 |
 | 部署与性能 | Linux 进程实验场、组件基准、契约校验和分层 TLA+ 模型 | 目标主机压力与尾延迟、掉电 / 断网注入、跨主机隔离接管 |
@@ -61,9 +61,15 @@ schema3 将换代拆成可核对的阶段。旧版本从固定检查点 S 重放
 
 ![schema3 交接时序：恢复 S、封口 C、旧版本回放、目标安装、独立回滚探测、提交管理权、释放和激活。](assets/schema3-handover.svg)
 
-声明重建的采集阶段通过独立 `CaptureOnly` 子进程完成：真实 JOIN 和账户报告形成有界窗口，固定观察器逐行核验，封口后同步完整对象闭包。Host 核对实际 PID、消费游标与期限；正常停止通过真实退订释放行情资源。该路径已用独立注册策略进程验收，MD 的真实 JOIN server 与共享内存发布器位于测试父进程线程中。后续目标安装、安装后的 READY 和完整 schema4 发布仍待接通，详见[声明重建规格](specs/implementation/strategy-rebuild.md)与[采集验收证据](specs/evidence/20261028/capture-runtime.json)。
+声明重建（schema4）先由独立 `CaptureOnly` 进程采集真实行情与账户输入，用固定观察器形成有界窗口。封口完成后才固定 Plans 与签名发布操作，Host 核对实际 PID、消费游标、完整依赖和期限。
 
-![声明重建采集时序：真实 JOIN 与账户前缀、固定观察器、认证封口、完整窗口持久化和 Host 核验；目标安装与发布待续。](assets/rebuild-capture.svg)
+![声明重建采集时序：真实 JOIN 与账户前缀、固定观察器、认证封口、完整窗口持久化和 Host 核验。](assets/rebuild-capture.svg)
+
+目标策略在同一 PID 内调用真实工厂预热，保存原起点、完整输入链和检查点，再从窗口 C 之后继续处理行情与账户报告。独立旧版本探针完成后，目标保存回退闭包并发出新的 READY；协调器据此推进 Commit / Release，旧实例正常退出后开放目标执行。恢复封口 v4 保留原采集资料、安装根、回退根及后续输入。
+
+Linux release 场景已验证 C10→D285 的连续接续，账户、镜像和策略的 12 条记录一致，迟到成交与费用闭合。安装和回退校验受当前账户、会话和授权期限约束；开发构建曾因冷步骤超时而关闭交接，后续将推进异步化与成本优化。范围和原始摘要见[声明重建规格](specs/implementation/strategy-rebuild.md)与[运行证据](specs/evidence/20261028/rebuild-runtime.json)。
+
+![声明重建安装流程：固定窗口、同进程工厂预热与持久安装、C 后接续、独立回退、真实 READY、协调器发布和旧实例退出。](assets/rebuild-installation.svg)
 
 ## 快速开始
 
@@ -90,6 +96,9 @@ cargo run -p tickwire-mock --example spot-roundtrip
 
 # 保持进程运行，追加高位 ID 标的，再完成跨 bank 的 schema3 交接
 ./scripts/run-core-chain-linux.sh spot-market-expansion release
+
+# 声明输入窗口，同进程重建安装与 schema4 发布
+./scripts/run-core-chain-linux.sh spot-rebuild-custom release
 ```
 
 脚本将日志、账户报告和运行结果保存到 `.tools/lab-results/`，保留场景的 Linux volume 供检查。场景定义和原生 Linux 运行方法见 [tickwire-lab](crates/tickwire-lab/AGENTS.md)。

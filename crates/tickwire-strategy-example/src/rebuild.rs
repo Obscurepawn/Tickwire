@@ -50,30 +50,41 @@ impl Rebuilder {
         })
     }
     fn consumed(&self, bytes: &[u8]) -> replay::Result<Vec<[u8; 16]>> {
-        let state =
-            State::decode(bytes, self.factory.schema).map_err(|_| replay::Error::StateMismatch)?;
-        if state.action
-            != self
-                .factory
-                .parameters
-                .action()
-                .map_err(|_| replay::Error::Identity)?
-        {
-            return Err(replay::Error::Identity);
-        }
-        if !state.spent {
-            return Ok(vec![]);
-        }
-        let command = CanonicalCommand::decode(
-            self.factory
-                .parameters
-                .command
-                .as_ref()
-                .ok_or(replay::Error::Identity)?,
-        )
-        .map_err(|_| replay::Error::Identity)?;
-        Ok(vec![command.command().context.strategy.economic_intent_id])
+        consumed(&self.factory, bytes)
     }
+}
+pub(super) fn consumed(factory: &Factory, bytes: &[u8]) -> replay::Result<Vec<[u8; 16]>> {
+    let state = State::decode(bytes, factory.schema).map_err(|_| replay::Error::StateMismatch)?;
+    if state.action
+        != factory
+            .parameters
+            .action()
+            .map_err(|_| replay::Error::Identity)?
+    {
+        return Err(replay::Error::Identity);
+    }
+    if !state.spent {
+        return Ok(vec![]);
+    }
+    let command = CanonicalCommand::decode(
+        factory
+            .parameters
+            .command
+            .as_ref()
+            .ok_or(replay::Error::Identity)?,
+    )
+    .map_err(|_| replay::Error::Identity)?;
+    Ok(vec![command.command().context.strategy.economic_intent_id])
+}
+pub(super) fn begin(factory: &Factory, input: &api::FactoryInput) -> replay::Result<Counting> {
+    if !input.models().is_empty() || input.configuration() != &factory.configuration {
+        return Err(replay::Error::Identity);
+    }
+    Rebuilder {
+        factory: factory.clone(),
+        binary: input.contract().binary,
+    }
+    .initial(input.actions())
 }
 impl api::Factory for Rebuilder {
     type Running = Counting;
@@ -85,13 +96,7 @@ impl api::Factory for Rebuilder {
         }
     }
     fn begin(&self, input: &api::FactoryInput) -> replay::Result<Counting> {
-        if !input.contract().models.is_empty()
-            || input.contract().config
-                != tickwire_release::Object::of(&self.factory.configuration.bytes)
-        {
-            return Err(replay::Error::Identity);
-        }
-        self.initial(input.actions())
+        begin(&self.factory, input)
     }
     fn consumed_actions(&self, b: &[u8]) -> replay::Result<Vec<[u8; 16]>> {
         self.consumed(b)
@@ -227,6 +232,14 @@ mod tests {
         assert_eq!(
             factory.consumed(&state.checkpoint().unwrap()).unwrap(),
             vec![actions[0].economic_intent]
+        );
+        assert_eq!(
+            registered::UserFactory::consumed_actions(
+                &factory.factory,
+                &state.checkpoint().unwrap()
+            )
+            .unwrap(),
+            vec![actions[0].economic_intent],
         );
         let (_, replica, _) = crate::chain_tests::market_fixture();
         assert!(

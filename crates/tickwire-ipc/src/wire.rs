@@ -2,8 +2,8 @@
 use crate::{Error, Result, Wire, zero};
 pub const WIRE_LAYOUT_COUNT: usize = 46;
 pub const WIRE_CONTRACT_SHA256: [u8; 32] = [
-    195, 15, 233, 104, 77, 241, 213, 198, 84, 137, 247, 145, 168, 8, 184, 124, 16, 239, 102, 253,
-    48, 34, 197, 206, 160, 203, 200, 202, 95, 231, 145, 62,
+    158, 127, 59, 100, 171, 211, 245, 11, 46, 19, 88, 213, 251, 34, 129, 65, 211, 145, 18, 111,
+    142, 92, 197, 119, 86, 168, 109, 213, 156, 174, 41, 110,
 ];
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ArenaClass {
@@ -5719,7 +5719,7 @@ pub(crate) fn validate_control_body(op: u16, flags: u32, raw: &[u8]) -> Result<(
                 return Err(Error::Malformed);
             }
             ReplayControlBody::decode(raw)?;
-            if !matches!(crate::uint(&raw[162..164]), 0..=8) {
+            if !matches!(crate::uint(&raw[162..164]), 0..=10) {
                 return Err(Error::InvalidEnum);
             }
             Ok(())
@@ -5729,7 +5729,7 @@ pub(crate) fn validate_control_body(op: u16, flags: u32, raw: &[u8]) -> Result<(
                 return Err(Error::Malformed);
             }
             ReplayAppliedBody::decode(raw)?;
-            if !matches!(crate::uint(&raw[162..164]), 0..=8) {
+            if !matches!(crate::uint(&raw[162..164]), 0..=10) {
                 return Err(Error::InvalidEnum);
             }
             Ok(())

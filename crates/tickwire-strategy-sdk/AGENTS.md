@@ -59,9 +59,11 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 - **行情换代先持久后接线**：`Live::supports_market_transition` 用于切换前准入；`transition_market(MarketTransitionRequest, &Client, now)` 绑定受信计划、旧 QUIESCE 后 applied 水位与真实新 JOIN。完整基线/catchup 只替换市场视图，不触发用户回调；提交与 HEAD 同步成功后调用方才能替换 Client。Legacy owner 拒绝，失败停止 recorded owner，typed 16 MiB 预算不扩大。历史重放与 schema3 continuation/install 保留前后 bank 流关系；旧 ID/version 不可删除或改写，旧 catalog hash 的批准关系仍由运行时受信计划核对。
 - **持续 worker 换源**：`market_transition` 绑定认证 report 41/42 的 kind6 Arm、kind7 Commit；控制对象至多 2 MiB。`worker::expansion` 在真实旧订阅和 replay 能力检查后返回 Armed；匹配操作派生请求的真实 QUIESCE 才暂停回调，完成 PendingJoin、持久 MarketTransition/HEAD、保留 merged 行与检查点后交换消费对象并返回 Activated。`RecoveryWriter` 保留步骤有界，闭包在既有 prepare/seal 同步；它不冒充额外 fsync。未 Arm 的 QUIESCE 保持退休行为，拒绝 Arm 不替换旧消费源。
 - **新 JOIN 等待真实生产者 frontier**：新转换采用 basis1；若 JOIN 的 catchup 为空，worker 保持暂停并逐轮有界读取真实记录，不造 synthetic 输入。等待期间与提交前核对真实会话期限、EOF/QUIESCE、cursor/副本一致及盘口连续/新鲜状态；失败关闭，持久成功与新鲜截止检查之后才交换 Client。旧 basis0 重放保持字节兼容，所有本地 JOIN 证据仍参与完整行哈希。
-- **输入采集不执行用户工厂**：`replay::rebuild::capture::CaptureOnly` 只在绑定的本机单调时钟域内接收有界行情与账户输入，错误不推进窗口；`finish` 返回真实输入链与账户摘要的封口，不生成用户检查点或 READY。实际进程通过独立 `--capture-only` 注册入口采集，完整 schema4 安装仍待接线。
+- **输入采集不执行用户工厂**：`replay::rebuild::capture::CaptureOnly` 只在绑定的本机单调时钟域内接收有界行情与账户输入，错误不推进窗口；`finish` 返回真实输入链与账户摘要的封口，不生成用户检查点或 READY。实际进程通过独立 `--capture-only` 注册入口采集，封口后只有认证 kind9 才能进入实际前向重建和安装。
 - **采集封口须完整重算**：`replay::rebuild::capture::VerifiedWindow::verify` 从 identity/Contract/seed/Inputs 重放固定观察器并精确核对整个 Seal；`validate_plan` 只核对内容绑定。该模块的 `store::Attempt::begin` 在采集前创建一次性 0700 目录、同步 ATTEMPT；`finish` 同步六个类型对象后最后同步 CAPTURE_WINDOW.json；`read_back` 重读并重算全闭包，任一对象限制 16 MiB。实际 PID、控制挑战、报告游标、当前期限及发布授权由认证 owner 另行核验。
-- **独立 CaptureOnly 入口**：公共 `capture::Bootstrap/SealRequest/Receipt` 与 `registered --capture-only` 只装配真实 MD 与账户 report lane，初始账户前缀精确固定；kind8 封口绑定实际 cursor 与一次性持久窗口，输出同时保留 Bootstrap、SealRequest 和 Receipt 对象。采集和封口后均不创建用户工厂对象、不发 READY/intent。封口后同 PID 等待并校验期限；正常停止复用 report QUIESCE、真实 MD detach 和 report Applied 后退出。新的采集 owner 复用 worker 内已有 qualified SHM 边界，不增加 unsafe 调用点。
+- **独立 CaptureOnly 入口**：公共 `capture::Bootstrap/SealRequest/Receipt` 与 `registered --capture-only` 只装配真实 MD 与账户 report lane，初始账户前缀精确固定；kind8 封口绑定实际 cursor 与一次性持久窗口，输出同时保留 Bootstrap、SealRequest 和 Receipt 对象。采集与尚未获准安装的封口阶段不创建用户工厂对象、不发 READY/intent。封口后同 PID 等待并校验期限；正常停止复用 report QUIESCE、真实 MD detach 和 report Applied 后退出。新的采集 owner 复用 worker 内已有 qualified SHM 边界，不增加 unsafe 调用点。
+- **重建保留真实实例与完整历史**：`replay::rebuild::execute_running` 返回不可反序列化的 `RunningCandidate`，同一预热 Application/Engine 连同 Source、RuntimeState、cut、rows 与预算一起保留；`persist` 同步完成闭包及空 genesis→warm delta 两个 commit。`PersistedRunning` 暴露安装需要的内容根和历史，`Live::from_rebuilt` 同步 HEAD 后承接真实实例；已有 HEAD 或任何同步失败均不返回 live owner，不允许调用 `Live::new` 代替此路径而重置历史。`Completion/Observation` 的纯数据定义由 `tickwire-release::rebuild` 持有，SDK 原路径继续重导出。
+- **前向重建保留注册工厂**：`registered::configure_rebuild` 在 configure 前核对目标身份、配置版本、模型文件与全部固定 artifacts；`UserFactory::begin_rebuild/consumed_actions` 默认拒绝。实际返回策略经 `Running<F>` 保存原 Configured 工厂，预热后模型版本/RNG 必须与固定输入一致。此入口只执行计算，认证安装、真实通道和发布授权仍由外层负责。
 - **handover 只核对恢复数据**：`AccountMirror` 要求基线恰好一次、记录 position 连续且绑定同一基线 digest，`InputSeal` 逐条累计；`verify` 输出仅供 Host 绑定来源身份/WAL，不代表回调已被执行。
 - **检查点挑战不可缓存**：`checkpoint.rs` 头注释“cached READY is not a seal response”；`verify_request` 核对 opcode=39、challenge、report_sequence、实例/代次/逻辑策略、有效期不超过会话。
 - **unsafe 边界**：`worker::run/run_restored` 与 `registered::run` 标记 `# Safety`，准入边界是已认证 launcher 的 SHM 策略；修改 worker 生命周期时不得去掉该契约注释。
@@ -74,3 +76,8 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 3. 新增规范命令/事件字段时同步 `tickwire-venue` 编码与 `specs/contracts/ipc-vectors-v1.json` 向量。
 4. 改动 SPSC/报告布局时核对 `tickwire-ipc` 布局契约，不破坏既定向量。
 5. 不得在本 crate 内实现授权、网络发送或账户预留。
+
+- **同 PID 安装承接**：`capture_worker::Outcome/CapturedSession/Computed` 为私有启动状态，registered 路径配置并预热后把原Client/report/clock与同一个Live实例交给`worker::Attached/run_attached`；不重新JOIN，不调用Live::new重置历史。新的intent lane复用原qualified attach操作。kind9首次回执固定真实C；相同挑战只读原回执，其他请求拒绝。kind10核对独立rollback完整图、持久保留后产生新v4 READY。Host仍核验实际PID、cursor与当前期限，内容成功不是执行授权。
+- **安装依赖与模板再验证**：raw安装/回退依赖单64MiB、闭包256MiB，typed消息各decoder仍守原16MiB或更小上限。安装重读RecoveryTemplate先按Manifest固定Object核对长度/摘要后解码，不接受长耗时预热后被替换的合法JSON路径；安装和回退同步后均重新采样期限。`capture_worker::install::tests`覆盖模板替换拒绝与17MiB opaque依赖；实际进程验收在Host测试中。
+
+- `replay::rebuild::probe` 重导出 release 的 Job/Receipt，运行时只在完整部署资格核对后执行旧工厂；历史恢复由 release 的共享 Verified 验证实际 Host Completion 图，不重读原路径。opaque Job.objects 单对象 64 MiB、typed 根 16 MiB；共用16层旧来源递归预算。

@@ -23,6 +23,7 @@ pub struct Fixture {
     pub server: Server,
     pub config: config::Config,
     pub topics: Vec<TopicOwner>,
+    sequence: u64,
 }
 impl Fixture {
     pub fn new(now: u64) -> Self {
@@ -143,9 +144,11 @@ impl Fixture {
             _directory: directory,
             config,
             topics: vec![topic],
+            sequence: 2,
         }
     }
     pub fn update(&mut self, now: u64) {
+        let next = self.sequence + 1;
         let id = self.config.feeds[0].instrument.id;
         let key = BookKey {
             venue: 1,
@@ -156,7 +159,7 @@ impl Fixture {
         book.install_snapshot(Snapshot {
             key,
             generation: 1,
-            last_update_id: 2,
+            last_update_id: self.sequence,
             bids: &[Level {
                 price: PriceTicks(100),
                 quantity: QtyLots(2),
@@ -172,8 +175,8 @@ impl Fixture {
         book.apply(DepthEvent {
             key,
             generation: 1,
-            first_update_id: 3,
-            last_update_id: 3,
+            first_update_id: next,
+            last_update_id: next,
             previous_update_id: None,
             received_at_ns: now,
             bids: &[],
@@ -196,7 +199,7 @@ impl Fixture {
                     raw_delta: None,
                     encoding: DepthEncoding::Json,
                     outcome: SyncOutcome::Applied(tickwire_book::ApplyOutcome::Applied {
-                        last_update_id: 3,
+                        last_update_id: next,
                         became_live: false,
                     }),
                     view: Some(book.view(now, 1_000_000).unwrap()),
@@ -205,6 +208,7 @@ impl Fixture {
                 &mut Faults,
             )
             .unwrap();
+        self.sequence = next;
     }
     pub fn admission(&mut self, id: u8) -> Admission {
         let mut local = self.config.identity.clone();

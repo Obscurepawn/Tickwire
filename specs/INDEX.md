@@ -82,7 +82,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 |---|---|---|---|
 | [strategy-handover.md](implementation/strategy-handover.md) | 实际策略进程交接、Shadow 加载、管理权单次移交 | `tickwire-lab`（集成）/ `tickwire-strategy-host` | 部分实现 |
 | [strategy-graceful-retirement.md](implementation/strategy-graceful-retirement.md) | 共享 MD 订阅正常退休 QUIESCE/DETACH 证据链 | `tickwire-strategy-sdk` / `tickwire-strategy-host` | 部分实现 |
-| [strategy-rebuild.md](implementation/strategy-rebuild.md) | 声明重建资料校验、SDK 预热、真实进程采集与持久窗口 | `tickwire-release` / `tickwire-strategy-sdk` / `tickwire-strategy-host` | 部分实现（采集链已接；目标安装与完整发布待续） |
+| [strategy-rebuild.md](implementation/strategy-rebuild.md) | 声明窗口、同进程持久安装、独立回退与发布 | `tickwire-release` / `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app` | 部分实现（单域真实链已验收；跨域故障、重启与冷步骤异步化待续） |
 | [strategy-replay.md](implementation/strategy-replay.md) | 旧 binary S→C 合并输入重放、schema3 迁移安装链 | `tickwire-release` / `tickwire-strategy-sdk` | 部分实现 |
 | [conditional-orders.md](implementation/conditional-orders.md) | SpotList/Algo 父子关联、父查询与未创建 Algo 闭合 | `tickwire-account` / `tickwire-binance-account` | 部分实现（已至第三阶段；完整订单风险与生命周期组合待续） |
 | [spot-amend.md](implementation/spot-amend.md) | Spot 同 client ID 减量修改、REST 结果/历史与私有 REPLACED | `tickwire-account` / `tickwire-binance-account` | 部分实现（普通 LIMIT/GTC 路径已接；完整修改范围与组合验收待续） |

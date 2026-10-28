@@ -5,8 +5,8 @@ cd "$(dirname "$0")/.."
 repo_dir="$PWD"
 scenario="${1:-spot-fill}"
 profile="${2:-dev}"
-if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover && "$scenario" != spot-handover-custom && "$scenario" != spot-market-expansion ]] || [[ "$profile" != dev && "$profile" != release ]]; then
-  printf 'Usage: %s [spot-fill|spot-handover|spot-handover-custom|spot-market-expansion] [dev|release]\n' "$0" >&2
+if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover && "$scenario" != spot-handover-custom && "$scenario" != spot-market-expansion && "$scenario" != spot-rebuild-custom ]] || [[ "$profile" != dev && "$profile" != release ]]; then
+  printf 'Usage: %s [spot-fill|spot-handover|spot-handover-custom|spot-market-expansion|spot-rebuild-custom] [dev|release]\n' "$0" >&2
   exit 2
 fi
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"

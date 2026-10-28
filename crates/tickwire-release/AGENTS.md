@@ -10,7 +10,7 @@
 - `closure`：`Verified`（completion/restored/rollback 三份回执 + bundle + 对象）、`verify(root, read)` 有界完成图递归校验。
 - `files`：`ObjectFile`、`Location`、`LoadedFiles`、`load(required, locations)`、`read_object`（受信私有目录按摘要读取，长度+摘要双核对）。
 - `receipt`：`Process{instance,generation,pid,uid,gid}`、`Kind`、`Receipt`、`Completion`（解码不是认证，Host 还要对照 Registry 进程与已认证消息）。
-- `rebuild`：`Plan/Plans`、`Contract`、`Inputs`、`Frontier`、`MarketRequirement`、`ModelBinding`、`ActionBinding`、`MarketSeed`、`AccountPrefix`、`TimedInput`、`Ordering`、`MAX_ACTIONS=256`；子模块 `rollback`（`Verified`、`Computation`）、`window`。
+- `rebuild`：`Plan/Plans`、`Contract`、`Inputs`、`Frontier`、`MarketRequirement`、`ModelBinding`、`ActionBinding`、`MarketSeed`、`AccountPrefix`、`TimedInput`、`Ordering`、`MAX_ACTIONS=256`；子模块 `rollback`（`Verified`、`Computation`）、`probe`（`Job/Receipt/Completion/Verified`）、`window`、`install`（`Request/Installation/Verified`）；`Completion/Observation` 为预热输出的规范内容。
 - `replay`：`Source/ClockDomain/StreamKey/Cursor/VersionedBytes/Model/Timer/Rng/EffectCut/RuntimeState/Cut/InputCommit/Checkpoint/Effect/Input/MergedInput/VerifiedAnchor/VerifiedTail/CapturedTail/Head/ControlInput`，`canonical/runtime_object/verify_anchor/row_chain/encode_tail/verify_tail`；子模块 `history`（`CommittedHistory::verify`）、`install`（`Request/Installation/Continued`，`install/verify::Verified::verify`）、`retained`（`RecordedCut::decode`）、`rollback`（`Job/Receipt/Completion/Verified`）、`source`（`SourceJob/SourceReceipt/Completion/VerifiedSourceReplay`）、`startup`（`Verified::verify`、`verify_seal`）。常量 `MAX_BYTES=16MiB`、`MAX_ROWS=65536`、`MAX_STREAMS=64`、`MAX_TIMERS=256`、`MAX_EFFECTS=32`。
 
 ## 3. workspace 位置
@@ -39,6 +39,7 @@ cargo test -p tickwire-release
 - **校验 ≠ 授权**：lib 根注释与 `receipt.rs` 头注释都强调“Decoding is not authentication: Host also checks this against the Registry-owned process and its authenticated message.”；内容合法不代表进程已加载。
 - **文件不可变性靠 exec 全程保持**：`files.rs` 头注释“a hash alone does not protect a pathname from a later same-UID replacement”，部署 owner 负责私有目录独占。
 - **rebuild 内容验证不建立活进程**：`rebuild.rs` 头注释“Content verification does not establish a live process, authorize output, or certify a rollback strategy.”
+- **schema4 安装历史**：`rebuild::install::Verified` 绑定原 Operation/Plans/窗口/目标、实际预热 completion、空 genesis 与 warm delta commit、HEAD；逐条核对 warm 原始输入和起止 cursor，不能将 warm cut 重置为零。纯恢复图递归保留原采集 ATTEMPT、seed、Bootstrap、SealRequest 与 Receipt，核对窗口原输入链；缺任一根拒绝。完整观察器重算、部署文件、当前 PID、会话与共享 cursor 仍由 SDK/Host 核对。
 - **replay 字节连续 ≠ 回调真实执行**：`replay.rs` 头注释“Validation here proves byte continuity, not that a strategy executed the callbacks; the SDK verifies the latter.”
 - **MarketTransition 记录边界**：保存非零 operation/approval 标识、旧 Cursor、新 StreamKey、TWSB0001 基线及激活前 catchup，不允许 effects；仍受类型化 16 MiB 限制。`market_lineage::after_cut` 逐条重算原始输入摘要，在 C、换代 previous、末尾核对完整 Cursor，为 schema3 安装选择完整 C 后输入；拒绝相同盘口但原始输入不同、缺失换代或跳过 C。SDK 另核对完整视图与真实回调。记录中的审批摘要只绑定运行时决定，不授予 JOIN、配置或交易权限。
 - **生产者 Cursor 与本地 JOIN 证据分开**：新转换 `cursor_basis=1` 经 `market_cursor_digest` 将最后一条真实 catchup 规范为 MarketApplied；独立消费者的本地快照/游标/时间不改变相同生产者 frontier 的 Cursor，原始记录或 ingress 差异仍改变摘要。完整转换继续进入 merged row/hash 与全量重放。旧 basis0 字段省略并保持原编码/散列；未知 basis、空 catchup 或 frontier 不匹配拒绝。
@@ -52,3 +53,5 @@ cargo test -p tickwire-release
 2. 改清单/能力/目标校验联动 [release-preflight.md](../../specs/implementation/release-preflight.md)；重建联动 [strategy-rebuild.md](../../specs/implementation/strategy-rebuild.md)；重放/安装/回滚联动 [strategy-replay.md](../../specs/implementation/strategy-replay.md)。
 3. 新增对象角色/预算时核对 `tickwire-recovery` 闭包字节上限与 `specs/contracts` 既有向量。
 4. 本 crate 不得引入网络、授权决策或活进程资格判定。
+
+- schema4 probe 历史验证从 Host 成功退出 Completion 根读取完整图，不再访问 Job 原绝对路径或调用工厂。typed 根 16 MiB、opaque 单对象 64 MiB、总量 256 MiB/512 对象；ExactOldRestore 跨 schema3/schema4 继续传递 16 层递归上限。历史内容验证不重新认证活进程。

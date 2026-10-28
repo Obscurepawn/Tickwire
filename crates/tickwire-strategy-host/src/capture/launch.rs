@@ -7,7 +7,12 @@ impl Owner {
     /// and report SDKs, preserving immutable mappings and cursor ownership. The
     /// caller must establish this same contract as `RemoteHostedStrategy::launch`.
     #[allow(unsafe_code)]
-    pub unsafe fn launch(mut config: Launch) -> Result<Self> {
+    pub unsafe fn launch(config: Launch) -> Result<Self> {
+        // SAFETY: forwards the same qualified launcher contract.
+        unsafe { Self::launch_mode(config, false) }
+    }
+    #[allow(unsafe_code)]
+    pub(crate) unsafe fn launch_mode(mut config: Launch, bound: bool) -> Result<Self> {
         if config.spec.identity != config.bootstrap.market.endpoint.local.identity()
             || config.spec.identity != config.bootstrap.report.local.identity()
             || !config.spec.arguments.is_empty()
@@ -34,16 +39,27 @@ impl Owner {
             ))
             .ok_or(Error::Invalid)?;
         let directory = PrivateDirectory::create_in(&config.directory_parent, "tw-cap")?;
-        config.bootstrap.report.path = directory.path().join("report.sock");
-        config.bootstrap.market_admission_ready = directory.path().join("md-ready.json");
-        config.bootstrap.report.peer_pid = config.parent_process.pid;
-        config.bootstrap.report.peer_uid = config.parent_process.uid;
-        config.bootstrap.report.peer_gid = config.parent_process.gid;
+        if !bound {
+            config.bootstrap.report.path = directory.path().join("report.sock");
+            config.bootstrap.market_admission_ready = directory.path().join("md-ready.json");
+            config.bootstrap.report.peer_pid = config.parent_process.pid;
+            config.bootstrap.report.peer_uid = config.parent_process.uid;
+            config.bootstrap.report.peer_gid = config.parent_process.gid;
+        } else if config.bootstrap.report.peer_pid != config.parent_process.pid
+            || config.bootstrap.report.peer_uid != config.parent_process.uid
+            || config.bootstrap.report.peer_gid != config.parent_process.gid
+        {
+            return Err(Error::Invalid);
+        }
         let listener = ControlListener::bind(&config.bootstrap.report.path)?;
         let publisher = tickwire_shm::Publisher::<1>::create(ResourceHeader::decode(
             &config.bootstrap.report_header,
         )?)?;
-        config.bootstrap.report_header = wire_bytes(publisher.header())?;
+        let header = wire_bytes(publisher.header())?;
+        if bound && config.bootstrap.report_header != header {
+            return Err(Error::Invalid);
+        }
+        config.bootstrap.report_header = header;
         let objects = tickwire_recovery::FileBlobStore::open(&config.bootstrap.report_directory)?;
         config.bootstrap.validate(clock.sample()?.monotonic)?;
         let bootstrap_file = directory.path().join("capture.json");

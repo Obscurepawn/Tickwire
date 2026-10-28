@@ -28,6 +28,10 @@ pub struct HandoverSeal {
     pub replay_restore_digest: Option<Hash>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replay_rollback_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rebuild_installation_digest: Option<Hash>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rebuild_rollback_digest: Option<Hash>,
 }
 impl HandoverSeal {
     pub const MAX_BYTES: usize = 16384;
@@ -38,17 +42,23 @@ impl HandoverSeal {
                 self.preflight_receipt_digest,
                 self.replay_restore_digest,
                 self.replay_installation_digest,
-                self.replay_rollback_digest
+                self.replay_rollback_digest,
+                self.rebuild_installation_digest,
+                self.rebuild_rollback_digest
             ),
-            (1, None, None, None, None)
-                | (2, Some(_), None, None, None)
-                | (3, None, Some(_), None, None)
-                | (3, None, Some(_), Some(_), None)
-                | (3, None, Some(_), Some(_), Some(_))
+            (1, None, None, None, None, None, None)
+                | (2, Some(_), None, None, None, None, None)
+                | (3, None, Some(_), None, None, None, None)
+                | (3, None, Some(_), Some(_), None, None, None)
+                | (3, None, Some(_), Some(_), Some(_), None, None)
+                | (4, None, None, None, None, Some(_), None)
+                | (4, None, None, None, None, Some(_), Some(_))
         ) || self.preflight_receipt_digest == Some([0; 32])
             || self.replay_installation_digest == Some([0; 32])
             || self.replay_restore_digest == Some([0; 32])
             || self.replay_rollback_digest == Some([0; 32])
+            || self.rebuild_installation_digest == Some([0; 32])
+            || self.rebuild_rollback_digest == Some([0; 32])
             || self.owner == [0; 16]
             || self.owner != self.instance
             || self.generation == 0
@@ -106,6 +116,8 @@ impl HandoverSeal {
         roots.extend(self.replay_installation_digest);
         roots.extend(self.replay_restore_digest);
         roots.extend(self.replay_rollback_digest);
+        roots.extend(self.rebuild_installation_digest);
+        roots.extend(self.rebuild_rollback_digest);
         roots
     }
     pub fn verify_checkpoint(&self, bytes: &[u8]) -> Result<()> {

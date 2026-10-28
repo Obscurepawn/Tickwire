@@ -3,7 +3,10 @@ use serde::{Deserialize, Serialize};
 mod capture_receipt_tests;
 mod capture_store_tests;
 mod capture_tests;
+mod install_graph_tests;
 mod probe_tests;
+mod registered_tests;
+mod running_tests;
 struct Fixture {
     op: Operation,
     manifest: ReleaseManifest,

@@ -66,3 +66,11 @@ TICKWIRE_CAPTURE_WORKER="$(pwd)/target/debug/tickwire-counting-worker" cargo tes
 设置 `CARGO_TARGET_DIR` 时相应调整 `TICKWIRE_CAPTURE_WORKER` 的绝对路径。验收使用实际 MD JOIN server/Publisher 父线程及独立 counting worker；不能表述为独立 MD 进程。无效 counting 配置内容仍由 Contract 正确绑定，采集成功证明未执行其 configure/create；同时核验实际报告位置、封口内容、PID 保持、正常 MD detach、期限/内容错误关闭与 Drop 收尸。
 
 Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependencies 中；不进入生产默认路径。`Captured::objects` 包含落盘读取的 Bootstrap/SealRequest、窗口六对象及 Receipt，共九对象。真实负例包含完成文件被替换、Bootstrap/SealRequest 任一 CAS 根缺失；错误不得短暂暴露 Captured。
+
+## 同 PID 声明重建提升
+
+`rebuild::Hosted/Launch` 是 qualified Capture launcher 的持续模式，启动时保存原普通 Bootstrap，使用 `capture-seal.json` 冷控制选择实际账户 cut，再由真实 Captured 与受信 `objects.json`/forward-files.json/rollback-files.json 构造固定输入。实现 runtime 的三段 rebuild 接口；kind9 只在同 Registry 真实 PID 的第二 intent 连接成功且完整安装回执/READY通过后提升为 RemoteHostedStrategy。独立 probe 成功退出后 kind10 回写完整 rollback 依赖并取得新 READY。普通行情、报告、监督、策略权限、退休沿原 Remote owner；采集事实本身仍不获交易权限。
+
+新增 `Hosted::launch` 显式 unsafe 签名保留既有 qualified-SHM 调用者契约。`capture::Owner::launch_mode` 是私有共享启动模式；`remote::connect_intent` 从原 Remote launcher 提取已有 IntentReceiver::attach 接缝，实际底层不安全访问没有新增。提升方法只能由上述已合格构造的对象调用。
+
+`tests/capture_process.rs` 复用同一 qualified 启动接缝，并挂载 `tests/rebuild_process/` 的显式 Linux 验收：同 PID Capture→真实 Counting v2 factory→kind9/真实 intent 连接→C 后真实行情与账户→独立 probe 成功退出→kind10/v4 READY→正常 MD detach。逐字节核对 C→D 原始输入和实际业务计数，真实产物变异覆盖错误 PID 与替换 probe 根。命令关闭，验收不声称提交新订单；完整交易发布另由 lab 运行。使用 release worker 的独立冻结副本设置 `TICKWIRE_CAPTURE_WORKER`，可用 `TICKWIRE_REBUILD_EVIDENCE` 导出全部对象与结果 JSON。

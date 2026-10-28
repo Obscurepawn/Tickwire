@@ -40,6 +40,7 @@ bin 由合格 Host 以受信 Bootstrap 启动（同 SDK worker 模式），单�
 - **C 点迁移只换 schema**：`State::at_c` 把 `schema` 改为目标值，保留 observations/reports/spent/action；迁移读旧 runtime 参数，新 ConfigApply 之后才换目标参数；新参数改变 action 键时拒绝安装（`Identity`）。
 - **命令身份绑定目标**：`Registration::configure` 校验内建命令的 `config_revision == c.revision`、实例 ID、策略代次、逻辑策略与 `restore::Target` 一致，不符返回 `Identity`。
 - **重建不推定缺失**：`rebuild.rs` 要求动作集合恰好一个且与 Admit 命令的 economic_intent 完全匹配；缺接受证据不能把历史动作初始化为未消耗。
+- **前向重建共用真实工厂**：`UserFactory::begin_rebuild/consumed_actions` 复用既有声明重建的动作初始化与检查点解码；配置版本和完整参数必须与固定输入相同，不支持的模型拒绝。返回的 Counting 由 SDK 注册包装保留同一 Factory，预热计数和 consumed 状态接入持续 Engine，不重新 create 或预热。
 - **配置严格解码**：`#[serde(deny_unknown_fields)]`，非规范 JSON（尾部空白）、不支持的产品/订单类型、enabled 却无 command 均拒绝。
 
 ## 7. 改动检查清单

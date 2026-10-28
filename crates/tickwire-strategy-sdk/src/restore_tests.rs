@@ -133,6 +133,8 @@ fn sealed_source() -> (tickwire_recovery::HandoverSeal, Vec<u8>, Vec<u8>, Vec<u8
         replay_installation_digest: None,
         replay_restore_digest: None,
         replay_rollback_digest: None,
+        rebuild_installation_digest: None,
+        rebuild_rollback_digest: None,
         version: 1,
         owner: [2; 16],
         instance: [2; 16],

@@ -194,6 +194,127 @@ fn probe_persists_actual_old_callbacks_before_its_receipt() {
 }
 
 #[test]
+fn probe_recovery_uses_only_the_complete_saved_object_graph() {
+    use tickwire_release::rebuild::probe as saved;
+    let dir = Directory::new();
+    let job = job(&dir.0);
+    let receipt = probe::run_with(&job, compute).unwrap();
+    let result = probe::read_result(&job, probe::qualify(&job).unwrap(), receipt.pid).unwrap();
+    let completion = saved::Completion {
+        generation: receipt.probe.generation,
+        gid: 0,
+        instance: receipt.probe.instance,
+        job: receipt.job,
+        pid: receipt.pid,
+        receipt: Object::of(&receipt.bytes().unwrap()),
+        schema: 1,
+        success: true,
+        uid: 0,
+    };
+    let prior = serde_json::to_vec(&serde_json::json!({"schema":1,"job":receipt.job,
+        "receipt":Object::of(&receipt.bytes().unwrap()),"pid":receipt.pid,"uid":0,"gid":0,
+        "instance":receipt.probe.instance,"generation":receipt.probe.generation,"success":true}))
+    .unwrap();
+    assert_eq!(
+        completion.bytes().unwrap(),
+        prior,
+        "keep historical Host completion bytes"
+    );
+    let mut objects = result
+        .objects()
+        .map(|b| (Object::of(b).digest, b.to_vec()))
+        .collect::<BTreeMap<_, _>>();
+    let root = Object::of(&prior);
+    objects.insert(root.digest, prior);
+    let plans = Plans::decode(&objects[&job.plans.object.digest]).unwrap();
+    let contract = Contract::decode(&objects[&job.contract.object.digest]).unwrap();
+    let inputs = Inputs::decode(&objects[&job.inputs.object.digest]).unwrap();
+    let manifest: ReleaseManifest =
+        serde_json::from_slice(&objects[&job.manifest.object.digest]).unwrap();
+    // Original input and output paths no longer exist; only immutable exported
+    // bytes are available to recovery. This is content verification, not exit proof.
+    std::fs::remove_dir_all(&dir.0).unwrap();
+    let verify = |root, map: &BTreeMap<Hash, Vec<u8>>| {
+        saved::Verified::verify(
+            root,
+            &job.operation,
+            &job.member,
+            policy::Forward {
+                plans: &plans,
+                contract: &contract,
+                inputs: &inputs,
+                manifest: &manifest,
+            },
+            |hash| {
+                map.get(&hash)
+                    .cloned()
+                    .ok_or(tickwire_release::Error::Missing)
+            },
+        )
+    };
+    let verified = verify(root, &objects).unwrap();
+    assert_eq!(verified.receipt(), &receipt);
+    assert_eq!(verified.checkpoint(), result.checkpoint());
+    assert_eq!(verified.root(), root);
+    assert!(matches!(
+        saved::Verified::verify_at(
+            root,
+            &job.operation,
+            &job.member,
+            policy::Forward {
+                plans: &plans,
+                contract: &contract,
+                inputs: &inputs,
+                manifest: &manifest
+            },
+            &mut |_| panic!("depth rejection must precede object reads"),
+            16
+        ),
+        Err(tickwire_release::Error::Bounds)
+    ));
+    for hash in objects.keys() {
+        let mut missing = objects.clone();
+        missing.remove(hash);
+        assert!(verify(root, &missing).is_err(), "missing {hash:?}");
+    }
+    for which in 0..5 {
+        let mut bad = completion.clone();
+        match which {
+            0 => bad.pid += 1,
+            1 => bad.generation += 1,
+            2 => bad.instance = [9; 16],
+            3 => bad.success = false,
+            _ => bad.job = bad.receipt,
+        }
+        let bytes = canonical(&bad).unwrap();
+        let root = Object::of(&bytes);
+        let mut changed = objects.clone();
+        changed.insert(root.digest, bytes);
+        assert!(
+            verify(root, &changed).is_err(),
+            "completion substitution {which}"
+        );
+    }
+}
+
+#[test]
+fn probe_opaque_dependencies_allow_seventeen_mib_while_typed_roots_stay_bounded() {
+    let dir = Directory::new();
+    let mut job = job(&dir.0);
+    let large = object(&dir.0, &vec![37; 17 * 1024 * 1024]);
+    job.objects.push(large.clone());
+    assert!(
+        probe::qualify(&job).is_ok(),
+        "opaque input must retain the recovery object budget"
+    );
+    job.inputs = large;
+    assert!(matches!(
+        probe::qualify(&job),
+        Err(crate::Error::Release(tickwire_release::Error::Bounds))
+    ));
+}
+
+#[test]
 fn probe_rejects_wrong_binding_before_callbacks_and_keeps_failed_attempt_closed() {
     let dir = Directory::new();
     let job = job(&dir.0);

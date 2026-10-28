@@ -8,7 +8,7 @@ use tickwire_strategy_sdk::{
     replay::rebuild::capture::{VerifiedWindow, store},
 };
 mod launch;
-mod protocol;
+pub(crate) mod protocol;
 mod retirement;
 
 pub struct Launch {
@@ -44,20 +44,20 @@ impl Captured {
     }
 }
 pub struct Owner {
-    bootstrap: protocol_types::Bootstrap,
-    registry: Registry,
-    child: ProcessIdentity,
-    report: AuthenticatedChild,
-    reports: Reports,
-    subscription: tickwire_shm::SubscriptionKey,
-    clock: SystemClock,
-    request: Option<(protocol_types::SealRequest, ReplayControlBody)>,
-    outgoing: Option<Vec<u8>>,
-    captured: Option<Captured>,
-    failed: bool,
-    stopped: bool,
-    _directory: PrivateDirectory,
-    _listener: ControlListener,
+    pub(crate) bootstrap: protocol_types::Bootstrap,
+    pub(crate) registry: Registry,
+    pub(crate) child: ProcessIdentity,
+    pub(crate) report: AuthenticatedChild,
+    pub(crate) reports: Reports,
+    pub(crate) subscription: tickwire_shm::SubscriptionKey,
+    pub(crate) clock: SystemClock,
+    pub(crate) request: Option<(protocol_types::SealRequest, ReplayControlBody)>,
+    pub(crate) outgoing: Option<Vec<u8>>,
+    pub(crate) captured: Option<Captured>,
+    pub(crate) failed: bool,
+    pub(crate) stopped: bool,
+    pub(crate) _directory: PrivateDirectory,
+    pub(crate) _listener: ControlListener,
 }
 impl Owner {
     pub fn bootstrap(&self) -> &protocol_types::Bootstrap {
@@ -76,7 +76,7 @@ impl Owner {
             self.captured.as_ref()
         }
     }
-    fn current(&mut self) -> Result<tickwire_clock::MonoTime> {
+    pub(crate) fn current(&mut self) -> Result<tickwire_clock::MonoTime> {
         if self.failed || self.stopped {
             return Err(Error::NotReady);
         }
@@ -90,7 +90,7 @@ impl Owner {
         }
         Ok(now)
     }
-    fn close<T>(&mut self, result: Result<T>) -> Result<T> {
+    pub(crate) fn close<T>(&mut self, result: Result<T>) -> Result<T> {
         if result.is_err() {
             self.failed = true;
             self.outgoing = None;

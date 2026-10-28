@@ -76,6 +76,37 @@ fn persist_transition<S: Strategy>(
     result
 }
 impl<S: Strategy> Live<S> {
+    /// Adopt the actual warmed application after its complete input history was
+    /// synchronized. The launcher still authenticates installation and lanes.
+    pub fn from_rebuilt(
+        running: rebuild::PersistedRunning<S, FileBlobStore>,
+        directory: std::path::PathBuf,
+    ) -> crate::Result<Self> {
+        let mut owner = running.owner;
+        let checkpoint = owner.durable_checkpoint();
+        if checkpoint.runtime.markets.len() != 1
+            || checkpoint.runtime.accounts.len() != 1
+            || owner.memory_cut() != owner.last_durable_cut()
+            || owner.stopped()
+        {
+            return Err(crate::Error::Identity);
+        }
+        let market = checkpoint.runtime.markets[0].stream.clone();
+        let account = checkpoint.runtime.accounts[0].stream.clone();
+        let maximum_age = owner.strategy().maximum_age();
+        match std::fs::symlink_metadata(directory.join("HEAD.json")) {
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            _ => return Err(crate::Error::Identity),
+        }
+        sync_head(&mut owner, &directory)?;
+        Ok(Self {
+            owner: Owner::Recorded(Box::new(owner)),
+            market,
+            account: Some(account),
+            maximum_age,
+            directory,
+        })
+    }
     pub fn supports_market_transition(&self) -> bool {
         matches!(&self.owner, Owner::Recorded(e) if !e.stopped())
     }

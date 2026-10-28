@@ -132,6 +132,12 @@ pub(crate) fn verify_at(
         }
         verify_seal_at(&seal, &cp, &inputs, &mut get, depth + 1)?;
     }
+    if seal.version == 4 {
+        if seal.rebuild_rollback_digest.is_none() {
+            return Err(Error::Identity);
+        }
+        crate::rebuild::install::verify_seal_at(&seal, &cp, &inputs, &mut get, depth + 1)?;
+    }
     Ok(Verified {
         completion: c,
         restored: receipt,

@@ -9,6 +9,7 @@ pub(super) fn verify<R: FnMut(Hash) -> Result<Vec<u8>>>(
     forward: &Forward<'_>,
     end: &Frontier,
     objects: &mut Objects<R>,
+    depth: usize,
 ) -> Result<ExactInput> {
     let Recovery::ExactOldRestore {
         source,
@@ -117,7 +118,25 @@ pub(super) fn verify<R: FnMut(Hash) -> Result<Vec<u8>>>(
         if seal.replay_rollback_digest.is_none() {
             return Err(Error::Identity);
         }
-        replay::startup::verify_seal(&seal, &business, &inputs, |h| objects.by_hash(h))?;
+        replay::startup::verify_seal_at(
+            &seal,
+            &business,
+            &inputs,
+            &mut |h| objects.by_hash(h),
+            depth + 1,
+        )?;
+    }
+    if seal.version == 4 {
+        if seal.rebuild_rollback_digest.is_none() {
+            return Err(Error::Identity);
+        }
+        crate::rebuild::install::verify_seal_at(
+            &seal,
+            &business,
+            &inputs,
+            &mut |h| objects.by_hash(h),
+            depth + 1,
+        )?;
     }
     if forward.inputs.accounts.len() != 1 {
         return Err(Error::Unsupported);

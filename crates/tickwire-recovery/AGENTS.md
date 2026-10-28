@@ -32,6 +32,7 @@ cargo test -p tickwire-recovery
 ```
 
 - `tests/closure.rs`：16 个测试（完整闭包 publish/reopen、命令依赖保留、账户对绑定、缺字节不可修补、绑定不可变/同字节幂等、缺 kind/环/错绑定拒绝、输入覆盖来自真实字节、同步失败不产绑定、重验证重建完成、canonical 拒绝截断/非最小 schema、分片按序且拒绝缺口重叠、畸形输入字节、描述符/图边界先于 blob 读取、部分发布重试、文件后端重开销钉与 corruption 检测）。
+- `tests/handover_rebuild.rs`：v4 安装/回退根、缺安装与混用旧字段拒绝、v1–3 序列化兼容。
 - 测试夹具：`tests/manifest.hex`。
 
 ## 6. 关键不变量与注意事项
@@ -44,6 +45,7 @@ cargo test -p tickwire-recovery
 - **输入边界连续**：kind 12 对象经 `inputs::inspect` 解析后按 first_sequence 排序，必须与 `input_boundary` 的 stream、首序号、previous_hash 逐段衔接，末段正好到 last_sequence/last_hash；缺口、重叠、流不一致均拒绝。
 - **绑定不可变**：同一 binding_key 重试写完全相同字节是幂等成功；内容或订单身份不同返回 `Conflict`；binding→root 是永久销钉。
 - **容量先于读盘**：对象数/边数/总字节（≤MAX_CLOSURE_BYTES）校验在读取 blob 之前完成。
+- **声明重建封口**：HandoverSeal v4 要求 `rebuild_installation_digest`，独立回退完成后增加 `rebuild_rollback_digest`；preflight/replay 旧字段全部为空，旧版本不接受重建字段，缺省字段不改变 v1–3 字节。底层格式允许初始 READY 尚无回退根；授权交接、复制和旧源恢复入口另要求完整安装与回退图。
 - **replica 定位独立命名空间**：`ReplicaEntry`/`ReplicaStream` 用独立域分隔的 key，stream 全零或 sequence 0 拒绝。
 
 ## 7. 改动检查清单
