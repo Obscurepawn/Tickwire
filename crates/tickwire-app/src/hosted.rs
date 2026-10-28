@@ -132,7 +132,7 @@ impl RecoveryResolver for Files {
         );
     }
 }
-struct Strategy(HostedStrategy<Files, 1>);
+struct Strategy(HostedStrategy<Files, 1>, u64);
 impl tickwire_runtime::node::Strategy for Strategy {
     fn handover_finish_replay(
         &mut self,
@@ -237,6 +237,37 @@ impl tickwire_runtime::node::Strategy for Strategy {
     }
 }
 impl AppStrategy for Strategy {
+    fn observation_process(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<tickwire_supervisor::LiveChildObservation> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.observe_process()
+    }
+    fn begin_observation(
+        &mut self,
+        t: crate::observation::Target,
+        r: tickwire_strategy_host::ObservationRequest,
+    ) -> tickwire_strategy_host::Result<()> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.begin_observation(r)
+    }
+    fn poll_observation(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.poll_observation()
+    }
+    fn cancel_observation(
+        &mut self,
+        t: crate::observation::Target,
+        id: [u8; 16],
+    ) -> tickwire_strategy_host::Result<()> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.cancel_observation(id)
+    }
+
     fn instance(&self) -> Option<([u8; 16], u64)> {
         self.0.instance()
     }
@@ -248,7 +279,7 @@ impl AppStrategy for Strategy {
         self.0.failed()
     }
 }
-struct RemoteStrategy(tickwire_strategy_host::RemoteHostedStrategy<Files>);
+struct RemoteStrategy(tickwire_strategy_host::RemoteHostedStrategy<Files>, u64);
 impl tickwire_runtime::node::Strategy for RemoteStrategy {
     fn handover_finish_replay(
         &mut self,
@@ -353,6 +384,37 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
     }
 }
 impl AppStrategy for RemoteStrategy {
+    fn observation_process(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<tickwire_supervisor::LiveChildObservation> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.observe_process()
+    }
+    fn begin_observation(
+        &mut self,
+        t: crate::observation::Target,
+        r: tickwire_strategy_host::ObservationRequest,
+    ) -> tickwire_strategy_host::Result<()> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.begin_observation(r)
+    }
+    fn poll_observation(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.poll_observation()
+    }
+    fn cancel_observation(
+        &mut self,
+        t: crate::observation::Target,
+        id: [u8; 16],
+    ) -> tickwire_strategy_host::Result<()> {
+        observation_target(t, self.1, self.instance())?;
+        self.0.cancel_observation(id)
+    }
+
     fn market_consumers(&self, out: &mut Vec<crate::control::market::Consumer>) {
         if let Some((pid, instance, generation)) = self.0.market_consumer() {
             out.push(crate::control::market::Consumer {
@@ -661,6 +723,7 @@ pub fn build(
         risk_domain: runtime.command_binding.risk_domain_id,
     };
     let parts = components(config, &context, None)?;
+    let logical = parts.launch.spec.identity.logical_strategy;
     let publisher = SharedPublisher::new(tickwire_market_publisher::TopicPublisher::new(
         parts.owner,
         parts.instruments,
@@ -691,7 +754,7 @@ pub fn build(
             context,
         }));
     }
-    Ok(Box::new(Strategy(strategy)))
+    Ok(Box::new(Strategy(strategy, logical)))
 }
 
 fn build_remote(
@@ -728,6 +791,7 @@ fn build_remote(
     } else if bootstrap.demo_enabled {
         return Err(invalid("demo recovery template required"));
     }
+    let logical = bootstrap.market.local.identity().logical_strategy;
     let launch = tickwire_strategy_host::RemoteLaunch {
         resources: config.resources.clone(),
         spec: tickwire_supervisor::LaunchSpec {
@@ -765,5 +829,16 @@ fn build_remote(
     if config.shadow {
         strategy.set_shadow();
     }
-    Ok(Box::new(RemoteStrategy(strategy)))
+    Ok(Box::new(RemoteStrategy(strategy, logical)))
+}
+
+fn observation_target(
+    t: crate::observation::Target,
+    logical: u64,
+    actual: Option<([u8; 16], u64)>,
+) -> tickwire_strategy_host::Result<()> {
+    if t.logical_strategy_id != logical || actual != Some((t.instance, t.generation)) {
+        return Err(tickwire_strategy_host::Error::Invalid);
+    }
+    Ok(())
 }

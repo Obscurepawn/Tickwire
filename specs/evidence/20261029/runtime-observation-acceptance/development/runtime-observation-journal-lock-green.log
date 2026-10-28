@@ -1,0 +1,68 @@
+   Compiling tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.73s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_journal-8f60953e76ea5b15)
+
+running 1 test
+test store::lock_owner_tests::owner_drop_releases_lock_even_while_an_inherited_description_still_exists ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/frame.rs (/tmp/tickwire-progress-20261028/target/debug/deps/frame-bd944972750758d6)
+
+running 6 tests
+test castagnoli_known_vectors ... ok
+test exact_contract_layout_and_hash_scope ... ok
+test all_contract_types_roundtrip_and_nonzero_flags_rejected ... ok
+test codec_constants_match_authoritative_contract ... ok
+test every_single_bit_error_is_detected ... ok
+test truncation_and_oversize_are_errors_without_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/journal.rs (/tmp/tickwire-progress-20261028/target/debug/deps/journal-7fbefbbd27deb2e4)
+
+running 12 tests
+test newly_created_directory_is_owner_only ... ok
+test manifest_damage_and_concurrent_writer_fail_closed ... ok
+test oversized_batch_does_not_split_or_modify_files ... ok
+test frontier_ahead_or_different_hash_never_repairs_files ... ok
+test synchronized_batches_reopen_and_continue_sequences ... ok
+test unsealed_middle_and_sealed_tail_corruption_are_not_discarded ... ok
+test correctly_checksummed_epoch_rollback_sequence_gap_and_identity_change_quarantine ... ok
+test orphan_empty_rotation_segment_is_adopted_but_missing_declared_segment_quarantines ... ok
+test rotation_preserves_chain_and_epoch_floor_and_missing_segment_fails ... ok
+test short_write_and_failed_sync_never_return_receipt_and_poison_writer ... ok
+test committed_corruption_and_required_missing_tail_quarantine_without_mutation ... ok
+test every_unfinished_final_batch_prefix_recovers_only_previous_batch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.14s
+
+     Running tests/manifest.rs (/tmp/tickwire-progress-20261028/target/debug/deps/manifest-0d2b3b04822b1766)
+
+running 2 tests
+test one_data_sync_per_closed_batch_and_no_manifest_per_batch ... ok
+test manifest_failure_before_publish_or_after_rename_poisons_then_recovers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/process-49488c6ad870dc5c)
+
+running 2 tests
+test crash_child ... ignored, child entry point; parent runs it in a separate process
+test sigkill_at_write_sync_and_receipt_boundaries_preserves_complete_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/recovery_validator.rs (/tmp/tickwire-progress-20261028/target/debug/deps/recovery_validator-afc800074294fff9)
+
+running 1 test
+test rejected_application_prefix_preserves_torn_tail_and_acceptance_recovers_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests tickwire_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

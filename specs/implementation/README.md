@@ -78,6 +78,7 @@
 
 ## 控制面、Raft 与复制接管
 
+- [runtime-observation.md](runtime-observation.md) — 实际托管实例的新鲜挑战、消费进度与内核事实采集；SDK、Host 与 App 已接线；全局配置事实聚合仍待接入。
 - [supervisor-process.md](supervisor-process.md) — 固定执行镜像、内核身份与进程资源约束。`tickwire-control-sys` / `tickwire-supervisor` / `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app`。部分实现（资源启动与观察已接线；委派组正向验收、全局配置应用仍待完成）。
 - [control-session.md](control-session.md) — 控制会话协商、内核身份核对与请求登记票据。`tickwire-control`。已实现。
 - [control-transport.md](control-transport.md) — Linux SOCK_SEQPACKET/SCM_RIGHTS 控制 FD 传输。`tickwire-control-sys`。已实现。

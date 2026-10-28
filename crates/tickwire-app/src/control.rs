@@ -953,9 +953,9 @@ fn decode_record(bytes: &[u8]) -> Result<Record> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    pub(super) fn inputs() -> (policy_config::Config, quota_config::Config) {
+    pub(crate) fn inputs() -> (policy_config::Config, quota_config::Config) {
         let p = policy_config::Config {
             scope: policy_config::Scope {
                 risk_domain_id: [1; 16],

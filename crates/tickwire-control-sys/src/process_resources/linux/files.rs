@@ -103,3 +103,26 @@ pub(super) fn bounded(file: File) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
+
+/// Owns the directory lock from acquisition, including construction failure.
+pub(super) struct DirectoryLease(File);
+impl DirectoryLease {
+    pub(super) fn acquire(file: File) -> Result<Self> {
+        lease(&file)?;
+        Ok(Self(file))
+    }
+}
+impl std::ops::Deref for DirectoryLease {
+    type Target = File;
+    fn deref(&self) -> &File {
+        &self.0
+    }
+}
+
+impl Drop for DirectoryLease {
+    fn drop(&mut self) {
+        // Only the owner controls this lease. A forked child's temporary FD
+        // must not retain it after construction failure or owner destruction.
+        let _ = self.0.unlock();
+    }
+}

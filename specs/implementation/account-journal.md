@@ -42,3 +42,7 @@ IngressEvent 以 `(input_stream, input_sequence)` 建立独立索引。精确重
 Python 独立生成确定 bootstrap 和三个历史前缀样本，Rust 测试比较完整字节及摘要；另通过真实 `Persistence::put_object` API 核对内容地址互操作。进程退出与故障注入不等同于设备掉电实验。
 
 账户 reducer 与物理 WAL 已有各自模型；本模块的历史闭包组合与后续 AccountGateway 尚未纳入这些模型的证明范围。这里交付源码审阅与文件/协议测试，不把已有模型结论扩展到尚未建模的组合。
+
+## App 离线复盘源锁
+
+`tickwire-app replay/export` 在复制前按账户、输入、恢复对象三个源目录取得现有 LOCK 的排他锁，全部持有到离线结果结束；后续目录、复制或历史验证失败也释放已取得的锁。私有 `ReplayLocks` 从每次加锁成功起承担释放责任，离开作用域时显式 unlock，再关闭描述符。fork 至 exec 期间继承的无资格描述符不能延长已结束复盘 owner 的锁；活跃复盘仍排他，旧副本关闭也不能释放后继 owner 的独立锁。源文件保持只读，显式解锁不赋予在线运行或重发授权。

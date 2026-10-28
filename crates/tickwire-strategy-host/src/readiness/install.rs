@@ -55,6 +55,7 @@ impl ReadyProof {
         clock: &mut SystemClock,
         installed: tickwire_runtime::node::InstalledReplay,
     ) -> Result<tickwire_runtime::node::PreparedReplay> {
+        self.observation_idle(clock.sample()?.monotonic.nanos())?;
         let request = self.last_install_request.clone().ok_or(Error::NotReady)?;
         if installed.worker_pid() != lane.process.pid
             || installed.verified().installation.request.digest != request.object_digest
@@ -109,6 +110,9 @@ impl ReadyProof {
                 return Err(Error::NotReady);
             }
             let frame = lane.session.validate(packet.bytes(), now)?;
+            if self.observe_fresh_reply(&frame.envelope, frame.body)? {
+                continue;
+            }
             if frame.envelope.opcode != 37 || frame.envelope.flags != 32 {
                 return Err(Error::Invalid);
             }
@@ -145,6 +149,7 @@ impl ReadyProof {
         clock: &mut SystemClock,
         source: &VerifiedSourceReplay,
     ) -> Result<tickwire_runtime::node::InstalledReplay> {
+        self.observation_idle(clock.sample()?.monotonic.nanos())?;
         let completion = source.completion();
         let member = &completion.member;
         if completion.operation.schema != 3
@@ -293,6 +298,9 @@ impl ReadyProof {
                 return Err(Error::NotReady);
             }
             let frame = lane.session.validate(packet.bytes(), now)?;
+            if self.observe_fresh_reply(&frame.envelope, frame.body)? {
+                continue;
+            }
             match frame.envelope.opcode {
                 42 => {
                     let reply = tickwire_ipc::ReplayAppliedBody::decode(frame.body)?;

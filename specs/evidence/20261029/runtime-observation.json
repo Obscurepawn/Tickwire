@@ -1,0 +1,589 @@
+{
+  "schema": 1,
+  "stage": "Fresh observation of actual running strategy instances with durable local request delivery",
+  "created_utc": "2026-10-28T19:30:36.412251+00:00",
+  "baseline_commit": "f53d59d7801df217b6b643679e8368a328ad7e93",
+  "source_manifest": {
+    "path": "specs/evidence/20261029/runtime-observation-source-sha256.json",
+    "bytes": 163759,
+    "sha256": "5a925908a8bee532eea6014717a071bcc2aef7c48c7741ca3b2cba28a0dfa373"
+  },
+  "source_file_count": 902,
+  "source_binding": "One unchanged final snapshot for full workspace checks, fixed release build and actual process acceptance. Includes all non-document crate/contract files, dependencies, toolchain, Rust gate and IPC validator.",
+  "implementation": [
+    "ObserveCurrent checkpoint queries preserve exact capture and pause semantics of previous modes. Each fresh response binds actual kernel process incarnation, authenticated session, unique challenge, report lower bound, actual READY and original deadline.",
+    "Worker input callbacks continue while queries wait or replies are backpressured. A single response is retained without re-executing checkpoint; ordered control responses precede coalesced periodic announcements. A query also publishes its verified state through the ordinary READY path.",
+    "Host brackets cold completion with actual owned Child/kernel/image/resource observations, rechecks the complete recovery closure and actual account report prefix/shared cursor, then samples the original deadline again. Closed challenges absorb known late replies; accepted request IDs are never reused within the bounded owner lifetime.",
+    "App explicitly approves local private directories, UID, Binding and query-capable build hashes. Received requests are synced before dispatch; canonical shared dependencies and result CAS are synced before terminal WAL and atomic outbox publication.",
+    "Recovery verifies every persisted dependency hash/length and READY root. Historical results retain original request/expiry; unfinished requests become Interrupted without dispatching a new worker challenge. Conflicting IDs cancel unfinished originals. Storage failure closes only the diagnostic provider.",
+    "Whole-suite concurrency exposed inherited flock descriptions surviving clean owner drop. Private lock guards now explicitly unlock at the actual final owner boundary, including construction errors; legitimate shared Raft snapshot owners retain exclusion until their final Arc is dropped."
+  ],
+  "checks": [
+    {
+      "kind": "full_workspace",
+      "metadata": {
+        "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+        "started_utc": "2026-10-28T19:09:32.604258+00:00",
+        "finished_utc": "2026-10-28T19:16:08.485542+00:00",
+        "elapsed_seconds": 395.88135630099714,
+        "exit_code": 0
+      },
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/runtime-observation-check-rust.log",
+        "bytes": 259943,
+        "sha256": "8e7257693efac8808e0dca048f68b3511bc09e45f6e828f5c46cd7bb784b9245"
+      },
+      "result_batches": 338,
+      "aggregate_output_including_nested_child_runs": {
+        "passed": 2143,
+        "failed": 0,
+        "ignored": 29
+      },
+      "scope": "fmt; workspace all-targets, examples and bench smoke; doctests; Clippy -D warnings"
+    },
+    {
+      "kind": "contracts_and_openapi",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/runtime-observation-contracts.log",
+        "bytes": 1765,
+        "sha256": "83c23d0e7af4d628a8551ed33e4359268310c9fa2a789d01c81a31b0faadeafa"
+      },
+      "ipc_golden_vectors": 94,
+      "ipc_semantic_cases": 33,
+      "old_golden_vectors_unchanged": 88
+    },
+    {
+      "kind": "documentation",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/runtime-observation-documentation.log",
+        "bytes": 91,
+        "sha256": "63d27681b24c51bcf436985f6fe3010bfacad9978ed4e14cfa27ee49340b383f"
+      }
+    },
+    {
+      "kind": "sdk_without_runtime_feature",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-minimal-final.log",
+        "bytes": 18682,
+        "sha256": "1351a9ea954cc6614a1fbf6ba9134624255d3b3d28efcf2cc2dc64311c473f1c"
+      }
+    },
+    {
+      "kind": "style",
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/runtime-observation-style.log",
+        "bytes": 735,
+        "sha256": "ef2f4b0f1a13876c8e53200a213d616f9745429cce562d83d4e0ff28f72ee959"
+      }
+    }
+  ],
+  "actual_process_acceptance": {
+    "path": "specs/evidence/20261029/runtime-observation-acceptance.json",
+    "bytes": 110624,
+    "sha256": "37b20305330cf3d156c30c53b495b096f97faae625c4460ca36194cf51c32fb4"
+  },
+  "acceptance_package_verification": {
+    "command": "python3 specs/evidence/20261029/verify-runtime-observation-acceptance.py",
+    "exit_code": 0,
+    "result": {
+      "status": "verified",
+      "files": 183,
+      "signatures": 6,
+      "memfd_samples": 2,
+      "source_inputs": 902,
+      "binaries": 8,
+      "scenarios": 2,
+      "host_tests": 6,
+      "app": {
+        "observed": 2,
+        "negative": 4,
+        "historical": 1,
+        "interrupted": 1,
+        "account_prefixes": 2,
+        "input_history": {
+          "records": 17,
+          "gaps": [
+            {
+              "record": 2,
+              "epoch": 1,
+              "generation": 2,
+              "reason": 4
+            }
+          ],
+          "quarantined_events": 0,
+          "scope": "initial Clock gap, if present, followed by actual reconciliation; not a claim of uninterrupted input"
+        }
+      }
+    },
+    "log": {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-acceptance-verify.log",
+      "bytes": 480,
+      "sha256": "ea47402ddf81593a5ff4a243d5f19f9ebdc870c7d76b939f56365acbe9d51356"
+    }
+  },
+  "failed_gate_before_lock_fix": {
+    "metadata": {
+      "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+      "started_utc": "2026-10-28T18:49:36.999703+00:00",
+      "finished_utc": "2026-10-28T18:50:08.974223+00:00",
+      "elapsed_seconds": 31.974558059002447,
+      "exit_code": 101
+    },
+    "log": {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-check-rust-attempt1.log",
+      "bytes": 35601,
+      "sha256": "c63cca1e5426934c54c7ea0f612abe9f71b00af37cfd43b50dc9615154c960cf"
+    },
+    "source_manifest": {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-source-attempt1.json",
+      "bytes": 163757,
+      "sha256": "03bbc100c0bea3504be9d67c8d4bec445a9efbc131d33b674f83182502154756"
+    }
+  },
+  "lock_owner_coverage": {
+    "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-coverage.json",
+    "bytes": 6144,
+    "sha256": "09344d1d97d1547a5954b7c9fee9a4b96339c0f7e0515a2b3e3f83787ceba73b"
+  },
+  "development_logs": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-boundaries-green.log",
+      "bytes": 1117,
+      "sha256": "06fab5597f71e0e8fdf6e87fe8f476c2a5ee88a2cd14886ba88980fe66810f7d"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-boundaries-red.log",
+      "bytes": 1914,
+      "sha256": "54a8f3edf07538471687a2e591a31c04b6597e329af2a57b9f206c02a2f04970"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-clippy-final.log",
+      "bytes": 1392,
+      "sha256": "72115ab1d5838dc10e1a5d020b496174c5b409a265ab863294641caedbd1f3cf"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-clippy-final2.log",
+      "bytes": 150,
+      "sha256": "0daa9ac5e2820b5b159ebba99bfb7ab955bfc168e5003d2ada5bf6ce09f4eb88"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-clippy.log",
+      "bytes": 1846,
+      "sha256": "b1e47b095d487f228f11a0bf5017db3c1410193578f4fb326a6c970d4e7eacc9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-clippy2.log",
+      "bytes": 581,
+      "sha256": "9dc19f426dffd9642dd1189a9b1980f10b7b6c7aea410f63cf3b4739b1a989b2"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-closure-green.log",
+      "bytes": 5492,
+      "sha256": "70a13cd8454af89fafce790d5ce39208e7046668c3ffa380943a62b97b784219"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-closure-green2.log",
+      "bytes": 1564,
+      "sha256": "46a58b4dbb101455689e0a9b1da2d5c1c7740d0602cdb2f2a747f8af974456c9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-closure-red.log",
+      "bytes": 1063,
+      "sha256": "4a58080f3d45f13ae30a2a9f07e3ffe541c0460b1ef9e85b55ca1137cc7a7184"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-dedup-clippy.log",
+      "bytes": 398,
+      "sha256": "dfc1923d97778f629a81ffc288f0b221efbcc6b9af6d6856ecd09df4f930d294"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-dedup-green.log",
+      "bytes": 2446,
+      "sha256": "05fb36a04f3a561b79c505e6d5c61cdf830b17a27ea6863e83e357487b1cc502"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-dedup-red.log",
+      "bytes": 1948,
+      "sha256": "d0a833074929139ac272e640a56a5918f739c09d9da6762cc3bac06640edef1e"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-dev-build-final.log",
+      "bytes": 150,
+      "sha256": "2803a55296b593511c799e989ea2bdc2e3affef702abeab7de590559eb2bb0e3"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-fairness-red.log",
+      "bytes": 891,
+      "sha256": "df655cb270557f1da4465ca5b8a25f7e1a7c103bdd27e4fc2ac5860e57ec08f6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-final-driver.log",
+      "bytes": 2843,
+      "sha256": "78b3c49188a858cdd2fd41a125bf7be008edb45066eb2f7c1f50665fad0c0e11"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-final-focused.log",
+      "bytes": 2052,
+      "sha256": "bf94b03a24e43a8ad8c3662c642ac0dc70fa1fe6f43604a6caac742f3eab2250"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-green1.log",
+      "bytes": 939,
+      "sha256": "a12fe675672b9b7345d5f6949aabfd5c239795623b006246782921f1d5f29a4a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-green2.log",
+      "bytes": 763,
+      "sha256": "707ee11c7ae3397ca23bcaf7e2088e78a56009ff3dea30a958ded328587ea3ed"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-invalidpath-runtime-observation-app-final-driver.log",
+      "bytes": 833,
+      "sha256": "d3e8b0df45d824b84a9a33ccc1a408c2bce29f30c2ba0ed05ee019f09c751536"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-clippy-final.log",
+      "bytes": 1552,
+      "sha256": "21f66463734a7b8a329676a1836c0c712fa5659c4e8dec1cb4312cb6eb5311dc"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-clippy-final2.log",
+      "bytes": 2302,
+      "sha256": "8e0daa906c54f1d23ba4a25d7783967b127770eafbe9e4bc7a956e7b7c3ba175"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-clippy.log",
+      "bytes": 1752,
+      "sha256": "914a39e2ca89c13f2ca26b4aa555bdf279961e5a1e7fadb9b630cee0ecfdea50"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-green.log",
+      "bytes": 486,
+      "sha256": "ef7b638b8c2f19cfcdb97b7d1f72316dbed750fea4a6527a8a8821afaf54d33b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-red.log",
+      "bytes": 2590,
+      "sha256": "593dcf5c4c54421f66f1ae60112fbe229ec5cba41764fd859b61ebc043f211ad"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-tests-final.log",
+      "bytes": 12797,
+      "sha256": "5fe63358330a6e6454eb9b0742cf797c11d5e3afb0ccfee57f25fc2851b23e50"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-tests-final2.log",
+      "bytes": 11859,
+      "sha256": "aa86c8a24d2be05ba43e733c638353d8005fd2fa4648d81069fb38cdffbaca48"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-mirror-premature-runtime-observation-app-final-driver.log",
+      "bytes": 391,
+      "sha256": "19be2935064c9829b405ce32b4e286f6d8e2441ee7ea9dd6942c637189bc221b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-red-behavior.log",
+      "bytes": 6547,
+      "sha256": "965dcb5fe839281af1bb29db0e73f8f9f41eb05b6ae675d88b6621d4dc50910b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-red.log",
+      "bytes": 4403,
+      "sha256": "d77cc6d4306b9c4c31a96a6a77859d8c8db9d4a37aaa4f0003e862776cbfbfbd"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-tests-final.log",
+      "bytes": 11086,
+      "sha256": "b72d6862b43ce689cc7df26d2ede7d5cccae382459bdffdc453ed55cc57a6bef"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-app-verifier-final-build.log",
+      "bytes": 431,
+      "sha256": "6f6ccf640981b606eca6cd2a64efb1bcca1c7ec94d55c7128b58d2f2dcffd748"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-green3.log",
+      "bytes": 14657,
+      "sha256": "ab2245c9afb66f128b6e3c3bb93f53458e7a3b6c448c12ba72ff92c979556ed4"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red.log",
+      "bytes": 4289,
+      "sha256": "9087dff6c1ca081f181794da077d6c926da7fcf6f8eca8043317754ca7c5aecf"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red2.log",
+      "bytes": 4497,
+      "sha256": "8bdb9be8e01243502b7ddcc39d546fa9fab1eb95eebaa4002ed88d1a9b35cfb5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red3.log",
+      "bytes": 4574,
+      "sha256": "351651448af59be52fa7cc185ef36fe5d3a40768c7c5017d0e5b4dd174a052b5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-blob-lock-clippy.log",
+      "bytes": 160,
+      "sha256": "559442ada8e0e76689d5ad2703bca2301cfbcd6857435a618a95a92cd0bfb1f2"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-blob-lock-green.log",
+      "bytes": 2312,
+      "sha256": "b31d280c3833c6206facf05cd92545d1282df3cdfb361a1f9c81a9154efc6d4a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-blob-lock-red.log",
+      "bytes": 1139,
+      "sha256": "160c35ac2d0b1921850ea01d54154a994a89436b5433dce3fdeafaf9fabca554"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-clippy-final.log",
+      "bytes": 170,
+      "sha256": "e1007f657e334b1e18ac1f8c491f63fc285eeb6c9d2ca289c57c319ef0bdf80f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-clippy-lib-final.log",
+      "bytes": 170,
+      "sha256": "423c8d3a9a0bb8e40ceda269d8b5c398cea3751dae34d69f15045e4d9798abb4"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-clippy.log",
+      "bytes": 1633,
+      "sha256": "378cae7b7d3735f231abf3f3269ef822f90f5c80eb824292b0a10d3ec2ca1b2c"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-incarnation-clippy.log",
+      "bytes": 170,
+      "sha256": "2263df83db861fb1fd9e608a7a747043fd12dbcb60b04f65d4f018e4d45ee8bd"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-incarnation-green.log",
+      "bytes": 3576,
+      "sha256": "fc5d876167a82c616afbbf16cdd49818d9dc0ce0c0d43ea9892d78b5f197f49d"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-incarnation-red.log",
+      "bytes": 1419,
+      "sha256": "f4773118408d8ed8ede0cac0761b429d1d80ef0aae52cc7ca3d013e711e744b5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-order-green.log",
+      "bytes": 516,
+      "sha256": "697fe3e34b2c91eb2f800d138fa03a6d6b126955d951af6b5eb767f13c37446b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-order-red.log",
+      "bytes": 1196,
+      "sha256": "e12e6086f5d03068b9087691c138027225965a4f449b5af7068b348bf884c902"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-prefix-green.log",
+      "bytes": 2035,
+      "sha256": "cc3d992ff06319ea65e2cd737e624731e440b870b795b89ebd337136123d4f11"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-prefix-red.log",
+      "bytes": 2670,
+      "sha256": "0cc82b014c4516bf2c966bb04d54975dab87c3107ce541adb0ce71e60611218a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-host-tests-final.log",
+      "bytes": 3368,
+      "sha256": "5cbabb5cc216620e2bfc45cf42b5a0eab652c2083bc3df09bf2f19e1be92c7a6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-ipc-semantics-final.log",
+      "bytes": 990,
+      "sha256": "489e90a58a4cb2d7239636ae1d7d064af9f96b9e5d93212d10976d0421c33a4f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-journal-lock-clippy.log",
+      "bytes": 212,
+      "sha256": "39a2d9744ca6df1fb7ede6f1a7286b3a52165af4cc6ec66146558681baed810a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-journal-lock-green.log",
+      "bytes": 3374,
+      "sha256": "ee7c13cb39ab070ed7b8a12ae24948605277613f835437bf4bf38dd1c973f8bd"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-journal-lock-red.log",
+      "bytes": 1190,
+      "sha256": "bd5a67fd5c869cd8e4313f5c306792a9715cfaa940dcfe817da1d0c0c1602bcd"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green.log",
+      "bytes": 14455,
+      "sha256": "546a0ad43f07b21cbfaf138bc8d08e20b8b73e59960476f2fab39a8e637562e3"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green2.log",
+      "bytes": 12627,
+      "sha256": "e3fde98ecd5a524cd3121b4b6b63afa445ca5dcba3f32717151b6f95a7b61ce0"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green3.log",
+      "bytes": 12729,
+      "sha256": "f7ea2213e4da4e715ead3f84ba3539fe18756ff477521d74c253d4c21be15434"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-owners-clippy.log",
+      "bytes": 340,
+      "sha256": "11b334f35f2724f078351c50818d8440c1ea82dd9c4116f0014d425052bf222a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-owners-green.log",
+      "bytes": 11712,
+      "sha256": "79c80731cef20008b9cf60b92693419f80dab855ebfead21bb6472ca87863990"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-red.log",
+      "bytes": 15403,
+      "sha256": "68f470ce8a563c0b2b9a700992752808ad1b0259afdb84ebb433266c659abf60"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-mode2-green.log",
+      "bytes": 608,
+      "sha256": "c6b5ad4baad9fb242ce373f330ebb10722870f391c5bdf60f7f881d4dc5ee52f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-mode2-red.log",
+      "bytes": 1155,
+      "sha256": "9ee4ffed114b85f761187438b7655dbfa42198bc252166d658fb7fca2b328905"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-outbox-order-green.log",
+      "bytes": 758,
+      "sha256": "fd00e97e0198e9c864b26c18c9a215d4c7751f884f2a6c814a6cb3983013f992"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-outbox-order-red.log",
+      "bytes": 1258,
+      "sha256": "cb97e9a038a9c910a0eb14ec8f5e214de35f7e1ecbd7231a40dd98ed74850cba"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-api-red.log",
+      "bytes": 3960,
+      "sha256": "61770a1cb38c86062fa037b05aa7574b25067bc8be8150ca9bd81166ad5d2030"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-clippy-final.log",
+      "bytes": 127,
+      "sha256": "1a8f1bbe90a20a1f60a6a043974d14e54502501d0dd6498837eae385baecbe82"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-compile-final.log",
+      "bytes": 294,
+      "sha256": "bb012c92124b48007b11d524bea7277f05f5253e447d667f0f7587929acbd139"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green.log",
+      "bytes": 8915,
+      "sha256": "0eef40bc10010c153f7d6f2e70f6b4e63118fd9afa83af73059d2cc1888e36f6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green2.log",
+      "bytes": 24728,
+      "sha256": "b3741d6e0f76116b9047626325451af6bda1d163e2722bfa96827fea4f08dad6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green4.log",
+      "bytes": 28223,
+      "sha256": "0be7327cd4d419f176daf597026ef600b93fd48d17da179479d8ef9f602d5c36"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-red.log",
+      "bytes": 6082,
+      "sha256": "88df28549e6d87f5282fc122774c154069c2f390fad002cd5d5ca8c78530e3a5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-lock-red.log",
+      "bytes": 938,
+      "sha256": "950a15577fdb58772e5770db5c62a73ed2771557792253d6bf1721c9e19fc55f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-raft-lock-clippy.log",
+      "bytes": 512,
+      "sha256": "c3f3c3a8f800bdda5ee53dc8475657a1b200e2a9a1de625a120a8695e0302e99"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-raft-lock-green.log",
+      "bytes": 6593,
+      "sha256": "1687af9abfe03bbdef2b41c4dd2a16f513a84a61cd4e71c58b1a0ec0563a6204"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-raft-lock-red.log",
+      "bytes": 1658,
+      "sha256": "0ee4d4083c0b1b3dd184c0fe0b2c9a47f656b1b338d1cbfc8fac1fdd766d4323"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-replay-lock-green.log",
+      "bytes": 845,
+      "sha256": "4b8313839f1097db05476cefa9d5c3c469b8c428ec5ca39a90b759bf0109ca76"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-replay-lock-red.log",
+      "bytes": 3491,
+      "sha256": "62fb9d6e0dbf709098bce086ebff105bb233157d57938bd5d19acba65de617c9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-resource-lock-red.log",
+      "bytes": 1164,
+      "sha256": "0b905584e8749715d093dcb40075ccc416ca17663fb2322e89ab14b8d77020fe"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-final-clippy.log",
+      "bytes": 168,
+      "sha256": "c7c67af063ca83c5a8bfb096cbe1100f96734f6123bbffe91b9c72b069786f51"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-ipc-clippy.log",
+      "bytes": 1083,
+      "sha256": "de59075bad8eebb110ec1757cdc6b8e9fc912723af85457ad07152bea6bc680b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-ipc-green.log",
+      "bytes": 27335,
+      "sha256": "15950b531fb357dcf3ff924fef80bb68ea0fd7380bdd241a47172187a970913e"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-minimal-final.log",
+      "bytes": 18682,
+      "sha256": "1351a9ea954cc6614a1fbf6ba9134624255d3b3d28efcf2cc2dc64311c473f1c"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-outbox-clippy.log",
+      "bytes": 168,
+      "sha256": "4527731f008160c116ef793210f6fa2382af81bf4647040098e833054bd3d11b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-sdk-outbox-green.log",
+      "bytes": 17388,
+      "sha256": "1d21bca6572016507d332b70ad2b4dd08815d6a6b9b352c0054cb614ecfb74e8"
+    }
+  ],
+  "anchor_audit": {
+    "path": "specs/evidence/20261029/runtime-observation-anchor-audit.json",
+    "bytes": 74419,
+    "sha256": "1f421a29fef3629cba1808dbaad126b6f5d9d791071c5b95ba2747fd2156f855"
+  },
+  "limits": [
+    "The provider observes one exact strategy instance at a time. Full global runtime projection application, revision/hash claims, signed host-wide RuntimeFacts and persistent source-watermark consumers remain unfinished.",
+    "The external entry is authorized through approved local Linux directory/UID and Binding; it is not a remotely authenticated network API. Cross-UID deployment and actual delegated resource-group positive qualification remain unverified on this host.",
+    "Observation and CAS verification/persistence are explicit cold work on the owner loop. Continuous worker callbacks and bounded queues do not establish production throughput or latency qualification.",
+    "A Host keeps at most 4096 accepted request IDs, 4096 report prefixes per active query and 16 unanswered closed challenges. Expiry releases lane exclusion, but only a matching authenticated response removes its closed challenge; exhaustion rejects diagnostics without granting trading authority.",
+    "The actual backpressure test consumes 176 account records and verifies the earlier queued query. Its final new query reaches the existing typed recovery 16MiB bound and is correctly rejected; this is not recorded as a successful fresh proof.",
+    "The archived verifier checks captured bytes, request/process/binary bindings, signatures and independently recalculates account input prefixes. Large ELF/recovery CAS objects remain local; complete closure verification was run online against actual persisted objects, not reconstructed from this archive.",
+    "The rebuild and App scenarios each record one startup Clock gap, followed by BeginReconciliation at epoch 2/generation 2 and an actual account_reconciled event before command registration. Historical gap counts are retained; this stage does not claim a gap-free run.",
+    "Native WSL2 Linux and local TLS exchange fixtures only; no live Binance credentials or orders, no Docker check-linux run, no production qualification or measured latency claim.",
+    "No TLC execution, model updates or historical lock rebasing. Source changes and missing historical paths are recorded by read-only anchor audit; new formal verification remains deferred until functional development is complete."
+  ]
+}

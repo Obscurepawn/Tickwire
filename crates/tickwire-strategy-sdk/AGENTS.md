@@ -82,3 +82,9 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 - **安装依赖与模板再验证**：raw安装/回退依赖单64MiB、闭包256MiB，typed消息各decoder仍守原16MiB或更小上限。安装重读RecoveryTemplate先按Manifest固定Object核对长度/摘要后解码，不接受长耗时预热后被替换的合法JSON路径；安装和回退同步后均重新采样期限。`capture_worker::install::tests`覆盖模板替换拒绝与17MiB opaque依赖；实际进程验收在Host测试中。
 
 - `replay::rebuild::probe` 重导出 release 的 Job/Receipt，运行时只在完整部署资格核对后执行旧工厂；历史恢复由 release 的共享 Verified 验证实际 Host Completion 图，不重读原路径。opaque Job.objects 单对象 64 MiB、typed 根 16 MiB；共用16层旧来源递归预算。
+
+## 持续运行的实例查询
+
+`checkpoint::OBSERVE_CURRENT`（mode2）把请求报告位置解释为下界，仍回显原挑战和请求位置；READY 保存真实当前位置。`worker/observation.rs` 独立保存一次查询和单份应答，等待期间不暂停行情、账户或定时器；非阻塞发送背压保留同一检查点，截止后仅丢查询。周期 READY 使用单槽最新公告，在查询应答与安装/回退应答队列排空之后尝试非阻塞发送；新检查点清除较旧待发公告，避免迟到序号回退。查询也保留同一新 READY 的普通公告，使最后消费位置在没有后续账户输入时仍能公布。只有身份与结构已核验的过期 mode2 请求按请求级失败处理，旧模式 0/1 保留原精确封口行为。调用方须显式批准支持 mode2 的 SDK 构建。
+
+`checkpoint` 单测覆盖下界、旧模式精确水位、应答回显、旧 READY 与过期错误分类；worker 单测覆盖未追平、背压单次执行和同步跨期。真实 registered 进程与 Host 前缀、游标及内核核验见 [../../specs/implementation/runtime-observation.md](../../specs/implementation/runtime-observation.md)。

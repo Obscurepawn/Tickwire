@@ -1,0 +1,7 @@
+{
+  "stage": "development candidate; ordered query and periodic READY; before final source freeze",
+  "build_sha256": "da2dc83016c4267c8e568123ed2ab65d5e77f682f2970629130e57c30374538e",
+  "deployed": "/tmp/tw-observe-dev-3/tickwire-counting-worker",
+  "deployed_bytes": 6515632,
+  "deployed_sha256": "ce0a03c790258d0e0f4b145dc16faa4f4e4f4b659454b48f9aa76e880ed3836c"
+}

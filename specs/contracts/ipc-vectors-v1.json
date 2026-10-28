@@ -2151,6 +2151,126 @@
         "rebuild_rollback_rejected_header",
         "rebuild_rollback_control_body"
       ]
+    },
+    {
+      "name": "current_observation_request_body",
+      "layout": "CheckpointSealBody",
+      "structural_valid": true,
+      "zero_fill_unspecified": true,
+      "values": {
+        "instance_id": "11111111111111111111111111111111",
+        "logical_strategy_id": 5,
+        "strategy_generation": 6,
+        "challenge": "22222222222222222222222222222222",
+        "report_sequence": 3,
+        "valid_until_mono_ns": 100,
+        "seal_mode": 2,
+        "schema": 1
+      },
+      "hex": "111111111111111111111111111111110500000000000000060000000000000022222222222222222222222222222222030000000000000064000000000000000200010000000000000000000000000000000000000000000000000000000000",
+      "byte_length": 96,
+      "sha256": "1cc22ce9583a0a7fca95699c65e455dc567b1c07b8b6c5ccd2dd64f1557b2675"
+    },
+    {
+      "name": "current_observation_request_header",
+      "layout": "ControlEnvelope",
+      "structural_valid": true,
+      "zero_fill_unspecified": true,
+      "values": {
+        "magic": "545743544c303031",
+        "abi_major": 1,
+        "header_bytes": 128,
+        "frame_bytes": 224,
+        "opcode": 39,
+        "flags": 1,
+        "request_id": "22222222222222222222222222222222",
+        "control_epoch": 9,
+        "expected_state_version": 3,
+        "body_crc32c": 3332004593,
+        "header_crc32c": 2766435943
+      },
+      "hex": "545743544c3030310100000080002700e00000000100000022222222222222222222222222222222090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000f15a9ac66776e4a40000000000000000",
+      "byte_length": 128,
+      "sha256": "a97a8564d651cd52efe494d30c7bff76c86f511638249369ab3b635bf0df80cf"
+    },
+    {
+      "name": "current_observation_request_frame",
+      "layout": "ControlFrame",
+      "structural_valid": true,
+      "zero_fill_unspecified": true,
+      "values": {},
+      "hex": "545743544c3030310100000080002700e00000000100000022222222222222222222222222222222090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000f15a9ac66776e4a40000000000000000111111111111111111111111111111110500000000000000060000000000000022222222222222222222222222222222030000000000000064000000000000000200010000000000000000000000000000000000000000000000000000000000",
+      "byte_length": 224,
+      "sha256": "72716d9f717368cf16c3f611743db7b33b219ca6e76f8ad982c4652f8be16854",
+      "parts": [
+        "current_observation_request_header",
+        "current_observation_request_body"
+      ]
+    },
+    {
+      "name": "current_observation_reply_body",
+      "layout": "CheckpointSealReplyBody",
+      "structural_valid": true,
+      "zero_fill_unspecified": true,
+      "values": {
+        "challenge": "22222222222222222222222222222222",
+        "report_sequence": 3,
+        "seal_mode": 2,
+        "schema": 1,
+        "ready": {
+          "instance_id": "11111111111111111111111111111111",
+          "logical_strategy_id": 5,
+          "strategy_generation": 6,
+          "exec_report_sequence": 5,
+          "report_ring_sequence": 6,
+          "ledger_sequence": 7,
+          "checkpoint_digest": "3333333333333333333333333333333333333333333333333333333333333333",
+          "orders_digest": "4444444444444444444444444444444444444444444444444444444444444444",
+          "input_seal_digest": "5555555555555555555555555555555555555555555555555555555555555555",
+          "checkpoint_bytes": 80,
+          "input_seal_bytes": 64,
+          "ready_sequence": 8
+        }
+      },
+      "hex": "22222222222222222222222222222222030000000000000002000100000000001111111111111111111111111111111105000000000000000600000000000000050000000000000006000000000000000700000000000000333333333333333333333333333333333333333333333333333333333333333344444444444444444444444444444444444444444444444444444444444444445555555555555555555555555555555555555555555555555555555555555555500000000000000040000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "byte_length": 256,
+      "sha256": "28d9fb28ed445e4aa0e99d5c997632576a99931913bc3d519849380934fe227d"
+    },
+    {
+      "name": "current_observation_reply_header",
+      "layout": "ControlEnvelope",
+      "structural_valid": true,
+      "zero_fill_unspecified": true,
+      "values": {
+        "magic": "545743544c303031",
+        "abi_major": 1,
+        "header_bytes": 128,
+        "frame_bytes": 384,
+        "opcode": 40,
+        "flags": 10,
+        "request_id": "22222222222222222222222222222222",
+        "control_epoch": 9,
+        "expected_state_version": 3,
+        "body_crc32c": 2910819374,
+        "header_crc32c": 1281772063
+      },
+      "hex": "545743544c3030310100000080002800800100000a000000222222222222222222222222222222220900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000002e947fad1f4a664c0000000000000000",
+      "byte_length": 128,
+      "sha256": "4b2766c5fb974f3d42545af524fcaf02aff97c42a7b8e39adff07f764074f5d9"
+    },
+    {
+      "name": "current_observation_reply_frame",
+      "layout": "ControlFrame",
+      "structural_valid": true,
+      "zero_fill_unspecified": true,
+      "values": {},
+      "hex": "545743544c3030310100000080002800800100000a000000222222222222222222222222222222220900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000002e947fad1f4a664c000000000000000022222222222222222222222222222222030000000000000002000100000000001111111111111111111111111111111105000000000000000600000000000000050000000000000006000000000000000700000000000000333333333333333333333333333333333333333333333333333333333333333344444444444444444444444444444444444444444444444444444444444444445555555555555555555555555555555555555555555555555555555555555555500000000000000040000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "byte_length": 384,
+      "sha256": "d9fc34b2f6a2482ebd773b3e72c77603f070bbc1a68352fd25887981938f1788",
+      "parts": [
+        "current_observation_reply_header",
+        "current_observation_reply_body"
+      ]
     }
   ],
   "semantic_cases": [
@@ -2520,6 +2640,103 @@
       "name": "normalized_snapshot_records_and_depth_share_boundary",
       "vector": "normalized_topic_snapshot",
       "expected": "accept_snapshot_bundle"
+    },
+    {
+      "name": "current_observation_later_prefix",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7
+      },
+      "mutations": {}
+    },
+    {
+      "name": "current_observation_earlier_prefix",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7
+      },
+      "mutations": {
+        "ready.exec_report_sequence": 2
+      },
+      "expected_error": "Identity"
+    },
+    {
+      "name": "current_observation_wrong_echo",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7
+      },
+      "mutations": {
+        "report_sequence": 5
+      },
+      "expected_error": "Identity"
+    },
+    {
+      "name": "current_observation_old_ready",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7
+      },
+      "mutations": {
+        "ready.ready_sequence": 7
+      },
+      "expected_error": "Identity"
+    },
+    {
+      "name": "current_observation_wrong_challenge",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7
+      },
+      "mutations": {
+        "challenge": "23232323232323232323232323232323"
+      },
+      "expected_error": "Identity"
+    },
+    {
+      "name": "current_observation_wrong_mode",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7
+      },
+      "mutations": {
+        "seal_mode": 0
+      },
+      "expected_error": "Identity"
+    },
+    {
+      "name": "current_observation_invalid_request_format",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7,
+        "request_mutations": {
+          "schema": 2
+        }
+      },
+      "mutations": {},
+      "expected_error": "Identity"
+    },
+    {
+      "name": "current_observation_zero_challenge",
+      "vector": "current_observation_reply_body",
+      "context": {
+        "request_vector": "current_observation_request_body",
+        "previous_ready_sequence": 7,
+        "request_mutations": {
+          "challenge": "00000000000000000000000000000000"
+        }
+      },
+      "mutations": {
+        "challenge": "00000000000000000000000000000000"
+      },
+      "expected_error": "Identity"
     }
   ],
   "compatibility_baseline": {

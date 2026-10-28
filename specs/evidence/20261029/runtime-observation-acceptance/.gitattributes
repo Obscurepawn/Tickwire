@@ -1,0 +1,4 @@
+# Preserve captured Cargo stdout byte-for-byte.
+host/process.log whitespace=-blank-at-eof
+build/check-rust.log whitespace=-blank-at-eof
+development/*.log whitespace=-blank-at-eof

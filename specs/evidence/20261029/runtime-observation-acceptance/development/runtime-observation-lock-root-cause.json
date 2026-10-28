@@ -1,0 +1,126 @@
+{
+  "schema": 1,
+  "diagnostic_command": [
+    "strace",
+    "-f",
+    "-yy",
+    "-ttt",
+    "-qq",
+    "-e",
+    "trace=process,flock,close",
+    "-o",
+    "/tmp/tickwire-progress-20261028/runtime-observation-lock-diagnostic.strace",
+    "-e",
+    "inject=execve,execveat:delay_enter=300ms",
+    "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad",
+    "observation::tests",
+    "--nocapture"
+  ],
+  "diagnostic_exit_code": 101,
+  "original_evidence": {
+    "fd_samples": {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-fd-evidence.json",
+      "bytes": 118458,
+      "sha256": "a98fcd925c56d1ebc13bcac780d0a7ae86b56a1c1ac8da1e04ae0279656cf140"
+    },
+    "trace": {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-diagnostic.strace",
+      "bytes": 366030,
+      "sha256": "1360afe3740a98dd857c43baac447976983e8ac94139a1532fff56a98707b5e1"
+    }
+  },
+  "lock_path": "/tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK",
+  "parent_pid": 1014583,
+  "inheriting_child_pid": 1014606,
+  "inode": 1786836,
+  "selected_fd_samples": [
+    {
+      "at": 1793213609.7827823,
+      "pid": 1014583,
+      "fd": 31,
+      "path": "/tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK",
+      "fdinfo": "pos:\t0\nflags:\t02504002\nmnt_id:\t88\nino:\t1786836\nlock:\t1: FLOCK  ADVISORY  WRITE 1014583 08:30:1786836 0 EOF\n",
+      "exe": "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad",
+      "cmdline": "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad\u0000observation::tests\u0000--nocapture\u0000"
+    },
+    {
+      "at": 1793213609.8165424,
+      "pid": 1014606,
+      "fd": 31,
+      "path": "/tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK",
+      "fdinfo": "pos:\t0\nflags:\t02504002\nmnt_id:\t88\nino:\t1786836\nlock:\t1: FLOCK  ADVISORY  WRITE 1014583 08:30:1786836 0 EOF\n",
+      "exe": "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad",
+      "cmdline": "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad\u0000observation::tests\u0000--nocapture\u0000"
+    }
+  ],
+  "trace_lines": [
+    {
+      "line": 39,
+      "text": "1014589 1793213609.782008 flock(31</tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK>, LOCK_EX|LOCK_NB) = 0\n"
+    },
+    {
+      "line": 83,
+      "text": "1014606 1793213609.816247 execve(\"/proc/self/fd/40\", [\"/bin/sleep\", \"30\"], 0x790e2c001020 /* 0 vars */ <unfinished ...>\n"
+    },
+    {
+      "line": 1079,
+      "text": "1014589 1793213610.059017 close(31</tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK>) = 0\n"
+    },
+    {
+      "line": 1081,
+      "text": "1014589 1793213610.059451 close(104</tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK>) = 0\n"
+    },
+    {
+      "line": 1082,
+      "text": "1014589 1793213610.062414 flock(15</tmp/tw-observe-af721805a02a0414e09a941f042b002e/journal/LOCK>, LOCK_EX|LOCK_NB) = -1 EAGAIN (Resource temporarily unavailable)\n"
+    },
+    {
+      "line": 1094,
+      "text": "1014606 1793213610.117046 <... execve resumed>) = 0 (DELAYED)\n"
+    }
+  ],
+  "root_cause": "fork child inherited the same open-file description and FLOCK before its delayed exec; parent closed its own descriptors, reopening got EAGAIN until exec closed the inherited CLOEXEC descriptor",
+  "fix_scope": "Explicit unlock on healthy owner Drop before descriptor close; preserve exclusive admission and concurrent tests",
+  "final_concurrent_replay": {
+    "command": [
+      "strace",
+      "-f",
+      "-qq",
+      "-e",
+      "trace=process,flock,close",
+      "-o",
+      "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green3.strace",
+      "-e",
+      "inject=execve,execveat:delay_enter=100ms",
+      "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad",
+      "--nocapture"
+    ],
+    "log": "runtime-observation-lock-delayed-green3.log",
+    "passed": 98,
+    "failed": 0,
+    "ignored": 1,
+    "trace_sha256": "f946f6afacd50e20138b0a27ea1e66424fe13931c187327e9c083be62049b616",
+    "trace_bytes": 502799
+  },
+  "prior_concurrent_replay": {
+    "command": [
+      "strace",
+      "-f",
+      "-qq",
+      "-e",
+      "trace=process,flock,close",
+      "-o",
+      "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green2.strace",
+      "-e",
+      "inject=execve,execveat:delay_enter=100ms",
+      "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad",
+      "--nocapture"
+    ],
+    "log": "runtime-observation-lock-delayed-green2.log",
+    "passed": 97,
+    "failed": 0,
+    "ignored": 1,
+    "trace_sha256": "6508b8886fb225142514aff7d6db34a1309eb3ae9b102c62afe8570748ed95da",
+    "trace_bytes": 498649
+  }
+}

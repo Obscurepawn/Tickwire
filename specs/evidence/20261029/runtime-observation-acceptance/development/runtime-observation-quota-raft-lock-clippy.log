@@ -1,0 +1,10 @@
+    Checking serde v1.0.229
+    Checking serde_json v1.0.145
+    Checking thiserror v1.0.69
+    Checking erased-serde v0.3.31
+    Checking tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+    Checking tickwire-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-quota)
+    Checking slog v2.8.2
+    Checking raft v0.7.0
+    Checking tickwire-control-raft v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-raft)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.67s

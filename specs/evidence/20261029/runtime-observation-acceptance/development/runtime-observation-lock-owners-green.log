@@ -1,0 +1,237 @@
+   Compiling tickwire-control-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-sys)
+   Compiling tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+   Compiling tickwire-recovery v0.1.0 (/home/obscure/Tickwire/crates/tickwire-recovery)
+warning: field `lock` is never read
+  --> crates/tickwire-journal/src/store.rs:25:5
+   |
+23 | pub struct FileStore {
+   |            --------- field in this struct
+24 |     root: PathBuf,
+25 |     lock: WriterLock,
+   |     ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-journal` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.97s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_sys-cb93c893da4b8ae6)
+
+running 16 tests
+test process_resources::linux::tests::affinity_child ... ignored, child entry invoked by the real affinity parent test
+test process_resources::linux::tests::actual_cgroup_inode_lease_is_exclusive_across_independent_opens ... ok
+test process_resources::linux::tests::preparation_limits_and_bounded_reads_reject_before_spawning ... ok
+test process_resources::linux::tests::resource_settings_require_exact_finite_limits_and_domain_leaf ... ok
+test process_resources::parse::tests::finite_memory_rejects_unlimited_and_noncanonical_values ... ok
+test process_resources::parse::tests::every_thread_must_have_exact_process_and_memory_node ... ok
+test process_resources::parse::tests::kernel_cpu_lists_are_bounded_exact_sets ... ok
+test process_resources::parse::tests::thread_name_is_opaque_kernel_bytes ... ok
+test process_resources::parse::tests::memberships_and_descendants_reject_ambiguity ... ok
+test executable::tests::growing_source_is_bounded_by_the_opened_length_before_copy ... ok
+test process_resources::linux::tests::directory_lease_ends_at_owner_drop_even_with_an_inherited_description ... ok
+test process_resources::linux::tests::changed_preexec_snapshot_prevents_target_execution ... ok
+test process_resources::linux::tests::failed_migration_syscall_prevents_target_execution ... ok
+test process_resources::linux::tests::actual_cgroup_root_is_not_a_dedicated_leaf ... ok
+test process_resources::linux::tests::fake_filesystem_and_symlink_components_never_create_a_domain ... ok
+
+running 1 test
+test process_resources::linux::tests::affinity_child ... test process_resources::linux::tests::affinity_is_set_before_real_exec_and_inherited_by_all_child_threads ... ok
+
+test result: ok. 15 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/executable.rs (/tmp/tickwire-progress-20261028/target/debug/deps/executable-56ee35061fba7a87)
+
+running 7 tests
+test executable_child ... ignored, invoked by real_dynamic_test_child_preserves_argv0_and_does_not_inherit_image_descriptors
+test only_the_fixed_sealed_image_matches_the_actual_running_elf ... ok
+test invalid_images_and_replaced_command_program_fail_before_exec ... ok
+test sealed_image_rejects_writes_growth_and_truncation_and_has_independent_readers ... ok
+test prepared_image_survives_in_place_source_overwrite ... ok
+test prepared_image_survives_path_replacement_and_unlink ... ok
+test real_dynamic_test_child_preserves_argv0_and_does_not_inherit_image_descriptors ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/platform.rs (/tmp/tickwire-progress-20261028/target/debug/deps/platform-ebb2d2d0812278f1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/process_resources.rs (/tmp/tickwire-progress-20261028/target/debug/deps/process_resources-9948fe85fc67305d)
+
+running 1 test
+test delegated_leaf_sealed_child_is_constrained_exclusive_and_observed ... ignored, requires an empty delegated cgroup v2 leaf with exact limits, swap=0 and migration permission
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport.rs (/tmp/tickwire-progress-20261028/target/debug/deps/transport-431e65ae21e7346b)
+
+running 21 tests
+test cloexec_child ... ok
+test inherited_peer_child ... ok
+test pathname_child ... ok
+test rejection_child ... ok
+test shared_os_monotonic_clock ... ok
+
+running 1 test
+
+running 1 test
+test inherited_peer_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+
+running 1 test
+test inherited_socketpair_peer_pid_is_creator_after_real_fork_exec ... ok
+test private_directory_rejects_unprotected_writable_parent ... ok
+test complete_packets_and_owned_close_on_exec_fds ... ok
+
+running 1 test
+test existing_paths_and_replacements_are_not_removed ... ok
+test pathname_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+test independent_exec_connect_has_child_credentials_and_shared_clock ... ok
+test restrictive_permissions_and_cleanup_keep_unrelated_entries ... ok
+test pending_connect_and_try_send_preserve_real_packet_and_fd_ownership ... ok
+
+running 1 test
+test try_accept_observes_empty_and_already_queued_connections ... ok
+test cloexec_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+test try_recv_drains_queued_frames_and_fds_before_closed ... ok
+test pending_connect_retries_unix_backlog_without_false_success ... ok
+test received_descriptor_does_not_survive_exec ... ok
+test try_send_queue_backpressure_preserves_whole_frames ... ok
+test full_send_queue_expires_without_signals_or_partial_success ... ok
+test timeout_eof_and_sender_validation ... ok
+test rejection_child ... test rejection_child ... okok
+
+
+
+test result: test result: okok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.09s; finished in 0.09s
+
+
+
+test malformed_packets_close_all_fds_in_isolated_process ... ok
+test try_recv_malformed_packets_close_all_fds_in_isolated_process ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_journal-8f60953e76ea5b15)
+
+running 1 test
+test store::lock_owner_tests::owner_drop_releases_lock_even_while_an_inherited_description_still_exists ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/frame.rs (/tmp/tickwire-progress-20261028/target/debug/deps/frame-bd944972750758d6)
+
+running 6 tests
+test castagnoli_known_vectors ... ok
+test exact_contract_layout_and_hash_scope ... ok
+test all_contract_types_roundtrip_and_nonzero_flags_rejected ... ok
+test codec_constants_match_authoritative_contract ... ok
+test every_single_bit_error_is_detected ... ok
+test truncation_and_oversize_are_errors_without_panics ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/journal.rs (/tmp/tickwire-progress-20261028/target/debug/deps/journal-7fbefbbd27deb2e4)
+
+running 12 tests
+test newly_created_directory_is_owner_only ... ok
+test oversized_batch_does_not_split_or_modify_files ... ok
+test manifest_damage_and_concurrent_writer_fail_closed ... ok
+test frontier_ahead_or_different_hash_never_repairs_files ... ok
+test synchronized_batches_reopen_and_continue_sequences ... ok
+test unsealed_middle_and_sealed_tail_corruption_are_not_discarded ... ok
+test correctly_checksummed_epoch_rollback_sequence_gap_and_identity_change_quarantine ... ok
+test orphan_empty_rotation_segment_is_adopted_but_missing_declared_segment_quarantines ... ok
+test rotation_preserves_chain_and_epoch_floor_and_missing_segment_fails ... ok
+test committed_corruption_and_required_missing_tail_quarantine_without_mutation ... ok
+test short_write_and_failed_sync_never_return_receipt_and_poison_writer ... ok
+test every_unfinished_final_batch_prefix_recovers_only_previous_batch ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.00s
+
+     Running tests/manifest.rs (/tmp/tickwire-progress-20261028/target/debug/deps/manifest-0d2b3b04822b1766)
+
+running 2 tests
+test one_data_sync_per_closed_batch_and_no_manifest_per_batch ... ok
+test manifest_failure_before_publish_or_after_rename_poisons_then_recovers ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/process-49488c6ad870dc5c)
+
+running 2 tests
+test crash_child ... ignored, child entry point; parent runs it in a separate process
+test sigkill_at_write_sync_and_receipt_boundaries_preserves_complete_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/recovery_validator.rs (/tmp/tickwire-progress-20261028/target/debug/deps/recovery_validator-afc800074294fff9)
+
+running 1 test
+test rejected_application_prefix_preserves_torn_tail_and_acceptance_recovers_it ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_recovery-9a10ee8260661616)
+
+running 1 test
+test files::lock_owner_tests::owner_drop_releases_lock_while_inherited_description_remains ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/closure.rs (/tmp/tickwire-progress-20261028/target/debug/deps/closure-bcd209ee65dfcf96)
+
+running 16 tests
+test account_dependencies_require_one_pair_and_one_complete_command ... ok
+test account_dependencies_are_bound_to_the_verified_capability ... ok
+test binding_is_immutable_and_identical_publish_is_idempotent ... ok
+test descriptor_and_graph_bounds_precede_blob_reads ... ok
+test complete_closure_publishes_and_reopens_exact_binding ... ok
+test command_dependency_is_checked_and_preserved_in_private_capability ... ok
+test decision_coverage_comes_from_actual_bytes ... ok
+test missing_kind_cycles_missing_bytes_and_wrong_binding_are_rejected ... ok
+test failed_manifest_sync_cannot_produce_binding ... ok
+test missing_account_bytes_cannot_create_or_repair_a_verified_closure ... ok
+test revalidation_reestablishes_storage_completion_before_issuing_capability ... ok
+test partial_binding_publication_retries_sync_before_receipt ... ok
+test split_input_chunks_are_ordered_by_sequence_and_gaps_overlaps_fail ... ok
+test canonical_manifest_rejects_every_truncation_and_nonminimal_schema ... ok
+test malformed_input_bytes_with_correct_object_hash_are_rejected ... ok
+test file_store_reopens_pins_and_detects_corruption_with_real_bytes ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/handover_rebuild.rs (/tmp/tickwire-progress-20261028/target/debug/deps/handover_rebuild-5f051fdd1124c86f)
+
+running 1 test
+test rebuild_seal_requires_its_own_installation_and_preserves_legacy_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_journal
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_recovery
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

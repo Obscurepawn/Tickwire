@@ -85,3 +85,15 @@ Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependenci
 `ChildHandles`、`RemoteHostedStrategy`、`capture::Owner`、`rebuild::Hosted` 提供冷 `observe_resources`，直接复用监督器的真实内核/镜像/进程采样，不在正常 poll 增加 `/proc` I/O，也不产生全局配置 Applied。退出不证明 cgroup 释放，下一次 acquire 必须重新核验专用空组。
 
 `resources/tests.rs` 使用真实 ELF 验证三类资源失败均不执行目标、正确用途的目录被实际访问、未使用组非法也拒绝、严格 JSON/边界与 legacy 真实启动。普通文件系统伪组会被内核边界拒绝。本机没有可写委派 cgroup，成功组内启动与完整资源约束未在 Host 实测；有条件的正向验收依赖 supervisor/sys 的显式 ignored 测试。规格见 `specs/implementation/supervisor-process.md` 的 Host 段落。
+
+## 新鲜运行实例观测
+
+`ObservationRequest { request_id, deadline, require_resources }` 与字段私有的 `FreshObservation` 供本地 `HostedStrategy`、远程 `RemoteHostedStrategy` 以及完成提升后的 `rebuild::Hosted` 使用。`observe_process` 读取真实持有进程；`begin_observation/poll_observation/cancel_observation` 复用报告会话的 mode 2 检查点挑战。调用方必须显式批准实际镜像支持该 SDK 模式；纯 CaptureOnly 拒绝，旧模式 0/1 不改变。
+
+普通维护只分发和保存固定查询响应，周期 READY 在查询期间仅保留最新水位。显式冷 `poll_observation` 才读取完整恢复闭包，核对执行端实际报告前缀、共享 cursor、前后 Registry 镜像/启动 ticks/身份与配置资源组，并在 I/O 后重新检查原始截止点。周期 READY 可以因发送背压先于较早查询响应到达；查询按发起时固定水位核对，不与后来周期水位混淆。没有待完成查询时 `poll_observation` 不读取恢复对象或 `/proc`。
+
+挑战域同时绑定实际内核 host boot、PID、启动 ticks、实例、共享封口序号、会话 epoch 与外部请求 ID，避免不同进程 incarnation 复用挑战。每个 owner 至多接纳 4096 个不重复的请求 ID；前置资格拒绝不消耗 ID，接纳后即使派发失败也不能重用。每次查询预分配 4096 项真实 `(账户位置, InputSeal 摘要)`，报告发布后只追加，不增加热路径分配；超限仅失败查询。最多保留 16 个已发送但尚无应答的关闭挑战，原期限内仍占用控制通道，超期后只释放互斥而不遗忘迟到证据；容量满拒绝后续查询，正常交易不受影响。当前版本不依据超时或 FIFO 自动回收无应答墓碑，只有认证匹配响应会排空对应项。
+
+查询与封口、安装、换源、退休串行。取消没有 worker 取消 opcode，因此提前取消仍 Busy 至匹配响应或原截止；所有已有报告接收入口会吸收自己的已关闭挑战。查询到期、取消、前缀容量不足不暂停回调、不终止子进程、不改变交易授权。结果只证明本次采样，不能产生全局配置 Applied。规格见 `specs/implementation/runtime-observation.md`。单元测试覆盖前缀保留/预算、旧挑战身份/epoch/最低水位、取消排空、周期与查询应答乱序及请求容量；真实进程验证由 `tests/rebuild_process/fresh.rs` 提供，沿同 PID 安装后的实际 owner 运行。
+
+慢接收真实进程用例在控制 socket 背压下仍消费 176 条账户记录，核对旧排队查询的完整闭包与实际业务计数；长流末端新查询触及既有 typed 16 MiB 上限时明确拒绝，保留 worker 存活并完成真实 MD/report 退休，不把容量拒绝计作 Fresh 成功。

@@ -1,0 +1,118 @@
+{
+  "scope": "Development evidence; final frozen-source acceptance remains separate",
+  "binary": {
+    "stage": "development candidate; ordered query and periodic READY; before final source freeze",
+    "build_sha256": "da2dc83016c4267c8e568123ed2ab65d5e77f682f2970629130e57c30374538e",
+    "deployed": "/tmp/tw-observe-dev-3/tickwire-counting-worker",
+    "deployed_bytes": 6515632,
+    "deployed_sha256": "ce0a03c790258d0e0f4b145dc16faa4f4e4f4b659454b48f9aa76e880ed3836c"
+  },
+  "result": {
+    "passed": 3,
+    "failed": 0,
+    "seconds": 40.57,
+    "cases": [
+      {
+        "actual": 2,
+        "case": "fresh_minimum_report_floor",
+        "continued": 3,
+        "first_ready": 5,
+        "floor": 0,
+        "pid": 1001111,
+        "resources": null,
+        "same_image": true,
+        "second_ready": 6
+      },
+      {
+        "account_position": 1,
+        "after_cancel_account_position": 2,
+        "cancel_busy_until_actual_reply": true,
+        "case": "fresh_timeout_preserves_worker",
+        "deadline_rejected": true,
+        "missing_resources_rejected": true,
+        "new_query_succeeded": true,
+        "pid": 1001110
+      },
+      {
+        "case": "slow_report_control_reader",
+        "durable_account_position": 176,
+        "final_fresh": "rejected_typed_retained_input_capacity",
+        "market_callbacks_continued": true,
+        "pid": 1001112,
+        "published_accounts": 176,
+        "queued_query_actual": 0,
+        "same_live_worker": true
+      }
+    ]
+  },
+  "valid_red": {
+    "log": "runtime-observation-backpressure-red3.log",
+    "worker": "/tmp/tw-observe-dev-1/tickwire-counting-worker",
+    "worker_sha256": "7f3c46b14fcdc15cc6f74363ae942b2e0a6548ae3a01498a0ce7515f49d43bbf",
+    "pid": 988684,
+    "failure": "Transport(Timeout), actual child exit observed while waiting for report 168",
+    "seconds": 25.09,
+    "query_deadline_seconds": 90,
+    "session_lease_seconds": 180
+  },
+  "non_backpressure_failures": [
+    {
+      "logs": [
+        "runtime-observation-backpressure-red.log",
+        "runtime-observation-backpressure-diagnostic.log"
+      ],
+      "reason": "Original fixture 16 MiB cumulative recovery capacity exhausted at report 93 (Bounds)"
+    },
+    {
+      "log": "runtime-observation-backpressure-red2.log",
+      "reason": "Fixture 30-second pacing wait ended at report 159; no transport timeout proved"
+    },
+    {
+      "log": "runtime-observation-process-green2.log",
+      "reason": "Final helper request gave 5 seconds including actual cold backlog verification; ObservationExpired was correct"
+    },
+    {
+      "log": "runtime-observation-backpressure-green3.log",
+      "reason": "Final Fresh correctly rejected cumulative typed retained inputs above 16 MiB; final test explicitly asserts this boundary"
+    }
+  ],
+  "limits": {
+    "typed_verifier_unchanged": 16777216,
+    "long_fixture_cold_recovery_capacity": 67108864,
+    "long_fixture_trusted_lease_seconds": 180,
+    "long_fixture_initial_query_seconds": 90,
+    "long_fixture_final_query_seconds": 30,
+    "new_unsafe": false,
+    "resources": "None; no positive cgroup claim"
+  },
+  "logs": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red.log",
+      "sha256": "9087dff6c1ca081f181794da077d6c926da7fcf6f8eca8043317754ca7c5aecf"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-diagnostic.log",
+      "sha256": "ac91505a999aa4ecbdf8b43b0b816007a1c2894b29d7c5e82df89bc384ed2530"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red2.log",
+      "sha256": "8bdb9be8e01243502b7ddcc39d546fa9fab1eb95eebaa4002ed88d1a9b35cfb5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red3.log",
+      "sha256": "351651448af59be52fa7cc185ef36fe5d3a40768c7c5017d0e5b4dd174a052b5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green2.log",
+      "sha256": "b3741d6e0f76116b9047626325451af6bda1d163e2722bfa96827fea4f08dad6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-green3.log",
+      "sha256": "ab2245c9afb66f128b6e3c3bb93f53458e7a3b6c448c12ba72ff92c979556ed4"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green4.log",
+      "sha256": "0be7327cd4d419f176daf597026ef600b93fd48d17da179479d8ef9f602d5c36"
+    }
+  ]
+}

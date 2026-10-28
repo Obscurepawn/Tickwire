@@ -1,0 +1,10 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.68s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_sdk-543f50dcd1759897)
+
+running 2 tests
+test checkpoint::tests::cached_or_other_challenge_ready_is_not_fresh_checkpoint_completion ... ok
+test checkpoint::tests::continuous_query_accepts_a_later_actual_prefix_but_not_an_earlier_one ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 148 filtered out; finished in 0.00s
+

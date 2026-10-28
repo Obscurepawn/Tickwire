@@ -26,7 +26,7 @@
 ## 4. 对应规格
 
 - [../../specs/implementation/ipc-codec.md](../../specs/implementation/ipc-codec.md)
-- 机器契约：[../../specs/contracts/ipc-wire-v1.json](../../specs/contracts/ipc-wire-v1.json)（46 个布局）、[../../specs/contracts/ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json)（88 个 golden 向量 + 25 个 semantic case）；校验脚本 [../../scripts/verify-ipc-contract.py](../../scripts/verify-ipc-contract.py)。
+- 机器契约：[../../specs/contracts/ipc-wire-v1.json](../../specs/contracts/ipc-wire-v1.json)（46 个布局）、[../../specs/contracts/ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json)（94 个 golden 向量 + 33 个 semantic case）；校验脚本 [../../scripts/verify-ipc-contract.py](../../scripts/verify-ipc-contract.py)。
 
 ## 5. 构建与测试
 
@@ -37,12 +37,13 @@ cargo clippy -p tickwire-ipc --all-targets -- -D warnings
 cargo fmt --check -p tickwire-ipc
 ```
 
-全部测试为纯字节、跨平台可跑（无 Linux-only 用例，无 bench）。测试分布：`tests/layouts.rs`（46 个布局）、`tests/vectors.rs`（88 个 golden 向量）、`tests/semantics.rs`（11 个语义/异常）、`tests/market_exact.rs`、`tests/layout_extensions.rs`、`tests/release_layouts.rs`、`tests/replay_control.rs`；`tests/fixtures/exact-events/*.hex` 为精确事件样本。
+全部测试为纯字节、跨平台可跑（无 Linux-only 用例，无 bench）。测试分布：`tests/layouts.rs`（46 个布局）、`tests/vectors.rs`（94 个 golden 向量）、`tests/semantics.rs`（11 个语义/异常）、`tests/market_exact.rs`、`tests/layout_extensions.rs`、`tests/release_layouts.rs`、`tests/replay_control.rs`；`tests/fixtures/exact-events/*.hex` 为精确事件样本。
 
 布局由开发时生成器产出（`tools/generate.py wire|tests`），运行库不含生成器。
 
 ## 6. 关键不变量与注意事项
 
+- `CHECKPOINT_OBSERVE_CURRENT=2` / `validate_checkpoint_reply`：纯应答绑定，模式 0/1 保留精确账户水位，模式 2 允许实际 READY 水位超过请求下界。固定 96/256 字节请求/应答及历史向量不变；实际认证、消费前缀、游标与期限由 SDK/Host 核验。
 - **ABI 锁定**：schema major 必须为 1、minor 必须为 0（`schema()`，lib.rs:80）；任何布局字段 offset/size/保留区改动都必须同步 `ipc-wire-v1.json` 并重跑生成器；生成代码携带 `WIRE_CONTRACT_SHA256`，契约改了没重新生成会使 `generated_layouts_match_current_contract` 失败。
 - 序号（sequence/feed_generation/producer_generation/instrument_version/allocation_seq）必须 `< 2^63`，否则 `SequenceExhausted`；未启用的时间字段（flags 位 0/1/2）必须为零；未开 CRC（flags 位 8）时记录/载荷 CRC 必须为零。
 - 深度：买价降序、卖价升序、数量非负，层数 = bid+ask ≤ 4096；≤12 层内联（payload_kind=1），其余走 arena class 1..=4（payload_kind=2），`allocation_seq == sequence`，块与尾部零填充，见 `decode_record`/`validate_arena_payload`。

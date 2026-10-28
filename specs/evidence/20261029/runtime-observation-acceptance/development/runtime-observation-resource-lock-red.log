@@ -1,0 +1,22 @@
+   Compiling tickwire-control-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.47s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_sys-cb93c893da4b8ae6)
+
+running 1 test
+test process_resources::linux::tests::directory_lease_ends_at_owner_drop_even_with_an_inherited_description ... FAILED
+
+failures:
+
+---- process_resources::linux::tests::directory_lease_ends_at_owner_drop_even_with_an_inherited_description stdout ----
+
+thread 'process_resources::linux::tests::directory_lease_ends_at_owner_drop_even_with_an_inherited_description' (1024919) panicked at crates/tickwire-control-sys/src/process_resources/linux/tests.rs:258:83:
+old lease ended: ResourceConflict
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    process_resources::linux::tests::directory_lease_ends_at_owner_drop_even_with_an_inherited_description
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-control-sys --lib`

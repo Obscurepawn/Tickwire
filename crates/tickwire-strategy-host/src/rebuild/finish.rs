@@ -7,6 +7,10 @@ use tickwire_release::{
 };
 impl<R: RecoveryResolver + 'static> Hosted<R> {
     pub(super) fn finish(&mut self, installed: InstalledRebuild) -> Result<PreparedRebuild> {
+        let active = self.live.as_mut().ok_or(Error::NotReady)?;
+        active
+            .readiness
+            .observation_idle(active.clock.sample()?.monotonic.nanos())?;
         let input = installed.input();
         let protocol = self.installation.as_ref().ok_or(Error::NotReady)?;
         if protocol.request != *input.request() {

@@ -152,9 +152,16 @@ fn decode(bytes: &[u8]) -> Result<Snapshot> {
 }
 pub struct FileQuotaStore {
     root: PathBuf,
-    _lock: File,
+    _lock: WriterLock,
     state: Snapshot,
     poisoned: bool,
+}
+struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // A pre-exec child's inherited descriptor is not a store owner.
+        let _ = self.0.unlock();
+    }
 }
 impl FileQuotaStore {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
@@ -181,6 +188,7 @@ impl FileQuotaStore {
             .open(root.join("LOCK"))?;
         lock.try_lock()
             .map_err(|e| std::io::Error::other(e.to_string()))?;
+        let lock = WriterLock(lock);
         let state = match OpenOptions::new()
             .read(true)
             .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
@@ -202,7 +210,7 @@ impl FileQuotaStore {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Snapshot::default(),
             Err(e) => return Err(e),
         };
-        lock.sync_all()?;
+        lock.0.sync_all()?;
         File::open(&root)?.sync_all()?;
         File::open(root.parent().unwrap_or(Path::new("/")))?.sync_all()?;
         Ok(Self {
@@ -257,6 +265,42 @@ impl QuotaStore for FileQuotaStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT: AtomicU64 = AtomicU64::new(1);
+
+    struct Temp(PathBuf);
+    impl Temp {
+        fn new() -> Self {
+            Self(std::env::temp_dir().join(format!(
+                "tickwire-quota-lock-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            )))
+        }
+    }
+    impl Drop for Temp {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn clean_owner_drop_releases_lock_despite_inherited_descriptor() {
+        let temp = Temp::new();
+        let owner = FileQuotaStore::open(&temp.0).unwrap();
+        // try_clone shares the open file description, like a pre-exec child.
+        let inherited = owner._lock.0.try_clone().unwrap();
+        assert!(FileQuotaStore::open(&temp.0).is_err());
+        drop(owner);
+        let replacement = FileQuotaStore::open(&temp.0)
+            .expect("an unrelated inherited descriptor must not extend owner lifetime");
+        drop(inherited);
+        assert!(FileQuotaStore::open(&temp.0).is_err());
+        drop(replacement);
+        assert!(FileQuotaStore::open(&temp.0).is_ok());
+    }
+
     #[test]
     fn snapshot_codec_preserves_closed_history_and_rejects_corruption() {
         let domain = ClockDomain::new([1; 16], 2).unwrap();

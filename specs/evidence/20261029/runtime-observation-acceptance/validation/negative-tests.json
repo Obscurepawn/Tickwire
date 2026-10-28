@@ -1,0 +1,62 @@
+{
+  "status": "verified",
+  "verifier_sha256": "fe1769a709ced639c63f754711597e164af6ffd43f50a264db0277ca9db690bf",
+  "negative_cases": 11,
+  "cases": [
+    {
+      "case": "artifact byte change",
+      "status": "rejected",
+      "reason": "ValueError: artifact digest: runtime-observation-acceptance/host/process.log"
+    },
+    {
+      "case": "signature changed with envelope rehashed",
+      "status": "rejected",
+      "reason": "InvalidSignature: "
+    },
+    {
+      "case": "fee closure removed with envelope rehashed",
+      "status": "rejected",
+      "reason": "ValueError: Spot order or fees not closed"
+    },
+    {
+      "case": "input gap altered with artifact rehashed",
+      "status": "rejected",
+      "reason": "ValueError: input frame CRC"
+    },
+    {
+      "case": "source count mismatch",
+      "status": "rejected",
+      "reason": "ValueError: source input count"
+    },
+    {
+      "case": "two fresh queries reuse challenge after coherent rehash",
+      "status": "rejected",
+      "reason": "ValueError: reused fresh challenge or READY"
+    },
+    {
+      "case": "fresh observation after original deadline",
+      "status": "rejected",
+      "reason": "ValueError: fresh original deadline"
+    },
+    {
+      "case": "duplicate recovery root after coherent rehash",
+      "status": "rejected",
+      "reason": "ValueError: fresh objects must be ordered and unique"
+    },
+    {
+      "case": "historical result presented as fresh",
+      "status": "rejected",
+      "reason": "ValueError: historical result changed original fact or time"
+    },
+    {
+      "case": "premature stop before actual mirror prefix",
+      "status": "rejected",
+      "reason": "ValueError: mirror was not durably caught up before stop"
+    },
+    {
+      "case": "unlisted archive object",
+      "status": "rejected",
+      "reason": "ValueError: unlisted or missing bundle file"
+    }
+  ]
+}

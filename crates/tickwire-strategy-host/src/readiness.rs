@@ -2,8 +2,11 @@ use super::*;
 use tickwire_ipc::HandoverReadyBody;
 mod cache;
 mod capture;
+mod fresh;
 mod install;
 pub(crate) struct ReadyProof {
+    fresh: fresh::State,
+    deferred: Option<HandoverReadyBody>,
     source_spec: LaunchSpec,
     resources: Option<ProcessResources>,
     context: Option<cache::Context>,
@@ -41,6 +44,8 @@ impl ReadyProof {
             None
         };
         Ok(Self {
+            fresh: Default::default(),
+            deferred: None,
             source_spec: spec.clone(),
             context: None,
             cache: Default::default(),
@@ -78,6 +83,12 @@ impl ReadyProof {
         now: u64,
         mut extra: impl FnMut(&ControlEnvelope, &[u8]) -> Result<bool>,
     ) -> Result<()> {
+        self.fresh.flush(lane, now)?;
+        if self.fresh.active.is_none()
+            && let Some(body) = self.deferred.take()
+        {
+            self.observe(body, lane, now)?;
+        }
         for _ in 0..16 {
             let packet = match lane.connection.try_recv() {
                 Ok(Some(p)) => p,
@@ -88,6 +99,9 @@ impl ReadyProof {
                 return Err(Error::Invalid);
             }
             let frame = lane.session.validate(packet.bytes(), now)?;
+            if self.observe_fresh_reply(&frame.envelope, frame.body)? {
+                continue;
+            }
             if extra(&frame.envelope, frame.body)? {
                 continue;
             }
@@ -104,7 +118,12 @@ impl ReadyProof {
                 return Err(Error::Invalid);
             }
             let body = HandoverReadyBody::decode(frame.body)?;
-            self.observe(body, lane, now)?;
+            if self.fresh.active.is_some() {
+                self.fresh.announcement(&body)?;
+                self.deferred = Some(body);
+            } else {
+                self.observe(body, lane, now)?;
+            }
         }
         Ok(())
     }
@@ -207,6 +226,7 @@ impl ReadyProof {
         sub: tickwire_shm::SubscriptionKey,
         clock: &mut SystemClock,
     ) -> Result<tickwire_runtime::node::HandoverReadiness> {
+        self.observation_idle(clock.sample()?.monotonic.nanos())?;
         self.seal_sequence = self.seal_sequence.checked_add(1).ok_or(Error::Invalid)?;
         let mut material = self.identity.instance.to_vec();
         material.extend(self.seal_sequence.to_le_bytes());
@@ -257,6 +277,9 @@ impl ReadyProof {
                 return Err(Error::NotReady);
             }
             let frame = lane.session.validate(packet.bytes(), now)?;
+            if self.observe_fresh_reply(&frame.envelope, frame.body)? {
+                continue;
+            }
             if self.context(lane, now)? != capture_context {
                 return Err(Error::Invalid);
             }

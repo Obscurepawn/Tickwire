@@ -1,0 +1,12 @@
+{
+  "account_fill_verified": true,
+  "account_report": "/tmp/tw-obs-final-2/account-report.json",
+  "account_wal": "/tmp/tw-obs-final-2/exec/account",
+  "event": "laboratory_spot_fill_complete",
+  "fixture_audit": "/tmp/tw-obs-final-2/fixture.jsonl",
+  "input_wal": "/tmp/tw-obs-final-2/exec/input",
+  "logs": "/tmp/tw-obs-final-2/logs",
+  "mirror_records_verified": 8,
+  "mirror_wal": "/tmp/tw-obs-final-2/mirror/journal",
+  "worker_report_position_verified": 8
+}

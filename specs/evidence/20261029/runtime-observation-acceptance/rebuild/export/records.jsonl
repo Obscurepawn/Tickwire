@@ -1,0 +1,12 @@
+{"file":"records/00000000000000000001.cbor","kind":"reactivated","length":249,"sequence":1,"sha256":"b8a74a3a8c81c1b36aa3c4272ee774fff563113850217c7069b3dcc490cfaf13"}
+{"file":"records/00000000000000000002.cbor","kind":"admit","length":461,"sequence":2,"sha256":"639992b957f74eb8edb498060528caef8d2bbdeb56e4b98882f0cab669a6a096"}
+{"file":"records/00000000000000000003.cbor","kind":"ingress_event","length":273,"sequence":3,"sha256":"22caa400a1aa22de702cc44bd2b82e18506c369b2a4ea8dd2e3929a808e636c3"}
+{"file":"records/00000000000000000004.cbor","kind":"strategy_handover","length":265,"sequence":4,"sha256":"b210621013b308c89deafa7a52acc6f3b609150bf0088f9a20dc0beb7b60f723"}
+{"file":"records/00000000000000000005.cbor","kind":"ingress_event","length":312,"sequence":5,"sha256":"ba416f2e7f10a99f14536b653ff66286a79966a4549939c4db320642af69f7fa"}
+{"file":"records/00000000000000000006.cbor","kind":"ingress_event","length":273,"sequence":6,"sha256":"45db338b05bf31e1a2a9c26b7f1f4c7c423f6a480420159a984a7a3d412dc356"}
+{"file":"records/00000000000000000007.cbor","kind":"ingress_event","length":300,"sequence":7,"sha256":"286da890bce74dc6fc66570389747e2274b0217600a8c524f84e6b6032062515"}
+{"file":"records/00000000000000000008.cbor","kind":"fees_reconciled","length":85,"sequence":8,"sha256":"d8d8bbb96be8d1d7011a22fde409ae61df8e9f4a437fc8d5aad6a6d401a368df"}
+{"file":"records/00000000000000000009.cbor","kind":"reactivated","length":249,"sequence":9,"sha256":"b9545f3cf646aa8234165cad2e4aa95d88a2438ce3efaa631322004b79fab5b9"}
+{"file":"records/00000000000000000010.cbor","kind":"reactivated","length":249,"sequence":10,"sha256":"44b6bfddd2c2de2df5226e5b74c3f5078747138f9f5f60ebcff6e2d58226fde2"}
+{"file":"records/00000000000000000011.cbor","kind":"reactivated","length":249,"sequence":11,"sha256":"eb3a8d83f1b2d0d894ccafa9f2a6e70ae9e0ad2b7802f3c390714a39f9862ed0"}
+{"file":"records/00000000000000000012.cbor","kind":"reactivated","length":250,"sequence":12,"sha256":"071cdfcf519748f74fe5a1478b5e69835f7043be5772c5ea8bc3df707cafef1e"}

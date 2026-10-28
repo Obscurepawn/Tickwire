@@ -44,6 +44,8 @@ cargo fmt -p tickwire-control-raft
 
 **protoc 依赖**：`raft 0.7.0` 的 `protobuf-codec` 在依赖构建期调用 protoc（protobuf 3.x）。仓库 `.cargo/config.toml` 已把 `PROTOC` 指向 `scripts/protoc-raft`（优先系统 libprotoc 3.x，否则用 registry 内随附的 3.x 编译器；Apple Silicon 走 x86_64 经 Rosetta，自定义环境可用 `PROTOC=/path/to/protoc` 覆盖）。macOS/Linux 本地单测可跑（`tests/cluster.rs` 三 voter 真实文件提交恢复、`tests/membership.rs` 成员变更、`tests/snapshot_ready.rs` 快照就绪）。
 
+`generation` 模块内锁生命周期回归保留实际 File::try_clone 描述符，依次核对 Directory clone、Staging、Verified/clone 存活时排他，最后 owner 释放后可重开，旧描述符关闭不解除替代 owner 的锁。
+
 ## 关键不变量与注意事项
 
 - **先持久化后发送**：每个 Ready 的 entries 与 HardState 先 `persist` 落盘，之后才把 messages 放入输出；LightReady 的 commit 推进也先持久化（`lib.rs::drive_inner`）。持久写失败使本实例 `poisoned = true`，本轮消息全部不返回。
@@ -52,6 +54,7 @@ cargo fmt -p tickwire-control-raft
 - **提案幂等比对**：`Proposal::matches` 用 term+index+命令 SHA-256 三元组核对，不允许只按 index 认账（`lib.rs::Proposal`）。
 - **入站消息硬校验**：`step` 检查 from/to、term 非零且 <2^63、只放行七种 Raft 消息、Entry 仅 EntryNormal/EntryConfChangeV2、命令 ≤ `max_command_bytes`、Append entries 连续且 term 单调；Heartbeat commit 不得越界（`lib.rs::step`）。
 - **快照只接受本 owner staging 已材料化的闭包**：`step_snapshot` 核对 manifest 发送方/会话/term/ membership，Raft 接受后才让应用 prepare→install；`snapshot_cut` 要求 `application_scanned == store.applied`（`lib.rs::step_snapshot/snapshot_cut`）。
+- **目录锁生命周期**：私有 `WriterLock` 在成功 try_lock 后立即构造，覆盖后续构造失败；正常释放只在最后一个 `Arc<Directory>` 消失时显式 unlock。SnapshotDirectory/Stage/Verified/GenerationStore 共享 owner，单个 wrapper Drop 不提前解锁；fork 继承的裸描述符不构成 owner。
 - **固定三 voter**：`configured_voters()` 绑定本持久存储的 `[u64;3]`；成员替换走 ConfChangeV2 持久条目，joint 多 quorum。
 - 本 crate `#![forbid(unsafe_code)]`；不开放第二个 `Node` 构造或任意驱动入口。
 

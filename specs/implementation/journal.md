@@ -8,7 +8,7 @@
 - `Journal::create(Store, Config)` 建立唯一域/stream 身份。数据批包含空载荷 Begin、1–32 条 DataRecord、空载荷 Seal；整个物理批最多 64 KiB，不能跨段。默认段容量 256 MiB。
 - `append_batch(epoch, payloads)` 先检查数量、长度、epoch 和数值溢出，再执行 I/O。完整批后的一次 `sync_data` 成功才返回 `PhysicalSyncReceipt`；发生 I/O 错误后实例 poisoned。
 - `recover(Store, Option<&PhysicalFrontier>)` 验证所有段和可选外部前缀后，才截断最后未完成批并重新同步。已经完整封口的批，即便提交者没有收到收据，也保留并重放。
-- `FileStore` 用独占文件锁序列化写者，Unix 新建目录权限为 0700。调用者负责已有目录的访问权限和可信父目录；其他程序不能绕过 advisory lock 修改文件。
+- `FileStore` 用独占文件锁序列化写者，Unix 新建目录权限为 0700。锁取得后立即交给私有 guard，构造失败及唯一 owner 正常销毁时显式解锁，再关闭描述符；另一个线程启动子进程时临时继承的描述符副本不能延长已经销毁的 owner 的锁。副本不是独立写者，副本后来关闭也不能解除新 owner 的锁。调用者负责已有目录的访问权限和可信父目录；其他程序不能绕过 advisory lock 修改文件。
 
 `MANIFEST.json` 是带 SHA-256 校验的分段目录元数据，包含 version、config、generation、active_segment，不是业务恢复依赖的 `RecoveryManifest`。段从 1 连续编号；建立新段时先同步新文件和目录，再同步临时 manifest、rename、同步目录。恢复允许最多一个 `active_segment + 1` 的孤儿段，要求所有物理链连续；空中段、缺少 manifest 已指明的段或更大的段号差都拒绝。
 

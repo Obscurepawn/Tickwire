@@ -1,0 +1,36 @@
+   Compiling aho-corasick v1.1.5
+   Compiling syn v3.0.9
+   Compiling serde_json v1.0.145
+   Compiling thiserror-impl v1.0.69
+   Compiling getset v0.1.7
+   Compiling thiserror v1.0.69
+   Compiling regex-automata v0.4.18
+   Compiling serde_derive v1.0.229
+   Compiling regex v1.13.1
+   Compiling protobuf-build v0.14.1
+   Compiling raft-proto v0.7.0
+   Compiling serde v1.0.229
+   Compiling erased-serde v0.3.31
+   Compiling tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+   Compiling tickwire-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-quota)
+   Compiling slog v2.8.2
+   Compiling raft v0.7.0
+   Compiling tickwire-control-raft v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-raft)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.60s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_raft-49087fb2c1d8c0d8)
+
+running 1 test
+
+thread 'generation::tests::clean_final_directory_drop_releases_lock_despite_inherited_descriptor' (1033445) panicked at crates/tickwire-control-raft/src/generation.rs:1102:14:
+an unrelated inherited descriptor must not extend directory lifetime: Store
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test generation::tests::clean_final_directory_drop_releases_lock_despite_inherited_descriptor ... FAILED
+
+failures:
+
+failures:
+    generation::tests::clean_final_directory_drop_releases_lock_despite_inherited_descriptor
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 16 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-control-raft --lib`

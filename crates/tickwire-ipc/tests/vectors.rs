@@ -2702,3 +2702,162 @@ fn golden_rebuild_rollback_rejected_frame() {
     assert_eq!(encoded, expected);
     ControlFrame::decode(&expected).unwrap();
 }
+fn bytes_current_observation_request_body() -> Vec<u8> {
+    hex(
+        "111111111111111111111111111111110500000000000000060000000000000022222222222222222222222222222222030000000000000064000000000000000200010000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_current_observation_request_body() {
+    let expected = bytes_current_observation_request_body();
+    let value = CheckpointSealBody {
+        instance_id: [
+            17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
+        ],
+        logical_strategy_id: 5,
+        strategy_generation: 6,
+        challenge: [
+            34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34,
+        ],
+        report_sequence: 3,
+        valid_until_mono_ns: 100,
+        seal_mode: 2,
+        schema: 1,
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(CheckpointSealBody::decode(&expected).unwrap(), value);
+}
+fn bytes_current_observation_request_header() -> Vec<u8> {
+    hex(
+        "545743544c3030310100000080002700e00000000100000022222222222222222222222222222222090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000f15a9ac66776e4a40000000000000000",
+    )
+}
+#[test]
+fn golden_current_observation_request_header() {
+    let expected = bytes_current_observation_request_header();
+    let value = ControlEnvelope {
+        magic: [84, 87, 67, 84, 76, 48, 48, 49],
+        abi_major: 1,
+        header_bytes: 128,
+        opcode: 39,
+        frame_bytes: 224,
+        flags: 1,
+        request_id: [
+            34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34,
+        ],
+        control_epoch: 9,
+        expected_state_version: 3,
+        body_crc32c: 3332004593,
+        header_crc32c: 2766435943,
+        ..Default::default()
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+}
+fn bytes_current_observation_request_frame() -> Vec<u8> {
+    hex(
+        "545743544c3030310100000080002700e00000000100000022222222222222222222222222222222090000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000300000000000000f15a9ac66776e4a40000000000000000111111111111111111111111111111110500000000000000060000000000000022222222222222222222222222222222030000000000000064000000000000000200010000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_current_observation_request_frame() {
+    let expected = bytes_current_observation_request_frame();
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&bytes_current_observation_request_header());
+    encoded.extend_from_slice(&bytes_current_observation_request_body());
+    assert_eq!(encoded, expected);
+    ControlFrame::decode(&expected).unwrap();
+}
+fn bytes_current_observation_reply_body() -> Vec<u8> {
+    hex(
+        "22222222222222222222222222222222030000000000000002000100000000001111111111111111111111111111111105000000000000000600000000000000050000000000000006000000000000000700000000000000333333333333333333333333333333333333333333333333333333333333333344444444444444444444444444444444444444444444444444444444444444445555555555555555555555555555555555555555555555555555555555555555500000000000000040000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_current_observation_reply_body() {
+    let expected = bytes_current_observation_reply_body();
+    let value = CheckpointSealReplyBody {
+        challenge: [
+            34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34,
+        ],
+        report_sequence: 3,
+        seal_mode: 2,
+        schema: 1,
+        ready: HandoverReadyBody {
+            instance_id: [
+                17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17, 17,
+            ],
+            logical_strategy_id: 5,
+            strategy_generation: 6,
+            exec_report_sequence: 5,
+            report_ring_sequence: 6,
+            ledger_sequence: 7,
+            checkpoint_digest: [
+                51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+                51, 51, 51, 51, 51, 51, 51, 51, 51, 51, 51,
+            ],
+            orders_digest: [
+                68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+                68, 68, 68, 68, 68, 68, 68, 68, 68, 68, 68,
+            ],
+            input_seal_digest: [
+                85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85,
+                85, 85, 85, 85, 85, 85, 85, 85, 85, 85, 85,
+            ],
+            checkpoint_bytes: 80,
+            input_seal_bytes: 64,
+            ready_sequence: 8,
+        },
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(CheckpointSealReplyBody::decode(&expected).unwrap(), value);
+}
+fn bytes_current_observation_reply_header() -> Vec<u8> {
+    hex(
+        "545743544c3030310100000080002800800100000a000000222222222222222222222222222222220900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000002e947fad1f4a664c0000000000000000",
+    )
+}
+#[test]
+fn golden_current_observation_reply_header() {
+    let expected = bytes_current_observation_reply_header();
+    let value = ControlEnvelope {
+        magic: [84, 87, 67, 84, 76, 48, 48, 49],
+        abi_major: 1,
+        header_bytes: 128,
+        opcode: 40,
+        frame_bytes: 384,
+        flags: 10,
+        request_id: [
+            34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34, 34,
+        ],
+        control_epoch: 9,
+        expected_state_version: 3,
+        body_crc32c: 2910819374,
+        header_crc32c: 1281772063,
+        ..Default::default()
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+}
+fn bytes_current_observation_reply_frame() -> Vec<u8> {
+    hex(
+        "545743544c3030310100000080002800800100000a000000222222222222222222222222222222220900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000003000000000000002e947fad1f4a664c000000000000000022222222222222222222222222222222030000000000000002000100000000001111111111111111111111111111111105000000000000000600000000000000050000000000000006000000000000000700000000000000333333333333333333333333333333333333333333333333333333333333333344444444444444444444444444444444444444444444444444444444444444445555555555555555555555555555555555555555555555555555555555555555500000000000000040000000000000000800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_current_observation_reply_frame() {
+    let expected = bytes_current_observation_reply_frame();
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&bytes_current_observation_reply_header());
+    encoded.extend_from_slice(&bytes_current_observation_reply_body());
+    assert_eq!(encoded, expected);
+    ControlFrame::decode(&expected).unwrap();
+}

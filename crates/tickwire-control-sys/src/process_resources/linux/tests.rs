@@ -247,3 +247,18 @@ fn changed_preexec_snapshot_prevents_target_execution() {
     assert!(!marker.exists());
     std::fs::remove_file(file).unwrap();
 }
+
+#[test]
+fn directory_lease_ends_at_owner_drop_even_with_an_inherited_description() {
+    let root = crate::PrivateDirectory::create_in(Path::new("/tmp"), "tw-lease-owner").unwrap();
+    let first = files::DirectoryLease::acquire(File::open(root.path()).unwrap()).unwrap();
+    let inherited = first.try_clone().unwrap();
+    assert!(files::DirectoryLease::acquire(File::open(root.path()).unwrap()).is_err());
+    drop(first);
+    let second =
+        files::DirectoryLease::acquire(File::open(root.path()).unwrap()).expect("old lease ended");
+    drop(inherited);
+    assert!(files::DirectoryLease::acquire(File::open(root.path()).unwrap()).is_err());
+    drop(second);
+    drop(files::DirectoryLease::acquire(File::open(root.path()).unwrap()).unwrap());
+}

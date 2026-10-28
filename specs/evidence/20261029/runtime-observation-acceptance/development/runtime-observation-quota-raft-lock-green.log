@@ -1,0 +1,105 @@
+   Compiling tickwire-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-quota)
+   Compiling tickwire-control-raft v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-raft)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.25s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_raft-49087fb2c1d8c0d8)
+
+running 17 tests
+test snapshot::tests::literal_manifest_roundtrip_and_exact_tail ... ok
+test snapshot::tests::missing_root_duplicate_objects_and_limits_are_rejected ... ok
+test membership::tests::independent_request_literal_and_snapshot_history_are_strict ... ok
+test generation::tests::missing_mismatched_and_out_of_order_chunks_do_not_publish ... ok
+test generation::tests::clean_final_directory_drop_releases_lock_despite_inherited_descriptor ... ok
+test generation::tests::current_missing_object_or_corrupt_pointer_never_falls_back_to_an_older_directory ... ok
+test generation::tests::real_directory_stages_verified_objects_before_current_publication ... ok
+test generation::tests::legacy_current_is_read_without_guessing_or_deleting_the_unknown_previous ... ok
+test generation::tests::cleanup_keeps_current_and_every_pinned_snapshot_reader ... ok
+test generation::tests::failed_capacity_cleanup_cannot_allocate_or_publish_a_replacement ... ok
+test generation::tests::every_object_write_sync_rename_and_manifest_failure_leaves_current_unchanged ... ok
+test generation::tests::disconnected_staging_cannot_permanently_exhaust_generation_capacity ... ok
+test generation::tests::reopening_same_directory_clone_never_revalidates_a_previous_node_receipt ... ok
+test generation::tests::directory_clones_cannot_open_two_active_nodes_even_after_compaction ... ok
+test generation::tests::actual_raft_compacts_and_reopens_snapshot_with_only_committed_tail_history ... ok
+test generation::tests::every_real_wal_and_current_write_failure_withholds_installation_and_reopens_one_cut ... ok
+test generation::tests::concurrent_clone_gc_cannot_delete_directory_before_its_lease_is_registered ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.09s
+
+     Running tests/cluster.rs (/tmp/tickwire-progress-20261028/target/debug/deps/cluster-15c67a0a72d0a7a9)
+
+running 12 tests
+test malformed_append_indices_are_rejected_before_entering_raft ... ok
+test heartbeat_cannot_commit_beyond_the_actual_local_log ... ok
+test bootstrap_requires_three_distinct_bound_voters_and_recovery_identity_matches ... ok
+test a_positive_vote_survives_reopen_and_prevents_a_second_vote_in_that_term ... ok
+test authenticated_sender_and_network_message_kind_are_checked ... ok
+test confstate_apply_sync_failures_withhold_messages_and_recover_one_complete_membership ... ok
+test bounded_ready_turns_yield_without_poisoning_and_preserve_applied_commands ... ok
+test every_ready_and_apply_sync_failure_withholds_ack_and_recovers_a_valid_prefix ... ok
+test isolated_leader_cannot_complete_a_safe_read_or_new_command ... ok
+test three_real_file_voters_commit_and_recover_the_same_complete_commands ... ok
+test dropped_completed_tickets_are_reaped_but_isolated_drops_keep_underlying_read_budget ... ok
+test canceled_read_tickets_stay_bounded_without_quorum_then_release_on_completion ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.45s
+
+     Running tests/membership.rs (/tmp/tickwire-progress-20261028/target/debug/deps/membership-98bb375f93259d8a)
+
+running 6 tests
+test persisted_join_accepts_only_authenticated_replication_from_a_non_origin_leader ... ok
+test learner_admission_is_a_durable_entry_with_an_exact_retry_result ... ok
+test reconnect_erases_promotion_evidence_and_retired_packets_do_not_advance_term ... ok
+test explicit_join_catchup_joint_and_leave_preserve_both_quorums ... ok
+test once_joined_then_retired_identity_never_reopens_join_exception_after_recovery ... ok
+test lifetime_identity_limit_does_not_discard_old_receipts ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.76s
+
+     Running tests/snapshot_ready.rs (/tmp/tickwire-progress-20261028/target/debug/deps/snapshot_ready-b53c51ef692e7177)
+
+running 4 tests
+test bad_business_snapshot_does_not_replace_current_or_emit_success ... ok
+test received_snapshot_is_prepared_before_current_then_installed_before_reply ... ok
+test post_current_application_failure_poison_withholds_reply_but_reopens_exact_new_base ... ok
+test joining_snapshot_checks_manifest_sender_and_session_before_term_or_business_changes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.32s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_quota-235c0828ee2b7e4a)
+
+running 5 tests
+test preparation_tests::allocation_and_renewal_only_publish_from_committed_tickets ... ok
+test files::tests::malformed_persisted_reservation_is_rejected ... ok
+test files::tests::snapshot_codec_preserves_closed_history_and_rejects_corruption ... ok
+test preparation_tests::prepared_windows_are_atomic_and_stale_tickets_cannot_commit ... ok
+test files::tests::clean_owner_drop_releases_lock_despite_inherited_descriptor ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/quota.rs (/tmp/tickwire-progress-20261028/target/debug/deps/quota-a6171091eb04d8c6)
+
+running 10 tests
+test cas_prevents_stale_coordinator_allocation_and_live_owners_share_limits ... ok
+test commit_failure_poison_and_recovery_preserve_maybe_issued_capacity ... ok
+test domain_rollback_conflict_and_cooldown_never_reuse_old_permission ... ok
+test exact_retry_rechecks_expiry_and_never_refunds_a_no_bytes_attempt ... ok
+test independent_producers_can_each_start_at_sequence_one ... ok
+test recovery_capacity_and_stopped_receipt_do_not_regrant_spent_units ... ok
+test lease_renewal_does_not_extend_old_grant_or_resurrect_expired_owner ... ok
+test restart_retains_unacknowledged_allocations_and_does_not_remint_owner ... ok
+test shared_multi_bucket_allocation_and_local_consumption_are_atomic ... ok
+test window_rotation_never_resets_or_overlaps_prior_window_capacity ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_control_raft
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_quota
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

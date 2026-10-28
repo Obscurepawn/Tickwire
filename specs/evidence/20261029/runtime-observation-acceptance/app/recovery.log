@@ -1,0 +1,3 @@
+{"event":"started","recover":true}
+{"account_frozen":true,"calibrated":false,"event":"health","market_live":false,"private_receiving":false,"sender_halted":true}
+{"account_frozen":true,"event":"stopped","ledger_sequence":8}

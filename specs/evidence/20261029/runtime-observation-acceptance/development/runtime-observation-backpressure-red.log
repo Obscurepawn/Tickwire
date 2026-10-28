@@ -1,0 +1,29 @@
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.04s
+     Running tests/capture_process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/capture_process-2fae9521ca49ef61)
+
+running 1 test
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[247,146,107,178,74,190,218,196,55,30,0,100,134,244,158,126,4,24,154,244,127,210,145,31,182,242,254,1,77,183,163,175],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":1,"worker_pid":981227}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":1,"report_sequence":1,"worker_pid":981227}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[85,202,35,189,249,3,201,247,104,132,136,182,255,58,47,163,8,240,36,241,85,17,167,178,26,253,183,223,21,85,44,77],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":2,"worker_pid":981227}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":2,"report_sequence":1,"worker_pid":981227}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[39,45,40,213,196,158,8,75,91,148,200,236,44,188,246,12,101,121,173,109,58,192,238,237,26,177,70,212,202,228,232,77],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":3,"worker_pid":981227}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":3,"report_sequence":1,"worker_pid":981227}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[236,136,135,199,126,6,137,62,25,62,245,162,120,134,11,247,40,189,250,249,137,254,37,18,81,65,29,21,0,59,188,242],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":4,"worker_pid":981227}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":4,"report_sequence":1,"worker_pid":981227}
+counting strategy stopped: Bounds
+{"error":"Closed","event":"md_subscriber_closed","pid":981227,"stage":"Active"}
+
+thread 'rebuild::fresh::slow_report_control_reader_does_not_stop_account_or_market_callbacks' (981225) panicked at crates/tickwire-strategy-host/tests/rebuild_process/fresh.rs:400:22:
+slow reader must not kill worker: Supervisor(Exited)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test rebuild::fresh::slow_report_control_reader_does_not_stop_account_or_market_callbacks ... FAILED
+
+failures:
+
+failures:
+    rebuild::fresh::slow_report_control_reader_does_not_stop_account_or_market_callbacks
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 11.17s
+
+error: test failed, to rerun pass `-p tickwire-strategy-host --test capture_process`

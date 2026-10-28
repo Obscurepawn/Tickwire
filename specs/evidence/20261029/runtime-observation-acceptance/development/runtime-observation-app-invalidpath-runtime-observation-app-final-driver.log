@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py", line 61, in <module>
+    consumed=wait(lambda:next((readj(p) for p in (root/'exec/reports').glob('CONSUMED-*.json')),None),process=run,label='real worker consumption')
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py", line 29, in wait
+    if process is not None and process.poll() is not None:raise AssertionError(f'{label}: process exited {process.returncode}')
+                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: real worker consumption: process exited 1

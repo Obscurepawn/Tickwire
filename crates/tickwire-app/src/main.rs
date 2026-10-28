@@ -145,6 +145,19 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
             .map_err(|e| format!("quota configuration: {e:?}"))?;
         (None, built.endpoint, Some(built.coordinator))
     };
+    let mut observation = if let Some(settings) = &config.observation {
+        let mut clock = tickwire_binance_clock::SystemClock::new(domain)
+            .map_err(|e| format!("observation clock: {e:?}"))?;
+        let inbox = tickwire_app::observation::ObservationInbox::open(
+            settings.clone(),
+            &config.policy,
+            plane.clone(),
+            &mut clock,
+        )?;
+        Some((inbox, clock))
+    } else {
+        None
+    };
     let credentials = config.credentials(&baseline, &material);
     let reconciliation_credentials = config.credentials(&baseline, &material);
     let authentication = config.authentication(&material);
@@ -304,6 +317,10 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
                         );
                         tickwire_runtime::node::Error::Strategy
                     })?;
+            }
+            if let Some((inbox, clock)) = &mut observation
+                && let Err(error) = inbox.poll(node.strategy_mut().as_mut(), clock) {
+                eprintln!("{}",serde_json::json!({"event":"observation_provider_closed","error":error.to_string()}));
             }
             if let (Some(loader),Some(settings))=(&mut shadows,&shadow_settings) {
                 loader.poll(node.strategy_mut().as_mut(),settings,plane.clone()).map_err(|error|{

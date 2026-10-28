@@ -8,7 +8,7 @@
 
 | 编号 | 约束 | 生产入口与验证 |
 |---|---|---|
-| IPC-C01 | 46 个布局均按固定 offset 小端读写；输入与输出长度必须精确相等 | `Wire`；46 个 `layouts` 测试及 88 个 `vectors` 测试 |
+| IPC-C01 | 46 个布局均按固定 offset 小端读写；输入与输出长度必须精确相等 | `Wire`；46 个 `layouts` 测试及 94 个 `vectors` 测试 |
 | IPC-C02 | 所有显式 reserved 字节为零，编码器始终写零 | 生成的 `Wire::decode/encode`；逐个翻转全部布局的 reserved 字节 |
 | IPC-C03 | 消息类型选择唯一长度与字段白名单；未用联合体字段为零 | `decode_record` 与生成的 `validate_fields`；全部 31 个消息 ID 的静态分支 |
 | IPC-C04 | report 数值有效位满足 allowed/required mask；未声明值为零，command/report kind 匹配消息类型 | `validate_fields`；`fill_*` semantic cases |
@@ -39,7 +39,7 @@ cargo clippy -p tickwire-ipc --all-targets -- -D warnings
 
 先将接口与生成的 golden 测试写入工作树，再运行测试。首轮因 `MarketRecord`、`RecordHeader` 等类型尚未实现而编译失败，原始日志已归档。随后实现固定布局、消息验证、上下文验证并加入截断和篡改用例。
 
-早期首轮回归为 110 个 Rust 测试通过：36 个固定布局测试、63 个 golden vector 测试、11 个语义与异常输入测试。契约随后扩展（新增布局与消息），当前工作树测试构成以源码为准：`tests/layouts.rs` 46 项、`tests/vectors.rs` 88 项、`tests/semantics.rs` 11 项、`tests/market_exact.rs` 6 项、`tests/layout_extensions.rs` 3 项、`tests/release_layouts.rs` 2 项、`tests/replay_control.rs` 5 项（精确总数与通过数以 `cargo test -p tickwire-ipc` 输出为准）。其中 `all_declared_semantic_cases` 实际遍历并断言契约全部 25 个案例。期望错误只用于测试断言；生产函数根据输入字段、CRC、hash 和上下文独立计算结果。Clippy 使用 `-D warnings` 通过。
+早期首轮回归为 110 个 Rust 测试通过：36 个固定布局测试、63 个 golden vector 测试、11 个语义与异常输入测试。契约随后扩展（新增布局与消息），当前工作树测试构成以源码为准：`tests/layouts.rs` 46 项、`tests/vectors.rs` 94 项、`tests/semantics.rs` 11 项、`tests/market_exact.rs` 6 项、`tests/layout_extensions.rs` 3 项、`tests/release_layouts.rs` 2 项、`tests/replay_control.rs` 5 项（精确总数与通过数以 `cargo test -p tickwire-ipc` 输出为准）。其中 `all_declared_semantic_cases` 实际遍历并断言契约全部 33 个案例。期望错误只用于测试断言；生产函数根据输入字段、CRC、hash 和上下文独立计算结果。Clippy 使用 `-D warnings` 通过。
 
 ## 后续模块的责任
 
@@ -62,3 +62,7 @@ kind 8 使用 opcode 41 请求、opcode 42 响应；成功 flags=10，显式拒�
 声明重建安装复用 op41/42 的 ReplayControlBody，kind9（RebuildInstall）。expected_sequence 固定窗口 warm 行数，expected_cut_digest 固定 WindowSeal 摘要，operation_id/revision 固定 schema4 操作；拒绝 flags18/status1..3 与 kind6–8 相同。布局、偏移、保留区不变，增加 7 个独立 golden 向量；此前 74 个向量保持原值。安装的同进程事实与持久输入链由 SDK/Host 检查。
 
 回退完成使用同一控制消息的 kind10（RebuildRollback），expected_sequence 为 0，expected_cut_digest 为原 Installation 摘要，请求对象绑定独立 probe Completion 与完整恢复对象列表。新增 7 个向量覆盖请求、成功及拒绝；与 kind9 合计新增 14 个，原有 74 个向量保持原值，当前共 88 个。
+
+## 持续运行的检查点查询
+
+检查点请求和应答保持原 96/256 字节布局。`seal_mode=2`（ObserveCurrent）将请求账户水位作为下界，应答仍回显该值，内部 READY 记录实际消费位置；模式 0/1 仍要求精确相等。`validate_checkpoint_reply` 对身份、挑战、模式、序号和两类水位关系做纯值核验，SDK 另核对当前认证会话与请求期限，Host 核验实际前缀、游标和完整闭包。新增 6 个 golden 向量与 8 个语义案例，既有 88 个向量逐字节保持不变。运行接线见[实际实例观测](runtime-observation.md)。

@@ -1,0 +1,4 @@
+    Checking tickwire-control-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-sys)
+    Checking tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+    Checking tickwire-recovery v0.1.0 (/home/obscure/Tickwire/crates/tickwire-recovery)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.42s

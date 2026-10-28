@@ -82,6 +82,8 @@ pub struct Deployment {
         Option<tickwire_binance_account::reconciliation::income_association::AssociationAuthority>,
     #[serde(default)]
     pub control: Option<crate::control::Config>,
+    #[serde(default)]
+    pub observation: Option<crate::observation::Config>,
     pub stop_file: PathBuf,
     pub maximum_runtime_ns: u64,
 }

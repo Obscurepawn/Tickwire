@@ -78,7 +78,7 @@ impl FileBlobReader {
 /// Exclusive, trusted private directory; no deletion API is exposed.
 pub struct FileBlobStore {
     root: PathBuf,
-    _lock: File,
+    _lock: WriterLock,
     counter: u64,
 }
 impl FileBlobStore {
@@ -114,7 +114,8 @@ impl FileBlobStore {
             .open(lock_path)?;
         lock.try_lock()
             .map_err(|e| io::Error::other(e.to_string()))?;
-        lock.sync_all()?;
+        let lock = WriterLock(lock);
+        lock.0.sync_all()?;
         File::open(&root)?.sync_all()?;
         // Also covers retry after a prior mkdir succeeded but parent sync failed.
         File::open(
@@ -219,5 +220,47 @@ impl BlobStore for FileBlobStore {
         // A failed rename can leave an unpublished temporary file, never a binding.
         let _ = fs::remove_file(&path);
         result
+    }
+}
+
+struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // Child launch may temporarily inherit this open file description.
+        // Only this store owns the writer lock, not the inherited copy.
+        let _ = self.0.unlock();
+    }
+}
+
+#[cfg(test)]
+mod lock_owner_tests {
+    use super::*;
+
+    #[test]
+    fn owner_drop_releases_lock_while_inherited_description_remains() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "tickwire-blob-lock-{}-{unique}",
+            std::process::id()
+        ));
+        let owner = FileBlobStore::open(&root).unwrap();
+        let inherited = owner._lock.0.try_clone().unwrap();
+        assert!(
+            FileBlobStore::open(&root).is_err(),
+            "live owner is exclusive"
+        );
+        drop(owner);
+        let replacement = FileBlobStore::open(&root).expect("original owner ended");
+        drop(inherited);
+        assert!(
+            FileBlobStore::open(&root).is_err(),
+            "old copy cannot unlock replacement"
+        );
+        drop(replacement);
+        drop(FileBlobStore::open(&root).unwrap());
+        fs::remove_dir_all(root).unwrap();
     }
 }

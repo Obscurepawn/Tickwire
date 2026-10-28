@@ -1,0 +1,13 @@
+[package]
+name = "tickwire-observation-verifier"
+version = "0.0.0"
+edition = "2024"
+[dependencies]
+tickwire-app = { path = "/home/obscure/Tickwire/crates/tickwire-app" }
+tickwire-strategy-sdk = { path = "/home/obscure/Tickwire/crates/tickwire-strategy-sdk" }
+tickwire-recovery = { path = "/home/obscure/Tickwire/crates/tickwire-recovery" }
+tickwire-release = { path = "/home/obscure/Tickwire/crates/tickwire-release" }
+tickwire-ipc = { path = "/home/obscure/Tickwire/crates/tickwire-ipc" }
+tickwire-account-codec = { path = "/home/obscure/Tickwire/crates/tickwire-account-codec" }
+tickwire-replica = { path = "/home/obscure/Tickwire/crates/tickwire-replica" }
+serde_json = "1"

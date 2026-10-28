@@ -1,6 +1,7 @@
 //! Qualified worker: authenticated launcher policies are the unsafe SHM admission boundary.
 use crate::bootstrap::{Bootstrap, Endpoint, JoinBootstrap};
 mod expansion;
+mod observation;
 mod rebuild;
 use crate::market_transition as transition_control;
 use crate::{CommandStore, Error, IntentWriter, MarketReplica, Result, Strategy};
@@ -653,6 +654,10 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
     let domain = clock.domain();
     let remote = config.external_market.is_some();
     let mut pending_seal: Option<(ControlEnvelope, tickwire_ipc::CheckpointSealBody)> = None;
+    let mut pending_observation: Option<observation::Pending> = None;
+    // Periodic READY is a latest-state announcement, not a per-request receipt.
+    // Keep one unsent announcement so a slow control reader cannot stop inputs.
+    let mut pending_ready: Option<Vec<u8>> = None;
     let mut callbacks_paused = false;
     let mut pending_replay_install: Option<tickwire_ipc::ReplayControlBody> = None;
     let mut replay_completion_pending = false;
@@ -740,7 +745,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 },
                 &crate::bootstrap::wire_bytes(&ready)?,
             )?;
-            report.send(&frame, &[], Instant::now() + Duration::from_millis(100))?;
+            pending_ready = Some(frame);
         }
         if let Some((request, seal)) = &pending_seal {
             if now(&mut clock)? >= seal.valid_until_mono_ns
@@ -751,6 +756,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 return Err(Error::Stale);
             }
             if account_mirror.position() == Some(seal.report_sequence) {
+                pending_ready = None;
                 if let Some((cut, _)) = strategy.committed() {
                     recovery
                         .as_mut()
@@ -788,6 +794,69 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 pending_seal = None;
             }
         }
+        if let Some(query) = &mut pending_observation {
+            let done = query.drive(
+                account_mirror.position(),
+                || now(&mut clock),
+                |request, seal| {
+                    pending_ready = None;
+                    if let Some((cut, _)) = strategy.committed() {
+                        recovery
+                            .as_mut()
+                            .ok_or(Error::NotReady)?
+                            .merged_checkpoint(cut)?;
+                    }
+                    ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
+                    let ready = account_mirror.ready(
+                        &config.market.local,
+                        reports.last_ring_sequence()?,
+                        ready_sequence,
+                        recovery.as_ref().ok_or(Error::NotReady)?,
+                        &strategy.checkpoint()?,
+                    )?;
+                    // The query may replace the last unsent periodic snapshot.
+                    // Preserve its new state for ordinary consumption receipts too,
+                    // including when no subsequent account record ever arrives.
+                    let mut request_id = config.market.local.instance;
+                    request_id[..8].copy_from_slice(&ready_sequence.to_le_bytes());
+                    pending_ready = Some(report_session.encode(
+                        ControlEnvelope {
+                            opcode: 37,
+                            flags: 32,
+                            request_id,
+                            ..Default::default()
+                        },
+                        &crate::bootstrap::wire_bytes(&ready)?,
+                    )?);
+                    let reply = tickwire_ipc::CheckpointSealReplyBody {
+                        challenge: seal.challenge,
+                        report_sequence: seal.report_sequence,
+                        seal_mode: seal.seal_mode,
+                        schema: 1,
+                        ready,
+                    };
+                    Ok(report_session.encode(
+                        ControlEnvelope {
+                            opcode: 40,
+                            flags: 10,
+                            ..request.clone()
+                        },
+                        &crate::bootstrap::wire_bytes(&reply)?,
+                    )?)
+                },
+                |bytes| transition_control::try_send(&mut report, bytes),
+            )?;
+            if done {
+                pending_observation = None;
+            }
+        }
+        // Request-bound responses get the next available slot ahead of periodic
+        // announcements. An unsent periodic value may be replaced by a newer one.
+        observation::send_announcement(
+            &mut pending_ready,
+            pending_observation.is_some() || !expansion_replies.is_empty(),
+            |frame| transition_control::try_send(&mut report, frame),
+        )?;
         let count = if callbacks_paused || transition_paused || pending_seal.is_some() {
             0
         } else {
@@ -1019,7 +1088,17 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 }
                 let received_at = now(&mut clock)?;
                 let frame = report_session.validate(packet.bytes(), received_at)?;
+                if pending_observation
+                    .as_ref()
+                    .is_some_and(|query| query.expired(received_at))
+                {
+                    pending_observation = None;
+                }
                 if frame.envelope.opcode == 49 {
+                    if pending_observation.is_some() {
+                        return Err(Error::NotReady);
+                    }
+                    pending_ready = None;
                     let request = pending_replay_install.as_ref().ok_or(Error::Identity)?;
                     let status = tickwire_ipc::StatusBody::decode(frame.body)?;
                     let expected = tickwire_ipc::StatusBody {
@@ -1094,6 +1173,10 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                     use tickwire_release::replay::{ControlInput, canonical};
                     let body = tickwire_ipc::ReplayControlBody::decode(frame.body)?;
                     if body.replay_kind == crate::capture::install::rollback::KIND {
+                        if pending_observation.is_some() {
+                            return Err(Error::NotReady);
+                        }
+                        pending_ready = None;
                         let installed = rebuild_installation.as_mut().ok_or(Error::NotReady)?;
                         let object = rebuild::rollback(
                             installed,
@@ -1220,6 +1303,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                                 strategy.supports_market_transition(),
                                 callbacks_paused
                                     || pending_seal.is_some()
+                                    || pending_observation.is_some()
                                     || replay_completion_pending
                                     || expansion.as_ref().is_some_and(|x| x.active()),
                                 at,
@@ -1330,6 +1414,9 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                     let mut installed_ready = false;
                     let (object, commands) = match &input {
                         ControlInput::Capture { pause, .. } => {
+                            if pending_observation.is_some() {
+                                return Err(Error::NotReady);
+                            }
                             let object = strategy.capture(&input)?;
                             callbacks_paused |= *pause;
                             (object, vec![])
@@ -1345,7 +1432,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                             (strategy.store_object(&bytes)?, commands)
                         }
                         ControlInput::Install { request, .. } => {
-                            if pending_seal.is_some() {
+                            if pending_seal.is_some() || pending_observation.is_some() {
                                 return Err(Error::NotReady);
                             }
                             let job: crate::preflight::Job = read_config(
@@ -1440,6 +1527,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                     }
                     report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
                     if installed_ready {
+                        pending_ready = None;
                         pending_replay_install = Some(body.clone());
                         replay_completion_pending = true;
                         ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
@@ -1470,19 +1558,39 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                     continue;
                 }
                 if frame.envelope.opcode == 39 {
-                    if !config.handover_enabled
-                        || pending_seal.is_some()
-                        || expansion.as_ref().is_some_and(|x| x.active())
-                    {
-                        return Err(Error::Identity);
-                    }
-                    let seal = crate::checkpoint::verify_request(
+                    let seal = match crate::checkpoint::verify_request(
                         &frame.envelope,
                         frame.body,
                         &config.report.local,
                         received_at,
                         report_session.deadline(),
-                    )?;
+                    ) {
+                        Ok(seal) => seal,
+                        // Only structurally and identity-valid continuous queries
+                        // use this error. Delayed diagnostics do not stop trading.
+                        Err(Error::Deadline) => continue,
+                        Err(error) => return Err(error),
+                    };
+                    if seal.seal_mode == crate::checkpoint::OBSERVE_CURRENT {
+                        if config.handover_enabled
+                            && pending_seal.is_none()
+                            && pending_observation.is_none()
+                            && !callbacks_paused
+                            && !replay_completion_pending
+                            && !expansion.as_ref().is_some_and(|x| x.active())
+                        {
+                            pending_observation =
+                                Some(observation::Pending::new(frame.envelope.clone(), seal)?);
+                        }
+                        continue;
+                    }
+                    if !config.handover_enabled
+                        || pending_seal.is_some()
+                        || pending_observation.is_some()
+                        || expansion.as_ref().is_some_and(|x| x.active())
+                    {
+                        return Err(Error::Identity);
+                    }
                     if account_mirror
                         .position()
                         .is_some_and(|p| p > seal.report_sequence)

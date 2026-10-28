@@ -1,0 +1,2282 @@
+{
+  "schema": 1,
+  "assembled_utc": "2026-10-28T19:29:31.563415+00:00",
+  "scope": "本机 Linux 固定 release ELF 的持续运行查询、App 持久观测入口及交接/重建兼容验收；无全局配置 Applied、生产资格或性能证明。",
+  "source_binding": {
+    "manifest": "runtime-observation-source-sha256.json",
+    "manifest_sha256": "5a925908a8bee532eea6014717a071bcc2aef7c48c7741ca3b2cba28a0dfa373",
+    "file_count": 902,
+    "git_head": "f53d59d7801df217b6b643679e8368a328ad7e93",
+    "verification_logs": [
+      "runtime-observation-acceptance/build/source-before-build.log",
+      "runtime-observation-acceptance/build/source-after-build.log",
+      "runtime-observation-acceptance/host/source-before.log",
+      "runtime-observation-acceptance/host/source-after.log"
+    ]
+  },
+  "build": {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "-p",
+      "tickwire-lab",
+      "-p",
+      "tickwire-app",
+      "-p",
+      "tickwire-md",
+      "-p",
+      "tickwire-strategy-sdk",
+      "-p",
+      "tickwire-strategy-example",
+      "-p",
+      "tickwire-replica",
+      "-p",
+      "tickwire-lifecycle",
+      "--bins"
+    ],
+    "started_utc": "2026-10-28T19:16:08.637615+00:00",
+    "finished_utc": "2026-10-28T19:18:00.478984+00:00",
+    "elapsed_seconds": 111.84142166600213,
+    "exit_code": 0,
+    "environment": {
+      "CARGO_TARGET_DIR": "/tmp/tickwire-progress-20261028/target"
+    },
+    "log": "runtime-observation-acceptance/build/release-build.log",
+    "binary_manifest": "runtime-observation-acceptance/build/binaries.json",
+    "deployment_strip": "--strip-debug",
+    "binary_count": 8
+  },
+  "scenarios": [
+    {
+      "scenario": "spot-handover-custom",
+      "original_root": "/tmp/tw-obs-handover-1",
+      "started_utc": "2026-10-28T19:18:28.331168+00:00",
+      "completed_utc": "2026-10-28T19:19:31.992862+00:00",
+      "elapsed_seconds": 63.661681261,
+      "generate_command": [
+        "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+        "generate",
+        "--scenario",
+        "spot-handover-custom",
+        "--out",
+        "/tmp/tw-obs-handover-1",
+        "--bin-dir",
+        "/tmp/tw-runtime-observation-bins-1"
+      ],
+      "run_command": [
+        "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+        "run",
+        "--config",
+        "/tmp/tw-obs-handover-1/scenario.json"
+      ],
+      "exit_code": 0,
+      "result_event": "laboratory_spot_handover_complete",
+      "account_fill_verified": true,
+      "mirror_records_verified": 12,
+      "worker_report_position_verified": 12,
+      "coordinator": {
+        "audit_position": 20,
+        "operation_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
+        "pending": 0,
+        "stage": "active_all",
+        "version": 6
+      },
+      "old_worker_exit": {
+        "event": "strategy_retired",
+        "exit_status": "exit status: 0",
+        "generation": 5,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "worker_pid": 1066621
+      },
+      "signed_receipts": [
+        {
+          "phase": "committed",
+          "file": "runtime-observation-acceptance/handover/handover/receipts/0cbd04566e6e849ab8e3921a67294317.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "6d58b720f128adcbd861e9546a248928c1e5ffdeeebe684d57b9bbbda0145ee4",
+          "handover_sequence": 4,
+          "issued_ns": 59834797057800,
+          "valid_until_ns": 63429254032362
+        },
+        {
+          "phase": "prepared",
+          "file": "runtime-observation-acceptance/handover/handover/receipts/2c44d3eb7526036ab774d99630d78ebd.json",
+          "signature_domain": "tickwire.lifecycle.replay-prepared.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "4fb985cee86efaeace115d37ad5c627bb23f90663e6349d262c8c35e8acad784",
+          "handover_sequence": null,
+          "issued_ns": 59834310319707,
+          "valid_until_ns": 63429254032362
+        },
+        {
+          "phase": "released",
+          "file": "runtime-observation-acceptance/handover/handover/receipts/977e5e033c7be242edbbb19d3d09afee.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "f14d5c04652eb484cd7a7cf7e0ab94024142eef638082d83f62542aa1371bd70",
+          "handover_sequence": 4,
+          "issued_ns": 59834883101634,
+          "valid_until_ns": 63429254032362
+        }
+      ],
+      "files": {
+        "run-result.json": "runtime-observation-acceptance/handover/run-result.json",
+        "account-report.json": "runtime-observation-acceptance/handover/account-report.json",
+        "handover/preflight-verified.json": "runtime-observation-acceptance/handover/handover/preflight-verified.json",
+        "handover/preflight-final-verified.json": "runtime-observation-acceptance/handover/handover/preflight-final-verified.json",
+        "fixture.jsonl": "runtime-observation-acceptance/handover/fixture.jsonl",
+        "export/records.jsonl": "runtime-observation-acceptance/handover/export/records.jsonl",
+        "logs/exec.stderr.log": "runtime-observation-acceptance/handover/logs/exec.stderr.log",
+        "logs/coordinator.stdout.log": "runtime-observation-acceptance/handover/logs/coordinator.stdout.log",
+        "logs/coordinator.stderr.log": "runtime-observation-acceptance/handover/logs/coordinator.stderr.log",
+        "handover/keys.json": "runtime-observation-acceptance/handover/handover/keys.json",
+        "export/baseline.cbor": "runtime-observation-acceptance/handover/export/baseline.cbor",
+        "export/input/segment-00000000000000000001.wal": "runtime-observation-acceptance/handover/export/input/segment-00000000000000000001.wal",
+        "export/records/00000000000000000001.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000001.cbor",
+        "export/records/00000000000000000002.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000002.cbor",
+        "export/records/00000000000000000003.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000003.cbor",
+        "export/records/00000000000000000004.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000004.cbor",
+        "export/records/00000000000000000005.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000005.cbor",
+        "export/records/00000000000000000006.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000006.cbor",
+        "export/records/00000000000000000007.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000007.cbor",
+        "export/records/00000000000000000008.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000008.cbor",
+        "export/records/00000000000000000009.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000009.cbor",
+        "export/records/00000000000000000010.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000010.cbor",
+        "export/records/00000000000000000011.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000011.cbor",
+        "export/records/00000000000000000012.cbor": "runtime-observation-acceptance/handover/export/records/00000000000000000012.cbor",
+        "metadata.json": "runtime-observation-acceptance/handover/metadata.json",
+        "live-images.json": "runtime-observation-acceptance/handover/live-images.json",
+        "generate.log": "runtime-observation-acceptance/handover/generate.log",
+        "run.log": "runtime-observation-acceptance/handover/run.log",
+        "source-before.log": "runtime-observation-acceptance/handover/source-before.log",
+        "source-after.log": "runtime-observation-acceptance/handover/source-after.log"
+      },
+      "memfd_sample": {
+        "file": "runtime-observation-acceptance/handover/live-images.json",
+        "binary_name": "tickwire-counting-worker",
+        "matched_deployed_sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30"
+      },
+      "target_pid": 1066650,
+      "rollback_pid": 1066661,
+      "target_final_sequence": 285,
+      "action_remains_consumed": true,
+      "source_replay_pid": 1066660,
+      "source_s_sequence": 2,
+      "source_c_sequence": 10
+    },
+    {
+      "scenario": "spot-rebuild-custom",
+      "original_root": "/tmp/tw-obs-rebuild-1",
+      "started_utc": "2026-10-28T19:18:28.331279+00:00",
+      "completed_utc": "2026-10-28T19:19:31.432921+00:00",
+      "elapsed_seconds": 63.10164029,
+      "generate_command": [
+        "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+        "generate",
+        "--scenario",
+        "spot-rebuild-custom",
+        "--out",
+        "/tmp/tw-obs-rebuild-1",
+        "--bin-dir",
+        "/tmp/tw-runtime-observation-bins-1"
+      ],
+      "run_command": [
+        "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+        "run",
+        "--config",
+        "/tmp/tw-obs-rebuild-1/scenario.json"
+      ],
+      "exit_code": 0,
+      "result_event": "laboratory_spot_rebuild_complete",
+      "account_fill_verified": true,
+      "mirror_records_verified": 12,
+      "worker_report_position_verified": 12,
+      "coordinator": {
+        "audit_position": 19,
+        "operation_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
+        "pending": 0,
+        "stage": "active_all",
+        "version": 6
+      },
+      "old_worker_exit": {
+        "event": "strategy_retired",
+        "exit_status": "exit status: 0",
+        "generation": 5,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "worker_pid": 1066622
+      },
+      "signed_receipts": [
+        {
+          "phase": "released",
+          "file": "runtime-observation-acceptance/rebuild/handover/receipts/3c3724bd54b106bc3982c51305dd05c0.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "1935bc46458e50e99349d494a358b669bc30080fdc7e53eebaf6da6a751f3f72",
+          "handover_sequence": 4,
+          "issued_ns": 59835435811851,
+          "valid_until_ns": 63429253572175
+        },
+        {
+          "phase": "prepared",
+          "file": "runtime-observation-acceptance/rebuild/handover/receipts/6a2b760329e90f7a80a95845bce76b9a.json",
+          "signature_domain": "tickwire.lifecycle.rebuild-prepared.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "bf07e094f83e290462cb646e3176cf4d9e8dc112a96a3486d7511eb43a53397c",
+          "handover_sequence": null,
+          "issued_ns": 59835138277755,
+          "valid_until_ns": 63429253572175
+        },
+        {
+          "phase": "committed",
+          "file": "runtime-observation-acceptance/rebuild/handover/receipts/9047460b5aa28a3c0d516d882b9502df.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "eb104189968abaf5223f114b09edaa60473d2fd78f942d33e6ea7d7780249fea",
+          "handover_sequence": 4,
+          "issued_ns": 59835343901937,
+          "valid_until_ns": 63429253572175
+        }
+      ],
+      "files": {
+        "run-result.json": "runtime-observation-acceptance/rebuild/run-result.json",
+        "account-report.json": "runtime-observation-acceptance/rebuild/account-report.json",
+        "handover/preflight-verified.json": "runtime-observation-acceptance/rebuild/handover/preflight-verified.json",
+        "handover/preflight-final-verified.json": "runtime-observation-acceptance/rebuild/handover/preflight-final-verified.json",
+        "fixture.jsonl": "runtime-observation-acceptance/rebuild/fixture.jsonl",
+        "export/records.jsonl": "runtime-observation-acceptance/rebuild/export/records.jsonl",
+        "logs/exec.stderr.log": "runtime-observation-acceptance/rebuild/logs/exec.stderr.log",
+        "logs/coordinator.stdout.log": "runtime-observation-acceptance/rebuild/logs/coordinator.stdout.log",
+        "logs/coordinator.stderr.log": "runtime-observation-acceptance/rebuild/logs/coordinator.stderr.log",
+        "handover/keys.json": "runtime-observation-acceptance/rebuild/handover/keys.json",
+        "export/baseline.cbor": "runtime-observation-acceptance/rebuild/export/baseline.cbor",
+        "export/input/segment-00000000000000000001.wal": "runtime-observation-acceptance/rebuild/export/input/segment-00000000000000000001.wal",
+        "export/records/00000000000000000001.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000001.cbor",
+        "export/records/00000000000000000002.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000002.cbor",
+        "export/records/00000000000000000003.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000003.cbor",
+        "export/records/00000000000000000004.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000004.cbor",
+        "export/records/00000000000000000005.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000005.cbor",
+        "export/records/00000000000000000006.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000006.cbor",
+        "export/records/00000000000000000007.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000007.cbor",
+        "export/records/00000000000000000008.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000008.cbor",
+        "export/records/00000000000000000009.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000009.cbor",
+        "export/records/00000000000000000010.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000010.cbor",
+        "export/records/00000000000000000011.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000011.cbor",
+        "export/records/00000000000000000012.cbor": "runtime-observation-acceptance/rebuild/export/records/00000000000000000012.cbor",
+        "handover/captured.json": "runtime-observation-acceptance/rebuild/handover/captured.json",
+        "metadata.json": "runtime-observation-acceptance/rebuild/metadata.json",
+        "live-images.json": "runtime-observation-acceptance/rebuild/live-images.json",
+        "generate.log": "runtime-observation-acceptance/rebuild/generate.log",
+        "run.log": "runtime-observation-acceptance/rebuild/run.log",
+        "source-before.log": "runtime-observation-acceptance/rebuild/source-before.log",
+        "source-after.log": "runtime-observation-acceptance/rebuild/source-after.log"
+      },
+      "memfd_sample": {
+        "file": "runtime-observation-acceptance/rebuild/live-images.json",
+        "binary_name": "tickwire-counting-worker",
+        "matched_deployed_sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30"
+      },
+      "target_pid": 1066659,
+      "rollback_pid": 1066663,
+      "target_final_sequence": 285,
+      "action_remains_consumed": true,
+      "capture_pid": 1066659,
+      "target_install_sequence": 10,
+      "prefix_verified": true,
+      "rollback_exited": true
+    }
+  ],
+  "final_rust_gate": {
+    "metadata": "runtime-observation-acceptance/build/check-rust-meta.json",
+    "log": "runtime-observation-acceptance/build/check-rust.log",
+    "reported_batches": {
+      "count": 338,
+      "passed": 2143,
+      "failed": 0,
+      "ignored": 29,
+      "scope": "sum of reported Rust test batches, including nested test subprocess output; not a unique test count"
+    }
+  },
+  "host_process_tests": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "tickwire-strategy-host",
+      "--test",
+      "capture_process",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "environment": {
+      "CARGO_TARGET_DIR": "/tmp/tickwire-progress-20261028/target",
+      "TICKWIRE_CAPTURE_WORKER": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-worker",
+      "TICKWIRE_CAPTURE_EVIDENCE": "/tmp/tickwire-progress-20261028/runtime-observation-capture-evidence",
+      "TICKWIRE_REBUILD_EVIDENCE": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-evidence"
+    },
+    "started_utc": "2026-10-28T19:19:09.087699+00:00",
+    "finished_utc": "2026-10-28T19:20:04.052638+00:00",
+    "elapsed_seconds": 54.964974151000206,
+    "exit_code": 0,
+    "worker_sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30",
+    "worker_sha256_after": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30",
+    "worker_unchanged": true,
+    "source_manifest_verified": true,
+    "test_count": 6,
+    "files": {
+      "host/metadata.json": "runtime-observation-acceptance/host/metadata.json",
+      "host/process.log": "runtime-observation-acceptance/host/process.log",
+      "host/CAPTURE_WINDOW.json": "runtime-observation-acceptance/host/CAPTURE_WINDOW.json",
+      "host/capture-receipt.json": "runtime-observation-acceptance/host/capture-receipt.json",
+      "host/rebuild-result.json": "runtime-observation-acceptance/host/rebuild-result.json"
+    },
+    "rebuild_pid": 1068805,
+    "probe_pid": 1068826,
+    "installed_sequence": 4,
+    "continued_sequence": 9,
+    "scope": "actual MD JOIN server/memfd publisher in parent thread plus independent workers; same PID capture/factory/install/continued input/independent rollback/v4 READY/normal detach, intent lane connected, new_commands=0",
+    "fresh_cases": [
+      {
+        "actual": 2,
+        "case": "fresh_minimum_report_floor",
+        "continued": 3,
+        "first_ready": 5,
+        "floor": 0,
+        "pid": 1068806,
+        "resources": null,
+        "same_image": true,
+        "second_ready": 6
+      },
+      {
+        "account_position": 1,
+        "after_cancel_account_position": 2,
+        "cancel_busy_until_actual_reply": true,
+        "case": "fresh_timeout_preserves_worker",
+        "deadline_rejected": true,
+        "missing_resources_rejected": true,
+        "new_query_succeeded": true,
+        "pid": 1068804
+      },
+      {
+        "case": "slow_report_control_reader",
+        "durable_account_position": 176,
+        "final_fresh": "rejected_typed_retained_input_capacity",
+        "market_callbacks_continued": true,
+        "pid": 1068803,
+        "published_accounts": 176,
+        "queued_query_actual": 0,
+        "same_live_worker": true
+      }
+    ]
+  },
+  "app_observation": {
+    "schema": 1,
+    "scope": "actual App, independent MD and supervised worker; loopback TLS Spot fill plus fees",
+    "root": "/tmp/tw-obs-final-2",
+    "binaries": {
+      "tickwire-app": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-app",
+        "sha256": "603483e3efae9762394e36c9e55683075eee88d6d57866802fa0dd7b7ebd26d2"
+      },
+      "tickwire-counting-v1-worker": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-v1-worker",
+        "sha256": "f0c278d6634b39d2637202289710c1abe86b6ca75fb17f2e104b07d9c47f066c"
+      },
+      "tickwire-counting-worker": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-worker",
+        "sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30"
+      },
+      "tickwire-lab": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+        "sha256": "fc8af53a35e5c756982cd47c9e79383d7f409c9c96f50cb8ca4353600783706c"
+      },
+      "tickwire-lifecycle": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lifecycle",
+        "sha256": "a541dc777456c55666642de39c0c309611f3e1b1d2a5453c455044b228d0b6bb"
+      },
+      "tickwire-md": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-md",
+        "sha256": "a99d211f2d02f3ea59b3b49302c034e716d68c7914cbdf97dc34229c73685c08"
+      },
+      "tickwire-replica-receiver": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-replica-receiver",
+        "sha256": "69b2a1088a8b6c9ccafb0673fbe0a8366a84a50f1ae08e0944ae0dc334536fa1"
+      },
+      "tickwire-strategy-worker": {
+        "path": "/tmp/tw-runtime-observation-bins-1/tickwire-strategy-worker",
+        "sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340"
+      }
+    },
+    "started_mono_ns": 60023864205603,
+    "command_line": [
+      "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py",
+      "--bins",
+      "/tmp/tw-runtime-observation-bins-1",
+      "--root",
+      "/tmp/tw-obs-final-2",
+      "--output",
+      "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance.json",
+      "--verifier",
+      "/tmp/tickwire-progress-20261028/target/debug/tickwire-observation-verifier",
+      "--recover"
+    ],
+    "driver_sha256": "4e99184169496965c87dcdb737377c777d4289e146b04a8fb05e45aebf642584",
+    "observations": [
+      {
+        "outcome": "/tmp/tw-obs-final-2/outcome-01000000000000000000000000000000.json",
+        "request_id": "01000000000000000000000000000000",
+        "pid": 1072531,
+        "challenge": "9103371b693b6e8141b4597a3d02f42d",
+        "ready_sequence": 2,
+        "account_position": 0,
+        "floor": 0,
+        "objects": 14,
+        "sample": {
+          "pid": 1072531,
+          "start_ticks": 6002421,
+          "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+          "image_bytes": 5921280,
+          "exe": "/memfd:tickwire-executable (deleted)",
+          "uid": 1000,
+          "gid": 1000,
+          "sampled_mono_ns": 60024438119430
+        },
+        "semantic_verification": {
+          "account_input_digest": "39e3d82d21705af0eccbbd4294bceef36119b3cad283f3bcfae66a529dc3a5f2",
+          "account_position": 0,
+          "bytes": 6298704,
+          "checkpoint": "b25012192ed819bda8ff4918e02e9def18a3bba6627152653525b95fce7b5b08",
+          "closure_verified": true,
+          "independent_export_prefix_verified": true,
+          "input_seal": "14e477dce4c916746c29334097159aff71409e6dd571a6110129382507b056f1",
+          "objects": 14,
+          "ready_sequence": 2,
+          "request_id": "01000000000000000000000000000000"
+        }
+      },
+      {
+        "outcome": "/tmp/tw-obs-final-2/outcome-02000000000000000000000000000000.json",
+        "request_id": "02000000000000000000000000000000",
+        "pid": 1072531,
+        "challenge": "1024f8c90909593a63018e700640cbed",
+        "ready_sequence": 5,
+        "account_position": 2,
+        "floor": 1,
+        "objects": 14,
+        "sample": {
+          "pid": 1072531,
+          "start_ticks": 6002421,
+          "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+          "image_bytes": 5921280,
+          "exe": "/memfd:tickwire-executable (deleted)",
+          "uid": 1000,
+          "gid": 1000,
+          "sampled_mono_ns": 60024757305182
+        },
+        "semantic_verification": {
+          "account_input_digest": "5c6bed0bd022865914d93f81731bc3beeba880381b0bfcc67a9c0796a51d59c7",
+          "account_position": 2,
+          "bytes": 6514933,
+          "checkpoint": "23c86f67f376e6d68ecd4fb6c4d248e9fb9caf35e38240eb05fb7d25d5d05985",
+          "closure_verified": true,
+          "independent_export_prefix_verified": true,
+          "input_seal": "cb9486ff297c0feb109f6ada6c49b6a9d9784682242c810a7290995d647e7529",
+          "objects": 14,
+          "ready_sequence": 5,
+          "request_id": "02000000000000000000000000000000"
+        }
+      }
+    ],
+    "negative_results": [
+      {
+        "request_id": "03000000000000000000000000000000",
+        "status": "rejected",
+        "outcome": "/tmp/tw-obs-final-2/outcome-03000000000000000000000000000000.json"
+      },
+      {
+        "request_id": "04000000000000000000000000000000",
+        "status": "rejected",
+        "outcome": "/tmp/tw-obs-final-2/outcome-04000000000000000000000000000000.json"
+      },
+      {
+        "request_id": "05000000000000000000000000000000",
+        "status": "expired",
+        "outcome": "/tmp/tw-obs-final-2/outcome-05000000000000000000000000000000.json"
+      },
+      {
+        "request_id": "06000000000000000000000000000000",
+        "status": "unsupported",
+        "outcome": "/tmp/tw-obs-final-2/outcome-06000000000000000000000000000000.json"
+      }
+    ],
+    "worker_before": {
+      "pid": 1072531,
+      "start_ticks": 6002421,
+      "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+      "image_bytes": 5921280,
+      "exe": "/memfd:tickwire-executable (deleted)",
+      "uid": 1000,
+      "gid": 1000,
+      "sampled_mono_ns": 60024333754137
+    },
+    "session": {
+      "schema": 1,
+      "session_id": [
+        21,
+        49,
+        234,
+        123,
+        109,
+        160,
+        54,
+        10,
+        215,
+        160,
+        210,
+        63,
+        175,
+        123,
+        24,
+        121
+      ],
+      "session_number": 1,
+      "binding": {
+        "scope": {
+          "risk_domain_id": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "venue": 1,
+          "environment": "test",
+          "account": 2
+        },
+        "product": "spot",
+        "executor_id": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "owner_generation": 1,
+        "writer_epoch": 4,
+        "domain": {
+          "process_instance": [
+            77,
+            168,
+            244,
+            50,
+            121,
+            98,
+            124,
+            206,
+            164,
+            155,
+            20,
+            163,
+            119,
+            100,
+            202,
+            39
+          ],
+          "generation": 1
+        }
+      },
+      "started_mono_ns": 60024178602591
+    },
+    "identical_request_no_new_result": true,
+    "duplicate_identical": {
+      "before_sha256": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+      "after_sha256": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+      "outcome": "/tmp/tw-obs-final-2/outcome-02000000000000000000000000000000.json"
+    },
+    "conflicting_completed_id_rejected": true,
+    "conflict_outcome": "/tmp/tw-obs-final-2/outcome-conflict.json",
+    "mirror_before_stop": {
+      "prefix": {
+        "dependency_root": [
+          127,
+          176,
+          193,
+          104,
+          86,
+          193,
+          9,
+          194,
+          36,
+          132,
+          173,
+          56,
+          188,
+          190,
+          21,
+          103,
+          122,
+          70,
+          72,
+          197,
+          229,
+          115,
+          32,
+          0,
+          120,
+          11,
+          36,
+          169,
+          82,
+          178,
+          89,
+          184
+        ],
+        "hash": [
+          239,
+          195,
+          186,
+          223,
+          145,
+          7,
+          198,
+          142,
+          19,
+          175,
+          174,
+          1,
+          32,
+          109,
+          248,
+          181,
+          51,
+          6,
+          191,
+          24,
+          90,
+          129,
+          127,
+          190,
+          246,
+          8,
+          49,
+          46,
+          190,
+          229,
+          52,
+          214
+        ],
+        "sequence": 8,
+        "writer_epoch": 4
+      },
+      "verified_from_actual_store_copy": true
+    },
+    "worker_after": {
+      "pid": 1072531,
+      "start_ticks": 6002421,
+      "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+      "image_bytes": 5921280,
+      "exe": "/memfd:tickwire-executable (deleted)",
+      "uid": 1000,
+      "gid": 1000,
+      "sampled_mono_ns": 60026212971380
+    },
+    "unfinished_request": {
+      "schema": 1,
+      "request_id": [
+        7,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "session_id": [
+        21,
+        49,
+        234,
+        123,
+        109,
+        160,
+        54,
+        10,
+        215,
+        160,
+        210,
+        63,
+        175,
+        123,
+        24,
+        121
+      ],
+      "binding": {
+        "scope": {
+          "risk_domain_id": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "venue": 1,
+          "environment": "test",
+          "account": 2
+        },
+        "product": "spot",
+        "executor_id": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "owner_generation": 1,
+        "writer_epoch": 4,
+        "domain": {
+          "process_instance": [
+            77,
+            168,
+            244,
+            50,
+            121,
+            98,
+            124,
+            206,
+            164,
+            155,
+            20,
+            163,
+            119,
+            100,
+            202,
+            39
+          ],
+          "generation": 1
+        }
+      },
+      "target": {
+        "logical_strategy_id": 8,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "generation": 5
+      },
+      "valid_until_mono_ns": 60046223295054,
+      "require_resources": false
+    },
+    "run_exit_code": 0,
+    "business": {
+      "account_fill_verified": true,
+      "account_report": "/tmp/tw-obs-final-2/account-report.json",
+      "account_wal": "/tmp/tw-obs-final-2/exec/account",
+      "event": "laboratory_spot_fill_complete",
+      "fixture_audit": "/tmp/tw-obs-final-2/fixture.jsonl",
+      "input_wal": "/tmp/tw-obs-final-2/exec/input",
+      "logs": "/tmp/tw-obs-final-2/logs",
+      "mirror_records_verified": 8,
+      "mirror_wal": "/tmp/tw-obs-final-2/mirror/journal",
+      "worker_report_position_verified": 8
+    },
+    "account_report": {
+      "account_epoch": 1,
+      "account_records": 8,
+      "account_stream": "34343434343434343434343434343434",
+      "assets": [
+        {
+          "asset_id": 1,
+          "available": {
+            "atoms": "100100000",
+            "scale": 8
+          },
+          "deficit": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "ownership": [
+            {
+              "quantity": {
+                "atoms": "100000000",
+                "scale": 8
+              },
+              "strategy_id": 0
+            },
+            {
+              "quantity": {
+                "atoms": "100000",
+                "scale": 8
+              },
+              "strategy_id": 8
+            }
+          ],
+          "reserved": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "symbol": "BTC",
+          "total": {
+            "atoms": "100100000",
+            "scale": 8
+          },
+          "wallet_id": 1
+        },
+        {
+          "asset_id": 2,
+          "available": {
+            "atoms": "94000000000",
+            "scale": 8
+          },
+          "deficit": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "ownership": [
+            {
+              "quantity": {
+                "atoms": "100000000000",
+                "scale": 8
+              },
+              "strategy_id": 0
+            },
+            {
+              "quantity": {
+                "atoms": "-6000000000",
+                "scale": 8
+              },
+              "strategy_id": 8
+            }
+          ],
+          "reserved": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "symbol": "USDT",
+          "total": {
+            "atoms": "94000000000",
+            "scale": 8
+          },
+          "wallet_id": 1
+        }
+      ],
+      "baseline_sha256": "9d665f3c152549181fb5212e95744d699b3b7234e7f73d1f7ea99abda6419864",
+      "discarded_tail_bytes": {
+        "account": 0,
+        "input": 0
+      },
+      "export_directory": "/tmp/tw-obs-final-2/export",
+      "format": "tickwire.offline-replay.v1",
+      "frozen": true,
+      "history_sha256": "9d1e3a6ce146f5375a1f729c3d23ee3092a8fc4a4312b533e2fd95cf2b8dfede",
+      "input_facts_not_in_account": 0,
+      "input_quarantines_and_gaps": 1,
+      "input_records": 17,
+      "input_stream": "35353535353535353535353535353535",
+      "ledger_sequence": 8,
+      "orders": [
+        {
+          "aborted": false,
+          "client_id": "lab-spot-1",
+          "command_sha256": "58c92491e315bb0d6647af996685b624b10902e835713cd51558b292da587f31",
+          "confirmed": true,
+          "fee_reconciled": true,
+          "filled_quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "intent_epoch": 4,
+          "intent_id": 3,
+          "manager_generation": 5,
+          "manager_instance": "02020202020202020202020202020202",
+          "origin_generation": 5,
+          "origin_instance": "02020202020202020202020202020202",
+          "original_quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "owner_revision": 1,
+          "reduce_allocation": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "remaining_quantity": {
+            "atoms": "0",
+            "scale": 8
+          },
+          "strategy_id": 8,
+          "terminal": true,
+          "uncreated": false,
+          "unknown": false
+        }
+      ],
+      "pending_orders": [],
+      "positions": [],
+      "rejected_event_sha256": null,
+      "required_frontier": null,
+      "scope": {
+        "account": 2,
+        "environment": "Test",
+        "risk_domain_id": "01010101010101010101010101010101",
+        "venue": 1
+      }
+    },
+    "recovery": {
+      "unfinished_request_interrupted_without_redispatch": true,
+      "interrupted_outcome": "/tmp/tw-obs-final-2/outcome-interrupted.json",
+      "historical_outcome": "/tmp/tw-obs-final-2/outcome-historical.json",
+      "session": {
+        "schema": 1,
+        "session_id": [
+          90,
+          161,
+          163,
+          213,
+          24,
+          224,
+          51,
+          177,
+          70,
+          155,
+          185,
+          57,
+          208,
+          41,
+          63,
+          196
+        ],
+        "session_number": 2,
+        "binding": {
+          "scope": {
+            "risk_domain_id": [
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1,
+              1
+            ],
+            "venue": 1,
+            "environment": "test",
+            "account": 2
+          },
+          "product": "spot",
+          "executor_id": [
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4,
+            4
+          ],
+          "owner_generation": 1,
+          "writer_epoch": 4,
+          "domain": {
+            "process_instance": [
+              77,
+              168,
+              244,
+              50,
+              121,
+              98,
+              124,
+              206,
+              164,
+              155,
+              20,
+              163,
+              119,
+              100,
+              202,
+              39
+            ],
+            "generation": 1
+          }
+        },
+        "started_mono_ns": 60027442243449
+      },
+      "original_observed_republished_historical": true,
+      "original_challenge_preserved": true,
+      "original_worker_exited": true,
+      "configuration": "Observe strategy; cloned account WAL; same actual observation WAL; no worker relaunch or live inference",
+      "exit_code": 0
+    },
+    "completed_mono_ns": 60030510266534,
+    "passed": true,
+    "status": "verified",
+    "observation_config": {
+      "inbox_directory": "/tmp/tw-obs-final-2/observation-inbox",
+      "outbox_directory": "/tmp/tw-obs-final-2/observation-outbox",
+      "journal_directory": "/tmp/tw-obs-final-2/observation-journal",
+      "stream_epoch": [
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199,
+        199
+      ],
+      "owner_uid": 1000,
+      "allowed_build_hashes": [
+        [
+          39,
+          205,
+          230,
+          66,
+          107,
+          101,
+          197,
+          208,
+          1,
+          32,
+          68,
+          62,
+          23,
+          79,
+          230,
+          129,
+          55,
+          117,
+          201,
+          251,
+          219,
+          50,
+          156,
+          212,
+          108,
+          151,
+          15,
+          133,
+          6,
+          225,
+          99,
+          64
+        ]
+      ],
+      "maximum_requests": 64,
+      "maximum_pending": 4,
+      "maximum_per_poll": 8,
+      "recover": false
+    },
+    "artifact_sha256": {
+      "driver.py": "4e99184169496965c87dcdb737377c777d4289e146b04a8fb05e45aebf642584",
+      "verifier-main.rs": "57836763b5f05847f4411d96d80a7979e9c77e6286a97f355345e3c296430cfd",
+      "verifier-Cargo.toml": "05114db3acdfa1722306e7b20443e6196ed15fca4f56070d4ed22b9caf1849a0",
+      "verifier-Cargo.lock": "796ebab3d25715a6b482b30fb05dd816546bbaedd197aba579bcefdf78fd4dbc",
+      "closure-audit.json": "2f07388bdd9dbd099a0f4110ee00f4e517ec711ef902d14d7653a2a2dcf8b543",
+      "run-result.json": "accf1c82c13181bb60ec20adb8be7b2566a0ec00d9fcc603f5b5a4b68164653f",
+      "account-report.json": "c223eace8e7bede3d6dbeeb6d76b69c563c62d77796ce1e3ea6b4ee513df2c8c",
+      "exec.stderr.log": "577ff0d8fd52115ac50a02325630d3a5f4721e0b845d9352d0ace51327a121d1",
+      "fixture.jsonl": "c08a8a2cdea7a1bdb8a6ef8aeddf6cc41d885aaceb1fa37e83b21db3ed199c4e",
+      "session.json": "06d534cf6cb95b94193898b64a764d4f81a967f21784611f01b2ada57acebde6",
+      "initial-session.json": "e21a3d2ced309786ebfcddf37bbcb21f9bec177ee9f5ab2fa1c83eb22445326c",
+      "outcomes/conflict.json": "a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+      "business-baseline.cbor": "9d665f3c152549181fb5212e95744d699b3b7234e7f73d1f7ea99abda6419864",
+      "business-records/00000000000000000001.cbor": "3cdbebb0fba5d59d66a05635595aa3ca0d969e2fb56d9ea6fa8bf895158c80d8",
+      "business-records/00000000000000000002.cbor": "ac022616313a05b2a3431c33a909f4bbb2e3f49c6da43d49c42a1f08514846c6",
+      "business-records/00000000000000000003.cbor": "3b0243ffe15f9ea705a394de5cd7f98315d5327f476286db4ecc6f9004d4874c",
+      "business-records/00000000000000000004.cbor": "8c7d09cd45cb334f6a58de374595223c2d80457be13eaee94fc6d7559dfd8815",
+      "business-records/00000000000000000005.cbor": "cd3d0d54a3713784c42e39571de2cbe91105f8a290cfeed105dc934cf798cd87",
+      "business-records/00000000000000000006.cbor": "6e3c14348c6afb4b9c7e2e44f062d75d92d12be9fcbdd60d7a9c9a2925c4451e",
+      "business-records/00000000000000000007.cbor": "36a2bd74f504c491f631a27e33aae33a4765c3a49a375b2fe368b2b6f483eb34",
+      "business-records/00000000000000000008.cbor": "b57d5d9f5c5930a3235fbf73cba647faf808a390d40e89ef0cd7fcc6b19e6a71",
+      "outcomes/outcome-01000000000000000000000000000000.json": "bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+      "outcomes/outcome-02000000000000000000000000000000.json": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+      "outcomes/outcome-03000000000000000000000000000000.json": "3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+      "outcomes/outcome-04000000000000000000000000000000.json": "142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+      "outcomes/outcome-05000000000000000000000000000000.json": "d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+      "outcomes/outcome-06000000000000000000000000000000.json": "dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+      "observation-wal/MANIFEST.json": "ef353852c9f39318163446e8ef13d82324afc699a249a8b182e16fb01a493d77",
+      "observation-results/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293.json": "142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+      "observation-results/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29.json": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+      "observation-results/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a.json": "3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+      "observation-results/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4.json": "a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+      "observation-results/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048.json": "b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048",
+      "observation-results/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660.json": "bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+      "observation-results/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12.json": "d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+      "observation-results/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389.json": "dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+      "observation-wal/segment-00000000000000000001.wal": "9da13fb4b944f7ce37f950cf1b49a50532bd9c8356f95495127874706232cb9f",
+      "outcomes/interrupted.json": "79535ba8d89f5f888050024f316dfeacc4992949c78fe1b49825be30f7911972",
+      "outcomes/historical.json": "e5f6305cc0e1a8373539847aa7e09a6be592a18c541883853300fdb5f318aa3f",
+      "generate.log": "d15c0d3af40788c90bc2c229ba12db5c103c4c560d68bf6b4b8dc0b01872921a",
+      "run.log": "a62279aac82a5e0ecae0b3f7588bbc2643f95b88f82ef776f35619bb1b2891ae",
+      "recovery.log": "755567c3839a0e03d1d3ed5a2b05067f0286ad25d7e35484498a67fc64395968",
+      "source-before.log": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "source-after.log": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59"
+    },
+    "binary_hashes_unchanged": true,
+    "source_manifest_verified": true,
+    "files": {
+      "driver.py": "runtime-observation-acceptance/app/driver.py",
+      "verifier-main.rs": "runtime-observation-acceptance/app/verifier-main.rs",
+      "verifier-Cargo.toml": "runtime-observation-acceptance/app/verifier-Cargo.toml",
+      "verifier-Cargo.lock": "runtime-observation-acceptance/app/verifier-Cargo.lock",
+      "closure-audit.json": "runtime-observation-acceptance/app/closure-audit.json",
+      "run-result.json": "runtime-observation-acceptance/app/run-result.json",
+      "account-report.json": "runtime-observation-acceptance/app/account-report.json",
+      "exec.stderr.log": "runtime-observation-acceptance/app/exec.stderr.log",
+      "fixture.jsonl": "runtime-observation-acceptance/app/fixture.jsonl",
+      "session.json": "runtime-observation-acceptance/app/session.json",
+      "initial-session.json": "runtime-observation-acceptance/app/initial-session.json",
+      "outcomes/conflict.json": "runtime-observation-acceptance/app/outcomes/conflict.json",
+      "business-baseline.cbor": "runtime-observation-acceptance/app/business-baseline.cbor",
+      "business-records/00000000000000000001.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000001.cbor",
+      "business-records/00000000000000000002.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000002.cbor",
+      "business-records/00000000000000000003.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000003.cbor",
+      "business-records/00000000000000000004.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000004.cbor",
+      "business-records/00000000000000000005.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000005.cbor",
+      "business-records/00000000000000000006.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000006.cbor",
+      "business-records/00000000000000000007.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000007.cbor",
+      "business-records/00000000000000000008.cbor": "runtime-observation-acceptance/app/business-records/00000000000000000008.cbor",
+      "outcomes/outcome-01000000000000000000000000000000.json": "runtime-observation-acceptance/app/outcomes/outcome-01000000000000000000000000000000.json",
+      "outcomes/outcome-02000000000000000000000000000000.json": "runtime-observation-acceptance/app/outcomes/outcome-02000000000000000000000000000000.json",
+      "outcomes/outcome-03000000000000000000000000000000.json": "runtime-observation-acceptance/app/outcomes/outcome-03000000000000000000000000000000.json",
+      "outcomes/outcome-04000000000000000000000000000000.json": "runtime-observation-acceptance/app/outcomes/outcome-04000000000000000000000000000000.json",
+      "outcomes/outcome-05000000000000000000000000000000.json": "runtime-observation-acceptance/app/outcomes/outcome-05000000000000000000000000000000.json",
+      "outcomes/outcome-06000000000000000000000000000000.json": "runtime-observation-acceptance/app/outcomes/outcome-06000000000000000000000000000000.json",
+      "observation-wal/MANIFEST.json": "runtime-observation-acceptance/app/observation-wal/MANIFEST.json",
+      "observation-results/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293.json": "runtime-observation-acceptance/app/observation-results/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293.json",
+      "observation-results/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29.json": "runtime-observation-acceptance/app/observation-results/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29.json",
+      "observation-results/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a.json": "runtime-observation-acceptance/app/observation-results/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a.json",
+      "observation-results/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4.json": "runtime-observation-acceptance/app/observation-results/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4.json",
+      "observation-results/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048.json": "runtime-observation-acceptance/app/observation-results/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048.json",
+      "observation-results/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660.json": "runtime-observation-acceptance/app/observation-results/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660.json",
+      "observation-results/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12.json": "runtime-observation-acceptance/app/observation-results/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12.json",
+      "observation-results/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389.json": "runtime-observation-acceptance/app/observation-results/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389.json",
+      "observation-wal/segment-00000000000000000001.wal": "runtime-observation-acceptance/app/observation-wal/segment-00000000000000000001.wal",
+      "outcomes/interrupted.json": "runtime-observation-acceptance/app/outcomes/interrupted.json",
+      "outcomes/historical.json": "runtime-observation-acceptance/app/outcomes/historical.json",
+      "generate.log": "runtime-observation-acceptance/app/generate.log",
+      "run.log": "runtime-observation-acceptance/app/run.log",
+      "recovery.log": "runtime-observation-acceptance/app/recovery.log",
+      "source-before.log": "runtime-observation-acceptance/app/source-before.log",
+      "source-after.log": "runtime-observation-acceptance/app/source-after.log",
+      "input-history.wal": "runtime-observation-acceptance/app/input-history.wal",
+      "metadata.json": "runtime-observation-acceptance/app/metadata.json"
+    }
+  },
+  "development_regression": {
+    "summary": "runtime-observation-acceptance/development/summary.json",
+    "logs": {
+      "runtime-observation-backpressure-red.log": "runtime-observation-acceptance/development/runtime-observation-backpressure-red.log",
+      "runtime-observation-backpressure-diagnostic.log": "runtime-observation-acceptance/development/runtime-observation-backpressure-diagnostic.log",
+      "runtime-observation-backpressure-red2.log": "runtime-observation-acceptance/development/runtime-observation-backpressure-red2.log",
+      "runtime-observation-backpressure-red3.log": "runtime-observation-acceptance/development/runtime-observation-backpressure-red3.log",
+      "runtime-observation-process-green2.log": "runtime-observation-acceptance/development/runtime-observation-process-green2.log",
+      "runtime-observation-backpressure-green3.log": "runtime-observation-acceptance/development/runtime-observation-backpressure-green3.log",
+      "runtime-observation-process-green4.log": "runtime-observation-acceptance/development/runtime-observation-process-green4.log",
+      "runtime-observation-process-binary.json": "runtime-observation-acceptance/development/runtime-observation-process-binary.json",
+      "runtime-observation-process-build.log": "runtime-observation-acceptance/development/runtime-observation-process-build.log",
+      "runtime-observation-process-binary3.json": "runtime-observation-acceptance/development/runtime-observation-process-binary3.json",
+      "runtime-observation-process-build3.log": "runtime-observation-acceptance/development/runtime-observation-process-build3.log",
+      "runtime-observation-process-clippy-final.log": "runtime-observation-acceptance/development/runtime-observation-process-clippy-final.log",
+      "runtime-observation-process-red.log": "runtime-observation-acceptance/development/runtime-observation-process-red.log",
+      "runtime-observation-mode2-red.log": "runtime-observation-acceptance/development/runtime-observation-mode2-red.log",
+      "runtime-observation-mode2-green.log": "runtime-observation-acceptance/development/runtime-observation-mode2-green.log",
+      "runtime-observation-outbox-order-red.log": "runtime-observation-acceptance/development/runtime-observation-outbox-order-red.log",
+      "runtime-observation-outbox-order-green.log": "runtime-observation-acceptance/development/runtime-observation-outbox-order-green.log"
+    }
+  },
+  "app_fixture_attempts": {
+    "scope": "fixture-only failures, not implementation regressions or accepted runs",
+    "files": {
+      "runtime-observation-app-invalidpath-json": "runtime-observation-acceptance/development/runtime-observation-app-invalidpath-json",
+      "runtime-observation-app-invalidpath-runtime-observation-app-acceptance-run.log": "runtime-observation-acceptance/development/runtime-observation-app-invalidpath-runtime-observation-app-acceptance-run.log",
+      "runtime-observation-app-invalidpath-runtime-observation-app-final-driver.log": "runtime-observation-acceptance/development/runtime-observation-app-invalidpath-runtime-observation-app-final-driver.log",
+      "runtime-observation-app-mirror-premature-runtime-observation-app-acceptance-run.log": "runtime-observation-acceptance/development/runtime-observation-app-mirror-premature-runtime-observation-app-acceptance-run.log",
+      "runtime-observation-app-mirror-premature-runtime-observation-app-acceptance.json": "runtime-observation-acceptance/development/runtime-observation-app-mirror-premature-runtime-observation-app-acceptance.json",
+      "runtime-observation-app-mirror-premature-runtime-observation-app-final-driver.log": "runtime-observation-acceptance/development/runtime-observation-app-mirror-premature-runtime-observation-app-final-driver.log"
+    }
+  },
+  "lock_regression": {
+    "files": {
+      "runtime-observation-lock-root-cause.json": "runtime-observation-acceptance/development/runtime-observation-lock-root-cause.json",
+      "runtime-observation-check-rust-attempt1-meta.json": "runtime-observation-acceptance/development/runtime-observation-check-rust-attempt1-meta.json",
+      "runtime-observation-check-rust-attempt1.log": "runtime-observation-acceptance/development/runtime-observation-check-rust-attempt1.log",
+      "runtime-observation-journal-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-journal-lock-red.log",
+      "runtime-observation-journal-lock-green.log": "runtime-observation-acceptance/development/runtime-observation-journal-lock-green.log",
+      "runtime-observation-app-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-app-lock-red.log",
+      "runtime-observation-app-lock-green.log": "runtime-observation-acceptance/development/runtime-observation-app-lock-green.log",
+      "runtime-observation-lock-delayed-green.log": "runtime-observation-acceptance/development/runtime-observation-lock-delayed-green.log",
+      "runtime-observation-lock-delayed-green2.log": "runtime-observation-acceptance/development/runtime-observation-lock-delayed-green2.log",
+      "runtime-observation-lock-delayed-green3.log": "runtime-observation-acceptance/development/runtime-observation-lock-delayed-green3.log",
+      "runtime-observation-replay-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-replay-lock-red.log",
+      "runtime-observation-replay-lock-green.log": "runtime-observation-acceptance/development/runtime-observation-replay-lock-green.log",
+      "runtime-observation-blob-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-blob-lock-red.log",
+      "runtime-observation-blob-lock-green.log": "runtime-observation-acceptance/development/runtime-observation-blob-lock-green.log",
+      "runtime-observation-app-lock-clippy-final2.log": "runtime-observation-acceptance/development/runtime-observation-app-lock-clippy-final2.log",
+      "runtime-observation-app-lock-tests-final2.log": "runtime-observation-acceptance/development/runtime-observation-app-lock-tests-final2.log",
+      "runtime-observation-lock-owners-clippy.log": "runtime-observation-acceptance/development/runtime-observation-lock-owners-clippy.log",
+      "runtime-observation-lock-owners-green.log": "runtime-observation-acceptance/development/runtime-observation-lock-owners-green.log",
+      "runtime-observation-quota-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-quota-lock-red.log",
+      "runtime-observation-quota-raft-lock-clippy.log": "runtime-observation-acceptance/development/runtime-observation-quota-raft-lock-clippy.log",
+      "runtime-observation-quota-raft-lock-green.log": "runtime-observation-acceptance/development/runtime-observation-quota-raft-lock-green.log",
+      "runtime-observation-quota-raft-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-quota-raft-lock-red.log",
+      "runtime-observation-resource-lock-red.log": "runtime-observation-acceptance/development/runtime-observation-resource-lock-red.log"
+    },
+    "initial_gate": "failed: three transient inherited-lock reopen errors",
+    "first_delayed_replay": "failed: four remaining FileBlobStore inherited-lock errors",
+    "final_delayed_replay": "passed after the tested owner lifetime fixes",
+    "fault_injection": "exec entry delayed to hold a real fork-inherited CLOEXEC open-file description; not a performance result",
+    "coverage": "runtime-observation-acceptance/development/lock-coverage.json"
+  },
+  "offline_scope": "Archived byte hashes, signatures, exact account-prefix hashes and recorded identity/freshness/result bindings are independently checked. ELF and full recovery CAS are omitted; their complete semantic closures were checked online by Rust before archival, and are not reconstructed offline.",
+  "offline_negative_tests": {
+    "script": "runtime-observation-acceptance/validation/negative-tests.py",
+    "result": "runtime-observation-acceptance/validation/negative-tests.json"
+  },
+  "offline_verifier": {
+    "file": "verify-runtime-observation-acceptance.py",
+    "sha256": "fe1769a709ced639c63f754711597e164af6ffd43f50a264db0277ca9db690bf"
+  },
+  "artifacts": {
+    "runtime-observation-acceptance/build/release-build.log": {
+      "bytes": 2651,
+      "sha256": "c5a0d62a4f282f71b1845cc33f66d0d5c864eb2e2eb72452b02e4a2862bc6213",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-release-build.log"
+    },
+    "runtime-observation-acceptance/build/binaries.json": {
+      "bytes": 4108,
+      "sha256": "74fc244a102a99019dc0f371b7d56aad67fe87292df7dfb7090f706e7130b8ac",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-binaries.json"
+    },
+    "runtime-observation-acceptance/build/check-rust-meta.json": {
+      "bytes": 265,
+      "sha256": "e8680be5acfe047d17c6e13f4be3a345842ffaa2321c2824b3d25210f275e2a7",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-check-rust-meta.json"
+    },
+    "runtime-observation-acceptance/build/check-rust.log": {
+      "bytes": 259943,
+      "sha256": "8e7257693efac8808e0dca048f68b3511bc09e45f6e828f5c46cd7bb784b9245",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-check-rust.log"
+    },
+    "runtime-observation-acceptance/build/source-before-build.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-source-before-build.log"
+    },
+    "runtime-observation-acceptance/build/source-after-build.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-source-after-build.log"
+    },
+    "runtime-observation-acceptance/handover/run-result.json": {
+      "bytes": 4654,
+      "sha256": "6d899ac3797cbef72cb301ef474b2976b176b67e0c920442e7d9231eee2b0ee4",
+      "original_path": "/tmp/tw-obs-handover-1/run-result.json"
+    },
+    "runtime-observation-acceptance/handover/account-report.json": {
+      "bytes": 3184,
+      "sha256": "3e9566a0b3ad55f6f6fc7e2b8d80861573bac18333ede834a39a5b0c7933308f",
+      "original_path": "/tmp/tw-obs-handover-1/account-report.json"
+    },
+    "runtime-observation-acceptance/handover/handover/preflight-verified.json": {
+      "bytes": 3584,
+      "sha256": "5f55eb9fde22aa8d315c6baaf1501fc789d020e565f63340f6bf8cff010190ad",
+      "original_path": "/tmp/tw-obs-handover-1/handover/preflight-verified.json"
+    },
+    "runtime-observation-acceptance/handover/handover/preflight-final-verified.json": {
+      "bytes": 3589,
+      "sha256": "b89c764427d73d6c56c31d0c18634adcb43d10d460535df3425b69133f748d4f",
+      "original_path": "/tmp/tw-obs-handover-1/handover/preflight-final-verified.json"
+    },
+    "runtime-observation-acceptance/handover/fixture.jsonl": {
+      "bytes": 7859,
+      "sha256": "9fa91769fd0bb5450e651fbc1e0000346b238d4d3901c90d26d6c64ef1d1d910",
+      "original_path": "/tmp/tw-obs-handover-1/fixture.jsonl"
+    },
+    "runtime-observation-acceptance/handover/export/records.jsonl": {
+      "bytes": 2030,
+      "sha256": "0d81e4b0611f1a76e71fee4b3ad036455555615097317233e02afb062d3ccb2c",
+      "original_path": "/tmp/tw-obs-handover-1/export/records.jsonl"
+    },
+    "runtime-observation-acceptance/handover/logs/exec.stderr.log": {
+      "bytes": 14620,
+      "sha256": "2d9cf7d618e24661999cf851f3c4ece67145cf8d8384dd45a60eeeff1980c016",
+      "original_path": "/tmp/tw-obs-handover-1/logs/exec.stderr.log"
+    },
+    "runtime-observation-acceptance/handover/logs/coordinator.stdout.log": {
+      "bytes": 117,
+      "sha256": "9c6b46abe8e02ae264695517a96378c580a7de179c27284db2d50f2715be055d",
+      "original_path": "/tmp/tw-obs-handover-1/logs/coordinator.stdout.log"
+    },
+    "runtime-observation-acceptance/handover/logs/coordinator.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_path": "/tmp/tw-obs-handover-1/logs/coordinator.stderr.log"
+    },
+    "runtime-observation-acceptance/handover/handover/keys.json": {
+      "bytes": 589,
+      "sha256": "2dcbbe779855d92806ddb89fa87093681d8d6000fc1eb726bb4b5d5893b725cc",
+      "original_path": "/tmp/tw-obs-handover-1/handover/keys.json"
+    },
+    "runtime-observation-acceptance/handover/export/baseline.cbor": {
+      "bytes": 265,
+      "sha256": "78b5da819391a125c2e3b1f6a0ac67f2bcebde85515c7dbf589d477dcb4a75dc",
+      "original_path": "/tmp/tw-obs-handover-1/export/baseline.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/input/segment-00000000000000000001.wal": {
+      "bytes": 19560,
+      "sha256": "f9493e77e9922dc7997893d48d1d6999ce9ca241c05fe399d935993f16d912d2",
+      "original_path": "/tmp/tw-obs-handover-1/export/input/segment-00000000000000000001.wal"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000001.cbor": {
+      "bytes": 249,
+      "sha256": "f3abce2105389de513e94131276f564b85993e17f7410ef59d367356afebcd74",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000001.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000002.cbor": {
+      "bytes": 461,
+      "sha256": "071224baa5ddf50eb0e89346f620b6bcf3f253c1caaa248b61dfa96fdedd170a",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000002.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000003.cbor": {
+      "bytes": 273,
+      "sha256": "6e82772fa4419ef73a8102239c4386524af764f62e21ba2cbdc777c190815188",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000003.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000004.cbor": {
+      "bytes": 265,
+      "sha256": "47a79cf089fefe9ff278054092fd88796da7c503655aa6241001b1c7dbc155c3",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000004.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000005.cbor": {
+      "bytes": 312,
+      "sha256": "05f42db808f55e3fbf9ae51791aa9c02014053facd86ce97ba3e1cf0b53ed824",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000005.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000006.cbor": {
+      "bytes": 273,
+      "sha256": "ef26a51019a461d3dc77dfd9ef4af25daa2090e39e203da7347359661d8504a6",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000006.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000007.cbor": {
+      "bytes": 300,
+      "sha256": "c3a042a34f229763e249eea0e4ac8751c5a24fd23aab52fd28755980c4441774",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000007.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000008.cbor": {
+      "bytes": 85,
+      "sha256": "ea291707f875e075467bc7d13b90508d9917e93011c621d4f9d50914a898496c",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000008.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000009.cbor": {
+      "bytes": 249,
+      "sha256": "4fcb766a21b1997077f3252c16009a02ec599eae7622b842ddc17172f18ac7f7",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000009.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000010.cbor": {
+      "bytes": 249,
+      "sha256": "586f3cb658e0533e0a97040cbe7ea1a4a550a8342aff47f802b7f5516a8cbc81",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000010.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000011.cbor": {
+      "bytes": 249,
+      "sha256": "4075f8b1091a9bcbab8634864300274b623f4dbe6a5623efa66d8c8d49211eea",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000011.cbor"
+    },
+    "runtime-observation-acceptance/handover/export/records/00000000000000000012.cbor": {
+      "bytes": 250,
+      "sha256": "5dbde691d5c95be42094ccb7d50260387906809ea60c13d070d32432a890fa7b",
+      "original_path": "/tmp/tw-obs-handover-1/export/records/00000000000000000012.cbor"
+    },
+    "runtime-observation-acceptance/handover/metadata.json": {
+      "bytes": 7729,
+      "sha256": "e8472c8dda6d055c2823f3d2de3bc72488641d0f458d6a809c7bbdffdb31da91",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-handover-metadata.json"
+    },
+    "runtime-observation-acceptance/handover/live-images.json": {
+      "bytes": 623,
+      "sha256": "4d2c45883abca8658575459e6c59a96635e345352788cfb703f56bac28436d28",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-handover-live-images.json"
+    },
+    "runtime-observation-acceptance/handover/generate.log": {
+      "bytes": 898,
+      "sha256": "f3672d79f29e6601412a04d5e986f4ccc89a7ef908f95b834305d8d0c589c0a4",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-handover-generate.log"
+    },
+    "runtime-observation-acceptance/handover/run.log": {
+      "bytes": 4655,
+      "sha256": "234574a3808a8691f2aa51a3ae8877efbcaf850667f9848bce6c00ff1c8e8816",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-handover-run.log"
+    },
+    "runtime-observation-acceptance/handover/source-before.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-handover-source-before.log"
+    },
+    "runtime-observation-acceptance/handover/source-after.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-handover-source-after.log"
+    },
+    "runtime-observation-acceptance/handover/handover/receipts/0cbd04566e6e849ab8e3921a67294317.json": {
+      "bytes": 3572,
+      "sha256": "d4e5189ba5bd5e679bfe3563da381ad7fd1f51352fd5c545b449cf0b9351e103",
+      "original_path": "/tmp/tw-obs-handover-1/handover/receipts/0cbd04566e6e849ab8e3921a67294317.json"
+    },
+    "runtime-observation-acceptance/handover/handover/receipts/2c44d3eb7526036ab774d99630d78ebd.json": {
+      "bytes": 53061,
+      "sha256": "0e80714892a31c1ebc8a327ec569f53a08803ccdfa59f166da4e304b27a90c21",
+      "original_path": "/tmp/tw-obs-handover-1/handover/receipts/2c44d3eb7526036ab774d99630d78ebd.json"
+    },
+    "runtime-observation-acceptance/handover/handover/receipts/977e5e033c7be242edbbb19d3d09afee.json": {
+      "bytes": 3568,
+      "sha256": "1da3c49d5c579d0a6a15b2217dfae7dc1a2a1cdb9a1ed00e69980847448d17c9",
+      "original_path": "/tmp/tw-obs-handover-1/handover/receipts/977e5e033c7be242edbbb19d3d09afee.json"
+    },
+    "runtime-observation-acceptance/rebuild/run-result.json": {
+      "bytes": 9994,
+      "sha256": "b8157b74524ceba878e67ec6370d0a6accbe6b84b02f4f632de6b9ffbbdf0288",
+      "original_path": "/tmp/tw-obs-rebuild-1/run-result.json"
+    },
+    "runtime-observation-acceptance/rebuild/account-report.json": {
+      "bytes": 3183,
+      "sha256": "f22a9efe30132bc2b0732c3497a8c3551de6b224d8238252d667f3d462240a2f",
+      "original_path": "/tmp/tw-obs-rebuild-1/account-report.json"
+    },
+    "runtime-observation-acceptance/rebuild/handover/preflight-verified.json": {
+      "bytes": 8259,
+      "sha256": "ba2ffda9b6b615fd400ad551d9f45753680cfc918268e5658cf9b6dabb665267",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/preflight-verified.json"
+    },
+    "runtime-observation-acceptance/rebuild/handover/preflight-final-verified.json": {
+      "bytes": 8262,
+      "sha256": "33c787141fb5d3f315735ea1207daf0a319f15108007a010ee6f9a5f1d6f775c",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/preflight-final-verified.json"
+    },
+    "runtime-observation-acceptance/rebuild/fixture.jsonl": {
+      "bytes": 8213,
+      "sha256": "d7a4d4cf0e39a63a40469ebc4167265aa6860bcd175452d2681c2d27e6fcbb2c",
+      "original_path": "/tmp/tw-obs-rebuild-1/fixture.jsonl"
+    },
+    "runtime-observation-acceptance/rebuild/export/records.jsonl": {
+      "bytes": 2030,
+      "sha256": "4c18451f744a3f18226afa9e2dcc40f424d7062a94b11e8b571bb194aec6335f",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records.jsonl"
+    },
+    "runtime-observation-acceptance/rebuild/logs/exec.stderr.log": {
+      "bytes": 12605,
+      "sha256": "c48b625bc2ed9c52abb4f1ccee5bf3efba087e76887b0c4c49fcf3f288c91291",
+      "original_path": "/tmp/tw-obs-rebuild-1/logs/exec.stderr.log"
+    },
+    "runtime-observation-acceptance/rebuild/logs/coordinator.stdout.log": {
+      "bytes": 117,
+      "sha256": "5cd76441ef240d75ef5367f6ec8e9f8b0ed58d9cd3c8dddc56def7bf067ff1c3",
+      "original_path": "/tmp/tw-obs-rebuild-1/logs/coordinator.stdout.log"
+    },
+    "runtime-observation-acceptance/rebuild/logs/coordinator.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_path": "/tmp/tw-obs-rebuild-1/logs/coordinator.stderr.log"
+    },
+    "runtime-observation-acceptance/rebuild/handover/keys.json": {
+      "bytes": 585,
+      "sha256": "98e1e26efc722b4873c476a93f6aba4576d81bb528f229a6f04d796cd507c59b",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/keys.json"
+    },
+    "runtime-observation-acceptance/rebuild/export/baseline.cbor": {
+      "bytes": 265,
+      "sha256": "023db09d493edde587b746b203e61aea728640bffe813e1247edf7f7d6f79e42",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/baseline.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/input/segment-00000000000000000001.wal": {
+      "bytes": 20120,
+      "sha256": "e446e2974753b7c9f012fafee7e6dde545d2b363801eab3041692382799e573c",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/input/segment-00000000000000000001.wal"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000001.cbor": {
+      "bytes": 249,
+      "sha256": "b8a74a3a8c81c1b36aa3c4272ee774fff563113850217c7069b3dcc490cfaf13",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000001.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000002.cbor": {
+      "bytes": 461,
+      "sha256": "639992b957f74eb8edb498060528caef8d2bbdeb56e4b98882f0cab669a6a096",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000002.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000003.cbor": {
+      "bytes": 273,
+      "sha256": "22caa400a1aa22de702cc44bd2b82e18506c369b2a4ea8dd2e3929a808e636c3",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000003.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000004.cbor": {
+      "bytes": 265,
+      "sha256": "b210621013b308c89deafa7a52acc6f3b609150bf0088f9a20dc0beb7b60f723",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000004.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000005.cbor": {
+      "bytes": 312,
+      "sha256": "ba416f2e7f10a99f14536b653ff66286a79966a4549939c4db320642af69f7fa",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000005.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000006.cbor": {
+      "bytes": 273,
+      "sha256": "45db338b05bf31e1a2a9c26b7f1f4c7c423f6a480420159a984a7a3d412dc356",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000006.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000007.cbor": {
+      "bytes": 300,
+      "sha256": "286da890bce74dc6fc66570389747e2274b0217600a8c524f84e6b6032062515",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000007.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000008.cbor": {
+      "bytes": 85,
+      "sha256": "d8d8bbb96be8d1d7011a22fde409ae61df8e9f4a437fc8d5aad6a6d401a368df",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000008.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000009.cbor": {
+      "bytes": 249,
+      "sha256": "b9545f3cf646aa8234165cad2e4aa95d88a2438ce3efaa631322004b79fab5b9",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000009.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000010.cbor": {
+      "bytes": 249,
+      "sha256": "44b6bfddd2c2de2df5226e5b74c3f5078747138f9f5f60ebcff6e2d58226fde2",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000010.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000011.cbor": {
+      "bytes": 249,
+      "sha256": "eb3a8d83f1b2d0d894ccafa9f2a6e70ae9e0ad2b7802f3c390714a39f9862ed0",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000011.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/export/records/00000000000000000012.cbor": {
+      "bytes": 250,
+      "sha256": "071cdfcf519748f74fe5a1478b5e69835f7043be5772c5ea8bc3df707cafef1e",
+      "original_path": "/tmp/tw-obs-rebuild-1/export/records/00000000000000000012.cbor"
+    },
+    "runtime-observation-acceptance/rebuild/handover/captured.json": {
+      "bytes": 1626,
+      "sha256": "18ef2a53b26d3550eafed01673bbe5f859d5893c7a82d95646091fbb36445909",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/captured.json"
+    },
+    "runtime-observation-acceptance/rebuild/metadata.json": {
+      "bytes": 13738,
+      "sha256": "e8bc75813e16ae1497cb95adb8cdb76ff7a0c08ebf7640b2d834b36ade42a0b3",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-metadata.json"
+    },
+    "runtime-observation-acceptance/rebuild/live-images.json": {
+      "bytes": 622,
+      "sha256": "66af802baa7eded5f3358de74175decabc2e04792cce667d06c27347bdebe660",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-live-images.json"
+    },
+    "runtime-observation-acceptance/rebuild/generate.log": {
+      "bytes": 888,
+      "sha256": "4aff1dfc79181f4bf3eb19831683995b1c0c8e74430a3312a80aacb2447416d1",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-generate.log"
+    },
+    "runtime-observation-acceptance/rebuild/run.log": {
+      "bytes": 9995,
+      "sha256": "8278bf749cf6d7620848f52850916c17898cb33774421b4adaf4868ddff430fe",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-run.log"
+    },
+    "runtime-observation-acceptance/rebuild/source-before.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-source-before.log"
+    },
+    "runtime-observation-acceptance/rebuild/source-after.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-source-after.log"
+    },
+    "runtime-observation-acceptance/rebuild/handover/receipts/3c3724bd54b106bc3982c51305dd05c0.json": {
+      "bytes": 3549,
+      "sha256": "600199c599394d652bf4dd6110112fee045c665075b5b5e99829be37ffdf5a75",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/receipts/3c3724bd54b106bc3982c51305dd05c0.json"
+    },
+    "runtime-observation-acceptance/rebuild/handover/receipts/6a2b760329e90f7a80a95845bce76b9a.json": {
+      "bytes": 47010,
+      "sha256": "b47790b185f568786e34c5a3af048579d8b7042f12e87c374786f7e4707a6b8e",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/receipts/6a2b760329e90f7a80a95845bce76b9a.json"
+    },
+    "runtime-observation-acceptance/rebuild/handover/receipts/9047460b5aa28a3c0d516d882b9502df.json": {
+      "bytes": 3554,
+      "sha256": "da205887ed2f734c8c22f8245c9cb8ee90aa8c6a26ab5075b7b68ccad0421030",
+      "original_path": "/tmp/tw-obs-rebuild-1/handover/receipts/9047460b5aa28a3c0d516d882b9502df.json"
+    },
+    "runtime-observation-acceptance/host/metadata.json": {
+      "bytes": 989,
+      "sha256": "bb4fb8fffd60c29c4cc0c3cfed6078230478497c5c9c4ce1ace59eef49fc62d8",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-host-process-metadata.json"
+    },
+    "runtime-observation-acceptance/host/process.log": {
+      "bytes": 36764,
+      "sha256": "bb11df127b2d817d380dbd880b7457958baebf5a75c78169e8ab3171683a1e5a",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-host-process.log"
+    },
+    "runtime-observation-acceptance/host/CAPTURE_WINDOW.json": {
+      "bytes": 1168,
+      "sha256": "38e2889f32a0e0d49b56506f519a7eab6f48537ca7724d8bb9e20d8f07d245da",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-capture-evidence/CAPTURE_WINDOW.json"
+    },
+    "runtime-observation-acceptance/host/capture-receipt.json": {
+      "bytes": 1584,
+      "sha256": "b7fac7202c1e2e4cd190765de6dca5e6ba7d3aab10a21db6ec03a8376e5a9b27",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-capture-evidence/receipt.json"
+    },
+    "runtime-observation-acceptance/host/rebuild-result.json": {
+      "bytes": 1586,
+      "sha256": "b2dc00ba5b1665e0e7c8ed82c9bc4e4416d092e3312378f376c81682100f9145",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-rebuild-evidence/result.json"
+    },
+    "runtime-observation-acceptance/host/source-before.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-host-source-before.log"
+    },
+    "runtime-observation-acceptance/host/source-after.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-host-source-after.log"
+    },
+    "runtime-observation-acceptance/app/driver.py": {
+      "bytes": 17036,
+      "sha256": "4e99184169496965c87dcdb737377c777d4289e146b04a8fb05e45aebf642584",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py"
+    },
+    "runtime-observation-acceptance/app/verifier-main.rs": {
+      "bytes": 3769,
+      "sha256": "57836763b5f05847f4411d96d80a7979e9c77e6286a97f355345e3c296430cfd",
+      "original_path": "/tmp/tickwire-observation-verifier/src/main.rs"
+    },
+    "runtime-observation-acceptance/app/verifier-Cargo.toml": {
+      "bytes": 677,
+      "sha256": "05114db3acdfa1722306e7b20443e6196ed15fca4f56070d4ed22b9caf1849a0",
+      "original_path": "/tmp/tickwire-observation-verifier/Cargo.toml"
+    },
+    "runtime-observation-acceptance/app/verifier-Cargo.lock": {
+      "bytes": 23320,
+      "sha256": "796ebab3d25715a6b482b30fb05dd816546bbaedd197aba579bcefdf78fd4dbc",
+      "original_path": "/tmp/tickwire-observation-verifier/Cargo.lock"
+    },
+    "runtime-observation-acceptance/app/closure-audit.json": {
+      "bytes": 18686,
+      "sha256": "2f07388bdd9dbd099a0f4110ee00f4e517ec711ef902d14d7653a2a2dcf8b543",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-closure-audit.json"
+    },
+    "runtime-observation-acceptance/app/run-result.json": {
+      "bytes": 464,
+      "sha256": "accf1c82c13181bb60ec20adb8be7b2566a0ec00d9fcc603f5b5a4b68164653f",
+      "original_path": "/tmp/tw-obs-final-2/run-result.json"
+    },
+    "runtime-observation-acceptance/app/account-report.json": {
+      "bytes": 3179,
+      "sha256": "c223eace8e7bede3d6dbeeb6d76b69c563c62d77796ce1e3ea6b4ee513df2c8c",
+      "original_path": "/tmp/tw-obs-final-2/account-report.json"
+    },
+    "runtime-observation-acceptance/app/exec.stderr.log": {
+      "bytes": 6039,
+      "sha256": "577ff0d8fd52115ac50a02325630d3a5f4721e0b845d9352d0ace51327a121d1",
+      "original_path": "/tmp/tw-obs-final-2/logs/exec.stderr.log"
+    },
+    "runtime-observation-acceptance/app/fixture.jsonl": {
+      "bytes": 3279,
+      "sha256": "c08a8a2cdea7a1bdb8a6ef8aeddf6cc41d885aaceb1fa37e83b21db3ed199c4e",
+      "original_path": "/tmp/tw-obs-final-2/fixture.jsonl"
+    },
+    "runtime-observation-acceptance/app/session.json": {
+      "bytes": 461,
+      "sha256": "06d534cf6cb95b94193898b64a764d4f81a967f21784611f01b2ada57acebde6",
+      "original_path": "/tmp/tw-obs-final-2/observation-outbox/session.json"
+    },
+    "runtime-observation-acceptance/app/initial-session.json": {
+      "bytes": 462,
+      "sha256": "e21a3d2ced309786ebfcddf37bbcb21f9bec177ee9f5ab2fa1c83eb22445326c",
+      "original_path": "/tmp/tw-obs-final-2/initial-observation-session.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/conflict.json": {
+      "bytes": 867,
+      "sha256": "a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+      "original_path": "/tmp/tw-obs-final-2/outcome-conflict.json"
+    },
+    "runtime-observation-acceptance/app/business-baseline.cbor": {
+      "bytes": 265,
+      "sha256": "9d665f3c152549181fb5212e95744d699b3b7234e7f73d1f7ea99abda6419864",
+      "original_path": "/tmp/tw-obs-final-2/export/baseline.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000001.cbor": {
+      "bytes": 249,
+      "sha256": "3cdbebb0fba5d59d66a05635595aa3ca0d969e2fb56d9ea6fa8bf895158c80d8",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000001.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000002.cbor": {
+      "bytes": 461,
+      "sha256": "ac022616313a05b2a3431c33a909f4bbb2e3f49c6da43d49c42a1f08514846c6",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000002.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000003.cbor": {
+      "bytes": 273,
+      "sha256": "3b0243ffe15f9ea705a394de5cd7f98315d5327f476286db4ecc6f9004d4874c",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000003.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000004.cbor": {
+      "bytes": 312,
+      "sha256": "8c7d09cd45cb334f6a58de374595223c2d80457be13eaee94fc6d7559dfd8815",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000004.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000005.cbor": {
+      "bytes": 273,
+      "sha256": "cd3d0d54a3713784c42e39571de2cbe91105f8a290cfeed105dc934cf798cd87",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000005.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000006.cbor": {
+      "bytes": 300,
+      "sha256": "6e3c14348c6afb4b9c7e2e44f062d75d92d12be9fcbdd60d7a9c9a2925c4451e",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000006.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000007.cbor": {
+      "bytes": 85,
+      "sha256": "36a2bd74f504c491f631a27e33aae33a4765c3a49a375b2fe368b2b6f483eb34",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000007.cbor"
+    },
+    "runtime-observation-acceptance/app/business-records/00000000000000000008.cbor": {
+      "bytes": 249,
+      "sha256": "b57d5d9f5c5930a3235fbf73cba647faf808a390d40e89ef0cd7fcc6b19e6a71",
+      "original_path": "/tmp/tw-obs-final-2/export/records/00000000000000000008.cbor"
+    },
+    "runtime-observation-acceptance/app/outcomes/outcome-01000000000000000000000000000000.json": {
+      "bytes": 4690,
+      "sha256": "bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+      "original_path": "/tmp/tw-obs-final-2/outcome-01000000000000000000000000000000.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/outcome-02000000000000000000000000000000.json": {
+      "bytes": 4715,
+      "sha256": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+      "original_path": "/tmp/tw-obs-final-2/outcome-02000000000000000000000000000000.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/outcome-03000000000000000000000000000000.json": {
+      "bytes": 869,
+      "sha256": "3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+      "original_path": "/tmp/tw-obs-final-2/outcome-03000000000000000000000000000000.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/outcome-04000000000000000000000000000000.json": {
+      "bytes": 866,
+      "sha256": "142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+      "original_path": "/tmp/tw-obs-final-2/outcome-04000000000000000000000000000000.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/outcome-05000000000000000000000000000000.json": {
+      "bytes": 866,
+      "sha256": "d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+      "original_path": "/tmp/tw-obs-final-2/outcome-05000000000000000000000000000000.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/outcome-06000000000000000000000000000000.json": {
+      "bytes": 867,
+      "sha256": "dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+      "original_path": "/tmp/tw-obs-final-2/outcome-06000000000000000000000000000000.json"
+    },
+    "runtime-observation-acceptance/app/observation-wal/MANIFEST.json": {
+      "bytes": 347,
+      "sha256": "ef353852c9f39318163446e8ef13d82324afc699a249a8b182e16fb01a493d77",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/MANIFEST.json"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293.json": {
+      "bytes": 866,
+      "sha256": "142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29.json": {
+      "bytes": 4715,
+      "sha256": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a.json": {
+      "bytes": 869,
+      "sha256": "3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4.json": {
+      "bytes": 867,
+      "sha256": "a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048.json": {
+      "bytes": 867,
+      "sha256": "b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660.json": {
+      "bytes": 4690,
+      "sha256": "bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12.json": {
+      "bytes": 866,
+      "sha256": "d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12"
+    },
+    "runtime-observation-acceptance/app/observation-results/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389.json": {
+      "bytes": 867,
+      "sha256": "dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389"
+    },
+    "runtime-observation-acceptance/app/observation-wal/segment-00000000000000000001.wal": {
+      "bytes": 17752,
+      "sha256": "9da13fb4b944f7ce37f950cf1b49a50532bd9c8356f95495127874706232cb9f",
+      "original_path": "/tmp/tw-obs-final-2/observation-journal/segment-00000000000000000001.wal"
+    },
+    "runtime-observation-acceptance/app/outcomes/interrupted.json": {
+      "bytes": 866,
+      "sha256": "79535ba8d89f5f888050024f316dfeacc4992949c78fe1b49825be30f7911972",
+      "original_path": "/tmp/tw-obs-final-2/outcome-interrupted.json"
+    },
+    "runtime-observation-acceptance/app/outcomes/historical.json": {
+      "bytes": 4689,
+      "sha256": "e5f6305cc0e1a8373539847aa7e09a6be592a18c541883853300fdb5f318aa3f",
+      "original_path": "/tmp/tw-obs-final-2/outcome-historical.json"
+    },
+    "runtime-observation-acceptance/app/generate.log": {
+      "bytes": 863,
+      "sha256": "d15c0d3af40788c90bc2c229ba12db5c103c4c560d68bf6b4b8dc0b01872921a",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-generate.log"
+    },
+    "runtime-observation-acceptance/app/run.log": {
+      "bytes": 465,
+      "sha256": "a62279aac82a5e0ecae0b3f7588bbc2643f95b88f82ef776f35619bb1b2891ae",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-run.log"
+    },
+    "runtime-observation-acceptance/app/recovery.log": {
+      "bytes": 224,
+      "sha256": "755567c3839a0e03d1d3ed5a2b05067f0286ad25d7e35484498a67fc64395968",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-recovery.log"
+    },
+    "runtime-observation-acceptance/app/source-before.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-source-before.log"
+    },
+    "runtime-observation-acceptance/app/source-after.log": {
+      "bytes": 28,
+      "sha256": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-source-after.log"
+    },
+    "runtime-observation-acceptance/app/input-history.wal": {
+      "bytes": 13304,
+      "sha256": "498940737078129c3e91eec275a1835e7eaabd57654bf9150d11393cdfdbd16f",
+      "original_path": "/tmp/tw-obs-final-2/export/input/segment-00000000000000000001.wal"
+    },
+    "runtime-observation-acceptance/app/metadata.json": {
+      "bytes": 28290,
+      "sha256": "c260411ec5a6bc01a9e77ca70e44af122021d349fbcb0af7af5c92b9d9c557b6",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance.json"
+    },
+    "runtime-observation-acceptance/development/summary.json": {
+      "bytes": 4454,
+      "sha256": "606775016f198776851b26d4f022ecb8d10847211478a6a6cfd3896231752e5d",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-development.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-backpressure-red.log": {
+      "bytes": 4289,
+      "sha256": "9087dff6c1ca081f181794da077d6c926da7fcf6f8eca8043317754ca7c5aecf",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-backpressure-diagnostic.log": {
+      "bytes": 4406,
+      "sha256": "ac91505a999aa4ecbdf8b43b0b816007a1c2894b29d7c5e82df89bc384ed2530",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-diagnostic.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-backpressure-red2.log": {
+      "bytes": 4497,
+      "sha256": "8bdb9be8e01243502b7ddcc39d546fa9fab1eb95eebaa4002ed88d1a9b35cfb5",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red2.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-backpressure-red3.log": {
+      "bytes": 4574,
+      "sha256": "351651448af59be52fa7cc185ef36fe5d3a40768c7c5017d0e5b4dd174a052b5",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-red3.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-green2.log": {
+      "bytes": 24728,
+      "sha256": "b3741d6e0f76116b9047626325451af6bda1d163e2722bfa96827fea4f08dad6",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green2.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-backpressure-green3.log": {
+      "bytes": 14657,
+      "sha256": "ab2245c9afb66f128b6e3c3bb93f53458e7a3b6c448c12ba72ff92c979556ed4",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-backpressure-green3.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-green4.log": {
+      "bytes": 28223,
+      "sha256": "0be7327cd4d419f176daf597026ef600b93fd48d17da179479d8ef9f602d5c36",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-green4.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-binary.json": {
+      "bytes": 538,
+      "sha256": "61d6bbffd433f547c4d22727bacb361b5cef349e7b85ba8ee370003f51ec724a",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-binary.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-build.log": {
+      "bytes": 1123,
+      "sha256": "96529ec5b3719e6aadf362a4a92e0f223f60c3e1ca35b8dd6ff7e0cd475e9d4e",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-build.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-binary3.json": {
+      "bytes": 369,
+      "sha256": "bd4a3e6376d3c0f6d6304f2daee62c5d91e6ac1a3a0d5846c7e5e6794aafe6e6",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-binary3.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-build3.log": {
+      "bytes": 263,
+      "sha256": "1581b38eb84e8ffc23f2123e99d4a5e32188d9bf94256385bfbb53265c0dbf07",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-build3.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-clippy-final.log": {
+      "bytes": 127,
+      "sha256": "1a8f1bbe90a20a1f60a6a043974d14e54502501d0dd6498837eae385baecbe82",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-clippy-final.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-process-red.log": {
+      "bytes": 6082,
+      "sha256": "88df28549e6d87f5282fc122774c154069c2f390fad002cd5d5ca8c78530e3a5",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-process-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-mode2-red.log": {
+      "bytes": 1155,
+      "sha256": "9ee4ffed114b85f761187438b7655dbfa42198bc252166d658fb7fca2b328905",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-mode2-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-mode2-green.log": {
+      "bytes": 608,
+      "sha256": "c6b5ad4baad9fb242ce373f330ebb10722870f391c5bdf60f7f881d4dc5ee52f",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-mode2-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-outbox-order-red.log": {
+      "bytes": 1258,
+      "sha256": "cb97e9a038a9c910a0eb14ec8f5e214de35f7e1ecbd7231a40dd98ed74850cba",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-outbox-order-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-outbox-order-green.log": {
+      "bytes": 758,
+      "sha256": "fd00e97e0198e9c864b26c18c9a215d4c7751f884f2a6c814a6cb3983013f992",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-outbox-order-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-invalidpath-json": {
+      "bytes": 2397,
+      "sha256": "a7de4b104ae5926c9af30134528d5a92a1f8141aa597044f584e58e2391afa21",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-invalidpath-json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-invalidpath-runtime-observation-app-acceptance-run.log": {
+      "bytes": 59,
+      "sha256": "6e27913d52d50b29c162cf77000889ef5581379d7e2e69122f94e168d5a8b114",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-invalidpath-runtime-observation-app-acceptance-run.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-invalidpath-runtime-observation-app-final-driver.log": {
+      "bytes": 833,
+      "sha256": "d3e8b0df45d824b84a9a33ccc1a408c2bce29f30c2ba0ed05ee019f09c751536",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-invalidpath-runtime-observation-app-final-driver.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-mirror-premature-runtime-observation-app-acceptance-run.log": {
+      "bytes": 53,
+      "sha256": "edd0023ff4c6f1d90b9891c321d1aa8ce8154c80fe7aab25823541b987d4e231",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-mirror-premature-runtime-observation-app-acceptance-run.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-mirror-premature-runtime-observation-app-acceptance.json": {
+      "bytes": 8484,
+      "sha256": "a4e06d648c6c41579e857518ddc41a1fad3daecee310997354649e4a2570d829",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-mirror-premature-runtime-observation-app-acceptance.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-mirror-premature-runtime-observation-app-final-driver.log": {
+      "bytes": 391,
+      "sha256": "19be2935064c9829b405ce32b4e286f6d8e2441ee7ea9dd6942c637189bc221b",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-mirror-premature-runtime-observation-app-final-driver.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-lock-root-cause.json": {
+      "bytes": 4843,
+      "sha256": "9fecfc5be23af009866ffabb3ac6dbc3d7b43c70fcdabbc8381f4d412359486d",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-root-cause.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-check-rust-attempt1-meta.json": {
+      "bytes": 267,
+      "sha256": "0cfda3bf0799c8329954b966c343d5b8381059773947d3ad21045c9cf811e5eb",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-check-rust-attempt1-meta.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-check-rust-attempt1.log": {
+      "bytes": 35601,
+      "sha256": "c63cca1e5426934c54c7ea0f612abe9f71b00af37cfd43b50dc9615154c960cf",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-check-rust-attempt1.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-journal-lock-red.log": {
+      "bytes": 1190,
+      "sha256": "bd5a67fd5c869cd8e4313f5c306792a9715cfaa940dcfe817da1d0c0c1602bcd",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-journal-lock-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-journal-lock-green.log": {
+      "bytes": 3374,
+      "sha256": "ee7c13cb39ab070ed7b8a12ae24948605277613f835437bf4bf38dd1c973f8bd",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-journal-lock-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-lock-red.log": {
+      "bytes": 2590,
+      "sha256": "593dcf5c4c54421f66f1ae60112fbe229ec5cba41764fd859b61ebc043f211ad",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-lock-green.log": {
+      "bytes": 486,
+      "sha256": "ef7b638b8c2f19cfcdb97b7d1f72316dbed750fea4a6527a8a8821afaf54d33b",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-lock-delayed-green.log": {
+      "bytes": 14455,
+      "sha256": "546a0ad43f07b21cbfaf138bc8d08e20b8b73e59960476f2fab39a8e637562e3",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-lock-delayed-green2.log": {
+      "bytes": 12627,
+      "sha256": "e3fde98ecd5a524cd3121b4b6b63afa445ca5dcba3f32717151b6f95a7b61ce0",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green2.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-lock-delayed-green3.log": {
+      "bytes": 12729,
+      "sha256": "f7ea2213e4da4e715ead3f84ba3539fe18756ff477521d74c253d4c21be15434",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-delayed-green3.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-replay-lock-red.log": {
+      "bytes": 3491,
+      "sha256": "62fb9d6e0dbf709098bce086ebff105bb233157d57938bd5d19acba65de617c9",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-replay-lock-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-replay-lock-green.log": {
+      "bytes": 845,
+      "sha256": "4b8313839f1097db05476cefa9d5c3c469b8c428ec5ca39a90b759bf0109ca76",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-replay-lock-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-blob-lock-red.log": {
+      "bytes": 1139,
+      "sha256": "160c35ac2d0b1921850ea01d54154a994a89436b5433dce3fdeafaf9fabca554",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-blob-lock-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-blob-lock-green.log": {
+      "bytes": 2312,
+      "sha256": "b31d280c3833c6206facf05cd92545d1282df3cdfb361a1f9c81a9154efc6d4a",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-blob-lock-green.log"
+    },
+    "runtime-observation-acceptance/development/lock-coverage.json": {
+      "bytes": 6144,
+      "sha256": "09344d1d97d1547a5954b7c9fee9a4b96339c0f7e0515a2b3e3f83787ceba73b",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-coverage.json"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-lock-clippy-final2.log": {
+      "bytes": 2302,
+      "sha256": "8e0daa906c54f1d23ba4a25d7783967b127770eafbe9e4bc7a956e7b7c3ba175",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-clippy-final2.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-app-lock-tests-final2.log": {
+      "bytes": 11859,
+      "sha256": "aa86c8a24d2be05ba43e733c638353d8005fd2fa4648d81069fb38cdffbaca48",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-app-lock-tests-final2.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-lock-owners-clippy.log": {
+      "bytes": 340,
+      "sha256": "11b334f35f2724f078351c50818d8440c1ea82dd9c4116f0014d425052bf222a",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-owners-clippy.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-lock-owners-green.log": {
+      "bytes": 11712,
+      "sha256": "79c80731cef20008b9cf60b92693419f80dab855ebfead21bb6472ca87863990",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-lock-owners-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-quota-lock-red.log": {
+      "bytes": 938,
+      "sha256": "950a15577fdb58772e5770db5c62a73ed2771557792253d6bf1721c9e19fc55f",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-lock-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-quota-raft-lock-clippy.log": {
+      "bytes": 512,
+      "sha256": "c3f3c3a8f800bdda5ee53dc8475657a1b200e2a9a1de625a120a8695e0302e99",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-raft-lock-clippy.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-quota-raft-lock-green.log": {
+      "bytes": 6593,
+      "sha256": "1687af9abfe03bbdef2b41c4dd2a16f513a84a61cd4e71c58b1a0ec0563a6204",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-raft-lock-green.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-quota-raft-lock-red.log": {
+      "bytes": 1658,
+      "sha256": "0ee4d4083c0b1b3dd184c0fe0b2c9a47f656b1b338d1cbfc8fac1fdd766d4323",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-quota-raft-lock-red.log"
+    },
+    "runtime-observation-acceptance/development/runtime-observation-resource-lock-red.log": {
+      "bytes": 1164,
+      "sha256": "0b905584e8749715d093dcb40075ccc416ca17663fb2322e89ab14b8d77020fe",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-resource-lock-red.log"
+    },
+    "runtime-observation-acceptance/drivers/build.py": {
+      "bytes": 2501,
+      "sha256": "edccbae06fbb7eac2f94bae71400e969c8283d5a92ac819986045321b0947b64",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-build.py"
+    },
+    "runtime-observation-acceptance/drivers/run.py": {
+      "bytes": 3168,
+      "sha256": "6a916cdb4204e4a5be64b3ffcfd5b3e3d70dd61a32854aa37de4176ccb7f511d",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-run.py"
+    },
+    "runtime-observation-acceptance/drivers/host.py": {
+      "bytes": 1817,
+      "sha256": "7b0c752cb1761ea81f5d584487d59c1d4799014e47f05eed12e49a84b814cb62",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-host.py"
+    },
+    "runtime-observation-acceptance/drivers/archive.py": {
+      "bytes": 12079,
+      "sha256": "b28591c8b36cb114ac43924489a20343b68b40572865de1d6162ef76f767c8c1",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-archive.py"
+    },
+    "runtime-observation-acceptance/drivers/source-manifest.py": {
+      "bytes": 1482,
+      "sha256": "437f592c461e9adc5e4258af653e07cad94bc53e820f6692abad7bd7cd7d8d70",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-source-manifest.py"
+    },
+    "runtime-observation-acceptance/validation/negative-tests.py": {
+      "bytes": 6320,
+      "sha256": "f01799e2bf385f2a12f0790727b8fefd41ce38aadd66cd44ac462567fc907cc1",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-verifier-negative-tests.py"
+    },
+    "runtime-observation-acceptance/validation/negative-tests.json": {
+      "bytes": 1900,
+      "sha256": "c809c302f184f961c7dbf5d45204ebd94a52b2bf1ae5c29e82653fa98b502efd",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-verifier-negative-tests.json"
+    },
+    "runtime-observation-acceptance/README.md": {
+      "bytes": 2208,
+      "sha256": "56f9d13ecd287c4d6ff62e9dfa46605dd9eb65b30969715c10ed431a4c187526",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-acceptance-readme.md"
+    },
+    "runtime-observation-acceptance/.gitattributes": {
+      "bytes": 179,
+      "sha256": "be4648b3aaa4824fc14b64d4ac03cb0b040d83a5df22a98289608010d7138386",
+      "original_path": "/tmp/tickwire-progress-20261028/runtime-observation-acceptance.gitattributes"
+    }
+  }
+}

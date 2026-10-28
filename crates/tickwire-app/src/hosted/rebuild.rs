@@ -61,6 +61,7 @@ pub(super) fn build(
     {
         return Err(invalid("capture runtime identity or configuration differs"));
     }
+    let logical = input.market.endpoint.local.identity().logical_strategy;
     let launch = tickwire_strategy_host::rebuild::Launch {
         capture: tickwire_strategy_host::capture::Launch {
             resources: config.resources.clone(),
@@ -103,9 +104,10 @@ pub(super) fn build(
     Ok(Box::new(RebuildStrategy(
         hosted,
         serde_json::to_vec(config)?,
+        logical,
     )))
 }
-struct RebuildStrategy(tickwire_strategy_host::rebuild::Hosted<Files>, Vec<u8>);
+struct RebuildStrategy(tickwire_strategy_host::rebuild::Hosted<Files>, Vec<u8>, u64);
 impl tickwire_runtime::node::Strategy for RebuildStrategy {
     fn handover_rebuild_input(
         &mut self,
@@ -254,6 +256,37 @@ impl tickwire_runtime::node::Strategy for RebuildStrategy {
     }
 }
 impl AppStrategy for RebuildStrategy {
+    fn observation_process(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<tickwire_supervisor::LiveChildObservation> {
+        observation_target(t, self.2, self.instance())?;
+        self.0.observe_process()
+    }
+    fn begin_observation(
+        &mut self,
+        t: crate::observation::Target,
+        r: tickwire_strategy_host::ObservationRequest,
+    ) -> tickwire_strategy_host::Result<()> {
+        observation_target(t, self.2, self.instance())?;
+        self.0.begin_observation(r)
+    }
+    fn poll_observation(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
+        observation_target(t, self.2, self.instance())?;
+        self.0.poll_observation()
+    }
+    fn cancel_observation(
+        &mut self,
+        t: crate::observation::Target,
+        id: [u8; 16],
+    ) -> tickwire_strategy_host::Result<()> {
+        observation_target(t, self.2, self.instance())?;
+        self.0.cancel_observation(id)
+    }
+
     fn market_consumers(&self, out: &mut Vec<crate::control::market::Consumer>) {
         if let Some((pid, instance, generation)) = self.0.market_consumer() {
             out.push(crate::control::market::Consumer {

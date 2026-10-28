@@ -98,7 +98,30 @@ struct Recovered {
     account_tail: u64,
     input_tail: u64,
     scratch: Scratch,
-    _locks: Vec<File>,
+    _locks: ReplayLocks,
+}
+/// One offline owner of the original directories, including partial setup.
+#[derive(Default)]
+struct ReplayLocks(Vec<File>);
+impl Drop for ReplayLocks {
+    fn drop(&mut self) {
+        for file in &self.0 {
+            let _ = file.unlock();
+        }
+    }
+}
+impl ReplayLocks {
+    fn acquire(&mut self, root: &Path) -> Result<()> {
+        let path = root.join("LOCK");
+        if !fs::symlink_metadata(&path)?.file_type().is_file() {
+            return Err(invalid("replay lock must be a regular existing file"));
+        }
+        let file = File::open(path)?;
+        file.try_lock()
+            .map_err(|e| io::Error::other(e.to_string()))?;
+        self.0.push(file);
+        Ok(())
+    }
 }
 struct Historical<'a> {
     persistence: Persistence<SharedBlobStore<FileBlobStore>>,
@@ -287,16 +310,9 @@ fn load(deployment: &Deployment) -> Result<Recovered> {
     {
         return Err(invalid("replay directories overlap"));
     }
-    let mut locks = Vec::new();
+    let mut locks = ReplayLocks::default();
     for root in &canonical {
-        let path = root.join("LOCK");
-        if !fs::symlink_metadata(&path)?.file_type().is_file() {
-            return Err(invalid("replay lock must be a regular existing file"));
-        }
-        let file = File::open(path)?;
-        file.try_lock()
-            .map_err(|e| io::Error::other(e.to_string()))?;
-        locks.push(file);
+        locks.acquire(root)?;
     }
     let scratch = Scratch::new()?;
     let mut budget = CopyBudget::default();
@@ -659,5 +675,46 @@ mod tests {
         budget.reserve(MAX_COPY_BYTES).unwrap();
         assert!(budget.reserve(1).is_err());
         assert_eq!(budget.bytes, MAX_COPY_BYTES);
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod lock_tests {
+    use super::*;
+    #[test]
+    fn replay_owner_releases_copied_locks_on_success_and_partial_setup_error() {
+        for fail in [false, true] {
+            let root = Scratch::new().unwrap();
+            fs::write(root.0.join("LOCK"), b"").unwrap();
+            let mut inherited = None;
+            let contender = File::open(root.0.join("LOCK")).unwrap();
+            let acquire = (|| -> Result<ReplayLocks> {
+                let mut locks = ReplayLocks::default();
+                locks.acquire(&root.0)?;
+                inherited = Some(locks.0[0].try_clone()?);
+                assert!(
+                    contender.try_lock().is_err(),
+                    "live replay remains exclusive"
+                );
+                if fail {
+                    locks.acquire(&root.0.join("missing-root"))?;
+                }
+                Ok(locks)
+            })();
+            assert_eq!(acquire.is_err(), fail);
+            drop(acquire);
+            contender
+                .try_lock()
+                .expect("finished replay cannot be extended by an inherited copy");
+            drop(inherited);
+            let third = File::open(root.0.join("LOCK")).unwrap();
+            assert!(
+                third.try_lock().is_err(),
+                "old-copy close must not release successor"
+            );
+            contender.unlock().unwrap();
+            third.try_lock().unwrap();
+            third.unlock().unwrap();
+        }
     }
 }

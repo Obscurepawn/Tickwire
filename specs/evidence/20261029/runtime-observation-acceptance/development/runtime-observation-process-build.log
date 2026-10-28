@@ -1,0 +1,13 @@
+   Compiling tickwire-ipc v0.1.0 (/home/obscure/Tickwire/crates/tickwire-ipc)
+   Compiling tickwire-shm-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-shm-sys)
+   Compiling tickwire-snapshot v0.1.0 (/home/obscure/Tickwire/crates/tickwire-snapshot)
+   Compiling tickwire-control-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-sys)
+   Compiling tickwire-control v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control)
+   Compiling tickwire-release v0.1.0 (/home/obscure/Tickwire/crates/tickwire-release)
+   Compiling tickwire-shm v0.1.0 (/home/obscure/Tickwire/crates/tickwire-shm)
+   Compiling tickwire-join v0.1.0 (/home/obscure/Tickwire/crates/tickwire-join)
+   Compiling tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+   Compiling tickwire-runtime v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-example v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-example)
+    Finished `release` profile [optimized] target(s) in 31.89s

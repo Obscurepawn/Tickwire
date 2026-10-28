@@ -19,7 +19,7 @@ pub struct SnapshotDirectory {
 }
 struct Directory {
     root: PathBuf,
-    _lock: File,
+    _lock: WriterLock,
     namespace: Mutex<()>,
     node_owner: Mutex<Weak<[u8; 16]>>,
     group: [u8; 16],
@@ -33,6 +33,14 @@ struct Directory {
     fault_after: std::sync::atomic::AtomicUsize,
     #[cfg(test)]
     steps: std::sync::atomic::AtomicUsize,
+}
+struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // All directory owners share this guard through Arc<Directory>. Only
+        // the final owner releases it; an inherited raw descriptor is no owner.
+        let _ = self.0.unlock();
+    }
 }
 pub struct StagingSnapshot {
     directory: Arc<Directory>,
@@ -87,7 +95,8 @@ impl SnapshotDirectory {
             .open(lock_path)
             .map_err(|_| Error::Store)?;
         lock.try_lock().map_err(|_| Error::Store)?;
-        lock.sync_all().map_err(|_| Error::Store)?;
+        let lock = WriterLock(lock);
+        lock.0.sync_all().map_err(|_| Error::Store)?;
         let mut identity = b"TWGD0001".to_vec();
         identity.extend_from_slice(&group);
         identity.extend_from_slice(&node.to_le_bytes());
@@ -1076,6 +1085,39 @@ mod tests {
         )
         .unwrap()
     }
+    #[test]
+    fn clean_final_directory_drop_releases_lock_despite_inherited_descriptor() {
+        let temp = Temp::new();
+        let path = temp.0.join("node");
+        let open = || SnapshotDirectory::open(&path, [8; 16], 1, SnapshotLimits::default());
+        let directory = open().unwrap();
+        let inherited = directory.inner._lock.0.try_clone().unwrap();
+        let clone = directory.clone();
+        drop(directory);
+        assert!(open().is_err(), "a live directory clone retains ownership");
+        let mut stage = clone.stage().unwrap();
+        drop(clone);
+        assert!(open().is_err(), "staging retains directory ownership");
+        let root = stage.put(b"state").unwrap();
+        let snapshot = stage
+            .finish(cut(), ApplicationRoot::new(1, root).unwrap())
+            .unwrap();
+        assert!(open().is_err(), "a verified snapshot retains ownership");
+        let snapshot_clone = snapshot.clone();
+        drop(snapshot);
+        assert!(open().is_err(), "a cloned snapshot retains ownership");
+        drop(snapshot_clone);
+        let replacement =
+            open().expect("an unrelated inherited descriptor must not extend directory lifetime");
+        drop(inherited);
+        assert!(
+            open().is_err(),
+            "closing the old copy must not unlock its replacement"
+        );
+        drop(replacement);
+        assert!(open().is_ok());
+    }
+
     fn config(id: u64, writer_epoch: u64) -> crate::Config {
         crate::Config {
             physical: tickwire_journal::Config::new([id as u8; 16], [8; 16]),

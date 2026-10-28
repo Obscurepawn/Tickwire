@@ -185,6 +185,20 @@ fn run_case(name: &str) {
                 }
             }
             "CompositeFile" => bundle(&f, v, &raw, &c["context"]),
+            "CheckpointSealReplyBody" => {
+                let ctx = &c["context"];
+                let mut request = bytes(&f, ctx["request_vector"].as_str().unwrap());
+                if let Some(mutations) = ctx["request_mutations"].as_object() {
+                    for (path, value) in mutations {
+                        mutate(&mut request, "CheckpointSealBody", path, value);
+                    }
+                }
+                validate_checkpoint_reply(
+                    &CheckpointSealBody::decode(&request)?,
+                    &CheckpointSealReplyBody::decode(&raw)?,
+                    n(ctx, "previous_ready_sequence"),
+                )
+            }
             "GrantBody" => {
                 let ctx = &c["context"];
                 let lease =
@@ -214,7 +228,7 @@ fn run_case(name: &str) {
 #[test]
 fn all_declared_semantic_cases() {
     let f = fixture();
-    assert_eq!(f["semantic_cases"].as_array().unwrap().len(), 25);
+    assert_eq!(f["semantic_cases"].as_array().unwrap().len(), 33);
     for case in f["semantic_cases"].as_array().unwrap() {
         run_case(case["name"].as_str().unwrap());
     }

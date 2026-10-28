@@ -1,0 +1,879 @@
+{
+  "schema": 1,
+  "scope": "actual App, independent MD and supervised worker; loopback TLS Spot fill plus fees",
+  "root": "/tmp/tw-obs-final-2",
+  "binaries": {
+    "tickwire-app": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-app",
+      "sha256": "603483e3efae9762394e36c9e55683075eee88d6d57866802fa0dd7b7ebd26d2"
+    },
+    "tickwire-counting-v1-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-v1-worker",
+      "sha256": "f0c278d6634b39d2637202289710c1abe86b6ca75fb17f2e104b07d9c47f066c"
+    },
+    "tickwire-counting-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-worker",
+      "sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30"
+    },
+    "tickwire-lab": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+      "sha256": "fc8af53a35e5c756982cd47c9e79383d7f409c9c96f50cb8ca4353600783706c"
+    },
+    "tickwire-lifecycle": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lifecycle",
+      "sha256": "a541dc777456c55666642de39c0c309611f3e1b1d2a5453c455044b228d0b6bb"
+    },
+    "tickwire-md": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-md",
+      "sha256": "a99d211f2d02f3ea59b3b49302c034e716d68c7914cbdf97dc34229c73685c08"
+    },
+    "tickwire-replica-receiver": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-replica-receiver",
+      "sha256": "69b2a1088a8b6c9ccafb0673fbe0a8366a84a50f1ae08e0944ae0dc334536fa1"
+    },
+    "tickwire-strategy-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-strategy-worker",
+      "sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340"
+    }
+  },
+  "started_mono_ns": 60023864205603,
+  "command_line": [
+    "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py",
+    "--bins",
+    "/tmp/tw-runtime-observation-bins-1",
+    "--root",
+    "/tmp/tw-obs-final-2",
+    "--output",
+    "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance.json",
+    "--verifier",
+    "/tmp/tickwire-progress-20261028/target/debug/tickwire-observation-verifier",
+    "--recover"
+  ],
+  "driver_sha256": "4e99184169496965c87dcdb737377c777d4289e146b04a8fb05e45aebf642584",
+  "observations": [
+    {
+      "outcome": "/tmp/tw-obs-final-2/outcome-01000000000000000000000000000000.json",
+      "request_id": "01000000000000000000000000000000",
+      "pid": 1072531,
+      "challenge": "9103371b693b6e8141b4597a3d02f42d",
+      "ready_sequence": 2,
+      "account_position": 0,
+      "floor": 0,
+      "objects": 14,
+      "sample": {
+        "pid": 1072531,
+        "start_ticks": 6002421,
+        "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+        "image_bytes": 5921280,
+        "exe": "/memfd:tickwire-executable (deleted)",
+        "uid": 1000,
+        "gid": 1000,
+        "sampled_mono_ns": 60024438119430
+      },
+      "semantic_verification": {
+        "account_input_digest": "39e3d82d21705af0eccbbd4294bceef36119b3cad283f3bcfae66a529dc3a5f2",
+        "account_position": 0,
+        "bytes": 6298704,
+        "checkpoint": "b25012192ed819bda8ff4918e02e9def18a3bba6627152653525b95fce7b5b08",
+        "closure_verified": true,
+        "independent_export_prefix_verified": true,
+        "input_seal": "14e477dce4c916746c29334097159aff71409e6dd571a6110129382507b056f1",
+        "objects": 14,
+        "ready_sequence": 2,
+        "request_id": "01000000000000000000000000000000"
+      }
+    },
+    {
+      "outcome": "/tmp/tw-obs-final-2/outcome-02000000000000000000000000000000.json",
+      "request_id": "02000000000000000000000000000000",
+      "pid": 1072531,
+      "challenge": "1024f8c90909593a63018e700640cbed",
+      "ready_sequence": 5,
+      "account_position": 2,
+      "floor": 1,
+      "objects": 14,
+      "sample": {
+        "pid": 1072531,
+        "start_ticks": 6002421,
+        "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+        "image_bytes": 5921280,
+        "exe": "/memfd:tickwire-executable (deleted)",
+        "uid": 1000,
+        "gid": 1000,
+        "sampled_mono_ns": 60024757305182
+      },
+      "semantic_verification": {
+        "account_input_digest": "5c6bed0bd022865914d93f81731bc3beeba880381b0bfcc67a9c0796a51d59c7",
+        "account_position": 2,
+        "bytes": 6514933,
+        "checkpoint": "23c86f67f376e6d68ecd4fb6c4d248e9fb9caf35e38240eb05fb7d25d5d05985",
+        "closure_verified": true,
+        "independent_export_prefix_verified": true,
+        "input_seal": "cb9486ff297c0feb109f6ada6c49b6a9d9784682242c810a7290995d647e7529",
+        "objects": 14,
+        "ready_sequence": 5,
+        "request_id": "02000000000000000000000000000000"
+      }
+    }
+  ],
+  "negative_results": [
+    {
+      "request_id": "03000000000000000000000000000000",
+      "status": "rejected",
+      "outcome": "/tmp/tw-obs-final-2/outcome-03000000000000000000000000000000.json"
+    },
+    {
+      "request_id": "04000000000000000000000000000000",
+      "status": "rejected",
+      "outcome": "/tmp/tw-obs-final-2/outcome-04000000000000000000000000000000.json"
+    },
+    {
+      "request_id": "05000000000000000000000000000000",
+      "status": "expired",
+      "outcome": "/tmp/tw-obs-final-2/outcome-05000000000000000000000000000000.json"
+    },
+    {
+      "request_id": "06000000000000000000000000000000",
+      "status": "unsupported",
+      "outcome": "/tmp/tw-obs-final-2/outcome-06000000000000000000000000000000.json"
+    }
+  ],
+  "worker_before": {
+    "pid": 1072531,
+    "start_ticks": 6002421,
+    "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+    "image_bytes": 5921280,
+    "exe": "/memfd:tickwire-executable (deleted)",
+    "uid": 1000,
+    "gid": 1000,
+    "sampled_mono_ns": 60024333754137
+  },
+  "session": {
+    "schema": 1,
+    "session_id": [
+      21,
+      49,
+      234,
+      123,
+      109,
+      160,
+      54,
+      10,
+      215,
+      160,
+      210,
+      63,
+      175,
+      123,
+      24,
+      121
+    ],
+    "session_number": 1,
+    "binding": {
+      "scope": {
+        "risk_domain_id": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "venue": 1,
+        "environment": "test",
+        "account": 2
+      },
+      "product": "spot",
+      "executor_id": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "owner_generation": 1,
+      "writer_epoch": 4,
+      "domain": {
+        "process_instance": [
+          77,
+          168,
+          244,
+          50,
+          121,
+          98,
+          124,
+          206,
+          164,
+          155,
+          20,
+          163,
+          119,
+          100,
+          202,
+          39
+        ],
+        "generation": 1
+      }
+    },
+    "started_mono_ns": 60024178602591
+  },
+  "identical_request_no_new_result": true,
+  "duplicate_identical": {
+    "before_sha256": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+    "after_sha256": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+    "outcome": "/tmp/tw-obs-final-2/outcome-02000000000000000000000000000000.json"
+  },
+  "conflicting_completed_id_rejected": true,
+  "conflict_outcome": "/tmp/tw-obs-final-2/outcome-conflict.json",
+  "mirror_before_stop": {
+    "prefix": {
+      "dependency_root": [
+        127,
+        176,
+        193,
+        104,
+        86,
+        193,
+        9,
+        194,
+        36,
+        132,
+        173,
+        56,
+        188,
+        190,
+        21,
+        103,
+        122,
+        70,
+        72,
+        197,
+        229,
+        115,
+        32,
+        0,
+        120,
+        11,
+        36,
+        169,
+        82,
+        178,
+        89,
+        184
+      ],
+      "hash": [
+        239,
+        195,
+        186,
+        223,
+        145,
+        7,
+        198,
+        142,
+        19,
+        175,
+        174,
+        1,
+        32,
+        109,
+        248,
+        181,
+        51,
+        6,
+        191,
+        24,
+        90,
+        129,
+        127,
+        190,
+        246,
+        8,
+        49,
+        46,
+        190,
+        229,
+        52,
+        214
+      ],
+      "sequence": 8,
+      "writer_epoch": 4
+    },
+    "verified_from_actual_store_copy": true
+  },
+  "worker_after": {
+    "pid": 1072531,
+    "start_ticks": 6002421,
+    "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+    "image_bytes": 5921280,
+    "exe": "/memfd:tickwire-executable (deleted)",
+    "uid": 1000,
+    "gid": 1000,
+    "sampled_mono_ns": 60026212971380
+  },
+  "unfinished_request": {
+    "schema": 1,
+    "request_id": [
+      7,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "session_id": [
+      21,
+      49,
+      234,
+      123,
+      109,
+      160,
+      54,
+      10,
+      215,
+      160,
+      210,
+      63,
+      175,
+      123,
+      24,
+      121
+    ],
+    "binding": {
+      "scope": {
+        "risk_domain_id": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "venue": 1,
+        "environment": "test",
+        "account": 2
+      },
+      "product": "spot",
+      "executor_id": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "owner_generation": 1,
+      "writer_epoch": 4,
+      "domain": {
+        "process_instance": [
+          77,
+          168,
+          244,
+          50,
+          121,
+          98,
+          124,
+          206,
+          164,
+          155,
+          20,
+          163,
+          119,
+          100,
+          202,
+          39
+        ],
+        "generation": 1
+      }
+    },
+    "target": {
+      "logical_strategy_id": 8,
+      "instance": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "generation": 5
+    },
+    "valid_until_mono_ns": 60046223295054,
+    "require_resources": false
+  },
+  "run_exit_code": 0,
+  "business": {
+    "account_fill_verified": true,
+    "account_report": "/tmp/tw-obs-final-2/account-report.json",
+    "account_wal": "/tmp/tw-obs-final-2/exec/account",
+    "event": "laboratory_spot_fill_complete",
+    "fixture_audit": "/tmp/tw-obs-final-2/fixture.jsonl",
+    "input_wal": "/tmp/tw-obs-final-2/exec/input",
+    "logs": "/tmp/tw-obs-final-2/logs",
+    "mirror_records_verified": 8,
+    "mirror_wal": "/tmp/tw-obs-final-2/mirror/journal",
+    "worker_report_position_verified": 8
+  },
+  "account_report": {
+    "account_epoch": 1,
+    "account_records": 8,
+    "account_stream": "34343434343434343434343434343434",
+    "assets": [
+      {
+        "asset_id": 1,
+        "available": {
+          "atoms": "100100000",
+          "scale": 8
+        },
+        "deficit": {
+          "atoms": "0",
+          "scale": 8
+        },
+        "ownership": [
+          {
+            "quantity": {
+              "atoms": "100000000",
+              "scale": 8
+            },
+            "strategy_id": 0
+          },
+          {
+            "quantity": {
+              "atoms": "100000",
+              "scale": 8
+            },
+            "strategy_id": 8
+          }
+        ],
+        "reserved": {
+          "atoms": "0",
+          "scale": 8
+        },
+        "symbol": "BTC",
+        "total": {
+          "atoms": "100100000",
+          "scale": 8
+        },
+        "wallet_id": 1
+      },
+      {
+        "asset_id": 2,
+        "available": {
+          "atoms": "94000000000",
+          "scale": 8
+        },
+        "deficit": {
+          "atoms": "0",
+          "scale": 8
+        },
+        "ownership": [
+          {
+            "quantity": {
+              "atoms": "100000000000",
+              "scale": 8
+            },
+            "strategy_id": 0
+          },
+          {
+            "quantity": {
+              "atoms": "-6000000000",
+              "scale": 8
+            },
+            "strategy_id": 8
+          }
+        ],
+        "reserved": {
+          "atoms": "0",
+          "scale": 8
+        },
+        "symbol": "USDT",
+        "total": {
+          "atoms": "94000000000",
+          "scale": 8
+        },
+        "wallet_id": 1
+      }
+    ],
+    "baseline_sha256": "9d665f3c152549181fb5212e95744d699b3b7234e7f73d1f7ea99abda6419864",
+    "discarded_tail_bytes": {
+      "account": 0,
+      "input": 0
+    },
+    "export_directory": "/tmp/tw-obs-final-2/export",
+    "format": "tickwire.offline-replay.v1",
+    "frozen": true,
+    "history_sha256": "9d1e3a6ce146f5375a1f729c3d23ee3092a8fc4a4312b533e2fd95cf2b8dfede",
+    "input_facts_not_in_account": 0,
+    "input_quarantines_and_gaps": 1,
+    "input_records": 17,
+    "input_stream": "35353535353535353535353535353535",
+    "ledger_sequence": 8,
+    "orders": [
+      {
+        "aborted": false,
+        "client_id": "lab-spot-1",
+        "command_sha256": "58c92491e315bb0d6647af996685b624b10902e835713cd51558b292da587f31",
+        "confirmed": true,
+        "fee_reconciled": true,
+        "filled_quantity": {
+          "atoms": "100000",
+          "scale": 8
+        },
+        "intent_epoch": 4,
+        "intent_id": 3,
+        "manager_generation": 5,
+        "manager_instance": "02020202020202020202020202020202",
+        "origin_generation": 5,
+        "origin_instance": "02020202020202020202020202020202",
+        "original_quantity": {
+          "atoms": "100000",
+          "scale": 8
+        },
+        "owner_revision": 1,
+        "reduce_allocation": {
+          "atoms": "0",
+          "scale": 8
+        },
+        "remaining_quantity": {
+          "atoms": "0",
+          "scale": 8
+        },
+        "strategy_id": 8,
+        "terminal": true,
+        "uncreated": false,
+        "unknown": false
+      }
+    ],
+    "pending_orders": [],
+    "positions": [],
+    "rejected_event_sha256": null,
+    "required_frontier": null,
+    "scope": {
+      "account": 2,
+      "environment": "Test",
+      "risk_domain_id": "01010101010101010101010101010101",
+      "venue": 1
+    }
+  },
+  "recovery": {
+    "unfinished_request_interrupted_without_redispatch": true,
+    "interrupted_outcome": "/tmp/tw-obs-final-2/outcome-interrupted.json",
+    "historical_outcome": "/tmp/tw-obs-final-2/outcome-historical.json",
+    "session": {
+      "schema": 1,
+      "session_id": [
+        90,
+        161,
+        163,
+        213,
+        24,
+        224,
+        51,
+        177,
+        70,
+        155,
+        185,
+        57,
+        208,
+        41,
+        63,
+        196
+      ],
+      "session_number": 2,
+      "binding": {
+        "scope": {
+          "risk_domain_id": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "venue": 1,
+          "environment": "test",
+          "account": 2
+        },
+        "product": "spot",
+        "executor_id": [
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4,
+          4
+        ],
+        "owner_generation": 1,
+        "writer_epoch": 4,
+        "domain": {
+          "process_instance": [
+            77,
+            168,
+            244,
+            50,
+            121,
+            98,
+            124,
+            206,
+            164,
+            155,
+            20,
+            163,
+            119,
+            100,
+            202,
+            39
+          ],
+          "generation": 1
+        }
+      },
+      "started_mono_ns": 60027442243449
+    },
+    "original_observed_republished_historical": true,
+    "original_challenge_preserved": true,
+    "original_worker_exited": true,
+    "configuration": "Observe strategy; cloned account WAL; same actual observation WAL; no worker relaunch or live inference",
+    "exit_code": 0
+  },
+  "completed_mono_ns": 60030510266534,
+  "passed": true,
+  "status": "verified",
+  "observation_config": {
+    "inbox_directory": "/tmp/tw-obs-final-2/observation-inbox",
+    "outbox_directory": "/tmp/tw-obs-final-2/observation-outbox",
+    "journal_directory": "/tmp/tw-obs-final-2/observation-journal",
+    "stream_epoch": [
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199,
+      199
+    ],
+    "owner_uid": 1000,
+    "allowed_build_hashes": [
+      [
+        39,
+        205,
+        230,
+        66,
+        107,
+        101,
+        197,
+        208,
+        1,
+        32,
+        68,
+        62,
+        23,
+        79,
+        230,
+        129,
+        55,
+        117,
+        201,
+        251,
+        219,
+        50,
+        156,
+        212,
+        108,
+        151,
+        15,
+        133,
+        6,
+        225,
+        99,
+        64
+      ]
+    ],
+    "maximum_requests": 64,
+    "maximum_pending": 4,
+    "maximum_per_poll": 8,
+    "recover": false
+  },
+  "artifacts": {
+    "driver.py": "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py",
+    "verifier-main.rs": "/tmp/tickwire-observation-verifier/src/main.rs",
+    "verifier-Cargo.toml": "/tmp/tickwire-observation-verifier/Cargo.toml",
+    "verifier-Cargo.lock": "/tmp/tickwire-observation-verifier/Cargo.lock",
+    "closure-audit.json": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-closure-audit.json",
+    "run-result.json": "/tmp/tw-obs-final-2/run-result.json",
+    "account-report.json": "/tmp/tw-obs-final-2/account-report.json",
+    "exec.stderr.log": "/tmp/tw-obs-final-2/logs/exec.stderr.log",
+    "fixture.jsonl": "/tmp/tw-obs-final-2/fixture.jsonl",
+    "session.json": "/tmp/tw-obs-final-2/observation-outbox/session.json",
+    "initial-session.json": "/tmp/tw-obs-final-2/initial-observation-session.json",
+    "outcomes/conflict.json": "/tmp/tw-obs-final-2/outcome-conflict.json",
+    "business-baseline.cbor": "/tmp/tw-obs-final-2/export/baseline.cbor",
+    "business-records/00000000000000000001.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000001.cbor",
+    "business-records/00000000000000000002.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000002.cbor",
+    "business-records/00000000000000000003.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000003.cbor",
+    "business-records/00000000000000000004.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000004.cbor",
+    "business-records/00000000000000000005.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000005.cbor",
+    "business-records/00000000000000000006.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000006.cbor",
+    "business-records/00000000000000000007.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000007.cbor",
+    "business-records/00000000000000000008.cbor": "/tmp/tw-obs-final-2/export/records/00000000000000000008.cbor",
+    "outcomes/outcome-01000000000000000000000000000000.json": "/tmp/tw-obs-final-2/outcome-01000000000000000000000000000000.json",
+    "outcomes/outcome-02000000000000000000000000000000.json": "/tmp/tw-obs-final-2/outcome-02000000000000000000000000000000.json",
+    "outcomes/outcome-03000000000000000000000000000000.json": "/tmp/tw-obs-final-2/outcome-03000000000000000000000000000000.json",
+    "outcomes/outcome-04000000000000000000000000000000.json": "/tmp/tw-obs-final-2/outcome-04000000000000000000000000000000.json",
+    "outcomes/outcome-05000000000000000000000000000000.json": "/tmp/tw-obs-final-2/outcome-05000000000000000000000000000000.json",
+    "outcomes/outcome-06000000000000000000000000000000.json": "/tmp/tw-obs-final-2/outcome-06000000000000000000000000000000.json",
+    "observation-wal/MANIFEST.json": "/tmp/tw-obs-final-2/observation-journal/MANIFEST.json",
+    "observation-results/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293.json": "/tmp/tw-obs-final-2/observation-journal/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+    "observation-results/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29.json": "/tmp/tw-obs-final-2/observation-journal/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+    "observation-results/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a.json": "/tmp/tw-obs-final-2/observation-journal/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+    "observation-results/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4.json": "/tmp/tw-obs-final-2/observation-journal/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+    "observation-results/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048.json": "/tmp/tw-obs-final-2/observation-journal/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048",
+    "observation-results/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660.json": "/tmp/tw-obs-final-2/observation-journal/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+    "observation-results/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12.json": "/tmp/tw-obs-final-2/observation-journal/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+    "observation-results/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389.json": "/tmp/tw-obs-final-2/observation-journal/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+    "observation-wal/segment-00000000000000000001.wal": "/tmp/tw-obs-final-2/observation-journal/segment-00000000000000000001.wal",
+    "outcomes/interrupted.json": "/tmp/tw-obs-final-2/outcome-interrupted.json",
+    "outcomes/historical.json": "/tmp/tw-obs-final-2/outcome-historical.json",
+    "generate.log": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-generate.log",
+    "run.log": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-run.log",
+    "recovery.log": "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance-recovery.log",
+    "source-before.log": "/tmp/tickwire-progress-20261028/runtime-observation-app-source-before.log",
+    "source-after.log": "/tmp/tickwire-progress-20261028/runtime-observation-app-source-after.log"
+  },
+  "artifact_sha256": {
+    "driver.py": "4e99184169496965c87dcdb737377c777d4289e146b04a8fb05e45aebf642584",
+    "verifier-main.rs": "57836763b5f05847f4411d96d80a7979e9c77e6286a97f355345e3c296430cfd",
+    "verifier-Cargo.toml": "05114db3acdfa1722306e7b20443e6196ed15fca4f56070d4ed22b9caf1849a0",
+    "verifier-Cargo.lock": "796ebab3d25715a6b482b30fb05dd816546bbaedd197aba579bcefdf78fd4dbc",
+    "closure-audit.json": "2f07388bdd9dbd099a0f4110ee00f4e517ec711ef902d14d7653a2a2dcf8b543",
+    "run-result.json": "accf1c82c13181bb60ec20adb8be7b2566a0ec00d9fcc603f5b5a4b68164653f",
+    "account-report.json": "c223eace8e7bede3d6dbeeb6d76b69c563c62d77796ce1e3ea6b4ee513df2c8c",
+    "exec.stderr.log": "577ff0d8fd52115ac50a02325630d3a5f4721e0b845d9352d0ace51327a121d1",
+    "fixture.jsonl": "c08a8a2cdea7a1bdb8a6ef8aeddf6cc41d885aaceb1fa37e83b21db3ed199c4e",
+    "session.json": "06d534cf6cb95b94193898b64a764d4f81a967f21784611f01b2ada57acebde6",
+    "initial-session.json": "e21a3d2ced309786ebfcddf37bbcb21f9bec177ee9f5ab2fa1c83eb22445326c",
+    "outcomes/conflict.json": "a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+    "business-baseline.cbor": "9d665f3c152549181fb5212e95744d699b3b7234e7f73d1f7ea99abda6419864",
+    "business-records/00000000000000000001.cbor": "3cdbebb0fba5d59d66a05635595aa3ca0d969e2fb56d9ea6fa8bf895158c80d8",
+    "business-records/00000000000000000002.cbor": "ac022616313a05b2a3431c33a909f4bbb2e3f49c6da43d49c42a1f08514846c6",
+    "business-records/00000000000000000003.cbor": "3b0243ffe15f9ea705a394de5cd7f98315d5327f476286db4ecc6f9004d4874c",
+    "business-records/00000000000000000004.cbor": "8c7d09cd45cb334f6a58de374595223c2d80457be13eaee94fc6d7559dfd8815",
+    "business-records/00000000000000000005.cbor": "cd3d0d54a3713784c42e39571de2cbe91105f8a290cfeed105dc934cf798cd87",
+    "business-records/00000000000000000006.cbor": "6e3c14348c6afb4b9c7e2e44f062d75d92d12be9fcbdd60d7a9c9a2925c4451e",
+    "business-records/00000000000000000007.cbor": "36a2bd74f504c491f631a27e33aae33a4765c3a49a375b2fe368b2b6f483eb34",
+    "business-records/00000000000000000008.cbor": "b57d5d9f5c5930a3235fbf73cba647faf808a390d40e89ef0cd7fcc6b19e6a71",
+    "outcomes/outcome-01000000000000000000000000000000.json": "bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+    "outcomes/outcome-02000000000000000000000000000000.json": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+    "outcomes/outcome-03000000000000000000000000000000.json": "3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+    "outcomes/outcome-04000000000000000000000000000000.json": "142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+    "outcomes/outcome-05000000000000000000000000000000.json": "d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+    "outcomes/outcome-06000000000000000000000000000000.json": "dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+    "observation-wal/MANIFEST.json": "ef353852c9f39318163446e8ef13d82324afc699a249a8b182e16fb01a493d77",
+    "observation-results/object-142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293.json": "142e076a8c3adf8bd1bb719a1dfb468c678cdb8830ed11c33834c50759ad4293",
+    "observation-results/object-3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29.json": "3d616618e48def4af589988e1a328fa0dd619777e069766792c5164c748a3c29",
+    "observation-results/object-3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a.json": "3f2d4666257b34a52e816617615395fb7c71ab5d4758141cf09e9110d3f4e74a",
+    "observation-results/object-a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4.json": "a73e3cc38b17ae6fd5cd8196ad52552fb28e4aa10dc99004d09095dbc07287a4",
+    "observation-results/object-b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048.json": "b537d2e970c70017d6e4572005a9fa34f77197f78a7b3ef5786b546f9f412048",
+    "observation-results/object-bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660.json": "bfc9106a75926a51df71e0eee7617a240ba5ee117370555b7fe4055adf402660",
+    "observation-results/object-d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12.json": "d4fba0b016e3b7863e6616df168170e519cd5af31e33ae1d30759aa65381aa12",
+    "observation-results/object-dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389.json": "dbbb5cc735322da4ddc3ebb3f0e9cae3da6f854895bad0a8805c6427723f6389",
+    "observation-wal/segment-00000000000000000001.wal": "9da13fb4b944f7ce37f950cf1b49a50532bd9c8356f95495127874706232cb9f",
+    "outcomes/interrupted.json": "79535ba8d89f5f888050024f316dfeacc4992949c78fe1b49825be30f7911972",
+    "outcomes/historical.json": "e5f6305cc0e1a8373539847aa7e09a6be592a18c541883853300fdb5f318aa3f",
+    "generate.log": "d15c0d3af40788c90bc2c229ba12db5c103c4c560d68bf6b4b8dc0b01872921a",
+    "run.log": "a62279aac82a5e0ecae0b3f7588bbc2643f95b88f82ef776f35619bb1b2891ae",
+    "recovery.log": "755567c3839a0e03d1d3ed5a2b05067f0286ad25d7e35484498a67fc64395968",
+    "source-before.log": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59",
+    "source-after.log": "007e4a8c3d9e1aaa26d57b93b01f98f6b1e90191a34f93ed0180a592a6b11f59"
+  },
+  "binary_hashes_unchanged": true,
+  "source_manifest_verified": true
+}

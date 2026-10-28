@@ -1,0 +1,367 @@
+{
+  "schema": 1,
+  "scope": "actual App, independent MD and supervised worker; loopback TLS Spot fill plus fees",
+  "root": "/tmp/tw-obs-final-1",
+  "binaries": {
+    "tickwire-app": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-app",
+      "sha256": "603483e3efae9762394e36c9e55683075eee88d6d57866802fa0dd7b7ebd26d2"
+    },
+    "tickwire-counting-v1-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-v1-worker",
+      "sha256": "f0c278d6634b39d2637202289710c1abe86b6ca75fb17f2e104b07d9c47f066c"
+    },
+    "tickwire-counting-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-worker",
+      "sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30"
+    },
+    "tickwire-lab": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+      "sha256": "fc8af53a35e5c756982cd47c9e79383d7f409c9c96f50cb8ca4353600783706c"
+    },
+    "tickwire-lifecycle": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lifecycle",
+      "sha256": "a541dc777456c55666642de39c0c309611f3e1b1d2a5453c455044b228d0b6bb"
+    },
+    "tickwire-md": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-md",
+      "sha256": "a99d211f2d02f3ea59b3b49302c034e716d68c7914cbdf97dc34229c73685c08"
+    },
+    "tickwire-replica-receiver": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-replica-receiver",
+      "sha256": "69b2a1088a8b6c9ccafb0673fbe0a8366a84a50f1ae08e0944ae0dc334536fa1"
+    },
+    "tickwire-strategy-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-strategy-worker",
+      "sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340"
+    }
+  },
+  "started_mono_ns": 59894791749942,
+  "command_line": [
+    "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py",
+    "--bins",
+    "/tmp/tw-runtime-observation-bins-1",
+    "--root",
+    "/tmp/tw-obs-final-1",
+    "--output",
+    "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance.json",
+    "--verifier",
+    "/tmp/tickwire-progress-20261028/target/debug/tickwire-observation-verifier",
+    "--recover"
+  ],
+  "driver_sha256": "3463776d01d2fd224c1f2f1dbfce7881ed48aff0c1ce4768b3c15030d8445ca7",
+  "observations": [
+    {
+      "outcome": "/tmp/tw-obs-final-1/outcome-01000000000000000000000000000000.json",
+      "request_id": "01000000000000000000000000000000",
+      "pid": 1068992,
+      "challenge": "77551a6201a62783d86403dc7ecd674d",
+      "ready_sequence": 3,
+      "account_position": 2,
+      "floor": 1,
+      "objects": 14,
+      "sample": {
+        "pid": 1068992,
+        "start_ticks": 5989535,
+        "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+        "image_bytes": 5921280,
+        "exe": "/memfd:tickwire-executable (deleted)",
+        "uid": 1000,
+        "gid": 1000,
+        "sampled_mono_ns": 59895995046359
+      }
+    },
+    {
+      "outcome": "/tmp/tw-obs-final-1/outcome-02000000000000000000000000000000.json",
+      "request_id": "02000000000000000000000000000000",
+      "pid": 1068992,
+      "challenge": "a0a55aef75c5bcd464a19b90b423c40b",
+      "ready_sequence": 6,
+      "account_position": 4,
+      "floor": 4,
+      "objects": 14,
+      "sample": {
+        "pid": 1068992,
+        "start_ticks": 5989535,
+        "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+        "image_bytes": 5921280,
+        "exe": "/memfd:tickwire-executable (deleted)",
+        "uid": 1000,
+        "gid": 1000,
+        "sampled_mono_ns": 59896305534564
+      }
+    }
+  ],
+  "negative_results": [
+    {
+      "request_id": "03000000000000000000000000000000",
+      "status": "rejected",
+      "outcome": "/tmp/tw-obs-final-1/outcome-03000000000000000000000000000000.json"
+    },
+    {
+      "request_id": "04000000000000000000000000000000",
+      "status": "rejected",
+      "outcome": "/tmp/tw-obs-final-1/outcome-04000000000000000000000000000000.json"
+    },
+    {
+      "request_id": "05000000000000000000000000000000",
+      "status": "expired",
+      "outcome": "/tmp/tw-obs-final-1/outcome-05000000000000000000000000000000.json"
+    },
+    {
+      "request_id": "06000000000000000000000000000000",
+      "status": "unsupported",
+      "outcome": "/tmp/tw-obs-final-1/outcome-06000000000000000000000000000000.json"
+    }
+  ],
+  "worker_before": {
+    "pid": 1068992,
+    "start_ticks": 5989535,
+    "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+    "image_bytes": 5921280,
+    "exe": "/memfd:tickwire-executable (deleted)",
+    "uid": 1000,
+    "gid": 1000,
+    "sampled_mono_ns": 59895589477181
+  },
+  "session": {
+    "schema": 1,
+    "session_id": [
+      51,
+      115,
+      40,
+      99,
+      101,
+      84,
+      223,
+      39,
+      9,
+      230,
+      139,
+      134,
+      236,
+      88,
+      42,
+      184
+    ],
+    "session_number": 1,
+    "binding": {
+      "scope": {
+        "risk_domain_id": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "venue": 1,
+        "environment": "test",
+        "account": 2
+      },
+      "product": "spot",
+      "executor_id": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "owner_generation": 1,
+      "writer_epoch": 4,
+      "domain": {
+        "process_instance": [
+          207,
+          92,
+          55,
+          83,
+          12,
+          204,
+          99,
+          174,
+          85,
+          174,
+          45,
+          106,
+          31,
+          226,
+          26,
+          18
+        ],
+        "generation": 1
+      }
+    },
+    "started_mono_ns": 59895314562838
+  },
+  "identical_request_no_new_result": true,
+  "duplicate_identical": {
+    "before_sha256": "5475ad13eda37dbeb3e6b029d373fd8778dd7a48b32eb352d31a99fbffb9ccc6",
+    "after_sha256": "5475ad13eda37dbeb3e6b029d373fd8778dd7a48b32eb352d31a99fbffb9ccc6",
+    "outcome": "/tmp/tw-obs-final-1/outcome-02000000000000000000000000000000.json"
+  },
+  "conflicting_completed_id_rejected": true,
+  "conflict_outcome": "/tmp/tw-obs-final-1/outcome-conflict.json",
+  "worker_after": {
+    "pid": 1068992,
+    "start_ticks": 5989535,
+    "image_sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340",
+    "image_bytes": 5921280,
+    "exe": "/memfd:tickwire-executable (deleted)",
+    "uid": 1000,
+    "gid": 1000,
+    "sampled_mono_ns": 59897075444800
+  },
+  "unfinished_request": {
+    "schema": 1,
+    "request_id": [
+      7,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "session_id": [
+      51,
+      115,
+      40,
+      99,
+      101,
+      84,
+      223,
+      39,
+      9,
+      230,
+      139,
+      134,
+      236,
+      88,
+      42,
+      184
+    ],
+    "binding": {
+      "scope": {
+        "risk_domain_id": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "venue": 1,
+        "environment": "test",
+        "account": 2
+      },
+      "product": "spot",
+      "executor_id": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4
+      ],
+      "owner_generation": 1,
+      "writer_epoch": 4,
+      "domain": {
+        "process_instance": [
+          207,
+          92,
+          55,
+          83,
+          12,
+          204,
+          99,
+          174,
+          85,
+          174,
+          45,
+          106,
+          31,
+          226,
+          26,
+          18
+        ],
+        "generation": 1
+      }
+    },
+    "target": {
+      "logical_strategy_id": 8,
+      "instance": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "generation": 5
+    },
+    "valid_until_mono_ns": 59917075562307,
+    "require_resources": false
+  },
+  "passed": false,
+  "error": "AssertionError(1)"
+}

@@ -155,6 +155,7 @@ impl<R: RecoveryResolver + 'static> Hosted<R> {
     fn close<T>(&mut self, result: Result<T>) -> Option<T> {
         match result {
             Ok(value) => Some(value),
+            Err(Error::Busy) => None,
             Err(e) => {
                 if let Some(live) = &mut self.live {
                     live.fail(e);
@@ -237,4 +238,31 @@ fn insert(map: &mut BTreeMap<Hash, Vec<u8>>, bytes: Vec<u8>) -> Result<Object> {
     }
     map.insert(object.digest, bytes);
     Ok(object)
+}
+
+impl<R: RecoveryResolver + 'static> Hosted<R> {
+    pub fn observe_process(&mut self) -> Result<tickwire_supervisor::LiveChildObservation> {
+        self.live
+            .as_mut()
+            .ok_or(Error::ObservationUnsupported)?
+            .observe_process()
+    }
+    pub fn begin_observation(&mut self, request: ObservationRequest) -> Result<()> {
+        self.live
+            .as_mut()
+            .ok_or(Error::ObservationUnsupported)?
+            .begin_observation(request)
+    }
+    pub fn poll_observation(&mut self) -> Result<Option<FreshObservation>> {
+        self.live
+            .as_mut()
+            .ok_or(Error::ObservationUnsupported)?
+            .poll_observation()
+    }
+    pub fn cancel_observation(&mut self, request_id: [u8; 16]) -> Result<()> {
+        self.live
+            .as_mut()
+            .ok_or(Error::ObservationUnsupported)?
+            .cancel_observation(request_id)
+    }
 }

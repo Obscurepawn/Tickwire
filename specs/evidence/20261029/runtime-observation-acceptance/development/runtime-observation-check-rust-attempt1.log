@@ -1,0 +1,544 @@
+   Compiling tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+   Compiling tickwire-release v0.1.0 (/home/obscure/Tickwire/crates/tickwire-release)
+   Compiling tickwire-control-store v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-store)
+   Compiling tickwire-market-publisher v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-publisher)
+   Compiling tickwire-mock v0.1.0 (/home/obscure/Tickwire/crates/tickwire-mock)
+   Compiling tickwire-supervisor v0.1.0 (/home/obscure/Tickwire/crates/tickwire-supervisor)
+   Compiling tickwire-join v0.1.0 (/home/obscure/Tickwire/crates/tickwire-join)
+   Compiling tickwire-snapshot v0.1.0 (/home/obscure/Tickwire/crates/tickwire-snapshot)
+   Compiling tickwire-shm v0.1.0 (/home/obscure/Tickwire/crates/tickwire-shm)
+   Compiling tickwire-control v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control)
+   Compiling tickwire-control-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-sys)
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+   Compiling tickwire-shm-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-shm-sys)
+   Compiling tickwire-runtime v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-replica v0.1.0 (/home/obscure/Tickwire/crates/tickwire-replica)
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-runtime-policy v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime-policy)
+   Compiling tickwire-ipc v0.1.0 (/home/obscure/Tickwire/crates/tickwire-ipc)
+   Compiling tickwire-binance-execution v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-execution)
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+   Compiling tickwire-strategy-example v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-example)
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+   Compiling tickwire-lab v0.1.0 (/home/obscure/Tickwire/crates/tickwire-lab)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 22.54s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_account-437be3311d8096cb)
+
+running 1 test
+test account_inputs::association::tests::association_keeps_every_financial_and_order_field ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests/account_inputs.rs (/tmp/tickwire-progress-20261028/target/debug/deps/account_inputs-0eefbed549a46fd8)
+
+running 14 tests
+test income_closure_state_has_a_fixed_empty_reference_vector ... ok
+test observations_never_apply_balance_change_as_a_second_cashflow ... ok
+test unresolved_income_requires_baseline_and_holds_debit_without_inventing_cashflow ... ok
+test income_closure_rejects_unknown_zero_net_and_old_cut_keys ... ok
+test positive_unattributed_funding_is_booked_but_unavailable ... ok
+test income_closure_digest_binds_history_and_persistent_state ... ok
+test funding_covered_by_baseline_and_reconnect_repeats_never_book_twice ... ok
+test income_closure_refuses_observation_or_new_state_after_preparation ... ok
+test association_rejects_partial_observations_and_reused_income_keys ... ok
+test association_zero_net_keeps_both_income_components_and_credit_isolation ... ok
+test income_closure_changes_status_once_without_changing_cash_or_holds ... ok
+test association_only_explains_observations_and_consumes_exact_approval_once ... ok
+test income_closure_digest_normalizes_only_recovery_markers ... ok
+test income_and_native_fill_share_pnl_and_commission_in_either_arrival_order ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/admission.rs (/tmp/tickwire-progress-20261028/target/debug/deps/admission-89ed102d6c50f4e5)
+
+running 10 tests
+test native_market_cannot_turn_a_last_price_into_a_hard_bound ... ok
+test exclusive_fee_pool_cannot_also_fund_a_sell ... ok
+test typed_spot_advanced_commands_do_not_inherit_basic_order_admission ... ok
+test stale_inputs_fail_before_reserving ... ok
+test full_spot_command_reserves_only_the_spent_asset ... ok
+test exact_retry_is_idempotent_and_changed_price_conflicts ... ok
+test all_asset_candidate_failure_preserves_the_preexisting_order ... ok
+test cancel_replace_reserves_old_and_new_together_without_optimistic_netting ... ok
+test deficit_freezes_new_orders_but_not_cancel_of_an_existing_order ... ok
+test unknown_order_keeps_all_reservations_and_allows_a_targeted_cancel ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/amend.rs (/tmp/tickwire-progress-20261028/target/debug/deps/amend-5e574bc84789ddc5)
+
+running 12 tests
+test frozen_known_order_accepts_same_client_reduce_without_releasing_reservation ... ok
+test one_pending_amendment_and_durable_abort_never_release_original_order ... ok
+test iceberg_and_other_order_types_are_not_classified_as_supported_decreases ... ok
+test partially_filled_while_amend_waits_blocks_first_send_when_target_has_been_reached ... ok
+test old_quantity_observation_cannot_undo_amend_but_new_trade_still_books_and_freezes ... ok
+test larger_cumulative_on_duplicate_keeps_unexplained_responsibility_without_synthetic_fill ... ok
+test cross_source_ids_remain_distinct_without_applying_the_same_decrease_twice ... ok
+test completed_a_replay_cannot_be_bound_to_pending_b_and_execution_conflicts_reject ... ok
+test new_unreconciled_observation_while_b_waits_rechecks_the_original_admission_condition ... ok
+test actual_amendment_reduces_only_unfilled_reserve_and_preserves_original_quantity ... ok
+test amended_state_and_pending_request_replay_exactly_with_recovery_unknown_excluded_from_digest ... ok
+test native_client_manager_and_quantity_checks_are_not_bypassed_by_frozen_account ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/conditional.rs (/tmp/tickwire-progress-20261028/target/debug/deps/conditional-7c521aef856a9e20)
+
+running 10 tests
+test owned_algo_cancel_keeps_the_preallocated_potential_child ... ok
+test owned_list_cancel_is_admitted_without_releasing_any_potential_leg ... ok
+test conflicting_native_parent_keeps_original_binding_and_reservations ... ok
+test late_algo_ack_restores_the_original_exclusive_reduce_ticket ... ok
+test parent_unknown_is_durable_while_recovery_freeze_is_not_in_state_digest ... ok
+test verified_uncreated_close_preserves_cash_and_cannot_hide_a_late_child ... ok
+test parent_cancel_checks_full_identity_and_current_manager_after_handover ... ok
+test terminal_parent_keeps_every_leg_and_late_child_only_binds_existing_reservation ... ok
+test late_ordinary_ack_and_partial_fill_restore_only_unfilled_reduce_responsibility ... ok
+test parent_ack_blocks_abort_and_late_ack_reopens_all_aborted_legs ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/edge_cases.rs (/tmp/tickwire-progress-20261028/target/debug/deps/edge_cases-f5fae0655c24ab0b)
+
+running 8 tests
+test unknown_locked_coverage_is_never_applied_to_a_new_order ... ok
+test spot_and_derivative_assets_cannot_be_shared_through_the_same_wallet_id ... ok
+test unproven_external_credit_is_booked_without_becoming_spendable ... ok
+test arithmetic_overflow_retains_previous_reservation_and_the_unapplied_event ... ok
+test per_fill_rounding_tail_uses_explicit_fill_bound_not_lot_step ... ok
+test asset_unit_mismatch_is_rejected_without_partial_debits ... ok
+test external_position_change_preserves_allocated_reductions_and_attribution ... ok
+test late_commission_after_reconciliation_reopens_risk_and_books_the_actual_debit ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/facts.rs (/tmp/tickwire-progress-20261028/target/debug/deps/facts-1b8cb9d2734e282c)
+
+running 15 tests
+test final_admission_check_rechecks_the_original_command_deadline ... ok
+test abort_is_idempotent_but_an_actual_late_fill_is_still_booked ... ok
+test accepted_actual_quote_above_buy_budget_freezes_even_with_spare_funds ... ok
+test actual_fee_above_bound_freezes_even_when_balance_can_pay ... ok
+test exchange_acknowledgment_blocks_a_later_no_bytes_abort ... ok
+test zero_fee_is_an_economic_fact_and_prevents_abort ... ok
+test acknowledgment_after_abort_reopens_the_order_and_freezes ... ok
+test repeated_trade_still_applies_a_new_unknown_observation_without_double_cashflow ... ok
+test partial_fill_books_two_assets_and_original_strategy_once_across_connections ... ok
+test duplicate_conflicting_trade_freezes_without_replacing_the_fact ... ok
+test repeated_trade_still_applies_a_new_terminal_observation_without_double_cashflow ... ok
+test actual_fill_after_a_zero_fill_terminal_is_not_dropped_on_observation_conflict ... ok
+test terminal_missing_fill_details_retains_principal_until_late_fill ... ok
+test new_fill_cannot_silently_exceed_a_previously_closed_cumulative ... ok
+test fees_and_rebates_are_signed_original_asset_cashflow ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/futures.rs (/tmp/tickwire-progress-20261028/target/debug/deps/futures-748dc1d7242b139c)
+
+running 10 tests
+test delivery_policy_does_not_inherit_perpetual_funding_reserve ... ok
+test external_nonsettlement_debit_cannot_be_subtracted_as_settlement_atoms ... ok
+test shared_wallet_gross_limit_includes_offsetting_strategy_positions ... ok
+test usdc_wallet_cannot_borrow_spare_usdt_collateral ... ok
+test reduce_allocations_cannot_share_the_same_actual_position ... ok
+test linear_capital_and_venue_shadow_are_distinct_from_cash_asset_reservations ... ok
+test fill_beyond_a_previous_terminal_cumulative_freezes_even_with_partial_observation ... ok
+test hedge_long_and_short_reduce_tickets_are_separate_and_fill_with_actual_pnl ... ok
+test finite_model_instance_uses_four_capital_atoms_and_three_fee_atoms ... ok
+test fees_consume_the_original_shadow_fee_allowance_without_double_debit ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/handover.rs (/tmp/tickwire-progress-20261028/target/debug/deps/handover-32736d437208dcc5)
+
+running 2 tests
+test transfer_preserves_reservations_and_origin_and_replays_without_releasing_unknown ... ok
+test fill_after_capture_rejects_transfer_before_any_manager_changes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/nonincreasing.rs (/tmp/tickwire-progress-20261028/target/debug/deps/nonincreasing-a89fe10e40163912)
+
+running 5 tests
+test stale_cancel_still_requires_live_request_identity_and_ownership ... ok
+test nonincreasing_actions_do_not_require_the_old_risk_policy_version ... ok
+test explicit_freeze_preserves_liability_and_allows_only_nonincreasing_actions ... ok
+test a_previously_admitted_cancel_is_still_valid_after_account_expiry ... ok
+test stale_account_still_admits_owned_cancel_and_query ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/recovery.rs (/tmp/tickwire-progress-20261028/target/debug/deps/recovery-13831db4d9fd73c2)
+
+running 3 tests
+test tampered_multi_asset_budget_is_not_a_recovery_capability ... ok
+test ordered_abort_is_replayed_before_recovery_freezes_unresolved_requests ... ok
+test replay_recomputes_and_checks_the_complete_admission_then_returns_frozen_unknown ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_account_codec-f449bc8a27fc1c64)
+
+running 2 tests
+test cbor::tests::nonpreferred_bignum_and_integer_overflow_reject ... ok
+test cbor::tests::integer_boundaries_use_preferred_encoding ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/account_inputs.rs (/tmp/tickwire-progress-20261028/target/debug/deps/account_inputs-d271a3a1d1f77f74)
+
+running 3 tests
+test closure_tag14_roundtrips_and_replays_without_reapplying_funding ... ok
+test canonical_account_input_and_baseline_roundtrip_and_replay_exactly ... ok
+test association_tag15_roundtrips_and_replays_exactly_once ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/amendment.rs (/tmp/tickwire-progress-20261028/target/debug/deps/amendment-684a6c681102af8e)
+
+running 1 test
+test durable_amend_admit_and_result_roundtrip_replay_the_same_quantity_and_responsibility ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/baseline.rs (/tmp/tickwire-progress-20261028/target/debug/deps/baseline-1a3b3fd55bad4b9b)
+
+running 6 tests
+test adversarial_lengths_and_invalid_inputs_reject ... ok
+test asset_and_policy_identity_cannot_be_silently_replaced ... ok
+test collections_have_one_order_and_duplicates_reject ... ok
+test changes_to_fees_wallet_units_and_revision_change_identity ... ok
+test complete_spot_and_futures_baselines_roundtrip ... ok
+test every_prefix_truncation_and_trailing_data_reject ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/file_replay.rs (/tmp/tickwire-progress-20261028/target/debug/deps/file_replay-8ca33a7ab6926bb1)
+
+running 1 test
+test real_blob_and_wal_reopen_restore_spot_and_usdm_resources ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/ingress.rs (/tmp/tickwire-progress-20261028/target/debug/deps/ingress-e914772ef4d87ba1)
+
+running 2 tests
+test ingress_zero_identity_is_rejected ... ok
+test tag9_roundtrips_and_binds_both_input_coordinates ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/input_seal.rs (/tmp/tickwire-progress-20261028/target/debug/deps/input_seal-b9571daf8fd53809)
+
+running 2 tests
+test missing_duplicate_or_foreign_report_does_not_advance_the_seal ... ok
+test independent_report_consumers_seal_the_same_exact_prefix ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/legacy_encoding.rs (/tmp/tickwire-progress-20261028/target/debug/deps/legacy_encoding-6116c460b800abd2)
+
+running 1 test
+test tags_one_through_eight_preserve_committed_encoding ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/nonincreasing.rs (/tmp/tickwire-progress-20261028/target/debug/deps/nonincreasing-d35456a5c3dd0042)
+
+running 4 tests
+test a_query_image_cannot_claim_the_opposite_action_classification ... ok
+test an_admission_image_cannot_disguise_a_new_order_as_nonincreasing ... ok
+test new_orders_still_require_the_recorded_risk_version ... ok
+test an_owned_cancel_or_query_with_old_risk_version_roundtrips_and_replays ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/records.rs (/tmp/tickwire-progress-20261028/target/debug/deps/records-a203a0c31d47794b)
+
+running 5 tests
+test uncreated_algo_closure_tag16_roundtrips_and_binds_baseline ... ok
+test schema_two_structure_event_is_lossless_inside_existing_ingress_record ... ok
+test envelope_and_admission_bindings_reject_substitution ... ok
+test every_recovery_input_has_lossless_record_and_distinct_tag ... ok
+test truncated_corrupted_and_noncanonical_embedded_records_reject ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/vectors.rs (/tmp/tickwire-progress-20261028/target/debug/deps/vectors-635199bebdae20ce)
+
+running 4 tests
+test independently_encoded_minimum_i128_cashflow_is_preserved ... ok
+test alternate_order_is_rejected_by_decode ... ok
+test independent_reference_baselines_match_exact_bytes_and_hash ... ok
+test all_single_byte_changes_have_one_accepted_representation ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.24s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_account_gateway-e5bc9a46ab22b4b6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/binance_rest.rs (/tmp/tickwire-progress-20261028/target/debug/deps/binance_rest-053d8553e6a9dfed)
+
+running 2 tests
+test spot_signed_tls_request_with_real_wal_and_recovery_files ... ok
+test usdm_signed_tls_request_with_real_wal_and_recovery_files ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/income_closure.rs (/tmp/tickwire-progress-20261028/target/debug/deps/income_closure-f508fb1c63e24c07)
+
+running 2 tests
+test closure_requires_verifier_sync_then_publishes_and_exact_retry_skips_current_time ... ok
+test closure_sync_failure_keeps_the_previous_account_and_freezes ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/ingress.rs (/tmp/tickwire-progress-20261028/target/debug/deps/ingress-3396517c23879bdf)
+
+running 6 tests
+test invalid_event_is_not_logged_and_freeze_does_not_halt_fact_processing ... ok
+test explicit_gap_freeze_preserves_late_fact_admission ... ok
+test conflicting_input_halts_without_appending_or_publishing ... ok
+test lost_ingress_sync_reply_recovers_complete_record_once ... ok
+test committed_input_retry_and_restart_do_not_repeat_reducer_or_wal ... ok
+test torn_ingress_append_recovers_prefix_then_accepts_retry ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/lifecycle.rs (/tmp/tickwire-progress-20261028/target/debug/deps/lifecycle-61d08443788082da)
+
+running 12 tests
+test exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record ... ok
+test public_fact_entry_cannot_forge_admission_or_zero_acceptance ... ok
+test zero_io_budget_is_not_evidence_for_refunding_an_order ... ok
+test frozen_recovery_accepts_durable_reconciliation_but_never_new_admission ... ok
+test aborted_admission_remains_aborted_after_reopen ... ok
+test repeated_trade_keeps_new_observation_and_replays_cashflow_once ... ok
+test recovered_admission_is_unknown_with_no_active_receipt_or_resend ... ok
+test reducer_error_preserves_external_input_and_recovery_refuses_to_skip_it ... ok
+test missing_baseline_or_history_object_rejects_recovery ... ok
+test externally_frozen_account_can_still_cancel_and_query_on_healthy_connection ... ok
+test dependency_rejection_or_foreign_account_binding_never_queues_or_reserves ... ok
+test every_fresh_gate_requirement_is_checked_before_first_acceptance ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.52s
+
+     Running tests/persistence_failures.rs (/tmp/tickwire-progress-20261028/target/debug/deps/persistence_failures-a922f93a0a2fd016)
+
+running 7 tests
+test lost_admit_sync_reply_recovers_unknown_without_issuing_send_capability ... ok
+test torn_admit_retains_live_reserve_without_output_then_recovers_empty_prefix ... ok
+test torn_abort_never_releases_before_sync_and_keeps_committed_admission ... ok
+test lost_abort_sync_reply_releases_only_when_replayed_from_complete_tail ... ok
+test torn_venue_event_is_not_applied_before_wal_completion ... ok
+test lost_venue_event_sync_reply_replays_complete_fact_without_output ... ok
+test observed_order_rejects_local_abort_before_writing_an_unreplayable_record ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/recovery_metadata.rs (/tmp/tickwire-progress-20261028/target/debug/deps/recovery_metadata-d0829c3635854447)
+
+running 4 tests
+test local_freeze_does_not_hide_a_new_incomplete_terminal_observation ... ok
+test repeated_unknown_at_max_is_not_acknowledged_as_a_duplicate ... ok
+test repeated_unknown_with_last_available_sequence_reopens_at_max ... ok
+test repeated_unknown_after_recovery_preserves_account_and_metadata_sequence ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
+
+     Running tests/submission.rs (/tmp/tickwire-progress-20261028/target/debug/deps/submission-45f294c26bdcec72)
+
+running 4 tests
+test commit_reserves_once_and_retry_does_not_repeat_any_side_effect ... ok
+test partial_acceptance_retains_account_resources_after_local_cancellation ... ok
+test futures_admission_uses_real_capital_hold_without_scalar_budget ... ok
+test final_gate_rejection_is_durably_aborted_before_release ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/websocket.rs (/tmp/tickwire-progress-20261028/target/debug/deps/websocket-a923c659a610872d)
+
+running 1 test
+test websocket_upgrade_is_control_only_and_does_not_create_an_admission ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_account_journal-3cf34a2276a81ffb)
+
+running 1 test
+test history::tests::independent_python_samples_bind_bootstrap_and_writer_epoch ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/income_closure.rs (/tmp/tickwire-progress-20261028/target/debug/deps/income_closure-55b994f21c39078f)
+
+running 1 test
+test durable_closure_retry_and_reopen_keep_the_exact_original_prefix ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/ingress.rs (/tmp/tickwire-progress-20261028/target/debug/deps/ingress-570a3e869253e0e1)
+
+running 2 tests
+test exact_input_retry_returns_receipt_without_changing_history ... ok
+test physically_duplicated_input_key_is_invalid_even_if_event_matches ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/persistence.rs (/tmp/tickwire-progress-20261028/target/debug/deps/persistence-ef3f2fbb3b5cfe48)
+
+running 17 tests
+test child_append_then_exit_without_destructors ... ok
+test admission_retry_is_exact_and_conflict_poison_does_not_advance ... ok
+test history_digest_is_the_actual_recovery_object_content_address ... ok
+test file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock ... ok
+test duplicate_fill_observation_is_preserved_and_wal_sequence_is_not_ledger_sequence ... ok
+test failed_creation_never_publishes_bootstrap_before_baseline_or_overwrites_partial_files ... ok
+test all_eight_record_kinds_replay_in_one_real_file_order ... ok
+test history_binds_bootstrap_and_successful_record_order_and_recovery_preceding_prefix ... ok
+test historical_verifier_failure_and_forged_admission_image_stop_recovery ... ok
+test baseline_and_bootstrap_substitution_reject_before_replay ... ok
+test forged_record_sequence_or_baseline_is_rejected ... ok
+
+running 1 test
+test independent_exec_process_reopens_only_synchronized_history_as_frozen ... ok
+test replay_recomputes_admission_and_remains_frozen_with_no_new_admit ... ok
+test trusted_frontier_mismatch_rejects_without_truncating_partial_tail ... ok
+test rejected_account_fact_remains_durable_and_recovery_does_not_skip_it ... ok
+test writer_epoch_and_complete_event_identity_are_checked ... ok
+test partial_write_and_lost_sync_reply_poison_then_recover_actual_bytes ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-7db9c6eacfed891d)
+
+running 97 tests
+test config::instrument_tests::assemble_usdm_owner_keeps_full_u64_binding_and_local_slot_zero ... ok
+test config::instrument_tests::separate_feed_sources_keep_their_source_namespace ... ok
+test config::instrument_tests::assemble_rejects_unknown_zero_or_wrong_product_before_selecting_a_local_slot ... ok
+test config::instrument_tests::assemble_uses_distinct_dense_book_keys_without_narrowing_stable_ids ... ok
+test control::tests::identity_conflicts_and_foreign_domains_are_rejected_before_mutation ... ok
+test control::tests::restart_burns_old_capacity_and_never_reinstalls_old_grant ... ok
+test config::tests::public_owner_constructs_at_both_products_maximum_snapshot_depth ... ok
+test control::tests::revoke_preflight_does_not_mutate_live_and_replay_preserves_revocation ... ok
+test launch::tests::interrupted_and_rejected_attempts_never_reuse_consumed_instances ... ok
+test control::tests::window_rollover_preserves_old_occupancy_and_rule_update_keeps_attempt_identity ... ok
+test launch::tests::replay_checks_decision_hash_and_outcome_identity ... ok
+test lifecycle::operation_halt_tests::current_operation_failure_closes_its_gate_and_workers ... ok
+test lifecycle::operation_halt_tests::delayed_explicit_halt_cannot_close_a_successor ... ok
+test lifecycle::operation_halt_tests::first_halt_without_a_gate_only_stops_an_exact_member_grant ... ok
+test lifecycle::operation_halt_tests::same_generation_with_a_different_complete_member_binding_cannot_halt ... ok
+test lifecycle::operation_halt_tests::stale_released_history_cannot_halt_the_next_prepared_operation ... ok
+test lifecycle::preflight::tests::refreshed_header_does_not_mask_any_business_state_change ... ok
+test lifecycle::preflight::tests::retained_schema3_closure_keeps_all_checks_without_rehashing_lookup_prefixes ... ignored, requires retained actual schema3 volume via TICKWIRE_QUALIFY_FIXTURE
+test lifecycle::preflight::tests::indexed_objects_preserve_conflicts_missing_lengths_and_bounds ... ok
+test lifecycle::rebuild::preflight::tests::real_prefix_allows_later_fill_but_rejects_missing_or_substituted_rows ... ok
+test lifecycle::rebuild::preflight::tests::later_admit_cannot_expand_the_fixed_action_set ... ok
+test lifecycle::preflight::tests::repeated_qualification_lookups_hash_each_input_object_once ... ok
+test lifecycle::rebuild::tests::fixed_window_and_each_completed_stage_are_immutable ... ok
+test control::market::files::tests::writable_directories_and_symlink_inputs_are_rejected ... ok
+test lifecycle::rebuild::tests::installation_and_probe_cannot_skip_their_durable_boundaries ... ok
+test lifecycle::rebuild::tests::prepared_requires_a_current_unfrozen_account_after_cold_work ... ok
+test lifecycle::rebuild::tests::fresh_query_wraps_only_current_prepared_session_history ... ok
+test lifecycle::rebuild::tests::completed_retry_requires_same_session_and_exact_challenge ... ok
+test control::market::tests::commit_decision_requires_previous_approved_operation_and_actual_cut ... ok
+test lifecycle::replay::tests::durable_boundaries_cannot_be_skipped_even_with_all_roots_present ... ok
+test lifecycle::replay::tests::fresh_query_wraps_saved_history_only_in_the_same_prepared_session ... ok
+test lifecycle::replay::tests::installation_cannot_precede_the_durable_source_cut ... ok
+test lifecycle::replay::tests::permission_halt_must_not_erase_an_installed_fact ... ok
+test lifecycle::replay::tests::source_cut_and_original_challenge_cannot_be_rebound ... ok
+test lifecycle::replay::tests::completed_result_retries_preserve_original_bytes_without_a_new_install ... ok
+test control::market::files::tests::private_files_are_bounded_and_receipts_replace_only_after_complete_write ... ok
+test lifecycle::replay::tests::uncertain_install_stage_sync_keeps_memory_old_and_restart_closes_recovered_fact ... ok
+test lifecycle::replay::tests::commit_needs_the_exact_durably_adopted_result_and_readiness ... ok
+test control::market::tests::decision_sync_crossing_deadline_never_dispatches_arm ... ok
+test lifecycle::rebuild::tests::adoption_binds_all_seven_roots_fixed_frontier_and_actual_ready ... ok
+test observation::tests::config_rejects_missing_query_build_qualification_and_duplicate_groups ... ok
+test control::market::tests::decision_history_retains_exact_identity_without_reviving_runtime_operations ... ok
+test observation::tests::cold_files_bind_owner_inode_mode_and_reject_links ... ok
+test observation::tests::durable::one_dependency_digest_cannot_refer_to_different_bytes ... ok
+test lifecycle::rebuild::tests::uncertain_install_sync_keeps_memory_old_and_restart_preserves_frozen_facts ... ok
+test control::market::tests::durable_decision_precedes_arm_and_restart_never_replays_it ... ok
+test control::market::tests::clock_tests::durable_commit_expiry_does_not_start_the_new_subscription ... ok
+test observation::tests::before_next_scan_is_zero_allocation_and_does_not_poll_pending_owner ... ok
+test observation::tests::durable::recovery_bounds_aggregate_storage_before_decoding_journal ... ok
+test observation::tests::durable::conflict_history_cannot_regress_the_durable_clock ... ok
+test control::market::tests::clock_tests::admitted_decision_expiring_before_wal_append_recovers_without_replay ... ok
+test observation::tests::multi_routes_exact_actual_instance_without_generation_fallback ... ok
+test observation::tests::durable::recovery_requires_sorted_complete_roots_and_actual_cas_bytes ... FAILED
+test market::tests::real_sources_reject_unapproved_quiescence_and_never_offer_a_transition_receipt ... ok
+test observation::tests::conflicting_request_cancels_original_pending_and_permanently_closes_id ... ok
+test observation::tests::replacing_lock_path_closes_original_writer_before_any_new_wal_record ... ok
+test observation::tests::exact_retries_do_not_dispatch_twice_and_same_owner_is_busy ... ok
+test observation::tests::durable::shared_verified_dependency_paths_become_one_durable_cas_reference ... ok
+test observation::tests::provider_failure_cancels_query_without_marking_strategy_failed ... ok
+test reconciliation::files::tests::control_file_reader_rejects_symlink_instead_of_following_it ... ok
+test reconciliation::files::tests::control_file_reader_requires_regular_bounded_bytes_but_missing_is_optional ... ok
+test reconciliation::income::tests::approval_file_is_typed_bounded_and_never_a_boolean ... ok
+test reconciliation::income::tests::ongoing_queries_use_account_purpose_and_an_explicit_bounded_retained_range ... ok
+test reconciliation::files::tests::control_file_reader_rejects_real_fifo_without_waiting_for_a_writer ... ok
+test observation::tests::pending_deadline_cancels_only_query_and_does_not_resume_on_retry ... ok
+test observation::tests::pending_budget_rotates_between_actual_owners ... ok
+test observation::tests::received_request_is_synced_then_unknown_owner_gets_explicit_failure ... ok
+test control::market::tests::only_actual_phase_receipts_enable_commit_and_effective_success ... ok
+test reconciliation::tests::healthy_empty_account_renews_from_durable_deadline ... ok
+test reconciliation::tests::healthy_terminal_fee_maintenance_is_bounded_and_idle_only ... ok
+test reconciliation::tests::renewal_deadline_arithmetic_keeps_exact_expiry_and_bounds ... ok
+test reconciliation::tests::successful_attempt_reloads_new_orders_in_the_same_private_cut ... ok
+test market::tests::real_sources_share_approved_handoff_and_withhold_new_observations_until_release ... ok
+test replay::tests::export_source_names_and_capacity_are_bounded ... ok
+test replay::tests::report_preserves_i128_exactly ... ok
+test strategy::multi_tests::a_failed_child_loses_its_grant_without_stopping_the_healthy_child ... ok
+test strategy::multi_tests::duplicate_logical_owners_and_unbounded_members_are_rejected ... ok
+test strategy::multi_tests::exact_instances_switch_and_repeated_activation_does_not_restop_retired_child ... ok
+test strategy::multi_tests::failed_old_retirement_keeps_the_new_instance_paused ... ok
+test strategy::multi_tests::failed_shadow_does_not_revoke_the_other_instance_of_the_same_strategy ... ok
+test strategy::multi_tests::host_rotation_refreshes_cached_identity_before_the_next_switch ... ok
+test strategy::multi_tests::next_shadow_reuses_retired_slot_without_reusing_identity_or_generation ... ok
+test control::market::tests::clock_tests::durable_files_recheck_deadline_and_binding_before_publishing_completion ... ok
+test observation::tests::syncing_received_past_deadline_preserves_history_without_dispatch ... ok
+test control::market::tests::large_approved_decision_is_durable_without_exceeding_physical_wal_batch ... ok
+test observation::tests::durable::late_sync_or_publish_converts_success_to_expired_and_recovery_keeps_it_closed ... ok
+test replay::income_tests::synchronized_income_import_is_pending_until_exact_account_baseline_is_durable ... FAILED
+test observation::tests::recovery_interrupts_pending_without_reissuing_and_keeps_closed_conflicts ... FAILED
+test control::market::tests::clock_tests::actual_source_stays_closed_when_receipt_sync_crosses_the_deadline ... ok
+test observation::tests::wrong_build_binding_instance_and_expired_requests_never_dispatch ... ok
+test control::market::tests::actual_sources_control_wal_receipts_and_restart_are_consistent ... ok
+test reconciliation::income_network_tests::tls_controller_keeps_unexplained_income_frozen_and_durable ... ok
+test reconciliation::income_network_tests::tls_controller_closes_income_then_collects_new_ledger_snapshots_before_activation ... ok
+test reconciliation::income_network_tests::tls_controller_rejects_other_purpose_signer_for_observation_association ... ok
+test reconciliation::income_network_tests::tls_controller_associates_explicit_funding_then_requeries_after_each_ledger_change ... ok
+test observation::tests::result_objects_above_batch_size_are_durable_and_recovery_checks_every_root ... ok
+test reconciliation::income_network_tests::tls_empty_account_renews_twice_and_failed_refresh_cannot_extend_recovered_deadline ... ok
+
+failures:
+
+---- observation::tests::durable::recovery_requires_sorted_complete_roots_and_actual_cas_bytes stdout ----
+
+thread 'observation::tests::durable::recovery_requires_sorted_complete_roots_and_actual_cas_bytes' (1012679) panicked at crates/tickwire-app/src/observation/tests/durable.rs:138:13:
+assertion failed: recovered.is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- replay::income_tests::synchronized_income_import_is_pending_until_exact_account_baseline_is_durable stdout ----
+
+thread 'replay::income_tests::synchronized_income_import_is_pending_until_exact_account_baseline_is_durable' (1012717) panicked at crates/tickwire-app/src/replay_income_tests.rs:177:56:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "lock acquisition failed because the operation would block" }
+
+---- observation::tests::recovery_interrupts_pending_without_reissuing_and_keeps_closed_conflicts stdout ----
+
+thread 'observation::tests::recovery_interrupts_pending_without_reissuing_and_keeps_closed_conflicts' (1012693) panicked at crates/tickwire-app/src/observation/tests.rs:472:14:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "WouldBlock" }
+
+
+failures:
+    observation::tests::durable::recovery_requires_sorted_complete_roots_and_actual_cas_bytes
+    observation::tests::recovery_interrupts_pending_without_reissuing_and_keeps_closed_conflicts
+    replay::income_tests::synchronized_income_import_is_pending_until_exact_account_baseline_is_durable
+
+test result: FAILED. 93 passed; 3 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.41s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

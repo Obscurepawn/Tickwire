@@ -4580,7 +4580,7 @@
           "reserved": true
         }
       ],
-      "description": "Fresh checkpoint request after callbacks through report_sequence. Mode 0 captures; mode 1 additionally pauses all future strategy callbacks. No cached READY satisfies the challenge."
+      "description": "Fresh checkpoint challenge. Mode 0 captures the exact requested report position; mode 1 also pauses future callbacks. Mode 2 observes a current position at least as large as the requested lower bound without pausing input processing. An expired mode 2 query is discarded without stopping the worker. Only an explicitly approved SDK build supporting the selected mode may receive it."
     },
     {
       "name": "CheckpointSealReplyBody",
@@ -4635,7 +4635,7 @@
           "reserved": true
         }
       ],
-      "description": "Response after fresh callback checkpoint and complete input seal synchronization; request challenge and exact report cut remain bound."
+      "description": "Challenge-bound checkpoint response. report_sequence always echoes the requested position; ready.exec_report_sequence equals it for modes 0/1 and is at least it for mode 2. The actual READY and durable closure must be checked against the execution owner report prefix and mapped cursor. A prior READY never answers a new challenge."
     },
     {
       "name": "DecimalWire",
@@ -5431,6 +5431,11 @@
       "CaptureSeal": 8,
       "RebuildInstall": 9,
       "RebuildRollback": 10
+    },
+    "checkpoint_seal_mode": {
+      "CaptureExact": 0,
+      "CaptureExactAndPause": 1,
+      "ObserveCurrent": 2
     }
   },
   "bitsets": {
@@ -7591,5 +7596,16 @@
       "Invalid": 3
     },
     "authorization": "Existing authenticated Host report session and same owned Registry child. Rollback completion binds the original Installation and actual independently executed probe. New READY follows synchronized closure installation; execution policy remains required."
+  },
+  "checkpoint_observation": {
+    "request_opcode": 39,
+    "reply_opcode": 40,
+    "mode": 2,
+    "report_watermark": "minimum",
+    "reply_echoes_requested_watermark": true,
+    "actual_ready_watermark": "at_least_requested",
+    "timeout_effect": "discard_query_without_stopping_callbacks",
+    "send": "bounded_nonblocking_same_response_retry",
+    "authorization": "explicitly_approved_supporting_sdk_build_and_authenticated_current_report_session"
   }
 }

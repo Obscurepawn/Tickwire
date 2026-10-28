@@ -1,0 +1,22 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.68s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_sdk-543f50dcd1759897)
+
+running 1 test
+test checkpoint::tests::continuous_query_accepts_a_later_actual_prefix_but_not_an_earlier_one ... FAILED
+
+failures:
+
+---- checkpoint::tests::continuous_query_accepts_a_later_actual_prefix_but_not_an_earlier_one stdout ----
+
+thread 'checkpoint::tests::continuous_query_accepts_a_later_actual_prefix_but_not_an_earlier_one' (948656) panicked at crates/tickwire-strategy-sdk/src/checkpoint.rs:149:9:
+assertion failed: verify_reply(&reply, &wire_bytes(&body).unwrap(), &request, &want, 7).is_ok()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    checkpoint::tests::continuous_query_accepts_a_later_actual_prefix_but_not_an_earlier_one
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 149 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-strategy-sdk --lib`

@@ -1,0 +1,22 @@
+   Compiling tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.34s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_journal-8f60953e76ea5b15)
+
+running 1 test
+test store::lock_owner_tests::owner_drop_releases_lock_even_while_an_inherited_description_still_exists ... FAILED
+
+failures:
+
+---- store::lock_owner_tests::owner_drop_releases_lock_even_while_an_inherited_description_still_exists stdout ----
+
+thread 'store::lock_owner_tests::owner_drop_releases_lock_even_while_an_inherited_description_still_exists' (1015095) panicked at crates/tickwire-journal/src/store.rs:181:50:
+the original owner has ended: Custom { kind: Other, error: "lock acquisition failed because the operation would block" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    store::lock_owner_tests::owner_drop_releases_lock_even_while_an_inherited_description_still_exists
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-journal --lib`

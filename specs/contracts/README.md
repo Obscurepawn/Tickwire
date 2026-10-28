@@ -18,7 +18,7 @@
 ## 2. `ipc-vectors-v1.json` — IPC golden 向量与语义案例
 
 - 身份：`format = tickwire-ipc-vectors-1`，`abi_major = 1, abi_minor = 0`，CRC32C（reflected polynomial/initial/xorout，含 ASCII 校验与十六进制校验工具开关）。
-- 顶层结构：`vectors`（63 条编码 golden 向量）、`semantic_cases`（25 条语义/畸形输入案例）、`compatibility_baseline`（37 条兼容基线样本：quote、depth inline/arena、new_limit_intent、fill_report、freeze、switch_applied、join_snapshot、release_risk、freeze envelope/frame、instrument、depth_level_signed、cursor page、topic member/header/level/manifest）。
+- 顶层结构：`vectors`（94 条编码 golden 向量）、`semantic_cases`（33 条语义/畸形输入案例）、`compatibility_baseline`（37 条兼容基线样本：quote、depth inline/arena、new_limit_intent、fill_report、freeze、switch_applied、join_snapshot、release_risk、freeze envelope/frame、instrument、depth_level_signed、cursor page、topic member/header/level/manifest）。
 - 消费：`scripts/verify-ipc-contract.py` 重算编码哈希、帧校验并逐项比对；`tickwire-ipc` Rust 回归使用同一批向量。
 
 ## 3. `risk-vectors-v1.json` — 风险计算数值契约

@@ -1,0 +1,74 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+warning: unused import: `prefix::Prefixes`
+  --> crates/tickwire-strategy-host/src/observation.rs:59:16
+   |
+59 | pub(crate) use prefix::Prefixes;
+   |                ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: variants `Process` and `Resources` are never constructed
+  --> crates/tickwire-strategy-host/src/observation.rs:14:5
+   |
+13 | pub(crate) enum Kernel {
+   |                 ------ variants in this enum
+14 |     Process(LiveChildObservation),
+   |     ^^^^^^^
+15 |     Resources(LiveResourceObservation),
+   |     ^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LIMIT` is never used
+ --> crates/tickwire-strategy-host/src/observation/prefix.rs:2:18
+  |
+2 | pub(crate) const LIMIT:usize=4096;
+  |                  ^^^^^
+
+warning: struct `Prefixes` is never constructed
+ --> crates/tickwire-strategy-host/src/observation/prefix.rs:3:19
+  |
+3 | pub(crate) struct Prefixes { rows: Vec<(u64,[u8;32])> }
+  |                   ^^^^^^^^
+
+warning: associated items `new`, `record`, and `get` are never used
+ --> crates/tickwire-strategy-host/src/observation/prefix.rs:5:19
+  |
+4 | impl Prefixes {
+  | ------------- associated items in this implementation
+5 |     pub(crate) fn new(position:u64,digest:[u8;32])->Self {Self{rows:vec![(position,digest)]}}
+  |                   ^^^
+6 |     pub(crate) fn record(&mut self,position:u64,digest:[u8;32])->Result<()> {
+  |                   ^^^^^^
+...
+9 |     pub(crate) fn get(&self,position:u64)->Option<[u8;32]> {self.rows.iter().find(|r|r.0==position).map(|r|r.1)}
+  |                   ^^^
+
+warning: `tickwire-strategy-host` (lib) generated 5 warnings (run `cargo fix --lib -p tickwire-strategy-host` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.58s
+     Running tests/capture_process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/capture_process-2fae9521ca49ef61)
+
+running 1 test
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[159,90,224,119,132,112,34,221,218,0,67,89,99,24,24,131,76,126,230,79,180,121,23,153,235,51,132,91,62,52,11,48],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":1,"worker_pid":955355}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":1,"report_sequence":1,"worker_pid":955355}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[49,125,117,209,210,122,239,112,199,28,171,133,8,243,149,219,157,19,175,43,118,238,193,19,85,76,39,140,134,38,210,169],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":2,"worker_pid":955355}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":2,"report_sequence":1,"worker_pid":955355}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[223,83,117,158,60,166,35,228,49,71,40,173,248,6,80,105,179,157,42,72,100,119,11,194,4,52,36,69,84,151,63,150],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":3,"worker_pid":955355}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":3,"report_sequence":1,"worker_pid":955355}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[212,92,77,102,228,193,65,207,216,149,189,170,22,198,208,229,109,31,61,138,8,15,9,93,120,21,21,49,153,67,160,29],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":4,"worker_pid":955355}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":4,"report_sequence":1,"worker_pid":955355}
+
+thread 'rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running' (955353) panicked at crates/tickwire-strategy-host/tests/rebuild_process/fresh.rs:97:14:
+called `Result::unwrap()` on an `Err` value: ObservationUnsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running ... FAILED
+
+failures:
+
+failures:
+    rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 4.79s
+
+error: test failed, to rerun pass `-p tickwire-strategy-host --test capture_process`

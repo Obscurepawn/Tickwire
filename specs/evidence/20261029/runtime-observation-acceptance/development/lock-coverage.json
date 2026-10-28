@@ -1,0 +1,179 @@
+{
+  "schema": 1,
+  "scope": "same fork-inherited open-file-description lock lifetime bug; exclusive admission stays unchanged",
+  "owners": [
+    {
+      "owner": "Journal FileStore",
+      "release": "normal Drop and constructor failure after lock acquisition",
+      "red": [
+        "runtime-observation-journal-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-journal-lock-green.log",
+        "runtime-observation-lock-owners-green.log"
+      ],
+      "clippy": [
+        "runtime-observation-lock-owners-clippy.log"
+      ]
+    },
+    {
+      "owner": "Recovery FileBlobStore",
+      "release": "normal Drop and open failure after lock acquisition",
+      "red": [
+        "runtime-observation-blob-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-blob-lock-green.log",
+        "runtime-observation-lock-owners-green.log"
+      ],
+      "clippy": [
+        "runtime-observation-lock-owners-clippy.log"
+      ]
+    },
+    {
+      "owner": "ControlSys ResourceDomain DirectoryLease",
+      "release": "exclusive directory lease Drop and validation failure after acquisition",
+      "red": [
+        "runtime-observation-resource-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-lock-owners-green.log"
+      ],
+      "clippy": [
+        "runtime-observation-lock-owners-clippy.log"
+      ],
+      "not_verified": "Successful cgroup resource enforcement still requires an explicitly delegated leaf; no positive claim from lease tests"
+    },
+    {
+      "owner": "App observation Wal",
+      "release": "normal Drop and early initialization error after try_lock",
+      "red": [
+        "runtime-observation-app-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-app-lock-green.log",
+        "runtime-observation-app-lock-tests-final2.log"
+      ],
+      "clippy": [
+        "runtime-observation-app-lock-clippy-final2.log"
+      ]
+    },
+    {
+      "owner": "App replay source ReplayLocks",
+      "release": "Recovered owner Drop and partial load failure release all acquired source locks",
+      "red": [
+        "runtime-observation-replay-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-replay-lock-green.log",
+        "runtime-observation-app-lock-tests-final2.log"
+      ],
+      "clippy": [
+        "runtime-observation-app-lock-clippy-final2.log"
+      ]
+    },
+    {
+      "owner": "Binance quota sole WriterLock",
+      "release": "only actual owner Drop unlocks; inherited raw description cannot retain ended lease",
+      "red": [
+        "runtime-observation-quota-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-quota-raft-lock-green.log"
+      ],
+      "clippy": [
+        "runtime-observation-quota-raft-lock-clippy.log"
+      ]
+    },
+    {
+      "owner": "Control-store shared WriterLock",
+      "release": "last Arc<Directory> owner Drop; clones, Stage and Verified handles retain exclusivity until then",
+      "red": [
+        "runtime-observation-quota-raft-lock-red.log"
+      ],
+      "green": [
+        "runtime-observation-quota-raft-lock-green.log"
+      ],
+      "clippy": [
+        "runtime-observation-quota-raft-lock-clippy.log"
+      ]
+    }
+  ],
+  "actual_concurrent_replay": {
+    "log": "runtime-observation-lock-delayed-green3.log",
+    "passed": 98,
+    "failed": 0,
+    "ignored": 1,
+    "exec_delay_ms": 100
+  },
+  "logs": {
+    "runtime-observation-app-lock-clippy-final2.log": {
+      "bytes": 2302,
+      "sha256": "8e0daa906c54f1d23ba4a25d7783967b127770eafbe9e4bc7a956e7b7c3ba175"
+    },
+    "runtime-observation-app-lock-green.log": {
+      "bytes": 486,
+      "sha256": "ef7b638b8c2f19cfcdb97b7d1f72316dbed750fea4a6527a8a8821afaf54d33b"
+    },
+    "runtime-observation-app-lock-red.log": {
+      "bytes": 2590,
+      "sha256": "593dcf5c4c54421f66f1ae60112fbe229ec5cba41764fd859b61ebc043f211ad"
+    },
+    "runtime-observation-app-lock-tests-final2.log": {
+      "bytes": 11859,
+      "sha256": "aa86c8a24d2be05ba43e733c638353d8005fd2fa4648d81069fb38cdffbaca48"
+    },
+    "runtime-observation-blob-lock-green.log": {
+      "bytes": 2312,
+      "sha256": "b31d280c3833c6206facf05cd92545d1282df3cdfb361a1f9c81a9154efc6d4a"
+    },
+    "runtime-observation-blob-lock-red.log": {
+      "bytes": 1139,
+      "sha256": "160c35ac2d0b1921850ea01d54154a994a89436b5433dce3fdeafaf9fabca554"
+    },
+    "runtime-observation-journal-lock-green.log": {
+      "bytes": 3374,
+      "sha256": "ee7c13cb39ab070ed7b8a12ae24948605277613f835437bf4bf38dd1c973f8bd"
+    },
+    "runtime-observation-journal-lock-red.log": {
+      "bytes": 1190,
+      "sha256": "bd5a67fd5c869cd8e4313f5c306792a9715cfaa940dcfe817da1d0c0c1602bcd"
+    },
+    "runtime-observation-lock-owners-clippy.log": {
+      "bytes": 340,
+      "sha256": "11b334f35f2724f078351c50818d8440c1ea82dd9c4116f0014d425052bf222a"
+    },
+    "runtime-observation-lock-owners-green.log": {
+      "bytes": 11712,
+      "sha256": "79c80731cef20008b9cf60b92693419f80dab855ebfead21bb6472ca87863990"
+    },
+    "runtime-observation-quota-lock-red.log": {
+      "bytes": 938,
+      "sha256": "950a15577fdb58772e5770db5c62a73ed2771557792253d6bf1721c9e19fc55f"
+    },
+    "runtime-observation-quota-raft-lock-clippy.log": {
+      "bytes": 512,
+      "sha256": "c3f3c3a8f800bdda5ee53dc8475657a1b200e2a9a1de625a120a8695e0302e99"
+    },
+    "runtime-observation-quota-raft-lock-green.log": {
+      "bytes": 6593,
+      "sha256": "1687af9abfe03bbdef2b41c4dd2a16f513a84a61cd4e71c58b1a0ec0563a6204"
+    },
+    "runtime-observation-quota-raft-lock-red.log": {
+      "bytes": 1658,
+      "sha256": "0ee4d4083c0b1b3dd184c0fe0b2c9a47f656b1b338d1cbfc8fac1fdd766d4323"
+    },
+    "runtime-observation-replay-lock-green.log": {
+      "bytes": 845,
+      "sha256": "4b8313839f1097db05476cefa9d5c3c469b8c428ec5ca39a90b759bf0109ca76"
+    },
+    "runtime-observation-replay-lock-red.log": {
+      "bytes": 3491,
+      "sha256": "62fb9d6e0dbf709098bce086ebff105bb233157d57938bd5d19acba65de617c9"
+    },
+    "runtime-observation-resource-lock-red.log": {
+      "bytes": 1164,
+      "sha256": "0b905584e8749715d093dcb40075ccc416ca17663fb2322e89ab14b8d77020fe"
+    }
+  }
+}

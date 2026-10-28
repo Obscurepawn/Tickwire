@@ -1,0 +1,19 @@
+   Compiling tickwire-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-quota)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.79s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_quota-97d9ee9322358475)
+
+running 1 test
+
+thread 'files::tests::clean_owner_drop_releases_lock_despite_inherited_descriptor' (1033869) panicked at crates/tickwire-quota/src/files.rs:289:14:
+an unrelated inherited descriptor must not extend owner lifetime: Store
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test files::tests::clean_owner_drop_releases_lock_despite_inherited_descriptor ... FAILED
+
+failures:
+
+failures:
+    files::tests::clean_owner_drop_releases_lock_despite_inherited_descriptor
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-quota --lib`

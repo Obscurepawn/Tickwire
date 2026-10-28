@@ -276,6 +276,8 @@ def validate_config_control(v,ctx,mutations=None):
 for v in vs.values():
  if v['layout'] in ['MarketRecord','IntentRecord','ReportRecord','OwnershipRecord']:validate_message(decode(v['layout'],bytes.fromhex(v['hex'])))
 semantic_checked=0
+assert s['enums']['checkpoint_seal_mode']=={'CaptureExact':0,'CaptureExactAndPause':1,'ObserveCurrent':2}
+assert s['checkpoint_observation']['mode']==2 and s['checkpoint_observation']['report_watermark']=='minimum'
 for case in vv['semantic_cases']:
  outcome='accept'
  try:
@@ -295,6 +297,16 @@ for case in vv['semantic_cases']:
      for key in keys[:-1]:target=target[key]
      target[keys[-1]]=value
     if v['layout'] in ['MarketRecord','IntentRecord','ReportRecord','OwnershipRecord']:validate_message(decoded)
+    elif v['layout']=='CheckpointSealReplyBody':
+     ctx=case['context'];request=decode('CheckpointSealBody',bytes.fromhex(vs[ctx['request_vector']]['hex']));ready=decoded['ready']
+     request.update(ctx.get('request_mutations',{}));mode=request['seal_mode']
+     if request['schema']!=1 or iszero(request['challenge']):fail('Identity')
+     if mode not in (0,1,2) or decoded['seal_mode']!=mode or decoded['schema']!=1:fail('Identity')
+     if decoded['challenge']!=request['challenge'] or decoded['report_sequence']!=request['report_sequence']:fail('Identity')
+     for field in ('instance_id','logical_strategy_id','strategy_generation'):
+      if ready[field]!=request[field]:fail('Identity')
+     if ready['ready_sequence']<=ctx['previous_ready_sequence']:fail('Identity')
+     if (ready['exec_report_sequence']<request['report_sequence'] if mode==2 else ready['exec_report_sequence']!=request['report_sequence']):fail('Identity')
     elif v['layout']=='GrantBody':
      ctx=case['context'];lease=decode('ExecLeaseBody',bytes.fromhex(vs[ctx['exec_lease_vector']]['hex']));now=ctx['now_mono_ns']
      assert lease['deadline_mono_ns']-lease['issued_mono_ns']==s['profiles']['production_reference']['exec_lease_ms']*1000000

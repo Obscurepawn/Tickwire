@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py", line 96, in <module>
+    atomic(root/'APP_STOP',b'observation acceptance complete\n');code=run.wait(timeout=30);log.close();assert code==0,code
+                                                                                                              ^^^^^^^
+AssertionError: 1

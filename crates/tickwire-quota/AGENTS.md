@@ -32,6 +32,7 @@ cargo test -p tickwire-quota
 
 - `tests/quota.rs`：10 个测试（多桶共享分配与本地消耗原子、精确重试复查过期且不退款、恢复容量与停止收据不重发、重开保留未确认分配且不重铸 owner、提交失败 poison 与恢复保留已发容量、CAS 防陈旧协调器且活 owner 共享上限等）。
 - 模块内 `preparation_tests`：2 个测试（准备窗口原子/陈旧 ticket 不可提交；分配与续约只从已提交 ticket 发布）。
+- `files` 模块内真实文件回归用安全 `try_clone` 保留同一打开文件描述符：活 owner 排他、正常释放后可重开、旧副本关闭不解除替代 owner 的锁。
 
 ## 6. 关键不变量与注意事项
 
@@ -45,6 +46,7 @@ cargo test -p tickwire-quota
 - **停止归还不补退**：`stop()` 汇总各 grant 已花/剩余，`reclaim` 按收据归还未用额度并关闭 owner；已花单位不退、不重铸。
 - **回执丢失不重复发放**：commit 已落盘但应答丢失时，重新 `open` 仍能读到全额已占容量（`MockFailure::AfterCommit` 模拟）。
 - **文件存储安全**：`FileQuotaStore` 要求目录 0700、LOCK/STATE 0600、`O_NOFOLLOW|O_CLOEXEC`、独占 try_lock，STATE 超过 16MiB 拒绝。
+- **锁归唯一 owner**：成功 try_lock 后立即建立私有 `WriterLock` guard，构造失败和正常 Drop 都显式 unlock；无所有权的 fork/clone 描述符不能延长 owner 生命周期。仍在使用的 owner 始终拒绝独立重开。
 
 ## 7. 改动检查清单
 

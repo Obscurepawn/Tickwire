@@ -1,0 +1,10 @@
+{
+  "stage": "development only, before final source freeze",
+  "created_utc": "2026-10-28T18:20:14.992317+00:00",
+  "build_log": "/tmp/tickwire-progress-20261028/runtime-observation-process-build.log",
+  "source": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-worker",
+  "build_sha256": "5232116555b8510761a59718cab25a098af39bf72d6ba2c614f76b0c123d95d2",
+  "worker": "/tmp/tw-observe-dev-1/tickwire-counting-worker",
+  "bytes": 6513360,
+  "sha256": "7f3c46b14fcdc15cc6f74363ae942b2e0a6548ae3a01498a0ce7515f49d43bbf"
+}

@@ -1,0 +1,11 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.32s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_sdk-543f50dcd1759897)
+
+running 3 tests
+test worker::observation::tests::periodic_announcement_waits_for_ordered_responses_and_preserves_latest_on_backpressure ... ok
+test worker::observation::tests::query_waits_for_a_real_prefix_and_keeps_one_response_under_backpressure ... ok
+test worker::observation::tests::query_expiry_before_or_during_checkpoint_or_send_drops_only_the_query ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 151 filtered out; finished in 0.00s
+

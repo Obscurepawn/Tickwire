@@ -14,6 +14,7 @@ use tickwire_strategy_sdk::{
     bootstrap::{Bootstrap, wire_bytes},
     capture::Bootstrap as Capture,
 };
+mod fresh;
 mod publication;
 const V2: u64 = 0x5457434e0002;
 const STREAM: [u8; 16] = [134; 16];

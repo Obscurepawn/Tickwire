@@ -22,7 +22,7 @@ pub trait Store {
 /// Other programs must not bypass this advisory single-writer lock.
 pub struct FileStore {
     root: PathBuf,
-    _lock: File,
+    _lock: WriterLock,
 }
 impl FileStore {
     /// The parent directory must already exist.
@@ -50,7 +50,8 @@ impl FileStore {
             .open(root.join("LOCK"))?;
         lock.try_lock()
             .map_err(|e| io::Error::other(e.to_string()))?;
-        lock.sync_all()?;
+        let lock = WriterLock(lock);
+        lock.0.sync_all()?;
         File::open(&root)?.sync_all()?;
         // An earlier create may have made root visible but failed its parent
         // synchronization. Reopening must finish that publication as well.
@@ -68,6 +69,15 @@ impl FileStore {
         File::open(&self.root)?.sync_all()
     }
 }
+struct WriterLock(File);
+impl Drop for WriterLock {
+    fn drop(&mut self) {
+        // A concurrently forked child can retain the same open file description
+        // until exec. Ownership ends here, not when that unrelated copy closes.
+        let _ = self.0.unlock();
+    }
+}
+
 impl Store for FileStore {
     fn read_manifest(&mut self) -> io::Result<Option<Vec<u8>>> {
         let file = match File::open(self.root.join("MANIFEST.json")) {
@@ -159,5 +169,38 @@ impl Store for FileStore {
             .write(true)
             .open(self.segment_path(id))?
             .set_len(len)
+    }
+}
+
+#[cfg(test)]
+mod lock_owner_tests {
+    use super::*;
+
+    #[test]
+    fn owner_drop_releases_lock_even_while_an_inherited_description_still_exists() {
+        let unique = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "tickwire-lock-owner-{}-{unique}",
+            std::process::id()
+        ));
+        let owner = FileStore::open(&root).unwrap();
+        // fork duplicates the same open file description. A safe duplicate
+        // isolates the ownership rule without adding a process timing race.
+        let inherited = owner._lock.0.try_clone().unwrap();
+        assert!(FileStore::open(&root).is_err(), "live owner is exclusive");
+        drop(owner);
+        let replacement = FileStore::open(&root).expect("the original owner has ended");
+        assert!(FileStore::open(&root).is_err(), "replacement owns the lock");
+        drop(inherited);
+        assert!(
+            FileStore::open(&root).is_err(),
+            "old copy cannot unlock replacement"
+        );
+        drop(replacement);
+        drop(FileStore::open(&root).unwrap());
+        fs::remove_dir_all(root).unwrap();
     }
 }

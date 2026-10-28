@@ -1,0 +1,22 @@
+   Compiling tickwire-recovery v0.1.0 (/home/obscure/Tickwire/crates/tickwire-recovery)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.26s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_recovery-9a10ee8260661616)
+
+running 1 test
+test files::lock_owner_tests::owner_drop_releases_lock_while_inherited_description_remains ... FAILED
+
+failures:
+
+---- files::lock_owner_tests::owner_drop_releases_lock_while_inherited_description_remains stdout ----
+
+thread 'files::lock_owner_tests::owner_drop_releases_lock_while_inherited_description_remains' (1020072) panicked at crates/tickwire-recovery/src/files.rs:238:54:
+original owner ended: Io(Custom { kind: Other, error: "lock acquisition failed because the operation would block" })
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    files::lock_owner_tests::owner_drop_releases_lock_while_inherited_description_remains
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-recovery --lib`

@@ -52,7 +52,7 @@ cargo fmt --check -p tickwire-control-sys
 
 - **执行镜像不可变**：源文件只打开一次；copy累计长度同时受打开长度与512MiB硬上限约束。先封印再供上层核摘要，执行只用固定描述符；原路径和原inode后续变化不能换掉执行字节。MFD_EXEC仅在EINVAL时尝试旧内核兼容flags，权限/策略拒绝不回退；F_SEAL_EXEC为旧内核可选，WRITE/GROW/SHRINK/SEAL始终强制。只读FD取代原可写description后才exec，避免ETXTBSY。
 - **FD 唯一所有权**：socket/accept/目录/inode pin 的 FD 全由 `OwnedFd` 持有；创建与 accept 原子设置 CLOEXEC+NONBLOCK；不提供接管任意裸 FD 的公开构造函数。
-- **资源限制与失败边界**：仅接纳 domain、无子组且初始无进程的实际 cgroup v2；effective CPU 集合/单 NUMA 节点、有限 memory.max 与 swap=0 必须精确匹配。不修改 controller、不创建/删除组；Drop 只释放 FD/lease。pre_exec 使用父进程预开的迁移 FD，只有有界 raw read/write/affinity 系统调用，权限或读回失败阻止 exec；postexec 观察失败则回收本次直接创建的 Child，目标可能已经执行。不得杀未知组成员。
+- **资源限制与失败边界**：仅接纳 domain、无子组且初始无进程的实际 cgroup v2；effective CPU 集合/单 NUMA 节点、有限 memory.max 与 swap=0 必须精确匹配。不修改 controller、不创建/删除组；取得 lease 后的私有 guard 在构造失败和最终 owner 销毁时显式解锁，临时 fork FD 副本不延长 lease；Drop 只释放 FD/lease。pre_exec 使用父进程预开的迁移 FD，只有有界 raw read/write/affinity 系统调用，权限或读回失败阻止 exec；postexec 观察失败则回收本次直接创建的 Child，目标可能已经执行。不得杀未知组成员。
 - **资源证据范围**：memory.max 是组 charged memory，父创建的映像/SHM 另计父 owner 预算；允许 CPU 集合不证明物理隔离或独占。外部部署管理者必须尊重 advisory lease；采样不保证未来设置恒定，不是授权。新 unsafe 仅在本 sys crate 的文件/affinity/pre_exec 边界，均保留 SAFETY 依据，SDK 不增加 unsafe。
 - **接收**：每次 `recvmsg` 提供 65,536 字节 payload 与可容纳 16 个 FD、按 usize 对齐的辅助缓冲区，`MSG_DONTWAIT | MSG_CMSG_CLOEXEC`；成功后先把每个 SCM_RIGHTS 整数转 `OwnedFd`，再处理截断/零长/帧/FD 数量校验；任一步失败由局部对象析构关闭已交付 FD；`MSG_CTRUNC` 时内核关闭未交付的多余 FD。
 - **发送**：先结构校验与实际 FD 数核对，才 `sendmsg(MSG_DONTWAIT | MSG_NOSIGNAL)`；FD 仅借用到调用结束，发送者保留句柄；完整数据报交给内核即返回成功（接收/owner 应用是另外两个完成点）；部分发送按截断错误返回，**不重发剩余字节**。

@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "scope": "actual App, independent MD and supervised worker; loopback TLS Spot fill plus fees",
+  "root": "/tmp/tw-runtime-observation-app-1",
+  "binaries": {
+    "tickwire-app": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-app",
+      "sha256": "603483e3efae9762394e36c9e55683075eee88d6d57866802fa0dd7b7ebd26d2"
+    },
+    "tickwire-counting-v1-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-v1-worker",
+      "sha256": "f0c278d6634b39d2637202289710c1abe86b6ca75fb17f2e104b07d9c47f066c"
+    },
+    "tickwire-counting-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-counting-worker",
+      "sha256": "4a4f3939a07086a38dcc142c234c142655758b97c480fedaa09c888ce6874b30"
+    },
+    "tickwire-lab": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lab",
+      "sha256": "fc8af53a35e5c756982cd47c9e79383d7f409c9c96f50cb8ca4353600783706c"
+    },
+    "tickwire-lifecycle": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-lifecycle",
+      "sha256": "a541dc777456c55666642de39c0c309611f3e1b1d2a5453c455044b228d0b6bb"
+    },
+    "tickwire-md": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-md",
+      "sha256": "a99d211f2d02f3ea59b3b49302c034e716d68c7914cbdf97dc34229c73685c08"
+    },
+    "tickwire-replica-receiver": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-replica-receiver",
+      "sha256": "69b2a1088a8b6c9ccafb0673fbe0a8366a84a50f1ae08e0944ae0dc334536fa1"
+    },
+    "tickwire-strategy-worker": {
+      "path": "/tmp/tw-runtime-observation-bins-1/tickwire-strategy-worker",
+      "sha256": "27cde6426b65c5d00120443e174fe6813775c9fbdb329cd46c970f8506e16340"
+    }
+  },
+  "started_mono_ns": 59839511130351,
+  "command_line": [
+    "/tmp/tickwire-progress-20261028/runtime-observation-app-driver.py",
+    "--bins",
+    "/tmp/tw-runtime-observation-bins-1",
+    "--root",
+    "/tmp/tw-runtime-observation-app-1",
+    "--output",
+    "/tmp/tickwire-progress-20261028/runtime-observation-app-acceptance.json",
+    "--verifier",
+    "/tmp/tickwire-progress-20261028/target/debug/tickwire-observation-verifier",
+    "--recover"
+  ],
+  "driver_sha256": "390e61985b9e4db14f74ba985ae8eb1561bb6d43d64db3df099d4fed2ef51132",
+  "observations": [],
+  "negative_results": [],
+  "passed": false,
+  "error": "AssertionError('real worker consumption: process exited 1')"
+}

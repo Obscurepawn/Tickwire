@@ -11,3 +11,5 @@ leader 接受业务提案前等待本任期 barrier 提交应用。安全读使�
 认证输入先核对 peer/from/to 与允许的消息种类。Append 的首 index、连续性和非递减 term 在进入 raft-rs 前检查；Heartbeat 的 commit 不得超过本地实际日志尾，包括尚未落盘的 unstable entries。两项边界均曾在实际调用中触发 raft-rs panic，现由协议错误返回替代。
 
 实际文件测试覆盖三 voter 提交与全组重启、100,000 字节命令分片、少数派隔离和重新追平、持久投票、六个同步失败切点、启动身份、错误 peer、Append 与 Heartbeat 边界，共 8 项通过。完整证据见验证记录；形式验证留待全部系统代码完成后执行。
+
+快照目录的文件锁由共享 `Directory` 持有。`SnapshotDirectory` 副本、`StagingSnapshot`、`VerifiedSnapshot` 与 `GenerationStore` 都保留其 `Arc`；只要其中任一合法 owner 仍在使用目录，独立重开就被拒绝。最后一个 `Arc<Directory>` 释放时，私有 guard 显式解锁并关闭文件；guard 在取得锁后立即建立，也覆盖构造失败路径。并发 fork 到 exec 之间继承的无所有权描述符不能延长已结束的目录所有权；其随后关闭不能解除替代 owner 的独立锁。不在单个 `SnapshotDirectory` wrapper 释放时提前解锁，也不增加重试或串行化规避锁冲突。

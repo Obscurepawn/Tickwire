@@ -23,6 +23,7 @@ mod market;
 
 pub enum Action {
     Update,
+    UpdateConfirmed(mpsc::Sender<()>),
     Stop,
     Detached(mpsc::Sender<(bool, bool)>),
 }
@@ -52,6 +53,10 @@ fn market() -> (Market, tickwire_md::server::Admission, PathBuf) {
             match rx.try_recv() {
                 Ok(Action::Stop) | Err(mpsc::TryRecvError::Disconnected) => break,
                 Ok(Action::Update) => fixture.update(clock.sample().unwrap().monotonic.nanos()),
+                Ok(Action::UpdateConfirmed(reply)) => {
+                    fixture.update(clock.sample().unwrap().monotonic.nanos());
+                    reply.send(()).unwrap();
+                }
                 Ok(Action::Detached(reply)) => {
                     let (owner, state) = fixture.topics[0].split();
                     reply.send((owner.all_detached(), state.live())).unwrap();

@@ -11,6 +11,33 @@ use tickwire_runtime::{
 };
 use tickwire_venue::CanonicalCommand;
 pub trait AppStrategy: Strategy {
+    fn observation_process(
+        &mut self,
+        _target: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<tickwire_supervisor::LiveChildObservation> {
+        Err(tickwire_strategy_host::Error::ObservationUnsupported)
+    }
+    fn begin_observation(
+        &mut self,
+        _target: crate::observation::Target,
+        _request: tickwire_strategy_host::ObservationRequest,
+    ) -> tickwire_strategy_host::Result<()> {
+        Err(tickwire_strategy_host::Error::ObservationUnsupported)
+    }
+    fn poll_observation(
+        &mut self,
+        _target: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
+        Err(tickwire_strategy_host::Error::ObservationUnsupported)
+    }
+    fn cancel_observation(
+        &mut self,
+        _target: crate::observation::Target,
+        _id: [u8; 16],
+    ) -> tickwire_strategy_host::Result<()> {
+        Err(tickwire_strategy_host::Error::ObservationUnsupported)
+    }
+
     fn market_consumers(&self, _out: &mut Vec<crate::control::market::Consumer>) {}
     fn arm_market(
         &mut self,
@@ -344,6 +371,22 @@ pub struct MultiStrategy {
     highest_generation: std::collections::BTreeMap<u64, u64>,
 }
 impl MultiStrategy {
+    fn observation_member(
+        &mut self,
+        target: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<&mut Box<dyn AppStrategy>> {
+        self.members
+            .iter_mut()
+            .find(|m| {
+                !m.retired
+                    && m.id == target.logical_strategy_id
+                    && m.strategy.as_ref().and_then(|s| s.instance())
+                        == Some((target.instance, target.generation))
+            })
+            .and_then(|m| m.strategy.as_mut())
+            .ok_or(tickwire_strategy_host::Error::Invalid)
+    }
+
     pub fn new(
         members: Vec<(u64, Box<dyn AppStrategy>)>,
         policy: tickwire_runtime_policy::ControlPlane,
@@ -500,6 +543,33 @@ impl MultiStrategy {
     }
 }
 impl AppStrategy for MultiStrategy {
+    fn observation_process(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<tickwire_supervisor::LiveChildObservation> {
+        self.observation_member(t)?.observation_process(t)
+    }
+    fn begin_observation(
+        &mut self,
+        t: crate::observation::Target,
+        r: tickwire_strategy_host::ObservationRequest,
+    ) -> tickwire_strategy_host::Result<()> {
+        self.observation_member(t)?.begin_observation(t, r)
+    }
+    fn poll_observation(
+        &mut self,
+        t: crate::observation::Target,
+    ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
+        self.observation_member(t)?.poll_observation(t)
+    }
+    fn cancel_observation(
+        &mut self,
+        t: crate::observation::Target,
+        id: [u8; 16],
+    ) -> tickwire_strategy_host::Result<()> {
+        self.observation_member(t)?.cancel_observation(t, id)
+    }
+
     fn market_consumers(&self, out: &mut Vec<crate::control::market::Consumer>) {
         for m in self.members.iter().filter(|m| !m.retired) {
             if let Some(s) = &m.strategy {

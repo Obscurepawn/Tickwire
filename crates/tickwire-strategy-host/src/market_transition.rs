@@ -35,6 +35,15 @@ impl MarketTransition {
             rejection: None,
         }
     }
+    pub(crate) fn busy(&self) -> bool {
+        self.outgoing.is_some()
+            || (self.approval.is_some()
+                && self.rejection.is_none()
+                && self
+                    .receipt
+                    .as_ref()
+                    .is_none_or(|r| r.phase != Phase::Activated))
+    }
     pub fn receipt(&self) -> Option<&Receipt> {
         self.receipt.as_ref()
     }

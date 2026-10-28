@@ -1,0 +1,142 @@
+warning: field `lock` is never read
+  --> crates/tickwire-journal/src/store.rs:25:5
+   |
+23 | pub struct FileStore {
+   |            --------- field in this struct
+24 |     root: PathBuf,
+25 |     lock: WriterLock,
+   |     ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-journal` (lib) generated 1 warning
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.34s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-d4e9fbcb9f9ab9ad)
+
+running 99 tests
+test config::instrument_tests::separate_feed_sources_keep_their_source_namespace ... ok
+test config::instrument_tests::assemble_usdm_owner_keeps_full_u64_binding_and_local_slot_zero ... ok
+test config::instrument_tests::assemble_rejects_unknown_zero_or_wrong_product_before_selecting_a_local_slot ... ok
+test config::instrument_tests::assemble_uses_distinct_dense_book_keys_without_narrowing_stable_ids ... ok
+test config::tests::public_owner_constructs_at_both_products_maximum_snapshot_depth ... ok
+test control::tests::restart_burns_old_capacity_and_never_reinstalls_old_grant ... ok
+test control::market::files::tests::writable_directories_and_symlink_inputs_are_rejected ... ok
+test control::tests::identity_conflicts_and_foreign_domains_are_rejected_before_mutation ... ok
+test launch::tests::replay_checks_decision_hash_and_outcome_identity ... ok
+test control::tests::window_rollover_preserves_old_occupancy_and_rule_update_keeps_attempt_identity ... ok
+test control::tests::revoke_preflight_does_not_mutate_live_and_replay_preserves_revocation ... ok
+test launch::tests::interrupted_and_rejected_attempts_never_reuse_consumed_instances ... ok
+test lifecycle::operation_halt_tests::current_operation_failure_closes_its_gate_and_workers ... ok
+test lifecycle::operation_halt_tests::delayed_explicit_halt_cannot_close_a_successor ... ok
+test lifecycle::operation_halt_tests::first_halt_without_a_gate_only_stops_an_exact_member_grant ... ok
+test lifecycle::operation_halt_tests::same_generation_with_a_different_complete_member_binding_cannot_halt ... ok
+test lifecycle::operation_halt_tests::stale_released_history_cannot_halt_the_next_prepared_operation ... ok
+test lifecycle::preflight::tests::indexed_objects_preserve_conflicts_missing_lengths_and_bounds ... ok
+test lifecycle::preflight::tests::refreshed_header_does_not_mask_any_business_state_change ... ok
+test lifecycle::preflight::tests::retained_schema3_closure_keeps_all_checks_without_rehashing_lookup_prefixes ... ignored, requires retained actual schema3 volume via TICKWIRE_QUALIFY_FIXTURE
+test lifecycle::rebuild::preflight::tests::real_prefix_allows_later_fill_but_rejects_missing_or_substituted_rows ... ok
+test lifecycle::rebuild::preflight::tests::later_admit_cannot_expand_the_fixed_action_set ... ok
+test lifecycle::preflight::tests::repeated_qualification_lookups_hash_each_input_object_once ... ok
+test lifecycle::rebuild::tests::fixed_window_and_each_completed_stage_are_immutable ... ok
+test lifecycle::rebuild::tests::installation_and_probe_cannot_skip_their_durable_boundaries ... ok
+test lifecycle::rebuild::tests::prepared_requires_a_current_unfrozen_account_after_cold_work ... ok
+test lifecycle::rebuild::tests::fresh_query_wraps_only_current_prepared_session_history ... ok
+test lifecycle::rebuild::tests::completed_retry_requires_same_session_and_exact_challenge ... ok
+test control::market::tests::commit_decision_requires_previous_approved_operation_and_actual_cut ... ok
+test lifecycle::replay::tests::durable_boundaries_cannot_be_skipped_even_with_all_roots_present ... ok
+test lifecycle::replay::tests::fresh_query_wraps_saved_history_only_in_the_same_prepared_session ... ok
+test lifecycle::replay::tests::installation_cannot_precede_the_durable_source_cut ... ok
+test lifecycle::replay::tests::permission_halt_must_not_erase_an_installed_fact ... ok
+test lifecycle::replay::tests::completed_result_retries_preserve_original_bytes_without_a_new_install ... ok
+test lifecycle::replay::tests::source_cut_and_original_challenge_cannot_be_rebound ... ok
+test control::market::files::tests::private_files_are_bounded_and_receipts_replace_only_after_complete_write ... ok
+test lifecycle::replay::tests::commit_needs_the_exact_durably_adopted_result_and_readiness ... ok
+test control::market::tests::decision_history_retains_exact_identity_without_reviving_runtime_operations ... ok
+test lifecycle::replay::tests::uncertain_install_stage_sync_keeps_memory_old_and_restart_closes_recovered_fact ... ok
+test lifecycle::rebuild::tests::adoption_binds_all_seven_roots_fixed_frontier_and_actual_ready ... ok
+test observation::tests::config_rejects_missing_query_build_qualification_and_duplicate_groups ... ok
+test observation::store::tests::wal_owner_drop_releases_lock_despite_an_inherited_open_description ... ok
+test control::market::tests::decision_sync_crossing_deadline_never_dispatches_arm ... ok
+test observation::tests::cold_files_bind_owner_inode_mode_and_reject_links ... ok
+test observation::tests::durable::one_dependency_digest_cannot_refer_to_different_bytes ... ok
+test lifecycle::rebuild::tests::uncertain_install_sync_keeps_memory_old_and_restart_preserves_frozen_facts ... ok
+test control::market::tests::clock_tests::durable_commit_expiry_does_not_start_the_new_subscription ... ok
+test control::market::tests::durable_decision_precedes_arm_and_restart_never_replays_it ... ok
+test observation::tests::before_next_scan_is_zero_allocation_and_does_not_poll_pending_owner ... ok
+test observation::tests::multi_routes_exact_actual_instance_without_generation_fallback ... ok
+test market::tests::real_sources_reject_unapproved_quiescence_and_never_offer_a_transition_receipt ... ok
+test observation::tests::durable::recovery_bounds_aggregate_storage_before_decoding_journal ... ok
+test observation::tests::durable::conflict_history_cannot_regress_the_durable_clock ... ok
+test control::market::tests::clock_tests::admitted_decision_expiring_before_wal_append_recovers_without_replay ... ok
+test observation::tests::exact_retries_do_not_dispatch_twice_and_same_owner_is_busy ... ok
+test control::market::tests::only_actual_phase_receipts_enable_commit_and_effective_success ... ok
+test observation::tests::conflicting_request_cancels_original_pending_and_permanently_closes_id ... ok
+test observation::tests::provider_failure_cancels_query_without_marking_strategy_failed ... ok
+test observation::tests::pending_budget_rotates_between_actual_owners ... ok
+test reconciliation::files::tests::control_file_reader_rejects_real_fifo_without_waiting_for_a_writer ... ok
+test reconciliation::files::tests::control_file_reader_rejects_symlink_instead_of_following_it ... ok
+test observation::tests::pending_deadline_cancels_only_query_and_does_not_resume_on_retry ... ok
+test reconciliation::income::tests::approval_file_is_typed_bounded_and_never_a_boolean ... ok
+test reconciliation::income::tests::ongoing_queries_use_account_purpose_and_an_explicit_bounded_retained_range ... ok
+test reconciliation::files::tests::control_file_reader_requires_regular_bounded_bytes_but_missing_is_optional ... ok
+test observation::tests::replacing_lock_path_closes_original_writer_before_any_new_wal_record ... ok
+test observation::tests::durable::shared_verified_dependency_paths_become_one_durable_cas_reference ... ok
+test observation::tests::received_request_is_synced_then_unknown_owner_gets_explicit_failure ... ok
+test market::tests::real_sources_share_approved_handoff_and_withhold_new_observations_until_release ... ok
+test reconciliation::tests::healthy_empty_account_renews_from_durable_deadline ... ok
+test reconciliation::tests::healthy_terminal_fee_maintenance_is_bounded_and_idle_only ... ok
+test reconciliation::tests::renewal_deadline_arithmetic_keeps_exact_expiry_and_bounds ... ok
+test reconciliation::tests::successful_attempt_reloads_new_orders_in_the_same_private_cut ... ok
+test control::market::tests::clock_tests::durable_files_recheck_deadline_and_binding_before_publishing_completion ... ok
+test replay::lock_tests::replay_owner_releases_copied_locks_on_success_and_partial_setup_error ... ok
+test replay::tests::export_source_names_and_capacity_are_bounded ... ok
+test replay::tests::report_preserves_i128_exactly ... ok
+test strategy::multi_tests::a_failed_child_loses_its_grant_without_stopping_the_healthy_child ... ok
+test strategy::multi_tests::duplicate_logical_owners_and_unbounded_members_are_rejected ... ok
+test strategy::multi_tests::exact_instances_switch_and_repeated_activation_does_not_restop_retired_child ... ok
+test strategy::multi_tests::failed_old_retirement_keeps_the_new_instance_paused ... ok
+test strategy::multi_tests::failed_shadow_does_not_revoke_the_other_instance_of_the_same_strategy ... ok
+test strategy::multi_tests::host_rotation_refreshes_cached_identity_before_the_next_switch ... ok
+test strategy::multi_tests::next_shadow_reuses_retired_slot_without_reusing_identity_or_generation ... ok
+test control::market::tests::large_approved_decision_is_durable_without_exceeding_physical_wal_batch ... ok
+test observation::tests::syncing_received_past_deadline_preserves_history_without_dispatch ... ok
+test observation::tests::durable::late_sync_or_publish_converts_success_to_expired_and_recovery_keeps_it_closed ... ok
+test control::market::tests::clock_tests::actual_source_stays_closed_when_receipt_sync_crosses_the_deadline ... ok
+test replay::income_tests::synchronized_income_import_is_pending_until_exact_account_baseline_is_durable ... ok
+test observation::tests::recovery_interrupts_pending_without_reissuing_and_keeps_closed_conflicts ... ok
+test observation::tests::durable::recovery_requires_sorted_complete_roots_and_actual_cas_bytes ... ok
+test control::market::tests::actual_sources_control_wal_receipts_and_restart_are_consistent ... ok
+test observation::tests::wrong_build_binding_instance_and_expired_requests_never_dispatch ... ok
+test reconciliation::income_network_tests::tls_controller_keeps_unexplained_income_frozen_and_durable ... ok
+test reconciliation::income_network_tests::tls_controller_closes_income_then_collects_new_ledger_snapshots_before_activation ... ok
+test reconciliation::income_network_tests::tls_controller_rejects_other_purpose_signer_for_observation_association ... ok
+test reconciliation::income_network_tests::tls_controller_associates_explicit_funding_then_requeries_after_each_ledger_change ... ok
+test observation::tests::result_objects_above_batch_size_are_durable_and_recovery_checks_every_root ... ok
+test reconciliation::income_network_tests::tls_empty_account_renews_twice_and_failed_refresh_cannot_extend_recovered_deadline ... ok
+
+test result: ok. 98 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 3.46s
+
+     Running unittests src/main.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-20f9d9ae8664be24)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/failover_files.rs (/tmp/tickwire-progress-20261028/target/debug/deps/failover_files-4be686c6ba6821e1)
+
+running 5 tests
+test test_controller_fence_requires_authentic_exact_and_fresh_claims ... ok
+test missing_final_input_rejects_restore_even_with_complete_account_prefix ... ok
+test incomplete_materialization_keeps_markers_and_cannot_start ... ok
+test authenticated_source_seal_restores_files_and_exact_required_frontiers ... ok
+test completed_start_requires_final_object_and_exact_target_identity ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+   Doc-tests tickwire_app
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -1,0 +1,12 @@
+{"file":"records/00000000000000000001.cbor","kind":"reactivated","length":249,"sequence":1,"sha256":"f3abce2105389de513e94131276f564b85993e17f7410ef59d367356afebcd74"}
+{"file":"records/00000000000000000002.cbor","kind":"admit","length":461,"sequence":2,"sha256":"071224baa5ddf50eb0e89346f620b6bcf3f253c1caaa248b61dfa96fdedd170a"}
+{"file":"records/00000000000000000003.cbor","kind":"ingress_event","length":273,"sequence":3,"sha256":"6e82772fa4419ef73a8102239c4386524af764f62e21ba2cbdc777c190815188"}
+{"file":"records/00000000000000000004.cbor","kind":"strategy_handover","length":265,"sequence":4,"sha256":"47a79cf089fefe9ff278054092fd88796da7c503655aa6241001b1c7dbc155c3"}
+{"file":"records/00000000000000000005.cbor","kind":"ingress_event","length":312,"sequence":5,"sha256":"05f42db808f55e3fbf9ae51791aa9c02014053facd86ce97ba3e1cf0b53ed824"}
+{"file":"records/00000000000000000006.cbor","kind":"ingress_event","length":273,"sequence":6,"sha256":"ef26a51019a461d3dc77dfd9ef4af25daa2090e39e203da7347359661d8504a6"}
+{"file":"records/00000000000000000007.cbor","kind":"ingress_event","length":300,"sequence":7,"sha256":"c3a042a34f229763e249eea0e4ac8751c5a24fd23aab52fd28755980c4441774"}
+{"file":"records/00000000000000000008.cbor","kind":"fees_reconciled","length":85,"sequence":8,"sha256":"ea291707f875e075467bc7d13b90508d9917e93011c621d4f9d50914a898496c"}
+{"file":"records/00000000000000000009.cbor","kind":"reactivated","length":249,"sequence":9,"sha256":"4fcb766a21b1997077f3252c16009a02ec599eae7622b842ddc17172f18ac7f7"}
+{"file":"records/00000000000000000010.cbor","kind":"reactivated","length":249,"sequence":10,"sha256":"586f3cb658e0533e0a97040cbe7ea1a4a550a8342aff47f802b7f5516a8cbc81"}
+{"file":"records/00000000000000000011.cbor","kind":"reactivated","length":249,"sequence":11,"sha256":"4075f8b1091a9bcbab8634864300274b623f4dbe6a5623efa66d8c8d49211eea"}
+{"file":"records/00000000000000000012.cbor","kind":"reactivated","length":250,"sequence":12,"sha256":"5dbde691d5c95be42094ccb7d50260387906809ea60c13d070d32432a890fa7b"}

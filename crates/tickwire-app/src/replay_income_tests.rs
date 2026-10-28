@@ -261,6 +261,6 @@ fn offline_report(
         account_tail: recovered.discarded_tail_bytes,
         input_tail: 0,
         scratch: Scratch::new().unwrap(),
-        _locks: vec![],
+        _locks: ReplayLocks::default(),
     }
 }

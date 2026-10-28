@@ -1,0 +1,23 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.00s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_sdk-543f50dcd1759897)
+
+running 1 test
+test worker::observation::tests::periodic_announcement_waits_for_ordered_responses_and_preserves_latest_on_backpressure ... FAILED
+
+failures:
+
+---- worker::observation::tests::periodic_announcement_waits_for_ordered_responses_and_preserves_latest_on_backpressure stdout ----
+
+thread 'worker::observation::tests::periodic_announcement_waits_for_ordered_responses_and_preserves_latest_on_backpressure' (998242) panicked at crates/tickwire-strategy-sdk/src/worker/observation.rs:76:50:
+request response is still queued
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    worker::observation::tests::periodic_announcement_waits_for_ordered_responses_and_preserves_latest_on_backpressure
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 153 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-strategy-sdk --lib`

@@ -5,6 +5,8 @@ mod wire;
 pub use wire::*;
 mod config;
 pub use config::*;
+mod checkpoint;
+pub use checkpoint::*;
 mod market_exact;
 pub use market_exact::*;
 mod snapshot;

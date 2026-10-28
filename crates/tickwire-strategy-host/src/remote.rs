@@ -252,6 +252,8 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         &mut self,
         approval: &tickwire_market_source::transition::Approval,
     ) -> Result<()> {
+        self.readiness
+            .observation_idle(self.clock.sample()?.monotonic.nanos())?;
         self.registry.process(self.identity.instance)?;
         self.market_transition.arm(
             approval,
@@ -264,6 +266,8 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         &mut self,
         commit: &tickwire_market_source::transition::Commit,
     ) -> Result<()> {
+        self.readiness
+            .observation_idle(self.clock.sample()?.monotonic.nanos())?;
         self.registry.process(self.identity.instance)?;
         self.market_transition.commit(
             commit,
@@ -334,6 +338,8 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         Ok(())
     }
     pub(crate) fn graceful_retire(&mut self) -> Result<()> {
+        self.readiness
+            .observation_idle(self.clock.sample()?.monotonic.nanos())?;
         self.strategy.start_quiesce();
         self.registry.process(self.identity.instance)?;
         let bank = self.reports.publisher().header().clone();
@@ -360,6 +366,12 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
                 .report
                 .session
                 .validate(packet.bytes(), self.clock.sample()?.monotonic.nanos())?;
+            if self
+                .readiness
+                .observe_fresh_reply(&frame.envelope, frame.body)?
+            {
+                continue;
+            }
             if frame.envelope.opcode == 37 && frame.envelope.flags == 32 {
                 // A prior report callback may have completed before QUIESCE arrived.
                 // It does not complete retirement; retain the authenticated identity check.
@@ -422,6 +434,13 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
 }
 impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteHostedStrategy<R> {
     fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.clock.sample().map_or(true, |t| {
+            self.readiness
+                .observation_idle(t.monotonic.nanos())
+                .is_err()
+        }) {
+            return false;
+        }
         if self.identity.logical_strategy == c.logical_strategy_id
             && [self.instance()].iter().any(|i| {
                 *i == (c.old_instance, c.old_generation) || *i == (c.new_instance, c.new_generation)
@@ -437,6 +456,13 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         }
     }
     fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.clock.sample().map_or(true, |t| {
+            self.readiness
+                .observation_idle(t.monotonic.nanos())
+                .is_err()
+        }) {
+            return false;
+        }
         if self.identity.logical_strategy != c.logical_strategy_id {
             return false;
         }
@@ -529,6 +555,7 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
             &mut self.clock,
         ) {
             Ok(w) => w,
+            Err(Error::Busy) => return None,
             Err(e) => {
                 self.fail(e);
                 return None;
@@ -590,6 +617,7 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         })();
         match result {
             Ok(value) => Some(value),
+            Err(Error::Busy) => None,
             Err(e) => {
                 self.fail(e);
                 None
@@ -616,6 +644,7 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         );
         match result {
             Ok(v) => Some(v),
+            Err(Error::Busy) => None,
             Err(e) => {
                 self.fail(e);
                 None
@@ -695,6 +724,7 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         let r = (|| {
             self.reports
                 .publish_baseline(b, self.clock.sample()?.monotonic.nanos())?;
+            self.readiness.record_report_prefix(&self.reports);
             Ok(())
         })();
         self.report_result(r)
@@ -715,6 +745,7 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         let result = (|| {
             self.reports
                 .publish_record(p, r, self.clock.sample()?.monotonic.nanos())?;
+            self.readiness.record_report_prefix(&self.reports);
             Ok(())
         })();
         self.report_result(result)

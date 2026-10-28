@@ -26,6 +26,7 @@ use tickwire_strategy_sdk::{
 use tickwire_supervisor::{AuthenticatedChild, LaunchSpec, Registry};
 pub mod capture;
 mod market_transition;
+mod observation;
 mod preflight;
 mod readiness;
 pub mod rebuild;
@@ -33,6 +34,7 @@ pub mod rebuild_probe;
 mod remote;
 mod resources;
 mod source_replay;
+pub use observation::{FreshObservation, ObservationRequest};
 pub use remote::{RemoteHostedStrategy, RemoteLaunch};
 pub use resources::{GroupResources, ProcessResources};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;
@@ -68,6 +70,10 @@ pub enum Error {
     Invalid,
     NotReady,
     Busy,
+    ObservationExpired,
+    ObservationCancelled,
+    ObservationCapacity,
+    ObservationUnsupported,
     Io(std::io::Error),
     Sdk(tickwire_strategy_sdk::Error),
     Supervisor(tickwire_supervisor::Error),
@@ -883,6 +889,15 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
     for HostedStrategy<R, M>
 {
     fn handover_quiesce(&mut self, change: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if let Some(s) = &self.started
+            && SystemClock::new(s.child.domain)
+                .and_then(|mut c| c.sample())
+                .map_or(true, |t| {
+                    s.readiness.observation_idle(t.monotonic.nanos()).is_err()
+                })
+        {
+            return false;
+        }
         if self.logical_strategy_id != change.logical_strategy_id {
             return false;
         }
@@ -902,6 +917,15 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         }
     }
     fn handover_activate(&mut self, change: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if let Some(s) = &self.started
+            && SystemClock::new(s.child.domain)
+                .and_then(|mut c| c.sample())
+                .map_or(true, |t| {
+                    s.readiness.observation_idle(t.monotonic.nanos()).is_err()
+                })
+        {
+            return false;
+        }
         if self.logical_strategy_id != change.logical_strategy_id {
             return false;
         }
@@ -1004,6 +1028,7 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         })();
         let want = match refreshed {
             Ok(w) => w,
+            Err(Error::Busy) => return None,
             Err(e) => {
                 self.error = Some(e);
                 return None;
@@ -1068,6 +1093,7 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         })();
         match result {
             Ok(value) => Some(value),
+            Err(Error::Busy) => None,
             Err(e) => {
                 self.error = Some(e);
                 None
@@ -1099,6 +1125,7 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         })();
         match result {
             Ok(v) => Some(v),
+            Err(Error::Busy) => None,
             Err(e) => {
                 self.error = Some(e);
                 None
@@ -1200,6 +1227,7 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
                 .monotonic
                 .nanos();
             s.reports.publish_baseline(baseline, now)?;
+            s.readiness.record_report_prefix(&s.reports);
             Ok(())
         })();
         self.report_result(result)
@@ -1223,6 +1251,7 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
                 .monotonic
                 .nanos();
             s.reports.publish_record(position, record, now)?;
+            s.readiness.record_report_prefix(&s.reports);
             Ok(())
         })();
         self.report_result(result)
@@ -1253,6 +1282,12 @@ pub trait RotationSource<R, const M: usize> {
 }
 impl<R: RecoveryResolver + 'static, const M: usize> Started<R, M> {
     pub fn stop(&mut self, deadline: Instant) -> Result<()> {
+        self.readiness.observation_idle(
+            SystemClock::new(self.child.domain)?
+                .sample()?
+                .monotonic
+                .nanos(),
+        )?;
         self.strategy.start_quiesce();
         let result = (|| {
             let frame = self.publisher.with(|p| {

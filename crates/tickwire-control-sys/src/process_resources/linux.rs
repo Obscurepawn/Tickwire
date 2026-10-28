@@ -26,7 +26,7 @@ const SETTINGS: [&std::ffi::CStr; 6] = [
 /// This owns no processes and never modifies controller settings or removes groups.
 /// Keep it alive until the separately owned Child has exited.
 pub struct ResourceDomain {
-    directory: File,
+    directory: files::DirectoryLease,
     procs: File,
     limits: ResourceLimits,
     attempted: bool,
@@ -39,7 +39,7 @@ impl ResourceDomain {
         limits.validate()?;
         let directory = files::directory(path)?;
         files::cgroupfs(&directory)?;
-        files::lease(&directory)?;
+        let directory = files::DirectoryLease::acquire(directory)?;
         let metadata = directory
             .metadata()
             .map_err(|e| system("stat resource domain", e))?;

@@ -8,8 +8,9 @@
 
 ### 模块（库层，供装配与测试引用）
 
-- `config`：`Deployment { baseline, directories, recover, product, boot_id, clock_generation, owner_id, writer_epoch, initial_writer_epoch, account_stream, input_stream, first_connection_epoch, trading_websocket, instrument_id, book_source, credential, network, clock, tuning, policy, quota, strategy, market_sources, market_transition, replication, lifecycle, shadow_loader, reconciliation, income_*, control, stop_file, maximum_runtime_ns }`；`ProductName::{Spot, Usdm, UsdmFuture}`（`market()/product()`）；`CredentialConfig/CredentialMaterial/KeyAlgorithm::{Hmac, RsaPkcs8, Ed25519Pkcs8}`；`Network::resolve(connect_ns)`；`ClockConfig`；`Tuning`；`Deployment::read/baseline/domain/credentials/authentication/assemble`；常量 `PUBLIC_BOOK_LEVELS=5000`、`PUBLIC_DEPTH_UPDATES=5000`、`PUBLIC_BUFFERED_EVENTS=64`。
+- `config`：`Deployment { baseline, directories, recover, product, boot_id, clock_generation, owner_id, writer_epoch, initial_writer_epoch, account_stream, input_stream, first_connection_epoch, trading_websocket, instrument_id, book_source, credential, network, clock, tuning, policy, quota, strategy, market_sources, market_transition, replication, lifecycle, shadow_loader, reconciliation, income_*, control, observation, stop_file, maximum_runtime_ns }`；`ProductName::{Spot, Usdm, UsdmFuture}`（`market()/product()`）；`CredentialConfig/CredentialMaterial/KeyAlgorithm::{Hmac, RsaPkcs8, Ed25519Pkcs8}`；`Network::resolve(connect_ns)`；`ClockConfig`；`Tuning`；`Deployment::read/baseline/domain/credentials/authentication/assemble`；常量 `PUBLIC_BOOK_LEVELS=5000`、`PUBLIC_DEPTH_UPDATES=5000`、`PUBLIC_BUFFERED_EVENTS=64`。
 - `control`：`ControlInbox::open(config, policy, quota, plane, clock)`、`poll(endpoint)`、`submit(command, endpoint) -> Applied`；`Config/Binding/Action/Command/Applied`；`configure_market(market::Config, Option<Sources>)`、`poll_market(endpoint, strategy)` 连接启动批准的扩容目录。
+- `observation`：`ObservationInbox::open/poll/session/error`；`Config/Session/Request/Target/Outcome/Observation/Status`。启动批准的本机目录入口，独立持久请求和观察对象，冷路由实际 Host 的 begin/poll/cancel，不产生配置 Applied。
 - `failover`：`SealConfig::read`、`RestoreConfig::read`、`validate_start(&Deployment) -> Option<(Option<PhysicalFrontier>, PhysicalFrontier)>`、`seal(&SealConfig) -> Value`、`restore(&RestoreConfig) -> Value`、`FenceAuthority`、`RestoreMode`。
 - `replication`：`Profile::{LocalDurableAsync{maximum_unreplicated_age_ns}, SyncReplica{mirror_id, assignment_epoch}}`、`Config { stream_file, mirror, mirror_server_name, tls, signing_key_pkcs8, mirror_signing_public_key, profile_version, profile, … }`、`Driver::open/replicate/start/drive`。
 - `reconciliation`：`Controller::new(...).with_execution_network(...)`、`drive<P,G,S,O,L,U,B>(node, registry)`；`Config { enabled, reader_id, first_request_epoch, first_execution_connection_epoch, retry_ns, valid_for_ns, fee_maintenance_interval_ns, income_baseline_import, income_account_scan, income_association }`；子模块 `association`、`income`。
@@ -19,7 +20,7 @@
 - `hosted::build(config, runtime, policy) -> Box<dyn AppStrategy>`（bootstrap 限定、shadow 开启 handover、远程外部市场分支）。
 - `HostConfig.resources` 可显式配置 worker、source_replay、rollback 三份资源组计划；设置后传入所有对应 Host 启动入口，错误不会回退到无约束启动。计划省略时保持原有序列化字节，继续适配既有发布闭包；实际组核验由 supervisor/control-sys 执行。该配置不生成全局配置 Applied。
 - `strategy`：`Config/MemberConfig/CommandFile/RecoveryFiles/DependencyFile/FileStrategy/MultiStrategy/new_modes/load(digest)`。
-- `replay`：`run(&Deployment)`、`export(&Deployment, destination)`。
+- `replay`：`run(&Deployment)`、`export(&Deployment, destination)`。私有 `ReplayLocks` 持有三个源目录的排他锁，在 load 中途失败或 Recovered 生命周期结束时逐个显式 unlock；源仍只读，fork/exec 副本不能延长已结束 owner。
 - `release_preflight`（`pub(super)` 限定：`qualify/qualify_startup/fixed_ready/unchanged/root/bind/requirements`）。
 
 ### 可执行入口（`src/main.rs`，默认 bin 名 `tickwire-app`）
@@ -33,7 +34,7 @@ tickwire-app seal        --config /absolute/seal.json
 tickwire-app restore     --config /absolute/restore.json
 ```
 
-`run` 按 `ProductName` 分派 `BinanceSpot` / `BinanceUsdM` depth policy；主循环回调依次驱动 replication、control、shadow_loader、lifecycle、reconciliation，停止条件含 `stop_file`、策略失败、`maximum_runtime_ns`。
+`run` 按 `ProductName` 分派 `BinanceSpot` / `BinanceUsdM` depth policy；主循环回调依次驱动 replication、control、observation、shadow_loader、lifecycle、reconciliation，停止条件含 `stop_file`、策略失败、`maximum_runtime_ns`。
 
 ## 在 workspace 中的位置
 
@@ -42,6 +43,8 @@ tickwire-app restore     --config /absolute/restore.json
 下游消费者（全仓 grep `Cargo.toml` 核对）：`tickwire-lab`。
 
 ## 对应规格
+
+- [实际实例观测](../../specs/implementation/runtime-observation.md)（本地受信目录、异步新挑战、真实持有进程、持久结果与恢复边界）。
 
 - [../../specs/implementation/market-expansion.md](../../specs/implementation/market-expansion.md)（启动批准的市场扩容、独立控制决定、实际 JOIN 与双收据门禁）。
 
@@ -59,6 +62,12 @@ cargo fmt -p tickwire-app
 `tests/failover_files.rs` 为纯文件/源封口恢复测试（无 OS 围栏，测试控制器的隔离断言是受信输入）。真实私有会话、网络、启动序列在 `./scripts/check-linux.sh` Docker 与集成环境验证。运行时用绝对路径配置；`stop_file` 必须绝对且启动时不存在。
 
 ## 关键不变量与注意事项
+
+- **实际实例观测**：观测 provider 仅支持 Linux；非 Linux 打开明确拒绝，相关 /proc 测试按平台隔离。`Deployment.observation` 可省略；启用时显式批准 inbox/outbox/journal 三个不同的 0700 真实绝对目录、固定 UID、stream_epoch 和支持查询模式的真实 worker 镜像摘要白名单（1..128，非零唯一）。输入和输出均为 0600 单链接普通文件，不提供远端网络鉴权。`AppStrategy`/Multi 精确路由逻辑策略、实例和代次，Capturing 与未启动 Host 明确不支持；发出查询前用实际 Registry 内核镜像匹配白名单。
+- **观测持久与期限**：完整 Request 在派发前同步到独立 WAL；Host 验证的完整依赖允许不同图路径重复引用相同内容；App 按摘要合并相同字节、拒绝同摘要不同字节，形成唯一有序集合后先写 CAS，再写不超过 256 KiB 的 Outcome CAS 与小 Terminal 引用，最后原子发布 `<32hexid>.json`。opaque 对象上限为恢复对象的 64 MiB，三目录总量也不超过 64 MiB。恢复逐对象核对长度/摘要、有序唯一和 READY 必需根，历史结果保留原时间/期限并标 `historical`，进行中查询转为 Interrupted，绝不恢复成新的 FreshObservation 或重新派发。每次打开同步新 session.json。
+- **观测隔离和限额**：请求生命周期最长 30 秒，历史请求 1..1024、同时 pending 1..32、每轮扫描/轮询 1..16。10 ms 冷扫描之间无分配且不触发 proc/闭包 I/O；pending 轮询按 owner 轮转，避免低 ID 永久占用预算。长期冷 I/O 前后重新检查实际单调时钟与 Binding，跨期结果转为失败；消费者仍需核对自己的当前期限。错误构建、目标、忙碌、过期为请求失败，存储/权限破坏关闭观测入口并取消查询，不把策略标为失败。
+- **观测重试和单写者**：同 ID 同内容不重新挑战；换内容会取消未完成原查询并永久关闭该 ID，冲突结果绑定新 digest，既有终态仅作为历史保留。WAL 的 LOCK 文件由持有 FD 与当前目录项的设备/inode、UID、0600 和单链接共同绑定；冷检查及所有 WAL 操作前重新核验，路径替换后停止使用原 writer。加锁成功立即建立唯一 Wal guard，在后续初始化失败或正常 Drop 时显式 unlock，Storage 的校验副本仅关闭 FD，fork 至 exec 窗口继承的描述符不能延长已结束 writer 的锁；活跃 owner 仍互斥，旧副本释放也不能解锁后继。目录部署 owner 仍是受信边界。
+- **观测回归**：`observation/tests.rs` 和 `observation/tests/durable.rs` 覆盖实际 Registry 子进程镜像白名单、同 ID 冲突、错误实例/Binding/session、WAL 同步跨期、恢复中断、闭包篡改/缺根/顺序、总容量、LOCK 替换、双 owner 轮询公平性与空扫描零分配。真实认证挑战和 App 全进程文件验收由 Host/lab 场景覆盖；存储单测中的 Outcome 仅验证持久协议，不代表运行时观察事实。
 
 - **市场扩容控制**：`Deployment.market_transition` 只在已有 `control` 下启用，明确配置 `consumer_directory/effective_directory`（分离的 0700 真实目录）、`maximum_operations`（1..128）、`maximum_per_poll`（1..32）。仅实际 Sources 和托管远程 Host 的 PID/instance/generation 可接收决定；文件为 0600 的 `<pid>-<32hexinstance>.arm.json/.commit.json/.receipt.json`。完整 MarketDecision 先同步到控制 WAL 旁 `market-objects`，再同步其长度/摘要 WAL 引用；对象与 WAL 共用 64 MiB 预算，外部 command sequence、32 KiB 命令和 64 KiB 物理批次限制保持不变。
 - **扩容成功边界**：只有实际 Armed/Quiesced/Activated 能产生阶段收据，Activated 先同步 effective 中完整 Commit+Receipt，再同步共享 receipt，最后放行本地 Sources 的新观察。远程 worker 由自身 durable HEAD 与恢复对象持久化门禁放行。恢复校验所有历史对象，却不重放为活跃授权；无批准 QUIESCE 仍关闭旧订阅。文件扫描至少间隔 10 ms，未到期为无分配常量路径，已处理 Arm 缓存文件身份；冷轮询仍包含有界文件与同步 I/O，不声明硬实时隔离。

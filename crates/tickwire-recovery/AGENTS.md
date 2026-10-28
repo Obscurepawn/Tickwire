@@ -40,6 +40,7 @@ cargo test -p tickwire-recovery
 - **publish/verify 同步后才出能力**：`publish` 先 `check()`（逐对象读回、校验长度与摘要、重建完成），再 canonical 编码、写 manifest、写 binding→root 销钉，最后才构造 `VerifiedClosure`；`verify` 重新走读回+check+再同步。调用方无法绕开同步直接拿到能力对象。
 - **必备依赖集合**：kind 1..=12 必须全部出现（`kinds & 0xfff == 0xfff`）；kind 1 准入记录摘要必须等于 `ClosureBinding.business_digest`；kind 4 等于 `action_grant_ref`；kind 7 等于 `operation_ref`；kind 13（命令）最多一个。
 - **账户依赖对**：出现 kind 14（基线）就必须同时有 kind 15（历史前缀）且各恰好一个，并必须配一个 kind 13 完整命令；缺任一项返回 `Invalid("account dependency pair")`。旧 manifest 没有 14/15 时两个 digest 为 `None`，调用方（账户协调器）必须拒绝。
+- **文件写锁生命周期**：`FileBlobStore` 的唯一写 owner 正常 Drop 显式解锁，临时继承到未 exec 子进程的 FD 不延长 owner 寿命；共享包装器仍只在最终内层 store 销毁时释放。存活 owner 互斥、旧副本不能解锁替代 owner 由安全 FD 副本回归检查。
 - **对象有序去重**：objects 按 `(kind, content_hash)` 升序，逆序或重复返回 `Invalid("object order/duplicate")`；`read_object` 校验读回字节长度与 `digest == content_hash`。
 - **依赖图无环**：edges 为 (dependent, dependency)，索引越界/自环/逆序拒绝；Kahn 拓扑遍历未访问全部节点即 `Invalid("dependency cycle")`。
 - **输入边界连续**：kind 12 对象经 `inputs::inspect` 解析后按 first_sequence 排序，必须与 `input_boundary` 的 stream、首序号、previous_hash 逐段衔接，末段正好到 last_sequence/last_hash；缺口、重叠、流不一致均拒绝。
