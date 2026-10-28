@@ -16,7 +16,7 @@
 
 ## 3. workspace 位置
 
-上游（`Cargo.toml` 实际声明）：`tickwire-strategy-sdk`、`tickwire-release`、`tickwire-recovery`、`tickwire-venue`；dev：`tickwire-ipc`、`tickwire-snapshot`。
+上游（`Cargo.toml` 实际声明）：`tickwire-strategy-sdk`、`tickwire-release`、`tickwire-recovery`、`tickwire-venue`；dev：`tickwire-control-sys`、`tickwire-ipc`、`tickwire-snapshot`。
 
 下游（grep 命中）：`tickwire-lab`（实验场引用示例）；本 crate 不被生产运行时直接依赖。
 
@@ -32,7 +32,7 @@ cargo test -p tickwire-strategy-example --all-targets
 cargo build -p tickwire-strategy-example --bins
 ```
 
-bin 由合格 Host 以受信 Bootstrap 启动（同 SDK worker 模式），单独运行不获授权。`tests/source_replay.rs` 实际拉起 V1 worker 子进程重放持久输入，核对 PID、成功退出与完整 C 检查点；向量取自 `specs/contracts/ipc-vectors-v1.json`。crate 内单元测试覆盖规范配置拒绝未知字段/空白、C 点迁移保留计数/动作/spent。
+bin 由合格 Host 以受信 Bootstrap 启动（同 SDK worker 模式），单独运行不获授权。`tests/source_replay.rs` 实际拉起 V1 worker 子进程重放持久输入，核对 PID、成功退出与完整 C 检查点；Linux 同时覆盖普通磁盘与封印 memfd 启动，SDK 对实际运行映像读取校验，完整恢复制品仍独立保留；向量取自 `specs/contracts/ipc-vectors-v1.json`。crate 内单元测试覆盖规范配置拒绝未知字段/空白、C 点迁移保留计数/动作/spent。
 
 ## 6. 关键不变量与注意事项
 

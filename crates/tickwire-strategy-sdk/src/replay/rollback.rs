@@ -54,12 +54,10 @@ fn qualify(
                 .object(&Role::Binary)
                 .ok_or(crate::Error::Identity)?
                 .digest
-        || live::executable_digest()? != id.build_hash
-        || std::fs::canonicalize(std::env::current_exe()?)?
-            != std::fs::canonicalize(files.path(&Role::Binary).ok_or(crate::Error::Identity)?)?
     {
         return Err(crate::Error::Identity);
     }
+    live::verify_executable(files.object(&Role::Binary).ok_or(crate::Error::Identity)?)?;
     crate::preflight::verify_recovery_inputs(bootstrap.recovery_template.as_deref(), &files)?;
     Ok((installed, files, bootstrap, bundle))
 }

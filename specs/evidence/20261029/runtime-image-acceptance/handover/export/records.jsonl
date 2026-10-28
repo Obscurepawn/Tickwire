@@ -1,0 +1,12 @@
+{"file":"records/00000000000000000001.cbor","kind":"reactivated","length":249,"sequence":1,"sha256":"15c3835422c39d4f2725b95afb4b865fabc77b8af7be8dd1f5edf0ba419865cc"}
+{"file":"records/00000000000000000002.cbor","kind":"admit","length":461,"sequence":2,"sha256":"4c0a93a0e3abd9bc709ff2f8ec436d0e32143a16ed6eb7bf0f14b2c48fa42fa0"}
+{"file":"records/00000000000000000003.cbor","kind":"ingress_event","length":273,"sequence":3,"sha256":"d4bd1776d06714fce05af8454d1bcfd86c5b8f2c3b3c37ff35ddeedf12468b90"}
+{"file":"records/00000000000000000004.cbor","kind":"strategy_handover","length":265,"sequence":4,"sha256":"ee4f6d322fd45b1b7b2cd05c41366b78477cb86b8fde8451ddde489be3d022c5"}
+{"file":"records/00000000000000000005.cbor","kind":"ingress_event","length":312,"sequence":5,"sha256":"52fe94d652944357903bc9125adde3cdc9aa34b054a8c32d5227511ec7c284c1"}
+{"file":"records/00000000000000000006.cbor","kind":"ingress_event","length":273,"sequence":6,"sha256":"5d44a4aa5c1c6e5f710aef5f4a86fbe2c5f1dfbb6334a65164c60b06d94f024a"}
+{"file":"records/00000000000000000007.cbor","kind":"ingress_event","length":300,"sequence":7,"sha256":"095e9cf6c632b637420fb4c528bd0ffa3c3af2b174c80e5e74569d2f31bf68da"}
+{"file":"records/00000000000000000008.cbor","kind":"fees_reconciled","length":85,"sequence":8,"sha256":"5329f9ce19859ff1c83039e52f623fb67013579ef959b83166382c9200895009"}
+{"file":"records/00000000000000000009.cbor","kind":"reactivated","length":249,"sequence":9,"sha256":"31f52cd742ce72e8fd670864a477bd0573845019c413575d165b01d5ea6f9979"}
+{"file":"records/00000000000000000010.cbor","kind":"reactivated","length":249,"sequence":10,"sha256":"7253597045408a4cae05f36b9824b81502aa72bbe5710c5178f3a123ee54125a"}
+{"file":"records/00000000000000000011.cbor","kind":"reactivated","length":249,"sequence":11,"sha256":"dbc8779f2641bb66ac5be4ce363654b1555eb246b514571e9b5c3ca223bfe99c"}
+{"file":"records/00000000000000000012.cbor","kind":"reactivated","length":250,"sequence":12,"sha256":"641efab52c6ce3e83a93e71293f9229ba6a0d1b7c8908edffd37b2df8779cc20"}

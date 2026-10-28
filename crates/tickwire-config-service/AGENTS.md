@@ -45,6 +45,8 @@ cargo fmt -p tickwire-config-service
 
 `tests/`：`bootstrap.rs`、`replicated_objects.rs`、`control_api.rs`、`control_tls.rs`、`peer_driver.rs`、`deployment.rs`、`deployment_owner.rs`、`evidence.rs`、`qualification.rs`、`account_facts.rs`、`credential_facts.rs`、`resource_facts.rs`、`source_bundle.rs`，fixture 在 `tests/fixtures/`、`tests/deployment_support/`、`tests/control_reads/`。
 
+归档测试先完成真实 mTLS 交换，再以取得的主体调用内部 API；begin/poll 保留当前信任和业务期限核验，避免把文件同步耗时绑定到闲置的 PING/PONG 期限。领导权丢失测试以真实分票为前置条件，按实际 Leader 状态和绝对期限推进，不依赖固定 tick 轮数保证随机选举完成。
+
 ## 关键不变量与注意事项
 
 - **复制不授权**：对象 Begin/Chunk/Seal 只是共识复制事实；部署资格必须另过 evidence 信任、账户模式、凭据用量、保留容量与 deployment owner 评估（`lib.rs` 头注释、`deployment.rs`、`deployment_owner.rs`）。

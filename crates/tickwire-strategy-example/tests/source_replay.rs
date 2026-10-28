@@ -154,6 +154,14 @@ impl Drop for Temp {
 }
 #[test]
 fn registered_old_executable_replays_its_own_callbacks_and_returns_the_actual_child_receipt() {
+    replay_from_image(false);
+}
+#[test]
+#[cfg(target_os = "linux")]
+fn sealed_registered_executable_replays_its_own_actual_callbacks() {
+    replay_from_image(true);
+}
+fn replay_from_image(sealed: bool) {
     use std::os::unix::fs::DirBuilderExt;
     let temp = Temp(std::env::temp_dir().join(format!(
             "tickwire-registered-process-{}-{}",
@@ -307,11 +315,23 @@ fn registered_old_executable_replays_its_own_callbacks_and_returns_the_actual_ch
     };
     let job_path = temp.0.join("job.json");
     std::fs::write(&job_path, job.bytes().unwrap()).unwrap();
-    let mut child = Command::new(worker)
-        .arg("--source-replay")
-        .arg(&job_path)
-        .spawn()
-        .unwrap();
+    let image = sealed.then(|| {
+        tickwire_control_sys::ExecutableImage::open(Path::new(worker), tickwire_release::MAX_BINARY)
+            .unwrap()
+    });
+    let mut child = if let Some(image) = &image {
+        image
+            .spawn(|command| {
+                command.arg("--source-replay").arg(&job_path);
+            })
+            .unwrap()
+    } else {
+        Command::new(worker)
+            .arg("--source-replay")
+            .arg(&job_path)
+            .spawn()
+            .unwrap()
+    };
     let pid = child.id();
     assert!(child.wait().unwrap().success());
     let receipt = SourceReceipt::decode(

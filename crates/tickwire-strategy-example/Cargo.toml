@@ -17,5 +17,6 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [dev-dependencies]
+tickwire-control-sys = { path = "../tickwire-control-sys" }
 tickwire-ipc = { path = "../tickwire-ipc" }
 tickwire-snapshot = { path = "../tickwire-snapshot" }

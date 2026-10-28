@@ -590,11 +590,14 @@ fn restore_probe_with<F: restore::RestoreFactory>(
     if !same(&normalized, &rollback.report)?
         || job.output_directory == primary.output_directory
         || !job.output_directory.is_absolute()
-        || std::fs::canonicalize(std::env::current_exe()?)?
-            != std::fs::canonicalize(rollback_files.path(&Role::Binary).ok_or(Error::Identity)?)?
     {
         return Err(Error::Identity);
     }
+    crate::replay::live::verify_executable(
+        rollback_files
+            .object(&Role::Binary)
+            .ok_or(Error::Identity)?,
+    )?;
     let parent_raw = job.parent_receipt.read()?;
     let parent = tickwire_release::receipt::Receipt::decode(&parent_raw)?;
     let output = job.target_output.read()?;
@@ -715,8 +718,8 @@ pub fn run_probe_with<F: restore::RestoreFactory>(
     }
     Ok(())
 }
-/// The executable path is obtained from the running process, not from a claimed
-/// build hash. The parent still rechecks Registry ownership and authenticated IPC.
+/// The actual executable image is read from the running process, not from a
+/// claimed build hash. The parent still checks Registry ownership and authenticated IPC.
 pub fn start(
     job: &Job,
     config: &Bootstrap,
@@ -757,11 +760,7 @@ pub fn start_with_factory<F: restore::RestoreFactory>(
     let template: Bootstrap =
         serde_json::from_slice(loaded.bytes(&Role::Bootstrap).ok_or(Error::Identity)?)?;
     verify_bootstrap(&template, config)?;
-    if std::fs::canonicalize(std::env::current_exe()?)?
-        != std::fs::canonicalize(loaded.path(&Role::Binary).ok_or(Error::Identity)?)?
-    {
-        return Err(Error::Identity);
-    }
+    crate::replay::live::verify_executable(loaded.object(&Role::Binary).ok_or(Error::Identity)?)?;
     if job.source.proof.object != release.migration.source_proof
         || job.source.checkpoint.object != release.migration.source_checkpoint
     {

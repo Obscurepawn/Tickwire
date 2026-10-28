@@ -570,11 +570,20 @@ impl<S: Strategy> Live<S> {
     }
 }
 pub(crate) fn executable_digest() -> crate::Result<Hash> {
+    Ok(executable_object()?.digest)
+}
+/// Read the actual executable image, including an unlinked file or sealed memfd.
+/// The artifact paths in a recovery manifest remain independently checked.
+pub(crate) fn executable_object() -> crate::Result<Object> {
     use std::io::Read;
+    use std::os::unix::fs::MetadataExt;
+    #[cfg(target_os = "linux")]
+    let path = std::path::PathBuf::from("/proc/self/exe");
+    #[cfg(not(target_os = "linux"))]
     let path = std::env::current_exe()?;
     let mut file = std::fs::File::open(path)?;
     let before = file.metadata()?;
-    if !before.is_file() || before.len() > tickwire_release::MAX_BINARY {
+    if !before.is_file() || before.len() == 0 || before.len() > tickwire_release::MAX_BINARY {
         return Err(crate::Error::Bounds);
     }
     let mut hash = Sha256::new();
@@ -591,10 +600,27 @@ pub(crate) fn executable_digest() -> crate::Result<Hash> {
             .ok_or(crate::Error::Bounds)?;
         hash.update(&buf[..n]);
     }
-    if count != before.len() || file.metadata()?.modified()? != before.modified()? {
+    let after = file.metadata()?;
+    if count != before.len()
+        || after.len() != before.len()
+        || after.mtime() != before.mtime()
+        || after.mtime_nsec() != before.mtime_nsec()
+        || after.ctime() != before.ctime()
+        || after.ctime_nsec() != before.ctime_nsec()
+    {
         return Err(crate::Error::Identity);
     }
-    Ok(hash.finalize().into())
+    Ok(Object {
+        bytes: count,
+        digest: hash.finalize().into(),
+    })
+}
+pub(crate) fn verify_executable(expected: Object) -> crate::Result<()> {
+    expected.validate(tickwire_release::MAX_BINARY)?;
+    if executable_object()? != expected {
+        return Err(crate::Error::Identity);
+    }
+    Ok(())
 }
 
 fn sync_head<S: Strategy>(
@@ -623,5 +649,7 @@ fn sync_head<S: Strategy>(
     result
 }
 
+#[cfg(all(test, target_os = "linux"))]
+mod image_tests;
 #[cfg(test)]
 mod tests;

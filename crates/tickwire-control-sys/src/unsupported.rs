@@ -72,3 +72,31 @@ impl Connection {
 pub fn monotonic_ns() -> Result<u64> {
     Err(Error::UnsupportedPlatform)
 }
+
+/// Sealed executable images require Linux kernel support.
+pub struct ExecutableImage {
+    _private: (),
+}
+impl ExecutableImage {
+    pub fn open(_path: &Path, _max_bytes: u64) -> Result<Self> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn len(&self) -> u64 {
+        0
+    }
+    pub fn is_empty(&self) -> bool {
+        true
+    }
+    pub fn reader(&self) -> Result<std::fs::File> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn spawn(
+        &self,
+        _configure: impl FnOnce(&mut std::process::Command),
+    ) -> Result<std::process::Child> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn matches_process(&self, _pid: u32) -> Result<bool> {
+        Err(Error::UnsupportedPlatform)
+    }
+}

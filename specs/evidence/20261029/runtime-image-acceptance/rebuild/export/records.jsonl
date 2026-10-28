@@ -1,0 +1,12 @@
+{"file":"records/00000000000000000001.cbor","kind":"reactivated","length":249,"sequence":1,"sha256":"662114bed1ace96a1a4cb7ec428095c5cde7fc2c6f90f1fa7ea556fa5d4d38dc"}
+{"file":"records/00000000000000000002.cbor","kind":"admit","length":461,"sequence":2,"sha256":"a6f498043874c65619615ba2b2a91e218a70e63d85250ca67b3eeb5dace02346"}
+{"file":"records/00000000000000000003.cbor","kind":"ingress_event","length":273,"sequence":3,"sha256":"fa1fd19844201bb062aecbe87cacc377d4ddf99d3f42c0e46dfb8c2d125a77a4"}
+{"file":"records/00000000000000000004.cbor","kind":"strategy_handover","length":265,"sequence":4,"sha256":"67b513121197ba7d9e26e4e2bf466ad0dddeb355efbf010ff2ac0765e62bffd8"}
+{"file":"records/00000000000000000005.cbor","kind":"ingress_event","length":312,"sequence":5,"sha256":"279fce13365b5e85a1bf5bc14763c3e392e5b6948b6db3a5504150ab404506df"}
+{"file":"records/00000000000000000006.cbor","kind":"ingress_event","length":273,"sequence":6,"sha256":"132c2106623e6e585d776b8318e0fdd3a77dc5be33b729def1c5e887ede059ec"}
+{"file":"records/00000000000000000007.cbor","kind":"ingress_event","length":300,"sequence":7,"sha256":"6bab045290b826fe8fe3526ead9bdccefe228e90b4c2381ad189bd16f98443a6"}
+{"file":"records/00000000000000000008.cbor","kind":"fees_reconciled","length":85,"sequence":8,"sha256":"ccbef985fd716278e40236c05eab0222544b415457927712ea93d5a9a4e5885e"}
+{"file":"records/00000000000000000009.cbor","kind":"reactivated","length":249,"sequence":9,"sha256":"5a983782b4193601c5f9bbdb5f041ced94f4d9c2cd279b38af44b3a3bf9d8ee5"}
+{"file":"records/00000000000000000010.cbor","kind":"reactivated","length":249,"sequence":10,"sha256":"f6648c943d870f83b8cfc7837806c88d37c7127ba349399179ccaaa1c848ade3"}
+{"file":"records/00000000000000000011.cbor","kind":"reactivated","length":249,"sequence":11,"sha256":"efacb0d8f72f7294e80e4bee68083e7ec1f6dc92497afab713cedd16801ce944"}
+{"file":"records/00000000000000000012.cbor","kind":"reactivated","length":250,"sequence":12,"sha256":"d593bced3618f1deaac74061828117ea91ade0436266010fd0691eda9881227e"}

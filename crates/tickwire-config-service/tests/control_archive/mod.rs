@@ -30,48 +30,91 @@ fn archive_fixture(edit: impl FnOnce(&mut serde_json::Value)) -> deployment_supp
     )
 }
 
-// This flow performs hundreds of actual three-voter syncs. Ordinary TLS tests
-// retain their original 3s peer timeout; only this integration exchange waits 30s.
+// Authenticate through a complete TLS exchange before running the internal
+// archive API. Hundreds of three-voter syncs must not extend an idle PING/PONG;
+// each API begin/poll still revalidates current trust and its own deadlines.
 fn archive_exchange(
     server: ServerTls,
     client: Arc<rustls::ClientConfig>,
     inspect: impl FnOnce(&AuthenticatedPrincipal) + Send + 'static,
 ) -> (Result<(String, Hash)>, bool) {
+    archive_exchange_with_timeout(server, client, Duration::from_secs(30), inspect)
+}
+
+fn archive_exchange_with_timeout(
+    server: ServerTls,
+    client: Arc<rustls::ClientConfig>,
+    timeout: Duration,
+    inspect: impl FnOnce(&AuthenticatedPrincipal) + Send + 'static,
+) -> (Result<(String, Hash)>, bool) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
+    let current_trust = server.clone();
     let worker = thread::spawn(move || {
         let (socket, _) = listener.accept().unwrap();
-        let mut connection = server.accept(socket, Duration::from_secs(30), 65536)?;
+        let mut connection = server.accept(socket, timeout, 65536)?;
         let mut bytes = [0; 4];
         connection
             .read_exact(&mut bytes)
             .map_err(|_| Error::Transport)?;
         assert_eq!(&bytes, b"PING");
         server.revalidate(connection.principal())?;
-        inspect(connection.principal());
         connection
             .write_all(b"PONG")
             .map_err(|_| Error::Transport)?;
         connection.flush().map_err(|_| Error::Transport)?;
-        Ok((
-            connection.principal().subject().to_owned(),
-            connection.principal().leaf_sha256(),
-        ))
+        Ok(connection.principal().clone())
     });
     let socket = TcpStream::connect(address).unwrap();
-    socket
-        .set_read_timeout(Some(Duration::from_secs(30)))
-        .unwrap();
-    socket
-        .set_write_timeout(Some(Duration::from_secs(30)))
-        .unwrap();
+    socket.set_read_timeout(Some(timeout)).unwrap();
+    socket.set_write_timeout(Some(timeout)).unwrap();
     let connection =
         rustls::ClientConnection::new(client, "localhost".try_into().unwrap()).unwrap();
     let mut stream = rustls::StreamOwned::new(connection, socket);
     let sent = stream.write_all(b"PING").and_then(|_| stream.flush());
     let mut answer = [0; 4];
     let received = sent.is_ok() && stream.read_exact(&mut answer).is_ok() && &answer == b"PONG";
-    (worker.join().unwrap(), received)
+    drop(stream);
+    let result = worker.join().unwrap().and_then(|principal| {
+        if !received {
+            return Err(Error::Transport);
+        }
+        current_trust.revalidate(&principal)?;
+        inspect(&principal);
+        Ok((principal.subject().to_owned(), principal.leaf_sha256()))
+    });
+    (result, received)
+}
+
+#[test]
+fn authenticated_archive_callback_outlives_the_completed_tls_exchange() {
+    let tls = Fixture::new(&[SUBJECT], false);
+    let expected = (SUBJECT.to_owned(), tls.peer().leaf_sha256);
+    let trust = tls.server();
+    let timeout = Duration::from_secs(2);
+    let called = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let completed = called.clone();
+    let (result, replied) =
+        archive_exchange_with_timeout(trust.clone(), tls.client(true), timeout, move |principal| {
+            // The internal operation deliberately outlasts the TLS fixture's
+            // deadline; its authority still comes from current trust checks.
+            thread::sleep(timeout + Duration::from_millis(100));
+            trust.revalidate(principal).unwrap();
+            completed.store(true, std::sync::atomic::Ordering::SeqCst);
+        });
+    assert!(called.load(std::sync::atomic::Ordering::SeqCst));
+    assert!(replied, "TLS probe did not complete: {result:?}");
+    assert_eq!(result, Ok(expected));
+}
+
+#[test]
+fn rejected_archive_authentication_never_runs_the_internal_callback() {
+    let tls = Fixture::new(&[SUBJECT], false);
+    let (result, replied) = archive_exchange(tls.server(), tls.client(false), |_| {
+        panic!("unauthenticated caller reached archive API")
+    });
+    assert_eq!(result, Err(Error::Authentication));
+    assert!(!replied);
 }
 
 fn cluster(sources: &deployment_support::Fixture) -> ApiCluster {

@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-28T16:46:42.715116+00:00",
+  "source_manifest": "/home/obscure/Tickwire/specs/evidence/20261029/runtime-image-source-sha256.json",
+  "source_manifest_sha256": "0c81a708de660cf3010212b61dd3539a2e9b1d223e70ab1af2ee65cb41d4789d",
+  "profile": "release",
+  "strip": "--strip-debug",
+  "build_exit_code": 0,
+  "binaries": [
+    {
+      "name": "tickwire-lab",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lab",
+      "build_bytes": 12925440,
+      "build_sha256": "d1437e11b4c70ef3f229016ef25d3550e729e0eaac5ffc6a859e06e00c3fb402",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-lab",
+      "deployed_bytes": 12856864,
+      "deployed_sha256": "22103ef75b2c1aff5d83ed1d4ba935bea6bda36720096b25c07c3b9952ecd0c6"
+    },
+    {
+      "name": "tickwire-app",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-app",
+      "build_bytes": 17353792,
+      "build_sha256": "18be5501b8f12cf8793d49e912a82c9ecaed65f3ff072a40388cc3a84b92f88c",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-app",
+      "deployed_bytes": 17261800,
+      "deployed_sha256": "f0abc8ef0f13fbceaa53af74cf528f7f432cc21649bd2e0180474750af445b6f"
+    },
+    {
+      "name": "tickwire-md",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-md",
+      "build_bytes": 4798816,
+      "build_sha256": "70ed60b14bfe1e79a346bb4f523ab5eebfd49b9f8c10d8a4f0716493db855e61",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-md",
+      "deployed_bytes": 4778192,
+      "deployed_sha256": "014eb08f3bfa0064d29bab7cc4578ec2300442740caeed1533aae66757b4ab08"
+    },
+    {
+      "name": "tickwire-strategy-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-strategy-worker",
+      "build_bytes": 5927440,
+      "build_sha256": "507a657903e4a3b34231092ac4c840d05dafd85d9671641d9da8d3f25c21d144",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-strategy-worker",
+      "deployed_bytes": 5897792,
+      "deployed_sha256": "e89c97b585797ebd578360fcb29b0da7177200be825ff9ec2b8f069eca5fec97"
+    },
+    {
+      "name": "tickwire-replica-receiver",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-replica-receiver",
+      "build_bytes": 5978000,
+      "build_sha256": "811bf234b4470d297c9d71f11d99c6cc0577eb33a109e7ccf320a301525da2d4",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-replica-receiver",
+      "deployed_bytes": 5948360,
+      "deployed_sha256": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f"
+    },
+    {
+      "name": "tickwire-lifecycle",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lifecycle",
+      "build_bytes": 1543704,
+      "build_sha256": "4f57bf7075b0bd2a0ce867141d19d1edf139fc3ca6152b12078f4c818d8271df",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-lifecycle",
+      "deployed_bytes": 1537792,
+      "deployed_sha256": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569"
+    },
+    {
+      "name": "tickwire-counting-v1-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-v1-worker",
+      "build_bytes": 6545024,
+      "build_sha256": "6ac59ef62168cc38257081572e290f376ad3d1281f2c337f7c5f270040f9cb38",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-counting-v1-worker",
+      "deployed_bytes": 6509928,
+      "deployed_sha256": "e4b1f904b95d2e3229775209fac33fbd1ef35ae501b1390129c72825acedb765"
+    },
+    {
+      "name": "tickwire-counting-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-worker",
+      "build_bytes": 6542776,
+      "build_sha256": "25750a94f00bb05fb47d1fe6b995a0a149ae515ad3b72fbc753e09d955e33c33",
+      "deployed_path": "/tmp/tw-runtime-image-bins-1/tickwire-counting-worker",
+      "deployed_bytes": 6507680,
+      "deployed_sha256": "3696672dd0a53120231d5ecc26fab4742e2be6d889c27783d329353b1e47287b"
+    }
+  ]
+}

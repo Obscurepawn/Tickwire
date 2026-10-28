@@ -1637,17 +1637,35 @@ fn https_owner_leadership_loss_returns_unavailable_and_cancels_the_pending_ticke
         }
         thread::yield_now();
     }
-    // The other two actual voters elect a new leader while voter 1 is isolated.
-    for _ in 0..110 {
-        cluster.nodes[1].tick().unwrap();
-        cluster.nodes[2].tick().unwrap();
-        cluster.pump(true);
-    }
-    assert!(
-        cluster.nodes[1..]
-            .iter()
-            .any(|node| node.status().role == Role::Leader)
+    // Reproduce a split election without relying on random timeout equality.
+    // Both real voters pre-vote, then vote for themselves in the same term.
+    cluster.nodes[1].campaign().unwrap();
+    cluster.nodes[2].campaign().unwrap();
+    cluster.pump(true);
+    assert_eq!(cluster.nodes[1].status().role, Role::Candidate);
+    assert_eq!(cluster.nodes[2].status().role, Role::Candidate);
+    assert_eq!(
+        cluster.nodes[1].status().term,
+        cluster.nodes[2].status().term
     );
+    for node in &mut cluster.nodes {
+        let settled = node.drive().unwrap();
+        assert!(settled.messages.is_empty() && settled.applied.is_empty() && !settled.more_ready);
+    }
+    // A fixed number of simultaneous ticks cannot guarantee election after a
+    // split. Select one candidate and require the actual quorum-backed role.
+    cluster.nodes[1].campaign().unwrap();
+    loop {
+        cluster.pump(true);
+        if cluster.nodes[1].status().role == Role::Leader {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "successor election did not finish"
+        );
+        cluster.nodes[1].tick().unwrap();
+    }
     for _ in 0..5 {
         for node in &mut cluster.nodes[1..] {
             node.tick().unwrap();

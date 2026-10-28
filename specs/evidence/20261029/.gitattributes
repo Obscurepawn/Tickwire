@@ -1,0 +1,2 @@
+# Preserve captured stdout byte-for-byte, including Cargo's final blank line.
+runtime-image-acceptance/host/process.log whitespace=-blank-at-eof

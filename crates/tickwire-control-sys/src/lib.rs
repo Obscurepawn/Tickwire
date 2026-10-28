@@ -14,6 +14,7 @@ pub enum Error {
     Timeout,
     Closed,
     InvalidPath,
+    InvalidExecutable,
     InsecureDirectory,
     Truncated,
     Ancillary,
@@ -65,3 +66,10 @@ mod unsupported;
 pub use unsupported::{
     Connection, ControlListener, PendingConnection, PrivateDirectory, monotonic_ns,
 };
+
+#[cfg(target_os = "linux")]
+mod executable;
+#[cfg(target_os = "linux")]
+pub use executable::ExecutableImage;
+#[cfg(not(target_os = "linux"))]
+pub use unsupported::ExecutableImage;

@@ -1,16 +1,17 @@
 //! Owned child processes and authenticated control connections.
 #![forbid(unsafe_code)]
+mod observation;
+pub use observation::LiveChildObservation;
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    fs::File,
     io::Read,
     path::PathBuf,
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Child, ExitStatus, Stdio},
     time::Instant,
 };
 use tickwire_control::{Identity, Policy, ProcessIdentity, Session};
-use tickwire_control_sys::{Connection, ControlListener};
+use tickwire_control_sys::{Connection, ControlListener, ExecutableImage};
 
 #[derive(Debug)]
 pub enum Error {
@@ -49,6 +50,7 @@ pub struct LaunchSpec {
 }
 struct Entry {
     child: Child,
+    image: ExecutableImage,
     identity: Identity,
     uid: u32,
     gid: u32,
@@ -124,42 +126,49 @@ impl Registry {
         if self.entries.contains_key(&spec.identity.instance) {
             return Err(Error::Conflict);
         }
-        let metadata = std::fs::symlink_metadata(&spec.executable)?;
-        if !metadata.is_file() || metadata.len() > 512 * 1024 * 1024 {
-            return Err(Error::Invalid);
-        }
-        let mut file = File::open(&spec.executable)?;
+        let image =
+            ExecutableImage::open(&spec.executable, 512 * 1024 * 1024).map_err(Error::Transport)?;
+        // The digest is over the immutable image that will actually execute,
+        // never a pathname that may name different bytes by the time of exec.
+        let mut file = image.reader().map_err(Error::Transport)?;
         let mut sha = Sha256::new();
+        let mut count = 0u64;
         let mut buffer = [0u8; 65536];
         loop {
             let n = file.read(&mut buffer)?;
             if n == 0 {
                 break;
             }
+            count = count
+                .checked_add(n as u64)
+                .filter(|n| *n <= image.len())
+                .ok_or(Error::Invalid)?;
             sha.update(&buffer[..n]);
         }
         let digest: [u8; 32] = sha.finalize().into();
-        if digest != spec.identity.build_hash {
+        if count != image.len() || digest != spec.identity.build_hash {
             return Err(Error::Identity);
         }
-        let mut command = Command::new(&spec.executable);
-        command
-            .args(spec.arguments)
-            .current_dir(spec.working_directory)
-            .env_clear()
-            .envs(spec.environment)
-            .stdin(Stdio::null());
-        if spec.inherit_output {
-            command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-        } else {
-            command.stdout(Stdio::null()).stderr(Stdio::null());
-        }
-        #[cfg(unix)]
-        {
-            use std::os::unix::process::CommandExt;
-            command.uid(spec.uid).gid(spec.gid);
-        }
-        let child = command.spawn()?;
+        let child = image
+            .spawn(|command| {
+                command
+                    .args(spec.arguments)
+                    .current_dir(spec.working_directory)
+                    .env_clear()
+                    .envs(spec.environment)
+                    .stdin(Stdio::null());
+                if spec.inherit_output {
+                    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+                } else {
+                    command.stdout(Stdio::null()).stderr(Stdio::null());
+                }
+                #[cfg(unix)]
+                {
+                    use std::os::unix::process::CommandExt;
+                    command.arg0(&spec.executable).uid(spec.uid).gid(spec.gid);
+                }
+            })
+            .map_err(Error::Transport)?;
         let process = ProcessIdentity {
             pid: child.id(),
             uid: spec.uid,
@@ -169,6 +178,7 @@ impl Registry {
             spec.identity.instance,
             Entry {
                 child,
+                image,
                 identity: spec.identity,
                 uid: spec.uid,
                 gid: spec.gid,
@@ -228,6 +238,13 @@ impl Registry {
         if !hello.fds().is_empty() {
             return Err(Error::Identity);
         }
+        if !e
+            .image
+            .matches_process(actual.pid)
+            .map_err(Error::Transport)?
+        {
+            return Err(Error::Identity);
+        }
         policy.peer_process = actual;
         let (session, welcome) =
             Session::accept(&policy, actual, hello.bytes(), now).map_err(Error::Control)?;
@@ -235,6 +252,18 @@ impl Registry {
             .send(&welcome, &[], deadline)
             .map_err(Error::Transport)?;
         // If the process exited during authentication, do not publish its session.
+        if let Some(status) = e.child.try_wait()? {
+            e.exit = Some(status);
+            return Err(Error::Exited);
+        }
+        if !e
+            .image
+            .matches_process(actual.pid)
+            .map_err(Error::Transport)?
+        {
+            return Err(Error::Identity);
+        }
+        // Sampling /proc may race an exit; do not publish a dead child's session.
         if let Some(status) = e.child.try_wait()? {
             e.exit = Some(status);
             return Err(Error::Exited);

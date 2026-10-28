@@ -368,20 +368,40 @@ fn isolated_probe_child() {
 
 #[test]
 fn isolated_old_executable_produces_real_pid_and_synced_callback_result() {
+    isolated_probe(false);
+}
+#[test]
+#[cfg(target_os = "linux")]
+fn sealed_old_executable_produces_real_pid_and_synced_callback_result() {
+    isolated_probe(true);
+}
+fn isolated_probe(sealed: bool) {
     let dir = Directory::new();
     let job = job(&dir.0);
     let file = object(&dir.0, &job.bytes().unwrap());
-    let mut child = std::process::Command::new(std::env::current_exe().unwrap())
-        .arg("--exact")
-        .arg("replay::rebuild::tests::probe_tests::isolated_probe_child")
-        .arg("--nocapture")
-        .env("TICKWIRE_REBUILD_PROBE_UNIT_JOB", file.path)
-        .env(
-            "TICKWIRE_REBUILD_PROBE_PARENT",
-            std::process::id().to_string(),
-        )
-        .spawn()
-        .unwrap();
+    let executable = std::env::current_exe().unwrap();
+    let image = sealed.then(|| {
+        tickwire_control_sys::ExecutableImage::open(&executable, tickwire_release::MAX_BINARY)
+            .unwrap()
+    });
+    let configure = |command: &mut std::process::Command| {
+        command
+            .arg("--exact")
+            .arg("replay::rebuild::tests::probe_tests::isolated_probe_child")
+            .arg("--nocapture")
+            .env("TICKWIRE_REBUILD_PROBE_UNIT_JOB", &file.path)
+            .env(
+                "TICKWIRE_REBUILD_PROBE_PARENT",
+                std::process::id().to_string(),
+            );
+    };
+    let mut child = if let Some(image) = &image {
+        image.spawn(configure).unwrap()
+    } else {
+        let mut command = std::process::Command::new(executable);
+        configure(&mut command);
+        command.spawn().unwrap()
+    };
     let pid = child.id();
     assert!(child.wait().unwrap().success());
     let receipt = probe::Receipt::decode(

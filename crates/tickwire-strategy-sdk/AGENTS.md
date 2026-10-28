@@ -55,6 +55,7 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 - **FixedDemo 不自造凭证**：`lib.rs` 头注释“The complete order and authority context are supplied by the launcher; this strategy never invents credentials.”；命令必须绑定目标实例/动作键，消耗后置空（`self.command = None`，只发一次）。
 - **注册不获授权**：`prepare_replayed` 默认返回 `Unsupported`；`replay_registration` 默认 `None` 表示保留旧回调 API，不声称完整尾部重放。
 - **启动前先绑定全部恢复输入**：`preflight::verify_recovery_inputs` 在任何恢复回调前核对模板与每个依赖文件摘要；回调完成件先保存，再挂市场/意图（`preflight.rs` 头注释）。
+- **实际可执行映像**：Linux 从 `/proc/self/exe` 的实际文件描述符校验完整长度和摘要，支持普通 ELF 与封印 memfd，不依赖启动入口路径仍然存在或与 `Role::Binary` 路径相等。恢复清单内的 `Role::Binary` 仍独立进行原权限、内容和重读检查；启动入口删除不等于允许恢复制品缺失。不得用候选路径的 hash 冒充实际运行 image。
 - **恢复闭包与消息预算分开**：worker 的来源/回滚闭包与 `Live::installation_objects` 按恢复单对象 64 MiB 读取 opaque 依赖，再由 release 校验完整闭包；`ControlInput`、检查点和其他类型化 replay 消息仍限制 16 MiB。
 - **行情换代先持久后接线**：`Live::supports_market_transition` 用于切换前准入；`transition_market(MarketTransitionRequest, &Client, now)` 绑定受信计划、旧 QUIESCE 后 applied 水位与真实新 JOIN。完整基线/catchup 只替换市场视图，不触发用户回调；提交与 HEAD 同步成功后调用方才能替换 Client。Legacy owner 拒绝，失败停止 recorded owner，typed 16 MiB 预算不扩大。历史重放与 schema3 continuation/install 保留前后 bank 流关系；旧 ID/version 不可删除或改写，旧 catalog hash 的批准关系仍由运行时受信计划核对。
 - **持续 worker 换源**：`market_transition` 绑定认证 report 41/42 的 kind6 Arm、kind7 Commit；控制对象至多 2 MiB。`worker::expansion` 在真实旧订阅和 replay 能力检查后返回 Armed；匹配操作派生请求的真实 QUIESCE 才暂停回调，完成 PendingJoin、持久 MarketTransition/HEAD、保留 merged 行与检查点后交换消费对象并返回 Activated。`RecoveryWriter` 保留步骤有界，闭包在既有 prepare/seal 同步；它不冒充额外 fsync。未 Arm 的 QUIESCE 保持退休行为，拒绝 Arm 不替换旧消费源。
