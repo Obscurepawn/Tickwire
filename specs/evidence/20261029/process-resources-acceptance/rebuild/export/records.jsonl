@@ -1,0 +1,12 @@
+{"file":"records/00000000000000000001.cbor","kind":"reactivated","length":249,"sequence":1,"sha256":"d783723c6cea699e78e0e14bf0b64f62620d3f1384ac14cf4c2f4ca9e06752c0"}
+{"file":"records/00000000000000000002.cbor","kind":"admit","length":461,"sequence":2,"sha256":"563836983647995578cd91bd46a9b6d9091df6a83ed10692a7f774a421b4bf53"}
+{"file":"records/00000000000000000003.cbor","kind":"ingress_event","length":273,"sequence":3,"sha256":"d79419dae55756aa0ba1730eb4101e59206fac0c9b3009b12f3b10c2f0d357c5"}
+{"file":"records/00000000000000000004.cbor","kind":"strategy_handover","length":265,"sequence":4,"sha256":"5acd16d54e036a4c4f0a9ad5295b5fd4b668c94193f4472140db6d6eb85ed4b4"}
+{"file":"records/00000000000000000005.cbor","kind":"ingress_event","length":312,"sequence":5,"sha256":"e0cae8ef2a0cc3a601c85685006ff8fda65cbe8c04bcf23960139cf640fa7924"}
+{"file":"records/00000000000000000006.cbor","kind":"ingress_event","length":273,"sequence":6,"sha256":"225ae6670f47180b9b427634ff534927a9d20de625e8f3f3246f939c024d395e"}
+{"file":"records/00000000000000000007.cbor","kind":"ingress_event","length":300,"sequence":7,"sha256":"8d8946a5256cc8264ecdaae22e8c93372cedfef2637768c0eccb8d4970c02f38"}
+{"file":"records/00000000000000000008.cbor","kind":"fees_reconciled","length":85,"sequence":8,"sha256":"afb3dd2917768e47c5da1c234555061306516ddbeb4e949a002b00d8708f6130"}
+{"file":"records/00000000000000000009.cbor","kind":"reactivated","length":249,"sequence":9,"sha256":"95a6c7875418a8a9838795d80e48a3cc37266063571eaae4e0ff681e50c71f2f"}
+{"file":"records/00000000000000000010.cbor","kind":"reactivated","length":249,"sequence":10,"sha256":"ae3f09d731489c0521c5125e63550008903417772742a2cecae9d7dd8684b5e0"}
+{"file":"records/00000000000000000011.cbor","kind":"reactivated","length":249,"sequence":11,"sha256":"190fe06df75baef67b2e131608f634671eabc6e3621cf9091143b26a9944de4d"}
+{"file":"records/00000000000000000012.cbor","kind":"reactivated","length":250,"sequence":12,"sha256":"a296a17543a3214a4bda3a478b44621cbde90a3daf59d99bd9bceb9b4ffc84a3"}

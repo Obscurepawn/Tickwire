@@ -1,0 +1,851 @@
+{
+  "schema": 1,
+  "assembled_utc": "2026-10-28T17:55:46.315181+00:00",
+  "scope": "本机 Linux 固定 release ELF 的实际进程兼容验收及 App 普通目录资源拒绝；无 cgroup 委派正向资格、生产资格、性能或全局配置 Applied 证明。",
+  "source_binding": {
+    "manifest": "process-resources-source-sha256.json",
+    "manifest_sha256": "ed7fa200cf0ef3b83017882723f474af683eea3965f0673f60033f9ccdfe0251",
+    "file_count": 887,
+    "git_head": "2bbd292517569525cc3f1439f876ba59d40636b2",
+    "verification_logs": [
+      "process-resources-acceptance/build/source-before-build.log",
+      "process-resources-acceptance/build/source-after-build.log",
+      "process-resources-acceptance/host/source-before.log",
+      "process-resources-acceptance/host/source-after.log"
+    ]
+  },
+  "build": {
+    "command": [
+      "cargo",
+      "build",
+      "--release",
+      "--locked",
+      "-p",
+      "tickwire-lab",
+      "-p",
+      "tickwire-app",
+      "-p",
+      "tickwire-md",
+      "-p",
+      "tickwire-strategy-sdk",
+      "-p",
+      "tickwire-strategy-example",
+      "-p",
+      "tickwire-replica",
+      "-p",
+      "tickwire-lifecycle",
+      "--bins"
+    ],
+    "started_utc": "2026-10-28T17:48:57.550639+00:00",
+    "finished_utc": "2026-10-28T17:50:30.211431+00:00",
+    "elapsed_seconds": 92.66083129199978,
+    "exit_code": 0,
+    "environment": {
+      "CARGO_TARGET_DIR": "/tmp/tickwire-progress-20261028/target"
+    },
+    "log": "process-resources-acceptance/build/release-build.log",
+    "binary_manifest": "process-resources-acceptance/build/binaries.json",
+    "deployment_strip": "--strip-debug",
+    "binary_count": 8
+  },
+  "scenarios": [
+    {
+      "scenario": "spot-handover-custom",
+      "original_root": "/tmp/tw-res-handover-1",
+      "started_utc": "2026-10-28T17:50:59.754231+00:00",
+      "completed_utc": "2026-10-28T17:52:02.882845+00:00",
+      "elapsed_seconds": 63.128602828,
+      "generate_command": [
+        "/tmp/tw-process-resources-bins-1/tickwire-lab",
+        "generate",
+        "--scenario",
+        "spot-handover-custom",
+        "--out",
+        "/tmp/tw-res-handover-1",
+        "--bin-dir",
+        "/tmp/tw-process-resources-bins-1"
+      ],
+      "run_command": [
+        "/tmp/tw-process-resources-bins-1/tickwire-lab",
+        "run",
+        "--config",
+        "/tmp/tw-res-handover-1/scenario.json"
+      ],
+      "exit_code": 0,
+      "result_event": "laboratory_spot_handover_complete",
+      "account_fill_verified": true,
+      "mirror_records_verified": 12,
+      "worker_report_position_verified": 12,
+      "coordinator": {
+        "audit_position": 20,
+        "operation_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
+        "pending": 0,
+        "stage": "active_all",
+        "version": 6
+      },
+      "old_worker_exit": {
+        "event": "strategy_retired",
+        "exit_status": "exit status: 0",
+        "generation": 5,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "worker_pid": 936491
+      },
+      "signed_receipts": [
+        {
+          "phase": "released",
+          "file": "process-resources-acceptance/handover/handover/receipts/80e621588f66b95f41794b7f4905c50e.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "f818440fb76fcbca472909649e9f5d24dac7371bd97709b56f5eb8d935a32478",
+          "handover_sequence": 4,
+          "issued_ns": 54586377589628,
+          "valid_until_ns": 58180680763441
+        },
+        {
+          "phase": "committed",
+          "file": "process-resources-acceptance/handover/handover/receipts/c243523ea0203c7db15fd710d9c70d4e.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "3e6ec1d2254f65d2317268d013d1e78b70f27a1201131a16dd8bf5454de858b9",
+          "handover_sequence": 4,
+          "issued_ns": 54586292638901,
+          "valid_until_ns": 58180680763441
+        },
+        {
+          "phase": "prepared",
+          "file": "process-resources-acceptance/handover/handover/receipts/fcb72a6f836400c047f423fb1decbc36.json",
+          "signature_domain": "tickwire.lifecycle.replay-prepared.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "742039777a16d2c427108c3ed7eb9421e24ce1f30f9bd17c958112cf78297c10",
+          "handover_sequence": null,
+          "issued_ns": 54585777765947,
+          "valid_until_ns": 58180680763441
+        }
+      ],
+      "files": {
+        "run-result.json": "process-resources-acceptance/handover/run-result.json",
+        "account-report.json": "process-resources-acceptance/handover/account-report.json",
+        "handover/preflight-verified.json": "process-resources-acceptance/handover/handover/preflight-verified.json",
+        "handover/preflight-final-verified.json": "process-resources-acceptance/handover/handover/preflight-final-verified.json",
+        "fixture.jsonl": "process-resources-acceptance/handover/fixture.jsonl",
+        "export/records.jsonl": "process-resources-acceptance/handover/export/records.jsonl",
+        "logs/exec.stderr.log": "process-resources-acceptance/handover/logs/exec.stderr.log",
+        "logs/coordinator.stdout.log": "process-resources-acceptance/handover/logs/coordinator.stdout.log",
+        "logs/coordinator.stderr.log": "process-resources-acceptance/handover/logs/coordinator.stderr.log",
+        "handover/keys.json": "process-resources-acceptance/handover/handover/keys.json",
+        "metadata.json": "process-resources-acceptance/handover/metadata.json",
+        "live-images.json": "process-resources-acceptance/handover/live-images.json",
+        "generate.log": "process-resources-acceptance/handover/generate.log",
+        "run.log": "process-resources-acceptance/handover/run.log",
+        "source-before.log": "process-resources-acceptance/handover/source-before.log",
+        "source-after.log": "process-resources-acceptance/handover/source-after.log"
+      },
+      "memfd_sample": {
+        "file": "process-resources-acceptance/handover/live-images.json",
+        "binary_name": "tickwire-counting-worker",
+        "matched_deployed_sha256": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+      },
+      "target_pid": 936512,
+      "rollback_pid": 936517,
+      "target_final_sequence": 285,
+      "action_remains_consumed": true,
+      "source_replay_pid": 936514,
+      "source_s_sequence": 2,
+      "source_c_sequence": 10
+    },
+    {
+      "scenario": "spot-rebuild-custom",
+      "original_root": "/tmp/tw-res-rebuild-1",
+      "started_utc": "2026-10-28T17:52:39.239078+00:00",
+      "completed_utc": "2026-10-28T17:53:41.503802+00:00",
+      "elapsed_seconds": 62.264701719,
+      "generate_command": [
+        "/tmp/tw-process-resources-bins-1/tickwire-lab",
+        "generate",
+        "--scenario",
+        "spot-rebuild-custom",
+        "--out",
+        "/tmp/tw-res-rebuild-1",
+        "--bin-dir",
+        "/tmp/tw-process-resources-bins-1"
+      ],
+      "run_command": [
+        "/tmp/tw-process-resources-bins-1/tickwire-lab",
+        "run",
+        "--config",
+        "/tmp/tw-res-rebuild-1/scenario.json"
+      ],
+      "exit_code": 0,
+      "result_event": "laboratory_spot_rebuild_complete",
+      "account_fill_verified": true,
+      "mirror_records_verified": 12,
+      "worker_report_position_verified": 12,
+      "coordinator": {
+        "audit_position": 19,
+        "operation_id": "8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c",
+        "pending": 0,
+        "stage": "active_all",
+        "version": 6
+      },
+      "old_worker_exit": {
+        "event": "strategy_retired",
+        "exit_status": "exit status: 0",
+        "generation": 5,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "worker_pid": 937516
+      },
+      "signed_receipts": [
+        {
+          "phase": "released",
+          "file": "process-resources-acceptance/rebuild/handover/receipts/05cabd65c7c0f51593f4a6de3bfc87b4.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "94790c6c384e0ca07b94b92b075b15471fe670e5f36dd0a5750de60980888e1b",
+          "handover_sequence": 4,
+          "issued_ns": 54685941842640,
+          "valid_until_ns": 58280161671341
+        },
+        {
+          "phase": "committed",
+          "file": "process-resources-acceptance/rebuild/handover/receipts/b66f5cbccb75be11c65c803aa02a6830.json",
+          "signature_domain": "tickwire.lifecycle.applied.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "08ebd1d7ee710a301aabab2268bc6c45f16096db9160d33718c9fa7d8be1c4bb",
+          "handover_sequence": 4,
+          "issued_ns": 54685838657684,
+          "valid_until_ns": 58280161671341
+        },
+        {
+          "phase": "prepared",
+          "file": "process-resources-acceptance/rebuild/handover/receipts/dcc162471541f35ea3f6593208c5ec5d.json",
+          "signature_domain": "tickwire.lifecycle.rebuild-prepared.v1",
+          "signer_public_key": "exec",
+          "payload_sha256": "7207a09ba46075c98fc3c6b51c0d04a6906fa00e70d8634715ae9ec0c696792b",
+          "handover_sequence": null,
+          "issued_ns": 54685681550546,
+          "valid_until_ns": 58280161671341
+        }
+      ],
+      "files": {
+        "run-result.json": "process-resources-acceptance/rebuild/run-result.json",
+        "account-report.json": "process-resources-acceptance/rebuild/account-report.json",
+        "handover/preflight-verified.json": "process-resources-acceptance/rebuild/handover/preflight-verified.json",
+        "handover/preflight-final-verified.json": "process-resources-acceptance/rebuild/handover/preflight-final-verified.json",
+        "fixture.jsonl": "process-resources-acceptance/rebuild/fixture.jsonl",
+        "export/records.jsonl": "process-resources-acceptance/rebuild/export/records.jsonl",
+        "logs/exec.stderr.log": "process-resources-acceptance/rebuild/logs/exec.stderr.log",
+        "logs/coordinator.stdout.log": "process-resources-acceptance/rebuild/logs/coordinator.stdout.log",
+        "logs/coordinator.stderr.log": "process-resources-acceptance/rebuild/logs/coordinator.stderr.log",
+        "handover/keys.json": "process-resources-acceptance/rebuild/handover/keys.json",
+        "handover/captured.json": "process-resources-acceptance/rebuild/handover/captured.json",
+        "metadata.json": "process-resources-acceptance/rebuild/metadata.json",
+        "live-images.json": "process-resources-acceptance/rebuild/live-images.json",
+        "generate.log": "process-resources-acceptance/rebuild/generate.log",
+        "run.log": "process-resources-acceptance/rebuild/run.log",
+        "source-before.log": "process-resources-acceptance/rebuild/source-before.log",
+        "source-after.log": "process-resources-acceptance/rebuild/source-after.log"
+      },
+      "memfd_sample": {
+        "file": "process-resources-acceptance/rebuild/live-images.json",
+        "binary_name": "tickwire-counting-worker",
+        "matched_deployed_sha256": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+      },
+      "target_pid": 937536,
+      "rollback_pid": 937539,
+      "target_final_sequence": 285,
+      "action_remains_consumed": true,
+      "capture_pid": 937536,
+      "target_install_sequence": 10,
+      "prefix_verified": true,
+      "rollback_exited": true
+    }
+  ],
+  "host_process_tests": {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "-p",
+      "tickwire-strategy-host",
+      "--test",
+      "capture_process",
+      "--",
+      "--ignored",
+      "--nocapture"
+    ],
+    "environment": {
+      "CARGO_TARGET_DIR": "/tmp/tickwire-progress-20261028/target",
+      "TICKWIRE_CAPTURE_WORKER": "/tmp/tw-process-resources-bins-1/tickwire-counting-worker",
+      "TICKWIRE_CAPTURE_EVIDENCE": "/tmp/tickwire-progress-20261028/process-resources-capture-evidence",
+      "TICKWIRE_REBUILD_EVIDENCE": "/tmp/tickwire-progress-20261028/process-resources-rebuild-evidence"
+    },
+    "started_utc": "2026-10-28T17:53:52.518527+00:00",
+    "finished_utc": "2026-10-28T17:54:09.032335+00:00",
+    "elapsed_seconds": 16.513844692999555,
+    "exit_code": 0,
+    "worker_sha256": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c",
+    "worker_sha256_after": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c",
+    "worker_unchanged": true,
+    "source_manifest_verified": true,
+    "files": {
+      "host/metadata.json": "process-resources-acceptance/host/metadata.json",
+      "host/process.log": "process-resources-acceptance/host/process.log",
+      "host/CAPTURE_WINDOW.json": "process-resources-acceptance/host/CAPTURE_WINDOW.json",
+      "host/capture-receipt.json": "process-resources-acceptance/host/capture-receipt.json",
+      "host/rebuild-result.json": "process-resources-acceptance/host/rebuild-result.json"
+    },
+    "rebuild_pid": 937876,
+    "probe_pid": 937879,
+    "installed_sequence": 4,
+    "continued_sequence": 9,
+    "scope": "actual MD JOIN server/memfd publisher in parent thread plus independent workers; same PID capture/factory/install/continued input/independent rollback/v4 READY/normal detach, intent lane connected, new_commands=0"
+  },
+  "app_resource_negative": {
+    "schema": 1,
+    "started_utc": "2026-10-28T17:54:30.518376+00:00",
+    "finished_utc": "2026-10-28T17:54:31.210106+00:00",
+    "elapsed_seconds": 0.6916966160060838,
+    "root": "/tmp/tw-res-negative-1",
+    "generate_command": [
+      "/tmp/tw-process-resources-bins-1/tickwire-lab",
+      "generate",
+      "--scenario",
+      "spot-fill",
+      "--out",
+      "/tmp/tw-res-negative-1",
+      "--bin-dir",
+      "/tmp/tw-process-resources-bins-1"
+    ],
+    "inspect_command": [
+      "/tmp/tw-process-resources-bins-1/tickwire-app",
+      "inspect",
+      "--config",
+      "/tmp/tw-res-negative-1/exec/config.json"
+    ],
+    "inspect_exit_code": 0,
+    "resources": {
+      "worker": {
+        "cgroup": "/tmp/tw-res-negative-1/fake-worker",
+        "cpus": [
+          0
+        ],
+        "numa_node": 0,
+        "memory_max": 268435456
+      },
+      "source_replay": {
+        "cgroup": "/tmp/tw-res-negative-1/fake-source_replay",
+        "cpus": [
+          0
+        ],
+        "numa_node": 0,
+        "memory_max": 268435456
+      },
+      "rollback": {
+        "cgroup": "/tmp/tw-res-negative-1/fake-rollback",
+        "cpus": [
+          0
+        ],
+        "numa_node": 0,
+        "memory_max": 268435456
+      }
+    },
+    "run_command": [
+      "strace",
+      "-ff",
+      "-s",
+      "256",
+      "-yy",
+      "-e",
+      "trace=process,openat,fstatfs,memfd_create",
+      "-o",
+      "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace",
+      "/tmp/tw-process-resources-bins-1/tickwire-lab",
+      "run",
+      "--config",
+      "/tmp/tw-res-negative-1/scenario.json"
+    ],
+    "run_exit_code": 1,
+    "app_pid": 938078,
+    "app_fatal_log": "{\"error\":\"strategy startup: Supervisor(Transport(InvalidResources))\",\"event\":\"fatal\"}\n",
+    "actual_app_trace": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938078",
+    "worker_exec_events": [],
+    "order_http_events": [],
+    "fixture_http_events": [
+      {
+        "event": "http",
+        "method": "GET",
+        "path": "/api/v3/depth",
+        "status": 200
+      }
+    ],
+    "md_admission_files": [
+      "938078-22222222222222222222222222222222.json"
+    ],
+    "binary_hashes_before": {
+      "tickwire-lab": "1445801f569db9912ffea98b55355715e38f9655f982cd8a4e06c1b861809005",
+      "tickwire-app": "4b516e74191617816da0d6847f4a49b31b6e4c6d9d8bd7595724859fa0d298d2",
+      "tickwire-md": "954df5757216338d35d3937e60c200576ee0bd99397d7b098ac0533a00d26c60",
+      "tickwire-strategy-worker": "338e06ade3bc4fce97c10bc26ab32a370f4da31c3993e57bc93f219191c5ae9d",
+      "tickwire-replica-receiver": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f",
+      "tickwire-lifecycle": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569",
+      "tickwire-counting-v1-worker": "2abf5f49c1d93ad7cd32c8ded54c17b742234bace0dd6d55679e7f243985454b",
+      "tickwire-counting-worker": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+    },
+    "binary_hashes_after": {
+      "tickwire-lab": "1445801f569db9912ffea98b55355715e38f9655f982cd8a4e06c1b861809005",
+      "tickwire-app": "4b516e74191617816da0d6847f4a49b31b6e4c6d9d8bd7595724859fa0d298d2",
+      "tickwire-md": "954df5757216338d35d3937e60c200576ee0bd99397d7b098ac0533a00d26c60",
+      "tickwire-strategy-worker": "338e06ade3bc4fce97c10bc26ab32a370f4da31c3993e57bc93f219191c5ae9d",
+      "tickwire-replica-receiver": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f",
+      "tickwire-lifecycle": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569",
+      "tickwire-counting-v1-worker": "2abf5f49c1d93ad7cd32c8ded54c17b742234bace0dd6d55679e7f243985454b",
+      "tickwire-counting-worker": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+    },
+    "source_manifest_verified": true,
+    "files": {
+      "metadata.json": "process-resources-acceptance/negative/metadata.json",
+      "resources.json": "process-resources-acceptance/negative/resources.json",
+      "generate.log": "process-resources-acceptance/negative/generate.log",
+      "inspect.log": "process-resources-acceptance/negative/inspect.log",
+      "run.log": "process-resources-acceptance/negative/run.log",
+      "source-before.log": "process-resources-acceptance/negative/source-before.log",
+      "source-after.log": "process-resources-acceptance/negative/source-after.log",
+      "logs/exec.stderr.log": "process-resources-acceptance/negative/logs/exec.stderr.log",
+      "logs/exec.stdout.log": "process-resources-acceptance/negative/logs/exec.stdout.log",
+      "logs/md.stderr.log": "process-resources-acceptance/negative/logs/md.stderr.log",
+      "fixture.jsonl": "process-resources-acceptance/negative/fixture.jsonl",
+      "trace.938071": "process-resources-acceptance/negative/trace/trace.938071",
+      "trace.938072": "process-resources-acceptance/negative/trace/trace.938072",
+      "trace.938073": "process-resources-acceptance/negative/trace/trace.938073",
+      "trace.938074": "process-resources-acceptance/negative/trace/trace.938074",
+      "trace.938075": "process-resources-acceptance/negative/trace/trace.938075",
+      "trace.938076": "process-resources-acceptance/negative/trace/trace.938076",
+      "trace.938077": "process-resources-acceptance/negative/trace/trace.938077",
+      "trace.938078": "process-resources-acceptance/negative/trace/trace.938078",
+      "trace.938079": "process-resources-acceptance/negative/trace/trace.938079"
+    },
+    "scope": "valid strict HostConfig.resources, three distinct ordinary directories; real App reaches resource acquisition and rejects filesystem before worker exec; real fixture receives no order POST",
+    "positive_cgroup_test": "not run: no writable delegated cgroup v2 leaf; no sudo or bypass attempted"
+  },
+  "artifacts": {
+    "process-resources-acceptance/build/release-build.log": {
+      "bytes": 1247,
+      "sha256": "e8fa9ba80564da676327efc2e444228c02c060698425a149bc61aea66842dd75",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-release-build.log"
+    },
+    "process-resources-acceptance/build/binaries.json": {
+      "bytes": 4090,
+      "sha256": "4296d50b9b254045737952fc7404024d5fa6ab1932d056b1e01ea6081e7c0407",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-binaries.json"
+    },
+    "process-resources-acceptance/build/source-before-build.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-source-before-build.log"
+    },
+    "process-resources-acceptance/build/source-after-build.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-source-after-build.log"
+    },
+    "process-resources-acceptance/handover/run-result.json": {
+      "bytes": 4653,
+      "sha256": "f412da20e6ca2c34b2befd796705267d0480bec497a341b165ff1c3dc56ea74c",
+      "original_path": "/tmp/tw-res-handover-1/run-result.json"
+    },
+    "process-resources-acceptance/handover/account-report.json": {
+      "bytes": 3184,
+      "sha256": "4a3972b911bf4fa50cd321ad0b3205ec5888b971ebba929e14ac59832b57b3cc",
+      "original_path": "/tmp/tw-res-handover-1/account-report.json"
+    },
+    "process-resources-acceptance/handover/handover/preflight-verified.json": {
+      "bytes": 3583,
+      "sha256": "cefb9b54f7a8498bcd236312f7e7eae522b74b6443242ad4befd8d20063a8c96",
+      "original_path": "/tmp/tw-res-handover-1/handover/preflight-verified.json"
+    },
+    "process-resources-acceptance/handover/handover/preflight-final-verified.json": {
+      "bytes": 3588,
+      "sha256": "b7be8c5b9d4a8583fef8ca5f635b44311165d1940ec0010d73164ec328afca04",
+      "original_path": "/tmp/tw-res-handover-1/handover/preflight-final-verified.json"
+    },
+    "process-resources-acceptance/handover/fixture.jsonl": {
+      "bytes": 8036,
+      "sha256": "cf769a7d6d307d26e135232a8434eb4b789db7ffb211d0988aa0028b0e9cbf30",
+      "original_path": "/tmp/tw-res-handover-1/fixture.jsonl"
+    },
+    "process-resources-acceptance/handover/export/records.jsonl": {
+      "bytes": 2030,
+      "sha256": "cd3f7e97b9709cd1dd5caf1e526f101392e6c6e19fd1d10c225edb0b03d4ccdd",
+      "original_path": "/tmp/tw-res-handover-1/export/records.jsonl"
+    },
+    "process-resources-acceptance/handover/logs/exec.stderr.log": {
+      "bytes": 14619,
+      "sha256": "1e7bd2e038ab79702c3288825eaa72d1289c9434c48a64c347797337346646f2",
+      "original_path": "/tmp/tw-res-handover-1/logs/exec.stderr.log"
+    },
+    "process-resources-acceptance/handover/logs/coordinator.stdout.log": {
+      "bytes": 117,
+      "sha256": "9c6b46abe8e02ae264695517a96378c580a7de179c27284db2d50f2715be055d",
+      "original_path": "/tmp/tw-res-handover-1/logs/coordinator.stdout.log"
+    },
+    "process-resources-acceptance/handover/logs/coordinator.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_path": "/tmp/tw-res-handover-1/logs/coordinator.stderr.log"
+    },
+    "process-resources-acceptance/handover/handover/keys.json": {
+      "bytes": 593,
+      "sha256": "d3d30d2f2e4855a5693bc1ab3a9d70d7cdf7d680b75e2b7cea0f20462230dab8",
+      "original_path": "/tmp/tw-res-handover-1/handover/keys.json"
+    },
+    "process-resources-acceptance/handover/metadata.json": {
+      "bytes": 7720,
+      "sha256": "5299796bfeaaa0d998f2f41602562209f8871bdada2e23cdda3d9cac4095d8ad",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-handover-metadata.json"
+    },
+    "process-resources-acceptance/handover/live-images.json": {
+      "bytes": 617,
+      "sha256": "bf6a371e91f6edfc19f09834f605e2ee4455eefb49ca04af8d9466ce6b2a6896",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-handover-live-images.json"
+    },
+    "process-resources-acceptance/handover/generate.log": {
+      "bytes": 899,
+      "sha256": "36fe5db12fd89ecfacb5c6e5236d894d86b5c3e500b05fbe28a2505226e5dbf8",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-handover-generate.log"
+    },
+    "process-resources-acceptance/handover/run.log": {
+      "bytes": 4654,
+      "sha256": "9051a0724490517da01d2a257509ef714a4afd168b8be9a830d49a6a159c9809",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-handover-run.log"
+    },
+    "process-resources-acceptance/handover/source-before.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-handover-source-before.log"
+    },
+    "process-resources-acceptance/handover/source-after.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-handover-source-after.log"
+    },
+    "process-resources-acceptance/handover/handover/receipts/80e621588f66b95f41794b7f4905c50e.json": {
+      "bytes": 3577,
+      "sha256": "5f4589c0e83e9c107ebc2c20b9e398a38692dcd037db1c735b3d525ca359805d",
+      "original_path": "/tmp/tw-res-handover-1/handover/receipts/80e621588f66b95f41794b7f4905c50e.json"
+    },
+    "process-resources-acceptance/handover/handover/receipts/c243523ea0203c7db15fd710d9c70d4e.json": {
+      "bytes": 3585,
+      "sha256": "802600c0bb4a41999016d8f84cc369f1a1b3219aae1561b2ec7041b69b80da43",
+      "original_path": "/tmp/tw-res-handover-1/handover/receipts/c243523ea0203c7db15fd710d9c70d4e.json"
+    },
+    "process-resources-acceptance/handover/handover/receipts/fcb72a6f836400c047f423fb1decbc36.json": {
+      "bytes": 53202,
+      "sha256": "75edeac8fa5577c5421ac30e99996f83d6f5a15c0518af23cf27735db96df9b4",
+      "original_path": "/tmp/tw-res-handover-1/handover/receipts/fcb72a6f836400c047f423fb1decbc36.json"
+    },
+    "process-resources-acceptance/rebuild/run-result.json": {
+      "bytes": 9991,
+      "sha256": "193430f6a68dab431a617db96b8d7f80a41641e8fd9b655020059013f8d73e45",
+      "original_path": "/tmp/tw-res-rebuild-1/run-result.json"
+    },
+    "process-resources-acceptance/rebuild/account-report.json": {
+      "bytes": 3183,
+      "sha256": "d5e87697e5f487edae14998224d1c56c2b3695b9a2c2fa097711234ea67c732b",
+      "original_path": "/tmp/tw-res-rebuild-1/account-report.json"
+    },
+    "process-resources-acceptance/rebuild/handover/preflight-verified.json": {
+      "bytes": 8256,
+      "sha256": "4faea73bd3878841b4a88acf6d2e0211a3fc3147eda2e1fa29e2b5dbf699a545",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/preflight-verified.json"
+    },
+    "process-resources-acceptance/rebuild/handover/preflight-final-verified.json": {
+      "bytes": 8259,
+      "sha256": "a8bb8239dd3153caa09347e7e42636ca57f3e95f7b7f804aac13bb278e81f666",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/preflight-final-verified.json"
+    },
+    "process-resources-acceptance/rebuild/fixture.jsonl": {
+      "bytes": 8036,
+      "sha256": "e64e8c0c29ebe23de524e5d95bffb9181ae1b8ea7e45106745929c5559d84ef6",
+      "original_path": "/tmp/tw-res-rebuild-1/fixture.jsonl"
+    },
+    "process-resources-acceptance/rebuild/export/records.jsonl": {
+      "bytes": 2030,
+      "sha256": "8b024aa1b2f6214b2c6ce2b986204bdeded9b35a6f5cbd710113b43bf8361a02",
+      "original_path": "/tmp/tw-res-rebuild-1/export/records.jsonl"
+    },
+    "process-resources-acceptance/rebuild/logs/exec.stderr.log": {
+      "bytes": 13335,
+      "sha256": "f03315f419d8ccc41de2b0e6bd3237d702eeab7e521240ce057cf15dae87560d",
+      "original_path": "/tmp/tw-res-rebuild-1/logs/exec.stderr.log"
+    },
+    "process-resources-acceptance/rebuild/logs/coordinator.stdout.log": {
+      "bytes": 117,
+      "sha256": "5cd76441ef240d75ef5367f6ec8e9f8b0ed58d9cd3c8dddc56def7bf067ff1c3",
+      "original_path": "/tmp/tw-res-rebuild-1/logs/coordinator.stdout.log"
+    },
+    "process-resources-acceptance/rebuild/logs/coordinator.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_path": "/tmp/tw-res-rebuild-1/logs/coordinator.stderr.log"
+    },
+    "process-resources-acceptance/rebuild/handover/keys.json": {
+      "bytes": 590,
+      "sha256": "312b90a288a76b002e6d8a190c392f0fd5502054d6352cf555885fed39217a48",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/keys.json"
+    },
+    "process-resources-acceptance/rebuild/handover/captured.json": {
+      "bytes": 1612,
+      "sha256": "05fb985932ccaf23c14ff024c2a967842567cea1a0712525b636affa5ccabdd5",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/captured.json"
+    },
+    "process-resources-acceptance/rebuild/metadata.json": {
+      "bytes": 13727,
+      "sha256": "5ff3832d8dce9fb156144723674f0d09862de59914d98d3ec38c0bfe69316250",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-metadata.json"
+    },
+    "process-resources-acceptance/rebuild/live-images.json": {
+      "bytes": 617,
+      "sha256": "a8ff14f6eb137bbdf9cdf84ba8e78cb7aa621ca883d279d46bca14c6713599c0",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-live-images.json"
+    },
+    "process-resources-acceptance/rebuild/generate.log": {
+      "bytes": 885,
+      "sha256": "1c38654eb168cd5f2b77979d88683f460f68349b59b0eccf55a5a958037c29e5",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-generate.log"
+    },
+    "process-resources-acceptance/rebuild/run.log": {
+      "bytes": 9992,
+      "sha256": "cbb27582d0d8881eea0ca5ac115328bfa2f488de0586581da65d9914531f68a1",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-run.log"
+    },
+    "process-resources-acceptance/rebuild/source-before.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-source-before.log"
+    },
+    "process-resources-acceptance/rebuild/source-after.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-source-after.log"
+    },
+    "process-resources-acceptance/rebuild/handover/receipts/05cabd65c7c0f51593f4a6de3bfc87b4.json": {
+      "bytes": 3561,
+      "sha256": "b97307d36c304c425ea11656f690019debaf7fb5f2939559f966f96f1b116ca4",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/receipts/05cabd65c7c0f51593f4a6de3bfc87b4.json"
+    },
+    "process-resources-acceptance/rebuild/handover/receipts/b66f5cbccb75be11c65c803aa02a6830.json": {
+      "bytes": 3562,
+      "sha256": "58362a12b4cdacc318a2e788ed80217009cc4e0113091f09f30ee80dd864ac59",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/receipts/b66f5cbccb75be11c65c803aa02a6830.json"
+    },
+    "process-resources-acceptance/rebuild/handover/receipts/dcc162471541f35ea3f6593208c5ec5d.json": {
+      "bytes": 46912,
+      "sha256": "41aa62c4d692cd3251a2f7fd4133c9c41b78873f8a66d146aec82a0cccc2bba8",
+      "original_path": "/tmp/tw-res-rebuild-1/handover/receipts/dcc162471541f35ea3f6593208c5ec5d.json"
+    },
+    "process-resources-acceptance/host/metadata.json": {
+      "bytes": 983,
+      "sha256": "379bdfbd5ac00b978e87e0181ead055c54edeff627ff8ba0c57dda6c46fc7ecd",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-host-process-metadata.json"
+    },
+    "process-resources-acceptance/host/process.log": {
+      "bytes": 7152,
+      "sha256": "23b1d41cb1c29a234ff0940bd61001d075337fd0077c51336d6638cc5b3ff588",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-host-process.log"
+    },
+    "process-resources-acceptance/host/CAPTURE_WINDOW.json": {
+      "bytes": 1155,
+      "sha256": "13571d2b28816c28009caf3d66e12e954a006c878977f28a6d6c020684f189df",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-capture-evidence/CAPTURE_WINDOW.json"
+    },
+    "process-resources-acceptance/host/capture-receipt.json": {
+      "bytes": 1572,
+      "sha256": "0c7339af05be82a688231977e6ea3e7b8a360ddca23028246e0ebb7759214713",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-capture-evidence/receipt.json"
+    },
+    "process-resources-acceptance/host/rebuild-result.json": {
+      "bytes": 1600,
+      "sha256": "81a4c3c954be787e41970a29b086b34325083a12fca372dd5d12c3e8ed30bf25",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-rebuild-evidence/result.json"
+    },
+    "process-resources-acceptance/host/source-before.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-host-source-before.log"
+    },
+    "process-resources-acceptance/host/source-after.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-host-source-after.log"
+    },
+    "process-resources-acceptance/negative/metadata.json": {
+      "bytes": 3663,
+      "sha256": "5302c092f140fd4e63916f7ccbaeb22e6a3975341db2a0291378f0ab18931d5f",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-metadata.json"
+    },
+    "process-resources-acceptance/negative/resources.json": {
+      "bytes": 465,
+      "sha256": "eaac7d475e0f258b25a5d3d78b5cc74ddf2aaba111fc470e3bcaa71c71061cc9",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-resources.json"
+    },
+    "process-resources-acceptance/negative/generate.log": {
+      "bytes": 884,
+      "sha256": "4f7916de3ed4803f588dcbcc5d032b0ce496dbc63e90b2ff5713d41a202ecb33",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-generate.log"
+    },
+    "process-resources-acceptance/negative/inspect.log": {
+      "bytes": 108,
+      "sha256": "d97f0958262afc82d17ebc7db4da478be36988fcc8471e9b0fddfc38f4925b28",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-inspect.log"
+    },
+    "process-resources-acceptance/negative/run.log": {
+      "bytes": 59,
+      "sha256": "6e27913d52d50b29c162cf77000889ef5581379d7e2e69122f94e168d5a8b114",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-run.log"
+    },
+    "process-resources-acceptance/negative/source-before.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-source-before.log"
+    },
+    "process-resources-acceptance/negative/source-after.log": {
+      "bytes": 28,
+      "sha256": "432ab148beb3ed378d1b0832e35045be562967806ddc15b4df281d4dbe469b39",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-source-after.log"
+    },
+    "process-resources-acceptance/negative/logs/exec.stderr.log": {
+      "bytes": 86,
+      "sha256": "3f3d4476f2da594acef779a779ad99c764f558f33e90b620932c10594cc39964",
+      "original_path": "/tmp/tw-res-negative-1/logs/exec.stderr.log"
+    },
+    "process-resources-acceptance/negative/logs/exec.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_path": "/tmp/tw-res-negative-1/logs/exec.stdout.log"
+    },
+    "process-resources-acceptance/negative/logs/md.stderr.log": {
+      "bytes": 72,
+      "sha256": "2fa5d21741c6a08e9dd5050d9bbccff653d7e39f600442017228457e00ec8604",
+      "original_path": "/tmp/tw-res-negative-1/logs/md.stderr.log"
+    },
+    "process-resources-acceptance/negative/fixture.jsonl": {
+      "bytes": 245,
+      "sha256": "31b3ed5d77f0f912ad333de49866414dd41d161f61dd81acef1e3453d2249b59",
+      "original_path": "/tmp/tw-res-negative-1/fixture.jsonl"
+    },
+    "process-resources-acceptance/negative/trace/trace.938071": {
+      "bytes": 10679,
+      "sha256": "c1190060ee59925af7cec09566b7b96f26418c65bf52475aca7b10c164dfa5e8",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938071"
+    },
+    "process-resources-acceptance/negative/trace/trace.938072": {
+      "bytes": 2544,
+      "sha256": "40622d9ac19f19446c1ebf50f800f4d5825866a9fde8cfa404131716530cc512",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938072"
+    },
+    "process-resources-acceptance/negative/trace/trace.938073": {
+      "bytes": 3949,
+      "sha256": "b89908e5b86c32d225d360d4c54d5136e876ad813d2222396eaad6069c9dbb5c",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938073"
+    },
+    "process-resources-acceptance/negative/trace/trace.938074": {
+      "bytes": 331,
+      "sha256": "34365579aaadb4b13df05335223a79128d2d8775a59aabda85b1efcb48b27451",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938074"
+    },
+    "process-resources-acceptance/negative/trace/trace.938075": {
+      "bytes": 5949,
+      "sha256": "8e79c157c46acf6c6c3c69c8fd892895bea67a78eb9689750c52ca0b98a436c1",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938075"
+    },
+    "process-resources-acceptance/negative/trace/trace.938076": {
+      "bytes": 22,
+      "sha256": "29d50c6fb633dc49972d8ca854afcecf7e4bb5f479cb870f89ccdf6ff854bf31",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938076"
+    },
+    "process-resources-acceptance/negative/trace/trace.938077": {
+      "bytes": 66,
+      "sha256": "9d0d03af958d414a06b74608faa538d99bd06b9e6057ba3ce39e812a17e8cfb5",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938077"
+    },
+    "process-resources-acceptance/negative/trace/trace.938078": {
+      "bytes": 12660,
+      "sha256": "46cc5b0e8137e7f2551843d86ba3e2bd414bc3d4bf74ba059c2b90a9defb4157",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938078"
+    },
+    "process-resources-acceptance/negative/trace/trace.938079": {
+      "bytes": 378,
+      "sha256": "ab485796889611fddc870ca491fa93474ccea2638a209a8d2a481c7d526e5441",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938079"
+    },
+    "process-resources-acceptance/drivers/build.py": {
+      "bytes": 2485,
+      "sha256": "0babb8dd4b42fb402799fa8ad361afd9214a00ae2f1d3ba7391fae481d3fc102",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-build.py"
+    },
+    "process-resources-acceptance/drivers/run.py": {
+      "bytes": 3158,
+      "sha256": "24fa35e783b15666cabb4704875f3470bff0722b485ef2b1b86f23a07f299e45",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-run.py"
+    },
+    "process-resources-acceptance/drivers/host.py": {
+      "bytes": 1801,
+      "sha256": "ce00ede483bc6acd73a8aecf4685db891ef5957f3e7a090ba53299b43dfb4995",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-host.py"
+    },
+    "process-resources-acceptance/drivers/negative.py": {
+      "bytes": 4096,
+      "sha256": "bfbe805ca1b4633e2a5d77655466018028c587206171920c265405aa6ab1fe59",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-negative.py"
+    },
+    "process-resources-acceptance/drivers/archive.py": {
+      "bytes": 7188,
+      "sha256": "8b07676fbb28be4b1fc386852184f69126fd25fdc790ac73fa492b149b53ebcb",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-archive.py"
+    },
+    "process-resources-acceptance/drivers/source-manifest.py": {
+      "bytes": 1423,
+      "sha256": "aac6e2497733fca3422410f1369916fd7d1be89af70e962bb84750f4aabc9142",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-source-manifest.py"
+    },
+    "process-resources-acceptance/.gitattributes": {
+      "bytes": 90,
+      "sha256": "60cf669466a0156ce28e97eebb6f70fd6376f275d5c7e742f178e0bc42da37a1",
+      "original_path": "/tmp/tickwire-progress-20261028/process-resources-acceptance.gitattributes"
+    }
+  }
+}

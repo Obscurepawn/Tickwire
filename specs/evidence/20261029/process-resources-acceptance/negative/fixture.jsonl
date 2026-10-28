@@ -1,0 +1,2 @@
+{"event":"http","method":"GET","path":"/api/v3/depth","status":200}
+{"error":"peer closed connection without sending TLS close_notify: https://docs.rs/rustls/latest/rustls/manual/_03_howto/index.html#unexpected-eof","event":"connection_closed"}

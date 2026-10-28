@@ -99,6 +99,14 @@ impl ExecutableImage {
     /// The callback may set arguments/environment/credentials/stdio, but replacing
     /// Command's program is rejected before spawning any child.
     pub fn spawn(&self, configure: impl FnOnce(&mut Command)) -> Result<Child> {
+        self.configured_command(configure)?
+            .spawn()
+            .map_err(|e| system("spawn executable image", e))
+    }
+    pub(crate) fn configured_command(
+        &self,
+        configure: impl FnOnce(&mut Command),
+    ) -> Result<Command> {
         check_seals(&self.file)?;
         let program = descriptor_path(&self.file);
         let mut command = Command::new(&program);
@@ -107,9 +115,7 @@ impl ExecutableImage {
         if command.get_program() != program.as_os_str() {
             return Err(Error::InvalidExecutable);
         }
-        command
-            .spawn()
-            .map_err(|e| system("spawn executable image", e))
+        Ok(command)
     }
     /// Only a live-child owner may interpret this sample as process evidence.
     /// A subsequent exec is detected by another sample, not prevented here.

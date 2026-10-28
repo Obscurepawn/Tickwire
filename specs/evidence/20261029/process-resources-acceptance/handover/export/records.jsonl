@@ -1,0 +1,12 @@
+{"file":"records/00000000000000000001.cbor","kind":"reactivated","length":249,"sequence":1,"sha256":"0b3e134d45f97544b625f02e77675e25aee7e81fb18a33f3d5d25ca87f21c43e"}
+{"file":"records/00000000000000000002.cbor","kind":"admit","length":461,"sequence":2,"sha256":"4b00cf5ccc59c973dd5011a489385b92a80160bd9489eadefbd6b7bd6fcd4e5d"}
+{"file":"records/00000000000000000003.cbor","kind":"ingress_event","length":273,"sequence":3,"sha256":"5bc3d4b838b1422c90015ebbd8c873ef312b4243a08fcf6825cb1127799fca65"}
+{"file":"records/00000000000000000004.cbor","kind":"strategy_handover","length":265,"sequence":4,"sha256":"4b6acff2fa8e6ae2c592bf8554fdcfc61155f6a8ec94fee65339dec96207545b"}
+{"file":"records/00000000000000000005.cbor","kind":"ingress_event","length":312,"sequence":5,"sha256":"e84d35f8b19ade14ae3cb966f30ddb9b8e62a267c856e597504c6ab7d4f2c85a"}
+{"file":"records/00000000000000000006.cbor","kind":"ingress_event","length":273,"sequence":6,"sha256":"d8557aeef13aa1dbf0c49099ca9c1813e2cfa5832a5a5282127faccdf83a4765"}
+{"file":"records/00000000000000000007.cbor","kind":"ingress_event","length":300,"sequence":7,"sha256":"bf4fbab7e1067ff58cd18a03491c3507b2f85527fab7fd36eb7ec68bc102edd3"}
+{"file":"records/00000000000000000008.cbor","kind":"fees_reconciled","length":85,"sequence":8,"sha256":"c23bbe584753ed9c724fd9c285e567a0b5664896d80571e0f632dac416f696ac"}
+{"file":"records/00000000000000000009.cbor","kind":"reactivated","length":249,"sequence":9,"sha256":"b50bfb7b92583bbd206bb204bf3c984e57d1a9fee0a46e099b2ba1f813cd4f3e"}
+{"file":"records/00000000000000000010.cbor","kind":"reactivated","length":249,"sequence":10,"sha256":"eda7ebde506303ea7893cdcee98e18a5df772d01d4769c626b9b51014689f5a8"}
+{"file":"records/00000000000000000011.cbor","kind":"reactivated","length":249,"sequence":11,"sha256":"3b1c696eec27c15f09dea98bc7e5d89b88d914aa2c53ba0b41fa76031f15305c"}
+{"file":"records/00000000000000000012.cbor","kind":"reactivated","length":250,"sequence":12,"sha256":"b83132646463b463305fb89b2e9a0108fadf24c53f39d26bca90e7f425427012"}

@@ -5,6 +5,7 @@ mod capture;
 mod install;
 pub(crate) struct ReadyProof {
     source_spec: LaunchSpec,
+    resources: Option<ProcessResources>,
     context: Option<cache::Context>,
     cache: cache::Cache,
     directory: Option<PathBuf>,
@@ -21,7 +22,12 @@ pub(crate) struct ReadyProof {
     sources: std::collections::VecDeque<(HandoverReadyBody, [u8; 32])>,
 }
 impl ReadyProof {
-    pub fn new(config: &Bootstrap, spec: &LaunchSpec) -> Result<Self> {
+    pub fn new(
+        config: &Bootstrap,
+        spec: &LaunchSpec,
+        resources: Option<ProcessResources>,
+    ) -> Result<Self> {
+        resources::validate(resources.as_ref())?;
         let directory = if config.handover_enabled {
             let template: tickwire_strategy_sdk::recovery::Template = worker::read_config(
                 config.recovery_template.as_ref().ok_or(Error::Invalid)?,
@@ -58,7 +64,8 @@ impl ReadyProof {
             seal_sequence: 0,
             pause_callbacks: false,
             last_install_request: None,
-            preflight: preflight::Proof::new(config)?,
+            preflight: preflight::Proof::new(config, resources.clone())?,
+            resources,
             sources: Default::default(),
         })
     }
@@ -176,6 +183,7 @@ impl ReadyProof {
         }
         source_replay::run(
             &self.source_spec,
+            self.resources.as_ref(),
             self.receipt.parent().ok_or(Error::Invalid)?,
             operation,
             member,

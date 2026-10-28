@@ -1,0 +1,26 @@
+execve("/tmp/tw-process-resources-bins-1/tickwire-replica-receiver", ["/tmp/tw-process-resources-bins-1/tickwire-replica-receiver", "/tmp/tw-res-negative-1/mirror/config.json"], 0x7fff63c34d10 /* 77 vars */) = 0
+openat(AT_FDCWD</home/obscure/Tickwire>, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3</etc/ld.so.cache>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/lib/x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libgcc_s.so.1>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libc.so.6>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3</proc/938073/maps>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/config.json", O_RDONLY|O_CLOEXEC) = 3</tmp/tw-res-negative-1/mirror/config.json>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/stream.bin", O_RDONLY|O_CLOEXEC) = 3</tmp/tw-res-negative-1/stream.bin>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal/LOCK", O_RDWR|O_CREAT|O_CLOEXEC, 0666) = 3</tmp/tw-res-negative-1/mirror/journal/LOCK>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal", O_RDONLY|O_CLOEXEC) = 4</tmp/tw-res-negative-1/mirror/journal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror", O_RDONLY|O_CLOEXEC) = 4</tmp/tw-res-negative-1/mirror>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/objects/LOCK", O_RDWR|O_CREAT|O_CLOEXEC, 0666) = 4</tmp/tw-res-negative-1/mirror/objects/LOCK>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/objects", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/mirror/objects>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/mirror>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal/MANIFEST.json", O_RDONLY|O_CLOEXEC) = -1 ENOENT (No such file or directory)
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal", O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_DIRECTORY) = 5</tmp/tw-res-negative-1/mirror/journal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal/segment-00000000000000000001.wal", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 5</tmp/tw-res-negative-1/mirror/journal/segment-00000000000000000001.wal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal", O_RDONLY|O_CLOEXEC) = 6</tmp/tw-res-negative-1/mirror/journal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal/MANIFEST.tmp", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 5</tmp/tw-res-negative-1/mirror/journal/MANIFEST.tmp>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal", O_RDONLY|O_CLOEXEC) = 6</tmp/tw-res-negative-1/mirror/journal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal/segment-00000000000000000001.wal", O_WRONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/mirror/journal/segment-00000000000000000001.wal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/mirror/journal/segment-00000000000000000001.wal", O_WRONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/mirror/journal/segment-00000000000000000001.wal>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/keys/mirror-signing.pk8", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/keys/mirror-signing.pk8>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/tls/mirror.der", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/tls/mirror.der>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/tls/mirror.pk8", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/tls/mirror.pk8>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/tls/ca.der", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/tls/ca.der>
++++ killed by SIGKILL +++

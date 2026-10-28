@@ -1,0 +1,26 @@
+{
+  "worker": {
+    "cgroup": "/tmp/tw-res-negative-1/fake-worker",
+    "cpus": [
+      0
+    ],
+    "numa_node": 0,
+    "memory_max": 268435456
+  },
+  "source_replay": {
+    "cgroup": "/tmp/tw-res-negative-1/fake-source_replay",
+    "cpus": [
+      0
+    ],
+    "numa_node": 0,
+    "memory_max": 268435456
+  },
+  "rollback": {
+    "cgroup": "/tmp/tw-res-negative-1/fake-rollback",
+    "cpus": [
+      0
+    ],
+    "numa_node": 0,
+    "memory_max": 268435456
+  }
+}

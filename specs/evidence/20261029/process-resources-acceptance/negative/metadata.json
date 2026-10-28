@@ -1,0 +1,103 @@
+{
+  "schema": 1,
+  "started_utc": "2026-10-28T17:54:30.518376+00:00",
+  "finished_utc": "2026-10-28T17:54:31.210106+00:00",
+  "elapsed_seconds": 0.6916966160060838,
+  "root": "/tmp/tw-res-negative-1",
+  "generate_command": [
+    "/tmp/tw-process-resources-bins-1/tickwire-lab",
+    "generate",
+    "--scenario",
+    "spot-fill",
+    "--out",
+    "/tmp/tw-res-negative-1",
+    "--bin-dir",
+    "/tmp/tw-process-resources-bins-1"
+  ],
+  "inspect_command": [
+    "/tmp/tw-process-resources-bins-1/tickwire-app",
+    "inspect",
+    "--config",
+    "/tmp/tw-res-negative-1/exec/config.json"
+  ],
+  "inspect_exit_code": 0,
+  "resources": {
+    "worker": {
+      "cgroup": "/tmp/tw-res-negative-1/fake-worker",
+      "cpus": [
+        0
+      ],
+      "numa_node": 0,
+      "memory_max": 268435456
+    },
+    "source_replay": {
+      "cgroup": "/tmp/tw-res-negative-1/fake-source_replay",
+      "cpus": [
+        0
+      ],
+      "numa_node": 0,
+      "memory_max": 268435456
+    },
+    "rollback": {
+      "cgroup": "/tmp/tw-res-negative-1/fake-rollback",
+      "cpus": [
+        0
+      ],
+      "numa_node": 0,
+      "memory_max": 268435456
+    }
+  },
+  "run_command": [
+    "strace",
+    "-ff",
+    "-s",
+    "256",
+    "-yy",
+    "-e",
+    "trace=process,openat,fstatfs,memfd_create",
+    "-o",
+    "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace",
+    "/tmp/tw-process-resources-bins-1/tickwire-lab",
+    "run",
+    "--config",
+    "/tmp/tw-res-negative-1/scenario.json"
+  ],
+  "run_exit_code": 1,
+  "app_pid": 938078,
+  "app_fatal_log": "{\"error\":\"strategy startup: Supervisor(Transport(InvalidResources))\",\"event\":\"fatal\"}\n",
+  "actual_app_trace": "/tmp/tickwire-progress-20261028/process-resources-negative-trace/trace.938078",
+  "worker_exec_events": [],
+  "order_http_events": [],
+  "fixture_http_events": [
+    {
+      "event": "http",
+      "method": "GET",
+      "path": "/api/v3/depth",
+      "status": 200
+    }
+  ],
+  "md_admission_files": [
+    "938078-22222222222222222222222222222222.json"
+  ],
+  "binary_hashes_before": {
+    "tickwire-lab": "1445801f569db9912ffea98b55355715e38f9655f982cd8a4e06c1b861809005",
+    "tickwire-app": "4b516e74191617816da0d6847f4a49b31b6e4c6d9d8bd7595724859fa0d298d2",
+    "tickwire-md": "954df5757216338d35d3937e60c200576ee0bd99397d7b098ac0533a00d26c60",
+    "tickwire-strategy-worker": "338e06ade3bc4fce97c10bc26ab32a370f4da31c3993e57bc93f219191c5ae9d",
+    "tickwire-replica-receiver": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f",
+    "tickwire-lifecycle": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569",
+    "tickwire-counting-v1-worker": "2abf5f49c1d93ad7cd32c8ded54c17b742234bace0dd6d55679e7f243985454b",
+    "tickwire-counting-worker": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+  },
+  "binary_hashes_after": {
+    "tickwire-lab": "1445801f569db9912ffea98b55355715e38f9655f982cd8a4e06c1b861809005",
+    "tickwire-app": "4b516e74191617816da0d6847f4a49b31b6e4c6d9d8bd7595724859fa0d298d2",
+    "tickwire-md": "954df5757216338d35d3937e60c200576ee0bd99397d7b098ac0533a00d26c60",
+    "tickwire-strategy-worker": "338e06ade3bc4fce97c10bc26ab32a370f4da31c3993e57bc93f219191c5ae9d",
+    "tickwire-replica-receiver": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f",
+    "tickwire-lifecycle": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569",
+    "tickwire-counting-v1-worker": "2abf5f49c1d93ad7cd32c8ded54c17b742234bace0dd6d55679e7f243985454b",
+    "tickwire-counting-worker": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+  },
+  "source_manifest_verified": true
+}

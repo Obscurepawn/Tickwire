@@ -1,0 +1,4 @@
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/exec.stderr.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 8</tmp/tw-res-negative-1/logs/exec.stderr.log>
+--- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=938078, si_uid=1000, si_status=1, si_utime=0, si_stime=4 /* 0.04 s */} ---
+exit(0)                                 = ?
++++ exited with 0 +++

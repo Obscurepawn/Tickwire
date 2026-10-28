@@ -31,8 +31,10 @@ mod readiness;
 pub mod rebuild;
 pub mod rebuild_probe;
 mod remote;
+mod resources;
 mod source_replay;
 pub use remote::{RemoteHostedStrategy, RemoteLaunch};
+pub use resources::{GroupResources, ProcessResources};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;
 
 fn retire_owned_child(registry: &mut Registry, instance: [u8; 16]) -> Result<()> {
@@ -250,6 +252,7 @@ impl<const M: usize> tickwire_binance_public::PublicSink for PublicSink<M> {
 /// All identities and resource templates come from the control plane. The worker
 /// executable hash is verified by Registry before exec; child PID is verified after connect.
 pub struct Launch {
+    pub resources: Option<ProcessResources>,
     pub spec: LaunchSpec,
     pub bootstrap: Bootstrap,
     pub bootstrap_file: PathBuf,
@@ -276,6 +279,11 @@ pub struct ChildHandles {
     _requests: tickwire_control_store::DurableRequests<tickwire_journal::store::FileStore>,
 }
 impl ChildHandles {
+    /// Explicit cold kernel sample; does not establish global configuration Applied.
+    pub fn observe_resources(&mut self) -> Result<tickwire_supervisor::LiveResourceObservation> {
+        Ok(self.registry.observe_resources(self.instance)?)
+    }
+
     pub fn registry(&mut self) -> &mut Registry {
         &mut self.registry
     }
@@ -374,6 +382,7 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
     instrument: u64,
     instrument_version: u64,
 ) -> Result<Started<R, M>> {
+    resources::validate(config.resources.as_ref())?;
     if config.spec.uid != config.parent_process.uid
         || config.spec.gid != config.parent_process.gid
         || config.parent_process.pid != std::process::id()
@@ -495,7 +504,12 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         config.bootstrap_file.to_str().ok_or(Error::Invalid)?.into(),
     ];
     let mut registry = Registry::new(1)?;
-    let child = registry.spawn(config.spec.clone())?;
+    let child = resources::spawn(
+        &mut registry,
+        config.spec.clone(),
+        config.resources.as_ref(),
+        resources::Purpose::Worker,
+    )?;
     let mut market = registry.accept(
         &market_listener,
         server_policy(&config.bootstrap.market, child),
@@ -717,7 +731,11 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         Box::new(move |n| sink.notice(n));
     let strategy = RuntimeStrategy::new(receiver, resolver, callback);
     Ok(Started {
-        readiness: readiness::ReadyProof::new(&config.bootstrap, &config.spec)?,
+        readiness: readiness::ReadyProof::new(
+            &config.bootstrap,
+            &config.spec,
+            config.resources.clone(),
+        )?,
         report_sub,
         reports,
         publisher,

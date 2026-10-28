@@ -39,6 +39,7 @@ pub(super) fn cut(objects: &[Vec<u8>], proof: [u8; 32]) -> Result<Checkpoint> {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn run(
     spec: &LaunchSpec,
+    resources: Option<&ProcessResources>,
     directory: &Path,
     operation: &Operation,
     member: &Member,
@@ -47,6 +48,7 @@ pub(super) fn run(
     current: tickwire_runtime::node::HandoverReadiness,
     current_objects: Vec<Vec<u8>>,
 ) -> Result<VerifiedSourceReplay> {
+    resources::validate(resources)?;
     operation.validate().map_err(|_| Error::Invalid)?;
     if !operation.members.contains(member)
         || spec.identity.instance != member.old_instance
@@ -125,19 +127,24 @@ pub(super) fn run(
         .map_err(|_| Error::Invalid)?;
     identity.generation = 1;
     let mut registry = Registry::new(1)?;
-    let process = registry.spawn(LaunchSpec {
-        identity: identity.clone(),
-        executable: spec.executable.clone(),
-        arguments: vec![
-            "--source-replay".into(),
-            job_file.path.to_str().ok_or(Error::Invalid)?.into(),
-        ],
-        working_directory: workspace.path().to_owned(),
-        environment: Default::default(),
-        uid: spec.uid,
-        gid: spec.gid,
-        inherit_output: true,
-    })?;
+    let process = resources::spawn(
+        &mut registry,
+        LaunchSpec {
+            identity: identity.clone(),
+            executable: spec.executable.clone(),
+            arguments: vec![
+                "--source-replay".into(),
+                job_file.path.to_str().ok_or(Error::Invalid)?.into(),
+            ],
+            working_directory: workspace.path().to_owned(),
+            environment: Default::default(),
+            uid: spec.uid,
+            gid: spec.gid,
+            inherit_output: true,
+        },
+        resources,
+        resources::Purpose::SourceReplay,
+    )?;
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         if let Some(exit) = registry.observe_exits()?.into_iter().next() {

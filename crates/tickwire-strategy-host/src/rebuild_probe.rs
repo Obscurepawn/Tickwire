@@ -29,6 +29,26 @@ impl Completed {
 /// `directory` is the control owner's durable private attempt registry, retained
 /// across restart. The fixed probe instance/generation cannot be launched twice.
 pub fn run(spec: &LaunchSpec, directory: &Path, job: &Job, deadline: Instant) -> Result<Completed> {
+    run_selected(spec, directory, job, deadline, None)
+}
+/// Executes the probe with the explicitly approved rollback resource group.
+pub fn run_with_resources(
+    spec: &LaunchSpec,
+    directory: &Path,
+    job: &Job,
+    deadline: Instant,
+    resources: &ProcessResources,
+) -> Result<Completed> {
+    run_selected(spec, directory, job, deadline, Some(resources))
+}
+pub(crate) fn run_selected(
+    spec: &LaunchSpec,
+    directory: &Path,
+    job: &Job,
+    deadline: Instant,
+    resources: Option<&ProcessResources>,
+) -> Result<Completed> {
+    resources::validate(resources)?;
     use std::os::unix::fs::MetadataExt;
     let qualified = probe::qualify(job)?;
     let plan = qualified.input().plan();
@@ -76,19 +96,24 @@ pub fn run(spec: &LaunchSpec, directory: &Path, job: &Job, deadline: Instant) ->
     record.sync_all()?;
     File::open(directory)?.sync_all()?;
     let mut registry = Registry::new(1)?;
-    let process = registry.spawn(LaunchSpec {
-        identity: spec.identity.clone(),
-        executable: spec.executable.clone(),
-        arguments: vec![
-            "--rebuild-rollback".into(),
-            selection.to_str().ok_or(Error::Invalid)?.into(),
-        ],
-        working_directory: directory.to_owned(),
-        environment: Default::default(),
-        uid: spec.uid,
-        gid: spec.gid,
-        inherit_output: spec.inherit_output,
-    })?;
+    let process = resources::spawn(
+        &mut registry,
+        LaunchSpec {
+            identity: spec.identity.clone(),
+            executable: spec.executable.clone(),
+            arguments: vec![
+                "--rebuild-rollback".into(),
+                selection.to_str().ok_or(Error::Invalid)?.into(),
+            ],
+            working_directory: directory.to_owned(),
+            environment: Default::default(),
+            uid: spec.uid,
+            gid: spec.gid,
+            inherit_output: spec.inherit_output,
+        },
+        resources,
+        resources::Purpose::Rollback,
+    )?;
     let exit = await_exit(&mut registry, process.pid, &probe_identity, deadline)?;
     let result = probe::read_result(job, qualified, process.pid)?;
     if Instant::now() >= deadline {

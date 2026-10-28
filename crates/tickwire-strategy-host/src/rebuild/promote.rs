@@ -169,7 +169,11 @@ impl<R: RecoveryResolver + 'static> Hosted<R> {
             owner.child,
         );
         let remote = RemoteHostedStrategy {
-            readiness: readiness::ReadyProof::new(&request.bootstrap, &self.spec)?,
+            readiness: readiness::ReadyProof::new(
+                &request.bootstrap,
+                &self.spec,
+                self.resources.clone(),
+            )?,
             market_transition: transition,
             report_sub: owner.subscription,
             strategy: RuntimeStrategy::new(

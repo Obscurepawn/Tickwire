@@ -13,6 +13,7 @@ impl Owner {
     }
     #[allow(unsafe_code)]
     pub(crate) unsafe fn launch_mode(mut config: Launch, bound: bool) -> Result<Self> {
+        resources::validate(config.resources.as_ref())?;
         if config.spec.identity != config.bootstrap.market.endpoint.local.identity()
             || config.spec.identity != config.bootstrap.report.local.identity()
             || !config.spec.arguments.is_empty()
@@ -69,7 +70,12 @@ impl Owner {
             bootstrap_file.to_str().ok_or(Error::Invalid)?.into(),
         ];
         let mut registry = Registry::new(1)?;
-        let child = registry.spawn(config.spec)?;
+        let child = resources::spawn(
+            &mut registry,
+            config.spec,
+            config.resources.as_ref(),
+            resources::Purpose::Worker,
+        )?;
         let admission = tickwire_md::server::Admission {
             client: config.bootstrap.market.clone(),
             pid: child.pid,

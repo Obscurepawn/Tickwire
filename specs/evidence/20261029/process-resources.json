@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "stage": "Managed child resource constraints and purpose-specific Host launch routing",
+  "created_utc": "2026-10-28T17:56:35.543047+00:00",
+  "baseline_commit": "2bbd292517569525cc3f1439f876ba59d40636b2",
+  "source_manifest": {
+    "path": "specs/evidence/20261029/process-resources-source-sha256.json",
+    "bytes": 161001,
+    "sha256": "ed7fa200cf0ef3b83017882723f474af683eea3965f0673f60033f9ccdfe0251"
+  },
+  "source_file_count": 887,
+  "source_binding": "One unchanged snapshot for full workspace checks and fixed release/process acceptance; all crate non-document files, machine contracts, dependencies and toolchain are included.",
+  "implementation": [
+    "ResourceDomain leases an actual preconfigured cgroup v2 leaf via pinned no-symlink directory FDs and cooperative exclusive inode flock. CPU, NUMA, finite memory.max, swap=0, domain type and empty membership are checked before launch.",
+    "A private allocation-free pre_exec hook rechecks settings, migrates the child through a parent-opened cgroup.procs FD, applies exact CPU affinity and verifies the kernel readback before executing the sealed ELF.",
+    "Cold observations sample actual group membership, every thread affinity/allowed NUMA nodes and settings, bracketed by supervisor-owned child and immutable executable identity checks.",
+    "Supervisor retains the resource domain with the Child entry. Exit does not release the lease or prove all group resources have been reclaimed.",
+    "App/Host carry a complete optional three-purpose resource plan through worker, source replay, restore/replay/rebuild rollback probes, and same-PID capture promotion. Any configured resource failure returns an error without unconstrained fallback.",
+    "Optional plans omitted from App JSON preserve the existing serialized form and legacy launch behavior. Global projection Applied and OS-account assignment remain separate unfinished work."
+  ],
+  "checks": [
+    {
+      "kind": "full_workspace",
+      "metadata": {
+        "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+        "started_utc": "2026-10-28T17:42:21.106585+00:00",
+        "finished_utc": "2026-10-28T17:48:35.030062+00:00",
+        "elapsed_seconds": 373.9235064539971,
+        "exit_code": 0
+      },
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/process-resources-check-rust.log",
+        "bytes": 250226,
+        "sha256": "74cad7a6808f581a7f2bc2f5530ef6aa6ce4020ff4b12f8e4d8d8e654b577d94"
+      },
+      "result_batches": 338,
+      "aggregate_output_including_nested_child_test_runs": {
+        "passed": 2096,
+        "failed": 0,
+        "ignored": 26
+      },
+      "scope": "fmt --check; workspace --all-targets including examples/bench smoke; doctests; Clippy --workspace --all-targets -D warnings"
+    },
+    {
+      "kind": "contracts_and_openapi",
+      "command": "/tmp/tickwire-progress-20261028/venv/bin/python scripts/verify-design-contracts.py --openapi",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/process-resources-contracts.log",
+        "bytes": 1765,
+        "sha256": "348045f80b1547ac07d2f1ee3e25b9bdae4f5b5ef85a67b871d41e29b4acf7da"
+      }
+    },
+    {
+      "kind": "documentation",
+      "command": "/tmp/tickwire-progress-20261028/venv/bin/python scripts/verify-documentation.py",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/process-resources-documentation.log",
+        "bytes": 91,
+        "sha256": "711abc99557ed1640a949d36410c8ad3120ef3ab8e6ccea1d5a007f3da99204b"
+      }
+    }
+  ],
+  "actual_process_acceptance": {
+    "path": "specs/evidence/20261029/process-resources-acceptance.json",
+    "bytes": 40177,
+    "sha256": "d04dd59f13d61d411dcea050534c2ce4b54184aff858fed5db03988b5ed1e70d"
+  },
+  "acceptance_package_verification": {
+    "command": "python3 specs/evidence/20261029/verify-process-resources-acceptance.py",
+    "exit_code": 0,
+    "result": {
+      "app_resource_negative": "verified",
+      "status": "verified",
+      "files": 77,
+      "signatures": 6,
+      "memfd_samples": 2,
+      "source_inputs": 887,
+      "binaries": 8,
+      "scenarios": 2,
+      "host_tests": 3
+    },
+    "log": {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-acceptance-verify.log",
+      "bytes": 180,
+      "sha256": "f343a007ca69c0bd42dfc31216ae3edab998500126df29e0b55b1fcd04d2a786"
+    }
+  },
+  "development_logs": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-clippy-final.log",
+      "bytes": 166,
+      "sha256": "e4aee2c4a585d896d7b071daaffb524b5e817e7d7fe1019eee6a86d32f57699b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-green.log",
+      "bytes": 1399,
+      "sha256": "abcfccf8e146c6291f90a9467f90add6660c3dd5983039d5baea9054d7d22b2d"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-clippy-final.log",
+      "bytes": 170,
+      "sha256": "82f08c2bcf3c498740fe26e080188846acc9f9744fc148ec2265825fea4a18e5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-green-final.log",
+      "bytes": 905,
+      "sha256": "d409662c7c5a81c4d613139d1eb1bccfa1f15b3227aaa272e4ed139651ad2448"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-green.log",
+      "bytes": 1731,
+      "sha256": "9e2d07eb88256b7f10222e33f23af2fd29c454b312e69e09de1905850e3cdb45"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-path-red.log",
+      "bytes": 1294,
+      "sha256": "3b7f1f5c6a61430f7e0dc84c87fdb6d7f291eb5ce7f9a8a543d76645063af64f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-red-behavior.log",
+      "bytes": 1893,
+      "sha256": "68a14c1c5d53c2b94320486cca248054512b9fcab0903e888717cc25e5e85321"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-red.log",
+      "bytes": 3136,
+      "sha256": "557b71ee323d2e5efcbdc280195d7adbe29479b5eb50dd050b9f5691ef5337a6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-host-tests-final.log",
+      "bytes": 3528,
+      "sha256": "ea5d2ceb120f1f053aec8e9b8107658f0c65f8d11140b25e5ac210bf0b3a6dc2"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-opaque-red.log",
+      "bytes": 1045,
+      "sha256": "adc639947dfa4cef0ee6506f6ea385f2d251d86574a7d8070069a36447a918df"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-red.log",
+      "bytes": 1617,
+      "sha256": "4dad2a891473e41b28b4a3886a25161f718fccdb6a98e90348291bd62412e9e9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-supervisor-clippy-final.log",
+      "bytes": 164,
+      "sha256": "f0a092698ae348d18b51343e2135ac8100c6ae234f795abcebaaab0a03c98efd"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-supervisor-green.log",
+      "bytes": 2391,
+      "sha256": "a95d9ab568ebc123045048321b2f4fac3155ce646ab5e016193727e8e09f9350"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-supervisor-red.log",
+      "bytes": 2658,
+      "sha256": "07db780895e9e6382fdc260f9c0a452b0a971a9f88ecab590c92d6af35df1129"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-supervisor-tests-final.log",
+      "bytes": 2884,
+      "sha256": "f8e52544831fd10746c40762258996d9fd310b60f86e2005c0d1c535dbbaf2d1"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/process-resources-tests-final.log",
+      "bytes": 5693,
+      "sha256": "797ce300ebe99a8cd4ca8a93a90b736607de200fcdb9a5651baf1cd1524a8a71"
+    }
+  ],
+  "long_form_style": {
+    "before": {
+      "chars": 4838,
+      "negation_per_k": 2.69,
+      "hedge_per_k": 0.41,
+      "directive_per_k": 1.24,
+      "caveat_tail_ratio": 0.15,
+      "disclaimer_count": 0,
+      "distinguish_count": 0,
+      "meta_count": 0,
+      "not_a_but_b_count": 0,
+      "headings": 4,
+      "chars_per_heading": 1210,
+      "heading_conclusion_ratio": 0.0,
+      "heading_same_prefix": 1,
+      "section_summary_ratio": 0.0,
+      "first_person_count": 0,
+      "we_count": 0,
+      "paragraph_length_cv": 0.46
+    },
+    "after": {
+      "chars": 4701,
+      "negation_per_k": 0.85,
+      "hedge_per_k": 0.21,
+      "directive_per_k": 1.28,
+      "caveat_tail_ratio": 0.08,
+      "disclaimer_count": 0,
+      "distinguish_count": 0,
+      "meta_count": 0,
+      "not_a_but_b_count": 0,
+      "headings": 4,
+      "chars_per_heading": 1175,
+      "heading_conclusion_ratio": 0.0,
+      "heading_same_prefix": 1,
+      "section_summary_ratio": 0.0,
+      "first_person_count": 0,
+      "we_count": 0,
+      "paragraph_length_cv": 0.51
+    },
+    "final_flags": []
+  },
+  "kernel_environment": {
+    "uid": 1000,
+    "gid": 1000,
+    "kernel": "6.18.54.1-microsoft-standard-WSL2",
+    "self_cgroup": "0::/non-systemd\n",
+    "paths": [
+      {
+        "path": "/sys/fs/cgroup",
+        "exists": true,
+        "writable": false,
+        "uid": 0,
+        "gid": 0,
+        "mode": "0o755"
+      },
+      {
+        "path": "/sys/fs/cgroup/non-systemd",
+        "exists": true,
+        "writable": false,
+        "uid": 0,
+        "gid": 0,
+        "mode": "0o755"
+      },
+      {
+        "path": "/sys/fs/cgroup/non-systemd/cgroup.procs",
+        "exists": true,
+        "writable": false,
+        "uid": 0,
+        "gid": 0,
+        "mode": "0o644"
+      },
+      {
+        "path": "/sys/fs/cgroup/non-systemd/memory.max",
+        "exists": false,
+        "writable": false
+      },
+      {
+        "path": "/sys/fs/cgroup/non-systemd/cpuset.cpus.effective",
+        "exists": false,
+        "writable": false
+      }
+    ],
+    "positive_delegated_domain_tests": "NOT RUN: no preconfigured empty delegated cgroup with writable migration endpoint and required controllers",
+    "docker_socket_available": false
+  },
+  "anchor_audit": {
+    "path": "specs/evidence/20261029/process-resources-anchor-audit.json",
+    "bytes": 9694,
+    "sha256": "c6cf784154f979bf7756e70a3db68c2760a5cd9c812698add1b83b7c588fe847"
+  },
+  "limits": [
+    "Whole positive cgroup resource-domain integration tests were not run: this uid has no preconfigured empty delegated leaf, migration permission or required enabled controller files. Both explicit ignored tests remain pending; compiled/ignored is not a passed resource-domain acceptance.",
+    "Actual affinity-before-exec and multi-thread inheritance, pre-exec failure, real cgroupfs lease behavior and fake-directory rejection were exercised. These component results do not substitute for whole positive cgroup startup.",
+    "Resource acquisition and observation use cooperative advisory leases; a trusted deployment owner must prevent noncooperating external migration/controller changes.",
+    "Allowed CPU sets and one cpuset NUMA node do not establish exclusive core isolation, page migration, locked memory, or latency qualification. memory.max is charged memory and may transiently be exceeded; parent-created sealed ELF and SHM remain charged to the parent retained budget.",
+    "Failure in pre_exec prevents the target ELF from running. Post-exec observation failure kills/waits only the directly created Child, so that target may already have executed; unknown members are never killed.",
+    "Observations are cold bounded samples, not continuous guarantees or global configuration Applied/release authorization. Actual global consumers, fresh authenticated provider and persistent source watermarks are still incomplete.",
+    "Native WSL2 Linux with local loopback exchange fixtures, not live Binance. Docker check-linux.sh environment, older-kernel branches and non-Linux stubs were not exercised.",
+    "No TLC runs, model updates or historical lock changes; final formal verification remains deferred until functional development is complete."
+  ]
+}

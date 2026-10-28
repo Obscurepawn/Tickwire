@@ -72,7 +72,13 @@ impl<R: RecoveryResolver + 'static> Hosted<R> {
                     .checked_sub(now.nanos())
                     .ok_or(Error::NotReady)?,
             );
-        let completed = rebuild_probe::run(&spec, &self.publication, &job, deadline)?;
+        let completed = rebuild_probe::run_selected(
+            &spec,
+            &self.publication,
+            &job,
+            deadline,
+            self.resources.as_ref(),
+        )?;
         insert(&mut map, job.bytes()?)?;
         for bytes in completed.objects() {
             insert(&mut map, bytes.to_vec())?;

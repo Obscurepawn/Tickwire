@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 mod observation;
 pub use observation::LiveChildObservation;
+mod resources;
+pub use resources::{LiveResourceObservation, ResourceLimits, ResourcePlan};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
@@ -21,6 +23,7 @@ pub enum Error {
     Exited,
     Identity,
     Busy,
+    ResourcesRequired,
     Io(std::io::Error),
     Control(tickwire_control::Error),
     Transport(tickwire_control_sys::Error),
@@ -51,6 +54,7 @@ pub struct LaunchSpec {
 struct Entry {
     child: Child,
     image: ExecutableImage,
+    resources: Option<tickwire_control_sys::ResourceDomain>,
     identity: Identity,
     uid: u32,
     gid: u32,
@@ -100,6 +104,13 @@ impl Registry {
         })
     }
     pub fn spawn(&mut self, spec: LaunchSpec) -> Result<ProcessIdentity> {
+        self.spawn_inner(spec, None)
+    }
+    fn spawn_inner(
+        &mut self,
+        spec: LaunchSpec,
+        resources: Option<ResourcePlan>,
+    ) -> Result<ProcessIdentity> {
         if self.entries.len() >= self.capacity {
             return Err(Error::Capacity);
         }
@@ -149,26 +160,33 @@ impl Registry {
         if count != image.len() || digest != spec.identity.build_hash {
             return Err(Error::Identity);
         }
-        let child = image
-            .spawn(|command| {
-                command
-                    .args(spec.arguments)
-                    .current_dir(spec.working_directory)
-                    .env_clear()
-                    .envs(spec.environment)
-                    .stdin(Stdio::null());
-                if spec.inherit_output {
-                    command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-                } else {
-                    command.stdout(Stdio::null()).stderr(Stdio::null());
-                }
-                #[cfg(unix)]
-                {
-                    use std::os::unix::process::CommandExt;
-                    command.arg0(&spec.executable).uid(spec.uid).gid(spec.gid);
-                }
-            })
+        let mut resources = resources
+            .map(|plan| tickwire_control_sys::ResourceDomain::acquire(&plan.cgroup, plan.limits))
+            .transpose()
             .map_err(Error::Transport)?;
+        let configure = |command: &mut std::process::Command| {
+            command
+                .args(spec.arguments)
+                .current_dir(spec.working_directory)
+                .env_clear()
+                .envs(spec.environment)
+                .stdin(Stdio::null());
+            if spec.inherit_output {
+                command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+            } else {
+                command.stdout(Stdio::null()).stderr(Stdio::null());
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::process::CommandExt;
+                command.arg0(&spec.executable).uid(spec.uid).gid(spec.gid);
+            }
+        };
+        let child = match resources.as_mut() {
+            Some(domain) => domain.spawn(&image, configure),
+            None => image.spawn(configure),
+        }
+        .map_err(Error::Transport)?;
         let process = ProcessIdentity {
             pid: child.id(),
             uid: spec.uid,
@@ -179,6 +197,7 @@ impl Registry {
             Entry {
                 child,
                 image,
+                resources,
                 identity: spec.identity,
                 uid: spec.uid,
                 gid: spec.gid,

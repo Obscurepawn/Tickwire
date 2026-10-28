@@ -7,6 +7,7 @@
 - `src/linux.rs`：`Connection`、`ControlListener`、`PrivateDirectory`、`monotonic_ns`。
 - `src/unsupported.rs`：非 Linux 桩（全部返回 `UnsupportedPlatform`）。
 - `src/executable.rs`：有界 ELF 复制、memfd 不可变封印、固定 FD 执行与实际进程镜像比对。
+- `src/process_resources.rs` 与子模块：预配置 cgroup v2 专用 leaf 的排他 lease、执行前迁入和 affinity 校验、启动后的实际线程资源观察。
 
 ## 2. 公共 API 入口
 
@@ -16,6 +17,8 @@
 - `ControlListener`：`bind(path)`、`bind_with_mode(path, mode)`、`accept(deadline) -> Connection`、`try_accept() -> Option<Connection>`。
 - `PrivateDirectory`：`create_in(parent, prefix)`（0700 私有目录）、`path()`。
 - `ExecutableImage::{open(path,max_bytes),len,is_empty,reader,spawn,matches_process}`：独立只读 reader 从偏移零读取封印后的字节；spawn 保留原 argv[0]，配置回调不能替换执行程序；matches_process 只比对调用时实际 `/proc/<pid>/exe`，不代替 owned Child 生命周期证明。
+- `ResourceLimits { cpus, numa_node, memory_max }` / `validate()`；`ResourceDomain::{acquire(path,limits),limits,spawn(&mut self,image,configure),observe(pid)}`。固定真实 cgroupfs 目录及文件 FD，目录 inode 上 `flock` 阻止协作 owner 重复占用；同一 lease 只允许一次启动尝试。
+- `ResourceObservation` 的字段私有，getter 返回 pid、limits/cpus/numa_node/memory_max、thread_ids、group_device/group_inode 与 sampled_at；调用方还须持有并复核实际 Child/镜像/starttime，不产生配置 Applied。
 - `monotonic_ns() -> Result<u64>`；`PeerCredentials{pid, uid, gid}`；`ReceivedFrame`（`bytes()`/`fds()`/`into_parts()`）；`Error`/`Result`。
 
 ## 3. 在 workspace 中的位置
@@ -42,12 +45,15 @@ cargo fmt --check -p tickwire-control-sys
 - 真实内核行为（memfd/seals、SEQPACKET/cmsg/PEERCRED）仅在 Linux 验证；完整平台回归应使用 [../../scripts/check-linux.sh](../../scripts/check-linux.sh) 在固定 Docker 镜像内运行；macOS 不跑真实 socket 测试。
 - `tests/executable.rs`：6 项实际 ELF 回归，另1个 ignored child入口由父测试实际执行；覆盖改名/删除/原inode覆盖、写入/增长/截断封印、镜像身份、脚本/上限、动态ELF/argv0与CLOEXEC。模块单元测试另覆盖source metadata之后增长的有界拒绝。
 - 无 bench。
+- `process_resources` 单元测试覆盖严格 CPU/内存/进程/线程解析（Name 允许非 UTF-8）、组配置变异、伪文件系统与符号链接拒绝、有界读取、真实 cgroup 目录锁排他、真实子进程 affinity 及全部线程继承、执行前 syscall/设置校验失败不执行目标。`tests/process_resources.rs` 的正向组测试显式 ignored；需要 `TICKWIRE_RESOURCE_{CGROUP,CPUS,NUMA,MEMORY_MAX}` 指定实际预配置委派 leaf，本机无权限，尚未执行。实际 affinity 子进程验证不替代完整组验收。
 - `transport.rs` 追加实际 UNIX backlog 耗尽后重试、try_send 队列背压、0/1/16 FD 完整帧与所有权测试。
 
 ## 6. 关键不变量与注意事项
 
 - **执行镜像不可变**：源文件只打开一次；copy累计长度同时受打开长度与512MiB硬上限约束。先封印再供上层核摘要，执行只用固定描述符；原路径和原inode后续变化不能换掉执行字节。MFD_EXEC仅在EINVAL时尝试旧内核兼容flags，权限/策略拒绝不回退；F_SEAL_EXEC为旧内核可选，WRITE/GROW/SHRINK/SEAL始终强制。只读FD取代原可写description后才exec，避免ETXTBSY。
 - **FD 唯一所有权**：socket/accept/目录/inode pin 的 FD 全由 `OwnedFd` 持有；创建与 accept 原子设置 CLOEXEC+NONBLOCK；不提供接管任意裸 FD 的公开构造函数。
+- **资源限制与失败边界**：仅接纳 domain、无子组且初始无进程的实际 cgroup v2；effective CPU 集合/单 NUMA 节点、有限 memory.max 与 swap=0 必须精确匹配。不修改 controller、不创建/删除组；Drop 只释放 FD/lease。pre_exec 使用父进程预开的迁移 FD，只有有界 raw read/write/affinity 系统调用，权限或读回失败阻止 exec；postexec 观察失败则回收本次直接创建的 Child，目标可能已经执行。不得杀未知组成员。
+- **资源证据范围**：memory.max 是组 charged memory，父创建的映像/SHM 另计父 owner 预算；允许 CPU 集合不证明物理隔离或独占。外部部署管理者必须尊重 advisory lease；采样不保证未来设置恒定，不是授权。新 unsafe 仅在本 sys crate 的文件/affinity/pre_exec 边界，均保留 SAFETY 依据，SDK 不增加 unsafe。
 - **接收**：每次 `recvmsg` 提供 65,536 字节 payload 与可容纳 16 个 FD、按 usize 对齐的辅助缓冲区，`MSG_DONTWAIT | MSG_CMSG_CLOEXEC`；成功后先把每个 SCM_RIGHTS 整数转 `OwnedFd`，再处理截断/零长/帧/FD 数量校验；任一步失败由局部对象析构关闭已交付 FD；`MSG_CTRUNC` 时内核关闭未交付的多余 FD。
 - **发送**：先结构校验与实际 FD 数核对，才 `sendmsg(MSG_DONTWAIT | MSG_NOSIGNAL)`；FD 仅借用到调用结束，发送者保留句柄；完整数据报交给内核即返回成功（接收/owner 应用是另外两个完成点）；部分发送按截断错误返回，**不重发剩余字节**。
 - **截止点**：connect/accept/send/recv 共用同一绝对 `Instant`；EINTR 不更新截止点；EAGAIN 进入剩余时间有界 poll；Unix connect 因 backlog 满返回 EAGAIN 时重试 connect，不当作已建连。

@@ -63,6 +63,7 @@ pub(super) fn build(
     }
     let launch = tickwire_strategy_host::rebuild::Launch {
         capture: tickwire_strategy_host::capture::Launch {
+            resources: config.resources.clone(),
             spec: tickwire_supervisor::LaunchSpec {
                 identity: input.market.endpoint.local.identity(),
                 executable: config.executable.clone(),

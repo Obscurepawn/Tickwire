@@ -30,6 +30,10 @@ pub struct CaptureConfig {
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostConfig {
+    /// Explicit worker/replay/probe resource domains. A configured domain must
+    /// be enforced; launch errors never select the unconstrained legacy path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<tickwire_strategy_host::ProcessResources>,
     #[serde(default)]
     pub shadow: bool,
     /// Explicit capture-only launch; the ordinary bootstrap remains the fixed
@@ -426,6 +430,9 @@ fn components(
     context: &Context,
     cutover: Option<(&ResourceHeader, u64)>,
 ) -> Result<Parts> {
+    if let Some(resources) = &config.resources {
+        resources.validate()?;
+    }
     for path in [
         &config.bootstrap,
         &config.market_resource,
@@ -537,6 +544,7 @@ fn components(
     };
     let identity = bootstrap.market.local.identity();
     let launch = Launch {
+        resources: config.resources.clone(),
         spec: tickwire_supervisor::LaunchSpec {
             identity: identity.clone(),
             executable: config.executable.clone(),
@@ -632,6 +640,9 @@ pub fn build(
     runtime: &files::Configuration,
     policy: ControlPlane,
 ) -> Result<Box<dyn AppStrategy>> {
+    if let Some(resources) = &config.resources {
+        resources.validate()?;
+    }
     let mut bootstrap: Bootstrap =
         serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
     if config.capture.is_some() {
@@ -718,6 +729,7 @@ fn build_remote(
         return Err(invalid("demo recovery template required"));
     }
     let launch = tickwire_strategy_host::RemoteLaunch {
+        resources: config.resources.clone(),
         spec: tickwire_supervisor::LaunchSpec {
             identity: external.endpoint.local.identity(),
             executable: config.executable.clone(),

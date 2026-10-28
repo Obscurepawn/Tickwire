@@ -225,6 +225,7 @@ pub fn launch_selected(
     bootstrap.validate(MonoTime::new(domain, now)).unwrap();
     let meta = fs::metadata("/proc/self").unwrap();
     let args = Launch {
+        resources: None,
         spec: tickwire_supervisor::LaunchSpec {
             identity: bootstrap.market.endpoint.local.identity(),
             executable: worker.to_owned(),

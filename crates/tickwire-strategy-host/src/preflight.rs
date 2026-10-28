@@ -60,6 +60,7 @@ pub(crate) fn prepare(config: &Bootstrap, spec: &LaunchSpec) -> Result<()> {
 }
 
 pub(crate) struct Proof {
+    resources: Option<ProcessResources>,
     job: Job,
     bootstrap: Bootstrap,
     primary: Option<(Receipt, Vec<u8>)>,
@@ -158,19 +159,24 @@ impl Proof {
         attempt.sync_all()?;
         File::open(&self.job.output_directory)?.sync_all()?;
         let mut registry = Registry::new(1)?;
-        let child = registry.spawn(LaunchSpec {
-            identity: identity.clone(),
-            executable: files.path(&Role::Binary).ok_or(Error::Invalid)?.to_owned(),
-            arguments: vec![
-                "--replay-rollback".into(),
-                job_file.path.to_str().ok_or(Error::Invalid)?.into(),
-            ],
-            working_directory: directory.path().to_owned(),
-            environment: Default::default(),
-            uid: self.primary.as_ref().ok_or(Error::Invalid)?.0.process.uid,
-            gid: self.primary.as_ref().ok_or(Error::Invalid)?.0.process.gid,
-            inherit_output: true,
-        })?;
+        let child = resources::spawn(
+            &mut registry,
+            LaunchSpec {
+                identity: identity.clone(),
+                executable: files.path(&Role::Binary).ok_or(Error::Invalid)?.to_owned(),
+                arguments: vec![
+                    "--replay-rollback".into(),
+                    job_file.path.to_str().ok_or(Error::Invalid)?.into(),
+                ],
+                working_directory: directory.path().to_owned(),
+                environment: Default::default(),
+                uid: self.primary.as_ref().ok_or(Error::Invalid)?.0.process.uid,
+                gid: self.primary.as_ref().ok_or(Error::Invalid)?.0.process.gid,
+                inherit_output: true,
+            },
+            self.resources.as_ref(),
+            resources::Purpose::Rollback,
+        )?;
         let deadline = Instant::now() + Duration::from_secs(10);
         loop {
             if let Some(exit) = registry
@@ -239,7 +245,8 @@ impl Proof {
     pub(super) fn job(&self) -> &Job {
         &self.job
     }
-    pub fn new(config: &Bootstrap) -> Result<Option<Self>> {
+    pub fn new(config: &Bootstrap, resources: Option<ProcessResources>) -> Result<Option<Self>> {
+        resources::validate(resources.as_ref())?;
         let Some(path) = &config.preflight_job else {
             return Ok(None);
         };
@@ -249,6 +256,7 @@ impl Proof {
             2 * 1024 * 1024,
         )?;
         Ok(Some(Self {
+            resources,
             job,
             bootstrap: config.clone(),
             primary: None,
@@ -423,19 +431,24 @@ impl Proof {
         write_json(&job_path, &job)?;
         files.recheck()?;
         let mut registry = Registry::new(1)?;
-        let child = registry.spawn(LaunchSpec {
-            identity: id.clone(),
-            executable: files.path(&Role::Binary).ok_or(Error::Invalid)?.to_owned(),
-            arguments: vec![
-                "--restore-probe".into(),
-                job_path.to_str().ok_or(Error::Invalid)?.into(),
-            ],
-            working_directory: directory.path().to_owned(),
-            environment: Default::default(),
-            uid: primary.process.uid,
-            gid: primary.process.gid,
-            inherit_output: true,
-        })?;
+        let child = resources::spawn(
+            &mut registry,
+            LaunchSpec {
+                identity: id.clone(),
+                executable: files.path(&Role::Binary).ok_or(Error::Invalid)?.to_owned(),
+                arguments: vec![
+                    "--restore-probe".into(),
+                    job_path.to_str().ok_or(Error::Invalid)?.into(),
+                ],
+                working_directory: directory.path().to_owned(),
+                environment: Default::default(),
+                uid: primary.process.uid,
+                gid: primary.process.gid,
+                inherit_output: true,
+            },
+            self.resources.as_ref(),
+            resources::Purpose::Rollback,
+        )?;
         let mut clock = SystemClock::new(
             tickwire_clock::ClockDomain::new(id.host_boot, self.bootstrap.clock_generation)
                 .map_err(|_| Error::Invalid)?,

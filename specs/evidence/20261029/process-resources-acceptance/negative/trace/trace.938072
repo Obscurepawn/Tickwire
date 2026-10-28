@@ -1,0 +1,17 @@
+execve("/tmp/tw-process-resources-bins-1/tickwire-lab", ["/tmp/tw-process-resources-bins-1/tickwire-lab", "serve", "--config", "/tmp/tw-res-negative-1/scenario.json"], 0x7fff63c34d10 /* 77 vars */) = 0
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3</etc/ld.so.cache>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/lib/x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libgcc_s.so.1>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libc.so.6>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3</proc/938072/maps>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/scenario.json", O_RDONLY|O_CLOEXEC) = 3</tmp/tw-res-negative-1/scenario.json>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/tls/fixture.pk8", O_RDONLY|O_CLOEXEC) = 3</tmp/tw-res-negative-1/tls/fixture.pk8>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/tls/fixture.der", O_RDONLY|O_CLOEXEC) = 3</tmp/tw-res-negative-1/tls/fixture.der>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/keys/api-key", O_RDONLY|O_CLOEXEC) = 4</tmp/tw-res-negative-1/keys/api-key>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/keys/api-secret", O_RDONLY|O_CLOEXEC) = 4</tmp/tw-res-negative-1/keys/api-secret>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/fixture.jsonl", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 4</tmp/tw-res-negative-1/fixture.jsonl>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1/fixture.ready", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 5</tmp/tw-res-negative-1/fixture.ready>
+openat(AT_FDCWD</tmp/tw-res-negative-1>, "/tmp/tw-res-negative-1", O_RDONLY|O_CLOEXEC) = 6</tmp/tw-res-negative-1>
+clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x72a5771ff990, parent_tid=0x72a5771ff990, exit_signal=0, stack=0x72a576fff000, stack_size=0x1fff00, tls=0x72a5771ff6c0} => {parent_tid=[938076]}, 88) = 938076
+clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x72a576ffe990, parent_tid=0x72a576ffe990, exit_signal=0, stack=0x72a576dfe000, stack_size=0x1fff00, tls=0x72a576ffe6c0} => {parent_tid=[938077]}, 88) = 938077
+exit_group(0)                           = ?
++++ exited with 0 +++

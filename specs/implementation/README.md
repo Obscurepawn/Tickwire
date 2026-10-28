@@ -78,7 +78,7 @@
 
 ## 控制面、Raft 与复制接管
 
-- [supervisor-process.md](supervisor-process.md) — 固定实际执行镜像、受管子进程身份采样与 SDK 内容核验。`tickwire-control-sys` / `tickwire-supervisor` / `tickwire-strategy-sdk`。部分实现（镜像与身份观察；全局配置采集仍需接线）。
+- [supervisor-process.md](supervisor-process.md) — 固定执行镜像、内核身份与进程资源约束。`tickwire-control-sys` / `tickwire-supervisor` / `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app`。部分实现（资源启动与观察已接线；委派组正向验收、全局配置应用仍待完成）。
 - [control-session.md](control-session.md) — 控制会话协商、内核身份核对与请求登记票据。`tickwire-control`。已实现。
 - [control-transport.md](control-transport.md) — Linux SOCK_SEQPACKET/SCM_RIGHTS 控制 FD 传输。`tickwire-control-sys`。已实现。
 - [control-raft.md](control-raft.md) — 持久 Raft、SafeReadIndex、Chunk 大更新、快照与成员变更。`tickwire-control-raft`。已实现（快照与成员扩展见网络服务规格；生产故障组合待验收）。

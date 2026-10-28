@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-28T17:50:31.004650+00:00",
+  "source_manifest": "/home/obscure/Tickwire/specs/evidence/20261029/process-resources-source-sha256.json",
+  "source_manifest_sha256": "ed7fa200cf0ef3b83017882723f474af683eea3965f0673f60033f9ccdfe0251",
+  "profile": "release",
+  "strip": "--strip-debug",
+  "build_exit_code": 0,
+  "binaries": [
+    {
+      "name": "tickwire-lab",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lab",
+      "build_bytes": 13003936,
+      "build_sha256": "99ec343e19c80f27989653947448e3b6c47001a550d5aeb942bbadb0d45fdab5",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-lab",
+      "deployed_bytes": 12935240,
+      "deployed_sha256": "1445801f569db9912ffea98b55355715e38f9655f982cd8a4e06c1b861809005"
+    },
+    {
+      "name": "tickwire-app",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-app",
+      "build_bytes": 17450096,
+      "build_sha256": "c98982f5045402addc7ae712a953fe54a881fe638104ce28871c6c1ca9bfaf06",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-app",
+      "deployed_bytes": 17357448,
+      "deployed_sha256": "4b516e74191617816da0d6847f4a49b31b6e4c6d9d8bd7595724859fa0d298d2"
+    },
+    {
+      "name": "tickwire-md",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-md",
+      "build_bytes": 4803312,
+      "build_sha256": "1d72d4ed1107d3f0948521bbfbfe74a4e2f0714ce3b2736dfbe49ff52483b394",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-md",
+      "deployed_bytes": 4782680,
+      "deployed_sha256": "954df5757216338d35d3937e60c200576ee0bd99397d7b098ac0533a00d26c60"
+    },
+    {
+      "name": "tickwire-strategy-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-strategy-worker",
+      "build_bytes": 5927624,
+      "build_sha256": "d10a3204795e0665324a3634aff89680fda87a1598a9ca6f7f3d5b2d8bb5c57f",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-strategy-worker",
+      "deployed_bytes": 5897976,
+      "deployed_sha256": "338e06ade3bc4fce97c10bc26ab32a370f4da31c3993e57bc93f219191c5ae9d"
+    },
+    {
+      "name": "tickwire-replica-receiver",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-replica-receiver",
+      "build_bytes": 5978000,
+      "build_sha256": "811bf234b4470d297c9d71f11d99c6cc0577eb33a109e7ccf320a301525da2d4",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-replica-receiver",
+      "deployed_bytes": 5948360,
+      "deployed_sha256": "341b95cef89b5fec0acf97f197c01b351c7bcfa7cb19c8489cc268ed433d098f"
+    },
+    {
+      "name": "tickwire-lifecycle",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lifecycle",
+      "build_bytes": 1543704,
+      "build_sha256": "4f57bf7075b0bd2a0ce867141d19d1edf139fc3ca6152b12078f4c818d8271df",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-lifecycle",
+      "deployed_bytes": 1537792,
+      "deployed_sha256": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569"
+    },
+    {
+      "name": "tickwire-counting-v1-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-v1-worker",
+      "build_bytes": 6545128,
+      "build_sha256": "a534e851cd6ddcdd0ebc1c811acf2a3b959a6a8292642ac09135c55a2a66dcc7",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-counting-v1-worker",
+      "deployed_bytes": 6510032,
+      "deployed_sha256": "2abf5f49c1d93ad7cd32c8ded54c17b742234bace0dd6d55679e7f243985454b"
+    },
+    {
+      "name": "tickwire-counting-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-worker",
+      "build_bytes": 6542880,
+      "build_sha256": "f5e67cd2feaacb619b95fd3b02205d6027e60549b0d4f976f0660ec6c8d80182",
+      "deployed_path": "/tmp/tw-process-resources-bins-1/tickwire-counting-worker",
+      "deployed_bytes": 6507784,
+      "deployed_sha256": "2d0fd70056d5a8a51423ff259cd58920115e48f6e8d5b5e07f66a4d4e9f5297c"
+    }
+  ]
+}

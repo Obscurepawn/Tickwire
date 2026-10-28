@@ -17,6 +17,7 @@
 - `launch`：`build(strategy, settings, plane)`、`Config/Request`、`ShadowLoader::open/poll/next_sequence`。
 - `market::Sources::connect(...)`（认证直连 MD 订阅；空则选本地公共 client）；同线程可克隆冷控制句柄提供 `consumers/validate_arm/arm/commit/receipt/release`，每个成员保留当前精确 ConnectConfig。
 - `hosted::build(config, runtime, policy) -> Box<dyn AppStrategy>`（bootstrap 限定、shadow 开启 handover、远程外部市场分支）。
+- `HostConfig.resources` 可显式配置 worker、source_replay、rollback 三份资源组计划；设置后传入所有对应 Host 启动入口，错误不会回退到无约束启动。计划省略时保持原有序列化字节，继续适配既有发布闭包；实际组核验由 supervisor/control-sys 执行。该配置不生成全局配置 Applied。
 - `strategy`：`Config/MemberConfig/CommandFile/RecoveryFiles/DependencyFile/FileStrategy/MultiStrategy/new_modes/load(digest)`。
 - `replay`：`run(&Deployment)`、`export(&Deployment, destination)`。
 - `release_preflight`（`pub(super)` 限定：`qualify/qualify_startup/fixed_ready/unchanged/root/bind/requirements`）。

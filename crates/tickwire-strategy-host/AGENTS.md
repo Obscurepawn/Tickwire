@@ -74,3 +74,14 @@ Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependenci
 新增 `Hosted::launch` 显式 unsafe 签名保留既有 qualified-SHM 调用者契约。`capture::Owner::launch_mode` 是私有共享启动模式；`remote::connect_intent` 从原 Remote launcher 提取已有 IntentReceiver::attach 接缝，实际底层不安全访问没有新增。提升方法只能由上述已合格构造的对象调用。
 
 `tests/capture_process.rs` 复用同一 qualified 启动接缝，并挂载 `tests/rebuild_process/` 的显式 Linux 验收：同 PID Capture→真实 Counting v2 factory→kind9/真实 intent 连接→C 后真实行情与账户→独立 probe 成功退出→kind10/v4 READY→正常 MD detach。逐字节核对 C→D 原始输入和实际业务计数，真实产物变异覆盖错误 PID 与替换 probe 根。命令关闭，验收不声称提交新订单；完整交易发布另由 lab 运行。使用 release worker 的独立冻结副本设置 `TICKWIRE_CAPTURE_WORKER`，可用 `TICKWIRE_REBUILD_EVIDENCE` 导出全部对象与结果 JSON。
+
+
+## 显式进程资源计划
+
+`ProcessResources { worker, source_replay, rollback }` 与 `GroupResources { cgroup, cpus, numa_node, memory_max }` 是可序列化的严格启动配置值，`validate` 对全部三组路径、用途分离和系统 ResourceLimits 边界做纯值校验。`Launch`、`RemoteLaunch`、`capture::Launch` 新增可选 `resources`，Rust 调用者在兼容模式显式填 `None`；App JSON 缺省仍为 None。未知、重复或缺少组字段拒绝。
+
+所有 worker 启动以及 `source_replay`、restore-probe、replay-rollback、rebuild-rollback 统一经 `resources::spawn` 按用途选择组。三组先做纯值校验，仅本次用途组实际 acquire 并核对内核限制与空成员，未使用组不提前宣称内核资格。Some 计划不得回退普通 spawn；ReadyProof/preflight 保留计划到后续 helper，恢复历史完成件不会产生当前资源证明。`rebuild_probe::run` 保留旧入口，显式资源计划使用 `run_with_resources`。同 PID Capture→Live 继续持有原 Registry Entry 的资源 lease，不再次启动 worker。
+
+`ChildHandles`、`RemoteHostedStrategy`、`capture::Owner`、`rebuild::Hosted` 提供冷 `observe_resources`，直接复用监督器的真实内核/镜像/进程采样，不在正常 poll 增加 `/proc` I/O，也不产生全局配置 Applied。退出不证明 cgroup 释放，下一次 acquire 必须重新核验专用空组。
+
+`resources/tests.rs` 使用真实 ELF 验证三类资源失败均不执行目标、正确用途的目录被实际访问、未使用组非法也拒绝、严格 JSON/边界与 legacy 真实启动。普通文件系统伪组会被内核边界拒绝。本机没有可写委派 cgroup，成功组内启动与完整资源约束未在 Host 实测；有条件的正向验收依赖 supervisor/sys 的显式 ignored 测试。规格见 `specs/implementation/supervisor-process.md` 的 Host 段落。

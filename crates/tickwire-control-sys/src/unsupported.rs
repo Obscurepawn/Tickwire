@@ -100,3 +100,25 @@ impl ExecutableImage {
         Err(Error::UnsupportedPlatform)
     }
 }
+
+pub struct ResourceDomain {
+    limits: crate::ResourceLimits,
+}
+impl ResourceDomain {
+    pub fn acquire(_: &std::path::Path, _: crate::ResourceLimits) -> Result<Self> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn limits(&self) -> &crate::ResourceLimits {
+        &self.limits
+    }
+    pub fn spawn(
+        &mut self,
+        _: &ExecutableImage,
+        _: impl FnOnce(&mut std::process::Command),
+    ) -> Result<std::process::Child> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn observe(&self, _: u32) -> Result<crate::ResourceObservation> {
+        Err(Error::UnsupportedPlatform)
+    }
+}

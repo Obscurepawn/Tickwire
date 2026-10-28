@@ -15,6 +15,8 @@ pub enum Error {
     Closed,
     InvalidPath,
     InvalidExecutable,
+    InvalidResources,
+    ResourceConflict,
     InsecureDirectory,
     Truncated,
     Ancillary,
@@ -73,3 +75,6 @@ mod executable;
 pub use executable::ExecutableImage;
 #[cfg(not(target_os = "linux"))]
 pub use unsupported::ExecutableImage;
+
+mod process_resources;
+pub use process_resources::{ResourceDomain, ResourceLimits, ResourceObservation};

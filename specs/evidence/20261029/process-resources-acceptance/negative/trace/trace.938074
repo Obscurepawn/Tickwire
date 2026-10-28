@@ -1,0 +1,3 @@
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/mirror.stdout.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 3</tmp/tw-res-negative-1/logs/mirror.stdout.log>
+--- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_KILLED, si_pid=938073, si_uid=1000, si_status=SIGKILL, si_utime=0, si_stime=0} ---
++++ exited with 1 +++

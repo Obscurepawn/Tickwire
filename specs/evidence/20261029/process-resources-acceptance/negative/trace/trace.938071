@@ -1,0 +1,135 @@
+execve("/tmp/tw-process-resources-bins-1/tickwire-lab", ["/tmp/tw-process-resources-bins-1/tickwire-lab", "run", "--config", "/tmp/tw-res-negative-1/scenario.json"], 0x7ffd127ca2b8 /* 77 vars */) = 0
+openat(AT_FDCWD</home/obscure/Tickwire>, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3</etc/ld.so.cache>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/lib/x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libgcc_s.so.1>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libc.so.6>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3</proc/938071/maps>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/scenario.json", O_RDONLY|O_CLOEXEC) = 3</tmp/tw-res-negative-1/scenario.json>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/STARTED", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 3</tmp/tw-res-negative-1/STARTED>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1", O_RDONLY|O_CLOEXEC) = 4</tmp/tw-res-negative-1>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/fixture.stdout.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 3</tmp/tw-res-negative-1/logs/fixture.stdout.log>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/fixture.stderr.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 4</tmp/tw-res-negative-1/logs/fixture.stderr.log>
+clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND, exit_signal=SIGCHLD, stack=0x7935a3994000, stack_size=0x9000}, 88) = 938072
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/mirror.stderr.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 3</tmp/tw-res-negative-1/logs/mirror.stderr.log>
+clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND, exit_signal=SIGCHLD, stack=0x7935a3994000, stack_size=0x9000}, 88) = 938073
+clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7935a35ff990, parent_tid=0x7935a35ff990, exit_signal=0, stack=0x7935a33ff000, stack_size=0x1fff00, tls=0x7935a35ff6c0} => {parent_tid=[938074]}, 88) = 938074
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/md.stdout.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 5</tmp/tw-res-negative-1/logs/md.stdout.log>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/md.stderr.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 6</tmp/tw-res-negative-1/logs/md.stderr.log>
+clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND, exit_signal=SIGCHLD, stack=0x7935a3994000, stack_size=0x9000}, 88) = 938075
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30a78, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30a78, WNOHANG, NULL) = 0
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/exec/config.json", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/exec/config.json>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/exec/config.updated.json", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 5</tmp/tw-res-negative-1/exec/config.updated.json>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/exec", O_RDONLY|O_CLOEXEC) = 6</tmp/tw-res-negative-1/exec>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/exec", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/exec>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/strategy/bootstrap.json", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/strategy/bootstrap.json>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/strategy/bootstrap.updated.json", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 5</tmp/tw-res-negative-1/strategy/bootstrap.updated.json>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/strategy", O_RDONLY|O_CLOEXEC) = 6</tmp/tw-res-negative-1/strategy>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/strategy", O_RDONLY|O_CLOEXEC) = 5</tmp/tw-res-negative-1/strategy>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/logs/exec.stdout.log", O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC, 0666) = 5</tmp/tw-res-negative-1/logs/exec.stdout.log>
+clone3({flags=CLONE_VM|CLONE_VFORK|CLONE_CLEAR_SIGHAND, exit_signal=SIGCHLD, stack=0x7935a3994000, stack_size=0x9000}, 88) = 938078
+clone3({flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID, child_tid=0x7935a33fe990, parent_tid=0x7935a33fe990, exit_signal=0, stack=0x7935a31fe000, stack_size=0x1fff00, tls=0x7935a33fe6c0} => {parent_tid=[938079]}, 88) = 938079
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/md/admissions/938078-22222222222222222222222222222222.pending-938071", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 7</tmp/tw-res-negative-1/md/admissions/938078-22222222222222222222222222222222.pending-938071>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/md/admissions", O_RDONLY|O_CLOEXEC) = 9</tmp/tw-res-negative-1/md/admissions>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/exec.gate", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 7</tmp/tw-res-negative-1/exec.gate>
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1", O_RDONLY|O_CLOEXEC) = 9</tmp/tw-res-negative-1>
+wait4(938078, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938078, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938078, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938078, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938078, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938078, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938072, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938073, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938075, 0x7fff63c30bd8, WNOHANG, NULL) = 0
+wait4(938078, [{WIFEXITED(s) && WEXITSTATUS(s) == 1}], WNOHANG, NULL) = 938078
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1/STOP", O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600) = 6</tmp/tw-res-negative-1/STOP>
+--- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_EXITED, si_pid=938072, si_uid=1000, si_status=0, si_utime=0, si_stime=3 /* 0.03 s */} ---
+openat(AT_FDCWD</home/obscure/Tickwire>, "/tmp/tw-res-negative-1", O_RDONLY|O_CLOEXEC) = 7</tmp/tw-res-negative-1>
+kill(938075, SIGKILL)                   = 0
+wait4(938075, [{WIFSIGNALED(s) && WTERMSIG(s) == SIGKILL}], 0, NULL) = 938075
+--- SIGCHLD {si_signo=SIGCHLD, si_code=CLD_KILLED, si_pid=938075, si_uid=1000, si_status=SIGKILL, si_utime=0, si_stime=2 /* 0.02 s */} ---
+kill(938073, SIGKILL)                   = 0
+wait4(938073, [{WIFSIGNALED(s) && WTERMSIG(s) == SIGKILL}], 0, NULL) = 938073
+kill(938072, SIGKILL)                   = 0
+wait4(938072, [{WIFEXITED(s) && WEXITSTATUS(s) == 0}], 0, NULL) = 938072
+exit_group(1)                           = ?
++++ exited with 1 +++

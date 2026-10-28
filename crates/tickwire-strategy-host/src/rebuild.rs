@@ -30,6 +30,7 @@ pub struct Hosted<R> {
     policy: ControlPlane,
     bootstrap: Bootstrap,
     spec: LaunchSpec,
+    resources: Option<ProcessResources>,
     publication: PathBuf,
     error: Option<Error>,
     next_scan: Instant,
@@ -37,6 +38,17 @@ pub struct Hosted<R> {
     captured_bootstrap: tickwire_strategy_sdk::capture::Bootstrap,
 }
 impl<R: RecoveryResolver + 'static> Hosted<R> {
+    /// Samples the same Registry Entry before and after same-process promotion.
+    pub fn observe_resources(&mut self) -> Result<tickwire_supervisor::LiveResourceObservation> {
+        if let Some(owner) = &mut self.capture {
+            return owner.observe_resources();
+        }
+        self.live
+            .as_mut()
+            .ok_or(Error::NotReady)?
+            .observe_resources()
+    }
+
     /// # Safety
     /// Same qualified SHM mapping/cursor obligations as `capture::Owner::launch`.
     /// The supervisor retains the actual child throughout capture and live use.
@@ -58,6 +70,7 @@ impl<R: RecoveryResolver + 'static> Hosted<R> {
             return Err(Error::Invalid);
         }
         let spec = config.capture.spec.clone();
+        let resources = config.capture.resources.clone();
         // SAFETY: preserves the caller's qualified-build and immutable-mapping contract.
         let owner = unsafe { capture::Owner::launch_mode(config.capture, true)? };
         let captured_bootstrap = owner.bootstrap().clone();
@@ -68,6 +81,7 @@ impl<R: RecoveryResolver + 'static> Hosted<R> {
             policy,
             bootstrap: config.bootstrap,
             spec,
+            resources,
             publication: config.publication_directory,
             error: None,
             next_scan: Instant::now(),

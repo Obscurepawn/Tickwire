@@ -1,6 +1,7 @@
 //! Strategy connects directly to independent MD; execution owns only intent/report lanes.
 use super::*;
 pub struct RemoteLaunch {
+    pub resources: Option<ProcessResources>,
     pub spec: LaunchSpec,
     pub bootstrap: Bootstrap,
     pub directory_parent: PathBuf,
@@ -29,6 +30,11 @@ pub struct RemoteHostedStrategy<R> {
     pub(crate) _report_listener: ControlListener,
 }
 impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
+    /// Explicit cold kernel sample; normal control polling does not perform it.
+    pub fn observe_resources(&mut self) -> Result<tickwire_supervisor::LiveResourceObservation> {
+        Ok(self.registry.observe_resources(self.identity.instance)?)
+    }
+
     /// # Safety
     /// Control-provided policies identify qualified MD, strategy and execution
     /// SDK builds. The launcher owns Child until its actual exit is observed.
@@ -38,6 +44,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         resolver: R,
         policy: ControlPlane,
     ) -> Result<Self> {
+        resources::validate(config.resources.as_ref())?;
         let external = config
             .bootstrap
             .external_market
@@ -100,7 +107,12 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             bootstrap_file.to_str().ok_or(Error::Invalid)?.into(),
         ];
         let mut registry = Registry::new(1)?;
-        let child = registry.spawn(config.spec.clone())?;
+        let child = resources::spawn(
+            &mut registry,
+            config.spec.clone(),
+            config.resources.as_ref(),
+            resources::Purpose::Worker,
+        )?;
         let admission = tickwire_md::server::Admission {
             client: config
                 .bootstrap
@@ -199,7 +211,11 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         );
         Ok(Self {
             market_transition,
-            readiness: readiness::ReadyProof::new(&config.bootstrap, &config.spec)?,
+            readiness: readiness::ReadyProof::new(
+                &config.bootstrap,
+                &config.spec,
+                config.resources.clone(),
+            )?,
             report_sub,
             strategy: RuntimeStrategy::new(
                 receiver,

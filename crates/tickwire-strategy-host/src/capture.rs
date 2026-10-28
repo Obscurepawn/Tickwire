@@ -12,6 +12,7 @@ pub(crate) mod protocol;
 mod retirement;
 
 pub struct Launch {
+    pub resources: Option<ProcessResources>,
     pub spec: LaunchSpec,
     pub bootstrap: protocol_types::Bootstrap,
     pub directory_parent: PathBuf,
@@ -60,6 +61,13 @@ pub struct Owner {
     pub(crate) _listener: ControlListener,
 }
 impl Owner {
+    /// Explicit cold kernel sample for the retained capture child.
+    pub fn observe_resources(&mut self) -> Result<tickwire_supervisor::LiveResourceObservation> {
+        Ok(self
+            .registry
+            .observe_resources(self.bootstrap.market.endpoint.local.instance)?)
+    }
+
     pub fn bootstrap(&self) -> &protocol_types::Bootstrap {
         &self.bootstrap
     }
