@@ -1,0 +1,7 @@
+{
+  "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+  "started_utc": "2026-10-28T22:09:15.825091+00:00",
+  "finished_utc": "2026-10-28T22:16:21.273162+00:00",
+  "elapsed_seconds": 425.4481058379897,
+  "exit_code": 0
+}

@@ -102,94 +102,16 @@ pub(super) fn prepare(
     let Some(profile) = &config.projection_launch else {
         return Ok(None);
     };
-    check(
-        config.capture.is_none()
-            && config.rotation_directory.is_none()
-            && bootstrap.preflight_job.is_none()
-            && bootstrap.factory.is_some()
-            && !bootstrap.demo_enabled
-            && bootstrap.demo_command_file.is_none()
-            && bootstrap.demo_minimum_bid_ticks == 0,
-        "ordinary registered startup required",
+    let object = read_projection(
+        config,
+        bootstrap,
+        &profile.object_file,
+        &profile.object,
+        &profile.scope,
     )?;
-    bootstrap
-        .factory
-        .as_ref()
-        .ok_or_else(|| invalid("projection launch factory"))?
-        .validate()
-        .map_err(|e| invalid(&format!("projection launch factory: {e}")))?;
-    check(
-        profile.object.global_hash != [0; 32]
-            && profile.object.projection_hash != [0; 32]
-            && profile.object.object_hash != [0; 32],
-        "zero object binding hash",
-    )?;
-    let object = read_object(&profile.object_file)?;
-    let object = tickwire_config::projection_object::ProjectionObject::decode(
-        &object,
-        &(&profile.object).into(),
-        MAX_OBJECT_BYTES,
-    )
-    .map_err(|e| invalid(&format!("projection launch object binding: {e:?}")))?;
-    let payload = object.payload();
-    let process = &payload["process"];
-    let strategy = &payload["strategy"];
+    let process = &object.payload()["process"];
     let scope = &profile.scope;
-    check(
-        payload["identity"]["cluster_id"] == scope.cluster_id
-            && payload["identity"]["namespace_id"] == namespace(scope.namespace_id)
-            && payload["host"]["id"] == scope.host_id
-            && process["host_id"] == scope.host_id
-            && process["id"] == scope.process_id
-            && strategy["process_id"] == scope.process_id
-            && object.binding().process_id == scope.process_id,
-        "scope mismatch",
-    )?;
-    check(
-        process["role"] == "strategy"
-            && process["restart_policy"] == "never"
-            && strategy["trust_profile"] == "qualified_sdk"
-            && process["activation"] == if config.shadow { "shadow" } else { "active" }
-            && strategy["role"] == if config.shadow { "Shadow" } else { "Active" },
-        "unsupported profile",
-    )?;
     let identity = bootstrap.market.local.identity();
-    // Match the control Identity domain before creating directories or children.
-    // The role and trust profile are further narrowed to this startup profile.
-    check(
-        identity.instance != [0; 16]
-            && (1..(1u64 << 63)).contains(&identity.generation)
-            && (1..(1u64 << 63)).contains(&identity.logical_strategy)
-            && identity.host_boot != [0; 16]
-            && identity.namespace != [0; 16]
-            && identity.build_hash != [0; 32]
-            && identity.qualification_hash != [0; 32]
-            && identity.manifest_hash != [0; 32]
-            && (1..=2).contains(&identity.arch),
-        "invalid local channel identity",
-    )?;
-    check(
-        identity.role == 3
-            && identity.trust_profile == 1
-            && identity.namespace == scope.namespace_id
-            && strategy["logical_strategy_id"].as_u64() == Some(identity.logical_strategy)
-            && identity == bootstrap.intent.local.identity()
-            && identity == bootstrap.report.local.identity()
-            && bootstrap
-                .external_market
-                .as_ref()
-                .is_none_or(|v| identity == v.endpoint.local.identity()),
-        "local channel identity mismatch",
-    )?;
-    let artifact = process["artifact_ref"]
-        .as_str()
-        .ok_or_else(|| invalid("projection launch artifact"))?;
-    let artifact = tickwire_config::artifacts::reference_hash(artifact)
-        .map_err(|e| invalid(&format!("projection launch artifact: {e:?}")))?;
-    check(
-        artifact == identity.build_hash,
-        "artifact identity mismatch",
-    )?;
     check(
         !profile.os_identities.is_empty() && profile.os_identities.len() <= 128,
         "OS identity mapping bounds",
@@ -258,6 +180,103 @@ pub(super) fn prepare(
         prepared_at: std::time::Instant::now(),
     }))
 }
+pub(super) fn read_projection(
+    config: &super::HostConfig,
+    bootstrap: &Bootstrap,
+    object_file: &std::path::Path,
+    binding: &Binding,
+    scope: &Scope,
+) -> Result<tickwire_config::projection_object::ProjectionObject> {
+    check(
+        config.capture.is_none()
+            && config.rotation_directory.is_none()
+            && bootstrap.preflight_job.is_none()
+            && bootstrap.factory.is_some()
+            && !bootstrap.demo_enabled
+            && bootstrap.demo_command_file.is_none()
+            && bootstrap.demo_minimum_bid_ticks == 0,
+        "ordinary registered startup required",
+    )?;
+    bootstrap
+        .factory
+        .as_ref()
+        .ok_or_else(|| invalid("projection launch factory"))?
+        .validate()
+        .map_err(|e| invalid(&format!("projection launch factory: {e}")))?;
+    check(
+        binding.global_hash != [0; 32]
+            && binding.projection_hash != [0; 32]
+            && binding.object_hash != [0; 32],
+        "zero object binding hash",
+    )?;
+    let object = read_object(object_file)?;
+    let object = tickwire_config::projection_object::ProjectionObject::decode(
+        &object,
+        &binding.into(),
+        MAX_OBJECT_BYTES,
+    )
+    .map_err(|e| invalid(&format!("projection launch object binding: {e:?}")))?;
+    let payload = object.payload();
+    let process = &payload["process"];
+    let strategy = &payload["strategy"];
+    check(
+        payload["identity"]["cluster_id"] == scope.cluster_id
+            && payload["identity"]["namespace_id"] == namespace(scope.namespace_id)
+            && payload["host"]["id"] == scope.host_id
+            && process["host_id"] == scope.host_id
+            && process["id"] == scope.process_id
+            && strategy["process_id"] == scope.process_id
+            && object.binding().process_id == scope.process_id,
+        "scope mismatch",
+    )?;
+    check(
+        process["role"] == "strategy"
+            && process["restart_policy"] == "never"
+            && strategy["trust_profile"] == "qualified_sdk"
+            && process["activation"] == if config.shadow { "shadow" } else { "active" }
+            && strategy["role"] == if config.shadow { "Shadow" } else { "Active" },
+        "unsupported profile",
+    )?;
+    let identity = bootstrap.market.local.identity();
+    // Match the control Identity domain before creating directories or children.
+    // The role and trust profile are further narrowed to this startup profile.
+    check(
+        identity.instance != [0; 16]
+            && (1..(1u64 << 63)).contains(&identity.generation)
+            && (1..(1u64 << 63)).contains(&identity.logical_strategy)
+            && identity.host_boot != [0; 16]
+            && identity.namespace != [0; 16]
+            && identity.build_hash != [0; 32]
+            && identity.qualification_hash != [0; 32]
+            && identity.manifest_hash != [0; 32]
+            && (1..=2).contains(&identity.arch),
+        "invalid local channel identity",
+    )?;
+    check(
+        identity.role == 3
+            && identity.trust_profile == 1
+            && identity.namespace == scope.namespace_id
+            && strategy["logical_strategy_id"].as_u64() == Some(identity.logical_strategy)
+            && identity == bootstrap.intent.local.identity()
+            && identity == bootstrap.report.local.identity()
+            && bootstrap
+                .external_market
+                .as_ref()
+                .is_none_or(|v| identity == v.endpoint.local.identity()),
+        "local channel identity mismatch",
+    )?;
+    let artifact = process["artifact_ref"]
+        .as_str()
+        .ok_or_else(|| invalid("projection launch artifact"))?;
+    let artifact = tickwire_config::artifacts::reference_hash(artifact)
+        .map_err(|e| invalid(&format!("projection launch artifact: {e:?}")))?;
+    check(
+        artifact == identity.build_hash,
+        "artifact identity mismatch",
+    )?;
+    Ok(object)
+}
+
 impl Prepared {
     pub(super) fn observe(
         self,
@@ -314,7 +333,7 @@ fn namespace(bytes: [u8; 16]) -> String {
     }
     value
 }
-fn read_object(path: &std::path::Path) -> Result<Vec<u8>> {
+pub(super) fn read_object(path: &std::path::Path) -> Result<Vec<u8>> {
     #[cfg(target_os = "linux")]
     {
         use std::{fs::OpenOptions, io::Read, os::unix::fs::OpenOptionsExt};

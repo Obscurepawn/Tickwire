@@ -1,0 +1,28 @@
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.12s
+     Running tests/capture_process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/capture_process-2fae9521ca49ef61)
+
+running 1 test
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[74,66,166,24,14,188,215,81,51,144,185,205,38,115,174,136,209,46,183,228,14,112,100,212,158,89,62,237,0,97,36,23],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":1,"worker_pid":1202768}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":1,"report_sequence":1,"worker_pid":1202768}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[184,121,223,51,148,113,62,183,108,24,63,21,65,34,85,203,191,26,239,195,144,158,211,132,115,189,246,138,79,104,244,231],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":2,"worker_pid":1202768}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":2,"report_sequence":1,"worker_pid":1202768}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[55,175,242,238,3,151,97,88,103,187,96,57,179,122,180,71,39,164,166,119,228,28,207,249,91,123,148,94,128,178,163,9],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":3,"worker_pid":1202768}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":3,"report_sequence":1,"worker_pid":1202768}
+{"checkpoint_digest":[108,66,242,175,174,162,49,242,178,53,129,51,215,44,45,121,101,128,25,238,130,69,68,179,59,233,200,7,107,216,105,204],"event":"strategy_ready","exec_report_sequence":0,"generation":6,"input_seal_digest":[34,187,198,139,210,12,123,175,169,229,89,11,53,18,39,96,196,180,247,145,183,43,183,103,151,254,157,115,196,122,149,65],"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ledger_sequence":0,"orders_digest":[224,105,5,241,189,128,162,172,23,96,83,87,1,179,151,221,155,251,254,5,86,155,238,117,97,254,121,78,234,106,102,106],"ready_sequence":4,"worker_pid":1202768}
+{"account_position":0,"event":"strategy_reports_consumed","generation":6,"instance":[21,21,21,21,21,21,21,21,21,21,21,21,21,21,21,21],"ready_sequence":4,"report_sequence":1,"worker_pid":1202768}
+
+thread 'rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running' (1202766) panicked at crates/tickwire-strategy-host/tests/rebuild_process/fresh.rs:101:69:
+called `Result::unwrap()` on an `Err` value: Invalid
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+{"error":"Closed","event":"md_subscriber_closed","pid":1202768,"stage":"Active"}
+test rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running ... FAILED
+
+failures:
+
+failures:
+    rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 5.04s
+
+error: test failed, to rerun pass `-p tickwire-strategy-host --test capture_process`

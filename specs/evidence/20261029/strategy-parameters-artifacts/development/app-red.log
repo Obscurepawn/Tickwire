@@ -1,0 +1,24 @@
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.86s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-806cc5d86ae693b7)
+
+running 6 tests
+
+thread 'hosted::profile::tests::parameters::parameter_values_bind_without_rewriting_private_encoding_or_claiming_consumption' (1198342) panicked at crates/tickwire-app/src/hosted/profile/tests/parameters.rs:34:55:
+called `Result::unwrap()` on an `Err` value: Custom { kind: InvalidInput, error: "parameter consumption is not implemented" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test hosted::profile::tests::parameters::duplicate_private_keys_do_not_collapse_into_approved_values ... ok
+test hosted::profile::tests::parameters::parameter_values_bind_without_rewriting_private_encoding_or_claiming_consumption ... FAILED
+test hosted::profile::tests::parameters::a_matching_private_hash_cannot_hide_different_parameters ... ok
+test hosted::profile::tests::parameters::omitted_parameter_binding_keeps_legacy_startup_untouched ... ok
+test hosted::profile::tests::parameters::schema_contents_and_private_objects_remain_pinned ... ok
+test hosted::profile::tests::parameters::parameter_queries_require_support_and_a_bounded_nonzero_deadline ... ok
+
+failures:
+
+failures:
+    hosted::profile::tests::parameters::parameter_values_bind_without_rewriting_private_encoding_or_claiming_consumption
+
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 115 filtered out; finished in 0.16s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

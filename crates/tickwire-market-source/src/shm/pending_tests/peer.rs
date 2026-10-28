@@ -124,6 +124,9 @@ impl Peer {
         self.stage = 0;
     }
     pub fn step(&mut self) {
+        self.step_at(fixture::NOW);
+    }
+    pub fn step_at(&mut self, now: u64) {
         if self.connection.is_none() {
             self.connection = self.listener.try_accept().unwrap();
             return;
@@ -131,7 +134,6 @@ impl Peer {
         let Some(packet) = self.connection.as_mut().unwrap().try_recv().unwrap() else {
             return;
         };
-        let now = fixture::NOW;
         let sub = self.registration.subscription;
         match self.stage {
             0 => {
@@ -320,7 +322,7 @@ fn snapshot(
             feed_generation: plan.join.feed_generation,
             catalog_version: 1,
             catalog_hash: registry.catalog_hash,
-            created_mono_ns: fixture::NOW,
+            created_mono_ns: plan.resource.created_mono_ns,
             expires_mono_ns: deadline,
             state_version: 1,
             coverage_depth: 10,
@@ -337,9 +339,9 @@ fn snapshot(
             catalog_hash: registry.catalog_hash,
             instrument_set_version: registry.instrument_set_version,
             sequence: plan.sequence,
-            created_mono_ns: fixture::NOW,
+            created_mono_ns: plan.resource.created_mono_ns,
             expires_mono_ns: deadline,
-            now_mono_ns: fixture::NOW,
+            now_mono_ns: plan.resource.created_mono_ns,
             logical_strategy_id: 7,
             instruments: &registry.instruments,
             members: &members,

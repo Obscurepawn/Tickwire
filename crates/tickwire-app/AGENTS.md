@@ -20,6 +20,7 @@
 - `hosted::build(config, runtime, policy) -> Box<dyn AppStrategy>`（bootstrap 限定、shadow 开启 handover、远程外部市场分支）。
 - `HostConfig.resources` 可显式配置 worker、source_replay、rollback 三份资源组计划；设置后传入所有对应 Host 启动入口，错误不会回退到无约束启动。计划省略时保持原有序列化字节，继续适配既有发布闭包；实际组核验由 supervisor/control-sys 执行。该配置不生成全局配置 Applied。
 - `HostConfig.projection_launch` 通过 `hosted::profile` 把完整投影中的策略首次启动字段绑定到实际 Host：固定投影对象与启动 scope、明确 OS 名称映射、程序摘要、worker CPU/NUMA/内存。仅普通 registered Active/Shadow 首启，拒绝 capture、preflight 和轮换；worker 资源必填。读取和核验在子进程创建前完成，local 分支使用同一份已核验 Bootstrap，不能重新读取路径换入另一身份。启动后由真实进程和资源观察构造私有 `LaunchBindingProof`；`AppStrategy::projection_launch(target)` 仅提供精确实例的历史启动证明，不代表完整配置应用或当前新鲜观测。
+- `HostConfig.projection_parameters` 通过 `hosted::parameters` 核对完整投影范围、参数格式定义摘要及工厂原始配置的严格 JSON 值；全局投影与私有配置的修订、摘要分别保存。真实 worker 启动后，私有查询取得 Host 的当前合并检查点配置，核对成功才交付 intent；失败锁存并清理实际子进程，外部观测不能占用内部查询。`AppStrategy::projection_parameters(target)` 只返回精确实例的历史参数消费证明。它不替代 `projection_launch/resources`，两类投影绑定同时启用时须一致，也不生成完整全局 Applied。规格见 [strategy-parameter-consumption.md](../../specs/implementation/strategy-parameter-consumption.md)。
 - `strategy`：`Config/MemberConfig/CommandFile/RecoveryFiles/DependencyFile/FileStrategy/MultiStrategy/new_modes/load(digest)`。
 - `replay`：`run(&Deployment)`、`export(&Deployment, destination)`。私有 `ReplayLocks` 持有三个源目录的排他锁，在 load 中途失败或 Recovered 生命周期结束时逐个显式 unlock；源仍只读，fork/exec 副本不能延长已结束 owner。
 - `release_preflight`（`pub(super)` 限定：`qualify/qualify_startup/fixed_ready/unchanged/root/bind/requirements`）。

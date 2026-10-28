@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-28T22:11:31.943163+00:00",
+  "source_manifest": "/home/obscure/Tickwire/specs/evidence/20261029/strategy-parameters-source-sha256.json",
+  "source_manifest_sha256": "330b893bbe24ad144641262e5b4bd5b7daa6ad796925c44cff4fee117bfb9901",
+  "profile": "release",
+  "strip": "--strip-debug",
+  "build_exit_code": 0,
+  "binaries": [
+    {
+      "name": "tickwire-lab",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lab",
+      "build_bytes": 13521728,
+      "build_sha256": "e672e6bc1fc09515d71f0d8b0994dbb80888e3ae7024004a4a6a06e990a72c07",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-lab",
+      "deployed_bytes": 13448096,
+      "deployed_sha256": "bf2bb3bf92b00d8461575d40fe779bcf8408aafa030df8b1cac0e40d14f94c41"
+    },
+    {
+      "name": "tickwire-app",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-app",
+      "build_bytes": 24948000,
+      "build_sha256": "0e61cbea5544bb53cef05d2513d74bd52fecc5807d6f49b967515d467da08bf7",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-app",
+      "deployed_bytes": 24795376,
+      "deployed_sha256": "0b66b27dba8a425a8140cc9b90b957b6c99b8578a11a7471cc682b9f98418ffe"
+    },
+    {
+      "name": "tickwire-md",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-md",
+      "build_bytes": 5285672,
+      "build_sha256": "f96b2d99454441f9156d16fc11add26ab3826c6fa76b15281df7f73622ef5c11",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-md",
+      "deployed_bytes": 5264224,
+      "deployed_sha256": "e6722171f9d3bb413d3712b711071bbdde10d21e73186350ec563e996c5fefb5"
+    },
+    {
+      "name": "tickwire-strategy-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-strategy-worker",
+      "build_bytes": 6109256,
+      "build_sha256": "17765f53a433718a3d8c2076f8855349b37db26531baef0f86a69ca9927e2597",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-strategy-worker",
+      "deployed_bytes": 6078784,
+      "deployed_sha256": "51070ec5cd35f04f7623b9a1a72f55eab31acffccc3d83fc75e54ce01f4d2010"
+    },
+    {
+      "name": "tickwire-replica-receiver",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-replica-receiver",
+      "build_bytes": 6114592,
+      "build_sha256": "b28f504fab759433a49e668e546f69e9d132895ffeac2b6ab94c3a03a77e97e4",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-replica-receiver",
+      "deployed_bytes": 6084400,
+      "deployed_sha256": "320c7250df33a11a910ca0ad968be891a500a33afe9d5622a2ba6d680de0faba"
+    },
+    {
+      "name": "tickwire-lifecycle",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lifecycle",
+      "build_bytes": 1594656,
+      "build_sha256": "2e152bd9b3f913a0743b2712473185cb2fafa009ccc5c3bbbb7fd492268ea4be",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-lifecycle",
+      "deployed_bytes": 1588640,
+      "deployed_sha256": "d5941c23422d57fd1a94538cf395222cc2fad51147b1bc557d6c118b0c494bf9"
+    },
+    {
+      "name": "tickwire-counting-v1-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-v1-worker",
+      "build_bytes": 6728168,
+      "build_sha256": "099e960d866b6eacd75bced666c03763d387a91bb9f795270586f901276528df",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-counting-v1-worker",
+      "deployed_bytes": 6692040,
+      "deployed_sha256": "c908356e7c473d8fa50a9297c36f158cac7c8b5c8809496ce05f8ea5f991afc9"
+    },
+    {
+      "name": "tickwire-counting-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-worker",
+      "build_bytes": 6725880,
+      "build_sha256": "d9ffc593f7cca1407dcdc5162cbd260b163f3f8dc2e3368176fa8f15dacdf0f5",
+      "deployed_path": "/tmp/tw-param-bins-1/tickwire-counting-worker",
+      "deployed_bytes": 6689752,
+      "deployed_sha256": "456aba7fd56c41bf2e5897e6b7b6130e3b32bbc976cb24c9327a41adff0196c2"
+    }
+  ]
+}

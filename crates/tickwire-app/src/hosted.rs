@@ -18,6 +18,7 @@ use tickwire_strategy_sdk::{
     runtime::{RecoveryResolver, ResolvedRecovery},
 };
 use tickwire_venue::CanonicalCommand;
+pub mod parameters;
 pub mod profile;
 mod rebuild;
 
@@ -31,6 +32,9 @@ pub struct CaptureConfig {
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostConfig {
+    /// Explicit consumption of approved strategy parameters by the real worker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projection_parameters: Option<parameters::Config>,
     /// Startup-approved binding of the projection's process launch fields.
     /// This is not a receipt for applying the complete global configuration.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -141,6 +145,7 @@ struct Strategy(HostedStrategy<Files, 1>, u64, LaunchProgress);
 struct LaunchProgress {
     pending: Option<profile::Prepared>,
     proof: Option<profile::LaunchBindingProof>,
+    parameters: parameters::Progress,
     failed: bool,
 }
 impl tickwire_runtime::node::Strategy for Strategy {
@@ -220,10 +225,10 @@ impl tickwire_runtime::node::Strategy for Strategy {
         if self.2.failed {
             return None;
         }
+        if (self.2.pending.is_some() || self.2.parameters.busy()) && !self.0.prepare_start(n) {
+            return None;
+        }
         if self.2.pending.is_some() {
-            if !self.0.prepare_start(n) {
-                return None;
-            }
             let prepared = self.2.pending.take()?;
             let result = self
                 .0
@@ -243,6 +248,21 @@ impl tickwire_runtime::node::Strategy for Strategy {
                     }
                     return None;
                 }
+            }
+        }
+        match self.2.parameters.poll(&mut self.0) {
+            Ok(true) => {}
+            Ok(false) => return None,
+            Err(error) => {
+                self.2.failed = true;
+                eprintln!("strategy parameter consumption failed: {error}");
+                if let Some((instance, _)) = self.0.instance()
+                    && let Some(child) = self.0.child()
+                    && let Err(error) = child.registry().terminate(instance)
+                {
+                    eprintln!("strategy parameter cleanup failed: {error:?}");
+                }
+                return None;
             }
         }
         tickwire_runtime::node::Strategy::next(&mut self.0, a, h, n)
@@ -275,6 +295,13 @@ impl tickwire_runtime::node::Strategy for Strategy {
     }
 }
 impl AppStrategy for Strategy {
+    fn projection_parameters(
+        &self,
+        target: crate::observation::Target,
+    ) -> Option<&parameters::ParametersProof> {
+        observation_target(target, self.1, self.instance()).ok()?;
+        self.2.parameters.proof()
+    }
     fn projection_launch(
         &self,
         target: crate::observation::Target,
@@ -295,6 +322,9 @@ impl AppStrategy for Strategy {
         r: tickwire_strategy_host::ObservationRequest,
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
+        if self.2.parameters.busy() {
+            return Err(tickwire_strategy_host::Error::Busy);
+        }
         self.0.begin_observation(r)
     }
     fn poll_observation(
@@ -302,6 +332,9 @@ impl AppStrategy for Strategy {
         t: crate::observation::Target,
     ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
         observation_target(t, self.1, self.instance())?;
+        if self.2.parameters.busy() {
+            return Err(tickwire_strategy_host::Error::Busy);
+        }
         self.0.poll_observation()
     }
     fn cancel_observation(
@@ -310,6 +343,9 @@ impl AppStrategy for Strategy {
         id: [u8; 16],
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
+        if self.2.parameters.busy() {
+            return Err(tickwire_strategy_host::Error::Busy);
+        }
         self.0.cancel_observation(id)
     }
 
@@ -327,7 +363,7 @@ impl AppStrategy for Strategy {
 struct RemoteStrategy(
     tickwire_strategy_host::RemoteHostedStrategy<Files>,
     u64,
-    Option<profile::LaunchBindingProof>,
+    LaunchProgress,
 );
 impl tickwire_runtime::node::Strategy for RemoteStrategy {
     fn handover_finish_replay(
@@ -403,7 +439,19 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
         h: tickwire_runtime::node::Health,
         n: tickwire_binance_clock::LocalTime,
     ) -> Option<tickwire_runtime::node::Submission> {
-        tickwire_runtime::node::Strategy::next(&mut self.0, a, h, n)
+        if self.2.failed {
+            return None;
+        }
+        match self.2.parameters.poll(&mut self.0) {
+            Ok(true) => tickwire_runtime::node::Strategy::next(&mut self.0, a, h, n),
+            Ok(false) => None,
+            Err(error) => {
+                self.2.failed = true;
+                eprintln!("strategy parameter consumption failed: {error}");
+                self.0.reject_configuration();
+                None
+            }
+        }
     }
     fn on_account_baseline(
         &mut self,
@@ -433,12 +481,19 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
     }
 }
 impl AppStrategy for RemoteStrategy {
+    fn projection_parameters(
+        &self,
+        target: crate::observation::Target,
+    ) -> Option<&parameters::ParametersProof> {
+        observation_target(target, self.1, self.instance()).ok()?;
+        self.2.parameters.proof()
+    }
     fn projection_launch(
         &self,
         target: crate::observation::Target,
     ) -> Option<&profile::LaunchBindingProof> {
         observation_target(target, self.1, self.instance()).ok()?;
-        self.2.as_ref()
+        self.2.proof.as_ref()
     }
     fn observation_process(
         &mut self,
@@ -453,6 +508,9 @@ impl AppStrategy for RemoteStrategy {
         r: tickwire_strategy_host::ObservationRequest,
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
+        if self.2.parameters.busy() {
+            return Err(tickwire_strategy_host::Error::Busy);
+        }
         self.0.begin_observation(r)
     }
     fn poll_observation(
@@ -460,6 +518,9 @@ impl AppStrategy for RemoteStrategy {
         t: crate::observation::Target,
     ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
         observation_target(t, self.1, self.instance())?;
+        if self.2.parameters.busy() {
+            return Err(tickwire_strategy_host::Error::Busy);
+        }
         self.0.poll_observation()
     }
     fn cancel_observation(
@@ -468,6 +529,9 @@ impl AppStrategy for RemoteStrategy {
         id: [u8; 16],
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
+        if self.2.parameters.busy() {
+            return Err(tickwire_strategy_host::Error::Busy);
+        }
         self.0.cancel_observation(id)
     }
 
@@ -526,7 +590,7 @@ impl AppStrategy for RemoteStrategy {
         true
     }
     fn failed(&self) -> bool {
-        self.0.failed()
+        self.2.failed || self.0.failed()
     }
 }
 #[derive(Clone)]
@@ -727,7 +791,7 @@ impl RotationSource<Files, 1> for Rotations {
         }
         let build = (|| -> Result<_> {
             let config: HostConfig = serde_json::from_slice(&read_file(&path, 2 * 1024 * 1024)?)?;
-            if config.projection_launch.is_some() {
+            if config.projection_launch.is_some() || config.projection_parameters.is_some() {
                 return Err(invalid("projection launch does not support rotation"));
             }
             let bootstrap =
@@ -775,6 +839,7 @@ pub fn build(
     // Validate the same owned Bootstrap that will be handed to Host. A second
     // pathname read must not replace the identity checked by the projection.
     let projection = profile::prepare(config, &bootstrap)?;
+    let parameters = parameters::prepare(config, &bootstrap)?;
     if config.capture.is_some() {
         return rebuild::build(config, runtime, policy, bootstrap);
     }
@@ -782,7 +847,7 @@ pub fn build(
         if config.shadow {
             bootstrap.handover_enabled = true;
         }
-        return build_remote(config, runtime, policy, bootstrap, projection);
+        return build_remote(config, runtime, policy, bootstrap, projection, parameters);
     }
     let context = Context {
         depth: runtime.market.depth.clone(),
@@ -828,6 +893,7 @@ pub fn build(
         LaunchProgress {
             pending: projection,
             proof: None,
+            parameters: parameters::Progress::new(parameters),
             failed: false,
         },
     )))
@@ -839,6 +905,7 @@ fn build_remote(
     policy: ControlPlane,
     bootstrap: Bootstrap,
     projection: Option<profile::Prepared>,
+    parameters: Option<parameters::Prepared>,
 ) -> Result<Box<dyn AppStrategy>> {
     let external = bootstrap
         .external_market
@@ -909,7 +976,16 @@ fn build_remote(
     let proof = projection
         .map(|prepared| prepared.observe(strategy.observe_resources()?))
         .transpose()?;
-    Ok(Box::new(RemoteStrategy(strategy, logical, proof)))
+    Ok(Box::new(RemoteStrategy(
+        strategy,
+        logical,
+        LaunchProgress {
+            pending: None,
+            proof,
+            parameters: parameters::Progress::new(parameters),
+            failed: false,
+        },
+    )))
 }
 
 fn observation_target(

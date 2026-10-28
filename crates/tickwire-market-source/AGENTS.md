@@ -43,7 +43,7 @@ cargo fmt --check -p tickwire-market-source
 
 - `tests/replica_dense.rs` 覆盖稀疏高位 ID、未知 ID 失效、旧检查点字节兼容、满容量删除插入、双侧失败原子性、独立有序映射差分、覆盖范围与零分配更新/查询；另由 `tickwire-md`、`tickwire-strategy-sdk/host` 集成测试与 Linux 链路覆盖。
 - 无 bench。
-- `shm/pending_tests.rs` 以真实 SEQPACKET、JoinOwner、memfd/cursor/snapshot 验证静默 peer、单步预算、CatchUp→Active、原始 catchup 保留、身份/时钟/EOF 拒绝、取消不移除 owner gate，以及原 `Client::connect` 兼容入口；fixture 复用 JOIN golden 构造，不引入 MD dev 依赖回边。
+- `shm/pending_tests.rs` 以真实 SEQPACKET、JoinOwner、memfd/cursor/snapshot 验证静默 peer、单步预算、CatchUp→Active、原始 catchup 保留、身份/时钟/EOF 拒绝、取消不移除 owner gate，以及原 `Client::connect` 兼容入口。服务器在客户端采样之后签发 WELCOME 的确定性回归覆盖跨 poll 校验、真实激活和原期限；fixture 复用 JOIN golden 构造，不引入 MD dev 依赖回边。
 - `transition/tests.rs` 覆盖配置、完整身份、集合、时钟、描述符和收据的拒绝边界；`shm/pending_tests/transition.rs` 用真实资源验证 Arm→QUIESCED→Commit→Active→显式放行、激活前无观察、超时关闭，以及扩容后正常退休。
 
 ## 6. 关键不变量与注意事项
@@ -56,6 +56,7 @@ cargo fmt --check -p tickwire-market-source
 - **EOF 永远不是证据**：单纯连接关闭、超时、伪造响应、控制超时都走保守故障处理，不构成 QUIESCED。
 - `Client::connect` 与 `PendingJoin::new` 是 unsafe 接缝：调用者提供可信 qualified MD writer 与完整批准身份，接入流程实际认证会话和资源。映射操作只在原 `shm` 边界内履约。
 - `PendingJoin::poll` 每次最多 min(budget,64) 个有限步骤/记录，仅使用非阻塞 socket API；EINTR 未推进且可重试，其他错误/取消终止并丢弃本地资源。只有完整 Active ACK 与 applied 水位核验后才取出 Client。快照校验/装载仍为上限 64 MiB/4096 成员的一个冷步骤，不承诺硬实时耗时。
+- WELCOME 接收时拒绝 FD，最多保存一个有界响应并强制结束本次 poll（`runnable=true`）；下一轮用调用方在接收之后采样的 `now` 验证完整握手。校验前不建 Session、不发 JOIN、不产出 Client；跨轮保留原绝对期限与时钟回退检查，不放宽控制层租期上限，也不在本层引入隐式 OS 取时。
 - `Client::connect` 驱动同一 PendingJoin，只有该兼容 wrapper 可 sleep。正常退休的 QUIESCE 响应使用单次 try_send，背压失败关闭；已批准扩容保留一个完整响应，EAGAIN/EINTR 后有限重试，发送成功后才产生 Quiesced 收据。
 - `ConnectConfig` 携带精确批准的 MD bank 头、catalog_hash、仪器集合、cursor_id、subscription_generation、request_id；仪器数 1..=4096。
 - 扩容固定到同一个已资格化 MD writer、OS 身份与时钟域；新集合严格包含旧集合，版本和代次前进，旧成员参数不变。操作期限最多 60 秒，控制对象最多 2 MiB。原始启动头允许零 descriptor hash 兼容入口，提交的新头要求正确的非零摘要。

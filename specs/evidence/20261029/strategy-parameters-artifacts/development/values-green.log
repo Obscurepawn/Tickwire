@@ -1,0 +1,31 @@
+   Compiling tickwire-config v0.1.0 (/home/obscure/Tickwire/crates/tickwire-config)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.00s
+     Running tests/artifacts.rs (/tmp/tickwire-progress-20261028/target/debug/deps/artifacts-22652b7565811960)
+
+running 8 tests
+test content_pin_checks_complete_bytes_and_exact_retry_before_capacity ... ok
+test invalid_reference_limits_and_oversize_objects_are_rejected ... ok
+test actual_parameter_schema_validates_every_strategy_and_binds_candidate ... ok
+test parameter_patterns_use_bounded_linear_regex_engine ... ok
+test dependency_inventory_is_complete_unique_and_separates_credentials ... ok
+test strict_schema_rejects_duplicate_keys_and_schema_size_limit ... ok
+test external_refs_wrong_draft_and_invalid_schema_do_not_pass_offline_validation ... ok
+test invalid_parameter_and_missing_schema_are_distinct_failures ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/parameter_values.rs (/tmp/tickwire-progress-20261028/target/debug/deps/parameter_values-209facb8335788e9)
+
+running 9 tests
+test duplicate_keys_are_rejected_in_parameters_and_schema ... ok
+test schema_identity_is_the_digest_of_exact_raw_bytes ... ok
+test unsafe_numbers_trailing_input_and_invalid_encoding_are_rejected ... ok
+test parameters_require_one_to_256_top_level_properties ... ok
+test parameter_and_schema_container_depth_have_independent_limits ... ok
+test returns_canonical_values_without_rewriting_factory_bytes ... ok
+test schema_constraints_and_local_references_are_enforced ... ok
+test schema_retrieval_draft_and_regex_policy_match_existing_validation ... ok
+test raw_schema_and_parameter_byte_limits_are_enforced_at_the_boundary ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+

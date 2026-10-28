@@ -1,0 +1,25 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.21s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_host-e2d415c0552b5641)
+
+running 2 tests
+
+thread 'observation::configuration::tests::complete_current_cut_exposes_exact_private_configuration' (1193832) panicked at crates/tickwire-strategy-host/src/observation/configuration/tests.rs:92:38:
+complete merged configuration
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+thread 'observation::configuration::tests::present_merged_anchor_without_completed_cut_is_not_legacy' (1193833) panicked at crates/tickwire-strategy-host/src/observation/configuration/tests.rs:86:5:
+incomplete merged proof must fail, not become an unsupported legacy result
+test observation::configuration::tests::present_merged_anchor_without_completed_cut_is_not_legacy ... FAILED
+test observation::configuration::tests::complete_current_cut_exposes_exact_private_configuration ... FAILED
+
+failures:
+
+failures:
+    observation::configuration::tests::complete_current_cut_exposes_exact_private_configuration
+    observation::configuration::tests::present_merged_anchor_without_completed_cut_is_not_legacy
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-strategy-host --lib`

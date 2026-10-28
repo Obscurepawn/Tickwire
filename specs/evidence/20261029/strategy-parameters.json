@@ -1,0 +1,444 @@
+{
+  "schema": 1,
+  "generated_utc": "2026-10-28T22:19:31.415189+00:00",
+  "baseline_commit": "48ca7209b7e744d3013927be312962c833e9cef3",
+  "source_binding": {
+    "manifest": "strategy-parameters-source-sha256.json",
+    "manifest_sha256": "330b893bbe24ad144641262e5b4bd5b7daa6ad796925c44cff4fee117bfb9901"
+  },
+  "build": {
+    "binary_manifest": "strategy-parameters-artifacts/binaries.json"
+  },
+  "app_process": {
+    "log": "strategy-parameters-artifacts/app-process.log",
+    "exit_code": 0,
+    "fixtures": [
+      {
+        "original_root": "/tmp/tpp-1238878-5",
+        "parameters": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/parameters.json",
+        "schema": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/parameter-schema.json",
+        "projection": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/projection.json",
+        "bootstrap": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/bootstrap.json",
+        "checkpoint": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/checkpoint.json",
+        "descriptor": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/descriptor.json",
+        "command": "strategy-parameters-artifacts/fixtures/tpp-1238878-5/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1238878-2",
+        "parameters": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/parameters.json",
+        "schema": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/parameter-schema.json",
+        "projection": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/projection.json",
+        "bootstrap": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/bootstrap.json",
+        "checkpoint": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/checkpoint.json",
+        "descriptor": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/descriptor.json",
+        "command": "strategy-parameters-artifacts/fixtures/tpp-1238878-2/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1238878-1",
+        "parameters": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/parameters.json",
+        "schema": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/parameter-schema.json",
+        "projection": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/projection.json",
+        "bootstrap": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/bootstrap.json",
+        "checkpoint": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/checkpoint.json",
+        "descriptor": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/descriptor.json",
+        "command": "strategy-parameters-artifacts/fixtures/tpp-1238878-1/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1238878-6",
+        "parameters": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/parameters.json",
+        "schema": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/parameter-schema.json",
+        "projection": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/projection.json",
+        "bootstrap": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/bootstrap.json",
+        "checkpoint": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/checkpoint.json",
+        "descriptor": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/descriptor.json",
+        "command": "strategy-parameters-artifacts/fixtures/tpp-1238878-6/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1238878-7",
+        "parameters": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/parameters.json",
+        "schema": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/parameter-schema.json",
+        "projection": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/projection.json",
+        "bootstrap": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/bootstrap.json",
+        "checkpoint": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/checkpoint.json",
+        "descriptor": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/descriptor.json",
+        "command": "strategy-parameters-artifacts/fixtures/tpp-1238878-7/command.bin"
+      }
+    ],
+    "external_image_samples": {
+      "consumed_workers": 4,
+      "legacy_workers": 1,
+      "note": "Five external kernel image samples cover four successful parameter consumers and one legacy compatibility worker; Host validates actual image identity for every successful proof."
+    }
+  },
+  "scope": {
+    "gateway_submission": false,
+    "global_applied": false,
+    "parameter_path": "Actual App hosted::build, independent registered worker, parent-thread real MD, fresh current merged configuration and intent delivery gate",
+    "compatibility": "Separate complete Spot handover scenario omits projection_parameters",
+    "formal_verification": "No new TLC or anchor rebasing; read-only historical correspondence audit"
+  },
+  "environment": {
+    "platform": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "linux_integration": "Native WSL2 Linux; Docker daemon unavailable",
+    "live_binance": false,
+    "delegated_cgroup_positive": false
+  },
+  "checks": {
+    "full_rust": {
+      "metadata": "strategy-parameters-artifacts/check-rust-meta.json",
+      "exit_code": 0
+    },
+    "contracts_exit_code": 0,
+    "host_process": {
+      "metadata": "strategy-parameters-artifacts/host-process-meta.json",
+      "exit_code": 0
+    },
+    "compatibility": {
+      "metadata": "strategy-parameters-artifacts/compatibility/metadata.json",
+      "exit_code": 0
+    }
+  },
+  "development_findings": [
+    "Typed observation binds approved logical clock domain separately from actual kernel boot UUID; initial equality attempt was rejected and corrected.",
+    "Threshold fixture must publish actual depth deltas, since Quote alone does not alter strategy depth.",
+    "NotReady query attempts are limited to one cold advancement per10ms; original absolute deadline is checked first.",
+    "Actual App run exposed stale client poll time at WELCOME validation. A real SEQPACKET deterministic regression fails on the old state machine; one bounded deferred frame ensures next poll validates with a post-receive time."
+  ],
+  "limits": [
+    "ParametersProof is historical evidence only and is not a global configuration Applied receipt.",
+    "No production latency or full global configuration qualification is claimed.",
+    "Offline verifier checks archived bytes and recorded assertions; it does not recreate a live process or independently authenticate a past kernel observation.",
+    "Large ELF and complete recovery CAS stay outside Git; the real Host validates the complete closure during execution."
+  ],
+  "artifacts": {
+    "strategy-parameters-artifacts/app-process-meta.json": {
+      "bytes": 5192,
+      "sha256": "1ec9acc4ad7cee80e165664ba6166b8cf4c9285dc92ab00ff78fa62e68a10b8b"
+    },
+    "strategy-parameters-artifacts/app-process.log": {
+      "bytes": 15780,
+      "sha256": "84ee595f7124bd71e22cfd754f495a38916726c485410bbde1a801a7fb5c4ed8"
+    },
+    "strategy-parameters-artifacts/binaries.json": {
+      "bytes": 3996,
+      "sha256": "4bd0e0020d510c7be1d7cc919dc17f11bd6c0eb261bdcfce0c2a919cbfdb5f21"
+    },
+    "strategy-parameters-artifacts/build-meta.json": {
+      "bytes": 502,
+      "sha256": "83a6aca45b8fa0dcbff8a9d4800c572e81f3c4470ec46bf1be8d7b746ef2d539"
+    },
+    "strategy-parameters-artifacts/check-rust-meta.json": {
+      "bytes": 264,
+      "sha256": "4c7a58b22df4f10f9a5c1fbb04cecd114a782f868a09f307021318c2d8cd88d5"
+    },
+    "strategy-parameters-artifacts/check-rust.log": {
+      "bytes": 266226,
+      "sha256": "692d6339658a4117c0d7ce9f6e3b290ea2653c24ad4490a4ff8a3adbd656843e"
+    },
+    "strategy-parameters-artifacts/compatibility/account-report.json": {
+      "bytes": 3184,
+      "sha256": "17fce31232bb72b6232bb8894290c54fd999a21780331ce94957fa7dc543e4ba"
+    },
+    "strategy-parameters-artifacts/compatibility/fixture.jsonl": {
+      "bytes": 8213,
+      "sha256": "a33f30e5fd4f9c15019cbbedd12b18a058e7596fb7a9800f4de96ca03f1f00ad"
+    },
+    "strategy-parameters-artifacts/compatibility/generate.log": {
+      "bytes": 885,
+      "sha256": "bd5ca213e4dbeedfeb56d3928fe3890f086a28ee2c71f8aafedcf2becb01fa5d"
+    },
+    "strategy-parameters-artifacts/compatibility/handover/preflight-final-verified.json": {
+      "bytes": 3588,
+      "sha256": "c6f390f54b14e4aa70a61cd46fdccc3d9513c32faa156ece5d157a9f6a55c973"
+    },
+    "strategy-parameters-artifacts/compatibility/handover/preflight-verified.json": {
+      "bytes": 3583,
+      "sha256": "583625fa9fa797e28b0b17eb36cda592900a27677426a2c742ee3dc33c35221e"
+    },
+    "strategy-parameters-artifacts/compatibility/live-images.json": {
+      "bytes": 622,
+      "sha256": "fb242163eec4c369c3b5cb05fa5ec2f14e0bd3248251d21fb9716edd38486ed8"
+    },
+    "strategy-parameters-artifacts/compatibility/logs/exec.stderr.log": {
+      "bytes": 14901,
+      "sha256": "db1ff47804cbfa505e0e1da5690eac3b1d1fadb810c73918bab5fc0c882852e9"
+    },
+    "strategy-parameters-artifacts/compatibility/logs/exec.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "strategy-parameters-artifacts/compatibility/metadata.json": {
+      "bytes": 7686,
+      "sha256": "82b110dc22de7f84fbf67cf041f25e5d6eeaf1476c2877cf07ab4d44d44ce97c"
+    },
+    "strategy-parameters-artifacts/compatibility/run-result.json": {
+      "bytes": 4653,
+      "sha256": "bcf36c8f190570a28aa2d80c1b9b4d6110616c86df8e49058c0ec266573dde60"
+    },
+    "strategy-parameters-artifacts/compatibility/run.log": {
+      "bytes": 4654,
+      "sha256": "1a828fcd80121961449481fe66d8da94119da93cbcc37a4251ae401d5f85d2ce"
+    },
+    "strategy-parameters-artifacts/contracts.log": {
+      "bytes": 1765,
+      "sha256": "83c23d0e7af4d628a8551ed33e4359268310c9fa2a789d01c81a31b0faadeafa"
+    },
+    "strategy-parameters-artifacts/dependency-dag.json": {
+      "bytes": 1180,
+      "sha256": "06f992260c5f83e14a354c266ba7b79489883b501d197ac6750be9ea11c10872"
+    },
+    "strategy-parameters-artifacts/development/app-process-red.log": {
+      "bytes": 968,
+      "sha256": "7a3951931ad87076af4ac8d0871b2833c7630f4e55eac3cf5182ce93bb651989"
+    },
+    "strategy-parameters-artifacts/development/app-red.log": {
+      "bytes": 1669,
+      "sha256": "fd0700da41730b6daffd173e613b82426d7d7f604e9656d88f50ccf5e1394e7b"
+    },
+    "strategy-parameters-artifacts/development/depth-fixture-failure.log": {
+      "bytes": 14073,
+      "sha256": "82aaf1589e87d2204e15c9184366fd5eb871cb6ceb111aba6ce2eb02438ab7ce"
+    },
+    "strategy-parameters-artifacts/development/host-domain-failure.log": {
+      "bytes": 4277,
+      "sha256": "34997056c86240a42bde68a69c8d8d9a606f0b96017084b3e152d1aa52389413"
+    },
+    "strategy-parameters-artifacts/development/host-domain-green.log": {
+      "bytes": 6150,
+      "sha256": "9e81bb3e17d5a3181cd0f48389ebe5510c68456cc69d46eb5cdba12112d07982"
+    },
+    "strategy-parameters-artifacts/development/host-green.log": {
+      "bytes": 5803,
+      "sha256": "8c019eb8ffaa1edee00939f1a7acaf433109cf1ff40e57009173f95c9db16efb"
+    },
+    "strategy-parameters-artifacts/development/host-red.log": {
+      "bytes": 1574,
+      "sha256": "b99e0f6f445eaf572d91fab791e18a2ca1b7695fca49063ce2b31786f13d1173"
+    },
+    "strategy-parameters-artifacts/development/join-clock-green.log": {
+      "bytes": 4109,
+      "sha256": "300963762068dd8f62793911dbe7ed863c95cebfefaee11785f52e822ed76c72"
+    },
+    "strategy-parameters-artifacts/development/join-clock-red.log": {
+      "bytes": 942,
+      "sha256": "e081d454f53d389fa995e099c8219bca3ee4f85b309edc1839d61e7a432c0df2"
+    },
+    "strategy-parameters-artifacts/development/join-fd-fixture-failure.log": {
+      "bytes": 3980,
+      "sha256": "a5288521f37dbcdb8fc7ec8284fb3e5d2d1159b48a6fe32ab600861e36a57d42"
+    },
+    "strategy-parameters-artifacts/development/join-race-failure.log": {
+      "bytes": 11545,
+      "sha256": "8c7a749da5646c5e29a30ac931619d76af8aa3a49d7c084178e661346bb2e289"
+    },
+    "strategy-parameters-artifacts/development/join-snapshot-fixture-failure.log": {
+      "bytes": 1044,
+      "sha256": "a09c3f445e5dfaf91dbe9b0c7f87973a39bcc9c9fd75c0b489a32b0b87af50b9"
+    },
+    "strategy-parameters-artifacts/development/poll-cadence-green.log": {
+      "bytes": 2702,
+      "sha256": "e1047f06d6ae3cfa42fa97e665c6e1067ca0fd32727b267d0cffb5042023343e"
+    },
+    "strategy-parameters-artifacts/development/poll-cadence-red.log": {
+      "bytes": 1124,
+      "sha256": "2eb755204ad3f85966c2cb522ca0cd5bb38cdca7c2fa971d650246dfda77c42a"
+    },
+    "strategy-parameters-artifacts/development/values-green.log": {
+      "bytes": 1848,
+      "sha256": "c2310096ada09cbda54099ded8d1fafdd154096539dad6386cfbb03106f800e2"
+    },
+    "strategy-parameters-artifacts/development/values-red.log": {
+      "bytes": 1031,
+      "sha256": "32d3b83e6db2ed0b2ad92b1941ce58cefb61163cb5d7a3caa796fa2862df4f20"
+    },
+    "strategy-parameters-artifacts/documentation.log": {
+      "bytes": 91,
+      "sha256": "9d59bc8c39e268b57afdc4c216b86edd443fe294f4d103c297dae037f84eaf62"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/bootstrap.json": {
+      "bytes": 32164,
+      "sha256": "8dc7b6dd0beb9b8e2ee60e8742df4d559a86e7fa5e08815e1cd91685d9e32ab3"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/checkpoint.json": {
+      "bytes": 47453,
+      "sha256": "5713303417e567a78a96b0e4ece5e2ce26c2537550c507fc36207957ec629f4b"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/command.bin": {
+      "bytes": 297,
+      "sha256": "b4ccf3077501528fefe940395c607ebe341c96d798a4c981744708bea34e839c"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/descriptor.json": {
+      "bytes": 3935,
+      "sha256": "591ffca14d21ecdb5c4c45be8afbfd62d8aa1beb1831930a056d3cbb81567a3a"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/parameter-schema.json": {
+      "bytes": 438,
+      "sha256": "173edd8ce84ea876de5c7ee9b594ace325f22d22788b52c548b0558a83b0558f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/parameters.json": {
+      "bytes": 916,
+      "sha256": "5056a6a502b718407afdd5508eeab1f3d50d83d0e149474543e24f69755e5ed7"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-1/projection.json": {
+      "bytes": 10623,
+      "sha256": "4223ddb04fcac74c88aea941d33764cdac098339ea592e5bfbfe7d80296ab37a"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/bootstrap.json": {
+      "bytes": 32167,
+      "sha256": "a8d5e5b5143d2d9a2e91f9956586bc4da7f296d65244eee54f2d9c300b367f57"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/checkpoint.json": {
+      "bytes": 47403,
+      "sha256": "f3c3dd15aa90b368418c36fadc39404111ea7f8e81982e3ec686e0c99db4ff5a"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/command.bin": {
+      "bytes": 297,
+      "sha256": "a1a52f38feaf687586184203d04104de0363dafb6f7fcea0de4f2d6c1d8e40fd"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/descriptor.json": {
+      "bytes": 3948,
+      "sha256": "c6cd35721695776334b1271aa152bf89545b2b0e05c76866282fde74d59046ae"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/parameter-schema.json": {
+      "bytes": 438,
+      "sha256": "173edd8ce84ea876de5c7ee9b594ace325f22d22788b52c548b0558a83b0558f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/parameters.json": {
+      "bytes": 916,
+      "sha256": "83d7a0594c6b416fb8c66f8761d914534f848e90f5ebe6f5829508a6048d5cdb"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-2/projection.json": {
+      "bytes": 10623,
+      "sha256": "f674292d74127a7f5630252235a8b2231a3b7b047dc00af07b5876d585de75d5"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/bootstrap.json": {
+      "bytes": 32163,
+      "sha256": "292e299100594c3f4c779f5d4292c5476c44d823f6d5bd84538593e541f0fcfc"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/checkpoint.json": {
+      "bytes": 47403,
+      "sha256": "87dabe5341820ae62d6585a6f9a106829e81a84355781e6abf0ed4f0d1c4d69e"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/command.bin": {
+      "bytes": 297,
+      "sha256": "4f23938330cab0c08826786d95338031c3a488d942f7da61d2613ced145fb606"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/descriptor.json": {
+      "bytes": 3955,
+      "sha256": "46e9ab9daac6956a42e310e6e5252204d9e4bff43fe97621d2ca4a82065a7d96"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/parameter-schema.json": {
+      "bytes": 438,
+      "sha256": "173edd8ce84ea876de5c7ee9b594ace325f22d22788b52c548b0558a83b0558f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/parameters.json": {
+      "bytes": 916,
+      "sha256": "674d11183fd9f558321cff0ffbd2ef3bc3735953157c7ae32a50236ca3761dac"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-5/projection.json": {
+      "bytes": 10623,
+      "sha256": "5b4966b82bfaee9ef61c567d958eb18e12f1d8e11cc1d27f02e899e77cdb3a62"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/bootstrap.json": {
+      "bytes": 32163,
+      "sha256": "7cb9784ac2e842fdae481a55f6e9adcf5e1c5bcb711ce80b0d5c6157b534d533"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/checkpoint.json": {
+      "bytes": 47392,
+      "sha256": "cc882e0ed677737172949149b55ffc3f2db0a47cf8f7f0b65b5e631b7bff4dfb"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/command.bin": {
+      "bytes": 297,
+      "sha256": "2c31ceb90a210895bbabf56f51d68d2ecfe3b53dbf97b6286ce29682c6f3403f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/descriptor.json": {
+      "bytes": 3938,
+      "sha256": "32e227a57f043c95cc89112def46558e743a00ab6be01a9cc35ed27237faa9d1"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/parameter-schema.json": {
+      "bytes": 438,
+      "sha256": "173edd8ce84ea876de5c7ee9b594ace325f22d22788b52c548b0558a83b0558f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/parameters.json": {
+      "bytes": 910,
+      "sha256": "cec6a12219c24e68a1ffcd2dd0619ea756ea3b7e35fc1e0b813206604bbf6c48"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-6/projection.json": {
+      "bytes": 10617,
+      "sha256": "c004ef8bfd5be95a9a37a69842b8493e12d2bb099ff1b79d7ee621d26c050adf"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/bootstrap.json": {
+      "bytes": 32166,
+      "sha256": "86d314bfbe1da8f1a7cab00098dd3e658460ad8eed2a0cd80f9b43fecda0e758"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/checkpoint.json": {
+      "bytes": 47403,
+      "sha256": "bd45190af61845dd49f1a4d69ee6a6423b0eb2dee55db94415efa0a85e92cfbf"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/command.bin": {
+      "bytes": 297,
+      "sha256": "ba624c34e90b21e36d716cb76de4ca3736cca102732d9d7cbb92d79b01675d8f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/descriptor.json": {
+      "bytes": 3946,
+      "sha256": "cca9c7363ca6896abae8378e58ad33b11ba4e2076d90d780a9862bf324063f1c"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/parameter-schema.json": {
+      "bytes": 438,
+      "sha256": "173edd8ce84ea876de5c7ee9b594ace325f22d22788b52c548b0558a83b0558f"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/parameters.json": {
+      "bytes": 914,
+      "sha256": "17a29cdf63fb568482d755e8c487cbd271e55a685f34f317fbd003ac18df7208"
+    },
+    "strategy-parameters-artifacts/fixtures/tpp-1238878-7/projection.json": {
+      "bytes": 10621,
+      "sha256": "4c1d6af2942c35d0f2a92cd240fd7f161613a9735e69b2aa13e7e84560148652"
+    },
+    "strategy-parameters-artifacts/host-process-meta.json": {
+      "bytes": 476,
+      "sha256": "6cf3b804c8138f29c13155e723077f598beaa1751fde86f0d56350966c1a68b4"
+    },
+    "strategy-parameters-artifacts/host-process.log": {
+      "bytes": 6645,
+      "sha256": "ef10d5bf20a6d57bd2a1639971bda2427241bf5a0188bf6b210a180f2e205fc5"
+    },
+    "strategy-parameters-artifacts/release-build.log": {
+      "bytes": 961,
+      "sha256": "6785a1ef22bafa150413b084dc67dc8a1f479896990897911bc01c9b25a2ff09"
+    },
+    "strategy-parameters-artifacts/reproduction/archive-strategy-parameters.py": {
+      "bytes": 8002,
+      "sha256": "ac3fa08dcb15be40205c444726eb4079f70770c8f6ff94b6d5f25b98847cafe4"
+    },
+    "strategy-parameters-artifacts/reproduction/run-strategy-parameters-gate.py": {
+      "bytes": 849,
+      "sha256": "e71b6c5cd42b37d146714cdef839bb92c9f1e2b4b293bb1062123428afe01d15"
+    },
+    "strategy-parameters-artifacts/reproduction/run-strategy-parameters-host.py": {
+      "bytes": 1170,
+      "sha256": "d44c9e811b04e8e9d615c36d4c23ee9b33918ee2716d009e77c4adc7fe366167"
+    },
+    "strategy-parameters-artifacts/reproduction/run-strategy-parameters-process.py": {
+      "bytes": 3189,
+      "sha256": "244e4c389cc916562b4a0f570a5d40c651f3ad322f7e11382ed6afab57fbf050"
+    },
+    "strategy-parameters-artifacts/reproduction/strategy-parameters-build.py": {
+      "bytes": 2524,
+      "sha256": "dcb0dd3717a84c8b53e73dbc639621e71c8925ead25d60e399963c5f193357d4"
+    },
+    "strategy-parameters-artifacts/reproduction/strategy-parameters-compat.py": {
+      "bytes": 3227,
+      "sha256": "48c3a177901385d0c6f6265965fc448d647e8c03071197bd48542792f8aa5683"
+    },
+    "strategy-parameters-artifacts/reproduction/strategy-parameters-source-manifest.py": {
+      "bytes": 1458,
+      "sha256": "b820b25aeb1d3b0445acd55f0354f69498139127f8e30cc2d5479bb1762d495a"
+    },
+    "strategy-parameters-artifacts/writing-style.json": {
+      "bytes": 8151,
+      "sha256": "d1f3fb633b8e37e601ed15bdf8bb4fbb04c78debdf13c09fa25e543591e68317"
+    }
+  }
+}

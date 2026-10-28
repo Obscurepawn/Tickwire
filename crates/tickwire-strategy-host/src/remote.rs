@@ -291,6 +291,13 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
     pub fn failed(&self) -> bool {
         self.error.is_some() || self.strategy.error().is_some()
     }
+    /// Fail this owned instance after its startup configuration proof is rejected.
+    /// Uses the normal fail-closed cleanup; it does not certify graceful retirement.
+    pub fn reject_configuration(&mut self) {
+        if self.error.is_none() {
+            self.fail(Error::Invalid);
+        }
+    }
     pub(crate) fn fail(&mut self, e: Error) {
         eprintln!(
             "{}",

@@ -1,0 +1,22 @@
+   Compiling tickwire-config v0.1.0 (/home/obscure/Tickwire/crates/tickwire-config)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.86s
+     Running tests/parameter_values.rs (/tmp/tickwire-progress-20261028/target/debug/deps/parameter_values-209facb8335788e9)
+
+running 1 test
+test returns_canonical_values_without_rewriting_factory_bytes ... FAILED
+
+failures:
+
+---- returns_canonical_values_without_rewriting_factory_bytes stdout ----
+
+thread 'returns_canonical_values_without_rewriting_factory_bytes' (1195058) panicked at crates/tickwire-config/tests/parameter_values.rs:29:41:
+called `Result::unwrap()` on an `Err` value: Semantic("parameter document validation unavailable")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    returns_canonical_values_without_rewriting_factory_bytes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-config --test parameter_values`

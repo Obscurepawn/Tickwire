@@ -1,0 +1,11 @@
+   Compiling tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+   Compiling tickwire-config v0.1.0 (/home/obscure/Tickwire/crates/tickwire-config)
+   Compiling tickwire-runtime v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-runtime-policy v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime-policy)
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+   Compiling tickwire-strategy-example v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-example)
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+   Compiling tickwire-lab v0.1.0 (/home/obscure/Tickwire/crates/tickwire-lab)
+    Finished `release` profile [optimized] target(s) in 2m 13s

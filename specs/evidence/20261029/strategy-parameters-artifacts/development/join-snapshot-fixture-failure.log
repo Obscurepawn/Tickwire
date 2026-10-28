@@ -1,0 +1,19 @@
+   Compiling tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.62s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_market_source-4a8e4c819d02418e)
+
+running 1 test
+
+thread 'shm::pending_tests::welcome_issued_after_poll_time_waits_for_a_fresh_sample_before_validation' (1219674) panicked at crates/tickwire-market-source/src/shm/pending_tests/peer.rs:194:22:
+called `Result::unwrap()` on an `Err` value: Wire(Deadline)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test shm::pending_tests::welcome_issued_after_poll_time_waits_for_a_fresh_sample_before_validation ... FAILED
+
+failures:
+
+failures:
+    shm::pending_tests::welcome_issued_after_poll_time_waits_for_a_fresh_sample_before_validation
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 27 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-market-source --lib`

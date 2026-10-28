@@ -21,6 +21,7 @@ enum Phase {
     Connect,
     Hello,
     Welcome,
+    ValidateWelcome,
     Request,
     Joined,
     Bank,
@@ -49,6 +50,7 @@ struct State {
     pending: Option<PendingConnection>,
     connection: Option<Connection>,
     handshake: Option<ClientHandshake>,
+    welcome: Option<ReceivedFrame>,
     session: Option<Session>,
     request: Option<JoinBody>,
     join: Option<JoinBody>,
@@ -125,6 +127,7 @@ impl PendingJoin {
                     config.endpoint.policy(),
                     config.request_id,
                 )?),
+                welcome: None,
                 session: None,
                 request: None,
                 join: None,
@@ -212,6 +215,9 @@ impl State {
             match step {
                 Some(record) => report.records += usize::from(record),
                 None => {
+                    // WELCOME was received after this call's time sample. Yield so the
+                    // caller can sample again before validating the peer's new lease.
+                    report.runnable = self.phase == Phase::ValidateWelcome;
                     report.next_deadline_ns = self.expires;
                     return Ok(report);
                 }

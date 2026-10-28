@@ -354,6 +354,13 @@ impl ReadyProof {
         if !observation::same_process(&p.before, &after) {
             return Err(Error::Invalid);
         }
+        let configuration = observation::configuration::extract(
+            &reply.ready,
+            &objects,
+            after.process().identity(),
+            after.process().image_hash(),
+            p.started.domain(),
+        )?;
         let completed = clock.sample()?.monotonic;
         if completed.domain() != p.started.domain()
             || completed.nanos() < p.started.nanos()
@@ -377,6 +384,7 @@ impl ReadyProof {
             completed,
             subscription: sub,
             objects,
+            configuration,
         }))
     }
 }

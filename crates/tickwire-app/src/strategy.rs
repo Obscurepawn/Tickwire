@@ -11,6 +11,14 @@ use tickwire_runtime::{
 };
 use tickwire_venue::CanonicalCommand;
 pub trait AppStrategy: Strategy {
+    /// Historical parameter consumption by this exact instance at a real checkpoint.
+    fn projection_parameters(
+        &self,
+        _target: crate::observation::Target,
+    ) -> Option<&crate::hosted::parameters::ParametersProof> {
+        None
+    }
+
     /// Historical first-launch binding for the exact current instance. This
     /// does not replace a fresh observation or a complete config Applied receipt.
     fn projection_launch(
@@ -551,6 +559,17 @@ impl MultiStrategy {
     }
 }
 impl AppStrategy for MultiStrategy {
+    fn projection_parameters(
+        &self,
+        target: crate::observation::Target,
+    ) -> Option<&crate::hosted::parameters::ParametersProof> {
+        self.members
+            .iter()
+            .filter(|member| !member.retired)
+            .filter_map(|member| member.strategy.as_ref())
+            .find_map(|strategy| strategy.projection_parameters(target))
+    }
+
     fn projection_launch(
         &self,
         target: crate::observation::Target,

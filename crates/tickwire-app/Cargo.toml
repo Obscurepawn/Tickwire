@@ -26,6 +26,7 @@ tickwire-binance-quota = { path = "../tickwire-binance-quota" }
 tickwire-binance-session = { path = "../tickwire-binance-session" }
 tickwire-book = { path = "../tickwire-book" }
 tickwire-clock = { path = "../tickwire-clock" }
+tickwire-clock-sys = { path = "../tickwire-clock-sys" }
 tickwire-config = { path = "../tickwire-config" }
 tickwire-journal = { path = "../tickwire-journal" }
 tickwire-quota = { path = "../tickwire-quota" }

@@ -1,0 +1,51 @@
+   Compiling tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.49s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_market_source-4a8e4c819d02418e)
+
+running 30 tests
+test protocol::activation_tests::catchup_response_does_not_extend_the_session_lease ... ok
+test replica::tests::a_sequence_gap_cannot_revive_the_replica ... ok
+test replica::checkpoint_tests::checkpoint_accepts_snapshot_row_ordinals_at_bootstrap_sequence_zero ... ok
+test replica::tests::exact_trade_updates_view_without_replacing_depth ... ok
+test replica::checkpoint_tests::checkpoint_keeps_full_views_and_blocked_state ... ok
+test protocol::activation_tests::received_catchup_can_repeat_before_applied_activation ... ok
+test replica::tests::exact_coverage_and_original_receive_time_survive_outside_updates ... ok
+test replica::tests::failed_batch_keeps_both_sides_and_closes_visibility ... ok
+test shm::catchup_tests::retained_prefix_keeps_exact_record_payload_and_apply_time_with_atomic_bounds ... ok
+test retirement::tests::retirement_requests_and_receipts_bind_exact_subscription_and_evidence ... ok
+test shm::pending_tests::silent_peer_does_not_block_pending_join_and_cancel_is_terminal ... ok
+test protocol::activation_tests::activation_rejects_wrong_binding_or_completion_class ... ok
+test transition::tests::approval_rejects_changed_identity_membership_clock_or_old_resource ... ok
+test transition::tests::original_startup_header_may_omit_derived_digest_but_not_lie_about_it ... ok
+test transition::tests::commit_rejects_unapproved_changes_bad_hash_or_cut_before_actual_cursor ... ok
+test shm::pending_tests::cancel_after_cursor_registration_retains_owner_pending_gate ... ok
+test shm::pending_tests::compatibility_connect_drives_the_same_real_join_to_completion ... ok
+test shm::pending_tests::welcome_with_a_descriptor_is_rejected_before_deferred_validation ... FAILED
+test shm::pending_tests::welcome_issued_after_poll_time_waits_for_a_fresh_sample_before_validation ... ok
+test shm::pending_tests::real_join_preserves_baseline_catchup_and_budget_before_authenticated_activation ... ok
+test transition::tests::exact_approval_final_cut_and_receipt_bindings ... ok
+test shm::pending_tests::wrong_join_or_activation_watermark_never_yields_a_client ... ok
+test shm::pending_tests::invalid_clock_budget_deadline_and_eof_close_pending_resources ... ok
+test shm::pending_tests::transition::arming_preserves_old_stream_and_requires_the_actual_quiesce_before_commit ... ok
+test shm::pending_tests::deferred_welcome_preserves_deadlines_clock_budget_and_cancellation ... ok
+test shm::pending_tests::transition::repeated_arm_does_not_accept_a_wrong_clock_or_an_expired_receipt ... ok
+test shm::pending_tests::transition::expired_preparation_keeps_old_stream_but_unrelated_quiesce_is_terminal ... ok
+test shm::pending_tests::transition::quiesced_response_stays_pending_under_backpressure_and_deadline_closes_it ... ok
+test shm::pending_tests::transition::real_quiesce_successor_join_and_effective_release_keep_observations_ordered ... ok
+test transition::tests::unsupported_members_and_forged_receipt_fields_are_rejected_before_quiesce ... ok
+
+failures:
+
+---- shm::pending_tests::welcome_with_a_descriptor_is_rejected_before_deferred_validation stdout ----
+
+thread 'shm::pending_tests::welcome_with_a_descriptor_is_rejected_before_deferred_validation' (1221093) panicked at crates/tickwire-market-source/src/shm/pending_tests.rs:200:14:
+called `Result::unwrap()` on an `Err` value: FdCount { expected: 0, actual: 1 }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    shm::pending_tests::welcome_with_a_descriptor_is_rejected_before_deferred_validation
+
+test result: FAILED. 29 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+error: test failed, to rerun pass `-p tickwire-market-source --lib`

@@ -77,6 +77,139 @@ mod transition;
 use peer::Peer;
 
 #[test]
+fn welcome_issued_after_poll_time_waits_for_a_fresh_sample_before_validation() {
+    let mut peer = Peer::new();
+    let mut pending = peer.pending();
+    let before_receive = peer.now();
+    let after_receive = MonoTime::new(before_receive.domain(), before_receive.nanos() + 1);
+    pending.poll(before_receive, 64).unwrap();
+    peer.step_at(after_receive.nanos());
+    peer.step_at(after_receive.nanos());
+    assert_eq!(
+        peer.stage, 1,
+        "real peer queued WELCOME after client sampled now"
+    );
+
+    let report = pending.poll(before_receive, 64).unwrap();
+    assert_eq!(
+        report.work, 1,
+        "receive must yield even with remaining budget"
+    );
+    assert!(report.runnable && !report.ready);
+    assert!(pending.take_client().is_none());
+    assert!(
+        peer.connection
+            .as_mut()
+            .unwrap()
+            .try_recv()
+            .unwrap()
+            .is_none()
+    );
+
+    for _ in 0..128 {
+        let report = pending.poll(after_receive, 1).unwrap();
+        assert!(report.work <= 1 && report.records <= 1);
+        if report.ready {
+            let client = pending.take_client().unwrap();
+            assert_eq!(client.consumer.watermarks().applied, peer.owner.published());
+            assert_eq!(
+                client.session.deadline(),
+                after_receive.nanos() + peer.config.endpoint.lease_duration_ns
+            );
+            return;
+        }
+        peer.step_at(after_receive.nanos());
+    }
+    panic!("the freshly sampled authenticated handshake must reach a real active JOIN");
+}
+
+#[test]
+fn deferred_welcome_preserves_deadlines_clock_budget_and_cancellation() {
+    for case in 0..6 {
+        let mut peer = Peer::new();
+        if case == 1 {
+            peer.config.endpoint.lease_duration_ns = 1_000_000;
+        }
+        let mut pending = peer.pending();
+        let old = peer.now();
+        pending.poll(old, 64).unwrap();
+        peer.step_at(old.nanos() + 1);
+        peer.step_at(old.nanos() + 1);
+        assert!(pending.poll(old, 64).unwrap().runnable);
+        assert!(pending.take_client().is_none());
+        let result = match case {
+            0 => pending.poll(MonoTime::new(old.domain(), old.nanos() + 500_000_000), 64),
+            1 => pending.poll(MonoTime::new(old.domain(), old.nanos() + 1_000_001), 64),
+            2 => pending.poll(MonoTime::new(old.domain(), old.nanos() - 1), 64),
+            3 => pending.poll(MonoTime::new(old.domain(), old.nanos() + 1), 0),
+            4 => {
+                pending.cancel();
+                pending.poll(MonoTime::new(old.domain(), old.nanos() + 1), 64)
+            }
+            _ => pending.poll(old, 64),
+        };
+        assert!(match (case, result) {
+            (0, Err(Error::Deadline))
+            | (1, Err(Error::Control(tickwire_control::Error::Expired)))
+            | (2, Err(Error::Stale))
+            | (3, Err(Error::Bounds))
+            | (4, Err(Error::NotReady))
+            | (5, Err(Error::Control(tickwire_control::Error::Expired))) => true,
+            other => panic!("unexpected deferred WELCOME rejection: {other:?}"),
+        });
+        assert!(pending.take_client().is_none());
+        assert!(matches!(pending.poll(old, 1), Err(Error::NotReady)));
+        assert!(matches!(
+            peer.connection.as_mut().unwrap().try_recv(),
+            Err(tickwire_control_sys::Error::Closed)
+        ));
+        assert_eq!(
+            peer.stage, 1,
+            "no JOIN request escaped the failed handshake"
+        );
+    }
+}
+
+#[test]
+fn descriptor_offer_instead_of_welcome_is_rejected_before_deferred_validation() {
+    let mut peer = Peer::new();
+    let mut pending = peer.pending();
+    let now = peer.now();
+    pending.poll(now, 64).unwrap();
+    peer.step();
+    let connection = peer.connection.as_mut().unwrap();
+    let hello = connection.try_recv().unwrap().unwrap();
+    let mut policy = peer.config.endpoint.policy();
+    std::mem::swap(&mut policy.local, &mut policy.peer);
+    let actual = connection.peer_credentials();
+    let (session, _) = Session::accept(
+        &policy,
+        ProcessIdentity {
+            pid: actual.pid,
+            uid: actual.uid,
+            gid: actual.gid,
+        },
+        hello.bytes(),
+        now.nanos(),
+    )
+    .unwrap();
+    let offer = resource_offer(
+        &session,
+        &ResourceHeader::decode(&peer.config.bank_header).unwrap(),
+        [73; 16],
+        session.deadline(),
+        1,
+        false,
+    )
+    .unwrap();
+    let descriptor = File::open("/dev/null").unwrap();
+    assert!(connection.try_send(&offer, &[descriptor.as_fd()]).unwrap());
+    assert!(matches!(pending.poll(now, 64), Err(Error::Identity)));
+    assert!(pending.take_client().is_none());
+    assert!(matches!(pending.poll(now, 64), Err(Error::NotReady)));
+}
+
+#[test]
 fn real_join_preserves_baseline_catchup_and_budget_before_authenticated_activation() {
     let mut peer = Peer::new();
     peer.force_catchup = true;

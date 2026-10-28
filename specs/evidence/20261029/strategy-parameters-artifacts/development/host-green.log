@@ -1,0 +1,64 @@
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.76s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_host-e2d415c0552b5641)
+
+running 38 tests
+test capture::protocol::tests::installed_and_rollback_replies_preserve_original_challenge_and_kind ... ok
+test capture::protocol::tests::capture_reply_binds_every_authenticated_fact_and_bounds ... ok
+test observation::prefix::tests::ongoing_reports_preserve_the_exact_earlier_host_prefix ... ok
+test readiness::cache::tests::actual_ready_closure_is_loaded_once_per_body_and_context ... ignored, requires actual fourth-round objects via TICKWIRE_READY_FIXTURE
+test readiness::capture::tests::actual_two_ready_bodies_load_only_the_challenge_bound_final_closure ... ignored, uses retained fifth-round capture via TICKWIRE_CAPTURE_FIXTURE and TICKWIRE_CAPTURE_LOG
+test observation::prefix::tests::duplicate_is_idempotent_but_gap_substitution_and_capacity_fail ... ok
+test readiness::capture::tests::announcements_never_publish_authority_and_final_failure_stays_unpublished ... ok
+test readiness::cache::tests::closure_capacity_rejects_empty_and_too_many_objects ... ok
+test readiness::capture::tests::every_announcement_and_final_reply_preserve_all_monotone_watermarks ... ok
+test readiness::fresh::tests::announcement_cannot_regress_market_account_or_ledger_watermarks ... ok
+test readiness::fresh::tests::cancelled_sent_query_keeps_lane_until_reply_or_original_deadline ... ok
+test readiness::fresh::tests::late_response_never_answers_a_different_query_and_mutations_do_not_drain ... ok
+test readiness::fresh::tests::challenge_binds_the_real_kernel_incarnation_as_well_as_request_and_session ... ok
+test readiness::fresh::tests::queued_query_reply_remains_valid_after_a_newer_periodic_announcement ... ok
+test observation::configuration::tests::present_merged_anchor_without_completed_cut_is_not_legacy ... ok
+test rebuild::finish::tests::probe_attempt_is_nonzero_and_binds_revision_member_and_installation ... ok
+test observation::configuration::tests::complete_current_cut_exposes_exact_private_configuration ... ok
+test observation::configuration::tests::only_absent_merged_history_is_legacy_not_unknown_or_partial_merged_records ... ok
+test observation::configuration::tests::current_business_state_must_equal_the_ready_checkpoint ... ok
+test observation::configuration::tests::actual_config_callback_current_cut_wins_over_the_startup_anchor ... ok
+test observation::configuration::tests::live_image_and_query_clock_must_match_the_approved_identity ... ok
+test observation::configuration::tests::named_roots_are_required_and_unrelated_or_duplicate_objects_do_not_change_the_cut ... ok
+test observation::configuration::tests::rehashed_valid_cuts_cannot_switch_live_process_identity_image_or_clock ... ok
+test retirement_tests::retirement_requires_an_actual_owned_child_exit ... ok
+test resources::tests::resource_plans_are_strict_complete_and_bounded ... ok
+test readiness::fresh::tests::capacity_and_single_use_ids_never_evict_unanswered_challenges ... ok
+test preflight::persistence_tests::failed_object_sync_requires_a_real_file_sync_again_before_directory_sync ... ok
+test resources::tests::rollback_resource_failure_never_executes_the_target ... ok
+test resources::tests::source_replay_resource_failure_never_executes_the_target ... ok
+test resources::tests::worker_resource_failure_never_executes_the_target ... ok
+test resources::tests::legacy_launch_still_executes_the_same_elf ... ok
+test readiness::install::tests::saved_install_request_cannot_be_rebound_to_a_new_cut_on_retry ... ok
+test market_transition::tests::rejected_operation_cannot_later_become_armed ... ok
+test rebuild_probe::tests::probe_completion_requires_real_owned_successful_exit ... ok
+test market_transition::tests::receipt_requires_actual_owned_pid_and_monotonic_phase ... ok
+test market_transition::tests::activated_requires_the_approved_final_descriptor_and_prior_cut ... ok
+test resources::tests::only_the_selected_purpose_is_acquired_after_whole_plan_validation ... ok
+test preflight::persistence_tests::probe_dependency_reader_uses_recovery_object_budget_and_checks_digest ... ok
+
+test result: ok. 36 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.51s
+
+     Running tests/capture_process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/capture_process-2fae9521ca49ef61)
+
+running 6 tests
+test capture_rejects_missing_durable_bootstrap_or_request ... ignored, requires TICKWIRE_CAPTURE_WORKER; independently verifies durable input roots
+test rebuild::fresh::actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running ... ignored, requires frozen release TICKWIRE_CAPTURE_WORKER; actual fresh mode-2 responses
+test rebuild::fresh::query_timeout_and_missing_resources_do_not_retire_the_live_worker ... ignored, requires frozen release TICKWIRE_CAPTURE_WORKER; real SIGSTOP/timeout/recovery
+test rebuild::fresh::slow_report_control_reader_does_not_stop_account_or_market_callbacks ... ignored, requires frozen release TICKWIRE_CAPTURE_WORKER; actual slow report-control reader
+test rebuild::registered_child_rebuilds_and_continues_real_inputs ... ignored, requires freshly built release TICKWIRE_CAPTURE_WORKER; same-PID actual installation
+test registered_capture_process_seals_without_factory_and_closes_failures ... ignored, build tickwire-counting-worker, set TICKWIRE_CAPTURE_WORKER, then run --ignored --nocapture
+
+test result: ok. 0 passed; 0 failed; 6 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests tickwire_strategy_host
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

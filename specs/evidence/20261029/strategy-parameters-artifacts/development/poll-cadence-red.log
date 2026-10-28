@@ -1,0 +1,21 @@
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.87s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-eeb871654cf42dc7)
+
+running 1 test
+
+thread 'hosted::profile::tests::parameters::waiting_for_account_baseline_is_rate_limited_without_extending_the_deadline' (1214715) panicked at crates/tickwire-app/src/hosted/profile/tests/parameters.rs:113:5:
+assertion `left == right` failed: not-ready must not reenter cold process observation on every market poll
+  left: 3
+ right: 1
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test hosted::profile::tests::parameters::waiting_for_account_baseline_is_rate_limited_without_extending_the_deadline ... FAILED
+
+failures:
+
+failures:
+    hosted::profile::tests::parameters::waiting_for_account_baseline_is_rate_limited_without_extending_the_deadline
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 121 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

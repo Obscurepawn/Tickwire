@@ -1,6 +1,6 @@
 use super::*;
 impl State {
-    /// Some(true) consumed one ring record, Some(false) advanced protocol, None would block.
+    /// Some(true) consumed a record, Some(false) advanced protocol; None blocks or yields.
     pub(super) fn advance(&mut self, now: u64) -> Result<Option<bool>> {
         match self.phase {
             Phase::Connect => {
@@ -29,6 +29,12 @@ impl State {
                 if !packet.fds().is_empty() {
                     return Err(Error::Identity);
                 }
+                self.welcome = Some(packet);
+                self.phase = Phase::ValidateWelcome;
+                return Ok(None);
+            }
+            Phase::ValidateWelcome => {
+                let packet = self.welcome.take().unwrap();
                 let peer = self.connection.as_ref().unwrap().peer_credentials();
                 let session = self.handshake.take().unwrap().finish(
                     ProcessIdentity {

@@ -518,3 +518,6 @@ fn namespace_cannot_be_zero_even_with_a_consistent_projection() {
     }
     f.rejected();
 }
+
+#[path = "tests/parameters.rs"]
+mod parameters;

@@ -1,0 +1,19 @@
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.84s
+     Running tests/parameters_process.rs (/tmp/tickwire-progress-20261028/target/debug/deps/parameters_process-8d745cf4cdb43f4e)
+
+running 1 test
+
+thread 'projected_parameters_reach_real_registered_consumer' (1204346) panicked at crates/tickwire-app/tests/parameters_process.rs:56:31:
+matching parameters must reach the actual worker: Custom { kind: InvalidInput, error: "parameter consumption is not implemented" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test projected_parameters_reach_real_registered_consumer ... FAILED
+
+failures:
+
+failures:
+    projected_parameters_reach_real_registered_consumer
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.42s
+
+error: test failed, to rerun pass `-p tickwire-app --test parameters_process`

@@ -24,6 +24,8 @@
 
 `tickwire-market-source::PendingJoin::new(config, now)` 沿用 `Client::connect` 的可信 qualified MD writer 安全契约，固定批准 bank/catalog/instrument 集合、OS peer 身份、时钟域与总启动期限。`poll(now, budget)` 分步完成建连、HELLO/WELCOME、JOIN 响应、bank/snapshot offers、cursor offer、两个 READ_READY、追平与 JOIN_READY/STATUS；每次最多执行 min(budget,64) 个协议步骤或行情记录，预算为零拒绝。它仅使用非阻塞 connect/send/recv，不等待、不 sleep；EINTR 作为本次未推进返回，保留原状态与待发整包。
 
+WELCOME 的接收与校验分属两次 poll：接收时先拒绝附带 FD，保存唯一有界响应并立即返回，由调用方在收到响应之后重新采样同一时钟域，再用下一次 `now` 校验握手。待校验响应使 `runnable=true`，但不产生 Session、JOIN 请求或 Client。服务器可能在本次 poll 采样之后才创建租约，不能用早于接收的时间误判其租期过长；也不能通过延长 TTL 或放宽 `deadline-now <= lease_duration` 规则掩盖该时序。跨 poll 仍检查原启动期限、时间倒退和完整身份；等待期间到期即关闭，取消丢弃缓存。
+
 `JoinProgress` 返回实际 work/records、是否仍可推进、ready 与下一期限。私有 pending 状态不提供可运行 Client；只有认证 Active STATUS 绑定完整 JOIN 且实际 applied 不小于其 published 水位，才可通过 `take_client()` 取出一次完成态。CatchUp STATUS 目标不可倒退，追到目标后重发 JOIN_READY；等待响应时继续按预算追平。每条 catchup 输入先保留完整 record/payload 和本次 now，再应用副本、推进 cursor；累计最多 bank.capacity 条、64 MiB。发送受背压时保留原编码与 FD，成功后才推进阶段。
 
 所有 poll 校验同一时钟域、时间不倒退、总启动期限及会话租约。错误、显式 cancel 或 Drop 关闭本地资源并停止接入，不能返回半完成 Client，也不产生 DETACH/QUIESCED 证明；owner 已安装的 pending gate 继续按原故障规则保留。`Client::connect` 保持原签名，作为兼容阻塞入口驱动同一状态机，只有该 wrapper 可 sleep，并保留绝对 Instant 截止点。

@@ -22,7 +22,7 @@ SDK 的当前程序核验直接打开 `/proc/self/exe`，按既有预算读取�
 
 App 的 `HostConfig.resources` 可显式给出 worker、source_replay、rollback 三个用途的完整资源组。每组固定绝对 cgroup 路径、CPU 集合、NUMA 节点和内存上限；三个路径互异。整份计划先做纯值校验，每次启动再对所用组取得 lease、检查真实内核配置和空成员。未设置时保留原启动模式，设置后所有相关启动、轮换、采集、安装与独立探针都沿对应限制启动，任何资源错误都终止本次启动。声明重建沿同一 PID 保留 worker 组。资源组由部署方预先配置，启动器只核验和使用这些组。
 
-该入口落实已批准启动配置中的资源约束，完整全局投影的 OS 身份映射、角色配置消费者与应用回执仍待接入。
+该入口落实已批准启动配置中的资源约束。策略首次启动已通过下述 `projection_launch` 接入 OS 身份映射与资源字段核对；其余角色配置消费者和完整全局应用回执仍待接入。
 
 ## 预配置进程资源
 
@@ -75,3 +75,5 @@ worker 资源组必填，CPU 集合、NUMA 和内存上限必须与投影逐项�
 回归覆盖完整合法投影的启动字段解析、每类绑定冲突、未知/重复 OS 名称、非法当前身份、缺失资源、受限模式拒绝和旧配置字节兼容。真实 Linux 启动覆盖资源拒绝时不执行目标和不回退；完整成功路径的资源证明仍要求实际委派 cgroup，未执行时单独标明，不能把纯值通过当作内核约束通过。本阶段不更新历史 TLA/TLC 证据。
 
 本地 `HostedStrategy` 保留 lazy 启动：`prepare_start(now)` 顺序执行原错误门禁、维护和行情已 Live 后的启动，错误按原规则锁存，返回当前是否已经启动；它不读取或交付 intent。返回 false 时调用方通过 `failed()` 区分等待与失败。冷 `observe_resources` 只观察已启动的真实 Child，尚未启动返回 NotReady。App 在首次 intent 交付前先完成启动与资源证明；证明失败由 owner 终止该 Child 并保持失败状态，成功后才继续原策略轮询。
+
+`HostConfig.projection_parameters` 已接入同一普通 registered 启动路径，使用[策略参数消费门禁](strategy-parameter-consumption.md)核对批准参数与真实新鲜检查点的当前配置。与 `projection_launch` 同时启用时，两者的完整 ObjectBinding 和范围须一致，分别完成资源与参数核对后才交付首条 intent。`LaunchBindingProof` 与 `ParametersProof` 各自保留首次核验事实，完整全局 Applied 及 effective 双收据仍待其余字段消费者接通。

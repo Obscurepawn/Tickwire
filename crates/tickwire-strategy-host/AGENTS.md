@@ -99,3 +99,7 @@ Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependenci
 慢接收真实进程用例在控制 socket 背压下仍消费 176 条账户记录，核对旧排队查询的完整闭包与实际业务计数；长流末端新查询触及既有 typed 16 MiB 上限时明确拒绝，保留 worker 存活并完成真实 MD/report 退休，不把容量拒绝计作 Fresh 成功。
 
 `HostedStrategy::prepare_start(now)` 复用原 `next` 的错误检查、维护与 lazy 启动顺序，返回是否已启动，不读取 intent；false 通过 `failed()` 区分等待与失败。`next` 也调用此接口，行情尚未 Live 时不提前启动。App 可在启动后、首次交付 intent 前调用冷 `observe_resources` 完成投影启动字段核验；未启动返回 NotReady。该顺序见 [supervisor-process.md](../../specs/implementation/supervisor-process.md)，新接口不生成 Applied 或改变原启动条件。
+
+`FreshObservation::configuration()` 返回字段私有的 `ObservedConfiguration`，提供当前 merged checkpoint 的 source/cut/对象根以及实际私有配置 revision、原始 bytes 和对象根。它仅在显式冷查询完成时从已验证 READY 命名的输入封口提取，核对当前业务状态与 READY checkpoint、真实进程实例/镜像、批准 Identity.host_boot 与本次查询逻辑时钟域；内核 boot UUID 独立通过前后采样和挑战绑定，不与逻辑域 ID 强制相等；不读取任意配置文件，不执行工厂或回放回调。只有完全没有 merged 行的旧闭包返回 None，存在 merged 但缺完成标记、破损或身份不符时失败。合法 ConfigApply 后返回当前配置，不能沿用启动 anchor。参数事实不包含全局投影或参数格式定义的授权声明；App 负责与批准输入核对，见 [strategy-parameter-consumption.md](../../specs/implementation/strategy-parameter-consumption.md)。`observation/configuration` 单元测试使用真实检查点/输入链编码及 SDK 配置回调执行器；显式独立 worker 的 fresh 查询用例逐项核对输出根与原始配置。
+
+`RemoteHostedStrategy::reject_configuration()` 沿既有 fail-closed 路径关闭策略、尝试终止受管 Child 并锁存错误，供启动参数证明拒绝后的清理使用；重复调用保留原错误，不将此异常清理当作正常退休证明。

@@ -131,6 +131,40 @@ impl ParametersValidated {
         &self.bindings
     }
 }
+/// Strictly validate a private parameter document against its pinned schema.
+/// The returned canonical values neither rewrite the factory input nor grant authority.
+pub fn validate_parameter_document(
+    schema_bytes: &[u8],
+    expected_schema_hash: Hash,
+    parameter_bytes: &[u8],
+) -> Result<Candidate> {
+    if schema_bytes.len() > 1024 * 1024 || parameter_bytes.len() > 2 * 1024 * 1024 {
+        return Err(Error::Capacity);
+    }
+    if <Hash>::from(Sha256::digest(schema_bytes)) != expected_schema_hash {
+        return Err(Error::Semantic("parameter schema digest"));
+    }
+    let parameters = Candidate::parse(
+        Format::Json,
+        parameter_bytes,
+        Limits {
+            max_bytes: 2 * 1024 * 1024,
+            max_depth: 16,
+        },
+    )?;
+    let properties = parameters.value().as_object().ok_or(Error::Schema)?;
+    if properties.is_empty() {
+        return Err(Error::Schema);
+    }
+    if properties.len() > 256 {
+        return Err(Error::Capacity);
+    }
+    if !parameter_validator(schema_bytes)?.is_valid(parameters.value()) {
+        return Err(Error::Semantic("strategy parameters"));
+    }
+    Ok(parameters)
+}
+
 pub fn validate_parameters(
     candidate: &Candidate,
     catalog: &ArtifactCatalog,
@@ -150,26 +184,7 @@ pub fn validate_parameters(
             .get(reference)
             .ok_or(Error::Semantic("missing parameter schema"))?;
         if !validators.contains_key(reference) {
-            let schema = Candidate::parse(
-                Format::Json,
-                bytes,
-                Limits {
-                    max_bytes: 1024 * 1024,
-                    max_depth: 32,
-                },
-            )?;
-            local_references(schema.value())?;
-            let validator = jsonschema::options()
-                .with_draft(jsonschema::Draft::Draft202012)
-                .should_validate_formats(true)
-                .with_pattern_options(
-                    jsonschema::PatternOptions::regex()
-                        .size_limit(1024 * 1024)
-                        .dfa_size_limit(1024 * 1024),
-                )
-                .offline()
-                .build(schema.value())
-                .map_err(|_| Error::Schema)?;
+            let validator = parameter_validator(bytes)?;
             validators.insert(reference.to_owned(), validator);
         }
         if !validators
@@ -192,6 +207,29 @@ pub fn validate_parameters(
         candidate_hash: candidate.hash(),
         bindings,
     })
+}
+
+fn parameter_validator(bytes: &[u8]) -> Result<jsonschema::Validator> {
+    let schema = Candidate::parse(
+        Format::Json,
+        bytes,
+        Limits {
+            max_bytes: 1024 * 1024,
+            max_depth: 32,
+        },
+    )?;
+    local_references(schema.value())?;
+    jsonschema::options()
+        .with_draft(jsonschema::Draft::Draft202012)
+        .should_validate_formats(true)
+        .with_pattern_options(
+            jsonschema::PatternOptions::regex()
+                .size_limit(1024 * 1024)
+                .dfa_size_limit(1024 * 1024),
+        )
+        .offline()
+        .build(schema.value())
+        .map_err(|_| Error::Schema)
 }
 
 /// Parse a bounded content-addressed reference without retrieving its object.

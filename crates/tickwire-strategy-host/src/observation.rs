@@ -3,6 +3,8 @@ use super::*;
 use tickwire_clock::MonoTime;
 use tickwire_ipc::HandoverReadyBody;
 use tickwire_supervisor::{LiveChildObservation, LiveResourceObservation};
+pub(crate) mod configuration;
+pub use configuration::ObservedConfiguration;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObservationRequest {
@@ -42,6 +44,7 @@ pub struct FreshObservation {
     pub(crate) completed: MonoTime,
     pub(crate) subscription: tickwire_shm::SubscriptionKey,
     pub(crate) objects: Vec<Vec<u8>>,
+    pub(crate) configuration: Option<ObservedConfiguration>,
 }
 impl FreshObservation {
     pub fn request(&self) -> &ObservationRequest {
@@ -88,6 +91,9 @@ impl FreshObservation {
     }
     pub fn objects(&self) -> &[Vec<u8>] {
         &self.objects
+    }
+    pub fn configuration(&self) -> Option<&ObservedConfiguration> {
+        self.configuration.as_ref()
     }
 }
 mod owner;

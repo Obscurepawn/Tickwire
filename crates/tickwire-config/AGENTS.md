@@ -19,7 +19,7 @@
 - `delivery`：`ProjectionLimits/ProjectionSet/ProjectionDelivery/DeliveryTarget/DeliveryKind`。
 - `changes`：`Class/Role/Authority/RoleGrant/Change/ChangeSet`（`between(old,new)`、`authorize_plan/authorize_commit`、`visible_changes`）。
 - `capacity`：`RetainedResources/HostInventory/HostCapacity/CapacityAssessment::check`。
-- `artifacts`：`ArtifactCatalog/Dependency/DependencyReport/ParameterBinding/ParametersValidated`，`validate_parameters`、`reference_hash`。
+- `artifacts`：`ArtifactCatalog/Dependency/DependencyReport/ParameterBinding/ParametersValidated`，`validate_parameters`、`validate_parameter_document(schema_bytes, expected_schema_hash, parameter_bytes) -> Candidate`、`reference_hash`。
 - `validation`：静态语义检查入口 `check(value) -> Resources`。
 
 ## 在 workspace 中的位置
@@ -54,6 +54,7 @@ cargo fmt -p tickwire-config
 - **计划内容不代替事实**：目标提示不裁剪新旧完整交付集合；未知目标、错配基线/候选、超应用上限拒绝。逐目标按两侧依赖计算，投影未变仍可能有静默或换代动作。每目标保留待验 RuntimeCapability/RuntimeIdentity，真实 SafeReadIndex、资格、effective 和授权属于服务端；不得增加纯值 Ready 捷径。
 - **归档重读仍非授权**：EncodedPlan 拒绝未知或缺失字段、重复键、非规范字节、重复/乱序集合及未知编码版本；恢复完整语义还须重算核对。带域计划摘要与复制对象正文 SHA-256 不可混用；规则摘要是源码身份，不是进程构建证明。
 - **locator 链**：generation 十进制字符串 1..2^63-1、恰好加一、前驱摘要等于旧完整摘要、root 改变且 migration ID 不复用紧邻前次；首次前驱摘要为零；清单摘要始终非零（`locator.rs::validate_successor`、`config-locator.md`）。
+- 私有参数文档入口只验证纯值：原始 schema SHA-256 精确匹配，schema ≤1 MiB/32 层；参数为 ≤2 MiB/16 层、1..256 个顶层属性的严格 JSON 对象，沿用安全整数、重复键/浮点/尾随拒绝与离线 Draft202012/正则预算。返回 Candidate 仅用于值比较，不重写工厂原始 bytes；对应 [../../specs/implementation/strategy-parameter-consumption.md](../../specs/implementation/strategy-parameter-consumption.md)，回归在 `tests/parameter_values.rs`。
 - 本 crate `#![forbid(unsafe_code)]`，不读文件、不访问网络、不把校验通过变成部署授权。
 
 ## 改动检查清单

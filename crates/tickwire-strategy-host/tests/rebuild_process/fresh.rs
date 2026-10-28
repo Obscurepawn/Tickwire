@@ -194,6 +194,35 @@ fn counts(observation: &FreshObservation) -> serde_json::Value {
         tickwire_recovery::HandoverSeal::decode(object(observation.ready().input_seal_digest))
             .unwrap();
     let retained = tickwire_release::replay::retained::decode(object(seal.input_digest)).unwrap();
+    let configuration = observation
+        .configuration()
+        .expect("current merged configuration");
+    assert_eq!(
+        configuration.revision(),
+        retained.current().runtime.config.revision
+    );
+    assert_eq!(
+        configuration.bytes(),
+        retained.current().runtime.config.bytes
+    );
+    assert_eq!(
+        configuration.object(),
+        Object::of(&retained.current().runtime.config.bytes)
+    );
+    assert_eq!(
+        configuration.checkpoint(),
+        Object::of(&retained.current().bytes().unwrap())
+    );
+    assert_eq!(configuration.cut(), &retained.current().cut);
+    assert_eq!(configuration.source(), &retained.current().source);
+    assert_eq!(
+        configuration.source().binary_digest,
+        observation.process().image_hash()
+    );
+    assert_eq!(
+        configuration.source().instance,
+        observation.process().identity().instance
+    );
     serde_json::from_slice(
         &tickwire_strategy_sdk::replay::application::business_bytes(&retained.current().business)
             .unwrap(),
