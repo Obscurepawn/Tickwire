@@ -35,13 +35,40 @@ impl ObservedConfiguration {
     }
 }
 
-pub(crate) fn extract(
+#[cfg(test)]
+fn extract(
     ready: &HandoverReadyBody,
     objects: &[Vec<u8>],
     identity: &Identity,
     image: [u8; 32],
     domain: tickwire_clock::ClockDomain,
 ) -> Result<Option<ObservedConfiguration>> {
+    current(ready, objects, identity, image, domain)?
+        .map(|c| configuration(&c.checkpoint))
+        .transpose()
+}
+
+pub(crate) struct Current {
+    pub checkpoint: tickwire_release::replay::Checkpoint,
+    pub seal: tickwire_recovery::HandoverSeal,
+}
+pub(crate) fn configuration(
+    current: &tickwire_release::replay::Checkpoint,
+) -> Result<ObservedConfiguration> {
+    Ok(ObservedConfiguration {
+        source: current.source.clone(),
+        cut: current.cut.clone(),
+        checkpoint: Object::of(&current.bytes()?),
+        value: current.runtime.config.clone(),
+    })
+}
+pub(crate) fn current(
+    ready: &HandoverReadyBody,
+    objects: &[Vec<u8>],
+    identity: &Identity,
+    image: [u8; 32],
+    domain: tickwire_clock::ClockDomain,
+) -> Result<Option<Current>> {
     let seal = tickwire_recovery::HandoverSeal::decode(find(
         objects,
         Object {
@@ -103,15 +130,13 @@ pub(crate) fn extract(
     if raw.get(96..) != Some(business.as_slice()) {
         return Err(Error::Invalid);
     }
-    Ok(Some(ObservedConfiguration {
-        source: source.clone(),
-        cut: current.cut.clone(),
-        checkpoint: Object::of(&current.bytes()?),
-        value: current.runtime.config.clone(),
+    Ok(Some(Current {
+        checkpoint: current.clone(),
+        seal,
     }))
 }
 
-fn find(objects: &[Vec<u8>], object: Object) -> Result<&[u8]> {
+pub(super) fn find(objects: &[Vec<u8>], object: Object) -> Result<&[u8]> {
     object.validate(tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
     objects
         .iter()

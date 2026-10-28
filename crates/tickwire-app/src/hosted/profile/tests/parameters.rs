@@ -94,7 +94,7 @@ fn omitted_parameter_binding_keeps_legacy_startup_untouched() {
 #[test]
 fn waiting_for_account_baseline_is_rate_limited_without_extending_the_deadline() {
     struct Waiting(usize);
-    impl binding::Owner for Waiting {
+    impl crate::hosted::startup::Owner for Waiting {
         fn begin(
             &mut self,
             _: tickwire_strategy_host::ObservationRequest,
@@ -111,7 +111,10 @@ fn waiting_for_account_baseline_is_rate_limited_without_extending_the_deadline()
     }
     let mut f = configured();
     f.config.projection_parameters.as_mut().unwrap().timeout_ns = 50_000_000;
-    let mut progress = binding::Progress::new(binding::prepare(&f.config, &f.bootstrap).unwrap());
+    let mut progress = crate::hosted::startup::Progress::new(
+        binding::prepare(&f.config, &f.bootstrap).unwrap(),
+        None,
+    );
     let domain = tickwire_clock::ClockDomain::new(
         f.bootstrap.market.local.host_boot,
         f.bootstrap.clock_generation,
@@ -133,6 +136,10 @@ fn waiting_for_account_baseline_is_rate_limited_without_extending_the_deadline()
     });
     assert_eq!(allocations.count_total, 0);
     assert!(progress.poll_at(&mut owner, at(50_000_000)).is_err());
+    assert!(
+        progress.poll_at(&mut owner, at(10_000_002)).is_err(),
+        "an expired gate must stay closed even if a caller later supplies an earlier time"
+    );
     assert_eq!(
         owner.0, 2,
         "deadline cannot be renewed by repeated not-ready results"

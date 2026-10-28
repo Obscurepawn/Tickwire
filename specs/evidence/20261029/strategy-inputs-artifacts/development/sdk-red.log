@@ -1,0 +1,20 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.38s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_sdk-543f50dcd1759897)
+
+running 2 tests
+
+thread 'replay::application::observed::tests::current_views_expose_real_baseline_market_and_cursors_without_strategy' (1253500) panicked at crates/tickwire-strategy-sdk/src/replay/application/observed/tests.rs:39:25:
+called `Result::unwrap()` on an `Err` value: Unsupported
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test replay::application::observed::tests::current_views_expose_real_baseline_market_and_cursors_without_strategy ... FAILED
+test replay::application::observed::tests::rehashed_current_views_reject_missing_extra_duplicate_and_cursor_mismatch ... ok
+
+failures:
+
+failures:
+    replay::application::observed::tests::current_views_expose_real_baseline_market_and_cursors_without_strategy
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 154 filtered out; finished in 0.04s
+
+error: test failed, to rerun pass `-p tickwire-strategy-sdk --lib`

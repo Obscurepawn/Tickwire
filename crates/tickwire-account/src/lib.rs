@@ -296,6 +296,10 @@ impl Account {
     pub fn order_keys(&self) -> impl Iterator<Item = &OrderKey> {
         self.orders.keys()
     }
+    /// Immutable account identity for input-owner and continuous scope checks.
+    pub fn scope(&self) -> &Scope {
+        &self.scope
+    }
     pub fn account_epoch(&self) -> u64 {
         self.epoch
     }

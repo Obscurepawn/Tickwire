@@ -1,0 +1,23 @@
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.81s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_sdk-543f50dcd1759897)
+
+running 15 tests
+test replay::application::observed::tests::current_views_expose_real_baseline_market_and_cursors_without_strategy ... ok
+test replay::application::observed::tests::nonzero_descriptor_digest_must_match_even_when_stream_is_rebound ... ok
+test replay::application::observed::tests::changed_current_producer_and_baseline_are_not_replaced_by_prior_values ... ok
+test replay::application::observed::tests::malformed_materialized_view_is_an_error_even_if_rehashed ... ok
+test replay::application::tests::actual_snapshot_ipc_record_and_account_callback_reconstruct_changed_business_state ... ok
+test replay::application::transition_tests::different_valid_depth_inputs_with_identical_final_books_do_not_prove_the_source_cut ... ok
+test replay::application::observed::tests::rehashed_current_views_reject_missing_extra_duplicate_and_cursor_mismatch ... ok
+test replay::application::transition_tests::invalid_transition_leaves_application_views_unchanged ... ok
+test replay::application::transition_tests::a_valid_snapshot_cannot_remove_or_reversion_an_existing_instrument ... ok
+test replay::application::transition_tests::transition_sync_failure_stops_callbacks_without_promoting_the_durable_cut ... ok
+test replay::application::transition_tests::transition_reconstructs_high_id_and_source_replay_without_catchup_callback ... ok
+test replay::application::transition_tests::continuation_finds_source_cut_after_a_transition_and_retains_only_later_records ... ok
+test replay::application::transition_tests::producer_frontier_keeps_exact_raw_provenance_for_identical_transition_books ... ok
+test replay::application::transition_tests::transition_lineage_requires_exact_raw_cursor_at_source_previous_and_end ... ok
+test replay::application::transition_tests::independent_join_proofs_at_the_same_producer_frontier_share_the_cut ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 144 filtered out; finished in 0.26s
+

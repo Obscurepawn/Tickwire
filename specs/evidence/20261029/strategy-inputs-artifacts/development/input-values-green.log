@@ -1,0 +1,20 @@
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.56s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-cb91b81f64ab0f29)
+
+running 12 tests
+test hosted::inputs::tests::absent_constraint_has_no_file_dependency ... ok
+test hosted::inputs::tests::strict_config_rejects_unknown_and_duplicate_mapping_fields ... ok
+test hosted::inputs::tests::changed_account_in_same_risk_domain_is_rejected_before_launch ... ok
+test hosted::inputs::tests::guard_rejects_same_epoch_different_scope_and_never_rehashes_baseline ... ok
+test hosted::inputs::tests::full_u64_member_identity_is_preserved ... ok
+test hosted::inputs::tests::zero_bank_template_is_normalized_without_accepting_wrong_nonzero_hash ... ok
+test hosted::inputs::tests::product_and_environment_come_from_actual_runtime_not_names ... ok
+test hosted::inputs::tests::unsupported_modes_and_cross_projection_bindings_are_rejected ... ok
+test hosted::inputs::tests::authenticated_report_and_md_owners_are_exact ... ok
+test hosted::inputs::tests::complete_single_input_sets_are_required ... ok
+test hosted::inputs::tests::market_members_bank_and_catalog_are_complete ... ok
+test hosted::inputs::tests::scope_baseline_journal_and_command_must_all_agree ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.55s
+

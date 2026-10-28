@@ -66,6 +66,13 @@ impl<B: BlobStore> ReportWriter<B> {
     pub fn publisher(&mut self) -> &mut Publisher<1> {
         &mut self.publisher
     }
+    /// Actual attached report bank, not a caller-provided bootstrap template.
+    pub fn header(&self) -> &ResourceHeader {
+        self.publisher.header()
+    }
+    pub fn identity(&self) -> &ReportIdentity {
+        &self.identity
+    }
     /// Synchronize control artifacts in the same immutable object namespace the
     /// authenticated child reads. This never publishes a report or advances its cursor.
     pub fn put_object(&mut self, bytes: &[u8]) -> Result<[u8; 32]> {

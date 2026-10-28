@@ -1,0 +1,43 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-account-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-account-journal)
+   Compiling tickwire-handover v0.1.0 (/home/obscure/Tickwire/crates/tickwire-handover)
+   Compiling tickwire-release v0.1.0 (/home/obscure/Tickwire/crates/tickwire-release)
+   Compiling tickwire-account-gateway v0.1.0 (/home/obscure/Tickwire/crates/tickwire-account-gateway)
+   Compiling tickwire-binance-account v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-account)
+   Compiling tickwire-binance-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-quota)
+   Compiling tickwire-binance-execution v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-execution)
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+   Compiling tickwire-runtime v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-runtime-policy v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime-policy)
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+warning: field `seal` is never read
+  --> crates/tickwire-strategy-host/src/observation/configuration.rs:51:9
+   |
+49 | pub(crate) struct Current {
+   |                   ------- field in this struct
+50 |     pub checkpoint: tickwire_release::replay::Checkpoint,
+51 |     pub seal: tickwire_recovery::HandoverSeal,
+   |         ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-strategy-host` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 15.17s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_strategy_host-6d665f865987f782)
+
+running 1 test
+
+thread 'observation::inputs::tests::real_current_account_and_saved_join_are_exposed' (1265852) panicked at crates/tickwire-strategy-host/src/observation/inputs/tests.rs:40:36:
+current inputs
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test observation::inputs::tests::real_current_account_and_saved_join_are_exposed ... FAILED
+
+failures:
+
+failures:
+    observation::inputs::tests::real_current_account_and_saved_join_are_exposed
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 38 filtered out; finished in 0.05s
+
+error: test failed, to rerun pass `-p tickwire-strategy-host --lib`

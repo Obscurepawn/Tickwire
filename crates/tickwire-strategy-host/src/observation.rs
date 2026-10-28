@@ -5,6 +5,10 @@ use tickwire_ipc::HandoverReadyBody;
 use tickwire_supervisor::{LiveChildObservation, LiveResourceObservation};
 pub(crate) mod configuration;
 pub use configuration::ObservedConfiguration;
+pub(crate) mod inputs;
+pub use inputs::{
+    ObservedAccountInput, ObservedInputs, ObservedJoin, ObservedMarketInput, ObservedReportInput,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObservationRequest {
@@ -45,6 +49,7 @@ pub struct FreshObservation {
     pub(crate) subscription: tickwire_shm::SubscriptionKey,
     pub(crate) objects: Vec<Vec<u8>>,
     pub(crate) configuration: Option<ObservedConfiguration>,
+    pub(crate) inputs: Option<ObservedInputs>,
 }
 impl FreshObservation {
     pub fn request(&self) -> &ObservationRequest {
@@ -94,6 +99,9 @@ impl FreshObservation {
     }
     pub fn configuration(&self) -> Option<&ObservedConfiguration> {
         self.configuration.as_ref()
+    }
+    pub fn inputs(&self) -> Option<&ObservedInputs> {
+        self.inputs.as_ref()
     }
 }
 mod owner;

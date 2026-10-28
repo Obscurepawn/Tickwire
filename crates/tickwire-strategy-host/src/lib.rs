@@ -34,7 +34,10 @@ pub mod rebuild_probe;
 mod remote;
 mod resources;
 mod source_replay;
-pub use observation::{FreshObservation, ObservationRequest, ObservedConfiguration};
+pub use observation::{
+    FreshObservation, ObservationRequest, ObservedAccountInput, ObservedConfiguration,
+    ObservedInputs, ObservedJoin, ObservedMarketInput, ObservedReportInput,
+};
 pub use remote::{RemoteHostedStrategy, RemoteLaunch};
 pub use resources::{GroupResources, ProcessResources};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;

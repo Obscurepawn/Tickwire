@@ -1,0 +1,4077 @@
+{
+  "schema": 1,
+  "generated_utc": "2026-10-28T23:00:49.471068+00:00",
+  "baseline_commit": "ae61a62a7f764612b530de8f88a2d47bbaa6e6c8",
+  "source_binding": {
+    "manifest": "strategy-inputs-source-sha256.json",
+    "manifest_sha256": "539e04a680704589403424df39065b825d2cfbf9b72987aa0ee96e29218023ac"
+  },
+  "build": {
+    "binary_manifest": "strategy-inputs-artifacts/binaries.json"
+  },
+  "app_process": {
+    "log": "strategy-inputs-artifacts/app-process.log",
+    "metadata": "strategy-inputs-artifacts/app-process-meta.json",
+    "exit_code": 0,
+    "fixtures": [
+      {
+        "original_root": "/tmp/tpp-1308545-6",
+        "proof": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/inputs-proof.json",
+        "host_config": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/host-config.json",
+        "parameters": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/parameters.json",
+        "projection": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/projection.json",
+        "bootstrap": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/bootstrap.json",
+        "baseline": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/baseline.raw",
+        "market_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/market-bank.raw",
+        "report_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/report-bank.raw",
+        "checkpoint": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/current-checkpoint.raw",
+        "original_join": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/0f891d855dcdad518755df1684e0d4423dfe8da1d37f190b2d70fa69b4b1ac8c",
+        "objects": [
+          {
+            "object": {
+              "bytes": 165,
+              "digest": [
+                11,
+                178,
+                85,
+                234,
+                246,
+                217,
+                195,
+                59,
+                200,
+                100,
+                147,
+                32,
+                173,
+                27,
+                57,
+                14,
+                132,
+                55,
+                160,
+                230,
+                55,
+                151,
+                151,
+                97,
+                56,
+                234,
+                18,
+                210,
+                246,
+                180,
+                43,
+                12
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+          },
+          {
+            "object": {
+              "bytes": 30220,
+              "digest": [
+                15,
+                137,
+                29,
+                133,
+                93,
+                205,
+                173,
+                81,
+                135,
+                85,
+                223,
+                22,
+                132,
+                224,
+                212,
+                66,
+                61,
+                254,
+                141,
+                161,
+                211,
+                127,
+                25,
+                11,
+                45,
+                112,
+                250,
+                105,
+                180,
+                177,
+                172,
+                140
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/0f891d855dcdad518755df1684e0d4423dfe8da1d37f190b2d70fa69b4b1ac8c"
+          },
+          {
+            "object": {
+              "bytes": 205,
+              "digest": [
+                38,
+                226,
+                112,
+                29,
+                99,
+                219,
+                69,
+                155,
+                37,
+                252,
+                132,
+                138,
+                157,
+                57,
+                67,
+                118,
+                36,
+                131,
+                65,
+                187,
+                176,
+                165,
+                17,
+                198,
+                49,
+                15,
+                155,
+                60,
+                155,
+                192,
+                33,
+                243
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+          },
+          {
+            "object": {
+              "bytes": 2045,
+              "digest": [
+                48,
+                18,
+                43,
+                133,
+                0,
+                208,
+                21,
+                160,
+                3,
+                182,
+                12,
+                230,
+                151,
+                213,
+                52,
+                67,
+                113,
+                158,
+                186,
+                250,
+                43,
+                99,
+                185,
+                28,
+                171,
+                89,
+                232,
+                135,
+                240,
+                119,
+                166,
+                193
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/30122b8500d015a003b60ce697d53443719ebafa2b63b91cab59e887f077a6c1"
+          },
+          {
+            "object": {
+              "bytes": 98,
+              "digest": [
+                59,
+                194,
+                128,
+                205,
+                205,
+                148,
+                48,
+                168,
+                128,
+                104,
+                15,
+                153,
+                53,
+                41,
+                14,
+                189,
+                31,
+                73,
+                103,
+                194,
+                218,
+                141,
+                85,
+                116,
+                83,
+                88,
+                143,
+                237,
+                113,
+                161,
+                139,
+                201
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+          },
+          {
+            "object": {
+              "bytes": 173725,
+              "digest": [
+                70,
+                103,
+                116,
+                68,
+                148,
+                236,
+                183,
+                171,
+                204,
+                255,
+                35,
+                1,
+                170,
+                123,
+                147,
+                243,
+                70,
+                27,
+                236,
+                68,
+                70,
+                188,
+                45,
+                107,
+                211,
+                50,
+                194,
+                37,
+                190,
+                182,
+                249,
+                182
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+          },
+          {
+            "object": {
+              "bytes": 2,
+              "digest": [
+                79,
+                83,
+                205,
+                161,
+                140,
+                43,
+                170,
+                12,
+                3,
+                84,
+                187,
+                95,
+                154,
+                62,
+                203,
+                229,
+                237,
+                18,
+                171,
+                77,
+                142,
+                17,
+                186,
+                135,
+                60,
+                47,
+                17,
+                22,
+                18,
+                2,
+                185,
+                69
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "object": {
+              "bytes": 32145,
+              "digest": [
+                95,
+                25,
+                107,
+                11,
+                10,
+                38,
+                112,
+                247,
+                222,
+                208,
+                137,
+                94,
+                39,
+                104,
+                222,
+                224,
+                194,
+                12,
+                232,
+                95,
+                111,
+                206,
+                43,
+                102,
+                3,
+                48,
+                198,
+                156,
+                160,
+                166,
+                241,
+                185
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/5f196b0b0a2670f7ded0895e2768dee0c20ce85f6fce2b660330c69ca0a6f1b9"
+          },
+          {
+            "object": {
+              "bytes": 136473,
+              "digest": [
+                107,
+                205,
+                109,
+                169,
+                251,
+                182,
+                192,
+                103,
+                51,
+                236,
+                85,
+                190,
+                100,
+                25,
+                15,
+                216,
+                150,
+                76,
+                130,
+                197,
+                201,
+                181,
+                25,
+                90,
+                45,
+                99,
+                227,
+                232,
+                93,
+                134,
+                129,
+                223
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/6bcd6da9fbb6c06733ec55be64190fd8964c82c5c9b5195a2d63e3e85d8681df"
+          },
+          {
+            "object": {
+              "bytes": 4,
+              "digest": [
+                116,
+                35,
+                78,
+                152,
+                175,
+                231,
+                73,
+                143,
+                181,
+                218,
+                241,
+                243,
+                106,
+                194,
+                215,
+                138,
+                204,
+                51,
+                148,
+                100,
+                249,
+                80,
+                112,
+                59,
+                140,
+                1,
+                152,
+                146,
+                249,
+                130,
+                185,
+                11
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "object": {
+              "bytes": 267,
+              "digest": [
+                134,
+                193,
+                26,
+                79,
+                110,
+                129,
+                16,
+                177,
+                165,
+                129,
+                70,
+                33,
+                188,
+                111,
+                36,
+                111,
+                207,
+                50,
+                102,
+                162,
+                33,
+                51,
+                62,
+                114,
+                11,
+                153,
+                249,
+                7,
+                84,
+                132,
+                211,
+                43
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+          },
+          {
+            "object": {
+              "bytes": 62,
+              "digest": [
+                141,
+                11,
+                156,
+                193,
+                59,
+                47,
+                65,
+                6,
+                141,
+                187,
+                23,
+                134,
+                88,
+                87,
+                153,
+                190,
+                147,
+                11,
+                154,
+                105,
+                190,
+                29,
+                74,
+                24,
+                37,
+                149,
+                80,
+                245,
+                86,
+                178,
+                92,
+                28
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+          },
+          {
+            "object": {
+              "bytes": 286,
+              "digest": [
+                147,
+                166,
+                57,
+                169,
+                31,
+                108,
+                215,
+                129,
+                193,
+                140,
+                215,
+                210,
+                238,
+                37,
+                237,
+                223,
+                86,
+                3,
+                227,
+                26,
+                146,
+                187,
+                190,
+                115,
+                146,
+                50,
+                88,
+                41,
+                87,
+                45,
+                189,
+                126
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e"
+          }
+        ],
+        "descriptor": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/descriptor.json",
+        "command": "strategy-inputs-artifacts/fixtures/tpp-1308545-6/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1308545-1",
+        "proof": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/inputs-proof.json",
+        "host_config": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/host-config.json",
+        "parameters": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/parameters.json",
+        "projection": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/projection.json",
+        "bootstrap": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/bootstrap.json",
+        "baseline": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/baseline.raw",
+        "market_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/market-bank.raw",
+        "report_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/report-bank.raw",
+        "checkpoint": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/current-checkpoint.raw",
+        "original_join": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/9805a7c60d62cfd4c42b0c43a3cea836611084364bf0a8c4b8f03d708ac2ac10",
+        "objects": [
+          {
+            "object": {
+              "bytes": 165,
+              "digest": [
+                11,
+                178,
+                85,
+                234,
+                246,
+                217,
+                195,
+                59,
+                200,
+                100,
+                147,
+                32,
+                173,
+                27,
+                57,
+                14,
+                132,
+                55,
+                160,
+                230,
+                55,
+                151,
+                151,
+                97,
+                56,
+                234,
+                18,
+                210,
+                246,
+                180,
+                43,
+                12
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+          },
+          {
+            "object": {
+              "bytes": 205,
+              "digest": [
+                38,
+                226,
+                112,
+                29,
+                99,
+                219,
+                69,
+                155,
+                37,
+                252,
+                132,
+                138,
+                157,
+                57,
+                67,
+                118,
+                36,
+                131,
+                65,
+                187,
+                176,
+                165,
+                17,
+                198,
+                49,
+                15,
+                155,
+                60,
+                155,
+                192,
+                33,
+                243
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+          },
+          {
+            "object": {
+              "bytes": 2044,
+              "digest": [
+                46,
+                158,
+                224,
+                11,
+                106,
+                47,
+                192,
+                230,
+                39,
+                39,
+                177,
+                212,
+                99,
+                127,
+                110,
+                104,
+                8,
+                186,
+                100,
+                152,
+                170,
+                88,
+                228,
+                189,
+                168,
+                39,
+                150,
+                7,
+                218,
+                143,
+                222,
+                194
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/2e9ee00b6a2fc0e62727b1d4637f6e6808ba6498aa58e4bda8279607da8fdec2"
+          },
+          {
+            "object": {
+              "bytes": 98,
+              "digest": [
+                59,
+                194,
+                128,
+                205,
+                205,
+                148,
+                48,
+                168,
+                128,
+                104,
+                15,
+                153,
+                53,
+                41,
+                14,
+                189,
+                31,
+                73,
+                103,
+                194,
+                218,
+                141,
+                85,
+                116,
+                83,
+                88,
+                143,
+                237,
+                113,
+                161,
+                139,
+                201
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+          },
+          {
+            "object": {
+              "bytes": 173725,
+              "digest": [
+                70,
+                103,
+                116,
+                68,
+                148,
+                236,
+                183,
+                171,
+                204,
+                255,
+                35,
+                1,
+                170,
+                123,
+                147,
+                243,
+                70,
+                27,
+                236,
+                68,
+                70,
+                188,
+                45,
+                107,
+                211,
+                50,
+                194,
+                37,
+                190,
+                182,
+                249,
+                182
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+          },
+          {
+            "object": {
+              "bytes": 2,
+              "digest": [
+                79,
+                83,
+                205,
+                161,
+                140,
+                43,
+                170,
+                12,
+                3,
+                84,
+                187,
+                95,
+                154,
+                62,
+                203,
+                229,
+                237,
+                18,
+                171,
+                77,
+                142,
+                17,
+                186,
+                135,
+                60,
+                47,
+                17,
+                22,
+                18,
+                2,
+                185,
+                69
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "object": {
+              "bytes": 4,
+              "digest": [
+                116,
+                35,
+                78,
+                152,
+                175,
+                231,
+                73,
+                143,
+                181,
+                218,
+                241,
+                243,
+                106,
+                194,
+                215,
+                138,
+                204,
+                51,
+                148,
+                100,
+                249,
+                80,
+                112,
+                59,
+                140,
+                1,
+                152,
+                146,
+                249,
+                130,
+                185,
+                11
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "object": {
+              "bytes": 136461,
+              "digest": [
+                120,
+                109,
+                47,
+                158,
+                115,
+                46,
+                14,
+                55,
+                134,
+                53,
+                178,
+                225,
+                239,
+                248,
+                53,
+                211,
+                230,
+                167,
+                65,
+                150,
+                3,
+                131,
+                23,
+                197,
+                108,
+                216,
+                47,
+                159,
+                136,
+                238,
+                121,
+                172
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/786d2f9e732e0e378635b2e1eff835d3e6a74196038317c56cd82f9f88ee79ac"
+          },
+          {
+            "object": {
+              "bytes": 267,
+              "digest": [
+                134,
+                193,
+                26,
+                79,
+                110,
+                129,
+                16,
+                177,
+                165,
+                129,
+                70,
+                33,
+                188,
+                111,
+                36,
+                111,
+                207,
+                50,
+                102,
+                162,
+                33,
+                51,
+                62,
+                114,
+                11,
+                153,
+                249,
+                7,
+                84,
+                132,
+                211,
+                43
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+          },
+          {
+            "object": {
+              "bytes": 62,
+              "digest": [
+                141,
+                11,
+                156,
+                193,
+                59,
+                47,
+                65,
+                6,
+                141,
+                187,
+                23,
+                134,
+                88,
+                87,
+                153,
+                190,
+                147,
+                11,
+                154,
+                105,
+                190,
+                29,
+                74,
+                24,
+                37,
+                149,
+                80,
+                245,
+                86,
+                178,
+                92,
+                28
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+          },
+          {
+            "object": {
+              "bytes": 286,
+              "digest": [
+                147,
+                166,
+                57,
+                169,
+                31,
+                108,
+                215,
+                129,
+                193,
+                140,
+                215,
+                210,
+                238,
+                37,
+                237,
+                223,
+                86,
+                3,
+                227,
+                26,
+                146,
+                187,
+                190,
+                115,
+                146,
+                50,
+                88,
+                41,
+                87,
+                45,
+                189,
+                126
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e"
+          },
+          {
+            "object": {
+              "bytes": 30213,
+              "digest": [
+                152,
+                5,
+                167,
+                198,
+                13,
+                98,
+                207,
+                212,
+                196,
+                43,
+                12,
+                67,
+                163,
+                206,
+                168,
+                54,
+                97,
+                16,
+                132,
+                54,
+                75,
+                240,
+                168,
+                196,
+                184,
+                240,
+                61,
+                112,
+                138,
+                194,
+                172,
+                16
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/9805a7c60d62cfd4c42b0c43a3cea836611084364bf0a8c4b8f03d708ac2ac10"
+          },
+          {
+            "object": {
+              "bytes": 32145,
+              "digest": [
+                184,
+                134,
+                91,
+                241,
+                188,
+                150,
+                21,
+                202,
+                230,
+                79,
+                185,
+                29,
+                244,
+                223,
+                13,
+                117,
+                50,
+                198,
+                112,
+                206,
+                159,
+                43,
+                116,
+                139,
+                24,
+                214,
+                145,
+                105,
+                41,
+                91,
+                120,
+                138
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/b8865bf1bc9615cae64fb91df4df0d7532c670ce9f2b748b18d69169295b788a"
+          }
+        ],
+        "descriptor": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/descriptor.json",
+        "command": "strategy-inputs-artifacts/fixtures/tpp-1308545-1/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1308545-2",
+        "proof": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/inputs-proof.json",
+        "host_config": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/host-config.json",
+        "parameters": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/parameters.json",
+        "projection": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/projection.json",
+        "bootstrap": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/bootstrap.json",
+        "baseline": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/baseline.raw",
+        "market_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/market-bank.raw",
+        "report_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/report-bank.raw",
+        "checkpoint": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/current-checkpoint.raw",
+        "original_join": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/5496876d712f980a960dff1513e9c7aff032e69aa2381211b37c44b8f9c2eb11",
+        "objects": [
+          {
+            "object": {
+              "bytes": 165,
+              "digest": [
+                11,
+                178,
+                85,
+                234,
+                246,
+                217,
+                195,
+                59,
+                200,
+                100,
+                147,
+                32,
+                173,
+                27,
+                57,
+                14,
+                132,
+                55,
+                160,
+                230,
+                55,
+                151,
+                151,
+                97,
+                56,
+                234,
+                18,
+                210,
+                246,
+                180,
+                43,
+                12
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+          },
+          {
+            "object": {
+              "bytes": 205,
+              "digest": [
+                38,
+                226,
+                112,
+                29,
+                99,
+                219,
+                69,
+                155,
+                37,
+                252,
+                132,
+                138,
+                157,
+                57,
+                67,
+                118,
+                36,
+                131,
+                65,
+                187,
+                176,
+                165,
+                17,
+                198,
+                49,
+                15,
+                155,
+                60,
+                155,
+                192,
+                33,
+                243
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+          },
+          {
+            "object": {
+              "bytes": 98,
+              "digest": [
+                59,
+                194,
+                128,
+                205,
+                205,
+                148,
+                48,
+                168,
+                128,
+                104,
+                15,
+                153,
+                53,
+                41,
+                14,
+                189,
+                31,
+                73,
+                103,
+                194,
+                218,
+                141,
+                85,
+                116,
+                83,
+                88,
+                143,
+                237,
+                113,
+                161,
+                139,
+                201
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+          },
+          {
+            "object": {
+              "bytes": 173725,
+              "digest": [
+                70,
+                103,
+                116,
+                68,
+                148,
+                236,
+                183,
+                171,
+                204,
+                255,
+                35,
+                1,
+                170,
+                123,
+                147,
+                243,
+                70,
+                27,
+                236,
+                68,
+                70,
+                188,
+                45,
+                107,
+                211,
+                50,
+                194,
+                37,
+                190,
+                182,
+                249,
+                182
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+          },
+          {
+            "object": {
+              "bytes": 2,
+              "digest": [
+                79,
+                83,
+                205,
+                161,
+                140,
+                43,
+                170,
+                12,
+                3,
+                84,
+                187,
+                95,
+                154,
+                62,
+                203,
+                229,
+                237,
+                18,
+                171,
+                77,
+                142,
+                17,
+                186,
+                135,
+                60,
+                47,
+                17,
+                22,
+                18,
+                2,
+                185,
+                69
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "object": {
+              "bytes": 30202,
+              "digest": [
+                84,
+                150,
+                135,
+                109,
+                113,
+                47,
+                152,
+                10,
+                150,
+                13,
+                255,
+                21,
+                19,
+                233,
+                199,
+                175,
+                240,
+                50,
+                230,
+                154,
+                162,
+                56,
+                18,
+                17,
+                179,
+                124,
+                68,
+                184,
+                249,
+                194,
+                235,
+                17
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/5496876d712f980a960dff1513e9c7aff032e69aa2381211b37c44b8f9c2eb11"
+          },
+          {
+            "object": {
+              "bytes": 4,
+              "digest": [
+                116,
+                35,
+                78,
+                152,
+                175,
+                231,
+                73,
+                143,
+                181,
+                218,
+                241,
+                243,
+                106,
+                194,
+                215,
+                138,
+                204,
+                51,
+                148,
+                100,
+                249,
+                80,
+                112,
+                59,
+                140,
+                1,
+                152,
+                146,
+                249,
+                130,
+                185,
+                11
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "object": {
+              "bytes": 267,
+              "digest": [
+                134,
+                193,
+                26,
+                79,
+                110,
+                129,
+                16,
+                177,
+                165,
+                129,
+                70,
+                33,
+                188,
+                111,
+                36,
+                111,
+                207,
+                50,
+                102,
+                162,
+                33,
+                51,
+                62,
+                114,
+                11,
+                153,
+                249,
+                7,
+                84,
+                132,
+                211,
+                43
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+          },
+          {
+            "object": {
+              "bytes": 62,
+              "digest": [
+                141,
+                11,
+                156,
+                193,
+                59,
+                47,
+                65,
+                6,
+                141,
+                187,
+                23,
+                134,
+                88,
+                87,
+                153,
+                190,
+                147,
+                11,
+                154,
+                105,
+                190,
+                29,
+                74,
+                24,
+                37,
+                149,
+                80,
+                245,
+                86,
+                178,
+                92,
+                28
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+          },
+          {
+            "object": {
+              "bytes": 144527,
+              "digest": [
+                185,
+                41,
+                173,
+                223,
+                31,
+                181,
+                231,
+                34,
+                3,
+                89,
+                255,
+                203,
+                156,
+                39,
+                213,
+                210,
+                102,
+                10,
+                159,
+                70,
+                128,
+                209,
+                22,
+                73,
+                154,
+                179,
+                109,
+                104,
+                123,
+                169,
+                232,
+                216
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/b929addf1fb5e7220359ffcb9c27d5d2660a9f4680d116499ab36d687ba9e8d8"
+          },
+          {
+            "object": {
+              "bytes": 285,
+              "digest": [
+                206,
+                161,
+                116,
+                59,
+                248,
+                60,
+                166,
+                193,
+                31,
+                15,
+                235,
+                128,
+                48,
+                227,
+                179,
+                20,
+                33,
+                205,
+                154,
+                141,
+                118,
+                182,
+                244,
+                152,
+                167,
+                170,
+                165,
+                83,
+                167,
+                14,
+                119,
+                4
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704"
+          },
+          {
+            "object": {
+              "bytes": 2047,
+              "digest": [
+                207,
+                146,
+                161,
+                74,
+                12,
+                89,
+                169,
+                106,
+                158,
+                135,
+                163,
+                190,
+                183,
+                223,
+                87,
+                158,
+                191,
+                12,
+                244,
+                251,
+                80,
+                157,
+                73,
+                10,
+                216,
+                120,
+                1,
+                195,
+                115,
+                44,
+                88,
+                210
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/cf92a14a0c59a96a9e87a3beb7df579ebf0cf4fb509d490ad87801c3732c58d2"
+          },
+          {
+            "object": {
+              "bytes": 32150,
+              "digest": [
+                252,
+                166,
+                149,
+                113,
+                222,
+                191,
+                70,
+                98,
+                65,
+                193,
+                239,
+                96,
+                209,
+                113,
+                89,
+                138,
+                210,
+                137,
+                161,
+                146,
+                11,
+                207,
+                200,
+                47,
+                42,
+                217,
+                194,
+                101,
+                23,
+                253,
+                204,
+                77
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/fca69571debf466241c1ef60d171598ad289a1920bcfc82f2ad9c26517fdcc4d"
+          }
+        ],
+        "descriptor": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/descriptor.json",
+        "command": "strategy-inputs-artifacts/fixtures/tpp-1308545-2/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1308545-0",
+        "proof": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/inputs-proof.json",
+        "host_config": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/host-config.json",
+        "parameters": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/parameters.json",
+        "schema": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/parameter-schema.json",
+        "projection": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/projection.json",
+        "bootstrap": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/bootstrap.json",
+        "baseline": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/baseline.raw",
+        "market_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/market-bank.raw",
+        "report_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/report-bank.raw",
+        "checkpoint": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/current-checkpoint.raw",
+        "original_join": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/731d61dad208d866b197c4c84860461841226d28100e03634532a5ae473c87d2",
+        "objects": [
+          {
+            "object": {
+              "bytes": 144358,
+              "digest": [
+                2,
+                174,
+                191,
+                113,
+                224,
+                11,
+                61,
+                148,
+                121,
+                113,
+                64,
+                93,
+                25,
+                155,
+                150,
+                145,
+                22,
+                234,
+                184,
+                105,
+                40,
+                223,
+                227,
+                192,
+                251,
+                196,
+                103,
+                4,
+                183,
+                188,
+                75,
+                234
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/02aebf71e00b3d947971405d199b969116eab86928dfe3c0fbc46704b7bc4bea"
+          },
+          {
+            "object": {
+              "bytes": 165,
+              "digest": [
+                11,
+                178,
+                85,
+                234,
+                246,
+                217,
+                195,
+                59,
+                200,
+                100,
+                147,
+                32,
+                173,
+                27,
+                57,
+                14,
+                132,
+                55,
+                160,
+                230,
+                55,
+                151,
+                151,
+                97,
+                56,
+                234,
+                18,
+                210,
+                246,
+                180,
+                43,
+                12
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+          },
+          {
+            "object": {
+              "bytes": 205,
+              "digest": [
+                38,
+                226,
+                112,
+                29,
+                99,
+                219,
+                69,
+                155,
+                37,
+                252,
+                132,
+                138,
+                157,
+                57,
+                67,
+                118,
+                36,
+                131,
+                65,
+                187,
+                176,
+                165,
+                17,
+                198,
+                49,
+                15,
+                155,
+                60,
+                155,
+                192,
+                33,
+                243
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+          },
+          {
+            "object": {
+              "bytes": 98,
+              "digest": [
+                59,
+                194,
+                128,
+                205,
+                205,
+                148,
+                48,
+                168,
+                128,
+                104,
+                15,
+                153,
+                53,
+                41,
+                14,
+                189,
+                31,
+                73,
+                103,
+                194,
+                218,
+                141,
+                85,
+                116,
+                83,
+                88,
+                143,
+                237,
+                113,
+                161,
+                139,
+                201
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+          },
+          {
+            "object": {
+              "bytes": 173725,
+              "digest": [
+                70,
+                103,
+                116,
+                68,
+                148,
+                236,
+                183,
+                171,
+                204,
+                255,
+                35,
+                1,
+                170,
+                123,
+                147,
+                243,
+                70,
+                27,
+                236,
+                68,
+                70,
+                188,
+                45,
+                107,
+                211,
+                50,
+                194,
+                37,
+                190,
+                182,
+                249,
+                182
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+          },
+          {
+            "object": {
+              "bytes": 2,
+              "digest": [
+                79,
+                83,
+                205,
+                161,
+                140,
+                43,
+                170,
+                12,
+                3,
+                84,
+                187,
+                95,
+                154,
+                62,
+                203,
+                229,
+                237,
+                18,
+                171,
+                77,
+                142,
+                17,
+                186,
+                135,
+                60,
+                47,
+                17,
+                22,
+                18,
+                2,
+                185,
+                69
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "object": {
+              "bytes": 30208,
+              "digest": [
+                115,
+                29,
+                97,
+                218,
+                210,
+                8,
+                216,
+                102,
+                177,
+                151,
+                196,
+                200,
+                72,
+                96,
+                70,
+                24,
+                65,
+                34,
+                109,
+                40,
+                16,
+                14,
+                3,
+                99,
+                69,
+                50,
+                165,
+                174,
+                71,
+                60,
+                135,
+                210
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/731d61dad208d866b197c4c84860461841226d28100e03634532a5ae473c87d2"
+          },
+          {
+            "object": {
+              "bytes": 4,
+              "digest": [
+                116,
+                35,
+                78,
+                152,
+                175,
+                231,
+                73,
+                143,
+                181,
+                218,
+                241,
+                243,
+                106,
+                194,
+                215,
+                138,
+                204,
+                51,
+                148,
+                100,
+                249,
+                80,
+                112,
+                59,
+                140,
+                1,
+                152,
+                146,
+                249,
+                130,
+                185,
+                11
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "object": {
+              "bytes": 267,
+              "digest": [
+                134,
+                193,
+                26,
+                79,
+                110,
+                129,
+                16,
+                177,
+                165,
+                129,
+                70,
+                33,
+                188,
+                111,
+                36,
+                111,
+                207,
+                50,
+                102,
+                162,
+                33,
+                51,
+                62,
+                114,
+                11,
+                153,
+                249,
+                7,
+                84,
+                132,
+                211,
+                43
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+          },
+          {
+            "object": {
+              "bytes": 62,
+              "digest": [
+                141,
+                11,
+                156,
+                193,
+                59,
+                47,
+                65,
+                6,
+                141,
+                187,
+                23,
+                134,
+                88,
+                87,
+                153,
+                190,
+                147,
+                11,
+                154,
+                105,
+                190,
+                29,
+                74,
+                24,
+                37,
+                149,
+                80,
+                245,
+                86,
+                178,
+                92,
+                28
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+          },
+          {
+            "object": {
+              "bytes": 2034,
+              "digest": [
+                204,
+                68,
+                208,
+                111,
+                228,
+                114,
+                247,
+                113,
+                14,
+                28,
+                113,
+                64,
+                95,
+                97,
+                113,
+                65,
+                206,
+                174,
+                132,
+                103,
+                16,
+                243,
+                120,
+                7,
+                205,
+                76,
+                124,
+                200,
+                89,
+                22,
+                198,
+                169
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/cc44d06fe472f7710e1c71405f617141ceae846710f37807cd4c7cc85916c6a9"
+          },
+          {
+            "object": {
+              "bytes": 285,
+              "digest": [
+                206,
+                161,
+                116,
+                59,
+                248,
+                60,
+                166,
+                193,
+                31,
+                15,
+                235,
+                128,
+                48,
+                227,
+                179,
+                20,
+                33,
+                205,
+                154,
+                141,
+                118,
+                182,
+                244,
+                152,
+                167,
+                170,
+                165,
+                83,
+                167,
+                14,
+                119,
+                4
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704"
+          },
+          {
+            "object": {
+              "bytes": 32144,
+              "digest": [
+                220,
+                201,
+                229,
+                66,
+                159,
+                76,
+                138,
+                221,
+                222,
+                6,
+                156,
+                187,
+                110,
+                44,
+                2,
+                173,
+                15,
+                98,
+                70,
+                32,
+                186,
+                240,
+                85,
+                148,
+                139,
+                58,
+                160,
+                139,
+                46,
+                192,
+                166,
+                104
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/dcc9e5429f4c8addde069cbb6e2c02ad0f624620baf055948b3aa08b2ec0a668"
+          }
+        ],
+        "descriptor": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/descriptor.json",
+        "command": "strategy-inputs-artifacts/fixtures/tpp-1308545-0/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1308545-4",
+        "proof": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/inputs-proof.json",
+        "host_config": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/host-config.json",
+        "parameters": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/parameters.json",
+        "projection": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/projection.json",
+        "bootstrap": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/bootstrap.json",
+        "baseline": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/baseline.raw",
+        "market_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/market-bank.raw",
+        "report_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/report-bank.raw",
+        "checkpoint": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/current-checkpoint.raw",
+        "original_join": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/0875d6dfba0ad13cb716a65e533dc81c7656c0dbbcca0ca83ba5efa548c221da",
+        "objects": [
+          {
+            "object": {
+              "bytes": 30206,
+              "digest": [
+                8,
+                117,
+                214,
+                223,
+                186,
+                10,
+                209,
+                60,
+                183,
+                22,
+                166,
+                94,
+                83,
+                61,
+                200,
+                28,
+                118,
+                86,
+                192,
+                219,
+                188,
+                202,
+                12,
+                168,
+                59,
+                165,
+                239,
+                165,
+                72,
+                194,
+                33,
+                218
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/0875d6dfba0ad13cb716a65e533dc81c7656c0dbbcca0ca83ba5efa548c221da"
+          },
+          {
+            "object": {
+              "bytes": 165,
+              "digest": [
+                11,
+                178,
+                85,
+                234,
+                246,
+                217,
+                195,
+                59,
+                200,
+                100,
+                147,
+                32,
+                173,
+                27,
+                57,
+                14,
+                132,
+                55,
+                160,
+                230,
+                55,
+                151,
+                151,
+                97,
+                56,
+                234,
+                18,
+                210,
+                246,
+                180,
+                43,
+                12
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+          },
+          {
+            "object": {
+              "bytes": 2039,
+              "digest": [
+                25,
+                4,
+                38,
+                59,
+                117,
+                164,
+                30,
+                61,
+                70,
+                100,
+                9,
+                49,
+                27,
+                27,
+                94,
+                189,
+                213,
+                131,
+                79,
+                214,
+                161,
+                79,
+                131,
+                161,
+                130,
+                241,
+                14,
+                174,
+                47,
+                182,
+                248,
+                53
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/1904263b75a41e3d466409311b1b5ebdd5834fd6a14f83a182f10eae2fb6f835"
+          },
+          {
+            "object": {
+              "bytes": 205,
+              "digest": [
+                38,
+                226,
+                112,
+                29,
+                99,
+                219,
+                69,
+                155,
+                37,
+                252,
+                132,
+                138,
+                157,
+                57,
+                67,
+                118,
+                36,
+                131,
+                65,
+                187,
+                176,
+                165,
+                17,
+                198,
+                49,
+                15,
+                155,
+                60,
+                155,
+                192,
+                33,
+                243
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+          },
+          {
+            "object": {
+              "bytes": 98,
+              "digest": [
+                59,
+                194,
+                128,
+                205,
+                205,
+                148,
+                48,
+                168,
+                128,
+                104,
+                15,
+                153,
+                53,
+                41,
+                14,
+                189,
+                31,
+                73,
+                103,
+                194,
+                218,
+                141,
+                85,
+                116,
+                83,
+                88,
+                143,
+                237,
+                113,
+                161,
+                139,
+                201
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+          },
+          {
+            "object": {
+              "bytes": 173725,
+              "digest": [
+                70,
+                103,
+                116,
+                68,
+                148,
+                236,
+                183,
+                171,
+                204,
+                255,
+                35,
+                1,
+                170,
+                123,
+                147,
+                243,
+                70,
+                27,
+                236,
+                68,
+                70,
+                188,
+                45,
+                107,
+                211,
+                50,
+                194,
+                37,
+                190,
+                182,
+                249,
+                182
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+          },
+          {
+            "object": {
+              "bytes": 2,
+              "digest": [
+                79,
+                83,
+                205,
+                161,
+                140,
+                43,
+                170,
+                12,
+                3,
+                84,
+                187,
+                95,
+                154,
+                62,
+                203,
+                229,
+                237,
+                18,
+                171,
+                77,
+                142,
+                17,
+                186,
+                135,
+                60,
+                47,
+                17,
+                22,
+                18,
+                2,
+                185,
+                69
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "object": {
+              "bytes": 4,
+              "digest": [
+                116,
+                35,
+                78,
+                152,
+                175,
+                231,
+                73,
+                143,
+                181,
+                218,
+                241,
+                243,
+                106,
+                194,
+                215,
+                138,
+                204,
+                51,
+                148,
+                100,
+                249,
+                80,
+                112,
+                59,
+                140,
+                1,
+                152,
+                146,
+                249,
+                130,
+                185,
+                11
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "object": {
+              "bytes": 267,
+              "digest": [
+                134,
+                193,
+                26,
+                79,
+                110,
+                129,
+                16,
+                177,
+                165,
+                129,
+                70,
+                33,
+                188,
+                111,
+                36,
+                111,
+                207,
+                50,
+                102,
+                162,
+                33,
+                51,
+                62,
+                114,
+                11,
+                153,
+                249,
+                7,
+                84,
+                132,
+                211,
+                43
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+          },
+          {
+            "object": {
+              "bytes": 62,
+              "digest": [
+                141,
+                11,
+                156,
+                193,
+                59,
+                47,
+                65,
+                6,
+                141,
+                187,
+                23,
+                134,
+                88,
+                87,
+                153,
+                190,
+                147,
+                11,
+                154,
+                105,
+                190,
+                29,
+                74,
+                24,
+                37,
+                149,
+                80,
+                245,
+                86,
+                178,
+                92,
+                28
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+          },
+          {
+            "object": {
+              "bytes": 144530,
+              "digest": [
+                142,
+                33,
+                34,
+                30,
+                154,
+                179,
+                52,
+                215,
+                162,
+                93,
+                189,
+                254,
+                2,
+                201,
+                39,
+                159,
+                22,
+                94,
+                187,
+                142,
+                32,
+                201,
+                61,
+                94,
+                105,
+                92,
+                179,
+                122,
+                80,
+                173,
+                119,
+                156
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/8e21221e9ab334d7a25dbdfe02c9279f165ebb8e20c93d5e695cb37a50ad779c"
+          },
+          {
+            "object": {
+              "bytes": 32147,
+              "digest": [
+                154,
+                246,
+                219,
+                75,
+                4,
+                223,
+                251,
+                252,
+                143,
+                247,
+                194,
+                149,
+                15,
+                88,
+                185,
+                120,
+                50,
+                52,
+                64,
+                88,
+                95,
+                119,
+                236,
+                92,
+                166,
+                16,
+                174,
+                113,
+                238,
+                176,
+                192,
+                138
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/9af6db4b04dffbfc8ff7c2950f58b978323440585f77ec5ca610ae71eeb0c08a"
+          },
+          {
+            "object": {
+              "bytes": 285,
+              "digest": [
+                206,
+                161,
+                116,
+                59,
+                248,
+                60,
+                166,
+                193,
+                31,
+                15,
+                235,
+                128,
+                48,
+                227,
+                179,
+                20,
+                33,
+                205,
+                154,
+                141,
+                118,
+                182,
+                244,
+                152,
+                167,
+                170,
+                165,
+                83,
+                167,
+                14,
+                119,
+                4
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704"
+          }
+        ],
+        "descriptor": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/descriptor.json",
+        "command": "strategy-inputs-artifacts/fixtures/tpp-1308545-4/command.bin"
+      },
+      {
+        "original_root": "/tmp/tpp-1308545-7",
+        "proof": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/inputs-proof.json",
+        "host_config": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/host-config.json",
+        "parameters": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/parameters.json",
+        "projection": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/projection.json",
+        "bootstrap": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/bootstrap.json",
+        "baseline": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/baseline.raw",
+        "market_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/market-bank.raw",
+        "report_bank": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/report-bank.raw",
+        "checkpoint": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/current-checkpoint.raw",
+        "original_join": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0c76c157052f7e1f26bdaf096b33fd405b297380ac60546ed423d01f804410d8",
+        "objects": [
+          {
+            "object": {
+              "bytes": 165,
+              "digest": [
+                11,
+                178,
+                85,
+                234,
+                246,
+                217,
+                195,
+                59,
+                200,
+                100,
+                147,
+                32,
+                173,
+                27,
+                57,
+                14,
+                132,
+                55,
+                160,
+                230,
+                55,
+                151,
+                151,
+                97,
+                56,
+                234,
+                18,
+                210,
+                246,
+                180,
+                43,
+                12
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+          },
+          {
+            "object": {
+              "bytes": 30215,
+              "digest": [
+                12,
+                118,
+                193,
+                87,
+                5,
+                47,
+                126,
+                31,
+                38,
+                189,
+                175,
+                9,
+                107,
+                51,
+                253,
+                64,
+                91,
+                41,
+                115,
+                128,
+                172,
+                96,
+                84,
+                110,
+                212,
+                35,
+                208,
+                31,
+                128,
+                68,
+                16,
+                216
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0c76c157052f7e1f26bdaf096b33fd405b297380ac60546ed423d01f804410d8"
+          },
+          {
+            "object": {
+              "bytes": 32146,
+              "digest": [
+                15,
+                134,
+                47,
+                211,
+                135,
+                155,
+                153,
+                147,
+                3,
+                108,
+                88,
+                116,
+                232,
+                156,
+                101,
+                254,
+                79,
+                9,
+                18,
+                97,
+                219,
+                134,
+                195,
+                94,
+                48,
+                52,
+                206,
+                73,
+                253,
+                212,
+                79,
+                192
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0f862fd3879b9993036c5874e89c65fe4f091261db86c35e3034ce49fdd44fc0"
+          },
+          {
+            "object": {
+              "bytes": 205,
+              "digest": [
+                38,
+                226,
+                112,
+                29,
+                99,
+                219,
+                69,
+                155,
+                37,
+                252,
+                132,
+                138,
+                157,
+                57,
+                67,
+                118,
+                36,
+                131,
+                65,
+                187,
+                176,
+                165,
+                17,
+                198,
+                49,
+                15,
+                155,
+                60,
+                155,
+                192,
+                33,
+                243
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+          },
+          {
+            "object": {
+              "bytes": 98,
+              "digest": [
+                59,
+                194,
+                128,
+                205,
+                205,
+                148,
+                48,
+                168,
+                128,
+                104,
+                15,
+                153,
+                53,
+                41,
+                14,
+                189,
+                31,
+                73,
+                103,
+                194,
+                218,
+                141,
+                85,
+                116,
+                83,
+                88,
+                143,
+                237,
+                113,
+                161,
+                139,
+                201
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+          },
+          {
+            "object": {
+              "bytes": 173725,
+              "digest": [
+                70,
+                103,
+                116,
+                68,
+                148,
+                236,
+                183,
+                171,
+                204,
+                255,
+                35,
+                1,
+                170,
+                123,
+                147,
+                243,
+                70,
+                27,
+                236,
+                68,
+                70,
+                188,
+                45,
+                107,
+                211,
+                50,
+                194,
+                37,
+                190,
+                182,
+                249,
+                182
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+          },
+          {
+            "object": {
+              "bytes": 2,
+              "digest": [
+                79,
+                83,
+                205,
+                161,
+                140,
+                43,
+                170,
+                12,
+                3,
+                84,
+                187,
+                95,
+                154,
+                62,
+                203,
+                229,
+                237,
+                18,
+                171,
+                77,
+                142,
+                17,
+                186,
+                135,
+                60,
+                47,
+                17,
+                22,
+                18,
+                2,
+                185,
+                69
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "object": {
+              "bytes": 4,
+              "digest": [
+                116,
+                35,
+                78,
+                152,
+                175,
+                231,
+                73,
+                143,
+                181,
+                218,
+                241,
+                243,
+                106,
+                194,
+                215,
+                138,
+                204,
+                51,
+                148,
+                100,
+                249,
+                80,
+                112,
+                59,
+                140,
+                1,
+                152,
+                146,
+                249,
+                130,
+                185,
+                11
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "object": {
+              "bytes": 267,
+              "digest": [
+                134,
+                193,
+                26,
+                79,
+                110,
+                129,
+                16,
+                177,
+                165,
+                129,
+                70,
+                33,
+                188,
+                111,
+                36,
+                111,
+                207,
+                50,
+                102,
+                162,
+                33,
+                51,
+                62,
+                114,
+                11,
+                153,
+                249,
+                7,
+                84,
+                132,
+                211,
+                43
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+          },
+          {
+            "object": {
+              "bytes": 62,
+              "digest": [
+                141,
+                11,
+                156,
+                193,
+                59,
+                47,
+                65,
+                6,
+                141,
+                187,
+                23,
+                134,
+                88,
+                87,
+                153,
+                190,
+                147,
+                11,
+                154,
+                105,
+                190,
+                29,
+                74,
+                24,
+                37,
+                149,
+                80,
+                245,
+                86,
+                178,
+                92,
+                28
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+          },
+          {
+            "object": {
+              "bytes": 286,
+              "digest": [
+                147,
+                166,
+                57,
+                169,
+                31,
+                108,
+                215,
+                129,
+                193,
+                140,
+                215,
+                210,
+                238,
+                37,
+                237,
+                223,
+                86,
+                3,
+                227,
+                26,
+                146,
+                187,
+                190,
+                115,
+                146,
+                50,
+                88,
+                41,
+                87,
+                45,
+                189,
+                126
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e"
+          },
+          {
+            "object": {
+              "bytes": 136520,
+              "digest": [
+                174,
+                65,
+                124,
+                194,
+                70,
+                211,
+                59,
+                169,
+                215,
+                14,
+                8,
+                240,
+                191,
+                96,
+                3,
+                133,
+                208,
+                194,
+                33,
+                68,
+                204,
+                146,
+                78,
+                250,
+                96,
+                193,
+                44,
+                154,
+                195,
+                192,
+                152,
+                235
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/ae417cc246d33ba9d70e08f0bf600385d0c22144cc924efa60c12c9ac3c098eb"
+          },
+          {
+            "object": {
+              "bytes": 2031,
+              "digest": [
+                249,
+                11,
+                198,
+                96,
+                248,
+                109,
+                92,
+                197,
+                89,
+                36,
+                237,
+                24,
+                79,
+                223,
+                106,
+                173,
+                249,
+                81,
+                200,
+                54,
+                212,
+                21,
+                10,
+                220,
+                170,
+                185,
+                205,
+                246,
+                5,
+                136,
+                217,
+                245
+              ]
+            },
+            "path": "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/f90bc660f86d5cc55924ed184fdf6aadf951c836d4150adcaab9cdf60588d9f5"
+          }
+        ]
+      }
+    ],
+    "external_image_samples": 7
+  },
+  "scope": {
+    "gateway_submission": false,
+    "global_applied": false,
+    "input_path": "Actual App hosted::build, independent registered worker, actual MD JOIN, current merged checkpoint, exact account/market input inspection and first-intent gate",
+    "compatibility": "Six prior parameter consumer process tests, Host fresh-query regression, and separate complete Spot handover scenario omitting projection_inputs",
+    "formal_verification": "No new TLC or anchor rebasing; read-only historical correspondence audit"
+  },
+  "environment": {
+    "platform": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "linux_integration": "Native WSL2 Linux; Docker daemon unavailable",
+    "live_binance": false,
+    "delegated_cgroup_positive": false
+  },
+  "checks": {
+    "full_rust": {
+      "metadata": "strategy-inputs-artifacts/check-rust-meta.json",
+      "exit_code": 0
+    },
+    "contracts_exit_code": 0,
+    "host_process": {
+      "metadata": "strategy-inputs-artifacts/host-process-meta.json",
+      "exit_code": 0
+    },
+    "parameter_compat": {
+      "metadata": "strategy-inputs-artifacts/parameter-compat-meta.json",
+      "exit_code": 0
+    },
+    "compatibility": {
+      "metadata": "strategy-inputs-artifacts/compatibility/metadata.json",
+      "exit_code": 0
+    }
+  },
+  "development_findings": [
+    "Same-risk-domain different-account mapping was accepted by the pre-implementation stub; pure and actual-process behavioral regressions now reject it before child construction.",
+    "An expired startup gate could reopen if caller supplied earlier time; explicit Closed phase now latches all errors.",
+    "Two independent reviews found a deadline window after consumer validation; final fresh sampling now rechecks the original deadline before publishing either proof.",
+    "NormalizedMarket bank has zero product fields; explicit route and complete account catalog qualify product rather than manufacturing product evidence.",
+    "The Multi shadow fixture initially rewrote canonical registered parameters through sorted Value keys; the worker correctly rejected it. Typed fixture encoding corrected the test only.",
+    "Two test evidence compile errors are retained separately from behavioral Red evidence."
+  ],
+  "limits": [
+    "InputsProof and ParametersProof are historical facts only, not global Applied or trading authorization.",
+    "First profile supports one explicit account and one external topic; runtime reapproval, catalog artifact economics, risk budgets and allowed_symbols remain separate work.",
+    "Multi handover denial may shadow or pause members; it cannot activate a successor across the scoped gate.",
+    "MD full peer identity is approved/authenticated endpoint identity, not independent MD kernel image proof.",
+    "Offline verification checks archived immutable bytes and recorded assertions; it does not recreate a live process or independently authenticate past kernel observations.",
+    "ELF recovery objects over 1 MiB stay outside Git; full observed object lists and fixed binary hashes remain recorded.",
+    "No production latency, live Binance or full global configuration qualification is claimed."
+  ],
+  "artifacts": {
+    "strategy-inputs-artifacts/app-process-meta.json": {
+      "bytes": 6366,
+      "sha256": "9c15cd986c120fc464f3578c4303716fb4a63656ab8f8386d95c632e9981473f"
+    },
+    "strategy-inputs-artifacts/app-process.log": {
+      "bytes": 49803,
+      "sha256": "63c5081baf2fbfce527ee7aeba7f76deb9345714fdf5fbad7966ae9db1520b4b"
+    },
+    "strategy-inputs-artifacts/binaries.json": {
+      "bytes": 3992,
+      "sha256": "7d5968fa006e29ec1e22e057736380f717ea1cce2235995b43dde2861a46d533"
+    },
+    "strategy-inputs-artifacts/build-meta.json": {
+      "bytes": 502,
+      "sha256": "456350c6f7c9ce0905e8f0c4a226c86effa22336c729c0beeadf1395812b08b8"
+    },
+    "strategy-inputs-artifacts/check-rust-meta.json": {
+      "bytes": 264,
+      "sha256": "7cdafd9d84c8d38a5e291906e0b85f767349917420fa93e886743439dd27f57b"
+    },
+    "strategy-inputs-artifacts/check-rust.log": {
+      "bytes": 271954,
+      "sha256": "226ecd4b4949bec94ca995ff61753982b59da526da3f120b0542257a3fd0924f"
+    },
+    "strategy-inputs-artifacts/compatibility/account-report.json": {
+      "bytes": 3184,
+      "sha256": "4bc35bdd9a88049641b773f1110553c818de0285d7956ecded78c3f7f8317f71"
+    },
+    "strategy-inputs-artifacts/compatibility/fixture.jsonl": {
+      "bytes": 8036,
+      "sha256": "b2d511a21f21e5ae55496a1aade1405a1db23826f7d71a3abdd74ef7b8519e5b"
+    },
+    "strategy-inputs-artifacts/compatibility/generate.log": {
+      "bytes": 882,
+      "sha256": "e0ba7b1f467011797c4cd704b75f93abe55290b01b2a6ae701d7f682f63e5831"
+    },
+    "strategy-inputs-artifacts/compatibility/handover/preflight-final-verified.json": {
+      "bytes": 3582,
+      "sha256": "d0bc155771c2094cf6eb487fb5bc90c276b17963ab45fffc7304d63fb988e8da"
+    },
+    "strategy-inputs-artifacts/compatibility/handover/preflight-verified.json": {
+      "bytes": 3578,
+      "sha256": "d55a4ac369be5fd23d2d37a223bd0bb6654c706915f1b19a76563da011d313ab"
+    },
+    "strategy-inputs-artifacts/compatibility/live-images.json": {
+      "bytes": 623,
+      "sha256": "3e0ef8b7cdbfdc53ceae6313c8dd15ecdd133299c809c08922cd938ab7d96783"
+    },
+    "strategy-inputs-artifacts/compatibility/logs/exec.stderr.log": {
+      "bytes": 14674,
+      "sha256": "41546d518f8a56b0f941a7387e423770a313461a0f607e39c6ca2935cf32dcbb"
+    },
+    "strategy-inputs-artifacts/compatibility/logs/exec.stdout.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "strategy-inputs-artifacts/compatibility/metadata.json": {
+      "bytes": 7676,
+      "sha256": "3b4192a25c20c883f4c797af7aed6a9cf7f68537585e5549db8f69d55fda45a6"
+    },
+    "strategy-inputs-artifacts/compatibility/run-result.json": {
+      "bytes": 4647,
+      "sha256": "2552b752159c2af696a6cc0ac88022d4f6c91916167c616f847f934f5243350a"
+    },
+    "strategy-inputs-artifacts/compatibility/run.log": {
+      "bytes": 4648,
+      "sha256": "2902c47b47a12ff9da8ed596782ce2a9044aa6ee7a1c8b00fe2de264df01148f"
+    },
+    "strategy-inputs-artifacts/contracts.log": {
+      "bytes": 1765,
+      "sha256": "83c23d0e7af4d628a8551ed33e4359268310c9fa2a789d01c81a31b0faadeafa"
+    },
+    "strategy-inputs-artifacts/dependency-dag.json": {
+      "bytes": 12829,
+      "sha256": "21e90f5befdc1530f3a2e4ff2f646d113ae6be24cbcadff151e74257c0074793"
+    },
+    "strategy-inputs-artifacts/development/host-clippy.log": {
+      "bytes": 1310,
+      "sha256": "39e451fc57640f98992b811d5d28224437058fe1646497a685ba7f1dcd2ff5fd"
+    },
+    "strategy-inputs-artifacts/development/host-green.log": {
+      "bytes": 6543,
+      "sha256": "31e52e287e1268e92fda689301318f4605ff339ef8e21e04973ef99801972792"
+    },
+    "strategy-inputs-artifacts/development/host-red.log": {
+      "bytes": 2521,
+      "sha256": "2aa73857a74048a7d9e1f57c2dbf2dcbe1402345dc43db4fcb5af14f38291c2f"
+    },
+    "strategy-inputs-artifacts/development/input-values-clippy.log": {
+      "bytes": 72,
+      "sha256": "a5f4c585ee974ca44916ac30a98bbc189e067a7e0a6bc6d2e8d6bc525be724af"
+    },
+    "strategy-inputs-artifacts/development/input-values-green.log": {
+      "bytes": 1443,
+      "sha256": "158c3c4a7cbb1c71837d6271809bad4d48b942733637d6b16123e823deec08a4"
+    },
+    "strategy-inputs-artifacts/development/input-values-red.log": {
+      "bytes": 5865,
+      "sha256": "8977a8685eeb5a3d08e22a2402a70720d935e9dfe151280c3a4ae51696acc4b2"
+    },
+    "strategy-inputs-artifacts/development/offline-mutations.log": {
+      "bytes": 469,
+      "sha256": "48f9468e124e57ebb176f9b312a9d8806cf3b47c1fbda673a7314a3154edecd9"
+    },
+    "strategy-inputs-artifacts/development/offline-verifier.log": {
+      "bytes": 339,
+      "sha256": "a989c2adfa7d77e01c543a872ed8c08ef7d72645007542f1cdc2944411ab432c"
+    },
+    "strategy-inputs-artifacts/development/process-canonical-fixture-failure.log": {
+      "bytes": 13990,
+      "sha256": "ee85a0fcd7a7fb7055d09492c2245f00f8d43557eecafbbf5f1ed6119b887ea9"
+    },
+    "strategy-inputs-artifacts/development/process-clippy.log": {
+      "bytes": 150,
+      "sha256": "0235c9a1243ccb9a587b28482060b5d38a43d0aaf1bf120e611ef8ef220f46a9"
+    },
+    "strategy-inputs-artifacts/development/process-compile-failure.log": {
+      "bytes": 3973,
+      "sha256": "e96986a5d25e68fd5af0f5c2ad3ac03f78b76f77f880eadc4993efc5a38514c3"
+    },
+    "strategy-inputs-artifacts/development/process-evidence-compile-failure.log": {
+      "bytes": 2443,
+      "sha256": "a1708e53b0789e460e335ac8be0ccf67f5e175366355098ed99438e8e4a5303d"
+    },
+    "strategy-inputs-artifacts/development/process-green.log": {
+      "bytes": 50116,
+      "sha256": "a26b9b67ab656d674813efbc13a00850eb3289b4efce4c3ccea905293e9097ec"
+    },
+    "strategy-inputs-artifacts/development/process-red.log": {
+      "bytes": 4203,
+      "sha256": "6282b102e3b8fc978d8cddc33cf96a195a5932613b362a90752e330a44884b68"
+    },
+    "strategy-inputs-artifacts/development/sdk-green.log": {
+      "bytes": 2231,
+      "sha256": "57656bfbd4f30b4c9a4d19f4d8a5456a705b52b460a2f0f304146a7701025030"
+    },
+    "strategy-inputs-artifacts/development/sdk-minimal.log": {
+      "bytes": 888,
+      "sha256": "74da135dd397a5ae6ec0a9653d9d006609b00a850319378ae41bbebec68d9adb"
+    },
+    "strategy-inputs-artifacts/development/sdk-red.log": {
+      "bytes": 1217,
+      "sha256": "36d959b566b273ffc007d7c4a97f6afaa6d2d6f5cdd5500a4c78c5b16a7bb64c"
+    },
+    "strategy-inputs-artifacts/development/shared-query-green.log": {
+      "bytes": 2703,
+      "sha256": "9bdc88c0ed9887abf46a7962935b98162b27e3c7fcab0fa8c874080a1a1e2754"
+    },
+    "strategy-inputs-artifacts/development/shared-query-red.log": {
+      "bytes": 5636,
+      "sha256": "df957ab7abb5855178f6639800c9d6637a892f99489fa3e62060ac8169fcc798"
+    },
+    "strategy-inputs-artifacts/documentation.log": {
+      "bytes": 91,
+      "sha256": "086b1fafe68d31b194af62baabdc87fb142fe97ffe3f3ce2814f76243150bf3a"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/baseline.raw": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/bootstrap.json": {
+      "bytes": 32144,
+      "sha256": "dcc9e5429f4c8addde069cbb6e2c02ad0f624620baf055948b3aa08b2ec0a668"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/command.bin": {
+      "bytes": 297,
+      "sha256": "9642a8504c6a7b65341157f84a15ae749519d48e9042742107437cb7e8ef1d3d"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/current-checkpoint.raw": {
+      "bytes": 47812,
+      "sha256": "228be6f34bb53ec15b3d1f6b0e277d37e8365ffcd76e4873d3043ac79a8ee55e"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/descriptor.json": {
+      "bytes": 3935,
+      "sha256": "9d11e72be51832a30eb5ddde075a71c0af5f64e33104e231343a5e842c8df090"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/host-config.json": {
+      "bytes": 13702,
+      "sha256": "38ca9cf40fb8a9fed4f46a3a8ccfec503ef0bad7719335f114ed466574a8e14c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/inputs-proof.json": {
+      "bytes": 18252,
+      "sha256": "6d49f1c811654a1c44ac18f8cc2480083bc3ce83daa2880fa56363d5c945713c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/market-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c3444ef1c42314fc399282721f3f4d159b417c35a76d4f699662a937d54b10ec"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/02aebf71e00b3d947971405d199b969116eab86928dfe3c0fbc46704b7bc4bea": {
+      "bytes": 144358,
+      "sha256": "02aebf71e00b3d947971405d199b969116eab86928dfe3c0fbc46704b7bc4bea"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c": {
+      "bytes": 165,
+      "sha256": "0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3": {
+      "bytes": 205,
+      "sha256": "26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9": {
+      "bytes": 98,
+      "sha256": "3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6": {
+      "bytes": 173725,
+      "sha256": "4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/731d61dad208d866b197c4c84860461841226d28100e03634532a5ae473c87d2": {
+      "bytes": 30208,
+      "sha256": "731d61dad208d866b197c4c84860461841226d28100e03634532a5ae473c87d2"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c": {
+      "bytes": 62,
+      "sha256": "8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/cc44d06fe472f7710e1c71405f617141ceae846710f37807cd4c7cc85916c6a9": {
+      "bytes": 2034,
+      "sha256": "cc44d06fe472f7710e1c71405f617141ceae846710f37807cd4c7cc85916c6a9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704": {
+      "bytes": 285,
+      "sha256": "cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/objects/dcc9e5429f4c8addde069cbb6e2c02ad0f624620baf055948b3aa08b2ec0a668": {
+      "bytes": 32144,
+      "sha256": "dcc9e5429f4c8addde069cbb6e2c02ad0f624620baf055948b3aa08b2ec0a668"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/parameter-schema.json": {
+      "bytes": 438,
+      "sha256": "173edd8ce84ea876de5c7ee9b594ace325f22d22788b52c548b0558a83b0558f"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/parameters.json": {
+      "bytes": 916,
+      "sha256": "fb5ca5b0a73f29e710d46309287d16aa7052e024f114b41dae83f063a3ce8155"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/projection.json": {
+      "bytes": 8009,
+      "sha256": "bf290359a455bd5f62df8f5b7880604e47890aedea1c2c7ef9e23d63e5b2fbc4"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-0/report-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c7397e893b6b17202d7a8f37a2f8530b63b3b406b294ccc424a7c67a9d960b33"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/baseline.raw": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/bootstrap.json": {
+      "bytes": 32145,
+      "sha256": "b8865bf1bc9615cae64fb91df4df0d7532c670ce9f2b748b18d69169295b788a"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/command.bin": {
+      "bytes": 297,
+      "sha256": "dc634776d28a44cefd694b6b7583c2ec22ef0ebc254bad362231b82b948d4ec6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/current-checkpoint.raw": {
+      "bytes": 47705,
+      "sha256": "6e9578290b5146c8fffa70c4e06070e67d61f7e517d239a20f5575f739ffd47b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/descriptor.json": {
+      "bytes": 3948,
+      "sha256": "dcebbd905575bbd4bb204207e460a342ce4d1948d830e810d522180efb689bfe"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/host-config.json": {
+      "bytes": 11770,
+      "sha256": "580efd2096ce1871574dfd83e97ef76934a69aac27164111fc067c29589af641"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/inputs-proof.json": {
+      "bytes": 18270,
+      "sha256": "b7405577a7296f899843973493ca74d0802937184c649e9c810d48403dac1b90"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/market-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c3444ef1c42314fc399282721f3f4d159b417c35a76d4f699662a937d54b10ec"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c": {
+      "bytes": 165,
+      "sha256": "0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3": {
+      "bytes": 205,
+      "sha256": "26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/2e9ee00b6a2fc0e62727b1d4637f6e6808ba6498aa58e4bda8279607da8fdec2": {
+      "bytes": 2044,
+      "sha256": "2e9ee00b6a2fc0e62727b1d4637f6e6808ba6498aa58e4bda8279607da8fdec2"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9": {
+      "bytes": 98,
+      "sha256": "3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6": {
+      "bytes": 173725,
+      "sha256": "4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/786d2f9e732e0e378635b2e1eff835d3e6a74196038317c56cd82f9f88ee79ac": {
+      "bytes": 136461,
+      "sha256": "786d2f9e732e0e378635b2e1eff835d3e6a74196038317c56cd82f9f88ee79ac"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c": {
+      "bytes": 62,
+      "sha256": "8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e": {
+      "bytes": 286,
+      "sha256": "93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/9805a7c60d62cfd4c42b0c43a3cea836611084364bf0a8c4b8f03d708ac2ac10": {
+      "bytes": 30213,
+      "sha256": "9805a7c60d62cfd4c42b0c43a3cea836611084364bf0a8c4b8f03d708ac2ac10"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/objects/b8865bf1bc9615cae64fb91df4df0d7532c670ce9f2b748b18d69169295b788a": {
+      "bytes": 32145,
+      "sha256": "b8865bf1bc9615cae64fb91df4df0d7532c670ce9f2b748b18d69169295b788a"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/parameters.json": {
+      "bytes": 914,
+      "sha256": "b66c578f1dbbf0a074f251192c9c57627400cbf5e2ceb74a2844c7fcaa63139e"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/projection.json": {
+      "bytes": 8007,
+      "sha256": "151556b4cdd1d17b6cb7a9de37166cac75e56eea576c8b5687fd31d86923e78b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-1/report-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c7397e893b6b17202d7a8f37a2f8530b63b3b406b294ccc424a7c67a9d960b33"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/baseline.raw": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/bootstrap.json": {
+      "bytes": 32150,
+      "sha256": "fca69571debf466241c1ef60d171598ad289a1920bcfc82f2ad9c26517fdcc4d"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/command.bin": {
+      "bytes": 297,
+      "sha256": "3be47cd42bef429b5d7d2d024dd57790f290cd491bb4020007610faae187c9ca"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/current-checkpoint.raw": {
+      "bytes": 47810,
+      "sha256": "6610b35f2a45a437979a49cdde020fe7322de24e4cd5db50447391b89ff8484c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/descriptor.json": {
+      "bytes": 3940,
+      "sha256": "5d377978641a6682292cb5557732ff2c0329e33ed3f97a66e26914cfbb6ad372"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/host-config.json": {
+      "bytes": 11759,
+      "sha256": "b180c059db99909b29fb067f6c370e11a00c33a815a2c686676891224bd1e465"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/inputs-proof.json": {
+      "bytes": 18265,
+      "sha256": "f846f193ad97be0d6b113a1a79f29dac63f181ddda06f31d2677ed55d60fe124"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/market-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c3444ef1c42314fc399282721f3f4d159b417c35a76d4f699662a937d54b10ec"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c": {
+      "bytes": 165,
+      "sha256": "0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3": {
+      "bytes": 205,
+      "sha256": "26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9": {
+      "bytes": 98,
+      "sha256": "3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6": {
+      "bytes": 173725,
+      "sha256": "4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/5496876d712f980a960dff1513e9c7aff032e69aa2381211b37c44b8f9c2eb11": {
+      "bytes": 30202,
+      "sha256": "5496876d712f980a960dff1513e9c7aff032e69aa2381211b37c44b8f9c2eb11"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c": {
+      "bytes": 62,
+      "sha256": "8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/b929addf1fb5e7220359ffcb9c27d5d2660a9f4680d116499ab36d687ba9e8d8": {
+      "bytes": 144527,
+      "sha256": "b929addf1fb5e7220359ffcb9c27d5d2660a9f4680d116499ab36d687ba9e8d8"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704": {
+      "bytes": 285,
+      "sha256": "cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/cf92a14a0c59a96a9e87a3beb7df579ebf0cf4fb509d490ad87801c3732c58d2": {
+      "bytes": 2047,
+      "sha256": "cf92a14a0c59a96a9e87a3beb7df579ebf0cf4fb509d490ad87801c3732c58d2"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/objects/fca69571debf466241c1ef60d171598ad289a1920bcfc82f2ad9c26517fdcc4d": {
+      "bytes": 32150,
+      "sha256": "fca69571debf466241c1ef60d171598ad289a1920bcfc82f2ad9c26517fdcc4d"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/parameters.json": {
+      "bytes": 913,
+      "sha256": "c1832e836e9c9267945ed2b1df210f295172bfb9aab59f0e2ec5d9f19695be16"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/projection.json": {
+      "bytes": 8006,
+      "sha256": "fc618604b7ea55f6647abc3b1c1454b3ae75f44f4638e8a0957f4dabed413974"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-2/report-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c7397e893b6b17202d7a8f37a2f8530b63b3b406b294ccc424a7c67a9d960b33"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/baseline.raw": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/bootstrap.json": {
+      "bytes": 32147,
+      "sha256": "9af6db4b04dffbfc8ff7c2950f58b978323440585f77ec5ca610ae71eeb0c08a"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/command.bin": {
+      "bytes": 297,
+      "sha256": "1e3cd5b50c371ec5989581ec5c70704118e8e64359950e2bb9da3a0c3d51e8ac"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/current-checkpoint.raw": {
+      "bytes": 47805,
+      "sha256": "277ac33beb3349feb27b5ecdea7e72a27268b1705b41ebdb752066fd0505f004"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/descriptor.json": {
+      "bytes": 3942,
+      "sha256": "d734f8f9362b83ff7d54797217d5280b28cf100c72576e3c6a08cfa261dfd860"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/host-config.json": {
+      "bytes": 11765,
+      "sha256": "798977900042ae3aeb337e0ceae284c7c32af82934e7864f4256c79139c2ad36"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/inputs-proof.json": {
+      "bytes": 18251,
+      "sha256": "2f556c91ce9c7830eb7966b74a1b318fc124f8ba2a248dbc3469ad987571a02d"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/market-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c3444ef1c42314fc399282721f3f4d159b417c35a76d4f699662a937d54b10ec"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/0875d6dfba0ad13cb716a65e533dc81c7656c0dbbcca0ca83ba5efa548c221da": {
+      "bytes": 30206,
+      "sha256": "0875d6dfba0ad13cb716a65e533dc81c7656c0dbbcca0ca83ba5efa548c221da"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c": {
+      "bytes": 165,
+      "sha256": "0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/1904263b75a41e3d466409311b1b5ebdd5834fd6a14f83a182f10eae2fb6f835": {
+      "bytes": 2039,
+      "sha256": "1904263b75a41e3d466409311b1b5ebdd5834fd6a14f83a182f10eae2fb6f835"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3": {
+      "bytes": 205,
+      "sha256": "26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9": {
+      "bytes": 98,
+      "sha256": "3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6": {
+      "bytes": 173725,
+      "sha256": "4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c": {
+      "bytes": 62,
+      "sha256": "8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/8e21221e9ab334d7a25dbdfe02c9279f165ebb8e20c93d5e695cb37a50ad779c": {
+      "bytes": 144530,
+      "sha256": "8e21221e9ab334d7a25dbdfe02c9279f165ebb8e20c93d5e695cb37a50ad779c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/9af6db4b04dffbfc8ff7c2950f58b978323440585f77ec5ca610ae71eeb0c08a": {
+      "bytes": 32147,
+      "sha256": "9af6db4b04dffbfc8ff7c2950f58b978323440585f77ec5ca610ae71eeb0c08a"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/objects/cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704": {
+      "bytes": 285,
+      "sha256": "cea1743bf83ca6c11f0feb8030e3b31421cd9a8d76b6f498a7aaa553a70e7704"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/parameters.json": {
+      "bytes": 911,
+      "sha256": "3e5cd0f0b3a91f348c7cfd76bf6a7ea2255d09a975d7aa2a43d4e180b13e7648"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/projection.json": {
+      "bytes": 8004,
+      "sha256": "3ac095e1054b7ecab628587b336105b4d55724e1debcb4a3beab8b6eb513468b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-4/report-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c7397e893b6b17202d7a8f37a2f8530b63b3b406b294ccc424a7c67a9d960b33"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/baseline.raw": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/bootstrap.json": {
+      "bytes": 32145,
+      "sha256": "5f196b0b0a2670f7ded0895e2768dee0c20ce85f6fce2b660330c69ca0a6f1b9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/command.bin": {
+      "bytes": 297,
+      "sha256": "713f04337d25f96edb018b5115c6fda6c3f86dc27a487b11efeea0c748216fc0"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/current-checkpoint.raw": {
+      "bytes": 47709,
+      "sha256": "ae5563946f677df9300a1932ab58520a4f6d532414c97c0769804a0aa6700a57"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/descriptor.json": {
+      "bytes": 3948,
+      "sha256": "6cdbfec45e520145b83c45135a00648a35bee92fb5e5ae39c66b2503e09716d0"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/host-config.json": {
+      "bytes": 11774,
+      "sha256": "469b075e97d8fa1a7dceb867dfa82143d62262dc488099860be4d34cac980a54"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/inputs-proof.json": {
+      "bytes": 18285,
+      "sha256": "e8540d3ab937063f42782f7d36f378b1ea976a08baa2e81cf52e5ce675281e87"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/market-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c3444ef1c42314fc399282721f3f4d159b417c35a76d4f699662a937d54b10ec"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c": {
+      "bytes": 165,
+      "sha256": "0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/0f891d855dcdad518755df1684e0d4423dfe8da1d37f190b2d70fa69b4b1ac8c": {
+      "bytes": 30220,
+      "sha256": "0f891d855dcdad518755df1684e0d4423dfe8da1d37f190b2d70fa69b4b1ac8c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3": {
+      "bytes": 205,
+      "sha256": "26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/30122b8500d015a003b60ce697d53443719ebafa2b63b91cab59e887f077a6c1": {
+      "bytes": 2045,
+      "sha256": "30122b8500d015a003b60ce697d53443719ebafa2b63b91cab59e887f077a6c1"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9": {
+      "bytes": 98,
+      "sha256": "3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6": {
+      "bytes": 173725,
+      "sha256": "4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/5f196b0b0a2670f7ded0895e2768dee0c20ce85f6fce2b660330c69ca0a6f1b9": {
+      "bytes": 32145,
+      "sha256": "5f196b0b0a2670f7ded0895e2768dee0c20ce85f6fce2b660330c69ca0a6f1b9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/6bcd6da9fbb6c06733ec55be64190fd8964c82c5c9b5195a2d63e3e85d8681df": {
+      "bytes": 136473,
+      "sha256": "6bcd6da9fbb6c06733ec55be64190fd8964c82c5c9b5195a2d63e3e85d8681df"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c": {
+      "bytes": 62,
+      "sha256": "8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/objects/93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e": {
+      "bytes": 286,
+      "sha256": "93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/parameters.json": {
+      "bytes": 906,
+      "sha256": "38685385fd522c6ffbc369d0643b073418e7285523511da0fd6dd396d3c67496"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/projection.json": {
+      "bytes": 7999,
+      "sha256": "2f1b1bbeb782864a53730d2a59128d883a294239e79ddd331a2178db098a9499"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-6/report-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c7397e893b6b17202d7a8f37a2f8530b63b3b406b294ccc424a7c67a9d960b33"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/baseline.raw": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/bootstrap.json": {
+      "bytes": 32146,
+      "sha256": "0f862fd3879b9993036c5874e89c65fe4f091261db86c35e3034ce49fdd44fc0"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/current-checkpoint.raw": {
+      "bytes": 47725,
+      "sha256": "6651960a9f3246499eb297ed8399e05752b08fee6959376e07526a91cc2c6dd0"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/host-config.json": {
+      "bytes": 11764,
+      "sha256": "a2b97472d3686e20bd3b2d32ac53c763f0c48a75810f0825f32042d680597846"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/inputs-proof.json": {
+      "bytes": 18253,
+      "sha256": "0d3e4f2d1681271b4ecee4a80c58ae16bc1cb4f19bea842dcdce6cc3737af1cb"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/market-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c3444ef1c42314fc399282721f3f4d159b417c35a76d4f699662a937d54b10ec"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c": {
+      "bytes": 165,
+      "sha256": "0bb255eaf6d9c33bc8649320ad1b390e8437a0e63797976138ea12d2f6b42b0c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0c76c157052f7e1f26bdaf096b33fd405b297380ac60546ed423d01f804410d8": {
+      "bytes": 30215,
+      "sha256": "0c76c157052f7e1f26bdaf096b33fd405b297380ac60546ed423d01f804410d8"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/0f862fd3879b9993036c5874e89c65fe4f091261db86c35e3034ce49fdd44fc0": {
+      "bytes": 32146,
+      "sha256": "0f862fd3879b9993036c5874e89c65fe4f091261db86c35e3034ce49fdd44fc0"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3": {
+      "bytes": 205,
+      "sha256": "26e2701d63db459b25fc848a9d394376248341bbb0a511c6310f9b3c9bc021f3"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9": {
+      "bytes": 98,
+      "sha256": "3bc280cdcd9430a880680f9935290ebd1f4967c2da8d557453588fed71a18bc9"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6": {
+      "bytes": 173725,
+      "sha256": "4667744494ecb7abccff2301aa7b93f3461bec4446bc2d6bd332c225beb6f9b6"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945": {
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b": {
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b": {
+      "bytes": 267,
+      "sha256": "86c11a4f6e8110b1a5814621bc6f246fcf3266a221333e720b99f9075484d32b"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c": {
+      "bytes": 62,
+      "sha256": "8d0b9cc13b2f41068dbb1786585799be930b9a69be1d4a18259550f556b25c1c"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e": {
+      "bytes": 286,
+      "sha256": "93a639a91f6cd781c18cd7d2ee25eddf5603e31a92bbbe7392325829572dbd7e"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/ae417cc246d33ba9d70e08f0bf600385d0c22144cc924efa60c12c9ac3c098eb": {
+      "bytes": 136520,
+      "sha256": "ae417cc246d33ba9d70e08f0bf600385d0c22144cc924efa60c12c9ac3c098eb"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/objects/f90bc660f86d5cc55924ed184fdf6aadf951c836d4150adcaab9cdf60588d9f5": {
+      "bytes": 2031,
+      "sha256": "f90bc660f86d5cc55924ed184fdf6aadf951c836d4150adcaab9cdf60588d9f5"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/parameters.json": {
+      "bytes": 914,
+      "sha256": "008a43be5e7e343f703fc2fcc270dcccb9a24b31f310adc91cf1735c7d15aee2"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/projection.json": {
+      "bytes": 8007,
+      "sha256": "69aa52b8bbf5930aee2970a1357d9768258c8c3424888501c96834ee94915322"
+    },
+    "strategy-inputs-artifacts/fixtures/tpp-1308545-7/report-bank.raw": {
+      "bytes": 4096,
+      "sha256": "c7397e893b6b17202d7a8f37a2f8530b63b3b406b294ccc424a7c67a9d960b33"
+    },
+    "strategy-inputs-artifacts/host-process-meta.json": {
+      "bytes": 475,
+      "sha256": "3830682c38daad9c5eb1df2fb8ff6b4858178b784ef6ffccaf8cdfe06df7b096"
+    },
+    "strategy-inputs-artifacts/host-process.log": {
+      "bytes": 6060,
+      "sha256": "a6e5f7c078e196fd45b8d56c881e9b7402fa12609b937a0c946cd08699d08cd8"
+    },
+    "strategy-inputs-artifacts/parameter-compat-meta.json": {
+      "bytes": 5188,
+      "sha256": "e7f74d4e771aaa66b3b8cc820baa37ea23bd88a8278338b875900df48027b0cd"
+    },
+    "strategy-inputs-artifacts/parameter-compat.log": {
+      "bytes": 15654,
+      "sha256": "c3826d18cf0a17e0d2dec6d1cf937a492d2d648eb40000b33f8a8a3e32d22207"
+    },
+    "strategy-inputs-artifacts/release-build.log": {
+      "bytes": 1817,
+      "sha256": "8f09b4b50cc647d2891351dddf9570d6f0c72f9e7376c1b48056685a7679d9b8"
+    },
+    "strategy-inputs-artifacts/reproduction/archive-strategy-inputs.py": {
+      "bytes": 9621,
+      "sha256": "0c6466472dd744d77ef0d02a95124fd7480d1433dbd28b0b3b73dcdafb7a0494"
+    },
+    "strategy-inputs-artifacts/reproduction/run-strategy-inputs-gate.py": {
+      "bytes": 841,
+      "sha256": "14aed2c347c528cb54e55467c2ae10d74926af7eb6075dccab4c08226e99c31d"
+    },
+    "strategy-inputs-artifacts/reproduction/run-strategy-inputs-host.py": {
+      "bytes": 1158,
+      "sha256": "b31973de0dc7a8f0cc2df2af3d67ee9f5a3160c8ee9abe1f21c67fb7a6ed4c9a"
+    },
+    "strategy-inputs-artifacts/reproduction/run-strategy-inputs-parameter-compat.py": {
+      "bytes": 3182,
+      "sha256": "a4dd5a02b2e59ef859ab8ef68b81182c589bdb566a28a1a40e5d214c8687919b"
+    },
+    "strategy-inputs-artifacts/reproduction/run-strategy-inputs-process.py": {
+      "bytes": 3157,
+      "sha256": "58518b98eb6917384edf391119fe8faef2f40951535960b180f17c3e651fc8a7"
+    },
+    "strategy-inputs-artifacts/reproduction/strategy-inputs-build.py": {
+      "bytes": 2496,
+      "sha256": "c0badef7e6af291e4b77c6bd711c0bf4611e181b585e462633a8a231210666c6"
+    },
+    "strategy-inputs-artifacts/reproduction/strategy-inputs-compat.py": {
+      "bytes": 3211,
+      "sha256": "736559fa794cdc9cbcec12d29f97f5e3155d0b7eb8e4c959bc1397208cd599b5"
+    },
+    "strategy-inputs-artifacts/reproduction/strategy-inputs-source-manifest.py": {
+      "bytes": 1454,
+      "sha256": "decfe0b20caa414a40d9d59a93b33da4afe5324155aefc015dddbb00aee283a3"
+    },
+    "strategy-inputs-artifacts/writing-style.json": {
+      "bytes": 10393,
+      "sha256": "9f37912f369506809b96ddd71212b275ea7c16cb3b594d505a35952ad8a71e4d"
+    }
+  }
+}

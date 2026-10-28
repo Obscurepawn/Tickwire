@@ -11,6 +11,13 @@ use tickwire_runtime::{
 };
 use tickwire_venue::CanonicalCommand;
 pub trait AppStrategy: Strategy {
+    /// Historical account and market consumption by this exact instance.
+    fn projection_inputs(
+        &self,
+        _target: crate::observation::Target,
+    ) -> Option<&crate::hosted::inputs::InputsProof> {
+        None
+    }
     /// Historical parameter consumption by this exact instance at a real checkpoint.
     fn projection_parameters(
         &self,
@@ -559,6 +566,16 @@ impl MultiStrategy {
     }
 }
 impl AppStrategy for MultiStrategy {
+    fn projection_inputs(
+        &self,
+        target: crate::observation::Target,
+    ) -> Option<&crate::hosted::inputs::InputsProof> {
+        self.members
+            .iter()
+            .filter(|member| !member.retired)
+            .filter_map(|member| member.strategy.as_ref())
+            .find_map(|strategy| strategy.projection_inputs(target))
+    }
     fn projection_parameters(
         &self,
         target: crate::observation::Target,

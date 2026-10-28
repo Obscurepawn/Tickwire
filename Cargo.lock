@@ -2003,6 +2003,7 @@ dependencies = [
  "tickwire-control",
  "tickwire-control-store",
  "tickwire-control-sys",
+ "tickwire-handover",
  "tickwire-ipc",
  "tickwire-join",
  "tickwire-journal",

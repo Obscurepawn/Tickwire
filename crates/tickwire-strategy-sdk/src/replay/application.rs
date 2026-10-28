@@ -4,6 +4,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tickwire_ipc::{RecordHeader, ResourceHeader, Wire};
+pub mod observed;
 mod transition;
 
 #[derive(Serialize, Deserialize)]

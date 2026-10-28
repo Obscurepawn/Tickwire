@@ -1,0 +1,142 @@
+warning: unused imports: `ObservedAccountInput`, `ObservedJoin`, `ObservedMarketInput`, and `ObservedReportInput`
+ --> crates/tickwire-strategy-host/src/observation.rs:9:34
+  |
+9 | pub use inputs::{ObservedInputs, ObservedAccountInput, ObservedMarketInput, ObservedJoin, ObservedReportInput};
+  |                                  ^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: field `seal` is never read
+  --> crates/tickwire-strategy-host/src/observation/configuration.rs:51:9
+   |
+49 | pub(crate) struct Current {
+   |                   ------- field in this struct
+50 |     pub checkpoint: tickwire_release::replay::Checkpoint,
+51 |     pub seal: tickwire_recovery::HandoverSeal,
+   |         ^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-strategy-host` (lib) generated 2 warnings (run `cargo fix --lib -p tickwire-strategy-host` to apply 1 suggestion)
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+warning: unused import: `ResourceHeader`
+ --> crates/tickwire-app/src/hosted/inputs/tests.rs:5:20
+  |
+5 | use tickwire_ipc::{ResourceHeader, Wire};
+  |                    ^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Wire`
+ --> crates/tickwire-app/src/hosted/inputs/tests.rs:5:36
+  |
+5 | use tickwire_ipc::{ResourceHeader, Wire};
+  |                                    ^^^^
+
+warning: fields `baseline`, `scope`, `account_epoch`, and `instance` are never read
+  --> crates/tickwire-app/src/hosted/inputs.rs:79:5
+   |
+78 | pub(super) struct Guard {
+   |                   ----- fields in this struct
+79 |     baseline: Object,
+   |     ^^^^^^^^
+80 |     scope: Scope,
+   |     ^^^^^
+81 |     account_epoch: u64,
+   |     ^^^^^^^^^^^^^
+82 |     instance: ([u8;16],u64),
+   |     ^^^^^^^^
+   |
+   = note: `Guard` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: method `matches` is never used
+  --> crates/tickwire-app/src/hosted/inputs.rs:85:19
+   |
+84 | impl Guard {
+   | ---------- method in this implementation
+85 |     pub(super) fn matches(&self, baseline: Option<&CanonicalBaseline>, account: &Account, instance: Option<([u8;16],u64)>) -> bool {
+   |                   ^^^^^^^
+
+warning: fields `account` and `market` are never read
+  --> crates/tickwire-app/src/hosted/inputs.rs:92:5
+   |
+89 | pub(super) struct Prepared {
+   |                   -------- fields in this struct
+...
+92 |     account: AccountBinding,
+   |     ^^^^^^^
+93 |     market: MarketBinding,
+   |     ^^^^^^
+
+warning: methods `ready` and `payload` are never used
+  --> crates/tickwire-app/src/hosted/inputs/tests.rs:61:8
+   |
+59 | impl Fixture {
+   | ------------ methods in this implementation
+60 |     fn input(&mut self)->&mut Config {self.config.projection_inputs.as_mut().unwrap()}
+61 |     fn ready(&self)->Prepared {prepare(&self.config,&self.bootstrap,&self.runtime).unwrap().expect("enabled input constraint")}
+   |        ^^^^^
+62 |     fn reject(&self) {assert!(prepare(&self.config,&self.bootstrap,&self.runtime).is_err(),"mismatched input scope accepted");}
+63 |     fn payload(&mut self,change:impl FnOnce(&mut Value)) {
+   |        ^^^^^^^
+
+warning: variant `Closed` is never constructed
+  --> crates/tickwire-app/src/hosted/startup.rs:96:5
+   |
+92 | enum Phase {
+   |      ----- variant in this enum
+...
+96 |     Closed,
+   |     ^^^^^^
+   |
+   = note: `Phase` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+
+warning: field `guard` is never read
+   --> crates/tickwire-app/src/hosted/startup.rs:103:5
+    |
+ 98 | pub(super) struct Progress {
+    |                   -------- field in this struct
+...
+103 |     guard: Option<inputs::Guard>,
+    |     ^^^^^
+
+warning: methods `inputs_enabled`, `inputs_proof`, `close`, and `matches_account` are never used
+   --> crates/tickwire-app/src/hosted/startup.rs:124:19
+    |
+110 | impl Progress {
+    | ------------- methods in this implementation
+...
+124 |     pub(super) fn inputs_enabled(&self) -> bool { self.guard.is_some() }
+    |                   ^^^^^^^^^^^^^^
+125 |     pub(super) fn proof(&self) -> Option<&parameters::ParametersProof> { self.parameter_proof.as_ref() }
+126 |     pub(super) fn inputs_proof(&self) -> Option<&inputs::InputsProof> { self.input_proof.as_ref() }
+    |                   ^^^^^^^^^^^^
+127 |     fn close(&mut self) {
+    |        ^^^^^
+...
+132 |     pub(super) fn matches_account(
+    |                   ^^^^^^^^^^^^^^^
+
+warning: `tickwire-app` (lib test) generated 9 warnings (run `cargo fix --lib -p tickwire-app --tests` to apply 1 suggestion)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.57s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-eeb871654cf42dc7)
+
+running 1 test
+test hosted::inputs::tests::changed_account_in_same_risk_domain_is_rejected_before_launch ... FAILED
+
+failures:
+
+---- hosted::inputs::tests::changed_account_in_same_risk_domain_is_rejected_before_launch stdout ----
+
+thread 'hosted::inputs::tests::changed_account_in_same_risk_domain_is_rejected_before_launch' (1257584) panicked at crates/tickwire-app/src/hosted/inputs/tests.rs:62:23:
+mismatched input scope accepted
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hosted::inputs::tests::changed_account_in_same_risk_domain_is_rejected_before_launch
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 122 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

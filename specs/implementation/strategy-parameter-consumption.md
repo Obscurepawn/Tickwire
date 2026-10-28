@@ -6,7 +6,7 @@ Status: implemented
 
 ## 启动输入与内容核对
 
-App 的 `HostConfig.projection_parameters` 显式批准完整 ProjectionObject 文件及 ObjectBinding、cluster/namespace/host/process 范围、参数格式定义文件和有界查询期限。它只消费策略参数；资源限制仍通过原 `projection_launch`/`resources` 落实。两类绑定同时启用时必须指向同一个完整投影与范围，任何失败都不得回退或忽略已启用的约束。
+App 的 `HostConfig.projection_parameters` 显式批准完整 ProjectionObject 文件及 ObjectBinding、cluster/namespace/host/process 范围、参数格式定义文件和有界查询期限。它只消费策略参数；资源限制仍通过原 `projection_launch`/`resources` 落实。启动、参数与输入范围绑定同时启用时必须指向同一个完整投影与范围，任何失败都不得回退或忽略已启用的约束。
 
 只接受普通 registered Active/Shadow 首次启动；capture、预恢复任务及轮换拒绝。沿原有角色、完整本地通道身份、logical strategy、namespace、程序摘要和精确实例核对投影。检查点查询能力必须显式可用，使用既有 handover_enabled 路径；Shadow 保留原开启方式。旧配置省略本字段时保持原序列化与行为。
 
@@ -25,6 +25,8 @@ App 在实际 worker 启动后发出自己的新鲜检查点挑战。参数消�
 证明完成前保留该策略的排队 intent，继续驱动真实行情与账户输入。参数核验失败关闭本次策略并清理受管子进程；成功后才向执行端交付原 intent。启动内部查询与外部观测互斥，外部调用不能取走或取消内部结果。`AppStrategy::projection_parameters(target)` 按精确逻辑策略、实例和代次返回字段私有的 `ParametersProof`，保存该时刻的实际消费事实；后续当前状态仍需重新观测。
 
 启动参数查询最多每 10 ms 推进一步，未到期只比较单调时间和状态；账户基线未到达、Host 暂忙时也遵守该间隔，避免每次交易轮询读取进程信息。重试沿用原绝对截止点，期限判断先于冷轮询间隔，到期立即关闭，不延长查询。
+
+同时启用[输入范围约束](strategy-input-consumption.md)时，参数与账户/行情使用同一个内部查询和同一个 `FreshObservation`，期限取两者较早值。两项核对均成功才发布证明并交付 intent。门禁明确区分未启用、等待、通过与关闭，超时或错误后不能因 Prepared 已消费而重新打开。
 
 本模块不生成全局 Applied 或 effective 双收据。风险预算、IPC、日志、超时、可观测性等其余角色字段须由各自实际消费者落实。
 

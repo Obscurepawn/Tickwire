@@ -1,0 +1,502 @@
+{
+  "scope": "workspace production dependencies; development-only test edges excluded",
+  "packages": 60,
+  "acyclic": true,
+  "edges": {
+    "tickwire-account": [
+      "tickwire-risk",
+      "tickwire-venue"
+    ],
+    "tickwire-risk": [],
+    "tickwire-venue": [],
+    "tickwire-account-codec": [
+      "tickwire-account",
+      "tickwire-risk",
+      "tickwire-venue"
+    ],
+    "tickwire-journal": [],
+    "tickwire-recovery": [],
+    "tickwire-account-gateway": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-journal",
+      "tickwire-gateway",
+      "tickwire-journal",
+      "tickwire-recovery",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-account-journal": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-journal",
+      "tickwire-venue"
+    ],
+    "tickwire-gateway": [
+      "tickwire-binance",
+      "tickwire-business-journal",
+      "tickwire-execution",
+      "tickwire-journal",
+      "tickwire-journal-codec",
+      "tickwire-recovery",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-binance": [
+      "tickwire-binance-sbe",
+      "tickwire-book",
+      "tickwire-venue"
+    ],
+    "tickwire-binance-sbe": [],
+    "tickwire-book": [],
+    "tickwire-transport": [],
+    "tickwire-business-journal": [
+      "tickwire-execution",
+      "tickwire-journal",
+      "tickwire-journal-codec",
+      "tickwire-recovery"
+    ],
+    "tickwire-execution": [],
+    "tickwire-journal-codec": [],
+    "tickwire-app": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-gateway",
+      "tickwire-account-journal",
+      "tickwire-binance",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-execution",
+      "tickwire-binance-private",
+      "tickwire-binance-public",
+      "tickwire-binance-quota",
+      "tickwire-binance-session",
+      "tickwire-book",
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-config",
+      "tickwire-control",
+      "tickwire-control-store",
+      "tickwire-fencing",
+      "tickwire-handover",
+      "tickwire-ipc",
+      "tickwire-join",
+      "tickwire-journal",
+      "tickwire-lifecycle",
+      "tickwire-market-publisher",
+      "tickwire-market-source",
+      "tickwire-quota",
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-replica",
+      "tickwire-runtime",
+      "tickwire-runtime-policy",
+      "tickwire-shm",
+      "tickwire-snapshot",
+      "tickwire-strategy-host",
+      "tickwire-strategy-sdk",
+      "tickwire-supervisor",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-binance-account": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-gateway",
+      "tickwire-account-journal",
+      "tickwire-binance",
+      "tickwire-binance-private",
+      "tickwire-clock",
+      "tickwire-journal",
+      "tickwire-recovery",
+      "tickwire-risk",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-binance-private": [
+      "tickwire-binance",
+      "tickwire-clock",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-clock": [],
+    "tickwire-binance-clock": [
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-transport"
+    ],
+    "tickwire-clock-sys": [
+      "tickwire-clock"
+    ],
+    "tickwire-binance-execution": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-gateway",
+      "tickwire-account-journal",
+      "tickwire-binance",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-quota",
+      "tickwire-clock",
+      "tickwire-gateway",
+      "tickwire-recovery",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-binance-quota": [
+      "tickwire-binance",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-private",
+      "tickwire-binance-public",
+      "tickwire-clock",
+      "tickwire-quota",
+      "tickwire-venue"
+    ],
+    "tickwire-binance-public": [
+      "tickwire-binance",
+      "tickwire-binance-clock",
+      "tickwire-book",
+      "tickwire-transport"
+    ],
+    "tickwire-quota": [
+      "tickwire-clock"
+    ],
+    "tickwire-fencing": [
+      "tickwire-clock"
+    ],
+    "tickwire-replica": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-journal",
+      "tickwire-binance-account",
+      "tickwire-clock",
+      "tickwire-fencing",
+      "tickwire-handover",
+      "tickwire-journal",
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-venue"
+    ],
+    "tickwire-handover": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-recovery"
+    ],
+    "tickwire-release": [
+      "tickwire-handover",
+      "tickwire-ipc",
+      "tickwire-lifecycle",
+      "tickwire-recovery"
+    ],
+    "tickwire-ipc": [],
+    "tickwire-lifecycle": [
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-journal"
+    ],
+    "tickwire-binance-session": [
+      "tickwire-binance-clock",
+      "tickwire-binance-private",
+      "tickwire-clock"
+    ],
+    "tickwire-config": [],
+    "tickwire-control": [
+      "tickwire-ipc"
+    ],
+    "tickwire-control-sys": [
+      "tickwire-ipc"
+    ],
+    "tickwire-control-store": [
+      "tickwire-control",
+      "tickwire-ipc",
+      "tickwire-journal"
+    ],
+    "tickwire-join": [
+      "tickwire-control",
+      "tickwire-control-sys",
+      "tickwire-ipc",
+      "tickwire-shm",
+      "tickwire-shm-sys",
+      "tickwire-snapshot"
+    ],
+    "tickwire-shm": [
+      "tickwire-ipc",
+      "tickwire-shm-sys"
+    ],
+    "tickwire-shm-sys": [
+      "tickwire-ipc"
+    ],
+    "tickwire-snapshot": [
+      "tickwire-ipc"
+    ],
+    "tickwire-market-publisher": [
+      "tickwire-binance",
+      "tickwire-binance-public",
+      "tickwire-book",
+      "tickwire-instrument-index",
+      "tickwire-ipc",
+      "tickwire-join",
+      "tickwire-shm",
+      "tickwire-snapshot",
+      "tickwire-venue"
+    ],
+    "tickwire-instrument-index": [],
+    "tickwire-market-source": [
+      "tickwire-clock",
+      "tickwire-control",
+      "tickwire-control-sys",
+      "tickwire-instrument-index",
+      "tickwire-ipc",
+      "tickwire-join",
+      "tickwire-shm",
+      "tickwire-snapshot"
+    ],
+    "tickwire-runtime": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-gateway",
+      "tickwire-account-journal",
+      "tickwire-binance",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-execution",
+      "tickwire-binance-private",
+      "tickwire-binance-public",
+      "tickwire-binance-quota",
+      "tickwire-binance-session",
+      "tickwire-book",
+      "tickwire-clock",
+      "tickwire-handover",
+      "tickwire-journal",
+      "tickwire-market-source",
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-runtime-policy": [
+      "tickwire-account",
+      "tickwire-account-gateway",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-private",
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-runtime",
+      "tickwire-venue"
+    ],
+    "tickwire-strategy-host": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-gateway",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-public",
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-control",
+      "tickwire-control-store",
+      "tickwire-control-sys",
+      "tickwire-handover",
+      "tickwire-ipc",
+      "tickwire-join",
+      "tickwire-journal",
+      "tickwire-market-publisher",
+      "tickwire-market-source",
+      "tickwire-md",
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-runtime",
+      "tickwire-runtime-policy",
+      "tickwire-shm",
+      "tickwire-snapshot",
+      "tickwire-strategy-sdk",
+      "tickwire-supervisor",
+      "tickwire-venue"
+    ],
+    "tickwire-md": [
+      "tickwire-binance",
+      "tickwire-binance-public",
+      "tickwire-binance-quota",
+      "tickwire-book",
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-control",
+      "tickwire-control-store",
+      "tickwire-control-sys",
+      "tickwire-instrument-index",
+      "tickwire-ipc",
+      "tickwire-join",
+      "tickwire-journal",
+      "tickwire-market-publisher",
+      "tickwire-market-source",
+      "tickwire-quota",
+      "tickwire-shm",
+      "tickwire-snapshot",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-strategy-sdk": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-gateway",
+      "tickwire-binance-account",
+      "tickwire-binance-clock",
+      "tickwire-binance-public",
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-control",
+      "tickwire-control-sys",
+      "tickwire-handover",
+      "tickwire-ipc",
+      "tickwire-join",
+      "tickwire-market-source",
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-runtime",
+      "tickwire-shm",
+      "tickwire-shm-sys",
+      "tickwire-snapshot",
+      "tickwire-venue"
+    ],
+    "tickwire-supervisor": [
+      "tickwire-control",
+      "tickwire-control-sys",
+      "tickwire-ipc"
+    ],
+    "tickwire-config-fs": [
+      "tickwire-journal"
+    ],
+    "tickwire-config-journal": [
+      "tickwire-journal"
+    ],
+    "tickwire-config-materializer": [
+      "tickwire-config",
+      "tickwire-config-fs",
+      "tickwire-config-journal",
+      "tickwire-journal"
+    ],
+    "tickwire-config-service": [
+      "tickwire-config",
+      "tickwire-control-raft",
+      "tickwire-journal"
+    ],
+    "tickwire-control-raft": [
+      "tickwire-journal"
+    ],
+    "tickwire-control-peer": [
+      "tickwire-config-service",
+      "tickwire-control-raft",
+      "tickwire-journal"
+    ],
+    "tickwire-guardian": [
+      "tickwire-binance",
+      "tickwire-binance-clock",
+      "tickwire-binance-quota",
+      "tickwire-clock",
+      "tickwire-fencing",
+      "tickwire-journal",
+      "tickwire-quota",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-lab": [
+      "tickwire-account",
+      "tickwire-account-codec",
+      "tickwire-account-journal",
+      "tickwire-app",
+      "tickwire-binance-quota",
+      "tickwire-clock",
+      "tickwire-clock-sys",
+      "tickwire-fencing",
+      "tickwire-ipc",
+      "tickwire-lifecycle",
+      "tickwire-market-source",
+      "tickwire-md",
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-replica",
+      "tickwire-runtime-policy",
+      "tickwire-shm",
+      "tickwire-strategy-example",
+      "tickwire-strategy-sdk",
+      "tickwire-transport",
+      "tickwire-venue"
+    ],
+    "tickwire-strategy-example": [
+      "tickwire-recovery",
+      "tickwire-release",
+      "tickwire-strategy-sdk",
+      "tickwire-venue"
+    ],
+    "tickwire-mock": [
+      "tickwire-book",
+      "tickwire-execution",
+      "tickwire-ipc",
+      "tickwire-risk"
+    ]
+  },
+  "topological_order": [
+    "tickwire-risk",
+    "tickwire-venue",
+    "tickwire-account",
+    "tickwire-account-codec",
+    "tickwire-journal",
+    "tickwire-account-journal",
+    "tickwire-binance-sbe",
+    "tickwire-book",
+    "tickwire-binance",
+    "tickwire-execution",
+    "tickwire-journal-codec",
+    "tickwire-recovery",
+    "tickwire-business-journal",
+    "tickwire-transport",
+    "tickwire-gateway",
+    "tickwire-account-gateway",
+    "tickwire-clock",
+    "tickwire-binance-private",
+    "tickwire-binance-account",
+    "tickwire-clock-sys",
+    "tickwire-binance-clock",
+    "tickwire-binance-public",
+    "tickwire-quota",
+    "tickwire-binance-quota",
+    "tickwire-binance-execution",
+    "tickwire-binance-session",
+    "tickwire-config",
+    "tickwire-ipc",
+    "tickwire-control",
+    "tickwire-control-store",
+    "tickwire-fencing",
+    "tickwire-handover",
+    "tickwire-control-sys",
+    "tickwire-shm-sys",
+    "tickwire-shm",
+    "tickwire-snapshot",
+    "tickwire-join",
+    "tickwire-lifecycle",
+    "tickwire-instrument-index",
+    "tickwire-market-publisher",
+    "tickwire-market-source",
+    "tickwire-release",
+    "tickwire-replica",
+    "tickwire-runtime",
+    "tickwire-runtime-policy",
+    "tickwire-md",
+    "tickwire-strategy-sdk",
+    "tickwire-supervisor",
+    "tickwire-strategy-host",
+    "tickwire-app",
+    "tickwire-config-fs",
+    "tickwire-config-journal",
+    "tickwire-config-materializer",
+    "tickwire-control-raft",
+    "tickwire-config-service",
+    "tickwire-control-peer",
+    "tickwire-guardian",
+    "tickwire-strategy-example",
+    "tickwire-lab",
+    "tickwire-mock"
+  ]
+}

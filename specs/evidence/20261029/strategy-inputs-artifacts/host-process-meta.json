@@ -1,0 +1,19 @@
+{
+  "command": [
+    "cargo",
+    "test",
+    "-p",
+    "tickwire-strategy-host",
+    "--test",
+    "capture_process",
+    "actual_fresh_queries_cross_the_report_floor_and_keep_callbacks_running",
+    "--",
+    "--ignored",
+    "--nocapture"
+  ],
+  "worker": "/tmp/tw-input-bins-1/tickwire-counting-worker",
+  "started_utc": "2026-10-28T22:58:05.170722+00:00",
+  "completed_utc": "2026-10-28T22:58:14.673263+00:00",
+  "elapsed_seconds": 9.502572256009444,
+  "exit_code": 0
+}

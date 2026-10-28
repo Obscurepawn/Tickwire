@@ -354,13 +354,27 @@ impl ReadyProof {
         if !observation::same_process(&p.before, &after) {
             return Err(Error::Invalid);
         }
-        let configuration = observation::configuration::extract(
+        let current = observation::configuration::current(
             &reply.ready,
             &objects,
             after.process().identity(),
             after.process().image_hash(),
             p.started.domain(),
         )?;
+        let (configuration, inputs) = match current {
+            Some(current) => (
+                Some(observation::configuration::configuration(
+                    &current.checkpoint,
+                )?),
+                observation::inputs::extract(
+                    &current,
+                    &objects,
+                    &reply.ready,
+                    observation::inputs::report(reports, sub, reply.ready.report_ring_sequence),
+                )?,
+            ),
+            None => (None, None),
+        };
         let completed = clock.sample()?.monotonic;
         if completed.domain() != p.started.domain()
             || completed.nanos() < p.started.nanos()
@@ -385,6 +399,7 @@ impl ReadyProof {
             subscription: sub,
             objects,
             configuration,
+            inputs,
         }))
     }
 }

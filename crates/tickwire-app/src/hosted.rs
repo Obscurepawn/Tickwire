@@ -18,9 +18,11 @@ use tickwire_strategy_sdk::{
     runtime::{RecoveryResolver, ResolvedRecovery},
 };
 use tickwire_venue::CanonicalCommand;
+pub mod inputs;
 pub mod parameters;
 pub mod profile;
 mod rebuild;
+mod startup;
 
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -32,6 +34,9 @@ pub struct CaptureConfig {
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct HostConfig {
+    /// Bind approved account and market inputs to the actual registered worker.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub projection_inputs: Option<inputs::Config>,
     /// Explicit consumption of approved strategy parameters by the real worker.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub projection_parameters: Option<parameters::Config>,
@@ -142,10 +147,39 @@ impl RecoveryResolver for Files {
     }
 }
 struct Strategy(HostedStrategy<Files, 1>, u64, LaunchProgress);
+impl Strategy {
+    fn reject_startup(&mut self) {
+        self.2.failed = true;
+        if let Some((instance, _)) = self.0.instance()
+            && let Some(child) = self.0.child()
+            && let Err(error) = child.registry().terminate(instance)
+        {
+            eprintln!("strategy startup cleanup failed: {error:?}");
+        }
+    }
+    fn input_account_ok(
+        &mut self,
+        baseline: Option<&tickwire_account_codec::CanonicalBaseline>,
+        account: &tickwire_account::Account,
+    ) -> bool {
+        if self.2.failed {
+            return false;
+        }
+        if self
+            .2
+            .startup
+            .matches_account(baseline, account, self.0.instance())
+        {
+            return true;
+        }
+        self.reject_startup();
+        false
+    }
+}
 struct LaunchProgress {
     pending: Option<profile::Prepared>,
     proof: Option<profile::LaunchBindingProof>,
-    parameters: parameters::Progress,
+    startup: startup::Progress,
     failed: bool,
 }
 impl tickwire_runtime::node::Strategy for Strategy {
@@ -153,12 +187,18 @@ impl tickwire_runtime::node::Strategy for Strategy {
         &mut self,
         installed: tickwire_runtime::node::InstalledReplay,
     ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        if self.2.startup.inputs_enabled() {
+            return None;
+        }
         tickwire_runtime::node::Strategy::handover_finish_replay(&mut self.0, installed)
     }
     fn handover_install_replay(
         &mut self,
         source: &tickwire_release::replay::source::VerifiedSourceReplay,
     ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        if self.2.startup.inputs_enabled() {
+            return None;
+        }
         tickwire_runtime::node::Strategy::handover_install_replay(&mut self.0, source)
     }
     fn handover_replay_source(
@@ -204,9 +244,15 @@ impl tickwire_runtime::node::Strategy for Strategy {
         tickwire_runtime::node::Strategy::handover_objects(&mut self.0, r)
     }
     fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.2.startup.inputs_enabled() {
+            return false;
+        }
         tickwire_runtime::node::Strategy::handover_quiesce(&mut self.0, c)
     }
     fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.2.startup.inputs_enabled() {
+            return false;
+        }
         tickwire_runtime::node::Strategy::handover_activate(&mut self.0, c)
     }
     fn handover_halt(&mut self, id: u64) -> bool {
@@ -222,10 +268,10 @@ impl tickwire_runtime::node::Strategy for Strategy {
         h: tickwire_runtime::node::Health,
         n: tickwire_binance_clock::LocalTime,
     ) -> Option<tickwire_runtime::node::Submission> {
-        if self.2.failed {
+        if !self.input_account_ok(None, a) {
             return None;
         }
-        if (self.2.pending.is_some() || self.2.parameters.busy()) && !self.0.prepare_start(n) {
+        if (self.2.pending.is_some() || self.2.startup.busy()) && !self.0.prepare_start(n) {
             return None;
         }
         if self.2.pending.is_some() {
@@ -250,12 +296,12 @@ impl tickwire_runtime::node::Strategy for Strategy {
                 }
             }
         }
-        match self.2.parameters.poll(&mut self.0) {
+        match self.2.startup.poll(&mut self.0) {
             Ok(true) => {}
             Ok(false) => return None,
             Err(error) => {
                 self.2.failed = true;
-                eprintln!("strategy parameter consumption failed: {error}");
+                eprintln!("strategy startup consumption failed: {error}");
                 if let Some((instance, _)) = self.0.instance()
                     && let Some(child) = self.0.child()
                     && let Err(error) = child.registry().terminate(instance)
@@ -272,7 +318,8 @@ impl tickwire_runtime::node::Strategy for Strategy {
         b: &tickwire_account_codec::CanonicalBaseline,
         a: &tickwire_account::Account,
     ) -> bool {
-        tickwire_runtime::node::Strategy::on_account_baseline(&mut self.0, b, a)
+        self.input_account_ok(Some(b), a)
+            && tickwire_runtime::node::Strategy::on_account_baseline(&mut self.0, b, a)
     }
     fn account_report_position(&self) -> Option<u64> {
         tickwire_runtime::node::Strategy::account_report_position(&self.0)
@@ -284,7 +331,8 @@ impl tickwire_runtime::node::Strategy for Strategy {
         b: &tickwire_account_codec::CanonicalBaseline,
         a: &tickwire_account::Account,
     ) -> bool {
-        tickwire_runtime::node::Strategy::on_account_record(&mut self.0, p, r, b, a)
+        self.input_account_ok(Some(b), a)
+            && tickwire_runtime::node::Strategy::on_account_record(&mut self.0, p, r, b, a)
     }
     fn on_submission(
         &mut self,
@@ -295,12 +343,20 @@ impl tickwire_runtime::node::Strategy for Strategy {
     }
 }
 impl AppStrategy for Strategy {
+    fn projection_inputs(
+        &self,
+        target: crate::observation::Target,
+    ) -> Option<&inputs::InputsProof> {
+        observation_target(target, self.1, self.instance()).ok()?;
+        self.2.startup.inputs_proof()
+    }
+
     fn projection_parameters(
         &self,
         target: crate::observation::Target,
     ) -> Option<&parameters::ParametersProof> {
         observation_target(target, self.1, self.instance()).ok()?;
-        self.2.parameters.proof()
+        self.2.startup.proof()
     }
     fn projection_launch(
         &self,
@@ -322,7 +378,7 @@ impl AppStrategy for Strategy {
         r: tickwire_strategy_host::ObservationRequest,
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
-        if self.2.parameters.busy() {
+        if self.2.startup.busy() {
             return Err(tickwire_strategy_host::Error::Busy);
         }
         self.0.begin_observation(r)
@@ -332,7 +388,7 @@ impl AppStrategy for Strategy {
         t: crate::observation::Target,
     ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
         observation_target(t, self.1, self.instance())?;
-        if self.2.parameters.busy() {
+        if self.2.startup.busy() {
             return Err(tickwire_strategy_host::Error::Busy);
         }
         self.0.poll_observation()
@@ -343,7 +399,7 @@ impl AppStrategy for Strategy {
         id: [u8; 16],
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
-        if self.2.parameters.busy() {
+        if self.2.startup.busy() {
             return Err(tickwire_strategy_host::Error::Busy);
         }
         self.0.cancel_observation(id)
@@ -365,17 +421,44 @@ struct RemoteStrategy(
     u64,
     LaunchProgress,
 );
+impl RemoteStrategy {
+    fn input_account_ok(
+        &mut self,
+        baseline: Option<&tickwire_account_codec::CanonicalBaseline>,
+        account: &tickwire_account::Account,
+    ) -> bool {
+        if self.2.failed {
+            return false;
+        }
+        if self
+            .2
+            .startup
+            .matches_account(baseline, account, Some(self.0.instance()))
+        {
+            return true;
+        }
+        self.2.failed = true;
+        self.0.reject_configuration();
+        false
+    }
+}
 impl tickwire_runtime::node::Strategy for RemoteStrategy {
     fn handover_finish_replay(
         &mut self,
         installed: tickwire_runtime::node::InstalledReplay,
     ) -> Option<tickwire_runtime::node::PreparedReplay> {
+        if self.2.startup.inputs_enabled() {
+            return None;
+        }
         tickwire_runtime::node::Strategy::handover_finish_replay(&mut self.0, installed)
     }
     fn handover_install_replay(
         &mut self,
         source: &tickwire_release::replay::source::VerifiedSourceReplay,
     ) -> Option<tickwire_runtime::node::InstalledReplay> {
+        if self.2.startup.inputs_enabled() {
+            return None;
+        }
         tickwire_runtime::node::Strategy::handover_install_replay(&mut self.0, source)
     }
     fn handover_replay_source(
@@ -421,9 +504,15 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
         tickwire_runtime::node::Strategy::handover_objects(&mut self.0, r)
     }
     fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.2.startup.inputs_enabled() {
+            return false;
+        }
         tickwire_runtime::node::Strategy::handover_quiesce(&mut self.0, c)
     }
     fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
+        if self.2.startup.inputs_enabled() {
+            return false;
+        }
         tickwire_runtime::node::Strategy::handover_activate(&mut self.0, c)
     }
     fn handover_halt(&mut self, id: u64) -> bool {
@@ -439,15 +528,15 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
         h: tickwire_runtime::node::Health,
         n: tickwire_binance_clock::LocalTime,
     ) -> Option<tickwire_runtime::node::Submission> {
-        if self.2.failed {
+        if !self.input_account_ok(None, a) {
             return None;
         }
-        match self.2.parameters.poll(&mut self.0) {
+        match self.2.startup.poll(&mut self.0) {
             Ok(true) => tickwire_runtime::node::Strategy::next(&mut self.0, a, h, n),
             Ok(false) => None,
             Err(error) => {
                 self.2.failed = true;
-                eprintln!("strategy parameter consumption failed: {error}");
+                eprintln!("strategy startup consumption failed: {error}");
                 self.0.reject_configuration();
                 None
             }
@@ -458,7 +547,8 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
         b: &tickwire_account_codec::CanonicalBaseline,
         a: &tickwire_account::Account,
     ) -> bool {
-        tickwire_runtime::node::Strategy::on_account_baseline(&mut self.0, b, a)
+        self.input_account_ok(Some(b), a)
+            && tickwire_runtime::node::Strategy::on_account_baseline(&mut self.0, b, a)
     }
     fn account_report_position(&self) -> Option<u64> {
         tickwire_runtime::node::Strategy::account_report_position(&self.0)
@@ -470,7 +560,8 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
         b: &tickwire_account_codec::CanonicalBaseline,
         a: &tickwire_account::Account,
     ) -> bool {
-        tickwire_runtime::node::Strategy::on_account_record(&mut self.0, p, r, b, a)
+        self.input_account_ok(Some(b), a)
+            && tickwire_runtime::node::Strategy::on_account_record(&mut self.0, p, r, b, a)
     }
     fn on_submission(
         &mut self,
@@ -481,12 +572,20 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
     }
 }
 impl AppStrategy for RemoteStrategy {
+    fn projection_inputs(
+        &self,
+        target: crate::observation::Target,
+    ) -> Option<&inputs::InputsProof> {
+        observation_target(target, self.1, self.instance()).ok()?;
+        self.2.startup.inputs_proof()
+    }
+
     fn projection_parameters(
         &self,
         target: crate::observation::Target,
     ) -> Option<&parameters::ParametersProof> {
         observation_target(target, self.1, self.instance()).ok()?;
-        self.2.parameters.proof()
+        self.2.startup.proof()
     }
     fn projection_launch(
         &self,
@@ -508,7 +607,7 @@ impl AppStrategy for RemoteStrategy {
         r: tickwire_strategy_host::ObservationRequest,
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
-        if self.2.parameters.busy() {
+        if self.2.startup.busy() {
             return Err(tickwire_strategy_host::Error::Busy);
         }
         self.0.begin_observation(r)
@@ -518,7 +617,7 @@ impl AppStrategy for RemoteStrategy {
         t: crate::observation::Target,
     ) -> tickwire_strategy_host::Result<Option<tickwire_strategy_host::FreshObservation>> {
         observation_target(t, self.1, self.instance())?;
-        if self.2.parameters.busy() {
+        if self.2.startup.busy() {
             return Err(tickwire_strategy_host::Error::Busy);
         }
         self.0.poll_observation()
@@ -529,7 +628,7 @@ impl AppStrategy for RemoteStrategy {
         id: [u8; 16],
     ) -> tickwire_strategy_host::Result<()> {
         observation_target(t, self.1, self.instance())?;
-        if self.2.parameters.busy() {
+        if self.2.startup.busy() {
             return Err(tickwire_strategy_host::Error::Busy);
         }
         self.0.cancel_observation(id)
@@ -552,6 +651,11 @@ impl AppStrategy for RemoteStrategy {
         if self.0.market_consumer() != Some((c.pid, c.instance, c.generation)) {
             return Err(invalid("remote market process identity"));
         }
+        if self.2.startup.inputs_enabled() {
+            return Err(invalid(
+                "projected input scope requires a new approved startup before market changes",
+            ));
+        }
         self.0
             .arm_market(a)
             .map_err(|e| invalid(&format!("remote market arm: {e:?}")))
@@ -563,6 +667,11 @@ impl AppStrategy for RemoteStrategy {
     ) -> Result<()> {
         if self.0.market_consumer() != Some((c.pid, c.instance, c.generation)) {
             return Err(invalid("remote market process identity"));
+        }
+        if self.2.startup.inputs_enabled() {
+            return Err(invalid(
+                "projected input scope requires a new approved startup before market changes",
+            ));
         }
         self.0
             .commit_market(v)
@@ -791,8 +900,13 @@ impl RotationSource<Files, 1> for Rotations {
         }
         let build = (|| -> Result<_> {
             let config: HostConfig = serde_json::from_slice(&read_file(&path, 2 * 1024 * 1024)?)?;
-            if config.projection_launch.is_some() || config.projection_parameters.is_some() {
-                return Err(invalid("projection launch does not support rotation"));
+            if config.projection_launch.is_some()
+                || config.projection_parameters.is_some()
+                || config.projection_inputs.is_some()
+            {
+                return Err(invalid(
+                    "projected startup constraints do not support rotation",
+                ));
             }
             let bootstrap =
                 serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
@@ -840,6 +954,7 @@ pub fn build(
     // pathname read must not replace the identity checked by the projection.
     let projection = profile::prepare(config, &bootstrap)?;
     let parameters = parameters::prepare(config, &bootstrap)?;
+    let inputs = inputs::prepare(config, &bootstrap, runtime)?;
     if config.capture.is_some() {
         return rebuild::build(config, runtime, policy, bootstrap);
     }
@@ -847,7 +962,9 @@ pub fn build(
         if config.shadow {
             bootstrap.handover_enabled = true;
         }
-        return build_remote(config, runtime, policy, bootstrap, projection, parameters);
+        return build_remote(
+            config, runtime, policy, bootstrap, projection, parameters, inputs,
+        );
     }
     let context = Context {
         depth: runtime.market.depth.clone(),
@@ -893,7 +1010,7 @@ pub fn build(
         LaunchProgress {
             pending: projection,
             proof: None,
-            parameters: parameters::Progress::new(parameters),
+            startup: startup::Progress::new(parameters, inputs),
             failed: false,
         },
     )))
@@ -906,6 +1023,7 @@ fn build_remote(
     bootstrap: Bootstrap,
     projection: Option<profile::Prepared>,
     parameters: Option<parameters::Prepared>,
+    inputs: Option<inputs::Prepared>,
 ) -> Result<Box<dyn AppStrategy>> {
     let external = bootstrap
         .external_market
@@ -982,7 +1100,7 @@ fn build_remote(
         LaunchProgress {
             pending: None,
             proof,
-            parameters: parameters::Progress::new(parameters),
+            startup: startup::Progress::new(parameters, inputs),
             failed: false,
         },
     )))

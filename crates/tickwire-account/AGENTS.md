@@ -6,7 +6,7 @@
 
 ## 2. 公共 API 入口
 
-- `Account`（`src/lib.rs`）：`from_snapshot(snapshot, catalog)`、`freeze()`、`frozen()`、`valid_until()`、`account_epoch()`、`ledger_sequence()`、`rejected_event()`、`order(key) -> Option<OrderView>`、`position(...)`、`position_entry_bound(...)`、`transfer_asset_attribution(...)`、`order_keys()`。
+- `Account`（`src/lib.rs`）：`from_snapshot(snapshot, catalog)`、`freeze()`、`frozen()`、`valid_until()`、`scope() -> &Scope`（只读、零分配）、`account_epoch()`、`ledger_sequence()`、`rejected_event()`、`order(key) -> Option<OrderView>`、`position(...)`、`position_entry_bound(...)`、`transfer_asset_attribution(...)`、`order_keys()`。
 - 同 crate 内跨模块 `impl Account` 公开方法：
   - 准入/中止：`admit(command, now) -> Admission`、`check_admission(admission, now)`、`venue_shadow(wallet)`、`apply_abort(admission)`、`reconcile_fees(order, cumulative)`（`admission.rs`）。
   - 事件/事实：`apply_event(event) -> Applied`（`events.rs`）。

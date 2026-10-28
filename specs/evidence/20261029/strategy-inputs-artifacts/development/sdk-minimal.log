@@ -1,0 +1,10 @@
+    Checking tickwire-account v0.1.0 (/home/obscure/Tickwire/crates/tickwire-account)
+    Checking tickwire-journal v0.1.0 (/home/obscure/Tickwire/crates/tickwire-journal)
+    Checking tickwire-recovery v0.1.0 (/home/obscure/Tickwire/crates/tickwire-recovery)
+    Checking tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+    Checking tickwire-lifecycle v0.1.0 (/home/obscure/Tickwire/crates/tickwire-lifecycle)
+    Checking tickwire-account-codec v0.1.0 (/home/obscure/Tickwire/crates/tickwire-account-codec)
+    Checking tickwire-handover v0.1.0 (/home/obscure/Tickwire/crates/tickwire-handover)
+    Checking tickwire-release v0.1.0 (/home/obscure/Tickwire/crates/tickwire-release)
+    Checking tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.58s

@@ -1,6 +1,6 @@
 # 实际策略实例的新鲜观测
 
-控制 owner 查询正在托管的策略，通过当前认证报告会话发起一次新检查点挑战，并核对实际进程、消费进度和完整恢复闭包。输出描述这次请求实际采集到的状态，已供[策略参数消费者](strategy-parameter-consumption.md)核对当前私有配置；完整全局投影的应用与双收据、发布授权和持久来源水位仍由后续消费者接入。
+控制 owner 查询正在托管的策略，通过当前认证报告会话发起一次新检查点挑战，并核对实际进程、消费进度和完整恢复闭包。输出描述这次请求实际采集到的状态，供[策略参数消费者](strategy-parameter-consumption.md)核对当前私有配置，并供[输入范围消费者](strategy-input-consumption.md)核对实际账户和行情视图；完整全局投影的应用与双收据、发布授权和持久来源水位仍由后续消费者接入。
 
 ## 查询与交易输入
 
@@ -19,6 +19,10 @@ Host 的 `ObservationRequest` 固定外部请求 ID、同一单调时钟域的�
 成功结果保留请求 ID、新挑战、控制 epoch、请求账户水位、真实 READY、报告前缀摘要及游标身份、实际进程与可选资源事实、采样和完成时刻、原始截止点。原挑战匹配、周期 READY、完整闭包、报告游标和进程事实分别核验。磁盘与内核读取完成后重新检查原始截止点，超时返回请求失败。观察是有时间范围的事实，接收者使用时仍核对自己的请求、实例和当前期限。
 
 `FreshObservation::configuration()` 返回可选的 `ObservedConfiguration`。Host 从同一完整封口中验证并读取当前 merged cut 的 `RuntimeState.config`，保留 `source()`、`cut()`、`checkpoint()`、`revision()`、`object()` 与 `bytes()`；启动 anchor 的旧配置和任意同摘要对象均不能替代当前配置。提取过程还核对 Source 的实例、代次、逻辑策略、实际镜像与查询逻辑时钟域，以及当前业务状态与 READY 检查点的一致性。完全没有 merged 输入的旧闭包返回 None；部分、畸形或身份不符的 merged 历史返回错误。私有配置修订与原始字节摘要作为实际消费事实保存，全局投影修订由使用者另行绑定。
+
+`FreshObservation::inputs()` 与配置事实共用同一 current checkpoint，返回字段私有的 `ObservedInputs`。SDK 只读检查器验证完整账户/市场列表与 RuntimeState stream、水位及视图编码；账户基线、历史位置和 InputSeal 再与已核验报告闭包及 Host 实际前缀相符。报告 header/identity 来自真实 ReportWriter，subscription/sequence 来自本次已核对的共享消费 cursor。市场 bank、生产者实例/代次、完整标的 ID/版本来自当前保存视图，不读取启动模板补造。
+
+目录摘要和成员版本仅在封口命名的真实原始 JOIN 与当前 bank 完全匹配、快照通过验证时由 `ObservedJoin` 提供。换 bank 或其他恢复格式无此证据时 `join=None`；合法视图尚无账户或存在多个账户时，本单报告 owner 返回 `inputs=None`；畸形视图仍失败。完整 MD peer 身份属于启动批准，不冒充独立 MD 内核观察。输入与配置事实都不包含全局投影授权，范围消费者须要求所需事实完整且与批准输入一致。
 
 已关闭的请求不得因旧 READY、旧挑战、重启恢复、实例轮换或迟到响应产生新的成功观察。纯采集阶段和未完成安装的实例拒绝查询；同 PID 安装成功后的 live owner 复用真实 Registry 和报告会话。查询不建立发送授权，也不解冻账户。
 

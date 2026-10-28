@@ -30,7 +30,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 4. **模块实现规格**：[`implementation/`](implementation/)，按下文第 3 节分组索引定位；每篇先于对应 crate 源码确定接口与不变量。
 5. **形式验证**：[`../tla/`](../tla/) 中与改动模块对应的 `execution_models/<model>/ROADMAP.md`；源码变更后先核对锚点哈希再复跑。
 
-## 3. 实现规格索引（按功能域分组，共 76 篇）
+## 3. 实现规格索引（按功能域分组，共 77 篇）
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论，接手时先核对源码。
 
@@ -127,6 +127,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 | [runtime-observation.md](implementation/runtime-observation.md) | 新鲜检查点挑战、真实实例、消费进度与当前私有配置的冷采集 | `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app` | 已实现（本机实际实例查询；全局配置事实聚合仍待接入） |
 | [supervisor-process.md](implementation/supervisor-process.md) | 固定执行镜像、内核身份、进程资源约束与投影启动字段 | `tickwire-control-sys` / `tickwire-supervisor` / `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app` | 部分实现（策略首次启动接入投影约束；委派组正向验收、完整全局配置应用仍待完成） |
 | [strategy-parameter-consumption.md](implementation/strategy-parameter-consumption.md) | 投影参数、工厂原始配置与实际新鲜检查点绑定 | `tickwire-config` / `tickwire-strategy-host` / `tickwire-app` | 已实现（策略首次启动的参数消费者与交付门禁；完整全局 Applied 仍为部分实现） |
+| [strategy-input-consumption.md](implementation/strategy-input-consumption.md) | 批准账户和行情范围与实际当前输入、首意图门禁绑定 | `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app` | 已实现（单账户、单外部行情完整范围与持续身份门禁；完整全局 Applied 仍为部分实现） |
 | [control-session.md](implementation/control-session.md) | 控制会话协商、内核身份核对与请求登记票据 | `tickwire-control` | 已实现 |
 | [control-transport.md](implementation/control-transport.md) | Linux SOCK_SEQPACKET/SCM_RIGHTS 控制 FD 传输 | `tickwire-control-sys` | 已实现 |
 | [control-raft.md](implementation/control-raft.md) | 持久 Raft、SafeReadIndex、Chunk 大更新、快照与成员变更 | `tickwire-control-raft` | 已实现（快照与成员扩展见网络服务规格；生产故障组合待验收） |

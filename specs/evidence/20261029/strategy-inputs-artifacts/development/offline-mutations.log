@@ -1,0 +1,4 @@
+{"case": "other-real-join-object", "exit_code": 1, "rejection": "FAIL: kind 11 original JOIN binding"}
+{"case": "same-risk-domain-different-account", "exit_code": 1, "rejection": "FAIL: complete runtime account scope"}
+{"case": "self-consistent-proof-detached-from-retained-current", "exit_code": 1, "rejection": "FAIL: retained final current checkpoint"}
+{"case": "omit-small-closure-object", "exit_code": 1, "rejection": "FAIL: only fixed worker ELF may be omitted"}

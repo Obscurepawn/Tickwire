@@ -28,6 +28,7 @@
 - [../../specs/implementation/strategy-replay.md](../../specs/implementation/strategy-replay.md)（S→C 来源重放与 schema3 安装，SDK 侧回调/持久化由本 crate 实现）
 - [../../specs/implementation/strategy-graceful-retirement.md](../../specs/implementation/strategy-graceful-retirement.md)（report QUIESCE 退休，`retirement.rs` 封装）
 - [../../specs/implementation/release-preflight.md](../../specs/implementation/release-preflight.md)（`preflight`/`restore` 的预检与恢复工厂）
+- [../../specs/implementation/strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md)（当前持久账户与行情输入视图的只读检查）
 
 ## 5. 构建与测试
 
@@ -88,3 +89,5 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 `checkpoint::OBSERVE_CURRENT`（mode2）把请求报告位置解释为下界，仍回显原挑战和请求位置；READY 保存真实当前位置。`worker/observation.rs` 独立保存一次查询和单份应答，等待期间不暂停行情、账户或定时器；非阻塞发送背压保留同一检查点，截止后仅丢查询。周期 READY 使用单槽最新公告，在查询应答与安装/回退应答队列排空之后尝试非阻塞发送；新检查点清除较旧待发公告，避免迟到序号回退。查询也保留同一新 READY 的普通公告，使最后消费位置在没有后续账户输入时仍能公布。只有身份与结构已核验的过期 mode2 请求按请求级失败处理，旧模式 0/1 保留原精确封口行为。调用方须显式批准支持 mode2 的 SDK 构建。
 
 `checkpoint` 单测覆盖下界、旧模式精确水位、应答回显、旧 READY 与过期错误分类；worker 单测覆盖未追平、背压单次执行和同步跨期。真实 registered 进程与 Host 前缀、游标及内核核验见 [../../specs/implementation/runtime-observation.md](../../specs/implementation/runtime-observation.md)。
+
+`replay::application::observed::inspect(&Checkpoint)` 严格检查当前 SDK 保存视图，返回字段私有的 `InputViews/AccountInput/MarketInput`。账户基线和有序记录重建实际位置与 InputSeal；市场恢复实际连续视图、完整稳定标的 ID/版本及 ResourceHeader；两个完整列表与当前 RuntimeState 的 stream/sequence 逐项匹配。该接口不调用策略工厂、策略恢复或用户回调，不把内容检查当作活进程证明。`ReportWriter::header/identity` 只读提供实际 publisher 描述符与已绑定报告身份。单测覆盖当前账户/生产者变化、完整集合、畸形保存视图及水位错配。
