@@ -6,6 +6,7 @@ pub mod replica;
 pub mod retirement;
 #[allow(unsafe_code)]
 pub mod shm;
+pub mod transition;
 pub use shm::{Client, ConnectConfig, JoinProgress, PendingJoin, ShmSource};
 #[derive(Debug)]
 pub enum Error {
@@ -92,3 +93,7 @@ pub trait MarketSource {
     fn is_live(&self, now: MonoTime, maximum_age_ns: u64) -> bool;
     fn stop(&mut self, sink: &mut dyn MarketSink) -> Result<()>;
 }
+
+#[cfg(test)]
+#[path = "../../tickwire-join/tests/common/mod.rs"]
+mod test_fixture;

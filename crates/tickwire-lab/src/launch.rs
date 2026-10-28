@@ -141,9 +141,17 @@ pub fn run(s: &Scenario) -> Result<()> {
     } else {
         None
     };
+    let mut expansion = if s.kind == crate::ScenarioKind::SpotMarketExpansion {
+        Some(crate::expansion::Driver::new(s, pid, md_pid)?)
+    } else {
+        None
+    };
     let until = Instant::now() + Duration::from_secs(90);
     let exec_index = children.0.len() - 1;
     let status = loop {
+        if let Some(driver) = &mut expansion {
+            driver.poll()?;
+        }
         if let Some(driver) = &mut handover {
             driver.poll()?;
         }
@@ -214,6 +222,33 @@ pub fn run(s: &Scenario) -> Result<()> {
         result["preflight"] = serde_json::from_slice(&fs::read(
             s.root.join("handover/preflight-final-verified.json"),
         )?)?;
+    }
+    if let Some(driver) = &expansion {
+        let evidence = driver.evidence()?;
+        let observed = evidence["source_before_c"]["replay_cut"]["sequence"]
+            .as_u64()
+            .ok_or("expansion source frontier")?;
+        let fixed = evidence["source_before_c"]["source_s"]["replay_cut"]["sequence"]
+            .as_u64()
+            .ok_or("expansion source S")?;
+        if result["preflight"]["source_c_sequence"]
+            .as_u64()
+            .is_none_or(|c| c < observed)
+            || result["preflight"]["source_s_sequence"] != fixed
+            || result["preflight"]["expansion_prefix"]["fixed_proof"]
+                != evidence["source_before_c"]["source_s"]["seal"]
+            || result["preflight"]["expansion_prefix"]["fixed_checkpoint"]
+                != evidence["source_before_c"]["source_s"]["checkpoint"]
+            || result["preflight"]["expansion_prefix"]["observed_proof"]
+                != evidence["source_before_c"]["seal"]
+            || result["preflight"]["expansion_prefix"]["observed_checkpoint"]
+                != evidence["source_before_c"]["checkpoint"]
+            || result["preflight"]["expansion_prefix"]["prefix_verified"] != true
+        {
+            return Err("final replay cut does not cover the verified market expansion".into());
+        }
+        result["market_expansion"] = evidence.clone();
+        result["event"] = json!("laboratory_spot_market_expansion_complete");
     }
     crate::generate::json_file(&s.root.join("run-result.json"), &result)?;
     println!("{}", serde_json::to_string_pretty(&result)?);

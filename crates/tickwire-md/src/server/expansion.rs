@@ -11,6 +11,7 @@ pub(super) struct Expansion {
     failed: bool,
     quiesced_at: Option<u64>,
     successor: Option<ResourceHeader>,
+    proofs: Vec<(u32, [u8; 16], u64)>,
 }
 impl Expansion {
     pub(super) fn blocks(&self, topic: usize) -> bool {
@@ -30,22 +31,84 @@ fn canonical(admissions: &[Admission]) -> Result<Vec<[u8; 32]>> {
 }
 fn same_bank(a: &ResourceHeader, b: &ResourceHeader) -> bool {
     let mut a = a.clone();
-    let mut b = b.clone();
-    a.descriptor_hash = [0; 32];
-    b.descriptor_hash = [0; 32];
-    a == b
+    if a.descriptor_hash == [0; 32] {
+        a.descriptor_hash = b.descriptor_hash;
+    }
+    a == *b
 }
 fn request_id(operation: [u8; 16], sub: SubscriptionKey) -> [u8; 16] {
-    let mut hash = Sha256::new();
-    hash.update(b"tickwire.md.expansion.quiesce.v1");
-    hash.update(operation);
-    hash.update(sub.bank.resource.to_le_bytes());
-    hash.update(sub.instance.to_le_bytes());
-    hash.update(sub.generation.to_le_bytes());
-    hash.update(sub.cursor.to_le_bytes());
-    hash.finalize()[..16].try_into().unwrap()
+    tickwire_market_source::transition::quiesce_request_id(operation, sub)
 }
 impl Server {
+    pub fn activation_floor(&self, topic: usize, pid: u32, instance: [u8; 16]) -> Option<u64> {
+        self.peers
+            .iter()
+            .find(|peer| {
+                peer.topic == Some(topic)
+                    && peer.stage == Stage::Active
+                    && peer.admission.as_ref().is_some_and(|a| {
+                        a.pid == pid && a.client.endpoint.local.instance == instance
+                    })
+            })
+            .and_then(|peer| peer.activated_at)
+    }
+    pub fn expansion_previous_applied(
+        &self,
+        topic: usize,
+        operation: [u8; 16],
+        pid: u32,
+        instance: [u8; 16],
+    ) -> Result<u64> {
+        self.expansions
+            .iter()
+            .find(|e| e.topic == topic && e.operation == operation)
+            .and_then(|e| {
+                e.proofs
+                    .iter()
+                    .find(|(p, i, _)| *p == pid && *i == instance)
+            })
+            .map(|(_, _, seq)| *seq)
+            .ok_or_else(|| invalid("missing actual quiescence proof"))
+    }
+    pub(super) fn record_quiescence(
+        &mut self,
+        topic: usize,
+        operation: [u8; 16],
+        admission: &Admission,
+        applied: u64,
+    ) {
+        if let Some(expansion) = self
+            .expansions
+            .iter_mut()
+            .find(|e| e.topic == topic && e.operation == operation)
+        {
+            expansion.proofs.push((
+                admission.pid,
+                admission.client.endpoint.local.instance,
+                applied,
+            ));
+        }
+    }
+    pub fn topic_paused(&self, topic: usize) -> bool {
+        self.blocked(topic)
+    }
+    pub fn abort_expansion(
+        &mut self,
+        topic: usize,
+        operation: [u8; 16],
+        owner: &mut TopicOwner,
+    ) -> Result<()> {
+        if !self
+            .expansions
+            .iter()
+            .any(|e| e.topic == topic && e.operation == operation)
+        {
+            return Err(invalid("unknown expansion"));
+        }
+        self.fail_expansion(topic, operation);
+        owner.require_rebuild();
+        self.invalidate_topic(topic, owner)
+    }
     pub fn active_admissions(&self, topic: usize) -> Result<Vec<Admission>> {
         if topic >= 32 || self.blocked(topic) {
             return Err(invalid("topic expansion is closed"));
@@ -131,6 +194,7 @@ impl Server {
             failed: false,
             quiesced_at: None,
             successor: None,
+            proofs: Vec::with_capacity(expected.len()),
         });
         // Beyond this point partial revocation cannot be rolled back into an old generation.
         let result = self.queue_expansion(topic, operation, owner);

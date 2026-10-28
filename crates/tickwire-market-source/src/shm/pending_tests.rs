@@ -1,7 +1,6 @@
 use super::*;
+use crate::test_fixture as fixture;
 use tickwire_control_sys::{ControlListener, PrivateDirectory};
-#[path = "../../../tickwire-join/tests/common/mod.rs"]
-mod fixture;
 
 fn config(path: std::path::PathBuf) -> ConnectConfig {
     let local = fixture::identity(4, 3);
@@ -74,6 +73,7 @@ fn silent_peer_does_not_block_pending_join_and_cancel_is_terminal() {
 }
 
 mod peer;
+mod transition;
 use peer::Peer;
 
 #[test]

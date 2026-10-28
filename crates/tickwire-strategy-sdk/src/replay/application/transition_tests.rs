@@ -10,6 +10,14 @@ fn fixture_members(
     ids: [u64; 2],
     version: u64,
 ) -> (Input, ResourceHeader, crate::MarketReplica) {
+    fixture_join(previous, ids, version, 0)
+}
+fn fixture_join(
+    previous: Cursor,
+    ids: [u64; 2],
+    version: u64,
+    consumer: u8,
+) -> (Input, ResourceHeader, crate::MarketReplica) {
     let mut bank = ResourceHeader::decode(&tests::vector("normalized_resource_header")).unwrap();
     let old_ring = bank.ring_epoch;
     bank.resource_kind = 1;
@@ -22,8 +30,13 @@ fn fixture_members(
     bank.cutover_seq = previous.sequence;
     bank.first_seq = previous.sequence + 1;
     let mut resource = bank.clone();
-    resource.resource_id = [72; 16];
+    resource.resource_id = [72 + consumer; 16];
     let mut join = JoinBody::decode(&tests::vector("join_normalized_snapshot")).unwrap();
+    if consumer != 0 {
+        join.subscriber_instance = [40 + consumer; 16];
+        join.cursor_resource_id = [60 + consumer; 16];
+        join.subscription_generation += u64::from(consumer);
+    }
     join.snapshot_hash = [0; 32];
     join.snapshot_id = [0; 16];
     join.bank_resource_id = bank.resource_id;
@@ -60,7 +73,7 @@ fn fixture_members(
     let members = [0, 1].map(|i| InstrumentSnapshot {
         instrument_id: specs[i].instrument_id,
         instrument_version: version,
-        snapshot_id: [80 + i as u8; 16],
+        snapshot_id: [80 + consumer * 2 + i as u8; 16],
         at_sequence: previous.sequence,
         last_event_sequence: 990,
         feed_generation: bank.feed_generation,
@@ -135,14 +148,20 @@ fn fixture_members(
     let raw = crate::bootstrap::wire_bytes(&raw).unwrap();
     replica.apply(&raw, &[]).unwrap();
     let input = Input::MarketTransition {
+        cursor_basis: 0,
         operation_id: [11; 16],
         approval_digest: [12; 32],
         previous: previous.clone(),
         next: market_stream(&bank).unwrap(),
         baseline_sequence: previous.sequence,
         activated_sequence: previous.sequence + 1,
-        baseline: crate::recovery::snapshot_payload(&bootstrap, built.bytes(), 1_500_000_001, 4)
-            .unwrap(),
+        baseline: crate::recovery::snapshot_payload(
+            &bootstrap,
+            built.bytes(),
+            1_500_000_001 + u64::from(consumer),
+            4,
+        )
+        .unwrap(),
         catchup: vec![MarketTransitionRecord {
             record: raw,
             payload: vec![],
@@ -500,5 +519,121 @@ fn transition_sync_failure_stops_callbacks_without_promoting_the_durable_cut() {
                 1_600_000_004
             )
             .is_err()
+    );
+}
+
+#[test]
+fn independent_join_proofs_at_the_same_producer_frontier_share_the_cut() {
+    let (source_anchor, source_app) = initial();
+    let (shadow_anchor, shadow_app) = initial();
+    let previous = source_anchor.checkpoint().runtime.markets[0].clone();
+    let (mut source_input, _, _) = fixture_join(previous.clone(), [1001, u64::MAX], 5, 0);
+    let (mut shadow_input, _, _) = fixture_join(previous, [1001, u64::MAX], 5, 1);
+    for input in [&mut source_input, &mut shadow_input] {
+        let Input::MarketTransition { cursor_basis, .. } = input else {
+            panic!()
+        };
+        *cursor_basis = 1;
+    }
+    assert_ne!(
+        canonical(&source_input).unwrap(),
+        canonical(&shadow_input).unwrap()
+    );
+    let mut source = Engine::new(&source_anchor, source_app).unwrap();
+    let mut shadow = Engine::new(&shadow_anchor, shadow_app).unwrap();
+    source.apply_live(source_input, 1_600_000_003).unwrap();
+    shadow.apply_live(shadow_input, 1_600_000_004).unwrap();
+    let cut = source.checkpoint().unwrap();
+    let end = shadow.checkpoint().unwrap();
+    assert_eq!(
+        source.strategy.market_states().unwrap(),
+        shadow.strategy.market_states().unwrap()
+    );
+    assert_ne!(
+        cut.cut.chain, end.cut.chain,
+        "full consumer input provenance stays distinct"
+    );
+    assert_eq!(cut.runtime.markets, end.runtime.markets);
+    let plan =
+        super::super::catchup::plan(&cut, shadow_anchor.checkpoint(), shadow.recorded(), &end)
+            .unwrap();
+    assert!(plan.inputs().is_empty());
+    let tail = verify_tail(
+        &source_anchor,
+        &encode_tail(&source_anchor, source.recorded()).unwrap(),
+        &cut.cut,
+    )
+    .unwrap();
+    let replayed = replay_source(
+        &ApplicationFactory {
+            binary_digest: source_anchor.checkpoint().source.binary_digest,
+            business: Factory,
+        },
+        &source_anchor,
+        &tail,
+    )
+    .unwrap();
+    assert_eq!(replayed.checkpoint(), &cut);
+}
+
+#[test]
+fn producer_frontier_keeps_exact_raw_provenance_for_identical_transition_books() {
+    let (anchor, app) = initial();
+    let (shadow_anchor, shadow_app) = initial();
+    let previous = anchor.checkpoint().runtime.markets[0].clone();
+    let (mut input, _, replica) = fixture_join(previous.clone(), [1001, u64::MAX], 5, 0);
+    let (mut shadow_input, _, _) = fixture_join(previous, [1001, u64::MAX], 5, 1);
+    for (i, input) in [&mut input, &mut shadow_input].into_iter().enumerate() {
+        let Input::MarketTransition {
+            cursor_basis,
+            catchup,
+            ..
+        } = input
+        else {
+            panic!()
+        };
+        *cursor_basis = 1;
+        let original = MarketRecord::decode(&catchup[0].record).unwrap();
+        let mut depth = MarketRecord::decode(&tests::vector("depth_inline_two_levels")).unwrap();
+        depth.header.sequence = original.header.sequence;
+        depth.header.topic_or_scope_id = original.header.topic_or_scope_id;
+        depth.header.feed_generation = original.header.feed_generation;
+        depth.header.producer_generation = original.header.producer_generation;
+        depth.header.instrument_id = original.header.instrument_id;
+        depth.header.instrument_version = original.header.instrument_version;
+        depth.header.ingress_mono_ns = original.header.ingress_mono_ns;
+        depth.header.publish_mono_ns = original.header.publish_mono_ns;
+        depth.header.flags = 6;
+        depth.header.record_crc32c = 0;
+        depth.header.payload_crc32c = 0;
+        depth.body.depth_flags = 0;
+        let view = replica.view(u64::MAX).unwrap();
+        depth.body.inline_levels[0] = view.best_bid().unwrap().clone();
+        depth.body.inline_levels[1] = view.best_ask().unwrap().clone();
+        depth.body.exchange_event_ns = 1_600_000_000 + i as u64;
+        let raw = crate::bootstrap::wire_bytes(&depth).unwrap();
+        tickwire_ipc::decode_record(&raw).unwrap();
+        catchup[0].payload = raw[320..352].to_vec();
+        catchup[0].record = raw;
+    }
+    let mut source = Engine::new(&anchor, app).unwrap();
+    let mut shadow = Engine::new(&shadow_anchor, shadow_app).unwrap();
+    source.apply_live(input, 1_600_000_003).unwrap();
+    shadow.apply_live(shadow_input, 1_600_000_004).unwrap();
+    let source_cut = source.checkpoint().unwrap();
+    let shadow_cut = shadow.checkpoint().unwrap();
+    assert_eq!(
+        source.strategy.market_states().unwrap(),
+        shadow.strategy.market_states().unwrap()
+    );
+    assert_ne!(source_cut.runtime.markets, shadow_cut.runtime.markets);
+    assert!(
+        super::super::catchup::plan(
+            &source_cut,
+            shadow_anchor.checkpoint(),
+            shadow.recorded(),
+            &shadow_cut
+        )
+        .is_err()
     );
 }

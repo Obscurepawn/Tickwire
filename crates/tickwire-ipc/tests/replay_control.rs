@@ -62,3 +62,67 @@ fn replay_control_literal_shape_and_required_binding() {
     assert_eq!(decoded.replay_kind, 2);
     assert_eq!(decoded.expected_sequence, 0);
 }
+
+#[test]
+fn market_transition_kinds_use_existing_authenticated_control_layout() {
+    let body = ReplayControlBody {
+        instance_id: [1; 16],
+        strategy_generation: 2,
+        logical_strategy_id: 3,
+        challenge: [4; 16],
+        valid_until_mono_ns: 5,
+        object_digest: [6; 32],
+        object_bytes: 7,
+        expected_cut_digest: [8; 32],
+        operation_id: [9; 16],
+        operation_revision: 10,
+        schema: 1,
+        ..Default::default()
+    };
+    for kind in [6, 7] {
+        let mut body = body.clone();
+        body.replay_kind = kind;
+        let mut bytes = [0; 256];
+        body.encode(&mut bytes).unwrap();
+        for opcode in [41, 42] {
+            ControlFrame::decode(&frame(&bytes, opcode)).unwrap();
+        }
+    }
+    let mut bad = body;
+    bad.replay_kind = 8;
+    let mut bytes = [0; 256];
+    bad.encode(&mut bytes).unwrap();
+    assert!(ControlFrame::decode(&frame(&bytes, 41)).is_err());
+}
+
+#[test]
+fn market_arm_rejection_is_explicit_and_bounded() {
+    let body = ReplayControlBody {
+        instance_id: [1; 16],
+        strategy_generation: 2,
+        logical_strategy_id: 3,
+        challenge: [4; 16],
+        valid_until_mono_ns: 5,
+        object_digest: [6; 32],
+        object_bytes: 7,
+        expected_cut_digest: [8; 32],
+        operation_id: [9; 16],
+        operation_revision: 10,
+        schema: 1,
+        replay_kind: 6,
+        ..Default::default()
+    };
+    let mut bytes = [0; 256];
+    body.encode(&mut bytes).unwrap();
+    for status in 1..=4 {
+        let mut raw = frame(&bytes, 42);
+        let mut h = ControlEnvelope::decode(&raw[..128]).unwrap();
+        h.flags = 18;
+        h.status = status;
+        h.header_crc32c = 0;
+        h.encode(&mut raw[..128]).unwrap();
+        h.header_crc32c = crc32c(&raw[..128]);
+        h.encode(&mut raw[..128]).unwrap();
+        assert_eq!(ControlFrame::decode(&raw).is_ok(), status <= 3);
+    }
+}

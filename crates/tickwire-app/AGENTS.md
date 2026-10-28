@@ -8,14 +8,14 @@
 
 ### 模块（库层，供装配与测试引用）
 
-- `config`：`Deployment { baseline, directories, recover, product, boot_id, clock_generation, owner_id, writer_epoch, initial_writer_epoch, account_stream, input_stream, first_connection_epoch, trading_websocket, instrument_id, book_source, credential, network, clock, tuning, policy, quota, strategy, market_sources, replication, lifecycle, shadow_loader, reconciliation, income_*, control, stop_file, maximum_runtime_ns }`；`ProductName::{Spot, Usdm, UsdmFuture}`（`market()/product()`）；`CredentialConfig/CredentialMaterial/KeyAlgorithm::{Hmac, RsaPkcs8, Ed25519Pkcs8}`；`Network::resolve(connect_ns)`；`ClockConfig`；`Tuning`；`Deployment::read/baseline/domain/credentials/authentication/assemble`；常量 `PUBLIC_BOOK_LEVELS=5000`、`PUBLIC_DEPTH_UPDATES=5000`、`PUBLIC_BUFFERED_EVENTS=64`。
-- `control`：`ControlInbox::open(config, policy, quota, plane, clock)`、`poll(endpoint)`、`submit(command, endpoint) -> Applied`；`Config/Binding/Action/Command/Applied`。
+- `config`：`Deployment { baseline, directories, recover, product, boot_id, clock_generation, owner_id, writer_epoch, initial_writer_epoch, account_stream, input_stream, first_connection_epoch, trading_websocket, instrument_id, book_source, credential, network, clock, tuning, policy, quota, strategy, market_sources, market_transition, replication, lifecycle, shadow_loader, reconciliation, income_*, control, stop_file, maximum_runtime_ns }`；`ProductName::{Spot, Usdm, UsdmFuture}`（`market()/product()`）；`CredentialConfig/CredentialMaterial/KeyAlgorithm::{Hmac, RsaPkcs8, Ed25519Pkcs8}`；`Network::resolve(connect_ns)`；`ClockConfig`；`Tuning`；`Deployment::read/baseline/domain/credentials/authentication/assemble`；常量 `PUBLIC_BOOK_LEVELS=5000`、`PUBLIC_DEPTH_UPDATES=5000`、`PUBLIC_BUFFERED_EVENTS=64`。
+- `control`：`ControlInbox::open(config, policy, quota, plane, clock)`、`poll(endpoint)`、`submit(command, endpoint) -> Applied`；`Config/Binding/Action/Command/Applied`；`configure_market(market::Config, Option<Sources>)`、`poll_market(endpoint, strategy)` 连接启动批准的扩容目录。
 - `failover`：`SealConfig::read`、`RestoreConfig::read`、`validate_start(&Deployment) -> Option<(Option<PhysicalFrontier>, PhysicalFrontier)>`、`seal(&SealConfig) -> Value`、`restore(&RestoreConfig) -> Value`、`FenceAuthority`、`RestoreMode`。
 - `replication`：`Profile::{LocalDurableAsync{maximum_unreplicated_age_ns}, SyncReplica{mirror_id, assignment_epoch}}`、`Config { stream_file, mirror, mirror_server_name, tls, signing_key_pkcs8, mirror_signing_public_key, profile_version, profile, … }`、`Driver::open/replicate/start/drive`。
 - `reconciliation`：`Controller::new(...).with_execution_network(...)`、`drive<P,G,S,O,L,U,B>(node, registry)`；`Config { enabled, reader_id, first_request_epoch, first_execution_connection_epoch, retry_ns, valid_for_ns, fee_maintenance_interval_ns, income_baseline_import, income_account_scan, income_association }`；子模块 `association`、`income`。
 - `lifecycle`：`Inbox::open(...)`、`poll(strategy, gateway, now)`；`lifecycle/replay`。
 - `launch`：`build(strategy, settings, plane)`、`Config/Request`、`ShadowLoader::open/poll/next_sequence`。
-- `market::Sources::connect(...)`（认证直连 MD 订阅；空则选本地公共 client）。
+- `market::Sources::connect(...)`（认证直连 MD 订阅；空则选本地公共 client）；同线程可克隆冷控制句柄提供 `consumers/validate_arm/arm/commit/receipt/release`，每个成员保留当前精确 ConnectConfig。
 - `hosted::build(config, runtime, policy) -> Box<dyn AppStrategy>`（bootstrap 限定、shadow 开启 handover、远程外部市场分支）。
 - `strategy`：`Config/MemberConfig/CommandFile/RecoveryFiles/DependencyFile/FileStrategy/MultiStrategy/new_modes/load(digest)`。
 - `replay`：`run(&Deployment)`、`export(&Deployment, destination)`。
@@ -42,6 +42,8 @@ tickwire-app restore     --config /absolute/restore.json
 
 ## 对应规格
 
+- [../../specs/implementation/market-expansion.md](../../specs/implementation/market-expansion.md)（启动批准的市场扩容、独立控制决定、实际 JOIN 与双收据门禁）。
+
 - [../../specs/implementation/reconciliation-controller.md](../../specs/implementation/reconciliation-controller.md)（订单/成交分页/费用闭合/三类远端快照、终态费用维护触发与限频、收入基线导入与关联、冻结规则）
 
 ## 构建与测试
@@ -56,6 +58,13 @@ cargo fmt -p tickwire-app
 `tests/failover_files.rs` 为纯文件/源封口恢复测试（无 OS 围栏，测试控制器的隔离断言是受信输入）。真实私有会话、网络、启动序列在 `./scripts/check-linux.sh` Docker 与集成环境验证。运行时用绝对路径配置；`stop_file` 必须绝对且启动时不存在。
 
 ## 关键不变量与注意事项
+
+- **市场扩容控制**：`Deployment.market_transition` 只在已有 `control` 下启用，明确配置 `consumer_directory/effective_directory`（分离的 0700 真实目录）、`maximum_operations`（1..128）、`maximum_per_poll`（1..32）。仅实际 Sources 和托管远程 Host 的 PID/instance/generation 可接收决定；文件为 0600 的 `<pid>-<32hexinstance>.arm.json/.commit.json/.receipt.json`。完整 MarketDecision 先同步到控制 WAL 旁 `market-objects`，再同步其长度/摘要 WAL 引用；对象与 WAL 共用 64 MiB 预算，外部 command sequence、32 KiB 命令和 64 KiB 物理批次限制保持不变。
+- **扩容成功边界**：只有实际 Armed/Quiesced/Activated 能产生阶段收据，Activated 先同步 effective 中完整 Commit+Receipt，再同步共享 receipt，最后放行本地 Sources 的新观察。远程 worker 由自身 durable HEAD 与恢复对象持久化门禁放行。恢复校验所有历史对象，却不重放为活跃授权；无批准 QUIESCE 仍关闭旧订阅。文件扫描至少间隔 10 ms，未到期为无分配常量路径，已处理 Arm 缓存文件身份；冷轮询仍包含有界文件与同步 I/O，不声明硬实时隔离。
+- **同步后的期限门禁**：Decision 对象/WAL、effective 和共享 receipt 同步后重新采样实际时钟、复核当前 Binding，再检查批准期限。dispatch 与本地 release 不使用同步前时间；跨期限时保持关闭。已可见 receipt 的 observed 时间仍为真实消费者观察时间，MD 用自身当前时钟拒绝过期历史事实。下一次冷扫描从本次完成后至少间隔 10 ms。
+- MarketDecision 的 `at_ns` 保存显式传入的已验证准入时刻；同步后的新采样仅决定是否还能 dispatch。同步跨期仍保留 operation 历史，恢复按准入时刻验证且不重放；不得改用较晚的持久化时刻让已准入记录无法恢复。
+- **扩容回归**：`control/market/tests.rs` 覆盖决定先持久、对象缺失、超过 64 KiB 的完整批准、收据失败、恢复不重放与冷扫描零分配；`market/tests.rs` 使用真实 MD Server、memfd 和 SEQPACKET 覆盖批准/未批准切换及 release 前无新观察。仅测试依赖 `tickwire-md`、`tickwire-control-sys`、`sha2` 与安全 `allocation-counter`。
+- `control/market/tests/clock_tests.rs` 覆盖 Arm/Commit 决定跨期限、两次实际文件同步后的过期/Binding 变化，并用真实 Sources 重新 JOIN 证明过期收据写出后仍不 release 或发布新观察。
 
 - **数据面逐单不过 raft**：正常下单/回报走私有会话与执行通道；控制面（`control::ControlInbox`、持久登记 `tickwire-control-store`）只承载控制命令与授权，不把交易数据送 Raft。
 - **本地盘口槽**：`Deployment::assemble` 按规范基线完整目录顺序选取本地 `BookKey.instrument`，不窄化外部 `u64 instrument_id`；相同基线的恢复/重连保持槽位不变，venue/source 与外部 InstrumentBinding 保持原身份。槽不能跨 owner 或目录交换；见[归一化市场事件](../../specs/implementation/binance-market-events.md)。`config_instrument_tests.rs` 覆盖高位 ID、槽唯一性、同目录稳定性和 Spot/USD-M 实际 DepthSync 构造。

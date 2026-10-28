@@ -55,3 +55,14 @@ tickwire-lab generate --scenario spot-handover-custom --out /absolute/new-run --
 ```
 
 此场景的二进制目录还需包含 `tickwire-counting-v1-worker` 和 `tickwire-counting-worker`；脚本会编译、部署并记录这两个程序的 SHA。
+
+
+## 同进程市场扩容与跨银行交接
+
+```sh
+./scripts/run-core-chain-linux.sh spot-market-expansion release
+```
+
+`spot-market-expansion` 沿用 counting v1/v2 的真实 schema3 交接。启动账户目录已包含 ETHUSDT（标的 ID 为 `u64::MAX`），初始行情只含 BTCUSDT；固定真实 S 并恢复 Shadow 后，启动器向 MD 发布审批计划，新增 ETH REST/WSS owner，三位消费者分别完成实际 Arm、QUIESCED 与新 JOIN。实验室核对 MD、执行、旧 Active、Shadow 的 PID 与启动时刻保持、MD runtime/effective 与每个消费者的 Activated/effective 一致，再要求旧 Active 的持久新流水位覆盖全体激活水位，随后推进 C、来源重放、安装、回滚探针和原账户费用闭环。
+
+`market-expanded.json` 保存扩容阶段证据，最终 `run-result.json.market_expansion` 包含同一份记录；只有最终来源 C 覆盖已核验扩容水位、原账户/镜像/交接验证也通过时才生成完整运行结果。该 loopback 功能场景不代表生产资格或性能验收。

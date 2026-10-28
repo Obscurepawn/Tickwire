@@ -12,6 +12,7 @@ pub struct RemoteLaunch {
 type Intake<R> = RuntimeStrategy<R, fn(&tickwire_binance_public::Notice<'_>) -> bool>;
 pub struct RemoteHostedStrategy<R> {
     readiness: readiness::ReadyProof,
+    market_transition: market_transition::MarketTransition,
     report_sub: tickwire_shm::SubscriptionKey,
     strategy: Intake<R>,
     reports: Reports,
@@ -262,7 +263,17 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         fn ignore(_: &tickwire_binance_public::Notice<'_>) -> bool {
             true
         }
+        let market_transition = market_transition::MarketTransition::new(
+            config
+                .bootstrap
+                .external_market
+                .clone()
+                .ok_or(Error::Invalid)?,
+            config.bootstrap.command_directory.join("merged-inputs"),
+            report_process,
+        );
         Ok(Self {
+            market_transition,
             readiness: readiness::ReadyProof::new(&config.bootstrap, &config.spec)?,
             report_sub,
             strategy: RuntimeStrategy::new(
@@ -291,6 +302,48 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             _intent_listener: intent_listener,
             _report_listener: report_listener,
         })
+    }
+    /// Actual owned remote consumer; discovering it grants no market authority.
+    pub fn market_consumer(&self) -> Option<(u32, [u8; 16], u64)> {
+        if self.failed() {
+            return None;
+        }
+        Some((
+            self.report.process.pid,
+            self.identity.instance,
+            self.identity.generation,
+        ))
+    }
+    /// Caller has accepted the operation through its trusted runtime control authority.
+    pub fn arm_market(
+        &mut self,
+        approval: &tickwire_market_source::transition::Approval,
+    ) -> Result<()> {
+        self.registry.process(self.identity.instance)?;
+        self.market_transition.arm(
+            approval,
+            &self.report,
+            &mut self.reports,
+            self.clock.sample()?.monotonic.nanos(),
+        )
+    }
+    pub fn commit_market(
+        &mut self,
+        commit: &tickwire_market_source::transition::Commit,
+    ) -> Result<()> {
+        self.registry.process(self.identity.instance)?;
+        self.market_transition.commit(
+            commit,
+            &self.report,
+            &mut self.reports,
+            self.clock.sample()?.monotonic.nanos(),
+        )
+    }
+    pub fn market_transition(&self) -> Option<&tickwire_market_source::transition::Receipt> {
+        self.market_transition.receipt()
+    }
+    pub fn market_rejection(&self) -> Option<u32> {
+        self.market_transition.rejection()
     }
     pub fn set_shadow(&mut self) {
         self.forwarding = false;
@@ -321,7 +374,11 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         }
         self.registry.process(self.identity.instance)?;
         let now = self.clock.sample()?.monotonic.nanos();
-        self.readiness.poll(&mut self.report, now)?;
+        self.market_transition.flush(&mut self.report, now)?;
+        self.readiness
+            .poll_with(&mut self.report, now, |envelope, bytes| {
+                self.market_transition.observe(envelope, bytes, now)
+            })?;
         self.readiness
             .confirm(&self.reports, self.report_sub, &self.report, now)?;
         if now >= self.report.session.deadline() {

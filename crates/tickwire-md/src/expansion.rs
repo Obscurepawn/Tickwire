@@ -59,6 +59,9 @@ pub struct Finalized {
 }
 
 impl Prepared {
+    pub(crate) fn into_runtime(self) -> (Config, FeedIndex) {
+        (self.plan.target_config, self.index)
+    }
     pub fn plan(&self) -> &Plan {
         &self.plan
     }
@@ -336,7 +339,7 @@ impl Plan {
                 || old.gid != new.gid
                 || old.supervisor_pid != new.supervisor_pid
                 || !same_json(&old.supervisor, &new.supervisor)?
-                || before.bank_header != self.base_bank
+                || !same_current_bank(&before.bank_header, &self.base_bank)?
                 || after.bank_header != self.target_bank
                 || before.catalog_hash != catalog
                 || after.catalog_hash != catalog
@@ -380,6 +383,14 @@ impl Plan {
 
 fn same_json<A: Serialize + ?Sized, B: Serialize + ?Sized>(a: &A, b: &B) -> Result<bool> {
     Ok(serde_json::to_vec(a)? == serde_json::to_vec(b)?)
+}
+fn same_current_bank(admitted: &[u8], actual: &[u8]) -> Result<bool> {
+    let mut admitted = ResourceHeader::decode(admitted)?;
+    let actual = ResourceHeader::decode(actual)?;
+    if admitted.descriptor_hash == [0; 32] {
+        admitted.descriptor_hash = actual.descriptor_hash;
+    }
+    Ok(admitted == actual)
 }
 
 fn instruments(config: &Config, topic: u64) -> Result<Vec<Instrument>> {

@@ -57,6 +57,8 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 - **启动前先绑定全部恢复输入**：`preflight::verify_recovery_inputs` 在任何恢复回调前核对模板与每个依赖文件摘要；回调完成件先保存，再挂市场/意图（`preflight.rs` 头注释）。
 - **恢复闭包与消息预算分开**：worker 的来源/回滚闭包与 `Live::installation_objects` 按恢复单对象 64 MiB 读取 opaque 依赖，再由 release 校验完整闭包；`ControlInput`、检查点和其他类型化 replay 消息仍限制 16 MiB。
 - **行情换代先持久后接线**：`Live::supports_market_transition` 用于切换前准入；`transition_market(MarketTransitionRequest, &Client, now)` 绑定受信计划、旧 QUIESCE 后 applied 水位与真实新 JOIN。完整基线/catchup 只替换市场视图，不触发用户回调；提交与 HEAD 同步成功后调用方才能替换 Client。Legacy owner 拒绝，失败停止 recorded owner，typed 16 MiB 预算不扩大。历史重放与 schema3 continuation/install 保留前后 bank 流关系；旧 ID/version 不可删除或改写，旧 catalog hash 的批准关系仍由运行时受信计划核对。
+- **持续 worker 换源**：`market_transition` 绑定认证 report 41/42 的 kind6 Arm、kind7 Commit；控制对象至多 2 MiB。`worker::expansion` 在真实旧订阅和 replay 能力检查后返回 Armed；匹配操作派生请求的真实 QUIESCE 才暂停回调，完成 PendingJoin、持久 MarketTransition/HEAD、保留 merged 行与检查点后交换消费对象并返回 Activated。`RecoveryWriter` 保留步骤有界，闭包在既有 prepare/seal 同步；它不冒充额外 fsync。未 Arm 的 QUIESCE 保持退休行为，拒绝 Arm 不替换旧消费源。
+- **新 JOIN 等待真实生产者 frontier**：新转换采用 basis1；若 JOIN 的 catchup 为空，worker 保持暂停并逐轮有界读取真实记录，不造 synthetic 输入。等待期间与提交前核对真实会话期限、EOF/QUIESCE、cursor/副本一致及盘口连续/新鲜状态；失败关闭，持久成功与新鲜截止检查之后才交换 Client。旧 basis0 重放保持字节兼容，所有本地 JOIN 证据仍参与完整行哈希。
 - **输入采集不执行用户工厂**：`replay::rebuild::capture::CaptureOnly` 只在绑定的本机单调时钟域内接收有界行情与账户输入，错误不推进窗口；`finish` 返回真实输入链与账户摘要的封口，不生成用户检查点或 READY。Host 与实际进程采集接线仍待完成。
 - **handover 只核对恢复数据**：`AccountMirror` 要求基线恰好一次、记录 position 连续且绑定同一基线 digest，`InputSeal` 逐条累计；`verify` 输出仅供 Host 绑定来源身份/WAL，不代表回调已被执行。
 - **检查点挑战不可缓存**：`checkpoint.rs` 头注释“cached READY is not a seal response”；`verify_request` 核对 opcode=39、challenge、report_sequence、实例/代次/逻辑策略、有效期不超过会话。

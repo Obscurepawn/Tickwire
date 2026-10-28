@@ -5,8 +5,8 @@ cd "$(dirname "$0")/.."
 repo_dir="$PWD"
 scenario="${1:-spot-fill}"
 profile="${2:-dev}"
-if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover && "$scenario" != spot-handover-custom ]] || [[ "$profile" != dev && "$profile" != release ]]; then
-  printf 'Usage: %s [spot-fill|spot-handover|spot-handover-custom] [dev|release]\n' "$0" >&2
+if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover && "$scenario" != spot-handover-custom && "$scenario" != spot-market-expansion ]] || [[ "$profile" != dev && "$profile" != release ]]; then
+  printf 'Usage: %s [spot-fill|spot-handover|spot-handover-custom|spot-market-expansion] [dev|release]\n' "$0" >&2
   exit 2
 fi
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -39,7 +39,7 @@ docker run --rm --init --name "$container_name" --label tickwire.task=core-chain
     set -euo pipefail
     save_logs() {
       if test -d /lab/run/logs; then cp -a /lab/run/logs /results/; fi
-      for name in run-result.json account-report.json fixture.jsonl; do
+      for name in run-result.json account-report.json fixture.jsonl market-expanded.json; do
         if test -f "/lab/run/$name"; then cp "/lab/run/$name" /results/; fi
       done
     }

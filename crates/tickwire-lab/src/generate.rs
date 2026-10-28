@@ -72,7 +72,11 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
         .monotonic
         .nanos();
     let expires = now.checked_add(LIFE).ok_or("clock bounds")?;
-    let (baseline, command) = crate::model::model(now, expires)?;
+    let (baseline, command) = if kind == ScenarioKind::SpotMarketExpansion {
+        crate::model::expansion_model(now, expires)?
+    } else {
+        crate::model::model(now, expires)?
+    };
     write(&root.join("baseline.bin"), baseline.bytes())?;
     write(&root.join("strategy/command.bin"), command.bytes())?;
     let listen = free_address()?;
@@ -320,6 +324,9 @@ fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Result<Scenari
     if kind.handover() {
         crate::handover::configure(&mut scenario)?;
     }
+    if kind == ScenarioKind::SpotMarketExpansion {
+        crate::expansion::configure(&scenario)?;
+    }
     json_file(
         &root.join("scenario.json"),
         &serde_json::to_value(&scenario)?,
@@ -334,6 +341,9 @@ pub fn generate_handover(root: &Path, bins: &Path) -> Result<Scenario> {
 }
 pub fn generate_custom_handover(root: &Path, bins: &Path) -> Result<Scenario> {
     generate_with(root, bins, ScenarioKind::SpotHandoverCustom)
+}
+pub fn generate_market_expansion(root: &Path, bins: &Path) -> Result<Scenario> {
+    generate_with(root, bins, ScenarioKind::SpotMarketExpansion)
 }
 fn identity(
     id: u8,

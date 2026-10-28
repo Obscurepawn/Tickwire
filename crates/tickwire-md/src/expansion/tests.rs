@@ -83,6 +83,42 @@ fn approved_append_prepares_an_independent_stable_index_and_full_target() {
 }
 
 #[test]
+fn actual_bank_accepts_zero_digest_startup_admission_without_rewriting_approval() {
+    let (config, index, mut bank, mut plan) = fixture();
+    bank.descriptor_hash = Sha256::digest(wire_bytes(&bank).unwrap()).into();
+    plan.base_bank = wire_bytes(&bank).unwrap();
+    let mut previous = with_consumer(&config, &mut plan);
+    let mut template = bank.clone();
+    template.descriptor_hash = [0; 32];
+    previous.client.bank_header = wire_bytes(&template).unwrap();
+    plan.consumers[0].previous = previous.clone();
+    let ready = plan
+        .clone()
+        .prepare(
+            &config,
+            &index,
+            1,
+            &bank,
+            0,
+            std::slice::from_ref(&previous),
+            0,
+            100,
+        )
+        .unwrap();
+    assert_eq!(
+        ready.plan().consumers[0].previous.client.bank_header,
+        wire_bytes(&template).unwrap()
+    );
+    template.descriptor_hash = [99; 32];
+    previous.client.bank_header = wire_bytes(&template).unwrap();
+    plan.consumers[0].previous = previous.clone();
+    assert!(
+        plan.prepare(&config, &index, 1, &bank, 0, &[previous], 0, 100)
+            .is_err()
+    );
+}
+
+#[test]
 fn wrong_base_or_changed_old_feed_is_rejected_before_candidate_installation() {
     let (config, index, bank, plan) = fixture();
     for case in 0..8 {

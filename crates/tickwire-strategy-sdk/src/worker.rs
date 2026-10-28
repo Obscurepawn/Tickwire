@@ -1,5 +1,7 @@
 //! Qualified worker: authenticated launcher policies are the unsafe SHM admission boundary.
 use crate::bootstrap::{Bootstrap, Endpoint, JoinBootstrap};
+mod expansion;
+use crate::market_transition as transition_control;
 use crate::{CommandStore, Error, IntentWriter, MarketReplica, Result, Strategy};
 use std::{
     fs::OpenOptions,
@@ -15,6 +17,7 @@ use tickwire_clock_sys::SystemClock;
 use tickwire_control::{ClientHandshake, ProcessIdentity, Session};
 use tickwire_control_sys::Connection;
 use tickwire_ipc::{ControlEnvelope, Wire};
+use tickwire_market_source::transition::{Approval, Commit, Phase, Receipt};
 use tickwire_shm::{Publisher, SubscriptionKey};
 
 pub fn read_config<T: serde::de::DeserializeOwned>(path: &Path, maximum: usize) -> Result<T> {
@@ -131,14 +134,14 @@ unsafe fn run_inner<S: Strategy>(
     let (
         mut market,
         mut market_session,
-        consumer,
+        mut consumer,
         mut replica,
         snapshot_bytes,
         baseline_now,
         catchup,
         join_config,
         bank,
-        j,
+        mut j,
     ) = if let Some(external) = &config.external_market {
         if external.endpoint.local.identity() != config.market.local.identity()
             || external.endpoint.peer.identity() != config.market.peer.identity()
@@ -524,9 +527,24 @@ unsafe fn run_inner<S: Strategy>(
     let mut pending_seal: Option<(ControlEnvelope, tickwire_ipc::CheckpointSealBody)> = None;
     let mut callbacks_paused = false;
     let mut pending_replay_install: Option<tickwire_ipc::ReplayControlBody> = None;
+    let mut replay_completion_pending = false;
+    let mut current_market = config.external_market.clone();
+    let mut expansion: Option<expansion::Expansion> = None;
+    let mut expansion_replies = std::collections::VecDeque::<Vec<u8>>::new();
     loop {
         let n = now(&mut clock)?;
-        if n >= market_session.deadline()
+        let transition_paused = expansion.as_ref().is_some_and(|x| x.paused());
+        if expansion
+            .as_ref()
+            .is_some_and(|x| x.active() && n >= x.approval.deadline_mono_ns)
+        {
+            if transition_paused {
+                return Err(Error::Deadline);
+            }
+            expansion = None;
+            expansion_replies.clear();
+        }
+        if (!transition_paused && n >= market_session.deadline())
             || n >= intent_session.deadline()
             || n >= report_session.deadline()
         {
@@ -535,6 +553,7 @@ unsafe fn run_inner<S: Strategy>(
         let mut report_count = 0;
         for _ in 0..config.poll_records {
             if callbacks_paused
+                || transition_paused
                 || pending_seal
                     .as_ref()
                     .is_some_and(|(_, s)| account_mirror.position() == Some(s.report_sequence))
@@ -641,7 +660,7 @@ unsafe fn run_inner<S: Strategy>(
                 pending_seal = None;
             }
         }
-        let count = if callbacks_paused || pending_seal.is_some() {
+        let count = if callbacks_paused || transition_paused || pending_seal.is_some() {
             0
         } else {
             let mut count = 0;
@@ -697,23 +716,165 @@ unsafe fn run_inner<S: Strategy>(
             count
         };
         // Each complete drain has ended all payload references before control handling.
-        match market.try_recv() {
-            Ok(Some(packet)) => {
-                if !packet.fds().is_empty() {
-                    return Err(Error::Identity);
-                }
-                let envelope = ControlEnvelope::decode(&packet.bytes()[..128])?;
-                if envelope.opcode == 20 {
-                    let response =
-                        consumer.quiesce(&mut market_session, packet.bytes(), now(&mut clock)?)?;
-                    market.send(&response, &[], Instant::now() + Duration::from_secs(1))?;
-                    return Ok(());
-                }
-                market_session.validate(packet.bytes(), now(&mut clock)?)?;
-                return Err(Error::NotReady);
+        if let Some(bytes) = expansion_replies.front()
+            && transition_control::try_send(&mut report, bytes)?
+        {
+            expansion_replies.pop_front();
+        }
+        if let Some(x) = &mut expansion {
+            if let Some(bytes) = &x.market_reply
+                && transition_control::try_send(&mut market, bytes)?
+            {
+                x.market_reply = None;
             }
-            Ok(None) => {}
-            Err(e) => return Err(e.into()),
+            if let Some(pending) = &mut x.pending {
+                pending.poll(
+                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
+                    config.poll_records,
+                )?;
+                if let Some(client) = pending.take_client() {
+                    x.candidate = Some(client);
+                    x.pending = None;
+                }
+            }
+            let ready = if let Some(client) = &mut x.candidate {
+                expansion::poll_frontier(
+                    client,
+                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
+                    x.approval.deadline_mono_ns,
+                    config.maximum_market_age_ns,
+                )?
+            } else {
+                false
+            };
+            if ready {
+                let mut client = x.candidate.take().ok_or(Error::NotReady)?;
+                let at = now(&mut clock)?;
+                let previous_applied = x.previous_applied()?;
+                let receipt = Receipt::activated(
+                    &x.approval,
+                    std::process::id(),
+                    previous_applied,
+                    &client,
+                    tickwire_clock::MonoTime::new(domain, at),
+                )?;
+                strategy.transition_market(
+                    crate::replay::live::MarketTransitionRequest {
+                        operation_id: x.approval.operation_id,
+                        approval_digest: x.approval.approval_digest,
+                        previous_applied,
+                        maximum_levels: config.maximum_levels,
+                    },
+                    &client,
+                    at,
+                )?;
+                retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
+                let (checkpoint, _) = strategy.committed().ok_or(Error::NotReady)?;
+                recovery
+                    .as_mut()
+                    .ok_or(Error::NotReady)?
+                    .merged_checkpoint(checkpoint)?;
+                let object = strategy.store_object(&serde_json::to_vec(&receipt)?)?;
+                x.approval.validate_receipt(
+                    &receipt,
+                    std::process::id(),
+                    Phase::Activated,
+                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
+                )?;
+                // Persistence may outlive the new session or receive QUIESCE.
+                // Recheck the retained client before enabling any callback.
+                if !expansion::poll_frontier(
+                    &mut client,
+                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
+                    x.approval.deadline_mono_ns,
+                    config.maximum_market_age_ns,
+                )? {
+                    return Err(Error::NotReady);
+                }
+                let (commit, request) = x.commit.as_ref().ok_or(Error::NotReady)?;
+                let reply = transition_control::encode_reply(&report_session, request, object)?;
+                market = client.connection;
+                market_session = client.session;
+                consumer = client.consumer;
+                j = client.join;
+                current_market = Some(commit.config.clone());
+                x.receipt = receipt;
+                x.activated = Some(object);
+                x.pending = None;
+                expansion::queue(&mut expansion_replies, reply)?;
+            }
+        }
+        if !expansion.as_ref().is_some_and(|x| x.paused()) {
+            match market.try_recv() {
+                Ok(Some(packet)) => {
+                    if !packet.fds().is_empty() {
+                        return Err(Error::Identity);
+                    }
+                    let envelope = ControlEnvelope::decode(&packet.bytes()[..128])?;
+                    if envelope.opcode == 20 {
+                        if let Some(x) = &mut expansion {
+                            if x.active() {
+                                if envelope.request_id
+                                    != tickwire_market_source::transition::quiesce_request_id(
+                                        x.approval.operation_id,
+                                        transition_control::subscription(&x.approval.previous)?,
+                                    )
+                                {
+                                    return Err(Error::Identity);
+                                }
+                                let at = now(&mut clock)?;
+                                let response =
+                                    consumer.quiesce(&mut market_session, packet.bytes(), at)?;
+                                let receipt = Receipt::quiesced(
+                                    &x.approval,
+                                    std::process::id(),
+                                    consumer.watermarks().applied,
+                                    tickwire_clock::MonoTime::new(domain, at),
+                                )?;
+                                let object =
+                                    strategy.store_object(&serde_json::to_vec(&receipt)?)?;
+                                x.receipt = receipt;
+                                x.quiesced = Some(object);
+                                x.market_reply = Some(response);
+                                expansion::queue(
+                                    &mut expansion_replies,
+                                    transition_control::encode_reply(
+                                        &report_session,
+                                        &x.arm,
+                                        object,
+                                    )?,
+                                )?;
+                            } else {
+                                let response = consumer.quiesce(
+                                    &mut market_session,
+                                    packet.bytes(),
+                                    now(&mut clock)?,
+                                )?;
+                                market.send(
+                                    &response,
+                                    &[],
+                                    Instant::now() + Duration::from_secs(1),
+                                )?;
+                                return Ok(());
+                            }
+                        } else {
+                            let response = consumer.quiesce(
+                                &mut market_session,
+                                packet.bytes(),
+                                now(&mut clock)?,
+                            )?;
+                            market.send(&response, &[], Instant::now() + Duration::from_secs(1))?;
+                            return Ok(());
+                        }
+                    } else {
+                        market_session.validate(packet.bytes(), now(&mut clock)?)?;
+                        return Err(Error::NotReady);
+                    }
+                    // The approved old consumer is detached; subsequent work remains in this process.
+                }
+                Ok(None) => {}
+                Err(e) => return Err(e.into()),
+            }
         }
         match intent.try_recv() {
             Ok(Some(packet)) => {
@@ -796,6 +957,7 @@ unsafe fn run_inner<S: Strategy>(
                         &crate::bootstrap::wire_bytes(&ready)?,
                     )?;
                     report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
+                    replay_completion_pending = false;
                     // Retain the original challenge for exact completion retries.
                     // RecoveryWriter rejects a different completion root.
                     continue;
@@ -809,6 +971,158 @@ unsafe fn run_inner<S: Strategy>(
                     )?;
                     let raw = objects
                         .get_object(body.object_digest, tickwire_release::replay::MAX_BYTES)?;
+                    if matches!(
+                        body.replay_kind,
+                        transition_control::ARM | transition_control::COMMIT
+                    ) {
+                        if body.instance_id != config.report.local.instance
+                            || body.strategy_generation != config.report.local.generation
+                            || body.logical_strategy_id != config.report.local.logical_strategy
+                            || body.object_bytes != raw.len() as u64
+                            || raw.len() > transition_control::MAX_BYTES
+                        {
+                            return Err(Error::Identity);
+                        }
+                        let at = tickwire_clock::MonoTime::new(domain, now(&mut clock)?);
+                        if body.replay_kind == transition_control::ARM {
+                            let approval = match Approval::decode(&raw) {
+                                Ok(value) => value,
+                                Err(_) => {
+                                    expansion::queue(
+                                        &mut expansion_replies,
+                                        transition_control::encode_rejection(
+                                            &report_session,
+                                            &body,
+                                            transition_control::INVALID,
+                                        )?,
+                                    )?;
+                                    continue;
+                                }
+                            };
+                            transition_control::verify_request(
+                                &frame.envelope,
+                                &body,
+                                &approval,
+                                &raw,
+                                at.nanos(),
+                                report_session.deadline(),
+                            )?;
+                            if let Some(x) = &expansion
+                                && x.approval.digest()? == approval.digest()?
+                            {
+                                expansion::queue(
+                                    &mut expansion_replies,
+                                    transition_control::encode_reply(
+                                        &report_session,
+                                        &body,
+                                        x.quiesced.unwrap_or(x.armed),
+                                    )?,
+                                )?;
+                                continue;
+                            }
+                            let rejection = expansion::arm_rejection(
+                                &approval,
+                                current_market.as_ref(),
+                                strategy.supports_market_transition(),
+                                callbacks_paused
+                                    || pending_seal.is_some()
+                                    || replay_completion_pending
+                                    || expansion.as_ref().is_some_and(|x| x.active()),
+                                at,
+                            );
+                            if let Some(status) = rejection {
+                                expansion::queue(
+                                    &mut expansion_replies,
+                                    transition_control::encode_rejection(
+                                        &report_session,
+                                        &body,
+                                        status,
+                                    )?,
+                                )?;
+                                continue;
+                            }
+                            strategy.store_object(&raw)?;
+                            let receipt = Receipt::armed(&approval, std::process::id(), at)?;
+                            let armed = strategy.store_object(&serde_json::to_vec(&receipt)?)?;
+                            expansion::queue(
+                                &mut expansion_replies,
+                                transition_control::encode_reply(&report_session, &body, armed)?,
+                            )?;
+                            expansion = Some(expansion::Expansion {
+                                approval,
+                                arm: body,
+                                armed,
+                                receipt,
+                                quiesced: None,
+                                commit: None,
+                                activated: None,
+                                pending: None,
+                                candidate: None,
+                                market_reply: None,
+                            });
+                        } else {
+                            let Some(x) = &mut expansion else {
+                                expansion::queue(
+                                    &mut expansion_replies,
+                                    transition_control::encode_rejection(
+                                        &report_session,
+                                        &body,
+                                        transition_control::INVALID,
+                                    )?,
+                                )?;
+                                continue;
+                            };
+                            transition_control::verify_request(
+                                &frame.envelope,
+                                &body,
+                                &x.approval,
+                                &raw,
+                                at.nanos(),
+                                report_session.deadline(),
+                            )?;
+                            let commit = Commit::decode(&raw)?;
+                            if let Some((old, _)) = &x.commit {
+                                if serde_json::to_vec(old)? != raw {
+                                    return Err(Error::Identity);
+                                }
+                                if let Some(object) = x.activated {
+                                    expansion::queue(
+                                        &mut expansion_replies,
+                                        transition_control::encode_reply(
+                                            &report_session,
+                                            &body,
+                                            object,
+                                        )?,
+                                    )?;
+                                }
+                                continue;
+                            }
+                            if !x.paused() {
+                                expansion::queue(
+                                    &mut expansion_replies,
+                                    transition_control::encode_rejection(
+                                        &report_session,
+                                        &body,
+                                        transition_control::BUSY,
+                                    )?,
+                                )?;
+                                continue;
+                            }
+                            commit.validate(&x.approval, x.previous_applied()?, at)?;
+                            strategy.store_object(&raw)?;
+                            // SAFETY: authenticated qualified Host approved this exact successor;
+                            // the same immutable bank and cursor contracts as startup still apply.
+                            let pending = unsafe {
+                                tickwire_market_source::PendingJoin::new(&commit.config, at)?
+                            };
+                            x.commit = Some((commit, body));
+                            x.pending = Some(pending);
+                        }
+                        continue;
+                    }
+                    if expansion.as_ref().is_some_and(|x| x.active()) {
+                        return Err(Error::NotReady);
+                    }
                     let input = ControlInput::decode(&raw)?;
                     let expected = strategy.control_checkpoint(&input)?;
                     crate::replay::control::verify_request(
@@ -933,6 +1247,7 @@ unsafe fn run_inner<S: Strategy>(
                     report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
                     if installed_ready {
                         pending_replay_install = Some(body.clone());
+                        replay_completion_pending = true;
                         ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
                         let ready = account_mirror.ready(
                             &config.market.local,
@@ -961,7 +1276,10 @@ unsafe fn run_inner<S: Strategy>(
                     continue;
                 }
                 if frame.envelope.opcode == 39 {
-                    if !config.handover_enabled || pending_seal.is_some() {
+                    if !config.handover_enabled
+                        || pending_seal.is_some()
+                        || expansion.as_ref().is_some_and(|x| x.active())
+                    {
                         return Err(Error::Identity);
                     }
                     let seal = crate::checkpoint::verify_request(
@@ -980,7 +1298,7 @@ unsafe fn run_inner<S: Strategy>(
                     pending_seal = Some((frame.envelope.clone(), seal));
                     continue;
                 }
-                if !remote {
+                if !remote || expansion.as_ref().is_some_and(|x| x.active()) {
                     return Err(Error::Identity);
                 }
                 let mut proof = crate::retirement::check_request(

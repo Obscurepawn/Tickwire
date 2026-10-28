@@ -24,6 +24,13 @@ pub struct TopicExpansion {
     reserved_cache_bytes: usize,
 }
 impl TopicExpansion {
+    /// Bind the final topic row before commit; commit preserves this exact candidate directory.
+    pub fn instrument_slot(&self, instrument: u64) -> Result<InstrumentSlot> {
+        Ok(InstrumentSlot {
+            instrument,
+            dense: self.state.index.lookup(instrument).ok_or(Error::Identity)?,
+        })
+    }
     pub fn reserved_cache_bytes(&self) -> usize {
         self.reserved_cache_bytes
     }

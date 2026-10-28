@@ -157,11 +157,57 @@ pub struct MarketTransitionRecord {
     pub instrument: u64,
     pub applied_mono_ns: u64,
 }
+fn legacy_cursor_basis(value: &u8) -> bool {
+    *value == 0
+}
+
+/// Digest of the exact producer input at a market cursor, separate from JOIN-local evidence.
+pub fn market_cursor_digest(input: &Input) -> Result<Hash> {
+    if let Input::MarketTransition {
+        cursor_basis,
+        next,
+        activated_sequence,
+        catchup,
+        ..
+    } = input
+    {
+        if *cursor_basis == 1 {
+            use tickwire_ipc::Wire;
+            let last = catchup.last().ok_or(Error::Invalid)?;
+            if last.record.len() != 512 || last.payload.len() > MAX_BYTES {
+                return Err(Error::Invalid);
+            }
+            let header = tickwire_ipc::RecordHeader::decode(&last.record[..128])
+                .map_err(|_| Error::Invalid)?;
+            if header.sequence != *activated_sequence
+                || header.instrument_id != last.instrument
+                || header.ingress_mono_ns > last.applied_mono_ns
+            {
+                return Err(Error::Invalid);
+            }
+            let frontier = Input::MarketApplied {
+                stream: next.clone(),
+                sequence: *activated_sequence,
+                received_ns: header.ingress_mono_ns,
+                record: last.record.clone(),
+                payload: last.payload.clone(),
+            };
+            return Ok(tickwire_recovery::digest(&canonical(&frontier)?));
+        }
+        if *cursor_basis != 0 {
+            return Err(Error::Invalid);
+        }
+    }
+    Ok(tickwire_recovery::digest(&canonical(input)?))
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", deny_unknown_fields, rename_all = "snake_case")]
 pub enum Input {
     /// A recorded trusted JOIN boundary. Content validity is not authorization.
     MarketTransition {
+        #[serde(default, skip_serializing_if = "legacy_cursor_basis")]
+        cursor_basis: u8,
         operation_id: [u8; 16],
         approval_digest: Hash,
         previous: Cursor,
@@ -402,6 +448,7 @@ impl MergedInput {
         }
         match &self.input {
             Input::MarketTransition {
+                cursor_basis,
                 operation_id,
                 approval_digest,
                 previous,
@@ -411,6 +458,12 @@ impl MergedInput {
                 baseline,
                 catchup,
             } => {
+                if *cursor_basis > 1 {
+                    return Err(Error::Invalid);
+                }
+                if *cursor_basis == 1 {
+                    market_cursor_digest(&self.input)?;
+                }
                 key(&previous.stream)?;
                 key(next)?;
                 if *operation_id == [0; 16]

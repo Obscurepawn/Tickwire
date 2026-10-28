@@ -57,7 +57,7 @@ pub fn after_cut(
                 }
                 let include = state.1;
                 state.0.sequence = *sequence;
-                state.0.content_digest = tickwire_recovery::digest(&canonical(&row.input)?);
+                state.0.content_digest = market_cursor_digest(&row.input)?;
                 if !state.1 {
                     state.1 = reached(&state.0, false)?;
                 }
@@ -76,7 +76,7 @@ pub fn after_cut(
                 let cursor = Cursor {
                     stream: next.clone(),
                     sequence: *activated_sequence,
-                    content_digest: tickwire_recovery::digest(&canonical(&row.input)?),
+                    content_digest: market_cursor_digest(&row.input)?,
                 };
                 let matched = reached(&cursor, inherited)?;
                 active.insert(next.clone(), (cursor, matched));

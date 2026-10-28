@@ -62,6 +62,67 @@ impl Peer {
             .publish(&[&self.data.record(self.owner.published() + 1)])
             .unwrap();
     }
+
+    pub fn send_quiesce(&mut self, operation: [u8; 16], approved: bool) {
+        let sub = self.registration.subscription;
+        let id = if approved {
+            crate::transition::quiesce_request_id(operation, sub)
+        } else {
+            [99; 16]
+        };
+        let bytes = self
+            .owner
+            .quiesce(sub, self.session.as_ref().unwrap(), id, 1)
+            .unwrap();
+        assert!(
+            self.connection
+                .as_mut()
+                .unwrap()
+                .try_send(&bytes, &[])
+                .unwrap()
+        );
+    }
+    pub fn receive_quiesced(&mut self) {
+        let packet = self
+            .connection
+            .as_mut()
+            .unwrap()
+            .try_recv()
+            .unwrap()
+            .unwrap();
+        self.owner
+            .quiesced(
+                self.registration.subscription,
+                self.session.as_mut().unwrap(),
+                packet.bytes(),
+                fixture::NOW,
+            )
+            .unwrap();
+        assert!(self.owner.all_detached());
+    }
+    pub fn successor(&mut self, config: ConnectConfig) {
+        let bank = ResourceHeader::decode(&config.bank_header).unwrap();
+        let frozen = self.owner.freeze_for_successor(bank.ring_epoch).unwrap();
+        assert_eq!(frozen.cutover, bank.cutover_seq);
+        let mut publisher = Publisher::<4>::create(bank.clone()).unwrap();
+        for record in &mut self.data.states {
+            record.header.feed_generation = bank.feed_generation;
+            record.header.flags |= 6;
+            record.header.publish_mono_ns = fixture::NOW;
+            record.header.ingress_mono_ns = fixture::NOW;
+        }
+        for seq in bank.first_seq..bank.first_seq + 4 {
+            publisher.publish(&[&self.data.record(seq)]).unwrap();
+        }
+        self.owner = JoinOwner::new(publisher, config.registry().unwrap()).unwrap();
+        self.registration = fixture::registration(&self.owner, 4);
+        self.registration.subscription.generation = config.subscription_generation;
+        self.registration.subscription.cursor = u128::from_le_bytes(config.cursor_id);
+        self.config = config;
+        self.connection = None;
+        self.session = None;
+        self.stage = 0;
+    }
     pub fn step(&mut self) {
         if self.connection.is_none() {
             self.connection = self.listener.try_accept().unwrap();
@@ -110,6 +171,7 @@ impl Peer {
                 let (mut supervisor, client) = fixture::session_pair(fixture::identity(1, 1));
                 let admin_request =
                     fixture::request(&client, &request, 25, self.owner.membership_version());
+                let registry = self.config.registry().unwrap();
                 self.owner
                     .prepare(
                         &mut supervisor,
@@ -118,7 +180,14 @@ impl Peer {
                         &self.registration,
                         [31; 16],
                         now,
-                        |plan| snapshot(&self.data, plan, request.readiness_deadline_mono_ns),
+                        |plan| {
+                            snapshot(
+                                &self.data,
+                                plan,
+                                request.readiness_deadline_mono_ns,
+                                &registry,
+                            )
+                        },
                     )
                     .unwrap();
                 let session = self.session.as_mut().unwrap();
@@ -221,33 +290,52 @@ fn snapshot(
     data: &fixture::Data,
     plan: &tickwire_join::JoinPlan,
     deadline: u64,
+    registry: &TopicRegistry,
 ) -> tickwire_ipc::Result<tickwire_snapshot::BuiltTopic> {
     use tickwire_snapshot::{BuildRequest, InstrumentSnapshot, build_topic_with_coverage};
-    let registry = registry();
-    let members = [InstrumentSnapshot {
-        instrument_id: 1001,
-        instrument_version: 5,
-        snapshot_id: [32; 16],
-        at_sequence: plan.sequence,
-        last_event_sequence: 4,
-        feed_generation: 1,
-        catalog_version: 1,
-        catalog_hash: registry.catalog_hash,
-        created_mono_ns: fixture::NOW,
-        expires_mono_ns: deadline,
-        state_version: 1,
-        coverage_depth: 10,
-        coverage_flags: 0,
-        states: &data.states,
-        bids: &data.bids,
-        asks: &data.asks,
-    }];
+    let states: Vec<_> = registry
+        .instruments
+        .iter()
+        .map(|instrument| {
+            let mut records = data.states.clone();
+            for record in &mut records {
+                record.header.instrument_id = instrument.instrument_id;
+                record.header.feed_generation = plan.join.feed_generation;
+                record.header.sequence = plan.sequence;
+            }
+            records
+        })
+        .collect();
+    let members: Vec<_> = registry
+        .instruments
+        .iter()
+        .zip(&states)
+        .enumerate()
+        .map(|(index, (instrument, records))| InstrumentSnapshot {
+            instrument_id: instrument.instrument_id,
+            instrument_version: instrument.instrument_version,
+            snapshot_id: [32 + index as u8; 16],
+            at_sequence: plan.sequence,
+            last_event_sequence: plan.sequence,
+            feed_generation: plan.join.feed_generation,
+            catalog_version: 1,
+            catalog_hash: registry.catalog_hash,
+            created_mono_ns: fixture::NOW,
+            expires_mono_ns: deadline,
+            state_version: 1,
+            coverage_depth: 10,
+            coverage_flags: 0,
+            states: records,
+            bids: &data.bids,
+            asks: &data.asks,
+        })
+        .collect();
     build_topic_with_coverage(
         &BuildRequest {
             resource: &plan.resource,
             join: &plan.join,
             catalog_hash: registry.catalog_hash,
-            instrument_set_version: 1,
+            instrument_set_version: registry.instrument_set_version,
             sequence: plan.sequence,
             created_mono_ns: fixture::NOW,
             expires_mono_ns: deadline,
@@ -257,11 +345,14 @@ fn snapshot(
             members: &members,
             byte_limit: 64 * 1024 * 1024,
         },
-        &[tickwire_ipc::DepthCoverage {
-            version: 1,
-            bid_kind: 1,
-            ask_kind: 1,
-            ..Default::default()
-        }],
+        &vec![
+            tickwire_ipc::DepthCoverage {
+                version: 1,
+                bid_kind: 1,
+                ask_kind: 1,
+                ..Default::default()
+            };
+            members.len()
+        ],
     )
 }

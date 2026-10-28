@@ -66,6 +66,8 @@ pub struct Deployment {
     #[serde(default)]
     pub market_sources: Vec<tickwire_market_source::ConnectConfig>,
     #[serde(default)]
+    pub market_transition: Option<crate::control::market::Config>,
+    #[serde(default)]
     pub replication: Option<crate::replication::Config>,
     #[serde(default)]
     pub lifecycle: Option<crate::lifecycle::Config>,

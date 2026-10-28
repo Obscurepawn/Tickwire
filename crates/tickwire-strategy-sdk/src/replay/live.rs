@@ -125,6 +125,7 @@ impl<S: Strategy> Live<S> {
                 })?;
             let next = market_stream(&client.bank)?;
             let input = Input::MarketTransition {
+                cursor_basis: 1,
                 operation_id: request.operation_id,
                 approval_digest: request.approval_digest,
                 previous,

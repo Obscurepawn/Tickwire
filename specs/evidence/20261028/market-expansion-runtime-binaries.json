@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "source_manifest": "/tmp/tickwire-progress-20261028/runtime-expansion-build-source.json",
+  "source_manifest_sha256": "7ec10b7a1c3dcde209c850f91b95b1a254c9400d0ffbe58500fade53392b1ba9",
+  "strip": "strip --strip-debug on deployment copies only",
+  "binaries": [
+    {
+      "name": "tickwire-app",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-app",
+      "bytes": 14748280,
+      "sha256": "e6a0c56957e397343d755e3449f30a4351dc32f9e58fb90b6c772cb7974f0da2",
+      "build_bytes": 14824568,
+      "build_sha256": "fff56612b5f50ab0350f1b142679078730b84f55b400b45fd10cbb9a08c2d5b6"
+    },
+    {
+      "name": "tickwire-md",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-md",
+      "bytes": 4778080,
+      "sha256": "bebf44ede3e3314126d6ea87b61a584f4791d139a061e076a1595057cf0a2549",
+      "build_bytes": 4798712,
+      "build_sha256": "7643ff59459f1e0c79c34ddef3aa420f9a81184e310021a4f0e852b69cfff8ee"
+    },
+    {
+      "name": "tickwire-strategy-worker",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-strategy-worker",
+      "bytes": 5166368,
+      "sha256": "87fd4d024c8d90677f1dab25d45860373e0e51f165ccb7d89fd0a36450ff7b6d",
+      "build_bytes": 5195400,
+      "build_sha256": "92379d7fe634b8dd2cc75c08142ce344c5219be9d69e30acf8eb8f3c6ff69210"
+    },
+    {
+      "name": "tickwire-replica-receiver",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-replica-receiver",
+      "bytes": 5001128,
+      "sha256": "3404565ff9dde0b064fac0e414af8ea73563b3030b748e212598d2951f987001",
+      "build_bytes": 5025416,
+      "build_sha256": "964a057689a4b68766eb6b10cf33019a8f91d4158770b2fd664a582025ed23f9"
+    },
+    {
+      "name": "tickwire-lab",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-lab",
+      "bytes": 10867648,
+      "sha256": "4755afdd1cac07ab491f331e6f02a566e4f31f9e692d2950c418b3658c849c6b",
+      "build_bytes": 10924896,
+      "build_sha256": "cb6940d92171b067c508b4567274f1b434e2942fc09498ef13f093b36f6277f8"
+    },
+    {
+      "name": "tickwire-lifecycle",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-lifecycle",
+      "bytes": 1537792,
+      "sha256": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569",
+      "build_bytes": 1543704,
+      "build_sha256": "4f57bf7075b0bd2a0ce867141d19d1edf139fc3ca6152b12078f4c818d8271df"
+    },
+    {
+      "name": "tickwire-counting-v1-worker",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-counting-v1-worker",
+      "bytes": 5609536,
+      "sha256": "bb5d62d8e14b634ef4f5034fbdaeab1feddeb9c5a09f8d24e935a42f32dd12db",
+      "build_bytes": 5641312,
+      "build_sha256": "c59c09e12fea7af10b0d2fb28adb0e60fcf80382b4b4e90f80fcb7a725fb3f0b"
+    },
+    {
+      "name": "tickwire-counting-worker",
+      "path": "/tmp/tickwire-progress-20261028/runtime-expansion-bin-1/tickwire-counting-worker",
+      "bytes": 5607912,
+      "sha256": "982432e014f5622c5bb3c21b514befe04eca79f2aadf1dd5faea79098dae8477",
+      "build_bytes": 5639688,
+      "build_sha256": "2de0a4b8d2fccda0ab9162a936c55248be178c1f82de9f53e40fbb5e9fbefaec"
+    }
+  ]
+}

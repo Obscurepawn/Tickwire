@@ -22,8 +22,8 @@ Tickwire 把行情接入、策略计算和账户执行放在独立进程中，�
 | 范围 | 已实现 | 后续工作 |
 |---|---|---|
 | Spot 业务链 | 公开行情、真实 JOIN、独立策略、签名 REST、私有事件入账、订单与成交查询、终态费用闭合 | 更多订单类型、会话恢复与故障组合验收 |
-| 行情与共享内存 | JSON / Spot SBE 接入，完整深度与精确事件发布，快照加增量追平，受保护借用与协作退出 | 完整 bank 轮换、死亡回收、生产缓存与 NUMA 资格 |
-| 策略换代 | Shadow、完整输入记录、旧版本回放、持久安装与独立回滚探测；自定义 V1→V2 的 schema3 完整进程交接通过 | 多域故障组合、声明重建的运行时接线 |
+| 行情与共享内存 | JSON / Spot SBE 接入，完整深度与精确事件发布，快照加增量追平；同 catalog 内运行时追加标的、真实退出与重新 JOIN | 扩容重启恢复、跨 catalog 变更、死亡回收、生产缓存与 NUMA 资格 |
+| 策略换代 | Shadow、完整输入记录、旧版本回放、持久安装与独立回滚探测；自定义 V1→V2 schema3 交接包含跨 bank 扩容输入 | 多域故障组合、声明重建的运行时接线 |
 | 账户与恢复 | 定点风险、多资产账户、有序 WAL、依赖闭包、冻结恢复与有序前缀复制 | USDⓈ-M 完整业务场景、外部成交及强平 / ADL 等事实分类 |
 | 控制与配置 | 认证连接、持久 Raft、mTLS、快照、成员管理、配置对象和本地物化 | 常规配置计划与提交、操作状态和 watch 的业务接线 |
 | 部署与性能 | Linux 进程实验场、组件基准、契约校验和分层 TLA+ 模型 | 目标主机压力与尾延迟、掉电 / 断网注入、跨主机隔离接管 |
@@ -45,11 +45,13 @@ Tickwire 把行情接入、策略计算和账户执行放在独立进程中，�
 | 控制与进程管理 | `tickwire-control*`、`tickwire-config-*`、`tickwire-supervisor`、`tickwire-lifecycle`、`tickwire-guardian`、`tickwire-replica` |
 | 运行时装配 | `tickwire-app`；本地实验场由 `tickwire-lab` 提供 |
 
-[标的索引](specs/implementation/instrument-index.md)将完整的 `u64` 标的标识映射为进程内部连续索引。固定目录在冷路径构建 mask / gather 索引，查询核对完整原键；动态目录使用只追加索引，预留容量内插入保持已有位置，扩容在冷路径完成。MD 启动时统一绑定本地盘口 key 和各 topic 的发布槽位，策略端用连续盘口集合和复用的深度工作区处理更新。IPC 中的稳定业务 ID 保持不变。当前 topic 目录仍固定，运行时新增标的或 feed 依赖受信目录发布与 JOIN，目录版本和权限由业务层管理。
+[标的索引](specs/implementation/instrument-index.md)将完整的 `u64` 标的标识映射为进程内部连续索引。固定目录在冷路径构建 mask / gather 索引，查询核对完整原键；动态目录使用只追加索引，预留容量内插入保持已有位置，扩容在冷路径完成。MD 统一绑定本地盘口 key 和各 topic 的发布槽位，策略端用连续盘口集合与复用的深度工作区处理更新。IPC 中的稳定业务 ID 保持不变。每份 bank 的目录不可变，运行时追加通过受信目录发布和新 bank JOIN 完成。
 
 行情发布器为每个 topic 复用 128 KiB 的解码与发布档位工作区，从深度或事件通知进入发布器到写入共享内存，健康路径不进行堆分配。回归覆盖首次事件、JSON/SBE、4096 档增量和 2 MiB 线程栈；网络接收和 WebSocket 帧解析仍有独立的存储开销。接口与预算见[行情发布规格](specs/implementation/binance-market-events.md)，实测范围见[发布路径验证](specs/evidence/20261028/publisher-hot.json)。
 
-[运行时扩容](specs/implementation/market-expansion.md)已有候选准备、旧游标退出、新 bank 重新 JOIN 和持久重放接口，包含真实共享内存与认证连接测试。MD、执行和策略的持续运行循环尚未接入这些接口，当前运行程序仍使用启动时的 topic 集合。
+[运行时扩容](specs/implementation/market-expansion.md)已接入 MD、执行和策略的持续运行循环。新增来源先通过真实网络预热；全体消费者核验批准后，MD 等待旧游标实际退出，提交完整新基线，再开放重新 JOIN。消费者在自己的持久边界完成后恢复观察与回调。Linux 实验已验证扩容期间四个进程保持原 PID、三个消费者实际切换，以及扩容后的完整策略交接，见[运行证据](specs/evidence/20261028/market-expansion-runtime.json)。当前范围是同一 catalog 内追加标的；进程重启后的重新资格化和 catalog 变更仍待完成。
+
+![运行时行情扩容时序：候选预热、全体消费者 Armed、实际 QUIESCED、新 bank 与 effective 持久化、重新 JOIN 和 Activated 收据。](assets/market-expansion.svg)
 
 发送顺序以持久事实为边界：恢复依赖与 `Admit` 同步完成后，发送 owner 再检查当前门禁并向 TLS 交付字节。交易所输入先进入输入 WAL，账户事实同步后才发布新状态。持久收据证明落盘；交易权限由当前授权、租约和执行权门禁决定。
 
@@ -81,6 +83,9 @@ cargo run -p tickwire-mock --example spot-roundtrip
 
 # 使用优化构建运行相同场景
 ./scripts/run-core-chain-linux.sh spot-handover-custom release
+
+# 保持进程运行，追加高位 ID 标的，再完成跨 bank 的 schema3 交接
+./scripts/run-core-chain-linux.sh spot-market-expansion release
 ```
 
 脚本将日志、账户报告和运行结果保存到 `.tools/lab-results/`，保留场景的 Linux volume 供检查。场景定义和原生 Linux 运行方法见 [tickwire-lab](crates/tickwire-lab/AGENTS.md)。

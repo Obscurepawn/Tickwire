@@ -36,6 +36,7 @@ cargo test -p tickwire-strategy-host
 
 - **退出必须有真实证据**：`retire_owned_child` 调用 `Registry::terminate(instance)`，错误（含未知实例）直接返回 `Error::Supervisor`，禁止把失败当成功（对应 strategy-handover.md 修复点）。
 - **远程直连 MD**：`remote.rs` 头注释“Strategy connects directly to independent MD; execution owns only intent/report lanes.”Host 不代跑行情。
+- **持续行情扩展**：`RemoteHostedStrategy::market_consumer/arm_market/commit_market/market_transition/market_rejection` 使用真实持有的子进程身份与现有报告 CAS。调用方先接受可信运行控制决定，Host 经认证 report 41/42 有界发送并统一分发回执；实际 PID、审批摘要、期限、Armed→Quiesced→Activated 顺序和最终 bank 摘要逐项核对。kind6/7 的拒绝状态保留旧消费者，操作拒绝后不再接纳成功回执。文件对象有效本身不建立授权。
 - **完成件只装订 Host 派生字段**：`preflight.rs` 头注释“Finalize only fields derived by Host. The signed Bootstrap template is checked before any child is created; an unbound template cannot become a runtime job.”
 - **轮换串行**：`RotationPlan`/`RotationSource` 在旧 Active 成功停止、新实例 READY 前不激活；交接不重复发单、不释放资金（资金释放由账户日志/网关负责，Host 不触碰）。
 - **退休顺序**：先发认证 report QUIESCE → 等 MD DETACH 与 cursor 释放 → 等直接持有的 Child 成功退出；单纯连接关闭不是 QUIESCED 证据。

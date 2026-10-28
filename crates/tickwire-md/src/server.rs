@@ -18,6 +18,8 @@ pub type TopicOwner = tickwire_market_publisher::TopicPublisher<32>;
 mod expansion;
 #[cfg(all(test, target_os = "linux"))]
 mod expansion_tests;
+#[cfg(all(test, target_os = "linux"))]
+mod runtime_tests;
 /// Written by the trusted launcher only after it holds the actual process identity.
 /// This file authorizes one qualified principal and exact topic/subscription, not arbitrary HELLOs.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -157,6 +159,8 @@ struct Peer {
     departure: Option<ControlEnvelope>,
     outgoing: Option<Vec<u8>>,
     expansion: Option<[u8; 16]>,
+    quiesced_applied: Option<u64>,
+    activated_at: Option<u64>,
     deadline: Instant,
 }
 pub struct Server {
@@ -222,6 +226,8 @@ impl Server {
                     departure: None,
                     outgoing: None,
                     expansion: None,
+                    quiesced_applied: None,
+                    activated_at: None,
                     deadline: Instant::now() + Duration::from_secs(60),
                 }),
                 Ok(None) => {}
@@ -232,7 +238,15 @@ impl Server {
         while i < self.peers.len() {
             let result = self.drive(i, topics, now);
             if matches!(self.peers[i].stage, Stage::Detached | Stage::Rejected) {
-                self.peers.remove(i);
+                let peer = self.peers.remove(i);
+                if let (Some(topic), Some(operation), Some(applied), Some(admission)) = (
+                    peer.topic,
+                    peer.expansion,
+                    peer.quiesced_applied,
+                    peer.admission,
+                ) {
+                    self.record_quiescence(topic, operation, &admission, applied);
+                }
                 continue;
             }
             if let Err(e) = result {
@@ -494,6 +508,7 @@ impl Server {
                 let ack = activation_ack(session, &h, owner.join(sub)?, owner.published())?;
                 p.connection.send(&ack, &[], p.deadline)?;
                 p.stage = Stage::Active;
+                p.activated_at = Some(owner.published());
             }
             Stage::Active => {
                 if !packet.fds().is_empty() {
@@ -518,6 +533,8 @@ impl Server {
                     return Err(invalid("QUIESCED fds"));
                 }
                 owner.quiesced(sub, session, packet.bytes(), now)?;
+                p.quiesced_applied =
+                    Some(tickwire_ipc::QuiesceBody::decode(&packet.bytes()[128..])?.applied_seq);
                 // Only this successful mapped-cursor transition permits removing
                 // one peer without invalidating everyone on the same topic.
                 p.stage = Stage::Detached;

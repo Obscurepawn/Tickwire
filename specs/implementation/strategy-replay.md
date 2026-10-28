@@ -16,7 +16,21 @@ SDK 从已完成认证 JOIN 的 Client 与旧 consumer 在 QUIESCE 后的实际 
 
 schema3 的 Shadow 保留段、来源重放、安装续跑沿 MarketTransition 的单一前后流关系寻找 C，并保留 C 后的实际换代输入。逐条按规范 Input 重算 Cursor.content_digest，在 C、换代 previous 和保留段末尾比较完整 Cursor；SDK 另外比较完整物化视图，安装端点同时比较实际市场 Cursor。原始输入不同但最终盘口相同的历史不能替换 C。快照跳过 C、丢失中间换代、错旧 Cursor 或重复新流均拒绝。续跑不重放 Shadow 输出，换代基线追平仍不调用用户回调。
 
+新运行时转换采用 `cursor_basis=1`：最后一条真实 catchup 记录的 sequence 等于 activated_sequence，将其按 `MarketApplied{next,sequence,received_ns=record.ingress_mono_ns,record,payload}` 规范编码后散列为市场 Cursor 摘要。两个独立消费者的 JOIN 快照资源、游标和本地时间不同，但消费同一生产者记录时得到相同 Cursor；记录原文或 ingress 不同仍得到不同摘要。完整转换、所有 JOIN/快照身份及本地应用时间继续进入原 merged row/hash 链与全量重放验证，不从历史中删除。
+
+旧转换省略 `cursor_basis` 等价于 0，保持原完整 Input 散列和编码；未知 basis 拒绝。basis1 必须含非空真实 catchup。新 JOIN 完成时尚无 catchup，worker 持有新 Client 并保持暂停，有界轮询一条真实市场记录、应用副本和真实 cursor 后再持久转换；未得到记录且到达期限则关闭。基线已跳过 C 的情况继续拒绝，协调器取 C 时需覆盖全部新 JOIN 的激活水位。
+
 ## schema3 持久化与安装
+
+### 持续 worker 与 Host 的行情切换
+
+远程 MD 消费者通过既有认证报告通道接收两阶段命令：41/42 的 `replay_kind=6` 表示 Arm，`7` 表示 Commit，包体布局不变。两种命令的 `expected_sequence=0`、`expected_cut_digest=approval_digest`，绑定的是批准计划而非消费游标；operation/revision、对象长度摘要、挑战、实际子进程身份和期限仍逐项校验。对象使用既有报告 CAS，类型化请求至多 2 MiB。Host 统一分发认证报告帧，处理新收据时保留 READY/preflight 的现有校验。
+
+Arm 核对实际旧 ConnectConfig、批准的新模板、recorded replay 能力及生命周期互斥，持久保存批准对象后返回 Armed。取得全部消费者 Armed 后 MD 才能撤销旧订阅。已批准的真实 QUIESCE 结束借用并保存实际 applied，QUIESCED 通过有界待发整包重试；worker 保持运行并暂停用户回调。未批准的 QUIESCE 保留原退休行为。切换期间控制轮询和会话验证继续，Seal/Install/退休与扩容互斥。
+
+Commit 绑定同一批准操作及真实切点确定的精确新 ConnectConfig，驱动有界 PendingJoin。实际新 Client 完成后先持久保存 MarketTransition/HEAD，再通过 retain_merged 与 merged_checkpoint 向有界恢复记录追加完整行和末端检查点，闭包沿既有 prepare/seal 同步；全部成功后才交换消费对象、恢复回调并回复 Activated。追平记录不执行用户回调。审批重试和完成重试返回原决定，操作相同而内容不同拒绝；撤销后任一步持久化、认证或期限失败保持关闭。执行侧共享 Approval/Commit/Receipt 类型，新增行情不增加交易资格。
+
+Arm 前的能力、生命周期和输入校验拒绝使用 kind6/7 的 opcode42 flags18，status 限 Unsupported=1、Busy=2、Invalid=3；体内回显原请求，不生成成功收据，旧消费者继续运行。SDK 的恢复回调边界由自身 durable HEAD 与保留输入建立；App 在发 Commit 前持久完整控制决定，MD 在开放新 JOIN 前同步 effective。App 的最终 effective/receipt 决定整体操作成功；执行 ShmSource 的本地 release 门禁不扩展为第三个跨进程协议。
 
 schema3 完成闭包中的恢复依赖（包括旧策略二进制）沿恢复对象预算校验：单对象最多 64 MiB，完整闭包最多 256 MiB，仍逐个核对长度和摘要。启动、安装、回滚及其嵌套读取使用相同预算；不能用 replay 消息的 16 MiB 上限误拒绝合法二进制依赖。检查点、输入尾部、控制请求及其他类型化 replay 消息继续保留各自的 16 MiB 上限，闭包对象数和递归深度限制不变。
 

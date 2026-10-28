@@ -2,6 +2,7 @@
 #![forbid(unsafe_code)]
 #![recursion_limit = "512"]
 pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+mod expansion;
 pub mod fixture;
 mod flavor;
 pub mod generate;
@@ -18,6 +19,7 @@ pub enum ScenarioKind {
     SpotFill,
     SpotHandover,
     SpotHandoverCustom,
+    SpotMarketExpansion,
 }
 impl ScenarioKind {
     pub fn handover(self) -> bool {

@@ -1,0 +1,499 @@
+{
+  "schema": 1,
+  "root": "/tmp/tw-exp-1028-1",
+  "input_wal_sha256": "222ce3969bd76aba71eaae36e5325848c19613fdd7c381d942f5391e161610b8",
+  "physical_frame_sha256_crc32c_chain_verified": true,
+  "input_records": [
+    {
+      "input_sequence": 1,
+      "kind": 1
+    },
+    {
+      "input_sequence": 2,
+      "kind": 4,
+      "connection_epoch": 1,
+      "gap_generation": 2,
+      "reason": 4,
+      "reason_name": "Clock"
+    },
+    {
+      "input_sequence": 3,
+      "kind": 10,
+      "connection_epoch": 2,
+      "gap_generation": 2
+    },
+    {
+      "input_sequence": 4,
+      "kind": 8,
+      "snapshot_kind": 1,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20695067100876,
+      "ledger": 0,
+      "complete": true
+    },
+    {
+      "input_sequence": 5,
+      "kind": 8,
+      "snapshot_kind": 2,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20695071408844,
+      "ledger": 0,
+      "complete": true
+    },
+    {
+      "input_sequence": 6,
+      "kind": 8,
+      "snapshot_kind": 3,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20695075855923,
+      "ledger": 0,
+      "complete": true
+    },
+    {
+      "input_sequence": 7,
+      "kind": 2
+    },
+    {
+      "input_sequence": 8,
+      "kind": 5
+    },
+    {
+      "input_sequence": 9,
+      "kind": 6
+    },
+    {
+      "input_sequence": 10,
+      "kind": 9
+    },
+    {
+      "input_sequence": 11,
+      "kind": 6
+    },
+    {
+      "input_sequence": 12,
+      "kind": 7
+    },
+    {
+      "input_sequence": 13,
+      "kind": 8,
+      "snapshot_kind": 1,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20710111090095,
+      "ledger": 4,
+      "complete": true
+    },
+    {
+      "input_sequence": 14,
+      "kind": 8,
+      "snapshot_kind": 2,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20710115605315,
+      "ledger": 4,
+      "complete": true
+    },
+    {
+      "input_sequence": 15,
+      "kind": 8,
+      "snapshot_kind": 3,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20710119946047,
+      "ledger": 4,
+      "complete": true
+    },
+    {
+      "input_sequence": 16,
+      "kind": 3,
+      "connection_epoch": 2,
+      "received_mono_ns": 20722848466886,
+      "decision": 1
+    },
+    {
+      "input_sequence": 17,
+      "kind": 9
+    },
+    {
+      "input_sequence": 18,
+      "kind": 6
+    },
+    {
+      "input_sequence": 19,
+      "kind": 7
+    },
+    {
+      "input_sequence": 20,
+      "kind": 6
+    },
+    {
+      "input_sequence": 21,
+      "kind": 8,
+      "snapshot_kind": 1,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20724422400898,
+      "ledger": 10,
+      "complete": true
+    },
+    {
+      "input_sequence": 22,
+      "kind": 8,
+      "snapshot_kind": 2,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20724429716109,
+      "ledger": 10,
+      "complete": true
+    },
+    {
+      "input_sequence": 23,
+      "kind": 8,
+      "snapshot_kind": 3,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20724435268909,
+      "ledger": 10,
+      "complete": true
+    },
+    {
+      "input_sequence": 24,
+      "kind": 8,
+      "snapshot_kind": 1,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20739440398607,
+      "ledger": 11,
+      "complete": true
+    },
+    {
+      "input_sequence": 25,
+      "kind": 8,
+      "snapshot_kind": 2,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20739447417801,
+      "ledger": 11,
+      "complete": true
+    },
+    {
+      "input_sequence": 26,
+      "kind": 8,
+      "snapshot_kind": 3,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20739452667167,
+      "ledger": 11,
+      "complete": true
+    },
+    {
+      "input_sequence": 27,
+      "kind": 8,
+      "snapshot_kind": 1,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20754458682203,
+      "ledger": 12,
+      "complete": true
+    },
+    {
+      "input_sequence": 28,
+      "kind": 8,
+      "snapshot_kind": 2,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20754464571824,
+      "ledger": 12,
+      "complete": true
+    },
+    {
+      "input_sequence": 29,
+      "kind": 8,
+      "snapshot_kind": 3,
+      "connection_epoch": 2,
+      "gap_generation": 2,
+      "received_mono_ns": 20754470894499,
+      "ledger": 12,
+      "complete": true
+    }
+  ],
+  "reactivations": [
+    {
+      "account_sequence": 1,
+      "prior_ledger_sequence": 0,
+      "input_stream": "35353535353535353535353535353535",
+      "private_connection_epoch": 2,
+      "gap_generation": 2,
+      "through_sequence": 6,
+      "query_coverage_digest": "b2b52e8cb19e6d4dd5d41ef2d51bc2f5ddb50feffb1b638044843e3de215d118",
+      "evaluated_at": 20695077114009,
+      "valid_until": 20725077114009,
+      "writer_epoch": 4,
+      "execution_connection_epoch": 1
+    },
+    {
+      "account_sequence": 5,
+      "prior_ledger_sequence": 4,
+      "input_stream": "35353535353535353535353535353535",
+      "private_connection_epoch": 2,
+      "gap_generation": 2,
+      "through_sequence": 15,
+      "query_coverage_digest": "2cdeaacf0653f7f47d0017bf3564fec385e4548cac07b462322f4f28f303a1ec",
+      "evaluated_at": 20710122495605,
+      "valid_until": 20740122495605,
+      "writer_epoch": 4,
+      "execution_connection_epoch": 1
+    },
+    {
+      "account_sequence": 11,
+      "prior_ledger_sequence": 10,
+      "input_stream": "35353535353535353535353535353535",
+      "private_connection_epoch": 2,
+      "gap_generation": 2,
+      "through_sequence": 23,
+      "query_coverage_digest": "e3d6bdba1b94468555f009bc702aaf656053dafda52d24c06ee175b820ea389e",
+      "evaluated_at": 20724436305789,
+      "valid_until": 20754436305789,
+      "writer_epoch": 4,
+      "execution_connection_epoch": 1
+    },
+    {
+      "account_sequence": 12,
+      "prior_ledger_sequence": 11,
+      "input_stream": "35353535353535353535353535353535",
+      "private_connection_epoch": 2,
+      "gap_generation": 2,
+      "through_sequence": 26,
+      "query_coverage_digest": "4eb6d741b740bdb23248349178962095d44c61d26cd74ce645881f9a254902bc",
+      "evaluated_at": 20739454506101,
+      "valid_until": 20769454506101,
+      "writer_epoch": 4,
+      "execution_connection_epoch": 1
+    },
+    {
+      "account_sequence": 13,
+      "prior_ledger_sequence": 12,
+      "input_stream": "35353535353535353535353535353535",
+      "private_connection_epoch": 2,
+      "gap_generation": 2,
+      "through_sequence": 29,
+      "query_coverage_digest": "ae99d14b55d713bad1cff7a249f26ffce213c80db5ee8ad3bc70ae7c841b02df",
+      "evaluated_at": 20754471939515,
+      "valid_until": 20784471939515,
+      "writer_epoch": 4,
+      "execution_connection_epoch": 1
+    }
+  ],
+  "ingress_event_comparison": [
+    {
+      "run": "tw-1028-r1",
+      "account_sequence": 3,
+      "input_sequence": 8,
+      "event_kind": 1,
+      "source_epoch": 1,
+      "received_mono_ns": 1754165764910,
+      "order_status": 2,
+      "client_id": [
+        "lab-spot-1"
+      ],
+      "cumulative_quantity": [
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "run": "tw-1028-r1",
+      "account_sequence": 5,
+      "input_sequence": 9,
+      "event_kind": 2,
+      "source_epoch": 1,
+      "received_mono_ns": 1757556625605
+    },
+    {
+      "run": "tw-1028-r1",
+      "account_sequence": 6,
+      "input_sequence": 11,
+      "event_kind": 1,
+      "source_epoch": 1,
+      "received_mono_ns": 1757711381938,
+      "order_status": 4,
+      "client_id": [
+        "lab-spot-1"
+      ],
+      "cumulative_quantity": [
+        [
+          1,
+          -3
+        ]
+      ]
+    },
+    {
+      "run": "tw-1028-r1",
+      "account_sequence": 7,
+      "input_sequence": 13,
+      "event_kind": 2,
+      "source_epoch": 1,
+      "received_mono_ns": 1757736378885
+    },
+    {
+      "run": "tw-exp-1028-1",
+      "account_sequence": 3,
+      "input_sequence": 9,
+      "event_kind": 1,
+      "source_epoch": 1,
+      "received_mono_ns": 20696082408545,
+      "order_status": 2,
+      "client_id": [
+        "lab-spot-1"
+      ],
+      "cumulative_quantity": [
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "run": "tw-exp-1028-1",
+      "account_sequence": 4,
+      "input_sequence": 11,
+      "event_kind": 1,
+      "source_epoch": 1,
+      "received_mono_ns": 20710079531923,
+      "order_status": 2,
+      "client_id": [
+        "lab-spot-1"
+      ],
+      "cumulative_quantity": [
+        [
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "run": "tw-exp-1028-1",
+      "account_sequence": 7,
+      "input_sequence": 16,
+      "event_kind": 2,
+      "source_epoch": 2,
+      "received_mono_ns": 20722848466886
+    },
+    {
+      "run": "tw-exp-1028-1",
+      "account_sequence": 8,
+      "input_sequence": 18,
+      "event_kind": 1,
+      "source_epoch": 2,
+      "received_mono_ns": 20723362639117,
+      "order_status": 4,
+      "client_id": [
+        "lab-spot-1"
+      ],
+      "cumulative_quantity": [
+        [
+          1,
+          -3
+        ]
+      ]
+    },
+    {
+      "run": "tw-exp-1028-1",
+      "account_sequence": 9,
+      "input_sequence": 20,
+      "event_kind": 2,
+      "source_epoch": 2,
+      "received_mono_ns": 20723386361164
+    }
+  ],
+  "order_query_evidence": [
+    {
+      "input_sequence": 8,
+      "kind": 5,
+      "request_epoch": 1,
+      "received_mono_ns": 20696082408545,
+      "http_status": 200,
+      "response": {
+        "symbol": "BTCUSDT",
+        "orderId": 22,
+        "clientOrderId": "lab-spot-1",
+        "status": "NEW",
+        "origQty": "0.001",
+        "executedQty": "0",
+        "cummulativeQuoteQty": "0"
+      },
+      "disposition": 1,
+      "event_count": 1
+    },
+    {
+      "input_sequence": 10,
+      "kind": 9,
+      "order_id": "07070707070707070707070707070707",
+      "query_private_epoch": 2,
+      "query_gap_generation": 2,
+      "request_epoch": 1,
+      "received_mono_ns": 20710079531923,
+      "http_status": 200,
+      "response": {
+        "symbol": "BTCUSDT",
+        "orderId": 22,
+        "clientOrderId": "lab-spot-1",
+        "status": "NEW",
+        "origQty": "0.001",
+        "executedQty": "0",
+        "cummulativeQuoteQty": "0"
+      },
+      "disposition": 1,
+      "event_count": 1
+    },
+    {
+      "input_sequence": 11,
+      "kind": 6,
+      "response_sequence": 10,
+      "effect_index": 0
+    },
+    {
+      "input_sequence": 17,
+      "kind": 9,
+      "order_id": "07070707070707070707070707070707",
+      "query_private_epoch": 2,
+      "query_gap_generation": 2,
+      "request_epoch": 2,
+      "received_mono_ns": 20723362639117,
+      "http_status": 200,
+      "response": {
+        "symbol": "BTCUSDT",
+        "orderId": 22,
+        "clientOrderId": "lab-spot-1",
+        "status": "FILLED",
+        "origQty": "0.001",
+        "executedQty": "0.001",
+        "cummulativeQuoteQty": "60"
+      },
+      "disposition": 2,
+      "event_count": 1
+    },
+    {
+      "input_sequence": 18,
+      "kind": 6,
+      "response_sequence": 17,
+      "effect_index": 0
+    }
+  ],
+  "prior_custom_run_same_gap": {
+    "root": "/tmp/tw-1028-b1",
+    "gap_records": [
+      {
+        "input_sequence": 2,
+        "epoch": 1,
+        "generation": 2,
+        "reason": 4
+      }
+    ]
+  }
+}

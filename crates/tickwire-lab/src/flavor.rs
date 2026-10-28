@@ -11,7 +11,10 @@ use tickwire_strategy_sdk::{
 use tickwire_venue::CanonicalCommand;
 
 pub(crate) fn custom(kind: ScenarioKind) -> bool {
-    kind == ScenarioKind::SpotHandoverCustom
+    matches!(
+        kind,
+        ScenarioKind::SpotHandoverCustom | ScenarioKind::SpotMarketExpansion
+    )
 }
 pub(crate) fn binary(kind: ScenarioKind, source: bool) -> &'static str {
     if custom(kind) {

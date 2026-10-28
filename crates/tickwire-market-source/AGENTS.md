@@ -8,6 +8,7 @@
 - `src/replica.rs`（含 `checkpoint.rs`）：`MarketReplica`、`MarketView`、`FeedMark`、checkpoint/restore、连续序号应用与失效。
 - `src/retirement.rs`：subscriber 请求的 DETACH（opcode 21）与 publisher QUIESCE（20）的构造/校验。
 - `src/shm.rs`：`ConnectConfig`、`Client`（完成态 JOIN）、`ShmSource`（`MarketSource` 实现）；`src/shm/pending.rs` 与 `pending/step.rs` 实现非阻塞 JOIN 状态机。
+- `src/transition.rs` 与 `transition/`：有界扩容批准、提交与阶段收据的共享格式和身份校验；`src/shm/transition.rs` 驱动实际退出、重新 JOIN 与观察放行。
 
 ## 2. 公共 API 入口
 
@@ -17,6 +18,7 @@
 - `replica`：`MarketReplica`（`load`/`checkpoint`/`restore_checkpoint`/`invalidate`/`sequence`/`view`/`apply`/`apply_dense`/`view_dense`）、副本本地 `DenseId`、`MarketView`（`last_trade`/`best_quote`/`mark_funding`/`state_age_ns`/`bids`/`asks`/`best_bid`/`best_ask`/`quantity`/`continuous`/`live`/`trigger`/`trigger_at`）、`FeedMark`。
 - `retirement`：`body`、`request`、`verify_request`、`applied`、`verify_applied`。
 - `shm`：`ConnectConfig`、`Client{consumer, replica, connection, session, baseline, baseline_bytes, baseline_now, catchup, bank, join, domain}`、`PendingJoin::new(config, now)`/`poll(now,budget)`/`take_client()`/`cancel()`、`JoinProgress{work,records,runnable,ready,next_deadline_ns}`、`ShmSource::new(client)`/`client()`/`into_client()`；上述 JOIN 类型也从 crate root 导出。
+- `transition`：`Approval`、`Commit`、`Phase::{Armed,Quiesced,Activated}`、`Receipt`、`quiesce_request_id`；`ShmSource::arm_transition`/`commit_transition`/`transition_receipt`/`release_transition`。这些类型校验内容和实际 Client，调用方的可信控制边界负责授权。
 
 ## 3. 在 workspace 中的位置
 
@@ -28,6 +30,7 @@
 - [../../specs/implementation/strategy-graceful-retirement.md](../../specs/implementation/strategy-graceful-retirement.md)（共享行情订阅的正常退休：DETACH/QUIESCE/STATUS 绑定与 EOF 非证据）。
 - [标的索引](../../specs/implementation/instrument-index.md)与[归一化市场事件](../../specs/implementation/binance-market-events.md)（稳定外部 ID、本地稠密存储、深度工作区与检查点兼容）。
 - [JOIN](../../specs/implementation/join.md)（消费者非阻塞状态机、预算、取消与激活边界）。
+- [运行时扩容](../../specs/implementation/market-expansion.md)（批准绑定、真实 QUIESCED 水位、新 bank 激活与双收据）。
 
 ## 5. 构建与测试
 
@@ -41,6 +44,7 @@ cargo fmt --check -p tickwire-market-source
 - `tests/replica_dense.rs` 覆盖稀疏高位 ID、未知 ID 失效、旧检查点字节兼容、满容量删除插入、双侧失败原子性、独立有序映射差分、覆盖范围与零分配更新/查询；另由 `tickwire-md`、`tickwire-strategy-sdk/host` 集成测试与 Linux 链路覆盖。
 - 无 bench。
 - `shm/pending_tests.rs` 以真实 SEQPACKET、JoinOwner、memfd/cursor/snapshot 验证静默 peer、单步预算、CatchUp→Active、原始 catchup 保留、身份/时钟/EOF 拒绝、取消不移除 owner gate，以及原 `Client::connect` 兼容入口；fixture 复用 JOIN golden 构造，不引入 MD dev 依赖回边。
+- `transition/tests.rs` 覆盖配置、完整身份、集合、时钟、描述符和收据的拒绝边界；`shm/pending_tests/transition.rs` 用真实资源验证 Arm→QUIESCED→Commit→Active→显式放行、激活前无观察、超时关闭，以及扩容后正常退休。
 
 ## 6. 关键不变量与注意事项
 
@@ -52,8 +56,10 @@ cargo fmt --check -p tickwire-market-source
 - **EOF 永远不是证据**：单纯连接关闭、超时、伪造响应、控制超时都走保守故障处理，不构成 QUIESCED。
 - `Client::connect` 与 `PendingJoin::new` 是 unsafe 接缝：调用者提供可信 qualified MD writer 与完整批准身份，接入流程实际认证会话和资源。映射操作只在原 `shm` 边界内履约。
 - `PendingJoin::poll` 每次最多 min(budget,64) 个有限步骤/记录，仅使用非阻塞 socket API；EINTR 未推进且可重试，其他错误/取消终止并丢弃本地资源。只有完整 Active ACK 与 applied 水位核验后才取出 Client。快照校验/装载仍为上限 64 MiB/4096 成员的一个冷步骤，不承诺硬实时耗时。
-- `Client::connect` 驱动同一 PendingJoin，只有该兼容 wrapper 可 sleep；`ShmSource` 的 QUIESCE 响应使用单次 try_send，背压也失败关闭，不阻塞执行循环。
+- `Client::connect` 驱动同一 PendingJoin，只有该兼容 wrapper 可 sleep。正常退休的 QUIESCE 响应使用单次 try_send，背压失败关闭；已批准扩容保留一个完整响应，EAGAIN/EINTR 后有限重试，发送成功后才产生 Quiesced 收据。
 - `ConnectConfig` 携带精确批准的 MD bank 头、catalog_hash、仪器集合、cursor_id、subscription_generation、request_id；仪器数 1..=4096。
+- 扩容固定到同一个已资格化 MD writer、OS 身份与时钟域；新集合严格包含旧集合，版本和代次前进，旧成员参数不变。操作期限最多 60 秒，控制对象最多 2 MiB。原始启动头允许零 descriptor hash 兼容入口，提交的新头要求正确的非零摘要。
+- 扩容 QUIESCE 必须绑定批准 operation 与旧 SubscriptionKey。退出前批准超时可继续旧流；退出后错误保持失效。新 Client 完成真实 JOIN 后仍暂停观察，调用方同步 effective/receipt，再调用 `release_transition`。已失败或 stop 的源不能重新放行；进程重启不自动恢复历史授权。
 
 ## 7. 改动检查清单
 

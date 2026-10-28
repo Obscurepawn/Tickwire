@@ -11,6 +11,31 @@ use tickwire_runtime::{
 };
 use tickwire_venue::CanonicalCommand;
 pub trait AppStrategy: Strategy {
+    fn market_consumers(&self, _out: &mut Vec<crate::control::market::Consumer>) {}
+    fn arm_market(
+        &mut self,
+        _consumer: crate::control::market::Consumer,
+        _approval: &tickwire_market_source::transition::Approval,
+    ) -> Result<()> {
+        Err(invalid("strategy has no remote market consumer"))
+    }
+    fn commit_market(
+        &mut self,
+        _consumer: crate::control::market::Consumer,
+        _commit: &tickwire_market_source::transition::Commit,
+    ) -> Result<()> {
+        Err(invalid("strategy has no remote market consumer"))
+    }
+    fn market_transition(
+        &self,
+        _consumer: crate::control::market::Consumer,
+    ) -> Option<&tickwire_market_source::transition::Receipt> {
+        None
+    }
+    fn market_rejection(&self, _consumer: crate::control::market::Consumer) -> Option<u32> {
+        None
+    }
+
     fn instance(&self) -> Option<([u8; 16], u64)> {
         None
     }
@@ -475,6 +500,57 @@ impl MultiStrategy {
     }
 }
 impl AppStrategy for MultiStrategy {
+    fn market_consumers(&self, out: &mut Vec<crate::control::market::Consumer>) {
+        for m in self.members.iter().filter(|m| !m.retired) {
+            if let Some(s) = &m.strategy {
+                s.market_consumers(out);
+            }
+        }
+    }
+    fn arm_market(
+        &mut self,
+        c: crate::control::market::Consumer,
+        a: &tickwire_market_source::transition::Approval,
+    ) -> Result<()> {
+        self.members
+            .iter_mut()
+            .find(|m| !m.retired && m.instance == Some((c.instance, c.generation)))
+            .and_then(|m| m.strategy.as_mut())
+            .ok_or_else(|| invalid("remote market strategy identity"))?
+            .arm_market(c, a)
+    }
+    fn commit_market(
+        &mut self,
+        c: crate::control::market::Consumer,
+        v: &tickwire_market_source::transition::Commit,
+    ) -> Result<()> {
+        self.members
+            .iter_mut()
+            .find(|m| !m.retired && m.instance == Some((c.instance, c.generation)))
+            .and_then(|m| m.strategy.as_mut())
+            .ok_or_else(|| invalid("remote market strategy identity"))?
+            .commit_market(c, v)
+    }
+    fn market_transition(
+        &self,
+        c: crate::control::market::Consumer,
+    ) -> Option<&tickwire_market_source::transition::Receipt> {
+        self.members
+            .iter()
+            .find(|m| !m.retired && m.instance == Some((c.instance, c.generation)))?
+            .strategy
+            .as_ref()?
+            .market_transition(c)
+    }
+    fn market_rejection(&self, c: crate::control::market::Consumer) -> Option<u32> {
+        self.members
+            .iter()
+            .find(|m| !m.retired && m.instance == Some((c.instance, c.generation)))?
+            .strategy
+            .as_ref()?
+            .market_rejection(c)
+    }
+
     fn discard_shadow(&mut self, instance: [u8; 16], generation: u64) -> bool {
         let Some(index) = self
             .members

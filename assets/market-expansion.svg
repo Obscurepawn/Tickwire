@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1020" viewBox="0 0 1440 1020" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · 运行中追加行情标的</title>
+<desc id="diagram-desc">受信launcher提交完整扩容计划。MD在旧流继续运行时预热新增来源，执行与策略验证当前身份并持久准备，返回Armed。MD撤销旧资格并核验真实QUIESCED，建立新bank完整基线，保存effective并开放JOIN。消费者以新身份追平激活并保存输入或effective，MD核对真实Active及全部收据后完成。退出前失败保留旧流，退出后失败保持关闭，重启不自动恢复授权。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="1020" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · 运行中追加行情标的</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">固定 catalog 内追加成员：先预热与批准，再退出旧 bank，最后完成真实 JOIN 和持久收据。</text>
+<rect x="32.0" y="132" width="248" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="156" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">受信 Launcher</text>
+<path d="M 156 194 V 888" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="370.0" y="132" width="288" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="514" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">MD / Publisher</text>
+<path d="M 514 194 V 888" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="764.0" y="132" width="300" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="914" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">执行 / 策略消费者</text>
+<path d="M 914 194 V 888" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="1176.0" y="132" width="216" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="1284" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">持久对象</text>
+<path d="M 1284 194 V 888" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<path d="M 156 240 L 514 240" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="335.0" y="228" font-size="18" text-anchor="middle" style="fill:#13263e">完整 Plan：当前身份 / 目标集合 / 预算</text>
+<rect x="348" y="264" width="332" height="78" rx="10" fill="#eaf4f4" stroke="#c8e0e1" stroke-width="1.5"/>
+<text x="514" y="294" font-size="18" text-anchor="middle" style="fill:#087f8c" class="title">新 owner 经 WSS / REST 预热</text>
+<text x="514" y="323" font-size="17" text-anchor="middle" style="fill:#50647d">旧 owner、连接和本地编号保留</text>
+<path d="M 514 380 L 914 380" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="714.0" y="368" font-size="18" text-anchor="middle" style="fill:#13263e">Arm：精确旧配置 + 新 bank 模板</text>
+<path d="M 914 422 L 1284 422" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1099.0" y="410" font-size="18" text-anchor="middle" style="fill:#13263e">同步决定对象 / WAL</text>
+<path d="M 914 464 L 514 464" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="714.0" y="452" font-size="18" text-anchor="middle" style="fill:#50647d">Armed：实际 PID 与批准摘要</text>
+<path d="M 514 510 L 914 510" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="714.0" y="498" font-size="18" text-anchor="middle" style="fill:#13263e">暂停 JOIN，发送绑定操作的 QUIESCE</text>
+<path d="M 914 554 L 514 554" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="714.0" y="542" font-size="18" text-anchor="middle" style="fill:#50647d">真实 cursor QUIESCED + 旧消费水位</text>
+<rect x="348" y="579" width="332" height="78" rx="10" fill="#e8eef7" stroke="#d8e2ef" stroke-width="1.5"/>
+<text x="514" y="609" font-size="18" text-anchor="middle" style="fill:#2369b5" class="title">封口旧 bank，提交完整新基线</text>
+<text x="514" y="638" font-size="17" text-anchor="middle" style="fill:#50647d">同步 MD effective 后开放新 JOIN</text>
+<path d="M 514 696 L 914 696" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="714.0" y="684" font-size="18" text-anchor="middle" style="fill:#13263e">Commit：同一精确新描述 / 重新 JOIN</text>
+<path d="M 914 738 L 1284 738" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1099.0" y="726" font-size="18" text-anchor="middle" style="fill:#13263e">实际激活；保存输入 / effective</text>
+<path d="M 914 780 L 514 780" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="714.0" y="768" font-size="18" text-anchor="middle" style="fill:#50647d">Activated：新描述 + 实际消费水位</text>
+<path d="M 514 834 L 156 834" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="335.0" y="822" font-size="18" text-anchor="middle" style="fill:#50647d">真实 Active 与全部收据核验完成</text>
+<rect x="48" y="910" width="1344" height="82" rx="10" fill="#fffaf1" stroke="#e7d4b5" stroke-width="1.5"/>
+<text x="72" y="943" font-size="19" text-anchor="start" style="fill:#a66b14" class="title">退出前失败：丢弃候选，旧流继续。退出后失败：保持关闭，保留旧映射与历史证据。</text>
+<text x="72" y="973" font-size="18" text-anchor="start" style="fill:#50647d">消费者先完成自己的持久边界才恢复回调；新增行情不增加账户资金或交易权限。进程重启后重新资格化。</text>
+</svg>

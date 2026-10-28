@@ -52,6 +52,10 @@ tickwire-shm = { path = "../tickwire-shm" }
 tickwire-snapshot = { path = "../tickwire-snapshot" }
 
 [dev-dependencies]
+allocation-counter = "=0.8.1"
+tickwire-md = { path = "../tickwire-md" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+sha2 = "0.10"
 ring = "0.17.14"
 tickwire-risk = { path = "../tickwire-risk" }
 rcgen = "=0.14.10"

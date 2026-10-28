@@ -1239,6 +1239,7 @@ dependencies = [
 name = "tickwire-app"
 version = "0.1.0"
 dependencies = [
+ "allocation-counter",
  "base64 0.22.1",
  "libc",
  "rcgen",
@@ -1246,6 +1247,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
+ "sha2",
  "tickwire-account",
  "tickwire-account-codec",
  "tickwire-account-gateway",
@@ -1262,6 +1264,7 @@ dependencies = [
  "tickwire-clock",
  "tickwire-control",
  "tickwire-control-store",
+ "tickwire-control-sys",
  "tickwire-fencing",
  "tickwire-handover",
  "tickwire-ipc",
@@ -1270,6 +1273,7 @@ dependencies = [
  "tickwire-lifecycle",
  "tickwire-market-publisher",
  "tickwire-market-source",
+ "tickwire-md",
  "tickwire-quota",
  "tickwire-recovery",
  "tickwire-release",
@@ -1854,6 +1858,7 @@ dependencies = [
  "tickwire-account",
  "tickwire-account-codec",
  "tickwire-handover",
+ "tickwire-ipc",
  "tickwire-lifecycle",
  "tickwire-recovery",
 ]

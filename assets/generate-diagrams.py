@@ -175,7 +175,43 @@ def handover():
     d.text(720,1119,'历史回放与 Shadow 阶段关闭命令输出；订单创建者保留，管理权移交后由新实例继续消费迟到成交。',18,anchor='middle',color=MUTED)
     d.finish()
 
+
+def market_expansion():
+    d=Diagram('market-expansion.svg', 1020, 'Tickwire · 运行中追加行情标的',
+              '固定 catalog 内追加成员：先预热与批准，再退出旧 bank，最后完成真实 JOIN 和持久收据。',
+              '受信launcher提交完整扩容计划。MD在旧流继续运行时预热新增来源，执行与策略验证当前身份并持久准备，返回Armed。MD撤销旧资格并核验真实QUIESCED，建立新bank完整基线，保存effective并开放JOIN。消费者以新身份追平激活并保存输入或effective，MD核对真实Active及全部收据后完成。退出前失败保留旧流，退出后失败保持关闭，重启不自动恢复授权。')
+    xs=[156,514,914,1284]
+    for x,label,width in [(xs[0],'受信 Launcher',248),(xs[1],'MD / Publisher',288),
+                          (xs[2],'执行 / 策略消费者',300),(xs[3],'持久对象',216)]:
+        d.rect(x-width/2,132,width,62)
+        d.text(x,171,label,22,anchor='middle',weight=True)
+        d.parts.append(f'<path d="M {x} 194 V 888" stroke="{BORDER}" stroke-width="1.5" stroke-dasharray="5 6"/>')
+    def msg(a,b,y,label,reply=False):
+        d.arrow([(xs[a],y),(xs[b],y)],muted=reply,dash=reply)
+        d.text((xs[a]+xs[b])/2,y-12,label,18,anchor='middle',color=MUTED if reply else INK)
+    msg(0,1,240,'完整 Plan：当前身份 / 目标集合 / 预算')
+    d.rect(348,264,332,78,'#eaf4f4','#c8e0e1',10)
+    d.text(514,294,'新 owner 经 WSS / REST 预热',18,anchor='middle',color=TEAL,weight=True)
+    d.text(514,323,'旧 owner、连接和本地编号保留',17,anchor='middle',color=MUTED)
+    msg(1,2,380,'Arm：精确旧配置 + 新 bank 模板')
+    msg(2,3,422,'同步决定对象 / WAL')
+    msg(2,1,464,'Armed：实际 PID 与批准摘要',True)
+    msg(1,2,510,'暂停 JOIN，发送绑定操作的 QUIESCE')
+    msg(2,1,554,'真实 cursor QUIESCED + 旧消费水位',True)
+    d.rect(348,579,332,78,'#e8eef7','#d8e2ef',10)
+    d.text(514,609,'封口旧 bank，提交完整新基线',18,anchor='middle',color=BLUE,weight=True)
+    d.text(514,638,'同步 MD effective 后开放新 JOIN',17,anchor='middle',color=MUTED)
+    msg(1,2,696,'Commit：同一精确新描述 / 重新 JOIN')
+    msg(2,3,738,'实际激活；保存输入 / effective')
+    msg(2,1,780,'Activated：新描述 + 实际消费水位',True)
+    msg(1,0,834,'真实 Active 与全部收据核验完成',True)
+    d.rect(48,910,1344,82,'#fffaf1','#e7d4b5',10)
+    d.text(72,943,'退出前失败：丢弃候选，旧流继续。退出后失败：保持关闭，保留旧映射与历史证据。',19,color=AMBER,weight=True)
+    d.text(72,973,'消费者先完成自己的持久边界才恢复回调；新增行情不增加账户资金或交易权限。进程重启后重新资格化。',18,color=MUTED)
+    d.finish()
+
 if __name__ == '__main__':
     architecture()
     order_flow()
     handover()
+    market_expansion()

@@ -337,6 +337,53 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
     }
 }
 impl AppStrategy for RemoteStrategy {
+    fn market_consumers(&self, out: &mut Vec<crate::control::market::Consumer>) {
+        if let Some((pid, instance, generation)) = self.0.market_consumer() {
+            out.push(crate::control::market::Consumer {
+                pid,
+                instance,
+                generation,
+            });
+        }
+    }
+    fn arm_market(
+        &mut self,
+        c: crate::control::market::Consumer,
+        a: &tickwire_market_source::transition::Approval,
+    ) -> Result<()> {
+        if self.0.market_consumer() != Some((c.pid, c.instance, c.generation)) {
+            return Err(invalid("remote market process identity"));
+        }
+        self.0
+            .arm_market(a)
+            .map_err(|e| invalid(&format!("remote market arm: {e:?}")))
+    }
+    fn commit_market(
+        &mut self,
+        c: crate::control::market::Consumer,
+        v: &tickwire_market_source::transition::Commit,
+    ) -> Result<()> {
+        if self.0.market_consumer() != Some((c.pid, c.instance, c.generation)) {
+            return Err(invalid("remote market process identity"));
+        }
+        self.0
+            .commit_market(v)
+            .map_err(|e| invalid(&format!("remote market commit: {e:?}")))
+    }
+    fn market_transition(
+        &self,
+        c: crate::control::market::Consumer,
+    ) -> Option<&tickwire_market_source::transition::Receipt> {
+        (self.0.market_consumer() == Some((c.pid, c.instance, c.generation)))
+            .then(|| self.0.market_transition())
+            .flatten()
+    }
+    fn market_rejection(&self, c: crate::control::market::Consumer) -> Option<u32> {
+        (self.0.market_consumer() == Some((c.pid, c.instance, c.generation)))
+            .then(|| self.0.market_rejection())
+            .flatten()
+    }
+
     fn instance(&self) -> Option<([u8; 16], u64)> {
         Some(self.0.instance())
     }

@@ -16,6 +16,7 @@ use tickwire_control_sys::{Connection, ReceivedFrame};
 use tickwire_ipc::{ControlEnvelope, JoinBody, RecordHeader, ResourceHeader, Wire};
 use tickwire_join::{JoinConsumer, TopicRegistry};
 mod pending;
+mod transition;
 pub use pending::{JoinProgress, PendingJoin};
 #[cfg(all(test, target_os = "linux"))]
 mod pending_tests;
@@ -156,6 +157,7 @@ pub struct ShmSource {
     stopped: bool,
     announced: bool,
     last_now: u64,
+    transition: Option<transition::SourceTransition>,
 }
 impl ShmSource {
     pub fn new(client: Client) -> Self {
@@ -164,6 +166,7 @@ impl ShmSource {
             client,
             stopped: false,
             announced: false,
+            transition: None,
         }
     }
     pub fn client(&self) -> &Client {
@@ -217,13 +220,19 @@ impl ShmSource {
         budget: usize,
         sink: &mut dyn MarketSink,
     ) -> Result<PollReport> {
-        if self.stopped || now.domain() != self.client.domain || age == 0 || budget == 0 {
+        if now.domain() != self.client.domain || age == 0 || budget == 0 {
             return Err(Error::NotReady);
         }
         if now.nanos() < self.last_now {
             return Err(Error::Stale);
         }
         self.last_now = now.nanos();
+        if let Some(progress) = self.drive_transition(now, budget)? {
+            return Ok(progress);
+        }
+        if self.stopped {
+            return Err(Error::NotReady);
+        }
         if now.nanos() >= self.client.session.deadline() {
             return Err(Error::Deadline);
         }
@@ -234,11 +243,17 @@ impl ShmSource {
                 }
                 let h = ControlEnvelope::decode(packet.bytes().get(..128).ok_or(Error::Bounds)?)?;
                 if h.opcode == 20 {
+                    let expansion = self.expansion_quiesce(h.request_id)?;
                     let response = self.client.consumer.quiesce(
                         &mut self.client.session,
                         packet.bytes(),
                         now.nanos(),
                     )?;
+                    if expansion {
+                        self.queue_quiesced(response)?;
+                        self.invalidate(sink)?;
+                        return self.drive_transition(now, budget)?.ok_or(Error::NotReady);
+                    }
                     if !self.client.connection.try_send(&response, &[])? {
                         return Err(Error::NotReady);
                     }
@@ -316,6 +331,7 @@ impl MarketSource for ShmSource {
         match self.drive(now, maximum_age_ns, budget, sink) {
             Ok(v) => Ok(v),
             Err(e) => {
+                self.fail_transition();
                 let _ = self.invalidate(sink);
                 Err(e)
             }
@@ -336,6 +352,7 @@ impl MarketSource for ShmSource {
             })
     }
     fn stop(&mut self, sink: &mut dyn MarketSink) -> Result<()> {
+        self.fail_transition();
         self.invalidate(sink)
     }
 }

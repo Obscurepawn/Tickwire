@@ -51,7 +51,8 @@ impl Drop for Fixture {
 fn topic_sorting_preserves_the_process_book_key_binding_for_full_width_ids() {
     let f = Fixture::new();
     let index = config::FeedIndex::new(&f.config.feeds).unwrap();
-    let (registry, instruments) = topic_registry(&f.config, &f.header, &index).unwrap();
+    let (registry, instruments) =
+        topic_registry(&f.config, &f.header, &index, &f.config.topics[0]).unwrap();
     assert_eq!(registry.instruments[0].instrument_id, u64::from(u32::MAX));
     assert_eq!(registry.instruments[1].instrument_id, u64::MAX);
     assert_eq!(instruments[0].key.instrument, 1);

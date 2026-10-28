@@ -70,6 +70,14 @@ frame=bytes.fromhex(vs['freeze_complete_frame']['hex']);e=decode('ControlEnvelop
 for v in vs.values():
  if v['layout']=='ControlFrame':
   raw=bytes.fromhex(v['hex']);ev=decode('ControlEnvelope',raw[:128]);assert ev['frame_bytes']==len(raw);assert crc(raw[128:])==ev['body_crc32c'];head=bytearray(raw[:128]);head[116:120]=bytes(4);assert crc(head)==ev['header_crc32c']
+# Two-phase market control reuses the fixed replay body without treating its plan digest as a cursor.
+assert s['enums']['replay_kind']['MarketArm']==6 and s['enums']['replay_kind']['MarketCommit']==7
+for name,kind in [('market_arm_control_body',6),('market_commit_control_body',7)]:
+ body=decode('ReplayControlBody',bytes.fromhex(vs[name]['hex']))
+ assert body['replay_kind']==kind and body['expected_sequence']==0
+ assert body['expected_cut_digest']=='08'*32 and body['operation_revision']==10
+assert s['market_transition_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
+assert decode('ControlEnvelope',bytes.fromhex(vs['market_arm_rejected_header']['hex']))['flags']==18
 # Independent selected field offsets and signed encoding checks.
 a=bytes.fromhex(vs['new_limit_intent']['hex']);assert int.from_bytes(a[128+120:128+128],'little',signed=True)==6500000;assert int.from_bytes(a[128+384+24:128+384+32],'little')==101
 b=bytes.fromhex(vs['fill_report']['hex']);assert b[128+256:128+264]==bytes.fromhex('bfffffffffffffff');assert b[128+316]==248

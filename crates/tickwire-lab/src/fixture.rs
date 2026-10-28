@@ -26,6 +26,7 @@ struct State {
     key: String,
     secret: Vec<u8>,
     sequence: AtomicU64,
+    eth_sequence: AtomicU64,
     order: Mutex<Option<Value>>,
     output_at: Mutex<Option<Instant>>,
     audit: Mutex<std::fs::File>,
@@ -49,6 +50,7 @@ pub fn serve(s: &Scenario) -> Result<()> {
         key: String::from_utf8(fs::read(&s.api_key)?)?,
         secret: fs::read(&s.api_secret)?,
         sequence: AtomicU64::new(100),
+        eth_sequence: AtomicU64::new(100),
         order: Mutex::new(None),
         output_at: Mutex::new(None),
         audit: Mutex::new(
@@ -289,14 +291,17 @@ fn http(r: &Request, s: &State) -> Result<(u16, Value)> {
         return Ok((200, json!({"serverTime":wall()})));
     }
     if path == "/api/v3/depth" && r.method == "GET" {
-        let bid = if s.scenario.root.join("ARM").exists() {
+        let eth = r.path.contains("symbol=ETHUSDT");
+        let bid = if eth {
+            "3000"
+        } else if s.scenario.root.join("ARM").exists() {
             "60000"
         } else {
             "59999"
         };
         return Ok((
             200,
-            json!({"lastUpdateId":s.sequence.load(Ordering::Acquire),"bids":[[bid,"1"]],"asks":[["60001","1"]]}),
+            json!({"lastUpdateId":if eth {s.eth_sequence.load(Ordering::Acquire)} else {s.sequence.load(Ordering::Acquire)},"bids":[[bid,"1"]],"asks":[[if eth {"3001"} else {"60001"},"1"]]}),
         ));
     }
     let p = signed(r, s)?;
@@ -304,9 +309,16 @@ fn http(r: &Request, s: &State) -> Result<(u16, Value)> {
         ("GET", "/api/v3/account") => {
             let order = s.order.lock().map_err(|_| "order lock")?;
             let filled = order.as_ref().is_some_and(|o| o["status"] == "FILLED");
+            let mut balances = vec![
+                json!({"asset":"BTC","free":if filled{"1.001"}else{"1"},"locked":"0"}),
+                json!({"asset":"USDT","free":if order.is_some(){"940"}else{"1000"},"locked":if order.is_some()&&!filled{"60"}else{"0"}}),
+            ];
+            if s.scenario.kind == crate::ScenarioKind::SpotMarketExpansion {
+                balances.push(json!({"asset":"ETH","free":"0","locked":"0"}));
+            }
             Ok((
                 200,
-                json!({"canTrade":true,"accountType":"SPOT","balances":[{"asset":"BTC","free":if filled{"1.001"}else{"1"},"locked":"0"},{"asset":"USDT","free":if order.is_some(){"940"}else{"1000"},"locked":if order.is_some()&&!filled{"60"}else{"0"}}]}),
+                json!({"canTrade":true,"accountType":"SPOT","balances":balances}),
             ))
         }
         ("GET", "/api/v3/openOrders") => {
@@ -448,14 +460,15 @@ fn ws_send(tls: &mut Tls, value: &Value) -> Result<()> {
 fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<()> {
     let private = path.starts_with("/ws-api/v3");
     let mut subscribed = !private && path.starts_with("/ws/");
+    let mut eth = path.contains("ethusdt");
     let mut sent_fill = false;
     let mut previous_bid = "59999";
     // Handover verifies synchronized replay and process ownership, with one
     // source update per second. Its retained-tail owner is not a load test.
     let market_interval = match s.scenario.kind {
-        crate::ScenarioKind::SpotHandover | crate::ScenarioKind::SpotHandoverCustom => {
-            Duration::from_secs(1)
-        }
+        crate::ScenarioKind::SpotHandover
+        | crate::ScenarioKind::SpotHandoverCustom
+        | crate::ScenarioKind::SpotMarketExpansion => Duration::from_secs(1),
         crate::ScenarioKind::SpotFill => Duration::from_millis(100),
     };
     let mut last = Instant::now() - Duration::from_secs(1);
@@ -494,6 +507,14 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
                         };
                         ws_send(&mut tls, &json!({"id":id,"status":200,"result":result}))?;
                     } else if method == "SUBSCRIBE" {
+                        eth = value["params"].as_array().is_some_and(|params| {
+                            params
+                                .iter()
+                                .any(|p| p.as_str().is_some_and(|v| v.starts_with("ethusdt@")))
+                        });
+                        if eth {
+                            previous_bid = "3000";
+                        }
                         subscribed = true;
                         ws_send(&mut tls, &json!({"id":id,"result":null}))?;
                     } else {
@@ -525,8 +546,11 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
             sent_fill = true;
         }
         if subscribed && !private && last.elapsed() >= market_interval {
-            let seq = s.sequence.fetch_add(1, Ordering::AcqRel) + 1;
-            let bid = if s.scenario.root.join("ARM").exists() {
+            let seq =
+                if eth { &s.eth_sequence } else { &s.sequence }.fetch_add(1, Ordering::AcqRel) + 1;
+            let bid = if eth {
+                "3000"
+            } else if s.scenario.root.join("ARM").exists() {
                 "60000"
             } else {
                 "59999"
@@ -537,7 +561,7 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
             }
             ws_send(
                 &mut tls,
-                &json!({"e":"depthUpdate","E":wall(),"s":"BTCUSDT","U":seq,"u":seq,"b":bids,"a":[["60001","1"]]}),
+                &json!({"e":"depthUpdate","E":wall(),"s":if eth {"ETHUSDT"} else {"BTCUSDT"},"U":if eth && seq==101 {99} else {seq},"u":seq,"b":bids,"a":[[if eth {"3001"} else {"60001"},"1"]]}),
             )?;
             if previous_bid != bid {
                 audit(

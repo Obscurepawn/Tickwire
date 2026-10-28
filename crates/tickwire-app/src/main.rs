@@ -211,6 +211,12 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
             .map_err(|e| format!("market subscription startup: {e}"))?,
         )
     };
+    if let Some(approved) = &config.market_transition {
+        controls
+            .as_mut()
+            .ok_or("market transition requires trusted control inbox")?
+            .configure_market(approved.clone(), market.clone())?;
+    }
     let networks = config.network.resolve(config.tuning.connect_timeout_ns)?;
     if config.reconciliation.first_execution_connection_epoch <= config.first_connection_epoch {
         return Err("reconciliation REST epoch must exceed the initial REST epoch".into());
@@ -287,9 +293,10 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
                     })?;
             }
             if let Some(control) = &mut controls {
-                node.session()
-                    .with_resources(|_, endpoint| control.poll(endpoint))
-                    .map_err(tickwire_runtime::node::Error::Shared)?
+                node.with_strategy_and_account_resources(|strategy,_,_,endpoint| {
+                    control.poll(endpoint)?;
+                    control.poll_market(endpoint,strategy.as_mut())
+                })?
                     .map_err(|error| {
                         eprintln!(
                             "{}",

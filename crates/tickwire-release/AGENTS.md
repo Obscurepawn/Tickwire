@@ -15,7 +15,7 @@
 
 ## 3. workspace 位置
 
-上游（`Cargo.toml` 实际声明）：`tickwire-handover`、`tickwire-lifecycle`、`tickwire-recovery`；第三方 `sha2/serde/serde_json/libc`。
+上游（`Cargo.toml` 实际声明）：`tickwire-handover`、`tickwire-ipc`、`tickwire-lifecycle`、`tickwire-recovery`；第三方 `sha2/serde/serde_json/libc`。
 
 下游（grep 命中）：`tickwire-strategy-sdk`、`tickwire-strategy-host`、`tickwire-strategy-example`、`tickwire-runtime`、`tickwire-replica`、`tickwire-app`、`tickwire-lab`。
 
@@ -41,6 +41,7 @@ cargo test -p tickwire-release
 - **rebuild 内容验证不建立活进程**：`rebuild.rs` 头注释“Content verification does not establish a live process, authorize output, or certify a rollback strategy.”
 - **replay 字节连续 ≠ 回调真实执行**：`replay.rs` 头注释“Validation here proves byte continuity, not that a strategy executed the callbacks; the SDK verifies the latter.”
 - **MarketTransition 记录边界**：保存非零 operation/approval 标识、旧 Cursor、新 StreamKey、TWSB0001 基线及激活前 catchup，不允许 effects；仍受类型化 16 MiB 限制。`market_lineage::after_cut` 逐条重算原始输入摘要，在 C、换代 previous、末尾核对完整 Cursor，为 schema3 安装选择完整 C 后输入；拒绝相同盘口但原始输入不同、缺失换代或跳过 C。SDK 另核对完整视图与真实回调。记录中的审批摘要只绑定运行时决定，不授予 JOIN、配置或交易权限。
+- **生产者 Cursor 与本地 JOIN 证据分开**：新转换 `cursor_basis=1` 经 `market_cursor_digest` 将最后一条真实 catchup 规范为 MarketApplied；独立消费者的本地快照/游标/时间不改变相同生产者 frontier 的 Cursor，原始记录或 ingress 差异仍改变摘要。完整转换继续进入 merged row/hash 与全量重放。旧 basis0 字段省略并保持原编码/散列；未知 basis、空 catchup 或 frontier 不匹配拒绝。
 - **闭包先同步后发布**：`closure.rs` 验证数据与先前回调，活进程所有权仍由 Host 在发布前检查。
 - 上限常量集中在根/`replay`/`rebuild`，新增对象类型时先扩 `MAX_*` 并同步规格预算。
 - schema3 启动、安装与回滚闭包的不透明依赖沿 `tickwire-recovery` 的单对象 64 MiB、总量 256 MiB 预算；`Request.source_objects` 和 `rollback::Job.objects` 可承载这些依赖。类型化重放记录、控制请求、完成根与检查点仍限制为 `replay::MAX_BYTES`（16 MiB），所有引用继续核对精确长度与 SHA-256。

@@ -12,7 +12,9 @@ use tickwire_binance_public as public;
 use tickwire_market_source::protocol::IdentityConfig;
 use tickwire_transport::rustls;
 use tickwire_venue as v;
+mod expansion;
 mod feed_index;
+pub use expansion::ExpansionControl;
 pub use feed_index::FeedIndex;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -270,6 +272,8 @@ pub struct Config {
     pub feeds: Vec<Feed>,
     pub topics: Vec<Topic>,
     pub maximum_idle_ns: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expansion: Option<ExpansionControl>,
 }
 pub fn read(path: &Path, max: usize) -> Result<Vec<u8>> {
     let file = OpenOptions::new()

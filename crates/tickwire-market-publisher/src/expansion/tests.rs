@@ -189,6 +189,10 @@ fn candidate_keeps_old_chain_live_then_commits_latest_old_and_warmed_new_rows() 
     p.on_notice(20, notice(&latest, 12), 12, &mut faults)
         .unwrap();
     let cut = p.owner.published();
+    let retained_slot = candidate.instrument_slot(20).unwrap();
+    let added_slot = candidate.instrument_slot(10).unwrap();
+    assert!(candidate.instrument_slot(u64::MAX).is_err());
+    assert_ne!(retained_slot.index(), old_slot.index());
     let next = replacement(&p, registry(&[10, 20], 2));
     let retired = p
         .commit_expansion(candidate, next, 12, 100, &mut faults)
@@ -207,7 +211,23 @@ fn candidate_keeps_old_chain_live_then_commits_latest_old_and_warmed_new_rows() 
             .is_err()
     );
     assert_eq!(p.instrument_slot(20).unwrap().index(), 1);
-    let built = snapshot(&p, 13);
+    let latest_added = book(1, 14, 210);
+    let latest_retained = book(0, 15, 120);
+    p.on_notice_slot(added_slot, &notice(&latest_added, 14), 14, &mut faults)
+        .unwrap();
+    p.on_notice_slot(
+        retained_slot,
+        &notice(&latest_retained, 15),
+        15,
+        &mut faults,
+    )
+    .unwrap();
+    assert_eq!(p.owner.published(), cut + 8);
+    assert_eq!(p.state.rows[0].spec.instrument_id, 10);
+    assert_eq!(p.state.rows[0].bids[0].price_ticks, 210);
+    assert_eq!(p.state.rows[1].spec.instrument_id, 20);
+    assert_eq!(p.state.rows[1].bids[0].price_ticks, 120);
+    let built = snapshot(&p, 16);
     assert_eq!(built.bytes().len(), snapshot_bytes(&p.state.rows).unwrap());
 }
 

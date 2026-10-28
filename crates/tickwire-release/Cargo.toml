@@ -6,6 +6,7 @@ license.workspace = true
 publish.workspace = true
 
 [dependencies]
+tickwire-ipc = { path = "../tickwire-ipc" }
 tickwire-handover = { path = "../tickwire-handover" }
 libc = "0.2"
 sha2 = "0.10"

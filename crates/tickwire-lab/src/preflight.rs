@@ -615,6 +615,11 @@ pub(crate) fn verify_completed(
     {
         return Err("actual C replay/installation/probe binding".into());
     }
+    let expansion_prefix = if s.kind == crate::ScenarioKind::SpotMarketExpansion {
+        Some(crate::expansion::proof::verify_completed(s, &source)?)
+    } else {
+        None
+    };
     let old_state = |c: &tickwire_release::replay::Checkpoint| {
         tickwire_strategy_sdk::replay::application::business_bytes(&c.business)
     };
@@ -672,7 +677,7 @@ pub(crate) fn verify_completed(
         return Err("final target PID changed".into());
     }
     Ok(
-        serde_json::json!({"operation_schema":3,"restore_digest":seal.replay_restore_digest,"installation_digest":seal.replay_installation_digest,"rollback_digest":root,"source_report_position":startup.restored.source_report_position,"source_s_sequence":fixed.cut.sequence,"source_c_sequence":current.cut.sequence,"source_replay_pid":source.receipt().pid,"target_install_sequence":installed.initial_checkpoint()?.cut.sequence,"target_continued_sequence":installed.checkpoint.cut.sequence,"target_final_sequence":retained.current().cut.sequence,"target_pid":startup.restored.process.pid,"rollback_pid":b.process.pid,"target_schema":target_schema,"rollback_schema":b.output_schema,"action_pending_at_s":true,"action_remains_consumed":true,"custom_counters":custom_counters}),
+        serde_json::json!({"operation_schema":3,"restore_digest":seal.replay_restore_digest,"installation_digest":seal.replay_installation_digest,"rollback_digest":root,"source_report_position":startup.restored.source_report_position,"source_s_sequence":fixed.cut.sequence,"source_c_sequence":current.cut.sequence,"source_replay_pid":source.receipt().pid,"target_install_sequence":installed.initial_checkpoint()?.cut.sequence,"target_continued_sequence":installed.checkpoint.cut.sequence,"target_final_sequence":retained.current().cut.sequence,"target_pid":startup.restored.process.pid,"rollback_pid":b.process.pid,"target_schema":target_schema,"rollback_schema":b.output_schema,"action_pending_at_s":true,"action_remains_consumed":true,"custom_counters":custom_counters,"expansion_prefix":expansion_prefix}),
     )
 }
 

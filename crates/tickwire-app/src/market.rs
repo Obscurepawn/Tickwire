@@ -1,6 +1,8 @@
 //! Direct execution subscriptions; each source keeps its own cursor and JOIN.
 use crate::{Result, invalid};
+use std::{cell::RefCell, rc::Rc};
 use tickwire_clock::{ClockDomain, MonoTime};
+use tickwire_market_source::transition::{Approval, Commit, Receipt};
 use tickwire_market_source::{
     Client, ConnectConfig, MarketSink, MarketSource, PollReport, ShmSource,
 };
@@ -8,8 +10,13 @@ use tickwire_market_source::{
 struct Member {
     source: ShmSource,
     failed: bool,
+    current: ConnectConfig,
 }
+#[derive(Clone)]
 pub struct Sources {
+    inner: Rc<RefCell<State>>,
+}
+struct State {
     domain: ClockDomain,
     members: Vec<Member>,
     next: usize,
@@ -55,16 +62,127 @@ impl Sources {
             members.push(Member {
                 source: ShmSource::new(client),
                 failed: false,
+                current: config.clone(),
             });
         }
         Ok(Self {
-            domain,
-            members,
-            next: 0,
+            inner: Rc::new(RefCell::new(State {
+                domain,
+                members,
+                next: 0,
+            })),
         })
     }
 }
+impl Sources {
+    pub fn consumers(&self) -> Vec<crate::control::market::Consumer> {
+        let mut result = Vec::new();
+        for member in &self.inner.borrow().members {
+            let local = &member.current.endpoint.local;
+            let consumer = crate::control::market::Consumer {
+                pid: std::process::id(),
+                instance: local.instance,
+                generation: local.generation,
+            };
+            if !result.contains(&consumer) {
+                result.push(consumer);
+            }
+        }
+        result
+    }
+    pub fn validate_arm(&self, approval: &Approval, now: MonoTime) -> Result<()> {
+        let state = self.inner.borrow();
+        let member = state.member(approval)?;
+        approval.validate(&member.current, now)?;
+        approval.validate_client(member.source.client(), now)?;
+        Ok(())
+    }
+    pub fn arm(&self, approval: &Approval, now: MonoTime) -> Result<()> {
+        self.validate_arm(approval, now)?;
+        let mut state = self.inner.borrow_mut();
+        let member = state.member_mut(approval)?;
+        member
+            .source
+            .arm_transition(approval.clone(), &member.current, now)?;
+        Ok(())
+    }
+    pub fn commit(&self, approval: &Approval, commit: &Commit, now: MonoTime) -> Result<()> {
+        self.inner
+            .borrow_mut()
+            .member_mut(approval)?
+            .source
+            .commit_transition(commit.clone(), now)?;
+        Ok(())
+    }
+    pub fn receipt(&self, approval: &Approval) -> Option<Receipt> {
+        self.inner
+            .borrow()
+            .member(approval)
+            .ok()?
+            .source
+            .transition_receipt()
+            .filter(|r| r.operation_id == approval.operation_id)
+            .cloned()
+    }
+    pub fn release(&self, approval: &Approval, commit: &Commit, now: MonoTime) -> Result<()> {
+        let mut state = self.inner.borrow_mut();
+        let member = state.member_mut(approval)?;
+        member.source.release_transition(now)?;
+        member.current = commit.config.clone();
+        Ok(())
+    }
+}
+impl State {
+    fn member(&self, approval: &Approval) -> Result<&Member> {
+        self.members
+            .iter()
+            .find(|m| {
+                !m.failed
+                    && m.current.endpoint.local.instance
+                        == approval.previous.endpoint.local.instance
+                    && m.current.endpoint.local.generation
+                        == approval.previous.endpoint.local.generation
+                    && m.current.cursor_id == approval.previous.cursor_id
+            })
+            .ok_or_else(|| invalid("market source is absent or failed"))
+    }
+    fn member_mut(&mut self, approval: &Approval) -> Result<&mut Member> {
+        self.members
+            .iter_mut()
+            .find(|m| {
+                !m.failed
+                    && m.current.endpoint.local.instance
+                        == approval.previous.endpoint.local.instance
+                    && m.current.endpoint.local.generation
+                        == approval.previous.endpoint.local.generation
+                    && m.current.cursor_id == approval.previous.cursor_id
+            })
+            .ok_or_else(|| invalid("market source is absent or failed"))
+    }
+}
 impl MarketSource for Sources {
+    fn domain(&self) -> ClockDomain {
+        self.inner.borrow().domain()
+    }
+    fn poll(
+        &mut self,
+        now: MonoTime,
+        maximum_age_ns: u64,
+        budget: usize,
+        sink: &mut dyn MarketSink,
+    ) -> tickwire_market_source::Result<PollReport> {
+        self.inner
+            .borrow_mut()
+            .poll(now, maximum_age_ns, budget, sink)
+    }
+    fn is_live(&self, now: MonoTime, maximum_age_ns: u64) -> bool {
+        self.inner.borrow().is_live(now, maximum_age_ns)
+    }
+    fn stop(&mut self, sink: &mut dyn MarketSink) -> tickwire_market_source::Result<()> {
+        self.inner.borrow_mut().stop(sink)
+    }
+}
+impl MarketSource for State {
     fn domain(&self) -> ClockDomain {
         self.domain
     }
@@ -137,3 +255,6 @@ impl MarketSource for Sources {
         error.map_or(Ok(()), Err)
     }
 }
+
+#[cfg(all(test, target_os = "linux"))]
+pub(crate) mod tests;

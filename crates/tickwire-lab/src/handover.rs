@@ -356,6 +356,11 @@ impl Driver {
             )?;
             self.armed = true;
         }
+        if self.scenario.kind == crate::ScenarioKind::SpotMarketExpansion
+            && !r.join("market-expanded.json").is_file()
+        {
+            return Ok(());
+        }
         if self.coordinator.is_none() {
             let old_path = r.join(format!("exec/reports/CONSUMED-{}-5.json", hex(&[2; 16])));
             let next_path = r.join(format!(

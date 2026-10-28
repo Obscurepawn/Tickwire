@@ -4,6 +4,7 @@ pub mod bootstrap;
 pub mod checkpoint;
 pub mod handover;
 pub mod market;
+pub mod market_transition;
 pub mod outbound;
 pub mod preflight;
 pub mod recovery;
@@ -16,6 +17,11 @@ pub mod retirement;
 #[cfg(feature = "runtime")]
 #[allow(unsafe_code)]
 pub mod runtime;
+#[cfg(test)]
+#[path = "../tests/common/market_transition.rs"]
+mod transition_fixture;
+#[cfg(test)]
+use tickwire_market_source::transition;
 #[allow(unsafe_code)]
 pub mod worker;
 pub use market::{MarketReplica, MarketView};

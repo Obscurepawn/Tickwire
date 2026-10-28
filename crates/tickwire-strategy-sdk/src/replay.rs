@@ -430,7 +430,7 @@ fn advance_cursor(
     Ok(())
 }
 fn advance(runtime: &mut RuntimeState, input: &Input) -> Result<()> {
-    let hash = tickwire_recovery::digest(&canonical(input)?);
+    let hash = market_cursor_digest(input)?;
     match input {
         Input::MarketTransition {
             previous,

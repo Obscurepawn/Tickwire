@@ -5425,7 +5425,9 @@
       "SourceReplay": 2,
       "InstallAtCut": 3,
       "Continue": 4,
-      "AuxiliaryInput": 5
+      "AuxiliaryInput": 5,
+      "MarketArm": 6,
+      "MarketCommit": 7
     }
   },
   "bitsets": {
@@ -5969,7 +5971,8 @@
       "name": "REPLAY_APPLIED",
       "body_layout": "ReplayAppliedBody",
       "allowed_flags": [
-        10
+        10,
+        18
       ],
       "response_layout": null,
       "response_opcode": null
@@ -7521,5 +7524,21 @@
       "Json": 0,
       "SpotSbeV1": 1
     }
+  },
+  "market_transition_control": {
+    "request_opcode": 41,
+    "response_opcode": 42,
+    "arm_kind": 6,
+    "commit_kind": 7,
+    "expected_sequence": 0,
+    "expected_cut_digest": "approved complete MD Plan SHA-256; not a market cursor",
+    "request_object_max_bytes": 2097152,
+    "authorization": "Authenticated existing Host report session after trusted operation approval; object validity alone grants no authority.",
+    "rejection_status": {
+      "Unsupported": 1,
+      "Busy": 2,
+      "Invalid": 3
+    },
+    "rejection": "Only kind6/7 permit REPLAY_APPLIED flags18 with status1..3; body echoes exact request, no Armed/Activated object."
   }
 }

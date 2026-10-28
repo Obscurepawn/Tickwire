@@ -1,6 +1,12 @@
 //! Single MD process, independent bounded network owner per instrument.
+mod cold;
 #[cfg(test)]
 mod dense_tests;
+pub mod expansion;
+mod owners;
+mod tokens;
+use owners::{EventFeed, Feed};
+type Quota = tickwire_binance_quota::bootstrap::Built<tickwire_quota::files::FileQuotaStore>;
 use crate::{
     Result,
     config::{self, Config},
@@ -17,65 +23,6 @@ use tickwire_shm::Publisher;
 pub(crate) const LEVELS: usize = 5000;
 pub(crate) const UPDATES: usize = 5000;
 pub(crate) const BUFFER: usize = 64;
-type Spot = public::PublicDepthClient<public::BinanceSpot, SystemClock, LEVELS, UPDATES, BUFFER>;
-type Usdm = public::PublicDepthClient<public::BinanceUsdM, SystemClock, LEVELS, UPDATES, BUFFER>;
-enum Client {
-    Spot(Box<Spot>),
-    Usdm(Box<Usdm>),
-}
-impl Client {
-    fn start(&mut self, p: &mut impl public::PublicPermit) -> public::Result<()> {
-        match self {
-            Self::Spot(c) => c.start(p),
-            Self::Usdm(c) => c.start(p),
-        }
-    }
-    fn poll(
-        &mut self,
-        p: &mut impl public::PublicPermit,
-        s: &mut impl public::PublicSink,
-    ) -> public::Result<public::PollReport> {
-        match self {
-            Self::Spot(c) => c.poll(p, public::PollBudget::default(), s),
-            Self::Usdm(c) => c.poll(p, public::PollBudget::default(), s),
-        }
-    }
-    fn register(
-        &mut self,
-        r: &public::mio::Registry,
-        t: public::IoTokens,
-        again: bool,
-    ) -> public::Result<()> {
-        match self {
-            Self::Spot(c) => {
-                if again {
-                    c.reregister(r, t)
-                } else {
-                    c.register(r, t)
-                }
-            }
-            Self::Usdm(c) => {
-                if again {
-                    c.reregister(r, t)
-                } else {
-                    c.register(r, t)
-                }
-            }
-        }
-    }
-}
-struct Feed {
-    client: Client,
-    binding: tickwire_binance_quota::PublicBinding,
-    instrument: u64,
-    topics: Vec<(usize, InstrumentSlot)>,
-}
-struct EventFeed {
-    client: public::PublicEventClient<SystemClock>,
-    binding: tickwire_binance_quota::PublicBinding,
-    instrument: u64,
-    topics: Vec<(usize, InstrumentSlot)>,
-}
 struct EventFanout<'a> {
     topics: &'a mut [TopicOwner],
     targets: &'a [(usize, InstrumentSlot)],
@@ -137,6 +84,7 @@ fn topic_registry(
     c: &Config,
     h: &ResourceHeader,
     index: &config::FeedIndex,
+    t: &config::Topic,
 ) -> Result<(TopicRegistry, Vec<InstrumentConfig>)> {
     let mut specs = Vec::new();
     let mut catalog = None;
@@ -175,16 +123,6 @@ fn topic_registry(
     {
         return Err(invalid("topic membership"));
     }
-    let t = c
-        .topics
-        .iter()
-        .find(|t| {
-            config::read(&t.resource, 4096)
-                .ok()
-                .and_then(|b| ResourceHeader::decode(&b).ok())
-                .is_some_and(|x| x.topic_id == h.topic_id)
-        })
-        .ok_or_else(|| invalid("topic config"))?;
     Ok((
         TopicRegistry {
             catalog_hash: catalog.ok_or_else(|| invalid("catalog"))?,
@@ -215,190 +153,181 @@ fn topic_registry(
 }
 /// Runs public network owners and authenticated JOIN service until a fatal local
 /// configuration/storage/clock error. Network reconnects remain per instrument.
-pub fn run(c: Config) -> Result<()> {
-    if c.feeds.is_empty()
-        || c.feeds.len() > 32
-        || c.topics.is_empty()
-        || c.topics.len() > 32
-        || c.maximum_idle_ns == 0
-        || c.maximum_idle_ns > 100_000_000
-    {
-        return Err(invalid("MD owner bounds"));
-    }
-    let index = config::FeedIndex::new(&c.feeds)?;
-    let domain = tickwire_clock::ClockDomain::new(c.identity.host_boot, c.clock_generation)
-        .map_err(|e| invalid(&format!("clock {e:?}")))?;
-    let mut clock = SystemClock::new(domain)?;
-    let store = tickwire_quota::files::FileQuotaStore::open(&c.quota_directory)
-        .map_err(|e| invalid(&format!("quota store {e:?}")))?;
-    let mut quota = c
-        .quota
-        .build(store, clock.sample()?.monotonic)
-        .map_err(|e| invalid(&format!("quota {e:?}")))?;
-    let mut topics = Vec::new();
-    let mut topic_ids = BTreeSet::new();
-    for t in &c.topics {
-        let h = ResourceHeader::decode(&config::read(&t.resource, 4096)?)?;
-        if h.producer_instance != c.identity.instance
-            || h.producer_generation != c.identity.generation
-            || h.host_boot_id != c.identity.host_boot
-            || h.namespace_id != c.identity.namespace
-            || !topic_ids.insert(h.topic_id)
+pub struct Runtime {
+    config: Config,
+    index: config::FeedIndex,
+    domain: tickwire_clock::ClockDomain,
+    clock: SystemClock,
+    quota: Quota,
+    topics: Vec<TopicOwner>,
+    poll: public::mio::Poll,
+    events: public::mio::Events,
+    feeds: Vec<Feed>,
+    event_feeds: Vec<EventFeed>,
+    server: Server,
+    retired: Vec<Vec<JoinOwner<32>>>,
+    first: usize,
+    tokens: tokens::Tokens,
+    revision: u64,
+    expansion: Option<expansion::Control>,
+}
+#[derive(Clone, Copy, Debug)]
+pub struct PollReport {
+    pub runnable: bool,
+    pub next_deadline_ns: Option<u64>,
+    pub wait_ns: u64,
+}
+impl Runtime {
+    pub fn new(c: Config) -> Result<Self> {
+        if c.feeds.is_empty()
+            || c.feeds.len() > 32
+            || c.topics.is_empty()
+            || c.topics.len() > 32
+            || c.maximum_idle_ns == 0
+            || c.maximum_idle_ns > 100_000_000
         {
-            return Err(invalid("MD topic resource identity"));
+            return Err(invalid("MD owner bounds"));
         }
-        let (registry, instruments) = topic_registry(&c, &h, &index)?;
-        let owner = JoinOwner::new(Publisher::<32>::create(h)?, registry)?;
-        config::write_bytes(
-            &config::active_resource_path(&t.resource)?,
-            &tickwire_market_source::protocol::wire_bytes(owner.header())?,
-        )?;
-        topics.push(TopicOwner::new(
-            owner,
-            instruments,
-            tickwire_market_publisher::Limits {
-                levels_per_side: t.maximum_levels,
-                cache_bytes: t.maximum_cache_bytes,
-                snapshot_bytes: t.maximum_snapshot_bytes,
-                max_delta_bytes: t.maximum_delta_bytes,
-            },
-        )?);
-    }
-    let mut poll = public::mio::Poll::new()?;
-    let mut events = public::mio::Events::with_capacity(256);
-    let mut feeds = Vec::new();
-    let mut event_feeds = Vec::new();
-    let mut owners = BTreeSet::new();
-    for f in &c.feeds {
-        if !owners.insert(f.owner_id)
-            || f.topics.is_empty()
-            || f.topics.iter().collect::<BTreeSet<_>>().len() != f.topics.len()
-            || f.topics.iter().any(|t| !topic_ids.contains(t))
-        {
-            return Err(invalid("MD feed owner/topics"));
-        }
-        let (config, network) = f.build(domain, &index)?;
-        let binding = tickwire_binance_quota::PublicBinding {
-            owner_id: f.owner_id,
-            source: f.source.build(),
-            domain,
-        };
-        let mut client = match config.source {
-            public::Source::SpotProduction | public::Source::SpotTest => {
-                let clock = SystemClock::new(domain)?;
-                let client = if let Some(path) = &f.sbe_api_key_file {
-                    let bytes = config::read(path, 512)?;
-                    let key = std::str::from_utf8(&bytes)
-                        .map_err(|_| invalid("SBE API key encoding"))?
-                        .trim()
-                        .to_owned();
-                    Spot::new_sbe(
-                        config,
-                        network,
-                        clock,
-                        public::SbeAccess::ed25519_api_key(key)?,
-                    )?
-                } else {
-                    Spot::new(config, network, clock)?
-                };
-                Client::Spot(Box::new(client))
-            }
-            _ => Client::Usdm(Box::new(Usdm::new(
-                config,
-                network,
-                SystemClock::new(domain)?,
-            )?)),
-        };
-        client.start(&mut quota.endpoint.public(binding))?;
-        client.register(
-            poll.registry(),
-            public::IoTokens {
-                stream: public::mio::Token(feeds.len() * 2),
-                snapshot: public::mio::Token(feeds.len() * 2 + 1),
-            },
-            false,
-        )?;
-        let targets = topics
-            .iter_mut()
-            .enumerate()
-            .filter_map(|(i, t)| {
-                f.topics
-                    .contains(&t.split().0.header().topic_id)
-                    .then(|| t.instrument_slot(f.instrument.id).map(|slot| (i, slot)))
-            })
-            .collect::<tickwire_market_publisher::Result<Vec<_>>>()?;
-        let mut event_kinds = BTreeSet::new();
-        let mut event_sources = BTreeSet::new();
-        if f.events.len() > 3 {
-            return Err(invalid("event owner capacity"));
-        }
-        for event in &f.events {
-            if !owners.insert(event.owner_id)
-                || !event_kinds.insert(event.kind.state())
-                || !event_sources.insert(event.stream_id)
+        let expansion = c
+            .expansion
+            .clone()
+            .map(|control| expansion::Control::new(control, &c))
+            .transpose()?;
+        let revision = c.expansion.as_ref().map_or(1, |c| c.initial_revision);
+        let index = config::FeedIndex::new(&c.feeds)?;
+        let domain = tickwire_clock::ClockDomain::new(c.identity.host_boot, c.clock_generation)
+            .map_err(|e| invalid(&format!("clock {e:?}")))?;
+        let mut clock = SystemClock::new(domain)?;
+        let store = tickwire_quota::files::FileQuotaStore::open(&c.quota_directory)
+            .map_err(|e| invalid(&format!("quota store {e:?}")))?;
+        let mut quota = c
+            .quota
+            .build(store, clock.sample()?.monotonic)
+            .map_err(|e| invalid(&format!("quota {e:?}")))?;
+        let mut topics = Vec::new();
+        let mut topic_ids = BTreeSet::new();
+        for t in &c.topics {
+            let h = ResourceHeader::decode(&config::read(&t.resource, 4096)?)?;
+            if h.producer_instance != c.identity.instance
+                || h.producer_generation != c.identity.generation
+                || h.host_boot_id != c.identity.host_boot
+                || h.namespace_id != c.identity.namespace
+                || !topic_ids.insert(h.topic_id)
             {
-                return Err(invalid("duplicate event owner/kind/source"));
+                return Err(invalid("MD topic resource identity"));
             }
-            let (event_config, network) = event.build(f, domain, &index)?;
-            for &(i, _) in &targets {
-                topics[i].configure_event(f.instrument.id, event.kind.kind(), event.stream_id)?;
-            }
-            let binding = tickwire_binance_quota::PublicBinding {
-                owner_id: event.owner_id,
-                source: f.source.build(),
-                domain,
-            };
-            let clock = SystemClock::new(domain)?;
-            let mut event_client = if let Some(path) = &event.sbe_api_key_file {
-                let bytes = config::read(path, 512)?;
-                let key = std::str::from_utf8(&bytes)
-                    .map_err(|_| invalid("SBE event API key encoding"))?
-                    .trim()
-                    .to_owned();
-                public::PublicEventClient::new_sbe(
-                    event_config,
-                    network,
-                    clock,
-                    public::SbeAccess::ed25519_api_key(key)?,
-                )?
-            } else {
-                public::PublicEventClient::new(event_config, network, clock)?
-            };
-            event_client.start(&mut quota.endpoint.public(binding))?;
-            event_client.register(
-                poll.registry(),
-                public::mio::Token(c.feeds.len() * 2 + event_feeds.len()),
+            let (registry, instruments) = topic_registry(&c, &h, &index, t)?;
+            let owner = JoinOwner::new(Publisher::<32>::create(h)?, registry)?;
+            config::write_bytes(
+                &config::active_resource_path(&t.resource)?,
+                &tickwire_market_source::protocol::wire_bytes(owner.header())?,
             )?;
-            event_feeds.push(EventFeed {
-                client: event_client,
-                binding,
-                instrument: f.instrument.id,
-                topics: targets.clone(),
-            });
+            topics.push(TopicOwner::new(
+                owner,
+                instruments,
+                tickwire_market_publisher::Limits {
+                    levels_per_side: t.maximum_levels,
+                    cache_bytes: t.maximum_cache_bytes,
+                    snapshot_bytes: t.maximum_snapshot_bytes,
+                    max_delta_bytes: t.maximum_delta_bytes,
+                },
+            )?);
         }
-        feeds.push(Feed {
-            client,
-            binding,
-            instrument: f.instrument.id,
-            topics: targets,
-        });
+        let poll = public::mio::Poll::new()?;
+        let events = public::mio::Events::with_capacity(256);
+        let mut feeds = Vec::new();
+        let mut event_feeds = Vec::new();
+        let mut identities = BTreeSet::new();
+        let mut tokens = tokens::Tokens::default();
+        for f in &c.feeds {
+            if !identities.insert(f.owner_id)
+                || f.topics.is_empty()
+                || f.topics.iter().collect::<BTreeSet<_>>().len() != f.topics.len()
+                || f.topics.iter().any(|t| !topic_ids.contains(t))
+            {
+                return Err(invalid("MD feed owner/topics"));
+            }
+            let mut kinds = BTreeSet::new();
+            let mut sources = BTreeSet::new();
+            for event in &f.events {
+                if !identities.insert(event.owner_id)
+                    || !kinds.insert(event.kind.state())
+                    || !sources.insert(event.stream_id)
+                {
+                    return Err(invalid("duplicate event owner/kind/source"));
+                }
+            }
+            let reserved = owners::Reserved::new(&mut tokens, f.events.len())?;
+            let mut built = owners::build(f, domain, &index, reserved)?;
+            built.attach(f, &mut topics)?;
+            built.start(poll.registry(), &mut quota)?;
+            feeds.push(built.feed);
+            event_feeds.extend(built.events);
+        }
+        let server = Server::new(&c)?;
+        // Keep old mapped owners alive: outstanding guards/cursors may still refer
+        // to them. Explicit control supplies each successor; never recycle in place.
+        let retired: Vec<Vec<JoinOwner<32>>> = (0..topics.len()).map(|_| Vec::new()).collect();
+        Ok(Self {
+            config: c,
+            index,
+            domain,
+            clock,
+            quota,
+            topics,
+            poll,
+            events,
+            feeds,
+            event_feeds,
+            server,
+            retired,
+            first: 0,
+            tokens,
+            revision,
+            expansion,
+        })
     }
-    let mut server = Server::new(&c)?;
-    // Keep old mapped owners alive: outstanding guards/cursors may still refer
-    // to them. Explicit control supplies each successor; never recycle in place.
-    let mut retired: Vec<Vec<JoinOwner<32>>> = (0..topics.len()).map(|_| Vec::new()).collect();
-    let mut first = 0;
-    loop {
+    /// Drive one round over network owners, authenticated JOIN, and expansion control.
+    pub fn poll_once(&mut self) -> Result<PollReport> {
+        let mut report = self.poll_live()?;
+        if let Some(mut control) = self.expansion.take() {
+            let now = self.clock.sample()?.monotonic.nanos();
+            let result = control.poll(self, now);
+            self.expansion = Some(control);
+            report.runnable |= result?;
+            report.wait_ns = if report.runnable {
+                0
+            } else {
+                report.wait_ns.min(1_000_000)
+            };
+        }
+        Ok(report)
+    }
+    fn poll_live(&mut self) -> Result<PollReport> {
+        let Self {
+            config: c,
+            clock,
+            quota,
+            topics,
+            poll,
+            feeds,
+            event_feeds,
+            server,
+            retired,
+            first,
+            ..
+        } = self;
+
         let mut runnable = false;
         let mut next = None::<u64>;
         for offset in 0..feeds.len() {
-            let i = (first + offset) % feeds.len();
+            let i = (*first + offset) % feeds.len();
             let f = &mut feeds[i];
             let mut sink = Fanout {
-                topics: &mut topics,
+                topics,
                 targets: &f.topics,
                 instrument: f.instrument,
-                clock: &mut clock,
+                clock,
             };
             let r = f
                 .client
@@ -408,24 +337,17 @@ pub fn run(c: Config) -> Result<()> {
                 next = Some(next.map_or(t, |old| old.min(t)));
             }
             if r.needs_registration {
-                f.client.register(
-                    poll.registry(),
-                    public::IoTokens {
-                        stream: public::mio::Token(i * 2),
-                        snapshot: public::mio::Token(i * 2 + 1),
-                    },
-                    true,
-                )?;
+                f.client.register(poll.registry(), f.tokens, true)?;
             }
         }
         for offset in 0..event_feeds.len() {
-            let i = (first + offset) % event_feeds.len();
+            let i = (*first + offset) % event_feeds.len();
             let f = &mut event_feeds[i];
             let mut sink = EventFanout {
-                topics: &mut topics,
+                topics,
                 targets: &f.topics,
                 instrument: f.instrument,
-                clock: &mut clock,
+                clock,
             };
             let report = f.client.poll(
                 public::PollBudget::default(),
@@ -437,15 +359,14 @@ pub fn run(c: Config) -> Result<()> {
                 next = Some(next.map_or(t, |old| old.min(t)));
             }
             if report.needs_registration {
-                f.client
-                    .reregister(poll.registry(), public::mio::Token(c.feeds.len() * 2 + i))?;
+                f.client.reregister(poll.registry(), f.token)?;
             }
         }
-        first = (first + 1) % feeds.len();
+        *first = (*first + 1) % feeds.len();
         let now = clock.sample()?.monotonic.nanos();
-        server.poll(&mut topics, now)?;
+        server.poll(topics, now)?;
         for i in 0..topics.len() {
-            if topics[i].needs_bank() {
+            if topics[i].needs_bank() && !server.topic_paused(i) {
                 server.invalidate_topic(i, &mut topics[i])?;
                 if !server.has_peers(i) && topics[i].state().cached_live() {
                     let old = topics[i].split().0.header().clone();
@@ -487,6 +408,23 @@ pub fn run(c: Config) -> Result<()> {
                 n.saturating_sub(now).min(c.maximum_idle_ns)
             })
         };
-        poll.poll(&mut events, Some(Duration::from_nanos(wait)))?;
+        Ok(PollReport {
+            runnable,
+            next_deadline_ns: next,
+            wait_ns: wait,
+        })
+    }
+    pub fn wait(&mut self, report: PollReport) -> Result<()> {
+        self.poll
+            .poll(&mut self.events, Some(Duration::from_nanos(report.wait_ns)))?;
+        Ok(())
+    }
+}
+/// Runs the same Runtime driven by integration tests and the production binary.
+pub fn run(c: Config) -> Result<()> {
+    let mut runtime = Runtime::new(c)?;
+    loop {
+        let report = runtime.poll_once()?;
+        runtime.wait(report)?;
     }
 }

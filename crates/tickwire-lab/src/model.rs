@@ -145,3 +145,44 @@ pub fn model(
         v::CanonicalCommand::new(command).map_err(|e| format!("{e:?}"))?,
     ))
 }
+
+/// Both instruments are economically known before the market subscription grows.
+pub fn expansion_model(
+    now: u64,
+    expires: u64,
+) -> Result<(
+    tickwire_account_codec::CanonicalBaseline,
+    v::CanonicalCommand,
+)> {
+    let (base, command) = model(now, expires)?;
+    let mut snapshot = base.snapshot().clone();
+    let mut catalog = base.catalog().clone();
+    let eth = v::AssetRef {
+        id: 3,
+        version: 1,
+        symbol: v::AssetSymbol::new("ETH").unwrap(),
+        exponent: -8,
+    };
+    snapshot.assets.push(AssetSnapshot {
+        key: AssetKey {
+            wallet_id: 1,
+            asset_id: 3,
+        },
+        asset: eth.clone(),
+        free: Fixed::from_atoms(0, 8).unwrap(),
+        locked: Fixed::from_atoms(0, 8).unwrap(),
+        nontrade_locked: Fixed::from_atoms(0, 8).unwrap(),
+        exclusive_fee_pool: false,
+        ownership: vec![],
+    });
+    let mut additional = catalog.entries[0].clone();
+    additional.instrument.instrument_id = u64::MAX;
+    additional.instrument.base = eth;
+    additional.instrument.symbol = v::Symbol::new("ETHUSDT").unwrap();
+    catalog.entries.push(additional);
+    Ok((
+        tickwire_account_codec::CanonicalBaseline::new(snapshot, catalog)
+            .map_err(|e| format!("{e:?}"))?,
+        command,
+    ))
+}

@@ -48,6 +48,7 @@ cargo fmt --check -p tickwire-ipc
 - 深度：买价降序、卖价升序、数量非负，层数 = bid+ask ≤ 4096；≤12 层内联（payload_kind=1），其余走 arena class 1..=4（payload_kind=2），`allocation_seq == sequence`，块与尾部零填充，见 `decode_record`/`validate_arena_payload`。
 - `validate_arena_block` 只校验**一个完整不可变块**，绝不跨可变邻居取切片；arena 引用必须匹配 resource/ring_epoch/allocation_seq/class，并选择能容纳 payload 的最小 class。
 - 控制帧：magic `TWCTL001`、头 128 字节、`fd_count ≤ 16`、双 CRC（头 CRC 跳过 116..120，体 CRC）；只有 opcode 3（RESOURCE_OFFER）可携带 FD；offer descriptor 1..=16、每个 128 字节、fd_index 唯一且在范围内。
+- ReplayControl kind6/7 为市场 Arm/Commit，复用固定 256 字节包体；expected_sequence=0、expected_cut_digest 绑定审批计划摘要。仅这两类的 opcode42 可返回 flags18，status 限 Unsupported=1/Busy=2/Invalid=3；拒绝体回显请求，由 SDK/Host 核对身份与内容，不产生 Armed/Activated。
 - 配置帧先检查协商 feature 位（bit 32）再解析包体（`decode_negotiated`/`validate_config_binding`）；身份全部来自显式 `ConfigContext`，包体不能增加权限；本模块不验签、不写文件、不提交运行时状态。
 - 单独 `Wire::decode` 只证明长度和保留区正确，**不能据此授予交易权限**；也不能对正在更新的 `ProducerPage`/`CursorPage` 做整页普通读取（那是 shm/shm-sys 的责任）。
 - `Record` enum 在栈内保存最大消息，避免堆分配；生产路径不得新增会扩大 enum 的变体而破坏此假设。

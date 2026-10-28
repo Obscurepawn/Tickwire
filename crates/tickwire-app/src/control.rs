@@ -14,6 +14,7 @@ const SCHEMA: u32 = 1;
 const MAX_COMMAND_BYTES: usize = 32 * 1024;
 const MAX_RECORDS: usize = 16384;
 const MAX_TOTAL_BYTES: usize = 64 * 1024 * 1024;
+pub mod market;
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -122,6 +123,11 @@ enum Record {
         at_ns: u64,
         lease_until_ns: u64,
     },
+    MarketDecision {
+        session: u64,
+        at_ns: u64,
+        decision: tickwire_release::Object,
+    },
     Command {
         session: u64,
         at_ns: u64,
@@ -156,6 +162,7 @@ struct State {
     next_sequence: u64,
     ids: BTreeMap<[u8; 16], (u64, [u8; 32])>,
     last_ns: u64,
+    market_history: market::history::History,
 }
 impl State {
     fn new(
@@ -184,6 +191,7 @@ impl State {
                 next_sequence: 1,
                 ids: BTreeMap::new(),
                 last_ns: at_ns,
+                market_history: market::history::History::default(),
             },
             built.endpoint,
         ))
@@ -194,7 +202,7 @@ impl State {
         }
         Ok(())
     }
-    fn command_digest(&self, c: &Command) -> Result<[u8; 32]> {
+    fn check_binding(&self) -> Result<()> {
         let live = self.plane.configuration().map_err(debug_error)?;
         let environment = match self.binding.scope.environment {
             policy_config::Environment::Production => tickwire_venue::Environment::Production,
@@ -217,7 +225,10 @@ impl State {
         {
             return Err(invalid("control live owner identity changed"));
         }
-
+        Ok(())
+    }
+    fn command_digest(&self, c: &Command) -> Result<[u8; 32]> {
+        self.check_binding()?;
         if c.schema != SCHEMA
             || c.command_id == [0; 16]
             || c.sequence == 0
@@ -532,6 +543,9 @@ pub struct ControlInbox {
     records: usize,
     bytes: usize,
     poisoned: bool,
+    market: Option<market::Controller>,
+    market_objects: Option<tickwire_recovery::FileBlobStore>,
+    next_market_scan_ns: u64,
 }
 impl ControlInbox {
     /// `plane` is the fresh bootstrap plane, before any runtime callbacks or grants.
@@ -581,6 +595,7 @@ impl ControlInbox {
             segment_max_bytes: config.segment_max_bytes,
         };
         let store = FileStore::open(&config.journal_directory)?;
+        let mut market_objects = None;
         let (mut journal, state, mut endpoint, records, bytes) = if config.recover {
             let (journal, recovery) = Journal::recover(store, None)?;
             if journal.config() != &physical
@@ -589,7 +604,7 @@ impl ControlInbox {
             {
                 return Err(invalid("control WAL identity or record bound"));
             }
-            let total = recovery
+            let mut total = recovery
                 .records
                 .iter()
                 .try_fold(0usize, |n, r| n.checked_add(r.payload.len()))
@@ -636,6 +651,32 @@ impl ControlInbox {
                             &mut endpoint,
                             MonoTime::new(domain, at_ns),
                         )?;
+                    }
+                    Record::MarketDecision {
+                        session,
+                        at_ns,
+                        decision,
+                    } => {
+                        decision.validate(market::MAX_DECISION_BYTES as u64)?;
+                        total = total
+                            .checked_add(decision.bytes as usize)
+                            .filter(|n| *n <= MAX_TOTAL_BYTES)
+                            .ok_or_else(|| invalid("market decision object budget"))?;
+                        if market_objects.is_none() {
+                            market_objects = Some(market::open_objects(&config.journal_directory)?);
+                        }
+                        let decision =
+                            market::read_decision(market_objects.as_ref().unwrap(), decision)?;
+                        let now = MonoTime::new(domain, at_ns);
+                        state.check_time(now)?;
+                        state.check_binding()?;
+                        if session != state.session
+                            || serde_json::to_vec(&decision.binding)? != state.binding_bytes
+                        {
+                            return Err(invalid("market decision session or binding"));
+                        }
+                        state.market_history.record(decision, now, 128)?;
+                        state.last_ns = at_ns;
                     }
                     Record::Bootstrap { .. } => return Err(invalid("duplicate control bootstrap")),
                 }
@@ -684,9 +725,139 @@ impl ControlInbox {
                 records,
                 bytes,
                 poisoned: false,
+                market: None,
+                market_objects,
+                next_market_scan_ns: 0,
             },
             endpoint,
         ))
+    }
+    /// Startup approval is explicit; recovered decisions remain historical only.
+    pub fn configure_market(
+        &mut self,
+        config: market::Config,
+        sources: Option<crate::market::Sources>,
+    ) -> Result<()> {
+        if self.market.is_some() || self.poisoned {
+            return Err(invalid("market control already configured or poisoned"));
+        }
+        self.state.check_binding()?;
+        if self.market_objects.is_none() {
+            self.market_objects = Some(market::open_objects(&self.config.journal_directory)?);
+        }
+        self.market = Some(market::Controller::new(
+            config,
+            sources,
+            self.state.market_history.clone(),
+        )?);
+        self.state.market_history = market::history::History::default();
+        Ok(())
+    }
+    pub fn poll_market(
+        &mut self,
+        endpoint: &mut Endpoint,
+        strategy: &mut dyn crate::strategy::AppStrategy,
+    ) -> Result<usize> {
+        if self.market.is_none() {
+            return Ok(0);
+        }
+        let now = match self.clock.sample() {
+            Ok(sample) => sample.monotonic,
+            Err(error) => {
+                self.poison(endpoint);
+                return Err(debug_error(error));
+            }
+        };
+        self.poll_market_at(now, endpoint, strategy)
+    }
+    fn poll_market_at(
+        &mut self,
+        now: MonoTime,
+        endpoint: &mut Endpoint,
+        strategy: &mut dyn crate::strategy::AppStrategy,
+    ) -> Result<usize> {
+        if self.poisoned || self.state.check_time(now).is_err() {
+            self.poison(endpoint);
+            return Err(invalid("market control is poisoned or clock regressed"));
+        }
+        if now.nanos() < self.next_market_scan_ns {
+            return Ok(0);
+        }
+        self.next_market_scan_ns = now.nanos().saturating_add(10_000_000);
+        let Some(mut controller) = self.market.take() else {
+            return Ok(0);
+        };
+        let result = (|| {
+            if self.poisoned {
+                return Err(invalid("control inbox poisoned"));
+            }
+            self.state.check_binding()?;
+            self.state.check_time(now)?;
+            let binding = self.state.binding.clone();
+            controller.poll(&binding, strategy, now, |request| {
+                self.market_boundary(request)
+            })
+        })();
+        self.market = Some(controller);
+        let result = result.and_then(|count| {
+            let current = self.clock.sample().map_err(debug_error)?.monotonic;
+            self.state.check_time(current)?;
+            self.state.check_binding()?;
+            self.next_market_scan_ns = current.nanos().saturating_add(10_000_000);
+            Ok(count)
+        });
+        if result.is_err() {
+            self.poison(endpoint);
+        }
+        result
+    }
+    fn market_boundary(
+        &mut self,
+        request: Option<(&market::Decision, MonoTime)>,
+    ) -> Result<MonoTime> {
+        let mut current = self.clock.sample().map_err(debug_error)?.monotonic;
+        self.state.check_time(current)?;
+        self.state.check_binding()?;
+        if let Some((decision, admitted_at)) = request {
+            self.state.check_time(admitted_at)?;
+            if admitted_at.domain() != current.domain() || admitted_at.nanos() > current.nanos() {
+                return Err(invalid(
+                    "market admission time is not a verified past sample",
+                ));
+            }
+            if serde_json::to_vec(&decision.binding)? != self.state.binding_bytes {
+                return Err(invalid("market decision binding"));
+            }
+            let bytes = serde_json::to_vec(decision)?;
+            if bytes.len() > market::MAX_DECISION_BYTES {
+                return Err(invalid("market decision object bound"));
+            }
+            let object = tickwire_release::Object::of(&bytes);
+            let payload = serde_json::to_vec(&Record::MarketDecision {
+                session: self.state.session,
+                at_ns: admitted_at.nanos(),
+                decision: object,
+            })?;
+            let retained = self
+                .bytes
+                .checked_add(bytes.len())
+                .ok_or_else(|| invalid("market decision budget"))?;
+            check_storage(self.records, retained, payload.len())?;
+            use tickwire_recovery::BlobStore;
+            self.market_objects
+                .as_mut()
+                .ok_or_else(|| invalid("market object store missing"))?
+                .put_sync(tickwire_recovery::StoreKey::Object(object.digest), &bytes)?;
+            self.journal
+                .append_batch(self.state.binding.writer_epoch, &[&payload])?;
+            self.records += 1;
+            self.bytes = retained + payload.len();
+            self.state.last_ns = admitted_at.nanos();
+            current = self.clock.sample().map_err(debug_error)?.monotonic;
+        }
+        self.state.check_time(current)?;
+        self.state.check_binding()?;
+        Ok(current)
     }
     pub fn next_sequence(&self) -> u64 {
         self.state.next_sequence
@@ -784,7 +955,7 @@ fn decode_record(bytes: &[u8]) -> Result<Record> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn inputs() -> (policy_config::Config, quota_config::Config) {
+    pub(super) fn inputs() -> (policy_config::Config, quota_config::Config) {
         let p = policy_config::Config {
             scope: policy_config::Scope {
                 risk_domain_id: [1; 16],

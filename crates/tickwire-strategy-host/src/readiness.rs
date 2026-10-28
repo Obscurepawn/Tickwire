@@ -63,6 +63,14 @@ impl ReadyProof {
         })
     }
     pub fn poll(&mut self, lane: &mut AuthenticatedChild, now: u64) -> Result<()> {
+        self.poll_with(lane, now, |_, _| Ok(false))
+    }
+    pub fn poll_with(
+        &mut self,
+        lane: &mut AuthenticatedChild,
+        now: u64,
+        mut extra: impl FnMut(&ControlEnvelope, &[u8]) -> Result<bool>,
+    ) -> Result<()> {
         for _ in 0..16 {
             let packet = match lane.connection.try_recv() {
                 Ok(Some(p)) => p,
@@ -73,6 +81,9 @@ impl ReadyProof {
                 return Err(Error::Invalid);
             }
             let frame = lane.session.validate(packet.bytes(), now)?;
+            if extra(&frame.envelope, frame.body)? {
+                continue;
+            }
             if frame.envelope.opcode == 38 {
                 let envelope = frame.envelope.clone();
                 let raw = frame.body.to_vec();

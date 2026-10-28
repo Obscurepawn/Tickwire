@@ -16,7 +16,7 @@
 - `PublicationSink`：`take_error()`；`events::{EventSelection, event_record}`。
 - `instrument_slot(id)` 在装配时绑定 `InstrumentSlot`；`on_notice_slot/on_event_slot` 直接访问连续行并复核稳定 ID，既有按 ID 的入口仍可使用。
 - `reserved_cache_bytes()` 查询构造时核验的保留堆载荷：行/状态/深度容量、目录和context文本、标的索引以及共享工作区。它不含分配器元数据、内联体、调用栈、SHM/JoinOwner与临时JOIN快照；这些有各自预算。
-- `prepare_expansion(registry, additions, limits, peak_cache_bytes) -> TopicExpansion`；候选支持 `configure_event`、`warm_notice`、`warm_event_notice`、`ready(now,max_age_ns)`、`reserved_cache_bytes()`。`commit_expansion(candidate,replacement,now,max_age_ns,faults)` 刷新旧行并切换到新的真实 bank，返回旧 JoinOwner。
+- `prepare_expansion(registry, additions, limits, peak_cache_bytes) -> TopicExpansion`；候选支持 `configure_event`、`warm_notice`、`warm_event_notice`、`ready(now,max_age_ns)`、`reserved_cache_bytes()`。`TopicExpansion::instrument_slot(id)` 在提交前绑定候选目录槽，提交保留同一索引，可用于原子替换上游路由。`commit_expansion(candidate,replacement,now,max_age_ns,faults)` 刷新旧行并切换到新的真实 bank，返回旧 JoinOwner。
 
 ## 3. 在 workspace 中的位置
 
@@ -52,6 +52,7 @@ cargo fmt --check -p tickwire-market-publisher
 - 每 topic 冷预留一个总4096档的`DepthWorkspace`和4096项IPC深度数组，共128KiB档位载荷；缓存盘口仍可每侧5000档。普通发布使用最多3项固定记录/引用数组，所有首次及后续状态容量均预留，事件source使用3个固定槽。健康发布入口至SHM无堆分配；网络接收层不在该结论范围内。测试见`tickwire-md/tests/publisher_hot.rs`，包含真实memfd、2MiB栈、inline/arena、容量边界和失败bank交接。
 - `cache_bytes`先按容器及共享工作区的最低容量预检，构造后按实际capacity与文本载荷复核，超限拒绝。工作区不进入snapshot/WAL；长期持有的借用不能跨下一次解码。
 - topic 扩展候选只能预热新增行，断线/Gap/错误使对应状态不可用；ready 不使用独立事件刷新深度年龄。commit 要求旧 bank 所有登记真实 Detached、当前所有旧/新必需状态新鲜、完整快照预算充足、新 bank 绑定当前 cut 且目录/代次递增；候选写失败不改旧发布器，冻结失败同步 fault。old+candidate retained heap 受显式峰值预算，SHM/退休 bank 另管。新目录会重排本地 topic 槽，调用方重新绑定 InstrumentSlot；完整 BookKey 与外部稳定 ID 不变。
+- 扩容单元测试用真实 memfd 验证旧标的因新成员排序而移动后，候选预绑定的旧/新槽在提交后仍发布到正确稳定 ID；未知 ID 在绑定时拒绝，完整快照包含两者。
 
 ## 7. 改动检查清单
 

@@ -2142,3 +2142,110 @@ fn golden_join_normalized_snapshot() {
     assert_eq!(encoded, expected);
     assert_eq!(JoinBody::decode(&expected).unwrap(), value);
 }
+fn bytes_market_arm_control_body() -> Vec<u8> {
+    hex(
+        "010101010101010101010101010101010200000000000000030000000000000004040404040404040404040404040404f40100000000000006060606060606060606060606060606060606060606060606060606060606064d0000000000000000000000000000000808080808080808080808080808080808080808080808080808080808080808090909090909090909090909090909090a00000000000000010006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_market_arm_control_body() {
+    let expected = bytes_market_arm_control_body();
+    let value = ReplayControlBody {
+        instance_id: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        strategy_generation: 2,
+        logical_strategy_id: 3,
+        challenge: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+        valid_until_mono_ns: 500,
+        object_digest: [
+            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            6, 6, 6,
+        ],
+        object_bytes: 77,
+        expected_sequence: 0,
+        expected_cut_digest: [
+            8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+            8, 8, 8,
+        ],
+        operation_id: [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+        operation_revision: 10,
+        schema: 1,
+        replay_kind: 6,
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(ReplayControlBody::decode(&expected).unwrap(), value);
+}
+fn bytes_market_commit_control_body() -> Vec<u8> {
+    hex(
+        "010101010101010101010101010101010200000000000000030000000000000004040404040404040404040404040404f40100000000000006060606060606060606060606060606060606060606060606060606060606064d0000000000000000000000000000000808080808080808080808080808080808080808080808080808080808080808090909090909090909090909090909090a00000000000000010007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_market_commit_control_body() {
+    let expected = bytes_market_commit_control_body();
+    let value = ReplayControlBody {
+        instance_id: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        strategy_generation: 2,
+        logical_strategy_id: 3,
+        challenge: [4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4],
+        valid_until_mono_ns: 500,
+        object_digest: [
+            6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6,
+            6, 6, 6,
+        ],
+        object_bytes: 77,
+        expected_sequence: 0,
+        expected_cut_digest: [
+            8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
+            8, 8, 8,
+        ],
+        operation_id: [9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9],
+        operation_revision: 10,
+        schema: 1,
+        replay_kind: 7,
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(ReplayControlBody::decode(&expected).unwrap(), value);
+}
+fn bytes_market_arm_rejected_header() -> Vec<u8> {
+    hex(
+        "545743544c3030310100000080002a0080010000120000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000096139652341304130100000000000000",
+    )
+}
+#[test]
+fn golden_market_arm_rejected_header() {
+    let expected = bytes_market_arm_rejected_header();
+    let value = ControlEnvelope {
+        magic: [84, 87, 67, 84, 76, 48, 48, 49],
+        abi_major: 1,
+        header_bytes: 128,
+        opcode: 42,
+        frame_bytes: 384,
+        flags: 18,
+        body_crc32c: 1385567126,
+        header_crc32c: 319034164,
+        status: 1,
+        ..Default::default()
+    };
+    let mut encoded = vec![0xCC; expected.len()];
+    value.encode(&mut encoded).unwrap();
+    assert_eq!(encoded, expected);
+    assert_eq!(ControlEnvelope::decode(&expected).unwrap(), value);
+}
+fn bytes_market_arm_rejected_frame() -> Vec<u8> {
+    hex(
+        "545743544c3030310100000080002a0080010000120000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000096139652341304130100000000000000010101010101010101010101010101010200000000000000030000000000000004040404040404040404040404040404f40100000000000006060606060606060606060606060606060606060606060606060606060606064d0000000000000000000000000000000808080808080808080808080808080808080808080808080808080808080808090909090909090909090909090909090a00000000000000010006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    )
+}
+#[test]
+fn golden_market_arm_rejected_frame() {
+    let expected = bytes_market_arm_rejected_frame();
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&bytes_market_arm_rejected_header());
+    encoded.extend_from_slice(&bytes_market_arm_control_body());
+    assert_eq!(encoded, expected);
+    ControlFrame::decode(&expected).unwrap();
+}
