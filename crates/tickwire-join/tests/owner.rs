@@ -7,6 +7,7 @@ use tickwire_join::*;
 #[test]
 fn successful_builder_binds_real_pending_gate_and_exact_retry_is_replayed() {
     let (mut owner, data) = owner();
+    assert!(owner.all_detached());
     let reg = registration(&owner, 4);
     let (mut supervisor, client) = session_pair(identity(1, 1));
     let raw = request(&client, &join_request(&owner, &reg), 2, 1);
@@ -25,6 +26,7 @@ fn successful_builder_binds_real_pending_gate_and_exact_retry_is_replayed() {
     assert!(matches!(result, PrepareOutcome::Prepared { .. }));
     assert_eq!(owner.membership_version(), 2);
     assert_eq!(owner.stage(reg.subscription), Some(Stage::Prepared));
+    assert!(!owner.all_detached());
     let join = owner.join(reg.subscription).unwrap();
     assert_eq!(
         (join.snapshot_seq, join.join_seq, join.membership_version),
@@ -72,6 +74,7 @@ fn builder_failure_retains_pending_gate_and_pending_request_does_not_reexecute()
             .is_err()
     );
     assert_eq!(owner.stage(reg.subscription), Some(Stage::Failed));
+    assert!(!owner.all_detached());
     assert_eq!(owner.membership_version(), 2);
     let retry = owner
         .prepare(
@@ -88,6 +91,7 @@ fn builder_failure_retains_pending_gate_and_pending_request_does_not_reexecute()
     fill_pending(&mut owner, &data);
     owner.expire(DEADLINE);
     assert_eq!(owner.stage(reg.subscription), Some(Stage::Expired));
+    assert!(!owner.all_detached());
     assert_full(&mut owner, &data);
 }
 

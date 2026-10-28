@@ -4,6 +4,7 @@ use super::*;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use tickwire_ipc::{RecordHeader, ResourceHeader, Wire};
+mod transition;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -86,6 +87,22 @@ fn market(
     })
 }
 impl<S: crate::Strategy> Application<S> {
+    pub(super) fn transition_state(&self, input: &Input, now: u64) -> Result<Vec<u8>> {
+        let Input::MarketTransition { previous, next, .. } = input else {
+            return Err(Error::Identity);
+        };
+        if self.markets.contains_key(next) {
+            return Err(Error::Identity);
+        }
+        transition::replacement(
+            self.markets.get(&previous.stream).ok_or(Error::Identity)?,
+            input,
+            now,
+        )?
+        .replica
+        .checkpoint()
+        .map_err(|_| Error::Identity)
+    }
     pub fn new(
         strategy: S,
         maximum_age_ns: u64,
@@ -294,6 +311,10 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
         effects: &mut ReplayEffects,
     ) -> Result<()> {
         let output = match input {
+            Input::MarketTransition { .. } => {
+                transition::replace(&mut self.markets, input, context.now_ns())?;
+                None
+            }
             Input::MarketApplied {
                 stream,
                 sequence,
@@ -501,6 +522,9 @@ pub(super) fn verify_rebuild_views(
     }
     for row in &input.warm {
         match &row.input {
+            Input::MarketTransition { .. } => {
+                transition::replace(&mut markets, &row.input, row.now_ns)?
+            }
             Input::MarketApplied {
                 stream,
                 sequence,
@@ -582,3 +606,5 @@ impl<F: BusinessFactory> SourceReplayFactory for ApplicationFactory<F> {
 }
 #[cfg(test)]
 pub(super) mod tests;
+#[cfg(test)]
+pub(super) mod transition_tests;

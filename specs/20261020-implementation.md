@@ -36,7 +36,17 @@ Status: active
 
 该恢复阶段的全 workspace all-targets、doctest、格式和 Clippy 检查通过，设计契约、OpenAPI、文档链接及 60 crate 的依赖 DAG 校验通过。真实 memfd、FD 传递和多进程测试在本机 Linux 执行；Docker daemon 未运行。验证中修复了 SHM 测试的无效 ABI 载荷，以及并行测试 fork/exec 暂时继承 WAL 锁的竞态，生产协议校验和文件锁均保持原规则。[恢复阶段证据](evidence/20261028/summary.json)保存二进制、源码摘要、场景结果、环境、测量参数和原始 CSV；其 `final` / `verified` 文件名限定于当时的源码快照。
 
-本轮行为改动不在既有 TLA+ 源码锚点内，没有新增 TLC 结论。格式整理没有新增失效锚点；仓库已有的失效锚点保留原状，见[锚点审计](evidence/20261028/format-anchor-audit.json)。生产目标主机的延迟资格、完整 USD-M 场景、常规配置发布、跨主机隔离接管仍未完成。
+上述索引、发布和恢复阶段的行为改动不在既有 TLA+ 源码锚点内，没有新增 TLC 结论。该阶段格式整理没有新增失效锚点；仓库已有的失效锚点保留原状，见[锚点审计](evidence/20261028/format-anchor-audit.json)。生产目标主机的延迟资格、完整 USD-M 场景、常规配置发布、跨主机隔离接管仍未完成。
+
+## 2026-10-28 行情扩容基础接口
+
+[扩容计划](implementation/market-expansion.md)绑定实际配置 revision/hash、bank、全部批准消费者及峰值预算；独立候选保持旧稠密编号，追加新标的。发布器预热新增行，提交时刷新旧行并核验新鲜度，先写完整新基线，再冻结和交换旧 bank。MD 控制服务暂停 JOIN，以真实注册 cursor 的 QUIESCED 证明等待退出，并检查后继 bank 健康后才重新开放。
+
+消费者新增有界 `PendingJoin`，连接、发送和追平可逐步推进；原阻塞入口复用同一状态机。策略输入增加 `MarketTransition`，以真实 JOIN 基线、追平记录及完整消费摘要保存跨 bank 转换，持久提交后才更新副本。回放、来源比较和安装现在核对完整游标摘要，拒绝输入字节不同而最终盘口相同的伪等价结果。
+
+这些接口已通过真实控制连接、memfd、重新 JOIN 和重放回归。完整 `check-rust.sh`、设计契约及新 release 的 Spot 独立进程场景通过：S=2、C=10，目标最终序号 279，镜像与策略端各 12 条账户记录，费用闭合且无未知订单。[阶段证据](evidence/20261028/market-expansion-core.json)绑定 696 份源码与八个二进制。
+
+持续运行的 MD、执行、策略循环及双收据装配仍待接入；已有 Spot 独立进程场景只验证改动后的兼容性，不代表动态扩容全链验收。该阶段修改了 JOIN owner 源码，相关历史形式化证据保留旧范围，最终开发完成后统一复核。
 
 ## 核心运行程序
 

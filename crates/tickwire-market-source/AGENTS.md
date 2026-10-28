@@ -7,7 +7,7 @@
 - `src/protocol.rs`：认证身份、offer/accept、cursor 头、激活 ACK/pending/status 控制字节构造。
 - `src/replica.rs`（含 `checkpoint.rs`）：`MarketReplica`、`MarketView`、`FeedMark`、checkpoint/restore、连续序号应用与失效。
 - `src/retirement.rs`：subscriber 请求的 DETACH（opcode 21）与 publisher QUIESCE（20）的构造/校验。
-- `src/shm.rs`：`ConnectConfig`、`Client`（完成态 JOIN）、`ShmSource`（`MarketSource` 实现）。
+- `src/shm.rs`：`ConnectConfig`、`Client`（完成态 JOIN）、`ShmSource`（`MarketSource` 实现）；`src/shm/pending.rs` 与 `pending/step.rs` 实现非阻塞 JOIN 状态机。
 
 ## 2. 公共 API 入口
 
@@ -16,7 +16,7 @@
 - `protocol`：`IdentityConfig`、`Endpoint`、`Instrument`、`JoinBootstrap`、`wire_bytes`、`descriptor`、`offer_id`、`resource_offer`、`accept_offer`、`cursor_header`、`ActivationStatus`、`activation_ack`、`activation_pending`、`activation_status`、`activated`。
 - `replica`：`MarketReplica`（`load`/`checkpoint`/`restore_checkpoint`/`invalidate`/`sequence`/`view`/`apply`/`apply_dense`/`view_dense`）、副本本地 `DenseId`、`MarketView`（`last_trade`/`best_quote`/`mark_funding`/`state_age_ns`/`bids`/`asks`/`best_bid`/`best_ask`/`quantity`/`continuous`/`live`/`trigger`/`trigger_at`）、`FeedMark`。
 - `retirement`：`body`、`request`、`verify_request`、`applied`、`verify_applied`。
-- `shm`：`ConnectConfig`、`Client{consumer, replica, connection, session, baseline, baseline_bytes, baseline_now, catchup, bank, join, domain}`、`ShmSource::new(client)`/`client()`/`into_client()`。
+- `shm`：`ConnectConfig`、`Client{consumer, replica, connection, session, baseline, baseline_bytes, baseline_now, catchup, bank, join, domain}`、`PendingJoin::new(config, now)`/`poll(now,budget)`/`take_client()`/`cancel()`、`JoinProgress{work,records,runnable,ready,next_deadline_ns}`、`ShmSource::new(client)`/`client()`/`into_client()`；上述 JOIN 类型也从 crate root 导出。
 
 ## 3. 在 workspace 中的位置
 
@@ -27,6 +27,7 @@
 
 - [../../specs/implementation/strategy-graceful-retirement.md](../../specs/implementation/strategy-graceful-retirement.md)（共享行情订阅的正常退休：DETACH/QUIESCE/STATUS 绑定与 EOF 非证据）。
 - [标的索引](../../specs/implementation/instrument-index.md)与[归一化市场事件](../../specs/implementation/binance-market-events.md)（稳定外部 ID、本地稠密存储、深度工作区与检查点兼容）。
+- [JOIN](../../specs/implementation/join.md)（消费者非阻塞状态机、预算、取消与激活边界）。
 
 ## 5. 构建与测试
 
@@ -39,6 +40,7 @@ cargo fmt --check -p tickwire-market-source
 
 - `tests/replica_dense.rs` 覆盖稀疏高位 ID、未知 ID 失效、旧检查点字节兼容、满容量删除插入、双侧失败原子性、独立有序映射差分、覆盖范围与零分配更新/查询；另由 `tickwire-md`、`tickwire-strategy-sdk/host` 集成测试与 Linux 链路覆盖。
 - 无 bench。
+- `shm/pending_tests.rs` 以真实 SEQPACKET、JoinOwner、memfd/cursor/snapshot 验证静默 peer、单步预算、CatchUp→Active、原始 catchup 保留、身份/时钟/EOF 拒绝、取消不移除 owner gate，以及原 `Client::connect` 兼容入口；fixture 复用 JOIN golden 构造，不引入 MD dev 依赖回边。
 
 ## 6. 关键不变量与注意事项
 
@@ -48,7 +50,9 @@ cargo fmt --check -p tickwire-market-source
 - **连续价位与原子更新**：买降卖升，数量查询二分；两侧先合并到 topic 共用工作区并完成容量/非交叉校验才提交。工作区最多 320000 字节，已有盘口容量内更新及查询不分配。任何失败保持原盘口，覆盖外缺失仍为未知。
 - **退休（DETACH/QUIESCE）**：subscriber DETACH（opcode 21, flags 1）携带自己完整 Join 身份，**不带虚构水位**；publisher 先取得真实 mapped QUIESCED 证明，再由 `JoinOwner::quiesced` 核验，成功后 STATUS（49, Response|Applied）绑定 DETACH 请求 ID、控制代次、membership、ring 与完整 QUIESCED body 的 SHA-256；worker 逐字段核对后才向 Host 发 report QUIESCE。
 - **EOF 永远不是证据**：单纯连接关闭、超时、伪造响应、控制超时都走保守故障处理，不构成 QUIESCED。
-- `Client::connect` 是 unsafe 接缝：调用者必须先建立可信认证会话与完整身份，再进入接入流程。
+- `Client::connect` 与 `PendingJoin::new` 是 unsafe 接缝：调用者提供可信 qualified MD writer 与完整批准身份，接入流程实际认证会话和资源。映射操作只在原 `shm` 边界内履约。
+- `PendingJoin::poll` 每次最多 min(budget,64) 个有限步骤/记录，仅使用非阻塞 socket API；EINTR 未推进且可重试，其他错误/取消终止并丢弃本地资源。只有完整 Active ACK 与 applied 水位核验后才取出 Client。快照校验/装载仍为上限 64 MiB/4096 成员的一个冷步骤，不承诺硬实时耗时。
+- `Client::connect` 驱动同一 PendingJoin，只有该兼容 wrapper 可 sleep；`ShmSource` 的 QUIESCE 响应使用单次 try_send，背压也失败关闭，不阻塞执行循环。
 - `ConnectConfig` 携带精确批准的 MD bank 头、catalog_hash、仪器集合、cursor_id、subscription_generation、request_id；仪器数 1..=4096。
 
 ## 7. 改动检查清单

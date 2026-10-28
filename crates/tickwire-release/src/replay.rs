@@ -10,6 +10,7 @@ pub const MAX_STREAMS: usize = 64;
 pub const MAX_TIMERS: usize = 256;
 pub const MAX_EFFECTS: usize = 32;
 pub mod history;
+pub mod market_lineage;
 pub mod retained;
 pub mod rollback;
 pub mod source;
@@ -149,8 +150,27 @@ pub struct Effect {
     pub command: Vec<u8>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MarketTransitionRecord {
+    pub record: Vec<u8>,
+    pub payload: Vec<u8>,
+    pub instrument: u64,
+    pub applied_mono_ns: u64,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", deny_unknown_fields, rename_all = "snake_case")]
 pub enum Input {
+    /// A recorded trusted JOIN boundary. Content validity is not authorization.
+    MarketTransition {
+        operation_id: [u8; 16],
+        approval_digest: Hash,
+        previous: Cursor,
+        next: StreamKey,
+        baseline_sequence: u64,
+        activated_sequence: u64,
+        baseline: Vec<u8>,
+        catchup: Vec<MarketTransitionRecord>,
+    },
     MarketApplied {
         stream: StreamKey,
         sequence: u64,
@@ -381,6 +401,50 @@ impl MergedInput {
             }
         }
         match &self.input {
+            Input::MarketTransition {
+                operation_id,
+                approval_digest,
+                previous,
+                next,
+                baseline_sequence,
+                activated_sequence,
+                baseline,
+                catchup,
+            } => {
+                key(&previous.stream)?;
+                key(next)?;
+                if *operation_id == [0; 16]
+                    || *approval_digest == [0; 32]
+                    || previous.content_digest == [0; 32]
+                    || next.identity == previous.stream.identity
+                    || next.generation <= previous.stream.generation
+                    || *baseline_sequence < previous.sequence
+                    || activated_sequence.checked_sub(*baseline_sequence)
+                        != Some(catchup.len() as u64)
+                    || baseline.is_empty()
+                    || baseline.len() > MAX_BYTES
+                    || catchup.len() > MAX_ROWS
+                {
+                    return Err(Error::Invalid);
+                }
+                let mut last = 0;
+                let mut bytes = baseline.len();
+                for row in catchup {
+                    bytes = bytes
+                        .checked_add(row.record.len())
+                        .and_then(|n| n.checked_add(row.payload.len()))
+                        .ok_or(Error::Bounds)?;
+                    if row.record.len() != 512
+                        || row.instrument == 0
+                        || row.applied_mono_ns < last
+                        || row.applied_mono_ns > self.now_ns
+                        || bytes > MAX_BYTES
+                    {
+                        return Err(Error::Invalid);
+                    }
+                    last = row.applied_mono_ns;
+                }
+            }
             Input::MarketApplied {
                 stream,
                 sequence,
@@ -453,7 +517,8 @@ impl MergedInput {
         }
         if matches!(
             self.input,
-            Input::MarketApplied { .. }
+            Input::MarketTransition { .. }
+                | Input::MarketApplied { .. }
                 | Input::ConfigApply { .. }
                 | Input::ModelApply { .. }
                 | Input::Entropy { .. }

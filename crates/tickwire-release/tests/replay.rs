@@ -1,5 +1,156 @@
 use tickwire_release::{Object, replay::*};
 
+#[test]
+fn market_transition_is_a_bounded_structural_input_and_old_rows_stay_identical() {
+    let value = serde_json::json!({
+        "sequence": 1, "now_ns": 20, "effects": [],
+        "input": { "kind": "market_transition", "operation_id": vec![1;16],
+            "approval_digest": vec![2;32],
+            "previous": {"stream":{"identity":vec![3;32],"generation":1},
+                "sequence":7,"content_digest":vec![4;32]},
+            "next":{"identity":vec![5;32],"generation":2},
+            "baseline_sequence": 8, "activated_sequence":8,
+            "baseline":[1], "catchup":[] }
+    });
+    let row: MergedInput = serde_json::from_value(value).unwrap();
+    row.validate().unwrap();
+    let old = br#"{"sequence":1,"now_ns":12,"input":{"kind":"timer_fired","id":1,"generation":1,"deadline_ns":12},"effects":[]}"#;
+    let old_row: MergedInput = serde_json::from_slice(old).unwrap();
+    assert_eq!(canonical(&old_row).unwrap(), old);
+}
+
+fn transition_row(previous: Cursor, next: StreamKey) -> MergedInput {
+    MergedInput {
+        sequence: 1,
+        now_ns: 20,
+        effects: vec![],
+        input: Input::MarketTransition {
+            operation_id: [1; 16],
+            approval_digest: [2; 32],
+            baseline_sequence: previous.sequence,
+            activated_sequence: previous.sequence,
+            previous,
+            next,
+            baseline: vec![1],
+            catchup: vec![],
+        },
+    }
+}
+#[test]
+fn market_transition_rejects_missing_plan_effects_and_unbounded_catchup() {
+    let old = Cursor {
+        stream: StreamKey {
+            identity: [1; 32],
+            generation: 1,
+        },
+        sequence: 7,
+        content_digest: [2; 32],
+    };
+    let row = transition_row(
+        old,
+        StreamKey {
+            identity: [3; 32],
+            generation: 2,
+        },
+    );
+    for case in 0..6 {
+        let mut bad = row.clone();
+        if let Input::MarketTransition {
+            operation_id,
+            approval_digest,
+            next,
+            activated_sequence,
+            baseline,
+            catchup,
+            ..
+        } = &mut bad.input
+        {
+            match case {
+                0 => *operation_id = [0; 16],
+                1 => *approval_digest = [0; 32],
+                2 => next.generation = 1,
+                3 => *activated_sequence += 1,
+                4 => baseline.resize(MAX_BYTES + 1, 0),
+                _ => catchup.push(MarketTransitionRecord {
+                    record: vec![0; 512],
+                    payload: vec![],
+                    instrument: 1,
+                    applied_mono_ns: 21,
+                }),
+            }
+        }
+        assert!(bad.validate().is_err(), "case {case}");
+    }
+    let mut effect = row;
+    effect.effects.push(Effect {
+        ordinal: 0,
+        economic_intent: [1; 16],
+        command: vec![1],
+    });
+    assert!(effect.validate().is_err());
+}
+#[test]
+fn market_lineage_retains_post_cut_transition_and_rejects_a_baseline_that_skips_c() {
+    let old = Cursor {
+        stream: StreamKey {
+            identity: [1; 32],
+            generation: 1,
+        },
+        sequence: 7,
+        content_digest: [2; 32],
+    };
+    let next = StreamKey {
+        identity: [3; 32],
+        generation: 2,
+    };
+    let transition = transition_row(old.clone(), next.clone());
+    let end = Cursor {
+        stream: next,
+        sequence: 7,
+        content_digest: tickwire_recovery::digest(&canonical(&transition.input).unwrap()),
+    };
+    assert_eq!(
+        market_lineage::after_cut(
+            std::slice::from_ref(&old),
+            std::slice::from_ref(&old),
+            std::slice::from_ref(&transition),
+            std::slice::from_ref(&end)
+        )
+        .unwrap(),
+        vec![true]
+    );
+    assert_eq!(
+        market_lineage::after_cut(
+            std::slice::from_ref(&end),
+            std::slice::from_ref(&old),
+            std::slice::from_ref(&transition),
+            std::slice::from_ref(&end)
+        )
+        .unwrap(),
+        vec![false]
+    );
+    let mut skipped = end.clone();
+    skipped.sequence -= 1;
+    assert!(
+        market_lineage::after_cut(
+            &[skipped],
+            std::slice::from_ref(&old),
+            std::slice::from_ref(&transition),
+            std::slice::from_ref(&end)
+        )
+        .is_err()
+    );
+    assert!(
+        market_lineage::after_cut(
+            std::slice::from_ref(&old),
+            std::slice::from_ref(&old),
+            &[],
+            &[end]
+        )
+        .is_err()
+    );
+}
+
 fn source() -> Source {
     Source {
         logical_strategy: 8,

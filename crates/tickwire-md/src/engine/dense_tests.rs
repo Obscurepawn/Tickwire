@@ -143,3 +143,63 @@ fn feed_index_reuses_ids_and_rejects_unknowns_without_truncating_keys() {
     unknown.instrument.id = 0;
     assert!(config::FeedIndex::new(&[unknown]).is_err());
 }
+
+#[test]
+fn expansion_keeps_old_slots_despite_reordered_target_and_appends_successive_ids() {
+    let f = Fixture::new();
+    let old = config::FeedIndex::new(&f.config.feeds).unwrap();
+    let mut added = f.config.feeds[0].clone();
+    added.instrument.id = 0x1234_5678_ffff_ffff;
+    let target = vec![
+        added.clone(),
+        f.config.feeds[1].clone(),
+        f.config.feeds[0].clone(),
+    ];
+    let next = old.expanded(&target).unwrap();
+    assert!(old.book_key(&added).is_err());
+    assert_eq!(
+        next.book_key(&f.config.feeds[0]).unwrap(),
+        old.book_key(&f.config.feeds[0]).unwrap()
+    );
+    assert_eq!(
+        next.book_key(&f.config.feeds[1]).unwrap(),
+        old.book_key(&f.config.feeds[1]).unwrap()
+    );
+    assert_eq!(next.book_key(&added).unwrap().instrument, 2);
+    let mut later = added.clone();
+    later.instrument.id = 17;
+    let mut target2 = target.clone();
+    target2.insert(0, later.clone());
+    let last = next.expanded(&target2).unwrap();
+    assert_eq!(
+        last.book_key(&added).unwrap(),
+        next.book_key(&added).unwrap()
+    );
+    assert_eq!(last.book_key(&later).unwrap().instrument, 3);
+    assert_eq!(
+        next.expanded(&target)
+            .unwrap()
+            .book_key(&added)
+            .unwrap()
+            .instrument,
+        2
+    );
+}
+
+#[test]
+fn rejected_expansion_preserves_the_active_mapping() {
+    let f = Fixture::new();
+    let old = config::FeedIndex::new(&f.config.feeds).unwrap();
+    assert!(old.expanded(&f.config.feeds[..1]).is_err());
+    assert!(old.expanded(&[]).is_err());
+    let mut zero = f.config.feeds[0].clone();
+    zero.instrument.id = 0;
+    let mut target = f.config.feeds.clone();
+    target.push(zero);
+    assert!(old.expanded(&target).is_err());
+    let mut target = f.config.feeds.clone();
+    target.resize(33, f.config.feeds[0].clone());
+    assert!(old.expanded(&target).is_err());
+    assert_eq!(old.book_key(&f.config.feeds[0]).unwrap().instrument, 0);
+    assert_eq!(old.book_key(&f.config.feeds[1]).unwrap().instrument, 1);
+}

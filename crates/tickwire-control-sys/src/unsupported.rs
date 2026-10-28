@@ -33,6 +33,17 @@ impl ControlListener {
 pub struct Connection {
     _private: (),
 }
+pub struct PendingConnection {
+    _private: (),
+}
+impl PendingConnection {
+    pub fn new(_path: &Path) -> Result<Self> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn poll(&mut self) -> Result<Option<Connection>> {
+        Err(Error::UnsupportedPlatform)
+    }
+}
 impl Connection {
     pub fn connect(_path: &Path, _deadline: Instant) -> Result<Self> {
         Err(Error::UnsupportedPlatform)
@@ -46,6 +57,9 @@ impl Connection {
         _fds: &[BorrowedFd<'_>],
         _deadline: Instant,
     ) -> Result<()> {
+        Err(Error::UnsupportedPlatform)
+    }
+    pub fn try_send(&mut self, _bytes: &[u8], _fds: &[BorrowedFd<'_>]) -> Result<bool> {
         Err(Error::UnsupportedPlatform)
     }
     pub fn recv(&mut self, _deadline: Instant) -> Result<ReceivedFrame> {

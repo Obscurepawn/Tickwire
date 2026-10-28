@@ -15,6 +15,10 @@ use tickwire_control::{ClientHandshake, ProcessIdentity, Session};
 use tickwire_control_sys::{Connection, ReceivedFrame};
 use tickwire_ipc::{ControlEnvelope, JoinBody, RecordHeader, ResourceHeader, Wire};
 use tickwire_join::{JoinConsumer, TopicRegistry};
+mod pending;
+pub use pending::{JoinProgress, PendingJoin};
+#[cfg(all(test, target_os = "linux"))]
+mod pending_tests;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -100,58 +104,6 @@ fn retain_catchup(
     Ok(())
 }
 
-// The drain binds cursor, clock domain, expiry and retained replay independently.
-#[allow(clippy::too_many_arguments)]
-fn drain_catchup(
-    consumer: &JoinConsumer<4>,
-    replica: &mut MarketReplica,
-    records: &mut Vec<CatchupRecord>,
-    retained_bytes: &mut usize,
-    capacity: usize,
-    clock: &mut impl FnMut() -> Result<MonoTime>,
-    domain: ClockDomain,
-    expires: u64,
-    deadline: Instant,
-) -> Result<()> {
-    for _ in 0..64 {
-        if current(clock, domain)? >= expires || Instant::now() >= deadline {
-            return Err(Error::Deadline);
-        }
-        let Some(guard) = consumer.borrow()? else {
-            break;
-        };
-        let header = RecordHeader::decode(&guard.bytes()[..128])?;
-        let payload = if header.message_type == 259 {
-            guard.depth_payload()?
-        } else {
-            &[]
-        };
-        let applied_mono_ns = current(clock, domain)?;
-        if applied_mono_ns >= expires {
-            return Err(Error::Deadline);
-        }
-        let record = CatchupRecord {
-            record: guard.bytes().to_vec(),
-            payload: payload.to_vec(),
-            instrument: header.instrument_id,
-            applied_mono_ns,
-        };
-        // Retain the exact input before acknowledging that it was applied.
-        retain_catchup(records, retained_bytes, capacity, record)?;
-        replica.apply(guard.bytes(), payload)?;
-        let sequence = guard.sequence();
-        drop(guard);
-        consumer.apply(sequence)?;
-    }
-    Ok(())
-}
-fn current(clock: &mut impl FnMut() -> Result<MonoTime>, domain: ClockDomain) -> Result<u64> {
-    let n = clock()?;
-    if n.domain() != domain {
-        return Err(Error::Identity);
-    }
-    Ok(n.nanos())
-}
 fn approved_header(packet: &ReceivedFrame) -> Result<ResourceHeader> {
     if packet.fds().len() != 1 {
         return Err(Error::Identity);
@@ -180,241 +132,23 @@ impl Client {
         config: &ConnectConfig,
         clock: &mut impl FnMut() -> Result<MonoTime>,
     ) -> Result<Self> {
-        if config.startup_timeout_ms == 0
-            || config.startup_timeout_ms > 60000
-            || config.maximum_levels == 0
-            || config.maximum_levels > 10000
-            || config.cursor_id == [0; 16]
-            || config.subscription_generation == 0
-            || config.request_id == [0; 16]
-            || !matches!(config.endpoint.local.role, 3 | 4)
-            || config.endpoint.peer.role != 2
-        {
-            return Err(Error::Identity);
-        }
-        let domain = config.domain()?;
-        let registry = config.registry()?;
-        let mut bank = ResourceHeader::decode(&config.bank_header)?;
-        if bank.producer_instance != config.endpoint.peer.instance
-            || bank.producer_generation != config.endpoint.peer.generation
-            || bank.host_boot_id != config.endpoint.local.host_boot
-            || bank.namespace_id != config.endpoint.local.namespace
-            || bank.required_features & 64 == 0
-            || bank.resource_kind != 1
-        {
-            return Err(Error::Identity);
-        }
-        bank.descriptor_hash = [0; 32];
-        bank.descriptor_hash = Sha256::digest(wire_bytes(&bank)?).into();
         let deadline = Instant::now()
             .checked_add(Duration::from_millis(config.startup_timeout_ms))
             .ok_or(Error::Bounds)?;
-        let mut connection = Connection::connect(&config.endpoint.path, deadline)?;
-        let handshake = ClientHandshake::new(config.endpoint.policy(), config.request_id)?;
-        connection.send(handshake.hello(), &[], deadline)?;
-        let packet = connection.recv(deadline)?;
-        if !packet.fds().is_empty() {
-            return Err(Error::Identity);
-        }
-        let peer = connection.peer_credentials();
-        let mut session = handshake.finish(
-            ProcessIdentity {
-                pid: peer.pid,
-                uid: peer.uid,
-                gid: peer.gid,
-            },
-            packet.bytes(),
-            current(clock, domain)?,
-        )?;
-        if bank.required_features & !session.features() != 0 {
-            return Err(Error::Identity);
-        }
-        let now = current(clock, domain)?;
-        let expires = now
-            .checked_add(
-                config
-                    .startup_timeout_ms
-                    .checked_mul(1_000_000)
-                    .ok_or(Error::Bounds)?,
-            )
-            .ok_or(Error::Bounds)?
-            .min(session.deadline());
-        let request = JoinBody {
-            subscriber_instance: config.endpoint.local.instance,
-            logical_strategy_id: config.endpoint.local.logical_strategy,
-            subscription_generation: config.subscription_generation,
-            topic_id: bank.topic_id,
-            channel_id: bank.channel_id,
-            channel_epoch: bank.channel_epoch,
-            feed_generation: bank.feed_generation,
-            ring_epoch: bank.ring_epoch,
-            cursor_resource_id: config.cursor_id,
-            bank_resource_id: bank.resource_id,
-            readiness_deadline_mono_ns: expires,
-            expected_catalog_version: bank.catalog_version,
-            qos: bank.qos,
-            role: config.endpoint.local.role,
-            join_flags: 3,
-            topic_instrument_set_version: registry.instrument_set_version,
-            topic_instrument_set_hash: tickwire_join::instrument_set_hash(&registry.instruments),
-            ..Default::default()
-        };
-        let frame = session.encode(
-            ControlEnvelope {
-                opcode: 16,
-                flags: 1,
-                request_id: config.request_id,
-                ..Default::default()
-            },
-            &wire_bytes(&request)?,
-        )?;
-        connection.send(&frame, &[], deadline)?;
-        let response = connection.recv(deadline)?;
-        if !response.fds().is_empty() {
-            return Err(Error::Identity);
-        }
-        let frame = session.validate(response.bytes(), current(clock, domain)?)?;
-        if frame.envelope.opcode != 16
-            || frame.envelope.flags != 10
-            || frame.envelope.request_id != config.request_id
-        {
-            return Err(Error::Identity);
-        }
-        let join = JoinBody::decode(frame.body)?;
-        let mut echo = join.clone();
-        echo.snapshot_id = [0; 16];
-        echo.snapshot_hash = [0; 32];
-        echo.snapshot_seq = 0;
-        echo.join_seq = 0;
-        echo.membership_version = 0;
-        if echo != request {
-            return Err(Error::Identity);
-        }
-        let bankfd = accept_offer(
-            &mut session,
-            connection.recv(deadline)?,
-            &bank,
-            offer_id(&join, 1),
-            expires,
-            join.membership_version,
-            false,
-            current(clock, domain)?,
-        )?;
-        let packet = connection.recv(deadline)?;
-        let snapshot = approved_header(&packet)?;
-        let snapshotfd = accept_offer(
-            &mut session,
-            packet,
-            &snapshot,
-            offer_id(&join, 2),
-            expires,
-            join.membership_version,
-            true,
-            current(clock, domain)?,
-        )?;
-        if snapshot.resource_kind != 8 || snapshot.resource_id != join.snapshot_id {
-            return Err(Error::Identity);
-        }
-        let baseline = JoinBootstrap::new(&bank, &snapshot, &join, &registry)?;
-        // SAFETY: the trusted endpoint and authenticated exact descriptors were
-        // checked above; the qualified owner registered the pending gate first.
-        let mut consumer = unsafe {
-            JoinConsumer::<4>::attach(
-                bankfd,
-                snapshotfd,
-                bank.clone(),
-                snapshot,
-                join.clone(),
-                registry,
-                current(clock, domain)?,
-            )?
-        };
-        let baseline_now = current(clock, domain)?;
-        let (mut replica, baseline_bytes) = consumer.load_baseline(baseline_now, |topic| {
-            Ok((
-                MarketReplica::load(join.topic_id, join.ring_epoch, topic, config.maximum_levels)?,
-                topic.bytes().to_vec(),
-            ))
-        })?;
-        let (offer, fd) = consumer.cursor_offer(&session, config.request_id)?;
-        connection.send(&offer, &[fd.as_fd()], deadline)?;
-        for frame in consumer.read_ready_frames(&session, [config.request_id, config.request_id])? {
-            connection.send(&frame, &[], deadline)?;
-        }
-        let mut catchup = Vec::new();
-        let mut retained_bytes = 0;
-        let mut target = join.snapshot_seq;
+        // SAFETY: the caller establishes the same qualified writer contract.
+        let mut pending = unsafe { PendingJoin::new(config, clock()?)? };
         loop {
-            drain_catchup(
-                &consumer,
-                &mut replica,
-                &mut catchup,
-                &mut retained_bytes,
-                bank.capacity as usize,
-                clock,
-                domain,
-                expires,
-                deadline,
-            )?;
-            if consumer.watermarks().applied < target {
-                continue;
+            if Instant::now() >= deadline {
+                return Err(Error::Deadline);
             }
-            let ready =
-                consumer.join_ready_frame(&session, config.request_id, current(clock, domain)?)?;
-            connection.send(&ready, &[], deadline)?;
-            let response = loop {
-                match connection.recv((Instant::now() + Duration::from_millis(1)).min(deadline)) {
-                    Ok(packet) => break packet,
-                    Err(tickwire_control_sys::Error::Timeout) => {
-                        drain_catchup(
-                            &consumer,
-                            &mut replica,
-                            &mut catchup,
-                            &mut retained_bytes,
-                            bank.capacity as usize,
-                            clock,
-                            domain,
-                            expires,
-                            deadline,
-                        )?;
-                    }
-                    Err(error) => return Err(error.into()),
-                }
-            };
-            match activation_status(
-                &mut session,
-                response,
-                &join,
-                config.request_id,
-                current(clock, domain)?,
-            )? {
-                ActivationStatus::Active { published } => {
-                    if consumer.watermarks().applied < published {
-                        return Err(Error::Identity);
-                    }
-                    break;
-                }
-                ActivationStatus::CatchUp { published } => {
-                    if published < target {
-                        return Err(Error::Identity);
-                    }
-                    target = published;
-                }
+            let progress = pending.poll(clock()?, 64)?;
+            if progress.ready {
+                return pending.take_client().ok_or(Error::NotReady);
+            }
+            if !progress.runnable {
+                std::thread::sleep(Duration::from_millis(1));
             }
         }
-        Ok(Self {
-            consumer,
-            replica,
-            connection,
-            session,
-            baseline,
-            baseline_bytes,
-            baseline_now,
-            catchup,
-            bank,
-            join,
-            domain,
-        })
     }
 }
 pub struct ShmSource {
@@ -505,11 +239,9 @@ impl ShmSource {
                         packet.bytes(),
                         now.nanos(),
                     )?;
-                    self.client.connection.send(
-                        &response,
-                        &[],
-                        Instant::now() + Duration::from_millis(10),
-                    )?;
+                    if !self.client.connection.try_send(&response, &[])? {
+                        return Err(Error::NotReady);
+                    }
                     return Err(Error::NotReady);
                 }
                 self.client.session.validate(packet.bytes(), now.nanos())?;

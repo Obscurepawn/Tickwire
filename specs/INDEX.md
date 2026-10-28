@@ -30,7 +30,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 4. **模块实现规格**：[`implementation/`](implementation/)，按下文第 3 节分组索引定位；每篇先于对应 crate 源码确定接口与不变量。
 5. **形式验证**：[`../tla/`](../tla/) 中与改动模块对应的 `execution_models/<model>/ROADMAP.md`；源码变更后先核对锚点哈希再复跑。
 
-## 3. 实现规格索引（按功能域分组，共 69 篇）
+## 3. 实现规格索引（按功能域分组，共 70 篇）
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论，接手时先核对源码。
 
@@ -39,6 +39,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 | 文件 | 职责一句话 | 对应 crate | 实现状态 |
 |---|---|---|---|
 | [instrument-index.md](implementation/instrument-index.md) | 固定集合位掩码映射、动态只追加索引与行情连续存储 | `tickwire-instrument-index` / `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` | 固定/动态索引、本地盘口身份及行情接线；性能边界见规格 |
+| [market-expansion.md](implementation/market-expansion.md) | 受信目录追加、来源预热、bank 切换、消费者重新 JOIN 与可重放市场基线 | `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` / `tickwire-strategy-sdk` | 实现中 |
 | [binance-protocol.md](implementation/binance-protocol.md) | HMAC/RSA/Ed25519 签名、订单参数编码与类型化错误分类 | `tickwire-binance` | 已实现 |
 | [binance-streams.md](implementation/binance-streams.md) | exchangeInfo/REST depth/depthUpdate/executionReport 类型化解码 | `tickwire-binance`（feed/events） | 已实现 |
 | [binance-sbe.md](implementation/binance-sbe.md) | Spot SBE 固定 schema 解码、精确换算及 MD owner 接线 | `tickwire-binance-sbe` / `tickwire-binance-public` / `tickwire-md` | 已实现（diff、Trade/BBA owner；depth20 仅解码） |

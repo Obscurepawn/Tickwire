@@ -4,6 +4,7 @@ use super::*;
 pub struct Continuation {
     inputs: Vec<Input>,
     markets: States,
+    market_cursors: Vec<Cursor>,
     accounts: States,
     external: Vec<Cursor>,
 }
@@ -57,6 +58,7 @@ impl Continuation {
                 return Err(Error::Capacity);
             }
             if engine.strategy().market_states()? != self.markets
+                || engine.durable_checkpoint().runtime.markets != self.market_cursors
                 || engine.strategy().account_states()? != self.accounts
                 || engine.durable_checkpoint().runtime.external != self.external
             {
@@ -165,8 +167,8 @@ pub fn plan(
     let initial_accounts = views.account_states()?;
     check_cursors(&initial_markets, &shadow_anchor.runtime.markets)?;
     check_cursors(&initial_accounts, &shadow_anchor.runtime.accounts)?;
-    if initial_markets.keys().ne(markets.keys())
-        || market_end.keys().ne(markets.keys())
+    if initial_markets.len() != markets.len()
+        || market_end.len() != markets.len()
         || accounts.keys().any(|k| !account_end.contains_key(k))
     {
         return Err(Error::Identity);
@@ -192,12 +194,16 @@ pub fn plan(
     }
     let mut inputs = Vec::new();
     let mut context_runtime = shadow_anchor.runtime.clone();
-    for row in rows {
+    let market_rows = market_lineage::after_cut(
+        &source.runtime.markets,
+        &shadow_anchor.runtime.markets,
+        rows,
+        &shadow_current.runtime.markets,
+    )?;
+    for (row, market_selected) in rows.iter().zip(market_rows) {
+        context_runtime.now_ns = row.now_ns;
         let include = match &row.input {
-            Input::MarketApplied {
-                stream, sequence, ..
-            } => {
-                let c = markets.get(stream).ok_or(Error::Identity)?.0;
+            Input::MarketApplied { .. } | Input::MarketTransition { .. } => {
                 views.apply(
                     &row.input,
                     &mut ReplayContext {
@@ -210,7 +216,7 @@ pub fn plan(
                     },
                 )?;
                 check_at_cut(&views.market_states()?, &markets, &mut seen_markets)?;
-                *sequence > c
+                market_selected
             }
             Input::AccountCallback {
                 stream, position, ..
@@ -283,6 +289,7 @@ pub fn plan(
     Ok(Continuation {
         inputs,
         markets: market_end,
+        market_cursors: shadow_current.runtime.markets.clone(),
         accounts: account_end,
         external,
     })
@@ -354,6 +361,31 @@ mod tests {
     fn latest_join_cannot_replace_missing_retained_prefix() {
         let (c, _, _, d) = fixture();
         assert!(plan(&c, &d, &[], &d).is_err());
+    }
+    #[test]
+    fn exact_source_and_shadow_cursor_digests_cannot_be_replaced_by_equal_views() {
+        let (c, a, rows, d) = fixture();
+        for source_changed in [true, false] {
+            let mut changed = if source_changed { c.clone() } else { d.clone() };
+            changed.runtime.markets[0].content_digest[0] ^= 1;
+            let changed = Checkpoint::new(
+                changed.source,
+                changed.cut.sequence,
+                changed.cut.chain,
+                changed.business,
+                changed.runtime,
+            )
+            .unwrap();
+            let (source, end) = if source_changed {
+                (&changed, &d)
+            } else {
+                (&c, &changed)
+            };
+            assert!(
+                plan(source, &a, &rows, end).is_err(),
+                "source_changed={source_changed}"
+            );
+        }
     }
     #[test]
     fn continuation_runs_changed_target_state_and_suppresses_output_before_future_callbacks() {

@@ -2,6 +2,7 @@
 #![deny(unsafe_code)]
 pub mod config;
 pub mod engine;
+pub mod expansion;
 #[allow(unsafe_code)]
 pub mod server;
 pub type Error = Box<dyn std::error::Error>;

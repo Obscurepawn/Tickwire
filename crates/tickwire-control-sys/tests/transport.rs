@@ -142,6 +142,97 @@ fn try_accept_observes_empty_and_already_queued_connections() {
 }
 
 #[test]
+fn pending_connect_and_try_send_preserve_real_packet_and_fd_ownership() {
+    let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-pending").unwrap();
+    let path = dir.path().join("control.sock");
+    let listener = ControlListener::bind(&path).unwrap();
+    let mut pending = PendingConnection::new(&path).unwrap();
+    let mut client = (0..16)
+        .find_map(|_| match pending.poll() {
+            Ok(connection) => connection,
+            Err(Error::System { source, .. })
+                if source.kind() == std::io::ErrorKind::Interrupted =>
+            {
+                None
+            }
+            Err(error) => panic!("pending connection: {error:?}"),
+        })
+        .expect("available listener connects, including after interrupted system calls");
+    assert!(matches!(pending.poll(), Err(Error::Closed)));
+    let mut server = listener.try_accept().unwrap().unwrap();
+    assert_eq!(client.peer_credentials().pid, std::process::id());
+    let file = File::open("/dev/null").unwrap();
+    for count in [0, 1, 16] {
+        let raw = frame(count);
+        assert!(client.try_send(&raw, &vec![file.as_fd(); count]).unwrap());
+        let received = server.try_recv().unwrap().unwrap();
+        assert_eq!(received.bytes(), raw);
+        assert_eq!(received.fds().len(), count);
+    }
+    assert!(file.metadata().is_ok());
+    assert!(matches!(
+        client.try_send(&frame(1), &[]),
+        Err(Error::FdCount { .. })
+    ));
+}
+
+#[test]
+fn pending_connect_retries_unix_backlog_without_false_success() {
+    let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-backlog").unwrap();
+    let path = dir.path().join("control.sock");
+    let listener = ControlListener::bind(&path).unwrap();
+    let mut connected = Vec::new();
+    let mut blocked = None;
+    for _ in 0..128 {
+        let mut pending = PendingConnection::new(&path).unwrap();
+        match pending.poll().unwrap() {
+            Some(connection) => connected.push(connection),
+            None => {
+                blocked = Some(pending);
+                break;
+            }
+        }
+    }
+    assert!(!connected.is_empty());
+    let mut blocked = blocked.expect("bounded listener backlog must fill");
+    for _ in 0..3 {
+        assert!(blocked.poll().unwrap().is_none());
+    }
+    let _accepted = listener.try_accept().unwrap().unwrap();
+    let connection = blocked
+        .poll()
+        .unwrap()
+        .expect("accept frees a backlog slot");
+    assert_eq!(connection.peer_credentials().pid, std::process::id());
+    let mut absent = PendingConnection::new(&dir.path().join("absent.sock")).unwrap();
+    assert!(matches!(absent.poll(), Err(Error::System { .. })));
+    assert!(matches!(absent.poll(), Err(Error::Closed)));
+}
+
+#[test]
+fn try_send_queue_backpressure_preserves_whole_frames() {
+    let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-try-send").unwrap();
+    let path = dir.path().join("control.sock");
+    let listener = ControlListener::bind(&path).unwrap();
+    let mut client = Connection::connect(&path, deadline()).unwrap();
+    let mut server = listener.try_accept().unwrap().unwrap();
+    let raw = frame(0);
+    let mut sent = 0;
+    while sent < 4096 && client.try_send(&raw, &[]).unwrap() {
+        sent += 1;
+    }
+    assert!((1..4096).contains(&sent));
+    assert!(!client.try_send(&raw, &[]).unwrap());
+    for _ in 0..sent {
+        assert_eq!(server.try_recv().unwrap().unwrap().bytes(), raw);
+    }
+    assert!(server.try_recv().unwrap().is_none());
+    assert!(client.try_send(&raw, &[]).unwrap());
+    assert_eq!(server.try_recv().unwrap().unwrap().bytes(), raw);
+    assert!(server.try_recv().unwrap().is_none());
+}
+
+#[test]
 fn try_recv_drains_queued_frames_and_fds_before_closed() {
     let dir = PrivateDirectory::create_in(std::path::Path::new("/tmp"), "tw-try-recv").unwrap();
     let path = dir.path().join("control.sock");

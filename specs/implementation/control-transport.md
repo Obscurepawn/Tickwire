@@ -23,6 +23,12 @@ connect、accept、send、recv 均使用同一绝对 `Instant` 截止点。EINTR
 
 每个连接缓存建连后的 `SO_PEERCRED`。独立子进程必须 exec 后主动连接 pathname，监督器核对未 reap 的真实 Child PID、UID、GID。父进程建立后继承给子进程的 socketpair 仍报告创建者身份，不能用于证明当前子进程身份。HELLO、身份登记、会话 epoch、nonce、feature、租约、业务权限和 FD 对应的资源头/访问权限由上层验证。
 
+### 非阻塞建连与发送
+
+`PendingConnection::new(path)` 校验路径并创建 NONBLOCK/CLOEXEC socket；`poll()` 以有限系统调用推进一次建连，不等待、不 sleep。AF_UNIX backlog 满时 `connect` 返回 EAGAIN，状态保留为未建连，下次重新调用 connect；不能根据可写或 SO_ERROR 为零判定这次请求已经入队。EINPROGRESS/EALREADY 单独进入连接完成检查，仅在零超时就绪检查和 SO_ERROR 校验成功后取得 SO_PEERCRED。EINTR 原样返回，pending 对象保留供调用者下次尝试；其他错误关闭待连接 FD。成功转移唯一 Connection，后续 poll 返回 Closed。Drop 取消待连接对象并关闭其 FD。此语义依据 Linux [connect(2)](https://man7.org/linux/man-pages/man2/connect.2.html) 与 [unix(7)](https://man7.org/linux/man-pages/man7/unix.7.html)，通过实际填满 UNIX listener backlog 验证。
+
+`Connection::try_send` 与 send 共用逐帧校验和 sendmsg 实现，一次调用仅尝试一个完整数据报；成功返回 true，EAGAIN/EWOULDBLOCK 返回 false，EINTR 原样返回。它不读取 deadline、不 poll、不重试。false 或 EINTR 不转移 FD、不代表接收成功；调用者保留原 frame/FD，下次仍发送同一整包。已有 send 的截止点与重试语义不变。
+
 `monotonic_ns` 使用 `clock_gettime(CLOCK_MONOTONIC)`，检查 timespec 合法范围与 `u64` 换算溢出。跨进程比较要求同主机启动和同 Linux time namespace；该 API 不自行认证时钟 namespace。
 
 ## 目录与清理

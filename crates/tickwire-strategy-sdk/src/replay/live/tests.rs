@@ -147,14 +147,84 @@ fn head_publish_failure_stops_the_owner_even_after_the_input_files_are_synced() 
     assert!(owner.market(&raw, &[], 1_600_000_002).is_err());
 }
 #[test]
+fn transition_head_failure_never_publishes_the_new_live_stream() {
+    let root = temporary();
+    let config = bootstrap(&root.0);
+    std::fs::create_dir(&config.command_directory).unwrap();
+    let (resource, replica, _) = application::tests::market_fixture();
+    let mut live = Live::new(&config, demo(), resource, replica, 1_500_000_000).unwrap();
+    assert!(live.supports_market_transition());
+    let old = live.market.clone();
+    let Owner::Recorded(e) = &mut live.owner else {
+        panic!()
+    };
+    let (input, _, replica) =
+        application::transition_tests::fixture(e.durable_checkpoint().runtime.markets[0].clone());
+    std::fs::write(
+        live.directory.join("HEAD.pending"),
+        b"interrupted publication",
+    )
+    .unwrap();
+    assert!(
+        persist_transition(
+            e,
+            &live.directory,
+            input,
+            &replica.checkpoint().unwrap(),
+            1_600_000_003
+        )
+        .is_err()
+    );
+    assert!(e.stopped());
+    assert_eq!(e.last_durable_cut().sequence, 1);
+    assert_eq!(live.market, old);
+    let head = Head::decode(&std::fs::read(live.directory.join("HEAD.json")).unwrap()).unwrap();
+    assert_eq!(head.cut.sequence, 0);
+    assert!(!live.supports_market_transition());
+}
+
+#[test]
+fn transition_capacity_and_actual_view_mismatch_are_rejected_before_input_apply() {
+    for oversized in [false, true] {
+        let root = temporary();
+        let config = bootstrap(&root.0);
+        std::fs::create_dir(&config.command_directory).unwrap();
+        let (resource, replica, _) = application::tests::market_fixture();
+        let mut live = Live::new(&config, demo(), resource, replica, 1_500_000_000).unwrap();
+        let Owner::Recorded(e) = &mut live.owner else {
+            panic!()
+        };
+        let (mut input, _, replica) = application::transition_tests::fixture(
+            e.durable_checkpoint().runtime.markets[0].clone(),
+        );
+        let expected = if oversized {
+            let Input::MarketTransition { baseline, .. } = &mut input else {
+                panic!()
+            };
+            baseline.resize(MAX_BYTES + 1, 0);
+            replica.checkpoint().unwrap()
+        } else {
+            vec![1]
+        };
+        assert!(persist_transition(e, &live.directory, input, &expected, 1_600_000_003).is_err());
+        assert!(e.stopped());
+        assert_eq!(e.memory_cut().sequence, 0);
+        assert_eq!(e.last_durable_cut().sequence, 0);
+    }
+}
+#[test]
 fn actual_live_install_retries_return_one_durable_completion_without_repeating_callbacks() {
-    install_and_rollback_with_dependency(vec![91; 32]);
+    install_and_rollback_with_dependency(vec![91; 32], false);
 }
 #[test]
 fn install_and_rollback_preserve_large_opaque_source_dependencies() {
-    install_and_rollback_with_dependency(vec![91; MAX_BYTES + 1]);
+    install_and_rollback_with_dependency(vec![91; MAX_BYTES + 1], false);
 }
-fn install_and_rollback_with_dependency(dependency: Vec<u8>) {
+#[test]
+fn schema3_installation_and_rollback_keep_a_post_c_market_transition() {
+    install_and_rollback_with_dependency(vec![91; 32], true);
+}
+fn install_and_rollback_with_dependency(dependency: Vec<u8>, transition: bool) {
     let (bundle, op, member, proof, target, source, config) =
         super::super::install::tests::fixture_with_action(false);
     let dependency_ref = Object::of(&dependency);
@@ -202,6 +272,22 @@ fn install_and_rollback_with_dependency(dependency: Vec<u8>) {
     let (_, _, raw) = application::tests::market_fixture();
     // These are old Shadow outputs, deliberately not delivered to an intent ring.
     assert_eq!(live.market(&raw, &[], 1_600_000_001).unwrap().len(), 1);
+    if transition {
+        let Owner::Recorded(e) = &mut live.owner else {
+            panic!()
+        };
+        let (input, _, replica) = application::transition_tests::fixture(
+            e.durable_checkpoint().runtime.markets[0].clone(),
+        );
+        live.market = persist_transition(
+            e,
+            &root.0,
+            input,
+            &replica.checkpoint().unwrap(),
+            1_650_000_000,
+        )
+        .unwrap();
+    }
     let before = live.committed().unwrap().0.clone();
     let mut objects = proof.objects().map(Object::of).collect::<Vec<_>>();
     objects.sort_by_key(|o| o.digest);
@@ -227,6 +313,17 @@ fn install_and_rollback_with_dependency(dependency: Vec<u8>) {
         })
         .unwrap();
     let after = live.committed().unwrap().0.clone();
+    if transition {
+        assert_eq!(after.runtime.markets[0].sequence, 1002);
+        assert_ne!(
+            after.runtime.markets[0].stream,
+            proof.current().runtime.markets[0].stream
+        );
+        let Owner::Recorded(e) = &live.owner else {
+            panic!()
+        };
+        assert!(e.strategy().market_view(&live.market, u64::MAX).is_some());
+    }
     assert_eq!(after.runtime.effects.count, 1);
     assert_eq!(live.checkpoint().unwrap()[8], 1);
     assert_eq!(live.control_checkpoint(&input).unwrap(), before);

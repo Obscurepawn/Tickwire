@@ -96,7 +96,7 @@ pub fn event_record(
     }
     Ok(MarketExactRecord { header, body: b })
 }
-fn category(kind: tickwire_binance::market::EventKind) -> u8 {
+pub(super) fn category(kind: tickwire_binance::market::EventKind) -> u8 {
     use tickwire_binance::market::EventKind::*;
     match kind {
         Trade => 2,
@@ -116,7 +116,7 @@ pub(super) fn upsert(states: &mut Vec<MarketState>, state: MarketState) {
     }
     states.sort_unstable_by_key(|r| r.header().message_type);
 }
-fn source_index(category: u8) -> usize {
+pub(super) fn source_index(category: u8) -> usize {
     match category {
         1 => 0,
         2 => 1,

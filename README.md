@@ -49,6 +49,8 @@ Tickwire 把行情接入、策略计算和账户执行放在独立进程中，�
 
 行情发布器为每个 topic 复用 128 KiB 的解码与发布档位工作区，从深度或事件通知进入发布器到写入共享内存，健康路径不进行堆分配。回归覆盖首次事件、JSON/SBE、4096 档增量和 2 MiB 线程栈；网络接收和 WebSocket 帧解析仍有独立的存储开销。接口与预算见[行情发布规格](specs/implementation/binance-market-events.md)，实测范围见[发布路径验证](specs/evidence/20261028/publisher-hot.json)。
 
+[运行时扩容](specs/implementation/market-expansion.md)已有候选准备、旧游标退出、新 bank 重新 JOIN 和持久重放接口，包含真实共享内存与认证连接测试。MD、执行和策略的持续运行循环尚未接入这些接口，当前运行程序仍使用启动时的 topic 集合。
+
 发送顺序以持久事实为边界：恢复依赖与 `Admit` 同步完成后，发送 owner 再检查当前门禁并向 TLS 交付字节。交易所输入先进入输入 WAL，账户事实同步后才发布新状态。持久收据证明落盘；交易权限由当前授权、租约和执行权门禁决定。
 
 ![订单数据流：策略意图、风险准入、本地持久化、首次发送，以及输入 WAL、账户 WAL 和策略回报的顺序。](assets/order-flow.svg)

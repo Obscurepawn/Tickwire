@@ -230,6 +230,12 @@ impl<const M: usize> JoinOwner<M> {
     pub fn membership_version(&self) -> u64 {
         self.publisher.membership_version()
     }
+    /// True only when every registered subscription has completed real cursor detachment.
+    pub fn all_detached(&self) -> bool {
+        self.entries
+            .iter()
+            .all(|entry| entry.stage == Stage::Detached)
+    }
     pub fn publish(&mut self, records: &[&[u8]]) -> Result<u64> {
         Ok(self.publisher.publish(records)?)
     }

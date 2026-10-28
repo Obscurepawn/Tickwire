@@ -49,6 +49,7 @@ impl ReplayableStrategy for Stateful {
         out: &mut ReplayEffects,
     ) -> Result<()> {
         let tag = match input {
+            Input::MarketTransition { .. } => 10,
             Input::MarketApplied { record, .. } => {
                 self.value += record[0] as u64;
                 1

@@ -317,6 +317,7 @@ impl<S: ReplayableStrategy> Engine<S> {
         let allowed = !matches!(
             record.input,
             Input::MarketApplied { .. }
+                | Input::MarketTransition { .. }
                 | Input::ConfigApply { .. }
                 | Input::ModelApply { .. }
                 | Input::Entropy { .. }
@@ -431,6 +432,38 @@ fn advance_cursor(
 fn advance(runtime: &mut RuntimeState, input: &Input) -> Result<()> {
     let hash = tickwire_recovery::digest(&canonical(input)?);
     match input {
+        Input::MarketTransition {
+            previous,
+            next,
+            activated_sequence,
+            ..
+        } => {
+            let index = runtime
+                .markets
+                .iter()
+                .position(|c| c == previous)
+                .ok_or(Error::Identity)?;
+            if runtime
+                .markets
+                .iter()
+                .any(|c| c.stream.identity == next.identity)
+            {
+                return Err(Error::Identity);
+            }
+            runtime.markets.remove(index);
+            let at = runtime
+                .markets
+                .binary_search_by(|c| c.stream.cmp(next))
+                .unwrap_err();
+            runtime.markets.insert(
+                at,
+                Cursor {
+                    stream: next.clone(),
+                    sequence: *activated_sequence,
+                    content_digest: hash,
+                },
+            );
+        }
         Input::MarketApplied {
             stream, sequence, ..
         } => advance_cursor(&mut runtime.markets, stream, *sequence, hash, None)?,

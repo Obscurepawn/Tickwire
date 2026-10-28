@@ -1,12 +1,13 @@
 # 模块实现规格导航（`implementation/`）
 
-本目录 69 篇模块实现规格，按功能域分组。每篇先于对应 crate 源码确定接口、不变量与失败边界；全局索引、架构总览与契约说明见 [`../INDEX.md`](../INDEX.md)。
+本目录 70 篇模块实现规格，按功能域分组。每篇先于对应 crate 源码确定接口、不变量与失败边界；全局索引、架构总览与契约说明见 [`../INDEX.md`](../INDEX.md)。
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论。
 
 ## Binance 接入与网络命令
 
 - [instrument-index.md](instrument-index.md) — 固定集合位掩码映射、动态只追加索引、本地盘口身份与行情连续存储。`tickwire-instrument-index` / `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source`。
+- [market-expansion.md](market-expansion.md) — 受信目录追加、来源预热、bank 切换、消费者重新 JOIN 和可重放市场基线（实现中）。`tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` / `tickwire-strategy-sdk`。
 - [binance-protocol.md](binance-protocol.md) — HMAC/RSA/Ed25519 签名、订单参数编码与类型化错误分类。`tickwire-binance`。已实现。
 - [binance-streams.md](binance-streams.md) — exchangeInfo/REST depth/depthUpdate/executionReport 类型化解码。`tickwire-binance`（feed/events）。已实现。
 - [binance-sbe.md](binance-sbe.md) — Spot SBE 固定 schema 解码、精确换算及 MD owner 接线。`tickwire-binance-sbe` / `tickwire-binance-public` / `tickwire-md`。已实现（diff、Trade/BBA owner；depth20 仅解码）。

@@ -159,6 +159,7 @@ fn shared_read_ready_cannot_activate_without_cursor_or_catchup() {
     assert_full(&mut f.owner, &f.data); // Cursor at 68 still cannot release S=4.
     assert_eq!(f.ready().unwrap().applied, 68);
     assert_eq!(f.owner.stage(f.reg.subscription), Some(Stage::Active));
+    assert!(!f.owner.all_detached());
     assert_eq!(f.ready().unwrap().applied, 68);
     assert_eq!(f.owner.membership_version(), 2);
     f.owner.publish(&[&f.data.record(69)]).unwrap();
@@ -310,6 +311,7 @@ fn actual_quiescence_is_required_and_conflicting_duplicate_ack_is_rejected() {
         .quiesce(f.reg.subscription, &f.os, [29; 16], 1)
         .unwrap();
     assert!(f.consumer.quiesce(&mut f.cs, &req, NOW).is_err());
+    assert!(!f.owner.all_detached());
     assert_eq!(held.sequence(), 5);
     drop(held);
     let ack = f.consumer.quiesce(&mut f.cs, &req, NOW).unwrap();
@@ -317,6 +319,7 @@ fn actual_quiescence_is_required_and_conflicting_duplicate_ack_is_rejected() {
         .quiesced(f.reg.subscription, &mut f.os, &ack, NOW)
         .unwrap();
     assert_eq!(f.owner.stage(f.reg.subscription), Some(Stage::Detached));
+    assert!(f.owner.all_detached());
     f.owner
         .quiesced(f.reg.subscription, &mut f.os, &ack, NOW)
         .unwrap();

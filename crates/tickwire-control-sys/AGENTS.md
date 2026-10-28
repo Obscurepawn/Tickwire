@@ -10,7 +10,8 @@
 ## 2. 公共 API 入口
 
 - 常量：`MAX_FRAME_BYTES = 65_536`、`MAX_FDS = 16`。
-- `Connection`：`connect(path, deadline)`、`send(bytes, fds: &[BorrowedFd], deadline)`、`recv(deadline) -> ReceivedFrame`、`try_recv() -> Option<ReceivedFrame>`、`peer_credentials() -> PeerCredentials`。
+- `Connection`：`connect(path, deadline)`、`send(bytes, fds: &[BorrowedFd], deadline)`、`try_send(bytes,fds) -> bool`、`recv(deadline) -> ReceivedFrame`、`try_recv() -> Option<ReceivedFrame>`、`peer_credentials() -> PeerCredentials`。
+- `PendingConnection::new(path)` / `poll() -> Option<Connection>`：无等待的 pathname 建连，成功转移一次 Connection，Drop 取消。
 - `ControlListener`：`bind(path)`、`bind_with_mode(path, mode)`、`accept(deadline) -> Connection`、`try_accept() -> Option<Connection>`。
 - `PrivateDirectory`：`create_in(parent, prefix)`（0700 私有目录）、`path()`。
 - `monotonic_ns() -> Result<u64>`；`PeerCredentials{pid, uid, gid}`；`ReceivedFrame`（`bytes()`/`fds()`/`into_parts()`）；`Error`/`Result`。
@@ -33,10 +34,11 @@ cargo clippy -p tickwire-control-sys --all-targets -- -D warnings
 cargo fmt --check -p tickwire-control-sys
 ```
 
-- `tests/transport.rs`（18 项）带 `#![cfg(target_os = "linux")]`：SEQPACKET 一包一帧、SCM_RIGHTS FD 回收、peer credentials、截断/FD 数量校验、截止点与 EINTR。
+- `tests/transport.rs`（21 项）带 `#![cfg(target_os = "linux")]`：SEQPACKET 一包一帧、SCM_RIGHTS FD 回收、peer credentials、截断/FD 数量校验、截止点与 EINTR。
 - `tests/platform.rs`（1 项）覆盖非 Linux 拒绝路径。
 - 真实内核行为（memfd/seals 无关，但 SEQPACKET/cmsg/PEERCRED 仅 Linux）必须用 [../../scripts/check-linux.sh](../../scripts/check-linux.sh) 在固定 Docker 镜像内运行；macOS 不跑真实 socket 测试。
 - 无 bench。
+- `transport.rs` 追加实际 UNIX backlog 耗尽后重试、try_send 队列背压、0/1/16 FD 完整帧与所有权测试。
 
 ## 6. 关键不变量与注意事项
 
@@ -45,6 +47,7 @@ cargo fmt --check -p tickwire-control-sys
 - **发送**：先结构校验与实际 FD 数核对，才 `sendmsg(MSG_DONTWAIT | MSG_NOSIGNAL)`；FD 仅借用到调用结束，发送者保留句柄；完整数据报交给内核即返回成功（接收/owner 应用是另外两个完成点）；部分发送按截断错误返回，**不重发剩余字节**。
 - **截止点**：connect/accept/send/recv 共用同一绝对 `Instant`；EINTR 不更新截止点；EAGAIN 进入剩余时间有界 poll；Unix connect 因 backlog 满返回 EAGAIN 时重试 connect，不当作已建连。
 - **try_* 单次语义**：`try_accept` 一次非阻塞 accept4 并核验 SO_PEERCRED；`try_recv` 一次 `MSG_DONTWAIT` recvmsg；EAGAIN/EWOULDBLOCK 返回 `Ok(None)`，EINTR 原样作为 `Error::System`，不等待、不内部重试、不读 `Instant`。
+- `try_send` 一次 sendmsg，EAGAIN 返回 false，EINTR 原样返回，调用者保留整包与借用 FD；原 send 与其共用单次实现。`PendingConnection` 的 AF_UNIX EAGAIN 保持未建连，下次重试 connect；EINPROGRESS/EALREADY 另用零超时就绪与 SO_ERROR 检查，不能把 backlog EAGAIN 当成 TCP 异步完成。EINTR 保留 pending FD，其他错误关闭它。
 - 未知 cmsg 类型拒绝整帧，但继续收集其后的 SCM_RIGHTS，避免提前遗失所有权。
 - 本层只保证报文边界与 FD 所有权；帧体语义、授权、去重由 `tickwire-control` 与上层完成。
 

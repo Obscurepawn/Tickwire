@@ -86,6 +86,7 @@ pub struct Fault {
 pub trait FaultSink {
     fn invalidate(&mut self, fault: Fault);
 }
+#[derive(Clone)]
 struct Row {
     spec: InstrumentSpec,
     key: BookKey,
@@ -406,50 +407,7 @@ impl<const M: usize> TopicPublisher<M> {
         self.reserved_cache_bytes
     }
     fn measure_cache_bytes(&self) -> Result<usize> {
-        let mut bytes = self
-            .state
-            .rows
-            .capacity()
-            .checked_mul(size_of::<Row>())
-            .ok_or(Error::Bounds)?;
-        let mut add = |value: usize| -> Result<()> {
-            bytes = bytes.checked_add(value).ok_or(Error::Bounds)?;
-            Ok(())
-        };
-        add(self.state.index.memory_stats().total_bytes())?;
-        add(self.depth_workspace.reserved_bytes())?;
-        add(self
-            .depth_levels
-            .capacity()
-            .checked_mul(size_of::<DepthLevel>())
-            .ok_or(Error::Bounds)?)?;
-        for row in &self.state.rows {
-            add(row
-                .states
-                .capacity()
-                .checked_mul(size_of::<MarketState>())
-                .ok_or(Error::Bounds)?)?;
-            add(row
-                .bids
-                .capacity()
-                .checked_mul(size_of::<DepthLevel>())
-                .ok_or(Error::Bounds)?)?;
-            add(row
-                .asks
-                .capacity()
-                .checked_mul(size_of::<DepthLevel>())
-                .ok_or(Error::Bounds)?)?;
-            add(row.context.reserved_bytes())?;
-            for symbol in [
-                row.instrument.symbol.as_str(),
-                row.instrument.base.symbol.as_str(),
-                row.instrument.quote.symbol.as_str(),
-                row.instrument.settlement.symbol.as_str(),
-            ] {
-                add(symbol.len())?;
-            }
-        }
-        Ok(bytes)
+        measure_cache_bytes(&self.state, &self.depth_workspace, &self.depth_levels)
     }
     pub fn split(&mut self) -> (&mut JoinOwner<M>, &TopicState) {
         (&mut self.owner, &self.state)
@@ -599,106 +557,15 @@ impl<const M: usize> TopicPublisher<M> {
         now: u64,
     ) -> Result<()> {
         let row = &mut self.state.rows[index];
-        if view.key() != row.key
-            || view.received_at_ns() > now
-            || view.known_bids().len() > self.state.limits.levels_per_side
-            || view.known_asks().len() > self.state.limits.levels_per_side
-            || row.source_generation.is_some_and(|g| view.generation() < g)
-        {
-            return Err(Error::Identity);
-        }
-        let generation_changed = row
-            .source_generation
-            .is_some_and(|g| g != view.generation());
-        if generation_changed {
-            self.needs_bank = true;
-        }
-        let rev = row
-            .revision
-            .checked_add(1)
-            .filter(|x| *x < 1 << 63)
-            .ok_or(Error::Bounds)?;
-        let (bid_kind, bid_boundary_ticks) = side_coverage(view.coverage(Side::Bid));
-        let (ask_kind, ask_boundary_ticks) = side_coverage(view.coverage(Side::Ask));
-        row.coverage = DepthCoverage {
-            version: 1,
-            bid_kind,
-            ask_kind,
-            bid_boundary_ticks,
-            ask_boundary_ticks,
-            source_book_generation: view.generation(),
-        };
-        row.bids.clear();
-        row.asks.clear();
-        row.bids
-            .extend(view.known_bids().iter().map(|l| DepthLevel {
-                price_ticks: l.price.0,
-                qty_lots: l.quantity.0,
-            }));
-        row.asks
-            .extend(view.known_asks().iter().map(|l| DepthLevel {
-                price_ticks: l.price.0,
-                qty_lots: l.quantity.0,
-            }));
-        row.source_generation = Some(view.generation());
-        row.revision = rev;
-        let state = if matches!(view.best_bid(), BestLevel::Unknown)
-            || matches!(view.best_ask(), BestLevel::Unknown)
-        {
-            3
-        } else {
-            2
-        };
-        if state == 3 {
-            self.needs_bank = true;
-        }
-        let mut quote = MarketRecord {
-            header: header(
-                &self.state.header,
-                row.spec,
-                0,
-                257,
-                now,
-                view.received_at_ns(),
-            ),
-            body: MarketBody {
-                feed_state: state,
-                book_revision: rev,
-                ..Default::default()
-            },
-        };
-        if let BestLevel::Known(l) = view.best_bid() {
-            quote.body.bid_price_ticks = l.price.0;
-            quote.body.bid_qty_lots = l.quantity.0;
-        }
-        if let BestLevel::Known(l) = view.best_ask() {
-            quote.body.ask_price_ticks = l.price.0;
-            quote.body.ask_qty_lots = l.quantity.0;
-        }
-        row.depth_state = state;
-        row.depth_received = view.received_at_ns();
-        if !row.selection.best_bid_ask {
-            upsert(&mut row.states, quote.clone().into());
-        }
-        let feed = MarketRecord {
-            header: header(
-                &self.state.header,
-                row.spec,
-                0,
-                261,
-                now,
-                view.received_at_ns(),
-            ),
-            body: MarketBody {
-                feed_state: aggregate_state(row),
-                ..Default::default()
-            },
-        };
-        upsert(&mut row.states, feed.clone().into());
+        let (quote, feed, blocked) =
+            cache_view(row, &self.state.header, self.state.limits, view, now)?;
+        self.needs_bank |= blocked;
         self.state.dirty = true;
         if self.needs_bank {
             return Ok(());
         }
+        let rev = row.revision;
+        let state = row.depth_state;
         // Before first Live there can be no ready JOIN: its complete baseline
         // was Bootstrapping. First Live is captured for the subsequent JOIN.
         let mut records: [MarketRecord; 3] = std::array::from_fn(|_| MarketRecord::default());
@@ -887,3 +754,141 @@ impl<const M: usize, C: FnMut() -> u64, F: FaultSink> PublicSink for Publication
 mod events;
 pub use events::{EventSelection, event_record};
 use events::{aggregate_state, encode_state, upsert};
+
+fn cache_view(
+    row: &mut Row,
+    h: &ResourceHeader,
+    limits: Limits,
+    view: &BookView<'_>,
+    now: u64,
+) -> Result<(MarketRecord, MarketRecord, bool)> {
+    if view.key() != row.key
+        || view.received_at_ns() > now
+        || view.known_bids().len() > limits.levels_per_side
+        || view.known_asks().len() > limits.levels_per_side
+        || row.source_generation.is_some_and(|g| view.generation() < g)
+    {
+        return Err(Error::Identity);
+    }
+    let generation_changed = row
+        .source_generation
+        .is_some_and(|g| g != view.generation());
+    let rev = row
+        .revision
+        .checked_add(1)
+        .filter(|x| *x < 1 << 63)
+        .ok_or(Error::Bounds)?;
+    let (bid_kind, bid_boundary_ticks) = side_coverage(view.coverage(Side::Bid));
+    let (ask_kind, ask_boundary_ticks) = side_coverage(view.coverage(Side::Ask));
+    row.coverage = DepthCoverage {
+        version: 1,
+        bid_kind,
+        ask_kind,
+        bid_boundary_ticks,
+        ask_boundary_ticks,
+        source_book_generation: view.generation(),
+    };
+    row.bids.clear();
+    row.asks.clear();
+    row.bids
+        .extend(view.known_bids().iter().map(|l| DepthLevel {
+            price_ticks: l.price.0,
+            qty_lots: l.quantity.0,
+        }));
+    row.asks
+        .extend(view.known_asks().iter().map(|l| DepthLevel {
+            price_ticks: l.price.0,
+            qty_lots: l.quantity.0,
+        }));
+    row.source_generation = Some(view.generation());
+    row.revision = rev;
+    let state = if matches!(view.best_bid(), BestLevel::Unknown)
+        || matches!(view.best_ask(), BestLevel::Unknown)
+    {
+        3
+    } else {
+        2
+    };
+    let mut quote = MarketRecord {
+        header: header(h, row.spec, 0, 257, now, view.received_at_ns()),
+        body: MarketBody {
+            feed_state: state,
+            book_revision: rev,
+            ..Default::default()
+        },
+    };
+    if let BestLevel::Known(l) = view.best_bid() {
+        quote.body.bid_price_ticks = l.price.0;
+        quote.body.bid_qty_lots = l.quantity.0;
+    }
+    if let BestLevel::Known(l) = view.best_ask() {
+        quote.body.ask_price_ticks = l.price.0;
+        quote.body.ask_qty_lots = l.quantity.0;
+    }
+    row.depth_state = state;
+    row.depth_received = view.received_at_ns();
+    if !row.selection.best_bid_ask {
+        upsert(&mut row.states, quote.clone().into());
+    }
+    let feed = MarketRecord {
+        header: header(h, row.spec, 0, 261, now, view.received_at_ns()),
+        body: MarketBody {
+            feed_state: aggregate_state(row),
+            ..Default::default()
+        },
+    };
+    upsert(&mut row.states, feed.clone().into());
+    Ok((quote, feed, generation_changed || state == 3))
+}
+
+mod expansion;
+pub use expansion::TopicExpansion;
+
+fn measure_cache_bytes(
+    state: &TopicState,
+    depth_workspace: &DepthWorkspace,
+    depth_levels: &Vec<DepthLevel>,
+) -> Result<usize> {
+    let mut bytes = state
+        .rows
+        .capacity()
+        .checked_mul(size_of::<Row>())
+        .ok_or(Error::Bounds)?;
+    let mut add = |value: usize| -> Result<()> {
+        bytes = bytes.checked_add(value).ok_or(Error::Bounds)?;
+        Ok(())
+    };
+    add(state.index.memory_stats().total_bytes())?;
+    add(depth_workspace.reserved_bytes())?;
+    add(depth_levels
+        .capacity()
+        .checked_mul(size_of::<DepthLevel>())
+        .ok_or(Error::Bounds)?)?;
+    for row in &state.rows {
+        add(row
+            .states
+            .capacity()
+            .checked_mul(size_of::<MarketState>())
+            .ok_or(Error::Bounds)?)?;
+        add(row
+            .bids
+            .capacity()
+            .checked_mul(size_of::<DepthLevel>())
+            .ok_or(Error::Bounds)?)?;
+        add(row
+            .asks
+            .capacity()
+            .checked_mul(size_of::<DepthLevel>())
+            .ok_or(Error::Bounds)?)?;
+        add(row.context.reserved_bytes())?;
+        for symbol in [
+            row.instrument.symbol.as_str(),
+            row.instrument.base.symbol.as_str(),
+            row.instrument.quote.symbol.as_str(),
+            row.instrument.settlement.symbol.as_str(),
+        ] {
+            add(symbol.len())?;
+        }
+    }
+    Ok(bytes)
+}

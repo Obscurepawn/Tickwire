@@ -1,7 +1,7 @@
 use super::*;
 use crate::Strategy;
 use tickwire_ipc::{DepthCoverage, DepthLevel, JoinBody, MarketRecord, ResourceHeader, Wire};
-fn vector(name: &str) -> Vec<u8> {
+pub(super) fn vector(name: &str) -> Vec<u8> {
     let all: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../specs/contracts/ipc-vectors-v1.json"
     ))

@@ -6,6 +6,7 @@
 
 - `src/lib.rs`：`TopicPublisher<M>`、`TopicState`、`PublicationSink`、`InstrumentConfig`、`Limits`、`Fault`/`FaultSink`。
 - `src/events.rs`：`EventSelection`、`event_record`、事件类别配置与通知适配。
+- `src/expansion.rs`：冷路径严格超集候选、独立预热、真实静默后的原子目录切换；`src/expansion/tests.rs` 保存真实 memfd 与完整快照回归。
 
 ## 2. 公共 API 入口
 
@@ -15,6 +16,7 @@
 - `PublicationSink`：`take_error()`；`events::{EventSelection, event_record}`。
 - `instrument_slot(id)` 在装配时绑定 `InstrumentSlot`；`on_notice_slot/on_event_slot` 直接访问连续行并复核稳定 ID，既有按 ID 的入口仍可使用。
 - `reserved_cache_bytes()` 查询构造时核验的保留堆载荷：行/状态/深度容量、目录和context文本、标的索引以及共享工作区。它不含分配器元数据、内联体、调用栈、SHM/JoinOwner与临时JOIN快照；这些有各自预算。
+- `prepare_expansion(registry, additions, limits, peak_cache_bytes) -> TopicExpansion`；候选支持 `configure_event`、`warm_notice`、`warm_event_notice`、`ready(now,max_age_ns)`、`reserved_cache_bytes()`。`commit_expansion(candidate,replacement,now,max_age_ns,faults)` 刷新旧行并切换到新的真实 bank，返回旧 JoinOwner。
 
 ## 3. 在 workspace 中的位置
 
@@ -49,6 +51,7 @@ cargo fmt --check -p tickwire-market-publisher
 - 发布目录把完整 `u64 instrument_id` 绑定到独立的本地 `BookKey`，允许 `BookKey.instrument == 0`；装配时拒绝不同目录行重复完整 `(venue, instrument, source)` 键，不能按外部 ID 截断生成本地键。错误键视图在修改行之前拒绝并沿既有路径失效 bank；高位 ID、错键与缓存保持回归见 `tickwire-md/tests/instrument_slots.rs`。
 - 每 topic 冷预留一个总4096档的`DepthWorkspace`和4096项IPC深度数组，共128KiB档位载荷；缓存盘口仍可每侧5000档。普通发布使用最多3项固定记录/引用数组，所有首次及后续状态容量均预留，事件source使用3个固定槽。健康发布入口至SHM无堆分配；网络接收层不在该结论范围内。测试见`tickwire-md/tests/publisher_hot.rs`，包含真实memfd、2MiB栈、inline/arena、容量边界和失败bank交接。
 - `cache_bytes`先按容器及共享工作区的最低容量预检，构造后按实际capacity与文本载荷复核，超限拒绝。工作区不进入snapshot/WAL；长期持有的借用不能跨下一次解码。
+- topic 扩展候选只能预热新增行，断线/Gap/错误使对应状态不可用；ready 不使用独立事件刷新深度年龄。commit 要求旧 bank 所有登记真实 Detached、当前所有旧/新必需状态新鲜、完整快照预算充足、新 bank 绑定当前 cut 且目录/代次递增；候选写失败不改旧发布器，冻结失败同步 fault。old+candidate retained heap 受显式峰值预算，SHM/退休 bank 另管。新目录会重排本地 topic 槽，调用方重新绑定 InstrumentSlot；完整 BookKey 与外部稳定 ID 不变。
 
 ## 7. 改动检查清单
 

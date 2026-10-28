@@ -1,13 +1,57 @@
 use super::{Feed, Result, invalid};
 use tickwire_book::BookKey;
-use tickwire_instrument_index::FixedIndex;
+use tickwire_instrument_index::{AppendIndex, DenseId, FixedIndex};
 
 /// Process-local book identities from the complete trusted startup feed set.
 /// Topic row ordering and externally visible instrument IDs are independent.
 pub struct FeedIndex {
-    instruments: FixedIndex,
+    instruments: Lookup,
+    // Cold owner metadata preserves order when preparing a complete successor.
+    ids: Vec<u64>,
+}
+enum Lookup {
+    Fixed(FixedIndex),
+    Append(AppendIndex),
+}
+impl Lookup {
+    fn lookup(&self, id: u64) -> Option<DenseId> {
+        match self {
+            Self::Fixed(index) => index.lookup(id),
+            Self::Append(index) => index.lookup(id),
+        }
+    }
 }
 impl FeedIndex {
+    /// Prepare a complete successor without modifying this active index.
+    pub fn expanded(&self, feeds: &[Feed]) -> Result<Self> {
+        if feeds.is_empty()
+            || feeds.len() > 32
+            || feeds.iter().any(|feed| feed.instrument.id == 0)
+            || self
+                .ids
+                .iter()
+                .any(|id| !feeds.iter().any(|feed| feed.instrument.id == *id))
+        {
+            return Err(invalid("MD index expansion membership/capacity"));
+        }
+        let mut ids = self.ids.clone();
+        for feed in feeds {
+            if !ids.contains(&feed.instrument.id) {
+                ids.push(feed.instrument.id);
+            }
+        }
+        let mut index = AppendIndex::with_capacity(ids.len())
+            .map_err(|_| invalid("MD instrument index allocation"))?;
+        for &id in &ids {
+            index
+                .insert(id)
+                .map_err(|_| invalid("MD instrument index append"))?;
+        }
+        Ok(Self {
+            instruments: Lookup::Append(index),
+            ids,
+        })
+    }
     pub fn new(feeds: &[Feed]) -> Result<Self> {
         if feeds.is_empty() || feeds.len() > 32 {
             return Err(invalid("MD feed index capacity"));
@@ -23,7 +67,10 @@ impl FeedIndex {
             }
         }
         Ok(Self {
-            instruments: FixedIndex::new(&ids).map_err(|_| invalid("MD instrument index"))?,
+            instruments: Lookup::Fixed(
+                FixedIndex::new(&ids).map_err(|_| invalid("MD instrument index"))?,
+            ),
+            ids,
         })
     }
     /// Bind a known stable ID before constructing a depth owner or publisher.

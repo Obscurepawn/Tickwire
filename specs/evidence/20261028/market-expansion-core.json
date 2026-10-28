@@ -1,0 +1,270 @@
+{
+  "date_local": "2026-10-28",
+  "scope": "Runtime market expansion core APIs, authenticated real SHM/re-JOIN component fixtures, persisted market transitions and existing Spot process compatibility; native WSL2 Linux",
+  "source_manifest": "market-expansion-core-source-sha256.json",
+  "source_files": 696,
+  "binary_manifest": "market-expansion-core-binaries.json",
+  "checks": {
+    "check_rust_sh": "passed: rustfmt, workspace all-target tests, doctests, Clippy -D warnings; complete script exit 0",
+    "design_contracts": {
+      "scope": "design_artifacts_only_not_runtime_tests",
+      "ipc": {
+        "result": "PASS",
+        "layouts": 46,
+        "fields_checked": 734,
+        "vectors_roundtripped": 63,
+        "data_message_ids": 31,
+        "control_opcodes": 37,
+        "crc32c_checks": 19,
+        "semantic_cases": 25,
+        "unchanged_abi_vectors": 37,
+        "bank_and_cursor_bytes": 3496542208,
+        "all_committed_shm_bytes": 6449856512,
+        "local_links": "PASS"
+      },
+      "risk": {
+        "cases": 21,
+        "expected_fields": 131,
+        "failures": []
+      },
+      "deployment": {
+        "profile": "TW-LD-ASYNC-16x2-v1",
+        "bank_cursor_bytes": 3496542208,
+        "shm_committed_bytes": 6449856512,
+        "shm_limit_bytes": 8589934592,
+        "nominal_disk_bytes_per_second": 532285577,
+        "retention_bytes": 11497368463200,
+        "data_raft_groups": 0
+      },
+      "configuration": {
+        "reference_schema_errors": 0,
+        "production_template_expected_rejections": 413,
+        "openapi": "openapi_spec_validator_pass",
+        "api_operations": 16,
+        "api_refs": 256
+      },
+      "config_semantics": {
+        "reference_schema_errors": 0,
+        "template_expected_errors": 413,
+        "cross_field_checks": "passed",
+        "deployment_and_ipc_consistency": "passed",
+        "openapi_complete_check": "run_repository_validator_with_openapi",
+        "openapi_operations": 16,
+        "openapi_refs_resolved": 256,
+        "negative_cases_passed": 17,
+        "candidate_variants_passed": 3,
+        "projection_and_locator_examples": "passed",
+        "capacity": {
+          "strategy_instances": 32,
+          "active": 16,
+          "shadow": 16,
+          "strategy_domain_pairs": 64,
+          "bank_and_cursor_bytes": 3496542208,
+          "snapshot_bytes": 2147483648,
+          "projection_object_bytes": 537395200,
+          "total_with_relay_bytes": 6449856512,
+          "relay_budget_bytes": 268435456
+        }
+      }
+    },
+    "plan": [
+      "Full config revision/hash, old/new bank, exact active participants, stable append-only dense IDs and peak storage validation",
+      "Reject resource ID cross-collisions, 63-bit bounds, stale/backwards clocks, capacity changes and reused consumer identity",
+      "Immutable prepared plan finalizes all new admissions from one real cut"
+    ],
+    "pending_join": [
+      "Bounded step/record polling over real nonblocking SEQPACKET, immutable snapshot and shared cursor",
+      "Preserved whole outgoing frames across backpressure/EINTR; source wrapper compatibility",
+      "Real backlog and injected connect/getsockopt/sendmsg/recvmsg EINTR cases"
+    ],
+    "publisher": [
+      "Independent candidate, warm newly added rows, refresh old rows at commit, validate depth/event freshness and actual peak storage",
+      "Seed full successor before freezing old owner; failed preparation/write leaves old publication available; freeze failure closes publication"
+    ],
+    "server": [
+      "Exact approved active set, bounded QUIESCE outbox and actual registered cursor exit proof",
+      "Real successor with high u64 member is re-JOINed through Server and PendingJoin",
+      "EOF, deadline and forged proofs fail closed; first/repeated resume rejects failed/cold successor"
+    ],
+    "replay": [
+      "MarketTransition persists actual JOIN baseline and catchup before updating live replica",
+      "Source replay, continuation, installation and rollback understand market lineage",
+      "Compare complete cursor digest even when materialized books match; transition has no strategy callback/effects",
+      "SDK no-default-features check passed"
+    ],
+    "source_unchanged_between_workspace_checks_and_release": true,
+    "linux_execution": "Native WSL2 Linux; Docker check-linux.sh not run because daemon unavailable",
+    "documentation": {
+      "markdown_files": 139,
+      "local_links": 460,
+      "reference_usages": 0,
+      "errors": []
+    },
+    "anchor_audit": "market-expansion-core-anchor-audit.json",
+    "anchor_audit_reproducer": "market-expansion-core-anchor-audit.py"
+  },
+  "scenario": {
+    "kind": "spot-handover-custom",
+    "exit_code": 0,
+    "elapsed_seconds": 62.397,
+    "local_directory": "/tmp/tw-1028-e1",
+    "scope": "Existing multi-process compatibility; does not exercise runtime market expansion",
+    "elapsed_note": "Whole fixture wall time, not a latency measurement",
+    "operation_schema": 3,
+    "source_s_sequence": 2,
+    "source_c_sequence": 10,
+    "target_final_sequence": 279,
+    "pids": {
+      "source_replay_pid": 342819,
+      "target_pid": 342811,
+      "rollback_pid": 342820
+    },
+    "mirror_records_verified": 12,
+    "worker_report_position_verified": 12,
+    "account_fill_verified": true,
+    "fee_reconciled": true,
+    "unknown_orders": 0,
+    "asset_totals": {
+      "BTC": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "USDT": {
+        "atoms": "94000000000",
+        "scale": 8
+      }
+    },
+    "result_sha256": "9f0d19d67e4f466d9b1ff909db77b7b3979f2c837661fa086c39ef3ba645ff1f",
+    "account_report_sha256": "e36517e69db1fa3bd86f7a26fe5cc312881f14c35a5c410d893cb6baac5e4875"
+  },
+  "limitations": [
+    "MD engine, app and strategy persistent loops have not integrated runtime market expansion; startup topic set remains fixed",
+    "Trusted operation delivery, actual new network owner prewarming, effective/runtime dual receipts and same-PID full-chain scenario remain pending",
+    "Worker must persist the merged recovery closure after Live transition and before client swap/callbacks when integrated",
+    "Normal MD JOIN server delivery still contains blocking steps; bounded consumer JOIN does not establish an entirely nonblocking MD control path",
+    "No new TLA run; changed JOIN owner source and new cross-bank behaviors are outside historical proof scope",
+    "No end-to-end latency, production qualification or cross-host takeover claim"
+  ],
+  "logs": {
+    "market-expansion-core-check-rust.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-expansion-core-check-rust.log",
+      "sha256": "12ee2772d56220395790bfb8a099752f231931f5752905d2d14312b465133028"
+    },
+    "market-expansion-core-release.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-expansion-core-release.log",
+      "sha256": "48a7033fbf0e584c56cf82d703f74a8a1f593febf8a48660ed7b1f0afa1b8d9b"
+    },
+    "market-expansion-core-scenario.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-expansion-core-scenario.log",
+      "sha256": "9f0d19d67e4f466d9b1ff909db77b7b3979f2c837661fa086c39ef3ba645ff1f"
+    },
+    "expansion-plan-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/expansion-plan-red.log",
+      "sha256": "e5e4050458bb9ad5c255fe0f24051b851820c569a2273a217d311f04c4670c77"
+    },
+    "expansion-plan-resource-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/expansion-plan-resource-red.log",
+      "sha256": "6fec980b53b7da2bd9d209644696832fff3c7579dbabf497dac8382f80fed0f1"
+    },
+    "expansion-plan-bounds-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/expansion-plan-bounds-red.log",
+      "sha256": "b8651ecb369492c040d8e8da5a1ad692065f3751477bd2f49487efe650a822d6"
+    },
+    "expansion-md-lib-final.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/expansion-md-lib-final.log",
+      "sha256": "8738048fc8ef12bdd719af52ac3a0bd37bffc1fb329c2dd939407b588f8831e2"
+    },
+    "pending-join-transport-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-transport-red.log",
+      "sha256": "4401adc4662aea9e3a5ce5a3d08b3da18c1fd6f7d0062f2387ec6865876ea6b5"
+    },
+    "pending-join-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-red.log",
+      "sha256": "df5d04bcdd8de8b5b10e91ba8a07370524be9619f47a51d8e52e5ff95d2d811e"
+    },
+    "pending-join-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-green.log",
+      "sha256": "c9eace105aeaa3d5004591b90bedb027fe98c32fab7d4b5bb606a2f17631619a"
+    },
+    "pending-join-clippy.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-clippy.log",
+      "sha256": "56bab0ef1972d48678802c4cc071f2a84de2d5efc94b63bd532bce3fab8ee980"
+    },
+    "pending-join-eintr-connect.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-eintr-connect.log",
+      "sha256": "38e0ab016b03333b392fab50c74658ec054f01c81e4e4213a693ec0faa723617"
+    },
+    "pending-join-eintr-getsockopt.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-eintr-getsockopt.log",
+      "sha256": "38e0ab016b03333b392fab50c74658ec054f01c81e4e4213a693ec0faa723617"
+    },
+    "pending-join-eintr-sendmsg.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-eintr-sendmsg.log",
+      "sha256": "3b5af6daab5a0caf902f08a4a104db34032dd816580959a5f1fc4293a6ee28b4"
+    },
+    "pending-join-eintr-recvmsg.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/pending-join-eintr-recvmsg.log",
+      "sha256": "6d4ff852c1281850fb72b80a23672dbc89ddbfc92142303268a7cfa595032ce9"
+    },
+    "topic-expansion-tests.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/topic-expansion-tests.log",
+      "sha256": "97e8f045adaf676362cf34bc856a198aa86dc567307b05d7c1a81638e6e2b4a9"
+    },
+    "topic-expansion-clippy.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/topic-expansion-clippy.log",
+      "sha256": "200c3cd835dfcbbb61f4ad1ee6cf958797e5fef2b85d1918a970b670933cac94"
+    },
+    "topic-expansion-hot-regression.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/topic-expansion-hot-regression.log",
+      "sha256": "68a5c646fc055472f0d78efd105cb6538a74763d67951a1b518a1b0bae6fc5c8"
+    },
+    "md-expansion-server-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/md-expansion-server-red.log",
+      "sha256": "ad84f6bbdca83d6bf266d62ef2662d4674b9ba6faca0a6ad472c51fd7b772214"
+    },
+    "md-expansion-server-hello-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/md-expansion-server-hello-red.log",
+      "sha256": "b7104bd4cd8f60fbe5f99d9b89d8536235610f536f9917735d19317ccbc05377"
+    },
+    "md-expansion-server-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/md-expansion-server-green.log",
+      "sha256": "7775f6a9ba76c7abc7f66df0e9200b238f2502afcadaf136d3b942787a5d9e96"
+    },
+    "md-expansion-resume-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/md-expansion-resume-red.log",
+      "sha256": "e8153ee8e4e8d4267243a54f62ba26f6f39105048c0a10cd0057899f5cf9e9ff"
+    },
+    "md-expansion-resume-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/md-expansion-resume-green.log",
+      "sha256": "73362db490b0f2f1a6c66e312710eec304e777d4f9469f495c6b93056db932e1"
+    },
+    "md-expansion-resume-clippy.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/md-expansion-resume-clippy.log",
+      "sha256": "1e0cac5ae80ee2fe2a94f5506695d80c281a2d82d982812a400831f6614d457c"
+    },
+    "market-transition-cursor-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-transition-cursor-red.log",
+      "sha256": "161172541a822a659b853d6778e4f6a6b849db6f18b719b3a9dfb8b029c9a36f"
+    },
+    "market-transition-cursor-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-transition-cursor-green.log",
+      "sha256": "08d2490851ed72a83fab6f0b7398e519e4361dac1896323c4e1b255abd1c0125"
+    },
+    "market-transition-equal-book.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-transition-equal-book.log",
+      "sha256": "40bdd658ca0cf2258e2b09895585854e8cba241336ea0585f888be782deff22b"
+    },
+    "market-transition-final-tests.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-transition-final-tests.log",
+      "sha256": "f26ddf4f054636f7facdcf6c2b646b07227c1a764932b017634aa6a22193ad2c"
+    },
+    "market-transition-final-clippy.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-transition-final-clippy.log",
+      "sha256": "66d43aaff886f6bf76042033d0018efcbea0d1443a2e93315ce98efb1a4cea4f"
+    },
+    "market-transition-final-no-default.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/market-transition-final-no-default.log",
+      "sha256": "0b738dc332ea6c7b2b3362c591a4e009c1c4c6474f86785ffcb151b4e47cb80b"
+    }
+  }
+}

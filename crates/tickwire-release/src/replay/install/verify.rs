@@ -148,9 +148,7 @@ fn post_cut(input: &Input, source: &Checkpoint) -> Result<bool> {
             .map(|c| c.sequence)
     };
     Ok(match input {
-        Input::MarketApplied {
-            stream, sequence, ..
-        } => *sequence > cursor(&source.runtime.markets, stream).ok_or(Error::Identity)?,
+        Input::MarketApplied { .. } | Input::MarketTransition { .. } => false,
         Input::AccountCallback {
             stream, position, ..
         } => cursor(&source.runtime.accounts, stream).is_none_or(|c| *position > c),
@@ -168,6 +166,7 @@ fn raw(input: &Input) -> bool {
     matches!(
         input,
         Input::MarketApplied { .. }
+            | Input::MarketTransition { .. }
             | Input::AccountCallback { .. }
             | Input::External { .. }
             | Input::Entropy { .. }
@@ -255,11 +254,6 @@ pub(crate) fn verify_at(
     // Check retention lower and upper bounds before accepting any C-after bytes.
     for (cursors, begin, end) in [
         (
-            &proof.current().runtime.markets,
-            &prior_anchor.runtime.markets,
-            &prior.runtime.markets,
-        ),
-        (
             &proof.current().runtime.accounts,
             &prior_anchor.runtime.accounts,
             &prior.runtime.accounts,
@@ -285,8 +279,14 @@ pub(crate) fn verify_at(
         }
     }
     let mut expected_inputs = Vec::new();
-    for row in prior_tail.rows() {
-        if post_cut(&row.input, proof.current())? {
+    let market_rows = market_lineage::after_cut(
+        &proof.current().runtime.markets,
+        &prior_anchor.runtime.markets,
+        prior_tail.rows(),
+        &prior.runtime.markets,
+    )?;
+    for (row, market) in prior_tail.rows().iter().zip(market_rows) {
+        if market || post_cut(&row.input, proof.current())? {
             expected_inputs.push(row.input.clone());
         }
     }
@@ -342,16 +342,7 @@ pub(crate) fn verify_at(
                 Input::ConfigApply { .. } | Input::ModelApply { .. }
             )
         })
-        || checkpoint
-            .runtime
-            .markets
-            .iter()
-            .map(|c| (&c.stream, c.sequence))
-            .ne(prior
-                .runtime
-                .markets
-                .iter()
-                .map(|c| (&c.stream, c.sequence)))
+        || checkpoint.runtime.markets != prior.runtime.markets
         || checkpoint
             .runtime
             .accounts

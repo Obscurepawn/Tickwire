@@ -92,7 +92,7 @@ impl Instrument {
         })
     }
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Feed {
     pub owner_id: [u8; 16],
@@ -115,7 +115,7 @@ pub struct Feed {
     pub events: Vec<EventFeed>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum EventType {
     Trade,
@@ -138,7 +138,7 @@ impl EventType {
         }
     }
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EventFeed {
     pub owner_id: [u8; 16],
@@ -243,7 +243,7 @@ impl EventFeed {
         ))
     }
 }
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Topic {
     /// Control may atomically replace this file with a higher ring/feed generation.
@@ -254,7 +254,7 @@ pub struct Topic {
     pub maximum_snapshot_bytes: usize,
     pub maximum_delta_bytes: usize,
 }
-#[derive(Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub identity: IdentityConfig,
@@ -403,7 +403,7 @@ impl Feed {
 const PUBLIC_BUFFER_BYTES: usize = 64 * 1024 * 1024;
 
 /// Control-provided immutable identity; this helper derives only wire layout.
-#[derive(Clone, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ResourceSpec {
     pub identity: IdentityConfig,

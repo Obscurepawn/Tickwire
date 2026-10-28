@@ -46,6 +46,7 @@ cargo fmt --check -p tickwire-join
 - **expire 不释放门禁**：JOIN 到期或时间倒退只把 pending 置 Expired，gate 保留。
 - **quiesced 精确匹配**：实际登记 cursor 生命周期 5、quiesced_seq 与最终水位精确一致且无活借用；无法伪造控制正文移除门禁；成功 ACK 幂等。超时与 socket EOF 都没有 detach 权限。
 - 累计历史登记数不超过 M，已 detach 条目不自动回收。
+- `all_detached()` 只读检查空登记或所有历史项均为 Detached；pending、active、failed、expired 和 quiescing 均阻止目录切换，只有实际 cursor 验证成功后的 quiesced 才释放此条件。owner/flow 回归覆盖各边界与活借用阻止退出。
 - 待实现（规格明确）：持久 owner/RequestStore 恢复、代次重用、Supervisor 常驻分发、真实业务状态源、死亡回收、最终 exec 增险授权。
 
 ## 7. 改动检查清单

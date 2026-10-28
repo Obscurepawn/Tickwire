@@ -378,12 +378,118 @@ impl AsFd for ControlListener {
     }
 }
 
+/// One owned nonblocking pathname connection attempt.
+pub struct PendingConnection {
+    fd: Option<OwnedFd>,
+    address: libc::sockaddr_un,
+    length: libc::socklen_t,
+    connecting: bool,
+}
+impl PendingConnection {
+    pub fn new(path: &Path) -> Result<Self> {
+        let (address, length) = address(path)?;
+        Ok(Self {
+            fd: Some(socket()?),
+            address,
+            length,
+            connecting: false,
+        })
+    }
+    pub fn poll(&mut self) -> Result<Option<Connection>> {
+        let result = self.advance();
+        if let Err(error) = &result
+            && !matches!(error, Error::System { source, .. } if source.kind() == io::ErrorKind::Interrupted)
+        {
+            self.fd = None;
+        }
+        result
+    }
+    fn advance(&mut self) -> Result<Option<Connection>> {
+        let fd = self.fd.as_ref().ok_or(Error::Closed)?;
+        if self.connecting {
+            let mut ready = libc::pollfd {
+                fd: fd.as_raw_fd(),
+                events: libc::POLLOUT,
+                revents: 0,
+            };
+            // SAFETY: one live pollfd; zero timeout cannot wait.
+            let result = unsafe { libc::poll(&mut ready, 1, 0) };
+            if result < 0 {
+                return Err(system("poll pending connect"));
+            }
+            if result == 0 {
+                return Ok(None);
+            }
+            let mut error: libc::c_int = 0;
+            let mut len = size_of::<libc::c_int>() as libc::socklen_t;
+            // SAFETY: valid owned socket and correctly sized writable SO_ERROR output.
+            if unsafe {
+                libc::getsockopt(
+                    fd.as_raw_fd(),
+                    libc::SOL_SOCKET,
+                    libc::SO_ERROR,
+                    (&mut error as *mut libc::c_int).cast(),
+                    &mut len,
+                )
+            } != 0
+            {
+                return Err(system("SO_ERROR pending connect"));
+            }
+            if len as usize != size_of::<libc::c_int>() {
+                return Err(Error::Ancillary);
+            }
+            if error != 0 {
+                return Err(Error::System {
+                    operation: "pending connect",
+                    source: io::Error::from_raw_os_error(error),
+                });
+            }
+        } else {
+            // SAFETY: owned socket and an initialized exact-length pathname address.
+            let result = unsafe {
+                libc::connect(
+                    fd.as_raw_fd(),
+                    (&self.address as *const libc::sockaddr_un).cast(),
+                    self.length,
+                )
+            };
+            if result != 0 {
+                let error = io::Error::last_os_error();
+                match error.raw_os_error() {
+                    // AF_UNIX EAGAIN did not enqueue a connection. Retry connect later.
+                    Some(libc::EAGAIN) => return Ok(None),
+                    Some(libc::EINPROGRESS | libc::EALREADY) => {
+                        self.connecting = true;
+                        return Ok(None);
+                    }
+                    Some(libc::EISCONN) => {}
+                    _ => {
+                        return Err(Error::System {
+                            operation: "pending connect",
+                            source: error,
+                        });
+                    }
+                }
+            }
+        }
+        let peer = Connection::credentials(self.fd.as_ref().ok_or(Error::Closed)?)?;
+        Ok(Some(Connection {
+            fd: self.fd.take().ok_or(Error::Closed)?,
+            peer,
+        }))
+    }
+}
+
 pub struct Connection {
     fd: OwnedFd,
     peer: PeerCredentials,
 }
 impl Connection {
     fn from_fd(fd: OwnedFd) -> Result<Self> {
+        let peer = Self::credentials(&fd)?;
+        Ok(Self { fd, peer })
+    }
+    fn credentials(fd: &OwnedFd) -> Result<PeerCredentials> {
         // SAFETY: ucred is a plain C record and zero initializes writable output.
         let mut credentials: libc::ucred = unsafe { zeroed() };
         let mut len = size_of::<libc::ucred>() as libc::socklen_t;
@@ -403,13 +509,10 @@ impl Connection {
         if len as usize != size_of::<libc::ucred>() || credentials.pid <= 0 {
             return Err(Error::Ancillary);
         }
-        Ok(Self {
-            fd,
-            peer: PeerCredentials {
-                pid: credentials.pid as u32,
-                uid: credentials.uid,
-                gid: credentials.gid,
-            },
+        Ok(PeerCredentials {
+            pid: credentials.pid as u32,
+            uid: credentials.uid,
+            gid: credentials.gid,
         })
     }
     pub fn connect(path: &Path, deadline: Instant) -> Result<Self> {
@@ -471,7 +574,7 @@ impl Connection {
         self.peer
     }
 
-    pub fn send(&mut self, bytes: &[u8], fds: &[BorrowedFd<'_>], deadline: Instant) -> Result<()> {
+    fn validate_send(&self, bytes: &[u8], fds: &[BorrowedFd<'_>]) -> Result<()> {
         let frame = tickwire_ipc::ControlFrame::decode(bytes).map_err(Error::Protocol)?;
         let expected = usize::from(frame.envelope.fd_count);
         if fds.len() != expected {
@@ -483,6 +586,10 @@ impl Connection {
         if fds.len() > MAX_FDS {
             return Err(Error::Ancillary);
         }
+        Ok(())
+    }
+    pub fn try_send(&mut self, bytes: &[u8], fds: &[BorrowedFd<'_>]) -> Result<bool> {
+        self.validate_send(bytes, fds)?;
         let mut ancillary = AncillaryBuffer::new();
         let mut iov = libc::iovec {
             iov_base: bytes.as_ptr().cast_mut().cast(),
@@ -512,26 +619,38 @@ impl Connection {
                 }
             }
         }
+        // SAFETY: msghdr points to live payload and initialized ancillary storage.
+        let n = unsafe {
+            libc::sendmsg(
+                self.fd.as_raw_fd(),
+                &msg,
+                libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL,
+            )
+        };
+        if n >= 0 {
+            return if n as usize == bytes.len() {
+                Ok(true)
+            } else {
+                Err(Error::Truncated)
+            };
+        }
+        if io::Error::last_os_error().kind() == io::ErrorKind::WouldBlock {
+            Ok(false)
+        } else {
+            Err(system("sendmsg"))
+        }
+    }
+    pub fn send(&mut self, bytes: &[u8], fds: &[BorrowedFd<'_>], deadline: Instant) -> Result<()> {
+        // Validate before checking time, preserving the original sender contract.
+        self.validate_send(bytes, fds)?;
         loop {
             remaining_ms(deadline)?;
-            // SAFETY: msghdr points to live read-only payload and initialized cmsg storage.
-            let n = unsafe {
-                libc::sendmsg(
-                    self.fd.as_raw_fd(),
-                    &msg,
-                    libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL,
-                )
-            };
-            if n >= 0 {
-                if n as usize != bytes.len() {
-                    return Err(Error::Truncated);
-                }
-                return Ok(());
-            }
-            match io::Error::last_os_error().kind() {
-                io::ErrorKind::Interrupted => continue,
-                io::ErrorKind::WouldBlock => ready(&self.fd, libc::POLLOUT, deadline)?,
-                _ => return Err(system("sendmsg")),
+            match self.try_send(bytes, fds) {
+                Ok(true) => return Ok(()),
+                Ok(false) => ready(&self.fd, libc::POLLOUT, deadline)?,
+                Err(Error::System { source, .. })
+                    if source.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error),
             }
         }
     }

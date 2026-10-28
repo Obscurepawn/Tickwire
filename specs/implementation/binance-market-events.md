@@ -55,3 +55,13 @@ app 的本地公共行情 owner 在装配时按 `CanonicalBaseline` 的完整规
 `cache_bytes` 限制发布器自身持有的堆载荷保留量：行数组、每行状态与两侧深度容量、目录及解码 context 的文本、固定标的索引、共享解码/发布工作区。使用实际 capacity 与元素尺寸核算，所有求和与乘法检查溢出；`reserved_cache_bytes()` 返回同一核算结果。预算不含分配器元数据、发布器内联体及有界调用栈，SHM/JoinOwner 和临时 JOIN 快照由各自资源预算管理。构造预检与实际保留量复核均拒绝超限，不把原 wire 字节估算当实际堆上限。
 
 失败语义保持不变：错误 key、旧代次或超过 view 容量在修改行前拒绝。原始增量解码、增量与视图不符或 SHM 整批发布失败时，可以保留最新健康 `BookView` 缓存与 revision，但已发布序号不得前移；同步触发 `FaultSink`，设置 dirty/needs_bank 并拒绝快照和 Live。bank 失败期间继续接收健康源缓存，供后续完整 JOIN；不能因复用工作区而丢失新缓存或泄漏上一帧尾部。回归覆盖总 4096/4097、inline 12/arena 13、长帧后短帧、首次类别、ring/arena 耗尽、失败 bank 交接与缓存预算临界值。
+
+## 冷路径 topic 成员扩展
+
+`prepare_expansion` 在旧发布链继续运行时创建私有 `TopicExpansion`。新目录必须是同一 catalog/version/hash 下的严格超集，旧标的版本、必需状态、完整 BookKey 与独立 source 绑定不变，instrument_set_version 严格增加。旧行保留至少原有的状态/深度预留容量；新增行由明确的 InstrumentConfig 创建，不从未知行情自动登记。
+
+候选通过 `configure_event`、`warm_notice` 和 `warm_event_notice` 只预热新增行，不发布 ring，也不提供 JOIN。来源身份、时间、连接/盘口代次、视图键和类别均校验；Gap、Disconnected、Rebuild 或不可用事件关闭对应预热状态，不能沿用断线前的 ready。`ready(now,max_age_ns)` 检查新增行深度自身与每个必需类别的可用性和原接收时间，事件不得刷新深度 age；commit 刷新旧行后再检查整个目录。
+
+`commit_expansion` 才接收新 JoinOwner。它要求旧 owner 的所有登记已通过真实 cursor 的 QUIESCED/DETACH 校验（空集合允许），重新复制旧行当前缓存并验证整个候选的必需状态与新鲜度。新 bank 的 ring_epoch/feed_generation 严格增加，前驱是旧 bank，cutover_seq 等于本次旧 published，first_seq 等于 cutover+1；生产者、channel、topic、catalog 和 ABI features 保持一致。未开放的新 bank 按原 message_type 顺序重新发布所有状态，成功后冻结旧 owner 并替换发布器，旧 owner 返回调用方保留其映射。
+
+候选实际保留堆载荷以及旧发布器载荷的总和不得超过显式 peak_cache_bytes；候选自身还受 limits.cache_bytes 限制。预热不扩容，提交复制旧行后再次检查，并核对当前完整快照的页对齐编码长度不超过 snapshot_bytes。SHM、新旧 bank 映射、网络 owner 与临时 JOIN 快照由调用方的独立资源预算管理。无效计划、未静默、超龄或候选写失败均不改变旧发布器；冻结失败沿 FaultSink 同步关闭旧链。既有同成员 `replace_bank` 的语义不变。

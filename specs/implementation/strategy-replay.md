@@ -6,6 +6,18 @@
 
 `CommittedHistory` 核验持久对象内容、输入顺序及切点连接，兼容 schema1 完整前缀接 schema2 增量段。泛型业务状态是否与保存端点一致，仍由旧工厂实际回放并比较完整检查点确定；历史校验结果不授予恢复运行或输出权限。
 
+## 运行中行情换代
+
+合并输入增加 `MarketTransition`：非零 `operation_id/approval_digest` 绑定受信切换计划，`previous` 保存旧流的完整 Cursor，`next` 保存新 bank 的 StreamKey，`baseline_sequence/activated_sequence` 保存快照与实际激活水位。`baseline` 使用既有 TWSB0001，保留真实 JOIN 描述、快照原文、基线验证时间和盘口容量；`catchup` 按消费顺序保存 512 字节记录、payload 与实际应用时间。旧输入编码与检查点 schema 保持兼容；不支持该变体的旧 executable 必须拒绝新尾部。
+
+SDK 从已完成认证 JOIN 的 Client 与旧 consumer 在 QUIESCE 后的实际 applied 水位构造记录。旧 Cursor、副本和消费水位一致，新 bank 必须绑定同一 topic/channel/catalog_version 与进程、时钟域，其 ring/feed 代次递增、predecessor/cutover/first_seq 连续。旧稳定 instrument ID 与版本全部保留；新基线经既有快照验证器校验，再顺序应用 catchup，完整副本字节与新 Client、激活消费水位一致。旧检查点不含 catalog_hash，前后 hash 相同由运行时受信计划准入核对并绑定 approval_digest；有效字节不赋予配置或交易授权。
+
+整个基线与追平作为一个不调用用户策略、不产生 effects 的结构输入；实时与历史重放都只替换市场副本与运行时 Cursor。记录、检查点、提交与 HEAD 完成持久化后，运行时才能替换旧 Client 并恢复回调。持久失败停止 owner；超出类型化 16 MiB 预算的基线或 catchup 在切换提交前拒绝。Legacy owner 不支持运行时扩容，计划准入先检查 replay 能力。
+
+schema3 的 Shadow 保留段、来源重放、安装续跑沿 MarketTransition 的单一前后流关系寻找 C，并保留 C 后的实际换代输入。逐条按规范 Input 重算 Cursor.content_digest，在 C、换代 previous 和保留段末尾比较完整 Cursor；SDK 另外比较完整物化视图，安装端点同时比较实际市场 Cursor。原始输入不同但最终盘口相同的历史不能替换 C。快照跳过 C、丢失中间换代、错旧 Cursor 或重复新流均拒绝。续跑不重放 Shadow 输出，换代基线追平仍不调用用户回调。
+
+## schema3 持久化与安装
+
 schema3 完成闭包中的恢复依赖（包括旧策略二进制）沿恢复对象预算校验：单对象最多 64 MiB，完整闭包最多 256 MiB，仍逐个核对长度和摘要。启动、安装、回滚及其嵌套读取使用相同预算；不能用 replay 消息的 16 MiB 上限误拒绝合法二进制依赖。检查点、输入尾部、控制请求及其他类型化 replay 消息继续保留各自的 16 MiB 上限，闭包对象数和递归深度限制不变。
 
 schema3 启动只完成 S 的 restore/migrate，保存 `replay_restore_digest`。Prepare 关闭旧转发后取得 C，启动旧 binary 的 `--source-replay`；目标真实 41/42 安装后保存 `replay_installation_digest`。唯一固定 rollback probe 在 C 的 ConfigApply 输出上执行；Host 观察其真实成功退出后，目标同步 `replay_rollback_digest` 并返回新的 READY。三个根保留在 HandoverSeal v3。schema2 保持原流程。

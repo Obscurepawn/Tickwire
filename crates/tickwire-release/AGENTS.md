@@ -40,6 +40,7 @@ cargo test -p tickwire-release
 - **文件不可变性靠 exec 全程保持**：`files.rs` 头注释“a hash alone does not protect a pathname from a later same-UID replacement”，部署 owner 负责私有目录独占。
 - **rebuild 内容验证不建立活进程**：`rebuild.rs` 头注释“Content verification does not establish a live process, authorize output, or certify a rollback strategy.”
 - **replay 字节连续 ≠ 回调真实执行**：`replay.rs` 头注释“Validation here proves byte continuity, not that a strategy executed the callbacks; the SDK verifies the latter.”
+- **MarketTransition 记录边界**：保存非零 operation/approval 标识、旧 Cursor、新 StreamKey、TWSB0001 基线及激活前 catchup，不允许 effects；仍受类型化 16 MiB 限制。`market_lineage::after_cut` 逐条重算原始输入摘要，在 C、换代 previous、末尾核对完整 Cursor，为 schema3 安装选择完整 C 后输入；拒绝相同盘口但原始输入不同、缺失换代或跳过 C。SDK 另核对完整视图与真实回调。记录中的审批摘要只绑定运行时决定，不授予 JOIN、配置或交易权限。
 - **闭包先同步后发布**：`closure.rs` 验证数据与先前回调，活进程所有权仍由 Host 在发布前检查。
 - 上限常量集中在根/`replay`/`rebuild`，新增对象类型时先扩 `MAX_*` 并同步规格预算。
 - schema3 启动、安装与回滚闭包的不透明依赖沿 `tickwire-recovery` 的单对象 64 MiB、总量 256 MiB 预算；`Request.source_objects` 和 `rollback::Job.objects` 可承载这些依赖。类型化重放记录、控制请求、完成根与检查点仍限制为 `replay::MAX_BYTES`（16 MiB），所有引用继续核对精确长度与 SHA-256。

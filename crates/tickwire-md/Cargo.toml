@@ -31,6 +31,7 @@ tickwire-control-store = { path = "../tickwire-control-store" }
 tickwire-journal = { path = "../tickwire-journal" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+sha2 = "0.10"
 libc = "0.2"
 
 [dev-dependencies]

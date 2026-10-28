@@ -6,7 +6,7 @@ pub mod replica;
 pub mod retirement;
 #[allow(unsafe_code)]
 pub mod shm;
-pub use shm::{Client, ConnectConfig, ShmSource};
+pub use shm::{Client, ConnectConfig, JoinProgress, PendingJoin, ShmSource};
 #[derive(Debug)]
 pub enum Error {
     Wire(tickwire_ipc::Error),

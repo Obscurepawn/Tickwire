@@ -21,7 +21,143 @@ pub struct Live<S> {
     maximum_age: u64,
     directory: std::path::PathBuf,
 }
+/// The owner binds this request to its authenticated expansion plan before
+/// quiescing the old consumer. Digests record that decision, not authorization.
+pub struct MarketTransitionRequest {
+    pub operation_id: [u8; 16],
+    pub approval_digest: Hash,
+    pub previous_applied: u64,
+    pub maximum_levels: usize,
+}
+fn persist_transition<S: Strategy>(
+    engine: &mut DurableEngine<Application<S>, FileBlobStore>,
+    directory: &std::path::Path,
+    input: Input,
+    expected_view: &[u8],
+    now: u64,
+) -> Result<StreamKey> {
+    let result = (|| {
+        if engine.memory_cut() != engine.last_durable_cut() || !engine.pending.is_empty() {
+            return Err(Error::Identity);
+        }
+        let record = MergedInput {
+            sequence: engine
+                .memory_cut()
+                .sequence
+                .checked_add(1)
+                .ok_or(Error::Capacity)?,
+            now_ns: now,
+            input,
+            effects: vec![],
+        };
+        record.validate()?;
+        if canonical(&record)?
+            .len()
+            .checked_add(engine.engine.row_bytes + 4)
+            .is_none_or(|n| n > MAX_BYTES)
+        {
+            return Err(Error::Capacity);
+        }
+        if engine.strategy().transition_state(&record.input, now)? != expected_view {
+            return Err(Error::StateMismatch);
+        }
+        let Input::MarketTransition { next, .. } = &record.input else {
+            return Err(Error::Identity);
+        };
+        let next = next.clone();
+        engine.apply(record.input, now)?;
+        drop(engine.flush()?);
+        sync_head(engine, directory).map_err(|_| Error::Storage)?;
+        Ok(next)
+    })();
+    if result.is_err() {
+        engine.stop();
+    }
+    result
+}
 impl<S: Strategy> Live<S> {
+    pub fn supports_market_transition(&self) -> bool {
+        matches!(&self.owner, Owner::Recorded(e) if !e.stopped())
+    }
+    /// Records the actual completed JOIN before the caller swaps its Client or
+    /// permits any market callback. The caller supplies the authenticated plan
+    /// and the old consumer's post-QUIESCE applied watermark.
+    pub fn transition_market(
+        &mut self,
+        request: MarketTransitionRequest,
+        client: &tickwire_market_source::shm::Client,
+        now: u64,
+    ) -> crate::Result<()> {
+        let Owner::Recorded(e) = &mut self.owner else {
+            return Err(crate::Error::NotReady);
+        };
+        let result = (|| {
+            if e.memory_cut() != e.last_durable_cut()
+                || !e.pending.is_empty()
+                || client.domain.boot_id() != e.durable_checkpoint().source.clock.boot_id
+                || client.domain.generation() != e.durable_checkpoint().source.clock.generation
+            {
+                return Err(Error::Identity);
+            }
+            let previous = e
+                .durable_checkpoint()
+                .runtime
+                .markets
+                .iter()
+                .find(|c| c.stream == self.market)
+                .ok_or(Error::Identity)?
+                .clone();
+            if previous.sequence != request.previous_applied
+                || client.consumer.watermarks().applied != client.replica.sequence()
+                || client.baseline.join
+                    != crate::bootstrap::wire_bytes(&client.join).map_err(|_| Error::Identity)?
+            {
+                return Err(Error::Identity);
+            }
+            client
+                .catchup
+                .iter()
+                .try_fold(client.baseline_bytes.len(), |n, row| {
+                    n.checked_add(row.record.len())
+                        .and_then(|n| n.checked_add(row.payload.len()))
+                        .filter(|n| *n <= MAX_BYTES)
+                        .ok_or(Error::Capacity)
+                })?;
+            let next = market_stream(&client.bank)?;
+            let input = Input::MarketTransition {
+                operation_id: request.operation_id,
+                approval_digest: request.approval_digest,
+                previous,
+                next: next.clone(),
+                baseline_sequence: client.join.snapshot_seq,
+                activated_sequence: client.consumer.watermarks().applied,
+                baseline: crate::recovery::snapshot_payload(
+                    &client.baseline,
+                    &client.baseline_bytes,
+                    client.baseline_now,
+                    request.maximum_levels,
+                )
+                .map_err(|_| Error::Identity)?,
+                catchup: client
+                    .catchup
+                    .iter()
+                    .map(|r| MarketTransitionRecord {
+                        record: r.record.clone(),
+                        payload: r.payload.clone(),
+                        instrument: r.instrument,
+                        applied_mono_ns: r.applied_mono_ns,
+                    })
+                    .collect(),
+            };
+            let expected = client.replica.checkpoint().map_err(|_| Error::Identity)?;
+            self.market = persist_transition(e, &self.directory, input, &expected, now)?;
+            Ok(())
+        })();
+        if result.is_err() {
+            e.stop();
+        }
+        Ok(result?)
+    }
     pub fn new(
         config: &Bootstrap,
         strategy: S,
@@ -208,7 +344,6 @@ impl<S: Strategy> Live<S> {
             )?;
             candidate.configure_views(self.maximum_age, maximum_levels)?;
             if candidate.checkpoint().runtime.markets.len() != 1
-                || candidate.checkpoint().runtime.markets[0].stream != self.market
                 || candidate.checkpoint().runtime.accounts.len() > 1
             {
                 return Err(Error::Identity);
@@ -216,6 +351,9 @@ impl<S: Strategy> Live<S> {
             now()?;
             let installed = candidate.persist(e, &input.bytes()?, proof)?;
             continuation.apply(e, &mut now)?;
+            if e.durable_checkpoint().runtime.markets[0].stream != self.market {
+                return Err(Error::Identity);
+            }
             sync_head(e, &self.directory).map_err(|_| Error::Storage)?;
             let completed = e.mark_continued(installed, continuation.inputs(), now()?)?;
             self.account = e

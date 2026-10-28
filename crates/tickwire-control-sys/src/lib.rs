@@ -58,8 +58,10 @@ impl ReceivedFrame {
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-pub use linux::{Connection, ControlListener, PrivateDirectory, monotonic_ns};
+pub use linux::{Connection, ControlListener, PendingConnection, PrivateDirectory, monotonic_ns};
 #[cfg(not(target_os = "linux"))]
 mod unsupported;
 #[cfg(not(target_os = "linux"))]
-pub use unsupported::{Connection, ControlListener, PrivateDirectory, monotonic_ns};
+pub use unsupported::{
+    Connection, ControlListener, PendingConnection, PrivateDirectory, monotonic_ns,
+};

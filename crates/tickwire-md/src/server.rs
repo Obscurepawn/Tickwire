@@ -15,6 +15,9 @@ use tickwire_market_source::{
 };
 use tickwire_shm::SubscriptionKey;
 pub type TopicOwner = tickwire_market_publisher::TopicPublisher<32>;
+mod expansion;
+#[cfg(all(test, target_os = "linux"))]
+mod expansion_tests;
 /// Written by the trusted launcher only after it holds the actual process identity.
 /// This file authorizes one qualified principal and exact topic/subscription, not arbitrary HELLOs.
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -137,8 +140,10 @@ enum Stage {
     Readies,
     Ready,
     Active,
+    QuiesceQueued,
     Quiescing,
     Detached,
+    Rejected,
 }
 struct Peer {
     connection: Connection,
@@ -150,6 +155,8 @@ struct Peer {
     request: Option<Vec<u8>>,
     ready_count: usize,
     departure: Option<ControlEnvelope>,
+    outgoing: Option<Vec<u8>>,
+    expansion: Option<[u8; 16]>,
     deadline: Instant,
 }
 pub struct Server {
@@ -158,9 +165,13 @@ pub struct Server {
     identity: IdentityConfig,
     peers: Vec<Peer>,
     requests: tickwire_control_store::DurableRequests<tickwire_journal::store::FileStore>,
+    expansions: Vec<expansion::Expansion>,
 }
 fn requires_rebuild_on_remove(stage: Stage) -> bool {
-    stage != Stage::Detached
+    !matches!(
+        stage,
+        Stage::Hello | Stage::Request | Stage::Detached | Stage::Rejected
+    )
 }
 
 impl Server {
@@ -193,6 +204,7 @@ impl Server {
             identity: c.identity.clone(),
             peers: vec![],
             requests,
+            expansions: Vec::new(),
         })
     }
     pub fn poll(&mut self, topics: &mut [TopicOwner], now: u64) -> Result<()> {
@@ -208,6 +220,8 @@ impl Server {
                     request: None,
                     ready_count: 0,
                     departure: None,
+                    outgoing: None,
+                    expansion: None,
                     deadline: Instant::now() + Duration::from_secs(60),
                 }),
                 Ok(None) => {}
@@ -217,7 +231,7 @@ impl Server {
         let mut i = 0;
         while i < self.peers.len() {
             let result = self.drive(i, topics, now);
-            if self.peers[i].stage == Stage::Detached {
+            if matches!(self.peers[i].stage, Stage::Detached | Stage::Rejected) {
                 self.peers.remove(i);
                 continue;
             }
@@ -227,6 +241,9 @@ impl Server {
                     serde_json::json!({"event":"md_subscriber_closed","error":e.to_string(),"stage":format!("{:?}", self.peers[i].stage),"pid":self.peers[i].connection.peer_credentials().pid})
                 );
                 let peer = self.peers.remove(i);
+                if let (Some(topic), Some(operation)) = (peer.topic, peer.expansion) {
+                    self.fail_expansion(topic, operation);
+                }
                 if let Some(t) = peer
                     .topic
                     .filter(|_| requires_rebuild_on_remove(peer.stage))
@@ -240,12 +257,36 @@ impl Server {
         Ok(())
     }
     fn drive(&mut self, index: usize, topics: &mut [TopicOwner], now: u64) -> Result<()> {
+        let blocked = self.peers[index]
+            .topic
+            .is_some_and(|topic| self.blocked(topic));
         let p = &mut self.peers[index];
         if Instant::now() >= p.deadline && p.stage != Stage::Active {
             return Err(invalid("JOIN timeout"));
         }
         if p.session.as_ref().is_some_and(|s| now >= s.deadline()) {
             return Err(invalid("control lease expired"));
+        }
+        if blocked && matches!(p.stage, Stage::Request | Stage::Waiting) {
+            p.stage = Stage::Rejected;
+            return Err(invalid("topic JOIN paused for expansion"));
+        }
+        if p.stage == Stage::QuiesceQueued {
+            let frame = p
+                .outgoing
+                .as_ref()
+                .ok_or_else(|| invalid("missing expansion outbox"))?;
+            match p.connection.try_send(frame, &[]) {
+                Ok(true) => {
+                    p.outgoing = None;
+                    p.stage = Stage::Quiescing;
+                }
+                Ok(false) => {}
+                Err(tickwire_control_sys::Error::System { source, .. })
+                    if source.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(error) => return Err(error.into()),
+            }
+            return Ok(());
         }
         if p.stage == Stage::Waiting {
             let t = p.topic.ok_or_else(|| invalid("missing topic"))?;
@@ -348,6 +389,15 @@ impl Server {
                 &self.identity,
                 std::process::id(),
             )?;
+            let expected = tickwire_ipc::ResourceHeader::decode(&a.client.bank_header)?;
+            let topic = topics
+                .iter_mut()
+                .position(|topic| topic.split().0.header().resource_id == expected.resource_id)
+                .ok_or_else(|| invalid("unknown admitted bank"))?;
+            if self.expansions.iter().any(|e| e.blocks(topic)) {
+                p.stage = Stage::Rejected;
+                return Err(invalid("topic JOIN paused for expansion"));
+            }
             let (session, welcome) = Session::accept(
                 &policy(&a),
                 ProcessIdentity {
@@ -359,6 +409,7 @@ impl Server {
                 now,
             )?;
             p.connection.send(&welcome, &[], p.deadline)?;
+            p.topic = Some(topic);
             p.session = Some(session);
             p.admission = Some(a);
             p.stage = Stage::Request;
