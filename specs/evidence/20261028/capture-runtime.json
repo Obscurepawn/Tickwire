@@ -1,0 +1,377 @@
+{
+  "schema": 1,
+  "verified_utc": "2026-10-28T09:42:54.903098+00:00",
+  "base_commit": "46495eae21f212f6c846465eea9b33206c31b7a8",
+  "scope": "Declared-rebuild CaptureOnly SDK/Host runtime; explicit native Linux registered-worker acceptance. Target installation and complete schema4 publication remain unimplemented.",
+  "source_manifest": "capture-runtime-source-sha256.json",
+  "source_manifest_sha256": "70d10819bf8fe0357d7e0ce6630f0636e165515e8697ffc3da55ed2b8150a584",
+  "source_files": 808,
+  "source_unchanged_across_build_tests_and_process_runs": true,
+  "checks": {
+    "workspace_gate": {
+      "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+      "exit_code": 0,
+      "includes": [
+        "rustfmt check",
+        "workspace all-targets tests and bench smoke",
+        "doctests",
+        "workspace Clippy -D warnings"
+      ]
+    },
+    "design_contracts": {
+      "scope": "design_artifacts_only_not_runtime_tests",
+      "ipc": {
+        "result": "PASS",
+        "layouts": 46,
+        "fields_checked": 734,
+        "vectors_roundtripped": 74,
+        "data_message_ids": 31,
+        "control_opcodes": 37,
+        "crc32c_checks": 27,
+        "semantic_cases": 25,
+        "unchanged_abi_vectors": 37,
+        "bank_and_cursor_bytes": 3496542208,
+        "all_committed_shm_bytes": 6449856512,
+        "local_links": "PASS"
+      },
+      "risk": {
+        "cases": 21,
+        "expected_fields": 131,
+        "failures": []
+      },
+      "deployment": {
+        "profile": "TW-LD-ASYNC-16x2-v1",
+        "bank_cursor_bytes": 3496542208,
+        "shm_committed_bytes": 6449856512,
+        "shm_limit_bytes": 8589934592,
+        "nominal_disk_bytes_per_second": 532285577,
+        "retention_bytes": 11497368463200,
+        "data_raft_groups": 0
+      },
+      "configuration": {
+        "reference_schema_errors": 0,
+        "production_template_expected_rejections": 413,
+        "openapi": "openapi_spec_validator_pass",
+        "api_operations": 16,
+        "api_refs": 256
+      },
+      "config_semantics": {
+        "reference_schema_errors": 0,
+        "template_expected_errors": 413,
+        "cross_field_checks": "passed",
+        "deployment_and_ipc_consistency": "passed",
+        "openapi_complete_check": "run_repository_validator_with_openapi",
+        "openapi_operations": 16,
+        "openapi_refs_resolved": 256,
+        "negative_cases_passed": 17,
+        "candidate_variants_passed": 3,
+        "projection_and_locator_examples": "passed",
+        "capacity": {
+          "strategy_instances": 32,
+          "active": 16,
+          "shadow": 16,
+          "strategy_domain_pairs": 64,
+          "bank_and_cursor_bytes": 3496542208,
+          "snapshot_bytes": 2147483648,
+          "projection_object_bytes": 537395200,
+          "total_with_relay_bytes": 6449856512,
+          "relay_budget_bytes": 268435456
+        }
+      }
+    },
+    "prior_ipc_vectors_unchanged": 67,
+    "new_ipc_vectors": 7,
+    "internal_dependency_graph": {
+      "packages": 60,
+      "dependency_kinds": "all (normal, build, dev)",
+      "result": "DAG"
+    },
+    "sdk_without_default_features": "passed",
+    "formal_verification": {
+      "new_tlc_run": false,
+      "anchor_audit": "capture-runtime-anchor-audit.json",
+      "anchor_audit_reproducer": "capture-runtime-anchor-audit.py",
+      "locks_scanned": 25,
+      "changed_historically_anchored_sources": [],
+      "note": "Historical proofs remain tied to original finite models and source snapshots; final formal verification is deferred until functional development is complete."
+    },
+    "documentation": {
+      "markdown_files": 139,
+      "local_links": 485,
+      "reference_usages": 0,
+      "errors": []
+    }
+  },
+  "capture_process": {
+    "command": "TICKWIRE_CAPTURE_EVIDENCE=/tmp/tickwire-progress-20261028/capture-runtime-process-evidence TICKWIRE_CAPTURE_WORKER=/tmp/tickwire-progress-20261028/capture-runtime-worker-bin/tickwire-counting-worker CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target cargo test -p tickwire-strategy-host --test capture_process -- --ignored --nocapture --test-threads=1",
+    "exit_code": 0,
+    "passed": 2,
+    "ignored": 0,
+    "worker": {
+      "source": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-worker",
+      "frozen_path": "/tmp/tickwire-progress-20261028/capture-runtime-worker-bin/tickwire-counting-worker",
+      "bytes": 6109304,
+      "sha256": "30602a8e1372339fb73f8cc27f329524f16f9a2977b174269764308acf04ebcc"
+    },
+    "fixture_scope": "Independent registered strategy child; actual MD JOIN server and memfd publisher in a parent thread. Account records are deterministic canonical fixtures; no Binance connection or execution-process publication is claimed.",
+    "user_factory_guard": "The exact bound configuration is invalid JSON for the registered counting factory; capture success plus the static-registration unit test verifies configure/create are not invoked.",
+    "pid": 535781,
+    "same_child_kept_after_seal": true,
+    "market_start": 2,
+    "market_end": 3,
+    "account_start": 0,
+    "account_end": 1,
+    "warm_rows": 3,
+    "report_ring_sequence": 2,
+    "seal_sha256": "d0ac1ca6537f17badcd28858406b21d1a44d60649d699895bf542fc139cfd24c",
+    "graceful_stop": {
+      "md_all_detached": true,
+      "md_bank_live": true,
+      "same_child_successful_exit": true
+    },
+    "negative_cases": [
+      "missing persisted Bootstrap root",
+      "missing persisted SealRequest root",
+      "tampered completion marker after receipt persistence",
+      "expired capture deadline",
+      "Drop reaps owned child"
+    ],
+    "export_directory": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence",
+    "exported_objects": [
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-1ffbea895c236ef431628efaba2c5f653648fdd3bf417f150a6544c9286bc7e1",
+        "bytes": 12113,
+        "sha256": "1ffbea895c236ef431628efaba2c5f653648fdd3bf417f150a6544c9286bc7e1"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-2460a8ea6f9eef6a0af6574ffb81212320bff4f34140fcef240d71f06653dfbb",
+        "bytes": 429,
+        "sha256": "2460a8ea6f9eef6a0af6574ffb81212320bff4f34140fcef240d71f06653dfbb"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-60cc097ddda19e5e7edf8e4f3a9bf87a6cc673d070e85e18513ba4fc8e281ae9",
+        "bytes": 806,
+        "sha256": "60cc097ddda19e5e7edf8e4f3a9bf87a6cc673d070e85e18513ba4fc8e281ae9"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-642cf2f9876ac645b3a6cf7efa4a9b8b939d77e379986858f25d92905d523960",
+        "bytes": 725,
+        "sha256": "642cf2f9876ac645b3a6cf7efa4a9b8b939d77e379986858f25d92905d523960"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-87899e1564f044dda9d065f68ac23ec63e51862dd1238d75aed74191c3936b8a",
+        "bytes": 14242,
+        "sha256": "87899e1564f044dda9d065f68ac23ec63e51862dd1238d75aed74191c3936b8a"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-b73e4afd5eea08c83c54db6406559cb45e8a848b472f2a48438d2fd181d8b4e0",
+        "bytes": 1601,
+        "sha256": "b73e4afd5eea08c83c54db6406559cb45e8a848b472f2a48438d2fd181d8b4e0"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-cc7a06ccf2e673962e3f7dd40db857f58e3ed2d3c4300ec6fe9e4e93acd2416b",
+        "bytes": 1184,
+        "sha256": "cc7a06ccf2e673962e3f7dd40db857f58e3ed2d3c4300ec6fe9e4e93acd2416b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-d0ac1ca6537f17badcd28858406b21d1a44d60649d699895bf542fc139cfd24c",
+        "bytes": 2503,
+        "sha256": "d0ac1ca6537f17badcd28858406b21d1a44d60649d699895bf542fc139cfd24c"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/export-f4cdcd1c8354ed356348c11afa143e3ae92d11f06db2f691193779589245435c",
+        "bytes": 22084,
+        "sha256": "f4cdcd1c8354ed356348c11afa143e3ae92d11f06db2f691193779589245435c"
+      }
+    ],
+    "receipt": {
+      "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-evidence/receipt.json",
+      "bytes": 1601,
+      "sha256": "b73e4afd5eea08c83c54db6406559cb45e8a848b472f2a48438d2fd181d8b4e0"
+    },
+    "no_intent_lane_or_business_ready": true
+  },
+  "compatibility": {
+    "scenario": "spot-handover-custom",
+    "profile": "release",
+    "exit_code": 0,
+    "report": "capture-runtime-compat-result.json",
+    "binary_manifest": "capture-runtime-compat-binaries.json",
+    "source_s": 2,
+    "source_c": 10,
+    "target_final_sequence": 285,
+    "mirror_records": 12,
+    "worker_records": 12,
+    "actual_old_strategy_exit": [
+      {
+        "event": "strategy_retired",
+        "exit_status": "exit status: 0",
+        "generation": 5,
+        "instance": [
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2,
+          2
+        ],
+        "worker_pid": 534584
+      }
+    ],
+    "account_outcome": "BTC 1.001; USDT 940; terminal fee reconciliation complete; no Unknown",
+    "input_audit": {
+      "root": "/tmp/tw-cap-compat-1028-1",
+      "physical_frame_sha256_crc32c_chain_verified": true,
+      "gap_records": [
+        {
+          "input_sequence": 2,
+          "kind": 4,
+          "connection_epoch": 1,
+          "gap_generation": 2,
+          "reason": 4,
+          "reason_name": "Clock"
+        }
+      ],
+      "quarantine_records": [],
+      "reactivations": [
+        {
+          "account_sequence": 1,
+          "prior_ledger_sequence": 0,
+          "input_stream": "35353535353535353535353535353535",
+          "private_connection_epoch": 2,
+          "gap_generation": 2,
+          "through_sequence": 6,
+          "query_coverage_digest": "2b81f32024511d5ca275c4a31d86c074e8e95a596b95dd011f595642e3cff7c7",
+          "evaluated_at": 24886812627958,
+          "valid_until": 24916812627958,
+          "writer_epoch": 4,
+          "execution_connection_epoch": 1
+        },
+        {
+          "account_sequence": 9,
+          "prior_ledger_sequence": 8,
+          "input_stream": "35353535353535353535353535353535",
+          "private_connection_epoch": 2,
+          "gap_generation": 2,
+          "through_sequence": 17,
+          "query_coverage_digest": "eb9b758bbdd4a40cf3285165504647611c7e0c4db75dec7fecbcabb76755a30e",
+          "evaluated_at": 24891306518261,
+          "valid_until": 24921306518261,
+          "writer_epoch": 4,
+          "execution_connection_epoch": 1
+        },
+        {
+          "account_sequence": 10,
+          "prior_ledger_sequence": 9,
+          "input_stream": "35353535353535353535353535353535",
+          "private_connection_epoch": 2,
+          "gap_generation": 2,
+          "through_sequence": 20,
+          "query_coverage_digest": "b874716abf4d08040199239cfdf83205f9b521bb90b94916a97f698a3d5ecc0c",
+          "evaluated_at": 24906364886246,
+          "valid_until": 24936364886246,
+          "writer_epoch": 4,
+          "execution_connection_epoch": 1
+        },
+        {
+          "account_sequence": 11,
+          "prior_ledger_sequence": 10,
+          "input_stream": "35353535353535353535353535353535",
+          "private_connection_epoch": 2,
+          "gap_generation": 2,
+          "through_sequence": 23,
+          "query_coverage_digest": "2cb99041c8c4b70a584f627ad396a0f44066f25403e273014432457784f492ed",
+          "evaluated_at": 24921402027220,
+          "valid_until": 24951402027220,
+          "writer_epoch": 4,
+          "execution_connection_epoch": 1
+        },
+        {
+          "account_sequence": 12,
+          "prior_ledger_sequence": 11,
+          "input_stream": "35353535353535353535353535353535",
+          "private_connection_epoch": 2,
+          "gap_generation": 2,
+          "through_sequence": 26,
+          "query_coverage_digest": "3e7d3d6d235d4afaabec01e47240c4226bba2b99332b214a022ccc2e43e63450",
+          "evaluated_at": 24936427969148,
+          "valid_until": 24966427969148,
+          "writer_epoch": 4,
+          "execution_connection_epoch": 1
+        }
+      ]
+    }
+  },
+  "safety_boundary": "Capture mode inherits the existing explicit qualified-SHM launcher contract. New unsafe API declarations/calls express that same caller obligation; existing mapping/cursor operations were extracted and reused, with no new low-level mapping access or relaxed lints.",
+  "documentation": {
+    "new_figure": "assets/rebuild-capture.svg",
+    "figure_sha256": "3f03ceacb5830134a18072291ff05de32b663103b2fa14c7e883cc0a01cc83c6",
+    "self_contained_svg_assets": 5,
+    "rendered_preview": "/tmp/tickwire-progress-20261028/rebuild-capture.png",
+    "visual_review": "Rendered PNG inspected: no clipping or overlapping labels observed.",
+    "svg_xml_validation": "passed: 5 self-contained figures with viewBox, title and description"
+  },
+  "logs": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-runtime-check-rust.log",
+      "bytes": 234979,
+      "sha256": "a05ad18edb956a833fc721e372c081ce80a807a9316092e984889a42e8ef7e69"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-runtime-contracts.log",
+      "bytes": 1765,
+      "sha256": "fb50f7c6a49ac00ffee61784ae336853c5e8cd76dedc51f71f71d452c8802409"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-runtime-release-build.log",
+      "bytes": 7612,
+      "sha256": "939f54b9b0b54b6682604c7d0907fdeea0a1c6ead007f9fba94b60cf0d4a3d01"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-runtime-process-final.log",
+      "bytes": 1384,
+      "sha256": "21eff19a5cf31669819fcc4986b9c2d68f099f5d773c921115837864add5bcfb"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-ipc-red.log",
+      "bytes": 993,
+      "sha256": "dd680b7d279e0e86e0e8b0e6e443b1e7c21dbbf4bcd9d5d5d2a5175e0f570e61"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-ipc-green.log",
+      "bytes": 8350,
+      "sha256": "ecd2a4699ada4082b3f6674a4eb92f74d28537037fc55dce59d6db9f257e3d73"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-host-roots-red.log",
+      "bytes": 958,
+      "sha256": "6cdfe0a33c6ba0d69a962991519c97c17198d61d5269d7220f76091bac5ccf0f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-host-roots-green.log",
+      "bytes": 472,
+      "sha256": "07f3e274d5731c2bf254f8a2028699fa7a854e2cc0fa1ad9d180e5145d8af7ea"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/capture-worker-no-default.log",
+      "bytes": 352,
+      "sha256": "1a540c85a6474870506b5eac35ce5ed06f907d738cef301abda44e20f29d1b40"
+    }
+  ],
+  "limits": [
+    "App continues to reject schema4 until actual target installation, post-window continuation and full publication are implemented.",
+    "Abnormal child death is not a graceful MD detach; death reclamation is a separate unfinished subsystem.",
+    "The tests establish functional behavior, not production qualification or latency measurements.",
+    "Native WSL2 Linux was used; Docker check-linux.sh was not run."
+  ]
+}

@@ -78,6 +78,15 @@ for name,kind in [('market_arm_control_body',6),('market_commit_control_body',7)
  assert body['expected_cut_digest']=='08'*32 and body['operation_revision']==10
 assert s['market_transition_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
 assert decode('ControlEnvelope',bytes.fromhex(vs['market_arm_rejected_header']['hex']))['flags']==18
+# CaptureSeal fixes a complete account prefix and Contract before reporting a window.
+assert s['enums']['replay_kind']['CaptureSeal']==8
+capture=decode('ReplayControlBody',bytes.fromhex(vs['capture_seal_control_body']['hex']))
+assert capture['replay_kind']==8 and capture['expected_sequence']==19 and capture['operation_revision']==1
+assert capture['expected_cut_digest']=='08'*32
+assert s['capture_seal_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
+for tag,opcode,flags,status in [('request',41,1,0),('applied',42,10,0),('rejected',42,18,2)]:
+ env=decode('ControlEnvelope',bytes.fromhex(vs['capture_seal_'+tag+'_header']['hex']))
+ assert (env['opcode'],env['flags'],env['status'])==(opcode,flags,status)
 # Independent selected field offsets and signed encoding checks.
 a=bytes.fromhex(vs['new_limit_intent']['hex']);assert int.from_bytes(a[128+120:128+128],'little',signed=True)==6500000;assert int.from_bytes(a[128+384+24:128+384+32],'little')==101
 b=bytes.fromhex(vs['fill_report']['hex']);assert b[128+256:128+264]==bytes.fromhex('bfffffffffffffff');assert b[128+316]==248

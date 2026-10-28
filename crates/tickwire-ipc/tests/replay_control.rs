@@ -89,7 +89,7 @@ fn market_transition_kinds_use_existing_authenticated_control_layout() {
         }
     }
     let mut bad = body;
-    bad.replay_kind = 8;
+    bad.replay_kind = 9;
     let mut bytes = [0; 256];
     bad.encode(&mut bytes).unwrap();
     assert!(ControlFrame::decode(&frame(&bytes, 41)).is_err());
@@ -124,5 +124,49 @@ fn market_arm_rejection_is_explicit_and_bounded() {
         h.header_crc32c = crc32c(&raw[..128]);
         h.encode(&mut raw[..128]).unwrap();
         assert_eq!(ControlFrame::decode(&raw).is_ok(), status <= 3);
+    }
+}
+
+#[test]
+fn capture_seal_accepts_bound_success_and_explicit_rejection_only() {
+    let body = ReplayControlBody {
+        instance_id: [1; 16],
+        strategy_generation: 2,
+        logical_strategy_id: 3,
+        challenge: [4; 16],
+        valid_until_mono_ns: 5,
+        object_digest: [6; 32],
+        object_bytes: 7,
+        expected_sequence: 19,
+        expected_cut_digest: [8; 32],
+        operation_id: [9; 16],
+        operation_revision: 1,
+        schema: 1,
+        replay_kind: 8,
+    };
+    let mut bytes = [0; 256];
+    body.encode(&mut bytes).unwrap();
+    for opcode in [41, 42] {
+        ControlFrame::decode(&frame(&bytes, opcode)).unwrap();
+    }
+    for kind in [1, 5, 6, 7, 8, 9] {
+        let mut body = body.clone();
+        body.replay_kind = kind;
+        body.encode(&mut bytes).unwrap();
+        for status in [0, 1, 2, 3, 4] {
+            let mut raw = frame(&bytes, 42);
+            let mut h = ControlEnvelope::decode(&raw[..128]).unwrap();
+            h.flags = 18;
+            h.status = status;
+            h.header_crc32c = 0;
+            h.encode(&mut raw[..128]).unwrap();
+            h.header_crc32c = crc32c(&raw[..128]);
+            h.encode(&mut raw[..128]).unwrap();
+            assert_eq!(
+                ControlFrame::decode(&raw).is_ok(),
+                (6..=8).contains(&kind) && (1..=3).contains(&status),
+                "kind={kind} status={status}"
+            );
+        }
     }
 }

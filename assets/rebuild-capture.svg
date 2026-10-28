@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1080" viewBox="0 0 1440 1080" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · 声明重建的输入采集</title>
+<desc id="diagram-desc">Host持有真实采集子进程并登记MD准入。CaptureOnly完成真实JOIN，接收执行端账户完整前缀，建立种子；仅用SDK固定观察器采集行情和账户记录。Host发起绑定合同和账户位置的封口请求，worker同步合同、种子、输入、WindowSeal和完成记录。Host重算整个窗口并核对实际PID、会话、报告游标与期限。同一子进程保持无READY和无交易输出，目标安装与发布接线待续。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="1080" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · 声明重建的输入采集</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">先采集真实输入并封口，再固定 Plans 与发布操作；采集进程尚未创建用户策略。</text>
+<rect x="38.0" y="132" width="260" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="168" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">Host / 执行端</text>
+<path d="M 168 194 V 884" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="386.0" y="132" width="248" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="510" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">MD 进程</text>
+<path d="M 510 194 V 884" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="710.0" y="132" width="304" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="862" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">CaptureOnly 子进程</text>
+<path d="M 862 194 V 884" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="1134.0" y="132" width="236" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="1252" y="171" font-size="22" text-anchor="middle" style="fill:#13263e" class="title">持久对象</text>
+<path d="M 1252 194 V 884" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<path d="M 168 238 L 862 238" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="515.0" y="226" font-size="18" text-anchor="middle" style="fill:#13263e">启动固定 binary；Registry 持有实际 Child</text>
+<path d="M 168 288 L 510 288" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="339.0" y="276" font-size="18" text-anchor="middle" style="fill:#13263e">登记实际 PID / 身份</text>
+<path d="M 862 342 L 510 342" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="686.0" y="330" font-size="18" text-anchor="middle" style="fill:#13263e">认证 JOIN / 快照 + 增量追平</text>
+<path d="M 168 396 L 862 396" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="515.0" y="384" font-size="18" text-anchor="middle" style="fill:#13263e">认证报告通道：基线 + 完整账户前缀</text>
+<rect x="690" y="416" width="344" height="74" rx="10" fill="#eaf4f4" stroke="#c8e0e1" stroke-width="1.5"/>
+<text x="862" y="446" font-size="18" text-anchor="middle" style="fill:#087f8c" class="title">以真实市场与账户视图建立种子</text>
+<text x="862" y="475" font-size="17" text-anchor="middle" style="fill:#50647d">固定观察器 · 不执行用户工厂</text>
+<path d="M 510 538 L 862 538" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="686.0" y="526" font-size="18" text-anchor="middle" style="fill:#13263e">实际行情记录 / 观察次序</text>
+<path d="M 168 586 L 862 586" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="515.0" y="574" font-size="18" text-anchor="middle" style="fill:#13263e">有序账户记录</text>
+<path d="M 168 640 L 862 640" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="515.0" y="628" font-size="18" text-anchor="middle" style="fill:#13263e">CaptureSeal：Contract / 账户位置 / 挑战 / 期限</text>
+<path d="M 862 694 L 1252 694" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1057.0" y="682" font-size="18" text-anchor="middle" style="fill:#13263e">合同、种子、输入、Seal</text>
+<path d="M 862 740 L 1252 740" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1057.0" y="728" font-size="18" text-anchor="middle" style="fill:#13263e">同步完成记录</text>
+<path d="M 862 792 L 168 792" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="515.0" y="780" font-size="18" text-anchor="middle" style="fill:#50647d">认证回执：对象摘要 / 实际 PID / 报告游标</text>
+<rect x="48" y="816" width="1060" height="64" rx="10" fill="#e8eef7" stroke="#d8e2ef" stroke-width="1.5"/>
+<text x="72" y="843" font-size="18" text-anchor="start" style="fill:#2369b5" class="title">Host 重读闭包并逐行重算窗口，核对当前子进程、会话和期限。</text>
+<text x="72" y="868" font-size="17" text-anchor="start" style="fill:#50647d">封口成功保留事实；业务 READY 与交易输出仍关闭。</text>
+<rect x="48" y="920" width="1344" height="130" rx="10" fill="#fffaf1" stroke="#e7d4b5" stroke-width="1.5"/>
+<text x="72" y="954" font-size="21" text-anchor="start" style="fill:#a66b14" class="title">后续接线：目标安装与完整 schema4 发布</text>
+<text x="72" y="990" font-size="18" text-anchor="start" style="fill:#50647d">固定窗口 → 全成员 Plans / 签名 Operation → 真实工厂重建 / 持久安装 → 独立回滚探测</text>
+<text x="72" y="1025" font-size="18" text-anchor="start" style="fill:#50647d">安装后取得真实 READY，再经协调器采纳、Commit / Release，完成窗口后的连续接续。</text>
+</svg>

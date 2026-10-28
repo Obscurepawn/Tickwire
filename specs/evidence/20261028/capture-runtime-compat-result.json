@@ -1,0 +1,522 @@
+{
+  "schema": 1,
+  "verified_utc": "2026-10-28T09:37:44.333011+00:00",
+  "scenario": "spot-handover-custom",
+  "profile": "release",
+  "exit_code": 0,
+  "result": {
+    "path": "/tmp/tw-cap-compat-1028-1/run-result.json",
+    "bytes": 4678,
+    "sha256": "856b9bb8d051cb3b331c5b7ecad8037ed5cd8e648c0f20c4a279aa1fdb760d52"
+  },
+  "account_report": {
+    "path": "/tmp/tw-cap-compat-1028-1/account-report.json",
+    "bytes": 3187,
+    "sha256": "b3752f178c1b3f35be79c45f11009ad15b481357876363383e008847e6946cc8"
+  },
+  "binary_manifest": {
+    "path": "/tmp/tickwire-progress-20261028/capture-runtime-compat-binaries.json",
+    "bytes": 4417,
+    "sha256": "9903daef603138eaf2421c0824064de2b41a654d0db3b8ea8a608d5b6dbf32eb"
+  },
+  "source_after_run": "UNCHANGED: 808 build inputs",
+  "event": "laboratory_spot_handover_complete",
+  "mirror_records": 12,
+  "worker_records": 12,
+  "preflight": {
+    "action_pending_at_s": true,
+    "action_remains_consumed": true,
+    "custom_counters": {
+      "source_c": {
+        "action": [
+          99,
+          153,
+          246,
+          216,
+          99,
+          176,
+          143,
+          70,
+          82,
+          179,
+          66,
+          194,
+          225,
+          53,
+          11,
+          76,
+          1,
+          226,
+          145,
+          51,
+          45,
+          157,
+          132,
+          216,
+          75,
+          87,
+          91,
+          247,
+          39,
+          40,
+          151,
+          210
+        ],
+        "observations": 3,
+        "reports": 4,
+        "schema": 92733768073217,
+        "spent": true
+      },
+      "source_s": {
+        "action": [
+          99,
+          153,
+          246,
+          216,
+          99,
+          176,
+          143,
+          70,
+          82,
+          179,
+          66,
+          194,
+          225,
+          53,
+          11,
+          76,
+          1,
+          226,
+          145,
+          51,
+          45,
+          157,
+          132,
+          216,
+          75,
+          87,
+          91,
+          247,
+          39,
+          40,
+          151,
+          210
+        ],
+        "observations": 0,
+        "reports": 2,
+        "schema": 92733768073217,
+        "spent": false
+      },
+      "target_at_c": {
+        "action": [
+          99,
+          153,
+          246,
+          216,
+          99,
+          176,
+          143,
+          70,
+          82,
+          179,
+          66,
+          194,
+          225,
+          53,
+          11,
+          76,
+          1,
+          226,
+          145,
+          51,
+          45,
+          157,
+          132,
+          216,
+          75,
+          87,
+          91,
+          247,
+          39,
+          40,
+          151,
+          210
+        ],
+        "observations": 3,
+        "reports": 4,
+        "schema": 92733768073218,
+        "spent": true
+      },
+      "target_d": {
+        "action": [
+          99,
+          153,
+          246,
+          216,
+          99,
+          176,
+          143,
+          70,
+          82,
+          179,
+          66,
+          194,
+          225,
+          53,
+          11,
+          76,
+          1,
+          226,
+          145,
+          51,
+          45,
+          157,
+          132,
+          216,
+          75,
+          87,
+          91,
+          247,
+          39,
+          40,
+          151,
+          210
+        ],
+        "observations": 141,
+        "reports": 13,
+        "schema": 92733768073218,
+        "spent": true
+      }
+    },
+    "expansion_prefix": null,
+    "installation_digest": [
+      69,
+      105,
+      141,
+      38,
+      186,
+      145,
+      9,
+      231,
+      251,
+      233,
+      200,
+      66,
+      231,
+      102,
+      139,
+      45,
+      59,
+      134,
+      176,
+      134,
+      102,
+      50,
+      168,
+      195,
+      126,
+      181,
+      43,
+      28,
+      212,
+      78,
+      209,
+      180
+    ],
+    "operation_schema": 3,
+    "restore_digest": [
+      184,
+      220,
+      142,
+      250,
+      255,
+      238,
+      34,
+      201,
+      112,
+      236,
+      202,
+      134,
+      121,
+      101,
+      83,
+      249,
+      50,
+      118,
+      223,
+      176,
+      211,
+      163,
+      196,
+      225,
+      86,
+      244,
+      42,
+      251,
+      205,
+      238,
+      36,
+      206
+    ],
+    "rollback_digest": [
+      245,
+      93,
+      111,
+      51,
+      39,
+      209,
+      137,
+      115,
+      31,
+      84,
+      214,
+      5,
+      115,
+      23,
+      194,
+      40,
+      218,
+      153,
+      202,
+      253,
+      200,
+      248,
+      89,
+      217,
+      83,
+      33,
+      234,
+      231,
+      168,
+      231,
+      38,
+      14
+    ],
+    "rollback_pid": 534597,
+    "rollback_schema": 92733768073218,
+    "source_c_sequence": 10,
+    "source_replay_pid": 534596,
+    "source_report_position": 1,
+    "source_s_sequence": 2,
+    "target_continued_sequence": 0,
+    "target_final_sequence": 285,
+    "target_install_sequence": 0,
+    "target_pid": 534594,
+    "target_schema": 92733768073218
+  },
+  "retired": [
+    {
+      "event": "strategy_retired",
+      "exit_status": "exit status: 0",
+      "generation": 5,
+      "instance": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "worker_pid": 534584
+    }
+  ],
+  "scenario_elf_files": [
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/exec/recovery/object-b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/exec/recovery/object-bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2",
+      "bytes": 6075664,
+      "sha256": "bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/exec/reports/b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e.bin",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/export/recovery/object-b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/export/recovery/object-bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2",
+      "bytes": 6075664,
+      "sha256": "bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/mirror/objects/object-b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/mirror/objects/object-bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2",
+      "bytes": 6075664,
+      "sha256": "bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/next/commands/merged-inputs/object-b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/next/dependencies/8.bin",
+      "bytes": 6075664,
+      "sha256": "bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/next/preflight-output/b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e.bin",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/next/recovery/b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e.bin",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/next/recovery/bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2.bin",
+      "bytes": 6075664,
+      "sha256": "bb274983e7d722d1fa4398dc5232232cd504bc7a6feea5b3992a6cf78b54a7e2"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/next/reports/object-b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/strategy/dependencies/8.bin",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    },
+    {
+      "path": "/tmp/tw-cap-compat-1028-1/strategy/recovery/b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e.bin",
+      "bytes": 6077456,
+      "sha256": "b030182a2a36ce272c32dea8ddfe1a1fa0882ad5f152a276351901a0d1850f7e"
+    }
+  ],
+  "account_assets": [
+    {
+      "asset_id": 1,
+      "available": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "deficit": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "ownership": [
+        {
+          "quantity": {
+            "atoms": "100000000",
+            "scale": 8
+          },
+          "strategy_id": 0
+        },
+        {
+          "quantity": {
+            "atoms": "100000",
+            "scale": 8
+          },
+          "strategy_id": 8
+        }
+      ],
+      "reserved": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "symbol": "BTC",
+      "total": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "wallet_id": 1
+    },
+    {
+      "asset_id": 2,
+      "available": {
+        "atoms": "94000000000",
+        "scale": 8
+      },
+      "deficit": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "ownership": [
+        {
+          "quantity": {
+            "atoms": "100000000000",
+            "scale": 8
+          },
+          "strategy_id": 0
+        },
+        {
+          "quantity": {
+            "atoms": "-6000000000",
+            "scale": 8
+          },
+          "strategy_id": 8
+        }
+      ],
+      "reserved": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "symbol": "USDT",
+      "total": {
+        "atoms": "94000000000",
+        "scale": 8
+      },
+      "wallet_id": 1
+    }
+  ],
+  "orders": [
+    {
+      "aborted": false,
+      "client_id": "lab-spot-1",
+      "command_sha256": "71944c9940f6e0ef122e378e38607e7b98f2b33919df3a1c7743018af0a636d0",
+      "confirmed": true,
+      "fee_reconciled": true,
+      "filled_quantity": {
+        "atoms": "100000",
+        "scale": 8
+      },
+      "intent_epoch": 4,
+      "intent_id": 3,
+      "manager_generation": 6,
+      "manager_instance": "06060606060606060606060606060606",
+      "origin_generation": 5,
+      "origin_instance": "02020202020202020202020202020202",
+      "original_quantity": {
+        "atoms": "100000",
+        "scale": 8
+      },
+      "owner_revision": 2,
+      "reduce_allocation": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "remaining_quantity": {
+        "atoms": "0",
+        "scale": 8
+      },
+      "strategy_id": 8,
+      "terminal": true,
+      "uncreated": false,
+      "unknown": false
+    }
+  ]
+}

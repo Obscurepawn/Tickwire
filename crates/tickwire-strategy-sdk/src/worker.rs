@@ -39,6 +39,35 @@ pub fn read_config<T: serde::de::DeserializeOwned>(path: &Path, maximum: usize) 
 fn now(clock: &mut SystemClock) -> Result<u64> {
     Ok(clock.sample()?.monotonic.nanos())
 }
+// Crate-private shared boundary. Only qualified run/registered entrypoints call
+// this after validating the exact launch identities and approved resource.
+pub(crate) fn connect_market(
+    config: &tickwire_market_source::ConnectConfig,
+    clock: &mut SystemClock,
+) -> Result<tickwire_market_source::Client> {
+    // SAFETY: the trusted launcher admits this exact qualified child and MD identity.
+    Ok(unsafe {
+        tickwire_market_source::Client::connect(config, &mut || {
+            clock
+                .sample()
+                .map(|s| s.monotonic)
+                .map_err(|_| tickwire_market_source::Error::Identity)
+        })?
+    })
+}
+// Same qualified execution-owned report boundary, shared by normal and capture
+// workers. This is deliberately not a public safe SHM attachment API.
+pub(crate) fn attach_reports(
+    fd: std::os::fd::OwnedFd,
+    bank: tickwire_ipc::ResourceHeader,
+    subscription: SubscriptionKey,
+    objects: tickwire_recovery::FileBlobReader,
+    identity: crate::reports::ReportIdentity,
+) -> Result<crate::reports::ReportReceiver> {
+    // SAFETY: the authenticated execution owner is the qualified sole writer and
+    // has registered this exact pending gate before offering the read-only bank.
+    unsafe { crate::reports::ReportReceiver::attach(fd, bank, subscription, objects, identity) }
+}
 pub(crate) fn connect(
     ep: &Endpoint,
     clock: &mut SystemClock,
@@ -165,15 +194,7 @@ unsafe fn run_inner<S: Strategy>(
                 _ => return Err(Error::NotReady),
             }
         }
-        // SAFETY: the trusted launcher admits this exact qualified child and MD identity.
-        let client = unsafe {
-            tickwire_market_source::Client::connect(external, &mut || {
-                clock
-                    .sample()
-                    .map(|s| s.monotonic)
-                    .map_err(|_| tickwire_market_source::Error::Identity)
-            })?
-        };
+        let client = connect_market(external, &mut clock)?;
         (
             client.connection,
             client.session,
@@ -417,22 +438,18 @@ unsafe fn run_inner<S: Strategy>(
     )?;
     let objects =
         tickwire_recovery::FileBlobReader::open(&config.report_directory, config.report.peer_uid)?;
-    // SAFETY: the authenticated execution owner is the qualified sole writer and
-    // has registered this exact pending gate before offering the read-only bank.
-    let mut reports = unsafe {
-        crate::reports::ReportReceiver::attach(
-            fd,
-            report_bank.clone(),
-            report_sub,
-            objects,
-            crate::reports::ReportIdentity {
-                logical_strategy_id: config.report.local.logical_strategy,
-                instance_id: config.report.local.instance,
-                strategy_generation: config.report.local.generation,
-                risk_domain: config.risk_domain,
-            },
-        )?
-    };
+    let mut reports = attach_reports(
+        fd,
+        report_bank.clone(),
+        report_sub,
+        objects,
+        crate::reports::ReportIdentity {
+            logical_strategy_id: config.report.local.logical_strategy,
+            instance_id: config.report.local.instance,
+            strategy_generation: config.report.local.generation,
+            risk_domain: config.risk_domain,
+        },
+    )?;
     let cursor = reports.cursor_fd()?;
     let ch = cursor_header(&report_bank, report_sub)?;
     let offer = resource_offer(
@@ -1317,40 +1334,14 @@ unsafe fn run_inner<S: Strategy>(
                 proof.applied_seq = released.watermarks().applied;
                 proof.evidence_kind = 1;
                 let until = Instant::now() + Duration::from_secs(3);
-                let departure = tickwire_market_source::retirement::request(
-                    &market_session,
+                crate::retirement::depart_market(
+                    &mut market,
+                    &mut market_session,
+                    &consumer,
                     &j,
                     request.request_id,
-                )?;
-                let departure_request = ControlEnvelope::decode(&departure[..128])?;
-                market
-                    .send(&departure, &[], until)
-                    .map_err(|e| Error::from(e).context("retirement: send MD detach"))?;
-                let command = market
-                    .recv(until)
-                    .map_err(|e| Error::from(e).context("retirement: await MD quiesce"))?;
-                if !command.fds().is_empty() {
-                    return Err(Error::Identity);
-                }
-                let response = consumer
-                    .quiesce(&mut market_session, command.bytes(), now(&mut clock)?)
-                    .map_err(|e| Error::from(e).context("retirement: release market cursor"))?;
-                let market_proof = tickwire_ipc::QuiesceBody::decode(&response[128..])?;
-                market
-                    .send(&response, &[], until)
-                    .map_err(|e| Error::from(e).context("retirement: send MD quiesced"))?;
-                let ack = market
-                    .recv(until)
-                    .map_err(|e| Error::from(e).context("retirement: await MD detached"))?;
-                if !ack.fds().is_empty() {
-                    return Err(Error::Identity);
-                }
-                let ack = market_session.validate(ack.bytes(), now(&mut clock)?)?;
-                tickwire_market_source::retirement::verify_applied(
-                    &ack.envelope,
-                    ack.body,
-                    &departure_request,
-                    &market_proof,
+                    &mut clock,
+                    until,
                 )?;
                 let response = report_session.encode(
                     ControlEnvelope {

@@ -24,6 +24,7 @@ use tickwire_strategy_sdk::{
     worker,
 };
 use tickwire_supervisor::{AuthenticatedChild, LaunchSpec, Registry};
+pub mod capture;
 mod market_transition;
 mod preflight;
 mod readiness;

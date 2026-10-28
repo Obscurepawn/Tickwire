@@ -80,6 +80,51 @@ pub fn check_reply(
     }
     Ok(actual)
 }
+
+/// Shared by normal and capture workers after callbacks and borrowed payloads
+/// have stopped. Success requires the MD owner's actual mapped cursor detach.
+pub(crate) fn depart_market(
+    connection: &mut tickwire_control_sys::Connection,
+    session: &mut Session,
+    consumer: &tickwire_join::JoinConsumer<4>,
+    join: &tickwire_ipc::JoinBody,
+    request_id: [u8; 16],
+    clock: &mut tickwire_clock_sys::SystemClock,
+    until: std::time::Instant,
+) -> Result<()> {
+    let departure = tickwire_market_source::retirement::request(session, join, request_id)?;
+    let departure_request = ControlEnvelope::decode(&departure[..128])?;
+    connection
+        .send(&departure, &[], until)
+        .map_err(|e| Error::from(e).context("retirement: send MD detach"))?;
+    let command = connection
+        .recv(until)
+        .map_err(|e| Error::from(e).context("retirement: await MD quiesce"))?;
+    if !command.fds().is_empty() {
+        return Err(Error::Identity);
+    }
+    let response = consumer
+        .quiesce(session, command.bytes(), clock.sample()?.monotonic.nanos())
+        .map_err(|e| Error::from(e).context("retirement: release market cursor"))?;
+    let market_proof = QuiesceBody::decode(&response[128..])?;
+    connection
+        .send(&response, &[], until)
+        .map_err(|e| Error::from(e).context("retirement: send MD quiesced"))?;
+    let ack = connection
+        .recv(until)
+        .map_err(|e| Error::from(e).context("retirement: await MD detached"))?;
+    if !ack.fds().is_empty() {
+        return Err(Error::Identity);
+    }
+    let ack = session.validate(ack.bytes(), clock.sample()?.monotonic.nanos())?;
+    tickwire_market_source::retirement::verify_applied(
+        &ack.envelope,
+        ack.body,
+        &departure_request,
+        &market_proof,
+    )?;
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;

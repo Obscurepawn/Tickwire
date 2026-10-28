@@ -40,3 +40,9 @@ tickwire-market-source = { path = "../tickwire-market-source" }
 
 tickwire-md = { path = "../tickwire-md" }
 tickwire-release = { path = "../tickwire-release" }
+
+[dev-dependencies]
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-book = { path = "../tickwire-book" }
+tickwire-snapshot = { path = "../tickwire-snapshot" }
+tickwire-risk = { path = "../tickwire-risk" }

@@ -1,5 +1,7 @@
 use super::*;
 use serde::{Deserialize, Serialize};
+mod capture_receipt_tests;
+mod capture_store_tests;
 mod capture_tests;
 mod probe_tests;
 struct Fixture {

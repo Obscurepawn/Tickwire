@@ -1,6 +1,8 @@
 //! Strategy-owned market replica and canonical-command SPSC publication.
 #![deny(unsafe_code)]
 pub mod bootstrap;
+pub mod capture;
+mod capture_worker;
 pub mod checkpoint;
 pub mod handover;
 pub mod market;

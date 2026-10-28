@@ -431,7 +431,8 @@ impl<'a> ControlFrame<'a> {
         validate_control_body(e.opcode, e.flags, &raw[128..])?;
         if matches!(e.opcode, 41 | 42) {
             let b = ReplayControlBody::decode(&raw[128..])?;
-            if (e.flags == 18 && (!matches!(b.replay_kind, 6 | 7) || !(1..=3).contains(&e.status)))
+            if (e.flags == 18
+                && (!(6..=8).contains(&b.replay_kind) || !(1..=3).contains(&e.status)))
                 || is_zero(&b.instance_id)
                 || b.strategy_generation == 0
                 || b.logical_strategy_id == 0
@@ -443,7 +444,7 @@ impl<'a> ControlFrame<'a> {
                 || is_zero(&b.operation_id)
                 || b.operation_revision == 0
                 || b.schema != 1
-                || !(1..=7).contains(&b.replay_kind)
+                || !(1..=8).contains(&b.replay_kind)
             {
                 return Err(Error::Malformed);
             }

@@ -210,8 +210,45 @@ def market_expansion():
     d.text(72,973,'消费者先完成自己的持久边界才恢复回调；新增行情不增加账户资金或交易权限。进程重启后重新资格化。',18,color=MUTED)
     d.finish()
 
+def rebuild_capture():
+    d=Diagram('rebuild-capture.svg', 1080, 'Tickwire · 声明重建的输入采集',
+              '先采集真实输入并封口，再固定 Plans 与发布操作；采集进程尚未创建用户策略。',
+              'Host持有真实采集子进程并登记MD准入。CaptureOnly完成真实JOIN，接收执行端账户完整前缀，建立种子；仅用SDK固定观察器采集行情和账户记录。Host发起绑定合同和账户位置的封口请求，worker同步合同、种子、输入、WindowSeal和完成记录。Host重算整个窗口并核对实际PID、会话、报告游标与期限。同一子进程保持无READY和无交易输出，目标安装与发布接线待续。')
+    xs=[168,510,862,1252]
+    for x,label,w in [(xs[0],'Host / 执行端',260),(xs[1],'MD 进程',248),
+                      (xs[2],'CaptureOnly 子进程',304),(xs[3],'持久对象',236)]:
+        d.rect(x-w/2,132,w,62)
+        d.text(x,171,label,22,anchor='middle',weight=True)
+        d.parts.append(f'<path d="M {x} 194 V 884" stroke="{BORDER}" stroke-width="1.5" stroke-dasharray="5 6"/>')
+    def msg(a,b,y,label,reply=False):
+        d.arrow([(xs[a],y),(xs[b],y)],muted=reply,dash=reply)
+        d.text((xs[a]+xs[b])/2,y-12,label,18,anchor='middle',color=MUTED if reply else INK)
+    msg(0,2,238,'启动固定 binary；Registry 持有实际 Child')
+    msg(0,1,288,'登记实际 PID / 身份')
+    msg(2,1,342,'认证 JOIN / 快照 + 增量追平')
+    msg(0,2,396,'认证报告通道：基线 + 完整账户前缀')
+    d.rect(690,416,344,74,'#eaf4f4','#c8e0e1',10)
+    d.text(862,446,'以真实市场与账户视图建立种子',18,anchor='middle',color=TEAL,weight=True)
+    d.text(862,475,'固定观察器 · 不执行用户工厂',17,anchor='middle',color=MUTED)
+    msg(1,2,538,'实际行情记录 / 观察次序')
+    msg(0,2,586,'有序账户记录')
+    msg(0,2,640,'CaptureSeal：Contract / 账户位置 / 挑战 / 期限')
+    msg(2,3,694,'合同、种子、输入、Seal')
+    msg(2,3,740,'同步完成记录')
+    msg(2,0,792,'认证回执：对象摘要 / 实际 PID / 报告游标',True)
+    d.rect(48,816,1060,64,'#e8eef7','#d8e2ef',10)
+    d.text(72,843,'Host 重读闭包并逐行重算窗口，核对当前子进程、会话和期限。',18,color=BLUE,weight=True)
+    d.text(72,868,'封口成功保留事实；业务 READY 与交易输出仍关闭。',17,color=MUTED)
+    d.rect(48,920,1344,130,'#fffaf1','#e7d4b5',10)
+    d.text(72,954,'后续接线：目标安装与完整 schema4 发布',21,color=AMBER,weight=True)
+    d.text(72,990,'固定窗口 → 全成员 Plans / 签名 Operation → 真实工厂重建 / 持久安装 → 独立回滚探测',18,color=MUTED)
+    d.text(72,1025,'安装后取得真实 READY，再经协调器采纳、Commit / Release，完成窗口后的连续接续。',18,color=MUTED)
+    d.finish()
+
+
 if __name__ == '__main__':
     architecture()
     order_flow()
     handover()
     market_expansion()
+    rebuild_capture()

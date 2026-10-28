@@ -1,6 +1,6 @@
 # 声明重建：资料校验与 SDK 预热
 
-接口对应 `tickwire-release::rebuild` 和 `tickwire-strategy-sdk::replay::rebuild`。这是声明重建的内容与回调实现，Host、worker 启动协议、执行端和协调器接线尚未完成。
+接口对应 `tickwire-release::rebuild`、`tickwire-strategy-sdk::replay::rebuild` 与 `tickwire-strategy-host::capture`。内容校验、SDK 回调和真实子进程的输入采集已实现；目标安装、执行端发布装配及安装后的连续接续仍待完成。
 
 `Plans` 的单一根覆盖发布操作的完整有序成员列表，各成员精确绑定目标实例、代次、时钟、binary、工厂、schema、配置和模型。`Contract` 固定输入范围、行情类别、已知价位、预热数、逻辑时间跨度与记录/字节预算。`Inputs` 保存实际 MD 资源与检查点、完整账户基线/记录和本次窗口的输入顺序；不借用旧实例的虚构检查点。要求旧跨来源处理顺序时明确拒绝。
 
@@ -23,7 +23,7 @@ schema4 的独立 `RebuildPrepared`、`RebuildObserved` 和 `RebuildAdoption` �
 
 协调器恢复先发新 Query。保存的历史完成结果通过 RebuildObserved 取得，全部查询完成且显式 resume 后再发新的 Prepare 刷新；过期历史结果不直接成为新 Commit 资格。当前协议测试包括准备结果同步失败、不重复采纳、丢失采纳结果后恢复、真正 Commit/Release 后再恢复，以及 gate、状态、成员、挑战和根替换拒绝。
 
-`MemberAuthority.readiness` 为可选值。schema1–3 仍要求 Some，已有 JSON 和签名字节不变；schema4 可以没有初始业务 READY，安装结果始终要求真实 READY。app 在实际 WindowSeal/目标安装接通前显式拒绝 schema4 执行，避免误走旧恢复分支。生命周期库 34 项单元测试与定向 Clippy 通过，app/lab all-targets 编译通过；该检查没有运行完整 Rebuild 发布场景。
+`MemberAuthority.readiness` 为可选值。schema1–3 仍要求 Some，已有 JSON 和签名字节不变；schema4 可以没有初始业务 READY，安装结果始终要求真实 READY。app 在真实目标安装与发布闭环接通前显式拒绝 schema4 执行，避免误走旧恢复分支。生命周期库 34 项单元测试与定向 Clippy 通过，app/lab all-targets 编译通过；该检查没有运行完整 Rebuild 发布场景。
 
 ## 输入窗口采集
 
@@ -31,4 +31,30 @@ schema4 的独立 `RebuildPrepared`、`RebuildObserved` 和 `RebuildAdoption` �
 
 `push` 接收同一时钟域中单调的行情应用、行情观察标记和账户记录。它复用真实行情和账户解码、连续序号、资源身份与已接纳动作集合检查，按合同限制时间跨度、记录数和完整输入对象字节数。每次先验证候选视图及窗口，再整体发布；任何错误均保留上一有效窗口，后续正确输入仍可继续。配置、模型、用户定时器和额外外部输入在本采集入口返回 `Unsupported`。
 
-`finish` 消费采集 owner，拒绝空窗口、跨度不足、过期或不连续视图，以及未达到每类最小观察数的窗口；同一已应用记录的重复观察标记只计一次。成功返回实际 `Inputs` 和 `window::Seal`，绑定初始/最终 cursor、合同、种子、完整输入、逐行输入哈希链及账户输入摘要，不构造用户检查点、READY 或交易许可。Host 发布协议和实际进程采集仍待接线。
+`finish` 消费采集 owner，拒绝空窗口、跨度不足、过期或不连续视图，以及未达到每类最小观察数的窗口；同一已应用记录的重复观察标记只计一次。成功返回实际 `Inputs` 和 `window::Seal`，绑定初始/最终 cursor、合同、种子、完整输入、逐行输入哈希链及账户输入摘要，不构造用户检查点、READY 或交易许可。实际进程采集使用下述独立协议；发布操作在输入窗口封口后固定。
+
+## 独立采集进程协议
+
+`registered --capture-only` 使用独立 `capture::Bootstrap`，只建立已批准 MD JOIN 和执行拥有的账户 report 通道，不创建 intent 通道，也不调用用户工厂的 configure/create。启动绑定窗口 Identity、Contract、目标配置/模型、初始账户位置、报告资源与输出目录；Host 注册真实 PID 后才开放 MD 准入。实际 Baseline 与完整账户前缀恰好收到初始位置后，以同一真实 consumer.applied 的当前市场副本建立 seed。后续账户记录属于 warm 输入，不能在封口时改写 seed。
+
+认证 report 41/42 的 kind8 为 CaptureSeal。请求对象固定 capture ID、完整有效 Bootstrap 摘要、Contract、最终账户位置与期限；`expected_sequence` 为该账户位置（0 合法），`expected_cut_digest` 为 Contract 摘要，revision 固定 1。Host 发出封口后停止发布超过该位置的账户记录。worker 已越过位置则明确拒绝；未到位置继续消费到精确位置。资格尚未满足保持采集，达到窗口边界后才封口。拒绝使用 flags18 与既有 Unsupported/Busy/Invalid；认证错误、资源失效或期限届满关闭进程。
+
+成功前同步一次性 attempt、完整窗口对象与完成标记，再将实际 Bootstrap、SealRequest 及绑定实际 PID、请求、报告 ring cursor 和真实市场 applied 的 Receipt 保存到同一输出目录；文件 I/O 后重新采样绝对单调期限与会话，最后发送成功对象。输出目录不允许重启覆盖。封口后同一 PID 不再消费数据，继续验证控制会话和截止时间，重复同请求只返回原收据；在后续真实目标安装实现前始终没有业务对象、READY 或交易输出。窗口闭包由固定观察器重算验证；文件内容校验不替代 Host 的真实子进程身份与报告 cursor 核验。
+
+### 窗口重算与持久化
+
+`capture::VerifiedWindow` 从明确提供的 identity、Contract、空 warm 种子、完整 Inputs 和 Seal 开始，重新运行 SDK 固定观察器。逐行检查时钟、资源、序号、动作集合、观察覆盖与预算，重算完整起止 cursor、输入链和账户摘要；仅结构合法或摘要自洽的 Seal 不能通过。`validate_plan` 进一步核对 Plan 的目标身份、成员风险域和时钟、合同、输入与终点；它不代替完整 Plans/Operation 的签名与授权校验，capture ID 与目标 input_stream 保持不同语义。
+
+`CaptureOnly::qualified` 在不消耗 owner 的情况下执行与 finish 相同的封口条件，供实际采集进程决定何时请求封口。`store::Attempt::begin` 在采集前创建新的 0700 输出目录并同步 ATTEMPT.json，绑定 identity、合同与种子；已有目录一律拒绝，失败尝试不覆盖或重跑。完成时先重算窗口，再同步合同、种子、完整输入与 Seal 四个有界类型对象，最后同步 CAPTURE_WINDOW.json。任何写入或同步失败均不返回完成结果。每个对象最多 16 MiB，完整闭包仍受恢复总预算约束。
+
+`store::read_back` 核对预期完成对象、目录中的 attempt 和全部对象长度/摘要，再执行同一完整重算；缺对象、替换 attempt、修改 Seal 或漏行均拒绝。内容结果不认证实际 PID、控制挑战、报告游标或当前期限，这些事实由 worker/Host 的认证会话核对。App 在目标安装与完整发布闭环接通前继续拒绝 schema4 执行。
+
+### Host 采集 owner
+
+Host 的独立 `capture::Owner` 持有真实 Registry 子进程，只分配 report bank 并登记该 PID 的 MD Admission。启动模板经实际报告描述符、父进程身份和私有控制路径装订后才计算 Bootstrap 摘要；没有 intent lane、用户工厂或业务 READY。调用方提供明确批准的策略二进制与身份，Host 仍核对可执行文件摘要及内核 peer credentials。
+
+封口固定实际 `ReportWriter::last_position`，成功排队后禁止继续发布账户记录。认证 kind8 回复必须精确匹配挑战、窗口、合同、请求位置、代次和期限；Host 按有界 CAS 对象读取 Receipt，再重算整个 WindowSeal，核对实际 report applied/released 游标覆盖该报告位置。Host 还从 worker 输出 CAS 重读 Receipt 引用的 Bootstrap 与 SealRequest，按长度/摘要及实际发送的规范字节逐项比较；缺任一根即拒绝，不以内存对象补成持久完成。文件读取完成后重新检查当前时钟、会话及 Registry 持有的同一存活 PID，才产生 `Captured` 事实。仅存在完成文件、进程曾存活或游标尚未应用均不成功。
+
+任何协议、读取、身份、资源或期限错误使本次 owner 进入不可恢复的失败态并终止、回收子进程，之后不接纳回执或发布报告。成功封口后保留同一子进程等待后续阶段；正常 `stop` 通过 report QUIESCE 要求 worker 先真实 detach MD，再返回报告 cursor 的 Applied；Host detach report 后等待同一子进程成功退出。单纯 kill 或 EOF 不算正常退休。Drop 由 Registry 杀死并回收未退出子进程，异常死亡不会伪造 MD detach。该 owner 不授权交易，也不改变 App 对 schema4 的拒绝。
+
+Capture 模式沿用 Host 已有 qualified-SHM launcher 的调用者安全契约，`Owner::launch` 显式为 unsafe；它不把任意 LaunchSpec 当作安全凭证。报告 FD/cursor 建立复用从 remote launcher 提取的原接缝，没有新增底层映射访问。

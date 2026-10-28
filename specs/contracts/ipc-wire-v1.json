@@ -5427,7 +5427,8 @@
       "Continue": 4,
       "AuxiliaryInput": 5,
       "MarketArm": 6,
-      "MarketCommit": 7
+      "MarketCommit": 7,
+      "CaptureSeal": 8
     }
   },
   "bitsets": {
@@ -7539,6 +7540,22 @@
       "Busy": 2,
       "Invalid": 3
     },
-    "rejection": "Only kind6/7 permit REPLAY_APPLIED flags18 with status1..3; body echoes exact request, no Armed/Activated object."
+    "rejection": "Kind6/7 permit REPLAY_APPLIED flags18 with status1..3; body echoes exact request, no Armed/Activated object. Kind8 uses the separate capture_seal_control contract."
+  },
+  "capture_seal_control": {
+    "request_opcode": 41,
+    "response_opcode": 42,
+    "kind": 8,
+    "operation_id": "capture ID, fixed before starting the capture process",
+    "operation_revision": 1,
+    "expected_sequence": "exact complete account prefix position at seal",
+    "expected_cut_digest": "SHA-256 of complete declared-rebuild Contract",
+    "request_object_max_bytes": 2097152,
+    "rejection_status": {
+      "Unsupported": 1,
+      "Busy": 2,
+      "Invalid": 3
+    },
+    "authorization": "Existing authenticated Host report session and actual owned Registry child. Captured input facts grant neither READY nor trading authority."
   }
 }

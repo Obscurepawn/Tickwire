@@ -89,7 +89,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         {
             return Err(Error::Invalid);
         }
-        let mut report_publisher = tickwire_shm::Publisher::<1>::create(report_header)?;
+        let report_publisher = tickwire_shm::Publisher::<1>::create(report_header)?;
         config.bootstrap.report_header = wire_bytes(report_publisher.header())?;
         let report_objects =
             tickwire_recovery::FileBlobStore::open(&config.bootstrap.report_directory)?;
@@ -208,7 +208,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         if !hello.fds().is_empty() {
             return Err(Error::Invalid);
         }
-        let (mut report_session, welcome) = Session::accept(
+        let (report_session, welcome) = Session::accept(
             &server_policy(&config.bootstrap.report, child),
             report_process,
             hello.bytes(),
@@ -222,44 +222,28 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             generation: config.bootstrap.report_subscription_generation,
             cursor: u128::from_le_bytes(config.bootstrap.report_cursor_id),
         };
-        report_publisher.join(report_sub)?;
-        let membership = report_publisher.membership_version();
-        let expiry = report_session.deadline();
-        let offer = worker::resource_offer(
-            &report_session,
-            report_publisher.header(),
-            [14; 16],
-            expiry,
-            membership,
-            false,
-        )?;
-        let fd = report_publisher.reader_fd()?;
-        report_connection.send(&offer, &[fd.as_fd()], deadline)?;
-        let ch = worker::cursor_header(report_publisher.header(), report_sub)?;
-        let cursor = worker::accept_offer(
-            &mut report_session,
-            report_connection.recv(deadline)?,
-            &ch,
-            [15; 16],
-            expiry,
-            membership,
-            false,
-            clock.sample()?.monotonic.nanos(),
-        )?;
-        // SAFETY: this is the exact owned, qualified child and authenticated cursor.
-        unsafe {
-            report_publisher.register_cursor(report_sub, cursor)?;
-        }
-        let reports = ReportWriter::new(
-            report_publisher,
-            report_objects,
-            ReportIdentity {
-                logical_strategy_id: config.spec.identity.logical_strategy,
-                instance_id: config.spec.identity.instance,
-                strategy_generation: config.spec.identity.generation,
-                risk_domain: config.bootstrap.risk_domain,
-            },
-        )?;
+        let mut report = AuthenticatedChild {
+            connection: report_connection,
+            session: report_session,
+            process: report_process,
+        };
+        // SAFETY: this launcher retains the qualified owned child and authenticated lane.
+        let reports = unsafe {
+            connect_reports(
+                report_publisher,
+                report_objects,
+                report_sub,
+                ReportIdentity {
+                    logical_strategy_id: config.spec.identity.logical_strategy,
+                    instance_id: config.spec.identity.instance,
+                    strategy_generation: config.spec.identity.generation,
+                    risk_domain: config.bootstrap.risk_domain,
+                },
+                &mut report,
+                &mut clock,
+                deadline,
+            )?
+        };
         fn ignore(_: &tickwire_binance_public::Notice<'_>) -> bool {
             true
         }
@@ -293,11 +277,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
                 session,
                 process: actual,
             },
-            report: AuthenticatedChild {
-                connection: report_connection,
-                session: report_session,
-                process: report_process,
-            },
+            report,
             _directory: directory,
             _intent_listener: intent_listener,
             _report_listener: report_listener,
@@ -793,4 +773,53 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
     ) {
         tickwire_runtime::node::Strategy::on_submission(&mut self.strategy, c, r)
     }
+}
+
+/// Shared by qualified launch modes only. The caller owns the authenticated
+/// child and guarantees the SDK cursor and immutable mapping contracts.
+#[allow(unsafe_code)]
+pub(super) unsafe fn connect_reports(
+    mut publisher: tickwire_shm::Publisher<1>,
+    objects: tickwire_recovery::FileBlobStore,
+    sub: tickwire_shm::SubscriptionKey,
+    identity: ReportIdentity,
+    lane: &mut AuthenticatedChild,
+    clock: &mut SystemClock,
+    deadline: Instant,
+) -> Result<Reports> {
+    if lane.session.peer().instance != identity.instance_id
+        || sub.instance.to_le_bytes() != identity.instance_id
+        || publisher.header().consumer_instance != identity.instance_id
+    {
+        return Err(Error::Invalid);
+    }
+    publisher.join(sub)?;
+    let membership = publisher.membership_version();
+    let expiry = lane.session.deadline();
+    let offer = worker::resource_offer(
+        &lane.session,
+        publisher.header(),
+        [14; 16],
+        expiry,
+        membership,
+        false,
+    )?;
+    let fd = publisher.reader_fd()?;
+    lane.connection.send(&offer, &[fd.as_fd()], deadline)?;
+    let header = worker::cursor_header(publisher.header(), sub)?;
+    let cursor = worker::accept_offer(
+        &mut lane.session,
+        lane.connection.recv(deadline)?,
+        &header,
+        [15; 16],
+        expiry,
+        membership,
+        false,
+        clock.sample()?.monotonic.nanos(),
+    )?;
+    // SAFETY: the qualified launcher retains this exact authenticated child's cursor.
+    unsafe {
+        publisher.register_cursor(sub, cursor)?;
+    }
+    Ok(ReportWriter::new(publisher, objects, identity)?)
 }

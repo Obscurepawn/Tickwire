@@ -311,6 +311,12 @@ pub unsafe fn run<R: Registration>(
         return Err(Error::Identity);
     }
     match mode.to_str().ok_or(Error::Identity)? {
+        "--capture-only" => {
+            let config: crate::capture::Bootstrap =
+                crate::worker::read_config(&path, crate::capture::MAX_BYTES)?;
+            capture_entry(registration, &config)?;
+            crate::capture_worker::run(config)?;
+        }
         "--rebuild-rollback" => {
             let job = crate::worker::read_config(&path, 2 * 1024 * 1024)?;
             crate::replay::rebuild::probe::run_with(&job, |input, files| {
@@ -377,6 +383,16 @@ pub unsafe fn run<R: Registration>(
             }
         }
         _ => return Err(Error::Identity),
+    }
+    Ok(())
+}
+
+fn capture_entry<R: Registration>(
+    registration: &R,
+    config: &crate::capture::Bootstrap,
+) -> Result<()> {
+    if registration.id() != config.contract.factory {
+        return Err(Error::Identity);
     }
     Ok(())
 }

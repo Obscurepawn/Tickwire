@@ -2,6 +2,7 @@
 use super::*;
 use tickwire_clock::MonoTime;
 use tickwire_release::rebuild::window::{Identity, Seal, next_chain};
+pub mod store;
 
 type ObservationKey = (StreamKey, u64, u8);
 
@@ -28,6 +29,103 @@ impl Captured {
     }
     pub fn inputs(&self) -> &Inputs {
         &self.inputs
+    }
+}
+/// Recomputed input content only; no process or publication authority.
+pub struct VerifiedWindow {
+    identity: Identity,
+    contract: Contract,
+    seed: Inputs,
+    inputs: Inputs,
+    seal: Seal,
+    objects: Vec<Vec<u8>>,
+}
+impl VerifiedWindow {
+    pub fn verify(
+        identity: &Identity,
+        contract: &Contract,
+        seed: &Inputs,
+        inputs: &Inputs,
+        seal: &Seal,
+    ) -> Result<Self> {
+        seal.bytes()?;
+        inputs.bytes()?;
+        let domain =
+            tickwire_clock::ClockDomain::new(identity.clock.boot_id, identity.clock.generation)
+                .map_err(|_| Error::Identity)?;
+        let mut owner = CaptureOnly::new(
+            identity.clone(),
+            contract.clone(),
+            seed.clone(),
+            MonoTime::new(domain, seed.start_ns),
+        )?;
+        for row in &inputs.warm {
+            owner.push(row.input.clone(), MonoTime::new(domain, row.now_ns))?;
+        }
+        let recomputed = owner.finish()?;
+        if &recomputed.inputs != inputs || &recomputed.seal != seal {
+            return Err(Error::StateMismatch);
+        }
+        Ok(Self {
+            identity: identity.clone(),
+            contract: contract.clone(),
+            seed: seed.clone(),
+            inputs: inputs.clone(),
+            seal: seal.clone(),
+            objects: vec![
+                contract.bytes()?,
+                seed.bytes()?,
+                inputs.bytes()?,
+                seal.bytes()?,
+            ],
+        })
+    }
+    pub fn identity(&self) -> &Identity {
+        &self.identity
+    }
+    pub fn contract(&self) -> &Contract {
+        &self.contract
+    }
+    pub fn seed(&self) -> &Inputs {
+        &self.seed
+    }
+    pub fn inputs(&self) -> &Inputs {
+        &self.inputs
+    }
+    pub fn seal(&self) -> &Seal {
+        &self.seal
+    }
+    pub fn objects(&self) -> impl Iterator<Item = &[u8]> {
+        self.objects.iter().map(Vec::as_slice)
+    }
+    /// Checks content bindings only. The caller still validates the complete
+    /// signed operation and Plans membership before using a publication plan.
+    pub fn validate_plan(&self, plan: &Plan) -> Result<()> {
+        plan.bytes()?;
+        let id = &self.identity;
+        let target = &plan.target;
+        let member = &plan.member;
+        if plan.binding.logical_strategy != id.logical_strategy
+            || target.logical_strategy != id.logical_strategy
+            || target.instance != id.instance
+            || target.generation != id.generation
+            || target.binary_digest != id.binary
+            || target.state_schema != self.contract.state_schema
+            || target.input_stream == [0; 16]
+            || target.clock != id.clock
+            || member.risk_domain != id.risk_domain
+            || member.new_instance != id.instance
+            || member.new_generation != id.generation
+            || member.clock_boot_id != id.clock.boot_id
+            || member.clock_generation != id.clock.generation
+            || self.seal.end.now_ns >= member.valid_until_ns
+            || plan.contract != self.seal.contract
+            || plan.inputs != self.seal.inputs
+            || plan.end != self.seal.end
+        {
+            return Err(Error::Identity);
+        }
+        Ok(())
     }
 }
 fn frontier(runtime: &RuntimeState, rows: u64) -> Frontier {
@@ -241,7 +339,7 @@ impl CaptureOnly {
         self.chain = chain;
         Ok(())
     }
-    pub fn finish(self) -> Result<Captured> {
+    pub fn qualified(&self) -> Result<()> {
         if self.inputs.warm.is_empty()
             || self.runtime.now_ns - self.inputs.start_ns < self.contract.minimum_span_ns
         {
@@ -258,6 +356,10 @@ impl CaptureOnly {
                 return Err(Error::StateMismatch);
             }
         }
+        Ok(())
+    }
+    pub fn finish(self) -> Result<Captured> {
+        self.qualified()?;
         let (_, account_input_digest) =
             self.views.account_seal(&self.runtime.accounts[0].stream)?;
         let seal = Seal {

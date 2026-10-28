@@ -135,3 +135,25 @@ fn wrong_registration_or_unbound_path_does_not_run_user_code() {
     assert!(configure(&r, &bad, &target(), &f.files).is_err());
     assert_eq!(calls.get(), 0);
 }
+
+#[test]
+fn capture_entry_reads_only_the_static_registration_id() {
+    struct CaptureRegistration;
+    impl Registration for CaptureRegistration {
+        type Factory = Factory;
+        type Source = crate::replay::native::Factory;
+        fn id(&self) -> &'static str {
+            "capture-test"
+        }
+        fn configure(&self, _: &restore::Target, _: &VersionedBytes) -> restore::Result<Factory> {
+            panic!("capture must not configure user factory")
+        }
+        fn source(&self, _: u64) -> crate::replay::Result<Self::Source> {
+            panic!("capture must not restore a source factory")
+        }
+    }
+    let mut config = crate::capture::tests::fixture();
+    capture_entry(&CaptureRegistration, &config).unwrap();
+    config.contract.factory = "another-factory".into();
+    assert!(capture_entry(&CaptureRegistration, &config).is_err());
+}
