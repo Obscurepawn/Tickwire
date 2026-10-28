@@ -1,0 +1,128 @@
+{
+  "status": "verified",
+  "input_report_sha256": "a17cc69825153243a2f7e828d480e84285e983341231c8ecf3fd7e54b5544e32",
+  "verifier_sha256": "3e579d1204b11d84e470d021f853cd17f4f52cd94f0fba862715171f6685c4eb",
+  "original_archive_unchanged": true,
+  "positive": {
+    "status": "verified",
+    "artifacts": 74,
+    "source_inputs": 920,
+    "binaries": 8,
+    "actual_process_samples": 22,
+    "killed_stages": 4,
+    "histories": {
+      "expanded": {
+        "objects": 13,
+        "revision": 3,
+        "head": "c452e61cb02d17c0add0f4820724dd12694cf2b86afcf7e4fa08e4d139747b81"
+      },
+      "starting-fault": {
+        "objects": 3,
+        "revision": 1,
+        "head": "576061933a3da19dcff45fb5784b5b266d3552661a2248d726ace3453cd0ee8d"
+      }
+    },
+    "scope": "archived bytes and recorded identities/content only; no network rerun, current launch authority, or performance claim"
+  },
+  "portable_copy_positive": {
+    "status": "verified",
+    "artifacts": 74,
+    "source_inputs": 920,
+    "binaries": 8,
+    "actual_process_samples": 22,
+    "killed_stages": 4,
+    "histories": {
+      "expanded": {
+        "objects": 13,
+        "revision": 3,
+        "head": "c452e61cb02d17c0add0f4820724dd12694cf2b86afcf7e4fa08e4d139747b81"
+      },
+      "starting-fault": {
+        "objects": 3,
+        "revision": 1,
+        "head": "576061933a3da19dcff45fb5784b5b266d3552661a2248d726ace3453cd0ee8d"
+      }
+    },
+    "scope": "archived bytes and recorded identities/content only; no network rerun, current launch authority, or performance claim"
+  },
+  "negative_count": 12,
+  "negative_results": [
+    {
+      "case": "raw-artifact-corruption",
+      "exit_code": 1,
+      "expected_failure": "artifact length",
+      "observed_failure": "ValueError: artifact length: md-restart/cli-acceptance.log"
+    },
+    {
+      "case": "missing-cas-object",
+      "exit_code": 1,
+      "expected_failure": "No such file",
+      "observed_failure": "FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tw-md-offline-final-2manzm5g/missing-cas-object/md-restart/recovery/expanded/object-05ff10e0e77df885722c1606de3c7f6fe500153bd3a597a59083f7c904f114ef'"
+    },
+    {
+      "case": "rebound-dense-order",
+      "exit_code": 1,
+      "expected_failure": "revision/dense prefix changed",
+      "observed_failure": "ValueError: md-restart/recovery/expanded: revision/dense prefix changed"
+    },
+    {
+      "case": "rebound-lost-operation",
+      "exit_code": 1,
+      "expected_failure": "consumed history changed",
+      "observed_failure": "ValueError: md-restart/recovery/expanded: consumed history changed"
+    },
+    {
+      "case": "rebound-lost-historical-owner",
+      "exit_code": 1,
+      "expected_failure": "consumed history changed",
+      "observed_failure": "ValueError: md-restart/recovery/expanded: consumed history changed"
+    },
+    {
+      "case": "rebound-config-hash",
+      "exit_code": 1,
+      "expected_failure": "Config hash",
+      "observed_failure": "ValueError: snapshot Config hash"
+    },
+    {
+      "case": "rebound-bank-descriptor",
+      "exit_code": 1,
+      "expected_failure": "bank descriptor SHA-256",
+      "observed_failure": "ValueError: bank descriptor SHA-256"
+    },
+    {
+      "case": "rebound-noncanonical-json",
+      "exit_code": 1,
+      "expected_failure": "noncanonical recovery JSON bytes",
+      "observed_failure": "ValueError: noncanonical recovery JSON bytes"
+    },
+    {
+      "case": "rebound-process-image",
+      "exit_code": 1,
+      "expected_failure": "actual process image binding",
+      "observed_failure": "ValueError: actual process image binding"
+    },
+    {
+      "case": "rebound-event-log-disagreement",
+      "exit_code": 1,
+      "expected_failure": "metadata events differ",
+      "observed_failure": "ValueError: CLI metadata events differ from actual test output"
+    },
+    {
+      "case": "rebound-missing-crash-stage",
+      "exit_code": 1,
+      "expected_failure": "four actual incomplete stages",
+      "observed_failure": "ValueError: four actual incomplete stages"
+    },
+    {
+      "case": "unlisted-cas-object",
+      "exit_code": 1,
+      "expected_failure": "unlisted CAS entry",
+      "observed_failure": "ValueError: expanded: unlisted CAS entry"
+    }
+  ],
+  "copy_root": "/tmp/tw-md-offline-final-2manzm5g",
+  "limitations_review": {
+    "overclaim_found": false,
+    "scope": "Actual fixed Linux MD CLI process tests and archived content; no new network run in this audit, launch authority, production performance, live Binance, physical power-loss, or transparent old-consumer reconnect claim. Quota preservation was tested online; quota store is not independently replayed by this offline verifier."
+  }
+}

@@ -3,6 +3,8 @@ use tickwire_market_source::transition::{Approval, Commit, Phase};
 use tickwire_market_source::{FeedObservation, Invalidation, MarketSink, MarketSource, ShmSource};
 mod fixture;
 mod network;
+mod restart;
+mod restart_failure;
 use fixture::Fixture;
 
 #[test]

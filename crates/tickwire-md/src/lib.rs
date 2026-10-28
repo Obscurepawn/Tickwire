@@ -3,6 +3,7 @@
 pub mod config;
 pub mod engine;
 pub mod expansion;
+pub mod recovery;
 #[allow(unsafe_code)]
 pub mod server;
 pub type Error = Box<dyn std::error::Error>;

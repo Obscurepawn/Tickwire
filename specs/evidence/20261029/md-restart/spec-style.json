@@ -1,0 +1,39 @@
+{
+  "metrics": {
+    "chars": 9561,
+    "negation_per_k": 1.36,
+    "hedge_per_k": 0.0,
+    "directive_per_k": 1.05,
+    "caveat_tail_ratio": 0.1,
+    "disclaimer_count": 0,
+    "distinguish_count": 0,
+    "meta_count": 0,
+    "not_a_but_b_count": 0,
+    "headings": 10,
+    "chars_per_heading": 956,
+    "heading_conclusion_ratio": 0.0,
+    "heading_same_prefix": 2,
+    "section_summary_ratio": 0.0,
+    "first_person_count": 0,
+    "we_count": 0,
+    "paragraph_length_cv": 0.36
+  },
+  "thresholds": {
+    "negation_per_k": 1.5,
+    "hedge_per_k": 1.8,
+    "directive_per_k": 3.5,
+    "caveat_tail_ratio": 0.2,
+    "disclaimer_count": 1,
+    "distinguish_count": 4,
+    "meta_count": 3,
+    "not_a_but_b_count": 3,
+    "chars_per_heading_min": 600,
+    "heading_conclusion_ratio": 0.35,
+    "heading_same_prefix": 3,
+    "section_summary_ratio": 0.3
+  },
+  "flags": [],
+  "notes": [
+    "全文没有“我”：看不出作者。若有真实经历/实测，可在关键处用第一人称写两三句；没有就不要编。"
+  ]
+}

@@ -1,0 +1,32 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.10s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 17 tests
+test server::runtime_tests::process_entry ... ok
+test server::runtime_tests::rejected_plan_cannot_reuse_its_operation_with_corrected_content ... ok
+test server::runtime_tests::restart_failure::actual_runtime_rejects_a_wrong_nonzero_resource_descriptor_before_starting ... ok
+{"checkpoint":[23,198,8,51,93,154,63,209,145,121,92,208,33,230,182,239,194,255,232,35,104,67,215,236,248,48,214,127,252,47,136,49],"depth_live_sequence":1,"event":"md_incomplete_restart_rejected","killed_pid":1185161,"phase":"starting","rejected_pid":1185184}
+test server::runtime_tests::restart::killed_starting_process_without_trade_prewarm_cannot_restart ... ok
+test server::runtime_tests::restart::cold_restart_persists_ready_checkpoint_after_actual_prewarm ... ok
+test server::runtime_tests::cold_build_failure_returns_rejection_without_stopping_existing_owners ... ok
+test server::runtime_tests::restart::zero_operation_rejects_before_quiesce_without_poisoning_durable_history ... ok
+test server::runtime_tests::effective_write_failure_after_commit_keeps_new_bank_closed_and_has_no_success_receipt ... ok
+test server::runtime_tests::invalid_armed_receipt_rejects_before_revocation_and_preserves_old_chain ... ok
+{"checkpoint":[157,62,72,98,235,108,188,122,202,156,226,210,240,3,48,18,121,66,64,180,8,173,143,138,177,171,115,252,126,183,209,203],"event":"md_incomplete_restart_rejected","killed_pid":1185164,"phase":"reserved","rejected_pid":1185192}
+test server::runtime_tests::real_process_expands_with_old_connections_live_and_actual_consumer_rejoin ... ok
+{"checkpoint":[179,81,36,38,185,70,34,176,93,112,77,63,84,7,51,190,140,181,110,36,102,157,64,184,31,48,153,95,39,32,145,119],"event":"md_incomplete_restart_rejected","killed_pid":1185199,"phase":"revoking","rejected_pid":1185214}
+{"checkpoint":[196,82,230,28,176,45,23,192,173,208,244,130,7,36,221,18,105,76,242,184,106,252,247,228,250,8,228,209,57,116,123,129],"event":"md_cold_restart_verified","instrument_ids":[18446744073709551615,9223372036854776809,18446744073709551614],"new_pid":1185202,"old_pid":1185166,"quota_grants":2,"recovery_directory":"/tmp/tw-md-runtime-a2618c2b07ea30ad508bb264f11753e3/recovery","revision":3}
+test server::runtime_tests::restart::completed_expansion_restarts_into_a_new_process_and_can_expand_again ... ok
+test server::runtime_tests::restart::non_ready_checkpoint_cannot_start_a_new_producer_or_spend_new_quota ... ok
+{"depth_live_sequence":1,"depth_subscriptions":2,"event":"md_starting_fault_preconditions","old_resource":[101,101,101,101,101,101,101,101,101,101,101,101,101,101,101,101],"pid":1185158,"replacement_resource":[109,109,109,109,109,109,109,109,109,109,109,109,109,109,109,109],"snapshots":2,"trade_records":1}
+{"checkpoint":[45,42,69,236,95,70,239,48,109,88,86,42,181,237,250,91,164,81,182,45,58,50,118,72,209,124,181,159,179,157,38,21],"event":"md_incomplete_restart_rejected","killed_pid":1185221,"phase":"applied","rejected_pid":1185232}
+test server::runtime_tests::restart::killed_incomplete_expansion_is_not_a_completed_restart_checkpoint ... ok
+{"checkpoint":[87,96,97,147,58,61,161,157,207,244,95,181,120,75,91,38,109,53,82,102,26,34,72,215,38,172,227,69,60,208,238,141],"depth_live_sequence":1,"event":"md_starting_fault_recovered","pid":1185158,"recovery_directory":"/tmp/tw-md-runtime-908c2df7cec00b37fef31feaf755df5f/recovery"}
+test server::runtime_tests::restart::starting_fault_reconnect_can_reserve_a_new_bank_and_finish_prewarm ... ok
+test server::runtime_tests::missing_real_quiescence_expires_closed_without_committing_a_successor ... ok
+test server::runtime_tests::restart_failure::rejected_request_after_irreversible_timeout_cannot_make_recovery_ready ... ok
+test server::runtime_tests::restart_failure::rejected_warmed_candidate_cannot_reuse_its_source_owner_in_a_new_operation ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.99s
+

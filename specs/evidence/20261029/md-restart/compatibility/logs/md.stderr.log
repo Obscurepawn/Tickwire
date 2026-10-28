@@ -1,0 +1,4 @@
+{"error":"Closed","event":"md_subscriber_closed","pid":1185289,"stage":"Active"}
+{"error":"System { operation: \"recvmsg\", source: Os { code: 104, kind: ConnectionReset, message: \"Connection reset by peer\" } }","event":"md_subscriber_closed","pid":1185279,"stage":"Quiescing"}
+{"event":"md_topic_invalidated","generation":2,"instrument":12,"sequence":343,"topic":101}
+{"event":"md_topic_invalidated","generation":2,"instrument":18446744073709551615,"sequence":343,"topic":101}

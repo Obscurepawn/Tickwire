@@ -1,0 +1,86 @@
+{
+  "metrics": {
+    "chars": 4546,
+    "negation_per_k": 0.88,
+    "hedge_per_k": 0.22,
+    "directive_per_k": 0.88,
+    "caveat_tail_ratio": 0.0,
+    "disclaimer_count": 0,
+    "distinguish_count": 0,
+    "meta_count": 0,
+    "not_a_but_b_count": 0,
+    "headings": 10,
+    "chars_per_heading": 455,
+    "heading_conclusion_ratio": 0.0,
+    "heading_same_prefix": 1,
+    "section_summary_ratio": 0.0,
+    "first_person_count": 0,
+    "we_count": 0,
+    "paragraph_length_cv": 0.64
+  },
+  "thresholds": {
+    "negation_per_k": 1.5,
+    "hedge_per_k": 1.8,
+    "directive_per_k": 3.5,
+    "caveat_tail_ratio": 0.2,
+    "disclaimer_count": 1,
+    "distinguish_count": 4,
+    "meta_count": 3,
+    "not_a_but_b_count": 3,
+    "chars_per_heading_min": 600,
+    "heading_conclusion_ratio": 0.35,
+    "heading_same_prefix": 3,
+    "section_summary_ratio": 0.3
+  },
+  "flags": [
+    {
+      "metric": "chars_per_heading",
+      "value": 455,
+      "limit": 600,
+      "advice": "标题过密：合并相邻小节，长文控制在每 600–1200 字一个标题。",
+      "evidence": [
+        [
+          3,
+          "1. 职责"
+        ],
+        [
+          13,
+          "2. 公共 API 入口"
+        ],
+        [
+          21,
+          "3. 在 workspace 中的位置"
+        ],
+        [
+          26,
+          "4. 对应规格"
+        ],
+        [
+          30,
+          "5. 构建与测试"
+        ],
+        [
+          45,
+          "6. 关键不变量与注意事项"
+        ],
+        [
+          57,
+          "扩容控制连接"
+        ],
+        [
+          65,
+          "MD 运行时扩容"
+        ],
+        [
+          73,
+          "7. 改动检查清单"
+        ],
+        [
+          80,
+          "冷恢复持久存储"
+        ]
+      ]
+    }
+  ],
+  "notes": []
+}

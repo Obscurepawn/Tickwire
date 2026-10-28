@@ -3,6 +3,9 @@ use super::*;
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ExpansionControl {
+    /// Durable expansion history and explicitly approved cold restart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub recovery: Option<crate::recovery::Config>,
     pub plan_path: PathBuf,
     pub result_path: PathBuf,
     pub effective_path: PathBuf,

@@ -1,0 +1,10 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.33s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+{"checkpoint":[243,200,241,137,176,26,126,152,148,232,139,155,98,71,240,154,232,54,31,54,167,160,39,81,237,51,178,42,22,35,9,162],"depth_live_sequence":1,"event":"md_incomplete_restart_rejected","killed_pid":1163557,"phase":"starting","rejected_pid":1163560}
+test server::runtime_tests::restart::killed_starting_process_without_trade_prewarm_cannot_restart ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 82 filtered out; finished in 0.27s
+

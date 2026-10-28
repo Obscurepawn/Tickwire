@@ -22,6 +22,34 @@ impl Lookup {
     }
 }
 impl FeedIndex {
+    /// Ordered stable IDs whose positions are the process-local book indices.
+    pub fn instrument_ids(&self) -> &[u64] {
+        &self.ids
+    }
+    /// Restore an exact recorded directory, independently of feed ordering.
+    pub fn restore(feeds: &[Feed], ids: &[u64]) -> Result<Self> {
+        if feeds.is_empty()
+            || feeds.len() > 32
+            || ids.is_empty()
+            || ids.len() > 32
+            || ids
+                .iter()
+                .enumerate()
+                .any(|(i, id)| *id == 0 || ids[..i].contains(id))
+            || feeds.iter().any(|feed| !ids.contains(&feed.instrument.id))
+            || ids
+                .iter()
+                .any(|id| !feeds.iter().any(|feed| feed.instrument.id == *id))
+        {
+            return Err(invalid("MD restored index membership/capacity"));
+        }
+        Ok(Self {
+            instruments: Lookup::Fixed(
+                FixedIndex::new(ids).map_err(|_| invalid("MD restored instrument index"))?,
+            ),
+            ids: ids.to_vec(),
+        })
+    }
     /// Prepare a complete successor without modifying this active index.
     pub fn expanded(&self, feeds: &[Feed]) -> Result<Self> {
         if feeds.is_empty()
@@ -96,3 +124,7 @@ impl FeedIndex {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "feed_index_tests.rs"]
+mod tests;

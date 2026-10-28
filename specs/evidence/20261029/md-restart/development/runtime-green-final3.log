@@ -1,0 +1,31 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 17 tests
+test server::runtime_tests::process_entry ... ok
+test server::runtime_tests::restart_failure::actual_runtime_rejects_a_wrong_nonzero_resource_descriptor_before_starting ... ok
+test server::runtime_tests::restart::cold_restart_persists_ready_checkpoint_after_actual_prewarm ... ok
+{"checkpoint":[191,127,56,142,205,199,76,66,31,73,247,244,226,168,9,49,208,46,180,146,198,117,157,201,220,101,225,38,145,121,221,45],"depth_live_sequence":1,"event":"md_incomplete_restart_rejected","killed_pid":1165177,"phase":"starting","rejected_pid":1165213}
+test server::runtime_tests::restart::killed_starting_process_without_trade_prewarm_cannot_restart ... ok
+test server::runtime_tests::rejected_plan_cannot_reuse_its_operation_with_corrected_content ... ok
+test server::runtime_tests::cold_build_failure_returns_rejection_without_stopping_existing_owners ... ok
+test server::runtime_tests::restart::zero_operation_rejects_before_quiesce_without_poisoning_durable_history ... ok
+test server::runtime_tests::effective_write_failure_after_commit_keeps_new_bank_closed_and_has_no_success_receipt ... ok
+test server::runtime_tests::invalid_armed_receipt_rejects_before_revocation_and_preserves_old_chain ... ok
+{"checkpoint":[143,56,105,40,85,23,174,169,42,83,190,217,152,101,74,216,226,133,175,160,182,243,147,115,107,104,156,224,123,191,110,92],"event":"md_incomplete_restart_rejected","killed_pid":1165181,"phase":"reserved","rejected_pid":1165225}
+test server::runtime_tests::real_process_expands_with_old_connections_live_and_actual_consumer_rejoin ... ok
+{"checkpoint":[240,59,194,227,3,222,242,154,79,157,146,63,93,86,235,16,233,13,1,80,62,244,118,25,160,223,83,161,176,87,121,75],"event":"md_incomplete_restart_rejected","killed_pid":1165234,"phase":"revoking","rejected_pid":1165257}
+{"checkpoint":[56,239,129,68,246,182,105,233,22,73,111,15,88,190,24,165,234,202,238,19,201,168,191,19,162,35,4,96,24,232,19,65],"event":"md_cold_restart_verified","instrument_ids":[18446744073709551615,9223372036854776809,18446744073709551614],"new_pid":1165240,"old_pid":1165178,"quota_grants":2,"recovery_directory":"/tmp/tw-md-runtime-a4b8ea66c59855d690c93329a5641576/recovery","revision":3}
+test server::runtime_tests::restart::completed_expansion_restarts_into_a_new_process_and_can_expand_again ... ok
+test server::runtime_tests::restart::non_ready_checkpoint_cannot_start_a_new_producer_or_spend_new_quota ... ok
+{"depth_live_sequence":1,"depth_subscriptions":2,"event":"md_starting_fault_preconditions","old_resource":[101,101,101,101,101,101,101,101,101,101,101,101,101,101,101,101],"pid":1165182,"replacement_resource":[109,109,109,109,109,109,109,109,109,109,109,109,109,109,109,109],"snapshots":2,"trade_records":1}
+{"checkpoint":[152,8,220,127,214,11,241,183,124,111,79,249,254,193,206,81,69,191,106,54,18,174,158,160,159,211,239,123,231,65,94,158],"depth_live_sequence":1,"event":"md_starting_fault_recovered","pid":1165182,"recovery_directory":"/tmp/tw-md-runtime-be324f17967af398340ff148d27418ef/recovery"}
+test server::runtime_tests::restart::starting_fault_reconnect_can_reserve_a_new_bank_and_finish_prewarm ... ok
+{"checkpoint":[189,248,143,62,20,137,102,225,245,78,132,127,202,157,152,17,230,4,199,133,3,205,81,88,252,1,28,130,39,11,146,207],"event":"md_incomplete_restart_rejected","killed_pid":1165272,"phase":"applied","rejected_pid":1165277}
+test server::runtime_tests::restart::killed_incomplete_expansion_is_not_a_completed_restart_checkpoint ... ok
+test server::runtime_tests::missing_real_quiescence_expires_closed_without_committing_a_successor ... ok
+test server::runtime_tests::restart_failure::rejected_request_after_irreversible_timeout_cannot_make_recovery_ready ... ok
+test server::runtime_tests::restart_failure::rejected_warmed_candidate_cannot_reuse_its_source_owner_in_a_new_operation ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 66 filtered out; finished in 2.98s
+

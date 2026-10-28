@@ -9,7 +9,40 @@ impl Control {
         runtime: &mut Runtime,
         now: u64,
     ) -> Result<()> {
-        let output = result.map_err(|message| invalid(&message))?;
+        let mut output = result.map_err(|message| invalid(&message))?;
+        if let cold::Output::Persisted(store) = output {
+            let durable = self
+                .durable
+                .as_mut()
+                .ok_or_else(|| invalid("unexpected MD persistence reply"))?;
+            if durable.store.is_some() || !matches!(action, Action::Persist(_)) {
+                return Err(invalid("MD persistence ownership"));
+            }
+            durable.store = Some(store);
+            output = cold::Output::Written;
+        }
+        if matches!(action, Action::StartupEffective) {
+            if !matches!(output, cold::Output::Written) {
+                return Err(invalid("MD startup effective reply"));
+            }
+            return self.persist(After::Startup, RecoveryPhase::Ready, runtime);
+        }
+        if let Action::Persist(after @ (After::Startup | After::Report | After::Bank)) = action {
+            if !matches!(output, cold::Output::Written) {
+                return Err(invalid("MD persistence reply"));
+            }
+            let durable = self
+                .durable
+                .as_mut()
+                .ok_or_else(|| invalid("MD persistence missing"))?;
+            if after == After::Startup {
+                durable.ready = true;
+            }
+            if after == After::Report {
+                durable.report_phase = None;
+            }
+            return Ok(());
+        }
         if matches!(action, Action::Report) {
             if !matches!(output, cold::Output::Written) {
                 return Err(invalid("MD result reply"));
@@ -56,13 +89,21 @@ impl Control {
                         // A rejected, decoded operation also consumes its identity. Preserve
                         // an existing result when a conflicting retry is itself rejected.
                         if let Some(plan) = plan
-                            && self.history.len() < 128
+                            && plan.operation_id != [0; 16]
+                            && self.operation_room(plan.operation_id)
                         {
                             self.history
                                 .entry(plan.operation_id)
                                 .or_insert_with(|| record.clone());
                         }
                         self.reporting = Some(record);
+                        if let Some(durable) = &mut self.durable {
+                            durable.report_phase = Some(if durable.closed {
+                                RecoveryPhase::Revoking
+                            } else {
+                                RecoveryPhase::Ready
+                            });
+                        }
                     }
                 }
             }
@@ -82,9 +123,23 @@ impl Control {
         result
     }
     fn prepare(&mut self, bytes: &[u8], runtime: &mut Runtime, now: u64) -> Result<()> {
+        if self.durable.as_ref().is_some_and(|d| d.closed) {
+            return Err(invalid(
+                "MD recovery history is closed after an irreversible failure",
+            ));
+        }
         let plan = Plan::decode(bytes)?;
         let digest: [u8; 32] =
             Sha256::digest(encode(&plan, crate::expansion::MAX_PLAN_BYTES)?).into();
+        if self
+            .durable
+            .as_ref()
+            .is_some_and(|d| d.historical.contains_key(&plan.operation_id))
+        {
+            return Err(invalid(
+                "MD operation belongs to a previous process incarnation",
+            ));
+        }
         if let Some(previous) = self.history.get(&plan.operation_id) {
             if previous.approval_digest != digest {
                 return Err(invalid("MD operation reused with different plan"));
@@ -92,7 +147,7 @@ impl Control {
             self.reporting = Some(previous.clone());
             return Ok(());
         }
-        if self.history.len() >= 128 {
+        if !self.operation_room(plan.operation_id) {
             return Err(invalid("MD expansion operation capacity"));
         }
         let topic = runtime
@@ -119,6 +174,22 @@ impl Control {
             retained,
             now,
         )?;
+        if let Some(store) = self.durable.as_ref().and_then(|d| d.store.as_ref())
+            && store.seen_resource(prepared.bank_template().resource_id)
+        {
+            return Err(invalid("MD candidate bank resource was already consumed"));
+        }
+        if let Some(store) = self.durable.as_ref().and_then(|d| d.store.as_ref())
+            && prepared.added_feeds().iter().any(|feed| {
+                store.seen_owner(feed.owner_id)
+                    || feed
+                        .events
+                        .iter()
+                        .any(|event| store.seen_owner(event.owner_id))
+            })
+        {
+            return Err(invalid("MD candidate source owner was already consumed"));
+        }
         let target = &plan.target_config.topics[topic];
         let (registry, configs) = topic_registry(
             &plan.target_config,
@@ -205,6 +276,12 @@ impl Control {
             error: None,
         };
         self.history.insert(plan.operation_id, record.clone());
+        let build = cold::Task::Build {
+            feeds,
+            index,
+            domain: runtime.domain,
+            tokens,
+        };
         self.flight = Some(Flight {
             started_at: now,
             prepared: Some(prepared),
@@ -217,19 +294,20 @@ impl Control {
             next_admissions: Vec::new(),
             old_routes,
             old_event_routes,
-            stage: Stage::Building,
+            stage: Stage::Reserving,
             irreversible: false,
             record,
+            build: Some(build),
+            installation: None,
         });
-        self.submit(
-            Action::Build,
-            cold::Task::Build {
-                feeds,
-                index,
-                domain: runtime.domain,
-                tokens,
-            },
-        )
+        if self.durable.is_some() {
+            self.persist(After::Reserve, RecoveryPhase::Reserved, runtime)
+        } else {
+            let flight = self.flight.as_mut().unwrap();
+            flight.stage = Stage::Building;
+            let task = flight.build.take().unwrap();
+            self.submit(Action::Build, task)
+        }
     }
     fn reply_flight(
         &mut self,
@@ -243,6 +321,36 @@ impl Control {
             return Err(invalid("MD expansion deadline"));
         }
         match (action, output) {
+            (Action::Persist(After::Reserve), cold::Output::Written) => {
+                flight.stage = Stage::Building;
+                self.submit(
+                    Action::Build,
+                    flight
+                        .build
+                        .take()
+                        .ok_or_else(|| invalid("MD build task missing"))?,
+                )?;
+            }
+            (Action::Persist(After::Revoke), cold::Output::Written) => {
+                self.begin_revocation(flight, runtime, now)?;
+            }
+            (Action::Persist(After::Applied), cold::Output::Written) => {
+                self.submit(
+                    Action::Install,
+                    flight
+                        .installation
+                        .take()
+                        .ok_or_else(|| invalid("MD installation missing"))?,
+                )?;
+            }
+            (Action::Persist(After::Complete), cold::Output::Written) => {
+                if runtime.topics[flight.topic].needs_bank()
+                    || !runtime.topics[flight.topic].state().live()
+                {
+                    return Err(invalid("MD completed topic changed during persistence"));
+                }
+                flight.record.status = "complete".into();
+            }
             (Action::Build, cold::Output::Built(mut built)) => {
                 for owner in &mut built {
                     let slot = flight
@@ -266,34 +374,11 @@ impl Control {
                 if !self.receipts(flight, &values, runtime, now, Phase::Armed)? {
                     return Ok(());
                 }
-                let bank = runtime.topics[flight.topic].split().0.header();
-                if wire_bytes(bank)? != flight.plan.base_bank
-                    || runtime.revision != flight.plan.base_revision
-                    || crate::expansion::config_hash(&runtime.config)?
-                        != flight.plan.base_config_hash
-                    || !flight
-                        .candidate
-                        .as_ref()
-                        .is_some_and(|c| c.ready(now, flight.plan.maximum_age_ns))
-                {
-                    return Err(invalid("MD expansion base/readiness changed"));
+                if self.durable.is_some() {
+                    self.persist(After::Revoke, RecoveryPhase::Revoking, runtime)?;
+                } else {
+                    self.begin_revocation(flight, runtime, now)?;
                 }
-                let expected = flight
-                    .plan
-                    .consumers
-                    .iter()
-                    .map(|c| c.previous.clone())
-                    .collect::<Vec<_>>();
-                let result = runtime.server.begin_expansion(
-                    flight.topic,
-                    flight.plan.operation_id,
-                    &expected,
-                    &mut runtime.topics[flight.topic],
-                    now,
-                );
-                flight.irreversible = runtime.server.topic_paused(flight.topic);
-                result?;
-                flight.stage = Stage::Quiescing;
             }
             (Action::Install, cold::Output::Written) => {
                 flight.record.effective_installed = true;
@@ -361,10 +446,49 @@ impl Control {
                 {
                     return Err(invalid("MD expanded runtime not effective/live"));
                 }
-                flight.record.status = "complete".into();
+                if self.durable.is_some() {
+                    self.persist(After::Complete, RecoveryPhase::Ready, runtime)?;
+                } else {
+                    flight.record.status = "complete".into();
+                }
             }
             _ => return Err(invalid("MD cold result phase")),
         }
+        Ok(())
+    }
+    fn begin_revocation(
+        &mut self,
+        flight: &mut Flight,
+        runtime: &mut Runtime,
+        now: u64,
+    ) -> Result<()> {
+        let bank = runtime.topics[flight.topic].split().0.header();
+        if wire_bytes(bank)? != flight.plan.base_bank
+            || runtime.revision != flight.plan.base_revision
+            || crate::expansion::config_hash(&runtime.config)? != flight.plan.base_config_hash
+            || !flight
+                .candidate
+                .as_ref()
+                .is_some_and(|c| c.ready(now, flight.plan.maximum_age_ns))
+        {
+            return Err(invalid("MD expansion base/readiness changed"));
+        }
+        let expected = flight
+            .plan
+            .consumers
+            .iter()
+            .map(|c| c.previous.clone())
+            .collect::<Vec<_>>();
+        let result = runtime.server.begin_expansion(
+            flight.topic,
+            flight.plan.operation_id,
+            &expected,
+            &mut runtime.topics[flight.topic],
+            now,
+        );
+        flight.irreversible = runtime.server.topic_paused(flight.topic);
+        result?;
+        flight.stage = Stage::Quiescing;
         Ok(())
     }
     fn receipts(

@@ -39,7 +39,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 | 文件 | 职责一句话 | 对应 crate | 实现状态 |
 |---|---|---|---|
 | [instrument-index.md](implementation/instrument-index.md) | 固定集合位掩码映射、动态只追加索引与行情连续存储 | `tickwire-instrument-index` / `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` | 固定/动态索引、本地盘口身份及行情接线；性能边界见规格 |
-| [market-expansion.md](implementation/market-expansion.md) | 受信目录追加、来源预热、bank 切换、消费者重新 JOIN 与可重放市场基线 | `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` / `tickwire-strategy-sdk` / `tickwire-app` | 部分实现（同 catalog、同进程扩容及跨 bank 交接已验收；重启恢复与 catalog 变更待续） |
+| [market-expansion.md](implementation/market-expansion.md) | 受信目录追加、来源预热、bank 切换、消费者重新 JOIN 与冷启动恢复 | `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` / `tickwire-strategy-sdk` / `tickwire-app` | 部分实现（同 catalog 扩容与完成状态冷恢复已接；存活消费者透明续接及 catalog 变更待续） |
 | [binance-protocol.md](implementation/binance-protocol.md) | HMAC/RSA/Ed25519 签名、订单参数编码与类型化错误分类 | `tickwire-binance` | 已实现 |
 | [binance-streams.md](implementation/binance-streams.md) | exchangeInfo/REST depth/depthUpdate/executionReport 类型化解码 | `tickwire-binance`（feed/events） | 已实现 |
 | [binance-sbe.md](implementation/binance-sbe.md) | Spot SBE 固定 schema 解码、精确换算及 MD owner 接线 | `tickwire-binance-sbe` / `tickwire-binance-public` / `tickwire-md` | 已实现（diff、Trade/BBA owner；depth20 仅解码） |

@@ -60,6 +60,7 @@ pub(crate) fn configure(s: &Scenario) -> Result<()> {
     }
     let mut config: Config = read(&s.md_config)?;
     config.expansion = Some(ExpansionControl {
+        recovery: None,
         plan_path: s.root.join("expansion/plan.json"),
         result_path: s.root.join("expansion/result.json"),
         effective_path: s.root.join("expansion/md-effective.json"),

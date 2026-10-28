@@ -1,0 +1,39 @@
+{
+  "metrics": {
+    "chars": 3954,
+    "negation_per_k": 0.0,
+    "hedge_per_k": 0.0,
+    "directive_per_k": 0.51,
+    "caveat_tail_ratio": 0.0,
+    "disclaimer_count": 1,
+    "distinguish_count": 0,
+    "meta_count": 0,
+    "not_a_but_b_count": 0,
+    "headings": 4,
+    "chars_per_heading": 988,
+    "heading_conclusion_ratio": 0.0,
+    "heading_same_prefix": 1,
+    "section_summary_ratio": 0.0,
+    "first_person_count": 0,
+    "we_count": 0,
+    "paragraph_length_cv": 0.34
+  },
+  "thresholds": {
+    "negation_per_k": 1.5,
+    "hedge_per_k": 1.8,
+    "directive_per_k": 3.5,
+    "caveat_tail_ratio": 0.2,
+    "disclaimer_count": 1,
+    "distinguish_count": 4,
+    "meta_count": 3,
+    "not_a_but_b_count": 3,
+    "chars_per_heading_min": 600,
+    "heading_conclusion_ratio": 0.35,
+    "heading_same_prefix": 3,
+    "section_summary_ratio": 0.3
+  },
+  "flags": [],
+  "notes": [
+    "段落长度变异系数 0.34，段落长短过于均匀：重要处展开，次要处一两句带过。"
+  ]
+}

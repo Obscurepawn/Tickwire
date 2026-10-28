@@ -1,0 +1,25 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.41s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+
+thread 'server::runtime_tests::restart::zero_operation_rejects_before_quiesce_without_poisoning_durable_history' (1152560) panicked at crates/tickwire-md/src/server/runtime_tests/restart.rs:466:17:
+rejected plan broke actual source: Transport(Closed); MD log: 
+running 1 test
+
+thread 'server::runtime_tests::process_entry' (1152567) panicked at crates/tickwire-md/src/server/runtime_tests.rs:16:32:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "MD recovery persistence failed: MD recovery consumed operations" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test server::runtime_tests::restart::zero_operation_rejects_before_quiesce_without_poisoning_durable_history ... FAILED
+
+failures:
+
+failures:
+    server::runtime_tests::restart::zero_operation_rejects_before_quiesce_without_poisoning_durable_history
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 79 filtered out; finished in 0.25s
+
+error: test failed, to rerun pass `-p tickwire-md --lib`

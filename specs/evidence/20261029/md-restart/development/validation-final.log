@@ -1,0 +1,17 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 10 tests
+test engine::restart_validation::tests::restart_rejects_the_previous_producer_instance ... ok
+test engine::restart_validation::tests::restart_accepts_explicit_new_identity_and_a_fresh_independent_bank ... ok
+test engine::restart_validation::tests::restart_rejects_nonzero_clock_rollback_in_the_same_host_boot ... ok
+test engine::restart_validation::tests::restart_clock_nonce_and_renewed_quota_rules_are_explicit ... ok
+test engine::restart_validation::tests::restart_rejects_unfinished_or_changed_history_and_revision ... ok
+test engine::restart_validation::tests::restart_rejects_zero_repeated_and_previous_depth_or_event_owners ... ok
+test engine::restart_validation::tests::restart_rejects_reused_paths_and_nested_old_control_locations ... ok
+test engine::restart_validation::tests::restart_rejects_cross_topic_identity_reuse_and_bank_reordering ... ok
+test engine::restart_validation::tests::restart_binds_fresh_bank_geometry_stream_and_independent_frontier ... ok
+test engine::restart_validation::tests::restart_preserves_all_non_launch_configuration_fields ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 70 filtered out; finished in 0.02s
+

@@ -1,0 +1,33 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+warning: method `inherited_lock` is never used
+   --> crates/tickwire-md/src/recovery/store/files.rs:174:19
+    |
+ 43 | impl Files {
+    | ---------- method in this implementation
+...
+174 |     pub(super) fn inherited_lock(&self) -> File {
+    |                   ^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-md` (lib test) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.37s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+
+thread 'server::runtime_tests::restart::cold_restart_persists_ready_checkpoint_after_actual_prewarm' (1138719) panicked at crates/tickwire-md/src/server/runtime_tests/restart.rs:14:9:
+actual warmed MD did not persist a recovery HEAD: 
+running 1 test
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test server::runtime_tests::restart::cold_restart_persists_ready_checkpoint_after_actual_prewarm ... FAILED
+
+failures:
+
+failures:
+    server::runtime_tests::restart::cold_restart_persists_ready_checkpoint_after_actual_prewarm
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 48 filtered out; finished in 3.25s
+
+error: test failed, to rerun pass `-p tickwire-md --lib`

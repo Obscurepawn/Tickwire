@@ -6,6 +6,10 @@ use std::{
 };
 
 pub(super) enum Task {
+    Persist {
+        store: Box<crate::recovery::Store>,
+        snapshot: Box<crate::recovery::Snapshot>,
+    },
     Read(Vec<(PathBuf, usize)>),
     Write(Vec<(PathBuf, Vec<u8>)>),
     Install {
@@ -21,6 +25,7 @@ pub(super) enum Task {
     },
 }
 pub(super) enum Output {
+    Persisted(Box<crate::recovery::Store>),
     Read(Vec<Option<Vec<u8>>>),
     Written,
     Built(Vec<owners::Built>),
@@ -81,6 +86,13 @@ impl Worker {
 }
 fn execute(task: Task) -> Result<Output> {
     match task {
+        Task::Persist {
+            mut store,
+            snapshot,
+        } => {
+            store.write(*snapshot)?;
+            Ok(Output::Persisted(store))
+        }
         Task::Read(paths) => {
             let mut values = Vec::with_capacity(paths.len());
             for (path, maximum) in paths {

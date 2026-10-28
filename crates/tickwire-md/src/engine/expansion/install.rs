@@ -88,13 +88,16 @@ impl Control {
         flight.record.bank_descriptor_hash = Some(finalization.bank.descriptor_hash);
         flight.record.status = "applied".into();
         flight.stage = Stage::Installing;
-        self.submit(
-            Action::Install,
-            cold::Task::Install {
-                directory: runtime.config.admission_directory.clone(),
-                admissions: flight.next_admissions.clone(),
-                files,
-            },
-        )
+        let task = cold::Task::Install {
+            directory: runtime.config.admission_directory.clone(),
+            admissions: flight.next_admissions.clone(),
+            files,
+        };
+        if self.durable.is_some() {
+            flight.installation = Some(task);
+            self.persist(After::Applied, RecoveryPhase::Applied, runtime)
+        } else {
+            self.submit(Action::Install, task)
+        }
     }
 }

@@ -1,0 +1,27 @@
+{
+  "command": [
+    "cargo",
+    "build",
+    "--release",
+    "--locked",
+    "-p",
+    "tickwire-lab",
+    "-p",
+    "tickwire-app",
+    "-p",
+    "tickwire-md",
+    "-p",
+    "tickwire-strategy-sdk",
+    "-p",
+    "tickwire-strategy-example",
+    "-p",
+    "tickwire-replica",
+    "-p",
+    "tickwire-lifecycle",
+    "--bins"
+  ],
+  "started_utc": "2026-10-28T21:26:20.748755+00:00",
+  "finished_utc": "2026-10-28T21:27:52.344152+00:00",
+  "elapsed_seconds": 91.59544763099984,
+  "exit_code": 0
+}

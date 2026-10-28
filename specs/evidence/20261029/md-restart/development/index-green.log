@@ -1,0 +1,26 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.33s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 6 tests
+test config::feed_index::tests::restore_preserves_recorded_slots_when_feeds_are_reordered_or_repeated ... ok
+test config::feed_index::tests::restore_requires_the_complete_unique_nonzero_instrument_set ... ok
+test config::feed_index::tests::restore_enforces_both_feed_and_recorded_directory_capacities ... ok
+test config::feed_index::tests::restored_directory_can_append_without_changing_old_slots ... ok
+test expansion::tests::approved_append_prepares_an_independent_stable_index_and_full_target ... ok
+test engine::dense_tests::feed_index_reuses_ids_and_rejects_unknowns_without_truncating_keys ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 39 filtered out; finished in 0.01s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 5 tests
+test engine::dense_tests::topic_sorting_preserves_the_process_book_key_binding_for_full_width_ids ... ok
+test engine::dense_tests::expansion_keeps_old_slots_despite_reordered_target_and_appends_successive_ids ... ok
+test engine::dense_tests::feed_index_reuses_ids_and_rejects_unknowns_without_truncating_keys ... ok
+test engine::dense_tests::rejected_expansion_preserves_the_active_mapping ... ok
+test engine::dense_tests::feed_build_binds_full_width_ids_before_depth_and_event_owner_construction ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 40 filtered out; finished in 0.04s
+

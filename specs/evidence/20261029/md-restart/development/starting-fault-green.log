@@ -1,0 +1,11 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.75s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+{"depth_live_sequence":1,"depth_subscriptions":2,"event":"md_starting_fault_preconditions","old_resource":[101,101,101,101,101,101,101,101,101,101,101,101,101,101,101,101],"pid":1165025,"replacement_resource":[109,109,109,109,109,109,109,109,109,109,109,109,109,109,109,109],"snapshots":2,"trade_records":1}
+{"checkpoint":[248,207,19,161,189,252,218,245,163,1,84,56,139,178,181,38,111,149,6,134,223,178,94,206,11,254,75,58,30,179,204,72],"depth_live_sequence":1,"event":"md_starting_fault_recovered","pid":1165025,"recovery_directory":"/tmp/tw-md-runtime-42ce27ec0f5b9aaca41f93d288590302/recovery"}
+test server::runtime_tests::restart::starting_fault_reconnect_can_reserve_a_new_bank_and_finish_prewarm ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 82 filtered out; finished in 1.40s
+

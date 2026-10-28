@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+test recovery::tests::cancelled_candidate_owners_remain_consumed_across_reopen ... FAILED
+
+failures:
+
+---- recovery::tests::cancelled_candidate_owners_remain_consumed_across_reopen stdout ----
+
+thread 'recovery::tests::cancelled_candidate_owners_remain_consumed_across_reopen' (1149196) panicked at crates/tickwire-md/src/recovery/tests.rs:675:5:
+assertion failed: store.write(changed.clone()).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    recovery::tests::cancelled_candidate_owners_remain_consumed_across_reopen
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 76 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-md --lib`

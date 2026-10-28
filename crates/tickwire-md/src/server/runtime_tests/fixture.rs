@@ -21,6 +21,15 @@ pub struct Fixture {
 }
 impl Fixture {
     pub fn new() -> Self {
+        Self::with_recovery(false, false)
+    }
+    pub fn new_with_recovery() -> Self {
+        Self::with_recovery(true, false)
+    }
+    pub fn new_with_recovery_paused_trade() -> Self {
+        Self::with_recovery(true, true)
+    }
+    fn with_recovery(recovery: bool, paused_trade: bool) -> Self {
         let root =
             tickwire_control_sys::PrivateDirectory::create_in(Path::new("/tmp"), "tw-md-runtime")
                 .unwrap();
@@ -55,9 +64,21 @@ impl Fixture {
         for rule in &mut config.quota.rules {
             if rule.api_weight == 250 {
                 rule.api_weight = 5;
+                if recovery {
+                    // These feeds request limit=5: charge that same actual
+                    // snapshot weight, leaving old grants fully retained.
+                    for cost in &mut rule.costs {
+                        assert_eq!(cost.units, 250);
+                        cost.units = 5;
+                    }
+                }
             }
         }
-        let old = network::Network::start(&path.join("old.der"), "BTCUSDT", 99, true);
+        let old = if paused_trade {
+            network::Network::start_paused_trade(&path.join("old.der"), "BTCUSDT", 99)
+        } else {
+            network::Network::start(&path.join("old.der"), "BTCUSDT", 99, true)
+        };
         let new = network::Network::start(&path.join("new.der"), "ETHUSDT", 199, false);
         let configure = |feed: &mut config::Feed, network: &network::Network, root: PathBuf| {
             feed.stream_address = network.stream.clone();
@@ -96,28 +117,27 @@ impl Fixture {
         )
         .unwrap();
         config.expansion = Some(config::ExpansionControl {
+            recovery: recovery.then(|| crate::recovery::Config {
+                directory: path.join("recovery"),
+                restart_from: None,
+            }),
             plan_path: path.join("plan.json"),
             result_path: path.join("result.json"),
             effective_path: path.join("effective.json"),
             consumer_directory: path.join("consumers"),
             initial_revision: 1,
         });
+        if recovery {
+            config.quota.consumer_instance = config.identity.instance;
+            config.quota.consumer_generation = config.identity.generation;
+            // A failed old process retains its grant. Leave real window capacity
+            // for a new owner without resetting or reclaiming the old budget.
+            config.quota.grants[0].costs[0].units = 350;
+        }
         let input = path.join("config.json");
         config::write(&input, &config).unwrap();
         let log = path.join("md.log");
-        let file = fs::File::create(&log).unwrap();
-        let child = Command::new(std::env::current_exe().unwrap())
-            .args([
-                "--exact",
-                "server::runtime_tests::process_entry",
-                "--nocapture",
-            ])
-            .env("TICKWIRE_MD_RUNTIME_TEST_CONFIG", &input)
-            .env("RUST_MIN_STACK", "8388608")
-            .stdout(Stdio::from(file.try_clone().unwrap()))
-            .stderr(Stdio::from(file))
-            .spawn()
-            .unwrap();
+        let child = spawn(&input, &log);
         let mut fixture = Self {
             _root: root,
             config,
@@ -212,11 +232,7 @@ impl Fixture {
         let deadline = Instant::now() + Duration::from_secs(5);
         let client = loop {
             self.alive();
-            // SAFETY: the test owns this exact qualified MD child, its trusted configuration,
-            // private admissions and lifetime; only the production Runtime writes these mappings.
-            let result = unsafe {
-                tickwire_market_source::Client::connect(&admission.client, &mut || Ok(self.now()))
-            };
+            let result = self.connect_client(admission);
             match result {
                 Ok(client) => break client,
                 Err(tickwire_market_source::Error::Transport(
@@ -238,6 +254,34 @@ impl Fixture {
             }
         };
         ShmSource::new(client)
+    }
+    // This is the original qualified mapping seam, shared by successful JOINs
+    // and negative protocol tests against this exact owned MD process.
+    pub fn connect_client(
+        &mut self,
+        admission: &Admission,
+    ) -> tickwire_market_source::Result<tickwire_market_source::Client> {
+        // SAFETY: the test owns this exact qualified MD child, its trusted configuration,
+        // private admissions and lifetime; only the production Runtime writes these mappings.
+        unsafe {
+            tickwire_market_source::Client::connect(&admission.client, &mut || Ok(self.now()))
+        }
+    }
+    pub fn stop_process(&mut self) {
+        let _ = self.child.kill();
+        self.child.wait().unwrap();
+    }
+    pub fn spawn_config(&mut self, config: config::Config, label: &str) {
+        assert!(
+            self.child.try_wait().unwrap().is_some(),
+            "old MD is still live"
+        );
+        let root = self._root.path();
+        let input = root.join(format!("{label}.json"));
+        self.log = root.join(format!("{label}.log"));
+        config::write(&input, &config).unwrap();
+        self.child = spawn(&input, &self.log);
+        self.config = config;
     }
     pub fn plan(&mut self, old: &Admission) -> crate::expansion::Plan {
         let bank = self.bank();
@@ -320,4 +364,34 @@ impl Drop for Fixture {
         let _ = self.child.kill();
         let _ = self.child.wait();
     }
+}
+
+// The identical scenario can run the actual fixed release binary during final
+// acceptance. Normal unit runs still use the child entry into production engine.
+fn spawn(input: &Path, log: &Path) -> Child {
+    let file = fs::File::create(log).unwrap();
+    let mut command = match std::env::var_os("TICKWIRE_MD_RUNTIME_TEST_BINARY") {
+        Some(binary) => {
+            let mut command = Command::new(binary);
+            command.arg("--config").arg(input);
+            command
+        }
+        None => {
+            let mut command = Command::new(std::env::current_exe().unwrap());
+            command
+                .args([
+                    "--exact",
+                    "server::runtime_tests::process_entry",
+                    "--nocapture",
+                ])
+                .env("TICKWIRE_MD_RUNTIME_TEST_CONFIG", input)
+                .env("RUST_MIN_STACK", "8388608");
+            command
+        }
+    };
+    command
+        .stdout(Stdio::from(file.try_clone().unwrap()))
+        .stderr(Stdio::from(file))
+        .spawn()
+        .unwrap()
 }

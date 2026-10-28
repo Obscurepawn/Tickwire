@@ -4,6 +4,7 @@ mod cold;
 mod dense_tests;
 pub mod expansion;
 mod owners;
+mod restart_validation;
 mod tokens;
 use owners::{EventFeed, Feed};
 type Quota = tickwire_binance_quota::bootstrap::Built<tickwire_quota::files::FileQuotaStore>;
@@ -177,6 +178,18 @@ pub struct PollReport {
     pub next_deadline_ns: Option<u64>,
     pub wait_ns: u64,
 }
+fn canonical_bank(mut header: ResourceHeader) -> Result<ResourceHeader> {
+    use sha2::{Digest, Sha256};
+    tickwire_shm::validate_bank(&header)?;
+    let expected = header.descriptor_hash;
+    header.descriptor_hash = [0; 32];
+    header.descriptor_hash =
+        Sha256::digest(tickwire_market_source::protocol::wire_bytes(&header)?).into();
+    if expected != [0; 32] && expected != header.descriptor_hash {
+        return Err(invalid("MD resource descriptor digest"));
+    }
+    Ok(header)
+}
 impl Runtime {
     pub fn new(c: Config) -> Result<Self> {
         if c.feeds.is_empty()
@@ -188,13 +201,23 @@ impl Runtime {
         {
             return Err(invalid("MD owner bounds"));
         }
-        let expansion = c
-            .expansion
-            .clone()
-            .map(|control| expansion::Control::new(control, &c))
-            .transpose()?;
+        let banks = c
+            .topics
+            .iter()
+            .map(|topic| {
+                canonical_bank(ResourceHeader::decode(&config::read(
+                    &topic.resource,
+                    4096,
+                )?)?)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let (expansion, index) = if let Some(control) = c.expansion.clone() {
+            let (control, index) = expansion::Control::new(control, &c, &banks)?;
+            (Some(control), index)
+        } else {
+            (None, config::FeedIndex::new(&c.feeds)?)
+        };
         let revision = c.expansion.as_ref().map_or(1, |c| c.initial_revision);
-        let index = config::FeedIndex::new(&c.feeds)?;
         let domain = tickwire_clock::ClockDomain::new(c.identity.host_boot, c.clock_generation)
             .map_err(|e| invalid(&format!("clock {e:?}")))?;
         let mut clock = SystemClock::new(domain)?;
@@ -206,8 +229,7 @@ impl Runtime {
             .map_err(|e| invalid(&format!("quota {e:?}")))?;
         let mut topics = Vec::new();
         let mut topic_ids = BTreeSet::new();
-        for t in &c.topics {
-            let h = ResourceHeader::decode(&config::read(&t.resource, 4096)?)?;
+        for (t, h) in c.topics.iter().zip(banks) {
             if h.producer_instance != c.identity.instance
                 || h.producer_generation != c.identity.generation
                 || h.host_boot_id != c.identity.host_boot
@@ -315,6 +337,7 @@ impl Runtime {
             server,
             retired,
             first,
+            expansion,
             ..
         } = self;
 
@@ -370,8 +393,10 @@ impl Runtime {
                 server.invalidate_topic(i, &mut topics[i])?;
                 if !server.has_peers(i) && topics[i].state().cached_live() {
                     let old = topics[i].split().0.header().clone();
-                    let mut h =
-                        ResourceHeader::decode(&config::read(&c.topics[i].resource, 4096)?)?;
+                    let mut h = canonical_bank(ResourceHeader::decode(&config::read(
+                        &c.topics[i].resource,
+                        4096,
+                    )?)?)?;
                     if h.resource_id != old.resource_id
                         && h.ring_epoch > old.ring_epoch
                         && h.feed_generation > old.feed_generation
@@ -388,6 +413,12 @@ impl Runtime {
                             .checked_add(1)
                             .ok_or_else(|| invalid("sequence exhausted"))?;
                         h.descriptor_hash = [0; 32];
+                        let h = canonical_bank(h)?;
+                        if let Some(control) = expansion.as_mut()
+                            && !control.reserve_bank(i, &h)?
+                        {
+                            continue;
+                        }
                         let registry = topics[i].split().0.registry().clone();
                         let replacement = JoinOwner::new(Publisher::<32>::create(h)?, registry)?;
                         retired[i].push(topics[i].replace_bank(replacement, now)?);

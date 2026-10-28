@@ -1,0 +1,83 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-28T21:27:52.900247+00:00",
+  "source_manifest": "/home/obscure/Tickwire/specs/evidence/20261029/md-restart-source-sha256.json",
+  "source_manifest_sha256": "c8e0da9c7e5a235fcd57d3e20c7f15c520a59e1d1fa890ec8932d63a0b561289",
+  "profile": "release",
+  "strip": "--strip-debug",
+  "build_exit_code": 0,
+  "binaries": [
+    {
+      "name": "tickwire-lab",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lab",
+      "build_bytes": 13475344,
+      "build_sha256": "81430bac3c50f1ef843823a36906daa633c6310250ea8ef7a0ecf52bd836f0d5",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-lab",
+      "deployed_bytes": 13401704,
+      "deployed_sha256": "5b799b483fd4bc88cb4dcb73fa7e0ee3873a2b6f91314c5861098db271fd86a0"
+    },
+    {
+      "name": "tickwire-app",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-app",
+      "build_bytes": 24885136,
+      "build_sha256": "559194faf15dd9c1faf1fae1e006ad05e7c9857250490930c3d70e006a38d612",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-app",
+      "deployed_bytes": 24732760,
+      "deployed_sha256": "23926ba0cca875e524a975685827adca7ecc6a27c88cb4632138bdb95427f588"
+    },
+    {
+      "name": "tickwire-md",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-md",
+      "build_bytes": 5285672,
+      "build_sha256": "af9e2491c29a2d31ef8b6517e7dea1ec6d56be1fa8ffe62c157340fcbac4055f",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-md",
+      "deployed_bytes": 5264224,
+      "deployed_sha256": "79099612b56e6f3552dda24e4281260228a71cd34fb1ad88ea738601041b7ce5"
+    },
+    {
+      "name": "tickwire-strategy-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-strategy-worker",
+      "build_bytes": 6107416,
+      "build_sha256": "531fc344918a15b7caa27db18ca2ef29320bfbb48f4ba7314e53a0bc0be33a51",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-strategy-worker",
+      "deployed_bytes": 6076984,
+      "deployed_sha256": "b0a7afe41f34f2fc6abc97d7918f1631e572bdc573ce9c0a7244aad170081f96"
+    },
+    {
+      "name": "tickwire-replica-receiver",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-replica-receiver",
+      "build_bytes": 6114592,
+      "build_sha256": "b28f504fab759433a49e668e546f69e9d132895ffeac2b6ab94c3a03a77e97e4",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-replica-receiver",
+      "deployed_bytes": 6084400,
+      "deployed_sha256": "320c7250df33a11a910ca0ad968be891a500a33afe9d5622a2ba6d680de0faba"
+    },
+    {
+      "name": "tickwire-lifecycle",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-lifecycle",
+      "build_bytes": 1594656,
+      "build_sha256": "2e152bd9b3f913a0743b2712473185cb2fafa009ccc5c3bbbb7fd492268ea4be",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-lifecycle",
+      "deployed_bytes": 1588640,
+      "deployed_sha256": "d5941c23422d57fd1a94538cf395222cc2fad51147b1bc557d6c118b0c494bf9"
+    },
+    {
+      "name": "tickwire-counting-v1-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-v1-worker",
+      "build_bytes": 6726336,
+      "build_sha256": "d1060cff6a36c87df1b12a546ec63fabe7012618c08134d8006e376cfef38af5",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-counting-v1-worker",
+      "deployed_bytes": 6690200,
+      "deployed_sha256": "5b1fce2ea8e32d1dae90f50998673af3f4847123a15b316aa97b8aa87fea52a6"
+    },
+    {
+      "name": "tickwire-counting-worker",
+      "build_path": "/tmp/tickwire-progress-20261028/target/release/tickwire-counting-worker",
+      "build_bytes": 6724040,
+      "build_sha256": "b9ad6f2eb2a3b270a56f230aa7a51db15d9ec8f00bb958b4160107e7e423fd63",
+      "deployed_path": "/tmp/tw-md-restart-bins-1/tickwire-counting-worker",
+      "deployed_bytes": 6687912,
+      "deployed_sha256": "91ed07eab36211d3f4a982e218114cbbf3e4b75c5795b56e4071b3e47ce25ee3"
+    }
+  ]
+}

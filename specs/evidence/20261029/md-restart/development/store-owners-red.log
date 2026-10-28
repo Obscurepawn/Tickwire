@@ -1,0 +1,21 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.06s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+test recovery::tests::reserved_owners_cover_current_sources_and_reject_invalid_collections ... FAILED
+
+failures:
+
+---- recovery::tests::reserved_owners_cover_current_sources_and_reject_invalid_collections stdout ----
+
+thread 'recovery::tests::reserved_owners_cover_current_sources_and_reject_invalid_collections' (1149184) panicked at crates/tickwire-md/src/recovery/tests.rs:659:9:
+assertion failed: store.write(invalid).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    recovery::tests::reserved_owners_cover_current_sources_and_reject_invalid_collections
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 76 filtered out; finished in 0.01s
+
+error: test failed, to rerun pass `-p tickwire-md --lib`

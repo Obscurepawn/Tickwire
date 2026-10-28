@@ -1,0 +1,5 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+   Compiling tickwire-lab v0.1.0 (/home/obscure/Tickwire/crates/tickwire-lab)
+    Finished `release` profile [optimized] target(s) in 1m 31s

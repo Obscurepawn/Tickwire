@@ -7,9 +7,12 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use tickwire_market_publisher::TopicExpansion;
 use tickwire_market_source::transition::{Approval, Commit, MAX_CONTROL_BYTES, Phase, Receipt};
+mod durable;
 mod install;
 mod io;
 mod warming;
+use crate::recovery::Phase as RecoveryPhase;
+use durable::After;
 
 const SCAN_NS: u64 = 10_000_000;
 #[derive(Clone, Serialize, Deserialize)]
@@ -34,6 +37,7 @@ pub struct Record {
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Stage {
+    Reserving,
     Building,
     Warming,
     Arming,
@@ -44,6 +48,8 @@ enum Stage {
 }
 #[derive(Clone, Copy)]
 enum Action {
+    StartupEffective,
+    Persist(After),
     Plan,
     Build,
     Arm,
@@ -68,6 +74,8 @@ struct Flight {
     stage: Stage,
     irreversible: bool,
     record: Record,
+    build: Option<cold::Task>,
+    installation: Option<cold::Task>,
 }
 pub(super) struct Control {
     config: config::ExpansionControl,
@@ -78,6 +86,7 @@ pub(super) struct Control {
     history: BTreeMap<[u8; 16], Record>,
     last_bytes: Option<[u8; 32]>,
     next_scan: u64,
+    durable: Option<durable::Durable>,
 }
 fn encode<T: Serialize>(value: &T, maximum: usize) -> Result<Vec<u8>> {
     let bytes = serde_json::to_vec(value)?;
@@ -87,7 +96,11 @@ fn encode<T: Serialize>(value: &T, maximum: usize) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 impl Control {
-    pub(super) fn new(config: config::ExpansionControl, current: &Config) -> Result<Self> {
+    pub(super) fn new(
+        config: config::ExpansionControl,
+        current: &Config,
+        banks: &[ResourceHeader],
+    ) -> Result<(Self, config::FeedIndex)> {
         config.validate()?;
         match config::read(&config.effective_path, crate::expansion::MAX_PLAN_BYTES) {
             Ok(bytes) => {
@@ -106,16 +119,21 @@ impl Control {
                     .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) => {}
             Err(error) => return Err(error),
         }
-        Ok(Self {
-            config,
-            worker: cold::Worker::new()?,
-            action: None,
-            flight: None,
-            reporting: None,
-            history: BTreeMap::new(),
-            last_bytes: None,
-            next_scan: 0,
-        })
+        let (durable, index) = durable::open(&config, current, banks)?;
+        Ok((
+            Self {
+                config,
+                worker: cold::Worker::new()?,
+                action: None,
+                flight: None,
+                reporting: None,
+                history: BTreeMap::new(),
+                last_bytes: None,
+                next_scan: 0,
+                durable,
+            },
+            index,
+        ))
     }
     fn submit(&mut self, action: Action, task: cold::Task) -> Result<()> {
         self.worker.submit(task)?;
@@ -128,9 +146,18 @@ impl Control {
                 .action
                 .take()
                 .ok_or_else(|| invalid("MD cold reply without request"))?;
+            if matches!(action, Action::Persist(_) | Action::StartupEffective) && result.is_err() {
+                return Err(invalid(&format!(
+                    "MD recovery persistence failed: {}",
+                    result.err().unwrap()
+                )));
+            }
             if let Err(error) = self.reply(action, result, runtime, now) {
                 self.fail(runtime, error.to_string())?;
             }
+        }
+        if !self.startup_ready(runtime)? {
+            return Ok(false);
         }
         if let Some(mut flight) = self.flight.take() {
             let result = if now >= flight.plan.warmup_deadline_mono_ns {
@@ -144,6 +171,10 @@ impl Control {
             }
         }
         if !self.worker.busy() {
+            if let Some(phase) = self.durable.as_ref().and_then(|d| d.report_phase) {
+                self.persist(After::Report, phase, runtime)?;
+                return Ok(false);
+            }
             if let Some(record) = &self.reporting {
                 self.submit(
                     Action::Report,
@@ -181,6 +212,14 @@ impl Control {
             self.history
                 .insert(flight.plan.operation_id, flight.record.clone());
             self.reporting = Some(flight.record);
+            if let Some(durable) = &mut self.durable {
+                durable.closed |= flight.irreversible;
+                durable.report_phase = Some(if durable.closed {
+                    RecoveryPhase::Revoking
+                } else {
+                    RecoveryPhase::Ready
+                });
+            }
         } else {
             // Invalid requests have no runtime effect; never report them as applied.
             eprintln!(
@@ -194,7 +233,9 @@ impl Control {
         Ok(())
     }
     fn advance(&mut self, flight: &mut Flight, runtime: &mut Runtime, now: u64) -> Result<()> {
-        if !flight.record.runtime_applied && flight.stage != Stage::Building {
+        if !flight.record.runtime_applied
+            && !matches!(flight.stage, Stage::Building | Stage::Reserving)
+        {
             warming::poll(flight, runtime)?;
         }
         let now = runtime.clock.sample()?.monotonic.nanos().max(now);

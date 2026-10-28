@@ -1,0 +1,223 @@
+{
+  "schema": 1,
+  "scope": "Read-only source-anchor audit; no TLC run, model changes, or lock rebasing",
+  "generated_utc": "2026-10-28T21:29:10.224871+00:00",
+  "repository_at_run": "/home/obscure/Tickwire",
+  "baseline_commit": "d7b51afe1c8c2e1a0ddf25cc071606ec1a0597c0",
+  "line_hash_method": "SHA-256 of UTF-8 line text without newline at the historical one-based line number",
+  "tracked_changed_count": 18,
+  "untracked_count": 13,
+  "locks_scanned": 25,
+  "lock_inventory": [
+    {
+      "path": "tla/execution_models/account/L0_spot_facts/02_models/anchors.lock",
+      "sha256": "bb4c5900af96afc7e4ec304c7a58ad067bf591d98128e729bfc0d292ba1eb773",
+      "source_count": 4,
+      "anchor_count": 672,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/account/L1_reduce_shadow/02_models/anchors.lock",
+      "sha256": "eb4fccccae687453952ac5ba8967d2b56d2d5e71b57d78749aa160c680c0445f",
+      "source_count": 5,
+      "anchor_count": 867,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/account_gateway/L0_guarded_account_output/02_models/anchors.lock",
+      "sha256": "5cbcb0501cf8d3eca71c898383ce3f7c477c3eca3b33d9380665068517f368b6",
+      "source_count": 9,
+      "anchor_count": 1576,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/account_journal/L0_ordered_recovery/02_models/anchors.lock",
+      "sha256": "b2818d542ddc8e830a17da6e16c31eb0740154ac2d22297d26e5daf29bc67524",
+      "source_count": 8,
+      "anchor_count": 582,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/binance_depth_sync/L0_coordinator/02_models/anchors.lock",
+      "sha256": "bdebe24511752f08aa8dffb0bca1a1d5353538ee715b952b02cf69b63fca3b21",
+      "source_count": 2,
+      "anchor_count": 575,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/binance_private_session/L0_session_lifecycle/02_models/anchors.lock",
+      "sha256": "5cb70bd8964753cec5cafbbf3aa487a2a0b6837bd5833bec23b6290045ffd58d",
+      "source_count": 4,
+      "anchor_count": 1116,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/runs/pre-final-sample-v2/anchors.lock",
+      "sha256": "923364259f57f0a7bbfc2be1213db8a1de3f8f9bb4c32350ec6ba9c74dd1a348",
+      "source_count": 4,
+      "anchor_count": 1084,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/book_state/L0_lifecycle/02_models/anchors.lock",
+      "sha256": "a7a0505ab54cb78d6f06e39f39c260433867768a98fd9d70360d305b5defef9d",
+      "source_count": 1,
+      "anchor_count": 214,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/book_state/L1_coverage/02_models/anchors.lock",
+      "sha256": "c3d92817ca5286fed8136b21283ae81098965756f774251074210fc1450bd71c",
+      "source_count": 1,
+      "anchor_count": 211,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/anchors.lock",
+      "sha256": "e35d4762ee23f32bc16041fd6eb81fdc1e718fcccf0b81fef97b3477f9d7305d",
+      "source_count": 2,
+      "anchor_count": 720,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/business_journal/L0_commit_abort_recovery/02_models/anchors.lock",
+      "sha256": "d0890bfad12e6e78714324c04fc95f1046c0bb68cebd67ef8d7acf7db0ee32f5",
+      "source_count": 3,
+      "anchor_count": 337,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/business_journal/L1_command_binding/02_models/anchors.lock",
+      "sha256": "1109147f07ea2277ba98eef1203b22455b9bb4f33bc2efb11533519252f71731",
+      "source_count": 5,
+      "anchor_count": 268,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/clock/L0_calibration/02_models/anchors.lock",
+      "sha256": "ac1372e60aa450dfeffb323530b50517c30a8282696d6fd1e832c319a9098307",
+      "source_count": 1,
+      "anchor_count": 316,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/control_requests/L0_registry/02_models/anchors.lock",
+      "sha256": "a349830d31302850b4c0b02020d3c46df244974a6385067331ce30e6965498dc",
+      "source_count": 1,
+      "anchor_count": 138,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/control_requests/L1_session/02_models/anchors.lock",
+      "sha256": "6e7af5ffc5f26cc3bdf5ebe03b897594ce7c567bd22cd2368c128de0e098fd59",
+      "source_count": 2,
+      "anchor_count": 246,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/gateway/L0_journaled_sender/02_models/anchors.lock",
+      "sha256": "e8e34206cdefff9b973ab5a25327fba21015476567833f7cd2b2e0393c9ca9f4",
+      "source_count": 3,
+      "anchor_count": 670,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/join_owner/L0_pending_activation/02_models/anchors.lock",
+      "sha256": "7dda19eef175fff63152f5c57d4b78f846626bc0df9f578c6ef13730f1c4f0ef",
+      "source_count": 4,
+      "anchor_count": 1221,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/mock_abort/L0_ordered_abort/02_models/anchors.lock",
+      "sha256": "396dd5516a7418cff6de50008796f6476e208103ce80665612c12262bfd15a9e",
+      "source_count": 3,
+      "anchor_count": 426,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/physical_journal/L0_batch_sync_recovery/02_models/anchors.lock",
+      "sha256": "a5f9a92d639a94fcd5742e5f37f5e1a342b50d965284c37ded08aaa40cddd437",
+      "source_count": 4,
+      "anchor_count": 447,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/recovery_closure/L0_publish_verify/02_models/anchors.lock",
+      "sha256": "61b5f6c84ccfcafe4361341a64ac21c57323f8aca0fafb6e6a7d9ce0358d7256",
+      "source_count": 2,
+      "anchor_count": 214,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/submission/L0_commit_gate/02_models/anchors.lock",
+      "sha256": "4c8088c38d459174421e514973127af360358ed2f671c1d0bd6a26d3ea4288bd",
+      "source_count": 2,
+      "anchor_count": 213,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/submission/L1_crash_receipt/02_models/anchors.lock",
+      "sha256": "b41177624879321728afd36fd2760b2c6850285ff9ec3f0f9ecdcc7af28d0c98",
+      "source_count": 3,
+      "anchor_count": 348,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/submission/L2_economic_facts/02_models/anchors.lock",
+      "sha256": "05a00a0b70b9b1ebfbe8b68535a17e6299b9239c7b79391c00d44de29941f86e",
+      "source_count": 3,
+      "anchor_count": 444,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/system_clock/L0_native_owner/02_models/anchors.lock",
+      "sha256": "60f07c12e28643a73f22ca9d8cd5559e07eba4a8922734ccab0439820d4123cc",
+      "source_count": 4,
+      "anchor_count": 231,
+      "changed_sources": []
+    },
+    {
+      "path": "tla/execution_models/transport/L0_first_output/02_models/anchors.lock",
+      "sha256": "374de89caa746d24af27781bb7f9f27bd5ff972f3d6e8f693afb1d09c5f217dd",
+      "source_count": 1,
+      "anchor_count": 231,
+      "changed_sources": []
+    }
+  ],
+  "changed_anchored_sources": [],
+  "changed_rust_without_historical_anchor": [
+    "crates/tickwire-lab/src/expansion.rs",
+    "crates/tickwire-md/src/config/expansion.rs",
+    "crates/tickwire-md/src/config/feed_index.rs",
+    "crates/tickwire-md/src/config/feed_index_tests.rs",
+    "crates/tickwire-md/src/engine.rs",
+    "crates/tickwire-md/src/engine/cold.rs",
+    "crates/tickwire-md/src/engine/expansion.rs",
+    "crates/tickwire-md/src/engine/expansion/durable.rs",
+    "crates/tickwire-md/src/engine/expansion/install.rs",
+    "crates/tickwire-md/src/engine/expansion/io.rs",
+    "crates/tickwire-md/src/engine/restart_validation.rs",
+    "crates/tickwire-md/src/engine/restart_validation/tests.rs",
+    "crates/tickwire-md/src/lib.rs",
+    "crates/tickwire-md/src/recovery.rs",
+    "crates/tickwire-md/src/recovery/store.rs",
+    "crates/tickwire-md/src/recovery/store/files.rs",
+    "crates/tickwire-md/src/recovery/store/validate.rs",
+    "crates/tickwire-md/src/recovery/tests.rs",
+    "crates/tickwire-md/src/server/runtime_tests.rs",
+    "crates/tickwire-md/src/server/runtime_tests/fixture.rs",
+    "crates/tickwire-md/src/server/runtime_tests/network.rs",
+    "crates/tickwire-md/src/server/runtime_tests/restart.rs",
+    "crates/tickwire-md/src/server/runtime_tests/restart_failure.rs"
+  ],
+  "directly_affected_locks": [],
+  "tla_changes_since_baseline": [],
+  "interpretation": [
+    "Read-only comparison against the stage baseline; no TLC execution or historical lock rebasing.",
+    "Missing historical source paths are recorded with existence=false and null digests; deleted documentation is not restored.",
+    "Fixed-line mismatches indicate source correspondence drift, not proof of a behavior regression or renewed verification.",
+    "MD expansion history, cold restart, dense-ID recovery and persistence ordering are outside historical finite-model evidence.",
+    "Historical proofs remain tied to their original sources and boundaries; new formal verification is deferred until functional development is complete."
+  ]
+}

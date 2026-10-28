@@ -1,0 +1,22 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.75s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 1 test
+test recovery::tests::actual_store_reopens_the_exact_chain_and_preserves_history ... FAILED
+
+failures:
+
+---- recovery::tests::actual_store_reopens_the_exact_chain_and_preserves_history stdout ----
+
+thread 'recovery::tests::actual_store_reopens_the_exact_chain_and_preserves_history' (1134671) panicked at crates/tickwire-md/src/recovery/tests.rs:28:40:
+called `Result::unwrap()` on an `Err` value: Custom { kind: Other, error: "MD recovery store not implemented" }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    recovery::tests::actual_store_reopens_the_exact_chain_and_preserves_history
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 45 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-md --lib`

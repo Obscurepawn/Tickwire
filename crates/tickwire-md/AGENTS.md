@@ -12,9 +12,9 @@
 
 ## 2. 公共 API 入口
 
-- `config`：`Asset`、`Instrument`（`build(source) -> InstrumentBinding`）、`FeedIndex`（`new(feeds)`/`expanded(feeds)`/`book_key(feed)`）、`Feed`（`build(domain, index)`）、`EventType`（`kind()`/`state()`）、`EventFeed`（`context(feed)`/`build(feed, domain, index)`）、`Topic`、`Config`、`ResourceSpec`（`header_with_exact_events()`/`header()`）、`ClientTemplate::build() -> ConnectConfig`、`read`/`write`/`write_bytes`/`active_resource_path`。
+- `config`：`Asset`、`Instrument`（`build(source) -> InstrumentBinding`）、`FeedIndex`（`new(feeds)`/`expanded(feeds)`/`restore(feeds, ids)`/`instrument_ids()`/`book_key(feed)`）、`Feed`（`build(domain, index)`）、`EventType`（`kind()`/`state()`）、`EventFeed`（`context(feed)`/`build(feed, domain, index)`）、`Topic`、`Config`、`ResourceSpec`（`header_with_exact_events()`/`header()`）、`ClientTemplate::build() -> ConnectConfig`、`read`/`write`/`write_bytes`/`active_resource_path`。
 - `engine::Runtime::{new,poll_once,wait}`、`PollReport`、`run(c: Config) -> Result<()>`；`engine::expansion::{Effective,Record}` 是持久配置及操作结果的 JSON 对象。
-- `config::ExpansionControl{plan_path,result_path,effective_path,consumer_directory,initial_revision}`：默认 `Config.expansion == None`；显式开启时路径绝对且父目录私有，三个文件路径互异，既有 effective 与启动 revision/配置摘要一致才准入。
+- `config::ExpansionControl{plan_path,result_path,effective_path,consumer_directory,initial_revision,recovery}`：默认 `Config.expansion == None`；显式开启时路径绝对且父目录私有，三个文件路径互异，既有 effective 与启动 revision/配置摘要一致才准入。`recovery` 省略时保留原配置字节；开启后使用独占持久目录及显式批准的当前检查点。
 - `expansion::{Plan, Consumer, Prepared, Finalized, config_hash}`：`Plan::prepare` 接收当前配置/索引/revision、真实 bank 与 topic 下标、Server 实际参与者和退休 bank 字节；`Prepared::finalize` 生成同一最终 bank 字节及各消费者 Admission，不冻结、不授予权限。
 - `server`：`Admission{client, pid, uid, gid, supervisor, supervisor_pid, snapshot_id}`、`admission_path(directory, pid, request_id)`、`register_admission(directory, admission) -> PathBuf`、`Server::new(c)`/`poll(topics, now)`/`invalidate_topic(topic, owner)`/`has_peers(topic)`；`TopicOwner = TopicPublisher<32>`。
 
@@ -76,3 +76,13 @@ cargo fmt --check -p tickwire-md
 2. 真实链路测试走 `./scripts/check-linux.sh`；macOS 仅编译。
 3. clippy `-D warnings`、`cargo fmt --check` 通过；新增 unsafe 仅限 server 接缝并写 SAFETY 注释。
 4. 子命令行为变化需同步 `main.rs` usage 字符串与配置文件示例。
+
+### 冷恢复持久存储
+
+- `recovery::{Config, Phase, Consumed, Snapshot, Store}` 保存显式开启的冷恢复历史；`Store::open/current/current_hash/write` 仅提供持久事实，`seen_instance/seen_resource/seen_channel/seen_owner` 查询完整历史的已用身份。Store 为单一可移动 `Send` owner，不通过共享锁进入数据热路径。
+- 最多 1024 个不可变快照、累计 512 MiB、单份 16 MiB；规范 JSON 的 HEAD 绑定当前 sequence/摘要/长度，完整前驱链必须闭合。缺失、非规范、未知文件、孤立对象和未完成 HEAD 发布均拒绝，不能把残留目录当空历史。
+- 实际 0700 私有目录与 0600 单链接普通文件，固定 directory FD；LOCK guard 在独占成功后立即持有，析构显式 unlock，读写前后核验目录与 lock inode。写盘异常毒化当前 Store，纯输入拒绝保持内存和目录原样。
+- `reserved_owners` 最多 16384 项，包含当前 depth/event owner 以及候选启动前已同步预留的 owner，失败/取消不回收；全链 seen_owner 同时覆盖这些身份。连续快照保留全部旧操作摘要和预留 owner、只追加 dense ID、revision 不回退；同 producer incarnation 的 bank ring/feed 代次不回退，同 ring 保持完整描述。新 incarnation 只接受旧 Ready 到同 revision Starting，启动权限仍由引擎门禁核对。
+- `recovery/tests.rs` 通过真实私有目录覆盖重读、历史身份、完整连续性、锁副本与正常 Drop、目录/LOCK 替换、损坏/孤立/符号链接/FIFO/权限拒绝、对象数/字节预算、dense 追加及 1024 份完整链边界；不新增 unsafe、不运行 TLC。
+- `ExpansionControl.recovery` 显式开启该路径；Runtime 单次固定 bank 描述、核对旧 Ready 和新启动批准、恢复 FeedIndex，再持久 Starting 后分配资源。`engine/restart_validation.rs` 只允许明示的新启动字段；`engine/expansion/durable.rs` 在唯一冷 worker 中移动 Store 执行阶段同步。故障换 bank 也先预留身份，不回退原无约束路径。
+- `server/runtime_tests/restart.rs` 通过实际 MD 进程完成扩容、停止、新 PID 恢复、重新 JOIN、再扩容，并保留旧配额责任；`restart_failure.rs` 验证不可逆失败保持关闭、错误描述拒绝及失败候选来源身份不复用。测试夹具可用 `TICKWIRE_MD_RUNTIME_TEST_BINARY=/absolute/tickwire-md` 改走固定实际 CLI，缺省为调用同一生产引擎的测试子进程。

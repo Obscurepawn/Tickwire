@@ -1,0 +1,27 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.43s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 18 tests
+test recovery::tests::actual_store_reopens_the_exact_chain_and_preserves_history ... ok
+test recovery::tests::sole_owner_unlock_is_not_extended_by_an_inherited_descriptor ... ok
+test recovery::tests::a_nonzero_bank_descriptor_must_match_its_exact_wire_content ... ok
+test recovery::tests::cancelled_candidate_owners_remain_consumed_across_reopen ... ok
+test recovery::tests::directory_or_lock_replacement_poison_the_original_writer ... ok
+test recovery::tests::reserved_owners_cover_current_sources_and_reject_invalid_collections ... ok
+test recovery::tests::input_rejections_do_not_write_or_poison_a_healthy_store ... ok
+test recovery::tests::new_instrument_is_appended_without_reassigning_old_dense_slots ... ok
+test recovery::tests::full_history_retains_old_instances_resources_and_source_owners ... ok
+test recovery::tests::unexpected_disk_contents_poison_without_advancing_current ... ok
+test recovery::tests::recovery_rejects_disk_object_count_and_byte_budgets_before_decoding ... ok
+test recovery::tests::recovery_refuses_missing_changed_and_noncanonical_heads ... ok
+test recovery::tests::file_type_permissions_and_unknown_entries_are_rejected ... ok
+test recovery::tests::recovery_verifies_every_predecessor_and_rejects_orphans ... ok
+test recovery::tests::old_facts_cannot_be_rewritten_by_a_new_durable_snapshot ... ok
+test recovery::tests::recovery_rechecks_continuity_even_when_all_object_hashes_are_valid ... ok
+test recovery::tests::an_oversized_snapshot_never_creates_a_partial_object ... ok
+test recovery::tests::the_last_allowed_snapshot_reopens_but_the_next_write_is_atomic_rejection ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 59 filtered out; finished in 10.94s
+

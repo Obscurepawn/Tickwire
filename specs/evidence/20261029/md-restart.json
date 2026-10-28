@@ -1,0 +1,846 @@
+{
+  "format": "tickwire.md-restart-stage.v1",
+  "created_utc": "2026-10-28T21:33:39.975274+00:00",
+  "status": "implemented-partial",
+  "baseline_commit": "d7b51afe1c8c2e1a0ddf25cc071606ec1a0597c0",
+  "source_manifest": {
+    "path": "md-restart-source-sha256.json",
+    "bytes": 167065,
+    "sha256": "c8e0da9c7e5a235fcd57d3e20c7f15c520a59e1d1fa890ec8932d63a0b561289"
+  },
+  "build_input_count": 920,
+  "environment": {
+    "system": "Linux",
+    "release": "6.18.54.1-microsoft-standard-WSL2",
+    "machine": "x86_64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "network": "local TLS/WSS/REST exchange fixtures; no Binance credentials"
+  },
+  "implemented": [
+    "Opt-in bounded exclusive durable MD history with full immutable predecessor closure and consumed identities",
+    "Restart from exact completed checkpoint into a fresh approved process, bank and source owners, retaining dense IDs and durable quota obligations",
+    "Persist candidate reservation before source build, revocation before quiesce, installation before effective writes, and completion before success",
+    "Starting fault repair reserves successor bank before allocation and reaches Ready only after actual prewarm",
+    "Failed irreversible transitions remain closed after subsequent invalid requests; historical bank/source reuse and zero operation IDs rejected"
+  ],
+  "validation": {
+    "rust_gate": {
+      "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+      "started_utc": "2026-10-28T21:23:17.011627+00:00",
+      "finished_utc": "2026-10-28T21:29:23.368795+00:00",
+      "elapsed_seconds": 366.35720742800913,
+      "exit_code": 0
+    },
+    "rust_output_summary": {
+      "batches": 340,
+      "passed": 2210,
+      "failed": 0,
+      "ignored": 29,
+      "note": "Includes child test output; not a unique test count"
+    },
+    "runtime_tests": 17,
+    "store_tests": 18,
+    "restart_validation_tests": 10,
+    "dense_index_restore_tests": 4,
+    "platform_test_gating": "Three test-only cfg guards limit Linux filesystem tests and helpers to Linux; an earlier full gate passed before this correction, final full gate reran afterward",
+    "contracts_and_openapi": {
+      "command": "/tmp/tickwire-progress-20261028/venv/bin/python scripts/verify-design-contracts.py --openapi",
+      "exit_code": 0
+    },
+    "build": {
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "tickwire-lab",
+        "-p",
+        "tickwire-app",
+        "-p",
+        "tickwire-md",
+        "-p",
+        "tickwire-strategy-sdk",
+        "-p",
+        "tickwire-strategy-example",
+        "-p",
+        "tickwire-replica",
+        "-p",
+        "tickwire-lifecycle",
+        "--bins"
+      ],
+      "started_utc": "2026-10-28T21:26:20.748755+00:00",
+      "finished_utc": "2026-10-28T21:27:52.344152+00:00",
+      "elapsed_seconds": 91.59544763099984,
+      "exit_code": 0
+    },
+    "source_and_binaries_unchanged_across_acceptance": true,
+    "documentation": {
+      "command": "scripts/verify-documentation.py",
+      "exit_code": 0
+    },
+    "independent_offline_audit": {
+      "report": "md-restart-audited-report.json",
+      "result": "md-restart/offline-final.json",
+      "negative_cases": 12,
+      "scope": "Original 74-artifact core archive was independently checked and unchanged; final inventory additionally includes this audit and documentation checks"
+    }
+  },
+  "cold_restart": {
+    "actual_cli": true,
+    "events": [
+      {
+        "checkpoint": [
+          23,
+          198,
+          8,
+          51,
+          93,
+          154,
+          63,
+          209,
+          145,
+          121,
+          92,
+          208,
+          33,
+          230,
+          182,
+          239,
+          194,
+          255,
+          232,
+          35,
+          104,
+          67,
+          215,
+          236,
+          248,
+          48,
+          214,
+          127,
+          252,
+          47,
+          136,
+          49
+        ],
+        "depth_live_sequence": 1,
+        "event": "md_incomplete_restart_rejected",
+        "killed_pid": 1185161,
+        "phase": "starting",
+        "rejected_pid": 1185184
+      },
+      {
+        "checkpoint": [
+          157,
+          62,
+          72,
+          98,
+          235,
+          108,
+          188,
+          122,
+          202,
+          156,
+          226,
+          210,
+          240,
+          3,
+          48,
+          18,
+          121,
+          66,
+          64,
+          180,
+          8,
+          173,
+          143,
+          138,
+          177,
+          171,
+          115,
+          252,
+          126,
+          183,
+          209,
+          203
+        ],
+        "event": "md_incomplete_restart_rejected",
+        "killed_pid": 1185164,
+        "phase": "reserved",
+        "rejected_pid": 1185192
+      },
+      {
+        "checkpoint": [
+          179,
+          81,
+          36,
+          38,
+          185,
+          70,
+          34,
+          176,
+          93,
+          112,
+          77,
+          63,
+          84,
+          7,
+          51,
+          190,
+          140,
+          181,
+          110,
+          36,
+          102,
+          157,
+          64,
+          184,
+          31,
+          48,
+          153,
+          95,
+          39,
+          32,
+          145,
+          119
+        ],
+        "event": "md_incomplete_restart_rejected",
+        "killed_pid": 1185199,
+        "phase": "revoking",
+        "rejected_pid": 1185214
+      },
+      {
+        "checkpoint": [
+          196,
+          82,
+          230,
+          28,
+          176,
+          45,
+          23,
+          192,
+          173,
+          208,
+          244,
+          130,
+          7,
+          36,
+          221,
+          18,
+          105,
+          76,
+          242,
+          184,
+          106,
+          252,
+          247,
+          228,
+          250,
+          8,
+          228,
+          209,
+          57,
+          116,
+          123,
+          129
+        ],
+        "event": "md_cold_restart_verified",
+        "instrument_ids": [
+          18446744073709551615,
+          9223372036854776809,
+          18446744073709551614
+        ],
+        "new_pid": 1185202,
+        "old_pid": 1185166,
+        "quota_grants": 2,
+        "recovery_directory": "/tmp/tw-md-runtime-a2618c2b07ea30ad508bb264f11753e3/recovery",
+        "revision": 3
+      },
+      {
+        "depth_live_sequence": 1,
+        "depth_subscriptions": 2,
+        "event": "md_starting_fault_preconditions",
+        "old_resource": [
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101,
+          101
+        ],
+        "pid": 1185158,
+        "replacement_resource": [
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109,
+          109
+        ],
+        "snapshots": 2,
+        "trade_records": 1
+      },
+      {
+        "checkpoint": [
+          45,
+          42,
+          69,
+          236,
+          95,
+          70,
+          239,
+          48,
+          109,
+          88,
+          86,
+          42,
+          181,
+          237,
+          250,
+          91,
+          164,
+          81,
+          182,
+          45,
+          58,
+          50,
+          118,
+          72,
+          209,
+          124,
+          181,
+          159,
+          179,
+          157,
+          38,
+          21
+        ],
+        "event": "md_incomplete_restart_rejected",
+        "killed_pid": 1185221,
+        "phase": "applied",
+        "rejected_pid": 1185232
+      },
+      {
+        "checkpoint": [
+          87,
+          96,
+          97,
+          147,
+          58,
+          61,
+          161,
+          157,
+          207,
+          244,
+          95,
+          181,
+          120,
+          75,
+          91,
+          38,
+          109,
+          53,
+          82,
+          102,
+          26,
+          34,
+          72,
+          215,
+          38,
+          172,
+          227,
+          69,
+          60,
+          208,
+          238,
+          141
+        ],
+        "depth_live_sequence": 1,
+        "event": "md_starting_fault_recovered",
+        "pid": 1185158,
+        "recovery_directory": "/tmp/tw-md-runtime-908c2df7cec00b37fef31feaf755df5f/recovery"
+      }
+    ],
+    "actual_image_sample_count": 22,
+    "binary_sha256": "79099612b56e6f3552dda24e4281260228a71cd34fb1ad88ea738601041b7ce5",
+    "archive_scope": "Full final MD recovery chains included. CLI tests enforce actual protocol and quota behavior; offline checker verifies recorded bytes and bindings."
+  },
+  "compatibility": {
+    "scenario": "spot-market-expansion",
+    "run_exit_code": 0,
+    "result": {
+      "event": "laboratory_spot_market_expansion_complete",
+      "account_fill_verified": true,
+      "mirror_records_verified": 13,
+      "worker_report_position_verified": 13
+    },
+    "complete_metadata": "md-restart/compat-metadata.json",
+    "scope": "Existing complete Spot online expansion, strategy handover and fee closure with recovery omitted; does not demonstrate transparent live-consumer cold reconnect"
+  },
+  "failures_fixed": [
+    {
+      "log": "development/runtime-red.log",
+      "cause": "Warm MD and actual JOIN produced no durable HEAD before implementation"
+    },
+    {
+      "log": "development/phase-red.log",
+      "cause": "Invalid request after irreversible timeout could mark failed recovery Ready"
+    },
+    {
+      "log": "development/runtime-zero-red2.log",
+      "cause": "Decoded zero operation poisoned durable history and stopped market runtime"
+    },
+    {
+      "log": "development/runtime-resource-red.log",
+      "cause": "Previously consumed bank resource could start a new expansion"
+    },
+    {
+      "log": "development/starting-fault-red2.log",
+      "cause": "Starting waited for Live while fault replacement waited for Ready"
+    }
+  ],
+  "limitations": [
+    "Only completed same-catalog logical membership is restartable; Starting/Reserved/Revoking/Applied reject automatic restart",
+    "New producer requires fresh approved identity, banks, source owners, quota grants and admissions; no launch authority is derived from persisted history",
+    "No transparent reconnect for still-live old consumers or old strategy input continuation across producers",
+    "At most 32 instruments, 128 consumed operations, 16384 reserved owners, 1024 snapshots and 512 MiB per recovery directory; no compaction or garbage collection",
+    "Persistent cold operations use a bounded worker; full-chain startup validation is cold. No production latency or throughput claim",
+    "Full global config consumers, signed runtime fact provider/watermarks, cross-catalog economic changes and production qualification remain incomplete",
+    "Native WSL2 Linux tests executed; Docker check-linux unavailable and live Binance test not run",
+    "Physical power loss and whole-filesystem rollback have not been tested",
+    "No new TLC run or historical model/anchor changes; read-only audit only"
+  ],
+  "artifacts": [
+    {
+      "path": "md-restart/anchor-audit.json",
+      "bytes": 9318,
+      "sha256": "7382db0f8b0b478e1f67c66cb124c90851b769c547caf46686c61deeaacc9224"
+    },
+    {
+      "path": "md-restart/anchor-audit.py",
+      "bytes": 7900,
+      "sha256": "7266698f18f44f3a94371c750d56039a509de032b2420ac7926538b4b98c808c"
+    },
+    {
+      "path": "md-restart/binaries.json",
+      "bytes": 4027,
+      "sha256": "ce38cdd43d85baca34c59eb430756b1fcf2abdd2045530577a12ce04742af0b0"
+    },
+    {
+      "path": "md-restart/build-meta.json",
+      "bytes": 501,
+      "sha256": "dba9565307dca8363e734ad0ca3f7cc02474b514332403f53a1e123813a65247"
+    },
+    {
+      "path": "md-restart/build.py",
+      "bytes": 2466,
+      "sha256": "727f3185a4fce10a49c339d608454f461e09e3c724f0174b87efdcb0529552de"
+    },
+    {
+      "path": "md-restart/check-rust-meta.json",
+      "bytes": 265,
+      "sha256": "8301f11953f8291d1bdeb81515f97dc69075810cbfab97f3e21b95f6230ab20f"
+    },
+    {
+      "path": "md-restart/check-rust.log",
+      "bytes": 260441,
+      "sha256": "e4a92f68695c2de8622bd8600cc0d93af2da6b6de17463a2550cd37afe45a6f5"
+    },
+    {
+      "path": "md-restart/cli-acceptance.json",
+      "bytes": 18472,
+      "sha256": "ab5bd8db3b4bd647fec22a0e5b829a99c1602ed3325d495e029388e4abf6e10e"
+    },
+    {
+      "path": "md-restart/cli-acceptance.log",
+      "bytes": 4177,
+      "sha256": "0ef7ff41f9ba11f68429a4549f5c40b67832d14a67f3224ac47f98ccd0010f4a"
+    },
+    {
+      "path": "md-restart/cli-acceptance.py",
+      "bytes": 3202,
+      "sha256": "93207bd7853a4bcdefe6c782f5c4bf1601ea7f3407bb403b841bdeb383d0b87b"
+    },
+    {
+      "path": "md-restart/compat-generate.log",
+      "bytes": 876,
+      "sha256": "d9027ab0ce22926b1e0e77045e097a97a636362230d066fba6baa782053bc213"
+    },
+    {
+      "path": "md-restart/compat-live-images.json",
+      "bytes": 620,
+      "sha256": "042ac3f8147e2235a54e80b2868472c82a9694072a5a29be0ed5395825f76a0a"
+    },
+    {
+      "path": "md-restart/compat-metadata.json",
+      "bytes": 374248,
+      "sha256": "ee926f0d226f360579d41d0182ea0857dcc4757d07c4acdd717724efd865c2e4"
+    },
+    {
+      "path": "md-restart/compat-run.log",
+      "bytes": 336794,
+      "sha256": "56e8e7a69e1bd4e8ca57eb2011b7648802519111530a6889385e1946ea2ab18f"
+    },
+    {
+      "path": "md-restart/compat-source-after.log",
+      "bytes": 28,
+      "sha256": "46cc4ab3f970eb69f4cc27b6e817a2e665a6e7a2fcd9753d0acc3b744cfc6040"
+    },
+    {
+      "path": "md-restart/compat-source-before.log",
+      "bytes": 28,
+      "sha256": "46cc4ab3f970eb69f4cc27b6e817a2e665a6e7a2fcd9753d0acc3b744cfc6040"
+    },
+    {
+      "path": "md-restart/compat.py",
+      "bytes": 3195,
+      "sha256": "919f789bab79bdb5f09153b94918dc9ba900dc0479fe901e2326b7aa0093b473"
+    },
+    {
+      "path": "md-restart/compatibility/account-report.json",
+      "bytes": 3700,
+      "sha256": "3a1562021450d099444b452028e87328b0b30a1120443deb7e333c54a46e31ee"
+    },
+    {
+      "path": "md-restart/compatibility/handover/preflight-final-verified.json",
+      "bytes": 11708,
+      "sha256": "90fb2545a509b37576b13327398866a8d1e4a669fb0031b34f6d715b5999f6bf"
+    },
+    {
+      "path": "md-restart/compatibility/handover/preflight-verified.json",
+      "bytes": 11706,
+      "sha256": "0345024deec6a16a391a0bd46a365c0d91cc159d542166d17a578a833fd385fd"
+    },
+    {
+      "path": "md-restart/compatibility/logs/exec.stderr.log",
+      "bytes": 16551,
+      "sha256": "c2645cfb090f3f2a31cf2f4146c72f7900b62b70193928ca4d8e54be4e50769b"
+    },
+    {
+      "path": "md-restart/compatibility/logs/exec.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "md-restart/compatibility/logs/md.stderr.log",
+      "bytes": 480,
+      "sha256": "745ee4b8828e22057df06b2d667672116a573f94be40fa228dd91d078d99653b"
+    },
+    {
+      "path": "md-restart/compatibility/logs/md.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "md-restart/compatibility/market-expanded.json",
+      "bytes": 48087,
+      "sha256": "1657ef5c809e4e0a60f6a0cecc46c1b5f87aee040136d90414aae46c4991602e"
+    },
+    {
+      "path": "md-restart/compatibility/run-result.json",
+      "bytes": 336793,
+      "sha256": "2c572f27c4f318c61959f3dedbcd44cab30de5d2be35f4d6f219d802f07226c4"
+    },
+    {
+      "path": "md-restart/contracts.log",
+      "bytes": 1765,
+      "sha256": "83c23d0e7af4d628a8551ed33e4359268310c9fa2a789d01c81a31b0faadeafa"
+    },
+    {
+      "path": "md-restart/development/index-green.log",
+      "bytes": 1787,
+      "sha256": "24fc3bde70a312b8724e6f16d590f046843ba054bd797bd2022e83bdd4cf7731"
+    },
+    {
+      "path": "md-restart/development/index-red.log",
+      "bytes": 1176,
+      "sha256": "eb8bc58ce984141c2e22a78647fb03d56b3a6104d97b76f8f7abe11aa676c09e"
+    },
+    {
+      "path": "md-restart/development/phase-red.log",
+      "bytes": 1270,
+      "sha256": "73d8676eb2892571d8b4b7b16136601410ce62c5aea2773c9c793b46dda42bb2"
+    },
+    {
+      "path": "md-restart/development/pre-platform-check-rust-meta.json",
+      "bytes": 265,
+      "sha256": "2ad66d0fda047c6d20e78bb36f07c4f173cdcb1892c20f65ee1469676e57b694"
+    },
+    {
+      "path": "md-restart/development/pre-platform-check-rust.log",
+      "bytes": 260419,
+      "sha256": "649bc7979317adf6bc3fd19c63cd2f39526d4409259a7ece99ee495f599dfdbc"
+    },
+    {
+      "path": "md-restart/development/pre-platform-source-sha256.json",
+      "bytes": 167065,
+      "sha256": "d82fc65d20e0ac47a22a1f71c088a30987ecf08b0fcf70b55df4b00b2ccc48e4"
+    },
+    {
+      "path": "md-restart/development/runtime-clippy-final2.log",
+      "bytes": 148,
+      "sha256": "3fc4c35ecb253531eeac8cc909a20eb3fa23604bd3710a39a8a5a6ea44eaca2c"
+    },
+    {
+      "path": "md-restart/development/runtime-green-final3.log",
+      "bytes": 4113,
+      "sha256": "6252db325061578b62c41367cb1b2435fd08f884332df563621291e622251d1b"
+    },
+    {
+      "path": "md-restart/development/runtime-red.log",
+      "bytes": 1409,
+      "sha256": "2fb85f338b10844eaf9f977c4b8b440cb3b5686b483f1f7172081df36e7bbdb4"
+    },
+    {
+      "path": "md-restart/development/runtime-resource-red.log",
+      "bytes": 1032,
+      "sha256": "369b0977250400e32dfffbea37e0ae614fca3dbabb0b363164eedf5c568141e3"
+    },
+    {
+      "path": "md-restart/development/runtime-zero-red2.log",
+      "bytes": 1387,
+      "sha256": "a321a1621a9c24b3d873c64a399c6c64a3304cd43d40fe23b7de2df88070ae37"
+    },
+    {
+      "path": "md-restart/development/starting-fault-green.log",
+      "bytes": 1087,
+      "sha256": "f5db619716dea9a3ab0462e0a5cbe7ce1ebfd0312718ee04211bed634dee01ae"
+    },
+    {
+      "path": "md-restart/development/starting-fault-red2.log",
+      "bytes": 1128,
+      "sha256": "d1fc210093ca69fee3b76d78628929e58423ec89de2f63a5e763c002ce164ee5"
+    },
+    {
+      "path": "md-restart/development/starting-kill-green.log",
+      "bytes": 741,
+      "sha256": "437789fc1f932e39f6d3d5df8ecafe3afe0e5ac1b3f0f77ae645648aadd70fb3"
+    },
+    {
+      "path": "md-restart/development/store-continuity-red.log",
+      "bytes": 2941,
+      "sha256": "1e3bfe022837e8767fa53d4b6dcb210f0c5b57298a3f6f18061b151296a22645"
+    },
+    {
+      "path": "md-restart/development/store-owners-green.log",
+      "bytes": 2044,
+      "sha256": "3ac4715e8c1127e6c50155c2b62670e3c3ebbf191f749318cd2fa183488dca6b"
+    },
+    {
+      "path": "md-restart/development/store-owners-history-red.log",
+      "bytes": 933,
+      "sha256": "2baebc72f988a0203ba032a62765ed52a568def60dad4db8f9a1142c6da18c37"
+    },
+    {
+      "path": "md-restart/development/store-owners-red.log",
+      "bytes": 973,
+      "sha256": "02fa450c67469f19b88f46beeb5dec3ae735838867e2d1b0344a2ab62a9162f0"
+    },
+    {
+      "path": "md-restart/development/store-red.log",
+      "bytes": 1073,
+      "sha256": "5da0fe7553c03a3930457886a442d08e95ce9b2561150996ec8234d31393f478"
+    },
+    {
+      "path": "md-restart/development/validation-final.log",
+      "bytes": 1375,
+      "sha256": "b593e636b223e4c2cdaacbf4b61bf57fe2ebb9daf4374dc727cbf17c8d53c512"
+    },
+    {
+      "path": "md-restart/development/validation-red2.log",
+      "bytes": 1478,
+      "sha256": "c0d84cb922a4934d5a115a159f157b6acc1884bba3a603098bae15a23f5d913b"
+    },
+    {
+      "path": "md-restart/documentation.log",
+      "bytes": 91,
+      "sha256": "6648dde2ed63ea58a1493fcec1d2b339195a93d07adb2d18b01641399909106a"
+    },
+    {
+      "path": "md-restart/evidence-style.json",
+      "bytes": 1001,
+      "sha256": "c60c76c8a384c34cdecbbb8a731347321e413d9eb042ca607c6fe194ca9a3d92"
+    },
+    {
+      "path": "md-restart/gate.py",
+      "bytes": 831,
+      "sha256": "5aa0407437008174462df6ce538bdd89b4e836998ec0d354fd8a62d9e2f645ff"
+    },
+    {
+      "path": "md-restart/md-guide-style.json",
+      "bytes": 1794,
+      "sha256": "4ddb77382a2e33a95de4924d8d60c5da24037dcad20bf036d8ba37c322ff12fc"
+    },
+    {
+      "path": "md-restart/offline-final-test.py",
+      "bytes": 6472,
+      "sha256": "3eaf8e7254c9fdc7fdcdbda4b8291b1657f383063f824b6daad4dad40f2cb63c"
+    },
+    {
+      "path": "md-restart/offline-final.json",
+      "bytes": 4717,
+      "sha256": "845d0240b043cac37d8c0a506afb152e8f1e8ca6b0136e143a58c240adf97fc1"
+    },
+    {
+      "path": "md-restart/offline-final.log",
+      "bytes": 8053,
+      "sha256": "510495acd00e8778206f9c36ac99d30a57c716b6a7391506f3f7d90a67e50aca"
+    },
+    {
+      "path": "md-restart/overview-style.json",
+      "bytes": 4604,
+      "sha256": "61a37589dd38e841971e5ce8c0e69e8317986c2ace69fa749fcc5b7c7ae79141"
+    },
+    {
+      "path": "md-restart/recovery/expanded/HEAD",
+      "bytes": 167,
+      "sha256": "973aaf45ad7bb0d0c338575801ea4deadf927fbe918aee3bdf48924ba442e3de"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-05ff10e0e77df885722c1606de3c7f6fe500153bd3a597a59083f7c904f114ef",
+      "bytes": 15055,
+      "sha256": "05ff10e0e77df885722c1606de3c7f6fe500153bd3a597a59083f7c904f114ef"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-11c8ab2e2d90b5210aacdbdd09f282b54d22b84e27b1a29f864ced691281cf58",
+      "bytes": 15601,
+      "sha256": "11c8ab2e2d90b5210aacdbdd09f282b54d22b84e27b1a29f864ced691281cf58"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-14cbe8e4074096d658f78358c0c5184696620d54089c7ffe674ac62637349337",
+      "bytes": 15051,
+      "sha256": "14cbe8e4074096d658f78358c0c5184696620d54089c7ffe674ac62637349337"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-177b892753f719815c3b13cf13ab166e9e7e3903b7030858adcb2b8378374980",
+      "bytes": 13847,
+      "sha256": "177b892753f719815c3b13cf13ab166e9e7e3903b7030858adcb2b8378374980"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-33aa9be6d268c29fb1a7172e0b7c0850b08ad26cc29cd10b1b88355f10da32cb",
+      "bytes": 14166,
+      "sha256": "33aa9be6d268c29fb1a7172e0b7c0850b08ad26cc29cd10b1b88355f10da32cb"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-4a13f959b98215add504392e643ca559121a2ff831b2de16d9b4a23eb886c853",
+      "bytes": 15381,
+      "sha256": "4a13f959b98215add504392e643ca559121a2ff831b2de16d9b4a23eb886c853"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-77333d74b1bffb34a73a5fc423726e58ba994446499126f20fbfec2ee0732278",
+      "bytes": 16805,
+      "sha256": "77333d74b1bffb34a73a5fc423726e58ba994446499126f20fbfec2ee0732278"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-7c2fc6ba5acc61edbc6835fff0172a232052e17d59e9f0dfc7c1ba08e3a8d42b",
+      "bytes": 14164,
+      "sha256": "7c2fc6ba5acc61edbc6835fff0172a232052e17d59e9f0dfc7c1ba08e3a8d42b"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-7ce25a276609e37a622e8330ba0c6fe36ee639c353e79bbf8179ef11553cdf91",
+      "bytes": 15889,
+      "sha256": "7ce25a276609e37a622e8330ba0c6fe36ee639c353e79bbf8179ef11553cdf91"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-8b246986292749b2af8ed779ff7fcece81afe3fc679d496981e373c93cc2e254",
+      "bytes": 15890,
+      "sha256": "8b246986292749b2af8ed779ff7fcece81afe3fc679d496981e373c93cc2e254"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-9fbbe4efe055ff9f2043b26b0bd3343123eb351d62a02564780c907c7b9743c2",
+      "bytes": 15379,
+      "sha256": "9fbbe4efe055ff9f2043b26b0bd3343123eb351d62a02564780c907c7b9743c2"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-c452e61cb02d17c0add0f4820724dd12694cf2b86afcf7e4fa08e4d139747b81",
+      "bytes": 16796,
+      "sha256": "c452e61cb02d17c0add0f4820724dd12694cf2b86afcf7e4fa08e4d139747b81"
+    },
+    {
+      "path": "md-restart/recovery/expanded/object-eea1edf3a15b315c54db3176e04e9a80fab3a01cad2946ac7f109b81a98e39e6",
+      "bytes": 13888,
+      "sha256": "eea1edf3a15b315c54db3176e04e9a80fab3a01cad2946ac7f109b81a98e39e6"
+    },
+    {
+      "path": "md-restart/recovery/starting-fault/HEAD",
+      "bytes": 161,
+      "sha256": "aea75d23cd9b2a9b869fee43745a521610affcbc634dcd4b2ddc02709024e50b"
+    },
+    {
+      "path": "md-restart/recovery/starting-fault/object-0066cd52a6ff5bd4def1a1e1fbfb491443b4385394e7c432d019c008e2a4bbcd",
+      "bytes": 13907,
+      "sha256": "0066cd52a6ff5bd4def1a1e1fbfb491443b4385394e7c432d019c008e2a4bbcd"
+    },
+    {
+      "path": "md-restart/recovery/starting-fault/object-41f1c38df5e4df6da7973da70b4a8468c2c964735cf85f5ebe01ad119e8bb5a4",
+      "bytes": 13855,
+      "sha256": "41f1c38df5e4df6da7973da70b4a8468c2c964735cf85f5ebe01ad119e8bb5a4"
+    },
+    {
+      "path": "md-restart/recovery/starting-fault/object-576061933a3da19dcff45fb5784b5b266d3552661a2248d726ace3453cd0ee8d",
+      "bytes": 13901,
+      "sha256": "576061933a3da19dcff45fb5784b5b266d3552661a2248d726ace3453cd0ee8d"
+    },
+    {
+      "path": "md-restart/release-build.log",
+      "bytes": 393,
+      "sha256": "c72847696b95dd331b7ec84372b3403f2d23ef9d1de776a3dd2040948edf7ed0"
+    },
+    {
+      "path": "md-restart/source-after-build.log",
+      "bytes": 28,
+      "sha256": "46cc4ab3f970eb69f4cc27b6e817a2e665a6e7a2fcd9753d0acc3b744cfc6040"
+    },
+    {
+      "path": "md-restart/source-before-build.log",
+      "bytes": 28,
+      "sha256": "46cc4ab3f970eb69f4cc27b6e817a2e665a6e7a2fcd9753d0acc3b744cfc6040"
+    },
+    {
+      "path": "md-restart/source-manifest.py",
+      "bytes": 1449,
+      "sha256": "979c8a8f63d7647d05c932e6c4cfdfa5e13ce634770757abf1b4b88eb1335a2c"
+    },
+    {
+      "path": "md-restart/spec-style.json",
+      "bytes": 1035,
+      "sha256": "2055239648df57afdb2bf74899f2e30872071814dce817d68c7a83c9ea4da7d9"
+    },
+    {
+      "path": "md-restart-source-sha256.json",
+      "bytes": 167065,
+      "sha256": "c8e0da9c7e5a235fcd57d3e20c7f15c520a59e1d1fa890ec8932d63a0b561289"
+    },
+    {
+      "path": "verify-md-restart.py",
+      "bytes": 23458,
+      "sha256": "3e579d1204b11d84e470d021f853cd17f4f52cd94f0fba862715171f6685c4eb"
+    },
+    {
+      "path": "md-restart-audited-report.json",
+      "bytes": 431247,
+      "sha256": "a17cc69825153243a2f7e828d480e84285e983341231c8ecf3fd7e54b5544e32"
+    }
+  ]
+}

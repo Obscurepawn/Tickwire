@@ -1,0 +1,47 @@
+   Compiling tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.30s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_md-0b0196b398134b58)
+
+running 14 tests
+test recovery::tests::a_nonzero_bank_descriptor_must_match_its_exact_wire_content ... FAILED
+test recovery::tests::old_facts_cannot_be_rewritten_by_a_new_durable_snapshot ... FAILED
+test recovery::tests::full_history_retains_old_instances_resources_and_source_owners ... ok
+test recovery::tests::actual_store_reopens_the_exact_chain_and_preserves_history ... ok
+test recovery::tests::recovery_rechecks_continuity_even_when_all_object_hashes_are_valid ... FAILED
+test recovery::tests::sole_owner_unlock_is_not_extended_by_an_inherited_descriptor ... ok
+test recovery::tests::directory_or_lock_replacement_poison_the_original_writer ... ok
+test recovery::tests::unexpected_disk_contents_poison_without_advancing_current ... ok
+test recovery::tests::input_rejections_do_not_write_or_poison_a_healthy_store ... ok
+test recovery::tests::recovery_rejects_disk_object_count_and_byte_budgets_before_decoding ... ok
+test recovery::tests::file_type_permissions_and_unknown_entries_are_rejected ... ok
+test recovery::tests::recovery_refuses_missing_changed_and_noncanonical_heads ... ok
+test recovery::tests::recovery_verifies_every_predecessor_and_rejects_orphans ... ok
+test recovery::tests::an_oversized_snapshot_never_creates_a_partial_object ... ok
+
+failures:
+
+---- recovery::tests::a_nonzero_bank_descriptor_must_match_its_exact_wire_content stdout ----
+
+thread 'recovery::tests::a_nonzero_bank_descriptor_must_match_its_exact_wire_content' (1145895) panicked at crates/tickwire-md/src/recovery/tests.rs:504:5:
+assertion failed: store.write(value.clone()).is_err()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- recovery::tests::old_facts_cannot_be_rewritten_by_a_new_durable_snapshot stdout ----
+
+thread 'recovery::tests::old_facts_cannot_be_rewritten_by_a_new_durable_snapshot' (1145902) panicked at crates/tickwire-md/src/recovery/tests.rs:456:9:
+assertion failed: store.write(invalid).is_err()
+
+---- recovery::tests::recovery_rechecks_continuity_even_when_all_object_hashes_are_valid stdout ----
+
+thread 'recovery::tests::recovery_rechecks_continuity_even_when_all_object_hashes_are_valid' (1145903) panicked at crates/tickwire-md/src/recovery/tests.rs:496:9:
+assertion failed: Store::open(&path).is_err()
+
+
+failures:
+    recovery::tests::a_nonzero_bank_descriptor_must_match_its_exact_wire_content
+    recovery::tests::old_facts_cannot_be_rewritten_by_a_new_durable_snapshot
+    recovery::tests::recovery_rechecks_continuity_even_when_all_object_hashes_are_valid
+
+test result: FAILED. 11 passed; 3 failed; 0 ignored; 0 measured; 57 filtered out; finished in 0.47s
+
+error: test failed, to rerun pass `-p tickwire-md --lib`
