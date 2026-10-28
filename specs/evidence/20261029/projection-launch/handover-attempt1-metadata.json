@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "scenario": "spot-handover-custom",
+  "root": "/tmp/tw-projection-compat-handover-1",
+  "binary_manifest": "/tmp/tickwire-progress-20261028/projection-launch-binaries.json",
+  "started_utc": "2026-10-28T20:19:13.627251+00:00",
+  "started_monotonic_ns": 63474542802394,
+  "generate_command": [
+    "/tmp/tw-projection-launch-bins-1/tickwire-lab",
+    "generate",
+    "--scenario",
+    "spot-handover-custom",
+    "--out",
+    "/tmp/tw-projection-compat-handover-1",
+    "--bin-dir",
+    "/tmp/tw-projection-launch-bins-1"
+  ],
+  "generate_exit_code": 0,
+  "run_command": [
+    "/tmp/tw-projection-launch-bins-1/tickwire-lab",
+    "run",
+    "--config",
+    "/tmp/tw-projection-compat-handover-1/scenario.json"
+  ],
+  "run_exit_code": 1,
+  "completed_utc": "2026-10-28T20:19:14.218269+00:00",
+  "completed_monotonic_ns": 63475133796469,
+  "binary_hashes_before": {
+    "tickwire-lab": "aca07e29981cad1327557bf721c8b82b5469077cd88227e705469e19523e3df4",
+    "tickwire-app": "c877bfb2570496e7bbd3f9b2b8538c365a8b5cd52bb7246f353548faf376a1a9",
+    "tickwire-md": "b143f38dd45d64f416621c263248df83c0dd85fa1de7dfc5ed2ecc42c8c88736",
+    "tickwire-strategy-worker": "b0a7afe41f34f2fc6abc97d7918f1631e572bdc573ce9c0a7244aad170081f96",
+    "tickwire-replica-receiver": "320c7250df33a11a910ca0ad968be891a500a33afe9d5622a2ba6d680de0faba",
+    "tickwire-lifecycle": "d5941c23422d57fd1a94538cf395222cc2fad51147b1bc557d6c118b0c494bf9",
+    "tickwire-counting-v1-worker": "5b1fce2ea8e32d1dae90f50998673af3f4847123a15b316aa97b8aa87fea52a6",
+    "tickwire-counting-worker": "91ed07eab36211d3f4a982e218114cbbf3e4b75c5795b56e4071b3e47ce25ee3"
+  },
+  "binary_hashes_after": {
+    "tickwire-lab": "aca07e29981cad1327557bf721c8b82b5469077cd88227e705469e19523e3df4",
+    "tickwire-app": "c877bfb2570496e7bbd3f9b2b8538c365a8b5cd52bb7246f353548faf376a1a9",
+    "tickwire-md": "b143f38dd45d64f416621c263248df83c0dd85fa1de7dfc5ed2ecc42c8c88736",
+    "tickwire-strategy-worker": "b0a7afe41f34f2fc6abc97d7918f1631e572bdc573ce9c0a7244aad170081f96",
+    "tickwire-replica-receiver": "320c7250df33a11a910ca0ad968be891a500a33afe9d5622a2ba6d680de0faba",
+    "tickwire-lifecycle": "d5941c23422d57fd1a94538cf395222cc2fad51147b1bc557d6c118b0c494bf9",
+    "tickwire-counting-v1-worker": "5b1fce2ea8e32d1dae90f50998673af3f4847123a15b316aa97b8aa87fea52a6",
+    "tickwire-counting-worker": "91ed07eab36211d3f4a982e218114cbbf3e4b75c5795b56e4071b3e47ce25ee3"
+  },
+  "binary_hashes_unchanged": true,
+  "source_manifest_verified": true,
+  "result": null
+}

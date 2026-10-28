@@ -1,0 +1,6 @@
+
+running 1 test
+test process_resources::linux::tests::actual_cgroup_root_rejects_configuration_and_has_an_exclusive_owner_lease ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.07s
+

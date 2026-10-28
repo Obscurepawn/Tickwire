@@ -1262,6 +1262,7 @@ dependencies = [
  "tickwire-binance-session",
  "tickwire-book",
  "tickwire-clock",
+ "tickwire-config",
  "tickwire-control",
  "tickwire-control-store",
  "tickwire-control-sys",

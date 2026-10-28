@@ -1,0 +1,9 @@
+{
+  "cause": "Generated host runtime control socket exceeds Linux sockaddr_un path capacity",
+  "path_bytes": 112,
+  "maximum_path_bytes": 107,
+  "source": "crates/tickwire-control-sys/src/linux.rs:197",
+  "error": "{\"error\":\"strategy startup: Transport(InvalidPath)\",\"event\":\"fatal\"}",
+  "change": "Shorten only external acceptance-driver output root; no production or frozen build-input changes",
+  "replacement_root": "/tmp/tw-pl-handover-2"
+}

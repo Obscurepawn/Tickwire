@@ -864,6 +864,32 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
     pub fn publisher(&self) -> SharedPublisher<M> {
         self.publisher.clone()
     }
+    /// Performs the existing lazy startup and maintenance without reading an intent.
+    ///
+    /// A false result means either waiting for live market data or a latched error;
+    /// inspect `failed()` to distinguish those cases.
+    pub fn prepare_start(&mut self, now: tickwire_binance_clock::LocalTime) -> bool {
+        if self.error().is_some() {
+            return false;
+        }
+        if let Err(e) = self.maintain(now) {
+            self.error = Some(e);
+            return false;
+        }
+        if let Err(e) = self.start_if_ready() {
+            self.error = Some(e);
+            return false;
+        }
+        self.started.is_some()
+    }
+    /// Samples the actual resources of the started child on this cold path.
+    pub fn observe_resources(&mut self) -> Result<tickwire_supervisor::LiveResourceObservation> {
+        self.started
+            .as_mut()
+            .ok_or(Error::NotReady)?
+            .child
+            .observe_resources()
+    }
     #[allow(unsafe_code)]
     fn start_if_ready(&mut self) -> Result<()> {
         if self.started.is_some() || !self.publisher.live() {
@@ -1186,15 +1212,7 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         h: tickwire_runtime::node::Health,
         now: tickwire_binance_clock::LocalTime,
     ) -> Option<tickwire_runtime::node::Submission> {
-        if self.error().is_some() {
-            return None;
-        }
-        if let Err(e) = self.maintain(now) {
-            self.error = Some(e);
-            return None;
-        }
-        if let Err(e) = self.start_if_ready() {
-            self.error = Some(e);
+        if !self.prepare_start(now) {
             return None;
         }
         let started = self.started.as_mut()?;

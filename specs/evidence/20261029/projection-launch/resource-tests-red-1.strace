@@ -1,0 +1,67 @@
+1114452 openat(AT_FDCWD</home/obscure/Tickwire>, "/etc/ld.so.cache", O_RDONLY|O_CLOEXEC) = 3</etc/ld.so.cache>
+1114452 close(3</etc/ld.so.cache>)      = 0
+1114452 openat(AT_FDCWD</home/obscure/Tickwire>, "/lib/x86_64-linux-gnu/libgcc_s.so.1", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libgcc_s.so.1>
+1114452 close(3</usr/lib/x86_64-linux-gnu/libgcc_s.so.1>) = 0
+1114452 openat(AT_FDCWD</home/obscure/Tickwire>, "/lib/x86_64-linux-gnu/libc.so.6", O_RDONLY|O_CLOEXEC) = 3</usr/lib/x86_64-linux-gnu/libc.so.6>
+1114452 close(3</usr/lib/x86_64-linux-gnu/libc.so.6>) = 0
+1114452 openat(AT_FDCWD</home/obscure/Tickwire>, "/proc/self/maps", O_RDONLY|O_CLOEXEC) = 3</proc/1114452/maps>
+1114452 close(3</proc/1114452/maps>)    = 0
+1114452 openat(AT_FDCWD</home/obscure/Tickwire>, "/usr/share/terminfo/x/xterm-256color", O_RDONLY|O_CLOEXEC) = 3</usr/share/terminfo/x/xterm-256color>
+1114452 close(3</usr/share/terminfo/x/xterm-256color>) = 0
+1114453 openat(AT_FDCWD</home/obscure/Tickwire>, "/", O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY) = 3</>
+1114453 openat(3</>, "sys", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114454 openat(AT_FDCWD</home/obscure/Tickwire>, "/", O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114453 <... openat resumed>)           = 4</sys>
+1114454 <... openat resumed>)           = 5</>
+1114454 openat(5</>, "sys", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY) = 6</sys>
+1114453 close(3</>)                     = 0
+1114454 close(5</> <unfinished ...>
+1114453 openat(4</sys>, "fs", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114454 <... close resumed>)            = 0
+1114454 openat(6</sys>, "fs", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114453 <... openat resumed>)           = 3</sys/fs>
+1114454 <... openat resumed>)           = 5</sys/fs>
+1114453 close(4</sys> <unfinished ...>
+1114454 close(6</sys> <unfinished ...>
+1114453 <... close resumed>)            = 0
+1114454 <... close resumed>)            = 0
+1114453 openat(3</sys/fs>, "cgroup", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114454 openat(5</sys/fs>, "cgroup", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114453 <... openat resumed>)           = 4</sys/fs/cgroup>
+1114454 <... openat resumed>)           = 6</sys/fs/cgroup>
+1114453 close(3</sys/fs> <unfinished ...>
+1114454 close(5</sys/fs> <unfinished ...>
+1114453 <... close resumed>)            = 0
+1114454 <... close resumed>)            = 0
+1114453 openat(AT_FDCWD</home/obscure/Tickwire>, "/", O_RDONLY|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY <unfinished ...>
+1114454 flock(6</sys/fs/cgroup>, LOCK_EX|LOCK_NB <unfinished ...>
+1114453 <... openat resumed>)           = 3</>
+1114454 <... flock resumed>)            = 0 (DELAYED)
+1114453 openat(3</>, "sys", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY) = 5</sys>
+1114453 close(3</>)                     = 0
+1114453 openat(5</sys>, "fs", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY) = 3</sys/fs>
+1114453 close(5</sys>)                  = 0
+1114453 openat(3</sys/fs>, "cgroup", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC|O_DIRECTORY) = 5</sys/fs/cgroup>
+1114453 close(3</sys/fs>)               = 0
+1114453 flock(4</sys/fs/cgroup>, LOCK_EX|LOCK_NB) = -1 EAGAIN (Resource temporarily unavailable) (DELAYED)
+1114454 openat(6</sys/fs/cgroup>, "cgroup.type", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC) = 3</sys/fs/cgroup/cgroup.type>
+1114454 close(3</sys/fs/cgroup/cgroup.type>) = 0
+1114454 openat(6</sys/fs/cgroup>, "cpuset.cpus.effective", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC) = 3</sys/fs/cgroup/cpuset.cpus.effective>
+1114454 close(3</sys/fs/cgroup/cpuset.cpus.effective>) = 0
+1114454 openat(6</sys/fs/cgroup>, "cpuset.mems.effective", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC <unfinished ...>
+1114453 close(5</sys/fs/cgroup> <unfinished ...>
+1114454 <... openat resumed>)           = 3</sys/fs/cgroup/cpuset.mems.effective>
+1114453 <... close resumed>)            = 0
+1114453 close(4</sys/fs/cgroup>)        = 0
+1114454 close(3</sys/fs/cgroup/cpuset.mems.effective>) = 0
+1114454 openat(6</sys/fs/cgroup>, "memory.max", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC) = 3</sys/fs/cgroup/memory.max>
+1114453 +++ exited with 0 +++
+1114454 close(3</sys/fs/cgroup/memory.max>) = 0
+1114454 openat(6</sys/fs/cgroup>, "memory.swap.max", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC) = 3</sys/fs/cgroup/memory.swap.max>
+1114454 close(3</sys/fs/cgroup/memory.swap.max>) = 0
+1114454 openat(6</sys/fs/cgroup>, "cgroup.stat", O_RDONLY|O_NONBLOCK|O_NOFOLLOW|O_CLOEXEC) = 3</sys/fs/cgroup/cgroup.stat>
+1114454 close(3</sys/fs/cgroup/cgroup.stat>) = 0
+1114454 flock(6</sys/fs/cgroup>, LOCK_UN) = 0
+1114454 close(6</sys/fs/cgroup>)        = 0
+1114454 +++ exited with 0 +++
+1114452 +++ exited with 101 +++

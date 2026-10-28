@@ -1,5 +1,23 @@
-//! Explicit cold-path observations of directly owned children, without config authority.
+//! Explicit cold-path process identity observations, without config authority.
 use super::*;
+
+/// Reads this process's kernel PID/UID/GID on an explicit cold path.
+///
+/// Requires matching real, effective, saved and filesystem credentials and
+/// stable kernel identity across both reads. This is not an owned-child,
+/// executable-image or configuration-application observation.
+pub fn current_process_identity() -> Result<ProcessIdentity> {
+    #[cfg(target_os = "linux")]
+    {
+        linux::current_process_identity()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        Err(Error::Transport(
+            tickwire_control_sys::Error::UnsupportedPlatform,
+        ))
+    }
+}
 
 /// Kernel facts and approved launch identity at one local sampling interval.
 /// A connected epoch is historical connection state, not a fresh challenge response.

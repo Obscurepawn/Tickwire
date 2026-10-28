@@ -1,0 +1,9 @@
+    Checking tickwire-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-quota)
+    Checking tickwire-binance-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-quota)
+    Checking tickwire-binance-execution v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-execution)
+    Checking tickwire-md v0.1.0 (/home/obscure/Tickwire/crates/tickwire-md)
+    Checking tickwire-runtime v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime)
+    Checking tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Checking tickwire-runtime-policy v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime-policy)
+    Checking tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.63s

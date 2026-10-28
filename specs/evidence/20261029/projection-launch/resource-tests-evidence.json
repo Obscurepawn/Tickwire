@@ -1,0 +1,38 @@
+{
+  "status": "verified",
+  "scope": "test fixture isolation and use of existing production DirectoryLease; no production behavior changes",
+  "root": {
+    "path": "/sys/fs/cgroup",
+    "device": 25,
+    "inode": 166
+  },
+  "red": {
+    "summary": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-red.json",
+    "log": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-red-1.log",
+    "trace": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-red-1.strace",
+    "holder_thread": 1114454,
+    "contender_thread": 1114453,
+    "observation": "holder flock fd6 returns0; contender first flock fd4 returnsEAGAIN; original test line51 fails"
+  },
+  "green": {
+    "test_threads": 16,
+    "passed": {
+      "unit": 14,
+      "executable": 6,
+      "transport": 21
+    },
+    "ignored": 3,
+    "log": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-green.log",
+    "same_injection_log": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-trace-green.log",
+    "trace": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-green.strace",
+    "clippy": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-clippy.log"
+  },
+  "build": {
+    "test_binary_sha256": "b5ac70829eb7a33282c75ef8aa01a485b91e28bbc92d7abd3908b1760527a0f3"
+  },
+  "limitations": [
+    "No delegated cgroup positive launch test executed",
+    "Non-Linux not executed",
+    "strace syscall delay is reproduction-only; no production/test sleep or retry added"
+  ]
+}

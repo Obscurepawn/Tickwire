@@ -1,0 +1,114 @@
+   Compiling tickwire-control-sys v0.1.0 (/home/obscure/Tickwire/crates/tickwire-control-sys)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.48s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_sys-cb93c893da4b8ae6)
+
+running 15 tests
+test process_resources::linux::tests::affinity_child ... ignored, child entry invoked by the real affinity parent test
+test process_resources::linux::tests::actual_cgroup_root_rejects_configuration_and_has_an_exclusive_owner_lease ... ok
+test process_resources::parse::tests::every_thread_must_have_exact_process_and_memory_node ... ok
+test process_resources::linux::tests::preparation_limits_and_bounded_reads_reject_before_spawning ... ok
+test process_resources::parse::tests::finite_memory_rejects_unlimited_and_noncanonical_values ... ok
+test process_resources::linux::tests::resource_settings_require_exact_finite_limits_and_domain_leaf ... ok
+test process_resources::parse::tests::thread_name_is_opaque_kernel_bytes ... ok
+test process_resources::parse::tests::kernel_cpu_lists_are_bounded_exact_sets ... ok
+test process_resources::parse::tests::memberships_and_descendants_reject_ambiguity ... ok
+test executable::tests::growing_source_is_bounded_by_the_opened_length_before_copy ... ok
+test process_resources::linux::tests::directory_lease_ends_at_owner_drop_even_with_an_inherited_description ... ok
+test process_resources::linux::tests::changed_preexec_snapshot_prevents_target_execution ... ok
+test process_resources::linux::tests::fake_filesystem_and_symlink_components_never_create_a_domain ... ok
+test process_resources::linux::tests::failed_migration_syscall_prevents_target_execution ... ok
+
+running 1 test
+test process_resources::linux::tests::affinity_child ... test process_resources::linux::tests::affinity_is_set_before_real_exec_and_inherited_by_all_child_threads ... ok
+
+test result: ok. 14 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/executable.rs (/tmp/tickwire-progress-20261028/target/debug/deps/executable-56ee35061fba7a87)
+
+running 7 tests
+test executable_child ... ignored, invoked by real_dynamic_test_child_preserves_argv0_and_does_not_inherit_image_descriptors
+test only_the_fixed_sealed_image_matches_the_actual_running_elf ... ok
+test sealed_image_rejects_writes_growth_and_truncation_and_has_independent_readers ... ok
+test invalid_images_and_replaced_command_program_fail_before_exec ... ok
+test prepared_image_survives_in_place_source_overwrite ... ok
+test prepared_image_survives_path_replacement_and_unlink ... ok
+test real_dynamic_test_child_preserves_argv0_and_does_not_inherit_image_descriptors ... ok
+
+test result: ok. 6 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/platform.rs (/tmp/tickwire-progress-20261028/target/debug/deps/platform-ebb2d2d0812278f1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/process_resources.rs (/tmp/tickwire-progress-20261028/target/debug/deps/process_resources-9948fe85fc67305d)
+
+running 1 test
+test delegated_leaf_sealed_child_is_constrained_exclusive_and_observed ... ignored, requires an empty delegated cgroup v2 leaf with exact limits, swap=0 and migration permission
+
+test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/transport.rs (/tmp/tickwire-progress-20261028/target/debug/deps/transport-431e65ae21e7346b)
+
+running 21 tests
+test cloexec_child ... ok
+test pathname_child ... ok
+test inherited_peer_child ... ok
+test rejection_child ... ok
+test shared_os_monotonic_clock ... ok
+
+running 1 test
+
+running 1 test
+
+running 1 test
+
+running 1 test
+test inherited_peer_child ... ok
+test private_directory_rejects_unprotected_writable_parent ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered outtest pathname_child ... ; finished in 0.00sok
+
+
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+test inherited_socketpair_peer_pid_is_creator_after_real_fork_exec ... ok
+test independent_exec_connect_has_child_credentials_and_shared_clock ... ok
+test existing_paths_and_replacements_are_not_removed ... ok
+test restrictive_permissions_and_cleanup_keep_unrelated_entries ... ok
+test try_send_queue_backpressure_preserves_whole_frames ... ok
+test try_recv_drains_queued_frames_and_fds_before_closed ... ok
+test try_accept_observes_empty_and_already_queued_connections ... ok
+test pending_connect_and_try_send_preserve_real_packet_and_fd_ownership ... ok
+test complete_packets_and_owned_close_on_exec_fds ... ok
+
+running 1 test
+test pending_connect_retries_unix_backlog_without_false_success ... ok
+test cloexec_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.00s
+
+test received_descriptor_does_not_survive_exec ... ok
+test timeout_eof_and_sender_validation ... ok
+test full_send_queue_expires_without_signals_or_partial_success ... ok
+test rejection_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.10s
+
+test rejection_child ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 0.10s
+
+test malformed_packets_close_all_fds_in_isolated_process ... ok
+test try_recv_malformed_packets_close_all_fds_in_isolated_process ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+   Doc-tests tickwire_control_sys
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

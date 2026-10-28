@@ -1,0 +1,29 @@
+    Blocking waiting for file lock on build directory
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+warning: constant `MAX_OBJECT_BYTES` is never used
+  --> crates/tickwire-app/src/hosted/profile.rs:11:7
+   |
+11 | const MAX_OBJECT_BYTES: usize = 4 * 1024 * 1024;
+   |       ^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `tickwire-app` (lib) generated 1 warning
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 16.12s
+     Running tests/projection_launch.rs (/tmp/tickwire-progress-20261028/target/debug/deps/projection_launch-133d2d4a339de785)
+
+running 1 test
+
+thread 'hosted_build_rejects_unknown_os_mapping_before_launch_side_effects' (1097430) panicked at crates/tickwire-app/tests/projection_launch.rs:20:18:
+invalid projection reached hosted owner construction
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test hosted_build_rejects_unknown_os_mapping_before_launch_side_effects ... FAILED
+
+failures:
+
+failures:
+    hosted_build_rejects_unknown_os_mapping_before_launch_side_effects
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p tickwire-app --test projection_launch`

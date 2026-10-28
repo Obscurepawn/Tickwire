@@ -44,18 +44,47 @@ fn fake_filesystem_and_symlink_components_never_create_a_domain() {
     std::fs::remove_dir_all(directory.path()).unwrap();
 }
 #[test]
-fn actual_cgroup_inode_lease_is_exclusive_across_independent_opens() {
-    let one = files::directory(Path::new("/sys/fs/cgroup")).unwrap();
+fn actual_cgroup_root_rejects_configuration_and_has_an_exclusive_owner_lease() {
+    let path = Path::new("/sys/fs/cgroup");
+    let one = files::directory(path).unwrap();
     files::cgroupfs(&one).unwrap();
-    let two = files::directory(Path::new("/sys/fs/cgroup")).unwrap();
-    files::lease(&one).unwrap();
-    assert!(matches!(files::lease(&two), Err(Error::ResourceConflict)));
-    drop(one);
-    files::lease(&two).unwrap();
-}
-#[test]
-fn actual_cgroup_root_is_not_a_dedicated_leaf() {
-    assert!(ResourceDomain::acquire(Path::new("/sys/fs/cgroup"), limits()).is_err());
+    // Both assertions use the same actual inode. Keep them in one test so an
+    // unrelated test's lease cannot masquerade as an invalid root configuration.
+    match ResourceDomain::acquire(path, limits()) {
+        Err(Error::InvalidResources) => {}
+        Err(Error::System { operation, source })
+            if operation == "open resource file" && source.raw_os_error() == Some(libc::ENOENT) =>
+        {
+            // The real hierarchy root may omit controller limit files; require
+            // evidence of that exact missing setting, not an arbitrary I/O error.
+            assert!(SETTINGS.iter().any(|name| matches!(
+                files::open(&one, name, libc::O_RDONLY),
+                Err(Error::System { source, .. })
+                    if source.raw_os_error() == Some(libc::ENOENT)
+            )));
+        }
+        Err(error) => panic!("root configuration must fail without lease contention: {error:?}"),
+        Ok(_) => panic!("the shared hierarchy root is not a dedicated configured leaf"),
+    }
+    let two = files::directory(path).unwrap();
+    assert_eq!(one.metadata().unwrap().dev(), two.metadata().unwrap().dev());
+    assert_eq!(one.metadata().unwrap().ino(), two.metadata().unwrap().ino());
+    let first = files::DirectoryLease::acquire(one).unwrap();
+    let inherited = first.try_clone().unwrap();
+    assert!(matches!(
+        files::DirectoryLease::acquire(two.try_clone().unwrap()),
+        Err(Error::ResourceConflict)
+    ));
+    drop(first);
+    // The production guard unlocks immediately even if fork copied the FD.
+    let second = files::DirectoryLease::acquire(two).unwrap();
+    drop(inherited);
+    assert!(matches!(
+        files::DirectoryLease::acquire(files::directory(path).unwrap()),
+        Err(Error::ResourceConflict)
+    ));
+    drop(second);
+    drop(files::DirectoryLease::acquire(files::directory(path).unwrap()).unwrap());
 }
 #[test]
 fn preparation_limits_and_bounded_reads_reject_before_spawning() {

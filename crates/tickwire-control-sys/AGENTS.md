@@ -47,6 +47,7 @@ cargo fmt --check -p tickwire-control-sys
 - 无 bench。
 - `process_resources` 单元测试覆盖严格 CPU/内存/进程/线程解析（Name 允许非 UTF-8）、组配置变异、伪文件系统与符号链接拒绝、有界读取、真实 cgroup 目录锁排他、真实子进程 affinity 及全部线程继承、执行前 syscall/设置校验失败不执行目标。`tests/process_resources.rs` 的正向组测试显式 ignored；需要 `TICKWIRE_RESOURCE_{CGROUP,CPUS,NUMA,MEMORY_MAX}` 指定实际预配置委派 leaf，本机无权限，尚未执行。实际 affinity 子进程验证不替代完整组验收。
 - `transport.rs` 追加实际 UNIX backlog 耗尽后重试、try_send 队列背压、0/1/16 FD 完整帧与所有权测试。
+- 共享 `/sys/fs/cgroup` inode 的配置拒绝与 lease 排他在同一个测试中顺序执行，避免两个并行夹具互相抢锁。配置断言只接受 InvalidResources，或实际所需 controller 文件缺失对应的 ENOENT，不接受 ResourceConflict；排他断言使用生产 DirectoryLease guard，并持有安全 FD 副本验证 guard 析构后立即重获、旧副本关闭不解除后继 owner。其余套件保持并行。
 
 ## 6. 关键不变量与注意事项
 

@@ -82,7 +82,7 @@ Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependenci
 
 所有 worker 启动以及 `source_replay`、restore-probe、replay-rollback、rebuild-rollback 统一经 `resources::spawn` 按用途选择组。三组先做纯值校验，仅本次用途组实际 acquire 并核对内核限制与空成员，未使用组不提前宣称内核资格。Some 计划不得回退普通 spawn；ReadyProof/preflight 保留计划到后续 helper，恢复历史完成件不会产生当前资源证明。`rebuild_probe::run` 保留旧入口，显式资源计划使用 `run_with_resources`。同 PID Capture→Live 继续持有原 Registry Entry 的资源 lease，不再次启动 worker。
 
-`ChildHandles`、`RemoteHostedStrategy`、`capture::Owner`、`rebuild::Hosted` 提供冷 `observe_resources`，直接复用监督器的真实内核/镜像/进程采样，不在正常 poll 增加 `/proc` I/O，也不产生全局配置 Applied。退出不证明 cgroup 释放，下一次 acquire 必须重新核验专用空组。
+`ChildHandles`、`HostedStrategy`、`RemoteHostedStrategy`、`capture::Owner`、`rebuild::Hosted` 提供冷 `observe_resources`，直接复用监督器的真实内核/镜像/进程采样，不在正常 poll 增加 `/proc` I/O，也不产生全局配置 Applied。退出不证明 cgroup 释放，下一次 acquire 必须重新核验专用空组。
 
 `resources/tests.rs` 使用真实 ELF 验证三类资源失败均不执行目标、正确用途的目录被实际访问、未使用组非法也拒绝、严格 JSON/边界与 legacy 真实启动。普通文件系统伪组会被内核边界拒绝。本机没有可写委派 cgroup，成功组内启动与完整资源约束未在 Host 实测；有条件的正向验收依赖 supervisor/sys 的显式 ignored 测试。规格见 `specs/implementation/supervisor-process.md` 的 Host 段落。
 
@@ -97,3 +97,5 @@ Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependenci
 查询与封口、安装、换源、退休串行。取消没有 worker 取消 opcode，因此提前取消仍 Busy 至匹配响应或原截止；所有已有报告接收入口会吸收自己的已关闭挑战。查询到期、取消、前缀容量不足不暂停回调、不终止子进程、不改变交易授权。结果只证明本次采样，不能产生全局配置 Applied。规格见 `specs/implementation/runtime-observation.md`。单元测试覆盖前缀保留/预算、旧挑战身份/epoch/最低水位、取消排空、周期与查询应答乱序及请求容量；真实进程验证由 `tests/rebuild_process/fresh.rs` 提供，沿同 PID 安装后的实际 owner 运行。
 
 慢接收真实进程用例在控制 socket 背压下仍消费 176 条账户记录，核对旧排队查询的完整闭包与实际业务计数；长流末端新查询触及既有 typed 16 MiB 上限时明确拒绝，保留 worker 存活并完成真实 MD/report 退休，不把容量拒绝计作 Fresh 成功。
+
+`HostedStrategy::prepare_start(now)` 复用原 `next` 的错误检查、维护与 lazy 启动顺序，返回是否已启动，不读取 intent；false 通过 `failed()` 区分等待与失败。`next` 也调用此接口，行情尚未 Live 时不提前启动。App 可在启动后、首次交付 intent 前调用冷 `observe_resources` 完成投影启动字段核验；未启动返回 NotReady。该顺序见 [supervisor-process.md](../../specs/implementation/supervisor-process.md)，新接口不生成 Applied 或改变原启动条件。

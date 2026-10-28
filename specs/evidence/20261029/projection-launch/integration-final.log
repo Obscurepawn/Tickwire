@@ -1,0 +1,14 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running tests/projection_launch.rs (/tmp/tickwire-progress-20261028/target/debug/deps/projection_launch-133d2d4a339de785)
+
+running 7 tests
+test hosted_build_rejects_unknown_os_mapping_before_launch_side_effects ... ok
+test remote_entrypoint_reaches_real_resource_rejection_without_legacy_fallback ... ok
+test remote_entrypoint_does_not_substitute_a_different_actual_elf ... ok
+test local_live_market_cannot_issue_an_intent_or_proof_after_resource_rejection ... ok
+test hosted_build_rejects_restricted_modes_before_reading_their_inputs ... ok
+test local_entrypoint_preserves_legacy_and_does_not_claim_unstarted_resources ... ok
+test hosted_build_rejects_identity_resources_and_object_conflicts_before_launch ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+

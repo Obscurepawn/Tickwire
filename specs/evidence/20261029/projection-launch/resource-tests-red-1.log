@@ -1,0 +1,16 @@
+
+running 2 tests
+
+thread 'process_resources::linux::tests::actual_cgroup_inode_lease_is_exclusive_across_independent_opens' (1114453) panicked at crates/tickwire-control-sys/src/process_resources/linux/tests.rs:51:24:
+called `Result::unwrap()` on an `Err` value: ResourceConflict
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test process_resources::linux::tests::actual_cgroup_inode_lease_is_exclusive_across_independent_opens ... FAILED
+test process_resources::linux::tests::actual_cgroup_root_is_not_a_dedicated_leaf ... ok
+
+failures:
+
+failures:
+    process_resources::linux::tests::actual_cgroup_inode_lease_is_exclusive_across_independent_opens
+
+test result: FAILED. 1 passed; 1 failed; 0 ignored; 0 measured; 14 filtered out; finished in 0.06s
+

@@ -1,0 +1,27 @@
+{
+  "binary": "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_sys-cb93c893da4b8ae6",
+  "sha256": "5a99567722ce0c32f3e36c06175833db3275325851c24d09346223b6e6e57f58",
+  "trace_injection": "flock delay_exit=50ms:when=1 per tracee; bounded repro only",
+  "runs": [
+    {
+      "command": [
+        "strace",
+        "-f",
+        "-yy",
+        "-e",
+        "trace=openat,flock,close",
+        "-e",
+        "inject=flock:delay_exit=50ms:when=1",
+        "-o",
+        "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-red-1.strace",
+        "/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_control_sys-cb93c893da4b8ae6",
+        "actual_cgroup_",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "log": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-red-1.log",
+      "trace": "/tmp/tickwire-progress-20261028/projection-launch-resource-tests-red-1.strace"
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 //! Owned child processes and authenticated control connections.
 #![forbid(unsafe_code)]
 mod observation;
-pub use observation::LiveChildObservation;
+pub use observation::{LiveChildObservation, current_process_identity};
 mod resources;
 pub use resources::{LiveResourceObservation, ResourceLimits, ResourcePlan};
 use sha2::{Digest, Sha256};

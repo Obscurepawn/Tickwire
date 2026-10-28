@@ -13,7 +13,7 @@ fn bounded(path: &str, limit: usize) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct KernelState {
     start_ticks: u64,
     uid: u32,
@@ -26,6 +26,20 @@ fn kernel(pid: u32) -> Result<KernelState> {
         start_ticks,
         uid,
         gid,
+    })
+}
+pub(super) fn current_process_identity() -> Result<ProcessIdentity> {
+    let pid = std::process::id();
+    stable_identity(pid, kernel(pid)?, kernel(pid)?)
+}
+fn stable_identity(pid: u32, before: KernelState, after: KernelState) -> Result<ProcessIdentity> {
+    if pid == 0 || pid > i32::MAX as u32 || before != after {
+        return Err(Error::Identity);
+    }
+    Ok(ProcessIdentity {
+        pid,
+        uid: after.uid,
+        gid: after.gid,
     })
 }
 fn alive(entry: &mut Entry) -> Result<()> {
@@ -217,6 +231,69 @@ mod tests {
             b"Uid: 4294967296 4294967296 4294967296 4294967296\nGid: 2 2 2 2\n",
         ] {
             assert!(parse_ids(body).is_err());
+        }
+    }
+    #[test]
+    fn every_credential_slot_must_match_even_with_an_opaque_process_name() {
+        for field in ["Uid", "Gid"] {
+            for slot in 0..4 {
+                let mut values = [1000; 4];
+                values[slot] = 1001;
+                let body = format!(
+                    "{field}: {} {} {} {}\n{}: 1000 1000 1000 1000\n",
+                    values[0],
+                    values[1],
+                    values[2],
+                    values[3],
+                    if field == "Uid" { "Gid" } else { "Uid" }
+                );
+                assert!(parse_ids(body.as_bytes()).is_err(), "{field} slot {slot}");
+            }
+        }
+        for value in ["", "0 0 0", "0 0 0 0 0", "-1 -1 -1 -1", "01 01 01 01"] {
+            assert!(parse_ids(format!("Uid: 0 0 0 0\nGid: {value}\n").as_bytes()).is_err());
+        }
+        assert_eq!(
+            parse_ids(b"Name:\t(\xff)\nUid: 0 0 0 0\nGid: 0 0 0 0\n").unwrap(),
+            (0, 0)
+        );
+    }
+    #[test]
+    fn current_identity_rejects_a_changed_kernel_sample() {
+        let before = KernelState {
+            start_ticks: 123,
+            uid: 1000,
+            gid: 2000,
+        };
+        assert_eq!(
+            stable_identity(1234, before, before).unwrap(),
+            ProcessIdentity {
+                pid: 1234,
+                uid: 1000,
+                gid: 2000,
+            }
+        );
+        for after in [
+            KernelState {
+                start_ticks: 124,
+                ..before
+            },
+            KernelState {
+                uid: 1001,
+                ..before
+            },
+            KernelState {
+                gid: 2001,
+                ..before
+            },
+        ] {
+            assert!(matches!(
+                stable_identity(1234, before, after),
+                Err(Error::Identity)
+            ));
+        }
+        for pid in [0, (i32::MAX as u32) + 1] {
+            assert!(stable_identity(pid, before, before).is_err());
         }
     }
     #[test]

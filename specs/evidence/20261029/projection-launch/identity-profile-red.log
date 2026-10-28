@@ -1,0 +1,22 @@
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.67s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-806cc5d86ae693b7)
+
+running 1 test
+test hosted::profile::tests::zero_or_unbounded_kernel_channel_identity_is_rejected_before_launch ... FAILED
+
+failures:
+
+---- hosted::profile::tests::zero_or_unbounded_kernel_channel_identity_is_rejected_before_launch stdout ----
+
+thread 'hosted::profile::tests::zero_or_unbounded_kernel_channel_identity_is_rejected_before_launch' (1100911) panicked at crates/tickwire-app/src/hosted/profile/tests.rs:197:22:
+unexpected successful launch preparation
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hosted::profile::tests::zero_or_unbounded_kernel_channel_identity_is_rejected_before_launch
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 113 filtered out; finished in 0.10s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

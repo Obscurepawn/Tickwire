@@ -1,0 +1,24 @@
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.37s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-806cc5d86ae693b7)
+
+running 16 tests
+test hosted::profile::tests::legacy_configuration_does_not_open_an_object ... ok
+test hosted::profile::tests::profile_configuration_rejects_unknown_and_duplicate_fields ... ok
+test hosted::profile::tests::a_fifo_object_is_rejected_without_waiting_for_a_writer ... ok
+test hosted::profile::tests::zero_global_hash_is_rejected_even_when_the_transport_hashes_are_consistent ... ok
+test hosted::profile::tests::full_projection_prepares_registered_startup_without_claiming_application ... ok
+test hosted::profile::tests::external_market_identity_is_bound_as_well_as_legacy_channels ... ok
+test hosted::profile::tests::namespace_cannot_be_zero_even_with_a_consistent_projection ... ok
+test hosted::profile::tests::projection_file_must_be_a_bounded_regular_non_symlink_object ... ok
+test hosted::profile::tests::exact_scope_and_artifact_bindings_are_required ... ok
+test hosted::profile::tests::capture_restore_rotation_and_demo_are_not_ordinary_registered_startup ... ok
+test hosted::profile::tests::every_local_bootstrap_channel_must_bind_the_same_identity ... ok
+test hosted::profile::tests::zero_or_unbounded_kernel_channel_identity_is_rejected_before_launch ... ok
+test hosted::profile::tests::supported_profile_is_exact_and_shadow_is_explicit ... ok
+test hosted::profile::tests::complete_projection_and_all_transport_bindings_are_checked ... ok
+test hosted::profile::tests::full_resource_plan_and_exact_worker_limits_are_required ... ok
+test hosted::profile::tests::os_mapping_is_bounded_unique_and_matches_the_actual_app_identity ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 99 filtered out; finished in 0.39s
+

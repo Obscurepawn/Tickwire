@@ -1,0 +1,19 @@
+   Compiling tickwire-supervisor v0.1.0 (/home/obscure/Tickwire/crates/tickwire-supervisor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.40s
+     Running tests/current_process_identity.rs (/tmp/tickwire-progress-20261028/target/debug/deps/current_process_identity-a77416206ee9f3bb)
+
+running 1 test
+
+thread 'current_identity_matches_the_calling_process_kernel_credentials' (1087100) panicked at crates/tickwire-supervisor/tests/current_process_identity.rs:4:66:
+called `Result::unwrap()` on an `Err` value: Transport(UnsupportedPlatform)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test current_identity_matches_the_calling_process_kernel_credentials ... FAILED
+
+failures:
+
+failures:
+    current_identity_matches_the_calling_process_kernel_credentials
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p tickwire-supervisor --test current_process_identity`

@@ -1,0 +1,23 @@
+   Compiling tickwire-strategy-host v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-host)
+   Compiling tickwire-app v0.1.0 (/home/obscure/Tickwire/crates/tickwire-app)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.60s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_app-806cc5d86ae693b7)
+
+running 1 test
+test hosted::profile::tests::full_projection_prepares_registered_startup_without_claiming_application ... FAILED
+
+failures:
+
+---- hosted::profile::tests::full_projection_prepares_registered_startup_without_claiming_application stdout ----
+
+thread 'hosted::profile::tests::full_projection_prepares_registered_startup_without_claiming_application' (1096681) panicked at crates/tickwire-app/src/hosted/profile/tests.rs:158:5:
+assertion failed: prepare(&f.config, &f.bootstrap).unwrap().is_some()
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    hosted::profile::tests::full_projection_prepares_registered_startup_without_claiming_application
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 111 filtered out; finished in 0.09s
+
+error: test failed, to rerun pass `-p tickwire-app --lib`

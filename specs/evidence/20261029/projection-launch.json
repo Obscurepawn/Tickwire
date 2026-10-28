@@ -1,0 +1,704 @@
+{
+  "format": "tickwire.projection-launch-stage.v1",
+  "created_utc": "2026-10-28T20:25:06.608248+00:00",
+  "status": "implemented-partial",
+  "baseline_commit": "19068c891c5ea1e74e164544a634d45da2098a1d",
+  "source_manifest": {
+    "path": "projection-launch-source-sha256.json",
+    "bytes": 165041,
+    "sha256": "5078290e3a1aa3a52ec6e0580fe4d2158bff679d786a10501bd9c49a676c6ec1"
+  },
+  "build_input_count": 909,
+  "environment": {
+    "system": "Linux",
+    "release": "6.18.54.1-microsoft-standard-WSL2",
+    "machine": "x86_64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)"
+  },
+  "implemented": [
+    "Strict full ProjectionObject decoding and startup-approved scope/OS alias bindings; no global Applied claim",
+    "Real current App PID/UID/GID sampling with four credential slots and stable kernel identity",
+    "Mandatory worker CPU/NUMA/memory equality and existing actual resource-domain launch",
+    "Remote startup observation before returning owner; lazy local observation before first intent intake",
+    "Private historical launch proof; unsupported capture/preflight/rotation rejected; absent configuration remains compatible"
+  ],
+  "validation": {
+    "rust_gate": {
+      "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+      "started_utc": "2026-10-28T20:09:28.752869+00:00",
+      "finished_utc": "2026-10-28T20:15:22.698449+00:00",
+      "elapsed_seconds": 353.94561883700226,
+      "exit_code": 0
+    },
+    "rust_output_summary": {
+      "batches": 340,
+      "passed": 2168,
+      "failed": 0,
+      "ignored": 29,
+      "note": "Includes child test output; not a unique test count"
+    },
+    "contracts_and_openapi": {
+      "command": "/tmp/tickwire-progress-20261028/venv/bin/python scripts/verify-design-contracts.py --openapi",
+      "exit_code": 0
+    },
+    "documentation": {
+      "command": "scripts/verify-documentation.py",
+      "exit_code": 0
+    },
+    "profile_unit_tests": 16,
+    "app_production_entrypoint_tests": 7,
+    "build": {
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "tickwire-lab",
+        "-p",
+        "tickwire-app",
+        "-p",
+        "tickwire-md",
+        "-p",
+        "tickwire-strategy-sdk",
+        "-p",
+        "tickwire-strategy-example",
+        "-p",
+        "tickwire-replica",
+        "-p",
+        "tickwire-lifecycle",
+        "--bins"
+      ],
+      "started_utc": "2026-10-28T20:16:42.423736+00:00",
+      "finished_utc": "2026-10-28T20:18:29.371132+00:00",
+      "elapsed_seconds": 106.94744169099431,
+      "exit_code": 0
+    },
+    "source_and_binaries_unchanged_across_process_run": true
+  },
+  "compatibility": {
+    "scenario": "spot-handover-custom",
+    "run_exit_code": 0,
+    "result": {
+      "account_fill_verified": true,
+      "account_report": "/tmp/tw-pl-handover-2/account-report.json",
+      "account_wal": "/tmp/tw-pl-handover-2/exec/account",
+      "event": "laboratory_spot_handover_complete",
+      "fixture_audit": "/tmp/tw-pl-handover-2/fixture.jsonl",
+      "input_wal": "/tmp/tw-pl-handover-2/exec/input",
+      "logs": "/tmp/tw-pl-handover-2/logs",
+      "mirror_records_verified": 12,
+      "mirror_wal": "/tmp/tw-pl-handover-2/mirror/journal",
+      "preflight": {
+        "action_pending_at_s": true,
+        "action_remains_consumed": true,
+        "custom_counters": {
+          "source_c": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 3,
+            "reports": 4,
+            "schema": 92733768073217,
+            "spent": true
+          },
+          "source_s": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 0,
+            "reports": 2,
+            "schema": 92733768073217,
+            "spent": false
+          },
+          "target_at_c": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 3,
+            "reports": 4,
+            "schema": 92733768073218,
+            "spent": true
+          },
+          "target_d": {
+            "action": [
+              99,
+              153,
+              246,
+              216,
+              99,
+              176,
+              143,
+              70,
+              82,
+              179,
+              66,
+              194,
+              225,
+              53,
+              11,
+              76,
+              1,
+              226,
+              145,
+              51,
+              45,
+              157,
+              132,
+              216,
+              75,
+              87,
+              91,
+              247,
+              39,
+              40,
+              151,
+              210
+            ],
+            "observations": 141,
+            "reports": 13,
+            "schema": 92733768073218,
+            "spent": true
+          }
+        },
+        "expansion_prefix": null,
+        "installation_digest": [
+          82,
+          168,
+          238,
+          59,
+          175,
+          189,
+          229,
+          158,
+          22,
+          6,
+          107,
+          182,
+          137,
+          244,
+          128,
+          129,
+          147,
+          179,
+          138,
+          105,
+          244,
+          149,
+          4,
+          44,
+          209,
+          27,
+          5,
+          32,
+          26,
+          84,
+          10,
+          245
+        ],
+        "operation_schema": 3,
+        "restore_digest": [
+          123,
+          128,
+          210,
+          225,
+          36,
+          154,
+          60,
+          189,
+          155,
+          239,
+          94,
+          31,
+          78,
+          79,
+          33,
+          108,
+          246,
+          87,
+          61,
+          222,
+          144,
+          137,
+          115,
+          202,
+          213,
+          88,
+          40,
+          14,
+          50,
+          251,
+          184,
+          34
+        ],
+        "rollback_digest": [
+          254,
+          56,
+          139,
+          123,
+          15,
+          184,
+          199,
+          236,
+          107,
+          229,
+          40,
+          56,
+          192,
+          164,
+          31,
+          9,
+          116,
+          197,
+          5,
+          206,
+          82,
+          24,
+          17,
+          0,
+          115,
+          63,
+          172,
+          113,
+          188,
+          7,
+          93,
+          141
+        ],
+        "rollback_pid": 1124805,
+        "rollback_schema": 92733768073218,
+        "source_c_sequence": 10,
+        "source_replay_pid": 1124804,
+        "source_report_position": 1,
+        "source_s_sequence": 2,
+        "target_continued_sequence": 0,
+        "target_final_sequence": 285,
+        "target_install_sequence": 0,
+        "target_pid": 1124802,
+        "target_schema": 92733768073218
+      },
+      "worker_report_position_verified": 12
+    },
+    "scope": "Actual standalone process compatibility with projection_launch omitted. Does not test successful cgroup-constrained projection launch."
+  },
+  "first_gate_failure": {
+    "exit_code": 101,
+    "cause": "Two unit tests concurrently leased the same real /sys/fs/cgroup inode; strace reproduced first-lease EAGAIN",
+    "fix": "Combine shared-root assertions and use existing production DirectoryLease guard; no production lock change, suite serialization, retry or sleep",
+    "build_inputs_changed_after_first_gate": [
+      "crates/tickwire-control-sys/src/process_resources/linux/tests.rs"
+    ]
+  },
+  "first_compatibility_failure": {
+    "cause": "Generated host runtime control socket exceeds Linux sockaddr_un path capacity",
+    "path_bytes": 112,
+    "maximum_path_bytes": 107,
+    "source": "crates/tickwire-control-sys/src/linux.rs:197",
+    "error": "{\"error\":\"strategy startup: Transport(InvalidPath)\",\"event\":\"fatal\"}",
+    "change": "Shorten only external acceptance-driver output root; no production or frozen build-input changes",
+    "replacement_root": "/tmp/tw-pl-handover-2"
+  },
+  "not_run": [
+    "Successful delegated cgroup launch and construction of a real LaunchBindingProof: this environment has no writable delegated domain",
+    "Docker check-linux.sh: no running Docker daemon; Linux tests were run natively",
+    "New TLA/TLC verification or historical lock regeneration",
+    "Non-Linux runtime verification",
+    "Live Binance credentials, production qualification and end-to-end latency benchmarks"
+  ],
+  "remaining": [
+    "Full role projection application, durable application witness and effective-file double receipt",
+    "Runtime fact signer/provider and persistent source watermarks",
+    "Current retained resource-registration head, HTTP plan admission and ordinary revision/application workflow"
+  ],
+  "archive_scope": "Command logs, source/binary identities, runtime verifier reports and one actual memfd sample; executable files and full recovery CAS are not archived here. Historical launch proof is not a fresh observation or global Applied receipt.",
+  "artifacts": [
+    {
+      "path": "projection-launch/anchor-audit.json",
+      "bytes": 8873,
+      "sha256": "a1255843889f78a023fbf0d6b03a25dff46dd18b8e23d204501ba87b8c2b2449"
+    },
+    {
+      "path": "projection-launch/anchor-audit.py",
+      "bytes": 7908,
+      "sha256": "a1ad631cfc0706bd14535a24d7bcf4be4d6f2f0acdb4e995ad1b4edd671019cd"
+    },
+    {
+      "path": "projection-launch/attempt1-check-rust-meta.json",
+      "bytes": 267,
+      "sha256": "2d303eb13a2783afc00eb42af512dcc3b41a99584836e5437c21aad7c6d2a496"
+    },
+    {
+      "path": "projection-launch/attempt1-check-rust.log",
+      "bytes": 138253,
+      "sha256": "ae89211c6b442c8761f559096516878a0057d65be1e196aa0e8ec3050aba38ea"
+    },
+    {
+      "path": "projection-launch/attempt1-source-sha256.json",
+      "bytes": 165040,
+      "sha256": "4b1e28003dcccd5bbe166339eb50e4ec7adaeaddfa33cd0a3cc491018d07bc90"
+    },
+    {
+      "path": "projection-launch/binaries.json",
+      "bytes": 4090,
+      "sha256": "974762afd3bd46ea30ef2c1dd85980442ed84f61fe31cf68add2a6da23779691"
+    },
+    {
+      "path": "projection-launch/build-meta.json",
+      "bytes": 502,
+      "sha256": "072ad13b99b418be0a960fd0aee62d7d58dff7370a25ddfbfbe23bc2b756b605"
+    },
+    {
+      "path": "projection-launch/build.py",
+      "bytes": 2522,
+      "sha256": "471c0261b6c80ecd503c7550e3f57805bf22a1d2d8e4aef0c017cbb7f5aec216"
+    },
+    {
+      "path": "projection-launch/check-rust-meta.json",
+      "bytes": 265,
+      "sha256": "bcbe36f832cda8c46d716512f06676d1c3f73e2e8174d8dfb53033435f478438"
+    },
+    {
+      "path": "projection-launch/check-rust.log",
+      "bytes": 256164,
+      "sha256": "aed074feadb3d645c07c4182de6a64f54e5085b84bcb389cedc42fcb956dcfad"
+    },
+    {
+      "path": "projection-launch/compatibility/account-report.json",
+      "bytes": 3183,
+      "sha256": "3298071d8127b280baf9f28ed3609bfeda66601e00ff197b47c240bcf7af4ee1"
+    },
+    {
+      "path": "projection-launch/compatibility/handover/preflight-final-verified.json",
+      "bytes": 3582,
+      "sha256": "1cc9034888fd85a9cddcd8de060241103acd6027e4f596c50b9506b279f5dda8"
+    },
+    {
+      "path": "projection-launch/compatibility/handover/preflight-verified.json",
+      "bytes": 3578,
+      "sha256": "faf2f28067eb3d23d0329f23c65258255806cbe3637bb396a7fa857db1d91efe"
+    },
+    {
+      "path": "projection-launch/compatibility/logs/exec.stderr.log",
+      "bytes": 14636,
+      "sha256": "5d8060fa2cc618c5b46331c0f593fc53bd050e4099da928602d8b9bcb682d6ba"
+    },
+    {
+      "path": "projection-launch/compatibility/logs/exec.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "projection-launch/compatibility/run-result.json",
+      "bytes": 4641,
+      "sha256": "d6af4ae81a9c2e553a02041f91b32cce2a3021517e72a7633d0d694b5104e331"
+    },
+    {
+      "path": "projection-launch/contracts.log",
+      "bytes": 1765,
+      "sha256": "83c23d0e7af4d628a8551ed33e4359268310c9fa2a789d01c81a31b0faadeafa"
+    },
+    {
+      "path": "projection-launch/documentation.log",
+      "bytes": 91,
+      "sha256": "cb5f597e18e39cf12d523472b93f3d74f85a7c2255dd6628048ecb484611e58f"
+    },
+    {
+      "path": "projection-launch/gate.py",
+      "bytes": 845,
+      "sha256": "3bf5ecf5ce13d8e91458cd65ed8b1428f53d3318940045172c9193227497e9d1"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-diagnosis.json",
+      "bytes": 455,
+      "sha256": "41e84553dcebd3cb93eb9e2db9055b4b9294b4a5b3446e2ed36c3f16374e6a75"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-driver.py",
+      "bytes": 3261,
+      "sha256": "dac27e5d8e4b88539fbf1c3d54d75da0e832cc0199e503b0ec020f2400433e05"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-exec.stderr.log",
+      "bytes": 69,
+      "sha256": "24967c9e5656835e5cdae378e65056f5de0ec7355a4a07309259973de0fd74b1"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-generate.log",
+      "bytes": 1022,
+      "sha256": "ff3581ffc0da1ff7c59b946a52deaf0fa305874298b989caa488a930ebb838ba"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-live-images.json",
+      "bytes": 19,
+      "sha256": "f9cf52bb037434a9aa098e11a18fd12587bad51bf07928db10899b1da952a2ac"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-metadata.json",
+      "bytes": 2529,
+      "sha256": "a99267515c20c1a7480ee95b6c24f92dee9cf7cf10a42cce5a06a4f46e35f833"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-run.log",
+      "bytes": 59,
+      "sha256": "6e27913d52d50b29c162cf77000889ef5581379d7e2e69122f94e168d5a8b114"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-source-after.log",
+      "bytes": 28,
+      "sha256": "58eafa90366c8999320e9c8a09bca04b5e2d3f447eba66560b857a73efbb1c9d"
+    },
+    {
+      "path": "projection-launch/handover-attempt1-source-before.log",
+      "bytes": 28,
+      "sha256": "58eafa90366c8999320e9c8a09bca04b5e2d3f447eba66560b857a73efbb1c9d"
+    },
+    {
+      "path": "projection-launch/handover-generate.log",
+      "bytes": 890,
+      "sha256": "1557dd73a01ff9d3b08d231d7fa5e0efb9a85c873c528232e33cabd8cb8b1e6c"
+    },
+    {
+      "path": "projection-launch/handover-live-images.json",
+      "bytes": 623,
+      "sha256": "4794fb9d3a1b1b40e6a138f01456833dfb0a8507e45d3483dbc244d913a89b60"
+    },
+    {
+      "path": "projection-launch/handover-metadata.json",
+      "bytes": 7705,
+      "sha256": "05944d36bc2a7d0edab3d3864e688c7190551d6bdec2e85e2ea3183af239107f"
+    },
+    {
+      "path": "projection-launch/handover-run.log",
+      "bytes": 4642,
+      "sha256": "af0fad6b6815a750c0bc7c68d7723b773117642fce39e8aca3a87ace9cf894da"
+    },
+    {
+      "path": "projection-launch/handover-source-after.log",
+      "bytes": 28,
+      "sha256": "58eafa90366c8999320e9c8a09bca04b5e2d3f447eba66560b857a73efbb1c9d"
+    },
+    {
+      "path": "projection-launch/handover-source-before.log",
+      "bytes": 28,
+      "sha256": "58eafa90366c8999320e9c8a09bca04b5e2d3f447eba66560b857a73efbb1c9d"
+    },
+    {
+      "path": "projection-launch/host-clippy.log",
+      "bytes": 814,
+      "sha256": "78aa842b2a1e39a729344662721caf67473fbde55473affed083ef7d975611b8"
+    },
+    {
+      "path": "projection-launch/host-tests.log",
+      "bytes": 4959,
+      "sha256": "f1f60657a9bb5926f2e155cb071ff581aa73702648caefbaafd954517fa5cbe5"
+    },
+    {
+      "path": "projection-launch/identity-clippy.log",
+      "bytes": 164,
+      "sha256": "c511f31c1444b29d718794ba73b6d7edd8d192371d9fa8e8f036995b3eaa3094"
+    },
+    {
+      "path": "projection-launch/identity-green.log",
+      "bytes": 3312,
+      "sha256": "b201eeade7d05bbbdf96950c7fe3708526484e1432eda47f012ed5112b4c1827"
+    },
+    {
+      "path": "projection-launch/identity-profile-red.log",
+      "bytes": 1079,
+      "sha256": "f2538ad33106ea077a10337ef5ec44b50ec8a32e95a9ebddb1cfe4858589f183"
+    },
+    {
+      "path": "projection-launch/identity-red.log",
+      "bytes": 1000,
+      "sha256": "f83767393422e0b59fab64b71d54d5622d48434530f03992b21568a0b90040c3"
+    },
+    {
+      "path": "projection-launch/integration-clippy.log",
+      "bytes": 72,
+      "sha256": "4cf86278c1e6d659943a46a3d7e3da429ac15be90f0f17742e24ef85228e7d3e"
+    },
+    {
+      "path": "projection-launch/integration-final.log",
+      "bytes": 888,
+      "sha256": "25d3c7024c6d4f187ea878c459ba0b85f38f77ce69c903e149faddb86ad9cb32"
+    },
+    {
+      "path": "projection-launch/integration-red2.log",
+      "bytes": 1307,
+      "sha256": "b60365c204f5d85ad992239bc40fb81882da71cdb6a62cb644778ce2fb4d05f0"
+    },
+    {
+      "path": "projection-launch/profile-clippy.log",
+      "bytes": 2157,
+      "sha256": "78b4c5b2e39f981066d5683ffb741d4ccaf4502b94f890db2fcce83b21034724"
+    },
+    {
+      "path": "projection-launch/profile-green3.log",
+      "bytes": 1920,
+      "sha256": "a0b25a6b3ce707d36ce781cb865c73aebd8d5369caa72f60bae07cc1f9f72b51"
+    },
+    {
+      "path": "projection-launch/profile-red.log",
+      "bytes": 1226,
+      "sha256": "2ccb64e9b50e1f39ba4f4b57cd10b5e18126e4a174969210d73c06eca88179d7"
+    },
+    {
+      "path": "projection-launch/release-build.log",
+      "bytes": 3254,
+      "sha256": "f7c884c6eb62bf06109a8f7bf9718f585185558e31d9fecca1002383fc2e426c"
+    },
+    {
+      "path": "projection-launch/resource-tests-clippy.log",
+      "bytes": 166,
+      "sha256": "a62c67b8ac42a666ee6a0b5c2e9f1e2ee6a95c9dcca23e1fd7801498faf57541"
+    },
+    {
+      "path": "projection-launch/resource-tests-evidence.json",
+      "bytes": 1536,
+      "sha256": "c3f0275492f425fe7e44bfae1afb1fb6f89b0339af2359fe08d41c4f2a935764"
+    },
+    {
+      "path": "projection-launch/resource-tests-green.log",
+      "bytes": 5730,
+      "sha256": "021b7e0ada0e17891474b890bba4fe59412d956639f3ea250ae63b6f8cde76bf"
+    },
+    {
+      "path": "projection-launch/resource-tests-green.strace",
+      "bytes": 5692,
+      "sha256": "cd0bcf9debd4abda4b7b69a1dc26094779dec86c68f234f7a729a8b50fec77b2"
+    },
+    {
+      "path": "projection-launch/resource-tests-red-1.log",
+      "bytes": 783,
+      "sha256": "a788cafb3af5b25e4e5236e5a2967bc73f421a7baecabd70277eb18141f4a513"
+    },
+    {
+      "path": "projection-launch/resource-tests-red-1.strace",
+      "bytes": 4840,
+      "sha256": "0e1af13974789d01fa1fc2ca5292e1af2f58e652d380d9742eb4421ecac6f75b"
+    },
+    {
+      "path": "projection-launch/resource-tests-red.json",
+      "bytes": 973,
+      "sha256": "d0ec2f375ceb8e986bd9a9cc24ad6f5f51033316909b5958dc6f328d4f6219a3"
+    },
+    {
+      "path": "projection-launch/resource-tests-trace-green.log",
+      "bytes": 232,
+      "sha256": "fe2f69ecff43f34b1b05fca4a448cc862e5c448a29997a6e21246f2a1be56039"
+    },
+    {
+      "path": "projection-launch/run.py",
+      "bytes": 3246,
+      "sha256": "b45a237ff08b8aac8f5852870882fadf6ea4537c03f0a270b3a4c82f468ff582"
+    },
+    {
+      "path": "projection-launch/source-after-build.log",
+      "bytes": 28,
+      "sha256": "58eafa90366c8999320e9c8a09bca04b5e2d3f447eba66560b857a73efbb1c9d"
+    },
+    {
+      "path": "projection-launch/source-before-build.log",
+      "bytes": 28,
+      "sha256": "58eafa90366c8999320e9c8a09bca04b5e2d3f447eba66560b857a73efbb1c9d"
+    },
+    {
+      "path": "projection-launch/source-manifest.py",
+      "bytes": 1456,
+      "sha256": "0f213a196b5104983014ba9ac6a671da15bbf7787b0abb20b590dd58812ee4b0"
+    }
+  ]
+}

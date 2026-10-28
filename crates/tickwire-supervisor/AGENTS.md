@@ -7,6 +7,7 @@
 ## 公共 API 入口
 
 - `LaunchSpec { identity: Identity, executable, arguments, working_directory, environment, uid, gid, inherit_output }`（`src/lib.rs`）。
+- `current_process_identity() -> Result<tickwire_control::ProcessIdentity>`：Linux 冷路径读取本进程真实 PID/UID/GID；四种 UID/GID 值一致且两次内核身份采样一致才返回。非 Linux 返回 UnsupportedPlatform，不构造 owned-child 或配置 Applied 证明。
 - `Registry { new(capacity) }`，容量 1..=4096：
   - `spawn(spec) -> ProcessIdentity`：校验路径/参数/环境、将单次打开的ELF复制并封印，对固定镜像做SHA-256并与`identity.build_hash`比对后从固定FD执行。
   - `spawn_with_resources(spec, ResourcePlan { cgroup, limits })`：显式取得预配置 cgroup v2 专用 leaf 的独占 lease，执行前入组并核对 CPU/单 NUMA/内存限制；失败不回退普通启动。
@@ -41,7 +42,9 @@ cargo clippy -p tickwire-supervisor --all-targets -- -D warnings
 cargo fmt -p tickwire-supervisor
 ```
 
-`tests/observation.rs`含4项实际owned-child观察回归；`tests/authenticated_image.rs`含3项实际Registry认证/再次exec/错误摘要回归。各ignored child入口由父测试真实执行；观察解析器另有3项单测。spawn/SEQPACKET/memfd依赖Linux内核，非Linux镜像入口明确拒绝。
+`tests/observation.rs`含4项实际owned-child观察回归；`tests/authenticated_image.rs`含3项实际Registry认证/再次exec/错误摘要回归。各ignored child入口由父测试真实执行；内核解析及采样一致性另有单测。spawn/SEQPACKET/memfd依赖Linux内核，非Linux镜像入口明确拒绝。
+
+`tests/current_process_identity.rs` 在 Linux 核对真实调用进程 PID 与 `/proc/self/status` 全部 UID/GID；解析器另覆盖每一个 credential slot 的差异、畸形 GID、opaque comm 与前后 start ticks/UID/GID 变化。非 Linux 拒绝分支有条件编译测试，未在该平台实际运行时只声明 Linux 验证。
 
 ## 关键不变量与注意事项
 

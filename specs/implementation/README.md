@@ -1,6 +1,6 @@
 # 模块实现规格导航（`implementation/`）
 
-本目录 75 篇模块实现规格，按功能域分组。每篇先于对应 crate 源码确定接口、不变量与失败边界；全局索引、架构总览与契约说明见 [`../INDEX.md`](../INDEX.md)。
+本目录 76 篇模块实现规格，按功能域分组。每篇先于对应 crate 源码确定接口、不变量与失败边界；全局索引、架构总览与契约说明见 [`../INDEX.md`](../INDEX.md)。
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论。
 
@@ -79,7 +79,7 @@
 ## 控制面、Raft 与复制接管
 
 - [runtime-observation.md](runtime-observation.md) — 实际托管实例的新鲜挑战、消费进度与内核事实采集；SDK、Host 与 App 已接线；全局配置事实聚合仍待接入。
-- [supervisor-process.md](supervisor-process.md) — 固定执行镜像、内核身份与进程资源约束。`tickwire-control-sys` / `tickwire-supervisor` / `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app`。部分实现（资源启动与观察已接线；委派组正向验收、全局配置应用仍待完成）。
+- [supervisor-process.md](supervisor-process.md) — 固定执行镜像、内核身份、进程资源约束与投影启动字段。`tickwire-control-sys` / `tickwire-supervisor` / `tickwire-strategy-sdk` / `tickwire-strategy-host` / `tickwire-app`。部分实现（策略首次启动接入投影约束；委派组正向验收、完整全局配置应用仍待完成）。
 - [control-session.md](control-session.md) — 控制会话协商、内核身份核对与请求登记票据。`tickwire-control`。已实现。
 - [control-transport.md](control-transport.md) — Linux SOCK_SEQPACKET/SCM_RIGHTS 控制 FD 传输。`tickwire-control-sys`。已实现。
 - [control-raft.md](control-raft.md) — 持久 Raft、SafeReadIndex、Chunk 大更新、快照与成员变更。`tickwire-control-raft`。已实现（快照与成员扩展见网络服务规格；生产故障组合待验收）。

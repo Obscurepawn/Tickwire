@@ -1,0 +1,67 @@
+   Compiling tickwire-supervisor v0.1.0 (/home/obscure/Tickwire/crates/tickwire-supervisor)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.59s
+     Running unittests src/lib.rs (/tmp/tickwire-progress-20261028/target/debug/deps/tickwire_supervisor-a9f70ab56d313336)
+
+running 5 tests
+test observation::linux::tests::credentials_require_exact_current_kernel_fields_and_no_mixed_ids ... ok
+test observation::linux::tests::current_identity_rejects_a_changed_kernel_sample ... ok
+test observation::linux::tests::host_boot_is_the_exact_nonzero_kernel_uuid ... ok
+test observation::linux::tests::every_credential_slot_must_match_even_with_an_opaque_process_name ... ok
+test observation::linux::tests::kernel_start_time_handles_opaque_comm_and_rejects_wrong_pid_or_bad_fields ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/authenticated_image.rs (/tmp/tickwire-progress-20261028/target/debug/deps/authenticated_image-9acd5d37f894265f)
+
+running 4 tests
+test authenticated_image_child ... ignored, real child entry for authenticated image tests
+test wrong_approved_hash_cannot_spawn_or_register_a_child ... ok
+test real_sealed_child_authenticates_and_connected_epoch_is_only_connection_state ... ok
+test same_pid_reexec_cannot_authenticate_using_the_original_hello_identity ... ok
+
+test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.03s
+
+     Running tests/current_process_identity.rs (/tmp/tickwire-progress-20261028/target/debug/deps/current_process_identity-a77416206ee9f3bb)
+
+running 1 test
+test current_identity_matches_the_calling_process_kernel_credentials ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/observation.rs (/tmp/tickwire-progress-20261028/target/debug/deps/observation-175077b280b425f9)
+
+running 5 tests
+test observation_worker ... ignored, self-spawned fixture owns the child until its Registry drops
+
+running 1 test
+test unknown_or_terminated_child_cannot_produce_observation ... ok
+
+running 1 test
+test live_observation_binds_actual_kernel_facts_without_rewriting_approved_identity ... ok
+
+running 1 test
+
+running 1 test
+test same_owned_pid_execing_another_elf_cannot_reuse_launch_identity ... ok
+test replacing_and_deleting_launch_path_does_not_change_running_image_observation ... ok
+
+test result: ok. 4 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests/resources.rs (/tmp/tickwire-progress-20261028/target/debug/deps/resources-a87d9d5bb5834e6e)
+
+running 4 tests
+test delegated_domain_binds_all_threads_and_retains_lease_after_owned_child_exit ... ignored, requires a preconfigured empty delegated cgroup v2 leaf and exact resource environment
+test resource_worker ... ignored, actual fixture entry; parent Registry owns this process
+test missing_instance_has_no_resource_observation ... ok
+
+running 1 test
+test fake_cgroup_is_rejected_before_exec_and_failed_attempt_keeps_registry_slot_free ... ok
+
+test result: ok. 2 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.97s
+
+   Doc-tests tickwire_supervisor
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

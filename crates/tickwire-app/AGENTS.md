@@ -19,6 +19,7 @@
 - `market::Sources::connect(...)`（认证直连 MD 订阅；空则选本地公共 client）；同线程可克隆冷控制句柄提供 `consumers/validate_arm/arm/commit/receipt/release`，每个成员保留当前精确 ConnectConfig。
 - `hosted::build(config, runtime, policy) -> Box<dyn AppStrategy>`（bootstrap 限定、shadow 开启 handover、远程外部市场分支）。
 - `HostConfig.resources` 可显式配置 worker、source_replay、rollback 三份资源组计划；设置后传入所有对应 Host 启动入口，错误不会回退到无约束启动。计划省略时保持原有序列化字节，继续适配既有发布闭包；实际组核验由 supervisor/control-sys 执行。该配置不生成全局配置 Applied。
+- `HostConfig.projection_launch` 通过 `hosted::profile` 把完整投影中的策略首次启动字段绑定到实际 Host：固定投影对象与启动 scope、明确 OS 名称映射、程序摘要、worker CPU/NUMA/内存。仅普通 registered Active/Shadow 首启，拒绝 capture、preflight 和轮换；worker 资源必填。读取和核验在子进程创建前完成，local 分支使用同一份已核验 Bootstrap，不能重新读取路径换入另一身份。启动后由真实进程和资源观察构造私有 `LaunchBindingProof`；`AppStrategy::projection_launch(target)` 仅提供精确实例的历史启动证明，不代表完整配置应用或当前新鲜观测。
 - `strategy`：`Config/MemberConfig/CommandFile/RecoveryFiles/DependencyFile/FileStrategy/MultiStrategy/new_modes/load(digest)`。
 - `replay`：`run(&Deployment)`、`export(&Deployment, destination)`。私有 `ReplayLocks` 持有三个源目录的排他锁，在 load 中途失败或 Recovered 生命周期结束时逐个显式 unlock；源仍只读，fork/exec 副本不能延长已结束 owner。
 - `release_preflight`（`pub(super)` 限定：`qualify/qualify_startup/fixed_ready/unchanged/root/bind/requirements`）。
@@ -43,6 +44,8 @@ tickwire-app restore     --config /absolute/restore.json
 下游消费者（全仓 grep `Cargo.toml` 核对）：`tickwire-lab`。
 
 ## 对应规格
+
+- [投影中的策略启动字段](../../specs/implementation/supervisor-process.md#全局投影中的策略启动字段)（`tickwire-config` 完整投影结构与摘要核对、受信 OS 名称映射、实际资源启动和证明边界）。
 
 - [实际实例观测](../../specs/implementation/runtime-observation.md)（本地受信目录、异步新挑战、真实持有进程、持久结果与恢复边界）。
 
