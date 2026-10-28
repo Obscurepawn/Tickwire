@@ -6,9 +6,9 @@ use tickwire_account::RecoveryRecord;
 use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord};
 use tickwire_ipc::{RecordHeader, ResourceHeader, Wire};
 use tickwire_release::{Member, Operation, ReleaseManifest, rebuild::*};
+pub mod capture;
 pub mod probe;
 pub mod rollback;
-pub mod capture;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompiledFactory {
@@ -85,6 +85,34 @@ impl FactoryInput {
         contract: &Contract,
         inputs: &Inputs,
     ) -> Result<Self> {
+        let views = QualifiedViews::verify(logical_strategy, risk_domain, contract, inputs)?;
+        Ok(Self {
+            source,
+            end,
+            logical_strategy,
+            contract: contract.clone(),
+            inputs: inputs.clone(),
+            markets: views.markets,
+            account: views.account,
+            account_cursor: views.account_cursor,
+            actions: views.actions,
+        })
+    }
+}
+
+struct QualifiedViews {
+    markets: Vec<(ResourceHeader, crate::MarketReplica, usize)>,
+    account: account::AccountReplica,
+    account_cursor: Cursor,
+    actions: Vec<KnownAction>,
+}
+impl QualifiedViews {
+    fn verify(
+        logical_strategy: u64,
+        risk_domain: [u8; 16],
+        contract: &Contract,
+        inputs: &Inputs,
+    ) -> Result<Self> {
         if inputs.accounts.len() != 1 {
             return Err(Error::Unsupported);
         }
@@ -156,11 +184,6 @@ impl FactoryInput {
             return Err(Error::Identity);
         }
         Ok(Self {
-            source,
-            end,
-            logical_strategy,
-            contract: contract.clone(),
-            inputs: inputs.clone(),
             markets,
             account,
             account_cursor,

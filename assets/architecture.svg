@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · 多进程架构</title>
+<desc id="diagram-desc">Binance公共行情进入独立MD，经共享内存广播到独立策略。策略通过SPSC向执行账户进程发送意图并接收账户回报。执行进程连接Binance交易端，保存账户和输入WAL并异步复制。Supervisor持有子进程；控制Raft处理低频配置、发布和执行权；Guardian独立查询和撤单。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="900" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · 多进程架构</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">共享内存分发行情，执行进程按账户风险域隔离；控制面协调低频变更。</text>
+<rect x="32" y="122" width="1376" height="172" rx="14" fill="#e8eef7" stroke="#d8e2ef" stroke-width="1.5"/>
+<text x="52" y="151" font-size="17" text-anchor="start" style="fill:#50647d" class="title">控制面</text>
+<rect x="56" y="171" width="360" height="100" rx="14" fill="#fdfefe" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 72 172 H 400" stroke="#2369b5" stroke-width="4"/>
+<text x="76" y="207" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Supervisor</text>
+<text x="76" y="239" font-size="18" text-anchor="start" style="fill:#50647d">持有子进程 · 认证控制连接</text>
+<rect x="456" y="171" width="440" height="100" rx="14" fill="#fdfefe" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 472 172 H 880" stroke="#2369b5" stroke-width="4"/>
+<text x="476" y="207" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Control Raft / 配置与发布</text>
+<text x="476" y="239" font-size="18" text-anchor="start" style="fill:#50647d">配置、发布、执行权的低频协调</text>
+<rect x="936" y="171" width="448" height="100" rx="14" fill="#fdfefe" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 952 172 H 1368" stroke="#a66b14" stroke-width="4"/>
+<text x="956" y="207" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Guardian</text>
+<text x="956" y="239" font-size="18" text-anchor="start" style="fill:#50647d">独立密钥 · 紧急查询 / 撤单 · 审计</text>
+<text x="56" y="335" font-size="17" text-anchor="start" style="fill:#50647d" class="title">数据面</text>
+<rect x="56" y="359" width="240" height="172" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 72 360 H 280" stroke="#2369b5" stroke-width="4"/>
+<text x="76" y="395" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Binance 公共行情</text>
+<text x="76" y="427" font-size="18" text-anchor="start" style="fill:#50647d">Spot / USDⓈ-M</text>
+<text x="76" y="455" font-size="18" text-anchor="start" style="fill:#50647d">WSS 增量 + HTTPS 快照</text>
+<text x="76" y="483" font-size="18" text-anchor="start" style="fill:#50647d">JSON / Spot SBE</text>
+<rect x="360" y="359" width="240" height="172" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 376 360 H 584" stroke="#2369b5" stroke-width="4"/>
+<text x="380" y="395" font-size="23" text-anchor="start" style="fill:#13263e" class="title">MD 进程</text>
+<text x="380" y="427" font-size="18" text-anchor="start" style="fill:#50647d">深度同步 · 规范化</text>
+<text x="380" y="455" font-size="18" text-anchor="start" style="fill:#50647d">固定记录 + arena</text>
+<text x="380" y="483" font-size="18" text-anchor="start" style="fill:#50647d">单写共享广播 ring</text>
+<rect x="664" y="359" width="304" height="172" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 680 360 H 952" stroke="#2369b5" stroke-width="4"/>
+<text x="684" y="395" font-size="23" text-anchor="start" style="fill:#13263e" class="title">策略进程 × N</text>
+<text x="684" y="427" font-size="18" text-anchor="start" style="fill:#50647d">每个实例独立运行</text>
+<text x="684" y="455" font-size="18" text-anchor="start" style="fill:#50647d">JOIN 快照 + 增量追平</text>
+<text x="684" y="483" font-size="18" text-anchor="start" style="fill:#50647d">策略自有市场副本</text>
+<rect x="1032" y="359" width="352" height="172" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1048 360 H 1368" stroke="#2369b5" stroke-width="4"/>
+<text x="1052" y="395" font-size="23" text-anchor="start" style="fill:#13263e" class="title">执行 / 账户进程</text>
+<text x="1052" y="427" font-size="18" text-anchor="start" style="fill:#50647d">每个账户风险域独立</text>
+<text x="1052" y="455" font-size="18" text-anchor="start" style="fill:#50647d">定点风控 · 订单与资金单写</text>
+<text x="1052" y="483" font-size="18" text-anchor="start" style="fill:#50647d">持久发送 owner · TLS</text>
+<path d="M 296 414 L 360 414" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 600 414 L 664 414" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 968 414 L 1032 414" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 1032 486 L 968 486" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="304" y="395" font-size="15" text-anchor="start" style="fill:#2369b5">流</text>
+<text x="608" y="395" font-size="15" text-anchor="start" style="fill:#2369b5">SHM</text>
+<text x="976" y="395" font-size="15" text-anchor="start" style="fill:#2369b5">意图</text>
+<text x="976" y="514" font-size="15" text-anchor="start" style="fill:#2369b5">回报</text>
+<path d="M 240 271 L 240 310 L 816 310 L 816 359" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<path d="M 676 271 L 676 322 L 1208 322 L 1208 359" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<rect x="1032" y="660" width="352" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1048 661 H 1368" stroke="#2369b5" stroke-width="4"/>
+<text x="1052" y="696" font-size="23" text-anchor="start" style="fill:#13263e" class="title">Binance 交易端</text>
+<text x="1052" y="728" font-size="18" text-anchor="start" style="fill:#50647d">签名 REST / WS</text>
+<text x="1052" y="756" font-size="18" text-anchor="start" style="fill:#50647d">私有事件 + 只读对账</text>
+<path d="M 1260 531 L 1260 660" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+<text x="1280" y="594" font-size="18" text-anchor="start" style="fill:#2369b5">请求</text>
+<text x="1280" y="622" font-size="18" text-anchor="start" style="fill:#2369b5">回报</text>
+<rect x="664" y="660" width="304" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 680 661 H 952" stroke="#087f8c" stroke-width="4"/>
+<text x="684" y="696" font-size="23" text-anchor="start" style="fill:#13263e" class="title">持久化与恢复</text>
+<text x="684" y="728" font-size="18" text-anchor="start" style="fill:#50647d">账户 WAL · 输入 WAL</text>
+<text x="684" y="756" font-size="18" text-anchor="start" style="fill:#50647d">不可变依赖对象闭包</text>
+<rect x="360" y="660" width="240" height="140" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 376 661 H 584" stroke="#087f8c" stroke-width="4"/>
+<text x="380" y="696" font-size="23" text-anchor="start" style="fill:#13263e" class="title">镜像进程</text>
+<text x="380" y="728" font-size="18" text-anchor="start" style="fill:#50647d">有序前缀 + 依赖对象</text>
+<text x="380" y="756" font-size="18" text-anchor="start" style="fill:#50647d">mTLS 持久复制</text>
+<path d="M 1100 531 L 1100 592 L 816 592 L 816 660" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="828" y="582" font-size="18" text-anchor="start" style="fill:#50647d">意图 / 经济事实 / 恢复依赖</text>
+<path d="M 664 730 L 600 730" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="380" y="635" font-size="17" text-anchor="start" style="fill:#087f8c">默认后台异步；显式支持 SyncReplica</text>
+<path d="M 1384 220 L 1400 220 L 1400 730 L 1384 730" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<rect x="56" y="660" width="240" height="140" rx="14" fill="#eaf4f4" stroke="#c8e0e1" stroke-width="1.5"/>
+<text x="76" y="695" font-size="20" text-anchor="start" style="fill:#13263e" class="title">执行边界</text>
+<text x="76" y="727" font-size="16" text-anchor="start" style="fill:#50647d">策略代码位于策略进程</text>
+<text x="76" y="752" font-size="16" text-anchor="start" style="fill:#50647d">逐单路径使用本地门禁</text>
+<text x="76" y="777" font-size="16" text-anchor="start" style="fill:#50647d">恢复完成后保持冻结</text>
+<text x="56" y="854" font-size="18" text-anchor="start" style="fill:#50647d">实线：行情、命令、回报与持久数据    虚线：监督、控制与紧急执行    IPC 中保留稳定业务标识</text>
+</svg>

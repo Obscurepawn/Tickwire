@@ -58,6 +58,7 @@ cargo fmt -p tickwire-app
 ## 关键不变量与注意事项
 
 - **数据面逐单不过 raft**：正常下单/回报走私有会话与执行通道；控制面（`control::ControlInbox`、持久登记 `tickwire-control-store`）只承载控制命令与授权，不把交易数据送 Raft。
+- **本地盘口槽**：`Deployment::assemble` 按规范基线完整目录顺序选取本地 `BookKey.instrument`，不窄化外部 `u64 instrument_id`；相同基线的恢复/重连保持槽位不变，venue/source 与外部 InstrumentBinding 保持原身份。槽不能跨 owner 或目录交换；见[归一化市场事件](../../specs/implementation/binance-market-events.md)。`config_instrument_tests.rs` 覆盖高位 ID、槽唯一性、同目录稳定性和 Spot/USD-M 实际 DepthSync 构造。
 - **恢复对账顺序**（`run`）：`validate_start` 先核对 failover 目录标记/完成绑定/源目标身份/基线 bootstrap/封口/输入前缀 → `settings.mode = RecoverFrozen` → 打开节点后 `while node.replay_pending(1024)? != 0 {}` 先把持久输入回放完，**才接受新的私有会话输入**，随后才 `replication.start`（`main.rs` 268-273）。
 - **reconciliation REST epoch 递增**：`first_execution_connection_epoch` 必须 `> first_connection_epoch`，构造时即拒绝（`main.rs` 215-217）；健康账户仅在 `terminal && !aborted && !fee_reconciled`、REST 空闲且达 `fee_maintenance_interval_ns`（缺省 1s，零拒绝）才启动费用维护。
 - **failover 身份绑定**：`validate_start` 校验 started/complete 双标记格式（`tickwire.failover-in-progress.v1` / `tickwire.frozen-failover.v2`）、started_sha256、target binding、ledger_sequence 不小于基线、源 exec 代次/实例/boot 与目标不同、recovery seal 与 fence sha256 非零、完整前缀与输入前缀链一致（`failover.rs::validate_start`）。

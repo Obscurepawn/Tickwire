@@ -29,7 +29,7 @@ impl MarketReplica {
         }
         let size = self
             .books
-            .values()
+            .iter()
             .try_fold(88usize, |n, b| {
                 n.checked_add(96)?
                     .checked_add(b.states.len().checked_mul(512)?)?
@@ -53,7 +53,7 @@ impl MarketReplica {
         out.extend_from_slice(&(self.books.len() as u32).to_le_bytes());
         out.push(u8::from(self.blocked));
         out.extend_from_slice(&[0; 3]);
-        for b in self.books.values() {
+        for b in &self.books {
             for n in [b.id, b.version] {
                 out.extend_from_slice(&n.to_le_bytes());
             }
@@ -122,7 +122,7 @@ impl MarketReplica {
             _ => return Err(Error::Identity),
         };
         r.zero(3)?;
-        let mut books = BTreeMap::new();
+        let mut books = Vec::with_capacity(count);
         let mut previous = 0;
         for _ in 0..count {
             let id = r.u64()?;
@@ -157,7 +157,7 @@ impl MarketReplica {
                 return Err(Error::Identity);
             }
             previous = id;
-            let mut states = BTreeMap::new();
+            let mut states = StateSlots::default();
             let mut prior_category = 0;
             for _ in 0..states_n {
                 let state = MarketState::decode(r.take(512)?)?;
@@ -178,7 +178,7 @@ impl MarketReplica {
                     return Err(Error::Identity);
                 }
                 prior_category = cat;
-                states.insert(cat, state);
+                states.insert(cat, state)?;
             }
             if !states.contains_key(&8) {
                 return Err(Error::Identity);
@@ -212,31 +212,32 @@ impl MarketReplica {
             {
                 return Err(Error::Identity);
             }
-            books.insert(
+            books.push(Book {
                 id,
-                Book {
-                    id,
-                    version,
-                    feed,
-                    received,
-                    published,
-                    last_event,
-                    bids,
-                    asks,
-                    coverage,
-                    states,
-                },
-            );
+                version,
+                feed,
+                received,
+                published,
+                last_event,
+                bids,
+                asks,
+                coverage,
+                states,
+            });
         }
         if !r.0.is_empty() {
             return Err(Error::Bounds);
         }
+        let index = FixedIndex::new(&books.iter().map(|book| book.id).collect::<Vec<_>>())
+            .map_err(|_| Error::Bounds)?;
         Ok(Self {
             topic,
             generation,
             ring,
             sequence,
             books,
+            index,
+            depth_workspace: DepthWorkspace::new(maximum_levels),
             maximum_levels,
             blocked,
         })

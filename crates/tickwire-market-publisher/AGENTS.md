@@ -13,10 +13,12 @@
 - `TopicState`：`sequence()`、`ready_for_snapshot()`、`cached_live()`、`publications()`、`live()`、`snapshot(...)`。
 - 配置/故障：`InstrumentConfig{instrument: InstrumentBinding, key: BookKey, market: Market, time_unit}`、`Limits{levels_per_side, cache_bytes, snapshot_bytes, max_delta_bytes}`、`Fault{topic, feed_generation, instrument, published}`、`FaultSink::invalidate(fault)`。
 - `PublicationSink`：`take_error()`；`events::{EventSelection, event_record}`。
+- `instrument_slot(id)` 在装配时绑定 `InstrumentSlot`；`on_notice_slot/on_event_slot` 直接访问连续行并复核稳定 ID，既有按 ID 的入口仍可使用。
+- `reserved_cache_bytes()` 查询构造时核验的保留堆载荷：行/状态/深度容量、目录和context文本、标的索引以及共享工作区。它不含分配器元数据、内联体、调用栈、SHM/JoinOwner与临时JOIN快照；这些有各自预算。
 
 ## 3. 在 workspace 中的位置
 
-- 上游依赖：`tickwire-binance`、`tickwire-binance-public`、`tickwire-book`、`tickwire-ipc`、`tickwire-join`、`tickwire-shm`、`tickwire-snapshot`、`tickwire-venue`、`sha2`。
+- 上游依赖：`tickwire-binance`、`tickwire-binance-public`、`tickwire-book`、`tickwire-instrument-index`、`tickwire-ipc`、`tickwire-join`、`tickwire-shm`、`tickwire-snapshot`、`tickwire-venue`、`sha2`。
 - 下游消费者（已核对 Cargo.toml）：`tickwire-md`、`tickwire-strategy-host`、`tickwire-app`。
 
 ## 4. 对应规格
@@ -32,7 +34,7 @@ cargo clippy -p tickwire-market-publisher --all-targets -- -D warnings
 cargo fmt --check -p tickwire-market-publisher
 ```
 
-- 本 crate 无独立 `tests/` 目录；发布行为由 `tickwire-md` 的集成测试（`tests/market_events.rs`、`tests/sbe_publication.rs`，真实 memfd，Linux-only）与上层应用链路覆盖。
+- 本 crate 无独立 `tests/` 目录；发布行为由 `tickwire-md` 的集成测试（`tests/market_events.rs`、`tests/sbe_publication.rs`、`tests/instrument_slots.rs`，真实 memfd，Linux-only）与上层应用链路覆盖；槽位测试核对跨 topic 映射、拒绝原子性及 bank 轮换后的稳定 ID。
 - 无 bench。
 
 ## 6. 关键不变量与注意事项
@@ -43,6 +45,10 @@ cargo fmt --check -p tickwire-market-publisher
 - **replace_bank 链核对**：仅在 `needs_bank` 时允许；核对 channel/topic/catalog_version/producer_instance/producer_generation 不变、新 feed_generation 严格更大、`predecessor_ring_epoch == old.ring_epoch`、`cutover_seq == owner.published()`、`first_seq == published+1`、membership_version、feature 位 0x42、catalog_hash 与仪器集合完全一致；通过后冻结旧 owner、把存量状态重发到新 bank。
 - 单 owner 固定产品/标的/类别；Connect/Upgrade/Subscribe/Pong 使用现有 PublicPermit，零接受重试重新申请；ExplicitSubscribe 以精确 null ACK 确认。
 - JOIN 仍从完整快照 S 接收 S+1，SBE depth20 不代替完整快照。
+- 标的索引用 `tickwire-instrument-index::FixedIndex` 冷构建；槽位仅对本地目录有效，ABI/快照/Trigger 保留稳定 ID。bank 轮换不能重排标的集合；未知 ID 不会创建新行。
+- 发布目录把完整 `u64 instrument_id` 绑定到独立的本地 `BookKey`，允许 `BookKey.instrument == 0`；装配时拒绝不同目录行重复完整 `(venue, instrument, source)` 键，不能按外部 ID 截断生成本地键。错误键视图在修改行之前拒绝并沿既有路径失效 bank；高位 ID、错键与缓存保持回归见 `tickwire-md/tests/instrument_slots.rs`。
+- 每 topic 冷预留一个总4096档的`DepthWorkspace`和4096项IPC深度数组，共128KiB档位载荷；缓存盘口仍可每侧5000档。普通发布使用最多3项固定记录/引用数组，所有首次及后续状态容量均预留，事件source使用3个固定槽。健康发布入口至SHM无堆分配；网络接收层不在该结论范围内。测试见`tickwire-md/tests/publisher_hot.rs`，包含真实memfd、2MiB栈、inline/arena、容量边界和失败bank交接。
+- `cache_bytes`先按容器及共享工作区的最低容量预检，构造后按实际capacity与文本载荷复核，超限拒绝。工作区不进入snapshot/WAL；长期持有的借用不能跨下一次解码。
 
 ## 7. 改动检查清单
 

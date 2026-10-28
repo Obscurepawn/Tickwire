@@ -8,7 +8,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use tickwire_book::{PriceTicks, QuantityKnowledge, Side};
+use tickwire_book::{BookKey, PriceTicks, QuantityKnowledge, Side};
 fn certs_sbe() -> (Arc<rustls::ClientConfig>, Arc<rustls::ServerConfig>) {
     let c = rcgen::generate_simple_self_signed(vec![
         "stream-sbe.binance.com".into(),
@@ -47,6 +47,20 @@ pub fn instrument() -> tickwire_venue::InstrumentBinding {
         .instrument
 }
 pub fn run_with(mode: SubscribeMode, callback: impl FnMut(&Notice<'_>)) {
+    let cfg = config::<BinanceSpot>(Source::SpotProduction, mode);
+    run_with_binding(
+        mode,
+        cfg.depth.instrument.instrument_id,
+        cfg.depth.key,
+        callback,
+    );
+}
+pub fn run_with_binding(
+    mode: SubscribeMode,
+    instrument_id: u64,
+    book_key: BookKey,
+    callback: impl FnMut(&Notice<'_>),
+) {
     struct Checked<F> {
         callback: F,
         ordinary: Sink,
@@ -141,6 +155,8 @@ pub fn run_with(mode: SubscribeMode, callback: impl FnMut(&Notice<'_>)) {
         wait.recv_timeout(Duration::from_secs(5)).unwrap();
     });
     let mut cfg = config::<BinanceSpot>(Source::SpotProduction, mode);
+    cfg.depth.instrument.instrument_id = instrument_id;
+    cfg.depth.key = book_key;
     cfg.depth.time_unit = TimeUnit::Microseconds;
     let mut client = PublicDepthClient::<BinanceSpot, _, 32, 32, 8>::new_sbe(
         cfg,
@@ -174,6 +190,7 @@ pub fn run_with(mode: SubscribeMode, callback: impl FnMut(&Notice<'_>)) {
         sink.ordinary.gaps
     );
     assert_eq!(client.status().last_update_id, Some(45));
+    assert_eq!(client.view(NS).unwrap().key(), book_key);
     assert_eq!(
         client
             .view(NS)

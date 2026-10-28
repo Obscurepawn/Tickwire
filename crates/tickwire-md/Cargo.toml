@@ -9,6 +9,7 @@ publish.workspace = true
 unsafe_op_in_unsafe_fn = "deny"
 
 [dependencies]
+tickwire-instrument-index = { path = "../tickwire-instrument-index" }
 tickwire-market-source = { path = "../tickwire-market-source" }
 tickwire-market-publisher = { path = "../tickwire-market-publisher" }
 tickwire-binance = { path = "../tickwire-binance" }
@@ -33,6 +34,7 @@ serde_json = "1.0"
 libc = "0.2"
 
 [dev-dependencies]
+allocation-counter = "=0.8.1"
 tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 rcgen = "=0.14.10"
 base64 = "=0.22.1"

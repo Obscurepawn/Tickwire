@@ -1,0 +1,9 @@
+{
+  "executable": "/tmp/tickwire-progress-20261028/target/release/deps/lookup-01c073e1de87b547",
+  "rounds": 5,
+  "cpu": 2,
+  "samples_per_group": 200,
+  "queries_per_sample": 4096,
+  "measurement": "distribution of batch-average lookup latency; not individual-query p99",
+  "build_or_test_concurrency": false
+}

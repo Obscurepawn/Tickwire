@@ -55,7 +55,12 @@ pub(crate) fn verify_at(
             return Err(Error::Bounds);
         }
         let bytes = read(h)?;
-        if bytes.is_empty() || bytes.len() > MAX_BYTES || Object::of(&bytes).digest != h {
+        // The closure also retains binary/model dependencies; typed replay
+        // documents keep their smaller limits in their own decoders.
+        if bytes.is_empty()
+            || bytes.len() > tickwire_recovery::MAX_OBJECT_BYTES
+            || Object::of(&bytes).digest != h
+        {
             return Err(Error::Identity);
         }
         total = total

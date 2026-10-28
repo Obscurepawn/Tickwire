@@ -34,7 +34,7 @@ cargo clippy -p tickwire-config-journal --all-targets -- -D warnings
 cargo fmt -p tickwire-config-journal
 ```
 
-`tests/journal.rs` 用真实 `FileStore` 重开校验（跨平台）。
+`tests/journal.rs` 用真实 `FileStore` 重开校验（跨平台）。普通日志测试在完整文件持有期间共用 `FORK_BARRIER` 读锁，SIGKILL 子进程测试持写锁直到子进程回收和父进程恢复结束；防止 fork/exec 窗口继承其他并行测试的锁文件描述符，导致原 owner 关闭后立即重开仍冲突。新增文件测试或进程创建测试应沿用相应 guard，不能用 sleep/retry 弱化真实单 writer 锁断言。
 
 ## 关键不变量与注意事项
 

@@ -29,6 +29,8 @@ cargo fmt -p tickwire-binance-public
 ```
 `tests/`（`common/` 本地 mock TLS，不访问真实网络，无 OS 条件编译）：`network.rs`、`rebuild.rs`、`control.rs`、`scheduling.rs`、`timer.rs`、`events.rs`、`sbe_config.rs`、`sbe_network.rs`、`constructor_stack.rs`。
 
+`sbe_network::run_with_binding` 在创建实际 PublicDepthClient 前绑定外部 u64 标的 ID 与本地 BookKey；旧 `run_with` 保持默认配置。MD 的 `sbe_publication` 复用该装置，以原 ID/本地槽 0 和 `u64::MAX`/本地槽 1 验证真实 SBE WSS→REST→DepthSync→Publisher→SHM，并分别核对 BookView 本地 key 与全部 wire 记录的完整外部 ID。
+
 ## 关键不变量与注意事项
 - **端点固定**：Spot Production `stream.binance.com` / `api.binance.com`；Spot Test `stream.testnet.binance.vision` / `testnet.binance.vision`；USDM Production `fstream.binance.com` / `fapi.binance.com/public`；USDM Test `demo-fstream` / `demo-fapi/public`（出处：`protocol.rs::endpoints`）。
 - **快照权重按深度档**：Spot ≤100=5、101–500=25、501–1000=50、>1000=250；USDM ≤50=2、51–100=5、101–500=10、>500=20；其余连接/订阅/Pong/Close 权重 0（出处：`protocol.rs::weight`、`client.rs::charge`）。

@@ -1,4 +1,6 @@
 //! Single MD process, independent bounded network owner per instrument.
+#[cfg(test)]
+mod dense_tests;
 use crate::{
     Result,
     config::{self, Config},
@@ -10,7 +12,7 @@ use tickwire_binance_public as public;
 use tickwire_clock_sys::SystemClock;
 use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_join::{JoinOwner, TopicRegistry};
-use tickwire_market_publisher::{Fault, FaultSink, InstrumentConfig};
+use tickwire_market_publisher::{Fault, FaultSink, InstrumentConfig, InstrumentSlot};
 use tickwire_shm::Publisher;
 pub(crate) const LEVELS: usize = 5000;
 pub(crate) const UPDATES: usize = 5000;
@@ -66,17 +68,17 @@ struct Feed {
     client: Client,
     binding: tickwire_binance_quota::PublicBinding,
     instrument: u64,
-    topics: Vec<usize>,
+    topics: Vec<(usize, InstrumentSlot)>,
 }
 struct EventFeed {
     client: public::PublicEventClient<SystemClock>,
     binding: tickwire_binance_quota::PublicBinding,
     instrument: u64,
-    topics: Vec<usize>,
+    topics: Vec<(usize, InstrumentSlot)>,
 }
 struct EventFanout<'a> {
     topics: &'a mut [TopicOwner],
-    targets: &'a [usize],
+    targets: &'a [(usize, InstrumentSlot)],
     instrument: u64,
     clock: &'a mut SystemClock,
 }
@@ -86,8 +88,8 @@ impl public::EventSink for EventFanout<'_> {
             Ok(t) => t.monotonic.nanos(),
             Err(_) => return false,
         };
-        for &i in self.targets {
-            if let Err(e) = self.topics[i].on_event_notice(self.instrument, &n, now, &mut Faults) {
+        for &(i, slot) in self.targets {
+            if let Err(e) = self.topics[i].on_event_slot(slot, &n, now, &mut Faults) {
                 self.topics[i].require_rebuild();
                 eprintln!(
                     "{}",
@@ -109,7 +111,7 @@ impl FaultSink for Faults {
 }
 struct Fanout<'a> {
     topics: &'a mut [TopicOwner],
-    targets: &'a [usize],
+    targets: &'a [(usize, InstrumentSlot)],
     instrument: u64,
     clock: &'a mut SystemClock,
 }
@@ -119,8 +121,8 @@ impl public::PublicSink for Fanout<'_> {
             Ok(s) => s.monotonic.nanos(),
             Err(_) => return false,
         };
-        for &i in self.targets {
-            if let Err(e) = self.topics[i].on_notice_ref(self.instrument, &n, now, &mut Faults) {
+        for &(i, slot) in self.targets {
+            if let Err(e) = self.topics[i].on_notice_slot(slot, &n, now, &mut Faults) {
                 self.topics[i].require_rebuild();
                 eprintln!(
                     "{}",
@@ -134,6 +136,7 @@ impl public::PublicSink for Fanout<'_> {
 fn topic_registry(
     c: &Config,
     h: &ResourceHeader,
+    index: &config::FeedIndex,
 ) -> Result<(TopicRegistry, Vec<InstrumentConfig>)> {
     let mut specs = Vec::new();
     let mut catalog = None;
@@ -149,18 +152,7 @@ fn topic_registry(
             catalog = Some(instrument.catalog_hash);
             specs.push(InstrumentConfig {
                 instrument,
-                key: tickwire_book::BookKey {
-                    venue: f.venue_id,
-                    instrument: f
-                        .instrument
-                        .id
-                        .try_into()
-                        .map_err(|_| invalid("instrument range"))?,
-                    source: f
-                        .stream_id
-                        .try_into()
-                        .map_err(|_| invalid("source range"))?,
-                },
+                key: index.book_key(f)?,
                 market: match source {
                     public::Source::SpotProduction | public::Source::SpotTest => {
                         tickwire_binance::request::Market::Spot
@@ -233,6 +225,7 @@ pub fn run(c: Config) -> Result<()> {
     {
         return Err(invalid("MD owner bounds"));
     }
+    let index = config::FeedIndex::new(&c.feeds)?;
     let domain = tickwire_clock::ClockDomain::new(c.identity.host_boot, c.clock_generation)
         .map_err(|e| invalid(&format!("clock {e:?}")))?;
     let mut clock = SystemClock::new(domain)?;
@@ -254,7 +247,7 @@ pub fn run(c: Config) -> Result<()> {
         {
             return Err(invalid("MD topic resource identity"));
         }
-        let (registry, instruments) = topic_registry(&c, &h)?;
+        let (registry, instruments) = topic_registry(&c, &h, &index)?;
         let owner = JoinOwner::new(Publisher::<32>::create(h)?, registry)?;
         config::write_bytes(
             &config::active_resource_path(&t.resource)?,
@@ -284,7 +277,7 @@ pub fn run(c: Config) -> Result<()> {
         {
             return Err(invalid("MD feed owner/topics"));
         }
-        let (config, network) = f.build(domain)?;
+        let (config, network) = f.build(domain, &index)?;
         let binding = tickwire_binance_quota::PublicBinding {
             owner_id: f.owner_id,
             source: f.source.build(),
@@ -325,15 +318,15 @@ pub fn run(c: Config) -> Result<()> {
             },
             false,
         )?;
-        let targets: Vec<usize> = topics
+        let targets = topics
             .iter_mut()
             .enumerate()
             .filter_map(|(i, t)| {
                 f.topics
                     .contains(&t.split().0.header().topic_id)
-                    .then_some(i)
+                    .then(|| t.instrument_slot(f.instrument.id).map(|slot| (i, slot)))
             })
-            .collect();
+            .collect::<tickwire_market_publisher::Result<Vec<_>>>()?;
         let mut event_kinds = BTreeSet::new();
         let mut event_sources = BTreeSet::new();
         if f.events.len() > 3 {
@@ -346,8 +339,8 @@ pub fn run(c: Config) -> Result<()> {
             {
                 return Err(invalid("duplicate event owner/kind/source"));
             }
-            let (event_config, network) = event.build(f, domain)?;
-            for &i in &targets {
+            let (event_config, network) = event.build(f, domain, &index)?;
+            for &(i, _) in &targets {
                 topics[i].configure_event(f.instrument.id, event.kind.kind(), event.stream_id)?;
             }
             let binding = tickwire_binance_quota::PublicBinding {

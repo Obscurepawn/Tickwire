@@ -275,12 +275,11 @@ mod tests {
         assert_ne!(x.request_digest, second.digest());
         a.apply_event(&late).unwrap();
         assert!(a.frozen());
-        assert_eq!(
-            a.amendments()
+        assert!(
+            !a.amendments()
                 .find(|x| x.intent.intent_id == 5)
                 .unwrap()
-                .confirmed,
-            false
+                .confirmed
         );
         assert_eq!(
             a.order_keys()

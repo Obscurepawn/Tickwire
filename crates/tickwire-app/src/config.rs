@@ -332,6 +332,37 @@ impl Deployment {
             },
         }
     }
+    fn public_instrument(
+        &self,
+        baseline: &CanonicalBaseline,
+    ) -> Result<(tickwire_venue::InstrumentBinding, tickwire_book::BookKey)> {
+        if self.instrument_id == 0 {
+            return Err(invalid("instrument id must be nonzero"));
+        }
+        // CanonicalBaseline fixes the complete catalog order (at most 64 IDs).
+        // This slot is local to that owner's catalog, while the binding retains
+        // the full external ID for normalized events and strategy inputs.
+        let (slot, entry) = baseline
+            .catalog()
+            .entries
+            .iter()
+            .enumerate()
+            .find(|(_, entry)| {
+                entry.instrument.instrument_id == self.instrument_id
+                    && entry.product == self.product.product()
+            })
+            .ok_or_else(|| invalid("instrument not in baseline catalog"))?;
+        Ok((
+            entry.instrument.clone(),
+            tickwire_book::BookKey {
+                venue: baseline.snapshot().scope.venue,
+                instrument: slot
+                    .try_into()
+                    .map_err(|_| invalid("local book slot exceeds u32"))?,
+                source: self.book_source,
+            },
+        ))
+    }
     pub fn assemble(&self, baseline: CanonicalBaseline) -> Result<files::Configuration> {
         if self.trading_websocket.is_some() != self.network.trading_websocket.is_some() {
             return Err(invalid(
@@ -339,17 +370,7 @@ impl Deployment {
             ));
         }
         let scope = baseline.snapshot().scope.clone();
-        let instrument = baseline
-            .catalog()
-            .entries
-            .iter()
-            .find(|i| {
-                i.instrument.instrument_id == self.instrument_id
-                    && i.product == self.product.product()
-            })
-            .ok_or_else(|| invalid("instrument not in baseline catalog"))?
-            .instrument
-            .clone();
+        let (instrument, book_key) = self.public_instrument(&baseline)?;
         let domain = self.domain()?;
         if self
             .policy
@@ -410,14 +431,7 @@ impl Deployment {
             first_operation: 1,
             depth: tickwire_binance::depth_sync::Config {
                 instrument,
-                key: tickwire_book::BookKey {
-                    venue: scope.venue,
-                    instrument: self
-                        .instrument_id
-                        .try_into()
-                        .map_err(|_| invalid("book instrument id exceeds u32"))?,
-                    source: self.book_source,
-                },
+                key: book_key,
                 time_unit: tickwire_binance::feed::TimeUnit::Milliseconds,
                 snapshot_limit: t.snapshot_limit,
                 max_message_bytes: 1024 * 1024,
@@ -574,6 +588,10 @@ impl Deployment {
 #[cfg(test)]
 #[path = "../../tickwire-binance/tests/common/mod.rs"]
 mod venue_fixture;
+
+#[cfg(test)]
+#[path = "config_instrument_tests.rs"]
+mod instrument_tests;
 
 #[cfg(test)]
 mod tests {

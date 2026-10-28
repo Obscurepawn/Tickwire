@@ -137,7 +137,9 @@ fn await_exit(
 mod tests {
     use super::*;
     fn spawn(code: &str) -> (Registry, ProcessIdentity, Probe) {
-        let executable = PathBuf::from("/bin/sh");
+        // Some Linux distributions expose /bin/sh as a symlink. Registry
+        // deliberately requires a regular executable, including in this test.
+        let executable = std::fs::canonicalize("/bin/sh").unwrap();
         let hash = tickwire_recovery::digest(&std::fs::read(&executable).unwrap());
         let identity = Identity {
             instance: [7; 16],

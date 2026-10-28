@@ -23,6 +23,83 @@ fn context(market: Market) -> DepthContext {
     .unwrap()
 }
 #[test]
+fn compact_book_key_accepts_full_external_ids_and_retains_symbol_checks() {
+    for external in [u64::from(u32::MAX) + 12, u64::MAX] {
+        for local in [0, 7] {
+            let mut instrument = common::command().context.instrument;
+            instrument.instrument_id = external;
+            let key = BookKey {
+                venue: 1,
+                instrument: local,
+                source: 1,
+            };
+            let ctx = DepthContext::new(Market::Spot, instrument, key, 7, TimeUnit::Milliseconds)
+                .unwrap();
+            let snapshot = decode_snapshot::<8>(
+                br#"{"lastUpdateId":100,"bids":[["99","1"]],"asks":[["101","2"]]}"#,
+                &ctx,
+                4096,
+            )
+            .unwrap();
+            let delta = decode_diff::<8>(
+                br#"{"e":"depthUpdate","E":1,"s":"BTCUSDT","U":101,"u":101,"b":[],"a":[]}"#,
+                &ctx,
+                50,
+                4096,
+            )
+            .unwrap();
+            assert_eq!(snapshot.snapshot().key, key);
+            assert_eq!(delta.event().key, key);
+            assert_eq!(delta.event().generation, 7);
+            let mut book = Book::<BinanceSpot, 8, 8>::new(key, 7);
+            book.install_snapshot(snapshot.snapshot()).unwrap();
+            book.apply(delta.event()).unwrap();
+            assert_eq!(book.last_update_id(), Some(101));
+            assert!(matches!(
+                decode_diff::<8>(
+                    br#"{"e":"depthUpdate","E":1,"s":"ETHUSDT","U":102,"u":102,"b":[],"a":[]}"#,
+                    &ctx,
+                    51,
+                    4096,
+                ),
+                Err(tickwire_binance::Error::IdentityMismatch)
+            ));
+        }
+    }
+}
+
+#[test]
+fn compact_book_key_does_not_admit_zero_external_id_or_invalid_context() {
+    let key = BookKey {
+        venue: 1,
+        instrument: 0,
+        source: 1,
+    };
+    let mut invalid = common::command().context.instrument;
+    invalid.instrument_id = 0;
+    assert!(matches!(
+        DepthContext::new(Market::Spot, invalid, key, 7, TimeUnit::Milliseconds),
+        Err(tickwire_binance::Error::IdentityMismatch)
+    ));
+    for change in 0..6 {
+        let mut instrument = common::command().context.instrument;
+        instrument.instrument_id = u64::MAX;
+        let mut key = key;
+        match change {
+            0 => key.venue = 0,
+            1 => key.source = 0,
+            2 => instrument.instrument_version = 0,
+            3 => instrument.catalog_version = 0,
+            4 => instrument.catalog_hash = [0; 32],
+            _ => instrument.contract = ContractKind::Perpetual,
+        }
+        assert!(matches!(
+            DepthContext::new(Market::Spot, instrument, key, 7, TimeUnit::Milliseconds),
+            Err(tickwire_binance::Error::IdentityMismatch)
+        ));
+    }
+}
+#[test]
 fn spot_snapshot_and_next_update_feed_the_real_sequence_policy() {
     let ctx = context(Market::Spot);
     let snap = decode_snapshot::<8>(

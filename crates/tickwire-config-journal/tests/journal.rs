@@ -1,10 +1,17 @@
 use std::{
     fs,
     path::PathBuf,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        RwLock,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 use tickwire_config_journal::*;
 use tickwire_journal::store::FileStore;
+// A child retains other threads' lock descriptions between fork and exec.
+// Shared guards keep ordinary WAL tests concurrent; process creation is exclusive
+// for the complete test lifetime, including child wait and journal recovery.
+static FORK_BARRIER: RwLock<()> = RwLock::new(());
 static NEXT: AtomicUsize = AtomicUsize::new(1);
 struct Fixture(PathBuf);
 impl Fixture {
@@ -110,6 +117,7 @@ fn complete<S: tickwire_journal::store::Store>(
 }
 #[test]
 fn actual_wal_records_all_steps_and_reopens_exact_progress() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut j = Journal::create(f.store(), config()).unwrap();
     let end = complete(&mut j, 1, None);
@@ -123,6 +131,7 @@ fn actual_wal_records_all_steps_and_reopens_exact_progress() {
 }
 #[test]
 fn recovery_views_expose_only_recorded_steps_and_original_receipts() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut j = Journal::create(f.store(), config()).unwrap();
     assert!(j.operation([1; 16]).is_none());
@@ -152,6 +161,7 @@ fn recovery_views_expose_only_recorded_steps_and_original_receipts() {
 }
 #[test]
 fn exact_retry_after_lost_response_returns_original_sequence() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut j = Journal::create(f.store(), config()).unwrap();
     let event = prepare(1, None);
@@ -169,6 +179,7 @@ fn exact_retry_after_lost_response_returns_original_sequence() {
 }
 #[test]
 fn skipped_steps_wrong_links_and_cross_boot_runtime_are_rejected() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut j = Journal::create(f.store(), config()).unwrap();
     let p = j.record(&prepare(1, None)).unwrap();
@@ -219,6 +230,7 @@ fn skipped_steps_wrong_links_and_cross_boot_runtime_are_rejected() {
 }
 #[test]
 fn one_pending_operation_and_exact_effective_base_are_enforced() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut j = Journal::create(f.store(), config()).unwrap();
     j.record(&prepare(1, None)).unwrap();
@@ -232,6 +244,7 @@ fn one_pending_operation_and_exact_effective_base_are_enforced() {
 }
 #[test]
 fn scope_writer_and_capacity_failures_preserve_existing_history() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut cfg = config();
     cfg.max_operations = 1;
@@ -252,6 +265,7 @@ fn scope_writer_and_capacity_failures_preserve_existing_history() {
 
 #[test]
 fn recovery_rejects_old_writer_and_wrong_scope_before_truncating_torn_tail() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     use std::io::Write;
     let f = Fixture::new();
     let mut cfg = config();
@@ -283,6 +297,7 @@ fn recovery_rejects_old_writer_and_wrong_scope_before_truncating_torn_tail() {
 
 #[test]
 fn higher_writer_in_validated_unfinished_batch_cannot_be_erased_by_old_writer() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut cfg = config();
     cfg.writer_epoch = 3;
@@ -316,6 +331,7 @@ fn higher_writer_in_validated_unfinished_batch_cannot_be_erased_by_old_writer() 
 
 #[test]
 fn invalid_application_records_preserve_all_bytes_even_with_valid_physical_seals() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     use std::io::Write;
     for case in 0..6 {
         let f = Fixture::new();
@@ -358,6 +374,7 @@ fn invalid_application_records_preserve_all_bytes_even_with_valid_physical_seals
 
 #[test]
 fn sync_error_returns_no_step_and_poisoned_writer_recovers_actual_complete_record() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     use std::{
         io,
         sync::{Arc, atomic::AtomicBool},
@@ -425,6 +442,7 @@ fn sync_error_returns_no_step_and_poisoned_writer_recovers_actual_complete_recor
 
 #[test]
 fn byte_capacity_rejects_before_write_but_retains_exact_retry() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     let f = Fixture::new();
     let mut j = Journal::create(f.store(), config()).unwrap();
     let p = j.record(&prepare(1, None)).unwrap();
@@ -449,6 +467,7 @@ fn byte_capacity_rejects_before_write_but_retains_exact_retry() {
 
 #[test]
 fn invalid_scope_and_prepared_values_cannot_create_or_advance_a_journal() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     for cluster in ["", "1cluster", "cluster_name", "Cluster-a", &"a".repeat(64)] {
         let f = Fixture::new();
         let mut cfg = config();
@@ -482,6 +501,7 @@ fn invalid_scope_and_prepared_values_cannot_create_or_advance_a_journal() {
 #[cfg(unix)]
 #[test]
 fn sigkill_after_each_synchronized_step_recovers_and_resumes_exact_operation() {
+    let _fork_barrier = FORK_BARRIER.write().unwrap_or_else(|e| e.into_inner());
     use std::{
         process::{Command, Stdio},
         time::{Duration, Instant},
@@ -534,6 +554,7 @@ fn sigkill_after_each_synchronized_step_recovers_and_resumes_exact_operation() {
 #[test]
 #[ignore = "run by SIGKILL parent with private environment"]
 fn crash_child_entry() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     use std::io::Write;
     let root = std::env::var_os("TW_LOCAL_JOURNAL_CRASH_ROOT").unwrap();
     let ready = std::env::var_os("TW_LOCAL_JOURNAL_CRASH_READY").unwrap();
@@ -582,6 +603,7 @@ fn crash_child_entry() {
 #[cfg(target_os = "linux")]
 #[test]
 fn directory_fd_backend_records_actual_file_receipts_and_reopens() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap_or_else(|e| e.into_inner());
     use std::{
         fs::File,
         os::unix::fs::{MetadataExt, PermissionsExt},

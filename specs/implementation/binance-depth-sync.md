@@ -16,6 +16,8 @@
 
 连接代次与 Book generation 分别增加：连接重建必须有更大 epoch，同连接的缓存丢失/解码错误/序列断档也增加 Book generation。快照令牌绑定 BookKey、连接 epoch、Book generation、请求序号。旧连接消息、旧请求完成、重复完成、迟到断连在任何解码与时钟处理前被忽略；当前状态不会受其坏 JSON 或倒退时间影响。
 
+`Config.instrument` 保存完整外部 `u64` 标的身份，`Config.key.instrument` 是 owner 预先分配的本地 `u32` 槽；两者不要求数值相等。零号本地槽合法，零外部标的 ID 拒绝。连接、快照、缓冲增量及重建后的 Book 始终使用同一完整 BookKey，symbol/目录/产品仍按 InstrumentBinding 核对；重连不能把本地槽重新解释为外部 ID。不同外部标的不得在同一发布目录共用完整 BookKey，该唯一性由装配 owner 保证。
+
 ## 序列、失败与容量
 
 Spot 快照落后于本轮最早缓存 U 时返回 TooOld，保留缓存重试；满足前置条件后交由 Book 丢弃过旧事件并检查相邻更新。USD-M 保留等于快照 L 的首事件并检查其覆盖范围，后续使用 pu。快照领先于全部缓存时保持 Bridging，REST 完成和旧增量均不刷新 view 的接收时间。

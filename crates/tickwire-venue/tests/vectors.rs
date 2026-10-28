@@ -12,12 +12,8 @@ fn unhex(s: &str) -> Vec<u8> {
 }
 #[test]
 fn independently_transcribed_full_command_vector() {
-    let bytes = unhex(include_str!(
-        "data/spot-limit.hex"
-    ));
-    let hash = unhex(include_str!(
-        "data/spot-limit.sha256"
-    ));
+    let bytes = unhex(include_str!("data/spot-limit.hex"));
+    let hash = unhex(include_str!("data/spot-limit.sha256"));
     let c = CanonicalCommand::new(command()).unwrap();
     assert_eq!(c.bytes(), bytes);
     assert_eq!(c.digest().as_slice(), hash);
@@ -25,12 +21,8 @@ fn independently_transcribed_full_command_vector() {
 }
 #[test]
 fn independently_transcribed_multi_asset_event_vectors() {
-    let bytes = unhex(include_str!(
-        "data/multi-asset-fill.hex"
-    ));
-    let hash = unhex(include_str!(
-        "data/multi-asset-fill.sha256"
-    ));
+    let bytes = unhex(include_str!("data/multi-asset-fill.hex"));
+    let hash = unhex(include_str!("data/multi-asset-fill.sha256"));
     let c = CanonicalEvent::new(event()).unwrap();
     assert_eq!(c.bytes(), bytes);
     assert_eq!(c.digest().as_slice(), hash);
@@ -46,12 +38,8 @@ fn independently_transcribed_multi_asset_event_vectors() {
         }])
         .unwrap()
     }
-    let bytes = unhex(include_str!(
-        "data/minimum-i128-fee.hex"
-    ));
-    let hash = unhex(include_str!(
-        "data/minimum-i128-fee.sha256"
-    ));
+    let bytes = unhex(include_str!("data/minimum-i128-fee.hex"));
+    let hash = unhex(include_str!("data/minimum-i128-fee.sha256"));
     let c = CanonicalEvent::new(e).unwrap();
     assert_eq!(c.bytes(), bytes);
     assert_eq!(c.digest().as_slice(), hash);
@@ -83,12 +71,8 @@ fn independently_transcribed_reported_cash_fields() {
         })
     }
     let c = CanonicalEvent::new(e.clone()).unwrap();
-    let bytes = unhex(include_str!(
-        "data/reported-cash.hex"
-    ));
-    let hash = unhex(include_str!(
-        "data/reported-cash.sha256"
-    ));
+    let bytes = unhex(include_str!("data/reported-cash.hex"));
+    let hash = unhex(include_str!("data/reported-cash.sha256"));
     assert_eq!(c.bytes(), bytes);
     assert_eq!(c.digest().as_slice(), hash);
     assert_eq!(CanonicalEvent::decode(&bytes).unwrap().event(), &e);

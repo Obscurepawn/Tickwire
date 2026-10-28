@@ -48,11 +48,12 @@ impl Request {
         {
             return Err(Error::Identity);
         }
+        self.source_completion.validate(MAX_BYTES as u64)?;
         version(&self.config)?;
         let mut bytes = 0u64;
         let mut previous = None;
         for object in &self.source_objects {
-            object.validate(MAX_BYTES as u64)?;
+            object.validate(tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
             if previous.is_some_and(|p| p >= object.digest) {
                 return Err(Error::Identity);
             }
@@ -74,7 +75,7 @@ impl Request {
         let mut objects = Vec::with_capacity(self.source_objects.len());
         for object in &self.source_objects {
             let bytes = get(*object)?;
-            object.verify(&bytes, MAX_BYTES as u64)?;
+            object.verify(&bytes, tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
             objects.push(bytes);
         }
         source::VerifiedSourceReplay::verify(

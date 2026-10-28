@@ -30,7 +30,8 @@ impl Job {
         let mut total = 0u64;
         let mut last = None;
         for f in &self.objects {
-            f.object.validate(MAX_BYTES as u64)?;
+            f.object
+                .validate(tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
             if !f.path.is_absolute() || last.is_some_and(|p| p >= f.object.digest) {
                 return Err(Error::Identity);
             }
@@ -201,7 +202,10 @@ pub(crate) fn verify_at(
             return Err(Error::Bounds);
         }
         let bytes = read(hash)?;
-        if Object::of(&bytes).digest != hash || bytes.is_empty() || bytes.len() > MAX_BYTES {
+        if Object::of(&bytes).digest != hash
+            || bytes.is_empty()
+            || bytes.len() > tickwire_recovery::MAX_OBJECT_BYTES
+        {
             return Err(Error::Identity);
         }
         total = total
@@ -228,7 +232,10 @@ pub(crate) fn verify_at(
         return Err(Error::Identity);
     }
     for f in &job.objects {
-        f.object.verify(&get(f.object.digest)?, MAX_BYTES as u64)?;
+        f.object.verify(
+            &get(f.object.digest)?,
+            tickwire_recovery::MAX_OBJECT_BYTES as u64,
+        )?;
     }
     receipt
         .output

@@ -1,0 +1,34 @@
+{
+  "tickwire-md": {
+    "bytes": 3955696,
+    "sha256": "1d4de0e8f07458d0872b3b5ab83e3ef4683dd8c9851966630f4ef4117c079eb3"
+  },
+  "tickwire-counting-worker": {
+    "bytes": 16777217,
+    "sha256": "0ae680f54cfb950321ff9fafacd657a4c29f41842c20008b6f32859960de681e"
+  },
+  "tickwire-app": {
+    "bytes": 14253888,
+    "sha256": "08bd7f34e9eb4bb1f883b87924496d59fa4946a4f04b901abc96583974b85dc2"
+  },
+  "tickwire-replica-receiver": {
+    "bytes": 4934304,
+    "sha256": "157023ed283773506fd6334a58139eeca906f5dc8fb163d549560802f7320c2d"
+  },
+  "tickwire-lab": {
+    "bytes": 10235776,
+    "sha256": "59ce84636b1ef5c31111abab20958c5cdc45e3b1470091c5f062d9cb808e84ef"
+  },
+  "tickwire-strategy-worker": {
+    "bytes": 4823296,
+    "sha256": "259e14725f27fe70d21e4c3f9ce2400aa17f0fe956ff5736cdf310a1b802b715"
+  },
+  "tickwire-lifecycle": {
+    "bytes": 1537792,
+    "sha256": "4428b51faccd239ac90ed4db16f3ed6ee5b770b6bb43d164fe0974284f6c4569"
+  },
+  "tickwire-counting-v1-worker": {
+    "bytes": 16777217,
+    "sha256": "19e38274bfb922c689633b4f1f44d7566792d1b8561861769cc6b5cfd6271d0e"
+  }
+}

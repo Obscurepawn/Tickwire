@@ -671,34 +671,15 @@ fn same_cut(old: &Value, new: &Value) -> bool {
         .iter()
         .all(|k| old[*k] == new[*k] && !old[*k].is_null())
 }
-pub(crate) fn check_export(
-    s: &Scenario,
-    exported: &Path,
-    report: &Value,
-    count: u64,
-) -> Result<()> {
-    let order = report["orders"]
-        .as_array()
-        .and_then(|orders| orders.first())
-        .ok_or("order")?;
-    if order["origin_instance"] != hex(&[2; 16])
-        || order["origin_generation"] != 5
-        || order["manager_instance"] != hex(&NEW_INSTANCE)
-        || order["manager_generation"] != GENERATION
-    {
-        return Err("late fill did not retain the old origin and new manager".into());
-    }
+fn check_handover_records(
+    records: impl IntoIterator<Item = Result<tickwire_account_codec::CanonicalRecord>>,
+) -> Result<(u64, [u8; 32])> {
     let mut handover = None;
-    let mut fill_position = None;
+    let mut first_fill_position = None;
     let mut admits = 0;
-    for position in 1..=count {
-        let record = tickwire_account_codec::CanonicalRecord::decode(&read(
-            &exported
-                .join("records")
-                .join(format!("{position:020}.cbor")),
-            1024 * 1024,
-        )?)
-        .map_err(|e| format!("record: {e:?}"))?;
+    for record in records {
+        let record = record?;
+        let position = record.sequence();
         match record.record() {
             tickwire_account::RecoveryRecord::StrategyHandover(h) => {
                 if handover.is_some()
@@ -716,16 +697,46 @@ pub(crate) fn check_export(
             tickwire_account::RecoveryRecord::IngressEvent { event, .. }
             | tickwire_account::RecoveryRecord::VenueEvent(event) => {
                 if matches!(event.event().body, tickwire_venue::VenueEventBody::Fill(_)) {
-                    fill_position = Some(position);
+                    first_fill_position.get_or_insert(position);
                 }
             }
             _ => {}
         }
     }
     let (position, hash) = handover.ok_or("missing applied account handover")?;
-    if admits != 1 || fill_position.is_none_or(|fill| fill <= position) {
+    if admits != 1 || first_fill_position.is_none_or(|fill| fill <= position) {
         return Err("expected one old admission followed by handover and late fill".into());
     }
+    Ok((position, hash))
+}
+
+pub(crate) fn check_export(
+    s: &Scenario,
+    exported: &Path,
+    report: &Value,
+    count: u64,
+) -> Result<()> {
+    let order = report["orders"]
+        .as_array()
+        .and_then(|orders| orders.first())
+        .ok_or("order")?;
+    if order["origin_instance"] != hex(&[2; 16])
+        || order["origin_generation"] != 5
+        || order["manager_instance"] != hex(&NEW_INSTANCE)
+        || order["manager_generation"] != GENERATION
+    {
+        return Err("late fill did not retain the old origin and new manager".into());
+    }
+    let records = (1..=count).map(|position| {
+        tickwire_account_codec::CanonicalRecord::decode(&read(
+            &exported
+                .join("records")
+                .join(format!("{position:020}.cbor")),
+            1024 * 1024,
+        )?)
+        .map_err(|e| format!("record: {e:?}").into())
+    });
+    let (position, hash) = check_handover_records(records)?;
     let coordinator: Value = json(&s.root.join("handover/coordinator.json"))?;
     let operation: Operation =
         serde_json::from_value(coordinator["coordinator"]["operation"].clone())?;
@@ -846,6 +857,10 @@ fn consumed_ack_in(directory: &Path, ready: &Value) -> Result<bool> {
     }
     Ok(ack)
 }
+
+#[cfg(test)]
+#[path = "handover/export_tests.rs"]
+mod export_tests;
 
 #[cfg(test)]
 #[path = "handover/relay_tests.rs"]

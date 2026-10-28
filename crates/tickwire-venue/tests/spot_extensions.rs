@@ -7,8 +7,7 @@ fn roundtrip(c: Command) {
     let p = CanonicalCommand::new(c.clone()).unwrap();
     assert_eq!(CanonicalCommand::decode(p.bytes()).unwrap().command(), &c);
     let hex = |bytes: &[u8]| bytes.iter().map(|v| format!("{v:02x}")).collect::<String>();
-    let expected =
-        include_str!("data/legacy-commands.txt");
+    let expected = include_str!("data/legacy-commands.txt");
     assert_eq!(expected.lines().count(), 10);
     assert!(
         expected

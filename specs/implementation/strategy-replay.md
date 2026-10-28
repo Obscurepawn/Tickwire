@@ -6,11 +6,15 @@
 
 `CommittedHistory` 核验持久对象内容、输入顺序及切点连接，兼容 schema1 完整前缀接 schema2 增量段。泛型业务状态是否与保存端点一致，仍由旧工厂实际回放并比较完整检查点确定；历史校验结果不授予恢复运行或输出权限。
 
+schema3 完成闭包中的恢复依赖（包括旧策略二进制）沿恢复对象预算校验：单对象最多 64 MiB，完整闭包最多 256 MiB，仍逐个核对长度和摘要。启动、安装、回滚及其嵌套读取使用相同预算；不能用 replay 消息的 16 MiB 上限误拒绝合法二进制依赖。检查点、输入尾部、控制请求及其他类型化 replay 消息继续保留各自的 16 MiB 上限，闭包对象数和递归深度限制不变。
+
 schema3 启动只完成 S 的 restore/migrate，保存 `replay_restore_digest`。Prepare 关闭旧转发后取得 C，启动旧 binary 的 `--source-replay`；目标真实 41/42 安装后保存 `replay_installation_digest`。唯一固定 rollback probe 在 C 的 ConfigApply 输出上执行；Host 观察其真实成功退出后，目标同步 `replay_rollback_digest` 并返回新的 READY。三个根保留在 HandoverSeal v3。schema2 保持原流程。
 
 执行侧依次同步对象与生命周期 State。安装同步返回不确定时，内存不把该阶段当作完成；恢复可以发现完整尾部，但只保留事实并关闭许可。完成回执的精确同会话重试返回原签名；新的消费刷新不再次调用旧回放、迁移、安装或 probe。Commit 必须带协调器采纳的精确 ReplayAdoption，并重新核对实际 READY、完整账户记录、当前订单能力及 gate。
 
-当前已有生产接线与定向单元证据，schema3 首轮跨进程验收因输入累计重写导致消费积压而未完成。每次 flush 已改为以上一持久检查点为锚点写入新增输入，固定 S→C 的完整历史保留；SDK 65 项单元已通过，实际场景待重跑。`registered::run` 已提供静态用户工厂的实际启动、配置解码、旧版本回放和回滚探测入口；`FactoryBinding` 将工厂 ID、配置路径、对象摘要/长度及 revision 绑定到发布资料。内建 worker 拒绝未知工厂，不自动切换策略。跨时钟域转换、目标 Shadow 保留段内的 Config/Model 改动保持拒绝。
+schema3 早期跨进程验收曾因输入累计重写而积压；每次 flush 现以上一持久检查点为锚点写入新增输入，保留固定 S→C 的完整历史。2026-10-28 原生 Linux release 的自定义 V1→V2 场景通过：S=2、C=10，旧 binary 回放、目标安装、独立回滚、Commit/Release、旧 PID 退出及迟到成交均完成。另将两份策略 ELF 副本补齐至 16 MiB＋1 字节后重新生成身份并运行，S=2、C=22 的完整链路同样通过；两轮镜像和目标消费水位均为 12，终态费用闭合。期限与门禁没有放宽，[运行摘要与源码/二进制身份](../evidence/20261028/summary.json)保留实际范围。
+
+`registered::run` 提供静态用户工厂的实际启动、配置解码、旧版本回放和回滚探测入口；`FactoryBinding` 将工厂 ID、配置路径、对象摘要/长度及 revision 绑定到发布资料。内建 worker 拒绝未知工厂，不自动切换策略。跨时钟域转换、目标 Shadow 保留段内的 Config/Model 改动保持拒绝。
 
 独立 `tickwire-strategy-example` 提供两个实际可执行文件，分别使用 V1/V2 状态。其计数和动作状态由真实 SDK 回调改变，C 上迁移保留原计数和已发生动作，新 ConfigApply 后继续处理输入而不重发历史命令。当前已完成 4 项单元测试，以及实际 V1 子进程重放持久 S→C、核对 PID/退出与完整检查点的测试；使用该工厂的完整跨进程交接仍待实际场景验收。
 

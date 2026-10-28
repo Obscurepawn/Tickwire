@@ -1,6 +1,7 @@
 mod checkpoint;
 use crate::{Error, Result};
-use std::collections::BTreeMap;
+pub use tickwire_instrument_index::DenseId;
+use tickwire_instrument_index::FixedIndex;
 use tickwire_ipc::*;
 use tickwire_snapshot::ValidatedTopic;
 
@@ -24,14 +25,61 @@ struct Book {
     bids: Vec<DepthLevel>,
     asks: Vec<DepthLevel>,
     coverage: DepthCoverage,
-    states: BTreeMap<u8, MarketState>,
+    states: StateSlots,
+}
+#[derive(Default)]
+struct StateSlots([Option<MarketState>; 4]);
+impl StateSlots {
+    fn index(category: u8) -> Option<usize> {
+        match category {
+            1 => Some(0),
+            2 => Some(1),
+            4 => Some(2),
+            8 => Some(3),
+            _ => None,
+        }
+    }
+    fn get(&self, category: &u8) -> Option<&MarketState> {
+        self.0.get(Self::index(*category)?)?.as_ref()
+    }
+    fn insert(&mut self, category: u8, state: MarketState) -> tickwire_ipc::Result<()> {
+        self.0[Self::index(category).ok_or(tickwire_ipc::Error::UnknownMessage)?] = Some(state);
+        Ok(())
+    }
+    fn contains_key(&self, category: &u8) -> bool {
+        self.get(category).is_some()
+    }
+    fn values(&self) -> impl Iterator<Item = &MarketState> {
+        self.0.iter().flatten()
+    }
+    #[cfg(test)]
+    fn values_mut(&mut self) -> impl Iterator<Item = &mut MarketState> {
+        self.0.iter_mut().flatten()
+    }
+    fn len(&self) -> usize {
+        self.values().count()
+    }
+}
+struct DepthWorkspace {
+    bids: Vec<DepthLevel>,
+    asks: Vec<DepthLevel>,
+}
+impl DepthWorkspace {
+    fn new(maximum_levels: usize) -> Self {
+        Self {
+            bids: Vec::with_capacity(maximum_levels),
+            asks: Vec::with_capacity(maximum_levels),
+        }
+    }
 }
 pub struct MarketReplica {
     topic: u64,
     generation: u64,
     ring: u64,
     sequence: u64,
-    books: BTreeMap<u64, Book>,
+    books: Vec<Book>,
+    index: FixedIndex,
+    depth_workspace: DepthWorkspace,
     maximum_levels: usize,
     blocked: bool,
 }
@@ -112,9 +160,15 @@ impl MarketView<'_> {
             )
         };
         levels
-            .iter()
-            .find(|l| l.price_ticks == price)
-            .map(|l| l.qty_lots)
+            .binary_search_by(|level| {
+                if bid {
+                    price.cmp(&level.price_ticks)
+                } else {
+                    level.price_ticks.cmp(&price)
+                }
+            })
+            .ok()
+            .map(|index| levels[index].qty_lots)
             .or_else(|| contains(kind, bound, bid, price).then_some(0))
     }
     pub fn version(&self) -> u64 {
@@ -154,7 +208,7 @@ impl MarketReplica {
         if topic == 0 || ring == 0 || maximum_levels == 0 || maximum_levels > 10000 {
             return Err(tickwire_ipc::Error::Bounds);
         }
-        let mut books = BTreeMap::new();
+        let mut books = Vec::with_capacity(snapshot.len());
         for index in 0..snapshot.len() {
             let m = snapshot.member(index)?;
             let coverage = m.coverage.ok_or(tickwire_ipc::Error::UnsupportedFeature)?;
@@ -163,7 +217,7 @@ impl MarketReplica {
             {
                 return Err(tickwire_ipc::Error::Bounds);
             }
-            let mut states = BTreeMap::new();
+            let mut states = StateSlots::default();
             let mut received = 0;
             let mut published = 0;
             for bytes in m.state_records.as_chunks::<512>().0 {
@@ -174,7 +228,7 @@ impl MarketReplica {
                     received = r.header().ingress_mono_ns;
                 }
                 published = published.max(r.header().publish_mono_ns);
-                states.insert(market_state_category(r.header().message_type)?, r);
+                states.insert(market_state_category(r.header().message_type)?, r)?;
             }
             let levels = m
                 .depth_levels
@@ -184,28 +238,30 @@ impl MarketReplica {
                 .map(|b| DepthLevel::decode(b))
                 .collect::<tickwire_ipc::Result<Vec<_>>>()?;
             let split = m.header.bid_count as usize;
-            books.insert(
-                m.entry.instrument_id,
-                Book {
-                    id: m.entry.instrument_id,
-                    version: m.entry.instrument_version,
-                    feed: m.entry.feed_state,
-                    received,
-                    published,
-                    last_event: m.entry.last_instrument_event_seq,
-                    bids: levels[..split].to_vec(),
-                    asks: levels[split..].to_vec(),
-                    coverage,
-                    states,
-                },
-            );
+            books.push(Book {
+                id: m.entry.instrument_id,
+                version: m.entry.instrument_version,
+                feed: m.entry.feed_state,
+                received,
+                published,
+                last_event: m.entry.last_instrument_event_seq,
+                bids: levels[..split].to_vec(),
+                asks: levels[split..].to_vec(),
+                coverage,
+                states,
+            });
         }
+        books.sort_unstable_by_key(|book| book.id);
+        let index = FixedIndex::new(&books.iter().map(|book| book.id).collect::<Vec<_>>())
+            .map_err(|_| tickwire_ipc::Error::Bounds)?;
         Ok(Self {
             topic,
             generation: snapshot.header().feed_generation,
             ring,
             sequence: snapshot.header().sequence,
             books,
+            index,
+            depth_workspace: DepthWorkspace::new(maximum_levels),
             maximum_levels,
             blocked: false,
         })
@@ -217,7 +273,7 @@ impl MarketReplica {
         Self::decode_checkpoint(bytes, maximum_levels)
     }
     pub fn instruments(&self) -> impl Iterator<Item = u64> + '_ {
-        self.books.keys().copied()
+        self.books.iter().map(|book| book.id)
     }
     pub fn invalidate(&mut self) {
         self.blocked = true;
@@ -226,19 +282,28 @@ impl MarketReplica {
         self.sequence
     }
     pub fn view(&self, instrument: u64) -> Option<MarketView<'_>> {
-        self.books.get(&instrument).map(|book| MarketView {
+        self.view_dense(self.index.lookup(instrument)?)
+    }
+    /// An index belongs only to this replica's current fixed instrument set.
+    pub fn view_dense(&self, instrument: DenseId) -> Option<MarketView<'_>> {
+        self.books.get(instrument.index()).map(|book| MarketView {
             replica: self,
             book,
         })
     }
     pub fn apply(&mut self, bytes: &[u8], payload: &[u8]) -> Result<u64> {
+        let index = self.apply_dense(bytes, payload)?;
+        Ok(self.books[index.index()].id)
+    }
+    /// Resolve the stable wire ID once, then reuse the index for the callback view.
+    pub fn apply_dense(&mut self, bytes: &[u8], payload: &[u8]) -> Result<DenseId> {
         let result = self.apply_inner(bytes, payload);
         if result.is_err() {
             self.blocked = true;
         }
         result
     }
-    fn apply_inner(&mut self, bytes: &[u8], payload: &[u8]) -> Result<u64> {
+    fn apply_inner(&mut self, bytes: &[u8], payload: &[u8]) -> Result<DenseId> {
         let state = MarketState::decode(bytes)?;
         let h = state.header();
         if self.blocked
@@ -248,10 +313,8 @@ impl MarketReplica {
         {
             return Err(Error::Stale);
         }
-        let book = self
-            .books
-            .get_mut(&h.instrument_id)
-            .ok_or(Error::Identity)?;
+        let index = self.index.lookup(h.instrument_id).ok_or(Error::Identity)?;
+        let book = &mut self.books[index.index()];
         if h.instrument_version != book.version {
             return Err(Error::Identity);
         }
@@ -266,34 +329,42 @@ impl MarketReplica {
             {
                 return Err(Error::Stale);
             }
-            book.states.insert(category, state.clone());
+            book.states.insert(category, state.clone())?;
         } else if let MarketState::Legacy(r) = &state {
             match h.message_type {
                 259 => {
                     validate_depth_payload(payload, r.body.bid_count, r.body.ask_count)?;
-                    let levels = payload
-                        .as_chunks::<16>()
-                        .0
-                        .iter()
-                        .map(|b| DepthLevel::decode(b))
-                        .collect::<tickwire_ipc::Result<Vec<_>>>()?;
-                    let split = r.body.bid_count as usize;
-                    let mut bids = book.bids.clone();
-                    let mut asks = book.asks.clone();
                     if r.body.depth_flags & 2 != 0 {
                         return Err(Error::NotReady);
                     }
-                    apply_levels(&mut bids, &levels[..split], true, self.maximum_levels)?;
-                    apply_levels(&mut asks, &levels[split..], false, self.maximum_levels)?;
-                    if bids
+                    let split = r.body.bid_count as usize * 16;
+                    let work = &mut self.depth_workspace;
+                    merge_levels(
+                        &book.bids,
+                        &payload[..split],
+                        true,
+                        self.maximum_levels,
+                        &mut work.bids,
+                    )?;
+                    merge_levels(
+                        &book.asks,
+                        &payload[split..],
+                        false,
+                        self.maximum_levels,
+                        &mut work.asks,
+                    )?;
+                    if work
+                        .bids
                         .first()
-                        .zip(asks.first())
+                        .zip(work.asks.first())
                         .is_some_and(|(b, a)| b.price_ticks >= a.price_ticks)
                     {
                         return Err(Error::Identity);
                     }
-                    book.bids = bids;
-                    book.asks = asks;
+                    book.bids.clear();
+                    book.bids.extend_from_slice(&work.bids);
+                    book.asks.clear();
+                    book.asks.extend_from_slice(&work.asks);
                     book.received = h.ingress_mono_ns;
                 }
                 257 => {
@@ -310,45 +381,60 @@ impl MarketReplica {
             }
             if matches!(h.message_type, 257 | 258 | 260 | 261) {
                 book.states
-                    .insert(market_state_category(h.message_type)?, state.clone());
+                    .insert(market_state_category(h.message_type)?, state.clone())?;
             }
         }
         book.published = h.publish_mono_ns;
         book.last_event = h.sequence;
         self.sequence = h.sequence;
-        Ok(book.id)
+        Ok(index)
     }
 }
 
-fn apply_levels(
-    levels: &mut Vec<DepthLevel>,
-    updates: &[DepthLevel],
+fn merge_levels(
+    levels: &[DepthLevel],
+    updates: &[u8],
     bid: bool,
     max: usize,
+    output: &mut Vec<DepthLevel>,
 ) -> Result<()> {
-    for update in updates {
+    output.clear();
+    let mut old = levels.iter().peekable();
+    let mut emit = |value: &DepthLevel| -> Result<()> {
+        if output.len() == max {
+            return Err(Error::Bounds);
+        }
+        output.push(value.clone());
+        Ok(())
+    };
+    // validate_depth_payload has established a strict order and unique prices
+    // on each side. Workspaces are private until both sides have passed.
+    for raw in updates.as_chunks::<16>().0 {
+        let update = DepthLevel::decode(raw)?;
         if update.price_ticks <= 0 || update.qty_lots < 0 {
             return Err(Error::Identity);
         }
-        match levels.binary_search_by(|l| {
+        while old.peek().is_some_and(|level| {
             if bid {
-                update.price_ticks.cmp(&l.price_ticks)
+                level.price_ticks > update.price_ticks
             } else {
-                l.price_ticks.cmp(&update.price_ticks)
+                level.price_ticks < update.price_ticks
             }
         }) {
-            Ok(i) if update.qty_lots == 0 => {
-                levels.remove(i);
-            }
-            Ok(i) => levels[i] = update.clone(),
-            Err(_) if update.qty_lots == 0 => {}
-            Err(i) => {
-                levels.insert(i, update.clone());
-            }
+            emit(old.next().expect("peeked level"))?;
+        }
+        if old
+            .peek()
+            .is_some_and(|level| level.price_ticks == update.price_ticks)
+        {
+            old.next();
+        }
+        if update.qty_lots != 0 {
+            emit(&update)?;
         }
     }
-    if levels.len() > max {
-        return Err(Error::Bounds);
+    for level in old {
+        emit(level)?;
     }
     Ok(())
 }
@@ -371,9 +457,11 @@ mod tests {
                 price_ticks: 102,
                 qty_lots: 3,
             }],
-            states: BTreeMap::from([(
-                8,
-                MarketState::Legacy(MarketRecord {
+            states: StateSlots([
+                None,
+                None,
+                None,
+                Some(MarketState::Legacy(MarketRecord {
                     header: RecordHeader {
                         sequence: 5,
                         message_type: 261,
@@ -394,8 +482,8 @@ mod tests {
                         feed_state: 2,
                         ..Default::default()
                     },
-                }),
-            )]),
+                })),
+            ]),
             coverage: DepthCoverage {
                 version: 1,
                 bid_kind: 2,
@@ -410,7 +498,9 @@ mod tests {
             generation: 2,
             ring: 3,
             sequence: 5,
-            books: BTreeMap::from([(12, book)]),
+            books: vec![book],
+            index: FixedIndex::new(&[12]).unwrap(),
+            depth_workspace: DepthWorkspace::new(2),
             maximum_levels: 2,
             blocked: false,
         }
@@ -554,7 +644,7 @@ mod checkpoint_tests {
     fn checkpoint_accepts_snapshot_row_ordinals_at_bootstrap_sequence_zero() {
         let mut r = super::tests::replica();
         r.sequence = 0;
-        let b = r.books.get_mut(&12).unwrap();
+        let b = &mut r.books[0];
         b.last_event = 0;
         b.feed = 1;
         for (i, state) in b.states.values_mut().enumerate() {

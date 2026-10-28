@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="860" viewBox="0 0 1440 860" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · 从策略意图到经济事实</title>
+<desc id="diagram-desc">策略产生完整规范命令；执行端准入并预留风险；同步恢复依赖和Admit到账户WAL；首次输出前刷新授权、时钟、配额，TLS接受字节。Binance响应或私有事件先写输入WAL，再验证候选账户并同步账户WAL，最后发布状态和策略回报。默认复制后台异步，恢复保持冻结。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="860" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · 从策略意图到经济事实</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">发送前同步意图与依赖；收到事实后按输入 WAL → 账户 WAL → 状态发布推进。</text>
+<rect x="56" y="170" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 72 171 H 328" stroke="#2369b5" stroke-width="4"/>
+<text x="76" y="206" font-size="23" text-anchor="start" style="fill:#13263e" class="title">01 · 策略意图</text>
+<text x="76" y="238" font-size="18" text-anchor="start" style="fill:#50647d">完整命令与稳定身份</text>
+<text x="76" y="266" font-size="18" text-anchor="start" style="fill:#50647d">绑定行情触发和截止时间</text>
+<rect x="392" y="170" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 408 171 H 664" stroke="#2369b5" stroke-width="4"/>
+<text x="412" y="206" font-size="23" text-anchor="start" style="fill:#13263e" class="title">02 · 准入与预留</text>
+<text x="412" y="238" font-size="18" text-anchor="start" style="fill:#50647d">当前授权 / 行情 / 风险</text>
+<text x="412" y="266" font-size="18" text-anchor="start" style="fill:#50647d">定点计算资金与订单责任</text>
+<rect x="728" y="170" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 744 171 H 1000" stroke="#2369b5" stroke-width="4"/>
+<text x="748" y="206" font-size="23" text-anchor="start" style="fill:#13263e" class="title">03 · 本地持久完成</text>
+<text x="748" y="238" font-size="18" text-anchor="start" style="fill:#50647d">恢复依赖先同步</text>
+<text x="748" y="266" font-size="18" text-anchor="start" style="fill:#50647d">Admit → 账户 WAL 同步</text>
+<rect x="1064" y="170" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1080 171 H 1336" stroke="#2369b5" stroke-width="4"/>
+<text x="1084" y="206" font-size="23" text-anchor="start" style="fill:#13263e" class="title">04 · 首次输出</text>
+<text x="1084" y="238" font-size="18" text-anchor="start" style="fill:#50647d">刷新租约 / 时钟 / 配额</text>
+<text x="1084" y="266" font-size="18" text-anchor="start" style="fill:#50647d">TLS 接受字节后保留责任</text>
+<path d="M 344 244 L 392 244" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 680 244 L 728 244" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 1016 244 L 1064 244" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="56" y="350" width="960" height="70" rx="14" fill="#eaf4f4" stroke="#c8e0e1" stroke-width="1.5"/>
+<text x="76" y="380" font-size="19" text-anchor="start" style="fill:#087f8c">默认模式：本地 durable intent 完成后发送，复制在后台推进。</text>
+<text x="76" y="405" font-size="17" text-anchor="start" style="fill:#50647d">SyncReplica 显式等待镜像持久 ACK；发送仍通过当前交易授权门禁。</text>
+<path d="M 1208 318 L 1208 474" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1230" y="403" font-size="18" text-anchor="start" style="fill:#2369b5">网络</text>
+<rect x="1064" y="474" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1080 475 H 1336" stroke="#087f8c" stroke-width="4"/>
+<text x="1084" y="510" font-size="23" text-anchor="start" style="fill:#13263e" class="title">05 · Binance</text>
+<text x="1084" y="542" font-size="18" text-anchor="start" style="fill:#50647d">请求响应 / 私有事件</text>
+<text x="1084" y="570" font-size="18" text-anchor="start" style="fill:#50647d">只读订单、成交与账户查询</text>
+<rect x="728" y="474" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 744 475 H 1000" stroke="#087f8c" stroke-width="4"/>
+<text x="748" y="510" font-size="23" text-anchor="start" style="fill:#13263e" class="title">06 · 输入 WAL</text>
+<text x="748" y="542" font-size="18" text-anchor="start" style="fill:#50647d">认证原文 + 规范决定</text>
+<text x="748" y="570" font-size="18" text-anchor="start" style="fill:#50647d">先同步输入，再处理账户</text>
+<rect x="392" y="474" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 408 475 H 664" stroke="#087f8c" stroke-width="4"/>
+<text x="412" y="510" font-size="23" text-anchor="start" style="fill:#13263e" class="title">07 · 账户 WAL</text>
+<text x="412" y="542" font-size="18" text-anchor="start" style="fill:#50647d">验证候选状态与去重</text>
+<text x="412" y="570" font-size="18" text-anchor="start" style="fill:#50647d">同步经济事实，随后发布</text>
+<rect x="56" y="474" width="288" height="148" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 72 475 H 328" stroke="#087f8c" stroke-width="4"/>
+<text x="76" y="510" font-size="23" text-anchor="start" style="fill:#13263e" class="title">08 · 策略回报</text>
+<text x="76" y="542" font-size="18" text-anchor="start" style="fill:#50647d">有序账户记录与消费水位</text>
+<text x="76" y="570" font-size="18" text-anchor="start" style="fill:#50647d">成交 / 费用 / 终态可追溯</text>
+<path d="M 1064 548 L 1016 548" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 728 548 L 680 548" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 392 548 L 344 548" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="56" y="680" font-size="18" text-anchor="start" style="fill:#50647d" class="title">失败与恢复</text>
+<rect x="56" y="702" width="432" height="116" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 72 703 H 472" stroke="#a66b14" stroke-width="4"/>
+<text x="76" y="738" font-size="23" text-anchor="start" style="fill:#13263e" class="title">零字节接受</text>
+<text x="76" y="770" font-size="18" text-anchor="start" style="fill:#50647d">验证并同步 Aborted，</text>
+<text x="76" y="798" font-size="18" text-anchor="start" style="fill:#50647d">随后释放对应责任。</text>
+<rect x="504" y="702" width="432" height="116" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 520 703 H 920" stroke="#a66b14" stroke-width="4"/>
+<text x="524" y="738" font-size="23" text-anchor="start" style="fill:#13263e" class="title">已接受 / 结果不明</text>
+<text x="524" y="770" font-size="18" text-anchor="start" style="fill:#50647d">保留预留和订单责任，</text>
+<text x="524" y="798" font-size="18" text-anchor="start" style="fill:#50647d">通过原身份查询与对账。</text>
+<rect x="952" y="702" width="432" height="116" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 968 703 H 1368" stroke="#a66b14" stroke-width="4"/>
+<text x="972" y="738" font-size="23" text-anchor="start" style="fill:#13263e" class="title">进程恢复</text>
+<text x="972" y="770" font-size="18" text-anchor="start" style="fill:#50647d">验证完整依赖，按原序重放；</text>
+<text x="972" y="798" font-size="18" text-anchor="start" style="fill:#50647d">保持冻结，重新对账与授权。</text>
+</svg>

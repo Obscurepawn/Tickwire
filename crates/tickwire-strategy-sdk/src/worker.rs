@@ -757,7 +757,7 @@ unsafe fn run_inner<S: Strategy>(
                     let verified =
                         tickwire_release::replay::rollback::verify(status.result_hash, |h| {
                             objects
-                                .get_object(h, tickwire_release::replay::MAX_BYTES)
+                                .get_object(h, tickwire_recovery::MAX_OBJECT_BYTES)
                                 .map_err(|_| tickwire_release::Error::Missing)
                         })?;
                     if verified.installation.installation.request.digest != request.object_digest
@@ -863,7 +863,7 @@ unsafe fn run_inner<S: Strategy>(
                             files.recheck()?;
                             let proof = request.source_proof(|o| {
                                 objects
-                                    .get_object(o.digest, tickwire_release::replay::MAX_BYTES)
+                                    .get_object(o.digest, tickwire_recovery::MAX_OBJECT_BYTES)
                                     .map_err(|_| tickwire_release::Error::Missing)
                             })?;
                             for bytes in bundle.object_bytes()? {

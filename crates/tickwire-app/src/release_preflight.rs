@@ -491,7 +491,6 @@ mod tests {
             input_seal_bytes: seal_bytes.len() as u64,
             ready_sequence: value["ready_sequence"].as_u64().unwrap(),
             report_ring_sequence: value["report_sequence"].as_u64().unwrap(),
-            ..Default::default()
         };
         let (_, objects) = tickwire_strategy_sdk::handover::objects(&directory, &body).unwrap();
         let total = objects.iter().map(Vec::len).sum::<usize>();

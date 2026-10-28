@@ -2,7 +2,7 @@ use std::{
     fs, io,
     path::PathBuf,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, RwLock,
         atomic::{AtomicU64, Ordering},
     },
 };
@@ -14,6 +14,11 @@ use tickwire_execution::{
 use tickwire_journal::store::Store;
 use tickwire_journal_codec as codec;
 use tickwire_recovery as recovery;
+
+// A spawned child can retain other tests' file-lock descriptions until exec.
+// Keep process creation exclusive against complete WAL-owning test lifetimes;
+// ordinary file tests may still run concurrently under shared guards.
+static FORK_BARRIER: RwLock<()> = RwLock::new(());
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 struct Directory(PathBuf);
@@ -250,6 +255,7 @@ impl CommitAuthorizer for ExpiringAuthorizer {
 }
 #[test]
 fn final_gate_expiry_during_io_keeps_durable_reservation_without_sending() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r: Runtime<_, _, _, 8, 16> = Runtime::create(
@@ -307,6 +313,7 @@ fn reopen(d: &Directory, a: MockAuthorizer) -> Result<Live> {
 
 #[test]
 fn real_wal_reopens_committed_order_frozen_without_exchange_call() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(&d, a.clone(), SpyExchange::default());
@@ -321,6 +328,7 @@ fn real_wal_reopens_committed_order_frozen_without_exchange_call() {
 }
 #[test]
 fn no_bytes_is_durable_before_release_and_replays_in_order() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(
@@ -344,6 +352,7 @@ fn no_bytes_is_durable_before_release_and_replays_in_order() {
 }
 #[test]
 fn empty_recovery_is_frozen_and_bootstrap_capital_cannot_change() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     drop(create(&d, a.clone(), SpyExchange::default()));
@@ -366,6 +375,7 @@ fn empty_recovery_is_frozen_and_bootstrap_capital_cannot_change() {
 }
 #[test]
 fn missing_closure_stops_recovery_instead_of_republishing() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut r = create(&d, MockAuthorizer::default(), SpyExchange::default());
     r.submit(request(1)).unwrap();
@@ -374,6 +384,7 @@ fn missing_closure_stops_recovery_instead_of_republishing() {
 }
 #[test]
 fn fact_duplicates_are_durable_but_counted_once() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(&d, a.clone(), SpyExchange::default());
@@ -394,6 +405,7 @@ fn fact_duplicates_are_durable_but_counted_once() {
 }
 #[test]
 fn terminal_missing_fill_details_and_late_fees_replay_exactly() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(&d, a.clone(), SpyExchange::default());
@@ -434,6 +446,7 @@ fn terminal_missing_fill_details_and_late_fees_replay_exactly() {
 }
 #[test]
 fn invalid_fact_is_preserved_then_live_and_recovery_freeze() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(&d, a.clone(), SpyExchange::default());
@@ -456,6 +469,7 @@ fn invalid_fact_is_preserved_then_live_and_recovery_freeze() {
 }
 #[test]
 fn sync_replica_has_no_implicit_mock_or_local_downgrade() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut r = create(&d, MockAuthorizer::default(), SpyExchange::default());
     let mut req = request(1);
@@ -466,6 +480,7 @@ fn sync_replica_has_no_implicit_mock_or_local_downgrade() {
 }
 #[test]
 fn commit_is_idempotent_but_changed_intent_is_rejected() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut a = MockAuthorizer::default();
     let mut j = BusinessJournal::create(FileBackend::open(d.wal()).unwrap(), config(), 7).unwrap();
@@ -494,6 +509,7 @@ fn commit_is_idempotent_but_changed_intent_is_rejected() {
 
 #[test]
 fn command_digest_is_recovered_from_actual_wal_and_rebinding_conflicts() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let authorizer = MockAuthorizer::default();
     let mut live = create(&d, authorizer.clone(), SpyExchange::default());
@@ -511,6 +527,7 @@ fn command_digest_is_recovered_from_actual_wal_and_rebinding_conflicts() {
 
 #[test]
 fn closure_without_full_command_cannot_authorize_wal() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut a = MockAuthorizer::default();
     let record = ex::DurableRecord {
@@ -537,6 +554,7 @@ fn closure_without_full_command_cannot_authorize_wal() {
 
 #[test]
 fn closure_with_matching_intent_but_another_command_is_rejected() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut a = MockAuthorizer::default();
     let mut q = request(1);
@@ -564,6 +582,7 @@ fn closure_with_matching_intent_but_another_command_is_rejected() {
 
 #[test]
 fn recovered_commit_retry_keeps_original_position_across_writer_change() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut a = MockAuthorizer::default();
     let record = ex::DurableRecord {
@@ -649,6 +668,7 @@ impl Backend for FaultBackend {
 }
 #[test]
 fn abort_sync_failure_retains_reservation_and_freezes() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let faults = Arc::new(Mutex::new(Faults {
         sync_count: 0,
@@ -679,6 +699,7 @@ fn abort_sync_failure_retains_reservation_and_freezes() {
 
 #[test]
 fn recovered_writer_can_append_old_order_facts_but_never_send() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(&d, a.clone(), SpyExchange::default());
@@ -722,6 +743,7 @@ fn recovered_writer_can_append_old_order_facts_but_never_send() {
 }
 #[test]
 fn conflicting_original_order_identity_is_preserved_and_quarantined() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut r = create(&d, a.clone(), SpyExchange::default());
@@ -746,6 +768,7 @@ fn conflicting_original_order_identity_is_preserved_and_quarantined() {
 }
 #[test]
 fn external_abort_cannot_release_an_order() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut r = create(&d, MockAuthorizer::default(), SpyExchange::default());
     r.submit(request(1)).unwrap();
@@ -776,6 +799,7 @@ impl Exchange for FirstRejected {
 }
 #[test]
 fn ordered_abort_before_next_intent_avoids_recovery_arithmetic_overflow() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let mut c = config();
@@ -825,6 +849,7 @@ fn ordered_abort_before_next_intent_avoids_recovery_arithmetic_overflow() {
 }
 #[test]
 fn prepared_sync_failure_never_sends_and_keeps_reservation() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let b = FaultBackend {
         file: FileBackend::open(d.wal()).unwrap(),
@@ -856,6 +881,7 @@ fn file_authorizer(path: PathBuf) -> MockAuthorizer<recovery::FileBlobStore> {
 #[test]
 #[ignore = "subprocess helper"]
 fn file_crash_child() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let Some(root) = std::env::var_os("TICKWIRE_BUSINESS_CHILD_ROOT") else {
         return;
     };
@@ -884,6 +910,7 @@ fn file_crash_child() {
 }
 #[test]
 fn actual_process_kill_replays_synced_wal_and_file_closure_frozen() {
+    let _fork_barrier = FORK_BARRIER.write().unwrap();
     use std::{
         process::{Command, Stdio},
         time::{Duration, Instant},
@@ -928,6 +955,7 @@ fn actual_process_kill_replays_synced_wal_and_file_closure_frozen() {
 
 #[test]
 fn torn_abort_keeps_reserve_then_recovery_discards_only_unsealed_tail() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let a = MockAuthorizer::default();
     let b = FaultBackend {
@@ -960,6 +988,7 @@ fn torn_abort_keeps_reserve_then_recovery_discards_only_unsealed_tail() {
 #[test]
 #[ignore = "subprocess helper"]
 fn cwd_child() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let Some(root) = std::env::var_os("TICKWIRE_BUSINESS_CWD_ROOT") else {
         return;
     };
@@ -983,6 +1012,7 @@ fn cwd_child() {
 }
 #[test]
 fn relative_backend_remains_bound_to_locked_directory_after_cwd_change() {
+    let _fork_barrier = FORK_BARRIER.write().unwrap();
     let d = Directory::new();
     let status = std::process::Command::new(std::env::current_exe().unwrap())
         .args(["--ignored", "--exact", "cwd_child", "--nocapture"])
@@ -994,6 +1024,7 @@ fn relative_backend_remains_bound_to_locked_directory_after_cwd_change() {
 
 #[test]
 fn final_gate_revalidates_all_authority_and_validity_fields() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let mut variants = Vec::new();
     let mut g = gate();
     g.epoch = 8;
@@ -1045,6 +1076,7 @@ fn final_gate_revalidates_all_authority_and_validity_fields() {
 }
 #[test]
 fn valid_physical_frame_with_invalid_business_payload_cannot_recover() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     drop(create(
         &d,
@@ -1080,6 +1112,7 @@ impl CommitAuthorizer for WrongCap {
 }
 #[test]
 fn verified_closure_for_another_intent_cannot_authorize_wal_or_send() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
     let d = Directory::new();
     let mut a = MockAuthorizer::default();
     let record = ex::DurableRecord {

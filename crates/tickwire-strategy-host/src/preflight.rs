@@ -567,7 +567,7 @@ fn read_probe_object(directory: &Path, h: [u8; 32]) -> tickwire_release::Result<
         h.iter().map(|b| format!("{b:02x}")).collect::<String>()
     ));
     let meta = std::fs::symlink_metadata(&path).map_err(|_| tickwire_release::Error::Missing)?;
-    if !meta.is_file() || meta.len() > tickwire_release::replay::MAX_BYTES as u64 {
+    if !meta.is_file() || meta.len() > tickwire_recovery::MAX_OBJECT_BYTES as u64 {
         return Err(tickwire_release::Error::Bounds);
     }
     object_file(
@@ -614,6 +614,56 @@ fn persist_object_with_sync(
 #[cfg(test)]
 mod persistence_tests {
     use super::*;
+    #[test]
+    fn probe_dependency_reader_uses_recovery_object_budget_and_checks_digest() {
+        struct Directory(std::path::PathBuf);
+        impl Drop for Directory {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let directory = Directory(std::env::temp_dir().join(format!(
+            "tickwire-probe-budget-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        )));
+        std::fs::DirBuilder::new()
+            .mode(0o700)
+            .create(&directory.0)
+            .unwrap();
+        let bytes = vec![37; tickwire_release::replay::MAX_BYTES + 1];
+        let object = Object::of(&bytes);
+        persist_object(&directory.0, &bytes).unwrap();
+        assert_eq!(
+            read_probe_object(&directory.0, object.digest).unwrap(),
+            bytes
+        );
+        let path = object_file(&directory.0, object).path;
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .write_all(&[38])
+            .unwrap();
+        assert_eq!(
+            read_probe_object(&directory.0, object.digest),
+            Err(tickwire_release::Error::Identity)
+        );
+        OpenOptions::new()
+            .write(true)
+            .open(path)
+            .unwrap()
+            .set_len(tickwire_recovery::MAX_OBJECT_BYTES as u64 + 1)
+            .unwrap();
+        assert_eq!(
+            read_probe_object(&directory.0, object.digest),
+            Err(tickwire_release::Error::Bounds)
+        );
+    }
+
     #[test]
     fn failed_object_sync_requires_a_real_file_sync_again_before_directory_sync() {
         struct Directory(std::path::PathBuf);

@@ -1,0 +1,758 @@
+[
+  {
+    "method": "fixed",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.898,
+    "min_p50_batch_ns": 1.886,
+    "max_p50_batch_ns": 1.915
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.729,
+    "min_p50_batch_ns": 1.71,
+    "max_p50_batch_ns": 1.737
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 3.652,
+    "min_p50_batch_ns": 3.615,
+    "max_p50_batch_ns": 3.664
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.619,
+    "min_p50_batch_ns": 6.583,
+    "max_p50_batch_ns": 6.676
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 3.743,
+    "min_p50_batch_ns": 3.718,
+    "max_p50_batch_ns": 3.794
+  },
+  {
+    "method": "fixed",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 1.901,
+    "min_p50_batch_ns": 1.896,
+    "max_p50_batch_ns": 1.925
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 1.592,
+    "min_p50_batch_ns": 1.58,
+    "max_p50_batch_ns": 1.605
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 5.051,
+    "min_p50_batch_ns": 4.99,
+    "max_p50_batch_ns": 5.125
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.353,
+    "min_p50_batch_ns": 6.289,
+    "max_p50_batch_ns": 6.511
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 3.305,
+    "min_p50_batch_ns": 3.288,
+    "max_p50_batch_ns": 3.332
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 2.5,
+    "min_p50_batch_ns": 2.5,
+    "max_p50_batch_ns": 3.438
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 5.969,
+    "min_p50_batch_ns": 5.969,
+    "max_p50_batch_ns": 8.781
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 8.781,
+    "min_p50_batch_ns": 8.781,
+    "max_p50_batch_ns": 13.156
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 11.594,
+    "min_p50_batch_ns": 10.656,
+    "max_p50_batch_ns": 12.188
+  },
+  {
+    "method": "fixed",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.898,
+    "min_p50_batch_ns": 1.898,
+    "max_p50_batch_ns": 1.908
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.82,
+    "min_p50_batch_ns": 1.805,
+    "max_p50_batch_ns": 1.823
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.335,
+    "min_p50_batch_ns": 6.296,
+    "max_p50_batch_ns": 6.34
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.614,
+    "min_p50_batch_ns": 6.57,
+    "max_p50_batch_ns": 6.815
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 5.788,
+    "min_p50_batch_ns": 5.758,
+    "max_p50_batch_ns": 9.229
+  },
+  {
+    "method": "fixed",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 1.898,
+    "min_p50_batch_ns": 1.888,
+    "max_p50_batch_ns": 3.001
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 2.182,
+    "min_p50_batch_ns": 2.175,
+    "max_p50_batch_ns": 3.513
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 7.713,
+    "min_p50_batch_ns": 7.683,
+    "max_p50_batch_ns": 7.852
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.394,
+    "min_p50_batch_ns": 6.338,
+    "max_p50_batch_ns": 6.453
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 5.543,
+    "min_p50_batch_ns": 5.523,
+    "max_p50_batch_ns": 5.558
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 2.074,
+    "min_p50_batch_ns": 2.035,
+    "max_p50_batch_ns": 2.113
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 10.254,
+    "min_p50_batch_ns": 10.098,
+    "max_p50_batch_ns": 10.332
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 8.57,
+    "min_p50_batch_ns": 8.453,
+    "max_p50_batch_ns": 11.391
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 16.477,
+    "min_p50_batch_ns": 10.801,
+    "max_p50_batch_ns": 16.516
+  },
+  {
+    "method": "fixed",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.903,
+    "min_p50_batch_ns": 1.898,
+    "max_p50_batch_ns": 2.038
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.993,
+    "min_p50_batch_ns": 1.984,
+    "max_p50_batch_ns": 2.001
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 10.085,
+    "min_p50_batch_ns": 9.924,
+    "max_p50_batch_ns": 10.408
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.861,
+    "min_p50_batch_ns": 6.825,
+    "max_p50_batch_ns": 6.962
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 10.885,
+    "min_p50_batch_ns": 10.8,
+    "max_p50_batch_ns": 11.008
+  },
+  {
+    "method": "fixed",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 1.908,
+    "min_p50_batch_ns": 1.884,
+    "max_p50_batch_ns": 2.018
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 2.243,
+    "min_p50_batch_ns": 2.226,
+    "max_p50_batch_ns": 2.307
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 8.544,
+    "min_p50_batch_ns": 8.493,
+    "max_p50_batch_ns": 8.559
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.353,
+    "min_p50_batch_ns": 6.35,
+    "max_p50_batch_ns": 6.406
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 9.038,
+    "min_p50_batch_ns": 8.997,
+    "max_p50_batch_ns": 9.092
+  },
+  {
+    "method": "append",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 2.135,
+    "min_p50_batch_ns": 2.13,
+    "max_p50_batch_ns": 2.165
+  },
+  {
+    "method": "btree",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 27.194,
+    "min_p50_batch_ns": 26.147,
+    "max_p50_batch_ns": 28.527
+  },
+  {
+    "method": "hash",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 8.608,
+    "min_p50_batch_ns": 8.498,
+    "max_p50_batch_ns": 8.938
+  },
+  {
+    "method": "binary_search",
+    "dataset": "clustered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 11.093,
+    "min_p50_batch_ns": 10.574,
+    "max_p50_batch_ns": 12.5
+  },
+  {
+    "method": "fixed",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.918,
+    "min_p50_batch_ns": 1.908,
+    "max_p50_batch_ns": 1.932
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.817,
+    "min_p50_batch_ns": 1.808,
+    "max_p50_batch_ns": 1.823
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 3.74,
+    "min_p50_batch_ns": 3.679,
+    "max_p50_batch_ns": 3.806
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.685,
+    "min_p50_batch_ns": 6.615,
+    "max_p50_batch_ns": 6.698
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "hit",
+    "median_p50_batch_ns": 3.767,
+    "min_p50_batch_ns": 3.742,
+    "max_p50_batch_ns": 3.782
+  },
+  {
+    "method": "fixed",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 2.069,
+    "min_p50_batch_ns": 2.06,
+    "max_p50_batch_ns": 2.072
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 1.996,
+    "min_p50_batch_ns": 1.972,
+    "max_p50_batch_ns": 2.003
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 4.026,
+    "min_p50_batch_ns": 4.012,
+    "max_p50_batch_ns": 4.176
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.353,
+    "min_p50_batch_ns": 6.333,
+    "max_p50_batch_ns": 6.455
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "miss",
+    "median_p50_batch_ns": 3.322,
+    "min_p50_batch_ns": 3.307,
+    "max_p50_batch_ns": 3.341
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 2.5,
+    "min_p50_batch_ns": 2.5,
+    "max_p50_batch_ns": 2.531
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 7.219,
+    "min_p50_batch_ns": 7.188,
+    "max_p50_batch_ns": 7.5
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 8.781,
+    "min_p50_batch_ns": 8.781,
+    "max_p50_batch_ns": 9.406
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "32",
+    "operation": "insert",
+    "median_p50_batch_ns": 15.031,
+    "min_p50_batch_ns": 14.719,
+    "max_p50_batch_ns": 15.344
+  },
+  {
+    "method": "fixed",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.913,
+    "min_p50_batch_ns": 1.901,
+    "max_p50_batch_ns": 1.915
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.808,
+    "min_p50_batch_ns": 1.803,
+    "max_p50_batch_ns": 1.82
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.392,
+    "min_p50_batch_ns": 6.367,
+    "max_p50_batch_ns": 6.448
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.651,
+    "min_p50_batch_ns": 6.617,
+    "max_p50_batch_ns": 6.666
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "hit",
+    "median_p50_batch_ns": 5.792,
+    "min_p50_batch_ns": 5.753,
+    "max_p50_batch_ns": 5.885
+  },
+  {
+    "method": "fixed",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 2.04,
+    "min_p50_batch_ns": 2.023,
+    "max_p50_batch_ns": 2.052
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 1.969,
+    "min_p50_batch_ns": 1.945,
+    "max_p50_batch_ns": 1.984
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.79,
+    "min_p50_batch_ns": 6.754,
+    "max_p50_batch_ns": 9.865
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.411,
+    "min_p50_batch_ns": 6.35,
+    "max_p50_batch_ns": 9.122
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "miss",
+    "median_p50_batch_ns": 5.57,
+    "min_p50_batch_ns": 5.56,
+    "max_p50_batch_ns": 5.592
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 2.035,
+    "min_p50_batch_ns": 1.996,
+    "max_p50_batch_ns": 2.035
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 13.07,
+    "min_p50_batch_ns": 12.996,
+    "max_p50_batch_ns": 13.348
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 8.531,
+    "min_p50_batch_ns": 8.457,
+    "max_p50_batch_ns": 10.176
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "256",
+    "operation": "insert",
+    "median_p50_batch_ns": 22.898,
+    "min_p50_batch_ns": 22.664,
+    "max_p50_batch_ns": 25.008
+  },
+  {
+    "method": "fixed",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 2.089,
+    "min_p50_batch_ns": 2.038,
+    "max_p50_batch_ns": 2.363
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 1.993,
+    "min_p50_batch_ns": 1.967,
+    "max_p50_batch_ns": 2.038
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 10.447,
+    "min_p50_batch_ns": 9.944,
+    "max_p50_batch_ns": 10.54
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 6.859,
+    "min_p50_batch_ns": 6.771,
+    "max_p50_batch_ns": 7.297
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "hit",
+    "median_p50_batch_ns": 12.754,
+    "min_p50_batch_ns": 12.691,
+    "max_p50_batch_ns": 13.089
+  },
+  {
+    "method": "fixed",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 2.29,
+    "min_p50_batch_ns": 2.277,
+    "max_p50_batch_ns": 2.326
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 2.253,
+    "min_p50_batch_ns": 2.231,
+    "max_p50_batch_ns": 2.314
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 10.66,
+    "min_p50_batch_ns": 10.543,
+    "max_p50_batch_ns": 16.164
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 6.392,
+    "min_p50_batch_ns": 6.357,
+    "max_p50_batch_ns": 10.386
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "miss",
+    "median_p50_batch_ns": 11.944,
+    "min_p50_batch_ns": 11.878,
+    "max_p50_batch_ns": 18.762
+  },
+  {
+    "method": "append",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 2.15,
+    "min_p50_batch_ns": 2.116,
+    "max_p50_batch_ns": 3.153
+  },
+  {
+    "method": "btree",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 21.768,
+    "min_p50_batch_ns": 17.935,
+    "max_p50_batch_ns": 24.61
+  },
+  {
+    "method": "hash",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 8.564,
+    "min_p50_batch_ns": 8.518,
+    "max_p50_batch_ns": 8.95
+  },
+  {
+    "method": "binary_search",
+    "dataset": "scattered",
+    "keys": "4096",
+    "operation": "insert",
+    "median_p50_batch_ns": 153.289,
+    "min_p50_batch_ns": 151.261,
+    "max_p50_batch_ns": 155.268
+  }
+]

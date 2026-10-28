@@ -116,6 +116,14 @@ pub(super) fn upsert(states: &mut Vec<MarketState>, state: MarketState) {
     }
     states.sort_unstable_by_key(|r| r.header().message_type);
 }
+fn source_index(category: u8) -> usize {
+    match category {
+        1 => 0,
+        2 => 1,
+        4 => 2,
+        _ => unreachable!("only independent event categories have sources"),
+    }
+}
 pub(super) fn aggregate_state(row: &Row) -> u16 {
     if row.depth_state != 2 {
         return row.depth_state;
@@ -156,20 +164,17 @@ impl<const M: usize> TopicPublisher<M> {
         {
             return Err(Error::Identity);
         }
-        let row = self
-            .state
-            .rows
-            .iter_mut()
-            .find(|r| r.spec.instrument_id == instrument)
-            .ok_or(Error::Identity)?;
+        let slot = self.instrument_slot(instrument)?;
+        let index = self.slot_index(slot)?;
+        let row = &mut self.state.rows[index];
         let cat = category(kind);
         if row.spec.required_states & cat == 0
-            || row.event_sources.contains_key(&cat)
+            || row.event_sources[source_index(cat)].is_some()
             || (cat == 4 && matches!(row.instrument.contract, tickwire_venue::ContractKind::Cash))
         {
             return Err(Error::Identity);
         }
-        row.event_sources.insert(cat, source_id);
+        row.event_sources[source_index(cat)] = std::num::NonZeroU64::new(source_id);
         match cat {
             1 => row.selection.best_bid_ask = true,
             2 => row.selection.trade = true,
@@ -185,23 +190,31 @@ impl<const M: usize> TopicPublisher<M> {
         now: u64,
         faults: &mut impl FaultSink,
     ) -> Result<()> {
+        let slot = self.instrument_slot(instrument)?;
+        self.on_event_slot(slot, notice, now, faults)
+    }
+    pub fn on_event_slot(
+        &mut self,
+        slot: InstrumentSlot,
+        notice: &tickwire_binance_public::EventNotice<'_>,
+        now: u64,
+        faults: &mut impl FaultSink,
+    ) -> Result<()> {
         use tickwire_binance_public::EventNotice;
+        let instrument = slot.instrument;
+        let i = self.slot_index(slot)?;
         if now < self.last_now {
             self.fault(instrument, faults);
             return Err(Error::Clock);
         }
         self.last_now = now;
-        let i = self
-            .state
-            .rows
-            .binary_search_by_key(&instrument, |r| r.spec.instrument_id)
-            .map_err(|_| Error::Identity)?;
         let result = match notice {
             EventNotice::Http(_) => Ok(()),
             EventNotice::Gap(g) => {
                 let row = &mut self.state.rows[i];
                 let cat = category(g.kind);
-                if row.event_sources.get(&cat) != Some(&g.identity.source_id)
+                if row.event_sources[source_index(cat)].map(std::num::NonZeroU64::get)
+                    != Some(g.identity.source_id)
                     || g.identity.instrument_id != instrument
                     || g.identity.instrument_version != row.spec.instrument_version
                     || g.identity.catalog_version != self.state.header.catalog_version
@@ -251,7 +264,8 @@ impl<const M: usize> TopicPublisher<M> {
             || event.identity.instrument_version != row.spec.instrument_version
             || event.identity.catalog_version != self.state.header.catalog_version
             || event.identity.catalog_hash != self.state.catalog
-            || row.event_sources.get(&cat) != Some(&event.identity.source_id)
+            || row.event_sources[source_index(cat)].map(std::num::NonZeroU64::get)
+                != Some(event.identity.source_id)
         {
             return Err(Error::Identity);
         }

@@ -1,4 +1,5 @@
 use super::*;
+use std::borrow::Cow;
 #[derive(Debug)]
 pub struct ExchangeInfo<'a> {
     pub market: Market,

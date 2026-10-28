@@ -40,6 +40,7 @@ cargo test -p tickwire-strategy-host
 - **轮换串行**：`RotationPlan`/`RotationSource` 在旧 Active 成功停止、新实例 READY 前不激活；交接不重复发单、不释放资金（资金释放由账户日志/网关负责，Host 不触碰）。
 - **退休顺序**：先发认证 report QUIESCE → 等 MD DETACH 与 cursor 释放 → 等直接持有的 Child 成功退出；单纯连接关闭不是 QUIESCED 证据。
 - **probe 独立**：rollback probe 只连认证控制 socket，以目标刚输出的状态执行回滚工厂，没有行情/账户/意图 FD；Host 等其成功退出才保存两份回执与 Completion。
+- **probe 依赖预算**：回滚完成闭包可含旧二进制等 opaque 依赖，`read_probe_object` 按恢复单对象 64 MiB 读取并核对长度与摘要；类型化 replay 控制请求仍限制 16 MiB，完整闭包预算由 release 核验。
 
 ## 7. 改动检查清单
 

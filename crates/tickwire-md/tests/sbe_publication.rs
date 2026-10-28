@@ -11,7 +11,13 @@ use tickwire_shm::{Publisher, Subscriber, SubscriptionKey};
     ignore = "real memfd publication requires Linux"
 )]
 fn actual_binary_wss_publishes_exact_normalized_records_into_shared_memory() {
-    let instrument = network::instrument();
+    for (instrument_id, local) in [(network::instrument().instrument_id, 0), (u64::MAX, 1)] {
+        publish_binding(instrument_id, local);
+    }
+}
+fn publish_binding(instrument_id: u64, local: u32) {
+    let mut instrument = network::instrument();
+    instrument.instrument_id = instrument_id;
     let mut spec: tickwire_md::config::ResourceSpec =
         serde_json::from_str(include_str!("../examples/topic-101.json")).unwrap();
     spec.identity.arch = if cfg!(target_arch = "aarch64") { 2 } else { 1 };
@@ -39,7 +45,7 @@ fn actual_binary_wss_publishes_exact_normalized_records_into_shared_memory() {
     let id = instrument.instrument_id;
     let book_key = tickwire_book::BookKey {
         venue: 1,
-        instrument: 12,
+        instrument: local,
         source: 1,
     };
     let mut publisher = TopicPublisher::new(
@@ -58,6 +64,9 @@ fn actual_binary_wss_publishes_exact_normalized_records_into_shared_memory() {
         },
     )
     .unwrap();
+    let slot = publisher.instrument_slot(id).unwrap();
+    assert_eq!((slot.instrument(), slot.index()), (id, 0));
+    assert!(publisher.instrument_slot(id ^ (1 << 63)).is_err());
     let baseline = prepare_pending(&mut publisher, spec.identity.identity(), key);
     // The real JOIN owner has reserved this exact pending subscription at S.
     // It stays pending for this test, so neither slots nor arena can be reclaimed
@@ -70,20 +79,30 @@ fn actual_binary_wss_publishes_exact_normalized_records_into_shared_memory() {
         }
     }
     let start = std::time::Instant::now();
-    network::run_with(SubscribeMode::Explicit, |notice| {
-        if let Notice::Sync { encoding, .. } = notice {
+    let mut views = 0;
+    network::run_with_binding(SubscribeMode::Explicit, id, book_key, |notice| {
+        if let Notice::Sync { encoding, view, .. } = notice {
             assert_eq!(*encoding, DepthEncoding::SpotSbeV1);
+            if let Some(view) = view {
+                assert_eq!(view.key(), book_key);
+                views += 1;
+            }
         }
         publisher
-            .on_notice_ref(id, notice, start.elapsed().as_nanos() as u64, &mut Faults)
+            .on_notice_slot(slot, notice, start.elapsed().as_nanos() as u64, &mut Faults)
             .unwrap();
     });
+    assert!(
+        views >= 2,
+        "snapshot bridge and next SBE delta must both expose views"
+    );
     assert!(publisher.state().live());
     let mut count = 0;
     let mut depth = None;
     let mut quote = None;
     while let Some(guard) = reader.borrow().unwrap() {
         let record = MarketRecord::decode(guard.bytes()).unwrap();
+        assert_eq!(record.header.instrument_id, id);
         count += 1;
         if record.header.message_type == 259 {
             depth = Some(record.clone());

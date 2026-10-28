@@ -1,4 +1,5 @@
 use super::*;
+mod startup;
 fn fixture() -> (Operation, ReleaseManifest, MigrationSet, RollbackPlan) {
     let member = Member {
         risk_domain: [1; 16],

@@ -105,7 +105,10 @@ impl<F: FnMut(Hash) -> Result<Vec<u8>>> Reader<F> {
             return Err(Error::Bounds);
         }
         let bytes = (self.read)(hash)?;
-        if bytes.is_empty() || bytes.len() > MAX_BYTES || Object::of(&bytes).digest != hash {
+        if bytes.is_empty()
+            || bytes.len() > tickwire_recovery::MAX_OBJECT_BYTES
+            || Object::of(&bytes).digest != hash
+        {
             return Err(Error::Identity);
         }
         self.bytes = self
@@ -120,6 +123,12 @@ impl<F: FnMut(Hash) -> Result<Vec<u8>>> Reader<F> {
         object.validate(MAX_BYTES as u64)?;
         let bytes = self.get(object.digest)?;
         object.verify(&bytes, MAX_BYTES as u64)?;
+        Ok(bytes)
+    }
+    fn dependency(&mut self, object: Object) -> Result<Vec<u8>> {
+        object.validate(tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
+        let bytes = self.get(object.digest)?;
+        object.verify(&bytes, tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
         Ok(bytes)
     }
     fn checkpoint(&mut self, object: Object) -> Result<Checkpoint> {
@@ -209,7 +218,7 @@ pub(crate) fn verify_at(
     }
     let mut source_objects = Vec::new();
     for o in &request.source_objects {
-        source_objects.push(r.object(*o)?);
+        source_objects.push(r.dependency(*o)?);
     }
     let proof = source::VerifiedSourceReplay::verify_at(
         &request.operation,

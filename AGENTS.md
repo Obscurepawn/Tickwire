@@ -22,11 +22,11 @@
 
 ## 2. crate 分层与依赖方向
 
-59 个 crate 全在 [`crates/`](crates/)，workspace `members = ["crates/*"]`。依赖方向只能自下而上，**不得反向或成环**（`cargo metadata` 应始终为 DAG）：
+60 个 crate 全在 [`crates/`](crates/)，workspace `members = ["crates/*"]`。依赖方向只能自下而上，**不得反向或成环**（`cargo metadata` 应始终为 DAG）：
 
 | 层 | crate | 说明 |
 |---|---|---|
-| 无内部依赖内核 | `tickwire-book`（唯一 `#![no_std]`）、`tickwire-ipc`、`tickwire-execution`、`tickwire-risk`、`tickwire-recovery`、`tickwire-venue`、`tickwire-transport`、`tickwire-clock`、`tickwire-config`、`tickwire-journal`、`tickwire-journal-codec`、`tickwire-binance-sbe`、`tickwire-fencing`(仅 clock) 等 | 纯逻辑/原语，无 I/O 或仅单一 OS 边界，热路径无堆分配 |
+| 无内部依赖内核 | `tickwire-book`（唯一 `#![no_std]`）、`tickwire-instrument-index`、`tickwire-ipc`、`tickwire-execution`、`tickwire-risk`、`tickwire-recovery`、`tickwire-venue`、`tickwire-transport`、`tickwire-clock`、`tickwire-config`、`tickwire-journal`、`tickwire-journal-codec`、`tickwire-binance-sbe`、`tickwire-fencing`(仅 clock) 等 | 纯逻辑/原语，无 I/O 或仅单一 OS 边界，热路径无堆分配 |
 | OS / FFI 边界 | `tickwire-shm-sys`、`tickwire-control-sys`、`tickwire-clock-sys` | 集中的 `unsafe` 边界（workspace 对其余代码 `forbid unsafe`），大量测试 Linux-only |
 | Binance 接入 | `tickwire-binance`、`-public`、`-private`、`-session`、`-clock`、`-quota`、`-account`、`-execution`、`tickwire-book`、`tickwire-binance-sbe` | 协议编解码、签名、公开/私有会话、对账 |
 | 行情/IPC | `tickwire-md`、`tickwire-market-source`、`tickwire-market-publisher`、`tickwire-shm`、`tickwire-snapshot`、`tickwire-join` | ring 发布、JOIN、快照 |
@@ -122,6 +122,8 @@ python3 -m unittest discover -s scripts -p test_tlc_coverage.py
 
 ### 改动检查清单（提交前最小集）
 
+每完成一批可验证的开发工作并通过相应检查后，提交并 push 到当前跟踪的远端分支，保存阶段进度；向用户报告提交和推送结果。
+
 - [ ] `cargo fmt --all -- --check`
 - [ ] `cargo clippy --workspace --all-targets -- -D warnings`
 - [ ] `cargo test --workspace`（涉及共享内存/控制 FD 的改动追加 `./scripts/check-linux.sh`）
@@ -143,8 +145,8 @@ python3 -m unittest discover -s scripts -p test_tlc_coverage.py
 
 | 路径 | 内容 |
 |---|---|
-| [`crates/`](crates/) | 59 个 crate（每个目录内有自己的 `AGENTS.md`） |
-| [`specs/`](specs/) | 总体设计、实现总览、68 篇模块实现规格、7 个机器契约；入口 [`specs/INDEX.md`](specs/INDEX.md) |
+| [`crates/`](crates/) | 60 个 crate（每个目录内有自己的 `AGENTS.md`） |
+| [`specs/`](specs/) | 总体设计、实现总览、69 篇模块实现规格、7 个机器契约；入口 [`specs/INDEX.md`](specs/INDEX.md) |
 | [`config/reference.toml`](config/reference.toml) | 模拟环境的结构与容量参考（示例入口，非生产部署） |
 | [`config/production.template.toml`](config/production.template.toml) | 生产输入模板，`REQUIRED` 必须替换并通过准入/资格验证，否则拒绝上线 |
 | [`scripts/`](scripts/) | `check-rust.sh` / `check-linux.sh` / `check-tla.sh` / `verify-*.py` 契约校验，说明见 [`scripts/README.md`](scripts/README.md) |

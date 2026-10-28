@@ -406,8 +406,11 @@ impl<const M: usize> Publisher<M> {
                 return Err(MappedError::Layout);
             }
             if self.header.resource_kind == 1 {
-                let h=tickwire_ipc::RecordHeader::decode(&bytes[..128])?;
-                if (264..=266).contains(&h.message_type) && self.header.required_features & 512==0 { return Err(MappedError::Layout); }
+                let h = tickwire_ipc::RecordHeader::decode(&bytes[..128])?;
+                if (264..=266).contains(&h.message_type) && self.header.required_features & 512 == 0
+                {
+                    return Err(MappedError::Layout);
+                }
             }
             // Only publish_market may create an arena reference. A safe byte
             // publisher cannot point a reader at an unrelated mutable block.

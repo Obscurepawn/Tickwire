@@ -2,11 +2,12 @@
 #![forbid(unsafe_code)]
 use sha2::{Digest, Sha256};
 use tickwire_binance::{
-    feed::{DepthContext, TimeUnit, decode_diff, decode_sbe_diff},
+    feed::{DepthContext, DepthWorkspace, TimeUnit, decode_diff_into, decode_sbe_diff_into},
     request::Market,
 };
 use tickwire_binance_public::{DepthEncoding, Notice, PublicSink, SyncOutcome};
 use tickwire_book::{BestLevel, BookKey, BookView, Side, SideCoverage};
+use tickwire_instrument_index::{DenseId, FixedIndex};
 use tickwire_ipc::*;
 use tickwire_join::{JoinOwner, JoinPlan};
 use tickwire_shm::MarketMessage;
@@ -14,6 +15,9 @@ use tickwire_snapshot::{
     BuildRequest, BuiltTopic, InstrumentSnapshot, InstrumentSpec, build_topic_with_coverage,
 };
 use tickwire_venue::InstrumentBinding;
+
+// One 64 KiB arena payload, with 16 bytes per normalized level.
+const MAX_DELTA_LEVELS: usize = 4096;
 
 #[derive(Debug)]
 pub enum Error {
@@ -50,6 +54,20 @@ pub struct InstrumentConfig {
     pub market: Market,
     pub time_unit: TimeUnit,
 }
+/// A local, prebound row. It never replaces the stable instrument identity on wire.
+#[derive(Clone, Copy, Debug)]
+pub struct InstrumentSlot {
+    instrument: u64,
+    dense: DenseId,
+}
+impl InstrumentSlot {
+    pub fn instrument(self) -> u64 {
+        self.instrument
+    }
+    pub fn index(self) -> usize {
+        self.dense.index()
+    }
+}
 #[derive(Clone, Copy)]
 pub struct Limits {
     pub levels_per_side: usize,
@@ -77,7 +95,7 @@ struct Row {
     last_event: u64,
     states: Vec<MarketState>,
     selection: EventSelection,
-    event_sources: std::collections::BTreeMap<u8, u64>,
+    event_sources: [Option<std::num::NonZeroU64>; 3],
     depth_state: u16,
     depth_received: u64,
     instrument: InstrumentBinding,
@@ -90,6 +108,7 @@ pub struct TopicState {
     header: ResourceHeader,
     catalog: [u8; 32],
     rows: Vec<Row>,
+    index: FixedIndex,
     limits: Limits,
     sequence: u64,
     dirty: bool,
@@ -246,6 +265,9 @@ pub struct TopicPublisher<const M: usize> {
     state: TopicState,
     needs_bank: bool,
     last_now: u64,
+    depth_workspace: DepthWorkspace,
+    depth_levels: Vec<DepthLevel>,
+    reserved_cache_bytes: usize,
 }
 impl<const M: usize> TopicPublisher<M> {
     pub fn new(
@@ -270,21 +292,28 @@ impl<const M: usize> TopicPublisher<M> {
         {
             return Err(Error::Identity);
         }
+        let per_row = limits
+            .levels_per_side
+            .checked_mul(2 * size_of::<DepthLevel>())
+            .and_then(|n| n.checked_add(size_of::<Row>()))
+            .and_then(|n| n.checked_add(4 * size_of::<MarketState>()))
+            .ok_or(Error::Bounds)?;
         let estimate = instruments
             .len()
-            .checked_mul(
-                limits
-                    .levels_per_side
-                    .checked_mul(32)
-                    .and_then(|n| n.checked_add(2048))
-                    .ok_or(Error::Bounds)?,
-            )
+            .checked_mul(per_row)
+            .and_then(|n| {
+                n.checked_add(
+                    MAX_DELTA_LEVELS
+                        * (size_of::<tickwire_book::Level>() + size_of::<DepthLevel>()),
+                )
+            })
             .ok_or(Error::Bounds)?;
         if estimate > limits.cache_bytes {
             return Err(Error::Bounds);
         }
         let h = owner.header().clone();
         let mut rows = Vec::with_capacity(instruments.len());
+        let mut book_keys = std::collections::BTreeSet::new();
         for (cfg, spec) in instruments
             .into_iter()
             .zip(owner.registry().instruments.iter().copied())
@@ -293,6 +322,7 @@ impl<const M: usize> TopicPublisher<M> {
                 || cfg.instrument.instrument_version != spec.instrument_version
                 || cfg.instrument.catalog_version != h.catalog_version
                 || cfg.instrument.catalog_hash != owner.registry().catalog_hash
+                || !book_keys.insert((cfg.key.venue, cfg.key.instrument, cfg.key.source))
             {
                 return Err(Error::Identity);
             }
@@ -312,17 +342,21 @@ impl<const M: usize> TopicPublisher<M> {
                 revision: 0,
                 last_event: owner.published(),
                 selection: EventSelection::default(),
-                event_sources: std::collections::BTreeMap::new(),
+                event_sources: [None; 3],
                 depth_state: 1,
                 depth_received: 0,
                 instrument: cfg.instrument,
-                states: vec![MarketState::Legacy(MarketRecord {
-                    header: header(&h, spec, owner.published(), 261, 0, 0),
-                    body: MarketBody {
-                        feed_state: 1,
-                        ..Default::default()
-                    },
-                })],
+                states: {
+                    let mut states = Vec::with_capacity(4);
+                    states.push(MarketState::Legacy(MarketRecord {
+                        header: header(&h, spec, owner.published(), 261, 0, 0),
+                        body: MarketBody {
+                            feed_state: 1,
+                            ..Default::default()
+                        },
+                    }));
+                    states
+                },
                 bids: Vec::with_capacity(limits.levels_per_side),
                 asks: Vec::with_capacity(limits.levels_per_side),
                 coverage: DepthCoverage {
@@ -331,26 +365,111 @@ impl<const M: usize> TopicPublisher<M> {
                 },
             });
         }
+        let index = FixedIndex::new(
+            &rows
+                .iter()
+                .map(|r| r.spec.instrument_id)
+                .collect::<Vec<_>>(),
+        )
+        .map_err(|_| Error::Bounds)?;
         let state = TopicState {
             header: h,
             rows,
+            index,
             limits,
             sequence: owner.published(),
             dirty: false,
             catalog: owner.registry().catalog_hash,
         };
-        Ok(Self {
+        let depth_workspace = DepthWorkspace::new(MAX_DELTA_LEVELS).map_err(Error::Decode)?;
+        let mut depth_levels = Vec::new();
+        depth_levels
+            .try_reserve_exact(MAX_DELTA_LEVELS)
+            .map_err(|_| Error::Bounds)?;
+        let mut publisher = Self {
             owner,
             state,
             needs_bank: false,
             last_now: 0,
-        })
+            depth_workspace,
+            depth_levels,
+            reserved_cache_bytes: 0,
+        };
+        publisher.reserved_cache_bytes = publisher.measure_cache_bytes()?;
+        if publisher.reserved_cache_bytes > limits.cache_bytes {
+            return Err(Error::Bounds);
+        }
+        Ok(publisher)
+    }
+    /// Retained heap payload, excluding allocator metadata, SHM/JOIN and call stacks.
+    pub fn reserved_cache_bytes(&self) -> usize {
+        self.reserved_cache_bytes
+    }
+    fn measure_cache_bytes(&self) -> Result<usize> {
+        let mut bytes = self
+            .state
+            .rows
+            .capacity()
+            .checked_mul(size_of::<Row>())
+            .ok_or(Error::Bounds)?;
+        let mut add = |value: usize| -> Result<()> {
+            bytes = bytes.checked_add(value).ok_or(Error::Bounds)?;
+            Ok(())
+        };
+        add(self.state.index.memory_stats().total_bytes())?;
+        add(self.depth_workspace.reserved_bytes())?;
+        add(self
+            .depth_levels
+            .capacity()
+            .checked_mul(size_of::<DepthLevel>())
+            .ok_or(Error::Bounds)?)?;
+        for row in &self.state.rows {
+            add(row
+                .states
+                .capacity()
+                .checked_mul(size_of::<MarketState>())
+                .ok_or(Error::Bounds)?)?;
+            add(row
+                .bids
+                .capacity()
+                .checked_mul(size_of::<DepthLevel>())
+                .ok_or(Error::Bounds)?)?;
+            add(row
+                .asks
+                .capacity()
+                .checked_mul(size_of::<DepthLevel>())
+                .ok_or(Error::Bounds)?)?;
+            add(row.context.reserved_bytes())?;
+            for symbol in [
+                row.instrument.symbol.as_str(),
+                row.instrument.base.symbol.as_str(),
+                row.instrument.quote.symbol.as_str(),
+                row.instrument.settlement.symbol.as_str(),
+            ] {
+                add(symbol.len())?;
+            }
+        }
+        Ok(bytes)
     }
     pub fn split(&mut self) -> (&mut JoinOwner<M>, &TopicState) {
         (&mut self.owner, &self.state)
     }
     pub fn state(&self) -> &TopicState {
         &self.state
+    }
+    /// Bind once at feed setup; hot notifications then use direct row access.
+    pub fn instrument_slot(&self, instrument: u64) -> Result<InstrumentSlot> {
+        Ok(InstrumentSlot {
+            instrument,
+            dense: self.state.index.lookup(instrument).ok_or(Error::Identity)?,
+        })
+    }
+    fn slot_index(&self, slot: InstrumentSlot) -> Result<usize> {
+        let index = slot.dense.index();
+        if self.state.rows.get(index).map(|r| r.spec.instrument_id) != Some(slot.instrument) {
+            return Err(Error::Identity);
+        }
+        Ok(index)
     }
     pub fn needs_bank(&self) -> bool {
         self.needs_bank
@@ -400,16 +519,23 @@ impl<const M: usize> TopicPublisher<M> {
         now: u64,
         faults: &mut impl FaultSink,
     ) -> Result<()> {
+        let slot = self.instrument_slot(instrument)?;
+        self.on_notice_slot(slot, notice, now, faults)
+    }
+    pub fn on_notice_slot(
+        &mut self,
+        slot: InstrumentSlot,
+        notice: &Notice<'_>,
+        now: u64,
+        faults: &mut impl FaultSink,
+    ) -> Result<()> {
+        let instrument = slot.instrument;
+        let index = self.slot_index(slot)?;
         if now < self.last_now {
             self.fault(instrument, faults);
             return Err(Error::Clock);
         }
         self.last_now = now;
-        let index = self
-            .state
-            .rows
-            .binary_search_by_key(&instrument, |r| r.spec.instrument_id)
-            .map_err(|_| Error::Identity)?;
         match notice {
             Notice::Http(_) => Ok(()),
             Notice::Gap(_) => {
@@ -575,24 +701,27 @@ impl<const M: usize> TopicPublisher<M> {
         }
         // Before first Live there can be no ready JOIN: its complete baseline
         // was Bootstrapping. First Live is captured for the subsequent JOIN.
-        let mut records = Vec::with_capacity(3);
-        let mut levels = Vec::new();
+        let mut records: [MarketRecord; 3] = std::array::from_fn(|_| MarketRecord::default());
+        let mut record_count = 0;
+        let levels = &mut self.depth_levels;
+        levels.clear();
         if let Some(raw) = raw {
             row.context.set_generation(view.generation());
             let decode = match encoding {
-                DepthEncoding::Json => decode_diff::<4096>,
-                DepthEncoding::SpotSbeV1 => decode_sbe_diff::<4096>,
+                DepthEncoding::Json => decode_diff_into,
+                DepthEncoding::SpotSbeV1 => decode_sbe_diff_into,
             };
             let decoded = decode(
                 raw,
                 &row.context,
                 received.unwrap_or(view.received_at_ns()),
                 self.state.limits.max_delta_bytes,
+                &mut self.depth_workspace,
             )
             .map_err(Error::Decode)?;
             let event = decoded.event();
             if event.last_update_id != view.last_update_id()
-                || event.bids.len() + event.asks.len() > 4096
+                || event.bids.len() + event.asks.len() > MAX_DELTA_LEVELS
             {
                 return Err(Error::Bounds);
             }
@@ -632,28 +761,35 @@ impl<const M: usize> TopicPublisher<M> {
                 record.header.source_timestamp_ns = t;
                 record.header.flags |= 1;
             }
-            records.push(record);
+            records[record_count] = record;
+            record_count += 1;
         }
         if !row.selection.best_bid_ask {
-            records.push(quote);
+            records[record_count] = quote;
+            record_count += 1;
         }
-        records.push(feed);
-        for (i, r) in records.iter_mut().enumerate() {
+        records[record_count] = feed;
+        record_count += 1;
+        for (i, r) in records[..record_count].iter_mut().enumerate() {
             r.header.sequence = self.owner.published() + i as u64 + 1;
         }
-        let messages = records
-            .iter()
-            .map(|r| MarketMessage {
+        let messages: [MarketMessage<'_>; 3] = std::array::from_fn(|i| {
+            let r = &records[i];
+            MarketMessage {
                 record: r,
                 levels: if r.header.message_type == 259 {
-                    &levels
+                    levels
                 } else {
                     &[]
                 },
-            })
-            .collect::<Vec<_>>();
-        let published = self.owner.publish_market(&messages)?;
-        for record in records.into_iter().filter(|r| r.header.message_type != 259) {
+            }
+        });
+        let published = self.owner.publish_market(&messages[..record_count])?;
+        for record in records
+            .into_iter()
+            .take(record_count)
+            .filter(|r| r.header.message_type != 259)
+        {
             upsert(&mut row.states, record.into());
         }
         row.last_event = published;

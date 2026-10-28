@@ -24,3 +24,11 @@ schema4 的独立 `RebuildPrepared`、`RebuildObserved` 和 `RebuildAdoption` �
 协调器恢复先发新 Query。保存的历史完成结果通过 RebuildObserved 取得，全部查询完成且显式 resume 后再发新的 Prepare 刷新；过期历史结果不直接成为新 Commit 资格。当前协议测试包括准备结果同步失败、不重复采纳、丢失采纳结果后恢复、真正 Commit/Release 后再恢复，以及 gate、状态、成员、挑战和根替换拒绝。
 
 `MemberAuthority.readiness` 为可选值。schema1–3 仍要求 Some，已有 JSON 和签名字节不变；schema4 可以没有初始业务 READY，安装结果始终要求真实 READY。app 在实际 WindowSeal/目标安装接通前显式拒绝 schema4 执行，避免误走旧恢复分支。生命周期库 34 项单元测试与定向 Clippy 通过，app/lab all-targets 编译通过；该检查没有运行完整 Rebuild 发布场景。
+
+## 输入窗口采集
+
+`replay::rebuild::capture::CaptureOnly` 持有隔离的行情和账户视图，使用 SDK 固定观察器核验输入，不接受或执行用户工厂。创建时绑定 capture 身份、binary、逻辑策略、账户风险域、时钟域、配置和模型摘要；行情资源的 `host_boot_id` 必须与采集时钟域一致，当前只接受 `clock_domain=1` 的本机单调时间；跨域时间不能用于新鲜度计算。种子只能包含真实行情检查点和完整账户前缀，`warm` 必须为空，采样时间必须等于窗口起点。要求旧进程处理顺序的合同保持拒绝。
+
+`push` 接收同一时钟域中单调的行情应用、行情观察标记和账户记录。它复用真实行情和账户解码、连续序号、资源身份与已接纳动作集合检查，按合同限制时间跨度、记录数和完整输入对象字节数。每次先验证候选视图及窗口，再整体发布；任何错误均保留上一有效窗口，后续正确输入仍可继续。配置、模型、用户定时器和额外外部输入在本采集入口返回 `Unsupported`。
+
+`finish` 消费采集 owner，拒绝空窗口、跨度不足、过期或不连续视图，以及未达到每类最小观察数的窗口；同一已应用记录的重复观察标记只计一次。成功返回实际 `Inputs` 和 `window::Seal`，绑定初始/最终 cursor、合同、种子、完整输入、逐行输入哈希链及账户输入摘要，不构造用户检查点、READY 或交易许可。Host 发布协议和实际进程采集仍待接线。

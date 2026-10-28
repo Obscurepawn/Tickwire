@@ -37,6 +37,7 @@ cargo fmt --check -p tickwire-shm
 
 - `tests/protocol.rs`（13 项，纯状态内核，macOS 可跑：满/空/环绕、pending JOIN、最慢消费者、缓存失效、批次原子发布、乱序释放/应用、身份拒绝、冻结、序号上限）。
 - `tests/join_pending.rs`（6 项）、`tests/mapped.rs`（11 项）带 `#![cfg(target_os = "linux")]`，依赖真实 memfd/seals/多进程，须用 [../../scripts/check-linux.sh](../../scripts/check-linux.sh) 在固定 Docker 镜像（rust:1.99.1-bookworm）内运行。
+- 两套映射测试共用 `tests/common/mod.rs` 的有效固定 ABI FeedState 记录，先经 IPC 编码/解码核验，再检查序号和全部 512 字节；不得随机填充保留字段或放松生产校验来构造传输 fixture。
 - 无 bench。
 
 ## 6. 关键不变量与注意事项

@@ -13,6 +13,7 @@ tickwire-binance = { path = "../tickwire-binance" }
 tickwire-binance-public = { path = "../tickwire-binance-public" }
 tickwire-book = { path = "../tickwire-book" }
 tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-instrument-index = { path = "../tickwire-instrument-index" }
 tickwire-join = { path = "../tickwire-join" }
 tickwire-shm = { path = "../tickwire-shm" }
 tickwire-snapshot = { path = "../tickwire-snapshot" }

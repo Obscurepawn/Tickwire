@@ -1,6 +1,8 @@
 #![cfg(target_os = "linux")]
 #![allow(unsafe_code)]
 
+mod common;
+use common::record;
 use std::{
     fs::File,
     io::{BufRead, BufReader, Read, Write},
@@ -41,6 +43,7 @@ fn header() -> ResourceHeader {
         schema_major: 1,
         clock_domain: 1,
         required_features: 0x1c,
+        topic_id: 1,
         ..Default::default()
     }
 }
@@ -51,12 +54,6 @@ fn sub(p: &Publisher<4>, instance: u128) -> SubscriptionKey {
         generation: 1,
         cursor: instance + 100,
     }
-}
-fn record(seq: u64) -> [u8; 512] {
-    let mut bytes = [0; 512];
-    bytes[..8].copy_from_slice(&seq.to_le_bytes());
-    bytes[8..].fill((seq % 251) as u8);
-    bytes
 }
 fn connect(p: &mut Publisher<4>, id: u128) -> Subscriber<64> {
     let key = sub(p, id);

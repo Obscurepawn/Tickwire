@@ -14,5 +14,9 @@ serde_json = "1"
 tickwire-lifecycle = { path = "../tickwire-lifecycle" }
 tickwire-recovery = { path = "../tickwire-recovery" }
 
+[dev-dependencies]
+tickwire-account = { path = "../tickwire-account" }
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+
 [lints]
 workspace = true

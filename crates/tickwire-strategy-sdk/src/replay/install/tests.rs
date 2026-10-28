@@ -526,6 +526,110 @@ fn install_request_binds_full_operation_member_and_preallocates_only_bounded_obj
 }
 
 #[test]
+fn opaque_dependency_budgets_do_not_expand_typed_install_and_rollback_roots() {
+    let (_, op, member, proof, _, source, config) = fixture_with_action(false);
+    let mut objects = vec![
+        proof.root(),
+        Object {
+            digest: [254; 32],
+            bytes: tickwire_recovery::MAX_OBJECT_BYTES as u64,
+        },
+    ];
+    objects.sort_by_key(|o| o.digest);
+    let request = tickwire_release::replay::install::Request {
+        schema: 1,
+        operation: op,
+        member,
+        source_completion: proof.root(),
+        source_objects: objects,
+        target: source,
+        config,
+    };
+    let valid = request
+        .bytes()
+        .expect("64 MiB opaque dependency declaration");
+    assert_eq!(
+        tickwire_release::replay::install::Request::decode(&valid).unwrap(),
+        request
+    );
+    let job = tickwire_release::replay::rollback::Job {
+        schema: 1,
+        installation: proof.root(),
+        objects: request
+            .source_objects
+            .iter()
+            .enumerate()
+            .map(|(i, object)| tickwire_release::files::ObjectFile {
+                path: std::env::temp_dir().join(format!("opaque-dependency-{i}")),
+                object: *object,
+            })
+            .collect(),
+        rollback_files: vec![],
+        output_directory: std::env::temp_dir().join("opaque-rollback-output"),
+    };
+    tickwire_release::replay::rollback::Job::decode(&job.bytes().unwrap()).unwrap();
+    for case in 0..3 {
+        let mut invalid_request = request.clone();
+        let mut invalid_job = job.clone();
+        match case {
+            0 => {
+                invalid_request
+                    .source_objects
+                    .iter_mut()
+                    .find(|o| o.digest == [254; 32])
+                    .unwrap()
+                    .bytes += 1;
+                invalid_job
+                    .objects
+                    .iter_mut()
+                    .find(|o| o.object.digest == [254; 32])
+                    .unwrap()
+                    .object
+                    .bytes += 1;
+            }
+            1 => {
+                invalid_request.source_completion.bytes = MAX_BYTES as u64 + 1;
+                let root = invalid_request
+                    .source_objects
+                    .iter_mut()
+                    .find(|o| o.digest == proof.root().digest)
+                    .unwrap();
+                *root = invalid_request.source_completion;
+                invalid_job.installation.bytes = MAX_BYTES as u64 + 1;
+                let root = invalid_job
+                    .objects
+                    .iter_mut()
+                    .find(|o| o.object.digest == proof.root().digest)
+                    .unwrap();
+                root.object = invalid_job.installation;
+            }
+            _ => {
+                for id in 251..254 {
+                    let object = Object {
+                        digest: [id; 32],
+                        bytes: tickwire_recovery::MAX_OBJECT_BYTES as u64,
+                    };
+                    invalid_request.source_objects.push(object);
+                    invalid_job
+                        .objects
+                        .push(tickwire_release::files::ObjectFile {
+                            path: std::env::temp_dir().join(format!("opaque-{id}")),
+                            object,
+                        });
+                }
+                invalid_request.source_objects.sort_by_key(|o| o.digest);
+                invalid_job.objects.sort_by_key(|o| o.object.digest);
+            }
+        }
+        assert!(
+            invalid_request.bytes().is_err(),
+            "request budget case {case}"
+        );
+        assert!(invalid_job.bytes().is_err(), "rollback budget case {case}");
+    }
+}
+
+#[test]
 fn startup_restore_is_a_distinct_stage_and_cannot_decode_as_a_finished_preflight() {
     let (bundle, op, member, proof, target, _, _) = fixture_with_action(false);
     let release = bundle.verify_operation(&op, &member).unwrap();

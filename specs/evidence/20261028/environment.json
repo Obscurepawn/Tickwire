@@ -1,0 +1,9 @@
+{
+  "kernel": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "machine": "x86_64",
+  "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+  "cpu_affinity": "pid 43707's current affinity list: 0-15",
+  "cpu_model": "AMD Ryzen 7 8845H w/ Radeon 780M Graphics",
+  "cargo_target_dir": "/tmp/tickwire-progress-20261028/target"
+}

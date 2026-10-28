@@ -2,6 +2,7 @@ use crate::{Error, Result, Strategy};
 use tickwire_ipc::{DepthLevel, RecordHeader, Wire};
 use tickwire_join::JoinConsumer;
 use tickwire_market_source::replica as core;
+pub use tickwire_market_source::replica::DenseId;
 use tickwire_snapshot::ValidatedTopic;
 use tickwire_venue::CanonicalCommand;
 pub struct MarketReplica(core::MarketReplica);
@@ -100,8 +101,15 @@ impl MarketReplica {
     pub fn view(&self, instrument: u64) -> Option<MarketView<'_>> {
         self.0.view(instrument).map(MarketView)
     }
+    /// Dense IDs are local to this replica's current instrument set.
+    pub fn view_dense(&self, instrument: DenseId) -> Option<MarketView<'_>> {
+        self.0.view_dense(instrument).map(MarketView)
+    }
     pub fn apply(&mut self, bytes: &[u8], payload: &[u8]) -> Result<u64> {
         Ok(self.0.apply(bytes, payload)?)
+    }
+    pub fn apply_dense(&mut self, bytes: &[u8], payload: &[u8]) -> Result<DenseId> {
+        Ok(self.0.apply_dense(bytes, payload)?)
     }
     /// Consume complete ring records, ending each slot/block borrow before strategy code.
     pub fn drain<const B: usize, S: Strategy>(
@@ -145,14 +153,13 @@ impl MarketReplica {
                 &[]
             };
             journal.market(guard.bytes(), payload)?;
-            let id = self.apply(guard.bytes(), payload)?;
+            let dense = self.apply_dense(guard.bytes(), payload)?;
             let seq = guard.sequence();
             drop(guard);
             consumer.apply(seq)?;
-            journal.decision(id, now)?;
-            if let Some(view) = self.view(id)
-                && let Some(command) = strategy.on_market(view, now)?
-            {
+            let view = self.view_dense(dense).ok_or(Error::Identity)?;
+            journal.decision(view.instrument(), now)?;
+            if let Some(command) = strategy.on_market(view, now)? {
                 emit(command, journal)?;
             }
             count += 1;

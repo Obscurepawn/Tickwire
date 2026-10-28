@@ -30,7 +30,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 4. **模块实现规格**：[`implementation/`](implementation/)，按下文第 3 节分组索引定位；每篇先于对应 crate 源码确定接口与不变量。
 5. **形式验证**：[`../tla/`](../tla/) 中与改动模块对应的 `execution_models/<model>/ROADMAP.md`；源码变更后先核对锚点哈希再复跑。
 
-## 3. 实现规格索引（按功能域分组，共 68 篇）
+## 3. 实现规格索引（按功能域分组，共 69 篇）
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论，接手时先核对源码。
 
@@ -38,22 +38,23 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 
 | 文件 | 职责一句话 | 对应 crate | 实现状态 |
 |---|---|---|---|
+| [instrument-index.md](implementation/instrument-index.md) | 固定集合位掩码映射、动态只追加索引与行情连续存储 | `tickwire-instrument-index` / `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` | 固定/动态索引、本地盘口身份及行情接线；性能边界见规格 |
 | [binance-protocol.md](implementation/binance-protocol.md) | HMAC/RSA/Ed25519 签名、订单参数编码与类型化错误分类 | `tickwire-binance` | 已实现 |
 | [binance-streams.md](implementation/binance-streams.md) | exchangeInfo/REST depth/depthUpdate/executionReport 类型化解码 | `tickwire-binance`（feed/events） | 已实现 |
-| [binance-sbe.md](implementation/binance-sbe.md) | Spot SBE（trade/BBA/depth20/diff）固定 schema 解码与 tick/step 精确换算 | `tickwire-binance-sbe` | 部分实现（codec 完成，独立业务 owner 待接） |
+| [binance-sbe.md](implementation/binance-sbe.md) | Spot SBE 固定 schema 解码、精确换算及 MD owner 接线 | `tickwire-binance-sbe` / `tickwire-binance-public` / `tickwire-md` | 已实现（diff、Trade/BBA owner；depth20 仅解码） |
 | [binance-public-session.md](implementation/binance-public-session.md) | 公共 WSS 订阅 owner、HTTPS 快照、退避重连与 24h 主动轮换 | `tickwire-binance-public` | 已实现 |
 | [binance-depth-sync.md](implementation/binance-depth-sync.md) | DepthSync 状态机（Disconnected/Buffering/Bridging/Live/Exhausted）与序列桥接 | `tickwire-binance-public`（depth_sync） | 已实现 |
-| [binance-market-events.md](implementation/binance-market-events.md) | 精确行情事件（Trade/BBA/MarkFunding）规范发布与 MarketReplica 应用 | `tickwire-market-source` / `tickwire-market-publisher` | 部分实现 |
+| [binance-market-events.md](implementation/binance-market-events.md) | 精确行情事件（Trade/BBA/MarkFunding）规范发布与 MarketReplica 应用 | `tickwire-market-source` / `tickwire-market-publisher` | 已实现（七类输入至 SHM/JOIN；生产压力待验收） |
 | [binance-private-session.md](implementation/binance-private-session.md) | 私有流会话（Spot logon/subscribe、USD-M key 轮换、缺口撤销） | `tickwire-binance-private` | 部分实现 |
 | [binance-private-clock-adapter.md](implementation/binance-private-clock-adapter.md) | 私有流共享校准时钟适配与原签名窗口检查 | `tickwire-binance-session` | 已实现 |
 | [binance-quota.md](implementation/binance-quota.md) | 时间/私有/公共/交易命令到 ExecLimiter 的费用表适配 | `tickwire-binance-quota` | 已实现 |
 | [binance-request-extensions.md](implementation/binance-request-extensions.md) | Spot OCO/OTO/OTOCO/peg/SOR 高级请求类型化编码（schema2 tag 11） | `tickwire-binance`（命令规范见 `tickwire-venue`） | 已实现 |
 | [binance-execution.md](implementation/binance-execution.md) | Binance 执行适配：原签名/租约/期限/本地配额门禁追加 | `tickwire-binance-execution` | 部分实现 |
-| [binance-ws-trading.md](implementation/binance-ws-trading.md) | WS 交易 owner、DurableWsBinding、57 字节 ID 与 AwaitingCommit | `tickwire-binance-account` | 部分实现 |
+| [binance-ws-trading.md](implementation/binance-ws-trading.md) | WS 交易 owner、DurableWsBinding、响应入账、恢复与复制 | `tickwire-binance-account` | 部分实现（持久发送链已接；logon、无冻结换线及高级单组合待续） |
 | [transport.md](implementation/transport.md) | mio/rustls 非阻塞 TCP/TLS、文本分帧与首次接受前门禁 | `tickwire-transport` | 已实现 |
 | [venue.md](implementation/venue.md) | 不可变规范命令字节/摘要与交易所事件事实规范化 | `tickwire-venue` | 已实现 |
 | [gateway.md](implementation/gateway.md) | JournaledSender 持久命令发送协调、授权 WAL、NoBytes 中止与冻结 | `tickwire-gateway` | 已实现 |
-| [usdm-account-facts.md](implementation/usdm-account-facts.md) | USD-M 收入流去重、资金费隔离与 REALIZED_PNL/COMMISSION 关联 | `tickwire-venue`（account）/ `tickwire-binance-account` | 部分实现 |
+| [usdm-account-facts.md](implementation/usdm-account-facts.md) | USD-M 收入去重关联、批准基线、收入核对与观察关联 | `tickwire-account` / `tickwire-binance-account` | 部分实现（上述已接；外部成交、强平/ADL/交割及资金费归属待续） |
 
 ### 3.2 IPC / 共享内存传输
 
@@ -64,8 +65,8 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 | [shm-ring.md](implementation/shm-ring.md) | 固定记录共享广播 ring、bank 借用/释放/容量门禁（implemented-partial） | `tickwire-shm` | 部分实现 |
 | [immutable-resource.md](implementation/immutable-resource.md) | 0x0f 封印不可变资源创建/接收与只读 FD 交付 | `tickwire-shm-sys` | 已实现 |
 | [topic-snapshot-builder.md](implementation/topic-snapshot-builder.md) | NormalizedMarket TopicSnapshotManifest 构造与 JOIN 绑定 | `tickwire-snapshot` | 已实现 |
-| [topic-snapshot.md](implementation/topic-snapshot.md) | TopicSnapshotManifest 接收校验为 ValidatedTopic | `tickwire-snapshot` | 部分实现（receiver 完成，owner 接线待） |
-| [join.md](implementation/join.md) | JOIN owner：prepare/deliver/receive_cursor/read_ready/追平激活 | `tickwire-join` | 部分实现 |
+| [topic-snapshot.md](implementation/topic-snapshot.md) | TopicSnapshotManifest 接收校验为 ValidatedTopic | `tickwire-snapshot` | 已实现（接收器已用于真实 JOIN） |
+| [join.md](implementation/join.md) | JOIN owner：prepare/deliver/receive_cursor/read_ready/追平激活 | `tickwire-join` | 部分实现（真实进程链已接；持久 owner 恢复、代次重用与死亡回收待续） |
 
 ### 3.3 行情数据与订单簿
 
@@ -82,8 +83,8 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 | [strategy-graceful-retirement.md](implementation/strategy-graceful-retirement.md) | 共享 MD 订阅正常退休 QUIESCE/DETACH 证据链 | `tickwire-strategy-sdk` / `tickwire-strategy-host` | 部分实现 |
 | [strategy-rebuild.md](implementation/strategy-rebuild.md) | 声明重建资料校验、SDK 预热与首个动作契约 | `tickwire-release` / `tickwire-strategy-sdk` | 部分实现 |
 | [strategy-replay.md](implementation/strategy-replay.md) | 旧 binary S→C 合并输入重放、schema3 迁移安装链 | `tickwire-release` / `tickwire-strategy-sdk` | 部分实现 |
-| [conditional-orders.md](implementation/conditional-orders.md) | SpotList/Algo 父子条件订单结构、父终态与腿责任保留 | `tickwire-account` / `tickwire-binance-account` | 部分实现（第一阶段） |
-| [spot-amend.md](implementation/spot-amend.md) | Spot 同 client ID 减量修改、AmendmentView 与预留计算 | `tickwire-account` / `tickwire-binance-account` | 部分实现 |
+| [conditional-orders.md](implementation/conditional-orders.md) | SpotList/Algo 父子关联、父查询与未创建 Algo 闭合 | `tickwire-account` / `tickwire-binance-account` | 部分实现（已至第三阶段；完整订单风险与生命周期组合待续） |
+| [spot-amend.md](implementation/spot-amend.md) | Spot 同 client ID 减量修改、REST 结果/历史与私有 REPLACED | `tickwire-account` / `tickwire-binance-account` | 部分实现（普通 LIMIT/GTC 路径已接；完整修改范围与组合验收待续） |
 
 ### 3.5 执行内核与账户
 
@@ -124,8 +125,8 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 |---|---|---|---|
 | [control-session.md](implementation/control-session.md) | 控制会话协商、内核身份核对与请求登记票据 | `tickwire-control` | 已实现 |
 | [control-transport.md](implementation/control-transport.md) | Linux SOCK_SEQPACKET/SCM_RIGHTS 控制 FD 传输 | `tickwire-control-sys` | 已实现 |
-| [control-raft.md](implementation/control-raft.md) | 三 voter 持久 Raft 边界、SafeReadIndex、Chunk 大更新 | `tickwire-control-raft` | 部分实现 |
-| [control-raft-service.md](implementation/control-raft-service.md) | Raft 网络服务 TLS1.3 双向/会话帧/快照换代/Joint 成员 | `tickwire-control-peer` | 已实现 |
+| [control-raft.md](implementation/control-raft.md) | 持久 Raft、SafeReadIndex、Chunk 大更新、快照与成员变更 | `tickwire-control-raft` | 已实现（快照与成员扩展见网络服务规格；生产故障组合待验收） |
+| [control-raft-service.md](implementation/control-raft-service.md) | Raft 网络服务 TLS1.3 双向/会话帧/快照换代/Joint 成员 | `tickwire-control-peer` | 已实现（含 learner 追赶与 joint 替换；生产故障组合待验收） |
 | [replica.md](implementation/replica.md) | 连续前缀异步/同步复制、ACK、SourceRecoverySeal 冻结接管 | `tickwire-replica` | 部分实现 |
 
 ### 3.9 配置控制面

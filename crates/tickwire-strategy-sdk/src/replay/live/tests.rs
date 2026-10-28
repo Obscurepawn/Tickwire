@@ -148,8 +148,25 @@ fn head_publish_failure_stops_the_owner_even_after_the_input_files_are_synced() 
 }
 #[test]
 fn actual_live_install_retries_return_one_durable_completion_without_repeating_callbacks() {
+    install_and_rollback_with_dependency(vec![91; 32]);
+}
+#[test]
+fn install_and_rollback_preserve_large_opaque_source_dependencies() {
+    install_and_rollback_with_dependency(vec![91; MAX_BYTES + 1]);
+}
+fn install_and_rollback_with_dependency(dependency: Vec<u8>) {
     let (bundle, op, member, proof, target, source, config) =
         super::super::install::tests::fixture_with_action(false);
+    let dependency_ref = Object::of(&dependency);
+    let mut objects = proof.objects().map(Vec::from).collect::<Vec<_>>();
+    objects.push(dependency);
+    let proof = tickwire_release::replay::source::VerifiedSourceReplay::verify(
+        &op,
+        &member,
+        proof.root(),
+        objects,
+    )
+    .unwrap();
     let release = bundle.verify_operation(&op, &member).unwrap();
     let candidate = install::prepare(
         &crate::restore::FixedDemoFactory,
@@ -223,6 +240,13 @@ fn actual_live_install_retries_return_one_durable_completion_without_repeating_c
     assert_eq!(live.committed().unwrap().0, &after);
     let head = Head::decode(&std::fs::read(root.0.join("HEAD.json")).unwrap()).unwrap();
     assert_eq!(head.cut, after.cut);
+    let verified = live.installation_objects(result).unwrap();
+    assert!(
+        verified
+            .objects
+            .iter()
+            .any(|b| Object::of(b) == dependency_ref)
+    );
     let Owner::Recorded(e) = &mut live.owner else {
         panic!()
     };
@@ -230,13 +254,6 @@ fn actual_live_install_retries_return_one_durable_completion_without_repeating_c
         tickwire_release::replay::install::Continued::decode(&e.read_object(result).unwrap())
             .unwrap();
     assert_eq!(completed.checkpoint, Object::of(&after.bytes().unwrap()));
-    let verified = tickwire_release::replay::install::verify(result.digest, |hash| {
-        use tickwire_recovery::BlobStore;
-        e.store
-            .get(tickwire_recovery::StoreKey::Object(hash), MAX_BYTES)
-            .map_err(|_| tickwire_release::Error::Missing)
-    })
-    .unwrap();
     assert_eq!(verified.checkpoint, after);
     let mut rollback_command = crate::test_command::command();
     rollback_command.context.strategy.instance_id = [87; 16];
@@ -264,6 +281,113 @@ fn actual_live_install_retries_return_one_durable_completion_without_repeating_c
     );
     let restored = crate::restore::execute(&crate::restore::FixedDemoFactory, &rollback).unwrap();
     assert_eq!(restored.checkpoint()[8], 0);
+    let files = verified
+        .objects
+        .iter()
+        .map(|bytes| {
+            crate::recovery::object(&root.0, bytes).unwrap();
+            let object = Object::of(bytes);
+            tickwire_release::files::ObjectFile {
+                path: root.0.join(format!(
+                    "{}.bin",
+                    object
+                        .digest
+                        .iter()
+                        .map(|b| format!("{b:02x}"))
+                        .collect::<String>()
+                )),
+                object,
+            }
+        })
+        .collect::<Vec<_>>();
+    let job = tickwire_release::replay::rollback::Job {
+        schema: 1,
+        installation: result,
+        objects: files,
+        rollback_files: vec![],
+        output_directory: root.0.join("rollback-output"),
+    };
+    let job_bytes = job.bytes().unwrap();
+    let reopened = tickwire_release::replay::rollback::Job::decode(&job_bytes)
+        .unwrap()
+        .load()
+        .unwrap();
+    assert_eq!(reopened.checkpoint, after);
+    let role = |role| {
+        release
+            .rollback
+            .files
+            .iter()
+            .find(|f| f.role == role)
+            .unwrap()
+            .object
+            .digest
+    };
+    let receipt = tickwire_release::replay::rollback::Receipt {
+        schema: 1,
+        job: Object::of(&job_bytes),
+        installation: result,
+        operation: verified.request.operation.clone(),
+        member: verified.request.member.clone(),
+        process: tickwire_release::receipt::Process {
+            instance: [87; 16],
+            generation: 7,
+            pid: 123,
+            uid: 1,
+            gid: 1,
+        },
+        binary_digest: role(tickwire_release::Role::Binary),
+        bootstrap_digest: role(tickwire_release::Role::Bootstrap),
+        input_checkpoint: verified.installation.checkpoint,
+        input_state: Object::of(&verified.installed_business().unwrap()),
+        source_schema: verified.request.target.state_schema,
+        method: release.rollback.method.clone(),
+        output_schema: release.rollback.capabilities.state_schema,
+        output: Object::of(restored.checkpoint()),
+    };
+    let receipt_bytes = receipt.bytes().unwrap();
+    let completion = tickwire_release::replay::rollback::Completion {
+        schema: 1,
+        installation: result,
+        rollback: Object::of(&receipt_bytes),
+    }
+    .bytes()
+    .unwrap();
+    let mut rollback_objects = verified.objects.clone();
+    rollback_objects.extend([
+        job_bytes,
+        receipt_bytes,
+        completion.clone(),
+        restored.checkpoint().to_vec(),
+    ]);
+    let rollback_objects = rollback_objects
+        .into_iter()
+        .map(|bytes| (Object::of(&bytes).digest, bytes))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    let read = |h| {
+        rollback_objects
+            .get(&h)
+            .cloned()
+            .ok_or(tickwire_release::Error::Missing)
+    };
+    let rollback_verified =
+        tickwire_release::replay::rollback::verify(Object::of(&completion).digest, read).unwrap();
+    assert!(
+        rollback_verified
+            .objects
+            .iter()
+            .any(|b| Object::of(b) == dependency_ref)
+    );
+    assert!(
+        tickwire_release::replay::rollback::verify(Object::of(&completion).digest, |h| {
+            let mut bytes = read(h)?;
+            if h == dependency_ref.digest {
+                bytes[0] ^= 1;
+            }
+            Ok(bytes)
+        })
+        .is_err()
+    );
     // The installation cut may be sealed as v3 only with its exact new anchor
     // and real callback tail; old Shadow bytes cannot become the new receipt.
     let (snapshot, catalog, _) = crate::account_fixture::fixture();

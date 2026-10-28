@@ -41,6 +41,35 @@ fn snapshot<P: DepthPolicy>(last: u64) -> Vec<u8> {
         .into_bytes()
 }
 #[test]
+fn compact_book_key_survives_snapshot_bridge_and_reconnect_for_both_products() {
+    fn exercise<P: DepthPolicy>() {
+        let mut cfg = config::<P>();
+        cfg.instrument.instrument_id = u64::MAX;
+        cfg.key.instrument = 0;
+        let key = cfg.key;
+        let mut sync = DepthSync::<P, 8, 8, 4>::new(cfg).unwrap();
+        for epoch in 1..=2 {
+            let token = sync.connect(epoch).unwrap();
+            sync.subscription_ready(token).unwrap();
+            sync.on_delta(token, &delta::<P>(101, 102, 100), epoch * 10)
+                .unwrap();
+            let request = sync.request_snapshot(epoch * 10 + 1, 100).unwrap();
+            assert!(request.path().contains("symbol=BTCUSDT"));
+            assert!(matches!(
+                sync.on_snapshot(request.token(), 200, &snapshot::<P>(101), epoch * 10 + 2)
+                    .unwrap(),
+                Outcome::SnapshotInstalled { live: true, .. }
+            ));
+            let view = sync.view(epoch * 10 + 2, 100).unwrap();
+            assert_eq!(view.key(), key);
+            assert_eq!(view.generation(), epoch);
+            assert_eq!(sync.last_update_id(), Some(102));
+        }
+    }
+    exercise::<BinanceSpot>();
+    exercise::<BinanceUsdM>();
+}
+#[test]
 fn spot_buffers_before_subscription_then_replays_stale_and_adjacent_bridge() {
     let mut sync = DepthSync::<BinanceSpot, 8, 8, 4>::new(config::<BinanceSpot>()).unwrap();
     let token = sync

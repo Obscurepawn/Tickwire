@@ -1,0 +1,16 @@
+[package]
+name = "tickwire-instrument-index"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Bounded discrete instrument IDs mapped to stable dense indices"
+
+[lints]
+workspace = true
+
+[dependencies]
+
+[[bench]]
+name = "lookup"
+harness = false

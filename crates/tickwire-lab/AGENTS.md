@@ -40,6 +40,7 @@ cargo run -p tickwire-lab -- run --config /tmp/lab/scenario.json
 
 - `tests/install_cost_probe.rs`：2 个诊断测试，默认 `#[ignore]`，需要 `TICKWIRE_INSTALL_COST_FIXTURE` 指向保留的 Linux 运行产物；不是时序断言。
 - `src/handover/relay_tests.rs`：2 个内联测试（经 `#[cfg(test)] mod relay_tests;` 接入）。
+- `src/handover/export_tests.rs`：用真实账户重放与规范记录验证成交顺序；任何移交前成交均拒绝，后续成交不能掩盖提前成交。
 - 独立 Linux 全链路：`scripts/run-core-chain-linux.sh [spot-fill|spot-handover|spot-handover-custom] [dev|release]`（docker `rust:1.99.1-bookworm` 固定 digest，结果落 `.tools/lab-results/<run-id>/`；`.tools/` 不纳入交付）。
 
 ## 6. 关键不变量与注意事项

@@ -1,6 +1,8 @@
 #![cfg(target_os = "linux")]
 #![allow(unsafe_code)]
 
+mod common;
+use common::record;
 use tickwire_ipc::ResourceHeader;
 use tickwire_shm::*;
 
@@ -33,6 +35,7 @@ fn header() -> ResourceHeader {
         schema_major: 1,
         clock_domain: 1,
         required_features: 0x1c,
+        topic_id: 1,
         ..Default::default()
     }
 }
@@ -43,12 +46,6 @@ fn key(p: &Publisher<4>, id: u128) -> SubscriptionKey {
         generation: 1,
         cursor: id + 100,
     }
-}
-fn record(seq: u64) -> [u8; 512] {
-    let mut bytes = [0; 512];
-    bytes[..8].copy_from_slice(&seq.to_le_bytes());
-    bytes[8..].fill((seq % 251) as u8);
-    bytes
 }
 fn pending(p: &mut Publisher<4>, id: u128) -> (SubscriptionKey, Subscriber<64>, u64) {
     let sub = key(p, id);

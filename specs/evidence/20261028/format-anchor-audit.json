@@ -1,0 +1,208 @@
+{
+  "scope": "formatting-only anchor audit; no TLC and no lock rebasing",
+  "source_checks": [
+    {
+      "path": "crates/tickwire-account-journal/src/history.rs",
+      "before_sha256": "1e7c32b32e605d869458522b438accd048c7f14eedb0c749a3045757cb58f68e",
+      "after_sha256": "537e547e37b0b60feeea10ff1688ae98e07aeb4804e5d82c8de374706501187e",
+      "exact_rustfmt_output": true,
+      "whitespace_only": true
+    },
+    {
+      "path": "crates/tickwire-shm/src/mapped.rs",
+      "before_sha256": "cf96a76550c9a724d0f902d18338b40ecba1292337b052d1b17534bbf5b05f66",
+      "after_sha256": "ab89ffd17dbe7f2406d58f654d4a567251f42e756bfcc44764d23c570598655f",
+      "exact_rustfmt_output": true,
+      "whitespace_only": true
+    }
+  ],
+  "locks": [
+    {
+      "lock": "tla/execution_models/account_journal/L0_ordered_recovery/02_models/anchors.lock",
+      "files": [
+        {
+          "path": "crates/tickwire-account-journal/src/backend.rs",
+          "anchors": 33,
+          "pre_bad": 0,
+          "post_bad": 0,
+          "newly_bad": [],
+          "pre_bad_first": []
+        },
+        {
+          "path": "crates/tickwire-account-journal/src/history.rs",
+          "anchors": 43,
+          "pre_bad": 0,
+          "post_bad": 0,
+          "newly_bad": [],
+          "pre_bad_first": []
+        },
+        {
+          "path": "crates/tickwire-account-journal/src/identity.rs",
+          "anchors": 104,
+          "pre_bad": 51,
+          "post_bad": 51,
+          "newly_bad": [],
+          "pre_bad_first": [
+            100,
+            101,
+            102,
+            103,
+            104
+          ]
+        },
+        {
+          "path": "crates/tickwire-account-journal/src/lib.rs",
+          "anchors": 179,
+          "pre_bad": 178,
+          "post_bad": 178,
+          "newly_bad": [],
+          "pre_bad_first": [
+            100,
+            101,
+            102,
+            103,
+            105
+          ]
+        },
+        {
+          "path": "crates/tickwire-account/src/admission.rs",
+          "anchors": 55,
+          "pre_bad": 26,
+          "post_bad": 26,
+          "newly_bad": [],
+          "pre_bad_first": [
+            411,
+            412,
+            413,
+            414,
+            415
+          ]
+        },
+        {
+          "path": "crates/tickwire-account/src/recovery.rs",
+          "anchors": 38,
+          "pre_bad": 36,
+          "post_bad": 36,
+          "newly_bad": [],
+          "pre_bad_first": [
+            100,
+            101,
+            19,
+            20,
+            21
+          ]
+        },
+        {
+          "path": "crates/tickwire-journal/src/journal.rs",
+          "anchors": 98,
+          "pre_bad": 95,
+          "post_bad": 95,
+          "newly_bad": [],
+          "pre_bad_first": [
+            229,
+            230,
+            231,
+            232,
+            233
+          ]
+        },
+        {
+          "path": "crates/tickwire-journal/src/store.rs",
+          "anchors": 32,
+          "pre_bad": 0,
+          "post_bad": 0,
+          "newly_bad": [],
+          "pre_bad_first": []
+        }
+      ]
+    },
+    {
+      "lock": "tla/execution_models/join_owner/L0_pending_activation/02_models/anchors.lock",
+      "files": [
+        {
+          "path": "crates/tickwire-join/src/lib.rs",
+          "anchors": 575,
+          "pre_bad": 552,
+          "post_bad": 552,
+          "newly_bad": [],
+          "pre_bad_first": [
+            105,
+            106,
+            107,
+            108,
+            109
+          ]
+        },
+        {
+          "path": "crates/tickwire-join/src/mapped.rs",
+          "anchors": 301,
+          "pre_bad": 0,
+          "post_bad": 0,
+          "newly_bad": [],
+          "pre_bad_first": []
+        },
+        {
+          "path": "crates/tickwire-shm/src/lib.rs",
+          "anchors": 142,
+          "pre_bad": 141,
+          "post_bad": 141,
+          "newly_bad": [],
+          "pre_bad_first": [
+            417,
+            418,
+            419,
+            420,
+            421
+          ]
+        },
+        {
+          "path": "crates/tickwire-shm/src/mapped.rs",
+          "anchors": 203,
+          "pre_bad": 203,
+          "post_bad": 203,
+          "newly_bad": [],
+          "pre_bad_first": [
+            205,
+            206,
+            207,
+            208,
+            209
+          ]
+        }
+      ]
+    },
+    {
+      "lock": "tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/02_models/anchors.lock",
+      "files": [
+        {
+          "path": "crates/tickwire-shm/src/lib.rs",
+          "anchors": 369,
+          "pre_bad": 365,
+          "post_bad": 365,
+          "newly_bad": [],
+          "pre_bad_first": [
+            115,
+            116,
+            117,
+            118,
+            119
+          ]
+        },
+        {
+          "path": "crates/tickwire-shm/src/mapped.rs",
+          "anchors": 351,
+          "pre_bad": 351,
+          "post_bad": 351,
+          "newly_bad": [],
+          "pre_bad_first": [
+            209,
+            210,
+            211,
+            212,
+            213
+          ]
+        }
+      ]
+    }
+  ]
+}

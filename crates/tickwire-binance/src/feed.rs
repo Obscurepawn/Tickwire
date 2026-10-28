@@ -5,13 +5,15 @@ use serde::{
     de::{DeserializeSeed, SeqAccess, Visitor},
 };
 use serde_json::value::RawValue;
-use std::borrow::Cow;
-use tickwire_book::{BookKey, DepthEvent, Level, PriceTicks, QtyLots, Snapshot};
+use tickwire_book::{BookKey, DepthEvent, Level, PriceTicks, QtyLots, Side, Snapshot};
 use tickwire_venue::{ContractKind, InstrumentBinding};
+mod json;
 mod metadata;
 pub use metadata::*;
 mod sbe;
 pub use sbe::decode_sbe_diff;
+mod workspace;
+pub use workspace::{DepthUpdateRef, DepthWorkspace, decode_diff_into, decode_sbe_diff_into};
 
 pub const MAX_MARKET_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 pub const MAX_DEPTH_LEVELS: usize = 5000;
@@ -43,10 +45,20 @@ pub struct DepthContext {
     quantity_step: Decimal,
 }
 impl DepthContext {
+    /// Heap storage owned by the cached stream name and the immutable catalog binding.
+    pub fn reserved_bytes(&self) -> usize {
+        self.stream_symbol.capacity()
+            + self.instrument.symbol.as_str().len()
+            + self.instrument.base.symbol.as_str().len()
+            + self.instrument.quote.symbol.as_str().len()
+            + self.instrument.settlement.symbol.as_str().len()
+    }
     /// Follow a source owner's validated book generation without rebuilding catalog strings.
     pub fn set_generation(&mut self, generation: u64) {
         self.generation = generation;
     }
+    /// Bind a full external instrument identity to an owner-assigned local book key.
+    /// The owner must keep that complete key unique within its publication directory.
     pub fn new(
         market: Market,
         instrument: InstrumentBinding,
@@ -56,7 +68,7 @@ impl DepthContext {
     ) -> Result<Self> {
         if key.venue == 0
             || key.source == 0
-            || u64::from(key.instrument) != instrument.instrument_id
+            || instrument.instrument_id == 0
             || instrument.instrument_version == 0
             || instrument.catalog_version == 0
             || instrument.catalog_hash == [0; 32]
@@ -111,6 +123,14 @@ struct Levels<const N: usize> {
     len: usize,
 }
 impl<const N: usize> Levels<N> {
+    fn push(&mut self, level: Level) -> Result<()> {
+        if self.len == N {
+            return Err(Error::Capacity);
+        }
+        self.values[self.len] = level;
+        self.len += 1;
+        Ok(())
+    }
     fn as_slice(&self) -> &[Level] {
         &self.values[..self.len]
     }
@@ -151,7 +171,37 @@ impl<const N: usize> DepthSnapshot<N> {
         self.0.transaction_time_ns
     }
 }
+impl<const N: usize> DecodedDepth<N> {
+    fn set_fields(&mut self, fields: DepthFields) {
+        self.first = fields.first;
+        self.last = fields.last;
+        self.previous = fields.previous;
+        self.event_time_ns = fields.event_time_ns;
+        self.transaction_time_ns = fields.transaction_time_ns;
+    }
+}
 impl<const N: usize> DepthUpdate<N> {
+    #[inline(always)]
+    fn empty(context: &DepthContext, received: u64) -> Self {
+        Self(DecodedDepth {
+            key: context.key,
+            generation: context.generation,
+            bids: Levels {
+                values: [EMPTY_LEVEL; N],
+                len: 0,
+            },
+            asks: Levels {
+                values: [EMPTY_LEVEL; N],
+                len: 0,
+            },
+            first: 0,
+            last: 0,
+            previous: None,
+            received,
+            event_time_ns: None,
+            transaction_time_ns: None,
+        })
+    }
     pub fn event(&self) -> DepthEvent<'_> {
         DepthEvent {
             key: self.0.key,
@@ -237,73 +287,36 @@ pub fn decode_diff<const N: usize>(
     max_bytes: usize,
 ) -> Result<DepthUpdate<N>> {
     check_input::<N>(bytes, max_bytes)?;
-    #[derive(Deserialize)]
-    struct Envelope<'a> {
-        #[serde(borrow)]
-        stream: Option<Cow<'a, str>>,
-        #[serde(borrow)]
-        data: Option<&'a RawValue>,
-    }
-    let envelope: Envelope<'_> =
-        serde_json::from_slice(bytes).map_err(|_| Error::InvalidResponse)?;
-    let payload = match (envelope.stream, envelope.data) {
-        (Some(stream), Some(data)) if context.stream_matches(&stream) => data.get().as_bytes(),
-        (None, None) => bytes,
-        _ => return Err(Error::IdentityMismatch),
-    };
-    #[derive(Deserialize)]
-    struct Wire<'a> {
-        #[serde(borrow)]
-        e: Cow<'a, str>,
-        #[serde(borrow)]
-        s: Cow<'a, str>,
-        #[serde(rename = "E")]
-        event: u64,
-        #[serde(rename = "T")]
-        transaction: Option<u64>,
-        #[serde(rename = "U")]
-        first: u64,
-        #[serde(rename = "u")]
-        last: u64,
-        pu: Option<u64>,
-        st: Option<u64>,
-        #[serde(borrow)]
-        b: &'a RawValue,
-        #[serde(borrow)]
-        a: &'a RawValue,
-    }
-    let wire: Wire<'_> = serde_json::from_slice(payload).map_err(|_| Error::InvalidResponse)?;
-    if wire.e != "depthUpdate"
-        || wire.s != context.instrument.symbol.as_str()
-        || (context.market == Market::Spot && (wire.pu.is_some() || wire.st.is_some()))
-        || (context.market == Market::Usdm && wire.st.is_some_and(|st| st != 1))
-    {
-        return Err(Error::IdentityMismatch);
-    }
-    if wire.first > wire.last
-        || (context.market == Market::Usdm && (wire.pu.is_none() || wire.transaction.is_none()))
-    {
-        return Err(Error::InvalidResponse);
-    }
-    Ok(DepthUpdate(DecodedDepth {
-        key: context.key,
-        generation: context.generation,
-        bids: levels(wire.b, context)?,
-        asks: levels(wire.a, context)?,
-        first: wire.first,
-        last: wire.last,
-        previous: wire.pu,
-        received: received_mono_ns,
-        event_time_ns: Some(context.time_unit.nanoseconds(wire.event)?),
-        transaction_time_ns: wire
-            .transaction
-            .map(|v| context.time_unit.nanoseconds(v))
-            .transpose()?,
-    }))
+    let mut update = DepthUpdate::empty(context, received_mono_ns);
+    let fields = decode_json_with(bytes, context, |side, level| match side {
+        Side::Bid => update.0.bids.push(level),
+        Side::Ask => update.0.asks.push(level),
+    })?;
+    update.0.set_fields(fields);
+    Ok(update)
 }
+#[derive(Clone, Copy)]
+struct DepthFields {
+    first: u64,
+    last: u64,
+    previous: Option<u64>,
+    event_time_ns: Option<u64>,
+    transaction_time_ns: Option<u64>,
+}
+fn decode_json_with(
+    bytes: &[u8],
+    context: &DepthContext,
+    emit: impl FnMut(Side, Level) -> Result<()>,
+) -> Result<DepthFields> {
+    json::decode(bytes, context, emit)
+}
+
 fn check_input<const N: usize>(bytes: &[u8], max: usize) -> Result<()> {
-    if N == 0
-        || N > MAX_DEPTH_LEVELS
+    check_input_limit(N, bytes, max)
+}
+fn check_input_limit(limit: usize, bytes: &[u8], max: usize) -> Result<()> {
+    if limit == 0
+        || limit > MAX_DEPTH_LEVELS
         || max == 0
         || max > MAX_MARKET_MESSAGE_BYTES
         || bytes.len() > max
@@ -360,67 +373,67 @@ pub(crate) fn units(value: Decimal, step: Decimal) -> Result<i64> {
     i64::try_from(n).map_err(|_| Error::Overflow)
 }
 fn levels<const N: usize>(raw: &RawValue, context: &DepthContext) -> Result<Levels<N>> {
-    struct Seed<'a, const N: usize> {
+    let mut out = Levels {
+        values: [EMPTY_LEVEL; N],
+        len: 0,
+    };
+    levels_with(raw, context, |level| out.push(level))?;
+    Ok(out)
+}
+fn levels_with(
+    raw: &RawValue,
+    context: &DepthContext,
+    mut emit: impl FnMut(Level) -> Result<()>,
+) -> Result<()> {
+    struct Seed<'a, F> {
         ctx: &'a DepthContext,
         error: &'a mut Option<Error>,
+        emit: &'a mut F,
     }
-    impl<'de, const N: usize> DeserializeSeed<'de> for Seed<'_, N> {
-        type Value = Levels<N>;
+    impl<'de, F: FnMut(Level) -> Result<()>> DeserializeSeed<'de> for Seed<'_, F> {
+        type Value = ();
         fn deserialize<D: serde::Deserializer<'de>>(
             self,
             d: D,
-        ) -> std::result::Result<Self::Value, D::Error> {
+        ) -> std::result::Result<(), D::Error> {
             d.deserialize_seq(self)
         }
     }
-    impl<'de, const N: usize> Visitor<'de> for Seed<'_, N> {
-        type Value = Levels<N>;
+    impl<'de, F: FnMut(Level) -> Result<()>> Visitor<'de> for Seed<'_, F> {
+        type Value = ();
         fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.write_str("bounded price/quantity pairs")
         }
-        fn visit_seq<A: SeqAccess<'de>>(
-            self,
-            mut seq: A,
-        ) -> std::result::Result<Self::Value, A::Error> {
-            let mut out = Levels {
-                values: [EMPTY_LEVEL; N],
-                len: 0,
-            };
+        fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> std::result::Result<(), A::Error> {
             while let Some([price, qty]) = seq.next_element::<[Decimal; 2]>()? {
-                let result = (|| {
-                    if out.len == N {
-                        return Err(Error::Capacity);
-                    }
-                    let price = units(price, self.ctx.price_tick)?;
-                    let quantity = units(qty, self.ctx.quantity_step)?;
-                    if price <= 0 {
-                        return Err(Error::InvalidDecimal);
-                    }
-                    Ok(Level {
-                        price: PriceTicks(price),
-                        quantity: QtyLots(quantity),
-                    })
-                })();
-                match result {
-                    Ok(level) => {
-                        out.values[out.len] = level;
-                        out.len += 1;
-                    }
-                    Err(e) => {
-                        *self.error = Some(e);
-                        return Err(serde::de::Error::custom("invalid depth"));
-                    }
+                let result = (|| (self.emit)(normalize_level(price, qty, self.ctx)?))();
+                if let Err(error) = result {
+                    *self.error = Some(error);
+                    return Err(serde::de::Error::custom("invalid depth"));
                 }
             }
-            Ok(out)
+            Ok(())
         }
     }
     let mut error = None;
     let mut decoder = serde_json::Deserializer::from_str(raw.get());
-    let decoded = Seed {
+    Seed {
         ctx: context,
         error: &mut error,
+        emit: &mut emit,
     }
-    .deserialize(&mut decoder);
-    decoded.map_err(|_| error.unwrap_or(Error::InvalidResponse))
+    .deserialize(&mut decoder)
+    .map_err(|_| error.unwrap_or(Error::InvalidResponse))
+}
+
+fn normalize_level(price: Decimal, quantity: Decimal, context: &DepthContext) -> Result<Level> {
+    let price = units(price, context.price_tick)?;
+    let quantity = units(quantity, context.quantity_step)?;
+    if price <= 0 {
+        return Err(Error::InvalidDecimal);
+    }
+    Ok(Level {
+        price: PriceTicks(price),
+        quantity: QtyLots(quantity),
+    })
 }

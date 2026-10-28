@@ -42,6 +42,7 @@ cargo test -p tickwire-release
 - **replay 字节连续 ≠ 回调真实执行**：`replay.rs` 头注释“Validation here proves byte continuity, not that a strategy executed the callbacks; the SDK verifies the latter.”
 - **闭包先同步后发布**：`closure.rs` 验证数据与先前回调，活进程所有权仍由 Host 在发布前检查。
 - 上限常量集中在根/`replay`/`rebuild`，新增对象类型时先扩 `MAX_*` 并同步规格预算。
+- schema3 启动、安装与回滚闭包的不透明依赖沿 `tickwire-recovery` 的单对象 64 MiB、总量 256 MiB 预算；`Request.source_objects` 和 `rollback::Job.objects` 可承载这些依赖。类型化重放记录、控制请求、完成根与检查点仍限制为 `replay::MAX_BYTES`（16 MiB），所有引用继续核对精确长度与 SHA-256。
 
 ## 7. 改动检查清单
 

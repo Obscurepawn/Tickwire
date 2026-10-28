@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1160" viewBox="0 0 1440 1160" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · schema3 策略交接</title>
+<desc id="diagram-desc">旧策略保存S，新Shadow恢复S。协调器发送Prepare，Host停止旧转发并取得C，启动旧binary重放S到C。目标迁移C并应用新配置、持久安装。独立probe恢复安装输出并成功退出。执行端返回ReplayPrepared，协调器采纳后Commit，持久管理权移交，然后Release、旧实例退休和目标激活。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="1160" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · schema3 策略交接</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">从固定 S 重放到实际 C；持久安装与独立回滚探测完成后，协调器推进 Commit / Release。</text>
+<rect x="26" y="132" width="208" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="130" y="171" font-size="21" text-anchor="middle" style="fill:#13263e" class="title">旧策略 Active</text>
+<path d="M 130 194 V 1074" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="262" y="132" width="208" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="366" y="171" font-size="21" text-anchor="middle" style="fill:#13263e" class="title">Host / 执行端</text>
+<path d="M 366 194 V 1074" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="498" y="132" width="208" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="602" y="171" font-size="21" text-anchor="middle" style="fill:#13263e" class="title">目标 Shadow</text>
+<path d="M 602 194 V 1074" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="734" y="132" width="208" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="838" y="171" font-size="21" text-anchor="middle" style="fill:#13263e" class="title">旧 binary 回放</text>
+<path d="M 838 194 V 1074" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="970" y="132" width="208" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="1074" y="171" font-size="21" text-anchor="middle" style="fill:#13263e" class="title">独立回滚探针</text>
+<path d="M 1074 194 V 1074" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<rect x="1206" y="132" width="208" height="62" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<text x="1310" y="171" font-size="21" text-anchor="middle" style="fill:#13263e" class="title">协调器</text>
+<path d="M 1310 194 V 1074" stroke="#cbd7e5" stroke-width="1.5" stroke-dasharray="5 6"/>
+<path d="M 130 240 L 366 240" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="248.0" y="228" font-size="17" text-anchor="middle" style="fill:#13263e">固定 S / 持久输入闭包</text>
+<path d="M 366 286 L 602 286" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="484.0" y="274" font-size="17" text-anchor="middle" style="fill:#13263e">启动并恢复 S</text>
+<path d="M 602 332 L 366 332" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="484.0" y="320" font-size="17" text-anchor="middle" style="fill:#50647d">READY：恢复阶段完成</text>
+<path d="M 1310 390 L 366 390" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="838.0" y="378" font-size="17" text-anchor="middle" style="fill:#13263e">签名 Prepare：绑定 operation / member / 当前挑战</text>
+<path d="M 366 436 L 130 436" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="248.0" y="424" font-size="17" text-anchor="middle" style="fill:#13263e">停止旧转发，封口 C</text>
+<path d="M 130 482 L 366 482" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="248.0" y="470" font-size="17" text-anchor="middle" style="fill:#50647d">实际 C + 完整 S → C 输入</text>
+<path d="M 366 528 L 838 528" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="602.0" y="516" font-size="17" text-anchor="middle" style="fill:#13263e">启动旧 binary，按原输入顺序重放 S → C</text>
+<path d="M 838 574 L 366 574" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="602.0" y="562" font-size="17" text-anchor="middle" style="fill:#50647d">真实回放完成 / C 检查点</text>
+<path d="M 366 620 L 602 620" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="484.0" y="608" font-size="17" text-anchor="middle" style="fill:#13263e">迁移 C / ConfigApply / 安装</text>
+<path d="M 602 666 L 366 666" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="484.0" y="654" font-size="17" text-anchor="middle" style="fill:#50647d">持久安装与实际消费证明</text>
+<path d="M 366 712 L 1074 712" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="720.0" y="700" font-size="17" text-anchor="middle" style="fill:#13263e">独立探针恢复 C 的迁移输出</text>
+<path d="M 1074 758 L 366 758" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="720.0" y="746" font-size="17" text-anchor="middle" style="fill:#50647d">完整输出重读 + 子进程成功退出</text>
+<path d="M 366 804 L 1310 804" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="838.0" y="792" font-size="17" text-anchor="middle" style="fill:#13263e">签名 ReplayPrepared：源回放、安装、回滚与当前 READY</text>
+<path d="M 1310 850 L 366 850" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="838.0" y="838" font-size="17" text-anchor="middle" style="fill:#13263e">Commit：绑定已采纳的 ReplayAdoption</text>
+<rect x="246" y="865" width="240" height="48" rx="8" fill="#eaf4f4" stroke="#c8e0e1" stroke-width="1.5"/>
+<text x="366" y="895" font-size="17" text-anchor="middle" style="fill:#087f8c" class="title">同步管理权移交记录</text>
+<path d="M 1310 947 L 366 947" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="838.0" y="935" font-size="17" text-anchor="middle" style="fill:#13263e">Release：全部成员已 Committed</text>
+<path d="M 366 993 L 130 993" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="248.0" y="981" font-size="17" text-anchor="middle" style="fill:#13263e">QUIESCE / DETACH / 退出</text>
+<path d="M 366 1039 L 602 1039" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="484.0" y="1027" font-size="17" text-anchor="middle" style="fill:#13263e">旧进程已退出，再激活目标</text>
+<rect x="48" y="1090" width="1344" height="44" rx="8" fill="#e8eef7" stroke="#d8e2ef" stroke-width="1.5"/>
+<text x="720" y="1119" font-size="18" text-anchor="middle" style="fill:#50647d">历史回放与 Shadow 阶段关闭命令输出；订单创建者保留，管理权移交后由新实例继续消费迟到成交。</text>
+</svg>

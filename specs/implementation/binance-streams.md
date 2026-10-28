@@ -16,7 +16,17 @@
 
 价格/数量解析只接受普通十进制字符串，所有换算检查溢出和余数。费用严格按目录资产单位验证；正 commission 转负现金流，负 commission 转返佣。USD-M PnL 独立属于结算资产；报价金额不由单价与数量推算。
 
+深度上下文分别绑定完整 `u64 InstrumentBinding.instrument_id` 与进程内 `BookKey`。外部标的 ID 必须非零；`BookKey.instrument` 是调用方分配的本地 `u32` 槽，可从零开始，不要求与外部 ID 数值相等，禁止截断外部 ID 来生成槽。调用方负责同一发布目录内完整 BookKey 的唯一性及源到标的的绑定。venue/source 非零、catalog/version/hash、产品、symbol 与价格数量网格的既有校验不变。JSON/SBE 深度结果携带本地 key 供 Book 核对，IPC、事件和日志中的外部标的身份仍由完整目录绑定提供。
+
 `PrivateEvent` 和深度结果只能通过验证构造。消息、数组和字段长度均有限制，错误不交付可观察的半个对象。元数据和私有事件使用有界 Vec、字符串及规范事件编码；本阶段没有零分配或延迟性能结论。
+
+## 可复用深度增量工作区
+
+`DepthWorkspace::new(max_total_levels)` 在冷路径预留连续的双侧增量存储，容量为 1…5000 档且按 bids 与 asks 合计计算。`decode_diff_into` / `decode_sbe_diff_into` 接收消息、可信 `DepthContext`、接收时间、字节上限和可变工作区，返回仅在本次借用期间有效的 `DepthUpdateRef`；它提供与既有结果相同的 `event()`、交易所事件时间与事务时间。下一次解码需要独占工作区，不能与上次的借用结果并存。解码失败不返回部分事件，工作区可直接用于下一条消息。
+
+新旧入口共用产品、symbol/组合流、已知重复字段、序号范围、定点网格和 SBE schema 校验；重复价位继续交给 Book 的原子校验，不在解码器中合并。既有 `decode_diff::<N>` / `decode_sbe_diff::<N>` 签名与单侧 N 档容量语义保持兼容。发布器使用新入口时限制双侧总数为 4096；正常 JSON/SBE 解码在工作区构造后不分配，并在 2 MiB 线程栈完成最大总档数的解码。
+
+JSON diff 使用有界结构扫描，共同处理已知字段与忽略字段的语法；合法转义字段名、symbol、组合流名和十进制字符串均保留兼容，未知字段中的转义与嵌套值不触发堆分配。嵌套容器最多 128 层，十进制解转义后仍受原有 80 字节限制；非法 UTF-8、转义、代理项、数字和容器语法拒绝。`DepthWorkspace::capacity()` 返回准入的总档数，`reserved_bytes()` 返回实际 heap capacity；`DepthContext::reserved_bytes()` 包括缓存 stream symbol 与绑定内四个目录字符串的 heap 字节，供上层缓存预算检查。错误路径不承诺分配数量，健康解码不回退到分配式解析。
 
 ## TDD 与审阅
 

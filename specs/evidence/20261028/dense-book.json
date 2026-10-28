@@ -1,0 +1,187 @@
+{
+  "date_local": "2026-10-28",
+  "scope": "Full-width stable instrument IDs bound to process-local book keys; native WSL2 Linux, local TLS exchange fixtures only",
+  "source_manifest": "dense-book-source-sha256.json",
+  "source_files": 674,
+  "binary_manifest": "dense-book-binaries.json",
+  "checks": {
+    "check_rust_sh": "passed: workspace all-target tests, doctests, rustfmt, Clippy -D warnings",
+    "design_contracts": {
+      "scope": "design_artifacts_only_not_runtime_tests",
+      "ipc": {
+        "result": "PASS",
+        "layouts": 46,
+        "fields_checked": 734,
+        "vectors_roundtripped": 63,
+        "data_message_ids": 31,
+        "control_opcodes": 37,
+        "crc32c_checks": 19,
+        "semantic_cases": 25,
+        "unchanged_abi_vectors": 37,
+        "bank_and_cursor_bytes": 3496542208,
+        "all_committed_shm_bytes": 6449856512,
+        "local_links": "PASS"
+      },
+      "risk": {
+        "cases": 21,
+        "expected_fields": 131,
+        "failures": []
+      },
+      "deployment": {
+        "profile": "TW-LD-ASYNC-16x2-v1",
+        "bank_cursor_bytes": 3496542208,
+        "shm_committed_bytes": 6449856512,
+        "shm_limit_bytes": 8589934592,
+        "nominal_disk_bytes_per_second": 532285577,
+        "retention_bytes": 11497368463200,
+        "data_raft_groups": 0
+      },
+      "configuration": {
+        "reference_schema_errors": 0,
+        "production_template_expected_rejections": 413,
+        "openapi": "openapi_spec_validator_pass",
+        "api_operations": 16,
+        "api_refs": 256
+      },
+      "config_semantics": {
+        "reference_schema_errors": 0,
+        "template_expected_errors": 413,
+        "cross_field_checks": "passed",
+        "deployment_and_ipc_consistency": "passed",
+        "openapi_complete_check": "run_repository_validator_with_openapi",
+        "openapi_operations": 16,
+        "openapi_refs_resolved": 256,
+        "negative_cases_passed": 17,
+        "candidate_variants_passed": 3,
+        "projection_and_locator_examples": "passed",
+        "capacity": {
+          "strategy_instances": 32,
+          "active": 16,
+          "shadow": 16,
+          "strategy_domain_pairs": 64,
+          "bank_and_cursor_bytes": 3496542208,
+          "snapshot_bytes": 2147483648,
+          "projection_object_bytes": 537395200,
+          "total_with_relay_bytes": 6449856512,
+          "relay_budget_bytes": 268435456
+        }
+      }
+    },
+    "documentation": {
+      "markdown_files": 137,
+      "local_links": 439,
+      "reference_usages": 0,
+      "errors": []
+    },
+    "internal_dependencies": "60 crates, DAG",
+    "red_green": [
+      "MD full-width startup previously rejected instrument range",
+      "app real assemble previously rejected book instrument id exceeds u32",
+      "publisher previously accepted duplicate complete BookKey",
+      "SBE real client must receive configured binding, not only callback rewrite"
+    ],
+    "network_regression": "Actual SBE WSS + REST snapshot + DepthSync + SHM: external original ID/local 0 and external u64::MAX/local 1; every output header retains the stable ID",
+    "multi_instrument_regression": "Two high IDs with equal low 32 bits, local keys 0/1; actual JSON depth, Quote, FeedState wire records, JOIN member/depth, wrong-key rejection and bank rotation"
+  },
+  "scenario": {
+    "kind": "spot-handover-custom",
+    "exit_code": 0,
+    "elapsed_seconds": 62.42,
+    "elapsed_note": "Whole fixture wall time, not a latency measurement",
+    "operation_schema": 3,
+    "source_s_sequence": 2,
+    "source_c_sequence": 10,
+    "target_final_sequence": 285,
+    "pids": {
+      "source_replay_pid": 170409,
+      "target_pid": 170401,
+      "rollback_pid": 170416
+    },
+    "mirror_records_verified": 12,
+    "worker_report_position_verified": 12,
+    "account_fill_verified": true,
+    "fee_reconciled": true,
+    "unknown_orders": 0,
+    "asset_totals": {
+      "BTC": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "USDT": {
+        "atoms": "94000000000",
+        "scale": 8
+      }
+    },
+    "local_directory": "/tmp/tw-1028-d1",
+    "result_sha256": "f15e66b1bb911f03e74cb72aeb6bd92a57a9e00a6494c9ae4701b17148a9afec"
+  },
+  "limitations": [
+    "Topic catalog remains fixed; runtime feed additions require trusted publication and existing-consumer re-JOIN",
+    "Depth stream_id still requires lossless u32 BookKey.source; event source_id remains full u64",
+    "Existing debug JSON 4096-level decoder overflows default test-thread stack; complete publisher test passes with explicit 8 MiB stack",
+    "No production qualification, full-chain latency or cross-host takeover claim; bench smoke is not performance evidence",
+    "No new TLA run; these behavior files have no existing anchors.lock references"
+  ],
+  "logs": {
+    "dense-book-check-rust.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/dense-book-check-rust.log",
+      "sha256": "651a97927e2eb504f8f29536c094486e38806ceb07a4717db78b27da07f5499a"
+    },
+    "dense-book-release.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/dense-book-release.log",
+      "sha256": "85a2ddd4d0ee38207c18f38d4c3612065471d8c1b57b987b9736e047388d8202"
+    },
+    "dense-book-scenario.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/dense-book-scenario.log",
+      "sha256": "0546de8bc48fc5824d5909cc6e022ba5eda7e18ab30ea0489b8b43bd2fa26ce4"
+    },
+    "dense-md-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/dense-md-red.log",
+      "sha256": "52846449849a1d2063e51812e1f4d2b74539a467c47235def24bdc52ef932eef"
+    },
+    "dense-md-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/dense-md-green.log",
+      "sha256": "abe97573e0fd5e7821fb94db103d20f5fab14bc52ff547a98a0a3ac27dcc121a"
+    },
+    "dense-md-config.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/dense-md-config.log",
+      "sha256": "db2da7a3f666f114c6e719980a87349b16a2aac622dbf706de46524ec9697198"
+    },
+    "compact-book-key-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/compact-book-key-red.log",
+      "sha256": "1bbe74b362cc84be8fd67675a6f39602546960bc468478c5cc7e77b5f6f3015a"
+    },
+    "compact-book-key-binance.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/compact-book-key-binance.log",
+      "sha256": "03b930a64dccf7482eb4eee51428173a33791f9382c0355751b0fdfe4472e747"
+    },
+    "publisher-local-key-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-local-key-red.log",
+      "sha256": "fdc9215fa65829cd8aed9209a9e9b8b6f04e1bd5c71a5c89386d0991e48e3ab9"
+    },
+    "publisher-local-key-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-local-key-green.log",
+      "sha256": "a6357c69a02b63e4141dde54d78b97855887942448b958e253dbe2097d2b367c"
+    },
+    "publisher-local-key-json-stack.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-local-key-json-stack.log",
+      "sha256": "d967afddc0eb96146f7534cdbafab48e0bf0a04fa44c1be6be5aef276b652dce"
+    },
+    "app-bookkey-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/app-bookkey-red.log",
+      "sha256": "36be65a90b571a7ba33a1c1bc738a250ddc9d0815269cb45ea96023bedf6925d"
+    },
+    "app-bookkey-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/app-bookkey-green.log",
+      "sha256": "e6bd95b24e7bd7d03272e986b2c97a714df51b7087de68312ba207ea84962223"
+    },
+    "sbe-u64-network-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/sbe-u64-network-red.log",
+      "sha256": "05d5aa628e8176348c8f9ba8f4ffa1f93920cfef51265b011ba987cd19c3eb17"
+    },
+    "sbe-u64-network-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/sbe-u64-network-green.log",
+      "sha256": "84721727573195f633a1779dba85f14157bd953f832b2e525133a4c741b45831"
+    }
+  }
+}

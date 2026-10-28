@@ -9,7 +9,7 @@
 ## 2. 公共 API 入口
 
 - 核心 trait：`Strategy`（`src/lib.rs`，回调 `on_market` / `on_report` / `on_timer` / `on_external` / `apply_config` / `apply_model` / `checkpoint` / `prepare_replayed` / `replay_registration`）；内置 `ObserveOnly`（只观察）、`FixedDemo`（单次显式演示命令）。
-- 市场侧：`market::{MarketReplica, MarketView}`（`last_trade/best_quote/mark_funding/bids/asks/best_bid/live/continuous/instrument/state_age_ns/trigger_at`）。
+- 市场侧：`market::{MarketReplica, MarketView, DenseId}`（`last_trade/best_quote/mark_funding/bids/asks/best_bid/live/continuous/instrument/state_age_ns/trigger_at`）；`apply_dense`/`view_dense` 复用同一副本目录的本地索引，接收循环每帧只映射一次，回调与记录仍使用外部稳定 `instrument_id`。
 - 命令发布：`outbound::{CommandStore, IntentWriter, StoredCommand}`，辅助 `encode_intent`、`resolve_record`、`resolve_file`；`CommandStore` 把命令按 digest 存进 `BlobStore`，`IntentWriter` 写 SPSC bank。
 - 模块（均为 pub mod）：`bootstrap`（`Bootstrap` 受信启动描述）、`checkpoint`（`verify_request/verify_reply` 挑战密封）、`handover`（`AccountMirror`、`verify`、`matches`）、`market`、`outbound`、`preflight`（`Job`、`ProbeJob`、`Completed`、`start`、`run_probe`、`verify_recovery_inputs`、`target`）、`recovery`（`Template`/`RecoveryFiles`/`Descriptor`/`RecoveryWriter`，`CHECKPOINT_SCHEMA=0x545753430001`）、`registered`（静态工厂 `Registration`/`UserFactory`/`FactoryBinding`/`Configured`/`configure`/`unsafe fn run`）、`replay`（`Engine`、`ReplayableStrategy`、`SourceReplayFactory`、`ReplayContext`、`ReplayEffects`、`VerifiedStateAtCut`、`replay_source`；子模块 `account/application/catchup/control/durable/install/live/native/process/rebuild/retained/rollback`）、`reports`（`AccountReport::{Baseline, Record}`、`ReportWriter`、`ReportReceiver`、`ReportIdentity`）、`restore`（`Target`、`RestoreFactory`、`VerifiedRestoreInput`，`OBSERVE_SCHEMA/DEMO_V1_SCHEMA/DEMO_SCHEMA/DEMO_MIGRATION`）、`retirement`（QUIESCE 封装）。
 - feature：`default = ["runtime"]`；`runtime = ["dep:tickwire-runtime","dep:tickwire-account-gateway","dep:tickwire-binance-account","dep:tickwire-binance-clock","dep:tickwire-binance-public"]`。`src/runtime.rs`（`RecoveryResolver`、`ResolvedRecovery`、`IntentReceiver`、`RuntimeStrategy`）只在 `#[cfg(feature = "runtime")]` 下编译；`handover::matches` 与 `recovery` 内个别项也受该 feature 门控。`--no-default-features` 编译得到不含执行端接线的纯回放/恢复子集。
@@ -55,6 +55,8 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 - **FixedDemo 不自造凭证**：`lib.rs` 头注释“The complete order and authority context are supplied by the launcher; this strategy never invents credentials.”；命令必须绑定目标实例/动作键，消耗后置空（`self.command = None`，只发一次）。
 - **注册不获授权**：`prepare_replayed` 默认返回 `Unsupported`；`replay_registration` 默认 `None` 表示保留旧回调 API，不声称完整尾部重放。
 - **启动前先绑定全部恢复输入**：`preflight::verify_recovery_inputs` 在任何恢复回调前核对模板与每个依赖文件摘要；回调完成件先保存，再挂市场/意图（`preflight.rs` 头注释）。
+- **恢复闭包与消息预算分开**：worker 的来源/回滚闭包与 `Live::installation_objects` 按恢复单对象 64 MiB 读取 opaque 依赖，再由 release 校验完整闭包；`ControlInput`、检查点和其他类型化 replay 消息仍限制 16 MiB。
+- **输入采集不执行用户工厂**：`replay::rebuild::capture::CaptureOnly` 只在绑定的本机单调时钟域内接收有界行情与账户输入，错误不推进窗口；`finish` 返回真实输入链与账户摘要的封口，不生成用户检查点或 READY。Host 与实际进程采集接线仍待完成。
 - **handover 只核对恢复数据**：`AccountMirror` 要求基线恰好一次、记录 position 连续且绑定同一基线 digest，`InputSeal` 逐条累计；`verify` 输出仅供 Host 绑定来源身份/WAL，不代表回调已被执行。
 - **检查点挑战不可缓存**：`checkpoint.rs` 头注释“cached READY is not a seal response”；`verify_request` 核对 opcode=39、challenge、report_sequence、实例/代次/逻辑策略、有效期不超过会话。
 - **unsafe 边界**：`worker::run/run_restored` 与 `registered::run` 标记 `# Safety`，准入边界是已认证 launcher 的 SHM 策略；修改 worker 生命周期时不得去掉该契约注释。

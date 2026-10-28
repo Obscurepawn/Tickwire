@@ -1,0 +1,257 @@
+{
+  "date_local": "2026-10-28",
+  "scope": "Reusable depth decoding and allocation-free TopicPublisher notification-to-real-SHM healthy path; native WSL2 Linux, local TLS exchange fixtures",
+  "source_manifest": "publisher-hot-source-sha256.json",
+  "source_files": 682,
+  "binary_manifest": "publisher-hot-binaries.json",
+  "release_source_note": "Release production source equals this manifest; config-journal/tests/journal.rs received only test synchronization guards between release build and final workspace checks.",
+  "checks": {
+    "check_rust_sh": "passed: rustfmt, workspace all-target tests, doctests, Clippy -D warnings; complete script exit 0",
+    "design_contracts": {
+      "scope": "design_artifacts_only_not_runtime_tests",
+      "ipc": {
+        "result": "PASS",
+        "layouts": 46,
+        "fields_checked": 734,
+        "vectors_roundtripped": 63,
+        "data_message_ids": 31,
+        "control_opcodes": 37,
+        "crc32c_checks": 19,
+        "semantic_cases": 25,
+        "unchanged_abi_vectors": 37,
+        "bank_and_cursor_bytes": 3496542208,
+        "all_committed_shm_bytes": 6449856512,
+        "local_links": "PASS"
+      },
+      "risk": {
+        "cases": 21,
+        "expected_fields": 131,
+        "failures": []
+      },
+      "deployment": {
+        "profile": "TW-LD-ASYNC-16x2-v1",
+        "bank_cursor_bytes": 3496542208,
+        "shm_committed_bytes": 6449856512,
+        "shm_limit_bytes": 8589934592,
+        "nominal_disk_bytes_per_second": 532285577,
+        "retention_bytes": 11497368463200,
+        "data_raft_groups": 0
+      },
+      "configuration": {
+        "reference_schema_errors": 0,
+        "production_template_expected_rejections": 413,
+        "openapi": "openapi_spec_validator_pass",
+        "api_operations": 16,
+        "api_refs": 256
+      },
+      "config_semantics": {
+        "reference_schema_errors": 0,
+        "template_expected_errors": 413,
+        "cross_field_checks": "passed",
+        "deployment_and_ipc_consistency": "passed",
+        "openapi_complete_check": "run_repository_validator_with_openapi",
+        "openapi_operations": 16,
+        "openapi_refs_resolved": 256,
+        "negative_cases_passed": 17,
+        "candidate_variants_passed": 3,
+        "projection_and_locator_examples": "passed",
+        "capacity": {
+          "strategy_instances": 32,
+          "active": 16,
+          "shadow": 16,
+          "strategy_domain_pairs": 64,
+          "bank_and_cursor_bytes": 3496542208,
+          "snapshot_bytes": 2147483648,
+          "projection_object_bytes": 537395200,
+          "total_with_relay_bytes": 6449856512,
+          "relay_budget_bytes": 268435456
+        }
+      }
+    },
+    "documentation": {
+      "markdown_files": 138,
+      "local_links": 448,
+      "reference_usages": 0,
+      "errors": []
+    },
+    "internal_dependencies": "60 crates, DAG",
+    "allocation_measurement": {
+      "entrypoints": [
+        "TopicPublisher::on_notice_slot",
+        "TopicPublisher::on_event_slot"
+      ],
+      "end": "JoinOwner + real mapped SHM publication",
+      "before_first_quote": {
+        "allocations": 3,
+        "bytes": 3608
+      },
+      "after_each_measured_case": {
+        "allocations": 0,
+        "bytes": 0
+      },
+      "cases": [
+        "first Quote",
+        "first Trade/BestBidAsk/MarkFunding",
+        "all exact categories on one row",
+        "JSON and SBE: 12 inline, 13 arena, 4096 maximum and 1 level after long frame",
+        "escaped JSON",
+        "bank replacement and subsequent publication"
+      ],
+      "excludes": [
+        "fixture/input construction",
+        "wire inspection by test",
+        "network receive and WebSocket framing",
+        "error paths"
+      ]
+    },
+    "bounded_storage": {
+      "topic_depth_workspaces_bytes": 131072,
+      "maximum_published_delta_levels_total": 4096,
+      "depth_test_thread_stack_bytes": 2097152,
+      "cache_budget": "actual retained capacities and owned text payload; required-1 rejected, exact budget accepted and unchanged after publication",
+      "json_container_depth_limit_including_root": 128
+    },
+    "decoder": "Existing fixed-buffer and new reusable-buffer diff APIs share the scanner; legal escapes retained; independent allocating serde oracle compares accepted messages, values and single-byte mutations",
+    "failure_atomicity": [
+      "decode/oversize/last-update mismatch marks bank dirty without advancing published prefix",
+      "ring/arena exhaustion does not publish a partial record batch",
+      "new bank seeds from retained validated cache"
+    ],
+    "initial_workspace_failure": {
+      "test": "scope_writer_and_capacity_failures_preserve_existing_history",
+      "cause": "Parallel test fork temporarily inherited unrelated WAL lock descriptions until exec",
+      "fix": "Test-only shared/exclusive fork barrier; production lock semantics unchanged",
+      "controlled_experiment": {
+        "execve_delay_ms": 200,
+        "test_threads": 16,
+        "before": {
+          "passed": 6,
+          "failed": 8,
+          "ignored_child_helper": 1,
+          "exit_code": 101
+        },
+        "after": {
+          "passed": 14,
+          "failed": 0,
+          "ignored_child_helper": 1,
+          "exit_code": 0
+        },
+        "controls": "Original scope test alone and original suite skipping process-spawning test both passed",
+        "strace_injection": "-e inject=execve:delay_enter=200ms"
+      }
+    }
+  },
+  "scenario": {
+    "kind": "spot-handover-custom",
+    "exit_code": 0,
+    "elapsed_seconds": 62.477,
+    "local_directory": "/tmp/tw-1028-h1",
+    "elapsed_note": "Whole fixture wall time, not a latency measurement",
+    "operation_schema": 3,
+    "source_s_sequence": 2,
+    "source_c_sequence": 10,
+    "target_final_sequence": 285,
+    "pids": {
+      "source_replay_pid": 265437,
+      "target_pid": 265429,
+      "rollback_pid": 265438
+    },
+    "mirror_records_verified": 12,
+    "worker_report_position_verified": 12,
+    "account_fill_verified": true,
+    "fee_reconciled": true,
+    "unknown_orders": 0,
+    "asset_totals": {
+      "BTC": {
+        "atoms": "100100000",
+        "scale": 8
+      },
+      "USDT": {
+        "atoms": "94000000000",
+        "scale": 8
+      }
+    },
+    "result_sha256": "db8934b83ec692363b5f8ea86beb30d221e83876b7e2e3f7a534e757070c2746",
+    "account_report_sha256": "9b25a073c3dd582c9c8faff904ae4eefdaa643d44b8d4d56bc96cc0be363a289"
+  },
+  "limitations": [
+    "Runtime topic/feed additions still require trusted publication, prewarming and existing-consumer re-JOIN",
+    "No full network-chain allocation or latency claim; benchmark smoke is not performance evidence",
+    "No production qualification or cross-host takeover claim",
+    "No new TLA run; historical evidence remains scoped to its original source manifest"
+  ],
+  "logs": {
+    "publisher-hot-check-rust.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-check-rust.log",
+      "sha256": "070cfec80a712067b4c9cd595994b227954b7a6bf5119a43afab21b121cddf83"
+    },
+    "publisher-hot-check-rust-final.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-check-rust-final.log",
+      "sha256": "b568ae8d03cb4dd43a8c8dcdb81adb61fcf7a147cbad357f6811cf9c6cec8019"
+    },
+    "publisher-hot-release.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-release.log",
+      "sha256": "395799478f3d47750e6205ca2f7015781e52298a33d649875d35f531256c2621"
+    },
+    "publisher-hot-scenario.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-scenario.log",
+      "sha256": "db8934b83ec692363b5f8ea86beb30d221e83876b7e2e3f7a534e757070c2746"
+    },
+    "publisher-hot-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-red.log",
+      "sha256": "09a527ec69eff13794019fa51d4ff6be14170b6e2c8ce123a879c6fea9749a1b"
+    },
+    "publisher-hot-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-green.log",
+      "sha256": "7cddce710d961d7d314b4cd362157812601067005e6d64c5a3055fa080be48f0"
+    },
+    "publisher-hot-decoder-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-decoder-red.log",
+      "sha256": "26dff73a685f78692e0bba3bd232df1bee97b8457037bb4fc6e68855f12a6485"
+    },
+    "publisher-hot-decoder-escaped-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-decoder-escaped-red.log",
+      "sha256": "20c2380dc88dc746c71c9e4f957b0a0d7e8f8b8b9d4b0af27a2f904593897694"
+    },
+    "publisher-hot-decoder-differential.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-decoder-differential.log",
+      "sha256": "3ff8ad2045a573fbb266d1aa79a5e95e5cb6dd92cc081fe015085369cf89224a"
+    },
+    "publisher-hot-decoder-final.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-decoder-final.log",
+      "sha256": "398ba8d6064d3b2f4520ed8c3ac2e74c7836dc708eb178c3e1d8b11877552a02"
+    },
+    "publisher-hot-decoder-binance-final.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-decoder-binance-final.log",
+      "sha256": "f487a0feb08e2386fb82aad5950e89874bcfeef1f2ff8355a01748ada141726e"
+    },
+    "publisher-hot-original-stack.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/publisher-hot-original-stack.log",
+      "sha256": "a6c8ba0989f999da83f9af4385f52658b1fd377c135cc17092a339ec4f30bf2b"
+    },
+    "config-journal-isolated.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/config-journal-isolated.log",
+      "sha256": "da7078ad15e704129b41f3d256c2fa99400b87ebec74e229e5293a438b701342"
+    },
+    "config-journal-delayed-red.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/config-journal-delayed-red.log",
+      "sha256": "729e8745901dd786229a742cef0d80591650578c6a5f9da39e7ff042abab3d6b"
+    },
+    "config-journal-delayed-no-spawn.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/config-journal-delayed-no-spawn.log",
+      "sha256": "d1b8b3b254fac874295b2c139a52d3db8cfa9f94e4f07fb0075fd85976e7b205"
+    },
+    "config-journal-delayed-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/config-journal-delayed-green.log",
+      "sha256": "a3c3cc4729bc82de2a09316e8395871fe6907b19a473ff6f7d1661e56c858327"
+    },
+    "config-journal-green.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/config-journal-green.log",
+      "sha256": "752f5a542e076f7e8367ee8fed62c714565868b49711eec37da1900f6898cf39"
+    },
+    "config-journal-clippy.log": {
+      "local_path": "/tmp/tickwire-progress-20261028/config-journal-clippy.log",
+      "sha256": "042c2cc77de3f1c14f527da7e896dc4ebb7cf2d4b7c36cbc8a36c792d36074ca"
+    }
+  }
+}

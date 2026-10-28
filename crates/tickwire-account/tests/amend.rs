@@ -359,16 +359,21 @@ fn iceberg_and_other_order_types_are_not_classified_as_supported_decreases() {
 
 #[test]
 fn new_unreconciled_observation_while_b_waits_rechecks_the_original_admission_condition() {
-    let (mut account,c,_,o)=known_order();
-    let a=amend(&c,&o,4);account.admit(&a,61).unwrap();
-    account.apply_event(&result(&a,&o,75,Some("0"))).unwrap();
-    let mut b=amend(&c,&o,5).command().clone();
-    let v::CommandBody::AmendKeepPriority{new_quantity,..}=&mut b.body else {unreachable!()};
-    *new_quantity=venue::d(6,-4);
-    let b=account.admit(&canonical(b),62).unwrap();
-    account.apply_event(&result(&a,&o,75,Some("0.0004"))).unwrap();
-    let before=account.asset(key(2)).unwrap();
-    assert_eq!(account.check_admission(&b,63),Err(Error::Unreconciled));
+    let (mut account, c, _, o) = known_order();
+    let a = amend(&c, &o, 4);
+    account.admit(&a, 61).unwrap();
+    account.apply_event(&result(&a, &o, 75, Some("0"))).unwrap();
+    let mut b = amend(&c, &o, 5).command().clone();
+    let v::CommandBody::AmendKeepPriority { new_quantity, .. } = &mut b.body else {
+        unreachable!()
+    };
+    *new_quantity = venue::d(6, -4);
+    let b = account.admit(&canonical(b), 62).unwrap();
+    account
+        .apply_event(&result(&a, &o, 75, Some("0.0004")))
+        .unwrap();
+    let before = account.asset(key(2)).unwrap();
+    assert_eq!(account.check_admission(&b, 63), Err(Error::Unreconciled));
     account.apply_abort(&b).unwrap();
-    assert_eq!(account.asset(key(2)).unwrap(),before);
+    assert_eq!(account.asset(key(2)).unwrap(), before);
 }

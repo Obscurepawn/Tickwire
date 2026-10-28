@@ -1,0 +1,193 @@
+{
+  "date_local": "2026-10-28",
+  "environment": {
+    "kernel": "Linux-6.18.54.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "machine": "x86_64",
+    "rustc": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "cargo": "cargo 1.99.1 (5f94df478 2026-08-27)",
+    "cpu_affinity": "pid 43707's current affinity list: 0-15",
+    "cpu_model": "AMD Ryzen 7 8845H w/ Radeon 780M Graphics",
+    "cargo_target_dir": "/tmp/tickwire-progress-20261028/target"
+  },
+  "scope": "Native Linux WSL2; local TLS exchange fixtures; no production exchange credentials or orders",
+  "validation": {
+    "cargo_test_workspace_all_targets": "passed",
+    "cargo_test_workspace_doc": "passed",
+    "cargo_fmt_all_check": "passed",
+    "cargo_clippy_workspace_all_targets_D_warnings": "passed",
+    "test_only_lint_edits_after_workspace_tests": [
+      "crates/tickwire-app/src/release_preflight.rs",
+      "crates/tickwire-binance-account/src/amendment.rs",
+      "crates/tickwire-lab/src/handover/export_tests.rs",
+      "crates/tickwire-release/src/tests/startup.rs"
+    ],
+    "targeted_rechecks": "startup 2 passed; amendment 3 passed; export order 2 passed",
+    "check_rust_script_note": "All-targets and doc phases completed. Initial Clippy findings were fixed in tests; full Clippy and targeted affected tests subsequently passed. No lint allowances added.",
+    "contracts": {
+      "scope": "design_artifacts_only_not_runtime_tests",
+      "ipc": {
+        "result": "PASS",
+        "layouts": 46,
+        "fields_checked": 734,
+        "vectors_roundtripped": 63,
+        "data_message_ids": 31,
+        "control_opcodes": 37,
+        "crc32c_checks": 19,
+        "semantic_cases": 25,
+        "unchanged_abi_vectors": 37,
+        "bank_and_cursor_bytes": 3496542208,
+        "all_committed_shm_bytes": 6449856512,
+        "local_links": "PASS"
+      },
+      "risk": {
+        "cases": 21,
+        "expected_fields": 131,
+        "failures": []
+      },
+      "deployment": {
+        "profile": "TW-LD-ASYNC-16x2-v1",
+        "bank_cursor_bytes": 3496542208,
+        "shm_committed_bytes": 6449856512,
+        "shm_limit_bytes": 8589934592,
+        "nominal_disk_bytes_per_second": 532285577,
+        "retention_bytes": 11497368463200,
+        "data_raft_groups": 0
+      },
+      "configuration": {
+        "reference_schema_errors": 0,
+        "production_template_expected_rejections": 413,
+        "openapi": "openapi_spec_validator_pass",
+        "api_operations": 16,
+        "api_refs": 256
+      },
+      "config_semantics": {
+        "reference_schema_errors": 0,
+        "template_expected_errors": 413,
+        "cross_field_checks": "passed",
+        "deployment_and_ipc_consistency": "passed",
+        "openapi_complete_check": "run_repository_validator_with_openapi",
+        "openapi_operations": 16,
+        "openapi_refs_resolved": 256,
+        "negative_cases_passed": 17,
+        "candidate_variants_passed": 3,
+        "projection_and_locator_examples": "passed",
+        "capacity": {
+          "strategy_instances": 32,
+          "active": 16,
+          "shadow": 16,
+          "strategy_domain_pairs": 64,
+          "bank_and_cursor_bytes": 3496542208,
+          "snapshot_bytes": 2147483648,
+          "projection_object_bytes": 537395200,
+          "total_with_relay_bytes": 6449856512,
+          "relay_budget_bytes": 268435456
+        }
+      }
+    },
+    "documentation": {
+      "markdown_files": 137,
+      "local_links": 437,
+      "reference_usages": 0,
+      "errors": []
+    },
+    "dependency_graph": {
+      "workspace_crates": 60,
+      "internal_dependency_graph": "DAG",
+      "implementation_specs": 69
+    },
+    "linux_runner": "Docker daemon unavailable; same Rust test/doc/clippy suite executed natively on Linux, including actual memfd, SCM_RIGHTS and multiprocess tests"
+  },
+  "scenarios": [
+    {
+      "scenario": "spot-handover-custom",
+      "deployment": "normal",
+      "exit_code": 0,
+      "elapsed_seconds": 62.504,
+      "operation_schema": 3,
+      "source_s_sequence": 2,
+      "source_c_sequence": 10,
+      "target_final_sequence": 285,
+      "distinct_process_ids": {
+        "source_replay": 124857,
+        "target": 124849,
+        "rollback": 124864
+      },
+      "mirror_records_verified": 12,
+      "worker_report_position_verified": 12,
+      "account_fill_verified": true,
+      "fee_reconciled": true,
+      "unknown_orders": 0,
+      "asset_totals": {
+        "BTC": {
+          "atoms": "100100000",
+          "scale": 8
+        },
+        "USDT": {
+          "atoms": "94000000000",
+          "scale": 8
+        }
+      },
+      "run_result_sha256": "ca988ba16a4bffb1578d20f3106952bfd5145b3be890fba39257f8136742cb8d",
+      "raw_local_directory": "/tmp/tw-1028-f1",
+      "large_binary_note": null
+    },
+    {
+      "scenario": "spot-handover-custom",
+      "deployment": "large",
+      "exit_code": 0,
+      "elapsed_seconds": 63.895,
+      "operation_schema": 3,
+      "source_s_sequence": 2,
+      "source_c_sequence": 22,
+      "target_final_sequence": 315,
+      "distinct_process_ids": {
+        "source_replay": 126028,
+        "target": 126000,
+        "rollback": 126056
+      },
+      "mirror_records_verified": 12,
+      "worker_report_position_verified": 12,
+      "account_fill_verified": true,
+      "fee_reconciled": true,
+      "unknown_orders": 0,
+      "asset_totals": {
+        "BTC": {
+          "atoms": "100100000",
+          "scale": 8
+        },
+        "USDT": {
+          "atoms": "94000000000",
+          "scale": 8
+        }
+      },
+      "run_result_sha256": "decaacea40440df90477c8cbd8d465295c96e695961c3e96bed66040d0c8f17c",
+      "raw_local_directory": "/tmp/tw-1028-b1",
+      "large_binary_note": "Two strategy ELF copies padded to 16777217 bytes before scenario generation; deadlines unchanged"
+    }
+  ],
+  "benchmark": {
+    "executable": "/tmp/tickwire-progress-20261028/target/release/deps/lookup-01c073e1de87b547",
+    "rounds": 5,
+    "cpu": 2,
+    "samples_per_group": 200,
+    "queries_per_sample": 4096,
+    "measurement": "distribution of batch-average lookup latency; not individual-query p99",
+    "build_or_test_concurrency": false
+  },
+  "tla": "No TLC rerun. Behavioral changes have no existing source anchors. Formatting changed two anchored files but introduced no newly invalid anchors; pre-existing stale anchors remain, see format-anchor-audit.json.",
+  "source_identity": {
+    "release_build": "build-source-sha256.json",
+    "verified_final": "verified-source-sha256.json",
+    "differences": "Only test syntax/lint changes after release build; production paths identical."
+  },
+  "local_log_sha256": {
+    "final-check-rust-2.log": "27920004ca82eb72af374b44546a19a1cbf079280a809f3d39a1cdd65821a423",
+    "final-clippy-2.log": "bef0907e8b89d0a41e5da725171c06caf35fafd249c243a7a1b39983f8babbac",
+    "final-startup-tests.log": "6dd077fb8fb5b5a2125e6443e216ac8a62781ff0f3f0210c607d721767ebd5e7",
+    "final-amendment-tests.log": "4dc920818a0570220ab00694f456a9a1b7215e7d5e695d5e98187c018eaae786",
+    "final-export-tests.log": "b127984ab3269c8c8c344ec80ba45efbcb6fa075eee2bfc408379b8f2cc8a399",
+    "final-build-release.log": "700b0f1f20acfe84c3271d5dfd5fccda976f93883a1eb7e0ee5500ba6fb25014",
+    "final-normal-run.log": "684bac5bb266ade7c5bf1588a28475d38504673a729cb94e015afbaac0d3cfea",
+    "final-large-run.log": "0232f3b944f7eb69c9530d2bc0a073cfdac3095e8384ac1805ee19baa2cc16bc"
+  }
+}

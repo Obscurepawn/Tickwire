@@ -26,9 +26,9 @@ use tickwire_strategy_sdk::{
 use tickwire_supervisor::{AuthenticatedChild, LaunchSpec, Registry};
 mod preflight;
 mod readiness;
+pub mod rebuild_probe;
 mod remote;
 mod source_replay;
-pub mod rebuild_probe;
 pub use remote::{RemoteHostedStrategy, RemoteLaunch};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;
 

@@ -18,6 +18,7 @@ tickwire-binance-sbe = { path = "../tickwire-binance-sbe" }
 workspace = true
 
 [dev-dependencies]
+allocation-counter = "=0.8.1"
 tickwire-transport = { path = "../tickwire-transport" }
 rcgen = "=0.14.10"
 sha1 = "=0.10.6"

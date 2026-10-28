@@ -190,6 +190,9 @@ fn real_wss_exact_events_roundtrip_publisher_shm_snapshot_and_replica() {
                 &mut Faults,
             )
             .unwrap();
+        let slot = publisher.instrument_slot(id).unwrap();
+        assert_eq!((slot.instrument(), slot.index()), (id, 0));
+        assert!(publisher.instrument_slot(id ^ (1 << 63)).is_err());
         let actual = network::exercise(source, kind, encoding, |n| {
             let now = match n {
                 tickwire_binance_public::EventNotice::Event { event, .. } => {
@@ -197,7 +200,7 @@ fn real_wss_exact_events_roundtrip_publisher_shm_snapshot_and_replica() {
                 }
                 _ => 2,
             };
-            publisher.on_event_notice(id, n, now, &mut Faults).unwrap();
+            publisher.on_event_slot(slot, n, now, &mut Faults).unwrap();
         });
         assert!(publisher.state().live());
         let mut exact = Vec::new();

@@ -27,6 +27,26 @@ fn literal() -> Vec<u8> {
         .collect()
 }
 #[test]
+fn compact_book_key_bridges_binary_depth_with_a_full_u64_catalog_id() {
+    let mut cfg = config();
+    cfg.instrument.instrument_id = u64::MAX;
+    cfg.key.instrument = 0;
+    let key = cfg.key;
+    let mut sync = DepthSync::<BinanceSpot, 8, 8, 4>::new(cfg).unwrap();
+    let token = sync.connect(1).unwrap();
+    sync.subscription_ready(token).unwrap();
+    assert!(matches!(
+        sync.on_sbe_delta(token, &literal(), 10).unwrap(),
+        Outcome::Buffered { .. }
+    ));
+    let request = sync.request_snapshot(11, 100).unwrap();
+    assert!(matches!(sync.on_snapshot(request.token(), 200,
+        br#"{"lastUpdateId":43,"bids":[["65000","0.1"],["64999","0.2"]],"asks":[["65001","0.3"]]}"#,
+        12).unwrap(), Outcome::SnapshotInstalled { live: true, .. }));
+    assert_eq!(sync.view(12, 100).unwrap().key(), key);
+    assert_eq!(sync.last_update_id(), Some(44));
+}
+#[test]
 fn binary_diff_bridges_real_snapshot_without_json_conversion() {
     let mut s = DepthSync::<BinanceSpot, 8, 8, 4>::new(config()).unwrap();
     let t = s.connect(1).unwrap();

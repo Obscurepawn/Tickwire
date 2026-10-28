@@ -12,6 +12,8 @@ use tickwire_binance_public as public;
 use tickwire_market_source::protocol::IdentityConfig;
 use tickwire_transport::rustls;
 use tickwire_venue as v;
+mod feed_index;
+pub use feed_index::FeedIndex;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Asset {
@@ -206,8 +208,9 @@ impl EventFeed {
         &self,
         feed: &Feed,
         domain: public::ClockDomain,
+        index: &FeedIndex,
     ) -> Result<(public::EventConfig, public::EventNetworkConfig)> {
-        let (base, network) = feed.build(domain)?;
+        let (base, network) = feed.build(domain, index)?;
         let ctx = self.context(feed)?;
         let stream_address = self
             .stream_address
@@ -305,7 +308,9 @@ impl Feed {
     pub fn build(
         &self,
         domain: public::ClockDomain,
+        index: &FeedIndex,
     ) -> Result<(public::Config, public::NetworkConfig)> {
+        let key = index.book_key(self)?;
         let source = self.source.build();
         let instrument = self.instrument.build(source)?;
         if self.sbe_api_key_file.is_some() && source != public::Source::SpotProduction {
@@ -344,18 +349,7 @@ impl Feed {
             first_operation: self.first_operation,
             depth: public::DepthConfig {
                 instrument,
-                key: tickwire_book::BookKey {
-                    venue: self.venue_id,
-                    instrument: self
-                        .instrument
-                        .id
-                        .try_into()
-                        .map_err(|_| invalid("book instrument range"))?,
-                    source: self
-                        .stream_id
-                        .try_into()
-                        .map_err(|_| invalid("book stream range"))?,
-                },
+                key,
                 time_unit: if self.sbe_api_key_file.is_some() {
                     public::TimeUnit::Microseconds
                 } else {

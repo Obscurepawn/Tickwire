@@ -1,7 +1,7 @@
 use super::*;
 use serde::{Deserialize, Serialize};
-mod probe_tests;
 mod capture_tests;
+mod probe_tests;
 struct Fixture {
     op: Operation,
     manifest: ReleaseManifest,

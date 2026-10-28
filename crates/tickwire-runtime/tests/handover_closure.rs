@@ -57,8 +57,9 @@ fn fixture() -> (
     let dependency = store.put_object(baseline.bytes()).unwrap();
     let seal = HandoverSeal {
         preflight_receipt_digest: None,
-            replay_installation_digest: None,
-            replay_restore_digest: None, replay_rollback_digest: None,
+        replay_installation_digest: None,
+        replay_restore_digest: None,
+        replay_rollback_digest: None,
         version: 1,
         owner: new.instance,
         instance: new.instance,

@@ -32,7 +32,7 @@ cargo build -p tickwire-business-journal
 cargo test -p tickwire-business-journal
 ```
 
-无 bin/example。`tests/runtime.rs` 覆盖提交授权、重试幂等、事实先同步后应用、NoBytesAccepted 中止、冲突冻结与恢复重放。
+无 bin/example。`tests/runtime.rs` 覆盖提交授权、重试幂等、事实先同步后应用、NoBytesAccepted 中止、冲突冻结与恢复重放。测试入口通过 `FORK_BARRIER` 同步：普通文件用例持共享 guard，创建子进程的用例持独占 guard，避免 fork 到 exec 之间继承其他并行测试的 WAL 锁描述符；生产文件锁行为不变。新增文件或子进程测试须沿用该约束。
 
 ## 6. 关键不变量与注意事项
 

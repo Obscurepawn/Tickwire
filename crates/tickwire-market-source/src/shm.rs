@@ -440,13 +440,16 @@ impl ShmSource {
     }
     fn observation(&self, id: u64, _now: MonoTime, _age: u64) -> Result<FeedObservation> {
         let v = self.client.replica.view(id).ok_or(Error::Identity)?;
+        Ok(self.observation_from_view(&v))
+    }
+    fn observation_from_view(&self, v: &crate::replica::MarketView<'_>) -> FeedObservation {
         let mark = v.trigger();
         let received = v.received_mono_ns();
         let published = v.published_mono_ns();
-        Ok(FeedObservation {
+        FeedObservation {
             key: FeedKey {
                 topic_id: mark.topic_id,
-                instrument_id: id,
+                instrument_id: v.instrument(),
             },
             instrument_version: v.version(),
             feed_generation: mark.feed_generation,
@@ -455,7 +458,7 @@ impl ShmSource {
             received_at: MonoTime::new(self.client.domain, received),
             published_at: MonoTime::new(self.client.domain, published),
             live: !self.stopped && v.continuous(),
-        })
+        }
     }
     fn invalidate(&mut self, sink: &mut dyn MarketSink) -> Result<()> {
         self.stopped = true;
@@ -537,11 +540,16 @@ impl ShmSource {
             } else {
                 &[]
             };
-            let id = self.client.replica.apply(guard.bytes(), payload)?;
+            let dense = self.client.replica.apply_dense(guard.bytes(), payload)?;
             let seq = guard.sequence();
             drop(guard);
             self.client.consumer.apply(seq)?;
-            if !sink.observed(self.observation(id, now, age)?) {
+            let view = self
+                .client
+                .replica
+                .view_dense(dense)
+                .ok_or(Error::Identity)?;
+            if !sink.observed(self.observation_from_view(&view)) {
                 return Err(Error::Sink);
             }
             out.records += 1;

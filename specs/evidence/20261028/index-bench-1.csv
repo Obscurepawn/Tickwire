@@ -1,0 +1,97 @@
+method,dataset,keys,operation,samples,operations_per_sample,p50_ns_per_op,p99_ns_per_op,max_ns_per_op
+# memory,fixed,clustered,32,key_bytes=256,slot_bytes=128,heap_bytes=384
+# memory,append,clustered,32,key_bytes=256,slot_bytes=256,heap_bytes=512
+fixed,clustered,32,hit,200,4096,1.886,3.654,13.055
+append,clustered,32,hit,200,4096,1.717,1.756,4.486
+btree,clustered,32,hit,200,4096,3.615,7.155,11.563
+hash,clustered,32,hit,200,4096,6.619,11.171,25.171
+binary_search,clustered,32,hit,200,4096,3.743,6.888,8.698
+fixed,clustered,32,miss,200,4096,1.901,3.097,6.052
+append,clustered,32,miss,200,4096,1.588,1.658,4.589
+btree,clustered,32,miss,200,4096,5.044,8.155,15.137
+hash,clustered,32,miss,200,4096,6.303,9.119,12.964
+binary_search,clustered,32,miss,200,4096,3.302,6.529,12.015
+append,clustered,32,insert,200,32,2.500,2.812,17.219
+btree,clustered,32,insert,200,32,5.969,15.031,23.812
+hash,clustered,32,insert,200,32,9.062,10.031,13.781
+binary_search,clustered,32,insert,200,32,11.594,12.219,13.125
+# memory,fixed,clustered,256,key_bytes=2048,slot_bytes=1024,heap_bytes=3072
+# memory,append,clustered,256,key_bytes=2048,slot_bytes=2048,heap_bytes=4096
+fixed,clustered,256,hit,200,4096,1.898,1.945,5.113
+append,clustered,256,hit,200,4096,1.820,2.353,9.716
+btree,clustered,256,hit,200,4096,6.340,9.219,13.720
+hash,clustered,256,hit,200,4096,6.612,13.199,19.429
+binary_search,clustered,256,hit,200,4096,5.758,11.817,21.528
+fixed,clustered,256,miss,200,4096,1.898,3.596,6.370
+append,clustered,256,miss,200,4096,2.177,5.046,12.852
+btree,clustered,256,miss,200,4096,7.713,13.454,17.732
+hash,clustered,256,miss,200,4096,6.394,14.439,26.007
+binary_search,clustered,256,miss,200,4096,5.543,10.271,12.069
+append,clustered,256,insert,200,256,2.113,5.637,66.027
+btree,clustered,256,insert,200,256,10.098,30.215,78.121
+hash,clustered,256,insert,200,256,8.570,15.262,133.895
+binary_search,clustered,256,insert,200,256,16.516,17.027,79.801
+# memory,fixed,clustered,4096,key_bytes=32768,slot_bytes=16384,heap_bytes=49152
+# memory,append,clustered,4096,key_bytes=32768,slot_bytes=32768,heap_bytes=65536
+fixed,clustered,4096,hit,200,4096,1.898,3.104,5.083
+append,clustered,4096,hit,200,4096,1.996,6.289,7.243
+btree,clustered,4096,hit,200,4096,10.408,37.308,41.119
+hash,clustered,4096,hit,200,4096,6.962,15.760,25.158
+binary_search,clustered,4096,hit,200,4096,10.885,14.853,20.002
+fixed,clustered,4096,miss,200,4096,1.903,3.466,5.020
+append,clustered,4096,miss,200,4096,2.258,9.496,10.198
+btree,clustered,4096,miss,200,4096,8.549,12.903,17.010
+hash,clustered,4096,miss,200,4096,6.392,10.391,16.531
+binary_search,clustered,4096,miss,200,4096,9.092,13.158,17.955
+append,clustered,4096,insert,200,4096,2.130,3.175,5.641
+btree,clustered,4096,insert,200,4096,27.194,39.591,50.204
+hash,clustered,4096,insert,200,4096,8.608,14.576,22.884
+binary_search,clustered,4096,insert,200,4096,10.574,17.661,19.941
+# memory,fixed,scattered,32,key_bytes=256,slot_bytes=256,heap_bytes=512
+# memory,append,scattered,32,key_bytes=256,slot_bytes=256,heap_bytes=512
+fixed,scattered,32,hit,200,4096,1.925,2.715,4.494
+append,scattered,32,hit,200,4096,1.808,1.859,5.550
+btree,scattered,32,hit,200,4096,3.679,5.827,6.247
+hash,scattered,32,hit,200,4096,6.685,12.030,13.681
+binary_search,scattered,32,hit,200,4096,3.782,8.111,25.337
+fixed,scattered,32,miss,200,4096,2.069,2.167,2.214
+append,scattered,32,miss,200,4096,1.996,2.094,9.307
+btree,scattered,32,miss,200,4096,4.012,8.204,12.020
+hash,scattered,32,miss,200,4096,6.353,9.535,14.452
+binary_search,scattered,32,miss,200,4096,3.322,6.216,9.445
+append,scattered,32,insert,200,32,2.500,3.438,13.156
+btree,scattered,32,insert,200,32,7.500,11.594,35.375
+hash,scattered,32,insert,200,32,9.062,10.344,16.906
+binary_search,scattered,32,insert,200,32,15.344,16.281,22.250
+# memory,fixed,scattered,256,key_bytes=2048,slot_bytes=2048,heap_bytes=4096
+# memory,append,scattered,256,key_bytes=2048,slot_bytes=2048,heap_bytes=4096
+fixed,scattered,256,hit,200,4096,1.910,2.182,4.596
+append,scattered,256,hit,200,4096,1.808,2.387,9.083
+btree,scattered,256,hit,200,4096,6.392,9.359,9.978
+hash,scattered,256,hit,200,4096,6.624,9.860,10.428
+binary_search,scattered,256,hit,200,4096,5.785,9.625,16.680
+fixed,scattered,256,miss,200,4096,2.045,3.319,5.068
+append,scattered,256,miss,200,4096,1.969,3.322,12.930
+btree,scattered,256,miss,200,4096,6.790,9.065,13.163
+hash,scattered,256,miss,200,4096,6.389,9.082,12.676
+binary_search,scattered,256,miss,200,4096,5.560,7.852,9.046
+append,scattered,256,insert,200,256,2.035,7.199,44.891
+btree,scattered,256,insert,200,256,13.031,17.301,45.008
+hash,scattered,256,insert,200,256,8.457,15.027,17.023
+binary_search,scattered,256,insert,200,256,22.898,26.652,84.031
+# memory,fixed,scattered,4096,key_bytes=32768,slot_bytes=32768,heap_bytes=65536
+# memory,append,scattered,4096,key_bytes=32768,slot_bytes=32768,heap_bytes=65536
+fixed,scattered,4096,hit,200,4096,2.089,5.445,6.264
+append,scattered,4096,hit,200,4096,1.993,6.357,11.005
+btree,scattered,4096,hit,200,4096,10.142,36.301,39.016
+hash,scattered,4096,hit,200,4096,6.859,9.359,12.747
+binary_search,scattered,4096,hit,200,4096,12.754,19.417,20.271
+fixed,scattered,4096,miss,200,4096,2.290,9.056,9.207
+append,scattered,4096,miss,200,4096,2.253,9.234,10.748
+btree,scattered,4096,miss,200,4096,10.543,55.198,73.403
+hash,scattered,4096,miss,200,4096,6.360,19.689,67.378
+binary_search,scattered,4096,miss,200,4096,11.979,24.407,47.072
+append,scattered,4096,insert,200,4096,2.231,5.721,9.185
+btree,scattered,4096,insert,200,4096,24.610,44.400,51.762
+hash,scattered,4096,insert,200,4096,8.564,12.832,19.593
+binary_search,scattered,4096,insert,200,4096,153.289,175.994,176.879

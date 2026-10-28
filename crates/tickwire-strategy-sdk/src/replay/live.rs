@@ -9,7 +9,7 @@ use tickwire_recovery::FileBlobStore;
 enum Owner<S> {
     Legacy {
         strategy: S,
-        replica: crate::MarketReplica,
+        replica: Box<crate::MarketReplica>,
         maximum_age: u64,
     },
     Recorded(Box<DurableEngine<Application<S>, FileBlobStore>>),
@@ -84,7 +84,7 @@ impl<S: Strategy> Live<S> {
         } else {
             Owner::Legacy {
                 strategy,
-                replica,
+                replica: Box::new(replica),
                 maximum_age: config.maximum_market_age_ns,
             }
         };
@@ -373,7 +373,10 @@ impl<S: Strategy> Live<S> {
         };
         let verified = tickwire_release::replay::install::verify(root.digest, |hash| {
             e.store
-                .get(tickwire_recovery::StoreKey::Object(hash), MAX_BYTES)
+                .get(
+                    tickwire_recovery::StoreKey::Object(hash),
+                    tickwire_recovery::MAX_OBJECT_BYTES,
+                )
                 .map_err(|_| tickwire_release::Error::Missing)
         })?;
         root.verify(&verified.continued.bytes()?, MAX_BYTES as u64)?;
