@@ -489,6 +489,13 @@ struct ApiCluster {
 }
 impl ApiCluster {
     fn new(candidate: &Candidate) -> Self {
+        Self::new_with_object_limits(candidate, 8, 4 * 1024 * 1024)
+    }
+    fn new_with_object_limits(
+        candidate: &Candidate,
+        max_objects: u32,
+        max_payload_bytes: u64,
+    ) -> Self {
         use ring::signature::{Ed25519KeyPair, KeyPair as _};
         use tickwire_config_service::{bootstrap::*, *};
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
@@ -524,9 +531,9 @@ impl ApiCluster {
                     Config {
                         cluster: [19; 16],
                         objects: ObjectLimits {
-                            max_objects: 8,
+                            max_objects,
                             max_inflight: 4,
-                            max_payload_bytes: 4 * 1024 * 1024,
+                            max_payload_bytes,
                         },
                     },
                     trust.clone(),
@@ -1795,6 +1802,7 @@ fn https_owner_shutdown_and_drop_close_pending_connections_without_stopping_raft
     server.shutdown(&mut cluster.nodes[0].control()).unwrap();
 }
 
+mod control_archive;
 mod control_planning;
 #[path = "control_reads/mod.rs"]
 mod control_reads;

@@ -97,7 +97,30 @@ impl Assessment {
 struct Completed<T> {
     value: T,
     checked: ContentValidated,
+    started_unix_ms: u64,
     finished_unix_ms: u64,
+}
+pub(crate) struct ArchiveJob(JobCore<ArchiveResult>);
+struct ArchiveResult {
+    archive: crate::plan_archive::content::ContentArchive,
+    base: CommittedHead,
+    prepared: PreparedCandidate,
+}
+pub(crate) struct ArchiveAssessment {
+    context: Arc<Context>,
+    result: ArchiveResult,
+    content: ContentValidated,
+}
+impl ArchiveAssessment {
+    pub(crate) fn archive(&self) -> &crate::plan_archive::content::ContentArchive {
+        &self.result.archive
+    }
+    pub(crate) fn base(&self) -> &CommittedHead {
+        &self.result.base
+    }
+    pub(crate) fn prepared(&self) -> &PreparedCandidate {
+        &self.result.prepared
+    }
 }
 struct Finished(Arc<AtomicBool>);
 impl Drop for Finished {
@@ -111,6 +134,60 @@ impl Job {
     }
 }
 impl Owner {
+    pub(crate) fn start_archive(
+        &mut self,
+        draft: crate::planning::PlanDraft,
+        request: crate::plan_archive::ArchiveRequest,
+    ) -> Result<ArchiveJob> {
+        self.revalidate_plan(draft.assessment())?;
+        let (assessment, input) = draft.into_archive_parts();
+        self.start_task(move |context, _| {
+            let result = assessment.result;
+            let archive = crate::plan_archive::content::ContentArchive::capture(
+                crate::plan_archive::content::Capture {
+                    id: request.id,
+                    subject: &request.subject,
+                    leaf_sha256: request.leaf_sha256,
+                    request_digest: request.request_digest,
+                    if_match: &request.if_match,
+                    base: &result.base,
+                    prepared: &result.prepared,
+                    input: input.input(),
+                    plan: &result.plan,
+                    delivery: &result.delivery,
+                    content: &assessment.content,
+                    bundle: &context.bundle,
+                    trust: &context.trust,
+                    limits: context.limits,
+                },
+            )?;
+            Ok((
+                ArchiveResult {
+                    archive,
+                    base: result.base,
+                    prepared: result.prepared,
+                },
+                assessment.content,
+            ))
+        })
+        .map(ArchiveJob)
+    }
+    pub(crate) fn poll_archive(
+        &mut self,
+        job: &mut ArchiveJob,
+    ) -> Result<Option<ArchiveAssessment>> {
+        Ok(self
+            .poll_task(&mut job.0)?
+            .map(|(result, content)| ArchiveAssessment {
+                context: job.0.context.clone(),
+                result,
+                content,
+            }))
+    }
+    pub(crate) fn revalidate_archive(&mut self, assessment: &ArchiveAssessment) -> Result<u64> {
+        self.revalidate_content(&assessment.context, &assessment.content)?;
+        Ok(self.last_unix_ms)
+    }
     pub fn start_plan(
         &mut self,
         base: CommittedHead,
@@ -247,11 +324,15 @@ impl Owner {
                         return Err(Error::NotReady);
                     }
                     let (value, checked) = compute(&worker_context, start)?;
+                    if checked.checked_unix_ms() > start {
+                        return Err(Error::NotReady);
+                    }
                     let finished_unix_ms = system_time()?;
                     window(start, finished_unix_ms, checked.expires_unix_ms())?;
                     Ok(Completed {
                         value,
                         checked,
+                        started_unix_ms: start,
                         finished_unix_ms,
                     })
                 })();
@@ -290,11 +371,12 @@ impl Owner {
         let Completed {
             value,
             checked,
+            started_unix_ms,
             finished_unix_ms,
         } = result?;
         self.last_unix_ms = self.last_unix_ms.max(finished_unix_ms);
         let now = self.sample()?;
-        if checked.checked_unix_ms() < job.accepted_unix_ms {
+        if started_unix_ms < job.accepted_unix_ms || checked.checked_unix_ms() > started_unix_ms {
             return Err(Error::NotReady);
         }
         window(checked.checked_unix_ms(), now, checked.expires_unix_ms())?;

@@ -11,6 +11,7 @@
 - `patch`：`Head { new(revision, candidate) / etag() / hash() }`、`ScopedPatch { parse / canonical_bytes / base_etag / hash / apply }`。
 - `prepared`：`Input<'a>`、`PreparedCandidate { prepare / base_hash / candidate / changes }`。
 - `plan`：`ComputedPlan::compute(base_revision, base, prepared, delivery, PlanOptions)`；`ApplyCeiling/ExposurePolicy/Action/Precondition/TargetPlan/ProjectionBinding`。getter 提供完整基线、候选、逐目标依赖动作、待验前提与规范摘要；`MAX_BYTES=1MiB`。revision 仅为调用方值，结果没有 Ready 或提交授权。
+- `plan::EncodedPlan::decode(bytes, expected_digest)` 严格重读规范计划；`ComputedPlan::verify_encoded` 使用其固定选项和完整输入重算后逐字核对。`rules_digest()` 绑定编译时嵌入的 20 项规则源码/契约/构建输入，独立于既有计划字节，由服务归档外层保存。
 - `projection`：`PinnedPolicy { decode / revision / reference }`、`Projection { value / canonical_bytes / hash / global_hash / policy_revision }`、`project(...)`。
 - `projection_object`：`ObjectBinding` 与严格投影对象编解码。
 - `locator`：`Locator { build / decode(format, bytes) / validate_successor / fields / canonical_bytes / hash / toml }`、`Fields`，`MAX_BYTES=16KiB`。
@@ -42,7 +43,7 @@ cargo clippy -p tickwire-config --all-targets -- -D warnings
 cargo fmt -p tickwire-config
 ```
 
-`tests/`：`candidate.rs`、`static_semantics.rs`、`patch.rs`、`prepared.rs`、`plan.rs`（独立纯内存闭包/依赖矩阵，fixture 在 `plan/support.rs`）、`projection.rs`、`delivery.rs`、`changes.rs`、`capacity.rs`、`artifacts.rs`、`locator.rs`、`independent_review.rs`，纯内存跨平台。契约另跑 `python3 scripts/verify-config-contract.py`（含生产模板 REQUIRED 未填必须拒绝的规则）。
+`tests/`：`candidate.rs`、`static_semantics.rs`、`patch.rs`、`prepared.rs`、`plan.rs`（纯内存闭包/依赖矩阵，fixture 在 `plan/support.rs`）、`plan_archive.rs`（严格重读、集合/字段/版本/预算拒绝、全动作往返、重算拒绝内容伪造，另只读 workspace 文件核对规则摘要）、`projection.rs`、`delivery.rs`、`changes.rs`、`capacity.rs`、`artifacts.rs`、`locator.rs`、`independent_review.rs`。契约另跑 `python3 scripts/verify-config-contract.py`（含生产模板 REQUIRED 未填必须拒绝的规则）。
 
 ## 关键不变量与注意事项
 
@@ -51,6 +52,7 @@ cargo fmt -p tickwire-config
 - **schema 只使用本地引用**：`validate_structural` 关闭网络与文件引用提取；未知字段、带未解决内容的生产模板拒绝（`validate_structural`、`config-candidate.md`）。
 - **normalized 只补唯一缺省**：仅 `RoleBinding.cluster_scope=false`，补齐后重新过预算与 schema 再算摘要；通用 `parse()` 保留原输入值，不自动补齐。
 - **计划内容不代替事实**：目标提示不裁剪新旧完整交付集合；未知目标、错配基线/候选、超应用上限拒绝。逐目标按两侧依赖计算，投影未变仍可能有静默或换代动作。每目标保留待验 RuntimeCapability/RuntimeIdentity，真实 SafeReadIndex、资格、effective 和授权属于服务端；不得增加纯值 Ready 捷径。
+- **归档重读仍非授权**：EncodedPlan 拒绝未知或缺失字段、重复键、非规范字节、重复/乱序集合及未知编码版本；恢复完整语义还须重算核对。带域计划摘要与复制对象正文 SHA-256 不可混用；规则摘要是源码身份，不是进程构建证明。
 - **locator 链**：generation 十进制字符串 1..2^63-1、恰好加一、前驱摘要等于旧完整摘要、root 改变且 migration ID 不复用紧邻前次；首次前驱摘要为零；清单摘要始终非零（`locator.rs::validate_successor`、`config-locator.md`）。
 - 本 crate `#![forbid(unsafe_code)]`，不读文件、不访问网络、不把校验通过变成部署授权。
 

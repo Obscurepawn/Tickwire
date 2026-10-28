@@ -13,6 +13,10 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 mod dependencies;
+mod encoded;
+mod rules;
+pub use encoded::EncodedPlan;
+pub use rules::rules_digest;
 pub const MAX_BYTES: usize = 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -169,6 +173,27 @@ pub struct ComputedPlan {
     digest: Hash,
 }
 impl ComputedPlan {
+    pub fn verify_encoded(
+        encoded: &EncodedPlan,
+        base_revision: u64,
+        base: &Candidate,
+        prepared: &PreparedCandidate,
+        delivery: &ProjectionDelivery,
+    ) -> Result<Self> {
+        let computed = Self::compute(
+            base_revision,
+            base,
+            prepared,
+            delivery,
+            encoded.options().clone(),
+        )?;
+        if computed.canonical_bytes() != encoded.canonical_bytes()
+            || computed.digest() != encoded.digest()
+        {
+            return Err(Error::Semantic("plan recomputation mismatch"));
+        }
+        Ok(computed)
+    }
     pub fn compute(
         base_revision: u64,
         base: &Candidate,

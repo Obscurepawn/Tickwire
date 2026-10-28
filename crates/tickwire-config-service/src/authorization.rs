@@ -75,10 +75,12 @@ impl RoleBindings {
         principal: &AuthenticatedPrincipal,
     ) -> Result<Authority> {
         trust.revalidate(principal)?;
-        let grants = self
-            .subjects
-            .get(principal.subject())
-            .ok_or(Error::Authorization)?;
+        self.historical_authority(principal.subject())
+    }
+    /// Reconstruct recorded scope for deterministic content verification only.
+    /// This does not authenticate a caller or authorize a current request.
+    pub(crate) fn historical_authority(&self, subject: &str) -> Result<Authority> {
+        let grants = self.subjects.get(subject).ok_or(Error::Authorization)?;
         Ok(Authority::from_grants(
             grants
                 .iter()

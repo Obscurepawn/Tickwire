@@ -2,6 +2,9 @@
 //! Object replication alone does not authorize a configuration deployment.
 #![forbid(unsafe_code)]
 
+#[cfg(test)]
+extern crate self as tickwire_config_service;
+
 pub mod account_facts;
 pub mod api;
 pub mod auth;
@@ -15,7 +18,9 @@ pub mod evidence;
 pub mod https;
 mod objects;
 mod peer_driver;
+pub mod plan_archive;
 pub mod planning;
+pub mod publication;
 pub mod qualification;
 pub mod request;
 pub mod resource_facts;
@@ -90,6 +95,7 @@ pub enum Change {
     ChunkStored { received: u32 },
     Sealed,
     Bootstrapped { revision: u64 },
+    PreparedStored { id: Identity, index: u64, term: u64 },
 }
 pub struct AppliedResult {
     applied: Applied,
@@ -124,6 +130,7 @@ pub struct Replica<S: Store> {
     config: Config,
     state: objects::State,
     bootstrap: bootstrap::State,
+    publication: publication::State,
     deployment: Option<deployment_owner::Owner>,
     planning_owner: std::sync::Arc<()>,
     scanned_through: u64,
@@ -157,6 +164,7 @@ impl<S: Store> Replica<S> {
             config,
             state: objects::State::new(config),
             bootstrap: bootstrap::State::new(trust),
+            publication: publication::State::default(),
             deployment: None,
             planning_owner: std::sync::Arc::new(()),
             scanned_through: 0,
@@ -231,6 +239,7 @@ impl<S: Store> Replica<S> {
             self.node.status().group,
             &mut self.state,
             &mut self.bootstrap,
+            &mut self.publication,
             &mut self.scanned_through,
         );
         let output = self
@@ -275,6 +284,16 @@ impl<S: Store> Replica<S> {
                 applied.index(),
                 applied.term(),
             ),
+            codec::Decoded::RecordPrepared(record) => match self.bootstrap.head() {
+                Some(head) => self.publication.apply(
+                    record,
+                    &self.state,
+                    &head,
+                    applied.index(),
+                    applied.term(),
+                ),
+                None => Err(Error::NotReady),
+            },
         };
         self.scanned_through = applied.index();
         Ok(result)
@@ -304,6 +323,25 @@ impl<S: Store> Replica<S> {
         Ok(bootstrap::HeadRead::Ready(
             self.bootstrap.head().map(Box::new),
         ))
+    }
+    pub fn read_prepared(
+        &mut self,
+        ticket: &ReadId,
+        query: publication::PreparedQuery<'_>,
+    ) -> Result<publication::PreparedRead> {
+        self.healthy()?;
+        let Some(barrier) = self.node.take_read(ticket)? else {
+            return Ok(publication::PreparedRead::Pending);
+        };
+        if self.scanned_through < barrier.index() {
+            return Err(Error::NotReady);
+        }
+        Ok(publication::PreparedRead::Ready(Box::new(
+            publication::PreparedView {
+                head: self.bootstrap.head().map(Box::new),
+                record: self.publication.get(query)?,
+            },
+        )))
     }
     pub fn is_leader(&self) -> bool {
         !self.poisoned && self.node.is_leader()

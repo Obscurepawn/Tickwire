@@ -170,6 +170,14 @@ impl Fixture {
     pub fn new_at(
         now: u64,
         alter_candidate: impl FnOnce(&mut Value),
+        alter_fact: impl FnMut(Kind, &mut Value),
+    ) -> Self {
+        Self::new_at_with_lifetime(now, 10_000, alter_candidate, alter_fact)
+    }
+    pub fn new_at_with_lifetime(
+        now: u64,
+        lifetime_ms: u64,
+        alter_candidate: impl FnOnce(&mut Value),
         mut alter_fact: impl FnMut(Kind, &mut Value),
     ) -> Self {
         let mut v = Candidate::parse(
@@ -366,7 +374,7 @@ impl Fixture {
                 kind,
                 artifact_ref: reference,
                 issued_unix_ms: now - 500,
-                expires_unix_ms: now + 10_000,
+                expires_unix_ms: now.checked_add(lifetime_ms).unwrap(),
             };
             let signature = hex(key.sign(&claim.signing_bytes().unwrap()).as_ref());
             signatures

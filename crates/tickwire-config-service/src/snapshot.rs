@@ -1,6 +1,7 @@
 //! Versioned application snapshots installed through the owning Raft generation.
 use crate::{
     Config, Error, ObjectLimits, ObjectSpec, Purpose, Replica, Result, bootstrap, objects,
+    publication,
 };
 use tickwire_control_raft::generation::{GenerationStore, VerifiedSnapshot};
 use tickwire_control_raft::snapshot::{
@@ -9,6 +10,7 @@ use tickwire_control_raft::snapshot::{
 };
 use tickwire_journal::store::Store;
 const MAGIC: &[u8; 8] = b"TWCS0001";
+const PUBLICATION_MAGIC: &[u8; 8] = b"TWCS0002";
 const ROOT_BYTES: usize = 1024 * 1024;
 const BLOCK_BYTES: usize = 16 * 1024 * 1024;
 
@@ -17,6 +19,7 @@ pub struct PreparedSnapshot {
     root: ApplicationRoot,
     state: objects::State,
     bootstrap: bootstrap::State,
+    publication: publication::State,
 }
 impl PreparedSnapshot {
     pub fn cut(&self) -> &SnapshotCut {
@@ -27,6 +30,12 @@ impl PreparedSnapshot {
     }
     pub fn head(&self) -> Option<bootstrap::CommittedHead> {
         self.bootstrap.head()
+    }
+    pub fn prepared(
+        &self,
+        query: publication::PreparedQuery<'_>,
+    ) -> Result<Option<publication::StoredPrepared>> {
+        self.publication.get(query)
     }
     pub fn object(&self, key: crate::ObjectKey) -> Option<crate::Object> {
         self.state.object(key)
@@ -61,7 +70,18 @@ impl<S: Store> Replica<S> {
         if !pending.is_empty() {
             blocks.push(put(out, &pending)?);
         }
-        let mut bytes = MAGIC.to_vec();
+        let publication = if self.publication.is_empty() {
+            None
+        } else {
+            Some(put(out, &self.publication.snapshot(self.config.cluster)?)?)
+        };
+        let schema = if publication.is_some() { 2 } else { 1 };
+        let mut bytes = if schema == 2 {
+            PUBLICATION_MAGIC
+        } else {
+            MAGIC
+        }
+        .to_vec();
         bytes.extend_from_slice(&self.config.cluster);
         bytes.extend_from_slice(&cut.group());
         bytes.extend_from_slice(&cut.index().to_le_bytes());
@@ -112,10 +132,14 @@ impl<S: Store> Replica<S> {
         } else {
             bytes.push(0);
         }
+        if let Some(publication) = publication {
+            bytes.extend_from_slice(&publication.digest());
+            bytes.extend_from_slice(&publication.length().to_le_bytes());
+        }
         if bytes.len() > ROOT_BYTES {
             return Err(Error::Bounds);
         }
-        let root = ApplicationRoot::new(1, put(out, &bytes)?)?;
+        let root = ApplicationRoot::new(schema, put(out, &bytes)?)?;
         Ok((cut, root))
     }
     pub fn prepare_snapshot(
@@ -149,7 +173,7 @@ impl SnapshotContext<'_> {
         root: &ApplicationRoot,
         objects: &dyn SnapshotReader,
     ) -> Result<PreparedSnapshot> {
-        if root.schema() != 1 || root.root().length() > ROOT_BYTES as u64 {
+        if !matches!(root.schema(), 1 | 2) || root.root().length() > ROOT_BYTES as u64 {
             return Err(Error::Protocol);
         }
         if cut.group() != self.group {
@@ -157,7 +181,12 @@ impl SnapshotContext<'_> {
         }
         let bytes = read(objects, &root.root())?;
         let mut r = Reader(&bytes);
-        if &r.array::<8>()? != MAGIC
+        if &r.array::<8>()?
+            != if root.schema() == 2 {
+                PUBLICATION_MAGIC
+            } else {
+                MAGIC
+            }
             || r.array::<16>()? != self.config.cluster
             || r.array::<16>()? != cut.group()
             || r.u64()? != cut.index()
@@ -273,6 +302,15 @@ impl SnapshotContext<'_> {
         } else {
             None
         };
+        let publication_ref = if root.schema() == 2 {
+            let reference = ObjectRef::new(r.array()?, r.u64()?)?;
+            if reference.length() > publication::SNAPSHOT_BYTES as u64 {
+                return Err(Error::Bounds);
+            }
+            Some(reference)
+        } else {
+            None
+        };
         if !r.0.is_empty() {
             return Err(Error::Protocol);
         }
@@ -298,11 +336,25 @@ impl SnapshotContext<'_> {
         if let Some((request, index, term, voters)) = head {
             bootstrap.apply(request, &state, voters, index, term)?;
         }
+        let publication = if let Some(reference) = publication_ref {
+            let head = bootstrap.head().ok_or(Error::Protocol)?;
+            publication::State::restore(
+                &read(objects, &reference)?,
+                self.config.cluster,
+                &state,
+                &head,
+                cut.index(),
+                cut.term(),
+            )?
+        } else {
+            publication::State::default()
+        };
         Ok(PreparedSnapshot {
             cut: cut.clone(),
             root: root.clone(),
             state,
             bootstrap,
+            publication,
         })
     }
 }
@@ -314,6 +366,7 @@ pub(crate) struct ReplicaRestore<'a> {
     group: crate::Identity,
     state: &'a mut objects::State,
     bootstrap: &'a mut bootstrap::State,
+    publication: &'a mut publication::State,
     scanned: &'a mut u64,
 }
 impl<'a> ReplicaRestore<'a> {
@@ -322,6 +375,7 @@ impl<'a> ReplicaRestore<'a> {
         group: crate::Identity,
         state: &'a mut objects::State,
         bootstrap: &'a mut bootstrap::State,
+        publication: &'a mut publication::State,
         scanned: &'a mut u64,
     ) -> Self {
         Self {
@@ -329,6 +383,7 @@ impl<'a> ReplicaRestore<'a> {
             group,
             state,
             bootstrap,
+            publication,
             scanned,
         }
     }
@@ -357,6 +412,7 @@ impl SnapshotRestore for ReplicaRestore<'_> {
         install_matched(
             self.state,
             self.bootstrap,
+            self.publication,
             self.scanned,
             prepared,
             installed,
@@ -366,6 +422,7 @@ impl SnapshotRestore for ReplicaRestore<'_> {
 fn install_matched(
     state: &mut objects::State,
     bootstrap: &mut bootstrap::State,
+    publication: &mut publication::State,
     scanned: &mut u64,
     prepared: PreparedSnapshot,
     installed: &InstalledGeneration,
@@ -378,6 +435,7 @@ fn install_matched(
     }
     *state = prepared.state;
     *bootstrap = prepared.bootstrap;
+    *publication = prepared.publication;
     *scanned = prepared.cut.index();
     Ok(())
 }
@@ -414,6 +472,7 @@ impl<S: Store> SnapshotApplication for Replica<S> {
         install_matched(
             &mut self.state,
             &mut self.bootstrap,
+            &mut self.publication,
             &mut self.scanned_through,
             prepared,
             installed,
@@ -462,6 +521,7 @@ impl Replica<GenerationStore> {
             config,
             state: objects::State::new(config),
             bootstrap: bootstrap::State::new(trust),
+            publication: publication::State::default(),
             deployment: None,
             planning_owner: std::sync::Arc::new(()),
             scanned_through: 0,

@@ -12,6 +12,7 @@
 | 声明重建采集 | [capture-runtime.json](capture-runtime.json) | SDK/Host 实际采集子进程、完整窗口与九对象闭包、真实退订；两个 release worker 验收及旧 schema3 交接兼容性通过 |
 | 声明重建安装与发布 | [rebuild-runtime.json](rebuild-runtime.json) | 同 PID 实际工厂安装、窗口后接续、独立回退与 schema4 协调发布；全仓与 schema3 兼容场景通过 |
 | 配置计划内容与运行实例验签 | [config-planning.json](config-planning.json) | 双安全读内部草案、完整目标动作与有界后台任务、运行实例签发范围；持久发布及实际应用仍待接 |
+| 配置计划内容持久化（10 月 29 日） | [config-archive.json](config-archive.json) | 完整依赖归档、并发幂等、真实三 voter 提交和换主读取、GenerationStore 快照安装及尾日志恢复；当前 desired 保持不变 |
 
 `summary.json` 中的 `final` / `verified` 文件名指第一阶段结束时的快照。`dense-book.json` 记录的 JSON 栈溢出和 8 MiB 测试绕行属于第二阶段，已在发布热路径阶段修复；对应旧报告保持原样。
 
@@ -28,3 +29,5 @@
 [兼容场景结果](capture-runtime-compat-result.json)与[八程序构建/部署摘要](capture-runtime-compat-binaries.json)保存旧 schema3 链路验证；启动时累计的一条 Clock Gap 已由首条账户激活覆盖。[采集阶段锚点审计](capture-runtime-anchor-audit.json)及其[复现脚本](capture-runtime-anchor-audit.py)仍为只读检查：25 份锁无本阶段源码重叠，未运行 TLC。目标安装与完整 schema4 发布继续保持待办。
 
 配置规划阶段的 [855 项构建输入](config-planning-source-sha256.json) 绑定本次全仓格式、测试、doctest、bench smoke 与 Clippy 检查。真实 TLS/请求回归共 40 项，其中 5 项覆盖双安全读草案与作用域补丁；Owner 回归另包含两份分别通过资格核验的旧/新资料。该阶段只生成内部草案，HTTP 持久发布仍待接入。[锚点审计](config-planning-anchor-audit.json)与[复现脚本](config-planning-anchor-audit.py)核对 25 份历史锁，没有本阶段源码重叠，也未执行 TLC。
+
+计划归档阶段的 [868 项构建输入](config-archive-source-sha256.json)绑定全仓检查。归档流程使用真实 mTLS 主体、三份文件日志和实际提交回执；并发请求必须再经安全读取得首次记录。原 10 秒测试资料在逐条落盘时正确过期，归档专用 fixture 改用明确签名的 60 秒有效期和 30 秒 TLS 会话；生产期限与旧测试默认值保留。该阶段继续只读检查[历史锚点](config-archive-anchor-audit.json)，没有新增 TLC 结果。

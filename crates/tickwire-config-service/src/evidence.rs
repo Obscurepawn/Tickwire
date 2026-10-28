@@ -51,6 +51,7 @@ pub struct Trust {
     namespace: String,
     issuers: BTreeMap<String, Issuer>,
     digest: Hash,
+    canonical: Vec<u8>,
 }
 pub struct VerifiedEvidence {
     envelope: Vec<u8>,
@@ -109,6 +110,22 @@ struct Envelope {
     claim: Claim,
     signature: String,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct TrustDescription {
+    schema: u32,
+    cluster_id: String,
+    namespace_id: String,
+    revision: String,
+    issuers: Vec<IssuerDescription>,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct IssuerDescription {
+    id: String,
+    public_key: Hash,
+    kinds: Vec<Kind>,
+}
 impl Trust {
     pub fn new(
         cluster: String,
@@ -156,7 +173,62 @@ impl Trust {
             namespace,
             issuers: by_id,
             digest: hash.finalize().into(),
+            canonical: canonical.canonical_bytes().to_vec(),
         })
+    }
+    /// The exact bounded description used by the existing trust digest.
+    pub fn canonical_bytes(&self) -> &[u8] {
+        &self.canonical
+    }
+    /// Restores configuration content, not approval to use it as current trust.
+    pub fn decode(bytes: &[u8], expected_digest: Hash) -> Result<Self> {
+        let canonical = strict(bytes)?;
+        if canonical.canonical_bytes() != bytes {
+            return Err(Error::Protocol);
+        }
+        let description: TrustDescription =
+            serde_json::from_value(canonical.value().clone()).map_err(|_| Error::Protocol)?;
+        if description.schema != 1 {
+            return Err(Error::Protocol);
+        }
+        let revision: u64 = description.revision.parse().map_err(|_| Error::Identity)?;
+        if revision.to_string() != description.revision {
+            return Err(Error::Identity);
+        }
+        if description
+            .issuers
+            .windows(2)
+            .any(|pair| pair[0].id >= pair[1].id)
+        {
+            return Err(Error::Protocol);
+        }
+        let issuers = description
+            .issuers
+            .into_iter()
+            .map(|issuer| {
+                if issuer.kinds.windows(2).any(|pair| pair[0] >= pair[1]) {
+                    return Err(Error::Protocol);
+                }
+                Ok(Issuer {
+                    id: issuer.id,
+                    public_key: issuer.public_key,
+                    kinds: issuer.kinds.into_iter().collect(),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let trust = Self::new(
+            description.cluster_id,
+            description.namespace_id,
+            revision,
+            issuers,
+        )?;
+        if trust.canonical_bytes() != bytes {
+            return Err(Error::Protocol);
+        }
+        if trust.digest() != expected_digest {
+            return Err(Error::Digest);
+        }
+        Ok(trust)
     }
     pub fn digest(&self) -> Hash {
         self.digest

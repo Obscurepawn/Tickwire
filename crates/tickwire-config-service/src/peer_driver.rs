@@ -14,6 +14,21 @@ use tickwire_journal::store::Store;
 /// The peer service exposes only this facade, never its mutation/drive owner.
 pub struct ReplicaControl<'a, S: Store>(&'a mut Replica<S>);
 impl<S: Store> ReplicaControl<'_, S> {
+    pub(crate) fn record_prepared(
+        &mut self,
+        record: crate::publication::RecordPrepared,
+    ) -> Result<Proposal> {
+        self.0.healthy()?;
+        let bytes = crate::codec::record_prepared(self.0.config.cluster, &record)?;
+        self.0.node.propose(bytes).map_err(Into::into)
+    }
+    pub fn read_prepared(
+        &mut self,
+        ticket: &ReadId,
+        query: crate::publication::PreparedQuery<'_>,
+    ) -> Result<crate::publication::PreparedRead> {
+        self.0.read_prepared(ticket, query)
+    }
     pub(crate) fn planning_identity(&self) -> Result<std::sync::Arc<()>> {
         self.0.healthy()?;
         Ok(self.0.planning_owner.clone())

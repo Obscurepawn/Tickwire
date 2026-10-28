@@ -7,7 +7,7 @@
 ## 公共 API 入口
 
 - `Replica<S: Store>`（`src/lib.rs`）：`new(node, config)` / `new_with_bootstrap(node, config, trust)`；`tick/campaign/step/initialize/bootstrap/propose/drive`；`request_read() -> ReadId`、`read_object(ticket, key) -> Read`、`read_head(ticket) -> HeadRead`；`is_leader()`、`scanned_through()`。
-- 类型：`Config { cluster, objects: ObjectLimits }`、`ObjectCommand::{Begin, Chunk, Seal}`、`Change::{Initialized, Begun, ChunkStored{received}, Sealed, Bootstrapped{revision}}`、`AppliedResult { matches(proposal), index(), result() }`、`Output { messages, applied, more_ready }`、`Read::{Pending, Ready(Option<Object>)}`；重导出 `Object/ObjectKey/ObjectLimits/ObjectSpec/Purpose`。
+- 类型：`Config { cluster, objects: ObjectLimits }`、`ObjectCommand::{Begin, Chunk, Seal}`、`Change::{Initialized, Begun, ChunkStored{received}, Sealed, Bootstrapped{revision}, PreparedStored{id,index,term}}`、`AppliedResult { matches(proposal), index(), result() }`、`Output { messages, applied, more_ready }`、`Read::{Pending, Ready(Option<Object>)}`；重导出 `Object/ObjectKey/ObjectLimits/ObjectSpec/Purpose`。
 - `ReplicaControl<'a, S>`（`peer_driver.rs`，窄门面，不暴露 Node）：`initialize/propose/bootstrap/request_read/read_head/read_object/propose_membership/membership_receipt/compact_snapshot/install_deployment_owner/replace_deployment_sources`。
 - HTTP/认证：
   - `api`：`Endpoint::{Validate, Preview, Plans, Plan(id), PlanDiff(id), Commit, RollbackPlan, Head, Desired, Revision(n), Effective(Option), Operation(id), OperationByKey(id), Resume(id), Watch, Schema}`、`Request { parse/endpoint/if_match/idempotency_key/last_event_id/body/digest }`、`read_request(stream, max_body)`；`MAX_HEADER_BYTES=16KiB`、`MAX_BODY_BYTES=16MiB`。
@@ -16,6 +16,7 @@
   - `https::Server::bind(address, trust, limits)`、`poll`、`replace_trust`、`shutdown(control)`、`local_addr()`；`Limits/Status`。
 - 事实与资格：`deployment_owner::{Owner, Job, Assessment}`、`deployment::{Sources, ContentValidated}`、`qualification::{qualification_basis, ReportClosure::check}`、`evidence::{Kind, Issuer, Claim, Trust, VerifiedEvidence, Catalog}`、`bootstrap::{BootstrapTrust, Bootstrap, CommittedHead, HeadRead}`、`account_facts::AccountModes`、`credential_facts::CredentialFacts`、`resource_facts::RetainedCapacity`、`source_bundle::Bundle`、`snapshot::ReplicaRestore`。
 - 计划准备：`planning::{PlanInput, PendingPlan, PlanProgress, PlanDraft}`；`ReplicaControl::begin_plan/poll_plan/cancel_plan` 使用两次实际 ReadIndex、当前 mTLS/RBAC 与同 Replica 身份。返回内部完整草案；放弃时显式取消，HTTP scoped 视图与持久准入仍待接入。
+- 内容归档：`plan_archive::{PendingRecord, RecordProgress}`、`ReplicaControl::begin_record_plan/poll_record_plan/cancel_record_plan`；`PendingRecord::observe` 接收实际提交回执，最后安全读取 `publication::StoredPrepared`。`read_prepared(ticket, PreparedQuery)` 同时返回提交头和首次归档记录。它们是内部内容保存接口，不授予发布资格。
 - 运行实例事实：`runtime_facts::{IssuerScope, RuntimeTrust, RuntimeTargets}`、`RuntimeTargets::check(Input, Sources, now, Limits)` 核对签发范围、完整基线投影、构建与实例身份、来源期限；签名观测保留 epoch/sequence，实际 provider 与水位持久防回退另行接入。
 - 常量 `CHUNK_BYTES=64KiB`、`MAX_COMMAND_BYTES=1MiB`；`Error::{Identity, Bounds, Protocol, NotReady, Conflict, NotFound, Incomplete, Digest, Capacity, Consensus, Poisoned, Authentication, Authorization, Transport, Configuration}`。
 
@@ -30,6 +31,7 @@
 - [../../specs/implementation/config-control-state.md](../../specs/implementation/config-control-state.md)（确定性控制状态、复制、mTLS、安全读、HTTPS 有界连接）
 - [../../specs/implementation/config-credential-facts.md](../../specs/implementation/config-credential-facts.md)（凭据/用量事实核验）
 - [../../specs/implementation/config-desired-read.md](../../specs/implementation/config-desired-read.md)（desired/revision 安全读与权限）
+- [config-plan-archive.md](../../specs/implementation/config-plan-archive.md) 与 [config-archive-sources.md](../../specs/implementation/config-archive-sources.md)（完整历史依赖、确定性恢复与信任/资料原字节）
 - 启动组合见 [../../specs/implementation/config-server.md](../../specs/implementation/config-server.md)（由 `tickwire-control-peer` 装配）
 
 ## 构建与测试
@@ -55,7 +57,7 @@ cargo fmt -p tickwire-config-service
 ## 已知边界 / TODO（partial）
 
 - 已完成：对象复制、bootstrap 提交、mTLS 认证、角色授权、安全读（Head/Desired/Revision/Schema/Validate）。
-- `request.rs` 中 `Plan/PlanDiff/Effective/Operation/OperationByKey/Watch` 返回 503 `UnsupportedEndpoint`；`Preview/Commit/RollbackPlan/Resume` 走 503 `ControlUnavailable`：**计划器、常规提交、操作状态机、watch 推送尚未实现**，改动前先确认对应规格章节是否已落地。
+- `request.rs` 中 `Plan/PlanDiff/Effective/Operation/OperationByKey/Watch` 返回 503 `UnsupportedEndpoint`；`Preview/Commit/RollbackPlan/Resume` 走 503 `ControlUnavailable`：**内部计划器和内容归档已接线；HTTP 计划准入、常规提交、操作状态机、watch 推送尚未实现**，改动前先确认对应规格章节是否已落地。
 
 ## 改动检查清单
 
@@ -67,4 +69,10 @@ cargo fmt -p tickwire-config-service
 
 ## 配置规划新增边界
 
-`deployment_owner::Owner::{start_plan,poll_plan,revalidate_plan}`、`PlanJob/PlanAssessment` 与普通部署核验共享最多 8 个槽位，完成未消费结果继续占额。结果同时持有 candidate content 与旧新投影，合计投影字节受原预算限制。来源替换、跨 owner、过期和时钟回退拒绝。详见 [config-planning.md](../../specs/implementation/config-planning.md) 与 [config-runtime-facts.md](../../specs/implementation/config-runtime-facts.md)。当前登记头、实际运行实例 provider、持久计划/revision/operation、实际配置应用和双收据集群完成仍待实现；不得将这些内部类型当成 Ready 或 Succeeded。
+`deployment_owner::Owner::{start_plan,poll_plan,revalidate_plan}`、`PlanJob/PlanAssessment` 与普通部署核验共享最多 8 个槽位，完成未消费结果继续占额。结果同时持有 candidate content 与旧新投影，合计投影字节受原预算限制。来源替换、跨 owner、过期和时钟回退拒绝。详见 [config-planning.md](../../specs/implementation/config-planning.md) 与 [config-runtime-facts.md](../../specs/implementation/config-runtime-facts.md)。当前登记头、实际运行实例 provider、计划发布准入、普通 revision/operation、实际配置应用和双收据集群完成仍待实现；不得将这些内部类型当成 Ready 或 Succeeded。
+
+## 计划归档新增边界
+
+归档保留原始 Full/Patch、真实提交基线、候选、规范计划、规划规则摘要、完整旧新投影、全部资料包与信任配置。依赖先上传并封口，最后原子登记根与主体幂等键；同请求重试返回首次位置。来源替换、过期和证书撤销会终止未提交保存；已提交事实由当前权限下的安全读返回。取消不撤销已经提交的对象，没有对象垃圾回收。
+
+历史恢复只校验固定格式、封口闭包及历史绑定，不根据当前时钟或当前业务规则改判旧事实；重新用于发布时必须重新核验。旧空归档快照保持原字节，非空归档使用显式新格式并校验完整依赖。desired 仍为引导修订，不生成 Ready、操作或运行时收据。

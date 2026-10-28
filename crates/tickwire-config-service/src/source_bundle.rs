@@ -4,13 +4,13 @@ use crate::{
     deployment::Sources,
     evidence::{Catalog, Kind},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
     fs::File,
-    io::{Read, Seek},
+    io::{self, Read, Seek, Write},
 };
 use tickwire_config::{
     Candidate, Format,
@@ -42,6 +42,75 @@ pub struct Bundle {
     stored_bytes: usize,
 }
 impl Bundle {
+    /// Canonical packaging of the complete owned sources. This does not replace
+    /// the original input identity reported by `digest` and `stored_bytes`.
+    pub fn encode(&self, limits: Limits) -> Result<Vec<u8>> {
+        limits.validate()?;
+        if self.artifacts.objects().count() > limits.artifacts.max_objects
+            || self.artifacts.stored_bytes() > limits.artifacts.max_total_bytes
+            || self
+                .artifacts
+                .objects()
+                .any(|(_, bytes)| bytes.len() > limits.artifacts.max_object_bytes)
+        {
+            return Err(Error::Bounds);
+        }
+        let header_budget = limits
+            .max_bundle_bytes
+            .checked_sub(12)
+            .and_then(|n| n.checked_sub(self.artifacts.stored_bytes()))
+            .ok_or(Error::Bounds)?
+            .min(limits.max_header_bytes);
+        let mut credential_refs = self.credential_refs.clone();
+        credential_refs.sort();
+        let header = Header {
+            schema: 1,
+            artifacts: self
+                .artifacts
+                .objects()
+                .map(|(reference, bytes)| Entry {
+                    reference: reference.to_owned(),
+                    byte_len: bytes.len(),
+                })
+                .collect(),
+            evidence: self
+                .signatures
+                .envelopes()
+                .map(|(_, _, bytes)| serde_json::from_slice(bytes).map_err(|_| Error::Protocol))
+                .collect::<Result<Vec<_>>>()?,
+            retained_ref: self.retained_ref.clone(),
+            credential_refs,
+        };
+        let mut encoded = HeaderWriter {
+            bytes: Vec::new(),
+            limit: header_budget,
+        };
+        serde_json::to_writer(&mut encoded, &header).map_err(|_| Error::Bounds)?;
+        let canonical = Candidate::parse(
+            Format::Json,
+            &encoded.bytes,
+            tickwire_config::Limits {
+                max_bytes: limits.max_header_bytes,
+                max_depth: 16,
+            },
+        )
+        .map_err(Error::Configuration)?;
+        let header = canonical.canonical_bytes();
+        let header_len = u32::try_from(header.len()).map_err(|_| Error::Bounds)?;
+        let total = 12usize
+            .checked_add(header.len())
+            .and_then(|n| n.checked_add(self.artifacts.stored_bytes()))
+            .filter(|n| *n <= limits.max_bundle_bytes)
+            .ok_or(Error::Bounds)?;
+        let mut bytes = Vec::with_capacity(total);
+        bytes.extend_from_slice(b"TWDSRC01");
+        bytes.extend_from_slice(&header_len.to_le_bytes());
+        bytes.extend_from_slice(header);
+        for (_, object) in self.artifacts.objects() {
+            bytes.extend_from_slice(object);
+        }
+        Ok(bytes)
+    }
     pub fn decode(bytes: &[u8], limits: Limits) -> Result<Self> {
         limits.validate()?;
         if bytes.len() > limits.max_bundle_bytes {
@@ -180,7 +249,7 @@ impl Limits {
         Ok(())
     }
 }
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Header {
     schema: u32,
@@ -189,9 +258,31 @@ struct Header {
     retained_ref: String,
     credential_refs: Vec<String>,
 }
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Entry {
     reference: String,
     byte_len: usize,
+}
+
+struct HeaderWriter {
+    bytes: Vec<u8>,
+    limit: usize,
+}
+impl Write for HeaderWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        if self
+            .bytes
+            .len()
+            .checked_add(bytes.len())
+            .is_none_or(|len| len > self.limit)
+        {
+            return Err(io::Error::other("source bundle header limit"));
+        }
+        self.bytes.extend_from_slice(bytes);
+        Ok(bytes.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
 }

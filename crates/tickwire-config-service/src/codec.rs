@@ -8,6 +8,7 @@ pub(crate) enum Decoded {
     InitializeTrusted(Config, crate::Hash),
     Object(ObjectCommand),
     Bootstrap(crate::bootstrap::Bootstrap),
+    RecordPrepared(crate::publication::RecordPrepared),
 }
 fn prefix(cluster: Identity, tag: u8) -> Vec<u8> {
     let mut out = MAGIC.to_vec();
@@ -83,6 +84,35 @@ pub(crate) fn encode(cluster: Identity, command: &ObjectCommand) -> Result<Vec<u
     out.shrink_to_fit();
     Ok(out)
 }
+pub(crate) fn record_prepared(
+    cluster: Identity,
+    record: &crate::publication::RecordPrepared,
+) -> Result<Vec<u8>> {
+    record.validate()?;
+    let mut out = prefix(cluster, 7);
+    out.extend_from_slice(&record.id);
+    text(&mut out, &record.subject)?;
+    out.extend_from_slice(&record.leaf_sha256);
+    text(&mut out, &record.idempotency_key)?;
+    out.extend_from_slice(&record.request_digest);
+    text(&mut out, &record.if_match)?;
+    out.extend_from_slice(&record.root.key);
+    out.extend_from_slice(&record.root.owner);
+    out.push(record.root.purpose as u8);
+    out.extend_from_slice(&record.root.length.to_le_bytes());
+    out.extend_from_slice(&record.root.hash);
+    out.extend_from_slice(&record.admitted_unix_ms.to_le_bytes());
+    if out.len() > crate::publication::MAX_RECORD_BYTES {
+        return Err(Error::Bounds);
+    }
+    Ok(out)
+}
+fn text(out: &mut Vec<u8>, value: &str) -> Result<()> {
+    let length: u16 = value.len().try_into().map_err(|_| Error::Bounds)?;
+    out.extend_from_slice(&length.to_le_bytes());
+    out.extend_from_slice(value.as_bytes());
+    Ok(())
+}
 pub(crate) fn decode(cluster: Identity, bytes: &[u8]) -> Result<Decoded> {
     if bytes.len() < 25
         || bytes.len() > MAX_COMMAND_BYTES
@@ -153,6 +183,29 @@ pub(crate) fn decode(cluster: Identity, bytes: &[u8]) -> Result<Decoded> {
             identity(request.candidate, request.nonce)?;
             Decoded::Bootstrap(request)
         }
+        7 => {
+            if bytes.len() > crate::publication::MAX_RECORD_BYTES {
+                return Err(Error::Bounds);
+            }
+            let record = crate::publication::RecordPrepared {
+                id: reader.array()?,
+                subject: reader.text(256)?,
+                leaf_sha256: reader.array()?,
+                idempotency_key: reader.text(128)?,
+                request_digest: reader.array()?,
+                if_match: reader.text(128)?,
+                root: ObjectSpec {
+                    key: reader.array()?,
+                    owner: reader.array()?,
+                    purpose: Purpose::from_byte(reader.byte()?)?,
+                    length: reader.u32()?,
+                    hash: reader.array()?,
+                },
+                admitted_unix_ms: reader.u64()?,
+            };
+            record.validate()?;
+            Decoded::RecordPrepared(record)
+        }
         _ => return Err(Error::Protocol),
     };
     if !reader.0.is_empty() {
@@ -186,11 +239,44 @@ impl<'a> Reader<'a> {
     fn u64(&mut self) -> Result<u64> {
         Ok(u64::from_le_bytes(self.array()?))
     }
+    fn text(&mut self, maximum: usize) -> Result<String> {
+        let length = u16::from_le_bytes(self.array()?) as usize;
+        if length == 0 || length > maximum {
+            return Err(Error::Bounds);
+        }
+        std::str::from_utf8(self.take(length)?)
+            .map(str::to_owned)
+            .map_err(|_| Error::Protocol)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn prepared_record_round_trip_preserves_every_binding_and_rejects_truncation() {
+        let record = crate::publication::tests::record();
+        let bytes = record_prepared([19; 16], &record).unwrap();
+        assert_eq!(&bytes[..8], b"TWCF0001");
+        assert_eq!(bytes[24], 7);
+        let Decoded::RecordPrepared(decoded) = decode([19; 16], &bytes).unwrap() else {
+            panic!("wrong command")
+        };
+        assert_eq!(decoded, record);
+        for end in 0..bytes.len() {
+            assert!(decode([19; 16], &bytes[..end]).is_err(), "truncation {end}");
+        }
+        let mut trailing = bytes.clone();
+        trailing.push(0);
+        assert!(decode([19; 16], &trailing).is_err());
+        assert!(decode([20; 16], &bytes).is_err());
+        let mut bad = bytes.clone();
+        bad[41..43].copy_from_slice(&u16::MAX.to_le_bytes());
+        assert!(decode([19; 16], &bad).is_err());
+        let mut wrong_owner = record.clone();
+        wrong_owner.root.owner = [9; 16];
+        assert!(record_prepared([19; 16], &wrong_owner).is_err());
+    }
     fn literal(text: &str) -> Vec<u8> {
         text.trim()
             .as_bytes()

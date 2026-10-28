@@ -1,0 +1,307 @@
+{
+  "schema": 1,
+  "stage": "persistent prepared configuration content and compatible recovery",
+  "created_utc": "2026-10-28T16:14:32.397816+00:00",
+  "baseline_commit": "8fae8a3f758282fcde6c0184a9c1dd4098c3b3dd",
+  "platform": "Linux localhost 6.18.54.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct  6 19:13:07 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "source_manifest": {
+    "path": "/home/obscure/Tickwire/specs/evidence/20261028/config-archive-source-sha256.json",
+    "bytes": 157418,
+    "sha256": "5319030b57b4ef69f4e59c1ad8fb5202271cae2f6e8c60e7c0980ca3ed4a487e"
+  },
+  "source_file_count": 868,
+  "checks": [
+    {
+      "kind": "full_workspace",
+      "command_metadata": {
+        "command": "CARGO_TARGET_DIR=/tmp/tickwire-progress-20261028/target ./scripts/check-rust.sh",
+        "started_utc": "2026-10-28T16:07:36.385734+00:00",
+        "finished_utc": "2026-10-28T16:13:34.072634+00:00",
+        "elapsed_seconds": 357.68694574399706,
+        "exit_code": 0
+      },
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/config-archive-check-rust.log",
+        "bytes": 241818,
+        "sha256": "7d5875f0c2cd298597c3f3af8d8f4dfcb25fb640c810f2ae738057932398471f"
+      },
+      "test_batches": 330,
+      "test_result_totals": {
+        "passed": 2048,
+        "failed": 0,
+        "ignored": 19,
+        "measured": 0,
+        "filtered": 285
+      },
+      "scope": "fmt --check, workspace --all-targets including bench smoke and examples, doctests including compile_fail, workspace all-targets Clippy -D warnings; see check-rust.sh"
+    },
+    {
+      "kind": "contracts-final",
+      "command": "verify-design-contracts.py --openapi",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/config-archive-contracts-final.log",
+        "bytes": 1765,
+        "sha256": "348045f80b1547ac07d2f1ee3e25b9bdae4f5b5ef85a67b871d41e29b4acf7da"
+      }
+    },
+    {
+      "kind": "documentation-final",
+      "command": "verify-documentation.py",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/config-archive-documentation-final.log",
+        "bytes": 91,
+        "sha256": "7e912f2d405e8e30a73f6f34ba8bb8bcb1cf5b9ad9344993ef469b3a3bc6459a"
+      }
+    }
+  ],
+  "development_logs_before_final_source_freeze": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-bundle-red.log",
+      "bytes": 3385,
+      "sha256": "6acac1c5099287032e21138954cce92ee395e629847a06c2e03c09a22454d38f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-binding-red.log",
+      "bytes": 1221,
+      "sha256": "bb5dd3c422c56156c435bb61dccc1a9bfc0ddbcfb7f1a0fe3451d07d72bd0767"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-clippy-final.log",
+      "bytes": 172,
+      "sha256": "4a8e283b175b9126e45dec6903c2b146fd7955ffc867dd9ad6ed00b4f8a1c0dc"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-clippy.log",
+      "bytes": 172,
+      "sha256": "f73a6a157c05f2a8ff93138ad1557983c35087908b489c8d7a2e7f068a98835a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-green.log",
+      "bytes": 1251,
+      "sha256": "f5f02227658ec6ac043dc350ce9e427fac646e13c9d966930dc1bcc3360fd5cb"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-matrix.log",
+      "bytes": 1334,
+      "sha256": "09fda805870bb9e764a93b8be9b0d0652bbcd0af7f39d442701822b1a2cda88a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-red.log",
+      "bytes": 2790,
+      "sha256": "f269424040130f8ac92bba169d774c19135b350913b29743b9008d252c5b74e1"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-content-tests-final.log",
+      "bytes": 2224,
+      "sha256": "90eb38e1ab2d67f138ebb676f442ca62e5dee1fe7e3937bbe5cc4f87952c869b"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-documentation-precheck.log",
+      "bytes": 91,
+      "sha256": "5e1ddde5ed95b521419740ae9e091eb44e687e195a6f64e4c3e67deb3d13bf1f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-clippy.log",
+      "bytes": 172,
+      "sha256": "a071746d8da43b5e7a7b7ae41e2773909d91686e589d425734b08b1a73926cd6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-compile.log",
+      "bytes": 3276,
+      "sha256": "236ece64353f9ee70ebaff2bfadaa7761a986b0506ae16d2b43f3b51bfd26b41"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-diagnose.log",
+      "bytes": 1313,
+      "sha256": "bd932608782c2a5efe1188e11f7530812f88fb6b61b89c8ff0dad88726deecab"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-green.log",
+      "bytes": 3325,
+      "sha256": "fffec0e7ddaf62cf0a04ab1415b1fd8eddd3d4f4064f54e98f9b81ff0d957cd5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-green2.log",
+      "bytes": 3189,
+      "sha256": "085c654e1ad10bccd373a30db265ab01bb6cc3a7320ce1793bf79ab9ffdb6806"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-green3.log",
+      "bytes": 2594,
+      "sha256": "f92e813f258b5da366722181c5347c498f5748fa4138a21f261d805f7b053bdd"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-green4.log",
+      "bytes": 1050,
+      "sha256": "ee1ddab6e9d4eec8d131c8655ecf554553354f3c7b279a6bf63fa0cadabacc4e"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-flow-red.log",
+      "bytes": 2659,
+      "sha256": "b5e36b4cff7709d2a34ef82045bfab95d1aff8660f35719e33f99f36badf793f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-fmt-freeze.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-clippy-final.log",
+      "bytes": 156,
+      "sha256": "86329dbd84aacbbf2e4ec9af4132a71526c9bc3cb17266a97d7edb6959318a1e"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-clippy.log",
+      "bytes": 156,
+      "sha256": "e8f6e5914f45cf727db6aac4780e5d4685ed9823eedfb1123d31bc7f97e124f7"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-contract-final.log",
+      "bytes": 706,
+      "sha256": "5724063407e5ee4bcdb43c3be5e3203bbf18392eadc4e7f2ee9ad254ffc79287"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-green.log",
+      "bytes": 617,
+      "sha256": "87dc1506317dc14c8e541a2c93137c3761040553a82c07bad8fcecd6ddc7f307"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-matrix.log",
+      "bytes": 1202,
+      "sha256": "db758e8d3f9d216ac1dc2be51b9c0433e399c4f67af15893f4e783e6e509b7b0"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-red.log",
+      "bytes": 2122,
+      "sha256": "575cd71034c9c948217476546bc1a23114f61164c19ea462988c0143bb47ae67"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-plan-tests-final.log",
+      "bytes": 12716,
+      "sha256": "a00255886dd2ab4de25cc69486438debac71b963d5465e5e1fc008fd789532f9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-planning-regression.log",
+      "bytes": 2373,
+      "sha256": "2c49a8804aef2ce044591d0c970ff024059a4fcb9a30fec03bb6f1f8a9832e83"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-sources-clippy.log",
+      "bytes": 719,
+      "sha256": "6ed7eb63dae22214a4470ba26cd6ce6cef99fdb4d539d76b46f532a1e31e4a50"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-sources-green.log",
+      "bytes": 2657,
+      "sha256": "74e1e20414f77669ba0cddd88d38a02173d6cc34aad9405e28882100852b21e5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-sources-red.log",
+      "bytes": 3289,
+      "sha256": "bea3685c2ae082751607830d9e2bc641056505a670e881b4b6f64794a6de6a83"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-bootstrap-regression.log",
+      "bytes": 2327,
+      "sha256": "ff66e2b265cc384d14f80cfacd846aca04f75cd9e40432db539100f19117b07c"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-encoding-green.log",
+      "bytes": 1057,
+      "sha256": "f73d247fd185d73a40ec9a77ca527ee585024226ddb2eaf7643bc46448c48aca"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-final-clippy.log",
+      "bytes": 172,
+      "sha256": "fc918d8db54474843cf50d17ae77a69e12be6b3461f15a2acf6b4e322bf8b4d6"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-final-tests.log",
+      "bytes": 4944,
+      "sha256": "6ca4edaf58eef0859ae98fa4359acd2cd6e2f788e0df048952ca87b259f316b9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-generation.log",
+      "bytes": 541,
+      "sha256": "ecfb7ce00c1f915af438dfb2f68506b8b86698d7ab98c775ee8e7e1b6fde97d2"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-peer-regression.log",
+      "bytes": 1840,
+      "sha256": "e3915b002050f229fc2505dab8a52361da6951d2f13a9961ad3c51c490c6c696"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-real-green.log",
+      "bytes": 868,
+      "sha256": "ecd858d7bb2eaa8cd37a478256f888f9b8a7ffaca95e03a43d41f1a13f872a0f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-state-red.log",
+      "bytes": 1997,
+      "sha256": "985b8b9a4ffc8b34beb189b7376ec410cf1a6649e74b5cb0832a201143173703"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-style-sources.log",
+      "bytes": 847,
+      "sha256": "86c3a0e1ddfb48be07b0ef23880f05178f96cef711d20633d7576d868b958c27"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-archive-style-spec.log",
+      "bytes": 846,
+      "sha256": "f17aec71a622301471cb7479b090cc71ddfdd803b9a9a86e4900b210dead850b"
+    }
+  ],
+  "implemented": [
+    "Strict encoded-plan parser and source fingerprint; deterministic full original source-bundle export and trust reconstruction.",
+    "Bounded complete archive with original Full/Patch input, committed baseline, candidate, plan, planning rules, old/new delivery projections, trust, signed source bundle and historical check window.",
+    "Same-owner authenticated incremental Begin/Chunk/Seal workflow advancing only on actual AppliedResult, current source/time checks, fresh base/RBAC read before recording, final safe-read durable receipt.",
+    "Atomic prepared-content and principal/idempotency-key indexes; concurrent logical retry resolves to first stored record.",
+    "New bounded command and explicitly versioned nonempty snapshot; historical validation is distinct from current-rule requalification.",
+    "Actual three-voter GenerationStore compaction and InstalledGeneration installation, closed/reopened recovery, exact original prepared record and durable tail replay."
+  ],
+  "limits": [
+    "No desired revision advance, Ready state, runtime apply receipt, configuration operation, or enabled public planning endpoint is produced.",
+    "Real runtime observation provider, durable source watermarks and current retained resource registry head remain pending.",
+    "Ordinary commit/apply, full-target runtime and effective-file receipts, operation recovery, rollback and watch remain pending.",
+    "Cancellation does not undo already committed objects or proposals; no object garbage collection is implemented.",
+    "Old binaries do not understand the new record command and nonempty archive snapshot format.",
+    "Archive flow tests use explicit 60s signed fixture lifetimes and local 30s TLS exchanges for hundreds of actual file-backed Raft syncs; default fixture and production deadline policies remain unchanged.",
+    "Bench smoke is not performance data; no production or live Binance qualification is claimed.",
+    "No TLC executed; historical model/anchor/evidence files unchanged."
+  ],
+  "anchor_audit": {
+    "file": {
+      "path": "/home/obscure/Tickwire/specs/evidence/20261028/config-archive-anchor-audit.json",
+      "bytes": 9600,
+      "sha256": "a3275a7dc972c7a3c1488533e42ff788631a2abf4c8d93055d63e7eb52865f4d"
+    },
+    "locks_scanned": 25,
+    "changed_anchor_sources": []
+  },
+  "style_review": {
+    "logs": [
+      {
+        "path": "/tmp/tickwire-progress-20261028/config-archive-style-spec.log",
+        "bytes": 846,
+        "sha256": "f17aec71a622301471cb7479b090cc71ddfdd803b9a9a86e4900b210dead850b"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/config-archive-style-sources.log",
+        "bytes": 847,
+        "sha256": "86c3a0e1ddfb48be07b0ef23880f05178f96cef711d20633d7576d868b958c27"
+      }
+    ]
+  }
+}

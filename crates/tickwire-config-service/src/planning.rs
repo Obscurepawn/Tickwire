@@ -25,10 +25,16 @@ pub enum PlanInput {
     Patch(ScopedPatch),
 }
 impl PlanInput {
-    fn input(&self) -> Input<'_> {
+    pub(crate) fn input(&self) -> Input<'_> {
         match self {
             Self::Full(candidate) => Input::Full(candidate),
             Self::Patch(patch) => Input::Patch(patch),
+        }
+    }
+    pub(crate) fn canonical_bytes(&self) -> &[u8] {
+        match self {
+            Self::Full(candidate) => candidate.canonical_bytes(),
+            Self::Patch(patch) => patch.canonical_bytes(),
         }
     }
     fn bytes(&self) -> usize {
@@ -78,8 +84,22 @@ impl PendingPlan {
 pub struct PlanDraft {
     assessment: PlanAssessment,
     principal: AuthenticatedPrincipal,
+    input: PlanInput,
+    owner: Arc<()>,
 }
 impl PlanDraft {
+    pub(crate) fn owner(&self) -> &Arc<()> {
+        &self.owner
+    }
+    pub(crate) fn input(&self) -> &PlanInput {
+        &self.input
+    }
+    pub(crate) fn assessment(&self) -> &PlanAssessment {
+        &self.assessment
+    }
+    pub(crate) fn into_archive_parts(self) -> (PlanAssessment, PlanInput) {
+        (self.assessment, self.input)
+    }
     pub fn base(&self) -> &CommittedHead {
         self.assessment.base()
     }
@@ -210,10 +230,11 @@ impl<S: Store> ReplicaControl<'_, S> {
                 self.deployment_owner()
                     .ok_or(Error::NotReady)?
                     .revalidate_plan(&assessment)?;
-                pending.input.take();
                 Ok(Some(PlanDraft {
                     assessment: *assessment,
                     principal: pending.principal.clone(),
+                    input: pending.input.take().ok_or(Error::NotReady)?,
+                    owner: pending.owner.clone(),
                 }))
             }
             Stage::Computing(_) | Stage::Completed => Err(Error::NotReady),

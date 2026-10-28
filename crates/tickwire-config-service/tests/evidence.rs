@@ -368,3 +368,162 @@ fn issuer_table_is_bounded_unambiguous_and_order_independent() {
     };
     assert!(Trust::new(CLUSTER.into(), NAMESPACE.into(), 1, vec![empty_kinds]).is_err());
 }
+
+fn trust_digest(bytes: &[u8]) -> [u8; 32] {
+    let mut hash = Sha256::new();
+    hash.update(b"tickwire.config.evidence-trust.v1\0");
+    hash.update(bytes);
+    hash.finalize().into()
+}
+
+#[test]
+fn trust_archive_roundtrip_retains_existing_digest_and_real_signature_verification() {
+    let original = trust();
+    let bytes = original.canonical_bytes();
+    let expected = serde_json::to_vec(&json!({
+        "schema":1,"cluster_id":CLUSTER,"namespace_id":NAMESPACE,"revision":"1",
+        "issuers":[{"id":"inventory","public_key":key(7).public_key().as_ref(),"kinds":["host_inventory"]}]
+    }))
+    .unwrap();
+    assert_eq!(bytes, expected);
+    assert_eq!(original.digest(), trust_digest(&expected));
+    let decoded = Trust::decode(bytes, original.digest()).unwrap();
+    assert_eq!(decoded.canonical_bytes(), bytes);
+    assert_eq!(decoded.digest(), original.digest());
+    let (catalog, claim) = fixture();
+    assert!(
+        decoded
+            .verify(
+                &signed(&claim, 7),
+                &catalog,
+                claim.kind,
+                &claim.artifact_ref,
+                NOW
+            )
+            .is_ok()
+    );
+    assert!(matches!(Trust::decode(bytes, [0; 32]), Err(Error::Digest)));
+    let highest = Trust::new(
+        CLUSTER.into(),
+        NAMESPACE.into(),
+        (1 << 63) - 1,
+        vec![issuer("inventory", 7, &[Kind::HostInventory])],
+    )
+    .unwrap();
+    assert!(Trust::decode(highest.canonical_bytes(), highest.digest()).is_ok());
+}
+
+#[test]
+fn trust_archive_rejects_noncanonical_and_ambiguous_descriptions_even_with_matching_hash() {
+    let original = Trust::new(
+        CLUSTER.into(),
+        NAMESPACE.into(),
+        1,
+        vec![
+            issuer("a", 7, &[Kind::HostInventory, Kind::RuntimeTargets]),
+            issuer("b", 8, &[Kind::RiskAcceptance]),
+        ],
+    )
+    .unwrap();
+    let canonical: serde_json::Value = serde_json::from_slice(original.canonical_bytes()).unwrap();
+    for mutation in 0..18 {
+        let mut value = canonical.clone();
+        match mutation {
+            0 => value["unknown"] = true.into(),
+            1 => value["issuers"][0]["unknown"] = true.into(),
+            2 => value["revision"] = "01".into(),
+            3 => value["revision"] = "0".into(),
+            4 => value["revision"] = "+1".into(),
+            5 => value["revision"] = "9223372036854775808".into(),
+            6 => value["revision"] = 1.into(),
+            7 => value["revision"] = "1.0".into(),
+            8 => value["issuers"].as_array_mut().unwrap().reverse(),
+            9 => value["issuers"][0]["kinds"]
+                .as_array_mut()
+                .unwrap()
+                .reverse(),
+            10 => value["issuers"][0]["kinds"] = json!(["host_inventory", "host_inventory"]),
+            11 => value["issuers"][1] = value["issuers"][0].clone(),
+            12 => value["issuers"][1]["public_key"] = value["issuers"][0]["public_key"].clone(),
+            13 => value["issuers"][0]["kinds"] = json!(["unknown_kind"]),
+            14 => value["issuers"][0]["public_key"] = json!(vec![0; 32]),
+            15 => value["schema"] = 2.into(),
+            16 => value["cluster_id"] = "INVALID".into(),
+            _ => value["issuers"] = json!([]),
+        }
+        let bytes = serde_json::to_vec(&value).unwrap();
+        assert!(
+            Trust::decode(&bytes, trust_digest(&bytes)).is_err(),
+            "mutation {mutation}"
+        );
+    }
+    let duplicate = String::from_utf8(original.canonical_bytes().to_vec())
+        .unwrap()
+        .replacen("\"schema\":1", "\"schema\":1,\"schema\":1", 1)
+        .into_bytes();
+    let mut whitespace = original.canonical_bytes().to_vec();
+    whitespace.push(b' ');
+    let escaped = String::from_utf8(original.canonical_bytes().to_vec())
+        .unwrap()
+        .replacen("inventory", "invent\\u006fry", 1)
+        .into_bytes();
+    let mut oversized = original.canonical_bytes().to_vec();
+    oversized.resize(16 * 1024 + 1, b' ');
+    for bytes in [duplicate, whitespace, escaped, oversized] {
+        assert!(Trust::decode(&bytes, trust_digest(&bytes)).is_err());
+    }
+}
+
+#[test]
+fn archived_trust_at_historical_time_cannot_replace_current_time_or_revocation() {
+    let original = trust();
+    let restored = Trust::decode(original.canonical_bytes(), original.digest()).unwrap();
+    let (catalog, claim) = fixture();
+    let evidence = restored
+        .verify(
+            &signed(&claim, 7),
+            &catalog,
+            claim.kind,
+            &claim.artifact_ref,
+            NOW,
+        )
+        .unwrap();
+    assert!(
+        evidence
+            .revalidate(&restored, &catalog, claim.expires_unix_ms)
+            .is_err()
+    );
+    let revoked = Trust::new(
+        CLUSTER.into(),
+        NAMESPACE.into(),
+        2,
+        vec![issuer("inventory", 8, &[Kind::HostInventory])],
+    )
+    .unwrap();
+    let current = Trust::decode(revoked.canonical_bytes(), revoked.digest()).unwrap();
+    assert!(evidence.revalidate(&current, &catalog, NOW).is_err());
+}
+
+#[test]
+fn trust_archive_digest_binds_every_valid_configuration_field() {
+    let original = trust();
+    let value: serde_json::Value = serde_json::from_slice(original.canonical_bytes()).unwrap();
+    for field in 0..6 {
+        let mut changed = value.clone();
+        match field {
+            0 => changed["cluster_id"] = "other-cluster".into(),
+            1 => changed["namespace_id"] = "00000000-0000-4000-8000-000000000002".into(),
+            2 => changed["revision"] = "2".into(),
+            3 => changed["issuers"][0]["id"] = "other-issuer".into(),
+            4 => changed["issuers"][0]["public_key"] = json!(key(8).public_key().as_ref()),
+            _ => changed["issuers"][0]["kinds"] = json!(["runtime_targets"]),
+        }
+        let bytes = serde_json::to_vec(&changed).unwrap();
+        // These are valid configurations; only the pinned original identity is wrong.
+        assert!(Trust::decode(&bytes, trust_digest(&bytes)).is_ok());
+        assert!(matches!(
+            Trust::decode(&bytes, original.digest()),
+            Err(Error::Digest)
+        ));
+    }
+}
