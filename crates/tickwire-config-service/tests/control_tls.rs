@@ -1795,5 +1795,6 @@ fn https_owner_shutdown_and_drop_close_pending_connections_without_stopping_raft
     server.shutdown(&mut cluster.nodes[0].control()).unwrap();
 }
 
+mod control_planning;
 #[path = "control_reads/mod.rs"]
 mod control_reads;

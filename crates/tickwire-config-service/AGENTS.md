@@ -15,6 +15,8 @@
   - `authorization::RoleBindings::from_candidate(candidate)` + `authorize(...)`。
   - `https::Server::bind(address, trust, limits)`、`poll`、`replace_trust`、`shutdown(control)`、`local_addr()`；`Limits/Status`。
 - 事实与资格：`deployment_owner::{Owner, Job, Assessment}`、`deployment::{Sources, ContentValidated}`、`qualification::{qualification_basis, ReportClosure::check}`、`evidence::{Kind, Issuer, Claim, Trust, VerifiedEvidence, Catalog}`、`bootstrap::{BootstrapTrust, Bootstrap, CommittedHead, HeadRead}`、`account_facts::AccountModes`、`credential_facts::CredentialFacts`、`resource_facts::RetainedCapacity`、`source_bundle::Bundle`、`snapshot::ReplicaRestore`。
+- 计划准备：`planning::{PlanInput, PendingPlan, PlanProgress, PlanDraft}`；`ReplicaControl::begin_plan/poll_plan/cancel_plan` 使用两次实际 ReadIndex、当前 mTLS/RBAC 与同 Replica 身份。返回内部完整草案；放弃时显式取消，HTTP scoped 视图与持久准入仍待接入。
+- 运行实例事实：`runtime_facts::{IssuerScope, RuntimeTrust, RuntimeTargets}`、`RuntimeTargets::check(Input, Sources, now, Limits)` 核对签发范围、完整基线投影、构建与实例身份、来源期限；签名观测保留 epoch/sequence，实际 provider 与水位持久防回退另行接入。
 - 常量 `CHUNK_BYTES=64KiB`、`MAX_COMMAND_BYTES=1MiB`；`Error::{Identity, Bounds, Protocol, NotReady, Conflict, NotFound, Incomplete, Digest, Capacity, Consensus, Poisoned, Authentication, Authorization, Transport, Configuration}`。
 
 ## 在 workspace 中的位置
@@ -62,3 +64,7 @@ cargo fmt -p tickwire-config-service
 3. HTTP 路由/状态码改动同步 `api.rs::Endpoint` 与 `control_api.openapi.json`（如存在）。
 4. 开启 503 端点前先补 `request.rs` 处理、对应规格章节与测试，不得把复制成功当部署成功。
 5. 本 crate 不直接部署配置、不启动进程、不签发交易授权。
+
+## 配置规划新增边界
+
+`deployment_owner::Owner::{start_plan,poll_plan,revalidate_plan}`、`PlanJob/PlanAssessment` 与普通部署核验共享最多 8 个槽位，完成未消费结果继续占额。结果同时持有 candidate content 与旧新投影，合计投影字节受原预算限制。来源替换、跨 owner、过期和时钟回退拒绝。详见 [config-planning.md](../../specs/implementation/config-planning.md) 与 [config-runtime-facts.md](../../specs/implementation/config-runtime-facts.md)。当前登记头、实际运行实例 provider、持久计划/revision/operation、实际配置应用和双收据集群完成仍待实现；不得将这些内部类型当成 Ready 或 Succeeded。

@@ -3142,7 +3142,7 @@
     "CFG-S07 heartbeat and renewal < respective lifetime; election/replication/disk thresholds ordered",
     "CFG-S08 account/product/modes and signed venue metadata, fees, tiers, budgets and entitlements match",
     "CFG-S09 live forbids fixture/.invalid/REQUIRED; resolves immutable artifacts and authorized secret refs; validates complete deployment manifest",
-    "CFG-S10 strategy parameters validate pinned parameter schema; restricted type registry determines Hot versus Quiesce",
+    "CFG-S10 strategy parameters validate pinned parameter schema; free strategy parameters currently require Quiesce; path and direction classifications are defined in specs/implementation/config-candidate.md",
     "CFG-S11 no unreferenced identities or secret material; secure endpoint allowlist, namespace/environment consistency",
     "CFG-S12 plans bind whole base ETag, target membership, desired hash, qualification and classification; semantic revalidation at commit/apply"
   ]

@@ -12,6 +12,7 @@ pub mod delivery;
 pub mod locator;
 pub mod materialized;
 pub mod patch;
+pub mod plan;
 pub mod prepared;
 pub mod projection;
 pub mod projection_object;

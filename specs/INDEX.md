@@ -30,7 +30,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 4. **模块实现规格**：[`implementation/`](implementation/)，按下文第 3 节分组索引定位；每篇先于对应 crate 源码确定接口与不变量。
 5. **形式验证**：[`../tla/`](../tla/) 中与改动模块对应的 `execution_models/<model>/ROADMAP.md`；源码变更后先核对锚点哈希再复跑。
 
-## 3. 实现规格索引（按功能域分组，共 70 篇）
+## 3. 实现规格索引（按功能域分组，共 72 篇）
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论，接手时先核对源码。
 
@@ -138,6 +138,8 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 | [config-locator.md](implementation/config-locator.md) | ConfigLocator generation 链/checksum/迁移 successor 校验 | `tickwire-config` | 已实现 |
 | [config-control-state.md](implementation/config-control-state.md) | Replica 复制对象 Chunk/Seal、安全读与部署核验 | `tickwire-config-service` | 部分实现 |
 | [config-credential-facts.md](implementation/config-credential-facts.md) | 凭据元数据 ProjectionSet 验签与使用集合 | `tickwire-config-service` | 已实现 |
+| [config-planning.md](implementation/config-planning.md) | 两次真实安全读、完整目标计划内容与后台来源复核 | `tickwire-config-service` | 部分实现（草案已接线，持久发布待接） |
+| [config-runtime-facts.md](implementation/config-runtime-facts.md) | 运行实例签名观测、host/process 签发范围与基线投影核验 | `tickwire-config-service` | 已实现（事实内核；采集与持久水位待接） |
 | [config-desired-read.md](implementation/config-desired-read.md) | 已提交配置安全读、ETag 与 BootstrapHead | `tickwire-config-service` | 部分实现 |
 | [config-file-store.md](implementation/config-file-store.md) | Linux 私有根 durable 文件存储（0700/0600/原子 rename） | `tickwire-config-fs` | 已实现 |
 | [config-journal-store.md](implementation/config-journal-store.md) | 配置 journal 物理文件后端（分段/hash chain/脏尾截断） | `tickwire-config-fs` | 已实现 |

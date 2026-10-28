@@ -63,3 +63,11 @@ HTTP/1.1 使用单请求连接，头部最多 16 KiB/64 项，正文硬上限 16
 HTTPS 的部署核验先取得实际 ReadIndex，校验当前 TLS、角色、请求预算和候选，再开始后台任务。计算完成后发起新的 ReadIndex；第二次多数读完成后重新检查证书、当前角色、base ETag、来源上下文和有效期。计算期间控制 owner 继续处理 Raft。当前成功内容结果列出已完成的八项内容检查，`checks_pending` 精确保留 `retained_registry_head` 与 `runtime_targets`，整体 `valid=false`；控制服务尚未据此生成可提交计划。
 
 实际文件加载、后台线程、来源替换、取消与真实 TLS/三 voter 测试验证这些边界。源码和原始 Red/Green 见本阶段记录。部署资料 owner 属于本机受信服务配置，业务快照不保存其来源包或信任状态。
+
+## 异步计划内容计算
+
+`Owner::start_plan` 接收实际安全读返回的完整 `CommittedHead`、基于该 head 准备的 `PreparedCandidate` 与纯值 `PlanOptions`。后台任务在同一个不可变来源上下文中核验候选内容、生成旧/新完整 `ProjectionDelivery`，并计算 `ComputedPlan`。结果保留完整 base、prepared、内容检查、交付投影及计划值；base 摘要、候选摘要、revision 与 ETag 精确相符才交付。结果没有 Ready 状态、提交凭据或运行时授权。
+
+普通内容任务和计划任务共用最多八个槽位，沿用取消、跨 owner、来源替换、单次消费、系统时间倒退和资料过期检查。计划结果持有的内容投影及旧/新交付投影合计受 `projections.max_total_bytes` 限制，完整交付目标仍包括仅 revision 变化的进程，调用者不能缩小此集合。
+
+控制 owner 在首次 ReadIndex 后保存原完整 head，后台工作期间不保留已消费票据。完成后另发起一次 ReadIndex，核对当前完整 head、实际 TLS 主体、角色、来源上下文和期限；基线变化使结果失效，不自动重新定位到新基线。保留资源登记头、实际进程身份、运行时应用与文件收据仍需后续流程核对，本接口不修改复制状态或开放 HTTP 计划成功响应。

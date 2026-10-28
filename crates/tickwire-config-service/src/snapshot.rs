@@ -463,6 +463,7 @@ impl Replica<GenerationStore> {
             state: objects::State::new(config),
             bootstrap: bootstrap::State::new(trust),
             deployment: None,
+            planning_owner: std::sync::Arc::new(()),
             scanned_through: 0,
             poisoned: false,
         };

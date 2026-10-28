@@ -1,6 +1,6 @@
 # 模块实现规格导航（`implementation/`）
 
-本目录 70 篇模块实现规格，按功能域分组。每篇先于对应 crate 源码确定接口、不变量与失败边界；全局索引、架构总览与契约说明见 [`../INDEX.md`](../INDEX.md)。
+本目录 72 篇模块实现规格，按功能域分组。每篇先于对应 crate 源码确定接口、不变量与失败边界；全局索引、架构总览与契约说明见 [`../INDEX.md`](../INDEX.md)。
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论。
 
@@ -90,6 +90,8 @@
 - [config-locator.md](config-locator.md) — ConfigLocator generation 链/checksum/迁移 successor 校验。`tickwire-config`。已实现。
 - [config-control-state.md](config-control-state.md) — Replica 复制对象 Chunk/Seal、安全读与部署核验。`tickwire-config-service`。部分实现。
 - [config-credential-facts.md](config-credential-facts.md) — 凭据元数据 ProjectionSet 验签与使用集合。`tickwire-config-service`。已实现。
+- [config-planning.md](config-planning.md) — 两次真实安全读、完整目标计划内容与后台来源复核。`tickwire-config-service`。部分实现（草案已接线，持久发布待接）。
+- [config-runtime-facts.md](config-runtime-facts.md) — 运行实例签名观测、host/process 签发范围与基线投影核验。`tickwire-config-service`。已实现（事实内核；采集与持久水位待接）。
 - [config-desired-read.md](config-desired-read.md) — 已提交配置安全读、ETag 与 BootstrapHead。`tickwire-config-service`。部分实现。
 - [config-file-store.md](config-file-store.md) — Linux 私有根 durable 文件存储（0700/0600/原子 rename）。`tickwire-config-fs`。已实现。
 - [config-journal-store.md](config-journal-store.md) — 配置 journal 物理文件后端（分段/hash chain/脏尾截断）。`tickwire-config-fs`。已实现。

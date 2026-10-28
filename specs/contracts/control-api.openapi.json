@@ -3,7 +3,7 @@
   "info": {
     "title": "Tickwire configuration control API",
     "version": "1.0.0-design",
-    "description": "Design contract; not an implemented service. mTLS identifies callers; role bindings authorize every resource and target. Errors never contain secret bytes. Whole revisions use strong ETag/If-Match and caller-scoped idempotency. Field-level update classes and file durability protocol are normative in docs/design/configuration.md."
+    "description": "Design contract; not an implemented service. mTLS identifies callers; role bindings authorize every resource and target. Errors never contain secret bytes. Whole revisions use strong ETag/If-Match and caller-scoped idempotency. Field-level update classes are defined in specs/implementation/config-candidate.md; file durability is defined in specs/implementation/config-materializer.md. Plan content preparation is described in specs/implementation/config-planning.md."
   },
   "jsonSchemaDialect": "https://json-schema.org/draft/2020-12/schema",
   "servers": [

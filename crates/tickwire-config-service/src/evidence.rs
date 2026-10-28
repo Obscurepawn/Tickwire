@@ -27,6 +27,7 @@ pub enum Kind {
     RetainedResources,
     AccountMode,
     CredentialMetadata,
+    RuntimeTargets,
 }
 pub struct Issuer {
     pub id: String,
@@ -159,6 +160,11 @@ impl Trust {
     }
     pub fn digest(&self) -> Hash {
         self.digest
+    }
+    pub(crate) fn permits(&self, issuer: &str, kind: Kind) -> bool {
+        self.issuers
+            .get(issuer)
+            .is_some_and(|i| i.kinds.contains(&kind))
     }
     pub fn verify(
         &self,

@@ -14,6 +14,10 @@ use tickwire_journal::store::Store;
 /// The peer service exposes only this facade, never its mutation/drive owner.
 pub struct ReplicaControl<'a, S: Store>(&'a mut Replica<S>);
 impl<S: Store> ReplicaControl<'_, S> {
+    pub(crate) fn planning_identity(&self) -> Result<std::sync::Arc<()>> {
+        self.0.healthy()?;
+        Ok(self.0.planning_owner.clone())
+    }
     /// Trusted service assembly only; source trust is not accepted from HTTP.
     pub fn install_deployment_owner(
         &mut self,

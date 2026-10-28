@@ -1,0 +1,4285 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-28T11:57:50.022789+00:00",
+  "root": "/home/obscure/Tickwire",
+  "git_head": "e1e14caf339768f48f18dbbd763338bcbd6a2fa8",
+  "scope": "Workspace, lockfile, toolchain, .cargo, all non-document crate and contract files, protoc wrapper and full Rust gate script; ignored build products excluded by rg",
+  "file_count": 855,
+  "files": [
+    {
+      "path": ".cargo/config.toml",
+      "bytes": 219,
+      "sha256": "60b1bb487d4d8ec24e2ece37523cad5a85f399dfff2d32fd5cf7761a4258f692"
+    },
+    {
+      "path": "Cargo.lock",
+      "bytes": 54032,
+      "sha256": "be525d2634bf6aff6977a22229b7e1296123b8d011dc740375e4cdf0b44a335e"
+    },
+    {
+      "path": "Cargo.toml",
+      "bytes": 265,
+      "sha256": "3054472bbe3c0af710b3b8dbab7df9bb83c12b4dc5f89c50daea623731153f5e"
+    },
+    {
+      "path": "crates/tickwire-account-codec/Cargo.toml",
+      "bytes": 473,
+      "sha256": "b70b2b1084d3e1b414c202042502c598f23a5556a34416194984dcc7f4f0cee9"
+    },
+    {
+      "path": "crates/tickwire-account-codec/src/cbor.rs",
+      "bytes": 8086,
+      "sha256": "5b8c3b23a266ec66f82c4e2ccb54b18a992bdde2390dc027a3ef16f7b81306bb"
+    },
+    {
+      "path": "crates/tickwire-account-codec/src/codec.rs",
+      "bytes": 17046,
+      "sha256": "eb5d3a2ea2ea6fb949c951c2e1b50880fa81b947b5a9ac7c74f2ab865927a1d8"
+    },
+    {
+      "path": "crates/tickwire-account-codec/src/lib.rs",
+      "bytes": 6594,
+      "sha256": "3d937d90e2d8d79947fce028283cd83693dc0a840599935d5ab336456dd70ff5"
+    },
+    {
+      "path": "crates/tickwire-account-codec/src/validate.rs",
+      "bytes": 11486,
+      "sha256": "18e347f30fcac50107aad8a8acad3becc2d180b66d93c25c04946d8da98cfcb8"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/account_inputs.rs",
+      "bytes": 8898,
+      "sha256": "8af6bc3a6dceaadcf8696bd570948c40c8b89b3f95ed1dd7bcdf3e7942c7c03b"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/amendment.rs",
+      "bytes": 3417,
+      "sha256": "cb593e5433f1630ce9f22782389197bd808d736a24d73855d22feb12c48d1377"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/baseline.rs",
+      "bytes": 3450,
+      "sha256": "f2bed54ae1653e77ae744fc333e7efee87397982a8da6533d95a56684e14b2b9"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/common/mod.rs",
+      "bytes": 6229,
+      "sha256": "25688e727931485cb12b36fc122039d07493b81d661dfa7f5da46a8a831f8642"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/common/venue.rs",
+      "bytes": 5367,
+      "sha256": "7b03fa63f07b87cc1a3dc24c1b687956128d1485a3f40c55c35b03dd8aa40781"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/futures-baseline.hex",
+      "bytes": 721,
+      "sha256": "8433b016ac345bfa8f0315247e890bdf821431e32a37a0eb378fbf0113ae06a9"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/futures-baseline.sha256",
+      "bytes": 65,
+      "sha256": "09908efb34b96daf55b11c87cfde5b486fe918614117715ac62b29b60cf01349"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/legacy-records.hex",
+      "bytes": 2228,
+      "sha256": "cbae8f4192f323319c8d20401ccb41fa07589efa4cd7361b1e10829b4cfb410d"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/minimum-cashflow.hex",
+      "bytes": 211,
+      "sha256": "1460943ca8e1780811db3c0fbf2dc3ac8fb0c89ea08b4c7571533d12c83964b8"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/minimum-cashflow.sha256",
+      "bytes": 65,
+      "sha256": "1caa30876dd53d3923b642cdc4dfcf367c349d388195400100680a7f03cf25b7"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/spot-baseline.hex",
+      "bytes": 519,
+      "sha256": "9266a7c66b49fc384408c7d0e0e33aa859f83ef88451654dd84d2772e4a5dcea"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/spot-baseline.sha256",
+      "bytes": 65,
+      "sha256": "a02c09bd8ee346696a9f7adb721e30f7e20571a2e598aae156ac67084855cc84"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/unsorted-baseline.hex",
+      "bytes": 519,
+      "sha256": "171ada6b20cc428d37a92a4b5811be4f25d7b2235e1813ad25f604216e10688c"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/data/unsorted-baseline.sha256",
+      "bytes": 65,
+      "sha256": "ac1d8c07323eaa1b7f80b790104374819d7fb343a6d04c588d1bd2232dc23bce"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/file_replay.rs",
+      "bytes": 4405,
+      "sha256": "b4bd377fd7c9254d9b5125acb41af865f59119a55943cce4a9ea9d377a1216eb"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/ingress.rs",
+      "bytes": 972,
+      "sha256": "61dd5def882960ff0810166e93f8d545227fde63a8d778a6b63adaba515b08c0"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/input_seal.rs",
+      "bytes": 1738,
+      "sha256": "23e63eaacc45d47e511cb3bd7b880c595eb79158f6e6a74102c4a4d8d9e599e2"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/legacy_encoding.rs",
+      "bytes": 2221,
+      "sha256": "ac5d216c02f7dc87760e3d0118caa0b4e47c30281fcdb36124fafe85a489ed97"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/nonincreasing.rs",
+      "bytes": 4040,
+      "sha256": "4c8f25aecd4e5f97f99a69c95a5b7623f798d1639779835b0c9cf54657dabe94"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/records.rs",
+      "bytes": 6317,
+      "sha256": "fbd04982e1009ca1ee8cc8dc39a45275295050ba7dbb5832479ccd803603291b"
+    },
+    {
+      "path": "crates/tickwire-account-codec/tests/vectors.rs",
+      "bytes": 2584,
+      "sha256": "ad324b8ac541af0cdbde1fcc55cfa5a7ef1e5f493aa87551c990e576100b0d36"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/Cargo.toml",
+      "bytes": 787,
+      "sha256": "688d9c84a208f4594613eeb1fc3ea5d481f719bc74b7eca93892e5d74b63a88b"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/src/binding.rs",
+      "bytes": 4128,
+      "sha256": "79aaa25bb53f50bdd80509cabc34d2c367cac3cbd015330092b41af31b3e3a6d"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/src/lib.rs",
+      "bytes": 43011,
+      "sha256": "7b6fb875ad629efd8ef85b90f5182a4a7bac782e0f55b98bde8b3982cf33fe17"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/src/recovery.rs",
+      "bytes": 9332,
+      "sha256": "ad61d9600bab4eb042b596cf1deb2276ff42418549f7c9b2489d1d61d4c1bf83"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/src/websocket.rs",
+      "bytes": 7409,
+      "sha256": "8208342d117fd0811d83f92394626db0ad24ea5c147b8d30310a3c860a736090"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/binance_rest.rs",
+      "bytes": 6397,
+      "sha256": "adf0318b061a2cfbaf22ce3ce4747ea5783a112ad30ecb1b6c968dab142a8b2b"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/common/fault_backend.rs",
+      "bytes": 2354,
+      "sha256": "60af26b6aa940f2bf8e2e589e4cc0f27b9da09dfd292ede958121c04d917cf33"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/common/mod.rs",
+      "bytes": 10779,
+      "sha256": "d9e6dd31693bbdfaad0a5c60b3f9c9986387fceacba00b133d7b221d6a52efa2"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/income_closure.rs",
+      "bytes": 6520,
+      "sha256": "c0ddbdd6f8c959c65ed47c8d8f6acde51fad0e17284ff4d4e1a2f48b418494e8"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/ingress.rs",
+      "bytes": 5697,
+      "sha256": "ac7dc82b3fb56badbbe08510eb05cc9c7a8dc2e07acd555951e3df15f50f30ea"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/lifecycle.rs",
+      "bytes": 12264,
+      "sha256": "aad336daba500c92b2598df4283436f0a908ffda413597b9adcff9e7f2be890b"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/persistence_failures.rs",
+      "bytes": 8691,
+      "sha256": "dc1d7e962349da700da8e798013cab674e392ab111ad4274a9b68b830ac1a50c"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/recovery_metadata.rs",
+      "bytes": 9159,
+      "sha256": "3b6e1b80b3cc45e6b9aa1a2bba3ca6efa6343dfd8bd020b956dcb17a5e728c21"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/submission.rs",
+      "bytes": 2257,
+      "sha256": "0334049d764018957bfdf436774bdee040b469ace942a4599244974ad940c839"
+    },
+    {
+      "path": "crates/tickwire-account-gateway/tests/websocket.rs",
+      "bytes": 1443,
+      "sha256": "a8cf42928ea6d09fdca2da5726c4354cb1f0b212994e9f7b5338baa0758610ee"
+    },
+    {
+      "path": "crates/tickwire-account-journal/Cargo.toml",
+      "bytes": 619,
+      "sha256": "014acf4d8fd50f1f71494da43a597454b02e344d5f9a287eecb84ae33de97bf0"
+    },
+    {
+      "path": "crates/tickwire-account-journal/src/backend.rs",
+      "bytes": 3488,
+      "sha256": "4452ce5a864ece0ae75b4b6ee7b435db0665d06dbd5f3d1456b31e12ca1f493d"
+    },
+    {
+      "path": "crates/tickwire-account-journal/src/history.rs",
+      "bytes": 4399,
+      "sha256": "537e547e37b0b60feeea10ff1688ae98e07aeb4804e5d82c8de374706501187e"
+    },
+    {
+      "path": "crates/tickwire-account-journal/src/identity.rs",
+      "bytes": 8034,
+      "sha256": "e1f6f5ca3b652242cd49dd493fc7123191c08076a746a6cf5c53b930c1b96c89"
+    },
+    {
+      "path": "crates/tickwire-account-journal/src/lib.rs",
+      "bytes": 25434,
+      "sha256": "ce9bfea7110b19cf6e94e414365ca4b5886bb71f7e56f54544bc29394ba6b2c1"
+    },
+    {
+      "path": "crates/tickwire-account-journal/tests/common/mod.rs",
+      "bytes": 6229,
+      "sha256": "25688e727931485cb12b36fc122039d07493b81d661dfa7f5da46a8a831f8642"
+    },
+    {
+      "path": "crates/tickwire-account-journal/tests/common/venue.rs",
+      "bytes": 5367,
+      "sha256": "7b03fa63f07b87cc1a3dc24c1b687956128d1485a3f40c55c35b03dd8aa40781"
+    },
+    {
+      "path": "crates/tickwire-account-journal/tests/data/history-vectors.json",
+      "bytes": 1893,
+      "sha256": "31d7624f443f130309dbb1500b9a22d0db937cc55088ac956e54cbd97abf91d7"
+    },
+    {
+      "path": "crates/tickwire-account-journal/tests/income_closure.rs",
+      "bytes": 5970,
+      "sha256": "6320c2ab510442f47cb7bb93b7c719f683570b5cd0951fd7bdbbb1f9af09567a"
+    },
+    {
+      "path": "crates/tickwire-account-journal/tests/ingress.rs",
+      "bytes": 4189,
+      "sha256": "57385c654b9ff5facdc0680df7e205119c60b335ebfaf6da2e7bdcfc499772a4"
+    },
+    {
+      "path": "crates/tickwire-account-journal/tests/persistence.rs",
+      "bytes": 27149,
+      "sha256": "3908e5c259bd252a064dc09547fdeb9de023a87d675cbaf82dac24c4558cb986"
+    },
+    {
+      "path": "crates/tickwire-account/Cargo.toml",
+      "bytes": 248,
+      "sha256": "ac7bd9c67ce6b67db0f7245a35ce05921ca7eeb696a68cd002d900403565f930"
+    },
+    {
+      "path": "crates/tickwire-account/src/account_inputs.rs",
+      "bytes": 19488,
+      "sha256": "1fd12936b7ceaddf77a4f69e2a4bc20f4f357bb61732fea592c24332abe9cf31"
+    },
+    {
+      "path": "crates/tickwire-account/src/account_inputs/association.rs",
+      "bytes": 17950,
+      "sha256": "8486edd69b35368c68a23a74d895d6f45b905b5c72257dc09b95ec8305725c88"
+    },
+    {
+      "path": "crates/tickwire-account/src/account_inputs/closure.rs",
+      "bytes": 12214,
+      "sha256": "6dd0bdc3d71a506d1ff47a6790af83093644fdb6e61ed5b3b791f2eae5ce114c"
+    },
+    {
+      "path": "crates/tickwire-account/src/admission.rs",
+      "bytes": 19287,
+      "sha256": "26ec962a543c7a6ebb5c46427555daa39c7ddebffb149d2e5451bcf9b6c7c65a"
+    },
+    {
+      "path": "crates/tickwire-account/src/amendments.rs",
+      "bytes": 12279,
+      "sha256": "23f05d845e7ca1473da365581a8d24a64852d677ca7e0396cc30b2204a17caf5"
+    },
+    {
+      "path": "crates/tickwire-account/src/calculation.rs",
+      "bytes": 20791,
+      "sha256": "1205aaadac631aeaedb43038add06261bac2f6960d3d25c52151b631604cd81f"
+    },
+    {
+      "path": "crates/tickwire-account/src/events.rs",
+      "bytes": 20346,
+      "sha256": "5b6d6fb7f1c8333750eaa4dcae3c17de67e58cdf655ee5a67ee871946b2765d0"
+    },
+    {
+      "path": "crates/tickwire-account/src/external.rs",
+      "bytes": 5169,
+      "sha256": "9e899f0c26b2d6e351c57a52ce879c6c3561ce7ed5015745ff41cf6517ea1a07"
+    },
+    {
+      "path": "crates/tickwire-account/src/handover.rs",
+      "bytes": 4018,
+      "sha256": "7a050f26f145ec48dbfbecd247f3de139a80a9addbfc16aecae599392f0d4aa6"
+    },
+    {
+      "path": "crates/tickwire-account/src/lib.rs",
+      "bytes": 15105,
+      "sha256": "4a31fbbb5b1957b470ae7ca206e47ebabae23521a9aa73ce92d374b275982ab0"
+    },
+    {
+      "path": "crates/tickwire-account/src/recovery.rs",
+      "bytes": 7622,
+      "sha256": "8552d7ab0f629728d5282db9394535cef15eb31dfd87a7974d6c84bc8bd5670e"
+    },
+    {
+      "path": "crates/tickwire-account/src/structures.rs",
+      "bytes": 16834,
+      "sha256": "923c6ee7189f4a6074994a4bd0eea465904362d9cefb84d1e55c59efcd6d9147"
+    },
+    {
+      "path": "crates/tickwire-account/src/types.rs",
+      "bytes": 14260,
+      "sha256": "7bb1617eca8f2e33352f5dd1b18a50479adb10909a928ed35a64ac0c16802844"
+    },
+    {
+      "path": "crates/tickwire-account/tests/account_inputs.rs",
+      "bytes": 20848,
+      "sha256": "e114553d233d168082dcbba99d46e0108870b80c5235a189afbda70b29dd8596"
+    },
+    {
+      "path": "crates/tickwire-account/tests/admission.rs",
+      "bytes": 6180,
+      "sha256": "ca9a5eaefe2e4836005dd760923d0e82f23cac0baa0e9d4dfe8ba51a226caefc"
+    },
+    {
+      "path": "crates/tickwire-account/tests/amend.rs",
+      "bytes": 14140,
+      "sha256": "ccc4ca9495d9614e5e4170d50837612f60ae0b31fcf9a2e12469ea019cb5b853"
+    },
+    {
+      "path": "crates/tickwire-account/tests/common/mod.rs",
+      "bytes": 6229,
+      "sha256": "25688e727931485cb12b36fc122039d07493b81d661dfa7f5da46a8a831f8642"
+    },
+    {
+      "path": "crates/tickwire-account/tests/common/venue.rs",
+      "bytes": 5367,
+      "sha256": "7b03fa63f07b87cc1a3dc24c1b687956128d1485a3f40c55c35b03dd8aa40781"
+    },
+    {
+      "path": "crates/tickwire-account/tests/conditional.rs",
+      "bytes": 25967,
+      "sha256": "4890684e0f00cf13252fa1587a05b707c7d0888e060d10e3d5953290f784782c"
+    },
+    {
+      "path": "crates/tickwire-account/tests/edge_cases.rs",
+      "bytes": 5393,
+      "sha256": "1d5905310825460f85f7a3e960e972d982b6a5bf150f62cf9c0fb163880a61d7"
+    },
+    {
+      "path": "crates/tickwire-account/tests/facts.rs",
+      "bytes": 8418,
+      "sha256": "aea3ca427e935a857b3dd30cbdca47f5f429e78d67aff23ea9fcd2a9b3d414d1"
+    },
+    {
+      "path": "crates/tickwire-account/tests/futures.rs",
+      "bytes": 12547,
+      "sha256": "0091e513f05eb3b1f8815f0c9598ae055b4d09eb0cd975de19a2c95703f74be5"
+    },
+    {
+      "path": "crates/tickwire-account/tests/handover.rs",
+      "bytes": 3409,
+      "sha256": "d886eabedde88783592869679444ed26d8036e35a0ccba7e562a31ee4525da3c"
+    },
+    {
+      "path": "crates/tickwire-account/tests/nonincreasing.rs",
+      "bytes": 4066,
+      "sha256": "ef2b751ff60c028ac83f60c3aa9760cca6472d9fa584ba40fe5f463f450b541b"
+    },
+    {
+      "path": "crates/tickwire-account/tests/recovery.rs",
+      "bytes": 2533,
+      "sha256": "35b15c3d3a6acdd866056d80978c598dfd2df306086ae54ec2ea12b1cdcef142"
+    },
+    {
+      "path": "crates/tickwire-app/Cargo.toml",
+      "bytes": 2699,
+      "sha256": "9a03f756bfb3a64b0010178714e777b0ccc286b5e6cd77e2cd618531766bba95"
+    },
+    {
+      "path": "crates/tickwire-app/src/config.rs",
+      "bytes": 25911,
+      "sha256": "081a832d7bcb692b7ac08fb8e5565bc815ef4c707128d609bb4927c2e0af2eae"
+    },
+    {
+      "path": "crates/tickwire-app/src/config_instrument_tests.rs",
+      "bytes": 6429,
+      "sha256": "9d135884d0f6c74fdc5b84f890a67b70acdf4da68a6da887a5b643770a9fa5a5"
+    },
+    {
+      "path": "crates/tickwire-app/src/control.rs",
+      "bytes": 46690,
+      "sha256": "e317c071e9e9699192ba5d6f09426e7a8397063f6210e8a9951f8d9700b70430"
+    },
+    {
+      "path": "crates/tickwire-app/src/control/market.rs",
+      "bytes": 15978,
+      "sha256": "d85fcaa62ce3cac7d38ebd789c61d31fadf5fc7334d4c832038992555e60415a"
+    },
+    {
+      "path": "crates/tickwire-app/src/control/market/files.rs",
+      "bytes": 6590,
+      "sha256": "8309b886b827ca64c1fc3be9a6ed55f94c9f183d643d54dc85d37ddcdeac84cb"
+    },
+    {
+      "path": "crates/tickwire-app/src/control/market/history.rs",
+      "bytes": 3838,
+      "sha256": "82235177e9b884cf0c4947ab9c078ceb54a1c1ccd27c67ad0da7f3eb06715698"
+    },
+    {
+      "path": "crates/tickwire-app/src/control/market/tests.rs",
+      "bytes": 23878,
+      "sha256": "37ed8afd33852cc5b04f54454c36a7cdc169ccc2f2fb1cade1aef5012d023759"
+    },
+    {
+      "path": "crates/tickwire-app/src/control/market/tests/clock_tests.rs",
+      "bytes": 11156,
+      "sha256": "5fbf06c560e27433f81d26f2b44f8bce43a2995c720bd7611a2461aa055fc2f5"
+    },
+    {
+      "path": "crates/tickwire-app/src/failover.rs",
+      "bytes": 37943,
+      "sha256": "868e9bb993dd570c3cb8bbf214546b8b4851c1385e78c1416a31a6ada97e01d4"
+    },
+    {
+      "path": "crates/tickwire-app/src/hosted.rs",
+      "bytes": 28253,
+      "sha256": "6b8c46a33089a1772082f07bb5d8a878741fbb6fc153f76de79c9135740e5e25"
+    },
+    {
+      "path": "crates/tickwire-app/src/hosted/rebuild.rs",
+      "bytes": 11929,
+      "sha256": "debfdad98b973f03a8af253607f8cbd7099f74432e88ed7ac764a2f7338ff7e1"
+    },
+    {
+      "path": "crates/tickwire-app/src/launch.rs",
+      "bytes": 21488,
+      "sha256": "67a9cd8241a0180538fc6a0002df7057591e3753af9719f6e04e84300ca3e559"
+    },
+    {
+      "path": "crates/tickwire-app/src/lib.rs",
+      "bytes": 558,
+      "sha256": "272609ec927041289377695010da304520be90b6066dfa7fbc23bdd86b1fab89"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle.rs",
+      "bytes": 61991,
+      "sha256": "9f897d1f2295460dbcb4e99f107fcb6c741149e19c064310b84b5a9e03464cde"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle/rebuild.rs",
+      "bytes": 10789,
+      "sha256": "620a799efffcdb8c2927d31ecbf7f891fc346628d3bba751075c19267d49df0c"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle/rebuild/execution.rs",
+      "bytes": 14960,
+      "sha256": "fff2b222ba7c55429f02b20abc9b193b6331868a58290f3f61a4bea2ecaedcfd"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle/rebuild/preflight.rs",
+      "bytes": 7948,
+      "sha256": "084daa2b0e7597476af8f8cceff5ffe94abe2a1a42a6e1fa18131a6e1da2056f"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle/rebuild/preflight/tests.rs",
+      "bytes": 4714,
+      "sha256": "26497bc92a4411057fb03e4fd156a09deaeb20f8f2289cedcb2f971996dbb27d"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle/rebuild/tests.rs",
+      "bytes": 11431,
+      "sha256": "bb5ba74c639f6b19b5c44ff4ba8b685d39e34c6303ad54a5893087adfc383ac1"
+    },
+    {
+      "path": "crates/tickwire-app/src/lifecycle/replay.rs",
+      "bytes": 37696,
+      "sha256": "dcf7c77bf5377f835b39554d95d09c44eb5795dfd4c679d4cd2bcc6cbb38399c"
+    },
+    {
+      "path": "crates/tickwire-app/src/main.rs",
+      "bytes": 13064,
+      "sha256": "cce0f7b571346a7371410e795f2318d35d502e6551a9478747a0461d8fe8cabd"
+    },
+    {
+      "path": "crates/tickwire-app/src/market.rs",
+      "bytes": 9313,
+      "sha256": "537942a819c834208b4cd91ffc4f5f8d83310bdbdfb8e8547bfe0588b84b0073"
+    },
+    {
+      "path": "crates/tickwire-app/src/market/tests.rs",
+      "bytes": 9157,
+      "sha256": "9e30bfca44e7f59b57956b30b4e1ea3779fa800a53ac8108aef8327b69584cbb"
+    },
+    {
+      "path": "crates/tickwire-app/src/market/tests/fixture.rs",
+      "bytes": 11252,
+      "sha256": "e624bce3552e6998e8394d0cab5b4c2c27ea3d01bc2337fe4980021c32bc9466"
+    },
+    {
+      "path": "crates/tickwire-app/src/reconciliation.rs",
+      "bytes": 49255,
+      "sha256": "c21404becc0b5561049e7867b13d46bbb684c00f429a52fb1903710543997b1e"
+    },
+    {
+      "path": "crates/tickwire-app/src/reconciliation/association.rs",
+      "bytes": 8507,
+      "sha256": "681cc5fb6751528b683009066be5dfffa8faf7fb2c5d921909d88cf4d69e88e4"
+    },
+    {
+      "path": "crates/tickwire-app/src/reconciliation/files.rs",
+      "bytes": 4241,
+      "sha256": "91621a9e5691e6183bf99404250b741355596cd2cfe34afd996ed53acc432414"
+    },
+    {
+      "path": "crates/tickwire-app/src/reconciliation/income.rs",
+      "bytes": 15287,
+      "sha256": "a5deeb2d50f5e19fbd693a775d6bdb8547a8b707f7bd05e6ff4340b31249f5b7"
+    },
+    {
+      "path": "crates/tickwire-app/src/reconciliation/income_network_tests.rs",
+      "bytes": 39317,
+      "sha256": "07b3fcfa32024e20893147454eb0c193346c58552b8dc1d34feaeabbad93fa6a"
+    },
+    {
+      "path": "crates/tickwire-app/src/release_preflight.rs",
+      "bytes": 23340,
+      "sha256": "67fde5852736676461419a6c869c544bee37b28c6d120794278e45cc7651ba08"
+    },
+    {
+      "path": "crates/tickwire-app/src/replay.rs",
+      "bytes": 27709,
+      "sha256": "ded9f8c5fab56439f642345b0cf74bf11b871a649bd230050c53ccb5ef552524"
+    },
+    {
+      "path": "crates/tickwire-app/src/replay_income_tests.rs",
+      "bytes": 10019,
+      "sha256": "09a9a60e61418c02dd15c66c20a30106a34fab334795e7dd0303a269aff9b703"
+    },
+    {
+      "path": "crates/tickwire-app/src/replication.rs",
+      "bytes": 21799,
+      "sha256": "48cd4c57a35772a4e96ee734225738dc9a6a69590797d34bcf6468e7d8b2fbab"
+    },
+    {
+      "path": "crates/tickwire-app/src/strategy.rs",
+      "bytes": 48737,
+      "sha256": "7eeb7a6ecca60a18db174584ba3d34208d1d9611e456f6fb5a72fb3c2beb85c9"
+    },
+    {
+      "path": "crates/tickwire-app/tests/failover_files.rs",
+      "bytes": 26460,
+      "sha256": "424abac0622715ffe0d1d33437b84307e9b4c8ed267cf5dda54ce30032f3e40a"
+    },
+    {
+      "path": "crates/tickwire-binance-account/Cargo.toml",
+      "bytes": 1119,
+      "sha256": "6c47d9b3512be7c73d35f98fe03975571e9bfd41109055f492da44b64e998105"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/account_facts.rs",
+      "bytes": 8251,
+      "sha256": "4c77048c7dc73bdf6bf5f7ced139138f11365e821a2e1f6f06dfbab883d6905c"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/amendment.rs",
+      "bytes": 13690,
+      "sha256": "ca9ea5dec4b7dd79e4f960dc31735d05fc5c8317bfe3c34ba27560b777f3e476"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/codec.rs",
+      "bytes": 26753,
+      "sha256": "0bc451ffe99728cb0de904502833328b08f2b76bc6e593edaa6db70d82732f70"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/lib.rs",
+      "bytes": 22309,
+      "sha256": "1169226c4daa9a28828be7f7d76487785de068181ac6c9596b83997230837d7d"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation.rs",
+      "bytes": 17336,
+      "sha256": "623a564a2bad869448c20af4c60badb3ee7c912cab3cfad7e4f9d0a01e66c3fe"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/activation.rs",
+      "bytes": 21843,
+      "sha256": "81611d66d893ee4f19326a8df2f6f5211fc0552f49c49a985a8c7f22f97e41b2"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/amendments.rs",
+      "bytes": 13701,
+      "sha256": "ae1d3ebd07e96883829a8bde6096690e401f910d764a3989866cbe3cc275980f"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/bootstrap.rs",
+      "bytes": 13952,
+      "sha256": "a79cfcea6c15a24e28d1a67003328f54ce1ec13ae64049cad7a91a54b22ac512"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/closure.rs",
+      "bytes": 7909,
+      "sha256": "cb91b3bb2af8e6b973ab619d67726fc16de02c37387c7fe38f35ecafe85d895a"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income.rs",
+      "bytes": 27634,
+      "sha256": "2b90d20aaf057220494ec9958bb4753d290e0c679510fe98b0bf27f0906ca719"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/authority.rs",
+      "bytes": 15569,
+      "sha256": "6d5dd64ff261c1074dbef372451fe027770f1b24bfb5456c7ceed33e2373c686"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/dependencies.rs",
+      "bytes": 1157,
+      "sha256": "308c2338c8f40cdcbf397d3decedbd1111fe4a135a9bda1668b7b55cfc1a3658"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/encoding.rs",
+      "bytes": 8464,
+      "sha256": "5be61e1e385036f78f78d02cf06ce35a620510dd1edc5332fe10e40ebb929da7"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/history.rs",
+      "bytes": 19748,
+      "sha256": "40160e2014d26ec9dfd3326e296555253c425d301b511424a657ce0b6c7ec92b"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/mod.rs",
+      "bytes": 568,
+      "sha256": "8ce50a162a9ef5449dd1d159407f74fc71bbd796dcf2f0c8b2435f623b439d66"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/owner.rs",
+      "bytes": 20172,
+      "sha256": "95ac33c31c9b609ef1022d704d02cfef75ebaf39d00559e40e1ad4b14d0580df"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/policy.rs",
+      "bytes": 7850,
+      "sha256": "05d23815c830fccad04e57684d9e0e723d4fa47987067bd0f64f0eb1b956b9a4"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_association/tests.rs",
+      "bytes": 22775,
+      "sha256": "413ded5d61350ea2b2ef11461604ada574c1cf61e2f5ac25ceec6546dd471a27"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_closure.rs",
+      "bytes": 15853,
+      "sha256": "690f8fdb9e5625b3c5df1c62e3eb959a9514b66b0ec5568add9f18ad9db2a0fe"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_closure/encoding.rs",
+      "bytes": 9661,
+      "sha256": "c467462d59a1f04d14abc879d9d43dd3144cacd75e7e53eba49631684a5b164a"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_closure/tests.rs",
+      "bytes": 16639,
+      "sha256": "9d44312080f944a9463bfe833a87292ea1707d3402c9fb0e65c7a53694282a8a"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/income_import.rs",
+      "bytes": 45491,
+      "sha256": "abdca3b4762e72ed1f831784a0687a63a74684e5718c87ad2e41b6010232e1b2"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/orders.rs",
+      "bytes": 12396,
+      "sha256": "385847a8b09ea795d70b547efbf21ec24ca73253b23795fe81300f482e147911"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/snapshot.rs",
+      "bytes": 33864,
+      "sha256": "b29d7bd3c8017f1b073d159d5f951612e9015c6605949008f87a0e61e3ec711b"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/structure_closure.rs",
+      "bytes": 22711,
+      "sha256": "1031f0eb6ee221dda4fd5ab8a2f5dddbc5bcf348ce2efe1909cffec726f73ed4"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/structure_closure/tests.rs",
+      "bytes": 25112,
+      "sha256": "f260db53f37ea66f005ec73ac7719605ff1e1e2748977c59881c5db7e1f3a688"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/structures.rs",
+      "bytes": 13094,
+      "sha256": "a911c2b96c36a1746f0a1a0863b5b03a06a95098b9449c1986d62f36494a0fbd"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/trades.rs",
+      "bytes": 13145,
+      "sha256": "22bcd4ae755923ba3254638948e7d3d26a09c2e691795d24d5db47e1c7eb162b"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/reconciliation/wire.rs",
+      "bytes": 7416,
+      "sha256": "b7138b15b4023b05db747ddbda914972766457f859622e5511ce9452228d003b"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/registry.rs",
+      "bytes": 10154,
+      "sha256": "3adbac25412404204c57fb1f0f611ae38db9fa91fcc9cc838e5cf8c91c0d315e"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest.rs",
+      "bytes": 12438,
+      "sha256": "ec1a3636fe6a818e9413e56eb6a342ca8380b973c9ab05db31b5c32a5cf1d120"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/amend_history.rs",
+      "bytes": 11329,
+      "sha256": "b724aa4f4032a4a8d22f5a0674e7f69b43e6872213b1ce6480ad6b29152bf4fa"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/amend_tests.rs",
+      "bytes": 6354,
+      "sha256": "fbc375c338d40706a6d2d9a2bc6c7d9683ddf89b021074245d2b8953a1dbffc9"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/amendment.rs",
+      "bytes": 10759,
+      "sha256": "f2eb299c65d19c3bf1de2a75fe0be9bf29ea3ff4c8b5aeb8993799ccc569f6d9"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/binding.rs",
+      "bytes": 15794,
+      "sha256": "95c0f176853acfc9578df7ad6bf37bdc38bbb756fee85b54e3acc8bbc19b9ef0"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/persistence.rs",
+      "bytes": 14075,
+      "sha256": "3be3055521213c98de1363ee0a33495c548235fe29500fa0753bd9121b1bff4c"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/structure.rs",
+      "bytes": 5353,
+      "sha256": "5ae1997dd2d0d6d33d4d8ce147f353b2b948edbfbf446ab9ca515bbe076c3148"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/rest/tests.rs",
+      "bytes": 6984,
+      "sha256": "e3df2905f25b746a89e2bb5dddd84c0ba3040d14466d1165a200d1fb8a130199"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/runtime.rs",
+      "bytes": 17170,
+      "sha256": "8615b3afe1eb25ea5d63ad82ad4dc2faa795be60d91a073b157ce82fd04605b0"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/structure.rs",
+      "bytes": 6287,
+      "sha256": "cf18417ff566d28316da98f60701ee79321e91d27221f4447eedbe2f163d588c"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/ws.rs",
+      "bytes": 27030,
+      "sha256": "2624c5b2200344144147934cbbcc476eb0572611420e22ac34add31d981cafbb"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/ws/lifecycle.rs",
+      "bytes": 2971,
+      "sha256": "39642efa3d9e9c86b0716193795b73cc4f4c3563b80e7ee0fd7ae19290ea0793"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/ws/owner.rs",
+      "bytes": 22778,
+      "sha256": "cebe5ee514e85e546a42ccc48f9356680a741d0687b866220f174e20a723dad5"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/ws/response.rs",
+      "bytes": 15976,
+      "sha256": "44cbe73cfb7bad72f9b1df6fa7d0ec5d56c83afc3cddf5c1d99952c1b1e4f698"
+    },
+    {
+      "path": "crates/tickwire-binance-account/src/ws/tests.rs",
+      "bytes": 17146,
+      "sha256": "b3e20faff0c12cd0f5d91b0a48f130d8790c13ca3dfa5d1db9b6370a5693997a"
+    },
+    {
+      "path": "crates/tickwire-binance-account/tests/account_observation.rs",
+      "bytes": 3112,
+      "sha256": "0c5bcb84cfc86e1003c402b7bd136f0c39862bbf30d81b4a48bdd149289389e2"
+    },
+    {
+      "path": "crates/tickwire-binance-account/tests/network_ingress.rs",
+      "bytes": 84519,
+      "sha256": "e0beb843eb77d621ea88d6a77d4a35ae810b0316823fb4d9a78a4d4f5761de55"
+    },
+    {
+      "path": "crates/tickwire-binance-account/tests/persistence.rs",
+      "bytes": 5600,
+      "sha256": "9e79c0766bcc63b1710416ee0e5ec8128d1823eb9c3c558e29b080248b53ba90"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/Cargo.toml",
+      "bytes": 453,
+      "sha256": "6712a55873923bff1b109ea7a4f9c9ef640c172f9e89be5cdbe21246c137b3cf"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/src/client.rs",
+      "bytes": 16648,
+      "sha256": "ac33e1b3981a2f24de86179c4d2fe2a5f64711309cf125d8845b0f415418db1a"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/src/lib.rs",
+      "bytes": 3720,
+      "sha256": "4a23ca733f8e740834991ae36049e36a0463aa879d40fd59d35a4c03d44ac8ab"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/tests/https.rs",
+      "bytes": 21301,
+      "sha256": "10f6e28a195cc03487edf228e6a81b51895cc9dccc895a9d5b6fa3b6de334e19"
+    },
+    {
+      "path": "crates/tickwire-binance-clock/tests/system_clock.rs",
+      "bytes": 657,
+      "sha256": "591bce2a0575fc1d2f7a052501b5f7fa17b30ea2f864e0aae61491fd3a16f060"
+    },
+    {
+      "path": "crates/tickwire-binance-execution/Cargo.toml",
+      "bytes": 1375,
+      "sha256": "8fb7417ae0530f58a7000e8a631fbfa19ff913a58b7127662896f4aef48fef6e"
+    },
+    {
+      "path": "crates/tickwire-binance-execution/src/lib.rs",
+      "bytes": 25019,
+      "sha256": "00e5e67cbc4442dfeec948d2805ea37bf1b23cdd7c8a0ab8d35c0713bc8a1c06"
+    },
+    {
+      "path": "crates/tickwire-binance-execution/src/tests.rs",
+      "bytes": 42627,
+      "sha256": "9419b06a5e9cb4eb8d35317f18199572af77ca08f95ee3487baf824408e03c35"
+    },
+    {
+      "path": "crates/tickwire-binance-execution/src/tests/replication.rs",
+      "bytes": 9462,
+      "sha256": "3a0ba4399404612c85cfd9b8e0de2b720ca3aebf626a0da8bc95caa2ed77fc52"
+    },
+    {
+      "path": "crates/tickwire-binance-private/Cargo.toml",
+      "bytes": 609,
+      "sha256": "7d35d55d6c9fd016546639ee113d2cbc841f7bc338e261557cb9bd81f61c6457"
+    },
+    {
+      "path": "crates/tickwire-binance-private/src/client.rs",
+      "bytes": 56736,
+      "sha256": "129280e192417481fb198d955c8c66ea17820e557644aa33837aa4cc6dc92a5b"
+    },
+    {
+      "path": "crates/tickwire-binance-private/src/lib.rs",
+      "bytes": 5929,
+      "sha256": "98b951e82c1a366fa37d2a61f3e252c48dd7c52cf70bee2fa9cd712e63e8011b"
+    },
+    {
+      "path": "crates/tickwire-binance-private/src/request.rs",
+      "bytes": 12206,
+      "sha256": "0152f8986c40ccb13a0d02e16e71e112b52e51051ac01248b6454d68ece12cd5"
+    },
+    {
+      "path": "crates/tickwire-binance-private/src/response.rs",
+      "bytes": 2931,
+      "sha256": "0742718db2e6273921dae92f6a8cde84224b240856c23d8dc55a52b5dd0a7e90"
+    },
+    {
+      "path": "crates/tickwire-binance-private/src/session.rs",
+      "bytes": 5147,
+      "sha256": "53de2236eb9d9157831f32623be984a4bdd432702d75fd4a0eb53172e4638f59"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/clock_binding.rs",
+      "bytes": 11435,
+      "sha256": "e0ded48f775eeee88ba0a485077ddb3216f300085ee919b4e96aa49f83d596f0"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/common/mod.rs",
+      "bytes": 9144,
+      "sha256": "f91fe5e5fd1a32a3e397e770b11faa44a0a6b88f758e582afe9e81e4023eacd4"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/failures.rs",
+      "bytes": 22046,
+      "sha256": "ef57274fc4021c666fe56d05b7ab875e94547943d309c6dbaa518c3787c67e97"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/protocol_server.rs",
+      "bytes": 8312,
+      "sha256": "d0dbb57b1384414112c641b32954b6aec9703c8e7e51b88934b5e9156b5a37cc"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/requests.rs",
+      "bytes": 7685,
+      "sha256": "fc7cdb12615f14ef9ad5662fa7ae6d428d64c998cc2ddf27ff929c07bd9fbb90"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/spot_lifecycle.rs",
+      "bytes": 7314,
+      "sha256": "e5182d4a5748ba5f0cbb354c0330aeb874a76563afa77496f8f221fd545bd0ef"
+    },
+    {
+      "path": "crates/tickwire-binance-private/tests/usdm_lifecycle.rs",
+      "bytes": 12013,
+      "sha256": "06f8d4ec2c9e5f343a785b9c9ec316cb498520aaea2e264d1ab3703e620e15c7"
+    },
+    {
+      "path": "crates/tickwire-binance-public/Cargo.toml",
+      "bytes": 636,
+      "sha256": "4bd922d092c47a56decddb5d5077ec77d4cb6788eb115bd5b96ca82c7cd2c384"
+    },
+    {
+      "path": "crates/tickwire-binance-public/src/client.rs",
+      "bytes": 45672,
+      "sha256": "dbc665511da646e158c4618c2cb0b14a2799eb2ce1ef8e0db8ba2a39c68c5d3a"
+    },
+    {
+      "path": "crates/tickwire-binance-public/src/event.rs",
+      "bytes": 34630,
+      "sha256": "ae1f229b289661a152c8c235adc8711a31a986b912fb04e0281262b062744746"
+    },
+    {
+      "path": "crates/tickwire-binance-public/src/lib.rs",
+      "bytes": 6087,
+      "sha256": "014285d61a5d959842c428fc423bfe2e8fd23f56f05415ee1f4ec2e0ea224884"
+    },
+    {
+      "path": "crates/tickwire-binance-public/src/protocol.rs",
+      "bytes": 7584,
+      "sha256": "e6afa6340ec52e29f11c541e2c3c41e32fe790efdc088d40ac4ced69b0c7b684"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/common/mod.rs",
+      "bytes": 8222,
+      "sha256": "546235eae7b76f20aa8eaffa3dad1b4145f8bf1ac1f10fe1ba3d391c4b03ae69"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/constructor_stack.rs",
+      "bytes": 2526,
+      "sha256": "5a129acb4b4816661ad1d934ef2009893ee4aefa2b509fc803c7ea9581d96fe0"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/control.rs",
+      "bytes": 1935,
+      "sha256": "7ce7a9ac2030928c548ab9c3e5824afdb33407beeecc90399fcf425b35cd624a"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/events.rs",
+      "bytes": 14185,
+      "sha256": "2b6109f1bad9d33441db0d4d960aa70c711312ac812a48e56547dea389623d2e"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/network.rs",
+      "bytes": 5024,
+      "sha256": "0ad6eb52416e317057a613389eaed961dfdad3777831585ea888013f1a30c8e2"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/rebuild.rs",
+      "bytes": 3645,
+      "sha256": "f9a4cda447d3c214bbdc0e019ee67b7fe86b6004209ff186eaf8da60f1cc2ccb"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/sbe_config.rs",
+      "bytes": 2283,
+      "sha256": "f48b5b8ba38d419badc6aa000a3d3ab885578472893c53e80c3eb2e76e186191"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/sbe_network.rs",
+      "bytes": 7861,
+      "sha256": "7790b46bebf4024aaa449bc4d385da59a8327de54cc0eb191e2c87dd72b0e8df"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/scheduling.rs",
+      "bytes": 4995,
+      "sha256": "d7cb1378a82ce3736733e8549958adb1d3a2bc34c247ef8567670575253066cc"
+    },
+    {
+      "path": "crates/tickwire-binance-public/tests/timer.rs",
+      "bytes": 3073,
+      "sha256": "256d149b9fe6ba712f64a9e26fedd029e22818a6d15d402f28a29a368b382463"
+    },
+    {
+      "path": "crates/tickwire-binance-quota/Cargo.toml",
+      "bytes": 791,
+      "sha256": "a23c87ec7248ac9e3a44b41010625a1714f4cc86622cb5acca295b95c8dfe4a4"
+    },
+    {
+      "path": "crates/tickwire-binance-quota/src/bootstrap.rs",
+      "bytes": 16572,
+      "sha256": "59667165f9bf1682d68bc3ea5e1a3b62dea1a9ab62d4720497c42b9e97943fda"
+    },
+    {
+      "path": "crates/tickwire-binance-quota/src/lib.rs",
+      "bytes": 38531,
+      "sha256": "4d1e9ec9ef2d12cdd72f59075afd1e86f36f498c26562b9c179fd54f9928c88d"
+    },
+    {
+      "path": "crates/tickwire-binance-quota/src/read_tests.rs",
+      "bytes": 7328,
+      "sha256": "50f336d3e154bc5cca6ac34979fade84fbfb4239106783dbcbc2b03536493136"
+    },
+    {
+      "path": "crates/tickwire-binance-quota/tests/permits.rs",
+      "bytes": 9609,
+      "sha256": "a99d9d156f0a1d3b5b4c06c0dc537ca1f7ce2249e6078008485ffd4a9d8b0ab9"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/Cargo.toml",
+      "bytes": 151,
+      "sha256": "803079b67b71c03beb5fa0d0393fed64b65faeaf3008ba23a887879166d90c9a"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/schema/source.json",
+      "bytes": 281,
+      "sha256": "41cbbc594336bcecb134d96595cd0af7f91fb9853af7e47456a6d27a7abc567b"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/schema/stream_1_0.xml",
+      "bytes": 6192,
+      "sha256": "6ea328467e144311b1f1efff38e9fe613829997f041dd02a3b7077885d10a1f7"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/src/decimal.rs",
+      "bytes": 2043,
+      "sha256": "1af4a88415b33019649531941bc3faf68040670135504e224344a4cb6aa97164"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/src/decode.rs",
+      "bytes": 10838,
+      "sha256": "0ee78134f0793510ca475ffd63f10156ff9372468bd7a5751e396d7132c7383f"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/src/lib.rs",
+      "bytes": 880,
+      "sha256": "ad303bea4983bf915c5075c465afc6fc580b7dde8613aa8b3fcda18c879fba18"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/src/normalize.rs",
+      "bytes": 4688,
+      "sha256": "ae449d81a25de953be178a59cffe3081d72e260d23532722ae933059c053741f"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/src/schema.rs",
+      "bytes": 2559,
+      "sha256": "7b2348fb90e1a8ac17a4d52c94efebc63fddc8794c90cec20f01d70c2ce85af5"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tests/codec.rs",
+      "bytes": 10820,
+      "sha256": "e0d757ceec3b6fda63e78833fbeae99da10550701e890202e86fd53efd8e5815"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tests/fixtures/diff.hex",
+      "bytes": 165,
+      "sha256": "a8f511f14f76a048e7daaa843826e282ace37e1f1993c82a3d5d64c1cbcc2a31"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tests/fixtures/partial.hex",
+      "bytes": 213,
+      "sha256": "61c9aecaf249e97d03a6f4c2f25fbe1bfc8104a590ba0fb7524f4af50228fb58"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tests/fixtures/quote.hex",
+      "bytes": 133,
+      "sha256": "76cd7a34f0bc2c6c8d48d53f55210bd7d6436a0a6750925a84b48bc11888f914"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tests/fixtures/trades.hex",
+      "bytes": 181,
+      "sha256": "86525c0f43113c5e7b59ea823be214cbfbcb214f783e7f279d39b30d60354683"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tools/fixtures.py",
+      "bytes": 1143,
+      "sha256": "70f9ba379fa3946d01a3f184b55df0d4826561940490cf6685b4536b738945be"
+    },
+    {
+      "path": "crates/tickwire-binance-sbe/tools/generate.py",
+      "bytes": 2466,
+      "sha256": "35b0fca15d3de16fda96bd57ddc62f414d83d3e04dae9f5cdb62d7da5008932d"
+    },
+    {
+      "path": "crates/tickwire-binance-session/Cargo.toml",
+      "bytes": 518,
+      "sha256": "48678b31b03905faf3c9fc7433d5decad90efb18a8a1b725b5ddb3f46b38f907"
+    },
+    {
+      "path": "crates/tickwire-binance-session/src/lib.rs",
+      "bytes": 4386,
+      "sha256": "8278292e485dd6721fb81782628d1764ebfdc0e067ce3bde6edc0aac3f4ab4cd"
+    },
+    {
+      "path": "crates/tickwire-binance-session/tests/integration.rs",
+      "bytes": 16125,
+      "sha256": "dd070067a8bab79c05a702ceb5c80cd90b69af9d12d9a3bd067fe29507bf9d72"
+    },
+    {
+      "path": "crates/tickwire-binance/Cargo.toml",
+      "bytes": 619,
+      "sha256": "9a78dc84748295427fd1fd5000d12def2096606f5b574c3334eaadc500a129cf"
+    },
+    {
+      "path": "crates/tickwire-binance/src/auth.rs",
+      "bytes": 5144,
+      "sha256": "48a76156212bd076faf60580e4e9fc4c00e569b85110978c9d32e7015c8ccd75"
+    },
+    {
+      "path": "crates/tickwire-binance/src/buffer.rs",
+      "bytes": 2242,
+      "sha256": "d689c243f0ba4b54bd1ab5640f9090839f83fa7b7bfc86990850c4ed5f168fde"
+    },
+    {
+      "path": "crates/tickwire-binance/src/decimal.rs",
+      "bytes": 4295,
+      "sha256": "16845bcd2e2d2f14fec9674baef71493ca0714fa4f723f9534057226afbff94a"
+    },
+    {
+      "path": "crates/tickwire-binance/src/depth_sync.rs",
+      "bytes": 16642,
+      "sha256": "4a87db8919dfd0739840d0b14b600be838b13d7aa8fb4a892a990e582a987cbc"
+    },
+    {
+      "path": "crates/tickwire-binance/src/events.rs",
+      "bytes": 8359,
+      "sha256": "6c7416c07d4730489faa318496bceb306e481ebba426048480689b575476894b"
+    },
+    {
+      "path": "crates/tickwire-binance/src/events/binding.rs",
+      "bytes": 10785,
+      "sha256": "6d56afa3f7bf8768f3ba5ad6852f0a66415fa4002216e224d1a99a6c705761db"
+    },
+    {
+      "path": "crates/tickwire-binance/src/events/decode.rs",
+      "bytes": 17890,
+      "sha256": "3f0caaadb29234da33d0f44ce9f567aa659bbc226c6cf0bbfd3c2861091099aa"
+    },
+    {
+      "path": "crates/tickwire-binance/src/events/structure.rs",
+      "bytes": 17763,
+      "sha256": "6a2541854fdc1f358cc7f7b3640e39c13f57d1a895e605115e654e09ba373170"
+    },
+    {
+      "path": "crates/tickwire-binance/src/feed.rs",
+      "bytes": 13626,
+      "sha256": "c6d9296aa9fadd189e95d1b137db6cc9d24c94c8eeb4ffecacc40c83c14e36c2"
+    },
+    {
+      "path": "crates/tickwire-binance/src/feed/json.rs",
+      "bytes": 12155,
+      "sha256": "7c0fa31f6eb630e3ee768306dd1d6b1ca71ddb4644db5b5d853a223426f1fa9b"
+    },
+    {
+      "path": "crates/tickwire-binance/src/feed/metadata.rs",
+      "bytes": 9479,
+      "sha256": "ab50a1b27cb374ebecdb5541b9c2dd4ecba0f6b072e66f71257b5571b46118cd"
+    },
+    {
+      "path": "crates/tickwire-binance/src/feed/sbe.rs",
+      "bytes": 3225,
+      "sha256": "c4228fba56e09d42c09d8aa2cea08d5f797fb94e758aac6ca7a2e6bdf4b804fe"
+    },
+    {
+      "path": "crates/tickwire-binance/src/feed/workspace.rs",
+      "bytes": 3495,
+      "sha256": "6b51439d34181c5dbc74b78b6c116bc4aa019f480246fe50749983e617c3a05d"
+    },
+    {
+      "path": "crates/tickwire-binance/src/lib.rs",
+      "bytes": 600,
+      "sha256": "4c5994df9980398c83df6bfc45d1e4099187c3dacbbcd1ac4a1cff4eb9bd1da0"
+    },
+    {
+      "path": "crates/tickwire-binance/src/market.rs",
+      "bytes": 15212,
+      "sha256": "a0ff6e09f1960412701035b4e97c30118f54fda449a41f725f40f748c9b98b3d"
+    },
+    {
+      "path": "crates/tickwire-binance/src/params.rs",
+      "bytes": 4025,
+      "sha256": "3c00479391a5504ce3bd8043e0b6050838135b66b33bcb30ad1d6c7f5658fb52"
+    },
+    {
+      "path": "crates/tickwire-binance/src/request.rs",
+      "bytes": 28787,
+      "sha256": "11cc46e569ad0ac994b98d919bb0dc0ca786dee53752e42917fc33469b01ad00"
+    },
+    {
+      "path": "crates/tickwire-binance/src/response.rs",
+      "bytes": 9283,
+      "sha256": "5add28a81d24a02ada31f6f19ddd523fb96e114a7414e472bc8c650155ee4179"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/common/mod.rs",
+      "bytes": 2852,
+      "sha256": "8e1c1a11990ec56165a186f97449791bf0ccf1bf321d5d8b36593a60ab6ce15b"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/data/PUBLIC_BINANCE_ED25519.pk8.der",
+      "bytes": 48,
+      "sha256": "e5c4fa101d4ee0a4730a555f5b8c0384ae0e8e0712698f35bf096c277121d022"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/data/TEST_ONLY_RSA.pk8.der",
+      "bytes": 1217,
+      "sha256": "dc668fe466b67da689fbe3a8511fd979e847d1be6c48b7bab91509eefa15114a"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/data/TEST_ONLY_RSA.pk8.pem",
+      "bytes": 1704,
+      "sha256": "95be7799061029db8731c79a2552b05c4010ac5419ab2f4ee47e481cc64c4fb5"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/data/TEST_ONLY_RSA_PUBLIC.spki.der",
+      "bytes": 294,
+      "sha256": "556a6c3966e6a68506d3bc9a9f8e79365f2246ca5ff6ed76a6537e7a64d35ac5"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/data/rsa-vector.json",
+      "bytes": 595,
+      "sha256": "ad716b150918340bd1621c33918bd3d87645a2f9c6b307aec140ff98dfe14df8"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/depth_sync.rs",
+      "bytes": 19459,
+      "sha256": "d5ba375809e2226b9dbf43268a6f1933d45c7669efe399855b8f7fe503863f73"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/depth_sync_server.rs",
+      "bytes": 13526,
+      "sha256": "6498cf9068d5df0d5f567c467b80330bd77ad6277016bed21ac7bc1c940cfa9c"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/depth_workspace.rs",
+      "bytes": 16589,
+      "sha256": "9e09ac33b59ffaf805255f358a611e7ac2cb7fdf012a2366262d1311feb5713f"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/depth_workspace/reference.rs",
+      "bytes": 4082,
+      "sha256": "eb0cc59669217591c7dcf977258e38b94312fac18b925f827d85cff6ae4246ef"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/feed.rs",
+      "bytes": 11283,
+      "sha256": "ccc03f96a1ba51c85e2e432a527a430768f938de55e58e59cf3432e4cd2b1ff7"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/market_events.rs",
+      "bytes": 5453,
+      "sha256": "48c34290ba551327e3d19499a1ef78cb590491d81a550bcf0466f6802aac08e4"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/market_server.rs",
+      "bytes": 9982,
+      "sha256": "d866f607627cc35581fca7f5b55fa95569ac04b1108ff7783429538b84ef6f12"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/private_events.rs",
+      "bytes": 19171,
+      "sha256": "cf8fa32bf7fbc17356ee33b4450497967c1071625382e9cb3cf344dbc8858cdd"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/private_server.rs",
+      "bytes": 11072,
+      "sha256": "fe7c29c98d758696fb73687e8c079c5f077b06b8e4107d78b4baa2e9c78e3f5e"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/private_structures.rs",
+      "bytes": 8451,
+      "sha256": "5c46f675b7e9a100d3c573bac2a3c1a2982ea03eac8788e7bca458e071f39654"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/protocol_primitives.rs",
+      "bytes": 9762,
+      "sha256": "cdaa208311a3d500b2636f06f817c53b4902ba2168e62b33a58e01e0e49097ed"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/protocol_server.rs",
+      "bytes": 14767,
+      "sha256": "2d5f1228b190c4fc9b74ffa0683154718a6b8b54535bf37cda4b329cac80a01b"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/request_extensions.rs",
+      "bytes": 28975,
+      "sha256": "cad2a389e230a1b03076ef86de9362e1f00235e50a5b922830d18fcbe1f94394"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/requests.rs",
+      "bytes": 11342,
+      "sha256": "ec2815a9bf2d06b6470337b8fe8364d5ec42964c1e5ef35b0dc7aa7c1f4697a2"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/responses.rs",
+      "bytes": 7239,
+      "sha256": "de1f8c861281510308375b8110236a5d238261cbe032e74697876b336dca84d6"
+    },
+    {
+      "path": "crates/tickwire-binance/tests/sbe_depth.rs",
+      "bytes": 6610,
+      "sha256": "cbdb628fba7346e08a43e16b8827a2686e80f621a4030c153dae98e7221e6b47"
+    },
+    {
+      "path": "crates/tickwire-book/Cargo.toml",
+      "bytes": 360,
+      "sha256": "6690c758a70a3445771a955b79b172a553e00d6a8c9492695a8f985017669244"
+    },
+    {
+      "path": "crates/tickwire-book/benches/batch_apply.rs",
+      "bytes": 5646,
+      "sha256": "ab9709f98a33e2a09fcee5101ed03b43b08902028d7d11f1a3bd377eed72352b"
+    },
+    {
+      "path": "crates/tickwire-book/benches/compare.py",
+      "bytes": 4375,
+      "sha256": "e13c9b106602b10c50bbd54f70a257011c3ee18c1394410af743e6287ecbe8a4"
+    },
+    {
+      "path": "crates/tickwire-book/benches/depth_apply.rs",
+      "bytes": 4413,
+      "sha256": "24ea40cad243a96292d254e814067dbadb02004bd6293a7a300ccc194e3c633f"
+    },
+    {
+      "path": "crates/tickwire-book/benches/sparse_apply.rs",
+      "bytes": 5367,
+      "sha256": "0ac79506677ba773a32ed0e4737ccbc510a10f32ae2dd64d527fb56be4f0bbef"
+    },
+    {
+      "path": "crates/tickwire-book/benches/summarize.py",
+      "bytes": 1295,
+      "sha256": "1d96c3db2f41fbaaa11eb0c760266a85513986bb0da25f9e76930a9842fd2e6c"
+    },
+    {
+      "path": "crates/tickwire-book/src/lib.rs",
+      "bytes": 28870,
+      "sha256": "eaf118cbd9f769377e0efba1f9e8650ef88e364ab72a28311246ae9109e2ffb8"
+    },
+    {
+      "path": "crates/tickwire-book/src/work_tests.rs",
+      "bytes": 4246,
+      "sha256": "c4c274e51dce63531e8a6ecfc963294a529e4a438ec6367aad2ab9c5c84b9ec8"
+    },
+    {
+      "path": "crates/tickwire-book/tests/batch.rs",
+      "bytes": 4148,
+      "sha256": "e75a6dda42198a4028af8b152223a7bd20fe47ef5a4983cc50ce9d2f33fe49c6"
+    },
+    {
+      "path": "crates/tickwire-book/tests/book.rs",
+      "bytes": 18715,
+      "sha256": "360b19ddb87b88b6265a7999e86188e6ccce7e5dfa08ffe82b583943116a9f4b"
+    },
+    {
+      "path": "crates/tickwire-book/tests/differential.rs",
+      "bytes": 3727,
+      "sha256": "c3b2cef2416638618ad100db9956d781e0c46f99388c4e309c5cc1d07efb6585"
+    },
+    {
+      "path": "crates/tickwire-book/tests/no_alloc.rs",
+      "bytes": 6214,
+      "sha256": "0c53e86ccaa46aaae52e6770544c72f60266e648447c12e8a42d97e73fec1f8a"
+    },
+    {
+      "path": "crates/tickwire-book/tests/small_batch.rs",
+      "bytes": 4076,
+      "sha256": "4dc100b243b0d8b2a812d48b3d3dfcb124a72844bcf6f73c2fe371fb035a1aa7"
+    },
+    {
+      "path": "crates/tickwire-business-journal/Cargo.toml",
+      "bytes": 510,
+      "sha256": "c3aff9ec73a03cf155180f7bc1536ecad8acdea191d5cb422465290ab6f0b438"
+    },
+    {
+      "path": "crates/tickwire-business-journal/src/backend.rs",
+      "bytes": 3018,
+      "sha256": "c30b7aaba5224b27ec01a78c497115d62d4a89cea9261b993471a78c7008fbba"
+    },
+    {
+      "path": "crates/tickwire-business-journal/src/lib.rs",
+      "bytes": 17027,
+      "sha256": "143a2aa7e646a05e94d6784d7ef188baa2c0ecf5c179b6d91e93398d5ef2ce4c"
+    },
+    {
+      "path": "crates/tickwire-business-journal/src/runtime.rs",
+      "bytes": 11615,
+      "sha256": "3d6ff8904ae5cf3276892877f4914b43adedad577e4ddb373c76bff77aa1e1bc"
+    },
+    {
+      "path": "crates/tickwire-business-journal/tests/runtime.rs",
+      "bytes": 35327,
+      "sha256": "553f343171e93dcb66892429349575f5bad2925a96d766eab5eaf31a408b0ef4"
+    },
+    {
+      "path": "crates/tickwire-clock-sys/Cargo.toml",
+      "bytes": 292,
+      "sha256": "88c4cee5533311daad8bf83b2a9c1198a653011214cd55be3f7a22297ac33c82"
+    },
+    {
+      "path": "crates/tickwire-clock-sys/src/lib.rs",
+      "bytes": 5429,
+      "sha256": "af01628a9cd9cfccb11a26d3b7c4ba3487d05dcbe29deacea04621980269f299"
+    },
+    {
+      "path": "crates/tickwire-clock-sys/tests/native.rs",
+      "bytes": 1048,
+      "sha256": "0bd3e1b8068593d17c06f4a6e1229ef0b3be9209486bbf998b83ad31b4c55ae7"
+    },
+    {
+      "path": "crates/tickwire-clock/Cargo.toml",
+      "bytes": 160,
+      "sha256": "da4232067e4ff3931a4ea4bed8db86b35de800fb7322d288f845334c8a5507f2"
+    },
+    {
+      "path": "crates/tickwire-clock/src/lib.rs",
+      "bytes": 12244,
+      "sha256": "b7e524ecc9b87bc4b7ebd224ea0d1f23e01567015383a407b75a42eb57d5df97"
+    },
+    {
+      "path": "crates/tickwire-clock/tests/calibration.rs",
+      "bytes": 13914,
+      "sha256": "e2a9b1b266acb78d5a68f8ffb68ff45ee818b8006ba701858f88d9f03788ca40"
+    },
+    {
+      "path": "crates/tickwire-config-fs/Cargo.toml",
+      "bytes": 459,
+      "sha256": "50a6def2dbebfdcee422e56320224ae21cdf08390f1d78354820747dc813b03a"
+    },
+    {
+      "path": "crates/tickwire-config-fs/src/journal.rs",
+      "bytes": 1953,
+      "sha256": "dff9a147b12c79fa3fc5126f67e189f2b77e1129004f08c567ece3ca115926fd"
+    },
+    {
+      "path": "crates/tickwire-config-fs/src/lib.rs",
+      "bytes": 1745,
+      "sha256": "75958860cef18c344128563db264bfb9de7ba2f341b52b43280e3442bffb1615"
+    },
+    {
+      "path": "crates/tickwire-config-fs/src/linux.rs",
+      "bytes": 13980,
+      "sha256": "4ad84e9db45d9e1563061be51d4f7ccee84b88769646317079ea205d77e9e74e"
+    },
+    {
+      "path": "crates/tickwire-config-fs/src/linux/journal.rs",
+      "bytes": 13406,
+      "sha256": "307e569beb1b0095d0aa1400003e1b80a9f922477ef129f4c1e7d402b226705e"
+    },
+    {
+      "path": "crates/tickwire-config-fs/src/linux/tests.rs",
+      "bytes": 5010,
+      "sha256": "f44b645239cdcee6f5bd852a686376a8833109fe3a4e410a07faff3c90a60951"
+    },
+    {
+      "path": "crates/tickwire-config-fs/src/os.rs",
+      "bytes": 4215,
+      "sha256": "40f21e56ff5192703c3db175463b03fee4fc47543eb43a73d061e7a4a635fc3d"
+    },
+    {
+      "path": "crates/tickwire-config-fs/tests/files.rs",
+      "bytes": 7249,
+      "sha256": "de9e656d3713954ccc8fa3c836711bdd4cba696b2c5e7ff9fc95b347a6c04a5e"
+    },
+    {
+      "path": "crates/tickwire-config-fs/tests/journal.rs",
+      "bytes": 9402,
+      "sha256": "cf6405426ad86345952088bece599b00d9f9fffd426fdafaab83d6f14f6e42ce"
+    },
+    {
+      "path": "crates/tickwire-config-fs/tests/journal_process.rs",
+      "bytes": 6263,
+      "sha256": "f50e0e3df2d6d7f1acce542e8b7573823d45f12ba1ab2b3a9144810838cf4311"
+    },
+    {
+      "path": "crates/tickwire-config-journal/Cargo.toml",
+      "bytes": 410,
+      "sha256": "46ebfd93533075eb98332480af9c77612ce0935ff231bc59a7084617df9fb2fa"
+    },
+    {
+      "path": "crates/tickwire-config-journal/src/codec.rs",
+      "bytes": 2887,
+      "sha256": "e92863febd006cd13e76f2657bb9b966155cff49053ae1270c964f9cf3b6bdec"
+    },
+    {
+      "path": "crates/tickwire-config-journal/src/journal.rs",
+      "bytes": 6466,
+      "sha256": "18189ab945c1cded8f68fd32302b6d05cbf48c3503376002c6cc94fb3aa693fa"
+    },
+    {
+      "path": "crates/tickwire-config-journal/src/ledger.rs",
+      "bytes": 7234,
+      "sha256": "2a7314bf191f85812656994b5d68b7ffb6186a1d4af0647acff0fb4dd503d268"
+    },
+    {
+      "path": "crates/tickwire-config-journal/src/lib.rs",
+      "bytes": 3507,
+      "sha256": "6fe60906a9a8c6251c600dc69a9bdb7a4ecd790c75ac57eabcff61a32281a2e1"
+    },
+    {
+      "path": "crates/tickwire-config-journal/src/store.rs",
+      "bytes": 1995,
+      "sha256": "07958c5401473e68629f7f3ae9f31a99de40c70e2295e951c4460df1210af39d"
+    },
+    {
+      "path": "crates/tickwire-config-journal/tests/journal.rs",
+      "bytes": 24308,
+      "sha256": "2f11137bb6e7ac7e83f70cd6073f921c9fd5c5d57ec7a8734ead93e663d37fcc"
+    },
+    {
+      "path": "crates/tickwire-config-materializer/Cargo.toml",
+      "bytes": 465,
+      "sha256": "389509691731b571ff817f260043f1aa2bdf75c8ca895bc17c88166ffc48cfaa"
+    },
+    {
+      "path": "crates/tickwire-config-materializer/src/lib.rs",
+      "bytes": 2563,
+      "sha256": "cc6d21d4d8ae045882d0c12b78ee22e30d90b3fc09194d4f58f923ff971df0f0"
+    },
+    {
+      "path": "crates/tickwire-config-materializer/src/local.rs",
+      "bytes": 13899,
+      "sha256": "062d25c270aa02ce2045c2d87d45b96929abfcd6f1b81955e59b9ba7c24e3a36"
+    },
+    {
+      "path": "crates/tickwire-config-materializer/tests/common/mod.rs",
+      "bytes": 4283,
+      "sha256": "a54a4c3395fdb7a0d8d3194e00c2bedd3fd0519ae4ee0ab930e106624cbaadf6"
+    },
+    {
+      "path": "crates/tickwire-config-materializer/tests/linux.rs",
+      "bytes": 9323,
+      "sha256": "4a8fab256ef31b22372746108b7cd5ba59406d09e0b1c88116c572109039a639"
+    },
+    {
+      "path": "crates/tickwire-config-materializer/tests/sequence.rs",
+      "bytes": 10811,
+      "sha256": "8c196bd25f7b4a40d8fd5bcefae12c3f3d01888e1ed77ea6cb21f6b4f01b063c"
+    },
+    {
+      "path": "crates/tickwire-config-service/Cargo.toml",
+      "bytes": 706,
+      "sha256": "7a0863ff8749e1e013258450c0434d6bead558cd71161cf5e04e9cad75f594d2"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/account_facts.rs",
+      "bytes": 7647,
+      "sha256": "09f90705f6fbd6c2b141efda469530e7a895268583f75ebce1c5c3780ea4741c"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/api.rs",
+      "bytes": 16955,
+      "sha256": "d6d2c35b12cb0fcfe8aa229fa12c72f6d3dfb3453a3ca28291a7a5f4b4c52d3d"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/auth.rs",
+      "bytes": 12244,
+      "sha256": "156c5555fb1d1edd51e1f4d68ea30a3dfb0531f13d467a241cef2e7f11362a18"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/authorization.rs",
+      "bytes": 3234,
+      "sha256": "d24b558a30ee72999ef98ea9eebf76ca73ff464b89b356720a09fbae9025ff5e"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/bootstrap.rs",
+      "bytes": 7409,
+      "sha256": "5c4a1ff97debe1c512e68c828d4a16363c4792c49491b899027c49e7d8a4cf8d"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/codec.rs",
+      "bytes": 10754,
+      "sha256": "9a1b7867e504ac0a36bb07e5d0430cdbb665352ce675e396ac4440b5dee9b914"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/credential_facts.rs",
+      "bytes": 11610,
+      "sha256": "836a6b0eb4b2645eedc36296b4d734807a9d7dd01c2da644077baf5c0bf9eb93"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/deployment.rs",
+      "bytes": 7702,
+      "sha256": "41cc6d8f74e5b4d75aa833971fa468f4e06e1f90e4dfa2c2feec36cd00e9e9a0"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/deployment_owner.rs",
+      "bytes": 11925,
+      "sha256": "08e8588a9a321e17743588ffa2e4a5feaaa0dfe047ca8e703c5ad92ccb05652a"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/evidence.rs",
+      "bytes": 10262,
+      "sha256": "0c090427f60b717db1779e1af4557fbb6ebc9d0c445016158af1e8164b4afde5"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/https.rs",
+      "bytes": 11026,
+      "sha256": "8da48d4984db80415b4bcdeb2499247e909ebeea22614366496b246415bd2ec2"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/lib.rs",
+      "bytes": 9579,
+      "sha256": "66dd2ab6558c6ff074afea5da0976e85b168b6855e0f3dc9ff2d20595de40b24"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/objects.rs",
+      "bytes": 8545,
+      "sha256": "fd77bd3efc289c75b3638bf82a2f002630f977262e83c0fc1f1c6b3f13be281a"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/peer_driver.rs",
+      "bytes": 6498,
+      "sha256": "b597705e0c4d05eb44d9a6465941e2a56985b2b649250ee447618859d068adb8"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/planning.rs",
+      "bytes": 7811,
+      "sha256": "b6190e5eae4115d3eaeb128275faaf7a9a32cbe711a7d10b619cd9d4425c6a2d"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/qualification.rs",
+      "bytes": 11585,
+      "sha256": "3823034c8f4ebbc4e0caa3ea49fe9da4c969b79449f60c1858b31fe25fc9d097"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/request.rs",
+      "bytes": 20126,
+      "sha256": "b744addb4010bf9e71626a7fe48a9732659cb19f9cd85e2d4bf5212c9c48f29d"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/resource_facts.rs",
+      "bytes": 3625,
+      "sha256": "149e7790decb44c69f25f6d73f91112c8e90d59a3423d561bc2ce04b3c3668b0"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/runtime_facts.rs",
+      "bytes": 15102,
+      "sha256": "6fc61426f62787a6df4f6ac54782732ed6d31ccac692ea44d07b9ef034735c6d"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/snapshot.rs",
+      "bytes": 18368,
+      "sha256": "d578571b7d4ed55a27f944b0beebda20e1bbd5df04705db12e4459d886b46b23"
+    },
+    {
+      "path": "crates/tickwire-config-service/src/source_bundle.rs",
+      "bytes": 6449,
+      "sha256": "89c550e66bfba65254851170a517a07dfc0f1885a1ac216dd5605d944e39bc7d"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/account_facts.rs",
+      "bytes": 10892,
+      "sha256": "aaf4df7cbbea72fa087d0a5c0c40c7643b839fbce8b2ce9f4381ea38f8a355fd"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/bootstrap.rs",
+      "bytes": 34192,
+      "sha256": "a647e761f55c6f55c62b9193cdffc3b2f4c412e2d4f12ff8cdfa47243a814d95"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/control_api.rs",
+      "bytes": 8012,
+      "sha256": "8a62f0eafc0f6835bb526042cb2586097a0c58603435424ee1f4772670d70cf2"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/control_planning/mod.rs",
+      "bytes": 13047,
+      "sha256": "34ded2b403f7e8da6e71791503d785e1b5d9ab191441abdc7747686610e55143"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/control_reads/mod.rs",
+      "bytes": 6690,
+      "sha256": "9e30613473c7613afe6fa6d5132d4d2372a9afed0230d3e89ce90434e78c57d3"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/control_tls.rs",
+      "bytes": 66303,
+      "sha256": "10dc81e86395c17e57bbb8aad8ce8ce736802d25550dfa84116494dfcec19ce8"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/credential_facts.rs",
+      "bytes": 14396,
+      "sha256": "d85bd52471a76d5c2bdd1d41d27e8a4b8196cbbb87582d6f6267ff251fcbfd3a"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/deployment.rs",
+      "bytes": 4772,
+      "sha256": "d232e55b93d215b4e5e5ce2057a04892336c945ade7f512eba4b3c75bc561b6d"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/deployment_owner.rs",
+      "bytes": 20275,
+      "sha256": "b0727581c2bba041c0fd6e32f64cb52f69f699d88c18ac8f2df9591d8a8f6099"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/deployment_support/mod.rs",
+      "bytes": 19232,
+      "sha256": "22243537285e654481c9461361420363e90ee7b5554bf985c2f5dc2b22ba9978"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/evidence.rs",
+      "bytes": 11113,
+      "sha256": "e3e7082f56cbf632aa7cbe461bbe5ff09d2a343ddc980f40dd6d5c84f8131487"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/begin.hex",
+      "bytes": 189,
+      "sha256": "19ecfc41bc256988257601129114ce9f46d42b9ea69f1e39481cd18875231561"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/bootstrap-public.hex",
+      "bytes": 65,
+      "sha256": "ffc6c7162848b54987031468862a57f71e4673faa0f0f73ff0bad48c70182d0b"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/bootstrap-signing.hex",
+      "bytes": 251,
+      "sha256": "fd38d2ba3ad723103641732d2d39ca6d90a0e9cd51968eb53f04b918ee8af190"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/bootstrap.hex",
+      "bytes": 307,
+      "sha256": "5325744e3a725f7a55f132c4a99891044d5dcccd5f0f54181fe181fc574f9fd0"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/generate_bootstrap.py",
+      "bytes": 1932,
+      "sha256": "f842eb000933ee9ce117947c11201cb46bfe8b882fb667caec48606503f07834"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/initialize-trusted.hex",
+      "bytes": 147,
+      "sha256": "eab45d2abf27d209d6a907e7a8ba59a61c19b84326845c38c56451bf336fd6e3"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/fixtures/initialize.hex",
+      "bytes": 83,
+      "sha256": "51c3669a7181b61d754d5138aaf027869b6a92298d4320cc3f2127628c7a4783"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/peer_driver.rs",
+      "bytes": 10859,
+      "sha256": "d0d010736d3a693f82bf2874ef94c55c122c23bcb11c10d9207b6decc68ca239"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/qualification.rs",
+      "bytes": 19580,
+      "sha256": "f2847b57b66eb71cdaa045d27f6c19492d8d1188d64abfdf62e01bb5e546c289"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/replicated_objects.rs",
+      "bytes": 10719,
+      "sha256": "2aea1c2d303566e5cb3514cbd9a8f8ecd22d9047b146d17934ddab891ff4b02d"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/resource_facts.rs",
+      "bytes": 8391,
+      "sha256": "17a75982d7bd2aa4d543a2d909d836f7f6e95aac879b00c3a40ffe9c569f4787"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/runtime_facts.rs",
+      "bytes": 19480,
+      "sha256": "2df9536c30037c9249dd07362ab0c97d9f8832e3499c4e1e597717ede41e2729"
+    },
+    {
+      "path": "crates/tickwire-config-service/tests/source_bundle.rs",
+      "bytes": 7407,
+      "sha256": "f9a42432ff18d63c1741ec0b36013ec07f840fc31d734cdde927852e3e53330c"
+    },
+    {
+      "path": "crates/tickwire-config/Cargo.toml",
+      "bytes": 336,
+      "sha256": "4d425d047dd1cab3fa2258e8f343569d803c4a4489b368c8d0c25571a15e37d4"
+    },
+    {
+      "path": "crates/tickwire-config/src/artifacts.rs",
+      "bytes": 9858,
+      "sha256": "f1f616933f1516744aa728b88b9fbda965b7bec5a761533b130d563d63aa1be5"
+    },
+    {
+      "path": "crates/tickwire-config/src/capacity.rs",
+      "bytes": 13038,
+      "sha256": "bbc378c81a65addce735ab20a6e9ea9cd2f0f7b27a10a2a9a2f2207700afb0fc"
+    },
+    {
+      "path": "crates/tickwire-config/src/changes.rs",
+      "bytes": 18874,
+      "sha256": "a4db914bcd13f4ae8a45ac40c79e9bbfc3ce73cd8acc203fc6486dd99330a327"
+    },
+    {
+      "path": "crates/tickwire-config/src/delivery.rs",
+      "bytes": 5865,
+      "sha256": "f4e0e2c560636bd75e2d8fbc174e823d7f189019ab12e34b7356032117a486a1"
+    },
+    {
+      "path": "crates/tickwire-config/src/lib.rs",
+      "bytes": 4093,
+      "sha256": "a433eb71bc069103ba3c43fba880ca92ccb5a4cb46de9ece944ac866749befe3"
+    },
+    {
+      "path": "crates/tickwire-config/src/locator.rs",
+      "bytes": 6912,
+      "sha256": "03e8e85e9a1a4f8396de3a43929c3384c898fddec9d2b8073000331a9469cecf"
+    },
+    {
+      "path": "crates/tickwire-config/src/materialized.rs",
+      "bytes": 5267,
+      "sha256": "d0a4c060dee679e48b1a02fb5cba5ad478775b78a6a661087d4264f8c2a0e78b"
+    },
+    {
+      "path": "crates/tickwire-config/src/patch.rs",
+      "bytes": 10046,
+      "sha256": "2f470453e3134d051d4146e45b1a2f6cff799b12cd929f5b33ae85e434d2b9b9"
+    },
+    {
+      "path": "crates/tickwire-config/src/plan.rs",
+      "bytes": 15095,
+      "sha256": "fa06c87310d0c7fafa7179573d1df83a60c36f8eefdd762a7c0186b247b730f9"
+    },
+    {
+      "path": "crates/tickwire-config/src/plan/dependencies.rs",
+      "bytes": 4444,
+      "sha256": "aa026d29d91074a9893d7b4f5ab0aaa564fddc264b867d3a5cda53909525be3f"
+    },
+    {
+      "path": "crates/tickwire-config/src/prepared.rs",
+      "bytes": 1735,
+      "sha256": "17215854747f618ca6cd0b3c1163d4f9927d9922accb4de0dfa44ec9e3424b09"
+    },
+    {
+      "path": "crates/tickwire-config/src/projection.rs",
+      "bytes": 15454,
+      "sha256": "4a8bcae8edbc33b7c7eeaca08db105a959e25dc6f46d05109a441f54ce7a09f9"
+    },
+    {
+      "path": "crates/tickwire-config/src/projection_object.rs",
+      "bytes": 6107,
+      "sha256": "030775db56a7239379859b0614e773ca11dc404104513fefae93b6ee2812cd00"
+    },
+    {
+      "path": "crates/tickwire-config/src/strict.rs",
+      "bytes": 8205,
+      "sha256": "990547719eb580deeaa1d4133781997f8de99274a536c0cb974fd64a314bc7a0"
+    },
+    {
+      "path": "crates/tickwire-config/src/validation.rs",
+      "bytes": 18323,
+      "sha256": "ca0f26dd11c4c8d8c66c24e6ae2ede7a7230d2a00bc6b38eebfb40c4413109d5"
+    },
+    {
+      "path": "crates/tickwire-config/tests/artifacts.rs",
+      "bytes": 7033,
+      "sha256": "51c653530877985af726cc9e93bee6b91e2235ad1bd9f8a75a3e4cf5abb5d59c"
+    },
+    {
+      "path": "crates/tickwire-config/tests/candidate.rs",
+      "bytes": 3995,
+      "sha256": "001fa9ea2a72714fac623c5a8491f807814421358e30a6c022ef706e091e7ad4"
+    },
+    {
+      "path": "crates/tickwire-config/tests/capacity.rs",
+      "bytes": 11982,
+      "sha256": "73d96f0632646641d4fb352c8af84a1ee44407bf944c550b793cc8fcdd0c7d87"
+    },
+    {
+      "path": "crates/tickwire-config/tests/changes.rs",
+      "bytes": 10123,
+      "sha256": "72f3c639bc3e0a6991d69ebb5f45f30405e296a292b21f2b6c30c663592e51ea"
+    },
+    {
+      "path": "crates/tickwire-config/tests/delivery.rs",
+      "bytes": 12864,
+      "sha256": "fd32f7bd0adadf9ea163ea2184796aaa55062cba9ec83be8d0dd4dc458d18df4"
+    },
+    {
+      "path": "crates/tickwire-config/tests/independent_review.rs",
+      "bytes": 8142,
+      "sha256": "990863221bb5ba13080c0a8999d8caa2b3feabfb4a043611902b8ab5ba70cb5a"
+    },
+    {
+      "path": "crates/tickwire-config/tests/locator.rs",
+      "bytes": 4723,
+      "sha256": "8a7cf58b330415d17fc062bed3ec75c755244d2745baf0e105cefa58e01cd1be"
+    },
+    {
+      "path": "crates/tickwire-config/tests/patch.rs",
+      "bytes": 8514,
+      "sha256": "0f73a973a4e3e4bbd207da91236826dd7da291a32677c1802a44c84e3c213a44"
+    },
+    {
+      "path": "crates/tickwire-config/tests/plan.rs",
+      "bytes": 13209,
+      "sha256": "f073279b93c35158bf075301be8d0181a8bf36c2851ecddae93d0149fc65f9a8"
+    },
+    {
+      "path": "crates/tickwire-config/tests/plan/support.rs",
+      "bytes": 4724,
+      "sha256": "492d5f3fb43f006dc9c77ea76cfaaaf45d540f4ebe74bb59acbe195fa07c4cdb"
+    },
+    {
+      "path": "crates/tickwire-config/tests/prepared.rs",
+      "bytes": 5817,
+      "sha256": "3eb31e3db4b0ad2b38821417f3a5083773122215c6326be88f1a9dcf20e5eb2f"
+    },
+    {
+      "path": "crates/tickwire-config/tests/projection.rs",
+      "bytes": 22047,
+      "sha256": "8c467329f69087d2dce103dd458995cc4c8fd7a0def896a574f480bed1d88497"
+    },
+    {
+      "path": "crates/tickwire-config/tests/static_semantics.rs",
+      "bytes": 4969,
+      "sha256": "102f2ff5093b20c803f5161a7732b3552272550060835ac794527b60d3e6bba7"
+    },
+    {
+      "path": "crates/tickwire-control-peer/Cargo.toml",
+      "bytes": 796,
+      "sha256": "1f0ce6cb0fe12257eb73418efcef29f09a090826cce34898ae31ec6e5e492900"
+    },
+    {
+      "path": "crates/tickwire-control-peer/examples/node.json",
+      "bytes": 2109,
+      "sha256": "4a732dcfd0482c2dfb234d7e5f5f725882979890790cc28cbc0d840873f7a577"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/api_runner.rs",
+      "bytes": 4065,
+      "sha256": "d5d6091e82baaa9cccc91dd139d3dab668b41e15460731712a5636c1da0da3e9"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/bin/tickwire-config-server.rs",
+      "bytes": 1183,
+      "sha256": "ac55085ecce9c6bd328e09ecd69db5b4518cb5e40a3ad049edba09e97319de04"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/bin/tickwire-control-peer.rs",
+      "bytes": 1041,
+      "sha256": "e569d9608742142be54291d733f3552c67660f563d3cc91dbc819f48323af926"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/config_runner.rs",
+      "bytes": 11508,
+      "sha256": "cd10146b9226c5343db2f9542a08ada3940e3ad5173e33289a1d4a59fb300d70"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/frame.rs",
+      "bytes": 9714,
+      "sha256": "abe4533b1a85de7a20d74c13379116330f571c7bcb4c57d298b54edea6d93ac0"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/lane.rs",
+      "bytes": 15032,
+      "sha256": "c008b27e079a91101a801734f3f80c4d4e96a43191abf0592184cb6f211f11e5"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/lib.rs",
+      "bytes": 469,
+      "sha256": "c848d45582fc5660af7f756a8798b4638ae9ec31b2e1c5e9ec3f66372caa8d48"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/runner.rs",
+      "bytes": 18545,
+      "sha256": "4e1831e1745dd4dbb892c3230d9dba806a3c0799e51157d1009a3acf9f58d2e4"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/service.rs",
+      "bytes": 29797,
+      "sha256": "0297bff8f8c6de98b0238f62a618b00a4fe1b8d49faacd4882369d876f90a1c8"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/snapshot_transfer.rs",
+      "bytes": 9902,
+      "sha256": "dac05a3e89f4395a6ce0be72a595df950774851103fbc77bc017f15de88d4ce3"
+    },
+    {
+      "path": "crates/tickwire-control-peer/src/tls.rs",
+      "bytes": 11398,
+      "sha256": "c147ecbdbd21aeca446f2a8cb04177d1f65113adb27ad4dd41538310a0c72aa1"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/api_owner.rs",
+      "bytes": 8976,
+      "sha256": "ae18f814c5dbaf94467d4c5aa15b38f4ec085f13d1d72171be13290f69761199"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/common/mod.rs",
+      "bytes": 3354,
+      "sha256": "d7b011587ec9173c4c627097104c77ef0ade6a026687dbed8f4983b401498600"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/config_runner.rs",
+      "bytes": 2660,
+      "sha256": "5907df98bd13e7dc768de91ba4584d5776d355bc51c6b23208368426b3e26712"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/config_startup.rs",
+      "bytes": 14102,
+      "sha256": "42e55c859f8380f7fc957a0df9ee65aac0ee7db3a710bb6060e6fb9bef9fe3bd"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/fixtures/heartbeat.hex",
+      "bytes": 273,
+      "sha256": "fc613cde2dc9aefdca6fdec372d9cf153809b456832620c4cbcdcfe70369de41"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/frames.rs",
+      "bytes": 2665,
+      "sha256": "b3eeea10860ed460449c91077350049e11b16ca4bcab5ae1304a65a4ec05a1b1"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/network.rs",
+      "bytes": 12934,
+      "sha256": "42b7b86bb880b0ee448ed1fb37f557a75ccb2cefec7f5737dc286fd71eb8cc99"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/reconnect.rs",
+      "bytes": 8813,
+      "sha256": "3f0807a6fda9b0000b48b91919afd164a4f775c30ed93dd5f99334bb44851bc8"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/session.rs",
+      "bytes": 7668,
+      "sha256": "6f417f58b165208255adb4a7a998b823e3cf6db47a8395c0cbefcf71693c81f3"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/snapshot_network.rs",
+      "bytes": 22610,
+      "sha256": "3d4609d693a2ffd2392847f34cf8296d19eafa6ee513fad222bdf1b787b2d5af"
+    },
+    {
+      "path": "crates/tickwire-control-peer/tests/tls.rs",
+      "bytes": 4200,
+      "sha256": "ba2c634d2d90a16139a46fd4be926dc94a9b79e0ffba1229c2ae22a7fc65e9a9"
+    },
+    {
+      "path": "crates/tickwire-control-raft/Cargo.toml",
+      "bytes": 386,
+      "sha256": "c1f9cc44732dedc4ab9fb97f82a0b2e32a50987b95163088061fbf25f887a19d"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/driver.rs",
+      "bytes": 6766,
+      "sha256": "6d6fac04969c995cb4621e9ef277b172c161b86875437015d2665fbdd3f6fef4"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/generation.rs",
+      "bytes": 62258,
+      "sha256": "2cbd9585df11462d0ccbd247c72a07f98be674b72dd9d4bd5cc8e3a0e2f14a18"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/lib.rs",
+      "bytes": 27501,
+      "sha256": "0ae791149ca3320dfe5d7edf298359e767bba47ec8c16401dc9c6f0d29f0adde"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/membership.rs",
+      "bytes": 19646,
+      "sha256": "4f3098e97b9c38517f10e5694b058dbee7628a241c5034b03c3d95a1a526456a"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/snapshot.rs",
+      "bytes": 20286,
+      "sha256": "4c82c4fa6e73c9db7d91a28efb925d2d80fd0485a4fd780c43c91f89fa5463d0"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/storage.rs",
+      "bytes": 18405,
+      "sha256": "eb0f41d897704fe10a18cad348c43227fe867a4e5c32467453bc11ce6dcc74a8"
+    },
+    {
+      "path": "crates/tickwire-control-raft/src/transactions.rs",
+      "bytes": 5927,
+      "sha256": "1e59ece0ae367ef4306a94ea9fa25548677bea3b2b413cbe89cdfb8eacc821f7"
+    },
+    {
+      "path": "crates/tickwire-control-raft/tests/cluster.rs",
+      "bytes": 15942,
+      "sha256": "f675fdfd3b89685e0741ca3f536fe33d48019deaa935be5c6e19b6c91076a0e8"
+    },
+    {
+      "path": "crates/tickwire-control-raft/tests/membership.rs",
+      "bytes": 12883,
+      "sha256": "51fd64f87ffd056059b5667b72570dfa7c6f13b68ad6302edea7bd7e17815786"
+    },
+    {
+      "path": "crates/tickwire-control-raft/tests/snapshot_ready.rs",
+      "bytes": 9838,
+      "sha256": "ea3e4d62000de109f258659c38da61574bd6153c5550a0b4039003e1bf6eed51"
+    },
+    {
+      "path": "crates/tickwire-control-store/Cargo.toml",
+      "bytes": 332,
+      "sha256": "837a5178b70687bdef1cb3c6ad29464404378838a8085c51ae713673ca690215"
+    },
+    {
+      "path": "crates/tickwire-control-store/src/lib.rs",
+      "bytes": 10641,
+      "sha256": "4980962da310c7cbb8d547818fa877412aaa53d61d16e91f2c149b8f95ee3cea"
+    },
+    {
+      "path": "crates/tickwire-control-store/tests/durable.rs",
+      "bytes": 4682,
+      "sha256": "b9f75d0bb881a2f727ef6a52b186d71b1d3550ffc28fb4a47cf5ee07a6cfaa25"
+    },
+    {
+      "path": "crates/tickwire-control-sys/Cargo.toml",
+      "bytes": 276,
+      "sha256": "11e84dd3f60d0b560e301f5216df5bdf82e21889b0b283b435cfc2a65d83b2e6"
+    },
+    {
+      "path": "crates/tickwire-control-sys/src/lib.rs",
+      "bytes": 1603,
+      "sha256": "071fa7d1056de57320a2ad179cc705c62cb38c9243b24ac6ba80aacb1d2ab00b"
+    },
+    {
+      "path": "crates/tickwire-control-sys/src/linux.rs",
+      "bytes": 31082,
+      "sha256": "fc01f6db1dd86ac8c556e2a619f3949584a7507628c7e02e87ccb73a8cd2b39f"
+    },
+    {
+      "path": "crates/tickwire-control-sys/src/unsupported.rs",
+      "bytes": 2032,
+      "sha256": "d876b2df40d55961f44f4bba135c3bc7848216d173768d15e68044d44562f954"
+    },
+    {
+      "path": "crates/tickwire-control-sys/tests/platform.rs",
+      "bytes": 223,
+      "sha256": "ba5b64d43802dff11bd78c240e5432af9d90e1be4d9d3d6b90cdaae9234517fa"
+    },
+    {
+      "path": "crates/tickwire-control-sys/tests/transport.rs",
+      "bytes": 31392,
+      "sha256": "732724ccf2ddac778fb5237452d04570fe95468e4741ce742b79e971c155ff21"
+    },
+    {
+      "path": "crates/tickwire-control/Cargo.toml",
+      "bytes": 353,
+      "sha256": "80852912b6010853ed563324c919e3ad7e609f9df9750d6911ac38a904d00763"
+    },
+    {
+      "path": "crates/tickwire-control/src/lib.rs",
+      "bytes": 15463,
+      "sha256": "4bd8a526d48b6d4b4438106a25349dca1e051d07a7698d3c12f2920d3e57576e"
+    },
+    {
+      "path": "crates/tickwire-control/src/requests.rs",
+      "bytes": 7912,
+      "sha256": "c9f7cbafbbb12ba06754a5a8af0dee4ae697d61ec411ad224592c6bf93c5873a"
+    },
+    {
+      "path": "crates/tickwire-control/tests/session.rs",
+      "bytes": 12250,
+      "sha256": "4b918f97379bde451779e9645bdc024704f54cef06f9ce58756b0254552a54d4"
+    },
+    {
+      "path": "crates/tickwire-control/tests/transport_linux.rs",
+      "bytes": 7006,
+      "sha256": "803bd448ff040ab765f4e6d17add7645f98b3654d5f786e7e5a0aa12c0da81bb"
+    },
+    {
+      "path": "crates/tickwire-execution/Cargo.toml",
+      "bytes": 139,
+      "sha256": "b770e3e753204f2c187634e6e7e0eecda8a16774aa936832157003c0aca4e499"
+    },
+    {
+      "path": "crates/tickwire-execution/src/lib.rs",
+      "bytes": 17142,
+      "sha256": "aae5ae224be9c33a9986277d6a382a77ba2f30c3c4c0c4f5d5a1a244c4f134f2"
+    },
+    {
+      "path": "crates/tickwire-execution/src/ports.rs",
+      "bytes": 3880,
+      "sha256": "3264abdbe76b3874d1965d05001e6766817eba20a57aa545b20ba2a403d00f0b"
+    },
+    {
+      "path": "crates/tickwire-execution/tests/lifecycle.rs",
+      "bytes": 10982,
+      "sha256": "03933351cd13d0835b40cfbeea78b35a076a9b15dc770641d3a20659e47fed39"
+    },
+    {
+      "path": "crates/tickwire-fencing/Cargo.toml",
+      "bytes": 325,
+      "sha256": "369b38701cf29b0708dfded696a5c3bdaffb6d427ddf353e7829693a66d6433b"
+    },
+    {
+      "path": "crates/tickwire-fencing/src/lib.rs",
+      "bytes": 15152,
+      "sha256": "ebaf647a8cf8b289ba19311292e88f5ed3b37bb6fa37016609eaf6327f0ee6d0"
+    },
+    {
+      "path": "crates/tickwire-gateway/Cargo.toml",
+      "bytes": 687,
+      "sha256": "a0a157ab9fcdf511b868702d63720c45f768ea11504dbf110a6dae958716976b"
+    },
+    {
+      "path": "crates/tickwire-gateway/src/binance.rs",
+      "bytes": 3470,
+      "sha256": "09beea87f544436a202c52b4fb91a7ec04dc432c4b0fcc9723ed7aab30e8224e"
+    },
+    {
+      "path": "crates/tickwire-gateway/src/lib.rs",
+      "bytes": 19332,
+      "sha256": "8f8274c50045c4e880681640d718ff97823984717265a13915f9b43c9ee7df27"
+    },
+    {
+      "path": "crates/tickwire-gateway/tests/binance_rest.rs",
+      "bytes": 13764,
+      "sha256": "9b79ce7a1d31cd0616a600ae42539da9c3a6ad915aa56c8aadba683f84dc66b1"
+    },
+    {
+      "path": "crates/tickwire-gateway/tests/common/command.rs",
+      "bytes": 2852,
+      "sha256": "8e1c1a11990ec56165a186f97449791bf0ccf1bf321d5d8b36593a60ab6ce15b"
+    },
+    {
+      "path": "crates/tickwire-gateway/tests/common/mod.rs",
+      "bytes": 13263,
+      "sha256": "d6b08c3a4bb2ca20d1ce620513810c87db0a1e8357df83dbe8e000316f7852d5"
+    },
+    {
+      "path": "crates/tickwire-gateway/tests/lifecycle.rs",
+      "bytes": 11528,
+      "sha256": "29a827c50de0883bd4df7674b5bbf05d8f9f352385715063acc1faa203089940"
+    },
+    {
+      "path": "crates/tickwire-guardian/Cargo.toml",
+      "bytes": 782,
+      "sha256": "3df192ee5a363d4d5976377df3d6d0be3a2ca02c8775a181081163736677ba9b"
+    },
+    {
+      "path": "crates/tickwire-guardian/src/audit.rs",
+      "bytes": 8280,
+      "sha256": "a83eec71c6d1b494dd371c4ad056ae282f430f31655aaeb85f87598f9110545d"
+    },
+    {
+      "path": "crates/tickwire-guardian/src/cli.rs",
+      "bytes": 10025,
+      "sha256": "294998827d0a0aace63a3ab850d16e2b7415d4219617f63714ddd9468ac91c89"
+    },
+    {
+      "path": "crates/tickwire-guardian/src/lib.rs",
+      "bytes": 34504,
+      "sha256": "e734c8686c26e129376eee77e205c6ada935112b5682a6f76eb4f18b88d54dea"
+    },
+    {
+      "path": "crates/tickwire-guardian/src/main.rs",
+      "bytes": 154,
+      "sha256": "912629e7c71dcffaaf998735b47a263d286566087ab5642e4e83489cb36f2ad7"
+    },
+    {
+      "path": "crates/tickwire-guardian/src/tests.rs",
+      "bytes": 11769,
+      "sha256": "75b7fa712b1fc34081848e7a68df0b1eda7037bf32fe4ac3ab0e9bc5d5067dc9"
+    },
+    {
+      "path": "crates/tickwire-handover/Cargo.toml",
+      "bytes": 463,
+      "sha256": "63f6d8c34d618471226488a4045c2f48f43f95b0c89e46d71335a1bcfcb0449d"
+    },
+    {
+      "path": "crates/tickwire-handover/src/lib.rs",
+      "bytes": 6001,
+      "sha256": "60627c677dd1bb0bc6f470c5af276c4c09f74a6cd9d82b21eb1397554691b95c"
+    },
+    {
+      "path": "crates/tickwire-handover/src/tests.rs",
+      "bytes": 6861,
+      "sha256": "36903fd66b562c5b766429ef5cd6f98ac051d69ebf1fec251f5ecc9542a1855f"
+    },
+    {
+      "path": "crates/tickwire-instrument-index/Cargo.toml",
+      "bytes": 309,
+      "sha256": "10ef09ae940382aa0a708dc382281c94ec773db6147ac4d3f6410256b9aa48ed"
+    },
+    {
+      "path": "crates/tickwire-instrument-index/benches/lookup.rs",
+      "bytes": 6954,
+      "sha256": "bee9b9859b53ba93ad98ea2473ae06a557db262fe79d19b6f0e901405dc35e75"
+    },
+    {
+      "path": "crates/tickwire-instrument-index/src/lib.rs",
+      "bytes": 9940,
+      "sha256": "59c2b53ed13ab28db68a7fae7d49e489fccbc007bea5b43041daba5d675a97e5"
+    },
+    {
+      "path": "crates/tickwire-instrument-index/src/tests.rs",
+      "bytes": 3107,
+      "sha256": "783eef6b7913053692e64115e6c85a7e8e650bbf37ee8341f78e427bcd7ce9a3"
+    },
+    {
+      "path": "crates/tickwire-instrument-index/tests/index.rs",
+      "bytes": 3979,
+      "sha256": "1593cdb3e256ee0bbff4d77d0ce1f541110a368e8836efc4d5fa105863e4dfe1"
+    },
+    {
+      "path": "crates/tickwire-ipc/Cargo.toml",
+      "bytes": 184,
+      "sha256": "081dd3087ac4b61a723ba7ee1db0abd973ed4fc33581c12f59c8a6748172aff8"
+    },
+    {
+      "path": "crates/tickwire-ipc/src/config.rs",
+      "bytes": 9785,
+      "sha256": "b7f6370e78480af392e1d56a326bedb258ef12f2229a8ad8968070432f3be784"
+    },
+    {
+      "path": "crates/tickwire-ipc/src/lib.rs",
+      "bytes": 16643,
+      "sha256": "a84e50a56b2e715fd94d3bdb50c18018ccb8724b17a4f608928dba3c63a17a6b"
+    },
+    {
+      "path": "crates/tickwire-ipc/src/market_exact.rs",
+      "bytes": 6833,
+      "sha256": "1b13f2e71f89df15b49bae889ed5efaa2f225c9af6ccf53df6d27345cf1623d8"
+    },
+    {
+      "path": "crates/tickwire-ipc/src/snapshot.rs",
+      "bytes": 13485,
+      "sha256": "c6c67fd314414968bba3c456f36dd717b3ee649fdf30843a9e4438ca3655afe4"
+    },
+    {
+      "path": "crates/tickwire-ipc/src/wire.rs",
+      "bytes": 252386,
+      "sha256": "cc1f64221047f811a89667f39701e04cb8e6fb5f061f6973e24989da54ae4a24"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/fixtures/exact-events/checkpoint-seal.hex",
+      "bytes": 193,
+      "sha256": "8c80a6d18bacef22f9934ad61d8a891293a431a2cbc570654690c7d033183d35"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/fixtures/exact-events/checkpoint-sealed.hex",
+      "bytes": 513,
+      "sha256": "1484adf6dfd787a8b5f365383e799c680338b6419fc4f0bec5de4ef01f0bbe0c"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/fixtures/exact-events/mark.hex",
+      "bytes": 1025,
+      "sha256": "734393de214987b016228c32977ee0e8cdb273587c463fcb180cfcb321a077b0"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/fixtures/exact-events/quote.hex",
+      "bytes": 1025,
+      "sha256": "1d94181471eed58e7a18dbc87ee1a77a125996682732b2b24149fbf6c02453e4"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/fixtures/exact-events/restore-applied.hex",
+      "bytes": 257,
+      "sha256": "e6c930130cb6e61eb8ee22f435c2ed7145f24ed2f15c633858042a34b19512bc"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/fixtures/exact-events/trade.hex",
+      "bytes": 1025,
+      "sha256": "cd5c507fe68b25f9130d9a9711f3a478fbc847bab579212ee81fd257b51e6fd5"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/layout_extensions.rs",
+      "bytes": 2752,
+      "sha256": "889ec56dc84d032671261e8721435803b63d27aa6e6365f5ea2c5c47f94ab0fb"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/layouts.rs",
+      "bytes": 28345,
+      "sha256": "322843d6025516b3352dbed1f28dcbc6763726eb4f20ddb02459f7c38830c717"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/market_exact.rs",
+      "bytes": 5050,
+      "sha256": "a87f29d946f970b06c4380ebf7b7a9ade9c26794f8620dc89c7df3ac31d2549f"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/release_layouts.rs",
+      "bytes": 2853,
+      "sha256": "9b8932aaef4e45421bdd86501cb7831e548970fa87959d5d0368cf33bf63ef13"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/replay_control.rs",
+      "bytes": 6151,
+      "sha256": "c34e5ecddbb9ac1e9106991b6fb5d889ae1f0c45f7772d7021016bdefd0a1bbb"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/semantics.rs",
+      "bytes": 16193,
+      "sha256": "222103f1b044094c8ba8a4a3d59ca88a58f1d53977d4c473a12c1e47c59f2903"
+    },
+    {
+      "path": "crates/tickwire-ipc/tests/vectors.rs",
+      "bytes": 223008,
+      "sha256": "1968d1737fc85ce36f6c6e558a2f441dac4239ccac50add104a54d290960db3e"
+    },
+    {
+      "path": "crates/tickwire-ipc/tools/exact_event_fixtures.py",
+      "bytes": 1835,
+      "sha256": "805275a68f7a0f60f94d7477e59cb18e55422d0250a8c88fa29c5d3bd75d4ea4"
+    },
+    {
+      "path": "crates/tickwire-ipc/tools/generate.py",
+      "bytes": 12560,
+      "sha256": "71baf77964cff440d2069130ea361c22a5dc47c0b37644cabfd6a2335d4f38da"
+    },
+    {
+      "path": "crates/tickwire-join/Cargo.toml",
+      "bytes": 584,
+      "sha256": "17b27e23bd2dcf297fa31f3dc0133d7d40039180d5e0ebb8dd94e6aca6a859cc"
+    },
+    {
+      "path": "crates/tickwire-join/src/lib.rs",
+      "bytes": 27170,
+      "sha256": "03d97136b2c784cabae40845fa5256efc4f06f7588a1588d3ecac261c0d49c8d"
+    },
+    {
+      "path": "crates/tickwire-join/src/mapped.rs",
+      "bytes": 12278,
+      "sha256": "de6f6f86a763c7722fed5902a00466555d3bc28e5ca22f6648a1a17fabfbb776"
+    },
+    {
+      "path": "crates/tickwire-join/tests/common/mod.rs",
+      "bytes": 9290,
+      "sha256": "18b2db160343069ebb06a3912bc7cd776c3f6fbed4bdc75b193500adbc9c2690"
+    },
+    {
+      "path": "crates/tickwire-join/tests/flow.rs",
+      "bytes": 11386,
+      "sha256": "0cde85c8a0604ef60ba11eeda471113267fa53494435d51cf3a8727b23a4dd5a"
+    },
+    {
+      "path": "crates/tickwire-join/tests/owner.rs",
+      "bytes": 4899,
+      "sha256": "93f44dbd7b6a94415ec5b5add4a6f9ab74a3d33575b0fa861e37ad7881ed6100"
+    },
+    {
+      "path": "crates/tickwire-join/tests/process_linux.rs",
+      "bytes": 17361,
+      "sha256": "e0cf555d4da68bcd01ed13046e82d74a85f8adbe4833f329e64996fad77b09be"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/Cargo.toml",
+      "bytes": 286,
+      "sha256": "59cb6b6e371f93310a90781ad6148eea5a1ccb2e01b37158855ea3e9ef36a83d"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/src/cbor.rs",
+      "bytes": 5873,
+      "sha256": "2452f35cb5c353531ba31673e1f4f12513abb48e80fff112d73d29472682002d"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/src/chain.rs",
+      "bytes": 4022,
+      "sha256": "65be3045fe7476b6617561014b92610a3e653a2fe53a10db66a569a997452e9f"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/src/lib.rs",
+      "bytes": 11586,
+      "sha256": "01df5505e71d5969a4180edf0830a3c34039def158ad782bf74a290e6f9bb760"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/tests/codec.rs",
+      "bytes": 17057,
+      "sha256": "e9466a0f437088358ebe6a012534aebf7a179d17067ec50bc33e806028a97934"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/tests/golden-v2.json",
+      "bytes": 4929,
+      "sha256": "63413988ddc2b094ce6daa4c2e5cf3ec3c75cd60a811d049bee15d793540105b"
+    },
+    {
+      "path": "crates/tickwire-journal-codec/tests/golden.json",
+      "bytes": 4789,
+      "sha256": "ddc95ec07265e2d92844ebedd091a13c8a984db2f1753c24ebeec896db20b573"
+    },
+    {
+      "path": "crates/tickwire-journal/Cargo.toml",
+      "bytes": 260,
+      "sha256": "9dc50a686368fd538d2d6ccaa13091760b118296094f726c5cbac3bbe2ad2276"
+    },
+    {
+      "path": "crates/tickwire-journal/src/frame.rs",
+      "bytes": 6838,
+      "sha256": "5fab642e44de34ee181380ea8bfe5ae627f23cff06d3b5894fd2dd8f4d05215f"
+    },
+    {
+      "path": "crates/tickwire-journal/src/journal.rs",
+      "bytes": 29378,
+      "sha256": "f5a31bcf6894b825a2a2800280adc1ea91daa527a41d43b5e8c24e065c77d4ae"
+    },
+    {
+      "path": "crates/tickwire-journal/src/lib.rs",
+      "bytes": 577,
+      "sha256": "1beee66473e8b42a63f4fa988fe2a1887f44ce659e4d1977c075c6417999c94b"
+    },
+    {
+      "path": "crates/tickwire-journal/src/store.rs",
+      "bytes": 6550,
+      "sha256": "a89877845f1ea5afbc1bed6556e70522981f12f412ab110162f8f4eefcea827d"
+    },
+    {
+      "path": "crates/tickwire-journal/tests/frame.rs",
+      "bytes": 4293,
+      "sha256": "d918f1ee3d3d5e330d543fe5d88eab334ca74851a1758cc9e3c8fba865e2fda2"
+    },
+    {
+      "path": "crates/tickwire-journal/tests/journal.rs",
+      "bytes": 11201,
+      "sha256": "844b85c20babf4a9ed597d668bb20838049465554dd63dc1c2f470243433de9e"
+    },
+    {
+      "path": "crates/tickwire-journal/tests/manifest.rs",
+      "bytes": 4087,
+      "sha256": "c1f116b87186562dca1c560e227f33f38cc1de4b3a8bf702e6067102eab521bf"
+    },
+    {
+      "path": "crates/tickwire-journal/tests/process.rs",
+      "bytes": 4962,
+      "sha256": "1f789daebd63979140c4e80bfbae18eac9ceaea786a4b2062a7dedc49653fee9"
+    },
+    {
+      "path": "crates/tickwire-journal/tests/recovery_validator.rs",
+      "bytes": 2115,
+      "sha256": "c9796c344c24d1f6888e0aeb1fb0d77d285664c885567c263298cd62626d4b4e"
+    },
+    {
+      "path": "crates/tickwire-lab/Cargo.toml",
+      "bytes": 1592,
+      "sha256": "9e82e4552c36cb00df90dce7dd09e3c6342899a24dcebb8e463f5e99e51cdebd"
+    },
+    {
+      "path": "crates/tickwire-lab/src/expansion.rs",
+      "bytes": 18145,
+      "sha256": "ed967ef6faedbb184cac0f7c042e99683cd138ef458e0c644fae48a47b02dca6"
+    },
+    {
+      "path": "crates/tickwire-lab/src/expansion/proof.rs",
+      "bytes": 3279,
+      "sha256": "9f91921d0d4c57004227bace1a7764f531943656c1d5fb7d49b535fb00b0c464"
+    },
+    {
+      "path": "crates/tickwire-lab/src/expansion/tests.rs",
+      "bytes": 7901,
+      "sha256": "c547005f974e161124b4f76aede61877282fcd05ad469abab973f57247c01533"
+    },
+    {
+      "path": "crates/tickwire-lab/src/fixture.rs",
+      "bytes": 25170,
+      "sha256": "7a577b064f57aac577a5caa31882f3cc77610a866e648fbbf3d8a1c2cfe4ffc3"
+    },
+    {
+      "path": "crates/tickwire-lab/src/flavor.rs",
+      "bytes": 6506,
+      "sha256": "ea7253e09c154db447e3c07b4bb51bf9b92c215f8a198be44e980f6af71140a7"
+    },
+    {
+      "path": "crates/tickwire-lab/src/generate.rs",
+      "bytes": 38996,
+      "sha256": "7e4050bc47bdf2d61b4711a8e06cb7cef8f09fc9fb36944ec3dbbda635df3907"
+    },
+    {
+      "path": "crates/tickwire-lab/src/handover.rs",
+      "bytes": 39364,
+      "sha256": "1298f6834bd7377bbbfaa8a1b680cf81c7b1bbb37a7e07daf9f8dbefebf29b4f"
+    },
+    {
+      "path": "crates/tickwire-lab/src/handover/export_tests.rs",
+      "bytes": 5979,
+      "sha256": "93bb81296783bc9dfeec09dd84b2c339f47852ff3f5183a4608e66a99fb2553a"
+    },
+    {
+      "path": "crates/tickwire-lab/src/handover/relay_tests.rs",
+      "bytes": 6393,
+      "sha256": "f62e6eb1722f118ef2b607a953a396b4e04b423cc15f2bba6764176c04f88dd4"
+    },
+    {
+      "path": "crates/tickwire-lab/src/launch.rs",
+      "bytes": 24075,
+      "sha256": "50ca1ea9855acecaefb01918dbd34ade3a4d30f64e6dd99e546b1ac55b28047c"
+    },
+    {
+      "path": "crates/tickwire-lab/src/lib.rs",
+      "bytes": 1989,
+      "sha256": "5c02118d9c16fa3b1c332f87dc7cf4d26c22af0c4802cc33a2a2042de05088fd"
+    },
+    {
+      "path": "crates/tickwire-lab/src/main.rs",
+      "bytes": 2155,
+      "sha256": "1e7323837ce0e14b0bfcec3266722649f5533584b0d4ee83fedd08e58ed62ebf"
+    },
+    {
+      "path": "crates/tickwire-lab/src/model.rs",
+      "bytes": 6068,
+      "sha256": "3af47bf13d31afcf49ee20d66e7615a28e172b7b8a42256376a02a548526bb21"
+    },
+    {
+      "path": "crates/tickwire-lab/src/preflight.rs",
+      "bytes": 34542,
+      "sha256": "cfad1fc13ec488eb280cc5f25e2bed7726372e40cd01456be65afcf5f7f722db"
+    },
+    {
+      "path": "crates/tickwire-lab/src/rebuild.rs",
+      "bytes": 509,
+      "sha256": "6e02d452cb8a2503b77af058c5f486bb53eaba563a1b803c1347ca3957cb6062"
+    },
+    {
+      "path": "crates/tickwire-lab/src/rebuild/configure.rs",
+      "bytes": 7365,
+      "sha256": "51b0e64c31d054809836fe183c26d827cfc4f0683cafed6cb6228bc08ba68e3e"
+    },
+    {
+      "path": "crates/tickwire-lab/src/rebuild/driver.rs",
+      "bytes": 13619,
+      "sha256": "b655eac3dfa733aeb7a50e1db8f3e3a644aee9d391c2a684a9a31afe2b152d95"
+    },
+    {
+      "path": "crates/tickwire-lab/src/rebuild/material.rs",
+      "bytes": 12450,
+      "sha256": "b8ed9f0c9a6547596356b352e6aac18302c7efcc795d05e622124a7b2614d1bb"
+    },
+    {
+      "path": "crates/tickwire-lab/src/rebuild/proof.rs",
+      "bytes": 9919,
+      "sha256": "af91b993069ba6716c2d21f8cb1e620926c3c3e5ab783890259a312aee4bdbb8"
+    },
+    {
+      "path": "crates/tickwire-lab/src/rebuild/tests.rs",
+      "bytes": 4097,
+      "sha256": "a9be6f65fa36204ba61a0ea03dea7d5191791f531d3bccb950ad9b54d7a0002f"
+    },
+    {
+      "path": "crates/tickwire-lab/tests/install_cost_probe.rs",
+      "bytes": 4708,
+      "sha256": "5970a1fe8a7d8dd4f744c41a5d96ecdb16fdeded47e9a6afac5eae70ff625b0d"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/Cargo.toml",
+      "bytes": 435,
+      "sha256": "8b1f521758eafb92f2d732b51bc9d4d42ac1e2f1e9afaced4975a7680686db96"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/cli.rs",
+      "bytes": 13900,
+      "sha256": "6b1c6aebfac1558ae2861659ce4a82057f0c2df859f1016c23bcfc2db17c5a5a"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/coordinator.rs",
+      "bytes": 46034,
+      "sha256": "ddf3284246011ebb4d89f4aa689d8de977528fdcd65976adea14b06917cdf1e5"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/coordinator/rebuild.rs",
+      "bytes": 8335,
+      "sha256": "dca437fc1e2da0e95c14beabc5c5163f5103b5cfb175afb57cca2fa75cf51a8b"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/lib.rs",
+      "bytes": 22857,
+      "sha256": "7bd839d94f0ea0c413efcab8a19e37c7bdd63faf14b6c8f2401194f7b4bd9260"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/main.rs",
+      "bytes": 551,
+      "sha256": "4497178d15447fb63bb22ac5409ab72b4a7066395689c6c1db1f0fb8cc17aa14"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/rebuild.rs",
+      "bytes": 11327,
+      "sha256": "6db49536b3baf2f77b8df3698d89f8fb9b29402c2aa7b73ee9c976faf67ca2ee"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/rebuild_tests.rs",
+      "bytes": 22337,
+      "sha256": "7514c90045fbc2effae252c1dc16d2dd6855f4abb771cd14bae11fecf6891478"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/replay.rs",
+      "bytes": 10549,
+      "sha256": "d1f2ba3340ea49727c277c8efae7f9b38013c506e8aa9d34f9f2d2bba57bdeff"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/tests.rs",
+      "bytes": 39798,
+      "sha256": "1fdab75dc60e37cc9c6842de19219b79291fecdbadb611706408c000320b79ee"
+    },
+    {
+      "path": "crates/tickwire-lifecycle/src/wal.rs",
+      "bytes": 6099,
+      "sha256": "ab9c1cc7094e540b0a04210883ad05e096e04cdb3585c8575eb9430c53fe17c6"
+    },
+    {
+      "path": "crates/tickwire-market-publisher/Cargo.toml",
+      "bytes": 674,
+      "sha256": "159e950f025b8887618e6430ea02f7a680cdf9089cffd44054b8e17da0ca7d43"
+    },
+    {
+      "path": "crates/tickwire-market-publisher/src/events.rs",
+      "bytes": 13864,
+      "sha256": "4773aa674162e92e4c69274811c4aa19227448e0e74dd4e0d59d372fec21a8cf"
+    },
+    {
+      "path": "crates/tickwire-market-publisher/src/expansion.rs",
+      "bytes": 25844,
+      "sha256": "50d537a8595f292a26cc68ab020fd97611f2424d9b1b8f0d0cedef2eb1aaeb1c"
+    },
+    {
+      "path": "crates/tickwire-market-publisher/src/expansion/tests.rs",
+      "bytes": 20122,
+      "sha256": "6b320bef04603ff32362002aae4ce0d26ba7c465dfdf13cc39050c89c536b7dd"
+    },
+    {
+      "path": "crates/tickwire-market-publisher/src/lib.rs",
+      "bytes": 30620,
+      "sha256": "814b15b21c7b508a48ec46a3beead857126efcb831f98e79e61ec76c9a924a90"
+    },
+    {
+      "path": "crates/tickwire-market-source/Cargo.toml",
+      "bytes": 772,
+      "sha256": "f857217c132a56622f09e4422304d65ce976409414e51f685931703d70eb080f"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/lib.rs",
+      "bytes": 2829,
+      "sha256": "53e4b24f580c2298ef5534f1e144b429629f0345853b8cc87cbcd9dc948ba030"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/protocol.rs",
+      "bytes": 18537,
+      "sha256": "53fe3ef2aa22df1ab39c94ffae13582967ad072f1ee0d5980c498c6566f421a3"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/replica.rs",
+      "bytes": 23226,
+      "sha256": "9ce8714d95e24fff6b8e47f3bb6f34aa58610c2c1da7daf4ad221916eaad98f9"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/replica/checkpoint.rs",
+      "bytes": 8941,
+      "sha256": "15ce3855abb36765167b044f3729cf18f3c0c5f7360917a05f8e4fbeeee8e76a"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/retirement.rs",
+      "bytes": 5604,
+      "sha256": "5981d11ec64694804fbb4d296c50dcf2722c09729267a8fff1229a3af664fa19"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm.rs",
+      "bytes": 13470,
+      "sha256": "e606516864395206c2d244d36064f53f1377d83e9d150983b13f7d2859515bda"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm/pending.rs",
+      "bytes": 9165,
+      "sha256": "be64ecb20398ce828221919c051521c68ccaa82e698557927f78a415481329c7"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm/pending/step.rs",
+      "bytes": 11968,
+      "sha256": "66aed8295fb296cef68af1e1526648b483e902ae79e6fdf4533b9fbd67347525"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm/pending_tests.rs",
+      "bytes": 8043,
+      "sha256": "f6ae177b371a996e950593d75d8b60a62214a95ec11aebbd6caeaca0f5c93902"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm/pending_tests/peer.rs",
+      "bytes": 13324,
+      "sha256": "dd225f63ea0533a709532c8964d42fe03a4848d9c82a2235d2ca569e59e846ab"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm/pending_tests/transition.rs",
+      "bytes": 9689,
+      "sha256": "84031bfa5015ec2261cab94a5e2ba0c482cfef65c0f27acdf9d2b641025e02c5"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/shm/transition.rs",
+      "bytes": 9062,
+      "sha256": "efa71528513867c105a2c8fa1aff70545e1d77ad15fcae96d6f6a53cc4a2b5b8"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/transition.rs",
+      "bytes": 16304,
+      "sha256": "53e63524125259510f19d15d1eff470a244f5d0573f4b695e94b3913c46a89b7"
+    },
+    {
+      "path": "crates/tickwire-market-source/src/transition/tests.rs",
+      "bytes": 6815,
+      "sha256": "711104c2596c16f7b9f94f8b3ff714c94533bc5a021ce4620242b11cf4012c9b"
+    },
+    {
+      "path": "crates/tickwire-market-source/tests/replica_dense.rs",
+      "bytes": 12073,
+      "sha256": "813a8c5bb1790461441f40db0d3ac93ee43ce621d2d26c0765cbe6f69d9eaf1d"
+    },
+    {
+      "path": "crates/tickwire-md/Cargo.toml",
+      "bytes": 1563,
+      "sha256": "4c706aa5e4d4b6556bd1e0c331ab345605a183e5bfea53629660e487e076c418"
+    },
+    {
+      "path": "crates/tickwire-md/examples/exec-client.json",
+      "bytes": 5581,
+      "sha256": "2ec75fa3dbd1d4a368d6737fc271885c700fa813b21f8ddd6288b604c364e354"
+    },
+    {
+      "path": "crates/tickwire-md/examples/md.json",
+      "bytes": 10636,
+      "sha256": "5a32d67473c1cec2980022d16edede277371de9f2a68cffb816782f7dfac17c5"
+    },
+    {
+      "path": "crates/tickwire-md/examples/topic-101.json",
+      "bytes": 2313,
+      "sha256": "5acb36b4f0ddbedd7363976890dd74942660ac160862a230c5934e7493114454"
+    },
+    {
+      "path": "crates/tickwire-md/examples/topic-102.json",
+      "bytes": 2313,
+      "sha256": "876bfbd8467c2d1efdf4e51157b0659c55dae3e2f39e651963f03e7b38fed759"
+    },
+    {
+      "path": "crates/tickwire-md/src/config.rs",
+      "bytes": 22221,
+      "sha256": "91af2777dd40655fc67fffdc93f5292bf38bfecd870feade8e7489b8b9e26fd4"
+    },
+    {
+      "path": "crates/tickwire-md/src/config/expansion.rs",
+      "bytes": 1589,
+      "sha256": "af22a63c611fa0e4e5a53246f54c39073c432fa7433c32b3be7650c08a5b704f"
+    },
+    {
+      "path": "crates/tickwire-md/src/config/feed_index.rs",
+      "bytes": 3409,
+      "sha256": "a4503ca6066afb2947f97009d976b61ce4848306c820e0508b5f87221616f329"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine.rs",
+      "bytes": 16176,
+      "sha256": "8a172825cfb2cf5fd91f5c408abace9dc2cd2f729c13d07ba720c2b97a9353c9"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/cold.rs",
+      "bytes": 4314,
+      "sha256": "a3573a2f5e915440b9f0f18f8769c6556fc826153f957e69c7171ef32620c5be"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/dense_tests.rs",
+      "bytes": 8043,
+      "sha256": "3518c522e8875ff633145789499fd34c5363213543b8165288d4122c6802f0df"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/expansion.rs",
+      "bytes": 9137,
+      "sha256": "c2d124de681d0546095c15b5aae862ffcad0b468dcee0c6011af488da216914f"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/expansion/install.rs",
+      "bytes": 3550,
+      "sha256": "784880a5af2f23909cca6ef7947077388380e3167a65366b4458a2f3c3a5a480"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/expansion/io.rs",
+      "bytes": 17747,
+      "sha256": "dd0bcd9cdea9b923deaf453f2b8ebe5c721e23c6a9b08601cc1617d0fa1e106a"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/expansion/warming.rs",
+      "bytes": 2741,
+      "sha256": "65e69b5c4e611198179afa317d9589e6836c4ec65c76508c59c37efef63eca14"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/owners.rs",
+      "bytes": 6537,
+      "sha256": "0558e5eec748062dad6dd1ea42b5a29bb9cf1da03980d2a558c51021ad147d99"
+    },
+    {
+      "path": "crates/tickwire-md/src/engine/tokens.rs",
+      "bytes": 2057,
+      "sha256": "2e1fedcd7aca9007b39bf615f0ba815c97bd4b54242c92fce7e62fc40574bbd6"
+    },
+    {
+      "path": "crates/tickwire-md/src/expansion.rs",
+      "bytes": 18446,
+      "sha256": "f416811de8f286efe20eb2c6bf0e0aec48bf83930d178360770a80854b5aa220"
+    },
+    {
+      "path": "crates/tickwire-md/src/expansion/tests.rs",
+      "bytes": 14986,
+      "sha256": "8b2ef39b2f45d4fe9f8d56c990b5f6b2d8dc1da7eccbe47f154e45ca0375c880"
+    },
+    {
+      "path": "crates/tickwire-md/src/lib.rs",
+      "bytes": 382,
+      "sha256": "26a0f1d1b198311d902ce949b8a6fb9684f334946f3cff87abb8d02b6cd31c55"
+    },
+    {
+      "path": "crates/tickwire-md/src/main.rs",
+      "bytes": 1606,
+      "sha256": "b2660fbb7b78cace7dae2849f7256105fd9c5fe3109b88fa8386b6d120cc3b21"
+    },
+    {
+      "path": "crates/tickwire-md/src/server.rs",
+      "bytes": 28275,
+      "sha256": "e44c6eb776ca9c6805416469b6c923e33793b87498cc6cefb850dbd0ac88ca7c"
+    },
+    {
+      "path": "crates/tickwire-md/src/server/expansion.rs",
+      "bytes": 11554,
+      "sha256": "d7a4287a55ca01837091acf4f5e5d484a1ccfaa61c344742615d5836a191a993"
+    },
+    {
+      "path": "crates/tickwire-md/src/server/expansion_tests.rs",
+      "bytes": 12760,
+      "sha256": "da233d029d7e57ac58ffe78796f6b9f179641f5c409e6d6e5afd0a6efc6caafe"
+    },
+    {
+      "path": "crates/tickwire-md/src/server/expansion_tests/fixture.rs",
+      "bytes": 13337,
+      "sha256": "6e3fcc87dad70abde7a532e5c86c6b08a556459b1a52d4f153bef8eb62896af6"
+    },
+    {
+      "path": "crates/tickwire-md/src/server/runtime_tests.rs",
+      "bytes": 12049,
+      "sha256": "997215d8d60169ef10716360833c01756922574706a1cd5edecf15f82db26e2f"
+    },
+    {
+      "path": "crates/tickwire-md/src/server/runtime_tests/fixture.rs",
+      "bytes": 12654,
+      "sha256": "f470f06dadd7b369ea351690fb8f0c41e1ff4d89f3f42b27f5c9cc0a256ef632"
+    },
+    {
+      "path": "crates/tickwire-md/src/server/runtime_tests/network.rs",
+      "bytes": 6764,
+      "sha256": "ea04933f11085515f7bf3e413fed5bcf2d125650f87d5c28ae05eabc71b11a4c"
+    },
+    {
+      "path": "crates/tickwire-md/tests/common/event_join.rs",
+      "bytes": 4067,
+      "sha256": "5bb4cf46716083386371f03db4da3f61d5f1b632202f804263f53e9a853db768"
+    },
+    {
+      "path": "crates/tickwire-md/tests/common/publisher_hot.rs",
+      "bytes": 10187,
+      "sha256": "705d87ec680276da7d294a14baf85a04f3cae9474150d99961d04e49cae87b39"
+    },
+    {
+      "path": "crates/tickwire-md/tests/common/publisher_inputs.rs",
+      "bytes": 4571,
+      "sha256": "74a4cd2c5263d9e95bda0a53c73617fd5ee64f663252ab4dd7a2b213b20d2c74"
+    },
+    {
+      "path": "crates/tickwire-md/tests/common/publisher_scenarios.rs",
+      "bytes": 5961,
+      "sha256": "da6d41fda61ba90ccb8f2196c41e45018e73b541dfdf70c0082858815f0b6756"
+    },
+    {
+      "path": "crates/tickwire-md/tests/instrument_slots.rs",
+      "bytes": 20306,
+      "sha256": "cdcaad4a950e1d5483df88b900067dcd17dbebaeffca8ea49eef6d3d6a2b05b0"
+    },
+    {
+      "path": "crates/tickwire-md/tests/market_events.rs",
+      "bytes": 11150,
+      "sha256": "ece12944337e4e3d484ae1fae2414d660af9c8114993696f2c953d537bb8763b"
+    },
+    {
+      "path": "crates/tickwire-md/tests/publisher_hot.rs",
+      "bytes": 8651,
+      "sha256": "dd987c3f8ec787474a3118661e27979e0936560506db87ce667d7944a9f7bbcd"
+    },
+    {
+      "path": "crates/tickwire-md/tests/sbe_publication.rs",
+      "bytes": 9054,
+      "sha256": "1e51312f2320a831c06f47075c88ff98e6564f614f99a8a6ac3529448ea2ddc1"
+    },
+    {
+      "path": "crates/tickwire-mock/Cargo.toml",
+      "bytes": 343,
+      "sha256": "236eb48c31bee3c65b272f8e061a207ee73add9ec90e91c9177c2a41b6a8617e"
+    },
+    {
+      "path": "crates/tickwire-mock/examples/spot-roundtrip.rs",
+      "bytes": 5162,
+      "sha256": "2bac0a98c5aa0f6ee7a59b0247dc964032b9078780f82cb8216ab765f6fba233"
+    },
+    {
+      "path": "crates/tickwire-mock/src/lib.rs",
+      "bytes": 9626,
+      "sha256": "ae3f0847ce1d956bd932ead18f60978ff6b02616b0c0bb3684a2ce60db465e19"
+    },
+    {
+      "path": "crates/tickwire-mock/tests/services.rs",
+      "bytes": 15719,
+      "sha256": "cf1136ff2d16c42a3e4fe2c0b2782f6a7faac4f6ce93f45835816f5d286ab45c"
+    },
+    {
+      "path": "crates/tickwire-quota/Cargo.toml",
+      "bytes": 325,
+      "sha256": "2ef6ca35f241241ae6e33139404d94d3c4181c1f24823f4007a04fe8be5eefd7"
+    },
+    {
+      "path": "crates/tickwire-quota/src/files.rs",
+      "bytes": 9615,
+      "sha256": "e0500ffafb832d79b43c67598eb33721827023893715c06b7f9731b7c4b341b8"
+    },
+    {
+      "path": "crates/tickwire-quota/src/lib.rs",
+      "bytes": 28615,
+      "sha256": "f4954383ec70c864f772da4b9e459f425590fe4ccbaaef368bfcf5d8f0b35c88"
+    },
+    {
+      "path": "crates/tickwire-quota/tests/quota.rs",
+      "bytes": 10463,
+      "sha256": "8310d1aad6d661375d82f3dde15dae1a41c2bfb5757893b329a9fdf5b4af3f62"
+    },
+    {
+      "path": "crates/tickwire-recovery/Cargo.toml",
+      "bytes": 279,
+      "sha256": "0992baae0f3d8c1c68ea17eac1b4dbde86280bd47d8f93aa018e102c9bf70244"
+    },
+    {
+      "path": "crates/tickwire-recovery/src/codec.rs",
+      "bytes": 7459,
+      "sha256": "63941ced652dfa6e102bccc7b452bdbe1c165b63c3be720dabdaf11e7b767af9"
+    },
+    {
+      "path": "crates/tickwire-recovery/src/files.rs",
+      "bytes": 7883,
+      "sha256": "8743609876c6c388542d159f6cfa8f256a066f468226c97fdd357809ff6bac17"
+    },
+    {
+      "path": "crates/tickwire-recovery/src/handover.rs",
+      "bytes": 5897,
+      "sha256": "dee1323cfbe3fb9bbe88e6ef39c5b045411d6f46e0d5b86d58d2bf7d83095d9f"
+    },
+    {
+      "path": "crates/tickwire-recovery/src/inputs.rs",
+      "bytes": 4242,
+      "sha256": "3182dbef808b7d228e116c47be0c2ca37d38559b51f121203d2634a8c46e2a61"
+    },
+    {
+      "path": "crates/tickwire-recovery/src/lib.rs",
+      "bytes": 17022,
+      "sha256": "97ccb8d13fda815a9aeb3434e6439db079a06b22d747da72d346557b4be426e5"
+    },
+    {
+      "path": "crates/tickwire-recovery/tests/closure.rs",
+      "bytes": 17082,
+      "sha256": "365aa60ca38df7a274de5621b0a661b0abaaefc6ecccae0039ce5b1f7bb480c9"
+    },
+    {
+      "path": "crates/tickwire-recovery/tests/handover_rebuild.rs",
+      "bytes": 2095,
+      "sha256": "01d9f98c61987e2020edba47fdff7cfd9e2a70387d6b5f3194afb50a28d51026"
+    },
+    {
+      "path": "crates/tickwire-recovery/tests/manifest.hex",
+      "bytes": 2021,
+      "sha256": "870dbaa679f5172b6a342ca4a6012e5257a297212afef771c52015e3d9082820"
+    },
+    {
+      "path": "crates/tickwire-release/Cargo.toml",
+      "bytes": 615,
+      "sha256": "f0c22d6aef63a761fc618db68dea6288825db3cdf01c70d351686b76a1d9929f"
+    },
+    {
+      "path": "crates/tickwire-release/src/closure.rs",
+      "bytes": 5089,
+      "sha256": "dc79ba23fbbcf299476ad63773408d78965032f9dee9d087feb41cfcc7c446be"
+    },
+    {
+      "path": "crates/tickwire-release/src/files.rs",
+      "bytes": 8592,
+      "sha256": "fffcb31c89c69222179b213f867d8e7b51406ac7f57d486d32103ca3c96fdbe9"
+    },
+    {
+      "path": "crates/tickwire-release/src/lib.rs",
+      "bytes": 16837,
+      "sha256": "a56fc55f8885fc5439096c4dc94062ab10287c1ca6a64103dda0842771fece6d"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild.rs",
+      "bytes": 16358,
+      "sha256": "6fd7642c166bb7a05b61181a074d1505a5b07da066a8dc8c7419de33aed35993"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/install.rs",
+      "bytes": 6372,
+      "sha256": "6ba3b315671023c0708fcc386171ca095af23c0651d7630001fb1142ababed17"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/install/capture.rs",
+      "bytes": 4694,
+      "sha256": "0bf3ffb3bde0458dc36c5e760831cd9e895edd60f132cab95b175c3513e31ae4"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/install/seal.rs",
+      "bytes": 4339,
+      "sha256": "f404a23ba24513736ee60dd17930902030733fab27511141072d670d78d09060"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/install/tests.rs",
+      "bytes": 1564,
+      "sha256": "fc3c9a1968417c9b661fd3a8275bbadfaf0605f59bef8b5fd2880636a62d7b2b"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/install/verify.rs",
+      "bytes": 7805,
+      "sha256": "b9a90c0693fae7169d22ef40ff45d452fbd944a65b8022e93e2eb66d39f1c031"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/probe.rs",
+      "bytes": 11878,
+      "sha256": "052656b3fc519b90a39911fa28b2ace6ee75a6ccd57330182c000cb01b1eaee6"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/rollback.rs",
+      "bytes": 13390,
+      "sha256": "75a97b21231db55eb5e5d7bec4ab94268cd0fb3e734994559905b805e1d98561"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/rollback/exact.rs",
+      "bytes": 7008,
+      "sha256": "5f8a6d7ade25292841fba9e02918651b403c362cf90f74ad6cff76c30949c282"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/rollback/tests.rs",
+      "bytes": 5942,
+      "sha256": "f0de8bca95790fd7c4750817efc6adb4284fc46220a08b890d039c0844263a1c"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/tests.rs",
+      "bytes": 6450,
+      "sha256": "1301a54aef5fd76abe11f2bdd5d4ee97bb6cd82d72707caab38f1f58b85e88de"
+    },
+    {
+      "path": "crates/tickwire-release/src/rebuild/window.rs",
+      "bytes": 4064,
+      "sha256": "f01f8f0e3c8b98af304e0a83932c03ecd575618d233dfbe5fffb6462f967e1fd"
+    },
+    {
+      "path": "crates/tickwire-release/src/receipt.rs",
+      "bytes": 7530,
+      "sha256": "babb2a9c2b2ea08aceba35d4f09eb9a5528f43e7b62d474f656ae5a1d6d4fc2a"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay.rs",
+      "bytes": 24539,
+      "sha256": "a2c415b76b32ff18da372fa39cc6c153d970f4e28c35721d81f4c8724a7f78f4"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/history.rs",
+      "bytes": 4578,
+      "sha256": "bb370ca4c7848828e8cdefee7c75b475071366e8c1b0dd24a51ceed26ed9c91a"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/install.rs",
+      "bytes": 5669,
+      "sha256": "4bff684fcff99493c3ebeaa465518712f9ad489cf8fe49c3967a03b506cceeaf"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/install/verify.rs",
+      "bytes": 13128,
+      "sha256": "d6193628189813a22d6af6bb5fc8e498603b6d4b6d16be02063d21a8fca3e3ef"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/market_lineage.rs",
+      "bytes": 3745,
+      "sha256": "57edcd558338f5701a277509ed446fa7750697e70a8e88ca391fd2cfb4194bae"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/retained.rs",
+      "bytes": 4160,
+      "sha256": "b5ef93c6ab71414a862460f8bb55e6e59d322ecb8895734b9dcd5fc2a869ef19"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/rollback.rs",
+      "bytes": 8395,
+      "sha256": "83034f527a9235a3bd8beb341031f4481d5b54869a2aa23b6bb18180ae71aab1"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/source.rs",
+      "bytes": 12821,
+      "sha256": "87faee6762dbcdbfd11e8c5c074fec5ea2464402e2787e94286b7a0c1f8fcde7"
+    },
+    {
+      "path": "crates/tickwire-release/src/replay/startup.rs",
+      "bytes": 7406,
+      "sha256": "46aa9fb99833dda36abb14ecf8eeec6dc2a283c63d176fba55a4a4666736e436"
+    },
+    {
+      "path": "crates/tickwire-release/src/tests.rs",
+      "bytes": 11766,
+      "sha256": "c42a35484b286dbdf2bc63d63a3e6e4fda74a10aaac7e960c0bd656cc8351e35"
+    },
+    {
+      "path": "crates/tickwire-release/src/tests/startup.rs",
+      "bytes": 6646,
+      "sha256": "af1d629ec4a59689f85fba0a3a7d6ec9e6a6baab41298379ac7ab8420867cf7b"
+    },
+    {
+      "path": "crates/tickwire-release/tests/replay.rs",
+      "bytes": 12142,
+      "sha256": "96c4c3d0c30b0dbea831f3f7ceef2eefbf167b146b3190379ada3ebf59f56e89"
+    },
+    {
+      "path": "crates/tickwire-release/tests/retained_installation.rs",
+      "bytes": 1671,
+      "sha256": "6ca6f07b88e95f108f52f1578a57d6d386420604c8ca6b7a6da73209c53ccaaf"
+    },
+    {
+      "path": "crates/tickwire-replica/Cargo.toml",
+      "bytes": 991,
+      "sha256": "78535f11679400d3e148749441d0582309c54c5504d3b756f51f77032fbb8493"
+    },
+    {
+      "path": "crates/tickwire-replica/src/association.rs",
+      "bytes": 2455,
+      "sha256": "9cedd67d9617eb9cfd717010fe1496b65bcf9385a6ad7984f2e420a49ef77ab9"
+    },
+    {
+      "path": "crates/tickwire-replica/src/bin/tickwire-replica-receiver.rs",
+      "bytes": 683,
+      "sha256": "92deca240bc5aec2e9964057110fd92afd5197535c8cc57aa52a3163ccea93c8"
+    },
+    {
+      "path": "crates/tickwire-replica/src/cbor.rs",
+      "bytes": 3208,
+      "sha256": "03502a53022aedb0eb565d9143ec2536dbbdd7892b749e2be5a176d9b41d0ff1"
+    },
+    {
+      "path": "crates/tickwire-replica/src/config.rs",
+      "bytes": 4822,
+      "sha256": "052e187c718009e52fd68a99c7e4cdb82f7d925717d2f7e728dda31b65c7cf78"
+    },
+    {
+      "path": "crates/tickwire-replica/src/handover.rs",
+      "bytes": 9719,
+      "sha256": "d767f10281e91b48ab658cf6f6b7c743162a4a3e98176b0af84cf1031136c07d"
+    },
+    {
+      "path": "crates/tickwire-replica/src/input.rs",
+      "bytes": 9990,
+      "sha256": "2fb0307f6800288b1a276156974cf0ed5c74a8b881fd6589b93851c745f3dae2"
+    },
+    {
+      "path": "crates/tickwire-replica/src/lib.rs",
+      "bytes": 1491,
+      "sha256": "97555ad5157dd9a5d3f3ae35ca0754b689cc33ea6e4b80bf91ad9ea42e368f8d"
+    },
+    {
+      "path": "crates/tickwire-replica/src/mirror.rs",
+      "bytes": 27611,
+      "sha256": "50ef8066db70adc5fea985008b31bc8d8b64753529bf351298c9addce4f34f11"
+    },
+    {
+      "path": "crates/tickwire-replica/src/network.rs",
+      "bytes": 19474,
+      "sha256": "67f185e66c753522950cabe1b72b153e9d5159166ee3948d4b13c2dcc1f3696d"
+    },
+    {
+      "path": "crates/tickwire-replica/src/protocol.rs",
+      "bytes": 18412,
+      "sha256": "7c3f496191d10057df50a06eb3bd3c1378ba5f27442cc3328b5a5c9ab9210bf0"
+    },
+    {
+      "path": "crates/tickwire-replica/src/restore.rs",
+      "bytes": 7991,
+      "sha256": "febc1573f0ef8fccab697e032e8cdc2515b097f54e0ff6e8c573615c6c2035c3"
+    },
+    {
+      "path": "crates/tickwire-replica/src/source.rs",
+      "bytes": 29422,
+      "sha256": "dab9dac6e62020be29673b7b7b9b7857a4675a7623d82cb8c7b165f699bce977"
+    },
+    {
+      "path": "crates/tickwire-replica/src/tests.rs",
+      "bytes": 13883,
+      "sha256": "99efc5be9e21dab6d40514137d52121a46a951793d74db7beeb0c5e637422497"
+    },
+    {
+      "path": "crates/tickwire-replica/src/tls.rs",
+      "bytes": 6877,
+      "sha256": "511e53ac90fb4f3f328f46c4c289f0f32d01dd267dd463fa00e2e2e3f6f9eada"
+    },
+    {
+      "path": "crates/tickwire-replica/src/worker.rs",
+      "bytes": 11717,
+      "sha256": "b93c98bc588ece8b4d9eb8baaa8920be0d8f1014e11ee890dd87e27a3d28aa60"
+    },
+    {
+      "path": "crates/tickwire-risk/Cargo.toml",
+      "bytes": 178,
+      "sha256": "0a70754f4d5575ce344ef2261ec972567745a0698c83e5d511d87031260f31f5"
+    },
+    {
+      "path": "crates/tickwire-risk/src/fixed.rs",
+      "bytes": 10306,
+      "sha256": "dba172501f42227291df2aff86025ac08326fcfe1fafb4826a1f325ead167cd1"
+    },
+    {
+      "path": "crates/tickwire-risk/src/futures.rs",
+      "bytes": 17861,
+      "sha256": "6a27fc57ce29cfd216daa394efe281ff891b86e94799cc7e048aae3c8f72b742"
+    },
+    {
+      "path": "crates/tickwire-risk/src/lib.rs",
+      "bytes": 1931,
+      "sha256": "1b3b2afa36a1f6233bb4565605b33442ea388e25b807cc0eed015f4ad8462159"
+    },
+    {
+      "path": "crates/tickwire-risk/src/reservation.rs",
+      "bytes": 6552,
+      "sha256": "1b0e944708fe471ca7becfe592920dd7dc5d2cf7f96536f658bdcd0403ec6a01"
+    },
+    {
+      "path": "crates/tickwire-risk/src/settlement.rs",
+      "bytes": 7422,
+      "sha256": "41b76c85722d618cd9fe43dc93ea9bf1840a6263d4b1c67a9441858b3c1f172c"
+    },
+    {
+      "path": "crates/tickwire-risk/src/spot.rs",
+      "bytes": 6684,
+      "sha256": "8065e520a16a4853df358c5d77b3eae4dcf62358b432a0207a8c0fe583d9c13d"
+    },
+    {
+      "path": "crates/tickwire-risk/tests/boundaries.rs",
+      "bytes": 17521,
+      "sha256": "56696a9c9089562dd72a5e0e7031a3ff821f29cf6247863253352d8c59916cb7"
+    },
+    {
+      "path": "crates/tickwire-risk/tests/contract_vectors.rs",
+      "bytes": 23557,
+      "sha256": "5ff26fe68de536f716ea914dc85da5af6002ffa91f00b7bd3ea0b76bfd8c236d"
+    },
+    {
+      "path": "crates/tickwire-runtime-policy/Cargo.toml",
+      "bytes": 831,
+      "sha256": "174029768040d891535f9f449e5c3d1258f9e6a4dea3bad4b7e4b999d8cb9d60"
+    },
+    {
+      "path": "crates/tickwire-runtime-policy/src/bootstrap.rs",
+      "bytes": 4425,
+      "sha256": "236f61d9df03b9dd4bb582c58401b97d7fe32b48b2e8adf4e5650ec33e03fa5b"
+    },
+    {
+      "path": "crates/tickwire-runtime-policy/src/lib.rs",
+      "bytes": 45120,
+      "sha256": "f5d158d936648b8aa29a3b8c886197960cced28741eb2c86652344ea9180e82e"
+    },
+    {
+      "path": "crates/tickwire-runtime-policy/src/lifecycle.rs",
+      "bytes": 8188,
+      "sha256": "c7e7455085d321e2bc9a1c806e564774955208f770a9ec05c1ac581821370507"
+    },
+    {
+      "path": "crates/tickwire-runtime-policy/src/tests.rs",
+      "bytes": 15140,
+      "sha256": "74c37ad7f21cd250975c040e69f9c25b90e1494d88ad5be3628e488791b22482"
+    },
+    {
+      "path": "crates/tickwire-runtime/Cargo.toml",
+      "bytes": 1492,
+      "sha256": "f60c55a593f11eabba2793388084d76b50ed198716c9ee00d6ba4e8ff0586ccf"
+    },
+    {
+      "path": "crates/tickwire-runtime/src/authority.rs",
+      "bytes": 16621,
+      "sha256": "ac3a6e6dcab46a3bf7079d513b0967d5ac763fa026d4dfe0efe91296f35f5e2a"
+    },
+    {
+      "path": "crates/tickwire-runtime/src/files.rs",
+      "bytes": 11758,
+      "sha256": "37aa5342fc1d1c27c6ad5238e95acb443d58d0dd86f87b03244dc18e4e652171"
+    },
+    {
+      "path": "crates/tickwire-runtime/src/lib.rs",
+      "bytes": 179,
+      "sha256": "b4746406234f67b605a8673ff5bf5afd67d2c68f326994152e6c1f96e4965216"
+    },
+    {
+      "path": "crates/tickwire-runtime/src/node.rs",
+      "bytes": 43198,
+      "sha256": "4bcb08ac2876ce46cb1628fa8e2b2035f4dc28b26b2e99cd736c827a421dfab7"
+    },
+    {
+      "path": "crates/tickwire-runtime/src/node/rebuild.rs",
+      "bytes": 9911,
+      "sha256": "54bcb5417ac4f5377bb70fe9cfd5143d5b1be66644b4bfeaa74071c0ccc4c63d"
+    },
+    {
+      "path": "crates/tickwire-runtime/tests/handover_closure.rs",
+      "bytes": 9756,
+      "sha256": "b28447a051041154f5b37bb5d460fc020b91a552fdb0045eee4efdc863fcd7ff"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/Cargo.toml",
+      "bytes": 351,
+      "sha256": "39401f7b391c0defb4df3b1512cbd279f6207623d87fdf08640c8a80d9d0ecb8"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/src/immutable.rs",
+      "bytes": 6306,
+      "sha256": "1408c4ad06af8e5fc24c9c100ae348f6620dd99a08766960f6058c2ea8b950b7"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/src/lib.rs",
+      "bytes": 17707,
+      "sha256": "97c060e7fad7c1339201c79538d75024100bfc93c02c0263369822dd1bd6ddaa"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/src/resource.rs",
+      "bytes": 6678,
+      "sha256": "5b9b90a222c34413b3b5859d8dd95124be3e515ea7b5bfe9806140906aa8449c"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/tests/immutable.rs",
+      "bytes": 18264,
+      "sha256": "50011829140e49c996bf2d8e8b3d2d0e1459e4dd395b645ed83dd3f86a47c721"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/tests/mapping.rs",
+      "bytes": 7900,
+      "sha256": "b4f728da5da873c7f7f93ae3b43f1cfa192598d1eaa684664cd8f3fef28e82b3"
+    },
+    {
+      "path": "crates/tickwire-shm-sys/tests/process.rs",
+      "bytes": 3499,
+      "sha256": "a4ace7478b5fa27e84588c265b3f2c6495c36d2dde5b62a41efd0013163be4f5"
+    },
+    {
+      "path": "crates/tickwire-shm/Cargo.toml",
+      "bytes": 296,
+      "sha256": "a3bc7820360f185dd6a14f351572970ec31339de8d5aca520d668cf125867dcd"
+    },
+    {
+      "path": "crates/tickwire-shm/src/arena.rs",
+      "bytes": 5296,
+      "sha256": "0e7db830250e45a6277ab5ae5ebb36872871e2a49854ddab6ca137bcbab23cbb"
+    },
+    {
+      "path": "crates/tickwire-shm/src/lib.rs",
+      "bytes": 17029,
+      "sha256": "40cd9db27355c2ad1341c88ed16e21bfcb56e57fbe7bc861a3c0c4167c366fdd"
+    },
+    {
+      "path": "crates/tickwire-shm/src/mapped.rs",
+      "bytes": 38172,
+      "sha256": "ab89ffd17dbe7f2406d58f654d4a567251f42e756bfcc44764d23c570598655f"
+    },
+    {
+      "path": "crates/tickwire-shm/tests/common/mod.rs",
+      "bytes": 1063,
+      "sha256": "043ace364b80d1cec20b4d54418e1845b37ea792e2b80b9fb73d8fb518c5eae2"
+    },
+    {
+      "path": "crates/tickwire-shm/tests/join_pending.rs",
+      "bytes": 6746,
+      "sha256": "01a9a79d268d541f7fdaee414ca83ad75b0385dddf487bd7be455997d527d58f"
+    },
+    {
+      "path": "crates/tickwire-shm/tests/mapped.rs",
+      "bytes": 12480,
+      "sha256": "eb7a5030ab46edcaa64342968304c919f125fe59f95bf689275ad3702b9528da"
+    },
+    {
+      "path": "crates/tickwire-shm/tests/protocol.rs",
+      "bytes": 7427,
+      "sha256": "cce4da8628fd868c2187e0be99c8c41da63dbaf5546f31b2532c226ca913d8b1"
+    },
+    {
+      "path": "crates/tickwire-snapshot/Cargo.toml",
+      "bytes": 440,
+      "sha256": "afcb81229d38d02f20fd8d2fd2d8adce21c092242c403b5616a422a1adddef47"
+    },
+    {
+      "path": "crates/tickwire-snapshot/src/builder.rs",
+      "bytes": 22439,
+      "sha256": "fe2853630035b78d938331712145416308a14c931b8603d9720ee4cb812dcc7c"
+    },
+    {
+      "path": "crates/tickwire-snapshot/src/lib.rs",
+      "bytes": 10062,
+      "sha256": "8cfa02233dcb0f473ac739eb33dc2b7af58259433486817740059e079906b246"
+    },
+    {
+      "path": "crates/tickwire-snapshot/tests/builder.rs",
+      "bytes": 23621,
+      "sha256": "a74a38018b3dc3a81eb06be422f1c2da30e28ab7ab61460ab568d07c27878246"
+    },
+    {
+      "path": "crates/tickwire-snapshot/tests/immutable_linux.rs",
+      "bytes": 10672,
+      "sha256": "ec59d466c83cec7e9770f0da4f9289ec4f075d50284e317b19e826ab105e42f0"
+    },
+    {
+      "path": "crates/tickwire-snapshot/tests/validation.rs",
+      "bytes": 14889,
+      "sha256": "f3d7cff55902f44d85b343420f27a7ff89ad246d74b5979dfda041ab2ee9973a"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/Cargo.toml",
+      "bytes": 607,
+      "sha256": "517fdb54b110215420e98a707b8cf3bd1cb946ba7adfcbcd1500a2b7dc529ff1"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/src/bin/tickwire-counting-v1-worker.rs",
+      "bytes": 476,
+      "sha256": "1020bf04d4f7f8781f34988bd7957551da99f86ba517eac51e573655f1e3353f"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/src/bin/tickwire-counting-worker.rs",
+      "bytes": 473,
+      "sha256": "613c9d3c6afbf0306714d0c11624c2cec557c4d4c2861361ac34010383a1c1cb"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/src/chain_tests.rs",
+      "bytes": 12114,
+      "sha256": "108ad95aa6cbc8487ac5bd0b78b806b823b0193d84d3f0f5c271ce944bef91c0"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/src/lib.rs",
+      "bytes": 13167,
+      "sha256": "543429bff87dbb9e4a37ed689789f134678d267c88de0e9e3dfbf9f9255adfa4"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/src/rebuild.rs",
+      "bytes": 8644,
+      "sha256": "c6fc946508267032ca266d0a076d050dea9f4c66e12dea8d5b9c358aa4bd8289"
+    },
+    {
+      "path": "crates/tickwire-strategy-example/tests/source_replay.rs",
+      "bytes": 10830,
+      "sha256": "88b9ce3368365155c07ebfdda74f16d752e3f86dc6f4fe97f3281dcf1b63d0d8"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/Cargo.toml",
+      "bytes": 1887,
+      "sha256": "afd13e0dd9ef23625db638d29ec2814c7b4903e5c2997803a9207f4b7e405275"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/capture.rs",
+      "bytes": 9766,
+      "sha256": "0eb29a1e80b8cc404f79190061030c52452be8d6fa6b415927eb1696d67be8bd"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/capture/launch.rs",
+      "bytes": 5904,
+      "sha256": "4dfb6ffcb2ad10c59df8fbe6408ab0b2bee8efcd91b8c6709df052755e0e3111"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/capture/protocol.rs",
+      "bytes": 5222,
+      "sha256": "270b07eb613a40fb71a77282dd538c7a788d8156f71f5795850eef6f471b27ab"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/capture/retirement.rs",
+      "bytes": 3249,
+      "sha256": "a85fea2053dfcf4456a7a864a8d43101b20a753ec264604a455cadfb53842ce2"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/lib.rs",
+      "bytes": 49572,
+      "sha256": "719081f7180ea127e9f995cce50cb9d89b848f3ae0629d3d44337ad6914cbd77"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/market_transition.rs",
+      "bytes": 8705,
+      "sha256": "fc53e6c5c07edb7060df349d24174581aeb2a1924a2d53e2c4ed17293a434239"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/market_transition/tests.rs",
+      "bytes": 5163,
+      "sha256": "4f2828091ee49c491ca4ef919f53dfebd41448e7ec6a721cfcf1f70b28165bd3"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/preflight.rs",
+      "bytes": 29287,
+      "sha256": "9962aede1dfe93c6bd78aab31df886d68c687855851f9f4110a731c3899c6ef5"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/readiness.rs",
+      "bytes": 16347,
+      "sha256": "3a5b2f2ce691dcb45aa178de82facbbc6653f7eeecff1b389ced13e128341f8d"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/readiness/cache.rs",
+      "bytes": 9262,
+      "sha256": "c214823f36f8b3b2ec39ee3b17abd08ceda2e978ab08c328a980fb537f4959e8"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/readiness/capture.rs",
+      "bytes": 1348,
+      "sha256": "c3fda6cb0b33cfaf749e191eb1ea7a71e9ba88a7d7b4ad81e7ab56fc490b006f"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/readiness/capture/tests.rs",
+      "bytes": 6886,
+      "sha256": "208709f7bbf9647988f1abdf06900bbe1e9e9f814ea4215615fc649cd71a4dfd"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/readiness/install.rs",
+      "bytes": 15091,
+      "sha256": "eef6649ebf518719f32076137ddf7454334b6e233235dd13550e04d7e1753118"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/rebuild.rs",
+      "bytes": 8415,
+      "sha256": "2c0b1f77dbf40cb55ec11e72bcb4871e51119211e9beafd26a822af264e67680"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/rebuild/delegate.rs",
+      "bytes": 5046,
+      "sha256": "2d7d1cf72853d344a8f55d20115d436ac31bd5735ea4652bce149e21047c8f01"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/rebuild/finish.rs",
+      "bytes": 9833,
+      "sha256": "eeca4e9dcb36961aa19e704138e37ba98b20a07f35cf6a5f2e7e8ee231a59bea"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/rebuild/input.rs",
+      "bytes": 4636,
+      "sha256": "eddbd3643896d13be732dd14fb5036b3e78e0a61c632bd5fcfbef21debb54694"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/rebuild/promote.rs",
+      "bytes": 8017,
+      "sha256": "715ac81dedf22cc08bd911db773fb1d17033ea6c7d5e248667953984a0b2b547"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/rebuild_probe.rs",
+      "bytes": 8132,
+      "sha256": "e2b9cd54f2d67f0af48abe88b0cf5a251d3458ee164a93fb60c667d027d51208"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/remote.rs",
+      "bytes": 30685,
+      "sha256": "dc32261c31340acc738f2fd87302208f0d5ed741f654a4e6dcfe00d2ae2fa8a9"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/src/source_replay.rs",
+      "bytes": 8010,
+      "sha256": "a29667c35f4a660264baab64808951f8452a73ffcf040be02ab606358894ae79"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/tests/capture_process.rs",
+      "bytes": 9136,
+      "sha256": "706e593c3d70e3878362e6896265febd5d7c0b34db116cd72e1c989a807b9083"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/tests/capture_process/common.rs",
+      "bytes": 10352,
+      "sha256": "ae62ddc81d4332fb288bf7d44760166f3f27bd730bdc9a30d9007af0f10cb7ca"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/tests/capture_process/market.rs",
+      "bytes": 9333,
+      "sha256": "377d2a219f68a308d330da56632ac4ec755b2deaff6280411490ad7589ff5f8f"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/tests/rebuild_process/mod.rs",
+      "bytes": 15686,
+      "sha256": "749622feafd8949a0eecebc88d8afea98851f2e373b9efedde81701859c4f915"
+    },
+    {
+      "path": "crates/tickwire-strategy-host/tests/rebuild_process/publication.rs",
+      "bytes": 6862,
+      "sha256": "dbdecfc185e420d6585d05bb37496e4c11086934b5dac2dc916c791b1773be5f"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/Cargo.toml",
+      "bytes": 1807,
+      "sha256": "3df7063875be4a527edfb79f746fb7897fbe3d8c28e172fdd29950c655be855a"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/bin/tickwire-strategy-worker.rs",
+      "bytes": 3507,
+      "sha256": "61a5f8ed57f2afc53b2c1419edb9a5a06351989e05369d84e768b75c0ad19ba9"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/bootstrap.rs",
+      "bytes": 2634,
+      "sha256": "2f0df4311366b60c7dfcab47f4396444b15155b36aa859f9be3801a55e84c147"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture.rs",
+      "bytes": 11833,
+      "sha256": "e85feead80e2860db44249a4f1e4895c8a3f3cdc95d581d9b5d92fd570438be2"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture/install.rs",
+      "bytes": 12499,
+      "sha256": "89c37d3517a8dc99945ac8ee3655569c25472ad32977906e9dcfed9f2447f3b1"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture/install/rollback.rs",
+      "bytes": 8523,
+      "sha256": "5c9b2f234640136d31fef6606fafac073566b134c3ea6a95d0212b763280c913"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture/install/tests.rs",
+      "bytes": 9174,
+      "sha256": "33d9698d1cf9cce7d760f1360872e7b41da534a5f93e3b03ec8f8adb45100a2b"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture/tests.rs",
+      "bytes": 6350,
+      "sha256": "04e98ba4eb2176b53d6ba4cb2314dd98eaeaf1c646cdd2397c325dad1c931dd3"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture_worker.rs",
+      "bytes": 25736,
+      "sha256": "aa807fba5617ec3785df7a72e66431e66dfa1cabc9c3516a55be812525f25394"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/capture_worker/install.rs",
+      "bytes": 11404,
+      "sha256": "99bd408c3a6bb3401c2492a2c21c3899cebf3041932c02d3798c8417f50b29e1"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/checkpoint.rs",
+      "bytes": 3870,
+      "sha256": "d19f5f4f6b9c1903a4f2f0358654a06af62a0fa33aa8ff6a40bef853af61ef34"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/handover.rs",
+      "bytes": 15732,
+      "sha256": "f95d685b2e2e4d751185babfe016ab608d299d39a12444bdcd33200d80ff8079"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/lib.rs",
+      "bytes": 8905,
+      "sha256": "3188bce8e1baae632f2ab0479bc840e1ac576548e0842dfb28360ed44fedf812"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/market.rs",
+      "bytes": 5529,
+      "sha256": "a1db37068b9ff347e4017f954f359865f085df91d9a4d548f7d3be84e2884b3a"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/market_transition.rs",
+      "bytes": 5825,
+      "sha256": "d317f51fd6afcd562ecac2903dc4e91f2bf1be72435e431ec535f60def2885f4"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/market_transition/tests.rs",
+      "bytes": 3210,
+      "sha256": "510277a5444444e1d9a744f5b64ae8adcbf5e0e0876c6d8cd72d78fa8f1bc6e6"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/outbound.rs",
+      "bytes": 10821,
+      "sha256": "4ccd0fb49c3b19341a7ea7d8d115e6166c5a7d624bd34a5ed83e400364c5003c"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/preflight.rs",
+      "bytes": 31100,
+      "sha256": "5cf2bceb8a254abbeb66757a7be28129ffe5c7167c2535b3b57f4513b89e08b6"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/preflight_tests.rs",
+      "bytes": 3278,
+      "sha256": "d48e552a6b34f809b85cdc087371f03772bbb056834b39bac02f1c7a9f7804d9"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/recovery.rs",
+      "bytes": 35218,
+      "sha256": "abc383ec9aa0852a8f7d85be086a06aa6155e5ba236bd749c9ce3508e720624c"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/recovery/rebuild.rs",
+      "bytes": 6334,
+      "sha256": "26feafbe2b8cad92243fd10be9cbacb83f8d6da21ad5882d54945f26b38d7322"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/registered.rs",
+      "bytes": 15128,
+      "sha256": "41c6a91ee7675583b814ecba45132f85baac6f29e787b4d97f27d1ba5f60faa0"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/registered/rebuild.rs",
+      "bytes": 7218,
+      "sha256": "9c997bc652966bd3022db992bfdc8236785c81c2e0e8f41cc6e6d495090df2b4"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/registered/tests.rs",
+      "bytes": 5327,
+      "sha256": "8ec22559d6db97d5e4701c44d605e6d17e9328e9e4e20b91ed702c54609f3f29"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay.rs",
+      "bytes": 17876,
+      "sha256": "da6412b8db49de3d9ce753191e0d8642529959c4bfaed386485fb66adc08c8a4"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/account.rs",
+      "bytes": 7755,
+      "sha256": "628622fcec8543d1d2183a352cfab8fcea6c09421bb9f7df10a0f8585bd8d4e3"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/application.rs",
+      "bytes": 21902,
+      "sha256": "cc42585e6b3286ad147eed4ff9b03a42568affe20de0e3f3cf12fd1bfb6d803d"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/application/tests.rs",
+      "bytes": 8259,
+      "sha256": "15d43f04fac21e7cc67f4168aaee934ce5544b4f2b1e746693441b9b3bdf4300"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/application/transition.rs",
+      "bytes": 5676,
+      "sha256": "df4e98fbcb764e8ae46ce72f236a3971603d79bd8e6865e5eebb3055b5a2727d"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/application/transition_tests.rs",
+      "bytes": 22637,
+      "sha256": "66632d0f8e4551039a6e289ea1436e72759055e64bba71e4a5597cdfbc8505a7"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/catchup.rs",
+      "bytes": 17493,
+      "sha256": "ede5372caab4eab99966cc07bbc1211a4cbce1aea758ca9e494a5474a5a33f43"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/control.rs",
+      "bytes": 8875,
+      "sha256": "a1186b3eb0df534657685ec180db13eed17f6d239e09a1bc5285b84ccd3f3df3"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/durable.rs",
+      "bytes": 12854,
+      "sha256": "dc29daf16ec59570d8da2df3dc95c325ff8e8bb64c32b3805b758b9b871ed750"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/install.rs",
+      "bytes": 13613,
+      "sha256": "8e11d4a91deafb3f1146ec8113805ba87e55658d0ecf7409c58e324ea360f374"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/install/tests.rs",
+      "bytes": 24080,
+      "sha256": "290a0d24be79434a1f3bf88221fc8f8326efd9bcc24b8c1246ae9b5eb9f271bc"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/live.rs",
+      "bytes": 23302,
+      "sha256": "727be1f8bb3aa75470716f421fabe0561a5a18452e15650d2e8b3f5360c8cf36"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/live/tests.rs",
+      "bytes": 19094,
+      "sha256": "c515dc629d645e0b2f6579c2d45a7e0de15f766d71a81dcc01df7ea7f767c967"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/native.rs",
+      "bytes": 11974,
+      "sha256": "c465f8d18d2052314b438cc435368691ce10f3f733f1209bb6dce45962fefaba"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/process.rs",
+      "bytes": 4342,
+      "sha256": "956559db9a4fb1e346571df676780444c0d46f7b8f97745f2a4b23c0614bdbd1"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild.rs",
+      "bytes": 21390,
+      "sha256": "0aef7d83b024adcb25244982f112bd45d3d854a1ac3765ba770721704dc7427f"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/capture.rs",
+      "bytes": 13252,
+      "sha256": "86997c2ebb7e7149efbf162a22b89b81c946738797aa97eea4dd3efed383ca70"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/capture/store.rs",
+      "bytes": 7971,
+      "sha256": "b329705c2690fe81bb812f934a18178d961317e3b07481980ee478d850dc58d0"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/probe.rs",
+      "bytes": 10108,
+      "sha256": "1e4644efaf81c7ca44337c095a96623bfbe2e0ecc8062e57fb9a4af1ecf5b609"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/rollback.rs",
+      "bytes": 6914,
+      "sha256": "39c78bde3d657ddc4637efbfff3c81865cfe8e609aeb2d449042937d32399a7e"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/rollback_tests.rs",
+      "bytes": 10503,
+      "sha256": "fcfb6583ae90916434179f8c869da33d3af88b20b2d6ebbbdf9e3251ff0ca09d"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/running.rs",
+      "bytes": 2521,
+      "sha256": "aec04e8332863354c43ec30fc5abcb5be9f53aafe80d63d52da3fd238720dfdb"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests.rs",
+      "bytes": 21821,
+      "sha256": "5c6aa6f95bbdf9dfc0052d8cbe9ff8a92980c4da56a5e6910aea22c3060565a4"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/capture_receipt_tests.rs",
+      "bytes": 5676,
+      "sha256": "b89cf922920ef40a82aed76ca209af4bb237eccd424cd79bb06dc969f6322bd0"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/capture_store_tests.rs",
+      "bytes": 6600,
+      "sha256": "46b31fef34707fc7ccdff644d4e1a6082d65f8dcad6a1e525dd41d4a47365ae9"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/capture_tests.rs",
+      "bytes": 14220,
+      "sha256": "02bade8f1835743ead1d89cd29b11d5c81025911c2ba94816492854b25979334"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/install_graph_tests.rs",
+      "bytes": 11317,
+      "sha256": "58c538f1fa5de3ce235f71e3364d35b1549a23601e27f42f1c468132bffcf9d3"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/probe_tests.rs",
+      "bytes": 13595,
+      "sha256": "4c7e9b79b1c61d64184c7df3cbff6f6352c22bf40ef2b3c041f2a0cf82dc1230"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/registered_tests.rs",
+      "bytes": 8686,
+      "sha256": "95528c5c0a3e385ab7f40b0acacb252f2f90c4182d4eae7240d82c764b0f802d"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rebuild/tests/running_tests.rs",
+      "bytes": 7427,
+      "sha256": "41168ff5a92664160c760faf27853ab851a1f199d6946675bee39020f6e44a19"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/retained.rs",
+      "bytes": 2490,
+      "sha256": "d0cba7c9e7f308cd521811c248c751e58c9a67cdea9a1042a4e22291533c5f22"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/rollback.rs",
+      "bytes": 6242,
+      "sha256": "b2dbbea7f7768662977a691e9fc501409afcc2eb69c52f5b8dde28f4678cb29a"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/source_tests.rs",
+      "bytes": 12093,
+      "sha256": "ad55f53669cf69d0da152d87e321318b403720d89d0aa05d6418cb6ff8b729e0"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/replay/tests.rs",
+      "bytes": 29308,
+      "sha256": "02c0c7cd60a97abf9a9377d6f22384e056e1257395834c65ed4c145b0bd21c97"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/reports.rs",
+      "bytes": 15261,
+      "sha256": "0a73d8174056e46745159ec90e616e441c2b9c32bc32e785a0193db89041365d"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/restore.rs",
+      "bytes": 22785,
+      "sha256": "7fc45dd197dd5bc5772e4b5d21c39e505f5bde1ddd2914bea79a05ccc6f726fc"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/restore_tests.rs",
+      "bytes": 17191,
+      "sha256": "bfea037d2f28c5173af7247ce19f55d8578dd14d4047d04a68c26231a49e5eb7"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/retirement.rs",
+      "bytes": 5963,
+      "sha256": "f477f16e896df6219bb51a805a26abb9c45ef655369a1578f3636aa062246716"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/runtime.rs",
+      "bytes": 7892,
+      "sha256": "9a70c3979c43709dc9d865258d8e75d7da0aeb5c1b73adf2d2ba965d4a9c2c0a"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/test_command.rs",
+      "bytes": 2852,
+      "sha256": "8e1c1a11990ec56165a186f97449791bf0ccf1bf321d5d8b36593a60ab6ce15b"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/worker.rs",
+      "bytes": 70077,
+      "sha256": "c449a827581b618d260363d410eb7f071772281552486b4a2b78545634a7972d"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/worker/expansion.rs",
+      "bytes": 5934,
+      "sha256": "0409489d43d447f3813c001d21c9338e669cf0c5d5f7325da639198891e621ed"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/worker/expansion/frontier_tests.rs",
+      "bytes": 4879,
+      "sha256": "f0d6d291594cb88542fbf7a3f9835ec7b674db7bd9c26fb5a5ebc1a0e5533c8b"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/src/worker/rebuild.rs",
+      "bytes": 4006,
+      "sha256": "b9c00bd6e238baa15a55800cd2332a6a273cc66b2170270f90c0451e7285ae77"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/tests/common/market_transition.rs",
+      "bytes": 4781,
+      "sha256": "3999211fe5f3682890e0133d83311681f8421f6caee0df01343977c5f34e2bea"
+    },
+    {
+      "path": "crates/tickwire-strategy-sdk/tests/source_replay.rs",
+      "bytes": 9949,
+      "sha256": "923da7356e380f768afaca730edc522907c40c7f14af8f00b90568c7e1caec3d"
+    },
+    {
+      "path": "crates/tickwire-supervisor/Cargo.toml",
+      "bytes": 354,
+      "sha256": "4cea7742c69f499fe8f6e56fc6c7f4c6c558969db1e08104ac2caaa994a2291a"
+    },
+    {
+      "path": "crates/tickwire-supervisor/src/lib.rs",
+      "bytes": 9752,
+      "sha256": "ad3faf051b6e397678381e9b49bbef97d2c8421e0ea7da476bf76abea58007bc"
+    },
+    {
+      "path": "crates/tickwire-transport/Cargo.toml",
+      "bytes": 480,
+      "sha256": "e6e5411d6f7f4f1ea8b6e4c7ecb621f078a1aab5c63b73b936cc77f8b9153717"
+    },
+    {
+      "path": "crates/tickwire-transport/src/connection.rs",
+      "bytes": 15426,
+      "sha256": "3a9380094dc089b5d18c37277c1fe09478689fd934cc892edc1a5d5e648b6613"
+    },
+    {
+      "path": "crates/tickwire-transport/src/fix.rs",
+      "bytes": 4709,
+      "sha256": "c40ee5f8f7825e5b95f33aafc0a998bdec9aa7b722035ab408e7b3efcaff0485"
+    },
+    {
+      "path": "crates/tickwire-transport/src/http.rs",
+      "bytes": 10055,
+      "sha256": "99c0a0709a188fafee8f579c94272cd75359b104cb6fcb9e456313369a25d2f8"
+    },
+    {
+      "path": "crates/tickwire-transport/src/lib.rs",
+      "bytes": 2731,
+      "sha256": "8f24c5082a9c70e28dbbf3cf97b789f3b6a9d45ca29be4911078be79aa2cdc66"
+    },
+    {
+      "path": "crates/tickwire-transport/src/ws.rs",
+      "bytes": 11283,
+      "sha256": "6af2ccf86541c8fde5933b40d6e66eaee1997cfed7b4046d16bfa8a0ff564fb4"
+    },
+    {
+      "path": "crates/tickwire-transport/tests/framing.rs",
+      "bytes": 6744,
+      "sha256": "c72416e5ca7a63563066f01a54bfde1d0c4a85ff0cb7628fc4eb497761767b46"
+    },
+    {
+      "path": "crates/tickwire-transport/tests/network.rs",
+      "bytes": 19088,
+      "sha256": "75715b097388cb75676815bd2f30b01a7dcc227a1fce18efb3731f86df2f0f30"
+    },
+    {
+      "path": "crates/tickwire-venue/Cargo.toml",
+      "bytes": 178,
+      "sha256": "43f750230f5d429ecf62f30915954c5b5c741c46b38c43850e953556c2155085"
+    },
+    {
+      "path": "crates/tickwire-venue/src/account.rs",
+      "bytes": 10107,
+      "sha256": "d76d69d527ea9ae2a3bf35524ad1440c6955a10ddf2d913cc32a5b5313155709"
+    },
+    {
+      "path": "crates/tickwire-venue/src/cbor.rs",
+      "bytes": 7365,
+      "sha256": "74b1357caa786e741c1e8dbcfdc6c62cf6fb69370fd8f25f9a59f9fb42c89b45"
+    },
+    {
+      "path": "crates/tickwire-venue/src/codec.rs",
+      "bytes": 19794,
+      "sha256": "03200da7de44d84058412f424540fa00405f1e072183f97926cc4ba8e6a0b131"
+    },
+    {
+      "path": "crates/tickwire-venue/src/lib.rs",
+      "bytes": 4845,
+      "sha256": "8829aeb73405f5450d7292dc986e7ce6d55603e5da42960482aa05d161395363"
+    },
+    {
+      "path": "crates/tickwire-venue/src/types.rs",
+      "bytes": 19016,
+      "sha256": "b5148ac7bb7c26fc0801d9b71b339b8a12dab52067962bff70f18dae444d4a74"
+    },
+    {
+      "path": "crates/tickwire-venue/src/validate.rs",
+      "bytes": 24242,
+      "sha256": "7267884676c363b178ff0a8c95e9326826546fa649cb9eb5355d9084ed9a64da"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/account_input.rs",
+      "bytes": 3573,
+      "sha256": "7006972ef01107322f3174a3fc4a0a442d52a843d0964050b4f1735f5855f4a7"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/amendment.rs",
+      "bytes": 1902,
+      "sha256": "bc1f76f9d922900ebeca063f3f10fc969491df27b5cec05db7601626c4ee112b"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/commands.rs",
+      "bytes": 15510,
+      "sha256": "fd9d06d4bf0644fe25c5856d81411faa02371558161540f1271255d0bc27ff55"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/common/mod.rs",
+      "bytes": 5367,
+      "sha256": "7b03fa63f07b87cc1a3dc24c1b687956128d1485a3f40c55c35b03dd8aa40781"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/contract.rs",
+      "bytes": 1686,
+      "sha256": "368ec3e500358b271ac86707fbcb0a88d06c06e22304907c1308d2695cadac25"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/legacy-commands.txt",
+      "bytes": 6518,
+      "sha256": "76f57da89e9f0fb6ef8e37f28672036e65d6550e984c7d6737e1e0e309c4ef9b"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/minimum-i128-fee.hex",
+      "bytes": 363,
+      "sha256": "3262a24f433daf79112fbf115118797127fe17977784468e3a71bef6e8155c2e"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/minimum-i128-fee.sha256",
+      "bytes": 65,
+      "sha256": "bc16ce83b4d9dce0cf458a3e1d8fb9b3bcf9d8c303aa89272a08ad01caddea2c"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/multi-asset-fill.hex",
+      "bytes": 353,
+      "sha256": "91443dae7abc905355fd0f88e1f13bab6f67e42592b93af86ba49b70240a6a16"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/multi-asset-fill.sha256",
+      "bytes": 65,
+      "sha256": "68f3dfd7567bd6fdeca1be18c9652b0bc9f8e3c104c0a882c36668c74fc507ee"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/reported-cash.hex",
+      "bytes": 407,
+      "sha256": "362f9342c4e6ada2112f0ba83d71192514a60aaf98575919b1e4a57e3c420c35"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/reported-cash.sha256",
+      "bytes": 65,
+      "sha256": "b05d5365675dd6754c8b907fe267221dc37bdd3339d078784da3167f50e75907"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/spot-limit.hex",
+      "bytes": 543,
+      "sha256": "bf17b440657a4d1663b9d14505ed483bd3a45f238a5ed50f5e4c4c6252aafe3a"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/data/spot-limit.sha256",
+      "bytes": 65,
+      "sha256": "402dbecca7feb453501bfb0ed074adf2aaf0053cf1de2f229ea7c5dbb90b7e78"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/events.rs",
+      "bytes": 4305,
+      "sha256": "612d36f4d001a320ed7d6ca00ef07af7f7d947eaca87b192430b4690e26e016f"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/spot_extensions.rs",
+      "bytes": 10316,
+      "sha256": "e8db97ab49a55be8b67631dd97117e92609dd59b12488d7b4909e43f13ea1f51"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/strict.rs",
+      "bytes": 3129,
+      "sha256": "20e19d6a54eaba7a9e6ddbeacca49a0bc002a42dd37f18d188c4f88ed873c88b"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/structures.rs",
+      "bytes": 3751,
+      "sha256": "03448213f799025ebc90bc7ac51ac034783c98e6ed8d34a2d050672181309897"
+    },
+    {
+      "path": "crates/tickwire-venue/tests/vectors.rs",
+      "bytes": 2877,
+      "sha256": "53e579f22f6fd884cd2c71d72fd2ecfe1e6e43db0040ed85d57783c5e8c200f8"
+    },
+    {
+      "path": "rust-toolchain.toml",
+      "bytes": 86,
+      "sha256": "d13306be0ecda81ce779baa290ffb417380d525928477f16200884b5169cca33"
+    },
+    {
+      "path": "scripts/check-rust.sh",
+      "bytes": 237,
+      "sha256": "6c74398024539ba240b6e71d37beaeeb90000654d2287d5cee3bf3053b423de3"
+    },
+    {
+      "path": "scripts/protoc-raft",
+      "bytes": 816,
+      "sha256": "c5e9ce2e521848cca011c907be7014b563d983cf271953b6ecc7d4c5f4f56919"
+    },
+    {
+      "path": "specs/contracts/control-api.openapi.json",
+      "bytes": 114563,
+      "sha256": "1ed5225a3018d16ba86a1e008d8936644546c4a3a1163d541a2e4fdc695c0be5"
+    },
+    {
+      "path": "specs/contracts/deployment-reference-v1.json",
+      "bytes": 9336,
+      "sha256": "5b4af7724d37ce187a5f2bc98219e100887f42419ec023a2d6ff310395b936e8"
+    },
+    {
+      "path": "specs/contracts/ipc-vectors-v1.json",
+      "bytes": 221527,
+      "sha256": "1bf35794cf5a78281c7ca92d76850f62dfb1dc29b4dcdd86fec6c9a6b8fc8772"
+    },
+    {
+      "path": "specs/contracts/ipc-wire-v1.json",
+      "bytes": 172747,
+      "sha256": "9e7f3b64abd3f50b2e1358d5fb228141d391126f8e5cc57756a86dd59cae296e"
+    },
+    {
+      "path": "specs/contracts/replication-profile-v1.json",
+      "bytes": 34921,
+      "sha256": "14d3accf6035fc59b02e12822cba1e9253362ea35f730d172fc2e0f1d483528a"
+    },
+    {
+      "path": "specs/contracts/risk-vectors-v1.json",
+      "bytes": 17742,
+      "sha256": "32082fc7e83b8a891b48b74c68cf9ea476ea249d7e468ad7e30a6e26bb256b00"
+    },
+    {
+      "path": "specs/contracts/system-config.schema.json",
+      "bytes": 85278,
+      "sha256": "07d244fc9c09b9a30cf0683cb7c5376b245756ddafd1ff49483cfb4e1bb1b978"
+    }
+  ]
+}

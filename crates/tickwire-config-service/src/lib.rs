@@ -15,9 +15,11 @@ pub mod evidence;
 pub mod https;
 mod objects;
 mod peer_driver;
+pub mod planning;
 pub mod qualification;
 pub mod request;
 pub mod resource_facts;
+pub mod runtime_facts;
 pub mod snapshot;
 pub mod source_bundle;
 pub use objects::{Object, ObjectKey, ObjectLimits, ObjectSpec, Purpose};
@@ -123,6 +125,7 @@ pub struct Replica<S: Store> {
     state: objects::State,
     bootstrap: bootstrap::State,
     deployment: Option<deployment_owner::Owner>,
+    planning_owner: std::sync::Arc<()>,
     scanned_through: u64,
     poisoned: bool,
 }
@@ -155,6 +158,7 @@ impl<S: Store> Replica<S> {
             state: objects::State::new(config),
             bootstrap: bootstrap::State::new(trust),
             deployment: None,
+            planning_owner: std::sync::Arc::new(()),
             scanned_through: 0,
             poisoned: false,
         };

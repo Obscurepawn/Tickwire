@@ -1,6 +1,7 @@
 //! Bounded asynchronous source validation with service-owned time.
 use crate::{
     Error, Result,
+    bootstrap::CommittedHead,
     deployment::{ContentValidated, Limits},
     evidence::Trust,
     source_bundle::Bundle,
@@ -14,7 +15,12 @@ use std::{
     thread,
     time::{SystemTime, UNIX_EPOCH},
 };
-use tickwire_config::Candidate;
+use tickwire_config::{
+    Candidate,
+    delivery::ProjectionDelivery,
+    plan::{ComputedPlan, PlanOptions},
+    prepared::PreparedCandidate,
+};
 
 struct Context {
     bundle: Bundle,
@@ -35,24 +41,61 @@ impl Drop for Lease {
         self.in_flight.fetch_sub(1, Ordering::AcqRel);
     }
 }
-pub struct Job {
+struct JobCore<T> {
     context: Arc<Context>,
-    receiver: Option<Receiver<Result<Completed>>>,
+    receiver: Option<Receiver<Result<Completed<T>>>>,
     lease: Option<Arc<Lease>>,
     finished: Arc<AtomicBool>,
     accepted_unix_ms: u64,
 }
+pub struct Job(JobCore<()>);
 /// A completed calculation bound to the exact owner context that produced it.
 pub struct Assessment {
     context: Arc<Context>,
     content: ContentValidated,
+}
+pub struct PlanJob(JobCore<PlanResult>);
+impl PlanJob {
+    pub fn computation_finished(&self) -> bool {
+        self.0.finished.load(Ordering::Acquire)
+    }
+}
+struct PlanResult {
+    base: CommittedHead,
+    prepared: PreparedCandidate,
+    delivery: ProjectionDelivery,
+    plan: ComputedPlan,
+}
+/// Retained content calculation; runtime acceptance and commit authority are separate.
+pub struct PlanAssessment {
+    context: Arc<Context>,
+    result: PlanResult,
+    content: ContentValidated,
+}
+impl PlanAssessment {
+    pub fn base(&self) -> &CommittedHead {
+        &self.result.base
+    }
+    pub fn prepared(&self) -> &PreparedCandidate {
+        &self.result.prepared
+    }
+    pub fn content(&self) -> &ContentValidated {
+        &self.content
+    }
+    pub fn delivery(&self) -> &ProjectionDelivery {
+        &self.result.delivery
+    }
+    pub fn plan(&self) -> &ComputedPlan {
+        &self.result.plan
+    }
 }
 impl Assessment {
     pub fn content(&self) -> &ContentValidated {
         &self.content
     }
 }
-struct Completed {
+struct Completed<T> {
+    value: T,
     checked: ContentValidated,
     finished_unix_ms: u64,
 }
@@ -64,10 +107,78 @@ impl Drop for Finished {
 }
 impl Job {
     pub fn computation_finished(&self) -> bool {
-        self.finished.load(Ordering::Acquire)
+        self.0.finished.load(Ordering::Acquire)
     }
 }
 impl Owner {
+    pub fn start_plan(
+        &mut self,
+        base: CommittedHead,
+        prepared: PreparedCandidate,
+        options: PlanOptions,
+    ) -> Result<PlanJob> {
+        if base.candidate().hash() != prepared.base_hash() {
+            return Err(Error::Conflict);
+        }
+        self.start_task(move |context, start| {
+            let checked = ContentValidated::check(
+                prepared.candidate(),
+                context.bundle.sources(),
+                &context.trust,
+                start,
+                context.limits,
+            )?;
+            // Both results remain retained, so include the content checker’s copy
+            // of the new projection set in the same total storage budget.
+            let remaining = context
+                .limits
+                .projections
+                .max_total_bytes
+                .checked_sub(checked.projections().stored_bytes())
+                .filter(|remaining| *remaining != 0)
+                .ok_or(Error::Capacity)?;
+            let delivery = ProjectionDelivery::prepare(
+                base.candidate(),
+                &prepared,
+                context.bundle.sources().artifacts,
+                tickwire_config::delivery::ProjectionLimits {
+                    max_total_bytes: remaining,
+                    ..context.limits.projections
+                },
+            )
+            .map_err(Error::Configuration)?;
+            let plan = ComputedPlan::compute(
+                base.revision(),
+                base.candidate(),
+                &prepared,
+                &delivery,
+                options,
+            )
+            .map_err(Error::Configuration)?;
+            Ok((
+                PlanResult {
+                    base,
+                    prepared,
+                    delivery,
+                    plan,
+                },
+                checked,
+            ))
+        })
+        .map(PlanJob)
+    }
+    pub fn poll_plan(&mut self, job: &mut PlanJob) -> Result<Option<PlanAssessment>> {
+        Ok(self
+            .poll_task(&mut job.0)?
+            .map(|(result, content)| PlanAssessment {
+                context: job.0.context.clone(),
+                result,
+                content,
+            }))
+    }
+    pub fn revalidate_plan(&mut self, assessment: &PlanAssessment) -> Result<()> {
+        self.revalidate_content(&assessment.context, &assessment.content)
+    }
     pub fn new(bundle: Bundle, trust: Trust, limits: Limits, max_jobs: usize) -> Result<Self> {
         validate_limits(limits)?;
         if !(1..=8).contains(&max_jobs) {
@@ -95,6 +206,22 @@ impl Owner {
         Ok(())
     }
     pub fn start(&mut self, candidate: Candidate) -> Result<Job> {
+        self.start_task(move |context, start| {
+            let checked = ContentValidated::check(
+                &candidate,
+                context.bundle.sources(),
+                &context.trust,
+                start,
+                context.limits,
+            )?;
+            Ok(((), checked))
+        })
+        .map(Job)
+    }
+    fn start_task<T: Send + 'static>(
+        &mut self,
+        compute: impl FnOnce(&Context, u64) -> Result<(T, ContentValidated)> + Send + 'static,
+    ) -> Result<JobCore<T>> {
         let accepted_unix_ms = self.sample()?;
         self.in_flight
             .try_update(Ordering::AcqRel, Ordering::Acquire, |n| {
@@ -119,16 +246,11 @@ impl Owner {
                     if start < accepted_unix_ms {
                         return Err(Error::NotReady);
                     }
-                    let checked = ContentValidated::check(
-                        &candidate,
-                        worker_context.bundle.sources(),
-                        &worker_context.trust,
-                        start,
-                        worker_context.limits,
-                    )?;
+                    let (value, checked) = compute(&worker_context, start)?;
                     let finished_unix_ms = system_time()?;
                     window(start, finished_unix_ms, checked.expires_unix_ms())?;
                     Ok(Completed {
+                        value,
                         checked,
                         finished_unix_ms,
                     })
@@ -137,7 +259,7 @@ impl Owner {
                 drop(worker_lease);
             })
             .map_err(|_| Error::Transport)?;
-        Ok(Job {
+        Ok(JobCore {
             context,
             receiver: Some(receiver),
             lease: Some(lease),
@@ -146,6 +268,12 @@ impl Owner {
         })
     }
     pub fn poll(&mut self, job: &mut Job) -> Result<Option<Assessment>> {
+        Ok(self.poll_task(&mut job.0)?.map(|((), content)| Assessment {
+            context: job.0.context.clone(),
+            content,
+        }))
+    }
+    fn poll_task<T>(&mut self, job: &mut JobCore<T>) -> Result<Option<(T, ContentValidated)>> {
         if !Arc::ptr_eq(&self.context, &job.context) {
             return Err(Error::Conflict);
         }
@@ -160,6 +288,7 @@ impl Owner {
         job.receiver.take();
         job.lease.take();
         let Completed {
+            value,
             checked,
             finished_unix_ms,
         } = result?;
@@ -169,19 +298,23 @@ impl Owner {
             return Err(Error::NotReady);
         }
         window(checked.checked_unix_ms(), now, checked.expires_unix_ms())?;
-        Ok(Some(Assessment {
-            context: job.context.clone(),
-            content: checked,
-        }))
+        Ok(Some((value, checked)))
     }
     pub fn revalidate(&mut self, assessment: &Assessment) -> Result<()> {
-        if !Arc::ptr_eq(&self.context, &assessment.context) {
+        self.revalidate_content(&assessment.context, &assessment.content)
+    }
+    fn revalidate_content(
+        &mut self,
+        context: &Arc<Context>,
+        content: &ContentValidated,
+    ) -> Result<()> {
+        if !Arc::ptr_eq(&self.context, context) {
             return Err(Error::Conflict);
         }
         window(
-            assessment.content.checked_unix_ms(),
+            content.checked_unix_ms(),
             self.sample()?,
-            assessment.content.expires_unix_ms(),
+            content.expires_unix_ms(),
         )
     }
     pub fn in_flight(&self) -> usize {

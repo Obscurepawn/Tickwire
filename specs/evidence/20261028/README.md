@@ -10,6 +10,8 @@
 | 行情扩容基础接口 | [market-expansion-core.json](market-expansion-core.json) | 计划核验、候选预热、真实 QUIESCED/重新 JOIN、跨 bank 持久重放；全仓与现有 Spot 进程兼容性，持续循环装配尚未完成 |
 | 运行时行情扩容 | [market-expansion-runtime.json](market-expansion-runtime.json) | 同 catalog 同进程追加高位 ID；三个消费者实际激活；S=2→扩容观察点161→C=167 完整前缀、schema3 交接及费用闭合；全仓与契约校验通过 |
 | 声明重建采集 | [capture-runtime.json](capture-runtime.json) | SDK/Host 实际采集子进程、完整窗口与九对象闭包、真实退订；两个 release worker 验收及旧 schema3 交接兼容性通过 |
+| 声明重建安装与发布 | [rebuild-runtime.json](rebuild-runtime.json) | 同 PID 实际工厂安装、窗口后接续、独立回退与 schema4 协调发布；全仓与 schema3 兼容场景通过 |
+| 配置计划内容与运行实例验签 | [config-planning.json](config-planning.json) | 双安全读内部草案、完整目标动作与有界后台任务、运行实例签发范围；持久发布及实际应用仍待接 |
 
 `summary.json` 中的 `final` / `verified` 文件名指第一阶段结束时的快照。`dense-book.json` 记录的 JSON 栈溢出和 8 MiB 测试绕行属于第二阶段，已在发布热路径阶段修复；对应旧报告保持原样。
 
@@ -24,3 +26,5 @@
 声明重建采集阶段的 [808 项构建输入清单](capture-runtime-source-sha256.json) 同时绑定全仓检查、独立 release 采集 worker 和旧交接场景。采集验收使用固定可执行文件副本，避免 Cargo 并行构建替换路径；真实 MD JOIN/共享内存发布器运行在测试父线程，策略运行在独立子进程。完整九对象导出与两个显式进程测试的原始路径、SHA-256 记录在主报告中。
 
 [兼容场景结果](capture-runtime-compat-result.json)与[八程序构建/部署摘要](capture-runtime-compat-binaries.json)保存旧 schema3 链路验证；启动时累计的一条 Clock Gap 已由首条账户激活覆盖。[采集阶段锚点审计](capture-runtime-anchor-audit.json)及其[复现脚本](capture-runtime-anchor-audit.py)仍为只读检查：25 份锁无本阶段源码重叠，未运行 TLC。目标安装与完整 schema4 发布继续保持待办。
+
+配置规划阶段的 [855 项构建输入](config-planning-source-sha256.json) 绑定本次全仓格式、测试、doctest、bench smoke 与 Clippy 检查。真实 TLS/请求回归共 40 项，其中 5 项覆盖双安全读草案与作用域补丁；Owner 回归另包含两份分别通过资格核验的旧/新资料。该阶段只生成内部草案，HTTP 持久发布仍待接入。[锚点审计](config-planning-anchor-audit.json)与[复现脚本](config-planning-anchor-audit.py)核对 25 份历史锁，没有本阶段源码重叠，也未执行 TLC。

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="860" viewBox="0 0 1440 860" role="img" aria-labelledby="diagram-title diagram-desc">
+<title id="diagram-title">Tickwire · 配置计划与生效边界</title>
+<desc id="diagram-desc">已认证主体首先经唯一Raft owner的ReadIndex取得当前提交基线与角色。后台任务在固定资料包和信任上下文中检查候选、资格及完整新旧投影，生成确定性计划。第二次ReadIndex重新核对基线、权限、来源和期限后返回内部草案。运行实例签名观测按签发者和主机进程范围验证。当前登记头、实际采集、计划持久提交和运行时应用仍待接入，草案不授予发布权限。</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#2369b5"/></marker>
+  <marker id="muted-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#50647d"/></marker>
+  <style>text {font-family: 'Noto Sans CJK SC', 'Microsoft YaHei', 'PingFang SC', sans-serif;fill:#13263e;} .title {font-weight:700;} .muted {fill:#50647d;}</style>
+</defs>
+<rect width="1440" height="860" rx="18" fill="#f4f7fb"/>
+
+<text x="48" y="56" font-size="30" text-anchor="start" style="fill:#13263e" class="title">Tickwire · 配置计划与生效边界</text>
+<text x="48" y="91" font-size="18" text-anchor="start" style="fill:#50647d">计划内容准备经过两次真实安全读；配置成功还需要持久提交和完整目标的双收据。</text>
+<text x="48" y="141" font-size="18" text-anchor="start" style="fill:#087f8c" class="title">已实现 · 内部计划内容准备</text>
+<rect x="48" y="166" width="312" height="174" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 64 167 H 344" stroke="#087f8c" stroke-width="4"/>
+<text x="68" y="202" font-size="23" text-anchor="start" style="fill:#13263e" class="title">01 · 提交基线</text>
+<text x="68" y="234" font-size="18" text-anchor="start" style="fill:#50647d">mTLS 主体 + 当前角色</text>
+<text x="68" y="262" font-size="18" text-anchor="start" style="fill:#50647d">ReadIndex / 业务扫描</text>
+<text x="68" y="290" font-size="18" text-anchor="start" style="fill:#50647d">固定 revision + hash + ETag</text>
+<rect x="392" y="166" width="312" height="174" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 408 167 H 688" stroke="#087f8c" stroke-width="4"/>
+<text x="412" y="202" font-size="23" text-anchor="start" style="fill:#13263e" class="title">02 · 后台检查</text>
+<text x="412" y="234" font-size="18" text-anchor="start" style="fill:#50647d">固定资料包与信任来源</text>
+<text x="412" y="262" font-size="18" text-anchor="start" style="fill:#50647d">候选、资格、旧新投影</text>
+<text x="412" y="290" font-size="18" text-anchor="start" style="fill:#50647d">完整目标集合 / 逐目标动作</text>
+<rect x="736" y="166" width="312" height="174" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 752 167 H 1032" stroke="#087f8c" stroke-width="4"/>
+<text x="756" y="202" font-size="23" text-anchor="start" style="fill:#13263e" class="title">03 · 完成复核</text>
+<text x="756" y="234" font-size="18" text-anchor="start" style="fill:#50647d">新的 ReadIndex</text>
+<text x="756" y="262" font-size="18" text-anchor="start" style="fill:#50647d">再次核对基线、权限与来源</text>
+<text x="756" y="290" font-size="18" text-anchor="start" style="fill:#50647d">期限内返回完整内部草案</text>
+<rect x="1080" y="166" width="312" height="174" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1096 167 H 1376" stroke="#087f8c" stroke-width="4"/>
+<text x="1100" y="202" font-size="23" text-anchor="start" style="fill:#13263e" class="title">04 · 计划草案</text>
+<text x="1100" y="234" font-size="18" text-anchor="start" style="fill:#50647d">固定内容摘要与交付闭包</text>
+<text x="1100" y="262" font-size="18" text-anchor="start" style="fill:#50647d">不变投影也接收新版本</text>
+<text x="1100" y="290" font-size="18" text-anchor="start" style="fill:#50647d">保留待核验项</text>
+<path d="M 360 253 L 392 253" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 704 253 L 736 253" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M 1048 253 L 1080 253" fill="none" stroke="#2369b5" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="48" y="386" width="656" height="146" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 64 387 H 688" stroke="#087f8c" stroke-width="4"/>
+<text x="68" y="422" font-size="23" text-anchor="start" style="fill:#13263e" class="title">运行实例观测验签</text>
+<text x="68" y="454" font-size="18" text-anchor="start" style="fill:#50647d">签发者限定 host / process；核对实例、boot 与当前投影</text>
+<text x="68" y="482" font-size="18" text-anchor="start" style="fill:#50647d">完整基线目标集合、来源水位、期限与构建身份</text>
+<text x="68" y="510" font-size="18" text-anchor="start" style="fill:#50647d">结果是签名观测；实际采集者和持久水位仍待接入</text>
+<rect x="736" y="386" width="656" height="146" rx="14" fill="#ffffff" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 752 387 H 1376" stroke="#2369b5" stroke-width="4"/>
+<text x="756" y="422" font-size="23" text-anchor="start" style="fill:#13263e" class="title">闭包与当前事实</text>
+<text x="756" y="454" font-size="18" text-anchor="start" style="fill:#50647d">候选资料核验与旧新投影来自同一有界后台 owner</text>
+<text x="756" y="482" font-size="18" text-anchor="start" style="fill:#50647d">资源快照用于容量计算；当前登记头另行核对</text>
+<text x="756" y="510" font-size="18" text-anchor="start" style="fill:#50647d">来源替换、证书撤销或基线变化使进行中的草案失效</text>
+<text x="48" y="590" font-size="18" text-anchor="start" style="fill:#a66b14" class="title">待接入 · 发布与完整目标生效</text>
+<rect x="48" y="615" width="312" height="140" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 64 616 H 344" stroke="#a66b14" stroke-width="4"/>
+<text x="68" y="651" font-size="23" text-anchor="start" style="fill:#13263e" class="title">当前资格</text>
+<text x="68" y="683" font-size="18" text-anchor="start" style="fill:#50647d">实际实例 / 资源登记头</text>
+<text x="68" y="711" font-size="18" text-anchor="start" style="fill:#50647d">运行时能力与继任条件</text>
+<rect x="392" y="615" width="312" height="140" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 408 616 H 688" stroke="#a66b14" stroke-width="4"/>
+<text x="412" y="651" font-size="23" text-anchor="start" style="fill:#13263e" class="title">多数持久提交</text>
+<text x="412" y="683" font-size="18" text-anchor="start" style="fill:#50647d">计划 + revision + operation</text>
+<text x="412" y="711" font-size="18" text-anchor="start" style="fill:#50647d">caller-scoped 幂等结果</text>
+<rect x="736" y="615" width="312" height="140" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 752 616 H 1032" stroke="#a66b14" stroke-width="4"/>
+<text x="756" y="651" font-size="23" text-anchor="start" style="fill:#13263e" class="title">逐目标应用</text>
+<text x="756" y="683" font-size="18" text-anchor="start" style="fill:#50647d">desired 文件同步</text>
+<text x="756" y="711" font-size="18" text-anchor="start" style="fill:#50647d">实际运行时应用并持久记录</text>
+<rect x="1080" y="615" width="312" height="140" rx="14" fill="#fffaf1" stroke="#cbd7e5" stroke-width="1.5"/>
+<path d="M 1096 616 H 1376" stroke="#a66b14" stroke-width="4"/>
+<text x="1100" y="651" font-size="23" text-anchor="start" style="fill:#13263e" class="title">完整双收据</text>
+<text x="1100" y="683" font-size="18" text-anchor="start" style="fill:#50647d">effective 文件同步</text>
+<text x="1100" y="711" font-size="18" text-anchor="start" style="fill:#50647d">全目标确认 → Succeeded</text>
+<path d="M 360 685 L 392 685" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<path d="M 704 685 L 736 685" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<path d="M 1048 685 L 1080 685" fill="none" stroke="#50647d" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#muted-arrow)" stroke-dasharray="7 6"/>
+<text x="48" y="812" font-size="18" text-anchor="start" style="fill:#50647d">当前 HTTP preview / plans / commits 仍拒绝未实现请求；内部草案不等于 Ready 或配置已生效。</text>
+</svg>

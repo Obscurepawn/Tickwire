@@ -83,6 +83,9 @@ pub struct Change {
     cluster_change: bool,
 }
 impl Change {
+    pub(crate) fn parts(&self) -> &[String] {
+        &self.path
+    }
     pub fn path(&self) -> String {
         self.path.join("/")
     }
@@ -112,6 +115,9 @@ pub struct ChangeSet {
     cluster: bool,
 }
 impl ChangeSet {
+    pub(crate) fn entries(&self) -> &[Change] {
+        &self.changes
+    }
     pub fn between(old: &Candidate, new: &Candidate) -> Result<Self> {
         old.validate_static()?;
         new.validate_static()?;

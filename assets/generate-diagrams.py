@@ -293,6 +293,36 @@ def rebuild_installation():
     d.finish()
 
 
+def config_planning():
+    d=Diagram('config-planning.svg', 860, 'Tickwire · 配置计划与生效边界',
+              '计划内容准备经过两次真实安全读；配置成功还需要持久提交和完整目标的双收据。',
+              '已认证主体首先经唯一Raft owner的ReadIndex取得当前提交基线与角色。后台任务在固定资料包和信任上下文中检查候选、资格及完整新旧投影，生成确定性计划。第二次ReadIndex重新核对基线、权限、来源和期限后返回内部草案。运行实例签名观测按签发者和主机进程范围验证。当前登记头、实际采集、计划持久提交和运行时应用仍待接入，草案不授予发布权限。')
+    d.text(48,141,'已实现 · 内部计划内容准备',18,color=TEAL,weight=True)
+    steps=[(48,'01 · 提交基线',['mTLS 主体 + 当前角色','ReadIndex / 业务扫描','固定 revision + hash + ETag']),
+           (392,'02 · 后台检查',['固定资料包与信任来源','候选、资格、旧新投影','完整目标集合 / 逐目标动作']),
+           (736,'03 · 完成复核',['新的 ReadIndex','再次核对基线、权限与来源','期限内返回完整内部草案']),
+           (1080,'04 · 计划草案',['固定内容摘要与交付闭包','不变投影也接收新版本','保留待核验项'])]
+    for x,title,lines in steps:d.box(x,166,312,174,title,lines,accent=TEAL)
+    for left in [360,704,1048]:d.arrow([(left,253),(left+32,253)])
+    d.box(48,386,656,146,'运行实例观测验签',[
+        '签发者限定 host / process；核对实例、boot 与当前投影',
+        '完整基线目标集合、来源水位、期限与构建身份',
+        '结果是签名观测；实际采集者和持久水位仍待接入'],accent=TEAL)
+    d.box(736,386,656,146,'闭包与当前事实',[
+        '候选资料核验与旧新投影来自同一有界后台 owner',
+        '资源快照用于容量计算；当前登记头另行核对',
+        '来源替换、证书撤销或基线变化使进行中的草案失效'],accent=BLUE)
+    d.text(48,590,'待接入 · 发布与完整目标生效',18,color=AMBER,weight=True)
+    later=[(48,'当前资格',['实际实例 / 资源登记头','运行时能力与继任条件']),
+           (392,'多数持久提交',['计划 + revision + operation','caller-scoped 幂等结果']),
+           (736,'逐目标应用',['desired 文件同步','实际运行时应用并持久记录']),
+           (1080,'完整双收据',['effective 文件同步','全目标确认 → Succeeded'])]
+    for x,title,lines in later:d.box(x,615,312,140,title,lines,accent=AMBER,fill='#fffaf1')
+    for left in [360,704,1048]:d.arrow([(left,685),(left+32,685)],muted=True,dash=True)
+    d.text(48,812,'当前 HTTP preview / plans / commits 仍拒绝未实现请求；内部草案不等于 Ready 或配置已生效。',18,color=MUTED)
+    d.finish()
+
+
 if __name__ == '__main__':
     architecture()
     order_flow()
@@ -300,3 +330,4 @@ if __name__ == '__main__':
     market_expansion()
     rebuild_capture()
     rebuild_installation()
+    config_planning()

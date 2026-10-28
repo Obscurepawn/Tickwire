@@ -1,0 +1,303 @@
+{
+  "schema": 1,
+  "stage": "configuration planning content and signed runtime observations",
+  "created_utc": "2026-10-28T12:04:16.063813+00:00",
+  "baseline_commit": "e1e14caf339768f48f18dbbd763338bcbd6a2fa8",
+  "platform": "Linux localhost 6.18.54.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC Tue Oct  6 19:13:07 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "source_manifest": {
+    "path": "/home/obscure/Tickwire/specs/evidence/20261028/config-planning-source-sha256.json",
+    "bytes": 154932,
+    "sha256": "ce93f96e02e0acc73f7936aa15d676504bda73596c0d17853c9f5e057b4ef8f6"
+  },
+  "source_file_count": 855,
+  "checks": [
+    {
+      "kind": "full_workspace",
+      "command_metadata": {
+        "command": [
+          "./scripts/check-rust.sh"
+        ],
+        "cwd": "/home/obscure/Tickwire",
+        "CARGO_TARGET_DIR": "/tmp/tickwire-progress-20261028/target",
+        "started_utc": "2026-10-28T11:57:50.057106+00:00",
+        "finished_utc": "2026-10-28T12:02:31.308020+00:00",
+        "elapsed_seconds": 281.25091517200053,
+        "exit_code": 0
+      },
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/config-planning-check-rust.log",
+        "bytes": 237544,
+        "sha256": "739d76723d559cb80749915c1231c5bc3e39c9cffc9d634c474438e837820ff2"
+      },
+      "test_batches": 329,
+      "test_result_totals": {
+        "passed": 2006,
+        "failed": 0,
+        "ignored": 19,
+        "measured": 0,
+        "filtered": 285
+      },
+      "scope": "fmt --check, workspace --all-targets including bench smoke and examples, doctests including compile_fail, workspace all-targets Clippy -D warnings; see check-rust.sh"
+    },
+    {
+      "kind": "contracts-final",
+      "command": "verify-design-contracts.py --openapi",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/config-planning-contracts-final.log",
+        "bytes": 1765,
+        "sha256": "348045f80b1547ac07d2f1ee3e25b9bdae4f5b5ef85a67b871d41e29b4acf7da"
+      }
+    },
+    {
+      "kind": "documentation-final",
+      "command": "verify-documentation.py",
+      "exit_code": 0,
+      "log": {
+        "path": "/tmp/tickwire-progress-20261028/config-planning-documentation-final.log",
+        "bytes": 91,
+        "sha256": "8c3cec6d3da3e38295880444acb87bdb9e87d37b60503da19905410930fe81d9"
+      }
+    }
+  ],
+  "development_logs_before_final_source_freeze": [
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-boundaries.log",
+      "bytes": 1897,
+      "sha256": "28c864855bda50ec72e20f2cdb1d77a5612f6f4cf8b1fcacdca1388a16950e93"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-clippy-final.log",
+      "bytes": 156,
+      "sha256": "caedbdb820ab39e8f020e6d87907fd3088920624d9c8dec4155306bfc170c831"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-clippy.log",
+      "bytes": 344,
+      "sha256": "e686998a69eac8ecc01bba29f48cacd7968de8e72bbb7d03fe3ac2fcb208a598"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-contract-final.log",
+      "bytes": 706,
+      "sha256": "5724063407e5ee4bcdb43c3be5e3203bbf18392eadc4e7f2ee9ad254ffc79287"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-dependency-green.log",
+      "bytes": 460,
+      "sha256": "bf21b393f1b8addf02583d70ed82a5c97f62ce4c0d5d2e4053f34cf74c17d67f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-dependency-red.log",
+      "bytes": 1038,
+      "sha256": "b4b7a662ea4d90d05e9bcb2ca49fb771b2d9f2212872c0b01822a64d09ca20cb"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-fmt-final.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-green.log",
+      "bytes": 640,
+      "sha256": "c892c0b698151e1dcf422c6aa6898766c5c265e38ccd1949904ff16295cb5462"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-matrix.log",
+      "bytes": 1152,
+      "sha256": "751073e14b75c729b84f6176e88ae1eab83bd94594844a70dec3fa82a08c7607"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-clippy.log",
+      "bytes": 172,
+      "sha256": "bfe0c97835355ab9537d46971f84a9253d58f7f102b5b8b903fc7a3cbdaa8f39"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-content-regression.log",
+      "bytes": 1445,
+      "sha256": "1eafd4bc6d0a5632a2612f434f20653b7393784f7ea63bfb479b1ca5b9e362b9"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-final.log",
+      "bytes": 1156,
+      "sha256": "44bac1d5c830e783bf4944e1aa2887821ca25c01c0654ba653a9bf59a96f6757"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-green.log",
+      "bytes": 1066,
+      "sha256": "043ae1c24b0523e187dfad40675265c35d67969f54dc4eb158e593b89b347502"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-old-policy.log",
+      "bytes": 476,
+      "sha256": "c720ab08c2498dbf486879f603af005fca54b5b30954f56cd25cc7644ae5e204"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-qualified-transition.log",
+      "bytes": 584,
+      "sha256": "f855ed6b8d67e526adbdb8302d7e7291662d6072d88bf0aa1a2efcef7ffb1848"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-red.log",
+      "bytes": 1767,
+      "sha256": "997e270871c3deac79370ae450ca44ddf51c3fef0d0fc7de49399a451b0e9967"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-owner-unit.log",
+      "bytes": 661,
+      "sha256": "202d29eaa51f4640cb59910b454cfb0ff55adb99905aa627621714f2dd770c34"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-red.log",
+      "bytes": 2048,
+      "sha256": "e2ec85249f6cefa118b6cbbc9ad7e8be8efdb9df352f06cad08cba40ba635b7a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-plan-tests-final.log",
+      "bytes": 11592,
+      "sha256": "bd1115265ba2e3cb4165f78450e622a73b9dbfbdd424faf6430bfe0138028920"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-runtime-facts-clippy.log",
+      "bytes": 172,
+      "sha256": "ee80f9b54454809b876ff4689f6a41194c1913740d823dfe47c8e93a3e83434c"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-runtime-facts-green.log",
+      "bytes": 551,
+      "sha256": "0d262048cce2b3a5a29bda52cd3bca093fab62c0f1c0e6ca77b36d068e98553a"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-runtime-facts-nearby-tests.log",
+      "bytes": 3189,
+      "sha256": "4b4c2d89ad53e1a4821adfa3577e4a1cd120448d090837ea126a545a77dbcd47"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-runtime-facts-red.log",
+      "bytes": 1840,
+      "sha256": "53d7f1a7b7642e0d2aa08518364e090433821d7a2598f51dd9a42fed29a33e35"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-runtime-facts-tests.log",
+      "bytes": 1624,
+      "sha256": "d39de23117f7ac50ed58efa525007e202eedb5c9c4628e82d76b0282a5ea1140"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-planning-root-current.log",
+      "bytes": 893,
+      "sha256": "5b7c89b614a902f0e27f64a7cd7705ff322e69acdbd9ef2966194043052bed0f"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-planning-root-green.log",
+      "bytes": 1045,
+      "sha256": "9c3c6e665a62c6031639d98a8bdd5a23c78983a63f535b0b800142f0eee5d5b0"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-planning-root-red-2.log",
+      "bytes": 597,
+      "sha256": "1537582dea0039357372010d84f546f03bce62df9af13de7772b75f1056727e0"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-planning-root-red.log",
+      "bytes": 4040,
+      "sha256": "7d1b1d8d043fc670ee48bdf5933ddeaa97fa4a80f90e7b4ff9e9263b378d3ae5"
+    },
+    {
+      "path": "/tmp/tickwire-progress-20261028/config-planning-control-tls.log",
+      "bytes": 4032,
+      "sha256": "3d2b7403069e7e417e9b87f8d4c7db535b83a15f8ecb225afc219f14389d2988"
+    }
+  ],
+  "implemented": [
+    "Deterministic bounded complete-target plan draft with per-target dependency classes, ceilings, source and projection identities; no Ready or authority constructor.",
+    "Actual mTLS principal and three file-backed voter tests for two distinct ReadIndex barriers, current RBAC, same Replica binding, provider replacement and cancellation.",
+    "Shared bounded async deployment owner retaining full committed basis and old/new projection closure; common result byte budget and clock/context checks.",
+    "RuntimeTargets evidence kind and startup issuer-to-host/process scope; exact baseline build, instance, boot, slot, revision and projection verification.",
+    "README seventh reproducible SVG with current implementation and pending application boundary."
+  ],
+  "limits": [
+    "HTTP preview/plans/commits remain unimplemented and reject; no ordinary revision or operation is admitted in this stage.",
+    "Real runtime observation provider, persistent source watermarks and current retained registry head are pending.",
+    "Runtime apply driver, historical revisions, idempotent commits, operation completion, resume, rollback and watch remain pending.",
+    "Signed runtime observations do not prove current process liveness or persisted anti-rollback watermarks.",
+    "Qualification reference refresh remains globally Quiesce and requires cluster permissions; a fully qualified risk-tightening regression preserves this limit.",
+    "Bench smoke is not performance data; no production or live Binance qualification is claimed.",
+    "No TLC executed; historical model/anchor/evidence files unchanged."
+  ],
+  "visuals": {
+    "svg_count": 7,
+    "files": [
+      {
+        "file": "assets/architecture.svg",
+        "sha256": "985e3bf2bd056d805fb0b64783707efb6c7cb9eb7eb3f5360e2ef0a7f0e5fa03",
+        "bytes": 10105,
+        "title": "Tickwire · 多进程架构"
+      },
+      {
+        "file": "assets/config-planning.svg",
+        "sha256": "5c17c4beda1b1e48b16a2a80d02a9c9aa6896c0359947ca0f40762442a60a73c",
+        "bytes": 9069,
+        "title": "Tickwire · 配置计划与生效边界"
+      },
+      {
+        "file": "assets/market-expansion.svg",
+        "sha256": "88de07f280205ac4ce31b86370944ce68d3edbe3587f061115dbe44cea43c3ac",
+        "bytes": 6886,
+        "title": "Tickwire · 运行中追加行情标的"
+      },
+      {
+        "file": "assets/order-flow.svg",
+        "sha256": "59bc9113e881276ee7a3e6a62147963555946f9389472579c0994a756b71b3c7",
+        "bytes": 8821,
+        "title": "Tickwire · 从策略意图到经济事实"
+      },
+      {
+        "file": "assets/rebuild-capture.svg",
+        "sha256": "f8f7376294c11285cce6cec685549e4bd69f4d61345d7d37b6ff6e28444cd4da",
+        "bytes": 6949,
+        "title": "Tickwire · 声明重建的输入采集"
+      },
+      {
+        "file": "assets/rebuild-installation.svg",
+        "sha256": "4b4a9e6be2e1cca11158c5a6a45169dab58b2bbadcda07850b2cc8c0ddd3254b",
+        "bytes": 10619,
+        "title": "Tickwire · 声明重建与同进程安装"
+      },
+      {
+        "file": "assets/schema3-handover.svg",
+        "sha256": "2273bc27b16f2e48dafd6ea725f8f014d0bf8e997f7c55686b61050a5fc6f5be",
+        "bytes": 8438,
+        "title": "Tickwire · schema3 策略交接"
+      }
+    ],
+    "new_figure_rendered_to": "/tmp/tickwire-progress-20261028/config-planning.png"
+  },
+  "anchor_audit": {
+    "file": {
+      "path": "/home/obscure/Tickwire/specs/evidence/20261028/config-planning-anchor-audit.json",
+      "bytes": 8899,
+      "sha256": "4151b2c8e8c9564aab47c7b5c3c80d16f65bf3303e9f66952f74346ce00a0318"
+    },
+    "locks_scanned": 25,
+    "changed_anchor_sources": []
+  },
+  "style_review": {
+    "README": "Standard README navigation headings retained despite title-density warning; other long-form thresholds pass.",
+    "logs": [
+      {
+        "path": "/tmp/tickwire-progress-20261028/config-planning-style-readme.log",
+        "bytes": 901,
+        "sha256": "94d011f82b29eec6580beb06f9812c4560ef78664a9bed2e3eae7e7c1db0bb99"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/config-planning-style-spec.log",
+        "bytes": 841,
+        "sha256": "d4e407832934447c2c2d36d1ffffaa227f8cd11c0b2ddc2bbc0a8b3b14cb288a"
+      },
+      {
+        "path": "/tmp/tickwire-progress-20261028/config-planning-style-facts.log",
+        "bytes": 847,
+        "sha256": "09720c67a2370050f9cabea827a57f1681e648c2f4803c617e569c448af63058"
+      }
+    ]
+  }
+}
