@@ -202,6 +202,11 @@ struct GrantSlot {
     generation_revoked: bool,
     current: Option<StrategyGrant>,
 }
+enum FeedInput {
+    TriggerMark,
+    Observation { live: bool },
+}
+
 #[derive(Clone)]
 struct Feed {
     generation: u64,
@@ -594,6 +599,10 @@ impl ControlPlane {
         Ok(())
     }
     pub fn update_feed(&self, update: FeedUpdate) -> Result<()> {
+        self.apply_feed(update, FeedInput::TriggerMark)
+    }
+
+    fn apply_feed(&self, update: FeedUpdate, input: FeedInput) -> Result<()> {
         let mut s = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
         if update.key.topic_id == 0
             || update.key.instrument_id == 0
@@ -636,23 +645,26 @@ impl ControlPlane {
             feed.live = false;
             return Err(Error::Identity);
         }
-        if let Some(&(seq, at)) = feed.marks.back() {
-            if update.sequence == seq && update.published_at.nanos() == at {
-                return Ok(());
-            }
-            if update.sequence <= seq || update.published_at.nanos() < at {
+        let mark = (update.sequence, update.published_at.nanos());
+        match feed.marks.back() {
+            Some(&previous) if mark == previous => {}
+            Some(&(seq, at)) if mark.0 <= seq || mark.1 < at => {
                 feed.live = false;
                 return Err(Error::Stale);
             }
+            _ => {
+                if !feed.live && matches!(input, FeedInput::TriggerMark) {
+                    return Err(Error::Stale);
+                }
+                feed.marks.push_back(mark);
+                if feed.marks.len() > capacity {
+                    feed.marks.pop_front();
+                }
+            }
         }
-        // A gap cannot be cleared by another publication from the same generation.
-        if !feed.live {
-            return Err(Error::Stale);
-        }
-        feed.marks
-            .push_back((update.sequence, update.published_at.nanos()));
-        if feed.marks.len() > capacity {
-            feed.marks.pop_front();
+        // Consumption advances the cursor. Only a new generation can reopen its gate.
+        if let FeedInput::Observation { live } = input {
+            feed.live &= live;
         }
         Ok(())
     }
@@ -1053,25 +1065,19 @@ impl tickwire_runtime::node::Observer for NodeObserver {
             topic_id: o.key.topic_id,
             instrument_id: o.key.instrument_id,
         };
-        if self
-            .plane
-            .update_feed(FeedUpdate {
-                key,
-                instrument_version: o.instrument_version,
-                feed_generation: o.feed_generation,
-                ring_epoch: o.ring_epoch,
-                sequence: o.sequence,
-                published_at: o.published_at,
-            })
-            .is_err()
-        {
-            return false;
-        }
-        o.live
-            || self
-                .plane
-                .invalidate_feed(key, o.feed_generation, o.ring_epoch)
-                .is_ok()
+        self.plane
+            .apply_feed(
+                FeedUpdate {
+                    key,
+                    instrument_version: o.instrument_version,
+                    feed_generation: o.feed_generation,
+                    ring_epoch: o.ring_epoch,
+                    sequence: o.sequence,
+                    published_at: o.published_at,
+                },
+                FeedInput::Observation { live: o.live },
+            )
+            .is_ok()
     }
     fn market_invalidated(&mut self, o: tickwire_runtime::market::Invalidation) -> bool {
         let key = FeedKey {

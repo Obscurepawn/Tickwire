@@ -133,9 +133,11 @@ impl<
                 .copied()
                 .map_err(|e| e as &(dyn std::error::Error + 'static)),
         );
-        // Ordinary pre-admission resource refusals are local to this strategy. It already
-        // received the typed result, and the remaining members keep their turns.
+        // The originating member received the refusal above. Continue with its peer.
         match result {
+            Err(Error::Session(SessionError::Gateway(
+                tickwire_account_gateway::Error::Account(tickwire_account::Error::ManagementDenied),
+            ))) => Ok(true),
             Err(Error::Session(SessionError::Gateway(
                 tickwire_account_gateway::Error::Account(
                     tickwire_account::Error::InsufficientAsset

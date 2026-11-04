@@ -32,6 +32,7 @@ use tickwire_venue::TriggerRef;
 pub(super) struct Fixture {
     client: ConnectConfig,
     stop: Arc<AtomicBool>,
+    unavailable: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
 }
 impl Fixture {
@@ -50,6 +51,8 @@ pub(super) fn start(root: &Path) -> Fixture {
     let root = root.to_owned();
     let stop = Arc::new(AtomicBool::new(false));
     let finished = stop.clone();
+    let unavailable = Arc::new(AtomicBool::new(false));
+    let publish_unavailable = unavailable.clone();
     let worker = thread::spawn(move || {
         let account =
             CanonicalBaseline::decode(&fs::read(root.join("baseline.cbor")).unwrap()).unwrap();
@@ -198,6 +201,12 @@ pub(super) fn start(root: &Path) -> Fixture {
             if registered {
                 server.poll(std::slice::from_mut(&mut topic), now).unwrap();
             }
+            if publish_unavailable.swap(false, Ordering::AcqRel) {
+                topic
+                    .spot_quote_unavailable_at(i.instrument_id, 1, now, now)
+                    .unwrap();
+                next = Instant::now() + Duration::from_millis(25);
+            }
             if !topic.needs_bank() && Instant::now() >= next {
                 let trigger = publish(&mut topic, now);
                 if !issued && root.join("strategy-go").exists() {
@@ -212,6 +221,7 @@ pub(super) fn start(root: &Path) -> Fixture {
     Fixture {
         client: rx.recv().unwrap(),
         stop,
+        unavailable,
         worker: Some(worker),
     }
 }
@@ -219,16 +229,22 @@ pub(super) fn start(root: &Path) -> Fixture {
 #[test]
 fn execution_source_only_announces_complete_fresh_quote_pairs() {
     use tickwire_market_source::{FeedObservation, Invalidation, MarketSink, MarketSource};
-    #[derive(Default)]
-    struct Sink(Vec<u64>);
+    use tickwire_runtime::node::Observer;
+    use tickwire_runtime_policy::{Config, ControlPlane, NodeObserver, Versions};
+
+    struct Sink {
+        observer: NodeObserver,
+        records: Vec<(u64, bool)>,
+        invalidations: usize,
+    }
     impl MarketSink for Sink {
         fn observed(&mut self, v: FeedObservation) -> bool {
-            assert!(v.live);
-            self.0.push(v.sequence);
-            true
+            self.records.push((v.sequence, v.live));
+            self.observer.market_observed(v)
         }
-        fn invalidated(&mut self, _: Invalidation) -> bool {
-            panic!("an unfinished BBO is not a feed gap")
+        fn invalidated(&mut self, invalidation: Invalidation) -> bool {
+            self.invalidations += 1;
+            self.observer.market_invalidated(invalidation)
         }
     }
     let root = std::env::temp_dir().join(format!("tw-bbo-pair-{}", std::process::id()));
@@ -244,6 +260,7 @@ fn execution_source_only_announces_complete_fresh_quote_pairs() {
         CanonicalBaseline::decode(include_bytes!("../../examples/baseline-template.cbor")).unwrap();
     let mut snap = sample.snapshot().clone();
     snap.scope.venue = 2;
+    let scope = snap.scope.clone();
     fs::write(
         root.join("baseline.cbor"),
         CanonicalBaseline::new(snap, sample.catalog().clone())
@@ -268,7 +285,30 @@ fn execution_source_only_announces_complete_fresh_quote_pairs() {
         1,
     )
     .unwrap();
-    let mut sink = Sink::default();
+    let mut sink = Sink {
+        observer: ControlPlane::new(Config {
+            scope,
+            product: tickwire_venue::Product::Spot,
+            executor_id: [2; 16],
+            owner_generation: 1,
+            writer_epoch: 1,
+            domain: cfg.domain().unwrap(),
+            versions: Versions {
+                config_revision: 1,
+                risk_policy_version: 1,
+                order_config_version: 1,
+                catalog_version: 1,
+                catalog_hash: cfg.catalog_hash,
+            },
+            max_strategies: 2,
+            max_feeds: 4,
+            marks_per_feed: 16,
+        })
+        .unwrap()
+        .observer(),
+        records: Vec::new(),
+        invalidations: 0,
+    };
     let age = 1_000_000_000;
     let deadline = Instant::now() + Duration::from_secs(3);
     source.poll(now().unwrap(), age, 32, &mut sink).unwrap();
@@ -276,7 +316,7 @@ fn execution_source_only_announces_complete_fresh_quote_pairs() {
         source.is_live(now().unwrap(), age),
         "the joined BBO includes both quote and feed"
     );
-    let before = sink.0.len();
+    let before = sink.records.len();
     while source
         .poll(now().unwrap(), age, 1, &mut sink)
         .unwrap()
@@ -287,13 +327,36 @@ fn execution_source_only_announces_complete_fresh_quote_pairs() {
         thread::sleep(Duration::from_millis(1));
     }
     assert_eq!(
-        sink.0.len(),
+        sink.records.len(),
         before,
         "the standalone quote cannot become a trigger"
     );
     assert!(!source.is_live(now().unwrap(), age));
     source.poll(now().unwrap(), age, 1, &mut sink).unwrap();
-    assert_eq!(sink.0.len(), before + 1);
+    assert_eq!(sink.records.len(), before + 1);
     assert!(source.is_live(now().unwrap(), age));
     assert!(!source.is_live(now().unwrap(), 1));
+    assert_eq!(sink.invalidations, 0, "an unfinished BBO is not a feed gap");
+
+    fixture.unavailable.store(true, Ordering::Release);
+    // The first quote of the next live pair still carries the old stale feed state.
+    while !sink.records.windows(4).any(|w| {
+        let first = w[0].0;
+        w == [
+            (first, false),
+            (first + 1, false),
+            (first + 2, false),
+            (first + 3, true),
+        ]
+    }) {
+        source.poll(now().unwrap(), age, 1, &mut sink).unwrap();
+        assert!(
+            Instant::now() < deadline,
+            "subscription stopped at {:?}",
+            sink.records
+        );
+        thread::sleep(Duration::from_millis(1));
+    }
+    assert!(sink.invalidations > 0);
+    assert!(source.is_live(now().unwrap(), age));
 }

@@ -145,3 +145,53 @@ fn activated_requires_the_approved_final_descriptor_and_prior_cut() {
         bank
     );
 }
+
+#[test]
+fn report_dispatch_validates_against_packet_receive_time() {
+    let poll_start = fixture::NOW;
+    let worker_stamp = poll_start + 1;
+    let deadline = fixture::approval().deadline_mono_ns;
+    for (received_at, valid) in [(worker_stamp, true), (poll_start, false), (deadline, false)] {
+        let mut t = Test::new();
+        let approval = t.state.approval.as_ref().unwrap();
+        let time = tickwire_clock::MonoTime::new(approval.previous.domain().unwrap(), worker_stamp);
+        let receipt = Receipt::armed(approval, t.state.process.pid, time).unwrap();
+        let bytes = serde_json::to_vec(&receipt).unwrap();
+        let object = Object::of(&bytes);
+        t.store
+            .put_sync(StoreKey::Object(object.digest), &bytes)
+            .unwrap();
+        let frame =
+            protocol::encode_reply(&t.worker, t.state.arm_request.as_ref().unwrap(), object)
+                .unwrap();
+
+        let path = t._directory.path().join("report.sock");
+        let listener = tickwire_control_sys::ControlListener::bind(&path).unwrap();
+        let until = Instant::now() + Duration::from_secs(2);
+        let mut worker = tickwire_control_sys::Connection::connect(&path, until).unwrap();
+        let mut readiness = crate::readiness::test_proof(t.host.peer().clone());
+        let mut lane = AuthenticatedChild {
+            connection: listener.accept(until).unwrap(),
+            session: t.host,
+            process: t.state.process,
+        };
+        worker.send(&frame, &[], until).unwrap();
+        let mut samples = 0;
+        let result = readiness.poll_with(
+            &mut lane,
+            poll_start,
+            || {
+                samples += 1;
+                Ok(received_at)
+            },
+            |envelope, body, at| t.state.observe(envelope, body, at),
+        );
+        assert_eq!(samples, 1);
+        assert_eq!(
+            result.is_ok(),
+            valid,
+            "poll={poll_start}, packet={received_at}: {result:?}"
+        );
+        assert_eq!(t.state.receipt().is_some(), valid);
+    }
+}

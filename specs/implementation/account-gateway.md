@@ -18,6 +18,8 @@ Validate an abort on a candidate account. A contradictory confirmation or fill i
 
 Synchronize venue events, fees, cash flows, positions and ownership transfers before publishing new account state. Preserve the order of original input observations, including duplicates. The account gateway alone emits `Admit` and `Aborted`. If the account rejects a persisted input, keep it in the journal and freeze the account. A healthy sender can still service authorized cancels and queries.
 
+A local fee-closure decision requires a terminal order whose reported cumulative quantity equals its booked fills. Validate that decision before appending `FeesReconciled`. Publish the fee release after the append is durable. A conflicting cumulative quantity freezes the account and leaves the journal at its preceding position. The underlying authenticated order and fill observations remain in the journal. Fee preflight reads one order and checks the ledger sequence on the reconciliation path. It allocates no account copy.
+
 ## Recovery
 
 Validate the baseline, physical chain and sequence. For each admission, verify its original dependencies and preceding history, then replay the account. The recovered gateway starts frozen with an empty send queue and no live connection. Repeating an old intent returns its previous status.

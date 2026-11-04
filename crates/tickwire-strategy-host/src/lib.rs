@@ -1036,15 +1036,14 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
     }
     fn maintain(&mut self, now: tickwire_binance_clock::LocalTime) -> Result<()> {
         if let Some(s) = &mut self.started {
-            s.readiness
-                .poll(&mut s.child.report, now.monotonic.nanos())?;
-            s.child.registry.process(s.child.instance)?;
-            s.readiness.confirm(
-                &s.reports,
-                s.report_sub,
-                &s.child.report,
+            let received_at = s.readiness.poll(
+                &mut s.child.report,
                 now.monotonic.nanos(),
+                &mut self.sink.clock,
             )?;
+            s.child.registry.process(s.child.instance)?;
+            s.readiness
+                .confirm(&s.reports, s.report_sub, &s.child.report, received_at)?;
         }
         let child_failed = if let Some(s) = &mut self.started {
             !s.child.registry.observe_exits()?.is_empty() || s.strategy.error().is_some()

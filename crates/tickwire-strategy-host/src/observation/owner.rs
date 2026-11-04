@@ -63,8 +63,11 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
         }
         let s = self.started.as_mut().ok_or(Error::NotReady)?;
         let mut clock = SystemClock::new(s.child.domain)?;
-        s.readiness
-            .poll(&mut s.child.report, clock.sample()?.monotonic.nanos())?;
+        s.readiness.poll(
+            &mut s.child.report,
+            clock.sample()?.monotonic.nanos(),
+            &mut clock,
+        )?;
         s.readiness.begin_observation(
             request,
             &mut s.child.report,
@@ -82,8 +85,11 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
             return Ok(None);
         }
         let mut clock = SystemClock::new(s.child.domain)?;
-        s.readiness
-            .poll(&mut s.child.report, clock.sample()?.monotonic.nanos())?;
+        s.readiness.poll(
+            &mut s.child.report,
+            clock.sample()?.monotonic.nanos(),
+            &mut clock,
+        )?;
         s.readiness.finish_observation(
             &s.child.report,
             &s.reports,

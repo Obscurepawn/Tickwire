@@ -815,3 +815,49 @@ fn history_digest_is_the_actual_recovery_object_content_address() {
         assert_eq!(history.digest(), content_hash);
     }
 }
+
+#[test]
+fn historical_rejected_spot_fee_entry_retains_its_physical_frontier() {
+    let _fork_barrier = FORK_BARRIER.read().unwrap();
+    let dir = Temp::new();
+    let (baseline, config, cmd, admit) = setup();
+    let RecoveryRecord::Admit { expected, .. } = &admit else {
+        unreachable!()
+    };
+    let order = expected.orders[0].clone();
+    let mut journal =
+        AccountJournal::create(dir.backend(), config.clone(), baseline.clone()).unwrap();
+    journal.append(admit.clone()).unwrap();
+    for (sequence, cumulative) in [(1, "0.001"), (2, "0")] {
+        journal
+            .append(RecoveryRecord::IngressEvent {
+                input_stream: [8; 16],
+                input_sequence: sequence,
+                event: Box::new(event(terminal(&cmd, cumulative))),
+            })
+            .unwrap();
+    }
+    let rejected = RecoveryRecord::FeesReconciled {
+        order: order.clone(),
+        cumulative: f(0),
+    };
+    let receipt = journal.append(rejected.clone()).unwrap();
+    let history = journal.history_frontier().clone();
+    drop(journal);
+
+    let reopened = AccountJournal::recover(
+        dir.backend(),
+        config,
+        5,
+        Some(receipt.physical_frontier()),
+        &mut Verify::new(&baseline, &[admit]),
+    )
+    .unwrap();
+    assert!(reopened.account.frozen());
+    assert!(!reopened.account.order(&order).unwrap().fee_reconciled);
+    assert_eq!(reopened.journal.history_frontier(), &history);
+    assert_eq!(
+        reopened.journal.records().last().unwrap().record(),
+        &rejected
+    );
+}

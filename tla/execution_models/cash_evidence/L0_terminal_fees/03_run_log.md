@@ -19,3 +19,5 @@ java -XX:+UseParallelGC -cp ../../../tools/tla2tools.jar tlc2.TLC \
 ```
 
 The diagnostic run should exit with a violation of `RestartReadable`. A successful test invocation of `04_evidence/reproduce.sh` means both real runner processes reproduced the expected rejection.
+
+The [fee-closure fix](../L1_fee_closure/03_run_log.md) checks the nine-state counterexample against pre-append validation. The two new-input configurations completed at 619 and 6,971 distinct states. The compatibility and rejection fixtures completed at two states each.

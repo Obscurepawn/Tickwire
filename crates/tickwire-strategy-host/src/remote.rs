@@ -311,10 +311,14 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         self.registry.process(self.identity.instance)?;
         let now = self.clock.sample()?.monotonic.nanos();
         self.market_transition.flush(&mut self.report, now)?;
-        self.readiness
-            .poll_with(&mut self.report, now, |envelope, bytes| {
-                self.market_transition.observe(envelope, bytes, now)
-            })?;
+        let now = self.readiness.poll_with(
+            &mut self.report,
+            now,
+            || Ok(self.clock.sample()?.monotonic.nanos()),
+            |envelope, bytes, received_at| {
+                self.market_transition.observe(envelope, bytes, received_at)
+            },
+        )?;
         self.readiness
             .confirm(&self.reports, self.report_sub, &self.report, now)?;
         if now >= self.report.session.deadline() {

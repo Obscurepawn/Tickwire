@@ -1,0 +1,65 @@
+--- a/tests/reconcile_cli/exchange.py
++++ b/tests/reconcile_cli/exchange.py
+@@ -368 +368,21 @@
+-                    assert not file.read(1), "unexpected second execution request"
++                    # The next authorized command shares this authenticated REST connection.
++                    method, cancel_path, http = file.readline(8192).decode().strip().split()
++                    assert (method, http) == ("POST", "HTTP/1.1")
++                    assert cancel_path == ("/v5/order/cancel" if bybit else "/api/v5/trade/cancel-order")
++                    headers = {}
++                    for line in iter(lambda: file.readline(8192), b"\r\n"):
++                        key, value = line.decode().split(":", 1)
++                        headers[key.lower()] = value.strip()
++                    body = file.read(int(headers["content-length"])).decode()
++                    if bybit:
++                        assert headers["x-bapi-api-key"] == "test-key"
++                        assert headers["x-bapi-sign"] == digest(headers["x-bapi-timestamp"] + "test-key" + headers["x-bapi-recv-window"] + body)
++                        assert json.loads(body)["orderLinkId"] == "liveorder801"
++                    else:
++                        assert headers["ok-access-key"] == "test-key"
++                        assert headers["ok-access-sign"] == digest(headers["ok-access-timestamp"] + "POST" + cancel_path + body)
++                        assert json.loads(body)["clOrdId"] == "liveorder801"
++                    with state_lock:
++                        calls["native_cancel"] += 1
++                    sock.sendall(f"HTTP/1.1 200 OK\r\nContent-Length: {len(ack)}\r\n\r\n".encode() + ack)
++                    assert not file.read(1), "unexpected third execution request"
+@@ -634 +654 @@
+-            assert trader.wait(timeout=8) != 0, "peer's foreign-order request did not stop the live process"
++            submissions = []
+@@ -636,3 +656,2 @@
+-                line = events.get(timeout=3)
+-                if line is None:
+-                    break
++                line = events.get(timeout=8)
++                assert line is not None, (trader.poll(), logs)
+@@ -640,10 +659,16 @@
+-            submissions = [json.loads(line) for line in logs if line.startswith("{")
+-                           and json.loads(line).get("event")=="submission"]
+-            assert [m["intent"] for m in submissions]==[801,901], logs
+-            assert "Identity" in submissions[-1]["result"], logs
+-            assert (directory/"trading-queue"/"00000000000000000002.json").is_file()
+-            assert (directory / "release-buy").is_file()
+-            assert not failures and calls["native_buy"]==1, (calls,failures,logs)
+-            print(json.dumps({"venue":"bybit" if bybit else "okx","venue_signed_buys":calls["native_buy"],"account_observed_trigger":(directory / "release-buy").exists(),
+-                              "producer_8_ack":801,"queued_peer_cancel":802,"rejected_foreign_cancel":901,
+-                              "rejection":submissions[-1]["result"],"exit":trader.returncode}),flush=True)
++                if not line.startswith("{"):
++                    continue
++                msg = json.loads(line)
++                if msg.get("event") == "submission":
++                    submissions.append((msg["intent"], msg["result"]))
++                if msg.get("event") == "request_reply":
++                    assert msg["intent"] == 802 and msg["member"] == 8 and "Acknowledged" in msg["reply"], msg
++                    break
++            assert [intent for intent, _ in submissions] == [901, 802], submissions
++            assert "ManagementDenied" in submissions[0][1] and "Queued" in submissions[1][1], submissions
++            assert calls["native_buy"] == calls["native_cancel"] == 1 and not failures, (calls, failures)
++            (directory / "stop").touch()
++            assert trader.wait(timeout=6) == 0
++            print(json.dumps({"venue": "bybit" if bybit else "okx", "buy_ack": 801,
++                              "refused": 901, "cancel_ack": 802, "signed_cancels": calls["native_cancel"],
++                              "exit": trader.returncode}), flush=True)
+--- a/tests/reconcile_process.rs
++++ b/tests/reconcile_process.rs
+@@ -48,0 +49 @@
++    order.context.request.recovery_object = intent;

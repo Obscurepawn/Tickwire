@@ -1,0 +1,5 @@
+# Sampling after delivery
+
+The FIFO retains each authenticated packet until the host reads it. The model separates the socket read, the host clock sample and validation. A clock tick can fall between any two actions. An in-scope receipt already exists before its read and its timestamp cannot exceed the subsequent host sample. The validator still checks the worker PID, operation identity, phase, timestamp and approval deadline in production. [Dispatch](../../../../crates/tickwire-strategy-host/src/readiness.rs#L87-L101) · [Receipt phase](../../../../crates/tickwire-strategy-host/src/market_transition.rs#L197-L235)
+
+The authenticated PID, identities and digest are fixed. The model allows expiry before validation, stop, interleaved callbacks and a single market change. It checks the old cursor cut, checkpoint-before-activation and ordered receipt phases alongside the time property. A packet stamped in the future by a faulty worker is outside the honest-producer model. The Rust socket test supplies that input directly. Empty polls perform no additional clock read. A delivered control frame pays one extra clock sample.

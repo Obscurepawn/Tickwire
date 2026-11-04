@@ -375,3 +375,36 @@ fn frozen_recovery_accepts_durable_reconciliation_but_never_new_admission() {
     );
     assert!(restored.halted() && restored.account().frozen());
 }
+
+#[test]
+fn rejected_fee_closure_keeps_the_wal_replayable_and_the_reservation_live() {
+    let (dir, c, mut g, auth, peer) = make(false, 16384);
+    g.submit(c.clone(), 60, until()).unwrap();
+    drive(&mut g, Status::Flushed);
+    let order = g.account().admission(intent()).unwrap().orders()[0].clone();
+    for cumulative in ["0.001", "0"] {
+        g.record_event(fixture::event(fixture::terminal(c.command(), cumulative)))
+            .unwrap();
+    }
+    let view = g.account().order(&order).unwrap();
+    let position = g.journal_position();
+    let ledger = g.account().ledger_sequence();
+    let frontier = g.history_frontier().digest();
+    assert!(matches!(
+        g.record_fact(RecoveryRecord::FeesReconciled {
+            order: order.clone(),
+            cumulative: view.filled_quantity,
+        }),
+        Err(Error::Account(tickwire_account::Error::Unreconciled))
+    ));
+    assert!(g.account().frozen());
+    assert_eq!(g.journal_position(), position);
+    assert_eq!(g.account().ledger_sequence(), ledger);
+    assert_eq!(g.history_frontier().digest(), frontier);
+    drop(g);
+    peer.join().unwrap();
+    let restored = reopen(&dir, auth);
+    assert_eq!(restored.history_frontier().digest(), frontier);
+    assert!(restored.account().frozen());
+    assert!(!restored.account().order(&order).unwrap().fee_reconciled);
+}

@@ -11,3 +11,5 @@ Run `python3 tla/execution_models/strategy_intake/L0_shared_cash/evidence/reprod
 The final coverage blocks across the two safety runs contain positive successor counts for Init and all eleven Next actions. The one-unit run exercises 80 insufficient-cash refusals. The second run covers 900 restart successors. [Action totals and model digest](evidence/action-coverage.json)
 
 Three consecutive [native process runs](evidence/native/run.log) reproduced the unauthorized management failure on both Bybit and OKX. All six account processes reported a live market view for the selected trigger before buy submission. Each process exited with status 1 after an acknowledged buy. [Inputs and replay instructions](04_counterexamples.md#native-reproduction-on-bybit-and-okx)
+
+The [management-refusal v2 level](../L1_management_refusal/03_run_log.md) replayed the original eight-state failing configuration to completion. It also exercised a successful subsequent cancel on both live entry points with local exchanges.

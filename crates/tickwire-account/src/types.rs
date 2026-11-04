@@ -229,6 +229,8 @@ pub enum Error {
     Risk(tickwire_risk::RiskError),
     InvalidSnapshot,
     Identity,
+    /// The original order was found, but this strategy, manager or owner revision cannot manage it.
+    ManagementDenied,
     Catalog,
     Stale,
     Frozen,

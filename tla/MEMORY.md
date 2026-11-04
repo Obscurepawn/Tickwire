@@ -2,29 +2,35 @@
 
 [November 2026 verification audit](audits/2026-11-05/README.md) · [Per-crate coverage and drift](audits/2026-11-05/inventory.md)
 
-## quote_delivery / L0_pair — confirmed (2026-11-05)
+## quote_delivery / L0_pair — retired (fixed) (2026-11-05)
 
 - Mode: transcription.
 - Property: A legal unavailable pair permanently retires the account subscription.
 - TLC: 447 / 8,288; violating trace at depth 5. [Run log](execution_models/quote_delivery/L0_pair/03_run_log.md)
-- Finding: confirmed. [Result and source map](execution_models/quote_delivery/L0_pair/06_review.md)
+- Finding: retired(fixed, validated by L0_pair_v2). [Result and source map](execution_models/quote_delivery/L0_pair/06_review.md)
 - Last synced: 2026-11-05 against `9b2ed63`.
 
-## strategy_intake / L0_shared_cash — confirmed (2026-11-05)
+- Fix: Consume valid same-generation observations while the invalidated trading gate stays closed. [Fixed model](execution_models/quote_delivery/L0_pair_v2/05_output.md)
+
+## strategy_intake / L0_shared_cash — retired (fixed) (2026-11-05)
 
 - Mode: fault injection.
 - Property: A pre-admission foreign-order refusal terminates the shared account process.
 - TLC: 480 / 2,968; violating trace at depth 8. [Run log](execution_models/strategy_intake/L0_shared_cash/03_run_log.md)
-- Finding: confirmed. [Result and source map](execution_models/strategy_intake/L0_shared_cash/06_review.md)
+- Finding: retired(fixed, validated by L1_management_refusal). [Result and source map](execution_models/strategy_intake/L0_shared_cash/06_review.md)
 - Last synced: 2026-11-05 against `9b2ed63`.
 
-## cash_evidence / L0_terminal_fees — confirmed (2026-11-05)
+- Fix: Deliver a verified management refusal to its member and continue polling the shared account. [Fixed model](execution_models/strategy_intake/L1_management_refusal/05_output.md)
+
+## cash_evidence / L0_terminal_fees — retired (fixed) (2026-11-05)
 
 - Mode: fault injection.
 - Property: A rejected fee decision survives in a journal that the next writer cannot replay.
 - TLC: 532 / 6,986; violating trace at depth 9. [Run log](execution_models/cash_evidence/L0_terminal_fees/03_run_log.md)
-- Finding: confirmed. [Result and source map](execution_models/cash_evidence/L0_terminal_fees/06_review.md)
+- Finding: retired(fixed, validated by L1_fee_closure). [Result and source map](execution_models/cash_evidence/L0_terminal_fees/06_review.md)
 - Last synced: 2026-11-05 against `9b2ed63`.
+
+- Fix: Check the proposed fee closure before sync and recognize the recorded legacy contradiction during frozen replay. [Fixed model](execution_models/cash_evidence/L1_fee_closure/05_output.md)
 
 ## config_activation / L0_file_receipt — PASS (2026-11-05)
 
@@ -66,13 +72,15 @@
 - Finding: none. [Result and source map](execution_models/binance_roundtrip/L0_spot_rest/05_output.md)
 - Last synced: 2026-11-05 against `9b2ed63`.
 
-## worker_handover / L0_market_consumer — confirmed (2026-11-05)
+## worker_handover / L0_market_consumer — retired (fixed) (2026-11-05)
 
 - Mode: fault injection.
 - Property: The host can reject a valid receipt when its worker stamps the message between the host’s clock sample and socket read.
 - TLC: 4,668 / 22,968; violating trace at depth 7. [Run log](execution_models/worker_handover/L0_market_consumer/03_run_log.md)
-- Finding: confirmed. [Independent review and native reproduction](execution_models/worker_handover/L0_market_consumer/06_review.md)
+- Finding: retired(fixed, validated by L1_receipt_time). [Independent review and native reproduction](execution_models/worker_handover/L0_market_consumer/06_review.md)
 - Last synced: 2026-11-05 against `9b2ed63`.
+
+- Fix: Sample the control clock after each packet read and pass that sample to the receipt validator. [Fixed model](execution_models/worker_handover/L1_receipt_time/05_output.md)
 
 # Historical records
 

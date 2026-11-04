@@ -391,7 +391,7 @@ impl Account {
             || o.manager != manager
             || o.owner_revision != target.expected_owner_revision
         {
-            return Err(Error::Identity);
+            return Err(Error::ManagementDenied);
         }
         Ok(())
     }
@@ -480,19 +480,33 @@ impl Account {
         *self = candidate;
         Ok(Applied::New)
     }
-    /// Trusted reconciliation fact: terminal cumulative fills and all commission records are closed.
-    pub fn reconcile_fees(&mut self, key: &OrderKey, cumulative: Fixed) -> Result<Applied> {
+    /// Check a proposed local fee closure against the ledger at its current sequence.
+    pub fn check_fee_closure(&self, key: &OrderKey, cumulative: Fixed) -> Result<Applied> {
         let o = self.orders.get(key).ok_or(Error::UnknownOrder)?;
         if !o.terminal || o.terminal_cumulative != Some(cumulative) || o.filled != cumulative {
-            return self.freeze_error(Error::Unreconciled);
+            return Err(Error::Unreconciled);
         }
         if o.fees_closed {
             return Ok(Applied::Duplicate);
         }
-        let mut candidate = self.clone();
-        candidate.orders.get_mut(key).unwrap().fees_closed = true;
-        candidate.next_sequence()?;
-        *self = candidate;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
         Ok(Applied::New)
+    }
+    /// Trusted reconciliation fact: terminal cumulative fills and all commission records are closed.
+    pub fn reconcile_fees(&mut self, key: &OrderKey, cumulative: Fixed) -> Result<Applied> {
+        let applied = self
+            .check_fee_closure(key, cumulative)
+            .inspect_err(|error| {
+                if *error == Error::Unreconciled {
+                    self.freeze();
+                }
+            })?;
+        if applied == Applied::New {
+            self.next_sequence()?;
+            self.orders.get_mut(key).unwrap().fees_closed = true;
+        }
+        Ok(applied)
     }
 }

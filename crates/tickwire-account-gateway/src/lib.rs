@@ -1039,6 +1039,15 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         ) {
             return Err(Error::Invalid);
         }
+        if let RecoveryRecord::FeesReconciled { order, cumulative } = &record {
+            // This owner holds the account across append and apply.
+            self.account
+                .check_fee_closure(order, *cumulative)
+                .map_err(|error| {
+                    self.account.freeze();
+                    Error::Account(error)
+                })?;
+        }
         if let Err(error) = self.journal.append(record.clone()) {
             self.halt();
             return Err(Error::Journal(error));

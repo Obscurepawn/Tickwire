@@ -58,15 +58,26 @@ impl ReadyProof {
             resources,
         })
     }
-    pub fn poll(&mut self, lane: &mut AuthenticatedChild, now: u64) -> Result<()> {
-        self.poll_with(lane, now, |_, _| Ok(false))
+    pub fn poll(
+        &mut self,
+        lane: &mut AuthenticatedChild,
+        now: u64,
+        clock: &mut SystemClock,
+    ) -> Result<u64> {
+        self.poll_with(
+            lane,
+            now,
+            || Ok(clock.sample()?.monotonic.nanos()),
+            |_, _, _| Ok(false),
+        )
     }
     pub fn poll_with(
         &mut self,
         lane: &mut AuthenticatedChild,
-        now: u64,
-        mut extra: impl FnMut(&ControlEnvelope, &[u8]) -> Result<bool>,
-    ) -> Result<()> {
+        mut now: u64,
+        mut receive_time: impl FnMut() -> Result<u64>,
+        mut extra: impl FnMut(&ControlEnvelope, &[u8], u64) -> Result<bool>,
+    ) -> Result<u64> {
         self.fresh.flush(lane, now)?;
         if self.fresh.active.is_none()
             && let Some(body) = self.deferred.take()
@@ -82,11 +93,12 @@ impl ReadyProof {
             if !packet.fds().is_empty() {
                 return Err(Error::Invalid);
             }
+            now = receive_time()?;
             let frame = lane.session.validate(packet.bytes(), now)?;
             if self.observe_fresh_reply(&frame.envelope, frame.body)? {
                 continue;
             }
-            if extra(&frame.envelope, frame.body)? {
+            if extra(&frame.envelope, frame.body, now)? {
                 continue;
             }
             if frame.envelope.opcode != 37 || frame.envelope.flags != 32 {
@@ -100,7 +112,7 @@ impl ReadyProof {
                 self.observe(body, lane, now)?;
             }
         }
-        Ok(())
+        Ok(now)
     }
     fn context(&mut self, lane: &AuthenticatedChild, now: u64) -> Result<cache::Context> {
         let context = cache::Context::from_lane(lane);
@@ -203,5 +215,24 @@ impl ReadyProof {
             serde_json::json!({"event":"strategy_reports_consumed","worker_pid":lane.process.pid,"instance":self.identity.instance,"generation":self.identity.generation,"account_position":body.exec_report_sequence,"report_sequence":body.report_ring_sequence,"ready_sequence":body.ready_sequence})
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+pub(super) fn test_proof(identity: Identity) -> ReadyProof {
+    ReadyProof {
+        fresh: Default::default(),
+        deferred: None,
+        resources: None,
+        context: None,
+        cache: Default::default(),
+        directory: None,
+        identity: identity.clone(),
+        last: None,
+        account_input: None,
+        receipt: PathBuf::new(),
+        exec_identity: identity,
+        confirmed: None,
+        seal_sequence: 0,
     }
 }

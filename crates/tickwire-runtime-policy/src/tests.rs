@@ -204,6 +204,70 @@ fn revoked_grants_and_gap_tokens_cannot_be_reinstalled_or_replayed() {
     assert!(p.evaluate(&c, &a, now(60)).is_err());
 }
 #[test]
+fn revoked_quote_generation_keeps_its_subscription_until_a_successor_arrives() {
+    use tickwire_runtime::{market, node::Observer};
+
+    let (plane, _, command, admission) = setup();
+    prepare(&plane);
+    plane
+        .complete_reconciliation(reconciliation(&plane), &mut Verifier)
+        .unwrap();
+    assert!(
+        plane
+            .evaluate(&command, &admission, now(60))
+            .unwrap()
+            .market_valid
+    );
+    let mut observer = plane.observer();
+    let observation = |generation, sequence, live| market::FeedObservation {
+        key: market::FeedKey {
+            topic_id: 1,
+            instrument_id: 12,
+        },
+        instrument_version: 13,
+        feed_generation: generation,
+        ring_epoch: generation,
+        sequence,
+        published_at: now(49),
+        received_at: now(49),
+        live,
+    };
+
+    for (seq, live) in [(3, false), (4, false), (6, true)] {
+        assert!(
+            observer.market_observed(observation(1, seq, live)),
+            "lost subscription at {seq}"
+        );
+        assert_eq!(
+            plane.evaluate(&command, &admission, now(60)),
+            Err(Error::Denied)
+        );
+    }
+    assert!(observer.market_observed(observation(2, 1, true)));
+    let (mut account, mut successor) = fixture::setup();
+    let mut trigger = successor.context.triggers.as_slice()[0].clone();
+    trigger.feed_generation = 2;
+    trigger.ring_epoch = 2;
+    successor.context.triggers = tickwire_venue::BoundedList::new(vec![trigger]).unwrap();
+    let successor = fixture::canonical(successor);
+    let new_admission = account.admit(&successor, 60).unwrap();
+    assert!(
+        plane
+            .evaluate(&successor, &new_admission, now(60))
+            .unwrap()
+            .market_valid
+    );
+    assert_eq!(
+        plane.evaluate(&command, &admission, now(60)),
+        Err(Error::Denied)
+    );
+    assert!(!observer.market_observed(observation(1, 7, true)));
+    assert!(observer.market_observed(observation(2, 3, false)));
+    assert!(observer.market_observed(observation(2, 4, false)));
+    assert!(!observer.market_observed(observation(2, 3, false)));
+}
+
+#[test]
 fn market_generations_missing_dependencies_and_expiry_deny() {
     let (p, _, c, a) = setup();
     prepare(&p);

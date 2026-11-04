@@ -62,7 +62,24 @@ impl Account {
                     account.apply_abort(&admission)?;
                 }
                 RecoveryRecord::FeesReconciled { order, cumulative } => {
-                    account.reconcile_fees(order, *cumulative)?;
+                    if let Err(error) = account.reconcile_fees(order, *cumulative) {
+                        // Older writers synced a proposed fee closure before checking a
+                        // regressing terminal observation. It released no funds and
+                        // advanced no ledger sequence. Keep the rejected row in history.
+                        if error != Error::Unreconciled
+                            || !account.orders.get(order).is_some_and(|o| {
+                                o.spec.mode == v::ProductMode::Spot
+                                    && o.terminal
+                                    && o.observation_unreconciled
+                                    && !o.fees_closed
+                                    && o.filled == *cumulative
+                                    && o.terminal_cumulative
+                                        .is_some_and(|q| q.atoms() > cumulative.atoms())
+                            })
+                        {
+                            return Err(error);
+                        }
+                    }
                 }
                 RecoveryRecord::UnattributedCashFlow { id, delta } => {
                     account.apply_unattributed_cashflow(id, *delta)?;

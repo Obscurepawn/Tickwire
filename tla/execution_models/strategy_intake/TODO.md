@@ -1,3 +1,5 @@
 # Strategy intake follow-up
 
-The confirmed worker-isolation defect has a deterministic [eight-state counterexample](L0_shared_cash/04_counterexamples.md). A corrective change would need to distinguish local management-authority denial from a conflicting durable origin and prove the peer can submit a valid command afterwards. Instance handover and the worker report stream remain separate modeling tasks.
+**Closed.** Foreign management requests on identified orders now return to their source member. The sibling can complete its own cancellation. [Fix and native evidence](L1_management_refusal/05_output.md)
+
+**Watch.** The frozen L0 model records the pre-fix process exit. Recheck L1 when changing management authority, intake errors or origin resolution. Instance handover and worker report delivery are separate modeling boundaries.

@@ -1,0 +1,5 @@
+# State and failure scope
+
+A known held order represents a verified immutable origin with matching instrument, client ID and optional venue alias. A foreign member is a representative of the order ledger's three management refusals, which share the same branch. A missing original still produces an origin error. The candidate is discarded before any admission WAL entry, recovery closure or native write. The account owner calls the submitting member's callback before it takes its next turn.
+
+The two queues, cash domain, single transport slot and speculative zero-byte aborts use the [original abstractions](../L0_shared_cash/01_reasoning.md). The diagnostic marker records a management refusal while the sibling has its second command waiting. Restart clears that observation because the new process owns new cursors. Identity or recovery conflicts after restart remain fatal. This is a finite safety check. The separate reachability probe exercises an actual scheduled peer cancellation through its ACK.

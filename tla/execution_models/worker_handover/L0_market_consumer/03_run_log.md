@@ -11,3 +11,5 @@ Run `python3 tla/execution_models/worker_handover/L0_market_consumer/04_evidence
 Each safety configuration generates successors for every modeled action, including rejecting a fresh worker receipt. The separate diagnostic stops at the first invariant violation. [Aggregate action counts](04_evidence/coverage.json)
 
 Linux also passed the three existing host receipt tests and four SDK frontier tests with Cargo in locked, offline mode. The additional socket test exercises the receiver through its production dispatcher. [Host tests](04_evidence/host-tests.log) · [Worker tests](04_evidence/worker-tests.log) · [Socket experiment](04_evidence/clock/socket.log)
+
+The [receipt-time model](../L1_receipt_time/03_run_log.md) rechecked the fixed dispatcher. Both configurations exhausted their queues at 5,996 and 28,888 states. The original seven-state trace remains reproducible at the audited revision.

@@ -1,5 +1,7 @@
 # Single-host trading verification at 9b2ed63
 
+The four findings below describe the audited revision. The [fixes and regression results](fixes.md) record the subsequent production changes.
+
 Four reproducible failures affect an account journal, a market subscription, a shared account process and a supervised strategy worker. Each has a TLC counterexample, a Linux reproduction and an independent source review. The contradictory exchange reports in the fee case come from a controlled fixture. Their frequency on a live venue is unknown. No test placed orders at a public exchange.
 
 | Finding | Trigger and consequence | Evidence and repair boundary |

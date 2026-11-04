@@ -12,6 +12,6 @@ Each family links its configurations to source, assumptions and recorded checks.
 | Local process communication | [Broadcast ring](execution_models/broadcast_ring/ROADMAP.md), [JOIN](execution_models/join_owner/ROADMAP.md) and [control requests](execution_models/control_requests/ROADMAP.md) cover publication, reader startup, session identity and durable request results. |
 | Time | [Clock](execution_models/clock/ROADMAP.md) and [system clock](execution_models/system_clock/ROADMAP.md) model sampling, time-domain conversion and validity bounds. |
 
-The [November 2026 audit](audits/2026-11-05/README.md) adds current models for spot execution, strategy isolation, account evidence and configuration. Its [crate inventory](audits/2026-11-05/inventory.md) distinguishes original source references from new coverage.
+The [November 2026 audit](audits/2026-11-05/README.md) adds current models for spot execution, strategy isolation, account evidence and configuration. The [follow-up models and native regressions](audits/2026-11-05/fixes.md) close all four findings at those boundaries. Its [crate inventory](audits/2026-11-05/inventory.md) distinguishes original source references from new coverage.
 
 Use the per-family run records to identify which configurations terminated and which source revision they apply to. The earlier inventory records the original stages and recovery-metadata changes. [Historical inventory](https://github.com/Obscurepawn/Tickwire/blob/dc50649ebdcada26f7740181c16139cd3b32064a/tla/ROADMAP.md)

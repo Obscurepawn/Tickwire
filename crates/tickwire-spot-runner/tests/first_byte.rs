@@ -146,7 +146,7 @@ fn submission(command: &CanonicalCommand, id: u8) -> Submission {
 #[path = "../src/paper_peer.rs"]
 mod paper_peer;
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, rc::Rc};
 use tickwire_app::strategy::{AppStrategy, MultiStrategy};
 use tickwire_runtime::node::{Health, Strategy, SubmissionResult};
 use tickwire_runtime_policy::{ControlPlane, Versions};
@@ -154,12 +154,12 @@ use tickwire_runtime_policy::{ControlPlane, Versions};
 #[derive(Default, Debug, PartialEq, Eq)]
 struct Receipts {
     local: Vec<Status>,
-    denials: usize,
+    denials: Vec<tickwire_account::Error>,
     acknowledgements: usize,
 }
 struct Member {
     id: u64,
-    next: Option<Submission>,
+    queue: VecDeque<Submission>,
     receipts: Rc<RefCell<Receipts>>,
 }
 impl AppStrategy for Member {
@@ -177,24 +177,22 @@ impl Strategy for Member {
         _: Health,
         _: LocalTime,
     ) -> Option<Submission> {
-        self.next.take()
+        self.queue.pop_front()
     }
     fn on_submission(&mut self, c: &CanonicalCommand, r: &SubmissionResult<'_>) {
         assert_eq!(self.id, c.command().context.strategy.logical_strategy_id);
         match r {
             Ok(status) => self.receipts.borrow_mut().local.push(*status),
             Err(error) => {
-                assert!(matches!(
-                    error.downcast_ref::<tickwire_spot_runner::Error>(),
-                    Some(tickwire_spot_runner::Error::Session(
-                        tickwire_spot_execution::SessionError::Gateway(
-                            tickwire_account_gateway::Error::Account(
-                                tickwire_account::Error::InsufficientAsset
-                            )
-                        )
-                    ))
-                ));
-                self.receipts.borrow_mut().denials += 1;
+                let Some(tickwire_spot_runner::Error::Session(
+                    tickwire_spot_execution::SessionError::Gateway(
+                        tickwire_account_gateway::Error::Account(refusal),
+                    ),
+                )) = error.downcast_ref()
+                else {
+                    panic!("unexpected submission result: {error}");
+                };
+                self.receipts.borrow_mut().denials.push(*refusal);
             }
         }
     }
@@ -208,7 +206,7 @@ impl Strategy for Member {
     }
 }
 #[test]
-fn two_strategies_cannot_spend_the_same_cash() {
+fn shared_cash_and_foreign_order_refusals_reach_only_the_requesting_strategy() {
     let venue = SpotVenue::Bybit;
     let dir = common::Directory::new();
     let (mut snapshot, mut catalog, mut source) = fixture::fixture();
@@ -253,11 +251,26 @@ fn two_strategies_cannot_spend_the_same_cash() {
         order.client_id = ClientId::new(format!("paper{id}")).unwrap();
         let c = CanonicalCommand::new(source.clone()).unwrap();
         let result = Rc::new(RefCell::new(Receipts::default()));
+        let mut queue = VecDeque::from([submission(&c, id as u8)]);
+        if id == 9 {
+            let mut cancel = source.clone();
+            cancel.context.request.intent_id = 91;
+            cancel.body = CommandBody::Cancel(tickwire_venue::OrderTarget {
+                order_id: [8; 16],
+                expected_owner_revision: 1,
+                original_intent_exec_epoch: source.context.request.intent_exec_epoch,
+                client_id: Some(ClientId::new("paper8").unwrap()),
+                venue_order_id: None,
+            });
+            let mut foreign = submission(&CanonicalCommand::new(cancel).unwrap(), 9);
+            foreign.order_ids.clear();
+            queue.push_back(foreign);
+        }
         members.push((
             id,
             Box::new(Member {
                 id,
-                next: Some(submission(&c, id as u8)),
+                queue,
                 receipts: result.clone(),
             }),
         ));
@@ -305,11 +318,12 @@ fn two_strategies_cannot_spend_the_same_cash() {
         std::thread::yield_now();
     }
     assert!(runner.poll_strategy(&mut group, health, now()).unwrap());
+    assert!(runner.poll_strategy(&mut group, health, now()).unwrap());
     assert_eq!(
         *receipts[0].borrow(),
         Receipts {
             local: vec![Status::Queued],
-            denials: 0,
+            denials: vec![],
             acknowledgements: 1
         }
     );
@@ -317,7 +331,10 @@ fn two_strategies_cannot_spend_the_same_cash() {
         *receipts[1].borrow(),
         Receipts {
             local: vec![],
-            denials: 1,
+            denials: vec![
+                tickwire_account::Error::InsufficientAsset,
+                tickwire_account::Error::ManagementDenied
+            ],
             acknowledgements: 0
         }
     );

@@ -1,0 +1,21 @@
+{
+  "model": "L1_TerminalFees_v2",
+  "runs": 4,
+  "entries": 13,
+  "generated": {
+    "Init line 37, col 1 to line 37, col 4 of module L1_TerminalFees_v2": 4,
+    "WSFill line 48, col 1 to line 48, col 6 of module L1_TerminalFees_v2": 25,
+    "WSTerminal line 54, col 1 to line 54, col 10 of module L1_TerminalFees_v2": 19,
+    "ReadFirst line 61, col 1 to line 61, col 9 of module L1_TerminalFees_v2": 748,
+    "ReadSecond line 67, col 1 to line 67, col 10 of module L1_TerminalFees_v2": 12824,
+    "RESTFill line 73, col 1 to line 73, col 8 of module L1_TerminalFees_v2": 716,
+    "RESTTerminal line 79, col 1 to line 79, col 12 of module L1_TerminalFees_v2": 748,
+    "Wallet line 89, col 1 to line 89, col 6 of module L1_TerminalFees_v2": 260,
+    "AppendFee line 97, col 1 to line 97, col 9 of module L1_TerminalFees_v2": 64,
+    "ApplyFee line 105, col 1 to line 105, col 8 of module L1_TerminalFees_v2": 58,
+    "Install line 111, col 1 to line 111, col 7 of module L1_TerminalFees_v2": 58,
+    "Crash line 117, col 1 to line 117, col 5 of module L1_TerminalFees_v2": 4026,
+    "Replay line 138, col 1 to line 138, col 6 of module L1_TerminalFees_v2": 1784
+  },
+  "model_sha256": "bcafbafd507e1cefb726211822de09283330eca84fb939b8c71165bd93ff5d05"
+}

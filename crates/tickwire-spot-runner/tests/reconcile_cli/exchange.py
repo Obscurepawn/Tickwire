@@ -98,6 +98,17 @@ def data(target):
             if bybit
             else {"details": coins, "uTime": "1700000000123"}
         ]
+    elif filled_order and not executed and (
+        path == "/v5/order/history"
+        or (path == "/v5/order/realtime" and "orderLinkId" in parse_qs(query))
+        or (path in ("/api/v5/trade/order", "/api/v5/trade/orders-history")
+            and "after" not in parse_qs(query))
+    ):
+        # REST still reports the pre-trade wallet and a zero-fill cancellation.
+        values = [
+            dict(filled_order, orderStatus="Cancelled", cumExecQty="0", cumExecValue="0")
+            if bybit else dict(filled_order, state="canceled", accFillSz="0", fee="0", feeCcy="")
+        ]
     elif (
         executed
         and not bybit
@@ -618,7 +629,7 @@ with Server(("127.0.0.1", 0), Peer) as server:
             with state_lock:
                 ws = current_websocket
             if bybit:
-                executed = {
+                delayed_fill = {
                     "category": "spot",
                     "symbol": "BTCUSDT",
                     "orderLinkId": "liveorder801",
@@ -653,10 +664,9 @@ with Server(("127.0.0.1", 0), Peer) as server:
                     "isLeverage": "0",
                     "stopOrderType": "",
                 }
-                frame(ws, {"topic": "execution.spot", "creationTime": int(at), "data": [executed]})
                 frame(ws, {"topic": "order.spot", "creationTime": int(at), "data": [filled_order]})
             else:
-                executed = {
+                delayed_fill = {
                     "instType": "SPOT",
                     "instId": "BTC-USDT",
                     "clOrdId": "liveorder801",
@@ -692,6 +702,23 @@ with Server(("127.0.0.1", 0), Peer) as server:
                     "fee": "-0.006",
                     "feeCcy": "USDT",
                 }
+                frame(ws, {"arg": {"channel": "orders", "instType": "SPOT"},
+                           "data": [dict(filled_order, tradeId="", fillSz="0")]})
+            deadline = time.monotonic() + 22
+            while True:
+                line = events.get(timeout=max(0.01, deadline - time.monotonic()))
+                assert line is not None, (trader.poll(), logs)
+                logs.append(line)
+                if "Session(Gateway(Account(Unreconciled)))" in line:
+                    break
+                assert time.monotonic() < deadline, logs
+
+            # The account rejected the proposed fee release. The real execution and
+            # post-trade wallet now agree with the original private terminal report.
+            executed = delayed_fill
+            if bybit:
+                frame(ws, {"topic": "execution.spot", "creationTime": int(at), "data": [executed]})
+            else:
                 private_order = dict(
                     filled_order,
                     tradeId="701",
@@ -726,6 +753,14 @@ with Server(("127.0.0.1", 0), Peer) as server:
                     break
             (directory / "stop").touch()
             assert trader.wait(timeout=6) == 0
+            (directory / "stop").unlink()
+            deployment["policy"]["writer_epoch"] += 1
+            config_path.write_text(json.dumps(deployment))
+            reopen = subprocess.run([binary, "reconcile", str(config_path)], env=env,
+                                    capture_output=True, text=True, timeout=25)
+            assert reopen.returncode == 0 and "spot_account_reconciled" in reopen.stdout, (
+                reopen.stdout, reopen.stderr,
+            )
             assert calls["native_buy"] == 1 and not failures, (calls, failures)
         except Exception as exc:
             trader.kill()

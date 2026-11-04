@@ -77,7 +77,7 @@ fn stale_cancel_still_requires_live_request_identity_and_ownership() {
     target.expected_owner_revision += 1;
     assert_eq!(
         account.admit(&canonical(wrong_owner), 1000),
-        Err(Error::Identity)
+        Err(Error::ManagementDenied)
     );
     let mut new = command;
     new.context.request.intent_id += 10;
