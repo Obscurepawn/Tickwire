@@ -1985,6 +1985,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-spot-execution"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "rcgen",
+ "ring",
+ "serde_json",
+ "tickwire-account",
+ "tickwire-account-codec",
+ "tickwire-account-gateway",
+ "tickwire-account-journal",
+ "tickwire-gateway",
+ "tickwire-journal",
+ "tickwire-recovery",
+ "tickwire-risk",
+ "tickwire-transport",
+ "tickwire-venue",
+ "time",
+]
+
+[[package]]
+name = "tickwire-spot-runner"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "rcgen",
+ "ring",
+ "serde_json",
+ "tickwire-account",
+ "tickwire-account-codec",
+ "tickwire-account-gateway",
+ "tickwire-account-journal",
+ "tickwire-app",
+ "tickwire-binance-clock",
+ "tickwire-binance-public",
+ "tickwire-clock",
+ "tickwire-gateway",
+ "tickwire-journal",
+ "tickwire-recovery",
+ "tickwire-risk",
+ "tickwire-runtime",
+ "tickwire-runtime-policy",
+ "tickwire-spot-execution",
+ "tickwire-transport",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-strategy-example"
 version = "0.1.0"
 dependencies = [

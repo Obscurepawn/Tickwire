@@ -1,0 +1,30 @@
+# Shared cash account for Bybit and OKX strategies
+
+The runner accepts a runtime `Submission` containing the canonical command, local order IDs, the send deadline and the recovery bundle. One account owner receives these submissions from an existing `Strategy`, including a `MultiStrategy` group. The owner supplies its native REST session, the recovery queue used by that session's authority and an immutable origin store retained with the account. [Runner](../../crates/tickwire-spot-runner/src/lib.rs) · [Strategy group](../../crates/tickwire-app/src/strategy.rs)
+
+## Submit and observe
+
+1. For a new spot order, register one local order ID and one native client ID against the original intent epoch, intent ID and command digest. The keys include the risk domain, venue, environment and account. For a cancel or query, load the original admitted command by this binding and check its instrument and client ID. If the caller supplies a native order ID, the reducer must already have bound it to the original order.
+2. Stage the recovery bundle under its command digest. The gateway checks the shared balance and reserves funds once. Its authority persists the closure and its account journal records admission before it checks the current grant at the first application byte. A second member sees the first member's reservation. An unfrozen account reporting insufficient assets, capital or a risk limit sends the typed refusal to the originating member and can continue serving the group. [Admission and output](../../crates/tickwire-account-gateway/src/lib.rs)
+3. Each session has room for one outstanding native HTTP request. The group receives the local result through `on_submission`. A fully decoded native response reaches the originating command's logical strategy through `on_request_reply`; if the group knows an instance and generation, these must match too. A new or cancel acknowledgement leaves the account reservation in place. Economic effects come from durable account history. The private input owner can pass a verified fill and its stream position to `record_fill`, which resolves its original local order and applies the fee and cash deltas through the account gateway. [Native replies and private fills](spot-execution.md)
+
+The file-backed origin index synchronizes the origin object and its immutable aliases before admission. A process or disk failure in the middle can leave an alias occupied. Lookups used for management or fill application also require the original command in the authoritative account journal. A byte-identical admitted retry returns the stored gateway status. A conflicting origin stops the sender. Claimed funds remain held after uncertain output. A proven zero-byte abort is recorded in account history. [Origin index](../../crates/tickwire-spot-runner/src/origins.rs)
+
+## Run the local exchange
+
+Use a new state directory for each run.
+
+```sh
+cargo run --locked -p tickwire-spot-runner -- paper bybit /tmp/tickwire-bybit-paper-1
+cargo run --locked -p tickwire-spot-runner -- paper okx /tmp/tickwire-okx-paper-1
+```
+
+Two short-lived strategy processes independently read a synthetic BTC quote with an ask of 60,000 USDT. Each buys 0.001 BTC if the ask is within its configured threshold, 60,000 for member 8 and 60,001 for member 9. They publish their canonical commands, decision inputs and file descriptors to separate queues. `MultiStrategy` drains both queues. The parent approves the two known command digests in the test environment, opens a file-backed account and sends native requests to a TLS peer bound to loopback. That peer checks each signature and native client ID before returning an acknowledgement. The file-queue owners receive the callbacks after the producer processes exit. [Executable](../../crates/tickwire-spot-runner/src/main.rs) · [Wire peer](../../crates/tickwire-spot-runner/src/paper_peer.rs)
+
+The result contains two acknowledgements, two open orders and 120 USDT reserved. Starting again with the same directory fails. The executable fixes the symbols, credentials, market inputs and network peer. A live host must supply independently qualified session, account, clock and market witnesses and revoke output on a lost witness. The public signed account scanner and private WebSocket observer currently provide separate observations. This executable has no production trading profile or recovery/reactivation command. [Local integration test](../../crates/tickwire-spot-runner/tests/paper.rs)
+
+## Cost and acceptance
+
+The file profile pays for child startup and a local TLS handshake. Each strategy decision writes input and dependency files. Intake parses the descriptor, hashes and reads those files and copies the canonical command. Origin registration creates and synchronizes a content object and three scoped aliases. The existing account path signs and encodes the HTTP request, verifies the recovery objects, writes the WAL, then samples the grant before writing the first application byte. A slow response delays subsequent commands on that session. These are costs inferred from the control flow; the profile records no latency percentile. [File intake](../../crates/tickwire-app/src/strategy.rs) · [Gateway](../../crates/tickwire-account-gateway/src/lib.rs)
+
+Run `cargo test --locked -p tickwire-spot-runner --all-targets`. With 80 USDT and two orders costing 60 each, the first strategy receives one native acknowledgement, the second receives an insufficient-funds refusal and 20 USDT remains available. A separate test revokes the action grant before any application bytes and checks the peer received zero bytes and the account released the reservation. [Account boundary tests](../../crates/tickwire-spot-runner/tests/first_byte.rs)

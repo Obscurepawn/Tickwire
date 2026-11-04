@@ -1,97 +1,19 @@
 # tickwire-md
 
-## 1. 职责
+The market-data process owns public venue connections and publishes normalized data to its consumers.
 
-独立 Binance 行情进程与认证全 topic 发布者：每标的一个有界网络 owner，完成准入、订阅、归一化、经 `tickwire-market-publisher` 发布到共享内存，并通过 `tickwire-market-source` 向认证订阅者交付。它是部署形态上的常驻二进制（`src/main.rs`），不是库；库层只提供配置装配、引擎循环与准入服务。`#![deny(unsafe_code)]`，仅 `server` 模块经 `#[allow(unsafe_code)]` discharge 既有接缝。
+Start at the CLI mode and follow its session, sequence policy and publication target. Distinguish a replacement top-of-book quote from incremental depth when choosing a channel.
 
-- `src/config.rs`：文件配置、资源头/客户端模板构造、准入文件读写。
-- `src/catalogs.rs`：冷启动批准的经济目录正文、完整 feed 经济匹配、扩容固定内容与恢复依赖校验。
-- `src/engine.rs`：`Runtime` 单进程装配、`poll_once`/`wait` 与常驻 `run(c)`；`engine/owners.rs` 保存实际客户端与固定 token，`tokens.rs` 只增分配，`cold.rs` 执行有界队列的冷任务。
-- `src/expansion.rs`：launcher 扩展计划的有界解码、revision/配置摘要、完整旧成员与来源、目标 bank 模板、实际消费者旧/新身份和峰值预算核对；`Prepared` 字段私有，最终描述绑定真实 cut。`engine/expansion/` 在主循环推进实际预热、Arm/QUIESCE、bank 提交、持久安装与消费者重新 JOIN。
-- `src/server.rs`：认证会话服务、准入登记、`Server::poll`。
-- `src/main.rs`：四个子命令 `--config` / `--resource ... --output` / `--client ... --output` / `--admit ... --directory`。
+[Crate API](src/lib.rs) · [instrument slots](tests/instrument_slots.rs) · [market events](tests/market_events.rs) · [publisher hot](tests/publisher_hot.rs) · [sbe publication](tests/sbe_publication.rs) · [spot quotes](tests/spot_quotes.rs)
 
-## 2. 公共 API 入口
+## Where to change a feed
 
-- `config`：`Asset`、`Instrument`（`build(source) -> InstrumentBinding`）、`FeedIndex`（`new(feeds)`/`expanded(feeds)`/`restore(feeds, ids)`/`instrument_ids()`/`book_key(feed)`）、`Feed`（`build(domain, index)`）、`EventType`（`kind()`/`state()`）、`EventFeed`（`context(feed)`/`build(feed, domain, index)`）、`Topic`、`CatalogFile{reference,path}`、`Config`、`ResourceSpec`（`header_with_exact_events()`/`header()`）、`ClientTemplate::build() -> ConnectConfig`、`read`/`write`/`write_bytes`/`active_resource_path`。
-- `engine::Runtime::{new,poll_once,wait}`、`PollReport`、`run(c: Config) -> Result<()>`；`engine::expansion::{Effective,Record}` 是持久配置及操作结果的 JSON 对象。
-- `config::ExpansionControl{plan_path,result_path,effective_path,consumer_directory,initial_revision,recovery}`：默认 `Config.expansion == None`；显式开启时路径绝对且父目录私有，三个文件路径互异，既有 effective 与启动 revision/配置摘要一致才准入。`recovery` 省略时保留原配置字节；开启后使用独占持久目录及显式批准的当前检查点。
-- `expansion::{Plan, Consumer, Prepared, Finalized, config_hash}`：`Plan::prepare` 接收当前配置/索引/revision、真实 bank 与 topic 下标、Server 实际参与者和退休 bank 字节；`Prepared::finalize` 生成同一最终 bank 字节及各消费者 Admission，不冻结、不授予权限。
-- `server`：`Admission{client, pid, uid, gid, supervisor, supervisor_pid, snapshot_id}`、`admission_path(directory, pid, request_id)`、`register_admission(directory, admission) -> PathBuf`、`Server::new(c)`/`poll(topics, now)`/`invalidate_topic(topic, owner)`/`has_peers(topic)`；`TopicOwner = TopicPublisher<32>`。
+For Binance, configure a feed in `config` and its sequence and socket owner in `engine`. A topic binds an instrument ID to its approved catalog entry and dense slot. During expansion the existing slots remain stable, the new bank warms up, and each consumer joins at a verified cut. The old mapping stays valid while a reader holds it. Socket registrations and the producer workspace are allocated ahead of normal polling. [Catalog validation](src/catalogs.rs) · [Runtime owners](src/engine/owners.rs) · [Expansion](src/engine/expansion.rs)
 
-## 3. 在 workspace 中的位置
+For Bybit or OKX, start with the native frame and the exact price and size conversion in the spot session. The shared publisher accepts the normalized quote only for the configured venue, symbol, scales and current epoch. JOIN authenticates the child, request and topic before handing over read descriptors. Exercise a reconnect and a late subscriber with a genuine socket and shared memory. [Spot session](src/spot_quotes.rs) · [Spot process](src/spot_market.rs) · [Admission service](src/server.rs)
 
-- 上游依赖：`tickwire-config`（artifact 引用解析）、`tickwire-instrument-catalog`（有界经济正文）、`tickwire-instrument-index`、`tickwire-market-source`、`tickwire-market-publisher`、`tickwire-binance`、`tickwire-binance-public`、`tickwire-binance-quota`、`tickwire-quota`、`tickwire-clock`、`tickwire-clock-sys`、`tickwire-transport`、`tickwire-venue`、`tickwire-book`、`tickwire-ipc`、`tickwire-shm`、`tickwire-join`、`tickwire-snapshot`、`tickwire-control`、`tickwire-control-sys`、`tickwire-control-store`、`tickwire-journal`；`serde`/`serde_json`/`libc`；dev `tickwire-binance-clock`、`rcgen`、`base64`、`sha1`、`allocation-counter`。
-- 下游消费者：本 crate 主要作为独立部署进程；Cargo.toml 声明依赖方为 `tickwire-lab`、`tickwire-strategy-host`（装配/实验用途），无生产库内调用。
-
-## 4. 对应规格
-
-- 扩容子域见 [../../specs/implementation/market-expansion.md](../../specs/implementation/market-expansion.md)。其余进程装配沿相邻规格：发布链见 [../../specs/implementation/binance-market-events.md](../../specs/implementation/binance-market-events.md)，正常退休 DETACH/QUIESCE 见 [../../specs/implementation/strategy-graceful-retirement.md](../../specs/implementation/strategy-graceful-retirement.md)。
-
-## 5. 构建与测试
+Specifications include [binance market events](../../specs/implementation/binance-market-events.md), [instrument catalog](../../specs/implementation/instrument-catalog.md), [market expansion](../../specs/implementation/market-expansion.md), [strategy graceful retirement](../../specs/implementation/strategy-graceful-retirement.md).
 
 ```sh
-cargo build -p tickwire-md
-cargo test -p tickwire-md
-cargo clippy -p tickwire-md --all-targets -- -D warnings
-cargo fmt --check -p tickwire-md
+cargo test --locked -p tickwire-md --all-targets
 ```
-
-- `tests/market_events.rs`（1 项，真实 memfd 发布，非 Linux `ignore`）、`tests/sbe_publication.rs`（1 项，SBE 发布，非 Linux `ignore`）；两者复用 `tickwire-binance-public` 的网络测试装置。
-- `tests/instrument_slots.rs`：多标的跨 topic 槽位、未知/外部槽拒绝原子性、深度/事件 wire 稳定 ID，以及 bank 轮换后槽位复用；复用真实 JOIN 装置且不含 unsafe，非 Linux `ignore`。
-- `tests/publisher_hot.rs` 与 `tests/common/publisher_{hot,inputs,scenarios}.rs`：通过真实 JOIN 保留 memfd 发布前缀，在 writer 空闲时安全读取 wire/arena；`allocation-counter` 只测 `on_notice_slot/on_event_slot`，覆盖首次类别、JSON/SBE 12/13/4096 档和长短交替、bank 交接、准确缓存预算、错误解码和 ring/arena 耗尽。完整深度路径在独立子进程的 2 MiB 线程栈执行，防止栈溢出终止整个测试进程；不新增 unsafe，不把 fixture 构建或文件读取算入逐消息分配。
-- `server/runtime_tests.rs`：测试二进制的子进程入口直接运行生产 `engine::run`；父进程提供真实 TLS/WSS/REST 和实际 `ShmSource`，覆盖同 PID 扩容、保留旧连接、重排目录的全路由重绑、真实 Arm/QUIESCE/re-JOIN、双收据、错误身份、冷构建失败、退出期限、提交后文件写失败及 operation 重用。此装置不替代上层实际二进制的 ControlInbox/Host 装配验收。
-- 真实 memfd/SEQPACKET 行为需 `./scripts/check-linux.sh` Docker 内运行；无 bench。
-
-## 6. 关键不变量与注意事项
-
-- **owner 边界**：`feeds`/`topics` 各 ≤32；`maximum_idle_ns` 非零且 ≤100_000_000（100ms），否则启动拒绝。
-- **资源身份核对**：每个 topic 资源头的 `producer_instance/producer_generation/host_boot_id/namespace_id` 必须等于配置 identity，`topic_id` 全局唯一，否则拒绝启动。
-- **准入文件由可信 launcher 持有实际进程身份后写入**：`Admission` 授权一个合格 principal 与精确 topic/subscription，不是任意 HELLO；准入目录必须 0700（`register_admission` 检查 `mode & 0o077 == 0`），pid/supervisor_pid 非零、snapshot_id 非零、supervisor.role == 1；重复登记要求两份 JSON 逐字节相等。
-- **HELLO 匹配**：opcode 1、flags 1、control_epoch 0、request_id 等于 pending admission 的 client.request_id，sender/target instance、实际 pid/uid/gid、对端身份全部匹配才建立会话；逻辑会话只提交已批准的精确请求到 JoinOwner 的幂等 reducer，不认证未知进程。
-- 每标的独立有界网络 owner；配额走 `tickwire-quota` 文件配额存储；时钟用 `SystemClock` 绑定校准域。
-- feed 装配时先构建进程级 `FeedIndex`，按标的首次出现顺序将完整非零 `u64` 映射到本地零起 `BookKey.instrument`。所有 depth owner 与各 topic 从同一索引绑定 key；topic 的发布行排序可能不同，不能互换两类槽。同一标的跨 feed 复用编号，未知 ID 拒绝；深度 source 仍要求可无损表示为 `u32`，事件 source 保持原 `u64`。
-- `FeedIndex::expanded` 在冷路径构建只追加候选；完整旧集合必须保留，即使目标配置重排也不改变旧编号。候选失败不改活动索引，经济规格与授权由扩展计划另行校验。
-- 每个 topic 预绑定 `InstrumentSlot`，行情通知直接定位发布行；稳定标的 ID 仍用于源身份核验和 wire，不把本地数组索引当全局 ID。新增上游 `tickwire-instrument-index` 仅参与冷路径装配，`engine/dense_tests.rs` 覆盖完整 ID、目录排序、源装配、重复与未知边界。
-- 本进程不做策略决策、不释放风险占用；业务入账归其他模块。
-
-### 扩容控制连接
-
-- `Server::active_admissions(topic)` 返回真实 Active peer 的完整绑定；同 topic 未完成接入/退出和无法归属的 HELLO 阻止计划确认。`begin_expansion(topic,operation,expected,owner,now)` 复核精确参与者与当前 bank 后暂停 JOIN，为每个订阅生成 operation 绑定的唯一 QUIESCE。
-- `server/expansion.rs` 保留最多 128 项操作历史，每项最多 128 个规范 Admission SHA-256 摘要，不复制全部历史配置。peer outbox 仅保存一个完整 QUIESCE，try_send 背压/EINTR 保留原字节；EOF、超时或其他发送错误标记操作失败且保持关闭。
-- `expansion_quiesced(topic,operation,owner)` 以实际 `JoinOwner::all_detached` 锁存成功；`resume_expanded_topic(topic,operation,owner)` 还核对真实后继 bank 与集合版本，不能用 `has_peers` 代替退出证明。暂停中的无 gate 新请求拒绝不污染健康 topic。
-- 首次和重复 resume 都要求后继 `!needs_bank && state.live()`；故障后重试返回错误并锁存关闭，历史后继记录不清除当前故障门禁。
-- `server/expansion_tests.rs` 通过真实 Server/PendingJoin、共享 cursor、候选预热/提交和新 bank re-JOIN，验证精确审批、多消费者、整包背压、伪造证明、EOF/超时及高位 `u64` 新成员；规格见 [../../specs/implementation/market-expansion.md](../../specs/implementation/market-expansion.md)。
-
-### MD 运行时扩容
-
-- 启动配置批准的 `plan_path` 是唯一计划入口；固定冷 worker 同时只接收一个任务，通道容量为一。DNS、证书和控制文件 I/O 不在主循环执行；超时后丢弃晚到结果，正在执行的 OS DNS 调用不能强制取消，也不会为新计划另起无限 worker。
-- 每个 depth 的两个 token 和事件 token 均保存在 owner 上；候选取消消耗的编号不复用，重连不随 feed 数目变化重新计算。旧 BookKey/客户端保持，提交前从候选目录预绑定所有受影响 depth/event 槽，提交后同时替换；其他 topic 的槽不变。
-- 新 owner 的真实通知仅写入私有候选。全部必需状态新鲜后写 `<pid>-<32hexinstance>.arm.json`；全部批准消费者的实际 Armed 收据匹配后才暂停 JOIN。真实 QUIESCED applied 与 Active 时实际发布下界由 Server 保存，Activated 收据须与这两项及真实新 bank 摘要一致。
-- 只有实际 bank 提交、目标配置生效、effective 文件同步且所有批准消费者重新 JOIN 完成后，`Record.status` 才为 `complete`。暂停旧 JOIN 前失败为 `rejected`，暂停后失败为 `failed_closed` 并保留关闭；普通故障轮换不绕过暂停门禁。当前进程保留最多 32 个旧 bank/每 topic，并计入 Plan 峰值预算。
-- 操作历史最多 128 项，包括可解码但准入拒绝的计划；相同规范内容返回原结果，不同内容复用 ID 拒绝。恢复时核对 effective 身份，不把文件或历史收据当作当前活跃资格。
-
-## 7. 改动检查清单
-
-1. 改配置 schema/准入/引擎循环时，核对扩容规格 market-expansion 与相邻规格 binance-market-events、strategy-graceful-retirement。
-2. 真实链路测试走 `./scripts/check-linux.sh`；macOS 仅编译。
-3. clippy `-D warnings`、`cargo fmt --check` 通过；新增 unsafe 仅限 server 接缝并写 SAFETY 注释。
-4. 子命令行为变化需同步 `main.rs` usage 字符串与配置文件示例。
-
-### 冷恢复持久存储
-
-- `recovery::{Config, Phase, Consumed, Snapshot, Store}` 保存显式开启的冷恢复历史；`Store::open/current/current_hash/write` 仅提供持久事实，`seen_instance/seen_resource/seen_channel/seen_owner` 查询完整历史的已用身份。Store 为单一可移动 `Send` owner，不通过共享锁进入数据热路径。
-- 最多 1024 个不可变快照、累计 512 MiB、单份 16 MiB；规范 JSON 的 HEAD 绑定当前 sequence/摘要/长度，完整前驱链必须闭合。缺失、非规范、未知文件、孤立对象和未完成 HEAD 发布均拒绝，不能把残留目录当空历史。
-- 实际 0700 私有目录与 0600 单链接普通文件，固定 directory FD；LOCK guard 在独占成功后立即持有，析构显式 unlock，读写前后核验目录与 lock inode。写盘异常毒化当前 Store，纯输入拒绝保持内存和目录原样。
-- `reserved_owners` 最多 16384 项，包含当前 depth/event owner 以及候选启动前已同步预留的 owner，失败/取消不回收；全链 seen_owner 同时覆盖这些身份。连续快照保留全部旧操作摘要和预留 owner、只追加 dense ID、revision 不回退；同 producer incarnation 的 bank ring/feed 代次不回退，同 ring 保持完整描述。新 incarnation 只接受旧 Ready 到同 revision Starting，启动权限仍由引擎门禁核对。
-- `recovery/tests.rs` 通过真实私有目录覆盖重读、历史身份、完整连续性、锁副本与正常 Drop、目录/LOCK 替换、损坏/孤立/符号链接/FIFO/权限拒绝、对象数/字节预算、dense 追加及 1024 份完整链边界；不新增 unsafe、不运行 TLC。
-- `ExpansionControl.recovery` 显式开启该路径；Runtime 单次固定 bank 描述、核对旧 Ready 和新启动批准、恢复 FeedIndex，再持久 Starting 后分配资源。`engine/restart_validation.rs` 只允许明示的新启动字段；`engine/expansion/durable.rs` 在唯一冷 worker 中移动 Store 执行阶段同步。故障换 bank 也先预留身份，不回退原无约束路径。
-- `server/runtime_tests/restart.rs` 通过实际 MD 进程完成扩容、停止、新 PID 恢复、重新 JOIN、再扩容，并保留旧配额责任；`restart_failure.rs` 验证不可逆失败保持关闭、错误描述拒绝及失败候选来源身份不复用。测试夹具可用 `TICKWIRE_MD_RUNTIME_TEST_BINARY=/absolute/tickwire-md` 改走固定实际 CLI，缺省为调用同一生产引擎的测试子进程。
-
-### 固定经济目录消费
-
-- `Config.catalogs: Option<Vec<CatalogFile>>` 缺省省略以保留旧配置字节。开启后批准 1..32 份绝对路径正文，引用/路径不能重复，总原文至多 2 MiB；单 FD 有界读取、原 SHA 与 artifact 引用核对，规范经济摘要由共享 Catalog 派生。相同规范目录不能以两份原文重复登记。
-- `Runtime::new` 在 quota、连接、memfd 与持久 Starting 前核对每个 feed 的完整标的/资产/合约、venue、环境与来源产品；event owner 复用该完整绑定。逐消息不读目录、不解析 JSON。
-- 扩容在候选/owner/token 预留前重核完整目标；批准集合、原文与经济身份固定，不能删去批准降级为旧路径，也不能追加启动目录之外的标的。目录可以预先包含尚未订阅的标的。
-- `Snapshot.catalog_objects` 按 `Config.catalogs` 顺序保存原始字节；缺省空集合只兼容未开启的历史。Store 写入和完整链重读都重算每份原 SHA 与 feed 经济匹配，连续快照保持批准和正文不变。冷恢复使用快照原文，当前路径删除/替换不会改变固定依赖。
-- `catalogs/tests.rs` 与 `recovery/tests/catalogs.rs` 覆盖合法 SHA 下的经济不符、source/asset/合约边界、正文容量、缺失/篡改依赖和自洽外层摘要下的拒绝。`server/runtime_tests/catalog.rs` 用真实 MD 子进程、TLS/WSS/REST、Publisher 和 JOIN 验证相同原价格按不同批准 tick 发布不同整数、初启副作用前拒绝、固定正文扩容及删除路径后的冷恢复。格式契约见 [instrument-catalog](../../specs/implementation/instrument-catalog.md)。

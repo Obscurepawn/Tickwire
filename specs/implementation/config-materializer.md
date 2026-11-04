@@ -1,11 +1,9 @@
-# 本地配置物化存储
+# Materializing a process's configuration locally
 
-`tickwire-config-materializer::Local` 将严格投影对象、目录 FD 文件后端与本地四阶段业务日志连接起来。完整控制提交核验及运行时应用来源核验属于配置 agent 的认证入口；这个库只保存提供给它的观察事实，不启动进程、不开放交易闸门，也不签发集群操作成功。
+`tickwire_config_materializer::Local` combines a verified permission-scoped projection, a directory-FD file backend and the four-stage local journal. The caller authenticates the control commit and supplies the observation from the actual runtime owner. Local persists those facts and writes the files that can be checked after restart. [Implementation](../../crates/tickwire-config-materializer/src/local.rs) · [Local journal](config-local-journal.md)
 
-Prepared 前同步权限内的投影对象。desired 引用原 Prepared 记录；effective 引用原 RuntimeObserved 记录。两份文件都由固定渲染器生成，再经实际文件同步、rename 和目录同步返回文件事实，最后写入对应业务记录。每个 effective 版本先生成不可变 last-good 副本，保留全部有界历史。引用对象和 last-good 的预算为 512 MiB，其中预留三份最大 8 MiB 文件的空间，供 desired、effective 和尚未完成的 last-good 使用。此预算约束日志引用的恢复集合；目录配额和中断留下的未引用对象清理属于部署存储管理。
+Before Prepared, Local syncs the projection object within the target process's permitted scope. The desired file refers to the original Prepared record. The effective file refers to the original RuntimeObserved record. For each file the deterministic renderer produces the bytes, then the backend syncs the file, renames it, syncs the directory and returns a file fact. Only then is the matching business record written. Every effective version has an immutable last-good copy. Referenced objects and all last-good copies have a 512 MiB budget, including room for three maximum-size 8 MiB files for desired, effective and an unfinished last-good copy. Deployment manages directory quotas and abandoned unreferenced files.
 
-`open` 核对全部引用对象、历史 last-good 和当前文件。记录已经存在时，当前文件的实际字节、长度、设备及 inode 全部相同才接受；只有唯一活动操作的下一阶段允许出现尚未记入日志、但与原事件重新渲染完全一致的文件。重试重新同步该文件并补记原操作。历史重试只返回原记录，不把文件覆盖回旧版本。
+On open, Local checks every referenced object, every historical last-good and the current file bytes, length, device and inode. The one recoverable gap is the next step of the sole active operation. A new file may already exist without its journal fact if it exactly matches a fresh rendering of that event. Retrying resyncs it and records the same operation. Retrying a historical step returns the original record and never rolls the file back.
 
-任何持久步骤或恢复核对失败都会停止推进。持久调用返回错误后，`Local` 进入 poisoned 状态；再次推进需要重开日志和文件。非法参数在写盘前拒绝，不改变进度。没有 last-good、缺少对象、文件内容漂移或当前 inode 被替换均拒绝恢复，文件时间不参与版本选择。
-
-测试与原始输出保存在物化验证目录。模块与全局 TLA+ 模型在功能代码完成后统一同步和执行。
+Invalid arguments fail before writes. An uncertain durable operation poisons Local and requires reopening the journal and files. Missing objects, missing required last-good files, modified bytes or replacement of a recorded inode refuse recovery. File timestamps do not select the winning version. A cluster success receipt still requires all affected targets and independent evidence from their actual runtimes.

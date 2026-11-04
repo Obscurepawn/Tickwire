@@ -33,10 +33,8 @@ impl Continuation {
                         .strategy()
                         .market_view(stream, h.instrument_id)
                         .ok_or(Error::Identity)?;
-                    let invoked = view.live()
-                        && at
-                            .checked_sub(view.received_mono_ns())
-                            .is_some_and(|n| n <= age);
+                    let invoked =
+                        engine.strategy().callbacks_ready() && view.callback_ready_at(at, age);
                     engine.apply(
                         Input::MarketCallback {
                             stream: stream.clone(),

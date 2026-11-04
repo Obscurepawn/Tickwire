@@ -288,7 +288,7 @@ impl Strategy for Counting {
         view: sdk::MarketView<'_>,
         now: u64,
     ) -> sdk::Result<Option<CanonicalCommand>> {
-        if !view.live() {
+        if !view.callback_ready_at(now, u64::MAX) {
             return Ok(None);
         }
         self.state.observations = self

@@ -1,78 +1,33 @@
-# 账户恢复编码规格
+# Account baseline and recovery-record codec
 
-## 对象与编码
+The account codec assigns one canonical byte representation to a baseline and each ordered account record. Both carry SHA-256 over their entire top-level encoding. [Implementation](../../crates/tickwire-account-codec/src/lib.rs)
 
-`tickwire-account-codec` 定义两个不可变对象：
-
-| 对象 | 顶层 CBOR 数组 | 上限 |
+| Object | Top-level CBOR array | Maximum |
 |---|---|---:|
-| 基线 | `["tickwire.account-baseline", 1, Snapshot, Catalog]` | 2 MiB |
-| 有序记录 | `["tickwire.account-record", 1, baseline_sha256, sequence, RecoveryRecord]` | 60 KiB |
+| Baseline | `["tickwire.account-baseline", 1, Snapshot, Catalog]` | 2 MiB |
+| Record | `["tickwire.account-record", 1, baseline_sha256, sequence, RecoveryRecord]` | 60 KiB |
 
-摘要为完整顶层编码的 SHA-256。`baseline_sha256` 必须非零，`sequence` 从 1 开始；编码器检查非零值，持久化协调器检查记录与基线、物理日志及前后序号的对应关系。
+The baseline digest and sequence in a record must be non-zero. The journal establishes that the first record is 1, that positions are consecutive and that they match the physical log. Fixed-size structs use fixed-arity arrays. An option is `[]` or `[value]`, and a boolean is integer 0 or 1. Integers use shortest-form CBOR, including tags 2/3 for bignums and `-1 - magnitude` for negatives down to `i128::MIN`. Floating point, indefinite lengths, unknown tags and trailing contents fail decoding. `Fixed` encodes its original `[atoms, scale]`, preserving its unit. Venue decimals retain their canonical `[coefficient, exponent]`. Embedded commands and events must pass their own canonical decoders. [CBOR](../../crates/tickwire-account-codec/src/cbor.rs) · [Record codec](../../crates/tickwire-account-codec/src/codec.rs)
 
-所有结构使用固定成员数的数组；可选字段使用长度为 0 或 1 的数组。枚举使用固定整数标签，布尔字段固定为整数 0/1。整数使用最短 CBOR 表示，超过 u64 的 i128 使用标签 2/3 的最短大整数；负数幅值按 `-1-value` 计算，支持 i128 最小值。禁止浮点数、不定长项和未识别标签。
+## Baselines and admission images
 
-金额按 `[atoms, scale]` 保留原单位，不去掉尾零。交易所十进制数按 `[coefficient, exponent]` 保留其已有规范形式。字符串分别通过有界文本和资产/标的名称构造器检查。完整命令和交易所事件作为字节串内嵌，解码仍调用原模块的完整规范检查。
+The constructor sorts assets by wallet and asset, positions by instrument and position side, wallet availability by wallet, and catalog entries by instrument. Attributions and strategy limits sort by logical strategy. Duplicate keys fail. Risk tiers preserve their supplied order and must pass the risk rules. A valid baseline must pass `Account::from_snapshot`. The reader checks capacities before vector allocation and verifies byte-for-byte canonical re-encoding. Limits include 64 assets, 64 instruments, 128 positions, 1,024 attributions per asset or position, 1,024 strategy limits per instrument and 128 risk tiers per instrument. [Baseline checks](../../crates/tickwire-account-codec/src/validate.rs) · [Baseline tests](../../crates/tickwire-account-codec/tests/baseline.rs)
 
-## 基线
+An admission image contains the full command digest, original intent key, account epoch, ledger sequence, revision set, deadline, resource and capital reservations, child order keys and increase-risk flag. The codec checks identity and command classification. Cancel, query, parent cancellation and supported keep-priority reductions follow the non-increasing branch. New orders cannot downgrade themselves by changing the image flag. Each admission may contain at most three orders and 64 resource or capital entries per collection. Vector order matters on replay. Duplicate asset, wallet or child keys fail. An image is recorded data. Replaying an admission requires the reducer to recompute its full image at the original evaluation time. [Image validation](../../crates/tickwire-account-codec/src/validate.rs) · [Non-increasing commands](../../crates/tickwire-account-codec/tests/nonincreasing.rs)
 
-基线保存 `Snapshot` 和 `Catalog` 的全部字段。解码后调用 `Account::from_snapshot` 校验单位、目录、风险参数和初始归属。构造接口对以下集合排序，并拒绝重复键：
+## Record tags and evidence
 
-| 集合 | 排序及唯一键 |
-|---|---|
-| 资产 | `(wallet_id, asset_id)` |
-| 仓位 | `(instrument_id, position_side)` |
-| 钱包可用余额 | `wallet_id` |
-| 目录 | `instrument_id` |
-| 资产/仓位归属、策略限额 | `logical_strategy_id` |
+| Tag | Record | Tag | Record |
+|---:|---|---:|---|
+| 1 | Admit | 9 | IngressEvent |
+| 2 | VenueEvent | 10 | Reactivated |
+| 3 | Aborted | 11 | StrategyHandover |
+| 4 | FeesReconciled | 12 | IngressAccountInput |
+| 5 | UnattributedCashFlow | 13 | IncomeBaseline |
+| 6 | ExternalPosition | 14 | AccountInputsReconciled |
+| 7 | TransferAsset | 15 | IncomeObservationsAssociated |
+| 8 | TransferPosition | 16 | UncreatedAlgoClosed |
 
-风险档位保持输入顺序，由账户风险模块检查档位规则。解码要求重新编码的结果与输入逐字节相等，乱序集合不能作为另一种规范表示被接受。
+Tag 9 preserves the non-zero 16-byte input stream, non-zero sequence and full canonical event. Tag 10 binds the account, source and writer epochs, preceding state, input prefix, snapshot coverage, clock validity, sending connection and ordered wallet availability. Tag 14 binds scope, account epoch, preceding ledger sequence, baseline and history digests, input stream and processed sequence, state digest and coverage digest. The enclosing baseline must match. The owner verifies actual input data, physical writer and historical prefix before publishing these records. Earlier tags retain their original bytes. Older readers reject unfamiliar tags. [Wire definitions](../../crates/tickwire-account-codec/src/codec.rs) · [Compatibility tests](../../crates/tickwire-account-codec/tests/legacy_encoding.rs)
 
-集合容量为资产 64、标的 64、仓位 128、每资产或仓位的归属 1024、每标的策略限额 1024、每标的风险档位 128。成员数量在对应向量分配前检查；构造器对调用者已有向量也执行相同检查。
-
-## 恢复记录
-
-| 标签 | 记录 | 按序编码的内容 |
-|---:|---|---|
-| 1 | Admit | 完整命令、原判断时间、AdmissionImage |
-| 2 | VenueEvent | 完整交易所事件 |
-| 3 | Aborted | 原意图键、命令摘要 |
-| 4 | FeesReconciled | 订单键、已闭合累计数量 |
-| 5 | UnattributedCashFlow | 来源 ID、钱包/资产及金额 |
-| 6 | ExternalPosition | 来源 ID、标的、持仓侧、数量、入场价界 |
-| 7 | TransferAsset | 钱包/资产、原策略、目标策略、金额 |
-| 8 | TransferPosition | 标的、持仓侧、原策略、目标策略、数量 |
-| 9 | IngressEvent | 16字节输入流、非零输入序号、完整规范交易所事件 |
-| 10 | Reactivated | 完整对账绑定及按 wallet 排序的远端可用余额 |
-
-tag9 的 body 为四元素 CBOR 数组 `[9, input_stream, input_sequence, event_bytes]`，全零 stream 和零 sequence 拒绝。schema 仍为1；原1至8标签、字段顺序及字节保持不变。旧解码器遇到未知tag9返回错误，不能把它当作普通 VenueEvent 丢掉输入身份。兼容回归实际运行已提交版本 `d792e8058a52151056155b68f01460442c9ddaef` 的旧编码器，保存全部8类完整字节，再与当前编码逐字节比较。
-
-`AdmissionImage` 保存命令摘要、原意图键、账户代次、预留产生时的账本序号、全部风险修订、期限、逐资产资源、资本占用、子订单键和增险标识。编码器核对命令关联和基本字段条件；恢复时还必须重新计算预留并精确比较整个 image。该 image 不具备 `Admission` 的授权能力。
-
-增险标识从完整命令类别核对：Cancel、Query、CancelList、CancelAlgo 为 false，其余为 true，image 不能自行将新单降为非增险。只有 true 时比较 image 与命令的风险策略版本；合法撤单/查询保留各自版本原值，仍核对命令摘要、原意图、账户代次、账本序号与请求期限。该校验没有改变 schema、字段顺序或编码字节；尚未实现的账户动作仍由账户准入拒绝。
-
-单次准入最多 3 个订单；资源和资本占用各最多 64 项。image 中的向量顺序保留为重放比对内容，不在编码期间改写。重复资产、钱包或子订单键被拒绝。
-
-## 与持久化及形式模型的关系
-
-基线可保存为恢复对象；单条记录连同物理 WAL 的 begin/data/seal 帧可放入 64 KiB 批次。解码成功不证明来源、序列完整性或存储完成；持久化协调器须先核对对象摘要、日志身份和可信完整前缀，再交给 `Account::recover`。账户重放后保持冻结。
-
-当前文件集成测试使用真实 `FileBlobStore` 和 `Journal<FileStore>`，同步后关闭并重新打开，检查物理收据、基线摘要与记录序号，再恢复 Spot/USD-M 账户。它验证编码能够保留重放所需内容；生产发送与账户日志的统一提交仍由后续协调模块实现。
-
-编码自身没有跨调用状态迁移。字节边界由单元与差分测试覆盖；有序记录的资金语义由[账户模型](../../tla/execution_models/account/ROADMAP.md)检查，文件持久化原语由[物理日志模型](../../tla/execution_models/physical_journal/ROADMAP.md)检查。两者之间的发送提交组合需要独立模型。
-
-## 验证
-
-- 基线及全部 8 类记录的往返、身份绑定、每个截断位置、尾随数据和畸形长度检查。
-- 独立 Python 编码器生成 Spot/USD-M 基线、i128 最小现金流和乱序基线样本，Rust 逐字节及逐摘要比对。
-- 对基准 Spot 编码每个字节逐一替换为其余 255 个值；成功解析的输入必须保持唯一规范表示，且摘要与原内容不同。
-- 真实文件对象/WAL 的 Spot 与 USD-M 重放，检查资产、预留、资本影子额度和未决状态。
-
-执行命令与实际输出见编码验证。
-
-`Reactivated` 使用 `[10, binding]`，binding 为18成员定长数组，字段顺序对应 `Reactivation`：账户范围、产品、账户代次、激活前账本序号、基线摘要、前置历史摘要、输入流、私有连接代次、缺口代次、已处理输入前缀、快照覆盖摘要、时钟boot ID、时钟代次、核验时间、有效期、writer代次、发送连接代次、远端可用余额。余额按 wallet 严格递增，数量有界且非负；应用时还要求完整匹配原账户的钱包与精度。旧标签的字段和编码不变；旧解码器会拒绝未知tag10。
-
-## 收入核对标签 14
-
-`[14, binding]` 的 binding 是九成员定长数组：scope、account_epoch、原 ledger_sequence、baseline_digest、前序 history_digest、input_stream、through_sequence、state_digest、coverage_digest。非零身份、摘要和输入序号按 codec 校验，baseline 必须与记录信封相同；完整历史、实际查询对象及物理 writer 由 Journal/Gateway 的专用 verifier 重验。旧标签和 schema1 编码保持原义。
+Core validation includes independent byte and hash vectors, truncation and malformed-length cases, and Spot/USD-M file-backed replay. Decoding verifies byte shape and binding. It does not establish who produced the record, whether all prior records survived or whether an account may send. [Vector tests](../../crates/tickwire-account-codec/tests/vectors.rs) · [File replay](../../crates/tickwire-account-codec/tests/file_replay.rs)

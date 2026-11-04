@@ -250,9 +250,12 @@ impl tickwire_runtime::node::Strategy for RebuildStrategy {
     fn on_submission(
         &mut self,
         c: &CanonicalCommand,
-        r: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+        r: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         tickwire_runtime::node::Strategy::on_submission(&mut self.0, c, r);
+    }
+    fn on_request_reply(&mut self, c: &CanonicalCommand, r: &tickwire_venue::RequestReply) {
+        tickwire_runtime::node::Strategy::on_request_reply(&mut self.0, c, r);
     }
 }
 impl AppStrategy for RebuildStrategy {

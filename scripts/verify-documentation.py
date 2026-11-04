@@ -1,15 +1,5 @@
-"""Check Markdown consistency for docs that live in the repository.
-
-Scope after the docs/ directory was removed:
-- README.md, AGENTS.md, every AGENTS.md under crates/, and all *.md under specs/
-  and scripts/.
-- For each file: fenced code blocks are balanced, reference-style links have
-  definitions, and local (non-http) links point at existing files.
-
-This script deliberately no longer checks the deleted docs/ assets
-(diagram PNG/SVG hashes, verification plan numbering, design-doc wording).
-It checks documentation structure only, not runtime behavior.
-"""
+"""Check English project guides, specification prose, and local Markdown links."""
+import os
 from pathlib import Path
 import re
 import urllib.parse
@@ -19,17 +9,24 @@ errors = []
 local_count = 0
 ref_count = 0
 
-files = [root / 'README.md', root / 'AGENTS.md']
-files += sorted((root / 'crates').glob('*/AGENTS.md'))
-for folder in ['specs', 'scripts']:
-    base = root / folder
-    if base.exists():
-        files += sorted(base.rglob('*.md'))
+files = []
+for folder, directories, names in os.walk(root):
+    directories[:] = [name for name in directories
+                      if name not in {'.git', '.tools', 'target', '__pycache__'}]
+    base = Path(folder)
+    parts = base.relative_to(root).parts
+    for name in names:
+        if name in {'README.md', 'AGENTS.md'} or (
+            parts and parts[0] in {'crates', 'specs', 'scripts'} and name.endswith('.md')
+        ):
+            files.append(base / name)
 
-for p in files:
+for p in sorted(files):
     s = p.read_text(encoding='utf-8')
     text = re.sub(r'```.*?```', '', s, flags=re.S)
     text = re.sub(r'(`+)(?!`)(.*?)\1(?!`)', '', text, flags=re.S)
+    if re.search(r'[\u3400-\u9fff]', text):
+        errors.append(f'{p}: untranslated prose')
     if sum(line.startswith('```') for line in s.splitlines()) % 2:
         errors.append(f'{p}: unmatched fence')
     definitions = dict(re.findall(r'^\[([^\]]+)\]:\s+(\S+)', text, re.M))

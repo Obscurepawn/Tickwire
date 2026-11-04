@@ -1,7 +1,7 @@
-# Binance 执行适配
+# Binance execution adapter
 
-实现位于 `crates/tickwire-binance-execution`。共享状态固定账户、产品、环境和 ClockDomain；命令摘要对应不可变请求字节与原 SignedTime。映射容量由构造参数限定，最大4096个命令，不删除旧记录后重签。
+`tickwire-binance-execution` binds one account, product, environment and clock domain to a sender. The command digest identifies the immutable request bytes and the original `SignedTime`. The configured table holds at most 4,096 commands. Once full, it rejects a new entry. An exact retry uses the retained signature.
 
-GateAuthority 保留底层 Authority 的持久闭包职责，并在同一首次发送回调中追加原签名检查、租约/请求期限检查和本地配额消费。预算回调和控制策略读取均发生在最终校准检查之前。缺失原签名、身份不符、旧时间戳超窗、期限到达、域变化或额度不足均拒绝。
+`GateAuthority` delegates recovery-closure persistence to its inner authority. At the first application write it validates the original signature, lease, request deadline and remaining quota. The budget callback and policy read both precede the last clock sample. An expired signature, changed clock domain or insufficient quota prevents the write.
 
-编码重试、原签名过期、预算回调推进时间、未编码命令、租约/策略变化由库内单元测试覆盖。完整网络组合与形式验证由核心运行链路接通后统一执行。
+Unit tests exercise encoding retries, missing encodings, lease and policy changes, and a budget callback that advances the clock beyond the signing window.

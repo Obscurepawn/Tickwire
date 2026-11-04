@@ -484,11 +484,7 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
                     .view(*instrument)
                     .ok_or(Error::Identity)?;
                 let eligible = self.callbacks_ready()
-                    && view.live()
-                    && context
-                        .now_ns()
-                        .checked_sub(view.received_mono_ns())
-                        .is_some_and(|age| age <= *maximum_age_ns);
+                    && view.callback_ready_at(context.now_ns(), *maximum_age_ns);
                 if eligible != *invoked {
                     return Err(Error::Identity);
                 }

@@ -1,27 +1,25 @@
-# 共享请求额度规格
+# Shared request quotas
 
-每个 `BucketId` 由权威命名空间、共享主体类型、主体 ID 和池 ID 组成。不同消费者分得同一个 `WindowKey` 的额度时，总分配量共用同一个上限。窗口配置不可原地修改，同一桶的后续窗口必须有更大的 ID，起点不早于已有窗口终点。
+A `BucketId` identifies the authority namespace, type and ID of the shared principal, and pool. All consumers charged to the same `WindowKey` share a single limit. A committed window is immutable. A subsequent window for the bucket needs a larger ID and cannot start before the previous window ends. Windows use conservative send intervals in a trusted local monotonic clock domain. [Quota coordinator](../../crates/tickwire-quota/src/lib.rs)
 
-协调器的持久状态保存 supervisor 代次、单调域及已提交的时间下界、窗口配置、消费者最新代次和全部发放记录。`open` 要求更高 supervisor 代次、相同单调域和不回退的时间。消费者登记只接受更高 exec 代次；登记回执丢失不能重新构造同一代次的消费对象。
+## Durable grants
 
-每次发放先验证全部窗口及余额，再一次比较交换保存候选状态。只有成功返回的持久写入才能产生 Grant。比较交换失败后该协调器停止写入；提交完成但回执丢失时，重新打开仍能读到全额占用。相同 request_id 不再次产生 Grant。
+The coordinator persists supervisor epoch, clock domain, committed time lower bound, windows, newest consumer epochs and issued grants. Reopening requires a higher supervisor epoch, the same domain and a non-regressing time. Consumer registration requires a higher execution epoch. A lost registration acknowledgement does not allow a second consumer instance in that epoch.
 
-对于窗口 `w`：
+Grant issuance validates all affected windows and balances, then atomically compare-and-swaps the candidate store state. Only a confirmed successful commit can return a grant. A failed compare-and-swap stops that coordinator from writing again. If commit succeeds but the acknowledgement is lost, recovery still accounts for the *full* allocation. Reusing a request ID cannot mint another grant. For each window the following relations hold.
 
+```text
+accounted = sum of retained quantities in all grants for this window
+accounted <= window limit
+normal_accounted <= window limit - recovery reserve
 ```
-accounted(w) = Σ 每个发放记录在该窗口保留的量
-accounted(w) <= limit(w)
-normal_accounted(w) <= limit(w) - recovery_reserve(w)
-```
 
-新发放记录保留完整额度。只有消费者停止后返回的最终记录可以把保留量减少到实际已用量。已用量不因超时、失败、NoBytes、冻结或停止而退回；没有停止回执的额度保持完整占用。此规则让协调器重启后的不确定尾部不会变成新的可用额度。
+A new grant retains its maximum amount. Only a final usage record from the stopped consumer may reduce that quantity to actual use. Timeouts, failed requests, a local no-bytes outcome and freezing do not refund previously used units. A missing stop receipt or an uninstalled grant leaves its full allocation outstanding. [Grant and consumption tests](../../crates/tickwire-quota/tests/quota.rs)
 
-本地消费者持有不可复制的 Grant，所有方法由同一 owner 串行调用。消费前校验单调域、时间顺序、租约、冷却、窗口和 Grant 到期，然后对完整费用表先算出扣减计划，再一起应用。任何桶不足时不修改其他桶。相同尝试 ID 必须有相同摘要、类别和费用表；精确重试仍校验首次扣减使用的 Grant，不能通过后来安装的新 Grant 绕过原到期。内容冲突永久冻结当前消费者。
+## Local consumption
 
-同域租约续期使用协调器持久登记后发出的私有对象；它只改变消费者租约，不改变已有 Grant 的到期。续期在旧租约过期后送达会被拒绝。`stop(self)` 消耗整个消费者对象，返回各已安装 Grant 的最终用量；后续无消费入口。尚未安装的 Grant 不在停止记录里，保持全额占用。
+A single consumer owns each non-copyable grant. Before charging an attempt it verifies clock domain, time ordering, lease, cooldown, window and grant expiration. It computes the complete multi-bucket debit plan first. If any bucket is short, no bucket is charged. Exact attempt retries must match the original digest, charge class and entire cost table, and revalidate the *original* grants. A newer grant cannot bypass the earlier grant's expiration. Conflicting reuse permanently freezes that consumer. The bounded owner tracks up to 256 windows, 256 consumers, 4,096 grants, 16 costs per attempt and 4,096 attempts. [Quota limits and transitions](../../crates/tickwire-quota/src/lib.rs)
 
-窗口使用可信控制面给出的保守本地发送区间，当前不实现跨主机时间映射。Store 是原子持久比较交换的接口；提供的 `MockQuotaStore` 只模拟该语义。外部端点适配器负责完整费用表、恢复类别授权、权威限额和 429/418 反馈；核心没有默认许可。
+A durable lease renewal affects only the consumer lease. It cannot extend an existing grant or revive a consumer whose old lease has already expired. `stop(self)` consumes the owner, reports usage of installed grants and leaves no subsequent charge entry point. Endpoint adapters supply the actual costs, recovery classification, venue limit configuration and 429/418 feedback. The quota core cannot infer venue rate limits or translate a clock between hosts. [Binance endpoint quota owner](../../crates/tickwire-binance-quota/src/lib.rs)
 
-本阶段交付的所有者生命周期有明确容量上限。历史压缩、真实控制连接导入和 Binance Permit 适配继续独立实现，不能通过清空仍有重试可能的记录来延长运行。
-
-`FileQuotaStore` 的文件锁属于唯一存储 owner。成功取得锁后立即建立私有释放 guard，覆盖随后读取 STATE、校验和同步失败的退出路径。正常释放 owner 时显式解锁，再关闭文件；并发启动子进程在 exec 前暂时继承的描述符不能延长已结束的所有权。活 owner 仍排斥独立重开，旧继承描述符随后关闭也不能解除新 owner 独立取得的锁。异常进程退出仍依赖内核关闭描述符，不以重试或等待继承者代替排他校验。
+`FileQuotaStore` takes an exclusive file lock before reading and validating state. A private guard releases it on subsequent construction failure or owner destruction. Explicit unlock before close prevents a temporarily inherited descriptor from extending the retired owner's lock across fork/exec. A still-live owner continues to exclude another opener. A stale descriptor closing later cannot release a successor's independent lock. [File-backed store](../../crates/tickwire-quota/src/files.rs)

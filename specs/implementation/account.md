@@ -1,37 +1,26 @@
-# 多资产账户实现规格
+# Multi-asset account state machine
 
-实现位于 `crates/tickwire-account`，公共调用契约见 账户接口。当前实现是一份固定账户基线和目录版本内的单所有者账户状态机，覆盖完整命令预留、成交及费用入账、归属、冻结与确定性恢复。
+`Account` is the single writer for one risk domain and a fixed account snapshot and instrument catalog. It reserves funds at admission, applies reported fills and fees, attributes assets and positions to their original strategy, and replays the same decisions after restart. The gateway owns the journal and the final permission to send. [Account implementation](../../crates/tickwire-account/src/lib.rs) · [Account gateway](account-gateway.md)
 
-## 金额、预留与资本
+## Amounts and reservations
 
-所有金额使用 `Fixed { atoms, scale }`，资产版本与精度沿 `AssetRef` 校验。已报告数量、成交金额、费用和损益必须能够精确表示；风险支出向上取整、潜在收入向下取整。算术使用 `tickwire-risk` 检查运算，失败不提交候选财务状态。没有浮点、默认风险参数或外币原子数混算。
+* Every amount uses `Fixed { atoms, scale }` and a versioned asset identity. Reported quantities, quote amounts, fees and realized PnL must be exactly representable in the relevant asset. Risk calculations round potential outflows up and inflows down. Arithmetic failure discards the candidate financial state. [Risk calculations](../../crates/tickwire-account/src/calculation.rs)
+* Spot availability respects both the local funds calculation and the exchange-reported free balance. The initial baseline provides no coverage for pre-existing live orders. All initial locked funds must be explained by `nontrade_locked`. A buy reserves remaining base quantity at the upper buy-price bound. A sell reserves the remaining base quantity. The received-asset fee calculation separates fees earned but still unreported on fills from the external top-up needed for the unfilled part. General, tax and special fee components round separately. The rounding allowance depends on the contractual maximum number of fills multiplied by the number of non-zero fee components. A third-asset fee pool is ring-fenced from ordinary spending. [Snapshot checks](../../crates/tickwire-account/src/lib.rs) · [Account calculations](../../crates/tickwire-account/src/calculation.rs)
+* USD-M stress capital includes margin tiers, effective leverage, unrealized losses, execution and close-out fees, funding, buffers and rounding allowances. Positive unrealized PnL cannot offset this requirement. Only the wallet's settlement asset supplies collateral. Isolated wallets are supplied separately, with one instrument per isolated wallet. Delivery contracts do not inherit a perpetual contract's count of funding settlements. [USD-M tests](../../crates/tickwire-account/tests/futures.rs)
+* Each admission records the incremental capital hold `H = max(0, after - before)` and checks available shadow capital `A0 - ΣH - D`. The fee credit allocated across new orders in that wallet cannot exceed H. Actual charges consume that credit before increasing uncovered debits D. An ordinary terminal observation, a fill or fee closure preserves H. A proven synchronous abort with no contrary evidence removes it. An unvalued non-settlement fee or an external debit still changes the actual asset balance and makes the shadow calculation unreconciled. A subsequent verified account reactivation can establish a fresh capital baseline. [Account recovery](../../crates/tickwire-account/src/recovery.rs)
 
-Spot 使用 `risk::spot::available` 比较本地余额与交易所 free 上限。当前基线 coverage 为零，初始 locked 全部由 nontrade_locked 解释。买入本金为剩余数量乘买价上界，卖出本金为剩余基础币。接收币费用分已成交未报告部分与尚未成交的外部补足部分；general/tax/special 费率分别取整，最大成交次数乘非零费率项数形成原子尾额。这个次数来自明确费率契约，未从最小下单步长推断。第三资产费用池整体隔离；账户不把池内余额批准给普通支出。
+## Admission and observed events
 
-USD-M 复用 OneWay/Hedge 压力资本、保证金档位、有效杠杆、未实现亏损、执行费、平仓费、资金费、缓冲与舍入尾额。正向未实现盈利不抵扣资本。一个钱包只使用对应结算资产作为抵押，USDT 富余不能补 USDC 钱包。交割合约参数不继承永续资金费结算次数。逐仓钱包由调用者单独提供，当前不在一个逐仓钱包内混入多个标的。
+A risk-increasing command must pass asset, capital, strategy and gross-exposure checks. Reusing an intent key with the same canonical command is idempotent. Reusing it with different content freezes the account. Cancel and query validate account, instrument, original target, ownership or management revision, and deadline. They may pass account admission when balances are insufficient, the snapshot is stale or the account is frozen. Network output still requires a running writer with a valid gate. Cancel-replace reserves the combined exposure of the old and proposed replacement orders. A cancel request alone releases neither order. [Admission](../../crates/tickwire-account/src/admission.rs)
 
-每次准入记录资本增量 `H=max(0,after-before)`，并检查 `A0-ΣH-D` 影子额度。同一钱包的费用覆盖在新订单间分配，总额不超过 H。实际费用先消耗这部分覆盖，超额扣款进入 D。普通终态、成交和费用闭合均保留 H，只有无任何已存在证据的同步中止才移除。收到无法估值的非结算币费用或外部扣款后，真实资产继续入账，影子额度转为 `Unreconciled`。
+Reduce-only orders reserve the unclaimed portion of the actual position for the applicable one-way or hedge side. A fill updates the position, strategy allocation and reduction reservation together. Outstanding reservations exceeding the actual position freeze the account. An external position replacement preserves outstanding reservations and records the difference in the unattributed allocation. [Order events](../../crates/tickwire-account/src/events.rs) · [External changes](../../crates/tickwire-account/src/external.rs)
 
-## 状态与顺序
+A prior acknowledgement, fee observation (including zero), fill, terminal observation or unknown outcome rules out a contradictory local abort. An acknowledgement arriving after an abort restores the order's liability and freezes the account. If terminal cumulative quantity arrives before all fills, principal or reduction reservations remain. A later excess fill is booked and the account freezes. An exact duplicate trade does not book cash or positions twice. Identity checks and new terminal or unknown information still apply. A trade ID reused with different economics preserves the existing booking and freezes the account. Spot accounting uses reported `last_quote`. A USD-M close requires reported realized PnL. Fees are signed, asset-specific cash movements, including rebates. Valid negative balances and actual losses beyond the reservation are retained. [Event application](../../crates/tickwire-account/src/events.rs) · [Edge-case tests](../../crates/tickwire-account/tests/edge_cases.rs)
 
-风险增加的命令在全部资产、资本、策略和账户毛敞口检查成功后提交。完整命令摘要与原始意图代次构成幂等身份；同意图不同内容冻结。Cancel/Query 检查身份、目录、原订单、所有者版本、策略归属和请求期限，账户快照过期、冻结或资金不足时仍可接纳；它们不依赖用于增险的风险策略版本，旧责任保持。发送前重验保留同样的动作区分。CancelReplace 预留旧单和新单的共同责任，不把撤单请求当成交终止。
+## Freeze and recovery
 
-`Account::freeze()` 只置冻结状态，不修改账目、预留或日志序号，没有对应解冻方法。所有者可在日志或传输故障时调用；被冻结账户仍处理真实交易结果，并允许身份与期限有效的 Cancel/Query。
+`freeze()` changes no balance, reservation or ledger position. It preserves the ability to book actual outcomes. Reactivation requires a separate verified, journaled record. Exchange-observed unknown status and recovery-injected uncertainty are independent flags. Either makes the order publicly unknown. A third flag records missing, inconsistent or out-of-range terminal quantity until reconciliation. A local freeze or a replay-injected unknown flag must not turn a duplicate fill into a new ledger event. [Account state](../../crates/tickwire-account/src/lib.rs) · [Reactivation and replay](../../crates/tickwire-account/src/recovery.rs)
 
-减仓票据以实际仓位为基础。OneWay 和 Hedge 各侧只分配未占用数量，准入数量不能被静默缩小。成交同时更新实际仓位、原策略归属和票据；全部票据超过实际数量时冻结。外部仓位替换保留旧票据并把变化记入未归属桶，以便后续对账。
+An `Admit` record contains the full canonical command, original evaluation time and expected admission image. Replay recomputes the reservation from the original snapshot and catalog, compares the image, and applies records in order. The record set also includes venue and ingress observations, aborts, fee closure, external cash and positions, transfers, handovers and verified reconciliation records. Missing dependencies, conflicting inputs, a mismatched image or an overflowing sequence prevent a successful replay. Recovery returns a frozen account. Prefix integrity, provenance and closure verification belong to its journal owner. Checked arithmetic permits an exact final position of `u64::MAX` and rejects the next increment. [Record types](../../crates/tickwire-account/src/types.rs) · [Recovery tests](../../crates/tickwire-account/tests/recovery.rs)
 
-ACK、零费用、普通费用、成交、终态与 Unknown 都能阻止矛盾中止。中止后收到确认会恢复订单责任并冻结。终态先到而成交详情未齐时继续保留本金和票据；之后新成交超过终态声称的累计量时仍入账，但账户冻结。完全重复的成交不重复现金或仓位，新附带的 Unknown、终态和身份校验仍执行。不同金额的同 ID 记录保留旧账并冻结。
-
-Spot 按 `last_quote` 记录实际报价支出，不把成交价乘数量当交易所报告金额。USD-M 关闭实际仓位时要求已报告 realized PnL；缺失时冻结，不制造零损益。费用是带资产身份的有符号现金流：支出扣款，返佣增加原策略余额。负余额和超预算真实结果仍保留；单位、身份或算术无法表示的事件保持原财务状态并记录拒绝输入。
-
-## 持久输入与验收
-
-`RecoveryRecord` 包含 Admit、VenueEvent、Aborted、FeesReconciled、UnattributedCashFlow、ExternalPosition、TransferAsset、TransferPosition。Admit 保存完整规范命令、历史评估时刻和 AdmissionImage。恢复从同一 Snapshot/Catalog 重算预留，逐字段核对 image，然后按实际顺序重放；有缺失引用、内容冲突或预留不一致则拒绝。返回账户始终冻结；外层负责 WAL 前缀完整性、依赖闭包和来源验证。
-
-订单内部独立保存 `observed_unknown`、`recovery_unknown` 和单调的 `observation_unreconciled`。前者来自交易所记录，第二项仅在恢复结束时设置；第三项记录终态累计量缺失、越界或冲突。公开 Unknown 是前两者的或值，继续阻止新增风险和矛盾中止。重复成交比较订单变化，冻结状态本身不参与去重。因此本地冻结与恢复注入不会改变持久观察的计数，重放得到相同 `ledger_sequence`。这些私有字段不改变规范记录或基线的编码。
-
-序号使用检查加法。成功接纳的相同有序记录在普通序号和上限附近都保持重放一致；真正需要越过 `u64::MAX` 的输入在线返回错误，保持原财务状态并冻结。已保存但未成功应用的记录仍导致恢复失败。相关实际反例、边界回归和修复记录见 恢复序号验证。
-
-测试覆盖资产单位、费用尾额、第三币种池、成交与费用去重、返佣、终态缺失详情、未知结果、ACK/中止冲突、USD-M OneWay/Hedge 减仓、钱包隔离、影子扣款和恢复。真实命令与日志见 验证记录。形式模型分为 Spot 成交费用顺序和 USD-M 减仓/影子账两层，有限输入与源码映射见 [模型计划](../../tla/execution_models/account/PLAN.md)。
-
-当前基线尚不导入旧存活订单 coverage，且没有在线基线替换、解冻或目录升级记录。动态 closePosition、SpotAdvanced/SOR/peg 风险界、完整撤改单及条件父子生命周期、跨币抵押仍返回明确错误或等待后续接口。账户实现采用候选克隆和有界集合，尚未测量发送前风险检查延迟。
+Candidate-state cloning and bounded maps are part of admission cost. Account capabilities vary by product, order structure and venue. The original spot-fill/fee and USD-M reduction/shadow-capital models check bounded ordering properties. [Model plan](../../tla/execution_models/account/PLAN.md)

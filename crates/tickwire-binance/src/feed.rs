@@ -348,8 +348,9 @@ fn gcd(mut a: u128, mut b: u128) -> u128 {
     }
     a
 }
-pub(crate) fn units(value: Decimal, step: Decimal) -> Result<i64> {
-    if value.mantissa() < 0 {
+/// Converts an exact nonnegative decimal to whole multiples of a positive step.
+pub fn units(value: Decimal, step: Decimal) -> Result<i64> {
+    if value.mantissa() < 0 || step.mantissa() <= 0 {
         return Err(Error::InvalidDecimal);
     }
     let mut n = value.mantissa() as u128;

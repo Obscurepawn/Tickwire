@@ -1,4 +1,6 @@
 //! Qualified strategy construction and durable dynamic Shadow registration.
+pub mod group;
+
 use crate::{Result, config::read_file, invalid, strategy::AppStrategy};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -14,60 +16,10 @@ pub fn build(
     settings: &files::Configuration,
     plane: tickwire_runtime_policy::ControlPlane,
 ) -> Result<Box<dyn crate::strategy::AppStrategy>> {
-    use crate::strategy::{Config, MultiStrategy};
-    use tickwire_ipc::Wire;
+    use crate::strategy::Config;
     match config {
         Config::Hosted { config: host } => crate::hosted::build(host, settings, plane),
-        Config::Multi { members } => {
-            if members.is_empty() || members.len() > 32 {
-                return Err("multi strategy requires 1 through 32 members".into());
-            }
-            let mut seen = std::collections::BTreeSet::new();
-            let mut topics = std::collections::BTreeSet::new();
-            let mut children = Vec::with_capacity(members.len());
-            for member in members {
-                if member.logical_strategy_id == 0
-                    || !seen.insert((member.logical_strategy_id, member.shadow))
-                    || matches!(member.strategy.as_ref(), Config::Multi { .. })
-                {
-                    return Err(
-                        "multi strategy requires unique active/shadow slots and cannot nest".into(),
-                    );
-                }
-                if let Config::Hosted { config: host } = member.strategy.as_ref() {
-                    if host.shadow != member.shadow {
-                        return Err("hosted shadow mode must match its multi strategy slot".into());
-                    }
-                    let bootstrap: tickwire_strategy_sdk::bootstrap::Bootstrap =
-                        serde_json::from_slice(&crate::config::read_file(
-                            &host.bootstrap,
-                            1024 * 1024,
-                        )?)?;
-                    let logical = if let Some(external) = &bootstrap.external_market {
-                        tickwire_ipc::ResourceHeader::decode(&external.bank_header)
-                            .map_err(|e| format!("external market resource: {e:?}"))?;
-                        external.endpoint.local.logical_strategy
-                    } else {
-                        let header = tickwire_ipc::ResourceHeader::decode(
-                            &crate::config::read_file(&host.market_resource, 4096)?,
-                        )
-                        .map_err(|e| format!("market resource: {e:?}"))?;
-                        if !topics.insert(header.topic_id) {
-                            return Err(
-                                "independent local publishers require distinct topic IDs".into()
-                            );
-                        }
-                        bootstrap.market.local.logical_strategy
-                    };
-                    if logical != member.logical_strategy_id {
-                        return Err("strategy member does not match its process identity".into());
-                    }
-                }
-                let strategy = build(&member.strategy, settings, plane.clone())?;
-                children.push((member.logical_strategy_id, member.shadow, strategy));
-            }
-            Ok(Box::new(MultiStrategy::new_modes(children, plane)?))
-        }
+        Config::Multi { members } => group::build(members, settings, plane),
         other => Ok(Box::new(crate::strategy::FileStrategy::new(other)?)),
     }
 }

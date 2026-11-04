@@ -1,83 +1,43 @@
-# 控制配置基础规格
+# Configuration control state and authenticated requests
 
-实现位于 `tickwire-config-service`，本阶段完成复制对象、初始 desired、真实 mTLS、当前角色授权、HTTP 请求解析及 schema/validate 的安全读执行。计划器、常规配置提交、操作状态机、watch 输出和文件物化继续按业务接口实现。
+`tickwire-config-service` supplies a replicated object store, a first signed desired configuration, quorum reads, current-role authorization and candidate validation. An internal planner and archive can preserve all the inputs used for a decision. The HTTP service reports which checks it performed. Recording a plan does not change the desired revision or demonstrate application by a process. [Server composition](config-server.md) · [Committed reads](config-desired-read.md)
 
-## 复制与恢复
+## Replica, objects and bootstrap
 
-`Replica<S>` 独占实际 `tickwire-control-raft::Node<S>`。一次 drive 先完成 Raft 的持久提交，再按日志顺序执行全部非空业务命令；成功处理后才释放本轮网络输出。结构损坏、集群或初始化身份不符使实例停止，业务拒绝保留确定错误并继续扫描。安全读同时等待实际 Safe ReadIndex 和完整业务扫描水位；空 no-op 的 index 计入水位。
+One `Replica<S>` owns the Raft node. During a drive it completes durable Raft work and applies every nonempty business command in log order before releasing that turn's network output. A malformed command or incompatible cluster/initialization identity stops the replica. A deterministic business rejection leaves an error and permits scanning to continue. A safe read waits for both ReadIndex quorum and the business scan through the barrier, including no-op and membership entries.
 
-对象 Begin 固定 key、owner、purpose、总长度和 SHA-256，并预留总长度预算。Chunk 以 64 KiB 边界顺序存储，最后一片可短；精确重复不重复消费容量，同位置异内容和缺片拒绝。Seal 校验全长和摘要后发布不可变对象。所有内容经 Raft 日志复制，恢复逐条重建；只有本地文件或哈希的引用无法成为已封口对象。对象最多 4096 个、同时未封口最多 64 个，累计声明内容硬上限 512 MiB。
+| Command in `TWCF0001` | Effect |
+| --- | --- |
+| Tags 1–4 | Initialize and Begin/Chunk/Seal an object. Begin fixes key, owner, purpose, length and SHA-256 and reserves capacity. Sequential chunks use 64 KiB boundaries, with a shorter final chunk. An identical repeated chunk is idempotent. Seal checks full length and digest and publishes immutable content. |
+| Tags 5–6 | Initialize with the approved bootstrap-trust digest and submit the first signed configuration. The reducer verifies the offline signature, candidate bytes, static semantics, role data and actual voter set. Revision 1 records the original term/index. An exact retry returns that position. |
+| Tag 7 | Record a fully sealed archive root and principal/idempotency key in one committed operation. It leaves the desired head and runtime untouched. |
 
-TWCF0001 命令使用小端整数，1–4 为初始化及对象 Begin/Chunk/Seal，5 为附带引导信任摘要的初始化，6 为签名首次配置。单命令最多 1 MiB；候选/资格对象最多 16 MiB、投影 4 MiB、收据/计划元数据 1 MiB。解码拒绝截断、尾字节和未知 tag。固定 Python/OpenSSL 样本独立验证引导消息、签名和命令字节。
+The command encoding uses little-endian integers, is limited to 1 MiB and rejects trailing bytes, truncation and unknown tags. Object limits are 4,096 total, 64 open and 512 MiB declared in aggregate. Purpose limits are 16 MiB for candidate/qualification, 4 MiB for projections and 1 MiB for receipt/plan metadata. Objects become replicated only through committed bytes. A hash pointing to a local file is insufficient. [Command codec](../../crates/tickwire-config-service/src/codec.rs) · [Object store](../../crates/tickwire-config-service/src/objects.rs)
 
-初始配置授权绑定离线公钥、集群、namespace、集群名称、完整候选摘要、对象键和 nonce。初始化先持久绑定信任摘要，恢复时变更或删除信任即失败。多数提交后的 reducer 重新验证签名、规范内容、静态语义、角色数据，以及实际 Raft voter ID 集合，创建 revision 1。精确重试保留第一次的 term/index；其他引导请求不能覆盖 head。该记录只建立 desired，没有目标 runtime 或交易权收据。
+The first configuration binds its signing key, cluster ID and name, namespace, full candidate digest, object key and nonce. The canonical signed bytes must already include defaults such as `cluster_scope=false`. A missing or changed bootstrap trust on reopen fails. Independently encoded Python/OpenSSL fixtures check messages, signatures and command bytes. A three-node test committed a 16 MiB object in 256 chunks, then reopened each voter and verified the same bytes after leadership changes.
 
-签名对象已经显式包含 schema 默认值；缺少 `cluster_scope=false` 的对象拒绝，不在验签后补写。普通候选准备则先展开默认值，再重新计算内容摘要与真实 diff。全量入口先要求全局 Editor，补丁先检查全部 selector 授权，之后才检查完整 base 与 ETag。
+Schema 1 snapshots use the `TWCS0001` root, at most 1 MiB. They bind cluster/group, actual Raft cut/index/term, membership digest, budgets and bootstrap trust. Sorted object metadata references ordered chunks of up to 16 MiB. Recovery checks all referenced bytes, incomplete upload boundaries and reserved capacity and revalidates bootstrap using its original signature, voter set and position. Snapshot preparation occurs in isolated state. Only a receipt from the actual durable node generation after CURRENT publication allows installation. An older receipt cannot roll back a business scan beyond the cut. `recover_generation` restores the snapshot then replays the committed tail. The ordinary constructor rejects a compacted log. [Snapshot implementation](../../crates/tickwire-config-service/src/snapshot.rs)
 
-配置业务快照 schema 1 使用 `TWCS0001` 根对象，绑定集群、Raft group、实际 cut/index/term、membership 摘要、预算及引导信任。根对象最多 1 MiB；对象表按 key 排序，内容按顺序打包成至多 16 MiB 的块。恢复重新检查每块摘要、已封口对象摘要、未完成上传边界和累计预留，并以原签名、原 voter 集合及原 index/term 重新验证首次配置。
+## HTTP, certificate identity and scope
 
-快照 prepare 在隔离状态中完成。只有实际 Node 发布 CURRENT 后产生、并与本机当前代相符的凭据能安装；业务水位超过 cut 后，旧凭据也不能回退状态。`recover_generation` 先恢复业务快照，再应用已提交日志尾部；普通构造器拒绝已压缩日志。具体格式和恢复顺序见快照接口。
+The TLS 1.3 service checks the CA chain, pinned leaf digest, unique SPIFFE URI SAN and both ends of the CRL validity interval. It disables session resumption and 0-RTT. An authenticated connection identifies the principal. Each operation revalidates certificate, revocation and roles against the current committed head. Empty account lists confer no cluster scope. Explicit cluster scope requires an empty account list and applies only to that role. A full edit requires a cluster Editor. For scoped patches the service checks every selector before disclosing base, ETag or old values, then rechecks the complete changed configuration and its affected dependencies.
 
-## 认证、作用域和输入
+The HTTP/1.1 parser accepts one request per connection. It bounds headers at 16 KiB and 64 fields and body at 16 MiB, further constrained by the committed configuration. The 16 defined routes reject unknown query fields, path escapes, duplicate headers, ambiguous length/transfer encoding, compressed input and malformed ETags or idempotency keys. It checks strict JSON against the pinned OpenAPI and offline schema registry. A request digest binds method, canonical route and body. If-Match is a separate idempotency condition. Parsing a route does not implement its reducer. [OpenAPI contract](../contracts/control-api.openapi.json) · [HTTP request parser](../../crates/tickwire-config-service/src/api.rs)
 
-TLS 1.3 要求有效 CA 链、固定叶摘要和唯一 SPIFFE URI SAN，CRL 的 thisUpdate/nextUpdate 均按当前时间校验。连接握手、加密字节及请求读取共享总预算和绝对期限；会话恢复与 0-RTT 关闭。证书主体通过私有 `AuthenticatedPrincipal` 进入授权；每次授权重新验证证书链、撤销状态与当前候选角色。
+`https::Server` performs handshake and one HTTP exchange on bounded connection threads and delegates begin/poll/cancel to the same Raft owner. One absolute deadline from accept covers TLS, reads, waiting and writing. Slow clients do not occupy the consensus loop. At capacity the listener stops accepting. Shutdown cancels requests and closes sockets. Normal leader turnover returns 503. Terminal owner errors propagate. `schema` returns the pinned schema, while `validate` can report static and deployment-level checks after safe reads. Full validation requires cluster read access. Scoped validation preserves selector authorization. Certificate, committed request size and permissions are checked at execution as well as admission.
 
-`cluster_scope` 缺省 false。空账户列表不授予全局权限；显式 true 时列表必须为空，且只扩大本行角色范围。策略共享预算和账户引用按实际依赖集合计算权限。ScopedPatch 在读取 selector、ETag 或旧值前检查全部选择器的作用域，按稳定 ID 合并，再对完整候选执行静态校验和最终 diff 授权。
+## Deployment evidence and planning
 
-HTTP/1.1 使用单请求连接，头部最多 16 KiB/64 项，正文硬上限 16 MiB。固定 16 个端点拒绝未知 query、路径逃逸、重复头、TE/CL 混用、压缩正文和非法 ETag/幂等键。正文先严格 JSON 解析，再用程序固定的 OpenAPI 与离线 system-schema registry 校验。请求摘要绑定方法、规范路由和规范正文；If-Match 作为独立幂等条件保存。解析结果不产生业务授权或提交结果。
+`evidence::Trust` binds cluster, namespace, trust revision and at most 32 issuers and their permitted evidence kinds. Verification checks an Ed25519 envelope, its actual referenced content, kind and time. A claim may remain valid for at most seven days. A signed-evidence catalog retains up to 4,096 envelopes and 64 MiB. Merely storing an envelope never marks it valid. [Trust and bundle semantics](config-archive-sources.md)
 
-## 验证
+* Qualification uses six linked reports. The basis excludes only the six report references. The manifest must cover the candidate's full process and other dependency sets. Host inventory and devices cover every host. Protocol, power-loss and isolation reports must bind the same basis, device set and manifest, pass their checks and carry independent raw evidence. Renaming another report's bytes cannot satisfy that evidence. Risk approval binds the other five exact reports.
+* Account observations bind account identity, venue/environment/product, actual exchange account and capital pool, modes and trading status. The same physical pool in one venue/environment cannot be assigned conflicting risk domains. Freshness defaults to five seconds, with a sixty-second cap and the earlier signature/observation expiry. Checking signed bytes does not issue an exchange query or change account mode. [Account verifier](../../crates/tickwire-config-service/src/account_facts.rs)
+* Retained-capacity checks verify the signed registry scope, observation age and actual capacity assessment. The result binds registry revision, content hash, signed object, host inventory and candidate. The control owner must still compare the current registry head. Credential evidence is verified by a separate consumer. [Resource verifier](../../crates/tickwire-config-service/src/resource_facts.rs) · [Credential facts](config-credential-facts.md)
 
-原始日志与清单保留新增能力的 Red/Green、真实 TLS 连接、三个 FileStore voter 的多数提交与重启、独立编码样本，以及 Future CRL 的真实失败与修复。16 MiB 对象经过 256 个真实复制分片后，在三个 voter 各自重启和当选后均返回完整同字节内容。作用域补丁与角色语义另有 `tickwire-config` 测试。
+`ContentValidated::check` verifies one canonical candidate under one trust and catalog, builds the full permitted projections and binds every consumed object, envelope, limit and validity interval. The owned `TWDSRC01` bundle has a default size limit of 64 MiB with a 4 MiB index. Hard limits are 528 MiB plus framing and a 16 MiB index, within the object-store limits. A local trusted provider owns bundle, trust and limits together. Its pool permits at most eight jobs, counting finished-but-unconsumed outcomes and cancelled jobs still running. Wrong owner, changed provider, repeated consumption, expiry and clock regression invalidate results.
 
-## 认证请求执行
+Deployment validation starts after a quorum read and proceeds in the background. A new ReadIndex round checks the certificate, role, base ETag, source and expiry before delivery. A successful content check reports eight completed content checks but keeps `valid=false` while `retained_registry_head` and `runtime_targets` remain outstanding. An internal plan similarly produces the full old/new delivery and per-target actions, including revision-only targets. It still needs current targets and runtime admission. [Planner](config-planning.md) · [Signed runtime facts](config-runtime-facts.md)
 
-`request::PendingRequest` 由实际 TLS 主体和 owner 的 ReadIndex ticket 构造。`poll_request` 在实际已提交头上执行当前角色检查，`schema` 返回固定 schema，`validate` 返回结构/静态语义结果及实际尚未完成的部署项。完整候选需要全局读取作用域；作用域补丁使用正文 ETag 并沿原 selector/依赖授权。收到的原始正文长度受当前已提交预算限制。响应绑定原主体和叶证书，一个请求只完成一次，取消保持底层未完成 ReadIndex 的有界积压。
+The archive permits 4,096 publication records. It binds principal and certificate digest, idempotency key, normalized request digest, original If-Match, archive root and admission time. A different record under the same ID or key conflicts. Identical retries return the original index/term. Replay verifies historical inputs without resampling the clock. Snapshots retain the old encoding when there are no records, and use an explicit publication-record format otherwise. An old binary that cannot decode tag 7 cannot participate after such records appear. [Archive and restart evidence](config-plan-archive.md) · [Three-voter archive tests](../evidence/20261028/config-archive.json)
 
-配置 Replica 同时委托成员提案与 session 进度。实际四节点文件测试覆盖旧对象复制、learner 加入、joint 替换、退出 joint、重开 receipt、4 号当选后的安全读；成员日志不进入对象解码，业务扫描包含成员日志的持久 applied 水位。
-
-`https::Server` 以有界连接线程完成 TLS 和单次 HTTP I/O，由原控制 owner 执行 begin/poll/cancel。每个线程持有实际 socket，握手、正文、等待结果和响应写入共用从接收连接起算的绝对期限。慢正文和未完成握手不阻塞 Raft；容量耗尽停止接收，超时回收连接。显式 shutdown 取消请求并关闭 socket，Drop 关闭 socket 且释放请求 ticket 的私有 lease。新信任在下一次 begin/poll 生效；正常 leader 切换返回 503，owner 的致命错误继续上报。
-
-## 部署资料来源
-
-`evidence::Trust` 将 cluster、namespace、信任 revision 和最多 32 个 issuer 的公钥及可签资料种类固定为摘要。`verify` 校验严格 JSON envelope 的 Ed25519 签名、实际 ArtifactCatalog 内容、预期 kind/reference 以及有效时间窗口；资料有效期最多七天。返回的私有 `VerifiedEvidence` 保存完整原 envelope、资料摘要、信任摘要和此次核验时间，再次检查沿当前 Trust 执行。候选不能选择验证公钥。签名目录最多 4096 项、总量 64 MiB，只保存严格解析后的原 envelope；目录中存在一项不代表其签名有效。
-
-`ReportClosure` 对规范候选检查六份资格资料的来源和完整引用关系。basis 只去除六个资格引用，保留 SLO、权限、参数、进程和其余全部配置。manifest 的完整进程数组及非资格依赖集合与候选相等；主机清单和设备集合覆盖全部主机。协议、掉电、隔离报告绑定同一 basis、manifest 和设备集合，明确通过且原始资料齐备。原始资料按内容摘要排除六个报告，换名称不能绕过独立内容要求。风险批准精确绑定其他五份报告；替换任意一份后，旧批准失效。结果记录完整候选摘要和最早失效时间，供后续内容校验与计划器使用。
-
-来源六项及报告完整性九项测试通过；内容别名问题保留实际失败与修复记录。报告结果与下述账户、凭据和保留资源结果共同进入完整内容核验。
-
-`account_facts::AccountModes` 已核验候选中的全部账户身份和模式快照。`AccountMode` 签名绑定实际内容，再核对 cluster、namespace、账户、venue、环境、产品、完整身份引用、观察到的交易所账户和资金池身份、三种模式以及交易状态。相同 venue/environment 下的同一资金池不能配置为不同风险域。观察时间不晚于签发时间，另受默认五秒、最高六十秒的新鲜度上限约束；有效期取签名期限与观察期限较早者。六项合成资料测试及 all-targets Clippy 通过；该模块没有调用交易所或修改账户模式，实际运行时激活核对继续使用当前只读查询。
-
-`resource_facts::RetainedCapacity` 验证 `RetainedResources` 来源、外层快照与内层登记作用域及独立观察期限，再调用实际 `CapacityAssessment`。结果同时保留登记 revision、规范内容摘要、签名对象摘要、主机清单摘要与候选绑定；容量计算包含额外共享/私有内存和 CPU 责任。当前登记头仍需由控制 owner 在计划、提交及应用时比较。四项组合测试和原容量八项回归通过。
-
-凭据内容核验见[独立规格](config-credential-facts.md)。来源、资格报告、账户、凭据和保留资源共 33 项定向测试通过。
-
-## 资料包、异步核验与 HTTPS
-
-`deployment::ContentValidated::check` 对同一规范候选、实际内容目录与当前信任依次执行全部内容检查，内部生成完整权限投影；接口只接受原始资料与检查预算。私有结果绑定完整候选摘要、检查时间、最早失效时间，以及全部实际使用对象、规范签名、信任和预算的统一摘要；目录顺序不影响该摘要。
-
-`source_bundle::Bundle` 从一个普通文件加载 `TWDSRC01`、严格 JSON 索引及连续原始对象。索引只有内容引用、长度、签名及辅助引用；路径、公钥和时钟由受信服务配置提供。加载检查总量、逐对象摘要、重复键、签名依赖和精确尾部；全部字节成为内存中的不可变目录。默认整包 64 MiB、索引 4 MiB，硬上限分别为 528 MiB 加固定头、16 MiB；仍执行目录的 4096 对象、单对象 16 MiB、累计 512 MiB 限额。
-
-`deployment_owner::Owner` 持有不可分割的包、Trust 和预算，用最多八个有界后台任务执行实际内容检查。任务在计算结束且结果已消费或丢弃后才释放容量；取消仍在运行的任务不会提前腾出槽位。工作线程与 owner 使用本机系统时间，开始、结束及交付时均检查时钟和资料期限。时钟倒退、来源替换、跨 owner 任务或结果、重复消费均拒绝。
-
-HTTPS 的部署核验先取得实际 ReadIndex，校验当前 TLS、角色、请求预算和候选，再开始后台任务。计算完成后发起新的 ReadIndex；第二次多数读完成后重新检查证书、当前角色、base ETag、来源上下文和有效期。计算期间控制 owner 继续处理 Raft。当前成功内容结果列出已完成的八项内容检查，`checks_pending` 精确保留 `retained_registry_head` 与 `runtime_targets`，整体 `valid=false`；控制服务尚未据此生成可提交计划。
-
-实际文件加载、后台线程、来源替换、取消与真实 TLS/三 voter 测试验证这些边界。源码和原始 Red/Green 见本阶段记录。部署资料 owner 属于本机受信服务配置，业务快照不保存其来源包或信任状态。
-
-## 异步计划内容计算
-
-`Owner::start_plan` 接收实际安全读返回的完整 `CommittedHead`、基于该 head 准备的 `PreparedCandidate` 与纯值 `PlanOptions`。后台任务在同一个不可变来源上下文中核验候选内容、生成旧/新完整 `ProjectionDelivery`，并计算 `ComputedPlan`。结果保留完整 base、prepared、内容检查、交付投影及计划值；base 摘要、候选摘要、revision 与 ETag 精确相符才交付。结果没有 Ready 状态、提交凭据或运行时授权。
-
-普通内容任务和计划任务共用最多八个槽位，沿用取消、跨 owner、来源替换、单次消费、系统时间倒退和资料过期检查。计划结果持有的内容投影及旧/新交付投影合计受 `projections.max_total_bytes` 限制，完整交付目标仍包括仅 revision 变化的进程，调用者不能缩小此集合。
-
-控制 owner 在首次 ReadIndex 后保存原完整 head，后台工作期间不保留已消费票据。完成后另发起一次 ReadIndex，核对当前完整 head、实际 TLS 主体、角色、来源上下文和期限；基线变化使结果失效，不自动重新定位到新基线。保留资源登记头、实际进程身份、运行时应用与文件收据仍需后续流程核对，本接口不修改复制状态或开放 HTTP 计划成功响应。
-
-## 已准备内容的持久记录
-
-`publication` 保存内部已准备内容，记录身份、实际认证主体及叶证书摘要、调用方幂等键、规范请求摘要、原 If-Match、归档对象和准入时间。归档根是 `PlanMetadata`，owner 精确等于记录 ID；其引用的候选、资料、签名和旧新投影均已封口并通过完整归档验证，才原子插入记录与幂等映射。记录最多 4096 条，内容仍计入现有对象容量，不删除旧记录，也不产生 desired 修订或操作状态。
-
-内部内容保存操作的幂等域为主体与键。完整命令精确重复返回首次记录的 index/term；同键不同内容或同 ID 不同记录拒绝，不覆盖原事实。验证失败不插入任何索引。公开安全读一次消费 ReadIndex，同时返回该屏障的 head 与按 ID 或主体/键查得的记录；网络公开前仍需对应主体和作用域授权。
-
-日志沿用原魔数与既有命令字节，新增 tag 7。记录使用有界字符串和固定字段编码，拒绝未知尾部、非法身份、根用途和超限内容。业务重放只验证历史记录的归档、主体绑定、基线和历史记录时间，不重新采样当前时钟或触发运行时应用；新入口与再次用于发布的重验仍须核对当前权限。
-
-发布记录为空时仍写原快照格式；有记录时写新格式及独立有界发布记录块。新读取器接受旧快照并恢复空发布表。新快照逐条核对原命令、首次位置、完整闭包与唯一性，发布表与对象表、引导状态仅在实际持久安装凭据匹配后一起替换。普通恢复与快照尾部重放得到相同结果；未支持新命令的旧程序不能继续加入新增记录后的控制组。
+Four-node, file-backed membership tests separately exercised learner catch-up, joint replacement, leaving the joint state, reopening the receipt and a safe read after node 4 became leader. These are control membership and storage results. Deploying a new process or granting order authority belongs to the relevant runtime owner. [Peer driver](../../crates/tickwire-config-service/src/peer_driver.rs)

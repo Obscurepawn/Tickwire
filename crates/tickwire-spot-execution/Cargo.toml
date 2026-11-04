@@ -1,0 +1,28 @@
+[package]
+name = "tickwire-spot-execution"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tickwire-gateway = { path = "../tickwire-gateway" }
+tickwire-account-gateway = { path = "../tickwire-account-gateway" }
+tickwire-account-journal = { path = "../tickwire-account-journal" }
+tickwire-account = { path = "../tickwire-account" }
+tickwire-transport = { path = "../tickwire-transport" }
+tickwire-venue = { path = "../tickwire-venue" }
+serde_json = "1"
+ring = "=0.17.14"
+base64 = "=0.22.1"
+time = "=0.3.55"
+
+[dev-dependencies]
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-journal = { path = "../tickwire-journal" }
+tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-risk = { path = "../tickwire-risk" }
+rcgen = "=0.14.10"

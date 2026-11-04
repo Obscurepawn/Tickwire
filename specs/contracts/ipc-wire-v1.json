@@ -6351,6 +6351,10 @@
     },
     "FeedState": {
       "message_id": 261,
+      "source_schema_ids": {
+        "independent_bbo_v1": 1111641905
+      },
+      "independent_bbo_v1": "For live quote-only topics this record follows an exact quote (265) at the immediately preceding ring sequence with the same monotonic ingress. It commits one strategy observation. On loss this record precedes the last quote marked stale, if present.",
       "body_layout": "MarketBody",
       "unlisted_fields_must_be_zero": true,
       "allowed_fields": [

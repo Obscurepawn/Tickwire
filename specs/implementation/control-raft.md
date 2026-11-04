@@ -1,15 +1,11 @@
-# 控制 Raft 的持久边界
+# Durable Raft state
 
-当前 `tickwire-control-raft` 固定三个完整 voter，使用 `raft 0.7.0`、Safe ReadIndex、pre_vote 与 check_quorum。生产存储实现 `Storage`，以现有物理 journal 保存更新；内存索引只在同步完成后替换。命令最大 16 MiB，保留量按配置有界，当前阶段保留完整日志。成员替换、snapshot 转移和网络服务仍在后续实现范围。
+The base control group has three full voters and uses raft 0.7.0 with Safe ReadIndex, pre-vote and quorum checks. A command may contain up to 16 MiB. The file store implements `Storage` over the physical journal. Replace its in-memory index only after synchronization. The [peer service](control-raft-service.md) adds membership changes and snapshot transfer.
 
-每个 Ready 的 entries 与 HardState 先持久化，之后才允许发送其消息。LightReady 的 commit 推进也先持久化。控制历史的 applied 记录同步后才推进 Raft applied，并输出具体 term/index/正文。输出只是控制命令的提交事实；上层 reducer 负责保存业务接受或拒绝的确定结果。
+Persist every Ready's entries and HardState before releasing its messages. Persist LightReady commit progress as well. Synchronize the applied control record before advancing Raft's applied watermark and returning its term, index and bytes. The business reducer records acceptance or rejection separately.
 
-大更新按 Begin、连续 Chunk、End 写入物理 journal。每个 Begin 固定逻辑长度和 SHA-256，只有完整 End 才产生可恢复更新；未完成尾部由新的 Begin 放弃。物理 journal 自身继续检查批次同步、连续序号与校验和。任何写盘失败使本实例停止工作，整个 drive 的消息均不返回；恢复核对初始身份、term/vote、连续日志及 commit/applied 水位。
+Large updates use Begin, contiguous Chunk records and End. Begin binds the expected length and SHA-256. End publishes the logical update. A new Begin abandons an incomplete tail. A disk failure stops the node and withholds the messages from that drive. Recovery verifies node identity, term/vote, contiguous entries and commit/applied positions.
 
-leader 接受业务提案前等待本任期 barrier 提交应用。安全读使用随机 context，等待多数派 ReadIndex 与本地 applied，并在领取时复核 leader、term 和请求身份；同一读证明只能领取一次。失去多数后不会完成新的命令或安全读。
+The leader waits for a committed, applied barrier in its term before proposing a business command. A safe read requires its random context, majority ReadIndex and sufficient local applied progress. Check leader, term and request again when claiming the proof. Claim it once. Validate peer/from/to, the allowed message kind and Append index/term continuity before passing data to raft-rs. Heartbeat commit is bounded by the local tail, including unstable entries.
 
-认证输入先核对 peer/from/to 与允许的消息种类。Append 的首 index、连续性和非递减 term 在进入 raft-rs 前检查；Heartbeat 的 commit 不得超过本地实际日志尾，包括尚未落盘的 unstable entries。两项边界均曾在实际调用中触发 raft-rs panic，现由协议错误返回替代。
-
-实际文件测试覆盖三 voter 提交与全组重启、100,000 字节命令分片、少数派隔离和重新追平、持久投票、六个同步失败切点、启动身份、错误 peer、Append 与 Heartbeat 边界，共 8 项通过。完整证据见验证记录；形式验证留待全部系统代码完成后执行。
-
-快照目录的文件锁由共享 `Directory` 持有。`SnapshotDirectory` 副本、`StagingSnapshot`、`VerifiedSnapshot` 与 `GenerationStore` 都保留其 `Arc`；只要其中任一合法 owner 仍在使用目录，独立重开就被拒绝。最后一个 `Arc<Directory>` 释放时，私有 guard 显式解锁并关闭文件；guard 在取得锁后立即建立，也覆盖构造失败路径。并发 fork 到 exec 之间继承的无所有权描述符不能延长已结束的目录所有权；其随后关闭不能解除替代 owner 的独立锁。不在单个 `SnapshotDirectory` wrapper 释放时提前解锁，也不增加重试或串行化规避锁冲突。
+A shared `Directory` holds the snapshot lock across snapshots, staging, verification and generation storage. The last owning Arc explicitly releases the guard. A forked descriptor between fork and exec cannot prolong a released owner or unlock its successor. File tests cover three-node restart, a 100,000-byte fragmented command, minority isolation and catch-up, durable votes, six sync-failure points and malformed Append/Heartbeat inputs.

@@ -135,14 +135,21 @@ impl RecoveryResolver for Files {
     fn on_submission(
         &mut self,
         command: &CanonicalCommand,
-        result: &std::result::Result<
-            tickwire_account_gateway::Status,
-            tickwire_binance_account::Error,
-        >,
+        result: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         eprintln!(
             "{}",
             serde_json::json!({"event":"hosted_submission","intent":command.command().context.request.intent_id,"result":format!("{result:?}")})
+        );
+    }
+    fn on_request_reply(
+        &mut self,
+        command: &CanonicalCommand,
+        result: &tickwire_venue::RequestReply,
+    ) {
+        eprintln!(
+            "{}",
+            serde_json::json!({"event":"hosted_request_reply","intent":command.command().context.request.intent_id,"result":format!("{result:?}")})
         );
     }
 }
@@ -337,9 +344,12 @@ impl tickwire_runtime::node::Strategy for Strategy {
     fn on_submission(
         &mut self,
         c: &CanonicalCommand,
-        r: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+        r: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         tickwire_runtime::node::Strategy::on_submission(&mut self.0, c, r);
+    }
+    fn on_request_reply(&mut self, c: &CanonicalCommand, r: &tickwire_venue::RequestReply) {
+        tickwire_runtime::node::Strategy::on_request_reply(&mut self.0, c, r);
     }
 }
 impl AppStrategy for Strategy {
@@ -566,9 +576,12 @@ impl tickwire_runtime::node::Strategy for RemoteStrategy {
     fn on_submission(
         &mut self,
         c: &CanonicalCommand,
-        r: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+        r: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         tickwire_runtime::node::Strategy::on_submission(&mut self.0, c, r);
+    }
+    fn on_request_reply(&mut self, c: &CanonicalCommand, r: &tickwire_venue::RequestReply) {
+        tickwire_runtime::node::Strategy::on_request_reply(&mut self.0, c, r);
     }
 }
 impl AppStrategy for RemoteStrategy {
@@ -721,6 +734,7 @@ fn components(
     context: &Context,
     cutover: Option<(&ResourceHeader, u64)>,
     mut bootstrap: Bootstrap,
+    local_header: Option<ResourceHeader>,
 ) -> Result<Parts> {
     if let Some(resources) = &config.resources {
         resources.validate()?;
@@ -775,8 +789,11 @@ fn components(
     } else if bootstrap.demo_enabled {
         return Err(invalid("hosted demo requires recovery template"));
     }
-    let mut header = ResourceHeader::decode(&read_file(&config.market_resource, 4096)?)
-        .map_err(|_| invalid("market resource header"))?;
+    let mut header = match local_header {
+        Some(header) => header,
+        None => ResourceHeader::decode(&read_file(&config.market_resource, 4096)?)
+            .map_err(|_| invalid("market resource header"))?,
+    };
     if let Some((previous, published)) = cutover {
         header.predecessor_ring_epoch = previous.ring_epoch;
         header.cutover_seq = published;
@@ -923,6 +940,7 @@ impl RotationSource<Files, 1> for Rotations {
                 &self.context,
                 Some((current, published)),
                 bootstrap,
+                None,
             )?;
             if parts.owner.header().ring_epoch <= current.ring_epoch
                 || parts.owner.header().feed_generation <= current.feed_generation
@@ -953,13 +971,23 @@ pub fn build(
     runtime: &files::Configuration,
     policy: ControlPlane,
 ) -> Result<Box<dyn AppStrategy>> {
-    if let Some(resources) = &config.resources {
-        resources.validate()?;
-    }
-    let mut bootstrap: Bootstrap = serde_json::from_slice(&read_file(
+    let bootstrap = serde_json::from_slice(&read_file(
         &config.bootstrap,
         tickwire_strategy_sdk::bootstrap::MAX_BOOTSTRAP_BYTES,
     )?)?;
+    build_prepared(config, runtime, policy, bootstrap, None)
+}
+
+pub(super) fn build_prepared(
+    config: &HostConfig,
+    runtime: &files::Configuration,
+    policy: ControlPlane,
+    mut bootstrap: Bootstrap,
+    local_header: Option<ResourceHeader>,
+) -> Result<Box<dyn AppStrategy>> {
+    if let Some(resources) = &config.resources {
+        resources.validate()?;
+    }
     // Validate the same owned Bootstrap that will be handed to Host. A second
     // pathname read must not replace the identity checked by the projection.
     let projection = profile::prepare(config, &bootstrap)?;
@@ -982,7 +1010,7 @@ pub fn build(
         domain: runtime.time.domain,
         risk_domain: runtime.command_binding.risk_domain_id,
     };
-    let parts = components(config, &context, None, bootstrap)?;
+    let parts = components(config, &context, None, bootstrap, local_header)?;
     let logical = parts.launch.spec.identity.logical_strategy;
     let publisher = SharedPublisher::new(tickwire_market_publisher::TopicPublisher::new(
         parts.owner,

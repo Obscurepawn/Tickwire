@@ -1,15 +1,11 @@
-# 交接账户输入完整性
+# Account inputs at strategy handover
 
-交接闭包中的 `TWINP001` 必须保存真实账户 callback 原文。单独匹配的账户 `InputSeal` 只能核对累计摘要，不能代替缺失的基线或记录。
+The `TWINP001` object in a handover closure contains the original account callback bytes. Its `InputSeal` provides an aggregate digest. Recovering the account also requires its baseline and every intervening record.
 
-`tickwire-handover` 统一执行以下规则：
+1. Verify lengths and digests in `HandoverSeal` against the actual checkpoint, inputs and account seal. The checkpoint binds target instance, generation, logical strategy, report cut, ledger and order digest.
+2. Start at sequence 1 with a zero predecessor. Decode each kind 2 record as `TWAI0001` and verify wrapper length, tag and sequence. Exactly one baseline precedes all account records.
+3. Decode canonical records against that baseline in sequence through the report cut. Reconstruct the seal preimage and compare its bytes to the retained object.
+4. Recover the account. Compare the resulting ledger and strategy order digest with the declared cut.
+5. The runtime compares the actual baseline and prior WAL byte for byte. The SDK verifies the target and report cut in authenticated READY. A replica verifies source stream, handover record and preceding record digests. Each owner enforces its object budget. The runtime includes the full input object.
 
-1. 检查 `HandoverSeal` 与实际 checkpoint、输入、账户封口的长度和摘要；checkpoint 绑定目标实例、generation、逻辑策略、报告切点、ledger 和订单摘要。
-2. 输入从序号 1、零前置摘要开始；每条 kind 2 严格解析为 `TWAI0001`。基线恰好一次，并位于所有账户记录之前。wrapper 长度、标签和序号均核对。
-3. 每条记录必须通过规范账户解码，与基线绑定，且从 1 连续到报告切点。重新计算的账户封口原像必须等于闭包保存的原像。
-4. 从实际基线与全部记录恢复账户，恢复出的 ledger 和策略订单摘要必须等于交接声明。
-5. runtime 另外逐字节核对实际基线和 prior WAL；SDK 继续核对认证 READY 的目标身份与报告切点；replica 继续核对源流、交接记录和此前已验证记录摘要。三处保留原有对象及依赖总预算，runtime 预算也计入完整输入对象。
-
-记录容量使用账户日志既有 `MAX_FACTS + MAX_ORDERS` 上限。其他输入类型保留原顺序，由各自回放器解释。共享返回类型仅允许校验成功后构造，不授予交易权限。
-
-两项实际 Red 已确认旧 runtime 会接受重新计算哈希后的缺基线、缺账户记录输入；修复后均拒绝。测试与范围的原始报告曾位于已删除的 `docs/validation/handover-input-closure/README.md`，当前以本 crate 测试与 `cargo test` 为准。
+Account records use the journal's `MAX_FACTS + MAX_ORDERS` bound. Other input types retain their relative order for replay. Regression tests remove a baseline or an account record and recompute the outer hashes. Both closures must fail verification.

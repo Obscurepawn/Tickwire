@@ -54,7 +54,7 @@ pub struct AccountScope {
 impl AccountScope {
     pub fn validate(&self) -> Result<()> {
         if self.risk_domain_id == [0; 16]
-            || self.venue != 1
+            || self.venue != tickwire_venue::venue_id::BINANCE
             || self.account == 0
             || self.credential_generation == 0
         {

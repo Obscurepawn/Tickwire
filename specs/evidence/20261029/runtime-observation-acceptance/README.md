@@ -1,21 +1,22 @@
-# 持续运行观测验收记录
+# Inspect the runtime observation acceptance bundle
 
-本目录归档同一批固定 release 二进制的真实交接、声明重建、Host 进程测试和 App 文件观测结果。原始命令、源码清单摘要、二进制摘要、进程采样与签名收据均由相邻 `runtime-observation-acceptance.json` 索引。
+The acceptance manifest records two fixed-binary business scenarios, six Host process tests, and App file observations. Start with the manifest for commands, source/build identities, executable samples, signed receipts and artifact digests. [Acceptance manifest](../runtime-observation-acceptance.json)
 
-在本目录运行：
+| Evidence | Acceptance condition |
+| --- | --- |
+| [Handover](handover/) and [declared rebuild](rebuild/) | Match observed worker and executable identities, the six Ed25519 receipts, and the reported final account, mirror and strategy positions. The full input replay handover reached S2→C10→D285. The rebuild installed into the same PID and reached D285. |
+| [Host process tests](host/process.log) | A slow observer left the worker able to consume 176 account inputs and market data. The earlier queued observation retained its full closure. A later observation exceeded the 16 MiB typed-input limit and was rejected. The worker then unsubscribed and exited normally. Other cases cover successful fresh observations, cancellation drain and a new query after timeout. |
+| [App outcomes](app/outcomes/) | Match original request deadline, challenge and READY position. The two independent challenges observed READY sequence 2 and 5. Each named 14 complete dependency objects. Duplicate requests retained their result, conflicting requests were rejected and restart marked a pending request Interrupted without redispatch. |
+| [Input history](app/input-history.wal) and [execution log](app/exec.stderr.log) | Rebuild and App each recorded a startup Clock gap at epoch 1, generation 2. The WAL then recorded reconciliation at epoch 2, generation 2. The actual logs place reconciliation before order submission. The cumulative gap count remains. |
+| [Closure audit](app/closure-audit.json) | The Rust auditor checked the complete live recovery object graph and account semantics before archival. The repository retains its results, small account CBOR and digests. The complete recovery object store and worker ELF were omitted. |
+| [Development records](development/) | Recorded failures include send backpressure leading to timeout and inherited file locks between fork and exec. These are development diagnostics. Use the final run reports for acceptance. |
+
+The offline verifier rehashes 183 artifacts, verifies the six signatures and recorded bindings, and recomputes the account prefix from the small archived objects. The manifest includes this README’s original 2,208 bytes with SHA-256 `56f9d13ecd287c4d6ff62e9dfa46605dd9eb65b30969715c10ed431a4c187526`. The English navigation here has different bytes. Run the following against the immutable historical tree from the repository root. It needs Python 3.11+ and `cryptography`.
 
 ```sh
-python3 ../verify-runtime-observation-acceptance.py
+evidence_dir=$(mktemp -d)
+git archive 4f840fcf885ff28fe51036ae2bf4f12111a82357 specs/evidence/20261029 | tar -xf - -C "$evidence_dir"
+python3 "$evidence_dir/specs/evidence/20261029/verify-runtime-observation-acceptance.py"
 ```
 
-需要 Python 3.11+ 和 `cryptography`。脚本只读取相邻归档，检查全部文件摘要、六份 Ed25519 收据、实际进程与镜像绑定、请求原始期限、两次独立挑战和 READY 序号、失败请求、重启后的历史标记与中断状态，并从小型账户 CBOR 导出重算观测对应的前缀摘要。
-
-完整恢复 CAS 和 ELF 未入库。它们的对象闭包与账户经济语义已在实际运行后通过独立 Rust 校验器检查；离线脚本复核归档的校验记录和账户前缀，不能从省略的对象重建完整证明。`app/closure-audit.json` 记录这一边界。
-
-Host 的长流测试验证慢接收时 worker 持续处理 176 条账户输入和行情、旧查询完整闭包仍可读取。末次新查询按既有 16 MiB 类型化输入上限拒绝，随后完成正常退订退出；该用例不宣称超限的新观测成功。其他用例覆盖完整新观测、取消排空、超时后的新请求与正常退出。
-
-`development/` 保留发送背压修复前的真实超时退出、修复后的行为结果，以及文件锁在 fork 到 exec 之间被继承的故障证据和修复前后测试。早期夹具容量、期限和首次全仓失败均保留原结果，没有计作对应功能通过。
-
-本次采用普通资源启动；正向 cgroup 约束没有得到本机权限验证。这里的观测事实不产生全局配置 Applied、交易授权、生产资格或延迟性能结论。
-
-重建场景和 App 场景各保留一次启动时 Clock gap（epoch 1、generation 2）；输入 WAL 随后记录 epoch 2、generation 2 的重新对账，实际日志显示对账完成先于订单提交。离线脚本逐帧核验输入 WAL 的 CRC、摘要链和这段顺序。累计 gap 数并未清零，本包不声称行情或账户输入全程无间断。
+The archived validator reads recorded observations and small account objects. It cannot reconstruct the omitted object store or attest the historical kernel from these files. The workers used ordinary resource launch. Positive delegated-cgroup qualification belongs to a separate test. [Verifier](../verify-runtime-observation-acceptance.py) · [Resource-stage report](../process-resources.json)

@@ -24,7 +24,7 @@ struct Parameters {
     enabled: bool,
     minimum_observations: u64,
     minimum_bid_ticks: i64,
-    command: Vec<u8>,
+    command: Option<Vec<u8>>,
 }
 pub struct Fixture {
     pub root: PathBuf,
@@ -34,8 +34,8 @@ pub struct Fixture {
     pub params: Vec<u8>,
     pub baseline: tickwire_account_codec::CanonicalBaseline,
     pub account: tickwire_account::Account,
-    runtime: tickwire_runtime::files::Configuration,
-    policy: tickwire_runtime_policy::ControlPlane,
+    pub(super) runtime: tickwire_runtime::files::Configuration,
+    pub(super) policy: tickwire_runtime_policy::ControlPlane,
 }
 impl Fixture {
     pub fn new(worker: &Path, minimum_observations: u64, minimum_bid_ticks: i64) -> Self {
@@ -58,6 +58,23 @@ impl Fixture {
             std::process::id(),
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
+        Self::prepare(
+            worker,
+            market,
+            root,
+            Some((minimum_observations, minimum_bid_ticks)),
+        )
+    }
+    // The public observation lab has no command, credentials, account lease or strategy grant.
+    pub fn observe(worker: &Path, market: Market, root: PathBuf) -> Self {
+        Self::prepare(worker, market, root, None)
+    }
+    fn prepare(
+        worker: &Path,
+        market: Market,
+        root: PathBuf,
+        thresholds: Option<(u64, i64)>,
+    ) -> Self {
         private(&root);
         private(&root.join("runtime"));
         let meta = fs::metadata("/proc/self").unwrap();
@@ -65,7 +82,7 @@ impl Fixture {
         let (mut b, _) = channels::bootstrap(&root, build, meta.uid(), meta.gid());
         let mut external = market.admission.client.clone();
         external.endpoint.local.role = 3;
-        external.endpoint.local.logical_strategy = 1;
+        external.endpoint.local.logical_strategy = external.endpoint.local.logical_strategy.max(1);
         external.endpoint.local.build_hash = build;
         let local = external.endpoint.local.clone();
         b.market = external.endpoint.clone();
@@ -91,18 +108,23 @@ impl Fixture {
             *bytes = tickwire_market_source::protocol::wire_bytes(&h).unwrap();
         }
         b.maximum_levels = 8;
-        b.startup_timeout_ms = 10000;
+        // A local demo may be compiling or running other binaries on the same host.
+        b.startup_timeout_ms = if thresholds.is_some() { 10_000 } else { 30_000 };
         b.handover_enabled = true;
         b.maximum_market_age_ns = 60_000_000_000;
         b.recovery_template = Some(root.join("recovery-template.json"));
         let now = market.now().nanos();
-        let command = inputs::command(&b, &market.instrument, now);
+        let (minimum_observations, minimum_bid_ticks) = thresholds.unwrap_or((1, 0));
         let params = serde_json::to_vec(&Parameters {
             schema: 1,
-            enabled: true,
+            enabled: thresholds.is_some(),
             minimum_observations,
             minimum_bid_ticks,
-            command: command.bytes().to_vec(),
+            command: thresholds.map(|_| {
+                inputs::command(&b, &market.instrument, now)
+                    .bytes()
+                    .to_vec()
+            }),
         })
         .unwrap();
         b.factory = Some(FactoryBinding {

@@ -4,10 +4,12 @@
 mod account;
 mod cbor;
 mod codec;
+mod request_reply;
 mod types;
 mod validate;
 pub use account::*;
 use codec::Codec;
+pub use request_reply::{OrderSnapshot, RequestReply};
 use sha2::{Digest, Sha256};
 pub use types::*;
 

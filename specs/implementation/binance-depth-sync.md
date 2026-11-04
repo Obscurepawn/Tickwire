@@ -1,41 +1,33 @@
-# Binance 盘口同步协调实现规格
+# Binance depth synchronization
 
-## 范围与状态
+`DepthSync<P, LEVELS, UPDATES, BUFFER>` combines WebSocket deltas with a REST snapshot for one catalog instrument. Its `Book` applies the Binance Spot or USD-M sequence policy. The coordinator owns the mutable book. A reader sees a fresh live view only after all buffered updates have passed validation. [Coordinator](../../crates/tickwire-binance/src/depth_sync.rs) · [Book contract](book-core.md)
 
-接口 对应独立的 `tickwire_binance::depth_sync` 模块。`DepthSync` 固定目录与产品，通过 sealed `DepthPolicy` 绑定现有 `BinanceSpot` 或 `BinanceUsdM`；它持有实际 Book，不替换序列规则，也不另建简化盘口。feed/events 旧实现不变，现有 transport 通过真实 HTTP 响应体和 WebSocket 消息驱动该接口。
+## Connect and bridge
 
-| 状态 | 已知信息 | 允许的下一步 |
-| --- | --- | --- |
-| Disconnected | 没有当前连接，可保留失效诊断内容 | 更大连接代次的 connect |
-| Buffering | 已开始接收当前连接增量；订阅确认与首消息分别记录 | 满足两条件后请求快照，继续有界缓存 |
-| Bridging | 快照安装成功，缓存均过旧，尚无可应用事件 | 等待当前连接后续增量 |
-| Live | 全部缓存已按序回放，至少一次实际更新 | 连续增量与按接收时间检查的新鲜视图 |
-| Exhausted | Book generation 或请求序号无法继续增加 | 更换持有全新外部代次范围的 owner |
+| State | Operation |
+| --- | --- |
+| `Disconnected` | Call `connect` with a larger connection epoch. |
+| `Buffering` | Record subscription acknowledgement and the first delta independently. Once both arrive, request a snapshot and continue buffering deltas. |
+| `Bridging` | The snapshot is newer than every buffered event. Wait for the first applicable delta on this connection. |
+| `Live` | Apply each continuous delta, using its original receive time for freshness. |
+| `Exhausted` | A generation or request ID can no longer increase. Replace the owner with a fresh external generation range. |
 
-外部无法取得可变 Book。一次快照回放在单次 `&mut self` 调用内完成，回放后段失败时清空本轮，前段临时 Live 状态不会交付。
+A snapshot token binds the full book key, connection epoch, book generation and request ID. Another connection requires a greater epoch. A gap on the same connection advances the book generation. The coordinator discards a stale connection event or completed request before inspecting its bytes or time. A failed replay invalidates the whole attempt, including any successful prefix.
 
-连接代次与 Book generation 分别增加：连接重建必须有更大 epoch，同连接的缓存丢失/解码错误/序列断档也增加 Book generation。快照令牌绑定 BookKey、连接 epoch、Book generation、请求序号。旧连接消息、旧请求完成、重复完成、迟到断连在任何解码与时钟处理前被忽略；当前状态不会受其坏 JSON 或倒退时间影响。
+The stable instrument ID is a nonzero `u64`. `BookKey.instrument` is an owner-local `u32` slot and may be zero. Keep the full `(venue, local slot, source)` key across reconnects and keep it unique within a publishing directory. The catalog binding supplies the symbol, product and price/quantity increments.
 
-`Config.instrument` 保存完整外部 `u64` 标的身份，`Config.key.instrument` 是 owner 预先分配的本地 `u32` 槽；两者不要求数值相等。零号本地槽合法，零外部标的 ID 拒绝。连接、快照、缓冲增量及重建后的 Book 始终使用同一完整 BookKey，symbol/目录/产品仍按 InstrumentBinding 核对；重连不能把本地槽重新解释为外部 ID。不同外部标的不得在同一发布目录共用完整 BookKey，该唯一性由装配 owner 保证。
+For Spot, a snapshot older than the earliest buffered `U` yields `TooOld`. Retain the buffer and request a newer snapshot. The book drops obsolete deltas and bridges at `L+1`. USD-M retains a first delta ending at snapshot sequence `L` if it spans `L`, then checks `pu` on each new update. An obsolete delta or REST response never refreshes the observation clock.
 
-## 序列、失败与容量
+## Recovery and capacity
 
-Spot 快照落后于本轮最早缓存 U 时返回 TooOld，保留缓存重试；满足前置条件后交由 Book 丢弃过旧事件并检查相邻更新。USD-M 保留等于快照 L 的首事件并检查其覆盖范围，后续使用 pu。快照领先于全部缓存时保持 Bridging，REST 完成和旧增量均不刷新 view 的接收时间。
+An HTTP error, transport error, or deadline at `now >= deadline` cancels the snapshot request and keeps the buffer. The network owner schedules the next attempt under its quota and backoff policy. A bad message, gap, full FIFO or rejected book update clears the current synchronization attempt. On the same connection the subscription remains confirmed, but another delta must arrive before a new snapshot request. Disconnect also clears the subscription.
 
-HTTP 非 200、HTTP 传输失败和快照期限到达取消当前请求但保留缓存。期限包含边界：`now >= deadline` 即超时。新请求序号严格增加；旧响应不重开盘口。模块不自行重试网络请求，调用者可以按返回的 HTTP 状态与自身限流安排退避。
+Each side permits 1–5000 levels. One delta may contain 1–5000 configured update slots across both sides. The FIFO holds up to 4096 deltas with at most 64 MiB of reserved objects. Each input is limited to 16 MiB. The REST limit fits one side. USD-M permits 5, 10, 20, 50, 100, 500 or 1000. An oversized snapshot fails as a whole. Limited REST snapshots always leave outer coverage unknown, including after a known best level disappears. Configuration, JSON decoding and rebuilds can allocate.
 
-坏报文、双侧增量总数超额、FIFO 已满、重复价位/非法价位、Book 容量不足或断档都会清空当前同步轮次，保留同连接已确认订阅。之后至少收到新一条增量，才可以发新的快照请求。断连则取消订阅状态，需要新连接代次重新确认。
+## Verify
 
-构造参数限制 `LEVELS/UPDATES=1..5000`、`BUFFER=1..4096`、输入消息至多 16 MiB、FIFO 预留对象大小至多 64 MiB。REST limit 不超过 Book 单侧容量；USD-M 仅接受官方档数集合 5/10/20/50/100/500/1000。返回超过所请求 limit 的快照被拒绝，不截掉尾部。UTF-8 symbol 仅在构造请求 path 时进行一次百分号编码。
+```sh
+cargo test --locked -p tickwire-binance --test depth_sync --test depth_sync_server
+```
 
-快照来自有深度限制的 REST 接口，双侧 complete 始终为 false。增量可插入外侧价位，但没有观察到的外侧数量继续 Unknown；删除最后一个可确定的最优价位后 best 也可能为 Unknown。配置、JSON 解码及重建允许内存分配，本模块没有热路径零分配或延迟指标承诺。
-
-## 验证
-
-初始接口可编译；12 项行为测试全部因状态协调尚未实现而断言失败，保存实际 Red 日志和当时实现。实现后这 12 项全部通过，再增加 6 项边界测试与 2 项实际 HTTPS/WSS 集成测试。
-
-单元/行为测试覆盖首消息与订阅双条件、Spot 首 U 重试与 L+1 桥接、USD-M 等 L 首事件与严格旧事件过滤、pu 断档、快照领先缓存、旧连接和请求、超时边界、非 200 与传输重试、缓存溢出、回放后段失败、断连幂等、时钟回退、目录路径编码、总更新数量、快照深度、Book 容量、重复价位及 Unknown。
-
-协议集成测试使用真实 TCP/TLS、HTTP chunked 解码、WebSocket 分片和客户端掩码，服务器断言先收到订阅才处理 REST；增量在 HTTP 请求期间继续进入 FIFO。同一健康 WebSocket 发生缺口后重新取快照；收到 Close 后建立第二条实际 WSS 连接、使用新 epoch，旧连接及请求回调无效。Spot 与 USD-M 分别运行同一生产协调器和各自真实 Book policy。
-
-验证报告记录平台、测试数量、命令、源码摘要和来源；本阶段没有新增 TLA 模型。自动私有登录/续期、网络连接轮换调度及风险门禁发布仍属于其他 owner。
+The behavior fixtures cover the first-delta/ack gate, both sequence policies, stale responses, timeout boundaries, bounds, partial replay failure and unknown coverage. The network tests use local TLS peers, chunked HTTP and fragmented WebSocket frames. They inject deltas during the snapshot request, a gap on a live socket, and a disconnect followed by a new epoch. [Behavior tests](../../crates/tickwire-binance/tests/depth_sync.rs) · [Transport tests](../../crates/tickwire-binance/tests/depth_sync_server.rs)

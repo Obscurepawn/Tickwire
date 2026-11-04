@@ -745,10 +745,7 @@ pub fn replay_fixed_demo(checkpoint: &[u8], inputs: Vec<u8>) -> Result<Vec<Canon
                 let id = u64::from_le_bytes(payload[9..17].try_into().unwrap());
                 let now = u64::from_le_bytes(payload[17..25].try_into().unwrap());
                 let view = replica.view(id).ok_or(Error::Identity)?;
-                let received = view.received_mono_ns();
-                if view.live()
-                    && now >= received
-                    && now - received <= maximum_age
+                if view.callback_ready_at(now, maximum_age)
                     && let Some(command) = strategy.on_market(view, now)?
                 {
                     output.push(command);

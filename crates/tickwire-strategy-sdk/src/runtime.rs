@@ -1,10 +1,10 @@
 //! Execution-process endpoint for actual SPSC canonical command references.
 use crate::{Error, Result};
-use std::{os::fd::OwnedFd, time::Duration};
+use std::os::fd::OwnedFd;
 use tickwire_ipc::ResourceHeader;
 use tickwire_runtime::{
     authority::RecoveryBundle,
-    node::{Health, Submission},
+    node::{Health, Intake, Submission},
 };
 use tickwire_shm::{Subscriber, SubscriptionKey};
 use tickwire_venue::CanonicalCommand;
@@ -20,10 +20,13 @@ pub trait RecoveryResolver {
     fn on_submission(
         &mut self,
         _command: &CanonicalCommand,
-        _result: &std::result::Result<
-            tickwire_account_gateway::Status,
-            tickwire_binance_account::Error,
-        >,
+        _result: &tickwire_runtime::node::SubmissionResult<'_>,
+    ) {
+    }
+    fn on_request_reply(
+        &mut self,
+        _command: &CanonicalCommand,
+        _result: &tickwire_venue::RequestReply,
     ) {
     }
 }
@@ -167,35 +170,18 @@ impl<R: RecoveryResolver, N: FnMut(&tickwire_binance_public::Notice<'_>) -> bool
         let Some(command) = self.pending.as_ref() else {
             return Ok(None);
         };
-        let administrative = matches!(
-            command.command().body,
-            tickwire_venue::CommandBody::Cancel(_)
-                | tickwire_venue::CommandBody::Query(_)
-                | tickwire_venue::CommandBody::CancelList(_)
-                | tickwire_venue::CommandBody::CancelAlgo(_)
-        );
-        if !(if administrative {
-            health.calibrated && !health.sender_halted
-        } else {
-            health.ready()
-        }) {
-            return Ok(None);
-        }
-        let expires = command.command().context.request.deadline;
-        let remaining = expires
-            .checked_sub(now.monotonic.nanos())
-            .filter(|v| *v > 0)
-            .ok_or(Error::Stale)?;
+        let deadline = match health.intake(command.command(), now) {
+            Intake::Wait => return Ok(None),
+            Intake::Expired => return Err(Error::Stale),
+            Intake::DeadlineOverflow => return Err(Error::Bounds),
+            Intake::Ready(deadline) => deadline,
+        };
         let Some(recovery) = self.resolver.resolve(command)? else {
             return Ok(None);
         };
         if recovery.bundle.command_digest != command.digest() {
             return Err(Error::Identity);
         }
-        let deadline = now
-            .instant
-            .checked_add(Duration::from_nanos(remaining))
-            .ok_or(Error::Bounds)?;
         Ok(Some(Submission {
             command: self.pending.take().ok_or(Error::NotReady)?,
             order_ids: recovery.order_ids,
@@ -230,11 +216,86 @@ impl<R: RecoveryResolver, N: FnMut(&tickwire_binance_public::Notice<'_>) -> bool
     fn on_submission(
         &mut self,
         command: &CanonicalCommand,
-        result: &std::result::Result<
-            tickwire_account_gateway::Status,
-            tickwire_binance_account::Error,
-        >,
+        result: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         self.resolver.on_submission(command, result);
+    }
+    fn on_request_reply(
+        &mut self,
+        command: &CanonicalCommand,
+        result: &tickwire_venue::RequestReply,
+    ) {
+        self.resolver.on_request_reply(command, result);
+    }
+}
+
+#[cfg(test)]
+mod intake_tests {
+    use super::*;
+    use crate::test_command::command;
+    use std::time::{Duration, Instant};
+    use tickwire_binance_clock::{ClockDomain, LocalTime, MonoTime};
+    use tickwire_venue::{CommandBody, OrderTarget};
+
+    #[test]
+    fn intake_orders_health_and_deadline_checks_for_all_sources() {
+        let instant = Instant::now();
+        let domain = ClockDomain::new([1; 16], 1).unwrap();
+        let at = |ns| LocalTime {
+            instant,
+            monotonic: MonoTime::new(domain, ns),
+        };
+        let health = Health {
+            calibrated: true,
+            market_live: true,
+            private_receiving: true,
+            ..Health::default()
+        };
+        let frozen = Health {
+            account_frozen: true,
+            ..health
+        };
+        let mut cmd = command();
+        let deadline = cmd.context.request.deadline;
+        assert_eq!(
+            health.intake(&cmd, at(deadline - 1)),
+            Intake::Ready(instant + Duration::from_nanos(1))
+        );
+        assert_eq!(frozen.intake(&cmd, at(deadline - 1)), Intake::Wait);
+        assert_eq!(frozen.intake(&cmd, at(deadline)), Intake::Expired);
+        let target = OrderTarget {
+            order_id: [9; 16],
+            expected_owner_revision: 1,
+            original_intent_exec_epoch: 1,
+            client_id: None,
+            venue_order_id: None,
+        };
+        for body in [
+            CommandBody::Cancel(target.clone()),
+            CommandBody::Query(target),
+        ] {
+            cmd.body = body;
+            assert_eq!(
+                frozen.intake(&cmd, at(deadline - 1)),
+                Intake::Ready(instant + Duration::from_nanos(1))
+            );
+            assert_eq!(frozen.intake(&cmd, at(deadline)), Intake::Expired);
+            assert_eq!(
+                Health {
+                    sender_halted: true,
+                    ..frozen
+                }
+                .intake(&cmd, at(deadline)),
+                Intake::Wait
+            );
+            assert_eq!(
+                Health {
+                    calibrated: false,
+                    ..frozen
+                }
+                .intake(&cmd, at(deadline)),
+                Intake::Wait
+            );
+        }
     }
 }

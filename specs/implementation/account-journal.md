@@ -1,48 +1,17 @@
-# 账户有序日志实现规格
+# Ordered account journal
 
-状态：已实现，生产接口见 账户有序日志接口，验证记录见 账户日志验证。
+One journal binds the risk domain, physical stream and segment configuration to an account scope, initial writer and full baseline digest. Creation syncs the baseline, then the canonical bootstrap, then creates the physical log. It refuses to overwrite an existing or partially created account. The canonical account-record sequence starts at 1 and equals the physical record position. The reducer's ledger sequence counts state changes independently. [Journal implementation](../../crates/tickwire-account-journal/src/lib.rs) · [File backend](../../crates/tickwire-account-journal/src/backend.rs)
 
-## 固定绑定
+## Append and retry
 
-- 一个日志固定物理风险域、stream、分段配置、账户 Scope、初始 writer 和完整基线摘要。基线保存目录、资产单位、风险修订与原始账户状态。
-- 创建先同步基线，再同步确定编码的 bootstrap，最后建立物理日志。既有或部分账户文件不覆盖。
-- 账户记录使用 account-codec schema 1。物理 WAL 使用现有帧格式，业务层不复用旧标量 PreparedIntent schema。
-- 当前只使用本地文件同步；镜像提交证明和新的交易授权不由本模块产生。
+The writer checks the baseline, account and instrument identity, writer epoch and bounded record capacity before append. A new admission belongs to the current writer. A later fill or abort may refer to an earlier intent epoch. On an active journal, an exact admission retry returns its original receipt. Conflicting content for the same admission poisons that journal. Other observations retain their actual ordering. Only a successful sync publishes the new records, sequence, indexes and history frontier. An append or sync failure poisons the writer even when a complete record may have reached disk. Reopen before relying on the tail. [Append path](../../crates/tickwire-account-journal/src/lib.rs)
 
-## 有序追加
+Ingress keys are `(input_stream, input_sequence)`. An exact retry reuses its original receipt without advancing the account journal or the history chain. Different content under the same key poisons the journal. Physical recovery rejects *any* duplicate persisted input key, including an identical one. Account events alone need not use consecutive input positions because the input journal also contains registrations, gap records, raw responses and quarantine records. Lookups in input-key order support cross-checks. Replay always uses physical account-record order. [Ingress tests](../../crates/tickwire-account-journal/tests/ingress.rs)
 
-成功记录的 `CanonicalRecord.sequence` 等于物理记录序号，从 1 连续递增。它不等于账户状态的变更次数。Admit 的精确重试返回原收据；同键不同输入封闭日志；其它完整输入保留原顺序。
+`HistoryFrontier` has a fixed 128-byte encoding. Its content address is the SHA-256 of those bytes. The chain binds writer epoch, record sequence and complete canonical-record digest. A different order or writer produces a different frontier even if final balances coincide. [History encoding](../../crates/tickwire-account-journal/src/history.rs)
 
-基线摘要、账户身份、目录身份和代次检查在写入前完成。新 Admit 只属于当前 writer；交易结果与中止等事实可以引用旧意图代次。记录总量受 `MAX_FACTS + MAX_ORDERS` 限制。
+## Recover and inspect
 
-同步成功后才更新公开记录列表、成功序号与历史前缀。物理追加错误使封装 poisoned，包括可能已经完整写入的批次。随后必须重新打开日志核对介质内容，不能沿未确认结果继续追加。
+Recovery checks the caller's trusted configuration against the bootstrap, validates the baseline and verifies the physical chain and any independent required frontier *before* tail repair. It validates every record's position, scope, catalog identity and writer epoch, then rebuilds the logical history from bootstrap. Each admission's verifier sees the exact preceding history. The reducer recomputes the admission at its original evaluation time and compares the full image before applying subsequent records. Special records also require their own evidence verifiers. No partial replay is published. A successfully recovered account remains frozen until authenticated reactivation. [Recovery](../../crates/tickwire-account-journal/src/lib.rs) · [Persistence tests](../../crates/tickwire-account-journal/tests/persistence.rs)
 
-IngressEvent 以 `(input_stream, input_sequence)` 建立独立索引。精确重试返回原收据且不推进记录序号、历史链；同键不同完整事件使日志 poisoned。首次同步成功后才发布索引，恢复时拒绝物理日志中任何重复输入键，即使事件相同。输入序号可以夹杂登记、缺口和隔离记录，不要求在账户日志中连续；输入日志的完整前缀由其所有者核验。
-
-`ingress_event` 返回指定输入的规范事件；`ingress_events` 按输入键排序，仅供反向核对，不表示 WAL 顺序。账户恢复仍按 `records` 的物理顺序处理新标签，并保持冻结。
-
-`HistoryFrontier` 的固定 128 字节编码、空链和增量算法在接口中定义。对象摘要为 `SHA256(bytes)`，与 `Persistence::put_object` 一致。链内保留 writer、序号和完整记录摘要，使同一基线上的不同输入顺序或 writer 代次产生不同前缀。
-
-## 恢复
-
-恢复按以下顺序完成，全部成功才返回对象：
-
-1. 以调用方受信配置核对 bootstrap，解码并验证基线。
-2. 验证物理日志链与调用方提供的精确 `required` 前缀，处理未完成尾部并重新同步。
-3. 核对每条账户记录的序号、基线、账户/目录身份和 writer 代次；接管 writer 不得早于已写历史。
-4. 从确定 bootstrap 重建历史链；每条 Admit 在推进链之前调用必填的历史闭包 verifier。
-5. 用原 `evaluated_at` 重算 Admit，比较完整 AdmissionImage，再依序重放其它七类记录。
-
-返回账户始终冻结，没有发送队列。恢复日志在对账激活前只允许追加后续事实，拒绝新增 Admit。完整 `Reactivated` 记录同步后才允许新 Admit；恢复该记录时必须核验原始输入快照与它之前的精确历史前缀。已持久记录如果无法被账户解释，会使恢复失败；实现不跳过坏事实。没有 `required` 时不声称检测介质整体回滚。
-
-## 验证范围
-
-真实文件测试覆盖八类输入、全部顺序恢复、准入重试/冲突、重复成交与独立账户序号、身份与代次错配、历史闭包缺失、伪造 AdmissionImage、部分追加、同步完成但回执丢失、创建中途失败、可信前缀不匹配时不修改尾部，以及独立子进程退出后重开。
-
-Python 独立生成确定 bootstrap 和三个历史前缀样本，Rust 测试比较完整字节及摘要；另通过真实 `Persistence::put_object` API 核对内容地址互操作。进程退出与故障注入不等同于设备掉电实验。
-
-账户 reducer 与物理 WAL 已有各自模型；本模块的历史闭包组合与后续 AccountGateway 尚未纳入这些模型的证明范围。这里交付源码审阅与文件/协议测试，不把已有模型结论扩展到尚未建模的组合。
-
-## App 离线复盘源锁
-
-`tickwire-app replay/export` 在复制前按账户、输入、恢复对象三个源目录取得现有 LOCK 的排他锁，全部持有到离线结果结束；后续目录、复制或历史验证失败也释放已取得的锁。私有 `ReplayLocks` 从每次加锁成功起承担释放责任，离开作用域时显式 unlock，再关闭描述符。fork 至 exec 期间继承的无资格描述符不能延长已结束复盘 owner 的锁；活跃复盘仍排他，旧副本关闭也不能释放后继 owner 的独立锁。源文件保持只读，显式解锁不赋予在线运行或重发授权。
+A local append receipt covers the synchronized local prefix. Replication acknowledgement, writer isolation and new trading authority have separate owners. Offline app replay/export takes exclusive source locks for account, input and recovery-object directories before copying, holds all of them through verification, and explicitly unlocks on all exit paths. This prevents a live writer from changing a copied source. Offline inspection grants no sending rights. [Account gateway](account-gateway.md)

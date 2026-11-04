@@ -168,7 +168,8 @@ impl<const M: usize> TopicPublisher<M> {
         let index = self.slot_index(slot)?;
         let row = &mut self.state.rows[index];
         let cat = category(kind);
-        if row.spec.required_states & cat == 0
+        if row.context.is_none()
+            || row.spec.required_states & cat == 0
             || row.event_sources[source_index(cat)].is_some()
             || (cat == 4 && matches!(row.instrument.contract, tickwire_venue::ContractKind::Cash))
         {
@@ -203,6 +204,9 @@ impl<const M: usize> TopicPublisher<M> {
         use tickwire_binance_public::EventNotice;
         let instrument = slot.instrument;
         let i = self.slot_index(slot)?;
+        if self.state.rows[i].context.is_none() {
+            return Err(Error::Identity);
+        }
         if now < self.last_now {
             self.fault(instrument, faults);
             return Err(Error::Clock);

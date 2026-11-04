@@ -1,0 +1,13 @@
+{
+  "mode": "multi",
+  "members": [
+    {
+      "logical_strategy_id": 1,
+      "strategy": { "mode": "hosted", "config": "/srv/tickwire/strategies/maker/host.json" }
+    },
+    {
+      "logical_strategy_id": 2,
+      "strategy": { "mode": "hosted", "config": "/srv/tickwire/strategies/hedger/host.json" }
+    }
+  ]
+}

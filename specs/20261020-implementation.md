@@ -1,339 +1,68 @@
-# Tickwire 实现与验证
+# October implementation and verification record
 
-Status: active
+By October 29, 2026, fixed release binaries had completed a Binance Spot order, private fill, fee reconciliation and strategy handover against a local exchange fixture on WSL2 Linux. The run used independent market, strategy, execution and replica processes, real TLS sockets, Linux shared memory and durable journals. It exercised strategy replacement while an order was outstanding. Binance production, a comparable combined Spot/USDⓈ-M run, cross-host takeover and target-hardware latency qualification were still open. [October 28 run](evidence/20261028/summary.json) · [October 29 acceptance](evidence/20261029/runtime-image-acceptance.json)
 
-实现以[详细设计](20261020-binance-ultra-low-latency.md)为依据。行情、策略、下单、私有回报、入账、费用核对，以及自定义 V1→V2 策略的 schema3 完整输入回放、持久安装、独立回滚探测和交接，已在 Linux 独立进程中运行通过。声明重建的单域采集、同进程安装与 schema4 发布也已通过真实进程验收。当前继续完成配置发布、完整账户行为和恢复接管，同时对固定源码快照执行模块及全仓检查。接口决策随实现记录，开发期间继续必要的单元测试、进程集成、故障注入和源码复审。全部代码开发完成后，再按最终源码逐模块执行 TLA+，然后验证全局组合；开发中不启动新的形式化检查。既有验证结果保留其原始源码范围，不自动覆盖后续改动。
+This record describes the October revisions. Each report identifies its own source snapshot and binaries. The current module map and the original design have separate entry points. [Specification index](INDEX.md) · [October 20 design](20261020-binance-ultra-low-latency.md)
 
-实现按可编译阶段提交并推送远端，规格索引与完整验证证据集中收尾；提交范围限定为本任务修改，推送后核对远端 SHA。
+## From an intent to a reconciled fill
 
-## 实施状态
+The account owner reserves capital and records the immutable order command, authority and recovery dependencies. After the local journal sync, the gateway rechecks authority and freshness at the transport's first write. An unsent abort releases resources after its durable record. Once bytes may have left the process, the reservation survives a timeout, disconnect or restart. Recovery replays the journal in order with network sending disabled. Venue order queries, paginated fills, fee evidence, account snapshots and open-order snapshots establish the facts needed to reopen new risk. [Account gateway](implementation/account-gateway.md) · [Account journal](implementation/account-journal.md) · [Reconciliation controller](implementation/reconciliation-controller.md)
 
-| 范围 | 当前实现 | 后续验收 |
-|---|---|---|
-| P0 契约与工具链 | Rust 1.99.1 workspace；ABI/风险向量、Spot SBE schema 与协议 fixtures 接入回归 | 生产能力核验和双产品组合资格 |
-| P1 行情与 IPC | Spot/USD-M 深度同步、JSON / Spot SBE 与精确事件发布、memfd、跨进程 JOIN；稠密索引和连续盘口副本；同 catalog 运行时追加、完成扩容后的冷恢复及真实重新 JOIN | 跨 catalog 变更、仍存活消费者的透明续接、死亡回收组合、更多实例及双产品进程场景 |
-| P2 风控与执行 | Spot 多资产与 USD-M 账户、真实 WAL 与恢复对象、签名 REST / 持久 WS 发送、私有事件入账；Spot 实际进程链包含终态费用核对 | 双产品组合、剩余订单类型、完整风险范围和新增组合模型 |
-| P3 发布与恢复 | 动态 Shadow、真实 READY/消费水位、签名多域协调及持久管理权交接；自定义策略 schema3 回放、安装、回滚探测、旧实例退出；声明重建真实窗口、同 PID 安装与持续接续、独立回退及 schema4 发布 | 多域组合、协调器与 exec 重启、配置发布、发布冷步骤异步化 |
-| P4 故障与接管 | mTLS 有序镜像、异步/同步提交模式、guardian、源封口和冻结恢复；持久 Raft、认证 peer 网络、快照与成员管理 | 实际隔离与恢复接管、同步镜像故障、统一控制业务接线 |
+Early Linux runs reached account and mirror position 4 on the initial Spot fill and position 8 once the maintenance loop also queried the terminal order and booked `FeesReconciled`. The later custom handover transferred management of that outstanding order, consumed a late fill and matched all 12 account records in the mirror and new worker. The fixture ended at BTC 1.001 and USDT 940, with the order terminal, fees closed and no unknown order. These are record counts and account balances, independent of elapsed latency. [Handover and account evidence](evidence/20261028/summary.json)
 
-历史双平台验证与 schema2 交接保留原版本范围；本轮验证使用原生 WSL2 Linux。模块边界与剩余工作见[规格索引](INDEX.md)。
+The protocol layer also supported Spot and USDⓈ-M depth synchronization, JSON events, Spot SBE, typed orders, authenticated REST and persistent WebSocket submission. Spot OCO, OTO, OTOCO, peg and SOR request encoders had tests including signed TLS requests. Execution admission still depended on account support for the particular operation. Spot multi-asset accounting and single-settlement-asset futures accounting had separate recovery and model tests. [Request coverage](implementation/binance-request-extensions.md) · [Account behavior](implementation/account.md) · [Account models](../tla/execution_models/account/ROADMAP.md)
 
-## 2026-10-28 行情索引与恢复验收
+## October 28 — Market data and strategy replacement
 
-固定标的目录采用冷建 mask/gather 索引，过大的位表回退到有界平坦哈希表；动态目录提供稳定的只追加稠密 ID 与冷路径扩容。MD 为每个 topic 预绑定发布槽位，策略端改用连续盘口集合与固定类别槽，深度更新复用双侧工作区。预留容量内 100 次深度更新从 300 次分配降为 0，数量查询使用二分；外部 ID、IPC 布局和旧检查点字节保持兼容。算法、适用范围和五轮合成基准见[标的索引规格](implementation/instrument-index.md)。运行时新增标的仍需受信目录发布和 JOIN 接线。
+**Indexing and publication.** The producer maps full `u64` instrument identifiers to dense local book slots. A fixed catalog builds its lookup index ahead of time. An append-only catalog preserves existing slots. A feed containing `u64::MAX` passed through an SBE WebSocket fixture, REST snapshot, sequence synchronization and shared-memory IPC without truncation. The producer reserves decode and publication workspaces. The measured allocation count for 100 in-capacity depth updates fell from 300 to zero. In a separate publisher test, a first quote went from three allocations totalling 3,608 bytes to zero, and a 4,096-level JSON frame passed on a 2 MiB stack. The network receive and frame parser still allocate. [Index specification](implementation/instrument-index.md) · [Dense book run](evidence/20261028/dense-book.json) · [Publication tests](evidence/20261028/publisher-hot.json)
 
-入口接线进一步消除了外部标的 `u64` 到盘口 `u32` 的数值限制：`BookKey.instrument` 现在是 owner 预绑定的本地编号，MD 从整份 feed 配置建立统一索引，执行进程从规范账户目录取得固定槽。发布器拒绝不同标的重复使用完整本地 key。高位 ID、同低 32 位标的、目录排序与重连均有回归；真实 SBE WSS → REST 快照 → DepthSync → 共享内存验证了 `u64::MAX` 仍完整出现在 IPC 中。本地编号不进入目录、快照或 WAL；深度来源 `stream_id` 的现有 `u32` 容量约束未变。
+**Live expansion.** The producer prewarms new members of an approved catalog and prepares the successor bank. After all approved consumers arm the change, the owner pauses old JOINs, waits for actual cursor quiescence, installs the complete baseline and admits readers on the new bank. The strategy records the snapshot, catch-up bytes and cursor in its durable input history. In the release exercise, ETHUSDT was added at `u64::MAX` while the MD, execution, active strategy and shadow kept their process identities. Three consumers reported activation and effective receipts. The source checkpoint was 2, expansion was observed at 161 and handover cut at 167. The mirror and successor verified 13 account records after the late fill. One startup clock gap had closed through reconciliation before the first admission. [Expansion run](evidence/20261028/market-expansion-runtime.json) · [Input WAL audit](evidence/20261028/market-expansion-runtime-input-audit.json)
 
-该回归暴露的 4096 档 JSON 发布栈溢出已通过共享解码工作区修复，原 8 MiB 测试绕行已移除。发布器现在使用固定记录数组、预留四类状态和三个事件源槽，每 topic 的解码与 IPC 档位工作区合计 128 KiB；缓存预算按实际保留容量与文本载荷核验。首次 Quote 发布由 3 次/3608 字节分配降为 0，首次 Trade/BBA/MarkFunding、JSON/SBE 的 inline、arena、4096 档及长后短帧同样零分配，实际发布在 2 MiB 栈通过。JSON 新旧 diff 入口共用有界扫描器，保留合法转义，未知字段容器嵌套最多 128 层；独立 serde oracle 覆盖协议接受性与解码值。网络接收和帧解析仍有分配，不在这次发布路径结论内。
+**Schema 3 full replay.** The old worker replays the actual ordered inputs from the saved checkpoint to the cut. A successor installs the verified state and an independently identified old-version probe tests rollback before retirement. The release binds the resulting evidence to the account owner and its transfer of management authority. One recorded run replayed from source checkpoint S=2 to cut C=10 and consumed through D=285 on the successor. A separate run passed with each worker executable padded to 16 MiB plus one byte. The fix retained the 16 MiB typed-message limit and applied the existing 64 MiB object budget to opaque dependencies. [Recovery summary and binary digests](evidence/20261028/summary.json) · [Strategy handover](implementation/strategy-handover.md)
 
-发布路径改造后的完整 `check-rust.sh`、契约校验和 release 独立进程交接再次通过，结果仍为 S=2、C=10、目标序号 285、镜像与策略端各 12 条账户记录，费用闭合且无未知订单。全仓回归同时发现配置日志测试的 fork/exec 锁继承竞态；延迟 exec 200 ms 可稳定复现，测试级读写屏障修复后通过同一实验，生产锁未改。[发布热路径证据](evidence/20261028/publisher-hot.json)绑定 682 份源码与八个实际运行二进制；[阶段索引](evidence/20261028/README.md)区分本次结果和下面的历史快照。
+**Schema 4 declared rebuild.** A capture worker joins the actual market and account prefix, records a bounded input window and seals it. It then installs the strategy in the same process and continues consuming events after the cut. The rollback probe runs independently. The release build reached C=10 to D=285, passed the probe and reconciled the 0.001 BTC fill and its fees. Sealing the window to receiving Prepared took about 1.17 seconds on this fixture. A development build took 24.4 seconds, outlived the valid account evidence and was denied handover. The interval includes cold release work and has different boundaries from the design's after-shadow-ready handoff target. [Capture tests](evidence/20261028/capture-runtime.json) · [Rebuild and recorded failure](evidence/20261028/rebuild-runtime.json)
 
-本地盘口编号接线后，完整 `check-rust.sh`、设计契约和文档校验通过，并用更新后的 release 二进制再次通过独立进程 `spot-handover-custom` 场景：源 S=2、C=10，目标最终输入序号 285，复制端与策略端各核对 12 条账户记录，成交费用闭合且无未知订单。源码、二进制摘要和验证范围保存在[本地盘口身份接线证据](evidence/20261028/dense-book.json)。
+## October 29 — Configuration, identity and restart
 
-补齐了原先返回 `Unsupported` 的 `CaptureOnly`：校验种子、实际行情与账户输入，错误不推进窗口，封口绑定真实输入链和账户摘要。采集只接受同一 boot 的本机单调时钟，使用 SDK 固定观察器；声明重建的 Host 和进程接线仍待完成。schema3 恢复依赖改用已有 64 MiB 单对象预算，类型化 replay 消息仍保持 16 MiB，修复合法策略二进制在启动、安装或回滚时被误拒绝的问题。
+| Change | Evidence and boundary |
+| --- | --- |
+| Configuration planning and archive | The planner binds the old and new complete projections, base revision, digest, actor and deadline. A three-voter test cut the majority during upload, recording and final read. Matching retries recovered the first Raft position. Snapshot recovery and a leadership change reproduced the archived bytes. Archiving the plan leaves the desired revision unchanged. Ordinary rollout and all-target application receipts remained open. [Plan](evidence/20261028/config-planning.json) · [Archive](evidence/20261028/config-archive.json) |
+| Worker executable and resource identity | The supervisor launches from a sealed executable memfd and checks the actual child, kernel start time and image. Release runs sampled the image digest of the running worker. Real processes exercised CPU affinity before exec, inheritance and failures. The host had no writable, delegated cgroup v2 leaf, so the two positive full-resource startup tests were still pending. [Image acceptance](evidence/20261029/runtime-image-acceptance.json) · [Resource limits and test scope](evidence/20261029/process-resources.json) |
+| Runtime observations | A fresh challenge binds a current checkpoint to the actual process, consumed account records and market cursor. Requests are journaled, retries reuse the original outcome and interrupted requests remain identifiable on restart. A fork/exec regression showed a child could temporarily retain an owner's lock. The final-owner release was made explicit and tested across the affected stores. [Observation report](evidence/20261029/runtime-observation.json) |
+| Applying strategy configuration | Startup checks bind identity, executable and approved OS resources. An optional parameter check inspects the actual worker's merged checkpoint. An optional input check compares one account and one external market topic with real report and JOIN evidence before the first intent. Multi-account, multi-topic and unsupported transitions remained closed under this policy. A fresh challenge and validation of declared inputs alone do not confer global configuration `Applied`. [Launch checks](evidence/20261029/projection-launch.json) · [Parameters](evidence/20261029/strategy-parameters.json) · [Input scope](evidence/20261029/strategy-inputs.json) |
+| Restart after expansion | Cold start restores a completed checkpoint, preserves local instrument slots and allocates new owner and bank identities. The producer warms from the actual REST/WebSocket fixture and consumers require fresh admission and JOIN. Seventeen CLI process tests covered restart, a second expansion and SIGKILL in four incomplete phases. Incomplete irreversible changes stayed closed. Transparent continuation of a surviving consumer and cross-catalog migration remained open. [Restart test report](evidence/20261029/md-restart.json) |
 
-此前恢复修复阶段的 release 在原生 Linux 上通过两轮 `spot-handover-custom`：普通部署，以及旧/新策略 ELF 均补齐到 16 MiB＋1 字节的部署。两轮都完成来源回放、目标安装、第三身份回滚探测、旧进程退出、管理权移交和迟到成交；账户与镜像前缀及新策略消费水位均为 12，BTC 1.001、USDT 940，订单终态费用闭合且无 Unknown。大文件场景保持原有期限。
+The economic catalog binds price ticks, quantity steps, assets, product and contract economics to the bytes that MD, the app and the worker consume. The historical report described a price string of `1.00` mapping to 100 ticks at `0.01` and 50 at `0.02`. With a threshold of 75 ticks the worker emitted one intent or none. That exercise used an independent worker and an MD thread in the test process and stopped before the gateway. This checkout retains the source manifest and verification program, but the original catalog acceptance JSON package is unavailable for independent replay. [Catalog specification](implementation/instrument-catalog.md) · [Source manifest](evidence/20261029/instrument-catalog-source-sha256.json) · [Archive verifier](evidence/20261029/verify-instrument-catalog.py)
 
-该恢复阶段的全 workspace all-targets、doctest、格式和 Clippy 检查通过，设计契约、OpenAPI、文档链接及 60 crate 的依赖 DAG 校验通过。真实 memfd、FD 传递和多进程测试在本机 Linux 执行；Docker daemon 未运行。验证中修复了 SHM 测试的无效 ABI 载荷，以及并行测试 fork/exec 暂时继承 WAL 锁的竞态，生产协议校验和文件锁均保持原规则。[恢复阶段证据](evidence/20261028/summary.json)保存二进制、源码摘要、场景结果、环境、测量参数和原始 CSV；其 `final` / `verified` 文件名限定于当时的源码快照。
+## Measurements and model coverage
 
-上述索引、发布和恢复阶段的行为改动不在既有 TLA+ 源码锚点内，没有新增 TLC 结论。该阶段格式整理没有新增失效锚点；仓库已有的失效锚点保留原状，见[锚点审计](evidence/20261028/format-anchor-audit.json)。生产目标主机的延迟资格、完整 USD-M 场景、常规配置发布、跨主机隔离接管仍未完成。
+The book microbenchmark timed `Book::apply` through reading the valid view and best prices on one hot book. On an Apple M1 Pro, five rounds of 200,000 samples per case compared the new code with `df8bd2d`. With 4,096 levels and 16 or 64 scattered quantity changes across both sides, the median of the per-run p50 values changed from 958 to 542 ns and from 4,000 to 2,000 ns. Adjacent edits kept the same median p50. The 512-level case with all 512 levels edited was about 0.5% slower, with overlapping run ranges. Network, decoding, scheduling, IPC and persistence fall outside this measurement. [Original workloads and raw results](https://github.com/Obscurepawn/Tickwire/tree/c6ce8c6d13ba87b3ef93f8c3e1d04500068a198a/docs/validation/book-small-batch)
 
-## 2026-10-28 行情扩容基础接口
+The separate instrument-index benchmark ran five rounds on a Ryzen 7 8845H under WSL2, pinned to CPU 2. Each sample averaged 4,096 lookups. Its distributions measure batch averages. A single-lookup tail percentile and end-to-end tick-to-socket throughput require different measurements. The planned 100,000 market events/s and 300 µs complete-path p99 remained targets. [Benchmark settings](evidence/20261028/index-benchmark-settings.json) · [Index results](evidence/20261028/index-bench-summary.json) · [Target profile](contracts/deployment-reference-v1.json)
 
-[扩容计划](implementation/market-expansion.md)绑定实际配置 revision/hash、bank、全部批准消费者及峰值预算；独立候选保持旧稠密编号，追加新标的。发布器预热新增行，提交时刷新旧行并核验新鲜度，先写完整新基线，再冻结和交换旧 bank。MD 控制服务暂停 JOIN，以真实注册 cursor 的 QUIESCED 证明等待退出，并检查后继 bank 健康后才重新开放。
+At the early `04351db` revision, 202 macOS tests and 223 Linux aarch64 tests passed, including a compile-fail doctest. Later tests used real memfd seals, read-only FD passing, three-process JOIN, durable file reopen and process kills. The finite TLC 1.7.4 runs covered specific source revisions and bounded domains. Among the results, nine submission configurations exercised commit, crash, receipt and economic events. A recovery failure found in the model was reproduced in Rust and the old mock engine was frozen before restart. Five broadcast-ring configurations used the ABI's minimum capacity of 64 and exercised two-reader wrap, borrow and release. October changes that received only a source-anchor audit added no new model-check result. [Submission logs](../tla/execution_models/submission/L2_economic_facts/03_run_log.md) · [Ring log](../tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/03_run_log.md) · [Anchor audit](evidence/20261028/format-anchor-audit.json)
 
-消费者新增有界 `PendingJoin`，连接、发送和追平可逐步推进；原阻塞入口复用同一状态机。策略输入增加 `MarketTransition`，以真实 JOIN 基线、追平记录及完整消费摘要保存跨 bank 转换，持久提交后才更新副本。回放、来源比较和安装现在核对完整游标摘要，拒绝输入字节不同而最终盘口相同的伪等价结果。
+At the end of October, replication included ordered mTLS mirroring, local and synchronous commit modes, guardian and source-seal primitives, and control-plane Raft storage and membership. Open qualification work included actually fencing a failed host and resuming on another, synchronous-mirror failures, multi-domain restart during handover, full configuration rollout, combined futures process scenarios and a sustained workload on the intended hosts. [Replication](implementation/replica.md) · [Guardian](implementation/guardian.md) · [Control Raft](implementation/control-raft.md)
 
-这些接口已通过真实控制连接、memfd、重新 JOIN 和重放回归。完整 `check-rust.sh`、设计契约及新 release 的 Spot 独立进程场景通过：S=2、C=10，目标最终序号 279，镜像与策略端各 12 条账户记录，费用闭合且无未知订单。[阶段证据](evidence/20261028/market-expansion-core.json)绑定 696 份源码与八个二进制。
+## Reproducing the checks
 
-在该接口阶段，持续运行的 MD、执行、策略循环及双收据尚未装配，Spot 独立进程场景验证的是原链路兼容性。该阶段修改了 JOIN owner 源码，相关历史形式化证据保留旧范围，最终开发完成后统一复核。
+Run from the repository root. The Rust script checks formatting, all workspace targets, doctests and Clippy. The two Linux scripts use Docker. The process harness drives loopback exchange fixtures, writes source and binary digests and keeps its result directory. The TLC script needs Java and the pinned jar. For the Python contract suite install the dependencies in the script guide first. [Script setup](../scripts/README.md) · [Linux scenario runner](../scripts/run-core-chain-linux.sh) · [Formal models](../tla/README.md)
 
-## 2026-10-28 运行时行情扩容验收
+```sh
+./scripts/check-rust.sh
+python3 scripts/verify-design-contracts.py --openapi
+python3 scripts/verify-documentation.py
+./scripts/check-linux.sh
+./scripts/run-core-chain-linux.sh spot-handover-custom release
+./scripts/run-core-chain-linux.sh spot-market-expansion release
+./scripts/run-core-chain-linux.sh spot-rebuild-custom release
+./scripts/check-tla.sh
+```
 
-MD 现可在保留旧网络 owner、连接和本地编号的同时预热新增来源；冷 worker 处理 DNS、证书与控制文件，固定 token 随 owner 保留。全部消费者核验精确批准并返回 Armed 后，MD 才暂停旧 JOIN，等待真实 cursor QUIESCED，提交完整后继 bank，并同步同 revision/hash 的 effective 文件。执行进程和两个策略进程经原认证控制连接接收 Arm/Commit，驱动有界 PendingJoin，按各自持久边界放行新行情。失败发生在退出前时保留旧流，退出后保持关闭。
+To review retained output without running a new exchange fixture, use the offline verifiers below. They inspect archived files and receipts. Paths under `/tmp` recorded inside the reports refer to the original runs. [October 28 evidence index](evidence/20261028/README.md) · [October 29 evidence index](evidence/20261029/README.md)
 
-控制决定先保存完整内容寻址对象，再将引用同步到原 WAL；保持原物理批次上限和总预算。文件扫描至少间隔 10 ms，未到扫描时刻零分配，未变化的大批准文件不重读。同步后重新采样时钟并核验当前 Binding；WAL 保存真实准入时刻，派发使用同步后的当前时间，过期决定保留审计历史且恢复不重新授权。
-
-跨 bank 输入继续保存完整 JOIN 基线、资源身份、时刻和原始追平记录。新 `cursor_basis=1` 以最后一条真实生产者记录生成游标摘要，使不同消费者在同一前沿可比较；旧格式保留原摘要。没有追平记录时，策略保持暂停并等待新 bank 的真实记录。持久化后再核验会话、期限和连续性，才交换 Client；原始记录不同而盘口相同的输入仍拒绝。
-
-原生 Linux 的 release `spot-market-expansion` 场景已通过：在同一 catalog 中追加 `u64::MAX` 标识的 ETHUSDT，MD、执行、Active 和 Shadow 的 PID/starttime 保持不变；三个消费者均完成真实 Activated 和 effective 收据。来源检查点 S=2，经扩容观察点 161 到实际 C=167，完整输入链前缀核验通过；随后完成旧 binary 回放、目标安装、独立回滚探测、旧策略退休与迟到成交。镜像与目标策略各核对 13 条账户记录，订单费用闭合且无 Unknown，BTC 为 1.001、USDT 为 940，新增 ETH 余额保持零。
-
-输入审计累计有一条启动阶段的 `Clock` Gap，首次账户准入前已通过三类快照和 `Reactivated` 记录精确关闭，之后没有新 Gap，也没有 Quarantine。相对旧场景多出的一条账户记录来自周期 REST 查询，订单仍为 NEW、累计成交为零；[原始 WAL 审计](evidence/20261028/market-expansion-runtime-input-audit.json)保留序号、哈希链和对账绑定。日志没有记录更细的时钟采样原因。
-
-完整 `check-rust.sh`、设计契约和 OpenAPI 校验通过，60 个 crate 的内部依赖保持 DAG；794 份构建输入在 release、进程运行和全仓检查之间没有漂移。[阶段证据](evidence/20261028/market-expansion-runtime.json)保存来源与二进制摘要、实际水位及故障回归。[扩容时序图](../assets/market-expansion.svg)展示持久化与观察放行的位置。
-
-当前扩容限于已批准 catalog 和同一组运行进程。常规配置 API、跨 catalog 更新、扩容中途重启恢复与旧 bank 死亡回收继续按各模块推进；执行冷控制仍包含主线程文件同步，不宣称全控制路径硬实时。此次未改动既有模型锚点文件，也未新增 TLC 结论，最终形式化验证仍按文首约定统一进行。
-
-## 2026-10-28 声明重建采集验收
-
-独立 `--capture-only` 启动模式已接 SDK 与 Host：先完成真实 MD JOIN 和固定账户前缀，再建立种子，用固定观察器收集有界输入。封口请求绑定完整启动配置、合同、账户位置、挑战和期限；窗口逐行重算，完整九对象闭包同步后才发送回执。Host 重读全部依赖并核验同一实际子进程、报告游标与当前期限。正常停止完成 MD 与报告通道的真实退订，再确认子进程成功退出。
-
-固定 release worker 的两个 Linux 验收通过。成功窗口包含三行 warm 输入，行情从 2 到 3、账户从 0 到 1，报告 ring 游标为 2；采集期没有创建用户策略或发送业务 READY。缺失启动配置或封口请求、完成件篡改、超时和 Drop 均按预期关闭。该测试的策略是独立进程，MD 的真实 JOIN server 与 memfd Publisher 位于父进程线程。完整 `check-rust.sh`、74 个 IPC 向量和设计契约通过，808 个构建输入在构建与验收间保持不变。
-
-共用报告通道和退订逻辑也通过既有 release `spot-handover-custom` 场景：S=2→C=10，目标最终序号 285，旧进程正常退出，镜像与策略各有 12 条账户记录，费用闭合且无 Unknown。累计输入中的一条启动 `Clock` Gap 已由首条 `Reactivated` 覆盖，无 Quarantine。[采集阶段证据](evidence/20261028/capture-runtime.json)保存最终源码、二进制、水位和日志摘要，[采集时序图](../assets/rebuild-capture.svg)展示窗口与后续发布的边界。
-
-该次采集验收时，App 尚未接通 schema4 发布；后续安装与发布进展见下一节。新增采集行为的形式化验证保留到最终开发完成后；本阶段未修改历史模型或源码锁。
-
-## 2026-10-28 声明重建安装与发布验收
-
-同一 capture PID 现可安装真实工厂的预热实例，保留空 genesis→warm commit、原始起点和完整窗口，接入真实 intent 通道后持续消费 C 后输入。独立旧版本探针通过后，kind10 将完成闭包同步回目标；v4 READY 绑定安装与回退两根。App 核对实际账户 WAL、固定动作集合与当前消费证明，再由签名协调器推进 Prepare、Commit、Release。每个冷阶段使用新时钟样本检查账户有效期，过期或冻结立即关闭本次发布。
-
-冻结 release 的 `spot-rebuild-custom` 在本机 Linux 独立进程中完成：capture/目标 PID 相同，独立探针成功退出，旧策略正常退出，C10→D285 的哈希前缀连续；账户、镜像与策略报告各 12 条，0.001 BTC 成交及费用闭合，无 Unknown。窗口封口至 Prepared 约 1.17 秒，是此 loopback 功能场景的观测值。开发构建曾耗时约 24.4 秒并超出剩余账户有效期，保留该失败记录；发布冷步骤异步化及目标主机成本验收仍待完成。
-
-三项独立 Host 进程测试覆盖原采集、异常退出，以及同 PID C4→D9、独立 probe、kind10 和正常退订。额外回归覆盖持久同步失败、原 capture 依赖逐项缺失、PID/根替换、17 MiB 不透明依赖、16 MiB 类型对象限制及递归深度。所有阶段使用固定二进制副本，避免构建替换文件影响运行身份。完整检查及原始摘要见[运行证据](evidence/20261028/rebuild-runtime.json)，[流程图](../assets/rebuild-installation.svg)说明安装和发布的顺序。历史 TLA+ 证据保持原范围，本阶段只读核对锚点。
-
-## 2026-10-28 配置计划内容与运行实例验签
-
-配置纯值计划器保留完整新旧交付集合，逐目标计算动作、投影身份和待验前提，固定 base revision/hash/ETag、候选与规范计划摘要。完整目标包含不变投影的版本接收者。服务端规划入口使用真实 mTLS 主体和两次多数派安全读，在后台共享额度中核验完整内容与旧新投影；最后重新检查当前角色、原始 If-Match、提交身份、来源上下文和期限。真实三 voter 文件日志回归覆盖隔离、作用域补丁、来源替换、证书撤销和跨 Replica 使用。
-
-运行实例事实内核使用独立签名 kind，启动信任限定签发者的 host/process 范围，验签后检查完整基线目标、实际构建身份声明、instance/boot/slot、revision/hash/projection 和期限。每台主机的一份完整观察保留来源 epoch/sequence；实际 provider 和水位持久防回退仍待接入。规划输出是内部草案；计划持久准入、普通修订、操作状态、真实应用驱动和全目标双收据尚未接通。资格引用刷新目前仍按全局 Quiesce 处理，完整 Hot 发布的门禁拆分另行推进。
-
-入口与边界见[计划规格](implementation/config-planning.md)、[事实规格](implementation/config-runtime-facts.md)及[流程图](../assets/config-planning.svg)。完整 `check-rust.sh`、设计契约和文档链接检查通过，855 项构建输入保持不变；命令、日志摘要与限制见[阶段证据](evidence/20261028/config-planning.json)。本阶段只读核对历史模型锚点，新的形式化验证保留到功能开发结束。
-
-## 2026-10-29 配置计划内容持久化
-
-内部计划草案现可保存完整历史依赖：原始完整配置或补丁、真实提交基线、规范候选、计算结果、规划规则摘要、完整旧新投影、资料包和原信任配置。对象按有界块上传，逐条等待真实 Raft 提交回执；全部封口后，重新安全读取基线并核验当前权限、来源与期限，再原子记录归档根和主体幂等键。返回收据前还需一次多数派安全读。
-
-相同规范请求重试返回首次记录的位置与内容，新的核验时间不会创建重复记录。取消保留已提交的对象；当前没有对象垃圾回收。归档恢复检查全部封口依赖和历史绑定，不使用当前时钟改判历史事实；原规则不同的内容仍能读取，重新用于发布须按当前规则核验。旧无归档快照保持原字节，非空归档通过独立格式保存。
-
-真实三节点回归覆盖上传、记录和最终读取三个阶段的多数派隔离，并发相同请求返回首次 index/term，证书撤销、来源替换和取消后保持未记录。各 voter 从自身快照恢复后内容相同；三份 FileStore 关闭重开并换主后安全读结果一致。另一路 GenerationStore 完成真实快照压缩、持久安装、关闭重开与尾日志回放。完整 workspace 检查、契约和 OpenAPI 校验通过，[阶段证据](evidence/20261028/config-archive.json)绑定 868 项构建输入。新增形式化验证继续留到功能开发完成后。
-
-这一步保存可恢复的计划内容，当前 desired 修订保持不变。实际运行实例采集、持久来源水位、保留资源登记头、HTTP 计划准入、普通修订和全目标配置应用仍待完成。详见[归档规格](implementation/config-plan-archive.md)与[资料来源规格](implementation/config-archive-sources.md)。
-
-## 2026-10-29 受管进程的执行映像与身份采集
-
-监督器现在先把主 ELF 有界复制到带内容封印的 memfd，核对固定内容的摘要后，从同一描述符启动。原路径被替换、删除或原文件被覆盖时，已批准的执行字节保持不变。真实控制握手前后核对 owned Child 与实际程序映像；同 PID 再次 exec 到其他映像会被拒绝。SDK 的启动、恢复与回退核验改为读取实际 `/proc/self/exe`，恢复清单中的独立 Binary 依赖仍完整检查。
-
-新增显式冷路径采集实际 PID、UID/GID、主机 boot ID、内核启动时间、固定映像大小与摘要，以及已接受的连接 epoch。结果由私有字段类型承载，读取前后核验同一子进程和映像；普通存活轮询保持原有开销。全局配置的真实应用回执、新鲜 challenge、槽位和 locator 身份、持久来源水位仍待接入。
-
-固定 release 二进制通过两条独立进程场景：完整输入回放交接为 S2→C10→D285，声明重建为同 PID 采集与安装、C10→D291；两场旧策略均正常退出，镜像和策略各核对 12 条账户记录，费用闭合。Host 三项实际进程测试通过，包含同 PID C4→D9 和独立回退探针。运行中采样确认目标程序来自 memfd，内容摘要匹配固定部署文件。最终全仓检查、设计契约与文档链接检查通过，875 个输入中仅两个测试夹具在进程验收后修改。执行映像、采集边界与后续资源核验见[监督器规格](implementation/supervisor-process.md)，命令与源码绑定见[阶段证据](evidence/20261029/README.md)。
-
-## 2026-10-29 策略子进程资源约束
-
-监督器新增显式资源启动：使用部署方预配置的 cgroup v2 专用组，在执行目标 ELF 前迁入，设置并读回 CPU 亲和性，核对单 NUMA 节点、有限内存上限和禁止 swap。目录与控制文件通过真实 cgroupfs 检查和固定描述符访问，专用组持有协作式排他 lease；错误配置、迁入失败或限制漂移会终止启动。退出后 Entry 仍持有 lease，复用时重新检查实际空组。
-
-App 和 Host 将 worker、旧来源重放、回退探针的三份资源计划传到全部对应启动入口。启用资源计划后，任何错误都不会回退到普通启动；同 PID 采集、安装和提升继续使用原资源组。显式冷观察核对真实组成员、全部线程限制，以及采样前后的 Child、执行镜像和内核启动身份。正常行情与交易轮询保持原有路径。
-
-本机真实子进程验证了执行前 affinity 设置及多线程继承，负向测试覆盖执行前失败、伪 cgroup 和三用途选择。本阶段固定 release 的完整回放交接和声明重建均达到 C10→D285，重建保持同一 PID；两场成交与费用闭合。完整 workspace、Clippy、格式、设计契约与 OpenAPI 检查通过；源码绑定及独立进程验收见[资源阶段报告](evidence/20261029/process-resources.json)。本机无可写委派组，完整组内启动、NUMA 与内存约束正向验收仍待运行。允许 CPU 集合与 cgroup 内存上限各按内核实际口径处理，父 owner 创建的共享内存和封印镜像另计保留预算。
-
-全局配置的实际消费者、OS 身份映射、带新鲜认证挑战的实例采集和持久来源水位继续保留为未完成事项。实现接口与验收边界见[监督器规格](implementation/supervisor-process.md)。
-
-## 2026-10-29 策略实例查询与持久观测
-
-SDK、Host 与 App 已接通持续运行的检查点查询。请求账户位置作为下界，回应保存真实消费位置；实际主机 boot、PID、启动 ticks、实例、会话与请求共同绑定新挑战。Host 读取完整恢复闭包，核对执行端实际报告前缀和共享游标，并在内核、磁盘读取后复核原始期限。查询等待、取消和超时不暂停策略回调；普通消费公告与带请求的回应遵守发送次序。
-
-App 通过显式批准的 Linux 私有目录、UID、Binding 和构建摘要清单接收请求。请求先写日志，完整恢复依赖去重并落盘，再保存终态和发布结果。重复请求不重发挑战，内容冲突关闭原请求；重启将未完成请求转为 Interrupted，已完成结果标为历史并保留原期限。实现与容量边界见[实例观测规格](implementation/runtime-observation.md)。
-
-全仓并发回归暴露了一个锁生命周期问题：未执行新程序的子进程临时继承旧 owner 的文件描述符，父进程关闭自己的副本后仍不能立即重开日志。实际 PID、FD、inode 与锁记录证实了继承链。日志、恢复对象、观测入口、离线复盘、配额、控制快照和资源组现在在锁取得后使用私有 guard，构造失败和最终 owner 正常销毁时显式解锁；控制快照的合法共享 owner 全部释放前仍保持排他。
-
-固定 release 的两条完整业务场景均达到 C10→D285，6 项 Host 真实进程测试通过；App 查询、历史恢复和中断恢复同时保留账户、策略与镜像位置 8 的成交费用闭合。完整 workspace 检查通过。本阶段的源码、固定二进制、实际查询与业务验收记录见[阶段报告](evidence/20261029/runtime-observation.json)。完整全局投影的应用、跨主机签名运行事实、持久来源水位和生产性能资格仍未完成。新形式化验证留到功能开发完成后，历史锚点差异通过只读审计记录。
-
-## 2026-10-29 策略启动字段与全局投影绑定
-
-App 可显式启用 `HostConfig.projection_launch`，从完整投影对象核对启动 scope、策略身份和程序摘要，通过批准的名称映射解析 OS UID/GID，再与当前 App 的实际内核身份核对。worker 的 CPU、NUMA 和内存必须与投影一致，并沿已有资源启动入口落实。对象使用单个文件描述符有界读取，拒绝符号链接、非普通文件、超限内容和摘要冲突。
-
-远程策略在返回运行 owner 前核验真实进程和资源；本地策略等待真实行情触发启动，在读取首条交易意图前完成相同核验。首次启动证明保留输入对象身份与实际内核观察，只覆盖这些启动字段。当前入口限于普通 registered Active/Shadow 首次启动，不接 capture、预恢复任务或轮换；完整策略参数、风险、日志、IPC 等投影应用仍待后续消费者接线，不生成全局配置 Applied。
-
-全仓并行测试暴露了两个既有资源测试同时锁定同一 cgroup 根 inode 的夹具冲突。系统调用跟踪复现后，测试把同一共享资源的断言合并，并使用生产 lease guard 验证排他、立即释放和旧 FD 副本不影响后继锁；生产锁语义保持原样。接口和验收边界见[监督器规格](implementation/supervisor-process.md#全局投影中的策略启动字段)。本机仍缺少可写委派 cgroup，完整资源启动正例尚未执行。
-
-完整 workspace 检查通过；固定 release 的普通交接场景完成成交与费用闭合，账户、镜像和策略各核对 12 条记录。该场景验证省略启动绑定配置时的兼容性，源码清单、失败诊断、实际映像样本与验收范围见[启动绑定阶段报告](evidence/20261029/projection-launch.json)。
-
-## 2026-10-29 行情扩容后的冷启动恢复
-
-MD 可显式启用独占恢复目录，保存完整配置、实际 bank、稠密标的编号和已消耗的操作及来源身份。新进程必须绑定当前检查点，使用新的实例、来源 owner 和 bank；原配额目录及旧预留责任保留。恢复只接受已完成的稳定记录，从真实 REST/WSS 重新预热后发布，并要求消费者取得新 Admission、重新 JOIN。
-
-候选来源启动、旧消费者撤销和新配置安装分别由持久阶段保护。未完成阶段被杀死后拒绝自动恢复；不可逆失败后，后续错误请求也不能把历史改回就绪。首次预热时发生断线可先持久预留替换 bank，完成实际换代和全部行情预热后再记录就绪。代码、容量与身份边界见[行情扩容规格](implementation/market-expansion.md)。
-
-完整 workspace 检查通过；固定 release 的 17 项实际 CLI 进程测试覆盖新 PID 恢复、保留编号后再扩容，以及四个未完成阶段的实际 SIGKILL。原有完整 Spot 扩容和策略交接兼容场景中，账户、策略与镜像均核对 13 条记录，成交与费用闭合。源码和程序摘要、完整恢复链及离线复核器见[阶段报告](evidence/20261029/md-restart.json)。
-
-同一 catalog 内的已完成扩容可以恢复并继续追加标的，旧编号保持不变。跨 catalog 经济规格变更、仍存活消费者的透明续接、全局配置应用及生产性能资格仍待完成。顶层 README 的术语和架构图改写留到代码开发收尾；新增形式化验证同样保留到功能开发完成后。
-
-## 2026-10-29 策略投影参数的实际消费
-
-App 新增可选 `HostConfig.projection_parameters`，把完整全局投影中的参数与使用已注册工厂的真实策略进程连接起来。启动前核对投影范围、参数格式定义的摘要及私有配置的严格 JSON 值，保留工厂原始字节；全局投影修订与私有配置修订分别绑定，不要求两个编号相同。与启动资源投影同时启用时，两者必须指向同一个对象和范围。
-
-实际进程启动后，App 发起独立检查点挑战。Host 从完整封口中的当前合并检查点提取配置，核对实际进程、程序摘要与消费位置；启动时的旧检查点或任意同摘要文件不能替代当前配置。证明完成前不交付 intent，核验失败关闭策略并回收子进程。等待账户基线时，查询按 10 ms 间隔推进，重试不延长原期限。范围与接口见[参数消费规格](implementation/strategy-parameter-consumption.md)。
-
-真实进程回归还发现了 JOIN 的时间采样竞态：服务端在客户端本轮采样之后签发 WELCOME，客户端沿用旧时间可能把有效租约误判为超期。接入状态机现先保存一帧有界回应并结束本轮，下一轮用新时间执行原握手校验。真实 SEQPACKET 测试用晚 1 ns 的签发时间稳定复现，修复后继续完成实际 JOIN；期限、时钟倒退、预算、取消及异常 FD 检查保持严格。
-
-本阶段固定 release 的 6 项 App 进程测试通过，验证观察次数与最低买价改变实际命令行为、未完成证明时扣住已排队意图、超时后回收进程；Host 的持续查询回归通过。另行运行的普通 Spot 交接兼容场景达到 S2→C10→D285，账户、镜像和策略各核对 12 条记录，成交与费用闭合。参数证明只表示首次启动时的实际消费事实；完整全局 Applied、其余字段消费者、运行中参数更新及生产性能资格仍待完成。
-
-完整 workspace 检查、设计契约及 OpenAPI 校验通过。929 个构建输入、固定程序、实际参数与命令、失败诊断和离线复核器保存在[参数消费阶段报告](evidence/20261029/strategy-parameters.json)。顶层 README 的术语和架构图仍留到代码开发收尾；本阶段仅对历史模型锚点作只读审计。
-
-## 2026-10-29 策略账户与行情范围的实际消费
-
-App 新增可选 `HostConfig.projection_inputs`，将投影中的完整账户和行情订阅集合绑定到实际策略输入。当前支持普通注册策略首次启动时的一个账户和一个外部行情 topic；多账户、多 topic 及其他启动模式整体拒绝。部署方明确提供全局名称到实际身份的对应关系，启动前核对规范账户基线、完整账户 scope、报告 owner、行情 producer、bank 和全部目录成员。产品身份来自实际执行 route 与账户经济目录，完整 64 位标的 ID 保持原值。
-
-SDK 从当前保存视图读取实际账户和行情，Host 再与真实报告历史、共享消费游标和封口命名的 JOIN 快照交叉核验。输入范围与参数约束共用一次新鲜查询，采用较早的期限；全部通过后同时发布证明，再交付首条 intent。校验结束后重新采样时间，跨期则关闭门禁。接口和支持范围见[输入消费规格](implementation/strategy-input-consumption.md)。
-
-门禁通过后保留批准身份。重复同一基线和普通账户记录继续推进；更换基线、账户 scope 或实例即关闭策略并回收进程。新增身份检查使用缓存摘要和固定字段，零分配回归通过。运行中换行情、回放安装及交接仍需新的范围批准，本阶段在 Host 派发前拒绝这些操作；Multi 可将成员保持 Shadow 或暂停，但后继激活和命令交付继续关闭。省略输入约束时保留原有行为。
-
-完整 workspace 检查、设计契约及 OpenAPI 校验通过。固定 release 程序的 8 项输入门禁、6 项参数兼容及 1 项 Host 查询进程测试通过；另行运行的完整 Spot 交接场景中，账户、镜像和策略各核对 12 条记录，成交与费用闭合。944 个构建输入、8 个程序摘要、实际检查点与账户/JOIN 字节见[阶段报告](evidence/20261029/strategy-inputs.json)，可用[离线复核器](evidence/20261029/verify-strategy-inputs.py)重算证据绑定。
-
-输入证明仅覆盖该次实际消费。全局经济目录制品、`allowed_symbols`、风险预算等其余消费者，以及完整全局 Applied 和生产资格仍待完成。顶层 README 的术语与架构图留到代码开发收尾；本阶段的[历史锚点审计](evidence/20261029/strategy-inputs-anchor-audit.json)只检查源码对应关系，新增形式化验证继续延后。
-
-## 2026-10-29 标的经济目录的实际消费
-
-新增共享目录正文，明确列出价格步长、数量步长、资产单位、产品和合约定义。配置服务验证全局引用，MD、App 装配和策略分别核对实际经济字段。原始制品摘要与规范经济摘要分开保存；即使重新计算目录摘要、重新绑定投影和基线声明，实际字段不符仍拒绝。完整 u64 标识与现有稠密盘口索引保持不变，接口见[标的经济目录规格](implementation/instrument-catalog.md)。
-
-MD 扩容只接受已批准目录中的成员，持久快照保存原文；删除当前文件后仍从原快照恢复。策略检查点只保存目录摘要与长度，正文沿原有恢复依赖保留。首个合格账户基线到达前不调用行情策略；来源重放在恢复用户状态前校验原目录。未支持的迁移、回滚和重建入口在调用策略代码前拒绝，旧省略字段的恢复路径保持兼容。
-
-最终实现复用副本中的稠密索引校验每条行情，去掉重复目录查找；检查点使用已核验的缓存摘要，避免每条输入重扫至多 2 MiB 的正文。该优化保持原始字节与摘要语义，没有据此宣称端到端延迟指标。
-
-固定 release worker 的实际 TLS/WSS/REST→Publisher→JOIN 用例保持同一原始价格字符串 `"1.00"`：tick 为 `0.01/0.02` 时，当前盘口分别为 `100/50`，阈值 75 对应一个或零个意图。该目录用例的 MD Runtime 在父进程线程中运行，策略是独立进程，未向 gateway 提交交易。目录、来源重放及此前输入/参数门禁等 22 项定向验收通过；另行运行的普通 Spot 交接兼容场景达到 S2→C10→D285，账户、镜像和策略各核对 12 条记录，成交与费用闭合。
-
-967 个构建输入、8 个固定程序摘要、原始行情、实际检查点和恢复对象见[阶段报告](evidence/20261029/instrument-catalog.json)与[离线复核器](evidence/20261029/verify-instrument-catalog.py)。固定目录的首次消费与恢复已接通；`allowed_symbols`、风险预算、在线目录变更、完整全局 Applied 及生产资格仍待完成。顶层 README 和架构图留到功能收尾，本阶段仅作[历史锚点只读审计](evidence/20261029/instrument-catalog-anchor-audit.json)。
-
-## 核心运行程序
-
-`tickwire-app` 已装配系统时钟校准、共享额度、公共行情、私有流、账户输入 WAL、签名 REST 下单与恢复对账。对账按原订单状态查询、完整成交分页、费用闭合、账户及两类挂单快照的顺序执行；激活记录绑定已同步的输入和账户日志前缀，恢复不会重发旧意图。
-
-独立策略进程通过真实 JOIN 和 SPSC 通道收发行情、完整规范意图及账户回报。完整恢复对象、真实消费输入和调用时刻在意图发布前保存。策略换代、回报积压与多策略轮询沿各自通道和授权推进。运行接口见主程序、策略进程和账户对账。
-
-Linux 首轮完整成交验证得到 BTC 1.001、USDT 940；4 条账户记录与镜像逐条一致，9 条输入记录均完成处理，策略进程确认消费到账户水位 4。运行证据和脚本复跑保存源码、二进制、实际日志及离线报告。该版本尚未独立闭合手续费，也未执行最终源封口或策略交接；后续结果另行保存。
-
-修复终态订单维护调度后，新的 Linux 进程运行完成订单查询、成交查询和 `FeesReconciled` 入账。离线报告确认订单终态、`fee_reconciled=true`、`unknown=false`，且无待处理订单；8 条账户记录与镜像逐条一致，16 条输入记录完整，策略确认消费至账户水位 8。费用闭合验证保存该次独立源码与二进制摘要。
-
-## 模块入口
-
-- 执行内核与服务接口，[执行规格](implementation/execution-core.md)。
-- 盘口接口，[盘口规格](implementation/book-core.md)。
-- 风险接口，[风险规格](implementation/risk-core.md)。
-- IPC 接口，[IPC 规格](implementation/ipc-codec.md)。
-- 共享 ring 接口，[ring 规格](implementation/shm-ring.md)与[Linux 映射规格](implementation/shm-mapping.md)。
-- 控制会话、传输边界与物理日志；各自规格位于 `specs/implementation/`。
-- [不可变资源](implementation/immutable-resource.md)、[Topic 快照构造](implementation/topic-snapshot-builder.md)、[快照接收](implementation/topic-snapshot.md)与[业务日志编码](implementation/journal-codec.md)。
-- [JOIN 协调](implementation/join.md)、[业务日志与恢复](implementation/business-journal.md)、[恢复依赖](implementation/recovery-closure.md)与[Mock 中止重放](implementation/mock-abort.md)。
-- [完整命令摘要与日志绑定](implementation/command-binding.md)。
-- [交易所命令与事件](implementation/venue.md)、[非阻塞网络](implementation/transport.md)、[Binance 协议](implementation/binance-protocol.md)与[持久发送协调](implementation/gateway.md)。
-- 账户接口、[账户规格](implementation/account.md)、[账户恢复编码](implementation/account-codec.md)与 [Spot 请求扩展](implementation/binance-request-extensions.md)。
-- [账户日志](implementation/account-journal.md)、[恢复依赖绑定](implementation/account-recovery-binding.md)与[账户发送协调](implementation/account-gateway.md)。
-- [Binance 行情与私有事件](implementation/binance-streams.md)、[盘口启动和重同步](implementation/binance-depth-sync.md)。
-- 多域交接协调器、交接执行端、复制与冻结接管和 guardian。
-- 形式验证工作区：`tla/`；每层保留模型、配置、实际运行记录和源码锚点。
-
-## 验证与完成要求
-
-核心运行链路完成后，统一执行 `cargo test --workspace`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all -- --check` 和原设计契约检查。全部代码完成后，重新核对每个模块的模型与最终源码，逐模块运行 TLA+，再运行覆盖跨模块状态转换、并发交错和崩溃恢复的全局组合模型。模型使用固定 TLC 版本执行，范围、有限域、动作覆盖与未覆盖行为写进各层输出；发现反例后先独立核对真实实现，再修复并复跑相关模块及组合模型。下文数字为已有阶段的历史证据。
-
-上一阶段 `04351db` 的 `./scripts/check-rust.sh` 在 macOS 通过 202 项测试，`./scripts/check-linux.sh` 在 Linux aarch64 通过 223 项测试，均含 1 项编译失败 doctest。macOS 输出、Linux 输出及 SHM 回归和执行模块失败回归记录保留实际证据：
-
-| 模块 | Rust 测试数 | 覆盖内容 |
-|---|---:|---|
-| `tickwire-book` | 30 | 协议/存储/边界、确定性工作量和无分配；8,000 批参考模型、960,000 次查询及独立 40,000 批差分 |
-| `tickwire-risk` | 18 | 17 项边界，1 项执行全部 21 数值向量/131 预期字段 |
-| `tickwire-ipc` | 110 | 36 布局、63 测试向量、11 项语义/畸形输入测试；包含全部 25 semantic_cases |
-| `tickwire-execution` | 16 | 预算、提交、发送、去重、费用尾款、未知冻结和恢复 |
-| `tickwire-mock` | 13 | 12 项服务故障/恢复测试，1 项 Spot 本地完整流程 example 测试；含恢复失败仍须冻结旧引擎的回归 |
-| `tickwire-shm` | macOS 14 / Linux 25 | 13 项协议、1 项引用生命周期 doctest；Linux 另有 11 项映射/多进程测试，含 1 项子进程辅助入口 |
-| `tickwire-shm-sys` | macOS 1 / Linux 11 | macOS 拒绝不支持平台；Linux seals/权限/边界与跨进程发布，含 1 项子进程辅助入口 |
-
-两个平台的格式与 Clippy 检查通过。原设计的 IPC、风险、配置、OpenAPI 和部署算术检查通过；链接与资产检查单独保留。盘口前后对照各有五轮相邻/散布负载，记录分位数、内存成本及少量散布改量退化，见性能报告。历史基线 CSV 和环境记录保持原测量版本。
-
-TLC 1.7.4 对执行模块的三个有限模型运行了九组配置，均通过不变量检查，所有 Next 动作均生成过后继状态：
-
-| 模型与配置 | generated | distinct | 最大深度 |
-|---|---:|---:|---:|
-| L0 提交门禁：primary | 21,077 | 2,236 | 15 |
-| L0 提交门禁：scaling | 103,216 | 9,076 | 15 |
-| L1 崩溃与回执：primary | 6,539 | 1,744 | 14 |
-| L1 崩溃与回执：scaling | 417,807 | 96,828 | 22 |
-| L1 正常等待回执：pending | 833,051 | 186,148 | 22 |
-| L2 交易结果记录 v2：primary | 139,711 | 24,036 | 8 |
-| L2 交易结果记录 v2：long | 1,591,624 | 280,458 | 9 |
-| L2 交易结果记录 v2：boundary | 14,397,539 | 1,495,032 | 11 |
-| L2 交易结果记录 v2：scaling | 14,278,433 | 1,485,288 | 11 |
-
-[L0 记录](../tla/execution_models/submission/L0_commit_gate/03_run_log.md)、[L1 记录](../tla/execution_models/submission/L1_crash_receipt/03_run_log.md)与 [L2 记录](../tla/execution_models/submission/L2_economic_facts/03_run_log.md)包含动作覆盖、源码哈希和有限域。L2 增加成交、费用、终态、去重及算术边界，发现恢复重放失败时旧引擎仍保留交易授权的问题。实际 Rust 回归确认后，`MockRuntime::restart` 改为先冻结旧引擎；四组 v2 配置与回归均通过。模型按同步 API 边界执行，真实磁盘和 journal append/apply 之间的进程崩溃留待下一层。
-
-共享 ring 的五组配置也全部通过，物理容量均为实际 ABI 最小值 64。wrap 配置从合法的 64 条发布前缀开始，覆盖满环后的槽位复用；双消费者 wrap 要等两者都释放第一条，才允许写入序号 65。各配置列出的动作均生成后继，详见 [ring 运行记录](../tla/execution_models/broadcast_ring/L0_publish_borrow_reclaim/03_run_log.md)。
-
-| ring 配置 | generated | distinct | 最大深度 |
-|---|---:|---:|---:|
-| primary | 196,588 | 29,889 | 25 |
-| pending_wrap | 84,451 | 12,834 | 21 |
-| two_readers | 9,587,623 | 930,364 | 33 |
-| wrap | 71,291 | 11,324 | 21 |
-| wrap_two | 341,833 | 40,796 | 24 |
-
-模型检查完整发布、活跃借用与未读记录不被覆盖、释放前缀、实际 cursor 退出证据以及 Freeze。身份固定、序号和借用窗口有限；CPU 弱内存、生产控制身份和跨 bank 轮换由后续验收覆盖。
-
-单元、集成测试与形式化验证保存可复现的命令和结果；部分覆盖的用例标明实际范围。INV-1～INV-14 继续约束实现。
-
-## 控制与物理日志阶段
-
-新增模块均完成接口、Red/Green、规格与独立源码审核：
-
-| 模块 | 验证 | 完成边界 |
-| --- | --- | --- |
-| tickwire-control | 13 项逻辑测试；Linux 独立 exec 子进程握手与重试测试，另 1 个显式 ignored helper 由父测试运行 | registry + 内核身份认证；租约关闭；存储确认 Received 后一次交付票据；准确终态重放 |
-| tickwire-control-sys | macOS 不支持平台测试；Linux 15 项（含 4 个子进程辅助入口），fmt/clippy | SEQPACKET 一帧一包、SCM_RIGHTS、CLOEXEC、超时、畸形包 FD 回收、真实连接 peer credentials |
-| tickwire-journal | macOS/Linux 各 21 项，另 1 个 ignored helper 由四个 SIGKILL 场景运行；fmt/clippy | 完整批写入并成功 sync_data 后的物理收据；分段/manifest；验证后修复末尾 |
-
-控制会话证据、传输证据与日志证据保存命令和实际输出。Linux 综合用例持有未 reap 的 Child 句柄，比较实际子进程 PID/UID/GID；owner 版本从 0 变为 7 后，同一请求仍返回版本 1 的原响应，执行票据只交付一次。
-
-请求登记 L0 的三组模型分别检查 370、1,570、13,442 个不同状态；会话组合 L1 分别检查 1,566、3,926、3,804 个状态，全部通过。物理日志 L0 三组分别检查 1,816、2,695、45,883 个状态，覆盖写入、同步、收据与恢复边界。每组 Next 动作均生成后继，完整范围见 [control_requests](../tla/execution_models/control_requests/ROADMAP.md) 和 [physical_journal](../tla/execution_models/physical_journal/ROADMAP.md)。这些模型尚未组合 owner 副作用、真实 SQL/KV 或跨主机复制。
-
-## 盘口小批更新阶段
-
-小批乱序改量直接定位已有价位，循环有序输入先旋转再复用相邻定位。全部 36 项测试、格式与 Clippy 检查通过；双侧原子提交、覆盖外 `Unknown`、40,000 批独立差分及零分配回归均保留。跨末尾批次的确定性工作量测试先失败，再随修复通过。
-
-以 `df8bd2d` 为基线，相邻和散布两套相同负载各运行五轮，每负载每轮采样 200,000 次。M1 Pro/macOS 上，4096 档、双侧合计 16/64 项散布改量的每轮 p50 中位数为 958/4000 → 542/2000 ns；相邻改量的 p50 中位数均保持基线值。512 档、512 项散布改量仍有 +0.5% 的 p50 变化，两组运行范围重叠；全部原始分位数、最大值和被淘汰候选均保留在完整报告。
-
-计时范围是 `Book::apply` 到读取有效 view 和最优买卖价结束，使用单个热缓存实例，未包含网络、解码、IPC 或持久化。当前结果支持保留该实现；多标的、真实录包和目标 Linux 主机的性能资格仍待 P5 验收。
-
-盘口源码对应的 [TLA+ L0/L1](../tla/execution_models/book_state/ROADMAP.md) 八组配置通过。L0 的 Spot 主/扩展检查 1,392/8,499 个不同状态，USD-M 主/扩展为 1,880/10,524；L1 的 Bid 主/扩展为 1,471/7,050，Ask 主/扩展为 1,471/8,244。每组分别覆盖全部 19 或 15 个 Next 动作。L1 保留覆盖范围外的隐藏价位见证，检查已知数量/最优价与真实内容一致，以及 Unknown 不被当成零；实际排序算法、适配器正确性和未来 exec 行情门禁没有被这一有限模型证明。
-
-## 不可变快照与业务日志阶段
-
-macOS 和 Linux 的全仓格式、全部 targets、doctest 与 Clippy 检查通过，实际输出见阶段验证。
-
-| 模块 | 专项验证 | 完成边界 |
-| --- | --- | --- |
-| 不可变资源 | Linux shm-sys 21 个入口、依赖 ring 24 项和 1 项 compile-fail doctest；macOS 2 项 | 私有 pwrite 完成后设置 `0x0f`；实际只读 FD 与安全只读切片；认证预期身份/hash、范围和零页尾校验 |
-| Topic 快照接收 | 12 项纯 Rust；Linux 另有 2 个跨进程测试入口（含 helper） | 完整成员与共同 S，JOIN/资源/状态身份及期限；SCM_RIGHTS 交付后接收校验；错误资源拒绝与 FD/映射回收 |
-| 业务日志 codec | 13 项测试、6 个记录/17 个整数测试向量、591 个截断与 99,840 个单字节变异 | 最多 201 字节确定性 CBOR；原订单代次与 writer 代次分开；稳定业务摘要和绑定 writer 的逻辑链 |
-
-快照通过校验不会自行改变 owner/cursor 状态。业务 codec 也没有生成可直接授权发送的提交证明；真实 WAL、依赖闭包与执行恢复的适配器仍须连接这些已验证原语。
-
-## Topic 快照构造阶段
-
-快照构造器已实现完整成员集合、共同序号 S、状态与深度编码、摘要及 JOIN 绑定。先检查全部大小和容量，再分配输出；非 Live 成员保留在快照中，构造成功不授予交易资格。18 项新增构造与算术测试及 12 项既有接收测试在 macOS/Linux 通过，Linux 另通过 2 个既有跨进程接收入口，格式与 Clippy 通过。实际失败测试、最终输出和独立基准样本比对见验证报告。涉及 owner、pending gate 和 JOIN_READY 的状态迁移在 JOIN 协调模块中继续验证。
-
-## JOIN 与业务恢复阶段
-
-三进程 JOIN 已串起认证请求、快照构造、bank/snapshot 的 FD 交付、真实 cursor 登记、追平激活和协作退出。失败订阅保留原门禁，重复 READY 和退出确认返回原结果；当前每个 owner 最多累计登记 M 次，持久请求恢复与进程死亡回收仍待实现。
-
-业务日志将原有 codec、真实 WAL 与执行内核连接起来，先验证授权和恢复依赖，再同步意图，发送前刷新时效检查；未发送中止先保存后释放。恢复按原事件顺序执行并保持冻结。外部授权由接口提供，测试采用明确的 Mock；完整签名证明、同步副本及恢复后的重新授权尚未实现。
-
-macOS/Linux 全仓测试与 Clippy 通过，新增四组模型共 13 个配置全部通过。测试、源码摘要和模型范围见阶段验证。旧 Mock 恢复模型保留为历史版本，不把其原有通过结果当作当前实现的完整组合证明。
-
-## 接续工作
-
-按官方协议实现完整 Binance 连接器，并用协议 Mock 验证同一实现。继续组合 md/strategy/exec 业务进程，补齐 Arena、bank 轮换、退出回收、配置发布、完整风险账户、复制及接管逻辑。所有模块继续按接口、TDD、Specs、形式化验证的顺序推进。
-
-## 完整命令与网络发送阶段
-
-`tickwire-venue` 将完整订单参数、目录与资产单位、请求身份编码为不可变规范对象；交易所事件保留原始成交身份、报价金额、费用和已实现盈亏。`tickwire-transport` 使用真实非阻塞 TCP/TLS，首次接受应用字节前调用门禁；HTTP、WebSocket 和 FIX 文本分帧有明确容量和调度预算。
-
-`tickwire-binance` 实现 HMAC/RSA/Ed25519 签名、Spot/USD-M 已列明的订单请求、错误分类和类型化响应。`tickwire-gateway` 将完整命令闭包、真实 WAL、最终门禁与同一 TLS 连接组合。Spot 和 USD-M REST 集成由本地协议服务器检查实际收到的参数及签名；零接受中止先保存，部分接受与恢复保留 Unknown。
-
-当前验证使用明确的授权与对象存储 Mock，业务日志和网络传输执行真实 I/O。完整账户风险、业务 ACK/成交关联、行情与私有流会话、列表和剩余协议组合继续按各模块接口推进。测试记录见发送协调验证。
-
-## 账户、恢复编码与 Spot 请求扩展阶段
-
-`tickwire-account` 实现 Spot 多资产资源与 USD-M 单结算资产账户，维护策略归属、订单预留、成交和费用去重、终态累计、减仓与费用清算。准入结果绑定完整命令、账户代次和风险版本；恢复按原顺序重新计算准入并核对记录，完成后保持冻结。46 项测试在 macOS/Linux 通过。当前基线不导入已有活动订单，跨币种保证金、在线更换基线及部分复杂订单的风险计算仍待实现。
-
-`tickwire-account-codec` 为完整账户基线和八类恢复记录提供有界、确定性的 CBOR 编码与摘要。16 项测试包含独立 Python 基准样本、截断和单字节变异、实际文件对象与 WAL 重开恢复；恢复后的资源与运行中的账户逐项比较。账户、恢复编码和发送协调的生产组合仍须在执行模块中接通。
-
-Spot 请求增加 OCO、OTO、OTOCO、peg 与 SOR 的类型化参数和 REST/WebSocket 编码。新增 17 项测试包含十次实际 TLS 签名请求，以及旧命令字节兼容和旧解码器拒绝新增标签的检查。请求编码完成不自动赋予对应账户准入资格。
-
-账户 L0/L1 共六组模型通过，全部 Next 动作均生成后继状态，覆盖迟到成交、重复观察、终态累计、费用与减仓预留。接口边界、完整有限域和运行记录见账户验证、恢复编码验证、请求扩展验证与[账户模型](../tla/execution_models/account/ROADMAP.md)。
-
-## 账户日志、发送组合与盘口同步
-
-账户日志按原顺序保存八类恢复记录，逐条准入绑定完整基线和此前日志前缀。发送协调器使用同一个账户管理资金，在依赖与 Admit 同步完成后才排队；部分接受后保留责任，零接受中止通过账户预校验并同步后才释放。恢复没有网络连接或自动重发。账户冻结后，健康连接仍允许满足当前授权和期限的撤单、查询。
-
-Binance 普通 JSON 深度及私有事件已接入类型化解码；盘口协调器在订阅后缓存增量、取得 REST 快照、按产品序列规则桥接。旧连接和旧请求回调不改变当前盘口，溢出、断档和重连关闭可见性并重新同步。私有流登录续期、轮换、业务关联和完整进程接线仍继续实现。
-
-本阶段新增组合模型独立于已有账户、物理日志和传输模型。各模型的状态、范围与证据以 `tla/execution_models/` 对应输出为准；旧模型的 PASS 不代替新增组合验证。
+```sh
+python3 specs/evidence/20261029/verify-runtime-image-acceptance.py
+python3 specs/evidence/20261029/verify-md-restart.py
+python3 specs/evidence/20261029/verify-strategy-inputs.py
+```

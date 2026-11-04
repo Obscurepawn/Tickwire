@@ -1,12 +1,9 @@
-use crate::authority::{RecoveryBundle, RecoveryQueue};
+use crate::authority::RecoveryQueue;
 use std::time::{Duration, Instant};
 use tickwire_account::Account;
-use tickwire_account_gateway::{Authority, Encoder, Status as SubmitStatus};
+use tickwire_account_gateway::{Authority, Encoder};
 use tickwire_account_journal::Backend;
-use tickwire_binance_account::{
-    Outcome as InputOutcome,
-    rest::{RestOutcome, RestOwner},
-};
+use tickwire_binance_account::{Outcome as InputOutcome, rest::RestOwner};
 use tickwire_binance_clock::{self as clock, BinanceTimeClient, LocalTime, MonotonicClock};
 use tickwire_binance_execution::{DeliveryBudget, SharedSessionState};
 use tickwire_binance_private as private;
@@ -15,9 +12,12 @@ use tickwire_binance_quota as quota;
 use tickwire_binance_session::ClockAdapter;
 use tickwire_journal::store::Store;
 use tickwire_transport::{IoBudget, mio};
-use tickwire_venue::CanonicalCommand;
+mod handover;
 mod rebuild;
+mod strategy;
+pub use handover::{HandoverReadiness, InstalledReplay, PreparedReplay, StrategySwitch};
 pub use rebuild::{InstalledRebuild, PreparedRebuild, RebuildInput, verify_rebuild_ready};
+pub use strategy::{AccountHistory, Strategy, Submission, SubmissionResult};
 
 #[derive(Debug)]
 pub enum Error {
@@ -47,457 +47,51 @@ pub struct Health {
     pub account_frozen: bool,
     pub sender_halted: bool,
 }
+/// The intake check schedules a command for account review. The account gateway
+/// owns the durable admission and the final authorization at the socket.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Intake {
+    Wait,
+    Expired,
+    DeadlineOverflow,
+    Ready(Instant),
+}
 impl Health {
+    pub fn intake(&self, command: &tickwire_venue::Command, now: LocalTime) -> Intake {
+        use tickwire_venue::CommandBody::{Cancel, CancelAlgo, CancelList, Query};
+        if !self.calibrated || self.sender_halted {
+            return Intake::Wait;
+        }
+        let Some(remaining) = command
+            .context
+            .request
+            .deadline
+            .checked_sub(now.monotonic.nanos())
+        else {
+            return Intake::Expired;
+        };
+        if remaining == 0 {
+            return Intake::Expired;
+        }
+        let administrative = matches!(
+            command.body,
+            Cancel(_) | CancelAlgo(_) | CancelList(_) | Query(_)
+        );
+        if !administrative && !self.ready() {
+            return Intake::Wait;
+        }
+        match now.instant.checked_add(Duration::from_nanos(remaining)) {
+            Some(deadline) => Intake::Ready(deadline),
+            None => Intake::DeadlineOverflow,
+        }
+    }
+
     pub fn ready(&self) -> bool {
         self.calibrated
             && self.market_live
             && self.private_receiving
             && !self.account_frozen
             && !self.sender_halted
-    }
-}
-pub struct Submission {
-    pub command: CanonicalCommand,
-    pub order_ids: Vec<[u8; 16]>,
-    pub deadline: Instant,
-    pub recovery: RecoveryBundle,
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct HandoverReadiness {
-    pub instance_id: [u8; 16],
-    pub strategy_generation: u64,
-    pub checkpoint_digest: [u8; 32],
-    pub exec_report_sequence: u64,
-    pub orders_digest: [u8; 32],
-    pub ledger_sequence: u64,
-    pub input_seal_digest: [u8; 32],
-}
-/// Installation-stage evidence from a qualified Host. This is not a completed
-/// release preflight: the C-state rollback probe must still succeed separately.
-pub struct InstalledReplay {
-    root: tickwire_release::Object,
-    verified: tickwire_release::replay::install::Verified,
-    readiness: HandoverReadiness,
-    worker_pid: u32,
-    objects: Vec<Vec<u8>>,
-}
-impl InstalledReplay {
-    /// The adapter must first authenticate 42/37 against its owned child and
-    /// registered report cursor. Content is independently checked here.
-    pub fn from_authenticated_child(
-        root: tickwire_release::Object,
-        source: &tickwire_release::replay::source::VerifiedSourceReplay,
-        readiness: HandoverReadiness,
-        worker_pid: u32,
-        objects: Vec<Vec<u8>>,
-    ) -> tickwire_release::Result<Self> {
-        use tickwire_release::{Error, Object};
-        if worker_pid == 0 || objects.len() > 512 {
-            return Err(Error::Bounds);
-        }
-        let mut total = 0usize;
-        let mut map = std::collections::BTreeMap::new();
-        for bytes in objects {
-            total = total
-                .checked_add(bytes.len())
-                .filter(|n| *n <= tickwire_recovery::MAX_CLOSURE_BYTES as usize)
-                .ok_or(Error::Bounds)?;
-            map.insert(Object::of(&bytes).digest, bytes);
-        }
-        let get = |hash: [u8; 32]| map.get(&hash).cloned().ok_or(Error::Missing);
-        root.verify(
-            &get(root.digest)?,
-            tickwire_release::replay::MAX_BYTES as u64,
-        )?;
-        let verified = tickwire_release::replay::install::verify(root.digest, get)?;
-        if verified.request.source_completion != source.root()
-            || verified.request.operation != source.completion().operation
-            || verified.request.member != source.completion().member
-            || readiness.instance_id != verified.request.target.instance
-            || readiness.strategy_generation != verified.request.target.generation
-        {
-            return Err(Error::Identity);
-        }
-        let seal = tickwire_recovery::HandoverSeal::decode(&get(readiness.input_seal_digest)?)
-            .map_err(|_| Error::Identity)?;
-        if seal.checkpoint_digest != readiness.checkpoint_digest
-            || seal.report_position != readiness.exec_report_sequence
-            || seal.ledger_sequence != readiness.ledger_sequence
-            || seal.orders_digest != readiness.orders_digest
-        {
-            return Err(Error::Identity);
-        }
-        verified.bind_seal(
-            &seal,
-            &get(seal.checkpoint_digest)?,
-            &get(seal.input_digest)?,
-        )?;
-        tickwire_release::replay::startup::verify_seal(
-            &seal,
-            &get(seal.checkpoint_digest)?,
-            &get(seal.input_digest)?,
-            get,
-        )?;
-        Ok(Self {
-            root,
-            verified,
-            readiness,
-            worker_pid,
-            objects: map.into_values().collect(),
-        })
-    }
-    pub fn root(&self) -> tickwire_release::Object {
-        self.root
-    }
-    pub fn verified(&self) -> &tickwire_release::replay::install::Verified {
-        &self.verified
-    }
-    pub fn readiness(&self) -> &HandoverReadiness {
-        &self.readiness
-    }
-    pub fn worker_pid(&self) -> u32 {
-        self.worker_pid
-    }
-    pub fn objects(&self) -> &[Vec<u8>] {
-        &self.objects
-    }
-}
-/// Actual installation followed by an owned C-state rollback probe and a fresh
-/// authenticated target READY containing that exact durable completion root.
-pub struct PreparedReplay {
-    installed: InstalledReplay,
-    root: tickwire_release::Object,
-    readiness: HandoverReadiness,
-    objects: Vec<Vec<u8>>,
-}
-impl PreparedReplay {
-    pub fn from_authenticated_ready(
-        installed: InstalledReplay,
-        root: tickwire_release::Object,
-        readiness: HandoverReadiness,
-        objects: Vec<Vec<u8>>,
-    ) -> tickwire_release::Result<Self> {
-        use tickwire_release::{Error, Object};
-        if objects.len() > 512 {
-            return Err(Error::Bounds);
-        }
-        let mut total = 0usize;
-        let mut map = std::collections::BTreeMap::new();
-        for bytes in objects {
-            total = total
-                .checked_add(bytes.len())
-                .filter(|n| *n <= tickwire_recovery::MAX_CLOSURE_BYTES as usize)
-                .ok_or(Error::Bounds)?;
-            map.insert(Object::of(&bytes).digest, bytes);
-        }
-        let get = |h| map.get(&h).cloned().ok_or(Error::Missing);
-        root.verify(
-            &get(root.digest)?,
-            tickwire_release::replay::MAX_BYTES as u64,
-        )?;
-        let done = tickwire_release::replay::rollback::verify(root.digest, get)?;
-        if done.receipt.installation != installed.root
-            || done.installation.request != installed.verified.request
-        {
-            return Err(Error::Identity);
-        }
-        let seal = tickwire_recovery::HandoverSeal::decode(&get(readiness.input_seal_digest)?)
-            .map_err(|_| Error::Identity)?;
-        if seal.replay_rollback_digest != Some(root.digest)
-            || seal.instance != readiness.instance_id
-            || seal.generation != readiness.strategy_generation
-            || seal.checkpoint_digest != readiness.checkpoint_digest
-            || seal.report_position != readiness.exec_report_sequence
-            || seal.ledger_sequence != readiness.ledger_sequence
-            || seal.orders_digest != readiness.orders_digest
-        {
-            return Err(Error::Identity);
-        }
-        tickwire_release::replay::startup::verify_seal(
-            &seal,
-            &get(seal.checkpoint_digest)?,
-            &get(seal.input_digest)?,
-            get,
-        )?;
-        Ok(Self {
-            installed,
-            root,
-            readiness,
-            objects: map.into_values().collect(),
-        })
-    }
-    pub fn installed(&self) -> &InstalledReplay {
-        &self.installed
-    }
-    pub fn root(&self) -> tickwire_release::Object {
-        self.root
-    }
-    pub fn readiness(&self) -> &HandoverReadiness {
-        &self.readiness
-    }
-    pub fn objects(&self) -> &[Vec<u8>] {
-        &self.objects
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StrategySwitch {
-    pub logical_strategy_id: u64,
-    pub old_instance: [u8; 16],
-    pub old_generation: u64,
-    pub new_instance: [u8; 16],
-    pub new_generation: u64,
-}
-/// Immutable durable history; each strategy owns its independent delivery cursor.
-pub trait AccountHistory {
-    fn baseline(&self) -> &tickwire_account_codec::CanonicalBaseline;
-    fn account(&self) -> &Account;
-    fn position(&self) -> u64;
-    fn record(&self, position: u64) -> Option<&tickwire_account_codec::CanonicalRecord>;
-}
-impl<B: Backend, A: Authority, E: Encoder> AccountHistory
-    for tickwire_account_gateway::AccountGateway<B, A, E>
-{
-    fn baseline(&self) -> &tickwire_account_codec::CanonicalBaseline {
-        self.baseline()
-    }
-    fn account(&self) -> &Account {
-        self.account()
-    }
-    fn position(&self) -> u64 {
-        self.journal_position()
-    }
-    fn record(&self, position: u64) -> Option<&tickwire_account_codec::CanonicalRecord> {
-        self.journal_records_after(position.checked_sub(1)?, 1)
-            .ok()?
-            .next()
-            .map(|(_, record)| record)
-    }
-}
-/// The same interface can be implemented by an in-process strategy or an
-/// authenticated strategy-IPC consumer. It never receives mutable account state.
-pub trait Strategy {
-    /// Qualified capture and approved immutable publication inputs, before any
-    /// user rebuild factory is called. The Host authenticates the owned child.
-    fn handover_rebuild_input(
-        &mut self,
-        _operation: &tickwire_release::Operation,
-        _member: &tickwire_release::Member,
-    ) -> Option<RebuildInput> {
-        None
-    }
-    fn handover_install_rebuild(&mut self, _input: RebuildInput) -> Option<InstalledRebuild> {
-        None
-    }
-    fn handover_finish_rebuild(&mut self, _installed: InstalledRebuild) -> Option<PreparedRebuild> {
-        None
-    }
-    /// True only after the qualified child completed callbacks and synchronized
-    /// the referenced checkpoint/ordered inputs at this exact account boundary.
-    fn handover_ready(&mut self, _readiness: &HandoverReadiness) -> bool {
-        false
-    }
-    fn handover_objects(&mut self, _readiness: &HandoverReadiness) -> Option<Vec<Vec<u8>>> {
-        None
-    }
-    /// Latest authenticated checkpoint, after actual callback/cursor verification.
-    fn handover_checkpoint(
-        &mut self,
-        _instance: [u8; 16],
-        _generation: u64,
-    ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
-        None
-    }
-    /// Host-observed execution of the registered old binary over the complete
-    /// retained S→C tail. Unsupported adapters never synthesize this evidence.
-    fn handover_replay_source(
-        &mut self,
-        _operation: &tickwire_release::Operation,
-        _member: &tickwire_release::Member,
-        _fixed: &HandoverReadiness,
-    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
-        None
-    }
-    fn handover_install_replay(
-        &mut self,
-        _source: &tickwire_release::replay::source::VerifiedSourceReplay,
-    ) -> Option<InstalledReplay> {
-        None
-    }
-    fn handover_finish_replay(&mut self, _installed: InstalledReplay) -> Option<PreparedReplay> {
-        None
-    }
-    /// Synchronized preflight evidence for exactly these three immutable roots.
-    fn release_preflight(
-        &mut self,
-        _instance: [u8; 16],
-        _generation: u64,
-        _roots: [[u8; 32]; 3],
-    ) -> Option<Vec<Vec<u8>>> {
-        None
-    }
-    fn handover_quiesce(&mut self, _switch: &StrategySwitch) -> bool {
-        false
-    }
-    fn handover_activate(&mut self, _switch: &StrategySwitch) -> bool {
-        false
-    }
-    fn handover_halt(&mut self, _logical_strategy_id: u64) -> bool {
-        false
-    }
-    fn on_account_history(&mut self, history: &dyn AccountHistory) {
-        if !self.on_account_baseline(history.baseline(), history.account()) {
-            return;
-        }
-        let Some(mut position) = self.account_report_position() else {
-            return;
-        };
-        for _ in 0..32 {
-            let Some(next) = position.checked_add(1) else {
-                return;
-            };
-            let Some(record) = history.record(next) else {
-                return;
-            };
-            if !self.on_account_record(next, record, history.baseline(), history.account()) {
-                return;
-            }
-            position = next;
-        }
-    }
-    fn on_market(&mut self, notice: &public::Notice<'_>) -> bool;
-    fn next(&mut self, account: &Account, health: Health, now: LocalTime) -> Option<Submission>;
-    fn on_submission(
-        &mut self,
-        command: &CanonicalCommand,
-        result: &std::result::Result<SubmitStatus, tickwire_binance_account::Error>,
-    );
-    fn on_account_baseline(
-        &mut self,
-        _baseline: &tickwire_account_codec::CanonicalBaseline,
-        _account: &Account,
-    ) -> bool {
-        true
-    }
-    fn account_report_position(&self) -> Option<u64> {
-        None
-    }
-    fn on_account_record(
-        &mut self,
-        _position: u64,
-        _record: &tickwire_account_codec::CanonicalRecord,
-        _baseline: &tickwire_account_codec::CanonicalBaseline,
-        _account: &Account,
-    ) -> bool {
-        true
-    }
-    fn on_private(&mut self, _outcome: InputOutcome, _account: &Account) {}
-    fn on_rest(&mut self, _outcome: RestOutcome, _account: &Account) {}
-    fn on_health(&mut self, _health: Health, _now: LocalTime) {}
-}
-impl<T: Strategy + ?Sized> Strategy for Box<T> {
-    fn handover_rebuild_input(
-        &mut self,
-        operation: &tickwire_release::Operation,
-        member: &tickwire_release::Member,
-    ) -> Option<RebuildInput> {
-        (**self).handover_rebuild_input(operation, member)
-    }
-    fn handover_install_rebuild(&mut self, input: RebuildInput) -> Option<InstalledRebuild> {
-        (**self).handover_install_rebuild(input)
-    }
-    fn handover_finish_rebuild(&mut self, installed: InstalledRebuild) -> Option<PreparedRebuild> {
-        (**self).handover_finish_rebuild(installed)
-    }
-    fn handover_finish_replay(&mut self, installed: InstalledReplay) -> Option<PreparedReplay> {
-        (**self).handover_finish_replay(installed)
-    }
-    fn handover_install_replay(
-        &mut self,
-        source: &tickwire_release::replay::source::VerifiedSourceReplay,
-    ) -> Option<InstalledReplay> {
-        (**self).handover_install_replay(source)
-    }
-    fn handover_ready(&mut self, r: &HandoverReadiness) -> bool {
-        (**self).handover_ready(r)
-    }
-    fn handover_objects(&mut self, r: &HandoverReadiness) -> Option<Vec<Vec<u8>>> {
-        (**self).handover_objects(r)
-    }
-    fn handover_checkpoint(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-    ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
-        (**self).handover_checkpoint(instance, generation)
-    }
-    fn handover_replay_source(
-        &mut self,
-        operation: &tickwire_release::Operation,
-        member: &tickwire_release::Member,
-        fixed: &HandoverReadiness,
-    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
-        (**self).handover_replay_source(operation, member, fixed)
-    }
-    fn release_preflight(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-        roots: [[u8; 32]; 3],
-    ) -> Option<Vec<Vec<u8>>> {
-        (**self).release_preflight(instance, generation, roots)
-    }
-    fn handover_quiesce(&mut self, s: &StrategySwitch) -> bool {
-        (**self).handover_quiesce(s)
-    }
-    fn handover_activate(&mut self, s: &StrategySwitch) -> bool {
-        (**self).handover_activate(s)
-    }
-    fn handover_halt(&mut self, id: u64) -> bool {
-        (**self).handover_halt(id)
-    }
-    fn on_account_history(&mut self, history: &dyn AccountHistory) {
-        (**self).on_account_history(history)
-    }
-    fn on_market(&mut self, notice: &public::Notice<'_>) -> bool {
-        (**self).on_market(notice)
-    }
-    fn next(&mut self, account: &Account, health: Health, now: LocalTime) -> Option<Submission> {
-        (**self).next(account, health, now)
-    }
-    fn on_submission(
-        &mut self,
-        command: &CanonicalCommand,
-        result: &std::result::Result<SubmitStatus, tickwire_binance_account::Error>,
-    ) {
-        (**self).on_submission(command, result)
-    }
-    fn on_account_baseline(
-        &mut self,
-        baseline: &tickwire_account_codec::CanonicalBaseline,
-        account: &Account,
-    ) -> bool {
-        (**self).on_account_baseline(baseline, account)
-    }
-    fn account_report_position(&self) -> Option<u64> {
-        (**self).account_report_position()
-    }
-    fn on_account_record(
-        &mut self,
-        position: u64,
-        record: &tickwire_account_codec::CanonicalRecord,
-        baseline: &tickwire_account_codec::CanonicalBaseline,
-        account: &Account,
-    ) -> bool {
-        (**self).on_account_record(position, record, baseline, account)
-    }
-    fn on_private(&mut self, outcome: InputOutcome, account: &Account) {
-        (**self).on_private(outcome, account)
-    }
-    fn on_rest(&mut self, outcome: RestOutcome, account: &Account) {
-        (**self).on_rest(outcome, account)
-    }
-    fn on_health(&mut self, health: Health, now: LocalTime) {
-        (**self).on_health(health, now)
     }
 }
 /// Trusted runtime notifications for the control owner. A Receiving state alone
@@ -806,11 +400,23 @@ where
     fn step_inner(&mut self) -> Result<Report> {
         let mut report = Report::default();
         let reading = self.time()?;
-        let now = reading.local.monotonic.nanos();
         let io = IoBudget {
             max_syscalls: self.config.io.max_syscalls / 4,
             max_bytes: self.config.io.max_bytes / 4,
         };
+        self.poll_clock(reading.local.monotonic.nanos(), io)?;
+        self.poll_market(reading.local, io, &mut report)?;
+        self.poll_private(io, &mut report)?;
+        self.poll_account(io, &mut report)?;
+        self.poll_strategies(&mut report)?;
+        report.next_deadline_ns = Some(
+            report
+                .next_deadline_ns
+                .map_or(self.next_calibration, |d| d.min(self.next_calibration)),
+        );
+        Ok(report)
+    }
+    fn poll_clock(&mut self, now: u64, io: IoBudget) -> Result<()> {
         let binding = self.bindings.time;
         let interval = self.config.calibration_interval_ns;
         let retry = self.config.calibration_retry_ns;
@@ -841,11 +447,14 @@ where
                 Ok(())
             })
             .map_err(Error::Shared)??;
+        Ok(())
+    }
+    fn poll_market(&mut self, now: LocalTime, io: IoBudget, report: &mut Report) -> Result<()> {
         if let Some(market) = &mut self.external_market {
             if !self.external_market_failed {
                 let mut sink = MarketObserver(self.observer.as_mut());
                 match market.poll(
-                    reading.local.monotonic,
+                    now.monotonic,
                     self.config.maximum_book_age_ns,
                     self.config.public.max_notifications,
                     &mut sink,
@@ -891,6 +500,9 @@ where
             report.runnable |= md.runnable;
             report.next_deadline_ns = md.next_deadline_ns;
         }
+        Ok(())
+    }
+    fn poll_private(&mut self, io: IoBudget, report: &mut Report) -> Result<()> {
         let binding = self.bindings.private.clone();
         let scope = binding.scope.clone();
         let delivery_ns = self.config.private_delivery_budget_ns;
@@ -961,6 +573,9 @@ where
         }
         report.private_messages = pd.messages;
         report.runnable |= pd.yielded;
+        Ok(())
+    }
+    fn poll_account(&mut self, io: IoBudget, report: &mut Report) -> Result<()> {
         let fresh = self.time()?;
         if let Some(outcome) = self
             .rest
@@ -985,6 +600,9 @@ where
             return Err(Error::Strategy);
         }
         self.strategy.on_account_history(self.rest.gateway());
+        Ok(())
+    }
+    fn poll_strategies(&mut self, report: &mut Report) -> Result<()> {
         // Polling the account sender may run an authorization callback that
         // samples a newer trusted time. Health must follow that callback with
         // a fresh sample instead of presenting the pre-poll time as current.
@@ -1018,10 +636,10 @@ where
             else {
                 break;
             };
-            if submission.command.digest() != submission.recovery.command_digest {
+            let digest = submission.command.digest();
+            if digest != submission.recovery.command_digest {
                 return Err(Error::Config);
             }
-            let digest = submission.command.digest();
             self.recovery
                 .stage(submission.recovery)
                 .map_err(Error::Recovery)?;
@@ -1032,18 +650,19 @@ where
                 submitted_at.local.monotonic.nanos(),
                 submission.deadline,
             );
-            self.strategy.on_submission(&submission.command, &result);
+            self.strategy.on_submission(
+                &submission.command,
+                &result
+                    .as_ref()
+                    .copied()
+                    .map_err(|e| e as &(dyn std::error::Error + 'static)),
+            );
             // Any successful prepare persisted the complete closure before Admit.
             // A denied submit leaves no new send capability, so the staged copy is disposable.
             self.recovery.remove(digest).map_err(Error::Recovery)?;
             report.submissions += 1;
         }
-        report.next_deadline_ns = Some(
-            report
-                .next_deadline_ns
-                .map_or(self.next_calibration, |d| d.min(self.next_calibration)),
-        );
-        Ok(report)
+        Ok(())
     }
     pub fn step(&mut self) -> Result<Report> {
         if self.stopped {

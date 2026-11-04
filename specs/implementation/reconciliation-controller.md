@@ -1,26 +1,21 @@
-# 账户对账与终态费用维护
+# Account reconciliation and terminal fee maintenance
 
-实现位于 `crates/tickwire-app/src/reconciliation.rs`，调用边界见控制器接口。
+The Binance account controller restores trading eligibility from persisted private inputs and authenticated account queries. A healthy account also uses the controller to close outstanding fee liability and renew its existing qualification. A successful query alone cannot close fees, clear unknown outcomes or make the account eligible to take new risk. [Controller](../../crates/tickwire-app/src/reconciliation.rs) · [Activation proof](../../crates/tickwire-binance-account/src/reconciliation/activation.rs)
 
-正常已对账账户仍会检查终态费用责任和已持久资格期限。只有存在 `terminal && !aborted && !fee_reconciled` 的订单、REST 发送器空闲且达到 `fee_maintenance_interval_ns` 时，才启动下一轮费用维护。该字段省略时为 1 秒，零值拒绝；失败仍按 `retry_ns` 等待。未对账或已冻结账户继续原有恢复流程，不受健康账户维护间隔阻挡。
+## Scheduling and round boundaries
 
-每轮重新从当前账户取得订单集合，按订单查询、从零开始的成交分页、费用闭合、三类远端快照的顺序推进。原有共享额度、分页与 I/O 上限以及同步完成点不变。成功后清除本轮订单扫描状态并设置下次维护时间；失败或连接切点变化也清除本轮状态。相同连接和缺口代次不允许复用上轮空订单集合。
+* Fee maintenance starts when at least one order is terminal, has not been aborted and still has unreconciled fees, the REST sender is idle, and `fee_maintenance_interval_ns` has elapsed. The default interval is one second. Zero is invalid. Failure uses the separate `retry_ns` backoff. A frozen or unreconciled account takes the ordinary recovery path independently of the healthy-account fee timer.
+* Every round reloads candidate orders from the current account. It queries each relevant order, paginates its trade history from the initial cursor and checks fee closure. It then collects three remote snapshots for the account, open orders and conditional orders. Quota, pagination and I/O budgets still apply. Private reports continue to enter the durable input path during the round.
+* `FeesReconciled` requires proven coverage of the trade pages. `Reactivated` requires the authenticated remote state to match the current account. Success clears the per-round cursor and schedules the next maintenance time. Failure or a changed private connection frontier discards partial state. A fresh round never reuses an earlier empty order set, even at the same connection epoch and gap generation. [Controller scheduling](../../crates/tickwire-app/src/reconciliation.rs) · [Trades](../../crates/tickwire-binance-account/src/reconciliation/trades.rs) · [Snapshots](../../crates/tickwire-binance-account/src/reconciliation/snapshot.rs)
 
-账户在完整对账期间保持现有冻结规则，私有回报继续持久入账。FeesReconciled 仍由完整成交页覆盖证明驱动，Reactivated 仍要求实际快照与当前账户匹配。此变更没有增加直接清除 Unknown、释放费用或绕过快照校验的入口。
+## Income evidence
 
-两项纯单元分别验证维护触发/限频/发送忙边界，以及同一私有切点完成后的订单重新加载。实际 Red/Green 命令与结果见验证记录。
+The optional `income_account_scan` schedules periodic income queries for a wallet with an existing approved baseline. The configuration names the wallet, `lookback_ms`, `interval_ns`, per-page `limit` and `maximum_queries`. The interval ends at calibrated venue time. Selecting a lookback interval does not establish a new completeness frontier. In the absence of a baseline, only the separately approved `income_baseline_import` path can establish initial coverage. Both paths use the same reader and retain its connection and request identity. [Income controller](../../crates/tickwire-app/src/reconciliation/income.rs)
 
-可选 `income_account_scan` 增加已有批准基线后的周期收入维护：显式 wallet、lookback_ms、interval_ns、limit、maximum_queries。回查区间的结束时间取已校准服务器时间，查询选择不构成完整收入截止；缺失基线时仅原 `income_baseline_import` 专用审批可建立覆盖。两类收入请求共用同一个 reader，不重置连接/请求身份。
+For `IncomeUse::Account`, the controller persists the original query and its per-row account effects before checking current orders and the three snapshots. If eligible funding-fee records can be reconciled, it commits `AccountInputsReconciled` (account-record tag 14) and discards the snapshots bound to the previous ledger position. It obtains all three snapshots again against the new ledger sequence before activation. Unknown observations or pending debits keep the account frozen and cause backoff. Equal net amounts cannot by themselves explain a transfer or funding debit. [Income application](../../crates/tickwire-app/src/reconciliation/income.rs) · [Account record codec](../../crates/tickwire-account-codec/src/codec.rs)
 
-IncomeUse::Account 先同步原查询及逐行账户效果，再查询当前订单与三个远端快照。存在可核对资金费时，控制器提交 tag14 并清空当前快照；后续重新收三份绑定新账本序号的快照，再正常激活。核对仍有未知观察或 Pending 时继续冻结和退避，不按金额净额自动解释。全部查询逐页通过原共享额度和发送预算。
+## Renewal and verification
 
+Even an empty account with no income scan needs renewal at `valid_until.saturating_sub(valid_for_ns / 2)`. Renewal uses the account's persisted validity deadline. A healthy account waits for an idle sender, independently of the fee timer. Beginning a round, a busy sender, a failed query and retry scheduling do not extend the deadline. An expired account cannot admit new risk on the strength of its earlier qualification. [Renewal policy](../../crates/tickwire-app/src/reconciliation.rs)
 
-## 收入自动核对的网络验证
-
-生产 Controller 的定向本地 TLS 测试覆盖初始签名批准、Account 收入请求、三快照、tag14、重新取得三快照和 Reactivated。已解释资金费只扣一次；未解释转账保留待处理扣款和冻结。测试关闭 owner 后使用离线恢复入口重开真实双 WAL 和闭包对象，核对相同账本与金额。命令和实际结果见 收入核对证据。
-
-## 健康账户续期
-
-即使账户无订单且未配置收入扫描，控制器也在 `Account::valid_until() - valid_for_ns/2` 达到时请求完整对账；减法饱和到零。调度依据账户当前已持久期限，不缓存上次成功时间。健康账户的续期等待发送器空闲，但不受费用维护间隔阻挡；忙、重试和失败均不更新期限。原增险过期拒绝保持不变。
-
-续期继续使用 BeginReconciliation、真实有界查询、三类快照和同步 Reactivated。失败会清除快照与订单扫描状态，保留冻结和原期限；重开双 WAL 与依赖对象后也保持该期限。单元覆盖半窗口前后、忙/到期、1 ns 与 u64 边界；真实 TLS 用空账户完成两次 Reactivated，再用快照 503 验证失败和恢复边界。实际命令与结果见续期验证记录。
+Renewal follows the ordinary `BeginReconciliation`, bounded remote queries, three-snapshot checks and synchronized `Reactivated` path. Failure clears per-round scan state and preserves the frozen account and its original deadline across replay. Local TLS cases exercise a successful funding-fee closure charged once, an unexplained transfer left pending, two renewals on an empty account, and a 503 snapshot failure followed by reopening both WALs and their closure objects. These fixtures exercise the production controller against a local exchange peer. [Income and renewal network tests](../../crates/tickwire-app/src/reconciliation/income_network_tests.rs)

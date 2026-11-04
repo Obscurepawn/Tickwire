@@ -2,7 +2,11 @@ use serde_json::json;
 use tickwire_app::config::Deployment;
 
 pub fn deployment(instrument: u64) -> Deployment {
-    serde_json::from_value(json!({
+    serde_json::from_value(deployment_json(instrument)).unwrap()
+}
+
+pub fn deployment_json(instrument: u64) -> serde_json::Value {
+    json!({
         "baseline":"/unused/baseline.cbor", "directories":{"account":"/unused/account","input":"/unused/input","recovery":"/unused/recovery"},
         "recover":false,"product":"spot","boot_id":([71u8;16]),"clock_generation":1,"owner_id":([72u8;16]),"writer_epoch":4,"initial_writer_epoch":4,
         "account_stream":([21u8;16]),"input_stream":([22u8;16]),"first_connection_epoch":1,"instrument_id":instrument,"book_source":9,
@@ -14,5 +18,5 @@ pub fn deployment(instrument: u64) -> Deployment {
         "quota":{"supervisor_generation":1,"consumer_instance":([72u8;16]),"consumer_generation":1,"consumer_lease_until_ns":1000,"producer_id":([73u8;16]),"policy_generation":1,"policy_starts_ns":0,"policy_ends_ns":1000,"windows":[],"grants":[],"rules":[]},
         "strategy":{"mode":"observe"}, "reconciliation":{"enabled":false,"reader_id":([74u8;16]),"first_request_epoch":1,"first_execution_connection_epoch":2,"retry_ns":1000000000,"valid_for_ns":1000000000},
         "stop_file":"/unused/STOP","maximum_runtime_ns":1000000000
-    })).unwrap()
+    })
 }

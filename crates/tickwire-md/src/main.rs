@@ -9,6 +9,14 @@ fn run() -> tickwire_md::Result<()> {
     use tickwire_md::{config, invalid};
     let args: Vec<_> = std::env::args().skip(1).collect();
     match args.as_slice() {
+        [mode, path] if mode == "--spot-market" => {
+            let c = serde_json::from_slice(&config::read(Path::new(path), 1024 * 1024)?)?;
+            tickwire_md::spot_market::run(c)
+        }
+        [mode, path] if mode == "--spot-quotes" => {
+            let c = serde_json::from_slice(&config::read(Path::new(path), 64 * 1024)?)?;
+            tickwire_md::spot_quotes::run(&c, std::io::stdout().lock())
+        }
         [mode, path] if mode == "--config" => {
             let c = serde_json::from_slice(&config::read(Path::new(path), 4 * 1024 * 1024)?)?;
             tickwire_md::engine::run(c)
@@ -30,7 +38,7 @@ fn run() -> tickwire_md::Result<()> {
             Ok(())
         }
         _ => Err(invalid(
-            "usage: tickwire-md --config FILE | --resource FILE --output HEADER | --client FILE --output JSON | --admit FILE --directory DIR",
+            "usage: tickwire-md --spot-market FILE | --spot-quotes FILE | --config FILE | --resource FILE --output HEADER | --client FILE --output JSON | --admit FILE --directory DIR",
         )),
     }
 }

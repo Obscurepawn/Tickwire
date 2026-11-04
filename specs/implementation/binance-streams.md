@@ -1,50 +1,29 @@
-# Binance 行情与私有事件解码规格
+# Decode Binance depth and private events
 
-实现位于 `tickwire-binance::feed` 和 `tickwire-binance::events`，接口见 Binance 行情与私有事件解码。它们消费 HTTP/WS 已分帧的消息；`tickwire-book`、`tickwire-venue` 和账户 owner 分别承担序列状态、规范事件与账户处理。
+`tickwire-binance::feed` and `events` decode complete HTTP bodies or WebSocket messages. The caller supplies the product, catalog and source binding. Decoding a market or private message does not alter an account, grant risk or establish continuity. [Feed decoder](../../crates/tickwire-binance/src/feed.rs) · [Private events](../../crates/tickwire-binance/src/events.rs)
 
-## 可检查契约
+| Input | Output and rejection conditions |
+| --- | --- |
+| Spot/USD-M exchangeInfo | Retain symbol, product, trading status and exact grid filters. Preserve unrecognized statuses/filters. Reject duplicate symbols or filters and excessive input. A coin-margined instrument cannot be classified as USD-M. |
+| REST depth | Bind a symbol-free response to the request context and retain `lastUpdateId`. Both sides have limited coverage. Reject off-grid, oversized, crossed or improperly sorted input as a whole. |
+| depthUpdate | Decode `U/u`, and `pu` for USD-M. Quantity zero deletes a level. Check combined-stream identity and reject partial, RPI or coin-margined streams. The book owns the product-specific sequence and duplicate-price rules. |
+| executionReport / ORDER_TRADE_UPDATE | Retain native IDs, order values, quoted amounts, commissions and PnL. Preserve unknown statuses and distinguish omitted fields from zero. |
+| `bind_order` | Match the original canonical command, persistent order mapping, account, side and asset versions. Modified order quantity/price remains observed data. An unresolved order or status requires correlation or reconciliation. |
+| Account, list and algo events | Balances and positions are sparse patches. Missing B or P leaves that field unspecified. A list/algo terminal event does not by itself prove a child fill. Preserve unsupported event kinds as other observations. |
 
-| 输入/操作 | 成功结果 | 失败和未知情况 |
-|---|---|---|
-| Spot/USD-M exchangeInfo | symbol、产品、状态、网格过滤器的精确值；其余字段保留原文 | 未知状态/过滤器保留；CM/未知产品不识别为 USD-M；超上限或重复 symbol/过滤器失败 |
-| REST depth | 不完整的双侧快照，真实 lastUpdateId | 无 symbol 的响应由请求上下文绑定；格式、网格、容量、交叉或排序错误不交付部分结果 |
-| depthUpdate | U/u/pu、零删除、绑定来源代次 | Spot 与 USD-M 规则独立交给 Book；组合流核对名称；CM、partial、RPI 输入拒绝 |
-| executionReport / ORDER_TRADE_UPDATE | 原始数量、报价金额、原生 ID、费用和 PnL | u64 不转浮点；未知状态保留；缺省数值保持 None |
-| bind_order | 由原创建命令、持久订单映射、同版本资产目录构造 CanonicalEvent | 身份、方向、资产冲突失败；修改后的 q/p 作为观察保留；未知执行/状态进入 Unknown 或待对账 |
-| 账户变更 | 稀疏余额、仓位、配置或差额 | B/P 缺省不表示清零；没有完整基线声明 |
-| List/Algo/终止事件 | 专用类型及原始字段 | List/Algo 完成不推出子订单成交；未展开的事件进入 Other |
+Parse ordinary decimal strings without floating point. An amount must fit the asset's scale. A positive commission becomes a negative cash flow. Negative commission is a rebate. Keep USD-M PnL separate in the settlement asset. A missing quoted amount cannot be synthesized from price and quantity.
 
-价格/数量解析只接受普通十进制字符串，所有换算检查溢出和余数。费用严格按目录资产单位验证；正 commission 转负现金流，负 commission 转返佣。USD-M PnL 独立属于结算资产；报价金额不由单价与数量推算。
+Use the full external nonzero `u64` instrument ID for IPC, logs and economic identity. A separate local `BookKey` binds nonzero venue/source and an owner-assigned `u32` slot, which may be zero. Never derive that slot by truncating the external ID. [Instrument index](instrument-index.md)
 
-深度上下文分别绑定完整 `u64 InstrumentBinding.instrument_id` 与进程内 `BookKey`。外部标的 ID 必须非零；`BookKey.instrument` 是调用方分配的本地 `u32` 槽，可从零开始，不要求与外部 ID 数值相等，禁止截断外部 ID 来生成槽。调用方负责同一发布目录内完整 BookKey 的唯一性及源到标的的绑定。venue/source 非零、catalog/version/hash、产品、symbol 与价格数量网格的既有校验不变。JSON/SBE 深度结果携带本地 key 供 Book 核对，IPC、事件和日志中的外部标的身份仍由完整目录绑定提供。
+## Reusable depth storage
 
-`PrivateEvent` 和深度结果只能通过验证构造。消息、数组和字段长度均有限制，错误不交付可观察的半个对象。元数据和私有事件使用有界 Vec、字符串及规范事件编码；本阶段没有零分配或延迟性能结论。
+`DepthWorkspace::new(max_total_levels)` reserves capacity for **both sides combined**, from 1 to 5000 updates. `decode_diff_into` and `decode_sbe_diff_into` return a view borrowing that workspace until the next exclusive decode. A failed decode has no observable partial result. The older `decode_diff::<N>` and `decode_sbe_diff::<N>` retain their per-side bounds. The shared-memory publisher uses a combined limit of 4096.
 
-## 可复用深度增量工作区
+The JSON scanner handles escaped known and unknown fields and nested ignored values. Limit nested containers to 128 levels and decoded decimal text to 80 bytes. Reject malformed UTF-8, escapes, numbers or structure. On healthy JSON/SBE workspace decodes, allocation tests cover a previously reserved workspace and a 2 MiB stack. Metadata and private events may use bounded vectors and owned strings. [Workspace regression tests](../../crates/tickwire-binance/tests/depth_workspace.rs)
 
-`DepthWorkspace::new(max_total_levels)` 在冷路径预留连续的双侧增量存储，容量为 1…5000 档且按 bids 与 asks 合计计算。`decode_diff_into` / `decode_sbe_diff_into` 接收消息、可信 `DepthContext`、接收时间、字节上限和可变工作区，返回仅在本次借用期间有效的 `DepthUpdateRef`；它提供与既有结果相同的 `event()`、交易所事件时间与事务时间。下一次解码需要独占工作区，不能与上次的借用结果并存。解码失败不返回部分事件，工作区可直接用于下一条消息。
+```sh
+cargo test --locked -p tickwire-binance --test feed --test depth_workspace --test market_server
+cargo test --locked -p tickwire-binance --test private_events --test private_structures --test private_server
+```
 
-新旧入口共用产品、symbol/组合流、已知重复字段、序号范围、定点网格和 SBE schema 校验；重复价位继续交给 Book 的原子校验，不在解码器中合并。既有 `decode_diff::<N>` / `decode_sbe_diff::<N>` 签名与单侧 N 档容量语义保持兼容。发布器使用新入口时限制双侧总数为 4096；正常 JSON/SBE 解码在工作区构造后不分配，并在 2 MiB 线程栈完成最大总档数的解码。
-
-JSON diff 使用有界结构扫描，共同处理已知字段与忽略字段的语法；合法转义字段名、symbol、组合流名和十进制字符串均保留兼容，未知字段中的转义与嵌套值不触发堆分配。嵌套容器最多 128 层，十进制解转义后仍受原有 80 字节限制；非法 UTF-8、转义、代理项、数字和容器语法拒绝。`DepthWorkspace::capacity()` 返回准入的总档数，`reserved_bytes()` 返回实际 heap capacity；`DepthContext::reserved_bytes()` 包括缓存 stream symbol 与绑定内四个目录字符串的 heap 字节，供上层缓存预算检查。错误路径不承诺分配数量，健康解码不回退到分配式解析。
-
-## TDD 与审阅
-
-每组初始失败都在接口已可编译后执行，日志保留于 验证目录。
-
-| 顺序 | 失败断言 | 实现后覆盖 |
-|---|---|---|
-| 深度 | Spot/USD-M 有效快照/增量无法解码 | 精确网格、零删除、整数 ID、事件范围、组合流、真实 Book policy |
-| 元数据 | 有效 exchangeInfo 无法解码 | filters 网格与未知内容保留、混合 CM 识别 |
-| 私有订单 | Spot/USD-M 原始订单事件无法解码 | 整数、十进制、费用、PnL、订阅绑定 |
-| 本地订单关联 | 有效原命令/订单映射无法生成规范成交 | 会话、原意图、客户和原生订单身份、资产单位校验 |
-| 稀疏账户审阅修复 | 官方允许的省略 P 消息被拒绝 | B/P 分别可缺省，余额与仓位合计容量受限 |
-| PnL 兼容规则 | 非成交与原始成交消息都因缺 rp 被拒绝 | 解码保留 None；USD-M 成交绑定仍要求 PnL，非成交允许缺省 |
-
-稀疏账户问题由独立源码/官方协议审阅发现，随后取得实际失败和修复日志。PnL 调整是显式兼容规则：官方生成模型标为 Optional，且说明该值属于成交；没有把旧严格处理宣称为已确认的线上故障。
-
-本阶段新增 33 项测试：11 项行情/元数据、18 项私有事件、2 项行情协议服务器和 2 项私有协议服务器。协议测试运行实际 TCP/TLS、HTTP 分块、WSS 升级及分片消息，调用同一生产解码器；行情输入进入真实 Book，私有输入进入 CanonicalEvent。已有请求、签名和回复分类测试一并回归。最终平台记录、源码哈希和独立审阅结果以 验证报告 为准。
-
-## 后续接线
-
-目录资格判断仍需消费全部权限与过滤器；`product()` 只识别市场种类。会话 owner 负责认证订阅、listenKey 管理、连接代次切换、断流后的订单/资金对账，以及快照拉取期间的有界增量缓存和溢出重建。订单数量或价格的后续变化由持久修改流程解释；未能关联的真实资金记录保留并关闭相关准入。账户日志持久化与完整基线尚未由这些纯解码函数实现。
+The TLS fixtures pass framed market data to the real book and private facts to canonical event binding. Network subscription, snapshot coordination, durable accounting and reconciliation are separate state owners.

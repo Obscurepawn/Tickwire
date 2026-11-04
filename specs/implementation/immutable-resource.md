@@ -1,34 +1,24 @@
-# 不可变资源实现规格
+# Immutable Linux resources
 
-`ImmutableMapping` 与 `ImmutableResource` 已按先行接口加入 `tickwire-shm-sys`。原有 `WriterMapping`/`ReaderMapping` 的 `0x17` 协议保持独立；新对象使用精确 `0x0f`，没有原子访问或写接口。
+`ImmutableMapping` holds a sealed, read-only memfd. `ImmutableResource` verifies that mapping against an independently authenticated descriptor and object hash. Use the full validated file when checking a topic snapshot. A valid resource envelope alone grants no right to join. [Mapping](../../crates/tickwire-shm-sys/src/immutable.rs) · [Resource validator](../../crates/tickwire-shm-sys/src/resource.rs)
 
-## 创建与接收
+## Produce and receive
 
-创建依次执行平台/长度检查、memfd_create、ftruncate、完整 pwrite、F_ADD_SEALS、F_GET_SEALS、只读 FD 转换和 RO mmap。pwrite 处理短写与 EINTR，零写返回错误；任何失败由 OwnedFd 关闭私有文件。该构造过程不建立 RW mmap，也不在封印前导出 FD。
+Creation checks platform and length, creates the memfd, sets its size and writes **all** bytes with `pwrite`. Retry short writes and EINTR. A zero write fails. Apply and read back the exact `0x0f` seal mask, obtain a read-only descriptor and map it read-only. The construction path creates no writable mapping and exports no unsealed descriptor.
 
-接收先检查普通文件和期望长度，再检查实际 seals 为 `0x0f`。此集合含 F_SEAL_SEAL，锁定封印集合、文件大小和内容；复用现有 mmap 方法时再次检查文件长度。输入 O_RDONLY FD 以 CLOEXEC 复制；输入 O_RDWR FD 通过仍由本对象持有的 `/proc/self/fd/<fd>` 重新只读打开。原 FD 活到 open 完成才析构，返回对象只保留 O_RDONLY FD。
+A receiver verifies regular-file type, exact expected size and `0x0f` seals, then rechecks length at mapping. An incoming O_RDONLY descriptor is duplicated with CLOEXEC. For O_RDWR, keep the input FD alive while reopening its `/proc/self/fd/<fd>` path read-only. Only an O_RDONLY descriptor survives into the returned object. The locked WRITE/GROW/SHRINK seals permit a safe borrowed slice. `MADV_DONTFORK` prevents inheritance of the mapping. Drop unmaps before closing the FD. A single-writer ring uses its distinct `0x17` profile. [Ring mappings](shm-mapping.md)
 
-RO 共享映射沿用 MADV_DONTFORK，Drop 先 munmap 再关闭 FD。`bytes()` 在调用时构造借用当前映射的只读切片，结构内部只存指针，不保存长寿命 `&[u8]`。F_SEAL_WRITE/GROW/SHRINK 提供这段借用期间的不可改写、不可扩缩容保证，因此读方法是安全 API；原有可变 ring 映射的读方法仍保留 unsafe 协议要求。
+## Verify the resource envelope
 
-## 资源包装
+Match the full 4096-byte decoded header to the approved header. Recompute its SHA-256 with only the descriptor-hash bytes zeroed. Check ABI, schema, architecture, page configuration, supported features, nonzero resource/producer/host/namespace identities, generation and bounded counters. Verify kinds 5–9, content starting at offset 4096, unused cursor/producer/arena fields zero, and exact file length.
 
-独立 `resource.rs` 消费不可变映射并验证以下内容：
+The object is bounded to 64 MiB. Check `4096 + content_bytes` and page rounding without overflow. The outer page tail must be zero and the whole-file hash must match the external expected hash. For projected config (kind 9), require a nonzero consumer, config feature, one-byte records, capacity equal to valid content size and at most 4 MiB. For snapshot kinds, validate the 256-byte snapshot header, entry offset 4352, object size, kind and entry shape.
 
-- 完整 ResourceHeader 解码与零保留区、全字段精确匹配已认证 expected、头部 SHA-256（仅将 descriptor_hash 字段置零）。
-- 固定 ABI/schema/目标架构/页配置、已知 feature、非零资源/生产者/host boot/namespace 身份，生产者 generation 合法，其他身份计数均小于 `2^63`。
-- kind 5–9、slot_offset=4096，producer/cursor/arena 区域及 class descriptors 均无效并置零，实际文件长度与资源头一致。
-- 对象不超过 64 MiB；`4096 + content_bytes` 的加法、页补齐和范围合法；外层页尾全零；整文件 SHA-256 与已认证对象哈希一致。
-- kind 9 的 consumer 非零、配置 feature 已声明、record_bytes=1、capacity=content_bytes，投影不超过 4 MiB。
-- 其他快照的 256 字节 SnapshotHeader 位于资源头之后，entry_offset=4352，object_bytes 精确匹配，resource kind/snapshot kind/条目宽度数量符合固定布局，条目区不越过指定有效内容。
+`content()` removes the outer resource header and padding. `bytes()` exposes the complete validated envelope. The snapshot layer checks internal member digests, coverage, cut, validity windows and JOIN identity. Computing expected metadata from the file itself would only establish internal consistency. [Topic receiver](topic-snapshot.md)
 
-`content_bytes` 来自调用方对有效内容范围的确定，通用包装只校验这段范围及外层页尾。内部 section/成员、各成员零尾、快照覆盖、共同截面、有效期和 JOIN 身份绑定由上层对完整 `bytes()` 调用相应快照 validator 校验；`content()` 只是去掉外层资源头和页尾后的视图。
+```sh
+cargo test --locked -p tickwire-shm-sys --test immutable
+cargo test --locked -p tickwire-snapshot --test immutable_linux
+```
 
-expected header 与 object hash 必须来自已认证 registry、资源描述符和 JOIN 等外部预期。从收到的文件自己计算两者再传入，只能证明自洽，不能认证资源。
-
-## 验证与边界
-
-完整 TDD 与实测归档见验证记录。Linux aarch64 上的新用例验证了正确内容、真正只读的 CLOEXEC FD、所有 seal 缺项/错误配置拒绝、写/扩缩容/RW mmap/mprotect 拒绝、真实 EBUSY→撤销映射→成功封印，以及错误返回后的 FD 和映射回收。
-
-实现前的功能 Red 是 9 个主场景失败；首轮 Green 后补查发现 `channel_epoch=2^63` 未被通用资源包装拒绝，再以真实 Red 固定边界并修复。头部哈希负测让 expected 与损坏头的字段保持相同，独立验证 hash 计算，而非靠字段不相等提前拒绝。
-
-本轮实际资格限 Linux aarch64、4096 页；macOS 验证生产入口明确拒绝。Linux x86_64、跨 UID/GID 的实际 FD 交付、owner 配额与 holder 登记、真实 JOIN 协调、退出证据和生产 NUMA/锁页/延迟验收仍由各层完成。memfd 不承诺持久化。
+The Linux tests verify read-only CLOEXEC export, exact seal sets, denied writes, resizes, new writable mappings and permission upgrades. They exercise sealing failure while a writable mapping exists and success once it is removed. Header-digest tests keep the expected fields equal to the corrupted header so the independent digest check must catch it.

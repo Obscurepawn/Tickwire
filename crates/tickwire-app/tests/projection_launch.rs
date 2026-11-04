@@ -285,3 +285,144 @@ fn local_live_market_cannot_issue_an_intent_or_proof_after_resource_rejection() 
     );
     f.assert_failed_launch_artifacts();
 }
+
+#[test]
+fn inspect_validates_all_strategy_slots_before_worker_startup() {
+    let mut fixture = Fixture::new();
+    let (snapshot, catalog, _) = account_fixture::fixture();
+    let baseline = tickwire_account_codec::CanonicalBaseline::new(snapshot, catalog).unwrap();
+    let mut deployment =
+        runtime::deployment_json(baseline.catalog().entries[0].instrument.instrument_id);
+    let baseline_path = fixture.root.join("baseline.cbor");
+    std::fs::write(&baseline_path, baseline.bytes()).unwrap();
+    deployment["baseline"] = json!(baseline_path);
+    deployment["strategy"] = json!({"mode":"multi","members":[
+        {"logical_strategy_id":1,"strategy":{"mode":"hosted","config":fixture.host}},
+        {"logical_strategy_id":1,"strategy":{"mode":"observe"}}
+    ]});
+    let path = fixture.root.join("deployment.json");
+    let inspect = |d: &serde_json::Value| {
+        std::fs::write(&path, serde_json::to_vec(d).unwrap()).unwrap();
+        std::process::Command::new(env!("CARGO_BIN_EXE_tickwire-app"))
+            .arg("inspect")
+            .arg("--config")
+            .arg(&path)
+            .output()
+            .unwrap()
+    };
+    let rejected = inspect(&deployment);
+    assert!(
+        !rejected.status.success(),
+        "inspect accepted two active owners for one strategy"
+    );
+    assert!(String::from_utf8_lossy(&rejected.stderr).contains("slot"));
+    deployment["strategy"]["members"][1]["logical_strategy_id"] = 2.into();
+    let accepted = inspect(&deployment);
+    assert!(
+        accepted.status.success(),
+        "{}",
+        String::from_utf8_lossy(&accepted.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&accepted.stdout).unwrap();
+    assert_eq!(result["strategy_members"][0]["generation"], 1);
+    assert_eq!(result["strategy_members"][1]["logical_strategy_id"], 2);
+    assert_eq!(
+        result["risk_domain_id"],
+        json!(fixture.bootstrap.risk_domain)
+    );
+    fixture.bootstrap.risk_domain = [99; 16];
+    fixture.save_bootstrap();
+    let wrong_scope = inspect(&deployment);
+    assert!(!wrong_scope.status.success());
+    assert!(String::from_utf8_lossy(&wrong_scope.stderr).contains("risk domain"));
+    fixture.assert_no_launch_files();
+}
+
+#[test]
+fn shared_market_preflight_rejects_cursor_request_and_storage_aliases_before_launch() {
+    use tickwire_app::strategy::Config;
+
+    let mut first = Fixture::new();
+    let mut second = Fixture::new();
+    first.remote();
+    second.bootstrap.market.local.instance = [22; 16];
+    second.bootstrap.market.local.logical_strategy = 2;
+    second.remote();
+    let first_external = first.bootstrap.external_market.as_ref().unwrap();
+    let second_external = second.bootstrap.external_market.as_mut().unwrap();
+    second_external.endpoint.path = first_external.endpoint.path.clone();
+    second_external.cursor_id = [42; 16];
+    second_external.request_id = [43; 16];
+    second.save_bootstrap();
+    let members: Config = serde_json::from_value(json!({"mode":"multi","members":[
+        {"logical_strategy_id":1,"strategy":{"mode":"hosted","config":first.host}},
+        {"logical_strategy_id":2,"strategy":{"mode":"hosted","config":second.host}}
+    ]}))
+    .unwrap();
+    let Config::Multi { members } = members else {
+        unreachable!()
+    };
+    let scope = first.bootstrap.risk_domain;
+    let inspect = || tickwire_app::launch::group::inspect(&members, scope);
+    let original = second.bootstrap.clone();
+    assert_eq!(inspect().unwrap().len(), 2);
+
+    let alias = second.root.join("alias");
+    std::os::unix::fs::symlink(&first.root, &alias).unwrap();
+    for expected in ["cursor", "request", "directory", "checkpoint"] {
+        second.bootstrap = original.clone();
+        match expected {
+            "cursor" => {
+                second.bootstrap.external_market.as_mut().unwrap().cursor_id =
+                    first_external.cursor_id
+            }
+            "request" => {
+                second
+                    .bootstrap
+                    .external_market
+                    .as_mut()
+                    .unwrap()
+                    .request_id = first_external.request_id
+            }
+            "directory" => {
+                second.bootstrap.report_directory = first.bootstrap.command_directory.clone()
+            }
+            "checkpoint" => {
+                second.bootstrap.command_directory = alias.join("commands/merged-inputs")
+            }
+            _ => unreachable!(),
+        }
+        second.save_bootstrap();
+        let error = inspect()
+            .err()
+            .unwrap_or_else(|| panic!("group accepted shared {expected}"));
+        let reason = if expected == "checkpoint" {
+            "directory"
+        } else {
+            expected
+        };
+        assert!(error.to_string().contains(reason), "{expected}: {error}");
+    }
+    // The publisher owns one cursor namespace per bank and one request ledger across its topics.
+    use tickwire_ipc::{ResourceHeader, Wire};
+    second.bootstrap = original;
+    let client = second.bootstrap.external_market.as_mut().unwrap();
+    let mut other_bank = ResourceHeader::decode(&client.bank_header).unwrap();
+    other_bank.resource_id = [84; 16];
+    other_bank.channel_id = [85; 16];
+    other_bank.topic_id += 1;
+    client.bank_header = tickwire_market_source::protocol::wire_bytes(&other_bank).unwrap();
+    client.cursor_id = first_external.cursor_id;
+    second.save_bootstrap();
+    assert_eq!(inspect().unwrap().len(), 2);
+    second
+        .bootstrap
+        .external_market
+        .as_mut()
+        .unwrap()
+        .request_id = first_external.request_id;
+    second.save_bootstrap();
+    assert!(inspect().err().unwrap().to_string().contains("request"));
+    first.assert_no_launch_files();
+    second.assert_no_launch_files();
+}

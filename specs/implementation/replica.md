@@ -1,15 +1,11 @@
-# 连续前缀复制
+# Replicating a durable prefix
 
-1. 源端输入只能来自物理日志的同步导出能力。原 payload、序号及 writer epoch 不能由调用方另外提供或替换。
-2. 复制流固定提交模式、配置版本和源身份。同一源身份的持久配置拒绝重绑定；异步流不能生成同步恢复封口。
-3. 每个序号的复制元数据在发布本地前缀前同步，含所选输入前缀和闭包根。恢复必须复用原元数据，不能用新输入水位改写旧哈希。
-4. 镜像先同步实际对象和完整闭包，再同步连续复制批次，最后发布前缀并签发 ACK。冲突、缺口和同步错误都不能增加已确认水位。
-5. ACK 绑定源流、序号、链摘要、依赖摘要、镜像身份、启动代次和 assignment。重新连接不能继续采用旧镜像启动代次的 ACK。
-6. 源端实时任务、结果和对象组装均有容量上限。容量耗尽拒绝新任务或返回原任务；不会丢弃旧责任后继续发送。
-7. 输入前缀保持原始序号、原文和 writer epoch，拒绝回退代次及公共前缀冲突。交接闭包包含完整策略输入，并与账户 WAL 的实际完整前缀逐条相符。
-8. SourceRecoverySeal 要求新鲜隔离证据、两个已关闭写者及全部依赖；最终输入前缀不能省略未转成账户记录的已持久输入。
-9. SyncReplica 恢复先封闭指定镜像旧入口。所有恢复方式都重新构造真实日志并走冻结恢复，不返回可直接发送的授权能力。
-10. 账户同步收据、复制证据、执行授权和外部隔离证据分别保留完成边界。传输采用双向认证加密；持久 ACK 不代替网络或凭据隔离。
-11. 恢复目录在任何数据写入前持久标记为进行中。启动发现标记后，必须核对完成清单及目标身份，并把真实账户、输入物理前缀传入恢复；缺少完成清单不能退回普通本地恢复。只有完整逻辑账户前缀为零时允许账户没有批封口。
+An optional replica consumes records exported from a synchronized physical log. Export binds the original payload, sequence and writer epoch. Pin commit mode, configuration revision and source identity to the stream. Persist per-sequence metadata, including the selected input prefix and closure root, before publishing the local frontier. Recovery reuses the original metadata.
 
-声明重建的账户交接采用 HandoverSeal v4。源端导出与镜像恢复均要求安装和独立回退完成根齐全，重新读取两类完整闭包，核对原 Operation/member 与实际管理权 from/to、风险域、代次一致，并验证当前保留输入从原 warm 窗口连续接续。缺根、错绑定或超过总预算时不发布镜像前缀；初始仅安装 READY 不能充当最终交接闭包。
+The mirror synchronizes the referenced objects and complete recovery closure, then the contiguous batch, then publishes the prefix and issues its ACK. Bind the ACK to stream, sequence, chain digest, dependency digest, mirror identity, boot generation and assignment. A gap, conflict or failed sync leaves the confirmed frontier unchanged. A new mirror boot requires a new acknowledgement. Fixed capacities bound source tasks, results and object assembly.
+
+Retain the raw input and writer epoch at each input sequence. Check overlap for conflicting bytes and reject generation regression. Compare handover inputs with the full preceding account WAL. A SourceRecoverySeal requires current fencing evidence, two closed writers and all dependencies, including inputs persisted ahead of the account journal. An asynchronous stream cannot generate a synchronous recovery seal.
+
+For SyncReplica recovery, close the old mirror ingress. Mark the recovery directory in progress before writing data. On restart, verify the completion manifest and target identity, then supply the actual input and account prefixes to frozen recovery. An empty logical account prefix permits an absent account batch seal. A missing completion record requires investigation before reopening the directory. TLS uses mutual authentication. A durable mirror receipt confirms storage. The execution grant and external fencing proof have separate issuers.
+
+For a declared rebuild, verify both installation and independent rollback roots in the v4 HandoverSeal. Re-read the complete closures, check operation/member and from/to manager against risk domain and generations, and prove continuity from the warm window through the retained tail. Publish the mirror frontier only after those checks pass.

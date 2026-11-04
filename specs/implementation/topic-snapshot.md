@@ -1,22 +1,24 @@
-# TopicSnapshotManifest 接收规格
+# Validate a market-topic baseline
 
-Status: implemented receiver validation; builder and JOIN coordinator pending
+`tickwire-snapshot::validate(bytes, &JoinContext)` validates an entire immutable topic image against an authenticated registry and JOIN. It returns a `ValidatedTopic` that borrows those exact bytes. It neither modifies the image nor advances a ring or cursor. The caller first checks the actual FD, access and seals, then supplies the independently approved resource header, catalog hash, instrument set and JOIN. [Receiver](../../crates/tickwire-snapshot/src/lib.rs) · [Builder](topic-snapshot-builder.md)
 
-`tickwire-snapshot` 接收完整的 NormalizedMarket TopicSnapshotManifest，不修改文件，也不推进 ring/cursor。资源完整性检查与订阅上下文校验全部成功后，返回借用原始不可变字节的 `ValidatedTopic`。接口及 owner 后续接线边界见接口设计。
+## Check the cut and every member
 
-## 已实现行为
+* Accept at most 64 MiB and 1–4096 registered members. Validate the 4096-byte resource header, all object hashes, contiguous page-aligned sections, padding, full strictly sorted instrument set and common cut `S`. The next ring record starts at `J = S + 1`.
+* Match the entire resource header with the expected header. Check channel, topic, feed/ring generations, catalog, membership and QoS across the resource, manifest and JOIN body. A nonzero resource consumer identity must match the subscriber.
+* Validate every member as a normalized market snapshot. Its snapshot ID must be nonzero, unique and different from the top-level ID. Verify each state record’s topic and producer generation. The member’s mandatory FeedState must agree with its manifest entry.
+* Enforce `resource.created <= topic.created` and `created <= now < expires` for the topic and each member. The JOIN deadline must still be in the future. Every valid monotonic ingress or publication time must be no later than that member’s creation time. Exchange UTC timestamps are in a different clock domain.
+* Check each instrument against its required categories of Quote (1), Trade (2) and MarkFunding (4). The full member list is required even while an individual category is bootstrapping. A BBO-only Bybit/OKX member can satisfy Quote with type 265 and an empty depth ladder. Its unknown coverage remains explicit.
 
-1. 输入总量最多 64 MiB，登记成员数为 1–4096。复用 IPC 校验器验证 4096 字节资源头、完整清单/成员 hash、严格升序完整标的集合、共同截面 S、J=S+1、section 连续范围和零页尾。
-2. 完整 ResourceHeader 必须与来自认证 registry 的预期值相等；顶层、资源头与 JOIN 的 channel/feed/ring/topic/catalog/membership/qos 必须一致。目录 hash 来自外部预期；资源消费者可为广播零值，否则必须与订阅者一致。
-3. 各成员必须为 NormalizedMarketSnapshot。成员 snapshot ID 非零，在整个文件中唯一且与顶层不同。状态行额外匹配 topic 和 producer generation，FeedState 行匹配清单中的该标的状态。
-4. 资源创建不晚于顶层创建；顶层和全部成员均满足 created ≤ now < expires。JOIN 截止时间也必须尚未到达。已标为有效的 ingress/publish 单调时间不得晚于成员创建时间，UTC 来源时间不与本机单调时钟混算。
-5. 成员集合始终完整。缺少登记要求的 Quote/Trade/MarkFunding 或存在非 Live 成员时仍可读取已验证内容，但 `check_readiness(now)` 返回 NotReady。每个必需状态自身也必须为 Live。该方法每次比较验证时刻及所有期限的最小值。
-6. `member(index)` 对索引和字节范围做边界检查，返回状态/深度只读切片及拥有的头部值。调用方修改返回的头部副本不改变已验证对象。
+## Structure, readiness and use
 
-该模块是 JOIN 冷路径，会分配最多 4096 项的身份列表和 snapshot ID 集合。它不承担热路径零分配要求。接口不检查 Linux FD；调用者先用 `ImmutableMapping` 验证 seals，再以认证的 expected/hash 构造 `ImmutableResource`，随后调用本校验器。
+`member(index)` bounds-checks the index and byte ranges. It returns read-only state and depth slices plus copied header values. A structurally valid image can still have missing required state or a non-live member. `check_readiness(now)` requires every listed member and every required category to be live, a clock at least as recent as validation, and time strictly before the earliest bound deadline. The caller separately checks the latest observation age and authenticated cursor before activating the reader.
 
-## 验证与后续
+Validation is cold-path work. It may allocate bounded member and snapshot-ID collections. The producer’s builder and authenticated owner pass the immutable baseline to the real reader, which resumes at `S+1`. [JOIN protocol](join.md) · [Shared ring](shm-ring.md)
 
-接收校验使用现有完整基准样本、重新计算合法摘要后的身份/时间冲突、多标的共同截面、缺少状态、重复 snapshot ID、全部文件截断边界测试。Red/Green 和独立审核记录位于验证目录。
+```sh
+cargo test --locked -p tickwire-snapshot -p tickwire-join
+cargo test --locked -p tickwire-md --test spot_quotes
+```
 
-当前只处理不可变输入上的有限检查，没有新增会发生交错的 JOIN 状态机。源码对应 TLA+ 验证将在 owner 的 pending gate、快照交付、cursor 初始 S、JOIN_READY 和失败回收接通后建立；现有 ring 模型继续覆盖 pending gate 的防覆盖行为。生产快照构造、控制资源登记与完整多进程行情链路尚未完成。
+The fixtures exercise every truncation point, multiple instruments on one cut, duplicate IDs, digest-valid identity/time mismatches, unavailable categories, real sealed images and a BBO snapshot followed by live and stale records. [Receiver tests](../../crates/tickwire-snapshot/tests/validation.rs) · [Immutable mappings](../../crates/tickwire-snapshot/tests/immutable_linux.rs) · [Spot BBO round trip](../../crates/tickwire-md/tests/spot_quotes.rs)

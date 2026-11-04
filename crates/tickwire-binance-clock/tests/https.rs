@@ -357,16 +357,34 @@ fn a_reply_before_complete_application_acceptance_cannot_calibrate() {
     cfg.io.max_accept_bytes = 1;
     let (mut client, listener, server, _) = fixture(cfg);
     client.start(&mut allow).unwrap();
+    let (send_reply, wait_for_prefix) = std::sync::mpsc::channel();
     let peer = thread::spawn(move || {
         let mut s = accept(&listener, server);
         let mut first = [0];
         s.read_exact(&mut first).unwrap();
+        assert_eq!(&first, b"G");
+        wait_for_prefix
+            .recv_timeout(Duration::from_secs(6))
+            .unwrap();
+        s.sock.set_nodelay(true).unwrap();
         response(&mut s, 200, br#"{"serverTime":1000}"#, "");
+        s
     });
+    let end = Instant::now() + Duration::from_secs(6);
+    while client.in_flight().unwrap().accepted_application_bytes == 0 {
+        assert!(Instant::now() < end);
+        let report = client.poll(&mut allow, IoBudget::default()).unwrap();
+        assert!(report.outcome.is_none());
+        thread::yield_now();
+    }
+    assert_eq!(client.in_flight().unwrap().accepted_application_bytes, 1);
+    send_reply.send(()).unwrap();
+    // Stop advancing the request until the whole reply is written. Retain the
+    // peer socket so closing it with unread request bytes cannot reset it.
+    let _open_peer = peer.join().unwrap();
     let out = finish(&mut client, &mut allow, IoBudget::default());
     assert_eq!(out.calibration, Err(Error::Protocol));
     assert!(client.sample().unwrap().signed.is_none());
-    peer.join().unwrap();
 }
 #[test]
 fn cancellation_consumes_connection_epoch_and_next_sample_uses_a_fresh_socket() {

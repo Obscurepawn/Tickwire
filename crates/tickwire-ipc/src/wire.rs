@@ -2,8 +2,8 @@
 use crate::{Error, Result, Wire, zero};
 pub const WIRE_LAYOUT_COUNT: usize = 46;
 pub const WIRE_CONTRACT_SHA256: [u8; 32] = [
-    70, 103, 116, 68, 148, 236, 183, 171, 204, 255, 35, 1, 170, 123, 147, 243, 70, 27, 236, 68, 70,
-    188, 45, 107, 211, 50, 194, 37, 190, 182, 249, 182,
+    98, 198, 211, 195, 243, 67, 63, 160, 10, 12, 129, 143, 51, 211, 238, 245, 246, 20, 2, 184, 79,
+    118, 242, 114, 43, 104, 171, 128, 197, 129, 167, 65,
 ];
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ArenaClass {

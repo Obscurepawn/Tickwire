@@ -1,21 +1,11 @@
-# 时钟校准核心规格
+# Exchange clock calibration
 
-`tickwire-clock` 保存一个产品、环境与单调时钟域的校准状态。所有变更由同一 owner 串行调用；核心没有网络连接，也不读取操作系统时钟。输入 `MonoTime` 的提供者负责使用包含挂起时间的单调纳秒计时，并保证域身份真实。
+A calibrator belongs to a single product, environment and monotonic clock domain. Its owner supplies suspend-aware monotonic nanoseconds. The calibrator consumes one pending sample at a time. It retains the last accepted interval and its expiry, the greatest observed local reading, the next unused serial and any permanent fault. The last u64 serial is usable once.
 
-| 状态 | 含义 |
-|---|---|
-| `next_serial` | 尚未签发的样本序号；最后一个 u64 序号可使用，之后拒绝复用 |
-| `pending` | 唯一正在采样的令牌，绑定域、产品、环境、序号和起点 |
-| `anchor` | 最近接受的区间、接收时间、固定有效期和样本序号 |
-| `last_seen` | 已检查过的最大本地读数，包括部分返回错误的调用 |
-| `fault` | 撤销原因；该实例没有恢复或解冻入口 |
+`begin` checks domain and time before checking for a pending sample and allocating a serial. `finish` compares the complete token first. A reply for an earlier sample leaves the clock untouched. A matching reply consumes its token after the time check. A zero server timestamp, excessive round trip or overly wide candidate leaves the previous anchor in place. Domain mismatch, backward time, overflow or a detected server jump clears both anchor and pending sample.
 
-`begin` 先检查域和时间，再检查 Busy、分配序号。`finish` 先完整比较令牌；旧回复不会推进 `last_seen` 或检查任意时间字段。当前回复通过时间检查后消耗令牌；零服务端值、往返超界或候选区间过宽返回错误并保留旧 anchor。域不符、时间回退、整数溢出和已检测的服务端跳变同时清除 anchor 与 pending。
+Let S be the server timestamp converted from integer milliseconds to nanoseconds. Let q be the quantization uncertainty (at least one millisecond) and d the maximum rate error, `drift_ppb / 1e9`, with `drift_ppb < 1e9`. At receipt the bounds are `max(0, S-q)` and `S+q+ceil(RTT*(1+d))`. After age a, increase the lower bound by `floor(a*(1-d))` and the upper bound by `ceil(a*(1+d))`. This interval assumes the rate bound holds from request start to expiry. Reject an extrapolated interval that is too wide or a reading at or after expiry. Reading an anchor or discarding a bad sample preserves its original expiry.
 
-服务端输入固定为整数毫秒，量化误差 `q` 至少一毫秒。接收区间取 `max(0,S−q)` 与 `S+q+ceil(RTT×(1+d))`；后续下界增加 `floor(age×(1−d))`，上界增加 `ceil(age×(1+d))`。单位始终为纳秒，`d=drift_ppb/1e9`。配置限制往返、宽度、年龄和调整间距，`drift_ppb<1e9`。连续速率界覆盖请求开始至校准有效期结束；采样期间或之后的未计入跳变会破坏真值包络前提。
+Sign at the interval midpoint rounded down to the requested units. Binance USD-M uses milliseconds. At send time check the original signed T against the current lower/upper bounds L and U, budget B, receipt window W, domain, product and environment. Require `T < L + 1 second`, `U + ceil(B*(1+d)) <= T + W` and `now+B < valid_until`. A newer calibration may validate the original T. Arithmetic preserves signed mathematical differences and faults on overflow.
 
-读数在 `now>=valid_until` 或外推宽度超限时拒绝，原有效期不会因读取或失败样本延长。新样本只与尚未过期的旧区间比较；过期后的新样本可建立新的区间。`status` 返回存储的校准元数据，查询新鲜度使用 `read`。
-
-签名时间为区间中点按指定单位向下量化后的精确值；USD-M 只允许毫秒。`check_send` 首先拒绝其他产品、环境或时钟域的签名，再验证窗口精度与上限，重新读取当前区间。正常刷新校准后，旧签名仍检查原来的 `T`，不要求样本序号相同。发送须满足 `T<L+1秒`、`U+ceil(B×(1+d))<=T+W` 和 `now+B<valid_until`；比较中的差值保持数学有符号含义，溢出撤销校准。
-
-行为回归与真实 Red/Green 的历史日志曾位于已删除的 `docs/validation/clock/core-results.json`。25 项测试覆盖向外舍入、全部完成边界、旧回复、故障撤销、旧签名重新检查及 u64 溢出；量化误差下界由独立源码审查提出，随后取得真实 Red 并修复。形式验证当前在 `tla/execution_models/clock/L0_calibration`，结果按实际运行另行记录。
+The [Rust calibration tests](../../crates/tickwire-clock/tests/calibration.rs) cover outward rounding, old replies, fault propagation, signing windows and u64 edges. The finite model is in [L0 calibration](../../tla/execution_models/clock/L0_calibration/).

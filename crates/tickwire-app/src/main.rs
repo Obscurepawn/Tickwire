@@ -78,11 +78,17 @@ fn execute() -> Result<()> {
     }
     if command == "inspect" {
         let baseline = config.baseline()?;
-        let _ = config.assemble(baseline.clone())?;
-        println!(
-            "{}",
-            serde_json::json!({"event":"configuration","account":baseline.snapshot().scope.account,"account_epoch":baseline.snapshot().account_epoch,"ledger_sequence":baseline.snapshot().ledger_sequence,"instruments":baseline.catalog().entries.len(),"recover":config.recover})
-        );
+        let runtime = config.assemble(baseline.clone())?;
+        let scope = &baseline.snapshot().scope;
+        let mut result = serde_json::json!({"event":"configuration","account":scope.account,"risk_domain_id":scope.risk_domain_id,"account_epoch":baseline.snapshot().account_epoch,"ledger_sequence":baseline.snapshot().ledger_sequence,"instruments":baseline.catalog().entries.len(),"recover":config.recover});
+        if let tickwire_app::strategy::Config::Multi { members } = &config.strategy {
+            result["strategy_members"] =
+                serde_json::to_value(tickwire_app::launch::group::inspect(
+                    members,
+                    runtime.command_binding.risk_domain_id,
+                )?)?;
+        }
+        println!("{result}");
         return Ok(());
     }
     if command != "run" {

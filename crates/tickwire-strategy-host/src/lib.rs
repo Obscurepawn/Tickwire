@@ -1280,10 +1280,19 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
     fn on_submission(
         &mut self,
         c: &tickwire_venue::CanonicalCommand,
-        r: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+        r: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         if let Some(started) = &mut self.started {
             tickwire_runtime::node::Strategy::on_submission(&mut started.strategy, c, r);
+        }
+    }
+    fn on_request_reply(
+        &mut self,
+        c: &tickwire_venue::CanonicalCommand,
+        r: &tickwire_venue::RequestReply,
+    ) {
+        if let Some(started) = &mut self.started {
+            tickwire_runtime::node::Strategy::on_request_reply(&mut started.strategy, c, r);
         }
     }
 }

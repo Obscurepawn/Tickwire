@@ -1,19 +1,25 @@
-# 静态注册策略示例
+# Registered counting strategy
 
-本 crate 提供独立用户策略及两个真实可执行入口。`tickwire-counting-v1-worker` 使用状态 schema `0x5457434e0001`；`tickwire-counting-worker` 使用 `0x5457434e0002`，并注册从 V1 到 V2 的迁移方法 `1`。
+For a minimal strategy, see the compiled `Spread` example on the [SDK strategy trait](../tickwire-strategy-sdk/src/lib.rs). Its `on_market` callback reads the best bid and ask in ticks, saves their spread and returns `Ok(None)`. Run `cargo test --locked -p tickwire-strategy-sdk --doc` to compile the example. The registered strategy below also demonstrates how to submit an intent and resume after restart.
 
-二者均调用 SDK 的 `registered::run`，处理 `--bootstrap`、`--source-replay`、`--restore-probe` 和 `--replay-rollback`。正常启动由 Host 提供已认证的 Bootstrap 和 SHM 资源；单独运行 binary 不获得交易授权。
+The example builds two independent worker executables. `tickwire-counting-v1-worker` uses state schema `0x5457434e0001`. `tickwire-counting-worker` uses schema `0x5457434e0002` and registers migration method `1` from V1. Both enter the SDK through `registered::run` and implement normal bootstrap, source replay, restore probe and replay rollback. During normal startup the host authenticates the worker and transfers its shared-memory channels. The execution owner controls permission to trade.
 
-Bootstrap 使用 `factory.id = "counting_example"`，并提供配置文件绝对路径、该文件的 `Object { digest, bytes }` 和正数 `revision`。内建演示字段设为 `demo_enabled = false`、`demo_command_file = None`、`demo_minimum_bid_ticks = 0`。发布清单的 `StrategyConfig` 必须绑定同一配置文件及对象。
+To run two observation-only instances locally against the same quote feed, use `python3 scripts/run-two-strategies.py` from the repository root. It generates both worker profiles and reports the market sequence, callback count and PID for each. [Two-worker startup](../tickwire-md/examples/spot-market.md)
 
-配置由 `Parameters::bytes()` 生成，字段为 `schema = 1`、`enabled`、`minimum_observations`、`minimum_bid_ticks` 和 `command`。`command` 保存完整 `CanonicalCommand` 的字节；启用时必填，当前示例只接受 Spot Limit New。命令的实例、策略代次、逻辑策略和配置 revision 必须与目标一致。配置解码拒绝未知字段、非规范 JSON 和不支持的订单类型。
+## Configure a worker
 
-每次有效行情回调增加 `observations`，账户回调增加 `reports`。达到配置阈值后，策略用实际当前时间和行情 trigger 构造一次命令，并保存 `spent`。检查点还保留原经济意图对应的动作标识。V1→V2 迁移只改变状态 schema，保留 C 上的计数、动作标识和 `spent`；随后新 ConfigApply 更换目标参数，继续接收输入。新参数改变原动作标识时拒绝安装。
+Set `factory.id` to `counting_example` in its Bootstrap. Supply an absolute configuration file, its exact `Object { digest, bytes }` and a positive `revision`. Bind the same object to `StrategyConfig` in the release manifest. Set the separate built-in demo fields to `demo_enabled = false`, `demo_command_file = None` and `demo_minimum_bid_ticks = 0`.
 
-验证入口：
+Generate the configuration with `Parameters::bytes()`. It contains schema `1`, `enabled`, `minimum_observations`, `minimum_bid_ticks` and an optional `command`. An enabled strategy takes the canonical bytes of a Spot Limit New command. The template must identify the intended logical strategy, process instance, strategy generation and configuration revision. The decoder rejects unknown fields, noncanonical JSON and unsupported order types.
+
+## Observe, decide and recover
+
+Each live market callback increments `observations`. Ordered account callbacks increment `reports`. After both configured thresholds are met, the strategy stamps the command with the callback time and the actual market trigger, emits it once and records `spent`. The price condition reads the best bid from depth. A quote-only topic can update the worker's market view without triggering this example's order.
+
+The checkpoint carries both counters, the economic action identity and `spent`. Migration at the verified cut C changes the schema and preserves all four values. A later recorded `ConfigApply` changes the target parameters. A different economic action identity fails validation.
 
 ```sh
 cargo test -p tickwire-strategy-example --all-targets
 ```
 
-四项单元覆盖规范配置、实际已核验文件构造用户工厂、C 上迁移保留状态，以及旧回调 S→C 重放后新配置接续不重发历史命令。另有一个原生子进程测试，实际执行 V1 worker 重放持久输入，并核对其 PID、成功退出和完整 C 检查点。完整进程交接使用共同 schema3 发布流程，证据归入 [策略回放验证](../../docs/validation/strategy-replay/report.md)。
+The tests cover canonical parameters, factory construction from verified files, migration of consumed actions and replay of old callbacks between snapshot S and cut C. The process test executes the V1 binary against durable inputs and checks its PID, exit status and complete C checkpoint. [Replay protocol](../../specs/implementation/strategy-replay.md) · [Handover protocol](../../specs/implementation/strategy-handover.md)

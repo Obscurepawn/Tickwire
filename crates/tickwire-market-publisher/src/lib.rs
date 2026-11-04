@@ -90,7 +90,7 @@ pub trait FaultSink {
 struct Row {
     spec: InstrumentSpec,
     key: BookKey,
-    context: DepthContext,
+    context: Option<DepthContext>,
     source_generation: Option<u64>,
     revision: u64,
     last_event: u64,
@@ -270,12 +270,44 @@ pub struct TopicPublisher<const M: usize> {
     depth_levels: Vec<DepthLevel>,
     reserved_cache_bytes: usize,
 }
+type SourceRow = (InstrumentBinding, BookKey, Option<(Market, TimeUnit)>);
 impl<const M: usize> TopicPublisher<M> {
     pub fn new(
         owner: JoinOwner<M>,
         instruments: Vec<InstrumentConfig>,
         limits: Limits,
     ) -> Result<Self> {
+        let rows = instruments
+            .into_iter()
+            .map(|cfg| (cfg.instrument, cfg.key, Some((cfg.market, cfg.time_unit))))
+            .collect();
+        Self::new_rows(owner, rows, limits)
+    }
+
+    /// Snapshot-only top-of-book rows. No depth decoder or synthetic depth levels.
+    pub fn new_spot_quotes(
+        owner: JoinOwner<M>,
+        instruments: Vec<(InstrumentBinding, BookKey)>,
+        limits: Limits,
+    ) -> Result<Self> {
+        if owner.header().required_features & EXACT_MARKET_EVENTS == 0
+            || owner
+                .registry()
+                .instruments
+                .iter()
+                .any(|s| s.required_states != tickwire_snapshot::QUOTE)
+            || instruments.iter().any(|(i, k)| {
+                tickwire_venue::SpotVenue::from_id(k.venue).is_none()
+                    || k.source == 0
+                    || i.contract != tickwire_venue::ContractKind::Cash
+            })
+        {
+            return Err(Error::Identity);
+        }
+        let rows = instruments.into_iter().map(|(i, k)| (i, k, None)).collect();
+        Self::new_rows(owner, rows, limits)
+    }
+    fn new_rows(owner: JoinOwner<M>, instruments: Vec<SourceRow>, limits: Limits) -> Result<Self> {
         if owner.header().required_features & 0x42 != 0x42
             || owner.header().arena_class_count == 0
             || owner.header().class_descriptors[owner.header().arena_class_count as usize - 1]
@@ -315,29 +347,25 @@ impl<const M: usize> TopicPublisher<M> {
         let h = owner.header().clone();
         let mut rows = Vec::with_capacity(instruments.len());
         let mut book_keys = std::collections::BTreeSet::new();
-        for (cfg, spec) in instruments
+        for ((instrument, key, depth), spec) in instruments
             .into_iter()
             .zip(owner.registry().instruments.iter().copied())
         {
-            if cfg.instrument.instrument_id != spec.instrument_id
-                || cfg.instrument.instrument_version != spec.instrument_version
-                || cfg.instrument.catalog_version != h.catalog_version
-                || cfg.instrument.catalog_hash != owner.registry().catalog_hash
-                || !book_keys.insert((cfg.key.venue, cfg.key.instrument, cfg.key.source))
+            if instrument.instrument_id != spec.instrument_id
+                || instrument.instrument_version != spec.instrument_version
+                || instrument.catalog_version != h.catalog_version
+                || instrument.catalog_hash != owner.registry().catalog_hash
+                || !book_keys.insert((key.venue, key.instrument, key.source))
             {
                 return Err(Error::Identity);
             }
-            let context = DepthContext::new(
-                cfg.market,
-                cfg.instrument.clone(),
-                cfg.key,
-                0,
-                cfg.time_unit,
-            )
-            .map_err(Error::Decode)?;
+            let context = depth
+                .map(|(market, unit)| DepthContext::new(market, instrument.clone(), key, 0, unit))
+                .transpose()
+                .map_err(Error::Decode)?;
             rows.push(Row {
                 spec,
-                key: cfg.key,
+                key,
                 context,
                 source_generation: None,
                 revision: 0,
@@ -346,13 +374,18 @@ impl<const M: usize> TopicPublisher<M> {
                 event_sources: [None; 3],
                 depth_state: 1,
                 depth_received: 0,
-                instrument: cfg.instrument,
+                instrument,
                 states: {
                     let mut states = Vec::with_capacity(4);
                     states.push(MarketState::Legacy(MarketRecord {
                         header: header(&h, spec, owner.published(), 261, 0, 0),
                         body: MarketBody {
                             feed_state: 1,
+                            source_schema_id: if depth.is_none() {
+                                SPOT_BBO_FEED_SCHEMA
+                            } else {
+                                0
+                            },
                             ..Default::default()
                         },
                     }));
@@ -489,6 +522,9 @@ impl<const M: usize> TopicPublisher<M> {
     ) -> Result<()> {
         let instrument = slot.instrument;
         let index = self.slot_index(slot)?;
+        if self.state.rows[index].context.is_none() {
+            return Err(Error::Identity);
+        }
         if now < self.last_now {
             self.fault(instrument, faults);
             return Err(Error::Clock);
@@ -573,14 +609,15 @@ impl<const M: usize> TopicPublisher<M> {
         let levels = &mut self.depth_levels;
         levels.clear();
         if let Some(raw) = raw {
-            row.context.set_generation(view.generation());
+            let context = row.context.as_mut().ok_or(Error::Identity)?;
+            context.set_generation(view.generation());
             let decode = match encoding {
                 DepthEncoding::Json => decode_diff_into,
                 DepthEncoding::SpotSbeV1 => decode_sbe_diff_into,
             };
             let decoded = decode(
                 raw,
-                &row.context,
+                context,
                 received.unwrap_or(view.received_at_ns()),
                 self.state.limits.max_delta_bytes,
                 &mut self.depth_workspace,
@@ -841,6 +878,8 @@ fn cache_view(
     Ok((quote, feed, generation_changed || state == 3))
 }
 
+mod spot;
+pub use spot::SpotQuote;
 mod expansion;
 pub use expansion::TopicExpansion;
 
@@ -880,7 +919,9 @@ fn measure_cache_bytes(
             .capacity()
             .checked_mul(size_of::<DepthLevel>())
             .ok_or(Error::Bounds)?)?;
-        add(row.context.reserved_bytes())?;
+        if let Some(context) = &row.context {
+            add(context.reserved_bytes())?;
+        }
         for symbol in [
             row.instrument.symbol.as_str(),
             row.instrument.base.symbol.as_str(),

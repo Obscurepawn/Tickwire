@@ -7,6 +7,8 @@ pub mod expansion;
 pub mod recovery;
 #[allow(unsafe_code)]
 pub mod server;
+pub mod spot_market;
+pub mod spot_quotes;
 pub type Error = Box<dyn std::error::Error>;
 pub type Result<T> = std::result::Result<T, Error>;
 pub fn invalid(text: &str) -> Error {

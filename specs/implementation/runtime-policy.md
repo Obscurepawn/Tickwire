@@ -1,9 +1,7 @@
-# 运行时控制门禁实现
+# Order submission policy
 
-实现位于 `crates/tickwire-runtime-policy`。所有控制变更和当前门禁共享一个 Rc/RefCell owner；不可跨线程共享。生产时钟来自 tickwire-clock-sys，域变化、读数回退或采样失败关闭当前 owner。
+One event-loop thread owns the policy state and the current grant through `Rc<RefCell<_>>`. A failed clock sample, backward reading or change of clock domain closes the current owner. The production clock comes from `tickwire-clock-sys`.
 
-保留上限为 1024 个策略、256 条行情流、每流 1024 条发布记录、每策略 8 个必要流。配置可选择更小上限。旧策略授权代次和已撤销租约不回退；行情记录耗尽只保留配置数量，引用已丢弃记录的命令失败。
+Configuration bounds the state retained in memory. The upper limits are 1,024 strategies, 256 market streams, 1,024 publication records per stream and eight required streams per strategy. Expiring an old publication also expires intent references to it. Lease revocation and changes of strategy generation are monotonic.
 
-实现包括 JSON 启动配置、独立策略与管理授权、writer 更换、实时行情依赖、私有源 GapToken 与连续输入 WAL 前缀、对账核验后门禁激活。网络发送继续由原始签名与共享额度适配器检查，账户预留与持久顺序继续由 AccountGateway 负责。
-
-本阶段只运行必要的编译与单元测试；形式模型及统一链路检查留待核心运行链路完成后执行。
+A grant names the writer and strategy, the required market streams, and the action allowed. New exposure also requires a reconciled private source with a current `GapToken` and a continuous input WAL prefix. The exchange adapter owns signature validity and quota at send time. The account gateway owns durable admission and reservations.

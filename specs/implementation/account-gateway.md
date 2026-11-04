@@ -1,19 +1,25 @@
-# 账户发送协调规范
+# Account gateway
 
-对应 `tickwire-account-gateway`，接口见账户发送协调接口。
+Each gateway instance owns one account, one ordered journal, one protocol encoder and one connection. The account baseline and physical journal must match the route's risk domain, venue, account, environment and product. At creation, the writer matches the initial writer. Spot and USD-M each instantiate this contract.
 
-1. 一个实例串行持有一个账户、一个有序账户日志、一个协议编码器及一条连接。账户基线、物理日志风险域、交易所、账户、环境及目录产品与路由一致；创建 writer 等于初始 writer。Spot 与 USD-M 分别构造实例。
-2. 精确命令重试先于冻结、容量、时间和排队检查，返回已有状态，不重复编码、授权、预留或写入。同一意图的不同命令使协调器停止发送并冻结账户。
-3. 协议编码、请求摘要和目标 authority 校验在持久变更之前完成。编码器没有网络副作用。
-4. 准入在候选账户计算，完整记录包含命令、原计算时刻和完整 AdmissionImage。恢复依赖同时绑定完整记录、完整命令、基线和该记录之前的日志前缀。
-5. 恢复依赖发布失败不得写入 Admit 或排队。Admit 同步成功后才发布候选账户、构造私有 CommittedAdmission 并排队；追加失败保留候选预留并停止发送，因为实际完整尾可能已存在。
-6. `queue` 不接受订单应用字节。最终检查仅在传输层首次接受之前同步执行，核对当前 owner 隔离、动作权限、租约、writer、策略代次、配置和请求期限；时间不得早于原准入计算。增险动作另检查行情和账户有效性。
-7. `drive` 的错误本身不构成零接受证据。只有与 pending token 精确匹配的 NoBytes 报告且 accepted_bytes 为零，或明确没有应用字节副作用的 queue 失败，才可进入中止流程。
-8. 中止先在候选账户预校验。已有确认、成交或其他矛盾状态使中止失败，此时不追加 Aborted。成功时先同步 Aborted，再发布候选账户和中止状态；失败不能提前释放预留。
-9. 任何正数应用接受都保留责任。部分接受后取消或失败，使意图成为 Unknown、账户冻结并关闭连接。Flushed 仅表示本机缓冲冲刷，不能代替交易所业务确认。
-10. 外部事件、费用核对、现金流、仓位及归属转移先写入并同步，再应用到账户。重复成交也保留原始观察顺序。公共事实入口拒绝 Admit 和 Aborted，调用者不能伪造发送证据。
-11. 账户拒绝已经保存的外部输入时，日志保留该输入并冻结账户。账户冻结本身不停止健康连接的撤单和查询；网络或 WAL 不能继续时才停止协调器。
-12. 恢复先核验日志基线、物理链和序号，再逐条检查 Admit 的原依赖与此前历史，最后重放账户。返回账户冻结，无网络连接、发送队列或活跃 CommittedAdmission；恢复后的精确重试不会重发。
-13. 恢复对象可继续保存核对事实。只有真实对账证据通过、`Reactivated` 同步完成且建立新连接后，才能提交新意图；旧意图仍返回原状态，不会重发。健康发送器在同一 owner/writer 下可用新对账证据恢复账户资格。
+## Submit and send
 
-外部授权服务负责真实策略权限、owner 隔离证据和可信时钟；接口没有默认放行实现。网络会话重建、业务响应关联、基线更换、接管后激活和共享依赖持久化优化分别由后续组合负责。
+1. Look up the intent key before checking capacity, account health or the clock. An exact retry returns its stored status. A different command under the same key stops the sender.
+2. Encode the request, then compare the command digest and target authority to the expected route. The encoder returns bytes without touching a socket.
+3. Compute admission on a candidate account. The canonical record contains the command, original evaluation time and full admission image. Bind the command, admission record, account baseline and preceding journal prefix to the recovery closure.
+4. Synchronize the recovery dependencies and `Admit` before publishing the candidate account and queuing the send. If the closure cannot be prepared, the operation ends before admission. If an append may have reached durable storage, retain the candidate reservation and stop sending until recovery establishes what happened.
+5. Immediately before TLS accepts the first application byte, check current ownership, action permission, lease, writer, strategy generation, configuration, request deadline and admission. Read time at or after the original evaluation. New exposure also requires valid market and account inputs.
+
+## Zero bytes, partial sends and economic facts
+
+A matching send token and a `NoBytes` report with zero accepted bytes establish a zero-byte result. A queue failure with a guarantee of zero application output gives the same evidence. A generic I/O error does not establish how many bytes reached the connection.
+
+Validate an abort on a candidate account. A contradictory confirmation or fill invalidates the abort. After validation, synchronize `Aborted`, then publish the resulting account and release its reservation. If TLS already accepted some bytes and the operation subsequently fails, mark the intent unknown, freeze the account and close the connection. A local flush only reports the state of local buffers.
+
+Synchronize venue events, fees, cash flows, positions and ownership transfers before publishing new account state. Preserve the order of original input observations, including duplicates. The account gateway alone emits `Admit` and `Aborted`. If the account rejects a persisted input, keep it in the journal and freeze the account. A healthy sender can still service authorized cancels and queries.
+
+## Recovery
+
+Validate the baseline, physical chain and sequence. For each admission, verify its original dependencies and preceding history, then replay the account. The recovered gateway starts frozen with an empty send queue and no live connection. Repeating an old intent returns its previous status.
+
+New submissions require verified reconciliation, a synchronized `Reactivated` record and a new connection. A healthy sender under the same owner and writer can restore account eligibility using fresh reconciliation evidence. See the [gateway implementation](../../crates/tickwire-account-gateway/src/lib.rs) and [submission tests](../../crates/tickwire-account-gateway/tests/submission.rs).

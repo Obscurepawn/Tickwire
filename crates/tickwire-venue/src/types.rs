@@ -131,6 +131,38 @@ pub type VenueTradeId = BoundedText<32>;
 pub type Symbol = BoundedSymbol<64>;
 pub type AssetSymbol = BoundedSymbol<32>;
 
+/// Stable numeric identities used by catalog, market data, commands and account journals.
+pub mod venue_id {
+    pub const BINANCE: u32 = 1;
+    pub const BYBIT: u32 = 2;
+    pub const OKX: u32 = 3;
+}
+
+/// Venues using the snapshot-only spot feed and signed spot REST adapter.
+/// Binance has its own spot and futures session owners.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SpotVenue {
+    Bybit,
+    Okx,
+}
+
+impl SpotVenue {
+    pub const fn id(self) -> u32 {
+        match self {
+            Self::Bybit => venue_id::BYBIT,
+            Self::Okx => venue_id::OKX,
+        }
+    }
+
+    pub const fn from_id(id: u32) -> Option<Self> {
+        match id {
+            venue_id::BYBIT => Some(Self::Bybit),
+            venue_id::OKX => Some(Self::Okx),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Product {
     Spot,

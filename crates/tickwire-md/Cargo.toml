@@ -42,3 +42,7 @@ tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 rcgen = "=0.14.10"
 base64 = "=0.22.1"
 sha1 = "=0.10.6"
+
+[[bench]]
+name = "spot_bbo_decode"
+harness = false

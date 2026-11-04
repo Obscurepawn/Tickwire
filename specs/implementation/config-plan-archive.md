@@ -1,21 +1,17 @@
-# 配置计划内容归档
+# Archiving the content used to prepare a plan
 
-本模块保存内部计划草案的完整依赖，形成可经共识恢复的内容事实。保存成功保持当前 desired 修订不变；运行时资格、计划准入与配置应用沿各自门禁推进。
+An internal planning result can survive leader change and restart. The archive preserves the original candidate or scoped patch and If-Match, actual committed base, canonical candidate, computed plan and rule digest, old and successor projections, complete source bundle, evidence trust and historical validation time. Saving this content leaves the desired configuration at its current revision. [Archive implementation](../../crates/tickwire-config-service/src/plan_archive.rs) · [Planning](config-planning.md)
 
-归档固定原始完整候选或作用域补丁、原提交基线、规范候选、计算计划及两类摘要、规划规则源码摘要、旧投影与按下一修订生成的完整交付对象、资料包全部对象及签名、原 evidence 信任配置和历史检查时间。恢复从这些已封口对象读取，使用当时的资料包与信任配置。当前来源替换不改写历史内容。
+## Content and limits
 
-根清单限制为 1 MiB，每个引用含对象 key、owner、purpose、长度和直接 SHA-256。大资料包分成最多 16 MiB 的对象；候选和投影遵守原对象用途预算。对象集合和累计正文在构造前受固定预算限制，上传顺序为依赖对象、最后根清单。仅封口依赖后才记录发布状态。容量耗尽拒绝并保留已写历史；本阶段没有对象垃圾回收。
+The strict canonical JSON root, at most 1 MiB, binds the authenticated principal and certificate, request digest, actual base revision and Raft position, historical check/expiry times, limits and the complete graph. Each reference contains a key, owner, purpose, length and direct SHA-256. Keys are domain-separated by archive ID, purpose and content hash. Sharing a key requires identical purpose, owner, length, hash and bytes. Unknown versions, unknown or duplicate fields and noncanonical encoding are rejected.
 
-开始保存时在原 Replica 上安全读取主体的幂等键。已有相同规范请求和 If-Match 返回首次持久事实；冲突拒绝。新请求保持原实际提交基线、当前权限、原主体证书以及后台来源上下文。后台归档与普通核验共享有界任务额度。上传完成后再做安全读，核对当前基线、权限、来源和有效期，随后用一条日志命令记录根对象及幂等映射。成功收据来自实际已提交记录的安全读。
+The target table is the union of base and candidate process IDs. It records each old projection at the base revision and a delivery object for every target at the next revision, including retirees. A large source bundle is divided into Qualification objects no larger than 16 MiB. Identical chunks may share storage while the root preserves their reassembly order, full length and digest. An archive permits 4,096 objects and 512 MiB of deduplicated content. Capacity is checked before copying. Upload dependencies first and the root last. An exhausted store keeps already-written objects. This phase has no garbage collector. [Trust and source encoding](config-archive-sources.md)
 
-复制 reducer 只验证内容引用、历史检查时间和原基线关联，不读取当前时钟或外部 provider。历史保存事实与当前规划规则重新核验分离；不同规则的旧内容保持原字节，重新用于发布前需要当前规则资格。新记录的受信入口完成完整内容与签名核验，不能公开构造准入凭据。
+## Recording and reopening
 
-兼容恢复保留原引导命令与旧快照。包含归档记录的新快照显式增加格式分支，恢复时核对对象闭包、记录唯一性和幂等映射，并沿原持久安装边界原子替换。真实三 voter 回归覆盖多数前不可见、精确重试、换 leader、重启、快照、缺依赖、未封口、错误基线及来源失效。当前实例 provider、普通修订提交与双收据应用仍待接入。
+The originating replica first safely reads the principal's idempotency key. A matching canonical request and If-Match returns its original recorded position. Different contents conflict. New records bind the original authenticated certificate and actual committed baseline. Background archival shares the bounded validation pool. After all objects have committed and sealed, a second safe read verifies the head, authorization, source and validity. One Raft command records the root and idempotency mapping together. A final majority read supplies the receipt from the committed fact.
 
-归档闭包的确定性读取
+Deterministic replay verifies the complete sealed graph against the record, current replayed base and historical times, with check time no later than admission and admission strictly before expiry. It reads no wall clock and no current source provider. Explicit re-verification requires the currently known rules digest to match, reconstructs the original input and authorization at the old base, verifies the archived trust/bundle at the original check time, recomputes plan and projections and compares all canonical bytes. A rules change keeps old bytes readable and rejects reuse through that verifier.
 
-内容根使用严格规范 JSON：拒绝重复键、未知字段、非规范字节和未知版本。每个引用的 key 由归档 ID、用途和正文 SHA-256 域分隔派生；同一 key 只允许完全相同的用途、owner、长度、摘要和正文。对象最多 4096 个、去重后的正文累计最多 512 MiB，先检查声明与累计预算再复制正文。资料包按顺序切成不超过 16 MiB 的 Qualification 对象，根记录完整包长度和摘要；重复块可共享对象但不会改变重组次序。根对象最后加入。
-
-根固定主体与证书、请求摘要、If-Match、真实基线修订及 Raft 位置、原输入类型与字节、基线和候选、计划正文与其域摘要、规划规则摘要、信任正文与摘要、历史检查及过期时刻、来源摘要与核验预算。目标表必须等于基线与候选进程 ID 的并集，旧进程保存本修订投影，全部目标保存下一修订交付对象，退休目标也不能省略。保存对象只证明内容身份。
-
-复制重放检查根与命令逐字段相同、历史检查时刻不晚于准入且准入严格早于过期、原基线与当前提交头相同，并检查每个引用真实封口、完整长度和摘要。它不读取当前时间或重新执行当前规划规则。显式重新核验先要求已保存规则摘要与当前规则一致，再按原主体在基线中的角色重建原输入，使用保存的资料包、信任与历史检查时刻重新核验资格、计算计划和全部投影，并要求规范字节完全一致。规则变化保留旧对象可读，但重新核验返回冲突。
+Empty archives retain the original bootstrap snapshot encoding. Snapshots containing records have a separate format and restore object references, uniqueness and idempotency atomically with the durable snapshot install. Three-voter tests exercised majority loss during upload, record and final read, exact retry under concurrency, changed leaders, restart, compaction, unsealed or missing dependencies, stale bases and replacement sources. Retiring or applying a process still needs its current runtime owner and receipts. [Archive evidence](../evidence/20261028/config-archive.json)

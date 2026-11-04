@@ -1,35 +1,30 @@
-# 设计契约校验
+# Test and verification commands
 
-这些脚本核验设计文件、编码向量和参考配置，不连接 Binance，不读取交易凭据，也不代表 Rust 运行时、真实进程通信或生产资格测试通过。
+Run commands from the workspace root. Rust tests exercise implementation behavior. Python checks compare machine-readable contracts and fixtures. The Linux process suite starts separate binaries, and the TLA+ suite explores finite state models.
 
-需要 Python 3.11 或更新版本。在仓库根目录运行：
+| Task | Command | What to inspect |
+| --- | --- | --- |
+| Format, test and lint Rust | `./scripts/check-rust.sh` | Workspace targets, doc tests and Clippy |
+| Exercise Linux IPC | `./scripts/check-linux.sh` | Real memfd seals, FD access, Unix peer credentials and cross-process JOIN. Requires Docker. |
+| Run an account and two generations of a strategy | `./scripts/run-core-chain-linux.sh spot-handover-custom release` | Account journal, binary digests and old/new worker receipts |
+| Measure native Bybit and OKX BBO decoding | `cargo bench --locked -p tickwire-md --bench spot_bbo_decode` | Individual-frame p50, p99 and p99.9 from JSON through integer normalization |
+| Measure book updates | `cargo bench -p tickwire-book --bench depth_apply` | Release-build latency distribution and input batch |
+| Check finite models | `./scripts/check-tla.sh` | Exhausted state queues and nonzero action coverage for each model across its configurations. Requires Java. |
 
-```bash
-python3 -m venv /tmp/tickwire-design-validation-env
-/tmp/tickwire-design-validation-env/bin/python -m pip install -r scripts/requirements-design.txt
-/tmp/tickwire-design-validation-env/bin/python scripts/verify-design-contracts.py --openapi
-/tmp/tickwire-design-validation-env/bin/python scripts/verify-documentation.py
+## Contracts
+
+Use Python 3.11 or later. Install the optional schema validators in a local environment for the full OpenAPI check.
+
+```sh
+python3 -m venv /tmp/tickwire-design-env
+/tmp/tickwire-design-env/bin/python -m pip install -r scripts/requirements-design.txt
+/tmp/tickwire-design-env/bin/python scripts/verify-design-contracts.py --openapi
+python3 scripts/verify-documentation.py
 ```
 
-| 脚本 | 实际检查范围 |
-|---|---|
-| [verify-design-contracts.py](verify-design-contracts.py) | 汇总 IPC、风控和配置检查；重新计算部署内存、CPU、存储及延迟合同的跨文件一致性；`--openapi` 用标准验证器检查 OpenAPI |
-| [verify-ipc-contract.py](verify-ipc-contract.py) | 布局覆盖、字段对齐、保留字节、类型宽度、编码向量与哈希、帧校验和指定语义案例 |
-| [verify-instrument-catalog.py](verify-instrument-catalog.py) | 独立重算标的经济目录的规范正文、原始 SHA 与语义摘要；严格拒绝格式与经济字段反例 |
-| [verify-risk-vectors.py](verify-risk-vectors.py) | 使用 Decimal 重算风险案例，并逐项比对预期数值 |
-| [verify-config-contract.py](verify-config-contract.py) | 全量与投影 schema、参考 TOML、跨字段约束、接口引用及负例；生产模板含未填写输入，必须拒绝 |
-| [verify-documentation.py](verify-documentation.py) | 现存 Markdown（README/AGENTS/specs/scripts）的本地链接存在性、参考链接定义与代码块闭合；`docs/` 图资产与旧验证计划随该目录删除后不再检查 |
+* [Design contracts](verify-design-contracts.py) combines the IPC, risk and configuration checks and cross-checks CPU, memory, storage and latency budgets.
+* [IPC vectors](verify-ipc-contract.py) checks field widths, offsets, reserved bytes, encodings, checksums and semantic cases. [Instrument catalogs](verify-instrument-catalog.py) independently computes canonical bytes, SHA-256 and the economic digest.
+* [Risk vectors](verify-risk-vectors.py) recalculates expected amounts using decimal arithmetic. [Configuration](verify-config-contract.py) checks reference TOML, projections, schema and cross-field failures.
+* [Documentation](verify-documentation.py) checks English prose, links and Markdown structure across the project guides and specifications.
 
-`reference.toml` 是模拟环境的结构与容量参考，其中的 示例文件、凭据引用和模拟入口没有部署到运行环境。生产模板中的 `REQUIRED` 必须替换为实际输入，并通过完整运行时准入与资格验证。文件解析成功不能替代这些验证。
-
-Rust 实现使用 `./scripts/check-rust.sh` 执行格式、全 workspace 回归（含 example、基准 smoke 和编译失败 doctest）及 Clippy。`cargo run -p tickwire-mock --example spot-roundtrip` 运行本地完整业务流程。
-
-控制 Raft 固定依赖 `raft 0.7.0`，其 `protobuf-build 0.14.1` 要求 protobuf 3.x 编译器。仓库 Cargo 配置使用 [protoc-raft](protoc-raft) 选择本机 3.x 编译器或该固定依赖自带的工具；Apple Silicon 使用随依赖提供的 x86_64 工具，需要 Rosetta。也可设置 `PROTOC` 指向自行安装的 3.x 编译器，覆盖默认选择。
-
-`./scripts/check-linux.sh` 在固定摘要的官方 Rust 1.99.1 容器中执行同一组检查，包含真实 Linux memfd、seals、映射权限和 1/2/4/8/16/32 个消费者进程测试。需要已运行的 Docker daemon（macOS 可使用 Colima）；首次下载镜像和 Rust 组件。依赖缓存放在已忽略的 `.tools/linux-cargo-registry`，构建目录为 `target/linux-check`，不影响宿主机工具链。底层映射测试保留 `/proc` FD 与管道夹具；`tickwire-control-sys` 已独立验证 pathname SEQPACKET、SCM_RIGHTS、CLOEXEC 与真实 peer credentials，`tickwire-control` 的 exec 子进程测试验证认证握手和请求去重。业务进程的资源准入与 JOIN 快照仍在集成。
-
-`./scripts/check-tla.sh` 校验固定 TLC 1.7.4 jar 的 SHA-256，把每个模型及其全部 cfg 复制到独立临时目录后顺序运行，并输出实际模型 SHA-256；首次会下载 jar，需要 Java。每组配置都须成功完成探索且队列为空。[tlc_coverage.py](tlc_coverage.py) 只读取每次运行的最后一份完整覆盖统计，并对同一模型各配置中出现的动作并集汇总 `generated` 计数；并集中每个入口至少生成一次后才通过。不同配置可以分别选择产品分支或边界分支；同名动作的源码定位必须一致，运行中的中间统计不参与判断。
-
-日志无法展示所有配置都未选择的分支，因此完整场景集合还需结合各模型的配置清单与源码映射检查。运行 `python3 -m unittest discover -s scripts -p test_tlc_coverage.py` 可检查解析器，包括 AccountGateway、私有会话的实际日志和小模型的真实 TLC 调用。
-
-详细结果与有限域保存在 `tla/`。完整性能基准单独执行 `cargo bench -p tickwire-book --bench depth_apply`，避免把调试构建的基准 smoke 当成性能数据。
+The Rust workspace selects the Raft-compatible compiler through [protoc-raft](protoc-raft). The model runner verifies the pinned TLC 1.7.4 JAR, copies each model and its configurations to a temporary directory, and checks the final coverage report. Run `python3 -m unittest discover -s scripts -p test_tlc_coverage.py` for the [coverage parser](tlc_coverage.py).

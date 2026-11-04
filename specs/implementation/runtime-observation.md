@@ -1,43 +1,38 @@
-# 实际策略实例的新鲜观测
+# Querying a running strategy
 
-控制 owner 查询正在托管的策略，通过当前认证报告会话发起一次新检查点挑战，并核对实际进程、消费进度和完整恢复闭包。输出描述这次请求实际采集到的状态，供[策略参数消费者](strategy-parameter-consumption.md)核对当前私有配置，并供[输入范围消费者](strategy-input-consumption.md)核对实际账户和行情视图；完整全局投影的应用与双收据、发布授权和持久来源水位仍由后续消费者接入。
+A controller can ask a managed worker to checkpoint its current state while callbacks continue. Host issues a fresh challenge on the authenticated report session and checks the answer against the actual child, its report cursor and durable recovery objects. Consumers can inspect the parameters and inputs of that instance at the observed cut. [Parameter consumer](strategy-parameter-consumption.md) · [Input consumer](strategy-input-consumption.md)
 
-## 查询与交易输入
+## Checkpoint protocol
 
-复用固定的 CHECKPOINT_SEAL / CHECKPOINT_SEALED 布局和编号，新增 `seal_mode=2` 作为持续运行查询。原模式 0 仍精确捕获请求账户水位，模式 1 仍精确封口并暂停后续回调；两者保持现有交接语义。查询模式把 `report_sequence` 当作最低消费位置，应答回显原请求值，READY 则保存实际消费位置，实际值至少覆盖请求。查询只对显式批准支持该模式的 SDK 构建开放。
+`CHECKPOINT_SEAL` and `CHECKPOINT_SEALED` retain their original wire layouts. Mode 0 captures an exact account waterline. Mode 1 seals at the exact waterline and pauses callbacks for handover. Mode 2, available only on an approved SDK build, treats `report_sequence` as a lower bound. The reply echoes the requested position and the new READY carries the actual position, which may be greater.
 
-worker 等待查询时继续处理行情、账户、定时器与外部输入。达到最低账户水位后执行真实检查点并生成新的 READY 序号，输出当前完整输入封口。请求已过期时丢弃这次查询，账户与行情处理继续；旧交接模式维持原有失败规则。查询应答采用有界非阻塞发送，背压期间保留同一应答，截止后丢弃，禁止重复执行检查点或暂停回调等待 socket。周期 READY 同样使用单槽非阻塞发送，尚未送出的公告可由更新状态替换；带请求的应答和安装响应队列排空后才发送周期公告，新检查点丢弃已过时的待发公告。查询也保存同一新 READY 的普通公告，因此查询结束后即使没有新账户输入，普通消费收据仍能前进。查询与交接、安装、换源、退休在同一会话内串行。
+The worker continues processing market, account, timer and external inputs until it reaches that floor. It checkpoints once and keeps the same reply under socket backpressure. An expired query is discarded. Periodic READY announcements use one replaceable slot, wait behind requested replies and installation responses, and can still advance after the query with no further account input. Installation, release, feed changes, retirement and query challenges serialize on the session.
 
-Host 的 `ObservationRequest` 固定外部请求 ID、同一单调时钟域的绝对截止点，以及是否必须提供资源约束观察。`begin_observation` 发起请求，`poll_observation` 是显式冷推进入口，完成时返回字段私有的 `FreshObservation`。取消和超时关闭这次请求；已发送挑战保留有界迟到应答记录，仅吸收本 owner 已发出且已关闭的响应。每个 owner 最多接受 4096 个不重复请求 ID，同时保留 16 个尚未收到响应的关闭挑战；过期只解除通道互斥，迟到记录仍保留到匹配响应到达。容量不足时拒绝新请求。
+`ObservationRequest` supplies a request ID, an absolute deadline in the same monotonic domain and a flag requiring resource evidence. Host exposes begin, poll and cancel. One owner accepts at most 4,096 distinct request IDs and retains up to 16 closed, unanswered challenges so a late reply can be matched and discarded. Timeout releases session exclusion. When the bounded history is full the next request fails. During the query Host retains at most 4,096 actual account prefix proofs. Exhaustion fails that query while report publication continues. Only the explicit cold completion path reads the full recovery closure. [Host API](../../crates/tickwire-strategy-host/src/observation.rs)
 
-报告通道保持唯一接收者。普通维护轮询只验证和登记查询应答，完整恢复对象读取、摘要重算、真实报告前缀和共享游标核验放在显式冷完成步骤。账户报告在查询期间继续推进，因此 owner 只在查询期间保留最多 4096 个实际前缀证据，按应答的实际位置核验；容量耗尽使本次查询失败，交易发布继续。禁止用 worker 自报的摘要代替执行端的真实报告前缀。
+## Evidence returned to the caller
 
-## 进程与结果
+Host observes the registry-owned child before and after reading. The challenge binds its actual boot ID, PID, start ticks, instance, seal sequence, control epoch and request ID. Both samples must agree on the child, image and credentials. The authenticated session, shared cursor and original deadline must remain valid after kernel and disk reads. A resource-required request also needs a real resource observation of that child.
 
-发起前及完成后采集 Registry 实际持有的 Child。挑战摘要同时绑定实际主机 boot、PID、启动 ticks、实例、封口序号、会话 epoch 与请求 ID，不同进程不会因复用外部 ID 而沿用原挑战。两次观察的实例、代次、PID、主机 boot、内核启动 ticks、实际执行镜像和身份均须相同，报告会话身份、控制 epoch 和有效期也保持一致。配置资源组时同时取得真实完整线程资源观察；请求要求资源证明但实例沿普通启动时明确拒绝。
+A successful `FreshObservation` carries the challenge, original request, deadline, control epoch, current READY, actual prefix digest, cursor identity, process facts, optional resource facts and start/completion times. Each query generates a new challenge and READY sequence, even with unchanged business state.
 
-成功结果保留请求 ID、新挑战、控制 epoch、请求账户水位、真实 READY、报告前缀摘要及游标身份、实际进程与可选资源事实、采样和完成时刻、原始截止点。原挑战匹配、周期 READY、完整闭包、报告游标和进程事实分别核验。磁盘与内核读取完成后重新检查原始截止点，超时返回请求失败。观察是有时间范围的事实，接收者使用时仍核对自己的请求、实例和当前期限。
+* `configuration()` extracts the private configuration at the current merged cut, including its source, checkpoint, revision and original bytes. It validates worker identity, image, logical clock and business state. A legacy closure entirely without merged input yields `None`. A partial or malformed history fails.
+* `inputs()` inspects the saved accounts, market replicas and report writer at that same cut. The full JOIN evidence must match the current bank to report its catalog and set version. A structurally valid checkpoint with no account or several accounts can lack inputs in this single-report Host. It never fills missing facts from a launch template.
 
-`FreshObservation::configuration()` 返回可选的 `ObservedConfiguration`。Host 从同一完整封口中验证并读取当前 merged cut 的 `RuntimeState.config`，保留 `source()`、`cut()`、`checkpoint()`、`revision()`、`object()` 与 `bytes()`；启动 anchor 的旧配置和任意同摘要对象均不能替代当前配置。提取过程还核对 Source 的实例、代次、逻辑策略、实际镜像与查询逻辑时钟域，以及当前业务状态与 READY 检查点的一致性。完全没有 merged 输入的旧闭包返回 None；部分、畸形或身份不符的 merged 历史返回错误。私有配置修订与原始字节摘要作为实际消费事实保存，全局投影修订由使用者另行绑定。
+A capture-only worker and an incompletely installed worker cannot answer. After a successful same-PID promotion the live owner uses the retained registry and report session. A past READY, closed challenge or restarted instance cannot produce a fresh answer for the old request.
 
-`FreshObservation::inputs()` 与配置事实共用同一 current checkpoint，返回字段私有的 `ObservedInputs`。SDK 只读检查器验证完整账户/市场列表与 RuntimeState stream、水位及视图编码；账户基线、历史位置和 InputSeal 再与已核验报告闭包及 Host 实际前缀相符。报告 header/identity 来自真实 ReportWriter，subscription/sequence 来自本次已核对的共享消费 cursor。市场 bank、生产者实例/代次、完整标的 ID/版本来自当前保存视图，不读取启动模板补造。
+## App inbox and persistence
 
-目录摘要和成员版本仅在封口命名的真实原始 JOIN 与当前 bank 完全匹配、快照通过验证时由 `ObservedJoin` 提供。换 bank 或其他恢复格式无此证据时 `join=None`；合法视图尚无账户或存在多个账户时，本单报告 owner 返回 `inputs=None`；畸形视图仍失败。完整 MD peer 身份属于启动批准，不冒充独立 MD 内核观察。输入与配置事实都不包含全局投影授权，范围消费者须要求所需事实完整且与批准输入一致。
+`Deployment.observation` enables distinct absolute private inbox, result and journal directories for an approved UID. Directories must be mode 0700, files regular and mode 0600. Symlinks, hard-link replacement, ownership/permission drift and oversized content close the affected operation. A new App session is published durably at launch. Each request binds it to the current `control::Binding`, exact logical strategy/instance/generation, request ID, deadline and resource requirement. Directory permissions authorize the local caller. There is no remote authentication endpoint for this inbox.
 
-已关闭的请求不得因旧 READY、旧挑战、重启恢复、实例轮换或迟到响应产生新的成功观察。纯采集阶段和未完成安装的实例拒绝查询；同 PID 安装成功后的 live owner 复用真实 Registry 和报告会话。查询不建立发送授权，也不解冻账户。
+App syncs the request before sending the challenge. After verification it stores and deduplicates exact binary dependencies by digest, records sorted references and READY roots, syncs the terminal journal entry and publishes the result file. Recovery checks lengths, digests, ordering and required roots. An identical request reuses its prior outcome. A different body under an in-flight ID permanently rejects that ID and cancels the query. On restart, incomplete requests become `Interrupted` and completed observations retain their original time and deadline. Replacing the lock file or losing the store closes the observation service. Diagnostic storage failure does not change the trading authority.
 
-## App 外部入口
+| Limit | Maximum |
+| --- | ---: |
+| Historical requests / simultaneous active requests | 1,024 / 32 |
+| Requests advanced / inbox files checked per scan | 16 / 16 |
+| Result JSON / combined store budget | 256 KiB / 64 MiB |
+| Journal entries / distinct nonzero approved build digests | 8,192 / 128 |
+| Request lifetime / minimum scan interval | 30 s / 10 ms |
 
-App 通过可选的 `Deployment.observation` 显式配置独立观测收件箱。请求、结果与日志使用不同的绝对私有目录，固定批准 UID，目录 0700、普通文件 0600；符号链接、硬链接替换、身份或权限变化、超限内容均拒绝。没有配置时保持既有启动和运行路径。
-
-请求固定本次 App 观测会话、当前 `control::Binding`、逻辑策略/实例/代次、请求 ID、绝对截止点和资源证明要求。启动时创建并持久发布新会话标识。外部授权来自部署方批准的本机目录权限与 Binding，内部应答来自真实 Host/worker 认证会话。此入口尚未提供远端网络鉴权。
-
-独立日志在派发挑战前同步完整请求；成功结果的完整已核验恢复对象先按摘要落盘，相同摘要的共享依赖去重并逐字节确认一致，结果保存唯一排序的对象引用与 READY 根，再同步终态引用，最后发布结果文件。恢复逐个核对对象长度、摘要、引用顺序及必要根，缺失或损坏即拒绝恢复。结果 JSON 上限 256 KiB，恢复对象保持各自的二进制边界，全部存储和请求、结果目录共同受 64 MiB 总预算约束。持有独占日志锁期间持续核对锁文件与原文件描述符的身份，替换锁文件使入口关闭。相同 ID 的请求内容固定，重扫不重新发送挑战；进行中的同 ID 内容冲突会取消原挑战并永久拒绝该 ID，原查询不能随后覆盖冲突结果；重启留下的进行中请求转为 Interrupted，旧终态保留原请求和观测时间，不能作为新请求的回答。普通期限、未知目标、忙碌或不支持均为请求级失败；观测存储失效关闭观测入口，不把诊断查询升级为交易控制动作。配置限制请求历史最多 1024 条、同时进行最多 32 条、每轮分别推进最多 16 个待完成请求、检查最多 16 个收件箱文件；两次扫描至少间隔 10 ms，单请求最长 30 秒，日志最多 8192 条。授权构建摘要清单接受 1–128 个不同的非零摘要。
-
-`AppStrategy` 把 begin/poll/cancel 路由到实际 Host；Multi 精确匹配逻辑策略、实例和代次，禁止选择同逻辑策略的其他代次。本地、远程及完成重建后的包装器都委托当前持有的 owner。主循环低频驱动观测，空轮询不读取进程或恢复对象。结果发布前后以新采样时间复核期限与当前 Binding；历史结果始终携带原始期限，消费者拒绝过期内容。
-
-## 验证
-
-先验证请求/应答的模式、水位、挑战、序号与截止点边界，再运行真实 registered worker。两次连续请求即使业务状态不变，也分别得到新挑战和更大的 READY 序号。真实账户流越过请求下界时成功核验实际前缀；暂停子进程、未消费报告、超时、退出、旧应答及要求缺失资源证明均拒绝产生成功观察。实际 App 文件请求验证授权、准确路由、持久恢复和查询期间业务继续推进。
-
-IPC 固定布局和历史向量保持原字节，新增查询模式向量及语义校验。阶段检查包括全 workspace、设计契约、真实进程与源码/二进制绑定；本机缺少委派 cgroup 时，资源组正向分支保留未验收状态。新的形式化验证留到功能开发完成后。
+`AppStrategy` routes by exact instance and generation. Idle polls avoid kernel and recovery reads. Immediately before and after result publication App resamples time and rechecks the binding. Archived process tests cover consecutive queries, an actual account position past the requested floor, timeouts, paused/exited children, stale replies, file recovery and continued trading input. The host lacked a delegated cgroup for a positive whole-group test. [Runtime report](../evidence/20261029/runtime-observation.json) · [Acceptance verifier](../evidence/20261029/verify-runtime-observation-acceptance.py)

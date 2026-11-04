@@ -95,6 +95,35 @@ from!(tickwire_clock_sys::Error, Clock);
 from!(tickwire_release::Error, Release);
 from!(restore::Error, Restore);
 from!(replay::Error, Replay);
+/// A worker calls the strategy with its current market view and decision time.
+/// Return a canonical command to request account admission, or `None` to observe.
+///
+/// ```
+/// use tickwire_ipc::MarketState;
+/// use tickwire_strategy_sdk::{MarketView, Result, Strategy};
+/// use tickwire_venue::CanonicalCommand;
+///
+/// #[derive(Default)]
+/// struct Spread {
+///     last_spread_ticks: Option<i64>,
+/// }
+///
+/// impl Strategy for Spread {
+///     fn on_market(
+///         &mut self,
+///         view: MarketView<'_>,
+///         _now_ns: u64,
+///     ) -> Result<Option<CanonicalCommand>> {
+///         self.last_spread_ticks = match view.best_quote() {
+///             Some(MarketState::Exact(q)) if q.body.feed_state == 2 => {
+///                 Some(q.body.ask_price_ticks - q.body.bid_price_ticks)
+///             }
+///             _ => None,
+///         };
+///         Ok(None)
+///     }
+/// }
+/// ```
 pub trait Strategy {
     /// A registered target factory executes migration at the verified old cut.
     /// Returning a candidate grants neither installation nor output authority.

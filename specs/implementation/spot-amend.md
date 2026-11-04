@@ -1,14 +1,15 @@
-# Spot 同 client ID 减量修改
+# Spot keep-priority quantity reduction
 
-接口：spot-amend-interface.md。当前完成账户、规范事件、账户编码和原策略权限门禁；REST 修改结果、历史查询、私有 `REPLACED` 与真实网络恢复组合继续实现。
+`AmendKeepPriority` changes the effective total quantity of an existing plain Spot LIMIT/GTC order. Admission requires the same client ID, the matching original intent epoch, internal and native order IDs, and current manager and revision. Iceberg orders and structure legs are excluded. The proposed *total* must exceed quantity already filled and be strictly less than the effective total. At most one amendment may be pending for an order. [Amendment checks](../../crates/tickwire-account/src/amendments.rs)
 
-- 原普通 Spot LIMIT/GTC、非冰山、无结构腿；内部 ID/native ID/client ID/原 intent epoch、当前 manager/revision 全部相符。新总量大于已记成交且严格小于有效总量，client ID 必须显式沿用。
-- 新 Admit 属于非增险管理，不释放原订单资金，也不生成新订单。每个订单最多一个未决修改；待定修改的原 manager/revision 与已知成交量在首次发送前重验。
-- 原 spec/数量不变，`OrderView.effective_quantity` 只有匹配真实修改结果才能降低。`AmendmentView` 保存原请求、旧/新量和来源独立的执行 ID；容量耗尽拒绝，不淘汰旧 ID。
-- schema 3/tag 6 保存修改事件；旧 schema/tag 字节不变。REST 响应、REST 历史、私有流 ID 分开存储。重复组件仍处理新的 observation，不能错绑另一待定请求。
-- 预留按 `max(有效总量, 修改后已观察累计量) - 已记成交量` 的非负部分计算。累计缺少明细时冻结且保留差额，不生成 Fill。真实迟到成交照实记账，超过有效总量则冻结；旧数量观察不能提高有效总量。
-- 持久 Aborted 只结束本次修改，不中止原订单。真实结果与已中止修改矛盾时保留结果并冻结；已确认修改后的 NoBytes 不能覆盖结果。
-- 账户状态与策略订单摘要对存在修改历史的状态使用 v4 域，并加入有界 amendment-state.v1。恢复合成的 unknown/frozen 不进入该摘要；原持久观察异常与数量责任仍参与。
-- `ControlPlane` 只有收到真实 `Admission::increases_risk()==false` 的 `AmendKeepPriority` 才跳过行情/私有资格。策略本身的 amend grant、owner lease、writer/config/deadline 和交接限制仍有效；管理 cancel/query grant 不授予 amend 权限。
+The amendment itself is a non-increasing management admission. It creates no additional order, and admission alone releases none of the original funds. Before the first application byte, the owner rechecks the original manager, revision and known filled quantity. An amendment still needs the strategy's amend grant, valid owner lease, writer and configuration revision, deadline and applicable handover permissions. A cancel/query management grant cannot authorize it. Skipping market and private-readiness checks applies only to an actual non-increasing amendment admission. [Runtime policy](../../crates/tickwire-runtime-policy/src/lib.rs)
 
-实际能力 Red 与后续 Green 保存于 验证目录。新增能力的初始 Unsupported/Stale 不列为已部署功能故障。
+## Applying observations
+
+The original order specification stays immutable. Only a matching observed amendment changes `OrderView.effective_quantity`. `AmendmentView` retains the original request, prior and new quantities, and identifiers from the separate response, history and private-stream sources. Full capacity rejects further entries rather than evicting IDs still used to recognize replay. Confirmations and rejections use venue-event schema 3, tags 6 and 7. Existing schema and tags retain their byte meanings. Duplicate components still process newly supplied order observations but cannot bind to a different pending amendment. [Canonical event codec](../../crates/tickwire-venue/src/codec.rs) · [Amendment tests](../../crates/tickwire-account/tests/amend.rs)
+
+Remaining liability uses the non-negative part of `max(effective_total, observed_post_amend_cumulative) - booked_filled`. A cumulative figure without every supporting fill freezes the account and retains the unexplained difference. It cannot create a fill. Late real fills still book, including fills beyond the new total. That excess freezes the account. An old observation of the original quantity cannot raise the effective total again.
+
+A durable pre-send abort ends the pending amendment and leaves the original order live. A later authentic amendment that contradicts the abort is retained and freezes the account. A no-bytes report after a confirmed amendment cannot overwrite the confirmed result. Account-input and strategy-order digests for orders with amendment history use the v4 domain and include bounded `amendment-state.v1` data. Recovery-injected unknown and frozen flags do not alter that digest. Durable observation anomalies and financial liabilities do. [Reducer and state digest](../../crates/tickwire-account/src/amendments.rs)
+
+Binance has separate readers and normalizers for the immediate REST result, amendment history and private reports. Those sources carry different execution IDs. Recovery checks them against the bound command and original input bytes. A protocol encoder or a successful amendment request is insufficient to release principal. The Bybit/OKX cash adapter documents a smaller command set separately. [REST handling](../../crates/tickwire-binance-account/src/rest/amendment.rs) · [History reader](../../crates/tickwire-binance-account/src/reconciliation/amendments.rs) · [Private normalization](../../crates/tickwire-binance-account/src/amendment.rs)

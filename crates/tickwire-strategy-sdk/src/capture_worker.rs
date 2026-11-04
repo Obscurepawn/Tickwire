@@ -565,11 +565,7 @@ pub(crate) fn run(config: Bootstrap) -> Result<Outcome> {
                 let instrument = client.replica.apply(&raw, &payload)?;
                 client.consumer.apply(sequence)?;
                 let view = client.replica.view(instrument).ok_or(Error::Identity)?;
-                let invoked = view.live()
-                    && now
-                        .nanos()
-                        .checked_sub(view.received_mono_ns())
-                        .is_some_and(|age| age <= config.contract.maximum_age_ns);
+                let invoked = view.callback_ready_at(now.nanos(), config.contract.maximum_age_ns);
                 capture.push(
                     Input::MarketCallback {
                         stream: stream.clone(),

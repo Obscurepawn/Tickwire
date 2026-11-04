@@ -1,129 +1,39 @@
-# 2026-10-29 阶段证据
+# October 29, 2026 process and recovery evidence
 
-本目录记录受管子进程的执行映像、资源约束、实例观测，以及行情扩容后的冷启动恢复。实现边界分别见[监督器规格](../../implementation/supervisor-process.md)和[行情扩容规格](../../implementation/market-expansion.md)。
+These packages record fixed release runs on WSL2 Linux with a local TLS exchange. Each stage has its own source and executable identities. For a process result, open its acceptance report. For the inputs used to build it, open that stage’s source manifest.
 
-[真实进程验收](runtime-image-acceptance.json)保存两条固定 release 场景和 Host 的三项进程测试。完整输入回放交接达到 S2→C10→D285，声明重建在同一 PID 采集与安装后达到 D291，两场费用闭合。运行中的 `/proc/<pid>/exe` 样本为 memfd，摘要与本次固定 worker 相同。
+| Stage | Acceptance recorded in Git |
+| --- | --- |
+| [Managed executable images](runtime-image.json) | Full input replay handover reached S2→C10→D285. The same-PID capture/install scenario reached D291. Both reconciled fees. Samples of the live worker’s memfd executable matched the fixed binary. Two of 875 source entries changed between the acceptance and final test manifests, both test files. [Process records](runtime-image-acceptance.json) · [Acceptance sources](runtime-image-source-sha256.json) · [Final sources](runtime-image-final-source-sha256.json) |
+| [Child resources](process-resources.json) | Actual affinity/inheritance and failure before exec were exercised. A normal directory failed the kernel cgroup check without launching a worker. Two positive delegated-cgroup tests required a writable leaf unavailable on the run host. [Process records](process-resources-acceptance.json) |
+| [Continuous observation](runtime-observation.json) | Two full business scenarios and six Host process tests checked challenges, timeouts, cancellation and slow readers. Two independent App observations advanced READY from 2 to 5. Restart retained the historical challenge and marked the unfinished request Interrupted. [Recorded bytes and limitations](runtime-observation-acceptance/README.md) · [Acceptance manifest](runtime-observation-acceptance.json) |
+| [Configuration-bound launch](projection-launch.json) | Compare projected identity, executable, OS principal and CPU/NUMA/memory constraints before accepting an intent. Tests rejected mismatches and resource failures. The ordinary spot compatibility run omitted the optional projection. A successful constrained launch still required delegated cgroup permissions. [Source manifest](projection-launch-source-sha256.json) |
+| [MD cold recovery after expansion](md-restart.json) | Seventeen fixed-CLI process tests captured 22 executable samples. The archive retains a 13-snapshot expansion history and a three-snapshot startup-fault history. Restart required a new producer and fresh admissions while preserving the old dense IDs and grants. Four real SIGKILL cuts exercised distinct phases. [CLI observations](md-restart/cli-acceptance.json) · [Audited report](md-restart-audited-report.json) |
+| [Projected strategy parameters](strategy-parameters.json) | Actual registered workers changed behavior with observation and bid thresholds. A queued intent waited for a fresh parameter proof. A 50 ms timeout closed the worker. The parameter tests stopped at intent delivery. [Sources](strategy-parameters-source-sha256.json) |
+| [Projected strategy inputs](strategy-inputs.json) | Real MD JOIN and checkpoint inspection checked six independent challenges and six input proofs over 24 merged rows. The recorded verdict excludes gateway submission and global configuration activation. [Offline verification result](strategy-inputs-verification.json) |
 
-[离线复核脚本](verify-runtime-image-acceptance.py)检查 49 个归档文件的摘要、六份签名收据、两份实际 memfd 样本及源码/二进制绑定。使用 Python 3.11+ 与 `cryptography`，仅读取本目录：
+## Verify retained packages
 
-```sh
-python3 specs/evidence/20261029/verify-runtime-image-acceptance.py
-```
-
-[验收源码清单](runtime-image-source-sha256.json)保留这些实际运行所用的 875 个构建输入。[最终检查清单](runtime-image-final-source-sha256.json)同样包含 875 项，仅两个配置服务测试文件不同，生产源码、依赖和工具链一致。[阶段报告](runtime-image.json)保存完整检查、失败记录、修复与最终源码的关系。
-
-首次全仓检查中，归档操作的内部断言通过，随后 TLS 回应因连接的绝对期限到达而失败。受控短期限回归复现后，夹具改为先完成认证交换，再执行内部归档回调，业务期限与每次调用的信任核验保持原样。随后发现的选举测试固定推进 110 轮就假定已有 leader；修复后的测试显式构造真实分票，再按真实选举结果和原绝对期限推进，保留 503 与取消请求断言。
-
-[只读锚点审计](runtime-image-anchor-audit.json)和[复现脚本](runtime-image-anchor-audit.py)覆盖 25 份历史锁，本阶段没有修改其覆盖的源码。历史 TLC 结果保持原范围，新增形式化验证留到功能开发完成后。
-
-运行环境为原生 WSL2 Linux，本地 TLS 交易所替身提供业务验收。主 ELF 之外的解释器与共享库依赖受信宿主；旧内核兼容分支和完整生产资格尚未验证。每个 Registry 条目保留一份映像，后续托管资源核验需计入这部分内存。全局配置应用与新鲜 challenge 仍是后续研发事项。
-
-## 策略子进程资源约束
-
-[资源阶段报告](process-resources.json)记录 cgroup v2 专用组核验、执行前迁入和 CPU affinity 设置、全部线程资源观察，以及 App/Host 三种用途的资源启动接线。[源码清单](process-resources-source-sha256.json)固定 887 个构建输入，workspace 检查和本阶段 release 验收使用同一份源码。
-
-完整 `check-rust.sh` 用时 373.92 秒，格式、workspace 所有目标、文档测试和 Clippy 通过。日志汇总包含 2096 个通过、26 个忽略；该汇总包括父测试启动的子测试输出，不表示 2096 个独立测试。真实子进程的 affinity 和线程继承、执行前失败、实际 cgroup inode lease、普通目录拒绝已运行。
-
-[独立进程验收](process-resources-acceptance.json)记录本阶段固定二进制下的完整回放交接、同 PID 声明重建和三项 Host 真实进程测试。两条完整业务场景均达到 C10→D285，镜像与策略各核对 12 条账户记录，成交和费用闭合。App 的错误资源配置先通过严格配置检查，再由实际内核文件系统类型检查拒绝；跟踪确认没有执行策略 worker、没有下单或产生 ARM。
-
-[资源验收复核脚本](verify-process-resources-acceptance.py)离线检查 77 个归档文件、六份签名收据、两份实际 memfd 样本，以及 App 拒绝路径的进程跟踪。依赖同上，仅读取归档：
+The historical run manifests hash exact bytes. In particular, the observation bundle includes the original Chinese directory README as one of its 183 artifacts. To run its verifier after this English navigation was written, extract the original Git tree to a temporary directory. Run these commands from the repository root with Python 3.11+ and `cryptography` available.
 
 ```sh
-python3 specs/evidence/20261029/verify-process-resources-acceptance.py
+evidence_dir=$(mktemp -d)
+git archive 4f840fcf885ff28fe51036ae2bf4f12111a82357 specs/evidence/20261029 | tar -xf - -C "$evidence_dir"
+(
+    cd "$evidence_dir/specs/evidence/20261029" || exit 1
+    python3 verify-runtime-image-acceptance.py &&
+    python3 verify-process-resources-acceptance.py &&
+    python3 verify-runtime-observation-acceptance.py &&
+    python3 verify-md-restart.py &&
+    python3 verify-strategy-inputs.py &&
+    python3 verify-strategy-parameters.py
+)
 ```
 
-完整 cgroup 正向测试需要预配置的可写委派 leaf；本机当前组由 root 持有，缺少迁入权限和所需 controller 文件，因此这两项显式 ignored 测试尚未运行。上述组件测试与普通启动兼容场景分别记录，保留这个缺口。
+All six commands check archived bytes and recorded bindings. They do not reconnect to an exchange, rerun the original workers or establish current trading authority. Historical startup Clock gaps and later reconciliation remain in the input histories. The observation archive documents the ordering for its rebuild and App scenarios. [Observation evidence](runtime-observation-acceptance/README.md)
 
-[只读资源锚点审计](process-resources-anchor-audit.json)覆盖 25 份历史锁，所覆盖源码保持不变。新增实现的形式化验证仍留到功能开发完成后。资源观察属于有界冷采样，完整全局配置应用与新鲜认证事实 provider 尚待接入。
+## Instrument catalog archive gap
 
-## 实际实例查询与持久观测
+The Git tree has a source manifest covering 967 build inputs, an anchor audit and the offline verifier source. It does **not** contain the stage report `instrument-catalog.json` or the associated acceptance artifact directory. The source manifest identifies inputs to the historical build. It cannot substantiate a complete process result, and the archived catalog verifier cannot reproduce its verdict from this checkout. [Source manifest](instrument-catalog-source-sha256.json) · [Anchor audit](instrument-catalog-anchor-audit.json) · [Verifier source](verify-instrument-catalog.py)
 
-[实例观测报告](runtime-observation.json)记录 SDK 持续运行查询、Host 实际进程与消费前缀核验，以及 App 私有目录入口、独立日志和完整依赖持久化。[源码清单](runtime-observation-source-sha256.json)绑定 902 个最终构建输入，包含 IPC 契约校验器；全仓检查、固定 release 构建和实际运行使用同一份源码。
-
-完整 `check-rust.sh` 用时 395.88 秒，格式、所有 workspace 目标、文档测试和 Clippy 通过。日志汇总为 2143 个通过、29 个忽略，包含父测试启动的子测试输出。新增 IPC 向量使总数达到 94，语义案例为 33，原有 88 份基准字节不变。
-
-[实际进程验收](runtime-observation-acceptance.json)包含两条完整业务场景和 6 项 Host 进程测试。完整回放交接为 S2→C10→D285，声明重建在同一 PID 安装后达到 D285，两场各核对 12 条账户记录并完成费用闭合。连续查询、暂停后超时、取消排空、慢接收和正常退订均在真实 worker 上执行。慢接收用例实际消费 176 条账户记录，早期排队查询的完整闭包通过；末端新查询超过既有恢复对象 16 MiB 上限时明确拒绝，worker 仍存活并正常退出。
-
-App 在同一实际进程上完成两次外部文件查询，READY 序号从 2 到 5，第二次请求的账户下界为 1、真实位置为 2；两次分别核验 14 个完整依赖对象。之后账户、策略与镜像均达到位置 8，成交和手续费闭合。重复请求保持原结果，内容冲突与四项错误请求正确拒绝；真实 App 重启后保留历史结果和原挑战，把持久化但未完成的请求标为 Interrupted，未向 worker 重新派发。重建和 App 场景各记录一条启动时的时钟 Gap，随后进入新的对账代次，真实日志确认完成对账后才注册命令；归档保留累计计数，不把它写成全程无缺口。
-
-并发检查首次遇到三项锁重开失败。实际 PID、FD、inode 与 `flock` 记录确认：父 owner 已关闭自己的描述符，尚未执行新程序的子进程仍持有继承副本。七类文件锁改为在取得锁后立即由私有 guard 持有，构造失败与最终 owner 正常销毁时显式解锁；Raft 的合法共享 owner 仍持续持锁。原并发测试加入 100 ms 执行延迟后通过，没有串行化测试或放宽排他规则。
-
-[离线复核器](verify-runtime-observation-acceptance.py)验证归档字节、请求与进程身份、源码和二进制绑定、签名收据，并从账户导出记录独立重算消费前缀。大型 ELF 与恢复 CAS 没有收入仓库，完整闭包由运行时和独立 Rust 检查器在实际文件上核验，离线脚本只验证归档记录：
-
-```sh
-python3 specs/evidence/20261029/verify-runtime-observation-acceptance.py
-```
-
-[只读锚点审计](runtime-observation-anchor-audit.json)扫描 25 份历史锁，标出日志与恢复存储源码变化及历史缺失路径；本轮未运行 TLC、重写模型或更新历史锚点。观测入口使用本机 Linux 目录权限和明确的构建批准，全局配置应用、跨主机签名事实与持久来源水位继续推进。生产延迟与完整委派 cgroup 正向资格尚待验证。
-
-## 全局配置约束策略首次启动
-
-[启动绑定报告](projection-launch.json)记录 App 从完整配置投影中核对策略身份、程序摘要、OS 身份和 CPU、NUMA、内存约束，并在读取首条交易意图前核验实际子进程资源的接线。[源码清单](projection-launch-source-sha256.json)固定 909 个构建输入；完整检查、release 构建及独立进程运行使用同一份源码。
-
-完整 `check-rust.sh` 用时 353.95 秒，格式、workspace 所有目标、文档测试和 Clippy 通过。日志汇总为 2168 个通过、29 个忽略，包含父测试启动的子测试输出。新增投影单元测试 16 项，App 实际入口测试 7 项，覆盖绑定冲突、未知 OS 名称、受限启动模式、实际资源拒绝、错误 ELF，以及本地策略失败后持续停止交付意图。
-
-固定 release 的普通策略交接场景通过，账户、镜像和策略均核对到第 12 条记录，成交与手续费闭合。运行中的 worker 为 memfd，摘要与固定二进制一致。此场景省略 `projection_launch`，用于核对现有业务链的兼容性；启用约束后的完整成功路径仍需可写委派 cgroup，本机尚未执行。
-
-归档保留两次失败及修复依据：首次并行检查中的两个测试竞争同一个 cgroup 根 inode，合并共享资源断言后完整检查通过；首次进程验收的 socket 路径长 112 字节，超过接口的 107 字节上限，缩短外部验收目录后通过。后者没有改动源码或固定二进制。
-
-首次启动证明只保存当时的启动绑定，不生成全局配置应用收据。完整投影消费者、签名事实来源与持久水位继续开发；新 TLA/TLC 验证仍留到功能开发完成后。
-
-## 行情扩容后的冷启动恢复
-
-[冷恢复报告](md-restart.json)记录同 catalog 已完成扩容的新进程恢复：保留原稠密编号，继续追加高位标的，保留真实配额目录和旧预留责任。只有完整稳定的检查点可进入新启动，新的进程、来源、bank 和消费者准入均须重新批准。[源码清单](md-restart-source-sha256.json)绑定 920 项构建输入。
-
-最终 `check-rust.sh` 用时 366.36 秒，格式、workspace 所有目标、文档测试和 Clippy 通过。日志汇总为 2210 个通过、29 个忽略，包含父测试启动的子测试输出。首次完整检查也已通过，随后仅增加三处 Linux 测试编译条件，再执行最终检查。设计契约和 OpenAPI 校验通过。
-
-实际 Runtime 回归覆盖扩容、退出、新 PID 启动、重新 JOIN 和再扩容，也覆盖启动、候选预留、旧资格撤销和新配置安装四个阶段的实际 SIGKILL。首次预热期间，测试暂停 Trade，先确认共享内存已发布 Quote，再断开真实深度连接；重连和快照成功后，核对新 bank 先进入持久预留，最终才进入就绪并完成 JOIN。
-
-固定 release 的实际 CLI 重跑全部 17 项进程测试，记录 22 份执行映像样本；归档保留扩容恢复的 13 份连续快照和启动故障恢复的 3 份快照。完整 Spot 兼容场景中，MD、执行及两个策略进程保持原 PID，三个消费者完成真实重新 JOIN；账户、策略和镜像均核对 13 条记录，订单终态及手续费闭合。该兼容场景省略冷恢复配置，用于核对原有业务路径。
-
-开发中复现并修复了四个边界问题：不可逆失败被后续错误请求重新标为就绪、零操作 ID 污染持久历史、历史 bank 身份再次用于候选，以及首次预热与故障换 bank 互相等待。报告保留对应失败日志及最终验证，编译失败和未选中测试的空运行不计作行为验证。
-
-[离线复核器](verify-md-restart.py)只读取归档，检查源码和二进制绑定、实际执行映像样本、事件中的检查点、完整持久前驱链及编号和身份连续性。它不重新连接网络或授予启动权限：
-
-```sh
-python3 specs/evidence/20261029/verify-md-restart.py
-```
-
-仍存活消费者的透明续接、跨 catalog 经济规格变更、全局配置实际应用和生产性能资格仍未完成。本轮使用原生 WSL2 Linux 与本地 TLS 交易所替身；新增形式化验证继续留到功能开发结束，仅对历史模型锚点作只读审计。
-
-## 策略投影参数的实际消费
-
-[参数阶段报告](strategy-parameters.json)记录完整投影参数与实际策略进程的首次消费核对。严格 JSON 值与批准参数一致后，工厂仍读取原始字节；真实新鲜检查点中的当前配置必须匹配私有 revision 和对象摘要。全局修订 41 与私有修订 6 分别保存。[源码清单](strategy-parameters-source-sha256.json)绑定 929 项构建输入，完整检查、release 构建和实际进程验收使用同一份源码。
-
-完整 `check-rust.sh` 用时 425.45 秒，格式、workspace 所有目标、文档测试和 Clippy 通过。日志汇总为 2237 个通过、35 个忽略，包含父测试启动的子测试输出。设计契约、OpenAPI 与依赖方向检查通过。显式忽略的 6 项 App 进程测试另行使用本阶段固定 worker 单独执行，全部通过；Host 的真实持续查询回归也通过。
-
-参数验收从实际 App 启动入口创建独立 worker，由父线程提供真实 MD 服务、认证连接和共享内存。三组参数分别改变观察次数与最低买价，核对真实消费位置及一次性命令。实际进程暂停时，已持久化并排队的命令仍不能越过参数门禁；新鲜证明完成后才交付同一命令。50 ms 查询超时关闭策略并回收子进程。归档保留 5 个独立挑战、对应的原始参数、格式定义、投影、当前检查点及实际命令；5 份运行中 memfd 映像样本覆盖 4 个参数消费正例和 1 个旧配置兼容 worker，均匹配固定程序。该组测试没有向 gateway 下单。
-
-真实进程复跑曾暴露 JOIN 的时间竞态：服务端晚于客户端本轮采样时间签发 WELCOME，旧时间会使有效租约被误判为超期。真实 SEQPACKET 回归用晚 1 ns 的签发时间稳定复现。修复后接收回应立即结束本轮，下一轮再校验；租约上限和原启动期限保持不变。行情接入模块的 30 项单元测试与 7 项集成测试通过，包括超期、时钟倒退、零预算、取消和提前传入 FD。归档同时保留参数轮询节奏的失败回归、逻辑时钟域与内核 boot UUID 的边界修正，以及深度测试夹具的早期失败，未把编译失败或空测试运行算作行为验证。
-
-另行执行的普通 Spot 交接兼容场景用时 63.00 秒，达到 S2→C10→D285，账户、镜像和策略各核对 12 条记录，订单终态与手续费闭合。该场景省略参数绑定配置，用于核对原有业务链；账户报告保留累计的一条输入缺口记录，没有声称全程无缺口。
-
-[离线复核器](verify-strategy-parameters.py)只读取 82 个归档文件，检查原字节、源码与程序绑定、参数规范摘要、当前检查点、实际命令及门禁日志。它不重新执行 worker，不独立证明历史内核退出，也不重放未归档的大型恢复闭包。无需连接交易所或加载凭据：
-
-```sh
-python3 specs/evidence/20261029/verify-strategy-parameters.py
-```
-
-[只读锚点审计](strategy-parameters-anchor-audit.json)扫描 25 份历史锁，本阶段未修改其覆盖的源码，也未运行 TLC 或重写历史锚点。参数证明属于历史消费事实；完整全局 Applied、运行中配置更新、其余字段消费者、委派 cgroup 正向资格与生产性能仍待完成。
-
-## 标的经济目录的实际消费
-
-[阶段报告](instrument-catalog.json)绑定 967 个构建输入与 8 个固定 release 程序；[源码清单](instrument-catalog-source-sha256.json)保留构建、原始契约和校验脚本摘要。正文格式由 Rust 与独立 Python 读取共享向量，覆盖 3 个正例、22 个重新计算合法制品 SHA 的反例及容量边界。
-
-实际价格用例使用父进程线程中的生产 MD Runtime、真实 TLS/WSS/REST、Publisher/JOIN 和独立 counting worker。相同 `"1.00"` 按 `0.01/0.02` 的批准步长转换为 `100/50`；阈值 75 对应一个或零个意图。每例分别保留原始网络正文、阈值检查点、随后同次 Fresh 的目录/账户/JOIN/参数事实，以及实际命令。反例同时重绑制品、投影、策略版本及基线声明摘要，实际旧价格步长仍在创建 worker 前被拒绝。目录中的额外 BNB 只证明独立目录项合法；进程账户包含 BTC/USDT，手续费资产不一致另由含 BNB 的 App 基线单测验证。
-
-固定程序验收包括 2 项目录进程测试、1 项来源重放、8 项原输入门禁、6 项参数兼容、1 项 Host 查询和 4 项 MD 进程测试。来源重放使用原 kind9 与捕获的 S/C 检查点，缺引用或缺文件的子进程均失败；S/C 在该用例中不是经过活进程认证的 HandoverSeal。两份真实封口同时命名同一个 kind9 的关系由 Release 完整依赖图测试单独核验。尚不支持的生命周期入口均在用户回调前拒绝带目录的请求。
-
-普通 Spot 交接兼容场景省略新目录批准，完成 S2→C10→D285。账户、镜像和策略各核对 12 条记录，输入记录 25 条、缺口为零，订单终态、手续费闭合且无 Unknown。目录用例本身只检查意图交付；完整成交证据来自这条单独运行的兼容场景。
-
-开发记录保留了严格解码反例、生命周期入口缺口、旧 opaque 恢复兼容修正及测试夹具诊断。最后的性能复核移除了逐帧重复目录查找，并将逐输入检查点的全文 SHA 改成读取已验证的缓存摘要和长度；恰好 2 MiB 的正文回归验证字节与摘要语义一致。这些是源码和行为证据，不是生产延迟测量。
-
-[离线复核器](verify-instrument-catalog.py)重算小对象、规范经济摘要、完整基线字段、原始行情与当前盘口、实际恢复依赖及输入链。它读取归档字节和记录的进程结果，不重新运行策略、鉴定历史内核状态或重放资金状态；大于 1 MiB 的 ELF 恢复对象不放入 Git，由完整对象列表及固定程序摘要绑定。
-
-```sh
-python3 specs/evidence/20261029/verify-instrument-catalog.py
-```
-
-[只读锚点审计](instrument-catalog-anchor-audit.json)扫描 25 份历史锁，本轮未修改其覆盖的源码，没有运行 TLC 或重写锁。目录消费事实不授予交易权，也不构成完整全局 Applied；在线目录变更、其余字段消费者和生产资格继续保留。
+The maintained catalog contract describes what a current test should assert. For example, a price string of `"1.00"` must normalize to 100 ticks on a 0.01 grid and 50 on a 0.02 grid. The shared Rust/Python format vectors have a separate, self-contained test path. [Catalog specification](../../implementation/instrument-catalog.md) · [Shared format vectors](../../contracts/instrument-catalog-v1.json) · [Format verifier](../../../scripts/verify-instrument-catalog.py)

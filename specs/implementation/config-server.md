@@ -1,11 +1,13 @@
-# 配置服务启动组合
+# Starting a configuration server
 
-`tickwire-config-server` 读取 schema 1 启动配置，复用 `tickwire-control-peer::api_runner::ApiOwner`。每个进程只有一个持久 `Replica<GenerationStore>`；HTTP、peer 协议、业务 Applied 和快照由同一 owner 处理。启动不会调用业务 initialize，也不会绕过签名 bootstrap。
+`tickwire-config-server` is a binary in the `tickwire-control-peer` crate. It loads a schema 1 startup file and composes one `ApiOwner` with one durable `Replica<GenerationStore>` per process. The same owner drives HTTPS requests, Raft peer traffic, application of committed records and snapshots. Starting the service does not initialize a business head. Initial desired configuration requires signed bootstrap. [Binary](../../crates/tickwire-control-peer/src/bin/tickwire-config-server.rs) · [API owner](../../crates/tickwire-control-peer/src/api_runner.rs)
 
-`config_runner::prepare` 验证有界配置、打开实际文件描述符并加载 peer/HTTP TLS、bootstrap trust、独立 evidence trust 和可选 `TWDSRC01` 资料包。所有 peer/HTTP/source 解析均在 listener 绑定前完成。`runner::Prepared` 保存已验证 trust 和固定配置，后续 assemble 不重读路径。TLS 私钥要求 group/other 权限为零、普通文件且只有一个硬链接；所有输入拒绝 leaf symlink、FIFO 与超长内容。包和 trust 被解析为 owned 内容，后续路径替换不修改已准备的 owner。签名 envelope 的当前资格仍在实际候选检查时由服务时钟核验，成功加载不授予部署权限。
+`config_runner::prepare` completes bounded configuration, peer and HTTP TLS, bootstrap trust, independent evidence trust and optional `TWDSRC01` source bundle parsing before binding any listener. It opens real FDs and rejects leaf symlinks, FIFOs and oversized inputs. A TLS private key must be a regular file with one hard link and no group/other permission bits. Prepared trust, settings and source data are owned bytes. `Prepared::assemble` consumes them without rereading the paths, so path replacement cannot replace an approved provider.
 
-`Prepared::assemble` 只消费已准备内容，创建唯一 `ApiOwner` 并安装可选 deployment provider。组装失败不会返回运行服务。正常 `--turns` 完成、STOP 标记和致命错误都执行 shutdown，取消 HTTP pending 请求并停止 peer I/O。循环有界消费 Applied，实际 applied 相对上次快照前进 256 后调用同 owner 的 compact_snapshot。
+HTTP client identity and evidence issuers have separate trust settings. A request cannot select verifier keys or source files. The service rechecks signed evidence at candidate validation time. Current RBAC, safe reads, If-Match and retained registry state each belong to their own step. [Server preparation](../../crates/tickwire-control-peer/src/config_runner.rs) · [Control state](config-control-state.md)
 
-HTTP 客户端授权配置与 evidence issuer 配置分别加载。HTTP 正文不能选 trust key、资料包路径或替换 provider。证书只确定请求主体，当前 RBAC、第二次 ReadIndex、ETag 和 retained head 等资格沿既有 request 实现核验。
+Assembly failure returns no service. On `--turns` completion, a STOP marker or fatal error, shutdown cancels pending HTTP requests and stops peer I/O. Each loop processes a bounded batch of Applied records. Once the applied position advances at least 256 beyond the last snapshot, that owner compacts. Tests cover path replacement, rejected file inputs, actual TLS and HTTPS across three nodes and reopening after the binary stops. [Startup tests](../../crates/tickwire-control-peer/tests/config_startup.rs) · [Three-voter API tests](../../crates/tickwire-control-peer/tests/api_owner.rs)
 
-定向验证历史上覆盖：严格配置的编译成功行为 Red；实际文件加载失败、真实三节点 TLS 与 HTTPS 同 owner、二进制停止后恢复，以及资料包路径替换后的 owned 内容测试（原始日志曾存于已删除的 `docs/validation/config-server/`，当前以源码测试与 `cargo test` 为准）。没有为 CLI 新增共识状态机或形式模型。
+```sh
+cargo test -p tickwire-control-peer --test config_runner --test config_startup --test api_owner
+```

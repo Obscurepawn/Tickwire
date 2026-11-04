@@ -309,6 +309,10 @@ impl Account {
     pub fn rejected_event(&self) -> Option<&v::CanonicalEvent> {
         self.rejected_event.as_ref()
     }
+    /// Native ID that the reducer accepted for this registered order, if observed.
+    pub fn venue_order_id(&self, key: &OrderKey) -> Option<&v::VenueOrderId> {
+        self.orders.get(key)?.native.as_ref()
+    }
     pub fn order(&self, key: &OrderKey) -> Option<OrderView> {
         self.orders.get(key).and_then(|o| {
             Some(OrderView {

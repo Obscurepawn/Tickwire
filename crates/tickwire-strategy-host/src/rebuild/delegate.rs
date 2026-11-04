@@ -137,10 +137,19 @@ impl<R: RecoveryResolver + 'static> Strategy for Hosted<R> {
     fn on_submission(
         &mut self,
         c: &tickwire_venue::CanonicalCommand,
-        r: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+        r: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         if let Some(s) = &mut self.live {
             s.on_submission(c, r)
+        }
+    }
+    fn on_request_reply(
+        &mut self,
+        c: &tickwire_venue::CanonicalCommand,
+        r: &tickwire_venue::RequestReply,
+    ) {
+        if let Some(s) = &mut self.live {
+            s.on_request_reply(c, r)
         }
     }
 }

@@ -1,5 +1,7 @@
 use crate::*;
 pub const EXACT_MARKET_EVENTS: u64 = 1 << 9;
+/// Type 261 source schema for a topic containing independent top-of-book snapshots.
+pub const SPOT_BBO_FEED_SCHEMA: u32 = u32::from_be_bytes(*b"BBO1");
 impl DecimalWire {
     pub fn new(mut coefficient: i128, mut exponent: i8) -> Result<Self> {
         if !(-38..=38).contains(&exponent) {

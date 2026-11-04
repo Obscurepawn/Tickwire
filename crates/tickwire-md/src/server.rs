@@ -178,9 +178,35 @@ fn requires_rebuild_on_remove(stage: Stage) -> bool {
     )
 }
 
+/// Authenticated subscriber admission and its durable control ledger.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ServerConfig {
+    pub socket: PathBuf,
+    pub admission_directory: PathBuf,
+    pub control_directory: PathBuf,
+    pub control_stream: [u8; 16],
+    pub control_domain: [u8; 16],
+    pub control_writer_epoch: u64,
+}
+
 impl Server {
     pub fn new(c: &config::Config) -> Result<Self> {
-        if c.identity.role != 2 || !c.socket.is_absolute() || !c.admission_directory.is_absolute() {
+        Self::open(
+            &c.identity,
+            &ServerConfig {
+                socket: c.socket.clone(),
+                admission_directory: c.admission_directory.clone(),
+                control_directory: c.control_directory.clone(),
+                control_stream: c.control_stream,
+                control_domain: c.control_domain,
+                control_writer_epoch: c.control_writer_epoch,
+            },
+        )
+    }
+
+    pub fn open(identity: &IdentityConfig, c: &ServerConfig) -> Result<Self> {
+        if identity.role != 2 || !c.socket.is_absolute() || !c.admission_directory.is_absolute() {
             return Err(invalid("MD server configuration"));
         }
         let m = std::fs::symlink_metadata(&c.admission_directory)?;
@@ -191,7 +217,7 @@ impl Server {
         let cfg = tickwire_control_store::Config {
             physical: tickwire_journal::Config::new(c.control_stream, c.control_domain),
             writer_epoch: c.control_writer_epoch,
-            owner: c.identity.instance,
+            owner: identity.instance,
             max_requests: 8192,
             max_pending: 128,
             max_response_bytes: 65536,
@@ -205,7 +231,7 @@ impl Server {
         Ok(Self {
             listener: ControlListener::bind(&c.socket)?,
             admissions: c.admission_directory.clone(),
-            identity: c.identity.clone(),
+            identity: identity.clone(),
             peers: vec![],
             requests,
             expansions: Vec::new(),

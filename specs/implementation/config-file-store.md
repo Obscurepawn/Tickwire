@@ -1,11 +1,7 @@
-# Linux 配置文件存储
+# Durable configuration files on Linux
 
-`tickwire-config-fs::Store` 从受信父目录 FD 打开指定私有根目录，并持有根目录中 LOCK 的独占内核锁。父目录属于 root 或指定 UID，且 group/other 无写权限；根目录及下级目录要求指定 UID、0700 和同一设备。逐级相对打开均拒绝符号链接，文件要求普通文件、0600、单硬链接，容量上限为 8 MiB。
+`tickwire-config-fs::Store` opens the private root relative to a trusted parent directory descriptor and acquires an exclusive kernel lock on `LOCK`. The parent belongs to root or the designated UID and grants write access to neither group nor other. Directories under the private root share a device and UID and have mode 0700. Files must be regular files with mode 0600, one hard link and at most 8 MiB. The descriptor-relative walk rejects symbolic links.
 
-安装比较实际旧字节的 SHA-256，随后独占创建随机临时文件、完整写入、回读校验、同步文件、同目录 rename 和同步目录。最终核对目标 inode、完整字节、目录身份和 LOCK 身份后返回 `DurableFile`。精确重复会重新同步文件和目录。rename 后失败使 Store 关闭后续操作，调用者重新打开并依据 journal 恢复。
+To install a version, compare SHA-256 against the existing bytes. Create a new temporary file exclusively in the target directory, write it, read it back, sync it, rename it into place, then sync the directory. Verify the inode, full contents, directory identity and lock identity before returning `DurableFile`. An exact repeat resynchronizes the file and directory. After a failure following rename, reopen the store and recover using the journal.
 
-根目录、子目录或锁文件被替换，以及属性漂移，均拒绝继续。恢复按明确路径读取，忽略临时文件，不按 mtime 选择版本。其他平台返回 Unsupported。
-
-固定 Linux 结果包含 3 项单元测试、7 项实际文件集成测试及 all-targets Clippy。故障注入覆盖临时文件写入、同步、rename 和目录同步的返回路径，并核对失败前后实际文件内容；这组测试没有执行机器断电。
-
-该层仅产生文件持久化结果。控制提交、运行时 ConfigApply、配置 journal 与完整物化流程由上层实现。
+Recovery reads named files and ignores temporary files. Replacing a directory or lock, or changing the required permissions, invalidates the handle. Other platforms return `Unsupported`. The Linux fixture covers three unit and seven file integration cases, including injected write, sync, rename and directory-sync failures. The configuration materializer consumes the resulting receipt.

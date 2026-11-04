@@ -1,35 +1,28 @@
-# 恢复依赖保存与验证
+# Recovery dependencies and verified closures
 
-`tickwire-recovery` 提供统一的 `BlobStore` 接口、内存 Mock 和真实文件后端。业务日志提交前，`Persistence::publish` 验证并同步恢复所需的全部对象，最后返回无法由调用方直接构造的 `VerifiedClosure`。重启后的 `verify` 读取原绑定，重新核验内容并确认同步完成。接口见恢复依赖接口，测试与审阅见验证记录。
+`Persistence::publish` verifies and synchronizes all dependencies, then the manifest and its immutable binding, before returning a privately constructed `VerifiedClosure`. `verify` after restart reads the original binding, validates the stored bytes and confirms synchronization again. Neither operation grants current strategy, capital or network-send authority. [Persistence](../../crates/tickwire-recovery/src/lib.rs)
 
-## 对象与绑定
+## Binding and manifest
 
-`ClosureBinding` 固定风险域、意图 ID、原执行代次、业务摘要、策略代次、配置版本及恢复对象 ID。同一风险域中的恢复对象 ID 只能绑定一个 manifest 内容根；完全相同的重试成功，内容或订单身份不同则拒绝。
+A `ClosureBinding` fixes the risk domain, intent ID, original execution epoch, business digest, strategy generation, configuration revision and recovery-object ID. One recovery-object ID in a domain can name only one manifest root. An exact retry may succeed. Different content or order identity under that ID is rejected. The manifest uses deterministic, definite-length CBOR arrays, shortest-form integer and length encoding, and a SHA-256 over the whole encoding. Type errors, truncation and trailing data fail before a capability is issued. [Manifest codec](../../crates/tickwire-recovery/src/codec.rs)
 
-Manifest 使用确定性 CBOR 数组编码，SHA-256 覆盖完整编码。解码只接受最短整数与长度、固定数组结构及完整输入，拒绝不定长项、类型错误、截断和尾随字节。独立 Python 生成器固定了 1010 字节 manifest 基准样本，不调用 Rust 实现。
+Descriptors sort strictly by dependency kind and content digest. The required kinds must be present. The single intent object must match the business digest. Grant and release-operation references must identify the correct kinds. Edges reference objects within the manifest, are strictly ordered and unique, and cannot create cycles. Every listed object is loaded and its actual bytes, length and hash are checked, including objects with no incoming graph edge. Command dependency kind 13 carries the canonical command where needed. Kinds 14 and 15 carry the account baseline and history for account-backed closures. [Manifest validation](../../crates/tickwire-recovery/src/lib.rs)
 
-对象描述符按种类和内容摘要严格排序，每种必需依赖均须存在。意图对象恰好一个，其摘要必须等于业务摘要；授权及发布操作引用必须出现在对应种类中。依赖边只能引用清单内的对象，严格排序且不重复，无自环或其他环路。清单中的全部对象都要验证，不能通过省略内部边跳过对象读取。
+| Limit | Maximum |
+|---|---:|
+| Single object | 64 MiB |
+| Total object bytes per closure | 256 MiB |
+| Manifest encoding | 1 MiB |
+| Objects / edges | 4,096 / 16,384 |
 
-对象上限为 64 MiB，单份恢复依赖合计最多 256 MiB、4096 个对象和 16384 条边，manifest 最多 1 MiB。形状、容量和整数范围检查先于对象读取。业务对象的授权、账户和策略状态含义由可信授权服务验证；本模块检查对象完整性、依赖关系和有序输入。
+## Ordered inputs
 
-## 有序输入
+Kind 12 contains actual sequenced strategy inputs covering market events, execution reports, timers, configuration and model updates. Every block binds its input stream, starting sequence, predecessor digest and complete records. The verifier reads the stored payloads and checks types, byte lengths, consecutive sequences and rolling digests before joining blocks. Gaps, overlaps, a different stream or a final decision frontier mismatch reject the closure. Exactly one empty block represents an empty input history. `DeterministicReplay` and `DeclaredRebuild` are explicit modes. Missing input never silently switches mode. The collector is responsible for capturing every input actually processed by the strategy. [Input blocks](../../crates/tickwire-recovery/src/inputs.rs)
 
-种类 12 保存输入块，五种输入分别为行情、执行回报、定时器、配置和模型更新。每块具有固定流身份、起始序号、前驱摘要及逐条载荷；逐条摘要包含前一个摘要和完整记录字节。服务读取实际内容，检查长度、类型、连续序号和摘要，再按起始序号连接所有块。缺口、重叠、流身份冲突或最终决策边界不匹配均拒绝。
+## File persistence, restart and retention
 
-空输入只允许由一个空块表达。`DeterministicReplay` 与 `DeclaredRebuild` 为不同的显式恢复模式；缺少输入时不会自动切换模式。输入采集器负责保证这些记录确实覆盖策略处理过的全部输入，块校验负责保证保存和恢复的是同一组字节。
+The file backend locks a private directory exclusively and retains its canonical absolute path. Creation and reopening synchronize the directory and its parent. A new content object is written to a temporary file, synchronized, renamed to its immutable key, then followed by a directory sync. A same-key retry must match every byte and still synchronizes the existing file and directory. Reading a visible rename alone cannot prove an earlier failed directory sync succeeded. `verify` rechecks synchronization and cannot recreate a missing dependency. Unbound objects left by a failed publication still consume disk space. There is no general deletion or garbage-collection interface. [File backend](../../crates/tickwire-recovery/src/files.rs) · [Closure tests](../../crates/tickwire-recovery/tests/closure.rs)
 
-## 文件同步与重试
+The exclusive owner installs its unlock guard immediately after acquiring the lock. Construction failure and normal drop explicitly unlock before closing. A temporarily inherited descriptor cannot extend an ended ownership period or unlock a new owner's independent lock. Process-crash model cases distinguish rename visibility, confirmed directory synchronization and delivery of the result. [Durability model](../../tla/execution_models/recovery_closure/PLAN.md)
 
-文件后端持有私有目录的独占锁，并保存规范化后的绝对路径。锁取得后立即交给私有 guard，构造失败及唯一写 owner 正常销毁时显式解锁，另一个线程启动子进程时临时继承的文件描述符只保留文件访问，不延长已销毁 owner 的写锁；旧副本后来关闭不解除新 owner 的锁。创建或重开目录时都同步目录及父目录。写对象时先创建临时文件、写完并同步，再重命名到内容键，最后同步目录。已有同名对象必须逐字节相同，重试仍同步原文件和目录。
-
-发布顺序为全部依赖、manifest、不可变绑定、返回验证结果。`verify` 也重新确认同步完成，防止上一次重命名已可见、目录同步却失败时，仅凭读取成功就发出验证结果。它不会创建缺失的依赖来补齐失败的恢复。
-
-当前绑定永久保留其依赖，尚无删除和回收接口；发布失败后留下的未绑定对象继续占用存储。后续的依赖释放和多持有者回收需要另行实现。验证结果只表明本次内容检查和后端同步已完成，业务 runtime 仍须验证执行授权、资金和最终发送条件。
-
-## 验证结果
-
-macOS 与 Linux aarch64 的 12 项测试通过，格式和 Clippy 通过。测试覆盖完整发布与重开、不可变绑定、对象缺失与损坏、依赖图、真实输入的连续性、同步失败、规范编码，以及真实文件锁和目录重开。初始失败实现产生 4 项运行时断言失败；增加重新同步用例后再次得到真实失败，再修复通过。
-
-有限 TLA+ 模型分别检查单个发布、多内容根争用同一绑定及多个依赖的场景，区分重命名可见、目录同步完成和结果交付。崩溃时，各个尚未确认同步的目录项可独立保留或丢失；成功同步目录后，目录内已经写完并重命名的项目全部完成持久化。模型及范围见[恢复依赖模型](../../tla/execution_models/recovery_closure/PLAN.md)。
-
-HandoverSeal v4 声明重建使用 `rebuild_installation_digest` 和可选 `rebuild_rollback_digest`，与既有 preflight/schema3 replay 字段互斥。安装后的初始 READY 可仅有安装根；账户交接和作为后续旧源的资格要求回退根齐全。可选字段在旧版本中省略，旧规范字节不变。上层 release 验证器核对原固定窗口、真实预热 genesis/delta 链、保留输入的连续接续及真实回退对象图；此数据格式不赋予交易授权。
+HandoverSeal v4 records a declared rebuild's installation digest and an optional rollback digest. These fields are mutually exclusive with earlier replay/preflight fields. An initial installed READY can carry the installation root alone. Account handover and reuse as an old source require the rollback root. The upper release verifier checks the original fixed window, warm-up genesis and delta chain, retained input continuation and actual rollback graph. Older seal forms retain their canonical bytes. [Handover seal](../../crates/tickwire-recovery/src/handover.rs) · [Rebuild tests](../../crates/tickwire-recovery/tests/handover_rebuild.rs)

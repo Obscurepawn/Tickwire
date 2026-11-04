@@ -363,8 +363,8 @@ fn copy_cache(to: &mut Row, from: &Row) {
     to.depth_state = from.depth_state;
     to.depth_received = from.depth_received;
     to.coverage = from.coverage.clone();
-    if let Some(g) = from.source_generation {
-        to.context.set_generation(g);
+    if let (Some(g), Some(ctx)) = (from.source_generation, to.context.as_mut()) {
+        ctx.set_generation(g);
     }
 }
 impl<const M: usize> TopicPublisher<M> {
@@ -376,7 +376,8 @@ impl<const M: usize> TopicPublisher<M> {
         peak_cache_bytes: usize,
     ) -> Result<TopicExpansion> {
         let old = self.owner.registry();
-        if registry.catalog_hash != old.catalog_hash
+        if self.state.rows.iter().any(|r| r.context.is_none())
+            || registry.catalog_hash != old.catalog_hash
             || registry.instrument_set_version <= old.instrument_set_version
             || registry.instrument_set_version >= 1 << 63
             || registry.instruments.len() > 4096
@@ -479,7 +480,7 @@ impl<const M: usize> TopicPublisher<M> {
                 rows.push(Row {
                     spec: *spec,
                     key: cfg.key,
-                    context,
+                    context: Some(context),
                     source_generation: None,
                     revision: 0,
                     last_event: self.owner.published(),

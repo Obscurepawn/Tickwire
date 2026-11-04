@@ -1,13 +1,17 @@
-# Binance 签名与订单协议
+# Binance signing and order protocol
 
-实现入口是 [`tickwire-binance`](../../crates/tickwire-binance/src/lib.rs)，契约见接口，实际命令输出见验证记录。
+The Binance protocol crate converts a canonical trading command into a signed REST request or a WebSocket request message. The return value binds the prepared request to the complete canonical command digest. The protocol layer performs serialization, signing and response classification. The account gateway decides whether bytes may leave the process. [Protocol entry point](../../crates/tickwire-binance/src/lib.rs) · [Request preparation](../../crates/tickwire-binance/src/request.rs)
 
-先落接口，再对签名、参数、十进制、命令和响应写可编译的失败测试。签名测试采用官方 HMAC/FIX Ed25519 向量和独立 OpenSSL 生成的 RSA 签名；随后实现 `SigningKey`、`Params`、`Decimal`、`prepare` 与响应解码。
+## Request identity and signing
 
-`PreparedRequest` 私有字段保存不可变请求及完整 `CanonicalCommand.digest()`。REST 的已签名 query 直接用于 HTTP request target；WS 的已签名参数与 JSON 值来自同一组参数。账号、产品、环境不一致时不产生请求。所有字段取自冻结命令，保证金模式等非订单参数的账户状态由发送前协调器核对。
+`prepare` verifies the venue, account, market and environment against the selected credentials before producing a request. It takes the symbol, side, quantity, modifiers and order identifiers from the frozen command. An unsupported command, parameter combination or signing algorithm yields an error. The coordinator checks current account settings, including margin mode, before sending. [Request preparation](../../crates/tickwire-binance/src/request.rs)
 
-后续测试实际暴露并修正了 JSON 数字前导零、HTTP 200 畸形错误对象误入成功分支、USD-M GTD 单位、条件单 `activatePrice` 名称、`priceProtect` 大小写和错误分类默认值。独立审阅又发现 FIX SenderCompID 字符校验过宽，已补失败断言并按官方字符集收紧。错误分类改为确定拒绝码表，HTTP 408 与新错误码保持未知。错误分类没有释放资金或自动重试的副作用。
+`PreparedRequest` privately owns the wire request and the original `CanonicalCommand.digest()`. REST uses the signed query as the HTTP request target. WebSocket signing and JSON serialization share one parameter collection, so an order cannot be signed with one value and transmitted with another. Timestamp units, receive-window precision and field spellings follow the endpoint. USD-M GTD time uses its required units, and conditional orders preserve the distinct `activatePrice` and `priceProtect` parameters. FIX SenderCompID uses the permitted protocol character set. [Parameter handling](../../crates/tickwire-binance/src/params.rs) · [Authentication](../../crates/tickwire-binance/src/auth.rs)
 
-集成测试以同一个 `PreparedRequest` 驱动真实 `tickwire-transport::Connection`。本地 TLS 服务端独立校验 REST/WS 签名与参数，返回分块 HTTP 和分片 WS 消息。客户端限制每次接受 17 字节，并在第一次接受应用字节前比较命令摘要。验收针对协议字节、发送门禁示范和解码结果；会话、恢复、业务执行协调仍按接口中的待接入矩阵推进。
+## Response semantics
 
-本模块没有新增 TLA+ 模型。传输首次输出模型和既有命令摘要持久化模型由对应模块验证；它们不覆盖本模块尚未建立的 Binance 会话状态机。
+An HTTP 200 carrying an invalid error object cannot be promoted to a successful response. The classifier distinguishes rate limits, bans, authentication failures, clock errors, missing orders, partial outcomes and definite rejections. HTTP 408, recognized execution-unknown codes and unrecognized server codes retain an unknown outcome. Most 5xx responses are also unknown. The USD-M 503 branch recognizes the specific documented overload and service-unavailable rejection cases. The classifier never retries an order or releases a reservation. [Response classifier](../../crates/tickwire-binance/src/response.rs) · [Response tests](../../crates/tickwire-binance/tests/responses.rs)
+
+## Verification boundary
+
+Signature tests cover the published HMAC and FIX Ed25519 vectors and an independent OpenSSL RSA vector. Loopback tests feed the same prepared request to a real transport connection, verify REST and WebSocket signatures and parameters server-side, and exercise chunked HTTP and fragmented WebSocket replies. The client bounds acceptance per call to 17 bytes and compares the command digest before the first accepted application byte. These tests exercise byte-level preparation and transport behavior. Session lifecycle, durable admission and recovery have separate owners and tests. [Primitive tests](../../crates/tickwire-binance/tests/protocol_primitives.rs) · [TLS protocol tests](../../crates/tickwire-binance/tests/protocol_server.rs) · [Gateway](account-gateway.md)

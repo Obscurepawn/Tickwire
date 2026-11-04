@@ -442,11 +442,7 @@ impl<S: Strategy> Live<S> {
             } => {
                 let id = replica.apply(record, payload)?;
                 let view = replica.view(id).ok_or(crate::Error::Identity)?;
-                if !view.live()
-                    || now
-                        .checked_sub(view.received_mono_ns())
-                        .is_none_or(|age| age > *maximum_age)
-                {
+                if !view.callback_ready_at(now, *maximum_age) {
                     return Ok(vec![]);
                 }
                 Ok(strategy.on_market(view, now)?.into_iter().collect())
@@ -466,11 +462,8 @@ impl<S: Strategy> Live<S> {
                     .strategy()
                     .market_view(&self.market, h.instrument_id)
                     .ok_or(crate::Error::Identity)?;
-                let invoked = e.strategy().callbacks_ready()
-                    && view.live()
-                    && now
-                        .checked_sub(view.received_mono_ns())
-                        .is_some_and(|age| age <= self.maximum_age);
+                let invoked =
+                    e.strategy().callbacks_ready() && view.callback_ready_at(now, self.maximum_age);
                 e.apply(
                     Input::MarketCallback {
                         stream: self.market.clone(),

@@ -1,15 +1,9 @@
-# 多域发布协调器
+# Coordinated release across risk domains
 
-实现位于 `crates/tickwire-lifecycle`，接口见 多域发布协调器接口。
+The lifecycle coordinator binds an ordered member list to a release digest. Each member uses its own monotonic clock and deadline. Prepare, Commit, Release, QueryApplied and Halt carry signatures. Match each receipt to the pinned member key and current challenge before advancing the operation.
 
-确定行为：
+Issue GroupRelease only after every member reports Committed. Enter ActiveAll only after every member reports Released. Preserve each member's actual progress during a partial commit. An uncommitted member may submit updated readiness and must complete Prepare again. Members that already committed retain their facts.
 
-- 成员清单有序、固定并纳入摘要；每个成员使用自己的单调时钟域和期限。
-- Prepare、Commit、Release、QueryApplied、Halt 请求均签名。回执必须来自固定成员公钥，并匹配当前挑战；发送请求本身不推进应用状态。
-- 只有全部实际 Committed 才签发 GroupRelease；只有全部实际 Released 才进入 ActiveAll。部分提交保留每域事实并保持尚未完成的流程。
-- readiness 更新只允许尚未提交的成员，并要求新一轮 Prepared；其他成员的已提交事实保留。
-- 状态更新比较版本，候选状态在同步成功后发布。同步不确定失败使 owner Frozen；恢复先查询实际状态，Halted 或门禁版本改变不能恢复旧操作授权。
-- 部分 Released 后恢复，收齐本轮 QueryApplied 并显式继续，只向剩余成员发 Release；组凭据保留已 Released 成员原来的 Committed 回执。真实两域签名测试覆盖回执丢失、缺查询、门禁改变和 Halted，见修复记录。
-- 逻辑事件分块存入真实物理 Journal，最后提交长度与摘要。恢复处理完整尾部并支持 required physical frontier；有界目录传输通过真实文件同步与原子发布交付签名请求。
+Compare state versions and synchronize the candidate before making it visible. An uncertain sync freezes the owner. On recovery, obtain current QueryApplied receipts for this round, check the gates and explicitly resume. After partial release, send Release only to the remaining members and retain the original Committed receipts from the members already released. A halted member or changed gate invalidates the former authorization.
 
-纯单元覆盖成员收齐条件、跨主机时钟、签名篡改、旧挑战拒绝、恢复后显式继续、门禁撤销、同步失败、期限后的关闭、固定配置冲突，以及部分提交期间的 readiness 更新。当前检查限定编译与纯单元；集成与形式验证留待核心功能统一验收。
+The physical journal stores chunked events followed by length and digest. Recovery accepts a required physical frontier and replays complete tails. Signed requests use a bounded directory transport with synchronized, atomic publication. The two-domain tests cover lost receipts, missing queries, changed gates, partial release and Halt. See the [coordinator crate](../../crates/tickwire-lifecycle/).

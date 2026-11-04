@@ -26,6 +26,9 @@ impl MarketView<'_> {
     pub fn live(&self) -> bool {
         self.0.live()
     }
+    pub fn callback_ready_at(&self, now: u64, maximum_age_ns: u64) -> bool {
+        self.0.callback_ready_at(now, maximum_age_ns)
+    }
     pub fn continuous(&self) -> bool {
         self.0.continuous()
     }
@@ -159,7 +162,9 @@ impl MarketReplica {
             consumer.apply(seq)?;
             let view = self.view_dense(dense).ok_or(Error::Identity)?;
             journal.decision(view.instrument(), now)?;
-            if let Some(command) = strategy.on_market(view, now)? {
+            if (!view.0.quote_only() || view.callback_ready_at(now, u64::MAX))
+                && let Some(command) = strategy.on_market(view, now)?
+            {
                 emit(command, journal)?;
             }
             count += 1;

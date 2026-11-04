@@ -1,67 +1,50 @@
-# 精确行情事件实现规格
+# Binance event publication
 
-实现入口见 接口。本阶段已接通以下七种输入，各自经过真实 TLS/WebSocket、类型解码、规范发布、共享内存、MarketReplica 和异构 JOIN 快照：Spot JSON Trade/BBA、Spot SBE Trade/BBA、USD-M JSON 聚合成交/BBA/MarkFunding。
+One public event owner subscribes to one product, instrument and event category. It decodes complete source frames, converts prices and sizes using the approved instrument increments, and delivers typed events to the topic publisher. A depth feed can run alongside these sources. [Event decoder](../../crates/tickwire-binance/src/market.rs) · [Publisher](../../crates/tickwire-market-publisher/src/events.rs)
 
-## 协议和边界
+| Input | Published observations |
+| --- | --- |
+| Spot JSON | Individual trade and best bid/ask |
+| Spot production SBE | Individual trade and best bid/ask |
+| USD-M JSON | Aggregate trade, best bid/ask and mark/funding |
 
-- 价格与数量按可信 InstrumentBinding 的 tick/step 精确换算；非整倍数和整数溢出拒绝。源 symbol、product、catalog、source/connection 身份全部保留。
-- 参考价格和资金费率使用 DecimalWire：`coefficient: [u8; 16]`、`exponent: i8`、七字节零填充，24 字节、8 字节对齐。尾数是有符号小端整数，指数 −38…38；零与可约去的尾零采用唯一表示。
-- 市场消息 264/265/266 使用公共 128 字节头及 384 字节 MarketExactBody。旧消息 257–263 不变。资源、控制协商、SHM、snapshot builder/validator 和 Source 全部要求 feature bit 9。
-- JSON Spot BBA 无交易所时间，保留缺失；SBE 时间是微秒并检查转纳秒乘法。聚合成交保留 aggregate ID、原 trade 范围、总数量和可选 non-RPI 数量。交割资金费空字段与数值零分别表示。
-- 接收整帧 SBE 后先验证全部 rows；回调预算不足时保留帧内位置。未知模板、错误 schema/version、截断和 group 边界由固定 SBE codec 拒绝，不以 JSON 中转。
-- 单 owner 固定产品/标的/类别。Connect、Upgrade、Subscribe、Pong 使用现有 PublicPermit；零接受重试重新申请。TLS 主机验证开启；SBE 只允许 SpotProduction、使用 Upgrade API key，不使用私钥。
-- ExplicitSubscribe 以完整发送后的精确 null ACK 确认。EOF 与完整 ACK/数据同批时先失效，再交付已完整收到但 `usable=false` 的旧数据。I/O、消息解析、SBE rows、控制队列、接收时间片和通知数均有边界。
+## Source and wire semantics
 
-## 发布、时间与恢复
+The publisher rejects an off-grid or overflowing price or quantity. Each exact record retains instrument and version, source ID, connection epoch and encoding. A resource binds the catalog. Message types 264, 265 and 266 share a 128-byte header and 384-byte body. They require feature bit 9 end to end, including the ring and JOIN snapshot. Types 257–263 retain their original encoding. [Exact record validation](../../crates/tickwire-ipc/src/market_exact.rs)
 
-每标的保存 Quote、Trade、MarkFunding、FeedState 四个类别；旧/新编码同类不能重复。独立 BBA 配置替代深度派生 Quote，但不替换深度 levels 或 coverage。聚合 FeedState 要求配置的类别已可用，仍由真实 DepthSync 确定深度连续性。
+* **Trade (264).** Preserve aggregate ID, first/last raw trade IDs, total quantity and optional non-RPI quantity when the venue supplies them.
+* **Best bid/ask (265).** Keep one bid and ask, quantities and source sequence. Spot JSON has no exchange timestamp for this event. Its validity bit remains clear. SBE microseconds convert to nanoseconds with overflow checking.
+* **Mark/funding (266).** Keep mark, index and estimated settlement prices and funding fields. Missing delivery fields differ from numeric zero. `DecimalWire` stores a signed little-endian 128-bit coefficient, exponent in −38…38 and seven reserved bytes. Normalize zero and trailing decimal zeros.
 
-每类事件保留自己的接收时间。FeedState 使用最近深度观测时间，其他事件不得刷新深度 age。MarketReplica 按全 topic 连续序号应用，身份/代次/序号或容量错误使视图失效；JOIN 仍从完整快照 S 接收 S+1，SBE depth20 不代替完整快照。
+An SBE owner validates the entire binary group before delivering its first row. If a callback budget runs out, retain the row position. Reject an unknown schema, template, version or truncated group. Spot production SBE authenticates the Upgrade with an API key. Public TLS verifies the hostname. Connect, Upgrade, Subscribe and Pong consume the configured public permits. Explicit subscriptions require the exact success ACK after the request has been sent. If EOF arrives in the same batch as complete data, invalidate the connection first and deliver those observations with `usable=false`.
 
-`TWMR0001` 检查点保存实际物化的全标的视图与 blocked 状态，最多 4096 标的、64 MiB，恢复要求同一最大深度容量。恢复校验版本、长度、尾 SHA256、所有状态记录语义、身份、排序、精确 coverage 和容量。快照内 state sequence 是 1 起行号，live state sequence 是原 topic 序号；`last_event` 单独保存最近 topic 事件位置。上层恢复闭包负责对象授权。
+## What a strategy can read
 
-MD 默认 Feed.events 为空；显式事件配置绑定独立 owner/source identity，并同步扩展 InstrumentSpec.required_states 与 bank feature。策略实际消费的规范记录和 arena 输入沿既有 SDK 输入 WAL 保存，MD 不新增同步原始网络日志。
+Each instrument has a slot for Quote (1), Trade (2), MarkFunding (4) and FeedState (8). A configured independent BBO supplies the quote slot. Depth levels and coverage still come from the depth source. Each event carries its own ingress time. On a Binance depth topic, an independent trade or BBO must never make old depth look fresh. FeedState requires continuous depth and all configured event categories.
 
-## 标的索引与存储局部性
+A reader joins at a complete snapshot `S` and applies every topic record from `S+1`. A gap, identity change or capacity violation blocks its replica. The snapshot state sequence numbers identify rows within the snapshot. `last_event` records the original topic position. A `TWMR0001` checkpoint includes the materialized instrument views and blocked flag, with a 4096-instrument and 64 MiB bound. Restore checks the digest, identity, record semantics, bounds, coverage, sort order and original depth capacity. The strategy’s input log captures the canonical records and arena payloads it consumed.
 
-标的目录中的稳定 `instrument_id` 在每个 topic 的行情边界映射为从零连续的本地索引；映射规则见 [标的索引](instrument-index.md)。固定目录在装配时构造位掩码索引，病态离散集合使用有界开放寻址后备。MD 为独立 feed 预先绑定发布槽位，通知直接访问连续的 `Vec<Row>`，每次仍核对槽位对应的稳定 ID；不同 topic 的槽位不能绕过原身份与代次检查。bank 轮换沿既有规则保持目录和行顺序，新增标的必须重新完成目录版本与 JOIN 准入，不从未知网络消息自动注册。
+## Storage and hot path
 
-动态目录使用只追加索引，受信注册或冷路径扩容不改变已分配索引。IPC、Trigger、快照和 WAL 继续携带稳定 ID；`BookKey` 使用 owner 预绑定的本地身份，本地稠密索引不是全局身份或授权凭据。策略端同样在消费入口解析索引后访问连续盘口元数据，检查点仍按稳定 ID 排序且保持原编码。
+Stable `u64` instrument IDs appear on the wire, in triggers, checkpoints and the input log. Each topic maps them to contiguous local slots at setup. MD binds a publishing slot to the stable ID of its row. A `BookKey` combines venue, local instrument and source. Slot zero is valid. Reusing a full key within a topic is an identity error, even if the external IDs have distinct high bits. A successor with the same catalog preserves the mapping. [Instrument index](instrument-index.md)
 
-`MarketReplica` 的 Quote/Trade/MarkFunding/FeedState 分别占固定状态槽，类别值仍为 1/2/4/8。深度更新先验证 bid 严格递减、ask 严格递增和完整载荷，再流式合并到 topic 共用的两侧连续工作区；两侧容量和最终非交叉盘口全部通过后才提交。工作区各预留 `maximum_levels` 项，在 10000 档上限时合计最多 320000 字节。盘口本身保留已有 `Vec` 容量，新增价位超过已有容量才扩容；已预留容量内的更新、固定类别事件和查询均不分配。失败仍保持原盘口并关闭可见性，覆盖范围外的 `Unknown` 不变。稠密索引和工作区不进入 `TWMR0001`，既有检查点按稳定 ID、类别顺序逐字节兼容。
+The publisher reserves four state entries and two depth arrays per row. A topic shares scratch space for 4096 total delta levels and 4096 encoded levels across all rows. A cached side may contain up to 5000 prices. A normal depth update uses a fixed array of up to three records, then publishes them in one batch. The allocation tests exercise first and later JSON/SBE publications, the 12/13 inline-to-arena boundary and a 2 MiB thread stack. Their allocation scope starts at publication. TLS and upstream parsing have separate costs.
 
-价位数量查询按买侧降序、卖侧升序在连续数组上二分查找；未找到价位时仍按覆盖范围区分 `Some(0)` 与 `None`，不得把未知范围当作零量。
+`cache_bytes` covers retained heap capacity for rows, their states and levels, catalog strings, decoder contexts, index and workspaces. `reserved_cache_bytes()` uses actual capacities. Allocator overhead, the call stack, SHM mappings and JOIN snapshots have separate budgets. The consumer merges sorted updates in two shared workspaces, checks capacity and crossing on both sides, then commits. At its maximum of 10,000 levels per side, those two workspaces occupy 320,000 bytes. A covered, absent price returns zero. A missing price outside coverage returns unknown.
 
-app 的本地公共行情 owner 在装配时按 `CanonicalBaseline` 的完整规范目录顺序分配 `BookKey.instrument`，目录最多 64 个标的；匹配仍使用配置的完整 `u64 instrument_id` 与产品。不同目录项获得不同本地槽，同一基线的重复装配、恢复和连接轮换保持槽位不变。`BookKey.venue/source` 保留配置身份，网络事件与外部策略输入继续使用原 `InstrumentBinding.instrument_id`。本地槽不能跨账户 owner 或目录实例交换；新增目录需重新装配 owner，不在既有 owner 内重新编号。`market_sources` 的共享内存订阅各持有自己的副本，不使用这套本地盘口槽。
+A rejected view cannot modify the wrong instrument. If raw decoding or publication fails after a valid view was cached, the publisher can retain that newer view. The published prefix does not advance. The fault sink invalidates the bank, closes the live gate and prevents new snapshots until the successor is ready.
 
-## 验证
+## Add an instrument
 
-原始证据包含先失败测试、修复结果、最终源码 SHA 与命令。旧 63 个独立契约向量保持不变，新 46 布局生成检查与独立字节样本覆盖 Exact 消息及发布控制 38–40；独立 256 字节样本覆盖新增 replay 控制 41/42 的身份、挑战、操作、对象和保留字节。
+`prepare_expansion` creates a private candidate for a strict superset of the current instruments, with the same catalog and a greater set version. Existing versions, required states, book keys and event source bindings must match. Only new rows are warmed. A gap or unusable event clears readiness. Before committing, check the candidate’s freshness, the old subscribers’ detachment, and the old and new cache budgets, including the peak while both exist.
 
-定向真实回归还检查了七类输入的来源时间和精确值、SHM 实际借用、后续完整 JOIN、检查点恢复，以及独立事件不能刷新深度年龄。既有 SBE 深度 mapped 测试继续运行。此阶段未新增 TLA；模块与全局模型在功能代码完成后统一更新。
+The next bank advances feed and ring generations, points to its predecessor and starts at the old published sequence plus one. Commit copies current state, validates snapshot size, republishes all member states, then freezes the old bank. An invalid plan or failed candidate write leaves the old publisher running. A freeze failure invokes the fault sink. [Expansion implementation](../../crates/tickwire-market-publisher/src/expansion.rs)
 
-## 发布目录的本地盘口键
+## Verify
 
-`InstrumentConfig` 将完整的外部 `u64 instrument_id` 绑定到 owner 分配的本地 `BookKey`；`BookKey.instrument` 可以为零，不要求等于外部 ID 或其低 32 位。同一 topic 的不同目录行必须使用不同的完整 `(venue, instrument, source)` 键，`TopicPublisher::new` 在接纳目录时拒绝重复键。不同 venue 或 source 下相同的本地 instrument 值仍是不同键。
+```sh
+cargo test --locked -p tickwire-md --test market_events --test publisher_hot --test instrument_slots --test sbe_publication
+cargo test --locked -p tickwire-market-publisher -p tickwire-ipc
+```
 
-深度发布先核对 `BookView` 的完整键与目标行一致，错误键不得改变该行的盘口、revision 或已发布位置；既有故障路径仍同步失效发布 bank。正确视图按其目录行的稳定 ID 编码 Quote、FeedState 与深度记录，JOIN 快照的成员 ID 和状态记录也保留完整 `u64`。回归必须覆盖低 32 位相同的两个高位外部 ID，分别绑定本地键 0、1，并验证错行视图被拒绝、失败 bank 交接后缓存内容保持原值。
-
-## 发布热路径的有界存储
-
-`TopicPublisher` 在构造时预留每标的完整四类状态的容量和两侧盘口缓存。状态仍按 `message_type` 排序，保持 JOIN 与换 bank 时的既有编码/重发顺序；独立事件 source 使用三个固定槽，分别对应 BBA、Trade、MarkFunding。首次加入类别也不能扩容。
-
-每个 topic 共享一个双侧合计最多 4096 档的解码工作区和一个 4096 项 `DepthLevel` 发布工作区，不按标的重复分配。缓存盘口仍可配置每侧最多 5000 档。普通深度通知使用最多三条记录和三项消息引用的固定数组，经同步 `publish_market` 发布；该调用返回后即可复用工作区。JSON/SBE、首次及连续深度/事件从发布入口至 SHM 在健康路径不进行堆分配，JSON 完整发布须能在 2 MiB 线程栈执行。网络 owner 的接收缓冲、帧解析、输入解码另有分配边界，不由本条结论覆盖。
-
-`cache_bytes` 限制发布器自身持有的堆载荷保留量：行数组、每行状态与两侧深度容量、目录及解码 context 的文本、固定标的索引、共享解码/发布工作区。使用实际 capacity 与元素尺寸核算，所有求和与乘法检查溢出；`reserved_cache_bytes()` 返回同一核算结果。预算不含分配器元数据、发布器内联体及有界调用栈，SHM/JoinOwner 和临时 JOIN 快照由各自资源预算管理。构造预检与实际保留量复核均拒绝超限，不把原 wire 字节估算当实际堆上限。
-
-失败语义保持不变：错误 key、旧代次或超过 view 容量在修改行前拒绝。原始增量解码、增量与视图不符或 SHM 整批发布失败时，可以保留最新健康 `BookView` 缓存与 revision，但已发布序号不得前移；同步触发 `FaultSink`，设置 dirty/needs_bank 并拒绝快照和 Live。bank 失败期间继续接收健康源缓存，供后续完整 JOIN；不能因复用工作区而丢失新缓存或泄漏上一帧尾部。回归覆盖总 4096/4097、inline 12/arena 13、长帧后短帧、首次类别、ring/arena 耗尽、失败 bank 交接与缓存预算临界值。
-
-## 冷路径 topic 成员扩展
-
-`prepare_expansion` 在旧发布链继续运行时创建私有 `TopicExpansion`。新目录必须是同一 catalog/version/hash 下的严格超集，旧标的版本、必需状态、完整 BookKey 与独立 source 绑定不变，instrument_set_version 严格增加。旧行保留至少原有的状态/深度预留容量；新增行由明确的 InstrumentConfig 创建，不从未知行情自动登记。
-
-候选通过 `configure_event`、`warm_notice` 和 `warm_event_notice` 只预热新增行，不发布 ring，也不提供 JOIN。来源身份、时间、连接/盘口代次、视图键和类别均校验；Gap、Disconnected、Rebuild 或不可用事件关闭对应预热状态，不能沿用断线前的 ready。`ready(now,max_age_ns)` 检查新增行深度自身与每个必需类别的可用性和原接收时间，事件不得刷新深度 age；commit 刷新旧行后再检查整个目录。
-
-`commit_expansion` 才接收新 JoinOwner。它要求旧 owner 的所有登记已通过真实 cursor 的 QUIESCED/DETACH 校验（空集合允许），重新复制旧行当前缓存并验证整个候选的必需状态与新鲜度。新 bank 的 ring_epoch/feed_generation 严格增加，前驱是旧 bank，cutover_seq 等于本次旧 published，first_seq 等于 cutover+1；生产者、channel、topic、catalog 和 ABI features 保持一致。未开放的新 bank 按原 message_type 顺序重新发布所有状态，成功后冻结旧 owner 并替换发布器，旧 owner 返回调用方保留其映射。
-
-候选实际保留堆载荷以及旧发布器载荷的总和不得超过显式 peak_cache_bytes；候选自身还受 limits.cache_bytes 限制。预热不扩容，提交复制旧行后再次检查，并核对当前完整快照的页对齐编码长度不超过 snapshot_bytes。SHM、新旧 bank 映射、网络 owner 与临时 JOIN 快照由调用方的独立资源预算管理。无效计划、未静默、超龄或候选写失败均不改变旧发布器；冻结失败沿 FaultSink 同步关闭旧链。既有同成员 `replace_bank` 的语义不变。
+The seven event combinations run against local TLS/WebSocket fixtures and real shared memory on Linux. The tests inspect exact records, late JOIN, replica checkpoints, independent freshness and publication capacity failures. Byte fixtures for exact IPC records and replay control remain separate from codec-to-codec round trips. [Event round trips](../../crates/tickwire-md/tests/market_events.rs) · [Allocation and capacity tests](../../crates/tickwire-md/tests/publisher_hot.rs) · [IPC vectors](../../crates/tickwire-ipc/tests)

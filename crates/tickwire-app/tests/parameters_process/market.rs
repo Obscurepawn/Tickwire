@@ -6,34 +6,53 @@ use tickwire_clock_sys::SystemClock;
 #[path = "../../../tickwire-strategy-host/tests/capture_process/market.rs"]
 #[allow(dead_code)]
 mod shared;
+#[path = "market_spot.rs"]
+mod spot;
 
 enum Action {
     Publish(i64, mpsc::Sender<u64>),
+    Admission(u8, mpsc::Sender<tickwire_md::server::Admission>),
     Stop,
 }
 pub struct Market {
     pub admission: tickwire_md::server::Admission,
     pub directory: PathBuf,
     pub instrument: tickwire_venue::InstrumentBinding,
-    tx: mpsc::Sender<Action>,
+    tx: Option<mpsc::Sender<Action>>,
     thread: Option<std::thread::JoinHandle<()>>,
 }
 impl Market {
     pub fn start() -> Self {
+        Self::start_source(None)
+    }
+    pub fn start_source(venue: Option<u32>) -> Self {
         let (tx, rx) = mpsc::channel();
         let (info_tx, info_rx) = mpsc::channel();
         let thread = std::thread::spawn(move || {
             let mut clock = SystemClock::new(ClockDomain::new([8; 16], 1).unwrap()).unwrap();
             let mut fixture = shared::Fixture::new(clock.sample().unwrap().monotonic.nanos());
-            let instrument = fixture.config.feeds[0]
+            let mut instrument = fixture.config.feeds[0]
                 .instrument
                 .build(tickwire_binance_public::Source::SpotProduction)
                 .unwrap();
+            let spot = venue.map(|v| spot::setup(&mut fixture, &mut instrument, v));
+            let mut session = spot.as_ref().map(|cfg| spot::subscribe(cfg));
+            if let (Some(session), Some(venue)) = (session.as_mut(), venue) {
+                spot::publish(
+                    &mut fixture,
+                    session,
+                    &instrument,
+                    venue,
+                    2,
+                    100,
+                    clock.sample().unwrap().monotonic.nanos(),
+                );
+            }
             info_tx
                 .send((
                     fixture.admission(1),
                     fixture.config.admission_directory.clone(),
-                    instrument,
+                    instrument.clone(),
                 ))
                 .unwrap();
             let mut sequence = 2;
@@ -41,10 +60,25 @@ impl Market {
             loop {
                 match rx.try_recv() {
                     Ok(Action::Stop) | Err(mpsc::TryRecvError::Disconnected) => break,
+                    Ok(Action::Admission(id, reply)) => {
+                        reply.send(fixture.admission(id)).unwrap();
+                    }
                     Ok(Action::Publish(bid, reply)) => {
                         sequence += 1;
                         let now = clock.sample().unwrap().monotonic.nanos();
-                        publish(&mut fixture, sequence, previous_bid, bid, now);
+                        if let (Some(session), Some(venue)) = (session.as_mut(), venue) {
+                            spot::publish(
+                                &mut fixture,
+                                session,
+                                &instrument,
+                                venue,
+                                sequence,
+                                bid,
+                                now,
+                            );
+                        } else {
+                            publish(&mut fixture, sequence, previous_bid, bid, now);
+                        }
                         previous_bid = bid;
                         let published = fixture.topics[0].split().0.published();
                         reply.send(published).unwrap();
@@ -62,12 +96,42 @@ impl Market {
             }
         });
         let (admission, directory, instrument) = info_rx.recv().unwrap();
+        let mut market = Self::subscriber(admission, directory, instrument);
+        market.tx = Some(tx);
+        market.thread = Some(thread);
+        market
+    }
+    pub fn subscriber(
+        admission: tickwire_md::server::Admission,
+        directory: PathBuf,
+        instrument: tickwire_venue::InstrumentBinding,
+    ) -> Self {
         Self {
             admission,
             directory,
             instrument,
-            tx,
-            thread: Some(thread),
+            tx: None,
+            thread: None,
+        }
+    }
+    // Only the first handle owns the server thread. Each peer joins its bank
+    // using a separately admitted cursor and worker identity.
+    #[allow(dead_code)]
+    pub fn peer(&self, id: u8) -> Self {
+        let (tx, rx) = mpsc::channel();
+        self.tx
+            .as_ref()
+            .unwrap()
+            .send(Action::Admission(id, tx))
+            .unwrap();
+        let mut admission = rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        admission.client.endpoint.local.logical_strategy = id.into();
+        Self {
+            admission,
+            directory: self.directory.clone(),
+            instrument: self.instrument.clone(),
+            tx: self.tx.clone(),
+            thread: None,
         }
     }
     pub fn now(&self) -> MonoTime {
@@ -79,14 +143,18 @@ impl Market {
     }
     pub fn publish(&self, bid: i64) -> u64 {
         let (tx, rx) = mpsc::channel();
-        self.tx.send(Action::Publish(bid, tx)).unwrap();
+        self.tx
+            .as_ref()
+            .unwrap()
+            .send(Action::Publish(bid, tx))
+            .unwrap();
         rx.recv_timeout(Duration::from_secs(5)).unwrap()
     }
 }
 impl Drop for Market {
     fn drop(&mut self) {
-        let _ = self.tx.send(Action::Stop);
         if let Some(t) = self.thread.take() {
+            let _ = self.tx.as_ref().unwrap().send(Action::Stop);
             t.join().unwrap();
         }
     }

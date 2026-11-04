@@ -6,6 +6,8 @@
 mod account_fixture;
 #[path = "projection_launch/channels.rs"]
 mod channels;
+#[path = "parameters_process/external_spot.rs"]
+mod external_spot;
 #[path = "parameters_process/fixture.rs"]
 mod fixture;
 #[path = "parameters_process/inputs.rs"]
@@ -14,6 +16,8 @@ mod inputs;
 mod market;
 #[path = "projection_launch/runtime.rs"]
 mod runtime;
+#[path = "parameters_process/spot.rs"]
+mod spot;
 use fixture::Fixture;
 use std::path::PathBuf;
 
@@ -237,4 +241,39 @@ fn expired_parameter_query_rejects_queued_intent_and_reaps_worker() {
         "{}",
         serde_json::json!({"case":"parameter_query_expired","pid":pid,"effect_was_pending":true,"delivered":false,"proof":false,"reaped":true})
     );
+}
+
+#[test]
+#[ignore = "requires fixed TICKWIRE_PARAMETERS_WORKER; two real workers share one MD feed"]
+fn two_active_strategies_consume_one_market_update_and_submit_independently() {
+    let worker = worker();
+    let first = Fixture::new(&worker, 1, 100);
+    let peer = first.market.peer(2);
+    let second = Fixture::new_with_market(&worker, 1, 100, peer);
+    let slots = [&first, &second].map(|fixture| {
+        let host = fixture.root.join("host.json");
+        std::fs::write(&host, serde_json::to_vec(&fixture.host).unwrap()).unwrap();
+        serde_json::json!({
+            "logical_strategy_id": fixture.target().logical_strategy_id,
+            "strategy": {"mode":"hosted","config": host},
+        })
+    });
+    let group =
+        serde_json::from_value(serde_json::json!({"mode":"multi","members":slots})).unwrap();
+    let mut owner =
+        tickwire_app::launch::build(&group, &first.runtime, first.policy.clone()).unwrap();
+    first.seed(&mut *owner);
+    let sequence = first.market.publish(100);
+    let a = first.wait_consumed(&mut *owner, sequence);
+    let b = second.wait_consumed(&mut *owner, sequence);
+    assert_eq!(a.runtime.markets, b.runtime.markets);
+    let one = first.assert_command(100);
+    let two = second.assert_command(100);
+    let received = [
+        first.next_ready(&mut *owner).unwrap().command,
+        first.next_ready(&mut *owner).unwrap().command,
+    ];
+    assert_ne!(one.digest(), two.digest());
+    assert!(received.contains(&one) && received.contains(&two));
+    assert!(first.next_ready(&mut *owner).is_none());
 }

@@ -208,7 +208,7 @@ impl tickwire_runtime::node::Strategy for PendingStrategy {
     fn on_submission(
         &mut self,
         _: &tickwire_venue::CanonicalCommand,
-        _: &std::result::Result<tickwire_account_gateway::Status, tickwire_binance_account::Error>,
+        _: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
     }
 }

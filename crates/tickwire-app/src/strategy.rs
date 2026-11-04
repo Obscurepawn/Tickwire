@@ -1,13 +1,13 @@
 use crate::{Result, config::read_file, invalid};
 use serde::Deserialize;
-use std::{path::PathBuf, time::Duration};
+use std::path::PathBuf;
 use tickwire_account::Account;
 use tickwire_binance_clock::LocalTime;
 use tickwire_binance_public::Notice;
 use tickwire_recovery::{EncodedInputs, RecoveryMode};
 use tickwire_runtime::{
     authority::{Dependency, RecoveryBundle},
-    node::{Health, Strategy, Submission},
+    node::{Health, Intake, Strategy, Submission},
 };
 use tickwire_venue::CanonicalCommand;
 pub trait AppStrategy: Strategy {
@@ -117,6 +117,7 @@ pub enum Config {
         members: Vec<MemberConfig>,
     },
     Hosted {
+        #[serde(deserialize_with = "host_config")]
         config: crate::hosted::HostConfig,
     },
     /// Each immutable numbered descriptor contains a complete canonical command
@@ -127,6 +128,32 @@ pub enum Config {
         enabled: bool,
     },
 }
+// Keep existing inline profiles usable; groups can also reference independently
+// qualified HostConfig files without duplicating their launch identities.
+fn host_config<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<crate::hosted::HostConfig, D::Error> {
+    struct Profile;
+    impl<'de> serde::de::Visitor<'de> for Profile {
+        type Value = crate::hosted::HostConfig;
+        fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("a hosted strategy configuration or its absolute filename")
+        }
+        fn visit_map<A: serde::de::MapAccess<'de>>(
+            self,
+            map: A,
+        ) -> std::result::Result<Self::Value, A::Error> {
+            Self::Value::deserialize(serde::de::value::MapAccessDeserializer::new(map))
+        }
+        fn visit_str<E: serde::de::Error>(self, path: &str) -> std::result::Result<Self::Value, E> {
+            let bytes =
+                read_file(std::path::Path::new(path), 2 * 1024 * 1024).map_err(E::custom)?;
+            serde_json::from_slice(&bytes).map_err(E::custom)
+        }
+    }
+    deserializer.deserialize_any(Profile)
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MemberConfig {
@@ -253,7 +280,7 @@ impl FileStrategy {
     pub fn failed(&self) -> bool {
         self.failed
     }
-    fn load(&self, now: LocalTime) -> Result<Option<Submission>> {
+    fn load(&self, health: Health, now: LocalTime) -> Result<Option<Submission>> {
         let Some(directory) = &self.directory else {
             return Ok(None);
         };
@@ -267,18 +294,12 @@ impl FileStrategy {
         let command =
             CanonicalCommand::decode(&checked(&file.command, file.command_digest, 1024 * 1024)?)
                 .map_err(|_| invalid("invalid canonical command"))?;
-        let remaining = command
-            .command()
-            .context
-            .request
-            .deadline
-            .checked_sub(now.monotonic.nanos())
-            .filter(|n| *n > 0)
-            .ok_or_else(|| invalid("queued command expired"))?;
-        let deadline = now
-            .instant
-            .checked_add(Duration::from_nanos(remaining))
-            .ok_or_else(|| invalid("command deadline"))?;
+        let deadline = match health.intake(command.command(), now) {
+            Intake::Wait => return Ok(None),
+            Intake::Expired => return Err(invalid("queued command expired")),
+            Intake::DeadlineOverflow => return Err(invalid("command deadline")),
+            Intake::Ready(deadline) => deadline,
+        };
         let recovery = file.recovery.load(command.digest())?;
         Ok(Some(Submission {
             command,
@@ -301,18 +322,8 @@ impl Strategy for FileStrategy {
         {
             return None;
         }
-        match self.load(now) {
+        match self.load(health, now) {
             Ok(Some(command)) => {
-                let administrative = matches!(
-                    command.command.command().body,
-                    tickwire_venue::CommandBody::Cancel(_)
-                        | tickwire_venue::CommandBody::Query(_)
-                        | tickwire_venue::CommandBody::CancelList(_)
-                        | tickwire_venue::CommandBody::CancelAlgo(_)
-                );
-                if !administrative && !health.ready() {
-                    return None;
-                }
                 self.pending = true;
                 Some(command)
             }
@@ -330,10 +341,7 @@ impl Strategy for FileStrategy {
     fn on_submission(
         &mut self,
         command: &CanonicalCommand,
-        result: &std::result::Result<
-            tickwire_account_gateway::Status,
-            tickwire_binance_account::Error,
-        >,
+        result: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
         eprintln!(
             "{}",
@@ -345,6 +353,16 @@ impl Strategy for FileStrategy {
         } else {
             self.failed = true;
         }
+    }
+    fn on_request_reply(
+        &mut self,
+        command: &CanonicalCommand,
+        reply: &tickwire_venue::RequestReply,
+    ) {
+        eprintln!(
+            "{}",
+            serde_json::json!({"event":"request_reply","member": command.command().context.strategy.logical_strategy_id,"intent": command.command().context.request.intent_id, "reply":format!("{reply:?}")})
+        );
     }
     fn on_rest(&mut self, outcome: tickwire_binance_account::rest::RestOutcome, _: &Account) {
         eprintln!(
@@ -394,6 +412,16 @@ pub struct MultiStrategy {
     highest_generation: std::collections::BTreeMap<u64, u64>,
 }
 impl MultiStrategy {
+    fn command_member(&self, command: &CanonicalCommand) -> Option<usize> {
+        self.members.iter().position(|m| {
+            m.id == command.command().context.strategy.logical_strategy_id
+                && m.instance.is_none_or(|(instance, generation)| {
+                    instance == command.command().context.strategy.instance_id
+                        && generation == command.command().context.request.strategy_generation
+                })
+        })
+    }
+
     fn observation_member(
         &mut self,
         target: crate::observation::Target,
@@ -1039,20 +1067,23 @@ impl Strategy for MultiStrategy {
     fn on_submission(
         &mut self,
         command: &CanonicalCommand,
-        result: &std::result::Result<
-            tickwire_account_gateway::Status,
-            tickwire_binance_account::Error,
-        >,
+        result: &tickwire_runtime::node::SubmissionResult<'_>,
     ) {
-        if let Some(i) = self.members.iter().position(|m| {
-            m.id == command.command().context.strategy.logical_strategy_id
-                && m.instance.is_none_or(|(instance, generation)| {
-                    instance == command.command().context.strategy.instance_id
-                        && generation == command.command().context.request.strategy_generation
-                })
-        }) {
+        if let Some(i) = self.command_member(command) {
             if let Some(s) = &mut self.members[i].strategy {
                 s.on_submission(command, result);
+            }
+            self.failed_member(i);
+        }
+    }
+    fn on_request_reply(
+        &mut self,
+        command: &CanonicalCommand,
+        reply: &tickwire_venue::RequestReply,
+    ) {
+        if let Some(i) = self.command_member(command) {
+            if let Some(s) = &mut self.members[i].strategy {
+                s.on_request_reply(command, reply);
             }
             self.failed_member(i);
         }
@@ -1142,10 +1173,7 @@ mod multi_tests {
         fn on_submission(
             &mut self,
             _: &CanonicalCommand,
-            _: &std::result::Result<
-                tickwire_account_gateway::Status,
-                tickwire_binance_account::Error,
-            >,
+            _: &tickwire_runtime::node::SubmissionResult<'_>,
         ) {
         }
     }
@@ -1252,10 +1280,7 @@ mod multi_tests {
         fn on_submission(
             &mut self,
             _: &CanonicalCommand,
-            _: &std::result::Result<
-                tickwire_account_gateway::Status,
-                tickwire_binance_account::Error,
-            >,
+            _: &tickwire_runtime::node::SubmissionResult<'_>,
         ) {
         }
         fn handover_quiesce(&mut self, _: &tickwire_runtime::node::StrategySwitch) -> bool {

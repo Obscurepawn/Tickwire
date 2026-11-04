@@ -1,31 +1,27 @@
-# WS 交易 owner 实现规格
+# Binance WebSocket trading owner
 
-当前代码以 `tickwire-binance-account::rest::RestOwner` 统一持有 REST/WS 交易责任。协议接口和配置见WS 接口。
+`tickwire-binance-account::rest::RestOwner` owns trading-account responsibilities for both REST and WebSocket command transport. The WebSocket route has a separate order-entry connection, a durable correlation ID and a journaled request-to-account binding. Read-only account reconciliation continues to use REST. [Trading owner](../../crates/tickwire-binance-account/src/rest.rs) · [WebSocket binding](../../crates/tickwire-binance-account/src/ws.rs)
 
-## 持久身份与输出
+## Durable identity before output
 
-- 输入 16/17/18/19/20 标签分别使用独立版本化编码，解码校验长度并重新编码核对规范字节。Binding 的原命令、输入位置、writer、会话、账户原收据/封口和 HistoryFrontier 完整核对。
-- 57 字节 ID 无损编码输入 stream、writer、连接代次和实际 Binding 序号。新连接先同步会话代次；旧 owner Drop/撤销使旧资格失效。恢复不重新签发资格。
-- 原 JSON/掩码帧和 `SignedTime` 在同一有界共享状态保存。首次应用输出需实际 `DurableWsBinding` 与缓存帧摘要相等，且实际账户收据与该绑定相等。
-- `AwaitingCommit` 保留账户责任。SyncReplica 的本地 Admit 收据先于 ACK 可读取；Binding 输入同步先于输出，原 Admit 恢复闭包不反向引用后续 Binding。
-- Gateway 的本地零接受分支仍先验证候选 Aborted、同步账户 WAL，再释放。断线、错误 ID、重开后的旧意图均不走该本地证明分支。
+Input records 16 through 20 represent `WsSession`, `WsBinding`, `WsResponse`, `WsEffect` and `WsSessionEvent`, respectively. The decoder validates lengths and canonical encoding. A binding ties the original command and input position to the writer, connection, original account receipt or seal, and the account history frontier. A 57-byte wire request ID reversibly encodes the input stream ID, writer epoch, connection epoch and actual binding sequence. Opening a connection first persists its session epoch. Dropping or revoking the old owner invalidates that owner's capability. Replay cannot mint it again. [Record codec](../../crates/tickwire-binance-account/src/codec.rs) · [Session and request ID](../../crates/tickwire-binance-account/src/ws.rs)
 
-## 实际连接与恢复
+The bounded session state retains the original JSON, masked frame and `SignedTime`. Before the first application byte is accepted, the durable binding must match both the cached frame digest and the actual account receipt. `AwaitingCommit` retains the reservation. In synchronous replica mode the original local admission receipt is available before the replica acknowledgement. The binding must be durable before output. Its later position is outside the original admission's recovery closure. [Session owner](../../crates/tickwire-binance-account/src/ws/owner.rs) · [Gateway send path](../../crates/tickwire-account-gateway/src/lib.rs)
 
-Gateway 的协议控制槽只接受固定 Upgrade 和 Ping/Pong/Close 类型。升级校验成功才开放业务提交；帧头/掩码首次被 TLS writer 接受就计为业务 MayHaveSent。控制槽在业务帧边界使用，Close 无法在该边界发送时关闭连接并保持责任。
+A local proof that zero application bytes were accepted permits the gateway to validate a candidate `Aborted` record, synchronize it to the account WAL and then release the reservation. A disconnect, wrong response ID or recovered historical intent does not establish zero acceptance. Acceptance by the TLS writer of even the frame header or mask counts as `MayHaveSent`. [Gateway WebSocket transport](../../crates/tickwire-account-gateway/src/websocket.rs)
 
-响应先同步 `WsResponse + WsEffect[]`，再逐条写账户 `IngressEvent`。完整原文在恢复时重新解析并核对已记录效果。已经匹配的历史 ID 再出现时记 Duplicate；错误 ID、畸形/不完整响应保存原文并隔离。订单累计量仅生成 Order 观察，不推算成交/手续费。429/418 冻结共享额度，鉴权和时钟错误停止会话。
+## Receive and recover
 
-输入 owner 的 `paired` 校验将所有 Binding 关联到实际账户原 Admit/原封口。双 WAL 中断补写使用原输入 key，仅补缺失账户记录。恢复后的业务请求查询可返回 Unknown，但 `CommittedAdmission` 和连接都不存在。运行时按已验证 Reactivated 资格重新创建实际 WS 连接，查询仍使用独立 REST 地址；没有回退重发旧请求的入口。
+The control slot permits the expected Upgrade and Ping/Pong/Close traffic. The owner validates the upgrade before accepting business submissions. Control frames use application-frame boundaries. If a Close cannot be sent at such a boundary, the connection closes while outstanding liabilities remain. [Session lifecycle](../../crates/tickwire-binance-account/src/ws/lifecycle.rs)
 
-## 复制与配置
+A matched response and its derived effects are written to the input WAL before effects become account `IngressEvent` records. Recovery reparses the original bytes and checks the recorded effects. Another reply to a previously matched ID records a duplicate. The owner retains raw bytes and quarantines unexpected IDs, malformed messages and incomplete responses. Reported cumulative quantity produces an order observation. An individual trade or fee needs its own evidence. Rate-limit and ban responses (429/418) affect the shared quota. Authentication and clock failures stop the session. [Response processing](../../crates/tickwire-binance-account/src/ws/response.rs) · [Durable effects](../../crates/tickwire-binance-account/src/rest/persistence.rs)
 
-`SourceWorker` 的私有 `LocalPrefixProof.dependencies(sequence)` 来自实际已封存 Entry；app 在公开 Ready 前核对依赖根中的 Binding 输入位置和 SHA256。旧 locator 不得因后续输入增长而改变。镜像 ACK 证明其持久前缀和完整对象闭包，不提供旧执行者隔离资格。
+Paired recovery checks each binding against the original account admission and sealed frontier. A torn append across the two WALs is repaired by writing only missing account records with the original input keys. An intent recovered as unknown has neither a live `CommittedAdmission` nor an old connection. Only a verified `Reactivated` record can open a replacement connection. It confers no replay authority for the historical request. [Input recovery](../../crates/tickwire-binance-account/src/lib.rs) · [Account reactivation](../../crates/tickwire-account-gateway/src/lib.rs)
 
-部署的顶层 `trading_websocket` 与 `network.trading_websocket` 同时配置，缺一拒绝；均省略保留 REST。`network.rest` 永远用于只读对账。实际签名时间源、环境、产品、authority 和凭据引用由部署与已加载凭据固定。共享额度规则必须显式提供 WS 应用与会话控制动作。
+## Deployment and replication
 
-## 定向验证
+Configure the top-level `trading_websocket` section and `network.trading_websocket` together, or omit both for REST command transport. `network.rest` remains the independent read-only reconciliation endpoint. The deployment and loaded credentials select the signing clock, product, environment and network authority. Quota rules explicitly cover both WebSocket application actions and session control. [Runtime assembly](../../crates/tickwire-runtime/src/files.rs)
 
-验证记录按阶段保留实际 Red/Green，包含真实 FileStore 的输入/账户 WAL、原始响应同步后账户 torn append 的重开补写、本地 Spot/USD-M 双 TLS 端点，以及实际双向证书 TLS 镜像与两种提交模式。策略授权在这些连接测试中使用显式测试 Authority；复制资格使用真实 SourceWorker/FileMirror 私有 Evidence。
+The replica source obtains the dependency locator from a sealed entry. Before publishing readiness, the app verifies the binding input position and SHA-256 against that entry's dependency root. Later input cannot change an earlier locator. A mirror acknowledgement attests the persisted prefix and dependency closure. Isolating the previous executor requires separate fencing evidence. [Replication](replica.md)
 
-完整 List/Algo/Amend 风险与生命周期、session.logon、计划无冻结换线尚未在本实现提供。模型同步和形式验证沿全仓安排，在功能代码完成后进行。
+The targeted tests cover file-backed WALs, repair after an input response is durable but the account append tears, local Spot and USD-M TLS endpoints, and mutually authenticated replica TLS with both commit modes. Transport tests inject an explicit test trading authority. Replica qualification uses the actual source and mirror evidence. Product-specific list, algo and amend support must also pass its own risk and lifecycle checks. The trading owner does not infer full support for these features from successful encoding. [WebSocket tests](../../crates/tickwire-binance-account/src/ws/tests.rs) · [Account structures](../../crates/tickwire-account/src/structures.rs)

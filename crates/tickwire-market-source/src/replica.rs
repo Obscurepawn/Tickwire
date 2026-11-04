@@ -118,6 +118,37 @@ impl MarketView<'_> {
             && self.best_bid().is_some()
             && self.best_ask().is_some()
     }
+    /// The aggregate feed explicitly identifies independent, two-record BBO updates.
+    pub fn quote_only(&self) -> bool {
+        matches!(self.book.states.get(&8), Some(MarketState::Legacy(feed))
+            if feed.body.source_schema_id == SPOT_BBO_FEED_SCHEMA)
+    }
+    /// Test the last applied ring record at the recorded strategy decision time.
+    pub fn callback_ready_at(&self, now: u64, maximum_age_ns: u64) -> bool {
+        if !self.quote_only() {
+            return self.live()
+                && now
+                    .checked_sub(self.book.received)
+                    .is_some_and(|n| n <= maximum_age_ns);
+        }
+        let (Some(MarketState::Legacy(feed)), Some(MarketState::Exact(quote))) =
+            (self.book.states.get(&8), self.best_quote())
+        else {
+            return false;
+        };
+        self.continuous()
+            && feed.header.sequence == self.book.last_event
+            && self.book.last_event == self.replica.sequence
+            && quote.header.sequence.checked_add(1) == Some(feed.header.sequence)
+            && quote.body.feed_state == 2
+            && quote.body.bid_quantity_lots > 0
+            && quote.body.ask_quantity_lots > 0
+            && feed.header.flags & 2 != 0
+            && feed.header.ingress_mono_ns == quote.header.ingress_mono_ns
+            && self
+                .state_age_ns(1, now)
+                .is_some_and(|n| n <= maximum_age_ns)
+    }
     pub fn bids(&self) -> &[DepthLevel] {
         &self.book.bids
     }

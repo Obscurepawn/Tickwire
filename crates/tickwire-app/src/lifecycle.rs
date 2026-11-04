@@ -1342,10 +1342,7 @@ mod operation_halt_tests {
         fn on_submission(
             &mut self,
             _: &tickwire_venue::CanonicalCommand,
-            _: &std::result::Result<
-                tickwire_account_gateway::Status,
-                tickwire_binance_account::Error,
-            >,
+            _: &tickwire_runtime::node::SubmissionResult<'_>,
         ) {
         }
         fn handover_halt(&mut self, _: u64) -> bool {
