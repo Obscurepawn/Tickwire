@@ -362,13 +362,16 @@ fn drive_controller_case(eligible: bool, association: bool, invalid_signature: b
         signing_key: tickwire_binance::auth::SigningKey::hmac(SECRET).unwrap(),
     };
     let credentials = deploy.credentials(&baseline, &keys);
+    // This case keeps the original execution writer throughout reconciliation. Give its
+    // idle TLS connection the same lifetime as the scenario's bounded startup loop.
+    let deadline = Instant::now() + Duration::from_secs(8);
     let network = files::Networks {
         websocket: None,
         rest: tickwire_account_gateway::ConnectionConfig {
             address: server.address,
             tls: server.tls.clone(),
             limits: Limits::default(),
-            connect_deadline: Instant::now() + Duration::from_secs(3),
+            connect_deadline: deadline,
         },
         time: tickwire_binance_clock::NetworkConfig {
             address: server.address,
@@ -425,7 +428,6 @@ fn drive_controller_case(eligible: bool, association: bool, invalid_signature: b
     )
     .unwrap();
     let poll = mio::Poll::new().unwrap();
-    let deadline = Instant::now() + Duration::from_secs(8);
     let mut signed = false;
     let mut saw_closure = false;
     let mut association_selected = false;
@@ -439,6 +441,11 @@ fn drive_controller_case(eligible: bool, association: bool, invalid_signature: b
             server.paths.lock().unwrap()
         );
         node.step().unwrap();
+        assert!(
+            !node.rest().gateway().halted(),
+            "the read-only fixture lost the original execution writer at ledger {}",
+            node.account().ledger_sequence()
+        );
         controller.drive(&mut node, poll.registry()).unwrap();
         let proposal = temp.0.join("proposal.json");
         if !signed && proposal.exists() {

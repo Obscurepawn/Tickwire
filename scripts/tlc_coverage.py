@@ -15,6 +15,7 @@ LONG_END = (
     "are best checked with coverage and cost statistics disabled).",
 )
 ENTRY = re.compile(r"^<(.+ of module ([A-Za-z_][A-Za-z_0-9]*)(?: \([^>]*\))?)>: ([0-9]+):([0-9]+)$")
+CALL_SITE = re.compile(r" \([0-9]+ [0-9]+ [0-9]+ [0-9]+\)$")
 PROPERTY = re.compile(r"^<.+ of module ([A-Za-z_][A-Za-z_0-9]*)(?: \([^>]*\))?>$")
 SUMMARY = re.compile(
     r"^([0-9,]+) states generated, ([0-9,]+) distinct states found, "
@@ -85,10 +86,13 @@ def check_logs(paths: list[Path], model: str) -> dict:
         except (OSError, UnicodeError, CoverageError) as error:
             raise CoverageError(f"{path}: {error}") from error
         for key, value in counts.items():
-            name = key.split(" line ", 1)[0]
-            if name in declarations and declarations[name] != key:
+            # TLC can report several call sites for one operator declaration.
+            # Preserve each site's full key when accumulating successor counts.
+            declaration = CALL_SITE.sub("", key)
+            name = declaration.split(" line ", 1)[0]
+            if name in declarations and declarations[name] != declaration:
                 raise CoverageError(f"{path}: declaration changed for action {name}")
-            declarations[name] = key
+            declarations[name] = declaration
             totals[key] = totals.get(key, 0) + value
     missing = [key for key, value in totals.items() if value == 0]
     if missing:

@@ -86,6 +86,22 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(CoverageError):
             self.check(run(1, 1), run(1, 1).replace("<B line 3", "<B line 4"))
 
+    def test_distinct_call_sites_share_a_declaration_but_each_requires_coverage(self):
+        declaration = "A line 2, col 1 to line 2, col 1 of module Example"
+        first = f"{declaration} (215 25 215 59)"
+        second = f"{declaration} (216 25 216 72)"
+
+        def with_sites(a, b):
+            return run(1, 1).replace(
+                f"<{declaration}>: 0:1", f"<{first}>: 0:{a}\n<{second}>: 0:{b}")
+
+        totals = self.check(with_sites(2, 0), with_sites(0, 3))["generated"]
+        self.assertEqual((totals[first], totals[second]), (2, 3))
+        with self.assertRaisesRegex(CoverageError, "uncovered across all configurations"):
+            self.check(with_sites(2, 0))
+        with self.assertRaisesRegex(CoverageError, "declaration changed for action A"):
+            self.check(with_sites(1, 1), with_sites(1, 1).replace("line 2,", "line 4,"))
+
     def test_conditional_next_actions_are_merged_across_configurations(self):
         only_a = run(2, 0).replace(
             "<B line 3, col 1 to line 3, col 1 of module Example>: 0:0\n", "")
@@ -125,7 +141,8 @@ class CoverageTests(unittest.TestCase):
 
     def test_private_product_configs_have_complementary_next_branches(self):
         directory = Path(__file__).resolve().parents[1] / (
-            "tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence"
+            "tla/execution_models/binance_private_session/L0_session_lifecycle/"
+            "04_evidence/runs/pre-final-sample-v2"
         )
         paths = [directory / f"L0_PrivateSession{suffix}.log"
                  for suffix in ("", "_logon", "_usdm", "_buffer")]
