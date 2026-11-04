@@ -1,4 +1,8 @@
-# Tickwire 验证对象
+# Verification scope
+
+The November 5 audit uses the Linux single-host workspace at `9b2ed63`. It includes Binance, Bybit and OKX source code and all Cargo workspace members in the coverage inventory. Market publishers, independent strategy producers, the serialized account owner and asynchronous private capture have separate observation points. The formal models project documented interfaces onto finite state domains. Venue truth, kernel/TLS behavior and the Rust memory model need their own evidence. [Current audit](audits/2026-11-05/README.md)
+
+## Historical scope of the original ladders
 
 目标是验证单所有者交易 reducer 的资金预留、发送准入和崩溃恢复，再逐层加入行情、IPC、多进程接管。用户的完整目标仍覆盖 Binance 现货与 USDⓈ-M；当前模型结论按各级实际覆盖范围记录。
 

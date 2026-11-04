@@ -1,0 +1,15 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 7037101218686441244 with 1 worker on 16 cores with 640MB heap and 64MB offheap memory [pid: 237629] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Model checking completed. No error has been found.
+The coverage statistics at 2026-11-05 02:10:41
+<Init line 45, col 1 to line 45, col 4 of module L0_QuotePair>: 1:1
+<Publish line 52, col 1 to line 52, col 10 of module L0_QuotePair>: 48:48
+<Tick line 59, col 1 to line 59, col 4 of module L0_QuotePair>: 49:177
+<JoinSdk line 66, col 1 to line 66, col 7 of module L0_QuotePair>: 23:56
+<JoinAccount line 68, col 1 to line 68, col 11 of module L0_QuotePair>: 36:61
+<SdkRead line 72, col 1 to line 72, col 7 of module L0_QuotePair (74 3 78 45)>: 100:180
+<AccountRead line 83, col 1 to line 83, col 11 of module L0_QuotePair (85 3 92 36)>: 190:190
+End of statistics.
+713 states generated, 447 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 10.
+Finished in 01s at (2026-11-05 02:10:42)

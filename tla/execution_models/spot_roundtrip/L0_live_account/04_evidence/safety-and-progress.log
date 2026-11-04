@@ -1,0 +1,1077 @@
+Picked up JAVA_TOOL_OPTIONS: -Xmx1536m -XX:ActiveProcessorCount=2
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 26 and seed -3176250632266270227 with 1 worker on 2 cores with 1365MB heap and 64MB offheap memory [pid: 244398] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/L0_SpotRoundtrip.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.OlVPWy/java/Naturals.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.OlVPWy/java/FiniteSets.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.OlVPWy/java/TLC.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.OlVPWy/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_SpotRoundtrip
+Starting... (2026-11-05 02:14:06)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:14:06.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.3E-13
+The coverage statistics at 2026-11-05 02:14:06
+<Init line 39, col 1 to line 39, col 4 of module L0_SpotRoundtrip>: 1:1
+  line 39, col 9 to line 43, col 94 of module L0_SpotRoundtrip: 1
+<Publish line 47, col 1 to line 47, col 7 of module L0_SpotRoundtrip>: 1:22
+  line 47, col 15 to line 47, col 24 of module L0_SpotRoundtrip: 925
+  |line 47, col 16 to line 47, col 24 of module L0_SpotRoundtrip: 903
+  line 47, col 29 to line 47, col 45 of module L0_SpotRoundtrip: 22
+  line 47, col 50 to line 47, col 102 of module L0_SpotRoundtrip: 22
+<Observe line 49, col 1 to line 49, col 7 of module L0_SpotRoundtrip>: 1:88
+  line 49, col 15 to line 49, col 23 of module L0_SpotRoundtrip: 88
+  line 49, col 28 to line 49, col 32 of module L0_SpotRoundtrip: 969
+  |line 49, col 29 to line 49, col 32 of module L0_SpotRoundtrip: 881
+  line 49, col 37 to line 49, col 51 of module L0_SpotRoundtrip: 176
+  |line 49, col 37 to line 49, col 42 of module L0_SpotRoundtrip: 88
+  |line 49, col 44 to line 49, col 51 of module L0_SpotRoundtrip: 88
+  line 49, col 56 to line 49, col 65 of module L0_SpotRoundtrip: 88
+  line 49, col 70 to line 49, col 127 of module L0_SpotRoundtrip: 88
+<Produce line 51, col 1 to line 51, col 10 of module L0_SpotRoundtrip>: 6:502
+  line 51, col 18 to line 51, col 26 of module L0_SpotRoundtrip: 502
+  line 51, col 31 to line 51, col 45 of module L0_SpotRoundtrip: 2264
+  |line 51, col 31 to line 51, col 31 of module L0_SpotRoundtrip: 1762
+  |line 51, col 40 to line 51, col 45 of module L0_SpotRoundtrip: 1762
+  line 51, col 50 to line 51, col 72 of module L0_SpotRoundtrip: 502
+  line 52, col 18 to line 52, col 73 of module L0_SpotRoundtrip: 502
+<BeginScan line 55, col 1 to line 55, col 9 of module L0_SpotRoundtrip>: 40:80
+  line 55, col 17 to line 55, col 31 of module L0_SpotRoundtrip: 983
+  |line 55, col 17 to line 55, col 22 of module L0_SpotRoundtrip: 903
+  |line 55, col 24 to line 55, col 31 of module L0_SpotRoundtrip: 903
+  line 55, col 36 to line 55, col 40 of module L0_SpotRoundtrip: 80
+  line 55, col 45 to line 55, col 60 of module L0_SpotRoundtrip: 717
+  |line 55, col 45 to line 55, col 52 of module L0_SpotRoundtrip: 637
+  |line 55, col 54 to line 55, col 60 of module L0_SpotRoundtrip: 637
+  line 55, col 65 to line 55, col 71 of module L0_SpotRoundtrip: 621
+  |line 55, col 65 to line 55, col 69 of module L0_SpotRoundtrip: 541
+  line 55, col 76 to line 55, col 81 of module L0_SpotRoundtrip: 342
+  |line 55, col 76 to line 55, col 79 of module L0_SpotRoundtrip: 262
+  line 55, col 86 to line 55, col 96 of module L0_SpotRoundtrip: 290
+  |line 55, col 86 to line 55, col 89 of module L0_SpotRoundtrip: 210
+  |line 55, col 92 to line 55, col 96 of module L0_SpotRoundtrip: 210
+  line 56, col 17 to line 56, col 27 of module L0_SpotRoundtrip: 80
+  line 56, col 32 to line 56, col 106 of module L0_SpotRoundtrip: 80
+<DropStale line 58, col 1 to line 58, col 9 of module L0_SpotRoundtrip>: 0:92
+  line 58, col 17 to line 58, col 28 of module L0_SpotRoundtrip: 995
+  |line 58, col 17 to line 58, col 20 of module L0_SpotRoundtrip: 903
+  |line 58, col 24 to line 58, col 28 of module L0_SpotRoundtrip: 903
+  line 58, col 34 to line 58, col 39 of module L0_SpotRoundtrip: 198
+  |line 58, col 35 to line 58, col 39 of module L0_SpotRoundtrip: 172
+  line 58, col 44 to line 58, col 55 of module L0_SpotRoundtrip: 238
+  |line 58, col 44 to line 58, col 47 of module L0_SpotRoundtrip: 172
+  |line 58, col 51 to line 58, col 55 of module L0_SpotRoundtrip: 172
+  line 58, col 61 to line 58, col 72 of module L0_SpotRoundtrip: 92
+  line 59, col 17 to line 59, col 91 of module L0_SpotRoundtrip: 92
+<Activate line 62, col 1 to line 62, col 8 of module L0_SpotRoundtrip>: 36:80
+  line 62, col 16 to line 62, col 25 of module L0_SpotRoundtrip: 983
+  |line 62, col 16 to line 62, col 19 of module L0_SpotRoundtrip: 903
+  |line 62, col 21 to line 62, col 25 of module L0_SpotRoundtrip: 903
+  line 62, col 30 to line 62, col 34 of module L0_SpotRoundtrip: 80
+  line 62, col 39 to line 62, col 54 of module L0_SpotRoundtrip: 160
+  |line 62, col 39 to line 62, col 46 of module L0_SpotRoundtrip: 80
+  |line 62, col 48 to line 62, col 54 of module L0_SpotRoundtrip: 80
+  line 62, col 59 to line 62, col 64 of module L0_SpotRoundtrip: 160
+  |line 62, col 59 to line 62, col 62 of module L0_SpotRoundtrip: 80
+  line 62, col 69 to line 62, col 102 of module L0_SpotRoundtrip: 160
+  |line 62, col 69 to line 62, col 86 of module L0_SpotRoundtrip: 80
+  |line 62, col 98 to line 62, col 102 of module L0_SpotRoundtrip: 80
+  line 63, col 16 to line 63, col 88 of module L0_SpotRoundtrip: 80
+  line 64, col 16 to line 64, col 43 of module L0_SpotRoundtrip: 80
+  line 65, col 16 to line 65, col 96 of module L0_SpotRoundtrip: 80
+<Admit line 69, col 1 to line 69, col 8 of module L0_SpotRoundtrip>: 10:10
+  line 69, col 16 to line 69, col 21 of module L0_SpotRoundtrip: 1816
+  |line 69, col 16 to line 69, col 19 of module L0_SpotRoundtrip: 1806
+  line 69, col 26 to line 69, col 29 of module L0_SpotRoundtrip: 10
+  line 69, col 34 to line 69, col 38 of module L0_SpotRoundtrip: 10
+  line 69, col 43 to line 69, col 53 of module L0_SpotRoundtrip: 724
+  |line 69, col 43 to line 69, col 47 of module L0_SpotRoundtrip: 714
+  |line 69, col 49 to line 69, col 53 of module L0_SpotRoundtrip: 714
+  line 69, col 58 to line 69, col 73 of module L0_SpotRoundtrip: 260
+  |line 69, col 58 to line 69, col 65 of module L0_SpotRoundtrip: 250
+  |line 69, col 67 to line 69, col 73 of module L0_SpotRoundtrip: 250
+  line 69, col 78 to line 69, col 85 of module L0_SpotRoundtrip: 204
+  |line 69, col 79 to line 69, col 85 of module L0_SpotRoundtrip: 194
+  line 70, col 16 to line 70, col 38 of module L0_SpotRoundtrip: 102
+  |line 70, col 16 to line 70, col 16 of module L0_SpotRoundtrip: 92
+  |line 70, col 22 to line 70, col 38 of module L0_SpotRoundtrip: 92
+  line 70, col 43 to line 70, col 48 of module L0_SpotRoundtrip: 10
+  |line 70, col 43 to line 70, col 46 of module L0_SpotRoundtrip: 24
+  line 71, col 16 to line 71, col 69 of module L0_SpotRoundtrip: 10
+  line 72, col 16 to line 72, col 69 of module L0_SpotRoundtrip: 10
+<SampleGate line 75, col 1 to line 75, col 10 of module L0_SpotRoundtrip>: 10:10
+  line 75, col 18 to line 75, col 25 of module L0_SpotRoundtrip: 913
+  |line 75, col 18 to line 75, col 21 of module L0_SpotRoundtrip: 903
+  line 75, col 30 to line 75, col 43 of module L0_SpotRoundtrip: 334
+  |line 75, col 30 to line 75, col 41 of module L0_SpotRoundtrip: 324
+  line 75, col 48 to line 75, col 62 of module L0_SpotRoundtrip: 98
+  |line 75, col 48 to line 75, col 53 of module L0_SpotRoundtrip: 88
+  |line 75, col 55 to line 75, col 62 of module L0_SpotRoundtrip: 88
+  line 73, col 14 to line 73, col 18 of module L0_SpotRoundtrip: 10
+  line 73, col 23 to line 73, col 33 of module L0_SpotRoundtrip: 46
+  |line 73, col 23 to line 73, col 27 of module L0_SpotRoundtrip: 36
+  |line 73, col 29 to line 73, col 33 of module L0_SpotRoundtrip: 36
+  line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 30
+  |line 73, col 38 to line 73, col 45 of module L0_SpotRoundtrip: 20
+  |line 73, col 47 to line 73, col 53 of module L0_SpotRoundtrip: 20
+  line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 10
+  line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 30
+  |line 73, col 67 to line 73, col 73 of module L0_SpotRoundtrip: 20
+  line 75, col 80 to line 75, col 159 of module L0_SpotRoundtrip: 10
+  line 76, col 18 to line 76, col 68 of module L0_SpotRoundtrip: 10
+<FirstByte line 78, col 1 to line 78, col 9 of module L0_SpotRoundtrip>: 10:18
+  line 78, col 17 to line 78, col 24 of module L0_SpotRoundtrip: 921
+  |line 78, col 17 to line 78, col 20 of module L0_SpotRoundtrip: 903
+  line 78, col 29 to line 78, col 45 of module L0_SpotRoundtrip: 342
+  |line 78, col 29 to line 78, col 34 of module L0_SpotRoundtrip: 324
+  |line 78, col 38 to line 78, col 45 of module L0_SpotRoundtrip: 324
+  line 78, col 50 to line 78, col 57 of module L0_SpotRoundtrip: 54
+  |line 78, col 51 to line 78, col 57 of module L0_SpotRoundtrip: 36
+  line 78, col 62 to line 78, col 96 of module L0_SpotRoundtrip: 18
+  line 78, col 101 to line 78, col 116 of module L0_SpotRoundtrip: 18
+  line 79, col 17 to line 79, col 60 of module L0_SpotRoundtrip: 18
+<AbortEmpty line 81, col 1 to line 81, col 10 of module L0_SpotRoundtrip>: 13:86
+  line 81, col 18 to line 81, col 25 of module L0_SpotRoundtrip: 963
+  |line 81, col 18 to line 81, col 21 of module L0_SpotRoundtrip: 903
+  line 81, col 30 to line 81, col 43 of module L0_SpotRoundtrip: 384
+  |line 81, col 30 to line 81, col 41 of module L0_SpotRoundtrip: 324
+  line 81, col 49 to line 81, col 55 of module L0_SpotRoundtrip: 44
+  line 81, col 61 to line 81, col 75 of module L0_SpotRoundtrip: 130
+  |line 81, col 61 to line 81, col 66 of module L0_SpotRoundtrip: 88
+  |line 81, col 68 to line 81, col 75 of module L0_SpotRoundtrip: 88
+  line 81, col 80 to line 81, col 89 of module L0_SpotRoundtrip: 94
+  |line 81, col 81 to line 81, col 89 of module L0_SpotRoundtrip: 52
+  ||line 73, col 14 to line 73, col 73 of module L0_SpotRoundtrip: 52
+  |||line 73, col 14 to line 73, col 61 of module L0_SpotRoundtrip: 52
+  ||||line 73, col 14 to line 73, col 53 of module L0_SpotRoundtrip: 52
+  |||||line 73, col 14 to line 73, col 33 of module L0_SpotRoundtrip: 52
+  ||||||line 73, col 14 to line 73, col 18 of module L0_SpotRoundtrip: 52
+  ||||||line 73, col 23 to line 73, col 33 of module L0_SpotRoundtrip: 36
+  |||||line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 20
+  ||||line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 20
+  |||line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 20
+  line 82, col 18 to line 82, col 92 of module L0_SpotRoundtrip: 86
+  line 83, col 18 to line 83, col 65 of module L0_SpotRoundtrip: 86
+<Accept line 85, col 1 to line 85, col 9 of module L0_SpotRoundtrip>: 10:52
+  line 85, col 17 to line 85, col 27 of module L0_SpotRoundtrip: 52
+  |line 85, col 17 to line 85, col 25 of module L0_SpotRoundtrip: 1806
+  line 85, col 32 to line 85, col 45 of module L0_SpotRoundtrip: 616
+  |line 85, col 32 to line 85, col 32 of module L0_SpotRoundtrip: 564
+  |line 85, col 41 to line 85, col 45 of module L0_SpotRoundtrip: 564
+  line 85, col 50 to line 85, col 70 of module L0_SpotRoundtrip: 52
+  line 86, col 17 to line 86, col 69 of module L0_SpotRoundtrip: 52
+<Fill line 87, col 1 to line 87, col 7 of module L0_SpotRoundtrip>: 14:112
+  line 87, col 15 to line 87, col 34 of module L0_SpotRoundtrip: 1918
+  |line 87, col 15 to line 87, col 15 of module L0_SpotRoundtrip: 1806
+  |line 87, col 21 to line 87, col 34 of module L0_SpotRoundtrip: 1806
+  line 87, col 39 to line 87, col 61 of module L0_SpotRoundtrip: 112
+  line 88, col 15 to line 88, col 66 of module L0_SpotRoundtrip: 112
+<Ack line 90, col 1 to line 90, col 3 of module L0_SpotRoundtrip>: 20:184
+  line 90, col 11 to line 90, col 24 of module L0_SpotRoundtrip: 1087
+  |line 90, col 11 to line 90, col 14 of module L0_SpotRoundtrip: 903
+  |line 90, col 20 to line 90, col 24 of module L0_SpotRoundtrip: 903
+  line 90, col 29 to line 90, col 65 of module L0_SpotRoundtrip: 184
+  line 90, col 70 to line 90, col 76 of module L0_SpotRoundtrip: 184
+  line 91, col 11 to line 91, col 70 of module L0_SpotRoundtrip: 184
+<Capture line 93, col 1 to line 93, col 10 of module L0_SpotRoundtrip>: 32:96
+  line 93, col 18 to line 93, col 22 of module L0_SpotRoundtrip: 96
+  line 93, col 27 to line 93, col 49 of module L0_SpotRoundtrip: 1426
+  |line 93, col 27 to line 93, col 27 of module L0_SpotRoundtrip: 1330
+  |line 93, col 33 to line 93, col 49 of module L0_SpotRoundtrip: 1330
+  line 93, col 54 to line 93, col 80 of module L0_SpotRoundtrip: 96
+  line 94, col 18 to line 94, col 78 of module L0_SpotRoundtrip: 96
+<Drain line 97, col 1 to line 97, col 8 of module L0_SpotRoundtrip>: 20:128
+  line 97, col 16 to line 97, col 30 of module L0_SpotRoundtrip: 1934
+  |line 97, col 16 to line 97, col 21 of module L0_SpotRoundtrip: 1806
+  |line 97, col 23 to line 97, col 30 of module L0_SpotRoundtrip: 1806
+  line 97, col 35 to line 97, col 58 of module L0_SpotRoundtrip: 1862
+  |line 97, col 35 to line 97, col 35 of module L0_SpotRoundtrip: 1734
+  |line 97, col 41 to line 97, col 58 of module L0_SpotRoundtrip: 1734
+  line 97, col 63 to line 97, col 87 of module L0_SpotRoundtrip: 128
+  line 98, col 16 to line 98, col 88 of module L0_SpotRoundtrip: 128
+  line 99, col 16 to line 99, col 23 of module L0_SpotRoundtrip: 128
+  line 99, col 28 to line 99, col 105 of module L0_SpotRoundtrip: 128
+<Gap line 101, col 1 to line 101, col 3 of module L0_SpotRoundtrip>: 79:162
+  line 101, col 11 to line 101, col 25 of module L0_SpotRoundtrip: 162
+  line 101, col 30 to line 101, col 36 of module L0_SpotRoundtrip: 827
+  |line 101, col 30 to line 101, col 34 of module L0_SpotRoundtrip: 665
+  line 101, col 41 to line 101, col 52 of module L0_SpotRoundtrip: 162
+  line 102, col 11 to line 102, col 84 of module L0_SpotRoundtrip: 162
+<Reconnect line 103, col 1 to line 103, col 9 of module L0_SpotRoundtrip>: 83:238
+  line 103, col 17 to line 103, col 22 of module L0_SpotRoundtrip: 1141
+  |line 103, col 18 to line 103, col 22 of module L0_SpotRoundtrip: 903
+  line 103, col 27 to line 103, col 40 of module L0_SpotRoundtrip: 238
+  line 103, col 45 to line 103, col 55 of module L0_SpotRoundtrip: 238
+  line 104, col 17 to line 104, col 84 of module L0_SpotRoundtrip: 238
+<Freeze line 107, col 1 to line 107, col 6 of module L0_SpotRoundtrip>: 72:196
+  line 107, col 14 to line 107, col 28 of module L0_SpotRoundtrip: 1099
+  |line 107, col 14 to line 107, col 19 of module L0_SpotRoundtrip: 903
+  |line 107, col 21 to line 107, col 28 of module L0_SpotRoundtrip: 903
+  line 107, col 33 to line 107, col 41 of module L0_SpotRoundtrip: 1063
+  |line 107, col 33 to line 107, col 37 of module L0_SpotRoundtrip: 867
+  line 107, col 47 to line 107, col 52 of module L0_SpotRoundtrip: 539
+  |line 107, col 48 to line 107, col 52 of module L0_SpotRoundtrip: 441
+  line 107, col 57 to line 107, col 69 of module L0_SpotRoundtrip: 539
+  |line 107, col 57 to line 107, col 61 of module L0_SpotRoundtrip: 441
+  |line 107, col 65 to line 107, col 69 of module L0_SpotRoundtrip: 441
+  line 107, col 75 to line 107, col 82 of module L0_SpotRoundtrip: 196
+  line 108, col 14 to line 108, col 87 of module L0_SpotRoundtrip: 196
+<Deadline line 110, col 1 to line 110, col 8 of module L0_SpotRoundtrip>: 445:449
+  line 110, col 16 to line 110, col 24 of module L0_SpotRoundtrip: 449
+  line 110, col 29 to line 110, col 36 of module L0_SpotRoundtrip: 1352
+  |line 110, col 30 to line 110, col 36 of module L0_SpotRoundtrip: 903
+  line 110, col 41 to line 110, col 53 of module L0_SpotRoundtrip: 449
+  line 111, col 16 to line 111, col 87 of module L0_SpotRoundtrip: 449
+<Restart line 115, col 1 to line 115, col 7 of module L0_SpotRoundtrip>: 0:0
+  line 115, col 43 to line 115, col 57 of module L0_SpotRoundtrip: 0
+  line 115, col 62 to line 115, col 72 of module L0_SpotRoundtrip: 0
+  line 115, col 77 to line 115, col 90 of module L0_SpotRoundtrip: 0
+  line 116, col 15 to line 116, col 22 of module L0_SpotRoundtrip: 0
+  line 116, col 27 to line 116, col 38 of module L0_SpotRoundtrip: 0
+  line 116, col 43 to line 116, col 58 of module L0_SpotRoundtrip: 0
+  line 116, col 63 to line 116, col 69 of module L0_SpotRoundtrip: 0
+  line 117, col 15 to line 117, col 63 of module L0_SpotRoundtrip: 0
+<Idle line 118, col 1 to line 118, col 4 of module L0_SpotRoundtrip>: 0:903
+  line 118, col 9 to line 118, col 22 of module L0_SpotRoundtrip: 903
+<TypeOK line 124, col 1 to line 124, col 6 of module L0_SpotRoundtrip>
+  line 124, col 11 to line 126, col 45 of module L0_SpotRoundtrip: 903
+<SampleSound line 127, col 1 to line 127, col 11 of module L0_SpotRoundtrip>
+  line 127, col 16 to line 128, col 102 of module L0_SpotRoundtrip: 903
+  |line 127, col 19 to line 127, col 33 of module L0_SpotRoundtrip: 903
+  |line 127, col 40 to line 127, col 43 of module L0_SpotRoundtrip: 867
+  |line 128, col 19 to line 128, col 102 of module L0_SpotRoundtrip: 36
+<CashConserved line 129, col 1 to line 129, col 13 of module L0_SpotRoundtrip>
+  line 129, col 18 to line 130, col 73 of module L0_SpotRoundtrip: 903
+<Provenance line 131, col 1 to line 131, col 10 of module L0_SpotRoundtrip>
+  line 131, col 15 to line 134, col 72 of module L0_SpotRoundtrip: 903
+  |line 131, col 18 to line 131, col 81 of module L0_SpotRoundtrip: 903
+  ||line 131, col 18 to line 131, col 55 of module L0_SpotRoundtrip: 903
+  |||line 131, col 18 to line 131, col 22 of module L0_SpotRoundtrip: 903
+  |||line 131, col 34 to line 131, col 55 of module L0_SpotRoundtrip: 903
+  ||||line 131, col 44 to line 131, col 54 of module L0_SpotRoundtrip: 1806
+  ||||line 131, col 41 to line 131, col 41 of module L0_SpotRoundtrip: 903
+  ||line 131, col 60 to line 131, col 81 of module L0_SpotRoundtrip: 903
+  |line 132, col 18 to line 132, col 100 of module L0_SpotRoundtrip: 903
+  ||line 132, col 30 to line 132, col 100 of module L0_SpotRoundtrip: 1806
+  |||line 132, col 30 to line 132, col 47 of module L0_SpotRoundtrip: 1806
+  |||line 132, col 53 to line 132, col 99 of module L0_SpotRoundtrip: 1806
+  ||||line 132, col 53 to line 132, col 63 of module L0_SpotRoundtrip: 1806
+  ||||line 132, col 68 to line 132, col 99 of module L0_SpotRoundtrip: 564
+  ||line 132, col 27 to line 132, col 27 of module L0_SpotRoundtrip: 903
+  |line 133, col 18 to line 133, col 62 of module L0_SpotRoundtrip: 903
+  ||line 133, col 36 to line 133, col 62 of module L0_SpotRoundtrip: 328
+  ||line 133, col 27 to line 133, col 33 of module L0_SpotRoundtrip: 903
+  |line 134, col 18 to line 134, col 72 of module L0_SpotRoundtrip: 903
+End of statistics.
+3509 states generated, 903 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 25.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 3).
+Finished in 00s at (2026-11-05 02:14:06)
+Picked up JAVA_TOOL_OPTIONS: -Xmx1536m -XX:ActiveProcessorCount=2
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 13 and seed -1348250385193807948 with 1 worker on 2 cores with 1365MB heap and 64MB offheap memory [pid: 244429] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/L0_SpotRoundtrip.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.x0RYIi/java/Naturals.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.x0RYIi/java/FiniteSets.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.x0RYIi/java/TLC.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.x0RYIi/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_SpotRoundtrip
+Starting... (2026-11-05 02:14:07)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:14:08.
+Progress(25) at 2026-11-05 02:14:08: 555 states generated, 195 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 195 total distinct states at (2026-11-05 02:14:08)
+Finished checking temporal properties in 00s at 2026-11-05 02:14:08
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 3.8E-15
+The coverage statistics at 2026-11-05 02:14:08
+<Init line 39, col 1 to line 39, col 4 of module L0_SpotRoundtrip>: 1:1
+  line 39, col 9 to line 43, col 94 of module L0_SpotRoundtrip: 1
+<Publish line 47, col 1 to line 47, col 7 of module L0_SpotRoundtrip>: 1:3
+  line 47, col 15 to line 47, col 24 of module L0_SpotRoundtrip: 198
+  |line 47, col 16 to line 47, col 24 of module L0_SpotRoundtrip: 195
+  line 47, col 29 to line 47, col 45 of module L0_SpotRoundtrip: 3
+  line 47, col 50 to line 47, col 102 of module L0_SpotRoundtrip: 3
+<Observe line 49, col 1 to line 49, col 7 of module L0_SpotRoundtrip>: 1:12
+  line 49, col 15 to line 49, col 23 of module L0_SpotRoundtrip: 12
+  line 49, col 28 to line 49, col 32 of module L0_SpotRoundtrip: 204
+  |line 49, col 29 to line 49, col 32 of module L0_SpotRoundtrip: 192
+  line 49, col 37 to line 49, col 51 of module L0_SpotRoundtrip: 24
+  |line 49, col 37 to line 49, col 42 of module L0_SpotRoundtrip: 12
+  |line 49, col 44 to line 49, col 51 of module L0_SpotRoundtrip: 12
+  line 49, col 56 to line 49, col 65 of module L0_SpotRoundtrip: 12
+  line 49, col 70 to line 49, col 127 of module L0_SpotRoundtrip: 12
+<Produce line 51, col 1 to line 51, col 10 of module L0_SpotRoundtrip>: 6:50
+  line 51, col 18 to line 51, col 26 of module L0_SpotRoundtrip: 50
+  line 51, col 31 to line 51, col 45 of module L0_SpotRoundtrip: 434
+  |line 51, col 31 to line 51, col 31 of module L0_SpotRoundtrip: 384
+  |line 51, col 40 to line 51, col 45 of module L0_SpotRoundtrip: 384
+  line 51, col 50 to line 51, col 72 of module L0_SpotRoundtrip: 50
+  line 52, col 18 to line 52, col 73 of module L0_SpotRoundtrip: 50
+<BeginScan line 55, col 1 to line 55, col 9 of module L0_SpotRoundtrip>: 20:20
+  line 55, col 17 to line 55, col 31 of module L0_SpotRoundtrip: 215
+  |line 55, col 17 to line 55, col 22 of module L0_SpotRoundtrip: 195
+  |line 55, col 24 to line 55, col 31 of module L0_SpotRoundtrip: 195
+  line 55, col 36 to line 55, col 40 of module L0_SpotRoundtrip: 20
+  line 55, col 45 to line 55, col 60 of module L0_SpotRoundtrip: 203
+  |line 55, col 45 to line 55, col 52 of module L0_SpotRoundtrip: 183
+  |line 55, col 54 to line 55, col 60 of module L0_SpotRoundtrip: 183
+  line 55, col 65 to line 55, col 71 of module L0_SpotRoundtrip: 158
+  |line 55, col 65 to line 55, col 69 of module L0_SpotRoundtrip: 138
+  line 55, col 76 to line 55, col 81 of module L0_SpotRoundtrip: 84
+  |line 55, col 76 to line 55, col 79 of module L0_SpotRoundtrip: 64
+  line 55, col 86 to line 55, col 96 of module L0_SpotRoundtrip: 66
+  |line 55, col 86 to line 55, col 89 of module L0_SpotRoundtrip: 46
+  |line 55, col 92 to line 55, col 96 of module L0_SpotRoundtrip: 46
+  line 56, col 17 to line 56, col 27 of module L0_SpotRoundtrip: 20
+  line 56, col 32 to line 56, col 106 of module L0_SpotRoundtrip: 20
+<DropStale line 58, col 1 to line 58, col 9 of module L0_SpotRoundtrip>: 0:10
+  line 58, col 17 to line 58, col 28 of module L0_SpotRoundtrip: 205
+  |line 58, col 17 to line 58, col 20 of module L0_SpotRoundtrip: 195
+  |line 58, col 24 to line 58, col 28 of module L0_SpotRoundtrip: 195
+  line 58, col 34 to line 58, col 39 of module L0_SpotRoundtrip: 30
+  line 58, col 44 to line 58, col 55 of module L0_SpotRoundtrip: 40
+  |line 58, col 44 to line 58, col 47 of module L0_SpotRoundtrip: 30
+  |line 58, col 51 to line 58, col 55 of module L0_SpotRoundtrip: 30
+  line 58, col 61 to line 58, col 72 of module L0_SpotRoundtrip: 10
+  line 59, col 17 to line 59, col 91 of module L0_SpotRoundtrip: 10
+<Activate line 62, col 1 to line 62, col 8 of module L0_SpotRoundtrip>: 20:20
+  line 62, col 16 to line 62, col 25 of module L0_SpotRoundtrip: 215
+  |line 62, col 16 to line 62, col 19 of module L0_SpotRoundtrip: 195
+  |line 62, col 21 to line 62, col 25 of module L0_SpotRoundtrip: 195
+  line 62, col 30 to line 62, col 34 of module L0_SpotRoundtrip: 20
+  line 62, col 39 to line 62, col 54 of module L0_SpotRoundtrip: 40
+  |line 62, col 39 to line 62, col 46 of module L0_SpotRoundtrip: 20
+  |line 62, col 48 to line 62, col 54 of module L0_SpotRoundtrip: 20
+  line 62, col 59 to line 62, col 64 of module L0_SpotRoundtrip: 40
+  |line 62, col 59 to line 62, col 62 of module L0_SpotRoundtrip: 20
+  line 62, col 69 to line 62, col 102 of module L0_SpotRoundtrip: 40
+  |line 62, col 69 to line 62, col 86 of module L0_SpotRoundtrip: 20
+  |line 62, col 98 to line 62, col 102 of module L0_SpotRoundtrip: 20
+  line 63, col 16 to line 63, col 88 of module L0_SpotRoundtrip: 20
+  line 64, col 16 to line 64, col 43 of module L0_SpotRoundtrip: 20
+  line 65, col 16 to line 65, col 96 of module L0_SpotRoundtrip: 20
+<Admit line 69, col 1 to line 69, col 8 of module L0_SpotRoundtrip>: 10:10
+  line 69, col 16 to line 69, col 21 of module L0_SpotRoundtrip: 400
+  |line 69, col 16 to line 69, col 19 of module L0_SpotRoundtrip: 390
+  line 69, col 26 to line 69, col 29 of module L0_SpotRoundtrip: 10
+  line 69, col 34 to line 69, col 38 of module L0_SpotRoundtrip: 10
+  line 69, col 43 to line 69, col 53 of module L0_SpotRoundtrip: 182
+  |line 69, col 43 to line 69, col 47 of module L0_SpotRoundtrip: 172
+  |line 69, col 49 to line 69, col 53 of module L0_SpotRoundtrip: 172
+  line 69, col 58 to line 69, col 73 of module L0_SpotRoundtrip: 98
+  |line 69, col 58 to line 69, col 65 of module L0_SpotRoundtrip: 88
+  |line 69, col 67 to line 69, col 73 of module L0_SpotRoundtrip: 88
+  line 69, col 78 to line 69, col 85 of module L0_SpotRoundtrip: 68
+  |line 69, col 79 to line 69, col 85 of module L0_SpotRoundtrip: 58
+  line 70, col 16 to line 70, col 38 of module L0_SpotRoundtrip: 68
+  |line 70, col 16 to line 70, col 16 of module L0_SpotRoundtrip: 58
+  |line 70, col 22 to line 70, col 38 of module L0_SpotRoundtrip: 58
+  line 70, col 43 to line 70, col 48 of module L0_SpotRoundtrip: 10
+  line 71, col 16 to line 71, col 69 of module L0_SpotRoundtrip: 10
+  line 72, col 16 to line 72, col 69 of module L0_SpotRoundtrip: 10
+<SampleGate line 75, col 1 to line 75, col 10 of module L0_SpotRoundtrip>: 10:10
+  line 75, col 18 to line 75, col 25 of module L0_SpotRoundtrip: 205
+  |line 75, col 18 to line 75, col 21 of module L0_SpotRoundtrip: 195
+  line 75, col 30 to line 75, col 43 of module L0_SpotRoundtrip: 104
+  |line 75, col 30 to line 75, col 41 of module L0_SpotRoundtrip: 94
+  line 75, col 48 to line 75, col 62 of module L0_SpotRoundtrip: 36
+  |line 75, col 48 to line 75, col 53 of module L0_SpotRoundtrip: 26
+  |line 75, col 55 to line 75, col 62 of module L0_SpotRoundtrip: 26
+  line 73, col 14 to line 73, col 18 of module L0_SpotRoundtrip: 10
+  line 73, col 23 to line 73, col 33 of module L0_SpotRoundtrip: 24
+  |line 73, col 23 to line 73, col 27 of module L0_SpotRoundtrip: 14
+  |line 73, col 29 to line 73, col 33 of module L0_SpotRoundtrip: 14
+  line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 22
+  |line 73, col 38 to line 73, col 45 of module L0_SpotRoundtrip: 12
+  |line 73, col 47 to line 73, col 53 of module L0_SpotRoundtrip: 12
+  line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 10
+  line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 20
+  |line 73, col 67 to line 73, col 73 of module L0_SpotRoundtrip: 10
+  line 75, col 80 to line 75, col 159 of module L0_SpotRoundtrip: 10
+  line 76, col 18 to line 76, col 68 of module L0_SpotRoundtrip: 10
+<FirstByte line 78, col 1 to line 78, col 9 of module L0_SpotRoundtrip>: 10:12
+  line 78, col 17 to line 78, col 24 of module L0_SpotRoundtrip: 207
+  |line 78, col 17 to line 78, col 20 of module L0_SpotRoundtrip: 195
+  line 78, col 29 to line 78, col 45 of module L0_SpotRoundtrip: 106
+  |line 78, col 29 to line 78, col 34 of module L0_SpotRoundtrip: 94
+  |line 78, col 38 to line 78, col 45 of module L0_SpotRoundtrip: 94
+  line 78, col 50 to line 78, col 57 of module L0_SpotRoundtrip: 24
+  |line 78, col 51 to line 78, col 57 of module L0_SpotRoundtrip: 12
+  line 78, col 62 to line 78, col 96 of module L0_SpotRoundtrip: 12
+  line 78, col 101 to line 78, col 116 of module L0_SpotRoundtrip: 12
+  line 79, col 17 to line 79, col 60 of module L0_SpotRoundtrip: 12
+<AbortEmpty line 81, col 1 to line 81, col 10 of module L0_SpotRoundtrip>: 2:4
+  line 81, col 18 to line 81, col 25 of module L0_SpotRoundtrip: 199
+  |line 81, col 18 to line 81, col 21 of module L0_SpotRoundtrip: 195
+  line 81, col 30 to line 81, col 43 of module L0_SpotRoundtrip: 98
+  |line 81, col 30 to line 81, col 41 of module L0_SpotRoundtrip: 94
+  line 81, col 61 to line 81, col 75 of module L0_SpotRoundtrip: 30
+  |line 81, col 61 to line 81, col 66 of module L0_SpotRoundtrip: 26
+  |line 81, col 68 to line 81, col 75 of module L0_SpotRoundtrip: 26
+  line 81, col 80 to line 81, col 89 of module L0_SpotRoundtrip: 18
+  |line 81, col 81 to line 81, col 89 of module L0_SpotRoundtrip: 14
+  ||line 73, col 14 to line 73, col 73 of module L0_SpotRoundtrip: 14
+  |||line 73, col 14 to line 73, col 61 of module L0_SpotRoundtrip: 14
+  ||||line 73, col 14 to line 73, col 53 of module L0_SpotRoundtrip: 14
+  |||||line 73, col 14 to line 73, col 33 of module L0_SpotRoundtrip: 14
+  |||||line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 12
+  ||||line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 10
+  |||line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 10
+  line 82, col 18 to line 82, col 92 of module L0_SpotRoundtrip: 4
+  line 83, col 18 to line 83, col 65 of module L0_SpotRoundtrip: 4
+<Accept line 85, col 1 to line 85, col 9 of module L0_SpotRoundtrip>: 10:14
+  line 85, col 17 to line 85, col 27 of module L0_SpotRoundtrip: 14
+  |line 85, col 17 to line 85, col 25 of module L0_SpotRoundtrip: 390
+  line 85, col 32 to line 85, col 45 of module L0_SpotRoundtrip: 264
+  |line 85, col 32 to line 85, col 32 of module L0_SpotRoundtrip: 250
+  |line 85, col 41 to line 85, col 45 of module L0_SpotRoundtrip: 250
+  line 85, col 50 to line 85, col 70 of module L0_SpotRoundtrip: 14
+  line 86, col 17 to line 86, col 69 of module L0_SpotRoundtrip: 14
+<Fill line 87, col 1 to line 87, col 7 of module L0_SpotRoundtrip>: 14:44
+  line 87, col 15 to line 87, col 34 of module L0_SpotRoundtrip: 434
+  |line 87, col 15 to line 87, col 15 of module L0_SpotRoundtrip: 390
+  |line 87, col 21 to line 87, col 34 of module L0_SpotRoundtrip: 390
+  line 87, col 39 to line 87, col 61 of module L0_SpotRoundtrip: 44
+  line 88, col 15 to line 88, col 66 of module L0_SpotRoundtrip: 44
+<Ack line 90, col 1 to line 90, col 3 of module L0_SpotRoundtrip>: 12:54
+  line 90, col 11 to line 90, col 24 of module L0_SpotRoundtrip: 249
+  |line 90, col 11 to line 90, col 14 of module L0_SpotRoundtrip: 195
+  |line 90, col 20 to line 90, col 24 of module L0_SpotRoundtrip: 195
+  line 90, col 29 to line 90, col 65 of module L0_SpotRoundtrip: 54
+  line 90, col 70 to line 90, col 76 of module L0_SpotRoundtrip: 54
+  line 91, col 11 to line 91, col 70 of module L0_SpotRoundtrip: 54
+<Capture line 93, col 1 to line 93, col 10 of module L0_SpotRoundtrip>: 39:48
+  line 93, col 18 to line 93, col 22 of module L0_SpotRoundtrip: 48
+  line 93, col 27 to line 93, col 49 of module L0_SpotRoundtrip: 438
+  |line 93, col 27 to line 93, col 27 of module L0_SpotRoundtrip: 390
+  |line 93, col 33 to line 93, col 49 of module L0_SpotRoundtrip: 390
+  line 93, col 54 to line 93, col 80 of module L0_SpotRoundtrip: 48
+  line 94, col 18 to line 94, col 78 of module L0_SpotRoundtrip: 48
+<Drain line 97, col 1 to line 97, col 8 of module L0_SpotRoundtrip>: 39:48
+  line 97, col 16 to line 97, col 30 of module L0_SpotRoundtrip: 438
+  |line 97, col 16 to line 97, col 21 of module L0_SpotRoundtrip: 390
+  |line 97, col 23 to line 97, col 30 of module L0_SpotRoundtrip: 390
+  line 97, col 35 to line 97, col 58 of module L0_SpotRoundtrip: 414
+  |line 97, col 35 to line 97, col 35 of module L0_SpotRoundtrip: 366
+  |line 97, col 41 to line 97, col 58 of module L0_SpotRoundtrip: 366
+  line 97, col 63 to line 97, col 87 of module L0_SpotRoundtrip: 48
+  line 98, col 16 to line 98, col 88 of module L0_SpotRoundtrip: 48
+  line 99, col 16 to line 99, col 23 of module L0_SpotRoundtrip: 48
+  line 99, col 28 to line 99, col 105 of module L0_SpotRoundtrip: 48
+<Gap line 101, col 1 to line 101, col 3 of module L0_SpotRoundtrip>: 0:0
+  line 101, col 41 to line 101, col 52 of module L0_SpotRoundtrip: 0
+  line 102, col 11 to line 102, col 84 of module L0_SpotRoundtrip: 0
+<Reconnect line 103, col 1 to line 103, col 9 of module L0_SpotRoundtrip>: 0:0
+  line 103, col 17 to line 103, col 22 of module L0_SpotRoundtrip: 195
+  line 103, col 27 to line 103, col 40 of module L0_SpotRoundtrip: 0
+  line 103, col 45 to line 103, col 55 of module L0_SpotRoundtrip: 0
+  line 104, col 17 to line 104, col 84 of module L0_SpotRoundtrip: 0
+<Freeze line 107, col 1 to line 107, col 6 of module L0_SpotRoundtrip>: 0:0
+  line 107, col 14 to line 107, col 28 of module L0_SpotRoundtrip: 195
+  line 107, col 33 to line 107, col 41 of module L0_SpotRoundtrip: 183
+  line 107, col 47 to line 107, col 69 of module L0_SpotRoundtrip: 109
+  line 107, col 75 to line 107, col 82 of module L0_SpotRoundtrip: 0
+  line 108, col 14 to line 108, col 87 of module L0_SpotRoundtrip: 0
+<Deadline line 110, col 1 to line 110, col 8 of module L0_SpotRoundtrip>: 0:0
+  line 110, col 41 to line 110, col 53 of module L0_SpotRoundtrip: 0
+  line 111, col 16 to line 111, col 87 of module L0_SpotRoundtrip: 0
+<Restart line 115, col 1 to line 115, col 7 of module L0_SpotRoundtrip>: 0:0
+  line 115, col 43 to line 115, col 57 of module L0_SpotRoundtrip: 0
+  line 115, col 62 to line 115, col 72 of module L0_SpotRoundtrip: 0
+  line 115, col 77 to line 115, col 90 of module L0_SpotRoundtrip: 0
+  line 116, col 15 to line 116, col 22 of module L0_SpotRoundtrip: 0
+  line 116, col 27 to line 116, col 38 of module L0_SpotRoundtrip: 0
+  line 116, col 43 to line 116, col 58 of module L0_SpotRoundtrip: 0
+  line 116, col 63 to line 116, col 69 of module L0_SpotRoundtrip: 0
+  line 117, col 15 to line 117, col 63 of module L0_SpotRoundtrip: 0
+<Idle line 118, col 1 to line 118, col 4 of module L0_SpotRoundtrip>: 0:195
+  line 118, col 9 to line 118, col 22 of module L0_SpotRoundtrip: 195
+<TypeOK line 124, col 1 to line 124, col 6 of module L0_SpotRoundtrip>
+  line 124, col 11 to line 126, col 45 of module L0_SpotRoundtrip: 195
+<SampleSound line 127, col 1 to line 127, col 11 of module L0_SpotRoundtrip>
+  line 127, col 16 to line 128, col 102 of module L0_SpotRoundtrip: 195
+  |line 127, col 19 to line 127, col 33 of module L0_SpotRoundtrip: 195
+  |line 127, col 40 to line 127, col 43 of module L0_SpotRoundtrip: 183
+  |line 128, col 19 to line 128, col 102 of module L0_SpotRoundtrip: 12
+<CashConserved line 129, col 1 to line 129, col 13 of module L0_SpotRoundtrip>
+  line 129, col 18 to line 130, col 73 of module L0_SpotRoundtrip: 195
+<Provenance line 131, col 1 to line 131, col 10 of module L0_SpotRoundtrip>
+  line 131, col 15 to line 134, col 72 of module L0_SpotRoundtrip: 195
+  |line 131, col 18 to line 131, col 81 of module L0_SpotRoundtrip: 195
+  ||line 131, col 18 to line 131, col 55 of module L0_SpotRoundtrip: 195
+  |||line 131, col 18 to line 131, col 22 of module L0_SpotRoundtrip: 195
+  |||line 131, col 34 to line 131, col 55 of module L0_SpotRoundtrip: 195
+  ||||line 131, col 44 to line 131, col 54 of module L0_SpotRoundtrip: 390
+  ||||line 131, col 41 to line 131, col 41 of module L0_SpotRoundtrip: 195
+  ||line 131, col 60 to line 131, col 81 of module L0_SpotRoundtrip: 195
+  |line 132, col 18 to line 132, col 100 of module L0_SpotRoundtrip: 195
+  ||line 132, col 30 to line 132, col 100 of module L0_SpotRoundtrip: 390
+  |||line 132, col 30 to line 132, col 47 of module L0_SpotRoundtrip: 390
+  |||line 132, col 53 to line 132, col 99 of module L0_SpotRoundtrip: 390
+  ||||line 132, col 53 to line 132, col 63 of module L0_SpotRoundtrip: 390
+  ||||line 132, col 68 to line 132, col 99 of module L0_SpotRoundtrip: 250
+  ||line 132, col 27 to line 132, col 27 of module L0_SpotRoundtrip: 195
+  |line 133, col 18 to line 133, col 62 of module L0_SpotRoundtrip: 195
+  ||line 133, col 36 to line 133, col 62 of module L0_SpotRoundtrip: 182
+  ||line 133, col 27 to line 133, col 33 of module L0_SpotRoundtrip: 195
+  |line 134, col 18 to line 134, col 72 of module L0_SpotRoundtrip: 195
+End of statistics.
+555 states generated, 195 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 25.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 4 and the 95th percentile is 2).
+Finished in 00s at (2026-11-05 02:14:08)
+Picked up JAVA_TOOL_OPTIONS: -Xmx1536m -XX:ActiveProcessorCount=2
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 98 and seed -8245176864908593799 with 1 worker on 2 cores with 1365MB heap and 64MB offheap memory [pid: 244478] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/L0_SpotRoundtrip.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.pb6KKp/java/Naturals.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.pb6KKp/java/FiniteSets.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.pb6KKp/java/TLC.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.pb6KKp/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_SpotRoundtrip
+Starting... (2026-11-05 02:14:09)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:14:09.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 4.6E-14
+The coverage statistics at 2026-11-05 02:14:09
+<Init line 39, col 1 to line 39, col 4 of module L0_SpotRoundtrip>: 1:1
+  line 39, col 9 to line 43, col 94 of module L0_SpotRoundtrip: 1
+<Publish line 47, col 1 to line 47, col 7 of module L0_SpotRoundtrip>: 1:34
+  line 47, col 15 to line 47, col 24 of module L0_SpotRoundtrip: 593
+  |line 47, col 16 to line 47, col 24 of module L0_SpotRoundtrip: 559
+  line 47, col 29 to line 47, col 45 of module L0_SpotRoundtrip: 34
+  line 47, col 50 to line 47, col 102 of module L0_SpotRoundtrip: 34
+<Observe line 49, col 1 to line 49, col 7 of module L0_SpotRoundtrip>: 1:68
+  line 49, col 15 to line 49, col 23 of module L0_SpotRoundtrip: 68
+  line 49, col 28 to line 49, col 32 of module L0_SpotRoundtrip: 593
+  |line 49, col 29 to line 49, col 32 of module L0_SpotRoundtrip: 525
+  line 49, col 37 to line 49, col 51 of module L0_SpotRoundtrip: 136
+  |line 49, col 37 to line 49, col 42 of module L0_SpotRoundtrip: 68
+  |line 49, col 44 to line 49, col 51 of module L0_SpotRoundtrip: 68
+  line 49, col 56 to line 49, col 65 of module L0_SpotRoundtrip: 68
+  line 49, col 70 to line 49, col 127 of module L0_SpotRoundtrip: 68
+<Produce line 51, col 1 to line 51, col 10 of module L0_SpotRoundtrip>: 2:68
+  line 51, col 18 to line 51, col 26 of module L0_SpotRoundtrip: 68
+  line 51, col 31 to line 51, col 45 of module L0_SpotRoundtrip: 593
+  |line 51, col 31 to line 51, col 31 of module L0_SpotRoundtrip: 525
+  |line 51, col 40 to line 51, col 45 of module L0_SpotRoundtrip: 525
+  line 51, col 50 to line 51, col 72 of module L0_SpotRoundtrip: 68
+  line 52, col 18 to line 52, col 73 of module L0_SpotRoundtrip: 68
+<BeginScan line 55, col 1 to line 55, col 9 of module L0_SpotRoundtrip>: 73:88
+  line 55, col 17 to line 55, col 31 of module L0_SpotRoundtrip: 647
+  |line 55, col 17 to line 55, col 22 of module L0_SpotRoundtrip: 559
+  |line 55, col 24 to line 55, col 31 of module L0_SpotRoundtrip: 559
+  line 55, col 36 to line 55, col 40 of module L0_SpotRoundtrip: 88
+  line 55, col 45 to line 55, col 60 of module L0_SpotRoundtrip: 561
+  |line 55, col 45 to line 55, col 52 of module L0_SpotRoundtrip: 473
+  |line 55, col 54 to line 55, col 60 of module L0_SpotRoundtrip: 473
+  line 55, col 65 to line 55, col 71 of module L0_SpotRoundtrip: 487
+  |line 55, col 65 to line 55, col 69 of module L0_SpotRoundtrip: 399
+  line 55, col 76 to line 55, col 81 of module L0_SpotRoundtrip: 336
+  |line 55, col 76 to line 55, col 79 of module L0_SpotRoundtrip: 248
+  line 55, col 86 to line 55, col 96 of module L0_SpotRoundtrip: 320
+  |line 55, col 86 to line 55, col 89 of module L0_SpotRoundtrip: 232
+  |line 55, col 92 to line 55, col 96 of module L0_SpotRoundtrip: 232
+  line 56, col 17 to line 56, col 27 of module L0_SpotRoundtrip: 88
+  line 56, col 32 to line 56, col 106 of module L0_SpotRoundtrip: 88
+<DropStale line 58, col 1 to line 58, col 9 of module L0_SpotRoundtrip>: 0:94
+  line 58, col 17 to line 58, col 28 of module L0_SpotRoundtrip: 653
+  |line 58, col 17 to line 58, col 20 of module L0_SpotRoundtrip: 559
+  |line 58, col 24 to line 58, col 28 of module L0_SpotRoundtrip: 559
+  line 58, col 34 to line 58, col 39 of module L0_SpotRoundtrip: 194
+  |line 58, col 35 to line 58, col 39 of module L0_SpotRoundtrip: 182
+  line 58, col 44 to line 58, col 55 of module L0_SpotRoundtrip: 264
+  |line 58, col 44 to line 58, col 47 of module L0_SpotRoundtrip: 182
+  |line 58, col 51 to line 58, col 55 of module L0_SpotRoundtrip: 182
+  line 58, col 61 to line 58, col 72 of module L0_SpotRoundtrip: 94
+  line 59, col 17 to line 59, col 91 of module L0_SpotRoundtrip: 94
+<Activate line 62, col 1 to line 62, col 8 of module L0_SpotRoundtrip>: 56:80
+  line 62, col 16 to line 62, col 25 of module L0_SpotRoundtrip: 639
+  |line 62, col 16 to line 62, col 19 of module L0_SpotRoundtrip: 559
+  |line 62, col 21 to line 62, col 25 of module L0_SpotRoundtrip: 559
+  line 62, col 30 to line 62, col 34 of module L0_SpotRoundtrip: 80
+  line 62, col 39 to line 62, col 54 of module L0_SpotRoundtrip: 168
+  |line 62, col 39 to line 62, col 46 of module L0_SpotRoundtrip: 88
+  |line 62, col 48 to line 62, col 54 of module L0_SpotRoundtrip: 88
+  line 62, col 59 to line 62, col 64 of module L0_SpotRoundtrip: 168
+  |line 62, col 59 to line 62, col 62 of module L0_SpotRoundtrip: 88
+  line 62, col 69 to line 62, col 102 of module L0_SpotRoundtrip: 168
+  |line 62, col 69 to line 62, col 86 of module L0_SpotRoundtrip: 88
+  |line 62, col 98 to line 62, col 102 of module L0_SpotRoundtrip: 88
+  line 63, col 16 to line 63, col 88 of module L0_SpotRoundtrip: 80
+  line 64, col 16 to line 64, col 43 of module L0_SpotRoundtrip: 80
+  line 65, col 16 to line 65, col 96 of module L0_SpotRoundtrip: 80
+<Admit line 69, col 1 to line 69, col 8 of module L0_SpotRoundtrip>: 4:4
+  line 69, col 16 to line 69, col 21 of module L0_SpotRoundtrip: 563
+  |line 69, col 16 to line 69, col 19 of module L0_SpotRoundtrip: 559
+  line 69, col 26 to line 69, col 29 of module L0_SpotRoundtrip: 4
+  line 69, col 34 to line 69, col 38 of module L0_SpotRoundtrip: 4
+  line 69, col 43 to line 69, col 53 of module L0_SpotRoundtrip: 325
+  |line 69, col 43 to line 69, col 47 of module L0_SpotRoundtrip: 321
+  |line 69, col 49 to line 69, col 53 of module L0_SpotRoundtrip: 321
+  line 69, col 58 to line 69, col 73 of module L0_SpotRoundtrip: 95
+  |line 69, col 58 to line 69, col 65 of module L0_SpotRoundtrip: 91
+  |line 69, col 67 to line 69, col 73 of module L0_SpotRoundtrip: 91
+  line 69, col 78 to line 69, col 85 of module L0_SpotRoundtrip: 73
+  |line 69, col 79 to line 69, col 85 of module L0_SpotRoundtrip: 69
+  line 70, col 16 to line 70, col 38 of module L0_SpotRoundtrip: 38
+  |line 70, col 16 to line 70, col 16 of module L0_SpotRoundtrip: 34
+  |line 70, col 22 to line 70, col 38 of module L0_SpotRoundtrip: 34
+  line 70, col 43 to line 70, col 48 of module L0_SpotRoundtrip: 4
+  line 71, col 16 to line 71, col 69 of module L0_SpotRoundtrip: 4
+  line 72, col 16 to line 72, col 69 of module L0_SpotRoundtrip: 4
+<SampleGate line 75, col 1 to line 75, col 10 of module L0_SpotRoundtrip>: 4:4
+  line 75, col 18 to line 75, col 25 of module L0_SpotRoundtrip: 563
+  |line 75, col 18 to line 75, col 21 of module L0_SpotRoundtrip: 559
+  line 75, col 30 to line 75, col 43 of module L0_SpotRoundtrip: 106
+  |line 75, col 30 to line 75, col 41 of module L0_SpotRoundtrip: 102
+  line 75, col 48 to line 75, col 62 of module L0_SpotRoundtrip: 32
+  |line 75, col 48 to line 75, col 53 of module L0_SpotRoundtrip: 28
+  |line 75, col 55 to line 75, col 62 of module L0_SpotRoundtrip: 28
+  line 73, col 14 to line 73, col 18 of module L0_SpotRoundtrip: 4
+  line 73, col 23 to line 73, col 33 of module L0_SpotRoundtrip: 16
+  |line 73, col 23 to line 73, col 27 of module L0_SpotRoundtrip: 12
+  |line 73, col 29 to line 73, col 33 of module L0_SpotRoundtrip: 12
+  line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 12
+  |line 73, col 38 to line 73, col 45 of module L0_SpotRoundtrip: 8
+  |line 73, col 47 to line 73, col 53 of module L0_SpotRoundtrip: 8
+  line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 4
+  line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 12
+  |line 73, col 67 to line 73, col 73 of module L0_SpotRoundtrip: 8
+  line 75, col 80 to line 75, col 159 of module L0_SpotRoundtrip: 4
+  line 76, col 18 to line 76, col 68 of module L0_SpotRoundtrip: 4
+<FirstByte line 78, col 1 to line 78, col 9 of module L0_SpotRoundtrip>: 4:6
+  line 78, col 17 to line 78, col 24 of module L0_SpotRoundtrip: 565
+  |line 78, col 17 to line 78, col 20 of module L0_SpotRoundtrip: 559
+  line 78, col 29 to line 78, col 45 of module L0_SpotRoundtrip: 108
+  |line 78, col 29 to line 78, col 34 of module L0_SpotRoundtrip: 102
+  |line 78, col 38 to line 78, col 45 of module L0_SpotRoundtrip: 102
+  line 78, col 50 to line 78, col 57 of module L0_SpotRoundtrip: 18
+  |line 78, col 51 to line 78, col 57 of module L0_SpotRoundtrip: 12
+  line 78, col 62 to line 78, col 96 of module L0_SpotRoundtrip: 6
+  line 78, col 101 to line 78, col 116 of module L0_SpotRoundtrip: 6
+  line 79, col 17 to line 79, col 60 of module L0_SpotRoundtrip: 6
+<AbortEmpty line 81, col 1 to line 81, col 10 of module L0_SpotRoundtrip>: 5:26
+  line 81, col 18 to line 81, col 25 of module L0_SpotRoundtrip: 577
+  |line 81, col 18 to line 81, col 21 of module L0_SpotRoundtrip: 559
+  line 81, col 30 to line 81, col 43 of module L0_SpotRoundtrip: 120
+  |line 81, col 30 to line 81, col 41 of module L0_SpotRoundtrip: 102
+  line 81, col 49 to line 81, col 55 of module L0_SpotRoundtrip: 14
+  line 81, col 61 to line 81, col 75 of module L0_SpotRoundtrip: 40
+  |line 81, col 61 to line 81, col 66 of module L0_SpotRoundtrip: 28
+  |line 81, col 68 to line 81, col 75 of module L0_SpotRoundtrip: 28
+  line 81, col 80 to line 81, col 89 of module L0_SpotRoundtrip: 28
+  |line 81, col 81 to line 81, col 89 of module L0_SpotRoundtrip: 16
+  ||line 73, col 14 to line 73, col 73 of module L0_SpotRoundtrip: 16
+  |||line 73, col 14 to line 73, col 61 of module L0_SpotRoundtrip: 16
+  ||||line 73, col 14 to line 73, col 53 of module L0_SpotRoundtrip: 16
+  |||||line 73, col 14 to line 73, col 33 of module L0_SpotRoundtrip: 16
+  ||||||line 73, col 14 to line 73, col 18 of module L0_SpotRoundtrip: 16
+  ||||||line 73, col 23 to line 73, col 33 of module L0_SpotRoundtrip: 12
+  |||||line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 8
+  ||||line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 8
+  |||line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 8
+  line 82, col 18 to line 82, col 92 of module L0_SpotRoundtrip: 26
+  line 83, col 18 to line 83, col 65 of module L0_SpotRoundtrip: 26
+<Accept line 85, col 1 to line 85, col 9 of module L0_SpotRoundtrip>: 8:24
+  line 85, col 17 to line 85, col 27 of module L0_SpotRoundtrip: 24
+  |line 85, col 17 to line 85, col 25 of module L0_SpotRoundtrip: 559
+  line 85, col 32 to line 85, col 45 of module L0_SpotRoundtrip: 352
+  |line 85, col 32 to line 85, col 32 of module L0_SpotRoundtrip: 328
+  |line 85, col 41 to line 85, col 45 of module L0_SpotRoundtrip: 328
+  line 85, col 50 to line 85, col 70 of module L0_SpotRoundtrip: 24
+  line 86, col 17 to line 86, col 69 of module L0_SpotRoundtrip: 24
+<Fill line 87, col 1 to line 87, col 7 of module L0_SpotRoundtrip>: 21:58
+  line 87, col 15 to line 87, col 34 of module L0_SpotRoundtrip: 617
+  |line 87, col 15 to line 87, col 15 of module L0_SpotRoundtrip: 559
+  |line 87, col 21 to line 87, col 34 of module L0_SpotRoundtrip: 559
+  line 87, col 39 to line 87, col 61 of module L0_SpotRoundtrip: 58
+  line 88, col 15 to line 88, col 66 of module L0_SpotRoundtrip: 58
+<Ack line 90, col 1 to line 90, col 3 of module L0_SpotRoundtrip>: 8:58
+  line 90, col 11 to line 90, col 24 of module L0_SpotRoundtrip: 617
+  |line 90, col 11 to line 90, col 14 of module L0_SpotRoundtrip: 559
+  |line 90, col 20 to line 90, col 24 of module L0_SpotRoundtrip: 559
+  line 90, col 29 to line 90, col 65 of module L0_SpotRoundtrip: 58
+  line 90, col 70 to line 90, col 76 of module L0_SpotRoundtrip: 58
+  line 91, col 11 to line 91, col 70 of module L0_SpotRoundtrip: 58
+<Capture line 93, col 1 to line 93, col 10 of module L0_SpotRoundtrip>: 45:74
+  line 93, col 18 to line 93, col 22 of module L0_SpotRoundtrip: 74
+  line 93, col 27 to line 93, col 49 of module L0_SpotRoundtrip: 557
+  |line 93, col 27 to line 93, col 27 of module L0_SpotRoundtrip: 483
+  |line 93, col 33 to line 93, col 49 of module L0_SpotRoundtrip: 483
+  line 93, col 54 to line 93, col 80 of module L0_SpotRoundtrip: 74
+  line 94, col 18 to line 94, col 78 of module L0_SpotRoundtrip: 74
+<Drain line 97, col 1 to line 97, col 8 of module L0_SpotRoundtrip>: 28:82
+  line 97, col 16 to line 97, col 30 of module L0_SpotRoundtrip: 641
+  |line 97, col 16 to line 97, col 21 of module L0_SpotRoundtrip: 559
+  |line 97, col 23 to line 97, col 30 of module L0_SpotRoundtrip: 559
+  line 97, col 35 to line 97, col 58 of module L0_SpotRoundtrip: 629
+  |line 97, col 35 to line 97, col 35 of module L0_SpotRoundtrip: 547
+  |line 97, col 41 to line 97, col 58 of module L0_SpotRoundtrip: 547
+  line 97, col 63 to line 97, col 87 of module L0_SpotRoundtrip: 82
+  line 98, col 16 to line 98, col 88 of module L0_SpotRoundtrip: 82
+  line 99, col 16 to line 99, col 23 of module L0_SpotRoundtrip: 82
+  line 99, col 28 to line 99, col 105 of module L0_SpotRoundtrip: 82
+<Gap line 101, col 1 to line 101, col 3 of module L0_SpotRoundtrip>: 28:57
+  line 101, col 11 to line 101, col 25 of module L0_SpotRoundtrip: 57
+  line 101, col 30 to line 101, col 36 of module L0_SpotRoundtrip: 540
+  |line 101, col 30 to line 101, col 34 of module L0_SpotRoundtrip: 483
+  line 101, col 41 to line 101, col 52 of module L0_SpotRoundtrip: 57
+  line 102, col 11 to line 102, col 84 of module L0_SpotRoundtrip: 57
+<Reconnect line 103, col 1 to line 103, col 9 of module L0_SpotRoundtrip>: 29:76
+  line 103, col 17 to line 103, col 22 of module L0_SpotRoundtrip: 635
+  |line 103, col 18 to line 103, col 22 of module L0_SpotRoundtrip: 559
+  line 103, col 27 to line 103, col 40 of module L0_SpotRoundtrip: 76
+  line 103, col 45 to line 103, col 55 of module L0_SpotRoundtrip: 76
+  line 104, col 17 to line 104, col 84 of module L0_SpotRoundtrip: 76
+<Freeze line 107, col 1 to line 107, col 6 of module L0_SpotRoundtrip>: 18:60
+  line 107, col 14 to line 107, col 28 of module L0_SpotRoundtrip: 619
+  |line 107, col 14 to line 107, col 19 of module L0_SpotRoundtrip: 559
+  |line 107, col 21 to line 107, col 28 of module L0_SpotRoundtrip: 559
+  line 107, col 33 to line 107, col 41 of module L0_SpotRoundtrip: 607
+  |line 107, col 33 to line 107, col 37 of module L0_SpotRoundtrip: 547
+  line 107, col 47 to line 107, col 52 of module L0_SpotRoundtrip: 245
+  |line 107, col 48 to line 107, col 52 of module L0_SpotRoundtrip: 215
+  line 107, col 57 to line 107, col 69 of module L0_SpotRoundtrip: 245
+  |line 107, col 57 to line 107, col 61 of module L0_SpotRoundtrip: 215
+  |line 107, col 65 to line 107, col 69 of module L0_SpotRoundtrip: 215
+  line 107, col 75 to line 107, col 82 of module L0_SpotRoundtrip: 60
+  line 108, col 14 to line 108, col 87 of module L0_SpotRoundtrip: 60
+<Deadline line 110, col 1 to line 110, col 8 of module L0_SpotRoundtrip>: 155:279
+  line 110, col 16 to line 110, col 24 of module L0_SpotRoundtrip: 279
+  line 110, col 29 to line 110, col 36 of module L0_SpotRoundtrip: 838
+  |line 110, col 30 to line 110, col 36 of module L0_SpotRoundtrip: 559
+  line 110, col 41 to line 110, col 53 of module L0_SpotRoundtrip: 279
+  line 111, col 16 to line 111, col 87 of module L0_SpotRoundtrip: 279
+<Restart line 115, col 1 to line 115, col 7 of module L0_SpotRoundtrip>: 68:273
+  line 115, col 15 to line 115, col 24 of module L0_SpotRoundtrip: 273
+  line 115, col 29 to line 115, col 38 of module L0_SpotRoundtrip: 832
+  |line 115, col 30 to line 115, col 38 of module L0_SpotRoundtrip: 559
+  line 115, col 43 to line 115, col 57 of module L0_SpotRoundtrip: 273
+  line 115, col 62 to line 115, col 72 of module L0_SpotRoundtrip: 273
+  line 115, col 77 to line 115, col 90 of module L0_SpotRoundtrip: 273
+  line 116, col 15 to line 116, col 69 of module L0_SpotRoundtrip: 273
+  line 117, col 15 to line 117, col 63 of module L0_SpotRoundtrip: 273
+<Idle line 118, col 1 to line 118, col 4 of module L0_SpotRoundtrip>: 0:559
+  line 118, col 9 to line 118, col 22 of module L0_SpotRoundtrip: 559
+<TypeOK line 124, col 1 to line 124, col 6 of module L0_SpotRoundtrip>
+  line 124, col 11 to line 126, col 45 of module L0_SpotRoundtrip: 559
+<SampleSound line 127, col 1 to line 127, col 11 of module L0_SpotRoundtrip>
+  line 127, col 16 to line 128, col 102 of module L0_SpotRoundtrip: 559
+  |line 127, col 19 to line 127, col 33 of module L0_SpotRoundtrip: 559
+  |line 127, col 40 to line 127, col 43 of module L0_SpotRoundtrip: 547
+  |line 128, col 19 to line 128, col 102 of module L0_SpotRoundtrip: 12
+<CashConserved line 129, col 1 to line 129, col 13 of module L0_SpotRoundtrip>
+  line 129, col 18 to line 130, col 73 of module L0_SpotRoundtrip: 559
+<Provenance line 131, col 1 to line 131, col 10 of module L0_SpotRoundtrip>
+  line 131, col 15 to line 134, col 72 of module L0_SpotRoundtrip: 559
+  |line 131, col 18 to line 131, col 81 of module L0_SpotRoundtrip: 559
+  |line 132, col 18 to line 132, col 100 of module L0_SpotRoundtrip: 559
+  ||line 132, col 30 to line 132, col 100 of module L0_SpotRoundtrip: 559
+  |||line 132, col 30 to line 132, col 47 of module L0_SpotRoundtrip: 559
+  |||line 132, col 53 to line 132, col 99 of module L0_SpotRoundtrip: 559
+  ||||line 132, col 53 to line 132, col 63 of module L0_SpotRoundtrip: 559
+  ||||line 132, col 68 to line 132, col 99 of module L0_SpotRoundtrip: 328
+  ||line 132, col 27 to line 132, col 27 of module L0_SpotRoundtrip: 559
+  |line 133, col 18 to line 133, col 62 of module L0_SpotRoundtrip: 559
+  ||line 133, col 36 to line 133, col 62 of module L0_SpotRoundtrip: 158
+  ||line 133, col 27 to line 133, col 33 of module L0_SpotRoundtrip: 559
+  |line 134, col 18 to line 134, col 72 of module L0_SpotRoundtrip: 559
+End of statistics.
+2073 states generated, 559 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 22.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 6 and the 95th percentile is 3).
+Finished in 00s at (2026-11-05 02:14:09)
+Picked up JAVA_TOOL_OPTIONS: -Xmx1536m -XX:ActiveProcessorCount=2
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 46 and seed -7311614110254506158 with 1 worker on 2 cores with 1365MB heap and 64MB offheap memory [pid: 244511] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/L0_SpotRoundtrip.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.jN3Jco/java/Naturals.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.jN3Jco/java/FiniteSets.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.jN3Jco/java/TLC.tla
+Parsing file /tmp/tmp.yZRKulFYgN/model.13UnNn/run.jN3Jco/java/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_SpotRoundtrip
+Starting... (2026-11-05 02:14:10)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:14:10.
+Progress(16) at 2026-11-05 02:14:10: 70 states generated, 28 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 28 total distinct states at (2026-11-05 02:14:10)
+Finished checking temporal properties in 00s at 2026-11-05 02:14:10
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 6.4E-17
+The coverage statistics at 2026-11-05 02:14:10
+<Init line 39, col 1 to line 39, col 4 of module L0_SpotRoundtrip>: 1:1
+  line 39, col 9 to line 43, col 94 of module L0_SpotRoundtrip: 1
+<Publish line 47, col 1 to line 47, col 7 of module L0_SpotRoundtrip>: 1:3
+  line 47, col 15 to line 47, col 24 of module L0_SpotRoundtrip: 31
+  |line 47, col 16 to line 47, col 24 of module L0_SpotRoundtrip: 28
+  line 47, col 29 to line 47, col 45 of module L0_SpotRoundtrip: 3
+  line 47, col 50 to line 47, col 102 of module L0_SpotRoundtrip: 3
+<Observe line 49, col 1 to line 49, col 7 of module L0_SpotRoundtrip>: 1:6
+  line 49, col 15 to line 49, col 23 of module L0_SpotRoundtrip: 6
+  line 49, col 28 to line 49, col 32 of module L0_SpotRoundtrip: 31
+  |line 49, col 29 to line 49, col 32 of module L0_SpotRoundtrip: 25
+  line 49, col 37 to line 49, col 51 of module L0_SpotRoundtrip: 12
+  |line 49, col 37 to line 49, col 42 of module L0_SpotRoundtrip: 6
+  |line 49, col 44 to line 49, col 51 of module L0_SpotRoundtrip: 6
+  line 49, col 56 to line 49, col 65 of module L0_SpotRoundtrip: 6
+  line 49, col 70 to line 49, col 127 of module L0_SpotRoundtrip: 6
+<Produce line 51, col 1 to line 51, col 10 of module L0_SpotRoundtrip>: 2:6
+  line 51, col 18 to line 51, col 26 of module L0_SpotRoundtrip: 6
+  line 51, col 31 to line 51, col 45 of module L0_SpotRoundtrip: 31
+  |line 51, col 31 to line 51, col 31 of module L0_SpotRoundtrip: 25
+  |line 51, col 40 to line 51, col 45 of module L0_SpotRoundtrip: 25
+  line 51, col 50 to line 51, col 72 of module L0_SpotRoundtrip: 6
+  line 52, col 18 to line 52, col 73 of module L0_SpotRoundtrip: 6
+<BeginScan line 55, col 1 to line 55, col 9 of module L0_SpotRoundtrip>: 6:6
+  line 55, col 17 to line 55, col 31 of module L0_SpotRoundtrip: 34
+  |line 55, col 17 to line 55, col 22 of module L0_SpotRoundtrip: 28
+  |line 55, col 24 to line 55, col 31 of module L0_SpotRoundtrip: 28
+  line 55, col 36 to line 55, col 40 of module L0_SpotRoundtrip: 6
+  line 55, col 45 to line 55, col 60 of module L0_SpotRoundtrip: 33
+  |line 55, col 45 to line 55, col 52 of module L0_SpotRoundtrip: 27
+  |line 55, col 54 to line 55, col 60 of module L0_SpotRoundtrip: 27
+  line 55, col 65 to line 55, col 71 of module L0_SpotRoundtrip: 31
+  |line 55, col 65 to line 55, col 69 of module L0_SpotRoundtrip: 25
+  line 55, col 76 to line 55, col 81 of module L0_SpotRoundtrip: 19
+  |line 55, col 76 to line 55, col 79 of module L0_SpotRoundtrip: 13
+  line 55, col 86 to line 55, col 96 of module L0_SpotRoundtrip: 18
+  |line 55, col 86 to line 55, col 89 of module L0_SpotRoundtrip: 12
+  |line 55, col 92 to line 55, col 96 of module L0_SpotRoundtrip: 12
+  line 56, col 17 to line 56, col 27 of module L0_SpotRoundtrip: 6
+  line 56, col 32 to line 56, col 106 of module L0_SpotRoundtrip: 6
+<DropStale line 58, col 1 to line 58, col 9 of module L0_SpotRoundtrip>: 0:0
+  line 58, col 17 to line 58, col 28 of module L0_SpotRoundtrip: 28
+  line 58, col 34 to line 58, col 55 of module L0_SpotRoundtrip: 6
+  line 58, col 61 to line 58, col 72 of module L0_SpotRoundtrip: 0
+  line 59, col 17 to line 59, col 91 of module L0_SpotRoundtrip: 0
+<Activate line 62, col 1 to line 62, col 8 of module L0_SpotRoundtrip>: 6:6
+  line 62, col 16 to line 62, col 25 of module L0_SpotRoundtrip: 34
+  |line 62, col 16 to line 62, col 19 of module L0_SpotRoundtrip: 28
+  |line 62, col 21 to line 62, col 25 of module L0_SpotRoundtrip: 28
+  line 62, col 30 to line 62, col 34 of module L0_SpotRoundtrip: 6
+  line 62, col 39 to line 62, col 54 of module L0_SpotRoundtrip: 12
+  |line 62, col 39 to line 62, col 46 of module L0_SpotRoundtrip: 6
+  |line 62, col 48 to line 62, col 54 of module L0_SpotRoundtrip: 6
+  line 62, col 59 to line 62, col 64 of module L0_SpotRoundtrip: 12
+  |line 62, col 59 to line 62, col 62 of module L0_SpotRoundtrip: 6
+  line 62, col 69 to line 62, col 102 of module L0_SpotRoundtrip: 12
+  |line 62, col 69 to line 62, col 86 of module L0_SpotRoundtrip: 6
+  |line 62, col 98 to line 62, col 102 of module L0_SpotRoundtrip: 6
+  line 63, col 16 to line 63, col 88 of module L0_SpotRoundtrip: 6
+  line 64, col 16 to line 64, col 43 of module L0_SpotRoundtrip: 6
+  line 65, col 16 to line 65, col 96 of module L0_SpotRoundtrip: 6
+<Admit line 69, col 1 to line 69, col 8 of module L0_SpotRoundtrip>: 1:1
+  line 69, col 16 to line 69, col 21 of module L0_SpotRoundtrip: 29
+  |line 69, col 16 to line 69, col 19 of module L0_SpotRoundtrip: 28
+  line 69, col 26 to line 69, col 29 of module L0_SpotRoundtrip: 1
+  line 69, col 34 to line 69, col 38 of module L0_SpotRoundtrip: 1
+  line 69, col 43 to line 69, col 53 of module L0_SpotRoundtrip: 13
+  |line 69, col 43 to line 69, col 47 of module L0_SpotRoundtrip: 12
+  |line 69, col 49 to line 69, col 53 of module L0_SpotRoundtrip: 12
+  line 69, col 58 to line 69, col 73 of module L0_SpotRoundtrip: 7
+  |line 69, col 58 to line 69, col 65 of module L0_SpotRoundtrip: 6
+  |line 69, col 67 to line 69, col 73 of module L0_SpotRoundtrip: 6
+  line 69, col 78 to line 69, col 85 of module L0_SpotRoundtrip: 6
+  |line 69, col 79 to line 69, col 85 of module L0_SpotRoundtrip: 5
+  line 70, col 16 to line 70, col 38 of module L0_SpotRoundtrip: 6
+  |line 70, col 16 to line 70, col 16 of module L0_SpotRoundtrip: 5
+  |line 70, col 22 to line 70, col 38 of module L0_SpotRoundtrip: 5
+  line 70, col 43 to line 70, col 48 of module L0_SpotRoundtrip: 1
+  line 71, col 16 to line 71, col 69 of module L0_SpotRoundtrip: 1
+  line 72, col 16 to line 72, col 69 of module L0_SpotRoundtrip: 1
+<SampleGate line 75, col 1 to line 75, col 10 of module L0_SpotRoundtrip>: 1:1
+  line 75, col 18 to line 75, col 25 of module L0_SpotRoundtrip: 29
+  |line 75, col 18 to line 75, col 21 of module L0_SpotRoundtrip: 28
+  line 75, col 30 to line 75, col 43 of module L0_SpotRoundtrip: 8
+  |line 75, col 30 to line 75, col 41 of module L0_SpotRoundtrip: 7
+  line 75, col 48 to line 75, col 62 of module L0_SpotRoundtrip: 3
+  |line 75, col 48 to line 75, col 53 of module L0_SpotRoundtrip: 2
+  |line 75, col 55 to line 75, col 62 of module L0_SpotRoundtrip: 2
+  line 73, col 14 to line 73, col 18 of module L0_SpotRoundtrip: 1
+  line 73, col 23 to line 73, col 33 of module L0_SpotRoundtrip: 2
+  |line 73, col 23 to line 73, col 27 of module L0_SpotRoundtrip: 1
+  |line 73, col 29 to line 73, col 33 of module L0_SpotRoundtrip: 1
+  line 73, col 38 to line 73, col 53 of module L0_SpotRoundtrip: 2
+  |line 73, col 38 to line 73, col 45 of module L0_SpotRoundtrip: 1
+  |line 73, col 47 to line 73, col 53 of module L0_SpotRoundtrip: 1
+  line 73, col 58 to line 73, col 61 of module L0_SpotRoundtrip: 1
+  line 73, col 66 to line 73, col 73 of module L0_SpotRoundtrip: 2
+  |line 73, col 67 to line 73, col 73 of module L0_SpotRoundtrip: 1
+  line 75, col 80 to line 75, col 159 of module L0_SpotRoundtrip: 1
+  line 76, col 18 to line 76, col 68 of module L0_SpotRoundtrip: 1
+<FirstByte line 78, col 1 to line 78, col 9 of module L0_SpotRoundtrip>: 1:1
+  line 78, col 17 to line 78, col 24 of module L0_SpotRoundtrip: 29
+  |line 78, col 17 to line 78, col 20 of module L0_SpotRoundtrip: 28
+  line 78, col 29 to line 78, col 45 of module L0_SpotRoundtrip: 8
+  |line 78, col 29 to line 78, col 34 of module L0_SpotRoundtrip: 7
+  |line 78, col 38 to line 78, col 45 of module L0_SpotRoundtrip: 7
+  line 78, col 50 to line 78, col 57 of module L0_SpotRoundtrip: 2
+  |line 78, col 51 to line 78, col 57 of module L0_SpotRoundtrip: 1
+  line 78, col 62 to line 78, col 96 of module L0_SpotRoundtrip: 1
+  line 78, col 101 to line 78, col 116 of module L0_SpotRoundtrip: 1
+  line 79, col 17 to line 79, col 60 of module L0_SpotRoundtrip: 1
+<AbortEmpty line 81, col 1 to line 81, col 10 of module L0_SpotRoundtrip>: 0:0
+  line 81, col 18 to line 81, col 25 of module L0_SpotRoundtrip: 28
+  line 81, col 30 to line 81, col 43 of module L0_SpotRoundtrip: 7
+  line 81, col 61 to line 81, col 75 of module L0_SpotRoundtrip: 2
+  line 81, col 80 to line 81, col 89 of module L0_SpotRoundtrip: 1
+  line 82, col 18 to line 82, col 45 of module L0_SpotRoundtrip: 0
+  line 82, col 50 to line 82, col 61 of module L0_SpotRoundtrip: 0
+  line 82, col 66 to line 82, col 72 of module L0_SpotRoundtrip: 0
+  line 82, col 77 to line 82, col 92 of module L0_SpotRoundtrip: 0
+  line 83, col 18 to line 83, col 65 of module L0_SpotRoundtrip: 0
+<Accept line 85, col 1 to line 85, col 9 of module L0_SpotRoundtrip>: 1:1
+  line 85, col 17 to line 85, col 27 of module L0_SpotRoundtrip: 1
+  |line 85, col 17 to line 85, col 25 of module L0_SpotRoundtrip: 28
+  line 85, col 32 to line 85, col 45 of module L0_SpotRoundtrip: 12
+  |line 85, col 32 to line 85, col 32 of module L0_SpotRoundtrip: 11
+  |line 85, col 41 to line 85, col 45 of module L0_SpotRoundtrip: 11
+  line 85, col 50 to line 85, col 70 of module L0_SpotRoundtrip: 1
+  line 86, col 17 to line 86, col 69 of module L0_SpotRoundtrip: 1
+<Fill line 87, col 1 to line 87, col 7 of module L0_SpotRoundtrip>: 1:2
+  line 87, col 15 to line 87, col 34 of module L0_SpotRoundtrip: 30
+  |line 87, col 15 to line 87, col 15 of module L0_SpotRoundtrip: 28
+  |line 87, col 21 to line 87, col 34 of module L0_SpotRoundtrip: 28
+  line 87, col 39 to line 87, col 61 of module L0_SpotRoundtrip: 2
+  line 88, col 15 to line 88, col 66 of module L0_SpotRoundtrip: 2
+<Ack line 90, col 1 to line 90, col 3 of module L0_SpotRoundtrip>: 2:4
+  line 90, col 11 to line 90, col 24 of module L0_SpotRoundtrip: 32
+  |line 90, col 11 to line 90, col 14 of module L0_SpotRoundtrip: 28
+  |line 90, col 20 to line 90, col 24 of module L0_SpotRoundtrip: 28
+  line 90, col 29 to line 90, col 65 of module L0_SpotRoundtrip: 4
+  line 90, col 70 to line 90, col 76 of module L0_SpotRoundtrip: 4
+  line 91, col 11 to line 91, col 70 of module L0_SpotRoundtrip: 4
+<Capture line 93, col 1 to line 93, col 10 of module L0_SpotRoundtrip>: 2:2
+  line 93, col 18 to line 93, col 22 of module L0_SpotRoundtrip: 2
+  line 93, col 27 to line 93, col 49 of module L0_SpotRoundtrip: 30
+  |line 93, col 27 to line 93, col 27 of module L0_SpotRoundtrip: 28
+  |line 93, col 33 to line 93, col 49 of module L0_SpotRoundtrip: 28
+  line 93, col 54 to line 93, col 80 of module L0_SpotRoundtrip: 2
+  line 94, col 18 to line 94, col 78 of module L0_SpotRoundtrip: 2
+<Drain line 97, col 1 to line 97, col 8 of module L0_SpotRoundtrip>: 2:2
+  line 97, col 16 to line 97, col 30 of module L0_SpotRoundtrip: 30
+  |line 97, col 16 to line 97, col 21 of module L0_SpotRoundtrip: 28
+  |line 97, col 23 to line 97, col 30 of module L0_SpotRoundtrip: 28
+  line 97, col 35 to line 97, col 58 of module L0_SpotRoundtrip: 29
+  |line 97, col 35 to line 97, col 35 of module L0_SpotRoundtrip: 27
+  |line 97, col 41 to line 97, col 58 of module L0_SpotRoundtrip: 27
+  line 97, col 63 to line 97, col 87 of module L0_SpotRoundtrip: 2
+  line 98, col 16 to line 98, col 88 of module L0_SpotRoundtrip: 2
+  line 99, col 16 to line 99, col 23 of module L0_SpotRoundtrip: 2
+  line 99, col 28 to line 99, col 105 of module L0_SpotRoundtrip: 2
+<Gap line 101, col 1 to line 101, col 3 of module L0_SpotRoundtrip>: 0:0
+  line 101, col 41 to line 101, col 52 of module L0_SpotRoundtrip: 0
+  line 102, col 11 to line 102, col 84 of module L0_SpotRoundtrip: 0
+<Reconnect line 103, col 1 to line 103, col 9 of module L0_SpotRoundtrip>: 0:0
+  line 103, col 17 to line 103, col 22 of module L0_SpotRoundtrip: 28
+  line 103, col 27 to line 103, col 40 of module L0_SpotRoundtrip: 0
+  line 103, col 45 to line 103, col 55 of module L0_SpotRoundtrip: 0
+  line 104, col 17 to line 104, col 84 of module L0_SpotRoundtrip: 0
+<Freeze line 107, col 1 to line 107, col 6 of module L0_SpotRoundtrip>: 0:0
+  line 107, col 14 to line 107, col 28 of module L0_SpotRoundtrip: 28
+  line 107, col 33 to line 107, col 41 of module L0_SpotRoundtrip: 27
+  line 107, col 47 to line 107, col 69 of module L0_SpotRoundtrip: 14
+  line 107, col 75 to line 107, col 82 of module L0_SpotRoundtrip: 0
+  line 108, col 14 to line 108, col 87 of module L0_SpotRoundtrip: 0
+<Deadline line 110, col 1 to line 110, col 8 of module L0_SpotRoundtrip>: 0:0
+  line 110, col 41 to line 110, col 53 of module L0_SpotRoundtrip: 0
+  line 111, col 16 to line 111, col 87 of module L0_SpotRoundtrip: 0
+<Restart line 115, col 1 to line 115, col 7 of module L0_SpotRoundtrip>: 0:0
+  line 115, col 43 to line 115, col 57 of module L0_SpotRoundtrip: 0
+  line 115, col 62 to line 115, col 72 of module L0_SpotRoundtrip: 0
+  line 115, col 77 to line 115, col 90 of module L0_SpotRoundtrip: 0
+  line 116, col 15 to line 116, col 22 of module L0_SpotRoundtrip: 0
+  line 116, col 27 to line 116, col 38 of module L0_SpotRoundtrip: 0
+  line 116, col 43 to line 116, col 58 of module L0_SpotRoundtrip: 0
+  line 116, col 63 to line 116, col 69 of module L0_SpotRoundtrip: 0
+  line 117, col 15 to line 117, col 63 of module L0_SpotRoundtrip: 0
+<Idle line 118, col 1 to line 118, col 4 of module L0_SpotRoundtrip>: 0:28
+  line 118, col 9 to line 118, col 22 of module L0_SpotRoundtrip: 28
+<TypeOK line 124, col 1 to line 124, col 6 of module L0_SpotRoundtrip>
+  line 124, col 11 to line 126, col 45 of module L0_SpotRoundtrip: 28
+<SampleSound line 127, col 1 to line 127, col 11 of module L0_SpotRoundtrip>
+  line 127, col 16 to line 128, col 102 of module L0_SpotRoundtrip: 28
+  |line 127, col 19 to line 127, col 33 of module L0_SpotRoundtrip: 28
+  |line 127, col 40 to line 127, col 43 of module L0_SpotRoundtrip: 27
+  |line 128, col 19 to line 128, col 102 of module L0_SpotRoundtrip: 1
+<CashConserved line 129, col 1 to line 129, col 13 of module L0_SpotRoundtrip>
+  line 129, col 18 to line 130, col 73 of module L0_SpotRoundtrip: 28
+<Provenance line 131, col 1 to line 131, col 10 of module L0_SpotRoundtrip>
+  line 131, col 15 to line 134, col 72 of module L0_SpotRoundtrip: 28
+  |line 131, col 18 to line 131, col 81 of module L0_SpotRoundtrip: 28
+  |line 132, col 18 to line 132, col 100 of module L0_SpotRoundtrip: 28
+  ||line 132, col 30 to line 132, col 100 of module L0_SpotRoundtrip: 28
+  |||line 132, col 30 to line 132, col 47 of module L0_SpotRoundtrip: 28
+  |||line 132, col 53 to line 132, col 99 of module L0_SpotRoundtrip: 28
+  ||||line 132, col 53 to line 132, col 63 of module L0_SpotRoundtrip: 28
+  ||||line 132, col 68 to line 132, col 99 of module L0_SpotRoundtrip: 11
+  ||line 132, col 27 to line 132, col 27 of module L0_SpotRoundtrip: 28
+  |line 133, col 18 to line 133, col 62 of module L0_SpotRoundtrip: 28
+  ||line 133, col 36 to line 133, col 62 of module L0_SpotRoundtrip: 6
+  ||line 133, col 27 to line 133, col 33 of module L0_SpotRoundtrip: 28
+  |line 134, col 18 to line 134, col 72 of module L0_SpotRoundtrip: 28
+End of statistics.
+70 states generated, 28 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 16.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 2).
+Finished in 00s at (2026-11-05 02:14:10)
+{
+  "model": "L0_SpotRoundtrip",
+  "runs": 4,
+  "entries": 22,
+  "generated": {
+    "Init line 39, col 1 to line 39, col 4 of module L0_SpotRoundtrip": 4,
+    "Publish line 47, col 1 to line 47, col 7 of module L0_SpotRoundtrip": 62,
+    "Observe line 49, col 1 to line 49, col 7 of module L0_SpotRoundtrip": 174,
+    "Produce line 51, col 1 to line 51, col 10 of module L0_SpotRoundtrip": 626,
+    "BeginScan line 55, col 1 to line 55, col 9 of module L0_SpotRoundtrip": 194,
+    "DropStale line 58, col 1 to line 58, col 9 of module L0_SpotRoundtrip": 196,
+    "Activate line 62, col 1 to line 62, col 8 of module L0_SpotRoundtrip": 186,
+    "Admit line 69, col 1 to line 69, col 8 of module L0_SpotRoundtrip": 25,
+    "SampleGate line 75, col 1 to line 75, col 10 of module L0_SpotRoundtrip": 25,
+    "FirstByte line 78, col 1 to line 78, col 9 of module L0_SpotRoundtrip": 37,
+    "AbortEmpty line 81, col 1 to line 81, col 10 of module L0_SpotRoundtrip": 116,
+    "Accept line 85, col 1 to line 85, col 9 of module L0_SpotRoundtrip": 91,
+    "Fill line 87, col 1 to line 87, col 7 of module L0_SpotRoundtrip": 216,
+    "Ack line 90, col 1 to line 90, col 3 of module L0_SpotRoundtrip": 300,
+    "Capture line 93, col 1 to line 93, col 10 of module L0_SpotRoundtrip": 220,
+    "Drain line 97, col 1 to line 97, col 8 of module L0_SpotRoundtrip": 260,
+    "Gap line 101, col 1 to line 101, col 3 of module L0_SpotRoundtrip": 219,
+    "Reconnect line 103, col 1 to line 103, col 9 of module L0_SpotRoundtrip": 314,
+    "Freeze line 107, col 1 to line 107, col 6 of module L0_SpotRoundtrip": 256,
+    "Deadline line 110, col 1 to line 110, col 8 of module L0_SpotRoundtrip": 728,
+    "Restart line 115, col 1 to line 115, col 7 of module L0_SpotRoundtrip": 273,
+    "Idle line 118, col 1 to line 118, col 4 of module L0_SpotRoundtrip": 1685
+  },
+  "model_sha256": "6d49e85ddb262a13836a8c15c347ceb1554e04600a5d295c6c5863017b675db0"
+}

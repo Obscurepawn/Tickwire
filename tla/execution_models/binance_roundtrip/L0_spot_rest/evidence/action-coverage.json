@@ -1,0 +1,28 @@
+{
+  "model": "L0_BinanceSpot",
+  "runs": 2,
+  "entries": 20,
+  "generated": {
+    "Init line 32, col 1 to line 32, col 4 of module L0_BinanceSpot": 2,
+    "Publish line 43, col 1 to line 43, col 7 of module L0_BinanceSpot": 144,
+    "WorkerDecide line 45, col 1 to line 45, col 12 of module L0_BinanceSpot": 288,
+    "Expire line 49, col 1 to line 49, col 6 of module L0_BinanceSpot": 620,
+    "LoseSocket line 53, col 1 to line 53, col 10 of module L0_BinanceSpot": 428,
+    "WorkerReport line 57, col 1 to line 57, col 12 of module L0_BinanceSpot": 152,
+    "ClockPoll line 62, col 1 to line 62, col 9 of module L0_BinanceSpot": 265,
+    "MarketPoll line 66, col 1 to line 66, col 10 of module L0_BinanceSpot": 205,
+    "ObserveGap line 68, col 1 to line 68, col 10 of module L0_BinanceSpot": 68,
+    "CaptureFill line 72, col 1 to line 72, col 11 of module L0_BinanceSpot": 24,
+    "PrivateIdle line 75, col 1 to line 75, col 11 of module L0_BinanceSpot": 205,
+    "ApplyFill line 79, col 1 to line 79, col 9 of module L0_BinanceSpot": 24,
+    "FirstWrite line 89, col 1 to line 89, col 10 of module L0_BinanceSpot": 2,
+    "ChargeThenExpire line 97, col 1 to line 97, col 16 of module L0_BinanceSpot": 2,
+    "DenyFirst line 103, col 1 to line 103, col 9 of module L0_BinanceSpot": 10,
+    "RestAck line 109, col 1 to line 109, col 7 of module L0_BinanceSpot": 34,
+    "RestIdle line 112, col 1 to line 112, col 8 of module L0_BinanceSpot": 213,
+    "ReportPoll line 117, col 1 to line 117, col 10 of module L0_BinanceSpot": 213,
+    "Admit line 124, col 1 to line 124, col 5 of module L0_BinanceSpot": 4,
+    "StrategyIdle line 128, col 1 to line 128, col 12 of module L0_BinanceSpot": 205
+  },
+  "model_sha256": "0e22e351ed0ef5d9541e2fa9467a2cc862bba361e18b4018bbe4dd9c1013dcbf"
+}

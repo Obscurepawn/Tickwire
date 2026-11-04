@@ -1,0 +1,9 @@
+# Independent review of fee closure and restart
+
+**Confirmed for the conflicting inputs in the trace.** This is a local persistence defect under a documented freeze condition. The frequency of those contradictory reports on Bybit or OKX is unknown.
+
+The reducer keeps the larger of conflicting terminal cumulative quantities, marks the order unreconciled and freezes the account in `crates/tickwire-account/src/events.rs:422-437`. The candidate REST close in `crates/tickwire-spot-runner/src/reconcile/ingest.rs:270-310` compares the REST total with locally booked trades. A zero-fill REST cancellation can pass that comparison after a private terminal report claimed a nonzero cumulative amount. The divergent terminal total remains in the reducer. `crates/tickwire-account/src/admission.rs:484-495` rejects fee closure in exactly that state.
+
+The gateway synchronizes the proposed fact before applying it to the reducer in `crates/tickwire-account-gateway/src/lib.rs:1042-1050`. Freezing the in-memory account after that rejection leaves the durable record in place. A higher writer epoch changes ownership but cannot make the historical prefix replayable.
+
+A second reviewer independently reran the [native reproduction](04_evidence/reproduce.sh). Both local TLS venue profiles reported `Session(Gateway(Account(Unreconciled)))` on the running account and `Journal(Account(Unreconciled))` on the next process. No simultaneous account writers, forged credentials, disk corruption or venue-wide assumption is needed to exercise that local behavior. The suggested correction is to validate the candidate transition before publishing the record, install its resulting account state after sync, and retain contradictory reports as evidence while keeping new risk frozen. Recovery of an already affected historical journal needs a separate compatibility decision.

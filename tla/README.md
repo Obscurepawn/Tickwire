@@ -1,5 +1,7 @@
 # Tickwire TLA+ models
 
+The [November 2026 source audit](audits/2026-11-05/README.md) lists current trading-route results, reproducible counterexamples and the remaining coverage gaps for each crate.
+
 From the workspace root, run the order submission models.
 
 ```sh

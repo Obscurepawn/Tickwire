@@ -1,0 +1,21 @@
+{
+  "model": "L0_SharedWindow",
+  "runs": 2,
+  "entries": 13,
+  "generated": {
+    "Init line 40, col 1 to line 40, col 4 of module L0_SharedWindow": 2,
+    "Tick line 47, col 1 to line 47, col 4 of module L0_SharedWindow": 185431,
+    "AddWindow line 51, col 1 to line 51, col 9 of module L0_SharedWindow": 11358,
+    "Prepare line 57, col 1 to line 57, col 7 of module L0_SharedWindow": 1635,
+    "IssueOther line 63, col 1 to line 63, col 10 of module L0_SharedWindow": 23810,
+    "Commit line 68, col 1 to line 68, col 6 of module L0_SharedWindow": 12140,
+    "RejectStale line 71, col 1 to line 71, col 11 of module L0_SharedWindow": 280279,
+    "FailBeforeCommit line 75, col 1 to line 75, col 16 of module L0_SharedWindow": 6070,
+    "Install line 81, col 1 to line 81, col 7 of module L0_SharedWindow": 25321,
+    "Spend line 88, col 1 to line 88, col 5 of module L0_SharedWindow": 45302,
+    "Retry line 95, col 1 to line 95, col 5 of module L0_SharedWindow": 40615,
+    "Stop line 101, col 1 to line 101, col 4 of module L0_SharedWindow": 186243,
+    "Reclaim line 105, col 1 to line 105, col 7 of module L0_SharedWindow": 178131
+  },
+  "model_sha256": "39ad1c1f92329d86e52b811bea1c18582f19d04faa70e8d4a6288673424df336"
+}

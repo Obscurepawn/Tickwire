@@ -1,0 +1,15 @@
+{
+  "model": "L0_QuotePair",
+  "runs": 2,
+  "entries": 7,
+  "generated": {
+    "Init line 45, col 1 to line 45, col 4 of module L0_QuotePair": 2,
+    "Publish line 52, col 1 to line 52, col 10 of module L0_QuotePair": 1866,
+    "Tick line 59, col 1 to line 59, col 4 of module L0_QuotePair": 2200,
+    "JoinSdk line 66, col 1 to line 66, col 7 of module L0_QuotePair": 517,
+    "JoinAccount line 68, col 1 to line 68, col 11 of module L0_QuotePair": 659,
+    "SdkRead line 72, col 1 to line 72, col 7 of module L0_QuotePair (74 3 78 45)": 5284,
+    "AccountRead line 83, col 1 to line 83, col 11 of module L0_QuotePair (85 3 92 36)": 5010
+  },
+  "model_sha256": "9affa6c9ea35e1135b8eb12989f29deeb25e7d35a3f7d5ef552ec044cf7c3779"
+}

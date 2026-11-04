@@ -1,0 +1,5 @@
+# Worker and host boundaries
+
+The app dispatches a durable ARM or COMMIT decision to a supervised strategy process that consumes an external market-data service. One operation changes the market subscription in that same worker. The host holds the worker's PID, authenticated report connection and current approval. The worker alone owns its old consumer, pending join and successor. The Bybit and OKX account runner uses a separate deployment path. [App dispatch](../../../../crates/tickwire-app/src/control/market.rs#L191) · [Host command entry points](../../../../crates/tickwire-strategy-host/src/remote.rs#L246) · [Worker owner](../../../../crates/tickwire-strategy-sdk/src/worker/expansion.rs#L5)
+
+The model starts with the old live subscription, the expected strategy PID and a valid approval. The host and worker share a monotonic clock domain, execute independently, and exchange ordered messages on a local socket. Each completes at most one switch. The only receipt producer is that worker. [Worker phase and cut](../../../../crates/tickwire-strategy-sdk/src/worker.rs#L849) · [Approval checks](../../../../crates/tickwire-market-source/src/transition.rs#L201)

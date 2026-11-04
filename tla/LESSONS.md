@@ -208,3 +208,11 @@ Make your model **more generous** than the code where you're unsure (extra recov
 ticks, an adversary bounded only by the protocol). A violation that survives a generous
 model is the dual of the looser-than-code failure shape — and that's what makes it
 credible.
+
+## Tickwire audit, 2026-11-05
+
+A passing account reducer can reject an inconsistent terminal total while its caller has already synchronized the decision to disk. Verify the live caller and the next writer's replay of the same prefix together. [Fee closure review](execution_models/cash_evidence/L0_terminal_fees/06_review.md)
+
+An unchanged source line can coexist with changed recovery semantics. The legacy crash/receipt model retained all 269 of its line hashes after the mock runtime acquired persistent zero-byte aborts. Include the current producer and the replay consumer in drift reviews. [Historical boundary review](audits/2026-11-05/legacy-boundaries.md)
+
+Use the authorization sample as the observation point in cross-thread first-write properties. The transport checks the command deadline again before writing. The private reader can observe a socket event in between. [Sample-to-byte witness](execution_models/spot_roundtrip/L0_live_account/04_counterexamples.md)

@@ -1,0 +1,337 @@
+--- a/tests/reconcile_process.rs
++++ b/tests/reconcile_process.rs
+@@ -14,9 +14,16 @@
+ // FileStrategy consumes the original canonical order, complete recovery descriptor and the
+ // actual mark emitted by the shared quote publisher when this worker decides to buy.
+ fn publish_order(root: &Path, trigger: tickwire_venue::TriggerRef) {
++    for (member, intent) in [(9, 901), (8, 802), (8, 801)] {
++        publish_one(root, trigger.clone(), member, intent);
++    }
++}
++fn publish_one(root: &Path, trigger: tickwire_venue::TriggerRef, member: u8, intent: u64) {
+     use tickwire_recovery::{InputRecord, digest, encode_inputs};
+     use tickwire_venue::{BoundedList, CanonicalCommand, ClientId, CommandBody};
+-    let dir = root.join("trading-queue");
++    let queue = root.join(if member == 8 { "trading-queue" } else { "peer-queue" });
++    let dir = root.join(format!("objects-{intent}"));
++    fs::create_dir(&dir).unwrap();
+     let mut order = CanonicalCommand::decode(include_bytes!("../examples/order-template.cbor"))
+         .unwrap()
+         .command()
+@@ -38,19 +45,28 @@
+     order.context.request.venue = baseline.snapshot().scope.venue;
+     order.context.instrument = baseline.catalog().entries[0].instrument.clone();
+     order.context.request.intent_exec_epoch = 4;
+-    order.context.request.intent_id = 801;
++    order.context.request.intent_id = intent;
+     order.context.request.config_revision = 1;
+     order.context.request.strategy_generation = 1;
+     order.context.request.deadline = time + 5_000_000_000;
+     order.context.strategy.created_mono_ns = time;
+     order.context.strategy.order_config_version = 1;
+     order.context.strategy.authorization_epoch = 1;
+-    let owner = [8; 16];
++    let owner = [member; 16];
++    order.context.strategy.logical_strategy_id = u64::from(member);
+     order.context.strategy.instance_id = owner;
+     let CommandBody::New(ref mut new) = order.body else {
+         unreachable!()
+     };
+     new.client_id = ClientId::new("liveorder801").unwrap();
++    if intent != 801 {
++        order.body = CommandBody::Cancel(tickwire_venue::OrderTarget {
++            order_id: [8; 16], expected_owner_revision: 1,
++            original_intent_exec_epoch: 4,
++            client_id: Some(ClientId::new("liveorder801").unwrap()), venue_order_id: None,
++        });
++    }
++    let ids = if intent == 801 { vec![owner] } else { vec![] };
+     let cmd = CanonicalCommand::new(order).unwrap();
+     let inputs = encode_inputs(
+         owner,
+@@ -70,14 +86,14 @@
+         .map(|kind| {
+             let p = dir.join(format!("decision-{kind}"));
+             let data = serde_json::to_vec(
+-                &json!({"kind":kind,"member":8,"intent":cmd.digest(),"quote_hash":digest(&market)}),
++                &json!({"kind":kind,"member":member,"intent":cmd.digest(),"quote_hash":digest(&market)}),
+             )
+             .unwrap();
+             fs::write(&p, &data).unwrap();
+             json!({"kind":kind,"schema_id":1,"owner":owner,"path":p,"digest":digest(&data)})
+         })
+         .collect::<Vec<_>>();
+-    let descriptor = json!({"command":command_path,"command_digest":cmd.digest(),"order_ids":[owner],"recovery":{"dependencies":deps,"inputs":input_path,"input_digest":digest(&inputs.bytes),"declared_rebuild":false,"fault_model_id":digest(b"loopback-native-exchange"),"pin_id":owner,"owner":owner}});
++    let descriptor = json!({"command":command_path,"command_digest":cmd.digest(),"order_ids":ids,"recovery":{"dependencies":deps,"inputs":input_path,"input_digest":digest(&inputs.bytes),"declared_rebuild":false,"fault_model_id":digest(b"loopback-native-exchange"),"pin_id":owner,"owner":owner}});
+     fs::write(
+         dir.join("descriptor.tmp"),
+         serde_json::to_vec(&descriptor).unwrap(),
+@@ -85,7 +101,7 @@
+     .unwrap();
+     fs::rename(
+         dir.join("descriptor.tmp"),
+-        dir.join("00000000000000000001.json"),
++        queue.join(format!("{intent}.ready")),
+     )
+     .unwrap();
+ }
+@@ -132,6 +148,8 @@
+         let mut cat = sample.catalog().clone();
+         cat.entries[0].instrument.symbol =
+             tickwire_venue::Symbol::new(if by { "BTCUSDT" } else { "BTC-USDT" }).unwrap();
++        let cap = cat.entries[0].max_gross_quantity;
++        cat.entries[0].strategy_limits = vec![(8, cap), (9, cap)];
+         let i = &cat.entries[0].instrument;
+         let base = CanonicalBaseline::new(s.clone(), cat.clone()).unwrap();
+         fs::write(path.join("baseline.cbor"), base.bytes()).unwrap();
+@@ -156,6 +174,7 @@
+         fs::write(path.join("key.pem"), cert.signing_key.serialize_pem()).unwrap();
+         let _market = {
+             fs::create_dir(path.join("trading-queue")).unwrap();
++            fs::create_dir(path.join("peer-queue")).unwrap();
+             let md = market::start(&path);
+             fs::write(
+                 path.join("market-source.json"),
+@@ -166,11 +185,12 @@
+         };
+         let out = Command::new("python3")
+             .arg(sources.join("exchange.py"))
+-            .arg(env!("CARGO_BIN_EXE_tickwire-spot-runner"))
++            .arg(env!("TICKWIRE_TEST_RUNNER"))
+             .arg(&path)
+             .args([rest, ws])
+             .output()
+             .unwrap();
++        print!("{}", String::from_utf8_lossy(&out.stdout));
+         assert!(
+             out.status.success(),
+             "{}",
+--- a/tests/reconcile_cli/market.rs
++++ b/tests/reconcile_cli/market.rs
+@@ -175,7 +175,8 @@
+         publish(&mut topic, clock.sample().unwrap().monotonic.nanos());
+         tx.send(client.clone()).unwrap();
+         let mut registered = false;
+-        let mut issued = false;
++        let mut staged = false;
++        let mut released = false;
+         let mut next = Instant::now() + Duration::from_millis(100);
+         while !finished.load(Ordering::Acquire) {
+             if !registered && let Ok(pid) = fs::read_to_string(root.join("trader-pid")) {
+@@ -199,12 +200,20 @@
+                 server.poll(std::slice::from_mut(&mut topic), now).unwrap();
+             }
+             if !topic.needs_bank() && Instant::now() >= next {
+-                let trigger = publish(&mut topic, now);
+-                if !issued && root.join("strategy-go").exists() {
++                if !root.join("strategy-go").exists() || released {
++                    publish(&mut topic, now);
++                } else if !staged && root.join("refresh-market").exists() {
++                    let trigger = publish(&mut topic, now);
+                     super::publish_order(&root, trigger);
+-                    issued = true;
++                    staged = true;
++                } else if staged && root.join("release-buy").exists() {
++                    fs::rename(
++                        root.join("trading-queue/801.ready"),
++                        root.join("trading-queue/00000000000000000001.json"),
++                    ).unwrap();
++                    released = true;
+                 }
+-                next = Instant::now() + Duration::from_millis(100);
++                next = Instant::now() + Duration::from_millis(25);
+             }
+             thread::sleep(Duration::from_millis(1));
+         }
+--- a/tests/reconcile_cli/exchange.py
++++ b/tests/reconcile_cli/exchange.py
+@@ -357,6 +357,10 @@
+                     with state_lock:
+                         calls["native_buy"] += 1
+                         assert calls["native_buy"] == 1
++                    # Two descriptors become visible while the shared owner is still waiting
++                    # for the original buy ACK. Its next round-robin slot belongs to member 9.
++                    for name, intent, index in [("peer-queue",901,1),("trading-queue",802,2)]:
++                        (directory/name/f"{intent}.ready").rename(directory/name/f"{index:020}.json")
+                     ack = json.dumps(response).encode()
+                     sock.sendall(
+                         f"HTTP/1.1 200 OK\r\nContent-Length: {len(ack)}\r\n\r\n".encode() + ack
+@@ -522,7 +526,7 @@
+     (directory / "stop").unlink()
+     deployment["policy"]["writer_epoch"] = 4
+     deployment["policy"]["mode"] = "trading"
+-    until = time.clock_gettime_ns(time.CLOCK_MONOTONIC_RAW) + 60_000_000_000
++    until = time.clock_gettime_ns(time.CLOCK_BOOTTIME) + 60_000_000_000
+     deployment["policy"]["owner_lease"] = {
+         "lease_epoch": 1,
+         "valid_until_ns": until,
+@@ -542,7 +546,7 @@
+                 {
+                     "key": {"topic_id": 101, "instrument_id": 12},
+                     "instrument_version": 13,
+-                    "max_age_ns": 1_000_000_000,
++                    "max_age_ns": 10_000_000_000,
+                     "max_sequence_lag": 127,
+                 }
+             ],
+@@ -556,6 +560,12 @@
+             "first_sequence": 1,
+         }
+     ]
++    config_path.write_text(json.dumps(deployment))
++    grant = deployment["policy"]["strategy_grants"][0]
++    grant["actions"]["cancel"] = True
++    deployment["policy"]["strategy_grants"].append(dict(grant,logical_strategy_id=9,instance_id=[9]*16))
++    deployment["strategies"].append(dict(deployment["strategies"][0], logical_strategy_id=9,
++                                         directory=str(directory/"peer-queue")))
+     config_path.write_text(json.dumps(deployment))
+     trader_started_at = time.monotonic()
+     with subprocess.Popen(
+@@ -604,6 +614,13 @@
+                     assert ready, "outbound execution TLS was not ready before the first order"
+                     strategy_released_at = time.monotonic()
+                     (directory / "strategy-go").touch()
++                elif msg.get("event") == "health" and strategy_released_at is not None:
++                    # A stale-to-fresh transition tells us that the account applied this
++                    # exact BBO. Only then expose buy 801 to the real file strategy.
++                    if not msg["market_live"]:
++                        (directory / "refresh-market").touch()
++                    elif (directory / "refresh-market").exists():
++                        (directory / "release-buy").touch()
+                 elif msg.get("event") == "submission":
+                     assert msg["intent"] == 801 and "Queued" in msg["result"], logs
+                 elif msg.get("event") == "request_reply":
+@@ -614,119 +631,22 @@
+                     ), msg
+                     break
+             assert calls["native_buy"] == 1, logs
+-            at = str(time.time_ns() // 1_000_000)
+-            with state_lock:
+-                ws = current_websocket
+-            if bybit:
+-                executed = {
+-                    "category": "spot",
+-                    "symbol": "BTCUSDT",
+-                    "orderLinkId": "liveorder801",
+-                    "orderId": "801",
+-                    "execType": "Trade",
+-                    "execId": "0ab1bdf7-4219-438b-b30a-32ec863018f7",
+-                    "execPrice": "60000",
+-                    "execQty": "0.001",
+-                    "execValue": "60",
+-                    "execTime": at,
+-                    "execFee": "0.006",
+-                    "feeCurrency": "USDT",
+-                    "extraFees": "",
+-                    "isMaker": True,
+-                    "side": "Buy",
+-                }
+-                filled_order = {
+-                    "category": "spot",
+-                    "symbol": "BTCUSDT",
+-                    "orderLinkId": "liveorder801",
+-                    "orderId": "801",
+-                    "orderType": "Limit",
+-                    "timeInForce": "GTC",
+-                    "orderStatus": "Filled",
+-                    "price": "60000",
+-                    "qty": "0.001",
+-                    "cumExecQty": "0.001",
+-                    "cumExecValue": "60",
+-                    "side": "Buy",
+-                    "createdTime": at,
+-                    "updatedTime": at,
+-                    "isLeverage": "0",
+-                    "stopOrderType": "",
+-                }
+-                frame(ws, {"topic": "execution.spot", "creationTime": int(at), "data": [executed]})
+-                frame(ws, {"topic": "order.spot", "creationTime": int(at), "data": [filled_order]})
+-            else:
+-                executed = {
+-                    "instType": "SPOT",
+-                    "instId": "BTC-USDT",
+-                    "clOrdId": "liveorder801",
+-                    "ordId": "801",
+-                    "tradeId": "701",
+-                    "billId": "90801",
+-                    "subType": "1",
+-                    "side": "buy",
+-                    "execType": "M",
+-                    "fillPx": "60000",
+-                    "fillSz": "0.001",
+-                    "fillTime": at,
+-                    "fee": "-0.006",
+-                    "feeCcy": "USDT",
+-                    "ts": at,
+-                    "tradeQuoteCcy": "USDT",
+-                }
+-                filled_order = {
+-                    "instType": "SPOT",
+-                    "instId": "BTC-USDT",
+-                    "clOrdId": "liveorder801",
+-                    "ordId": "801",
+-                    "ordType": "limit",
+-                    "state": "filled",
+-                    "px": "60000",
+-                    "sz": "0.001",
+-                    "accFillSz": "0.001",
+-                    "side": "buy",
+-                    "cTime": at,
+-                    "uTime": at,
+-                    "tdMode": "cash",
+-                    "algoId": "",
+-                    "fee": "-0.006",
+-                    "feeCcy": "USDT",
+-                }
+-                private_order = dict(
+-                    filled_order,
+-                    tradeId="701",
+-                    fillPx="60000",
+-                    fillSz="0.001",
+-                    fillTime=at,
+-                    fillFee="-0.006",
+-                    fillFeeCcy="USDT",
+-                    execType="M",
+-                )
+-                frame(
+-                    ws, {"arg": {"channel": "orders", "instType": "SPOT"}, "data": [private_order]}
+-                )
+-            # A disconnect after the private fill forces fresh REST checks against the now
+-            # changed cash balance, matching order, individual execution and fee bill.
+-            time.sleep(0.2)
+-            ws.shutdown(socket.SHUT_RDWR)
+-            gap = False
+-            deadline = time.monotonic() + 20
++            assert trader.wait(timeout=8) != 0, "peer's foreign-order request did not stop the live process"
+             while True:
+-                if time.monotonic() >= deadline:
+-                    raise TimeoutError("post-fill reconciliation deadline")
+-                line = events.get(timeout=max(0.01, deadline - time.monotonic()))
+-                assert line is not None, (trader.poll(), logs, calls, failures)
++                line = events.get(timeout=3)
++                if line is None:
++                    break
+                 logs.append(line)
+-                if not line.startswith("{"):
+-                    continue
+-                msg = json.loads(line)
+-                if msg.get("event") == "spot_private_gap":
+-                    gap = True
+-                if gap and msg.get("event") == "spot_account_reconciled":
+-                    break
+-            (directory / "stop").touch()
+-            assert trader.wait(timeout=6) == 0
+-            assert calls["native_buy"] == 1 and not failures, (calls, failures)
++            submissions = [json.loads(line) for line in logs if line.startswith("{")
++                           and json.loads(line).get("event")=="submission"]
++            assert [m["intent"] for m in submissions]==[801,901], logs
++            assert "Identity" in submissions[-1]["result"], logs
++            assert (directory/"trading-queue"/"00000000000000000002.json").is_file()
++            assert (directory / "release-buy").is_file()
++            assert not failures and calls["native_buy"]==1, (calls,failures,logs)
++            print(json.dumps({"venue":"bybit" if bybit else "okx","venue_signed_buys":calls["native_buy"],"account_observed_trigger":(directory / "release-buy").exists(),
++                              "producer_8_ack":801,"queued_peer_cancel":802,"rejected_foreign_cancel":901,
++                              "rejection":submissions[-1]["result"],"exit":trader.returncode}),flush=True)
+         except Exception as exc:
+             trader.kill()
+             raise AssertionError((calls, failures, logs)) from exc

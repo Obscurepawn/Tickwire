@@ -1,0 +1,168 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 1 with 1 worker on 16 cores with 307MB heap and 64MB offheap memory [pid: 255629] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/obscure/Tickwire/tla/execution_models/binance_roundtrip/L0_spot_rest/evidence/tmp30mff305/L0_BinanceSpot.tla
+Parsing file /tmp/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module L0_BinanceSpot
+Starting... (2026-11-05 02:19:00)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:19:00.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.5E-14
+The coverage statistics at 2026-11-05 02:19:01
+<Init line 32, col 1 to line 32, col 4 of module L0_BinanceSpot>: 1:1
+  line 33, col 5 to line 38, col 50 of module L0_BinanceSpot: 1
+<Publish line 43, col 1 to line 43, col 7 of module L0_BinanceSpot>: 13:72
+  line 43, col 15 to line 43, col 21 of module L0_BinanceSpot: 504
+  |line 43, col 16 to line 43, col 21 of module L0_BinanceSpot: 432
+  line 43, col 26 to line 43, col 55 of module L0_BinanceSpot: 72
+  line 44, col 15 to line 44, col 91 of module L0_BinanceSpot: 72
+<WorkerDecide line 45, col 1 to line 45, col 12 of module L0_BinanceSpot>: 13:144
+  line 45, col 20 to line 45, col 25 of module L0_BinanceSpot: 576
+  |line 45, col 20 to line 45, col 21 of module L0_BinanceSpot: 432
+  line 45, col 30 to line 45, col 39 of module L0_BinanceSpot: 504
+  |line 45, col 31 to line 45, col 39 of module L0_BinanceSpot: 360
+  line 45, col 44 to line 45, col 76 of module L0_BinanceSpot: 144
+  line 46, col 20 to line 46, col 96 of module L0_BinanceSpot: 144
+<Expire line 49, col 1 to line 49, col 6 of module L0_BinanceSpot>: 5:216
+  line 49, col 14 to line 49, col 48 of module L0_BinanceSpot: 216
+  line 50, col 14 to line 50, col 86 of module L0_BinanceSpot: 216
+<LoseSocket line 53, col 1 to line 53, col 10 of module L0_BinanceSpot>: 6:144
+  line 53, col 18 to line 53, col 23 of module L0_BinanceSpot: 144
+  line 53, col 28 to line 53, col 39 of module L0_BinanceSpot: 576
+  |line 53, col 28 to line 53, col 30 of module L0_BinanceSpot: 432
+  line 53, col 44 to line 53, col 59 of module L0_BinanceSpot: 144
+  line 54, col 18 to line 54, col 93 of module L0_BinanceSpot: 144
+<WorkerReport line 57, col 1 to line 57, col 12 of module L0_BinanceSpot>: 0:0
+  line 57, col 20 to line 57, col 49 of module L0_BinanceSpot: 432
+  line 57, col 54 to line 57, col 95 of module L0_BinanceSpot: 0
+  line 58, col 20 to line 58, col 91 of module L0_BinanceSpot: 0
+<ClockPoll line 62, col 1 to line 62, col 9 of module L0_BinanceSpot>: 72:102
+  line 62, col 17 to line 62, col 28 of module L0_BinanceSpot: 504
+  |line 62, col 17 to line 62, col 18 of module L0_BinanceSpot: 432
+  line 62, col 33 to line 62, col 66 of module L0_BinanceSpot: 102
+  |line 62, col 49 to line 62, col 66 of module L0_BinanceSpot: 72:174
+  line 62, col 71 to line 62, col 84 of module L0_BinanceSpot: 102
+  line 63, col 17 to line 63, col 82 of module L0_BinanceSpot: 102
+<MarketPoll line 66, col 1 to line 66, col 10 of module L0_BinanceSpot>: 48:72
+  line 66, col 18 to line 66, col 30 of module L0_BinanceSpot: 504
+  |line 66, col 18 to line 66, col 19 of module L0_BinanceSpot: 432
+  line 66, col 35 to line 66, col 67 of module L0_BinanceSpot: 72
+  line 66, col 72 to line 66, col 86 of module L0_BinanceSpot: 72
+  line 67, col 18 to line 67, col 91 of module L0_BinanceSpot: 72
+<ObserveGap line 68, col 1 to line 68, col 10 of module L0_BinanceSpot>: 22:24
+  line 68, col 18 to line 68, col 31 of module L0_BinanceSpot: 456
+  |line 68, col 18 to line 68, col 19 of module L0_BinanceSpot: 432
+  line 68, col 36 to line 68, col 50 of module L0_BinanceSpot: 96
+  |line 68, col 36 to line 68, col 38 of module L0_BinanceSpot: 72
+  line 68, col 55 to line 68, col 71 of module L0_BinanceSpot: 24
+  line 68, col 76 to line 68, col 87 of module L0_BinanceSpot: 24
+  line 69, col 18 to line 69, col 90 of module L0_BinanceSpot: 24
+<CaptureFill line 72, col 1 to line 72, col 11 of module L0_BinanceSpot>: 0:0
+  line 72, col 19 to line 72, col 32 of module L0_BinanceSpot: 432
+  line 72, col 37 to line 72, col 52 of module L0_BinanceSpot: 72
+  line 72, col 57 to line 72, col 69 of module L0_BinanceSpot: 48
+  line 73, col 19 to line 73, col 36 of module L0_BinanceSpot: 0
+  line 73, col 41 to line 73, col 53 of module L0_BinanceSpot: 0
+  line 74, col 19 to line 74, col 89 of module L0_BinanceSpot: 0
+<PrivateIdle line 75, col 1 to line 75, col 11 of module L0_BinanceSpot>: 50:72
+  line 75, col 19 to line 75, col 32 of module L0_BinanceSpot: 504
+  |line 75, col 19 to line 75, col 20 of module L0_BinanceSpot: 432
+  line 75, col 37 to line 75, col 48 of module L0_BinanceSpot: 72
+  line 76, col 19 to line 76, col 95 of module L0_BinanceSpot: 72
+<ApplyFill line 79, col 1 to line 79, col 9 of module L0_BinanceSpot>: 0:0
+  line 79, col 17 to line 79, col 28 of module L0_BinanceSpot: 432
+  line 79, col 33 to line 79, col 54 of module L0_BinanceSpot: 0
+  line 79, col 59 to line 79, col 70 of module L0_BinanceSpot: 0
+  line 80, col 17 to line 81, col 88 of module L0_BinanceSpot: 0
+  line 82, col 17 to line 82, col 78 of module L0_BinanceSpot: 0
+<FirstWrite line 89, col 1 to line 89, col 10 of module L0_BinanceSpot>: 0:0
+  line 89, col 18 to line 89, col 28 of module L0_BinanceSpot: 432
+  line 89, col 33 to line 89, col 51 of module L0_BinanceSpot: 72
+  line 88, col 12 to line 88, col 62 of module L0_BinanceSpot: 6
+  line 88, col 67 to line 88, col 76 of module L0_BinanceSpot: 2
+  line 90, col 18 to line 91, col 98 of module L0_BinanceSpot: 0
+  line 92, col 18 to line 92, col 37 of module L0_BinanceSpot: 0
+  line 92, col 42 to line 92, col 55 of module L0_BinanceSpot: 0
+  line 93, col 18 to line 93, col 84 of module L0_BinanceSpot: 0
+<ChargeThenExpire line 97, col 1 to line 97, col 16 of module L0_BinanceSpot>: 0:0
+  line 97, col 24 to line 97, col 34 of module L0_BinanceSpot: 432
+  line 97, col 39 to line 97, col 57 of module L0_BinanceSpot: 72
+  line 88, col 12 to line 88, col 62 of module L0_BinanceSpot: 6
+  line 88, col 67 to line 88, col 76 of module L0_BinanceSpot: 2
+  line 98, col 24 to line 98, col 43 of module L0_BinanceSpot: 0
+  line 98, col 48 to line 98, col 62 of module L0_BinanceSpot: 0
+  line 99, col 24 to line 99, col 60 of module L0_BinanceSpot: 0
+  line 99, col 65 to line 99, col 78 of module L0_BinanceSpot: 0
+  line 100, col 24 to line 100, col 83 of module L0_BinanceSpot: 0
+<DenyFirst line 103, col 1 to line 103, col 9 of module L0_BinanceSpot>: 6:6
+  line 103, col 17 to line 103, col 27 of module L0_BinanceSpot: 438
+  |line 103, col 17 to line 103, col 18 of module L0_BinanceSpot: 432
+  line 103, col 32 to line 103, col 50 of module L0_BinanceSpot: 78
+  |line 103, col 32 to line 103, col 39 of module L0_BinanceSpot: 72
+  line 103, col 55 to line 103, col 62 of module L0_BinanceSpot: 12
+  |line 103, col 56 to line 103, col 62 of module L0_BinanceSpot: 6
+  ||line 88, col 12 to line 88, col 76 of module L0_BinanceSpot: 6
+  |||line 88, col 12 to line 88, col 62 of module L0_BinanceSpot: 6
+  ||||line 88, col 12 to line 88, col 48 of module L0_BinanceSpot: 6
+  |||||line 88, col 12 to line 88, col 38 of module L0_BinanceSpot: 6
+  |||||line 88, col 43 to line 88, col 48 of module L0_BinanceSpot: 4
+  ||||line 88, col 53 to line 88, col 62 of module L0_BinanceSpot: 2
+  |||line 88, col 67 to line 88, col 76 of module L0_BinanceSpot: 2
+  line 104, col 17 to line 104, col 71 of module L0_BinanceSpot: 6
+  line 105, col 17 to line 105, col 90 of module L0_BinanceSpot: 6
+<RestAck line 109, col 1 to line 109, col 7 of module L0_BinanceSpot>: 0:0
+  line 109, col 15 to line 109, col 25 of module L0_BinanceSpot: 432
+  line 109, col 30 to line 109, col 46 of module L0_BinanceSpot: 72
+  line 110, col 15 to line 110, col 63 of module L0_BinanceSpot: 0
+  line 110, col 68 to line 110, col 81 of module L0_BinanceSpot: 0
+  line 111, col 15 to line 111, col 88 of module L0_BinanceSpot: 0
+<RestIdle line 112, col 1 to line 112, col 8 of module L0_BinanceSpot>: 66:72
+  line 112, col 16 to line 112, col 26 of module L0_BinanceSpot: 504
+  |line 112, col 16 to line 112, col 17 of module L0_BinanceSpot: 432
+  line 112, col 31 to line 112, col 44 of module L0_BinanceSpot: 72
+  line 113, col 16 to line 113, col 92 of module L0_BinanceSpot: 72
+<ReportPoll line 117, col 1 to line 117, col 10 of module L0_BinanceSpot>: 72:72
+  line 117, col 18 to line 117, col 30 of module L0_BinanceSpot: 504
+  |line 117, col 18 to line 117, col 19 of module L0_BinanceSpot: 432
+  line 117, col 35 to line 117, col 50 of module L0_BinanceSpot: 72
+  line 117, col 55 to line 117, col 104 of module L0_BinanceSpot: 72
+  line 118, col 18 to line 118, col 86 of module L0_BinanceSpot: 72
+<Admit line 124, col 1 to line 124, col 5 of module L0_BinanceSpot>: 2:2
+  line 124, col 13 to line 124, col 27 of module L0_BinanceSpot: 434
+  |line 124, col 13 to line 124, col 14 of module L0_BinanceSpot: 432
+  line 124, col 32 to line 124, col 40 of module L0_BinanceSpot: 74
+  |line 124, col 32 to line 124, col 33 of module L0_BinanceSpot: 72
+  line 124, col 45 to line 124, col 51 of module L0_BinanceSpot: 38
+  |line 124, col 45 to line 124, col 46 of module L0_BinanceSpot: 36
+  line 124, col 56 to line 124, col 65 of module L0_BinanceSpot: 2
+  line 124, col 70 to line 124, col 75 of module L0_BinanceSpot: 2
+  line 125, col 13 to line 125, col 28 of module L0_BinanceSpot: 11
+  |line 125, col 13 to line 125, col 15 of module L0_BinanceSpot: 9
+  line 125, col 33 to line 125, col 49 of module L0_BinanceSpot: 8
+  |line 125, col 33 to line 125, col 40 of module L0_BinanceSpot: 6
+  line 126, col 13 to line 126, col 93 of module L0_BinanceSpot: 2
+  line 127, col 13 to line 127, col 25 of module L0_BinanceSpot: 2
+  line 127, col 30 to line 127, col 103 of module L0_BinanceSpot: 2
+<StrategyIdle line 128, col 1 to line 128, col 12 of module L0_BinanceSpot>: 56:72
+  line 128, col 20 to line 128, col 34 of module L0_BinanceSpot: 504
+  |line 128, col 20 to line 128, col 21 of module L0_BinanceSpot: 432
+  line 128, col 39 to line 128, col 51 of module L0_BinanceSpot: 72
+  line 129, col 20 to line 129, col 96 of module L0_BinanceSpot: 72
+<SingleWrite line 135, col 1 to line 135, col 11 of module L0_BinanceSpot>
+  line 135, col 16 to line 135, col 61 of module L0_BinanceSpot: 432
+<AdmittedOutput line 136, col 1 to line 136, col 14 of module L0_BinanceSpot>
+  line 136, col 19 to line 136, col 86 of module L0_BinanceSpot: 432
+<OneTrade line 137, col 1 to line 137, col 8 of module L0_BinanceSpot>
+  line 137, col 13 to line 140, col 45 of module L0_BinanceSpot: 432
+<ReportPrefix line 141, col 1 to line 141, col 12 of module L0_BinanceSpot>
+  line 141, col 17 to line 141, col 82 of module L0_BinanceSpot: 432
+<AckIsBound line 142, col 1 to line 142, col 10 of module L0_BinanceSpot>
+  line 142, col 15 to line 142, col 47 of module L0_BinanceSpot: 432
+End of statistics.
+1071 states generated, 432 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 20.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 5 and the 95th percentile is 2).
+Finished in 01s at (2026-11-05 02:19:01)

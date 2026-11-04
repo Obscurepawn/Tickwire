@@ -1,0 +1,13 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 2129730540263590743 with 1 worker on 16 cores with 383MB heap and 64MB offheap memory [pid: 265474] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Model checking completed. No error has been found.
+The coverage statistics at 2026-11-05 02:23:56
+<Init line 51, col 1 to line 51, col 4 of module L0_CashEnvelope>: 1:1
+<Admit line 54, col 1 to line 54, col 5 of module L0_CashEnvelope>: 74:85
+<Refuse line 59, col 1 to line 59, col 6 of module L0_CashEnvelope>: 14:185
+<Fill line 64, col 1 to line 64, col 4 of module L0_CashEnvelope (65 16 69 53)>: 110:188
+<Cancel line 72, col 1 to line 72, col 6 of module L0_CashEnvelope (74 4 75 44)>: 79:167
+End of statistics.
+626 states generated, 278 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 7.
+Finished in 01s at (2026-11-05 02:23:56)

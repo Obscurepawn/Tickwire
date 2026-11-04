@@ -1,0 +1,7 @@
+# Binance spot REST safety and completion
+
+In the explored states, every locally accepted request has a registered intent, a durable recovery closure and an account admission. An accepted write has a valid local market/private gate, time budget and a consumed quota unit. A post-debit expiry can spend quota with zero native bytes. In the zero-credit configuration no order reaches the venue. Across the two configurations, one native trade books once despite repeat delivery, zero-fee asset totals balance, and worker delivery follows the booked trade. The complete modeled run contains both the REST ACK and a worker-visible fill. A second witness delivers the fill to the worker before the runtime consumes the REST ACK.
+
+## Fidelity and coverage
+
+The model includes the actual Binance node poll order, shared command gate, timestamp and quota checks, spot REST reply owner, private input WAL, account reducer and hosted report path. It assumes successful signing and identity binding. TLS acceptance represents one complete short request. It uses one approved worker, one order/digest, one cash unit, up to one native quota credit and two private deliveries. The two safety configurations exhaust 838 and 432 states. Action coverage includes every Next action, including a post-authorization deadline expiry. The reachability probes demonstrate concrete nonempty outcomes. No fairness hypothesis is used. [Source map](02_models/L0_BinanceSpot.tla) · [Runs](03_run_log.md) · [Abstractions](01_reasoning.md)

@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_host-b64363b5f9efabec)
+
+running 3 tests
+test market_transition::tests::rejected_operation_cannot_later_become_armed ... ok
+test market_transition::tests::activated_requires_the_approved_final_descriptor_and_prior_cut ... ok
+test market_transition::tests::receipt_requires_actual_owned_pid_and_monotonic_phase ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 28 filtered out; finished in 0.10s
+
+[audit] End of captured process output.

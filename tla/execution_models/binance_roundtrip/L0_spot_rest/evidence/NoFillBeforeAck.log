@@ -1,0 +1,607 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 1 with 1 worker on 16 cores with 307MB heap and 64MB offheap memory [pid: 255726] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/obscure/Tickwire/tla/execution_models/binance_roundtrip/L0_spot_rest/evidence/tmp30mff305/L0_BinanceSpot.tla
+Parsing file /tmp/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module L0_BinanceSpot
+Starting... (2026-11-05 02:19:03)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:19:04.
+Error: Invariant NoFillBeforeAck is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> FALSE, mark |-> FALSE, intent |-> FALSE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "clock"
+/\ calibrated = FALSE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 2: <Publish line 43, col 12 to line 44, col 91 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> FALSE, intent |-> FALSE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "clock"
+/\ calibrated = FALSE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 3: <WorkerDecide line 45, col 17 to line 46, col 96 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> FALSE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "clock"
+/\ calibrated = FALSE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 4: <ClockPoll line 62, col 14 to line 63, col 82 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> FALSE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "market"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 5: <MarketPoll line 66, col 15 to line 67, col 91 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "private"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 6: <PrivateIdle line 75, col 16 to line 76, col 95 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "rest"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 7: <RestIdle line 112, col 13 to line 113, col 92 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "report"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 8: <ReportPoll line 117, col 15 to line 118, col 86 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> FALSE,
+  closed |-> FALSE,
+  wal |-> FALSE,
+  state |-> "idle",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "strategy"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 9: <Admit line 124, col 10 to line 127, col 103 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "queued",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "clock"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 10: <ClockPoll line 62, col 14 to line 63, col 82 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "queued",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "market"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 11: <MarketPoll line 66, col 15 to line 67, col 91 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "queued",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "private"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 12: <PrivateIdle line 75, col 16 to line 76, col 95 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "queued",
+  writes |-> 0,
+  writeAuthorized |-> FALSE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 1
+/\ pc = "rest"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 13: <FirstWrite line 89, col 15 to line 93, col 84 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "report"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 14: <ReportPoll line 117, col 15 to line 118, col 86 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "strategy"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 15: <StrategyIdle line 128, col 17 to line 129, col 96 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "clock"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 16: <ClockPoll line 62, col 14 to line 63, col 82 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "market"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 17: <MarketPoll line 66, col 15 to line 67, col 91 of module L0_BinanceSpot>
+/\ input = 0
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "private"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 18: <CaptureFill line 72, col 16 to line 74, col 89 of module L0_BinanceSpot>
+/\ input = 1
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 0
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "apply"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 1, base |-> 0, booked |-> FALSE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 19: <ApplyFill line 79, col 14 to line 82, col 78 of module L0_BinanceSpot>
+/\ input = 1
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 1
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "rest"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 0, base |-> 1, booked |-> TRUE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 20: <RestIdle line 112, col 13 to line 113, col 92 of module L0_BinanceSpot>
+/\ input = 1
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 1
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "report"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 0, base |-> 1, booked |-> TRUE]
+/\ reports = [host |-> FALSE, child |-> FALSE]
+
+State 21: <ReportPoll line 117, col 15 to line 118, col 86 of module L0_BinanceSpot>
+/\ input = 1
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 1
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "strategy"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 0, base |-> 1, booked |-> TRUE]
+/\ reports = [host |-> TRUE, child |-> FALSE]
+
+State 22: <WorkerReport line 57, col 17 to line 58, col 91 of module L0_BinanceSpot>
+/\ input = 1
+/\ window = TRUE
+/\ md = [pub |-> TRUE, mark |-> TRUE, intent |-> TRUE]
+/\ applied = 1
+/\ tx = [ reg |-> TRUE,
+  closed |-> TRUE,
+  wal |-> TRUE,
+  state |-> "sent",
+  writes |-> 1,
+  writeAuthorized |-> TRUE,
+  ack |-> FALSE ]
+/\ gap = "none"
+/\ permit = 0
+/\ pc = "strategy"
+/\ calibrated = TRUE
+/\ ledger = [quote |-> 0, base |-> 1, booked |-> TRUE]
+/\ reports = [host |-> TRUE, child |-> TRUE]
+
+The coverage statistics at 2026-11-05 02:19:04
+<Init line 32, col 1 to line 32, col 4 of module L0_BinanceSpot>: 2:2
+  line 33, col 5 to line 38, col 50 of module L0_BinanceSpot: 2
+<Publish line 43, col 1 to line 43, col 7 of module L0_BinanceSpot>: 3:13
+  line 43, col 15 to line 43, col 21 of module L0_BinanceSpot: 114
+  |line 43, col 16 to line 43, col 21 of module L0_BinanceSpot: 101
+  line 43, col 26 to line 43, col 55 of module L0_BinanceSpot: 13
+  line 44, col 15 to line 44, col 91 of module L0_BinanceSpot: 13
+<WorkerDecide line 45, col 1 to line 45, col 12 of module L0_BinanceSpot>: 3:25
+  line 45, col 20 to line 45, col 25 of module L0_BinanceSpot: 125
+  |line 45, col 20 to line 45, col 21 of module L0_BinanceSpot: 100
+  line 45, col 30 to line 45, col 39 of module L0_BinanceSpot: 113
+  |line 45, col 31 to line 45, col 39 of module L0_BinanceSpot: 88
+  line 45, col 44 to line 45, col 76 of module L0_BinanceSpot: 25
+  line 46, col 20 to line 46, col 96 of module L0_BinanceSpot: 25
+<Expire line 49, col 1 to line 49, col 6 of module L0_BinanceSpot>: 0:0
+  line 49, col 34 to line 49, col 48 of module L0_BinanceSpot: 0
+  line 50, col 14 to line 50, col 86 of module L0_BinanceSpot: 0
+<LoseSocket line 53, col 1 to line 53, col 10 of module L0_BinanceSpot>: 0:0
+  line 53, col 44 to line 53, col 59 of module L0_BinanceSpot: 0
+  line 54, col 18 to line 54, col 93 of module L0_BinanceSpot: 0
+<WorkerReport line 57, col 1 to line 57, col 12 of module L0_BinanceSpot>: 2:3
+  line 57, col 20 to line 57, col 31 of module L0_BinanceSpot: 101
+  |line 57, col 20 to line 57, col 26 of module L0_BinanceSpot: 99
+  line 57, col 36 to line 57, col 49 of module L0_BinanceSpot: 5
+  |line 57, col 37 to line 57, col 49 of module L0_BinanceSpot: 3
+  line 57, col 54 to line 57, col 95 of module L0_BinanceSpot: 2
+  |line 57, col 65 to line 57, col 95 of module L0_BinanceSpot: 3
+  line 58, col 20 to line 58, col 91 of module L0_BinanceSpot: 2
+<ClockPoll line 62, col 1 to line 62, col 9 of module L0_BinanceSpot>: 12:21
+  line 62, col 17 to line 62, col 28 of module L0_BinanceSpot: 112
+  |line 62, col 17 to line 62, col 18 of module L0_BinanceSpot: 97
+  line 62, col 33 to line 62, col 66 of module L0_BinanceSpot: 21
+  |line 62, col 49 to line 62, col 66 of module L0_BinanceSpot: 15:36
+  line 62, col 71 to line 62, col 84 of module L0_BinanceSpot: 21
+  line 63, col 17 to line 63, col 82 of module L0_BinanceSpot: 21
+<MarketPoll line 66, col 1 to line 66, col 10 of module L0_BinanceSpot>: 8:15
+  line 66, col 18 to line 66, col 30 of module L0_BinanceSpot: 109
+  |line 66, col 18 to line 66, col 19 of module L0_BinanceSpot: 94
+  line 66, col 35 to line 66, col 67 of module L0_BinanceSpot: 15
+  line 66, col 72 to line 66, col 86 of module L0_BinanceSpot: 15
+  line 67, col 18 to line 67, col 91 of module L0_BinanceSpot: 15
+<ObserveGap line 68, col 1 to line 68, col 10 of module L0_BinanceSpot>: 0:0
+  line 68, col 18 to line 68, col 31 of module L0_BinanceSpot: 91
+  line 68, col 36 to line 68, col 50 of module L0_BinanceSpot: 15
+  line 68, col 55 to line 68, col 71 of module L0_BinanceSpot: 0
+  line 68, col 76 to line 68, col 87 of module L0_BinanceSpot: 0
+  line 69, col 18 to line 69, col 90 of module L0_BinanceSpot: 0
+<CaptureFill line 72, col 1 to line 72, col 11 of module L0_BinanceSpot>: 1:2
+  line 72, col 19 to line 72, col 32 of module L0_BinanceSpot: 93
+  |line 72, col 19 to line 72, col 20 of module L0_BinanceSpot: 91
+  line 72, col 37 to line 72, col 52 of module L0_BinanceSpot: 17
+  |line 72, col 37 to line 72, col 39 of module L0_BinanceSpot: 15
+  line 72, col 57 to line 72, col 69 of module L0_BinanceSpot: 2
+  |line 72, col 57 to line 72, col 65 of module L0_BinanceSpot: 15
+  line 72, col 74 to line 72, col 91 of module L0_BinanceSpot: 2
+  line 73, col 19 to line 73, col 53 of module L0_BinanceSpot: 2
+  line 74, col 19 to line 74, col 89 of module L0_BinanceSpot: 2
+<PrivateIdle line 75, col 1 to line 75, col 11 of module L0_BinanceSpot>: 12:14
+  line 75, col 19 to line 75, col 32 of module L0_BinanceSpot: 104
+  |line 75, col 19 to line 75, col 20 of module L0_BinanceSpot: 90
+  line 75, col 37 to line 75, col 48 of module L0_BinanceSpot: 14
+  line 76, col 19 to line 76, col 95 of module L0_BinanceSpot: 14
+<ApplyFill line 79, col 1 to line 79, col 9 of module L0_BinanceSpot>: 1:2
+  line 79, col 17 to line 79, col 28 of module L0_BinanceSpot: 90
+  |line 79, col 17 to line 79, col 18 of module L0_BinanceSpot: 88
+  line 79, col 33 to line 79, col 54 of module L0_BinanceSpot: 2
+  line 79, col 59 to line 79, col 70 of module L0_BinanceSpot: 2
+  line 80, col 17 to line 81, col 88 of module L0_BinanceSpot: 2
+  line 82, col 17 to line 82, col 78 of module L0_BinanceSpot: 2
+<FirstWrite line 89, col 1 to line 89, col 10 of module L0_BinanceSpot>: 1:2
+  line 89, col 18 to line 89, col 28 of module L0_BinanceSpot: 89
+  |line 89, col 18 to line 89, col 19 of module L0_BinanceSpot: 87
+  line 89, col 33 to line 89, col 51 of module L0_BinanceSpot: 18
+  |line 89, col 33 to line 89, col 40 of module L0_BinanceSpot: 16
+  line 88, col 12 to line 88, col 18 of module L0_BinanceSpot: 4
+  |line 88, col 12 to line 88, col 13 of module L0_BinanceSpot: 2
+  line 88, col 23 to line 88, col 38 of module L0_BinanceSpot: 4
+  |line 88, col 23 to line 88, col 25 of module L0_BinanceSpot: 2
+  line 88, col 43 to line 88, col 48 of module L0_BinanceSpot: 2
+  line 88, col 53 to line 88, col 62 of module L0_BinanceSpot: 2
+  line 88, col 67 to line 88, col 76 of module L0_BinanceSpot: 2
+  line 90, col 18 to line 91, col 98 of module L0_BinanceSpot: 2
+  line 92, col 18 to line 92, col 55 of module L0_BinanceSpot: 2
+  line 93, col 18 to line 93, col 84 of module L0_BinanceSpot: 2
+<ChargeThenExpire line 97, col 1 to line 97, col 16 of module L0_BinanceSpot>: 0:0
+  line 97, col 24 to line 97, col 34 of module L0_BinanceSpot: 86
+  line 97, col 39 to line 97, col 57 of module L0_BinanceSpot: 15
+  line 97, col 62 to line 97, col 68 of module L0_BinanceSpot: 1
+  line 98, col 24 to line 98, col 43 of module L0_BinanceSpot: 0
+  line 98, col 48 to line 98, col 62 of module L0_BinanceSpot: 0
+  line 99, col 24 to line 99, col 60 of module L0_BinanceSpot: 0
+  line 99, col 65 to line 99, col 78 of module L0_BinanceSpot: 0
+  line 100, col 24 to line 100, col 83 of module L0_BinanceSpot: 0
+<DenyFirst line 103, col 1 to line 103, col 9 of module L0_BinanceSpot>: 0:0
+  line 103, col 17 to line 103, col 27 of module L0_BinanceSpot: 86
+  line 103, col 32 to line 103, col 50 of module L0_BinanceSpot: 15
+  line 103, col 55 to line 103, col 62 of module L0_BinanceSpot: 1
+  line 104, col 17 to line 104, col 53 of module L0_BinanceSpot: 0
+  line 104, col 58 to line 104, col 71 of module L0_BinanceSpot: 0
+  line 105, col 17 to line 105, col 90 of module L0_BinanceSpot: 0
+<RestAck line 109, col 1 to line 109, col 7 of module L0_BinanceSpot>: 2:3
+  line 109, col 15 to line 109, col 25 of module L0_BinanceSpot: 89
+  |line 109, col 15 to line 109, col 16 of module L0_BinanceSpot: 86
+  line 109, col 30 to line 109, col 46 of module L0_BinanceSpot: 18
+  |line 109, col 30 to line 109, col 37 of module L0_BinanceSpot: 15
+  line 110, col 15 to line 110, col 81 of module L0_BinanceSpot: 3
+  line 111, col 15 to line 111, col 88 of module L0_BinanceSpot: 3
+<RestIdle line 112, col 1 to line 112, col 8 of module L0_BinanceSpot>: 12:15
+  line 112, col 16 to line 112, col 26 of module L0_BinanceSpot: 101
+  |line 112, col 16 to line 112, col 17 of module L0_BinanceSpot: 86
+  line 112, col 31 to line 112, col 44 of module L0_BinanceSpot: 15
+  line 113, col 16 to line 113, col 92 of module L0_BinanceSpot: 15
+<ReportPoll line 117, col 1 to line 117, col 10 of module L0_BinanceSpot>: 15:18
+  line 117, col 18 to line 117, col 30 of module L0_BinanceSpot: 102
+  |line 117, col 18 to line 117, col 19 of module L0_BinanceSpot: 84
+  line 117, col 35 to line 117, col 50 of module L0_BinanceSpot: 18
+  line 117, col 55 to line 117, col 104 of module L0_BinanceSpot: 18
+  line 118, col 18 to line 118, col 86 of module L0_BinanceSpot: 18
+<Admit line 124, col 1 to line 124, col 5 of module L0_BinanceSpot>: 1:2
+  line 124, col 13 to line 124, col 27 of module L0_BinanceSpot: 83
+  |line 124, col 13 to line 124, col 14 of module L0_BinanceSpot: 81
+  line 124, col 32 to line 124, col 40 of module L0_BinanceSpot: 18
+  |line 124, col 32 to line 124, col 33 of module L0_BinanceSpot: 16
+  line 124, col 45 to line 124, col 51 of module L0_BinanceSpot: 12
+  |line 124, col 45 to line 124, col 46 of module L0_BinanceSpot: 10
+  line 124, col 56 to line 124, col 65 of module L0_BinanceSpot: 2
+  line 124, col 70 to line 124, col 75 of module L0_BinanceSpot: 2
+  line 125, col 13 to line 125, col 28 of module L0_BinanceSpot: 9
+  |line 125, col 13 to line 125, col 15 of module L0_BinanceSpot: 7
+  line 125, col 33 to line 125, col 49 of module L0_BinanceSpot: 9
+  |line 125, col 33 to line 125, col 40 of module L0_BinanceSpot: 7
+  line 126, col 13 to line 126, col 93 of module L0_BinanceSpot: 2
+  line 127, col 13 to line 127, col 25 of module L0_BinanceSpot: 2
+  line 127, col 30 to line 127, col 103 of module L0_BinanceSpot: 2
+<StrategyIdle line 128, col 1 to line 128, col 12 of module L0_BinanceSpot>: 10:15
+  line 128, col 20 to line 128, col 34 of module L0_BinanceSpot: 95
+  |line 128, col 20 to line 128, col 21 of module L0_BinanceSpot: 80
+  line 128, col 39 to line 128, col 51 of module L0_BinanceSpot: 15
+  line 129, col 20 to line 129, col 96 of module L0_BinanceSpot: 15
+<SingleWrite line 135, col 1 to line 135, col 11 of module L0_BinanceSpot>
+  line 135, col 16 to line 135, col 61 of module L0_BinanceSpot: 84
+<AdmittedOutput line 136, col 1 to line 136, col 14 of module L0_BinanceSpot>
+  line 136, col 19 to line 136, col 86 of module L0_BinanceSpot: 84
+  |line 136, col 19 to line 136, col 31 of module L0_BinanceSpot: 84
+  |line 136, col 36 to line 136, col 86 of module L0_BinanceSpot: 18
+<OneTrade line 137, col 1 to line 137, col 8 of module L0_BinanceSpot>
+  line 137, col 13 to line 140, col 45 of module L0_BinanceSpot: 84
+  |line 137, col 16 to line 137, col 54 of module L0_BinanceSpot: 84
+  |line 138, col 16 to line 138, col 69 of module L0_BinanceSpot: 84
+  |line 139, col 16 to line 139, col 48 of module L0_BinanceSpot: 84
+  |line 140, col 17 to line 140, col 44 of module L0_BinanceSpot: 84
+  ||line 140, col 17 to line 140, col 27 of module L0_BinanceSpot: 84
+  ||line 140, col 32 to line 140, col 44 of module L0_BinanceSpot: 8
+<ReportPrefix line 141, col 1 to line 141, col 12 of module L0_BinanceSpot>
+  line 141, col 17 to line 141, col 82 of module L0_BinanceSpot: 84
+  |line 141, col 18 to line 141, col 46 of module L0_BinanceSpot: 84
+  ||line 141, col 18 to line 141, col 30 of module L0_BinanceSpot: 84
+  ||line 141, col 35 to line 141, col 46 of module L0_BinanceSpot: 2
+  |line 141, col 53 to line 141, col 81 of module L0_BinanceSpot: 84
+  ||line 141, col 53 to line 141, col 64 of module L0_BinanceSpot: 84
+  ||line 141, col 69 to line 141, col 81 of module L0_BinanceSpot: 5
+<AckIsBound line 142, col 1 to line 142, col 10 of module L0_BinanceSpot>
+  line 142, col 15 to line 142, col 47 of module L0_BinanceSpot: 84
+  |line 142, col 15 to line 142, col 20 of module L0_BinanceSpot: 84
+  |line 142, col 25 to line 142, col 47 of module L0_BinanceSpot: 7
+<NoFillBeforeAck line 145, col 1 to line 145, col 15 of module L0_BinanceSpot>
+  line 145, col 20 to line 145, col 65 of module L0_BinanceSpot: 84
+  |line 145, col 22 to line 145, col 64 of module L0_BinanceSpot: 84
+  ||line 145, col 22 to line 145, col 45 of module L0_BinanceSpot: 84
+  |||line 145, col 22 to line 145, col 34 of module L0_BinanceSpot: 84
+  |||line 145, col 39 to line 145, col 45 of module L0_BinanceSpot: 2
+  ||line 145, col 50 to line 145, col 64 of module L0_BinanceSpot: 1
+End of statistics.
+128 states generated, 84 distinct states found, 3 states left on queue.
+The depth of the complete state graph search is 22.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 3 and the 95th percentile is 2).
+Finished in 01s at (2026-11-05 02:19:04)

@@ -1,0 +1,5 @@
+# Quote delivery at revision 9b2ed63
+
+This level checks Bybit and OKX after their adapters have supplied a valid two-sided quote or an unavailable notice to one quote-only topic. The owner serves JOIN only when the market state is live. A new strategy must wait for the feed record of a fresh pair to invoke its callback. An account can also use a complete JOIN snapshot. A genuine market outage revokes same-generation authority. We additionally test whether that legitimate outage destroys an otherwise healthy SHM subscription. [Public quote specification](../../../../specs/implementation/spot-quote-input.md) · [SHM source](../../../../crates/tickwire-market-source/src/shm.rs) · [Source aggregation](../../../../crates/tickwire-app/src/market.rs)
+
+This is the first level of the ladder. The input assumes a trusted topic owner, a valid lease, an active strategy and an uninterrupted control connection. Storage, strategy replay, kernel ordering, and depth level merges have their own components. The model starts immediately after the first live pair. Both clients may independently join later at a fresh committed cut.

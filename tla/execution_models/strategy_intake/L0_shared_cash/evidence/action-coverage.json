@@ -1,0 +1,20 @@
+{
+  "model": "L0_SharedCash",
+  "runs": 2,
+  "entries": 12,
+  "generated": {
+    "Init line 33, col 1 to line 33, col 4 of module L0_SharedCash": 64,
+    "Replay line 55, col 1 to line 55, col 6 of module L0_SharedCash (56 5 57 125)": 1436,
+    "DropWrongMember line 61, col 1 to line 61, col 15 of module L0_SharedCash (62 5 63 124)": 312,
+    "RejectOldEpoch line 67, col 1 to line 67, col 14 of module L0_SharedCash (68 5 70 119)": 580,
+    "RejectTarget line 76, col 1 to line 76, col 12 of module L0_SharedCash (77 5 81 110)": 72,
+    "RefuseFunds line 85, col 1 to line 85, col 11 of module L0_SharedCash (86 5 88 125)": 80,
+    "Admit line 93, col 1 to line 93, col 5 of module L0_SharedCash (94 5 99 73)": 360,
+    "Send line 103, col 1 to line 103, col 4 of module L0_SharedCash": 200,
+    "Abort line 109, col 1 to line 109, col 5 of module L0_SharedCash": 200,
+    "Ack line 117, col 1 to line 117, col 3 of module L0_SharedCash": 200,
+    "Restart line 125, col 1 to line 125, col 7 of module L0_SharedCash": 900,
+    "Requalify line 133, col 1 to line 133, col 9 of module L0_SharedCash": 514
+  },
+  "model_sha256": "38c09b9e19833763de60e99de9ee51165e0e7071cda0d8f0f3470e9f513eedf5"
+}

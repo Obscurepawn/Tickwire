@@ -1,0 +1,11 @@
+# Two funded orders need not both reach the venue
+
+**Safe-by-design.** The stronger temporal property required all two buys to fill with no crashes, disconnections or elapsed command deadlines. TLC produced a fair stuttering suffix after one order had filled and the other had aborted. The first order received an ACK. The account then admitted the second order before the private reader captured the first one's fill. While the account owner was behind that capture, the second order failed the first-write check. The no-byte abort returned its reservation. The account booked one trade, reconciled and had no command left to submit. All actual model-state values are in the [raw counterexample](04_evidence/strong_progress.log).
+
+The observed behavior agrees with the account's private cursor gate and transport's zero-byte abort semantics. Retrying the original ID returns the stored result. A strategy can issue a new trading decision under a new ID. [Private first-write guard](../../../../crates/tickwire-spot-runner/src/live.rs) · [Transport rejection](../../../../crates/tickwire-transport/src/connection.rs) · [Gateway abort](../../../../crates/tickwire-account-gateway/src/lib.rs)
+
+The [probe configuration](04_evidence/strong_progress.cfg) uses the unmodified model and the stronger property. The normal healthy two-member configuration checks that each command settles, allowing the zero-byte terminal outcome.
+
+## Private status can change between authorization and byte acceptance
+
+A second probe strengthens the contract to require the private feed to *still* be current when TLS accepts the byte. TLC found a ten-state execution. After the successful sample, the private reader observes a gap; the account thread then completes its pending TLS write. One admission is present, and the grant was valid at the sampled instant. The code checks the command deadline again after sampling authority. It cannot make the reader's state and TLS writer on a different thread one atomic operation. This result narrows the interpretation of the older single-step private-cut model. It demonstrates the documented local sampling boundary. [Trace](04_evidence/SampleBoundary.log) · [Probe](04_evidence/SampleBoundary.tla) · [Earlier single-step model](../../spot_account_recovery/L0_private_cut/02_models/L0_PrivateCut.tla)

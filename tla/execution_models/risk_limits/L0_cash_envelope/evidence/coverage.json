@@ -1,0 +1,13 @@
+{
+  "model": "L0_CashEnvelope",
+  "runs": 2,
+  "entries": 5,
+  "generated": {
+    "Init line 51, col 1 to line 51, col 4 of module L0_CashEnvelope": 2,
+    "Admit line 54, col 1 to line 54, col 5 of module L0_CashEnvelope": 190,
+    "Refuse line 59, col 1 to line 59, col 6 of module L0_CashEnvelope": 544,
+    "Fill line 64, col 1 to line 64, col 4 of module L0_CashEnvelope (65 16 69 53)": 398,
+    "Cancel line 72, col 1 to line 72, col 6 of module L0_CashEnvelope (74 4 75 44)": 353
+  },
+  "model_sha256": "740c3f5cb8aedad22379667e197c9687c068ada37030a018ef5ab4e9b6ad5002"
+}

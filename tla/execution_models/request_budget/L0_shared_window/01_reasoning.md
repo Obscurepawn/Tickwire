@@ -1,0 +1,9 @@
+# Ownership and bounds
+
+The coordinator owns one bucket. It serializes mutations, but can prepare a ticket, commit another eligible request, and later receive the earlier ticket. A successful compare-and-swap advances the snapshot revision. Returning a grant is a separate delivery step. On a lost commit acknowledgement the durable reservation survives and the coordinator stops writing. The configured store failure semantics admit both before-commit and after-commit loss.
+
+Each grant belongs to one consumer and class. An exact attempt retry uses its original debit record. Spending before window start or after grant expiry fails. Consuming the owner creates a final receipt; only a successfully reclaimed receipt reduces the durable reservation to the actual spend of installed grants. A pending receipt may remain undelivered through any remaining model actions.
+
+One normal grant reserves two units, a rival normal grant reserves two or one depending on configuration, and a recovery grant reserves one. The limit is three, including one protected unit. Adjacent non-overlapping windows share the bucket identity. The model quotients time into interval membership under one trusted monotonic domain and fixes the lease and rule identities. Both future-window grants and preparing a ticket before expiry then committing it after the clock moves are represented. Per-consumer invalid-domain/cooldown/clock-regression and lease replacement are outside the level.
+
+One fixed rule and one possible grant per consumer/class make the grant selected for a spend unique. Distinct attempts cost one unit. Modeled safe stopping states include exhausted time, committed-but-undelivered reservations and a poisoned coordinator. The configurations disable deadlock checks so those states are terminal for the selected operations.

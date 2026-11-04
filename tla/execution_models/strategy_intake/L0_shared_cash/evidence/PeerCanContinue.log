@@ -1,0 +1,729 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed 1 with 1 worker on 16 cores with 307MB heap and 64MB offheap memory [pid: 239250] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/obscure/Tickwire/tla/execution_models/strategy_intake/L0_shared_cash/evidence/tmpl_jfy3b_/L0_SharedCash.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/TLC.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module L0_SharedCash
+Starting... (2026-11-05 02:11:46)
+Computing initial states...
+Computed 2 initial states...
+Computed 4 initial states...
+Computed 8 initial states...
+Computed 16 initial states...
+Finished computing initial states: 32 distinct states generated at 2026-11-05 02:11:46.
+Error: Invariant PeerCanContinue is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ phase = "run"
+/\ runnerKey = 0
+/\ accepted = FALSE
+/\ enabled = 1..2
+/\ restKey = 0
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 0
+/\ cursor = <<1, 1>>
+/\ offender = 0
+/\ submittedBy = <<0, 0, 0, 0>>
+/\ sent = <<0, 0, 0, 0>>
+/\ wal = <<"absent", "absent", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {}
+/\ turn = 2
+
+State 2: <Admit line 94, col 5 to line 99, col 73 of module L0_SharedCash>
+/\ phase = "run"
+/\ runnerKey = 2
+/\ accepted = FALSE
+/\ enabled = 1..2
+/\ restKey = 2
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 1
+/\ cursor = <<1, 2>>
+/\ offender = 0
+/\ submittedBy = <<0, 2, 0, 0>>
+/\ sent = <<0, 0, 0, 0>>
+/\ wal = <<"absent", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {}
+/\ turn = 1
+
+State 3: <Send line 103, col 9 to line 105, col 127 of module L0_SharedCash>
+/\ phase = "run"
+/\ runnerKey = 2
+/\ accepted = TRUE
+/\ enabled = 1..2
+/\ restKey = 2
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 1
+/\ cursor = <<1, 2>>
+/\ offender = 0
+/\ submittedBy = <<0, 2, 0, 0>>
+/\ sent = <<0, 1, 0, 0>>
+/\ wal = <<"absent", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {}
+/\ turn = 1
+
+State 4: <Ack line 117, col 8 to line 120, col 104 of module L0_SharedCash>
+/\ phase = "run"
+/\ runnerKey = 0
+/\ accepted = FALSE
+/\ enabled = 1..2
+/\ restKey = 0
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 1
+/\ cursor = <<1, 2>>
+/\ offender = 0
+/\ submittedBy = <<0, 2, 0, 0>>
+/\ sent = <<0, 1, 0, 0>>
+/\ wal = <<"absent", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {<<2, 2>>}
+/\ turn = 1
+
+State 5: <Admit line 94, col 5 to line 99, col 73 of module L0_SharedCash>
+/\ phase = "run"
+/\ runnerKey = 1
+/\ accepted = FALSE
+/\ enabled = 1..2
+/\ restKey = 1
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 2
+/\ cursor = <<2, 2>>
+/\ offender = 0
+/\ submittedBy = <<1, 2, 0, 0>>
+/\ sent = <<0, 1, 0, 0>>
+/\ wal = <<"held", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {<<2, 2>>}
+/\ turn = 2
+
+State 6: <Send line 103, col 9 to line 105, col 127 of module L0_SharedCash>
+/\ phase = "run"
+/\ runnerKey = 1
+/\ accepted = TRUE
+/\ enabled = 1..2
+/\ restKey = 1
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 2
+/\ cursor = <<2, 2>>
+/\ offender = 0
+/\ submittedBy = <<1, 2, 0, 0>>
+/\ sent = <<1, 1, 0, 0>>
+/\ wal = <<"held", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {<<2, 2>>}
+/\ turn = 2
+
+State 7: <Ack line 117, col 8 to line 120, col 104 of module L0_SharedCash>
+/\ phase = "run"
+/\ runnerKey = 0
+/\ accepted = FALSE
+/\ enabled = 1..2
+/\ restKey = 0
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 2
+/\ cursor = <<2, 2>>
+/\ offender = 0
+/\ submittedBy = <<1, 2, 0, 0>>
+/\ sent = <<1, 1, 0, 0>>
+/\ wal = <<"held", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {<<1, 1>>, <<2, 2>>}
+/\ turn = 2
+
+State 8: <RejectTarget line 77, col 5 to line 81, col 110 of module L0_SharedCash>
+/\ phase = "exit"
+/\ runnerKey = 0
+/\ accepted = FALSE
+/\ enabled = 1..2
+/\ restKey = 0
+/\ layout = <<"ownCancel", "foreignCancel">>
+/\ reserved = 2
+/\ cursor = <<2, 3>>
+/\ offender = 2
+/\ submittedBy = <<1, 2, 0, 0>>
+/\ sent = <<1, 1, 0, 0>>
+/\ wal = <<"held", "held", "absent", "absent">>
+/\ restarts = 0
+/\ receipts = {<<1, 1>>, <<2, 2>>}
+/\ turn = 1
+
+The coverage statistics at 2026-11-05 02:11:46
+<Init line 33, col 1 to line 33, col 4 of module L0_SharedCash>: 64:64
+  line 34, col 8 to line 34, col 30 of module L0_SharedCash: 2
+  line 34, col 35 to line 34, col 58 of module L0_SharedCash: 32
+  line 34, col 63 to line 34, col 72 of module L0_SharedCash: 32
+  line 35, col 8 to line 35, col 70 of module L0_SharedCash: 64
+  line 36, col 8 to line 36, col 71 of module L0_SharedCash: 64
+  line 37, col 8 to line 37, col 68 of module L0_SharedCash: 64
+  line 38, col 8 to line 38, col 52 of module L0_SharedCash: 64
+<Replay line 55, col 1 to line 55, col 6 of module L0_SharedCash (56 5 57 125)>: 40:57
+  line 47, col 17 to line 47, col 60 of module L0_SharedCash: 930
+  |line 47, col 17 to line 47, col 23 of module L0_SharedCash: 890
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  |line 47, col 32 to line 47, col 60 of module L0_SharedCash: 890
+  line 47, col 65 to line 47, col 90 of module L0_SharedCash: 907
+  |line 47, col 65 to line 47, col 78 of module L0_SharedCash: 890
+  ||line 47, col 65 to line 47, col 67 of module L0_SharedCash: 890
+  ||line 47, col 69 to line 47, col 77 of module L0_SharedCash: 890
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 890
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 890
+  |||||line 44, col 17 to line 44, col 23 of module L0_SharedCash: 890
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 162
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 728
+  line 48, col 33 to line 48, col 45 of module L0_SharedCash: 1229
+  |line 48, col 33 to line 48, col 37 of module L0_SharedCash: 1172
+  line 48, col 50 to line 48, col 62 of module L0_SharedCash: 1226
+  |line 48, col 50 to line 48, col 58 of module L0_SharedCash: 1169
+  line 48, col 67 to line 48, col 77 of module L0_SharedCash: 664
+  |line 48, col 67 to line 48, col 67 of module L0_SharedCash: 607
+  |line 48, col 73 to line 48, col 77 of module L0_SharedCash: 607
+  ||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 607
+  |||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1192
+  |||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 607
+  line 48, col 82 to line 48, col 93 of module L0_SharedCash: 619
+  |line 48, col 82 to line 48, col 82 of module L0_SharedCash: 562
+  |line 48, col 86 to line 48, col 93 of module L0_SharedCash: 562
+  ||line 41, col 13 to line 41, col 56 of module L0_SharedCash: 562
+  |||line 41, col 16 to line 41, col 29 of module L0_SharedCash: 562
+  ||||line 41, col 16 to line 41, col 19 of module L0_SharedCash: 562
+  ||||line 41, col 25 to line 41, col 29 of module L0_SharedCash: 562
+  |||||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 562
+  ||||||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1117
+  ||||||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 562
+  |||line 41, col 36 to line 41, col 39 of module L0_SharedCash: 562
+  line 56, col 15 to line 56, col 15 of module L0_SharedCash: 890
+  line 56, col 21 to line 56, col 37 of module L0_SharedCash: 378
+  |line 56, col 21 to line 56, col 27 of module L0_SharedCash: 321
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 321
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 321
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 125
+  ||line 56, col 26 to line 56, col 26 of module L0_SharedCash: 321
+  line 56, col 42 to line 56, col 63 of module L0_SharedCash: 337
+  |line 56, col 42 to line 56, col 52 of module L0_SharedCash: 280
+  ||line 56, col 42 to line 56, col 44 of module L0_SharedCash: 280
+  ||line 56, col 46 to line 56, col 51 of module L0_SharedCash: 280
+  |||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 280
+  ||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 280
+  |||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 280
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 280
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 280
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 84
+  |||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 280
+  ||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 253
+  ||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 27
+  |||line 56, col 50 to line 56, col 50 of module L0_SharedCash: 280
+  line 56, col 68 to line 56, col 77 of module L0_SharedCash: 57
+  line 57, col 8 to line 57, col 125 of module L0_SharedCash: 57
+<DropWrongMember line 61, col 1 to line 61, col 15 of module L0_SharedCash (62 5 63 124)>: 31:41
+  line 47, col 17 to line 47, col 60 of module L0_SharedCash: 921
+  |line 47, col 17 to line 47, col 23 of module L0_SharedCash: 890
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  |line 47, col 32 to line 47, col 60 of module L0_SharedCash: 890
+  line 47, col 65 to line 47, col 90 of module L0_SharedCash: 900
+  |line 47, col 65 to line 47, col 78 of module L0_SharedCash: 890
+  ||line 47, col 65 to line 47, col 67 of module L0_SharedCash: 890
+  ||line 47, col 69 to line 47, col 77 of module L0_SharedCash: 890
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 890
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 890
+  |||||line 44, col 17 to line 44, col 23 of module L0_SharedCash: 890
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 162
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 728
+  line 48, col 33 to line 48, col 45 of module L0_SharedCash: 1213
+  |line 48, col 33 to line 48, col 37 of module L0_SharedCash: 1172
+  line 48, col 50 to line 48, col 62 of module L0_SharedCash: 1210
+  |line 48, col 50 to line 48, col 58 of module L0_SharedCash: 1169
+  line 48, col 67 to line 48, col 77 of module L0_SharedCash: 648
+  |line 48, col 67 to line 48, col 67 of module L0_SharedCash: 607
+  |line 48, col 73 to line 48, col 77 of module L0_SharedCash: 607
+  ||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 607
+  |||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1192
+  |||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 607
+  line 48, col 82 to line 48, col 93 of module L0_SharedCash: 603
+  |line 48, col 82 to line 48, col 82 of module L0_SharedCash: 562
+  |line 48, col 86 to line 48, col 93 of module L0_SharedCash: 562
+  ||line 41, col 13 to line 41, col 56 of module L0_SharedCash: 562
+  |||line 41, col 16 to line 41, col 29 of module L0_SharedCash: 562
+  ||||line 41, col 16 to line 41, col 19 of module L0_SharedCash: 562
+  ||||line 41, col 25 to line 41, col 29 of module L0_SharedCash: 562
+  |||||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 562
+  ||||||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1117
+  ||||||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 562
+  |||line 41, col 36 to line 41, col 39 of module L0_SharedCash: 562
+  line 62, col 15 to line 62, col 15 of module L0_SharedCash: 890
+  line 62, col 21 to line 62, col 37 of module L0_SharedCash: 362
+  |line 62, col 21 to line 62, col 27 of module L0_SharedCash: 321
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 321
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 321
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 125
+  ||line 62, col 26 to line 62, col 26 of module L0_SharedCash: 321
+  line 62, col 42 to line 62, col 65 of module L0_SharedCash: 41
+  line 62, col 70 to line 62, col 85 of module L0_SharedCash: 41
+  line 63, col 8 to line 63, col 124 of module L0_SharedCash: 41
+<RejectOldEpoch line 67, col 1 to line 67, col 14 of module L0_SharedCash (68 5 70 119)>: 0:0
+  line 47, col 17 to line 47, col 60 of module L0_SharedCash: 890
+  |line 47, col 17 to line 47, col 23 of module L0_SharedCash: 890
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  |line 47, col 32 to line 47, col 60 of module L0_SharedCash: 890
+  line 47, col 65 to line 47, col 90 of module L0_SharedCash: 890
+  |line 47, col 65 to line 47, col 78 of module L0_SharedCash: 890
+  ||line 47, col 65 to line 47, col 67 of module L0_SharedCash: 890
+  ||line 47, col 69 to line 47, col 77 of module L0_SharedCash: 890
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 890
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 890
+  |||||line 44, col 17 to line 44, col 23 of module L0_SharedCash: 890
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 162
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 728
+  line 48, col 33 to line 48, col 45 of module L0_SharedCash: 1172
+  line 48, col 50 to line 48, col 62 of module L0_SharedCash: 1169
+  line 48, col 67 to line 48, col 77 of module L0_SharedCash: 607
+  |line 48, col 67 to line 48, col 67 of module L0_SharedCash: 607
+  |line 48, col 73 to line 48, col 77 of module L0_SharedCash: 607
+  ||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 607
+  |||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1192
+  |||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 607
+  line 48, col 82 to line 48, col 93 of module L0_SharedCash: 562
+  |line 48, col 82 to line 48, col 82 of module L0_SharedCash: 562
+  |line 48, col 86 to line 48, col 93 of module L0_SharedCash: 562
+  ||line 41, col 13 to line 41, col 56 of module L0_SharedCash: 562
+  |||line 41, col 16 to line 41, col 29 of module L0_SharedCash: 562
+  ||||line 41, col 16 to line 41, col 19 of module L0_SharedCash: 562
+  ||||line 41, col 25 to line 41, col 29 of module L0_SharedCash: 562
+  |||||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 562
+  ||||||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1117
+  ||||||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 562
+  |||line 41, col 36 to line 41, col 39 of module L0_SharedCash: 562
+  line 68, col 15 to line 68, col 15 of module L0_SharedCash: 890
+  line 68, col 21 to line 68, col 37 of module L0_SharedCash: 321
+  |line 68, col 21 to line 68, col 27 of module L0_SharedCash: 321
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 321
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 321
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 125
+  ||line 68, col 26 to line 68, col 26 of module L0_SharedCash: 321
+  line 68, col 42 to line 68, col 63 of module L0_SharedCash: 280
+  |line 68, col 42 to line 68, col 52 of module L0_SharedCash: 280
+  ||line 68, col 42 to line 68, col 44 of module L0_SharedCash: 280
+  ||line 68, col 46 to line 68, col 51 of module L0_SharedCash: 280
+  |||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 280
+  ||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 280
+  |||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 280
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 280
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 280
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 84
+  |||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 280
+  ||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 253
+  ||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 27
+  |||line 68, col 50 to line 68, col 50 of module L0_SharedCash: 280
+  line 68, col 68 to line 68, col 79 of module L0_SharedCash: 223
+  line 49, col 18 to line 49, col 55 of module L0_SharedCash: 0
+  line 49, col 60 to line 49, col 75 of module L0_SharedCash: 0
+  line 69, col 22 to line 69, col 36 of module L0_SharedCash: 0
+  line 70, col 8 to line 70, col 119 of module L0_SharedCash: 0
+<RejectTarget line 76, col 1 to line 76, col 12 of module L0_SharedCash (77 5 81 110)>: 11:12
+  line 47, col 17 to line 47, col 60 of module L0_SharedCash: 890
+  |line 47, col 17 to line 47, col 23 of module L0_SharedCash: 890
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  |line 47, col 32 to line 47, col 60 of module L0_SharedCash: 890
+  line 47, col 65 to line 47, col 90 of module L0_SharedCash: 901
+  |line 47, col 65 to line 47, col 78 of module L0_SharedCash: 890
+  ||line 47, col 65 to line 47, col 67 of module L0_SharedCash: 890
+  ||line 47, col 69 to line 47, col 77 of module L0_SharedCash: 890
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 890
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 890
+  |||||line 44, col 17 to line 44, col 23 of module L0_SharedCash: 890
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 890
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 890
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 693
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 162
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 728
+  line 48, col 33 to line 48, col 45 of module L0_SharedCash: 1183
+  |line 48, col 33 to line 48, col 37 of module L0_SharedCash: 1172
+  line 48, col 50 to line 48, col 62 of module L0_SharedCash: 1180
+  |line 48, col 50 to line 48, col 58 of module L0_SharedCash: 1169
+  line 48, col 67 to line 48, col 77 of module L0_SharedCash: 618
+  |line 48, col 67 to line 48, col 67 of module L0_SharedCash: 607
+  |line 48, col 73 to line 48, col 77 of module L0_SharedCash: 607
+  ||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 607
+  |||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1192
+  |||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 607
+  line 48, col 82 to line 48, col 93 of module L0_SharedCash: 573
+  |line 48, col 82 to line 48, col 82 of module L0_SharedCash: 562
+  |line 48, col 86 to line 48, col 93 of module L0_SharedCash: 562
+  ||line 41, col 13 to line 41, col 56 of module L0_SharedCash: 562
+  |||line 41, col 16 to line 41, col 29 of module L0_SharedCash: 562
+  ||||line 41, col 16 to line 41, col 19 of module L0_SharedCash: 562
+  ||||line 41, col 25 to line 41, col 29 of module L0_SharedCash: 562
+  |||||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 562
+  ||||||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1117
+  ||||||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 562
+  |||line 41, col 36 to line 41, col 39 of module L0_SharedCash: 562
+  line 77, col 15 to line 77, col 15 of module L0_SharedCash: 890
+  line 77, col 21 to line 77, col 61 of module L0_SharedCash: 332
+  |line 77, col 21 to line 77, col 27 of module L0_SharedCash: 321
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 321
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 321
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 125
+  ||line 77, col 26 to line 77, col 26 of module L0_SharedCash: 321
+  |line 77, col 33 to line 77, col 61 of module L0_SharedCash: 321
+  line 77, col 66 to line 77, col 77 of module L0_SharedCash: 38
+  |line 77, col 66 to line 77, col 73 of module L0_SharedCash: 27
+  line 78, col 8 to line 78, col 29 of module L0_SharedCash: 38
+  |line 78, col 8 to line 78, col 18 of module L0_SharedCash: 27
+  line 79, col 9 to line 79, col 21 of module L0_SharedCash: 38
+  |line 79, col 9 to line 79, col 17 of module L0_SharedCash: 27
+  ||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 27
+  |||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 27
+  |||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 12
+  |||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 15
+  ||line 79, col 16 to line 79, col 16 of module L0_SharedCash: 27
+  |line 79, col 21 to line 79, col 21 of module L0_SharedCash: 27
+  line 79, col 26 to line 79, col 48 of module L0_SharedCash: 26
+  |line 79, col 26 to line 79, col 39 of module L0_SharedCash: 26
+  ||line 79, col 26 to line 79, col 28 of module L0_SharedCash: 26
+  ||line 79, col 30 to line 79, col 38 of module L0_SharedCash: 26
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 26
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 26
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 11
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 15
+  |||line 79, col 37 to line 79, col 37 of module L0_SharedCash: 26
+  line 49, col 18 to line 49, col 55 of module L0_SharedCash: 11
+  |line 49, col 28 to line 49, col 55 of module L0_SharedCash: 12
+  line 49, col 60 to line 49, col 75 of module L0_SharedCash: 11
+  |line 49, col 68 to line 49, col 75 of module L0_SharedCash: 12
+  line 80, col 16 to line 80, col 16 of module L0_SharedCash: 12
+  line 80, col 22 to line 80, col 36 of module L0_SharedCash: 11
+  line 80, col 41 to line 80, col 53 of module L0_SharedCash: 11
+  |line 80, col 53 to line 80, col 53 of module L0_SharedCash: 12
+  line 81, col 8 to line 81, col 110 of module L0_SharedCash: 11
+<RefuseFunds line 85, col 1 to line 85, col 11 of module L0_SharedCash (86 5 88 125)>: 0:0
+  line 47, col 17 to line 47, col 60 of module L0_SharedCash: 886
+  |line 47, col 17 to line 47, col 23 of module L0_SharedCash: 886
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 886
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 886
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 689
+  |line 47, col 32 to line 47, col 60 of module L0_SharedCash: 886
+  line 47, col 65 to line 47, col 90 of module L0_SharedCash: 886
+  |line 47, col 65 to line 47, col 78 of module L0_SharedCash: 886
+  ||line 47, col 65 to line 47, col 67 of module L0_SharedCash: 886
+  ||line 47, col 69 to line 47, col 77 of module L0_SharedCash: 886
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 886
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 886
+  |||||line 44, col 17 to line 44, col 23 of module L0_SharedCash: 886
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 886
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 886
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 689
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 160
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 726
+  line 48, col 33 to line 48, col 45 of module L0_SharedCash: 1168
+  line 48, col 50 to line 48, col 62 of module L0_SharedCash: 1165
+  line 48, col 67 to line 48, col 77 of module L0_SharedCash: 603
+  |line 48, col 67 to line 48, col 67 of module L0_SharedCash: 603
+  |line 48, col 73 to line 48, col 77 of module L0_SharedCash: 603
+  ||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 603
+  |||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1184
+  |||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 603
+  line 48, col 82 to line 48, col 93 of module L0_SharedCash: 558
+  |line 48, col 82 to line 48, col 82 of module L0_SharedCash: 558
+  |line 48, col 86 to line 48, col 93 of module L0_SharedCash: 558
+  ||line 41, col 13 to line 41, col 56 of module L0_SharedCash: 558
+  |||line 41, col 16 to line 41, col 29 of module L0_SharedCash: 558
+  ||||line 41, col 16 to line 41, col 19 of module L0_SharedCash: 558
+  ||||line 41, col 25 to line 41, col 29 of module L0_SharedCash: 558
+  |||||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 558
+  ||||||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1109
+  ||||||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 558
+  |||line 41, col 36 to line 41, col 39 of module L0_SharedCash: 558
+  line 86, col 15 to line 86, col 15 of module L0_SharedCash: 886
+  line 86, col 21 to line 86, col 48 of module L0_SharedCash: 319
+  |line 86, col 21 to line 86, col 27 of module L0_SharedCash: 319
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 319
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 319
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 123
+  ||line 86, col 26 to line 86, col 26 of module L0_SharedCash: 319
+  |line 86, col 33 to line 86, col 48 of module L0_SharedCash: 319
+  line 86, col 53 to line 86, col 69 of module L0_SharedCash: 253
+  line 87, col 8 to line 87, col 38 of module L0_SharedCash: 196
+  line 49, col 18 to line 49, col 55 of module L0_SharedCash: 0
+  line 49, col 60 to line 49, col 75 of module L0_SharedCash: 0
+  line 88, col 8 to line 88, col 125 of module L0_SharedCash: 0
+<Admit line 93, col 1 to line 93, col 5 of module L0_SharedCash (94 5 99 73)>: 111:211
+  line 47, col 17 to line 47, col 60 of module L0_SharedCash: 983
+  |line 47, col 17 to line 47, col 23 of module L0_SharedCash: 885
+  ||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 885
+  |||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 885
+  |||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 688
+  |line 47, col 32 to line 47, col 60 of module L0_SharedCash: 885
+  line 47, col 65 to line 47, col 90 of module L0_SharedCash: 998
+  |line 47, col 65 to line 47, col 78 of module L0_SharedCash: 885
+  ||line 47, col 65 to line 47, col 67 of module L0_SharedCash: 885
+  ||line 47, col 69 to line 47, col 77 of module L0_SharedCash: 885
+  |||line 44, col 14 to line 44, col 62 of module L0_SharedCash: 885
+  ||||line 44, col 17 to line 44, col 41 of module L0_SharedCash: 885
+  |||||line 44, col 17 to line 44, col 23 of module L0_SharedCash: 885
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 885
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 885
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 688
+  ||||line 44, col 48 to line 44, col 55 of module L0_SharedCash: 159
+  ||||line 44, col 62 to line 44, col 62 of module L0_SharedCash: 726
+  line 48, col 33 to line 48, col 45 of module L0_SharedCash: 1378
+  |line 48, col 33 to line 48, col 37 of module L0_SharedCash: 1167
+  line 48, col 50 to line 48, col 62 of module L0_SharedCash: 1375
+  |line 48, col 50 to line 48, col 58 of module L0_SharedCash: 1164
+  line 48, col 67 to line 48, col 77 of module L0_SharedCash: 813
+  |line 48, col 67 to line 48, col 67 of module L0_SharedCash: 602
+  |line 48, col 73 to line 48, col 77 of module L0_SharedCash: 602
+  ||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 602
+  |||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1182
+  |||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 602
+  line 48, col 82 to line 48, col 93 of module L0_SharedCash: 768
+  |line 48, col 82 to line 48, col 82 of module L0_SharedCash: 557
+  |line 48, col 86 to line 48, col 93 of module L0_SharedCash: 557
+  ||line 41, col 13 to line 41, col 56 of module L0_SharedCash: 557
+  |||line 41, col 16 to line 41, col 29 of module L0_SharedCash: 557
+  ||||line 41, col 16 to line 41, col 19 of module L0_SharedCash: 557
+  ||||line 41, col 25 to line 41, col 29 of module L0_SharedCash: 557
+  |||||line 40, col 10 to line 40, col 41 of module L0_SharedCash: 557
+  ||||||line 40, col 27 to line 40, col 40 of module L0_SharedCash: 1107
+  ||||||line 40, col 17 to line 40, col 23 of module L0_SharedCash: 557
+  |||line 41, col 36 to line 41, col 39 of module L0_SharedCash: 557
+  line 94, col 15 to line 94, col 15 of module L0_SharedCash: 885
+  line 94, col 21 to line 94, col 32 of module L0_SharedCash: 530
+  |line 94, col 21 to line 94, col 28 of module L0_SharedCash: 319
+  line 94, col 37 to line 94, col 53 of module L0_SharedCash: 530
+  |line 94, col 37 to line 94, col 42 of module L0_SharedCash: 319
+  ||line 94, col 37 to line 94, col 39 of module L0_SharedCash: 319
+  ||line 94, col 41 to line 94, col 41 of module L0_SharedCash: 319
+  |||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 319
+  ||||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 319
+  |||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 319
+  ||||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 319
+  |||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 319
+  ||||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 319
+  ||||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 123
+  ||||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 319
+  |||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 253
+  |||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 66
+  ||||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 319
+  line 95, col 11 to line 95, col 17 of module L0_SharedCash: 262
+  |line 95, col 11 to line 95, col 11 of module L0_SharedCash: 262
+  ||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 262
+  |||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 262
+  ||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 262
+  |||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 262
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 262
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 262
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 66
+  |||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 262
+  ||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 196
+  ||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 66
+  |||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 262
+  |line 95, col 17 to line 95, col 17 of module L0_SharedCash: 262
+  line 95, col 24 to line 95, col 38 of module L0_SharedCash: 196
+  line 95, col 45 to line 95, col 65 of module L0_SharedCash: 81
+  |line 95, col 45 to line 95, col 51 of module L0_SharedCash: 66
+  line 95, col 70 to line 95, col 84 of module L0_SharedCash: 30
+  |line 95, col 70 to line 95, col 75 of module L0_SharedCash: 15
+  line 96, col 8 to line 96, col 17 of module L0_SharedCash: 211
+  line 96, col 22 to line 96, col 54 of module L0_SharedCash: 211
+  |line 96, col 29 to line 96, col 54 of module L0_SharedCash: 211
+  ||line 96, col 30 to line 96, col 32 of module L0_SharedCash: 211
+  ||line 96, col 43 to line 96, col 43 of module L0_SharedCash: 211
+  |||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 211
+  ||||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 211
+  |||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 211
+  ||||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 211
+  |||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 211
+  ||||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 211
+  ||||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 15
+  ||||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 211
+  |||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 196
+  |||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 15
+  ||||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 211
+  line 97, col 8 to line 97, col 61 of module L0_SharedCash: 211
+  |line 97, col 20 to line 97, col 61 of module L0_SharedCash: 211
+  ||line 97, col 23 to line 97, col 29 of module L0_SharedCash: 211
+  |||line 97, col 23 to line 97, col 23 of module L0_SharedCash: 211
+  ||||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 211
+  |||||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 211
+  ||||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 211
+  |||||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 211
+  ||||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 211
+  |||||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 211
+  |||||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 15
+  |||||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 211
+  ||||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 196
+  ||||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 15
+  |||||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 211
+  |||line 97, col 29 to line 97, col 29 of module L0_SharedCash: 211
+  ||line 97, col 36 to line 97, col 47 of module L0_SharedCash: 196
+  ||line 97, col 54 to line 97, col 61 of module L0_SharedCash: 15
+  line 98, col 8 to line 98, col 51 of module L0_SharedCash: 211
+  |line 98, col 23 to line 98, col 51 of module L0_SharedCash: 211
+  ||line 98, col 24 to line 98, col 34 of module L0_SharedCash: 211
+  ||line 98, col 45 to line 98, col 45 of module L0_SharedCash: 211
+  |||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 211
+  ||||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 211
+  |||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 211
+  ||||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 211
+  |||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 211
+  ||||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 211
+  ||||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 15
+  ||||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 211
+  |||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 196
+  |||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 15
+  ||||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 211
+  ||line 98, col 50 to line 98, col 50 of module L0_SharedCash: 211
+  line 98, col 56 to line 98, col 72 of module L0_SharedCash: 211
+  line 98, col 77 to line 98, col 90 of module L0_SharedCash: 211
+  |line 98, col 90 to line 98, col 90 of module L0_SharedCash: 211
+  ||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 211
+  |||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 211
+  ||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 211
+  |||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 211
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 211
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 211
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 15
+  |||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 211
+  ||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 196
+  ||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 15
+  |||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 211
+  line 98, col 95 to line 98, col 106 of module L0_SharedCash: 211
+  |line 98, col 106 to line 98, col 106 of module L0_SharedCash: 211
+  ||line 93, col 32 to line 93, col 37 of module L0_SharedCash: 211
+  |||line 43, col 11 to line 43, col 59 of module L0_SharedCash: 211
+  ||||line 43, col 14 to line 43, col 41 of module L0_SharedCash: 211
+  |||||line 43, col 14 to line 43, col 20 of module L0_SharedCash: 211
+  ||||||line 42, col 12 to line 42, col 53 of module L0_SharedCash: 211
+  |||||||line 42, col 15 to line 42, col 27 of module L0_SharedCash: 211
+  |||||||line 42, col 45 to line 42, col 53 of module L0_SharedCash: 15
+  |||||line 43, col 26 to line 43, col 41 of module L0_SharedCash: 211
+  ||||line 43, col 48 to line 43, col 48 of module L0_SharedCash: 196
+  ||||line 43, col 55 to line 43, col 59 of module L0_SharedCash: 15
+  |||line 93, col 36 to line 93, col 36 of module L0_SharedCash: 211
+  line 99, col 8 to line 99, col 73 of module L0_SharedCash: 211
+<Send line 103, col 1 to line 103, col 4 of module L0_SharedCash>: 101:103
+  line 103, col 12 to line 103, col 24 of module L0_SharedCash: 544
+  |line 103, col 12 to line 103, col 16 of module L0_SharedCash: 441
+  line 103, col 29 to line 103, col 39 of module L0_SharedCash: 543
+  |line 103, col 29 to line 103, col 35 of module L0_SharedCash: 440
+  line 103, col 44 to line 103, col 52 of module L0_SharedCash: 304
+  |line 103, col 45 to line 103, col 52 of module L0_SharedCash: 201
+  line 104, col 12 to line 104, col 71 of module L0_SharedCash: 103
+  line 105, col 12 to line 105, col 127 of module L0_SharedCash: 103
+<Abort line 109, col 1 to line 109, col 5 of module L0_SharedCash>: 101:101
+  line 109, col 13 to line 109, col 25 of module L0_SharedCash: 540
+  |line 109, col 13 to line 109, col 17 of module L0_SharedCash: 439
+  line 109, col 30 to line 109, col 40 of module L0_SharedCash: 539
+  |line 109, col 30 to line 109, col 36 of module L0_SharedCash: 438
+  line 109, col 45 to line 109, col 53 of module L0_SharedCash: 300
+  |line 109, col 46 to line 109, col 53 of module L0_SharedCash: 199
+  line 110, col 13 to line 110, col 54 of module L0_SharedCash: 101
+  line 111, col 13 to line 111, col 72 of module L0_SharedCash: 101
+  |line 111, col 25 to line 111, col 72 of module L0_SharedCash: 101
+  ||line 111, col 28 to line 111, col 40 of module L0_SharedCash: 101
+  ||line 111, col 47 to line 111, col 58 of module L0_SharedCash: 96
+  ||line 111, col 65 to line 111, col 72 of module L0_SharedCash: 5
+  line 112, col 13 to line 112, col 63 of module L0_SharedCash: 101
+  line 113, col 13 to line 113, col 111 of module L0_SharedCash: 101
+<Ack line 117, col 1 to line 117, col 3 of module L0_SharedCash>: 96:98
+  line 117, col 11 to line 117, col 23 of module L0_SharedCash: 537
+  |line 117, col 11 to line 117, col 15 of module L0_SharedCash: 439
+  line 117, col 28 to line 117, col 38 of module L0_SharedCash: 536
+  |line 117, col 28 to line 117, col 34 of module L0_SharedCash: 438
+  line 117, col 43 to line 117, col 50 of module L0_SharedCash: 98
+  line 118, col 11 to line 118, col 66 of module L0_SharedCash: 98
+  line 119, col 11 to line 119, col 61 of module L0_SharedCash: 98
+  line 120, col 11 to line 120, col 104 of module L0_SharedCash: 98
+<Restart line 125, col 1 to line 125, col 7 of module L0_SharedCash>: 0:0
+  line 125, col 15 to line 125, col 27 of module L0_SharedCash: 437
+  line 125, col 32 to line 125, col 54 of module L0_SharedCash: 436
+  line 127, col 15 to line 127, col 38 of module L0_SharedCash: 0
+  line 127, col 43 to line 127, col 59 of module L0_SharedCash: 0
+  line 127, col 64 to line 127, col 80 of module L0_SharedCash: 0
+  line 127, col 85 to line 127, col 96 of module L0_SharedCash: 0
+  line 127, col 101 to line 127, col 114 of module L0_SharedCash: 0
+  line 128, col 15 to line 128, col 39 of module L0_SharedCash: 0
+  line 128, col 44 to line 128, col 54 of module L0_SharedCash: 0
+  line 128, col 59 to line 128, col 70 of module L0_SharedCash: 0
+  line 129, col 15 to line 129, col 82 of module L0_SharedCash: 0
+<Requalify line 133, col 1 to line 133, col 9 of module L0_SharedCash>: 0:0
+  line 133, col 17 to line 133, col 32 of module L0_SharedCash: 437
+  line 133, col 37 to line 133, col 50 of module L0_SharedCash: 0
+  line 134, col 17 to line 134, col 140 of module L0_SharedCash: 0
+<CashSafe line 138, col 1 to line 138, col 8 of module L0_SharedCash>
+  line 138, col 13 to line 138, col 87 of module L0_SharedCash: 523
+  |line 138, col 13 to line 138, col 32 of module L0_SharedCash: 523
+  |line 138, col 37 to line 138, col 87 of module L0_SharedCash: 523
+  ||line 138, col 37 to line 138, col 44 of module L0_SharedCash: 523
+  ||line 138, col 48 to line 138, col 87 of module L0_SharedCash: 523
+  |||line 138, col 60 to line 138, col 86 of module L0_SharedCash: 523
+  ||||line 138, col 71 to line 138, col 85 of module L0_SharedCash: 1046
+  ||||line 138, col 67 to line 138, col 67 of module L0_SharedCash: 523
+<BoundPending line 139, col 1 to line 139, col 12 of module L0_SharedCash>
+  line 139, col 17 to line 139, col 77 of module L0_SharedCash: 523
+  |line 139, col 17 to line 139, col 35 of module L0_SharedCash: 523
+  |line 139, col 41 to line 139, col 76 of module L0_SharedCash: 523
+  ||line 139, col 41 to line 139, col 51 of module L0_SharedCash: 523
+  ||line 139, col 56 to line 139, col 76 of module L0_SharedCash: 212
+<ExactlyOnce line 140, col 1 to line 140, col 11 of module L0_SharedCash>
+  line 140, col 16 to line 140, col 79 of module L0_SharedCash: 523
+  |line 140, col 32 to line 140, col 79 of module L0_SharedCash: 2092
+  ||line 140, col 32 to line 140, col 43 of module L0_SharedCash: 2092
+  ||line 140, col 49 to line 140, col 78 of module L0_SharedCash: 2092
+  |||line 140, col 49 to line 140, col 59 of module L0_SharedCash: 2092
+  |||line 140, col 64 to line 140, col 78 of module L0_SharedCash: 422
+  |line 140, col 25 to line 140, col 28 of module L0_SharedCash: 523
+<CorrectOwner line 141, col 1 to line 141, col 12 of module L0_SharedCash>
+  line 141, col 17 to line 141, col 93 of module L0_SharedCash: 523
+  |line 141, col 40 to line 141, col 93 of module L0_SharedCash: 321
+  |line 141, col 29 to line 141, col 36 of module L0_SharedCash: 523
+<CancelAuthority line 142, col 1 to line 142, col 15 of module L0_SharedCash>
+  line 142, col 20 to line 142, col 99 of module L0_SharedCash: 523
+  |line 142, col 33 to line 142, col 99 of module L0_SharedCash: 1046
+  ||line 142, col 33 to line 142, col 53 of module L0_SharedCash: 1046
+  ||line 142, col 58 to line 142, col 99 of module L0_SharedCash: 25
+  |line 142, col 29 to line 142, col 29 of module L0_SharedCash: 523
+<PeerCanContinue line 145, col 1 to line 145, col 15 of module L0_SharedCash>
+  line 145, col 20 to line 147, col 68 of module L0_SharedCash: 523
+  |line 145, col 22 to line 147, col 67 of module L0_SharedCash: 523
+  ||line 145, col 22 to line 147, col 43 of module L0_SharedCash: 523
+  |||line 145, col 22 to line 146, col 91 of module L0_SharedCash: 523
+  ||||line 145, col 22 to line 146, col 60 of module L0_SharedCash: 523
+  |||||line 145, col 22 to line 145, col 91 of module L0_SharedCash: 523
+  ||||||line 145, col 22 to line 145, col 53 of module L0_SharedCash: 523
+  |||||||line 145, col 22 to line 145, col 35 of module L0_SharedCash: 523
+  |||||||line 145, col 40 to line 145, col 53 of module L0_SharedCash: 11
+  ||||||line 145, col 58 to line 145, col 91 of module L0_SharedCash: 11
+  |||||line 146, col 24 to line 146, col 60 of module L0_SharedCash: 11
+  ||||line 146, col 65 to line 146, col 91 of module L0_SharedCash: 3
+  |||line 147, col 24 to line 147, col 43 of module L0_SharedCash: 3
+  ||line 147, col 48 to line 147, col 67 of module L0_SharedCash: 2
+End of statistics.
+646 states generated, 523 distinct states found, 84 states left on queue.
+The depth of the complete state graph search is 8.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 2 and the 95th percentile is 2).
+Finished in 00s at (2026-11-05 02:11:46)

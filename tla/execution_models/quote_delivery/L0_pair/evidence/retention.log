@@ -1,0 +1,60 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed -5157888283539105943 with 1 worker on 16 cores with 383MB heap and 64MB offheap memory [pid: 236871] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Error: Invariant SubscriptionRetained is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ pos = [sdk |-> 0, account |-> 0]
+/\ mark = 0
+/\ h = <<[live |-> TRUE, ing |-> 1, pub |-> 1]>>
+/\ t = 1
+/\ valid = FALSE
+/\ base = [sdk |-> 0, account |-> 0]
+/\ callback = [seq |-> 0, at |-> 0]
+/\ failed = FALSE
+
+State 2: <JoinAccount line 69, col 3 to line 70, col 38 of module L0_QuotePair>
+/\ pos = [sdk |-> 0, account |-> 2]
+/\ mark = 2
+/\ h = <<[live |-> TRUE, ing |-> 1, pub |-> 1]>>
+/\ t = 1
+/\ valid = TRUE
+/\ base = [sdk |-> 0, account |-> 2]
+/\ callback = [seq |-> 0, at |-> 0]
+/\ failed = FALSE
+
+State 3: <Publish line 53, col 3 to line 55, col 56 of module L0_QuotePair>
+/\ pos = [sdk |-> 0, account |-> 2]
+/\ mark = 2
+/\ h = << [live |-> TRUE, ing |-> 1, pub |-> 1],
+   [live |-> FALSE, ing |-> 1, pub |-> 1] >>
+/\ t = 1
+/\ valid = TRUE
+/\ base = [sdk |-> 0, account |-> 2]
+/\ callback = [seq |-> 0, at |-> 0]
+/\ failed = FALSE
+
+State 4: <AccountRead line 85, col 3 to line 92, col 36 of module L0_QuotePair>
+/\ pos = [sdk |-> 0, account |-> 3]
+/\ mark = 3
+/\ h = << [live |-> TRUE, ing |-> 1, pub |-> 1],
+   [live |-> FALSE, ing |-> 1, pub |-> 1] >>
+/\ t = 1
+/\ valid = FALSE
+/\ base = [sdk |-> 0, account |-> 2]
+/\ callback = [seq |-> 0, at |-> 0]
+/\ failed = FALSE
+
+State 5: <AccountRead line 85, col 3 to line 92, col 36 of module L0_QuotePair>
+/\ pos = [sdk |-> 0, account |-> 4]
+/\ mark = 3
+/\ h = << [live |-> TRUE, ing |-> 1, pub |-> 1],
+   [live |-> FALSE, ing |-> 1, pub |-> 1] >>
+/\ t = 1
+/\ valid = FALSE
+/\ base = [sdk |-> 0, account |-> 2]
+/\ callback = [seq |-> 0, at |-> 0]
+/\ failed = TRUE
+
+106 states generated, 86 distinct states found, 36 states left on queue.
+The depth of the complete state graph search is 5.
+Finished in 01s at (2026-11-05 02:10:13)

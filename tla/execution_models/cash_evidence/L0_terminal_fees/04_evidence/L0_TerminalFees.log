@@ -1,0 +1,264 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed -7109835271669065910 with 1 worker on 16 cores with 551MB heap and 64MB offheap memory [pid: 247359] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/obscure/Tickwire/tla/execution_models/cash_evidence/L0_terminal_fees/02_models/L0_TerminalFees.tla
+Parsing file /tmp/Integers.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/Sequences.tla
+Parsing file /tmp/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module L0_TerminalFees
+Starting... (2026-11-05 02:16:09)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:16:10.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 1.3E-14
+The coverage statistics at 2026-11-05 02:16:10
+<Init line 37, col 1 to line 37, col 4 of module L0_TerminalFees>: 1:1
+  line 37, col 9 to line 38, col 59 of module L0_TerminalFees: 1
+<WSFill line 45, col 1 to line 45, col 6 of module L0_TerminalFees>: 3:3
+  line 45, col 14 to line 45, col 26 of module L0_TerminalFees: 535
+  |line 45, col 14 to line 45, col 18 of module L0_TerminalFees: 532
+  line 45, col 58 to line 45, col 69 of module L0_TerminalFees: 3
+  line 45, col 40 to line 45, col 55 of module L0_TerminalFees: 8
+  |line 45, col 40 to line 45, col 42 of module L0_TerminalFees: 8
+  |line 45, col 46 to line 45, col 55 of module L0_TerminalFees: 8
+  ||line 35, col 13 to line 35, col 62 of module L0_TerminalFees: 8
+  |||line 35, col 14 to line 35, col 20 of module L0_TerminalFees: 5
+  |||line 35, col 30 to line 35, col 61 of module L0_TerminalFees: 8:13
+  ||||line 35, col 49 to line 35, col 60 of module L0_TerminalFees: 11
+  ||||line 35, col 37 to line 35, col 45 of module L0_TerminalFees: 8
+  ||line 45, col 52 to line 45, col 54 of module L0_TerminalFees: 8
+  line 46, col 14 to line 46, col 59 of module L0_TerminalFees: 3
+<WSTerminal line 51, col 1 to line 51, col 10 of module L0_TerminalFees>: 4:4
+  line 51, col 18 to line 51, col 30 of module L0_TerminalFees: 534
+  |line 51, col 18 to line 51, col 22 of module L0_TerminalFees: 532
+  line 51, col 35 to line 51, col 42 of module L0_TerminalFees: 10
+  |line 51, col 35 to line 51, col 39 of module L0_TerminalFees: 8
+  |line 51, col 41 to line 51, col 42 of module L0_TerminalFees: 8
+  line 52, col 40 to line 53, col 75 of module L0_TerminalFees: 4
+  line 52, col 27 to line 52, col 37 of module L0_TerminalFees: 2
+  line 54, col 18 to line 54, col 60 of module L0_TerminalFees: 4
+<ReadFirst line 58, col 1 to line 58, col 9 of module L0_TerminalFees>: 52:52
+  line 58, col 17 to line 58, col 29 of module L0_TerminalFees: 540
+  |line 58, col 17 to line 58, col 21 of module L0_TerminalFees: 532
+  line 59, col 60 to line 59, col 71 of module L0_TerminalFees: 52
+  |line 59, col 60 to line 59, col 64 of module L0_TerminalFees: 64
+  |line 59, col 67 to line 59, col 71 of module L0_TerminalFees: 64
+  line 59, col 77 to line 59, col 83 of module L0_TerminalFees: 52
+  line 59, col 26 to line 59, col 34 of module L0_TerminalFees: 8
+  line 60, col 17 to line 60, col 30 of module L0_TerminalFees: 52
+  line 60, col 35 to line 60, col 85 of module L0_TerminalFees: 52
+<ReadSecond line 64, col 1 to line 64, col 10 of module L0_TerminalFees>: 104:368
+  line 64, col 18 to line 64, col 30 of module L0_TerminalFees: 584
+  |line 64, col 18 to line 64, col 22 of module L0_TerminalFees: 532
+  line 65, col 42 to line 65, col 53 of module L0_TerminalFees: 368
+  |line 65, col 42 to line 65, col 46 of module L0_TerminalFees: 416
+  |line 65, col 49 to line 65, col 53 of module L0_TerminalFees: 416
+  line 66, col 22 to line 66, col 66 of module L0_TerminalFees: 368
+  line 64, col 44 to line 64, col 52 of module L0_TerminalFees: 52
+  line 67, col 18 to line 67, col 73 of module L0_TerminalFees: 368
+<RESTFill line 71, col 1 to line 71, col 8 of module L0_TerminalFees>: 26:26
+  line 71, col 16 to line 71, col 28 of module L0_TerminalFees: 558
+  |line 71, col 16 to line 71, col 20 of module L0_TerminalFees: 532
+  line 71, col 33 to line 71, col 51 of module L0_TerminalFees: 26
+  |line 71, col 33 to line 71, col 38 of module L0_TerminalFees: 78
+  |line 71, col 41 to line 71, col 51 of module L0_TerminalFees: 78
+  line 72, col 16 to line 72, col 54 of module L0_TerminalFees: 26
+  line 73, col 16 to line 73, col 54 of module L0_TerminalFees: 26
+<RESTTerminal line 77, col 1 to line 77, col 12 of module L0_TerminalFees>: 40:52
+  line 77, col 20 to line 77, col 32 of module L0_TerminalFees: 584
+  |line 77, col 20 to line 77, col 24 of module L0_TerminalFees: 532
+  line 77, col 37 to line 77, col 54 of module L0_TerminalFees: 52
+  |line 77, col 37 to line 77, col 42 of module L0_TerminalFees: 78
+  |line 77, col 44 to line 77, col 54 of module L0_TerminalFees: 78
+  line 78, col 23 to line 78, col 49 of module L0_TerminalFees: 52
+  line 79, col 28 to line 80, col 71 of module L0_TerminalFees: 30
+  line 81, col 31 to line 81, col 45 of module L0_TerminalFees: 22
+  line 81, col 50 to line 81, col 75 of module L0_TerminalFees: 22
+  line 82, col 20 to line 82, col 62 of module L0_TerminalFees: 52
+<Wallet line 87, col 1 to line 87, col 6 of module L0_TerminalFees>: 30:30
+  line 87, col 14 to line 87, col 27 of module L0_TerminalFees: 562
+  |line 87, col 14 to line 87, col 18 of module L0_TerminalFees: 532
+  line 88, col 14 to line 89, col 48 of module L0_TerminalFees: 30
+  |line 88, col 22 to line 89, col 47 of module L0_TerminalFees: 30
+  ||line 88, col 25 to line 88, col 88 of module L0_TerminalFees: 30
+  |||line 88, col 25 to line 88, col 64 of module L0_TerminalFees: 30
+  ||||line 88, col 25 to line 88, col 41 of module L0_TerminalFees: 30
+  ||||line 88, col 46 to line 88, col 64 of module L0_TerminalFees: 15
+  |||line 88, col 69 to line 88, col 88 of module L0_TerminalFees: 10
+  line 90, col 14 to line 90, col 69 of module L0_TerminalFees: 30
+<AppendFee line 95, col 1 to line 95, col 9 of module L0_TerminalFees>: 10:10
+  line 95, col 17 to line 95, col 29 of module L0_TerminalFees: 542
+  |line 95, col 17 to line 95, col 21 of module L0_TerminalFees: 532
+  line 95, col 34 to line 95, col 49 of module L0_TerminalFees: 10
+  line 96, col 17 to line 96, col 62 of module L0_TerminalFees: 10
+  line 97, col 17 to line 97, col 68 of module L0_TerminalFees: 10
+<ApplyFee line 101, col 1 to line 101, col 8 of module L0_TerminalFees>: 10:10
+  line 101, col 16 to line 101, col 30 of module L0_TerminalFees: 542
+  |line 101, col 16 to line 101, col 20 of module L0_TerminalFees: 532
+  line 102, col 16 to line 102, col 83 of module L0_TerminalFees: 10
+  line 103, col 16 to line 103, col 71 of module L0_TerminalFees: 10
+<Install line 108, col 1 to line 108, col 7 of module L0_TerminalFees>: 10:10
+  line 108, col 15 to line 108, col 29 of module L0_TerminalFees: 542
+  |line 108, col 15 to line 108, col 19 of module L0_TerminalFees: 532
+  line 109, col 15 to line 109, col 82 of module L0_TerminalFees: 10
+  line 110, col 15 to line 110, col 70 of module L0_TerminalFees: 10
+<Crash line 114, col 1 to line 114, col 5 of module L0_TerminalFees>: 121:290
+  line 114, col 13 to line 114, col 59 of module L0_TerminalFees: 822
+  |line 114, col 13 to line 114, col 17 of module L0_TerminalFees: 532
+  |line 114, col 26 to line 114, col 59 of module L0_TerminalFees: 532
+  line 115, col 13 to line 115, col 68 of module L0_TerminalFees: 290
+  line 116, col 13 to line 116, col 47 of module L0_TerminalFees: 290
+<Replay line 127, col 1 to line 127, col 6 of module L0_TerminalFees>: 121:121
+  line 127, col 14 to line 127, col 27 of module L0_TerminalFees: 653
+  |line 127, col 14 to line 127, col 18 of module L0_TerminalFees: 532
+  line 127, col 32 to line 127, col 92 of module L0_TerminalFees: 121
+  |line 127, col 40 to line 127, col 91 of module L0_TerminalFees: 121
+  ||line 127, col 43 to line 127, col 57 of module L0_TerminalFees: 121
+  |||line 124, col 18 to line 126, col 51 of module L0_TerminalFees: 121
+  ||||line 124, col 38 to line 126, col 51 of module L0_TerminalFees: 261
+  |||||line 124, col 38 to line 124, col 50 of module L0_TerminalFees: 261
+  |||||line 125, col 18 to line 126, col 51 of module L0_TerminalFees: 10
+  ||||||line 125, col 21 to line 125, col 61 of module L0_TerminalFees: 10
+  |||||||line 125, col 21 to line 125, col 27 of module L0_TerminalFees: 10
+  |||||||line 125, col 29 to line 125, col 61 of module L0_TerminalFees: 10
+  ||||||||line 125, col 41 to line 125, col 60 of module L0_TerminalFees: 10
+  |||||||||line 34, col 16 to line 34, col 66 of module L0_TerminalFees: 10
+  ||||||||||line 34, col 17 to line 34, col 23 of module L0_TerminalFees: 13
+  ||||||||||line 34, col 33 to line 34, col 65 of module L0_TerminalFees: 10:23
+  |||||||||||line 34, col 52 to line 34, col 64 of module L0_TerminalFees: 30
+  |||||||||||line 34, col 40 to line 34, col 48 of module L0_TerminalFees: 10
+  |||||||||line 125, col 50 to line 125, col 59 of module L0_TerminalFees: 10
+  ||||||line 126, col 21 to line 126, col 51 of module L0_TerminalFees: 10
+  |||||||line 126, col 21 to line 126, col 27 of module L0_TerminalFees: 10
+  |||||||line 126, col 29 to line 126, col 51 of module L0_TerminalFees: 10
+  ||||||||line 122, col 19 to line 123, col 55 of module L0_TerminalFees: 10
+  |||||||||line 123, col 29 to line 123, col 55 of module L0_TerminalFees: 23
+  ||||||||||line 123, col 52 to line 123, col 55 of module L0_TerminalFees: 29
+  ||||||||||line 123, col 38 to line 123, col 49 of module L0_TerminalFees: 23
+  |||||||||||line 121, col 17 to line 121, col 72 of module L0_TerminalFees: 23:52
+  ||||||||||||line 121, col 18 to line 121, col 24 of module L0_TerminalFees: 40
+  ||||||||||||line 121, col 34 to line 121, col 71 of module L0_TerminalFees: 23:63
+  |||||||||||||line 121, col 53 to line 121, col 70 of module L0_TerminalFees: 71
+  |||||||||||||line 121, col 41 to line 121, col 49 of module L0_TerminalFees: 23
+  |||||||||line 122, col 32 to line 122, col 53 of module L0_TerminalFees: 10
+  ||||||||||line 122, col 32 to line 122, col 43 of module L0_TerminalFees: 10
+  |||||||||||line 121, col 17 to line 121, col 72 of module L0_TerminalFees: 10
+  ||||||||||||line 121, col 18 to line 121, col 24 of module L0_TerminalFees: 17
+  ||||||||||||line 121, col 34 to line 121, col 71 of module L0_TerminalFees: 10:27
+  |||||||||||||line 121, col 53 to line 121, col 70 of module L0_TerminalFees: 30
+  |||||||||||||line 121, col 41 to line 121, col 49 of module L0_TerminalFees: 10
+  ||||||||||line 122, col 50 to line 122, col 53 of module L0_TerminalFees: 10:20
+  ||||||||line 126, col 41 to line 126, col 50 of module L0_TerminalFees: 10
+  ||||line 124, col 27 to line 124, col 35 of module L0_TerminalFees: 121
+  |||line 127, col 54 to line 127, col 56 of module L0_TerminalFees: 121
+  line 128, col 14 to line 128, col 33 of module L0_TerminalFees: 121
+  |line 128, col 21 to line 128, col 33 of module L0_TerminalFees: 121
+  ||line 34, col 16 to line 34, col 66 of module L0_TerminalFees: 121
+  |||line 34, col 17 to line 34, col 23 of module L0_TerminalFees: 125
+  |||line 34, col 33 to line 34, col 65 of module L0_TerminalFees: 121:246
+  ||||line 34, col 52 to line 34, col 64 of module L0_TerminalFees: 261
+  ||||line 34, col 40 to line 34, col 48 of module L0_TerminalFees: 121
+  ||line 128, col 30 to line 128, col 32 of module L0_TerminalFees: 121
+  line 128, col 38 to line 128, col 72 of module L0_TerminalFees: 121
+  |line 128, col 45 to line 128, col 72 of module L0_TerminalFees: 121
+  ||line 128, col 47 to line 128, col 72 of module L0_TerminalFees: 121
+  |||line 128, col 59 to line 128, col 71 of module L0_TerminalFees: 121
+  ||||line 34, col 16 to line 34, col 66 of module L0_TerminalFees: 121
+  |||||line 34, col 17 to line 34, col 23 of module L0_TerminalFees: 125
+  |||||line 34, col 33 to line 34, col 65 of module L0_TerminalFees: 121:246
+  ||||||line 34, col 52 to line 34, col 64 of module L0_TerminalFees: 261
+  ||||||line 34, col 40 to line 34, col 48 of module L0_TerminalFees: 121
+  ||||line 128, col 68 to line 128, col 70 of module L0_TerminalFees: 121
+  line 129, col 14 to line 129, col 39 of module L0_TerminalFees: 121
+  |line 129, col 24 to line 129, col 39 of module L0_TerminalFees: 121
+  ||line 122, col 19 to line 123, col 55 of module L0_TerminalFees: 121
+  |||line 123, col 29 to line 123, col 55 of module L0_TerminalFees: 231
+  ||||line 123, col 52 to line 123, col 55 of module L0_TerminalFees: 233
+  ||||line 123, col 38 to line 123, col 49 of module L0_TerminalFees: 231
+  |||||line 121, col 17 to line 121, col 72 of module L0_TerminalFees: 231:464
+  ||||||line 121, col 18 to line 121, col 24 of module L0_TerminalFees: 278
+  ||||||line 121, col 34 to line 121, col 71 of module L0_TerminalFees: 231:509
+  |||||||line 121, col 53 to line 121, col 70 of module L0_TerminalFees: 550
+  |||||||line 121, col 41 to line 121, col 49 of module L0_TerminalFees: 231
+  |||line 122, col 32 to line 122, col 53 of module L0_TerminalFees: 121
+  ||||line 122, col 32 to line 122, col 43 of module L0_TerminalFees: 121
+  |||||line 121, col 17 to line 121, col 72 of module L0_TerminalFees: 121
+  ||||||line 121, col 18 to line 121, col 24 of module L0_TerminalFees: 126
+  ||||||line 121, col 34 to line 121, col 71 of module L0_TerminalFees: 121:247
+  |||||||line 121, col 53 to line 121, col 70 of module L0_TerminalFees: 261
+  |||||||line 121, col 41 to line 121, col 49 of module L0_TerminalFees: 121
+  ||||line 122, col 50 to line 122, col 53 of module L0_TerminalFees: 121:218
+  ||line 129, col 36 to line 129, col 38 of module L0_TerminalFees: 121
+  line 129, col 44 to line 129, col 78 of module L0_TerminalFees: 121
+<CashOnce line 134, col 1 to line 134, col 8 of module L0_TerminalFees>
+  line 134, col 13 to line 134, col 101 of module L0_TerminalFees: 532
+  |line 134, col 13 to line 134, col 48 of module L0_TerminalFees: 532
+  |line 134, col 53 to line 134, col 101 of module L0_TerminalFees: 411
+  ||line 134, col 53 to line 134, col 71 of module L0_TerminalFees: 411
+  |||line 134, col 53 to line 134, col 57 of module L0_TerminalFees: 411
+  |||line 134, col 59 to line 134, col 71 of module L0_TerminalFees: 411
+  ||||line 34, col 16 to line 34, col 66 of module L0_TerminalFees: 411
+  |||||line 34, col 17 to line 34, col 23 of module L0_TerminalFees: 395
+  |||||line 34, col 33 to line 34, col 65 of module L0_TerminalFees: 411:806
+  ||||||line 34, col 52 to line 34, col 64 of module L0_TerminalFees: 854
+  ||||||line 34, col 40 to line 34, col 48 of module L0_TerminalFees: 411
+  ||||line 134, col 68 to line 134, col 70 of module L0_TerminalFees: 411
+  ||line 134, col 76 to line 134, col 101 of module L0_TerminalFees: 411
+<QualifiedCash line 135, col 1 to line 135, col 13 of module L0_TerminalFees>
+  line 135, col 18 to line 136, col 79 of module L0_TerminalFees: 532
+  |line 135, col 18 to line 135, col 34 of module L0_TerminalFees: 532
+  |line 135, col 39 to line 136, col 79 of module L0_TerminalFees: 10
+  ||line 135, col 42 to line 135, col 87 of module L0_TerminalFees: 10
+  |||line 135, col 42 to line 135, col 56 of module L0_TerminalFees: 10
+  ||||line 124, col 18 to line 126, col 51 of module L0_TerminalFees: 10
+  |||||line 124, col 38 to line 126, col 51 of module L0_TerminalFees: 40
+  ||||||line 124, col 38 to line 124, col 50 of module L0_TerminalFees: 40
+  ||||||line 125, col 18 to line 126, col 51 of module L0_TerminalFees: 10
+  |||||||line 125, col 21 to line 125, col 61 of module L0_TerminalFees: 10
+  ||||||||line 125, col 21 to line 125, col 27 of module L0_TerminalFees: 10
+  ||||||||line 125, col 29 to line 125, col 61 of module L0_TerminalFees: 10
+  |||||||||line 125, col 41 to line 125, col 60 of module L0_TerminalFees: 10
+  ||||||||||line 34, col 16 to line 34, col 66 of module L0_TerminalFees: 10
+  |||||||||||line 34, col 17 to line 34, col 23 of module L0_TerminalFees: 13
+  |||||||||||line 34, col 33 to line 34, col 65 of module L0_TerminalFees: 10:23
+  ||||||||||||line 34, col 52 to line 34, col 64 of module L0_TerminalFees: 30
+  ||||||||||||line 34, col 40 to line 34, col 48 of module L0_TerminalFees: 10
+  ||||||||||line 125, col 50 to line 125, col 59 of module L0_TerminalFees: 10
+  |||||||line 126, col 21 to line 126, col 51 of module L0_TerminalFees: 10
+  ||||||||line 126, col 21 to line 126, col 27 of module L0_TerminalFees: 10
+  ||||||||line 126, col 29 to line 126, col 51 of module L0_TerminalFees: 10
+  |||||||||line 122, col 19 to line 123, col 55 of module L0_TerminalFees: 10
+  ||||||||||line 123, col 29 to line 123, col 55 of module L0_TerminalFees: 23
+  |||||||||||line 123, col 52 to line 123, col 55 of module L0_TerminalFees: 29
+  |||||||||||line 123, col 38 to line 123, col 49 of module L0_TerminalFees: 23
+  ||||||||||||line 121, col 17 to line 121, col 72 of module L0_TerminalFees: 23:52
+  |||||||||||||line 121, col 18 to line 121, col 24 of module L0_TerminalFees: 40
+  |||||||||||||line 121, col 34 to line 121, col 71 of module L0_TerminalFees: 23:63
+  ||||||||||||||line 121, col 53 to line 121, col 70 of module L0_TerminalFees: 71
+  ||||||||||||||line 121, col 41 to line 121, col 49 of module L0_TerminalFees: 23
+  ||||||||||line 122, col 32 to line 122, col 53 of module L0_TerminalFees: 10
+  |||||||||||line 122, col 32 to line 122, col 43 of module L0_TerminalFees: 10
+  ||||||||||||line 121, col 17 to line 121, col 72 of module L0_TerminalFees: 10
+  |||||||||||||line 121, col 18 to line 121, col 24 of module L0_TerminalFees: 17
+  |||||||||||||line 121, col 34 to line 121, col 71 of module L0_TerminalFees: 10:27
+  ||||||||||||||line 121, col 53 to line 121, col 70 of module L0_TerminalFees: 30
+  ||||||||||||||line 121, col 41 to line 121, col 49 of module L0_TerminalFees: 10
+  |||||||||||line 122, col 50 to line 122, col 53 of module L0_TerminalFees: 10:20
+  |||||||||line 126, col 41 to line 126, col 50 of module L0_TerminalFees: 10
+  |||||line 124, col 27 to line 124, col 35 of module L0_TerminalFees: 10
+  ||||line 135, col 53 to line 135, col 55 of module L0_TerminalFees: 10
+  |||line 135, col 61 to line 135, col 87 of module L0_TerminalFees: 10
+  ||line 136, col 42 to line 136, col 79 of module L0_TerminalFees: 10
+<RestartReadable line 137, col 1 to line 137, col 15 of module L0_TerminalFees>
+  line 137, col 20 to line 137, col 39 of module L0_TerminalFees: 532
+End of statistics.
+977 states generated, 532 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 11.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 12 and the 95th percentile is 3).
+Finished in 01s at (2026-11-05 02:16:10)

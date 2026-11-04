@@ -1,0 +1,42 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.17s
+Native process pair 1/3
+   Compiling tickwire-peer-isolation-probe v0.0.0 (/tmp/tw-isolation-probe-z7r1w_gj/tickwire-spot-runner)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2.78s
+     Running tests/reconcile_process.rs (/home/obscure/Tickwire/target/debug/deps/two_queues-3b6c4466ccfd25e1)
+
+running 1 test
+{"error":"Closed","event":"md_subscriber_closed","pid":287523,"stage":"Active"}
+{"venue": "bybit", "venue_signed_buys": 1, "account_observed_trigger": true, "producer_8_ack": 801, "queued_peer_cancel": 802, "rejected_foreign_cancel": 901, "rejection": "Err(Session(Gateway(Account(Identity))))", "exit": 1}
+{"error":"Closed","event":"md_subscriber_closed","pid":289047,"stage":"Active"}
+{"venue": "okx", "venue_signed_buys": 1, "account_observed_trigger": true, "producer_8_ack": 801, "queued_peer_cancel": 802, "rejected_foreign_cancel": 901, "rejection": "Err(Session(Gateway(Account(Identity))))", "exit": 1}
+test real_reconcile_process_qualifies_and_reopens_both_native_accounts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 10.64s
+
+Native process pair 2/3
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running tests/reconcile_process.rs (/home/obscure/Tickwire/target/debug/deps/two_queues-3b6c4466ccfd25e1)
+
+running 1 test
+{"error":"Closed","event":"md_subscriber_closed","pid":290700,"stage":"Active"}
+{"venue": "bybit", "venue_signed_buys": 1, "account_observed_trigger": true, "producer_8_ack": 801, "queued_peer_cancel": 802, "rejected_foreign_cancel": 901, "rejection": "Err(Session(Gateway(Account(Identity))))", "exit": 1}
+{"error":"Closed","event":"md_subscriber_closed","pid":292047,"stage":"Active"}
+{"venue": "okx", "venue_signed_buys": 1, "account_observed_trigger": true, "producer_8_ack": 801, "queued_peer_cancel": 802, "rejected_foreign_cancel": 901, "rejection": "Err(Session(Gateway(Account(Identity))))", "exit": 1}
+test real_reconcile_process_qualifies_and_reopens_both_native_accounts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 10.53s
+
+Native process pair 3/3
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running tests/reconcile_process.rs (/home/obscure/Tickwire/target/debug/deps/two_queues-3b6c4466ccfd25e1)
+
+running 1 test
+{"error":"Closed","event":"md_subscriber_closed","pid":293482,"stage":"Active"}
+{"venue": "bybit", "venue_signed_buys": 1, "account_observed_trigger": true, "producer_8_ack": 801, "queued_peer_cancel": 802, "rejected_foreign_cancel": 901, "rejection": "Err(Session(Gateway(Account(Identity))))", "exit": 1}
+{"error":"Closed","event":"md_subscriber_closed","pid":294300,"stage":"Active"}
+{"venue": "okx", "venue_signed_buys": 1, "account_observed_trigger": true, "producer_8_ack": 801, "queued_peer_cancel": 802, "rejected_foreign_cancel": 901, "rejection": "Err(Session(Gateway(Account(Identity))))", "exit": 1}
+test real_reconcile_process_qualifies_and_reopens_both_native_accounts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 10.33s
+
+[audit] End of captured process output.

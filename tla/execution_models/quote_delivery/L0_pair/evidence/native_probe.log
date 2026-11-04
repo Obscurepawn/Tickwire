@@ -1,0 +1,4 @@
+{"error":"Sink","event":"market_subscription_failed","topic":101}
+accepted_stale=3, rejected_stale=4, next_live_pair_published=true, subsequent_records=0
+test probe::unavailable_pair_permanently_fails_healthy_sources_member ... ok
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s

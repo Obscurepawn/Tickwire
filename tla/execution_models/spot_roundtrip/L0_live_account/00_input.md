@@ -1,0 +1,5 @@
+# Live spot route at 9b2ed63
+
+The existing private-cut model starts at authenticated private input. The account-gateway model starts at command submission. This level connects public quote publication, independent strategy queue arrival, account admission, sampled authorization, the first accepted byte, native acknowledgement, economic booking, private disconnect and write-ahead log (WAL) recovery. The scope is one Linux account process serving a dedicated Bybit or OKX spot account.
+
+The production account consumes a canonical command and ordinal file descriptor through FileStrategy. A producer that follows that interface writes its own directory. Its trading algorithm is external to this composition. The loopback integration test supplies the concrete producer and exchange; the modeled account side uses the production implementations. [Producer interface](../../../../crates/tickwire-app/src/strategy.rs) · [Concrete producer](../../../../crates/tickwire-spot-runner/tests/reconcile_process.rs)

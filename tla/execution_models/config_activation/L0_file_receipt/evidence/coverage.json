@@ -1,0 +1,20 @@
+{
+  "model": "L0_FileReceipt",
+  "runs": 2,
+  "entries": 12,
+  "generated": {
+    "Init line 24, col 1 to line 24, col 4 of module L0_FileReceipt": 2,
+    "PutObject line 29, col 1 to line 29, col 9 of module L0_FileReceipt": 79,
+    "PutDesired line 34, col 1 to line 34, col 10 of module L0_FileReceipt": 62,
+    "SupplyRuntime line 39, col 1 to line 39, col 13 of module L0_FileReceipt": 159,
+    "PutGood line 43, col 1 to line 43, col 7 of module L0_FileReceipt": 107,
+    "PutEffective line 47, col 1 to line 47, col 12 of module L0_FileReceipt": 139,
+    "Seal line 53, col 1 to line 53, col 4 of module L0_FileReceipt": 409,
+    "Return line 63, col 1 to line 63, col 6 of module L0_FileReceipt": 254,
+    "Stop line 68, col 1 to line 68, col 4 of module L0_FileReceipt": 713,
+    "Reopen line 81, col 1 to line 81, col 6 of module L0_FileReceipt": 443,
+    "Retry line 87, col 1 to line 87, col 5 of module L0_FileReceipt": 4990,
+    "Refuse line 94, col 1 to line 94, col 6 of module L0_FileReceipt": 333
+  },
+  "model_sha256": "b7d1c90a234025002ea57deac19ec3c530be8a2438d8f657bbc9c64af62ae9b1"
+}

@@ -1,5 +1,83 @@
 # Tickwire TLA+ 工作索引
 
+[November 2026 verification audit](audits/2026-11-05/README.md) · [Per-crate coverage and drift](audits/2026-11-05/inventory.md)
+
+## quote_delivery / L0_pair — confirmed (2026-11-05)
+
+- Mode: transcription.
+- Property: A legal unavailable pair permanently retires the account subscription.
+- TLC: 447 / 8,288; violating trace at depth 5. [Run log](execution_models/quote_delivery/L0_pair/03_run_log.md)
+- Finding: confirmed. [Result and source map](execution_models/quote_delivery/L0_pair/06_review.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## strategy_intake / L0_shared_cash — confirmed (2026-11-05)
+
+- Mode: fault injection.
+- Property: A pre-admission foreign-order refusal terminates the shared account process.
+- TLC: 480 / 2,968; violating trace at depth 8. [Run log](execution_models/strategy_intake/L0_shared_cash/03_run_log.md)
+- Finding: confirmed. [Result and source map](execution_models/strategy_intake/L0_shared_cash/06_review.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## cash_evidence / L0_terminal_fees — confirmed (2026-11-05)
+
+- Mode: fault injection.
+- Property: A rejected fee decision survives in a journal that the next writer cannot replay.
+- TLC: 532 / 6,986; violating trace at depth 9. [Run log](execution_models/cash_evidence/L0_terminal_fees/03_run_log.md)
+- Finding: confirmed. [Result and source map](execution_models/cash_evidence/L0_terminal_fees/06_review.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## config_activation / L0_file_receipt — PASS (2026-11-05)
+
+- Mode: fault injection.
+- Property: File installation, WAL receipt, current instance identity and idempotent retry.
+- TLC: 199 / 1,563; depths 17 and 31. [Run log](execution_models/config_activation/L0_file_receipt/03_run_log.md)
+- Finding: none. [Result and source map](execution_models/config_activation/L0_file_receipt/05_output.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## request_budget / L0_shared_window — PASS (2026-11-05)
+
+- Mode: fault injection.
+- Property: One or two budget windows preserve recovery headroom and the actual debit after stop and reclaim.
+- TLC: 10,420 / 303,062; depths 18 and 21. [Run log](execution_models/request_budget/L0_shared_window/03_run_log.md)
+- Finding: none. [Result and source map](execution_models/request_budget/L0_shared_window/05_output.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## risk_limits / L0_cash_envelope — PASS (2026-11-05)
+
+- Mode: transcription.
+- Property: Protected cash and account/member exposure under two spot orders and partial executions.
+- TLC: 278 / 327; depth 7 for both. [Run log](execution_models/risk_limits/L0_cash_envelope/03_run_log.md)
+- Finding: none. [Result and source map](execution_models/risk_limits/L0_cash_envelope/05_output.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## spot_roundtrip / L0_live_account — PASS (2026-11-05)
+
+- Mode: fault injection.
+- Property: From canonical quote decision to durable admission, first byte, fill and successful restart in the spot runner.
+- TLC: 903 / 195 / 559 / 28; two separate stronger expectations have counterexamples by design. [Run log](execution_models/spot_roundtrip/L0_live_account/03_run_log.md)
+- Finding: none. [Result and source map](execution_models/spot_roundtrip/L0_live_account/05_output.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## binance_roundtrip / L0_spot_rest — PASS (2026-11-05)
+
+- Mode: fault injection.
+- Property: Binance spot CoreNode order turn, clock and quotas, admission, fill and worker report.
+- TLC: 838 / 432; witnesses at depths 27 and 22. [Run log](execution_models/binance_roundtrip/L0_spot_rest/03_run_log.md)
+- Finding: none. [Result and source map](execution_models/binance_roundtrip/L0_spot_rest/05_output.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+## worker_handover / L0_market_consumer — confirmed (2026-11-05)
+
+- Mode: fault injection.
+- Property: The host can reject a valid receipt when its worker stamps the message between the host’s clock sample and socket read.
+- TLC: 4,668 / 22,968; violating trace at depth 7. [Run log](execution_models/worker_handover/L0_market_consumer/03_run_log.md)
+- Finding: confirmed. [Independent review and native reproduction](execution_models/worker_handover/L0_market_consumer/06_review.md)
+- Last synced: 2026-11-05 against `9b2ed63`.
+
+# Historical records
+
+Some original entries group several levels. The [inventory](audits/2026-11-05/inventory.md) lists each source lock separately.
+
 当前源码提示：submission L1/L2 的 Mock 分组重放语义已被统一事件流替换，下方旧条目保留其历史结论；现行中止重放见 mock_abort，真实业务日志见 business_journal。
 
 ## execution / submission / L0_commit_gate — PASS（2026-10-20）
@@ -142,7 +220,7 @@
 
 - 账户将持久 Unknown/终态异常观察与恢复附加 Unknown、本地冻结分开；重复成交的新观察计数不再依赖临时状态。
 - Account L0/L1 没有恢复入口与账本序号；AccountJournal L0 只有 Admit/Aborted。三个原模型的动作与不变量不变，仅更新源码行号，2,121 个当前锚点零漂移，未重跑 TLC。
-- 原始模型、配置、锁、结果和修复前源码保存在 [同步证据](../docs/validation/account-recovery-metadata/sync.md)。新增恢复序号性质与真实 Red/Green 由 AccountGateway 阶梯单独跟踪。
+- 原始模型、配置、锁、结果和修复前源码保存在 [同步证据](https://github.com/Obscurepawn/Tickwire/blob/cadf5101706f1e226cabc8dd07fa8ba17c6f6cde/docs/validation/account-recovery-metadata/sync.md)。新增恢复序号性质与真实 Red/Green 由 AccountGateway 阶梯单独跟踪。
 
 ## account_gateway / L0_guarded_account_output — PASS
 

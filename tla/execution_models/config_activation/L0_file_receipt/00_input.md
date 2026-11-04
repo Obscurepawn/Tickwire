@@ -1,0 +1,3 @@
+# Inputs and source revision
+
+At revision `9b2ed63`, the local materializer syncs a projection, desired file, and immutable last-good/current effective files in that order relative to their business receipts. Only a runtime witness from the expected process instance and generation can bridge Desired to Effective. This first level checks process interruption, reopening, historical retries, and caller-supplied stale bases or wrong runtime identities. [Materializer contract](../../../../specs/implementation/config-materializer.md) · [Local journal contract](../../../../specs/implementation/config-local-journal.md)

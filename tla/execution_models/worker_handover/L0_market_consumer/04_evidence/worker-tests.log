@@ -1,0 +1,24 @@
+   Compiling tickwire-instrument-catalog v0.1.0 (/home/obscure/Tickwire/crates/tickwire-instrument-catalog)
+   Compiling tickwire-release v0.1.0 (/home/obscure/Tickwire/crates/tickwire-release)
+   Compiling tickwire-binance-private v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-private)
+   Compiling tickwire-binance-clock v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-clock)
+   Compiling tickwire-market-source v0.1.0 (/home/obscure/Tickwire/crates/tickwire-market-source)
+   Compiling tickwire-binance-public v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-public)
+   Compiling tickwire-binance-account v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-account)
+   Compiling tickwire-binance-session v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-session)
+   Compiling tickwire-binance-quota v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-quota)
+   Compiling tickwire-binance-execution v0.1.0 (/home/obscure/Tickwire/crates/tickwire-binance-execution)
+   Compiling tickwire-runtime v0.1.0 (/home/obscure/Tickwire/crates/tickwire-runtime)
+   Compiling tickwire-strategy-sdk v0.1.0 (/home/obscure/Tickwire/crates/tickwire-strategy-sdk)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 11.32s
+     Running unittests src/lib.rs (target/debug/deps/tickwire_strategy_sdk-54af112a7ad6e21e)
+
+running 4 tests
+test worker::expansion::frontier_tests::invalidating_feed_record_cannot_complete_the_waiting_frontier ... ok
+test worker::expansion::frontier_tests::empty_catchup_waits_for_one_actual_record_before_a_producer_frontier_exists ... ok
+test worker::expansion::frontier_tests::obtained_frontier_still_rechecks_session_and_quiesce_before_swap ... ok
+test worker::expansion::frontier_tests::waiting_frontier_rejects_deadline_lease_eof_and_authenticated_quiesce ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 80 filtered out; finished in 0.07s
+
+[audit] End of captured process output.

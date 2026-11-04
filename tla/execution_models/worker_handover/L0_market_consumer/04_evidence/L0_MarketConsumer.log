@@ -1,0 +1,209 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed -5840397914347863096 with 1 worker on 16 cores with 245MB heap and 64MB offheap memory [pid: 277217] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tmp9bz6xh2w/L0_MarketConsumer.tla
+Parsing file /tmp/Naturals.tla
+Semantic processing of module Naturals
+Semantic processing of module L0_MarketConsumer
+Starting... (2026-11-05 02:30:47)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-11-05 02:30:47.
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 2.0E-12
+The coverage statistics at 2026-11-05 02:30:47
+<Init line 36, col 1 to line 36, col 4 of module L0_MarketConsumer>: 1:1
+  line 36, col 9 to line 40, col 82 of module L0_MarketConsumer: 1
+<HostArm line 42, col 1 to line 42, col 7 of module L0_MarketConsumer>: 1:6
+  line 42, col 15 to line 42, col 20 of module L0_MarketConsumer: 4674
+  |line 42, col 16 to line 42, col 20 of module L0_MarketConsumer: 4668
+  line 42, col 25 to line 42, col 34 of module L0_MarketConsumer: 62
+  |line 42, col 26 to line 42, col 34 of module L0_MarketConsumer: 56
+  line 42, col 39 to line 42, col 45 of module L0_MarketConsumer: 30
+  |line 42, col 39 to line 42, col 39 of module L0_MarketConsumer: 24
+  line 42, col 50 to line 42, col 62 of module L0_MarketConsumer: 18
+  |line 42, col 50 to line 42, col 55 of module L0_MarketConsumer: 12
+  line 43, col 15 to line 43, col 38 of module L0_MarketConsumer: 6
+<WorkerArm line 45, col 1 to line 45, col 9 of module L0_MarketConsumer>: 5:12
+  line 45, col 17 to line 45, col 23 of module L0_MarketConsumer: 4680
+  |line 45, col 17 to line 45, col 17 of module L0_MarketConsumer: 4668
+  line 45, col 28 to line 45, col 32 of module L0_MarketConsumer: 2346
+  |line 45, col 28 to line 45, col 28 of module L0_MarketConsumer: 2334
+  line 45, col 37 to line 45, col 45 of module L0_MarketConsumer: 2318
+  |line 45, col 37 to line 45, col 39 of module L0_MarketConsumer: 2306
+  line 45, col 50 to line 45, col 59 of module L0_MarketConsumer: 40
+  |line 45, col 51 to line 45, col 59 of module L0_MarketConsumer: 28
+  line 46, col 17 to line 46, col 72 of module L0_MarketConsumer: 12
+<OldCallback line 49, col 1 to line 49, col 11 of module L0_MarketConsumer>: 3:133
+  line 49, col 19 to line 49, col 25 of module L0_MarketConsumer: 4801
+  |line 49, col 19 to line 49, col 19 of module L0_MarketConsumer: 4668
+  line 49, col 30 to line 49, col 65 of module L0_MarketConsumer: 2467
+  |line 49, col 30 to line 49, col 32 of module L0_MarketConsumer: 2334
+  |line 49, col 38 to line 49, col 65 of module L0_MarketConsumer: 2334
+  line 49, col 70 to line 49, col 84 of module L0_MarketConsumer: 133
+  |line 49, col 70 to line 49, col 77 of module L0_MarketConsumer: 266
+  |line 49, col 79 to line 49, col 84 of module L0_MarketConsumer: 266
+  line 50, col 19 to line 50, col 44 of module L0_MarketConsumer: 133
+<Detach line 53, col 1 to line 53, col 6 of module L0_MarketConsumer>: 18:58
+  line 53, col 14 to line 53, col 20 of module L0_MarketConsumer: 4726
+  |line 53, col 14 to line 53, col 14 of module L0_MarketConsumer: 4668
+  line 53, col 25 to line 53, col 35 of module L0_MarketConsumer: 2392
+  |line 53, col 25 to line 53, col 27 of module L0_MarketConsumer: 2334
+  line 53, col 40 to line 53, col 49 of module L0_MarketConsumer: 192
+  |line 53, col 41 to line 53, col 49 of module L0_MarketConsumer: 134
+  line 54, col 14 to line 54, col 86 of module L0_MarketConsumer: 58
+<SendReceipt line 57, col 1 to line 57, col 11 of module L0_MarketConsumer>: 46:630
+  line 57, col 19 to line 57, col 25 of module L0_MarketConsumer: 5298
+  |line 57, col 19 to line 57, col 19 of module L0_MarketConsumer: 4668
+  line 57, col 30 to line 57, col 45 of module L0_MarketConsumer: 2964
+  |line 57, col 30 to line 57, col 32 of module L0_MarketConsumer: 2334
+  line 57, col 50 to line 57, col 62 of module L0_MarketConsumer: 630
+  |line 57, col 50 to line 57, col 55 of module L0_MarketConsumer: 2258
+  |line 57, col 57 to line 57, col 62 of module L0_MarketConsumer: 2258
+  line 58, col 19 to line 58, col 42 of module L0_MarketConsumer: 630
+<StartPoll line 62, col 1 to line 62, col 9 of module L0_MarketConsumer>: 328:968
+  line 62, col 17 to line 62, col 23 of module L0_MarketConsumer: 5636
+  |line 62, col 17 to line 62, col 17 of module L0_MarketConsumer: 4668
+  line 62, col 28 to line 62, col 40 of module L0_MarketConsumer: 3302
+  |line 62, col 28 to line 62, col 33 of module L0_MarketConsumer: 2334
+  line 63, col 17 to line 63, col 95 of module L0_MarketConsumer: 968
+<EndPoll line 64, col 1 to line 64, col 7 of module L0_MarketConsumer>: 116:2648
+  line 64, col 15 to line 64, col 44 of module L0_MarketConsumer: 7316
+  |line 64, col 15 to line 64, col 20 of module L0_MarketConsumer: 4668
+  |line 64, col 26 to line 64, col 44 of module L0_MarketConsumer: 4668
+  line 64, col 49 to line 64, col 75 of module L0_MarketConsumer: 2648
+<HostObserve line 68, col 1 to line 68, col 11 of module L0_MarketConsumer>: 50:472
+  line 67, col 13 to line 67, col 25 of module L0_MarketConsumer: 472
+  |line 67, col 13 to line 67, col 18 of module L0_MarketConsumer: 4668
+  |line 67, col 20 to line 67, col 25 of module L0_MarketConsumer: 4668
+  line 67, col 30 to line 67, col 43 of module L0_MarketConsumer: 1860
+  |line 67, col 30 to line 67, col 35 of module L0_MarketConsumer: 1388
+  line 68, col 31 to line 68, col 58 of module L0_MarketConsumer: 472
+  |line 68, col 31 to line 68, col 48 of module L0_MarketConsumer: 556
+  |line 68, col 51 to line 68, col 58 of module L0_MarketConsumer: 556
+  line 69, col 19 to line 69, col 42 of module L0_MarketConsumer: 472
+<Tick line 74, col 1 to line 74, col 4 of module L0_MarketConsumer>: 152:304
+  line 74, col 12 to line 74, col 20 of module L0_MarketConsumer: 4972
+  |line 74, col 12 to line 74, col 18 of module L0_MarketConsumer: 4668
+  line 74, col 25 to line 74, col 34 of module L0_MarketConsumer: 1100
+  |line 74, col 26 to line 74, col 34 of module L0_MarketConsumer: 796
+  line 74, col 39 to line 74, col 61 of module L0_MarketConsumer: 304
+<HostRejectNewer line 75, col 1 to line 75, col 15 of module L0_MarketConsumer>: 42:84
+  line 67, col 13 to line 67, col 25 of module L0_MarketConsumer: 84
+  |line 67, col 13 to line 67, col 18 of module L0_MarketConsumer: 4668
+  |line 67, col 20 to line 67, col 25 of module L0_MarketConsumer: 4668
+  line 67, col 30 to line 67, col 43 of module L0_MarketConsumer: 1472
+  |line 67, col 30 to line 67, col 35 of module L0_MarketConsumer: 1388
+  line 75, col 35 to line 75, col 61 of module L0_MarketConsumer: 84
+  |line 75, col 35 to line 75, col 52 of module L0_MarketConsumer: 556
+  |line 75, col 54 to line 75, col 61 of module L0_MarketConsumer: 556
+  line 76, col 23 to line 76, col 63 of module L0_MarketConsumer: 84
+<HostCommit line 78, col 1 to line 78, col 10 of module L0_MarketConsumer>: 8:10
+  line 78, col 18 to line 78, col 25 of module L0_MarketConsumer: 4678
+  |line 78, col 18 to line 78, col 23 of module L0_MarketConsumer: 4668
+  line 78, col 30 to line 78, col 40 of module L0_MarketConsumer: 2818
+  |line 78, col 30 to line 78, col 38 of module L0_MarketConsumer: 2808
+  line 78, col 45 to line 78, col 51 of module L0_MarketConsumer: 106
+  |line 78, col 45 to line 78, col 45 of module L0_MarketConsumer: 96
+  line 78, col 56 to line 78, col 65 of module L0_MarketConsumer: 58
+  |line 78, col 57 to line 78, col 65 of module L0_MarketConsumer: 48
+  line 78, col 70 to line 78, col 82 of module L0_MarketConsumer: 30
+  |line 78, col 70 to line 78, col 75 of module L0_MarketConsumer: 20
+  line 79, col 18 to line 80, col 53 of module L0_MarketConsumer: 10
+<WorkerCommit line 82, col 1 to line 82, col 12 of module L0_MarketConsumer>: 14:20
+  line 82, col 20 to line 82, col 31 of module L0_MarketConsumer: 4688
+  |line 82, col 20 to line 82, col 22 of module L0_MarketConsumer: 4668
+  line 82, col 36 to line 82, col 42 of module L0_MarketConsumer: 844
+  |line 82, col 36 to line 82, col 36 of module L0_MarketConsumer: 824
+  line 82, col 47 to line 82, col 57 of module L0_MarketConsumer: 20
+  |line 82, col 47 to line 82, col 55 of module L0_MarketConsumer: 412
+  line 82, col 62 to line 82, col 71 of module L0_MarketConsumer: 68
+  |line 82, col 63 to line 82, col 71 of module L0_MarketConsumer: 48
+  line 83, col 20 to line 83, col 46 of module L0_MarketConsumer: 20
+<FirstSample line 85, col 1 to line 85, col 11 of module L0_MarketConsumer>: 20:20
+  line 85, col 19 to line 85, col 25 of module L0_MarketConsumer: 4688
+  |line 85, col 19 to line 85, col 19 of module L0_MarketConsumer: 4668
+  line 85, col 30 to line 85, col 42 of module L0_MarketConsumer: 2354
+  |line 85, col 30 to line 85, col 32 of module L0_MarketConsumer: 2334
+  line 85, col 47 to line 85, col 56 of module L0_MarketConsumer: 116
+  |line 85, col 48 to line 85, col 56 of module L0_MarketConsumer: 96
+  line 85, col 61 to line 85, col 70 of module L0_MarketConsumer: 60
+  |line 85, col 62 to line 85, col 70 of module L0_MarketConsumer: 40
+  line 86, col 19 to line 86, col 65 of module L0_MarketConsumer: 20
+<Checkpoint line 88, col 1 to line 88, col 10 of module L0_MarketConsumer>: 20:132
+  line 88, col 18 to line 88, col 24 of module L0_MarketConsumer: 4800
+  |line 88, col 18 to line 88, col 18 of module L0_MarketConsumer: 4668
+  line 88, col 29 to line 88, col 40 of module L0_MarketConsumer: 2466
+  |line 88, col 29 to line 88, col 31 of module L0_MarketConsumer: 2334
+  line 89, col 18 to line 89, col 60 of module L0_MarketConsumer: 132
+<FinalSample line 92, col 1 to line 92, col 11 of module L0_MarketConsumer>: 20:28
+  line 92, col 19 to line 92, col 25 of module L0_MarketConsumer: 4696
+  |line 92, col 19 to line 92, col 19 of module L0_MarketConsumer: 4668
+  line 92, col 30 to line 92, col 40 of module L0_MarketConsumer: 2362
+  |line 92, col 30 to line 92, col 32 of module L0_MarketConsumer: 2334
+  line 93, col 19 to line 93, col 28 of module L0_MarketConsumer: 160
+  |line 93, col 20 to line 93, col 28 of module L0_MarketConsumer: 132
+  line 93, col 33 to line 93, col 42 of module L0_MarketConsumer: 84
+  |line 93, col 34 to line 93, col 42 of module L0_MarketConsumer: 56
+  line 94, col 19 to line 94, col 84 of module L0_MarketConsumer: 28
+<Install line 97, col 1 to line 97, col 7 of module L0_MarketConsumer>: 20:132
+  line 97, col 15 to line 97, col 21 of module L0_MarketConsumer: 4800
+  |line 97, col 15 to line 97, col 15 of module L0_MarketConsumer: 4668
+  line 97, col 26 to line 97, col 38 of module L0_MarketConsumer: 2466
+  |line 97, col 26 to line 97, col 28 of module L0_MarketConsumer: 2334
+  line 98, col 15 to line 98, col 65 of module L0_MarketConsumer: 132
+<NewCallback line 101, col 1 to line 101, col 11 of module L0_MarketConsumer>: 112:776
+  line 101, col 19 to line 101, col 25 of module L0_MarketConsumer: 5444
+  |line 101, col 19 to line 101, col 19 of module L0_MarketConsumer: 4668
+  line 101, col 30 to line 101, col 38 of module L0_MarketConsumer: 3110
+  |line 101, col 30 to line 101, col 32 of module L0_MarketConsumer: 2334
+  line 101, col 43 to line 101, col 54 of module L0_MarketConsumer: 776
+  |line 101, col 43 to line 101, col 52 of module L0_MarketConsumer: 1164
+  line 102, col 19 to line 102, col 46 of module L0_MarketConsumer: 776
+<Expire line 105, col 1 to line 105, col 6 of module L0_MarketConsumer>: 698:1920
+  line 105, col 14 to line 105, col 23 of module L0_MarketConsumer: 6588
+  |line 105, col 15 to line 105, col 23 of module L0_MarketConsumer: 4668
+  line 105, col 28 to line 105, col 55 of module L0_MarketConsumer: 1920
+<Revoke line 106, col 1 to line 106, col 6 of module L0_MarketConsumer>: 586:1656
+  line 106, col 14 to line 106, col 23 of module L0_MarketConsumer: 6324
+  |line 106, col 15 to line 106, col 23 of module L0_MarketConsumer: 4668
+  line 106, col 28 to line 106, col 79 of module L0_MarketConsumer: 4668
+  |line 106, col 28 to line 106, col 30 of module L0_MarketConsumer: 3012
+  |line 106, col 36 to line 106, col 79 of module L0_MarketConsumer: 3012
+  line 107, col 14 to line 107, col 41 of module L0_MarketConsumer: 1656
+<ExpireArm line 110, col 1 to line 110, col 9 of module L0_MarketConsumer>: 74:76
+  line 110, col 17 to line 110, col 23 of module L0_MarketConsumer: 4744
+  |line 110, col 17 to line 110, col 17 of module L0_MarketConsumer: 4668
+  line 110, col 28 to line 110, col 36 of module L0_MarketConsumer: 2410
+  |line 110, col 28 to line 110, col 28 of module L0_MarketConsumer: 2334
+  line 110, col 41 to line 110, col 51 of module L0_MarketConsumer: 1450
+  |line 110, col 41 to line 110, col 43 of module L0_MarketConsumer: 1374
+  line 111, col 17 to line 111, col 46 of module L0_MarketConsumer: 76
+<Stop line 115, col 1 to line 115, col 4 of module L0_MarketConsumer>: 2334:2334
+  line 115, col 12 to line 115, col 18 of module L0_MarketConsumer: 7002
+  |line 115, col 12 to line 115, col 12 of module L0_MarketConsumer: 4668
+  line 115, col 23 to line 115, col 49 of module L0_MarketConsumer: 2334
+<SourceCut line 121, col 1 to line 121, col 9 of module L0_MarketConsumer>
+  line 121, col 14 to line 121, col 38 of module L0_MarketConsumer: 4668
+  |line 121, col 14 to line 121, col 20 of module L0_MarketConsumer: 4668
+  |line 121, col 25 to line 121, col 38 of module L0_MarketConsumer: 4136
+<ActivationEvidence line 122, col 1 to line 122, col 18 of module L0_MarketConsumer>
+  line 122, col 23 to line 123, col 82 of module L0_MarketConsumer: 4668
+  |line 122, col 24 to line 122, col 50 of module L0_MarketConsumer: 4668
+  ||line 122, col 24 to line 122, col 34 of module L0_MarketConsumer: 4668
+  ||line 122, col 39 to line 122, col 50 of module L0_MarketConsumer: 2340
+  |line 123, col 26 to line 123, col 81 of module L0_MarketConsumer: 2328
+<HostUsesWorkerCut line 124, col 1 to line 124, col 17 of module L0_MarketConsumer>
+  line 124, col 22 to line 126, col 49 of module L0_MarketConsumer: 4668
+  |line 124, col 25 to line 124, col 56 of module L0_MarketConsumer: 4668
+  |line 125, col 26 to line 125, col 60 of module L0_MarketConsumer: 4668
+  ||line 125, col 26 to line 125, col 36 of module L0_MarketConsumer: 4668
+  ||line 125, col 41 to line 125, col 60 of module L0_MarketConsumer: 3408
+  |line 126, col 26 to line 126, col 48 of module L0_MarketConsumer: 4668
+  ||line 126, col 26 to line 126, col 33 of module L0_MarketConsumer: 4668
+  ||line 126, col 38 to line 126, col 48 of module L0_MarketConsumer: 696
+End of statistics.
+12420 states generated, 4668 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 28.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 7 and the 95th percentile is 4).
+Finished in 00s at (2026-11-05 02:30:47)

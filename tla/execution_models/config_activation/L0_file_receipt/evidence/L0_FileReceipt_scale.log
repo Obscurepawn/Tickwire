@@ -1,0 +1,20 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Running breadth-first search Model-Checking with fp 0 and seed -7026138816232226776 with 1 worker on 16 cores with 287MB heap and 64MB offheap memory [pid: 245951] (Linux 6.18.54.1-microsoft-standard-WSL2 amd64, Ubuntu 21.0.11 x86_64, MSBDiskFPSet, DiskStateQueue).
+Model checking completed. No error has been found.
+The coverage statistics at 2026-11-05 02:15:19
+<Init line 24, col 1 to line 24, col 4 of module L0_FileReceipt>: 1:1
+<PutObject line 29, col 1 to line 29, col 9 of module L0_FileReceipt>: 30:75
+<PutDesired line 34, col 1 to line 34, col 10 of module L0_FileReceipt>: 34:56
+<SupplyRuntime line 39, col 1 to line 39, col 13 of module L0_FileReceipt>: 55:140
+<PutGood line 43, col 1 to line 43, col 7 of module L0_FileReceipt>: 58:92
+<PutEffective line 47, col 1 to line 47, col 12 of module L0_FileReceipt>: 58:120
+<Seal line 53, col 1 to line 53, col 4 of module L0_FileReceipt>: 225:368
+<Return line 63, col 1 to line 63, col 6 of module L0_FileReceipt>: 72:225
+<Stop line 68, col 1 to line 68, col 4 of module L0_FileReceipt>: 401:656
+<Reopen line 81, col 1 to line 81, col 6 of module L0_FileReceipt>: 316:401
+<Retry line 87, col 1 to line 87, col 5 of module L0_FileReceipt>: 198:4675
+<Refuse line 94, col 1 to line 94, col 6 of module L0_FileReceipt>: 115:305
+End of statistics.
+7114 states generated, 1563 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 31.
+Finished in 01s at (2026-11-05 02:15:19)

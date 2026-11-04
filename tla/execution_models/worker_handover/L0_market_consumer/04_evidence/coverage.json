@@ -1,0 +1,30 @@
+{
+  "model": "L0_MarketConsumer",
+  "runs": 2,
+  "entries": 22,
+  "generated": {
+    "Init line 36, col 1 to line 36, col 4 of module L0_MarketConsumer": 2,
+    "HostArm line 42, col 1 to line 42, col 7 of module L0_MarketConsumer": 18,
+    "WorkerArm line 45, col 1 to line 45, col 9 of module L0_MarketConsumer": 36,
+    "OldCallback line 49, col 1 to line 49, col 11 of module L0_MarketConsumer": 532,
+    "Detach line 53, col 1 to line 53, col 6 of module L0_MarketConsumer": 174,
+    "SendReceipt line 57, col 1 to line 57, col 11 of module L0_MarketConsumer": 3474,
+    "StartPoll line 62, col 1 to line 62, col 9 of module L0_MarketConsumer": 5736,
+    "EndPoll line 64, col 1 to line 64, col 7 of module L0_MarketConsumer": 15720,
+    "HostObserve line 68, col 1 to line 68, col 11 of module L0_MarketConsumer": 2568,
+    "Tick line 74, col 1 to line 74, col 4 of module L0_MarketConsumer": 1776,
+    "HostRejectNewer line 75, col 1 to line 75, col 15 of module L0_MarketConsumer": 444,
+    "HostCommit line 78, col 1 to line 78, col 10 of module L0_MarketConsumer": 70,
+    "WorkerCommit line 82, col 1 to line 82, col 12 of module L0_MarketConsumer": 140,
+    "FirstSample line 85, col 1 to line 85, col 11 of module L0_MarketConsumer": 140,
+    "Checkpoint line 88, col 1 to line 88, col 10 of module L0_MarketConsumer": 924,
+    "FinalSample line 92, col 1 to line 92, col 11 of module L0_MarketConsumer": 196,
+    "Install line 97, col 1 to line 97, col 7 of module L0_MarketConsumer": 924,
+    "NewCallback line 101, col 1 to line 101, col 11 of module L0_MarketConsumer": 5432,
+    "Expire line 105, col 1 to line 105, col 6 of module L0_MarketConsumer": 11520,
+    "Revoke line 106, col 1 to line 106, col 6 of module L0_MarketConsumer": 11592,
+    "ExpireArm line 110, col 1 to line 110, col 9 of module L0_MarketConsumer": 228,
+    "Stop line 115, col 1 to line 115, col 4 of module L0_MarketConsumer": 13818
+  },
+  "model_sha256": "e39fa66922bfff0155873a2b9e5704c1fe6a5c7660717bc0bd8b3685ed8d8213"
+}

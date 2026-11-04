@@ -1,0 +1,11 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.31s
+
+running 1 test
+{"error":"Closed","event":"md_subscriber_closed","pid":234657,"stage":"Active"}
+{"error":"Closed","event":"md_subscriber_closed","pid":235200,"stage":"Active"}
+test real_reconcile_process_qualifies_and_reopens_both_native_accounts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 13.26s
+
+api-testnet.bybit.com running: spot recovery: Session(Gateway(Account(Unreconciled))) reopen: spot runner: Journal(Account(Unreconciled))
+openapi.okx.com running: spot recovery: Session(Gateway(Account(Unreconciled))) reopen: spot runner: Journal(Account(Unreconciled))
