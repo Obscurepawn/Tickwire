@@ -170,7 +170,7 @@ enumeration!(CancelReplaceMode;StopOnFailure=1,AllowFailure=2);
 enumeration!(ListKind;Oco=1,Oto=2,Otoco=3);
 enumeration!(PegPriceType;Primary=1,Market=2);
 enumeration!(OptionRight;Call=1,Put=2);
-enumeration!(OrderStatus;Pending=1,New=2,PartiallyFilled=3,Filled=4,Canceled=5,Expired=6,Rejected=7,Unknown=8);
+enumeration!(OrderStatus;Pending=1,New=2,PartiallyFilled=3,Filled=4,Canceled=5,Expired=6,Rejected=7,Unknown=8,Unreported=9);
 enumeration!(Liquidity;Unknown=0,Maker=1,Taker=2);
 enumeration!(StructureKind;Oco=1,Oto=2,Otoco=3,Algo=4);
 enumeration!(StructureStatus;Pending=1,Live=2,Triggered=3,Terminal=4,Rejected=5,Unknown=6);

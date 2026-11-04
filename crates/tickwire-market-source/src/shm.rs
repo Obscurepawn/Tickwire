@@ -267,7 +267,10 @@ impl ShmSource {
         }
         if !self.announced {
             for id in self.client.replica.instruments() {
-                if !sink.observed(self.observation(id, now, age)?) {
+                let view = self.client.replica.view(id).ok_or(Error::Identity)?;
+                if view.announce_execution_state()
+                    && !sink.observed(self.observation_from_view(&view))
+                {
                     return Err(Error::Sink);
                 }
             }
@@ -296,7 +299,10 @@ impl ShmSource {
                 .replica
                 .view_dense(dense)
                 .ok_or(Error::Identity)?;
-            if !sink.observed(self.observation_from_view(&view)) {
+            // A paired BBO can straddle two poll budgets. The first physical record
+            // carries no complete observation and cannot become a strategy trigger.
+            if view.announce_execution_state() && !sink.observed(self.observation_from_view(&view))
+            {
                 return Err(Error::Sink);
             }
             out.records += 1;
@@ -343,7 +349,11 @@ impl MarketSource for ShmSource {
             && self.client.replica.instruments().all(|id| {
                 self.observation(id, now, maximum_age_ns).is_ok_and(|o| {
                     o.live
-                        && self.client.replica.view(id).is_some_and(|v| v.live())
+                        && self
+                            .client
+                            .replica
+                            .view(id)
+                            .is_some_and(|v| v.execution_ready())
                         && now.domain() == self.client.domain
                         && now.nanos() >= o.received_at.nanos()
                         && now.nanos() >= o.published_at.nanos()

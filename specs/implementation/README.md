@@ -6,7 +6,7 @@ Choose a subsystem below or open the [workflow index](../INDEX.md). Each specifi
 
 Start with the account and its gateway. The other contracts define admissible commands, economics, recovery dependencies and transport.
 
-* [Single-host trading](single-host-trading.md) · [Account](account.md) · [Account gateway](account-gateway.md) · [Spot execution](spot-execution.md) · [Shared spot strategy account](spot-strategy-routing.md)
+* [Single-host trading](single-host-trading.md) · [Account](account.md) · [Account gateway](account-gateway.md) · [Spot execution](spot-execution.md) · [Bybit and OKX recovery evidence](spot-rest-recovery.md) · [Shared spot strategy account](spot-strategy-routing.md)
 * [Venue](venue.md) · [Risk core](risk-core.md) · [Execution core](execution-core.md) · [Gateway](gateway.md)
 * [Conditional orders](conditional-orders.md) · [Spot amend](spot-amend.md) · [USD-M account facts](usdm-account-facts.md) · [Command binding](command-binding.md)
 * [Account recovery binding](account-recovery-binding.md) · [Reconciliation controller](reconciliation-controller.md) · [Runtime policy](runtime-policy.md) · [Mock abort](mock-abort.md)

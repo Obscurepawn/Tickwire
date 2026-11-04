@@ -77,3 +77,27 @@ fn independently_transcribed_reported_cash_fields() {
     assert_eq!(c.digest().as_slice(), hash);
     assert_eq!(CanonicalEvent::decode(&bytes).unwrap().event(), &e);
 }
+
+#[test]
+fn trade_only_fill_requires_its_own_version_and_never_forms_an_order_report() {
+    let mut e = event();
+    let VenueEventBody::Fill(f) = &mut e.body else {
+        unreachable!()
+    };
+    f.observation.status = OrderStatus::Unreported;
+    let observation = f.observation.clone();
+    let c = CanonicalEvent::new(e.clone()).unwrap();
+    let mut bytes = unhex(include_str!("data/trade-only-fill.hex"));
+    assert_eq!(c.bytes(), bytes);
+    assert_eq!(
+        c.digest().as_slice(),
+        unhex(include_str!("data/trade-only-fill.sha256"))
+    );
+    assert_eq!(CanonicalEvent::decode(&bytes).unwrap(), c);
+    for version in [1, 2, 3, 5] {
+        bytes[2 + "tickwire.venue-event".len()] = version;
+        assert_eq!(CanonicalEvent::decode(&bytes).unwrap_err(), Error::Schema);
+    }
+    e.body = VenueEventBody::Order(Box::new(observation));
+    assert_eq!(CanonicalEvent::new(e).unwrap_err(), Error::Identity);
+}

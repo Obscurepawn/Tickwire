@@ -1,5 +1,12 @@
 {
   "format": "tickwire-journal-wire-1",
+  "embedded_venue_event": {
+    "domain": "tickwire.venue-event",
+    "max_bytes": 16384,
+    "versions": {"ordinary": 1, "structure": 2, "amendment": 3, "fill_with_unreported_lifecycle": 4},
+    "fill_order_status": {"Pending": 1, "New": 2, "PartiallyFilled": 3, "Filled": 4, "Canceled": 5, "Expired": 6, "Rejected": 7, "Unknown": 8, "Unreported": 9},
+    "rule": "Only a fill can carry Unreported, and only at version 4. A single trade does not establish order state. Unknown remains an explicit uncertainty. A reader must reject unknown versions and tags before recovering the account."
+  },
   "wal": {
     "format_version": 1,
     "byte_order": "little_endian",

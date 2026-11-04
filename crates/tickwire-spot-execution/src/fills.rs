@@ -23,7 +23,7 @@ fn decimal(v: &Value, k: &str) -> Result<v::Decimal, ReportError> {
 }
 // VenueTradeId allows 32 ASCII bytes. Encode the full Bybit 128-bit UUID reversibly.
 // Prefixes keep UUIDs disjoint from compact, non-UUID execution identifiers.
-fn trade_id(venue: SpotVenue, raw: &str) -> Result<v::VenueTradeId, ReportError> {
+pub fn trade_id(venue: SpotVenue, raw: &str) -> Result<v::VenueTradeId, ReportError> {
     if venue == SpotVenue::Okx {
         if !raw.bytes().all(|v| v.is_ascii_digit()) {
             return Err(ReportError::Invalid);
@@ -62,6 +62,7 @@ pub(crate) fn normalize(
     source: &FillSource<'_>,
     assets: &[AssetSnapshot],
     row: &[u8],
+    lifecycle: v::OrderStatus,
 ) -> Result<v::CanonicalEvent, ReportError> {
     if row.len() > 32 * 1024 {
         return Err(ReportError::Bounds);
@@ -203,7 +204,7 @@ pub(crate) fn normalize(
             list_client_id: None,
             algo_client_id: None,
         },
-        status: v::OrderStatus::Unknown,
+        status: lifecycle,
         side: order.side,
         position_side: v::PositionSide::Both,
         original_quantity: None,

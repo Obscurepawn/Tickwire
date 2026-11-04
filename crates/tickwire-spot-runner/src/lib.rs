@@ -1,6 +1,7 @@
 //! Shared intake for hosted or file-backed strategies and a single qualified cash account.
 #![forbid(unsafe_code)]
 mod origins;
+pub mod reconcile;
 use origins::Origins;
 use tickwire_account::{IntentKey, Scope};
 use tickwire_account_gateway::{Authority, Status};
@@ -38,7 +39,7 @@ impl std::error::Error for Error {
         }
     }
 }
-type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::result::Result<T, Error>;
 pub struct Completion {
     pub logical_strategy_id: u64,
     pub intent: IntentKey,

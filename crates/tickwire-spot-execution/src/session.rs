@@ -12,6 +12,7 @@ pub enum SessionError {
     Gateway(tickwire_account_gateway::Error),
     Transport(tickwire_transport::Error),
     Report(ReportError),
+    RecoveryWriterEpoch { configured: u64, durable_floor: u64 },
     Identity,
     Busy,
 }
@@ -46,6 +47,14 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         gateway: AccountGateway<B, A, SpotEncoder<'a, T>>,
         connection_epoch: u64,
     ) -> Result<Self> {
+        if let Some(durable_floor) = gateway.recovery_writer_floor()
+            && gateway.writer_epoch() <= durable_floor
+        {
+            return Err(SessionError::RecoveryWriterEpoch {
+                configured: gateway.writer_epoch(),
+                durable_floor,
+            });
+        }
         if connection_epoch == 0
             || SpotVenue::from_id(gateway.baseline().snapshot().scope.venue).is_none()
         {
@@ -61,6 +70,35 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
     pub fn gateway(&self) -> &AccountGateway<B, A, SpotEncoder<'a, T>> {
         &self.gateway
     }
+    /// Sole account-owner access for applying authenticated cash evidence and qualified recovery.
+    pub fn gateway_mut(&mut self) -> &mut AccountGateway<B, A, SpotEncoder<'a, T>> {
+        &mut self.gateway
+    }
+    pub fn connection_epoch(&self) -> u64 {
+        self.connection_epoch
+    }
+    pub fn reactivate(
+        &mut self,
+        binding: tickwire_account::Reactivation,
+        connection: Option<tickwire_account_gateway::ConnectionConfig>,
+        verifier: &mut impl tickwire_account_gateway::ReactivationVerifier,
+    ) -> Result<tickwire_account_gateway::ActivationReceipt> {
+        let epoch = binding.execution_connection_epoch;
+        if self.pending.is_some()
+            || (connection.is_some() && epoch <= self.connection_epoch)
+            || (connection.is_none() && epoch != self.connection_epoch)
+        {
+            return Err(SessionError::Identity);
+        }
+        let decoder = ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+        let receipt = self
+            .gateway
+            .reactivate(binding, connection, verifier)
+            .map_err(SessionError::Gateway)?;
+        self.decoder = decoder;
+        self.connection_epoch = epoch;
+        Ok(receipt)
+    }
     /// Stops output and freezes the account when the owner loses its trusted input or routing identity.
     pub fn stop_sending(&mut self) {
         self.gateway.stop_sending();
@@ -71,6 +109,10 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         source: crate::FillSource<'_>,
         row: &[u8],
     ) -> Result<tickwire_account::Applied> {
+        // Re-reading an old source position must reproduce the bytes written by that
+        // version. Legacy trade-only observations encoded the missing lifecycle as Unknown.
+        let legacy = self.gateway.ingress_event(source.input_stream, source.input_sequence)
+            .is_some_and(|e| matches!(&e.event().body, v::VenueEventBody::Fill(f) if f.observation.status == v::OrderStatus::Unknown));
         let event = self
             .gateway
             .command(source.intent)
@@ -81,6 +123,11 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                     &source,
                     &self.gateway.baseline().snapshot().assets,
                     row,
+                    if legacy {
+                        v::OrderStatus::Unknown
+                    } else {
+                        v::OrderStatus::Unreported
+                    },
                 )
             });
         let event = match event {

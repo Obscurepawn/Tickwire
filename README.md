@@ -44,7 +44,7 @@ The final record reports `native_acknowledgements: 2` and `open_orders: 2`. The 
 | Bybit | V5 spot `orderbook.1` | The adapter signs V5 spot limit orders, market orders, cancellations and queries. The account CLI reads private reports and balances. |
 | OKX | V5 spot `bbo-tbt` | The adapter signs V5 cash limit orders, market orders, cancellations and queries. The account CLI reads private reports and balances. |
 
-Bybit and OKX order paths run against a local TLS exchange in the paper example. Activating either account for live trading still requires durable private-stream recovery and reconciliation. See the [public data contract](specs/implementation/spot-quote-input.md) and [spot execution contract](specs/implementation/spot-execution.md) for supported messages and identity rules.
+Bybit and OKX support dedicated cash accounts. The account owner journals private updates, fills gaps from signed REST queries and checks orders, fees, locks and balances before accepting new risk. To exercise recovery and restart with local TLS on Linux, run `cargo test --locked -p tickwire-spot-runner --test reconcile_process`. For an account deployment, see the [live runner configuration](specs/implementation/spot-execution.md#run-an-account) and [supported account profiles](specs/implementation/spot-rest-recovery.md).
 
 ## Develop and measure
 

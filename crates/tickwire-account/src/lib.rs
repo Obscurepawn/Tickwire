@@ -313,6 +313,27 @@ impl Account {
     pub fn venue_order_id(&self, key: &OrderKey) -> Option<&v::VenueOrderId> {
         self.orders.get(key)?.native.as_ref()
     }
+    /// Compare an individually identified cash trade to the recovered economic fact.
+    pub fn matches_spot_fill(
+        &self,
+        key: &OrderKey,
+        trade: &v::VenueTradeId,
+        quantity: v::Decimal,
+        price: v::Decimal,
+        executed_quote: v::Decimal,
+        fees: &[v::AssetDelta],
+    ) -> bool {
+        matches!(self.facts.get(&FactKey {order:key.clone(),kind:0,id:trade.as_str().to_owned()}),
+            Some(EconomicFact::Fill {quantity:q,price:p,quote:Some(n),pnl:None,fees:f}) if *q == quantity && *p == price && *n==executed_quote && f == fees)
+    }
+    /// Terms of the admitted order for matching native order and balance snapshots.
+    pub fn order_terms(&self, key: &OrderKey) -> Option<(&v::InstrumentBinding, &v::OrderSpec)> {
+        let order = self.orders.get(key)?;
+        Some((
+            &self.catalog.get(&order.instrument)?.instrument,
+            &order.spec,
+        ))
+    }
     pub fn order(&self, key: &OrderKey) -> Option<OrderView> {
         self.orders.get(key).and_then(|o| {
             Some(OrderView {

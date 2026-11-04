@@ -500,6 +500,8 @@ pub enum OrderStatus {
     Expired,
     Rejected,
     Unknown,
+    /// This trade row contains no order lifecycle report.
+    Unreported,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Liquidity {

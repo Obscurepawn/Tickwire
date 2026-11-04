@@ -1,9 +1,11 @@
 //! Bybit V5 and OKX V5 cash spot REST execution, through the account gateway.
 #![forbid(unsafe_code)]
 mod fills;
+pub mod network;
 pub mod observe;
 pub mod private;
-pub use fills::FillSource;
+pub mod recovery;
+pub use fills::{FillSource, trade_id};
 mod reports;
 mod session;
 use base64::{Engine as _, engine::general_purpose::STANDARD};

@@ -131,23 +131,46 @@ impl MarketView<'_> {
                     .checked_sub(self.book.received)
                     .is_some_and(|n| n <= maximum_age_ns);
         }
+        self.book.last_event == self.replica.sequence
+            && self.complete_quote(false)
+            && self
+                .state_age_ns(1, now)
+                .is_some_and(|n| n <= maximum_age_ns)
+    }
+    /// A quote-only topic commits at the feed record immediately following the BBO.
+    /// Other instruments on the same bank can advance the ring independently.
+    fn complete_quote(&self, accept_join_snapshot: bool) -> bool {
         let (Some(MarketState::Legacy(feed)), Some(MarketState::Exact(quote))) =
             (self.book.states.get(&8), self.best_quote())
         else {
             return false;
         };
+        let committed = feed.header.sequence == self.book.last_event
+            && quote.header.sequence.checked_add(1) == Some(feed.header.sequence);
+        // Snapshot state records are sorted by wire type and numbered within the member.
+        // The authenticated member separately retains the last committed ring sequence.
+        let snapshot = accept_join_snapshot
+            && self.book.last_event >= 2
+            && feed.header.sequence == 1
+            && quote.header.sequence == 2;
         self.continuous()
-            && feed.header.sequence == self.book.last_event
-            && self.book.last_event == self.replica.sequence
-            && quote.header.sequence.checked_add(1) == Some(feed.header.sequence)
+            && (committed || snapshot)
             && quote.body.feed_state == 2
             && quote.body.bid_quantity_lots > 0
             && quote.body.ask_quantity_lots > 0
             && feed.header.flags & 2 != 0
             && feed.header.ingress_mono_ns == quote.header.ingress_mono_ns
-            && self
-                .state_age_ns(1, now)
-                .is_some_and(|n| n <= maximum_age_ns)
+            && feed.header.publish_mono_ns == quote.header.publish_mono_ns
+    }
+    pub(super) fn execution_ready(&self) -> bool {
+        if self.quote_only() {
+            self.complete_quote(true)
+        } else {
+            self.live()
+        }
+    }
+    pub(super) fn announce_execution_state(&self) -> bool {
+        !self.quote_only() || !self.continuous() || self.complete_quote(true)
     }
     pub fn bids(&self) -> &[DepthLevel] {
         &self.book.bids

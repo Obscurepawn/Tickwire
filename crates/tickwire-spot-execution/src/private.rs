@@ -1,5 +1,8 @@
 //! Authenticated observation protocol for one Bybit or OKX private WebSocket connection.
 //! A confirmed subscription is not permission to emit orders or a remote history watermark.
+mod capture;
+pub mod stream;
+mod wire;
 use crate::{
     Credentials, SpotVenue, hex,
     observe::{Query, selected_row},
@@ -96,7 +99,7 @@ impl PrivateFeed {
         if !bybit && text == b"pong" && self.connection.is_some() {
             return Ok(Reaction::Control);
         }
-        let msg: Value =
+        let mut msg: Value =
             serde_json::from_slice(text).map_err(|_| "invalid private JSON message")?;
         let event = msg[if bybit { "op" } else { "event" }].as_str();
         let native_conn = msg[if bybit { "conn_id" } else { "connId" }].as_str();
@@ -118,7 +121,12 @@ impl PrivateFeed {
             let args = if bybit {
                 json!(["order.spot", "execution.spot", "wallet"])
             } else {
-                json!([{"channel":"orders","instType":"SPOT"},{"channel":"account"}])
+                // Each wallet notification fences new writes until REST reconciliation.
+                // Request actual account events instead of OKX's default periodic snapshots.
+                json!([
+                    {"channel":"orders","instType":"SPOT"},
+                    {"channel":"account","extraParams":r#"{"updateInterval":"0"}"#}
+                ])
             };
             let mut request = json!({"op":"subscribe","args":args});
             request[if bybit { "req_id" } else { "id" }] = json!("twaccount");
@@ -149,7 +157,12 @@ impl PrivateFeed {
                 }
                 return Ok(Reaction::Control);
             }
-            Some("pong" | "ping") if bybit => return Ok(Reaction::Control),
+            Some("pong") if bybit && msg.get("success").is_none_or(|s| s == true) => {
+                return Ok(Reaction::Control);
+            }
+            Some("ping") if bybit && msg["success"] == true && msg["ret_msg"] == "pong" => {
+                return Ok(Reaction::Control);
+            }
             Some(_) => return Err("private WebSocket control error"),
             None => {}
         }
@@ -175,12 +188,14 @@ impl PrivateFeed {
         if !bybit && channel == "orders" && msg["arg"]["instType"] != "SPOT" {
             return Err("unexpected private channel product");
         }
-        let raw = msg["data"]
-            .as_array()
-            .filter(|r| !r.is_empty())
-            .ok_or("missing private data")?;
+        let Value::Array(raw) = msg["data"].take() else {
+            return Err("missing private data");
+        };
+        if raw.is_empty() {
+            return Err("missing private data");
+        }
         let mut rows = Vec::with_capacity(raw.len());
-        for row in raw {
+        for row in &raw {
             let q = if channel == "balance" {
                 if bybit && row["accountType"] != "UNIFIED" {
                     return Err("unexpected private wallet scope");
@@ -233,10 +248,50 @@ impl PrivateFeed {
             }
             rows.push(out);
         }
-        Ok(Reaction::Data(Batch {
-            channel,
-            rows,
-            raw: raw.clone(),
-        }))
+        Ok(Reaction::Data(Batch { channel, rows, raw }))
     }
+}
+
+/// Bounded read-only diagnostics. Uses the same authenticated socket as durable intake.
+pub fn sample(
+    stream: impl std::io::Read + std::io::Write,
+    host: &str,
+    path: &str,
+    credentials: &Credentials<'_>,
+    stamp: impl Fn() -> Option<u64>,
+    span: std::time::Duration,
+    mut emit: impl FnMut(Value) -> crate::network::Result<()>,
+) -> crate::network::Result<Value> {
+    use std::time::Instant;
+    let mut wire = wire::Socket::open(
+        stream,
+        host,
+        path,
+        credentials,
+        || stamp().ok_or_else(|| "invalid private login timestamp".into()),
+        wire::Timing::default(),
+    )?;
+    let mut start = None;
+    let mut messages = 0u64;
+    while !start.is_some_and(|s: Instant| s.elapsed() >= span) {
+        match wire.step(|| {})? {
+            wire::Event::Ready => {
+                start = Some(Instant::now());
+                emit(
+                    json!({"kind":"subscribed","coverage":"current_connection_only","fresh_risk_qualified":false}),
+                )?;
+            }
+            wire::Event::Data(b, _) => {
+                messages += 1;
+                emit(
+                    json!({"kind":"private_data","session_message":messages,"channel":b.channel,"rows":b.rows}),
+                )?;
+            }
+            _ => {}
+        }
+    }
+    wire.close()?;
+    Ok(
+        json!({"success":true,"query":"watch","coverage":"current_connection_only","fresh_risk_qualified":false,"received_messages":messages}),
+    )
 }

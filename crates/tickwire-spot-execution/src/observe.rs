@@ -119,31 +119,7 @@ impl Query<'_> {
             "&limit=100"
         });
         if let Some(cursor) = cursor {
-            if cursor.is_empty()
-                || cursor.len() > 1024
-                || !cursor.bytes().all(|b| (0x21..=0x7e).contains(&b))
-            {
-                return Err("invalid page token");
-            }
-            if !bybit && !cursor.bytes().all(|b| b.is_ascii_digit()) {
-                return Err("invalid OKX page token");
-            }
-            target.push_str(if bybit { "&cursor=" } else { "&after=" });
-            let mut bytes = cursor.bytes().peekable();
-            while let Some(b) = bytes.next() {
-                // Bybit returns ready-escaped tokens such as 132766%3A2%2C132766%3A2.
-                if b == b'%' && bytes.clone().take(2).filter(u8::is_ascii_hexdigit).count() == 2 {
-                    target.push('%');
-                    for h in bytes.by_ref().take(2) {
-                        target.push(h as char);
-                    }
-                } else if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
-                    target.push(b as char)
-                } else {
-                    use std::fmt::Write;
-                    write!(&mut target, "%{b:02X}").expect("String")
-                }
-            }
+            append_cursor(&mut target, bybit, cursor)?;
         }
         Ok(target)
     }
@@ -391,6 +367,7 @@ pub(crate) fn selected_row(
             "orderLinkId",
             "orderStatus",
             "orderType",
+            "timeInForce",
             "side",
             "price",
             "qty",
@@ -429,4 +406,37 @@ pub(crate) fn selected_row(
             ));
     }
     Ok(out)
+}
+
+pub(crate) fn append_cursor(
+    target: &mut String,
+    bybit: bool,
+    cursor: &str,
+) -> Result<(), &'static str> {
+    if cursor.is_empty()
+        || cursor.len() > 1024
+        || !cursor.bytes().all(|b| (0x21..=0x7e).contains(&b))
+    {
+        return Err("invalid page token");
+    }
+    if !bybit && !cursor.bytes().all(|b| b.is_ascii_digit()) {
+        return Err("invalid OKX page token");
+    }
+    target.push_str(if bybit { "&cursor=" } else { "&after=" });
+    let mut bytes = cursor.bytes().peekable();
+    while let Some(b) = bytes.next() {
+        // Bybit returns ready-escaped tokens such as 132766%3A2%2C132766%3A2.
+        if b == b'%' && bytes.clone().take(2).filter(u8::is_ascii_hexdigit).count() == 2 {
+            target.push('%');
+            for h in bytes.by_ref().take(2) {
+                target.push(h as char);
+            }
+        } else if b.is_ascii_alphanumeric() || b"-_.~".contains(&b) {
+            target.push(b as char)
+        } else {
+            use std::fmt::Write;
+            write!(target, "%{b:02X}").expect("String")
+        }
+    }
+    Ok(())
 }

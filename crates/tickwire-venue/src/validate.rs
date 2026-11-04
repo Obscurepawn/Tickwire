@@ -586,13 +586,21 @@ pub(crate) fn event(e: &VenueEvent) -> Result<(), Error> {
             }
             if let Some(o) = &a.observation {
                 observation(o)?;
-                if o.order != a.order || o.original_quantity != Some(a.new_quantity) {
+                if o.status == OrderStatus::Unreported
+                    || o.order != a.order
+                    || o.original_quantity != Some(a.new_quantity)
+                {
                     return Err(Error::Identity);
                 }
             }
         }
         VenueEventBody::Structure(s) => structure(s, i.product)?,
-        VenueEventBody::Order(o) => observation(o)?,
+        VenueEventBody::Order(o) => {
+            if o.status == OrderStatus::Unreported {
+                return Err(Error::Identity);
+            }
+            observation(o)?;
+        }
         VenueEventBody::Fill(f) => {
             observation(&f.observation)?;
             positive(f.last_quantity)?;

@@ -88,16 +88,7 @@ pub struct CanonicalEvent {
 impl CanonicalEvent {
     pub fn new(event: VenueEvent) -> Result<Self, Error> {
         validate::event(&event)?;
-        let version = if matches!(
-            event.body,
-            VenueEventBody::Amendment(_) | VenueEventBody::AmendmentRejected(_)
-        ) {
-            3
-        } else if matches!(event.body, VenueEventBody::Structure(_)) {
-            2
-        } else {
-            1
-        };
+        let version = event_version(&event.body);
         let bytes = encode_versioned(
             "tickwire.venue-event",
             version,
@@ -116,17 +107,7 @@ impl CanonicalEvent {
     }
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         let (version, identity, body) = decode_versioned("tickwire.venue-event", bytes)?;
-        let expected = if matches!(
-            body,
-            VenueEventBody::Amendment(_) | VenueEventBody::AmendmentRejected(_)
-        ) {
-            3
-        } else if matches!(body, VenueEventBody::Structure(_)) {
-            2
-        } else {
-            1
-        };
-        if version != expected {
+        if version != event_version(&body) {
             return Err(Error::Schema);
         }
         let result = Self::new(VenueEvent { identity, body })?;
@@ -146,6 +127,14 @@ impl CanonicalEvent {
     }
 }
 
+fn event_version(body: &VenueEventBody) -> u64 {
+    match body {
+        VenueEventBody::Fill(f) if f.observation.status == OrderStatus::Unreported => 4,
+        VenueEventBody::Amendment(_) | VenueEventBody::AmendmentRejected(_) => 3,
+        VenueEventBody::Structure(_) => 2,
+        _ => 1,
+    }
+}
 fn encode<A: Codec, B: Codec>(domain: &str, a: &A, b: &B) -> Vec<u8> {
     encode_versioned(domain, SCHEMA_VERSION, a, b)
 }

@@ -4,167 +4,28 @@ mod watch;
 use serde_json::Value;
 use std::{
     env,
-    error::Error,
-    fs::File,
-    io::{self, BufReader, Read, Write},
-    net::{SocketAddr, TcpStream, ToSocketAddrs},
-    path::PathBuf,
+    io::{self, Write},
+    net::ToSocketAddrs,
+    time::Duration,
+};
+#[cfg(test)]
+use std::{
+    io::{BufReader, Read},
     sync::Arc,
-    time::{Duration, Instant},
 };
-use tickwire_spot_execution::{Credentials, SpotVenue, authority, observe::Query};
-use tickwire_transport::{
-    http::{self, Response, ResponseDecoder},
-    rustls::{
-        self,
-        pki_types::{CertificateDer, ServerName, pem::PemObject},
-    },
+#[cfg(test)]
+use tickwire_spot_execution::Credentials;
+#[cfg(test)]
+use tickwire_spot_execution::network::get_at;
+use tickwire_spot_execution::{
+    SpotVenue, authority,
+    network::{OwnedCredentials, Result, get, roots, tls_at, venue_time},
+    observe::Query,
 };
+#[cfg(test)]
+use tickwire_transport::rustls;
 use tickwire_venue::Environment;
-
 const HELP: &str = "tickwire-spot-observe <bybit|okx> <test|production> <command>\n\nCommands\n  order SYMBOL CLIENT_ID\n  open-orders SYMBOL [CURSOR]\n  fills SYMBOL [CURSOR]\n  balance\n  scan EXPECTED_UID START_UTC_MS\n  watch EXPECTED_UID SECONDS (1..60)\n\nRead credentials from TICKWIRE_SPOT_KEY, TICKWIRE_SPOT_SECRET, plus TICKWIRE_SPOT_PASSPHRASE for OKX. Each variable may instead be supplied with its _FILE counterpart. Use read-only credentials. Set SSL_CERT_FILE to a trusted PEM CA bundle if the Linux system bundle is unavailable.\nSingle reads return one page. Scan follows standard spot order/fill pages for every instrument, checks the UID twice, and never authorizes trading. A query miss does not prove the order was never accepted.";
-type Result<T> = std::result::Result<T, Box<dyn Error>>;
-fn roots() -> Result<Arc<rustls::ClientConfig>> {
-    let path = env::var_os("SSL_CERT_FILE")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| "/etc/ssl/certs/ca-certificates.crt".into());
-    let f = File::open(path).map_err(|_| "cannot open configured TLS root bundle")?;
-    let mut store = rustls::RootCertStore::empty();
-    for cert in CertificateDer::pem_reader_iter(&mut BufReader::new(f.take(4 * 1024 * 1024))) {
-        store.add(cert?)?;
-    }
-    if store.is_empty() {
-        return Err("no TLS trust anchors loaded".into());
-    }
-    Ok(Arc::new(
-        rustls::ClientConfig::builder()
-            .with_root_certificates(store)
-            .with_no_client_auth(),
-    ))
-}
-fn get(host: &'static str, tls: Arc<rustls::ClientConfig>, wire: &[u8]) -> Result<Response> {
-    get_at(host, (host, 443).to_socket_addrs()?, tls, wire)
-}
-fn get_at(
-    host: &'static str,
-    addrs: impl IntoIterator<Item = SocketAddr>,
-    tls: Arc<rustls::ClientConfig>,
-    wire: &[u8],
-) -> Result<Response> {
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let mut io = tls_at(host, addrs, tls)?;
-    io.write_all(wire)?;
-    io.flush()?;
-    let mut decoder = ResponseDecoder::new(2 * 1024 * 1024, 128)?;
-    let mut chunk = [0; 8192];
-    while Instant::now() < deadline {
-        let n = io.read(&mut chunk)?;
-        if n == 0 {
-            decoder.finish();
-            return decoder
-                .next_response()?
-                .ok_or_else(|| "incomplete HTTP response".into());
-        }
-        decoder.push(&chunk[..n])?;
-        if let Some(response) = decoder.next_response()? {
-            return Ok(response);
-        }
-    }
-    Err("exchange response timeout".into())
-}
-fn tls_at(
-    host: &'static str,
-    addrs: impl IntoIterator<Item = SocketAddr>,
-    tls: Arc<rustls::ClientConfig>,
-) -> Result<rustls::StreamOwned<rustls::ClientConnection, TcpStream>> {
-    let deadline = Instant::now() + Duration::from_secs(10);
-    let mut connected = None;
-    for addr in addrs {
-        let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
-            break;
-        };
-        if let Ok(socket) = TcpStream::connect_timeout(&addr, remaining.min(Duration::from_secs(3)))
-        {
-            connected = Some(socket);
-            break;
-        }
-    }
-    let socket = connected.ok_or("cannot connect to exchange TLS endpoint")?;
-    socket.set_read_timeout(Some(Duration::from_secs(3)))?;
-    socket.set_write_timeout(Some(Duration::from_secs(3)))?;
-    Ok(rustls::StreamOwned::new(
-        rustls::ClientConnection::new(tls, ServerName::try_from(host)?)?,
-        socket,
-    ))
-}
-fn venue_time(
-    venue: SpotVenue,
-    host: &'static str,
-    tls: Arc<rustls::ClientConfig>,
-) -> Result<(u64, Instant)> {
-    let path = if venue == SpotVenue::Bybit {
-        "/v5/market/time"
-    } else {
-        "/api/v5/public/time"
-    };
-    let wire = http::encode_request("GET", path, &[("Host", host)], &[], 4096)?;
-    let start = Instant::now();
-    let response = get(host, tls, &wire)?;
-    let received = Instant::now();
-    let rtt = received - start;
-    if response.status != 200 {
-        return Err(format!("public time query HTTP {}", response.status).into());
-    }
-    if rtt > Duration::from_secs(2) {
-        return Err("public time sample exceeded two-second round-trip budget".into());
-    }
-    let body: Value =
-        serde_json::from_slice(&response.body).map_err(|_| "invalid public time response")?;
-    let ms = if venue == SpotVenue::Bybit && body["retCode"].as_i64() == Some(0) {
-        body["result"]["timeNano"]
-            .as_str()
-            .and_then(|v| v.parse::<u64>().ok())
-            .map(|ns| ns / 1_000_000)
-    } else if venue == SpotVenue::Okx && body["code"].as_str() == Some("0") {
-        body["data"][0]["ts"]
-            .as_str()
-            .and_then(|v| v.parse::<u64>().ok())
-    } else {
-        None
-    }
-    .filter(|t| *t != 0)
-    .ok_or("unusable venue clock sample")?;
-    Ok((ms, start + rtt / 2))
-}
-fn credential(name: &'static str) -> Result<String> {
-    let value = env::var_os(name);
-    let file = env::var_os(format!("{name}_FILE"));
-    match (value, file) {
-        (Some(v), None) => v
-            .into_string()
-            .map_err(|_| format!("invalid {name}").into()),
-        (None, Some(path)) => {
-            let mut value = String::new();
-            File::open(path)
-                .map_err(|_| format!("cannot open {name}_FILE"))?
-                .take(1027)
-                .read_to_string(&mut value)
-                .map_err(|_| format!("cannot read {name}_FILE"))?;
-            if value.ends_with('\n') {
-                value.pop();
-                if value.ends_with('\r') {
-                    value.pop();
-                }
-            }
-            if value.is_empty() || value.len() > 1024 || value.contains(['\r', '\n']) {
-                return Err(format!("invalid {name}_FILE").into());
-            }
-            Ok(value)
-        }
-        (None, None) => Err(format!("missing {name} or {name}_FILE").into()),
-        _ => Err(format!("configure only one source for {name}").into()),
-    }
-}
 fn run() -> Result<()> {
     let args: Vec<String> = env::args().skip(1).collect();
     if args.as_slice() == ["--help"] || args.as_slice() == ["-h"] {
@@ -223,15 +84,8 @@ fn run() -> Result<()> {
     if let Action::Page(query) = action {
         query.path(venue)?;
     }
-    let key = credential("TICKWIRE_SPOT_KEY")?;
-    let secret = credential("TICKWIRE_SPOT_SECRET")?;
-    let pass;
-    let credentials = if venue == SpotVenue::Bybit {
-        Credentials::bybit(&key, secret.as_bytes())
-    } else {
-        pass = credential("TICKWIRE_SPOT_PASSPHRASE")?;
-        Credentials::okx(&key, secret.as_bytes(), &pass)
-    };
+    let owned = OwnedCredentials::load(venue)?;
+    let credentials = owned.credentials();
     let host = authority(venue, environment);
     let tls = roots()?;
     let (ms, at) = venue_time(venue, host, tls.clone())?;

@@ -918,6 +918,20 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     pub fn freeze_account(&mut self) {
         self.account.freeze();
     }
+    /// Walk back only to the latest activation of this account owner.
+    pub fn latest_reactivation(&self) -> Option<&tickwire_account::Reactivation> {
+        self.journal
+            .records()
+            .iter()
+            .rev()
+            .find_map(|r| match r.record() {
+                RecoveryRecord::Reactivated(b) => Some(b.as_ref()),
+                _ => None,
+            })
+    }
+    pub fn recovery_writer_floor(&self) -> Option<u64> {
+        self.journal.recovery_writer_floor()
+    }
     pub fn writer_epoch(&self) -> u64 {
         self.config.writer_epoch
     }
@@ -1076,6 +1090,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     }
     pub fn halted(&self) -> bool {
         self.halted
+    }
+    pub fn transport_ready(&self) -> bool {
+        self.connection.as_ref().is_some_and(Connection::is_ready)
     }
     pub fn read(&mut self, out: &mut [u8]) -> usize {
         let retained = out.len().min(self.retained_receive.len());

@@ -203,6 +203,10 @@ impl Decoder {
     pub fn buffered_len(&self) -> usize {
         self.buffer.len()
     }
+    /// A reader may publish a drained frontier only between complete messages.
+    pub fn at_message_boundary(&self) -> bool {
+        self.buffer.is_empty() && self.fragment_opcode.is_none()
+    }
     /// Compatibility adapter. Reactor callers should use poll_message to
     /// distinguish an exhausted processing budget from missing network input.
     pub fn next_message(&mut self) -> Result<Option<Message>> {

@@ -1,4 +1,5 @@
-//! Runnable local cash-market exchange with two real file-queue strategy producers.
+//! Cash account runner for Bybit and OKX. The paper profile hosts its own exchange.
+mod live;
 mod paper_peer;
 mod producer;
 use std::{
@@ -256,10 +257,12 @@ fn run() -> Result<()> {
     match args.as_slice() {
         [a] if a == "--help" || a == "-h" => {
             println!(
-                "tickwire-spot-runner paper <bybit|okx> <NEW_STATE_DIR>\nStarts two real strategy queues on one file-backed account. Native orders go only to the in-process local TLS exchange."
+                "tickwire-spot-runner live <CONFIG.json>\ntickwire-spot-runner reconcile <CONFIG.json>\ntickwire-spot-runner paper <bybit|okx> <NEW_STATE_DIR>\nThe live profile serves a dedicated account. Reconcile verifies and journals one account cut. Paper runs two producers against a local TLS exchange."
             );
             Ok(())
         }
+        [a, path] if a == "live" => live::run(Path::new(path), live::Mode::Trading),
+        [a, path] if a == "reconcile" => live::run(Path::new(path), live::Mode::Reconcile),
         [a, v, path] if a == "paper" => run_paper(v, Path::new(path)),
         [a, v, path, id] if a == "publish-paper" => {
             let id = id.parse()?;
@@ -268,7 +271,9 @@ fn run() -> Result<()> {
             }
             producer::publish(venue(v)?, Path::new(path), id)
         }
-        _ => Err("expected paper <bybit|okx> <NEW_STATE_DIR>".into()),
+        _ => {
+            Err("expected live/reconcile <CONFIG.json> or paper <bybit|okx> <NEW_STATE_DIR>".into())
+        }
     }
 }
 fn main() -> std::process::ExitCode {

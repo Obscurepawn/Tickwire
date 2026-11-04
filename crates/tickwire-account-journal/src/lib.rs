@@ -593,6 +593,10 @@ impl<S: Backend> AccountJournal<S> {
     pub fn poisoned(&self) -> bool {
         self.poisoned
     }
+    /// Last durable writer at recovery, until a newer writer's reactivation is synchronized.
+    pub fn recovery_writer_floor(&self) -> Option<u64> {
+        self.recovery_writer_floor
+    }
     pub fn recovered(&self) -> bool {
         self.recovered
     }
