@@ -132,9 +132,8 @@ fn capacity_binds_candidate_inventory_and_retained_bytes() {
     assert_eq!(a.inventory_hash(), inventory_hash);
     assert_eq!(a.retained_hash(), r.hash());
     assert_ne!(a.retained_hash(), [0; 32]);
-    assert_eq!(a.hosts().len(), 3);
-    assert_eq!(a.hosts()["host-a"].shared_bytes, 6_449_856_512);
-    assert_eq!(a.hosts()["ctl-c"].shared_bytes, 0);
+    assert_eq!(a.hosts().len(), 1);
+    assert_eq!(a.hosts()["host-a"].shared_bytes, 5_910_888_448);
     let private: u64 = v["processes"]
         .as_array()
         .unwrap()
@@ -211,7 +210,7 @@ fn numa_mismatch_smt_hot_loop_and_housekeeping_conflicts_are_rejected() {
 fn extra_retained_shared_private_and_cpu_resources_cannot_disappear() {
     let v = base();
     let (c, catalog, _) = pinned(v.clone(), &inventory(&v));
-    let shared_remaining = 8_589_934_592 - 6_449_856_512;
+    let shared_remaining = 8_589_934_592 - 5_910_888_448;
     let mut r = retained_value(&v);
     r["allocations"] = json!([allocation(shared_remaining, 0, json!([]))]);
     let exact = CapacityAssessment::check(&c, &catalog, &retained(&r)).unwrap();

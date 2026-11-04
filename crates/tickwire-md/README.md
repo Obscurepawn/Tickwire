@@ -4,7 +4,7 @@
 
 ## Run a public spot feed
 
-From the repository root, use either command to print top-of-book snapshots. Neither venue requires a key for public data.
+From the repository root, use either command to print top-of-book snapshots. Both exchanges publish these feeds without authentication.
 
 ```sh
 cargo run --locked -p tickwire-md -- --spot-quotes crates/tickwire-md/examples/bybit-spot-quote.json
@@ -36,7 +36,7 @@ target/debug/tickwire-md --config /opt/tickwire/md/md.json
 | `stream_address`, `snapshot_address`, `trust_anchors` | Select TCP addresses and trusted DER roots. TLS verifies the official hostname for the selected product. |
 | `instrument`, `topics`, `snapshot_limit` | Bind a catalog instrument and its topic memberships. USD-M accepts perpetual or dated delivery contracts. Levels outside the snapshot’s proven coverage remain unknown. |
 | `topics[].resource` | Select a 4096-byte wire header with arena and depth coverage features. Members of a topic share one catalog version and hash. |
-| `quota_directory`, `quota` | Persist finite grants and their consumption across restarts. Expired grants cannot fund another request. |
+| `quota_directory`, `quota` | Persist quota grants and their consumption across restarts. Each grant carries an expiry. |
 | `control_directory`, `admission_directory` | Persist JOIN request IDs and process approvals. The admission directory must be private (0700). |
 | `maximum_idle_ns` | Limit the poll wait. An earlier owner deadline takes precedence. |
 

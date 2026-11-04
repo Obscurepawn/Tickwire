@@ -2,10 +2,7 @@
 //! carry different state schemas; neither receives a trading grant by registering.
 #![deny(unsafe_code)]
 use serde::{Deserialize, Serialize};
-use tickwire_release::{
-    Capabilities, Method, OrderKind, PositionMode, Product,
-    replay::{Rng, RuntimeState, VersionedBytes},
-};
+use tickwire_release::replay::{Rng, RuntimeState, VersionedBytes};
 use tickwire_strategy_sdk::{
     self as sdk, Strategy, registered,
     restore::{self, RestoreFactory},
@@ -13,8 +10,6 @@ use tickwire_strategy_sdk::{
 use tickwire_venue::CanonicalCommand;
 pub const V1: u64 = 0x5457434e0001;
 pub const V2: u64 = 0x5457434e0002;
-pub const MIGRATE: u64 = 1;
-mod rebuild;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
@@ -82,11 +77,6 @@ impl State {
         }
         Ok(state)
     }
-    fn at_c(bytes: &[u8], source: u64, target: u64) -> restore::Result<Self> {
-        let mut state = Self::decode(bytes, source)?;
-        state.schema = target;
-        Ok(state)
-    }
 }
 #[derive(Clone)]
 pub struct Factory {
@@ -111,80 +101,20 @@ impl Factory {
             parameters,
         })
     }
-    fn restored(
-        &self,
-        input: &restore::VerifiedRestoreInput,
-        source: u64,
-    ) -> restore::Result<Counting> {
-        let state = State::at_c(input.state(), source, self.schema)?;
-        if state.action != self.parameters.action()? {
-            return Err(restore::Error::Identity);
-        }
-        // At C, migration reads old runtime parameters; ConfigApply changes them later.
-        let configuration = input
-            .source_runtime()
-            .map(|r| r.config.clone())
-            .unwrap_or_else(|| self.configuration.clone());
-        let parameters = Parameters::decode(&configuration.bytes)?;
-        if parameters.action() != Ok(state.action) {
-            return Err(restore::Error::Identity);
-        }
-        Ok(Counting {
-            state,
-            configuration,
-            parameters,
-        })
-    }
 }
 impl RestoreFactory for Factory {
     type Running = Counting;
-    fn capabilities(&self) -> Capabilities {
-        let mut methods = vec![Method::Restore {
-            schema: self.schema,
-        }];
-        if self.schema == V2 {
-            methods.push(Method::Migrate {
-                source_schema: V1,
-                target_schema: V2,
-                method_id: MIGRATE,
-            });
-        }
-        Capabilities {
-            state_schema: self.schema,
-            input_schema: 1,
-            output_schema: 1,
-            products: vec![Product::Spot],
-            position_modes: vec![PositionMode::Spot],
-            orders: vec![OrderKind::Limit],
-            methods,
-        }
+    fn state_schema(&self) -> u64 {
+        self.schema
     }
     fn configuration(&self, _: &restore::Target) -> restore::Result<VersionedBytes> {
         Ok(self.configuration.clone())
-    }
-    fn restore(&self, input: &restore::VerifiedRestoreInput) -> restore::Result<Counting> {
-        self.restored(input, self.schema)
-    }
-    fn migrate(&self, input: &restore::VerifiedRestoreInput) -> restore::Result<Counting> {
-        if self.schema != V2 {
-            return Err(restore::Error::Unsupported);
-        }
-        self.restored(input, V1)
     }
     fn validate_checkpoint(&self, bytes: &[u8]) -> restore::Result<()> {
         State::decode(bytes, self.schema).map(|_| ())
     }
 }
 impl registered::UserFactory for Factory {
-    fn begin_rebuild(
-        &self,
-        input: &sdk::replay::rebuild::FactoryInput,
-    ) -> sdk::replay::Result<Counting> {
-        rebuild::begin(self, input)
-    }
-    fn consumed_actions(&self, checkpoint: &[u8]) -> sdk::replay::Result<Vec<[u8; 16]>> {
-        rebuild::consumed(self, checkpoint)
-    }
     fn create(&self) -> restore::Result<Counting> {
         Ok(Counting {
             state: State {
@@ -235,13 +165,6 @@ impl registered::Registration for Registration {
             return Err(sdk::replay::Error::Unsupported);
         }
         Ok(SourceFactory { schema })
-    }
-    fn rebuild_probe(
-        &self,
-        input: &tickwire_release::rebuild::rollback::Verified,
-        files: &tickwire_release::files::LoadedFiles,
-    ) -> sdk::Result<sdk::replay::rebuild::rollback::Computation> {
-        rebuild::probe(self.schema, input, files)
     }
 }
 pub struct SourceFactory {
@@ -353,22 +276,6 @@ impl Strategy for Counting {
 mod tests {
     use super::*;
     #[test]
-    fn migration_uses_actual_c_counters_and_keeps_historical_action_consumed() {
-        let state = State {
-            schema: V1,
-            observations: 17,
-            reports: 9,
-            spent: true,
-            action: [4; 32],
-        };
-        let new = State::at_c(&state.bytes().unwrap(), V1, V2).unwrap();
-        assert_eq!(new.observations, 17);
-        assert_eq!(new.reports, 9);
-        assert!(new.spent);
-        assert_eq!(new.action, state.action);
-        assert_eq!(new.schema, V2);
-    }
-    #[test]
     fn canonical_configuration_rejects_unknown_fields_and_whitespace() {
         let p = Parameters {
             schema: 1,
@@ -385,6 +292,3 @@ mod tests {
         assert!(Parameters::decode(br#"{"schema":1,"enabled":false,"minimum_observations":2,"minimum_bid_ticks":0,"command":null,"extra":1}"#).is_err());
     }
 }
-
-#[cfg(test)]
-mod chain_tests;

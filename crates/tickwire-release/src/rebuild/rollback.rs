@@ -146,7 +146,7 @@ impl Plans {
     fn validate(&self) -> Result<()> {
         if self.schema != 1
             || self.members.is_empty()
-            || self.members.len() > tickwire_lifecycle::MAX_MEMBERS
+            || self.members.len() > crate::MAX_MEMBERS
             || self
                 .members
                 .windows(2)

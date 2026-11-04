@@ -23,12 +23,12 @@ fn changed(mutate: impl FnOnce(&mut Value)) -> Candidate {
 #[test]
 fn reference_resource_accounting_matches_independent_deployment_contract() {
     let r = reference().validate_static().unwrap();
-    assert_eq!(r.strategy_instances, 32);
-    assert_eq!(r.strategy_domain_pairs, 64);
-    assert_eq!(r.banks_and_cursors, 3_496_542_208);
+    assert_eq!(r.strategy_instances, 16);
+    assert_eq!(r.strategy_domain_pairs, 32);
+    assert_eq!(r.banks_and_cursors, 2_957_574_144);
     assert_eq!(r.snapshots, 2_147_483_648);
     assert_eq!(r.projection_objects, 537_395_200);
-    assert_eq!(r.total_shared_bytes, 6_449_856_512);
+    assert_eq!(r.total_shared_bytes, 5_910_888_448);
 }
 
 #[test]
@@ -60,10 +60,12 @@ fn shared_cpu_memory_capacity_and_invalid_bank_geometry_are_rejected() {
 }
 
 #[test]
-fn failure_domain_and_distinct_lease_expiries_remain_independent() {
+fn second_host_obsolete_control_settings_and_expired_sessions_are_rejected() {
     for mutation in [
-        (|v: &mut Value| v["hosts"][1]["failure_domain"] = v["hosts"][0]["failure_domain"].clone())
-            as fn(&mut Value),
+        (|v: &mut Value| {
+            let extra = v["hosts"][0].clone();
+            v["hosts"].as_array_mut().unwrap().push(extra);
+        }) as fn(&mut Value),
         |v| v["control"]["exec_grant_renew_ms"] = 200.into(),
         |v| v["ipc"]["resource_heartbeat_ms"] = 3000.into(),
         |v| v["control"]["election_min_ms"] = 50.into(),

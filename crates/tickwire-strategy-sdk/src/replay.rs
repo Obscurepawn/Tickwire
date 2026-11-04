@@ -5,16 +5,12 @@ use tickwire_release::{Hash, Object, replay::*};
 use tickwire_venue::CanonicalCommand;
 pub mod account;
 pub mod application;
-pub mod catchup;
 pub mod control;
 pub mod durable;
-pub mod install;
 pub mod live;
 pub mod native;
 pub mod process;
-pub mod rebuild;
 pub mod retained;
-pub mod rollback;
 #[cfg(test)]
 mod source_tests;
 

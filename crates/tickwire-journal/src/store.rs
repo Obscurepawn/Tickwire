@@ -48,8 +48,7 @@ impl FileStore {
             .create(true)
             .truncate(false)
             .open(root.join("LOCK"))?;
-        lock.try_lock()
-            .map_err(|e| io::Error::other(e.to_string()))?;
+        lock.try_lock()?;
         let lock = WriterLock(lock);
         lock.0.sync_all()?;
         File::open(&root)?.sync_all()?;

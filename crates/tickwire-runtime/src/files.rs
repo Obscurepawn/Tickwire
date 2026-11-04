@@ -22,10 +22,16 @@ use tickwire_binance_quota::Endpoint;
 use tickwire_journal::{PhysicalFrontier, store::FileStore};
 use tickwire_recovery::{FileBlobStore, SharedBlobStore};
 pub type SharedRecoveryStore = SharedBlobStore<FileBlobStore>;
-#[derive(Default)]
-pub struct Services {
-    pub recovery_store: Option<SharedRecoveryStore>,
-    pub commit_policy: Option<Box<dyn crate::authority::CommitPolicy>>,
+// A copied cross-host journal needs its original certified frontier.
+fn check_local_history(path: &std::path::Path) -> node::Result<()> {
+    for marker in ["FAILOVER-IN-PROGRESS", "FAILOVER-COMPLETE.json"] {
+        match std::fs::symlink_metadata(path.join(marker)) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(node::Error::Io(error)),
+            Ok(_) => return Err(node::Error::Config),
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -123,38 +129,6 @@ where
     S: Strategy,
     O: public::PublicSink,
 {
-    open_with_services(
-        config,
-        networks,
-        credentials,
-        authentication,
-        quota,
-        policy,
-        strategy,
-        output,
-        observer,
-        Services::default(),
-    )
-}
-#[allow(clippy::too_many_arguments)]
-pub fn open_with_services<'a, P, G, S, O, const L: usize, const U: usize, const B: usize>(
-    config: Configuration,
-    networks: Networks,
-    credentials: Credentials<'a>,
-    authentication: private::Authentication<'a>,
-    quota: Endpoint,
-    policy: G,
-    strategy: S,
-    output: O,
-    observer: Box<dyn Observer + 'a>,
-    services: Services,
-) -> node::Result<FileNode<'a, P, G, S, O, L, U, B>>
-where
-    P: public::DepthPolicy,
-    G: GateProvider,
-    S: Strategy,
-    O: public::PublicSink,
-{
     config.validate_instrument_catalog()?;
     if config.directories.account == config.directories.input
         || config.directories.account == config.directories.recovery
@@ -173,6 +147,7 @@ where
         if !path.is_absolute() {
             return Err(node::Error::Config);
         }
+        check_local_history(path)?;
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(node::Error::Io)?;
         }
@@ -190,23 +165,15 @@ where
     .map_err(node::Error::Shared)?;
     let queue = RecoveryQueue::new(config.maximum_staged_commands, config.maximum_staged_bytes)
         .map_err(node::Error::Recovery)?;
-    let blobs =
-        if let Some(store) = services.recovery_store {
-            store
-        } else {
-            SharedBlobStore::new(FileBlobStore::open(&config.directories.recovery).map_err(
-                |e| node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e)),
-            )?)
-        };
-    let mut local = LocalAuthority::new(
+    let blobs = SharedBlobStore::new(FileBlobStore::open(&config.directories.recovery).map_err(
+        |e| node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e)),
+    )?);
+    let local = LocalAuthority::new(
         blobs.clone(),
         queue.clone(),
         policy,
         config.command_binding.owner_id,
     );
-    if let Some(commit) = services.commit_policy {
-        local = local.with_commit_policy(commit);
-    }
     let websocket_settings = config
         .websocket
         .map(|session| {
@@ -338,4 +305,26 @@ where
         config.runtime,
         config.bindings,
     )
+}
+
+#[cfg(test)]
+mod legacy_directory_tests {
+    use super::*;
+    #[test]
+    fn a_restore_directory_cannot_start_as_a_local_writer() {
+        let root =
+            std::env::temp_dir().join(format!("tickwire-old-restore-{}", std::process::id()));
+        std::fs::create_dir(&root).unwrap();
+        check_local_history(&root).unwrap();
+        for name in ["FAILOVER-IN-PROGRESS", "FAILOVER-COMPLETE.json"] {
+            let marker = root.join(name);
+            std::fs::write(&marker, b"legacy marker").unwrap();
+            assert!(matches!(
+                check_local_history(&root),
+                Err(node::Error::Config)
+            ));
+            std::fs::remove_file(marker).unwrap();
+        }
+        std::fs::remove_dir(root).unwrap();
+    }
 }

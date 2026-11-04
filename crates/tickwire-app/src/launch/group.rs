@@ -9,7 +9,7 @@ use crate::{
     strategy::{AppStrategy, Config, FileStrategy, MemberConfig},
 };
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_runtime::files;
 use tickwire_runtime_policy::ControlPlane;
@@ -18,7 +18,6 @@ use tickwire_strategy_sdk::bootstrap::Bootstrap;
 #[derive(Serialize)]
 pub struct Slot {
     pub logical_strategy_id: u64,
-    pub shadow: bool,
     pub mode: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance: Option<[u8; 16]>,
@@ -40,22 +39,20 @@ fn prepare(members: &[MemberConfig], risk_domain: [u8; 16]) -> Result<Vec<Prepar
     if members.is_empty() || members.len() > 32 {
         return Err(invalid("multi strategy requires 1 through 32 members"));
     }
-    let mut slots = BTreeMap::new();
+    let mut slots = BTreeSet::new();
     let mut instances = BTreeSet::new();
     let mut topics = BTreeSet::new();
     let mut ownership = ownership::Ownership::default();
     let mut prepared = Vec::with_capacity(members.len());
     for member in members {
         let id = member.logical_strategy_id;
-        let shadow = member.shadow;
-        if id == 0 || slots.contains_key(&(id, shadow)) {
+        if id == 0 || !slots.insert(id) {
             return Err(invalid(
-                "multi strategy requires unique active/shadow slots",
+                "each strategy slot requires a distinct nonzero logical ID",
             ));
         }
         let mut slot = Slot {
             logical_strategy_id: id,
-            shadow,
             mode: "observe",
             instance: None,
             generation: None,
@@ -63,11 +60,6 @@ fn prepare(members: &[MemberConfig], risk_domain: [u8; 16]) -> Result<Vec<Prepar
         let source = match member.strategy.as_ref() {
             Config::Multi { .. } => return Err(invalid("multi strategy groups cannot nest")),
             Config::Hosted { config } => {
-                if config.shadow != shadow {
-                    return Err(invalid(
-                        "hosted shadow mode must match its multi strategy slot",
-                    ));
-                }
                 let bootstrap: Bootstrap =
                     serde_json::from_slice(&read_file(&config.bootstrap, 1024 * 1024)?)?;
                 let identity = &bootstrap.market.local;
@@ -106,31 +98,13 @@ fn prepare(members: &[MemberConfig], risk_domain: [u8; 16]) -> Result<Vec<Prepar
                 Source::Hosted(config, Box::new(bootstrap), local_header)
             }
             local => {
-                if shadow {
-                    return Err(invalid("shadow requires qualified hosted instance"));
-                }
                 if matches!(local, Config::FileQueue { .. }) {
                     slot.mode = "file_queue";
                 }
                 Source::Local(FileStrategy::new(local)?)
             }
         };
-        slots.insert((id, shadow), slot.generation);
         prepared.push(Prepared { slot, source });
-    }
-    for member in &prepared {
-        if member.slot.shadow
-            && !slots
-                .get(&(member.slot.logical_strategy_id, false))
-                .copied()
-                .flatten()
-                .zip(member.slot.generation)
-                .is_some_and(|(old, new)| old < new)
-        {
-            return Err(invalid(
-                "shadow generation must follow a hosted active peer",
-            ));
-        }
     }
     Ok(prepared)
 }
@@ -160,9 +134,9 @@ pub(super) fn build(
             )?,
             Source::Local(strategy) => Box::new(strategy),
         };
-        children.push((member.slot.logical_strategy_id, member.slot.shadow, owner));
+        children.push((member.slot.logical_strategy_id, owner));
     }
-    Ok(Box::new(crate::strategy::MultiStrategy::new_modes(
+    Ok(Box::new(crate::strategy::MultiStrategy::new(
         children, plane,
     )?))
 }

@@ -2,7 +2,6 @@
 use crate::bootstrap::{Bootstrap, Endpoint, JoinBootstrap};
 mod expansion;
 mod observation;
-mod rebuild;
 use crate::market_transition as transition_control;
 use crate::{CommandStore, Error, IntentWriter, MarketReplica, Result, Strategy};
 use std::{
@@ -180,38 +179,6 @@ pub(crate) fn connect_intent(
 /// The launcher authenticates qualified Publisher/Subscriber processes and enforces
 /// the exact immutable resource and truthful cursor lifetime contracts for both lanes.
 pub unsafe fn run<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
-    if config.preflight_job.is_some() {
-        return Err(Error::NotReady);
-    }
-    // SAFETY: the caller supplies the same qualified publisher/subscriber contract.
-    unsafe { run_inner(config, strategy, None) }
-}
-/// Run only the object returned by a successful, synchronized startup restoration.
-/// # Safety
-/// The caller enforces the same qualified SHM peers and resource ownership as `run`.
-pub unsafe fn run_restored<S: Strategy>(
-    config: Bootstrap,
-    strategy: S,
-    completed: crate::preflight::Completed,
-) -> Result<()> {
-    if config.preflight_job.is_none()
-        || completed.receipt().process.instance != config.market.local.instance
-        || completed.receipt().process.generation != config.market.local.generation
-    {
-        return Err(Error::Identity);
-    }
-    completed.receipt().output.verify(
-        &strategy.checkpoint()?,
-        tickwire_recovery::MAX_OBJECT_BYTES as u64,
-    )?;
-    // SAFETY: this forwards the caller's qualified resource contract unchanged.
-    unsafe { run_inner(config, strategy, Some(completed)) }
-}
-unsafe fn run_inner<S: Strategy>(
-    config: Bootstrap,
-    strategy: S,
-    completed: Option<crate::preflight::Completed>,
-) -> Result<()> {
     crate::catalog::validate_startup(&config)?;
     if config.version != 1
         || config.maximum_market_age_ns == 0
@@ -492,72 +459,6 @@ unsafe fn run_inner<S: Strategy>(
         false,
     )?;
     report.send(&offer, &[cursor.as_fd()], deadline)?;
-    if let Some(completed) = &completed {
-        let r = completed.receipt();
-        let body = tickwire_ipc::RestoreAppliedBody {
-            instance_id: r.process.instance,
-            logical_strategy_id: r.logical_strategy,
-            strategy_generation: r.process.generation,
-            receipt_digest: completed.digest(),
-            receipt_bytes: completed.bytes().len() as u64,
-            receipt_sequence: 1,
-            release_manifest_digest: r.roots[0],
-            schema: 1,
-            completion_kind: 1,
-        };
-        let raw = report_session.encode(
-            ControlEnvelope {
-                opcode: 38,
-                flags: 32,
-                request_id: r.process.instance,
-                ..Default::default()
-            },
-            &crate::bootstrap::wire_bytes(&body)?,
-        )?;
-        report.send(&raw, &[], deadline)?;
-        let packet = report.recv(Instant::now() + Duration::from_secs(12))?;
-        if !packet.fds().is_empty() {
-            return Err(Error::Identity);
-        }
-        let frame = report_session.validate(packet.bytes(), now(&mut clock)?)?;
-        let status = tickwire_ipc::StatusBody::decode(frame.body)?;
-        let expected = tickwire_ipc::StatusBody {
-            subject_id: body.instance_id,
-            original_request_id: r.process.instance,
-            original_control_epoch: report_session.epoch(),
-            state_version: 1,
-            state: 3,
-            result_hash: status.result_hash,
-            ..Default::default()
-        };
-        if frame.envelope.opcode != 49
-            || frame.envelope.flags != 10
-            || frame.envelope.request_id != r.process.instance
-            || frame.envelope.expected_state_version != 0
-            || status != expected
-            || status.result_hash == [0; 32]
-        {
-            return Err(Error::Identity);
-        }
-        let job: crate::preflight::Job = read_config(
-            config.preflight_job.as_ref().ok_or(Error::Identity)?,
-            2 * 1024 * 1024,
-        )?;
-        if job.operation.schema == 3 {
-            let verified =
-                crate::preflight::startup_completion(&job, completed, status.result_hash)?;
-            recovery
-                .as_mut()
-                .ok_or(Error::NotReady)?
-                .install_replay_restore(status.result_hash, verified)?;
-        } else {
-            let verified = crate::preflight::completion(&job, completed, status.result_hash)?;
-            recovery
-                .as_mut()
-                .ok_or(Error::NotReady)?
-                .install_preflight(status.result_hash, verified)?;
-        }
-    }
     if let Some(w) = &mut recovery {
         w.set_active();
     }
@@ -588,23 +489,12 @@ unsafe fn run_inner<S: Strategy>(
         reports,
         recovery,
         strategy,
-        account_mirror: crate::handover::AccountMirror::default(),
+        account_mirror: crate::account_checkpoint::AccountMirror::default(),
         merged_journal_sequence: 0,
         ready_sequence: 0,
-        rebuild_installation: None,
     })
 }
 
-/// Resources that have already completed their real authenticated attachments.
-/// Moving this value preserves the original MD and report cursor lifetimes.
-pub(crate) struct InstalledControl {
-    pub request: tickwire_ipc::ReplayControlBody,
-    pub receipt: tickwire_release::Object,
-    pub verified: tickwire_release::rebuild::install::Verified,
-    pub capture: crate::capture::Bootstrap,
-    pub input: crate::capture::install::Request,
-    pub rollback: Option<(tickwire_ipc::ReplayControlBody, tickwire_release::Object)>,
-}
 pub(crate) struct Attached<S> {
     pub config: Bootstrap,
     pub clock: SystemClock,
@@ -624,10 +514,9 @@ pub(crate) struct Attached<S> {
     pub reports: crate::reports::ReportReceiver,
     pub recovery: Option<crate::recovery::RecoveryWriter>,
     pub strategy: crate::replay::live::Live<S>,
-    pub account_mirror: crate::handover::AccountMirror,
+    pub account_mirror: crate::account_checkpoint::AccountMirror,
     pub merged_journal_sequence: u64,
     pub ready_sequence: u64,
-    pub rebuild_installation: Option<InstalledControl>,
 }
 pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
     let Attached {
@@ -652,21 +541,17 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
         mut account_mirror,
         mut merged_journal_sequence,
         mut ready_sequence,
-        mut rebuild_installation,
     } = state;
     let domain = clock.domain();
     let remote = config.external_market.is_some();
-    let mut pending_seal: Option<(ControlEnvelope, tickwire_ipc::CheckpointSealBody)> = None;
     let mut pending_observation: Option<observation::Pending> = None;
     // Periodic READY is a latest-state announcement, not a per-request receipt.
     // Keep one unsent announcement so a slow control reader cannot stop inputs.
     let mut pending_ready: Option<Vec<u8>> = None;
-    let mut callbacks_paused = false;
-    let mut pending_replay_install: Option<tickwire_ipc::ReplayControlBody> = None;
-    let mut replay_completion_pending = false;
     let mut current_market = config.external_market.clone();
     let mut expansion: Option<expansion::Expansion> = None;
     let mut expansion_replies = std::collections::VecDeque::<Vec<u8>>::new();
+    let mut depth_payload = Vec::new();
     loop {
         let n = now(&mut clock)?;
         let transition_paused = expansion.as_ref().is_some_and(|x| x.paused());
@@ -688,12 +573,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
         }
         let mut report_count = 0;
         for _ in 0..config.poll_records {
-            if callbacks_paused
-                || transition_paused
-                || pending_seal
-                    .as_ref()
-                    .is_some_and(|(_, s)| account_mirror.position() == Some(s.report_sequence))
-            {
+            if transition_paused {
                 break;
             }
             let Some(value) = reports.next()? else {
@@ -718,11 +598,11 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 )
                 .map_err(|e| e.context("report intent"))?;
             }
-            if config.handover_enabled {
+            if config.publish_checkpoints {
                 account_mirror.observe(&value)?;
             }
         }
-        if config.handover_enabled && report_count > 0 {
+        if config.publish_checkpoints && report_count > 0 {
             if let Some((cut, _)) = strategy.committed() {
                 recovery
                     .as_mut()
@@ -749,53 +629,6 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 &crate::bootstrap::wire_bytes(&ready)?,
             )?;
             pending_ready = Some(frame);
-        }
-        if let Some((request, seal)) = &pending_seal {
-            if now(&mut clock)? >= seal.valid_until_mono_ns
-                || account_mirror
-                    .position()
-                    .is_some_and(|p| p > seal.report_sequence)
-            {
-                return Err(Error::Stale);
-            }
-            if account_mirror.position() == Some(seal.report_sequence) {
-                pending_ready = None;
-                if let Some((cut, _)) = strategy.committed() {
-                    recovery
-                        .as_mut()
-                        .ok_or(Error::NotReady)?
-                        .merged_checkpoint(cut)?;
-                }
-                ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
-                let ready = account_mirror.ready(
-                    &config.market.local,
-                    reports.last_ring_sequence()?,
-                    ready_sequence,
-                    recovery.as_ref().ok_or(Error::NotReady)?,
-                    &strategy.checkpoint()?,
-                )?;
-                let reply = tickwire_ipc::CheckpointSealReplyBody {
-                    challenge: seal.challenge,
-                    report_sequence: seal.report_sequence,
-                    seal_mode: seal.seal_mode,
-                    schema: 1,
-                    ready,
-                };
-                let raw = report_session.encode(
-                    ControlEnvelope {
-                        opcode: 40,
-                        flags: 10,
-                        ..request.clone()
-                    },
-                    &crate::bootstrap::wire_bytes(&reply)?,
-                )?;
-                if now(&mut clock)? >= seal.valid_until_mono_ns {
-                    return Err(Error::Deadline);
-                }
-                report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
-                callbacks_paused |= seal.seal_mode == 1;
-                pending_seal = None;
-            }
         }
         if let Some(query) = &mut pending_observation {
             let done = query.drive(
@@ -860,7 +693,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
             pending_observation.is_some() || !expansion_replies.is_empty(),
             |frame| transition_control::try_send(&mut report, frame),
         )?;
-        let count = if callbacks_paused || transition_paused || pending_seal.is_some() {
+        let count = if transition_paused {
             0
         } else {
             let mut count = 0;
@@ -868,21 +701,23 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 let Some(guard) = consumer.borrow()? else {
                     break;
                 };
-                let header = tickwire_ipc::RecordHeader::decode(&guard.bytes()[..128])?;
-                let payload = if header.message_type == 259 {
-                    guard.depth_payload()?.to_vec()
-                } else {
-                    vec![]
-                };
-                let raw = guard.bytes().to_vec();
+                let raw: [u8; tickwire_ipc::MarketRecord::SIZE] =
+                    guard.bytes().try_into().map_err(|_| Error::Bounds)?;
+                let header =
+                    tickwire_ipc::RecordHeader::decode(&raw[..tickwire_ipc::RecordHeader::SIZE])?;
+                depth_payload.clear();
+                if header.message_type == 259 {
+                    depth_payload.extend_from_slice(guard.depth_payload()?);
+                }
                 let seq = guard.sequence();
+                // Release the publisher slot before strategy code or storage I/O.
                 drop(guard);
-                crate::recovery::InputJournal::market(&mut recovery, &raw, &payload)?;
+                crate::recovery::InputJournal::market(&mut recovery, &raw, &depth_payload)?;
                 let at = now(&mut clock)?;
                 crate::recovery::InputJournal::decision(&mut recovery, header.instrument_id, at)?;
                 // The actual callback and its input/checkpoint sync complete before
                 // the consumer watermark or an intent is exposed to another owner.
-                let commands = strategy.market(&raw, &payload, at)?;
+                let commands = strategy.market(&raw, &depth_payload, at)?;
                 retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
                 consumer.apply(seq)?;
                 for command in commands {
@@ -1097,154 +932,9 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 {
                     pending_observation = None;
                 }
-                if frame.envelope.opcode == 49 {
-                    if pending_observation.is_some() {
-                        return Err(Error::NotReady);
-                    }
-                    pending_ready = None;
-                    let request = pending_replay_install.as_ref().ok_or(Error::Identity)?;
-                    let status = tickwire_ipc::StatusBody::decode(frame.body)?;
-                    let expected = tickwire_ipc::StatusBody {
-                        subject_id: request.instance_id,
-                        original_request_id: request.challenge,
-                        original_control_epoch: frame.envelope.control_epoch,
-                        state_version: request.expected_sequence,
-                        state: 3,
-                        result_hash: status.result_hash,
-                        ..Default::default()
-                    };
-                    if frame.envelope.flags != 10
-                        || frame.envelope.request_id != request.challenge
-                        || frame.envelope.expected_state_version != request.expected_sequence
-                        || status != expected
-                        || status.result_hash == [0; 32]
-                    {
-                        return Err(Error::Identity);
-                    }
-                    let objects = tickwire_recovery::FileBlobReader::open(
-                        &config.report_directory,
-                        config.report.peer_uid,
-                    )?;
-                    let verified =
-                        tickwire_release::replay::rollback::verify(status.result_hash, |h| {
-                            objects
-                                .get_object(h, tickwire_recovery::MAX_OBJECT_BYTES)
-                                .map_err(|_| tickwire_release::Error::Missing)
-                        })?;
-                    if verified.installation.installation.request.digest != request.object_digest
-                        || verified.installation.request.operation.operation_id
-                            != request.operation_id
-                        || verified.installation.request.operation.operation_revision
-                            != request.operation_revision
-                        || now(&mut clock)? >= verified.installation.request.member.valid_until_ns
-                    {
-                        return Err(Error::Identity);
-                    }
-                    recovery
-                        .as_mut()
-                        .ok_or(Error::NotReady)?
-                        .install_replay_rollback(status.result_hash, verified)?;
-                    let (cut, _) = strategy.committed().ok_or(Error::NotReady)?;
-                    recovery
-                        .as_mut()
-                        .ok_or(Error::NotReady)?
-                        .merged_checkpoint(cut)?;
-                    ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
-                    let ready = account_mirror.ready(
-                        &config.market.local,
-                        reports.last_ring_sequence()?,
-                        ready_sequence,
-                        recovery.as_ref().ok_or(Error::NotReady)?,
-                        &strategy.checkpoint()?,
-                    )?;
-                    let raw = report_session.encode(
-                        ControlEnvelope {
-                            opcode: 37,
-                            flags: 32,
-                            request_id: request.challenge,
-                            ..Default::default()
-                        },
-                        &crate::bootstrap::wire_bytes(&ready)?,
-                    )?;
-                    report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
-                    replay_completion_pending = false;
-                    // Retain the original challenge for exact completion retries.
-                    // RecoveryWriter rejects a different completion root.
-                    continue;
-                }
                 if frame.envelope.opcode == 41 {
                     use tickwire_release::replay::{ControlInput, canonical};
                     let body = tickwire_ipc::ReplayControlBody::decode(frame.body)?;
-                    if body.replay_kind == crate::capture::install::rollback::KIND {
-                        if pending_observation.is_some() {
-                            return Err(Error::NotReady);
-                        }
-                        pending_ready = None;
-                        let installed = rebuild_installation.as_mut().ok_or(Error::NotReady)?;
-                        let object = rebuild::rollback(
-                            installed,
-                            &frame.envelope,
-                            &body,
-                            &config,
-                            &mut clock,
-                            &mut strategy,
-                            recovery.as_mut().ok_or(Error::NotReady)?,
-                            report_session.deadline(),
-                        )?;
-                        ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
-                        let ready = account_mirror.ready(
-                            &config.market.local,
-                            reports.last_ring_sequence()?,
-                            ready_sequence,
-                            recovery.as_ref().ok_or(Error::NotReady)?,
-                            &strategy.checkpoint()?,
-                        )?;
-                        let fresh = now(&mut clock)?;
-                        if fresh >= body.valid_until_mono_ns
-                            || fresh >= market_session.deadline()
-                            || fresh >= intent_session.deadline()
-                            || fresh >= report_session.deadline()
-                        {
-                            return Err(Error::Deadline);
-                        }
-                        expansion::queue(
-                            &mut expansion_replies,
-                            crate::capture::encode_reply(&report_session, &body, object)?,
-                        )?;
-                        expansion::queue(
-                            &mut expansion_replies,
-                            report_session.encode(
-                                ControlEnvelope {
-                                    opcode: 37,
-                                    flags: 32,
-                                    request_id: body.challenge,
-                                    ..Default::default()
-                                },
-                                &crate::bootstrap::wire_bytes(&ready)?,
-                            )?,
-                        )?;
-                        continue;
-                    }
-                    if body.replay_kind == crate::capture::install::KIND {
-                        let installed = rebuild_installation.as_ref().ok_or(Error::NotReady)?;
-                        let raw = if body == installed.request
-                            && frame.envelope.flags == 1
-                            && frame.envelope.status == 0
-                            && frame.envelope.request_id == body.challenge
-                            && frame.envelope.expected_state_version == 0
-                            && now(&mut clock)? < body.valid_until_mono_ns
-                        {
-                            crate::capture::encode_reply(&report_session, &body, installed.receipt)?
-                        } else {
-                            crate::capture::encode_rejection(
-                                &report_session,
-                                &body,
-                                crate::market_transition::INVALID,
-                            )?
-                        };
-                        expansion::queue(&mut expansion_replies, raw)?;
-                        continue;
-                    }
                     let objects = tickwire_recovery::FileBlobReader::open(
                         &config.report_directory,
                         config.report.peer_uid,
@@ -1304,10 +994,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                                 &approval,
                                 current_market.as_ref(),
                                 strategy.supports_market_transition(),
-                                callbacks_paused
-                                    || pending_seal.is_some()
-                                    || pending_observation.is_some()
-                                    || replay_completion_pending
+                                pending_observation.is_some()
                                     || expansion.as_ref().is_some_and(|x| x.active()),
                                 at,
                             );
@@ -1405,93 +1092,23 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                         return Err(Error::NotReady);
                     }
                     let input = ControlInput::decode(&raw)?;
-                    let expected = strategy.control_checkpoint(&input)?;
+                    let (expected, _) = strategy.committed().ok_or(Error::NotReady)?;
                     crate::replay::control::verify_request(
                         &frame.envelope,
                         &body,
                         &input,
-                        &expected,
+                        expected,
                         now(&mut clock)?,
                         report_session.deadline(),
                     )?;
-                    let mut installed_ready = false;
-                    let (object, commands) = match &input {
-                        ControlInput::Capture { pause, .. } => {
-                            if pending_observation.is_some() {
-                                return Err(Error::NotReady);
-                            }
-                            let object = strategy.capture(&input)?;
-                            callbacks_paused |= *pause;
-                            (object, vec![])
-                        }
-                        ControlInput::Auxiliary { input, .. } => {
-                            if callbacks_paused || pending_seal.is_some() {
-                                return Err(Error::NotReady);
-                            }
-                            let commands = strategy.auxiliary(input.clone(), now(&mut clock)?)?;
-                            retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
-                            let (cut, commit) = strategy.committed().ok_or(Error::NotReady)?;
-                            let bytes = canonical(&(body.object_digest, cut.cut.clone(), commit))?;
-                            (strategy.store_object(&bytes)?, commands)
-                        }
-                        ControlInput::Install { request, .. } => {
-                            if pending_seal.is_some() || pending_observation.is_some() {
-                                return Err(Error::NotReady);
-                            }
-                            let job: crate::preflight::Job = read_config(
-                                config.preflight_job.as_ref().ok_or(Error::NotReady)?,
-                                2 * 1024 * 1024,
-                            )?;
-                            if job.operation != request.operation || job.member != request.member {
-                                return Err(Error::Identity);
-                            }
-                            let bundle = job.bundle.load(&job.operation)?;
-                            let release = bundle.verify_operation(&job.operation, &job.member)?;
-                            let files = tickwire_release::files::load(
-                                &release.target.files,
-                                &job.target_files,
-                            )?;
-                            let template: Bootstrap = serde_json::from_slice(
-                                files
-                                    .bytes(&tickwire_release::Role::Bootstrap)
-                                    .ok_or(Error::Identity)?,
-                            )?;
-                            crate::preflight::verify_bootstrap(&template, &config)?;
-                            let target = crate::preflight::target(&config, &files)?;
-                            files.recheck()?;
-                            let proof = request.source_proof(|o| {
-                                objects
-                                    .get_object(o.digest, tickwire_recovery::MAX_OBJECT_BYTES)
-                                    .map_err(|_| tickwire_release::Error::Missing)
-                            })?;
-                            for bytes in bundle.object_bytes()? {
-                                strategy.store_object(&bytes)?;
-                            }
-                            let root = strategy.install(
-                                &input,
-                                &release,
-                                target,
-                                &proof,
-                                config.maximum_levels,
-                                || {
-                                    let at =
-                                        now(&mut clock).map_err(|_| crate::replay::Error::Time)?;
-                                    if at >= body.valid_until_mono_ns {
-                                        return Err(crate::replay::Error::Time);
-                                    }
-                                    Ok(at)
-                                },
-                            )?;
-                            let verified = strategy.installation_objects(root)?;
-                            merged_journal_sequence = recovery
-                                .as_mut()
-                                .ok_or(Error::NotReady)?
-                                .install_replayed(root.digest, verified)?;
-                            callbacks_paused = false;
-                            installed_ready = true;
-                            (root, vec![])
-                        }
+                    let ControlInput::Auxiliary { input, .. } = input else {
+                        return Err(Error::Identity);
                     };
+                    let commands = strategy.auxiliary(input, now(&mut clock)?)?;
+                    retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
+                    let (cut, commit) = strategy.committed().ok_or(Error::NotReady)?;
+                    let bytes = canonical(&(body.object_digest, cut.cut.clone(), commit))?;
+                    let object = strategy.store_object(&bytes)?;
                     if now(&mut clock)? >= body.valid_until_mono_ns {
                         return Err(Error::Deadline);
                     }
@@ -1529,35 +1146,6 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                         return Err(Error::Deadline);
                     }
                     report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
-                    if installed_ready {
-                        pending_ready = None;
-                        pending_replay_install = Some(body.clone());
-                        replay_completion_pending = true;
-                        ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
-                        let ready = account_mirror.ready(
-                            &config.market.local,
-                            reports.last_ring_sequence()?,
-                            ready_sequence,
-                            recovery.as_ref().ok_or(Error::NotReady)?,
-                            &strategy.checkpoint()?,
-                        )?;
-                        let mut request_id = config.market.local.instance;
-                        request_id[..8].copy_from_slice(&ready_sequence.to_le_bytes());
-                        let ready_raw = report_session.encode(
-                            ControlEnvelope {
-                                opcode: 37,
-                                flags: 32,
-                                request_id,
-                                ..Default::default()
-                            },
-                            &crate::bootstrap::wire_bytes(&ready)?,
-                        )?;
-                        report.send(
-                            &ready_raw,
-                            &[],
-                            Instant::now() + Duration::from_millis(100),
-                        )?;
-                    }
                     continue;
                 }
                 if frame.envelope.opcode == 39 {
@@ -1575,11 +1163,8 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                         Err(error) => return Err(error),
                     };
                     if seal.seal_mode == crate::checkpoint::OBSERVE_CURRENT {
-                        if config.handover_enabled
-                            && pending_seal.is_none()
+                        if config.publish_checkpoints
                             && pending_observation.is_none()
-                            && !callbacks_paused
-                            && !replay_completion_pending
                             && !expansion.as_ref().is_some_and(|x| x.active())
                         {
                             pending_observation =
@@ -1587,21 +1172,7 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                         }
                         continue;
                     }
-                    if !config.handover_enabled
-                        || pending_seal.is_some()
-                        || pending_observation.is_some()
-                        || expansion.as_ref().is_some_and(|x| x.active())
-                    {
-                        return Err(Error::Identity);
-                    }
-                    if account_mirror
-                        .position()
-                        .is_some_and(|p| p > seal.report_sequence)
-                    {
-                        return Err(Error::Stale);
-                    }
-                    pending_seal = Some((frame.envelope.clone(), seal));
-                    continue;
+                    return Err(Error::Identity);
                 }
                 if !remote || expansion.as_ref().is_some_and(|x| x.active()) {
                     return Err(Error::Identity);

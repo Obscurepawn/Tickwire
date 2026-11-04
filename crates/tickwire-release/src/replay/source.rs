@@ -236,7 +236,8 @@ impl VerifiedSourceReplay {
                 digest: seal.account_input_digest,
                 bytes: seal.account_input_bytes,
             })?;
-            tickwire_handover::verify(&seal, raw, inputs, accounts).map_err(|_| Error::Identity)?;
+            crate::account_inputs::verify(&seal, raw, inputs, accounts)
+                .map_err(|_| Error::Identity)?;
             let retained = retained::decode(inputs)?;
             let cp = retained.current();
             // SDK Application snapshots contain the strategy state plus its

@@ -76,37 +76,6 @@ fn persist_transition<S: Strategy>(
     result
 }
 impl<S: Strategy> Live<S> {
-    /// Adopt the actual warmed application after its complete input history was
-    /// synchronized. The launcher still authenticates installation and lanes.
-    pub fn from_rebuilt(
-        running: rebuild::PersistedRunning<S, FileBlobStore>,
-        directory: std::path::PathBuf,
-    ) -> crate::Result<Self> {
-        let mut owner = running.owner;
-        let checkpoint = owner.durable_checkpoint();
-        if checkpoint.runtime.markets.len() != 1
-            || checkpoint.runtime.accounts.len() != 1
-            || owner.memory_cut() != owner.last_durable_cut()
-            || owner.stopped()
-        {
-            return Err(crate::Error::Identity);
-        }
-        let market = checkpoint.runtime.markets[0].stream.clone();
-        let account = checkpoint.runtime.accounts[0].stream.clone();
-        let maximum_age = owner.strategy().maximum_age();
-        match std::fs::symlink_metadata(directory.join("HEAD.json")) {
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            _ => return Err(crate::Error::Identity),
-        }
-        sync_head(&mut owner, &directory)?;
-        Ok(Self {
-            owner: Owner::Recorded(Box::new(owner)),
-            market,
-            account: Some(account),
-            maximum_age,
-            directory,
-        })
-    }
     pub fn supports_market_transition(&self) -> bool {
         matches!(&self.owner, Owner::Recorded(e) if !e.stopped() && e.strategy().catalog().is_none())
     }
@@ -303,112 +272,6 @@ impl<S: Strategy> Live<S> {
             _ => None,
         }
     }
-    /// Exact completed installation retries are checked against their original
-    /// target cut. A different request cannot reuse the selected instance.
-    pub fn control_checkpoint(&self, input: &ControlInput) -> crate::Result<Checkpoint> {
-        let Owner::Recorded(e) = &self.owner else {
-            return Err(crate::Error::NotReady);
-        };
-        if matches!(input, ControlInput::Install { .. }) {
-            match e.selection()? {
-                Some(install::Selection::Continued(root)) => {
-                    let done = tickwire_release::replay::install::Continued::decode(
-                        &e.read_object(root)?,
-                    )?;
-                    let installed = tickwire_release::replay::install::Installation::decode(
-                        &e.read_object(done.installation)?,
-                    )?;
-                    if installed.request != Object::of(&input.bytes()?) {
-                        return Err(crate::Error::Identity);
-                    }
-                    return Ok(Checkpoint::decode(
-                        &e.read_object(installed.previous_target)?,
-                    )?);
-                }
-                Some(_) => return Err(crate::Error::NotReady),
-                None => {}
-            }
-        }
-        Ok(e.durable_checkpoint().clone())
-    }
-    /// The caller has authenticated the exact request and loaded its own
-    /// qualified artifact files. Every callback, retained input, selection and
-    /// resulting HEAD is synchronized here before returning a completion root.
-    pub fn install(
-        &mut self,
-        input: &ControlInput,
-        release: &tickwire_release::MemberRelease<'_>,
-        target: crate::restore::Target,
-        proof: &tickwire_release::replay::source::VerifiedSourceReplay,
-        maximum_levels: usize,
-        mut now: impl FnMut() -> Result<u64>,
-    ) -> crate::Result<Object> {
-        self.control_checkpoint(input)?;
-        let Owner::Recorded(e) = &mut self.owner else {
-            return Err(crate::Error::NotReady);
-        };
-        let result = (|| {
-            let ControlInput::Install {
-                source,
-                expected,
-                request,
-            } = input
-            else {
-                return Err(Error::Identity);
-            };
-            request.bytes()?;
-            if let Some(install::Selection::Continued(root)) = e.selection()? {
-                return Ok(root);
-            }
-            if source != &e.durable_checkpoint().source
-                || expected != e.last_durable_cut()
-                || proof.root() != request.source_completion
-                || &request.operation != release.operation()
-                || request.member != release.target.member
-            {
-                return Err(Error::Identity);
-            }
-            let continuation = catchup::plan(
-                proof.current(),
-                e.anchor(),
-                e.recorded(),
-                e.durable_checkpoint(),
-            )?;
-            now()?;
-            let mut candidate = e.strategy().prepare_replayed(
-                release,
-                target,
-                proof,
-                request.target.clone(),
-                request.config.clone(),
-            )?;
-            candidate.configure_views(self.maximum_age, maximum_levels)?;
-            if candidate.checkpoint().runtime.markets.len() != 1
-                || candidate.checkpoint().runtime.accounts.len() > 1
-            {
-                return Err(Error::Identity);
-            }
-            now()?;
-            let installed = candidate.persist(e, &input.bytes()?, proof)?;
-            continuation.apply(e, &mut now)?;
-            if e.durable_checkpoint().runtime.markets[0].stream != self.market {
-                return Err(Error::Identity);
-            }
-            sync_head(e, &self.directory).map_err(|_| Error::Storage)?;
-            let completed = e.mark_continued(installed, continuation.inputs(), now()?)?;
-            self.account = e
-                .durable_checkpoint()
-                .runtime
-                .accounts
-                .first()
-                .map(|c| c.stream.clone());
-            Ok(completed)
-        })();
-        if result.is_err() {
-            e.stop();
-        }
-        Ok(result?)
-    }
     pub fn next_deadline(&self) -> Option<u64> {
         match &self.owner {
             Owner::Recorded(e) => e.next_deadline(),
@@ -521,8 +384,6 @@ impl<S: Strategy> Live<S> {
             _ => Ok(vec![]),
         }
     }
-    /// Used only after an authenticated control request has bound the exact
-    /// immutable Input object and its predecessor cut; time is sampled locally.
     pub fn capture(&mut self, request: &ControlInput) -> crate::Result<Object> {
         let Owner::Recorded(e) = &mut self.owner else {
             return Err(crate::Error::NotReady);
@@ -534,25 +395,6 @@ impl<S: Strategy> Live<S> {
             return Err(crate::Error::NotReady);
         };
         Ok(e.store_object(bytes)?)
-    }
-    pub fn installation_objects(
-        &self,
-        root: Object,
-    ) -> crate::Result<tickwire_release::replay::install::Verified> {
-        use tickwire_recovery::BlobStore;
-        let Owner::Recorded(e) = &self.owner else {
-            return Err(crate::Error::NotReady);
-        };
-        let verified = tickwire_release::replay::install::verify(root.digest, |hash| {
-            e.store
-                .get(
-                    tickwire_recovery::StoreKey::Object(hash),
-                    tickwire_recovery::MAX_OBJECT_BYTES,
-                )
-                .map_err(|_| tickwire_release::Error::Missing)
-        })?;
-        root.verify(&verified.continued.bytes()?, MAX_BYTES as u64)?;
-        Ok(verified)
     }
     pub fn auxiliary(&mut self, input: Input, now: u64) -> crate::Result<Vec<CanonicalCommand>> {
         if !matches!(
@@ -616,13 +458,6 @@ pub(crate) fn executable_object() -> crate::Result<Object> {
         bytes: count,
         digest: hash.finalize().into(),
     })
-}
-pub(crate) fn verify_executable(expected: Object) -> crate::Result<()> {
-    expected.validate(tickwire_release::MAX_BINARY)?;
-    if executable_object()? != expected {
-        return Err(crate::Error::Identity);
-    }
-    Ok(())
 }
 
 fn sync_head<S: Strategy>(

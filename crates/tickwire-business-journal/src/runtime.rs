@@ -1,6 +1,6 @@
 use super::*;
 use tickwire_execution::{
-    CommitProfile, Engine, Fill, Gate, Order, SendState, Terminal,
+    Engine, Fill, Gate, Order, SendState, Terminal,
     ports::{Exchange, ExecutionFact, SubmitOutcome},
 };
 use tickwire_journal_codec::OrderIdentity;
@@ -83,9 +83,6 @@ impl<S: Backend, A: CommitAuthorizer, E: Exchange, const N: usize, const T: usiz
         Ok(runtime)
     }
     pub fn submit(&mut self, request: OrderRequest) -> Result<()> {
-        if request.commit_profile != CommitProfile::LocalDurable {
-            return Err(Error::UnsupportedProfile);
-        }
         if self.engine.frozen() {
             return Err(Error::Frozen);
         }
@@ -113,9 +110,6 @@ impl<S: Backend, A: CommitAuthorizer, E: Exchange, const N: usize, const T: usiz
             return Err(tickwire_execution::Error::AlreadySubmitted.into());
         }
         let record = self.engine.durable_record(intent_id)?;
-        if record.request.commit_profile != CommitProfile::LocalDurable {
-            return Err(Error::UnsupportedProfile);
-        }
         let seq = self
             .journal
             .position()
@@ -142,14 +136,11 @@ impl<S: Backend, A: CommitAuthorizer, E: Exchange, const N: usize, const T: usiz
             self.refresh_gate()?;
             // This legacy reducer parameter is assembled only inside the strict
             // wrapper after trusted authorization, verified closure and WAL sync.
-            self.engine.accept_commit(
-                tickwire_execution::CommitReceipt {
+            self.engine
+                .accept_commit(tickwire_execution::CommitReceipt {
                     record,
                     local_durable: true,
-                    replica_durable: false,
-                },
-                CommitProfile::LocalDurable,
-            )?;
+                })?;
             let request = self.engine.begin_send(intent_id)?;
             match self.exchange.submit(request) {
                 SubmitOutcome::PendingResponse => {}

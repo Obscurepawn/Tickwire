@@ -1,0 +1,158 @@
+{
+  "format": "tickwire-journal-wire-1",
+  "wal": {
+    "format_version": 1,
+    "byte_order": "little_endian",
+    "frame_magic_ascii": "TWAL0001",
+    "frame_end_magic_ascii": "TEND",
+    "header_bytes": 136,
+    "trailer_bytes": 40,
+    "alignment_bytes": 8,
+    "segment_max_bytes": 268435456,
+    "frame_max_bytes": 1048576,
+    "frame_min_bytes": 176,
+    "hash": "SHA-256",
+    "checksum": "CRC-32C",
+    "padding_value": 0,
+    "header_fields": [
+      {
+        "name": "magic",
+        "type": "bytes",
+        "bytes": 8
+      },
+      {
+        "name": "version",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "header_len",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "total_len",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "frame_type",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "flags",
+        "type": "u16",
+        "bytes": 2
+      },
+      {
+        "name": "payload_len",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "stream_epoch",
+        "type": "uuid",
+        "bytes": 16
+      },
+      {
+        "name": "domain_or_group_id",
+        "type": "uuid",
+        "bytes": 16
+      },
+      {
+        "name": "segment_id",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "lsn",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "record_seq_or_raft_index",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "exec_epoch_or_raft_term",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "batch_number",
+        "type": "u64",
+        "bytes": 8
+      },
+      {
+        "name": "previous_frame_hash",
+        "type": "sha256",
+        "bytes": 32
+      },
+      {
+        "name": "header_crc32c",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "payload_crc32c",
+        "type": "u32",
+        "bytes": 4
+      }
+    ],
+    "trailer_fields": [
+      {
+        "name": "frame_hash",
+        "type": "sha256",
+        "bytes": 32
+      },
+      {
+        "name": "repeated_total_len",
+        "type": "u32",
+        "bytes": 4
+      },
+      {
+        "name": "end_magic",
+        "type": "bytes",
+        "bytes": 4
+      }
+    ],
+    "frame_types": {
+      "BatchBegin": 1,
+      "DataRecord": 2,
+      "RaftEntry": 3,
+      "RaftHardState": 4,
+      "ControlTruncateSuffix": 5,
+      "SnapshotPublish": 6,
+      "ControlConfState": 7,
+      "ControlCommitWatermark": 8,
+      "DependencyPin": 9,
+      "DependencyRelease": 10,
+      "SourceFreezeSeal": 11,
+      "BatchSeal": 12
+    },
+    "header_crc_input": "header_with_header_crc32c_zero_and_actual_payload_crc32c",
+    "payload_crc_input": "payload_without_padding",
+    "frame_hash_input": "header_payload_zero_padding_repeated_total_len_end_magic",
+    "sync_primitive": "fdatasync",
+    "sync_directory_on_create_rename_or_unlink": true,
+    "positive_receipt_requires_completed_sync": true,
+    "recoverable_torn_tail": "incomplete_final_unsealed_ready_batch_only",
+    "sealed_batch_corruption_action": "Quarantine the journal and retain the verified prefix for investigation.",
+    "data_positive_receipt_requires_full_closed_batch_and_dependency_sync": true,
+    "data_default_commit_seq_equals_local_durable_seq": true,
+    "data_watermark_order": [
+      "snapshot_seq",
+      "applied_seq",
+      "commit_seq",
+      "local_durable_seq",
+      "last_seq"
+    ],
+    "data_same_epoch_conflict_action": "quarantine_no_automatic_truncation_or_overwrite",
+    "data_epoch_transition_requires_complete_prefix_proof": true,
+    "restart_applied_state_source": "same_verified_snapshot_then_committed_prefix_replay",
+    "logical_data_hash_chain": "SHA256(previous_logical_hash_and_canonical_domain_journal_epoch_seq_type_payload_hash)",
+    "logical_hash_equals_physical_wal_frame_hash": false
+  }
+}

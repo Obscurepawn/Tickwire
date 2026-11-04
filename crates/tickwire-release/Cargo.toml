@@ -7,17 +7,18 @@ publish.workspace = true
 
 [dependencies]
 tickwire-ipc = { path = "../tickwire-ipc" }
-tickwire-handover = { path = "../tickwire-handover" }
 libc = "0.2"
 sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tickwire-lifecycle = { path = "../tickwire-lifecycle" }
 tickwire-recovery = { path = "../tickwire-recovery" }
 
-[dev-dependencies]
 tickwire-account = { path = "../tickwire-account" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }
+
+[dev-dependencies]
+tickwire-risk = { path = "../tickwire-risk" }
+tickwire-venue = { path = "../tickwire-venue" }
 
 [lints]
 workspace = true

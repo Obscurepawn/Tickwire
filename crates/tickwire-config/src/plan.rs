@@ -281,9 +281,7 @@ impl ComputedPlan {
                         preconditions.insert(Precondition::DirectoryMigration);
                     }
                     if parts.last().is_some_and(|p| {
-                        p.contains("credential_ref")
-                            || p == "mtls_identity_ref"
-                            || p == "metrics_identity_ref"
+                        p.contains("credential_ref") || p == "metrics_identity_ref"
                     }) {
                         preconditions.insert(Precondition::CredentialHandoff);
                     }

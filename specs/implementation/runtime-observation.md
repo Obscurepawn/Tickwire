@@ -4,9 +4,9 @@ A controller can ask a managed worker to checkpoint its current state while call
 
 ## Checkpoint protocol
 
-`CHECKPOINT_SEAL` and `CHECKPOINT_SEALED` retain their original wire layouts. Mode 0 captures an exact account waterline. Mode 1 seals at the exact waterline and pauses callbacks for handover. Mode 2, available only on an approved SDK build, treats `report_sequence` as a lower bound. The reply echoes the requested position and the new READY carries the actual position, which may be greater.
+`CHECKPOINT_SEAL` and `CHECKPOINT_SEALED` retain their original wire layouts. Mode 0 captures an exact account waterline. Mode 2, available only on an approved SDK build, treats `report_sequence` as a lower bound. The reply echoes the requested position and the new READY carries the actual position, which may be greater.
 
-The worker continues processing market, account, timer and external inputs until it reaches that floor. It checkpoints once and keeps the same reply under socket backpressure. An expired query is discarded. Periodic READY announcements use one replaceable slot, wait behind requested replies and installation responses, and can still advance after the query with no further account input. Installation, release, feed changes, retirement and query challenges serialize on the session.
+The worker continues processing market, account, timer and external inputs until it reaches that floor. It checkpoints once and keeps the same reply under socket backpressure. An expired query is discarded. Periodic READY announcements use one replaceable slot, wait behind requested replies, and can still advance after the query with no further account input. Installation, release, feed changes, retirement and query challenges serialize on the session.
 
 `ObservationRequest` supplies a request ID, an absolute deadline in the same monotonic domain and a flag requiring resource evidence. Host exposes begin, poll and cancel. One owner accepts at most 4,096 distinct request IDs and retains up to 16 closed, unanswered challenges so a late reply can be matched and discarded. Timeout releases session exclusion. When the bounded history is full the next request fails. During the query Host retains at most 4,096 actual account prefix proofs. Exhaustion fails that query while report publication continues. Only the explicit cold completion path reads the full recovery closure. [Host API](../../crates/tickwire-strategy-host/src/observation.rs)
 
@@ -19,7 +19,7 @@ A successful `FreshObservation` carries the challenge, original request, deadlin
 * `configuration()` extracts the private configuration at the current merged cut, including its source, checkpoint, revision and original bytes. It validates worker identity, image, logical clock and business state. A legacy closure entirely without merged input yields `None`. A partial or malformed history fails.
 * `inputs()` inspects the saved accounts, market replicas and report writer at that same cut. The full JOIN evidence must match the current bank to report its catalog and set version. A structurally valid checkpoint with no account or several accounts can lack inputs in this single-report Host. It never fills missing facts from a launch template.
 
-A capture-only worker and an incompletely installed worker cannot answer. After a successful same-PID promotion the live owner uses the retained registry and report session. A past READY, closed challenge or restarted instance cannot produce a fresh answer for the old request.
+A past READY, closed challenge or restarted instance cannot produce a fresh answer for the old request.
 
 ## App inbox and persistence
 

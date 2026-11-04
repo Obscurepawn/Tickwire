@@ -110,7 +110,7 @@ impl Fixture {
         b.maximum_levels = 8;
         // A local demo may be compiling or running other binaries on the same host.
         b.startup_timeout_ms = if thresholds.is_some() { 10_000 } else { 30_000 };
-        b.handover_enabled = true;
+        b.publish_checkpoints = true;
         b.maximum_market_age_ns = 60_000_000_000;
         b.recovery_template = Some(root.join("recovery-template.json"));
         let now = market.now().nanos();
@@ -156,7 +156,7 @@ impl Fixture {
             &params,
             &deployment.policy.versions,
         );
-        let host = json!({"shadow":false,"bootstrap":root.join("bootstrap.json"),"md_admission_directory":market.directory,"executable":worker,"working_directory":root,"uid":meta.uid(),"gid":meta.gid(),"supervisor":market.admission.supervisor,"directory_parent":root.join("runtime"),"control_directory":root.join("control"),"control_stream":([54;16]),"control_domain":([55;16]),"control_writer_epoch":1,"snapshot_id":market.admission.snapshot_id,"market_cursor_id":([31;16]),"subscription_generation":1,"instrument_set_version":1,"maximum_levels_per_side":8,"maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152,"recovery_directory":root.join("recovery"),"rotation_directory":null,"first_rotation_sequence":1});
+        let host = json!({"bootstrap":root.join("bootstrap.json"),"md_admission_directory":market.directory,"executable":worker,"working_directory":root,"uid":meta.uid(),"gid":meta.gid(),"supervisor":market.admission.supervisor,"directory_parent":root.join("runtime"),"control_directory":root.join("control"),"control_stream":([54;16]),"control_domain":([55;16]),"control_writer_epoch":1,"snapshot_id":market.admission.snapshot_id,"market_cursor_id":([31;16]),"subscription_generation":1,"instrument_set_version":1,"maximum_levels_per_side":8,"maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152,"recovery_directory":root.join("recovery")});
         Self {
             root,
             market,

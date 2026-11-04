@@ -19,7 +19,7 @@ pub enum Product {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommitProfile {
     LocalDurable,
-    SyncReplica,
+    LegacySyncReplica,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TerminalStatus {
@@ -260,7 +260,7 @@ fn write_payload(w: &mut Writer, event: &Event) {
             w.uint(13);
             w.uint(match p.commit_profile {
                 CommitProfile::LocalDurable => 1,
-                CommitProfile::SyncReplica => 2,
+                CommitProfile::LegacySyncReplica => 2,
             });
             w.uint(14);
             w.bytes(&p.command_digest);
@@ -352,7 +352,7 @@ fn read_payload(r: &mut Reader<'_>, kind: u64) -> Result<Event, DecodeError> {
             r.key(13)?;
             let commit_profile = match r.uint()? {
                 1 => CommitProfile::LocalDurable,
-                2 => CommitProfile::SyncReplica,
+                2 => CommitProfile::LegacySyncReplica,
                 _ => return Err(DecodeError::Enum),
             };
             r.key(14)?;

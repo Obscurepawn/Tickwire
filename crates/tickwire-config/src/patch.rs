@@ -5,7 +5,7 @@ use crate::{
     changes::{Authority, ChangeSet, Role, scope},
 };
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::sync::OnceLock;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -94,19 +94,10 @@ impl ScopedPatch {
         static SCHEMA: OnceLock<core::result::Result<jsonschema::Validator, ()>> = OnceLock::new();
         let schema = SCHEMA
             .get_or_init(|| {
-                let api: Value = serde_json::from_str(include_str!(
-                    "../../../specs/contracts/control-api.openapi.json"
+                let schema: Value = serde_json::from_str(include_str!(
+                    "../../../specs/contracts/config-patch.schema.json"
                 ))
                 .map_err(|_| ())?;
-                let schemas = &api["components"]["schemas"];
-                let schema = json!({
-                    "$ref": "#/components/schemas/ScopedPatch",
-                    "components": {"schemas": {
-                        "ScopedPatch": schemas["ScopedPatch"],
-                        "PatchChange": schemas["PatchChange"],
-                        "PatchSelector": schemas["PatchSelector"],
-                    }}
-                });
                 jsonschema::options()
                     .with_draft(jsonschema::Draft::Draft202012)
                     .build(&schema)

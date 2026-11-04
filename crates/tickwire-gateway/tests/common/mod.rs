@@ -103,7 +103,6 @@ pub fn record(c: &CanonicalCommand) -> ex::DurableRecord {
             config_revision: 6,
             deadline: 100,
             recovery_object: 7,
-            commit_profile: ex::CommitProfile::LocalDurable,
         },
     }
 }

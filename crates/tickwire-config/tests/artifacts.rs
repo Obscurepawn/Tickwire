@@ -111,7 +111,7 @@ fn dependency_inventory_is_complete_unique_and_separates_credentials() {
     assert!(report.missing().count() > 10);
     let p = report.artifacts.iter().find(|d| d.reference == r).unwrap();
     assert!(p.available);
-    assert_eq!(p.uses.len(), 32);
+    assert_eq!(p.uses.len(), 16);
     assert!(
         p.uses
             .contains(&"/strategies/0/parameter_schema_ref".to_owned())
@@ -143,7 +143,7 @@ fn actual_parameter_schema_validates_every_strategy_and_binds_candidate() {
     c.insert(&r, &bytes).unwrap();
     let validated = validate_parameters(&candidate, &c).unwrap();
     assert_eq!(validated.candidate_hash(), candidate.hash());
-    assert_eq!(validated.bindings().len(), 32);
+    assert_eq!(validated.bindings().len(), 16);
     assert_eq!(
         validated.bindings()[0].schema_hash,
         <[u8; 32]>::from(Sha256::digest(&bytes))
@@ -161,7 +161,8 @@ fn invalid_parameter_and_missing_schema_are_distinct_failures() {
     let mut c = catalog();
     c.insert(&r, &bytes).unwrap();
     let invalid = candidate(&r, |v| {
-        v["strategies"][31]["params"]["signal_window_events"] = 4096.into()
+        v["strategies"].as_array_mut().unwrap().last_mut().unwrap()["params"]["signal_window_events"] =
+            4096.into()
     });
     assert_eq!(
         validate_parameters(&invalid, &c).unwrap_err(),

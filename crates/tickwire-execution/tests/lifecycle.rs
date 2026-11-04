@@ -30,7 +30,6 @@ fn request(id: u64) -> OrderRequest {
         strategy_generation: 1,
         config_revision: 1,
         deadline: 90,
-        commit_profile: CommitProfile::LocalDurable,
         recovery_object: id,
     }
 }
@@ -49,14 +48,10 @@ fn engine() -> Engine<8, 8> {
 fn ready(e: &mut Engine<8, 8>, id: u64) {
     e.reserve(request(id)).unwrap();
     let r = e.durable_record(id).unwrap();
-    e.accept_commit(
-        CommitReceipt {
-            record: r,
-            local_durable: true,
-            replica_durable: false,
-        },
-        CommitProfile::LocalDurable,
-    )
+    e.accept_commit(CommitReceipt {
+        record: r,
+        local_durable: true,
+    })
     .unwrap();
 }
 
@@ -85,14 +80,10 @@ fn commit_receipt_for_another_command_is_rejected() {
     let mut record = e.durable_record(1).unwrap();
     record.request.command_digest[0] ^= 1;
     assert_eq!(
-        e.accept_commit(
-            CommitReceipt {
-                record,
-                local_durable: true,
-                replica_durable: false,
-            },
-            CommitProfile::LocalDurable,
-        ),
+        e.accept_commit(CommitReceipt {
+            record,
+            local_durable: true,
+        },),
         Err(Error::ReceiptMismatch)
     );
     assert_eq!(e.begin_send(1), Err(Error::NotDurable));
@@ -114,50 +105,16 @@ fn cannot_send_before_durable_and_gate_is_checked_again() {
     e.reserve(request(1)).unwrap();
     assert_eq!(e.begin_send(1), Err(Error::NotDurable));
     let r = e.durable_record(1).unwrap();
-    e.accept_commit(
-        CommitReceipt {
-            record: r,
-            local_durable: true,
-            replica_durable: false,
-        },
-        CommitProfile::LocalDurable,
-    )
+    e.accept_commit(CommitReceipt {
+        record: r,
+        local_durable: true,
+    })
     .unwrap();
     let mut g = gate();
     g.config_revision = 2;
     e.update_gate(g);
     assert_eq!(e.begin_send(1), Err(Error::GateClosed));
     assert_eq!(e.order(1).unwrap().send, SendState::NotSubmitted);
-}
-#[test]
-fn sync_profile_requires_matching_replica_receipt() {
-    let mut e = engine();
-    let mut q = request(1);
-    q.commit_profile = CommitProfile::SyncReplica;
-    e.reserve(q).unwrap();
-    let r = e.durable_record(1).unwrap();
-    assert_eq!(
-        e.accept_commit(
-            CommitReceipt {
-                record: r,
-                local_durable: true,
-                replica_durable: false
-            },
-            CommitProfile::SyncReplica
-        ),
-        Err(Error::NotDurable)
-    );
-    assert_eq!(e.begin_send(1), Err(Error::NotDurable));
-    e.accept_commit(
-        CommitReceipt {
-            record: r,
-            local_durable: true,
-            replica_durable: true,
-        },
-        CommitProfile::SyncReplica,
-    )
-    .unwrap();
-    e.begin_send(1).unwrap();
 }
 #[test]
 fn timeout_not_found_and_cancel_request_keep_unknown_reserved() {
@@ -313,14 +270,10 @@ fn idempotent_commit_cannot_erase_live_state() {
         },
     )
     .unwrap();
-    e.accept_commit(
-        CommitReceipt {
-            record: r,
-            local_durable: true,
-            replica_durable: false,
-        },
-        CommitProfile::LocalDurable,
-    )
+    e.accept_commit(CommitReceipt {
+        record: r,
+        local_durable: true,
+    })
     .unwrap();
     assert_eq!(e.order(1).unwrap().filled, 3);
     assert_eq!(e.begin_send(1), Err(Error::AlreadySubmitted));
@@ -336,38 +289,14 @@ fn no_bytes_release_does_not_invent_fee_payment() {
     assert_eq!(e.spent(), 0);
 }
 #[test]
-fn synchronous_profile_cannot_be_downgraded_by_the_receipt_caller() {
-    let mut e = engine();
-    let mut r = request(1);
-    r.commit_profile = CommitProfile::SyncReplica;
-    e.reserve(r).unwrap();
-    let record = e.durable_record(1).unwrap();
-    assert_eq!(
-        e.accept_commit(
-            CommitReceipt {
-                record,
-                local_durable: true,
-                replica_durable: false
-            },
-            CommitProfile::LocalDurable
-        ),
-        Err(Error::ReceiptMismatch)
-    );
-    assert_eq!(e.begin_send(1), Err(Error::NotDurable));
-}
-#[test]
 fn unaccountable_external_fact_freezes_new_risk() {
     let mut e = Engine::<8, 1>::new(request(1).key.domain(), 1000, gate()).unwrap();
     e.reserve(request(1)).unwrap();
     let record = e.durable_record(1).unwrap();
-    e.accept_commit(
-        CommitReceipt {
-            record,
-            local_durable: true,
-            replica_durable: false,
-        },
-        CommitProfile::LocalDurable,
-    )
+    e.accept_commit(CommitReceipt {
+        record,
+        local_durable: true,
+    })
     .unwrap();
     e.begin_send(1).unwrap();
     e.fill(

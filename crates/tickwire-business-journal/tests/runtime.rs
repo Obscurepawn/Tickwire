@@ -83,7 +83,6 @@ fn request(id: u64) -> ex::OrderRequest {
         config_revision: 9,
         deadline: 90,
         recovery_object: id,
-        commit_profile: ex::CommitProfile::LocalDurable,
     }
 }
 fn mock_command(id: u64) -> Vec<u8> {
@@ -468,15 +467,38 @@ fn invalid_fact_is_preserved_then_live_and_recovery_freeze() {
     assert!(reopen(&d, a).is_err());
 }
 #[test]
-fn sync_replica_has_no_implicit_mock_or_local_downgrade() {
+fn historical_replicated_intent_requires_its_original_profile() {
     let _fork_barrier = FORK_BARRIER.read().unwrap();
-    let d = Directory::new();
-    let mut r = create(&d, MockAuthorizer::default(), SpyExchange::default());
-    let mut req = request(1);
-    req.commit_profile = ex::CommitProfile::SyncReplica;
-    assert!(matches!(r.submit(req), Err(Error::UnsupportedProfile)));
-    assert_eq!(r.exchange().calls, 0);
-    assert_eq!(r.view().journal_seq, 0);
+    let dir = Directory::new();
+    drop(create(
+        &dir,
+        MockAuthorizer::default(),
+        SpyExchange::default(),
+    ));
+    let mut event = intent_record(
+        &config(),
+        7,
+        1,
+        ex::DurableRecord {
+            request: request(1),
+            sequence: 1,
+        },
+    );
+    let codec::Event::PreparedIntent(ref mut intent) = event.event else {
+        unreachable!()
+    };
+    intent.commit_profile = codec::CommitProfile::LegacySyncReplica;
+    let (mut journal, _) = tickwire_journal::Journal::recover(
+        tickwire_journal::store::FileStore::open(dir.wal()).unwrap(),
+        None,
+    )
+    .unwrap();
+    journal.append_batch(7, &[&codec::encode(&event)]).unwrap();
+    drop(journal);
+    assert!(matches!(
+        reopen(&dir, MockAuthorizer::default()),
+        Err(Error::UnsupportedProfile)
+    ));
 }
 #[test]
 fn commit_is_idempotent_but_changed_intent_is_rejected() {

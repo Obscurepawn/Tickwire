@@ -128,7 +128,7 @@ fn catalog_source_job_cannot_add_an_unbound_kind9_to_an_ordinary_checkpoint() {
     )
     .unwrap();
     let unbound = b"unrelated catalog bootstrap".to_vec();
-    job.catalog_bootstrap = Some(crate::preflight::ObjectFile {
+    job.catalog_bootstrap = Some(tickwire_release::files::ObjectFile {
         path: "/untrusted-current-template.json".into(),
         object: Object::of(&unbound),
     });
@@ -297,7 +297,7 @@ pub(super) fn fixture_with_catalog(
             objects.push(raw);
         }
         objects.push(bytes);
-        crate::preflight::ObjectFile {
+        tickwire_release::files::ObjectFile {
             object,
             path: "/qualified-test/catalog-bootstrap".into(),
         }
@@ -361,7 +361,7 @@ pub(super) fn fixture_with_catalog(
     }
     .bytes()
     .unwrap();
-    let obj = |o: Object| crate::preflight::ObjectFile {
+    let obj = |o: Object| tickwire_release::files::ObjectFile {
         path: std::path::PathBuf::from("/qualified-test/object"),
         object: o,
     };

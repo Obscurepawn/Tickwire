@@ -10,8 +10,6 @@ fn plan(root: &Path) -> ProcessResources {
     };
     ProcessResources {
         worker: group("worker"),
-        source_replay: group("source"),
-        rollback: group("rollback"),
     }
 }
 
@@ -24,11 +22,12 @@ fn resource_plans_are_strict_complete_and_bounded() {
         serde_json::from_slice::<ProcessResources>(&bytes).unwrap(),
         valid
     );
-    for field in ["worker", "source_replay", "rollback"] {
-        let mut value = serde_json::to_value(&valid).unwrap();
-        value.as_object_mut().unwrap().remove(field);
-        assert!(serde_json::from_value::<ProcessResources>(value).is_err());
-    }
+    assert!(serde_json::from_str::<ProcessResources>("{}").is_err());
+    let legacy = serde_json::json!({"worker": valid.worker, "source_replay": valid.worker, "rollback": valid.worker});
+    assert_eq!(
+        serde_json::from_value::<ProcessResources>(legacy).unwrap(),
+        valid
+    );
     let mut unknown = serde_json::to_value(&valid).unwrap();
     unknown["worker"]["fallback"] = true.into();
     assert!(serde_json::from_value::<ProcessResources>(unknown).is_err());
@@ -55,9 +54,6 @@ fn resource_plans_are_strict_complete_and_bounded() {
         variants.push(v);
     }
     let mut v = valid.clone();
-    v.rollback.cgroup = v.worker.cgroup.clone();
-    variants.push(v);
-    let mut v = valid.clone();
     v.worker.cgroup = format!("/{}", "x".repeat(4096)).into();
     variants.push(v);
     let mut v = valid.clone();
@@ -71,15 +67,15 @@ fn resource_plans_are_strict_complete_and_bounded() {
         (0..4097).collect(),
     ] {
         let mut v = valid.clone();
-        v.source_replay.cpus = cpus;
+        v.worker.cpus = cpus;
         variants.push(v);
     }
     let mut v = valid.clone();
-    v.rollback.numa_node = 32;
+    v.worker.numa_node = 32;
     variants.push(v);
     for memory in [0, 1_048_575, 9_007_199_254_740_992] {
         let mut v = valid.clone();
-        v.rollback.memory_max = memory;
+        v.worker.memory_max = memory;
         variants.push(v);
     }
     for v in variants {
@@ -121,19 +117,14 @@ fn spec(root: &Path) -> LaunchSpec {
         inherit_output: false,
     }
 }
-fn rejected(purpose: Purpose) {
+#[test]
+fn a_rejected_resource_plan_never_executes_the_worker() {
     let root = PrivateDirectory::create_in(&std::env::temp_dir(), "host-resource").unwrap();
     let resources = plan(root.path());
-    for group in [
-        &resources.worker,
-        &resources.source_replay,
-        &resources.rollback,
-    ] {
-        std::fs::create_dir(&group.cgroup).unwrap();
-    }
+    std::fs::create_dir(&resources.worker.cgroup).unwrap();
     resources.validate().unwrap();
     let mut registry = Registry::new(1).unwrap();
-    let result = spawn(&mut registry, spec(root.path()), Some(&resources), purpose);
+    let result = spawn(&mut registry, spec(root.path()), Some(&resources));
     if result.is_ok() {
         let _ = registry.terminate([7; 16]);
     }
@@ -146,23 +137,10 @@ fn rejected(purpose: Purpose) {
     assert!(registry.process([7; 16]).is_err());
 }
 #[test]
-fn worker_resource_failure_never_executes_the_target() {
-    rejected(Purpose::Worker);
-}
-#[test]
-fn source_replay_resource_failure_never_executes_the_target() {
-    rejected(Purpose::SourceReplay);
-}
-#[test]
-fn rollback_resource_failure_never_executes_the_target() {
-    rejected(Purpose::Rollback);
-}
-
-#[test]
 fn legacy_launch_still_executes_the_same_elf() {
     let root = PrivateDirectory::create_in(&std::env::temp_dir(), "host-legacy").unwrap();
     let mut registry = Registry::new(1).unwrap();
-    spawn(&mut registry, spec(root.path()), None, Purpose::Worker).unwrap();
+    spawn(&mut registry, spec(root.path()), None).unwrap();
     let deadline = Instant::now() + Duration::from_secs(3);
     while std::fs::read(root.path().join("marker")).ok().as_deref() != Some(b"executed".as_slice())
         && Instant::now() < deadline
@@ -178,50 +156,4 @@ fn legacy_launch_still_executes_the_same_elf() {
         Err(tickwire_supervisor::Error::ResourcesRequired)
     ));
     registry.terminate([7; 16]).unwrap();
-}
-
-#[test]
-fn only_the_selected_purpose_is_acquired_after_whole_plan_validation() {
-    for purpose in [Purpose::Worker, Purpose::SourceReplay, Purpose::Rollback] {
-        let root = PrivateDirectory::create_in(&std::env::temp_dir(), "host-purpose").unwrap();
-        let resources = plan(root.path());
-        for group in [
-            &resources.worker,
-            &resources.source_replay,
-            &resources.rollback,
-        ] {
-            std::fs::create_dir(&group.cgroup).unwrap();
-        }
-        let selected = match purpose {
-            Purpose::Worker => &resources.worker,
-            Purpose::SourceReplay => &resources.source_replay,
-            Purpose::Rollback => &resources.rollback,
-        };
-        std::fs::remove_dir(&selected.cgroup).unwrap();
-        let mut registry = Registry::new(1).unwrap();
-        let result = spawn(&mut registry, spec(root.path()), Some(&resources), purpose);
-        assert!(
-            matches!(result, Err(Error::Supervisor(tickwire_supervisor::Error::Transport(
-            tickwire_control_sys::Error::System { source, .. }
-        ))) if source.kind() == std::io::ErrorKind::NotFound)
-        );
-        assert!(!root.path().join("marker").exists());
-        // A malformed unused group rejects the plan before acquiring the selected missing group.
-        for invalid_path in [
-            "relative",
-            "/",
-            "/configured//worker",
-            "/configured/worker/",
-        ] {
-            let mut invalid = resources.clone();
-            match purpose {
-                Purpose::Worker => invalid.rollback.cgroup = invalid_path.into(),
-                _ => invalid.worker.cgroup = invalid_path.into(),
-            }
-            assert!(matches!(
-                spawn(&mut registry, spec(root.path()), Some(&invalid), purpose),
-                Err(Error::Invalid)
-            ));
-        }
-    }
 }

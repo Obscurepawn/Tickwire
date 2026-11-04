@@ -117,7 +117,7 @@ pub fn bootstrap(root: &Path, build: [u8; 32], uid: u32, gid: u32) -> (Bootstrap
             poll_records: 64,
             idle_sleep_us: 100,
             recovery_template: None,
-            handover_enabled: false,
+            publish_checkpoints: false,
             preflight_job: None,
             factory: Some(tickwire_strategy_sdk::registered::FactoryBinding {
                 id: "counting".into(),

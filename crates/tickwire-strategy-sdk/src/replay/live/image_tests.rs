@@ -72,13 +72,10 @@ fn actual_image_child() {
         locations.push(Location { role, path });
     }
     let loaded = files::load(&artifacts, &locations).unwrap();
-    verify_executable(loaded.object(&Role::Binary).unwrap()).unwrap();
-    let mut wrong_digest = expected;
-    wrong_digest.digest[0] ^= 1;
-    assert!(verify_executable(wrong_digest).is_err());
-    let mut wrong_length = expected;
-    wrong_length.bytes += 1;
-    assert!(verify_executable(wrong_length).is_err());
+    assert_eq!(
+        executable_object().unwrap(),
+        loaded.object(&Role::Binary).unwrap()
+    );
     std::fs::remove_file(directory.join("retained-artifact")).unwrap();
     assert!(
         loaded.recheck().is_err(),

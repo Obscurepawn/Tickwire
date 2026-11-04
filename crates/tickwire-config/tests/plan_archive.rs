@@ -111,7 +111,7 @@ fn fixture() -> (
         &delivery,
         PlanOptions {
             exposure_policy: ExposurePolicy::CancelThenFreeze,
-            requested_target_ids: ["exec-spot-a".into(), "guardian-a".into()].into(),
+            requested_target_ids: ["exec-spot-a".into(), "exec-usdm-a".into()].into(),
             ..Default::default()
         },
     )
@@ -134,9 +134,9 @@ fn missing_unknown_fields_and_enums_are_rejected_at_every_record_layer() {
     for path in [
         "",
         "/options",
-        "/targets/guardian-a",
-        "/targets/guardian-a/old_projection",
-        "/targets/guardian-a/new_projection",
+        "/targets/exec-usdm-a",
+        "/targets/exec-usdm-a/old_projection",
+        "/targets/exec-usdm-a/new_projection",
     ] {
         let mut v = original.clone();
         v.pointer_mut(path).unwrap()["unknown"] = true.into();
@@ -155,9 +155,9 @@ fn missing_unknown_fields_and_enums_are_rejected_at_every_record_layer() {
         "/options/apply_ceiling",
         "/options/exposure_policy",
         "/required_class",
-        "/targets/guardian-a/action",
-        "/targets/guardian-a/required_class",
-        "/targets/guardian-a/preconditions/0",
+        "/targets/exec-usdm-a/action",
+        "/targets/exec-usdm-a/required_class",
+        "/targets/exec-usdm-a/preconditions/0",
         "/preconditions/0",
     ] {
         let mut v = original.clone();
@@ -181,9 +181,9 @@ fn ordered_sets_cannot_be_reordered_or_silently_deduplicated() {
         "/options/requested_target_ids",
         "/affected_accounts",
         "/preconditions",
-        "/targets/guardian-a/accounts",
-        "/targets/guardian-a/changes",
-        "/targets/guardian-a/preconditions",
+        "/targets/strategy-01-active/accounts",
+        "/targets/exec-usdm-a/changes",
+        "/targets/exec-usdm-a/preconditions",
     ] {
         assert!(
             original.pointer(path).unwrap().as_array().unwrap().len() > 1,
@@ -211,8 +211,8 @@ fn decimal_and_baseline_bindings_are_strict_without_reducing_the_revision_domain
     for path in [
         "/base_revision",
         "/next_revision",
-        "/targets/guardian-a/old_projection/policy_revision",
-        "/targets/guardian-a/new_projection/policy_revision",
+        "/targets/exec-usdm-a/old_projection/policy_revision",
+        "/targets/exec-usdm-a/new_projection/policy_revision",
     ] {
         for value in [
             json!("0"),
@@ -234,7 +234,7 @@ fn decimal_and_baseline_bindings_are_strict_without_reducing_the_revision_domain
     for path in [
         "/base_hash",
         "/candidate_hash",
-        "/targets/guardian-a/old_projection/projection_hash",
+        "/targets/exec-usdm-a/old_projection/projection_hash",
     ] {
         for value in [
             "sha256:AA",
@@ -271,7 +271,7 @@ fn recomputation_rejects_structurally_valid_forgery_even_with_a_matching_digest(
                 v["targets"].as_object_mut().unwrap().remove("md-spot-a");
             }
             1 => {
-                v["targets"]["guardian-a"]["old_projection"]["projection_hash"] =
+                v["targets"]["exec-usdm-a"]["old_projection"]["projection_hash"] =
                     format!("sha256:{}", "a".repeat(64)).into()
             }
             2 => {
@@ -279,12 +279,12 @@ fn recomputation_rejects_structurally_valid_forgery_even_with_a_matching_digest(
                     (!original["requires_risk_admin"].as_bool().unwrap()).into()
             }
             3 => {
-                v["targets"]["guardian-a"]["changes"][1] =
+                v["targets"]["exec-usdm-a"]["changes"][1] =
                     "/observability/sample_per_million".into()
             }
             _ => {
-                v["targets"]["guardian-a"]["action"] = "Hot".into();
-                v["targets"]["guardian-a"]["required_class"] = "Hot".into();
+                v["targets"]["exec-usdm-a"]["action"] = "Hot".into();
+                v["targets"]["exec-usdm-a"]["required_class"] = "Hot".into();
             }
         }
         let bytes = canonical(&v);
@@ -314,11 +314,11 @@ fn target_side_identity_and_required_runtime_guards_cannot_be_removed() {
     for (path, value) in [
         ("/targets", json!({})),
         ("/options/requested_target_ids", json!(["unknown-target"])),
-        ("/targets/guardian-a/action", json!("Hot")),
-        ("/targets/guardian-a/old_projection", json!(null)),
-        ("/targets/guardian-a/new_host", json!(null)),
+        ("/targets/exec-usdm-a/action", json!("Hot")),
+        ("/targets/exec-usdm-a/old_projection", json!(null)),
+        ("/targets/exec-usdm-a/new_host", json!(null)),
         (
-            "/targets/guardian-a/old_projection/global_hash",
+            "/targets/exec-usdm-a/old_projection/global_hash",
             json!(format!("sha256:{}", "f".repeat(64))),
         ),
         ("/required_class", json!("ForbiddenRuntime")),
@@ -328,7 +328,7 @@ fn target_side_identity_and_required_runtime_guards_cannot_be_removed() {
         rejected(&v);
     }
     let mut v = original.clone();
-    v["targets"]["guardian-a"]["preconditions"]
+    v["targets"]["exec-usdm-a"]["preconditions"]
         .as_array_mut()
         .unwrap()
         .retain(|p| p != "RuntimeCapability");
@@ -379,7 +379,7 @@ fn every_emitted_lifecycle_action_and_explicit_options_can_be_read_back() {
                     ApplyCeiling::RollingRestart
                 },
                 exposure_policy,
-                requested_target_ids: ["guardian-a".into()].into(),
+                requested_target_ids: ["exec-usdm-a".into()].into(),
             };
             let plan = ComputedPlan::compute(1, &old, &p, &d, options.clone()).unwrap();
             let encoded = EncodedPlan::decode(plan.canonical_bytes(), plan.digest()).unwrap();
@@ -423,7 +423,6 @@ fn body_budget_depth_truncation_duplicate_escaped_keys_and_hash_mismatch_are_rej
 fn rules_identity_matches_the_declared_files_in_the_actual_workspace() {
     use sha2::{Digest, Sha256};
     let files = [
-        ".cargo/config.toml",
         "Cargo.lock",
         "Cargo.toml",
         "crates/tickwire-config/Cargo.toml",
@@ -441,7 +440,7 @@ fn rules_identity_matches_the_declared_files_in_the_actual_workspace() {
         "crates/tickwire-config/src/strict.rs",
         "crates/tickwire-config/src/validation.rs",
         "rust-toolchain.toml",
-        "specs/contracts/control-api.openapi.json",
+        "specs/contracts/config-patch.schema.json",
         "specs/contracts/system-config.schema.json",
     ];
     assert!(files.windows(2).all(|p| p[0] < p[1]));

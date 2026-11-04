@@ -131,7 +131,7 @@ fn market_fixture() -> (
     (built.resource().clone(), replica, bytes)
 }
 
-fn object(dir: &Path, bytes: &[u8]) -> tickwire_strategy_sdk::preflight::ObjectFile {
+fn object(dir: &Path, bytes: &[u8]) -> tickwire_release::files::ObjectFile {
     use std::io::Write;
     let o = Object::of(bytes);
     let p = dir.join(
@@ -144,7 +144,7 @@ fn object(dir: &Path, bytes: &[u8]) -> tickwire_strategy_sdk::preflight::ObjectF
     f.write_all(bytes).unwrap();
     f.sync_all().unwrap();
     std::fs::File::open(dir).unwrap().sync_all().unwrap();
-    tickwire_strategy_sdk::preflight::ObjectFile { path: p, object: o }
+    tickwire_release::files::ObjectFile { path: p, object: o }
 }
 struct Temp(PathBuf);
 impl Drop for Temp {
@@ -175,8 +175,9 @@ fn replay_from_image(sealed: bool) {
         .mode(0o700)
         .create(&temp.0)
         .unwrap();
-    let worker = env!("CARGO_BIN_EXE_tickwire-counting-v1-worker");
-    let binary = tickwire_recovery::digest(&std::fs::read(worker).unwrap());
+    let worker = temp.0.join("worker-image");
+    std::fs::copy(env!("CARGO_BIN_EXE_tickwire-counting-v1-worker"), &worker).unwrap();
+    let binary = tickwire_recovery::digest(&std::fs::read(&worker).unwrap());
     let (resource, replica, raw) = market_fixture();
     let stream = market_stream(&resource).unwrap();
     let mut command = test_command::command();
@@ -317,8 +318,7 @@ fn replay_from_image(sealed: bool) {
     let job_path = temp.0.join("job.json");
     std::fs::write(&job_path, job.bytes().unwrap()).unwrap();
     let image = sealed.then(|| {
-        tickwire_control_sys::ExecutableImage::open(Path::new(worker), tickwire_release::MAX_BINARY)
-            .unwrap()
+        tickwire_control_sys::ExecutableImage::open(&worker, tickwire_release::MAX_BINARY).unwrap()
     });
     let mut child = if let Some(image) = &image {
         image
@@ -327,7 +327,7 @@ fn replay_from_image(sealed: bool) {
             })
             .unwrap()
     } else {
-        Command::new(worker)
+        Command::new(&worker)
             .arg("--source-replay")
             .arg(&job_path)
             .spawn()

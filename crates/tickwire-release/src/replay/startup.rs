@@ -106,8 +106,8 @@ pub(crate) fn verify_at(
         .verify(&cp, MAX_BYTES as u64)?;
     let inputs = get(seal.input_digest)?;
     let account = get(seal.account_input_digest)?;
-    let callbacks =
-        tickwire_handover::verify(&seal, &cp, &inputs, &account).map_err(|_| Error::Identity)?;
+    let callbacks = crate::account_inputs::verify(&seal, &cp, &inputs, &account)
+        .map_err(|_| Error::Identity)?;
     if callbacks.baseline().snapshot().scope.risk_domain_id != c.member.risk_domain {
         return Err(Error::Identity);
     }

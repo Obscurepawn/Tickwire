@@ -135,8 +135,6 @@ impl FileBlobStore {
             StoreKey::Object(h) => ("object", h),
             StoreKey::Manifest(h) => ("manifest", h),
             StoreKey::Binding(h) => ("binding", h),
-            StoreKey::ReplicaEntry(h) => ("replica-entry", h),
-            StoreKey::ReplicaStream(h) => ("replica-stream", h),
         };
         let hex: String = hash.iter().map(|b| format!("{b:02x}")).collect();
         self.root.join(format!("{tag}-{hex}"))
@@ -173,8 +171,6 @@ impl BlobStore for FileBlobStore {
             StoreKey::Object(_) => MAX_OBJECT_BYTES,
             StoreKey::Manifest(_) => MAX_MANIFEST_BYTES,
             StoreKey::Binding(_) => 32,
-            StoreKey::ReplicaEntry(_) => 65536,
-            StoreKey::ReplicaStream(_) => 65536,
         };
         if bytes.is_empty() || bytes.len() > limit {
             return Err(Error::Capacity);

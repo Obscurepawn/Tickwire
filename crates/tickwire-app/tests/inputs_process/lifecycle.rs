@@ -1,11 +1,9 @@
-use super::{Fixture, approved, fixture::write, inputs, worker};
-use tickwire_app::strategy::{AppStrategy, MultiStrategy};
+use super::{Fixture, approved, worker};
 use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_market_source::{
     protocol::{Instrument, wire_bytes},
     transition::{Approval, Commit},
 };
-use tickwire_runtime::node::{Strategy, StrategySwitch};
 
 fn approval(f: &Fixture) -> Approval {
     let before = f.bootstrap.external_market.as_ref().unwrap().clone();
@@ -122,122 +120,5 @@ fn scope_proof_rejects_arm_and_direct_commit_before_host_dispatch() {
     println!(
         "{}",
         serde_json::json!({"case":"input_mutations_rejected","pid":consumer.pid,"operation_id":a.operation_id,"valid_arm":true,"valid_commit":true,"arm_dispatched":false,"commit_dispatched":false,"continued_market_sequence":seq})
-    );
-}
-
-fn unscoped_shadow(f: &mut Fixture) {
-    let mut local = f.bootstrap.market.local.clone();
-    local.instance = [22; 16];
-    local.generation = 2;
-    for endpoint in [
-        &mut f.bootstrap.market,
-        &mut f.bootstrap.intent,
-        &mut f.bootstrap.report,
-    ] {
-        endpoint.local = local.clone();
-    }
-    f.bootstrap.external_market.as_mut().unwrap().endpoint.local = local.clone();
-    for raw in [
-        &mut f.bootstrap.intent_header,
-        &mut f.bootstrap.report_header,
-    ] {
-        let mut bank = ResourceHeader::decode(raw).unwrap();
-        if bank.resource_kind == 2 {
-            bank.producer_instance = local.instance;
-            bank.producer_generation = local.generation;
-        } else {
-            bank.consumer_instance = local.instance;
-        }
-        bank.descriptor_hash = [0; 32];
-        *raw = wire_bytes(&bank).unwrap();
-    }
-    #[derive(serde::Serialize, serde::Deserialize)]
-    struct Parameters {
-        schema: u16,
-        enabled: bool,
-        minimum_observations: u64,
-        minimum_bid_ticks: i64,
-        command: Vec<u8>,
-    }
-    let mut parameters: Parameters = serde_json::from_slice(&f.params).unwrap();
-    let command = inputs::command(&f.bootstrap, &f.market.instrument, f.market.now().nanos());
-    parameters.command = command.bytes().to_vec();
-    f.params = serde_json::to_vec(&parameters).unwrap();
-    f.bootstrap.factory.as_mut().unwrap().configuration = tickwire_release::Object::of(&f.params);
-    write(&f.root.join("parameters.json"), &f.params);
-    write(
-        &f.root.join("bootstrap.json"),
-        &serde_json::to_vec(&f.bootstrap).unwrap(),
-    );
-    approved::bind(f, false, approved::Extra::None);
-    f.host["projection_inputs"] = serde_json::Value::Null;
-    f.host["shadow"] = true.into();
-}
-#[test]
-#[ignore = "requires fixed release TICKWIRE_INPUTS_WORKER; actual two-worker Multi routing"]
-fn multi_cannot_activate_unscoped_shadow_past_scoped_active() {
-    let mut active = Fixture::new(&worker(), 1, 100);
-    approved::bind(&mut active, false, approved::Extra::None);
-    let mut old = approved::build(&active).unwrap();
-    active.seed(&mut *old);
-    let mut shadow = Fixture::new(&worker(), 1, 100);
-    unscoped_shadow(&mut shadow);
-    let mut next = approved::build(&shadow).unwrap();
-    shadow.seed(&mut *next);
-    let old_pid = old
-        .observation_process(active.target())
-        .unwrap()
-        .process()
-        .pid;
-    let new_pid = next
-        .observation_process(shadow.target())
-        .unwrap()
-        .process()
-        .pid;
-    assert_ne!(old_pid, new_pid);
-    let mut multi = MultiStrategy::new_modes(
-        vec![(1, false, old), (1, true, next)],
-        approved::policy(&active),
-    )
-    .unwrap();
-    approved::prove(&active, &mut multi);
-    assert!(multi.projection_inputs(shadow.target()).is_none());
-    let switch = StrategySwitch {
-        logical_strategy_id: 1,
-        old_instance: active.target().instance,
-        old_generation: 1,
-        new_instance: shadow.target().instance,
-        new_generation: 2,
-    };
-    assert!(!multi.handover_quiesce(&switch));
-    assert!(!multi.handover_activate(&switch));
-    // Existing Multi semantics may shadow/quiesce both members on a failed
-    // attempt; this asserts fail-closed delivery, not a side-effect-free call.
-    assert_eq!(
-        multi
-            .observation_process(active.target())
-            .unwrap()
-            .process()
-            .pid,
-        old_pid
-    );
-    assert_eq!(
-        multi
-            .observation_process(shadow.target())
-            .unwrap()
-            .process()
-            .pid,
-        new_pid
-    );
-    let seq = shadow.market.publish(100);
-    shadow.wait_durable(|c| c.runtime.markets[0].sequence >= seq);
-    for _ in 0..3 {
-        assert!(active.next_ready(&mut multi).is_none());
-    }
-    assert!(!multi.failed());
-    assert!(multi.projection_inputs(active.target()).is_some());
-    println!(
-        "{}",
-        serde_json::json!({"case":"input_multi_handover_closed","old_pid":old_pid,"new_pid":new_pid,"old_instance":switch.old_instance,"new_instance":switch.new_instance,"quiesced":false,"activated":false,"delivered":false,"members_may_be_shadowed":true})
     );
 }

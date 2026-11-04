@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$ref": "#/$defs/ScopedPatch",
+  "$defs": {
+    "ScopedPatch": {
+      "type": "object",
+      "properties": {
+        "base_etag": {
+          "type": "string",
+          "pattern": "^\"cfg-[1-9][0-9]*-[0-9a-f]{64}\"$"
+        },
+        "changes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PatchChange"
+          },
+          "minItems": 1,
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "base_etag",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    "PatchChange": {
+      "type": "object",
+      "properties": {
+        "op": {
+          "type": "string",
+          "enum": [
+            "add",
+            "replace",
+            "remove"
+          ]
+        },
+        "selector": {
+          "$ref": "#/$defs/PatchSelector"
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^(/[a-z][a-z0-9_]*)+$"
+        },
+        "value": {}
+      },
+      "required": [
+        "op",
+        "selector",
+        "path"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "enum": [
+                  "add",
+                  "replace"
+                ]
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "value"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "op": {
+                "const": "remove"
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "required": [
+                "value"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "PatchSelector": {
+      "type": "object",
+      "properties": {
+        "collection": {
+          "type": "string",
+          "enum": [
+            "accounts",
+            "risk_policies",
+            "strategies",
+            "strategy_risk_budgets",
+            "venues",
+            "processes"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "account_id": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "collection",
+        "id"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "collection": {
+                "const": "strategy_risk_budgets"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "account_id"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

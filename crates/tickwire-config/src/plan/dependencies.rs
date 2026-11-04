@@ -32,7 +32,7 @@ fn affected(change: &Change, p: &Value, root: &Value) -> bool {
     let group = path.first().map(String::as_str).unwrap_or("");
     let id = path.get(1).and_then(|s| s.strip_prefix('@'));
     match group {
-        "identity" | "control" | "replication" | "qualification" => true,
+        "identity" | "control" | "qualification" => true,
         "hosts" => matches(&p["host"], id, "id"),
         "processes" => process_dependency(p, root, id),
         "strategies" => strategy_dependency(change, p, root, id),
@@ -101,17 +101,11 @@ fn process_dependency(p: &Value, root: &Value, id: Option<&str>) -> bool {
                 return true;
             }
             let id = &process["id"];
-            rows(root, "accounts").any(|a| {
-                let owns = a["exec_process_id"] == *id
-                    || a["standby_exec_process_id"] == *id
-                    || a["guardian_process_ids"]
-                        .as_array()
-                        .is_some_and(|v| v.contains(id));
-                owns && (has(p, "account_views", a["id"].as_str())
-                    || p["process"]["role"] == "replicator")
-            }) || rows(&root["ipc"], "topics").any(|t| {
-                (t["publisher_process_id"] == *id || t["standby_publisher_process_id"] == *id)
-                    && rows(&p["ipc"], "topics").any(|own| own["id"] == t["id"])
-            })
+            rows(root, "accounts")
+                .any(|a| a["exec_process_id"] == *id && has(p, "account_views", a["id"].as_str()))
+                || rows(&root["ipc"], "topics").any(|t| {
+                    t["publisher_process_id"] == *id
+                        && rows(&p["ipc"], "topics").any(|own| own["id"] == t["id"])
+                })
         })
 }

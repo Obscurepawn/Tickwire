@@ -126,10 +126,6 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
                 )?;
             }
         }
-        check_that(
-            string(h, "role")? != "control-only" || role == "supervisor",
-            "control_host_role",
-        )?;
         let total = memory.entry(host).or_default();
         *total = add(*total, number(p, "memory_limit_bytes")?)?;
     }
@@ -157,35 +153,14 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
         let policy = lookup(&policies, &a["risk_policy_id"])?;
         check_that(
             owners.insert((
+                string(venue, "venue")?,
                 string(venue, "product")?,
                 string(a, "account_identity_ref")?,
             )),
             "duplicate_account_owner",
         )?;
         let owner = lookup(&procs, &a["exec_process_id"])?;
-        let standby = lookup(&procs, &a["standby_exec_process_id"])?;
-        check_that(
-            string(owner, "role")? == "exec"
-                && string(standby, "role")? == "exec"
-                && string(owner, "activation")? == "active"
-                && string(standby, "activation")? == "standby",
-            "executor_role",
-        )?;
-        check_that(
-            lookup(&hosts, &owner["host_id"])?["failure_domain"]
-                != lookup(&hosts, &standby["host_id"])?["failure_domain"],
-            "replica_failure_domain",
-        )?;
-        check_that(
-            standby["host_id"] == c["replication"]["receiver_host_id"],
-            "replica_host",
-        )?;
-        for guardian in array(a, "guardian_process_ids")? {
-            check_that(
-                string(lookup(&procs, guardian)?, "role")? == "guardian",
-                "guardian_role",
-            )?;
-        }
+        check_that(string(owner, "role")? == "exec", "executor_role")?;
         let spot = string(venue, "product")? == "Spot";
         for field in ["position_mode", "margin_mode", "asset_mode"] {
             check_that(
@@ -220,26 +195,14 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
     let mut processes = BTreeSet::new();
     let mut consumers: BTreeMap<String, u64> = BTreeMap::new();
     let mut pairs = 0u64;
-    let mut active = 0usize;
-    let mut shadow = 0usize;
     for strategy in array(c, "strategies")? {
         let p = lookup(&procs, &strategy["process_id"])?;
-        let role = string(strategy, "role")?;
+        check_that(string(p, "role")? == "strategy", "strategy_role")?;
         check_that(
-            string(p, "role")? == "strategy"
-                && string(p, "activation")? == role.to_ascii_lowercase(),
-            "strategy_role",
-        )?;
-        check_that(
-            states.insert((id(&strategy["logical_strategy_id"])?, role))
+            states.insert(id(&strategy["logical_strategy_id"])?)
                 && processes.insert(string(strategy, "process_id")?),
             "strategy_identity",
         )?;
-        if role == "Active" {
-            active += 1;
-        } else {
-            shadow += 1;
-        }
         let account_ids = ids(array(strategy, "account_ids")?)?;
         let budgets = keyed(array(strategy, "risk_budgets")?, "account_id")?;
         check_that(
@@ -281,16 +244,12 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
             "strategy_payload",
         )?;
     }
-    check_that(active <= 16 && shadow <= 16, "strategy_capacity")?;
     for (key, topic) in &topics {
         let publisher = lookup(&procs, &topic["publisher_process_id"])?;
-        let standby = lookup(&procs, &topic["standby_publisher_process_id"])?;
+        check_that(string(publisher, "role")? == "md", "publisher_role")?;
         check_that(
-            string(publisher, "role")? == "md"
-                && string(standby, "role")? == "md"
-                && publisher["activation"] == "active"
-                && standby["activation"] == "standby",
-            "publisher_role",
+            lookup(&venues, &topic["venue_id"])?["product"] == topic["product"],
+            "topic_product",
         )?;
         check_that(
             add(*consumers.get(key).unwrap_or(&0), accounts.len() as u64)?
@@ -298,7 +257,7 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
             "consumer_capacity",
         )?;
     }
-    let resources = resources(ipc, &topics, pairs, accounts.len() as u64, active + shadow)?;
+    let resources = resources(ipc, &topics, pairs, accounts.len() as u64, processes.len())?;
     for h in hosts.values() {
         if string(h, "role")? == "trading" {
             check_that(
@@ -308,37 +267,12 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
         }
     }
     let control = &c["control"];
-    let voters = keyed(array(control, "voters")?, "node_id")?;
-    let mut voter_hosts = BTreeSet::new();
-    let mut voter_domains = BTreeSet::new();
-    for v in voters.values() {
-        let host = lookup(&hosts, &v["host_id"])?;
-        voter_hosts.insert(string(host, "id")?);
-        voter_domains.insert(string(host, "failure_domain")?);
-    }
-    check_that(
-        voters.len() == 3 && voter_hosts.len() == 3 && voter_domains.len() == 3,
-        "voter_failure_domains",
-    )?;
     for (object, fields) in [
         (ipc, &["resource_heartbeat_ms", "resource_session_ms"][..]),
         (
             control,
-            &[
-                "exec_grant_renew_ms",
-                "exec_grant_lifetime_ms",
-                "strategy_grant_lifetime_ms",
-            ],
-        ),
-        (
-            control,
             &["strategy_progress_interval_ms", "strategy_suspect_after_ms"],
         ),
-        (
-            control,
-            &["heartbeat_ms", "election_min_ms", "election_max_ms"],
-        ),
-        (&c["replication"], &["lag_warn_ms", "lag_freeze_ms"]),
         (&c["journal"], &["disk_warn_percent", "disk_freeze_percent"]),
         (&c["timeouts"], &["reconnect_min_ms", "reconnect_max_ms"]),
     ] {
@@ -349,10 +283,6 @@ pub(crate) fn check(c: &Value) -> Result<Resources> {
             )?;
         }
     }
-    check_that(
-        number(control, "tick_ms")? <= number(control, "heartbeat_ms")?,
-        "raft_tick",
-    )?;
     for binding in array(control, "role_bindings")? {
         for account in array(binding, "account_ids")? {
             lookup(&accounts, account)?;

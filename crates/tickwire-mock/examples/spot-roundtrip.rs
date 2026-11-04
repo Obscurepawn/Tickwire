@@ -131,11 +131,8 @@ fn run_scenario() -> (usize, i128, i128, bool) {
         config_revision: 1,
         deadline: 90,
         recovery_object: 1,
-        commit_profile: CommitProfile::LocalDurable,
     };
-    services
-        .submit(request, CommitProfile::LocalDurable)
-        .unwrap();
+    services.submit(request).unwrap();
     assert_eq!(services.engine.held(), budget);
     assert_eq!(services.journal.committed().len(), 1);
     let fill = Fill {

@@ -45,9 +45,9 @@ pub struct Bootstrap {
     /// Default false; a supplied canonical order is emitted at most once.
     #[serde(default)]
     pub recovery_template: Option<PathBuf>,
-    /// Produce synchronized actual handover evidence after account callbacks.
-    #[serde(default)]
-    pub handover_enabled: bool,
+    /// Publish local strategy checkpoints after ordered account callbacks.
+    #[serde(default, alias = "handover_enabled")]
+    pub publish_checkpoints: bool,
     /// Private loader-written job. If present, normal un-restored startup is rejected.
     #[serde(default)]
     pub preflight_job: Option<PathBuf>,

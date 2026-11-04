@@ -5,8 +5,8 @@ cd "$(dirname "$0")/.."
 repo_dir="$PWD"
 scenario="${1:-spot-fill}"
 profile="${2:-dev}"
-if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill && "$scenario" != spot-handover && "$scenario" != spot-handover-custom && "$scenario" != spot-market-expansion && "$scenario" != spot-rebuild-custom ]] || [[ "$profile" != dev && "$profile" != release ]]; then
-  printf 'Usage: %s [spot-fill|spot-handover|spot-handover-custom|spot-market-expansion|spot-rebuild-custom] [dev|release]\n' "$0" >&2
+if [[ $# -gt 2 ]] || [[ "$scenario" != spot-fill ]] || [[ "$profile" != dev && "$profile" != release ]]; then
+  printf 'Usage: %s [spot-fill] [dev|release]\n' "$0" >&2
   exit 2
 fi
 run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
@@ -39,7 +39,7 @@ docker run --rm --init --name "$container_name" --label tickwire.task=core-chain
     set -euo pipefail
     save_logs() {
       if test -d /lab/run/logs; then cp -a /lab/run/logs /results/; fi
-      for name in run-result.json account-report.json fixture.jsonl market-expanded.json; do
+      for name in run-result.json account-report.json fixture.jsonl; do
         if test -f "/lab/run/$name"; then cp "/lab/run/$name" /results/; fi
       done
     }
@@ -58,9 +58,9 @@ docker run --rm --init --name "$container_name" --label tickwire.task=core-chain
       build_directory=/target/release
     fi
     cargo build "${build_options[@]}" --locked -p tickwire-lab -p tickwire-app -p tickwire-md \
-      -p tickwire-strategy-sdk -p tickwire-strategy-example -p tickwire-replica -p tickwire-lifecycle --bins
+      -p tickwire-strategy-sdk -p tickwire-strategy-example --bins
     mkdir /lab/bin
-    for name in tickwire-lab tickwire-app tickwire-md tickwire-strategy-worker tickwire-replica-receiver tickwire-lifecycle tickwire-counting-v1-worker tickwire-counting-worker; do
+    for name in tickwire-lab tickwire-app tickwire-md tickwire-strategy-worker tickwire-counting-v1-worker tickwire-counting-worker; do
       install -m 0755 "$build_directory/$name" "/lab/bin/$name"
       strip --strip-debug "/lab/bin/$name"
     done

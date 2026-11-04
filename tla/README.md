@@ -1,13 +1,11 @@
 # Tickwire TLA+ models
 
-The [model inventory](ROADMAP.md) identifies the source revision, state domain, failure assumptions and result for each layer. The models cover order submission and outcomes, shared rings, control requests, journals, recovery closures and order books. Each directory includes the specification, configuration, source mapping and recorded run.
-
-Run the checker from the workspace root.
+From the workspace root, run the order submission models.
 
 ```sh
-./scripts/check-tla.sh
+./scripts/check-tla.sh submission
 ```
 
-The script verifies the checksum of TLC 1.7.4, takes a temporary copy of each model and runs its configurations with one worker and action coverage. A successful configuration exhausts the search queue. The coverage check uses generated action counts across the configurations of one model. These counts describe model transitions. Rust source coverage has a separate measurement.
+The runner checks the checksum of the pinned TLC distribution, copies the models and their configurations to a temporary directory and checks each configuration with one worker. A completed run reports zero states left on the queue. After the last configuration for a model, the coverage report lists the number of successors generated for each action.
 
-When an implementation changes, compare the code against `02_models/anchors.lock` and the model's abstraction notes before applying an earlier result to the new revision.
+Pass another [model family](ROADMAP.md) to select a different boundary. Run `./scripts/check-tla.sh` for all families. When the Rust implementation changes, check the model's abstractions and the source revision recorded beside its anchors before using a past result.

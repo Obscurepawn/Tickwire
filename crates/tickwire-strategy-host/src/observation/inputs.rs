@@ -165,8 +165,8 @@ pub(crate) fn extract(
             bytes: seal.account_input_bytes,
         },
     )?;
-    let verified =
-        tickwire_handover::verify(seal, raw, inputs, account).map_err(|_| Error::Invalid)?;
+    let verified = tickwire_release::account_inputs::verify(seal, raw, inputs, account)
+        .map_err(|_| Error::Invalid)?;
     let view = &views.accounts()[0];
     let source = &checkpoint.source;
     let bank = &report.header;

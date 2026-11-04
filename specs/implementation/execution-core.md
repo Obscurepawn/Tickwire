@@ -5,7 +5,7 @@
 ## Order lifecycle
 
 * Reserve `quantity × unit_budget + fee_budget` as one checked change. Bind the account domain, intent, recovery object, authorization version, deadline and commit mode.
-* Accept a receipt only for the exact durable record. Local mode requires local durability. Explicit synchronous mode also requires the replica's durable receipt for that record. A receipt cannot downgrade the request.
+* Accept a receipt only for the exact durable record. The receipt carries the local durability result and the original request and sequence.
 * Set the order to `MayHaveSent` **before** calling an exchange adapter. The transport can then prove that no bytes were accepted, remain pending, acknowledge the request or report uncertainty. Pending responses allow other orders within budget. A timeout cannot authorize automatic resubmission. Explicit uncertainty freezes new risk.
 * Record fills and charges by their separate fact IDs. A later smaller fill ID can still be new. `spent` includes actual expenditure and fees. `held` covers remaining executable quantity, cumulative terminal fills still missing details, and outstanding fee allowance. Releasing an unsent order’s fee budget increments `fee_released`, not `fees_paid`. A fee report contradicts a later no-bytes claim even if the fee was zero.
 * Keep real facts even when actual spend exceeds capital. Available funds can become negative, and new risk closes. Conflicting events, exhausted deduplication capacity or unrepresentable facts freeze the pool without partially updating order or balance fields.

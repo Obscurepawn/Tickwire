@@ -12,7 +12,7 @@ For Binance, configure a feed in `config` and its sequence and socket owner in `
 
 For Bybit or OKX, start with the native frame and the exact price and size conversion in the spot session. The shared publisher accepts the normalized quote only for the configured venue, symbol, scales and current epoch. JOIN authenticates the child, request and topic before handing over read descriptors. Exercise a reconnect and a late subscriber with a genuine socket and shared memory. [Spot session](src/spot_quotes.rs) · [Spot process](src/spot_market.rs) · [Admission service](src/server.rs)
 
-Specifications include [binance market events](../../specs/implementation/binance-market-events.md), [instrument catalog](../../specs/implementation/instrument-catalog.md), [market expansion](../../specs/implementation/market-expansion.md), [strategy graceful retirement](../../specs/implementation/strategy-graceful-retirement.md).
+Specifications include [binance market events](../../specs/implementation/binance-market-events.md), [instrument catalog](../../specs/implementation/instrument-catalog.md), [market expansion](../../specs/implementation/market-expansion.md).
 
 ```sh
 cargo test --locked -p tickwire-md --all-targets

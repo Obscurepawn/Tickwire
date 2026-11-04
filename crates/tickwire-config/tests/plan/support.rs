@@ -50,11 +50,7 @@ pub(super) fn policy(v: &Value) -> Value {
                         .as_array()
                         .unwrap()
                         .contains(&a["id"]),
-                    "exec" => a["exec_process_id"] == id || a["standby_exec_process_id"] == id,
-                    "guardian" => a["guardian_process_ids"]
-                        .as_array()
-                        .unwrap()
-                        .contains(&p["id"]),
+                    "exec" => a["exec_process_id"] == id,
                     _ => false,
                 })
                 .collect();
@@ -67,9 +63,7 @@ pub(super) fn policy(v: &Value) -> Value {
                         .as_array()
                         .unwrap()
                         .contains(&t["id"]),
-                    "md" => {
-                        t["publisher_process_id"] == id || t["standby_publisher_process_id"] == id
-                    }
+                    "md" => t["publisher_process_id"] == id,
                     _ => false,
                 })
                 .collect();
@@ -79,15 +73,13 @@ pub(super) fn policy(v: &Value) -> Value {
                 .iter()
                 .filter(|venue| {
                     accounts.iter().any(|a| a["venue_id"] == venue["id"])
-                        || topics.iter().any(|t| t["product"] == venue["product"])
+                        || topics.iter().any(|t| t["venue_id"] == venue["id"])
                 })
                 .map(|v| v["id"].clone())
                 .collect();
             let purposes: &[&str] = match role {
-                "supervisor" => &["control"],
-                "replicator" => &["replication"],
                 "exec" => &["execution"],
-                "guardian" => &["guardian"],
+
                 "md" => &["market-data"],
                 _ => &[],
             };

@@ -1,15 +1,12 @@
 //! Strategy-owned market replica and canonical-command SPSC publication.
 #![deny(unsafe_code)]
+pub mod account_checkpoint;
 pub mod bootstrap;
-pub mod capture;
-mod capture_worker;
 pub mod catalog;
 pub mod checkpoint;
-pub mod handover;
 pub mod market;
 pub mod market_transition;
 pub mod outbound;
-pub mod preflight;
 pub mod recovery;
 pub mod registered;
 pub mod replay;
@@ -125,22 +122,6 @@ from!(replay::Error, Replay);
 /// }
 /// ```
 pub trait Strategy {
-    /// A registered target factory executes migration at the verified old cut.
-    /// Returning a candidate grants neither installation nor output authority.
-    fn prepare_replayed(
-        &self,
-        _release: &tickwire_release::MemberRelease<'_>,
-        _target: restore::Target,
-        _proof: &tickwire_release::replay::source::VerifiedSourceReplay,
-        _source: tickwire_release::replay::Source,
-        _config: tickwire_release::replay::VersionedBytes,
-    ) -> replay::Result<replay::install::Candidate<Self>>
-    where
-        Self: Sized,
-    {
-        Err(replay::Error::Unsupported)
-    }
-
     /// None preserves the old callback API, without claiming complete-tail replay.
     fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
         Ok(None)
@@ -210,23 +191,6 @@ pub trait Strategy {
 #[derive(Default)]
 pub struct ObserveOnly;
 impl Strategy for ObserveOnly {
-    fn prepare_replayed(
-        &self,
-        release: &tickwire_release::MemberRelease<'_>,
-        target: restore::Target,
-        proof: &tickwire_release::replay::source::VerifiedSourceReplay,
-        source: tickwire_release::replay::Source,
-        config: tickwire_release::replay::VersionedBytes,
-    ) -> replay::Result<replay::install::Candidate<Self>> {
-        replay::install::prepare(
-            &restore::ObserveFactory,
-            release,
-            target,
-            proof,
-            source,
-            config,
-        )
-    }
     fn apply_config(
         &mut self,
         bytes: &[u8],

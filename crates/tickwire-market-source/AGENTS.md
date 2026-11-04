@@ -6,7 +6,7 @@ Bind each view to the current topic, generation, source and catalog. Exercise a 
 
 [Crate API](src/lib.rs) · [replica dense](tests/replica_dense.rs)
 
-Specifications include [binance market events](../../specs/implementation/binance-market-events.md), [instrument index](../../specs/implementation/instrument-index.md), [join](../../specs/implementation/join.md), [market expansion](../../specs/implementation/market-expansion.md), [strategy graceful retirement](../../specs/implementation/strategy-graceful-retirement.md).
+Specifications include [binance market events](../../specs/implementation/binance-market-events.md), [instrument index](../../specs/implementation/instrument-index.md), [join](../../specs/implementation/join.md), [market expansion](../../specs/implementation/market-expansion.md).
 
 ```sh
 cargo test --locked -p tickwire-market-source --all-targets

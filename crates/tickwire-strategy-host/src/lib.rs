@@ -24,16 +24,11 @@ use tickwire_strategy_sdk::{
     worker,
 };
 use tickwire_supervisor::{AuthenticatedChild, LaunchSpec, Registry};
-pub mod capture;
 mod market_transition;
 mod observation;
-mod preflight;
 mod readiness;
-pub mod rebuild;
-pub mod rebuild_probe;
 mod remote;
 mod resources;
-mod source_replay;
 pub use observation::{
     FreshObservation, ObservationRequest, ObservedAccountInput, ObservedConfiguration,
     ObservedInputs, ObservedJoin, ObservedMarketInput, ObservedReportInput,
@@ -41,30 +36,6 @@ pub use observation::{
 pub use remote::{RemoteHostedStrategy, RemoteLaunch};
 pub use resources::{GroupResources, ProcessResources};
 type Reports = ReportWriter<tickwire_recovery::FileBlobStore>;
-
-fn retire_owned_child(registry: &mut Registry, instance: [u8; 16]) -> Result<()> {
-    let exited = registry.terminate(instance)?;
-    eprintln!(
-        "{}",
-        serde_json::json!({"event":"strategy_retired","instance":exited.instance(),
-            "generation":exited.generation(),"worker_pid":exited.pid(),"exit_status":exited.status().to_string()})
-    );
-    Ok(())
-}
-
-#[cfg(test)]
-mod retirement_tests {
-    use super::*;
-
-    #[test]
-    fn retirement_requires_an_actual_owned_child_exit() {
-        let mut registry = Registry::new(1).unwrap();
-        assert!(matches!(
-            retire_owned_child(&mut registry, [7; 16]),
-            Err(Error::Supervisor(tickwire_supervisor::Error::Identity))
-        ));
-    }
-}
 
 #[derive(Debug)]
 pub enum Error {
@@ -391,6 +362,9 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
     instrument: u64,
     instrument_version: u64,
 ) -> Result<Started<R, M>> {
+    if config.bootstrap.preflight_job.is_some() {
+        return Err(Error::Invalid);
+    }
     resources::validate(config.resources.as_ref())?;
     if config.spec.uid != config.parent_process.uid
         || config.spec.gid != config.parent_process.gid
@@ -506,7 +480,6 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         write_json(&config.bootstrap.join_file, &bootstrap)?;
         Ok(j)
     })?;
-    preflight::prepare(&config.bootstrap, &config.spec)?;
     write_json(&config.bootstrap_file, &config.bootstrap)?;
     config.spec.arguments = vec![
         "--bootstrap".into(),
@@ -517,7 +490,6 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         &mut registry,
         config.spec.clone(),
         config.resources.as_ref(),
-        resources::Purpose::Worker,
     )?;
     let mut market = registry.accept(
         &market_listener,
@@ -740,11 +712,7 @@ pub unsafe fn launch<R: RecoveryResolver + 'static, const M: usize>(
         Box::new(move |n| sink.notice(n));
     let strategy = RuntimeStrategy::new(receiver, resolver, callback);
     Ok(Started {
-        readiness: readiness::ReadyProof::new(
-            &config.bootstrap,
-            &config.spec,
-            config.resources.clone(),
-        )?,
+        readiness: readiness::ReadyProof::new(&config.bootstrap, config.resources.clone())?,
         report_sub,
         reports,
         publisher,
@@ -795,10 +763,6 @@ pub struct HostedStrategy<R, const M: usize> {
     error: Option<Error>,
     logical_strategy_id: u64,
     identity: ([u8; 16], u64),
-    forwarding: bool,
-    domain: tickwire_clock::ClockDomain,
-    rotation: Option<Box<dyn RotationSource<R, M>>>,
-    retired: Vec<tickwire_join::JoinOwner<M>>,
 }
 impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
     /// # Safety
@@ -833,16 +797,12 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
                 config.spec.identity.instance,
                 config.spec.identity.generation,
             ),
-            forwarding: true,
-            domain,
             launch: Some(config),
             resolver: Some(resolver),
             started: None,
             instrument,
             version,
             error: None,
-            rotation: None,
-            retired: Vec::new(),
         })
     }
     pub fn error(&self) -> Option<&Error> {
@@ -854,9 +814,6 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
                 .started
                 .as_ref()
                 .is_some_and(|s| s.strategy.error().is_some())
-    }
-    pub fn set_shadow(&mut self) {
-        self.forwarding = false;
     }
     pub fn instance(&self) -> Option<([u8; 16], u64)> {
         Some(self.identity)
@@ -917,295 +874,6 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
 impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Strategy
     for HostedStrategy<R, M>
 {
-    fn handover_quiesce(&mut self, change: &tickwire_runtime::node::StrategySwitch) -> bool {
-        if let Some(s) = &self.started
-            && SystemClock::new(s.child.domain)
-                .and_then(|mut c| c.sample())
-                .map_or(true, |t| {
-                    s.readiness.observation_idle(t.monotonic.nanos()).is_err()
-                })
-        {
-            return false;
-        }
-        if self.logical_strategy_id != change.logical_strategy_id {
-            return false;
-        }
-        if self.instance().is_some_and(|i| {
-            i == (change.old_instance, change.old_generation)
-                || i == (change.new_instance, change.new_generation)
-        }) {
-            self.forwarding = false;
-            if self.instance() == Some((change.old_instance, change.old_generation))
-                && let Some(s) = &mut self.started
-            {
-                s.readiness.pause_on_capture();
-            }
-            true
-        } else {
-            false
-        }
-    }
-    fn handover_activate(&mut self, change: &tickwire_runtime::node::StrategySwitch) -> bool {
-        if let Some(s) = &self.started
-            && SystemClock::new(s.child.domain)
-                .and_then(|mut c| c.sample())
-                .map_or(true, |t| {
-                    s.readiness.observation_idle(t.monotonic.nanos()).is_err()
-                })
-        {
-            return false;
-        }
-        if self.logical_strategy_id != change.logical_strategy_id {
-            return false;
-        }
-        match self.instance() {
-            Some(i) if i == (change.new_instance, change.new_generation) => {
-                if self.failed() {
-                    return false;
-                }
-                let allowed = SystemClock::new(self.domain)
-                    .and_then(|mut c| c.sample())
-                    .ok()
-                    .is_some_and(|n| {
-                        self.policy
-                            .strategy_instance_authorized(
-                                self.logical_strategy_id,
-                                i.0,
-                                i.1,
-                                n.monotonic,
-                            )
-                            .unwrap_or(false)
-                    });
-                if allowed {
-                    self.forwarding = true;
-                }
-                allowed
-            }
-            Some(i) if i == (change.old_instance, change.old_generation) => {
-                self.forwarding = false;
-                let result = (|| {
-                    self.policy
-                        .stop_strategy_instance(self.logical_strategy_id, i.0, i.1)?;
-                    if let Some(s) = &mut self.started {
-                        // A missing QUIESCED reply may still end in a real child
-                        // exit. Only the Registry's exit observation completes
-                        // retirement; it does not invent released cursor watermarks.
-                        let _ = s.stop(Instant::now() + Duration::from_millis(100));
-                        retire_owned_child(&mut s.child.registry, i.0)?;
-                    }
-                    Ok(())
-                })();
-                self.launch = None;
-                let retired = result.is_ok();
-                if retired {
-                    self.started.take();
-                }
-                self.error = Some(result.err().unwrap_or(Error::NotReady));
-                retired
-            }
-            _ => false,
-        }
-    }
-    fn handover_halt(&mut self, logical: u64) -> bool {
-        if logical != self.logical_strategy_id {
-            return false;
-        }
-        self.forwarding = false;
-        true
-    }
-    fn release_preflight(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-        roots: [[u8; 32]; 3],
-    ) -> Option<Vec<Vec<u8>>> {
-        if self.identity != (instance, generation) || self.error.is_some() {
-            return None;
-        }
-        let result = (|| -> Result<_> {
-            let s = self.started.as_mut().ok_or(Error::NotReady)?;
-            s.child.registry.process(s.child.instance)?;
-            let now = SystemClock::new(s.child.domain)?
-                .sample()?
-                .monotonic
-                .nanos();
-            s.readiness.poll(&mut s.child.report, now)?;
-            s.readiness.release_objects(roots)
-        })();
-        match result {
-            Ok(v) => v,
-            Err(e) => {
-                self.error = Some(e);
-                None
-            }
-        }
-    }
-    fn handover_checkpoint(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-    ) -> Option<(tickwire_runtime::node::HandoverReadiness, Vec<Vec<u8>>)> {
-        if self.identity != (instance, generation) || self.error.is_some() {
-            return None;
-        }
-        let s = self.started.as_mut()?;
-        let refreshed = (|| -> Result<_> {
-            s.child.registry.process(s.child.instance)?;
-            let mut clock = SystemClock::new(s.child.domain)?;
-            s.readiness
-                .capture(&mut s.child.report, &s.reports, s.report_sub, &mut clock)
-        })();
-        let want = match refreshed {
-            Ok(w) => w,
-            Err(Error::Busy) => return None,
-            Err(e) => {
-                self.error = Some(e);
-                return None;
-            }
-        };
-        let objects = self.handover_objects(&want)?;
-        Some((want, objects))
-    }
-    fn handover_replay_source(
-        &mut self,
-        operation: &tickwire_release::Operation,
-        member: &tickwire_release::Member,
-        fixed: &tickwire_runtime::node::HandoverReadiness,
-    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
-        if self.identity != (member.old_instance, member.old_generation)
-            || self.forwarding
-            || self.error.is_some()
-        {
-            return None;
-        }
-        let fixed_objects = self.handover_objects(fixed)?;
-        let (current, current_objects) =
-            self.handover_checkpoint(member.old_instance, member.old_generation)?;
-        let result = self.started.as_ref()?.readiness.source_replay(
-            operation,
-            member,
-            fixed.clone(),
-            fixed_objects,
-            current,
-            current_objects,
-        );
-        match result {
-            Ok(v) => Some(v),
-            Err(e) => {
-                self.error = Some(e);
-                None
-            }
-        }
-    }
-    fn handover_install_replay(
-        &mut self,
-        source: &tickwire_release::replay::source::VerifiedSourceReplay,
-    ) -> Option<tickwire_runtime::node::InstalledReplay> {
-        let member = &source.completion().member;
-        if self.identity != (member.new_instance, member.new_generation)
-            || self.forwarding
-            || self.error.is_some()
-        {
-            return None;
-        }
-        let s = self.started.as_mut()?;
-        let result = (|| {
-            s.child.registry.process(s.child.instance)?;
-            let mut clock = SystemClock::new(s.child.domain)?;
-            s.readiness.install_replay(
-                &mut s.child.report,
-                &mut s.reports,
-                s.report_sub,
-                &mut clock,
-                source,
-            )
-        })();
-        match result {
-            Ok(value) => Some(value),
-            Err(Error::Busy) => None,
-            Err(e) => {
-                self.error = Some(e);
-                None
-            }
-        }
-    }
-    fn handover_finish_replay(
-        &mut self,
-        installed: tickwire_runtime::node::InstalledReplay,
-    ) -> Option<tickwire_runtime::node::PreparedReplay> {
-        let member = &installed.verified().request.member;
-        if self.identity != (member.new_instance, member.new_generation)
-            || self.forwarding
-            || self.error.is_some()
-        {
-            return None;
-        }
-        let s = self.started.as_mut()?;
-        let result = (|| {
-            s.child.registry.process(s.child.instance)?;
-            let mut clock = SystemClock::new(s.child.domain)?;
-            s.readiness.finish_replay(
-                &mut s.child.report,
-                &mut s.reports,
-                s.report_sub,
-                &mut clock,
-                installed,
-            )
-        })();
-        match result {
-            Ok(v) => Some(v),
-            Err(Error::Busy) => None,
-            Err(e) => {
-                self.error = Some(e);
-                None
-            }
-        }
-    }
-    fn handover_objects(
-        &mut self,
-        want: &tickwire_runtime::node::HandoverReadiness,
-    ) -> Option<Vec<Vec<u8>>> {
-        if self.identity != (want.instance_id, want.strategy_generation) || self.error.is_some() {
-            return None;
-        }
-        let s = self.started.as_mut()?;
-        if s.child.registry.process(s.child.instance).is_err() {
-            return None;
-        }
-        let now = SystemClock::new(s.child.domain)
-            .ok()?
-            .sample()
-            .ok()?
-            .monotonic
-            .nanos();
-        s.readiness
-            .objects(&s.child.report, now, &s.reports, s.report_sub, want)
-            .ok()
-            .flatten()
-    }
-    fn handover_ready(&mut self, want: &tickwire_runtime::node::HandoverReadiness) -> bool {
-        let result = (|| -> Result<bool> {
-            let Some(s) = &mut self.started else {
-                return Ok(false);
-            };
-            s.child.registry.process(s.child.instance)?;
-            let now = SystemClock::new(s.child.domain)?
-                .sample()?
-                .monotonic
-                .nanos();
-            s.readiness.poll(&mut s.child.report, now)?;
-            s.readiness
-                .confirm(&s.reports, s.report_sub, &s.child.report, now)?;
-            s.readiness.matches(&s.reports, s.report_sub, want)
-        })();
-        match result {
-            Ok(v) => v,
-            Err(e) => {
-                self.error = Some(e);
-                false
-            }
-        }
-    }
     fn on_market(&mut self, n: &tickwire_binance_public::Notice<'_>) -> bool {
         self.error.is_none() && self.sink.notice(n)
     }
@@ -1219,12 +887,6 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
             return None;
         }
         let started = self.started.as_mut()?;
-        if !self.forwarding {
-            if let Err(e) = started.strategy.drain_shadow(32) {
-                self.error = Some(e.into());
-            }
-            return None;
-        }
         let submission = tickwire_runtime::node::Strategy::next(&mut started.strategy, a, h, now);
         if started.strategy.error().is_some() {
             if let Err(e) = self.invalidate_generation() {
@@ -1296,20 +958,6 @@ impl<R: RecoveryResolver + 'static, const M: usize> tickwire_runtime::node::Stra
         }
     }
 }
-/// Fresh identities/epochs and approvals come from the external control owner;
-/// the host fills no missing authorization or strategy state.
-pub struct RotationPlan<R, const M: usize> {
-    pub owner: tickwire_join::JoinOwner<M>,
-    pub launch: Launch,
-    pub resolver: R,
-}
-pub trait RotationSource<R, const M: usize> {
-    fn next(
-        &mut self,
-        current: &ResourceHeader,
-        published: u64,
-    ) -> Result<Option<RotationPlan<R, M>>>;
-}
 impl<R: RecoveryResolver + 'static, const M: usize> Started<R, M> {
     pub fn stop(&mut self, deadline: Instant) -> Result<()> {
         self.readiness.observation_idle(
@@ -1367,9 +1015,6 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
             }
         }
     }
-    pub fn set_rotation_source(&mut self, source: Box<dyn RotationSource<R, M>>) {
-        self.rotation = Some(source);
-    }
     fn invalidate_generation(&mut self) -> Result<()> {
         let policy = self.policy.clone();
         self.publisher.with(|p| {
@@ -1424,58 +1069,6 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
         if let Some(mut old) = self.started.take() {
             let _ = old.stop(Instant::now() + Duration::from_secs(1));
         }
-        let ready = self.publisher.with(|p| Ok(p.state().cached_live()))?;
-        if !ready {
-            return Ok(());
-        }
-        let Some(source) = &mut self.rotation else {
-            return Err(Error::NotReady);
-        };
-        if self.retired.len() >= 8 {
-            return Err(Error::Invalid);
-        }
-        let (h, sequence) = self.publisher.with(|p| {
-            let (o, _) = p.split();
-            Ok((o.header().clone(), o.published()))
-        })?;
-        let Some(plan) = source.next(&h, sequence)? else {
-            return Ok(());
-        };
-        if plan.launch.spec.identity.logical_strategy != self.logical_strategy_id
-            || plan.launch.spec.identity.instance == self.identity.0
-            || plan.launch.spec.identity.generation <= self.identity.1
-        {
-            return Err(Error::Invalid);
-        }
-        let old = self
-            .publisher
-            .with(|p| Ok(p.replace_bank(plan.owner, now.monotonic.nanos())?))?;
-        self.retired.push(old);
-        let policy = self.policy.clone();
-        self.publisher.with(|p| {
-            let (o, state) = p.split();
-            let h = o.header();
-            for (instrument, version, sequence, published) in state.publications() {
-                policy.update_feed(FeedUpdate {
-                    key: FeedKey {
-                        topic_id: h.topic_id,
-                        instrument_id: instrument,
-                    },
-                    instrument_version: version,
-                    feed_generation: h.feed_generation,
-                    ring_epoch: h.ring_epoch,
-                    sequence,
-                    published_at: tickwire_clock::MonoTime::new(now.monotonic.domain(), published),
-                })?;
-            }
-            Ok(())
-        })?;
-        self.identity = (
-            plan.launch.spec.identity.instance,
-            plan.launch.spec.identity.generation,
-        );
-        self.launch = Some(plan.launch);
-        self.resolver = Some(plan.resolver);
-        Ok(())
+        Err(Error::NotReady)
     }
 }

@@ -132,7 +132,7 @@ fn market_fixture(
     (built.resource().clone(), replica, bytes)
 }
 
-fn object(dir: &Path, bytes: &[u8]) -> tickwire_strategy_sdk::preflight::ObjectFile {
+fn object(dir: &Path, bytes: &[u8]) -> tickwire_release::files::ObjectFile {
     use std::io::Write;
     let o = Object::of(bytes);
     let p = dir.join(
@@ -145,7 +145,7 @@ fn object(dir: &Path, bytes: &[u8]) -> tickwire_strategy_sdk::preflight::ObjectF
     f.write_all(bytes).unwrap();
     f.sync_all().unwrap();
     std::fs::File::open(dir).unwrap().sync_all().unwrap();
-    tickwire_strategy_sdk::preflight::ObjectFile { path: p, object: o }
+    tickwire_release::files::ObjectFile { path: p, object: o }
 }
 struct Temp(PathBuf, bool);
 impl Drop for Temp {
@@ -191,11 +191,14 @@ fn replay_from_image(sealed: bool, with_catalog: bool) {
         .mode(0o700)
         .create(&temp.0)
         .unwrap();
-    let worker = with_catalog
+    let build = with_catalog
         .then(|| std::env::var_os("TICKWIRE_CATALOG_SOURCE_WORKER"))
         .flatten()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_tickwire-strategy-worker")));
+    // Cargo can replace a worker binary while this harness executes its recorded inputs.
+    let worker = temp.0.join("worker-image");
+    std::fs::copy(build, &worker).unwrap();
     let binary = tickwire_recovery::digest(&std::fs::read(&worker).unwrap());
     let catalog = with_catalog.then(catalog::checked);
     let (resource, replica, raw) =

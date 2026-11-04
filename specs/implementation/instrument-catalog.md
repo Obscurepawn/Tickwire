@@ -21,16 +21,3 @@ The artifact digest identifies exact file bytes. The runtime digest is SHA-256 o
 | Registered strategy | A catalog-enabled launch requires matching bootstrap, projected catalog reference and deployment inputs. Verify the current account and JOIN inputs before enabling user callbacks. |
 
 The Binance runtime retains the original bytes in memory. A file replacement cannot change an installed price tick. MD recovery saves the approved raw objects and revalidates them. A missing or replaced object, a downgrade from configured to absent, or a change of economics across an expansion fails. A process restart still needs real source warmup and fresh JOINs.
-
-## Recover a worker
-
-`Bootstrap.instrument_catalog` embeds the raw artifact and digest. The named kind-9 recovery dependency carries that bootstrap. The bootstrap read limit is 16 MiB. Verify the dependency’s catalog, strategy identity and clock domain both before and after copying it into the recovery store. Each application checkpoint saves the catalog object's digest and length. `restore_with_catalog` validates that binding, all market views and all account views before calling the strategy’s restore factory.
-
-Source replay resolves the same kind-9 dependency at both seals. Verify source instance, generation, logical strategy, program digest, boot and clock generation. Recompute the original callback gate on replay. A missing catalog cannot be supplied from an unrelated current deployment. A command still needs the approved product and full instrument binding. The documented catalog-enabled strategy path covers registered Active/Shadow startup with one account and one external market topic under projection input validation. Check each installation, handover and replay path's own admission rules before attempting a transition.
-
-```sh
-python3 scripts/verify-instrument-catalog.py
-cargo test --locked -p tickwire-instrument-catalog
-```
-
-The vectors distinguish raw and canonical digests. Tests cover high IDs, separate fee assets, off-grid or changed economics, strict decoding and bounds. [Rust tests](../../crates/tickwire-instrument-catalog/tests) · [MD restart and expansion tests](../../crates/tickwire-md/src/server/runtime_tests/catalog.rs)

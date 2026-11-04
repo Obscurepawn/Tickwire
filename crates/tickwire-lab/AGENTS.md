@@ -1,13 +1,8 @@
 # tickwire-lab
 
-The lab drives real local processes and a deterministic exchange peer through trading scenarios.
-
-Use a scenario that exercises the component being changed and inspect the captured process receipts. A loopback result describes that transport, profile and input load.
-
-[Crate API](src/lib.rs) · [install cost probe](tests/install_cost_probe.rs)
-
-Specifications include [market expansion](../../specs/implementation/market-expansion.md), [strategy handover](../../specs/implementation/strategy-handover.md).
+The [spot-fill fixture](src/fixture.rs) supplies Binance market data and fills over local TLS. The launcher records the worker and account process identities. After changing the fixture or event order, run the [Linux scenario](README.md) and check the fee, final balances and worker report position in the output.
 
 ```sh
 cargo test --locked -p tickwire-lab --all-targets
+./scripts/run-core-chain-linux.sh spot-fill
 ```

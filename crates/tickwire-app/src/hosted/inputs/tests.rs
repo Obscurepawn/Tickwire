@@ -115,7 +115,7 @@ fn fixture() -> Fixture {
     .unwrap();
     let current = tickwire_supervisor::current_process_identity().unwrap();
     let (mut bootstrap, mut bank) = channels::bootstrap(&root, image, current.uid, current.gid);
-    bootstrap.handover_enabled = true;
+    bootstrap.publish_checkpoints = true;
     runtime.command_binding.owner_id = bootstrap.report.peer.instance;
     bank.topic_id = 1;
     bank.catalog_version = instrument.catalog_version;
@@ -310,12 +310,13 @@ fn scope_baseline_journal_and_command_must_all_agree() {
 }
 #[test]
 fn product_and_environment_come_from_actual_runtime_not_names() {
-    for field in 0..3 {
+    for field in 0..4 {
         let mut f = fixture();
         f.ready();
         f.payload(|p| match field {
             0 => p["venue_views"][0]["environment"] = "production".into(),
             1 => p["ipc"]["topics"][0]["product"] = "Usdm".into(),
+            2 => p["ipc"]["topics"][0]["venue_id"] = "okx-spot".into(),
             _ => {
                 p["ipc"]["topics"][0]["product"] = "Usdm".into();
                 p["venue_views"][0]["product"] = "Usdm".into();
@@ -427,21 +428,14 @@ fn full_u64_member_identity_is_preserved() {
 }
 #[test]
 fn unsupported_modes_and_cross_projection_bindings_are_rejected() {
-    for field in 0..7 {
+    for field in 0..5 {
         let mut f = fixture();
         f.ready();
         match field {
             0 => f.bootstrap.external_market = None,
-            1 => f.config.rotation_directory = Some(f.root.join("rotations")),
-            2 => f.bootstrap.preflight_job = Some(f.root.join("preflight")),
-            3 => {
-                f.config.capture = Some(super::super::CaptureConfig {
-                    bootstrap: f.root.join("capture"),
-                    publication_directory: f.root.join("publication"),
-                })
-            }
-            4 => f.bootstrap.handover_enabled = false,
-            5 => f.input().timeout_ns = 0,
+            1 => f.bootstrap.preflight_job = Some(f.root.join("preflight")),
+            2 => f.bootstrap.publish_checkpoints = false,
+            3 => f.input().timeout_ns = 0,
             _ => {
                 let p = f.input().clone();
                 f.config.projection_parameters = Some(super::super::parameters::Config {

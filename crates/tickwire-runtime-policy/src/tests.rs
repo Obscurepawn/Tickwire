@@ -62,7 +62,7 @@ fn grant() -> StrategyGrant {
     }
 }
 #[test]
-fn shadow_failure_preserves_the_exact_active_grant_and_its_expiry() {
+fn stale_worker_exit_preserves_the_current_grant_and_expiry() {
     let (plane, _, _, _) = setup();
     prepare(&plane);
     plane.stop_strategy_instance(8, [73; 16], 6).unwrap();
@@ -84,68 +84,6 @@ fn shadow_failure_preserves_the_exact_active_grant_and_its_expiry() {
         Ok(false)
     );
     assert_eq!(plane.install_strategy_grant(grant()), Err(Error::Stale));
-}
-#[test]
-fn handover_closes_instance_activation_until_its_exact_release() {
-    let (plane, _, _, _) = setup();
-    prepare(&plane);
-    let binding = HandoverBinding {
-        operation_id: [71; 16],
-        operation_revision: 1,
-        members_digest: [72; 32],
-        logical_strategy_id: 8,
-        instance_id: [73; 16],
-        strategy_generation: 6,
-        valid_until_ns: 1000,
-    };
-    let prepared = plane.begin_handover(binding).unwrap();
-    assert_eq!(
-        plane.strategy_instance_authorized(8, [2; 16], 5, now(70)),
-        Ok(false)
-    );
-    let committed = plane.handover_committed(&prepared, 10, [74; 32]).unwrap();
-    let mut target = grant();
-    target.instance_id = [73; 16];
-    target.strategy_generation = 6;
-    target.authorization_epoch = 10;
-    plane.release_handover(&committed, target, now(70)).unwrap();
-    assert_eq!(
-        plane.strategy_instance_authorized(8, [73; 16], 6, now(71)),
-        Ok(true)
-    );
-    plane.stop_strategy_instance(8, [2; 16], 5).unwrap();
-    assert_eq!(
-        plane.strategy_instance_authorized(8, [73; 16], 6, now(71)),
-        Ok(true)
-    );
-}
-#[test]
-fn closed_handover_gate_rejects_an_old_group_release() {
-    let (plane, _, _, _) = setup();
-    prepare(&plane);
-    let binding = HandoverBinding {
-        operation_id: [71; 16],
-        operation_revision: 1,
-        members_digest: [72; 32],
-        logical_strategy_id: 8,
-        instance_id: [73; 16],
-        strategy_generation: 6,
-        valid_until_ns: 1000,
-    };
-    let prepared = plane.begin_handover(binding.clone()).unwrap();
-    let committed = plane.handover_committed(&prepared, 10, [74; 32]).unwrap();
-    let mut target = grant();
-    target.instance_id = binding.instance_id;
-    target.strategy_generation = 6;
-    target.authorization_epoch = 10;
-    plane.stop_strategy(8).unwrap();
-    assert_eq!(
-        plane.release_handover(&committed, target, now(70)),
-        Err(Error::Stale)
-    );
-    assert!(
-        plane.handover_gate(8).unwrap().unwrap().risk_gate_revision > committed.risk_gate_revision
-    );
 }
 #[test]
 fn revoke_never_restores_an_old_generation_with_a_new_authorization_epoch() {

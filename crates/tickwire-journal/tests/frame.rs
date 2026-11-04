@@ -108,7 +108,7 @@ fn all_contract_types_roundtrip_and_nonzero_flags_rejected() {
 #[test]
 fn codec_constants_match_authoritative_contract() {
     let contract: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../specs/contracts/replication-profile-v1.json"
+        "../../../specs/contracts/journal-wire-v1.json"
     ))
     .unwrap();
     let wal = &contract["wal"];

@@ -12,11 +12,7 @@ use tickwire_binance_quota as quota;
 use tickwire_binance_session::ClockAdapter;
 use tickwire_journal::store::Store;
 use tickwire_transport::{IoBudget, mio};
-mod handover;
-mod rebuild;
 mod strategy;
-pub use handover::{HandoverReadiness, InstalledReplay, PreparedReplay, StrategySwitch};
-pub use rebuild::{InstalledRebuild, PreparedRebuild, RebuildInput, verify_rebuild_ready};
 pub use strategy::{AccountHistory, Strategy, Submission, SubmissionResult};
 
 #[derive(Debug)]

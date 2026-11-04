@@ -78,7 +78,7 @@ pub enum MockJournalEvent {
     Intent(DurableRecord),
     Fact(Fact),
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MockJournal {
     pub objects: MockKv,
     records: Vec<DurableRecord>,
@@ -86,22 +86,7 @@ pub struct MockJournal {
     events: Vec<MockJournalEvent>,
     pub fail_next_commit: bool,
     pub lose_next_receipt: bool,
-    pub replica_ready: bool,
     pub fail_next_fact: bool,
-}
-impl Default for MockJournal {
-    fn default() -> Self {
-        Self {
-            objects: MockKv::default(),
-            records: Vec::new(),
-            facts: Vec::new(),
-            events: Vec::new(),
-            fail_next_commit: false,
-            lose_next_receipt: false,
-            replica_ready: true,
-            fail_next_fact: false,
-        }
-    }
 }
 impl MockJournal {
     /// Actual append order; grouped `committed()` and `facts()` are inspection views.
@@ -152,7 +137,6 @@ impl Journal for MockJournal {
         Ok(CommitReceipt {
             record,
             local_durable: true,
-            replica_durable: self.replica_ready,
         })
     }
     fn committed(&self) -> &[DurableRecord] {
@@ -222,7 +206,7 @@ impl<const N: usize, const T: usize> MockRuntime<N, T> {
             gate,
         })
     }
-    pub fn submit(&mut self, r: OrderRequest, profile: CommitProfile) -> Result<(), RuntimeError> {
+    pub fn submit(&mut self, r: OrderRequest) -> Result<(), RuntimeError> {
         if self.config.load()?.revision != r.config_revision {
             return Err(ServiceError::Conflict.into());
         }
@@ -230,15 +214,15 @@ impl<const N: usize, const T: usize> MockRuntime<N, T> {
         self.journal
             .objects
             .put_immutable(r.recovery_object, &dependency_bytes(r))?;
-        self.resume_submit(r.key.intent, profile)
+        self.resume_submit(r.key.intent)
     }
-    pub fn resume_submit(&mut self, id: u64, profile: CommitProfile) -> Result<(), RuntimeError> {
+    pub fn resume_submit(&mut self, id: u64) -> Result<(), RuntimeError> {
         let record = self.engine.durable_record(id)?;
         if self.config.load()?.revision != record.request.config_revision {
             return Err(ServiceError::Conflict.into());
         }
         let receipt = self.journal.commit(record)?;
-        self.engine.accept_commit(receipt, profile)?;
+        self.engine.accept_commit(receipt)?;
         let request = self.engine.begin_send(id)?;
         match self.exchange.submit(request) {
             SubmitOutcome::PendingResponse => {}

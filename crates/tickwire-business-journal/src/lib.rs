@@ -195,10 +195,6 @@ impl<S: Backend> BusinessJournal<S> {
                 {
                     return Err(Error::Quarantined("duplicate prepared identity"));
                 }
-                if intent.request.commit_profile != tickwire_execution::CommitProfile::LocalDurable
-                {
-                    return Err(Error::UnsupportedProfile);
-                }
                 let receipt = WalAppendReceipt {
                     journal_seq: record.journal_seq,
                     logical_hash: hash,
@@ -224,9 +220,6 @@ impl<S: Backend> BusinessJournal<S> {
             return Err(Error::Frozen);
         }
         check_request_domain(&self.config, record.request)?;
-        if record.request.commit_profile != tickwire_execution::CommitProfile::LocalDurable {
-            return Err(Error::UnsupportedProfile);
-        }
         if self
             .intents
             .get(&record.request.key.intent)
@@ -359,12 +352,7 @@ pub fn intent_record(
             config_revision: r.config_revision,
             deadline: r.deadline,
             recovery_object: r.recovery_object,
-            commit_profile: match r.commit_profile {
-                tickwire_execution::CommitProfile::LocalDurable => {
-                    codec::CommitProfile::LocalDurable
-                }
-                tickwire_execution::CommitProfile::SyncReplica => codec::CommitProfile::SyncReplica,
-            },
+            commit_profile: codec::CommitProfile::LocalDurable,
         }),
     }
 }
@@ -386,6 +374,9 @@ fn request_from_record(record: &Record) -> Result<DurableRecord> {
     let codec::Event::PreparedIntent(p) = record.event else {
         return Err(Error::Invalid("expected prepared intent"));
     };
+    if p.commit_profile != codec::CommitProfile::LocalDurable {
+        return Err(Error::UnsupportedProfile);
+    }
     Ok(DurableRecord {
         sequence: p.order.intent_seq,
         request: OrderRequest {
@@ -404,12 +395,6 @@ fn request_from_record(record: &Record) -> Result<DurableRecord> {
             config_revision: p.config_revision,
             deadline: p.deadline,
             recovery_object: p.recovery_object,
-            commit_profile: match p.commit_profile {
-                codec::CommitProfile::LocalDurable => {
-                    tickwire_execution::CommitProfile::LocalDurable
-                }
-                codec::CommitProfile::SyncReplica => tickwire_execution::CommitProfile::SyncReplica,
-            },
         },
     })
 }

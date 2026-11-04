@@ -55,7 +55,7 @@ fn bootstrap(path: &std::path::Path) -> Bootstrap {
         poll_records: 8,
         idle_sleep_us: 1,
         recovery_template: Some(path.join("recovery.json")),
-        handover_enabled: true,
+        publish_checkpoints: true,
         preflight_job: None,
         factory: None,
         demo_enabled: true,
@@ -83,7 +83,7 @@ pub(super) fn dependency(
     path: &Path,
     source: &Source,
     catalog: &tickwire_instrument_catalog::Catalog,
-) -> tickwire_strategy_sdk::preflight::ObjectFile {
+) -> tickwire_release::files::ObjectFile {
     let mut b = bootstrap(path);
     b.instrument_catalog = Some(catalog.artifact());
     b.market.local.instance = source.instance;

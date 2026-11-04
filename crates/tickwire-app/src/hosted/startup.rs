@@ -28,7 +28,7 @@ impl Binding {
             "query deadline bounds",
         )?;
         check(
-            bootstrap.handover_enabled || config.shadow,
+            bootstrap.publish_checkpoints,
             "checkpoint queries must be enabled",
         )?;
         for selected in [

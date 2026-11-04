@@ -1035,40 +1035,6 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         applied
     }
-    /// Commits a trusted lifecycle decision only after validating the exact live
-    /// account prefix. Recovery applies this same durable metadata transition.
-    pub fn commit_strategy_handover(
-        &mut self,
-        h: tickwire_account::StrategyHandover,
-    ) -> Result<Applied> {
-        let mut candidate = self.account.clone();
-        let applied = candidate
-            .apply_strategy_handover(&h)
-            .map_err(Error::Account)?;
-        if applied == Applied::Duplicate {
-            return Ok(applied);
-        }
-        let encoded = CanonicalRecord::new(
-            self.baseline().digest(),
-            self.journal_position()
-                .checked_add(1)
-                .ok_or(Error::Capacity)?,
-            RecoveryRecord::StrategyHandover(Box::new(h.clone())),
-        )
-        .map_err(Error::Codec)?;
-        self.authority
-            .verify_handover(self.journal.baseline(), &encoded, self.journal.records())
-            .map_err(Error::Authority)?;
-        if let Err(error) = self
-            .journal
-            .append(RecoveryRecord::StrategyHandover(Box::new(h)))
-        {
-            self.halt();
-            return Err(Error::Journal(error));
-        }
-        self.account = candidate;
-        Ok(applied)
-    }
     pub fn status(&self, intent: IntentKey) -> Option<Status> {
         self.entries.get(&intent).map(|e| e.status)
     }

@@ -82,7 +82,7 @@ pub(super) fn verify<R: FnMut(Hash) -> Result<Vec<u8>>>(
         digest: seal.account_input_digest,
         bytes: seal.account_input_bytes,
     })?;
-    let callbacks = tickwire_handover::verify(&seal, &business, &inputs, &account)
+    let callbacks = crate::account_inputs::verify(&seal, &business, &inputs, &account)
         .map_err(|_| Error::Identity)?;
     if callbacks.baseline().snapshot().scope.risk_domain_id != plan.member.risk_domain {
         return Err(Error::Identity);

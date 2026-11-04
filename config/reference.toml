@@ -1,14 +1,11 @@
-# Tickwire v1 qualification configuration; design fixture, not a live deployment.
-# Simulated endpoints, fixture references and monetary values are test inputs.
-# Profile alias: TW-LD-ASYNC-16x2-v1. Runtime loader must resolve and validate artifacts.
-# CPU numbers are reference physical-core IDs; live inventory must map OS CPU IDs.
+# Single-host qualification fixture for the global configuration parser.
 [identity]
 schema_version = 1
 cluster_id = "tickwire-qualification"
 namespace_id = "00000000-0000-4000-8000-000000000001"
 mode = "qualification"
 environment = "simulated"
-deployment_profile = "TW-LD-ASYNC-16x2-v1"
+deployment_profile = "TW-SingleHost-v1"
 
 [[hosts]]
 id = "host-a"
@@ -29,77 +26,9 @@ housekeeping_cpus = [
     7,
 ]
 
-[[hosts]]
-id = "host-b"
-role = "trading"
-failure_domain = "zone-b"
-physical_cores = 64
-memory_bytes = 274877906944
-numa_nodes = 2
-shm_budget_bytes = 8589934592
-housekeeping_cpus = [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-]
-
-[[hosts]]
-id = "ctl-c"
-role = "control-only"
-failure_domain = "zone-c"
-physical_cores = 8
-memory_bytes = 34359738368
-numa_nodes = 1
-shm_budget_bytes = 0
-housekeeping_cpus = [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-]
-
 [[processes]]
 id = "supervisor-host-a"
 host_id = "host-a"
-role = "supervisor"
-activation = "active"
-cpus = [
-    2,
-    3,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "artifact://fixture/build/supervisor@sha256:4fd5c1de5ae957bb9462eb997313319a5ccd0509c53b53bab7ebaae0a8f0c67b"
-restart_policy = "recover-gated"
-os_identity = "tickwire-config"
-
-[[processes]]
-id = "supervisor-host-b"
-host_id = "host-b"
-role = "supervisor"
-activation = "active"
-cpus = [
-    2,
-    3,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "artifact://fixture/build/supervisor@sha256:4fd5c1de5ae957bb9462eb997313319a5ccd0509c53b53bab7ebaae0a8f0c67b"
-restart_policy = "recover-gated"
-os_identity = "tickwire-config"
-
-[[processes]]
-id = "supervisor-ctl-c"
-host_id = "ctl-c"
 role = "supervisor"
 activation = "active"
 cpus = [
@@ -141,20 +70,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-exec"
 
 [[processes]]
-id = "replicator-spot-a"
-host_id = "host-a"
-role = "replicator"
-activation = "active"
-cpus = [
-    13,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/replicator@sha256:ab45dde4219105f0072354b3d43ce064905bbbbb83109320914f44a989128f74"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
 id = "md-usdm-a"
 host_id = "host-a"
 role = "md"
@@ -181,34 +96,6 @@ memory_limit_bytes = 8589934592
 artifact_ref = "artifact://fixture/build/exec@sha256:d576aa9ab66f87ad689048067d85e80539b0f4a9d22c8bfd657d04dbc59f37d7"
 restart_policy = "recover-gated"
 os_identity = "tickwire-exec"
-
-[[processes]]
-id = "replicator-usdm-a"
-host_id = "host-a"
-role = "replicator"
-activation = "active"
-cpus = [
-    14,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/replicator@sha256:ab45dde4219105f0072354b3d43ce064905bbbbb83109320914f44a989128f74"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
-id = "guardian-a"
-host_id = "host-a"
-role = "guardian"
-activation = "active"
-cpus = [
-    12,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "artifact://fixture/build/guardian@sha256:6994eb6b4967fa6a08ba23f1108667f3931c11af6af08f0875421977da4bf59e"
-restart_policy = "recover-gated"
-os_identity = "tickwire-guardian"
 
 [[processes]]
 id = "recorder-a"
@@ -259,152 +146,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-snapshot-worker"
 
 [[processes]]
-id = "md-spot-b"
-host_id = "host-b"
-role = "md"
-activation = "standby"
-cpus = [
-    8,
-]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "artifact://fixture/build/md@sha256:45ac669c248c3a6f59976ab91934fcddb122381ae974dd27ce101bad1da2b4e5"
-restart_policy = "recover-gated"
-os_identity = "tickwire-md"
-
-[[processes]]
-id = "exec-spot-b"
-host_id = "host-b"
-role = "exec"
-activation = "standby"
-cpus = [
-    10,
-]
-numa_node = 0
-memory_limit_bytes = 8589934592
-artifact_ref = "artifact://fixture/build/exec@sha256:d576aa9ab66f87ad689048067d85e80539b0f4a9d22c8bfd657d04dbc59f37d7"
-restart_policy = "recover-gated"
-os_identity = "tickwire-exec"
-
-[[processes]]
-id = "replicator-spot-b"
-host_id = "host-b"
-role = "replicator"
-activation = "active"
-cpus = [
-    13,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/replicator@sha256:ab45dde4219105f0072354b3d43ce064905bbbbb83109320914f44a989128f74"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
-id = "md-usdm-b"
-host_id = "host-b"
-role = "md"
-activation = "standby"
-cpus = [
-    9,
-]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "artifact://fixture/build/md@sha256:45ac669c248c3a6f59976ab91934fcddb122381ae974dd27ce101bad1da2b4e5"
-restart_policy = "recover-gated"
-os_identity = "tickwire-md"
-
-[[processes]]
-id = "exec-usdm-b"
-host_id = "host-b"
-role = "exec"
-activation = "standby"
-cpus = [
-    11,
-]
-numa_node = 0
-memory_limit_bytes = 8589934592
-artifact_ref = "artifact://fixture/build/exec@sha256:d576aa9ab66f87ad689048067d85e80539b0f4a9d22c8bfd657d04dbc59f37d7"
-restart_policy = "recover-gated"
-os_identity = "tickwire-exec"
-
-[[processes]]
-id = "replicator-usdm-b"
-host_id = "host-b"
-role = "replicator"
-activation = "active"
-cpus = [
-    14,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/replicator@sha256:ab45dde4219105f0072354b3d43ce064905bbbbb83109320914f44a989128f74"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
-id = "guardian-b"
-host_id = "host-b"
-role = "guardian"
-activation = "active"
-cpus = [
-    12,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "artifact://fixture/build/guardian@sha256:6994eb6b4967fa6a08ba23f1108667f3931c11af6af08f0875421977da4bf59e"
-restart_policy = "recover-gated"
-os_identity = "tickwire-guardian"
-
-[[processes]]
-id = "recorder-b"
-host_id = "host-b"
-role = "recorder"
-activation = "active"
-cpus = [
-    15,
-]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "artifact://fixture/build/recorder@sha256:3a7d0d39764d4f23ab9ba1a69d943f7935411d3e623eca45ff77c234c1e8de1f"
-restart_policy = "recover-gated"
-os_identity = "tickwire-recorder"
-
-[[processes]]
-id = "input-writer-b"
-host_id = "host-b"
-role = "input-writer"
-activation = "active"
-cpus = [
-    48,
-    49,
-    50,
-    51,
-]
-numa_node = 1
-memory_limit_bytes = 8589934592
-artifact_ref = "artifact://fixture/build/input-writer@sha256:ea6fa4b15497301baa27fa1e725eb6641c3805096391c4ef463993d3e2853eb1"
-restart_policy = "recover-gated"
-os_identity = "tickwire-input-writer"
-
-[[processes]]
-id = "snapshot-worker-b"
-host_id = "host-b"
-role = "snapshot-worker"
-activation = "active"
-cpus = [
-    52,
-    53,
-    54,
-    55,
-]
-numa_node = 1
-memory_limit_bytes = 8589934592
-artifact_ref = "artifact://fixture/build/snapshot-worker@sha256:5fe28e981fb0ead4c5efa04a7a2bfe9ad30ed7b5fb6e96ba9331a6e86ec7b73a"
-restart_policy = "recover-gated"
-os_identity = "tickwire-snapshot-worker"
-
-[[processes]]
 id = "strategy-01-active"
 host_id = "host-a"
 role = "strategy"
@@ -413,20 +154,6 @@ cpus = [
     16,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-01-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    32,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -447,20 +174,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-02-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    33,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-03-active"
 host_id = "host-a"
 role = "strategy"
@@ -469,20 +182,6 @@ cpus = [
     18,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-03-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    34,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -503,20 +202,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-04-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    35,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-05-active"
 host_id = "host-a"
 role = "strategy"
@@ -525,20 +210,6 @@ cpus = [
     20,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-05-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    36,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -559,20 +230,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-06-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    37,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-07-active"
 host_id = "host-a"
 role = "strategy"
@@ -581,20 +238,6 @@ cpus = [
     22,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-07-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    38,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -615,20 +258,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-08-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    39,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-09-active"
 host_id = "host-a"
 role = "strategy"
@@ -637,20 +266,6 @@ cpus = [
     24,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-09-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    40,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -671,20 +286,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-10-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    41,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-11-active"
 host_id = "host-a"
 role = "strategy"
@@ -693,20 +294,6 @@ cpus = [
     26,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-11-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    42,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -727,20 +314,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-12-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    43,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-13-active"
 host_id = "host-a"
 role = "strategy"
@@ -749,20 +322,6 @@ cpus = [
     28,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-13-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    44,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -783,20 +342,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-14-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    45,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-15-active"
 host_id = "host-a"
 role = "strategy"
@@ -811,20 +356,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-15-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    46,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-16-active"
 host_id = "host-a"
 role = "strategy"
@@ -833,20 +364,6 @@ cpus = [
     31,
 ]
 numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-16-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    47,
-]
-numa_node = 1
 memory_limit_bytes = 2147483648
 artifact_ref = "artifact://fixture/build/strategy@sha256:728c85a5dc1fb07e1e9a865550d813ae33787de039da613581b1e7323fa20d77"
 restart_policy = "recover-gated"
@@ -928,7 +445,7 @@ name = "spot-normalized"
 product = "Spot"
 stream = "NormalizedMarket"
 publisher_process_id = "md-spot-a"
-standby_publisher_process_id = "md-spot-b"
+venue_id = "binance-spot"
 qos = "StrictTrading"
 consumer_limit = 40
 
@@ -938,7 +455,7 @@ name = "usdm-normalized"
 product = "Usdm"
 stream = "NormalizedMarket"
 publisher_process_id = "md-usdm-a"
-standby_publisher_process_id = "md-usdm-b"
+venue_id = "binance-usdm"
 qos = "StrictTrading"
 consumer_limit = 40
 
@@ -946,45 +463,6 @@ consumer_limit = 40
 logical_strategy_id = 1
 process_id = "strategy-01-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 1
-process_id = "strategy-01-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1060,87 +538,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 2
-process_id = "strategy-02-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 3
 process_id = "strategy-03-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 3
-process_id = "strategy-03-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1216,87 +616,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 4
-process_id = "strategy-04-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 5
 process_id = "strategy-05-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 5
-process_id = "strategy-05-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1372,87 +694,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 6
-process_id = "strategy-06-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 7
 process_id = "strategy-07-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 7
-process_id = "strategy-07-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1528,87 +772,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 8
-process_id = "strategy-08-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 9
 process_id = "strategy-09-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 9
-process_id = "strategy-09-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1684,87 +850,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 10
-process_id = "strategy-10-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 11
 process_id = "strategy-11-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 11
-process_id = "strategy-11-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1840,87 +928,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 12
-process_id = "strategy-12-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 13
 process_id = "strategy-13-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 13
-process_id = "strategy-13-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -1996,87 +1006,9 @@ max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
 [[strategies]]
-logical_strategy_id = 14
-process_id = "strategy-14-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
 logical_strategy_id = 15
 process_id = "strategy-15-active"
 role = "Active"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies]]
-logical_strategy_id = 15
-process_id = "strategy-15-shadow"
-role = "Shadow"
 account_ids = [
     "spot-main",
     "usdm-main",
@@ -2151,58 +1083,13 @@ max_gross_quote = "10000.00"
 max_open_orders = 64
 max_daily_loss_quote = "500.00"
 
-[[strategies]]
-logical_strategy_id = 16
-process_id = "strategy-16-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "artifact://fixture/strategy/state-v1@sha256:158c1e788927b53f62302b6fb0e731365f26cb11049bd66ed1c37c4aa05f1c58"
-parameter_schema_ref = "artifact://fixture/strategy/params-v1@sha256:cb5b243f5cb77356435343fd63a2661139f26d0bf05cc0793529046a6958e445"
-recovery_contract_ref = "artifact://fixture/strategy/recovery-v1@sha256:e3eab98365ad930436abbeb8bb6fc3e7bd1c6fea6fb23231f1db9afee0c3b379"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "2.0"
-quote_quantity = "0.001"
-signal_window_events = 1024
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "500.00"
-max_gross_quote = "10000.00"
-max_open_orders = 64
-max_daily_loss_quote = "500.00"
-
 [[accounts]]
 id = "spot-main"
 venue_id = "binance-spot"
 risk_domain_id = 1
 account_identity_ref = "artifact://fixture/spot/account@sha256:2c97eac32abddb6c1fbb24714f3098e1d73c791c33d2227132641147a534b031"
 exec_process_id = "exec-spot-a"
-standby_exec_process_id = "exec-spot-b"
-guardian_process_ids = [
-    "guardian-a",
-    "guardian-b",
-]
 credential_ref = "secret://fixture/spot/execution/1"
-guardian_credential_ref = "secret://fixture/spot/guardian/1"
 risk_policy_id = "spot-risk"
 position_mode = "NotApplicable"
 margin_mode = "NotApplicable"
@@ -2221,13 +1108,7 @@ venue_id = "binance-usdm"
 risk_domain_id = 2
 account_identity_ref = "artifact://fixture/usdm/account@sha256:9213d56571a4333af31e37e56371d0ed630babc2f48316a701f7aa8c8c428438"
 exec_process_id = "exec-usdm-a"
-standby_exec_process_id = "exec-usdm-b"
-guardian_process_ids = [
-    "guardian-a",
-    "guardian-b",
-]
 credential_ref = "secret://fixture/usdm/execution/1"
-guardian_credential_ref = "secret://fixture/usdm/guardian/1"
 risk_policy_id = "usdm-risk"
 position_mode = "OneWay"
 margin_mode = "Cross"
@@ -2283,7 +1164,7 @@ auto_rollover = false
 expiry_resets_positions = false
 
 [journal]
-commit_profile = "LocalDurable+AsyncReplica"
+commit_profile = "LocalDurable"
 root_dir = "/var/lib/tickwire/journal"
 segment_bytes = 268435456
 max_frame_bytes = 1048576
@@ -2297,47 +1178,10 @@ retained_snapshot_count = 2
 disk_warn_percent = 80
 disk_freeze_percent = 90
 
-[replication]
-enabled = true
-receiver_host_id = "host-b"
-protocol_ref = "artifact://fixture/replication/v1@sha256:ecfb2444e696fc2202674b38d0453fe10399bbccafbab2e6e01650a5daff2aab"
-mtls_identity_ref = "secret://fixture/replication/mtls/1"
-batch_max_delay_us = 1000
-batch_max_bytes = 65536
-max_inflight_batches = 128
-out_of_order_bytes = 8388608
-lag_warn_ms = 100
-lag_freeze_ms = 1000
-on_freeze = "freeze-new-risk"
-mirror_wait_timeout_ms = 5000
-automatic_async_fallback = false
-
 [control]
-listen_uri = "https://control.fixture.invalid:9443"
-voters = [
-    { node_id = 1, host_id = "host-a", peer_uri = "https://host-a.fixture.invalid:9444" },
-    { node_id = 2, host_id = "host-b", peer_uri = "https://host-b.fixture.invalid:9444" },
-    { node_id = 3, host_id = "ctl-c", peer_uri = "https://ctl-c.fixture.invalid:9444" },
-]
-raft_impl = "raft-rs-0.7.0"
-tick_ms = 10
-heartbeat_ms = 50
-election_min_ms = 500
-election_max_ms = 1000
-pre_vote = true
-check_quorum = true
-read_only_mode = "Safe"
-exec_grant_lifetime_ms = 100
-exec_grant_renew_ms = 25
 strategy_grant_lifetime_ms = 60000
 strategy_progress_interval_ms = 10
 strategy_suspect_after_ms = 50
-mtls_identity_ref = "secret://fixture/control/mtls/1"
-client_ca_bundle_ref = "artifact://fixture/control/client-ca@sha256:f88abd89d7f7d6347091bbc711f784ae01210dc80f9d27918f32dbd4fc3166af"
-operation_timeout_ms = 120000
-plan_ttl_ms = 60000
-idempotency_retention_days = 90
-max_request_bytes = 4194304
 
 [[control.role_bindings]]
 subject = "spiffe://tickwire.invalid/qualification/operator"
@@ -2413,17 +1257,12 @@ shutdown_timeout_ms = 60000
 unknown_order_query_ms = 1000
 reconnect_min_ms = 100
 reconnect_max_ms = 30000
-fencing_deadline_ms = 5000
-takeover_deadline_ms = 30000
 
 [qualification]
 deployment_manifest_ref = "artifact://fixture/qualification/deployment@sha256:4ae51be46a262efa246bef24ade6bd0063d7757f35f8506a1d7d0e7803846f56"
 protocol_entitlements_ref = "artifact://fixture/qualification/entitlements@sha256:ed32971a28f04b3b3440b4af9ad13e086a7bfa6711fe3cc07255444952f06b28"
 host_inventory_ref = "artifact://fixture/qualification/hosts@sha256:2c253eeb7fc176d740205d105acc7da95d6090b8436a6943fb8e97a7ecf20d54"
 storage_power_loss_report_ref = "artifact://fixture/qualification/power-loss@sha256:b189d3206778cf6ff29fa1386099125fcedca2f7f46d9e9e54dabfa57387d6d2"
-network_isolation_report_ref = "artifact://fixture/qualification/fencing@sha256:2a0add195a555ca7adf9c5023321f33050b7cfa1200824f291d6e393f7944946"
 risk_acceptance_ref = "artifact://fixture/qualification/risk-acceptance@sha256:9e60d20cf7c7fafe49d8ff4fcf1ead06c25a7d1c399adf24f5b604e393bd34f8"
 full_send_p99_us = 300
 full_send_p999_us = 1000
-sync_send_p99_us = 2000
-sync_send_p999_us = 5000

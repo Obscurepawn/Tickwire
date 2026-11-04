@@ -103,7 +103,6 @@ pub(super) fn prepare(
         return Ok(None);
     };
     let object = read_projection(
-        config,
         bootstrap,
         &profile.object_file,
         &profile.object,
@@ -181,16 +180,13 @@ pub(super) fn prepare(
     }))
 }
 pub(super) fn read_projection(
-    config: &super::HostConfig,
     bootstrap: &Bootstrap,
     object_file: &std::path::Path,
     binding: &Binding,
     scope: &Scope,
 ) -> Result<tickwire_config::projection_object::ProjectionObject> {
     check(
-        config.capture.is_none()
-            && config.rotation_directory.is_none()
-            && bootstrap.preflight_job.is_none()
+        bootstrap.preflight_job.is_none()
             && bootstrap.factory.is_some()
             && !bootstrap.demo_enabled
             && bootstrap.demo_command_file.is_none()
@@ -233,8 +229,8 @@ pub(super) fn read_projection(
         process["role"] == "strategy"
             && process["restart_policy"] == "never"
             && strategy["trust_profile"] == "qualified_sdk"
-            && process["activation"] == if config.shadow { "shadow" } else { "active" }
-            && strategy["role"] == if config.shadow { "Shadow" } else { "Active" },
+            && process["activation"] == "active"
+            && strategy["role"] == "Active",
         "unsupported profile",
     )?;
     let identity = bootstrap.market.local.identity();

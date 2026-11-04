@@ -1,6 +1,6 @@
 # October 28, 2026 verification records
 
-Use the stage report for a result and its source and binary manifests for the corresponding build. The stages below used different revisions. A later fix does not change an earlier measurement or recorded failure.
+Use the stage report for a result and its source and binary manifests for the corresponding build. Each stage used the revision recorded in its source manifest.
 
 | Stage | What the report records |
 | --- | --- |

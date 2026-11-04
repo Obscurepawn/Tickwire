@@ -33,9 +33,6 @@ impl Drop for Fixture {
 }
 impl Fixture {
     pub fn new() -> Self {
-        Self::with_shadow(false)
-    }
-    pub fn with_shadow(shadow: bool) -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
         static NEXT: AtomicU64 = AtomicU64::new(0);
         // Keep enough room for Host's private directory and Unix socket names.
@@ -50,7 +47,7 @@ impl Fixture {
         let executable = fs::canonicalize("/bin/true").unwrap();
         let build = digest(&fs::read(&executable).unwrap());
         let (bootstrap, header) = channels::bootstrap(&root, build, current.uid(), current.gid());
-        let object = projection(build, shadow);
+        let object = projection(build);
         write(&root.join("projection.json"), object.bytes());
         write(
             &root.join("bootstrap.json"),
@@ -68,13 +65,12 @@ impl Fixture {
                 "scope":{"cluster_id":"tickwire-qualification","namespace_id":channels::NAMESPACE,"host_id":worker["host_id"],"process_id":b.process_id},
                 "os_identities":[{"name":worker["os_identity"],"uid":current.uid(),"gid":current.gid()}]
             },
-            "resources":{"worker":group("cg-worker"),"source_replay":group("cg-source"),"rollback":group("cg-rollback")},
-            "shadow":shadow,"bootstrap":root.join("bootstrap.json"),"market_resource":root.join("market.bin"),"md_admission_directory":root.join("admissions"),
+            "resources":{"worker":group("cg-worker")},
+            "bootstrap":root.join("bootstrap.json"),"market_resource":root.join("market.bin"),"md_admission_directory":root.join("admissions"),
             "executable":executable,"working_directory":root,"uid":current.uid(),"gid":current.gid(),"supervisor":channels::identity(1,1,[7;32]),
             "directory_parent":root.join("runtime"),"control_directory":root.join("control"),"control_stream":([54;16]),"control_domain":([55;16]),"control_writer_epoch":1,
             "snapshot_id":([56;16]),"market_cursor_id":([31;16]),"subscription_generation":1,"instrument_set_version":1,"maximum_levels_per_side":100,
-            "maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152,"recovery_directory":root.join("recovery"),
-            "rotation_directory":null,"first_rotation_sequence":1
+            "maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152,"recovery_directory":root.join("recovery")
         })).unwrap();
         let deployment = runtime::deployment(12);
         let (snapshot, catalog, _) = account_fixture::fixture();
@@ -143,13 +139,7 @@ impl Fixture {
         self.save_bootstrap();
     }
     pub fn create_launch_parents(&self) {
-        for name in [
-            "runtime",
-            "admissions",
-            "cg-worker",
-            "cg-source",
-            "cg-rollback",
-        ] {
+        for name in ["runtime", "admissions", "cg-worker"] {
             let p = self.root.join(name);
             fs::create_dir(&p).unwrap();
             fs::set_permissions(p, fs::Permissions::from_mode(0o700)).unwrap();
@@ -189,12 +179,8 @@ fn write(path: &std::path::Path, bytes: &[u8]) {
     fs::write(path, bytes).unwrap();
     fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
 }
-fn projection(build: [u8; 32], shadow: bool) -> ProjectionObject {
-    let process_id = if shadow {
-        "strategy-01-shadow"
-    } else {
-        "strategy-01-active"
-    };
+fn projection(build: [u8; 32]) -> ProjectionObject {
+    let process_id = "strategy-01-active";
     let bytes = serde_json::to_vec(&json!({"schema":1,"revision":1,"targets":[{
         "process_id":process_id,"account_ids":["spot-main","usdm-main"],
         "venue_ids":["binance-spot","binance-usdm"],"topic_ids":[1,2],"secret_purposes":[]

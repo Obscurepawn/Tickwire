@@ -1,8 +1,8 @@
 # tickwire-control-store
 
-The control store persists consensus state and snapshots across restarts.
+The control store journals local worker and market control requests. An exact retry returns the stored completion.
 
-Trace a storage update from the Raft batch to its sync boundary. Validate the retained index range and snapshot consistency when reopening the store.
+Trace request admission and completion through the journal sync. Test a duplicate key after restart with both identical and conflicting payloads.
 
 [Crate API](src/lib.rs) · [durable](tests/durable.rs)
 

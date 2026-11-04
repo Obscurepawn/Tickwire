@@ -19,4 +19,4 @@ git archive 4f840fcf885ff28fe51036ae2bf4f12111a82357 specs/evidence/20261029 | t
 python3 "$evidence_dir/specs/evidence/20261029/verify-runtime-observation-acceptance.py"
 ```
 
-The archived validator reads recorded observations and small account objects. It cannot reconstruct the omitted object store or attest the historical kernel from these files. The workers used ordinary resource launch. Positive delegated-cgroup qualification belongs to a separate test. [Verifier](../verify-runtime-observation-acceptance.py) · [Resource-stage report](../process-resources.json)
+These workers used the ordinary resource launcher. The resource-stage report records which delegated-cgroup tests ran. [Verifier](../verify-runtime-observation-acceptance.py) · [Resource-stage report](../process-resources.json)

@@ -123,6 +123,46 @@ fn file_creation_publishes_bound_baseline_and_bootstrap_and_holds_writer_lock() 
         bootstrap
     );
 }
+#[cfg(unix)]
+#[test]
+fn account_journal_excludes_a_second_process_using_a_directory_alias() {
+    const CHILD_PATH: &str = "TICKWIRE_COMPETING_ACCOUNT_JOURNAL";
+    if let Some(path) = std::env::var_os(CHILD_PATH) {
+        let Err(error) = FileBackend::open(path) else {
+            panic!("opened an account with a live writer");
+        };
+        assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+        return;
+    }
+    let _fork_barrier = FORK_BARRIER.write().unwrap();
+    let directory = Temp::new();
+    let (baseline, config, _, _) = setup();
+    let owner =
+        AccountJournal::create(directory.backend(), config.clone(), baseline.clone()).unwrap();
+    let alias = directory.0.join("other-profile");
+    std::os::unix::fs::symlink(directory.0.join("wal"), &alias).unwrap();
+    let status = std::process::Command::new(std::env::current_exe().unwrap())
+        .args([
+            "--exact",
+            "account_journal_excludes_a_second_process_using_a_directory_alias",
+        ])
+        .env(CHILD_PATH, &alias)
+        .status()
+        .unwrap();
+    assert!(status.success());
+    drop(owner);
+    let reopened = AccountJournal::recover(
+        FileBackend::open(&alias).unwrap(),
+        config,
+        5,
+        None,
+        &mut Verify::new(&baseline, &[]),
+    )
+    .unwrap();
+    assert!(reopened.account.frozen());
+    assert_eq!(reopened.journal.position(), 0);
+}
+
 #[test]
 fn admission_retry_is_exact_and_conflict_poison_does_not_advance() {
     let _fork_barrier = FORK_BARRIER.read().unwrap();

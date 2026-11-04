@@ -38,32 +38,31 @@ impl GroupResources {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(from = "ResourceConfig")]
 pub struct ProcessResources {
     pub worker: GroupResources,
-    pub source_replay: GroupResources,
-    pub rollback: GroupResources,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ResourceConfig {
+    worker: GroupResources,
+    #[serde(default, rename = "source_replay")]
+    _source: Option<GroupResources>,
+    #[serde(default, rename = "rollback")]
+    _rollback: Option<GroupResources>,
+}
+impl From<ResourceConfig> for ProcessResources {
+    fn from(config: ResourceConfig) -> Self {
+        Self {
+            worker: config.worker,
+        }
+    }
 }
 impl ProcessResources {
     pub fn validate(&self) -> Result<()> {
         self.worker.plan()?;
-        self.source_replay.plan()?;
-        self.rollback.plan()?;
-        if self.worker.cgroup == self.source_replay.cgroup
-            || self.worker.cgroup == self.rollback.cgroup
-            || self.source_replay.cgroup == self.rollback.cgroup
-        {
-            return Err(Error::Invalid);
-        }
         Ok(())
     }
-}
-
-#[derive(Clone, Copy)]
-pub(super) enum Purpose {
-    Worker,
-    SourceReplay,
-    Rollback,
 }
 
 pub(super) fn validate(resources: Option<&ProcessResources>) -> Result<()> {
@@ -74,18 +73,11 @@ pub(super) fn spawn(
     registry: &mut Registry,
     spec: LaunchSpec,
     resources: Option<&ProcessResources>,
-    purpose: Purpose,
 ) -> Result<ProcessIdentity> {
     let Some(resources) = resources else {
         return Ok(registry.spawn(spec)?);
     };
-    resources.validate()?;
-    let group = match purpose {
-        Purpose::Worker => &resources.worker,
-        Purpose::SourceReplay => &resources.source_replay,
-        Purpose::Rollback => &resources.rollback,
-    };
-    Ok(registry.spawn_with_resources(spec, group.plan()?)?)
+    Ok(registry.spawn_with_resources(spec, resources.worker.plan()?)?)
 }
 
 #[cfg(test)]

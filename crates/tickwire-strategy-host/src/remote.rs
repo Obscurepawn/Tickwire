@@ -23,7 +23,6 @@ pub struct RemoteHostedStrategy<R> {
     pub(crate) report: AuthenticatedChild,
     pub(crate) clock: SystemClock,
     pub(crate) policy: ControlPlane,
-    pub(crate) forwarding: bool,
     pub(crate) error: Option<Error>,
     pub(crate) _directory: PrivateDirectory,
     pub(crate) _intent_listener: ControlListener,
@@ -44,6 +43,9 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         resolver: R,
         policy: ControlPlane,
     ) -> Result<Self> {
+        if config.bootstrap.preflight_job.is_some() {
+            return Err(Error::Invalid);
+        }
         resources::validate(config.resources.as_ref())?;
         let external = config
             .bootstrap
@@ -100,7 +102,6 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         config.bootstrap.report_header = wire_bytes(report_publisher.header())?;
         let report_objects =
             tickwire_recovery::FileBlobStore::open(&config.bootstrap.report_directory)?;
-        preflight::prepare(&config.bootstrap, &config.spec)?;
         write_json(&bootstrap_file, &config.bootstrap)?;
         config.spec.arguments = vec![
             "--bootstrap".into(),
@@ -111,7 +112,6 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             &mut registry,
             config.spec.clone(),
             config.resources.as_ref(),
-            resources::Purpose::Worker,
         )?;
         let admission = tickwire_md::server::Admission {
             client: config
@@ -211,11 +211,7 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         );
         Ok(Self {
             market_transition,
-            readiness: readiness::ReadyProof::new(
-                &config.bootstrap,
-                &config.spec,
-                config.resources.clone(),
-            )?,
+            readiness: readiness::ReadyProof::new(&config.bootstrap, config.resources.clone())?,
             report_sub,
             strategy: RuntimeStrategy::new(
                 receiver,
@@ -227,7 +223,6 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             identity: config.spec.identity,
             clock,
             policy,
-            forwarding: true,
             error: None,
             intent,
             report,
@@ -281,9 +276,6 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
     }
     pub fn market_rejection(&self) -> Option<u32> {
         self.market_transition.rejection()
-    }
-    pub fn set_shadow(&mut self) {
-        self.forwarding = false;
     }
     pub fn instance(&self) -> ([u8; 16], u64) {
         (self.identity.instance, self.identity.generation)
@@ -344,88 +336,6 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
         }
         Ok(())
     }
-    pub(crate) fn graceful_retire(&mut self) -> Result<()> {
-        self.readiness
-            .observation_idle(self.clock.sample()?.monotonic.nanos())?;
-        self.strategy.start_quiesce();
-        self.registry.process(self.identity.instance)?;
-        let bank = self.reports.publisher().header().clone();
-        let membership = self.reports.publisher().membership_version();
-        let mut id = self.identity.instance;
-        id[0] ^= 0x60;
-        let raw = tickwire_strategy_sdk::retirement::request(
-            &self.report.session,
-            &bank,
-            self.report_sub,
-            membership,
-            id,
-        )?;
-        let request = ControlEnvelope::decode(&raw[..128])?;
-        let expected = tickwire_ipc::QuiesceBody::decode(&raw[128..])?;
-        let deadline = Instant::now() + Duration::from_secs(4);
-        self.report.connection.send(&raw, &[], deadline)?;
-        loop {
-            let packet = self.report.connection.recv(deadline)?;
-            if !packet.fds().is_empty() {
-                return Err(Error::Invalid);
-            }
-            let frame = self
-                .report
-                .session
-                .validate(packet.bytes(), self.clock.sample()?.monotonic.nanos())?;
-            if self
-                .readiness
-                .observe_fresh_reply(&frame.envelope, frame.body)?
-            {
-                continue;
-            }
-            if frame.envelope.opcode == 37 && frame.envelope.flags == 32 {
-                // A prior report callback may have completed before QUIESCE arrived.
-                // It does not complete retirement; retain the authenticated identity check.
-                let ready = tickwire_ipc::HandoverReadyBody::decode(frame.body)?;
-                if ready.instance_id != self.identity.instance
-                    || ready.strategy_generation != self.identity.generation
-                    || ready.logical_strategy_id != self.identity.logical_strategy
-                {
-                    return Err(Error::Invalid);
-                }
-                continue;
-            }
-            let proof = tickwire_strategy_sdk::retirement::check_reply(
-                &frame.envelope,
-                frame.body,
-                &request,
-                &expected,
-            )?;
-            self.reports.publisher().detach_registered(
-                self.report_sub,
-                tickwire_shm::Watermarks {
-                    read: proof.released_seq,
-                    released: proof.released_seq,
-                    applied: proof.applied_seq,
-                },
-            )?;
-            break;
-        }
-        // A validated QUIESCED cursor alone is not an exit observation.
-        loop {
-            if let Some(exit) = self
-                .registry
-                .observe_exits()?
-                .into_iter()
-                .find(|e| e.instance() == self.identity.instance)
-            {
-                if !exit.status().success() {
-                    return Err(Error::NotReady);
-                }
-                return retire_owned_child(&mut self.registry, self.identity.instance);
-            }
-            if Instant::now() >= deadline {
-                return Err(Error::NotReady);
-            }
-            std::thread::sleep(Duration::from_millis(1));
-        }
-    }
     fn report_result(&mut self, r: Result<()>) -> bool {
         match r {
             Ok(()) => true,
@@ -440,256 +350,6 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
     }
 }
 impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteHostedStrategy<R> {
-    fn handover_quiesce(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
-        if self.clock.sample().map_or(true, |t| {
-            self.readiness
-                .observation_idle(t.monotonic.nanos())
-                .is_err()
-        }) {
-            return false;
-        }
-        if self.identity.logical_strategy == c.logical_strategy_id
-            && [self.instance()].iter().any(|i| {
-                *i == (c.old_instance, c.old_generation) || *i == (c.new_instance, c.new_generation)
-            })
-        {
-            self.forwarding = false;
-            if self.instance() == (c.old_instance, c.old_generation) {
-                self.readiness.pause_on_capture();
-            }
-            true
-        } else {
-            false
-        }
-    }
-    fn handover_activate(&mut self, c: &tickwire_runtime::node::StrategySwitch) -> bool {
-        if self.clock.sample().map_or(true, |t| {
-            self.readiness
-                .observation_idle(t.monotonic.nanos())
-                .is_err()
-        }) {
-            return false;
-        }
-        if self.identity.logical_strategy != c.logical_strategy_id {
-            return false;
-        }
-        if self.instance() == (c.old_instance, c.old_generation) {
-            self.forwarding = false;
-            self.strategy.start_quiesce();
-            let result = (|| {
-                self.policy.stop_strategy_instance(
-                    self.identity.logical_strategy,
-                    self.identity.instance,
-                    self.identity.generation,
-                )?;
-                self.graceful_retire()
-            })();
-            let retired = result.is_ok();
-            if let Err(error) = &result {
-                eprintln!(
-                    "{}",
-                    serde_json::json!({"event":"strategy_retirement_failed","instance":self.identity.instance,"generation":self.identity.generation,"error":error.to_string()})
-                );
-            }
-            self.error = Some(result.err().unwrap_or(Error::NotReady));
-            return retired;
-        }
-        if self.instance() != (c.new_instance, c.new_generation) {
-            return false;
-        }
-        if self.failed() {
-            return false;
-        }
-        let allowed = self.clock.sample().ok().is_some_and(|n| {
-            self.policy
-                .strategy_instance_authorized(
-                    self.identity.logical_strategy,
-                    self.identity.instance,
-                    self.identity.generation,
-                    n.monotonic,
-                )
-                .unwrap_or(false)
-        });
-        if allowed {
-            self.forwarding = true;
-        }
-        allowed
-    }
-    fn handover_halt(&mut self, id: u64) -> bool {
-        if id != self.identity.logical_strategy {
-            return false;
-        }
-        self.forwarding = false;
-        true
-    }
-    fn release_preflight(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-        roots: [[u8; 32]; 3],
-    ) -> Option<Vec<Vec<u8>>> {
-        if self.instance() != (instance, generation) || self.failed() {
-            return None;
-        }
-        let result = (|| {
-            self.maintain()?;
-            self.readiness.release_objects(roots)
-        })();
-        match result {
-            Ok(v) => v,
-            Err(e) => {
-                self.fail(e);
-                None
-            }
-        }
-    }
-    fn handover_checkpoint(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-    ) -> Option<(tickwire_runtime::node::HandoverReadiness, Vec<Vec<u8>>)> {
-        if self.instance() != (instance, generation) || self.failed() {
-            return None;
-        }
-        if let Err(e) = self.maintain() {
-            self.fail(e);
-            return None;
-        }
-        let want = match self.readiness.capture(
-            &mut self.report,
-            &self.reports,
-            self.report_sub,
-            &mut self.clock,
-        ) {
-            Ok(w) => w,
-            Err(Error::Busy) => return None,
-            Err(e) => {
-                self.fail(e);
-                return None;
-            }
-        };
-        let objects = self.handover_objects(&want)?;
-        Some((want, objects))
-    }
-    fn handover_replay_source(
-        &mut self,
-        operation: &tickwire_release::Operation,
-        member: &tickwire_release::Member,
-        fixed: &tickwire_runtime::node::HandoverReadiness,
-    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
-        if self.instance() != (member.old_instance, member.old_generation)
-            || self.forwarding
-            || self.failed()
-        {
-            return None;
-        }
-        let fixed_objects = self.handover_objects(fixed)?;
-        let (current, current_objects) =
-            self.handover_checkpoint(member.old_instance, member.old_generation)?;
-        match self.readiness.source_replay(
-            operation,
-            member,
-            fixed.clone(),
-            fixed_objects,
-            current,
-            current_objects,
-        ) {
-            Ok(v) => Some(v),
-            Err(e) => {
-                self.fail(e);
-                None
-            }
-        }
-    }
-    fn handover_install_replay(
-        &mut self,
-        source: &tickwire_release::replay::source::VerifiedSourceReplay,
-    ) -> Option<tickwire_runtime::node::InstalledReplay> {
-        let member = &source.completion().member;
-        if self.instance() != (member.new_instance, member.new_generation)
-            || self.forwarding
-            || self.failed()
-        {
-            return None;
-        }
-        let result = (|| {
-            self.maintain()?;
-            self.readiness.install_replay(
-                &mut self.report,
-                &mut self.reports,
-                self.report_sub,
-                &mut self.clock,
-                source,
-            )
-        })();
-        match result {
-            Ok(value) => Some(value),
-            Err(Error::Busy) => None,
-            Err(e) => {
-                self.fail(e);
-                None
-            }
-        }
-    }
-    fn handover_finish_replay(
-        &mut self,
-        installed: tickwire_runtime::node::InstalledReplay,
-    ) -> Option<tickwire_runtime::node::PreparedReplay> {
-        let member = &installed.verified().request.member;
-        if self.instance() != (member.new_instance, member.new_generation)
-            || self.forwarding
-            || self.failed()
-        {
-            return None;
-        }
-        let result = self.readiness.finish_replay(
-            &mut self.report,
-            &mut self.reports,
-            self.report_sub,
-            &mut self.clock,
-            installed,
-        );
-        match result {
-            Ok(v) => Some(v),
-            Err(Error::Busy) => None,
-            Err(e) => {
-                self.fail(e);
-                None
-            }
-        }
-    }
-    fn handover_objects(
-        &mut self,
-        want: &tickwire_runtime::node::HandoverReadiness,
-    ) -> Option<Vec<Vec<u8>>> {
-        if self.instance() != (want.instance_id, want.strategy_generation)
-            || self.failed()
-            || self.registry.process(self.identity.instance).is_err()
-        {
-            return None;
-        }
-        let now = self.clock.sample().ok()?.monotonic.nanos();
-        self.readiness
-            .objects(&self.report, now, &self.reports, self.report_sub, want)
-            .ok()
-            .flatten()
-    }
-    fn handover_ready(&mut self, want: &tickwire_runtime::node::HandoverReadiness) -> bool {
-        if self.failed() {
-            return false;
-        }
-        let result = (|| {
-            self.maintain()?;
-            self.readiness.matches(&self.reports, self.report_sub, want)
-        })();
-        match result {
-            Ok(v) => v,
-            Err(e) => {
-                self.fail(e);
-                false
-            }
-        }
-    }
     fn on_market(&mut self, _: &tickwire_binance_public::Notice<'_>) -> bool {
         !self.failed()
     }
@@ -704,12 +364,6 @@ impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteH
         }
         if let Err(e) = self.maintain() {
             self.fail(e);
-            return None;
-        }
-        if !self.forwarding {
-            if let Err(e) = self.strategy.drain_shadow(32) {
-                self.fail(e.into());
-            }
             return None;
         }
         let next = tickwire_runtime::node::Strategy::next(&mut self.strategy, a, h, n);

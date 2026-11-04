@@ -1,16 +1,11 @@
-# Tickwire live deployment INPUT TEMPLATE. This intentionally fails validation.
-# Replace every REQUIRED value and all technical assumptions with verified deployment inputs.
-# Never place secret bytes here; credential/identity fields accept only versioned secret:// refs.
-# Host inventory, CPU/NUMA map, endpoint protocol timings, mode snapshots, fees, tiers, limits,
-# strategy artifacts/parameters, RBAC subjects and qualification evidence all require review.
-# Import the completed candidate through validate -> plan -> commit; do not edit generated files.
+# Replace each REQUIRED value with a pinned deployment input before validation.
 [identity]
 schema_version = 1
 cluster_id = "REQUIRED_CLUSTER_ID"
 namespace_id = "REQUIRED_NAMESPACE_UUID"
 mode = "live"
 environment = "production"
-deployment_profile = "TW-LD-ASYNC-16x2-v1"
+deployment_profile = "TW-SingleHost-v1"
 
 [[hosts]]
 id = "host-a"
@@ -20,44 +15,6 @@ physical_cores = 64
 memory_bytes = 274877906944
 numa_nodes = 2
 shm_budget_bytes = 8589934592
-housekeeping_cpus = [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-]
-
-[[hosts]]
-id = "host-b"
-role = "trading"
-failure_domain = "REQUIRED_FAILURE_DOMAIN"
-physical_cores = 64
-memory_bytes = 274877906944
-numa_nodes = 2
-shm_budget_bytes = 8589934592
-housekeeping_cpus = [
-    0,
-    1,
-    2,
-    3,
-    4,
-    5,
-    6,
-    7,
-]
-
-[[hosts]]
-id = "ctl-c"
-role = "control-only"
-failure_domain = "REQUIRED_FAILURE_DOMAIN"
-physical_cores = 8
-memory_bytes = 34359738368
-numa_nodes = 1
-shm_budget_bytes = 0
 housekeeping_cpus = [
     0,
     1,
@@ -81,36 +38,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 1073741824
 artifact_ref = "REQUIRED:/processes/0/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-config"
-
-[[processes]]
-id = "supervisor-host-b"
-host_id = "host-b"
-role = "supervisor"
-activation = "active"
-cpus = [
-    2,
-    3,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "REQUIRED:/processes/1/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-config"
-
-[[processes]]
-id = "supervisor-ctl-c"
-host_id = "ctl-c"
-role = "supervisor"
-activation = "active"
-cpus = [
-    2,
-    3,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "REQUIRED:/processes/2/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-config"
 
@@ -143,20 +70,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-exec"
 
 [[processes]]
-id = "replicator-spot-a"
-host_id = "host-a"
-role = "replicator"
-activation = "active"
-cpus = [
-    13,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/5/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
 id = "md-usdm-a"
 host_id = "host-a"
 role = "md"
@@ -183,34 +96,6 @@ memory_limit_bytes = 8589934592
 artifact_ref = "REQUIRED:/processes/7/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-exec"
-
-[[processes]]
-id = "replicator-usdm-a"
-host_id = "host-a"
-role = "replicator"
-activation = "active"
-cpus = [
-    14,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/8/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
-id = "guardian-a"
-host_id = "host-a"
-role = "guardian"
-activation = "active"
-cpus = [
-    12,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "REQUIRED:/processes/9/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-guardian"
 
 [[processes]]
 id = "recorder-a"
@@ -261,152 +146,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-snapshot-worker"
 
 [[processes]]
-id = "md-spot-b"
-host_id = "host-b"
-role = "md"
-activation = "standby"
-cpus = [
-    8,
-]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "REQUIRED:/processes/13/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-md"
-
-[[processes]]
-id = "exec-spot-b"
-host_id = "host-b"
-role = "exec"
-activation = "standby"
-cpus = [
-    10,
-]
-numa_node = 0
-memory_limit_bytes = 8589934592
-artifact_ref = "REQUIRED:/processes/14/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-exec"
-
-[[processes]]
-id = "replicator-spot-b"
-host_id = "host-b"
-role = "replicator"
-activation = "active"
-cpus = [
-    13,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/15/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
-id = "md-usdm-b"
-host_id = "host-b"
-role = "md"
-activation = "standby"
-cpus = [
-    9,
-]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "REQUIRED:/processes/16/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-md"
-
-[[processes]]
-id = "exec-usdm-b"
-host_id = "host-b"
-role = "exec"
-activation = "standby"
-cpus = [
-    11,
-]
-numa_node = 0
-memory_limit_bytes = 8589934592
-artifact_ref = "REQUIRED:/processes/17/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-exec"
-
-[[processes]]
-id = "replicator-usdm-b"
-host_id = "host-b"
-role = "replicator"
-activation = "active"
-cpus = [
-    14,
-]
-numa_node = 0
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/18/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-replicator"
-
-[[processes]]
-id = "guardian-b"
-host_id = "host-b"
-role = "guardian"
-activation = "active"
-cpus = [
-    12,
-]
-numa_node = 0
-memory_limit_bytes = 1073741824
-artifact_ref = "REQUIRED:/processes/19/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-guardian"
-
-[[processes]]
-id = "recorder-b"
-host_id = "host-b"
-role = "recorder"
-activation = "active"
-cpus = [
-    15,
-]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "REQUIRED:/processes/20/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-recorder"
-
-[[processes]]
-id = "input-writer-b"
-host_id = "host-b"
-role = "input-writer"
-activation = "active"
-cpus = [
-    48,
-    49,
-    50,
-    51,
-]
-numa_node = 1
-memory_limit_bytes = 8589934592
-artifact_ref = "REQUIRED:/processes/21/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-input-writer"
-
-[[processes]]
-id = "snapshot-worker-b"
-host_id = "host-b"
-role = "snapshot-worker"
-activation = "active"
-cpus = [
-    52,
-    53,
-    54,
-    55,
-]
-numa_node = 1
-memory_limit_bytes = 8589934592
-artifact_ref = "REQUIRED:/processes/22/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-snapshot-worker"
-
-[[processes]]
 id = "strategy-01-active"
 host_id = "host-a"
 role = "strategy"
@@ -417,20 +156,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/23/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-01-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    32,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/24/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -449,20 +174,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-02-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    33,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/26/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-03-active"
 host_id = "host-a"
 role = "strategy"
@@ -473,20 +184,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/27/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-03-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    34,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/28/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -505,20 +202,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-04-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    35,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/30/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-05-active"
 host_id = "host-a"
 role = "strategy"
@@ -529,20 +212,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/31/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-05-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    36,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/32/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -561,20 +230,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-06-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    37,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/34/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-07-active"
 host_id = "host-a"
 role = "strategy"
@@ -585,20 +240,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/35/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-07-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    38,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/36/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -617,20 +258,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-08-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    39,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/38/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-09-active"
 host_id = "host-a"
 role = "strategy"
@@ -641,20 +268,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/39/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-09-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    40,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/40/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -673,20 +286,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-10-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    41,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/42/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-11-active"
 host_id = "host-a"
 role = "strategy"
@@ -697,20 +296,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/43/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-11-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    42,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/44/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -729,20 +314,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-12-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    43,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/46/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-13-active"
 host_id = "host-a"
 role = "strategy"
@@ -753,20 +324,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/47/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-13-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    44,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/48/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -785,20 +342,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-14-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    45,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/50/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-15-active"
 host_id = "host-a"
 role = "strategy"
@@ -813,20 +356,6 @@ restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
-id = "strategy-15-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    46,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/52/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
 id = "strategy-16-active"
 host_id = "host-a"
 role = "strategy"
@@ -837,20 +366,6 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/53/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-strategy"
-
-[[processes]]
-id = "strategy-16-shadow"
-host_id = "host-a"
-role = "strategy"
-activation = "shadow"
-cpus = [
-    47,
-]
-numa_node = 1
-memory_limit_bytes = 2147483648
-artifact_ref = "REQUIRED:/processes/54/artifact_ref"
 restart_policy = "recover-gated"
 os_identity = "tickwire-strategy"
 
@@ -930,7 +445,7 @@ name = "spot-normalized"
 product = "Spot"
 stream = "NormalizedMarket"
 publisher_process_id = "md-spot-a"
-standby_publisher_process_id = "md-spot-b"
+venue_id = "binance-spot"
 qos = "StrictTrading"
 consumer_limit = 40
 
@@ -940,7 +455,7 @@ name = "usdm-normalized"
 product = "Usdm"
 stream = "NormalizedMarket"
 publisher_process_id = "md-usdm-a"
-standby_publisher_process_id = "md-usdm-b"
+venue_id = "binance-usdm"
 qos = "StrictTrading"
 consumer_limit = 40
 
@@ -959,45 +474,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/0/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/0/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/0/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 1
-process_id = "strategy-01-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/1/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/1/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/1/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1062,45 +538,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 2
-process_id = "strategy-02-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/3/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/3/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/3/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 3
 process_id = "strategy-03-active"
 role = "Active"
@@ -1115,45 +552,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/4/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/4/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/4/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 3
-process_id = "strategy-03-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/5/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/5/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/5/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1218,45 +616,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 4
-process_id = "strategy-04-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/7/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/7/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/7/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 5
 process_id = "strategy-05-active"
 role = "Active"
@@ -1271,45 +630,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/8/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/8/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/8/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 5
-process_id = "strategy-05-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/9/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/9/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/9/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1374,45 +694,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 6
-process_id = "strategy-06-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/11/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/11/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/11/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 7
 process_id = "strategy-07-active"
 role = "Active"
@@ -1427,45 +708,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/12/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/12/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/12/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 7
-process_id = "strategy-07-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/13/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/13/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/13/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1530,45 +772,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 8
-process_id = "strategy-08-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/15/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/15/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/15/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 9
 process_id = "strategy-09-active"
 role = "Active"
@@ -1583,45 +786,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/16/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/16/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/16/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 9
-process_id = "strategy-09-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/17/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/17/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/17/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1686,45 +850,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 10
-process_id = "strategy-10-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/19/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/19/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/19/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 11
 process_id = "strategy-11-active"
 role = "Active"
@@ -1739,45 +864,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/20/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/20/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/20/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 11
-process_id = "strategy-11-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/21/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/21/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/21/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1842,45 +928,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 12
-process_id = "strategy-12-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/23/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/23/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/23/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 13
 process_id = "strategy-13-active"
 role = "Active"
@@ -1895,45 +942,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/24/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/24/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/24/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 13
-process_id = "strategy-13-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/25/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/25/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/25/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1998,45 +1006,6 @@ max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
 [[strategies]]
-logical_strategy_id = 14
-process_id = "strategy-14-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/27/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/27/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/27/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
 logical_strategy_id = 15
 process_id = "strategy-15-active"
 role = "Active"
@@ -2051,45 +1020,6 @@ topic_ids = [
 state_schema_ref = "REQUIRED:/strategies/28/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/28/parameter_schema_ref"
 recovery_contract_ref = "REQUIRED:/strategies/28/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies]]
-logical_strategy_id = 15
-process_id = "strategy-15-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/29/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/29/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/29/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -2153,58 +1083,13 @@ max_gross_quote = "REQUIRED_DECIMAL"
 max_open_orders = 64
 max_daily_loss_quote = "REQUIRED_DECIMAL"
 
-[[strategies]]
-logical_strategy_id = 16
-process_id = "strategy-16-shadow"
-role = "Shadow"
-account_ids = [
-    "spot-main",
-    "usdm-main",
-]
-topic_ids = [
-    1,
-    2,
-]
-state_schema_ref = "REQUIRED:/strategies/31/state_schema_ref"
-parameter_schema_ref = "REQUIRED:/strategies/31/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/31/recovery_contract_ref"
-subscriptions_on_loss = "freeze-new-risk"
-trust_profile = "qualified_sdk"
-
-[strategies.params]
-spread_bps = "REQUIRED_PARAMETER"
-quote_quantity = "REQUIRED_PARAMETER"
-signal_window_events = "REQUIRED_PARAMETER"
-
-[[strategies.risk_budgets]]
-account_id = "spot-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
-[[strategies.risk_budgets]]
-account_id = "usdm-main"
-quote_asset = "USDT"
-max_order_quote = "REQUIRED_DECIMAL"
-max_gross_quote = "REQUIRED_DECIMAL"
-max_open_orders = 64
-max_daily_loss_quote = "REQUIRED_DECIMAL"
-
 [[accounts]]
 id = "spot-main"
 venue_id = "binance-spot"
 risk_domain_id = 1
 account_identity_ref = "REQUIRED:/accounts/0/account_identity_ref"
 exec_process_id = "exec-spot-a"
-standby_exec_process_id = "exec-spot-b"
-guardian_process_ids = [
-    "guardian-a",
-    "guardian-b",
-]
 credential_ref = "REQUIRED:/accounts/0/credential_ref"
-guardian_credential_ref = "REQUIRED:/accounts/0/guardian_credential_ref"
 risk_policy_id = "spot-risk"
 position_mode = "NotApplicable"
 margin_mode = "NotApplicable"
@@ -2222,13 +1107,7 @@ venue_id = "binance-usdm"
 risk_domain_id = 2
 account_identity_ref = "REQUIRED:/accounts/1/account_identity_ref"
 exec_process_id = "exec-usdm-a"
-standby_exec_process_id = "exec-usdm-b"
-guardian_process_ids = [
-    "guardian-a",
-    "guardian-b",
-]
 credential_ref = "REQUIRED:/accounts/1/credential_ref"
-guardian_credential_ref = "REQUIRED:/accounts/1/guardian_credential_ref"
 risk_policy_id = "usdm-risk"
 position_mode = "OneWay"
 margin_mode = "Cross"
@@ -2283,7 +1162,7 @@ auto_rollover = false
 expiry_resets_positions = false
 
 [journal]
-commit_profile = "LocalDurable+AsyncReplica"
+commit_profile = "LocalDurable"
 root_dir = "/var/lib/tickwire/journal"
 segment_bytes = 268435456
 max_frame_bytes = 1048576
@@ -2297,47 +1176,10 @@ retained_snapshot_count = 2
 disk_warn_percent = 80
 disk_freeze_percent = 90
 
-[replication]
-enabled = true
-receiver_host_id = "host-b"
-protocol_ref = "REQUIRED:/replication/protocol_ref"
-mtls_identity_ref = "REQUIRED:/replication/mtls_identity_ref"
-batch_max_delay_us = 1000
-batch_max_bytes = 65536
-max_inflight_batches = 128
-out_of_order_bytes = 8388608
-lag_warn_ms = 100
-lag_freeze_ms = 1000
-on_freeze = "freeze-new-risk"
-mirror_wait_timeout_ms = 5000
-automatic_async_fallback = false
-
 [control]
-listen_uri = "REQUIRED:/control/listen_uri"
-voters = [
-    { node_id = 1, host_id = "host-a", peer_uri = "REQUIRED:/control/voters/0/peer_uri" },
-    { node_id = 2, host_id = "host-b", peer_uri = "REQUIRED:/control/voters/1/peer_uri" },
-    { node_id = 3, host_id = "ctl-c", peer_uri = "REQUIRED:/control/voters/2/peer_uri" },
-]
-raft_impl = "raft-rs-0.7.0"
-tick_ms = 10
-heartbeat_ms = 50
-election_min_ms = 500
-election_max_ms = 1000
-pre_vote = true
-check_quorum = true
-read_only_mode = "Safe"
-exec_grant_lifetime_ms = 100
-exec_grant_renew_ms = 25
 strategy_grant_lifetime_ms = 60000
 strategy_progress_interval_ms = 10
 strategy_suspect_after_ms = 50
-mtls_identity_ref = "REQUIRED:/control/mtls_identity_ref"
-client_ca_bundle_ref = "REQUIRED:/control/client_ca_bundle_ref"
-operation_timeout_ms = 120000
-plan_ttl_ms = 60000
-idempotency_retention_days = 90
-max_request_bytes = 4194304
 
 [[control.role_bindings]]
 subject = "REQUIRED:/control/role_bindings/0/subject"
@@ -2413,17 +1255,12 @@ shutdown_timeout_ms = 60000
 unknown_order_query_ms = 1000
 reconnect_min_ms = 100
 reconnect_max_ms = 30000
-fencing_deadline_ms = 5000
-takeover_deadline_ms = 30000
 
 [qualification]
 deployment_manifest_ref = "REQUIRED:/qualification/deployment_manifest_ref"
 protocol_entitlements_ref = "REQUIRED:/qualification/protocol_entitlements_ref"
 host_inventory_ref = "REQUIRED:/qualification/host_inventory_ref"
 storage_power_loss_report_ref = "REQUIRED:/qualification/storage_power_loss_report_ref"
-network_isolation_report_ref = "REQUIRED:/qualification/network_isolation_report_ref"
 risk_acceptance_ref = "REQUIRED:/qualification/risk_acceptance_ref"
 full_send_p99_us = 300
 full_send_p999_us = 1000
-sync_send_p99_us = 2000
-sync_send_p999_us = 5000

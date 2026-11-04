@@ -261,13 +261,8 @@ pub(super) fn prepare(
         .external_market
         .as_ref()
         .ok_or_else(|| invalid("projection inputs external market required"))?;
-    let object = profile::read_projection(
-        config,
-        bootstrap,
-        &input.object_file,
-        &input.object,
-        &input.scope,
-    )?;
+    let object =
+        profile::read_projection(bootstrap, &input.object_file, &input.object, &input.scope)?;
     let payload = object.payload();
     let account = single(&payload["account_views"], "account view set")?;
     let venue = single(&payload["venue_views"], "venue view set")?;
@@ -303,7 +298,9 @@ pub(super) fn prepare(
         "approved topic mapping",
     )?;
     check(
-        venue["venue"] == "Binance" && topic["product"] == venue["product"],
+        venue["venue"] == "Binance"
+            && topic["venue_id"] == venue["id"]
+            && topic["product"] == venue["product"],
         "venue/topic product",
     )?;
     let scope = a.scope.actual();

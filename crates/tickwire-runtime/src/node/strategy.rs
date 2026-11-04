@@ -1,8 +1,5 @@
-//! Account-side interface to strategy workers, including group handover.
-use super::{
-    HandoverReadiness, Health, InstalledRebuild, InstalledReplay, PreparedRebuild, PreparedReplay,
-    RebuildInput, StrategySwitch,
-};
+//! Account-side interface to strategy workers.
+use super::Health;
 use crate::authority::RecoveryBundle;
 use std::time::Instant;
 use tickwire_account::Account;
@@ -104,137 +101,8 @@ pub trait Strategy {
     fn on_private(&mut self, _outcome: InputOutcome, _account: &Account) {}
     fn on_rest(&mut self, _outcome: RestOutcome, _account: &Account) {}
     fn on_health(&mut self, _health: Health, _now: LocalTime) {}
-
-    /// Qualified capture and approved immutable publication inputs, before any
-    /// user rebuild factory is called. The Host authenticates the owned child.
-    fn handover_rebuild_input(
-        &mut self,
-        _operation: &tickwire_release::Operation,
-        _member: &tickwire_release::Member,
-    ) -> Option<RebuildInput> {
-        None
-    }
-    fn handover_install_rebuild(&mut self, _input: RebuildInput) -> Option<InstalledRebuild> {
-        None
-    }
-    fn handover_finish_rebuild(&mut self, _installed: InstalledRebuild) -> Option<PreparedRebuild> {
-        None
-    }
-    /// True only after the qualified child completed callbacks and synchronized
-    /// the referenced checkpoint/ordered inputs at this exact account boundary.
-    fn handover_ready(&mut self, _readiness: &HandoverReadiness) -> bool {
-        false
-    }
-    fn handover_objects(&mut self, _readiness: &HandoverReadiness) -> Option<Vec<Vec<u8>>> {
-        None
-    }
-    /// Latest authenticated checkpoint, after actual callback/cursor verification.
-    fn handover_checkpoint(
-        &mut self,
-        _instance: [u8; 16],
-        _generation: u64,
-    ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
-        None
-    }
-    /// Host-observed execution of the registered old binary over the complete
-    /// retained S→C tail. Unsupported adapters never synthesize this evidence.
-    fn handover_replay_source(
-        &mut self,
-        _operation: &tickwire_release::Operation,
-        _member: &tickwire_release::Member,
-        _fixed: &HandoverReadiness,
-    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
-        None
-    }
-    fn handover_install_replay(
-        &mut self,
-        _source: &tickwire_release::replay::source::VerifiedSourceReplay,
-    ) -> Option<InstalledReplay> {
-        None
-    }
-    fn handover_finish_replay(&mut self, _installed: InstalledReplay) -> Option<PreparedReplay> {
-        None
-    }
-    /// Synchronized preflight evidence for exactly these three immutable roots.
-    fn release_preflight(
-        &mut self,
-        _instance: [u8; 16],
-        _generation: u64,
-        _roots: [[u8; 32]; 3],
-    ) -> Option<Vec<Vec<u8>>> {
-        None
-    }
-    fn handover_quiesce(&mut self, _switch: &StrategySwitch) -> bool {
-        false
-    }
-    fn handover_activate(&mut self, _switch: &StrategySwitch) -> bool {
-        false
-    }
-    fn handover_halt(&mut self, _logical_strategy_id: u64) -> bool {
-        false
-    }
 }
 impl<T: Strategy + ?Sized> Strategy for Box<T> {
-    fn handover_rebuild_input(
-        &mut self,
-        operation: &tickwire_release::Operation,
-        member: &tickwire_release::Member,
-    ) -> Option<RebuildInput> {
-        (**self).handover_rebuild_input(operation, member)
-    }
-    fn handover_install_rebuild(&mut self, input: RebuildInput) -> Option<InstalledRebuild> {
-        (**self).handover_install_rebuild(input)
-    }
-    fn handover_finish_rebuild(&mut self, installed: InstalledRebuild) -> Option<PreparedRebuild> {
-        (**self).handover_finish_rebuild(installed)
-    }
-    fn handover_finish_replay(&mut self, installed: InstalledReplay) -> Option<PreparedReplay> {
-        (**self).handover_finish_replay(installed)
-    }
-    fn handover_install_replay(
-        &mut self,
-        source: &tickwire_release::replay::source::VerifiedSourceReplay,
-    ) -> Option<InstalledReplay> {
-        (**self).handover_install_replay(source)
-    }
-    fn handover_ready(&mut self, r: &HandoverReadiness) -> bool {
-        (**self).handover_ready(r)
-    }
-    fn handover_objects(&mut self, r: &HandoverReadiness) -> Option<Vec<Vec<u8>>> {
-        (**self).handover_objects(r)
-    }
-    fn handover_checkpoint(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-    ) -> Option<(HandoverReadiness, Vec<Vec<u8>>)> {
-        (**self).handover_checkpoint(instance, generation)
-    }
-    fn handover_replay_source(
-        &mut self,
-        operation: &tickwire_release::Operation,
-        member: &tickwire_release::Member,
-        fixed: &HandoverReadiness,
-    ) -> Option<tickwire_release::replay::source::VerifiedSourceReplay> {
-        (**self).handover_replay_source(operation, member, fixed)
-    }
-    fn release_preflight(
-        &mut self,
-        instance: [u8; 16],
-        generation: u64,
-        roots: [[u8; 32]; 3],
-    ) -> Option<Vec<Vec<u8>>> {
-        (**self).release_preflight(instance, generation, roots)
-    }
-    fn handover_quiesce(&mut self, s: &StrategySwitch) -> bool {
-        (**self).handover_quiesce(s)
-    }
-    fn handover_activate(&mut self, s: &StrategySwitch) -> bool {
-        (**self).handover_activate(s)
-    }
-    fn handover_halt(&mut self, id: u64) -> bool {
-        (**self).handover_halt(id)
-    }
     fn on_account_history(&mut self, history: &dyn AccountHistory) {
         (**self).on_account_history(history)
     }

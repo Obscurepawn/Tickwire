@@ -87,7 +87,7 @@ impl<F: FnMut(Hash) -> Result<Vec<u8>>> Reader<F> {
             .verify(&cp, tickwire_recovery::MAX_OBJECT_BYTES as u64)?;
         let inputs = self.get(source.input_digest)?;
         let account = self.get(source.account_input_digest)?;
-        let verified = tickwire_handover::verify(&source, &cp, &inputs, &account)
+        let verified = crate::account_inputs::verify(&source, &cp, &inputs, &account)
             .map_err(|_| Error::Invalid)?;
         if verified.baseline().snapshot().scope.risk_domain_id != c.member.risk_domain {
             return Err(Error::Identity);

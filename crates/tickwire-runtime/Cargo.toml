@@ -10,7 +10,6 @@ workspace = true
 
 [dependencies]
 tickwire-instrument-catalog = { path = "../tickwire-instrument-catalog" }
-tickwire-handover = { path = "../tickwire-handover" }
 tickwire-release = { path = "../tickwire-release" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-account = { path = "../tickwire-account" }

@@ -67,17 +67,10 @@ impl PinnedPolicy {
             unique(t.venue_ids.iter())?;
             unique(t.topic_ids.iter())?;
             unique(t.secret_purposes.iter())?;
-            if t.secret_purposes.iter().any(|v| {
-                !matches!(
-                    v.as_str(),
-                    "execution"
-                        | "guardian"
-                        | "market-data"
-                        | "control"
-                        | "replication"
-                        | "metrics"
-                )
-            }) {
+            if t.secret_purposes
+                .iter()
+                .any(|v| !matches!(v.as_str(), "execution" | "market-data" | "metrics"))
+            {
                 return Err(err());
             }
         }
@@ -177,11 +170,7 @@ fn purpose_allowed(role: &str, purpose: &str) -> bool {
     }
     matches!(
         (role, purpose),
-        ("exec", "execution")
-            | ("guardian", "guardian")
-            | ("md", "market-data")
-            | ("supervisor", "control")
-            | ("replicator", "replication")
+        ("exec", "execution") | ("md", "market-data")
     )
 }
 fn add_secret(bindings: &mut Vec<Value>, purpose: &str, reference: &Value, account: Option<&str>) {
@@ -248,17 +237,9 @@ pub fn project(
     let strategy = strategies.iter().find(|v| v["process_id"] == process_id);
     let assigned: BTreeSet<&str> = match role {
         "strategy" => ids(array(strategy.ok_or(err())?, "account_ids")?)?,
-        "exec" | "guardian" => array(root, "accounts")?
+        "exec" => array(root, "accounts")?
             .iter()
-            .filter(|a| {
-                if role == "exec" {
-                    a["exec_process_id"] == process_id || a["standby_exec_process_id"] == process_id
-                } else {
-                    a["guardian_process_ids"]
-                        .as_array()
-                        .is_some_and(|v| v.iter().any(|s| s == process_id))
-                }
-            })
+            .filter(|a| a["exec_process_id"] == process_id)
             .map(|a| text(a, "id"))
             .collect::<Result<_>>()?,
         "md" => BTreeSet::new(),
@@ -277,7 +258,7 @@ pub fn project(
         .iter()
         .map(|id| named(root, "venues", id))
         .collect::<Result<_>>()?;
-    if matches!(role, "strategy" | "exec" | "guardian") {
+    if matches!(role, "strategy" | "exec") {
         let required = accounts
             .iter()
             .map(|a| text(a, "venue_id"))
@@ -309,20 +290,19 @@ pub fn project(
     if role == "md"
         && (topics.is_empty()
             || topics.iter().any(|t| {
-                (t["publisher_process_id"] != process_id
-                    && t["standby_publisher_process_id"] != process_id)
-                    || !venues.iter().any(|v| v["product"] == t["product"])
+                t["publisher_process_id"] != process_id
+                    || !venues.iter().any(|v| v["id"] == t["venue_id"])
             })
             || venues
                 .iter()
-                .any(|v| !topics.iter().any(|t| t["product"] == v["product"])))
+                .any(|v| !topics.iter().any(|t| t["venue_id"] == v["id"])))
     {
         return Err(err());
     }
-    if matches!(role, "exec" | "guardian")
+    if role == "exec"
         && topics
             .iter()
-            .any(|t| !venues.iter().any(|v| v["product"] == t["product"]))
+            .any(|t| !venues.iter().any(|v| v["id"] == t["venue_id"]))
     {
         return Err(err());
     }
@@ -377,7 +357,7 @@ pub fn project(
                 .collect(),
         ),
     );
-    if matches!(role, "exec" | "guardian") {
+    if role == "exec" {
         out.insert(
             "account_identity_refs".into(),
             Value::Array(
@@ -391,17 +371,12 @@ pub fn project(
     let mut bindings = Vec::new();
     for purpose in &target.secret_purposes {
         match purpose.as_str() {
-            "execution" | "guardian" => {
+            "execution" => {
                 for account in &accounts {
-                    let key = if purpose == "execution" {
-                        "credential_ref"
-                    } else {
-                        "guardian_credential_ref"
-                    };
                     add_secret(
                         &mut bindings,
                         purpose,
-                        &account[key],
+                        &account["credential_ref"],
                         Some(text(account, "id")?),
                     );
                 }
@@ -410,24 +385,6 @@ pub fn project(
                 for venue in &venues {
                     add_secret(&mut bindings, purpose, &venue["credential_ref"], None);
                 }
-            }
-            "control" => {
-                out.insert("control".into(), root["control"].clone());
-                add_secret(
-                    &mut bindings,
-                    purpose,
-                    &root["control"]["mtls_identity_ref"],
-                    None,
-                );
-            }
-            "replication" => {
-                out.insert("replication".into(), root["replication"].clone());
-                add_secret(
-                    &mut bindings,
-                    purpose,
-                    &root["replication"]["mtls_identity_ref"],
-                    None,
-                );
             }
             "metrics" => add_secret(
                 &mut bindings,

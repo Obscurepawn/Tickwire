@@ -11,8 +11,6 @@ use tickwire_clock::{ClockDomain, MonoTime};
 use tickwire_runtime::authority::GateProvider;
 use tickwire_venue::{CanonicalCommand, CommandBody, Hash, Product};
 pub mod bootstrap;
-mod lifecycle;
-pub use lifecycle::{HandoverBinding, HandoverGate};
 pub const MAX_STRATEGIES: usize = 1024;
 pub const MAX_FEEDS: usize = 256;
 pub const MAX_FEED_MARKS: usize = 1024;
@@ -243,7 +241,6 @@ struct State {
     management_epoch: u64,
     management: Option<ManagementGrant>,
     strategies: BTreeMap<u64, GrantSlot>,
-    handovers: BTreeMap<u64, lifecycle::Slot>,
     feeds: BTreeMap<FeedKey, Feed>,
     private: Private,
 }
@@ -280,7 +277,6 @@ impl ControlPlane {
             management_epoch: 0,
             management: None,
             strategies: BTreeMap::new(),
-            handovers: BTreeMap::new(),
             feeds: BTreeMap::new(),
             private: Private {
                 epoch: 0,
@@ -337,9 +333,6 @@ impl ControlPlane {
         }
         s.control_revision = revision;
         s.mode = mode;
-        if mode != Mode::Trading {
-            lifecycle::close_all(&mut s)?;
-        }
         Ok(())
     }
     pub fn set_versions(&self, revision: u64, versions: Versions) -> Result<()> {
@@ -354,7 +347,6 @@ impl ControlPlane {
         }
         s.control_revision = revision;
         s.config.versions = versions;
-        lifecycle::close_all(&mut s)?;
         Ok(())
     }
     pub fn install_owner_lease(&self, lease: OwnerLease) -> Result<()> {
@@ -414,7 +406,6 @@ impl ControlPlane {
         s.management = None;
         s.private.reconciled = None;
         s.private.revocation = revocation;
-        lifecycle::close_all(&mut s)?;
         Ok(())
     }
     pub fn revoke_owner(&self, lease_epoch: u64) -> Result<()> {
@@ -424,7 +415,6 @@ impl ControlPlane {
         }
         s.lease_epoch = lease_epoch;
         s.owner = None;
-        lifecycle::close_all(&mut s)?;
         Ok(())
     }
     pub fn install_strategy_grant(&self, grant: StrategyGrant) -> Result<()> {
@@ -496,7 +486,6 @@ impl ControlPlane {
         let previous = s.strategies.get(&strategy);
         let highest_generation = previous.map_or(0, |p| p.highest_generation);
         let last_instance = previous.map_or([0; 16], |p| p.last_instance);
-        lifecycle::close_one(&mut s, strategy)?;
         s.strategies.insert(
             strategy,
             GrantSlot {
@@ -520,7 +509,6 @@ impl ControlPlane {
             slot.current = None;
             slot.generation_revoked = true;
         }
-        lifecycle::close_one(&mut s, strategy)?;
         Ok(())
     }
     /// Observe only the current exact instance grant, never a logical-ID substitute.
@@ -539,7 +527,6 @@ impl ControlPlane {
         Ok(!s.faulted
             && s.mode != Mode::Stopped
             && s.last_mono.is_none_or(|t| now.nanos() >= t)
-            && s.handovers.get(&logical).is_none_or(|h| h.released)
             && s.strategies
                 .get(&logical)
                 .and_then(|g| g.current.as_ref())
@@ -550,7 +537,7 @@ impl ControlPlane {
                         && now.nanos() < g.valid_until_ns
                 }))
     }
-    /// A failed shadow cannot revoke a different active instance sharing its logical ID.
+    /// A stale process exit cannot revoke a newer worker’s grant.
     pub fn stop_strategy_instance(
         &self,
         logical: u64,
@@ -566,16 +553,10 @@ impl ControlPlane {
             .get(&logical)
             .and_then(|g| g.current.as_ref())
             .is_some_and(|g| g.instance_id == instance && g.strategy_generation == generation);
-        let gate_applies = s.handovers.get(&logical).is_some_and(|h| {
-            h.binding.instance_id == instance && h.binding.strategy_generation == generation
-        });
         if applies {
             let slot = s.strategies.get_mut(&logical).ok_or(Error::Identity)?;
             slot.current = None;
             slot.generation_revoked = true;
-        }
-        if applies || gate_applies {
-            lifecycle::close_one(&mut s, logical)?;
         }
         Ok(())
     }
@@ -915,18 +896,6 @@ impl ControlPlane {
             until = until.min(g.valid_until_ns);
         } else if let Some(g) = management {
             until = until.min(g.valid_until_ns);
-        }
-        if !administrative
-            && s.handovers
-                .get(&strategy.logical_strategy_id)
-                .is_some_and(|h| {
-                    !h.released
-                        || h.private_revocation != s.private.revocation
-                        || h.binding.instance_id != strategy.instance_id
-                        || h.binding.strategy_generation != r.strategy_generation
-                })
-        {
-            return Err(Error::Denied);
         }
         let market_valid = if administrative || reducing_amend {
             false

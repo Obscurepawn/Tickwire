@@ -3,7 +3,7 @@ use tickwire_binance_public::{DepthEncoding, Notice, SyncOutcome};
 use tickwire_book::{BinanceSpot, Book, BookKey, DepthEvent, Level, PriceTicks, QtyLots, Snapshot};
 use tickwire_clock::{ClockDomain, MonoTime};
 use tickwire_clock_sys::SystemClock;
-#[path = "../../../tickwire-strategy-host/tests/capture_process/market.rs"]
+#[path = "shared_market.rs"]
 #[allow(dead_code)]
 mod shared;
 #[path = "market_spot.rs"]

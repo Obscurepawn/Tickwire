@@ -16,8 +16,5 @@ pub(crate) fn invalid(message: &str) -> Error {
 pub mod control;
 pub mod observation;
 
-pub mod failover;
 pub mod launch;
-pub mod lifecycle;
 pub mod replay;
-pub mod replication;

@@ -91,39 +91,6 @@ impl<S: ReplayableStrategy, B: BlobStore> DurableEngine<S, B> {
         let commit = put(store, &input_commit.bytes()?)?;
         Ok((anchor_object, commit))
     }
-    /// Adopt a real output-disabled execution, retaining every warm row. Only
-    /// the rebuild executor can provide this already-executed engine.
-    pub(super) fn from_recorded(
-        anchor: VerifiedAnchor,
-        engine: Engine<S>,
-        mut store: B,
-    ) -> Result<(Self, Object)> {
-        let checkpoint = engine.checkpoint()?;
-        if checkpoint.source != anchor.checkpoint().source
-            || checkpoint.runtime.effects != anchor.checkpoint().runtime.effects
-            || engine.recorded().iter().any(|row| !row.effects.is_empty())
-        {
-            return Err(Error::EffectsMismatch);
-        }
-        let tail = encode_tail(&anchor, engine.recorded())?;
-        verify_tail(&anchor, &tail, &checkpoint.cut)?;
-        let (durable_object, genesis) = Self::genesis(&anchor, &mut store)?;
-        let mut owner = Self {
-            durable: anchor.checkpoint().clone(),
-            engine,
-            store,
-            anchor,
-            durable_object,
-            commit: genesis,
-            pending: vec![],
-            stopped: false,
-        };
-        drop(owner.flush()?);
-        if owner.durable_checkpoint() != &checkpoint {
-            return Err(Error::StateMismatch);
-        }
-        Ok((owner, genesis))
-    }
     pub fn read_object(&self, object: Object) -> Result<Vec<u8>> {
         object.validate(MAX_BYTES as u64)?;
         let bytes = self

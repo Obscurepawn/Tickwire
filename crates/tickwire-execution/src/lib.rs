@@ -43,7 +43,6 @@ pub struct OrderRequest {
     pub config_revision: u64,
     pub deadline: u64,
     pub recovery_object: u64,
-    pub commit_profile: CommitProfile,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Gate {
@@ -92,11 +91,6 @@ pub enum CancelState {
     Rejected,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CommitProfile {
-    LocalDurable,
-    SyncReplica,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DurableRecord {
     pub request: OrderRequest,
     pub sequence: u64,
@@ -105,7 +99,6 @@ pub struct DurableRecord {
 pub struct CommitReceipt {
     pub record: DurableRecord,
     pub local_durable: bool,
-    pub replica_durable: bool,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Fill {
@@ -308,15 +301,12 @@ impl<const N: usize, const T: usize> Engine<N, T> {
             sequence: o.sequence,
         })
     }
-    pub fn accept_commit(&mut self, r: CommitReceipt, profile: CommitProfile) -> Result<(), Error> {
+    pub fn accept_commit(&mut self, r: CommitReceipt) -> Result<(), Error> {
         let i = self.index(r.record.request.key.intent)?;
         if self.durable_record(r.record.request.key.intent)? != r.record {
             return Err(Error::ReceiptMismatch);
         }
-        if profile != r.record.request.commit_profile {
-            return Err(Error::ReceiptMismatch);
-        }
-        if !r.local_durable || (profile == CommitProfile::SyncReplica && !r.replica_durable) {
+        if !r.local_durable {
             return Err(Error::NotDurable);
         }
         self.orders[i].as_mut().unwrap().durable = true;

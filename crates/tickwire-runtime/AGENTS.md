@@ -1,12 +1,8 @@
 # tickwire-runtime
 
-The node drives market sessions, private input, account sends and strategy intake on an explicit event loop.
+The [event loop](src/node.rs) polls the clock, market, private input and account before asking strategies for commands. A fill that arrives in that turn updates available funds before another strategy spends them. Sample fresh monotonic time after account polling and before submission.
 
-Trace an iteration from incoming account evidence to command selection and first submission. Sample fresh time after blocking or policy work. The [runtime turn](src/node.rs) polls clock, market, private input, account and then strategies. The [strategy interface](src/node/strategy.rs) delivers account history and consumes commands. Keep replay and rollback proof construction in the [handover module](src/node/handover.rs).
-
-[Crate API](src/lib.rs) · [handover closure](tests/handover_closure.rs)
-
-Specifications include [account gateway](../../specs/implementation/account-gateway.md), [instrument catalog](../../specs/implementation/instrument-catalog.md), [reconciliation controller](../../specs/implementation/reconciliation-controller.md), [recovery closure](../../specs/implementation/recovery-closure.md), [strategy handover](../../specs/implementation/strategy-handover.md).
+Use the [strategy interface](src/node/strategy.rs) to deliver ordered account inputs and route submission results. A change in admission should exercise both file and hosted strategy intake. [Trading path](../../specs/implementation/single-host-trading.md) · [Account gateway](../../specs/implementation/account-gateway.md)
 
 ```sh
 cargo test --locked -p tickwire-runtime --all-targets

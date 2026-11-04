@@ -3,6 +3,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo_dir="$PWD"
+group_root=tla/execution_models
+if [[ $# -gt 1 || ( $# -eq 1 && ! "$1" =~ ^[a-z0-9_]+$ ) ]]; then
+  echo "Usage: $0 [model-family]" >&2
+  exit 2
+fi
+if [[ $# -eq 1 ]]; then
+  group_root="$group_root/$1"
+  [[ -d "$group_root" ]] || { echo "Unknown model family: $1" >&2; exit 2; }
+fi
 jar="$repo_dir/tla/tools/tla2tools.jar"
 expected=936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88
 if [[ ! -f "$jar" ]]; then
@@ -35,4 +44,4 @@ while IFS= read -r dir; do
   # boundary configurations may exercise complementary action entries.
   python3 scripts/tlc_coverage.py --model "$(basename "$model" .tla)" --model-file "$group/$(basename "$model")" "${logs[@]}"
   rm -rf "$group"
-done < <(find tla/execution_models -path '*/02_models/*.cfg' -exec dirname {} \; | sort -u)
+done < <(find "$group_root" -path '*/02_models/*.cfg' -exec dirname {} \; | sort -u)

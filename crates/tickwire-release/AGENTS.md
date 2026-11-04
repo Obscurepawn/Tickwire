@@ -1,12 +1,6 @@
 # tickwire-release
 
-Release commitments describe strategy binaries, input history, verification and approved transitions.
-
-Verify that checkpoint, replay tail and installed candidate refer to the same member and cut. Exercise the old executable across schema changes.
-
-[Crate API](src/lib.rs) · [replay](tests/replay.rs) · [retained installation](tests/retained_installation.rs)
-
-Specifications include [instrument catalog](../../specs/implementation/instrument-catalog.md), [release preflight](../../specs/implementation/release-preflight.md), [strategy rebuild](../../specs/implementation/strategy-rebuild.md), [strategy replay](../../specs/implementation/strategy-replay.md).
+Keep the identities, length checks and digests used by worker checkpoints and recorded account dependencies compatible with stored data. Exercise an existing encoded object when changing its verifier. [Checkpoint account inputs](src/account_inputs.rs) · [Artifact types](src/lib.rs) · [Recovery closure](../../specs/implementation/recovery-closure.md)
 
 ```sh
 cargo test --locked -p tickwire-release --all-targets

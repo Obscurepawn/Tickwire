@@ -2,7 +2,7 @@
 
 The account gateway binds a canonical command to its recovery closure, admission and outbound bytes.
 
-Follow `AccountGateway::submit` from balance reservation through journal sync. Then trace `poll` to the TLS first-write check. Cover exact retries, grant expiry before output and partial sends. The latter case must retain the reservation for reconciliation.
+Follow `AccountGateway::submit` from balance reservation through journal sync. The file backend uses the journal directory for its single-writer lock. Trace `poll` to the TLS first-write check. Cover exact retries, grant expiry before output and partial sends. The latter case must retain the reservation for reconciliation.
 
 [Crate API](src/lib.rs) · [submission and retries](tests/submission.rs) · [Binance REST](tests/binance_rest.rs) · [ingress](tests/ingress.rs) · [lifecycle](tests/lifecycle.rs) · [persistence failures](tests/persistence_failures.rs)
 

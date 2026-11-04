@@ -524,3 +524,104 @@ fn file_store_reopens_pins_and_detects_corruption_with_real_bytes() {
         b"bad"
     );
 }
+
+#[test]
+fn fresh_closure_syncs_each_dependency_once_and_retries_partial_publication() {
+    struct TraceStore {
+        files: MockBlobStore,
+        writes: Vec<StoreKey>,
+        reads: std::cell::Cell<usize>,
+        fail_at: Option<usize>,
+    }
+    impl BlobStore for TraceStore {
+        fn get(&self, key: StoreKey, limit: usize) -> Result<Vec<u8>> {
+            self.reads.set(self.reads.get() + 1);
+            self.files.get(key, limit)
+        }
+        fn put_sync(&mut self, key: StoreKey, bytes: &[u8]) -> Result<()> {
+            self.writes.push(key);
+            self.files.put_sync(key, bytes)?;
+            if Some(self.writes.len()) == self.fail_at {
+                return Err(std::io::Error::other("directory sync failed after rename").into());
+            }
+            Ok(())
+        }
+    }
+
+    let (source, m) = with_account_dependencies();
+    let bytes: Vec<_> = m
+        .objects
+        .iter()
+        .map(|obj| {
+            source
+                .read_object(obj.content_hash, obj.byte_length as usize)
+                .unwrap()
+        })
+        .collect();
+    let bytes: Vec<_> = bytes.iter().map(Vec::as_slice).collect();
+    let mut expected: Vec<_> = m
+        .objects
+        .iter()
+        .map(|o| StoreKey::Object(o.content_hash))
+        .collect();
+    expected.push(StoreKey::Manifest(digest(&m.canonical_bytes().unwrap())));
+    expected.push(binding_key(&m.binding));
+
+    for fail_at in [1, m.objects.len() - 1, m.objects.len() + 1, expected.len()] {
+        let mut p = Persistence::new(TraceStore {
+            files: MockBlobStore::default(),
+            writes: Vec::new(),
+            reads: std::cell::Cell::new(0),
+            fail_at: Some(fail_at),
+        });
+        assert!(p.publish_with_objects(&m, &bytes).is_err());
+        let mut store = p.into_store();
+        assert_eq!(store.writes, expected[..fail_at]);
+        if fail_at < expected.len() {
+            assert!(matches!(
+                store.files.get(binding_key(&m.binding), 32),
+                Err(Error::Missing)
+            ));
+        }
+        store.writes.clear();
+        store.fail_at = None;
+        let mut p = Persistence::new(store);
+        let cap = p.publish_with_objects(&m, &bytes).unwrap();
+        let store = p.into_store();
+        assert_eq!(store.writes, expected);
+        assert_eq!(store.reads.get(), 0);
+        assert_eq!(Persistence::new(store).verify(&m.binding).unwrap(), cap);
+    }
+}
+
+#[test]
+fn fresh_closure_checks_the_supplied_objects_and_input_boundary() {
+    let (source, m) = fixture();
+    let bytes: Vec<_> = m
+        .objects
+        .iter()
+        .map(|obj| {
+            source
+                .read_object(obj.content_hash, obj.byte_length as usize)
+                .unwrap()
+        })
+        .collect();
+    let mut bytes: Vec<_> = bytes.iter().map(Vec::as_slice).collect();
+    let mut p = Persistence::new(MockBlobStore::default());
+    assert!(
+        p.publish_with_objects(&m, &bytes[..bytes.len() - 1])
+            .is_err()
+    );
+    bytes.push(b"extra");
+    assert!(p.publish_with_objects(&m, &bytes).is_err());
+    bytes.pop();
+    let mut wrong = m.clone();
+    wrong.input_boundary.last_hash = [0xff; 32];
+    assert!(p.publish_with_objects(&wrong, &bytes).is_err());
+    let mut wrong = m.clone();
+    wrong.objects[1].byte_length += 1;
+    assert!(p.publish_with_objects(&wrong, &bytes).is_err());
+    bytes[1] = &[0xff; 3];
+    assert!(p.publish_with_objects(&m, &bytes).is_err());
+    assert!(p.verify(&m.binding).is_err());
+}

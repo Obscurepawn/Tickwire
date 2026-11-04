@@ -30,10 +30,10 @@ git archive 4f840fcf885ff28fe51036ae2bf4f12111a82357 specs/evidence/20261029 | t
 )
 ```
 
-All six commands check archived bytes and recorded bindings. They do not reconnect to an exchange, rerun the original workers or establish current trading authority. Historical startup Clock gaps and later reconciliation remain in the input histories. The observation archive documents the ordering for its rebuild and App scenarios. [Observation evidence](runtime-observation-acceptance/README.md)
+All six commands check archived bytes and recorded bindings offline. Historical startup Clock gaps and later reconciliation remain in the input histories. The observation archive documents the ordering for its rebuild and App scenarios. [Observation evidence](runtime-observation-acceptance/README.md)
 
 ## Instrument catalog archive gap
 
-The Git tree has a source manifest covering 967 build inputs, an anchor audit and the offline verifier source. It does **not** contain the stage report `instrument-catalog.json` or the associated acceptance artifact directory. The source manifest identifies inputs to the historical build. It cannot substantiate a complete process result, and the archived catalog verifier cannot reproduce its verdict from this checkout. [Source manifest](instrument-catalog-source-sha256.json) · [Anchor audit](instrument-catalog-anchor-audit.json) · [Verifier source](verify-instrument-catalog.py)
+The Git tree contains a source manifest covering 967 build inputs, an anchor audit and the offline verifier source. Reproducing the original verdict requires two missing inputs, the stage report `instrument-catalog.json` and its acceptance artifact directory. [Source manifest](instrument-catalog-source-sha256.json) · [Anchor audit](instrument-catalog-anchor-audit.json) · [Verifier source](verify-instrument-catalog.py)
 
 The maintained catalog contract describes what a current test should assert. For example, a price string of `"1.00"` must normalize to 100 ticks on a 0.01 grid and 50 on a 0.02 grid. The shared Rust/Python format vectors have a separate, self-contained test path. [Catalog specification](../../implementation/instrument-catalog.md) · [Shared format vectors](../../contracts/instrument-catalog-v1.json) · [Format verifier](../../../scripts/verify-instrument-catalog.py)

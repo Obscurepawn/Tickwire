@@ -7,14 +7,18 @@ struct Factory {
 }
 impl RestoreFactory for Factory {
     type Running = crate::ObserveOnly;
-    fn capabilities(&self) -> tickwire_release::Capabilities {
-        restore::ObserveFactory.capabilities()
+    fn state_schema(&self) -> u64 {
+        restore::OBSERVE_SCHEMA
     }
     fn configuration(&self, _: &restore::Target) -> restore::Result<VersionedBytes> {
         Ok(self.config.clone())
     }
     fn validate_checkpoint(&self, b: &[u8]) -> restore::Result<()> {
-        restore::ObserveFactory.validate_checkpoint(b)
+        if b == b"TWOBS001" {
+            Ok(())
+        } else {
+            Err(restore::Error::State)
+        }
     }
 }
 impl UserFactory for Factory {
@@ -139,28 +143,6 @@ fn wrong_registration_or_unbound_path_does_not_run_user_code() {
     std::fs::write(&bad.configuration_file, b"actual-user-parameters").unwrap();
     assert!(configure(&r, &bad, &target(), &f.files).is_err());
     assert_eq!(calls.get(), 0);
-}
-
-#[test]
-fn capture_entry_reads_only_the_static_registration_id() {
-    struct CaptureRegistration;
-    impl Registration for CaptureRegistration {
-        type Factory = Factory;
-        type Source = crate::replay::native::Factory;
-        fn id(&self) -> &'static str {
-            "capture-test"
-        }
-        fn configure(&self, _: &restore::Target, _: &VersionedBytes) -> restore::Result<Factory> {
-            panic!("capture must not configure user factory")
-        }
-        fn source(&self, _: u64) -> crate::replay::Result<Self::Source> {
-            panic!("capture must not restore a source factory")
-        }
-    }
-    let mut config = crate::capture::tests::fixture();
-    capture_entry(&CaptureRegistration, &config).unwrap();
-    config.contract.factory = "another-factory".into();
-    assert!(capture_entry(&CaptureRegistration, &config).is_err());
 }
 
 #[test]

@@ -437,33 +437,15 @@ fn classify(
             (Class::Hot, false, true)
         }
         "observability" => (Class::RollingRestart, false, true),
-        "journal" if field == "commit_profile" => (
-            Class::Quiesce,
-            new.and_then(Value::as_str) == Some("LocalDurable+AsyncReplica"),
-            true,
-        ),
         "journal" if matches!(field, "disk_warn_percent" | "disk_freeze_percent") => {
             (Class::RollingRestart, increases(old, new)?, true)
         }
         "journal" => (Class::RollingRestart, false, true),
-        "control" if matches!(field, "listen_uri") || path.iter().any(|s| s == "voters") => {
-            (Class::RollingRestart, false, true)
-        }
         "control" => (
             Class::Quiesce,
             matches!(
                 field,
-                "exec_grant_lifetime_ms"
-                    | "strategy_grant_lifetime_ms"
-                    | "strategy_suspect_after_ms"
-            ) && increases(old, new)?,
-            true,
-        ),
-        "replication" => (
-            Class::Quiesce,
-            matches!(
-                field,
-                "lag_warn_ms" | "lag_freeze_ms" | "batch_max_delay_us"
+                "strategy_grant_lifetime_ms" | "strategy_suspect_after_ms"
             ) && increases(old, new)?,
             true,
         ),
@@ -475,8 +457,6 @@ fn classify(
                     | "private_stream_stale_ms"
                     | "clock_max_offset_us"
                     | "unknown_order_query_ms"
-                    | "fencing_deadline_ms"
-                    | "takeover_deadline_ms"
             ) && increases(old, new)?,
             true,
         ),
@@ -484,15 +464,7 @@ fn classify(
         "venues" if missing || field == "transport" => (Class::RollingRestart, false, true),
         "venues" if field == "recv_window_ms" => (Class::Quiesce, increases(old, new)?, false),
         "venues" => (Class::Quiesce, false, false),
-        "accounts"
-            if missing
-                || matches!(
-                    field,
-                    "exec_process_id" | "standby_exec_process_id" | "guardian_process_ids"
-                ) =>
-        {
-            (Class::RollingRestart, false, true)
-        }
+        "accounts" if missing || field == "exec_process_id" => (Class::RollingRestart, false, true),
         "accounts" => (
             Class::Quiesce,
             matches!(

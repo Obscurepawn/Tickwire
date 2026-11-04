@@ -41,13 +41,6 @@ pub struct LoadedFiles {
     files: Vec<Loaded>,
 }
 impl LoadedFiles {
-    /// An input may share a role with another use, but both its path and content
-    /// must be covered by an artifact that was actually read.
-    pub fn contains_input(&self, path: &Path, digest: crate::Hash) -> bool {
-        self.files
-            .iter()
-            .any(|f| f.path == path && f.object.digest == digest)
-    }
     pub fn path(&self, role: &Role) -> Option<&Path> {
         self.files
             .iter()

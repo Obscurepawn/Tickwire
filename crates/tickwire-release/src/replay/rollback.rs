@@ -51,16 +51,6 @@ impl Job {
         v.bytes()?;
         Ok(v)
     }
-    pub fn load(&self) -> Result<install::Verified> {
-        self.bytes()?;
-        let mut map = BTreeMap::new();
-        for f in &self.objects {
-            map.insert(f.object.digest, f.read()?);
-        }
-        install::verify(self.installation.digest, |h| {
-            map.get(&h).cloned().ok_or(Error::Missing)
-        })
-    }
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

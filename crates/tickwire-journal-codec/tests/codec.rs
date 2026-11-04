@@ -94,7 +94,7 @@ fn maximum() -> Record {
         config_revision: u64::MAX,
         deadline: u64::MAX,
         recovery_object: u64::MAX,
-        commit_profile: CommitProfile::SyncReplica,
+        commit_profile: CommitProfile::LegacySyncReplica,
     });
     r
 }
@@ -386,7 +386,7 @@ fn business_digest_ignores_writer_and_journal_placement() {
             9 => p.config_revision += 1,
             10 => p.deadline += 1,
             11 => p.recovery_object += 1,
-            12 => p.commit_profile = CommitProfile::SyncReplica,
+            12 => p.commit_profile = CommitProfile::LegacySyncReplica,
             13 => p.order.intent_exec_epoch += 1,
             14 => p.command_digest[0] ^= 1,
             _ => unreachable!(),

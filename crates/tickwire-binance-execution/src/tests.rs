@@ -8,7 +8,6 @@ use tickwire_clock::{CalibrationConfig, Calibrator, MILLISECOND, MonoTime, SECON
 use tickwire_quota as quota;
 #[path = "../../tickwire-venue/tests/common/mod.rs"]
 mod fixture;
-mod replication;
 
 struct Clock {
     source: Source,
@@ -566,29 +565,11 @@ fn key_window() -> quota::WindowKey {
 
 #[test]
 fn websocket_owner_real_tls_upgrade_binding_response_and_pong() {
-    run_websocket_owner(false, None, ReplyMode::Normal);
+    run_websocket_owner(false, ReplyMode::Normal);
 }
 #[test]
 fn usdm_websocket_owner_and_rest_reconciliation_use_distinct_tls_endpoints() {
-    run_websocket_owner(true, None, ReplyMode::Normal);
-}
-#[test]
-fn websocket_binding_precedes_replica_commit_gate_in_both_modes() {
-    run_websocket_owner(
-        false,
-        Some(tickwire_replica::CommitMode::LocalDurableAsync {
-            max_unreplicated_age_ns: SECOND,
-        }),
-        ReplyMode::Normal,
-    );
-    run_websocket_owner(
-        false,
-        Some(tickwire_replica::CommitMode::SyncReplica {
-            mirror_id: [71; 16],
-            assignment_epoch: 1,
-        }),
-        ReplyMode::Normal,
-    );
+    run_websocket_owner(true, ReplyMode::Normal);
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum ReplyMode {
@@ -600,22 +581,18 @@ enum ReplyMode {
 }
 #[test]
 fn websocket_unknown_and_duplicate_ids_preserve_raw_and_never_reapply() {
-    run_websocket_owner(false, None, ReplyMode::WrongId);
-    run_websocket_owner(false, None, ReplyMode::Duplicate);
+    run_websocket_owner(false, ReplyMode::WrongId);
+    run_websocket_owner(false, ReplyMode::Duplicate);
 }
 #[test]
 fn websocket_rate_limit_response_freezes_shared_quota_after_durable_raw() {
-    run_websocket_owner(false, None, ReplyMode::RateLimited);
+    run_websocket_owner(false, ReplyMode::RateLimited);
 }
 #[test]
 fn websocket_peer_close_uses_only_the_control_slot() {
-    run_websocket_owner(false, None, ReplyMode::PeerClose);
+    run_websocket_owner(false, ReplyMode::PeerClose);
 }
-fn run_websocket_owner(
-    futures: bool,
-    mode: Option<tickwire_replica::CommitMode>,
-    reply: ReplyMode,
-) {
+fn run_websocket_owner(futures: bool, reply: ReplyMode) {
     use tickwire_binance_account::{
         AccountIngress,
         rest::RestOwner,
@@ -669,17 +646,14 @@ fn run_websocket_owner(
     }
     .into();
     let (connection, peer) = ws_peer(&config.route.authority, reply);
-    let replica_authority = replication::Authority::new(mode.is_some());
-    let objects = replica_authority.inner.blobs.clone();
-    let recover_authority = replica_authority.inner.clone();
-    let barrier = replica_authority.evidence.clone();
-    let base_for_replica = base.clone();
-    let bootstrap = tickwire_account_journal::bootstrap_bytes(&config.journal).unwrap();
+    let authority = gateway_fixture::MockAuthority::default();
+    let recover_authority = authority.clone();
+    let recovered_baseline = base.clone();
     let gateway = tickwire_account_gateway::AccountGateway::create(
         tickwire_account_journal::FileBackend::open(dir.0.join("account")).unwrap(),
         config,
         base,
-        state.authority(replica_authority),
+        state.authority(authority),
         encoder,
         connection,
     )
@@ -712,41 +686,6 @@ fn run_websocket_owner(
         owner.submit(command.clone(), &[[7; 16]], 60, end).unwrap(),
         tickwire_account_gateway::Status::AwaitingCommit
     );
-    if let Some(mode) = mode {
-        for _ in 0..3 {
-            owner.poll(Instant::now(), 100, budget).unwrap();
-            assert_eq!(
-                owner
-                    .gateway()
-                    .output_progress(gateway_fixture::intent())
-                    .unwrap()
-                    .accepted_bytes,
-                0
-            );
-        }
-        let account_export = owner
-            .with_gateway(|g| g.export_durable(1, 32, tickwire_journal::BATCH_MAX_BYTES))
-            .unwrap();
-        let input_export = owner
-            .with_ingress(|i| i.export_durable(1, 32, tickwire_journal::BATCH_MAX_BYTES))
-            .unwrap();
-        let binding = owner
-            .ingress()
-            .ws_binding_evidence(gateway_fixture::intent())
-            .unwrap()
-            .unwrap();
-        let evidence = replication::transfer(
-            &dir.0,
-            &base_for_replica,
-            &bootstrap,
-            objects,
-            mode,
-            &account_export,
-            &input_export,
-            &binding,
-        );
-        *barrier.borrow_mut() = Some(evidence);
-    }
     let mut outcome = None;
     while Instant::now() < end {
         let polled = owner.poll(Instant::now(), 100, budget);
@@ -950,7 +889,7 @@ fn run_websocket_owner(
     // Opening the actual two files never recreates a live sending capability,
     // regardless of whether the prior request had a binding and a response.
     let (recovered_state, _, _) = setup_market(5_000_000, None, futures);
-    let mut recovered_config = gateway_fixture::config(&base_for_replica);
+    let mut recovered_config = gateway_fixture::config(&recovered_baseline);
     recovered_config.route.authority = if futures {
         "testnet.binancefuture.com"
     } else {
@@ -971,7 +910,7 @@ fn run_websocket_owner(
         tickwire_binance_account::Config {
             physical: tickwire_journal::Config::new([31; 16], [1; 16]),
             writer_epoch: 5,
-            baseline: base_for_replica,
+            baseline: recovered_baseline,
             account_stream: [2; 16],
             max_records: 32,
             max_registrations: 8,

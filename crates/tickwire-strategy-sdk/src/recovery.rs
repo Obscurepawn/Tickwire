@@ -9,7 +9,6 @@ use std::{
 };
 use tickwire_recovery::{InputRecord, MAX_OBJECT_BYTES, digest, encode_inputs};
 use tickwire_venue::{CanonicalCommand, CommandBody, SpotAdvancedCommand};
-mod rebuild;
 pub const CHECKPOINT_SCHEMA: u64 = 0x545753430001;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -70,12 +69,6 @@ impl InputJournal for NoJournal {
     }
 }
 pub struct RecoveryWriter {
-    preflight: Option<[u8; 32]>,
-    replay_installation: Option<[u8; 32]>,
-    replay_restore: Option<[u8; 32]>,
-    replay_rollback: Option<[u8; 32]>,
-    rebuild_installation: Option<[u8; 32]>,
-    rebuild_rollback: Option<[u8; 32]>,
     template: Template,
     dependencies: Vec<DependencyFile>,
     rows: Vec<Row>,
@@ -307,12 +300,6 @@ impl RecoveryWriter {
             });
         }
         let mut out = Self {
-            preflight: None,
-            replay_installation: None,
-            replay_restore: None,
-            replay_rollback: None,
-            rebuild_installation: None,
-            rebuild_rollback: None,
             template,
             dependencies,
             rows: Vec::new(),
@@ -364,22 +351,14 @@ impl RecoveryWriter {
             object(&self.template.output_directory, account_seal.object_bytes())?;
         body.checkpoint_digest = digest;
         body.checkpoint_bytes = checkpoint.len() as u64;
-        let seal = crate::handover::InputSeal {
-            version: if self.rebuild_installation.is_some() {
-                4
-            } else if self.replay_restore.is_some() {
-                3
-            } else if self.preflight.is_some() {
-                2
-            } else {
-                1
-            },
-            preflight_receipt_digest: self.preflight,
-            replay_installation_digest: self.replay_installation,
-            replay_restore_digest: self.replay_restore,
-            replay_rollback_digest: self.replay_rollback,
-            rebuild_installation_digest: self.rebuild_installation,
-            rebuild_rollback_digest: self.rebuild_rollback,
+        let seal = crate::account_checkpoint::InputSeal {
+            version: 1,
+            preflight_receipt_digest: None,
+            replay_installation_digest: None,
+            replay_restore_digest: None,
+            replay_rollback_digest: None,
+            rebuild_installation_digest: None,
+            rebuild_rollback_digest: None,
             owner: self.template.owner,
             instance: body.instance_id,
             generation: body.strategy_generation,
@@ -407,152 +386,6 @@ impl RecoveryWriter {
     }
     pub fn set_active(&mut self) {
         self.active = true;
-    }
-    pub(crate) fn install_replayed(
-        &mut self,
-        root: [u8; 32],
-        verified: tickwire_release::replay::install::Verified,
-    ) -> Result<u64> {
-        use tickwire_release::{Object, replay};
-        if !self.active
-            || self.replay_restore.is_none()
-            || verified.request.member.new_instance != self.template.owner
-            || Object::of(&verified.continued.bytes()?).digest != root
-        {
-            return Err(Error::Identity);
-        }
-        if let Some(previous) = self.replay_installation {
-            return if previous == root {
-                Ok(verified.checkpoint.cut.sequence)
-            } else {
-                Err(Error::Identity)
-            };
-        }
-        // The verifier owns immutable bytes; index them once rather than hash
-        // the entire executable on every predecessor lookup.
-        let objects = verified
-            .objects
-            .iter()
-            .map(|bytes| (digest(bytes), bytes.as_slice()))
-            .collect::<std::collections::BTreeMap<_, _>>();
-        let get = |o: Object| -> Result<&[u8]> {
-            objects
-                .get(&o.digest)
-                .copied()
-                .filter(|b| b.len() as u64 == o.bytes)
-                .ok_or(Error::Identity)
-        };
-        let history =
-            replay::history::verify(verified.continued.commit, replay::MAX_ROWS + 1, |o| {
-                get(o)
-                    .map(<[u8]>::to_vec)
-                    .map_err(|_| tickwire_release::Error::Missing)
-            })?;
-        let bytes = history.anchor().checkpoint().bytes()?;
-        if Object::of(&bytes) != verified.installation.checkpoint
-            || history.checkpoint() != &verified.checkpoint
-        {
-            return Err(Error::Identity);
-        }
-        let tail = history.tail();
-        let mut rows = self
-            .rows
-            .iter()
-            .filter(|r| r.kind != 5)
-            .cloned()
-            .collect::<Vec<_>>();
-        rows.push(Row {
-            kind: 5,
-            bytes: [b"TWM2A001".as_slice(), &bytes].concat(),
-        });
-        for r in tail.rows() {
-            rows.push(Row {
-                kind: 5,
-                bytes: [b"TWM2R001".as_slice(), &replay::canonical(r)?].concat(),
-            });
-        }
-        rows.push(Row {
-            kind: 5,
-            bytes: [b"TWM2C001".as_slice(), &verified.checkpoint.bytes()?].concat(),
-        });
-        let bytes = rows
-            .iter()
-            .try_fold(68usize, |n, r| {
-                n.checked_add(13)?.checked_add(r.bytes.len())
-            })
-            .ok_or(Error::Bounds)?;
-        if bytes > self.template.maximum_input_bytes || rows.len() > 1_000_000 {
-            return Err(Error::Bounds);
-        }
-        for bytes in &verified.objects {
-            object(&self.template.output_directory, bytes)?;
-        }
-        self.rows = rows;
-        self.bytes = bytes;
-        self.replay_installation = Some(root);
-        Ok(verified.checkpoint.cut.sequence)
-    }
-    pub(crate) fn install_preflight(
-        &mut self,
-        root: [u8; 32],
-        verified: tickwire_release::closure::Verified,
-    ) -> Result<()> {
-        if self.active || self.preflight.is_some() {
-            return Err(Error::Identity);
-        }
-        let raw = verified.completion.bytes()?;
-        if digest(&raw) != root {
-            return Err(Error::Identity);
-        }
-        for bytes in verified.objects {
-            object(&self.template.output_directory, &bytes)?;
-        }
-        self.preflight = Some(root);
-        Ok(())
-    }
-    pub(crate) fn install_replay_restore(
-        &mut self,
-        root: [u8; 32],
-        verified: tickwire_release::replay::startup::Verified,
-    ) -> Result<()> {
-        if self.active
-            || self.preflight.is_some()
-            || self.replay_restore.is_some()
-            || verified.completion.member.new_instance != self.template.owner
-            || digest(&verified.completion.bytes()?) != root
-        {
-            return Err(Error::Identity);
-        }
-        for bytes in verified.objects {
-            object(&self.template.output_directory, &bytes)?;
-        }
-        self.replay_restore = Some(root);
-        Ok(())
-    }
-    pub(crate) fn install_replay_rollback(
-        &mut self,
-        root: [u8; 32],
-        verified: tickwire_release::replay::rollback::Verified,
-    ) -> Result<()> {
-        if !self.active
-            || self.replay_restore.is_none()
-            || self.replay_installation
-                != Some(
-                    tickwire_release::Object::of(&verified.installation.continued.bytes()?).digest,
-                )
-            || verified.root.digest != root
-            || verified.installation.request.member.new_instance != self.template.owner
-            || self
-                .replay_rollback
-                .is_some_and(|previous| previous != root)
-        {
-            return Err(Error::Identity);
-        }
-        for bytes in verified.objects {
-            object(&self.template.output_directory, &bytes)?;
-        }
-        self.replay_rollback = Some(root);
-        Ok(())
     }
     fn push(&mut self, kind: u8, bytes: Vec<u8>) -> Result<()> {
         let size = self
@@ -787,12 +620,6 @@ mod tests {
             order_ids: vec![],
         };
         let mut writer = RecoveryWriter {
-            preflight: None,
-            replay_installation: None,
-            replay_restore: None,
-            replay_rollback: None,
-            rebuild_installation: None,
-            rebuild_rollback: None,
             template,
             dependencies: vec![],
             rows: vec![],
@@ -856,12 +683,6 @@ mod tests {
             order_ids: vec![],
         };
         let mut writer = RecoveryWriter {
-            preflight: None,
-            replay_installation: None,
-            replay_restore: None,
-            replay_rollback: None,
-            rebuild_installation: None,
-            rebuild_rollback: None,
             template,
             dependencies: vec![],
             rows: vec![],
@@ -882,90 +703,5 @@ mod tests {
                 .last_sequence,
             1
         );
-    }
-    #[test]
-    #[ignore = "requires TICKWIRE_INSTALL_DELTA_FIXTURE"]
-    fn actual_delta_installation_is_preserved_by_recovery_writer() {
-        use tickwire_release::replay;
-        let directory = PathBuf::from(std::env::var_os("TICKWIRE_INSTALL_DELTA_FIXTURE").unwrap());
-        let root: [u8; 32] = [
-            0x9c, 0x13, 0x4f, 0xfd, 0x07, 0x4c, 0x92, 0xb1, 0xa3, 0xfc, 0x34, 0x12, 0xa9, 0x13,
-            0x98, 0xc3, 0x25, 0xa5, 0x05, 0x89, 0xc8, 0x36, 0x5c, 0x12, 0x65, 0xd2, 0x9a, 0xb8,
-            0x2e, 0xa1, 0xdf, 0xdd,
-        ];
-        let load = || {
-            replay::install::verify(root, |hash| {
-                let h = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
-                std::fs::read(directory.join(format!("object-{h}")))
-                    .map_err(|_| tickwire_release::Error::Missing)
-            })
-            .unwrap()
-        };
-        let verified = load();
-        let output = std::env::temp_dir().join(format!(
-            "tickwire-recovery-installed-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&output)
-            .unwrap();
-        struct Cleanup(PathBuf);
-        impl Drop for Cleanup {
-            fn drop(&mut self) {
-                let _ = std::fs::remove_dir_all(&self.0);
-            }
-        }
-        let _cleanup = Cleanup(output.clone());
-        let mut writer = RecoveryWriter {
-            preflight: None,
-            replay_installation: None,
-            replay_restore: Some([1; 32]),
-            replay_rollback: None,
-            rebuild_installation: None,
-            rebuild_rollback: None,
-            template: Template {
-                dependencies: vec![],
-                declared_rebuild: false,
-                fault_model_id: [1; 32],
-                pin_id: [2; 16],
-                owner: verified.request.member.new_instance,
-                input_stream: [4; 16],
-                output_directory: output,
-                maximum_input_bytes: replay::MAX_BYTES,
-                order_ids: vec![],
-            },
-            dependencies: vec![],
-            rows: vec![],
-            bytes: 68,
-            active: true,
-        };
-        let expected = verified.checkpoint.clone();
-        assert_eq!(writer.install_replayed(root, verified).unwrap(), 6);
-        assert_eq!(
-            writer.rows.len(),
-            8,
-            "anchor, all six C-after rows, final checkpoint"
-        );
-        for (i, row) in writer.rows[1..7].iter().enumerate() {
-            assert_eq!(row.kind, 5);
-            assert_eq!(&row.bytes[..8], b"TWM2R001");
-            let input: replay::MergedInput = serde_json::from_slice(&row.bytes[8..]).unwrap();
-            assert_eq!(input.sequence, i as u64 + 1);
-        }
-        assert_eq!(
-            replay::Checkpoint::decode(&writer.rows[7].bytes[8..]).unwrap(),
-            expected
-        );
-        assert_eq!(writer.replay_installation, Some(root));
-        let before = writer.bytes;
-        assert_eq!(writer.install_replayed(root, load()).unwrap(), 6);
-        assert_eq!(writer.bytes, before);
-        assert_eq!(writer.rows.len(), 8);
-        eprintln!("RecoveryWriter accepted exact Continued, retained all 6 rows, retry unchanged");
     }
 }

@@ -25,6 +25,33 @@ fn rejected(f: &Fixture) -> String {
 }
 
 #[test]
+fn old_active_profiles_load_and_removed_services_are_rejected() {
+    use tickwire_app::{config::Deployment, hosted::HostConfig, strategy::MemberConfig};
+
+    let mut deployment = runtime::deployment_json(12);
+    for key in ["replication", "lifecycle", "shadow_loader"] {
+        deployment[key] = serde_json::Value::Null;
+        serde_json::from_value::<Deployment>(deployment.clone()).unwrap();
+        deployment[key] = json!({});
+        assert!(serde_json::from_value::<Deployment>(deployment.clone()).is_err());
+        deployment[key] = serde_json::Value::Null;
+    }
+    let fixture = Fixture::new();
+    let mut host = serde_json::to_value(&fixture.host).unwrap();
+    host["shadow"] = false.into();
+    host["capture"] = serde_json::Value::Null;
+    host["rotation_directory"] = serde_json::Value::Null;
+    host["first_rotation_sequence"] = 1.into();
+    serde_json::from_value::<HostConfig>(host.clone()).unwrap();
+    host["shadow"] = true.into();
+    assert!(serde_json::from_value::<HostConfig>(host).is_err());
+    let mut member = json!({"logical_strategy_id":1,"strategy":{"mode":"observe"},"shadow":false});
+    serde_json::from_value::<MemberConfig>(member.clone()).unwrap();
+    member["shadow"] = true.into();
+    assert!(serde_json::from_value::<MemberConfig>(member).is_err());
+}
+
+#[test]
 fn local_entrypoint_preserves_legacy_and_does_not_claim_unstarted_resources() {
     let mut f = Fixture::new();
     f.change_host(|h| {
@@ -41,8 +68,8 @@ fn local_entrypoint_preserves_legacy_and_does_not_claim_unstarted_resources() {
     assert!(owner.projection_launch(target).is_none());
     drop(owner);
     f.assert_no_launch_files();
-    for shadow in [false, true] {
-        let f = Fixture::with_shadow(shadow);
+    {
+        let f = Fixture::new();
         let owner = f
             .build()
             .expect("a fully bound profile can construct a lazy local owner");
@@ -67,26 +94,10 @@ fn hosted_build_rejects_unknown_os_mapping_before_launch_side_effects() {
 
 #[test]
 fn hosted_build_rejects_restricted_modes_before_reading_their_inputs() {
-    for mode in ["capture", "rotation", "preflight"] {
-        let mut f = Fixture::new();
-        let unavailable = f.root.join("never-read-this-input");
-        let publication = f.root.join("publication");
-        match mode {
-            "capture" => f.change_host(|h| {
-                h["capture"] = json!({"bootstrap":unavailable,"publication_directory":publication})
-            }),
-            "rotation" => f.change_host(|h| h["rotation_directory"] = json!(unavailable)),
-            _ => {
-                f.bootstrap.preflight_job = Some(unavailable);
-                f.save_bootstrap();
-            }
-        }
-        let error = rejected(&f);
-        assert!(
-            error.contains("projection"),
-            "{mode} failed outside the profile gate: {error}"
-        );
-    }
+    let mut f = Fixture::new();
+    f.bootstrap.preflight_job = Some(f.root.join("unavailable"));
+    f.save_bootstrap();
+    assert!(rejected(&f).contains("projection"));
 }
 
 #[test]

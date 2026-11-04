@@ -42,12 +42,6 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub fn digest(bytes: &[u8]) -> Hash {
     Sha256::digest(bytes).into()
 }
-fn replica_key(stream: Hash, sequence: u64) -> StoreKey {
-    let mut bytes = b"tickwire.replica.entry-locator.v1".to_vec();
-    bytes.extend(stream);
-    bytes.extend(sequence.to_le_bytes());
-    StoreKey::ReplicaEntry(digest(&bytes))
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClosureBinding {
@@ -121,16 +115,13 @@ pub enum StoreKey {
     Object(Hash),
     Manifest(Hash),
     Binding(Hash),
-    /// Immutable replication metadata locator, independently namespaced.
-    ReplicaEntry(Hash),
-    ReplicaStream(Hash),
 }
 /// A trusted service implementation must honor successful synchronization.
 pub trait BlobStore {
     fn get(&self, key: StoreKey, max_bytes: usize) -> Result<Vec<u8>>;
     fn put_sync(&mut self, key: StoreKey, bytes: &[u8]) -> Result<()>;
 }
-/// One exclusive store owner shared by a bounded persistence/replication worker.
+/// A shared handle to the local recovery object store.
 /// Locks cover one local file operation and are never held over network I/O.
 pub struct SharedBlobStore<S>(std::sync::Arc<std::sync::Mutex<S>>);
 impl<S> Clone for SharedBlobStore<S> {
@@ -195,29 +186,6 @@ impl<S: BlobStore> Persistence<S> {
     pub fn into_store(self) -> S {
         self.store
     }
-    pub fn read_replica_entry(&self, stream: Hash, sequence: u64) -> Result<Vec<u8>> {
-        if stream == [0; 32] || sequence == 0 {
-            return Err(Error::Invalid("replica locator"));
-        }
-        self.store.get(replica_key(stream, sequence), 65536)
-    }
-    pub fn put_replica_entry(&mut self, stream: Hash, sequence: u64, bytes: &[u8]) -> Result<()> {
-        if stream == [0; 32] || sequence == 0 || bytes.is_empty() || bytes.len() > 65536 {
-            return Err(Error::Capacity);
-        }
-        self.store.put_sync(replica_key(stream, sequence), bytes)
-    }
-    /// Pin the configuration of one execution source. A retry may synchronize
-    /// identical bytes, but cannot change its durability mode or mirror.
-    pub fn bind_replica_stream(&mut self, identity: &[u8], bytes: &[u8]) -> Result<()> {
-        if identity.is_empty() || identity.len() > 1024 || bytes.is_empty() || bytes.len() > 65536 {
-            return Err(Error::Capacity);
-        }
-        let mut key = b"tickwire.replica.source-configuration.v1".to_vec();
-        key.extend(identity);
-        self.store
-            .put_sync(StoreKey::ReplicaStream(digest(&key)), bytes)
-    }
     /// Read immutable content without creating a durability capability.
     pub fn read_object(&self, hash: Hash, max_bytes: usize) -> Result<Vec<u8>> {
         if max_bytes == 0 || max_bytes > MAX_OBJECT_BYTES {
@@ -256,7 +224,22 @@ impl<S: BlobStore> Persistence<S> {
         Ok(hash)
     }
     pub fn publish(&mut self, manifest: &RecoveryManifest) -> Result<VerifiedClosure> {
-        self.check(manifest)?;
+        self.check(manifest, None)?;
+        self.publish_manifest(manifest)
+    }
+    /// Publish dependencies supplied in manifest order and pin their verified closure.
+    pub fn publish_with_objects(
+        &mut self,
+        manifest: &RecoveryManifest,
+        objects: &[&[u8]],
+    ) -> Result<VerifiedClosure> {
+        if objects.len() != manifest.objects.len() {
+            return Err(Error::Invalid("dependency object count"));
+        }
+        self.check(manifest, Some(objects))?;
+        self.publish_manifest(manifest)
+    }
+    fn publish_manifest(&mut self, manifest: &RecoveryManifest) -> Result<VerifiedClosure> {
         let bytes = manifest.canonical_bytes()?;
         let root = digest(&bytes);
         self.store.put_sync(StoreKey::Manifest(root), &bytes)?;
@@ -286,7 +269,7 @@ impl<S: BlobStore> Persistence<S> {
         if m.binding != *binding {
             return Err(Error::Conflict);
         }
-        self.check(&m)?;
+        self.check(&m, None)?;
         self.store.put_sync(StoreKey::Manifest(root), &bytes)?;
         self.store.put_sync(binding_key(binding), &root)?;
         Ok(VerifiedClosure {
@@ -297,24 +280,28 @@ impl<S: BlobStore> Persistence<S> {
             account_history_digest: dependency_digest(&m, ACCOUNT_HISTORY_DEPENDENCY_KIND),
         })
     }
-    fn check(&mut self, m: &RecoveryManifest) -> Result<()> {
+    fn check(&mut self, m: &RecoveryManifest, supplied: Option<&[&[u8]]>) -> Result<()> {
         validate_shape(m)?;
         let mut inputs = Vec::new();
-        for object in &m.objects {
-            let bytes = self.store.get(
-                StoreKey::Object(object.content_hash),
-                object.byte_length as usize,
-            )?;
-            if bytes.len() as u64 != object.byte_length || digest(&bytes) != object.content_hash {
+        for (i, object) in m.objects.iter().enumerate() {
+            let key = StoreKey::Object(object.content_hash);
+            let stored;
+            let bytes = match supplied {
+                Some(objects) => objects[i],
+                None => {
+                    stored = self.store.get(key, object.byte_length as usize)?;
+                    &stored
+                }
+            };
+            if bytes.len() as u64 != object.byte_length || digest(bytes) != object.content_hash {
                 return Err(Error::Invalid("object digest/length"));
             }
             if object.kind == 12 {
-                inputs.push(inputs::inspect(&bytes)?);
+                inputs.push(inputs::inspect(bytes)?);
             }
             // Reestablish completion even when a previous publication failed
             // after rename but before directory synchronization.
-            self.store
-                .put_sync(StoreKey::Object(object.content_hash), &bytes)?;
+            self.store.put_sync(key, bytes)?;
         }
         inputs.sort_unstable_by_key(|b| b.first_sequence);
         let expected = m.input_boundary;

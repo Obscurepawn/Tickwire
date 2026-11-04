@@ -39,6 +39,12 @@ fn public_limits(io: Limits) -> public::Limits {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Deployment {
+    #[serde(default, rename = "replication")]
+    _local_replication: (),
+    #[serde(default, rename = "lifecycle")]
+    _local_lifecycle: (),
+    #[serde(default, rename = "shadow_loader")]
+    _local_loader: (),
     pub baseline: PathBuf,
     #[serde(default)]
     pub instrument_catalog: Option<CatalogFile>,
@@ -69,12 +75,6 @@ pub struct Deployment {
     pub market_sources: Vec<tickwire_market_source::ConnectConfig>,
     #[serde(default)]
     pub market_transition: Option<crate::control::market::Config>,
-    #[serde(default)]
-    pub replication: Option<crate::replication::Config>,
-    #[serde(default)]
-    pub lifecycle: Option<crate::lifecycle::Config>,
-    #[serde(default)]
-    pub shadow_loader: Option<crate::launch::Config>,
     pub reconciliation: crate::reconciliation::Config,
     #[serde(default)]
     pub income_baseline_authority:

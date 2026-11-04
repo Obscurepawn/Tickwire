@@ -25,6 +25,12 @@ fn execute() -> Result<()> {
     if command == "--help" || command == "-h" {
         return usage();
     }
+    if !matches!(
+        command.to_str(),
+        Some("inspect" | "run" | "replay" | "export")
+    ) {
+        return Err(format!("unknown command: {}", command.to_string_lossy()).into());
+    }
     let Some(flag) = args.next() else {
         return usage();
     };
@@ -44,22 +50,6 @@ fn execute() -> Result<()> {
     };
     if args.next().is_some() {
         return Err("unexpected argument".into());
-    }
-    if command == "seal" {
-        let configuration = tickwire_app::failover::SealConfig::read(&path)?;
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&tickwire_app::failover::seal(&configuration)?)?
-        );
-        return Ok(());
-    }
-    if command == "restore" {
-        let configuration = tickwire_app::failover::RestoreConfig::read(&path)?;
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&tickwire_app::failover::restore(&configuration)?)?
-        );
-        return Ok(());
     }
     let config = Deployment::read(&path)?;
     if command == "replay" {
@@ -91,9 +81,6 @@ fn execute() -> Result<()> {
         println!("{result}");
         return Ok(());
     }
-    if command != "run" {
-        return usage();
-    }
     match config.product {
         ProductName::Spot => run::<tickwire_book::BinanceSpot>(config),
         ProductName::Usdm | ProductName::UsdmFuture => run::<tickwire_book::BinanceUsdM>(config),
@@ -104,9 +91,7 @@ fn usage() -> Result<()> {
         "tickwire-app inspect --config /absolute/deployment.json\n\
               tickwire-app run --config /absolute/deployment.json\n\
               tickwire-app replay --config /absolute/deployment.json\n\
-              tickwire-app export --config /absolute/deployment.json --out /absolute/new-export\n\
-              tickwire-app seal --config /absolute/seal.json\n\
-              tickwire-app restore --config /absolute/restore.json"
+              tickwire-app export --config /absolute/deployment.json --out /absolute/new-export"
     );
     Ok(())
 }
@@ -167,54 +152,7 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
     let credentials = config.credentials(&baseline, &material);
     let reconciliation_credentials = config.credentials(&baseline, &material);
     let authentication = config.authentication(&material);
-    let restored_frontiers = tickwire_app::failover::validate_start(&config)?;
-    let (mut replication, mut services) = if let Some(replica) = &config.replication {
-        let (driver, services) =
-            tickwire_app::replication::Driver::open(replica, &config, &baseline)
-                .map_err(|e| format!("replication startup: {e}"))?;
-        (Some(driver), services)
-    } else {
-        (None, files::Services::default())
-    };
-    let mut lifecycle = if let Some(lifecycle) = &config.lifecycle {
-        if services.recovery_store.is_none() {
-            if let Some(parent) = config.directories.recovery.parent() {
-                std::fs::create_dir_all(parent)?;
-            }
-            services.recovery_store = Some(tickwire_recovery::SharedBlobStore::new(
-                tickwire_recovery::FileBlobStore::open(&config.directories.recovery)?,
-            ));
-        }
-        Some(tickwire_app::lifecycle::Inbox::open(
-            lifecycle.clone(),
-            &config,
-            plane.clone(),
-            services
-                .recovery_store
-                .as_ref()
-                .ok_or("missing lifecycle recovery store")?
-                .clone(),
-        )?)
-    } else {
-        None
-    };
-    let shadow_settings = config
-        .shadow_loader
-        .as_ref()
-        .map(|_| config.assemble(baseline.clone()))
-        .transpose()?;
-    let mut settings = config.assemble(baseline)?;
-    if let Some((account_required, input_required)) = restored_frontiers {
-        settings.mode = files::OpenMode::RecoverFrozen {
-            account_required,
-            input_required: Some(input_required),
-        };
-    }
-    let mut shadows = config
-        .shadow_loader
-        .as_ref()
-        .map(|c| tickwire_app::launch::ShadowLoader::open(c.clone(), &settings))
-        .transpose()?;
+    let settings = config.assemble(baseline)?;
     let strategy = tickwire_app::launch::build(&config.strategy, &settings, plane.clone())
         .map_err(|e| format!("strategy startup: {e}"))?;
     let market = if config.market_sources.is_empty() {
@@ -266,7 +204,7 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
     )
     .map_err(|e| format!("reconciliation startup: {e}"))?
     .with_execution_network(networks.websocket.as_ref().unwrap_or(&networks.rest));
-    let mut node = files::open_with_services::<
+    let mut node = files::open::<
         P,
         _,
         _,
@@ -284,7 +222,6 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
         strategy,
         NoPublisher,
         Box::new(plane.observer()),
-        services,
     )
     .map_err(|e| format!("account runtime startup: {e}"))?;
     if let Some(market) = market {
@@ -292,10 +229,6 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
     }
     // Complete durable input replay before accepting a fresh private-session input.
     while node.replay_pending(1024)? != 0 {}
-    if let Some(replica) = &mut replication {
-        let now = node.local_time()?.monotonic;
-        node.with_account_resources(|rest, _, _| replica.start(rest, now))??;
-    }
     let started = Instant::now();
     eprintln!(
         "{}",
@@ -303,14 +236,6 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
     );
     node.run_with_maintenance(
         |node, registry| {
-            if let Some(replica)=&mut replication {
-                let now=node.local_time()?.monotonic;
-                node.with_account_resources(|rest,_,_|replica.drive(rest,now))?
-                    .map_err(|error|{
-                        eprintln!("{}",serde_json::json!({"event":"replication_error","error":error.to_string()}));
-                        tickwire_runtime::node::Error::Strategy
-                    })?;
-            }
             if let Some(control) = &mut controls {
                 node.with_strategy_and_account_resources(|strategy,_,_,endpoint| {
                     control.poll(endpoint)?;
@@ -327,21 +252,6 @@ fn run<P: DepthPolicy>(config: Deployment) -> Result<()> {
             if let Some((inbox, clock)) = &mut observation
                 && let Err(error) = inbox.poll(node.strategy_mut().as_mut(), clock) {
                 eprintln!("{}",serde_json::json!({"event":"observation_provider_closed","error":error.to_string()}));
-            }
-            if let (Some(loader),Some(settings))=(&mut shadows,&shadow_settings) {
-                loader.poll(node.strategy_mut().as_mut(),settings,plane.clone()).map_err(|error|{
-                    eprintln!("{}",serde_json::json!({"event":"shadow_loader_error","error":error.to_string()}));
-                    tickwire_runtime::node::Error::Strategy
-                })?;
-            }
-            if let Some(lifecycle)=&mut lifecycle {
-                let now=node.local_time()?.monotonic;
-                node.with_strategy_and_account_resources(|strategy,rest,_,_| {
-                    rest.with_gateway(|gateway|lifecycle.poll(strategy,gateway,now))
-                })?.map_err(|error|{
-                    eprintln!("{}",serde_json::json!({"event":"lifecycle_error","error":error.to_string()}));
-                    tickwire_runtime::node::Error::Strategy
-                })?;
             }
             reconciliation.drive(node, registry)
         },

@@ -1,27 +1,15 @@
-# 形式验证路线
+# Finite models
 
-| 阶梯 | 当前范围 | 状态 | 后续 |
-| --- | --- | --- | --- |
-| execution/submission L0 | 预留、回执模式、发送、未知结果、未发送撤销 | PASS | L1 |
-| execution/submission L1 | 日志回执丢失、提交失败、正常等待与未知结果、发送边界崩溃、恢复 | 历史版本 PASS；Mock 已改为有序事件重放 | 现行中止与重放见 mock_abort |
-| execution/submission L2 | 成交/费用/终态、重复/冲突、容量/上界、Mock 事实重放 | 历史版本 PASS v2；L2-001 已修复验证 | 当前事件顺序下的交易结果记录组合模型与 L3 激活 |
-| mock_abort L0 | 未发送中止先保存再释放，按事件顺序恢复，失败保持冻结 | 三配置 PASS | 成交、费用与终态的完整组合 |
-| recovery_closure L0 | 对象、manifest、绑定、同步结果与验证结果交付 | 三配置 PASS | 依赖释放、多持有者及回收 |
-| business_journal L1 | 命令摘要、完整命令依赖、冲突和冻结恢复 | 三配置 PASS | 完整参数与真实网络发送组合 |
-| business_journal L0 | 恢复依赖验证、WAL 同步、最终发送检查、中止和冻结恢复 | 三配置 PASS | 交易结果记录、同步副本及恢复后激活 |
-| book_state L0/L1 | Spot/Futures 桥接、旧 generation、失败原子性与有限深度知识 | 八配置 PASS | 真实适配器、快照/增量接线与 exec 行情门禁组合 |
-| account L0/L1 | Spot 资源与迟到事件、USD-M 资金和减仓预留、费用清算及冻结恢复 | 六配置 PASS | 账户、真实 WAL 与发送门禁组合；跨币种保证金 |
-| account_journal L0 | 依赖创建、完整批同步、历史前缀、逐条闭包与冻结重放 | 三配置 PASS | 其余事实变体、基线切换与分段目录事务 |
-| account_gateway L0 | 账户、WAL、首次发送门禁及零接受中止的组合 | PASS；恢复序号缺陷已修复，v2 四配置通过 | 实际业务回报关联、会话恢复与接管后激活 |
-| binance_depth_sync L0 | 连接代次、缓存、快照令牌与原子回放 | 建模中 | 多源切换与进程发布组合 |
-| broadcast_ring L0 | 固定 bank 发布、慢消费者、借用和协作回收 | 五配置 PASS | L1 身份控制与 bank 轮换，L2 进程退出回收 |
-| join_owner L0 | 保留快照基线、双资源交付、真实游标追平、原登记版本和协作退出 | 四配置 PASS | 持久请求登记、独立截止时间、bank 轮换及死亡回收 |
-| control_requests L0/L1 | 请求登记、终态重放、期限与续租 | 六配置 PASS | L2 真实持久 owner 恢复 |
-| physical_journal L0 | 物理批写入、同步、收据、崩溃与恢复 | 三配置 PASS | L1 分段/manifest 目录事务 |
-| transport L0 | 首次明文接受、当前门禁、TLS 冲刷、零接受终态和部分写 | 四配置 PASS | 协议会话与跨连接恢复 |
-| gateway L0 | 持久命令、真实传输调用顺序、首次门禁、中止发布与冻结恢复 | 四配置 PASS | 连接代次、业务回报关联及恢复后激活 |
-| budget_lease / strategy_handoff / multi_exec_activation | 授权、旧发送者隔离与多进程恢复 | 未建模 | 先实现可检验的控制面与运行时 |
+Each family links its configurations to source, assumptions and recorded checks. Run one family from the repository root, for example `./scripts/check-tla.sh submission`.
 
-下一命令和开放问题位于 [submission TODO](execution_models/submission/TODO.md)。
+| Trading boundary | Model families |
+| --- | --- |
+| Order intake and submission | [Submission](execution_models/submission/ROADMAP.md) checks local commit receipts, loss of a receipt and frozen restart. Its economic reducer is tied to an earlier source revision. [Ordered abort](execution_models/mock_abort/ROADMAP.md) follows unsent aborts through the current mock journal. |
+| Execution and cash | [Account](execution_models/account/ROADMAP.md) covers reservations, late fills and fees. [Account gateway](execution_models/account_gateway/ROADMAP.md) combines the account, local WAL and permission at first write. |
+| Durable storage | [Physical journal](execution_models/physical_journal/ROADMAP.md) covers batch sync and torn writes. [Account journal](execution_models/account_journal/ROADMAP.md), [business journal](execution_models/business_journal/ROADMAP.md) and [recovery closure](execution_models/recovery_closure/ROADMAP.md) track account records and the objects they depend on. |
+| Network output | [Gateway](execution_models/gateway/ROADMAP.md) follows a durable command into its transport. [Transport](execution_models/transport/ROADMAP.md) distinguishes the first accepted application byte, partial sends, zero-byte termination and TLS flush. |
+| Market data and private input | [Order book](execution_models/book_state/ROADMAP.md) checks sequence rules and depth coverage. [Binance depth synchronization](execution_models/binance_depth_sync/ROADMAP.md) covers the snapshot bridge and session generations. [Binance private session](execution_models/binance_private_session/ROADMAP.md) tracks private connection state. |
+| Local process communication | [Broadcast ring](execution_models/broadcast_ring/ROADMAP.md), [JOIN](execution_models/join_owner/ROADMAP.md) and [control requests](execution_models/control_requests/ROADMAP.md) cover publication, reader startup, session identity and durable request results. |
+| Time | [Clock](execution_models/clock/ROADMAP.md) and [system clock](execution_models/system_clock/ROADMAP.md) model sampling, time-domain conversion and validity bounds. |
 
-账户恢复元数据修复后，account L0/L1 与 account_journal L0 的既有状态转移保持相同，已同步源码锚点并保留原材料，历史配置未重跑。修复涉及的恢复序号一致性由 account_gateway L0 v2 承担。
+Use the per-family run records to identify which configurations terminated and which source revision they apply to. The earlier inventory records the original stages and recovery-metadata changes. [Historical inventory](https://github.com/Obscurepawn/Tickwire/blob/dc50649ebdcada26f7740181c16139cd3b32064a/tla/ROADMAP.md)

@@ -47,7 +47,7 @@ impl Cache {
         context: &Context,
         body: &HandoverReadyBody,
         now: u64,
-    ) -> Result<([u8; 32], Vec<Vec<u8>>)> {
+    ) -> Result<([u8; 32], &[Vec<u8>])> {
         if !context.live(now)
             || context.identity.instance != body.instance_id
             || context.identity.generation != body.strategy_generation
@@ -56,27 +56,26 @@ impl Cache {
             self.clear();
             return Err(Error::Invalid);
         }
-        if let Some(entry) = &self.entry
-            && entry.directory == directory
-            && entry.context == *context
-            && entry.body == *body
-        {
-            return Ok((entry.account, entry.objects.clone()));
-        }
-        self.clear();
-        #[cfg(test)]
-        LOADS.with(|n| n.set(n.get() + 1));
-        let (account, objects) = tickwire_strategy_sdk::handover::objects(directory, body)?;
-        check_bounds(&objects)?;
-        self.entry = Some(Entry {
-            directory: directory.to_owned(),
-            context: context.clone(),
-            body: body.clone(),
-            account,
-            objects,
+        let cached = self.entry.as_ref().is_some_and(|entry| {
+            entry.directory == directory && entry.context == *context && entry.body == *body
         });
+        if !cached {
+            self.clear();
+            #[cfg(test)]
+            LOADS.with(|n| n.set(n.get() + 1));
+            let (account, objects) =
+                tickwire_strategy_sdk::account_checkpoint::objects(directory, body)?;
+            check_bounds(&objects)?;
+            self.entry = Some(Entry {
+                directory: directory.to_owned(),
+                context: context.clone(),
+                body: body.clone(),
+                account,
+                objects,
+            });
+        }
         let entry = self.entry.as_ref().ok_or(Error::Invalid)?;
-        Ok((entry.account, entry.objects.clone()))
+        Ok((entry.account, &entry.objects))
     }
 }
 fn check_bounds(objects: &[Vec<u8>]) -> Result<()> {
@@ -102,12 +101,12 @@ thread_local! { static LOADS: std::cell::Cell<usize> = const { std::cell::Cell::
 mod tests {
     use super::*;
     #[test]
-    #[ignore = "requires actual fourth-round objects via TICKWIRE_READY_FIXTURE"]
+    #[ignore = "requires a completed spot-fill run in TICKWIRE_READY_FIXTURE"]
     fn actual_ready_closure_is_loaded_once_per_body_and_context() {
         let root = PathBuf::from(std::env::var_os("TICKWIRE_READY_FIXTURE").unwrap());
         let raw: serde_json::Value = serde_json::from_slice(
             &std::fs::read(
-                root.join("next/reports/CONSUMED-06060606060606060606060606060606-6.json"),
+                root.join("exec/reports/CONSUMED-02020202020202020202020202020202-5.json"),
             )
             .unwrap(),
         )
@@ -118,7 +117,7 @@ mod tests {
             .iter()
             .map(|b| format!("{b:02x}"))
             .collect::<String>();
-        let seal_bytes = std::fs::read(root.join(format!("next/recovery/{name}.bin"))).unwrap();
+        let seal_bytes = std::fs::read(root.join(format!("strategy/recovery/{name}.bin"))).unwrap();
         let seal = tickwire_recovery::HandoverSeal::decode(&seal_bytes).unwrap();
         let body = HandoverReadyBody {
             instance_id: seal.instance,
@@ -159,12 +158,14 @@ mod tests {
         LOADS.with(|n| n.set(0));
         let start = Instant::now();
         let first = cache
-            .load(&root.join("next/recovery"), &ctx, &body, 1)
+            .load(&root.join("strategy/recovery"), &ctx, &body, 1)
             .unwrap();
+        let saved = first.1.to_vec();
+        let first = (first.0, saved.as_slice());
         for _ in 0..2 {
             assert_eq!(
                 cache
-                    .load(&root.join("next/recovery"), &ctx, &body, 1)
+                    .load(&root.join("strategy/recovery"), &ctx, &body, 1)
                     .unwrap(),
                 first
             );
@@ -199,7 +200,7 @@ mod tests {
             }
         }
         let _cleanup = Cleanup(directory.clone());
-        for bytes in &first.1 {
+        for bytes in first.1 {
             let hex = tickwire_recovery::digest(bytes)
                 .iter()
                 .map(|b| format!("{b:02x}"))

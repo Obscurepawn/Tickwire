@@ -1,5 +1,5 @@
 //! Static claims on the resources that two hosted members could otherwise mutate together.
-use crate::{Result, config::read_file, hosted::HostConfig, invalid};
+use crate::{Result, hosted::HostConfig, invalid};
 use std::{
     fs,
     io::ErrorKind,
@@ -38,14 +38,6 @@ impl Ownership {
             self.market(external, host, member)?;
         } else {
             self.directory(&host.control_directory, member)?;
-        }
-        if let Some(capture) = &host.capture {
-            let input: tickwire_strategy_sdk::capture::Bootstrap =
-                serde_json::from_slice(&read_file(&capture.bootstrap, 2 * 1024 * 1024)?)?;
-            self.directory(&capture.publication_directory, member)?;
-            self.directory(&input.report_directory, member)?;
-            self.directory(&input.output_directory, member)?;
-            self.market(&input.market, host, member)?;
         }
         Ok(())
     }

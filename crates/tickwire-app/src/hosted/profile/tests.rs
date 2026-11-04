@@ -141,7 +141,7 @@ fn fixture() -> Fixture {
             gid,
         }],
     };
-    let config = serde_json::from_value(json!({"projection_launch":projection,"resources":{"worker":group("worker"),"source_replay":group("source"),"rollback":group("rollback")},
+    let config = serde_json::from_value(json!({"projection_launch":projection,"resources":{"worker":group("worker")},
         "bootstrap":root.join("bootstrap"),"executable":root.join("worker-elf"),"working_directory":root,"uid":uid,"gid":gid,"supervisor":identity,
         "directory_parent":root,"control_directory":root.join("control"),"control_stream": ( [5;16] ),"control_domain": ( [6;16] ),"control_writer_epoch":1,
         "snapshot_id": ( [7;16] ),"market_cursor_id": ( [8;16] ),"subscription_generation":1,"instrument_set_version":1,
@@ -253,7 +253,7 @@ fn every_local_bootstrap_channel_must_bind_the_same_identity() {
     }
 }
 #[test]
-fn supported_profile_is_exact_and_shadow_is_explicit() {
+fn only_an_active_launch_can_consume_the_projected_profile() {
     for field in ["restart", "standby", "trust", "role", "shadow"] {
         let mut f = fixture();
         f.payload(|p| match field {
@@ -269,30 +269,16 @@ fn supported_profile_is_exact_and_shadow_is_explicit() {
         });
         f.rejected();
     }
-    let mut f = fixture();
-    f.config.shadow = true;
-    f.payload(|p| {
-        p["process"]["activation"] = "shadow".into();
-        p["strategy"]["role"] = "Shadow".into();
-    });
-    assert!(prepare(&f.config, &f.bootstrap).unwrap().is_some());
 }
 #[test]
-fn capture_restore_rotation_and_demo_are_not_ordinary_registered_startup() {
-    for mode in 0..7 {
+fn projected_launch_requires_a_registered_worker() {
+    for mode in 0..5 {
         let mut f = fixture();
         match mode {
             0 => f.bootstrap.factory = None,
             1 => f.bootstrap.preflight_job = Some(f.root.join("job")),
-            2 => {
-                f.config.capture = Some(super::super::CaptureConfig {
-                    bootstrap: f.root.join("capture"),
-                    publication_directory: f.root.join("publication"),
-                })
-            }
-            3 => f.config.rotation_directory = Some(f.root.join("rotation")),
-            4 => f.bootstrap.demo_enabled = true,
-            5 => f.bootstrap.demo_command_file = Some(f.root.join("demo")),
+            2 => f.bootstrap.demo_enabled = true,
+            3 => f.bootstrap.demo_command_file = Some(f.root.join("demo")),
             _ => f.bootstrap.demo_minimum_bid_ticks = 1,
         }
         f.rejected();
@@ -335,26 +321,14 @@ fn os_mapping_is_bounded_unique_and_matches_the_actual_app_identity() {
     }
 }
 #[test]
-fn full_resource_plan_and_exact_worker_limits_are_required() {
-    for change in 0..7 {
+fn resource_plan_matches_the_projected_worker_limits() {
+    for change in 0..5 {
         let mut f = fixture();
         match change {
             0 => f.config.resources = None,
             1 => f.config.resources.as_mut().unwrap().worker.cpus = vec![1],
             2 => f.config.resources.as_mut().unwrap().worker.numa_node = 1,
             3 => f.config.resources.as_mut().unwrap().worker.memory_max += 1,
-            4 => {
-                f.config
-                    .resources
-                    .as_mut()
-                    .unwrap()
-                    .source_replay
-                    .memory_max = 0
-            }
-            5 => {
-                let worker = f.config.resources.as_ref().unwrap().worker.cgroup.clone();
-                f.config.resources.as_mut().unwrap().rollback.cgroup = worker;
-            }
             _ => f.payload(|p| p["process"]["cpus"] = json!([32, 32])),
         }
         f.rejected();

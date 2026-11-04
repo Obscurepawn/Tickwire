@@ -71,13 +71,8 @@ pub(super) fn prepare(
         &input.scope,
         input.timeout_ns,
     )?;
-    let projection = profile::read_projection(
-        config,
-        bootstrap,
-        &input.object_file,
-        &input.object,
-        &input.scope,
-    )?;
+    let projection =
+        profile::read_projection(bootstrap, &input.object_file, &input.object, &input.scope)?;
     let schema_hash = tickwire_config::artifacts::reference_hash(
         projection.payload()["strategy"]["parameter_schema_ref"]
             .as_str()

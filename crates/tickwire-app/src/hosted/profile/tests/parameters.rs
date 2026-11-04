@@ -22,7 +22,7 @@ fn configured() -> Fixture {
         schema_file,
         timeout_ns: 1_000_000_000,
     });
-    f.bootstrap.handover_enabled = true;
+    f.bootstrap.publish_checkpoints = true;
     replace_private(&mut f, br#"{"threshold":23,"enabled":true}"#);
     f
 }
@@ -80,7 +80,7 @@ fn parameter_queries_require_support_and_a_bounded_nonzero_deadline() {
         assert!(binding::prepare(&f.config, &f.bootstrap).is_err());
     }
     let mut f = configured();
-    f.bootstrap.handover_enabled = false;
+    f.bootstrap.publish_checkpoints = false;
     assert!(binding::prepare(&f.config, &f.bootstrap).is_err());
 }
 #[test]

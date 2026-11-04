@@ -14,7 +14,7 @@ use std::{
     io::{Read, Write},
     net::{TcpListener, TcpStream},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicU64, AtomicUsize, Ordering},
     },
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
@@ -29,6 +29,7 @@ struct State {
     eth_sequence: AtomicU64,
     order: Mutex<Option<Value>>,
     output_at: Mutex<Option<Instant>>,
+    first_eligible_quote: OnceLock<Instant>,
     audit: Mutex<std::fs::File>,
     connections: AtomicUsize,
 }
@@ -53,6 +54,7 @@ pub fn serve(s: &Scenario) -> Result<()> {
         eth_sequence: AtomicU64::new(100),
         order: Mutex::new(None),
         output_at: Mutex::new(None),
+        first_eligible_quote: OnceLock::new(),
         audit: Mutex::new(
             OpenOptions::new()
                 .write(true)
@@ -117,6 +119,7 @@ fn handle(socket: TcpStream, config: Arc<ServerConfig>, s: &State) -> Result<()>
     let mut input = Vec::new();
     loop {
         let request = read_request(&mut tls, &mut input, s)?;
+        let received = Instant::now();
         if request
             .headers
             .get("upgrade")
@@ -137,6 +140,20 @@ fn handle(socket: TcpStream, config: Arc<ServerConfig>, s: &State) -> Result<()>
             return websocket(tls, input, &request.path, s);
         }
         let (status, body) = http(&request, s)?;
+        if request.method == "POST"
+            && request.path.split('?').next() == Some("/api/v3/order")
+            && status == 200
+        {
+            let elapsed = s
+                .first_eligible_quote
+                .get()
+                .and_then(|start| received.checked_duration_since(*start))
+                .ok_or("order arrived before the eligible market quote")?;
+            audit(
+                s,
+                json!({"event":"eligible_quote_to_order", "elapsed_ns":u64::try_from(elapsed.as_nanos())?}),
+            )?;
+        }
         audit(
             s,
             json!({"event":"http","method":request.method,"path":request.path.split('?').next(),"status":status}),
@@ -299,6 +316,9 @@ fn http(r: &Request, s: &State) -> Result<(u16, Value)> {
         } else {
             "59999"
         };
+        if bid == "60000" {
+            s.first_eligible_quote.get_or_init(Instant::now);
+        }
         return Ok((
             200,
             json!({"lastUpdateId":if eth {s.eth_sequence.load(Ordering::Acquire)} else {s.sequence.load(Ordering::Acquire)},"bids":[[bid,"1"]],"asks":[[if eth {"3001"} else {"60001"},"1"]]}),
@@ -309,13 +329,10 @@ fn http(r: &Request, s: &State) -> Result<(u16, Value)> {
         ("GET", "/api/v3/account") => {
             let order = s.order.lock().map_err(|_| "order lock")?;
             let filled = order.as_ref().is_some_and(|o| o["status"] == "FILLED");
-            let mut balances = vec![
+            let balances = vec![
                 json!({"asset":"BTC","free":if filled{"1.001"}else{"1"},"locked":"0"}),
                 json!({"asset":"USDT","free":if order.is_some(){"940"}else{"1000"},"locked":if order.is_some()&&!filled{"60"}else{"0"}}),
             ];
-            if s.scenario.kind == crate::ScenarioKind::SpotMarketExpansion {
-                balances.push(json!({"asset":"ETH","free":"0","locked":"0"}));
-            }
             Ok((
                 200,
                 json!({"canTrade":true,"accountType":"SPOT","balances":balances}),
@@ -463,15 +480,7 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
     let mut eth = path.contains("ethusdt");
     let mut sent_fill = false;
     let mut previous_bid = "59999";
-    // Handover verifies synchronized replay and process ownership, with one
-    // source update per second. Its retained-tail owner is not a load test.
-    let market_interval = match s.scenario.kind {
-        crate::ScenarioKind::SpotHandover
-        | crate::ScenarioKind::SpotHandoverCustom
-        | crate::ScenarioKind::SpotMarketExpansion
-        | crate::ScenarioKind::SpotRebuildCustom => Duration::from_secs(1),
-        crate::ScenarioKind::SpotFill => Duration::from_millis(100),
-    };
+    let market_interval = Duration::from_millis(100);
     let mut last = Instant::now() - Duration::from_secs(1);
     while !s.scenario.root.join("STOP").exists() {
         while let Some((opcode, body, n)) = decode_frame(&input)? {
@@ -528,7 +537,6 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
         if subscribed
             && private
             && !sent_fill
-            && (!s.scenario.kind.handover() || s.scenario.root.join("RELEASE_FILL").is_file())
             && s.output_at
                 .lock()
                 .map_err(|_| "output lock")?
@@ -559,6 +567,9 @@ fn websocket(mut tls: Tls, mut input: Vec<u8>, path: &str, s: &State) -> Result<
             let mut bids = vec![json!([bid, "1"])];
             if previous_bid != bid {
                 bids.push(json!([previous_bid, "0"]));
+            }
+            if bid == "60000" {
+                s.first_eligible_quote.get_or_init(Instant::now);
             }
             ws_send(
                 &mut tls,

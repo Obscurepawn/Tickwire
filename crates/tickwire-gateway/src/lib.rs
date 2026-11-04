@@ -518,7 +518,6 @@ fn validate_binding(
     if r.quantity == 0
         || r.unit_budget <= 0
         || r.fee_budget < 0
-        || r.commit_profile != ex::CommitProfile::LocalDurable
         || i128::from(r.quantity)
             .checked_mul(r.unit_budget)
             .and_then(|b| b.checked_add(r.fee_budget))
@@ -564,10 +563,6 @@ fn restore_record(p: codec::PreparedIntent) -> DurableRecord {
             config_revision: p.config_revision,
             deadline: p.deadline,
             recovery_object: p.recovery_object,
-            commit_profile: match p.commit_profile {
-                codec::CommitProfile::LocalDurable => ex::CommitProfile::LocalDurable,
-                codec::CommitProfile::SyncReplica => ex::CommitProfile::SyncReplica,
-            },
         },
     }
 }

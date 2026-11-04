@@ -212,7 +212,7 @@ impl ReadyProof {
     ) -> Result<()> {
         let started = clock.sample()?.monotonic;
         self.observation_idle(started.nanos())?;
-        if self.directory.is_none() || self.pause_callbacks {
+        if self.directory.is_none() {
             return Err(Error::ObservationUnsupported);
         }
         if request.request_id == [0; 16] || request.deadline.domain() != started.domain() {
@@ -340,6 +340,7 @@ impl ReadyProof {
             &reply.ready,
             now.nanos(),
         )?;
+        let objects = objects.to_vec();
         if p.prefixes.get(reply.ready.exec_report_sequence) != Some(account)
             || !reports.confirms_cursor(
                 sub,

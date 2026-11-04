@@ -87,10 +87,13 @@ pub fn validate_dependency(config: &Bootstrap, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 pub fn validate_startup(config: &Bootstrap) -> crate::Result<()> {
+    if config.preflight_job.is_some() {
+        return Err(Error::Unsupported.into());
+    }
     let Some(catalog) = resolve_bootstrap(config)? else {
         return Ok(());
     };
-    if config.preflight_job.is_some() || config.factory.is_none() || !config.handover_enabled {
+    if config.factory.is_none() || !config.publish_checkpoints {
         return Err(Error::Unsupported.into());
     }
     let path = config.recovery_template.as_ref().ok_or(Error::Identity)?;

@@ -415,7 +415,7 @@ fn strategy_receives_own_state_and_credential_free_views() {
     );
 }
 #[test]
-fn execution_and_guardian_bind_only_their_distinct_account_credentials() {
+fn execution_binds_only_its_assigned_account_credential() {
     let (c, p, _, _) = setup(grant(
         "exec-spot-a",
         &["spot-main"],
@@ -430,17 +430,6 @@ fn execution_and_guardian_bind_only_their_distinct_account_credentials() {
     );
     assert_eq!(out.value()["account_views"].as_array().unwrap().len(), 1);
     assert!(!serde_json::to_string(out.value()).unwrap().contains("usdm"));
-    let (c, p, _, _) = setup(grant(
-        "guardian-a",
-        &["spot-main", "usdm-main"],
-        &["binance-spot", "binance-usdm"],
-        &[],
-        &["guardian"],
-    ));
-    let out = project(&c, "guardian-a", &p).unwrap();
-    let bindings = serde_json::to_string(&out.value()["secret_bindings"]).unwrap();
-    assert!(bindings.contains("/guardian/1"));
-    assert!(!bindings.contains("/execution/1"));
 }
 #[test]
 fn policy_cannot_grant_strategy_secrets_or_unassigned_execution_accounts() {
@@ -569,4 +558,31 @@ fn strategy_cannot_smuggle_a_secret_reference_through_a_parameter_value() {
     )
     .unwrap();
     assert!(project(&c, "strategy-01-active", &p).is_err());
+}
+
+#[test]
+fn market_projections_bind_the_venue_for_same_product_subscriptions() {
+    for venue in ["Bybit", "OKX"] {
+        for (approved, matches_topic) in [("other-spot", true), ("binance-spot", false)] {
+            let (candidate, policy, _, _) =
+                setup(grant("md-spot-a", &[], &[approved], &[1], &["market-data"]));
+            let mut input = candidate.value().clone();
+            let mut other = input["venues"][0].clone();
+            other["id"] = "other-spot".into();
+            other["venue"] = venue.into();
+            input["venues"].as_array_mut().unwrap().push(other);
+            input["ipc"]["topics"][0]["venue_id"] = "other-spot".into();
+            let candidate = Candidate::parse(
+                Format::Json,
+                &serde_json::to_vec(&input).unwrap(),
+                Limits::default(),
+            )
+            .unwrap();
+            candidate.validate_static().unwrap();
+            assert_eq!(
+                project(&candidate, "md-spot-a", &policy).is_ok(),
+                matches_topic
+            );
+        }
+    }
 }

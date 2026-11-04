@@ -1,13 +1,14 @@
-//! Immutable release commitments. These types validate content and binding;
-//! only the qualified loader can attest that a process loaded or restored it.
+//! Immutable strategy artifacts, checkpoint input validation and historical release records.
 #![forbid(unsafe_code)]
+pub mod account_inputs;
 pub mod closure;
 pub mod files;
 pub mod rebuild;
 pub mod receipt;
 pub mod replay;
 use serde::{Deserialize, Serialize};
-pub use tickwire_lifecycle::{Member, Operation};
+mod operation;
+pub use operation::{MAX_MEMBERS, Member, Operation};
 pub type Hash = [u8; 32];
 pub const MAX_DOCUMENT: usize = 1024 * 1024;
 pub const MAX_FILES: usize = 64;

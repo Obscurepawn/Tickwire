@@ -148,9 +148,6 @@ fn catalog_reference(digest: [u8; 32]) -> String {
         inputs::hex(digest)
     )
 }
-pub fn policy(f: &Fixture) -> tickwire_runtime_policy::ControlPlane {
-    deployment(f).policy.build().unwrap()
-}
 pub fn build(f: &Fixture) -> tickwire_app::Result<Box<dyn AppStrategy>> {
     let d = deployment(f);
     let runtime = d.assemble(f.baseline.clone())?;

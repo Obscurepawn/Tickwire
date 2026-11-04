@@ -7,7 +7,6 @@ use std::{
     os::unix::{fs::MetadataExt, process::CommandExt},
     path::Path,
     process::{Child, Command, Stdio},
-    sync::mpsc,
     time::{Duration, Instant},
 };
 struct Children(Vec<Child>);
@@ -60,10 +59,6 @@ pub fn run(s: &Scenario) -> Result<()> {
         &mut children,
         Duration::from_secs(10),
     )?;
-    let ready = spawn_mirror(s, &mut children)?;
-    ready
-        .recv_timeout(Duration::from_secs(10))
-        .map_err(|_| "mirror readiness timeout")??;
     let mut md = Command::new(s.bin_directory.join("tickwire-md"));
     md.arg("--config").arg(&s.md_config);
     children.0.push(spawn(md, s, "md")?);
@@ -96,33 +91,41 @@ pub fn run(s: &Scenario) -> Result<()> {
     let pid = child.id();
     let stderr = child.stderr.take().ok_or("exec stderr")?;
     let arm = s.root.join("ARM");
-    let auto_arm = s.kind == crate::ScenarioKind::SpotFill;
     let log = s.root.join("logs/exec.stderr.log");
     let exec_log = std::thread::spawn(move || {
         let Ok(mut out) = File::create(log) else {
             return;
         };
+        let mut account_ready = false;
+        let mut worker_ready = false;
+        let mut feed_armed = false;
         for line in BufReader::new(stderr).lines() {
             let Ok(line) = line else { break };
             let _ = writeln!(out, "{line}");
-            if auto_arm
-                && serde_json::from_str::<Value>(&line)
-                    .ok()
-                    .is_some_and(|v| v["event"] == "account_reconciled")
-                && !arm.exists()
-            {
-                let _ = crate::generate::write(&arm, b"account_reconciled\n");
+            if feed_armed {
+                continue;
+            }
+            if let Ok(entry) = serde_json::from_str::<Value>(&line) {
+                match entry["event"].as_str() {
+                    Some("account_reconciled") => account_ready = true,
+                    Some("strategy_reports_consumed")
+                        if entry["account_position"].as_u64().is_some_and(|p| p > 0) =>
+                    {
+                        worker_ready = true;
+                    }
+                    _ => {}
+                }
+                if account_ready && worker_ready {
+                    feed_armed =
+                        crate::generate::write(&arm, b"account and worker ready\n").is_ok();
+                }
             }
         }
     });
     children.0.push(child);
     let client: tickwire_market_source::ConnectConfig =
         serde_json::from_value(app["market_sources"][0].clone())?;
-    let supervisor = serde_json::from_value(if s.kind.handover() {
-        app["strategy"]["members"][0]["strategy"]["config"]["supervisor"].clone()
-    } else {
-        app["strategy"]["config"]["supervisor"].clone()
-    })?;
+    let supervisor = serde_json::from_value(app["strategy"]["config"]["supervisor"].clone())?;
     let metadata = fs::metadata(&s.root)?;
     let admission = tickwire_md::server::Admission {
         client,
@@ -136,33 +139,9 @@ pub fn run(s: &Scenario) -> Result<()> {
     tickwire_md::server::register_admission(&s.root.join("md/admissions"), &admission)
         .map_err(|e| e.to_string())?;
     crate::generate::write(&gate, b"admitted\n")?;
-    let mut handover = if s.kind.handover() && s.kind != crate::ScenarioKind::SpotRebuildCustom {
-        Some(crate::handover::Driver::new(s, pid, md_pid)?)
-    } else {
-        None
-    };
-    let mut rebuild = if s.kind == crate::ScenarioKind::SpotRebuildCustom {
-        Some(crate::rebuild::Driver::new(s, pid, md_pid)?)
-    } else {
-        None
-    };
-    let mut expansion = if s.kind == crate::ScenarioKind::SpotMarketExpansion {
-        Some(crate::expansion::Driver::new(s, pid, md_pid)?)
-    } else {
-        None
-    };
     let until = Instant::now() + Duration::from_secs(90);
     let exec_index = children.0.len() - 1;
     let status = loop {
-        if let Some(driver) = &mut rebuild {
-            driver.poll()?;
-        }
-        if let Some(driver) = &mut expansion {
-            driver.poll()?;
-        }
-        if let Some(driver) = &mut handover {
-            driver.poll()?;
-        }
         if let Some(status) = children.0[exec_index].try_wait()? {
             break status;
         }
@@ -183,12 +162,6 @@ pub fn run(s: &Scenario) -> Result<()> {
     if !status.success() {
         return Err(format!("exec exited: {status}; see logs/exec.stderr.log").into());
     }
-    if let Some(driver) = &handover {
-        driver.finish()?;
-    }
-    if let Some(driver) = &rebuild {
-        driver.finish()?;
-    }
     // All live writer handles are closed before offline recovery reads private copies.
     drop(children);
     exec_log.join().map_err(|_| "execution log reader failed")?;
@@ -197,77 +170,13 @@ pub fn run(s: &Scenario) -> Result<()> {
     let exported = s.root.join("export");
     let report = tickwire_app::replay::export(&deployment, &exported).map_err(|e| e.to_string())?;
     check_account(&report)?;
-    let mut mirror = tickwire_replica::config::ReceiverConfig::from_file(&s.mirror_config)?;
-    mirror.create = false;
-    let mirror = mirror.open_store()?;
     let count = report["account_records"]
         .as_u64()
         .ok_or("account record count")?;
-    if mirror.prefix().sequence != count {
-        return Err("mirror does not contain the full account prefix".into());
-    }
-    for first in (1..=count).step_by(tickwire_replica::MAX_BATCH_RECORDS) {
-        for record in mirror.original_records(first, tickwire_replica::MAX_BATCH_RECORDS)? {
-            let expected = fs::read(
-                exported
-                    .join("records")
-                    .join(format!("{:020}.cbor", record.seq)),
-            )?;
-            if record.payload != expected {
-                return Err("mirror canonical record differs from account WAL".into());
-            }
-        }
-    }
-    if s.kind.handover() {
-        let mut final_s = s.clone();
-        final_s.worker_bootstrap = s.root.join("next/bootstrap.json");
-        check_reports(&final_s, &exported, &report, pid, count)?;
-        if s.kind == crate::ScenarioKind::SpotRebuildCustom {
-            crate::rebuild::check_export(s, &exported, &report, count)?;
-        } else {
-            crate::handover::check_export(s, &exported, &report, count)?;
-        }
-    } else {
-        check_reports(s, &exported, &report, pid, count)?;
-    }
-    check_fee_closure(s, &exported, count)?;
+    check_reports(s, &exported, &report, pid, count)?;
+    let elapsed_ns = check_fee_closure(s, &exported, count)?;
     crate::generate::json_file(&s.root.join("account-report.json"), &report)?;
-    let mut result = json!({"event":if s.kind.handover(){"laboratory_spot_handover_complete"}else{"laboratory_spot_fill_complete"},"account_fill_verified":true,"mirror_records_verified":count,"worker_report_position_verified":count,"account_report":s.root.join("account-report.json"),"fixture_audit":s.root.join("fixture.jsonl"),"account_wal":s.root.join("exec/account"),"input_wal":s.root.join("exec/input"),"mirror_wal":s.root.join("mirror/journal"),"logs":s.root.join("logs")});
-    if s.kind.handover() {
-        result["preflight"] = serde_json::from_slice(&fs::read(
-            s.root.join("handover/preflight-final-verified.json"),
-        )?)?;
-    }
-    if let Some(driver) = &expansion {
-        let evidence = driver.evidence()?;
-        let observed = evidence["source_before_c"]["replay_cut"]["sequence"]
-            .as_u64()
-            .ok_or("expansion source frontier")?;
-        let fixed = evidence["source_before_c"]["source_s"]["replay_cut"]["sequence"]
-            .as_u64()
-            .ok_or("expansion source S")?;
-        if result["preflight"]["source_c_sequence"]
-            .as_u64()
-            .is_none_or(|c| c < observed)
-            || result["preflight"]["source_s_sequence"] != fixed
-            || result["preflight"]["expansion_prefix"]["fixed_proof"]
-                != evidence["source_before_c"]["source_s"]["seal"]
-            || result["preflight"]["expansion_prefix"]["fixed_checkpoint"]
-                != evidence["source_before_c"]["source_s"]["checkpoint"]
-            || result["preflight"]["expansion_prefix"]["observed_proof"]
-                != evidence["source_before_c"]["seal"]
-            || result["preflight"]["expansion_prefix"]["observed_checkpoint"]
-                != evidence["source_before_c"]["checkpoint"]
-            || result["preflight"]["expansion_prefix"]["prefix_verified"] != true
-        {
-            return Err("final replay cut does not cover the verified market expansion".into());
-        }
-        result["market_expansion"] = evidence.clone();
-        result["event"] = json!("laboratory_spot_market_expansion_complete");
-    }
-    if s.kind == crate::ScenarioKind::SpotRebuildCustom {
-        result["event"] = json!("laboratory_spot_rebuild_complete");
-    }
+    let result = json!({"event":"laboratory_spot_fill_complete","account_fill_verified":true,"eligible_quote_to_order_ns":elapsed_ns,"account_records":count,"worker_report_position_verified":count,"account_report":s.root.join("account-report.json"),"fixture_audit":s.root.join("fixture.jsonl"),"account_wal":s.root.join("exec/account"),"input_wal":s.root.join("exec/input"),"logs":s.root.join("logs")});
     crate::generate::json_file(&s.root.join("run-result.json"), &result)?;
     println!("{}", serde_json::to_string_pretty(&result)?);
     Ok(())
@@ -282,37 +191,6 @@ fn spawn(mut command: Command, s: &Scenario, name: &str) -> Result<Child> {
         )?))
         .current_dir(&s.root);
     Ok(command.spawn()?)
-}
-fn spawn_mirror(
-    s: &Scenario,
-    children: &mut Children,
-) -> Result<mpsc::Receiver<std::result::Result<(), String>>> {
-    let mut command = Command::new(s.bin_directory.join("tickwire-replica-receiver"));
-    command
-        .arg(&s.mirror_config)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::from(File::create(
-            s.root.join("logs/mirror.stderr.log"),
-        )?));
-    let mut c = command.spawn()?;
-    let output = c.stdout.take().ok_or("mirror stdout")?;
-    let path = s.root.join("logs/mirror.stdout.log");
-    let (tx, rx) = mpsc::channel();
-    std::thread::spawn(move || {
-        let Ok(mut file) = File::create(path) else {
-            let _ = tx.send(Err("mirror log".into()));
-            return;
-        };
-        for line in BufReader::new(output).lines() {
-            let Ok(line) = line else { break };
-            let _ = writeln!(file, "{line}");
-            if line.starts_with("replica receiver listening on ") {
-                let _ = tx.send(Ok(()));
-            }
-        }
-    });
-    children.0.push(c);
-    Ok(rx)
 }
 fn wait_file(path: &Path, children: &mut Children, timeout: Duration) -> Result<()> {
     let until = Instant::now() + timeout;
@@ -525,7 +403,7 @@ fn check_account(report: &Value) -> Result<()> {
     }
     Ok(())
 }
-fn check_fee_closure(s: &Scenario, exported: &Path, count: u64) -> Result<()> {
+fn check_fee_closure(s: &Scenario, exported: &Path, count: u64) -> Result<u64> {
     let mut fees = false;
     let mut activations = 0;
     for position in 1..=count {
@@ -562,7 +440,16 @@ fn check_fee_closure(s: &Scenario, exported: &Path, count: u64) -> Result<()> {
             "terminal fees lack the complete actual query and durable reconciliation chain".into(),
         );
     }
-    Ok(())
+    let intervals: Vec<_> = requests
+        .iter()
+        .filter(|entry| entry["event"] == "eligible_quote_to_order")
+        .collect();
+    let [sample] = intervals.as_slice() else {
+        return Err("expected one signed order for the eligible market quote".into());
+    };
+    sample["elapsed_ns"]
+        .as_u64()
+        .ok_or_else(|| "invalid fixture interval".into())
 }
 #[cfg(test)]
 mod tests {

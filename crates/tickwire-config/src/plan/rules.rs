@@ -3,10 +3,6 @@ use crate::Hash;
 use sha2::{Digest, Sha256};
 use std::sync::OnceLock;
 const SOURCES: &[(&str, &[u8])] = &[
-    (
-        ".cargo/config.toml",
-        include_bytes!("../../../../.cargo/config.toml"),
-    ),
     ("Cargo.lock", include_bytes!("../../../../Cargo.lock")),
     ("Cargo.toml", include_bytes!("../../../../Cargo.toml")),
     (
@@ -70,8 +66,8 @@ const SOURCES: &[(&str, &[u8])] = &[
         include_bytes!("../../../../rust-toolchain.toml"),
     ),
     (
-        "specs/contracts/control-api.openapi.json",
-        include_bytes!("../../../../specs/contracts/control-api.openapi.json"),
+        "specs/contracts/config-patch.schema.json",
+        include_bytes!("../../../../specs/contracts/config-patch.schema.json"),
     ),
     (
         "specs/contracts/system-config.schema.json",
