@@ -15,6 +15,7 @@ python3 -m venv /tmp/tickwire-design-validation-env
 |---|---|
 | [verify-design-contracts.py](verify-design-contracts.py) | 汇总 IPC、风控和配置检查；重新计算部署内存、CPU、存储及延迟合同的跨文件一致性；`--openapi` 用标准验证器检查 OpenAPI |
 | [verify-ipc-contract.py](verify-ipc-contract.py) | 布局覆盖、字段对齐、保留字节、类型宽度、编码向量与哈希、帧校验和指定语义案例 |
+| [verify-instrument-catalog.py](verify-instrument-catalog.py) | 独立重算标的经济目录的规范正文、原始 SHA 与语义摘要；严格拒绝格式与经济字段反例 |
 | [verify-risk-vectors.py](verify-risk-vectors.py) | 使用 Decimal 重算风险案例，并逐项比对预期数值 |
 | [verify-config-contract.py](verify-config-contract.py) | 全量与投影 schema、参考 TOML、跨字段约束、接口引用及负例；生产模板含未填写输入，必须拒绝 |
 | [verify-documentation.py](verify-documentation.py) | 现存 Markdown（README/AGENTS/specs/scripts）的本地链接存在性、参考链接定义与代码块闭合；`docs/` 图资产与旧验证计划随该目录删除后不再检查 |

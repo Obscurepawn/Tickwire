@@ -88,6 +88,7 @@ impl Request {
         window: &crate::replay::rebuild::capture::VerifiedWindow,
         now: MonoTime,
     ) -> Result<()> {
+        crate::catalog::reject_lifecycle(&self.bootstrap)?;
         self.bytes()?;
         capture.validate(now)?;
         let b = &self.bootstrap;

@@ -16,6 +16,22 @@ mod channels;
 #[path = "runtime.rs"]
 mod runtime;
 static NEXT: AtomicU64 = AtomicU64::new(0);
+
+#[test]
+fn catalog_cannot_be_enabled_in_worker_without_runtime_content_or_projection_scope() {
+    for with_inputs in [true, false] {
+        let mut f = fixture();
+        f.ready();
+        f.bootstrap.instrument_catalog = Some(tickwire_instrument_catalog::Artifact {
+            digest: [7; 32],
+            bytes: b"{}".to_vec(),
+        });
+        if !with_inputs {
+            f.config.projection_inputs = None;
+        }
+        assert!(prepare(&f.config, &f.bootstrap, &f.runtime).is_err());
+    }
+}
 struct Fixture {
     root: PathBuf,
     config: super::super::HostConfig,

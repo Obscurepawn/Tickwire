@@ -2,8 +2,8 @@
 //!
 //! Startup-only mappings bind one global account name to the real execution
 //! baseline/report owner, and one topic to the complete approved external JOIN.
-//! `allowed_symbols`, risk budgets and catalog artifact economic content are not
-//! consumed here. Current inputs are accepted only from Host's fresh checkpoint.
+//! Optional catalog content is bound to the same current input checkpoint.
+//! `allowed_symbols` and risk budgets are separate consumers.
 //! NormalizedMarket header venue/product fields are not product credentials;
 //! this profile requires every market member in the actual account catalog.
 use super::{profile, startup};
@@ -135,6 +135,7 @@ pub(super) struct Prepared {
     market: MarketBinding,
     report: Object,
     report_subscription: tickwire_shm::SubscriptionKey,
+    catalog: Option<Object>,
 }
 impl Prepared {
     pub(super) fn guard(&self) -> Guard {
@@ -149,6 +150,10 @@ impl Prepared {
         let inputs = observed
             .inputs()
             .ok_or_else(|| invalid("projection inputs missing current views"))?;
+        check(
+            inputs.catalog().map(|c| Object::of(c.raw_bytes())) == self.catalog,
+            "actual catalog content consumption",
+        )?;
         check(
             inputs.accounts().len() == 1 && inputs.markets().len() == 1,
             "actual input set",
@@ -224,6 +229,24 @@ pub(super) fn prepare(
     bootstrap: &Bootstrap,
     runtime: &tickwire_runtime::files::Configuration,
 ) -> Result<Option<Prepared>> {
+    let catalog = match (&runtime.instrument_catalog, &bootstrap.instrument_catalog) {
+        (None, None) => None,
+        (Some(c), Some(a)) if a.digest == c.artifact_hash() && a.bytes == c.raw_bytes() => {
+            runtime
+                .validate_instrument_catalog()
+                .map_err(|_| invalid("projection inputs runtime catalog economics"))?;
+            check(
+                config.projection_inputs.is_some(),
+                "catalog requires complete projection inputs",
+            )?;
+            Some(Object::of(c.raw_bytes()))
+        }
+        _ => {
+            return Err(invalid(
+                "projection inputs runtime/bootstrap catalog mismatch",
+            ));
+        }
+    };
     let Some(input) = &config.projection_inputs else {
         return Ok(None);
     };
@@ -248,6 +271,14 @@ pub(super) fn prepare(
     let payload = object.payload();
     let account = single(&payload["account_views"], "account view set")?;
     let venue = single(&payload["venue_views"], "venue view set")?;
+    if let Some(catalog) = catalog {
+        let reference = venue["instrument_catalog_ref"]
+            .as_str()
+            .ok_or_else(|| invalid("projection inputs catalog reference"))?;
+        let digest = tickwire_config::artifacts::reference_hash(reference)
+            .map_err(|_| invalid("projection inputs catalog reference"))?;
+        check(digest == catalog.digest, "global catalog artifact binding")?;
+    }
     let topic = single(&payload["ipc"]["topics"], "topic set")?;
     let a = &input.account;
     let m = &input.market;
@@ -418,6 +449,7 @@ pub(super) fn prepare(
         market: m.clone(),
         report: Object::of(&wire_bytes(&report)?),
         report_subscription,
+        catalog,
     }))
 }
 fn owner_identity(owner: &IdentityConfig, role: u16) -> Result<()> {

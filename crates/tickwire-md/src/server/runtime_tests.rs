@@ -1,6 +1,7 @@
 use super::*;
 use tickwire_market_source::transition::{Approval, Commit, Phase};
 use tickwire_market_source::{FeedObservation, Invalidation, MarketSink, MarketSource, ShmSource};
+mod catalog;
 mod fixture;
 mod network;
 mod restart;

@@ -53,6 +53,7 @@ fn fixture() -> (Snapshot, config::Config, Vec<ResourceHeader>) {
     let mut bank = spec.header().unwrap();
     old.identity.arch = bank.target_arch;
     let previous = Snapshot {
+        catalog_objects: Vec::new(),
         schema: 1,
         sequence: 4,
         previous: [81; 32],

@@ -22,6 +22,9 @@ impl ExactCandidate {
 }
 pub fn prepare_exact<F: ExactFactory>(factory: &F, input: &Verified) -> Result<ExactCandidate> {
     let exact = input.exact().ok_or(Error::Unsupported)?;
+    if tickwire_release::replay::source::catalog_binding(exact.checkpoint())?.is_some() {
+        return Err(Error::Unsupported);
+    }
     if factory.factory_id() != input.plan().factory
         || factory.binary_digest() != exact.checkpoint().source.binary_digest
         || factory.state_schema() != input.plan().capabilities.state_schema

@@ -100,7 +100,7 @@ impl Control {
         config: config::ExpansionControl,
         current: &Config,
         banks: &[ResourceHeader],
-    ) -> Result<(Self, config::FeedIndex)> {
+    ) -> Result<(Self, config::FeedIndex, crate::catalogs::Catalogs)> {
         config.validate()?;
         match config::read(&config.effective_path, crate::expansion::MAX_PLAN_BYTES) {
             Ok(bytes) => {
@@ -119,7 +119,7 @@ impl Control {
                     .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) => {}
             Err(error) => return Err(error),
         }
-        let (durable, index) = durable::open(&config, current, banks)?;
+        let (durable, index, catalogs) = durable::open(&config, current, banks)?;
         Ok((
             Self {
                 config,
@@ -133,6 +133,7 @@ impl Control {
                 durable,
             },
             index,
+            catalogs,
         ))
     }
     fn submit(&mut self, action: Action, task: cold::Task) -> Result<()> {

@@ -52,6 +52,9 @@ impl Drop for Files {
 }
 static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 fn fixture() -> Files {
+    fixture_with_bootstrap(None)
+}
+fn fixture_with_bootstrap(bootstrap: Option<Vec<u8>>) -> Files {
     let directory = std::env::temp_dir().join(format!(
         "tw-registered-{}-{}",
         std::process::id(),
@@ -70,7 +73,9 @@ fn fixture() -> Files {
     .into_iter()
     .enumerate()
     {
-        let bytes = if i == 3 {
+        let bytes = if i == 2 && bootstrap.is_some() {
+            bootstrap.clone().unwrap()
+        } else if i == 3 {
             b"actual-user-parameters".to_vec()
         } else {
             vec![i as u8 + 1; 8]
@@ -156,4 +161,16 @@ fn capture_entry_reads_only_the_static_registration_id() {
     capture_entry(&CaptureRegistration, &config).unwrap();
     config.contract.factory = "another-factory".into();
     assert!(capture_entry(&CaptureRegistration, &config).is_err());
+}
+
+#[test]
+fn catalog_direct_registered_configuration_rejects_before_user_factory() {
+    let config = crate::replay::live::tests::bootstrap(std::path::Path::new("/unused"));
+    let mut config = config;
+    config.instrument_catalog =
+        Some(crate::replay::application::catalog_tests::catalog().artifact());
+    let f = fixture_with_bootstrap(Some(serde_json::to_vec(&config).unwrap()));
+    let calls = Rc::new(Cell::new(0));
+    assert!(configure(&Registered(calls.clone()), &f.binding, &target(), &f.files).is_err());
+    assert_eq!(calls.get(), 0);
 }

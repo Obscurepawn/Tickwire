@@ -2,7 +2,8 @@
 //! materialized views, so replay starts at S rather than at the latest JOIN.
 use super::*;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
+use tickwire_instrument_catalog::Catalog;
 use tickwire_ipc::{RecordHeader, ResourceHeader, Wire};
 pub mod observed;
 mod transition;
@@ -24,6 +25,8 @@ struct SavedAccount {
 #[serde(deny_unknown_fields)]
 struct Saved {
     schema: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    instrument_catalog: Option<Object>,
     strategy: Vec<u8>,
     maximum_age_ns: u64,
     markets: Vec<SavedMarket>,
@@ -48,6 +51,7 @@ impl ReplayViews for Views<'_> {
 }
 pub struct Application<S> {
     strategy: S,
+    catalog: Option<Arc<Catalog>>,
     maximum_age_ns: u64,
     markets: BTreeMap<StreamKey, Market>,
     accounts: BTreeMap<StreamKey, account::AccountReplica>,
@@ -58,6 +62,21 @@ pub fn market_stream(resource: &ResourceHeader) -> Result<StreamKey> {
         identity: tickwire_recovery::digest(&bytes),
         generation: resource.feed_generation,
     })
+}
+fn require_members(
+    baseline: &tickwire_account_codec::CanonicalBaseline,
+    replica: &crate::MarketReplica,
+) -> Result<()> {
+    if replica.instruments().any(|id| {
+        !baseline
+            .catalog()
+            .entries
+            .iter()
+            .any(|entry| entry.instrument.instrument_id == id)
+    }) {
+        return Err(Error::Identity);
+    }
+    Ok(())
 }
 fn market(
     resource: ResourceHeader,
@@ -109,11 +128,20 @@ impl<S: crate::Strategy> Application<S> {
         maximum_age_ns: u64,
         markets: Vec<(ResourceHeader, crate::MarketReplica, usize)>,
     ) -> Result<Self> {
+        Self::new_with_catalog(strategy, maximum_age_ns, markets, None)
+    }
+    pub fn new_with_catalog(
+        strategy: S,
+        maximum_age_ns: u64,
+        markets: Vec<(ResourceHeader, crate::MarketReplica, usize)>,
+        catalog: Option<Arc<Catalog>>,
+    ) -> Result<Self> {
         if maximum_age_ns == 0 || markets.is_empty() || markets.len() > MAX_STREAMS {
             return Err(Error::Capacity);
         }
         let mut out = Self {
             strategy,
+            catalog,
             maximum_age_ns,
             markets: BTreeMap::new(),
             accounts: BTreeMap::new(),
@@ -130,7 +158,40 @@ impl<S: crate::Strategy> Application<S> {
                 return Err(Error::Identity);
             }
         }
+        out.validate_catalog()?;
         Ok(out)
+    }
+    pub(crate) fn callbacks_ready(&self) -> bool {
+        self.catalog.is_none() || !self.accounts.is_empty()
+    }
+    pub(crate) fn catalog(&self) -> Option<&Arc<Catalog>> {
+        self.catalog.as_ref()
+    }
+    fn validate_catalog(&self) -> Result<()> {
+        let Some(catalog) = &self.catalog else {
+            return Ok(());
+        };
+        for market in self.markets.values() {
+            crate::catalog::validate_market(
+                catalog,
+                &market.resource,
+                market.replica.instruments().map(|id| {
+                    (
+                        id,
+                        market
+                            .replica
+                            .view(id)
+                            .unwrap()
+                            .trigger()
+                            .instrument_version,
+                    )
+                }),
+            )?;
+        }
+        for account in self.accounts.values() {
+            crate::catalog::validate_baseline(catalog, account.baseline())?;
+        }
+        Ok(())
     }
     pub fn market_cursors(&self) -> Result<Vec<Cursor>> {
         self.markets
@@ -222,37 +283,80 @@ impl<S: crate::Strategy> Application<S> {
         self.strategy.checkpoint().map_err(|_| Error::Callback)
     }
     pub fn restore(bytes: &[u8], restore: impl FnOnce(&[u8]) -> Result<S>) -> Result<Self> {
+        Self::restore_with_catalog(bytes, None, restore)
+    }
+    pub fn restore_with_catalog(
+        bytes: &[u8],
+        catalog: Option<Arc<Catalog>>,
+        restore: impl FnOnce(&[u8]) -> Result<S>,
+    ) -> Result<Self> {
         if bytes.is_empty() || bytes.len() > MAX_BYTES {
             return Err(Error::Capacity);
         }
         let saved: Saved = serde_json::from_slice(bytes).map_err(|_| Error::Identity)?;
         if saved.schema != 1
             || canonical(&saved)? != bytes
+            || saved.maximum_age_ns == 0
+            || saved.markets.is_empty()
             || saved.accounts.len() > MAX_STREAMS
             || saved.markets.len() > MAX_STREAMS
+            || saved.instrument_catalog != catalog.as_deref().map(crate::catalog::object)
         {
             return Err(Error::Identity);
+        }
+        // Validate all saved SDK-owned views before invoking any user restore code.
+        let mut markets = BTreeMap::new();
+        for m in saved.markets {
+            let resource = ResourceHeader::decode(&m.resource).map_err(|_| Error::Identity)?;
+            let replica = crate::MarketReplica::restore_checkpoint(&m.view, m.maximum_levels)
+                .map_err(|_| Error::Identity)?;
+            if let Some(catalog) = &catalog {
+                crate::catalog::validate_market(
+                    catalog,
+                    &resource,
+                    replica
+                        .instruments()
+                        .map(|id| (id, replica.view(id).unwrap().trigger().instrument_version)),
+                )?;
+            }
+            let view = market(resource, replica, m.maximum_levels)?;
+            if markets
+                .insert(market_stream(&view.resource)?, view)
+                .is_some()
+            {
+                return Err(Error::Identity);
+            }
+        }
+        let mut accounts = BTreeMap::new();
+        for a in saved.accounts {
+            let replica = account::AccountReplica::restore(&a.view)?;
+            if let Some(catalog) = &catalog {
+                crate::catalog::validate_baseline(catalog, replica.baseline())?;
+            }
+            if a.stream != account::AccountReplica::stream(replica.baseline())
+                || accounts.insert(a.stream, replica).is_some()
+            {
+                return Err(Error::Identity);
+            }
+        }
+        if catalog.is_some() {
+            for a in accounts.values() {
+                for m in markets.values() {
+                    require_members(a.baseline(), &m.replica)?;
+                }
+            }
         }
         let strategy = restore(&saved.strategy)?;
         if strategy.checkpoint().map_err(|_| Error::Callback)? != saved.strategy {
             return Err(Error::StateMismatch);
         }
-        let mut markets = Vec::new();
-        for m in saved.markets {
-            let resource = ResourceHeader::decode(&m.resource).map_err(|_| Error::Identity)?;
-            let replica = crate::MarketReplica::restore_checkpoint(&m.view, m.maximum_levels)
-                .map_err(|_| Error::Identity)?;
-            markets.push((resource, replica, m.maximum_levels));
-        }
-        let mut out = Self::new(strategy, saved.maximum_age_ns, markets)?;
-        for a in saved.accounts {
-            let replica = account::AccountReplica::restore(&a.view)?;
-            if a.stream != account::AccountReplica::stream(replica.baseline())
-                || out.accounts.insert(a.stream, replica).is_some()
-            {
-                return Err(Error::Identity);
-            }
-        }
+        let out = Self {
+            strategy,
+            maximum_age_ns: saved.maximum_age_ns,
+            markets,
+            accounts,
+            catalog,
+        };
         if out.checkpoint()? != bytes {
             return Err(Error::Identity);
         }
@@ -299,6 +403,7 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
             .collect::<Result<_>>()?;
         Ok(canonical(&Saved {
             schema: 1,
+            instrument_catalog: self.catalog.as_deref().map(crate::catalog::object),
             strategy: self.business_state()?,
             maximum_age_ns: self.maximum_age_ns,
             markets,
@@ -311,8 +416,32 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
         context: &mut ReplayContext<'_>,
         effects: &mut ReplayEffects,
     ) -> Result<()> {
+        if !self.callbacks_ready()
+            && matches!(
+                input,
+                Input::TimerFired { .. }
+                    | Input::ConfigApply { .. }
+                    | Input::ModelApply { .. }
+                    | Input::External { .. }
+            )
+        {
+            return Err(Error::Unsupported);
+        }
         let output = match input {
-            Input::MarketTransition { .. } => {
+            Input::MarketTransition { baseline, .. } => {
+                if let Some(catalog) = &self.catalog {
+                    if baseline.len() < 28 {
+                        return Err(Error::Identity);
+                    }
+                    let len = u32::from_le_bytes(baseline[24..28].try_into().unwrap()) as usize;
+                    let join: crate::bootstrap::JoinBootstrap = serde_json::from_slice(
+                        baseline
+                            .get(28..28usize.checked_add(len).ok_or(Error::Capacity)?)
+                            .ok_or(Error::Identity)?,
+                    )
+                    .map_err(|_| Error::Identity)?;
+                    crate::catalog::validate_join(catalog, &join)?;
+                }
                 transition::replace(&mut self.markets, input, context.now_ns())?;
                 None
             }
@@ -325,6 +454,8 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
             } => {
                 let header = RecordHeader::decode(record.get(..128).ok_or(Error::Identity)?)
                     .map_err(|_| Error::Identity)?;
+                // Cold construction/restore/transition bind the complete member set.
+                // Replica::apply performs the one dense lookup and checks its version.
                 if header.sequence != *sequence || header.ingress_mono_ns != *received_ns {
                     return Err(Error::Identity);
                 }
@@ -352,7 +483,8 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
                     .replica
                     .view(*instrument)
                     .ok_or(Error::Identity)?;
-                let eligible = view.live()
+                let eligible = self.callbacks_ready()
+                    && view.live()
                     && context
                         .now_ns()
                         .checked_sub(view.received_mono_ns())
@@ -384,6 +516,12 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
                         return Err(Error::Sequence);
                     }
                     let replica = account::AccountReplica::from_baseline(stream, canonical)?;
+                    if let Some(catalog) = &self.catalog {
+                        crate::catalog::validate_baseline(catalog, replica.baseline())?;
+                        for market in self.markets.values() {
+                            require_members(replica.baseline(), &market.replica)?;
+                        }
+                    }
                     let report =
                         crate::reports::AccountReport::Baseline(replica.baseline().clone());
                     self.accounts.insert(stream.clone(), replica);
@@ -460,6 +598,9 @@ impl<S: crate::Strategy> ReplayableStrategy for Application<S> {
             Input::Entropy { .. } => None,
         };
         if let Some(command) = output {
+            if let Some(catalog) = &self.catalog {
+                crate::catalog::validate_command(catalog, &command)?;
+            }
             effects.emit(command)?;
         }
         Ok(())
@@ -586,6 +727,33 @@ pub trait BusinessFactory {
         Err(Error::Unsupported)
     }
 }
+pub struct BoundApplicationFactory<F> {
+    factory: ApplicationFactory<F>,
+    catalog: Option<Arc<Catalog>>,
+}
+impl<F> ApplicationFactory<F> {
+    pub fn with_catalog(self, catalog: Option<Arc<Catalog>>) -> BoundApplicationFactory<F> {
+        BoundApplicationFactory {
+            factory: self,
+            catalog,
+        }
+    }
+}
+impl<F: BusinessFactory> SourceReplayFactory for BoundApplicationFactory<F> {
+    type Running = Application<F::Running>;
+    fn binary_digest(&self) -> Hash {
+        self.factory.binary_digest
+    }
+    fn state_schema(&self) -> u64 {
+        self.factory.business.schema()
+    }
+    fn restore_source(&self, source: &VerifiedAnchor) -> Result<Self::Running> {
+        let c = source.checkpoint();
+        Application::restore_with_catalog(&c.business, self.catalog.clone(), |state| {
+            self.factory.business.restore(state, &c.runtime)
+        })
+    }
+}
 pub struct ApplicationFactory<F> {
     pub binary_digest: Hash,
     pub business: F,
@@ -605,6 +773,8 @@ impl<F: BusinessFactory> SourceReplayFactory for ApplicationFactory<F> {
         })
     }
 }
+#[cfg(test)]
+pub(crate) mod catalog_tests;
 #[cfg(test)]
 pub(super) mod tests;
 #[cfg(test)]

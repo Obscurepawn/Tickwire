@@ -3,6 +3,7 @@
 pub mod bootstrap;
 pub mod capture;
 mod capture_worker;
+pub mod catalog;
 pub mod checkpoint;
 pub mod handover;
 pub mod market;

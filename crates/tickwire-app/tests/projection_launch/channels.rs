@@ -93,6 +93,7 @@ pub fn bootstrap(root: &Path, build: [u8; 32], uid: u32, gid: u32) -> (Bootstrap
     let report = bank(3, &exec, &worker);
     (
         Bootstrap {
+            instrument_catalog: None,
             version: 1,
             market: endpoint(md, "market.sock"),
             external_market: None,

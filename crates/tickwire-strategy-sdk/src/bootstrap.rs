@@ -3,6 +3,7 @@ use crate::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tickwire_ipc::{ResourceHeader, Wire};
+pub const MAX_BOOTSTRAP_BYTES: usize = 16 * 1024 * 1024;
 pub use tickwire_market_source::protocol::{
     Endpoint, IdentityConfig, Instrument, JoinBootstrap, wire_bytes,
 };
@@ -10,6 +11,8 @@ pub use tickwire_market_source::protocol::{
 #[serde(deny_unknown_fields)]
 pub struct Bootstrap {
     pub version: u16,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instrument_catalog: Option<tickwire_instrument_catalog::Artifact>,
     pub market: Endpoint,
     /// Direct authenticated MD topic. A topic may contain many instruments.
     #[serde(default)]

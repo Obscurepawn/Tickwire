@@ -2,12 +2,32 @@
 //! is opened here; Host must still match the real child PID and successful exit.
 use super::*;
 pub use tickwire_release::replay::source::{SourceJob, SourceReceipt};
+pub fn resolve_catalog(
+    job: &SourceJob,
+) -> crate::Result<Option<std::sync::Arc<tickwire_instrument_catalog::Catalog>>> {
+    let anchor = Checkpoint::decode(&job.anchor.read()?)?;
+    let current = Checkpoint::decode(&job.checkpoint.read()?)?;
+    let expected = tickwire_release::replay::source::catalog_binding(&anchor)?;
+    let catalog = match (expected, &job.catalog_bootstrap) {
+        (None, None) => None,
+        (Some(expected), Some(file)) => {
+            file.object
+                .validate(crate::bootstrap::MAX_BOOTSTRAP_BYTES as u64)?;
+            crate::catalog::resolve_dependency9(&file.read()?, &job.source, Some(expected))?
+        }
+        _ => return Err(Error::Identity.into()),
+    };
+    crate::catalog::validate_checkpoint(&anchor, catalog.as_deref())?;
+    crate::catalog::validate_checkpoint(&current, catalog.as_deref())?;
+    Ok(catalog)
+}
 /// The supplied factory is compiled into this executable. A launcher selects the
 /// old executable from the fixed release artifact, then checks this actual PID.
 pub fn run_source<F: SourceReplayFactory>(
     job: &SourceJob,
     factory: &F,
 ) -> crate::Result<SourceReceipt> {
+    resolve_catalog(job)?;
     if job.schema != 1
         || job.binding.operation_id == [0; 16]
         || job.binding.revision == 0
@@ -113,6 +133,7 @@ pub fn run_source<F: SourceReplayFactory>(
     Ok(receipt)
 }
 pub fn run_native(job: &SourceJob) -> crate::Result<SourceReceipt> {
+    let catalog = resolve_catalog(job)?;
     run_source(
         job,
         &application::ApplicationFactory {
@@ -120,6 +141,7 @@ pub fn run_native(job: &SourceJob) -> crate::Result<SourceReceipt> {
             business: native::Factory {
                 schema: job.source.state_schema,
             },
-        },
+        }
+        .with_catalog(catalog),
     )
 }

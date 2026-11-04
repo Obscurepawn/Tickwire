@@ -298,6 +298,7 @@ fn replay_from_image(sealed: bool) {
     let capture_bytes = live.read_object(capture_object).unwrap();
     let captured = CapturedTail::decode(&capture_bytes).unwrap();
     let job = SourceJob {
+        catalog_bootstrap: None,
         schema: 1,
         binding: Binding {
             operation_id: [8; 16],

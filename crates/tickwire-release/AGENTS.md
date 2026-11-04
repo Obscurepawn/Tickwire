@@ -55,3 +55,5 @@ cargo test -p tickwire-release
 4. 本 crate 不得引入网络、授权决策或活进程资格判定。
 
 - schema4 probe 历史验证从 Host 成功退出 Completion 根读取完整图，不再访问 Job 原绝对路径或调用工厂。typed 根 16 MiB、opaque 单对象 64 MiB、总量 256 MiB/512 对象；ExactOldRestore 跨 schema3/schema4 继续传递 16 层递归上限。历史内容验证不重新认证活进程。
+
+- **经济目录消费**：见 [标的经济目录](../../specs/implementation/instrument-catalog.md)。实际 Bootstrap 的可省略目录原文由既有 kind9 保留，当前 Application 仅保存 Object 绑定；旧省略数据保持字节兼容。来源重放显式读回原封口命名的 kind9，缺失不从当前模板补齐。目录与账户/市场/命令的完整经济身份共用验证器，未支持的生命周期在用户工厂回调前拒绝。

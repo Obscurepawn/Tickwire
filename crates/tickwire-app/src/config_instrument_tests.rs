@@ -119,3 +119,103 @@ fn separate_feed_sources_keep_their_source_namespace() {
         second.market.depth.instrument
     );
 }
+
+fn catalog_fixture() -> (CanonicalBaseline, serde_json::Value) {
+    let (mut snapshot, mut policies, _) = account_fixture::fixture();
+    let mut fee = snapshot.assets[0].clone();
+    fee.key.asset_id = 333;
+    fee.asset.id = 333;
+    fee.asset.symbol = tickwire_venue::AssetSymbol::new("BNB").unwrap();
+    snapshot.assets.push(fee);
+    let i = &policies.entries[0].instrument;
+    let assets: Vec<_> = snapshot
+        .assets
+        .iter()
+        .map(|a| {
+            json!({
+                "id":a.asset.id.to_string(),"version":a.asset.version.to_string(),
+                "symbol":a.asset.symbol.as_str(),"exponent":a.asset.exponent
+            })
+        })
+        .collect();
+    let body = json!({"schema":1,"venue":snapshot.scope.venue,"environment":"Test","market":"Spot",
+        "catalog_version":i.catalog_version.to_string(),"assets":assets,
+        "instruments":[{"id":i.instrument_id.to_string(),"version":i.instrument_version.to_string(),
+            "symbol":i.symbol.as_str(),"product":"Spot","base":i.base.id.to_string(),"quote":i.quote.id.to_string(),
+            "settlement":i.settlement.id.to_string(),"price_tick":i.price_tick.as_plain_string(),
+            "quantity_step":i.quantity_step.as_plain_string(),"contract":{"kind":"Cash"}}]});
+    let raw = serde_json::to_vec(&body).unwrap();
+    let catalog =
+        tickwire_instrument_catalog::Catalog::decode(&raw, tickwire_recovery::digest(&raw))
+            .unwrap();
+    policies.entries[0].instrument = catalog.instruments()[0].binding().clone();
+    (CanonicalBaseline::new(snapshot, policies).unwrap(), body)
+}
+fn approve_catalog(deploy: &mut Deployment, body: &serde_json::Value, suffix: &str) -> PathBuf {
+    let raw = serde_json::to_vec(body).unwrap();
+    let catalog =
+        tickwire_instrument_catalog::Catalog::decode(&raw, tickwire_recovery::digest(&raw))
+            .unwrap();
+    deploy.policy.versions.catalog_hash = catalog.catalog_hash();
+    deploy.policy.versions.catalog_version = catalog.catalog_version();
+    let hash = tickwire_recovery::digest(&raw)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect::<String>();
+    let path = std::env::temp_dir().join(format!(
+        "tickwire-catalog-{}-{suffix}.json",
+        std::process::id()
+    ));
+    std::fs::write(&path, raw).unwrap();
+    deploy.instrument_catalog = Some(CatalogFile {
+        reference: format!("artifact://fixture/catalog@sha256:{hash}"),
+        path: path.clone(),
+    });
+    path
+}
+
+#[test]
+fn directory_assembly_retains_verified_content_and_rechecks_actual_runtime_inputs() {
+    let (baseline, body) = catalog_fixture();
+    let mut deploy = deployment(baseline.catalog().entries[0].instrument.instrument_id);
+    let path = approve_catalog(&mut deploy, &body, "retained");
+    let mut config = deploy.assemble(baseline.clone()).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let catalog = config
+        .instrument_catalog
+        .as_ref()
+        .expect("assembled runtime retains catalog");
+    assert_eq!(
+        catalog.catalog_hash(),
+        baseline.catalog().entries[0].instrument.catalog_hash
+    );
+    config.validate_instrument_catalog().unwrap();
+    config.market.depth.instrument.price_tick = "0.03".parse().unwrap();
+    assert!(config.validate_instrument_catalog().is_err());
+}
+
+#[test]
+fn directory_assembly_rejects_rehashed_but_different_economics_including_fee_assets() {
+    let (baseline, original) = catalog_fixture();
+    for fault in 0..6 {
+        let mut body = original.clone();
+        match fault {
+            0 => body["instruments"][0]["price_tick"] = "0.03".into(),
+            1 => body["instruments"][0]["quantity_step"] = "0.003".into(),
+            2 => body["assets"][2]["exponent"] = (-7).into(),
+            3 => body["venue"] = 2.into(),
+            4 => body["environment"] = "Production".into(),
+            _ => body["catalog_version"] = "99".into(),
+        }
+        let mut deploy = deployment(baseline.catalog().entries[0].instrument.instrument_id);
+        let path = approve_catalog(&mut deploy, &body, &format!("bad-{fault}"));
+        // Rebind the declared semantic hash too: a hash-only comparison must
+        // not conceal stale tick/step or the independent fee-asset definition.
+        let mut policies = baseline.catalog().clone();
+        policies.entries[0].instrument.catalog_hash = deploy.policy.versions.catalog_hash;
+        let rebound = CanonicalBaseline::new(baseline.snapshot().clone(), policies).unwrap();
+        let result = deploy.assemble(rebound);
+        std::fs::remove_file(path).unwrap();
+        assert!(result.is_err(), "rehashed fault {fault}");
+    }
+}

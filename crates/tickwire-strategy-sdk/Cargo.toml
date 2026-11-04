@@ -9,6 +9,7 @@ publish.workspace = true
 unsafe_op_in_unsafe_fn = "deny"
 
 [dependencies]
+tickwire-instrument-catalog = { path = "../tickwire-instrument-catalog" }
 tickwire-release = { path = "../tickwire-release" }
 tickwire-handover = { path = "../tickwire-handover" }
 tickwire-market-source = { path = "../tickwire-market-source" }

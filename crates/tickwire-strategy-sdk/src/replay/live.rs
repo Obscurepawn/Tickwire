@@ -108,7 +108,7 @@ impl<S: Strategy> Live<S> {
         })
     }
     pub fn supports_market_transition(&self) -> bool {
-        matches!(&self.owner, Owner::Recorded(e) if !e.stopped())
+        matches!(&self.owner, Owner::Recorded(e) if !e.stopped() && e.strategy().catalog().is_none())
     }
     /// Records the actual completed JOIN before the caller swaps its Client or
     /// permits any market callback. The caller supplies the authenticated plan
@@ -122,6 +122,9 @@ impl<S: Strategy> Live<S> {
         let Owner::Recorded(e) = &mut self.owner else {
             return Err(crate::Error::NotReady);
         };
+        if e.strategy().catalog().is_some() {
+            return Err(Error::Unsupported.into());
+        }
         let result = (|| {
             if e.memory_cut() != e.last_durable_cut()
                 || !e.pending.is_empty()
@@ -197,6 +200,7 @@ impl<S: Strategy> Live<S> {
         replica: crate::MarketReplica,
         at: u64,
     ) -> crate::Result<Self> {
+        let catalog = crate::catalog::resolve_bootstrap(config)?;
         let key = market_stream(&resource)?;
         let owner = if let Some(registration) = strategy.replay_registration()?
             && config.recovery_template.is_some()
@@ -214,10 +218,11 @@ impl<S: Strategy> Live<S> {
                     generation: config.clock_generation,
                 },
             };
-            let app = Application::new(
+            let app = Application::new_with_catalog(
                 strategy,
                 config.maximum_market_age_ns,
                 vec![(resource, replica, config.maximum_levels)],
+                catalog.clone(),
             )?;
             let runtime = RuntimeState {
                 now_ns: at,
@@ -250,6 +255,9 @@ impl<S: Strategy> Live<S> {
             let store = FileBlobStore::open(config.command_directory.join("merged-inputs"))?;
             Owner::Recorded(Box::new(DurableEngine::new(anchor, app, store)?))
         } else {
+            if catalog.is_some() {
+                return Err(Error::Unsupported.into());
+            }
             Owner::Legacy {
                 strategy,
                 replica: Box::new(replica),
@@ -458,7 +466,8 @@ impl<S: Strategy> Live<S> {
                     .strategy()
                     .market_view(&self.market, h.instrument_id)
                     .ok_or(crate::Error::Identity)?;
-                let invoked = view.live()
+                let invoked = e.strategy().callbacks_ready()
+                    && view.live()
                     && now
                         .checked_sub(view.received_mono_ns())
                         .is_some_and(|age| age <= self.maximum_age);
@@ -652,4 +661,4 @@ fn sync_head<S: Strategy>(
 #[cfg(all(test, target_os = "linux"))]
 mod image_tests;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

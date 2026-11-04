@@ -41,6 +41,7 @@ fn qualify(
             .bytes(&Role::Bootstrap)
             .ok_or(crate::Error::Identity)?,
     )?;
+    crate::catalog::reject_lifecycle(&bootstrap)?;
     let id = bootstrap.report.local.identity();
     if id != bootstrap.market.local.identity()
         || id.logical_strategy != operation.logical_strategy_id

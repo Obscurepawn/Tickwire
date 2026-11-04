@@ -63,6 +63,9 @@ pub fn prepare<F: RestoreFactory>(
     source: Source,
     config: VersionedBytes,
 ) -> Result<Candidate<F::Running>> {
+    if tickwire_release::replay::source::catalog_binding(proof.current())?.is_some() {
+        return Err(Error::Unsupported);
+    }
     let member = &release.target.member;
     let binary = release
         .target

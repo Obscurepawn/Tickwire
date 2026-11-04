@@ -17,7 +17,7 @@
 
 ## 3. workspace 位置
 
-上游（`Cargo.toml` 实际声明）：`tickwire-release`、`tickwire-handover`、`tickwire-market-source`、`tickwire-account-codec`、`tickwire-ipc`、`tickwire-join`、`tickwire-shm`、`tickwire-shm-sys`、`tickwire-snapshot`、`tickwire-recovery`、`tickwire-venue`、`tickwire-control`、`tickwire-control-sys`、`tickwire-clock`、`tickwire-clock-sys`；optional（runtime）：`tickwire-runtime`、`tickwire-account-gateway`、`tickwire-binance-account`、`tickwire-binance-clock`、`tickwire-binance-public`；dev：`tickwire-risk`。
+上游（`Cargo.toml` 实际声明）：`tickwire-instrument-catalog`、`tickwire-release`、`tickwire-handover`、`tickwire-market-source`、`tickwire-account-codec`、`tickwire-ipc`、`tickwire-join`、`tickwire-shm`、`tickwire-shm-sys`、`tickwire-snapshot`、`tickwire-recovery`、`tickwire-venue`、`tickwire-control`、`tickwire-control-sys`、`tickwire-clock`、`tickwire-clock-sys`；optional（runtime）：`tickwire-runtime`、`tickwire-account-gateway`、`tickwire-binance-account`、`tickwire-binance-clock`、`tickwire-binance-public`；dev：`tickwire-risk`。
 
 下游（grep `tickwire-strategy-sdk` 命中）：`tickwire-strategy-host`、`tickwire-strategy-example`、`tickwire-app`、`tickwire-lab`。
 
@@ -91,3 +91,7 @@ bin 实际运行（由合格 Host/supervisor 以受信 Bootstrap 启动，单独
 `checkpoint` 单测覆盖下界、旧模式精确水位、应答回显、旧 READY 与过期错误分类；worker 单测覆盖未追平、背压单次执行和同步跨期。真实 registered 进程与 Host 前缀、游标及内核核验见 [../../specs/implementation/runtime-observation.md](../../specs/implementation/runtime-observation.md)。
 
 `replay::application::observed::inspect(&Checkpoint)` 严格检查当前 SDK 保存视图，返回字段私有的 `InputViews/AccountInput/MarketInput`。账户基线和有序记录重建实际位置与 InputSeal；市场恢复实际连续视图、完整稳定标的 ID/版本及 ResourceHeader；两个完整列表与当前 RuntimeState 的 stream/sequence 逐项匹配。该接口不调用策略工厂、策略恢复或用户回调，不把内容检查当作活进程证明。`ReportWriter::header/identity` 只读提供实际 publisher 描述符与已绑定报告身份。单测覆盖当前账户/生产者变化、完整集合、畸形保存视图及水位错配。
+
+- **经济目录消费**：见 [标的经济目录](../../specs/implementation/instrument-catalog.md)。实际 Bootstrap 的可省略目录原文由既有 kind9 保留，当前 Application 仅保存 Object 绑定，直接使用目录解码时核验并缓存的原始摘要和长度，逐输入检查点不重扫目录正文；旧省略数据保持字节兼容。来源重放显式读回原封口命名的 kind9，缺失不从当前模板补齐。目录与账户/市场/命令的完整经济身份共用验证器，未支持的生命周期在用户工厂回调前拒绝。
+
+`tests/source_replay.rs` 的目录用例支持 `TICKWIRE_CATALOG_SOURCE_WORKER` 指定固定实际 SDK worker、`TICKWIRE_CATALOG_SOURCE_EVIDENCE` 指定全新保留目录。记录原 kind9、S/C 输入检查点、实际子进程收据和缺依赖失败；该进程用例本身不伪造认证 HandoverSeal。完整两端封口的目录依赖关系由 `source_tests` 独立验证。

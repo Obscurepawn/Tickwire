@@ -1,6 +1,6 @@
 use super::*;
 use crate::bootstrap::{Endpoint, IdentityConfig};
-fn bootstrap(path: &std::path::Path) -> Bootstrap {
+pub(crate) fn bootstrap(path: &std::path::Path) -> Bootstrap {
     let local = IdentityConfig {
         instance: [2; 16],
         generation: 5,
@@ -29,6 +29,7 @@ fn bootstrap(path: &std::path::Path) -> Bootstrap {
         nonce: [1; 32],
     };
     Bootstrap {
+        instrument_catalog: None,
         version: 1,
         market: ep.clone(),
         external_market: None,

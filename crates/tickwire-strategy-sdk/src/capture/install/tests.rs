@@ -16,6 +16,7 @@ pub(super) fn fixture() -> (CaptureBootstrap, Request, Seal) {
     bank.producer_generation = local.generation;
     bank.consumer_instance = intent.peer.instance;
     let bootstrap = Bootstrap {
+        instrument_catalog: None,
         version: 1,
         market: capture.market.endpoint.clone(),
         external_market: Some(capture.market.clone()),

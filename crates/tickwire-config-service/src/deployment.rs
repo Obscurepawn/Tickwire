@@ -33,6 +33,7 @@ pub struct ContentValidated {
     checked_unix_ms: u64,
     expires_unix_ms: u64,
     parameters: ParametersValidated,
+    instrument_catalogs: crate::instrument_catalogs::Catalogs,
     projections: ProjectionSet,
     reports: ReportClosure,
     accounts: account_facts::AccountModes,
@@ -54,6 +55,8 @@ impl ContentValidated {
         }
         let parameters =
             validate_parameters(candidate, sources.artifacts).map_err(Error::Configuration)?;
+        let instrument_catalogs =
+            crate::instrument_catalogs::Catalogs::check(candidate, sources.artifacts)?;
         let projections = ProjectionSet::build(candidate, sources.artifacts, limits.projections)
             .map_err(Error::Configuration)?;
         let reports = ReportClosure::check(
@@ -165,6 +168,7 @@ impl ContentValidated {
             checked_unix_ms: now_unix_ms,
             expires_unix_ms,
             parameters,
+            instrument_catalogs,
             projections,
             reports,
             accounts,
@@ -186,6 +190,9 @@ impl ContentValidated {
     }
     pub fn parameters(&self) -> &ParametersValidated {
         &self.parameters
+    }
+    pub fn instrument_catalogs(&self) -> &crate::instrument_catalogs::Catalogs {
+        &self.instrument_catalogs
     }
     pub fn projections(&self) -> &ProjectionSet {
         &self.projections

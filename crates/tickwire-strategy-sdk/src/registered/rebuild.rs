@@ -16,6 +16,9 @@ pub fn configure_rebuild<R: Registration>(
     files: &LoadedFiles,
     input: &declared::VerifiedInput,
 ) -> Result<RebuildConfigured<R::Factory>> {
+    if let Some(bytes) = files.bytes(&Role::Bootstrap) {
+        crate::catalog::reject_lifecycle_bytes(bytes)?;
+    }
     let source = &input.plan().target;
     let contract = input.contract();
     let parameters = &input.inputs().config;
@@ -115,6 +118,7 @@ pub(super) fn install<R: Registration>(
     mut session: crate::capture_worker::CapturedSession,
     request: crate::capture::install::Request,
 ) -> Result<()> {
+    crate::catalog::reject_lifecycle(&request.bootstrap)?;
     session.check_install(&request)?;
     // No missing durable root can be supplied by an in-memory replacement.
     for object in &request.objects {

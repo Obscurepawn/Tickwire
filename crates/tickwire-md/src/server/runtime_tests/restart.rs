@@ -9,7 +9,7 @@ use tickwire_quota::QuotaStore;
 const SECOND: u64 = (1 << 63) | 1001;
 const THIRD: u64 = u64::MAX - 1;
 
-fn directory(f: &Fixture) -> PathBuf {
+pub(super) fn directory(f: &Fixture) -> PathBuf {
     f.config
         .expansion
         .as_ref()
@@ -52,7 +52,7 @@ fn checkpoint(f: &Fixture) -> Option<([u8; 32], Snapshot)> {
     );
     Some((hash, value))
 }
-fn ready(f: &mut Fixture, revision: u64) -> ([u8; 32], Snapshot) {
+pub(super) fn ready(f: &mut Fixture, revision: u64) -> ([u8; 32], Snapshot) {
     let end = Instant::now() + Duration::from_secs(6);
     loop {
         f.alive();
@@ -71,7 +71,7 @@ fn ready(f: &mut Fixture, revision: u64) -> ([u8; 32], Snapshot) {
         std::thread::sleep(Duration::from_millis(1));
     }
 }
-fn finish_expansion(
+pub(super) fn finish_expansion(
     f: &mut Fixture,
     source: &mut ShmSource,
     old: &Admission,
@@ -129,7 +129,7 @@ fn finish_expansion(
             .any(|o| o.operation_id == plan.operation_id)
     );
 }
-fn restart_config(f: &mut Fixture, old: &Snapshot, hash: [u8; 32]) -> config::Config {
+pub(super) fn restart_config(f: &mut Fixture, old: &Snapshot, hash: [u8; 32]) -> config::Config {
     let root = f.config.quota_directory.parent().unwrap().join("next");
     fs::create_dir(&root).unwrap();
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
@@ -186,7 +186,7 @@ fn restart_config(f: &mut Fixture, old: &Snapshot, hash: [u8; 32]) -> config::Co
     }
     next
 }
-fn new_admission(f: &Fixture) -> Admission {
+pub(super) fn new_admission(f: &Fixture) -> Admission {
     let mut admission = f.admission();
     admission.client.endpoint.local.generation += 1;
     admission.client.endpoint.control_epoch += 10;
@@ -222,7 +222,7 @@ fn quota_state(f: &Fixture) -> serde_json::Value {
     );
     value
 }
-fn rejected_process(f: &mut Fixture, reason: &str) {
+pub(super) fn rejected_process(f: &mut Fixture, reason: &str) {
     let end = Instant::now() + Duration::from_secs(5);
     loop {
         if let Some(exit) = f.child.try_wait().unwrap() {

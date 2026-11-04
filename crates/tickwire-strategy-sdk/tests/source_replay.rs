@@ -15,6 +15,8 @@ use tickwire_strategy_sdk::{
     },
 };
 use tickwire_venue::CanonicalCommand;
+#[path = "source_replay/catalog.rs"]
+mod catalog;
 #[path = "../src/test_command.rs"]
 mod test_command;
 fn vector(name: &str) -> Vec<u8> {
@@ -33,7 +35,9 @@ fn vector(name: &str) -> Vec<u8> {
         .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap())
         .collect()
 }
-fn market_fixture() -> (
+fn market_fixture(
+    catalog_hash: [u8; 32],
+) -> (
     ResourceHeader,
     tickwire_strategy_sdk::MarketReplica,
     Vec<u8>,
@@ -67,7 +71,7 @@ fn market_fixture() -> (
         last_event_sequence: 990,
         feed_generation: 3,
         catalog_version: 5,
-        catalog_hash: [0x22; 32],
+        catalog_hash,
         created_mono_ns: 1_000_000_000,
         expires_mono_ns: 2_000_000_000,
         state_version: 990,
@@ -80,7 +84,7 @@ fn market_fixture() -> (
     let request = BuildRequest {
         resource: &resource,
         join: &join,
-        catalog_hash: [0x22; 32],
+        catalog_hash,
         instrument_set_version: 5,
         sequence: 1000,
         created_mono_ns: 1_000_000_000,
@@ -107,7 +111,7 @@ fn market_fixture() -> (
         built.bytes(),
         &JoinContext {
             expected_resource: built.resource(),
-            catalog_hash: [0x22; 32],
+            catalog_hash,
             instruments: &specs,
             join: built.join(),
             now_mono_ns: 1_500_000_000,
@@ -143,38 +147,59 @@ fn object(dir: &Path, bytes: &[u8]) -> tickwire_strategy_sdk::preflight::ObjectF
     std::fs::File::open(dir).unwrap().sync_all().unwrap();
     tickwire_strategy_sdk::preflight::ObjectFile { path: p, object: o }
 }
-struct Temp(PathBuf);
+struct Temp(PathBuf, bool);
 impl Drop for Temp {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.0);
+        if !self.1 {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
     }
 }
 #[test]
 fn real_old_executable_replays_changed_state_without_republishing_the_historical_action() {
-    replay_from_image(false);
+    replay_from_image(false, false);
 }
 #[test]
 #[cfg(target_os = "linux")]
 fn sealed_old_executable_replays_the_same_actual_callback_history() {
-    replay_from_image(true);
+    replay_from_image(true, false);
 }
-fn replay_from_image(sealed: bool) {
+#[test]
+fn original_catalog_kind9_is_required_by_actual_source_replay_process() {
+    replay_from_image(false, true);
+}
+fn replay_from_image(sealed: bool, with_catalog: bool) {
     use std::os::unix::fs::DirBuilderExt;
-    let temp = Temp(std::env::temp_dir().join(format!(
-            "tickwire-source-replay-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        )));
+    let evidence = with_catalog
+        .then(|| std::env::var_os("TICKWIRE_CATALOG_SOURCE_EVIDENCE"))
+        .flatten()
+        .map(PathBuf::from);
+    let temp = Temp(
+        evidence.clone().unwrap_or_else(|| {
+            std::env::temp_dir().join(format!(
+                "tickwire-source-replay-{}-{}",
+                std::process::id(),
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ))
+        }),
+        evidence.is_some(),
+    );
     std::fs::DirBuilder::new()
         .mode(0o700)
         .create(&temp.0)
         .unwrap();
-    let worker = env!("CARGO_BIN_EXE_tickwire-strategy-worker");
-    let binary = tickwire_recovery::digest(&std::fs::read(worker).unwrap());
-    let (resource, replica, raw) = market_fixture();
+    let worker = with_catalog
+        .then(|| std::env::var_os("TICKWIRE_CATALOG_SOURCE_WORKER"))
+        .flatten()
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(env!("CARGO_BIN_EXE_tickwire-strategy-worker")));
+    let binary = tickwire_recovery::digest(&std::fs::read(&worker).unwrap());
+    let catalog = with_catalog.then(catalog::checked);
+    let (resource, replica, raw) =
+        market_fixture(catalog.as_ref().map_or([0x22; 32], |c| c.catalog_hash()));
     let stream = market_stream(&resource).unwrap();
     let mut command = test_command::command();
     command.context.request.deadline = 10_000_000_000;
@@ -184,9 +209,18 @@ fn replay_from_image(sealed: bool) {
     triggers[0].instrument_id = 1001;
     triggers[0].instrument_version = 5;
     command.context.triggers = tickwire_venue::BoundedList::new(triggers).unwrap();
+    if let Some(catalog) = &catalog {
+        command.context.instrument = catalog.instrument(1001).unwrap().binding().clone();
+    }
     let strategy = FixedDemo::new(CanonicalCommand::new(command).unwrap(), 1, true);
     let registration = strategy.replay_registration().unwrap().unwrap();
-    let app = Application::new(strategy, 1_000_000_000, vec![(resource, replica, 4)]).unwrap();
+    let app = Application::new_with_catalog(
+        strategy,
+        1_000_000_000,
+        vec![(resource, replica, 4)],
+        catalog.clone(),
+    )
+    .unwrap();
     let source = Source {
         logical_strategy: 8,
         instance: [2; 16],
@@ -230,6 +264,18 @@ fn replay_from_image(sealed: bool) {
     .unwrap();
     let store = FileBlobStore::open(temp.0.join("inputs")).unwrap();
     let mut live = DurableEngine::new(anchor, app, store).unwrap();
+    if let Some(catalog) = &catalog {
+        let base = catalog::baseline(catalog);
+        live.apply(
+            Input::AccountCallback {
+                stream: tickwire_strategy_sdk::replay::account::AccountReplica::stream(&base),
+                position: 0,
+                canonical: base.bytes().to_vec(),
+            },
+            1_500_000_001,
+        )
+        .unwrap();
+    }
     live.apply(
         Input::MarketApplied {
             stream: stream.clone(),
@@ -271,6 +317,9 @@ fn replay_from_image(sealed: bool) {
     let capture_bytes = live.read_object(capture_object).unwrap();
     let captured = CapturedTail::decode(&capture_bytes).unwrap();
     let job = SourceJob {
+        catalog_bootstrap: catalog
+            .as_ref()
+            .map(|c| catalog::dependency(&temp.0, &source, c)),
         schema: 1,
         binding: Binding {
             operation_id: [8; 16],
@@ -289,8 +338,7 @@ fn replay_from_image(sealed: bool) {
     let job_path = temp.0.join("job.json");
     std::fs::write(&job_path, job.bytes().unwrap()).unwrap();
     let image = sealed.then(|| {
-        tickwire_control_sys::ExecutableImage::open(Path::new(worker), tickwire_release::MAX_BINARY)
-            .unwrap()
+        tickwire_control_sys::ExecutableImage::open(&worker, tickwire_release::MAX_BINARY).unwrap()
     });
     let mut child = if let Some(image) = &image {
         image
@@ -299,7 +347,7 @@ fn replay_from_image(sealed: bool) {
             })
             .unwrap()
     } else {
-        Command::new(worker)
+        Command::new(&worker)
             .arg("--source-replay")
             .arg(&job_path)
             .spawn()
@@ -317,4 +365,54 @@ fn replay_from_image(sealed: bool) {
     assert_eq!(receipt.output, job.checkpoint.object);
     assert_eq!(receipt.source, job.source);
     assert!(!job.output_directory.join("commands").exists());
+    if with_catalog {
+        let original = job.catalog_bootstrap.as_ref().unwrap();
+        let original_bytes = original.read().unwrap();
+        let mut missing = job.clone();
+        missing.output_directory = temp.0.join("missing-reference");
+        missing.catalog_bootstrap = None;
+        let missing_path = temp.0.join("missing-reference.json");
+        std::fs::write(&missing_path, missing.bytes().unwrap()).unwrap();
+        let missing_status = Command::new(&worker)
+            .arg("--source-replay")
+            .arg(&missing_path)
+            .status()
+            .unwrap();
+        assert!(!missing_status.success());
+        assert!(!missing.output_directory.join("SOURCE_REPLAY.json").exists());
+        let mut absent = job.clone();
+        absent.output_directory = temp.0.join("missing-object");
+        let absent_path = temp.0.join("missing-object.json");
+        std::fs::remove_file(&original.path).unwrap();
+        std::fs::write(&absent_path, absent.bytes().unwrap()).unwrap();
+        let absent_status = Command::new(&worker)
+            .arg("--source-replay")
+            .arg(&absent_path)
+            .status()
+            .unwrap();
+        assert!(!absent_status.success());
+        assert!(!absent.output_directory.join("SOURCE_REPLAY.json").exists());
+        // Preserve the successful input graph after the real missing-file run.
+        // The negative request and actual process exit remain separately recorded.
+        std::fs::write(&original.path, &original_bytes).unwrap();
+        let facts = serde_json::json!({
+            "event":"catalog_source_replay_verified", "worker":worker,
+            "worker_sha256":binary, "pid":pid, "source":job.source,
+            "kind9":original.object, "catalog":tickwire_strategy_sdk::catalog::object(catalog.as_ref().unwrap()),
+            "job":Object::of(&job.bytes().unwrap()), "anchor":job.anchor.object,
+            "capture":job.capture.object, "tail":job.tail.object,
+            "checkpoint":job.checkpoint.object, "source_receipt":Object::of(&receipt.bytes().unwrap()),
+            "cut_s":initial.cut, "cut_c":receipt.cut,
+            "historical_effects":emitted, "replayed_commands_directory":false,
+            "missing_reference_exit":missing_status.code(), "missing_object_exit":absent_status.code(),
+            "evidence_directory":evidence,
+            "scope":"actual isolated source process and full callback replay; S/C are captured input checkpoints, not authenticated live HandoverSeals"
+        });
+        std::fs::write(
+            temp.0.join("evidence.json"),
+            serde_json::to_vec_pretty(&facts).unwrap(),
+        )
+        .unwrap();
+        println!("{facts}");
+    }
 }

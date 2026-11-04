@@ -53,3 +53,7 @@ cargo test -p tickwire-runtime
 3. 改 `LocalAuthority::prepare` 的 kind 装配时，联动 `tickwire-recovery` 的必备集合校验与 account-recovery-binding.md。
 4. 改 `CoreNode` 轮询/预算/恢复路径时，核对 node.rs 的 Config 注释（四 owner 均分 I/O、空闲上界）。
 5. 新增 Strategy/Observer 适配器必须保持只读、可认证，不合成 handover 证据；检查下游 `tickwire-strategy-host`/`tickwire-app` 接线。
+
+## 标的经济目录装配
+
+`files::Configuration.instrument_catalog` 可持有共享目录的不可变 Arc。`validate_instrument_catalog` 核对完整账户基线的所有资产、所有标的、scope、公开行情绑定、私有会话及执行 route；`open_with_services` 在建立目录和 I/O owner 前复核。省略时保持原路径。新增 `tickwire-instrument-catalog` 依赖；不增加逐笔解析、分配或目录文件读取。规格见[标的经济目录](../../specs/implementation/instrument-catalog.md)。

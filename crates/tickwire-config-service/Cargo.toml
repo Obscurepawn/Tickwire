@@ -10,6 +10,8 @@ sha2 = "0.10"
 tickwire-control-raft = { path = "../tickwire-control-raft" }
 tickwire-journal = { path = "../tickwire-journal" }
 tickwire-config = { path = "../tickwire-config" }
+tickwire-instrument-catalog = { path = "../tickwire-instrument-catalog" }
+tickwire-venue = { path = "../tickwire-venue" }
 rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring"] }
 x509-parser = "=0.18.1"
 httparse = "=1.10.1"

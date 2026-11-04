@@ -123,3 +123,11 @@ MarketDecision 的 WAL `at_ns` 是 Controller 已验证完整决定的真实准�
 连续快照还保留既有事实：已消耗操作沿用每个 ID 的原摘要，允许规范排序调整；dense ID 列表只能追加，revision 不下降。同一 producer incarnation 的各 topic ring/feed 代次不下降，同一 ring epoch 的完整描述保持相同。新的 incarnation 仅能从旧 `Ready` 写入同 revision 的 `Starting`，实际启动身份与配置差异由独立启动门禁进一步核对。存储写入和全链重读使用相同的连续性检查，非零 bank descriptor 摘要必须与 wire 内容一致。
 
 Snapshot 另保存必填 `reserved_owners` 集合，最多 16384 个非零唯一 ID，包含当前配置的全部 depth/event owner，并在连续快照中完整保留旧集合。候选启动前即同步预留新增 owner；预热失败或候选取消后仍保留这些身份。全链历史 owner 查询同时包含该集合，防止重启后复用已真实启动但尚未纳入活动配置的来源。
+
+### MD 经济目录与扩容恢复
+
+`Config.catalogs` 是可省略的启动批准集合，每项为 `CatalogFile{reference,path}`。启用时集合非空且最多 32 项，绝对路径和 artifact 引用分别唯一，全部原文累计至多 2 MiB。文件以有界单 FD 读取，先核对引用中的原 SHA，再按 [经济目录契约](instrument-catalog.md) 派生规范经济身份。初启在创建网络连接、配额、共享内存与持久 `Starting` 前核对所有实际 feed 的完整经济字段、venue、来源环境与产品。
+
+Runtime 持有这些固定内容。扩容先核对完整目标配置，之后才构造候选和预留新增 owner；目标不能改变批准集合，新增 feed 必须存在于启动时批准的正文。当前目录文件被替换不改变进程内已固定的事实。
+
+`Snapshot.catalog_objects` 按批准顺序保存原文，并受现有 16 MiB 单快照/512 MiB 全存储预算约束。写入和全链恢复均验证原 SHA、正文、经济匹配及连续快照的批准/内容不变；缺正文、篡改、删除批准或改为未启用都拒绝。新实例恢复直接使用历史快照正文，仍需真实重新预热与 JOIN。未启用时该字段省略，保留旧字节与行为，不能据此声称已消费经济目录。

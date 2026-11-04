@@ -40,6 +40,8 @@ fn public_limits(io: Limits) -> public::Limits {
 #[serde(deny_unknown_fields)]
 pub struct Deployment {
     pub baseline: PathBuf,
+    #[serde(default)]
+    pub instrument_catalog: Option<CatalogFile>,
     pub directories: Directories,
     pub recover: bool,
     pub product: ProductName,
@@ -86,6 +88,22 @@ pub struct Deployment {
     pub observation: Option<crate::observation::Config>,
     pub stop_file: PathBuf,
     pub maximum_runtime_ns: u64,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CatalogFile {
+    pub reference: String,
+    pub path: PathBuf,
+}
+impl CatalogFile {
+    fn load(&self) -> Result<Arc<tickwire_instrument_catalog::Catalog>> {
+        let digest = tickwire_config::artifacts::reference_hash(&self.reference)
+            .map_err(|_| invalid("instrument catalog artifact reference"))?;
+        let raw = read_file(&self.path, tickwire_instrument_catalog::MAX_BYTES)?;
+        tickwire_instrument_catalog::Catalog::decode(&raw, digest)
+            .map(Arc::new)
+            .map_err(|_| invalid("instrument catalog content"))
+    }
 }
 #[derive(Clone, Copy, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -368,6 +386,17 @@ impl Deployment {
         ))
     }
     pub fn assemble(&self, baseline: CanonicalBaseline) -> Result<files::Configuration> {
+        let instrument_catalog = self
+            .instrument_catalog
+            .as_ref()
+            .map(CatalogFile::load)
+            .transpose()?;
+        if instrument_catalog.as_ref().is_some_and(|c| {
+            self.policy.versions.catalog_hash != c.catalog_hash()
+                || self.policy.versions.catalog_version != c.catalog_version()
+        }) {
+            return Err(invalid("instrument catalog policy identity"));
+        }
         if self.trading_websocket.is_some() != self.network.trading_websocket.is_some() {
             return Err(invalid(
                 "WS settings and WS address must be configured together",
@@ -460,7 +489,8 @@ impl Deployment {
             limits: public_limits(io),
         };
         let c = &self.clock;
-        Ok(files::Configuration {
+        let configuration = files::Configuration {
+            instrument_catalog,
             websocket: self
                 .trading_websocket
                 .map(|w| tickwire_binance_account::ws::WsConfig {
@@ -585,7 +615,11 @@ impl Deployment {
             },
             maximum_staged_commands: 32,
             maximum_staged_bytes: 128 * 1024 * 1024,
-        })
+        };
+        configuration
+            .validate_instrument_catalog()
+            .map_err(|_| invalid("instrument catalog runtime economics"))?;
+        Ok(configuration)
     }
 }
 

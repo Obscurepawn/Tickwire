@@ -441,7 +441,10 @@ fn register(
     if !host.shadow {
         return Err(invalid("dynamic registration requires Shadow mode"));
     }
-    let bytes = read_file(&host.bootstrap, 2 * 1024 * 1024)?;
+    let bytes = read_file(
+        &host.bootstrap,
+        tickwire_strategy_sdk::bootstrap::MAX_BOOTSTRAP_BYTES,
+    )?;
     if tickwire_recovery::digest(&bytes) != r.bootstrap_digest {
         return Err(invalid("shadow Bootstrap digest"));
     }

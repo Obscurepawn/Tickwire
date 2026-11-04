@@ -1,0 +1,145 @@
+{
+  "schema": 1,
+  "domain_hex": "7469636b776972652e696e737472756d656e742d636174616c6f672e763100",
+  "limits": {
+    "max_bytes": 2097152,
+    "max_depth": 16,
+    "max_assets": 4096,
+    "max_instruments": 16384
+  },
+  "vectors": [
+    {
+      "name": "spot-high-u64-with-fee-asset",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "8938df13d61c537c2b53297bde92fd316aa8238fe5a68f6c23fc0ab6e56c6372",
+      "canonical": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "catalog_sha256": "b7d5cb9eb1381d82eb1e9281891af54ec1e7812570b66270328e4174af14f003"
+    },
+    {
+      "name": "same-economics-reordered-pretty",
+      "raw": "{\n  \"assets\": [\n    {\n      \"exponent\": -8,\n      \"id\": \"1\",\n      \"symbol\": \"BTC\",\n      \"version\": \"1\"\n    },\n    {\n      \"exponent\": -8,\n      \"id\": \"2\",\n      \"symbol\": \"USDT\",\n      \"version\": \"1\"\n    },\n    {\n      \"exponent\": -8,\n      \"id\": \"3\",\n      \"symbol\": \"BNB\",\n      \"version\": \"1\"\n    }\n  ],\n  \"catalog_version\": \"18446744073709551615\",\n  \"environment\": \"Test\",\n  \"instruments\": [\n    {\n      \"base\": \"1\",\n      \"contract\": {\n        \"kind\": \"Cash\"\n      },\n      \"id\": \"18446744073709551615\",\n      \"price_tick\": \"0.01\",\n      \"product\": \"Spot\",\n      \"quantity_step\": \"0.00001\",\n      \"quote\": \"2\",\n      \"settlement\": \"2\",\n      \"symbol\": \"BTCUSDT\",\n      \"version\": \"18446744073709551615\"\n    }\n  ],\n  \"market\": \"Spot\",\n  \"schema\": 1,\n  \"venue\": 1\n}",
+      "artifact_sha256": "3a6f053e77e1fd129e1ca47ca4971978af6726327b327b7632937d533ca94495",
+      "canonical": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "catalog_sha256": "b7d5cb9eb1381d82eb1e9281891af54ec1e7812570b66270328e4174af14f003"
+    },
+    {
+      "name": "usdm-perpetual-and-max-expiry-unicode",
+      "raw": "{\n  \"schema\": 1,\n  \"venue\": 4294967295,\n  \"environment\": \"Production\",\n  \"market\": \"Usdm\",\n  \"catalog_version\": \"18446744073709551615\",\n  \"assets\": [\n    {\n      \"id\": \"3\",\n      \"version\": \"1\",\n      \"symbol\": \"BNB\",\n      \"exponent\": -8\n    },\n    {\n      \"id\": \"2\",\n      \"version\": \"1\",\n      \"symbol\": \"USDT\",\n      \"exponent\": -8\n    },\n    {\n      \"id\": \"1\",\n      \"version\": \"1\",\n      \"symbol\": \"BTC\",\n      \"exponent\": -8\n    }\n  ],\n  \"instruments\": [\n    {\n      \"id\": \"18446744073709551615\",\n      \"version\": \"18446744073709551615\",\n      \"symbol\": \"\\u6bd4\\u7279\\u5e01USDT_\\u4ea4\\u5272\",\n      \"product\": \"LinearFuture\",\n      \"base\": \"1\",\n      \"quote\": \"2\",\n      \"settlement\": \"2\",\n      \"price_tick\": \"0.01\",\n      \"quantity_step\": \"0.00001\",\n      \"contract\": {\n        \"kind\": \"Delivery\",\n        \"expiry_utc_ns\": \"18446744073709551615\"\n      }\n    },\n    {\n      \"id\": \"1\",\n      \"version\": \"1\",\n      \"symbol\": \"BTCUSDT\",\n      \"product\": \"LinearPerpetual\",\n      \"base\": \"1\",\n      \"quote\": \"2\",\n      \"settlement\": \"2\",\n      \"price_tick\": \"0.01\",\n      \"quantity_step\": \"0.00001\",\n      \"contract\": {\n        \"kind\": \"Perpetual\"\n      }\n    }\n  ]\n}",
+      "artifact_sha256": "3fecabbd02639d254441da396e434db2c38dc47411544bf4f328ddb78cffa030",
+      "canonical": "{\"schema\":1,\"venue\":4294967295,\"environment\":\"Production\",\"market\":\"Usdm\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8}],\"instruments\":[{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTCUSDT\",\"product\":\"LinearPerpetual\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Perpetual\"}},{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"比特币USDT_交割\",\"product\":\"LinearFuture\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Delivery\",\"expiry_utc_ns\":\"18446744073709551615\"}}]}",
+      "catalog_sha256": "a6cd7ec002417d09f19dcc647bfa7b4d7e7fb304f52003516d5db0ecf82226ae"
+    }
+  ],
+  "rejections": [
+    {
+      "name": "duplicate-root",
+      "raw": "{\"schema\":1,\"venue\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "3bc1fa08495af946e1659c91e44ca7a7d05dc3127b273153bc2c49a5a29c2848"
+    },
+    {
+      "name": "duplicate-escaped-key",
+      "raw": "{\"schema\":1,\"venue\":1,\"ven\\u0075e\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "fd9cf6b16035b9adfb6326e5415d2163cd2990c862dd24a02ad5b91237d6d829"
+    },
+    {
+      "name": "duplicate-contract-kind",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\",\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "46ba62c218ca0d0e155f9581195a7034ae20f897beecc7509af7ff6b0d951691"
+    },
+    {
+      "name": "trailing-value",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]} null",
+      "artifact_sha256": "92cb77675ed3a522dbed00698f1aff5329266c2f0ddd6bf01e53023c36c6cdf1"
+    },
+    {
+      "name": "invalid-unicode",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"\\ud800\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "2da4ff1a568402407ae9af081b436107a6420bf61bb732d540591dc17cc4b0b2"
+    },
+    {
+      "name": "unknown-contract-field",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\",\"unknown\":1}}]}",
+      "artifact_sha256": "080f73415d6874e34149decde68359e17534b0e8a4bcd448f079ff90fdc53614"
+    },
+    {
+      "name": "cash-expiry-null",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\",\"expiry_utc_ns\":null}}]}",
+      "artifact_sha256": "78547f7378c9db61c2f760e1f7fcce643a18d7bf3ec829c7345c930bc44eb666"
+    },
+    {
+      "name": "object-enum",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":{\"Test\":null},\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "b0eb38d67b5014abab9e4606460328c7377f26ce56034291b6bb73efa82d33d3"
+    },
+    {
+      "name": "numeric-id",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":3,\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "e39af427eeecb5c35039ee30e7fcb61f77140bab96e28b7b95846155561242c1"
+    },
+    {
+      "name": "leading-zero-id",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"03\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "ddf02dbbc53a5efe4e0de0f3d0227af20a886a11770b9e0e3c389763a1c0714d"
+    },
+    {
+      "name": "overflow-id",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551616\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "b31166bed35805bd8d5e472fd13eb2c568f50cdaa3cc526a7942367479e0c17b"
+    },
+    {
+      "name": "floating-venue",
+      "raw": "{\"schema\":1,\"venue\":1.0,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "746fe8d2020bf1ccff334ad6bbbdf482df72e584b149108c40bc6226538f97b7"
+    },
+    {
+      "name": "floating-exponent",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8.0},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "c01f79646573f7ac97da2e590dea1ca5945ffbabeea0eae6cd0158427e947bbf"
+    },
+    {
+      "name": "noncanonical-step",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.010\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "78ac76c843a56b8653247adfab92fb76569e29b3d4440df11e82140d3dd945d4"
+    },
+    {
+      "name": "negative-step",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"-0.01\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "6787ab074f40c0bb55981c2bf5c96106bc56e8e030529ef1c2891fec812f63dd"
+    },
+    {
+      "name": "missing-asset",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"99\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "3ffd1ab41d6746d31f9e0c86f5d32677a3bd3eb1f3a1a2fb76cf486208c9b6de"
+    },
+    {
+      "name": "same-base-quote",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"2\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "30f03f67046d58c14d8f4e5334fc6a031c94cebea79f7fe80c173ce9996d1bbb"
+    },
+    {
+      "name": "duplicate-asset-symbol",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "410f750593cec633b927b2856aeadb342fd9f4ccae4d0faf5f95c97c3110523b"
+    },
+    {
+      "name": "wrong-product-contract",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"LinearFuture\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "2eef6f0dbf9d0c01ed4f4864ced0173450d63f342d9bec5fa4602ee61405dc39"
+    },
+    {
+      "name": "empty-instruments",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[]}",
+      "artifact_sha256": "502474b9bde2dc30789f58cbedd7e27a377687663f98370de051269245b5ce09"
+    },
+    {
+      "name": "unknown-schema",
+      "raw": "{\"schema\":2,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}]}",
+      "artifact_sha256": "05fd241fca2065f8e13e1e2c4c086dcf5d25d0cac51e4fcd1bb73f1029bd2f32"
+    },
+    {
+      "name": "hash-self-reference",
+      "raw": "{\"schema\":1,\"venue\":1,\"environment\":\"Test\",\"market\":\"Spot\",\"catalog_version\":\"18446744073709551615\",\"assets\":[{\"id\":\"3\",\"version\":\"1\",\"symbol\":\"BNB\",\"exponent\":-8},{\"id\":\"2\",\"version\":\"1\",\"symbol\":\"USDT\",\"exponent\":-8},{\"id\":\"1\",\"version\":\"1\",\"symbol\":\"BTC\",\"exponent\":-8}],\"instruments\":[{\"id\":\"18446744073709551615\",\"version\":\"18446744073709551615\",\"symbol\":\"BTCUSDT\",\"product\":\"Spot\",\"base\":\"1\",\"quote\":\"2\",\"settlement\":\"2\",\"price_tick\":\"0.01\",\"quantity_step\":\"0.00001\",\"contract\":{\"kind\":\"Cash\"}}],\"catalog_hash\":\"0000000000000000000000000000000000000000000000000000000000000000\"}",
+      "artifact_sha256": "898c3ff7ce2bd48fd266b69cd70b51c7c7424d88084f334ffebb12f543febad8"
+    }
+  ]
+}

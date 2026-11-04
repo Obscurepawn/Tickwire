@@ -157,6 +157,7 @@ fn topic_registry(
 pub struct Runtime {
     config: Config,
     index: config::FeedIndex,
+    catalogs: crate::catalogs::Catalogs,
     domain: tickwire_clock::ClockDomain,
     clock: SystemClock,
     quota: Quota,
@@ -211,11 +212,15 @@ impl Runtime {
                 )?)?)
             })
             .collect::<Result<Vec<_>>>()?;
-        let (expansion, index) = if let Some(control) = c.expansion.clone() {
-            let (control, index) = expansion::Control::new(control, &c, &banks)?;
-            (Some(control), index)
+        let (expansion, index, catalogs) = if let Some(control) = c.expansion.clone() {
+            let (control, index, catalogs) = expansion::Control::new(control, &c, &banks)?;
+            (Some(control), index, catalogs)
         } else {
-            (None, config::FeedIndex::new(&c.feeds)?)
+            (
+                None,
+                config::FeedIndex::new(&c.feeds)?,
+                crate::catalogs::Catalogs::load(&c)?,
+            )
         };
         let revision = c.expansion.as_ref().map_or(1, |c| c.initial_revision);
         let domain = tickwire_clock::ClockDomain::new(c.identity.host_boot, c.clock_generation)
@@ -293,6 +298,7 @@ impl Runtime {
         Ok(Self {
             config: c,
             index,
+            catalogs,
             domain,
             clock,
             quota,

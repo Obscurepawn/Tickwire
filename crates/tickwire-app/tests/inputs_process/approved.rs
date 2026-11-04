@@ -50,6 +50,15 @@ fn projection(f: &Fixture, extra: Extra) -> ProjectionObject {
     root["identity"]["namespace_id"] = "09090909-0909-0909-0909-090909090909".into();
     root["local_config"]["projection_policy_ref"] = reference.clone().into();
     root["local_config"]["projection_policy_revision"] = 1.into();
+    if let Some(artifact) = &f.bootstrap.instrument_catalog {
+        let venue = root["venues"]
+            .as_array_mut()
+            .unwrap()
+            .iter_mut()
+            .find(|venue| venue["id"] == "binance-spot")
+            .unwrap();
+        venue["instrument_catalog_ref"] = catalog_reference(artifact.digest).into();
+    }
     // Update all references to the real topic, preserving a valid full global
     // document before projection instead of editing a finished payload.
     root["ipc"]["topics"][0]["id"] = 101.into();
@@ -114,7 +123,7 @@ pub fn bank(f: &Fixture) -> ResourceHeader {
         tickwire_recovery::digest(&tickwire_market_source::protocol::wire_bytes(&h).unwrap());
     h
 }
-fn deployment(f: &Fixture) -> tickwire_app::config::Deployment {
+pub fn deployment(f: &Fixture) -> tickwire_app::config::Deployment {
     let mut d = super::runtime::deployment(f.market.instrument.instrument_id);
     d.boot_id = f.bootstrap.market.local.host_boot;
     d.policy.domain.process_instance = d.boot_id;
@@ -123,14 +132,28 @@ fn deployment(f: &Fixture) -> tickwire_app::config::Deployment {
     d.quota.consumer_instance = d.owner_id;
     d.policy.versions.catalog_version = f.market.instrument.catalog_version;
     d.policy.versions.catalog_hash = f.market.instrument.catalog_hash;
+    if let Some(artifact) = &f.bootstrap.instrument_catalog {
+        let path = f.root.join("instrument-catalog.json");
+        write(&path, &artifact.bytes);
+        d.instrument_catalog = Some(tickwire_app::config::CatalogFile {
+            reference: catalog_reference(artifact.digest),
+            path,
+        });
+    }
     d
+}
+fn catalog_reference(digest: [u8; 32]) -> String {
+    format!(
+        "artifact://fixture/instrument-catalog@sha256:{}",
+        inputs::hex(digest)
+    )
 }
 pub fn policy(f: &Fixture) -> tickwire_runtime_policy::ControlPlane {
     deployment(f).policy.build().unwrap()
 }
 pub fn build(f: &Fixture) -> tickwire_app::Result<Box<dyn AppStrategy>> {
     let d = deployment(f);
-    let runtime = d.assemble(f.baseline.clone()).unwrap();
+    let runtime = d.assemble(f.baseline.clone())?;
     tickwire_app::hosted::build(
         &serde_json::from_value(f.host.clone())?,
         &runtime,

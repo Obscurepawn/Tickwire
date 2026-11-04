@@ -30,6 +30,14 @@ impl Fixture {
         Self::with_recovery(true, true)
     }
     fn with_recovery(recovery: bool, paused_trade: bool) -> Self {
+        Self::configured(recovery, paused_trade, |_, _, _| {}, true)
+    }
+    pub(super) fn configured(
+        recovery: bool,
+        paused_trade: bool,
+        setup: impl FnOnce(&Path, &mut config::Config, &mut config::Feed),
+        wait_ready: bool,
+    ) -> Self {
         let root =
             tickwire_control_sys::PrivateDirectory::create_in(Path::new("/tmp"), "tw-md-runtime")
                 .unwrap();
@@ -101,7 +109,7 @@ impl Fixture {
             fast_mark: false,
         }];
         config.feeds[1].instrument.id = (1 << 63) | 1001;
-        let addition = config.feeds.pop().unwrap();
+        let mut addition = config.feeds.pop().unwrap();
         config.topics.truncate(1);
         config.topics[0].resource = path.join("topic.bin");
         config.topics[0].maximum_levels = 8;
@@ -134,6 +142,7 @@ impl Fixture {
             // for a new owner without resetting or reclaiming the old budget.
             config.quota.grants[0].costs[0].units = 350;
         }
+        setup(path, &mut config, &mut addition);
         let input = path.join("config.json");
         config::write(&input, &config).unwrap();
         let log = path.join("md.log");
@@ -149,7 +158,7 @@ impl Fixture {
             log,
         };
         let end = Instant::now() + Duration::from_secs(5);
-        while !fixture.config.socket.exists() {
+        while wait_ready && !fixture.config.socket.exists() {
             fixture.alive();
             assert!(Instant::now() < end, "{}", fixture.log());
             std::thread::sleep(Duration::from_millis(1));

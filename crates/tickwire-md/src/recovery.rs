@@ -37,6 +37,8 @@ pub struct Snapshot {
     pub revision: u64,
     pub config_hash: Hash,
     pub config: crate::config::Config,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub catalog_objects: Vec<Vec<u8>>,
     pub instrument_ids: Vec<u64>,
     pub banks: Vec<Vec<u8>>,
     pub operations: Vec<Consumed>,

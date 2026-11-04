@@ -102,3 +102,9 @@ cargo fmt -p tickwire-app
 5. 本 crate 只装配与驱动，不在此处实现策略、对账算法或紧急撤单（紧急路径归 `tickwire-guardian`）。
 
 - schema4 在冷图校验/同步/安装/探针之后及 Prepared 签发前，用 fresh 单调时钟复核实际 Account 的冻结状态、valid_until 和 gateway halted；到期立即走既有 Halt 持久路径，不依赖下一主循环的续期/observer 才关闭。
+
+## 全局标的经济内容
+
+`Deployment.instrument_catalog` 可批准 `CatalogFile { reference, path }`。`assemble` 有界读取原文、重算制品 SHA 与语义身份，并核对策略授权版本及实际运行时经济字段；原文由不可变目录对象保留在装配结果。完整手续费资产也须逐项匹配，不能仅比较声明的目录摘要。
+
+托管策略启用时要求 `projection_inputs`、运行时目录和 Bootstrap 原始目录同时存在；全局 venue 引用须匹配同一原始对象。已有共享 Fresh 查询从当前检查点及命名恢复依赖提取目录事实，交付门禁核对实际目录、账户和 JOIN。Bootstrap 读取上限统一为 SDK 的 16 MiB；不改变 HostConfig 等其他文件预算。运行中变更与交接仍遵循输入范围的禁止边界。新增依赖为 `tickwire-instrument-catalog`；详见[标的经济目录](../../specs/implementation/instrument-catalog.md)。

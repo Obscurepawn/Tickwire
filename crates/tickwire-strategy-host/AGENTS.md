@@ -13,7 +13,7 @@
 
 ## 3. workspace 位置
 
-上游（`Cargo.toml` 实际声明）：`tickwire-strategy-sdk`、`tickwire-supervisor`、`tickwire-control`、`tickwire-control-sys`、`tickwire-control-store`、`tickwire-market-publisher`、`tickwire-runtime`、`tickwire-runtime-policy`、`tickwire-journal`、`tickwire-join`、`tickwire-ipc`、`tickwire-shm`、`tickwire-recovery`、`tickwire-clock`、`tickwire-clock-sys`、`tickwire-binance-public`、`tickwire-binance-clock`、`tickwire-binance-account`、`tickwire-account`、`tickwire-account-gateway`、`tickwire-account-codec`、`tickwire-venue`、`tickwire-market-source`、`tickwire-md`、`tickwire-release`。
+上游（`Cargo.toml` 实际声明）：`tickwire-instrument-catalog`、`tickwire-strategy-sdk`、`tickwire-supervisor`、`tickwire-control`、`tickwire-control-sys`、`tickwire-control-store`、`tickwire-market-publisher`、`tickwire-runtime`、`tickwire-runtime-policy`、`tickwire-journal`、`tickwire-join`、`tickwire-ipc`、`tickwire-shm`、`tickwire-recovery`、`tickwire-clock`、`tickwire-clock-sys`、`tickwire-binance-public`、`tickwire-binance-clock`、`tickwire-binance-account`、`tickwire-account`、`tickwire-account-gateway`、`tickwire-account-codec`、`tickwire-venue`、`tickwire-market-source`、`tickwire-md`、`tickwire-release`。
 
 下游（grep 命中）：`tickwire-app`。
 
@@ -107,3 +107,5 @@ Capture 测试依赖 `tickwire-binance/book/snapshot/risk` 仅在 dev-dependenci
 ## 当前账户与行情输入观察
 
 `FreshObservation::inputs()` 返回可选、字段私有的 `ObservedInputs`，与 `configuration()` 共用同一次 current merged checkpoint 解码。它保留 source/cut/checkpoint、完整账户和市场列表，以及实际 `ReportWriter` 的 header/identity/共享 subscription/sequence。账户事实同时核对 SDK 保存视图、完整报告封口和本次 Host 真实前缀；市场事实保留实际 bank、Cursor 和稳定 ID/版本。只有封口命名的 kind11 `TWSC0001` 内真实 `TWSB0001` JOIN 与当前 bank 完全相同并通过快照验证时，`ObservedJoin` 才提供目录摘要、成员版本、required_states、快照根和基线水位。其他恢复格式或已换 bank 返回 `join=None`，不得读取 Bootstrap 补造。合法 current 视图没有账户或含多个账户时，本单报告 owner 返回 `inputs=None`；畸形视图仍失败。独立输入事实不赋予授权，App 另核对批准范围，见 [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md)。新增依赖 `tickwire-handover` 用于账户闭包重验，`tickwire-snapshot` 用于真实保存 JOIN 的快照验证；`observation/inputs` 测试覆盖报告身份/游标、目录与成员变异、旧 bank 和无关对象不能补证。
+
+- **经济目录消费**：见 [标的经济目录](../../specs/implementation/instrument-catalog.md)。实际 Bootstrap 的可省略目录原文由既有 kind9 保留，当前 Application 仅保存 Object 绑定；旧省略数据保持字节兼容。来源重放显式读回原封口命名的 kind9，缺失不从当前模板补齐。目录与账户/市场/命令的完整经济身份共用验证器，未支持的生命周期在用户工厂回调前拒绝。

@@ -17,6 +17,7 @@ fn fixture() -> (tickwire_control_sys::PrivateDirectory, Snapshot) {
     spec.catalog_version = config.feeds[0].instrument.catalog_version;
     let bank = spec.header().unwrap();
     let snapshot = Snapshot {
+        catalog_objects: Vec::new(),
         schema: 1,
         sequence: 1,
         previous: [0; 32],
@@ -683,3 +684,4 @@ fn cancelled_candidate_owners_remain_consumed_across_reopen() {
     replace_head(&path, &changed, tip);
     assert!(Store::open(&path).is_err());
 }
+mod catalogs;

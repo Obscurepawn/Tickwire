@@ -80,6 +80,9 @@ pub fn configure<R: Registration>(
     target: &restore::Target,
     files: &LoadedFiles,
 ) -> Result<Configured<R::Factory>> {
+    if let Some(bytes) = files.bytes(&Role::Bootstrap) {
+        crate::catalog::reject_lifecycle_bytes(bytes)?;
+    }
     binding.validate()?;
     if registration.id() != binding.id
         || files.path(&Role::StrategyConfig) != Some(binding.configuration_file.as_path())
@@ -342,13 +345,15 @@ pub unsafe fn run<R: Registration>(
         "--source-replay" => {
             let job: crate::replay::process::SourceJob =
                 crate::worker::read_config(&path, 2 * 1024 * 1024)?;
+            let catalog = crate::replay::process::resolve_catalog(&job)?;
             let business = registration.source(job.source.state_schema)?;
             crate::replay::process::run_source(
                 &job,
                 &crate::replay::application::ApplicationFactory {
                     binary_digest: job.source.binary_digest,
                     business,
-                },
+                }
+                .with_catalog(catalog),
             )?;
         }
         "--replay-rollback" => {
@@ -365,7 +370,8 @@ pub unsafe fn run<R: Registration>(
         }
         "--bootstrap" => {
             let config: crate::bootstrap::Bootstrap =
-                crate::worker::read_config(&path, 2 * 1024 * 1024)?;
+                crate::worker::read_config(&path, crate::bootstrap::MAX_BOOTSTRAP_BYTES)?;
+            crate::catalog::validate_startup(&config)?;
             let binding = config.factory.as_ref().ok_or(Error::NotReady)?;
             binding.validate()?;
             if binding.id != registration.id() {

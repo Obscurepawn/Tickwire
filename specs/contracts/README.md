@@ -1,6 +1,6 @@
 # 机器契约说明（`contracts/`）
 
-本目录七个 JSON 是设计事实的机器可读来源：字节布局与 golden 向量、风险数值、全局配置 schema、控制 API、复制画像与参考部署。它们不连接 Binance、不读取凭据，由 `scripts/verify-*.py` 在设计时核验；Rust 运行时另有测试证据，二者不互相冒充。全局索引见 [`../INDEX.md`](../INDEX.md)。
+本目录八个 JSON 是设计事实的机器可读来源：字节布局与 golden 向量、风险数值、全局配置 schema、控制 API、复制画像与参考部署。它们不连接 Binance、不读取凭据，由 `scripts/verify-*.py` 在设计时核验；Rust 运行时另有测试证据，二者不互相冒充。全局索引见 [`../INDEX.md`](../INDEX.md)。
 
 ## 1. `ipc-wire-v1.json` — IPC ABI 线格式契约
 
@@ -52,3 +52,10 @@
 - 顶层结构：`purpose`、`default_storage_profile`、`data_plane_consensus`、`control_plane`（voters/quorum/实现/单订单往返）、`hosts`、`isolation`（同区/不同主机电源域/cgroup v2/禁 swap/锁内存/fork 不继承）、`cpu_reference`（os控制/irq/md/exec/guardian/日志复制/recorder/活动与影子策略/余量）、`process_capacity`（每主机 md、exec 风险域、策略实例、topic、消费者、事件类别/键）、`shm`（bank/SPSC/快照/记录/arena/游标预算）、`memory_unique_budget_bytes`（共享内存/各私有/日志缓存/控制监督/OS 余量）、`load_contract`（事件率/突发/意图速率/磁盘预算/checkpoint）、`storage_qualification`（掉电保护介质/持续写/组提交/本地提交延迟/阈值）、`timing`（租约/心跳/选举/fencing/接管/配置期限）、`slo`（normal/sync_replica_optional/recovery 的 p99/p999 与 RTO，tail_evidence 采样）、`qualification_only`（合成资本，非真实账户）、`runtime_binding_required`、`contract_references`（ipc/replication/risk_vectors/runtime_schema）、`not_guaranteed`。
 - 用途：模拟环境结构与容量参考；`REQUIRED` 生产输入必须替换并通过运行时准入，文件解析成功不代表可上线。
 - 消费：`scripts/verify-design-contracts.py`（内存/CPU/存储/延迟跨文件一致）；`scripts/verify-config-contract.py`（dep 对照）。
+
+
+## 8. `instrument-catalog-v1.json` — 标的经济目录
+
+共享目录格式与独立 golden 向量，包括原始正文、固定字段顺序的规范正文、原始制品 SHA 和带域语义摘要。覆盖完整 u64 标识、资产单位、价格与数量步长、Spot/线性永续/交割合约，以及重新计算合法摘要后的畸形与经济字段反例。
+
+`tickwire-instrument-catalog` Rust 测试和 `scripts/verify-instrument-catalog.py` 分别解析、重算并核对相同向量；Python 仅用标准库和 Decimal，并执行正文及集合的容量边界。该格式不改变固定 IPC ABI。

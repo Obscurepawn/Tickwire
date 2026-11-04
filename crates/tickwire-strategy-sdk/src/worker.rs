@@ -212,6 +212,7 @@ unsafe fn run_inner<S: Strategy>(
     strategy: S,
     completed: Option<crate::preflight::Completed>,
 ) -> Result<()> {
+    crate::catalog::validate_startup(&config)?;
     if config.version != 1
         || config.maximum_market_age_ns == 0
         || config.poll_records == 0
@@ -374,12 +375,14 @@ unsafe fn run_inner<S: Strategy>(
             baseline_now,
             config.maximum_levels,
         )?;
-        Some(crate::recovery::RecoveryWriter::new(
+        let writer = crate::recovery::RecoveryWriter::new(
             template,
             &strategy.checkpoint()?,
             &snapshot,
             config.maximum_market_age_ns,
-        )?)
+        )?;
+        writer.verify_catalog(&config)?;
+        Some(writer)
     } else {
         if config.demo_enabled {
             return Err(Error::NotReady);

@@ -256,6 +256,12 @@ pub struct Topic {
     pub maximum_snapshot_bytes: usize,
     pub maximum_delta_bytes: usize,
 }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CatalogFile {
+    pub reference: String,
+    pub path: PathBuf,
+}
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -272,6 +278,8 @@ pub struct Config {
     pub feeds: Vec<Feed>,
     pub topics: Vec<Topic>,
     pub maximum_idle_ns: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalogs: Option<Vec<CatalogFile>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expansion: Option<ExpansionControl>,
 }

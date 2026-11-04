@@ -129,6 +129,7 @@ impl Control {
             ));
         }
         let plan = Plan::decode(bytes)?;
+        runtime.catalogs.validate(&plan.target_config)?;
         let digest: [u8; 32] =
             Sha256::digest(encode(&plan, crate::expansion::MAX_PLAN_BYTES)?).into();
         if self

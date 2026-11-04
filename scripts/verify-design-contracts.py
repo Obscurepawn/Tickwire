@@ -142,6 +142,7 @@ def main():
             'risk':run_helper('verify-risk-vectors.py'),
             'deployment':deployment_checks(),'configuration':schema_checks(args.openapi)}
     result['config_semantics']=run_helper('verify-config-contract.py')
+    result['instrument_catalog']=run_helper('verify-instrument-catalog.py')
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
 if __name__=='__main__':

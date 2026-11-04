@@ -1,5 +1,6 @@
 //! Independent Binance market-data process and authenticated full-topic publisher.
 #![deny(unsafe_code)]
+mod catalogs;
 pub mod config;
 pub mod engine;
 pub mod expansion;

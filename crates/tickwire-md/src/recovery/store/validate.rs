@@ -14,6 +14,7 @@ pub(super) fn snapshot(s: &Snapshot) -> Result<()> {
     {
         return Err(invalid("MD recovery snapshot bounds/config"));
     }
+    crate::catalogs::Catalogs::from_objects(&s.config, &s.catalog_objects)?;
     crate::config::FeedIndex::restore(&s.config.feeds, &s.instrument_ids)?;
     let mut operations = BTreeSet::new();
     for operation in &s.operations {
@@ -109,6 +110,8 @@ pub(super) fn snapshot(s: &Snapshot) -> Result<()> {
 }
 
 pub(super) struct Link {
+    catalogs: Option<Vec<crate::config::CatalogFile>>,
+    catalog_objects: Vec<Hash>,
     phase: Phase,
     revision: u64,
     producer: ([u8; 16], u64, [u8; 16]),
@@ -121,6 +124,8 @@ impl Link {
     pub(super) fn new(snapshot: &Snapshot) -> Result<Self> {
         let identity = &snapshot.config.identity;
         Ok(Self {
+            catalogs: snapshot.config.catalogs.clone(),
+            catalog_objects: snapshot.catalog_objects.iter().map(|b| digest(b)).collect(),
             phase: snapshot.phase,
             revision: snapshot.revision,
             producer: (identity.instance, identity.generation, identity.host_boot),
@@ -143,7 +148,9 @@ impl Link {
     }
 }
 pub(super) fn continuation(previous: &Link, next: &Link) -> Result<()> {
-    if next.revision < previous.revision
+    if next.catalogs != previous.catalogs
+        || next.catalog_objects != previous.catalog_objects
+        || next.revision < previous.revision
         || !next.instruments.starts_with(&previous.instruments)
         || !previous.reserved_owners.is_subset(&next.reserved_owners)
         || previous

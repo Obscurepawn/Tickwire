@@ -1269,6 +1269,7 @@ dependencies = [
  "tickwire-control-sys",
  "tickwire-fencing",
  "tickwire-handover",
+ "tickwire-instrument-catalog",
  "tickwire-ipc",
  "tickwire-join",
  "tickwire-journal",
@@ -1531,7 +1532,9 @@ dependencies = [
  "sha2",
  "tickwire-config",
  "tickwire-control-raft",
+ "tickwire-instrument-catalog",
  "tickwire-journal",
+ "tickwire-venue",
  "time",
  "x509-parser",
 ]
@@ -1653,6 +1656,16 @@ dependencies = [
  "tickwire-account-codec",
  "tickwire-recovery",
  "tickwire-risk",
+ "tickwire-venue",
+]
+
+[[package]]
+name = "tickwire-instrument-catalog"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
  "tickwire-venue",
 ]
 
@@ -1802,9 +1815,11 @@ dependencies = [
  "tickwire-book",
  "tickwire-clock",
  "tickwire-clock-sys",
+ "tickwire-config",
  "tickwire-control",
  "tickwire-control-store",
  "tickwire-control-sys",
+ "tickwire-instrument-catalog",
  "tickwire-instrument-index",
  "tickwire-ipc",
  "tickwire-join",
@@ -1913,6 +1928,7 @@ dependencies = [
  "tickwire-book",
  "tickwire-clock",
  "tickwire-handover",
+ "tickwire-instrument-catalog",
  "tickwire-journal",
  "tickwire-market-source",
  "tickwire-recovery",
@@ -2004,6 +2020,7 @@ dependencies = [
  "tickwire-control-store",
  "tickwire-control-sys",
  "tickwire-handover",
+ "tickwire-instrument-catalog",
  "tickwire-ipc",
  "tickwire-join",
  "tickwire-journal",
@@ -2041,6 +2058,7 @@ dependencies = [
  "tickwire-control",
  "tickwire-control-sys",
  "tickwire-handover",
+ "tickwire-instrument-catalog",
  "tickwire-ipc",
  "tickwire-join",
  "tickwire-market-source",

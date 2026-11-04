@@ -30,7 +30,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 4. **模块实现规格**：[`implementation/`](implementation/)，按下文第 3 节分组索引定位；每篇先于对应 crate 源码确定接口与不变量。
 5. **形式验证**：[`../tla/`](../tla/) 中与改动模块对应的 `execution_models/<model>/ROADMAP.md`；源码变更后先核对锚点哈希再复跑。
 
-## 3. 实现规格索引（按功能域分组，共 77 篇）
+## 3. 实现规格索引（按功能域分组，共 78 篇）
 
 状态图例：**已实现**＝源码有实质实现且文档/实现总览明确记录测试通过；**部分实现**＝核心已落地，文档明确列出待接线/剩余范围；**状态待确认**＝规格存在但总览无明确完成结论，接手时先核对源码。
 
@@ -38,6 +38,7 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 
 | 文件 | 职责一句话 | 对应 crate | 实现状态 |
 |---|---|---|---|
+| [instrument-catalog.md](implementation/instrument-catalog.md) | 全局标的经济正文、实际行情/账户消费与策略恢复依赖 | `tickwire-instrument-catalog` / `tickwire-config-service` / `tickwire-md` / `tickwire-app` / `tickwire-strategy-sdk` | 实现中（固定目录初启与恢复绑定；跨目录变更另行接入） |
 | [instrument-index.md](implementation/instrument-index.md) | 固定集合位掩码映射、动态只追加索引与行情连续存储 | `tickwire-instrument-index` / `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` | 固定/动态索引、本地盘口身份及行情接线；性能边界见规格 |
 | [market-expansion.md](implementation/market-expansion.md) | 受信目录追加、来源预热、bank 切换、消费者重新 JOIN 与冷启动恢复 | `tickwire-md` / `tickwire-market-publisher` / `tickwire-market-source` / `tickwire-strategy-sdk` / `tickwire-app` | 部分实现（同 catalog 扩容与完成状态冷恢复已接；存活消费者透明续接及 catalog 变更待续） |
 | [binance-protocol.md](implementation/binance-protocol.md) | HMAC/RSA/Ed25519 签名、订单参数编码与类型化错误分类 | `tickwire-binance` | 已实现 |
@@ -164,12 +165,13 @@ Tickwire 是面向 Binance Spot 与 USDⓈ-M 的 Rust 超低延迟生产交易�
 
 ## 4. 机器契约（`contracts/`）
 
-逐字段说明见 [`contracts/README.md`](contracts/README.md)。七个 JSON 与消费方对照：
+逐字段说明见 [`contracts/README.md`](contracts/README.md)。八个 JSON 与消费方对照：
 
 | 契约 | 用途 | 消费脚本 / 测试 |
 |---|---|---|
 | [`control-api.openapi.json`](contracts/control-api.openapi.json) | OpenAPI 3.1.1（v1.0.0-design）配置控制 API：validate/preview/plans/commits/rollback/head/desired/revisions/effective/operations/watch/schema，mTLS 与幂等 | `scripts/verify-design-contracts.py --openapi`（标准 OpenAPI 验证器）；`scripts/verify-config-contract.py`（接口引用交叉核对） |
 | [`deployment-reference-v1.json`](contracts/deployment-reference-v1.json) | 格式 `tickwire-deployment-reference-1`，design 0.3，profile `TW-LD-ASYNC-16x2-v1`：参考部署容量/CPU/内存/存储/延迟 SLO 合同 | `scripts/verify-design-contracts.py`（部署内存/CPU/存储/延迟跨文件一致性）；`scripts/verify-config-contract.py`（dep 对照） |
+| [`instrument-catalog-v1.json`](contracts/instrument-catalog-v1.json) | 有界经济目录格式、规范正文、原始制品 SHA 与语义摘要；合法摘要的拒绝向量 | `scripts/verify-instrument-catalog.py`（独立 Decimal 与字节重算）；`tickwire-instrument-catalog` Rust 向量回归 |
 | [`ipc-vectors-v1.json`](contracts/ipc-vectors-v1.json) | 格式 `tickwire-ipc-vectors-1`，ABI 1.0，CRC32C：编码 golden 向量、语义案例与兼容基线 | `scripts/verify-ipc-contract.py`（向量哈希/帧校验/语义案例）；`tickwire-ipc` Rust 回归 |
 | [`ipc-wire-v1.json`](contracts/ipc-wire-v1.json) | 格式 `tickwire-ipc-contract-1`，ABI 1.0：46 个布局、734 个字段、枚举/bitsets/31 种消息 ID/control_opcodes、production_reference 容量、资源约束、配置控制与精确行情事件规则 | `scripts/verify-ipc-contract.py`（布局覆盖/对齐/保留字节/类型宽度）；`verify-design-contracts.py` 与 `verify-config-contract.py` 读取 `profiles.production_reference` 做容量一致性 |
 | [`replication-profile-v1.json`](contracts/replication-profile-v1.json) | `tickwire-replication-profile` v1，design 0.3：LocalDurable+AsyncReplica 默认与 SyncReplica、拓扑、Raft 引擎(bin raft 0.7.0)、batching、WAL 帧、异步复制、依赖、快照、成员资格 | `scripts/verify-design-contracts.py`（与部署/延迟合同对照） |
@@ -199,6 +201,7 @@ python3 -m venv /tmp/tickwire-design-validation-env
 # 单项契约
 python3 scripts/verify-ipc-contract.py
 python3 scripts/verify-risk-vectors.py
+python3 scripts/verify-instrument-catalog.py
 python3 scripts/verify-config-contract.py
 ```
 

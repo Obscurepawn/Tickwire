@@ -25,13 +25,22 @@ pub(super) fn open(
     control: &config::ExpansionControl,
     current: &Config,
     banks: &[ResourceHeader],
-) -> Result<(Option<Durable>, config::FeedIndex)> {
+) -> Result<(
+    Option<Durable>,
+    config::FeedIndex,
+    crate::catalogs::Catalogs,
+)> {
     let Some(approved) = &control.recovery else {
-        return Ok((None, config::FeedIndex::new(&current.feeds)?));
+        return Ok((
+            None,
+            config::FeedIndex::new(&current.feeds)?,
+            crate::catalogs::Catalogs::load(current)?,
+        ));
     };
     let mut store = Box::new(Store::open(&approved.directory)?);
     let historical;
     let index;
+    let catalogs;
     if let Some(previous) = store.current() {
         if approved.restart_from != store.current_hash() {
             return Err(invalid("MD restart requires the exact current checkpoint"));
@@ -51,6 +60,7 @@ pub(super) fn open(
         {
             return Err(invalid("MD restart reuses historical identities"));
         }
+        catalogs = crate::catalogs::Catalogs::from_objects(current, &previous.catalog_objects)?;
         index = config::FeedIndex::restore(&current.feeds, &previous.instrument_ids)?;
         historical = previous
             .operations
@@ -61,6 +71,7 @@ pub(super) fn open(
         if approved.restart_from.is_some() {
             return Err(invalid("MD restart checkpoint is missing"));
         }
+        catalogs = crate::catalogs::Catalogs::load(current)?;
         historical = BTreeMap::new();
         index = config::FeedIndex::new(&current.feeds)?;
     }
@@ -81,6 +92,7 @@ pub(super) fn open(
         revision: control.initial_revision,
         config_hash: crate::expansion::config_hash(current)?,
         config: current.clone(),
+        catalog_objects: catalogs.objects(),
         instrument_ids: index.instrument_ids().to_vec(),
         banks: banks
             .iter()
@@ -107,6 +119,7 @@ pub(super) fn open(
             report_phase: None,
         }),
         index,
+        catalogs,
     ))
 }
 
@@ -168,6 +181,7 @@ impl Control {
             revision: runtime.revision,
             config_hash: crate::expansion::config_hash(&runtime.config)?,
             config: runtime.config.clone(),
+            catalog_objects: runtime.catalogs.objects(),
             instrument_ids: runtime.index.instrument_ids().to_vec(),
             banks,
             operations: operations

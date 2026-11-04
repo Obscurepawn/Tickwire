@@ -747,7 +747,13 @@ fn components(
         if loaded.bytes(&tickwire_release::Role::HostConfig)
             != Some(serde_json::to_vec(config)?.as_slice())
             || loaded.bytes(&tickwire_release::Role::Bootstrap)
-                != Some(read_file(&config.bootstrap, 2 * 1024 * 1024)?.as_slice())
+                != Some(
+                    read_file(
+                        &config.bootstrap,
+                        tickwire_strategy_sdk::bootstrap::MAX_BOOTSTRAP_BYTES,
+                    )?
+                    .as_slice(),
+                )
             || !config.shadow
             || !bootstrap.handover_enabled
         {
@@ -908,8 +914,10 @@ impl RotationSource<Files, 1> for Rotations {
                     "projected startup constraints do not support rotation",
                 ));
             }
-            let bootstrap =
-                serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
+            let bootstrap = serde_json::from_slice(&read_file(
+                &config.bootstrap,
+                tickwire_strategy_sdk::bootstrap::MAX_BOOTSTRAP_BYTES,
+            )?)?;
             let parts = components(
                 &config,
                 &self.context,
@@ -948,8 +956,10 @@ pub fn build(
     if let Some(resources) = &config.resources {
         resources.validate()?;
     }
-    let mut bootstrap: Bootstrap =
-        serde_json::from_slice(&read_file(&config.bootstrap, 2 * 1024 * 1024)?)?;
+    let mut bootstrap: Bootstrap = serde_json::from_slice(&read_file(
+        &config.bootstrap,
+        tickwire_strategy_sdk::bootstrap::MAX_BOOTSTRAP_BYTES,
+    )?)?;
     // Validate the same owned Bootstrap that will be handed to Host. A second
     // pathname read must not replace the identity checked by the projection.
     let projection = profile::prepare(config, &bootstrap)?;

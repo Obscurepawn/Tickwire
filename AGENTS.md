@@ -22,7 +22,7 @@
 
 ## 2. crate 分层与依赖方向
 
-60 个 crate 全在 [`crates/`](crates/)，workspace `members = ["crates/*"]`。依赖方向只能自下而上，**不得反向或成环**（`cargo metadata` 应始终为 DAG）：
+61 个 crate 全在 [`crates/`](crates/)，workspace `members = ["crates/*"]`。依赖方向只能自下而上，**不得反向或成环**（`cargo metadata` 应始终为 DAG）：
 
 | 层 | crate | 说明 |
 |---|---|---|
@@ -145,8 +145,8 @@ python3 -m unittest discover -s scripts -p test_tlc_coverage.py
 
 | 路径 | 内容 |
 |---|---|
-| [`crates/`](crates/) | 60 个 crate（每个目录内有自己的 `AGENTS.md`） |
-| [`specs/`](specs/) | 总体设计、实现总览、75 篇模块实现规格、7 个机器契约；入口 [`specs/INDEX.md`](specs/INDEX.md) |
+| [`crates/`](crates/) | 61 个 crate（每个目录内有自己的 `AGENTS.md`） |
+| [`specs/`](specs/) | 总体设计、实现总览、78 篇模块实现规格、8 个机器契约；入口 [`specs/INDEX.md`](specs/INDEX.md) |
 | [`config/reference.toml`](config/reference.toml) | 模拟环境的结构与容量参考（示例入口，非生产部署） |
 | [`config/production.template.toml`](config/production.template.toml) | 生产输入模板，`REQUIRED` 必须替换并通过准入/资格验证，否则拒绝上线 |
 | [`scripts/`](scripts/) | `check-rust.sh` / `check-linux.sh` / `check-tla.sh` / `verify-*.py` 契约校验，说明见 [`scripts/README.md`](scripts/README.md) |

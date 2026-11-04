@@ -17,8 +17,12 @@ pub struct ObservedInputs {
     accounts: Vec<ObservedAccountInput>,
     markets: Vec<ObservedMarketInput>,
     report: ObservedReportInput,
+    catalog: Option<std::sync::Arc<tickwire_instrument_catalog::Catalog>>,
 }
 impl ObservedInputs {
+    pub fn catalog(&self) -> Option<&tickwire_instrument_catalog::Catalog> {
+        self.catalog.as_deref()
+    }
     pub fn source(&self) -> &Source {
         &self.source
     }
@@ -117,6 +121,29 @@ pub(crate) fn extract(
         return Ok(None);
     }
     let seal = &current.seal;
+    let catalog =
+        if let Some(expected) = tickwire_release::replay::source::catalog_binding(checkpoint)? {
+            let digest = seal
+                .dependencies
+                .iter()
+                .find(|(kind, _)| *kind == 9)
+                .ok_or(Error::Invalid)?
+                .1;
+            let bytes = objects
+                .iter()
+                .find(|b| Object::of(b).digest == digest)
+                .ok_or(Error::Invalid)?;
+            tickwire_strategy_sdk::catalog::resolve_dependency9(
+                bytes,
+                &checkpoint.source,
+                Some(expected),
+            )
+            .map_err(|_| Error::Invalid)?
+        } else {
+            None
+        };
+    tickwire_strategy_sdk::catalog::validate_checkpoint(checkpoint, catalog.as_deref())
+        .map_err(|_| Error::Invalid)?;
     let raw = configuration::find(
         objects,
         Object {
@@ -185,6 +212,12 @@ pub(crate) fn extract(
         .into_iter()
         .map(|view| {
             let join = join::extract(original, &view, checkpoint.runtime.now_ns)?;
+            if let Some(catalog) = &catalog {
+                let joined = join.as_ref().ok_or(Error::Invalid)?;
+                if joined.catalog_hash != catalog.catalog_hash() {
+                    return Err(Error::Invalid);
+                }
+            }
             Ok(ObservedMarketInput { view, join })
         })
         .collect::<Result<Vec<_>>>()?;
@@ -195,6 +228,7 @@ pub(crate) fn extract(
         accounts,
         markets,
         report,
+        catalog,
     }))
 }
 

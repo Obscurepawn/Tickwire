@@ -200,6 +200,7 @@ pub(crate) fn generate_with(root: &Path, bins: &Path, kind: ScenarioKind) -> Res
         tickwire_shm::validate_bank(header).map_err(|error|format!("generated {name} bank: features={:#x},kind={},record_bytes={},capacity={}: {error}",header.required_features,header.resource_kind,header.record_bytes,header.capacity))?;
     }
     let mut bootstrap = tickwire_strategy_sdk::bootstrap::Bootstrap {
+        instrument_catalog: None,
         version: 1,
         market: endpoint(strategy.clone(), md.clone(), "unused-market.sock"),
         external_market: Some(external),

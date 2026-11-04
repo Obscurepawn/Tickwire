@@ -164,6 +164,45 @@ pub fn snapshot_payload(
     Ok(b)
 }
 impl RecoveryWriter {
+    pub(crate) fn verify_catalog(&self, config: &crate::bootstrap::Bootstrap) -> Result<()> {
+        if let Some(catalog) = crate::catalog::resolve_bootstrap(config)? {
+            let dependency = self
+                .dependencies
+                .iter()
+                .find(|d| d.kind == 9)
+                .ok_or(Error::Identity)?;
+            let bytes = read(&dependency.path, crate::bootstrap::MAX_BOOTSTRAP_BYTES)?;
+            if digest(&bytes) != dependency.digest {
+                return Err(Error::Identity);
+            }
+            crate::catalog::validate_dependency(config, &bytes)?;
+            // kind11 preserves the actual JOIN, not the launcher template.
+            let checkpoint = self
+                .dependencies
+                .iter()
+                .find(|d| d.kind == 11)
+                .ok_or(Error::Identity)?;
+            let raw = read(&checkpoint.path, MAX_OBJECT_BYTES)?;
+            if raw.len() < 20 || &raw[..8] != b"TWSC0001" {
+                return Err(Error::Identity);
+            }
+            let state = u32::from_le_bytes(raw[16..20].try_into().unwrap()) as usize;
+            let snapshot = raw
+                .get(20usize.checked_add(state).ok_or(Error::Bounds)?..)
+                .ok_or(Error::Identity)?;
+            if snapshot.len() < 28 || &snapshot[..8] != b"TWSB0001" {
+                return Err(Error::Identity);
+            }
+            let len = u32::from_le_bytes(snapshot[24..28].try_into().unwrap()) as usize;
+            let join: crate::bootstrap::JoinBootstrap = serde_json::from_slice(
+                snapshot
+                    .get(28..28usize.checked_add(len).ok_or(Error::Bounds)?)
+                    .ok_or(Error::Identity)?,
+            )?;
+            crate::catalog::validate_join(&catalog, &join)?;
+        }
+        Ok(())
+    }
     /// Exact v2 anchor/rows embedded in the original closure, so a replica does
     /// not need an unreferenced worker-local file to retain the actual inputs.
     pub fn merged_anchor(&mut self, bytes: &[u8]) -> Result<()> {

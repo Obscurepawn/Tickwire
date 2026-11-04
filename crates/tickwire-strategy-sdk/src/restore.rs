@@ -212,6 +212,12 @@ impl VerifiedRestoreInput {
         proof: &tickwire_release::replay::source::VerifiedSourceReplay,
     ) -> Result<Self> {
         validate_target(&target)?;
+        if tickwire_release::replay::source::catalog_binding(proof.current())
+            .map_err(|_| Error::Input)?
+            .is_some()
+        {
+            return Err(Error::Unsupported);
+        }
         let completion = proof.completion();
         let member = &release.migration.member;
         if &completion.member != member

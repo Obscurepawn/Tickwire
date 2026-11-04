@@ -11,8 +11,22 @@ pub(crate) fn fixture_with_action(
     Source,
     VersionedBytes,
 ) {
+    fixture_with_catalog(spent, None)
+}
+fn fixture_with_catalog(
+    spent: bool,
+    catalog: Option<std::sync::Arc<tickwire_instrument_catalog::Catalog>>,
+) -> (
+    ReleaseBundle,
+    Operation,
+    Member,
+    VerifiedSourceReplay,
+    crate::restore::Target,
+    Source,
+    VersionedBytes,
+) {
     let (mut op, member, mut completion, mut objects) =
-        super::super::source_tests::fixture_with_action(spent);
+        super::super::source_tests::fixture_with_catalog(spent, catalog);
     let caps = crate::restore::FixedDemoFactory.capabilities();
     let files = [
         Role::Binary,
@@ -707,4 +721,15 @@ fn startup_restore_is_a_distinct_stage_and_cannot_decode_as_a_finished_preflight
     assert_eq!(verified.completion, stage);
     assert!(tickwire_release::receipt::Completion::decode(&bytes).is_err());
     assert!(tickwire_release::replay::rollback::Completion::decode(&bytes).is_err());
+}
+
+#[test]
+fn catalog_direct_restore_input_cannot_strip_saved_dependency() {
+    let (bundle, op, member, proof, target, _, _) =
+        fixture_with_catalog(false, Some(application::catalog_tests::catalog()));
+    let release = bundle.verify_operation(&op, &member).unwrap();
+    assert!(matches!(
+        crate::restore::VerifiedRestoreInput::from_replayed(&release, target, &proof),
+        Err(crate::restore::Error::Unsupported)
+    ));
 }

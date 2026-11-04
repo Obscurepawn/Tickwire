@@ -1,4 +1,5 @@
 //! Concrete file-backed assembly of the Binance trading owners.
+mod catalog;
 use crate::{
     authority::{GateProvider, LocalAuthority, RecoveryQueue},
     node::{self, Bindings, CoreNode, Observer, Strategy},
@@ -57,6 +58,7 @@ pub enum OpenMode {
     },
 }
 pub struct Configuration {
+    pub instrument_catalog: Option<std::sync::Arc<tickwire_instrument_catalog::Catalog>>,
     pub directories: Directories,
     pub mode: OpenMode,
     pub account: tickwire_account_gateway::Config,
@@ -153,6 +155,7 @@ where
     S: Strategy,
     O: public::PublicSink,
 {
+    config.validate_instrument_catalog()?;
     if config.directories.account == config.directories.input
         || config.directories.account == config.directories.recovery
         || config.directories.input == config.directories.recovery

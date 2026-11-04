@@ -43,7 +43,11 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     if args.next().is_some() {
         return Err("unexpected argument".into());
     }
-    let config: Bootstrap = worker::read_config(std::path::Path::new(&path), 2 * 1024 * 1024)?;
+    let config: Bootstrap = worker::read_config(
+        std::path::Path::new(&path),
+        tickwire_strategy_sdk::bootstrap::MAX_BOOTSTRAP_BYTES,
+    )?;
+    tickwire_strategy_sdk::catalog::validate_startup(&config)?;
     if config.factory.is_some() {
         return Err("this executable has no user factory registration".into());
     }

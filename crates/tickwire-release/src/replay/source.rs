@@ -16,6 +16,9 @@ pub struct SourceJob {
     pub anchor: ObjectFile,
     pub tail: ObjectFile,
     pub checkpoint: ObjectFile,
+    /// Original kind9 named by both authenticated source cuts. Never a current template.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub catalog_bootstrap: Option<ObjectFile>,
     pub output_directory: PathBuf,
 }
 impl SourceJob {
@@ -33,6 +36,9 @@ impl SourceJob {
             || [&j.request, &j.capture, &j.anchor, &j.tail, &j.checkpoint]
                 .iter()
                 .any(|f| !f.path.is_absolute())
+            || j.catalog_bootstrap
+                .as_ref()
+                .is_some_and(|f| !f.path.is_absolute())
         {
             return Err(Error::Identity);
         }
@@ -310,6 +316,43 @@ impl VerifiedSourceReplay {
         {
             return Err(Error::Identity);
         }
+        let expected_catalog = catalog_binding(&fixed)?;
+        if catalog_binding(&current)? != expected_catalog {
+            return Err(Error::Identity);
+        }
+        match (expected_catalog, &job.catalog_bootstrap) {
+            (None, None) => {}
+            (Some(expected), Some(file)) => {
+                let bytes = get(file.object)?;
+                let bootstrap: serde_json::Value =
+                    serde_json::from_slice(bytes).map_err(|_| Error::Encoding)?;
+                let artifact = bootstrap.get("instrument_catalog").ok_or(Error::Missing)?;
+                let raw: Vec<u8> =
+                    serde_json::from_value(artifact.get("bytes").cloned().ok_or(Error::Missing)?)
+                        .map_err(|_| Error::Encoding)?;
+                let digest: Hash =
+                    serde_json::from_value(artifact.get("digest").cloned().ok_or(Error::Missing)?)
+                        .map_err(|_| Error::Encoding)?;
+                expected.verify(&raw, 2 * 1024 * 1024)?;
+                if expected.digest != digest {
+                    return Err(Error::Identity);
+                }
+                for proof in [c.fixed_proof, c.current_proof] {
+                    let seal = tickwire_recovery::HandoverSeal::decode(get(proof)?)
+                        .map_err(|_| Error::Identity)?;
+                    if seal
+                        .dependencies
+                        .iter()
+                        .find(|(kind, _)| *kind == 9)
+                        .map(|(_, hash)| *hash)
+                        != Some(file.object.digest)
+                    {
+                        return Err(Error::Identity);
+                    }
+                }
+            }
+            _ => return Err(Error::Identity),
+        }
         Ok(Self {
             root,
             completion: c,
@@ -360,4 +403,16 @@ impl VerifiedSourceReplay {
         }
         Ok(())
     }
+}
+
+/// Optional SDK-owned economic context at this precise saved cut.
+pub fn catalog_binding(checkpoint: &Checkpoint) -> Result<Option<Object>> {
+    let value: serde_json::Value =
+        serde_json::from_slice(&checkpoint.business).map_err(|_| Error::Encoding)?;
+    let Some(value) = value.get("instrument_catalog") else {
+        return Ok(None);
+    };
+    let object: Object = serde_json::from_value(value.clone()).map_err(|_| Error::Encoding)?;
+    object.validate(2 * 1024 * 1024)?;
+    Ok(Some(object))
 }

@@ -16,6 +16,7 @@ pub mod deployment;
 pub mod deployment_owner;
 pub mod evidence;
 pub mod https;
+pub mod instrument_catalogs;
 mod objects;
 mod peer_driver;
 pub mod plan_archive;

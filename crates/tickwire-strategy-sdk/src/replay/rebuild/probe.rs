@@ -111,6 +111,14 @@ pub fn qualify(job: &Job) -> crate::Result<Qualified> {
         },
     )?;
     let files = tickwire_release::files::load(&input.plan().files, &job.files)?;
+    if let Some(bytes) = files.bytes(&tickwire_release::Role::Bootstrap) {
+        crate::catalog::reject_lifecycle_bytes(bytes)?;
+    }
+    if let Some(exact) = input.exact()
+        && tickwire_release::replay::source::catalog_binding(exact.checkpoint())?.is_some()
+    {
+        return Err(Error::Unsupported.into());
+    }
     files.recheck()?;
     Ok(Qualified {
         job: Object::of(&job.bytes()?),

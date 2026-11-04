@@ -39,6 +39,19 @@ pub struct Fixture {
 }
 impl Fixture {
     pub fn new(worker: &Path, minimum_observations: u64, minimum_bid_ticks: i64) -> Self {
+        Self::new_with_market(
+            worker,
+            minimum_observations,
+            minimum_bid_ticks,
+            Market::start(),
+        )
+    }
+    pub fn new_with_market(
+        worker: &Path,
+        minimum_observations: u64,
+        minimum_bid_ticks: i64,
+        market: Market,
+    ) -> Self {
         static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
         let root = PathBuf::from(format!(
             "/tmp/tpp-{}-{}",
@@ -47,7 +60,6 @@ impl Fixture {
         ));
         private(&root);
         private(&root.join("runtime"));
-        let market = Market::start();
         let meta = fs::metadata("/proc/self").unwrap();
         let build = tickwire_recovery::digest(&fs::read(worker).unwrap());
         let (mut b, _) = channels::bootstrap(&root, build, meta.uid(), meta.gid());

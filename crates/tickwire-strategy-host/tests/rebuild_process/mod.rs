@@ -62,6 +62,7 @@ fn setup(c: &mut Capture, dir: &Path, worker: &Path) -> RebuildSetup {
     h.descriptor_hash = [0; 32];
     let template_path = dir.join("recovery-template.json");
     let b = Bootstrap {
+        instrument_catalog: None,
         version: 1,
         market: c.market.endpoint.clone(),
         external_market: Some(c.market.clone()),

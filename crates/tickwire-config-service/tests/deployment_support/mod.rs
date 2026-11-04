@@ -178,7 +178,16 @@ impl Fixture {
         now: u64,
         lifetime_ms: u64,
         alter_candidate: impl FnOnce(&mut Value),
+        alter_fact: impl FnMut(Kind, &mut Value),
+    ) -> Self {
+        Self::with_catalogs(now, lifetime_ms, alter_candidate, alter_fact, |_| {})
+    }
+    pub fn with_catalogs(
+        now: u64,
+        lifetime_ms: u64,
+        alter_candidate: impl FnOnce(&mut Value),
         mut alter_fact: impl FnMut(Kind, &mut Value),
+        mut alter_catalog: impl FnMut(&mut Value),
     ) -> Self {
         let mut v = Candidate::parse(
             Format::Toml,
@@ -219,6 +228,26 @@ impl Fixture {
         );
         for s in v["strategies"].as_array_mut().unwrap() {
             s["parameter_schema_ref"] = parameters_ref.clone().into();
+        }
+        for (i, venue) in v["venues"].as_array_mut().unwrap().iter_mut().enumerate() {
+            let spot = venue["product"] == "Spot";
+            let mut body = json!({
+                "schema":1,"venue":i+1,"environment":if venue["environment"] == "production" {"Production"} else {"Test"},
+                "market":venue["product"],"catalog_version":"1",
+                "assets":[{"id":"1","version":"1","symbol":"BTC","exponent":-8},
+                    {"id":"2","version":"1","symbol":"USDT","exponent":-8},
+                    {"id":"3","version":"1","symbol":"BNB","exponent":-8}],
+                "instruments":[{"id":"18446744073709551615","version":"1","symbol":"BTCUSDT",
+                    "product":if spot {"Spot"} else {"LinearPerpetual"},"base":"1","quote":"2","settlement":"2",
+                    "price_tick":"0.01","quantity_step":"0.001","contract":{"kind":if spot {"Cash"} else {"Perpetual"}}}]
+            });
+            alter_catalog(&mut body);
+            venue["instrument_catalog_ref"] = put(
+                &mut artifacts,
+                "instruments",
+                &serde_json::to_vec(&body).unwrap(),
+            )
+            .into();
         }
         let mut sign_refs = vec![];
         for i in 0..v["accounts"].as_array().unwrap().len() {

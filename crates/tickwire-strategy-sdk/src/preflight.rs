@@ -450,6 +450,7 @@ pub fn verify_bootstrap(template: &Bootstrap, effective: &Bootstrap) -> Result<(
     Ok(())
 }
 pub fn target(config: &Bootstrap, loaded: &files::LoadedFiles) -> Result<restore::Target> {
+    crate::catalog::reject_lifecycle(config)?;
     verify_recovery_inputs(config.recovery_template.as_deref(), loaded)?;
     let state = loaded.bytes(&Role::StrategyConfig).ok_or(Error::Identity)?;
     let command = if let Some(factory) = &config.factory {

@@ -104,7 +104,36 @@ pub(super) fn run(
         paused: true,
     };
     let capture = object(workspace.path(), &capture.bytes()?)?;
+    let expected_catalog = tickwire_release::replay::source::catalog_binding(&a)?;
+    if tickwire_release::replay::source::catalog_binding(&c)? != expected_catalog {
+        return Err(Error::Invalid);
+    }
+    let catalog_bootstrap = if expected_catalog.is_some() {
+        let fixed_seal = tickwire_recovery::HandoverSeal::decode(find(
+            &fixed_objects,
+            fixed.input_seal_digest,
+        )?)?;
+        let dependency = |seal: &tickwire_recovery::HandoverSeal| {
+            seal.dependencies
+                .iter()
+                .find(|(k, _)| *k == 9)
+                .map(|(_, h)| *h)
+                .ok_or(Error::Invalid)
+        };
+        let hash = dependency(&seal)?;
+        if dependency(&fixed_seal)? != hash {
+            return Err(Error::Invalid);
+        }
+        let bytes = find(&current_objects, hash)?;
+        if find(&fixed_objects, hash)? != bytes {
+            return Err(Error::Invalid);
+        }
+        Some(object(workspace.path(), bytes)?)
+    } else {
+        None
+    };
     let job = SourceJob {
+        catalog_bootstrap,
         schema: 1,
         binding,
         source: a.source.clone(),

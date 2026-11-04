@@ -78,3 +78,7 @@ cargo fmt -p tickwire-config-service
 归档保留原始 Full/Patch、真实提交基线、候选、规范计划、规划规则摘要、完整旧新投影、全部资料包与信任配置。依赖先上传并封口，最后原子登记根与主体幂等键；同请求重试返回首次位置。来源替换、过期和证书撤销会终止未提交保存；已提交事实由当前权限下的安全读返回。取消不撤销已经提交的对象，没有对象垃圾回收。
 
 历史恢复只校验固定格式、封口闭包及历史绑定，不根据当前时钟或当前业务规则改判旧事实；重新用于发布时必须重新核验。旧空归档快照保持原字节，非空归档使用显式新格式并校验完整依赖。desired 仍为引导修订，不生成 Ready、操作或运行时收据。
+
+## 标的经济正文核验
+
+`ContentValidated::check` 使用共享 `tickwire-instrument-catalog` 核对全部 venue 的 `instrument_catalog_ref` 正文，保存全局名称、原始引用、正文派生的数字 venue 与完整经济绑定。`instrument_catalogs::Catalogs` 是内容事实，不授予发布权限；新增依赖为共享目录和 `tickwire-venue`。原始 SHA 合法仍须通过严格格式、产品和环境核验。测试使用重新计算摘要且重新签署报告的反例。规格见[标的经济目录](../../specs/implementation/instrument-catalog.md)。
