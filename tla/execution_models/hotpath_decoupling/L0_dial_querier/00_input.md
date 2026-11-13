@@ -1,0 +1,3 @@
+# Can off-hot-path dialing race the session owner or overflow stalled REST replies?
+
+Can concurrent owner resets or stops race `"tw-dialer"` into aliasing or leaking a staged socket (`crates/tickwire-transport/src/dialer.rs:273-370`, `crates/tickwire-transport/src/dialer.rs:827-944`), or can `"tw-rest-query"` drop a reply or miscount zero-byte failures when the `RESP` consumer stalls arbitrarily (`crates/tickwire-transport/src/rest_querier.rs:525-578`, `crates/tickwire-transport/src/rest_querier.rs:621-701`, `crates/tickwire-transport/src/rest_querier.rs:965-1206`)? [Transport specification](../../../../specs/implementation/transport.md)

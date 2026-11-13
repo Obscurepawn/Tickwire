@@ -288,9 +288,12 @@ impl<S: Store> AccountIngress<S> {
         gap: u64,
         through: u64,
     ) -> Vec<(IntentKey, u64)> {
+        let Ok(end) = self.local_end(through) else {
+            return Vec::new();
+        };
         let mut seen = std::collections::BTreeSet::new();
         let mut out = Vec::new();
-        for (index, r) in self.records.iter().enumerate().take(through as usize).rev() {
+        for (index, r) in self.records[..end].iter().enumerate().rev() {
             let Record::Rest(r) = r else { continue };
             let Some(q) = r.structure_query else { continue };
             if !seen.insert(q.structure_id)
@@ -300,13 +303,13 @@ impl<S: Store> AccountIngress<S> {
             {
                 continue;
             }
-            let Ok(mut b) = self.original_binding(account, history, index as u64 + 1, through)
-            else {
+            let seq = self.seq_at(index);
+            let Ok(mut b) = self.original_binding(account, history, seq, through) else {
                 continue;
             };
             b.coverage_digest = [1; 32];
             if account.clone().close_uncreated_algo(&b).is_ok() {
-                out.push((q.intent, index as u64 + 1));
+                out.push((q.intent, seq));
             }
         }
         out.reverse();
@@ -362,11 +365,7 @@ impl<S: Store> AccountIngress<S> {
         })
     }
     fn parent_query(&self, seq: u64) -> Result<(&RestRecord, &v::StructureObservation)> {
-        let index = usize::try_from(seq)
-            .ok()
-            .and_then(|n| n.checked_sub(1))
-            .ok_or(Error::Identity)?;
-        let Record::Rest(r) = self.records.get(index).ok_or(Error::Identity)? else {
+        let Record::Rest(r) = self.record_at_seq(seq).ok_or(Error::Identity)? else {
             return Err(Error::Identity);
         };
         if r.structure_query.is_none()
@@ -460,14 +459,12 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Identity);
         }
-        let begin = self.records[..m.query.sequence as usize]
-            .iter()
-            .rev()
-            .find_map(|r| match r {
-                Record::BeginReconciliation { epoch, generation } => Some((*epoch, *generation)),
-                Record::Gap { .. } => Some((0, 0)),
-                _ => None,
-            });
+        let q_end = self.local_end(m.query.sequence)?;
+        let begin = self.records[..q_end].iter().rev().find_map(|r| match r {
+            Record::BeginReconciliation { epoch, generation } => Some((*epoch, *generation)),
+            Record::Gap { .. } => Some((0, 0)),
+            _ => None,
+        });
         if begin != Some((m.private_epoch, m.gap)) {
             return Err(Error::Identity);
         }

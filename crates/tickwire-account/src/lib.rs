@@ -10,6 +10,7 @@ mod events;
 mod external;
 mod handover;
 mod live_bootstrap;
+pub mod pool;
 mod recovery;
 mod structures;
 #[cfg(test)]
@@ -17,6 +18,7 @@ mod structures;
 mod test_common;
 mod types;
 pub use live_bootstrap::LiveBootstrap;
+pub use pool::{PoolFull, WindowedTable};
 use std::collections::{BTreeMap, BTreeSet};
 pub use tickwire_risk::Fixed;
 use tickwire_risk::{RiskError, Rounding};
@@ -37,7 +39,7 @@ struct Position {
     entry: Fixed,
     ownership: BTreeMap<u64, Fixed>,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 struct Order {
     key: OrderKey,
     digest: v::Hash,
@@ -70,7 +72,45 @@ struct Order {
     internal_id: Option<[u8; 16]>,
     owner_revision: u64,
     shadow_fee_credit: Fixed,
+    created_mono_ns: u64,
+    retired_mono_ns: Option<u64>,
 }
+impl PartialEq for Order {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+            && self.digest == other.digest
+            && self.instrument == other.instrument
+            && self.strategy == other.strategy
+            && self.origin == other.origin
+            && self.manager == other.manager
+            && self.spec == other.spec
+            && self.amendable == other.amendable
+            && self.original == other.original
+            && self.effective == other.effective
+            && self.observed_cumulative == other.observed_cumulative
+            && self.filled == other.filled
+            && self.price == other.price
+            && self.received == other.received
+            && self.notional == other.notional
+            && self.paid == other.paid
+            && self.terminal_cumulative == other.terminal_cumulative
+            && self.observed_unknown == other.observed_unknown
+            && self.recovery_unknown == other.recovery_unknown
+            && self.observation_unreconciled == other.observation_unreconciled
+            && self.terminal == other.terminal
+            && self.fees_closed == other.fees_closed
+            && self.aborted == other.aborted
+            && self.uncreated == other.uncreated
+            && self.economic == other.economic
+            && self.confirmed == other.confirmed
+            && self.reduce == other.reduce
+            && self.native == other.native
+            && self.internal_id == other.internal_id
+            && self.owner_revision == other.owner_revision
+            && self.shadow_fee_credit == other.shadow_fee_credit
+    }
+}
+impl Eq for Order {}
 impl Order {
     // A contradictory venue fact restores the original liability before a later
     // reconciliation can reenable admission. It never allocates a new ticket.
@@ -84,6 +124,7 @@ impl Order {
         self.aborted = false;
         self.uncreated = false;
         self.fees_closed = false;
+        self.retired_mono_ns = None;
         if matches!(self.spec.mode, v::ProductMode::Derivative { .. })
             && (self.spec.reduce_only
                 || matches!(
@@ -114,12 +155,27 @@ impl Order {
                 .positive_part())
         }
     }
+    pub(crate) fn is_retirable(&self) -> bool {
+        (self.aborted
+            || self.uncreated
+            || (self.terminal
+                && self.fees_closed
+                && self.remaining().map(|r| r.atoms() == 0).unwrap_or(false)))
+            && !self.unknown()
+            && !self.observation_unreconciled
+            && self.reduce.atoms() == 0
+    }
 }
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct FactKey {
     order: OrderKey,
     kind: u8,
     id: String,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct FactEntry {
+    fact: EconomicFact,
+    recorded_mono_ns: u64,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum EconomicFact {
@@ -143,12 +199,16 @@ pub struct Account {
     catalog: BTreeMap<u64, InstrumentPolicy>,
     positions: BTreeMap<(u64, u8), Position>,
     orders: BTreeMap<OrderKey, Order>,
+    orders_by_client_id: BTreeMap<(u64, v::ClientId), Vec<OrderKey>>,
+    orders_by_native_id: BTreeMap<(u64, v::VenueOrderId), Vec<OrderKey>>,
+    orders_by_internal_id: BTreeMap<[u8; 16], Vec<OrderKey>>,
+    orders_by_intent: BTreeMap<IntentKey, Vec<OrderKey>>,
     structures: BTreeMap<[u8; 16], structures::Structure>,
     structure_management: BTreeMap<IntentKey, structures::Management>,
     amendments: BTreeMap<IntentKey, amendments::Amendment>,
     structure_observed: bool,
     admissions: BTreeMap<IntentKey, Admission>,
-    facts: BTreeMap<FactKey, EconomicFact>,
+    facts: BTreeMap<FactKey, FactEntry>,
     external_facts: BTreeMap<(u8, String), external::ExternalValue>,
     account_inputs: account_inputs::AccountInputs,
     handovers: BTreeMap<([u8; 16], u64), StrategyHandover>,
@@ -157,6 +217,8 @@ pub struct Account {
     uncovered_debits: BTreeMap<u64, Fixed>,
     shadow_unvalued: BTreeSet<u64>,
     strategy_sequence_floors: BTreeMap<u64, IntentKey>,
+    retention_window_ns: Option<u64>,
+    last_mono_ns: u64,
     frozen: bool,
     /// First unapplied observation is retained if arithmetic/identity validation fails.
     rejected_event: Option<v::CanonicalEvent>,
@@ -184,6 +246,10 @@ impl Account {
             catalog: BTreeMap::new(),
             positions: BTreeMap::new(),
             orders: BTreeMap::new(),
+            orders_by_client_id: BTreeMap::new(),
+            orders_by_native_id: BTreeMap::new(),
+            orders_by_internal_id: BTreeMap::new(),
+            orders_by_intent: BTreeMap::new(),
             structures: BTreeMap::new(),
             structure_management: BTreeMap::new(),
             amendments: BTreeMap::new(),
@@ -198,6 +264,8 @@ impl Account {
             uncovered_debits: BTreeMap::new(),
             shadow_unvalued: BTreeSet::new(),
             strategy_sequence_floors: BTreeMap::new(),
+            retention_window_ns: Some(DEFAULT_RETENTION_WINDOW_NS),
+            last_mono_ns: 0,
             frozen: false,
             rejected_event: None,
         };
@@ -327,8 +395,22 @@ impl Account {
         executed_quote: v::Decimal,
         fees: &[v::AssetDelta],
     ) -> bool {
-        matches!(self.facts.get(&FactKey {order:key.clone(),kind:0,id:trade.as_str().to_owned()}),
-            Some(EconomicFact::Fill {quantity:q,price:p,quote:Some(n),pnl:None,fees:f}) if *q == quantity && *p == price && *n==executed_quote && f == fees)
+        matches!(
+            self.facts
+                .get(&FactKey {
+                    order: key.clone(),
+                    kind: 0,
+                    id: trade.as_str().to_owned(),
+                })
+                .map(|e| &e.fact),
+            Some(EconomicFact::Fill {
+                quantity: q,
+                price: p,
+                quote: Some(n),
+                pnl: None,
+                fees: f
+            }) if *q == quantity && *p == price && *n == executed_quote && f == fees
+        )
     }
     /// Terms of the admitted order for matching native order and balance snapshots.
     pub fn order_terms(&self, key: &OrderKey) -> Option<(&v::InstrumentBinding, &v::OrderSpec)> {
@@ -416,6 +498,452 @@ impl Account {
         }
         *self = candidate;
         Ok(())
+    }
+
+    pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
+        self.retention_window_ns = window_ns;
+        self
+    }
+
+    pub fn set_retention_window_ns(&mut self, window_ns: Option<u64>) {
+        self.retention_window_ns = window_ns;
+    }
+
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.retention_window_ns
+    }
+
+    pub fn admission_keys(&self) -> impl Iterator<Item = IntentKey> + '_ {
+        self.admissions.keys().copied()
+    }
+
+    pub fn has_admission(&self, key: IntentKey) -> bool {
+        self.admissions.contains_key(&key)
+    }
+
+    pub fn is_confirmed_amendment(&self, key: IntentKey) -> bool {
+        self.amendments.get(&key).is_some_and(|a| a.confirmed)
+    }
+
+    pub fn is_intent_active(&self, key: IntentKey) -> bool {
+        if let Some(legs) = self.orders_by_intent.get(&key) {
+            if legs.iter().any(|leg| !self.is_order_retirable(leg)) {
+                return true;
+            }
+            if self
+                .structures
+                .values()
+                .any(|s| s.intent == key && !self.is_structure_retirable(s))
+            {
+                return true;
+            }
+            return false;
+        }
+        if let Some(adm) = self.admissions.get(&key) {
+            if !adm.orders.is_empty() {
+                return false;
+            }
+            if let Some(a) = self.amendments.get(&key) {
+                if !a.aborted && !a.confirmed && a.rejected.is_none() {
+                    return true;
+                }
+                if a.confirmed {
+                    return self.orders.contains_key(&a.order)
+                        && !self.is_order_retirable(&a.order);
+                }
+                return false;
+            }
+            return adm.retired_mono_ns.is_none();
+        }
+        false
+    }
+
+    pub fn set_management_retired(&mut self, key: IntentKey, retired_mono_ns: Option<u64>) {
+        if let Some(adm) = self.admissions.get_mut(&key)
+            && adm.orders.is_empty()
+            && !self.amendments.contains_key(&key)
+        {
+            adm.retired_mono_ns = retired_mono_ns;
+        }
+    }
+
+    pub fn intent_retired_mono_ns(&self, key: IntentKey) -> Option<u64> {
+        if self.is_intent_active(key) {
+            return None;
+        }
+        if let Some(legs) = self.orders_by_intent.get(&key) {
+            let mut max_retired = 0u64;
+            for leg in legs {
+                let order_retired = self.orders.get(leg).and_then(|o| o.retired_mono_ns)?;
+                max_retired = max_retired.max(order_retired);
+                for (_, entry) in self
+                    .facts
+                    .range(
+                        FactKey {
+                            order: leg.clone(),
+                            kind: 0,
+                            id: String::new(),
+                        }..,
+                    )
+                    .take_while(|(fk, _)| fk.order == *leg)
+                {
+                    max_retired = max_retired.max(entry.recorded_mono_ns);
+                }
+            }
+            for s in self.structures.values().filter(|s| s.intent == key) {
+                max_retired = max_retired.max(s.retired_mono_ns?);
+            }
+            return Some(max_retired);
+        }
+        if let Some(adm) = self.admissions.get(&key) {
+            if let Some(a) = self.amendments.get(&key) {
+                if a.confirmed {
+                    let order_retired = self.intent_retired_mono_ns(a.order.intent)?;
+                    return Some(a.retired_mono_ns.unwrap_or(0).max(order_retired));
+                }
+                if a.retired_mono_ns.is_some() {
+                    return a.retired_mono_ns;
+                }
+            }
+            return adm.retired_mono_ns;
+        }
+        None
+    }
+
+    pub(crate) fn is_order_retirable(&self, key: &OrderKey) -> bool {
+        let Some(o) = self.orders.get(key) else {
+            return false;
+        };
+        o.is_retirable()
+            && !self
+                .amendments
+                .values()
+                .any(|a| a.order == *key && !a.aborted && !a.confirmed && a.rejected.is_none())
+    }
+
+    pub(crate) fn is_structure_retirable(&self, s: &structures::Structure) -> bool {
+        !s.unknown
+            && (s.terminal
+                || s.legs
+                    .iter()
+                    .all(|k| self.orders.get(k).is_some_and(|o| o.aborted || o.uncreated)))
+            && s.legs.iter().all(|k| self.is_order_retirable(k))
+    }
+
+    pub(crate) fn refresh_order_retirement(&mut self, key: &OrderKey, now_mono_ns: u64) {
+        let stamp = now_mono_ns.max(self.last_mono_ns);
+        let retirable = self.is_order_retirable(key);
+        let intent = key.intent;
+        if let Some(o) = self.orders.get_mut(key) {
+            if retirable {
+                if o.retired_mono_ns.is_none() {
+                    o.retired_mono_ns = Some(stamp.max(o.created_mono_ns));
+                }
+            } else {
+                o.retired_mono_ns = None;
+            }
+        }
+        let structure_ids: Vec<[u8; 16]> = self
+            .structures
+            .iter()
+            .filter_map(|(id, s)| (s.intent == intent).then_some(*id))
+            .collect();
+        for sid in structure_ids {
+            let s_retirable = self
+                .structures
+                .get(&sid)
+                .is_some_and(|s| self.is_structure_retirable(s));
+            if let Some(s) = self.structures.get_mut(&sid) {
+                if s_retirable {
+                    if s.retired_mono_ns.is_none() {
+                        s.retired_mono_ns = Some(stamp);
+                    }
+                } else {
+                    s.retired_mono_ns = None;
+                }
+            }
+        }
+        if self.admissions.contains_key(&intent) {
+            let intent_retired = self.intent_retired_mono_ns(intent);
+            if let Some(adm) = self.admissions.get_mut(&intent)
+                && !adm.orders.is_empty()
+            {
+                adm.retired_mono_ns = intent_retired;
+            }
+        }
+    }
+
+    pub(crate) fn index_order_insert(&mut self, order: &Order) {
+        push_unique(
+            self.orders_by_client_id
+                .entry((order.instrument, order.key.client_id.clone()))
+                .or_default(),
+            order.key.clone(),
+        );
+        push_unique(
+            self.orders_by_intent.entry(order.key.intent).or_default(),
+            order.key.clone(),
+        );
+        if let Some(native) = &order.native {
+            push_unique(
+                self.orders_by_native_id
+                    .entry((order.instrument, native.clone()))
+                    .or_default(),
+                order.key.clone(),
+            );
+        }
+        if let Some(internal_id) = order.internal_id {
+            push_unique(
+                self.orders_by_internal_id.entry(internal_id).or_default(),
+                order.key.clone(),
+            );
+        }
+    }
+
+    pub(crate) fn index_order_bind_native(
+        &mut self,
+        instrument: u64,
+        key: &OrderKey,
+        native: Option<&v::VenueOrderId>,
+        internal_id: Option<[u8; 16]>,
+    ) {
+        if let Some(native) = native {
+            push_unique(
+                self.orders_by_native_id
+                    .entry((instrument, native.clone()))
+                    .or_default(),
+                key.clone(),
+            );
+        }
+        if let Some(internal_id) = internal_id {
+            push_unique(
+                self.orders_by_internal_id.entry(internal_id).or_default(),
+                key.clone(),
+            );
+        }
+    }
+
+    pub(crate) fn index_order_remove(&mut self, order: &Order) {
+        let cid_key = (order.instrument, order.key.client_id.clone());
+        if let Some(vec) = self.orders_by_client_id.get_mut(&cid_key) {
+            vec.retain(|k| k != &order.key);
+            if vec.is_empty() {
+                self.orders_by_client_id.remove(&cid_key);
+            }
+        }
+        if let Some(vec) = self.orders_by_intent.get_mut(&order.key.intent) {
+            vec.retain(|k| k != &order.key);
+            if vec.is_empty() {
+                self.orders_by_intent.remove(&order.key.intent);
+            }
+        }
+        if let Some(native) = &order.native {
+            let nid_key = (order.instrument, native.clone());
+            if let Some(vec) = self.orders_by_native_id.get_mut(&nid_key) {
+                vec.retain(|k| k != &order.key);
+                if vec.is_empty() {
+                    self.orders_by_native_id.remove(&nid_key);
+                }
+            }
+        }
+        if let Some(internal_id) = order.internal_id
+            && let Some(vec) = self.orders_by_internal_id.get_mut(&internal_id)
+        {
+            vec.retain(|k| k != &order.key);
+            if vec.is_empty() {
+                self.orders_by_internal_id.remove(&internal_id);
+            }
+        }
+    }
+
+    fn facts_for_order_expired(&self, key: &OrderKey, now_mono_ns: u64, window_ns: u64) -> bool {
+        self.facts
+            .range(
+                FactKey {
+                    order: key.clone(),
+                    kind: 0,
+                    id: String::new(),
+                }..,
+            )
+            .take_while(|(fk, _)| fk.order == *key)
+            .all(|(_, entry)| {
+                pool::is_expired(Some(entry.recorded_mono_ns), now_mono_ns, Some(window_ns))
+            })
+    }
+
+    pub fn evict_retired_management_admission(&mut self, intent: IntentKey) -> bool {
+        let reclaimable = self.admissions.get(&intent).is_some_and(|adm| {
+            adm.orders.is_empty()
+                && adm.retired_mono_ns.is_some()
+                && self
+                    .amendments
+                    .get(&intent)
+                    .is_none_or(|a| !a.confirmed && (a.aborted || a.rejected.is_some()))
+        });
+        if reclaimable {
+            self.amendments.remove(&intent);
+            self.structure_management.remove(&intent);
+            self.admissions.remove(&intent);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub(crate) fn reclaim_one_retired_management_admission(&mut self) -> bool {
+        let candidate = self
+            .admissions
+            .iter()
+            .filter(|(intent, adm)| {
+                adm.orders.is_empty()
+                    && adm.retired_mono_ns.is_some()
+                    && self
+                        .amendments
+                        .get(intent)
+                        .is_none_or(|a| !a.confirmed && (a.aborted || a.rejected.is_some()))
+            })
+            .min_by_key(|(intent, adm)| {
+                (
+                    adm.retired_mono_ns.unwrap_or(u64::MAX),
+                    adm.sequence,
+                    **intent,
+                )
+            })
+            .map(|(intent, _)| *intent);
+        candidate.is_some_and(|intent| self.evict_retired_management_admission(intent))
+    }
+
+    /// Lazily evicts retired orders, structures, management admissions, shadow holds, and facts
+    /// whose monotonic retirement window has elapsed. Active or unreconciled orders are never
+    /// evicted regardless of age.
+    pub fn evict_expired(&mut self, now_mono_ns: u64) -> usize {
+        if now_mono_ns == 0 {
+            return 0;
+        }
+        self.last_mono_ns = self.last_mono_ns.max(now_mono_ns);
+        let Some(window_ns) = self.retention_window_ns else {
+            return 0;
+        };
+        let mut evicted = 0usize;
+        let evict_order_intents: Vec<IntentKey> = self
+            .orders_by_intent
+            .iter()
+            .filter_map(|(intent, legs)| {
+                let orders_ready = legs.iter().all(|leg| {
+                    self.is_order_retirable(leg)
+                        && self
+                            .orders
+                            .get(leg)
+                            .and_then(|o| o.retired_mono_ns)
+                            .is_some_and(|t| {
+                                pool::is_expired(Some(t), now_mono_ns, Some(window_ns))
+                            })
+                        && self.facts_for_order_expired(leg, now_mono_ns, window_ns)
+                        && self
+                            .amendments
+                            .values()
+                            .filter(|a| a.order == *leg)
+                            .all(|a| {
+                                pool::is_expired(a.retired_mono_ns, now_mono_ns, Some(window_ns))
+                            })
+                });
+                if !orders_ready {
+                    return None;
+                }
+                let structures_ready = self
+                    .structures
+                    .values()
+                    .filter(|s| s.intent == *intent)
+                    .all(|s| {
+                        self.is_structure_retirable(s)
+                            && pool::is_expired(s.retired_mono_ns, now_mono_ns, Some(window_ns))
+                    });
+                structures_ready.then_some(*intent)
+            })
+            .collect();
+
+        for intent in evict_order_intents {
+            if let Some(legs) = self.orders_by_intent.remove(&intent) {
+                for leg_key in legs {
+                    if let Some(removed) = self.orders.remove(&leg_key) {
+                        self.index_order_remove(&removed);
+                        evicted += 1;
+                    }
+                    let fact_keys: Vec<FactKey> = self
+                        .facts
+                        .range(
+                            FactKey {
+                                order: leg_key.clone(),
+                                kind: 0,
+                                id: String::new(),
+                            }..,
+                        )
+                        .take_while(|(fk, _)| fk.order == leg_key)
+                        .map(|(fk, _)| fk.clone())
+                        .collect();
+                    for fk in fact_keys {
+                        self.facts.remove(&fk);
+                    }
+                    let amend_keys: Vec<IntentKey> = self
+                        .amendments
+                        .iter()
+                        .filter_map(|(ak, a)| (a.order == leg_key).then_some(*ak))
+                        .collect();
+                    for ak in amend_keys {
+                        self.amendments.remove(&ak);
+                        self.admissions.remove(&ak);
+                    }
+                }
+            }
+            let struct_ids: Vec<[u8; 16]> = self
+                .structures
+                .iter()
+                .filter_map(|(sid, s)| (s.intent == intent).then_some(*sid))
+                .collect();
+            for sid in struct_ids {
+                self.structures.remove(&sid);
+                let mgmt_keys: Vec<IntentKey> = self
+                    .structure_management
+                    .iter()
+                    .filter_map(|(mk, m)| (m.structure == sid).then_some(*mk))
+                    .collect();
+                for mk in mgmt_keys {
+                    self.structure_management.remove(&mk);
+                    self.admissions.remove(&mk);
+                }
+            }
+            self.shadow_holds.remove(&intent);
+            self.admissions.remove(&intent);
+        }
+
+        let evict_mgmt_intents: Vec<IntentKey> = self
+            .admissions
+            .iter()
+            .filter_map(|(intent, adm)| {
+                if !adm.orders.is_empty() {
+                    return None;
+                }
+                if let Some(a) = self.amendments.get(intent)
+                    && (a.confirmed || (!a.aborted && a.rejected.is_none()))
+                {
+                    return None;
+                }
+                pool::is_expired(adm.retired_mono_ns, now_mono_ns, Some(window_ns))
+                    .then_some(*intent)
+            })
+            .collect();
+        for intent in evict_mgmt_intents {
+            self.amendments.remove(&intent);
+            self.structure_management.remove(&intent);
+            self.admissions.remove(&intent);
+            evicted += 1;
+        }
+        evicted
+    }
+}
+fn push_unique<T: PartialEq>(vec: &mut Vec<T>, item: T) {
+    if !vec.contains(&item) {
+        vec.push(item);
     }
 }
 fn asset_scale(a: &v::AssetRef) -> Result<u8> {

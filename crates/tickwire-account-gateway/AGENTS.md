@@ -25,12 +25,18 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
   send stalls mid-stream, retain the reservation for venue reconciliation.
 * **Exact-prefix reactivation**: Keep recovery and live reactivation gates in [src/recovery.rs](src/recovery.rs) bound
   to the exact `HistoryFrontier` and `CanonicalBaseline` digest before opening replacement connections.
+* **Windowed entry reclamation and management headroom**: In `AccountGateway::evict_retired_entries`
+  ([src/lib.rs](src/lib.rs)), reclaim only `Aborted` or `Flushed` entries that are retired in `Account` and past
+  `retention_window_ns` (never `AwaitingCommit`, `Queued`, `PartiallyAccepted`, or `Unknown`), remove matching
+  `completed_mono_ns` stamps without leaking, and keep `Cancel`/`Query`/`AmendKeepPriority` unblocked when all
+  `max_intents` order slots hold live resting orders.
 
 ## Verification and Specifications
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/binding.rs](src/binding.rs) ·
   [src/recovery.rs](src/recovery.rs) · [src/websocket.rs](src/websocket.rs) ·
-  [tests/submission.rs](tests/submission.rs) · [tests/lifecycle.rs](tests/lifecycle.rs) ·
+  [tests/submission.rs](tests/submission.rs) · [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
+  [tests/lifecycle.rs](tests/lifecycle.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/binance_rest.rs](tests/binance_rest.rs) · [tests/websocket.rs](tests/websocket.rs) ·
   [tests/ingress.rs](tests/ingress.rs) · [tests/income_closure.rs](tests/income_closure.rs) ·

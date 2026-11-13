@@ -104,9 +104,10 @@ impl<S: Store> AccountIngress<S> {
                     continue;
                 }
                 if *input_stream != self.input_stream()
-                    || self.account_effect(
-                        input_sequence.checked_sub(1).ok_or(Error::Identity)? as usize
-                    ) != Some(input.as_ref())
+                    || self
+                        .local_index(*input_sequence)
+                        .and_then(|idx| self.account_effect(idx))
+                        != Some(input.as_ref())
                 {
                     return Err(Error::Identity);
                 }
@@ -147,9 +148,10 @@ impl<S: Store> AccountIngress<S> {
                     input,
                 } => {
                     if *input_stream != self.input_stream()
-                        || self.account_effect(
-                            input_sequence.checked_sub(1).ok_or(Error::Identity)? as usize,
-                        ) != Some(input.as_ref())
+                        || self
+                            .local_index(*input_sequence)
+                            .and_then(|idx| self.account_effect(idx))
+                            != Some(input.as_ref())
                     {
                         return Err(Error::Identity);
                     }
@@ -235,8 +237,7 @@ impl<S: Store> AccountIngress<S> {
                 return Err(Error::Identity);
             }
             let Record::Event(meta, raw, Decision::AccountBound(input)) = self
-                .records
-                .get(g.input.sequence as usize - 1)
+                .record_at_seq(g.input.sequence)
                 .ok_or(Error::Identity)?
             else {
                 return Err(Error::Identity);

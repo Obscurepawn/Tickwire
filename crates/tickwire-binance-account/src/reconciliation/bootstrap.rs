@@ -118,6 +118,7 @@ struct SnapshotPending {
 }
 pub struct AccountSnapshotReader {
     config: ReconcileConfig,
+    pool: WireReadPool,
     next_epoch: u64,
     last: Option<ClockSample>,
     pending: Option<SnapshotPending>,
@@ -129,10 +130,21 @@ impl AccountSnapshotReader {
         Ok(Self {
             next_epoch: validated.next_epoch,
             config,
+            pool: WireReadPool::new(),
             last: None,
             pending: None,
             faulted: false,
         })
+    }
+    pub fn with_pool(mut self, pool: WireReadPool) -> Self {
+        self.pool = pool;
+        self
+    }
+    pub fn set_pool(&mut self, pool: WireReadPool) {
+        self.pool = pool;
+    }
+    pub fn pool(&self) -> &WireReadPool {
+        &self.pool
     }
     pub fn cancel(&mut self) {
         self.pending = None;
@@ -214,7 +226,8 @@ impl AccountSnapshotReader {
         {
             return Err(Error::Stopped);
         }
-        let wire = wire::WireRead::new(&self.config, stamp, started, &bytes)?;
+        let wire =
+            wire::WireRead::reuse_or_connect(&self.pool, &self.config, stamp, started, &bytes)?;
         self.pending = Some(SnapshotPending { query, epoch, wire });
         Ok(())
     }
@@ -248,8 +261,12 @@ impl AccountSnapshotReader {
             }
         };
         let pending = self.pending.take().unwrap();
+        self.pool.recycle(&self.config, pending.wire);
         owner.gateway.freeze_account();
         owner.ingress.ready(&owner.gateway)?;
+        owner
+            .ingress
+            .evict_expired(&mut owner.gateway, response.received);
         let record = SnapshotRecord {
             query,
             epoch: pending.epoch,
@@ -309,11 +326,7 @@ impl AccountSnapshotReader {
 }
 impl<S: Store> AccountIngress<S> {
     pub fn snapshot_evidence(&self, sequence: u64) -> Result<Option<SnapshotEvidence>> {
-        let index = usize::try_from(sequence)
-            .ok()
-            .and_then(|n| n.checked_sub(1))
-            .ok_or(Error::Identity)?;
-        let Record::Snapshot(record) = self.records.get(index).ok_or(Error::Identity)? else {
+        let Record::Snapshot(record) = self.record_at_seq(sequence).ok_or(Error::Identity)? else {
             return Err(Error::Identity);
         };
         if !record.complete {

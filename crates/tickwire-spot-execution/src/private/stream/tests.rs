@@ -17,22 +17,22 @@ type Peer = BufReader<rustls::StreamOwned<rustls::ServerConnection, TcpStream>>;
 
 fn config(venue: SpotVenue) -> StreamConfig {
     static ID: AtomicU64 = AtomicU64::new(0);
-    StreamConfig {
-        directory: std::env::temp_dir().join(format!(
+    StreamConfig::local_durable(
+        std::env::temp_dir().join(format!(
             "tw-private-stream-{}-{}",
             std::process::id(),
             ID.fetch_add(1, Ordering::Relaxed)
         )),
-        scope: Scope {
+        Scope {
             risk_domain_id: [1; 16],
             account: 7,
             venue: venue.id(),
             environment: Environment::Test,
         },
-        uid: "12466".into(),
-        stream_id: [4; 16],
-        boot_id: [8; 16],
-    }
+        "12466",
+        [4; 16],
+        [8; 16],
+    )
 }
 fn frame(peer: &mut impl Write, body: &[u8]) {
     let mut h = vec![0x81];
@@ -209,7 +209,13 @@ fn reconnect_keeps_native_rows_and_marks_each_lost_epoch() {
                     },
                 )
             };
-            run(&mut capture, || start.elapsed().as_nanos() as u64 + 1, d).unwrap();
+            run(
+                &mut capture,
+                || start.elapsed().as_nanos() as u64 + 1,
+                d,
+                |_| {},
+            )
+            .unwrap();
         });
         if venue == SpotVenue::Okx {
             wait(|| reader.drain(0, 8).unwrap().len() == 3);
@@ -372,4 +378,153 @@ fn an_empty_decoder_buffer_between_fragments_is_not_a_drained_connection() {
         PollMessage::Message(_)
     ));
     assert!(ws.at_message_boundary());
+}
+
+#[test]
+fn in_memory_capture_creates_zero_disk_directories_and_trims_consumed_descriptors_past_cap() {
+    let nonexistent = std::env::temp_dir().join(format!(
+        "tw-private-inmem-must-not-exist-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let mut cfg = StreamConfig::in_memory(
+        Scope {
+            risk_domain_id: [1; 16],
+            account: 7,
+            venue: SpotVenue::Bybit.id(),
+            environment: Environment::Test,
+        },
+        "12466",
+        [4; 16],
+        [8; 16],
+    )
+    .with_max_descriptors(8);
+    // Even if directory holds a path, InMemory mode must never touch or create it on disk.
+    cfg.directory = nonexistent.clone();
+
+    let mut capture = Capture::open(cfg).unwrap();
+    let reader = capture.reader();
+    assert!(!nonexistent.exists());
+
+    let mut feed =
+        super::super::PrivateFeed::new(&Credentials::bybit("k", b"s"), 1700000000000).unwrap();
+    feed.on_text(br#"{"op":"auth","success":true,"conn_id":"a"}"#)
+        .unwrap();
+    feed.on_text(br#"{"op":"subscribe","req_id":"twaccount","success":true,"conn_id":"a"}"#)
+        .unwrap();
+
+    capture.begin(10).unwrap();
+    capture.append(Kind::Ready, 11).unwrap();
+    let mut after = 0u64;
+    for ev in reader.drain(after, 16).unwrap() {
+        after = ev.sequence;
+    }
+    assert_eq!(after, 2);
+
+    // Append and drain 48 data frames (> 6 * max_descriptors): consumed descriptors and blobs
+    // trim automatically in RAM without hitting the 8-descriptor cap or touching disk.
+    for idx in 0..48u64 {
+        let raw = serde_json::to_vec(&json!({
+            "topic": "execution.spot",
+            "data": [{
+                "category": "spot",
+                "symbol": "BTCUSDT",
+                "execId": format!("fill-{idx}"),
+            }]
+        }))
+        .unwrap();
+        let super::super::Reaction::Data(batch) = feed.on_text(&raw).unwrap() else {
+            panic!("expected data batch");
+        };
+        capture.data(batch, &raw, 20 + idx).unwrap();
+        let drained = reader.drain(after, 16).unwrap();
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].sequence, after + 1);
+        after = drained[0].sequence;
+        assert!(reader.retained_descriptors() <= 8);
+    }
+    assert_eq!(after, 50);
+    assert!(!nonexistent.exists());
+    // Old trimmed cursors fail closed rather than silently skipping rows.
+    assert!(reader.drain(0, 4).is_err());
+
+    // Conversely, if the reader stops draining and unconsumed descriptors fill max_descriptors,
+    // Capture still fails closed with capacity exhaustion instead of dropping unread events!
+    let mut hit_unconsumed_cap = false;
+    for idx in 0..16u64 {
+        let raw = serde_json::to_vec(&json!({
+            "topic": "execution.spot",
+            "data": [{
+                "category": "spot",
+                "symbol": "BTCUSDT",
+                "execId": format!("unconsumed-{idx}"),
+            }]
+        }))
+        .unwrap();
+        let super::super::Reaction::Data(batch) = feed.on_text(&raw).unwrap() else {
+            panic!("expected data batch");
+        };
+        if capture.data(batch, &raw, 200 + idx).is_err() {
+            hit_unconsumed_cap = true;
+            break;
+        }
+    }
+    assert!(hit_unconsumed_cap);
+    assert!(!nonexistent.exists());
+}
+
+#[test]
+fn mmap_async_capture_persists_and_recovers_native_frames() {
+    let dir = std::env::temp_dir().join(format!(
+        "tw-private-mmap-async-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let cfg = StreamConfig::mmap_async(
+        &dir,
+        Scope {
+            risk_domain_id: [2; 16],
+            account: 9,
+            venue: SpotVenue::Bybit.id(),
+            environment: Environment::Test,
+        },
+        "887766",
+        [5; 16],
+        [9; 16],
+    );
+    let mut capture = Capture::open(cfg.clone()).unwrap();
+    capture.begin(100).unwrap();
+    capture.append(Kind::Ready, 101).unwrap();
+    let epoch = capture.reader().status().unwrap().epoch;
+    let body =
+        br#"{"topic":"execution.spot","data":[{"category":"spot","symbol":"BTCUSDT","execId":"m1"}]}"#;
+    let mut feed =
+        super::super::PrivateFeed::new(&Credentials::bybit("k", b"s"), 1700000000000).unwrap();
+    feed.on_text(br#"{"op":"auth","success":true,"conn_id":"a"}"#)
+        .unwrap();
+    feed.on_text(br#"{"op":"subscribe","req_id":"twaccount","success":true,"conn_id":"a"}"#)
+        .unwrap();
+    let super::super::Reaction::Data(batch) = feed.on_text(body).unwrap() else {
+        panic!("expected data batch");
+    };
+    capture.data(batch, body, 102).unwrap();
+    drop(capture);
+
+    let reopened = Capture::open(cfg).unwrap();
+    let reader = reopened.reader();
+    assert!(reader.has_initial_cursor(epoch, 3));
+    let events = reader.drain(0, 8).unwrap();
+    assert_eq!(events.len(), 3);
+    assert!(matches!(
+        &events[2].kind,
+        EventKind::Data { channel: Channel::Fills, row } if row["execId"] == "m1"
+    ));
+    drop(reopened);
+    fs::remove_dir_all(dir).unwrap();
 }

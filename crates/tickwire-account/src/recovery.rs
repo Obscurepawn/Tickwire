@@ -135,6 +135,11 @@ impl Account {
                 order.recovery_unknown = true;
             }
         }
+        let keys: Vec<_> = account.orders.keys().cloned().collect();
+        let stamp = account.last_mono_ns;
+        for k in keys {
+            account.refresh_order_retirement(&k, stamp);
+        }
         Ok(account)
     }
 }
@@ -193,10 +198,16 @@ impl Account {
             order.shadow_fee_credit = order.shadow_fee_credit.zero_like();
         }
 
+        candidate.last_mono_ns = candidate.last_mono_ns.max(binding.evaluated_at);
         for order in candidate.orders.values_mut() {
             order.observed_unknown = false;
             order.recovery_unknown = false;
             order.observation_unreconciled = false;
+        }
+        let keys: Vec<_> = candidate.orders.keys().cloned().collect();
+        let stamp = candidate.last_mono_ns;
+        for k in keys {
+            candidate.refresh_order_retirement(&k, stamp);
         }
         candidate.frozen = false;
         candidate.rejected_event = None;

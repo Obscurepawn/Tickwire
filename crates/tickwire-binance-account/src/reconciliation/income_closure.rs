@@ -185,11 +185,7 @@ impl<S: Store> AccountIngress<S> {
         Ok(m)
     }
     pub(super) fn reference(&self, sequence: u64) -> Result<Reference> {
-        let index = usize::try_from(sequence)
-            .ok()
-            .and_then(|s| s.checked_sub(1))
-            .ok_or(Error::Identity)?;
-        let bytes = codec::encode(self.records.get(index).ok_or(Error::Identity)?)?;
+        let bytes = codec::encode(self.record_at_seq(sequence).ok_or(Error::Identity)?)?;
         Ok(Reference {
             sequence,
             length: bytes.len() as u64,
@@ -197,6 +193,9 @@ impl<S: Store> AccountIngress<S> {
         })
     }
     pub(super) fn prefix_digest(&self, through: u64) -> Result<v::Hash> {
+        if self.evicted_prefix != 0 {
+            return Err(Error::Identity);
+        }
         let end = usize::try_from(through).map_err(|_| Error::Capacity)?;
         if end == 0 || end > self.records.len() {
             return Err(Error::Identity);
@@ -263,7 +262,7 @@ impl<S: Store> AccountIngress<S> {
         }
         let domain =
             tickwire_clock::ClockDomain::new(m.boot, m.generation).map_err(|_| Error::Identity)?;
-        let end = usize::try_from(b.through_sequence).map_err(|_| Error::Identity)?;
+        let end = self.local_end(b.through_sequence)?;
         let begin = self.records[..end]
             .iter()
             .enumerate()
@@ -278,7 +277,7 @@ impl<S: Store> AccountIngress<S> {
             return Err(Error::Identity);
         }
         let mut next = m.start;
-        let mut last = begin.0 as u64 + 1;
+        let mut last = self.seq_at(begin.0);
         let mut rows = BTreeMap::new();
         let mut received = 0;
         for (reference, start, finish, limit) in &m.leaves {

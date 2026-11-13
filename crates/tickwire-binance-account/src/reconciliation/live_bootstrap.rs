@@ -1,6 +1,5 @@
 //! Cold stateless exchange bootstrap from authenticated Binance Spot / USDⓈ-M REST snapshots.
 
-use crate::registry::Registration;
 use crate::{Error, Result};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -242,8 +241,8 @@ pub fn bootstrap_from_remote_snapshots(
 pub(crate) fn build_imported_registry(
     config: &crate::Config,
     imported: &[ImportedOrderRegistration],
-) -> Result<BTreeMap<tickwire_account::IntentKey, Registration>> {
-    let mut registry = BTreeMap::new();
+) -> Result<crate::registry::OrderRegistry> {
+    let mut registry = crate::registry::OrderRegistry::new();
     for item in imported {
         let key = crate::intent(&item.command);
         if registry.contains_key(&key) {

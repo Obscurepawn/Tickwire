@@ -23,6 +23,10 @@ validity, and exchange reconciliation live above this layer.
 * **Verifier-gated replay**: During reopen in [src/lib.rs](src/lib.rs), pass every admission, handover, income
   association, uncreated-algo closure, and reactivation record through `RecoveryVerifier` against the exact preceding
   `HistoryFrontier` before advancing the reconstructed `Account`.
+* **Optional windowed prefix compaction**: Keep `retention_window_ns` defaulting to `None` so standalone journals
+  enforce `MAX_RECORDS` as modeled in `L0_AccountJournal.tla`; when `retention_window_ns` is enabled, advance
+  `evicted_prefix` in `compact_before` so `position()` and `HistoryFrontier` stay continuous while active admissions in
+  `keep_admissions` retain their `AdmissionOrigin` and retry/conflict guards.
 
 ## Verification and Specifications
 
@@ -30,7 +34,7 @@ validity, and exchange reconciliation live above this layer.
   [src/history.rs](src/history.rs) · [src/identity.rs](src/identity.rs)
 * **Integration tests and fixtures**: [tests/persistence.rs](tests/persistence.rs) ·
   [tests/ingress.rs](tests/ingress.rs) · [tests/income_closure.rs](tests/income_closure.rs) ·
-  [tests/storage_modes.rs](tests/storage_modes.rs) ·
+  [tests/storage_modes.rs](tests/storage_modes.rs) · [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
   [history-vectors.json](tests/data/history-vectors.json)
 * **Specifications and models**: [account-journal.md](../../specs/implementation/account-journal.md) ·
   [account_journal](../../tla/execution_models/account_journal/ROADMAP.md) ·

@@ -222,6 +222,7 @@ struct PendingIncome {
 }
 pub struct IncomeReader {
     config: ReconcileConfig,
+    pool: WireReadPool,
     next_epoch: u64,
     pending: Option<PendingIncome>,
     last: Option<ClockSample>,
@@ -236,10 +237,21 @@ impl IncomeReader {
         Ok(Self {
             next_epoch: validated.next_epoch,
             config,
+            pool: WireReadPool::new(),
             pending: None,
             last: None,
             faulted: false,
         })
+    }
+    pub fn with_pool(mut self, pool: WireReadPool) -> Self {
+        self.pool = pool;
+        self
+    }
+    pub fn set_pool(&mut self, pool: WireReadPool) {
+        self.pool = pool;
+    }
+    pub fn pool(&self) -> &WireReadPool {
+        &self.pool
     }
     pub fn busy(&self) -> bool {
         self.pending.is_some()
@@ -323,7 +335,8 @@ impl IncomeReader {
         {
             return Err(Error::Stopped);
         }
-        let wire = wire::WireRead::new(&self.config, stamp, started, &bytes)?;
+        let wire =
+            wire::WireRead::reuse_or_connect(&self.pool, &self.config, stamp, started, &bytes)?;
         self.pending = Some(PendingIncome { query, epoch, wire });
         Ok(())
     }
@@ -357,7 +370,8 @@ impl IncomeReader {
                 return Err(error);
             }
         };
-        self.pending = None;
+        let p = self.pending.take().unwrap();
+        self.pool.recycle(&self.config, p.wire);
         owner.gateway.freeze_account();
         owner.ingress.ready(&owner.gateway)?;
         let domain = self.last.ok_or(Error::Identity)?.monotonic.domain();
@@ -516,8 +530,10 @@ impl<S: Store> AccountIngress<S> {
         gateway: &mut tickwire_account_gateway::AccountGateway<B, A, E>,
         record: IncomeRecord,
     ) -> Result<InputKey> {
+        self.evict_expired(gateway, record.received);
         self.validate_income(&record)?;
         let sequence = self.position().checked_add(1).ok_or(Error::Capacity)?;
+        let received_mono = record.received;
         let mut records = vec![Record::Income(record.clone())];
         if record.query.purpose == IncomeUse::Account {
             for index in 0..record.rows.len() {
@@ -546,7 +562,9 @@ impl<S: Store> AccountIngress<S> {
             gateway.freeze_account();
             return Err(e.into());
         }
-        self.records.extend(records);
+        for (rec, enc) in records.into_iter().zip(encoded.iter()) {
+            self.push_encoded_record(rec, enc.len(), received_mono);
+        }
         self.retained = retained;
         if record.query.purpose == IncomeUse::Account {
             for (index, row) in record.rows.into_iter().enumerate() {
@@ -567,11 +585,7 @@ impl<S: Store> AccountIngress<S> {
         })
     }
     pub fn income_evidence(&self, sequence: u64) -> Result<Option<IncomeEvidence>> {
-        let index = usize::try_from(sequence)
-            .ok()
-            .and_then(|n| n.checked_sub(1))
-            .ok_or(Error::Identity)?;
-        let Record::Income(r) = self.records.get(index).ok_or(Error::Identity)? else {
+        let Record::Income(r) = self.record_at_seq(sequence).ok_or(Error::Identity)? else {
             return Err(Error::Identity);
         };
         self.validate_income(r)?;

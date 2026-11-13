@@ -104,6 +104,7 @@ impl<S: Store> AccountIngress<S> {
         raw: Vec<u8>,
     ) -> Result<WsResponseOutcome> {
         self.ready(gateway)?;
+        self.evict_expired(gateway, received);
         if !Rc::ptr_eq(&session.owner, &self.ws_owner.0)
             || !session.owner.alive.get()
             || session.owner.epoch.get() != session.identity.connection_epoch
@@ -204,7 +205,10 @@ impl<S: Store> AccountIngress<S> {
             gateway.freeze_account();
             return Err(error.into());
         }
-        self.records.extend(records);
+        let received_mono = record.received;
+        for (rec, enc) in records.into_iter().zip(encoded) {
+            self.push_encoded_record(rec, enc.len(), received_mono);
+        }
         self.retained = retained;
         for (index, event) in record.events.iter().enumerate() {
             if let Err(error) = registry::learn(&mut self.registry, event) {
@@ -311,7 +315,7 @@ impl<S: Store> AccountIngress<S> {
             Some(StoredWsResponse {
                 input: InputKey {
                     stream: self.input_stream(),
-                    sequence: index as u64 + 1,
+                    sequence: self.seq_at(index),
                 },
                 session: &r.session.identity,
                 binding_sequence: r.binding,

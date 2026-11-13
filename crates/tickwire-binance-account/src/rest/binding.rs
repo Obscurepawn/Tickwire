@@ -114,7 +114,7 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
     }
     let reports: Reports<'_> = serde_json::from_str(value.get()).map_err(|_| Error::Encoding)?;
     let mut events = Vec::new();
-    let mut learned = input.registry.clone();
+    let mut overrides: BTreeMap<IntentKey, Registration> = BTreeMap::new();
     let mut candidate = gateway.account().clone();
     if record.order_query.is_none()
         && matches!(
@@ -126,7 +126,9 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
         )
     {
         let parent = super::structure::bind(input, gateway, record, value.get().as_bytes())?;
-        registry::learn(&mut learned, &parent)?;
+        input
+            .registry
+            .learn_with_overrides(&mut overrides, &parent)?;
         if apply_candidate {
             candidate
                 .apply_event(&parent)
@@ -184,8 +186,18 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
             return Err(Error::Encoding);
         }
 
+        let mut candidate_keys = input.registry.candidate_intents_for_symbol(
+            &reply.symbol,
+            reply.order_id,
+            &reply.client_order_id,
+        );
+        candidate_keys.extend(overrides.keys().copied());
+        let native = reply.order_id.to_string();
         let mut matches = Vec::new();
-        for reg in learned.values() {
+        for key in candidate_keys {
+            let Some(reg) = overrides.get(&key).or_else(|| input.registry.get(&key)) else {
+                continue;
+            };
             if reg.command.command().context.instrument.symbol.as_str() != reply.symbol {
                 continue;
             }
@@ -197,7 +209,6 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
                 {
                     continue;
                 }
-                let native = reply.order_id.to_string();
                 let matches_client =
                     if matches!(reg.command.command().body, v::CommandBody::Algo(_)) {
                         id.venue_order_id
@@ -315,7 +326,9 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
         }) {
             return Err(Error::Conflict);
         }
-        registry::learn(&mut learned, &event)?;
+        input
+            .registry
+            .learn_with_overrides(&mut overrides, &event)?;
         if apply_candidate {
             candidate.apply_event(&event).map_err(|_| Error::Identity)?;
         }

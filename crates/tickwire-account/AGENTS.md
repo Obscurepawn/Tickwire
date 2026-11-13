@@ -23,12 +23,18 @@ I/O, sockets, or exchange wire formatting.
   and [src/recovery.rs](src/recovery.rs), and reconstruct stateless cold-start open orders, shared-pool (`strategy 0`)
   settled balances/positions, external lock isolation, and per-strategy `(epoch, intent_id)` sequence floors through
   `Account::from_live_exchange` in [src/live_bootstrap.rs](src/live_bootstrap.rs).
+* **Active-protected windowed eviction, `O(log N)` indices, and management headroom**: Keep [src/pool.rs](src/pool.rs)
+  (`WindowedTable`) free of steady-state heap allocations, synchronize `orders_by_client_id`, `orders_by_native_id`,
+  `orders_by_internal_id`, and `orders_by_intent` across admission, venue ID binding, recovery, bootstrap, and eviction,
+  never evict an active or unreconciled order (`!Order::is_retirable`), and preserve dedicated
+  `MAX_MANAGEMENT_ADMISSIONS` headroom so cancels and queries never starve behind `MAX_ORDERS` live orders.
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/admission.rs](src/admission.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/pool.rs](src/pool.rs) · [src/admission.rs](src/admission.rs) ·
   [src/events.rs](src/events.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
-  [tests/admission.rs](tests/admission.rs) · [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
+  [tests/admission.rs](tests/admission.rs) · [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
+  [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/amend.rs](tests/amend.rs) ·
   [tests/conditional.rs](tests/conditional.rs) · [tests/account_inputs.rs](tests/account_inputs.rs) ·
   [tests/facts.rs](tests/facts.rs) · [tests/futures.rs](tests/futures.rs) · [tests/handover.rs](tests/handover.rs) ·

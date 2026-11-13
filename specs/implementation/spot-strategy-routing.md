@@ -8,7 +8,7 @@ Sharing one single-writer `AccountGateway` across multiple logical strategies se
 
 | Component | Key / Capacity | Contract |
 | --- | --- | --- |
-| `Origins<S>` | Scoped by `(risk_domain_id, venue, environment, account)` | Maintains an O(1) in-memory lookup index (`IntentKey`, local order ID, and native `ClientId`) backed by the configured `BlobStore` (`InMemoryBlobStore` zero-I/O default, `AsyncFileBlobStore` page-cache + async `fdatasync`, or `FileBlobStore`), falling back to `SelfDescribingClientId` decoding for cold-bootstrapped open orders. |
+| `Origins<S>` | Scoped by `(risk_domain_id, venue, environment, account)`, `12,288` preallocated locator slots (`3 * MAX_ORDERS`) | Computes 32-byte SHA-256 locators on the stack with zero heap allocations (`ring::digest::Context`) and stores active aliases in a `WindowedTable<[u8; 32], Origin>` (`retention_window_ns` defaulting to `24 h`), retiring intents via `retire_intent` and lazily evicting expired aliases past `retention_window_ns` while enforcing strict conflict checks inside the active window. Backed by the configured `BlobStore` (`InMemoryBlobStore` zero-I/O default, `AsyncFileBlobStore` page-cache + async `fdatasync`, or `FileBlobStore`), falling back to `SelfDescribingClientId` decoding for cold-bootstrapped open orders. |
 | `RestSession` slot | `pending: Option<(u64, IntentKey)>` (`1` request) | Permits at most one in-flight native HTTP request on the execution connection at a time. |
 | `Completion` | `{ logical_strategy_id, intent, response: Reply }` | Routes decoded native HTTP responses back to the exact strategy member that submitted the request. |
 

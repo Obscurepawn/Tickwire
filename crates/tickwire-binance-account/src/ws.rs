@@ -79,6 +79,8 @@ pub struct WsRequestPlan {
     input: InputKey,
     id: WsRequestId,
     command: CanonicalCommand,
+    created_mono_ns: u64,
+    deadline_mono_ns: u64,
     owner: Rc<OwnerState>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -96,8 +98,8 @@ pub struct SignedWire {
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct BindingRecord {
     session: SessionRecord,
-    sequence: u64,
-    command: CanonicalCommand,
+    pub(crate) sequence: u64,
+    pub(crate) command: CanonicalCommand,
     account_sequence: u64,
     record_digest: v::Hash,
     physical: tickwire_journal::PhysicalFrontier,
@@ -231,7 +233,7 @@ impl<S: Store> AccountIngress<S> {
                 owner: Rc::clone(&self.ws_owner.0),
             });
         }
-        if self.ws_bindings().count() >= MAX_REQUEST_BINDINGS {
+        if self.active_ws_bindings_count() >= MAX_REQUEST_BINDINGS {
             return Err(Error::Capacity);
         }
         self.validate_ws_binding(
@@ -272,9 +274,11 @@ impl<S: Store> AccountIngress<S> {
         journal: &tickwire_account_journal::AccountJournal<B>,
     ) -> Result<()> {
         for b in self.ws_bindings() {
-            let origin = journal
-                .admission_origin(intent(&b.command))
-                .ok_or(Error::Identity)?;
+            let key = intent(&b.command);
+            if self.evicted_intents.contains(&key) && journal.admission_origin(key).is_none() {
+                continue;
+            }
+            let origin = journal.admission_origin(key).ok_or(Error::Identity)?;
             let receipt = origin.receipt();
             if receipt.baseline_digest()!=b.session.identity.baseline_digest || receipt.sequence()!=b.account_sequence
                 || receipt.record_digest()!=b.record_digest || receipt.physical_frontier()!=&b.physical || origin.history().bytes()!=b.history
@@ -282,7 +286,7 @@ impl<S: Store> AccountIngress<S> {
         }
         Ok(())
     }
-    fn ws_bindings(&self) -> impl Iterator<Item = &BindingRecord> {
+    pub(crate) fn ws_bindings(&self) -> impl Iterator<Item = &BindingRecord> {
         self.records.iter().filter_map(|r| {
             if let Record::WsBinding(b) = r {
                 Some(b.as_ref())
@@ -290,6 +294,11 @@ impl<S: Store> AccountIngress<S> {
                 None
             }
         })
+    }
+    fn active_ws_bindings_count(&self) -> usize {
+        self.ws_bindings()
+            .filter(|b| !self.evicted_intents.contains(&intent(&b.command)))
+            .count()
     }
     pub(crate) fn validate_ws_binding(
         &self,
@@ -307,7 +316,7 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Identity);
         }
-        if self.ws_bindings().count() >= MAX_REQUEST_BINDINGS {
+        if self.active_ws_bindings_count() >= MAX_REQUEST_BINDINGS {
             return Err(Error::Capacity);
         }
         Ok(())
@@ -405,6 +414,16 @@ impl WsRequestPlan {
     pub fn session(&self) -> &SessionIdentity {
         &self.session
     }
+    pub fn created_mono_ns(&self) -> u64 {
+        self.created_mono_ns
+    }
+    pub fn deadline_mono_ns(&self) -> u64 {
+        self.deadline_mono_ns
+    }
+    pub fn with_created_mono_ns(mut self, created_mono_ns: u64) -> Self {
+        self.created_mono_ns = created_mono_ns;
+        self
+    }
 }
 impl<S: Store> AccountIngress<S> {
     /// Revokes all live WS plans/bindings before dropping or replacing a connection.
@@ -494,20 +513,21 @@ impl<S: Store> AccountIngress<S> {
             sequence: self.position().checked_add(1).ok_or(Error::Capacity)?,
         };
         let id = request_id(&actual.identity, input.sequence);
+        let created_mono_ns = c.context.strategy.created_mono_ns;
+        let deadline_mono_ns = r.deadline;
         Ok(WsRequestPlan {
             session: actual.identity.clone(),
             input,
             id,
             command,
+            created_mono_ns,
+            deadline_mono_ns,
             owner: Rc::clone(&self.ws_owner.0),
         })
     }
 
     fn latest_ws_session(&self) -> Option<&SessionRecord> {
-        self.records.iter().rev().find_map(|r| match r {
-            Record::WsSession(session) => Some(session),
-            _ => None,
-        })
+        self.latest_ws_session.as_ref()
     }
 
     pub(crate) fn validate_ws_session(

@@ -2,9 +2,10 @@
 
 `tickwire-spot-execution` (`#![forbid(unsafe_code)]`) implements authenticated Bybit V5 and OKX V5 cash-spot REST
 request signing (`SpotEncoder`), single-flight gateway sessions (`RestSession`), synchronous response classification
-(`decode_reply`), private WebSocket stream capture (`private`), and UID-bound REST recovery collection (`recovery`,
-`observe`, and the `tickwire-spot-observe` binary). `tickwire-spot-runner` drives `RestSession` over an injected
-`AccountGateway`; strategy scheduling, balance math, and control leases remain outside this crate.
+(`decode_reply`), `StorageMode`-aware private WebSocket stream capture (`private`), background dialer connection
+handoff (`network::{LiveNetwork, SocketConnection}`), and UID-bound REST recovery collection (`recovery`, `observe`,
+and the `tickwire-spot-observe` binary). `tickwire-spot-runner` drives `RestSession` over an injected `AccountGateway`;
+strategy scheduling, balance math, and control leases remain outside this crate.
 
 ## Invariants and Change Guidelines
 
@@ -16,18 +17,26 @@ request signing (`SpotEncoder`), single-flight gateway sessions (`RestSession`),
   [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from trade-level fills in
   [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs); enforce
   `writer_epoch > durable_floor` when constructing `RestSession`.
+* **`StorageMode`-aware private capture and bounded `InMemory` windowing**: In
+  [src/private/capture.rs](src/private/capture.rs) and [src/private/stream.rs](src/private/stream.rs), `StreamConfig`
+  selects `StorageMode::InMemory` (`Journal<InMemoryStore>` + `InMemoryBlobStore` with zero disk directories/syscalls
+  and bounded ring trimming of consumed descriptors/frame blobs past `max_descriptors`), `StorageMode::MmapAsync`
+  (`Journal<MmapAsyncStore>` + `AsyncFileBlobStore`), or `StorageMode::LocalDurable` (strict `0o077` owner-only
+  directory checks with `Journal<FileStore>` + `FileBlobStore`).
+* **Off-hot-path background reconnects and calibrated venue timestamps**: Use `LiveNetwork` and `SocketConnection` in
+  [src/network.rs](src/network.rs) to integrate optional `Dialer` + `DialBaton` pre-warmed TCP+TLS reconnects off the
+  `AccountRunner` hot path, and supply calibrated UTC milliseconds via the injected `time` closure in `SpotEncoder` and
+  `network::venue_time`, failing closed when time calibration is unavailable.
 * **Replayable UID-bound REST recovery transcripts**: `RestReader` in [src/recovery.rs](src/recovery.rs) and `observe`
   in [src/observe.rs](src/observe.rs) execute an identical paging and cashflow verification plan on live collection
   and local replay, refusing unsupported margin, transfer, or non-cash activity (`src/recovery/cash_flows.rs`,
   `src/recovery/profile.rs`).
-* **Calibrated venue timestamps**: Supply calibrated UTC milliseconds via the injected `time` closure in `SpotEncoder`
-  and `network::venue_time` in [src/network.rs](src/network.rs), failing closed when time calibration is unavailable.
 
 ## Verification and Specifications
 
 * **Source and binaries**: [src/lib.rs](src/lib.rs) · [src/session.rs](src/session.rs) ·
   [src/reports.rs](src/reports.rs) · [src/fills.rs](src/fills.rs) · [src/private.rs](src/private.rs) ·
-  [src/recovery.rs](src/recovery.rs) · [src/observe.rs](src/observe.rs) ·
+  [src/network.rs](src/network.rs) · [src/recovery.rs](src/recovery.rs) · [src/observe.rs](src/observe.rs) ·
   [src/bin/tickwire-spot-observe.rs](src/bin/tickwire-spot-observe.rs)
 * **Integration tests**: [tests/protocol.rs](tests/protocol.rs) · [tests/session.rs](tests/session.rs) ·
   [tests/private.rs](tests/private.rs) · [tests/recovery.rs](tests/recovery.rs) ·

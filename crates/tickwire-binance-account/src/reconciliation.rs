@@ -31,6 +31,7 @@ pub mod structures;
 mod trades;
 mod wire;
 pub use closure::ReconciliationOrder;
+pub use wire::WireReadPool;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TradeQuery {
@@ -122,6 +123,7 @@ struct Pending {
 }
 pub struct ReadOnlyReconciler {
     config: ReconcileConfig,
+    pool: WireReadPool,
     next_epoch: u64,
     pending: Option<Pending>,
     last: Option<ClockSample>,
@@ -146,10 +148,21 @@ impl ReadOnlyReconciler {
         Ok(Self {
             next_epoch: config.first_connection_epoch,
             config,
+            pool: WireReadPool::new(),
             pending: None,
             last: None,
             faulted: false,
         })
+    }
+    pub fn with_pool(mut self, pool: WireReadPool) -> Self {
+        self.pool = pool;
+        self
+    }
+    pub fn set_pool(&mut self, pool: WireReadPool) {
+        self.pool = pool;
+    }
+    pub fn pool(&self) -> &WireReadPool {
+        &self.pool
     }
     pub fn cancel(&mut self) {
         self.pending = None;
@@ -246,7 +259,8 @@ impl ReadOnlyReconciler {
         if now.monotonic_ns() >= deadline_mono || now.instant >= deadline {
             return Err(Error::Stopped);
         }
-        let wire = wire::WireRead::new(&self.config, stamp, started, &bytes)?;
+        let wire =
+            wire::WireRead::reuse_or_connect(&self.pool, &self.config, stamp, started, &bytes)?;
         self.pending = Some(Pending {
             query,
             command,
@@ -300,6 +314,7 @@ impl ReadOnlyReconciler {
             }
         };
         let p = self.pending.take().unwrap();
+        self.pool.recycle(&self.config, p.wire);
         let body = response.body.as_deref().filter(|_| response.status == 200);
         owner.gateway.freeze_account();
         owner.ingress.ready(&owner.gateway)?;

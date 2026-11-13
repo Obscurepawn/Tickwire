@@ -110,7 +110,7 @@ impl<S: Store> ReactivationVerifier for ActivationVerifier<'_, S> {
         writer: u64,
     ) -> std::result::Result<(), AuthorityError> {
         if self.input.stopped
-            || self.input.cursor as u64 + 1 != binding.through_sequence
+            || self.input.applied_position() + 1 != binding.through_sequence
             || writer != self.input.config.writer_epoch
         {
             return Err(AuthorityError::Denied);
@@ -203,16 +203,13 @@ pub(super) fn evidence_at<S: Store>(
     input: &AccountIngress<S>,
     through: u64,
 ) -> Result<[SnapshotEvidence; 3]> {
-    let end = usize::try_from(through).map_err(|_| Error::Identity)?;
-    if end == 0 || end > input.records.len() {
-        return Err(Error::Identity);
-    }
+    let end = input.local_end(through)?;
     let mut found = Vec::with_capacity(3);
     for (index, record) in input.records[..end].iter().enumerate().rev() {
         if matches!(record, Record::Snapshot(_)) {
             found.push(
                 input
-                    .snapshot_evidence(index as u64 + 1)?
+                    .snapshot_evidence(input.seq_at(index))?
                     .ok_or(Error::Identity)?,
             );
             if found.len() == 3 {
@@ -279,7 +276,10 @@ pub(super) fn verify_with_projection<S: Store>(
             return Err(Error::Identity);
         }
     }
-    let end = binding.through_sequence as usize;
+    let end = input.local_end(binding.through_sequence)?;
+    let first_snap_local = input
+        .local_index(evidence[0].input().sequence)
+        .ok_or(Error::Identity)?;
     let last_gap = input.records[..end].iter().rev().find_map(|r| match r {
         Record::BeginReconciliation { epoch, generation } => Some((*epoch, *generation)),
         Record::Gap { .. } => Some((0, 0)),
@@ -288,7 +288,7 @@ pub(super) fn verify_with_projection<S: Store>(
     if last_gap != Some((binding.private_connection_epoch, binding.gap_generation)) {
         return Err(Error::Identity);
     }
-    for record in &input.records[evidence[0].input().sequence as usize..end] {
+    for record in &input.records[first_snap_local + 1..end] {
         match record {
             Record::Gap { .. } | Record::BeginReconciliation { .. } => return Err(Error::Identity),
             Record::Event(meta, _, _) if meta.epoch != binding.private_connection_epoch => {
@@ -344,6 +344,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                 } => Some((*epoch, *generation)),
                 _ => None,
             })
+            .max()
+            .into_iter()
+            .chain(self.ingress.latest_gap_marker)
             .max();
         if latest.is_some_and(|old| (token.connection_epoch(), token.generation()) < old) {
             return Err(Error::Identity);
@@ -354,7 +357,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                     if *epoch == token.connection_epoch() && *generation == token.generation() {
                         return Ok(InputKey {
                             stream: self.ingress.input_stream(),
-                            sequence: index as u64 + 1,
+                            sequence: self.ingress.seq_at(index),
                         });
                     }
                     break;

@@ -56,30 +56,33 @@ pub(super) fn bind<S: Store, B: Backend, A: Authority, E: Encoder>(
         environment: scope.environment,
         connection_epoch: record.epoch,
     };
-    let mut found = None;
-    for reg in input.registry.values() {
-        let Ok(event) = tickwire_binance::events::bind_structure_response(
-            &session,
-            input.market()?,
-            &reg.command,
-            &reg.orders,
-            bytes,
-            record.received,
-        ) else {
-            continue;
-        };
-        let v::VenueEventBody::Structure(parent) = &event.event().body else {
-            return Err(Error::Identity);
-        };
-        if !allowed(&record.command, &reg.command, &parent.parent) {
-            continue;
+    let candidate_reg = match &record.command.command().body {
+        v::CommandBody::SpotList(_) | v::CommandBody::Algo(_) => {
+            input.registry.get(&intent(&record.command))
         }
-        if found.is_some() || gateway.command(intent(&reg.command)) != Some(&reg.command) {
-            return Err(Error::Identity);
-        }
-        found = Some(event);
+        v::CommandBody::CancelList(t) => input.registry.by_list_id(t.list_id),
+        v::CommandBody::CancelAlgo(t) => input.registry.by_parent_order_id(t.parent_order_id),
+        _ => None,
+    };
+    let reg = candidate_reg.ok_or(Error::Identity)?;
+    let event = tickwire_binance::events::bind_structure_response(
+        &session,
+        input.market()?,
+        &reg.command,
+        &reg.orders,
+        bytes,
+        record.received,
+    )
+    .map_err(|_| Error::Identity)?;
+    let v::VenueEventBody::Structure(parent) = &event.event().body else {
+        return Err(Error::Identity);
+    };
+    if !allowed(&record.command, &reg.command, &parent.parent)
+        || gateway.command(intent(&reg.command)) != Some(&reg.command)
+    {
+        return Err(Error::Identity);
     }
-    found.ok_or(Error::Identity)
+    Ok(event)
 }
 
 /// Re-decode the actual bounded HTTP response before accepting a retained parent event.

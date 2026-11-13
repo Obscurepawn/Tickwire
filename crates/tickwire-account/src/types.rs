@@ -5,10 +5,12 @@ use tickwire_venue as v;
 pub const MAX_ASSETS: usize = 64;
 pub const MAX_INSTRUMENTS: usize = 64;
 pub const MAX_ORDERS: usize = 1024;
+pub const MAX_MANAGEMENT_ADMISSIONS: usize = 4096;
 pub const MAX_FACTS: usize = 16384;
 pub const MAX_STRATEGIES: usize = 1024;
 pub const MAX_BRACKETS: usize = 128;
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub const DEFAULT_RETENTION_WINDOW_NS: u64 = 86_400_000_000_000;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AssetKey {
     pub wallet_id: u64,
     pub asset_id: u64,
@@ -18,7 +20,7 @@ pub struct AssetAmount {
     pub key: AssetKey,
     pub amount: Fixed,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct IntentKey {
     pub epoch: u64,
     pub intent_id: u64,
@@ -27,6 +29,12 @@ pub struct IntentKey {
 pub struct OrderKey {
     pub intent: IntentKey,
     pub client_id: v::ClientId,
+}
+impl std::hash::Hash for OrderKey {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.intent.hash(state);
+        self.client_id.as_str().hash(state);
+    }
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StructureView {
@@ -135,7 +143,7 @@ pub struct CapitalHold {
     pub settlement_asset: u64,
     pub amount: Fixed,
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Admission {
     pub(crate) digest: v::Hash,
     pub(crate) key: IntentKey,
@@ -147,7 +155,23 @@ pub struct Admission {
     pub(crate) capital: Vec<CapitalHold>,
     pub(crate) orders: Vec<OrderKey>,
     pub(crate) increases: bool,
+    pub(crate) retired_mono_ns: Option<u64>,
 }
+impl PartialEq for Admission {
+    fn eq(&self, other: &Self) -> bool {
+        self.digest == other.digest
+            && self.key == other.key
+            && self.epoch == other.epoch
+            && self.sequence == other.sequence
+            && self.revisions == other.revisions
+            && self.deadline == other.deadline
+            && self.resources == other.resources
+            && self.capital == other.capital
+            && self.orders == other.orders
+            && self.increases == other.increases
+    }
+}
+impl Eq for Admission {}
 impl Admission {
     pub fn command_digest(&self) -> v::Hash {
         self.digest

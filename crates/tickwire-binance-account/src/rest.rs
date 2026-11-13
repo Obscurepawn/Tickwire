@@ -84,6 +84,17 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
     pub fn execution_connection_epoch(&self) -> u64 {
         self.config.connection_epoch
     }
+    pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
+        self.set_retention_window_ns(window_ns);
+        self
+    }
+    pub fn set_retention_window_ns(&mut self, window_ns: Option<u64>) {
+        self.ingress.set_retention_window_ns(window_ns);
+        self.gateway.set_retention_window_ns(window_ns);
+    }
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.ingress.retention_window_ns()
+    }
     pub fn from_parts(
         ingress: AccountIngress<S>,
         gateway: AccountGateway<B, A, E>,

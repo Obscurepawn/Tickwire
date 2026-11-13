@@ -1,6 +1,7 @@
 //! Durable private-event input and order identity registration.
 #![forbid(unsafe_code)]
-use std::collections::BTreeMap;
+use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, BTreeSet};
 use tickwire_account::{Applied, IntentKey};
 use tickwire_account_codec::CanonicalBaseline;
 use tickwire_journal::{Journal, PhysicalFrontier, store::Store};
@@ -15,7 +16,7 @@ mod runtime;
 mod structure;
 pub mod ws;
 use codec::Record;
-use registry::Registration;
+use registry::{OrderRegistry, Registration};
 pub const MAX_RECORD_BYTES: usize = 60 * 1024;
 
 #[derive(Clone)]
@@ -117,8 +118,23 @@ enum Decision {
 pub struct AccountIngress<S: Store> {
     journal: Journal<S>,
     config: Config,
+    baseline_assets: Vec<v::AssetRef>,
     records: Vec<Record>,
-    registry: BTreeMap<IntentKey, Registration>,
+    record_sizes: Vec<usize>,
+    record_mono_ns: Vec<u64>,
+    evicted_prefix: usize,
+    registry: OrderRegistry,
+    registered_mono_ns: BTreeMap<IntentKey, u64>,
+    evicted_intents: BTreeSet<IntentKey>,
+    verified_gateway_intents: RefCell<BTreeSet<IntentKey>>,
+    min_gateway_record_count: Cell<u64>,
+    min_gateway_ledger_seq: Cell<u64>,
+    last_paired_state: Cell<Option<([u8; 32], u64, u64)>>,
+    latest_ws_session: Option<ws::SessionRecord>,
+    latest_gap_marker: Option<(u64, u64)>,
+    last_observed_mono_ns: u64,
+    retention_window_ns: Option<u64>,
+    retention_window_overridden: bool,
     retained: usize,
     cursor: usize,
     stopped: bool,
@@ -140,6 +156,123 @@ impl<S: Store> AccountIngress<S> {
             .export_durable(first_sequence, maximum_records, maximum_bytes)
             .map_err(Into::into)
     }
+    pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
+        self.set_retention_window_ns(window_ns);
+        self
+    }
+    pub fn set_retention_window_ns(&mut self, window_ns: Option<u64>) {
+        self.retention_window_ns = window_ns;
+        self.retention_window_overridden = true;
+    }
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.retention_window_ns
+    }
+    #[inline]
+    pub(crate) fn seq_at(&self, local_idx: usize) -> u64 {
+        (self.evicted_prefix + local_idx) as u64 + 1
+    }
+    #[inline]
+    pub(crate) fn local_index(&self, seq: u64) -> Option<usize> {
+        usize::try_from(seq)
+            .ok()?
+            .checked_sub(1)?
+            .checked_sub(self.evicted_prefix)
+            .filter(|&idx| idx < self.records.len())
+    }
+    #[inline]
+    pub(crate) fn record_at_seq(&self, seq: u64) -> Option<&Record> {
+        self.records.get(self.local_index(seq)?)
+    }
+    #[inline]
+    pub(crate) fn local_end(&self, through: u64) -> Result<usize> {
+        let n = usize::try_from(through).map_err(|_| Error::Identity)?;
+        if n == 0 {
+            return Err(Error::Identity);
+        }
+        let end = n.checked_sub(self.evicted_prefix).ok_or(Error::Identity)?;
+        if end == 0 || end > self.records.len() {
+            return Err(Error::Identity);
+        }
+        Ok(end)
+    }
+    pub(crate) fn observe_mono_ns(&mut self, mono_ns: u64) {
+        if mono_ns == 0 {
+            return;
+        }
+        if self.last_observed_mono_ns == 0 {
+            for slot in &mut self.record_mono_ns {
+                if *slot == 0 {
+                    *slot = mono_ns;
+                }
+            }
+            for slot in self.registered_mono_ns.values_mut() {
+                if *slot == 0 {
+                    *slot = mono_ns;
+                }
+            }
+        }
+        self.last_observed_mono_ns = self.last_observed_mono_ns.max(mono_ns);
+    }
+    pub(crate) fn record_timestamp(&self, record: &Record) -> u64 {
+        let ts = match record {
+            Record::Register(cmd, _) => cmd.command().context.strategy.created_mono_ns,
+            Record::Event(meta, _, _) => meta.received,
+            Record::Snapshot(s) => s.received,
+            Record::Rest(r) => r.received,
+            Record::Income(r) => r.received,
+            Record::IncomeImport(r) => r.accepted,
+            Record::IncomeAssociation(r) => r.accepted,
+            Record::WsResponse(r) => r.received,
+            Record::WsSessionEvent(e) => e.received,
+            Record::WsBinding(b) => b.command.command().context.strategy.created_mono_ns,
+            Record::Config(_)
+            | Record::WsSession(_)
+            | Record::WsEffect { .. }
+            | Record::RestEffect { .. }
+            | Record::IncomeEffect { .. }
+            | Record::AssociationPolicy(_)
+            | Record::Gap { .. }
+            | Record::BeginReconciliation { .. } => 0,
+        };
+        ts.max(self.last_observed_mono_ns)
+    }
+    pub(crate) fn push_encoded_record(&mut self, record: Record, encoded_len: usize, mono_ns: u64) {
+        self.observe_mono_ns(mono_ns);
+        let stamp = if mono_ns > 0 {
+            mono_ns.max(self.last_observed_mono_ns)
+        } else {
+            self.record_timestamp(&record)
+        };
+        self.observe_mono_ns(stamp);
+        match &record {
+            Record::WsSession(session) => {
+                self.latest_ws_session = Some(session.clone());
+            }
+            Record::BeginReconciliation { epoch, generation }
+            | Record::Gap {
+                epoch, generation, ..
+            } => {
+                self.latest_gap_marker = Some(
+                    self.latest_gap_marker
+                        .map_or((*epoch, *generation), |old| old.max((*epoch, *generation))),
+                );
+            }
+            _ => {}
+        }
+        self.records.push(record);
+        self.record_sizes.push(encoded_len);
+        self.record_mono_ns.push(stamp);
+        self.last_paired_state.set(None);
+    }
+}
+fn extract_baseline_assets(config: &Config) -> Vec<v::AssetRef> {
+    let mut assets = Vec::new();
+    for asset in &config.baseline.snapshot().assets {
+        if !assets.contains(&asset.asset) {
+            assets.push(asset.asset.clone());
+        }
+    }
+    assets
 }
 impl<S: Store> AccountIngress<S> {
     pub fn create(store: S, config: Config) -> Result<Self> {
@@ -151,7 +284,12 @@ impl<S: Store> AccountIngress<S> {
         imported: &[reconciliation::live_bootstrap::ImportedOrderRegistration],
     ) -> Result<Self> {
         validate_config(&config)?;
+        let baseline_assets = extract_baseline_assets(&config);
         let registry = reconciliation::live_bootstrap::build_imported_registry(&config, imported)?;
+        let mut registered_mono_ns = BTreeMap::new();
+        for (key, reg) in &registry {
+            registered_mono_ns.insert(*key, reg.command.command().context.strategy.created_mono_ns);
+        }
         let mut journal = Journal::create(store, config.physical.clone())?;
         let record = Record::Config(codec::config(&config));
         let bytes = codec::encode(&record)?;
@@ -159,9 +297,24 @@ impl<S: Store> AccountIngress<S> {
         Ok(Self {
             journal,
             config,
+            baseline_assets,
             retained: bytes.len(),
             records: vec![record],
+            record_sizes: vec![bytes.len()],
+            record_mono_ns: vec![0],
+            evicted_prefix: 0,
             registry,
+            registered_mono_ns,
+            evicted_intents: BTreeSet::new(),
+            verified_gateway_intents: RefCell::new(BTreeSet::new()),
+            min_gateway_record_count: Cell::new(0),
+            min_gateway_ledger_seq: Cell::new(0),
+            last_paired_state: Cell::new(None),
+            latest_ws_session: None,
+            latest_gap_marker: None,
+            last_observed_mono_ns: 0,
+            retention_window_ns: Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS),
+            retention_window_overridden: false,
             cursor: 1,
             stopped: false,
             closure_store: None,
@@ -182,11 +335,27 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Identity);
         }
+        let baseline_assets = extract_baseline_assets(&config);
         let mut input = Self {
             journal,
             config,
+            baseline_assets,
             records: Vec::new(),
-            registry: BTreeMap::new(),
+            record_sizes: Vec::new(),
+            record_mono_ns: Vec::new(),
+            evicted_prefix: 0,
+            registry: OrderRegistry::new(),
+            registered_mono_ns: BTreeMap::new(),
+            evicted_intents: BTreeSet::new(),
+            verified_gateway_intents: RefCell::new(BTreeSet::new()),
+            min_gateway_record_count: Cell::new(0),
+            min_gateway_ledger_seq: Cell::new(0),
+            last_paired_state: Cell::new(None),
+            latest_ws_session: None,
+            latest_gap_marker: None,
+            last_observed_mono_ns: 0,
+            retention_window_ns: Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS),
+            retention_window_overridden: false,
             retained: 0,
             cursor: 1,
             stopped: false,
@@ -197,7 +366,7 @@ impl<S: Store> AccountIngress<S> {
         let mut writer = 0;
         let mut effects: Option<(u64, usize, usize, u8)> = None;
         for physical in recovered.records {
-            if physical.seq != input.records.len() as u64 + 1
+            if physical.seq != input.position() + 1
                 || physical.exec_epoch < writer
                 || physical.exec_epoch == 0
                 || physical.exec_epoch > input.config.writer_epoch
@@ -237,8 +406,10 @@ impl<S: Store> AccountIngress<S> {
                     {
                         return Err(Error::Identity);
                     }
-                    let Some(Record::WsResponse(header)) = input.records.get(expected as usize - 1)
-                    else {
+                    let Some(local_idx) = input.local_index(expected) else {
+                        return Err(Error::Identity);
+                    };
+                    let Record::WsResponse(header) = &input.records[local_idx] else {
                         return Err(Error::Identity);
                     };
                     registry::learn(&mut input.registry, &header.events[next])?;
@@ -264,6 +435,15 @@ impl<S: Store> AccountIngress<S> {
                     }
                     let reg =
                         registry::prepare(&input.config, &input.registry, command, ids, false)?;
+                    input.registered_mono_ns.insert(
+                        key,
+                        command
+                            .command()
+                            .context
+                            .strategy
+                            .created_mono_ns
+                            .max(input.last_observed_mono_ns),
+                    );
                     input.registry.insert(key, reg);
                 }
                 Record::Event(meta, raw, decision) => {
@@ -342,8 +522,10 @@ impl<S: Store> AccountIngress<S> {
                     {
                         return Err(Error::Identity);
                     }
-                    let Some(Record::Rest(header)) = input.records.get(expected as usize - 1)
-                    else {
+                    let Some(local_idx) = input.local_index(expected) else {
+                        return Err(Error::Identity);
+                    };
+                    let Record::Rest(header) = &input.records[local_idx] else {
                         return Err(Error::Identity);
                     };
                     registry::learn(&mut input.registry, &header.events[next])?;
@@ -367,7 +549,7 @@ impl<S: Store> AccountIngress<S> {
             if input.retained > input.config.max_retained_bytes {
                 return Err(Error::Capacity);
             }
-            input.records.push(record);
+            input.push_encoded_record(record, physical.payload.len(), 0);
         }
         if effects.is_some() {
             return Err(Error::Identity);
@@ -397,7 +579,14 @@ impl<S: Store> AccountIngress<S> {
             }
             Err(error) => return Err(error),
         };
+        let created_mono = command
+            .command()
+            .context
+            .strategy
+            .created_mono_ns
+            .max(self.last_observed_mono_ns);
         self.append(Record::Register(command, ids.to_vec()))?;
+        self.registered_mono_ns.insert(key, created_mono);
         self.registry.insert(key, reg);
         self.cursor = self.records.len();
         Ok(())
@@ -406,10 +595,10 @@ impl<S: Store> AccountIngress<S> {
         self.registry.get(&key).map(|r| &r.command)
     }
     pub fn position(&self) -> u64 {
-        self.records.len() as u64
+        (self.evicted_prefix + self.records.len()) as u64
     }
     pub fn applied_position(&self) -> u64 {
-        self.cursor as u64
+        (self.evicted_prefix + self.cursor) as u64
     }
     pub fn input_stream(&self) -> [u8; 16] {
         self.config.physical.stream_epoch
@@ -441,7 +630,7 @@ impl<S: Store> AccountIngress<S> {
                 Some(StoredEvent {
                     input: InputKey {
                         stream: self.config.physical.stream_epoch,
-                        sequence: index as u64 + 1,
+                        sequence: self.seq_at(index),
                     },
                     connection_epoch: meta.epoch,
                     subscription_id: meta.subscription,
@@ -482,7 +671,7 @@ impl<S: Store> AccountIngress<S> {
             self.stopped = true;
             return Err(error.into());
         }
-        self.records.push(record);
+        self.push_encoded_record(record, bytes.len(), 0);
         self.retained = retained;
         Ok(InputKey {
             stream: self.config.physical.stream_epoch,
@@ -512,7 +701,7 @@ impl<S: Store> AccountIngress<S> {
                 (
                     InputKey {
                         stream: self.input_stream(),
-                        sequence: index as u64 + 1,
+                        sequence: self.seq_at(index),
                     },
                     e,
                 )
@@ -522,10 +711,7 @@ impl<S: Store> AccountIngress<S> {
     pub(crate) fn account_effect(&self, index: usize) -> Option<&v::CanonicalAccountInput> {
         match self.records.get(index)? {
             Record::Event(_, _, Decision::AccountBound(event)) => Some(event),
-            Record::IncomeEffect { response, index } => match self
-                .records
-                .get(usize::try_from(*response).ok()?.checked_sub(1)?)?
-            {
+            Record::IncomeEffect { response, index } => match self.record_at_seq(*response)? {
                 Record::Income(record) => record.rows.get(*index as usize),
                 _ => None,
             },

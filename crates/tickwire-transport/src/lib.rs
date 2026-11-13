@@ -1,7 +1,13 @@
 //! Bounded, explicitly driven nonblocking network transport.
+#![deny(unsafe_code)]
+#![deny(unsafe_op_in_unsafe_fn)]
 pub use mio;
 pub use rustls;
-use std::{io, sync::Arc, time::Instant};
+use std::{
+    io,
+    sync::{Arc, OnceLock},
+    time::Instant,
+};
 #[derive(Debug)]
 pub enum Error {
     Bounds,
@@ -113,8 +119,16 @@ pub struct DriveReport {
     pub syscalls: usize,
     pub peer_closed: bool,
 }
+pub type ClockFn = Arc<dyn Fn() -> u64 + Send + Sync>;
+pub fn mono_now_ns() -> u64 {
+    static EPOCH: OnceLock<Instant> = OnceLock::new();
+    let base = *EPOCH.get_or_init(Instant::now);
+    1_000_000_000u64.saturating_add(u64::try_from(base.elapsed().as_nanos()).unwrap_or(u64::MAX))
+}
 mod connection;
 pub use connection::Connection;
+pub mod dialer;
 pub mod fix;
 pub mod http;
+pub mod rest_querier;
 pub mod ws;

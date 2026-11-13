@@ -1,12 +1,12 @@
 //! Compare authenticated REST observations with the current replayed account.
 //! Match every ordinary live order and position against the replayed account.
 //! Unknown remote orders or unsupported conditional liabilities retain the freeze.
-use crate::registry::Registration;
+use crate::registry::OrderRegistry;
 use crate::{Error, Result};
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
+use tickwire_account::OrderKey;
 use tickwire_account::{Account, Fixed};
-use tickwire_account::{IntentKey, OrderKey};
 use tickwire_account_codec::CanonicalBaseline;
 use tickwire_binance::{decimal::Decimal, request::Market};
 use tickwire_venue as v;
@@ -31,7 +31,7 @@ fn verify_snapshot(
         account_body,
         open_orders_body,
         conditional_orders_body,
-        &BTreeMap::new(),
+        &OrderRegistry::new(),
     )
 }
 
@@ -42,7 +42,7 @@ pub(crate) fn verify_snapshot_with_orders(
     account_body: &[u8],
     open_orders_body: &[u8],
     conditional_orders_body: &[u8],
-    registry: &BTreeMap<IntentKey, Registration>,
+    registry: &OrderRegistry,
 ) -> Result<()> {
     if [account_body, open_orders_body, conditional_orders_body]
         .iter()
@@ -115,7 +115,7 @@ fn conditional_orders(
     baseline: &CanonicalBaseline,
     account: &Account,
     body: &[u8],
-    registry: &BTreeMap<IntentKey, Registration>,
+    registry: &OrderRegistry,
 ) -> Result<BTreeSet<OrderKey>> {
     let rows: Vec<&serde_json::value::RawValue> =
         serde_json::from_slice(body).map_err(|_| Error::Encoding)?;
@@ -208,7 +208,7 @@ fn ordinary_orders(
     market: Market,
     account: &Account,
     body: &[u8],
-    registry: &BTreeMap<IntentKey, Registration>,
+    registry: &OrderRegistry,
     waiting: &BTreeSet<OrderKey>,
 ) -> Result<()> {
     let rows: Vec<OpenOrder<'_>> = serde_json::from_slice(body).map_err(|_| Error::Encoding)?;
@@ -224,24 +224,11 @@ fn ordinary_orders(
         {
             return Err(Error::Conflict);
         }
-        let mut matching = registry.iter().filter_map(|(intent, reg)| {
-            (reg.command.command().context.instrument.symbol.as_str() == row.symbol)
-                .then_some(())?;
-            let index = reg.orders.iter().position(|o| {
-                o.venue_order_id
-                    .as_ref()
-                    .is_some_and(|id| id.as_str() == row.order_id.to_string())
-                    && (o.venue_algo_id.is_some()
-                        || o.client_id
-                            .as_ref()
-                            .is_some_and(|id| id.as_str() == row.client_order_id))
-            })?;
-            Some((*intent, reg, index))
-        });
-        let (intent, reg, index) = matching.next().ok_or(Error::Identity)?;
-        if matching.next().is_some() {
+        let matching = registry.lookup_open_order(row.symbol, row.order_id, row.client_order_id);
+        let [(intent, reg, index)] = matching.as_slice() else {
             return Err(Error::Identity);
-        }
+        };
+        let (intent, reg, index) = (*intent, *reg, *index);
         let id = &reg.orders[index];
         let key = OrderKey {
             intent,
@@ -828,14 +815,15 @@ mod tests {
             ],
         )
         .unwrap();
-        let registry = BTreeMap::from([(
+        let mut registry = crate::registry::OrderRegistry::new();
+        registry.insert(
             admission.intent(),
-            Registration {
+            crate::registry::Registration {
                 command: canonical,
                 ids: vec![identity.order_id],
                 orders: vec![identity],
             },
-        )]);
+        );
         let balance=br#"{"canTrade":true,"accountType":"SPOT","balances":[{"asset":"BTC","free":"1","locked":"0"},{"asset":"USDT","free":"940","locked":"60"}]}"#;
         let orders=br#"[{"symbol":"BTCUSDT","orderId":77,"clientOrderId":"test-1","status":"NEW","side":"BUY","type":"LIMIT","origQty":"0.001","executedQty":"0","price":"60000","timeInForce":"GTC","orderListId":-1}]"#;
         assert!(

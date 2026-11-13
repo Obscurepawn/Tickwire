@@ -69,6 +69,7 @@ struct PendingAmendment {
 }
 pub struct ReadOnlyAmendmentReader {
     config: ReconcileConfig,
+    pool: WireReadPool,
     next_epoch: u64,
     pending: Option<PendingAmendment>,
     last: Option<ClockSample>,
@@ -80,10 +81,21 @@ impl ReadOnlyAmendmentReader {
         Ok(Self {
             next_epoch: validated.next_epoch,
             config,
+            pool: WireReadPool::new(),
             pending: None,
             last: None,
             faulted: false,
         })
+    }
+    pub fn with_pool(mut self, pool: WireReadPool) -> Self {
+        self.pool = pool;
+        self
+    }
+    pub fn set_pool(&mut self, pool: WireReadPool) {
+        self.pool = pool;
+    }
+    pub fn pool(&self) -> &WireReadPool {
+        &self.pool
     }
     pub fn cancel(&mut self) {
         self.pending = None;
@@ -188,7 +200,8 @@ impl ReadOnlyAmendmentReader {
         {
             return Err(Error::Stopped);
         }
-        let wire = wire::WireRead::new(&self.config, stamp, started, &bytes)?;
+        let wire =
+            wire::WireRead::reuse_or_connect(&self.pool, &self.config, stamp, started, &bytes)?;
         self.pending = Some(PendingAmendment { query, epoch, wire });
         Ok(())
     }
@@ -223,7 +236,8 @@ impl ReadOnlyAmendmentReader {
                 return Err(error);
             }
         };
-        self.pending = None;
+        let p = self.pending.take().unwrap();
+        self.pool.recycle(&self.config, p.wire);
         let RestOutcome {
             input,
             disposition,

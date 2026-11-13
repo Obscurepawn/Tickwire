@@ -398,6 +398,109 @@ fn policy_and_lease_are_rechecked_after_all_callbacks() {
     assert!(matches!(state.finish_gate(&c, g, p), Err(Error::Denied)));
 }
 
+#[test]
+fn windowed_eviction_reclaims_consumed_and_expired_entries_across_monotonic_windows() {
+    let (state, ns, base_cmd) = setup(5_000_000, None);
+    assert_eq!(
+        state.retention_window_ns(),
+        Some(DEFAULT_RETENTION_WINDOW_NS)
+    );
+    state.set_retention_window_ns(Some(500 * MILLISECOND));
+
+    let make_cmd = |intent_id: u64, created_ns: u64, deadline_ns: u64| {
+        let mut raw = base_cmd.command().clone();
+        raw.context.request.intent_id = intent_id;
+        raw.context.strategy.created_mono_ns = created_ns;
+        raw.context.request.deadline = deadline_ns;
+        if let tickwire_venue::CommandBody::New(ref mut order) = raw.body {
+            order.client_id = tickwire_venue::ClientId::new(format!("win-{intent_id}")).unwrap();
+        }
+        CanonicalCommand::new(raw).unwrap()
+    };
+
+    // Inside a single window (`max_signed_commands = 2`), a 3rd unconsumed command fails with Capacity.
+    ns.set(100 * MILLISECOND);
+    let c1 = make_cmd(1, 100 * MILLISECOND, 10 * SECOND);
+    let c2 = make_cmd(2, 100 * MILLISECOND, 10 * SECOND);
+    let c3 = make_cmd(3, 100 * MILLISECOND, 10 * SECOND);
+    encode(&state, &c1);
+    encode(&state, &c2);
+    let key_hmac = tickwire_binance::auth::SigningKey::hmac(b"unit-test-secret").unwrap();
+    let creds = Credentials {
+        account: 2,
+        environment: tickwire_venue::Environment::Test,
+        market: request::Market::Spot,
+        api_key: "unit-key",
+        signing_key: &key_hmac,
+    };
+    assert!(matches!(
+        state.encoder(creds).encode(&c3),
+        Err(tickwire_gateway::Error::Capacity)
+    ));
+
+    // Consume c1 and c2 at t = 100ms, then execute 8 more sequential requests (> 4 * max_signed_commands = 8, total 10)
+    // across advancing 600ms windows.
+    for cmd in [&c1, &c2] {
+        let p = state.prepare_gate(cmd).unwrap();
+        let mut g = gate();
+        g.now = 100 * MILLISECOND;
+        g.lease_until = 15 * SECOND;
+        state.finish_gate(cmd, g, p).unwrap();
+    }
+    for step in 0..8u64 {
+        let t = (700 + step * 600) * MILLISECOND;
+        ns.set(t);
+        let cmd = make_cmd(10 + step, t, t + 2 * SECOND);
+        encode(&state, &cmd);
+        let p = state.prepare_gate(&cmd).unwrap();
+        let mut g = gate();
+        g.now = t;
+        g.lease_until = 15 * SECOND;
+        state.finish_gate(&cmd, g, p).unwrap();
+        assert!(state.0.borrow().signed.len() <= 2);
+    }
+
+    // Also verify WebSocket `plans` + `signed` evict past deadline + retention_window_ns across > 4 * max_signed_commands.
+    let (ws_state, ws_ns, ws_base) = setup(5_000_000, None);
+    ws_state.set_retention_window_ns(Some(200 * MILLISECOND));
+    let (snapshot, catalog, _) = account_fixture::fixture();
+    let base = tickwire_account_codec::CanonicalBaseline::new(snapshot, catalog).unwrap();
+    let mut input = tickwire_binance_account::AccountIngress::create(
+        tickwire_journal::store::InMemoryStore::new(),
+        tickwire_binance_account::Config {
+            physical: tickwire_journal::Config::new([35; 16], [1; 16]),
+            writer_epoch: 4,
+            baseline: base,
+            account_stream: [36; 16],
+            max_records: 64,
+            max_registrations: 32,
+            max_raw_bytes: 32768,
+            max_retained_bytes: 1 << 20,
+            income_baseline_authority: None,
+            income_association_authority: None,
+        },
+    )
+    .unwrap();
+    let session = input.reserve_ws_session([41; 16], [42; 32]).unwrap();
+    for i in 0..10u64 {
+        let t = (100 + i * 500) * MILLISECOND;
+        ws_ns.set(t);
+        let mut raw = ws_base.command().clone();
+        raw.context.request.intent_id = 100 + i;
+        raw.context.strategy.created_mono_ns = t;
+        raw.context.request.deadline = t + 200 * MILLISECOND;
+        if let tickwire_venue::CommandBody::New(ref mut order) = raw.body {
+            order.client_id = tickwire_venue::ClientId::new(format!("ws-win-{i}")).unwrap();
+        }
+        let cmd = CanonicalCommand::new(raw).unwrap();
+        let plan = input.plan_ws_request(&session, cmd.clone()).unwrap();
+        ws_state.prepare_websocket(plan).unwrap();
+        encode(&ws_state, &cmd);
+        assert!(ws_state.0.borrow().plans.len() <= 2);
+        assert!(ws_state.0.borrow().signed.len() <= 2);
+    }
+}
+
 use gateway_fixture::fixture as account_fixture;
 #[test]
 fn websocket_encoding_keeps_request_id_original_stamp_and_masked_frame() {

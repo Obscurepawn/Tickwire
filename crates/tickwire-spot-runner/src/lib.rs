@@ -94,9 +94,23 @@ impl<
                 &item.client_id,
                 item.order_id,
                 item.command.digest(),
+                0,
             )?;
         }
         Ok(runner)
+    }
+    pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
+        self.set_retention_window_ns(window_ns);
+        self
+    }
+    pub fn set_retention_window_ns(&mut self, window_ns: Option<u64>) {
+        self.origins.set_retention_window_ns(window_ns);
+        self.session
+            .gateway_mut()
+            .set_retention_window_ns(window_ns);
+    }
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.origins.retention_window_ns()
     }
     /// A trusted input owner calls this immediately on lost account qualification.
     pub fn stop_sending(&mut self) {
@@ -219,6 +233,10 @@ impl<
             deadline
         };
         let scope = scope.clone();
+        if matches!(&c.body, CommandBody::New(_)) && self.origins.is_at_capacity() {
+            self.origins
+                .sync_account(self.session.gateway().account(), now.monotonic.nanos());
+        }
         let origin_check = match &c.body {
             CommandBody::New(order) => match order_ids.as_slice() {
                 [id] if *id != [0; 16] => self.origins.register(
@@ -227,6 +245,7 @@ impl<
                     order.client_id.as_str(),
                     *id,
                     command.digest(),
+                    now.monotonic.nanos(),
                 ),
                 _ => Err(Error::Origin(
                     "one nonzero local order ID is required for a new cash order",
@@ -297,7 +316,9 @@ impl<
             return Err(Error::Closure(e));
         }
         let status = status.map_err(Error::Session)?;
-        if status != Status::Aborted {
+        if status == Status::Aborted {
+            self.origins.retire_intent(intent, now.monotonic.nanos());
+        } else {
             self.pending = Some((strategy, intent));
         }
         Ok(status)
@@ -332,11 +353,11 @@ impl<
                 response,
             }));
         }
-        if self
-            .pending
-            .is_some_and(|(_, key)| self.session.gateway().status(key) == Some(Status::Aborted))
+        if let Some((_, key)) = self.pending
+            && self.session.gateway().status(key) == Some(Status::Aborted)
         {
             self.pending = None;
+            self.origins.retire_intent(key, now.monotonic.nanos());
         }
         Ok(None)
     }

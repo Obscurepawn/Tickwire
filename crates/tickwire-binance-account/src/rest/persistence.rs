@@ -12,6 +12,7 @@ impl<S: Store> AccountIngress<S> {
         body: Option<&[u8]>,
     ) -> Result<RestOutcome> {
         self.ready(gateway)?;
+        self.evict_expired(gateway, received);
         let request = intent(&command);
         if epoch == 0
             || raw.len() > self.config.max_raw_bytes
@@ -180,7 +181,10 @@ impl<S: Store> AccountIngress<S> {
             gateway.freeze_account();
             return Err(error.into());
         }
-        self.records.extend(records);
+        let received_mono = record.received;
+        for (rec, enc) in records.into_iter().zip(encoded) {
+            self.push_encoded_record(rec, enc.len(), received_mono);
+        }
         self.retained = retained;
         for (index, event) in record.events.into_iter().enumerate() {
             registry::learn(&mut self.registry, &event)?;
@@ -207,17 +211,11 @@ impl<S: Store> AccountIngress<S> {
     pub(crate) fn effect(&self, index: usize) -> Option<&CanonicalEvent> {
         match self.records.get(index)? {
             Record::Event(_, _, Decision::Bound(event)) => Some(event),
-            Record::WsEffect { response, index } => match self
-                .records
-                .get(usize::try_from(*response).ok()?.checked_sub(1)?)?
-            {
+            Record::WsEffect { response, index } => match self.record_at_seq(*response)? {
                 Record::WsResponse(record) => record.events.get(*index as usize),
                 _ => None,
             },
-            Record::RestEffect { response, index } => match self
-                .records
-                .get(usize::try_from(*response).ok()?.checked_sub(1)?)?
-            {
+            Record::RestEffect { response, index } => match self.record_at_seq(*response)? {
                 Record::Rest(record) => record.events.get(*index as usize),
                 _ => None,
             },
@@ -235,7 +233,7 @@ impl<S: Store> AccountIngress<S> {
                 Some(StoredRest {
                     input: InputKey {
                         stream: self.config.physical.stream_epoch,
-                        sequence: index as u64 + 1,
+                        sequence: self.seq_at(index),
                     },
                     command: &record.command,
                     query: record.query,

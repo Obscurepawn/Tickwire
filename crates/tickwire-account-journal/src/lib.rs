@@ -1,7 +1,10 @@
 //! Ordered account persistence; receipts are durability evidence, not trading authority.
 #![forbid(unsafe_code)]
-use std::{collections::BTreeMap, io};
-use tickwire_account::{Account, IntentKey, RecoveryRecord, Scope};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io,
+};
+use tickwire_account::{Account, IntentKey, OrderKey, RecoveryRecord, Scope};
 use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord, Hash};
 use tickwire_journal::{Journal, PhysicalFrontier, store::Store};
 mod backend;
@@ -179,17 +182,27 @@ impl AdmissionOrigin {
         &self.history
     }
 }
+enum AdmissionSlot {
+    InRecords(usize, AppendReceipt),
+    Retained(Box<CanonicalRecord>, AppendReceipt),
+}
+
 pub struct AccountJournal<S: Backend> {
     physical: Journal<S>,
     config: Config,
     baseline: CanonicalBaseline,
     writer_epoch: u64,
+    evicted_prefix: usize,
     records: Vec<CanonicalRecord>,
-    admissions: BTreeMap<IntentKey, (usize, AppendReceipt)>,
+    admissions: BTreeMap<IntentKey, AdmissionSlot>,
     admission_origins: BTreeMap<IntentKey, AdmissionOrigin>,
     closures: BTreeMap<Hash, (usize, AppendReceipt)>,
     associations: BTreeMap<[u8; 16], (usize, AppendReceipt)>,
     ingress: BTreeMap<([u8; 16], u64), (usize, AppendReceipt)>,
+    retention_window_ns: Option<u64>,
+    last_mono_ns: u64,
+    intent_open_legs: BTreeMap<IntentKey, BTreeSet<OrderKey>>,
+    retired_intents: BTreeMap<IntentKey, u64>,
     poisoned: bool,
     recovered: bool,
     recovery_writer_floor: Option<u64>,
@@ -231,12 +244,17 @@ impl<S: Backend> AccountJournal<S> {
             writer_epoch: config.initial_writer_epoch,
             config,
             baseline,
+            evicted_prefix: 0,
             records: Vec::new(),
             admissions: BTreeMap::new(),
             admission_origins: BTreeMap::new(),
             ingress: BTreeMap::new(),
             closures: BTreeMap::new(),
             associations: BTreeMap::new(),
+            retention_window_ns: None,
+            last_mono_ns: 0,
+            intent_open_legs: BTreeMap::new(),
+            retired_intents: BTreeMap::new(),
             poisoned: false,
             recovered: false,
             recovery_writer_floor: None,
@@ -302,7 +320,7 @@ impl<S: Backend> AccountJournal<S> {
                 // Covers this record after resynchronizing the recovered prefix;
                 // it is not the record's original per-append frontier.
                 let receipt = receipt(&record, recovery.frontier.as_ref().ok_or(Error::Sequence)?);
-                admissions.insert(key, (records.len(), receipt));
+                admissions.insert(key, AdmissionSlot::InRecords(records.len(), receipt));
             }
             if let Some(key) = ingress_key(record.record()) {
                 if ingress.contains_key(&key) {
@@ -425,34 +443,224 @@ impl<S: Backend> AccountJournal<S> {
             .records
             .last()
             .map_or(expected.initial_writer_epoch, |r| r.exec_epoch);
+        let mut journal = Self {
+            physical,
+            config: expected,
+            baseline,
+            writer_epoch: new_writer_epoch,
+            evicted_prefix: 0,
+            records,
+            admissions,
+            admission_origins,
+            ingress,
+            closures,
+            associations,
+            retention_window_ns: None,
+            last_mono_ns: 0,
+            intent_open_legs: BTreeMap::new(),
+            retired_intents: BTreeMap::new(),
+            poisoned: false,
+            recovered: true,
+            recovery_writer_floor: Some(recovery_writer_floor),
+            history,
+        };
+        let replayed: Vec<_> = journal.records.iter().map(|r| r.record().clone()).collect();
+        for rec in &replayed {
+            journal.observe_record_retirement(rec);
+        }
         Ok(Recovered {
-            journal: Self {
-                physical,
-                config: expected,
-                baseline,
-                writer_epoch: new_writer_epoch,
-                records,
-                admissions,
-                admission_origins,
-                ingress,
-                closures,
-                associations,
-                poisoned: false,
-                recovered: true,
-                recovery_writer_floor: Some(recovery_writer_floor),
-                history,
-            },
+            journal,
             account,
             discarded_tail_bytes: recovery.discarded_tail_bytes,
         })
     }
+
+    pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
+        self.retention_window_ns = window_ns;
+        self
+    }
+
+    pub fn set_retention_window_ns(&mut self, window_ns: Option<u64>) {
+        self.retention_window_ns = window_ns;
+    }
+
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.retention_window_ns
+    }
+
+    pub fn evicted_prefix(&self) -> usize {
+        self.evicted_prefix
+    }
+
+    fn record_at_logical(&self, logical_idx: usize) -> Option<&CanonicalRecord> {
+        logical_idx
+            .checked_sub(self.evicted_prefix)
+            .and_then(|local| self.records.get(local))
+    }
+
+    fn admission_entry(&self, key: &IntentKey) -> Option<(&CanonicalRecord, &AppendReceipt)> {
+        match self.admissions.get(key)? {
+            AdmissionSlot::InRecords(idx, r) => Some((self.record_at_logical(*idx)?, r)),
+            AdmissionSlot::Retained(rec, r) => Some((rec.as_ref(), r)),
+        }
+    }
+
+    fn observe_record_retirement(&mut self, record: &RecoveryRecord) {
+        if let Some(t) = record_mono_ns(record)
+            && t > 0
+        {
+            self.last_mono_ns = self.last_mono_ns.max(t);
+        }
+        let stamp = self.last_mono_ns;
+        match record {
+            RecoveryRecord::Admit {
+                command, expected, ..
+            } => {
+                if expected.orders.is_empty() {
+                    if !matches!(
+                        command.command().body,
+                        tickwire_venue::CommandBody::AmendKeepPriority { .. }
+                    ) {
+                        self.retired_intents.insert(expected.intent, stamp);
+                    }
+                } else {
+                    self.intent_open_legs
+                        .insert(expected.intent, expected.orders.iter().cloned().collect());
+                }
+            }
+            RecoveryRecord::VenueEvent(ev) | RecoveryRecord::IngressEvent { event: ev, .. } => {
+                match &ev.event().body {
+                    tickwire_venue::VenueEventBody::Amendment(a) => {
+                        self.retired_intents.insert(
+                            IntentKey {
+                                epoch: a.request_intent_exec_epoch,
+                                intent_id: a.request_intent_id,
+                            },
+                            stamp,
+                        );
+                    }
+                    tickwire_venue::VenueEventBody::AmendmentRejected(a) => {
+                        self.retired_intents.insert(
+                            IntentKey {
+                                epoch: a.request_intent_exec_epoch,
+                                intent_id: a.request_intent_id,
+                            },
+                            stamp,
+                        );
+                    }
+                    _ => {}
+                }
+            }
+            RecoveryRecord::Aborted { intent, .. } => {
+                self.intent_open_legs.remove(intent);
+                self.retired_intents.insert(*intent, stamp);
+            }
+            RecoveryRecord::FeesReconciled { order, .. } => {
+                let done = if let Some(legs) = self.intent_open_legs.get_mut(&order.intent) {
+                    legs.remove(order);
+                    legs.is_empty()
+                } else {
+                    false
+                };
+                if done {
+                    self.intent_open_legs.remove(&order.intent);
+                    self.retired_intents.insert(order.intent, stamp);
+                }
+            }
+            RecoveryRecord::UncreatedAlgoClosed(b) => {
+                self.intent_open_legs.remove(&b.intent);
+                self.retired_intents.insert(b.intent, stamp);
+            }
+            _ => {}
+        }
+    }
+
+    /// Compacts the in-memory `records` prefix down to at most `max_retained` suffix entries,
+    /// preserving logical sequence continuity (`evicted_prefix`) and `HistoryFrontier`.
+    /// Admissions listed in `keep_admissions` retain their exact `CanonicalRecord` and
+    /// `AdmissionOrigin` for retry deduplication and venue provenance checks.
+    pub fn compact_before(
+        &mut self,
+        keep_admissions: &BTreeSet<IntentKey>,
+        max_retained: usize,
+    ) -> usize {
+        let mut stale_retained = Vec::new();
+        for (key, slot) in &self.admissions {
+            if matches!(slot, AdmissionSlot::Retained(..)) && !keep_admissions.contains(key) {
+                stale_retained.push(*key);
+            }
+        }
+        for key in stale_retained {
+            self.admissions.remove(&key);
+            self.admission_origins.remove(&key);
+            self.retired_intents.remove(&key);
+            self.intent_open_legs.remove(&key);
+        }
+        if self.records.len() <= max_retained {
+            return 0;
+        }
+        let trim_len = self.records.len() - max_retained;
+        for local_idx in 0..trim_len {
+            let logical_idx = self.evicted_prefix + local_idx;
+            let rec = &self.records[local_idx];
+            if let Some(key) = admission_key(rec.record()) {
+                if keep_admissions.contains(&key) {
+                    if let Some(AdmissionSlot::InRecords(idx, receipt)) = self.admissions.get(&key)
+                        && *idx == logical_idx
+                    {
+                        let cloned_receipt = receipt.clone();
+                        self.admissions.insert(
+                            key,
+                            AdmissionSlot::Retained(Box::new(rec.clone()), cloned_receipt),
+                        );
+                    }
+                } else {
+                    self.admissions.remove(&key);
+                    self.admission_origins.remove(&key);
+                    self.retired_intents.remove(&key);
+                    self.intent_open_legs.remove(&key);
+                }
+            }
+            if let Some(ikey) = ingress_key(rec.record())
+                && self
+                    .ingress
+                    .get(&ikey)
+                    .is_some_and(|(idx, _)| *idx == logical_idx)
+            {
+                self.ingress.remove(&ikey);
+            }
+            if let Some(ckey) = closure_history(rec.record())
+                && self
+                    .closures
+                    .get(&ckey)
+                    .is_some_and(|(idx, _)| *idx == logical_idx)
+            {
+                self.closures.remove(&ckey);
+            }
+            if let RecoveryRecord::IncomeObservationsAssociated(b) = rec.record()
+                && self
+                    .associations
+                    .get(&b.request_id)
+                    .is_some_and(|(idx, _)| *idx == logical_idx)
+            {
+                self.associations.remove(&b.request_id);
+            }
+        }
+        self.records.drain(..trim_len);
+        self.evicted_prefix += trim_len;
+        trim_len
+    }
+
     pub fn append(&mut self, record: RecoveryRecord) -> Result<AppendReceipt> {
         if self.poisoned {
             return Err(Error::Poisoned);
         }
         if let RecoveryRecord::IncomeObservationsAssociated(b) = &record {
             if let Some((index, receipt)) = self.associations.get(&b.request_id) {
-                if self.records[*index].record() == &record {
+                if self
+                    .record_at_logical(*index)
+                    .is_some_and(|r| r.record() == &record)
+                {
                     return Ok(receipt.clone());
                 }
                 self.poisoned = true;
@@ -464,7 +672,10 @@ impl<S: Backend> AccountJournal<S> {
         }
         if let Some(key) = closure_history(&record) {
             if let Some((index, receipt)) = self.closures.get(&key) {
-                if self.records[*index].record() == &record {
+                if self
+                    .record_at_logical(*index)
+                    .is_some_and(|r| r.record() == &record)
+                {
                     return Ok(receipt.clone());
                 }
                 self.poisoned = true;
@@ -490,9 +701,9 @@ impl<S: Backend> AccountJournal<S> {
             return Err(Error::Recovered);
         }
         if let Some(key) = key
-            && let Some((index, receipt)) = self.admissions.get(&key)
+            && let Some((prior_rec, receipt)) = self.admission_entry(&key)
         {
-            if self.records[*index].record() == &record {
+            if prior_rec.record() == &record {
                 return Ok(receipt.clone());
             }
             self.poisoned = true;
@@ -502,14 +713,37 @@ impl<S: Backend> AccountJournal<S> {
         if let Some(key) = input
             && let Some((index, receipt)) = self.ingress.get(&key)
         {
-            if self.records[*index].record() == &record {
+            if self
+                .record_at_logical(*index)
+                .is_some_and(|r| r.record() == &record)
+            {
                 return Ok(receipt.clone());
             }
             self.poisoned = true;
             return Err(Error::Conflict);
         }
         if self.records.len() >= MAX_RECORDS {
-            return Err(Error::Capacity);
+            if let Some(window_ns) = self.retention_window_ns {
+                identity::record(&self.config, &self.baseline, self.writer_epoch, &record)?;
+                let effective_now = self.last_mono_ns.max(record_mono_ns(&record).unwrap_or(0));
+                if effective_now > 0 {
+                    let keep_admissions: BTreeSet<IntentKey> = self
+                        .admissions
+                        .keys()
+                        .copied()
+                        .filter(|k| {
+                            !self
+                                .retired_intents
+                                .get(k)
+                                .is_some_and(|t| effective_now >= t.saturating_add(window_ns))
+                        })
+                        .collect();
+                    self.compact_before(&keep_admissions, MAX_RECORDS / 2);
+                }
+            }
+            if self.records.len() >= MAX_RECORDS {
+                return Err(Error::Capacity);
+            }
         }
         identity::record(&self.config, &self.baseline, self.writer_epoch, &record)?;
         let encoded =
@@ -527,6 +761,7 @@ impl<S: Backend> AccountJournal<S> {
             }
         };
         let receipt = receipt(&encoded, sync.frontier());
+        let logical_idx = self.evicted_prefix + self.records.len();
         if let Some(key) = key {
             self.admission_origins.insert(
                 key,
@@ -536,24 +771,23 @@ impl<S: Backend> AccountJournal<S> {
                 },
             );
             self.admissions
-                .insert(key, (self.records.len(), receipt.clone()));
+                .insert(key, AdmissionSlot::InRecords(logical_idx, receipt.clone()));
         }
         if let Some(key) = input {
-            self.ingress
-                .insert(key, (self.records.len(), receipt.clone()));
+            self.ingress.insert(key, (logical_idx, receipt.clone()));
         }
         if matches!(encoded.record(), RecoveryRecord::Reactivated(_)) {
             self.recovered = false;
             self.recovery_writer_floor = None;
         }
         if let Some(key) = closure_history(encoded.record()) {
-            self.closures
-                .insert(key, (self.records.len(), receipt.clone()));
+            self.closures.insert(key, (logical_idx, receipt.clone()));
         }
         if let RecoveryRecord::IncomeObservationsAssociated(b) = encoded.record() {
             self.associations
-                .insert(b.request_id, (self.records.len(), receipt.clone()));
+                .insert(b.request_id, (logical_idx, receipt.clone()));
         }
+        self.observe_record_retirement(encoded.record());
         self.records.push(encoded);
         self.history = next_history;
         Ok(receipt)
@@ -585,7 +819,7 @@ impl<S: Backend> AccountJournal<S> {
         result
     }
     pub fn position(&self) -> u64 {
-        self.records.len() as u64
+        (self.evicted_prefix + self.records.len()) as u64
     }
     pub fn writer_epoch(&self) -> u64 {
         self.writer_epoch
@@ -610,7 +844,7 @@ impl<S: Backend> AccountJournal<S> {
         sequence: u64,
     ) -> Option<&tickwire_venue::CanonicalEvent> {
         let (index, _) = self.ingress.get(&(stream, sequence))?;
-        match self.records[*index].record() {
+        match self.record_at_logical(*index)?.record() {
             RecoveryRecord::IngressEvent { event, .. } => Some(event),
             _ => None,
         }
@@ -621,7 +855,8 @@ impl<S: Backend> AccountJournal<S> {
         self.ingress
             .iter()
             .filter_map(|((stream, sequence), (index, _))| {
-                let RecoveryRecord::IngressEvent { event, .. } = self.records[*index].record()
+                let RecoveryRecord::IngressEvent { event, .. } =
+                    self.record_at_logical(*index)?.record()
                 else {
                     return None;
                 };
@@ -630,21 +865,21 @@ impl<S: Backend> AccountJournal<S> {
     }
     pub fn ingress_record(&self, stream: [u8; 16], sequence: u64) -> Option<&RecoveryRecord> {
         let (index, _) = self.ingress.get(&(stream, sequence))?;
-        Some(self.records[*index].record())
+        Some(self.record_at_logical(*index)?.record())
     }
     pub fn ingress_account_inputs(
         &self,
     ) -> impl Iterator<Item = ([u8; 16], u64, &tickwire_venue::CanonicalAccountInput)> {
         self.ingress
             .iter()
-            .filter_map(
-                |((stream, sequence), (index, _))| match self.records[*index].record() {
+            .filter_map(|((stream, sequence), (index, _))| {
+                match self.record_at_logical(*index)?.record() {
                     RecoveryRecord::IngressAccountInput { input, .. } => {
                         Some((*stream, *sequence, input.as_ref()))
                     }
                     _ => None,
-                },
-            )
+                }
+            })
     }
     pub fn baseline(&self) -> &CanonicalBaseline {
         &self.baseline
@@ -693,6 +928,17 @@ fn closure_history(record: &RecoveryRecord) -> Option<Hash> {
     match record {
         RecoveryRecord::AccountInputsReconciled(b) => Some(b.history_digest),
         RecoveryRecord::UncreatedAlgoClosed(b) => Some(b.history_digest),
+        _ => None,
+    }
+}
+
+fn record_mono_ns(record: &RecoveryRecord) -> Option<u64> {
+    match record {
+        RecoveryRecord::Admit { evaluated_at, .. } => Some(*evaluated_at),
+        RecoveryRecord::VenueEvent(ev) | RecoveryRecord::IngressEvent { event: ev, .. } => {
+            Some(ev.event().identity.received_mono_ns)
+        }
+        RecoveryRecord::Reactivated(b) => Some(b.evaluated_at),
         _ => None,
     }
 }

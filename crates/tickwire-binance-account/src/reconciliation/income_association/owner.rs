@@ -37,8 +37,8 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Capacity);
         }
-        let (policy_index, policy) = self
-            .last_association_policy(self.records.len())
+        let (policy_seq, policy) = self
+            .last_association_policy(self.position())
             .ok_or(Error::Identity)?;
         let authority = self
             .config
@@ -72,7 +72,7 @@ impl<S: Store> AccountIngress<S> {
                 })
                 .ok_or(Error::Identity)?;
             groups.push(Group {
-                input: self.reference(index as u64 + 1)?,
+                input: self.reference(self.seq_at(index))?,
                 canonical: input.digest(),
                 canonical_length: input.bytes().len() as u64,
                 epoch: meta.epoch,
@@ -88,7 +88,7 @@ impl<S: Store> AccountIngress<S> {
             wallet: request.wallet_id,
             instance: authority.execution_instance,
             certificate: request.certificate.digest(),
-            policy: self.reference(policy_index as u64 + 1)?,
+            policy: self.reference(policy_seq)?,
             anchor: interval.anchor,
             state: account
                 .income_association_state_digest(
@@ -147,14 +147,13 @@ impl<S: Store> AccountIngress<S> {
         if m.policy.sequence > b.through_sequence
             || m.policy != self.reference(m.policy.sequence)?
             || self
-                .last_association_policy(b.through_sequence as usize)
-                .map(|(i, _)| i as u64 + 1)
+                .last_association_policy(b.through_sequence)
+                .map(|(seq, _)| seq)
                 != Some(m.policy.sequence)
         {
             return Err(Error::Identity);
         }
-        let Record::AssociationPolicy(policy) = &self.records[m.policy.sequence as usize - 1]
-        else {
+        let Some(Record::AssociationPolicy(policy)) = self.record_at_seq(m.policy.sequence) else {
             return Err(Error::Identity);
         };
         if policy.writer != q.writer
@@ -170,8 +169,8 @@ impl<S: Store> AccountIngress<S> {
             if g.input.sequence > b.through_sequence {
                 return Err(Error::Identity);
             }
-            let Record::Event(_, _, Decision::AccountBound(input)) =
-                &self.records[g.input.sequence as usize - 1]
+            let Some(Record::Event(_, _, Decision::AccountBound(input))) =
+                self.record_at_seq(g.input.sequence)
             else {
                 return Err(Error::Identity);
             };
@@ -226,8 +225,8 @@ impl<S: Store> AccountIngress<S> {
             return Err(Error::Identity);
         }
         let (_, policy) = self
-            .last_association_policy(end as usize)
-            .filter(|(i, _)| *i as u64 + 1 == m.policy.sequence)
+            .last_association_policy(end)
+            .filter(|(seq, _)| *seq == m.policy.sequence)
             .ok_or(Error::Identity)?;
         if self.reference(m.policy.sequence)? != m.policy
             || policy.writer != record.writer
@@ -260,7 +259,8 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Identity);
         }
-        if self.records.iter().take(sequence as usize - 1).any(
+        let prefix_local = self.local_end(end)?;
+        if self.records[..prefix_local].iter().any(
             |r| matches!(r,Record::IncomeAssociation(old) if old.proposal.request_id()==m.request),
         ) {
             return Err(Error::Conflict);
@@ -272,13 +272,7 @@ impl<S: Store> AccountIngress<S> {
         binding: &IncomeObservationsAssociated,
     ) -> Result<&AssociationRecord> {
         let Record::IncomeAssociation(record) = self
-            .records
-            .get(
-                binding
-                    .through_sequence
-                    .checked_sub(1)
-                    .ok_or(Error::Identity)? as usize,
-            )
+            .record_at_seq(binding.through_sequence)
             .ok_or(Error::Identity)?
         else {
             return Err(Error::Identity);
@@ -314,8 +308,10 @@ impl<S: Store> AccountIngress<S> {
         self.validate_association_record(r, binding.through_sequence, r.writer)?;
         let store = self.closure_store.as_ref().ok_or(Error::Identity)?;
         let claims = authority::ApprovalClaims::decode(r.approval.payload())?;
-        let policy =
-            codec::encode(&self.records[r.proposal.manifest.policy.sequence as usize - 1])?;
+        let policy = codec::encode(
+            self.record_at_seq(r.proposal.manifest.policy.sequence)
+                .ok_or(Error::Identity)?,
+        )?;
         let expected = [
             r.proposal.bytes.clone(),
             r.approval.bytes(),
@@ -496,7 +492,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
         store.load(claims.audit)?;
         store.load(record.approval.authority().claims().authorization_digest)?;
         let policy = codec::encode(
-            &self.ingress.records[record.proposal.manifest.policy.sequence as usize - 1],
+            self.ingress
+                .record_at_seq(record.proposal.manifest.policy.sequence)
+                .ok_or(Error::Identity)?,
         )?;
         if store.load(authority::hash(&policy))? != policy {
             return Err(Error::Identity);

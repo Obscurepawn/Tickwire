@@ -222,15 +222,16 @@ impl Account {
             if account.orders.contains_key(&order_key) {
                 return Err(Error::Conflict);
             }
-            if account.orders.values().any(|o| {
-                o.instrument == item.instrument_id && o.key.client_id == item.spec.client_id
-            }) {
+            if account
+                .orders_by_client_id
+                .contains_key(&(item.instrument_id, item.spec.client_id.clone()))
+            {
                 return Err(Error::Conflict);
             }
             if let Some(ref native) = item.venue_order_id
-                && account.orders.values().any(|o| {
-                    o.instrument == item.instrument_id && o.native.as_ref() == Some(native)
-                })
+                && account
+                    .orders_by_native_id
+                    .contains_key(&(item.instrument_id, native.clone()))
             {
                 return Err(Error::Conflict);
             }
@@ -318,42 +319,43 @@ impl Account {
             let fee_zero = Fixed::zero(asset_scale(fee_asset)?)?;
             let settlement_zero = Fixed::zero(asset_scale(&p.instrument.settlement)?)?;
 
-            account.orders.insert(
-                order_key.clone(),
-                Order {
-                    key: order_key.clone(),
-                    digest: item.command_digest,
-                    instrument: item.instrument_id,
-                    strategy: item.strategy,
-                    origin: item.manager,
-                    manager: item.manager,
-                    spec: item.spec,
-                    amendable: true,
-                    original: item.original,
-                    effective: item.original,
-                    observed_cumulative: item.filled,
-                    filled: item.filled,
-                    price: item.price,
-                    received: fee_zero,
-                    notional: settlement_zero,
-                    paid: BTreeMap::new(),
-                    terminal_cumulative: None,
-                    observed_unknown: false,
-                    recovery_unknown: false,
-                    observation_unreconciled: false,
-                    terminal: false,
-                    fees_closed: false,
-                    aborted: false,
-                    uncreated: false,
-                    economic: item.filled.atoms() > 0,
-                    confirmed: true,
-                    reduce,
-                    native: item.venue_order_id,
-                    internal_id: Some(item.internal_id),
-                    owner_revision: 1,
-                    shadow_fee_credit: fee_zero,
-                },
-            );
+            let order = Order {
+                key: order_key.clone(),
+                digest: item.command_digest,
+                instrument: item.instrument_id,
+                strategy: item.strategy,
+                origin: item.manager,
+                manager: item.manager,
+                spec: item.spec,
+                amendable: true,
+                original: item.original,
+                effective: item.original,
+                observed_cumulative: item.filled,
+                filled: item.filled,
+                price: item.price,
+                received: fee_zero,
+                notional: settlement_zero,
+                paid: BTreeMap::new(),
+                terminal_cumulative: None,
+                observed_unknown: false,
+                recovery_unknown: false,
+                observation_unreconciled: false,
+                terminal: false,
+                fees_closed: false,
+                aborted: false,
+                uncreated: false,
+                economic: item.filled.atoms() > 0,
+                confirmed: true,
+                reduce,
+                native: item.venue_order_id,
+                internal_id: Some(item.internal_id),
+                owner_revision: 1,
+                shadow_fee_credit: fee_zero,
+                created_mono_ns: 0,
+                retired_mono_ns: None,
+            };
+            account.index_order_insert(&order);
+            account.orders.insert(order_key.clone(), order);
 
             account
                 .strategy_sequence_floors

@@ -1,12 +1,15 @@
 //! One authenticated WebSocket producer per cash account. A native frame is stored once by
-//! digest, followed by a synchronized WAL descriptor. Each row advances the local cursor.
+//! digest, followed by a WAL descriptor under the configured `StorageMode` (`InMemory`,
+//! `MmapAsync`, or `LocalDurable`). Each row advances the local cursor.
 //! The recent-status check reads only a try-locked snapshot. A drain uses the sorted message
-//! index to read bounded immutable payloads from disk. Opening the archive validates its full
-//! prefix. The index is capped at one million messages or transitions; exhaustion closes intake.
-//! A Ready record describes the current connection. A remote history cut requires reconciliation.
+//! index to read bounded immutable payloads. Opening a persistent archive validates its full
+//! prefix. Persistent indices are capped at `max_descriptors` messages or transitions; `InMemory`
+//! capture trims old consumed descriptors and frame blobs in a bounded window so long-running
+//! stateless streams never halt at `1,000,000` frames. A Ready record describes the current
+//! connection. A remote history cut requires reconciliation.
 //! See the [Bybit private WS](https://bybit-exchange.github.io/docs/v5/ws/connect) and
 //! [OKX private WS](https://www.okx.com/docs-v5/en/#overview-websocket) contracts.
-use super::capture::{Capture, Entry, Kind};
+use super::capture::{Capture, IndexState, Kind, SharedObjects};
 use super::{endpoint, wire};
 use crate::{Credentials, SpotVenue, network, network::Result, recovery::RestReader};
 use serde::{Deserialize, Serialize};
@@ -22,16 +25,76 @@ use std::{
     time::Duration,
 };
 use tickwire_account::Scope;
-use tickwire_recovery::FileBlobReader;
-use tickwire_transport::rustls;
+use tickwire_journal::StorageMode;
+use tickwire_transport::{mono_now_ns, rustls};
+
+pub const DEFAULT_MAX_DESCRIPTORS: usize = 1_000_000;
 
 #[derive(Clone)]
 pub struct StreamConfig {
+    pub storage_mode: StorageMode,
     pub directory: PathBuf,
     pub scope: Scope,
     pub uid: String,
     pub stream_id: [u8; 16],
     pub boot_id: [u8; 16],
+    pub max_descriptors: usize,
+}
+impl StreamConfig {
+    pub fn in_memory(
+        scope: Scope,
+        uid: impl Into<String>,
+        stream_id: [u8; 16],
+        boot_id: [u8; 16],
+    ) -> Self {
+        Self {
+            storage_mode: StorageMode::InMemory,
+            directory: PathBuf::new(),
+            scope,
+            uid: uid.into(),
+            stream_id,
+            boot_id,
+            max_descriptors: DEFAULT_MAX_DESCRIPTORS,
+        }
+    }
+    pub fn mmap_async(
+        directory: impl Into<PathBuf>,
+        scope: Scope,
+        uid: impl Into<String>,
+        stream_id: [u8; 16],
+        boot_id: [u8; 16],
+    ) -> Self {
+        Self {
+            storage_mode: StorageMode::MmapAsync,
+            directory: directory.into(),
+            scope,
+            uid: uid.into(),
+            stream_id,
+            boot_id,
+            max_descriptors: DEFAULT_MAX_DESCRIPTORS,
+        }
+    }
+    pub fn local_durable(
+        directory: impl Into<PathBuf>,
+        scope: Scope,
+        uid: impl Into<String>,
+        stream_id: [u8; 16],
+        boot_id: [u8; 16],
+    ) -> Self {
+        Self {
+            storage_mode: StorageMode::LocalDurable,
+            directory: directory.into(),
+            scope,
+            uid: uid.into(),
+            stream_id,
+            boot_id,
+            max_descriptors: DEFAULT_MAX_DESCRIPTORS,
+        }
+    }
+    pub fn with_max_descriptors(mut self, max_descriptors: usize) -> Self {
+        self.max_descriptors = max_descriptors;
+        self
+    }
 }
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, PartialEq, Eq)]
 pub enum Channel {
@@ -74,9 +137,9 @@ impl StreamStatus {
 }
 pub(super) struct Shared {
     pub config: StreamConfig,
-    pub index: Mutex<Vec<Entry>>,
+    pub index: Mutex<IndexState>,
     pub status: Mutex<StreamStatus>,
-    pub objects: FileBlobReader,
+    pub objects: SharedObjects,
     pub stop: AtomicBool,
     pub failed: AtomicBool,
     pub initial_sequence: u64,
@@ -98,6 +161,10 @@ impl StreamReader {
     pub fn status(&self) -> Option<StreamStatus> {
         let status = self.0.status.try_lock().ok()?;
         (!self.0.stop.load(Ordering::Acquire) && !self.failed()).then_some(*status)
+    }
+    /// Number of descriptors currently retained in the in-memory index window.
+    pub fn retained_descriptors(&self) -> usize {
+        self.0.index.lock().map_or(0, |idx| idx.entries.len())
     }
     /// Read at most 256 consecutive sealed rows or state transitions after a local cursor.
     pub fn drain(&self, after: u64, limit: usize) -> Result<Vec<StreamEvent>> {
@@ -154,13 +221,72 @@ impl PrivateStream {
                         wire::Timing::default(),
                     )
                 };
-                run(&mut capture, monotonic, dial).map_err(|e| e.to_string())
+                run(&mut capture, monotonic, dial, |_| {}).map_err(|e| e.to_string())
             })?;
         Ok(Self {
             reader,
             worker: Some(worker),
         })
     }
+
+    pub fn start_with_network(
+        config: StreamConfig,
+        credentials: &Credentials<'_>,
+        tls: Arc<rustls::ClientConfig>,
+        ws_network: network::LiveNetwork,
+        monotonic: impl Fn() -> u64 + Send + 'static,
+    ) -> Result<Self> {
+        let venue = credentials.venue;
+        if !credentials.valid() || config.scope.venue != venue.id() {
+            return Err("invalid private account credentials or venue".into());
+        }
+        let key = credentials.key.to_owned();
+        let secret = credentials.secret.to_vec();
+        let pass = credentials.passphrase.map(str::to_owned);
+        let environment = config.scope.environment;
+        let uid = config.uid.clone();
+        let mut capture = Capture::open(config)?;
+        let reader = capture.reader();
+        let worker = thread::Builder::new()
+            .name("spot-private".into())
+            .spawn(move || {
+                let creds = Credentials {
+                    venue,
+                    key: &key,
+                    secret: &secret,
+                    passphrase: pass.as_deref(),
+                };
+                let (host, path) = endpoint(venue, environment);
+                let disconnect_net = ws_network.clone();
+                let dial = || {
+                    ws_network.request_prewarm(0);
+                    let rest = RestReader::new(&creds, environment, tls.clone())?;
+                    rest.verify_uid(&uid)?;
+                    let mut stream = ws_network.connect_or_take()?;
+                    stream.set_read_timeout(Some(Duration::from_millis(50)));
+                    wire::Socket::open(
+                        stream,
+                        host,
+                        path,
+                        &creds,
+                        || rest.now_ms(),
+                        wire::Timing::default(),
+                    )
+                };
+                let on_disconnect = move |backoff: Duration| {
+                    let due = mono_now_ns().saturating_add(
+                        u64::try_from((backoff / 2).as_nanos()).unwrap_or(u64::MAX),
+                    );
+                    disconnect_net.notify_disconnected(due);
+                };
+                run(&mut capture, monotonic, dial, on_disconnect).map_err(|e| e.to_string())
+            })?;
+        Ok(Self {
+            reader,
+            worker: Some(worker),
+        })
+    }
+
     pub fn reader(&self) -> StreamReader {
         self.reader.clone()
     }
@@ -187,6 +313,7 @@ fn run<S: std::io::Read + std::io::Write>(
     capture: &mut Capture,
     clock: impl Fn() -> u64,
     mut dial: impl FnMut() -> Result<wire::Socket<S>>,
+    mut on_disconnect: impl FnMut(Duration),
 ) -> Result<()> {
     let mut backoff = Duration::from_secs(1);
     let shared = capture.reader().0;
@@ -235,6 +362,7 @@ fn run<S: std::io::Read + std::io::Write>(
         if served {
             backoff = Duration::from_secs(1);
         }
+        on_disconnect(backoff);
         thread::park_timeout(backoff);
         backoff = (backoff * 2).min(Duration::from_secs(30));
     }

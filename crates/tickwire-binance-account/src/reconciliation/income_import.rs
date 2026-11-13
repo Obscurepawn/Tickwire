@@ -444,7 +444,7 @@ impl<S: Store> AccountIngress<S> {
         {
             return Err(Error::Identity);
         }
-        let end = usize::try_from(input_prefix).map_err(|_| Error::Identity)?;
+        let end = self.local_end(input_prefix)?;
         let begin = self.records[..end]
             .iter()
             .enumerate()
@@ -475,11 +475,9 @@ impl<S: Store> AccountIngress<S> {
         let mut next_start = None;
         let mut domain = None;
         let mut last_sequence = 0;
+        let begin_seq = self.seq_at(begin.0);
         for sequence in request.income_leaves {
-            if sequence <= begin.0 as u64 + 1
-                || sequence <= last_sequence
-                || sequence > input_prefix
-            {
+            if sequence <= begin_seq || sequence <= last_sequence || sequence > input_prefix {
                 return Err(Error::Identity);
             }
             let e = self.income_evidence(sequence)?.ok_or(Error::Identity)?;
@@ -513,10 +511,8 @@ impl<S: Store> AccountIngress<S> {
                     return Err(Error::Conflict);
                 }
             }
-            references.push((
-                sequence,
-                hash(&codec::encode(&self.records[sequence as usize - 1])?),
-            ));
+            let rec = self.record_at_seq(sequence).ok_or(Error::Identity)?;
+            references.push((sequence, hash(&codec::encode(rec)?)));
         }
         if next_start != request.through_time_ms.checked_add(1) {
             return Err(Error::Identity);
@@ -545,10 +541,8 @@ impl<S: Store> AccountIngress<S> {
             }
             ledger = Some(e.ledger_sequence());
             last_sequence = sequence;
-            references.push((
-                sequence,
-                hash(&codec::encode(&self.records[sequence as usize - 1])?),
-            ));
+            let rec = self.record_at_seq(sequence).ok_or(Error::Identity)?;
+            references.push((sequence, hash(&codec::encode(rec)?)));
             evidence.push(e);
         }
         let account = Account::from_snapshot(
@@ -596,7 +590,7 @@ impl<S: Store> AccountIngress<S> {
         let mut income_leaves = Vec::new();
         let mut snapshots = Vec::new();
         for (seq, digest) in &m.references {
-            let record = self.records.get(*seq as usize - 1).ok_or(Error::Identity)?;
+            let record = self.record_at_seq(*seq).ok_or(Error::Identity)?;
             if hash(&codec::encode(record)?) != *digest {
                 return Err(Error::Identity);
             }
@@ -664,20 +658,12 @@ impl<S: Store> AccountIngress<S> {
                 let Record::IncomeImport(record) = record else {
                     return None;
                 };
-                Some(self.import_binding(record, index as u64 + 1))
+                Some(self.import_binding(record, self.seq_at(index)))
             })
     }
     pub fn income_coverage_object(&self, binding: &IncomeBaseline) -> Result<Vec<u8>> {
         let sequence = binding.through_sequence;
-        let r = self
-            .records
-            .get(
-                usize::try_from(sequence)
-                    .ok()
-                    .and_then(|n| n.checked_sub(1))
-                    .ok_or(Error::Identity)?,
-            )
-            .ok_or(Error::Identity)?;
+        let r = self.record_at_seq(sequence).ok_or(Error::Identity)?;
         let Record::IncomeImport(record) = r else {
             return Err(Error::Identity);
         };
@@ -729,13 +715,7 @@ impl<S: Store> AccountIngress<S> {
             return Err(Error::Identity);
         }
         let record = self
-            .records
-            .get(
-                usize::try_from(binding.through_sequence)
-                    .ok()
-                    .and_then(|n| n.checked_sub(1))
-                    .ok_or(Error::Identity)?,
-            )
+            .record_at_seq(binding.through_sequence)
             .ok_or(Error::Identity)?;
         let Record::IncomeImport(record) = record else {
             return Err(Error::Identity);
@@ -783,7 +763,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             if old.approval != approval || old.proposal.bytes != proposal.bytes {
                 return Err(Error::Conflict);
             }
-            let binding = self.ingress.import_binding(old, index as u64 + 1)?;
+            let binding = self
+                .ingress
+                .import_binding(old, self.ingress.seq_at(index))?;
             if self.gateway.account().income_baseline(binding.wallet_id) == Some(&binding) {
                 return Ok(Applied::Duplicate);
             }

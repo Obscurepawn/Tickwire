@@ -61,6 +61,7 @@ struct PendingOrder {
 }
 pub struct ReadOnlyOrderReader {
     config: ReconcileConfig,
+    pool: WireReadPool,
     next_epoch: u64,
     pending: Option<PendingOrder>,
     last: Option<ClockSample>,
@@ -72,10 +73,21 @@ impl ReadOnlyOrderReader {
         Ok(Self {
             next_epoch: validated.next_epoch,
             config,
+            pool: WireReadPool::new(),
             pending: None,
             last: None,
             faulted: false,
         })
+    }
+    pub fn with_pool(mut self, pool: WireReadPool) -> Self {
+        self.pool = pool;
+        self
+    }
+    pub fn set_pool(&mut self, pool: WireReadPool) {
+        self.pool = pool;
+    }
+    pub fn pool(&self) -> &WireReadPool {
+        &self.pool
     }
     pub fn cancel(&mut self) {
         self.pending = None;
@@ -172,7 +184,8 @@ impl ReadOnlyOrderReader {
         {
             return Err(Error::Stopped);
         }
-        let wire = wire::WireRead::new(&self.config, stamp, started, &bytes)?;
+        let wire =
+            wire::WireRead::reuse_or_connect(&self.pool, &self.config, stamp, started, &bytes)?;
         self.pending = Some(PendingOrder { query, epoch, wire });
         Ok(())
     }
@@ -207,7 +220,8 @@ impl ReadOnlyOrderReader {
                 return Err(error);
             }
         };
-        self.pending = None;
+        let p = self.pending.take().unwrap();
+        self.pool.recycle(&self.config, p.wire);
         let RestOutcome {
             input,
             disposition,

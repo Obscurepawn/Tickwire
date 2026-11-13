@@ -250,7 +250,7 @@ fn repeated_native_fills_do_not_change_cash_and_disagreements_freeze_in_either_t
                 );
                 runner
                     .origins
-                    .register(&scope, intent, "client1", [9; 16], command.digest())
+                    .register(&scope, intent, "client1", [9; 16], command.digest(), 60)
                     .unwrap();
                 runner
                     .session

@@ -306,7 +306,7 @@ impl<
                     .session
                     .gateway_mut()
                     .record_fact(RecoveryRecord::FeesReconciled {
-                        order: key,
+                        order: key.clone(),
                         cumulative: local.filled_quantity,
                     })
                     .map_err(|e| Error::Session(SessionError::Gateway(e)))?;
@@ -314,7 +314,15 @@ impl<
                     return Err(Error::Origin("fee closure did not advance the account"));
                 }
             }
+            if !self.account().is_intent_active(key.intent) {
+                let stamp = self
+                    .account()
+                    .intent_retired_mono_ns(key.intent)
+                    .unwrap_or(received);
+                self.origins.retire_intent(key.intent, stamp);
+            }
         }
+        self.origins.evict_expired(received);
         Ok(())
     }
 }

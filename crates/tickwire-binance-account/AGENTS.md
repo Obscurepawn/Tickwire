@@ -13,27 +13,33 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
   [src/codec.rs](src/codec.rs) persists every authenticated private message (`raw`, `connection_epoch`, `InputKey`,
   `TimeUnit`, and `StoredDecision`) into `tickwire-journal` within `MAX_RECORD_BYTES` (`60 KiB`) before mutating
   `AccountGateway` so recovery replays the exact arrival sequence.
-* **Strict order registration and quarantine over guessing**: Correlate venue reports in
+* **Strict order registration, $O(\log N)$ indexed correlation, and windowed eviction**: Correlate venue reports in
   [src/registry.rs](src/registry.rs), [src/amendment.rs](src/amendment.rs), and [src/structure.rs](src/structure.rs)
-  against admitted `CanonicalCommand` registrations; quarantine unknown, unadmitted, or conflicting reports
-  (`QuarantineReason`) rather than fabricating local order identities.
+  against admitted `CanonicalCommand` registrations via `OrderRegistry`'s secondary indices (`by_client_id`,
+  `by_venue_id`, `by_list_client_id`, `by_algo_client_id`, `by_symbol`) without cloning the registry on private WS
+  frames; quarantine unknown, unadmitted, or conflicting reports (`QuarantineReason`) rather than fabricating local
+  order identities. Retire expired registrations, WS binding slots, and `InMemory`/`MmapAsync` prefix records past
+  `retention_window_ns` via `evict_expired` while keeping active orders pinned.
 * **WebSocket and REST lifecycle binding**: Keep synchronous REST replies in [src/rest.rs](src/rest.rs) and WebSocket
   trading plans/bindings in [src/ws.rs](src/ws.rs) tied to their durable admission digests and session epochs,
   including late trade fills arriving after terminal order statuses.
-* **Evidence-complete reconciliation and cold bootstrap**: Require snapshot, open/conditional order, trade, amendment,
-  structure, and USD-M income closures in [src/reconciliation.rs](src/reconciliation.rs) and
+* **Evidence-complete reconciliation, keep-alive reuse, and cold bootstrap**: Require snapshot, open/conditional order,
+  trade, amendment, structure, and USD-M income closures in [src/reconciliation.rs](src/reconciliation.rs) and
   [src/account_facts.rs](src/account_facts.rs) to converge against the exact account prefix before reactivating
-  risk-increasing admissions, and support stateless cold starts via `bootstrap_from_remote_snapshots` in
-  [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) and
+  risk-increasing admissions, reuse keep-alive TLS sockets and `DialBaton` pre-warmed connections via `WireReadPool` in
+  [src/reconciliation/wire.rs](src/reconciliation/wire.rs), and support stateless cold starts via
+  `bootstrap_from_remote_snapshots` in [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) and
   `AccountIngress::create_from_live_exchange`.
 
 ## Verification and Specifications
 
 * **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/reconciliation.rs](src/reconciliation.rs) ·
+  [src/reconciliation/wire.rs](src/reconciliation/wire.rs) ·
   [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) ·
   [src/rest.rs](src/rest.rs) · [src/ws.rs](src/ws.rs) · [src/account_facts.rs](src/account_facts.rs) ·
   [src/registry.rs](src/registry.rs)
 * **Integration tests**: [tests/account_observation.rs](tests/account_observation.rs) ·
+  [tests/hot_path_and_eviction.rs](tests/hot_path_and_eviction.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/network_ingress.rs](tests/network_ingress.rs) · [tests/persistence.rs](tests/persistence.rs)
 * **Specifications and models**: [binance-ws-trading.md](../../specs/implementation/binance-ws-trading.md) ·

@@ -1,7 +1,7 @@
 //! One account owner, one ordered journal, and fresh authorization at first output.
 #![forbid(unsafe_code)]
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     time::Instant,
 };
 use tickwire_account::{Account, Admission, Applied, IntentKey, RecoveryRecord};
@@ -315,6 +315,10 @@ pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     retained_receive: VecDeque<u8>,
     max_receive_bytes: usize,
     entries: BTreeMap<IntentKey, Entry>,
+    completed_mono_ns: BTreeMap<IntentKey, u64>,
+    retention_window_ns: Option<u64>,
+    last_mono_ns: u64,
+    last_reactivation: Option<Box<tickwire_account::Reactivation>>,
     pending: Option<(IntentKey, u64)>,
     halted: bool,
 }
@@ -440,9 +444,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             connection.limits,
             connection.connect_deadline,
         )?;
+        let retention_window_ns = Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS);
+        let mut account = account;
+        account.set_retention_window_ns(retention_window_ns);
         let journal = AccountJournal::create(backend, config.journal.clone(), baseline)
-            .map_err(Error::Journal)?;
-        Ok(Self {
+            .map_err(Error::Journal)?
+            .with_retention_window_ns(retention_window_ns);
+        let mut gateway = Self {
             journal,
             account,
             config,
@@ -455,9 +463,15 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             max_receive_bytes,
             retained_receive: VecDeque::new(),
             entries,
+            completed_mono_ns: BTreeMap::new(),
+            retention_window_ns,
+            last_mono_ns: 0,
+            last_reactivation: None,
             pending: None,
             halted: false,
-        })
+        };
+        gateway.refresh_completed_entries();
+        Ok(gateway)
     }
     pub fn recover(
         backend: S,
@@ -497,9 +511,32 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         .map_err(Error::Journal)?;
         binding::baseline(&config, recovered.journal.baseline())?;
         let entries = recovery::entries(&config, recovered.journal.records())?;
-        Ok(Self {
-            journal: recovered.journal,
-            account: recovered.account,
+        let last_reactivation =
+            recovered
+                .journal
+                .records()
+                .iter()
+                .rev()
+                .find_map(|r| match r.record() {
+                    RecoveryRecord::Reactivated(b) => Some(b.clone()),
+                    _ => None,
+                });
+        let retention_window_ns = Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS);
+        let mut account = recovered.account;
+        account.set_retention_window_ns(retention_window_ns);
+        for (key, entry) in &entries {
+            if is_management_command(&entry.command)
+                && !matches!(entry.status, Status::Aborted | Status::Flushed)
+            {
+                account.set_management_retired(*key, None);
+            }
+        }
+        let journal = recovered
+            .journal
+            .with_retention_window_ns(retention_window_ns);
+        let mut gateway = Self {
+            journal,
+            account,
             config,
             authority,
             encoder,
@@ -510,9 +547,146 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             max_receive_bytes: 0,
             retained_receive: VecDeque::new(),
             entries,
+            completed_mono_ns: BTreeMap::new(),
+            retention_window_ns,
+            last_mono_ns: 0,
+            last_reactivation,
             pending: None,
             halted: true,
-        })
+        };
+        gateway.refresh_completed_entries();
+        Ok(gateway)
+    }
+
+    pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
+        self.set_retention_window_ns(window_ns);
+        self
+    }
+
+    pub fn set_retention_window_ns(&mut self, window_ns: Option<u64>) {
+        self.retention_window_ns = window_ns;
+        self.account.set_retention_window_ns(window_ns);
+        self.journal.set_retention_window_ns(window_ns);
+    }
+
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.retention_window_ns
+    }
+
+    fn refresh_completed_entries(&mut self) {
+        let pending_key = self.pending.map(|(k, _)| k);
+        let mut remove_keys = Vec::new();
+        let mut insert_keys = Vec::new();
+        for (key, entry) in &self.entries {
+            let completed = matches!(entry.status, Status::Aborted | Status::Flushed)
+                && pending_key != Some(*key)
+                && !self.account.is_intent_active(*key);
+            if !completed {
+                if self.completed_mono_ns.contains_key(key) {
+                    remove_keys.push(*key);
+                }
+            } else if !self.completed_mono_ns.contains_key(key) {
+                let stamp = self
+                    .last_mono_ns
+                    .max(entry.evaluated_at)
+                    .max(self.account.intent_retired_mono_ns(*key).unwrap_or(0));
+                insert_keys.push((*key, stamp));
+            }
+        }
+        for key in remove_keys {
+            self.completed_mono_ns.remove(&key);
+        }
+        for (key, stamp) in insert_keys {
+            self.completed_mono_ns.insert(key, stamp);
+        }
+    }
+
+    fn reclaim_one_retired_management_entry(&mut self) -> bool {
+        let pending_key = self.pending.map(|(k, _)| k);
+        let candidate = self
+            .entries
+            .iter()
+            .filter(|(key, entry)| {
+                is_management_command(&entry.command)
+                    && matches!(entry.status, Status::Aborted | Status::Flushed)
+                    && pending_key != Some(**key)
+                    && !self.account.is_intent_active(**key)
+                    && !self.account.is_confirmed_amendment(**key)
+            })
+            .min_by_key(|(key, entry)| {
+                (
+                    self.completed_mono_ns
+                        .get(key)
+                        .copied()
+                        .unwrap_or(entry.evaluated_at),
+                    entry.evaluated_at,
+                    **key,
+                )
+            })
+            .map(|(key, _)| *key);
+        if let Some(key) = candidate {
+            let _ = self.account.evict_retired_management_admission(key);
+            self.entries.remove(&key);
+            self.completed_mono_ns.remove(&key);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Evicts completed (`Aborted` or `Flushed`) gateway entries whose underlying `Account`
+    /// intent is retired and whose monotonic completion window has elapsed.
+    pub fn evict_retired_entries(&mut self, now_mono_ns: u64) -> usize {
+        if now_mono_ns > 0 {
+            self.last_mono_ns = self.last_mono_ns.max(now_mono_ns);
+            self.account.evict_expired(now_mono_ns);
+        }
+        self.refresh_completed_entries();
+        let Some(window_ns) = self.retention_window_ns else {
+            return 0;
+        };
+        if now_mono_ns == 0 {
+            return 0;
+        }
+        let pending_key = self.pending.map(|(k, _)| k);
+        let to_evict: Vec<IntentKey> = self
+            .entries
+            .iter()
+            .filter_map(|(key, entry)| {
+                if !matches!(entry.status, Status::Aborted | Status::Flushed) {
+                    return None;
+                }
+                if pending_key == Some(*key)
+                    || self.account.is_intent_active(*key)
+                    || self.account.has_admission(*key)
+                {
+                    return None;
+                }
+                let completed_at = *self.completed_mono_ns.get(key)?;
+                (now_mono_ns >= completed_at.saturating_add(window_ns)).then_some(*key)
+            })
+            .collect();
+        let count = to_evict.len();
+        for key in to_evict {
+            self.entries.remove(&key);
+            self.completed_mono_ns.remove(&key);
+        }
+        count
+    }
+
+    fn maybe_compact_journal(&mut self, now_mono_ns: u64) {
+        if self.retention_window_ns.is_none()
+            || self.journal.records().len() + 1 < tickwire_account_journal::MAX_RECORDS
+        {
+            return;
+        }
+        if now_mono_ns > 0 {
+            self.evict_retired_entries(now_mono_ns);
+        }
+        let mut keep: BTreeSet<IntentKey> = self.account.admission_keys().collect();
+        keep.extend(self.entries.keys().copied());
+        self.journal
+            .compact_before(&keep, tickwire_account_journal::MAX_RECORDS / 2);
     }
     pub fn submit(
         &mut self,
@@ -537,10 +711,33 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.websocket.is_none() {
             self.rest_started = true;
         }
-        if self.entries.len() >= self.config.max_intents {
-            return Err(Error::Capacity);
-        }
         binding::command(&self.config, &command, true)?;
+        if evaluated_at > 0 {
+            self.evict_retired_entries(evaluated_at);
+        }
+        if is_management_command(&command) {
+            let mgmt_count = self
+                .entries
+                .iter()
+                .filter(|(k, e)| {
+                    is_management_command(&e.command) && !self.account.is_confirmed_amendment(**k)
+                })
+                .count();
+            if mgmt_count >= tickwire_account::MAX_MANAGEMENT_ADMISSIONS
+                && !self.reclaim_one_retired_management_entry()
+            {
+                return Err(Error::Capacity);
+            }
+        } else {
+            let order_count = self
+                .entries
+                .values()
+                .filter(|e| !is_management_command(&e.command))
+                .count();
+            if order_count >= self.config.max_intents {
+                return Err(Error::Capacity);
+            }
+        }
         let wire = self.encoder.encode(&command).map_err(Error::Encoding)?;
         if wire.command_digest() != command.digest()
             || wire.authority() != self.config.route.authority
@@ -548,6 +745,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             return Err(Error::Identity);
         }
         let send = PreparedSend::new(wire.bytes(), deadline, self.max_send_bytes)?;
+        self.maybe_compact_journal(evaluated_at);
         let mut candidate = self.account.clone();
         let admission = match candidate.admit(&command, evaluated_at) {
             Ok(admission) => admission,
@@ -558,6 +756,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 return Err(Error::Account(error));
             }
         };
+        candidate.set_management_retired(key, None);
         let expected = admission.image();
         let increases = expected.increases;
         let record = CanonicalRecord::new(
@@ -703,6 +902,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             let authority = &mut self.authority;
             let account = &self.account;
             let epoch = self.config.writer_epoch;
+            let mut sampled_now = 0u64;
             let result = self
                 .connection
                 .as_mut()
@@ -711,10 +911,14 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                     authority
                         .current_gate(&entry.command, admission)
                         .is_ok_and(|gate| {
+                            sampled_now = gate.now;
                             binding::permits(gate, entry, epoch)
                                 && account.check_admission(admission, gate.now).is_ok()
                         })
                 });
+            if sampled_now > 0 {
+                self.last_mono_ns = self.last_mono_ns.max(sampled_now);
+            }
             match result {
                 Ok(report) => self.apply_report(report)?,
                 Err(error) => {
@@ -789,6 +993,11 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.halt();
             return Err(Error::Conflict);
         }
+        let event_now = event.event().identity.received_mono_ns;
+        if event_now > 0 {
+            self.last_mono_ns = self.last_mono_ns.max(event_now);
+        }
+        self.maybe_compact_journal(self.last_mono_ns);
         let mut candidate = self.account.clone();
         let applied = match candidate.apply_event(&event) {
             Ok(applied) => applied,
@@ -806,6 +1015,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             return Err(Error::Journal(error));
         }
         self.account = candidate;
+        self.refresh_completed_entries();
         Ok(applied)
     }
     pub fn record_account_input(
@@ -826,6 +1036,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.halt();
             return Err(Error::Conflict);
         }
+        self.maybe_compact_journal(self.last_mono_ns);
         let mut candidate = self.account.clone();
         let applied = match candidate.apply_account_input(&input) {
             Ok(v) => v,
@@ -886,6 +1097,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             return Err(Error::Journal(error));
         }
         self.account = candidate;
+        self.refresh_completed_entries();
         Ok(applied)
     }
     pub fn reconcile_account_inputs(
@@ -1058,6 +1270,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 RecoveryRecord::Reactivated(b) => Some(b.as_ref()),
                 _ => None,
             })
+            .or(self.last_reactivation.as_deref())
     }
     pub fn recovery_writer_floor(&self) -> Option<u64> {
         self.journal.recovery_writer_floor()
@@ -1134,8 +1347,12 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.halt();
             return Err(Error::Journal(error));
         }
+        if binding.evaluated_at > 0 {
+            self.last_mono_ns = self.last_mono_ns.max(binding.evaluated_at);
+        }
         self.account = candidate;
         self.config.writer_epoch = binding.writer_epoch;
+        self.last_reactivation = Some(Box::new(binding));
         if let Some((connection, limits)) = replacement {
             self.connection = Some(connection);
             self.websocket = None;
@@ -1144,6 +1361,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.max_receive_bytes = limits.max_receive_bytes;
         }
         self.halted = false;
+        self.refresh_completed_entries();
         // Historical command keys remain in entries, so retries return their old outcome.
         Ok(ActivationReceipt {
             ledger_sequence: self.account.ledger_sequence(),
@@ -1178,6 +1396,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                     Error::Account(error)
                 })?;
         }
+        if let RecoveryRecord::VenueEvent(ev) = &record {
+            let t = ev.event().identity.received_mono_ns;
+            if t > 0 {
+                self.last_mono_ns = self.last_mono_ns.max(t);
+            }
+        }
+        self.maybe_compact_journal(self.last_mono_ns);
         if let Err(error) = self.journal.append(record.clone()) {
             self.halt();
             return Err(Error::Journal(error));
@@ -1186,6 +1411,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if applied.is_err() {
             self.account.freeze();
         }
+        self.refresh_completed_entries();
         applied
     }
     pub fn status(&self, intent: IntentKey) -> Option<Status> {
@@ -1205,10 +1431,12 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         maximum: usize,
     ) -> Result<impl Iterator<Item = (u64, &CanonicalRecord)>> {
         let start = usize::try_from(position).map_err(|_| Error::Invalid)?;
-        if start > self.journal.records().len() || maximum == 0 {
+        let evicted = self.journal.evicted_prefix();
+        if start < evicted || start > evicted + self.journal.records().len() || maximum == 0 {
             return Err(Error::Invalid);
         }
-        Ok(self.journal.records()[start..]
+        let local_start = start - evicted;
+        Ok(self.journal.records()[local_start..]
             .iter()
             .take(maximum)
             .enumerate()
@@ -1297,6 +1525,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 self.entries.get_mut(&key).unwrap().status = Status::Flushed;
                 self.connection.as_mut().unwrap().take_finished();
                 self.pending = None;
+                let stamp = self.last_mono_ns.max(self.entries[&key].evaluated_at);
+                self.account.set_management_retired(key, Some(stamp));
+                self.refresh_completed_entries();
             }
             SendState::NoBytes(_) => {
                 if report.accepted_bytes != 0 {
@@ -1319,6 +1550,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             .ok_or(Error::Invalid)?
             .admission
             .clone();
+        self.maybe_compact_journal(self.last_mono_ns);
         // Local abort is a decision, not an external observation. Never log a
         // decision already contradicted by an accepted exchange fact.
         let mut candidate = self.account.clone();
@@ -1335,6 +1567,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         self.account = candidate;
         self.entries.get_mut(&key).unwrap().status = Status::Aborted;
+        let stamp = self.last_mono_ns.max(self.entries[&key].evaluated_at);
+        self.account.set_management_retired(key, Some(stamp));
+        self.refresh_completed_entries();
         Ok(())
     }
     fn halt(&mut self) {
@@ -1364,5 +1599,21 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 entry.status = Status::Unknown;
             }
         }
+        self.completed_mono_ns.retain(|k, _| {
+            self.entries
+                .get(k)
+                .is_some_and(|e| e.status == Status::Aborted)
+        });
     }
+}
+
+fn is_management_command(command: &CanonicalCommand) -> bool {
+    matches!(
+        command.command().body,
+        tickwire_venue::CommandBody::Cancel(_)
+            | tickwire_venue::CommandBody::Query(_)
+            | tickwire_venue::CommandBody::CancelList(_)
+            | tickwire_venue::CommandBody::CancelAlgo(_)
+            | tickwire_venue::CommandBody::AmendKeepPriority { .. }
+    )
 }

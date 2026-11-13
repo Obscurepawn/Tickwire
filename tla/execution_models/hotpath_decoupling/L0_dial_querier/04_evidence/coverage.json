@@ -1,0 +1,29 @@
+{
+  "model": "L0_DialQuerier",
+  "runs": 2,
+  "entries": 21,
+  "generated": {
+    "Init line 176, col 1 to line 176, col 4 of module L0_DialQuerier": 2,
+    "Tick line 199, col 1 to line 199, col 4 of module L0_DialQuerier": 137526,
+    "OwnerWant line 211, col 1 to line 211, col 9 of module L0_DialQuerier": 10042,
+    "DialerClaim line 226, col 1 to line 226, col 11 of module L0_DialQuerier": 23132,
+    "DialerHandshakeStep line 254, col 1 to line 254, col 19 of module L0_DialQuerier": 23132,
+    "DialerDeliverReady line 268, col 1 to line 268, col 18 of module L0_DialQuerier": 23132,
+    "DialerAbortStale line 287, col 1 to line 287, col 16 of module L0_DialQuerier": 66494,
+    "DialerFail line 306, col 1 to line 306, col 10 of module L0_DialQuerier": 46264,
+    "OwnerTakeReady line 327, col 1 to line 327, col 14 of module L0_DialQuerier": 23132,
+    "OwnerReset line 342, col 1 to line 342, col 10 of module L0_DialQuerier": 204077,
+    "OwnerStop line 357, col 1 to line 357, col 9 of module L0_DialQuerier": 176500,
+    "ProducerEnqueue line 370, col 1 to line 370, col 15 of module L0_DialQuerier": 93871,
+    "WorkerPullTask line 385, col 1 to line 385, col 14 of module L0_DialQuerier": 53123,
+    "WorkerExpireWaiting line 401, col 1 to line 401, col 19 of module L0_DialQuerier": 56160,
+    "WorkerNotBuilt line 416, col 1 to line 416, col 14 of module L0_DialQuerier": 14451,
+    "WorkerStartSend line 434, col 1 to line 434, col 15 of module L0_DialQuerier": 24484,
+    "WorkerZeroByteFail line 452, col 1 to line 452, col 18 of module L0_DialQuerier": 32244,
+    "WorkerAcceptBytes line 478, col 1 to line 478, col 17 of module L0_DialQuerier": 32244,
+    "WorkerRetryOrFailAfterSend line 492, col 1 to line 492, col 26 of module L0_DialQuerier": 64488,
+    "WorkerCompleteResponse line 515, col 1 to line 515, col 22 of module L0_DialQuerier": 64488,
+    "ConsumerDequeue line 531, col 1 to line 531, col 15 of module L0_DialQuerier": 191427
+  },
+  "model_sha256": "55f2a506c451b8e5d3fa806980aa7f4e45035c97c360eede0854542517d0dd7f"
+}

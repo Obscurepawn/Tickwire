@@ -91,14 +91,18 @@ impl PolicyRecord {
     }
 }
 impl<S: Store> AccountIngress<S> {
-    pub(super) fn last_association_policy(&self, through: usize) -> Option<(usize, &PolicyRecord)> {
+    pub(super) fn last_association_policy(&self, through: u64) -> Option<(u64, &PolicyRecord)> {
+        if through == 0 {
+            return None;
+        }
+        let end = self.local_end(through).ok()?;
         self.records
-            .get(..through)?
+            .get(..end)?
             .iter()
             .enumerate()
             .rev()
             .find_map(|(i, r)| match r {
-                Record::AssociationPolicy(p) => Some((i, p)),
+                Record::AssociationPolicy(p) => Some((self.seq_at(i), p)),
                 _ => None,
             })
     }
@@ -115,7 +119,7 @@ impl<S: Store> AccountIngress<S> {
             return Err(Error::Identity);
         }
         PolicyRecord::decode(&p.bytes())?;
-        if let Some((_, old)) = self.last_association_policy(self.records.len())
+        if let Some((_, old)) = self.last_association_policy(self.position())
             && (p.writer < old.writer
                 || p.revision < old.revision
                 || (p.active.is_some() && p.active != old.active && p.revision <= old.revision)
@@ -138,7 +142,7 @@ impl<S: Store> AccountIngress<S> {
             .as_ref()
             .ok_or(Error::Identity)?;
         a.validate()?;
-        let old = self.last_association_policy(self.records.len());
+        let old = self.last_association_policy(self.position());
         let revision = a.active_policy.as_ref().map_or_else(
             || old.map_or(0, |(_, p)| p.revision),
             |p| p.authorization_revision,
@@ -151,10 +155,10 @@ impl<S: Store> AccountIngress<S> {
             revision,
             active: a.active_policy.clone(),
         };
-        if let Some((index, previous)) = old
+        if let Some((seq, previous)) = old
             && previous == &policy
         {
-            return Ok(index as u64 + 1);
+            return Ok(seq);
         }
         self.validate_association_policy(&policy, self.config.writer_epoch)?;
         let key = self.append(Record::AssociationPolicy(policy))?;

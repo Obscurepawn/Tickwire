@@ -9,10 +9,11 @@ storage, and socket I/O live in adjacent crates.
 
 ## Invariants and Change Guidelines
 
-* **Single-signature immutability across queue waits**: Sign each `CanonicalCommand` once against its sampled
-  `SignedTime` and cache the `SignedRequest` by command `Hash` in [src/lib.rs](src/lib.rs) (bounded by
-  `max_signed_commands`); never re-sign with a newer timestamp if a queued request waits behind transport
-  backpressure.
+* **Single-signature immutability and windowed eviction**: Sign each `CanonicalCommand` once against its sampled
+  `SignedTime` and cache `SignedRequest` and `WsRequestPlan` by command `Hash` in [src/lib.rs](src/lib.rs) (bounded by
+  `max_signed_commands`); never re-sign with a newer timestamp if a queued request waits behind transport backpressure.
+  Lazily evict consumed, expired, or superseded entries past `retention_window_ns` (default `24 h`, configurable via
+  `SharedSessionState::set_retention_window_ns`) before rejecting new commands with `Error::Capacity`.
 * **First-byte clock, budget, and quota recheck**: At `Authority::current_gate` (for REST) and WebSocket first-write
   gates in [src/lib.rs](src/lib.rs), re-verify `SessionClock::check_send_sample` using `DeliveryBudget::remaining_ns`
   and `Endpoint` command permits on the exact original `SignedTime` before a single byte leaves the process.

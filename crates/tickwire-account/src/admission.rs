@@ -75,8 +75,9 @@ impl Account {
         if increases && self.frozen {
             return Err(Error::Frozen);
         }
-        if self.admissions.len() >= MAX_ORDERS {
-            return Err(Error::Capacity);
+        if now > 0 {
+            self.last_mono_ns = self.last_mono_ns.max(now);
+            self.evict_expired(now);
         }
         let key = IntentKey {
             epoch: r.intent_exec_epoch,
@@ -91,7 +92,18 @@ impl Account {
             return Err(Error::Stale);
         }
         if !increases {
+            let mgmt_count = self
+                .admissions
+                .iter()
+                .filter(|(k, a)| a.orders.is_empty() && !self.is_confirmed_amendment(**k))
+                .count();
+            if mgmt_count >= MAX_MANAGEMENT_ADMISSIONS
+                && !self.reclaim_one_retired_management_admission()
+            {
+                return Err(Error::Capacity);
+            }
             let mut structure_management = None;
+            let mut amended_order = None;
             match &c.body {
                 v::CommandBody::Cancel(target) | v::CommandBody::Query(target) => {
                     self.check_target(target, strategy, manager, p.instrument.instrument_id)?
@@ -100,12 +112,21 @@ impl Account {
                     structure_management = Some(self.structure_management(c)?);
                 }
                 v::CommandBody::AmendKeepPriority { .. } => {
+                    if self.amendments.len() >= MAX_FACTS {
+                        return Err(Error::Capacity);
+                    }
                     let pending = self.prepare_amendment(command)?;
+                    amended_order = Some(pending.order.clone());
                     self.amendments.insert(key, pending);
                 }
                 _ => return Err(Error::Unsupported),
             }
             self.next_sequence()?;
+            let retired_mono_ns = if amended_order.is_some() {
+                None
+            } else {
+                Some(now)
+            };
             let a = Admission {
                 digest: command.digest(),
                 key,
@@ -117,10 +138,14 @@ impl Account {
                 capital: vec![],
                 orders: vec![],
                 increases: false,
+                retired_mono_ns,
             };
             self.admissions.insert(key, a.clone());
             if let Some(check) = structure_management {
                 self.structure_management.insert(key, check);
+            }
+            if let Some(order_key) = amended_order {
+                self.refresh_order_retirement(&order_key, now);
             }
             return Ok(a);
         }
@@ -144,7 +169,12 @@ impl Account {
             }
             _ => return Err(Error::Unsupported),
         };
-        if self.orders.len() + specs.len() > MAX_ORDERS {
+        let order_admissions = self
+            .admissions
+            .values()
+            .filter(|a| !a.orders.is_empty())
+            .count();
+        if order_admissions >= MAX_ORDERS || self.orders.len() + specs.len() > MAX_ORDERS {
             return Err(Error::Capacity);
         }
         let mut orders = Vec::new();
@@ -245,11 +275,11 @@ impl Account {
             if self.orders.contains_key(&order_key) {
                 return Err(Error::Conflict);
             }
-            if self.orders.values().any(|o| {
-                o.instrument == p.instrument.instrument_id
-                    && o.key.client_id == spec.client_id
-                    && !o.aborted
-            }) {
+            if self
+                .orders_by_client_id
+                .get(&(p.instrument.instrument_id, spec.client_id.clone()))
+                .is_some_and(|keys| keys.iter().any(|k| !self.orders[k].aborted))
+            {
                 return Err(Error::Conflict);
             }
             let fee_asset = if p.futures.is_some() {
@@ -260,48 +290,49 @@ impl Account {
                 &p.instrument.quote
             };
             let fee_zero = Fixed::zero(asset_scale(fee_asset)?)?;
-            self.orders.insert(
-                order_key.clone(),
-                Order {
-                    key: order_key.clone(),
-                    digest: command.digest(),
-                    instrument: p.instrument.instrument_id,
-                    strategy,
-                    origin: ManagerIdentity {
-                        instance: ctx.strategy.instance_id,
-                        generation: r.strategy_generation,
-                    },
-                    manager: ManagerIdentity {
-                        instance: ctx.strategy.instance_id,
-                        generation: r.strategy_generation,
-                    },
-                    spec,
-                    amendable: matches!(c.body, v::CommandBody::New(_)),
-                    original: q,
-                    effective: q,
-                    observed_cumulative: qzero,
-                    filled: qzero,
-                    price,
-                    received: fee_zero,
-                    notional: Fixed::zero(asset_scale(&p.instrument.settlement)?)?,
-                    paid: BTreeMap::new(),
-                    terminal_cumulative: None,
-                    observed_unknown: false,
-                    recovery_unknown: false,
-                    observation_unreconciled: false,
-                    terminal: false,
-                    fees_closed: false,
-                    aborted: false,
-                    uncreated: false,
-                    economic: false,
-                    confirmed: false,
-                    reduce,
-                    native: None,
-                    internal_id: None,
-                    owner_revision: 1,
-                    shadow_fee_credit: fee_zero,
+            let order = Order {
+                key: order_key.clone(),
+                digest: command.digest(),
+                instrument: p.instrument.instrument_id,
+                strategy,
+                origin: ManagerIdentity {
+                    instance: ctx.strategy.instance_id,
+                    generation: r.strategy_generation,
                 },
-            );
+                manager: ManagerIdentity {
+                    instance: ctx.strategy.instance_id,
+                    generation: r.strategy_generation,
+                },
+                spec,
+                amendable: matches!(c.body, v::CommandBody::New(_)),
+                original: q,
+                effective: q,
+                observed_cumulative: qzero,
+                filled: qzero,
+                price,
+                received: fee_zero,
+                notional: Fixed::zero(asset_scale(&p.instrument.settlement)?)?,
+                paid: BTreeMap::new(),
+                terminal_cumulative: None,
+                observed_unknown: false,
+                recovery_unknown: false,
+                observation_unreconciled: false,
+                terminal: false,
+                fees_closed: false,
+                aborted: false,
+                uncreated: false,
+                economic: false,
+                confirmed: false,
+                reduce,
+                native: None,
+                internal_id: None,
+                owner_revision: 1,
+                shadow_fee_credit: fee_zero,
+                created_mono_ns: now,
+                retired_mono_ns: None,
+            };
+            self.index_order_insert(&order);
+            self.orders.insert(order_key.clone(), order);
             orders.push(order_key);
         }
         self.register_structure(c, &orders)?;
@@ -369,8 +400,11 @@ impl Account {
             capital: capital.clone(),
             orders,
             increases,
+            retired_mono_ns: None,
         };
-        self.shadow_holds.insert(key, capital);
+        if !capital.is_empty() {
+            self.shadow_holds.insert(key, capital);
+        }
         self.admissions.insert(key, admission.clone());
         Ok(admission)
     }
@@ -381,7 +415,7 @@ impl Account {
         manager: ManagerIdentity,
         instrument: u64,
     ) -> Result<()> {
-        let found = self.orders.values().find(|o| {
+        let matches_target = |o: &Order| {
             o.instrument == instrument
                 && o.key.intent.epoch == target.original_intent_exec_epoch
                 && target
@@ -393,7 +427,37 @@ impl Account {
                     .as_ref()
                     .is_none_or(|id| o.native.as_ref() == Some(id))
                 && o.internal_id.is_none_or(|id| id == target.order_id)
-        });
+        };
+        let found = if let Some(cid) = &target.client_id {
+            self.orders_by_client_id
+                .get(&(instrument, cid.clone()))
+                .and_then(|keys| {
+                    keys.iter()
+                        .filter_map(|k| self.orders.get(k))
+                        .find(|o| matches_target(o))
+                })
+        } else if let Some(vid) = &target.venue_order_id {
+            self.orders_by_native_id
+                .get(&(instrument, vid.clone()))
+                .and_then(|keys| {
+                    keys.iter()
+                        .filter_map(|k| self.orders.get(k))
+                        .find(|o| matches_target(o))
+                })
+        } else {
+            self.orders_by_internal_id
+                .get(&target.order_id)
+                .and_then(|keys| {
+                    keys.iter()
+                        .filter_map(|k| self.orders.get(k))
+                        .find(|o| matches_target(o))
+                })
+                .or_else(|| {
+                    self.orders
+                        .values()
+                        .find(|o| o.internal_id.is_none() && matches_target(o))
+                })
+        };
         let o = found.ok_or(Error::UnknownOrder)?;
         if o.strategy != strategy
             || o.manager != manager
@@ -477,6 +541,7 @@ impl Account {
             return self.freeze_error(Error::Unreconciled);
         }
         let mut candidate = self.clone();
+        let stamp = candidate.last_mono_ns;
         for key in &a.orders {
             let o = candidate.orders.get_mut(key).unwrap();
             o.aborted = true;
@@ -484,6 +549,14 @@ impl Account {
             o.fees_closed = true;
         }
         candidate.shadow_holds.remove(&a.key);
+        for key in &a.orders {
+            candidate.refresh_order_retirement(key, stamp);
+        }
+        if a.orders.is_empty()
+            && let Some(adm) = candidate.admissions.get_mut(&a.key)
+        {
+            adm.retired_mono_ns.get_or_insert(stamp);
+        }
         candidate.next_sequence()?;
         *self = candidate;
         Ok(Applied::New)
@@ -514,6 +587,8 @@ impl Account {
         if applied == Applied::New {
             self.next_sequence()?;
             self.orders.get_mut(key).unwrap().fees_closed = true;
+            let stamp = self.last_mono_ns;
+            self.refresh_order_retirement(key, stamp);
         }
         Ok(applied)
     }

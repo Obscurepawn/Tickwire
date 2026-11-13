@@ -221,6 +221,8 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
         {
             return Err(Error::Busy);
         }
+        self.ingress.ready(&self.gateway)?;
+        self.ingress.evict_expired(&mut self.gateway, evaluated_at);
         match command.command().body {
             v::CommandBody::New(_)
             | v::CommandBody::CancelReplace { .. }

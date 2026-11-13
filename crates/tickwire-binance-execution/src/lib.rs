@@ -99,6 +99,8 @@ impl<F: FnMut(&CanonicalCommand, &SignedTime, &LocalTime) -> Result<u64>> Delive
         self(c, s, n)
     }
 }
+pub const DEFAULT_RETENTION_WINDOW_NS: u64 = tickwire_account::DEFAULT_RETENTION_WINDOW_NS;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
     pub recv_window_micros: u64,
@@ -108,6 +110,9 @@ pub struct Config {
 struct SignedRequest {
     stamp: SignedTime,
     window_ns: u64,
+    created_mono_ns: u64,
+    deadline_mono_ns: u64,
+    consumed_mono_ns: Option<u64>,
     authority: String,
     bytes: Vec<u8>,
     websocket: Option<SignedWebSocket>,
@@ -129,6 +134,7 @@ struct State<C, B> {
     binding: CommandBinding,
     budget: B,
     config: Config,
+    retention_window_ns: Option<u64>,
     signed: BTreeMap<Hash, SignedRequest>,
     websocket: Option<SessionIdentity>,
     plans: BTreeMap<Hash, WsRequestPlan>,
@@ -208,10 +214,22 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             binding,
             budget,
             config,
+            retention_window_ns: Some(DEFAULT_RETENTION_WINDOW_NS),
             signed: BTreeMap::new(),
             websocket: None,
             plans: BTreeMap::new(),
         }))))
+    }
+    pub fn set_retention_window_ns(&self, window_ns: Option<u64>) {
+        if let Ok(mut state) = self.0.try_borrow_mut() {
+            state.retention_window_ns = window_ns;
+        }
+    }
+    pub fn retention_window_ns(&self) -> Option<u64> {
+        self.0
+            .try_borrow()
+            .ok()
+            .and_then(|state| state.retention_window_ns)
     }
     pub fn websocket_control(
         &self,
@@ -276,8 +294,14 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             };
         }
         if state.plans.len() >= state.config.max_signed_commands {
-            return Err(Error::Capacity);
+            let now_mono_ns = state.sample_mono_ns().unwrap_or(plan.created_mono_ns());
+            state.evict_expired(now_mono_ns);
+            if state.plans.len() >= state.config.max_signed_commands {
+                return Err(Error::Capacity);
+            }
         }
+        let created_mono_ns = state.sample_mono_ns().unwrap_or(plan.created_mono_ns());
+        let plan = plan.with_created_mono_ns(created_mono_ns);
         state.websocket = Some(plan.session().clone());
         state.plans.insert(digest, plan);
         Ok(())
@@ -400,10 +424,20 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             return EncodedRequest::new(digest, prior.authority.clone(), prior.bytes.clone())
                 .map_err(|_| Error::Encoding);
         }
-        if state.signed.len() >= state.config.max_signed_commands {
-            return Err(Error::Capacity);
-        }
-        let reading = state.clock.sample().map_err(Error::Clock)?;
+        let reading = if state.signed.len() >= state.config.max_signed_commands {
+            let sampled = state.clock.sample().map_err(Error::Clock);
+            if let Ok(ref r) = sampled
+                && r.local.monotonic.domain() == state.binding.domain
+            {
+                state.evict_expired(r.local.monotonic.nanos());
+            }
+            if state.signed.len() >= state.config.max_signed_commands {
+                return Err(Error::Capacity);
+            }
+            sampled?
+        } else {
+            state.clock.sample().map_err(Error::Clock)?
+        };
         let stamp = reading.signed.ok_or(Error::MissingSignature)?;
         if stamp.source() != source(&state.binding)?
             || stamp.domain() != state.binding.domain
@@ -476,11 +510,16 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             .recv_window_micros
             .checked_mul(1000)
             .ok_or(Error::Invalid)?;
+        let created_mono_ns = reading.local.monotonic.nanos();
+        let deadline_mono_ns = command.command().context.request.deadline;
         state.signed.insert(
             digest,
             SignedRequest {
                 stamp,
                 window_ns,
+                created_mono_ns,
+                deadline_mono_ns,
+                consumed_mono_ns: None,
                 authority,
                 websocket: plan.map(|plan| SignedWebSocket {
                     plan,
@@ -578,11 +617,49 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             .quota
             .consume_command(&binding, command, transport, now)
             .map_err(Error::Quota)?;
+        if let Some(saved) = state.signed.get_mut(&command.digest())
+            && saved.consumed_mono_ns.is_none()
+        {
+            saved.consumed_mono_ns = Some(now.nanos());
+        }
         gate.now = now.nanos();
         Ok(gate)
     }
 }
 impl<C: SessionClock, B> State<C, B> {
+    fn sample_mono_ns(&mut self) -> Option<u64> {
+        let reading = self.clock.sample().ok()?;
+        (reading.local.monotonic.domain() == self.binding.domain)
+            .then_some(reading.local.monotonic.nanos())
+    }
+    fn evict_expired(&mut self, now_mono_ns: u64) {
+        let Some(window_ns) = self.retention_window_ns else {
+            return;
+        };
+        let expired_at = |t: u64| now_mono_ns >= t.saturating_add(window_ns);
+        self.plans.retain(|digest, plan| {
+            let consumed = self
+                .signed
+                .get(digest)
+                .and_then(|r| r.consumed_mono_ns)
+                .is_some_and(expired_at);
+            let superseded = !plan.is_current() && expired_at(plan.created_mono_ns());
+            let past_deadline =
+                now_mono_ns >= plan.deadline_mono_ns() && expired_at(plan.deadline_mono_ns());
+            !(consumed || superseded || past_deadline)
+        });
+        self.signed.retain(|_, req| {
+            let consumed = req.consumed_mono_ns.is_some_and(expired_at);
+            let superseded = req
+                .websocket
+                .as_ref()
+                .is_some_and(|ws| !ws.plan.is_current() && expired_at(req.created_mono_ns));
+            let past_deadline =
+                now_mono_ns >= req.deadline_mono_ns && expired_at(req.deadline_mono_ns);
+            let past_sig_window = expired_at(req.created_mono_ns.saturating_add(req.window_ns));
+            !(consumed || superseded || past_deadline || past_sig_window)
+        });
+    }
     fn bind(&self, command: &CanonicalCommand) -> Result<()> {
         let r = &command.command().context.request;
         if self.clock.domain() != self.binding.domain

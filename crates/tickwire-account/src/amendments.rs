@@ -1,6 +1,6 @@
 use super::*;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub(super) struct Amendment {
     pub order: OrderKey,
     pub command_digest: v::Hash,
@@ -12,7 +12,23 @@ pub(super) struct Amendment {
     pub confirmed: bool,
     pub rejected: Option<v::BoundedText<32>>,
     pub executions: BTreeSet<(u8, u64)>,
+    pub retired_mono_ns: Option<u64>,
 }
+impl PartialEq for Amendment {
+    fn eq(&self, other: &Self) -> bool {
+        self.order == other.order
+            && self.command_digest == other.command_digest
+            && self.manager == other.manager
+            && self.owner_revision == other.owner_revision
+            && self.before == other.before
+            && self.after == other.after
+            && self.aborted == other.aborted
+            && self.confirmed == other.confirmed
+            && self.rejected == other.rejected
+            && self.executions == other.executions
+    }
+}
+impl Eq for Amendment {}
 
 impl Account {
     pub(super) fn reject_amendment(
@@ -46,8 +62,16 @@ impl Account {
                 Err(Error::Conflict)
             };
         }
+        let order_key = pending.order.clone();
         self.next_sequence()?;
-        self.amendments.get_mut(&key).unwrap().rejected = Some(a.venue_code.clone());
+        let stamp = self.last_mono_ns;
+        let entry = self.amendments.get_mut(&key).unwrap();
+        entry.rejected = Some(a.venue_code.clone());
+        entry.retired_mono_ns = Some(stamp);
+        if let Some(adm) = self.admissions.get_mut(&key) {
+            adm.retired_mono_ns = Some(stamp);
+        }
+        self.refresh_order_retirement(&order_key, stamp);
         Ok(Applied::New)
     }
     pub(super) fn observe_amendment(
@@ -125,6 +149,18 @@ impl Account {
         if self.amendments[&request] == old && self.orders[&old.order] == prior_order {
             return Ok(Applied::Duplicate);
         }
+        let stamp = self.last_mono_ns;
+        if let Some(entry) = self.amendments.get_mut(&request)
+            && entry.retired_mono_ns.is_none()
+        {
+            entry.retired_mono_ns = Some(stamp);
+        }
+        if let Some(adm) = self.admissions.get_mut(&request)
+            && adm.retired_mono_ns.is_none()
+        {
+            adm.retired_mono_ns = Some(stamp);
+        }
+        self.refresh_order_retirement(&old.order, stamp);
         self.next_sequence()?;
         if self.evaluate().is_err() {
             self.frozen = true;
@@ -148,16 +184,22 @@ impl Account {
             instance: c.context.strategy.instance_id,
             generation: c.context.request.strategy_generation,
         };
-        let o = self
-            .orders
-            .values()
-            .find(|o| {
-                o.instrument == c.context.instrument.instrument_id
-                    && o.key.intent.epoch == target.original_intent_exec_epoch
-                    && o.internal_id == Some(target.order_id)
-                    && o.native.is_some()
-                    && o.native == target.venue_order_id
-                    && target.client_id.as_ref() == Some(&o.key.client_id)
+        let o = target
+            .client_id
+            .as_ref()
+            .and_then(|cid| {
+                self.orders_by_client_id
+                    .get(&(c.context.instrument.instrument_id, cid.clone()))
+            })
+            .and_then(|keys| {
+                keys.iter().filter_map(|k| self.orders.get(k)).find(|o| {
+                    o.instrument == c.context.instrument.instrument_id
+                        && o.key.intent.epoch == target.original_intent_exec_epoch
+                        && o.internal_id == Some(target.order_id)
+                        && o.native.is_some()
+                        && o.native == target.venue_order_id
+                        && target.client_id.as_ref() == Some(&o.key.client_id)
+                })
             })
             .ok_or(Error::UnknownOrder)?;
         if o.strategy != c.context.strategy.logical_strategy_id
@@ -205,6 +247,7 @@ impl Account {
             confirmed: false,
             rejected: None,
             executions: BTreeSet::new(),
+            retired_mono_ns: None,
         })
     }
     pub(super) fn check_amendment(&self, a: &Amendment) -> Result<()> {
@@ -235,8 +278,16 @@ impl Account {
         if a.aborted {
             return Ok(Applied::Duplicate);
         }
+        let order_key = a.order.clone();
         self.next_sequence()?;
-        self.amendments.get_mut(&key).unwrap().aborted = true;
+        let stamp = self.last_mono_ns;
+        let entry = self.amendments.get_mut(&key).unwrap();
+        entry.aborted = true;
+        entry.retired_mono_ns = Some(stamp);
+        if let Some(adm) = self.admissions.get_mut(&key) {
+            adm.retired_mono_ns = Some(stamp);
+        }
+        self.refresh_order_retirement(&order_key, stamp);
         Ok(Applied::New)
     }
     pub(super) fn known_order_quantity(&self, key: &OrderKey, quantity: Fixed) -> bool {

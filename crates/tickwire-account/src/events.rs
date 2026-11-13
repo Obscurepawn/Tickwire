@@ -33,6 +33,11 @@ impl Account {
         if id.instrument_version != p.instrument.instrument_version || id.product != p.product {
             return Err(Error::Catalog);
         }
+        let now = id.received_mono_ns;
+        if now > 0 {
+            self.last_mono_ns = self.last_mono_ns.max(now);
+            self.evict_expired(now);
+        }
         if let v::VenueEventBody::Structure(s) = &event.body {
             return self.observe_structure(s, id.instrument_id);
         }
@@ -81,7 +86,7 @@ impl Account {
         };
         if let Some((fact_key, body)) = &economic {
             if let Some(prior) = self.facts.get(fact_key) {
-                if prior != body {
+                if &prior.fact != body {
                     return Err(Error::Conflict);
                 }
                 if let v::VenueEventBody::Fill(fill) = &event.body {
@@ -95,6 +100,8 @@ impl Account {
                 // Local freeze/recovery flags are not durable observations.
                 // Observe records every new anomaly on the order itself.
                 if self.orders[&key] != prior_order || components_changed {
+                    let stamp = self.last_mono_ns;
+                    self.refresh_order_retirement(&key, stamp);
                     self.next_sequence()?;
                     return Ok(Applied::New);
                 }
@@ -119,9 +126,17 @@ impl Account {
             v::VenueEventBody::Order(o) => self.observe(&key, o)?,
             _ => unreachable!(),
         }
-        if let Some((key, body)) = economic {
-            self.facts.insert(key, body);
+        let stamp = self.last_mono_ns;
+        if let Some((fact_key, body)) = economic {
+            self.facts.insert(
+                fact_key,
+                FactEntry {
+                    fact: body,
+                    recorded_mono_ns: stamp,
+                },
+            );
         }
+        self.refresh_order_retirement(&key, stamp);
         self.next_sequence()?;
         if self.evaluate().is_err() {
             self.frozen = true;
@@ -134,38 +149,64 @@ impl Account {
             epoch: id.original_intent_exec_epoch,
             intent_id: id.original_intent_id,
         };
-        let matches: Vec<_> = self
-            .orders
-            .values()
-            .filter(|o| {
-                o.instrument == instrument
-                    && o.key.intent == intent
-                    && id.client_id.as_ref().is_none_or(|c| c == &o.key.client_id)
-                    && id
-                        .venue_order_id
-                        .as_ref()
-                        .is_none_or(|n| o.native.as_ref().is_none_or(|old| old == n))
-            })
-            .collect();
-        if matches.len() != 1 {
-            return Err(Error::UnknownOrder);
+        let matches_order = |o: &Order| {
+            o.instrument == instrument
+                && o.key.intent == intent
+                && id.client_id.as_ref().is_none_or(|c| c == &o.key.client_id)
+                && id
+                    .venue_order_id
+                    .as_ref()
+                    .is_none_or(|n| o.native.as_ref().is_none_or(|old| old == n))
+        };
+        if let Some(cid) = &id.client_id {
+            let key = OrderKey {
+                intent,
+                client_id: cid.clone(),
+            };
+            return match self.orders.get(&key) {
+                Some(o) if matches_order(o) => Ok(key),
+                _ => Err(Error::UnknownOrder),
+            };
         }
-        Ok(matches[0].key.clone())
+        let Some(legs) = self.orders_by_intent.get(&intent) else {
+            return Err(Error::UnknownOrder);
+        };
+        let mut matched: Option<OrderKey> = None;
+        for leg in legs {
+            if let Some(o) = self.orders.get(leg)
+                && matches_order(o)
+            {
+                if matched.is_some() {
+                    return Err(Error::UnknownOrder);
+                }
+                matched = Some(leg.clone());
+            }
+        }
+        matched.ok_or(Error::UnknownOrder)
     }
     pub(super) fn bind_native(&mut self, key: &OrderKey, id: &v::OrderIdentity) -> Result<()> {
-        let o = self.orders.get_mut(key).unwrap();
-        if let Some(native) = &id.venue_order_id {
-            if o.native.as_ref().is_some_and(|old| old != native) {
-                return Err(Error::Conflict);
+        let instrument = {
+            let o = self.orders.get_mut(key).unwrap();
+            if let Some(native) = &id.venue_order_id {
+                if o.native.as_ref().is_some_and(|old| old != native) {
+                    return Err(Error::Conflict);
+                }
+                o.native = Some(native.clone());
             }
-            o.native = Some(native.clone());
-        }
-        if id.order_id != [0; 16] {
-            if o.internal_id.is_some_and(|old| old != id.order_id) {
-                return Err(Error::Conflict);
+            if id.order_id != [0; 16] {
+                if o.internal_id.is_some_and(|old| old != id.order_id) {
+                    return Err(Error::Conflict);
+                }
+                o.internal_id = Some(id.order_id);
             }
-            o.internal_id = Some(id.order_id);
-        }
+            o.instrument
+        };
+        self.index_order_bind_native(
+            instrument,
+            key,
+            id.venue_order_id.as_ref(),
+            (id.order_id != [0; 16]).then_some(id.order_id),
+        );
         Ok(())
     }
     fn mark_economic(&mut self, key: &OrderKey) -> Result<()> {
@@ -196,8 +237,14 @@ impl Account {
         self.mark_economic(key)?;
         let count = self
             .facts
-            .keys()
-            .filter(|f| f.order == *key && f.kind == 0)
+            .range(
+                FactKey {
+                    order: key.clone(),
+                    kind: 0,
+                    id: String::new(),
+                }..,
+            )
+            .take_while(|(f, _)| f.order == *key && f.kind == 0)
             .count();
         if count >= p.fees.maximum_fills as usize {
             self.frozen = true;

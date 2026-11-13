@@ -18,6 +18,13 @@ Five `TWAI0001` input-journal record tags (`16..=20`, validated for exact length
 
 Each outbound WebSocket request carries a deterministic **57-byte** printable ASCII `WsRequestId` (`<= 64` `MAX_REQUEST_ID_BYTES`) that reversibly encodes `(input_stream, writer_epoch, connection_epoch, binding_sequence)`, allowing incoming replies to be correlated directly to their durable `WsBinding` without heuristic lookup.
 
+## Indexed Order Registry and Windowed Eviction
+
+`AccountIngress` encapsulates admitted order registrations inside `OrderRegistry` ([`src/registry.rs`](../../crates/tickwire-binance-account/src/registry.rs)), maintaining primary `IntentKey -> Registration` storage alongside secondary `BTreeMap` indices over local 16-byte `order_id`, `(instrument_id, ClientId)`, `(instrument_id, VenueOrderId)`, list IDs, and algo IDs:
+
+* **O(log N) private-frame correlation without full-registry cloning**: `ingest_private` ([`src/runtime.rs`](../../crates/tickwire-binance-account/src/runtime.rs)) resolves incoming order, list, and conditional/algo executions via secondary indices in `O(log N)` time rather than scanning all registrations linearly, and validates/applies newly learned venue identifiers incrementally (`check_learn` before journal append, `apply_learn` after append) without cloning `OrderRegistry` on each private WebSocket frame.
+* **Windowed retirement and prefix compaction (`retention_window_ns`)**: Both `AccountIngress` and `RestOwner` default `retention_window_ns` to `Some(DEFAULT_RETENTION_WINDOW_NS)` (`86,400,000,000,000` ns / `24 h`, configurable via `set_retention_window_ns`). Retired `IntentKey`s whose `Account::intent_retired_mono_ns` has aged past `retention_window_ns` (and are no longer active in `Account` or `AccountGateway`) are lazily evicted from `OrderRegistry`, `ws_bindings`, and—in `InMemory` / `MmapAsync` deployments—the consumed in-memory `AccountIngress::records` prefix (`evicted_prefix`), while preserving active orders, `Record::Config`, and exact `max_registrations` / `max_records` enforcement inside any single window.
+
 ## Core Invariants
 
 * **Live-only capability isolation (no replay re-minting)**: `DurableWsSession` and `DurableWsBinding` hold a private `Rc<OwnerState>` tracking `alive` and active `connection_epoch`. Dropping the owner or advancing/revoking the session flips `alive = false`, immediately invalidating stale plans and bindings (`is_current() == false`). Decoding historical `TWAI0001` records during recovery yields read-only `BindingEvidence`, never a live `DurableWsBinding` capable of transmitting bytes.

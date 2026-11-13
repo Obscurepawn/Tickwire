@@ -92,32 +92,20 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     let storage_mode = cfg.resolved_storage_mode();
     let plane = cfg.policy.build().map_err(protocol_error)?;
     let domain = cfg.policy.domain().map_err(protocol_error)?;
-    let mut ephemeral_private_dir = None;
-    let (backend, existing, mut objects, reconciliation_store, private_dir) = match storage_mode {
-        StorageMode::InMemory => {
-            let private_dir = match &cfg.state_directory {
-                Some(root) => {
-                    std::fs::create_dir_all(root)?;
-                    root.join("private")
-                }
-                None => {
-                    let dir = std::env::temp_dir().join(format!(
-                        "tickwire-spot-private-{}-{:032x}",
-                        std::process::id(),
-                        u128::from_be_bytes(domain.boot_id())
-                    ));
-                    ephemeral_private_dir = Some(dir.clone());
-                    dir
-                }
-            };
-            (
-                AccountBackend::open(StorageMode::InMemory, None)?,
-                false,
-                SharedBlobStore::new(RuntimeBlobStore::in_memory()),
-                RuntimeBlobStore::in_memory(),
-                private_dir,
-            )
-        }
+    let scope = base.snapshot().scope.clone();
+    let (backend, existing, mut objects, reconciliation_store, stream_cfg) = match storage_mode {
+        StorageMode::InMemory => (
+            AccountBackend::open(StorageMode::InMemory, None)?,
+            false,
+            SharedBlobStore::new(RuntimeBlobStore::in_memory()),
+            RuntimeBlobStore::in_memory(),
+            StreamConfig::in_memory(
+                scope,
+                cfg.expected_uid.clone(),
+                cfg.private_stream,
+                domain.boot_id(),
+            ),
+        ),
         StorageMode::MmapAsync | StorageMode::LocalDurable => {
             let root = cfg
                 .state_directory
@@ -127,14 +115,29 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
             let account_dir = root.join("account");
             let existing = account_dir.join("ACCOUNT-BASELINE.cbor").try_exists()?;
             let backend = AccountBackend::open(storage_mode, Some(&account_dir))?;
-            let (obj_store, rec_store) = match storage_mode {
+            let private_dir = root.join("private");
+            let (obj_store, rec_store, stream_cfg) = match storage_mode {
                 StorageMode::MmapAsync => (
                     RuntimeBlobStore::mmap_async(root.join("objects"))?,
                     RuntimeBlobStore::mmap_async(root.join("reconciliation"))?,
+                    StreamConfig::mmap_async(
+                        private_dir,
+                        scope,
+                        cfg.expected_uid.clone(),
+                        cfg.private_stream,
+                        domain.boot_id(),
+                    ),
                 ),
                 StorageMode::LocalDurable => (
                     RuntimeBlobStore::local_durable(root.join("objects"))?,
                     RuntimeBlobStore::local_durable(root.join("reconciliation"))?,
+                    StreamConfig::local_durable(
+                        private_dir,
+                        scope,
+                        cfg.expected_uid.clone(),
+                        cfg.private_stream,
+                        domain.boot_id(),
+                    ),
                 ),
                 StorageMode::InMemory => unreachable!(),
             };
@@ -143,10 +146,20 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
                 existing,
                 SharedBlobStore::new(obj_store),
                 rec_store,
-                root.join("private"),
+                stream_cfg,
             )
         }
     };
+    let (ws_host, _) = tickwire_spot_execution::private::endpoint(venue, env);
+    let ws_port = if venue == tickwire_spot_execution::SpotVenue::Okx {
+        8443
+    } else {
+        443
+    };
+    let dialer = std::sync::Arc::new(tickwire_transport::dialer::Dialer::new()?);
+    let mut ws_network = network::LiveNetwork::new(ws_host, ws_port, tls.clone());
+    ws_network.attach_dialer(dialer, 1)?;
+    ws_network.request_prewarm(0);
     cfg.bind(&mut objects, &base, existing)?;
     let mut verifier =
         CashVerifier::new(reconciliation_store, &cfg.expected_uid, cfg.baseline_utc_ms)?;
@@ -166,16 +179,11 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         .transpose()?;
     let mut sink = Markets(plane.observer());
     let private_clock = std::cell::RefCell::new(SystemClock::new(domain).map_err(protocol_error)?);
-    let stream = PrivateStream::start(
-        StreamConfig {
-            directory: private_dir,
-            scope: base.snapshot().scope.clone(),
-            uid: cfg.expected_uid.clone(),
-            stream_id: cfg.private_stream,
-            boot_id: domain.boot_id(),
-        },
+    let stream = PrivateStream::start_with_network(
+        stream_cfg,
         &credentials.credentials(),
         tls.clone(),
+        ws_network,
         move || {
             private_clock
                 .borrow_mut()
@@ -251,6 +259,9 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     };
     objects.put_sync(config::initialized(), &baseline_digest)?;
     let mut runner = AccountRunner::new(RestSession::new(gateway, 1)?, queue, objects);
+    if matches!(storage_mode, StorageMode::InMemory | StorageMode::MmapAsync) {
+        runner.set_retention_window_ns(Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS));
+    }
     runner.freeze_cash();
     let scanner = Scanner::start(
         credentials.clone(),
@@ -400,8 +411,5 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     }
     owner.permission.set(None);
     stream.stop()?;
-    if let Some(dir) = ephemeral_private_dir {
-        let _ = std::fs::remove_dir_all(dir);
-    }
     Ok(())
 }

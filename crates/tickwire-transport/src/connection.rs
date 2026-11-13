@@ -3,7 +3,7 @@ use mio::{Interest, Registry, Token, net::TcpStream};
 use std::{
     collections::VecDeque,
     io::{Read, Write},
-    net::{Shutdown, SocketAddr},
+    net::{IpAddr, Shutdown, SocketAddr},
 };
 const HARD_LIMIT: usize = 16 * 1024 * 1024;
 struct SendSlot {
@@ -14,15 +14,36 @@ pub struct Connection {
     socket: Option<TcpStream>,
     tls: Option<rustls::ClientConnection>,
     connected: bool,
+    peer_addr: SocketAddr,
+    local_ip: Option<IpAddr>,
     limits: Limits,
     connect_deadline: Instant,
     rx: VecDeque<u8>,
     send: Option<SendSlot>,
     next_id: u64,
 }
+impl std::fmt::Debug for Connection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Connection")
+            .field("peer_addr", &self.peer_addr)
+            .field("local_ip", &self.local_ip)
+            .field("connected", &self.connected)
+            .field("ready", &self.is_ready())
+            .finish_non_exhaustive()
+    }
+}
 impl Connection {
     pub fn connect(
         address: SocketAddr,
+        security: Security,
+        limits: Limits,
+        deadline: Instant,
+    ) -> Result<Self> {
+        Self::connect_from(address, None, security, limits, deadline)
+    }
+    pub fn connect_from(
+        address: SocketAddr,
+        local_ip: Option<IpAddr>,
         security: Security,
         limits: Limits,
         deadline: Instant,
@@ -35,6 +56,11 @@ impl Connection {
         ]
         .iter()
         .any(|n| *n == 0 || *n > HARD_LIMIT)
+        {
+            return Err(Error::Bounds);
+        }
+        if let Some(ip) = local_ip
+            && ip.is_ipv4() != address.is_ipv4()
         {
             return Err(Error::Bounds);
         }
@@ -52,18 +78,32 @@ impl Connection {
                 Some(tls)
             }
         };
-        let socket = TcpStream::connect(address)?;
+        let socket = match local_ip {
+            None => TcpStream::connect(address)?,
+            Some(ip) => sys_tcp::connect_bound(ip, address)?,
+        };
         socket.set_nodelay(true)?;
         Ok(Self {
             socket: Some(socket),
             tls,
             connected: false,
+            peer_addr: address,
+            local_ip,
             limits,
             connect_deadline: deadline,
             rx: VecDeque::with_capacity(limits.max_receive_bytes),
             send: None,
             next_id: 1,
         })
+    }
+    pub fn local_ip(&self) -> Option<IpAddr> {
+        self.local_ip
+    }
+    pub fn peer_addr_target(&self) -> SocketAddr {
+        self.peer_addr
+    }
+    pub fn is_tcp_connected(&self) -> bool {
+        self.socket.is_some() && self.connected
     }
     fn interest(&self) -> Interest {
         if !self.connected
@@ -85,6 +125,10 @@ impl Connection {
     pub fn reregister(&mut self, registry: &Registry, token: Token) -> Result<()> {
         let interest = self.interest();
         registry.reregister(self.socket.as_mut().ok_or(Error::Closed)?, token, interest)?;
+        Ok(())
+    }
+    pub fn deregister(&mut self, registry: &Registry) -> Result<()> {
+        registry.deregister(self.socket.as_mut().ok_or(Error::Closed)?)?;
         Ok(())
     }
     pub fn queue(&mut self, prepared: PreparedSend) -> Result<u64> {
@@ -444,5 +488,202 @@ impl Write for BudgetIo<'_> {
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
+    }
+}
+
+#[allow(unsafe_code)]
+mod sys_tcp {
+    use mio::net::TcpStream;
+    use std::{
+        io,
+        net::{IpAddr, SocketAddr},
+    };
+
+    #[cfg(all(
+        target_os = "linux",
+        any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "riscv64"
+        )
+    ))]
+    mod imp {
+        use mio::net::TcpStream;
+        use std::{
+            ffi::{c_int, c_void},
+            io,
+            net::{IpAddr, SocketAddr},
+            os::fd::{AsRawFd, FromRawFd, OwnedFd},
+        };
+
+        const AF_INET: c_int = 2;
+        const AF_INET6: c_int = 10;
+        const SOCK_STREAM: c_int = 1;
+        const SOCK_NONBLOCK: c_int = 0o4000;
+        const SOCK_CLOEXEC: c_int = 0o2000000;
+        const EINPROGRESS: i32 = 115;
+
+        #[repr(C)]
+        struct SockAddrIn {
+            sin_family: u16,
+            sin_port: u16,
+            s_addr: u32,
+            sin_zero: [u8; 8],
+        }
+
+        #[repr(C)]
+        struct SockAddrIn6 {
+            sin6_family: u16,
+            sin6_port: u16,
+            sin6_flowinfo: u32,
+            sin6_addr: [u8; 16],
+            sin6_scope_id: u32,
+        }
+
+        unsafe extern "C" {
+            fn socket(domain: c_int, ty: c_int, protocol: c_int) -> c_int;
+            fn bind(sockfd: c_int, addr: *const c_void, addrlen: u32) -> c_int;
+            fn connect(sockfd: c_int, addr: *const c_void, addrlen: u32) -> c_int;
+        }
+
+        pub(super) fn connect_bound(local_ip: IpAddr, peer: SocketAddr) -> io::Result<TcpStream> {
+            let domain = match local_ip {
+                IpAddr::V4(_) => AF_INET,
+                IpAddr::V6(_) => AF_INET6,
+            };
+            let ty = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
+            // SAFETY: `socket` takes integer flags only and returns either `-1` or a fresh owned fd.
+            let raw = unsafe { socket(domain, ty, 0) };
+            if raw < 0 {
+                return Err(io::Error::last_os_error());
+            }
+            // SAFETY: `raw >= 0` is a newly created descriptor owned exclusively by this call.
+            let fd = unsafe { OwnedFd::from_raw_fd(raw) };
+
+            raw_bind(&fd, SocketAddr::new(local_ip, 0))?;
+            raw_connect(&fd, peer)?;
+
+            let std_stream = std::net::TcpStream::from(fd);
+            Ok(TcpStream::from_std(std_stream))
+        }
+
+        fn raw_bind(fd: &OwnedFd, addr: SocketAddr) -> io::Result<()> {
+            let res = match addr {
+                SocketAddr::V4(v4) => {
+                    let sin = SockAddrIn {
+                        sin_family: AF_INET as u16,
+                        sin_port: v4.port().to_be(),
+                        s_addr: u32::from_ne_bytes(v4.ip().octets()),
+                        sin_zero: [0; 8],
+                    };
+                    // SAFETY: `sin` matches Linux `struct sockaddr_in` ABI, is fully initialized, and outlives `bind`.
+                    unsafe {
+                        bind(
+                            fd.as_raw_fd(),
+                            (&raw const sin).cast::<c_void>(),
+                            std::mem::size_of::<SockAddrIn>() as u32,
+                        )
+                    }
+                }
+                SocketAddr::V6(v6) => {
+                    let sin6 = SockAddrIn6 {
+                        sin6_family: AF_INET6 as u16,
+                        sin6_port: v6.port().to_be(),
+                        sin6_flowinfo: v6.flowinfo(),
+                        sin6_addr: v6.ip().octets(),
+                        sin6_scope_id: v6.scope_id(),
+                    };
+                    // SAFETY: `sin6` matches Linux `struct sockaddr_in6` ABI, is fully initialized, and outlives `connect`.
+                    unsafe {
+                        bind(
+                            fd.as_raw_fd(),
+                            (&raw const sin6).cast::<c_void>(),
+                            std::mem::size_of::<SockAddrIn6>() as u32,
+                        )
+                    }
+                }
+            };
+            if res < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(())
+            }
+        }
+
+        fn raw_connect(fd: &OwnedFd, addr: SocketAddr) -> io::Result<()> {
+            let res = match addr {
+                SocketAddr::V4(v4) => {
+                    let sin = SockAddrIn {
+                        sin_family: AF_INET as u16,
+                        sin_port: v4.port().to_be(),
+                        s_addr: u32::from_ne_bytes(v4.ip().octets()),
+                        sin_zero: [0; 8],
+                    };
+                    // SAFETY: `sin` matches Linux `struct sockaddr_in` ABI, is fully initialized, and outlives `connect`.
+                    unsafe {
+                        connect(
+                            fd.as_raw_fd(),
+                            (&raw const sin).cast::<c_void>(),
+                            std::mem::size_of::<SockAddrIn>() as u32,
+                        )
+                    }
+                }
+                SocketAddr::V6(v6) => {
+                    let sin6 = SockAddrIn6 {
+                        sin6_family: AF_INET6 as u16,
+                        sin6_port: v6.port().to_be(),
+                        sin6_flowinfo: v6.flowinfo(),
+                        sin6_addr: v6.ip().octets(),
+                        sin6_scope_id: v6.scope_id(),
+                    };
+                    // SAFETY: `sin6` matches Linux `struct sockaddr_in6` ABI, is fully initialized, and outlives `connect`.
+                    unsafe {
+                        connect(
+                            fd.as_raw_fd(),
+                            (&raw const sin6).cast::<c_void>(),
+                            std::mem::size_of::<SockAddrIn6>() as u32,
+                        )
+                    }
+                }
+            };
+            if res == 0 {
+                return Ok(());
+            }
+            let err = io::Error::last_os_error();
+            if err.raw_os_error() == Some(EINPROGRESS) {
+                Ok(())
+            } else {
+                Err(err)
+            }
+        }
+    }
+
+    #[cfg(not(all(
+        target_os = "linux",
+        any(
+            target_arch = "x86_64",
+            target_arch = "aarch64",
+            target_arch = "x86",
+            target_arch = "riscv64"
+        )
+    )))]
+    mod imp {
+        use mio::net::TcpStream;
+        use std::{
+            io,
+            net::{IpAddr, SocketAddr},
+        };
+
+        pub(super) fn connect_bound(_local_ip: IpAddr, _peer: SocketAddr) -> io::Result<TcpStream> {
+            Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "local_ip TCP bind requires supported linux target",
+            ))
+        }
+    }
+
+    pub(super) fn connect_bound(local_ip: IpAddr, peer: SocketAddr) -> io::Result<TcpStream> {
+        imp::connect_bound(local_ip, peer)
     }
 }

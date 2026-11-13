@@ -6,27 +6,47 @@ pub(super) enum Kind {
     Algo,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub(super) struct Structure {
-    intent: IntentKey,
+    pub(super) intent: IntentKey,
     instrument: u64,
     list: bool,
     kind: v::StructureKind,
     command_digest: v::Hash,
     client: v::ClientId,
     native: Option<v::VenueOrderId>,
-    legs: Vec<OrderKey>,
+    pub(super) legs: Vec<OrderKey>,
     children: BTreeMap<v::ClientId, v::StructureChild>,
     confirmed: bool,
     triggered: bool,
-    terminal: bool,
-    unknown: bool,
+    pub(super) terminal: bool,
+    pub(super) unknown: bool,
     closure: Option<Box<UncreatedAlgoClosed>>,
+    pub(super) retired_mono_ns: Option<u64>,
 }
+impl PartialEq for Structure {
+    fn eq(&self, other: &Self) -> bool {
+        self.intent == other.intent
+            && self.instrument == other.instrument
+            && self.list == other.list
+            && self.kind == other.kind
+            && self.command_digest == other.command_digest
+            && self.client == other.client
+            && self.native == other.native
+            && self.legs == other.legs
+            && self.children == other.children
+            && self.confirmed == other.confirmed
+            && self.triggered == other.triggered
+            && self.terminal == other.terminal
+            && self.unknown == other.unknown
+            && self.closure == other.closure
+    }
+}
+impl Eq for Structure {}
 
 #[derive(Debug, Clone)]
 pub(super) struct Management {
-    structure: [u8; 16],
+    pub(super) structure: [u8; 16],
     original_epoch: u64,
     instrument: u64,
     list: bool,
@@ -199,6 +219,7 @@ impl Account {
                 terminal: false,
                 unknown: false,
                 closure: None,
+                retired_mono_ns: None,
             },
         );
         Ok(())
@@ -342,13 +363,16 @@ impl Account {
             {
                 return Err(Error::Conflict);
             }
-            if self.orders.iter().any(|(other, o)| {
-                *other != key
-                    && ((o.instrument == instrument
-                        && o.native.is_some()
-                        && o.native == id.venue_order_id)
-                        || o.internal_id == Some(id.order_id))
-            }) {
+            let native_conflict = id.venue_order_id.as_ref().is_some_and(|vid| {
+                self.orders_by_native_id
+                    .get(&(instrument, vid.clone()))
+                    .is_some_and(|keys| keys.iter().any(|other| *other != key))
+            });
+            let internal_conflict = self
+                .orders_by_internal_id
+                .get(&id.order_id)
+                .is_some_and(|keys| keys.iter().any(|other| *other != key));
+            if native_conflict || internal_conflict {
                 return Err(Error::Conflict);
             }
             self.bind_native(&key, id)?;
@@ -390,6 +414,10 @@ impl Account {
         }
         self.structures.insert(p.structure_id, next);
         self.structure_observed = true;
+        let stamp = self.last_mono_ns;
+        for leg in &old.legs {
+            self.refresh_order_retirement(leg, stamp);
+        }
         self.next_sequence()?;
         if self.evaluate().is_err() {
             self.frozen = true;
@@ -466,6 +494,8 @@ impl Account {
             .unwrap()
             .closure = Some(Box::new(b.clone()));
         candidate.structure_observed = true;
+        let stamp = candidate.last_mono_ns;
+        candidate.refresh_order_retirement(&key, stamp);
         candidate.next_sequence()?;
         candidate.frozen = true;
         candidate.evaluate()?;
