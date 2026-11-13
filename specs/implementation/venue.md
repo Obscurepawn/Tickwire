@@ -36,6 +36,26 @@ Multi-leg conditional commands carry a dedicated parent identity and enforce det
 
 The `CommandBody` enum also models supported spot extensions explicitly; a command can be canonically valid in `tickwire-venue` even when a particular gateway profile declines to execute it.
 
+### Self-Describing Client Order Identity (`SelfDescribingClientId`)
+
+To allow cold stateless Pod restarts and exchange-only recovery to reconstruct strategy attribution, execution epoch, intent sequence floors, and internal order UUIDs directly from open orders returned by venue REST endpoints—without relying on local origin files or surviving disk state—`tickwire-venue::client_id` defines a fixed-width, domain-authenticated `ClientId` encoding (`SelfDescribingClientId`):
+
+```text
+wire = "t1" || base32_lower_30(150_bit_payload)   // 32 ASCII [0-9a-z] characters
+```
+
+The 30-character payload uses the lowercase Crockford-style alphanumeric alphabet `0123456789abcdefghjkmnpqrstvwxyz` (5 bits per character, strictly `[0-9a-z]`), satisfying OKX `clOrdId` (`1..=32` ASCII alphanumeric), Bybit `orderLinkId` (`1..=36`), and Binance Spot/USDⓈ-M `newClientOrderId` (`1..=36`) simultaneously:
+
+| Bit Slice (MSB → LSB) | Field | Width / Domain | Purpose |
+| --- | --- | --- | --- |
+| `149..=134` | `logical_strategy_id` | `16` bits (`1..=65,535`) | Recovers originating strategy ownership across `Account::MAX_STRATEGIES` (`1,024`) with 64× headroom. |
+| `133..=130` | `leg` | `4` bits (`0..=15`) | Disambiguates single orders (`0`), cancel-replace legs (`1`), multi-leg `SpotList` children (`0..=2`), and parent list/algo IDs (`15`). |
+| `129..=98` | `epoch` | `32` bits (`1..=u32::MAX`) | Encodes `intent_exec_epoch` so cold-restarted gateways advance per-strategy epoch floors past live open orders. |
+| `97..=34` | `intent_id` | `64` bits (`1..=2^63 - 1`) | Encodes `intent_id` so cold-restarted workers and gateways never reuse an active sequence number. |
+| `33..=0` | `tag` | `34` bits | Truncated `SHA-256("tickwire.client-id.v1" \|\| risk_domain_id \|\| venue \|\| env \|\| account \|\| product \|\| strategy_id \|\| leg \|\| epoch \|\| intent_id)` rejecting manual/external or cross-domain client IDs ($2^{-34} \approx 5.8 \times 10^{-11}$ collision bound). |
+
+For every verified `SelfDescribingClientId`, `deterministic_order_id(&ClientIdDomain)` derives a nonzero 16-byte internal `order_id` via `SHA-256("tickwire.client-order-uuid.v1" || domain_fields || strategy_id || leg || epoch || intent_id)[..16]` (setting bit `0` of byte `0` if all 16 bytes are zero), eliminating local `Origins` alias files on cold recovery. Client IDs that do not carry the `"t1"` prefix or fail `tag` verification for the bound `ClientIdDomain` classify cleanly as `External` (manual or foreign orders) rather than corrupting attribution.
+
 ### Observation Provenance and Fill Economics
 
 Every `VenueEvent` records `Scope`, `Product`, `instrument_version`, source `connection_epoch`, optional source sequence, native event ID, and timestamps. Reconnecting to a venue advances `connection_epoch` to record new session provenance, while the native venue trade ID continues to uniquely identify each economic fill. Uncorrelated venue events encode zero internal order and intent IDs and must carry a native venue order, list, or algo ID for downstream association.

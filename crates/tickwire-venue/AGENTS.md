@@ -24,13 +24,18 @@ authority live outside this crate.
 * **Distinct lifecycle, trade, and account-input facts**: Keep order acknowledgements/statuses, per-trade fills,
   synchronous `RequestReply` snapshots ([src/request_reply.rs](src/request_reply.rs)), and non-order cashflow
   observations ([src/account.rs](src/account.rs)) separate rather than synthesizing implied fills.
+* **Self-describing client order IDs**: [src/client_id.rs](src/client_id.rs) (`SelfDescribingClientId`) encodes
+  `tw1<29 base36 chars>` (32 `[0-9a-z]` ASCII bytes, valid across Binance/Bybit/OKX) carrying
+  `(logical_strategy_id, leg, epoch, intent_id)` plus a 30-bit domain-keyed SHA-256 MAC over `ClientIdDomain` so cold
+  exchange bootstraps deterministically classify `DecodedClientId::Managed` vs. `DecodedClientId::External`.
 
 ## Verification and Specifications
 
-* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/types.rs](src/types.rs) · [src/account.rs](src/account.rs) ·
-  [src/request_reply.rs](src/request_reply.rs) · [src/validate.rs](src/validate.rs)
+* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/types.rs](src/types.rs) · [src/client_id.rs](src/client_id.rs) ·
+  [src/account.rs](src/account.rs) · [src/request_reply.rs](src/request_reply.rs) · [src/validate.rs](src/validate.rs)
 * **Integration tests**: [tests/commands.rs](tests/commands.rs) · [tests/events.rs](tests/events.rs) ·
-  [tests/account_input.rs](tests/account_input.rs) · [tests/amendment.rs](tests/amendment.rs) ·
+  [tests/client_id.rs](tests/client_id.rs) · [tests/account_input.rs](tests/account_input.rs) ·
+  [tests/amendment.rs](tests/amendment.rs) ·
   [tests/spot_extensions.rs](tests/spot_extensions.rs) · [tests/structures.rs](tests/structures.rs) ·
   [tests/strict.rs](tests/strict.rs) · [tests/contract.rs](tests/contract.rs) · [tests/vectors.rs](tests/vectors.rs)
 * **Specifications and contracts**: [venue.md](../../specs/implementation/venue.md) ·

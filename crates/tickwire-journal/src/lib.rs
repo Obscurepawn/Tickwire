@@ -7,6 +7,7 @@ pub mod frame;
 mod journal;
 pub mod store;
 pub use journal::*;
+pub use store::StorageMode;
 
 #[derive(Debug)]
 pub enum Error {

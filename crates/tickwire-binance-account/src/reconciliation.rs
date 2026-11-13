@@ -23,6 +23,7 @@ pub mod income;
 pub mod income_association;
 pub mod income_closure;
 pub mod income_import;
+pub mod live_bootstrap;
 pub mod orders;
 mod snapshot;
 pub mod structure_closure;

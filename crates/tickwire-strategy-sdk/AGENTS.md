@@ -9,9 +9,11 @@ deterministic handover replay ([src/replay.rs](src/replay.rs), [src/restore.rs](
 
 ## Invariants and Change Guidelines
 
-* **Durable command-before-ring publication**: `IntentWriter` ([src/outbound.rs](src/outbound.rs)) must persist and sync the `CanonicalCommand`
-  blob in `CommandStore`—bound to its triggering input cursor, `now_ns` decision timestamp, and monotonic strategy output sequence—before
-  publishing the `IntentRecord` reference onto the shared-memory ring.
+* **Command-before-ring publication and self-describing IDs**: `IntentWriter` ([src/outbound.rs](src/outbound.rs))
+  commits the `CanonicalCommand` blob in `CommandStore` (`RuntimeBlobStore`: `InMemory`, `MmapAsync`, or
+  `LocalDurable`)—bound to its triggering input cursor, `now_ns` decision timestamp, and monotonic strategy output
+  sequence—before publishing the `IntentRecord` reference onto the shared-memory ring, and provides
+  `mint_self_describing_client_id` so outbound orders carry `SelfDescribingClientId` attribution on the venue wire.
 * **Freshness and callback gating**: `MarketView` ([src/market.rs](src/market.rs)) exposes borrowed local replica state to `Strategy::on_market`
   only after JOIN baseline and catch-up records are journaled, rejecting stale or degraded (`feed_state != 2`) feeds; ordered account execution
   updates arrive exclusively through `on_report` ([src/reports.rs](src/reports.rs)).

@@ -8,9 +8,14 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
 
 ## Invariants and Change Guidelines
 
-* **Durable closure and WAL sync before output**: In [src/lib.rs](src/lib.rs) and [src/binding.rs](src/binding.rs),
-  `submit` reserves exposure in `Account`, verifies dependencies via `Authority::prepare`, and syncs `Admit` in
-  `AccountJournal` before staging output; persistence failures never mutate live account state or emit network bytes.
+* **Commit-profile closure and journal append before output**: In [src/lib.rs](src/lib.rs) and
+  [src/binding.rs](src/binding.rs), `submit` reserves exposure in `Account`, verifies dependencies via
+  `Authority::prepare`, and commits `Admit` in `AccountJournal` (`InMemory`, `MmapAsync`, or `LocalDurable`) before
+  staging output; persistence failures never mutate live account state or emit network bytes.
+* **Cold stateless exchange bootstrap**: `VerifiedLiveBootstrap` and `AccountGateway::create_from_live_exchange` in
+  [src/lib.rs](src/lib.rs) initialize an active gateway directly from authenticated exchange `Account + OpenOrders`
+  snapshots, registering imported synthetic `CanonicalCommand` entries as `Status::Flushed` and enforcing
+  `writer_epoch >= max_imported_epoch`.
 * **Fresh gate recheck at the first application byte**: Immediately before passing the first application byte to HTTP
   ([src/lib.rs](src/lib.rs)) or WebSocket ([src/websocket.rs](src/websocket.rs)) transport, re-evaluate
   `Authority::commit_state` and `Authority::current_gate` (`now < lease_until`, matching `writer_epoch`,
@@ -26,6 +31,7 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/binding.rs](src/binding.rs) ·
   [src/recovery.rs](src/recovery.rs) · [src/websocket.rs](src/websocket.rs) ·
   [tests/submission.rs](tests/submission.rs) · [tests/lifecycle.rs](tests/lifecycle.rs) ·
+  [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/binance_rest.rs](tests/binance_rest.rs) · [tests/websocket.rs](tests/websocket.rs) ·
   [tests/ingress.rs](tests/ingress.rs) · [tests/income_closure.rs](tests/income_closure.rs) ·
   [tests/recovery_metadata.rs](tests/recovery_metadata.rs) ·

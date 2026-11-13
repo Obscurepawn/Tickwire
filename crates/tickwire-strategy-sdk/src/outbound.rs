@@ -3,7 +3,22 @@ use tickwire_ipc::*;
 use tickwire_recovery::{BlobStore, StoreKey};
 use tickwire_shm::Publisher;
 use tickwire_venue::CanonicalCommand;
-use tickwire_venue::{CommandBody, SpotAdvancedCommand};
+use tickwire_venue::{
+    ClientId, ClientIdDomain, CommandBody, CommandContext, SelfDescribingClientId,
+    SpotAdvancedCommand,
+};
+
+/// Mint a canonical 32-character `[0-9a-z]` `SelfDescribingClientId` and its deterministic
+/// 16-byte internal order UUID from `CommandContext`.
+pub fn mint_self_describing_client_id(
+    ctx: &CommandContext,
+    leg: u8,
+) -> Result<(ClientId, [u8; 16])> {
+    let domain = ClientIdDomain::from_command_context(ctx);
+    let sd = SelfDescribingClientId::from_command_context(ctx, leg)?;
+    let client_id = sd.encode(&domain)?;
+    Ok((client_id, sd.deterministic_order_id(&domain)))
+}
 pub struct StoredCommand {
     digest: [u8; 32],
     bytes: u32,
@@ -52,6 +67,21 @@ pub fn resolve_file(
         return Err(Error::Bounds);
     }
     let value = reader.get_object(digest, bytes as usize)?;
+    let command = CanonicalCommand::decode(&value)?;
+    if command.digest() != digest || value.len() != bytes as usize {
+        return Err(Error::Identity);
+    }
+    Ok(command)
+}
+pub fn resolve_blob<B: BlobStore>(
+    store: &B,
+    digest: [u8; 32],
+    bytes: u32,
+) -> Result<CanonicalCommand> {
+    if bytes == 0 || bytes as usize > tickwire_venue::MAX_CANONICAL_BYTES {
+        return Err(Error::Bounds);
+    }
+    let value = store.get(StoreKey::Object(digest), bytes as usize)?;
     let command = CanonicalCommand::decode(&value)?;
     if command.digest() != digest || value.len() != bytes as usize {
         return Err(Error::Identity);
@@ -264,6 +294,43 @@ pub fn resolve_record(
     }
     Ok(command)
 }
+pub fn resolve_record_from_store<B: BlobStore>(
+    store: &B,
+    raw: &[u8],
+    bank: &ResourceHeader,
+    risk_domain: [u8; 16],
+) -> Result<CanonicalCommand> {
+    if bank.resource_kind != 2 || bank.required_features & 128 == 0 || risk_domain == [0; 16] {
+        return Err(Error::Identity);
+    }
+    let Record::Intent(record) = decode_record(raw)? else {
+        return Err(Error::Identity);
+    };
+    let command = resolve_blob(store, record.body.command_digest, record.body.command_bytes)?;
+    let c = &command.command().context;
+    if c.request.risk_domain_id != risk_domain
+        || c.strategy.instance_id != bank.producer_instance
+        || c.request.strategy_generation != bank.producer_generation
+    {
+        return Err(Error::Identity);
+    }
+    let receipt = StoredCommand {
+        digest: command.digest(),
+        bytes: command.bytes().len() as u32,
+    };
+    let mut expected = encode_intent(
+        &command,
+        &receipt,
+        record.header.sequence,
+        record.header.publish_mono_ns,
+        bank.risk_scope,
+    )?;
+    expected.header.record_crc32c = record.header.record_crc32c;
+    if wire_image(&expected)?.as_slice() != raw {
+        return Err(Error::Identity);
+    }
+    Ok(command)
+}
 fn wire_image(record: &IntentRecord) -> Result<Vec<u8>> {
     let mut bytes = vec![0; IntentRecord::SIZE];
     record.encode(&mut bytes)?;
@@ -305,5 +372,36 @@ mod tests {
         };
         assert_eq!(decoded.body.command_bytes as usize, command.bytes().len());
         assert!(encode_intent(&command, &receipt, 7, 60, 0).is_err());
+    }
+    #[test]
+    fn mints_self_describing_client_id_and_round_trips_through_in_memory_command_store() {
+        let mut raw_cmd = crate::test_command::command();
+        let (cid, det_id) = mint_self_describing_client_id(&raw_cmd.context, 0).unwrap();
+        assert_eq!(cid.as_str().len(), 32);
+        assert_ne!(det_id, [0; 16]);
+        if let CommandBody::New(ref mut spec) = raw_cmd.body {
+            spec.client_id = cid.clone();
+        }
+        let domain = ClientIdDomain::from_command_context(&raw_cmd.context);
+        assert_eq!(
+            SelfDescribingClientId::decode(&cid, &domain),
+            tickwire_venue::DecodedClientId::Managed(SelfDescribingClientId {
+                logical_strategy_id: 8,
+                leg: 0,
+                epoch: 4,
+                intent_id: 3,
+            })
+        );
+        let command = CanonicalCommand::new(raw_cmd).unwrap();
+        let blob_store = tickwire_recovery::RuntimeBlobStore::in_memory();
+        let mut store = CommandStore::new(blob_store);
+        let receipt = store.put(&command).unwrap();
+        assert_eq!(
+            store
+                .resolve(receipt.digest(), receipt.bytes())
+                .unwrap()
+                .digest(),
+            command.digest()
+        );
     }
 }

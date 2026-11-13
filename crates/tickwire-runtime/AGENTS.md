@@ -22,9 +22,10 @@ node; child-process spawning, shared-memory mappings, and policy grant rules liv
   risk-increasing orders in `Intake::Wait` whenever `!market_live`, `!private_receiving`, or `account_frozen`, while
   still forwarding `Cancel`, `CancelAlgo`, `CancelList`, and `Query` commands as long as the clock is calibrated and
   the sender is not halted.
-* **Startup-only file and catalog validation**: Keep JSON/CBOR baseline, credential, and `tickwire-instrument-catalog`
-  loading in [src/files.rs](src/files.rs) and [src/files/catalog.rs](src/files/catalog.rs) strictly on the startup
-  path, never inside per-quote or per-order turns.
+* **Startup-only storage-mode and catalog wiring**: Keep `StorageMode` selection (`InMemory`, `MmapAsync`,
+  `LocalDurable`), `OpenMode` (`Create`, `CreateFromLiveExchange`, `RecoverFrozen`), and JSON/CBOR baseline, credential,
+  and `tickwire-instrument-catalog` loading in [src/files.rs](src/files.rs) and [src/files/catalog.rs](src/files/catalog.rs)
+  strictly on the startup path, never inside per-quote or per-order turns.
 
 ## Verification and Specifications
 

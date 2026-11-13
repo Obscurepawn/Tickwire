@@ -82,6 +82,14 @@ impl Account {
             epoch: r.intent_exec_epoch,
             intent_id: r.intent_id,
         };
+        if increases
+            && self
+                .strategy_sequence_floors
+                .get(&strategy)
+                .is_some_and(|floor| key <= *floor)
+        {
+            return Err(Error::Stale);
+        }
         if !increases {
             let mut structure_management = None;
             match &c.body {

@@ -8,7 +8,7 @@ Sharing one single-writer `AccountGateway` across multiple logical strategies se
 
 | Component | Key / Capacity | Contract |
 | --- | --- | --- |
-| `Origins<S>` | Scoped by `(risk_domain_id, venue, environment, account)` | Synchronizes `1` immutable origin content object and `3` scoped lookup aliases (`IntentKey`, local order ID, and native `ClientId`) before WAL admission. |
+| `Origins<S>` | Scoped by `(risk_domain_id, venue, environment, account)` | Maintains an O(1) in-memory lookup index (`IntentKey`, local order ID, and native `ClientId`) backed by the configured `BlobStore` (`InMemoryBlobStore` zero-I/O default, `AsyncFileBlobStore` page-cache + async `fdatasync`, or `FileBlobStore`), falling back to `SelfDescribingClientId` decoding for cold-bootstrapped open orders. |
 | `RestSession` slot | `pending: Option<(u64, IntentKey)>` (`1` request) | Permits at most one in-flight native HTTP request on the execution connection at a time. |
 | `Completion` | `{ logical_strategy_id, intent, response: Reply }` | Routes decoded native HTTP responses back to the exact strategy member that submitted the request. |
 

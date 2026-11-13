@@ -32,6 +32,10 @@ During an active round, private WebSocket frames continue to append to the durab
 3. **Three-snapshot parity and `Reactivated`**: Once account, open-order, and conditional-order snapshots match the current `Account` state and continuous input prefix, `AccountGateway::reactivate` synchronizes `Reactivated` and updates `ControlPlane` via `ActivationProof`. Success resets per-round cursors and schedules `maintenance_at = now.saturating_add(fee_maintenance_interval_ns)`.
 4. **Failure or frontier change**: Any HTTP/transport error (such as a `503` snapshot response) or any mid-round change in private `(connection_epoch, gap_generation)` discards partial per-round state, leaving `Account` frozen and preserving its original `valid_until` deadline across crash replay.
 
+### Cold Stateless Bootstrap (`bootstrap_from_remote_snapshots`)
+
+When a Binance Spot or USDⓈ-M node boots without local journal state (`StorageMode::InMemory` or an empty state directory configured for cold bootstrap), `tickwire-binance-account::reconciliation::snapshot::bootstrap_from_remote_snapshots` parses authenticated Spot (`/api/v3/account` + `/api/v3/openOrders`) or USDⓈ-M (`/fapi/v3/account` + `/fapi/v1/openOrders`) snapshots, attributes settled balances and net positions to `strategy 0`, decodes every domain-matching `SelfDescribingClientId` open order into `LiveOpenOrder` entries and `AccountIngress` `OrderRegistry` bindings, and constructs a live `Account` with per-strategy `(epoch, intent_id)` sequence floors—requiring zero historical fill pagination on startup.
+
 ## Verification and References
 
 ```sh

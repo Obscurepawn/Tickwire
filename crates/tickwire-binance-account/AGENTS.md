@@ -20,17 +20,21 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
 * **WebSocket and REST lifecycle binding**: Keep synchronous REST replies in [src/rest.rs](src/rest.rs) and WebSocket
   trading plans/bindings in [src/ws.rs](src/ws.rs) tied to their durable admission digests and session epochs,
   including late trade fills arriving after terminal order statuses.
-* **Evidence-complete reconciliation**: Require snapshot, open/conditional order, trade, amendment, structure, and
-  USD-M income closures in [src/reconciliation.rs](src/reconciliation.rs) and
+* **Evidence-complete reconciliation and cold bootstrap**: Require snapshot, open/conditional order, trade, amendment,
+  structure, and USD-M income closures in [src/reconciliation.rs](src/reconciliation.rs) and
   [src/account_facts.rs](src/account_facts.rs) to converge against the exact account prefix before reactivating
-  risk-increasing admissions.
+  risk-increasing admissions, and support stateless cold starts via `bootstrap_from_remote_snapshots` in
+  [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) and
+  `AccountIngress::create_from_live_exchange`.
 
 ## Verification and Specifications
 
 * **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/reconciliation.rs](src/reconciliation.rs) ·
+  [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) ·
   [src/rest.rs](src/rest.rs) · [src/ws.rs](src/ws.rs) · [src/account_facts.rs](src/account_facts.rs) ·
   [src/registry.rs](src/registry.rs)
 * **Integration tests**: [tests/account_observation.rs](tests/account_observation.rs) ·
+  [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/network_ingress.rs](tests/network_ingress.rs) · [tests/persistence.rs](tests/persistence.rs)
 * **Specifications and models**: [binance-ws-trading.md](../../specs/implementation/binance-ws-trading.md) ·
   [reconciliation-controller.md](../../specs/implementation/reconciliation-controller.md) ·

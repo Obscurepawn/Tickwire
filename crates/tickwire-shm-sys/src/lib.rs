@@ -18,8 +18,10 @@ pub const IMMUTABLE_SEALS: i32 = 0x0f;
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod immutable;
+pub mod mapped_file;
 mod resource;
 pub use immutable::ImmutableMapping;
+pub use mapped_file::{CursorState, MappedCursorPage, MappedSegment, align_page_capacity};
 pub use resource::ImmutableResource;
 
 #[derive(Debug)]

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="680" height="760" viewBox="0 0 680 760"
      role="img" aria-labelledby="title description">
   <title id="title">Tickwire single-host multi-process trading architecture</title>
-  <desc id="description">A market-data process decodes public venue feeds once into a memfd-sealed shared-memory broadcast ring. Independent strategy workers consume the ring at their own cursors, exchange SPSC intents and ordered reports with one single-writer account process, while the account also verifies live market freshness directly, persists admissions and recovery closures to a hash-chained WAL, rechecks its grant at the first TLS byte, and reconciles private venue updates and fills.</desc>
+  <desc id="description">A market-data process decodes public venue feeds once into a memfd-sealed shared-memory broadcast ring. Independent strategy workers consume the ring at their own cursors, exchange SPSC intents and ordered reports with one single-writer account process, while the account verifies live market freshness directly, commits admissions and recovery closures to an InMemory, MmapAsync, or LocalDurable AccountJournal, rechecks its grant at the first TLS byte, and reconciles or cold-bootstraps private venue state.</desc>
   <defs>
     <marker id="arrow-slate" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
@@ -110,8 +110,8 @@
 
   <rect class="mod-wal" x="249" y="538" width="182" height="82" rx="6"/>
   <text x="340" y="564" class="h-mod">Account Journal</text>
-  <text x="340" y="585" class="sub-mod">Recovery closure</text>
-  <text x="340" y="604" class="sub-mod">Hash-chained WAL</text>
+  <text x="340" y="585" class="sub-mod">InMemory (default)</text>
+  <text x="340" y="604" class="sub-mod">MmapAsync · fsync WAL</text>
 
   <path class="wire-slate" d="M431 579 H445" marker-end="url(#arrow-slate)"/>
 

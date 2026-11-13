@@ -1,6 +1,12 @@
-# Physical Write-Ahead Log, Segment Rotation, and Tail Recovery
+# Physical Write-Ahead Log, Storage Modes, and Tail Recovery
 
-`tickwire-journal` owns the single-writer physical write-ahead log (`Journal<S: Store>` and `FileStore`) for WAL v1 framed data batches within a single `(risk_domain_id, journal_epoch)` stream. A returned `PhysicalSyncReceipt` states only what contiguous framed bytes reached a local filesystem synchronization barrier (`sync_data`). Higher-level journals and execution gateways remain responsible for canonical payload schemas, command identity, recovery dependency closures, and live trading authority.
+`tickwire-journal` owns the single-writer physical write-ahead log (`Journal<S: Store>`) for WAL v1 framed data batches within a single `(risk_domain_id, journal_epoch)` stream across three selectable `StorageMode` profiles (`JournalStore`):
+
+1. **`StorageMode::InMemory` (`InMemoryStore`, default)**: Pure volatile RAM storage with zero filesystem directories, descriptors, or syscalls on the trading path—tailored for ephemeral public-cloud Pods where container rescheduling discards node-local storage and cold startup bootstraps directly from authenticated exchange snapshots and self-describing `ClientId` open orders.
+2. **`StorageMode::MmapAsync` (`MmapAsyncStore`)**: Preallocated, pre-faulted `MAP_SHARED` segment mappings (`tickwire-shm-sys::MappedSegment`) paired with a 4-KiB `MMAP-CURSOR.bin` logical-tail cursor page (`MappedCursorPage`) and a dedicated background flusher thread running asynchronous `fdatasync`. Hot-path `append_batch` copies framed bytes into the kernel page cache, advances the alternate cursor slot after a `Release` fence, publishes the flush target atomically, and wakes the parked flusher thread without blocking—compressing hot-path commit latency from hundreds of microseconds to ~100 nanoseconds while preserving 100% deterministic same-host process-crash (`SIGKILL`/panic) recovery.
+3. **`StorageMode::LocalDurable` (`FileStore`)**: Synchronous `write_all` + `File::sync_data` (`fdatasync`) before returning `PhysicalSyncReceipt`, retained for deterministic `fsync` fault-injection tests, bare-metal power-loss durability budgets, and offline archival tools.
+
+A returned `PhysicalSyncReceipt` states that contiguous framed bytes reached the configured `Store`'s commit boundary (RAM buffer in `InMemory`, kernel `MAP_SHARED` page cache + cursor slot queued for async `fdatasync` in `MmapAsync`, or `sync_data` barrier in `LocalDurable`). Higher-level journals and execution gateways remain responsible for canonical payload schemas, command identity, recovery dependency closures, and live trading authority.
 
 Separating physical framing and synchronization from business reduction keeps crash recovery deterministic: the physical layer guarantees contiguous frame chaining, torn-tail truncation, and corruption quarantine without interpreting order or balance state, while upper layers bind their logical hashes and recovery frontiers to `PhysicalFrontier`.
 
@@ -36,7 +42,18 @@ cargo test --locked -p tickwire-journal
 cargo clippy --locked -p tickwire-journal --all-targets -- -D warnings
 ```
 
-Subprocess crash tests terminate a live writer at four cut points: halfway through writing a batch, after writing all frames but before `sync_data`, after `sync_data` completes but before `PhysicalSyncReceipt` reaches the caller, and after receipt delivery. In historical Linux runs, the mid-write cut cleanly truncated a 372-byte unsealed tail while the remaining three cuts recovered complete batches (noting that bytes surviving `SIGKILL` in the OS page cache do not by themselves prove survival across physical power loss).
+Subprocess crash tests terminate a live writer at four cut points: halfway through writing a batch, after writing all frames but before `sync_data`, after `sync_data` completes but before `PhysicalSyncReceipt` reaches the caller, and after receipt delivery. In historical Linux runs, the mid-write cut cleanly truncated a 372-byte unsealed tail while the remaining three cuts recovered complete batches (noting that bytes surviving `SIGKILL` in the OS page cache do not by themselves prove survival across physical power loss). An additional `MmapAsyncStore` subprocess crash test (`storage_modes.rs`) writes 25 batches and terminates abruptly via `abort()` without calling `flush_durable()` or `Drop`, verifying that reopen truncates the preallocated tail via `MMAP-CURSOR.bin`, recovers 100% of committed batches (`discarded_tail_bytes == 0`), and resumes appending under a newer writer epoch.
+
+### Commit Profile Benchmark (`storage_modes.rs`)
+
+Measured on an `AMD Ryzen 7 8845H` (`Linux 6.18.58.1-microsoft-standard-WSL2 x86_64`, load average `0.15`, `--release`, 256-byte record payload, 200 warm iterations for `InMemory` and `MmapAsync` after 16 warm-up batches, 30 iterations for `LocalDurable`):
+
+| Commit Profile / Boundary | Hot-Path Syscalls & Copies | p50 | p99 |
+| --- | --- | ---: | ---: |
+| Raw `MmapAsyncStore` (`append_segment` + `sync_segment`) | `0` syscalls when flusher active (`1` `futex` wake if parked); `1` `MAP_SHARED` copy + `1` 64-byte cursor slot SHA-256 | `110 ns` | `9,408 ns` |
+| Framed `Journal<InMemoryStore>` (`append_batch`) | `0` syscalls; `3` WAL v1 frames (`BatchBegin`, `DataRecord`, `BatchSeal`) with `crc32c` + `SHA-256` | `2,806 ns` | `11,051 ns` |
+| Framed `Journal<MmapAsyncStore>` (`append_batch`) | `0` blocking syscalls; `3` WAL v1 frames + `MAP_SHARED` page-cache copy + async `fdatasync` | `2,826 ns` | `8,006 ns` |
+| Framed `Journal<FileStore>` (`append_batch`) | `open` + `fstat` + `lseek` + `write` + blocking `fdatasync` per batch | `1,043,291 ns` | `1,840,309 ns` |
 
 * Journal engine, frame codec, and filesystem store: [journal.rs](../../crates/tickwire-journal/src/journal.rs), [frame.rs](../../crates/tickwire-journal/src/frame.rs), [store.rs](../../crates/tickwire-journal/src/store.rs)
 * Machine wire contract: [journal-wire-v1.json](../contracts/journal-wire-v1.json)

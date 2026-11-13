@@ -3,11 +3,16 @@
 
 mod account;
 mod cbor;
+pub mod client_id;
 mod codec;
 mod request_reply;
 mod types;
 mod validate;
 pub use account::*;
+pub use client_id::{
+    ClientIdDomain, DecodedClientId, PARENT_STRUCTURE_LEG, REPLACEMENT_ORDER_LEG,
+    SELF_DESCRIBING_CLIENT_ID_LEN, SelfDescribingClientId,
+};
 use codec::Codec;
 pub use request_reply::{OrderSnapshot, RequestReply};
 use sha2::{Digest, Sha256};

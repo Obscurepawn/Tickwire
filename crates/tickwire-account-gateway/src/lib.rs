@@ -252,6 +252,56 @@ pub struct OutputProgress {
     pub total_bytes: usize,
 }
 
+/// Verified cold-exchange bootstrap pairing a `CanonicalBaseline` with its reconstructed `Account`.
+#[derive(Debug, Clone)]
+pub struct VerifiedLiveBootstrap {
+    baseline: CanonicalBaseline,
+    account: Account,
+    imported_orders: Vec<tickwire_account::OrderKey>,
+    imported_commands: Vec<CanonicalCommand>,
+    external_open_orders: usize,
+}
+impl VerifiedLiveBootstrap {
+    pub fn new(
+        snapshot: tickwire_account::Snapshot,
+        catalog: tickwire_account::Catalog,
+        open_orders: &[tickwire_account::LiveOpenOrder],
+        freeze_on_external: bool,
+    ) -> Result<Self> {
+        let boot =
+            Account::from_live_exchange(snapshot, catalog.clone(), open_orders, freeze_on_external)
+                .map_err(Error::Account)?;
+        let baseline =
+            CanonicalBaseline::new(boot.normalized_snapshot, catalog).map_err(Error::Codec)?;
+        Ok(Self {
+            baseline,
+            account: boot.account,
+            imported_orders: boot.imported_orders,
+            imported_commands: Vec::new(),
+            external_open_orders: boot.external_open_orders,
+        })
+    }
+    pub fn with_imported_commands(mut self, commands: Vec<CanonicalCommand>) -> Self {
+        self.imported_commands = commands;
+        self
+    }
+    pub fn baseline(&self) -> &CanonicalBaseline {
+        &self.baseline
+    }
+    pub fn account(&self) -> &Account {
+        &self.account
+    }
+    pub fn imported_orders(&self) -> &[tickwire_account::OrderKey] {
+        &self.imported_orders
+    }
+    pub fn imported_commands(&self) -> &[CanonicalCommand] {
+        &self.imported_commands
+    }
+    pub fn external_open_orders(&self) -> usize {
+        self.external_open_orders
+    }
+}
+
 pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     journal: AccountJournal<S>,
     account: Account,
@@ -293,6 +343,86 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         let account =
             Account::from_snapshot(baseline.snapshot().clone(), baseline.catalog().clone())
                 .map_err(Error::Account)?;
+        Self::create_with_account(
+            backend,
+            config,
+            baseline,
+            account,
+            BTreeMap::new(),
+            authority,
+            encoder,
+            connection,
+        )
+    }
+    pub fn create_from_live_exchange(
+        backend: S,
+        config: Config,
+        live: VerifiedLiveBootstrap,
+        authority: A,
+        encoder: E,
+        connection: ConnectionConfig,
+    ) -> Result<Self> {
+        if let Some(max_epoch) = live.account.max_imported_epoch()
+            && config.writer_epoch < max_epoch
+        {
+            return Err(Error::Identity);
+        }
+        binding::config(&config)?;
+        if live.imported_commands.len() > config.max_intents {
+            return Err(Error::Capacity);
+        }
+        let mut entries = BTreeMap::new();
+        for command in live.imported_commands {
+            binding::command(&config, &command, false)?;
+            let increases = match &command.command().body {
+                tickwire_venue::CommandBody::New(spec) => !spec.reduce_only,
+                _ => true,
+            };
+            let key = binding::intent(&command);
+            if entries
+                .insert(
+                    key,
+                    Entry {
+                        command,
+                        committed: None,
+                        evaluated_at: 0,
+                        increases,
+                        status: Status::Flushed,
+                        output: None,
+                    },
+                )
+                .is_some()
+            {
+                return Err(Error::Conflict);
+            }
+        }
+        Self::create_with_account(
+            backend,
+            config,
+            live.baseline,
+            live.account,
+            entries,
+            authority,
+            encoder,
+            connection,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    fn create_with_account(
+        backend: S,
+        config: Config,
+        baseline: CanonicalBaseline,
+        account: Account,
+        entries: BTreeMap<IntentKey, Entry>,
+        authority: A,
+        encoder: E,
+        connection: ConnectionConfig,
+    ) -> Result<Self> {
+        binding::config(&config)?;
+        binding::baseline(&config, &baseline)?;
+        if config.writer_epoch != config.journal.initial_writer_epoch {
+            return Err(Error::Identity);
+        }
         let server_name = config
             .route
             .authority
@@ -324,7 +454,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             max_send_bytes,
             max_receive_bytes,
             retained_receive: VecDeque::new(),
-            entries: BTreeMap::new(),
+            entries,
             pending: None,
             halted: false,
         })

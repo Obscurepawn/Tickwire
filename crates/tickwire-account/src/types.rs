@@ -473,3 +473,14 @@ pub struct UncreatedAlgoClosed {
     pub command_digest: v::Hash,
     pub venue_parent_id: v::VenueOrderId,
 }
+
+/// Live resting order observed from an authenticated exchange open-orders snapshot at cold start.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LiveOpenOrder {
+    pub instrument_id: u64,
+    pub spec: v::OrderSpec,
+    pub venue_order_id: Option<v::VenueOrderId>,
+    pub filled_quantity: Fixed,
+    pub manager: ManagerIdentity,
+    pub command_digest: v::Hash,
+}

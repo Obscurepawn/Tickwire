@@ -1,4 +1,7 @@
 //! Actual authenticated balance/open-order reads, including empty-account bootstrap.
+pub use super::live_bootstrap::{
+    ImportedOrderRegistration, RemoteLiveBootstrap, bootstrap_from_remote_snapshots,
+};
 use super::*;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SnapshotKind {

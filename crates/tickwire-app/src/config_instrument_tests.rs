@@ -219,3 +219,42 @@ fn directory_assembly_rejects_rehashed_but_different_economics_including_fee_ass
         assert!(result.is_err(), "rehashed fault {fault}");
     }
 }
+
+#[test]
+fn deployment_storage_modes_default_to_in_memory_without_directories_and_validate_mmap_async() {
+    let baseline = baseline();
+    let mut stateless = deployment(7);
+    stateless.directories = None;
+    stateless.storage_mode = None;
+    assert_eq!(
+        stateless.resolved_storage_mode(),
+        tickwire_journal::StorageMode::InMemory
+    );
+    let assembled = stateless.assemble(baseline.clone()).unwrap();
+    assert_eq!(
+        assembled.storage_mode,
+        tickwire_journal::StorageMode::InMemory
+    );
+    assert!(assembled.directories.is_none());
+
+    // InMemory rejects local WAL recovery.
+    let mut bad_recover = deployment(7);
+    bad_recover.directories = None;
+    bad_recover.recover = true;
+    assert!(bad_recover.assemble(baseline.clone()).is_err());
+
+    // MmapAsync requires persistent directories, and accepts `commit_profile` alias.
+    let mut missing_dirs = deployment(7);
+    missing_dirs.directories = None;
+    missing_dirs.storage_mode = Some(tickwire_journal::StorageMode::MmapAsync);
+    assert!(missing_dirs.assemble(baseline.clone()).is_err());
+
+    let mut mmap_deploy = deployment(7);
+    mmap_deploy.storage_mode = Some(tickwire_journal::StorageMode::MmapAsync);
+    let mmap_cfg = mmap_deploy.assemble(baseline).unwrap();
+    assert_eq!(
+        mmap_cfg.storage_mode,
+        tickwire_journal::StorageMode::MmapAsync
+    );
+    assert!(mmap_cfg.directories.is_some());
+}

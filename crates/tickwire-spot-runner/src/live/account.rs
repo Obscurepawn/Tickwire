@@ -4,8 +4,8 @@ use tickwire_runtime_policy::ControlPlane;
 use tickwire_spot_execution::private::stream::StreamReader;
 
 pub(super) struct PrivateAccount<'a, A: Authority, T: FnMut() -> tickwire_gateway::Result<u64>> {
-    pub runner: AccountRunner<'a, FileBackend, A, T, SharedBlobStore<FileBlobStore>>,
-    pub verifier: CashVerifier<FileBlobStore>,
+    pub runner: AccountRunner<'a, AccountBackend, A, T, SharedBlobStore<RuntimeBlobStore>>,
+    pub verifier: CashVerifier<RuntimeBlobStore>,
     pub reader: StreamReader,
     pub plane: ControlPlane,
     pub permission: Rc<Cell<Option<PrivateCut>>>,

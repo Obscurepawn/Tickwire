@@ -27,12 +27,18 @@ and `tickwire-join`; this crate isolates `memfd_create`, `fcntl` file seals, `mm
 * **Resource envelope verification**: [src/resource.rs](src/resource.rs) (`ImmutableResource`)
   checks the 4096-byte `ResourceHeader` and SHA-256 content hash against externally authenticated
   metadata, leaving interior section and JOIN business checks to `tickwire-snapshot`.
+* **Preallocated file-backed `MAP_SHARED` segments**: [src/mapped_file.rs](src/mapped_file.rs)
+  (`MappedSegment`, `MappedCursorPage`) isolates `posix_fallocate`, `MAP_SHARED | MAP_POPULATE`
+  pre-faulting, `MADV_DONTFORK`, non-overlapping byte copies, release-ordered cursor publication, and
+  background `fdatasync` descriptors for `MmapAsyncStore` so same-host `SIGKILL` crashes retain the
+  kernel page-cache prefix without hot-path `write(2)` or synchronous `fsync` syscalls.
 
 ## Verification and Specifications
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/immutable.rs](src/immutable.rs) ·
-  [src/resource.rs](src/resource.rs) · [tests/mapping.rs](tests/mapping.rs) ·
-  [tests/immutable.rs](tests/immutable.rs) · [tests/process.rs](tests/process.rs)
+  [src/resource.rs](src/resource.rs) · [src/mapped_file.rs](src/mapped_file.rs) ·
+  [tests/mapping.rs](tests/mapping.rs) · [tests/immutable.rs](tests/immutable.rs) ·
+  [tests/mapped_file.rs](tests/mapped_file.rs) · [tests/process.rs](tests/process.rs)
 * **Specifications**: [shm-mapping.md](../../specs/implementation/shm-mapping.md) ·
   [immutable-resource.md](../../specs/implementation/immutable-resource.md)
 

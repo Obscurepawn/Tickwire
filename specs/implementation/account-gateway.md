@@ -2,7 +2,7 @@
 
 `AccountGateway<S, A, E>` (`tickwire-account-gateway`) is the single-owner execution boundary that binds one `Account` state machine, one append-only `AccountJournal<S>`, one policy `Authority`, one wire `Encoder`, and one TLS `Connection` (supporting both HTTP/REST and WebSocket order framing) to a fixed `Route`. Both Spot and USDⓈ-M runtimes instantiate this gateway so that financial reservations, recovery-closure persistence, journal durability, and first-byte socket authorization obey one uniform protocol.
 
-Separating pure risk calculation (`Account`) from journaled I/O (`AccountGateway`) solves the split-brain window between local disk durability and network transmission: a command never enters the outbound socket queue until its recovery closure and `Admit` record are synchronized on disk, and it never crosses into TLS plaintext until the gateway re-verifies ownership, lease validity, deadline, and market readiness at the exact moment of the first write.
+Separating pure risk calculation (`Account`) from journaled I/O (`AccountGateway`) solves the split-brain window between commit state and network transmission: a command never enters the outbound socket queue until its recovery closure and `Admit` record commit to the configured `AccountJournal` backend (`InMemory` RAM store by default, `MmapAsync` preallocated `MAP_SHARED` page cache + background `fdatasync`, or `LocalDurable` synchronous `fsync`), and it never crosses into TLS plaintext until the gateway re-verifies ownership, lease validity, deadline, and market readiness at the exact moment of the first write. On cold stateless Pod startups, `AccountGateway::create_from_live_exchange` binds a live-bootstrapped `Account` (including open orders reconstructed via `SelfDescribingClientId`) directly into a fresh `AccountJournal` and pre-populates `entries` so subsequent cancellations, queries, and fills correlate seamlessly.
 
 ## State Model and Bounds
 
@@ -25,7 +25,7 @@ At creation (`AccountGateway::create`), `Config.writer_epoch` must equal `journa
 
 ## State Transitions and Failure Semantics
 
-![Four-stage order submission pipeline showing idempotent intent lookup and fixed-point hold, synchronous recovery closure and WAL commit, grant re-verification immediately before the first TLS plaintext byte, and the deterministic split between proven zero-byte aborts (releasing exposure) versus partial sends or restarts (freezing the account until venue reconciliation).](../../assets/order-lifecycle.svg)
+![Four-stage order submission pipeline showing SelfDescribingClientId intake and fixed-point hold, selectable InMemory, MmapAsync, or LocalDurable journal and closure commit before send, grant re-verification immediately before the first TLS plaintext byte, and the deterministic split between proven zero-byte aborts releasing exposure versus partial sends or restarts freezing the account or cold-bootstrapping from exchange OpenOrders.](../../assets/order-lifecycle.svg)
 
 ### Submission and First-Byte Authorization
 

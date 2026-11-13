@@ -297,11 +297,11 @@ impl RecoveryVerifier for Historical<'_> {
 }
 fn load(deployment: &Deployment) -> Result<Recovered> {
     let configuration = deployment.assemble(deployment.baseline()?)?;
-    let roots = [
-        &deployment.directories.account,
-        &deployment.directories.input,
-        &deployment.directories.recovery,
-    ];
+    let dirs = deployment
+        .directories
+        .as_ref()
+        .ok_or_else(|| invalid("offline replay requires persistent directories"))?;
+    let roots = [&dirs.account, &dirs.input, &dirs.recovery];
     let canonical: Vec<_> = roots
         .iter()
         .map(|p| checked_directory(p))

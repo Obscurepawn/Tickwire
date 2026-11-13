@@ -14,12 +14,13 @@ use std::{
     time::{Duration, Instant},
 };
 use tickwire_account_gateway::{AccountGateway, AuthorityError, ConnectionConfig};
-use tickwire_account_journal::FileBackend;
+use tickwire_account_journal::AccountBackend;
 use tickwire_app::{market::Sources, strategy::AppStrategy};
 use tickwire_binance_clock::{LocalTime, SystemClock};
 use tickwire_clock::MonoTime;
+use tickwire_journal::StorageMode;
 use tickwire_market_source::{FeedObservation, Invalidation, MarketSink, MarketSource};
-use tickwire_recovery::{BlobStore, FileBlobStore, SharedBlobStore};
+use tickwire_recovery::{BlobStore, RuntimeBlobStore, SharedBlobStore};
 use tickwire_runtime::{
     authority::{GateProvider, LocalAuthority, RecoveryQueue},
     node::{Health, Observer},
@@ -88,20 +89,67 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         limits: Limits::default(),
         connect_deadline: Instant::now() + Duration::from_secs(10),
     };
-    let root = &cfg.state_directory;
-    std::fs::create_dir_all(root)?;
-    let account_dir = root.join("account");
-    let backend = FileBackend::open(&account_dir)?;
-    let existing = account_dir.join("ACCOUNT-BASELINE.cbor").try_exists()?;
-    let mut objects = SharedBlobStore::new(FileBlobStore::open(root.join("objects"))?);
-    cfg.bind(&mut objects, &base, existing)?;
-    let mut verifier = CashVerifier::new(
-        FileBlobStore::open(root.join("reconciliation"))?,
-        &cfg.expected_uid,
-        cfg.baseline_utc_ms,
-    )?;
+    let storage_mode = cfg.resolved_storage_mode();
     let plane = cfg.policy.build().map_err(protocol_error)?;
     let domain = cfg.policy.domain().map_err(protocol_error)?;
+    let mut ephemeral_private_dir = None;
+    let (backend, existing, mut objects, reconciliation_store, private_dir) = match storage_mode {
+        StorageMode::InMemory => {
+            let private_dir = match &cfg.state_directory {
+                Some(root) => {
+                    std::fs::create_dir_all(root)?;
+                    root.join("private")
+                }
+                None => {
+                    let dir = std::env::temp_dir().join(format!(
+                        "tickwire-spot-private-{}-{:032x}",
+                        std::process::id(),
+                        u128::from_be_bytes(domain.boot_id())
+                    ));
+                    ephemeral_private_dir = Some(dir.clone());
+                    dir
+                }
+            };
+            (
+                AccountBackend::open(StorageMode::InMemory, None)?,
+                false,
+                SharedBlobStore::new(RuntimeBlobStore::in_memory()),
+                RuntimeBlobStore::in_memory(),
+                private_dir,
+            )
+        }
+        StorageMode::MmapAsync | StorageMode::LocalDurable => {
+            let root = cfg
+                .state_directory
+                .as_ref()
+                .ok_or("state_directory is required for persistent spot storage_mode")?;
+            std::fs::create_dir_all(root)?;
+            let account_dir = root.join("account");
+            let existing = account_dir.join("ACCOUNT-BASELINE.cbor").try_exists()?;
+            let backend = AccountBackend::open(storage_mode, Some(&account_dir))?;
+            let (obj_store, rec_store) = match storage_mode {
+                StorageMode::MmapAsync => (
+                    RuntimeBlobStore::mmap_async(root.join("objects"))?,
+                    RuntimeBlobStore::mmap_async(root.join("reconciliation"))?,
+                ),
+                StorageMode::LocalDurable => (
+                    RuntimeBlobStore::local_durable(root.join("objects"))?,
+                    RuntimeBlobStore::local_durable(root.join("reconciliation"))?,
+                ),
+                StorageMode::InMemory => unreachable!(),
+            };
+            (
+                backend,
+                existing,
+                SharedBlobStore::new(obj_store),
+                rec_store,
+                root.join("private"),
+            )
+        }
+    };
+    cfg.bind(&mut objects, &base, existing)?;
+    let mut verifier =
+        CashVerifier::new(reconciliation_store, &cfg.expected_uid, cfg.baseline_utc_ms)?;
     let mut clock = SystemClock::new(domain).map_err(protocol_error)?;
     let mut strategy = run_strategies
         .then(|| cfg.strategies(plane.clone()))
@@ -120,7 +168,7 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     let private_clock = std::cell::RefCell::new(SystemClock::new(domain).map_err(protocol_error)?);
     let stream = PrivateStream::start(
         StreamConfig {
-            directory: root.join("private"),
+            directory: private_dir,
             scope: base.snapshot().scope.clone(),
             uid: cfg.expected_uid.clone(),
             stream_id: cfg.private_stream,
@@ -352,5 +400,8 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     }
     owner.permission.set(None);
     stream.stop()?;
+    if let Some(dir) = ephemeral_private_dir {
+        let _ = std::fs::remove_dir_all(dir);
+    }
     Ok(())
 }

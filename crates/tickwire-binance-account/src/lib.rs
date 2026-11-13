@@ -143,7 +143,15 @@ impl<S: Store> AccountIngress<S> {
 }
 impl<S: Store> AccountIngress<S> {
     pub fn create(store: S, config: Config) -> Result<Self> {
+        Self::create_from_live_exchange(store, config, &[])
+    }
+    pub fn create_from_live_exchange(
+        store: S,
+        config: Config,
+        imported: &[reconciliation::live_bootstrap::ImportedOrderRegistration],
+    ) -> Result<Self> {
         validate_config(&config)?;
+        let registry = reconciliation::live_bootstrap::build_imported_registry(&config, imported)?;
         let mut journal = Journal::create(store, config.physical.clone())?;
         let record = Record::Config(codec::config(&config));
         let bytes = codec::encode(&record)?;
@@ -153,7 +161,7 @@ impl<S: Store> AccountIngress<S> {
             config,
             retained: bytes.len(),
             records: vec![record],
-            registry: BTreeMap::new(),
+            registry,
             cursor: 1,
             stopped: false,
             closure_store: None,

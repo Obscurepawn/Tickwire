@@ -31,6 +31,13 @@ Supported targets are restricted at compile and runtime to little-endian 64-bit 
   3. `read_bytes` runs only after an `Acquire` load has observed the writer's `Release` publication and while a live reader reservation prevents the writer from reclaiming the slot.
 * **Platform and resource failures**: Non-Linux or non-4-KiB-page hosts fail deterministically with `UnsupportedPlatform` or `PlatformMismatch`. Any failure in `ftruncate`, `mmap`, `madvise(MADV_DONTFORK)`, or seal verification unmaps any partial mapping and closes the owned descriptor immediately. Deployment-specific latency properties—such as `mlock`, hugepage policy, CPU core isolation, page-fault pre-warming, and NUMA placement—require independent host configuration and measurement.
 
+## Memory-Mapped File Segments and Cursor Pages (`MappedSegment`, `MappedCursorPage`)
+
+To eliminate hot-path `write(2)` and synchronous `fdatasync(2)` syscalls in `MmapAsync` journal persistence while keeping downstream journal crates `#![forbid(unsafe_code)]`, `tickwire-shm-sys::mapped_file` encapsulates regular-file `MAP_SHARED` mappings behind a safe, single-writer boundary:
+
+* **`MappedSegment`**: Opens or creates a regular file (`0600`, `O_RDWR | O_CLOEXEC | O_NOFOLLOW`), acquires a non-blocking exclusive `flock(LOCK_EX | LOCK_NB)`, extends or verifies the file to a 4,096-byte page-aligned capacity, maps it `PROT_READ | PROT_WRITE` with `MAP_SHARED`, applies `MADV_DONTFORK`, and pre-faults writable pages during startup/segment creation so hot-path `write_at(offset, bytes)` executes a bounds-checked memory copy directly into the Linux page cache (`~100 ns`, zero syscalls, zero minor page faults on pre-warmed pages). `duplicate_sync_fd()` clones a `CLOEXEC` descriptor for an asynchronous background flusher thread to invoke `fdatasync` without contending on the mapped pointer, and `truncate_unmap(logical_len)` unmaps the segment before `ftruncate` trims unused preallocated trailing zeros on segment rotation or graceful shutdown.
+* **`MappedCursorPage` (`MMAP-CURSOR.bin`)**: Maps a single 4,096-byte file containing two cache-line-isolated 128-byte slots (`slot 0` at byte `0`, `slot 1` at byte `128`). Each commit writes `(magic = "TWMC0001", generation, segment_id, logical_len, sha256)` into the alternate slot after a `Release` fence over the segment payload. Because both mappings are `MAP_SHARED` in the kernel page cache, an abrupt process crash (`SIGKILL` or panic) preserves the highest valid `generation` slot, allowing reopen recovery to `ftruncate` the active preallocated segment to `logical_len` before scanning `TWAL0001` frames.
+
 ## Verification and References
 
 ```sh

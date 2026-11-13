@@ -48,7 +48,10 @@ pub struct Deployment {
     pub baseline: PathBuf,
     #[serde(default)]
     pub instrument_catalog: Option<CatalogFile>,
-    pub directories: Directories,
+    #[serde(default, alias = "commit_profile")]
+    pub storage_mode: Option<tickwire_journal::StorageMode>,
+    #[serde(default)]
+    pub directories: Option<Directories>,
     pub recover: bool,
     pub product: ProductName,
     pub boot_id: [u8; 16],
@@ -385,6 +388,13 @@ impl Deployment {
             },
         ))
     }
+    pub fn resolved_storage_mode(&self) -> tickwire_journal::StorageMode {
+        self.storage_mode.unwrap_or(if self.directories.is_some() {
+            tickwire_journal::StorageMode::LocalDurable
+        } else {
+            tickwire_journal::StorageMode::InMemory
+        })
+    }
     pub fn assemble(&self, baseline: CanonicalBaseline) -> Result<files::Configuration> {
         let instrument_catalog = self
             .instrument_catalog
@@ -489,8 +499,18 @@ impl Deployment {
             limits: public_limits(io),
         };
         let c = &self.clock;
+        let storage_mode = self.resolved_storage_mode();
+        if storage_mode == tickwire_journal::StorageMode::InMemory && self.recover {
+            return Err(invalid("cannot recover local WAL in InMemory storage_mode"));
+        }
+        if storage_mode != tickwire_journal::StorageMode::InMemory && self.directories.is_none() {
+            return Err(invalid(
+                "directories are required for MmapAsync and LocalDurable storage_mode",
+            ));
+        }
         let configuration = files::Configuration {
             instrument_catalog,
+            storage_mode,
             websocket: self
                 .trading_websocket
                 .map(|w| tickwire_binance_account::ws::WsConfig {
@@ -498,11 +518,11 @@ impl Deployment {
                     control_timeout_ns: w.control_timeout_ns,
                     max_messages_per_poll: w.max_messages_per_poll,
                 }),
-            directories: files::Directories {
-                account: self.directories.account.clone(),
-                input: self.directories.input.clone(),
-                recovery: self.directories.recovery.clone(),
-            },
+            directories: self.directories.as_ref().map(|d| files::Directories {
+                account: d.account.clone(),
+                input: d.input.clone(),
+                recovery: d.recovery.clone(),
+            }),
             mode: if self.recover {
                 files::OpenMode::RecoverFrozen {
                     account_required: None,

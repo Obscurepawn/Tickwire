@@ -10,9 +10,9 @@ Every monetary and quantity value uses `Fixed { atoms, scale }` (`i128` atoms, d
 
 | Resource / Parameter | Limit or Rule | Enforcement |
 | --- | --- | --- |
-| Tracked assets & venue caps | `MAX_ASSETS = 64` | Validated in `Account::from_snapshot`; `locked` must equal `nontrade_locked` because genesis snapshots carry zero coverage for pre-existing live orders. |
-| Instrument catalog & positions | `MAX_INSTRUMENTS = 64` (up to `128` side positions) | Validated at construction; strategy `0` serves as the explicit unattributed ownership bucket for remainders and external adjustments. |
-| Active / retained orders | `MAX_ORDERS = 1,024` | Keyed by `OrderKey { intent: IntentKey { epoch, intent_id }, client_id }`. |
+| Tracked assets & venue caps | `MAX_ASSETS = 64` | `Account::from_snapshot` requires `locked == nontrade_locked` for empty-order genesis; `Account::from_live_exchange` reconciles `remote_locked` against imported `LiveOpenOrder` principals and folds any residual external lock into `nontrade_locked`. |
+| Instrument catalog & positions | `MAX_INSTRUMENTS = 64` (up to `128` side positions) | Validated at construction; strategy `0` serves as the explicit unattributed ownership bucket for settled balances, net cold-start positions, remainders, and external adjustments. |
+| Active / retained orders | `MAX_ORDERS = 1,024` | Keyed by `OrderKey { intent: IntentKey { epoch, intent_id }, client_id }`, plus per-strategy `(epoch, intent_id)` sequence floors imported on cold start. |
 | Deduplicated economic facts | `MAX_FACTS = 16,384` | Keyed by `(OrderKey, kind, native_id)` so out-of-order and duplicate venue reports apply at most once. |
 | Strategy & bracket limits | `MAX_STRATEGIES = 1,024`, `MAX_BRACKETS = 128` | Every submitting strategy requires an explicit gross-quantity limit on the target `InstrumentPolicy`. |
 | Ledger sequence | `u64` (`..=u64::MAX`) | Checked increment permits reaching `u64::MAX` exactly and rejects any subsequent mutation. |
@@ -58,6 +58,15 @@ Per-order uncertainty tracks three orthogonal flags:
 Either `observed_unknown` or `recovery_unknown` marks `OrderView` publicly unknown, and neither `frozen` nor `recovery_unknown` ever causes a replayed duplicate trade to double-book cash or positions.
 
 During crash recovery, `Account` starts from the immutable `Snapshot` and `Catalog` and replays ordered `RecoveryRecord` entries (`Admit`, `Aborted`, `IngressEvent`, `IngressAccountInput`, `FeesReconciled`, external cash/position/transfer records, `StrategyHandover`, conditional/income closures, and `Reactivated`). Every `Admit` record embeds the full `CanonicalCommand`, original `evaluated_at` timestamp, and expected `AdmissionImage`; replay recomputes admission deterministically and fails if any dependency is missing, any input conflicts, `AdmissionImage` diverges, or sequence arithmetic overflows. A successful replay always returns `Account` in the frozen state until new live reconciliation completes.
+
+### Cold Stateless Exchange Bootstrap (`Account::from_live_exchange`)
+
+On ephemeral cloud Pods running without surviving local disk (`StorageMode::InMemory`), `Account::from_live_exchange(snapshot, catalog, open_orders, freeze_on_external)` initializes `Account` directly from authenticated exchange REST snapshots (`balances`/`positions` + `openOrders`) without paginating historical fills:
+
+1. **Settled pool attribution (`strategy 0`)**: Settled asset balances and net derivative positions enter the shared account bucket (`strategy 0`), while `strategy_limits` continue to bound each strategy's session delta plus active open-order exposure.
+2. **Self-describing open-order reconstruction**: Each live open order carrying a valid domain-authenticated `SelfDescribingClientId` restores `(logical_strategy_id, epoch, intent_id, leg)`, binds `venue_order_id` and deterministic `internal_id`, sets `original_quantity` and pre-snapshot `filled_quantity` (so subsequent partial or terminal fills book only post-snapshot cash and position deltas without double-counting), and allocates derivative `reduce` reservations against current positions.
+3. **Baseline lock normalization**: For Spot assets, `from_live_exchange` sums remaining principal across imported open orders (`explained_locked`), rejects inconsistent snapshots where `remote_locked < nontrade_locked + explained_locked` (`Error::Unreconciled`), normalizes `AssetBaseline.free = remote_free + explained_locked`, and folds any residual lock from manual/external orders into `nontrade_locked` (optionally latching `frozen = true` when `freeze_on_external` is enabled) so available balance never double-subtracts imported orders or spends external locks.
+4. **Per-strategy sequence floors**: For every imported `LiveOpenOrder`, `Account` records a monotonic `(max_epoch, max_intent_id)` floor per `logical_strategy_id` and rejects any subsequent risk-increasing `admit` from that strategy whose `(intent_exec_epoch, intent_id)` is less than or equal to the imported floor (`Error::Stale`).
 
 ## Performance and Cost
 

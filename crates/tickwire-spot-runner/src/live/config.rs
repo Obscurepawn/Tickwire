@@ -16,7 +16,10 @@ use tickwire_venue::Product;
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Deployment {
-    pub state_directory: PathBuf,
+    #[serde(default, alias = "commit_profile")]
+    pub storage_mode: Option<tickwire_journal::StorageMode>,
+    #[serde(default)]
+    pub state_directory: Option<PathBuf>,
     pub baseline: PathBuf,
     pub expected_uid: String,
     pub baseline_utc_ms: u64,
@@ -43,8 +46,23 @@ impl Deployment {
         Ok(serde_json::from_slice(&bytes)?)
     }
 
+    pub fn resolved_storage_mode(&self) -> tickwire_journal::StorageMode {
+        self.storage_mode
+            .unwrap_or(if self.state_directory.is_some() {
+                tickwire_journal::StorageMode::LocalDurable
+            } else {
+                tickwire_journal::StorageMode::InMemory
+            })
+    }
+
     pub fn validate(&self, trading: bool) -> Result<(CanonicalBaseline, SpotVenue)> {
-        if !self.state_directory.is_absolute()
+        let storage_mode = self.resolved_storage_mode();
+        if (storage_mode != tickwire_journal::StorageMode::InMemory
+            && self.state_directory.is_none())
+            || self
+                .state_directory
+                .as_ref()
+                .is_some_and(|p| !p.is_absolute())
             || !self.baseline.is_absolute()
             || !self.stop_file.is_absolute()
             || self.stop_file.try_exists()?

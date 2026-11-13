@@ -12,9 +12,11 @@ balance holds, WAL commits, and first-byte socket gates.
   its `RecoveryQueue` and `BlobStore`; non-freezing per-strategy refusals (`ManagementDenied`, `InsufficientAsset`,
   `InsufficientCapital`, `Limit`) return to the originating member while peers continue, whereas scope/digest
   mismatches or backwards monotonic clocks invoke `stop_sending()`.
-* **Immutable order-origin registry**: Persist `(IntentKey, order_ids, client_id)` mappings in
-  [src/origins.rs](src/origins.rs) alongside recovery blobs before admission so native acknowledgements and fills route
-  deterministically back to the originating strategy.
+* **Immutable order-origin registry and cold bootstrap**: Cache and persist `(IntentKey, order_ids, client_id)` mappings
+  in [src/origins.rs](src/origins.rs) (`InMemory`, `MmapAsync`, or `LocalDurable` via `RuntimeBlobStore`) before
+  admission, and support stateless cold starts from Bybit/OKX `RestEvidence` via `bootstrap_spot_from_rest_evidence` in
+  [src/live_bootstrap.rs](src/live_bootstrap.rs) (`SelfDescribingClientId` decoding) so native acknowledgements and
+  fills route in O(1) to the originating strategy.
 * **Private-cut and REST proof before reactivation**: In [src/reconcile.rs](src/reconcile.rs) and
   [src/live/account.rs](src/live/account.rs), verify the durable private cursor, account WAL frontier, orders, fees, and
   balances before installing a recovered grant; drop qualification immediately if the private stream gaps or expires.
@@ -25,8 +27,9 @@ balance holds, WAL commits, and first-byte socket gates.
 ## Verification and Specifications
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/main.rs](src/main.rs) · [src/origins.rs](src/origins.rs) ·
-  [src/reconcile.rs](src/reconcile.rs) · [src/live/account.rs](src/live/account.rs) ·
-  [src/producer.rs](src/producer.rs) · [tests/paper.rs](tests/paper.rs) · [tests/first_byte.rs](tests/first_byte.rs) ·
+  [src/live_bootstrap.rs](src/live_bootstrap.rs) · [src/reconcile.rs](src/reconcile.rs) ·
+  [src/live/account.rs](src/live/account.rs) · [src/producer.rs](src/producer.rs) · [tests/paper.rs](tests/paper.rs) ·
+  [tests/first_byte.rs](tests/first_byte.rs) · [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/qualification.rs](tests/qualification.rs) · [tests/live_entry.rs](tests/live_entry.rs) ·
   [tests/reconcile_process.rs](tests/reconcile_process.rs)
 * **Specifications and models**: [spot-strategy-routing.md](../../specs/implementation/spot-strategy-routing.md) ·

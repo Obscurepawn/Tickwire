@@ -25,7 +25,7 @@ use tickwire_market_source::transition;
 #[allow(unsafe_code)]
 pub mod worker;
 pub use market::{MarketReplica, MarketView};
-pub use outbound::{CommandStore, IntentWriter, StoredCommand};
+pub use outbound::{CommandStore, IntentWriter, StoredCommand, mint_self_describing_client_id};
 use tickwire_venue::CanonicalCommand;
 
 #[derive(Debug)]

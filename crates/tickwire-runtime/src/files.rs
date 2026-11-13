@@ -5,11 +5,12 @@ use crate::{
     node::{self, Bindings, CoreNode, Observer, Strategy},
 };
 use std::path::PathBuf;
-use tickwire_account_gateway::{AccountGateway, ConnectionConfig};
-use tickwire_account_journal::FileBackend;
+use tickwire_account_gateway::{AccountGateway, ConnectionConfig, VerifiedLiveBootstrap};
+use tickwire_account_journal::AccountBackend;
 use tickwire_binance::request::Credentials;
 use tickwire_binance_account::{
     AccountIngress,
+    reconciliation::bootstrap::ImportedOrderRegistration,
     rest::{RestConfig, RestOwner},
 };
 use tickwire_binance_clock::{self as time, BinanceTimeClient, SystemClock};
@@ -19,9 +20,9 @@ use tickwire_binance_execution::{
 use tickwire_binance_private as private;
 use tickwire_binance_public as public;
 use tickwire_binance_quota::Endpoint;
-use tickwire_journal::{PhysicalFrontier, store::FileStore};
-use tickwire_recovery::{FileBlobStore, SharedBlobStore};
-pub type SharedRecoveryStore = SharedBlobStore<FileBlobStore>;
+use tickwire_journal::{PhysicalFrontier, StorageMode, store::JournalStore};
+use tickwire_recovery::{RuntimeBlobStore, SharedBlobStore};
+pub type SharedRecoveryStore = SharedBlobStore<RuntimeBlobStore>;
 // A copied cross-host journal needs its original certified frontier.
 fn check_local_history(path: &std::path::Path) -> node::Result<()> {
     for marker in ["FAILOVER-IN-PROGRESS", "FAILOVER-COMPLETE.json"] {
@@ -58,6 +59,10 @@ pub struct Directories {
 #[allow(clippy::large_enum_variant)]
 pub enum OpenMode {
     Create,
+    CreateFromLiveExchange {
+        live: Box<VerifiedLiveBootstrap>,
+        imported: Vec<ImportedOrderRegistration>,
+    },
     RecoverFrozen {
         account_required: Option<PhysicalFrontier>,
         input_required: Option<PhysicalFrontier>,
@@ -65,7 +70,8 @@ pub enum OpenMode {
 }
 pub struct Configuration {
     pub instrument_catalog: Option<std::sync::Arc<tickwire_instrument_catalog::Catalog>>,
-    pub directories: Directories,
+    pub storage_mode: StorageMode,
+    pub directories: Option<Directories>,
     pub mode: OpenMode,
     pub account: tickwire_account_gateway::Config,
     pub input: tickwire_binance_account::Config,
@@ -97,8 +103,8 @@ pub type FileNode<'a, P, G, S, O, const L: usize, const U: usize, const B: usize
     SystemClock,
     SystemClock,
     FixedDeliveryBudget,
-    FileStore,
-    FileBackend,
+    JournalStore,
+    AccountBackend,
     GateAuthority<LocalAuthority<SharedRecoveryStore, G>, Time, FixedDeliveryBudget>,
     RestEncoder<'a, Time, FixedDeliveryBudget>,
     S,
@@ -108,8 +114,8 @@ pub type FileNode<'a, P, G, S, O, const L: usize, const U: usize, const B: usize
     B,
 >;
 
-/// Constructs real TLS clients and local WAL owners. Credentials and authority
-/// policy are explicit caller inputs; this function does not grant trading rights.
+/// Constructs real TLS clients and local persistence owners (`InMemory`, `MmapAsync`, or `LocalDurable`).
+/// Credentials and authority policy are explicit caller inputs; this function does not grant trading rights.
 // Startup binds independently owned network, policy, clock and strategy services.
 #[allow(clippy::too_many_arguments)]
 pub fn open<'a, P, G, S, O, const L: usize, const U: usize, const B: usize>(
@@ -130,28 +136,57 @@ where
     O: public::PublicSink,
 {
     config.validate_instrument_catalog()?;
-    if config.directories.account == config.directories.input
-        || config.directories.account == config.directories.recovery
-        || config.directories.input == config.directories.recovery
-        || config.time.domain != config.market.domain
+    if config.time.domain != config.market.domain
         || config.time.source != config.market.source
         || config.command_delivery_budget_ns == 0
     {
         return Err(node::Error::Config);
     }
-    for path in [
-        &config.directories.account,
-        &config.directories.input,
-        &config.directories.recovery,
-    ] {
-        if !path.is_absolute() {
-            return Err(node::Error::Config);
+    let (blobs_raw, backend, input) = match config.storage_mode {
+        StorageMode::InMemory => {
+            if matches!(config.mode, OpenMode::RecoverFrozen { .. }) {
+                return Err(node::Error::Config);
+            }
+            (
+                RuntimeBlobStore::in_memory(),
+                AccountBackend::open(StorageMode::InMemory, None).map_err(node::Error::Io)?,
+                JournalStore::open(StorageMode::InMemory, None).map_err(node::Error::Io)?,
+            )
         }
-        check_local_history(path)?;
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(node::Error::Io)?;
+        StorageMode::MmapAsync | StorageMode::LocalDurable => {
+            let dirs = config.directories.as_ref().ok_or(node::Error::Config)?;
+            if dirs.account == dirs.input
+                || dirs.account == dirs.recovery
+                || dirs.input == dirs.recovery
+            {
+                return Err(node::Error::Config);
+            }
+            for path in [&dirs.account, &dirs.input, &dirs.recovery] {
+                if !path.is_absolute() {
+                    return Err(node::Error::Config);
+                }
+                check_local_history(path)?;
+                if let Some(parent) = path.parent() {
+                    std::fs::create_dir_all(parent).map_err(node::Error::Io)?;
+                }
+            }
+            let blobs_raw = match config.storage_mode {
+                StorageMode::MmapAsync => RuntimeBlobStore::mmap_async(&dirs.recovery),
+                StorageMode::LocalDurable => RuntimeBlobStore::local_durable(&dirs.recovery),
+                StorageMode::InMemory => unreachable!(),
+            }
+            .map_err(|e| {
+                node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e))
+            })?;
+            (
+                blobs_raw,
+                AccountBackend::open(config.storage_mode, Some(&dirs.account))
+                    .map_err(node::Error::Io)?,
+                JournalStore::open(config.storage_mode, Some(&dirs.input))
+                    .map_err(node::Error::Io)?,
+            )
         }
-    }
+    };
     let clock = SystemClock::new(config.time.domain).map_err(|_| node::Error::Config)?;
     let time =
         BinanceTimeClient::new(config.time, networks.time, clock).map_err(node::Error::Clock)?;
@@ -165,9 +200,7 @@ where
     .map_err(node::Error::Shared)?;
     let queue = RecoveryQueue::new(config.maximum_staged_commands, config.maximum_staged_bytes)
         .map_err(node::Error::Recovery)?;
-    let blobs = SharedBlobStore::new(FileBlobStore::open(&config.directories.recovery).map_err(
-        |e| node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e)),
-    )?);
+    let blobs = SharedBlobStore::new(blobs_raw);
     let local = LocalAuthority::new(
         blobs.clone(),
         queue.clone(),
@@ -193,8 +226,6 @@ where
         .map_err(node::Error::Shared)?;
     let authority = shared.authority(local);
     let encoder = shared.encoder(credentials);
-    let backend = FileBackend::open(&config.directories.account).map_err(node::Error::Io)?;
-    let input = FileStore::open(&config.directories.input).map_err(node::Error::Io)?;
     let execution_connection = match (config.websocket.is_some(), networks.websocket) {
         (true, Some(connection)) => connection,
         (false, None) => networks.rest,
@@ -236,6 +267,48 @@ where
                 backend,
                 config.account,
                 baseline,
+                authority,
+                encoder,
+                execution_connection,
+            )
+            .map_err(|e| node::Error::Account(tickwire_binance_account::Error::Gateway(e)))?;
+            (gateway, ingress, ws_session, Some(opened))
+        }
+        OpenMode::CreateFromLiveExchange { live, imported } => {
+            let mut ingress =
+                AccountIngress::create_from_live_exchange(input, config.input, &imported)
+                    .map_err(node::Error::Account)?
+                    .with_closure_store(blobs.clone());
+            let opened = shared
+                .with_resources(|clock, _| clock.sample())
+                .map_err(node::Error::Shared)?
+                .map_err(node::Error::Clock)?
+                .local;
+            let ws_session = if let Some(settings) = websocket_settings {
+                let session = ingress
+                    .reserve_ws_session(settings.execution_instance, settings.credential_ref_digest)
+                    .map_err(node::Error::Account)?;
+                let deadline = opened
+                    .monotonic
+                    .nanos()
+                    .checked_add(settings.session.control_timeout_ns)
+                    .ok_or(node::Error::Config)?;
+                shared
+                    .websocket_control(
+                        &session,
+                        tickwire_binance_account::ws::ControlAction::Connect,
+                        1,
+                        deadline,
+                    )
+                    .map_err(node::Error::Shared)?;
+                Some(session)
+            } else {
+                None
+            };
+            let gateway = AccountGateway::create_from_live_exchange(
+                backend,
+                config.account,
+                *live,
                 authority,
                 encoder,
                 execution_connection,

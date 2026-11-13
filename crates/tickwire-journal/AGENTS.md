@@ -15,9 +15,13 @@ economic validation, and trading authority belong strictly above this physical l
   truncate only an unsealed or torn tail at the end of the final segment; any checksum, hash-chain, LSN, or sequence
   corruption inside an already-sealed prefix or before a `required` `PhysicalFrontier` must return
   `Error::Quarantined` and refuse startup.
-* **Single-writer lock and fsync discipline**: `FileStore` in [src/store.rs](src/store.rs) acquires a nonblocking
-  `LOCK` file on a canonicalized `0o700` directory, syncs segment data before sealing, writes `MANIFEST.tmp` before
-  atomic rename to `MANIFEST.json`, and syncs the directory entry on segment creation and manifest publication.
+* **Selectable commit profiles (`StorageMode`)**: [src/store.rs](src/store.rs) provides `InMemoryStore` (default
+  zero-disk volatile RAM for ephemeral cloud Pods), `MmapAsyncStore` (preallocated `MappedSegment` + `MappedCursorPage`
+  memcpy commit with a background `fdatasync` flusher thread for sub-microsecond hot-path appends and same-host crash
+  recovery), and `FileStore` (`LocalDurable` synchronous `fsync`), unified behind `JournalStore`.
+* **Single-writer lock and fsync discipline**: `FileStore` and `MmapAsyncStore` in [src/store.rs](src/store.rs) acquire a nonblocking
+  `LOCK` file on a canonicalized `0o700` directory, write `MANIFEST.tmp` before
+  atomic rename to `MANIFEST.json`, and sync directory entries on segment creation and manifest publication.
 * **Poison on uncertain append**: If any segment append, sync, or manifest step fails in
   [src/journal.rs](src/journal.rs), mark the `Journal` poisoned (`Error::Poisoned`) so callers cannot issue subsequent
   appends without reopening and recovering from disk.
@@ -28,7 +32,7 @@ economic validation, and trading authority belong strictly above this physical l
   [src/store.rs](src/store.rs)
 * **Integration tests**: [tests/frame.rs](tests/frame.rs) · [tests/journal.rs](tests/journal.rs) ·
   [tests/manifest.rs](tests/manifest.rs) · [tests/process.rs](tests/process.rs) ·
-  [tests/recovery_validator.rs](tests/recovery_validator.rs)
+  [tests/recovery_validator.rs](tests/recovery_validator.rs) · [tests/storage_modes.rs](tests/storage_modes.rs)
 * **Specifications, contracts, and models**: [journal.md](../../specs/implementation/journal.md) ·
   [journal-wire-v1.json](../../specs/contracts/journal-wire-v1.json) ·
   [physical_journal](../../tla/execution_models/physical_journal/ROADMAP.md) ·

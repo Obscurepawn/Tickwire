@@ -302,7 +302,12 @@
       "type": "object",
       "properties": {
         "commit_profile": {
-          "const": "LocalDurable"
+          "type": "string",
+          "enum": [
+            "InMemory",
+            "MmapAsync",
+            "LocalDurable"
+          ]
         },
         "root_dir": {
           "type": "string",
@@ -2180,7 +2185,12 @@
           "type": "object",
           "properties": {
             "commit_profile": {
-              "const": "LocalDurable"
+              "type": "string",
+              "enum": [
+                "InMemory",
+                "MmapAsync",
+                "LocalDurable"
+              ]
             },
             "root_dir": {
               "type": "string",

@@ -11,11 +11,11 @@ The account reducer and its gateway serialize competing strategy intents against
 | Specification | State Owner & Scope |
 | :--- | :--- |
 | [Single-Host Trading](single-host-trading.md) | Process topology, event-loop turn ordering, command intake gates, and end-to-end latency boundaries |
-| [Account State Machine](account.md) | Single-writer multi-asset balances, Spot/USDⓈ-M reservations, strategy attribution, and freeze semantics |
-| [Account Gateway](account-gateway.md) | Durable `Admit` commit, synchronous first-TLS-byte grant check, zero-byte `Aborted` proof, and reactivation |
+| [Account State Machine](account.md) | Single-writer multi-asset balances, Spot/USDⓈ-M reservations, cold exchange bootstrap, strategy attribution, and freeze semantics |
+| [Account Gateway](account-gateway.md) | Dual-mode (`InMemory` / `MmapAsync` / `LocalDurable`) `Admit` commit, synchronous first-TLS-byte grant check, zero-byte `Aborted` proof, and reactivation |
 | [Account Recovery Binding](account-recovery-binding.md) | Cryptographic binding between account admissions, historical prefixes, and verified recovery closures |
 | [Risk Core](risk-core.md) | Checked `i128` fixed-point arithmetic, conservative outward rounding, margin tiers, and delivery settlement |
-| [Venue Commands & Events](venue.md) | Canonical deterministic CBOR encoding and SHA-256 digests for trading commands and venue observations |
+| [Venue Commands & Events](venue.md) | Canonical deterministic CBOR encoding, self-describing `ClientId` layout, and SHA-256 digests for trading commands and venue observations |
 | [Execution Core](execution-core.md) | Venue-independent scalar order lifecycle primitives and deterministic state transitions |
 | [Gateway Core](gateway.md) | Generic durable command admission paired with a guarded single-owner network sender |
 | [Command Binding](command-binding.md) | Structural validation binding risk domain, account scope, and strategy context to canonical commands |
@@ -90,12 +90,12 @@ Durable subsystems separate physical byte framing from canonical business hashin
 
 | Specification | State Owner & Scope |
 | :--- | :--- |
-| [Physical Journal](journal.md) | WAL v1 segmented framing, `Begin`/`DataRecord`/`Seal` batch `fsync`, advisory locks, and tail repair |
+| [Physical Journal](journal.md) | WAL v1 segmented framing, `InMemory` / `MmapAsync` (`MAP_SHARED` + async `fdatasync`) / `LocalDurable` stores, advisory locks, and tail repair |
 | [Journal Codec](journal-codec.md) | Deterministic CBOR encoding and rolling logical hash chains for durable business events |
 | [Business Journal](business-journal.md) | Synchronized business WAL pairing physical durability receipts with frozen-by-default replay |
 | [Account Codec](account-codec.md) | Canonical binary encoding and strict validation for account baselines, records, and input seals |
-| [Account Journal](account-journal.md) | Single-writer ordered account log, 128-byte `HistoryFrontier` SHA-256 chain, and ingress key deduplication |
-| [Recovery Closure](recovery-closure.md) | Content-addressed DAG manifests, sequenced strategy input blocks, and `fsync` + atomic rename persistence |
+| [Account Journal](account-journal.md) | Single-writer ordered account log, 128-byte `HistoryFrontier` SHA-256 chain, stateless live bootstrap, and ingress key deduplication |
+| [Recovery Closure](recovery-closure.md) | Content-addressed DAG manifests, sequenced strategy input blocks, and `InMemory` / `AsyncFile` / `File` blob persistence |
 
 ---
 

@@ -7,7 +7,7 @@ use tickwire_journal::{Journal, PhysicalFrontier, store::Store};
 mod backend;
 mod history;
 mod identity;
-pub use backend::FileBackend;
+pub use backend::{AccountBackend, FileBackend, InMemoryBackend, MmapAsyncBackend};
 pub use history::HistoryFrontier;
 /// Exact immutable bootstrap bytes for dependency publication before journal creation.
 pub fn bootstrap_bytes(config: &Config) -> Result<Vec<u8>> {

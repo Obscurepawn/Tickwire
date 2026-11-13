@@ -6,7 +6,7 @@
 
 ## State Model and Bounds
 
-`FileBackend` wraps `tickwire-journal::store::FileStore` inside a private `0700` canonicalized directory whose single-writer `LOCK` protects every file in the root. Account creation publishes `ACCOUNT-BASELINE.cbor` (`0600`, `create_new` + `sync_all` + directory `sync_all`), then `ACCOUNT-BOOTSTRAP.json`, and finally initializes the physical `Journal` (`MANIFEST.json` and `segment-00000000000000000001.wal`), refusing to overwrite any existing or partially initialized directory.
+`AccountBackend` wraps `InMemoryBackend` (`StorageMode::InMemory`, default), `MmapAsyncBackend` (`StorageMode::MmapAsync`), or `FileBackend` (`StorageMode::LocalDurable`). On persistent modes (`MmapAsync` and `LocalDurable`), initialization inside a private `0700` canonicalized directory protected by a single-writer `LOCK` publishes `ACCOUNT-BASELINE.cbor` (`0600`, `create_new` + `sync_all` + directory `sync_all`), then `ACCOUNT-BOOTSTRAP.json`, and finally initializes the physical `Journal` (`MANIFEST.json` and `segment-00000000000000000001.wal`), refusing to overwrite any existing or partially initialized directory. In `InMemory` mode, `InMemoryBackend` holds the immutable bootstrap, baseline bytes, and framed WAL segments entirely in process memory with zero disk I/O, and `AccountJournal::create_from_live_exchange` initializes the journal directly from a cold-bootstrapped `Account` state (including live open orders reconstructed via `SelfDescribingClientId`).
 
 | Artifact or State | Layout / Enforced Bound |
 | --- | --- |

@@ -1,5 +1,6 @@
 //! Shared intake for hosted or file-backed strategies and a single qualified cash account.
 #![forbid(unsafe_code)]
+pub mod live_bootstrap;
 mod origins;
 pub mod reconcile;
 use origins::Origins;
@@ -72,10 +73,30 @@ impl<
         Self {
             session,
             queue,
-            origins: Origins(store),
+            origins: Origins::new(store),
             pending: None,
             last: None,
         }
+    }
+    /// Constructs an `AccountRunner` pre-populated with cold-bootstrapped open order origins.
+    pub fn new_with_imported_origins(
+        session: RestSession<'a, B, A, T>,
+        queue: RecoveryQueue,
+        store: S,
+        imported: &[live_bootstrap::ImportedSpotOrigin],
+    ) -> Result<Self> {
+        let mut runner = Self::new(session, queue, store);
+        let scope = runner.scope().clone();
+        for item in imported {
+            runner.origins.register(
+                &scope,
+                item.intent,
+                &item.client_id,
+                item.order_id,
+                item.command.digest(),
+            )?;
+        }
+        Ok(runner)
     }
     /// A trusted input owner calls this immediately on lost account qualification.
     pub fn stop_sending(&mut self) {

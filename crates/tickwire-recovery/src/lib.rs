@@ -9,7 +9,9 @@ mod inputs;
 pub use handover::HandoverSeal;
 pub use inputs::{EncodedInputs, InputRecord, encode_inputs};
 mod files;
-pub use files::{FileBlobReader, FileBlobStore};
+pub use files::{
+    AsyncFileBlobStore, FileBlobReader, FileBlobStore, InMemoryBlobStore, RuntimeBlobStore,
+};
 
 pub type Hash = [u8; 32];
 pub const COMMAND_DEPENDENCY_KIND: u8 = 13;

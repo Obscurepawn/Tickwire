@@ -8,8 +8,9 @@ drives `tickwire-runtime`; domain math, codecs, and venue protocols remain in th
 
 ## Invariants and Change Guidelines
 
-* **Shared preflight across `inspect` and `run`**: Validate deployment bounds, instrument catalogs, `1..=32` logical
-  slots, unique instance IDs, `risk_domain_id`, and disjoint member directories in [src/config.rs](src/config.rs),
+* **Shared preflight and storage-profile assembly across `inspect` and `run`**: Validate deployment bounds, instrument
+  catalogs, `StorageMode` (`InMemory` zero-directory default, `MmapAsync`, `LocalDurable`), `1..=32` logical slots,
+  unique instance IDs, `risk_domain_id`, and disjoint member directories in [src/config.rs](src/config.rs),
   [src/launch.rs](src/launch.rs), and [src/launch/group.rs](src/launch/group.rs) before spawning children or sockets.
 * **Audited `unsafe` confinement in `hosted` and `market`**: Keep shared-memory ring/snapshot mapping and OS
   credential setup isolated inside [src/hosted.rs](src/hosted.rs) and [src/market.rs](src/market.rs), giving each

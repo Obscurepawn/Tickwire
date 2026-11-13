@@ -8,10 +8,11 @@ validity, and exchange reconciliation live above this layer.
 
 ## Invariants and Change Guidelines
 
-* **Bootstrap and baseline immutability under one lock**: `FileBackend` in [src/backend.rs](src/backend.rs) relies on
-  `FileStore` 's single-writer directory lock and writes `ACCOUNT-BOOTSTRAP.json` and `ACCOUNT-BASELINE.cbor` with
-  `create_new(true)`, `sync_all()` on the file, and `sync_all()` on the parent directory; never overwrite or silently
-  truncate published identity files (`src/identity.rs` in [src/identity.rs](src/identity.rs)).
+* **Bootstrap and baseline immutability across storage backends**: [src/backend.rs](src/backend.rs) exposes
+  `InMemoryBackend` (default zero-disk RAM), `MmapAsyncBackend` (preallocated mmap segments + async flush), and
+  `FileBackend` (`LocalDurable` synchronous `fsync`), unified behind `AccountBackend`; file-backed backends hold a
+  single-writer directory lock and write `ACCOUNT-BOOTSTRAP.json` and `ACCOUNT-BASELINE.cbor` with `create_new(true)` so
+  published identity files ([src/identity.rs](src/identity.rs)) are never overwritten.
 * **Hash-chained `HistoryFrontier` and monotonic sequences**: Maintain contiguous 1-based record sequences and rolling
   frontier digests in [src/history.rs](src/history.rs) across both append and recovery; poison the journal handle
   immediately if an I/O or physical WAL failure leaves in-memory state uncertain relative to disk.
@@ -29,6 +30,7 @@ validity, and exchange reconciliation live above this layer.
   [src/history.rs](src/history.rs) · [src/identity.rs](src/identity.rs)
 * **Integration tests and fixtures**: [tests/persistence.rs](tests/persistence.rs) ·
   [tests/ingress.rs](tests/ingress.rs) · [tests/income_closure.rs](tests/income_closure.rs) ·
+  [tests/storage_modes.rs](tests/storage_modes.rs) ·
   [history-vectors.json](tests/data/history-vectors.json)
 * **Specifications and models**: [account-journal.md](../../specs/implementation/account-journal.md) ·
   [account_journal](../../tla/execution_models/account_journal/ROADMAP.md) ·

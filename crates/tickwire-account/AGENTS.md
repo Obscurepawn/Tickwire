@@ -18,14 +18,18 @@ I/O, sockets, or exchange wire formatting.
 * **Shared liquidity with isolated strategy authority**: Strategies share asset balances while preserving distinct
   `origin` and `manager` (`instance`, `generation`) identities across [src/handover.rs](src/handover.rs) so only the
   active manager can cancel, amend, or query an order.
-* **Account-level inputs and recovery**: Route non-order cashflows, income associations, and reconciliation closures
-  through [src/account_inputs.rs](src/account_inputs.rs), [src/external.rs](src/external.rs), and
-  [src/recovery.rs](src/recovery.rs) so unassociated debits cap available balance until reconciled.
+* **Account-level inputs, cold exchange bootstrap, and recovery**: Route non-order cashflows, income associations, and
+  reconciliation closures through [src/account_inputs.rs](src/account_inputs.rs), [src/external.rs](src/external.rs),
+  and [src/recovery.rs](src/recovery.rs), and reconstruct stateless cold-start open orders, shared-pool (`strategy 0`)
+  settled balances/positions, external lock isolation, and per-strategy `(epoch, intent_id)` sequence floors through
+  `Account::from_live_exchange` in [src/live_bootstrap.rs](src/live_bootstrap.rs).
 
 ## Verification and Specifications
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/admission.rs](src/admission.rs) ·
-  [src/events.rs](src/events.rs) · [tests/admission.rs](tests/admission.rs) · [tests/amend.rs](tests/amend.rs) ·
+  [src/events.rs](src/events.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
+  [tests/admission.rs](tests/admission.rs) · [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
+  [tests/amend.rs](tests/amend.rs) ·
   [tests/conditional.rs](tests/conditional.rs) · [tests/account_inputs.rs](tests/account_inputs.rs) ·
   [tests/facts.rs](tests/facts.rs) · [tests/futures.rs](tests/futures.rs) · [tests/handover.rs](tests/handover.rs) ·
   [tests/nonincreasing.rs](tests/nonincreasing.rs) · [tests/recovery.rs](tests/recovery.rs) ·

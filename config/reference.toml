@@ -1164,7 +1164,7 @@ auto_rollover = false
 expiry_resets_positions = false
 
 [journal]
-commit_profile = "LocalDurable"
+commit_profile = "InMemory"
 root_dir = "/var/lib/tickwire/journal"
 segment_bytes = 268435456
 max_frame_bytes = 1048576

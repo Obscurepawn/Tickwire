@@ -9,12 +9,14 @@ mod calculation;
 mod events;
 mod external;
 mod handover;
+mod live_bootstrap;
 mod recovery;
 mod structures;
 #[cfg(test)]
 #[path = "../tests/common/mod.rs"]
 mod test_common;
 mod types;
+pub use live_bootstrap::LiveBootstrap;
 use std::collections::{BTreeMap, BTreeSet};
 pub use tickwire_risk::Fixed;
 use tickwire_risk::{RiskError, Rounding};
@@ -154,6 +156,7 @@ pub struct Account {
     shadow_holds: BTreeMap<IntentKey, Vec<CapitalHold>>,
     uncovered_debits: BTreeMap<u64, Fixed>,
     shadow_unvalued: BTreeSet<u64>,
+    strategy_sequence_floors: BTreeMap<u64, IntentKey>,
     frozen: bool,
     /// First unapplied observation is retained if arithmetic/identity validation fails.
     rejected_event: Option<v::CanonicalEvent>,
@@ -194,6 +197,7 @@ impl Account {
             shadow_holds: BTreeMap::new(),
             uncovered_debits: BTreeMap::new(),
             shadow_unvalued: BTreeSet::new(),
+            strategy_sequence_floors: BTreeMap::new(),
             frozen: false,
             rejected_event: None,
         };

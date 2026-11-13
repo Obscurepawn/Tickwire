@@ -2,7 +2,7 @@
   "format": "tickwire-single-host-reference-1",
   "profile_id": "TW-SingleHost-v1",
   "hosts": 1,
-  "default_storage_profile": "LocalDurable",
+  "default_storage_profile": "InMemory",
   "max_active_strategies": 32,
   "sample_active_strategies": 16,
   "sample_risk_domains": 2,
