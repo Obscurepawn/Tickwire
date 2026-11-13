@@ -1,19 +1,21 @@
-# Bybit and OKX spot execution
+# Bybit and OKX Spot Execution
 
-A strategy submits a canonical order intent. The account gateway reserves cash, journals the admission and checks its trading grant immediately before the first write to TLS. The spot encoder translates the admitted command into the venue's native request. One encoder binds a venue, environment, account, credential scope and trusted UTC clock.
+`tickwire-spot-execution` and `tickwire-spot-runner` implement native cash spot order execution, private-stream ingestion, operator inspection tooling, and bracketed REST recovery for Bybit V5 and OKX V5. When a strategy submits a `CanonicalCommand`, `AccountGateway` reserves cash on `Account`, synchronizes the recovery closure and `Admit` record to the local WAL, and re-verifies its live trading `Gate` immediately before the first plaintext byte enters TLS. One spot encoder instance binds a fixed `SpotVenue`, `Environment`, logical account, API credential scope, and calibrated exchange UTC clock, translating admitted commands into signed native HTTP requests without mutating client order identity.
 
-| Operation | Request | What a successful reply establishes |
+## Execution Model and Supported Operations
+
+| Operation | Outbound Request | Evidence Established by Reply or Stream |
 | --- | --- | --- |
-| Create | A limit or market cash order in base units, with the original client order ID. | The venue acknowledged the request. An order-status report or trade can follow. |
-| Cancel | A single existing order, identified within the bound account and instrument. | The venue acknowledged the cancellation request. The order can still fill in a race. |
-| Query | One order on its native instrument. | A matching order ID and instrument establish an observed status. A cache miss or interrupted connection leaves the outcome unknown. |
-| Book a fill | An authenticated execution record with trade ID, side, size, price, fee and fee asset. | The account records the individual trade once. A status snapshot supplies no per-trade fee. |
+| Create order | Cash `LIMIT` or `MARKET` order denominated in base units carrying the original `ClientId`. | Venue request acknowledgement only; asynchronous order-status updates and individual trade executions follow separately. |
+| Cancel order | Single target order scoped to the bound account and native instrument. | Venue cancellation-request acknowledgement; the order can still fill in an execution race until terminal status and trade coverage settle. |
+| Query order | Single order lookup on its native instrument symbol. | Matching order ID and instrument establish an observed lifecycle snapshot; a cache miss or interrupted connection leaves the outcome unknown. |
+| Book a fill | Authenticated execution row carrying native trade ID, side, quantity, price, signed fee, and fee currency. | `Account` books cash, inventory, and per-trade fee once; order-status snapshots carry no per-trade fee and never book trades on their own. |
 
-For each fill, the caller supplies the original intent, internal order ID, source scope, connection epoch and durable input stream position. `record_fill` resolves the command from the same gateway journal, checks the native IDs, instrument and side, then appends through `record_ingress_event`. An OKX fill uses the fee for that execution. An unrecognized fee asset or an unsupported Bybit regional fee stops booking until the decoder can represent it. The feed owner retains the authenticated input envelope for replay.
+For every inbound fill, the private-input owner supplies the original `IntentKey`, internal order ID, account `Scope`, source `connection_epoch`, and durable input-stream sequence to `record_fill`. `record_fill` loads the original admitted `CanonicalCommand` from the same gateway journal, validates native IDs, instrument, and side, and persists the normalized `CanonicalEvent` through `AccountGateway::record_ingress_event`. OKX fills apply the per-execution fee directly; any unrecognized fee currency or unsupported Bybit regional fee halts booking while preserving the authenticated raw wire envelope in the private input log for deterministic replay.
 
-## Inspect an account
+## Operator Inspection (`tickwire-spot-observe`)
 
-`tickwire-spot-observe` reads a private account using the venue's global test or production endpoint. Use an API key with read access. Supply `TICKWIRE_SPOT_KEY` and `TICKWIRE_SPOT_SECRET`, plus `TICKWIRE_SPOT_PASSPHRASE` for OKX. Each accepts a mounted secret through its `_FILE` variable. Choose one source per credential.
+`tickwire-spot-observe` inspects live or test Bybit and OKX accounts over TLS using read-only API credentials supplied via `TICKWIRE_SPOT_KEY` and `TICKWIRE_SPOT_SECRET` (plus `TICKWIRE_SPOT_PASSPHRASE` on OKX), or via mounted secret files using the corresponding `*_FILE` environment variables (specify exactly one source per credential):
 
 ```sh
 cargo build --locked -p tickwire-spot-execution --bin tickwire-spot-observe
@@ -21,65 +23,60 @@ target/debug/tickwire-spot-observe bybit test open-orders BTCUSDT
 target/debug/tickwire-spot-observe okx test balance
 ```
 
-Use `order SYMBOL CLIENT_ID` to look up one order and `fills SYMBOL [CURSOR]` to read a page of trades. Each invocation takes a public exchange-clock sample, signs a private GET and verifies the TLS certificate on both connections. The JSON result includes the HTTP status, venue code, selected fields, sample time and continuation token if the exchange provides one. Transport errors, malformed replies and venue denials produce a failing exit status. Each page allocates in proportion to its size, with a 2 MiB body limit. Balances describe the Bybit Unified wallet or the OKX trading account. A recent-order lookup is bounded by the exchange's retention window.
+* **Point queries (`open-orders`, `balance`, `order`, `fills`)**: `order SYMBOL CLIENT_ID` looks up a single order within the venue's retention window, and `fills SYMBOL [CURSOR]` reads one page of executions. Each invocation samples the public exchange clock, signs a private `GET`, and validates TLS certificates on both connections. Output is structured JSON containing HTTP status, venue response code, selected fields, sample timestamp, and any continuation cursor, bounded to a **2 MiB** HTTP body per page (`balance` inspects the Bybit Unified wallet or OKX trading account). Transport errors, malformed payloads, or venue rejections exit with a nonzero status.
+* **Bounded range scan (`scan EXPECTED_UID START_UTC_MS`)**: Given a numeric UID and a `START_UTC_MS` within the past **3 days**, `scan` verifies native UID identity before the first page and again after the final page, paginating wallet balances, standard spot open orders across instruments, and spot fills up to the sampled exchange timestamp (checking Bybit execution time or OKX transaction time per row). Each collection permits at most **128 pages** and **8 MiB** of selected row data under a **120-second** clock-sample expiry; duplicate IDs, repeated cursors, or out-of-window rows fail the scan. Because pages are read across multiple instants—and OKX algo orders plus non-order transfers lie outside this CLI scan—the output reports `fresh_risk_qualified: false` and never substitutes for a live trading grant.
+* **Live stream monitor (`watch EXPECTED_UID SECONDS`)**: Observes private WebSocket traffic for **1–60 seconds** after verifying `EXPECTED_UID` over REST with the same key, emitting one JSON line per event (`order.spot`, `execution.spot`, and `wallet` on Bybit; SPOT `orders` and trading-account `account` on OKX, where ordinary-tier accounts receive per-fill execution fields on `orders`). Each run tracks subscription acknowledgements, heartbeats, and its own message count, terminating immediately on venue control errors or unexpected products. Rust callers embed the same parser through `PrivateFeed::on_text` and `Batch::records`.
 
-### Compare account state over a time range
+## Core Invariants and Account Recovery
 
-`scan EXPECTED_UID START_UTC_MS` fetches the native account identity, balance, standard spot open orders across instruments, and spot fills through the sampled exchange time. Supply a numeric UID and a start time within the past three days. The scan follows each cursor and verifies the UID again after the final page. It checks the Bybit execution time or OKX transaction timestamp on each fill. Repeated IDs, repeated cursors and out-of-range records fail the scan. Each collection allows 128 pages and 8 MiB of selected row data. A clock sample expires after 120 seconds.
+Reconnecting a private WebSocket cannot by itself certify account state: neither Bybit's `wallet` stream nor OKX's `orders` stream delivers an opening portfolio snapshot; Bybit reuses execution sequence numbers across symbols; OKX can repeat order frames or report a filled market order with a zero last-fill quantity; and identical pre-gap and post-gap wallet totals can mask an intervening order placement/cancellation or offsetting cash transfers.
 
-A scan combines pages collected at different instants. On OKX the separate algo-order service and non-order wallet transfers fall outside its scope. The result carries `fresh_risk_qualified: false`. A strategy needs a separate account trading grant.
+`tickwire-spot-runner` resolves these ambiguities through bracketed dual-scan reconciliation:
 
-### Watch a private stream
-
-`watch EXPECTED_UID SECONDS` observes a connection for 1–60 seconds. The tool verifies the UID via REST with the same key, authenticates the WebSocket and emits one JSON line per event. Bybit sends `order.spot`, `execution.spot` and `wallet`. OKX sends SPOT `orders` and trading-account `account`. Ordinary-tier OKX users receive individual fills on the orders channel. The client tracks subscription acknowledgements and heartbeat deadlines. A venue control error or unexpected product or connection ends the session. A new observation starts its own message count. Embedders can read the original channel-validated data through `PrivateFeed::on_text` and `Batch::records`.
-
-## Recover a trading account
-
-After a disconnect, the account owner needs to establish which private events its journal has already applied. A Bybit wallet subscription and an OKX orders subscription both begin without an initial portfolio snapshot. Bybit can reuse the same execution sequence across symbols. OKX can repeat an order update, or report a filled market order with a zero last-fill size. A balance observed before and after a gap can look identical even if an intervening order was placed and canceled. [Bybit wallet stream](https://bybit-exchange.github.io/docs/v5/websocket/private/wallet) · [Bybit executions](https://bybit-exchange.github.io/docs/v5/websocket/private/execution) · [OKX orders channel](https://www.okx.com/docs-v5/en/#order-book-trading-trade-ws-order-channel)
-
-The spot runner owns one dedicated spot account on Bybit or OKX. Its private reader authenticates the configured UID on each connection and journals session boundaries and channel data. Each strategy draws on one account journal. A gap or unaccounted update closes new risk. The reader continues capturing messages while an independent worker obtains two authenticated REST scans. The owner checks that the private cursor and account journal stayed at the same positions, matches fills, fees and order terms, and compares spendable and locked cash. It archives both scans before synchronizing its account reactivation record. On restart it verifies these records against the private journal and acquires a fresh grant. [Account owner](../../crates/tickwire-spot-runner/src/live/account.rs) · [Native evidence and retention](spot-rest-recovery.md)
-
-A contiguous update for a known open order or an accounted trade can advance an existing grant. The same venue trade ID with matching economics is booked once across WebSocket, REST and replay. Wallet updates, terminal orders and ambiguous messages trigger reconciliation. Restoring a grant uses a 60-second overlap with the last covered venue time, bounded by the timestamp of the account baseline. A cash bill for a transfer or an unexplained order keeps the account frozen, including when offsetting movements leave the wallet total unchanged. [Account reconciliation](../../crates/tickwire-spot-runner/src/reconcile.rs)
-
-## Cost of one order
-
-The encoder formats decimals and IDs into owned strings, builds a JSON body or query string and constructs an HTTP byte buffer. HMAC-SHA256 reads the exact signed payload once. Bybit uses a hexadecimal digest and OKX uses Base64. A valid clock sample avoids a network time query per attempt. The gateway checks the command and destination, copies bytes into a bounded `PreparedSend` and clones the account state used for risk admission. Allocation and CPU cost depend on command size and account state. [Spot encoder](../../crates/tickwire-spot-execution/src/lib.rs) · [Prepared send](../../crates/tickwire-transport/src/lib.rs)
-
-The gateway synchronizes the recovery dependencies and admission in the WAL. A pending commit keeps the reservation. At first write, the sender checks the current grant against the same admission. A matching retry returns the stored status. A conflicting intent halts the writer. Order reports and trades produce separate journal writes. Storage synchronization, TLS readiness and queue wait are separate intervals to measure when profiling order latency. [Account gateway](../../crates/tickwire-account-gateway/src/lib.rs) · [Account journal](../../crates/tickwire-account-journal/src/lib.rs)
-
-## Protocol references
-
-Bybit documents the signed payload, create and cancel acknowledgement and the recent-order lookup. [Authentication](https://bybit-exchange.github.io/docs/v5/guide) · [Place Order](https://bybit-exchange.github.io/docs/v5/order/create-order) · [Cancel Order](https://bybit-exchange.github.io/docs/v5/order/cancel-order) · [Get Open and Closed Orders](https://bybit-exchange.github.io/docs/v5/order/open-order)
-
-Bybit supplies individual trade amounts, fees, opaque continuation cursors and wallet account modes. [Private execution stream](https://bybit-exchange.github.io/docs/v5/websocket/private/execution) · [Trade History](https://bybit-exchange.github.io/docs/v5/order/execution) · [Wallet Balance](https://bybit-exchange.github.io/docs/v5/account/wallet-balance)
-
-OKX documents the exact query path in the signature, demo mode, the synchronous order and cancel response, and REST versus private stream fill fields. [REST Authentication](https://www.okx.com/docs-v5/en/#overview-rest-authentication) · [Place Order](https://www.okx.com/docs-v5/en/#order-book-trading-trade-post-place-order) · [Get Order Details](https://www.okx.com/docs-v5/en/#order-book-trading-trade-get-order-details) · [Orders Channel](https://www.okx.com/docs-v5/en/#order-book-trading-trade-ws-order-channel) · [Get Transaction Details](https://www.okx.com/docs-v5/en/#order-book-trading-trade-get-transaction-details-last-3-days)
+* **Continuous private journaling**: One runner owns one dedicated Bybit or OKX cash account, authenticates `expected_uid` on every connection, and journals session boundaries alongside raw channel frames before applying transitions. Contiguous updates for known open orders and accounted trades advance an existing grant, and matching `(trade_id, economics)` pairs book once across WebSocket, REST, and replay.
+* **Immediate gate closure on ambiguity**: Any stream gap, wallet balance message, terminal order status, or unaccounted frame revokes permission to admit new risk while the private reader continues capturing incoming messages.
+* **Bracketed two-scan proof**: An independent recovery worker collects **two** authenticated REST scans starting `60 seconds` prior to the last covered venue timestamp (clamped at `baseline_utc_ms`). Reactivation succeeds only if the private stream cursor and `AccountJournal` position remained stationary across the bracket, both scans agree on order terms, fills, fees, and spendable/locked cash, and zero unexplained orders or transfer bills appear (even if offsetting flows leave net cash unchanged). Both scan transcripts are archived to disk before synchronizing `RecoveryRecord::Reactivated`, and crash recovery re-verifies the archived pair against the private journal before acquiring a fresh grant.
 
 ## Run an account
 
-Use one Linux state directory and one set of credentials per dedicated trading account. Start from a canonical baseline whose cash, fee policy and instrument catalog match the venue at the recorded UTC time. Set the credential variables described under **Inspect an account**. The reconciliation command uses account read access. The trading process also needs order permission.
+Provision one exclusive Linux state directory and one dedicated API credential set per trading account, initialized from a canonical `baseline` CBOR file whose cash balances, fee schedule, and instrument catalog match the venue at `baseline_utc_ms`. `reconcile` requires read-only account permission; `live` additionally requires spot order permission.
 
 ```sh
 cargo build --locked -p tickwire-spot-runner
 target/debug/tickwire-spot-runner reconcile /absolute/account.json
 ```
 
-`reconcile` writes verified account state and prints `spot_account_reconciled` once. To start another process on this state, advance the approved `policy.writer_epoch` beyond the last durable writer and configure the strategy producers for that epoch.
+`reconcile` verifies remote state, persists the reactivation proof, and prints `spot_account_reconciled` once. Before starting a subsequent process against the same state directory, increment `policy.writer_epoch` beyond the highest durable writer epoch and update strategy producer configs to match that epoch:
 
 ```sh
 target/debug/tickwire-spot-runner live /absolute/account.json
 ```
 
-`live` keeps the private connection open and serves the configured strategy queues. A stopped policy with empty queues and market sources continuously reconciles the account. Create the configured stop file to end the process. A private WebSocket reconnect keeps the current writer. If the order sender loses its execution connection with an uncertain request, restart with a newly approved writer epoch. The new owner queries the outstanding order by client ID. [Executable configuration example from the process test](../../crates/tickwire-spot-runner/tests/reconcile_process.rs)
+`live` holds the private WebSocket open and services configured strategy queues (when `policy` is `Stopped` with empty strategy queues and market sources, `live` continuously reconciles the account). Creating `stop_file` triggers an orderly shutdown. A private WebSocket reconnect keeps the active `writer_epoch`; however, if the outbound order connection drops while an admitted request's transmission outcome is uncertain, restart `live` under a newly approved `writer_epoch` so the new owner resolves the outstanding order by `ClientId`.
 
-| Deployment field | Meaning |
+| Deployment Field | Meaning and Invariant |
 | --- | --- |
-| `baseline`, `baseline_utc_ms`, `expected_uid` | Absolute path to the canonical account CBOR, the start of venue history covered by that baseline, and the native UID as a decimal string. These three values stay bound to the state directory. |
-| `state_directory`, `account_stream`, `private_stream`, `initial_writer_epoch` | Absolute storage root, two distinct 16-byte stream identities, and the first writer epoch. Retain the account journal, private input and recovery objects together. |
-| `policy` | Runtime policy with the matching account scope, boot clock, catalog, current writer, owner lease and strategy permissions. Use the venue's test or production environment in the scope. |
-| `market_sources`, `strategies` | Trading uses authenticated shared-market subscriptions and one queue per strategy. Each queue has a nonzero `logical_strategy_id`, its own absolute `directory` and a `first_sequence`. The gateway checks the command's actual trigger and grant again just before the first write. |
-| `stop_file` | Absolute path, initially absent. |
+| `baseline`, `baseline_utc_ms`, `expected_uid` | Absolute path to canonical account baseline CBOR, UTC millisecond start of venue history covered by that baseline, and decimal native UID string—permanently bound to `state_directory`. |
+| `state_directory`, `account_stream`, `private_stream`, `initial_writer_epoch` | Absolute storage root, two distinct 16-byte WAL stream UUIDs, and genesis writer epoch. Keep the account WAL, private input WAL, and recovery object store together. |
+| `policy` | Runtime policy pinning `Scope` (including `test` or `production` environment), boot clock domain, catalog digest, `writer_epoch`, `OwnerLease`, and strategy grants. |
+| `market_sources`, `strategies` | Authenticated shared-memory market subscriptions and per-strategy file queues (each naming a nonzero `logical_strategy_id`, exclusive absolute `directory`, and `first_sequence`). |
+| `stop_file` | Absolute path to the shutdown sentinel file, which must be absent at startup. |
 
-Immediately before the first order byte, the gateway samples the private reader's durable cursor, connection status and last heartbeat. A detected disconnect closes this gate. Bytes still in the kernel's receive queue become visible when the reader next polls the socket. The account thread consumes captured data in batches of up to 64 records.
+Immediately prior to writing the first plaintext order byte, the gateway samples the private reader's durable cursor, connection status, and last heartbeat deadline; any detected disconnect closes the send gate immediately. Socket bytes still queued in the kernel become visible on the reader's next poll and are drained into the account thread in batches of up to **64 records**.
 
-REST pagination, TLS reads for account queries and account discovery run on the recovery thread. The trading thread advances the order connection's TLS handshake while waiting for the first strategy command. An unexpired grant can serve orders during a renewal scan. A changed account position or private cursor discards that scan. Replaying the archived evidence, checking the ledger and synchronizing the activation still occupy the account owner. Live exchange latency for this path is unmeasured.
+## Performance and Cost
+
+Per-order submission formats decimals and IDs into owned strings, serializes the JSON body or query string into an HTTP buffer, computes a single-pass HMAC-SHA256 signature (lowercase hex on Bybit, Base64 on OKX) using an amortized calibrated clock sample, copies wire bytes into a bounded `PreparedSend`, clones `Account` for candidate risk admission, synchronizes the recovery closure and `Admit` record to the WAL, and evaluates the first-byte `Gate`. Order status updates and trade fills each incur separate journal writes; storage `fsync` latency, TLS readiness, and single-slot queue wait should be profiled as distinct intervals.
+
+Background REST pagination, discovery, and TLS reads execute on the dedicated recovery worker thread while the trading thread drives the order connection's TLS handshake ahead of the first command. An unexpired grant can continue serving orders while a background renewal scan runs (discarding the scan if the account journal or private cursor advances in the meantime), though replaying the archived scan pair, verifying ledger parity, and synchronizing `Reactivated` execute on the account owner thread. End-to-end live exchange latency on this path has not yet been benchmarked.
+
+## Verification and References
+
+```sh
+cargo test --locked -p tickwire-spot-execution -p tickwire-spot-runner --all-targets
+```
+
+* Implementation crates: [spot encoder and CLI observer](../../crates/tickwire-spot-execution/src/lib.rs), [live spot account owner](../../crates/tickwire-spot-runner/src/live/account.rs), [dual-scan reconciliation](../../crates/tickwire-spot-runner/src/reconcile.rs), [reconcile process integration test](../../crates/tickwire-spot-runner/tests/reconcile_process.rs), [PreparedSend transport](../../crates/tickwire-transport/src/lib.rs), [AccountGateway](../../crates/tickwire-account-gateway/src/lib.rs), [AccountJournal](../../crates/tickwire-account-journal/src/lib.rs)
+* Related Tickwire specifications: [native REST evidence for cash account recovery](spot-rest-recovery.md), [shared cash account for Bybit and OKX strategies](spot-strategy-routing.md), [single-host trading](single-host-trading.md)
+* Bybit V5 protocol references: [Authentication](https://bybit-exchange.github.io/docs/v5/guide), [Place Order](https://bybit-exchange.github.io/docs/v5/order/create-order), [Cancel Order](https://bybit-exchange.github.io/docs/v5/order/cancel-order), [Get Open and Closed Orders](https://bybit-exchange.github.io/docs/v5/order/open-order), [Trade History](https://bybit-exchange.github.io/docs/v5/order/execution), [Wallet Balance](https://bybit-exchange.github.io/docs/v5/account/wallet-balance), [Private Wallet Stream](https://bybit-exchange.github.io/docs/v5/websocket/private/wallet), [Private Execution Stream](https://bybit-exchange.github.io/docs/v5/websocket/private/execution)
+* OKX V5 protocol references: [REST Authentication](https://www.okx.com/docs-v5/en/#overview-rest-authentication), [Place Order](https://www.okx.com/docs-v5/en/#order-book-trading-trade-post-place-order), [Get Order Details](https://www.okx.com/docs-v5/en/#order-book-trading-trade-get-order-details), [Orders WebSocket Channel](https://www.okx.com/docs-v5/en/#order-book-trading-trade-ws-order-channel), [Get Transaction Details (Last 3 Days)](https://www.okx.com/docs-v5/en/#order-book-trading-trade-get-transaction-details-last-3-days)

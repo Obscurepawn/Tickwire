@@ -1,9 +1,46 @@
-# Mock execution abort and ordered recovery
+# Mock Execution Abort and Ordered Recovery
 
-The mock uses the production scalar engine's reducer and a mock journal and exchange. A returned `NoBytesAccepted` is a local transport outcome for the current submission. It is the only submission outcome that creates `ExecutionFact::AbortedBeforeSend { record }`. The record includes the original request and execution epoch and the intent's journal position. The runtime saves the fact before applying the no-bytes transition that releases capital. Failure to store the fact freezes the engine with its reservation intact. [Mock services](../../crates/tickwire-mock/src/lib.rs)
+`tickwire-mock` pairs the production scalar execution reducer (`tickwire_execution::Engine<N, T>`) with deterministic in-memory service doubles (`MockJournal`, `MockExchange`, `MockKv`, and `MockSql`) to verify pre-send transport aborts and crash recovery ordering. When `MockExchange::submit` returns `SubmitOutcome::NoBytesAccepted`, `MockRuntime` persists `ExecutionFact::AbortedBeforeSend { record }` and releases the order's reserved capital—modeling the exact persistence-before-release contract required of live gateways.
 
-The reducer first matches the entire referenced `DurableRecord` against the order. Missing or mismatched identity freezes the engine. An identical abort replay may succeed when the order is already rejected as never submitted, its reservation is released, and it has no fills or fees. A fill, fee or contradictory terminal state prevents that release and freezes the order's account. An acknowledgement timeout cannot establish zero bytes. [Fact application](../../crates/tickwire-execution/src/ports.rs) · [No-bytes transition](../../crates/tickwire-execution/src/lib.rs)
+This specification defines the ordering invariants between durable intents, zero-byte abort facts, and subsequent orders that reuse freed capital during crash replay. Note the verification boundary: a synthetic `NoBytesAccepted` return exercises reducer and journal ordering transitions, whereas byte-counting proof at an actual non-blocking TLS socket is owned and tested by `tickwire-transport`, `tickwire-gateway`, and `tickwire-account-gateway`.
 
-`MockJournal::events()` preserves the append order of both intents and facts. The `committed()` and `facts()` views are grouped views and cannot reconstruct that ordering. A repeated exact commit adds no second intent. A lost commit reply occurs after the intent is saved. Recovery freezes the current engine, replays the unified event stream into a separate frozen engine, and installs the replacement only after the full replay succeeds. An interleaved release must stay ahead of a later intent that depends on the freed capital. [Service tests](../../crates/tickwire-mock/tests/services.rs)
+## State Model and Journal Views
 
-Regression cases cover replay re-reserving an aborted order, failure to persist an abort, overflow from reordering a terminal release and a later reservation, and retained freeze after failed recovery. The bounded model tests these ordering and liability transitions. A mock no-bytes outcome does not test the TLS transport's detection of its first accepted byte. [Model scope](../../tla/execution_models/mock_abort/PLAN.md)
+| Type / Method | Representation | Role in Abort and Replay |
+| --- | --- | --- |
+| `SubmitOutcome::NoBytesAccepted` | Local transport outcome for the active `submit` call | Sole `Exchange::submit` outcome permitted to emit `ExecutionFact::AbortedBeforeSend { record }`; response timeouts (`PendingResponse` / `MayHaveSent`) never establish zero bytes. |
+| `ExecutionFact::AbortedBeforeSend` | `{ record: DurableRecord }` | Binds the complete `OrderRequest` (including `OrderKey`, `epoch`, `command_digest`, budgets, and `recovery_object`) and `sequence`. |
+| `MockJournal::events()` | `&[MockJournalEvent]` (`Intent(DurableRecord)` \| `Fact(ExecutionFact)`) | Authoritative unified append log preserving exact causal interleaving between intents and facts. |
+| `committed()` / `facts()` | `&[DurableRecord]` / `&[ExecutionFact]` | Grouped inspection slices only; cannot reconstruct interleaved capital releases during replay. |
+
+## Core Invariants
+
+* **Fact durability precedes capital release**: Upon receiving `SubmitOutcome::NoBytesAccepted`, `MockRuntime` appends `ExecutionFact::AbortedBeforeSend { record }` via `MockJournal::append_fact` *before* calling `ExecutionFact::apply` (`Engine::transport_rejected_without_bytes`). If `append_fact` fails, `MockRuntime` immediately calls `engine.freeze()` and leaves the reservation locked.
+* **Complete `DurableRecord` verification on abort**: `ExecutionFact::apply` compares `engine.durable_record(intent)` against the entire `record` embedded in `AbortedBeforeSend`. A missing intent (`Error::NotFound`) or any field/sequence mismatch (`Error::ReceiptMismatch`) freezes `Engine` without releasing capital.
+* **Contradictory economic evidence blocks abort**: `transport_rejected_without_bytes` succeeds only when the order is in `SendState::MayHaveSent` with `filled == 0`, `observed_filled == 0`, and `terminal == None` (or idempotently on replay when the order is already `NotSubmitted`, `Terminal::Rejected`, `fee_released == true`, and zeroed across `filled`, `observed_filled`, `spent`, and `fees_paid`). Any prior fill, fee (including zero), or contradictory terminal status rejects the abort and freezes `Engine`.
+* **Unified append-order replay prevents capital-reuse reordering**: If order `A` aborts before send and order `B` subsequently reserves the capital freed by `A`, `MockJournal::events()` replays `Intent(A) -> Fact(AbortedBeforeSend(A)) -> Intent(B)` in exact causal sequence. Replaying all intents ahead of all facts would double-count `A` and `B`'s reservations simultaneously, risking false capacity or `i128` overflow failures.
+
+## State Transitions and Failure Semantics
+
+### Idempotent Commits, Lost Receipts, and Atomic `restart()`
+
+In `MockJournal::commit`, re-submitting an identical `DurableRecord` returns a `CommitReceipt` without appending a duplicate `MockJournalEvent::Intent`, whereas setting `lose_next_receipt` injects `ServiceError::Unavailable` *after* the intent has entered `events()`—distinguishing a lost local storage acknowledgement from an uncommitted request.
+
+When `MockRuntime::restart()` simulates an execution-process crash and recovery:
+
+1. It immediately calls `self.engine.freeze()` so a failed recovery attempt can never leave the pre-crash engine authorized to admit new orders.
+2. It constructs a replacement `Engine` initialized in the `frozen` state (`Gate` permissions from before the crash do not restore live readiness).
+3. It replays every `MockJournalEvent` from `journal.events()` (`recover_intent` for `Intent`, `fact.apply` for `Fact`) and installs `self.engine = engine` only after the complete log replays without error.
+
+Regression tests and the bounded TLA+ `mock_abort` model verify four critical fault scenarios: replay re-reserving an aborted order when `AbortedBeforeSend` was lost, failed persistence of `AbortedBeforeSend` leaving capital locked and `Engine` frozen, arithmetic overflow from reordering a terminal/abort release behind a dependent reservation, and retained `frozen` state after a failed recovery.
+
+## Verification and References
+
+```sh
+cargo test --locked -p tickwire-mock --test services
+cargo test --locked -p tickwire-execution --test lifecycle
+```
+
+* Source modules: [MockRuntime and MockJournal](../../crates/tickwire-mock/src/lib.rs), [ExecutionFact::apply](../../crates/tickwire-execution/src/ports.rs), [transport_rejected_without_bytes](../../crates/tickwire-execution/src/lib.rs)
+* Tests and formal verification: [mock service and recovery ordering tests](../../crates/tickwire-mock/tests/services.rs), [TLA+ mock_abort model plan](../../tla/execution_models/mock_abort/PLAN.md)
+* Related specifications: [scalar order and reservation reducer](execution-core.md), [durable command sending](gateway.md), [account gateway](account-gateway.md)

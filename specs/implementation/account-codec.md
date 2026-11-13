@@ -1,33 +1,40 @@
-# Account baseline and recovery-record codec
+# Account Baseline and Canonical Recovery-Record Codec
 
-The account codec assigns one canonical byte representation to a baseline and each ordered account record. Both carry SHA-256 over their entire top-level encoding. [Implementation](../../crates/tickwire-account-codec/src/lib.rs)
+`tickwire-account-codec` defines the deterministic CBOR serialization and structural validation rules for multi-asset account baselines (`CanonicalBaseline`), ordered recovery records (`CanonicalRecord`), and strategy input seals (`InputSeal`). Every top-level baseline and record commits to a `SHA-256` digest over its complete byte encoding so `tickwire-account-journal` and `tickwire-recovery` can address account snapshots and historical state transitions by immutable content hash.
 
-| Object | Top-level CBOR array | Maximum |
-|---|---|---:|
-| Baseline | `["tickwire.account-baseline", 1, Snapshot, Catalog]` | 2 MiB |
-| Record | `["tickwire.account-record", 1, baseline_sha256, sequence, RecoveryRecord]` | 60 KiB |
+Decoding establishes canonical byte layout, collection bounds, sort order, and local field consistency, whereas `tickwire-account-journal`, `tickwire-recovery`, and the account gateway independently establish physical writer authority, log continuity, input-stream authenticity, and live order-transmission permission.
 
-The baseline digest and sequence in a record must be non-zero. The journal establishes that the first record is 1, that positions are consecutive and that they match the physical log. Fixed-size structs use fixed-arity arrays. An option is `[]` or `[value]`, and a boolean is integer 0 or 1. Integers use shortest-form CBOR, including tags 2/3 for bignums and `-1 - magnitude` for negatives down to `i128::MIN`. Floating point, indefinite lengths, unknown tags and trailing contents fail decoding. `Fixed` encodes its original `[atoms, scale]`, preserving its unit. Venue decimals retain their canonical `[coefficient, exponent]`. Embedded commands and events must pass their own canonical decoders. [CBOR](../../crates/tickwire-account-codec/src/cbor.rs) · [Record codec](../../crates/tickwire-account-codec/src/codec.rs)
+## State Model and Bounds
 
-## Baselines and admission images
+Struct encodings use fixed-arity CBOR arrays rather than string-keyed maps; `Option<T>` encodes as `[]` or `[value]`, booleans encode as integers `0` or `1`, `Fixed` preserves its exact `[atoms, scale]` unit, and venue decimals preserve canonical `[coefficient, exponent]`. Signed integers use big-endian shortest-form CBOR down to `i128::MIN` (`-1 - magnitude`), using bignum tags `2` and `3` for 9-to-16-byte magnitudes with no leading zero bytes. Floating-point items, indefinite lengths, unknown tags, and trailing bytes are unconditionally rejected.
 
-The constructor sorts assets by wallet and asset, positions by instrument and position side, wallet availability by wallet, and catalog entries by instrument. Attributions and strategy limits sort by logical strategy. Duplicate keys fail. Risk tiers preserve their supplied order and must pass the risk rules. A valid baseline must pass `Account::from_snapshot`. The reader checks capacities before vector allocation and verifies byte-for-byte canonical re-encoding. Limits include 64 assets, 64 instruments, 128 positions, 1,024 attributions per asset or position, 1,024 strategy limits per instrument and 128 risk tiers per instrument. [Baseline checks](../../crates/tickwire-account-codec/src/validate.rs) · [Baseline tests](../../crates/tickwire-account-codec/tests/baseline.rs)
+| Object or Collection | Canonical Envelope / Enforced Limit |
+| --- | --- |
+| `CanonicalBaseline` (`<= 2 MiB`) | `["tickwire.account-baseline", 1, Snapshot, Catalog]`; `<= 64` assets, `<= 64` instruments, `<= 128` positions, `<= 64` `venue_available` wallets |
+| Baseline inner collections | `<= 1,024` strategy ownership/limit entries per asset, position, or instrument; `<= 128` futures risk brackets per instrument |
+| `CanonicalRecord` (`<= 60 KiB`) | `["tickwire.account-record", 1, baseline_sha256, sequence, RecoveryRecord]`; non-zero `baseline_sha256` and `sequence` (`60 KiB` fits inside `tickwire-journal`'s `64 KiB` batch ceiling) |
+| `Admit` expected image (`Tag 1`) | `<= 3` child order keys (`MAX_ADMISSION_ORDERS`), `<= 64` unique positive resource holds, `<= 64` unique positive capital holds |
+| `RecoveryRecord` tags (`1..=16`) | `1` `Admit`, `2` `VenueEvent`, `3` `Aborted`, `4` `FeesReconciled`, `5` `UnattributedCashFlow`, `6` `ExternalPosition`, `7` `TransferAsset`, `8` `TransferPosition`, `9` `IngressEvent`, `10` `Reactivated`, `11` `StrategyHandover`, `12` `IngressAccountInput`, `13` `IncomeBaseline`, `14` `AccountInputsReconciled`, `15` `IncomeObservationsAssociated`, `16` `UncreatedAlgoClosed` |
 
-An admission image contains the full command digest, original intent key, account epoch, ledger sequence, revision set, deadline, resource and capital reservations, child order keys and increase-risk flag. The codec checks identity and command classification. Cancel, query, parent cancellation and supported keep-priority reductions follow the non-increasing branch. New orders cannot downgrade themselves by changing the image flag. Each admission may contain at most three orders and 64 resource or capital entries per collection. Vector order matters on replay. Duplicate asset, wallet or child keys fail. An image is recorded data. Replaying an admission requires the reducer to recompute its full image at the original evaluation time. [Image validation](../../crates/tickwire-account-codec/src/validate.rs) · [Non-increasing commands](../../crates/tickwire-account-codec/tests/nonincreasing.rs)
+## Core Invariants
 
-## Record tags and evidence
+* **Deterministic baseline ordering and reducer pre-flight**: `CanonicalBaseline::new` sorts `assets` by `(wallet, asset)`, `positions` by `(instrument_id, side)`, `venue_available` by `wallet`, `Catalog` entries by `instrument_id`, and per-asset/position `ownership` plus per-instrument `strategy_limits` by logical strategy ID, rejecting any duplicate key while preserving the caller's futures bracket order for risk-tier validation. Every constructed or decoded baseline must satisfy `Account::from_snapshot` and reproduce its exact input bytes on re-encoding; vector capacities are checked prior to allocation.
+* **Non-downgradable admission images (`Tag 1`)**: An `Admit` record pairs a canonical command, `evaluated_at`, and expected `Admission` image (`command_digest`, `intent`, `account_epoch`, `ledger_sequence`, `revisions`, `deadline`, `resources`, `capital_holds`, `orders`, and `increases`). The codec independently computes whether the command increases risk: only `Cancel`, `Query`, `CancelList`, `CancelAlgo`, and `AmendKeepPriority` take the non-increasing branch (`increases == false`), preventing a new order command from bypassing `risk_policy_version` checks by setting `increases = false` in its recorded image. During crash replay, the account reducer still recomputes the full admission at `evaluated_at` and requires exact equality with the recorded image.
+* **Explicit evidence bindings across lifecycle and reconciliation tags**: Ingress tags (`9` `IngressEvent` and `12` `IngressAccountInput`) bind a non-zero 16-byte `input_stream`, non-zero `input_sequence`, and a canonically validated venue payload. `Reactivated` (`Tag 10`) binds account/writer/connection epochs, `baseline_digest`, `history_digest`, `query_coverage_digest`, input-stream cut, clock boot ID and generation (`evaluated_at < valid_until`), and strictly sorted non-negative `venue_available` balances. `StrategyHandover` (`Tag 11`), `IncomeBaseline` (`Tag 13`, `<= 4,096` unique income rows), `AccountInputsReconciled` (`Tag 14`), `IncomeObservationsAssociated` (`Tag 15`, strictly sorted `FUNDING_FEE` integer transaction IDs), and `UncreatedAlgoClosed` (`Tag 16`) likewise require non-zero scope, baseline, history, and coverage digests before publication.
 
-| Tag | Record | Tag | Record |
-|---:|---|---:|---|
-| 1 | Admit | 9 | IngressEvent |
-| 2 | VenueEvent | 10 | Reactivated |
-| 3 | Aborted | 11 | StrategyHandover |
-| 4 | FeesReconciled | 12 | IngressAccountInput |
-| 5 | UnattributedCashFlow | 13 | IncomeBaseline |
-| 6 | ExternalPosition | 14 | AccountInputsReconciled |
-| 7 | TransferAsset | 15 | IncomeObservationsAssociated |
-| 8 | TransferPosition | 16 | UncreatedAlgoClosed |
+## Operations and Failure Semantics
 
-Tag 9 preserves the non-zero 16-byte input stream, non-zero sequence and full canonical event. Tag 10 binds the account, source and writer epochs, preceding state, input prefix, snapshot coverage, clock validity, sending connection and ordered wallet availability. Tag 14 binds scope, account epoch, preceding ledger sequence, baseline and history digests, input stream and processed sequence, state digest and coverage digest. The enclosing baseline must match. The owner verifies actual input data, physical writer and historical prefix before publishing these records. Earlier tags retain their original bytes. Older readers reject unfamiliar tags. [Wire definitions](../../crates/tickwire-account-codec/src/codec.rs) · [Compatibility tests](../../crates/tickwire-account-codec/tests/legacy_encoding.rs)
+* **Byte-exact round-trip and tag compatibility**: Every decoder path re-encodes the parsed value (including nested canonical commands, venue events, and account inputs) and rejects any input whose re-encoded bytes differ by even one bit—eliminating non-shortest integers, unsorted baseline maps, or unnormalized decimals. Adding new tags (`9..=16`) leaves the wire encoding of earlier tags (`1..=8`) bit-for-bit unchanged while causing older decoders to fail closed on unfamiliar tag numbers.
 
-Core validation includes independent byte and hash vectors, truncation and malformed-length cases, and Spot/USD-M file-backed replay. Decoding verifies byte shape and binding. It does not establish who produced the record, whether all prior records survived or whether an account may send. [Vector tests](../../crates/tickwire-account-codec/tests/vectors.rs) · [File replay](../../crates/tickwire-account-codec/tests/file_replay.rs)
+## Verification and References
+
+```sh
+cargo test --locked -p tickwire-account-codec
+cargo clippy --locked -p tickwire-account-codec --all-targets -- -D warnings
+```
+
+Test suites cover independent byte and SHA-256 golden vectors, `i128` bignum boundaries, truncation and malformed length prefixes, baseline sort/duplicate invariants, non-increasing command classification, legacy tag byte-stability, and Spot/USD-M file-backed replay.
+
+* Codec entry points, CBOR primitives, and validators: [lib.rs](../../crates/tickwire-account-codec/src/lib.rs), [cbor.rs](../../crates/tickwire-account-codec/src/cbor.rs), [codec.rs](../../crates/tickwire-account-codec/src/codec.rs), [validate.rs](../../crates/tickwire-account-codec/src/validate.rs)
+* Test suites: [baseline.rs](../../crates/tickwire-account-codec/tests/baseline.rs), [nonincreasing.rs](../../crates/tickwire-account-codec/tests/nonincreasing.rs), [legacy_encoding.rs](../../crates/tickwire-account-codec/tests/legacy_encoding.rs), [vectors.rs](../../crates/tickwire-account-codec/tests/vectors.rs), [file_replay.rs](../../crates/tickwire-account-codec/tests/file_replay.rs)
+* Related specifications: [Ordered account journal](account-journal.md), [Account gateway](account-gateway.md), [Recovery closures](recovery-closure.md)

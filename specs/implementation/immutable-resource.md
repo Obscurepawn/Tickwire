@@ -1,24 +1,42 @@
-# Immutable Linux resources
+# Immutable Shared-Memory Resources and Envelope Validation
 
-`ImmutableMapping` holds a sealed, read-only memfd. `ImmutableResource` verifies that mapping against an independently authenticated descriptor and object hash. Use the full validated file when checking a topic snapshot. A valid resource envelope alone grants no right to join. [Mapping](../../crates/tickwire-shm-sys/src/immutable.rs) · [Resource validator](../../crates/tickwire-shm-sys/src/resource.rs)
+`ImmutableMapping` and `ImmutableResource` in `tickwire-shm-sys` package static, cross-process artifacts—market topic snapshots, replay/recovery bundles, and permission-scoped configuration projections (resource kinds `5..=9`)—into kernel-sealed, read-only Linux `memfd` objects. Unlike single-writer rings (`0x17`), an `ImmutableMapping` is populated entirely via `pwrite` before any `mmap` exists, locked with the strict `0x0f` seal mask (`F_SEAL_SEAL | F_SEAL_SHRINK | F_SEAL_GROW | F_SEAL_WRITE`), and converted to an `O_RDONLY | O_CLOEXEC` file description before mapping. Because the kernel permanently prohibits all future writes and size changes through any descriptor or mapping, `ImmutableMapping::bytes(&self)` can safely lend an ordinary `&[u8]` slice for the lifetime of the mapping without atomic barriers per read.
 
-## Produce and receive
+Physical immutability proves that bytes will not change while mapped, whereas `ImmutableResource` proves that the outer 4,096-byte `ResourceHeader`, zeroed page tail, and whole-file SHA-256 match *externally authenticated* metadata from a control session or deployment manifest. Neither type grants `JOIN` admission or validates internal business records: `tickwire-snapshot` separately validates internal member digests, instrument-set coverage, and freshness deadlines.
 
-Creation checks platform and length, creates the memfd, sets its size and writes **all** bytes with `pwrite`. Retry short writes and EINTR. A zero write fails. Apply and read back the exact `0x0f` seal mask, obtain a read-only descriptor and map it read-only. The construction path creates no writable mapping and exports no unsealed descriptor.
+## State Model and Bounds
 
-A receiver verifies regular-file type, exact expected size and `0x0f` seals, then rechecks length at mapping. An incoming O_RDONLY descriptor is duplicated with CLOEXEC. For O_RDWR, keep the input FD alive while reopening its `/proc/self/fd/<fd>` path read-only. Only an O_RDONLY descriptor survives into the returned object. The locked WRITE/GROW/SHRINK seals permit a safe borrowed slice. `MADV_DONTFORK` prevents inheritance of the mapping. Drop unmaps before closing the FD. A single-writer ring uses its distinct `0x17` profile. [Ring mappings](shm-mapping.md)
+Every immutable resource file is page-aligned (`4,096` bytes) up to `64 MiB`, beginning with a 4,096-byte `ResourceHeader` (`TWIPC001`, ABI `1.0`, schema `1.0`) at offset `0`, `content_bytes > 0` starting at `slot_offset == 4096`, and zero-filled padding out to the page-rounded file end `padded_end == len`.
 
-## Verify the resource envelope
+| Resource Kind / Region | Constraints and Envelope Rules |
+| --- | --- |
+| Kernel seal profile | Exact `IMMUTABLE_SEALS = 0x0f` (`F_SEAL_SEAL \| F_SEAL_SHRINK \| F_SEAL_GROW \| F_SEAL_WRITE`); `WrongSeals` on any missing or extra seal bit (such as `0x17`) |
+| Envelope size bounds | Total mapped file `<= 64 MiB` (`67,108,864` bytes); `content_bytes > 0`; `align_up_4096(4096 + content_bytes) == mapping.len()`; bytes `(4096 + content_bytes)..len` must all be `0` |
+| `ResourceHeader` (`0..4096`) | Exact equality with caller's `expected: &ResourceHeader`; `descriptor_hash` (`bytes 272..304`) equals SHA-256 of the 4,096-byte header with `272..304` zeroed; nonzero `resource_id`, `producer_instance`, `host_boot_id`, `namespace_id`; `producer_generation` in `1..2^63`; all epoch/sequence counters `< 2^63`; `producer_page_offset`, `cursor_page_offset`, `arena_offset`, `arena_bytes`, `arena_class_count`, and `class_descriptors` all zero |
+| Feature mask | `required_features & 0x1c == 0x1c`; `required_features` and `optional_features` within `0x2ff`; exact-market feature bit `9` (`512`) permitted only on kinds `5` and `8` |
+| Snapshot kinds (`5..=8`) | `content_bytes >= 256`; `SnapshotHeader` at `4096..4352` (`TWSNP001`, schema `1.0`, `object_bytes == len`, `entry_offset == 4352`, `sequence < 2^63`, `coverage_flags & !3 == 0`); `4352 + entry_count * entry_bytes <= 4096 + content_bytes`; passes `tickwire_ipc::validate_resource_shape` |
+| Config projection (`kind 9`) | Requires config feature bit `5` (`0x20`), nonzero `consumer_instance`, `record_bytes == 1`, and `header.capacity == content_bytes <= 4 MiB` (`4,194,304` bytes) |
 
-Match the full 4096-byte decoded header to the approved header. Recompute its SHA-256 with only the descriptor-hash bytes zeroed. Check ABI, schema, architecture, page configuration, supported features, nonzero resource/producer/host/namespace identities, generation and bounded counters. Verify kinds 5–9, content starting at offset 4096, unused cursor/producer/arena fields zero, and exact file length.
+## Core Invariants
 
-The object is bounded to 64 MiB. Check `4096 + content_bytes` and page rounding without overflow. The outer page tail must be zero and the whole-file hash must match the external expected hash. For projected config (kind 9), require a nonzero consumer, config feature, one-byte records, capacity equal to valid content size and at most 4 MiB. For snapshot kinds, validate the 256-byte snapshot header, entry offset 4352, object size, kind and entry shape.
+* **Zero writable mappings during creation**: `F_SEAL_WRITE` fails with `EBUSY` on Linux if any shared writable `mmap` exists. `ImmutableMapping::create(name, bytes)` therefore creates a private `memfd`, sets its page-aligned size via `ftruncate`, writes the complete buffer via `pwrite` (retrying `EINTR` and partial writes, and failing on `WriteZero`), applies and verifies `0x0f` seals while no mapping exists, and then delegates to `ImmutableMapping::map` so no unsealed or writable handle ever escapes.
+* **Mandatory `O_RDONLY` downgrade on receipt**: Because `SCM_RIGHTS` preserves the sender's file-description access mode (`O_RDWR` vs. `O_RDONLY`), `ImmutableMapping::map` inspects `fcntl(F_GETFL) & O_ACCMODE` after checking `S_IFREG`, `st_size`, and `0x0f` seals. An `O_RDONLY` input is duplicated with `FD_CLOEXEC`; an `O_RDWR` input is kept alive only long enough to reopen `/proc/self/fd/<fd>` with `O_RDONLY | O_CLOEXEC` and then closed, ensuring `ImmutableMapping` and every descriptor exported by `duplicate_fd()` carry strictly read-only kernel file descriptions.
+* **External trust anchor for `validate_resource`**: Computing expected digests or identities from the mapped file itself would prove only self-consistency against an attacker-crafted `memfd`. `ImmutableMapping::validate_resource(expected, content_bytes, object_hash)` compares the decoded `ResourceHeader` against the caller's independently authenticated `expected` struct, recomputes `descriptor_hash`, validates kind-specific header geometry and zeroed tail bytes, and hashes the *entire* mapped byte slice `[0..len]` against the external `object_hash` before returning `ImmutableResource`.
 
-`content()` removes the outer resource header and padding. `bytes()` exposes the complete validated envelope. The snapshot layer checks internal member digests, coverage, cut, validity windows and JOIN identity. Computing expected metadata from the file itself would only establish internal consistency. [Topic receiver](topic-snapshot.md)
+## Operations and Failure Semantics
+
+* **Envelope vs. payload access**: `ImmutableResource::bytes()` returns the full validated `[0..len]` file image (required by `tickwire-snapshot::validate`, which checks absolute file offsets starting from `0`), while `ImmutableResource::content()` strips the 4,096-byte outer `ResourceHeader` and trailing page padding to return `[4096..4096 + content_bytes]`.
+* **Descriptor consumption and teardown**: `ImmutableMapping::map` takes `OwnedFd` by value and closes it on any size, file-type, seal, or `mmap`/`MADV_DONTFORK` failure. Dropping `ImmutableResource` or `ImmutableMapping` unmaps the `PROT_READ` region before closing the read-only descriptor.
+
+## Verification and References
 
 ```sh
 cargo test --locked -p tickwire-shm-sys --test immutable
 cargo test --locked -p tickwire-snapshot --test immutable_linux
 ```
 
-The Linux tests verify read-only CLOEXEC export, exact seal sets, denied writes, resizes, new writable mappings and permission upgrades. They exercise sealing failure while a writable mapping exists and success once it is removed. Header-digest tests keep the expected fields equal to the corrupted header so the independent digest check must catch it.
+Linux integration tests verify `O_RDONLY | FD_CLOEXEC` export even when constructed from `O_RDWR` descriptors, exact `0x0f` seal enforcement, kernel denial of `write`/`ftruncate`/`PROT_WRITE` mappings and `mprotect` upgrades, `F_SEAL_WRITE` failure while a writable mapping is live followed by success after `munmap`, and header-corruption cases where `expected` is deliberately set to match the tampered header so only the independent `descriptor_hash` and `object_hash` checks catch the mutation.
+
+* Implementation: [immutable.rs](../../crates/tickwire-shm-sys/src/immutable.rs), [resource.rs](../../crates/tickwire-shm-sys/src/resource.rs)
+* Test suites: [immutable.rs](../../crates/tickwire-shm-sys/tests/immutable.rs), [immutable_linux.rs](../../crates/tickwire-snapshot/tests/immutable_linux.rs)
+* Related specifications: [Single-writer Linux mappings](shm-mapping.md), [Validate a market-topic baseline](topic-snapshot.md), [Build a market-topic baseline](topic-snapshot-builder.md)

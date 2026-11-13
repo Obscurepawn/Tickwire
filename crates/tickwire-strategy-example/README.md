@@ -1,18 +1,36 @@
-# Registered counting strategy
+# Registered Counting Strategy (`tickwire-strategy-example`)
 
-The counting worker implements the SDK's `Strategy` trait. Each market callback increments its observation count. With a configured limit order, the worker emits one intent after its observation and price thresholds are met. It checkpoints the counters and the identity of the consumed action. [Implementation](src/lib.rs)
+`tickwire-strategy-example` provides a complete, statically registered implementation of [`tickwire_strategy_sdk::Strategy`](../tickwire-strategy-sdk/src/lib.rs) ([`src/lib.rs`](src/lib.rs)). It demonstrates how a supervised worker consumes normalized market updates from its local shared-memory replica, validates runtime-injected parameters, persists deterministic replay checkpoints, and optionally emits a single canonical limit order once observation and price thresholds are satisfied.
 
-From the repository root, start two counting workers on one local quote feed.
+---
+
+## Observe a Shared Feed with Two Workers
+
+From the workspace root on Linux, launch two independent instances of the counting worker against one local public quote publisher:
 
 ```sh
 python3 scripts/run-two-strategies.py
 ```
 
-Each worker has its own PID, market cursor and checkpoint. The launcher prints both PIDs and each worker's callback count. The example uses observation-only parameters. A strategy that needs just the spread can read the best bid and ask in `Strategy::on_market` and return `Ok(None)`. [Compiled spread example](../tickwire-strategy-sdk/src/lib.rs) · [Shared-feed configuration](../tickwire-md/examples/spot-market.md)
+Each worker runs in its own OS process with a dedicated shared-memory cursor and checkpoint directory, incrementing its callback counter on every fresh two-sided quote while running in observation-only mode (`enabled: false`). For a minimal in-code example that only computes the bid-ask spread in ticks without emitting orders, see the compiled doc-test in [`tickwire-strategy-sdk`](../tickwire-strategy-sdk/src/lib.rs) and the [shared-feed launcher guide](../tickwire-md/examples/spot-market.md).
 
-## Configure an order
+---
 
-Set the bootstrap factory ID to `counting_example`. Supply an absolute configuration file, its digest and byte count, and a positive revision. Encode the configuration with `Parameters::bytes()`. Its fields include `enabled`, `minimum_observations`, `minimum_bid_ticks` and an optional `command`. An enabled worker takes a canonical spot limit order belonging to its strategy instance. On qualified depth the price condition reads the best bid. A quote-only subscription updates the callback count.
+## Configure Conditional Order Emission
+
+To arm the worker to emit an order in an integration harness or deployment:
+
+1. Set the bootstrap strategy factory identifier to `"counting_example"`.
+2. Encode a `Parameters` value via `Parameters::bytes()` and supply its absolute file path, byte length, SHA-256 digest, and positive configuration revision in the worker's bootstrap descriptor:
+   * `enabled`: Enables order emission once thresholds are met.
+   * `minimum_observations`: Minimum count of accepted market callbacks required before acting.
+   * `minimum_bid_ticks`: Minimum best-bid threshold in integer price ticks (evaluated on qualified depth topics; quote-only BBO subscriptions advance the observation counter without depth-bid triggering).
+   * `command`: Optional pre-validated `CanonicalCommand` (a Spot limit order bound to this exact strategy instance and risk domain).
+3. Once triggered, the worker records the consumed action identity in its checkpoint so deterministic replay or restart never emits a duplicate order.
+
+## Verify
+
+Run the crate's unit/integration suite and the SDK doctests:
 
 ```sh
 cargo test --locked -p tickwire-strategy-example --all-targets

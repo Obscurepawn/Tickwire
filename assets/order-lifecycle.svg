@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360"
+     role="img" aria-labelledby="title description">
+  <title id="title">Durable order admission, first-byte authorization, and crash-recovery boundary</title>
+  <desc id="description">Four-stage order submission pipeline showing idempotent intent lookup and fixed-point hold, synchronous recovery closure and WAL commit, grant re-verification immediately before the first TLS plaintext byte, and the deterministic split between proven zero-byte aborts (releasing exposure) versus partial sends or restarts (freezing the account until venue reconciliation).</desc>
+  <defs>
+    <marker id="arr-dark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#15803d"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#b91c1c"/>
+    </marker>
+    <style>
+      text { font-family: "Inter", "Segoe UI", "DejaVu Sans", sans-serif; text-anchor: middle; }
+      .step-num { font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.4px; }
+      .box-title { font-size: 15.5px; font-weight: 700; fill: #0f172a; }
+      .box-sub { font-size: 13px; fill: #334155; }
+      .out-title-ok { font-size: 15px; font-weight: 700; fill: #14532d; }
+      .out-title-warn { font-size: 15px; font-weight: 700; fill: #7f1d1d; }
+      .out-sub { font-size: 13.5px; fill: #1e293b; }
+      .lbl-ok { font-size: 13px; font-weight: 700; fill: #15803d; }
+      .lbl-warn { font-size: 13px; font-weight: 700; fill: #b91c1c; }
+      .stage { fill: #f8fafc; stroke: #64748b; stroke-width: 1.8; }
+      .stage-wal { fill: #fffbeb; stroke: #d97706; stroke-width: 2; }
+      .stage-gate { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; }
+      .stage-ok { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.8; }
+      .stage-freeze { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.8; }
+      .pill-ok { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.3; }
+      .pill-warn { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1.3; }
+      .line { fill: none; stroke: #334155; stroke-width: 2.2; stroke-linejoin: round; }
+      .line-ok { fill: none; stroke: #15803d; stroke-width: 2.2; stroke-linejoin: round; }
+      .line-warn { fill: none; stroke: #b91c1c; stroke-width: 2.2; stroke-linejoin: round; }
+    </style>
+  </defs>
+
+  <rect width="760" height="360" rx="10" fill="#ffffff"/>
+
+  <!-- Top Pipeline Row (y = 20..122) -->
+  <rect class="stage" x="20" y="20" width="164" height="102" rx="8"/>
+  <text x="102" y="42" class="step-num">1 · INTAKE &amp; ENCODE</text>
+  <text x="102" y="65" class="box-title">Candidate Check</text>
+  <text x="102" y="86" class="box-sub">Idempotent IntentKey</text>
+  <text x="102" y="105" class="box-sub">Fixed-point hold</text>
+
+  <path class="line" d="M184 71 H208" marker-end="url(#arr-dark)"/>
+
+  <rect class="stage-wal" x="210" y="20" width="174" height="102" rx="8"/>
+  <text x="297" y="42" class="step-num">2 · DURABLE COMMIT</text>
+  <text x="297" y="65" class="box-title">Sync Before Send</text>
+  <text x="297" y="86" class="box-sub">fsync recovery closure</text>
+  <text x="297" y="105" class="box-sub">fsync Admit in WAL</text>
+
+  <path class="line" d="M384 71 H408" marker-end="url(#arr-dark)"/>
+
+  <rect class="stage-gate" x="410" y="20" width="174" height="102" rx="8"/>
+  <text x="497" y="42" class="step-num">3 · FIRST-BYTE GATE</text>
+  <text x="497" y="65" class="box-title">Recheck Grant</text>
+  <text x="497" y="86" class="box-sub">Lease · epoch · deadline</text>
+  <text x="497" y="105" class="box-sub">Live feed &amp; private cut</text>
+
+  <path class="line-ok" d="M584 71 H608" marker-end="url(#arr-green)"/>
+
+  <rect class="stage-ok" x="610" y="20" width="130" height="102" rx="8"/>
+  <text x="675" y="42" class="step-num">4 · TLS WRITE</text>
+  <text x="675" y="65" class="out-title-ok">MayHaveSent</text>
+  <text x="675" y="86" class="box-sub">Flush signed</text>
+  <text x="675" y="105" class="box-sub">bytes to venue</text>
+
+  <!-- Dedicated Routing Corridor (y = 122..196) -->
+  <!-- Branch A: Proven 0-Byte Abort -->
+  <path class="line-ok" d="M480 122 V157 H192 V192" marker-end="url(#arr-green)"/>
+  <rect class="pill-ok" x="238" y="144" width="196" height="26" rx="13"/>
+  <text x="336" y="162" class="lbl-ok">0 bytes sent (NoBytes)</text>
+
+  <!-- Branch B: Partial I/O or Restart -->
+  <path class="line-warn" d="M675 122 V192" marker-end="url(#arr-red)"/>
+  <rect class="pill-warn" x="502" y="144" width="162" height="26" rx="13"/>
+  <text x="583" y="162" class="lbl-warn">Partial I/O or restart</text>
+
+  <!-- Bottom Outcome Row (y = 196..340) -->
+  <rect class="stage-ok" x="28" y="196" width="328" height="144" rx="8"/>
+  <text x="192" y="224" class="out-title-ok">Proven Zero-Byte Abort</text>
+  <text x="192" y="249" class="out-sub">Verify no contradicting venue ack or fill</text>
+  <text x="192" y="271" class="out-sub">fsync Aborted record to Account WAL</text>
+  <text x="192" y="293" class="out-sub">Release reserved capital immediately</text>
+  <text x="192" y="319" class="lbl-ok">Account remains active for peers</text>
+
+  <rect class="stage-freeze" x="396" y="196" width="344" height="144" rx="8"/>
+  <text x="568" y="224" class="out-title-warn">Uncertain Outcome → Freeze</text>
+  <text x="568" y="249" class="out-sub">Retain full capital &amp; position holds</text>
+  <text x="568" y="271" class="out-sub">Continue booking fills &amp; cancellations</text>
+  <text x="568" y="293" class="out-sub">Run authenticated REST / snapshot scan</text>
+  <text x="568" y="319" class="lbl-warn">Sync Reactivated to resume new risk</text>
+</svg>

@@ -1,10 +1,41 @@
 # tickwire-strategy-sdk
 
-`Strategy::on_market` receives a borrowed view of the worker's local market state. For a top-of-book subscription, check that a complete fresh bid/ask triggers the callback and that a stale quote is rejected. Ordered account updates enter through `on_report`. [Strategy API](src/lib.rs) · [Market view](src/market.rs)
+`tickwire-strategy-sdk` owns the worker-side `Strategy` trait, local `MarketReplica` / `MarketView` wrapper ([src/market.rs](src/market.rs)),
+durable command store and SPSC `IntentWriter` ([src/outbound.rs](src/outbound.rs)), ordered `ReportReceiver` / `ReportWriter`
+([src/reports.rs](src/reports.rs)), checkpoints ([src/checkpoint.rs](src/checkpoint.rs), [src/account_checkpoint.rs](src/account_checkpoint.rs)),
+deterministic handover replay ([src/replay.rs](src/replay.rs), [src/restore.rs](src/restore.rs)), and worker event loop
+([src/worker.rs](src/worker.rs), [src/registered.rs](src/registered.rs)). Crate-wide `#![deny(unsafe_code)]` isolates SHM attachment inside
+`reports`, `runtime`, and `worker`; parent process supervision and risk admission live in `tickwire-strategy-host` and `tickwire-account`.
 
-Bind an outgoing command to the input that triggered it, the decision time and the strategy's output sequence. The worker writes the command before it publishes its reference. Check both the command identity and checkpoint when changing how the worker handles a callback. [Intent writer](src/outbound.rs) · [Worker](src/worker.rs)
+## Invariants and Change Guidelines
+
+* **Durable command-before-ring publication**: `IntentWriter` ([src/outbound.rs](src/outbound.rs)) must persist and sync the `CanonicalCommand`
+  blob in `CommandStore`—bound to its triggering input cursor, `now_ns` decision timestamp, and monotonic strategy output sequence—before
+  publishing the `IntentRecord` reference onto the shared-memory ring.
+* **Freshness and callback gating**: `MarketView` ([src/market.rs](src/market.rs)) exposes borrowed local replica state to `Strategy::on_market`
+  only after JOIN baseline and catch-up records are journaled, rejecting stale or degraded (`feed_state != 2`) feeds; ordered account execution
+  updates arrive exclusively through `on_report` ([src/reports.rs](src/reports.rs)).
+* **Deterministic replay and handover seals**: During migration or restart in [src/replay.rs](src/replay.rs), [src/restore.rs](src/restore.rs),
+  and [src/recovery.rs](src/recovery.rs), feed the original recorded inputs and decision timestamps rather than wall-clock reads, and verify
+  `HandoverSeal` checkpoint and account-report parity before live cutover.
+* **Non-world-writable config reads**: `worker::read_config` ([src/worker.rs](src/worker.rs)) opens bootstrap files with
+  `O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK` and rejects group/world-writable modes (`0o022`).
+
+## Verification and Specifications
+
+* **Source and binaries**: [src/lib.rs](src/lib.rs) · [src/market.rs](src/market.rs) · [src/outbound.rs](src/outbound.rs) ·
+  [src/reports.rs](src/reports.rs) · [src/worker.rs](src/worker.rs) · [src/registered.rs](src/registered.rs) · [src/replay.rs](src/replay.rs) ·
+  [src/restore.rs](src/restore.rs) · [src/bin/tickwire-strategy-worker.rs](src/bin/tickwire-strategy-worker.rs)
+* **Integration tests**: [tests/source_replay.rs](tests/source_replay.rs)
+* **Specifications and models**: [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md) ·
+  [strategy-parameter-consumption.md](../../specs/implementation/strategy-parameter-consumption.md) ·
+  [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
+  [recovery-closure.md](../../specs/implementation/recovery-closure.md) ·
+  [worker_handover](../../tla/execution_models/worker_handover/ROADMAP.md) ·
+  [quote_delivery](../../tla/execution_models/quote_delivery/ROADMAP.md)
 
 ```sh
 cargo test --locked -p tickwire-strategy-sdk --all-targets
 cargo test --locked -p tickwire-strategy-sdk --doc
+./scripts/check-tla.sh worker_handover
 ```

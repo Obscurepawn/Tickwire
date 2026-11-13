@@ -1,7 +1,50 @@
-# Binance execution adapter
+# Binance Execution Adapter and First-Byte Gate
 
-`tickwire-binance-execution` binds one account, product, environment and clock domain to a sender. The command digest identifies the immutable request bytes and the original `SignedTime`. The configured table holds at most 4,096 commands. Once full, it rejects a new entry. An exact retry uses the retained signature.
+`tickwire-binance-execution` bridges an account gateway's durable admission pipeline to Binance REST and WebSocket order-entry transports for a single `(owner_id, risk_domain_id, account, product, environment, ClockDomain)` `CommandBinding`. Built in safe Rust (`#![forbid(unsafe_code)]`), `SharedSessionState<C, B>` wraps a single-threaded `Rc<RefCell<State<C, B>>>`—preventing cross-thread sharing and rejecting reentrant borrows with `Error::Busy` rather than panicking—so `RestEncoder` and `GateAuthority` share exact original-signature state without duplicating clock or quota owners.
 
-`GateAuthority` delegates recovery-closure persistence to its inner authority. At the first application write it validates the original signature, lease, request deadline and remaining quota. The budget callback and policy read both precede the last clock sample. An expired signature, changed clock domain or insufficient quota prevents the write.
+`RestEncoder` owns wire serialization and signature retention across retries, while `GateAuthority` wraps an inner recovery-closure `Authority` (`verify_handover`, `prepare`, `verify`, `commit_state`, `current_gate`) to enforce calibrated signature validity, lease freshness, WebSocket binding readiness, and request-quota consumption immediately before the first application byte enters the transport.
 
-Unit tests exercise encoding retries, missing encodings, lease and policy changes, and a budget callback that advances the clock beyond the signing window.
+## State Model and Bounds
+
+Construction (`SharedSessionState::new`) verifies nonzero `owner_id`, `risk_domain_id`, and `account`, confirms matching `ClockDomain` and `Source` across the `SessionClock` and `tickwire-binance-quota::Endpoint`, and enforces explicit configuration bounds:
+
+| Parameter | Permitted Range | Enforcement Behavior |
+| --- | --- | --- |
+| `recv_window_micros` | `1..=60,000,000` us (`<= 60 s`) | Multiplied by `1,000` into `window_ns` with overflow checking. |
+| `max_http_bytes` | `1..=16 MiB` (`16 * 1024 * 1024`) | Bounds serialized HTTP request or masked WebSocket text frame size. |
+| `max_signed_commands` | `1..=4,096` entries | Bounds both `signed` (`BTreeMap<Hash, SignedRequest>`) and WebSocket `plans`. |
+| `credential_reference` | Nonzero `generation`, `account`, `1..=256` byte `api_key` | Domain-prefixed SHA-256 (`tickwire.ws.credential-reference.v1`) omitting signing secrets. |
+
+When `encode` runs for a `CanonicalCommand` whose SHA-256 `digest` is not yet cached, it rejects full tables (`Error::Capacity`), samples `SessionClock` for an active `SignedTime` (`Error::MissingSignature` if uncalibrated), verifies `now < command.deadline`, prepares the signed REST or WebSocket payload via [binance-protocol.md](binance-protocol.md), frames the HTTP request or masked WebSocket text frame, and caches `(SignedTime, window_ns, authority, bytes, Option<SignedWebSocket>)` keyed by `command.digest()`. Any subsequent `encode` retry for the identical digest returns those exact immutable wire bytes and original `SignedTime` (provided any associated `WsRequestPlan` remains current), guaranteeing a retried send never re-signs at a new timestamp.
+
+For WebSocket order entry ([binance-ws-trading.md](binance-ws-trading.md)), `GateAuthority::commit_state` returns `CommitState::Pending` until `install_websocket_binding` attaches a live `DurableWsBinding` whose plan, `SignedWire`, frame length, SHA-256 frame hash, `account_sequence`, `record_digest`, and `PhysicalFrontier` match the durable account `AppendReceipt`.
+
+## Core Invariants
+
+* **Immutable signature across retries**: Once a command is signed, its `SignedTime` and framed wire bytes are frozen in `signed[digest]`. Neither transport retries nor `DeliveryBudget` callbacks can substitute a newer timestamp into an already-prepared command.
+* **Callbacks precede the final clock sample**: Inside `GateAuthority::current_gate`, both `DeliveryBudget::remaining_ns` (`prepare_gate`) and `inner.current_gate` (policy, owner isolation, lease, `writer_epoch`, `strategy_generation`, and `config_revision`) execute *before* `SessionClock::check_send_sample` takes the authoritative final clock reading (`finish_gate`). Even if the budget callback or policy read stalls and advances wall time past the signature window, lease, or command deadline, the final sample catches the elapsed delay and denies the write.
+* **Quota consumption inside the verified gate**: `Endpoint::consume_command` runs only after signature validity, monotonic non-regression (`final >= before` and `final >= gate.now`), active lease (`now < gate.lease_until`), and command deadline (`now < r.deadline`) all succeed, updating `gate.now` to that final monotonic timestamp before any plaintext byte reaches TLS.
+
+## Transitions and Failure Semantics
+
+At the first application write (`GateAuthority::current_gate`), any failure in `prepare_gate`, `inner.current_gate`, or `finish_gate` maps to `AuthorityError::Denied` and aborts transmission with zero application bytes accepted:
+
+1. **Missing or stale encoding**: Command absent from `signed`, mutated `SignedTime`/`window_ns`, or a WebSocket command lacking a current, matching `DurableWsBinding`.
+2. **Policy or epoch mismatch**: `!gate.owner_isolated`, `!gate.action_permitted`, or mismatch on `writer_epoch`, `strategy_generation`, or `config_revision`.
+3. **Clock or deadline violation**: Expired calibration or signature window in `check_send_sample`, changed `ClockDomain`, backward `MonoTime` or `Instant`, `now >= gate.lease_until`, or `now >= command.deadline`.
+4. **Quota denial or venue rate limit**: Insufficient quota or frozen consumer in `Endpoint::consume_command`. On WebSocket `418` or `429` feedback (`SessionState::feedback`), the shared `Endpoint` freezes immediately; WebSocket session control frames (`Connect`, `Upgrade`, `Ping`, `Pong`, `Close`) likewise require a current `DurableWsSession`, `now < deadline`, and `consume_command_session`.
+
+## Verification and References
+
+```sh
+cargo test --locked -p tickwire-binance-execution
+```
+
+Unit tests verify byte-identical encoding retries, table capacity exhaustion at 4,096 commands, missing-signature rejection, lease/epoch/policy revocations between `prepare_gate` and `finish_gate`, clock-domain faults, and `DeliveryBudget` callbacks that advance local time past the signing window or command deadline so zero bytes are accepted.
+
+* [Execution adapter, `RestEncoder`, and `GateAuthority`](../../crates/tickwire-binance-execution/src/lib.rs)
+* [Encoding retry, lease, and clock-advancement unit tests](../../crates/tickwire-binance-execution/src/tests.rs)
+* [Binance signing and order protocol specification](binance-protocol.md)
+* [Binance request quota specification](binance-quota.md)
+* [Binance WebSocket trading owner specification](binance-ws-trading.md)
+* [Exchange clock calibration specification](clock.md)

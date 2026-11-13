@@ -1,17 +1,57 @@
-# Binance signing and order protocol
+# Binance Order Signing and Wire Protocol
 
-The Binance protocol crate converts a canonical trading command into a signed REST request or a WebSocket request message. The return value binds the prepared request to the complete canonical command digest. The protocol layer performs serialization, signing and response classification. The account gateway decides whether bytes may leave the process. [Protocol entry point](../../crates/tickwire-binance/src/lib.rs) · [Request preparation](../../crates/tickwire-binance/src/request.rs)
+`tickwire-binance` translates canonical Tickwire trading commands into signed REST HTTP targets or WebSocket JSON request envelopes, authenticates outgoing parameters with HMAC-SHA256, RSA, or Ed25519 keys, and classifies exchange HTTP/WebSocket replies into deterministic outcome categories. Every `PreparedRequest` binds its immutable wire payload directly to the originating `CanonicalCommand::digest()`.
 
-## Request identity and signing
+This layer is strictly stateless: it owns parameter formatting, cryptographic signing, and wire response classification in safe Rust (`#![forbid(unsafe_code)]`), while delegating margin-mode and account-configuration checks to the account coordinator and delegating durable admission, lease verification, retry policy, and reservation release to the [account gateway](account-gateway.md).
 
-`prepare` verifies the venue, account, market and environment against the selected credentials before producing a request. It takes the symbol, side, quantity, modifiers and order identifiers from the frozen command. An unsupported command, parameter combination or signing algorithm yields an error. The coordinator checks current account settings, including margin mode, before sending. [Request preparation](../../crates/tickwire-binance/src/request.rs)
+## Protocol Model and Bounds
 
-`PreparedRequest` privately owns the wire request and the original `CanonicalCommand.digest()`. REST uses the signed query as the HTTP request target. WebSocket signing and JSON serialization share one parameter collection, so an order cannot be signed with one value and transmitted with another. Timestamp units, receive-window precision and field spellings follow the endpoint. USD-M GTD time uses its required units, and conditional orders preserve the distinct `activatePrice` and `priceProtect` parameters. FIX SenderCompID uses the permitted protocol character set. [Parameter handling](../../crates/tickwire-binance/src/params.rs) · [Authentication](../../crates/tickwire-binance/src/auth.rs)
+`request::prepare(command, credentials, options, max_bytes)` verifies that `venue == 1` (Binance) and that the command's `account`, `environment`, and `Market` (`Spot` vs `Usdm`) match the selected `Credentials` before constructing any wire bytes (`Error::IdentityMismatch` otherwise).
 
-## Response semantics
+| Boundary | Rule or Limit | Enforcement |
+| --- | --- | --- |
+| Request size & arity | `1..=16,384` bytes (`MAX_REQUEST_BYTES`), `<= 64` parameters | Checked via bounded stack scratch before heap materialization. |
+| API key & request ID | API key `1..=256` (`A-Za-z0-9-_`); `request_id` `1..=64` printable ASCII (`33..=126`) | Rejects header/JSON injection and malformed correlation IDs. |
+| `recvWindow` | `1..=60,000,000` us; USD-M requires exact millisecond multiples (`% 1000 == 0`) | Spot fractional milliseconds serialize as 3-decimal numbers; integer milliseconds serialize as integers. |
+| Timestamp units | Spot accepts nonzero `Milliseconds` or `Microseconds`; USD-M accepts `Milliseconds` only | Endpoint-specific units also govern USD-M `goodTillDate` (`GTD`) timestamps. |
+| Conditional & FIX fields | Preserves distinct USD-M `activatePrice` and `priceProtect`; FIX `SenderCompID` uses permitted ASCII | Unsupported commands, parameter combinations, or endpoint/key algorithms fail at `prepare`. |
+| Response size | `1..=1,048,576` bytes (`MAX_RESPONSE_BYTES`), error `msg <= 4,096` bytes, WS `id <= 256` bytes | Oversized or empty bodies return `Error::Capacity` or `Error::InvalidResponse`. |
 
-An HTTP 200 carrying an invalid error object cannot be promoted to a successful response. The classifier distinguishes rate limits, bans, authentication failures, clock errors, missing orders, partial outcomes and definite rejections. HTTP 408, recognized execution-unknown codes and unrecognized server codes retain an unknown outcome. Most 5xx responses are also unknown. The USD-M 503 branch recognizes the specific documented overload and service-unavailable rejection cases. The classifier never retries an order or releases a reservation. [Response classifier](../../crates/tickwire-binance/src/response.rs) · [Response tests](../../crates/tickwire-binance/tests/responses.rs)
+Both REST and WebSocket encoders populate a single shared `Params` collection prior to signing. REST signs the exact percent-encoded query string and uses that signed string directly as the HTTP request target; WebSocket signs the sorted parameter preimage and serializes the identical parameter set into JSON, eliminating any possibility of signing one parameter value while transmitting another.
 
-## Verification boundary
+## Core Invariants
 
-Signature tests cover the published HMAC and FIX Ed25519 vectors and an independent OpenSSL RSA vector. Loopback tests feed the same prepared request to a real transport connection, verify REST and WebSocket signatures and parameters server-side, and exercise chunked HTTP and fragmented WebSocket replies. The client bounds acceptance per call to 17 bytes and compares the command digest before the first accepted application byte. These tests exercise byte-level preparation and transport behavior. Session lifecycle, durable admission and recovery have separate owners and tests. [Primitive tests](../../crates/tickwire-binance/tests/protocol_primitives.rs) · [TLS protocol tests](../../crates/tickwire-binance/tests/protocol_server.rs) · [Gateway](account-gateway.md)
+* **Cryptographic command-digest binding**: `PreparedRequest` privately owns both the serialized wire bytes and the 32-byte `CanonicalCommand` SHA-256 digest (`verify_digest`), allowing the transport gate to prove before the first application byte leaves user space that the outgoing packet matches the durably admitted intent.
+* **No silent error-to-success promotion**: `response::decode_rest` probes JSON object responses for a negative `code` discriminator independently of `ApiError` struct deserialization. Consequently, an HTTP `200` carrying a malformed or truncated error object fails with `Error::InvalidResponse` rather than falling through to the success branch.
+* **Conservative unknown-execution classification**: Because releasing an account reservation on an ambiguous error risks unrecorded fills, the classifier maps HTTP `408`, documented execution-unknown codes (`-1000`, `-1001`, `-1006`, `-1007`), unrecognized negative server codes, and generic `5xx` responses to `FailureKind::Unknown`. Only explicitly documented deterministic failures map to `Rejected`.
+
+## Response Classification Semantics
+
+`response::classify(market, status, code, message)` partitions exchange errors into eight `FailureKind` variants without ever retrying an order or mutating reservations:
+
+* **`Banned`**: HTTP `418` IP auto-ban.
+* **`RateLimited`**: HTTP `429` or error codes `-1003` / `-1015`.
+* **`Partial`**: HTTP `409` cancel-replace or batch partial completion.
+* **`NotFound`**: Error codes `-2011` or `-2013` (missing cancel/query target).
+* **`Authentication`**: HTTP `401` or error codes `-1002`, `-1022`, `-2014`, `-2015`.
+* **`ClockSkew`**: Error code `-1021` (timestamp outside `recvWindow` or ahead of server).
+* **`Rejected`**: Deterministic parameter, filter, or insufficient-balance codes (`-1013`, `-1014`, `-1020`, `-1100..=-1106`, `-1108`, `-1111`, `-1114..=-1121`, `-1128`, `-1130`, `-2010`, `-2038`), plus the documented USD-M HTTP `503` overload rejections (`code == -1008`, `"Service Unavailable."`, or `"Internal error; unable to process your request. Please try again."`).
+* **`Unknown`**: HTTP `408`, codes `-1000`, `-1001`, `-1006`, `-1007`, all other `5xx` statuses, and any newly introduced or unrecognized venue error code.
+
+## Verification and References
+
+```sh
+cargo test --locked -p tickwire-binance --test responses --test protocol_primitives --test protocol_server
+```
+
+Cryptographic vector tests validate published Binance HMAC-SHA256 and FIX Ed25519 vectors alongside an independent OpenSSL RSA vector. Local TLS loopback tests drive `PreparedRequest` over real `tickwire-transport` connections—capping per-call write acceptance to 17 bytes to exercise partial-write boundaries, verifying `command_digest()` before the first accepted application byte, validating REST and WebSocket signatures server-side, and decoding chunked HTTP and fragmented WebSocket responses.
+
+* [Protocol crate root and error taxonomy](../../crates/tickwire-binance/src/lib.rs)
+* [Canonical-to-wire request preparation](../../crates/tickwire-binance/src/request.rs)
+* [Shared REST/WebSocket parameter encoding](../../crates/tickwire-binance/src/params.rs)
+* [HMAC, RSA, and Ed25519 authentication](../../crates/tickwire-binance/src/auth.rs)
+* [REST and WebSocket response classifier](../../crates/tickwire-binance/src/response.rs)
+* [Response classification test suite](../../crates/tickwire-binance/tests/responses.rs)
+* [Cryptographic primitive vector tests](../../crates/tickwire-binance/tests/protocol_primitives.rs)
+* [TLS loopback and 17-byte partial-send tests](../../crates/tickwire-binance/tests/protocol_server.rs)
+* [Account gateway specification](account-gateway.md)

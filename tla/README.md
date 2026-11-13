@@ -1,13 +1,25 @@
-# Tickwire TLA+ models
+# Formal Verification with TLA+
 
-The [November 2026 source audit](audits/2026-11-05/README.md) lists current trading-route results, reproducible counterexamples and the remaining coverage gaps for each crate.
+Tickwire uses finite-state TLA+ specifications and the TLC model checker to exhaustively verify concurrency, crash recovery, shared-memory reclamation, and network failure boundaries where interleavings are hard to cover with conventional tests alone.
 
-From the workspace root, run the order submission models.
+The [November 2026 source audit](audits/2026-11-05/README.md) documents the latest single-host trading-route verification results, counterexamples discovered and fixed during modeling, and current crate-by-crate source anchors.
+
+## Running TLC Models
+
+From the workspace root, verify a single model family (requires a Java runtime):
 
 ```sh
 ./scripts/check-tla.sh submission
 ```
 
-The runner checks the checksum of the pinned TLC distribution, copies the models and their configurations to a temporary directory and checks each configuration with one worker. A completed run reports zero states left on the queue. After the last configuration for a model, the coverage report lists the number of successors generated for each action.
+Or run the entire formal verification suite across all model families:
 
-Pass another [model family](ROADMAP.md) to select a different boundary. Run `./scripts/check-tla.sh` for all families. When the Rust implementation changes, check the model's abstractions and the source revision recorded beside its anchors before using a past result.
+```sh
+./scripts/check-tla.sh
+```
+
+For each family, the runner verifies the SHA-256 digest of the pinned TLC 1.7.4 archive (`tla/tools/tla2tools.jar`), copies the `.tla` modules and `.cfg` bounds into a clean temporary directory, and runs exhaustive state-space exploration. A passing run requires zero states left on the queue, zero invariant violations, and nonzero successor coverage across modeled actions after the final configuration completes.
+
+## Maintaining Source Alignment
+
+See the [Model Family Roadmap](ROADMAP.md) to locate the TLA+ models governing a specific subsystem boundary. Whenever Rust code changes an ordering rule, admission gate, shared-memory watermark, or WAL recovery condition, verify the model's abstractions and source-line anchors before relying on prior TLC results.

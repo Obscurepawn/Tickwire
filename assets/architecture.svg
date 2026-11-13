@@ -1,57 +1,137 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="480" height="510" viewBox="0 0 480 510"
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="760" viewBox="0 0 680 760"
      role="img" aria-labelledby="title description">
-  <title id="title">From market data to two strategy workers and one trading account</title>
-  <desc id="description">A market-data process decodes a venue's public feed once. Two workers read its shared-memory ring at independent cursors. Each can send intents to the same account process and receive account reports. The account owns risk, the order journal and the connection to the venue's order API.</desc>
+  <title id="title">Tickwire single-host multi-process trading architecture</title>
+  <desc id="description">A market-data process decodes public venue feeds once into a memfd-sealed shared-memory broadcast ring. Independent strategy workers consume the ring at their own cursors, exchange SPSC intents and ordered reports with one single-writer account process, while the account also verifies live market freshness directly, persists admissions and recovery closures to a hash-chained WAL, rechecks its grant at the first TLS byte, and reconciles private venue updates and fills.</desc>
   <defs>
-    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M0 0 10 5 0 10z" fill="#365469"/>
+    <marker id="arrow-slate" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
+    </marker>
+    <marker id="arrow-teal" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#0f766e"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#1d4ed8"/>
     </marker>
     <style>
-      text { font-family: "DejaVu Sans", sans-serif; fill: #172c3d; text-anchor: middle }
-      .name { font-size: 20px; font-weight: bold }
-      .detail, .edge { font-size: 18px }
-      .detail { fill: #304d60 }
-      .box { fill: #edf5fa; stroke: #6c8798; stroke-width: 1.5 }
-      .path { fill: none; stroke: #365469; stroke-width: 2; stroke-linejoin: round }
+      text { font-family: "Inter", "Segoe UI", "DejaVu Sans", sans-serif; text-anchor: middle; }
+      .h-ext { font-size: 17px; font-weight: 700; fill: #f8fafc; }
+      .sub-ext { font-size: 13.5px; fill: #cbd5e1; }
+      .h-proc { font-size: 18px; font-weight: 700; fill: #0f172a; }
+      .sub-proc { font-size: 14px; fill: #475569; }
+      .h-mod { font-size: 15.5px; font-weight: 700; fill: #0f172a; }
+      .sub-mod { font-size: 13.5px; fill: #334155; }
+      .ring-lbl { font-size: 15px; font-weight: 700; fill: #115e59; }
+      .edge-lbl { font-size: 14px; font-weight: 600; fill: #1e293b; }
+      .edge-teal { font-size: 13.5px; font-weight: 600; fill: #0f766e; }
+      .ext-box { fill: #1e293b; stroke: #0f172a; stroke-width: 1.5; }
+      .proc-box { fill: #f8fafc; stroke: #64748b; stroke-width: 2; }
+      .proc-hdr { fill: #e2e8f0; }
+      .shm-box { fill: #f0fdfa; stroke: #0d9488; stroke-width: 1.8; stroke-dasharray: 6 3; }
+      .mod-risk { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.5; }
+      .mod-wal { fill: #fffbeb; stroke: #d97706; stroke-width: 1.8; }
+      .mod-gate { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.8; }
+      .pill { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.2; }
+      .pill-teal { fill: #f0fdfa; stroke: #99f6e4; stroke-width: 1.2; }
+      .wire-slate { fill: none; stroke: #334155; stroke-width: 2.2; stroke-linejoin: round; }
+      .wire-teal { fill: none; stroke: #0f766e; stroke-width: 2.2; stroke-linejoin: round; }
+      .wire-teal-dash { fill: none; stroke: #0f766e; stroke-width: 2; stroke-dasharray: 5 4; stroke-linejoin: round; }
+      .wire-blue { fill: none; stroke: #1d4ed8; stroke-width: 2.2; stroke-linejoin: round; }
     </style>
   </defs>
-  <rect width="480" height="510" rx="8" fill="#fff"/>
-  <text x="240" y="27" class="name">Venue public feed</text>
-  <path class="path" d="M240 37V72" marker-end="url(#arrow)"/>
-  <text x="320" y="60" class="edge">Native frames</text>
 
-  <rect class="box" x="89" y="74" width="302" height="64" rx="6"/>
-  <text x="240" y="100" class="name">Market-data process</text>
-  <text x="240" y="124" class="detail">Shared-memory market ring</text>
-  <path class="path" d="M240 138V180M122 180H358"/>
-  <path class="path" d="M358 180V202" marker-end="url(#arrow)"/>
-  <path class="path" d="M122 180V202" marker-end="url(#arrow)"/>
-  <text x="137" y="163" class="edge">Normalized records</text>
+  <rect width="680" height="760" rx="10" fill="#ffffff"/>
 
-  <rect class="box" x="10" y="204" width="224" height="68" rx="6"/>
-  <rect class="box" x="246" y="204" width="224" height="68" rx="6"/>
-  <text x="122" y="231" class="name">Strategy worker A</text>
-  <text x="358" y="231" class="name">Strategy worker B</text>
-  <text x="122" y="256" class="detail">Market view · cursor A</text>
-  <text x="358" y="256" class="detail">Market view · cursor B</text>
+  <!-- 1. External Venue Public Feeds -->
+  <rect class="ext-box" x="150" y="16" width="380" height="56" rx="8"/>
+  <text x="340" y="39" class="h-ext">Venue Public Feeds</text>
+  <text x="340" y="59" class="sub-ext">WebSocket · HTTPS Snapshot · Spot SBE</text>
 
-  <path class="path" d="M315 272V339" marker-end="url(#arrow)"/>
-  <path class="path" d="M80 272V339" marker-end="url(#arrow)"/>
-  <path class="path" d="M400 341V274" marker-end="url(#arrow)"/>
-  <path class="path" d="M165 341V274" marker-end="url(#arrow)"/>
-  <g class="edge" style="paint-order:stroke;stroke:#fff;stroke-width:7;stroke-linejoin:round">
-    <text x="80" y="313">Intents</text><text x="165" y="313">Reports</text>
-    <text x="315" y="313">Intents</text><text x="400" y="313">Reports</text>
-  </g>
-  <rect class="box" x="10" y="342" width="460" height="72" rx="6"/>
-  <text x="240" y="372" class="name">Account process</text>
-  <text x="240" y="398" class="detail">Risk checks · order journal · venue adapter</text>
+  <path class="wire-slate" d="M340 72 V110" marker-end="url(#arrow-slate)"/>
+  <rect class="pill" x="352" y="79" width="128" height="24" rx="12"/>
+  <text x="416" y="96" class="edge-lbl">Native frames</text>
 
-  <path class="path" d="M110 414V469" marker-end="url(#arrow)"/>
-  <path class="path" d="M363 471V416" marker-end="url(#arrow)"/>
-  <g class="edge" style="paint-order:stroke;stroke:#fff;stroke-width:7;stroke-linejoin:round">
-    <text x="110" y="451">Signed requests</text>
-    <text x="363" y="451">Order updates · fills</text>
-  </g>
-  <text x="240" y="495" class="name">Venue order and private APIs</text>
+  <!-- 2. Market-Data Process -->
+  <rect class="proc-box" x="60" y="114" width="560" height="118" rx="8"/>
+  <text x="340" y="141" class="h-proc">Market-Data Process</text>
+  <text x="340" y="162" class="sub-proc">Single-writer tick/lot decode · sequence continuity · JOIN baseline</text>
+  <rect class="shm-box" x="96" y="174" width="488" height="44" rx="6"/>
+  <text x="340" y="201" class="ring-lbl">Sealed SPMC Shared-Memory Ring (memfd + snapshot)</text>
+
+  <!-- Fan-out from SHM Ring to Workers + Direct Freshness Link to Account -->
+  <path class="wire-teal" d="M162 218 V302" marker-end="url(#arrow-teal)"/>
+  <path class="wire-teal" d="M432 218 V302" marker-end="url(#arrow-teal)"/>
+  <path class="wire-teal-dash" d="M584 196 H630 V472" marker-end="url(#arrow-teal)"/>
+
+  <rect class="pill-teal" x="184" y="246" width="226" height="26" rx="13"/>
+  <text x="297" y="264" class="edge-teal">Normalized records · JOIN</text>
+
+  <!-- 3. Strategy Workers -->
+  <rect class="proc-box" x="32" y="306" width="260" height="104" rx="8"/>
+  <text x="162" y="335" class="h-proc">Strategy Worker A</text>
+  <text x="162" y="358" class="sub-proc">Market replica · Cursor A</text>
+  <text x="162" y="380" class="sub-proc">Sealed ELF · cgroup v2</text>
+
+  <rect class="proc-box" x="304" y="306" width="260" height="104" rx="8"/>
+  <text x="434" y="335" class="h-proc">Strategy Worker B</text>
+  <text x="434" y="358" class="sub-proc">Market replica · Cursor B</text>
+  <text x="434" y="380" class="sub-proc">Sealed ELF · cgroup v2</text>
+
+  <rect class="pill-teal" x="572" y="345" width="96" height="42" rx="8"/>
+  <text x="620" y="363" class="edge-teal">Freshness</text>
+  <text x="620" y="380" class="edge-teal">gate</text>
+
+  <!-- SPSC Intents & Reports between Workers and Account Process -->
+  <path class="wire-blue" d="M108 410 V472" marker-end="url(#arrow-blue)"/>
+  <path class="wire-slate" d="M216 474 V412" marker-end="url(#arrow-slate)"/>
+  <path class="wire-blue" d="M380 410 V472" marker-end="url(#arrow-blue)"/>
+  <path class="wire-slate" d="M488 474 V412" marker-end="url(#arrow-slate)"/>
+
+  <rect class="pill" x="62" y="429" width="76" height="24" rx="12"/>
+  <text x="100" y="446" class="edge-lbl">Intents</text>
+  <rect class="pill" x="178" y="429" width="80" height="24" rx="12"/>
+  <text x="218" y="446" class="edge-lbl">Reports</text>
+
+  <rect class="pill" x="334" y="429" width="76" height="24" rx="12"/>
+  <text x="372" y="446" class="edge-lbl">Intents</text>
+  <rect class="pill" x="450" y="429" width="80" height="24" rx="12"/>
+  <text x="490" y="446" class="edge-lbl">Reports</text>
+
+  <!-- 4. Account Process -->
+  <rect class="proc-box" x="32" y="476" width="616" height="160" rx="8"/>
+  <text x="340" y="504" class="h-proc">Account Process</text>
+  <text x="340" y="525" class="sub-proc">Single writer for one shared risk domain · Strategy host &amp; gateway</text>
+
+  <rect class="mod-risk" x="50" y="538" width="182" height="82" rx="6"/>
+  <text x="141" y="564" class="h-mod">Risk &amp; State</text>
+  <text x="141" y="585" class="sub-mod">Fixed-point holds</text>
+  <text x="141" y="604" class="sub-mod">Strategy attribution</text>
+
+  <path class="wire-slate" d="M232 579 H246" marker-end="url(#arrow-slate)"/>
+
+  <rect class="mod-wal" x="249" y="538" width="182" height="82" rx="6"/>
+  <text x="340" y="564" class="h-mod">Account Journal</text>
+  <text x="340" y="585" class="sub-mod">Recovery closure</text>
+  <text x="340" y="604" class="sub-mod">Hash-chained WAL</text>
+
+  <path class="wire-slate" d="M431 579 H445" marker-end="url(#arrow-slate)"/>
+
+  <rect class="mod-gate" x="448" y="538" width="182" height="82" rx="6"/>
+  <text x="539" y="564" class="h-mod">Execution Gate</text>
+  <text x="539" y="585" class="sub-mod">First-byte recheck</text>
+  <text x="539" y="604" class="sub-mod">Venue adapter</text>
+
+  <!-- Venue Order & Private Streams -->
+  <path class="wire-blue" d="M210 636 V686" marker-end="url(#arrow-blue)"/>
+  <path class="wire-slate" d="M470 688 V638" marker-end="url(#arrow-slate)"/>
+
+  <rect class="pill" x="130" y="650" width="154" height="24" rx="12"/>
+  <text x="207" y="667" class="edge-lbl">Signed requests</text>
+
+  <rect class="pill" x="378" y="650" width="188" height="24" rx="12"/>
+  <text x="472" y="667" class="edge-lbl">Acks · Fills · Scans</text>
+
+  <!-- 5. External Venue Order & Private APIs -->
+  <rect class="ext-box" x="110" y="690" width="460" height="54" rx="8"/>
+  <text x="340" y="713" class="h-ext">Venue Order &amp; Private APIs</text>
+  <text x="340" y="733" class="sub-ext">REST Execution · WebSocket Trading · Private Streams</text>
 </svg>

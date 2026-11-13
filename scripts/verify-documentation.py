@@ -34,7 +34,7 @@ for folder, directories, names in os.walk(root):
     base = Path(folder)
     parts = base.relative_to(root).parts
     for name in names:
-        if name in {'README.md', 'AGENTS.md'} or (
+        if name in {'README.md', 'AGENTS.md', 'CONTRIBUTING.md'} or (
             parts and parts[0] in {'crates', 'specs', 'scripts'} and name.endswith('.md')
         ):
             files.append(base / name)

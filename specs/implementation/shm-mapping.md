@@ -1,16 +1,37 @@
-# Single-writer Linux mappings
+# Single-Writer Shared-Memory Mappings on Linux
 
-`tickwire-shm-sys` creates and maps a Linux memfd with one established writable mapping and bounded read-only observers. The ring owner separately enforces publication, slot ownership and release. [Mapping implementation](../../crates/tickwire-shm-sys/src/lib.rs) · [Ring protocol](shm-ring.md)
+`tickwire-shm-sys` implements the kernel-enforced single-writer shared-memory primitive (`WriterMapping` and `ReaderMapping`) backing Tickwire's broadcast rings and per-subscriber cursor pages. By mapping a zero-filled Linux `memfd` `MAP_SHARED | PROT_READ | PROT_WRITE` inside its sole creator *before* applying the `F_SEAL_FUTURE_WRITE` seal profile (`0x17`), the creator retains its established writable mapping while the Linux kernel permanently denies `write(2)`/`pwrite(2)` syscalls, file growth or truncation, new shared writable mappings, and `mprotect(..., PROT_WRITE)` upgrades on any subsequently exported file descriptor.
 
-## Create, seal and read
+This layer owns Linux `memfd` creation, page-size and seal verification, `MADV_DONTFORK` virtual-memory isolation, and aligned 64-bit acquire/release atomic accessors. It intentionally keeps byte-slice and atomic accessors `unsafe` and performs neither Tickwire header validation nor slot reclamation: `tickwire-shm` owns the ring publication/borrow state machine that prevents concurrent overwrites of borrowed slots, while `tickwire-control-sys` and `tickwire-control` own authenticated `SCM_RIGHTS` descriptor delivery. Linux `memfd` visibility resides solely in volatile RAM and provides zero disk durability.
 
-1. Create the memfd, set its exact page-aligned length and map it shared read/write. Apply `MADV_DONTFORK` and initialize the zero-filled pages.
-2. Set and verify the single-writer seal mask `0x17`. Only then export a CLOEXEC descriptor. The existing writable mapping can still publish. The kernel denies new shared writable mappings, direct writes, growth and shrinkage.
-3. A reader checks regular-file type, exact length and matching seals, then maps read-only with `MADV_DONTFORK`. An immutable resource uses a different exact mask, `0x0f`. Drop unmaps first and closes the owned FD. The mapping types do not expose Clone, Send or Sync.
+## State Model and Bounds
 
-All accessors check arithmetic and ranges. A 64-bit atomic operation also checks alignment. The remote writer must obey the same atomic width and ordering, and the reader may borrow or copy a slot only while the ring guarantees it cannot be overwritten. The low-level mutable mapping accessors therefore remain unsafe. Authentication and FD delivery are separate steps. [Control transport](control-transport.md) · [Immutable resources](immutable-resource.md)
+Supported targets are restricted at compile and runtime to little-endian 64-bit Linux (`x86_64` or `aarch64`) with 64-bit native atomics and a 4,096-byte OS page size (`sysconf(_SC_PAGESIZE) == 4096`). Both `WriterMapping` and `ReaderMapping` wrap an internal `Mapping { ptr: NonNull<u8>, len: usize, fd: OwnedFd }` that implements neither `Clone`, `Send`, nor `Sync`, pinning ownership to a single thread.
 
-## Verify
+| Parameter or Seal | Value / Enforcement |
+| --- | --- |
+| `PAGE_BYTES` / `ISOLATION_BYTES` | `4,096` bytes per OS page / `128` bytes cache-line isolation stride |
+| Valid mapping length | Nonzero exact multiple of `4,096` up to `isize::MAX` bytes (`Error::InvalidLength` otherwise) |
+| `memfd` name | `1..=249` non-NUL bytes (`MFD_CLOEXEC \| MFD_ALLOW_SEALING`) |
+| `SINGLE_WRITER_SEALS` (`0x17`) | `F_SEAL_SEAL (0x01) \| F_SEAL_SHRINK (0x02) \| F_SEAL_GROW (0x04) \| F_SEAL_FUTURE_WRITE (0x10)` |
+| `IMMUTABLE_SEALS` (`0x0f`) | `F_SEAL_SEAL (0x01) \| F_SEAL_SHRINK (0x02) \| F_SEAL_GROW (0x04) \| F_SEAL_WRITE (0x08)` (used by `ImmutableMapping`, rejected by `ReaderMapping`) |
+| Atomic access alignment | 8-byte aligned offset (`offset % align_of::<AtomicU64>() == 0`) with `offset + 8 <= len` |
+
+## Core Invariants
+
+* **Establish writable mapping before sealing, export descriptors only after sealing**: `WriterMapping::create` allocates the `memfd`, sets its exact size with `ftruncate`, maps it `PROT_READ | PROT_WRITE` with `MAP_SHARED`, and applies `madvise(..., MADV_DONTFORK)` while `sealed` remains `false`. Calling `duplicate_fd()` before `seal_for_readers()` returns `Error::NotSealed`, ensuring no unsealed descriptor can leave the constructor. `seal_for_readers()` applies `0x17` via `fcntl(F_ADD_SEALS)` and reads back `F_GET_SEALS == 0x17` both on seal and on every subsequent `duplicate_fd()`.
+* **Strict reader verification before `mmap`**: `ReaderMapping::map(fd, expected_len)` consumes the `OwnedFd` on both success and error. Before creating a `PROT_READ | MAP_SHARED` mapping, it verifies `S_IFREG` via `fstat`, exact `st_size == expected_len`, exact `F_GET_SEALS == 0x17` (preventing confusion with `0x0f` immutable snapshots or unsealed files), sets `FD_CLOEXEC`, and applies `MADV_DONTFORK` so forked child processes never inherit shared-memory virtual address ranges.
+* **Read-only page-safe acquire loads and deterministic teardown**: On `x86_64` and `aarch64`, `load_u64_acquire` executes a `Relaxed` 64-bit atomic load through `&AtomicU64` followed by `fence(Ordering::Acquire)` (avoiding any read-modify-write instruction that would fault on `PROT_READ` pages), pairing with the writer's `AtomicU64::store(..., Ordering::Release)` without ever exporting `&AtomicU64` or `*const AtomicU64` across the API boundary. On `Drop`, `Mapping` calls `munmap(ptr, len)` *before* `OwnedFd` closes the underlying file descriptor.
+
+## Operations and Failure Semantics
+
+* **Checked arithmetic and `unsafe` caller obligations**: Every `read_bytes`, `write_bytes`, `load_u64_acquire`, and `store_u64_release` call checks `offset.checked_add(len) <= self.len` (`Error::OutOfBounds`) and 8-byte alignment on atomics (`Error::Misaligned`) before dereferencing `self.ptr`. Because bounds checks alone cannot prevent cross-process data races, callers discharging the `unsafe` contract (`tickwire-shm::mapped`) must guarantee:
+  1. Atomic offsets are accessed exclusively as aligned 64-bit atomics across all processes after initial pre-seal initialization, and byte slices (`read_bytes` / `write_bytes`) never overlap live atomic fields.
+  2. `write_bytes` runs only under exclusive slot/block ownership when no reader holds a live reference to that range.
+  3. `read_bytes` runs only after an `Acquire` load has observed the writer's `Release` publication and while a live reader reservation prevents the writer from reclaiming the slot.
+* **Platform and resource failures**: Non-Linux or non-4-KiB-page hosts fail deterministically with `UnsupportedPlatform` or `PlatformMismatch`. Any failure in `ftruncate`, `mmap`, `madvise(MADV_DONTFORK)`, or seal verification unmaps any partial mapping and closes the owned descriptor immediately. Deployment-specific latency properties—such as `mlock`, hugepage policy, CPU core isolation, page-fault pre-warming, and NUMA placement—require independent host configuration and measurement.
+
+## Verification and References
 
 ```sh
 cargo test --locked -p tickwire-shm-sys
@@ -18,4 +39,8 @@ cargo clippy --locked -p tickwire-shm-sys --all-targets -- -D warnings
 cargo rustc --locked -p tickwire-shm-sys --release -- --emit=asm
 ```
 
-The Linux process test maps a real child reader before a parent writes 60 KiB. A release store followed by the reader’s acquire load makes all bytes visible. The regression suite checks seal bits, zero pages, CLOEXEC, range/alignment, rejected write upgrades and zero/non-page-multiple lengths. On the archived Linux 6.8.0-117-generic AArch64 guest with 4096-byte pages, the acquire load compiled to `ldr` plus `dmb ishld`. The release store used `stlr`. Linux memfd visibility provides no disk durability. CPU isolation, page faults, locking, NUMA and latency on a deployment host require separate measurements. [Mapping tests](../../crates/tickwire-shm-sys/tests/mapping.rs) · [Child process test](../../crates/tickwire-shm-sys/tests/process.rs)
+The Linux test suite spawns a real child reader process before the parent writes 60 KiB and verifies full payload visibility across `store_u64_release` / `load_u64_acquire`, alongside regression tests for `0x17` seal bits, zero-filled pages, `FD_CLOEXEC`, `MADV_DONTFORK` `/proc/self/smaps` flags, `EACCES` on `mprotect` write upgrades, misaligned atomics, and non-page-multiple lengths. On the archived Linux `6.8.0-117-generic` AArch64 target (4,096-byte pages), `store_u64_release` lowers to `stlr` and `load_u64_acquire` lowers to `ldr` followed by `dmb ishld`.
+
+* Implementation: [lib.rs](../../crates/tickwire-shm-sys/src/lib.rs)
+* Test suites: [mapping.rs](../../crates/tickwire-shm-sys/tests/mapping.rs), [process.rs](../../crates/tickwire-shm-sys/tests/process.rs)
+* Related specifications: [Shared-memory broadcast ring](shm-ring.md), [Immutable Linux resources](immutable-resource.md), [Control transport](control-transport.md)

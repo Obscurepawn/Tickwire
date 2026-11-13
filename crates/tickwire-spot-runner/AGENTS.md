@@ -1,7 +1,42 @@
-# Cash strategy runner
+# tickwire-spot-runner
 
-The [account runner](src/lib.rs) hands one strategy submission to an existing cash account gateway. Keep one account owner, one recovery queue and one outstanding native request. [Order origins](src/origins.rs) bind immutable local and exchange aliases to the original admitted intent. Handle incorrect identity before encoding an order. The owner of the authenticated account inputs must stop output when its qualification expires.
+`tickwire-spot-runner` (`#![forbid(unsafe_code)]`) multiplexes hosted or file-backed strategies onto one qualified
+Bybit or OKX cash-spot `AccountGateway` (`AccountRunner`), persists immutable local-to-venue order origin aliases
+(`origins`), reconciles private WebSocket cursors against signed REST snapshots (`reconcile`), and ships the `paper`,
+`live`, and `reconcile` CLI entrypoints. `AccountGateway` and `tickwire-runtime-policy` retain sole authority over
+balance holds, WAL commits, and first-byte socket gates.
 
-The `live` and `reconcile` commands use the [private account owner](src/live/account.rs). Check the last durable private cursor and account WAL position before installing a recovered grant. Exercise a new epoch, duplicate fill, mismatched balances and restart when changing this boundary. The `paper` command runs two file-queue producers in a local simulation. Keep its TLS peer, credentials and grants local to the process. The [routing specification](../../specs/implementation/spot-strategy-routing.md) defines what the simulation proves.
+## Invariants and Change Guidelines
 
-Run `cargo test --locked -p tickwire-spot-runner --all-targets`. The integration tests cover competing orders, the last grant check and the native receipts that return to each producer's file-queue owner.
+* **Single-owner intake and peer isolation**: `AccountRunner` ([src/lib.rs](src/lib.rs)) pairs one `RestSession` with
+  its `RecoveryQueue` and `BlobStore`; non-freezing per-strategy refusals (`ManagementDenied`, `InsufficientAsset`,
+  `InsufficientCapital`, `Limit`) return to the originating member while peers continue, whereas scope/digest
+  mismatches or backwards monotonic clocks invoke `stop_sending()`.
+* **Immutable order-origin registry**: Persist `(IntentKey, order_ids, client_id)` mappings in
+  [src/origins.rs](src/origins.rs) alongside recovery blobs before admission so native acknowledgements and fills route
+  deterministically back to the originating strategy.
+* **Private-cut and REST proof before reactivation**: In [src/reconcile.rs](src/reconcile.rs) and
+  [src/live/account.rs](src/live/account.rs), verify the durable private cursor, account WAL frontier, orders, fees, and
+  balances before installing a recovered grant; drop qualification immediately if the private stream gaps or expires.
+* **Self-contained `paper` simulation**: Keep the local TLS peer ([src/paper_peer.rs](src/paper_peer.rs)), test
+  credentials, and CBOR templates ([examples/order-template.cbor](examples/order-template.cbor),
+  [examples/baseline-template.cbor](examples/baseline-template.cbor)) confined to `paper` in [src/main.rs](src/main.rs).
+
+## Verification and Specifications
+
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/main.rs](src/main.rs) · [src/origins.rs](src/origins.rs) ·
+  [src/reconcile.rs](src/reconcile.rs) · [src/live/account.rs](src/live/account.rs) ·
+  [src/producer.rs](src/producer.rs) · [tests/paper.rs](tests/paper.rs) · [tests/first_byte.rs](tests/first_byte.rs) ·
+  [tests/qualification.rs](tests/qualification.rs) · [tests/live_entry.rs](tests/live_entry.rs) ·
+  [tests/reconcile_process.rs](tests/reconcile_process.rs)
+* **Specifications and models**: [spot-strategy-routing.md](../../specs/implementation/spot-strategy-routing.md) ·
+  [spot-execution.md](../../specs/implementation/spot-execution.md) ·
+  [spot-rest-recovery.md](../../specs/implementation/spot-rest-recovery.md) ·
+  [spot_account_recovery](../../tla/execution_models/spot_account_recovery/README.md) ·
+  [spot_roundtrip](../../tla/execution_models/spot_roundtrip/ROADMAP.md) ·
+  [strategy_intake](../../tla/execution_models/strategy_intake/ROADMAP.md)
+
+```sh
+cargo test --locked -p tickwire-spot-runner --all-targets
+cargo run --locked -p tickwire-spot-runner -- paper okx "$(mktemp -d)/account"
+```

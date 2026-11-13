@@ -1,29 +1,48 @@
-# Binance private stream session
+# Binance Private User-Data Stream Session
 
-One `PrivateClient` owns one product, environment, account, risk domain and credential generation. A pending operation is identified by connection epoch, request number and operation kind. Its digest also binds the entire account scope. Consume a new generation even on a failed connection attempt. Counter or deadline overflow enters `Exhausted`, clears the connections and pending work, and withdraws receiving eligibility. [Session implementation](../../crates/tickwire-binance-private/src/lib.rs)
+`PrivateClient` manages one authenticated, nonblocking private user-data session for a single `AccountScope` (`risk_domain_id`, `venue == BINANCE`, `environment`, `account`, `market`, and `credential_generation`). Built in safe Rust (`#![forbid(unsafe_code)]`), it drives either Spot WebSocket API user-data subscriptions (`SpotLogon` + `SpotSubscribe`, or single-step `SpotSubscribeSignature`) or USD-M listen-key lifecycle (`POST` create, `/private/ws/<key>` WebSocket `Upgrade`, `PUT` keepalive, and `DELETE` teardown) while enforcing calibrated signing gates and per-poll resource budgets.
 
-## Establish and lose a subscription
+`PrivateClient` owns stream authentication, renewal scheduling, frame decoding, and session-epoch isolation, delivering borrowed `PrivateEvent` observations whose `Debug` formatting redacts raw payloads, API keys, signatures, and listen keys (`[REDACTED]`). Durable account state, order correlation, gap reconciliation, and risk admission remain owned by the account coordinator.
 
-* **Spot.** Match the exact subscribe reply before entering `Receiving`. With session logon, first verify the returned API key, then subscribe. A signed subscription can authenticate and subscribe in one operation. Subscription ID zero is valid. Incoming events must match the established ID. A status response cannot establish a missing subscription.
-* **USD-M.** POST for a listen key, then complete the `/private/ws/<key>` Upgrade before entering `Receiving`. A successful POST or PUT sets the local expiry to **request start plus 60 minutes**. A PUT succeeds only while the old key is valid, the request has not expired, and the returned key matches. A new POST creates a new session epoch even if the key value repeats.
-* **Gap or EOF.** Withdraw receiving eligibility before delivering a termination or already-buffered old-session fact. Drain complete observations with their original session context before starting the next connection. Account recovery and risk admission require their own durable evidence.
+## State Model, Tokens, and Bounds
 
-## First application byte
+Every control or management action mints a unique `RequestToken` binding nonzero `(connection_epoch, serial, Operation)` (`"{connection_epoch}-{serial}"` on the wire) alongside a request digest covering the entire `AccountScope`. Even a failed connection attempt consumes its `connection_epoch` rather than reusing it. Overflowing any epoch, serial, or deadline counter transitions the client permanently to `Exhausted`, dropping open sockets, clearing pending work, and revoking receiving eligibility.
 
-`prepare` binds immutable request bytes. The signer and encoder share one parameter representation, including canonical `recvWindow` decimals. Spot supports HMAC, RSA or Ed25519 for signed subscription and Ed25519 for session logon. USD-M key management uses its fixed HTTP method/path and API-key header.
+| Resource | Default Bound | Enforcement Rule |
+| --- | --- | --- |
+| Outbound control request | `16 KiB` | Shared encoder/signer parameter representation with canonical `recvWindow` decimals. |
+| Inbound private message | `1 MiB` | Bounds single WebSocket frame or HTTP management reply. |
+| Early pre-ACK events | `32` messages / `1 MiB` | Buffers events arriving before subscription confirmation; overflow triggers reconnect. |
+| Control frame queue | `8` frames | Pong echoes peer Ping payload and may bypass unsent app frames once any started frame finishes. |
+| Per-poll work | Explicit call, byte, decode, and control budgets | An I/O error that obscures transferred byte count spends the remainder of that poll's I/O budget; decoder yields reschedule buffered fragments. |
 
-Immediately before the first write, sample the clock and verify domain, monotonic order, original source/stamp and local deadline. For signed work, run `Clock::check_signed`, obtain the required control permit, sample again and repeat the time and signature checks. After the final callback, sample once more and verify the local deadline **before** attempting plaintext output. A WouldBlock attempt accepting zero bytes repeats these gates. A permanent clock-domain fault stops the owner. [Clock contract](binance-private-clock-adapter.md)
+## Core Invariants
 
-`NoBytes` requires zero application bytes accepted by TLS. Partial acceptance followed by failure, local flush followed by disconnect, uncertain response, or an early matching reply retains `MayHaveApplied`. Check that the pending write completed before consuming a reply. Only a confirmed protocol response advances authentication or renewal.
+* **Confirmed subscription before `Receiving`**:
+  * **Spot**: Supports Ed25519 for `SpotLogon` (verifying the echoed API key in the logon reply before sending `SpotSubscribe`) and HMAC, RSA, or Ed25519 for `SpotSubscribeSignature`. Enters `Receiving` only upon matching the exact subscribe response (`subscription_id == 0` is valid); subsequent events must carry that established `subscription_id`, and a `SpotStatus` query can never manufacture a missing subscription.
+  * **USD-M**: Uses its fixed HTTP method/path and `X-MBX-APIKEY` header to `POST` a listen key, then completes the `/private/ws/<key>` `Upgrade` before entering `Receiving`. Both successful `POST` and `PUT` anchor local key expiry to **request start time + 60 minutes** (not reply receipt time). `PUT` renewal succeeds only while the current key remains unexpired, the request itself has not timed out, and any returned key matches; issuing a new `POST` always starts a new session epoch even if Binance returns the identical listen-key string.
+* **Triple-sampled first-byte signing gate**: Before the first plaintext byte of an outbound request enters TLS, `PrivateClient`:
+  1. Samples `Clock`, checking `ClockDomain`, monotonic non-regression, original source/stamp, and local request deadline.
+  2. For signed requests, invokes `Clock::check_signed` ([binance-private-clock-adapter.md](binance-private-clock-adapter.md)), acquires the required `ControlPermit` (`Connect`, `Upgrade`, API weight, `Pong`, `Close`), resamples `Clock`, and re-verifies monotonic order and signature validity.
+  3. Samples `Clock` one final time after the last external callback and checks the local deadline **before** passing plaintext to TLS.
+  Zero-byte `WouldBlock` retries repeat these checks under the same idempotent `ControlPermit` charge ID, while permanent `ClockDomain` faults stop the owner immediately.
+* **Strict `NoBytes` vs `MayHaveApplied` boundary**: `NoBytes` holds only when TLS accepted zero application bytes. Partial plaintext acceptance followed by socket failure, local flush followed by disconnect, ambiguous responses, or an early matching reply before the local write completes all retain `MayHaveApplied`, and authentication or renewal state advances only after confirming both completed write and valid protocol reply.
+* **Eligibility withdrawal before gap/EOF delivery**: Upon any sequence gap, stream termination, or socket EOF, `PrivateClient` revokes `Receiving` eligibility *before* emitting the termination notice or draining already-buffered complete observations (each tagged with its original `SessionContext`), preventing downstream consumers from treating trailing frames as live continuous coverage.
 
-## Poll and close
+## Remote Teardown and Drop Semantics
 
-The defaults bound a request to 16 KiB, a message to 1 MiB, early events to 32 messages/1 MiB, and the control queue to eight frames. Bound network calls/bytes, decoded messages and control work per poll. If an I/O failure hides the amount consumed, treat the current I/O budget as spent. A decoder yield reschedules buffered fragments. A pong echoes the ping payload and can pass an unsent application frame. An already-started frame must finish first.
+Explicit remote close first revokes `Receiving` eligibility, then executes product-specific teardown: Spot unsubscribes the exact `subscription_id` and issues `SpotLogout` when using session logon; USD-M sends HTTP `DELETE`. If the USD-M `DELETE` enters `MayHaveApplied` with an unknown server outcome, `PrivateClient` retains management ownership and records `remote_close_unknown` rather than pretending server state is clean. By contrast, Rust `Drop` closes only local file descriptors without blocking on network teardown. While `Debug` impls redact sensitive material, explicit `.raw()` and payload accessors remain available for durable input journaling.
 
-`ControlPermit` covers connection attempts, Upgrade, API weight, Pong and Close. A zero-acceptance retry keeps its charge ID. Explicit remote close first revokes receiving eligibility. Spot unsubscribes the exact subscription and logs out according to its mode. USD-M uses DELETE. If DELETE may have reached the server but its outcome is unknown, retain management ownership and `remote_close_unknown`. Drop only closes the local connection. Diagnostic formatting redacts secrets, signatures and listen keys. Explicit payload accessors expose sensitive wire bytes to their caller.
+## Verification and References
 
 ```sh
 cargo test --locked -p tickwire-binance-private
 ```
 
-The local TLS peers independently verify signatures and exercise reconnects, stale tokens, early replies and ambiguous closure. [Spot lifecycle](../../crates/tickwire-binance-private/tests/spot_lifecycle.rs) · [USD-M lifecycle](../../crates/tickwire-binance-private/tests/usdm_lifecycle.rs) · [Session model](../../tla/execution_models/binance_private_session/PLAN.md)
+Local TLS test peers independently verify HMAC, RSA, and Ed25519 signatures and exercise Spot logon/signature modes, USD-M 60-minute renewal anchors, stale `RequestToken` rejection, early replies arriving before write completion, and ambiguous `DELETE` closure, complemented by a finite TLA+ session model.
+
+* [Private stream session crate and types](../../crates/tickwire-binance-private/src/lib.rs)
+* [Calibrated clock adapter specification](binance-private-clock-adapter.md)
+* [Spot private session lifecycle tests](../../crates/tickwire-binance-private/tests/spot_lifecycle.rs)
+* [USD-M listen-key lifecycle tests](../../crates/tickwire-binance-private/tests/usdm_lifecycle.rs)
+* [Private session TLA+ verification plan](../../tla/execution_models/binance_private_session/PLAN.md)

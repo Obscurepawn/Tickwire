@@ -1,16 +1,28 @@
-# Binance Spot SBE market data
+# Binance Spot SBE Market Data
 
-Tickwire pins `stream_1_0.xml` at upstream commit `f4a9c0be68235f758b46f571f7313c63d1306b25`, schema ID 1, version 0. Four templates represent trades, best bid/ask, a depth-20 snapshot and incremental depth. The generator produces compile-time constants. The runtime does not read XML. [Schema and original digest](../../crates/tickwire-binance-sbe/schema/source.json)
+`tickwire-binance-sbe` decodes fixed-layout Simple Binary Encoding (SBE) market-data frames for Binance Spot production without runtime XML parsing, dynamic reflection, or `unsafe` code (`#![forbid(unsafe_code)]`). Compile-time layout constants are generated offline from upstream `stream_1_0.xml` pinned at commit `f4a9c0be68235f758b46f571f7313c63d1306b25` (`schemaId = 1`, `version = 0`), covering four templates: trades (`TradesStreamEvent`), best bid/ask (`BestBidAskStreamEvent`), 20-level partial book snapshots (`DepthSnapshotStreamEvent`), and incremental depth diffs (`DepthDiffStreamEvent`).
 
-The decoder validates the entire frame and its capacity before returning a borrowed view. It checks template, schema/version, group width, enum/null fields, symbol, lengths, trailing bytes and numeric ranges. Convert integer mantissa and exponent to approved instrument ticks/lots exactly. Refuse overflow or an off-grid observation. Exchange times are microseconds. Multiply by 1000 with overflow checking to publish nanoseconds. Bind observations to the configured instrument, catalog, source and generation.
+This crate owns binary framing validation and fixed-point tick/lot normalization, while `PublicDepthClient::new_sbe` and `PublicEventClient` own transport lifecycle and `TopicPublisher` owns shared-memory publication ([binance-market-events.md](binance-market-events.md)).
 
-## Diff, depth-20 and independent events
+## Binary Schema and Normalization Bounds
 
-`PublicDepthClient::new_sbe` supports Spot production, microseconds and default stream speed. Connect to `stream-sbe.binance.com` with hostname verification and the explicit Ed25519 API key in the Upgrade. The client needs no private signing key for this operation. REST initialization still uses `api.binance.com` without that key. Both a raw stream URL and explicit text subscription are supported. A binary delta may arrive before an explicit subscription ACK. Buffer it and wait for the exact ACK before requesting the REST snapshot.
+Before returning a borrowed `Frame` view, `decode_frame` validates the complete WebSocket binary payload in a single pass against caller `Limits`:
 
-The diff decoder sends checked `U/u` and zero-quantity removals to the existing Spot `DepthSync`. Reject old tokens before decoding. JSON and SBE share generation, replay, capacity and coverage rules. A depth-20 frame proves coverage only through the last observed price on each side, or unknown for an empty side. It cannot initialize the diff book in place of the REST baseline.
+* **Header and structural framing**: Verifies `schemaId == 1`, `version == 0` (`Error::Schema`, `Error::Version`), recognized `templateId` (`Error::Template`), exact root `blockLength` and repeating-group entry widths (`Error::BlockLength`), valid enum/null discriminants (`Error::Value`), ASCII/UTF-8 symbol trailers (`Error::Utf8`), group counts within configured `Limits` (`Error::Capacity`), and zero unconsumed trailing bytes (`Error::Bounds`).
+* **Exact decimal scaling**: SBE encodes prices and quantities as signed integer mantissas paired with base-10 exponents. `decimal_to_units` converts each mantissa/exponent pair directly into catalog `price_tick` and `quantity_step` integer counts, rejecting non-integral remainders (`Error::NotIntegral`) or `i64` range overflows (`Error::Overflow`).
+* **Microsecond-to-nanosecond timestamps**: Binance Spot SBE timestamps carry microsecond resolution; normalization multiplies by `1,000` with checked overflow arithmetic to produce canonical Unix nanoseconds and binds every observation to the expected `Identity` (`instrument_id`, `instrument_version`, `catalog_version`, `catalog_hash`, `BookKey`, and `generation`).
 
-A sync notice identifies SBE and lends the binary input. The publisher emits normalized levels and Quote/FeedState records through SHM. Set `sbe_api_key_file` on the Binance feed to enable the SBE option. Separate SBE trade and BBO event owners are connected to the exact-event publishing path. The strategy logs the records and payloads it consumed. [Exact event publication](binance-market-events.md)
+## Core Invariants
+
+* **API-key isolation between WSS and HTTPS**: Configuring `sbe_api_key_file` on a Binance Spot production feed connects the WebSocket client to `stream-sbe.binance.com` with TLS hostname verification and attaches the Ed25519 `X-MBX-APIKEY` header solely on the WebSocket HTTP `Upgrade` request (no private cryptographic signing key is required). Initial and rebuild REST `/api/v3/depth` snapshots still query `api.binance.com` *without* transmitting that API key.
+* **Subscription ACK gate before REST snapshot**: Both raw stream URLs and explicit JSON subscription frames are supported on SBE connections. Because binary depth frames may arrive on the wire before the explicit text subscription ACK, `PublicDepthClient::new_sbe` buffers incoming binary diffs and withholds the HTTPS `/api/v3/depth` snapshot request until the exact subscription ACK is confirmed.
+* **Depth-20 non-substitution**: Incremental SBE diffs (`U..=u`, zero-quantity removals) feed the standard Spot `DepthSync` reducer under the exact same stale-token discard, generation, replay, capacity, and partial-coverage rules as JSON depth. An SBE depth-20 snapshot proves coverage only `Through(last_price)` on non-empty sides (or `Unknown` on empty sides) and can never substitute for the REST `/api/v3/depth` baseline to initialize an incremental diff book.
+
+## Transitions and Failure Semantics
+
+During live incremental depth synchronization, `Notice::Sync` tags `DepthEncoding::SpotSbeV1` and lends the raw binary frame slice alongside the validated `BookView`, allowing `TopicPublisher` to emit normalized depth deltas and `Quote`/`FeedState` records to shared memory. Independent SBE trade and `bestBidAsk` streams feed dedicated event owners that validate repeating groups upfront, pause cleanly across per-poll notification budgets, and publish exact `264` and `265` IPC records, while consuming strategies record the exact normalized IPC records and arena payloads in their deterministic input logs. Any unknown schema, version, template, truncated group, off-grid decimal, or microsecond-to-nanosecond overflow rejects the frame immediately and triggers the session owner's standard gap/disconnect handling.
+
+## Verification and References
 
 ```sh
 cargo test --locked -p tickwire-binance-sbe
@@ -18,4 +30,10 @@ cargo test --locked -p tickwire-binance-public --test sbe_config --test sbe_netw
 cargo test --locked -p tickwire-md --test sbe_publication --test market_events
 ```
 
-Independent Python fixtures use literal little-endian field layouts. The Linux round trip drives a TLS WebSocket, REST snapshot, subsequent binary update, real memfd and reader. It checks integer units, sequence, nanoseconds and depth payload. [Fixture generator](../../crates/tickwire-binance-sbe/tools/fixtures.py) · [SHM integration](../../crates/tickwire-md/tests/sbe_publication.rs)
+An independent Python generator constructs little-endian binary SBE test vectors directly from literal field widths rather than sharing Rust encoder code. On Linux, end-to-end integration tests drive a local TLS SBE WebSocket server, HTTPS REST snapshot baseline, subsequent binary incremental diffs and trades, real `memfd` shared-memory rings, and consumer replicas—verifying tick/lot conversion, sequence bridging, nanosecond scaling, and zero-allocation workspace decoding.
+
+* [Fixed-schema SBE decoder and normalizer crate](../../crates/tickwire-binance-sbe/src/lib.rs)
+* [Pinned upstream `stream_1_0.xml` digest and metadata](../../crates/tickwire-binance-sbe/schema/source.json)
+* [Independent Python binary fixture generator](../../crates/tickwire-binance-sbe/tools/fixtures.py)
+* [End-to-end TLS SBE to shared-memory integration tests](../../crates/tickwire-md/tests/sbe_publication.rs)
+* [Binance exact market-event publication specification](binance-market-events.md)

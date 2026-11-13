@@ -1,29 +1,46 @@
-# Decode Binance depth and private events
+# Binance Public Depth and Private Event Decoding
 
-`tickwire-binance::feed` and `events` decode complete HTTP bodies or WebSocket messages. The caller supplies the product, catalog and source binding. Decoding a market or private message does not alter an account, grant risk or establish continuity. [Feed decoder](../../crates/tickwire-binance/src/feed.rs) · [Private events](../../crates/tickwire-binance/src/events.rs)
+`tickwire-binance::feed` and `tickwire-binance::events` decode complete HTTP response bodies and WebSocket payloads for Binance Spot and USD-M Futures into strongly typed, fixed-point Rust representations. Callers supply the target `Market`, `InstrumentBinding`, `BookKey`, or `SessionContext` up front so every decoded observation is bound to an explicit catalog and session identity.
 
-| Input | Output and rejection conditions |
+Both modules are pure, side-effect-free decoders: parsing a depth snapshot, incremental diff, execution report, or account balance patch never mutates an order book, alters account cash or reservations, grants risk capacity, or establishes stream continuity on its own. Network lifecycle, snapshot bridging, durable accounting, and reconciliation belong to separate single-writer state owners.
+
+## Wire Schemas and Bounds
+
+All decimal fields are parsed directly from ASCII text into exact fixed-point `Decimal` values without floating-point intermediates, rejecting values whose scale exceeds the catalog asset's exponent or grid step.
+
+| Input Family | Decoded Representation & Rejection Rules |
 | --- | --- |
-| Spot/USD-M exchangeInfo | Retain symbol, product, trading status and exact grid filters. Preserve unrecognized statuses/filters. Reject duplicate symbols or filters and excessive input. A coin-margined instrument cannot be classified as USD-M. |
-| REST depth | Bind a symbol-free response to the request context and retain `lastUpdateId`. Both sides have limited coverage. Reject off-grid, oversized, crossed or improperly sorted input as a whole. |
-| depthUpdate | Decode `U/u`, and `pu` for USD-M. Quantity zero deletes a level. Check combined-stream identity and reject partial, RPI or coin-margined streams. The book owns the product-specific sequence and duplicate-price rules. |
-| executionReport / ORDER_TRADE_UPDATE | Retain native IDs, order values, quoted amounts, commissions and PnL. Preserve unknown statuses and distinguish omitted fields from zero. |
-| `bind_order` | Match the original canonical command, persistent order mapping, account, side and asset versions. Modified order quantity/price remains observed data. An unresolved order or status requires correlation or reconciliation. |
-| Account, list and algo events | Balances and positions are sparse patches. Missing B or P leaves that field unspecified. A list/algo terminal event does not by itself prove a child fill. Preserve unsupported event kinds as other observations. |
+| **Spot / USD-M `exchangeInfo`** | Extracts symbol, product, trading status, and exact price/lot grid filters while preserving unrecognized statuses and filter types. Rejects duplicate symbols, duplicate filters, coin-margined contracts masquerading as USD-M, or oversized payloads. |
+| **REST `/depth` snapshot** | Binds the symbol-free response to `DepthContext`, retains `lastUpdateId` (plus required `E`/`T` on USD-M), and marks both sides incomplete (`bids_complete = false`, `asks_complete = false`). Rejects off-grid, oversized, crossed, or improperly sorted levels atomically. |
+| **WebSocket / SBE `depthUpdate`** | Decodes `U`/`u` (and `pu` on USD-M), maps `0` quantity to level removal, validates combined-stream suffixes (`@depth`, `@depth@100ms`, Spot `@depth@1000ms`, USD-M `@depth@500ms`), and rejects partial-book, RPI, or coin-margined streams. Product-specific continuity and duplicate-price checks belong to `Book`. |
+| **`executionReport` / `ORDER_TRADE_UPDATE`** | Retains native order/execution/trade IDs, order price/size, cumulative and last quote amounts, commissions, and realized PnL. Preserves unknown venue statuses verbatim and distinguishes omitted JSON fields (`None`) from explicit numeric zero (`Some(0)`). |
+| **`events::bind_order`** | Correlates `OrderUpdate` against the original `CanonicalCommand`, persistent order mapping, account ID, side, and catalog asset versions. Venue-modified order quantity or price remains observed data; unmatched orders or unknown statuses route to correlation or reconciliation. |
+| **Account, list, and algo events** | Decodes `outboundAccountPosition`, `balanceUpdate`, `ACCOUNT_UPDATE`, `ACCOUNT_CONFIG_UPDATE`, `listStatus`, and algo updates as sparse patches where omitted `B` or `P` sections leave those fields unspecified. Terminal list/algo notices never imply child fills; unknown event types decode to `PrivateBody::Other`. |
 
-Parse ordinary decimal strings without floating point. An amount must fit the asset's scale. A positive commission becomes a negative cash flow. Negative commission is a rebate. Keep USD-M PnL separate in the settlement asset. A missing quoted amount cannot be synthesized from price and quantity.
+## Core Invariants
 
-Use the full external nonzero `u64` instrument ID for IPC, logs and economic identity. A separate local `BookKey` binds nonzero venue/source and an owner-assigned `u32` slot, which may be zero. Never derive that slot by truncating the external ID. [Instrument index](instrument-index.md)
+* **Exact economic sign and non-synthesis rules**: A positive exchange commission maps to a negative cash flow, whereas a negative commission represents a fee rebate. USD-M realized PnL remains isolated in its settlement asset. If the venue omits a quoted notional amount (`cumulative_quote` or `last_quote`), the decoder leaves it `None` rather than synthesizing an approximate product from price and quantity.
+* **External `u64` ID vs local `u32` `BookKey` separation**: IPC records, journals, logs, and economic bindings always carry the full nonzero `u64` catalog `instrument_id`. By contrast, `BookKey` pairs nonzero `venue` and `source` IDs with an owner-assigned `u32` dense slot (where slot `0` is valid via [instrument-index.md](instrument-index.md)); callers must never derive `BookKey.instrument` by truncating a 64-bit external ID.
+* **Zero partial side effects on failed workspace decode**: `DepthWorkspace::new(max_total_levels)` reserves combined bid-plus-ask level storage (`1..=5,000` levels; the shared-memory publisher configures `4,096`). `decode_diff_into` and `decode_sbe_diff_into` return a `DepthUpdateRef` borrowing that workspace until the next exclusive call, guaranteeing that any malformed input leaves no observable partial update. (Fixed-array `decode_diff::<N>` and `decode_sbe_diff::<N>` retain per-side `N` bounds up to `MAX_DEPTH_LEVELS = 5,000` and `MAX_MARKET_MESSAGE_BYTES = 16 MiB`.)
 
-## Reusable depth storage
+## Transitions and Failure Semantics
 
-`DepthWorkspace::new(max_total_levels)` reserves capacity for **both sides combined**, from 1 to 5000 updates. `decode_diff_into` and `decode_sbe_diff_into` return a view borrowing that workspace until the next exclusive decode. A failed decode has no observable partial result. The older `decode_diff::<N>` and `decode_sbe_diff::<N>` retain their per-side bounds. The shared-memory publisher uses a combined limit of 4096.
+Every decode or binding call validates caller context (`DepthContext` or `SessionContext`) before inspecting wire fields. Malformed UTF-8, invalid JSON escapes, duplicate known keys, off-grid decimals, crossed or unsorted snapshot levels, coin-margined symbols on USD-M contexts, or partial/RPI stream suffixes reject the entire message atomically without mutating caller state. On private user-data streams, unmatched order updates or unrecognized venue statuses fail `bind_order` cleanly so the caller can quarantine the raw event or trigger REST reconciliation rather than guessing order state.
 
-The JSON scanner handles escaped known and unknown fields and nested ignored values. Limit nested containers to 128 levels and decoded decimal text to 80 bytes. Reject malformed UTF-8, escapes, numbers or structure. On healthy JSON/SBE workspace decodes, allocation tests cover a previously reserved workspace and a 2 MiB stack. Metadata and private events may use bounded vectors and owned strings. [Workspace regression tests](../../crates/tickwire-binance/tests/depth_workspace.rs)
+## Performance and Cost
+
+To eliminate per-delta heap allocations on hot market-data paths, the custom JSON depth scanner processes escaped known and unknown keys, skips arbitrary ignored subtrees up to a maximum container nesting depth of `128`, caps decoded decimal token length at `80` bytes, and rejects invalid UTF-8, bad escape sequences, malformed numbers, or truncated containers. Regression tests verify zero heap allocations and safe execution within a `2 MiB` thread stack across repeated JSON and SBE workspace decodes, while cold `exchangeInfo` metadata and sparse private account events may allocate bounded vectors and strings.
+
+## Verification and References
 
 ```sh
 cargo test --locked -p tickwire-binance --test feed --test depth_workspace --test market_server
 cargo test --locked -p tickwire-binance --test private_events --test private_structures --test private_server
 ```
 
-The TLS fixtures pass framed market data to the real book and private facts to canonical event binding. Network subscription, snapshot coordination, durable accounting and reconciliation are separate state owners.
+Local TLS integration fixtures stream framed public depth updates into `tickwire-book` and feed private execution and account events through `bind_order` and `bind_structure`.
+
+* [Public depth snapshot, diff, and metadata decoders](../../crates/tickwire-binance/src/feed.rs)
+* [Private execution, account, and order-binding decoders](../../crates/tickwire-binance/src/events.rs)
+* [Zero-allocation `DepthWorkspace` regression tests](../../crates/tickwire-binance/tests/depth_workspace.rs)
+* [Process-local dense instrument index specification](instrument-index.md)

@@ -1,23 +1,62 @@
-# Instrument economics and identity
+# Instrument Economics and Identity Catalog
 
-Use a catalog to bind a venue, an environment, and the economic meaning of each price and quantity. A tick count can change even when the exchange sends the same price string. In the process fixture, `"1.00"` becomes 100 ticks with an increment of 0.01 and 50 ticks with an increment of 0.02. The registered strategy’s threshold of 75 produces one intent in the first case and none in the second. [Catalog format](../../crates/tickwire-instrument-catalog/src/format.rs) · [Process fixtures](../../crates/tickwire-app/tests/catalog_process)
+`tickwire-instrument-catalog` binds a venue, market, and environment to the exact fixed-point economic meaning of every traded asset and instrument. Because Tickwire executes exclusively in integer ticks and lots, identical wire price strings produce different internal tick counts under different catalog definitions: in the process integration fixture, `"1.00"` decodes to `100` ticks under a `0.01` increment and `50` ticks under a `0.02` increment, causing a strategy with a `75`-tick threshold to emit an order intent in the first configuration and none in the second.
 
-## Decode and identify
+The catalog crate owns deterministic decoding, canonicalization, and dual SHA-256 identity (raw artifact digest versus canonical runtime digest) in safe Rust (`#![forbid(unsafe_code)]`). It does not activate a deployment on its own or own dynamic account state: configuration approval, market-data topic pinning, account risk limits, fee schedules, and trading permissions are enforced by their respective runtime owners at startup.
 
-`Catalog::decode(raw, expected_artifact_sha256)` checks the raw digest before parsing schema 1. Raw and canonical documents each fit 2 MiB. Maximum nesting is 16. The catalog contains 1–4096 assets and 1–16384 instruments. IDs, versions and delivery expiry use nonzero decimal `u64` strings without leading zeros. Unknown or duplicate fields, duplicate asset/instrument IDs or symbols, bad references and noncanonical increments fail validation.
+## State Model and Bounds
 
-The venue is a nonzero numeric `u32`. Bind it explicitly to the approved deployment name. Environment is `Production` or `Test`. The market/product/contract combinations are Spot/Spot/Cash, Usdm/LinearPerpetual/Perpetual, and Usdm/LinearFuture/Delivery. Delivery includes `expiry_utc_ns`. Base and quote assets must differ. Assets carry symbols, versions and exponents from −38 through 38. A separate fee asset may exist without appearing in a pair. Price and quantity increments are canonical positive venue decimals.
+`Catalog::decode(raw, expected_artifact_sha256)` verifies the SHA-256 digest of the raw bytes *before* parsing schema `1` JSON, ensuring untrusted or corrupted files fail before structural deserialization.
 
-The artifact digest identifies exact file bytes. The runtime digest is SHA-256 over the ASCII bytes `tickwire.instrument-catalog.v1`, one NUL byte, then canonical JSON. Canonicalization sorts assets and instruments by numeric ID and uses fixed field order. A formatting-only change can preserve the runtime digest while changing the artifact digest. The catalog supplies each `InstrumentBinding` with its own version and runtime digest. `asset_matches` and `instrument_matches` compare the complete economic binding. [Independent vector](../contracts/instrument-catalog-v1.json) · [Python verifier](../../scripts/verify-instrument-catalog.py)
+| Parameter | Bound or Rule | Rejection Error |
+| --- | --- | --- |
+| Document size | Raw and canonical JSON each `<= 2 MiB` (`MAX_BYTES`) | `Error::Bounds` |
+| JSON nesting | Maximum container depth `16` (`MAX_DEPTH`) | `Error::Bounds` / `Encoding` |
+| Asset count | `1..=4,096` (`MAX_ASSETS`), unique IDs and symbols | `Error::Bounds` / `Duplicate` |
+| Instrument count | `1..=16,384` (`MAX_INSTRUMENTS`), unique IDs and symbols | `Error::Bounds` / `Duplicate` |
+| Numeric IDs & versions | Nonzero decimal `u64` strings with no leading zeros | `Error::Encoding` / `Identity` |
+| Venue & environment | Nonzero `u32` venue; `Production` or `Test` environment | `Error::Identity` |
+| Asset scale | Exponent in `-38..=38` (standalone fee assets permitted) | `Error::Economics` |
+| Price & quantity steps | Canonical positive venue decimals; `base_asset != quote_asset` | `Error::Economics` |
 
-## Bind it at startup
+Only three `(Market, Product, Contract)` combinations are valid:
 
-| Consumer | What it checks |
+1. `Spot` / `Spot` / `Cash`
+2. `Usdm` / `LinearPerpetual` / `Perpetual`
+3. `Usdm` / `LinearFuture` / `Delivery` (requires a nonzero decimal `expiry_utc_ns` string)
+
+Unknown or duplicate JSON fields, unresolved asset references, or mismatched market/product triples fail validation immediately.
+
+## Core Invariants
+
+* **Dual-digest separation (`artifact_hash` vs `catalog_hash`)**: `artifact_hash` is the SHA-256 of the exact raw file bytes pinned by deployment manifests. `catalog_hash` (the runtime digest) is the SHA-256 over the ASCII domain prefix `tickwire.instrument-catalog.v1`, a single `0x00` byte, and the canonical JSON representation (assets and instruments sorted by ascending numeric `u64` ID with fixed field order). Whitespace-only reformatting changes `artifact_hash` while preserving `catalog_hash`.
+* **Complete economic binding**: Each `Instrument` projects an `InstrumentBinding` carrying its `instrument_id`, `instrument_version`, `catalog_version`, `catalog_hash`, symbol, asset IDs, and tick/lot increments. `Catalog::asset_matches` and `Catalog::instrument_matches` verify full structural and economic equality via binary search over sorted IDs, preventing partial ID-only matches.
+* **Immutable in-memory retention**: Once loaded at startup, runtimes retain the verified raw catalog bytes in memory; modifying or replacing a file on disk while the process runs cannot alter an installed tick size or lot step.
+
+## Startup Binding and Recovery Semantics
+
+Every runtime component validates catalog bindings during startup before opening network sockets, allocating shared-memory banks, or enabling strategy callbacks:
+
+| Consumer | Startup and Lifecycle Enforcement |
 | --- | --- |
-| Configuration service | Binds each approved object to its deployment venue, market and environment. Content validation alone cannot activate a runtime. |
-| Binance MD | Optional `Config.catalogs` pins up to 32 approved raw files, 2 MiB total. Check every configured feed before obtaining quota, opening sockets, allocating a bank or writing a recovery record. An expansion must use members of those same pinned catalogs. |
-| Bybit/OKX spot MD | `--spot-market` requires an approved production spot catalog for the exact numeric venue. Check the cash product, symbol, instrument/version, catalog version and both increments. The diagnostic `--spot-quotes` command takes explicit configuration and does not prove catalog approval. |
-| Account App | An optional `Deployment.instrument_catalog` is compared with all baseline assets and instruments, scope, environment, configured feeds and command route. Fees, balances, permissions and risk limits have separate owners. |
-| Registered strategy | A catalog-enabled launch requires matching bootstrap, projected catalog reference and deployment inputs. Verify the current account and JOIN inputs before enabling user callbacks. |
+| **Configuration service** | Binds each approved catalog artifact to its deployment venue name, market, and environment; schema validity alone never activates a runtime. |
+| **Binance `tickwire-md`** | Optional `Config.catalogs` pins up to 32 approved raw artifacts (`<= 2 MiB` combined). Every configured feed is checked before acquiring quota, opening sockets, creating SHM banks, or persisting recovery state. Live expansions must draw exclusively from those already-pinned catalogs. |
+| **Bybit / OKX `tickwire-md`** | `--spot-market` requires an approved `Production` `Spot` catalog matching the exact numeric venue, `Cash` product, symbol, instrument/catalog versions, and both increments. (`--spot-quotes` takes explicit CLI config for diagnostics and does not assert catalog approval.) |
+| **Account `tickwire-app`** | Compares optional `Deployment.instrument_catalog` against all baseline assets, instruments, scope, environment, configured feeds, and command routing; balances, fees, permissions, and risk limits remain with their dedicated owners. |
+| **Registered strategy** | Requires matching bootstrap metadata, projected catalog reference, and deployment inputs, verifying both the account binding and live JOIN snapshot headers before invoking user callbacks. |
 
-The Binance runtime retains the original bytes in memory. A file replacement cannot change an installed price tick. MD recovery saves the approved raw objects and revalidates them. A missing or replaced object, a downgrade from configured to absent, or a change of economics across an expansion fails. A process restart still needs real source warmup and fresh JOINs.
+When Binance `tickwire-md` recovery is enabled, the recovery store persists the approved raw catalog artifacts alongside logical checkpoints and revalidates them on restart. Missing or substituted catalog bytes, downgrading a catalog-enabled configuration to unconfigured, or changing instrument economics across a live expansion fails closed. Even after logical catalog recovery succeeds, a restarted market-data process must warm live upstream feeds and require fresh consumer JOINs.
+
+## Verification and References
+
+```sh
+cargo test --locked -p tickwire-instrument-catalog
+cargo test --locked -p tickwire-app --test catalog_process
+python3 scripts/verify-instrument-catalog.py
+```
+
+* [Catalog types and lookup API](../../crates/tickwire-instrument-catalog/src/lib.rs)
+* [Schema 1 parser, canonicalizer, and digest computation](../../crates/tickwire-instrument-catalog/src/format.rs)
+* [End-to-end catalog tick-scaling process fixtures](../../crates/tickwire-app/tests/catalog_process)
+* [Golden machine contract vector (`instrument-catalog-v1.json`)](../contracts/instrument-catalog-v1.json)
+* [Independent Python contract verifier](../../scripts/verify-instrument-catalog.py)
