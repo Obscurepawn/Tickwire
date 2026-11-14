@@ -52,6 +52,12 @@ balance holds, WAL commits, and first-byte socket gates.
 * **Self-contained `paper` simulation**: Keep the local TLS peer ([src/paper_peer.rs](src/paper_peer.rs)), test
   credentials, and CBOR templates ([examples/order-template.cbor](examples/order-template.cbor),
   [examples/baseline-template.cbor](examples/baseline-template.cbor)) confined to `paper` in [src/main.rs](src/main.rs).
+* **Idle-window hot-path cache warming (`warmup_interval_ns`)**: `AccountRunner` ([src/lib.rs](src/lib.rs)) and
+  `Deployment` ([src/live/config.rs](src/live/config.rs), [src/live.rs](src/live.rs)) keep `warmup_interval_ns == 0`
+  disabled by default, record real market/order/fill activity via `record_activity`, refresh the scratch `Account` clone
+  only off the hot path after reconciliation, and invoke `maybe_warm_hot_path` strictly on idle reactor turns when
+  `active_inflight_len() == 0` so `Account`, `AccountJournal`, `Origins`, strategy `intent_seq`, `VenueRateLimiter`, and
+  live TLS sessions remain untouched.
 
 ## Verification and Specifications
 
@@ -59,7 +65,9 @@ balance holds, WAL commits, and first-byte socket gates.
   [src/origins.rs](src/origins.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
   [src/query_desk_driver.rs](src/query_desk_driver.rs) · [src/reconcile.rs](src/reconcile.rs) ·
   [src/live/account.rs](src/live/account.rs) · [src/producer.rs](src/producer.rs) · [tests/paper.rs](tests/paper.rs) ·
-  [tests/first_byte.rs](tests/first_byte.rs) · [tests/in_memory_live.rs](tests/in_memory_live.rs) ·
+  [tests/first_byte.rs](tests/first_byte.rs) · [tests/hotpath_warmup.rs](tests/hotpath_warmup.rs) ·
+  [tests/hotpath_warmup_alloc.rs](tests/hotpath_warmup_alloc.rs) ·
+  [tests/in_memory_live.rs](tests/in_memory_live.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) · [tests/per_order_query_desk.rs](tests/per_order_query_desk.rs) ·
   [tests/multi_connection_router_quota.rs](tests/multi_connection_router_quota.rs) ·
   [tests/modify_projected_fill_stp.rs](tests/modify_projected_fill_stp.rs) ·

@@ -156,6 +156,8 @@ where
     slot_state: [Option<SpotSlotState>; MAX_ORDER_CONNECTIONS],
     completed_replies: VecDeque<(IntentKey, Reply)>,
     venue_limiter: Option<VenueRateLimiter>,
+    warmup_tracker: tickwire_transport::WarmupTracker,
+    warmer: Option<Box<crate::warmup::SpotHotPathWarmer>>,
 }
 impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwire_gateway::Error>>
     RestSession<'a, B, A, T>
@@ -185,6 +187,8 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             slot_state: std::array::from_fn(|_| None),
             completed_replies: VecDeque::new(),
             venue_limiter: None,
+            warmup_tracker: tickwire_transport::WarmupTracker::disabled(),
+            warmer: None,
         })
     }
     pub const fn symbol_rate_key(instrument_id: u64) -> u64 {
@@ -906,6 +910,7 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                     .map_err(SessionError::RateLimited)?;
                 }
                 self.pending = Some((intent, command, deadline));
+                self.warmup_tracker.record_activity(evaluated_at);
             }
             return Ok(result);
         }
@@ -989,6 +994,7 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                     slot_epoch,
                 });
             }
+            self.warmup_tracker.record_activity(evaluated_at);
         }
         Ok(status)
     }
@@ -1010,6 +1016,7 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             }
             return match result? {
                 Some(reply) => {
+                    self.warmup_tracker.record_activity(received_mono_ns);
                     let intent = pending_intent.ok_or(SessionError::Identity)?;
                     Ok(Some((intent, reply)))
                 }
@@ -1021,7 +1028,11 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             self.gateway.stop_sending();
             return Err(err);
         }
-        Ok(self.completed_replies.pop_front())
+        let out = self.completed_replies.pop_front();
+        if out.is_some() {
+            self.warmup_tracker.record_activity(received_mono_ns);
+        }
+        Ok(out)
     }
     /// Drives TLS with a bounded byte/syscall budget. A missing reply never re-submits.
     pub fn poll(
@@ -1041,6 +1052,9 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         let result = self.drive(now, received_mono_ns, budget);
         if result.is_err() {
             self.gateway.stop_sending();
+        }
+        if let Ok(Some(_)) = &result {
+            self.warmup_tracker.record_activity(received_mono_ns);
         }
         result
     }
@@ -1796,5 +1810,149 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             .record_event(event)
             .map_err(SessionError::Gateway)?;
         Ok(())
+    }
+
+    fn ensure_warmer(&mut self) -> Result<&mut crate::warmup::SpotHotPathWarmer> {
+        if self.warmer.is_none() {
+            let snap = self.gateway.baseline().snapshot();
+            let venue = SpotVenue::from_id(snap.scope.venue).ok_or(SessionError::Identity)?;
+            let environment = snap.scope.environment;
+            let catalog = self.gateway.baseline().catalog();
+            let (instrument_id, symbol, sample_price, money_scale) =
+                if let Some(policy) = catalog.entries.first() {
+                    let quote_scale =
+                        u8::try_from((-i16::from(policy.instrument.quote.exponent)).max(0))
+                            .unwrap_or(8)
+                            .min(18);
+                    let tick_text = policy.instrument.price_tick.as_plain_string();
+                    let tick_frac = tick_text
+                        .split_once('.')
+                        .map_or(0u8, |(_, frac)| u8::try_from(frac.len()).unwrap_or(8));
+                    let price_scale = quote_scale.max(tick_frac).min(18);
+                    let sample_px = tickwire_account::Fixed::parse(tick_text.as_str(), price_scale)
+                        .and_then(|t| t.checked_mul_int(1_000))
+                        .or_else(|_| tickwire_account::Fixed::from_atoms(1_000, price_scale))
+                        .map_err(|_| SessionError::Identity)?;
+                    (
+                        policy.instrument.instrument_id,
+                        policy.instrument.symbol.as_str(),
+                        sample_px,
+                        quote_scale,
+                    )
+                } else {
+                    let default_sym = match venue {
+                        SpotVenue::Bybit => "BTCUSDT",
+                        SpotVenue::Okx => "BTC-USDT",
+                    };
+                    let sample_px = tickwire_account::Fixed::from_atoms(5_000_000, 2)
+                        .map_err(|_| SessionError::Identity)?;
+                    (0u64, default_sym, sample_px, 8u8)
+                };
+            let scratch_account = self.gateway.account().clone();
+            let warmer = crate::warmup::SpotHotPathWarmer::new(
+                venue,
+                environment,
+                instrument_id,
+                symbol,
+                sample_price,
+                money_scale,
+                scratch_account,
+            )
+            .map_err(SessionError::Transport)?;
+            self.warmer = Some(Box::new(warmer));
+        }
+        Ok(self.warmer.as_mut().expect("warmer initialized"))
+    }
+
+    pub fn with_warmup_interval_ns(mut self, warmup_interval_ns: u64) -> Result<Self> {
+        self.set_warmup_interval_ns(warmup_interval_ns)?;
+        Ok(self)
+    }
+
+    pub fn set_warmup_interval_ns(&mut self, warmup_interval_ns: u64) -> Result<()> {
+        self.warmup_tracker
+            .set_warmup_interval_ns(warmup_interval_ns);
+        if warmup_interval_ns > 0 {
+            let _ = self.ensure_warmer()?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    pub const fn warmup_interval_ns(&self) -> u64 {
+        self.warmup_tracker.warmup_interval_ns()
+    }
+
+    #[inline]
+    pub const fn warmup_count(&self) -> u64 {
+        self.warmup_tracker.warm_count()
+    }
+
+    #[inline]
+    pub const fn last_activity_ns(&self) -> u64 {
+        self.warmup_tracker.last_activity_ns()
+    }
+
+    #[inline]
+    pub const fn last_warm_ns(&self) -> u64 {
+        self.warmup_tracker.last_warm_ns()
+    }
+
+    #[inline]
+    pub const fn next_warmup_due_ns(&self) -> Option<u64> {
+        self.warmup_tracker.next_due_ns()
+    }
+
+    #[inline]
+    pub fn record_activity(&mut self, now_mono_ns: u64) {
+        self.warmup_tracker.record_activity(now_mono_ns);
+    }
+
+    /// Refreshes the isolated warmup scratch `Account` clone outside active trading bursts.
+    pub fn refresh_warmup_scratch(&mut self) -> Result<()> {
+        let scratch = self.gateway.account().clone();
+        let warmer = self.ensure_warmer()?;
+        warmer.refresh_scratch_account(&scratch);
+        Ok(())
+    }
+
+    /// Unconditionally executes one side-effect-free hot-path dry-run iteration.
+    pub fn warm_hot_path(&mut self, now_mono_ns: u64) -> Result<usize> {
+        let _ = self.ensure_warmer()?;
+        let live_account = self.gateway.account();
+        let warmer = self.warmer.as_mut().expect("warmer initialized");
+        let bytes = warmer
+            .warm_once(live_account, now_mono_ns)
+            .map_err(SessionError::Transport)?;
+        self.warmup_tracker.record_warm(now_mono_ns);
+        Ok(bytes)
+    }
+
+    /// Executes [`Self::warm_hot_path`] iff `warmup_interval_ns > 0`, no order/reply is active,
+    /// and `now_mono_ns - max(last_activity_ns, last_warm_ns) >= warmup_interval_ns`.
+    #[inline]
+    pub fn maybe_warm_hot_path(&mut self, now_mono_ns: u64) -> Result<bool> {
+        if self.warmup_tracker.warmup_interval_ns() == 0 {
+            return Ok(false);
+        }
+        let pending_single = self
+            .pending
+            .as_ref()
+            .is_some_and(|(intent, _, _)| self.gateway.status(*intent) != Some(Status::Aborted));
+        if pending_single || self.has_any_slot_pending() || !self.completed_replies.is_empty() {
+            self.warmup_tracker.record_activity(now_mono_ns);
+            return Ok(false);
+        }
+        if !self.warmup_tracker.can_warm(now_mono_ns) {
+            return Ok(false);
+        }
+        let _ = self.ensure_warmer()?;
+        let live_account = self.gateway.account();
+        let warmer = self.warmer.as_mut().expect("warmer initialized");
+        warmer
+            .warm_once(live_account, now_mono_ns)
+            .map_err(SessionError::Transport)?;
+        self.warmup_tracker.record_warm(now_mono_ns);
+        Ok(true)
     }
 }

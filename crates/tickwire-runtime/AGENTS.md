@@ -32,6 +32,11 @@ node; child-process spawning, shared-memory mappings, and policy grant rules liv
   `LocalDurable`), `OpenMode` (`Create`, `CreateFromLiveExchange`, `RecoverFrozen`), and JSON/CBOR baseline, credential,
   and `tickwire-instrument-catalog` loading in [src/files.rs](src/files.rs) and [src/files/catalog.rs](src/files/catalog.rs)
   strictly on the startup path, never inside per-quote or per-order turns.
+* **Quiescent-turn hot-path cache warming**: In [src/node.rs](src/node.rs), `CoreNode` (`with_warmup_interval_ns`,
+  `set_warmup_interval_ns`, `maybe_warm_hot_path`) records activity on market events, private fills/completions, and
+  outbound submissions, bounds `mio::Poll` sleep via `next_warmup_due_ns`, and invokes
+  `SharedSessionState::maybe_warm_hot_path_with_account` only on quiescent turns (`!report.runnable`, zero turn events,
+  no queued outcomes, and `!rest.websocket_busy()`).
 
 ## Verification and Specifications
 

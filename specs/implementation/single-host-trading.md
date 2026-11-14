@@ -48,7 +48,7 @@ The public market-data feed and each hosted strategy execute in separate process
 
 ### Event-Loop Turn Ordering
 
-In the Binance `CoreNode` runtime, a single event-loop turn polls the calibrated clock, public market stream, authenticated private stream, and up to `16` completed execution outcomes (`RestOwner::has_queued_outcomes`, keeping `Report::runnable = true` if additional completions remain queued) *before* polling strategies for outbound commands. `CoreNode` exposes `set_projected_fill`, `drain_projected_fills`, and `set_stp_enforcement` over `RestOwner`, allowing strategies and hosts to consume volatile `ProjectedFill` estimates ahead of `TRADE` frames and enforce local `StpBook` self-trade prevention (`Error::CrossesBook`) prior to wire transmission. When `RestOwner` runs in pooled HTTP/1.1 mode (`has_connection_pool()`), `CoreNode::registrations` registers active pool slots under `mio::Token(100 + conn_id)` via `RestOwner::reregister_all` while preserving `mio::Token(6)` in single-connection mode. Because inbound fills, modifications (`VenueEventBody::Modified` / `ModifyRejected`), and cancellations across all pooled links or multiplexed WebSocket requests are journaled and applied to `Account` earlier in the turn, subsequent strategy submissions in the same turn are evaluated against up-to-date balances, positions, and `StpBook` price levels. Local admission refusals (`CrossesBook`, `OrderNotOpen`, `TooManyPendingActions`, `InvalidPrice`, `InvalidQuantity`, `NoChange`, `InsufficientAsset`, `InsufficientCapital`, `Limit`, `ManagementDenied`) classify into `TerminalReason` via `tickwire_binance_account::Error::classify_refusal_reason`, remove the staged `RecoveryBundle`, and report a per-intent refusal to `Strategy::on_submission` without freezing `Account`, halting `CoreNode`, or deducting venue rate-limit quota. The runtime refreshes monotonic time after account polling and again prior to each submission, and enforces explicit `IoBudget` slices and `maximum_commands_per_turn` limits so a chatty feed or strategy cannot starve private-stream processing.
+In the Binance `CoreNode` runtime, a single event-loop turn polls the calibrated clock, public market stream, authenticated private stream, and up to `16` completed execution outcomes (`RestOwner::has_queued_outcomes`, keeping `Report::runnable = true` if additional completions remain queued) *before* polling strategies for outbound commands. `CoreNode` exposes `set_projected_fill`, `drain_projected_fills`, and `set_stp_enforcement` over `RestOwner`, allowing strategies and hosts to consume volatile `ProjectedFill` estimates ahead of `TRADE` frames and enforce local `StpBook` self-trade prevention (`Error::CrossesBook`) prior to wire transmission. When `RestOwner` runs in pooled HTTP/1.1 mode (`has_connection_pool()`), `CoreNode::registrations` registers active pool slots under `mio::Token(100 + conn_id)` via `RestOwner::reregister_all` while preserving `mio::Token(6)` in single-connection mode. Because inbound fills, modifications (`VenueEventBody::Modified` / `ModifyRejected`), and cancellations across all pooled links or multiplexed WebSocket requests are journaled and applied to `Account` earlier in the turn, subsequent strategy submissions in the same turn are evaluated against up-to-date balances, positions, and `StpBook` price levels. Local admission refusals (`CrossesBook`, `OrderNotOpen`, `TooManyPendingActions`, `InvalidPrice`, `InvalidQuantity`, `NoChange`, `InsufficientAsset`, `InsufficientCapital`, `Limit`, `ManagementDenied`) classify into `TerminalReason` via `tickwire_binance_account::Error::classify_refusal_reason`, remove the staged `RecoveryBundle`, and report a per-intent refusal to `Strategy::on_submission` without freezing `Account`, halting `CoreNode`, or deducting venue rate-limit quota. The runtime refreshes monotonic time after account polling and again prior to each submission, and enforces explicit `IoBudget` slices and `maximum_commands_per_turn` limits so a chatty feed or strategy cannot starve private-stream processing. When configured via `CoreNode::with_warmup_interval_ns` / `set_warmup_interval_ns` (`0` = disabled by default), `CoreNode` records activity on any turn with market messages, private messages, REST completions, or strategy submissions, and invokes side-effect-free `maybe_warm_hot_path(now_ns)` only during quiescent turns after `>= warmup_interval_ns` of inactivity while bounding `mio::Poll` idle sleep to the next warmup deadline.
 
 ### Command Intake Gate
 
@@ -82,6 +82,31 @@ The benchmark starts a timer on a complete native JSON text frame in memory and 
 | --- | ---: | ---: | ---: | ---: |
 | Bybit | 601 ns | 1,393 ns | 10,811 ns | 3.1 – 27.1 µs |
 | OKX | 872 ns | 1,483 ns | 13,085 ns | 3.8 – 24.8 µs |
+
+### Reproduce idle-window hot-path & loopback TLS cache warming
+
+```sh
+taskset -c 2 cargo bench --locked -p tickwire-spot-execution --bench hotpath_warmup
+```
+
+`hotpath_warmup` (`#![forbid(unsafe_code)]`, integer-only percentile accounting) measures:
+
+1. Bidirectional TLS 1.3 encrypt + decrypt + AEAD tag verification on the isolated in-memory `TlsLoopbackWarmer::warm_step_exchange` pair (10,000 iterations, zero syscalls, zero steady-state heap allocations);
+2. `RestSession::maybe_warm_hot_path` active-skip check cost (`now_ns - last_activity_ns < warmup_interval_ns`) and full 4-stage dry-run cost when due (sample BBO decode + read-only `&Account` / `StpBook::self_cross` + synthetic HMAC-SHA256 HTTP `POST` frame + `TlsLoopbackWarmer` roundtrip + `200 OK` JSON ack decode, 5,000 iterations); and
+3. Interleaved **Cold** vs **Warmed** first-order execution latency (240 rounds per venue) on a *separate* live `SpotEncoder` + established in-memory `rustls` TLS 1.3 session + `decode_reply`, immediately following a 32 MiB LLC stride-64B sweep and multi-branch `SHA-512` / `serde_json` L1i + BTB thrash.
+
+Pinned to CPU 2 on an `AMD Ryzen 7 8845H w/ Radeon 780M Graphics` host running `Linux 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC x86_64` (1-min load average `0.61–0.64`):
+
+| Path / Scenario | Venue | p50 | p90 | p99 | p99.9 | Notes / Speedup |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| `TlsLoopbackWarmer::warm_step_exchange` | TLS 1.3 loopback | 761 ns | 792 ns | 1,002 ns | 13,095 ns | Bidirectional encrypt + decrypt, 0 syscalls |
+| `RestSession::maybe_warm_hot_path` (active skip) | Bybit / OKX | 5 ns | — | — | — | Syscall-free `WarmupTracker` timestamp check |
+| `RestSession::maybe_warm_hot_path` (full 4-stage) | Bybit V5 Spot | 2,384 ns | 2,425 ns | 3,156 ns | 21,571 ns | Stack BBO + `Account`/`StpBook` + HMAC + TLS 1.3 |
+| `RestSession::maybe_warm_hot_path` (full 4-stage) | OKX V5 Spot | 2,274 ns | 2,805 ns | 3,738 ns | 26,983 ns | Stack BBO + `Account`/`StpBook` + Base64 HMAC + TLS 1.3 |
+| First live order after 32 MiB LLC + L1i thrash (**Cold**) | Bybit V5 Spot | 19,047 ns | — | 50,287 ns | 85,926 ns | Separate live `SpotEncoder` + live TLS 1.3 pair |
+| First live order after 32 MiB LLC + L1i thrash (**Warmed**) | Bybit V5 Spot | **13,637 ns** | — | **36,230 ns** | **50,507 ns** | **1.39x (-28.4%) p50**, **1.38x (-27.9%) p99** |
+| First live order after 32 MiB LLC + L1i thrash (**Cold**) | OKX V5 Spot | 20,189 ns | — | 62,321 ns | 76,278 ns | Separate live `SpotEncoder` + live TLS 1.3 pair |
+| First live order after 32 MiB LLC + L1i thrash (**Warmed**) | OKX V5 Spot | **14,668 ns** | — | **42,131 ns** | **54,235 ns** | **1.37x (-27.3%) p50**, **1.47x (-32.3%) p99** |
 
 ### Cold First-Order Baseline (Binance `spot-fill` Fixture)
 

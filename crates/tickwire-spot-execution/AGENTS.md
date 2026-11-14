@@ -58,13 +58,21 @@ math, and control leases remain outside this crate.
   in [src/observe.rs](src/observe.rs) execute an identical paging and cashflow verification plan on live collection
   and local replay, refusing unsupported margin, transfer, or non-cash activity (`src/recovery/cash_flows.rs`,
   `src/recovery/profile.rs`).
+* **Side-effect-free idle-window hot-path cache warming (`warmup`)**: In [src/warmup.rs](src/warmup.rs) and
+  [src/session.rs](src/session.rs), `SpotHotPathWarmer` and `RestSession::maybe_warm_hot_path` (`warmup_interval_ns == 0`
+  disabled by default) execute only when no request or reply is in-flight and `now_mono_ns - last_activity_ns >=
+  warmup_interval_ns`, exercising sample BBO decode, read-only `&Account` + startup-cloned `scratch_account` +
+  `StpBook::self_cross` + exact `Fixed` reserve math, synthetic HMAC-SHA256 hex/Base64 HTTP `POST` framing, and
+  `TlsLoopbackWarmer` roundtrips without mutating live `Account`, `AccountJournal`, `OrderRouter`, `VenueRateLimiter`, or
+  live TLS connections.
 
 ## Verification and Specifications
 
 * **Source and binaries**: [src/lib.rs](src/lib.rs) · [src/session.rs](src/session.rs) ·
-  [src/reports.rs](src/reports.rs) · [src/fills.rs](src/fills.rs) · [src/private.rs](src/private.rs) ·
-  [src/network.rs](src/network.rs) · [src/recovery.rs](src/recovery.rs) · [src/observe.rs](src/observe.rs) ·
-  [src/bin/tickwire-spot-observe.rs](src/bin/tickwire-spot-observe.rs)
+  [src/warmup.rs](src/warmup.rs) · [src/reports.rs](src/reports.rs) · [src/fills.rs](src/fills.rs) ·
+  [src/private.rs](src/private.rs) · [src/network.rs](src/network.rs) · [src/recovery.rs](src/recovery.rs) ·
+  [src/observe.rs](src/observe.rs) · [src/bin/tickwire-spot-observe.rs](src/bin/tickwire-spot-observe.rs) ·
+  [benches/hotpath_warmup.rs](benches/hotpath_warmup.rs)
 * **Integration tests**: [tests/protocol.rs](tests/protocol.rs) · [tests/session.rs](tests/session.rs) ·
   [tests/private.rs](tests/private.rs) · [tests/recovery.rs](tests/recovery.rs) ·
   [tests/observations.rs](tests/observations.rs)

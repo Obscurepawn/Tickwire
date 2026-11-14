@@ -139,6 +139,8 @@ struct State<C, B> {
     signed: BTreeMap<Hash, SignedRequest>,
     websocket: Option<SessionIdentity>,
     plans: BTreeMap<Hash, WsRequestPlan>,
+    warmup_tracker: tickwire_transport::WarmupTracker,
+    warmer: Option<Box<warmup::BinanceHotPathWarmer>>,
 }
 /// Clones share one runtime state. It cannot cross threads or mint send authority.
 pub struct SharedSessionState<C, B>(Rc<RefCell<State<C, B>>>);
@@ -228,6 +230,8 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             signed: BTreeMap::new(),
             websocket: None,
             plans: BTreeMap::new(),
+            warmup_tracker: tickwire_transport::WarmupTracker::disabled(),
+            warmer: None,
         }))))
     }
     pub fn with_multi_ip_quota(self, quota: MultiIpCommandQuota) -> Result<Self> {
@@ -341,6 +345,7 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             }
         }
         let created_mono_ns = state.sample_mono_ns().unwrap_or(plan.created_mono_ns());
+        state.warmup_tracker.record_activity(created_mono_ns);
         let plan = plan.with_created_mono_ns(created_mono_ns);
         state.websocket = Some(plan.session().clone());
         state.plans.insert(digest, plan);
@@ -593,6 +598,7 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
                 bytes,
             },
         );
+        state.warmup_tracker.record_activity(created_mono_ns);
         Ok(encoded)
     }
     fn prepare_gate(&self, command: &CanonicalCommand) -> Result<PreparedGate> {
@@ -676,8 +682,148 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         {
             saved.consumed_mono_ns = Some(now.nanos());
         }
+        state.warmup_tracker.record_activity(now.nanos());
         gate.now = now.nanos();
         Ok(gate)
+    }
+
+    pub fn with_warmup_interval_ns(self, warmup_interval_ns: u64) -> Result<Self> {
+        self.set_warmup_interval_ns(warmup_interval_ns)?;
+        Ok(self)
+    }
+
+    pub fn set_warmup_interval_ns(&self, warmup_interval_ns: u64) -> Result<()> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        state
+            .warmup_tracker
+            .set_warmup_interval_ns(warmup_interval_ns);
+        if warmup_interval_ns > 0 && state.warmer.is_none() {
+            let warmer =
+                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
+                    .map_err(|_| Error::Encoding)?;
+            state.warmer = Some(Box::new(warmer));
+        }
+        Ok(())
+    }
+
+    pub fn warmup_interval_ns(&self) -> u64 {
+        self.0
+            .try_borrow()
+            .map_or(0, |s| s.warmup_tracker.warmup_interval_ns())
+    }
+
+    pub fn warmup_count(&self) -> u64 {
+        self.0
+            .try_borrow()
+            .map_or(0, |s| s.warmup_tracker.warm_count())
+    }
+
+    pub fn last_activity_ns(&self) -> u64 {
+        self.0
+            .try_borrow()
+            .map_or(0, |s| s.warmup_tracker.last_activity_ns())
+    }
+
+    pub fn last_warm_ns(&self) -> u64 {
+        self.0
+            .try_borrow()
+            .map_or(0, |s| s.warmup_tracker.last_warm_ns())
+    }
+
+    pub fn next_warmup_due_ns(&self) -> Option<u64> {
+        self.0
+            .try_borrow()
+            .ok()
+            .and_then(|s| s.warmup_tracker.next_due_ns())
+    }
+
+    pub fn record_activity(&self, now_mono_ns: u64) {
+        if let Ok(mut state) = self.0.try_borrow_mut() {
+            state.warmup_tracker.record_activity(now_mono_ns);
+        }
+    }
+
+    pub fn refresh_warmup_scratch(&self, account: &tickwire_account::Account) -> Result<()> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        if state.warmer.is_none() {
+            let warmer =
+                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
+                    .map_err(|_| Error::Encoding)?;
+            state.warmer = Some(Box::new(warmer));
+        }
+        if let Some(warmer) = state.warmer.as_mut() {
+            warmer.refresh_scratch_account(account);
+        }
+        Ok(())
+    }
+
+    pub fn warm_hot_path(&self, now_mono_ns: u64) -> Result<usize> {
+        self.warm_hot_path_with_account(None, now_mono_ns)
+    }
+
+    pub fn warm_hot_path_with_account(
+        &self,
+        account: Option<&tickwire_account::Account>,
+        now_mono_ns: u64,
+    ) -> Result<usize> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        if state.warmer.is_none() {
+            let warmer =
+                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
+                    .map_err(|_| Error::Encoding)?;
+            state.warmer = Some(Box::new(warmer));
+        }
+        let use_ws = state.websocket.is_some();
+        let bytes = state
+            .warmer
+            .as_mut()
+            .expect("warmer initialized")
+            .warm_once(use_ws, account, now_mono_ns)
+            .map_err(|_| Error::Encoding)?;
+        state.warmup_tracker.record_warm(now_mono_ns);
+        Ok(bytes)
+    }
+
+    pub fn maybe_warm_hot_path(&self, now_mono_ns: u64) -> Result<bool> {
+        self.maybe_warm_hot_path_with_account(None, now_mono_ns)
+    }
+
+    pub fn maybe_warm_hot_path_with_account(
+        &self,
+        account: Option<&tickwire_account::Account>,
+        now_mono_ns: u64,
+    ) -> Result<bool> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        if state.warmup_tracker.warmup_interval_ns() == 0 {
+            return Ok(false);
+        }
+        // Skip warming if any signed command has not yet passed the first-output gate.
+        let has_unconsumed_signed = state
+            .signed
+            .values()
+            .any(|req| req.consumed_mono_ns.is_none() && now_mono_ns < req.deadline_mono_ns);
+        if has_unconsumed_signed {
+            state.warmup_tracker.record_activity(now_mono_ns);
+            return Ok(false);
+        }
+        if !state.warmup_tracker.can_warm(now_mono_ns) {
+            return Ok(false);
+        }
+        if state.warmer.is_none() {
+            let warmer =
+                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
+                    .map_err(|_| Error::Encoding)?;
+            state.warmer = Some(Box::new(warmer));
+        }
+        let use_ws = state.websocket.is_some();
+        state
+            .warmer
+            .as_mut()
+            .expect("warmer initialized")
+            .warm_once(use_ws, account, now_mono_ns)
+            .map_err(|_| Error::Encoding)?;
+        state.warmup_tracker.record_warm(now_mono_ns);
+        Ok(true)
     }
 }
 impl<C: SessionClock, B> State<C, B> {
@@ -813,6 +959,8 @@ fn source(b: &CommandBinding) -> Result<Source> {
         _ => Err(Error::Identity),
     }
 }
+
+pub mod warmup;
 
 #[cfg(test)]
 mod tests;

@@ -44,16 +44,22 @@ onto dedicated worker threads behind allocation-free handoff primitives.
   allocation-free over fixed `MAX_ORDER_CONNECTIONS` (`16`) slots, never multiply `ema_us` by `inflight`, enforce
   `9/8` hysteresis (`last_score * 8 <= best_score * 9`), fence stale samples/releases with monotonic `epoch` tokens,
   and release externally owned `IpPool` peer leases at most once per installed link.
+* **Offline in-process loopback TLS 1.3 warmer (`warmup`)**: In [src/warmup.rs](src/warmup.rs) (`#![forbid(unsafe_code)]`),
+  `WarmupConfig` (`warmup_interval_ns == 0` disables warming) and `WarmupTracker` gate idle-window cache warming without
+  syscalls, while `TlsLoopbackWarmer` pairs an isolated, purely in-memory TLS 1.3 `rustls::ClientConnection` and
+  `rustls::ServerConnection` over static embedded DER credentials (`const &[u8]`) and `[u8; 2048]` scratch buffers;
+  never write synthetic plaintext into any live `Connection` or `rustls::ClientConnection` (which would advance live
+  AEAD record nonces and cause `bad_record_mac` on the next real order).
 
 ## Verification and Specifications
 
 * **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/connection.rs](src/connection.rs) ·
-  [src/order_router.rs](src/order_router.rs) · [src/dialer.rs](src/dialer.rs) ·
+  [src/order_router.rs](src/order_router.rs) · [src/warmup.rs](src/warmup.rs) · [src/dialer.rs](src/dialer.rs) ·
   [src/rest_querier.rs](src/rest_querier.rs) · [src/http.rs](src/http.rs) ·
   [src/ws.rs](src/ws.rs) · [src/fix.rs](src/fix.rs)
 * **Integration tests**: [tests/framing.rs](tests/framing.rs) · [tests/network.rs](tests/network.rs) ·
   [tests/dialer_and_querier.rs](tests/dialer_and_querier.rs) ·
-  [tests/order_router_pool.rs](tests/order_router_pool.rs)
+  [tests/order_router_pool.rs](tests/order_router_pool.rs) · [tests/warmup.rs](tests/warmup.rs)
 * **Specifications and models**: [transport.md](../../specs/implementation/transport.md) ·
   [transport](../../tla/execution_models/transport/ROADMAP.md) ·
   [gateway](../../tla/execution_models/gateway/ROADMAP.md)

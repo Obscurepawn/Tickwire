@@ -297,6 +297,14 @@ impl<S: BlobStore> Origins<S> {
             digest: data[32..64].try_into().unwrap(),
         })
     }
+
+    pub fn entry_counts(&self) -> (usize, usize, usize) {
+        (
+            self.cache.len(),
+            self.by_intent.len(),
+            self.aliases_by_intent.len(),
+        )
+    }
 }
 
 #[cfg(test)]
