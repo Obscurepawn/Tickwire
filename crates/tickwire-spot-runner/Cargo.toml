@@ -24,6 +24,7 @@ tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 tickwire-clock = { path = "../tickwire-clock" }
 tickwire-gateway = { path = "../tickwire-gateway" }
 tickwire-market-source = { path = "../tickwire-market-source" }
+tickwire-quota = { path = "../tickwire-quota" }
 tickwire-journal = { path = "../tickwire-journal" }
 tickwire-recovery = { path = "../tickwire-recovery" }
 tickwire-runtime = { path = "../tickwire-runtime" }

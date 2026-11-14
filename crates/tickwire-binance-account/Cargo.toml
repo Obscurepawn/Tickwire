@@ -19,6 +19,7 @@ tickwire-account-journal = { path = "../tickwire-account-journal" }
 tickwire-binance = { path = "../tickwire-binance" }
 tickwire-binance-private = { path = "../tickwire-binance-private" }
 tickwire-journal = { path = "../tickwire-journal" }
+tickwire-quota = { path = "../tickwire-quota" }
 tickwire-venue = { path = "../tickwire-venue" }
 
 tickwire-transport = { path = "../tickwire-transport" }

@@ -13,8 +13,13 @@ use tickwire_recovery::{ClosureBinding, VerifiedClosure};
 use tickwire_transport::{Connection, IoBudget, PreparedSend, Security, SendReport, SendState};
 use tickwire_venue::{CanonicalCommand, CanonicalEvent, Hash};
 mod binding;
+pub mod pool;
 mod recovery;
 pub mod websocket;
+pub use pool::{
+    MAX_ORDER_CONNECTIONS, MAX_SHARED_INFLIGHT, OrderConnectionPool, OrderRoute, OrderRouter,
+    OrderSlotSpec, RouteHealth, RouterConfig, SampleKind, SendSlot,
+};
 
 #[derive(Debug)]
 pub enum Error {
@@ -320,6 +325,7 @@ pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     last_mono_ns: u64,
     last_reactivation: Option<Box<tickwire_account::Reactivation>>,
     pending: Option<(IntentKey, u64)>,
+    pool: Option<pool::GatewayPool>,
     halted: bool,
     per_order_doubt_isolation: bool,
 }
@@ -469,6 +475,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             last_mono_ns: 0,
             last_reactivation: None,
             pending: None,
+            pool: None,
             halted: false,
             per_order_doubt_isolation: false,
         };
@@ -554,6 +561,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             last_mono_ns: 0,
             last_reactivation,
             pending: None,
+            pool: None,
             halted: true,
             per_order_doubt_isolation: false,
         };
@@ -576,13 +584,34 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         self.retention_window_ns
     }
 
+    #[inline]
+    pub(crate) fn has_any_pending(&self) -> bool {
+        self.pending.is_some()
+            || self
+                .pool
+                .as_ref()
+                .is_some_and(pool::GatewayPool::has_any_pending)
+    }
+
+    #[inline]
+    pub(crate) fn is_key_pending(&self, key: IntentKey) -> bool {
+        self.pending.is_some_and(|(k, _)| k == key)
+            || self.pool.as_ref().is_some_and(|p| p.is_key_pending(key))
+    }
+
+    #[inline]
+    pub(crate) fn has_any_slot_retained_receive(&self) -> bool {
+        self.pool
+            .as_ref()
+            .is_some_and(pool::GatewayPool::has_any_retained_receive)
+    }
+
     fn refresh_completed_entries(&mut self) {
-        let pending_key = self.pending.map(|(k, _)| k);
         let mut remove_keys = Vec::new();
         let mut insert_keys = Vec::new();
         for (key, entry) in &self.entries {
             let completed = matches!(entry.status, Status::Aborted | Status::Flushed)
-                && pending_key != Some(*key)
+                && !self.is_key_pending(*key)
                 && !self.account.is_intent_active(*key);
             if !completed {
                 if self.completed_mono_ns.contains_key(key) {
@@ -605,14 +634,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
     }
 
     fn reclaim_one_retired_management_entry(&mut self) -> bool {
-        let pending_key = self.pending.map(|(k, _)| k);
         let candidate = self
             .entries
             .iter()
             .filter(|(key, entry)| {
                 is_management_command(&entry.command)
                     && matches!(entry.status, Status::Aborted | Status::Flushed)
-                    && pending_key != Some(**key)
+                    && !self.is_key_pending(**key)
                     && !self.account.is_intent_active(**key)
                     && !self.account.is_confirmed_amendment(**key)
             })
@@ -631,6 +659,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             let _ = self.account.evict_retired_management_admission(key);
             self.entries.remove(&key);
             self.completed_mono_ns.remove(&key);
+            if let Some(gpool) = self.pool.as_mut() {
+                gpool.slot_bindings.remove(&key);
+            }
             true
         } else {
             false
@@ -651,7 +682,6 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if now_mono_ns == 0 {
             return 0;
         }
-        let pending_key = self.pending.map(|(k, _)| k);
         let to_evict: Vec<IntentKey> = self
             .entries
             .iter()
@@ -659,7 +689,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 if !matches!(entry.status, Status::Aborted | Status::Flushed) {
                     return None;
                 }
-                if pending_key == Some(*key)
+                if self.is_key_pending(*key)
                     || self.account.is_intent_active(*key)
                     || self.account.has_admission(*key)
                 {
@@ -673,6 +703,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         for key in to_evict {
             self.entries.remove(&key);
             self.completed_mono_ns.remove(&key);
+            if let Some(gpool) = self.pool.as_mut() {
+                gpool.slot_bindings.remove(&key);
+            }
         }
         count
     }
@@ -717,6 +750,30 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.websocket.is_none() {
             self.rest_started = true;
         }
+        let (send, initial_status) =
+            self.admit_and_journal(key, command, evaluated_at, deadline, self.max_send_bytes)?;
+        match self.connection.as_mut().ok_or(Error::Halted)?.queue(send) {
+            Ok(token) => {
+                self.pending = Some((key, token));
+                Ok(initial_status)
+            }
+            Err(error) => {
+                // queue does not accept application bytes, even when it fails.
+                self.abort(key)?;
+                self.on_transport_error();
+                Err(error.into())
+            }
+        }
+    }
+
+    pub(crate) fn admit_and_journal(
+        &mut self,
+        key: IntentKey,
+        command: CanonicalCommand,
+        evaluated_at: u64,
+        deadline: Instant,
+        max_send_bytes: usize,
+    ) -> Result<(PreparedSend, Status)> {
         binding::command(&self.config, &command, true)?;
         if evaluated_at > 0 {
             self.evict_retired_entries(evaluated_at);
@@ -750,7 +807,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         {
             return Err(Error::Identity);
         }
-        let send = PreparedSend::new(wire.bytes(), deadline, self.max_send_bytes)?;
+        let send = PreparedSend::new(wire.bytes(), deadline, max_send_bytes)?;
         self.maybe_compact_journal(evaluated_at);
         let mut candidate = self.account.clone();
         let admission = match candidate.admit(&command, evaluated_at) {
@@ -840,18 +897,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 }),
             },
         );
-        match self.connection.as_mut().ok_or(Error::Halted)?.queue(send) {
-            Ok(token) => {
-                self.pending = Some((key, token));
-                Ok(initial_status)
-            }
-            Err(error) => {
-                // queue does not accept application bytes, even when it fails.
-                self.abort(key)?;
-                self.on_transport_error();
-                Err(error.into())
-            }
-        }
+        Ok((send, initial_status))
     }
     pub fn poll(&mut self, now: Instant, budget: IoBudget) -> Result<()> {
         if self.websocket_blocks_application() {
@@ -969,20 +1015,44 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         strategy: u64,
         manager: tickwire_account::ManagerIdentity,
     ) -> Result<bool> {
-        let Some((key, _)) = self.pending else {
-            return Ok(false);
-        };
-        let entry = self.entries.get(&key).ok_or(Error::Invalid)?;
-        let context = &entry.command.command().context;
-        if context.strategy.logical_strategy_id != strategy
-            || context.strategy.instance_id != manager.instance
-            || context.request.strategy_generation != manager.generation
-            || entry.output.is_none_or(|p| p.accepted_bytes != 0)
-        {
-            return Ok(false);
+        let mut terminated = false;
+        if let Some((key, _)) = self.pending {
+            let entry = self.entries.get(&key).ok_or(Error::Invalid)?;
+            let context = &entry.command.command().context;
+            if context.strategy.logical_strategy_id == strategy
+                && context.strategy.instance_id == manager.instance
+                && context.request.strategy_generation == manager.generation
+                && entry.output.is_some_and(|p| p.accepted_bytes == 0)
+            {
+                self.cancel_pending()?;
+                terminated = true;
+            }
         }
-        self.cancel_pending()?;
-        Ok(true)
+        if let Some(gpool) = self.pool.as_ref() {
+            let mut matching_slots = Vec::new();
+            for (idx, io) in gpool.slot_io.iter().enumerate() {
+                let Some((key, _, _)) = io.pending_send else {
+                    continue;
+                };
+                let entry = self.entries.get(&key).ok_or(Error::Invalid)?;
+                let context = &entry.command.command().context;
+                if context.strategy.logical_strategy_id == strategy
+                    && context.strategy.instance_id == manager.instance
+                    && context.request.strategy_generation == manager.generation
+                    && entry.output.is_some_and(|p| p.accepted_bytes == 0)
+                {
+                    matching_slots.push(idx as u16);
+                }
+            }
+            for conn_id in matching_slots {
+                if self.halted {
+                    break;
+                }
+                self.cancel_slot_pending(conn_id)?;
+                terminated = true;
+            }
+        }
+        Ok(terminated)
     }
     /// The input owner has already persisted the raw observation. Publish only
     /// after this journal synchronizes the validated account transition.
@@ -1073,7 +1143,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.halt();
             return Err(Error::Conflict);
         }
-        if self.pending.is_some() {
+        if self.has_any_pending() {
             return Err(Error::Busy);
         }
         if binding.baseline_digest != self.baseline().digest()
@@ -1119,7 +1189,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.halt();
             return Err(Error::Conflict);
         }
-        if self.pending.is_some() {
+        if self.has_any_pending() {
             return Err(Error::Busy);
         }
         if binding.baseline_digest != self.baseline().digest()
@@ -1166,7 +1236,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             self.halt();
             return Err(Error::Conflict);
         }
-        if self.pending.is_some() {
+        if self.has_any_pending() {
             return Err(Error::Busy);
         }
         if binding.baseline_digest != self.baseline().digest()
@@ -1207,7 +1277,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         binding: tickwire_account::IncomeBaseline,
         verifier: &mut impl ReactivationVerifier,
     ) -> Result<Applied> {
-        if self.pending.is_some() {
+        if self.has_any_pending() {
             return Err(Error::Invalid);
         }
         verifier
@@ -1293,7 +1363,10 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         connection: Option<ConnectionConfig>,
         verifier: &mut impl ReactivationVerifier,
     ) -> Result<ActivationReceipt> {
-        if self.pending.is_some() || !self.retained_receive.is_empty() {
+        if self.has_any_pending()
+            || !self.retained_receive.is_empty()
+            || self.has_any_slot_retained_receive()
+        {
             return Err(Error::Busy);
         }
         if binding.baseline_digest != self.baseline().digest()
@@ -1361,11 +1434,35 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         self.config.writer_epoch = binding.writer_epoch;
         self.last_reactivation = Some(Box::new(binding));
         if let Some((connection, limits)) = replacement {
-            self.connection = Some(connection);
-            self.websocket = None;
-            self.rest_started = false;
-            self.max_send_bytes = limits.max_send_bytes;
-            self.max_receive_bytes = limits.max_receive_bytes;
+            if let Some(gpool) = self.pool.as_mut() {
+                if gpool.slot_io[0].registered {
+                    let _ = gpool.pool.install_connection(0, connection, None)?;
+                    gpool.slot_io[0].max_send_bytes = limits.max_send_bytes;
+                    gpool.slot_io[0].max_receive_bytes = limits.max_receive_bytes;
+                    gpool.slot_io[0].websocket = None;
+                    gpool.slot_io[0].rest_started = false;
+                } else {
+                    let conn_id = gpool.pool.add_slot(OrderSlotSpec::with_connection(
+                        SendSlot::Exclusive,
+                        connection,
+                    ))?;
+                    gpool.slot_io[usize::from(conn_id)] = pool::SlotIoState {
+                        registered: true,
+                        max_send_bytes: limits.max_send_bytes,
+                        max_receive_bytes: limits.max_receive_bytes,
+                        retained_receive: VecDeque::new(),
+                        pending_send: None,
+                        websocket: None,
+                        rest_started: false,
+                    };
+                }
+            } else {
+                self.connection = Some(connection);
+                self.websocket = None;
+                self.rest_started = false;
+                self.max_send_bytes = limits.max_send_bytes;
+                self.max_receive_bytes = limits.max_receive_bytes;
+            }
         }
         self.halted = false;
         self.refresh_completed_entries();
@@ -1607,6 +1704,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         self.connection = None;
         self.pending = None;
+        if let Some(gpool) = self.pool.as_mut() {
+            gpool.halt_all(self.last_mono_ns);
+        }
         for entry in self.entries.values_mut() {
             if entry.status != Status::Aborted {
                 entry.status = Status::Unknown;
@@ -1713,6 +1813,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.pending.is_some_and(|(k, _)| k == key) {
             self.pending = None;
         }
+        if let Some(gpool) = self.pool.as_mut() {
+            gpool.clear_pending_for_key(key);
+        }
         Ok(affected)
     }
 
@@ -1779,21 +1882,14 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.halted || self.account.frozen() {
             return Err(Error::Halted);
         }
-        if self.connection.is_some() || self.pending.is_some() || !self.retained_receive.is_empty()
+        if self.pool.is_some()
+            || self.connection.is_some()
+            || self.pending.is_some()
+            || !self.retained_receive.is_empty()
         {
             return Err(Error::Busy);
         }
-        if [
-            limits.max_send_bytes,
-            limits.max_receive_bytes,
-            limits.tls_buffer_bytes,
-            limits.max_accept_bytes,
-        ]
-        .iter()
-        .any(|n| *n == 0 || *n > 16 * 1024 * 1024)
-        {
-            return Err(Error::Transport(tickwire_transport::Error::Bounds));
-        }
+        pool::validate_transport_limits(limits)?;
         self.connection = Some(connection);
         self.websocket = None;
         self.rest_started = false;

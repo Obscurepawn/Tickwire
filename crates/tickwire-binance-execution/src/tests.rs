@@ -125,6 +125,18 @@ fn setup_market(
     Rc<Cell<u64>>,
     CanonicalCommand,
 ) {
+    setup_market_with_cap(window, advance_to, futures, 2)
+}
+fn setup_market_with_cap(
+    window: u64,
+    advance_to: Option<u64>,
+    futures: bool,
+    max_signed_commands: usize,
+) -> (
+    SharedSessionState<Clock, Budget>,
+    Rc<Cell<u64>>,
+    CanonicalCommand,
+) {
     let source = if futures {
         Source::UsdmTest
     } else {
@@ -282,7 +294,7 @@ fn setup_market(
         Config {
             recv_window_micros: window,
             max_http_bytes: 4096,
-            max_signed_commands: 2,
+            max_signed_commands,
         },
     )
     .unwrap();
@@ -1283,4 +1295,213 @@ fn rest_query_peer(
         },
         thread,
     )
+}
+
+#[test]
+fn concurrent_websocket_plans_and_multi_ip_quota_ban_propagation() {
+    use std::net::{IpAddr, Ipv4Addr};
+    use tickwire_account_gateway::{AccountGateway, Authority, CommitState, Status};
+    use tickwire_binance_account::{AccountIngress, ws::SessionState};
+    use tickwire_binance_quota::MultiIpCommandQuota;
+    use tickwire_quota::rate_limiter::IpKey;
+
+    let (state, _, base_command) = setup_market_with_cap(5_000_000, None, false, 16);
+    let ip_a = IpKey::from_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+    let ip_b = IpKey::from_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 2)));
+
+    let wrong_binding = CommandBinding {
+        owner_id: [6; 16],
+        risk_domain_id: [1; 16],
+        account: 999,
+        product: base_command.command().context.request.product,
+        environment: tickwire_venue::Environment::Test,
+        domain: domain(),
+    };
+    let wrong_mq = MultiIpCommandQuota::new(wrong_binding, &[ip_a, ip_b]).unwrap();
+    assert_eq!(state.set_multi_ip_quota(wrong_mq), Err(Error::Identity));
+
+    let valid_binding = CommandBinding {
+        owner_id: [6; 16],
+        risk_domain_id: [1; 16],
+        account: 2,
+        product: base_command.command().context.request.product,
+        environment: tickwire_venue::Environment::Test,
+        domain: domain(),
+    };
+    let mq = MultiIpCommandQuota::new(valid_binding, &[ip_a, ip_b]).unwrap();
+    let mut state = state.with_multi_ip_quota(mq).unwrap();
+    assert!(state.has_multi_ip_quota().unwrap());
+
+    let (mut snapshot, catalog, _) = account_fixture::fixture();
+    snapshot.assets[1].free = account_fixture::units(10_000);
+    let baseline = tickwire_account_codec::CanonicalBaseline::new(snapshot, catalog).unwrap();
+    let dir = gateway_fixture::Directory::new();
+    let mut input = AccountIngress::create(
+        tickwire_journal::store::FileStore::open(dir.0.join("input")).unwrap(),
+        tickwire_binance_account::Config {
+            physical: tickwire_journal::Config::new([31; 16], [1; 16]),
+            writer_epoch: 4,
+            baseline: baseline.clone(),
+            account_stream: [2; 16],
+            max_records: 64,
+            max_registrations: 32,
+            max_raw_bytes: 32768,
+            max_retained_bytes: 1 << 20,
+            income_baseline_authority: None,
+            income_association_authority: None,
+        },
+    )
+    .unwrap();
+    let session = input.reserve_ws_session([41; 16], [42; 32]).unwrap();
+    let key = tickwire_binance::auth::SigningKey::hmac(b"unit-test-secret").unwrap();
+    let mut encoder = state.encoder(Credentials {
+        account: 2,
+        environment: tickwire_venue::Environment::Test,
+        market: request::Market::Spot,
+        api_key: "unit-key",
+        signing_key: &key,
+    });
+    let mut gw_cfg = gateway_fixture::config(&baseline);
+    gw_cfg.route.authority = "ws-api.testnet.binance.vision".into();
+    gw_cfg.max_intents = 32;
+    let mock_auth = gateway_fixture::MockAuthority::default();
+    let mut gate_auth = state.authority(mock_auth.clone());
+    let (conn, peer) = gateway_fixture::peer(&gw_cfg.route.authority, 16384);
+    let mut gateway = AccountGateway::create(
+        tickwire_account_journal::FileBackend::open(dir.0.join("account")).unwrap(),
+        gw_cfg,
+        baseline,
+        state.authority(mock_auth),
+        state.encoder(Credentials {
+            account: 2,
+            environment: tickwire_venue::Environment::Test,
+            market: request::Market::Spot,
+            api_key: "unit-key",
+            signing_key: &key,
+        }),
+        conn,
+    )
+    .unwrap()
+    .with_connection_pool(tickwire_account_gateway::pool::RouterConfig::default())
+    .unwrap();
+    let mut slot_peers = vec![peer];
+    for _ in 0..4 {
+        let (slot_cfg, slot_peer) = gateway_fixture::peer("ws-api.testnet.binance.vision", 16384);
+        slot_peers.push(slot_peer);
+        let security = tickwire_transport::Security::Tls {
+            server_name: tickwire_transport::rustls::pki_types::ServerName::try_from(
+                "ws-api.testnet.binance.vision",
+            )
+            .unwrap(),
+            config: slot_cfg.tls,
+        };
+        let slot_conn = tickwire_transport::Connection::connect(
+            slot_cfg.address,
+            security,
+            slot_cfg.limits,
+            slot_cfg.connect_deadline,
+        )
+        .unwrap();
+        gateway
+            .add_pool_slot(
+                tickwire_account_gateway::pool::OrderSlotSpec::with_connection(
+                    tickwire_account_gateway::pool::SendSlot::Exclusive,
+                    slot_conn,
+                ),
+                slot_cfg.limits,
+            )
+            .unwrap();
+    }
+
+    // Prepare, encode, admit, and bind 4 concurrent WS commands on the same SessionIdentity.
+    let mut commands = Vec::new();
+    for idx in 0..4u64 {
+        let mut raw = base_command.command().clone();
+        let intent_id = 10 + idx;
+        raw.context.request.intent_id = intent_id;
+        raw.context.request.recovery_object = intent_id;
+        raw.context.strategy.strategy_intent_seq = idx + 1;
+        let mut triggers = raw.context.triggers.as_slice().to_vec();
+        for t in &mut triggers {
+            t.sequence = intent_id;
+        }
+        raw.context.triggers = tickwire_venue::BoundedList::new(triggers).unwrap();
+        let tickwire_venue::CommandBody::New(mut spec) = raw.body else {
+            unreachable!()
+        };
+        spec.client_id = tickwire_venue::ClientId::new(format!("mux-ws-{idx}")).unwrap();
+        raw.body = tickwire_venue::CommandBody::New(spec);
+        let cmd = CanonicalCommand::new(raw).unwrap();
+        let order_id = [(20 + idx) as u8; 16];
+        input.register_command(cmd.clone(), &[order_id]).unwrap();
+        let plan = input.plan_ws_request(&session, cmd.clone()).unwrap();
+        state.prepare_websocket(plan.clone()).unwrap();
+        use tickwire_account_gateway::Encoder as _;
+        let _ = encoder.encode(&cmd).unwrap();
+        assert_eq!(
+            gateway
+                .submit_on_slot(idx as u16, cmd.clone(), 60, gateway_fixture::until())
+                .unwrap()
+                .0,
+            Status::AwaitingCommit
+        );
+        let ikey = tickwire_account::IntentKey {
+            epoch: cmd.command().context.request.intent_exec_epoch,
+            intent_id: cmd.command().context.request.intent_id,
+        };
+        let committed = gateway.committed(ikey).unwrap();
+        // Before installing this command's binding, commit_state is Pending
+        // even while earlier commands (0..idx) are already Ready!
+        assert_eq!(
+            gate_auth
+                .commit_state(committed.admission(), committed.receipt())
+                .unwrap(),
+            CommitState::Pending
+        );
+        let wire = state.websocket_wire(cmd.digest()).unwrap();
+        let bound = input.persist_ws_binding(plan, &gateway, wire).unwrap();
+        state.install_websocket_binding(bound).unwrap();
+        assert_eq!(
+            gate_auth
+                .commit_state(committed.admission(), committed.receipt())
+                .unwrap(),
+            CommitState::Ready
+        );
+        commands.push(cmd);
+    }
+
+    // All 4 concurrent commands remain Ready simultaneously on the same SessionIdentity.
+    for cmd in &commands {
+        let ikey = tickwire_account::IntentKey {
+            epoch: cmd.command().context.request.intent_exec_epoch,
+            intent_id: cmd.command().context.request.intent_id,
+        };
+        let committed = gateway.committed(ikey).unwrap();
+        assert_eq!(
+            gate_auth
+                .commit_state(committed.admission(), committed.receipt())
+                .unwrap(),
+            CommitState::Ready
+        );
+    }
+
+    // Feedback 429 freezes legacy Endpoint without banning MultiIpCommandQuota;
+    // Feedback 418 bans MultiIpCommandQuota account-wide.
+    SessionState::feedback(&mut state, 429).unwrap();
+    assert!(
+        !state
+            .multi_ip_quota(|mq| mq.unwrap().is_account_banned())
+            .unwrap()
+    );
+    SessionState::feedback(&mut state, 418).unwrap();
+    assert!(
+        state
+            .multi_ip_quota(|mq| mq.unwrap().is_account_banned())
+            .unwrap()
+    );
+
+    drop(gateway);
+    for p in slot_peers {
+        let _ = p.join().unwrap();
+    }
 }

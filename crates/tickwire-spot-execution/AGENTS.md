@@ -1,11 +1,12 @@
 # tickwire-spot-execution
 
 `tickwire-spot-execution` (`#![forbid(unsafe_code)]`) implements authenticated Bybit V5 and OKX V5 cash-spot REST
-request signing (`SpotEncoder`), single-flight gateway sessions (`RestSession`), synchronous response classification
-(`decode_reply`), `StorageMode`-aware private WebSocket stream capture (`private`), background dialer connection
-handoff (`network::{LiveNetwork, SocketConnection}`), and UID-bound REST recovery collection (`recovery`, `observe`,
-and the `tickwire-spot-observe` binary). `tickwire-spot-runner` drives `RestSession` over an injected `AccountGateway`;
-strategy scheduling, balance math, and control leases remain outside this crate.
+request signing (`SpotEncoder`), single-flight and multi-connection pooled gateway sessions (`RestSession`), EWMA
+`OrderRouter` + `VenueRateLimiter` routing, synchronous response classification (`decode_reply`), `StorageMode`-aware
+private WebSocket stream capture (`private`), background dialer connection handoff (`network::{LiveNetwork,
+SocketConnection}`), and UID-bound REST recovery collection (`recovery`, `observe`, and the `tickwire-spot-observe`
+binary). `tickwire-spot-runner` drives `RestSession` over an injected `AccountGateway`; strategy scheduling, balance
+math, and control leases remain outside this crate.
 
 ## Invariants and Change Guidelines
 
@@ -14,12 +15,22 @@ strategy scheduling, balance math, and control leases remain outside this crate.
   credentials, symbols, and venue-bounded `client_id` lengths (`32` OKX, `36` Bybit); never implement `Debug` or error
   formatting that exposes API secrets or passphrases.
 * **Distinct acknowledgement, order-status, fill, and error-classification evidence**: Keep synchronous HTTP
-  acknowledgements and venue error classification (`SpotIssueKind`, `classify_issue`, `is_http_account_hazard`) in
-  [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from trade-level fills in
-  [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs); default unknown venue
-  codes conservatively to `SpotIssueKind::Ambiguous`, preserve `per_order_doubt_isolation() == false` by default, record
-  `VenueEventBody::Rejected` (`record_rejected_new`) only on `DeterministicReject` for `New` orders, and enforce
-  `writer_epoch > durable_floor` when constructing `RestSession`.
+  acknowledgements and venue error classification (`SpotIssueKind`, `classify_issue`, `is_http_account_hazard`,
+  `is_venue_rate_limit_code`) in [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from
+  trade-level fills in [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs);
+  default unknown venue codes conservatively to `SpotIssueKind::Ambiguous`, preserve `per_order_doubt_isolation() ==
+  false` by default in unpooled mode, record `VenueEventBody::Rejected` (`record_rejected_new`) only on
+  `DeterministicReject` for `New` orders, and enforce `writer_epoch > durable_floor` when constructing `RestSession`.
+* **Multi-connection exclusive HTTP/1.1 pool and `Place`/`Cancel`/`Query` isolated `VenueRateLimiter`**: Preserve 100%
+  single-connection `RestSession` semantics when `gateway.has_connection_pool() == false`. When pooled via
+  `with_connection_pool` / `enable_connection_pool` in [src/session.rs](src/session.rs), enforce `SendSlot::Exclusive`
+  per slot (`0..MAX_ORDER_CONNECTIONS`), derive non-zero `symbol_rate_key(instrument_id)` (auto-registering symbols on
+  `OkxSpot`), return `SessionError::RateLimited(RateReject)` **before** `gateway.submit_on_slot` when local `Place`,
+  `Cancel`, or `Query` budgets are full, correlate concurrent completions via `poll_tagged`, record microsecond RTTs via
+  `note_slot_sample(..., SampleKind::Order, sample_us)`, isolate single-slot drops via `drop_broken_slot_isolated`, and
+  translate HTTP `429` / Bybit `10006` / OKX `50011` on multi-IP pooled slots into per-IP `note_ip_cooldown` +
+  single-intent `in_doubt` without freezing `Account` (while HTTP `401`/`403`/`418` and auth hazards still freeze
+  `Account` immediately).
 * **Signed off-hot-path REST `GET` builders**: Reuse `build_order_status_get`, `build_order_trades_get`, and `decode_fill_row`
   in [src/lib.rs](src/lib.rs) and [src/recovery.rs](src/recovery.rs) for `AsyncRestQuerier` status and trade catch-up
   without duplicating HMAC signing or native row validation.
@@ -29,10 +40,11 @@ strategy scheduling, balance math, and control leases remain outside this crate.
   and bounded ring trimming of consumed descriptors/frame blobs past `max_descriptors`), `StorageMode::MmapAsync`
   (`Journal<MmapAsyncStore>` + `AsyncFileBlobStore`), or `StorageMode::LocalDurable` (strict `0o077` owner-only
   directory checks with `Journal<FileStore>` + `FileBlobStore`).
-* **Off-hot-path background reconnects and calibrated venue timestamps**: Use `LiveNetwork` and `SocketConnection` in
-  [src/network.rs](src/network.rs) to integrate optional `Dialer` + `DialBaton` pre-warmed TCP+TLS reconnects off the
-  `AccountRunner` hot path, and supply calibrated UTC milliseconds via the injected `time` closure in `SpotEncoder` and
-  `network::venue_time`, failing closed when time calibration is unavailable.
+* **Off-hot-path background reconnects and calibrated venue timestamps**: Use `LiveNetwork` (`attach_pool_slot`,
+  `create_pool_baton`) and `SocketConnection` in [src/network.rs](src/network.rs) to integrate optional `Dialer` +
+  `DialBaton` pre-warmed TCP+TLS reconnects across `1..=N` local source IPs off the `AccountRunner` hot path, and supply
+  calibrated UTC milliseconds via the injected `time` closure in `SpotEncoder` and `network::venue_time`, failing closed
+  when time calibration is unavailable.
 * **Replayable UID-bound REST recovery transcripts**: `RestReader` in [src/recovery.rs](src/recovery.rs) and `observe`
   in [src/observe.rs](src/observe.rs) execute an identical paging and cashflow verification plan on live collection
   and local replay, refusing unsupported margin, transfer, or non-cash activity (`src/recovery/cash_flows.rs`,

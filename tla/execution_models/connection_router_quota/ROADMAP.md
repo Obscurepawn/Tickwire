@@ -1,0 +1,6 @@
+# Multi-connection `OrderRouter`, pooled `AccountGateway`, and multi-IP `VenueRateLimiter` models
+
+| Level | Result |
+| --- | --- |
+| [L0 pooled `OrderRouter`, epoch fencing, & multiplexed WS isolation](L0_pool_router/05_output.md) | `Exclusive` (`<= 1`) and `Shared` (`<= MaxShared`) inflight bounds, exact per-epoch inflight accounting without double-release on `Aborted`, warmup round-robin and `9/8` EWMA hysteresis soundness, pre-EOF `retained_receive` / `draining_eof` draining before `DialBaton` reconnect, zero cross-epoch response aliasing, and `Aborted` vs. `InDoubt` per-order isolation passed across pooled REST and hybrid REST+WS configurations. |
+| [L1 multi-IP `RateLimiter`, `VenueRateLimiter`, & `429` failover](L1_multi_ip_quota/05_output.md) | Fixed- and sliding-window cap enforcement, exact reverse-order `put_back` rollback across fixed and coalesced/pushed rolling debits, universal `can_afford` == `allow` agreement (including duplicate `RateLimitId` spends and full rings), pre-admission local reject non-burn, `Cancel`/`Query` immunity to `ORDER` exhaustion, per-IP `429` failover onto healthy sibling IPs, and account-wide `418` freeze passed across multi-IP failover and tight-ring coalescing configurations. |

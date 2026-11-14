@@ -22,6 +22,10 @@ pub(super) struct Deployment {
     pub state_directory: Option<PathBuf>,
     #[serde(default)]
     pub per_order_query_desk: bool,
+    #[serde(default)]
+    pub execution_pool_size: Option<usize>,
+    #[serde(default)]
+    pub local_ips: Vec<std::net::IpAddr>,
     pub baseline: PathBuf,
     pub expected_uid: String,
     pub baseline_utc_ms: u64,
@@ -80,6 +84,16 @@ impl Deployment {
             || self.market_sources.len() > 32
             || (trading && self.strategies.is_empty())
             || self.strategies.len() > 32
+            || self.execution_pool_size.is_some_and(|n| {
+                !(1..=tickwire_account_gateway::pool::MAX_ORDER_CONNECTIONS).contains(&n)
+            })
+            || self.local_ips.len() > tickwire_account_gateway::pool::MAX_ORDER_CONNECTIONS
+            || self.local_ips.iter().any(|ip| ip.is_unspecified())
+            || self
+                .local_ips
+                .iter()
+                .enumerate()
+                .any(|(i, ip)| self.local_ips[..i].contains(ip))
         {
             return Err("invalid live spot deployment identity, paths or capacity".into());
         }

@@ -4,11 +4,12 @@
 local-IP socket-bind boundary in [src/connection.rs](src/connection.rs)) owns explicitly driven, nonblocking TCP (`mio`),
 TLS (`rustls` with
 early data disabled), HTTP/1.1 (`http`), WebSocket (`ws`), and FIX (`fix`) framing under bounded byte and syscall
-budgets (`Limits`, `IoBudget`), together with optional off-hot-path background connection dialing (`dialer`) and
-asynchronous HTTP/1.1 REST reconciliation querying (`rest_querier`). Hot-path `REQ`/`RESP` loops drive `Connection`
-and protocol framers on single-threaded reactors, while `Dialer` (`"tw-dialer"`) and `AsyncRestQuerier`
-(`"tw-rest-query"`) isolate DNS resolution, TCP/TLS/WS `101` handshakes, and status HTTP queries onto dedicated worker
-threads behind allocation-free handoff primitives.
+budgets (`Limits`, `IoBudget`), hot-path EWMA execution route selection and multi-connection pool lifecycle
+(`order_router`), together with optional off-hot-path background connection dialing (`dialer`) and
+asynchronous HTTP/1.1 REST reconciliation querying (`rest_querier`). Hot-path `REQ`/`RESP` loops drive `Connection`,
+`OrderConnectionPool`, and protocol framers on single-threaded reactors, while `Dialer` (`"tw-dialer"`) and
+`AsyncRestQuerier` (`"tw-rest-query"`) isolate DNS resolution, TCP/TLS/WS `101` handshakes, and status HTTP queries
+onto dedicated worker threads behind allocation-free handoff primitives.
 
 ## Invariants and Change Guidelines
 
@@ -38,14 +39,21 @@ threads behind allocation-free handoff primitives.
 * **Strict protocol framing**: Keep HTTP response/chunk parsing in [src/http.rs](src/http.rs), RFC 6455
   masking/control-frame validation in [src/ws.rs](src/ws.rs), and FIX checksum/body-length framing in
   [src/fix.rs](src/fix.rs) bounded against `max_receive_bytes`.
+* **Epoch-fenced integer EWMA order routing**: In [src/order_router.rs](src/order_router.rs), forbid `unsafe` and
+  floating-point arithmetic, keep `pick`, `acquire_inflight`, `release_inflight`, `note_sample`, and `on_disconnect`
+  allocation-free over fixed `MAX_ORDER_CONNECTIONS` (`16`) slots, never multiply `ema_us` by `inflight`, enforce
+  `9/8` hysteresis (`last_score * 8 <= best_score * 9`), fence stale samples/releases with monotonic `epoch` tokens,
+  and release externally owned `IpPool` peer leases at most once per installed link.
 
 ## Verification and Specifications
 
 * **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/connection.rs](src/connection.rs) ·
-  [src/dialer.rs](src/dialer.rs) · [src/rest_querier.rs](src/rest_querier.rs) · [src/http.rs](src/http.rs) ·
+  [src/order_router.rs](src/order_router.rs) · [src/dialer.rs](src/dialer.rs) ·
+  [src/rest_querier.rs](src/rest_querier.rs) · [src/http.rs](src/http.rs) ·
   [src/ws.rs](src/ws.rs) · [src/fix.rs](src/fix.rs)
 * **Integration tests**: [tests/framing.rs](tests/framing.rs) · [tests/network.rs](tests/network.rs) ·
-  [tests/dialer_and_querier.rs](tests/dialer_and_querier.rs)
+  [tests/dialer_and_querier.rs](tests/dialer_and_querier.rs) ·
+  [tests/order_router_pool.rs](tests/order_router_pool.rs)
 * **Specifications and models**: [transport.md](../../specs/implementation/transport.md) ·
   [transport](../../tla/execution_models/transport/ROADMAP.md) ·
   [gateway](../../tla/execution_models/gateway/ROADMAP.md)

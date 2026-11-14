@@ -331,6 +331,72 @@ impl LiveNetwork {
         self.baton.as_ref()
     }
 
+    /// Registers an independent [`DialBaton`] slot on `dialer` with an optional bound `local_ip`.
+    pub fn create_pool_baton(
+        &self,
+        dialer: &Arc<Dialer>,
+        slot_id: u64,
+        local_ip: Option<IpAddr>,
+    ) -> Result<Arc<DialBaton>> {
+        let server_name = ServerName::try_from(self.host.clone())?;
+        let spec = DialSpec {
+            host: self.host.clone(),
+            port: self.port,
+            initial_peers: self.peers.clone(),
+            local_ip: local_ip.or(self.local_ip),
+            security: DialSecurity::Tls {
+                server_name,
+                config: self.tls.clone(),
+            },
+            limits: self.limits,
+            transport: DialTransport::PlainOrTls,
+            connect_timeout: self.connect_timeout,
+            dial_timeout: self.connect_timeout.max(Duration::from_secs(5)),
+            backoff: self.backoff,
+        };
+        Ok(dialer.add_slot(slot_id, spec)?)
+    }
+
+    /// Builds an [`OrderSlotSpec`](tickwire_transport::order_router::OrderSlotSpec) backed by a
+    /// background [`DialBaton`] on `dialer` and optional shared [`IpPool`](tickwire_transport::dialer::IpPool).
+    pub fn build_pool_slot_spec(
+        &self,
+        dialer: &Arc<Dialer>,
+        slot_id: u64,
+        local_ip: Option<IpAddr>,
+        ip_pool: Option<Arc<std::sync::Mutex<tickwire_transport::dialer::IpPool>>>,
+    ) -> Result<tickwire_transport::order_router::OrderSlotSpec> {
+        let effective_local = local_ip.or(self.local_ip);
+        let baton = self.create_pool_baton(dialer, slot_id, effective_local)?;
+        let _ = baton.want(0);
+        let mut spec = tickwire_transport::order_router::OrderSlotSpec::with_baton(
+            tickwire_transport::order_router::SendSlot::Exclusive,
+            baton,
+            self.backoff,
+        );
+        spec.local_ip = effective_local;
+        spec.ip_pool = ip_pool;
+        Ok(spec)
+    }
+
+    /// Attaches one exclusive HTTP/1.1 pool slot onto `session` backed by `dialer`.
+    pub fn attach_pool_slot<B, A, T>(
+        &self,
+        session: &mut crate::RestSession<'_, B, A, T>,
+        dialer: &Arc<Dialer>,
+        slot_id: u64,
+        local_ip: Option<IpAddr>,
+        ip_pool: Option<Arc<std::sync::Mutex<tickwire_transport::dialer::IpPool>>>,
+    ) -> Result<u16>
+    where
+        B: tickwire_account_journal::Backend,
+        A: tickwire_account_gateway::Authority,
+        T: FnMut() -> std::result::Result<u64, tickwire_gateway::Error>,
+    {
+        let spec = self.build_pool_slot_spec(dialer, slot_id, local_ip, ip_pool)?;
+        Ok(session.add_pool_slot(spec, self.limits)?)
+    }
+
     /// Requests the background [`Dialer`] to establish the next TCP+TLS connection off the hot path.
     pub fn request_prewarm(&self, due_mono_ns: u64) -> bool {
         self.baton

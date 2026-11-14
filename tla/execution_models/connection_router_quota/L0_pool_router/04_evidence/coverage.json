@@ -1,0 +1,21 @@
+{
+  "model": "L0_PoolRouter",
+  "runs": 2,
+  "entries": 13,
+  "generated": {
+    "Init line 183, col 1 to line 183, col 4 of module L0_PoolRouter": 2,
+    "SubmitPickedSlot line 208, col 1 to line 208, col 20 of module L0_PoolRouter (210 5 226 9)": 5697,
+    "AbortZeroBytesInPoll line 231, col 1 to line 231, col 23 of module L0_PoolRouter (233 5 249 9)": 11001,
+    "ReapAbortedRestPending line 256, col 1 to line 256, col 25 of module L0_PoolRouter (258 5 269 9)": 10347,
+    "PartialAcceptOnSlot line 273, col 1 to line 273, col 22 of module L0_PoolRouter (275 5 285 9)": 11001,
+    "FlushOnSlot line 290, col 1 to line 290, col 14 of module L0_PoolRouter (292 5 303 9)": 22002,
+    "CompleteLiveReply line 308, col 1 to line 308, col 29 of module L0_PoolRouter (310 5 327 9)": 29607,
+    "PeerReplyThenEof line 334, col 1 to line 334, col 19 of module L0_PoolRouter": 1860,
+    "DisconnectWithoutReply line 373, col 1 to line 373, col 25 of module L0_PoolRouter (378 5 402 9)": 11248,
+    "BatonBecomeReady line 406, col 1 to line 406, col 19 of module L0_PoolRouter": 9160,
+    "DrainRetainedReply line 423, col 1 to line 423, col 25 of module L0_PoolRouter (427 5 443 9)": 2772,
+    "FinalizeBrokenSlotPending line 450, col 1 to line 450, col 28 of module L0_PoolRouter (452 5 468 9)": 4752,
+    "HarvestReadyBaton line 474, col 1 to line 474, col 20 of module L0_PoolRouter": 4492
+  },
+  "model_sha256": "324998e0e2b9d73cacbf1c406a478749bf97b8a0babac2687a9bda6b1e76574a"
+}

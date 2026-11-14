@@ -389,6 +389,7 @@ where
     /// Call after the account owner installs a fresh REST connection.
     pub fn connection_replaced(&mut self) {
         self.registered_rest = false;
+        self.rest.reset_mio_registrations();
     }
     pub fn replay_pending(&mut self, maximum: usize) -> Result<usize> {
         self.rest.replay_pending(maximum).map_err(Error::Account)
@@ -573,20 +574,44 @@ where
     }
     fn poll_account(&mut self, io: IoBudget, report: &mut Report) -> Result<()> {
         let fresh = self.time()?;
+        let mut completed = 0usize;
         if let Some(outcome) = self
             .rest
             .poll(fresh.local.instant, fresh.local.monotonic.nanos(), io)
             .map_err(Error::Account)?
         {
             report.rest_completed = true;
-            if self
-                .rest
-                .latest_applied_input()
+            completed += 1;
+            if outcome
+                .input
+                .or_else(|| self.rest.latest_applied_input())
                 .is_some_and(|input| !self.observer.input_applied(input, self.rest.account()))
             {
                 return Err(Error::Strategy);
             }
             self.strategy.on_rest(outcome, self.rest.account());
+        }
+        while completed < 16 && self.rest.has_queued_outcomes() {
+            let Some(outcome) = self
+                .rest
+                .poll(fresh.local.instant, fresh.local.monotonic.nanos(), io)
+                .map_err(Error::Account)?
+            else {
+                break;
+            };
+            report.rest_completed = true;
+            completed += 1;
+            if outcome
+                .input
+                .or_else(|| self.rest.latest_applied_input())
+                .is_some_and(|input| !self.observer.input_applied(input, self.rest.account()))
+            {
+                return Err(Error::Strategy);
+            }
+            self.strategy.on_rest(outcome, self.rest.account());
+        }
+        if self.rest.has_queued_outcomes() {
+            report.runnable = true;
         }
         if self
             .rest
@@ -721,12 +746,16 @@ where
             })
             .map_err(Error::Shared)??;
         if !self.rest.gateway().halted() {
-            if self.registered_rest {
-                self.rest.reregister(registry, mio::Token(6))
+            if self.rest.has_connection_pool() {
+                self.rest.reregister_all(registry).map_err(Error::Account)?;
             } else {
-                self.rest.register(registry, mio::Token(6))
+                if self.registered_rest {
+                    self.rest.reregister(registry, mio::Token(6))
+                } else {
+                    self.rest.register(registry, mio::Token(6))
+                }
+                .map_err(Error::Account)?;
             }
-            .map_err(Error::Account)?;
             self.registered_rest = true;
         }
         Ok(())

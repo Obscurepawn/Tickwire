@@ -11,11 +11,11 @@ mod session;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 pub use reports::{
     OrderSnapshot, Reply, ReportError, SpotIssueKind, classify_issue, decode_reply,
-    is_http_account_hazard,
+    is_http_account_hazard, is_venue_rate_limit_code,
 };
 use ring::hmac;
 use serde_json::{Map, Value, json};
-pub use session::{RestSession, SessionError};
+pub use session::{RestSession, SessionError, symbol_rate_key};
 use tickwire_gateway::{EncodedRequest, Encoder, Error, Route};
 use tickwire_transport::{http, rest_querier::BuiltRequest};
 pub use tickwire_venue::SpotVenue;

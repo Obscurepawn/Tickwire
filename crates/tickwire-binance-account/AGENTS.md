@@ -20,16 +20,22 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
   frames; quarantine unknown, unadmitted, or conflicting reports (`QuarantineReason`) rather than fabricating local
   order identities. Retire expired registrations, WS binding slots, and `InMemory`/`MmapAsync` prefix records past
   `retention_window_ns` via `evict_expired` while keeping active orders pinned.
-* **WebSocket and REST lifecycle binding, deterministic rejections, and per-order `QueryDesk` isolation**: Keep
-  synchronous REST replies in [src/rest.rs](src/rest.rs) and WebSocket trading plans/bindings in [src/ws.rs](src/ws.rs)
-  tied to their durable admission digests and session epochs, including late trade fills arriving after terminal order
-  statuses. When `RestOwner::with_per_order_query_desk` / `enable_per_order_query_desk` activates per-order doubt
-  isolation, emit deterministic `VenueEventBody::Rejected` events on single-order `CommandBody::New` creation rejections,
-  isolate Category A single-order transport/status ambiguities (`PlaceAmbiguous`, `CancelAmbiguous`, `AmendAmbiguous`,
-  `FillCatchup`) without freezing sibling orders, and resolve due `QueryDesk` asks off the hot path via
-  `PerOrderQueryDriver` in [src/query_desk_driver.rs](src/query_desk_driver.rs) over `AsyncRestQuerier` while still
-  freezing immediately on Category B account-wide hazards (`418`/`429`/`401`/`-1021`, stream gaps/quarantines,
-  `OrderStatus::Unknown`, multi-leg ambiguities, or `max_query_count` exhaustion).
+* **WebSocket multiplexing, pooled REST routing, multi-IP quota, and per-order `QueryDesk` isolation**: Keep
+  single-connection and pooled (`with_connection_pool` / `OrderConnectionPool`) REST replies in [src/rest.rs](src/rest.rs)
+  and up to `MAX_SHARED_INFLIGHT` (`16`) concurrent `WsRequestId`-correlated WebSocket trading requests in
+  [src/ws.rs](src/ws.rs) and [src/ws/owner.rs](src/ws/owner.rs) tied to their durable admission digests and session
+  epochs, including out-of-order replies and late trade fills arriving after terminal order statuses. When
+  `VenueRateLimiter` is attached (`with_venue_rate_limiter`), enforce class-isolated budgets (`Cancel` and `Query`
+  never check or debit `ORDER` caps), reconcile `X-MBX-*` / `Retry-After` / WS `"rateLimits"` counters, and fail over
+  across healthy `local_ip` pool slots when a single source IP enters HTTP `429` cooldown. When
+  `RestOwner::with_per_order_query_desk` / `enable_per_order_query_desk` activates per-order doubt isolation, emit
+  deterministic `VenueEventBody::Rejected` events on single-order `CommandBody::New` creation rejections, isolate
+  Category A single-order transport/status ambiguities and per-IP `429` cooldowns (`PlaceAmbiguous`,
+  `CancelAmbiguous`, `AmendAmbiguous`, `FillCatchup`) without freezing sibling orders or links, and resolve due
+  `QueryDesk` asks off the hot path via `PerOrderQueryDriver` in [src/query_desk_driver.rs](src/query_desk_driver.rs)
+  over `AsyncRestQuerier` while still freezing immediately on Category B account-wide hazards (`418`, `401`/`403`,
+  `-1021`, single-IP `429`, stream gaps/quarantines, `OrderStatus::Unknown`, multi-leg ambiguities, or
+  `max_query_count` exhaustion).
 * **Evidence-complete reconciliation, keep-alive reuse, and cold bootstrap**: Require snapshot, open/conditional order,
   trade, amendment, structure, and USD-M income closures in [src/reconciliation.rs](src/reconciliation.rs) and
   [src/account_facts.rs](src/account_facts.rs) to converge against the exact account prefix before reactivating
@@ -49,6 +55,7 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
 * **Integration tests**: [tests/account_observation.rs](tests/account_observation.rs) ·
   [tests/hot_path_and_eviction.rs](tests/hot_path_and_eviction.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
+  [tests/multi_connection_router.rs](tests/multi_connection_router.rs) ·
   [tests/network_ingress.rs](tests/network_ingress.rs) ·
   [tests/per_order_query_desk.rs](tests/per_order_query_desk.rs) · [tests/persistence.rs](tests/persistence.rs)
 * **Specifications and models**: [binance-ws-trading.md](../../specs/implementation/binance-ws-trading.md) ·

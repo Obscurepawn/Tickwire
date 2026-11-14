@@ -13,13 +13,16 @@ use std::{
     rc::Rc,
     time::{Duration, Instant},
 };
-use tickwire_account_gateway::{AccountGateway, AuthorityError, ConnectionConfig};
+use tickwire_account_gateway::{
+    AccountGateway, AuthorityError, ConnectionConfig, pool::RouterConfig,
+};
 use tickwire_account_journal::AccountBackend;
 use tickwire_app::{market::Sources, strategy::AppStrategy};
 use tickwire_binance_clock::{LocalTime, SystemClock};
 use tickwire_clock::MonoTime;
 use tickwire_journal::StorageMode;
 use tickwire_market_source::{FeedObservation, Invalidation, MarketSink, MarketSource};
+use tickwire_quota::rate_limiter::{IpKey, VenuePreset, VenueRateLimiter};
 use tickwire_recovery::{BlobStore, RuntimeBlobStore, SharedBlobStore};
 use tickwire_runtime::{
     authority::{GateProvider, LocalAuthority, RecoveryQueue},
@@ -96,6 +99,7 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     let plane = cfg.policy.build().map_err(protocol_error)?;
     let domain = cfg.policy.domain().map_err(protocol_error)?;
     let scope = base.snapshot().scope.clone();
+    let account_id = scope.account;
     let (backend, existing, mut objects, reconciliation_store, stream_cfg) = match storage_mode {
         StorageMode::InMemory => (
             AccountBackend::open(StorageMode::InMemory, None)?,
@@ -163,9 +167,38 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     let mut ws_network = network::LiveNetwork::new(ws_host, ws_port, tls.clone());
     ws_network.attach_dialer(dialer.clone(), 1)?;
     ws_network.request_prewarm(0);
+    let use_pool =
+        trading && (cfg.execution_pool_size.is_some_and(|n| n > 1) || !cfg.local_ips.is_empty());
+    let pool_size = cfg
+        .execution_pool_size
+        .unwrap_or_else(|| cfg.local_ips.len().max(1));
     let mut exec_network =
         network::LiveNetwork::new(rest_host, 443, tls.clone()).with_peers(vec![address]);
-    exec_network.attach_dialer(dialer, 2)?;
+    if !use_pool {
+        exec_network.attach_dialer(dialer.clone(), 2)?;
+    }
+    let configure_pool = |session: &mut RestSession<'_, AccountBackend, _, _>| -> Result<()> {
+        session.enable_connection_pool(RouterConfig::default())?;
+        for i in 0..pool_size {
+            let local_ip =
+                (!cfg.local_ips.is_empty()).then(|| cfg.local_ips[i % cfg.local_ips.len()]);
+            exec_network.attach_pool_slot(session, &dialer, 10 + i as u64, local_ip, None)?;
+        }
+        let preset = match venue {
+            tickwire_spot_execution::SpotVenue::Bybit => VenuePreset::BybitSpot,
+            tickwire_spot_execution::SpotVenue::Okx => VenuePreset::OkxSpot,
+        };
+        let ip_keys: Vec<IpKey> = if cfg.local_ips.is_empty() {
+            vec![IpKey::from_v4(std::net::Ipv4Addr::UNSPECIFIED)]
+        } else {
+            cfg.local_ips.iter().copied().map(IpKey::from_ip).collect()
+        };
+        let limiter = VenueRateLimiter::new(preset, account_id, &ip_keys)
+            .map_err(|e| format!("venue rate limiter init: {e:?}"))?;
+        session.set_venue_rate_limiter(limiter);
+        let _ = session.poll_pool_dials(0);
+        Ok(())
+    };
     cfg.bind(&mut objects, &base, existing)?;
     let mut verifier =
         CashVerifier::new(reconciliation_store, &cfg.expected_uid, cfg.baseline_utc_ms)?;
@@ -264,45 +297,50 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         AccountGateway::create(backend, settings, base, auth, encoder, connection())?
     };
     objects.put_sync(config::initialized(), &baseline_digest)?;
-    let mut runner = AccountRunner::new(RestSession::new(gateway, 1)?, queue, objects);
+    let mut session = RestSession::new(gateway, 1)?;
+    if use_pool && !existing {
+        configure_pool(&mut session)?;
+    }
+    let mut runner = AccountRunner::new(session, queue, objects);
     if matches!(storage_mode, StorageMode::InMemory | StorageMode::MmapAsync) {
         runner.set_retention_window_ns(Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS));
     }
     let query_signing = std::sync::Arc::new(std::sync::Mutex::new(None::<(u64, Instant)>));
-    let mut query_driver = if trading && cfg.per_order_query_desk {
+    let mut query_driver = if trading && (cfg.per_order_query_desk || use_pool) {
         runner.enable_per_order_query_desk(tickwire_account::QueryConfig::default());
         let shared_clock = std::sync::Arc::clone(&query_signing);
         let server_name = ServerName::try_from(rest_host.to_owned())?;
-        Some(
-            PerOrderQueryDriver::new(
-                venue,
-                env,
-                RestQuerierConfig {
-                    host: rest_host.to_owned(),
-                    port: 443,
-                    initial_peers: vec![address],
-                    security: DialSecurity::Tls {
-                        server_name,
-                        config: tls.clone(),
-                    },
-                    ..RestQuerierConfig::default()
+        let mut drv = PerOrderQueryDriver::new(
+            venue,
+            env,
+            RestQuerierConfig {
+                host: rest_host.to_owned(),
+                port: 443,
+                initial_peers: vec![address],
+                security: DialSecurity::Tls {
+                    server_name,
+                    config: tls.clone(),
                 },
-                credentials.clone(),
-                move || {
-                    let calibrated = *shared_clock.lock().unwrap_or_else(|e| e.into_inner());
-                    if calibrated.is_some() {
-                        signing_time(calibrated)
-                    } else {
-                        std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .map(|d| d.as_millis() as u64)
-                            .map_err(|_| tickwire_gateway::Error::Frozen)
-                    }
-                },
-            )
-            .map_err(|e| format!("per-order query driver init: {e}"))?
-            .with_execution_network(exec_network.clone()),
+                ..RestQuerierConfig::default()
+            },
+            credentials.clone(),
+            move || {
+                let calibrated = *shared_clock.lock().unwrap_or_else(|e| e.into_inner());
+                if calibrated.is_some() {
+                    signing_time(calibrated)
+                } else {
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .map_err(|_| tickwire_gateway::Error::Frozen)
+                }
+            },
         )
+        .map_err(|e| format!("per-order query driver init: {e}"))?;
+        if !use_pool {
+            drv = drv.with_execution_network(exec_network.clone());
+        }
+        Some(drv)
     } else {
         None
     };
@@ -375,6 +413,9 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
                 });
                 match activated {
                     Ok(true) => {
+                        if use_pool && !owner.runner.session().gateway().has_connection_pool() {
+                            configure_pool(owner.runner.session_mut())?;
+                        }
                         *query_signing.lock().unwrap_or_else(|e| e.into_inner()) =
                             owner.signing.get();
                         renew_at = Instant::now() + Duration::from_secs(30);
@@ -424,15 +465,22 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
             instant: time.instant,
             monotonic: time.monotonic,
         };
+        if owner.runner.session().gateway().has_connection_pool() && !owner.runner.halted() {
+            let _ = owner.runner.poll_pool_dials(now.monotonic.nanos());
+        }
         if owner.runner.transport_needs_poll()
             && let Some(strategy) = strategy.as_mut()
         {
-            owner.runner.poll(strategy, now, IoBudget::default())?;
+            owner.runner.poll_all(strategy, now, IoBudget::default())?;
         }
         if let Some(driver) = query_driver.as_mut() {
             driver
                 .poll(&mut owner.runner, current, now.monotonic.nanos())
                 .map_err(|e| format!("per-order query driver: {e}"))?;
+        } else if owner.runner.session().gateway().has_connection_pool() {
+            if !owner.runner.halted() && !owner.runner.account().frozen() {
+                let _ = owner.runner.poll_pool_dials(now.monotonic.nanos());
+            }
         } else if !owner.runner.halted()
             && !owner.runner.account().frozen()
             && !owner.runner.has_transport_connection()
@@ -459,14 +507,24 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
             && !owner.runner.halted()
             && let (Some(strategy), Some(market)) = (strategy.as_mut(), market.as_ref())
         {
-            let healthy = Health {
-                calibrated: signing_time(owner.signing.get()).is_ok(),
-                market_live: market.is_live(now.monotonic, MAX_MARKET_AGE_NS),
-                private_receiving: true,
-                account_frozen: owner.runner.account().frozen(),
-                sender_halted: false,
-            };
-            owner.runner.poll_strategy(strategy, healthy, now)?;
+            let max_turns = if use_pool { pool_size } else { 1 };
+            for _ in 0..max_turns {
+                let sample = clock.sample().map_err(protocol_error)?;
+                let turn_now = LocalTime {
+                    instant: sample.instant,
+                    monotonic: sample.monotonic,
+                };
+                let healthy = Health {
+                    calibrated: signing_time(owner.signing.get()).is_ok(),
+                    market_live: market.is_live(turn_now.monotonic, MAX_MARKET_AGE_NS),
+                    private_receiving: true,
+                    account_frozen: owner.runner.account().frozen(),
+                    sender_halted: false,
+                };
+                if !owner.runner.poll_strategy(strategy, healthy, turn_now)? {
+                    break;
+                }
+            }
         }
         if strategy.as_ref().is_some_and(AppStrategy::failed) {
             return Err("live strategy group failed".into());

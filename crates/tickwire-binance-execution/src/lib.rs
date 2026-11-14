@@ -7,7 +7,7 @@ use tickwire_account_gateway::{AdmissionRequest, Authority, AuthorityError, Gate
 use tickwire_binance::request::{self, Credentials, RequestOptions, Timestamp, Transport};
 use tickwire_binance_account::ws::{DurableWsBinding, SessionIdentity, SignedWire, WsRequestPlan};
 use tickwire_binance_clock::{BinanceTimeClient, ClockReading, LocalTime, MonotonicClock};
-use tickwire_binance_quota::{CommandBinding, Endpoint};
+use tickwire_binance_quota::{CommandBinding, Endpoint, MultiIpCommandQuota};
 use tickwire_clock::{ClockDomain, SignedTime, Source, TimeUnit};
 use tickwire_gateway::{EncodedRequest, Encoder};
 use tickwire_recovery::VerifiedClosure;
@@ -131,6 +131,7 @@ struct PreparedGate {
 struct State<C, B> {
     clock: C,
     quota: Endpoint,
+    multi_ip_quota: Option<MultiIpCommandQuota>,
     binding: CommandBinding,
     budget: B,
     config: Config,
@@ -163,11 +164,16 @@ impl<C: SessionClock, B: DeliveryBudget> tickwire_binance_account::ws::SessionSt
     }
     fn feedback(&mut self, status: u16) -> tickwire_binance_account::Result<()> {
         if matches!(status, 418 | 429) {
-            self.0
+            let mut state = self
+                .0
                 .try_borrow_mut()
-                .map_err(|_| tickwire_binance_account::Error::Stopped)?
-                .quota
-                .freeze();
+                .map_err(|_| tickwire_binance_account::Error::Stopped)?;
+            state.quota.freeze();
+            if status == 418
+                && let Some(mq) = state.multi_ip_quota.as_mut()
+            {
+                let _ = mq.note_account_banned(None);
+            }
         }
         Ok(())
     }
@@ -211,6 +217,7 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         Ok(Self(Rc::new(RefCell::new(State {
             clock,
             quota,
+            multi_ip_quota: None,
             binding,
             budget,
             config,
@@ -219,6 +226,36 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
             websocket: None,
             plans: BTreeMap::new(),
         }))))
+    }
+    pub fn with_multi_ip_quota(self, quota: MultiIpCommandQuota) -> Result<Self> {
+        self.set_multi_ip_quota(quota)?;
+        Ok(self)
+    }
+    pub fn set_multi_ip_quota(&self, quota: MultiIpCommandQuota) -> Result<()> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        let b = quota.binding();
+        if b.owner_id != state.binding.owner_id
+            || b.risk_domain_id != state.binding.risk_domain_id
+            || b.account != state.binding.account
+            || b.product != state.binding.product
+            || b.environment != state.binding.environment
+            || b.domain != state.binding.domain
+        {
+            return Err(Error::Identity);
+        }
+        state.multi_ip_quota = Some(quota);
+        Ok(())
+    }
+    pub fn has_multi_ip_quota(&self) -> Result<bool> {
+        let state = self.0.try_borrow().map_err(|_| Error::Busy)?;
+        Ok(state.multi_ip_quota.is_some())
+    }
+    pub fn multi_ip_quota<T>(
+        &self,
+        f: impl FnOnce(Option<&mut MultiIpCommandQuota>) -> T,
+    ) -> Result<T> {
+        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
+        Ok(f(state.multi_ip_quota.as_mut()))
     }
     pub fn set_retention_window_ns(&self, window_ns: Option<u64>) {
         if let Ok(mut state) = self.0.try_borrow_mut() {

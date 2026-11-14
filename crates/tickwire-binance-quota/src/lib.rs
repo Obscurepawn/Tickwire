@@ -1105,3 +1105,553 @@ fn encode_cost(out: &mut Vec<u8>, c: &Cost) {
 
 #[cfg(test)]
 mod read_tests;
+
+pub use tickwire_quota::rate_limiter::{
+    DEFAULT_EXCH_WARN_PCT, ExchangeUsageReport, IpKey, RateFlags, RateLimitId, RatePermit,
+    RateReject, VenuePreset, VenueRateLimiter,
+};
+
+/// Action-class and exact window debit classification for multi-IP Binance execution.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ActionBudgetClass {
+    /// Order-creating action charging `order_units` against account `ORDER` windows plus `ip_weight`.
+    Order { order_units: u32, ip_weight: u32 },
+    /// Modification/amendment charging `ORDER` windows iff `counts_as_order` plus `ip_weight`.
+    Modify {
+        counts_as_order: bool,
+        ip_weight: u32,
+    },
+    /// Pure cancellation: charges ONLY `ip_weight` and NEVER debits `ORDER` windows.
+    Cancel { ip_weight: u32 },
+    /// Pure status/reconciliation query: charges ONLY `ip_weight` and NEVER debits `ORDER` or `CANCEL` windows.
+    Query { ip_weight: u32 },
+}
+
+/// Errors produced by [`MultiIpCommandQuota`] and multi-IP action classification.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MultiIpQuotaError {
+    Invalid,
+    Identity,
+    UnsupportedAction,
+    Capacity,
+    Conflict,
+    AccountBanned,
+    Rate(RateReject),
+}
+
+impl From<RateReject> for MultiIpQuotaError {
+    #[inline]
+    fn from(err: RateReject) -> Self {
+        match err {
+            RateReject::Frozen { .. } => Self::AccountBanned,
+            other => Self::Rate(other),
+        }
+    }
+}
+
+/// Classifies a Binance [`CommandAction`] for `source` and `transport` into isolated
+/// [`ActionBudgetClass`] budgets.
+///
+/// * Order-creating actions (`New`, `CancelReplace`, `AdvancedCancelReplace`, `PeggedNew`,
+///   `Sor`, `Algo`, and `SpotList { legs, .. }` charging `legs` order units) debit account
+///   `ORDER` windows plus per-IP weight.
+/// * `Amend` on Spot (`/api/v3/order/amend/keepPriority`) charges IP weight `4` with
+///   `counts_as_order = false`; `Modify` on USD-M (`PUT /fapi/v1/order`) charges `counts_as_order = true`
+///   plus REST weight `1` (or WS weight `0`).
+/// * Pure cancel actions (`Cancel`, `CancelList`, `CancelAlgo`) NEVER debit `ORDER` windows.
+/// * Pure query actions (`Query`) NEVER debit `ORDER` or `CANCEL` windows.
+pub fn classify_command_action(
+    source: Source,
+    transport: Transport,
+    action: CommandAction,
+) -> core::result::Result<ActionBudgetClass, MultiIpQuotaError> {
+    let is_spot = matches!(source, Source::SpotProduction | Source::SpotTest);
+    if is_spot {
+        match action {
+            CommandAction::New
+            | CommandAction::CancelReplace
+            | CommandAction::AdvancedCancelReplace
+            | CommandAction::PeggedNew
+            | CommandAction::Sor => Ok(ActionBudgetClass::Order {
+                order_units: 1,
+                ip_weight: 1,
+            }),
+            CommandAction::SpotList { kind, legs, .. } => {
+                let valid_legs = match kind {
+                    venue::ListKind::Oco | venue::ListKind::Oto => legs == 2,
+                    venue::ListKind::Otoco => legs == 3,
+                };
+                if !valid_legs {
+                    return Err(MultiIpQuotaError::Invalid);
+                }
+                Ok(ActionBudgetClass::Order {
+                    order_units: u32::from(legs),
+                    ip_weight: 1,
+                })
+            }
+            CommandAction::Amend => Ok(ActionBudgetClass::Modify {
+                counts_as_order: false,
+                ip_weight: 4,
+            }),
+            CommandAction::Cancel | CommandAction::CancelList => {
+                Ok(ActionBudgetClass::Cancel { ip_weight: 1 })
+            }
+            CommandAction::Query => Ok(ActionBudgetClass::Query { ip_weight: 4 }),
+            CommandAction::Modify | CommandAction::Algo | CommandAction::CancelAlgo => {
+                Err(MultiIpQuotaError::UnsupportedAction)
+            }
+        }
+    } else {
+        let cmd_ip_weight = match transport {
+            Transport::Rest => 1,
+            Transport::WebSocket => 0,
+        };
+        match action {
+            CommandAction::New | CommandAction::Algo => Ok(ActionBudgetClass::Order {
+                order_units: 1,
+                ip_weight: cmd_ip_weight,
+            }),
+            CommandAction::Modify => Ok(ActionBudgetClass::Modify {
+                counts_as_order: true,
+                ip_weight: cmd_ip_weight,
+            }),
+            CommandAction::Cancel | CommandAction::CancelAlgo => Ok(ActionBudgetClass::Cancel {
+                ip_weight: cmd_ip_weight,
+            }),
+            CommandAction::Query => Ok(ActionBudgetClass::Query { ip_weight: 1 }),
+            CommandAction::CancelReplace
+            | CommandAction::AdvancedCancelReplace
+            | CommandAction::PeggedNew
+            | CommandAction::Sor
+            | CommandAction::SpotList { .. }
+            | CommandAction::CancelList
+            | CommandAction::Amend => Err(MultiIpQuotaError::UnsupportedAction),
+        }
+    }
+}
+
+/// Classifies a reconciliation [`ReadAction`] for `source` into its pure [`ActionBudgetClass::Query`] IP weight.
+pub fn classify_read_action(
+    source: Source,
+    action: ReadAction,
+) -> core::result::Result<ActionBudgetClass, MultiIpQuotaError> {
+    let is_spot = matches!(source, Source::SpotProduction | Source::SpotTest);
+    let ip_weight = if is_spot {
+        match action {
+            ReadAction::Connect => 1,
+            ReadAction::TradePage => 20,
+            ReadAction::AccountSnapshot => 20,
+            ReadAction::OpenOrders => 6,
+            ReadAction::ConditionalOrders => 40,
+            ReadAction::OrderQuery => 4,
+            ReadAction::StructureQuery => 4,
+            ReadAction::AmendmentHistory => 4,
+            ReadAction::Income => return Err(MultiIpQuotaError::UnsupportedAction),
+        }
+    } else {
+        match action {
+            ReadAction::Connect => 1,
+            ReadAction::TradePage => 5,
+            ReadAction::AccountSnapshot => 5,
+            ReadAction::OpenOrders => 40,
+            ReadAction::ConditionalOrders => 40,
+            ReadAction::OrderQuery => 1,
+            ReadAction::Income => 30,
+            ReadAction::StructureQuery => 1,
+            ReadAction::AmendmentHistory => return Err(MultiIpQuotaError::UnsupportedAction),
+        }
+    };
+    Ok(ActionBudgetClass::Query { ip_weight })
+}
+
+#[derive(Clone, Copy, Debug)]
+struct MultiIpAttempt {
+    intent_exec_epoch: u64,
+    intent_id: u64,
+    transport: Transport,
+    local_ip: IpKey,
+    digest: [u8; 32],
+}
+
+/// Multi-source-IP, class-isolated hot-path quota owner for Binance Spot and USD-M accounts.
+///
+/// Wraps [`VenueRateLimiter`] (`BinanceSpot` or `BinanceUsdm`) with:
+/// * Strict isolation of `Cancel` and `Query`/`ReadQuery` sends from account `ORDER` caps,
+/// * Per-IP weight accounting and per-IP `429` cooldown isolation (`note_ip_rate_limited`),
+/// * Account-wide `418` ban freeze (`note_account_banned`),
+/// * Idempotent zero-byte retry deduplication keyed by `(intent_exec_epoch, intent_id, transport, local_ip)`,
+/// * Conservative `X-MBX-*` / WS `rateLimits[]` reconciliation (`reconcile_rate_limit_header`).
+#[derive(Debug)]
+pub struct MultiIpCommandQuota {
+    binding: CommandBinding,
+    source: Source,
+    venue_limiter: VenueRateLimiter,
+    attempts: Vec<MultiIpAttempt>,
+}
+
+impl MultiIpCommandQuota {
+    /// Creates a [`MultiIpCommandQuota`] with [`DEFAULT_EXCH_WARN_PCT`] (`80%`).
+    pub fn new(
+        binding: CommandBinding,
+        local_ips: &[IpKey],
+    ) -> core::result::Result<Self, MultiIpQuotaError> {
+        Self::with_warn_pct(binding, local_ips, DEFAULT_EXCH_WARN_PCT)
+    }
+
+    /// Creates a [`MultiIpCommandQuota`] with an explicit `exch_warn_pct` (`1..=100`).
+    pub fn with_warn_pct(
+        binding: CommandBinding,
+        local_ips: &[IpKey],
+        exch_warn_pct: u8,
+    ) -> core::result::Result<Self, MultiIpQuotaError> {
+        if binding.owner_id == [0; 16] || binding.risk_domain_id == [0; 16] || binding.account == 0
+        {
+            return Err(MultiIpQuotaError::Identity);
+        }
+        let source = command_source(binding.product, binding.environment)
+            .map_err(|_| MultiIpQuotaError::Identity)?;
+        let preset = match source {
+            Source::SpotProduction | Source::SpotTest => VenuePreset::BinanceSpot,
+            Source::UsdmProduction | Source::UsdmTest => VenuePreset::BinanceUsdm,
+        };
+        let venue_limiter =
+            VenueRateLimiter::with_warn_pct(preset, binding.account, local_ips, exch_warn_pct)?;
+        Ok(Self {
+            binding,
+            source,
+            venue_limiter,
+            attempts: Vec::with_capacity(MAX_IDENTITIES),
+        })
+    }
+
+    #[inline]
+    pub const fn binding(&self) -> &CommandBinding {
+        &self.binding
+    }
+
+    #[inline]
+    pub const fn source(&self) -> Source {
+        self.source
+    }
+
+    #[inline]
+    pub const fn preset(&self) -> VenuePreset {
+        self.venue_limiter.preset()
+    }
+
+    #[inline]
+    pub fn local_ips(&self) -> &[IpKey] {
+        self.venue_limiter.local_ips()
+    }
+
+    #[inline]
+    pub const fn venue_limiter(&self) -> &VenueRateLimiter {
+        &self.venue_limiter
+    }
+
+    #[inline]
+    pub fn is_account_banned(&self) -> bool {
+        self.venue_limiter.is_account_frozen()
+    }
+
+    /// Read-only probe checking whether `local_ip` has sufficient headroom for `action` at `now_ns`.
+    pub fn can_afford_ip(
+        &self,
+        local_ip: IpKey,
+        transport: Transport,
+        action: CommandAction,
+        symbol: u64,
+        now_ns: u64,
+    ) -> core::result::Result<(), MultiIpQuotaError> {
+        if self.is_account_banned() {
+            return Err(MultiIpQuotaError::AccountBanned);
+        }
+        match classify_command_action(self.source, transport, action)? {
+            ActionBudgetClass::Order {
+                order_units,
+                ip_weight,
+            } => self
+                .venue_limiter
+                .can_afford_place_orders(local_ip, symbol, order_units, ip_weight, now_ns)
+                .map_err(Into::into),
+            ActionBudgetClass::Modify {
+                counts_as_order,
+                ip_weight,
+            } => self
+                .venue_limiter
+                .can_afford_modify(local_ip, symbol, ip_weight, counts_as_order, now_ns)
+                .map_err(Into::into),
+            ActionBudgetClass::Cancel { ip_weight } => self
+                .venue_limiter
+                .can_afford_cancel(local_ip, symbol, ip_weight, now_ns)
+                .map_err(Into::into),
+            ActionBudgetClass::Query { ip_weight } => self
+                .venue_limiter
+                .can_afford_query(local_ip, ip_weight, now_ns)
+                .map_err(Into::into),
+        }
+    }
+
+    /// Read-only probe checking whether `local_ip` has sufficient IP weight for `ReadAction` at `now_ns`.
+    pub fn can_afford_read_ip(
+        &self,
+        local_ip: IpKey,
+        action: ReadAction,
+        now_ns: u64,
+    ) -> core::result::Result<(), MultiIpQuotaError> {
+        if self.is_account_banned() {
+            return Err(MultiIpQuotaError::AccountBanned);
+        }
+        let ActionBudgetClass::Query { ip_weight } = classify_read_action(self.source, action)?
+        else {
+            return Err(MultiIpQuotaError::Invalid);
+        };
+        self.venue_limiter
+            .can_afford_query(local_ip, ip_weight, now_ns)
+            .map_err(Into::into)
+    }
+
+    /// Consumes quota on `local_ip` for a classified `CommandAction` without intent deduplication.
+    pub fn consume_for_ip(
+        &mut self,
+        local_ip: IpKey,
+        transport: Transport,
+        action: CommandAction,
+        symbol: u64,
+        now_ns: u64,
+    ) -> core::result::Result<RatePermit, MultiIpQuotaError> {
+        if self.is_account_banned() {
+            return Err(MultiIpQuotaError::AccountBanned);
+        }
+        match classify_command_action(self.source, transport, action)? {
+            ActionBudgetClass::Order {
+                order_units,
+                ip_weight,
+            } => self
+                .venue_limiter
+                .allow_place_orders(local_ip, symbol, order_units, ip_weight, now_ns)
+                .map_err(Into::into),
+            ActionBudgetClass::Modify {
+                counts_as_order,
+                ip_weight,
+            } => self
+                .venue_limiter
+                .allow_modify(local_ip, symbol, ip_weight, counts_as_order, now_ns)
+                .map_err(Into::into),
+            ActionBudgetClass::Cancel { ip_weight } => self
+                .venue_limiter
+                .allow_cancel(local_ip, symbol, ip_weight, now_ns)
+                .map_err(Into::into),
+            ActionBudgetClass::Query { ip_weight } => self
+                .venue_limiter
+                .allow_query(local_ip, ip_weight, now_ns)
+                .map_err(Into::into),
+        }
+    }
+
+    /// Consumes quota on `local_ip` for a reconciliation `ReadAction` (pure IP weight; never touches `ORDER`).
+    pub fn consume_read_for_ip(
+        &mut self,
+        local_ip: IpKey,
+        action: ReadAction,
+        now_ns: u64,
+    ) -> core::result::Result<RatePermit, MultiIpQuotaError> {
+        if self.is_account_banned() {
+            return Err(MultiIpQuotaError::AccountBanned);
+        }
+        let ActionBudgetClass::Query { ip_weight } = classify_read_action(self.source, action)?
+        else {
+            return Err(MultiIpQuotaError::Invalid);
+        };
+        self.venue_limiter
+            .allow_query(local_ip, ip_weight, now_ns)
+            .map_err(Into::into)
+    }
+
+    /// Consumes quota on `local_ip` with idempotent zero-byte retry deduplication keyed by
+    /// `(intent_exec_epoch, intent_id, transport, local_ip)`.
+    ///
+    /// Retrying the same `PreparedSend` after a zero-byte `WouldBlock` poll on the same link
+    /// returns `Ok(Consumed::Duplicate)` without double-debiting any account or IP window.
+    /// Reusing `(intent_exec_epoch, intent_id)` with a conflicting `digest` freezes the account.
+    #[allow(clippy::too_many_arguments)]
+    pub fn consume_intent_for_ip(
+        &mut self,
+        local_ip: IpKey,
+        intent_exec_epoch: u64,
+        intent_id: u64,
+        transport: Transport,
+        action: CommandAction,
+        symbol: u64,
+        digest: [u8; 32],
+        now_ns: u64,
+    ) -> core::result::Result<Consumed, MultiIpQuotaError> {
+        if self.is_account_banned() {
+            return Err(MultiIpQuotaError::AccountBanned);
+        }
+        if intent_exec_epoch == 0 || intent_id == 0 || digest == [0; 32] {
+            return Err(MultiIpQuotaError::Identity);
+        }
+        if self.venue_limiter.ip_window_id(local_ip).is_none() {
+            return Err(MultiIpQuotaError::Invalid);
+        }
+        if now_ns < self.venue_limiter.limiter().last_now_ns() {
+            return Err(RateReject::ClockRegression.into());
+        }
+        self.venue_limiter
+            .limiter()
+            .check_account(self.binding.account, now_ns)?;
+        self.venue_limiter.limiter().check_ip(local_ip, now_ns)?;
+
+        let mut exact_match = false;
+        for entry in &self.attempts {
+            if entry.intent_exec_epoch == intent_exec_epoch && entry.intent_id == intent_id {
+                if entry.digest != digest {
+                    let _ = self.venue_limiter.freeze_account();
+                    return Err(MultiIpQuotaError::Conflict);
+                }
+                if entry.transport == transport && entry.local_ip == local_ip {
+                    exact_match = true;
+                }
+            }
+        }
+        if exact_match {
+            return Ok(Consumed::Duplicate);
+        }
+        if self.attempts.len() >= MAX_IDENTITIES {
+            return Err(MultiIpQuotaError::Capacity);
+        }
+        self.consume_for_ip(local_ip, transport, action, symbol, now_ns)?;
+        self.attempts.push(MultiIpAttempt {
+            intent_exec_epoch,
+            intent_id,
+            transport,
+            local_ip,
+            digest,
+        });
+        Ok(Consumed::New)
+    }
+
+    /// Consumes quota inside the fresh first-byte gate for an authenticated [`venue::CanonicalCommand`]
+    /// bound to `local_ip`, deduplicating zero-byte retries by `(intent_exec_epoch, intent_id, transport, local_ip)`.
+    pub fn consume_command_for_ip(
+        &mut self,
+        local_ip: IpKey,
+        command: &venue::CanonicalCommand,
+        transport: Transport,
+        now: MonoTime,
+    ) -> core::result::Result<Consumed, MultiIpQuotaError> {
+        if now.domain() != self.binding.domain {
+            let _ = self.venue_limiter.freeze_account();
+            return Err(MultiIpQuotaError::Identity);
+        }
+        if self.is_account_banned() {
+            return Err(MultiIpQuotaError::AccountBanned);
+        }
+        let c = command.command();
+        let r = &c.context.request;
+        if r.venue != 1
+            || r.risk_domain_id != self.binding.risk_domain_id
+            || r.account != self.binding.account
+            || r.product != self.binding.product
+            || r.environment != self.binding.environment
+            || now.nanos() >= r.deadline
+        {
+            return Err(MultiIpQuotaError::Identity);
+        }
+        let action = command_action(&c.body);
+        let symbol = c.context.instrument.instrument_id;
+        self.consume_intent_for_ip(
+            local_ip,
+            r.intent_exec_epoch,
+            r.intent_id,
+            transport,
+            action,
+            symbol,
+            command.digest(),
+            now.nanos(),
+        )
+    }
+
+    /// Isolates an HTTP `429` / WS IP rate-limit cooldown strictly to `local_ip`, leaving sibling
+    /// `local_ip` links live and unaffected.
+    pub fn note_ip_rate_limited(
+        &mut self,
+        local_ip: IpKey,
+        until_ns: u64,
+    ) -> core::result::Result<(), MultiIpQuotaError> {
+        self.venue_limiter
+            .note_ip_cooldown(local_ip, until_ns)
+            .map_err(Into::into)
+    }
+
+    /// Freezes the account across all bound `local_ip` links upon HTTP `418` or an account-wide ban.
+    pub fn note_account_banned(
+        &mut self,
+        until_ns: Option<u64>,
+    ) -> core::result::Result<(), MultiIpQuotaError> {
+        if let Some(until) = until_ns {
+            self.venue_limiter.note_account_cooldown(until)?;
+        }
+        self.venue_limiter.freeze_account().map_err(Into::into)
+    }
+
+    /// Applies HTTP/WebSocket status feedback (`429` -> per-IP cooldown on `local_ip`;
+    /// `418` -> account-wide ban freeze).
+    pub fn observe_http_status(
+        &mut self,
+        local_ip: IpKey,
+        status: u16,
+        retry_until_ns: u64,
+    ) -> core::result::Result<(), MultiIpQuotaError> {
+        match status {
+            429 => self.note_ip_rate_limited(local_ip, retry_until_ns),
+            418 => self.note_account_banned(Some(retry_until_ns)),
+            _ => Ok(()),
+        }
+    }
+
+    /// Reconciles an exchange-reported window header (`X-MBX-USED-WEIGHT-*` / `X-MBX-ORDER-COUNT-*`)
+    /// or WS `rateLimits[]` counter against `window_id`.
+    pub fn reconcile_rate_limit_header(
+        &mut self,
+        window_id: RateLimitId,
+        reported_used: u64,
+        now_ns: u64,
+    ) -> core::result::Result<ExchangeUsageReport, MultiIpQuotaError> {
+        self.venue_limiter
+            .reconcile_exchange_usage(window_id, reported_used, now_ns)
+            .map_err(Into::into)
+    }
+
+    /// Reconciles `X-MBX-USED-WEIGHT-1M` reported on `local_ip`.
+    pub fn reconcile_ip_weight_header(
+        &mut self,
+        local_ip: IpKey,
+        reported_used: u64,
+        now_ns: u64,
+    ) -> core::result::Result<ExchangeUsageReport, MultiIpQuotaError> {
+        let win_id = self
+            .venue_limiter
+            .ip_window_id(local_ip)
+            .ok_or(MultiIpQuotaError::Invalid)?;
+        self.reconcile_rate_limit_header(win_id, reported_used, now_ns)
+    }
+
+    /// Reconciles `X-MBX-ORDER-COUNT-*` for the matching `interval_s` (`10`, `60`, or `86400`).
+    pub fn reconcile_order_count_header(
+        &mut self,
+        interval_s: u32,
+        reported_used: u64,
+        now_ns: u64,
+    ) -> core::result::Result<ExchangeUsageReport, MultiIpQuotaError> {
+        let win_id = self
+            .venue_limiter
+            .account_order_window_ids()
+            .iter()
+            .copied()
+            .find(|id| id.interval_s == interval_s)
+            .ok_or(MultiIpQuotaError::Invalid)?;
+        self.reconcile_rate_limit_header(win_id, reported_used, now_ns)
+    }
+}

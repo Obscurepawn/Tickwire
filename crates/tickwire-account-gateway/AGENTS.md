@@ -1,10 +1,11 @@
 # tickwire-account-gateway
 
 `tickwire-account-gateway` (`#![forbid(unsafe_code)]`) coordinates one `Account` owner, its `AccountJournal`,
-recovery-closure verification, and outbound REST or WebSocket transport (`AccountGateway` and
-`websocket::WsAccountGateway`). Runtime callers submit canonical commands, ingest authenticated venue events, and drive
-`poll` to advance connections; wire signing (`Encoder`), control policy (`Authority`, `ReactivationVerifier`), and
-socket framing (`tickwire-transport`) remain injected dependencies with no permissive defaults.
+recovery-closure verification, and outbound REST or WebSocket transport (`AccountGateway`, optional multi-slot
+`OrderConnectionPool` via [src/pool.rs](src/pool.rs), and `websocket::WsAccountGateway`). Runtime callers submit
+canonical commands, ingest authenticated venue events, and drive `poll` / `poll_slot` to advance connections; wire
+signing (`Encoder`), control policy (`Authority`, `ReactivationVerifier`), and socket framing (`tickwire-transport`)
+remain injected dependencies with no permissive defaults.
 
 ## Invariants and Change Guidelines
 
@@ -27,6 +28,13 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
   confine single-order `New`/`Cancel`/`AmendKeepPriority`/`Query` transport failures to `Status::Unknown` +
   `Account::mark_order_in_doubt` without freezing `Account`, halting the gateway, or disturbing sibling `Flushed`
   entries, allowing `install_transport_connection` to attach a fresh `Connection` once `retained_receive` is drained.
+* **Multi-slot execution pool with single-writer admission**: Enabling `with_connection_pool` / `enable_connection_pool`
+  ([src/pool.rs](src/pool.rs)) attaches up to `MAX_ORDER_CONNECTIONS` (`16`) `Exclusive` or `Shared` slots backed by
+  `OrderConnectionPool` and automatically enables `per_order_doubt_isolation`. `pick_pool_slot` and
+  `pick_pool_slot_filtered` apply allocation-free warmup round-robin and integer EWMA + `9/8` hysteresis selection
+  (including per-IP quota predicates); `submit_on_slot` and `poll_slot` preserve sequential `AccountJournal` admission
+  and synchronous first-byte `Authority::current_gate` checks on every slot while isolating single-slot drops via
+  `drop_broken_slot_isolated` without disturbing sibling slots.
 * **Exact-prefix reactivation**: Keep recovery and live reactivation gates in [src/recovery.rs](src/recovery.rs) bound
   to the exact `HistoryFrontier` and `CanonicalBaseline` digest before opening replacement connections.
 * **Windowed entry reclamation and management headroom**: In `AccountGateway::evict_retired_entries`
@@ -37,9 +45,10 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/binding.rs](src/binding.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/pool.rs](src/pool.rs) · [src/binding.rs](src/binding.rs) ·
   [src/recovery.rs](src/recovery.rs) · [src/websocket.rs](src/websocket.rs) ·
   [tests/submission.rs](tests/submission.rs) · [tests/per_order_isolation.rs](tests/per_order_isolation.rs) ·
+  [tests/multi_slot_pool.rs](tests/multi_slot_pool.rs) ·
   [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
   [tests/lifecycle.rs](tests/lifecycle.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·

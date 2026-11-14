@@ -15,6 +15,7 @@ tickwire-gateway = { path = "../tickwire-gateway" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
 tickwire-account-journal = { path = "../tickwire-account-journal" }
 tickwire-account = { path = "../tickwire-account" }
+tickwire-quota = { path = "../tickwire-quota" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
 serde = { version = "1", features = ["derive"] }

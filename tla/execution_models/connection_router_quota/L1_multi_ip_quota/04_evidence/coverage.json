@@ -1,0 +1,19 @@
+{
+  "model": "L1_MultiIpQuota",
+  "runs": 2,
+  "entries": 11,
+  "generated": {
+    "Init line 367, col 1 to line 367, col 4 of module L1_MultiIpQuota": 2,
+    "PlaceOrderAdmitted line 383, col 1 to line 383, col 22 of module L1_MultiIpQuota (387 5 399 9)": 4072,
+    "PlaceOrderLocalReject line 403, col 1 to line 403, col 25 of module L1_MultiIpQuota (405 5 411 9)": 4072,
+    "TransactionalRollbackProbe line 415, col 1 to line 415, col 30 of module L1_MultiIpQuota (421 5 434 9)": 22282,
+    "SubmitCancel line 437, col 1 to line 437, col 16 of module L1_MultiIpQuota (441 5 451 9)": 4547,
+    "SubmitQuery line 454, col 1 to line 454, col 15 of module L1_MultiIpQuota (458 5 465 9)": 6394,
+    "DuplicateIdBatchSpend line 469, col 1 to line 469, col 25 of module L1_MultiIpQuota (473 5 481 9)": 15213,
+    "ReconcileExchangeHeader line 486, col 1 to line 486, col 37 of module L1_MultiIpQuota (497 5 506 9)": 43205,
+    "ObserveHttp429 line 509, col 1 to line 509, col 18 of module L1_MultiIpQuota (511 5 518 9)": 15213,
+    "ObserveHttp418 line 522, col 1 to line 522, col 14 of module L1_MultiIpQuota": 10214,
+    "AdvanceClock line 533, col 1 to line 533, col 12 of module L1_MultiIpQuota": 1145
+  },
+  "model_sha256": "64f58d126216391637a9d61c85027c108d488f3ee0586788610bd1c458384868"
+}

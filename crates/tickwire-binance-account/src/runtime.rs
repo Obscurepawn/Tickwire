@@ -328,6 +328,41 @@ impl<S: Store> AccountIngress<S> {
             .submit(command, evaluated_at, deadline)
             .map_err(Error::Gateway)
     }
+    pub fn submit_on_slot<B: Backend, A: Authority, E: Encoder>(
+        &mut self,
+        gateway: &mut AccountGateway<B, A, E>,
+        conn_id: u16,
+        command: CanonicalCommand,
+        ids: &[[u8; 16]],
+        evaluated_at: u64,
+        deadline: Instant,
+    ) -> Result<(Status, u64)> {
+        self.ready(gateway)?;
+        self.evict_expired(gateway, evaluated_at);
+        match command.command().body {
+            v::CommandBody::New(_)
+            | v::CommandBody::CancelReplace { .. }
+            | v::CommandBody::SpotList(_)
+            | v::CommandBody::Algo(_) => {
+                if let Err(error) = self.register_command(command.clone(), ids) {
+                    if self.stopped {
+                        gateway.freeze_account();
+                    }
+                    return Err(error);
+                }
+            }
+            v::CommandBody::Cancel(_)
+            | v::CommandBody::Query(_)
+            | v::CommandBody::CancelList(_)
+            | v::CommandBody::CancelAlgo(_)
+            | v::CommandBody::AmendKeepPriority { .. }
+                if ids.is_empty() => {}
+            _ => return Err(Error::Unsupported),
+        }
+        gateway
+            .submit_on_slot(conn_id, command, evaluated_at, deadline)
+            .map_err(Error::Gateway)
+    }
     pub fn ingest<B: Backend, A: Authority, E: Encoder>(
         &mut self,
         gateway: &mut AccountGateway<B, A, E>,

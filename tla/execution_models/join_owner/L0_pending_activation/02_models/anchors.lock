@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-11-14T14:13:16
+# anchors.lock — written by anchors.sh update on 2026-11-14T18:10:30
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 crates/tickwire-join/src/lib.rs	100	1f121d6a77fcf6bee4762bd26bce43ce9a7cd817d0f039afb0646289f47c6f14
 crates/tickwire-join/src/lib.rs	101	60f646c5db6f0c0b9a69f87192909850465fecaa5a78175151fb3d76adefeaa1

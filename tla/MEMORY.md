@@ -2,6 +2,22 @@
 
 [November 2026 verification audit](audits/2026-11-05/README.md) · [Per-crate coverage and drift](audits/2026-11-05/inventory.md)
 
+## connection_router_quota / L0_pool_router — PASS (retired/fixed 4 bugs) (2026-11-14)
+
+- Mode: fault injection.
+- Property: Pooled `OrderRouter` (`Exclusive` & `Shared` slots, warmup round-robin, `9/8` EWMA hysteresis, epoch fencing), `DialBaton` reconnect guarding, `Status::Aborted` pre-read reaping, and multiplexed `WsOwner` pre-EOF draining.
+- TLC: 27,599 / 18,129; depth 13 for both. [Run log](execution_models/connection_router_quota/L0_pool_router/03_run_log.md)
+- Finding: retired(fixed, 4 cross-layer bugs in `poll_pool_dials_filtered`, `Status::Aborted` inflight/read ordering, `WsOwner` `draining_eof` + isolated WS `Close` flush, and `AccountRunner` `Origins`/`inflight` cleanup). [Counterexamples](execution_models/connection_router_quota/L0_pool_router/04_counterexamples.md) · [Result and source map](execution_models/connection_router_quota/L0_pool_router/05_output.md)
+- Last synced: 2026-11-14 against `cef23ae` (2,468 line anchors).
+
+## connection_router_quota / L1_multi_ip_quota — PASS (retired/fixed 2 bugs) (2026-11-14)
+
+- Mode: fault injection.
+- Property: Multi-window `FixedWindow` and bounded-ring `RollingWindow` caps, reverse-order `put_back` rollback, `can_afford` vs. `allow` agreement across duplicate `RateLimitId` spends, `Order`/`Cancel`/`Request` isolation, and per-IP `429` failover vs. `418` account freeze.
+- TLC: 20,428 / 2,349; depths 12 and 10. [Run log](execution_models/connection_router_quota/L1_multi_ip_quota/03_run_log.md)
+- Finding: retired(fixed, 2 cross-layer bugs in post-admission `allow_quota_*` gating and `can_afford` duplicate-ID / `u64` coalescing / preset parity). [Counterexamples](execution_models/connection_router_quota/L1_multi_ip_quota/04_counterexamples.md) · [Result and source map](execution_models/connection_router_quota/L1_multi_ip_quota/05_output.md)
+- Last synced: 2026-11-14 against `cef23ae` (2,023 line anchors).
+
 ## quote_delivery / L0_pair — retired (fixed) (2026-11-05)
 
 - Mode: transcription.

@@ -51,6 +51,14 @@ pub fn is_http_account_hazard(http_status: u16) -> bool {
     matches!(http_status, 401 | 403 | 418 | 429)
 }
 
+/// Returns `true` when `code` is a venue rate-limit error code (`Bybit` `10006`/`429`, `OKX` `50011`/`429`).
+pub fn is_venue_rate_limit_code(venue: SpotVenue, code: &str) -> bool {
+    matches!(
+        (venue, code),
+        (SpotVenue::Bybit, "10006" | "429") | (SpotVenue::Okx, "50011" | "429")
+    )
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum ReportError {
     Bounds,

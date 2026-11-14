@@ -11,6 +11,20 @@ impl<S: Store> AccountIngress<S> {
         raw: Vec<u8>,
         body: Option<&[u8]>,
     ) -> Result<RestOutcome> {
+        self.persist_rest_with_options(gateway, command, epoch, received, status, raw, body, false)
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn persist_rest_with_options<B: Backend, A: Authority, E: Encoder>(
+        &mut self,
+        gateway: &mut AccountGateway<B, A, E>,
+        command: CanonicalCommand,
+        epoch: u64,
+        received: u64,
+        status: u16,
+        raw: Vec<u8>,
+        body: Option<&[u8]>,
+        isolated_ip_rate_limit: bool,
+    ) -> Result<RestOutcome> {
         self.ready(gateway)?;
         self.evict_expired(gateway, received);
         let request = intent(&command);
@@ -41,7 +55,7 @@ impl<S: Store> AccountIngress<S> {
             record.disposition = disposition;
             record.events = events;
         }
-        self.commit_rest(gateway, record)
+        self.commit_rest_with_options(gateway, record, isolated_ip_rate_limit)
     }
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn persist_structure_query<B: Backend, A: Authority, E: Encoder>(
@@ -296,13 +310,22 @@ impl<S: Store> AccountIngress<S> {
         gateway: &mut AccountGateway<B, A, E>,
         record: RestRecord,
     ) -> Result<RestOutcome> {
+        self.commit_rest_with_options(gateway, record, false)
+    }
+
+    pub(crate) fn commit_rest_with_options<B: Backend, A: Authority, E: Encoder>(
+        &mut self,
+        gateway: &mut AccountGateway<B, A, E>,
+        record: RestRecord,
+        isolated_ip_rate_limit: bool,
+    ) -> Result<RestOutcome> {
         let isolation = gateway.per_order_doubt_isolation();
         if !isolation {
             if record.disposition != RestDisposition::Observed {
                 gateway.freeze_account();
             }
         } else if record.disposition != RestDisposition::Observed
-            && is_category_b_rest_hazard(self, &record)
+            && is_category_b_rest_hazard_with_options(self, &record, isolated_ip_rate_limit)
         {
             gateway.freeze_account();
         }
@@ -557,9 +580,10 @@ impl<S: Store> AccountIngress<S> {
     }
 }
 
-pub(crate) fn is_category_b_rest_hazard<S: Store>(
+pub(crate) fn is_category_b_rest_hazard_with_options<S: Store>(
     input: &AccountIngress<S>,
     record: &RestRecord,
+    isolated_ip_rate_limit: bool,
 ) -> bool {
     if record.structure_query.is_some() || record.amendment_query.is_some() {
         return true;
@@ -584,7 +608,10 @@ pub(crate) fn is_category_b_rest_hazard<S: Store>(
     if record.status == 0 {
         return false;
     }
-    if matches!(record.status, 401 | 403 | 418 | 429) {
+    if matches!(record.status, 401 | 403 | 418) {
+        return true;
+    }
+    if record.status == 429 && !isolated_ip_rate_limit {
         return true;
     }
     if (200..300).contains(&record.status) && record.disposition == RestDisposition::Unknown {
@@ -603,16 +630,27 @@ pub(crate) fn is_category_b_rest_hazard<S: Store>(
             && let Ok(decoded) =
                 tickwire_binance::response::decode_rest(market, http_resp.status, &http_resp.body)
         {
+            if decoded
+                .error
+                .as_ref()
+                .is_some_and(|e| matches!(e.code, -1021 | -1002 | -2014 | -2015 | -1022))
+            {
+                return true;
+            }
             if matches!(
                 decoded.failure,
                 Some(
                     tickwire_binance::response::FailureKind::Banned
-                        | tickwire_binance::response::FailureKind::RateLimited
                         | tickwire_binance::response::FailureKind::Authentication
                         | tickwire_binance::response::FailureKind::ClockSkew
                         | tickwire_binance::response::FailureKind::Partial
                 )
             ) {
+                return true;
+            }
+            if decoded.failure == Some(tickwire_binance::response::FailureKind::RateLimited)
+                && !isolated_ip_rate_limit
+            {
                 return true;
             }
             if decoded.failure == Some(tickwire_binance::response::FailureKind::Rejected)

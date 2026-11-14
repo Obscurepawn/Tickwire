@@ -1,20 +1,124 @@
-//! Single-flight private session. AccountGateway remains the sole send and journal owner.
+//! Single-flight and pooled multi-connection private session. AccountGateway remains the sole send and journal owner.
 use crate::{
     OrderSnapshot, Reply, ReportError, SpotEncoder, SpotIssueKind, SpotVenue, classify_issue,
-    decode_reply, hex, is_http_account_hazard,
+    decode_reply, hex, is_http_account_hazard, is_venue_rate_limit_code,
 };
-use std::time::Instant;
+use std::{
+    collections::VecDeque,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
+    time::Instant,
+};
 use tickwire_account::{DoubtReason, IntentKey};
-use tickwire_account_gateway::{AccountGateway, Authority, Status};
+use tickwire_account_gateway::{
+    AccountGateway, Authority, Status,
+    pool::{MAX_ORDER_CONNECTIONS, OrderRoute, OrderSlotSpec, RouterConfig, SampleKind, SendSlot},
+};
 use tickwire_account_journal::Backend;
-use tickwire_transport::{IoBudget, http::ResponseDecoder};
+use tickwire_quota::rate_limiter::{IpKey, RateReject, VenuePreset, VenueRateLimiter};
+use tickwire_transport::{IoBudget, Limits, http::ResponseDecoder};
 use tickwire_venue as v;
+
+/// Derives a deterministic non-zero `u64` symbol rate-limit key from `instrument_id`.
+///
+/// `0` is reserved for symbol-independent windows in [`tickwire_quota::rate_limiter::RateLimitId`],
+/// so the folded FNV-1a digest is clamped away from `0`.
+pub const fn symbol_rate_key(instrument_id: u64) -> u64 {
+    let bytes = instrument_id.to_le_bytes();
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let mut i = 0;
+    while i < 8 {
+        hash ^= bytes[i] as u64;
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+        i += 1;
+    }
+    if hash == 0 { 1 } else { hash }
+}
+
+fn resolve_slot_ip_key(limiter: &VenueRateLimiter, route_local_ip: Option<IpAddr>) -> IpKey {
+    if let Some(ip) = route_local_ip {
+        let key = IpKey::from_ip(ip);
+        if limiter.ip_window_id(key).is_some() {
+            return key;
+        }
+    }
+    let unspec = IpKey::from_v4(Ipv4Addr::UNSPECIFIED);
+    if limiter.ip_window_id(unspec).is_some() {
+        return unspec;
+    }
+    if limiter.local_ips().len() == 1 {
+        return limiter.local_ips()[0];
+    }
+    IpKey::from_opt_ip(route_local_ip)
+}
+
+fn can_afford_command(
+    limiter: &VenueRateLimiter,
+    body: &v::CommandBody,
+    ip_key: IpKey,
+    sym_key: u64,
+    evaluated_at: u64,
+) -> core::result::Result<(), RateReject> {
+    match body {
+        v::CommandBody::New(_) => limiter.can_afford_place(ip_key, sym_key, 1, evaluated_at),
+        v::CommandBody::Cancel(_) => limiter.can_afford_cancel(ip_key, sym_key, 1, evaluated_at),
+        v::CommandBody::Query(_) => limiter.can_afford_query(ip_key, 1, evaluated_at),
+        _ => Ok(()),
+    }
+}
+
+fn allow_command(
+    limiter: &mut VenueRateLimiter,
+    body: &v::CommandBody,
+    ip_key: IpKey,
+    sym_key: u64,
+    evaluated_at: u64,
+) -> core::result::Result<(), RateReject> {
+    match body {
+        v::CommandBody::New(_) => limiter
+            .allow_place(ip_key, sym_key, 1, evaluated_at)
+            .map(|_| ()),
+        v::CommandBody::Cancel(_) => limiter
+            .allow_cancel(ip_key, sym_key, 1, evaluated_at)
+            .map(|_| ()),
+        v::CommandBody::Query(_) => limiter.allow_query(ip_key, 1, evaluated_at).map(|_| ()),
+        _ => Ok(()),
+    }
+}
+
+fn parse_retry_after_ns(raw: &tickwire_transport::http::Response) -> u64 {
+    const DEFAULT_COOLDOWN_NS: u64 = 1_000_000_000;
+    let Some(val) = raw.header("retry-after") else {
+        return DEFAULT_COOLDOWN_NS;
+    };
+    let Ok(s) = std::str::from_utf8(val) else {
+        return DEFAULT_COOLDOWN_NS;
+    };
+    match s.trim().parse::<u64>() {
+        Ok(secs) if secs > 0 => secs.saturating_mul(1_000_000_000),
+        _ => DEFAULT_COOLDOWN_NS,
+    }
+}
+
+struct SpotPending {
+    intent: IntentKey,
+    command: v::CanonicalCommand,
+    deadline: Instant,
+    sent_mono_ns: u64,
+    slot_epoch: u64,
+}
+
+struct SpotSlotState {
+    decoder: ResponseDecoder,
+    pending: Option<SpotPending>,
+    last_seen_epoch: u64,
+}
 
 #[derive(Debug)]
 pub enum SessionError {
     Gateway(tickwire_account_gateway::Error),
     Transport(tickwire_transport::Error),
     Report(ReportError),
+    RateLimited(RateReject),
     RecoveryWriterEpoch { configured: u64, durable_floor: u64 },
     Identity,
     Busy,
@@ -42,6 +146,9 @@ where
     decoder: ResponseDecoder,
     pending: Option<(IntentKey, v::CanonicalCommand, Instant)>,
     connection_epoch: u64,
+    slot_state: [Option<SpotSlotState>; MAX_ORDER_CONNECTIONS],
+    completed_replies: VecDeque<(IntentKey, Reply)>,
+    venue_limiter: Option<VenueRateLimiter>,
 }
 impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwire_gateway::Error>>
     RestSession<'a, B, A, T>
@@ -68,7 +175,13 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             decoder: ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?,
             pending: None,
             connection_epoch,
+            slot_state: std::array::from_fn(|_| None),
+            completed_replies: VecDeque::new(),
+            venue_limiter: None,
         })
+    }
+    pub const fn symbol_rate_key(instrument_id: u64) -> u64 {
+        symbol_rate_key(instrument_id)
     }
     pub fn gateway(&self) -> &AccountGateway<B, A, SpotEncoder<'a, T>> {
         &self.gateway
@@ -90,8 +203,353 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
     pub fn per_order_doubt_isolation(&self) -> bool {
         self.gateway.per_order_doubt_isolation()
     }
+    pub fn with_connection_pool(mut self, config: RouterConfig) -> Result<Self> {
+        self.enable_connection_pool(config)?;
+        Ok(self)
+    }
+    pub fn enable_connection_pool(&mut self, config: RouterConfig) -> Result<()> {
+        if self.pending.is_some() || !self.completed_replies.is_empty() {
+            return Err(SessionError::Busy);
+        }
+        self.gateway
+            .enable_connection_pool(config)
+            .map_err(SessionError::Gateway)?;
+        self.slot_state = std::array::from_fn(|_| None);
+        self.completed_replies.clear();
+        Ok(())
+    }
+    pub fn add_pool_slot(&mut self, mut spec: OrderSlotSpec, limits: Limits) -> Result<u16> {
+        spec.send_slot = SendSlot::Exclusive;
+        let decoder = ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+        let conn_id = self
+            .gateway
+            .add_pool_slot(spec, limits)
+            .map_err(SessionError::Gateway)?;
+        let epoch = self.gateway.slot_route(conn_id).map_or(0, |r| r.epoch);
+        self.slot_state[usize::from(conn_id)] = Some(SpotSlotState {
+            decoder,
+            pending: None,
+            last_seen_epoch: epoch,
+        });
+        Ok(conn_id)
+    }
+    pub fn install_pool_connection(
+        &mut self,
+        conn_id: u16,
+        connection: tickwire_transport::Connection,
+        peer_addr: Option<SocketAddr>,
+        limits: Limits,
+    ) -> Result<u64> {
+        let idx = usize::from(conn_id);
+        if idx >= MAX_ORDER_CONNECTIONS || self.slot_state[idx].is_none() {
+            return Err(SessionError::Transport(tickwire_transport::Error::Bounds));
+        }
+        if self.slot_state[idx]
+            .as_ref()
+            .is_some_and(|s| s.pending.is_some())
+        {
+            return Err(SessionError::Busy);
+        }
+        let decoder = ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+        let epoch = self
+            .gateway
+            .install_pool_connection(conn_id, connection, peer_addr, limits)
+            .map_err(SessionError::Gateway)?;
+        let slot = self.slot_state[idx].as_mut().expect("checked slot_state");
+        slot.decoder = decoder;
+        slot.last_seen_epoch = epoch;
+        Ok(epoch)
+    }
+    pub fn poll_pool_dials(&mut self, now_mono_ns: u64) -> usize {
+        let slot_unbusy: [bool; MAX_ORDER_CONNECTIONS] = std::array::from_fn(|idx| {
+            self.slot_state[idx]
+                .as_ref()
+                .is_some_and(|slot| slot.pending.is_none())
+        });
+        let installed = self
+            .gateway
+            .poll_pool_dials_filtered(now_mono_ns, |cid| slot_unbusy[usize::from(cid)]);
+        if installed > 0 {
+            for (idx, slot_opt) in self.slot_state.iter_mut().enumerate() {
+                let conn_id = idx as u16;
+                if let (Some(slot), Some(route)) =
+                    (slot_opt.as_mut(), self.gateway.slot_route(conn_id))
+                    && slot.pending.is_none()
+                    && route.established
+                    && slot.last_seen_epoch != route.epoch
+                {
+                    if let Ok(dec) = ResponseDecoder::new(256 * 1024, 128) {
+                        slot.decoder = dec;
+                    }
+                    slot.last_seen_epoch = route.epoch;
+                }
+            }
+        }
+        installed
+    }
+    fn reap_aborted_pending(&mut self) {
+        if self
+            .pending
+            .as_ref()
+            .is_some_and(|(intent, _, _)| self.gateway.status(*intent) == Some(Status::Aborted))
+        {
+            self.pending = None;
+        }
+        for slot in self.slot_state.iter_mut().flatten() {
+            if slot
+                .pending
+                .as_ref()
+                .is_some_and(|p| self.gateway.status(p.intent) == Some(Status::Aborted))
+            {
+                slot.pending = None;
+            }
+        }
+    }
+    pub fn with_venue_rate_limiter(mut self, limiter: VenueRateLimiter) -> Self {
+        self.venue_limiter = Some(limiter);
+        self
+    }
+    pub fn set_venue_rate_limiter(&mut self, limiter: VenueRateLimiter) {
+        self.venue_limiter = Some(limiter);
+    }
+    pub fn venue_rate_limiter(&self) -> Option<&VenueRateLimiter> {
+        self.venue_limiter.as_ref()
+    }
+    pub fn venue_rate_limiter_mut(&mut self) -> Option<&mut VenueRateLimiter> {
+        self.venue_limiter.as_mut()
+    }
+    pub fn has_queued_replies(&self) -> bool {
+        !self.completed_replies.is_empty()
+    }
+    pub fn has_ready_slot(&self) -> bool {
+        if self.gateway.halted() {
+            return false;
+        }
+        if !self.gateway.has_connection_pool() {
+            let pending_active = self.pending.as_ref().is_some_and(|(intent, _, _)| {
+                self.gateway.status(*intent) != Some(Status::Aborted)
+            });
+            return !pending_active && self.gateway.has_transport_connection();
+        }
+        let Some(pool) = self.gateway.connection_pool() else {
+            return false;
+        };
+        if !pool.router().has_ready_capacity(0) {
+            return false;
+        }
+        for (idx, slot_opt) in self.slot_state.iter().enumerate() {
+            let Some(slot) = slot_opt.as_ref() else {
+                continue;
+            };
+            if slot
+                .pending
+                .as_ref()
+                .is_some_and(|p| self.gateway.status(p.intent) != Some(Status::Aborted))
+            {
+                continue;
+            }
+            let conn_id = idx as u16;
+            if self.gateway.has_slot_connection(conn_id)
+                && self.gateway.slot_pending_intent(conn_id).is_none()
+                && self
+                    .gateway
+                    .slot_route(conn_id)
+                    .is_some_and(|r| r.established && r.is_ready() && r.matches_product(0))
+            {
+                return true;
+            }
+        }
+        false
+    }
+    pub fn pool_needs_poll(&self) -> bool {
+        if !self.gateway.has_connection_pool() || self.gateway.halted() {
+            return false;
+        }
+        if !self.completed_replies.is_empty() {
+            return true;
+        }
+        for (idx, slot_opt) in self.slot_state.iter().enumerate() {
+            let Some(slot) = slot_opt.as_ref() else {
+                continue;
+            };
+            let conn_id = idx as u16;
+            if slot.pending.is_some()
+                || (self.gateway.has_slot_connection(conn_id)
+                    && !self.gateway.slot_transport_ready(conn_id))
+            {
+                return true;
+            }
+        }
+        false
+    }
+    /// Attempts to debit `1` off-hot-path query unit from the configured [`VenueRateLimiter`]
+    /// (`REQUEST` + `PER_IP` windows, strictly isolated from `ORDER` and `CANCEL` caps).
+    /// Returns `true` when no [`VenueRateLimiter`] is attached or when an egress IP affords the query.
+    pub fn try_debit_query_budget(&mut self, now_mono_ns: u64) -> bool {
+        let Some(limiter) = self.venue_limiter.as_mut() else {
+            return true;
+        };
+        let mut ips = [IpKey::NONE; MAX_ORDER_CONNECTIONS];
+        let count = limiter.local_ips().len().min(MAX_ORDER_CONNECTIONS);
+        ips[..count].copy_from_slice(&limiter.local_ips()[..count]);
+        for &ip_key in &ips[..count] {
+            if limiter.can_afford_query(ip_key, 1, now_mono_ns).is_ok() {
+                return limiter.allow_query(ip_key, 1, now_mono_ns).is_ok();
+            }
+        }
+        false
+    }
     pub fn has_transport_connection(&self) -> bool {
-        self.gateway.has_transport_connection()
+        if self.gateway.has_connection_pool() {
+            self.gateway
+                .connection_pool()
+                .is_some_and(|p| p.router().established_count() > 0)
+        } else {
+            self.gateway.has_transport_connection()
+        }
+    }
+    fn has_any_slot_pending(&self) -> bool {
+        self.slot_state
+            .iter()
+            .flatten()
+            .any(|s| s.pending.is_some())
+    }
+    fn preferred_ready_slot_route(&self) -> Option<&OrderRoute> {
+        let pool = self.gateway.connection_pool()?;
+        let last_conn_id = pool.router().last_conn_id();
+        let mut first_eligible: Option<&OrderRoute> = None;
+        let mut next_after_last: Option<&OrderRoute> = None;
+        let mut best_measured: Option<(&OrderRoute, u32)> = None;
+        let mut last_measured_score: Option<u32> = None;
+
+        for (idx, slot_opt) in self.slot_state.iter().enumerate() {
+            let Some(slot) = slot_opt.as_ref() else {
+                continue;
+            };
+            if slot.pending.is_some() {
+                continue;
+            }
+            let conn_id = idx as u16;
+            if !self.gateway.has_slot_connection(conn_id)
+                || self.gateway.slot_pending_intent(conn_id).is_some()
+            {
+                continue;
+            }
+            let Some(r) = self.gateway.slot_route(conn_id) else {
+                continue;
+            };
+            if !(r.established && r.is_ready() && r.matches_product(0)) {
+                continue;
+            }
+            if first_eligible.is_none_or(|first| conn_id < first.conn_id) {
+                first_eligible = Some(r);
+            }
+            if let Some(last) = last_conn_id
+                && conn_id > last
+                && next_after_last.is_none_or(|nxt| conn_id < nxt.conn_id)
+            {
+                next_after_last = Some(r);
+            }
+            if let Some(score) = r.health.score() {
+                if best_measured
+                    .is_none_or(|(best_r, best_s)| (score, conn_id) < (best_s, best_r.conn_id))
+                {
+                    best_measured = Some((r, score));
+                }
+                if last_conn_id == Some(conn_id) {
+                    last_measured_score = Some(score);
+                }
+            }
+        }
+
+        let first = first_eligible?;
+        match best_measured {
+            None => {
+                if last_conn_id.is_some() {
+                    next_after_last.or(Some(first))
+                } else {
+                    Some(first)
+                }
+            }
+            Some((best_r, best_score)) => {
+                if let (Some(last), Some(last_score)) = (last_conn_id, last_measured_score)
+                    && u64::from(last_score) * 8 <= u64::from(best_score) * 9
+                {
+                    self.gateway.slot_route(last).or(Some(best_r))
+                } else {
+                    Some(best_r)
+                }
+            }
+        }
+    }
+    /// Read-only capacity and rate-limit precheck before staging origins or recovery closures.
+    pub fn precheck_submit(
+        &mut self,
+        command: &v::CanonicalCommand,
+        evaluated_at: u64,
+    ) -> Result<()> {
+        self.reap_aborted_pending();
+        let sym_key = symbol_rate_key(command.command().context.instrument.instrument_id);
+        let body = &command.command().body;
+        if let Some(limiter) = self.venue_limiter.as_mut()
+            && limiter.preset() == VenuePreset::OkxSpot
+            && matches!(body, v::CommandBody::New(_) | v::CommandBody::Cancel(_))
+        {
+            limiter
+                .register_symbol(sym_key)
+                .map_err(SessionError::RateLimited)?;
+        }
+        if !self.gateway.has_connection_pool() {
+            if self.pending.is_some() {
+                return Err(SessionError::Busy);
+            }
+            if let Some(limiter) = self.venue_limiter.as_ref() {
+                let ip_key = resolve_slot_ip_key(limiter, None);
+                can_afford_command(limiter, body, ip_key, sym_key, evaluated_at)
+                    .map_err(SessionError::RateLimited)?;
+            }
+            return Ok(());
+        }
+        if self.gateway.halted() {
+            return Err(SessionError::Gateway(
+                tickwire_account_gateway::Error::Halted,
+            ));
+        }
+        if !self.has_ready_slot() {
+            return Err(SessionError::Busy);
+        }
+        if let Some(limiter) = self.venue_limiter.as_ref() {
+            let any_affordable = (0..MAX_ORDER_CONNECTIONS).any(|idx| {
+                let conn_id = idx as u16;
+                self.slot_state[idx]
+                    .as_ref()
+                    .is_some_and(|s| s.pending.is_none())
+                    && self.gateway.has_slot_connection(conn_id)
+                    && self.gateway.slot_pending_intent(conn_id).is_none()
+                    && self.gateway.slot_route(conn_id).is_some_and(|r| {
+                        r.established
+                            && r.is_ready()
+                            && r.matches_product(0)
+                            && can_afford_command(
+                                limiter,
+                                body,
+                                resolve_slot_ip_key(limiter, r.local_ip),
+                                sym_key,
+                                evaluated_at,
+                            )
+                            .is_ok()
+                    })
+            });
+            if !any_affordable {
+                let pref_ip = self.preferred_ready_slot_route().and_then(|r| r.local_ip);
+                let ip_key = resolve_slot_ip_key(limiter, pref_ip);
+                let reject = can_afford_command(limiter, body, ip_key, sym_key, evaluated_at)
+                    .err()
+                    .unwrap_or(RateReject::Invalid);
+                return Err(SessionError::RateLimited(reject));
+            }
+        }
+        Ok(())
     }
     pub fn install_transport_connection(
         &mut self,
@@ -179,6 +637,8 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
     ) -> Result<tickwire_account_gateway::ActivationReceipt> {
         let epoch = binding.execution_connection_epoch;
         if self.pending.is_some()
+            || self.has_any_slot_pending()
+            || !self.completed_replies.is_empty()
             || (connection.is_some() && epoch <= self.connection_epoch)
             || (connection.is_none() && epoch != self.connection_epoch)
         {
@@ -190,6 +650,19 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             .reactivate(binding, connection, verifier)
             .map_err(SessionError::Gateway)?;
         self.decoder = decoder;
+        if self.gateway.has_connection_pool()
+            && self.gateway.has_slot_connection(0)
+            && self.slot_state[0].is_none()
+        {
+            let slot0_dec =
+                ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+            let slot0_epoch = self.gateway.slot_route(0).map_or(0, |r| r.epoch);
+            self.slot_state[0] = Some(SpotSlotState {
+                decoder: slot0_dec,
+                pending: None,
+                last_seen_epoch: slot0_epoch,
+            });
+        }
         self.connection_epoch = epoch;
         Ok(receipt)
     }
@@ -241,6 +714,7 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         evaluated_at: u64,
         deadline: Instant,
     ) -> Result<Status> {
+        self.reap_aborted_pending();
         let r = &command.command().context.request;
         let intent = IntentKey {
             epoch: r.intent_exec_epoch,
@@ -249,22 +723,155 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         // Let the gateway enforce same-byte retries and freeze conflicting reuse,
         // including while the original request is waiting for its HTTP response.
         if self.gateway.command(intent).is_some() {
+            if self.gateway.has_connection_pool() {
+                let conn_id = self.gateway.intent_slot(intent).map_or(0, |(cid, _)| cid);
+                return self
+                    .gateway
+                    .submit_on_slot(conn_id, command, evaluated_at, deadline)
+                    .map(|(status, _)| status)
+                    .map_err(SessionError::Gateway);
+            }
             return self
                 .gateway
                 .submit(command, evaluated_at, deadline)
                 .map_err(SessionError::Gateway);
         }
-        if self.pending.is_some() {
+        let sym_key = symbol_rate_key(command.command().context.instrument.instrument_id);
+        if !self.gateway.has_connection_pool() {
+            self.precheck_submit(&command, evaluated_at)?;
+            let result = self
+                .gateway
+                .submit(command.clone(), evaluated_at, deadline)
+                .map_err(SessionError::Gateway)?;
+            if let Some(limiter) = self.venue_limiter.as_mut() {
+                let ip_key = resolve_slot_ip_key(limiter, None);
+                allow_command(
+                    limiter,
+                    &command.command().body,
+                    ip_key,
+                    sym_key,
+                    evaluated_at,
+                )
+                .map_err(SessionError::RateLimited)?;
+            }
+            if result != Status::Aborted {
+                self.pending = Some((intent, command, deadline));
+            }
+            return Ok(result);
+        }
+
+        if self.gateway.halted() {
+            return Err(SessionError::Gateway(
+                tickwire_account_gateway::Error::Halted,
+            ));
+        }
+        if !self.has_ready_slot() {
             return Err(SessionError::Busy);
         }
-        let result = self
-            .gateway
-            .submit(command.clone(), evaluated_at, deadline)
-            .map_err(SessionError::Gateway)?;
-        if result != Status::Aborted {
-            self.pending = Some((intent, command, deadline));
+        if let Some(limiter) = self.venue_limiter.as_mut()
+            && limiter.preset() == VenuePreset::OkxSpot
+            && matches!(
+                command.command().body,
+                v::CommandBody::New(_) | v::CommandBody::Cancel(_)
+            )
+        {
+            limiter
+                .register_symbol(sym_key)
+                .map_err(SessionError::RateLimited)?;
         }
-        Ok(result)
+        let body = &command.command().body;
+        let picked = {
+            let Self {
+                gateway,
+                slot_state,
+                venue_limiter,
+                ..
+            } = self;
+            gateway.pick_pool_slot_filtered(0, |route| {
+                let idx = usize::from(route.conn_id);
+                if !slot_state[idx]
+                    .as_ref()
+                    .is_some_and(|s| s.pending.is_none())
+                {
+                    return false;
+                }
+                let Some(limiter) = venue_limiter.as_ref() else {
+                    return true;
+                };
+                let ip_key = resolve_slot_ip_key(limiter, route.local_ip);
+                can_afford_command(limiter, body, ip_key, sym_key, evaluated_at).is_ok()
+            })
+        };
+        let Some(conn_id) = picked else {
+            if let Some(limiter) = self.venue_limiter.as_ref() {
+                let pref_ip = self.preferred_ready_slot_route().and_then(|r| r.local_ip);
+                let ip_key = resolve_slot_ip_key(limiter, pref_ip);
+                let reject = can_afford_command(limiter, body, ip_key, sym_key, evaluated_at)
+                    .err()
+                    .unwrap_or(RateReject::Invalid);
+                return Err(SessionError::RateLimited(reject));
+            }
+            return Err(SessionError::Busy);
+        };
+        let chosen_local_ip = self.gateway.slot_route(conn_id).and_then(|r| r.local_ip);
+        let (status, slot_epoch) = self
+            .gateway
+            .submit_on_slot(conn_id, command.clone(), evaluated_at, deadline)
+            .map_err(SessionError::Gateway)?;
+        if let Some(limiter) = self.venue_limiter.as_mut() {
+            let ip_key = resolve_slot_ip_key(limiter, chosen_local_ip);
+            allow_command(
+                limiter,
+                &command.command().body,
+                ip_key,
+                sym_key,
+                evaluated_at,
+            )
+            .map_err(SessionError::RateLimited)?;
+        }
+        if status != Status::Aborted
+            && let Some(slot) = self.slot_state[usize::from(conn_id)].as_mut()
+        {
+            slot.pending = Some(SpotPending {
+                intent,
+                command,
+                deadline,
+                sent_mono_ns: evaluated_at,
+                slot_epoch,
+            });
+        }
+        Ok(status)
+    }
+    /// Drives TLS across single-flight or pooled slots and returns `(IntentKey, Reply)` on completion.
+    pub fn poll_tagged(
+        &mut self,
+        now: Instant,
+        received_mono_ns: u64,
+        budget: IoBudget,
+    ) -> Result<Option<(IntentKey, Reply)>> {
+        if budget.max_bytes == 0 || budget.max_syscalls == 0 || received_mono_ns == 0 {
+            return Err(SessionError::Identity);
+        }
+        if !self.gateway.has_connection_pool() {
+            let pending_intent = self.pending.as_ref().map(|(intent, _, _)| *intent);
+            let result = self.drive(now, received_mono_ns, budget);
+            if result.is_err() {
+                self.gateway.stop_sending();
+            }
+            return match result? {
+                Some(reply) => {
+                    let intent = pending_intent.ok_or(SessionError::Identity)?;
+                    Ok(Some((intent, reply)))
+                }
+                None => Ok(None),
+            };
+        }
+        let result = self.drive_pool(now, received_mono_ns, budget);
+        if let Err(err) = result {
+            self.gateway.stop_sending();
+            return Err(err);
+        }
+        Ok(self.completed_replies.pop_front())
     }
     /// Drives TLS with a bounded byte/syscall budget. A missing reply never re-submits.
     pub fn poll(
@@ -273,6 +880,11 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         received_mono_ns: u64,
         budget: IoBudget,
     ) -> Result<Option<Reply>> {
+        if self.gateway.has_connection_pool() {
+            return Ok(self
+                .poll_tagged(now, received_mono_ns, budget)?
+                .map(|(_, reply)| reply));
+        }
         if budget.max_bytes == 0 || budget.max_syscalls == 0 || received_mono_ns == 0 {
             return Err(SessionError::Identity);
         }
@@ -308,6 +920,353 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             .isolate_intent_in_doubt(intent, Self::doubt_reason_for_command(cmd))
             .map_err(SessionError::Gateway)?;
         Ok(Some(Reply::Unknown))
+    }
+    fn isolate_broken_pool_slot(
+        &mut self,
+        conn_id: u16,
+        intent: IntentKey,
+        cmd: &v::CanonicalCommand,
+        received_mono_ns: u64,
+    ) -> Result<()> {
+        let _ = self
+            .gateway
+            .drop_broken_slot_isolated(conn_id, received_mono_ns, true);
+        self.gateway.drain_slot_retained_receive(conn_id);
+        let fresh_decoder =
+            ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+        if let Some(slot) = self.slot_state[usize::from(conn_id)].as_mut() {
+            slot.decoder = fresh_decoder;
+        }
+        if self.gateway.status(intent) == Some(Status::Aborted) {
+            return Ok(());
+        }
+        self.gateway
+            .isolate_intent_in_doubt(intent, Self::doubt_reason_for_command(cmd))
+            .map_err(SessionError::Gateway)?;
+        self.completed_replies.push_back((intent, Reply::Unknown));
+        Ok(())
+    }
+    fn drive_pool(&mut self, now: Instant, received_mono_ns: u64, budget: IoBudget) -> Result<()> {
+        let _ = self.poll_pool_dials(received_mono_ns);
+        let mut buffer = [0u8; 4096];
+        for idx in 0..MAX_ORDER_CONNECTIONS {
+            if self.slot_state[idx].is_none() {
+                continue;
+            }
+            let conn_id = idx as u16;
+            let stale_pending_epoch = self.slot_state[idx]
+                .as_ref()
+                .and_then(|s| s.pending.as_ref())
+                .is_some_and(|p| {
+                    self.gateway.has_slot_connection(conn_id)
+                        && self
+                            .gateway
+                            .slot_route(conn_id)
+                            .is_some_and(|r| r.epoch != p.slot_epoch)
+                });
+            if stale_pending_epoch {
+                let pending = self.slot_state[idx]
+                    .as_mut()
+                    .and_then(|s| s.pending.take())
+                    .expect("checked pending");
+                let fresh_decoder =
+                    ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+                if let Some(slot) = self.slot_state[idx].as_mut() {
+                    slot.decoder = fresh_decoder;
+                }
+                if self.gateway.status(pending.intent) != Some(Status::Aborted) {
+                    let _ = self
+                        .gateway
+                        .release_slot_inflight(conn_id, pending.slot_epoch);
+                    self.gateway
+                        .isolate_intent_in_doubt(
+                            pending.intent,
+                            Self::doubt_reason_for_command(&pending.command),
+                        )
+                        .map_err(SessionError::Gateway)?;
+                    self.completed_replies
+                        .push_back((pending.intent, Reply::Unknown));
+                }
+                continue;
+            }
+            let has_conn = self.gateway.has_slot_connection(conn_id);
+            let has_pending = self.slot_state[idx]
+                .as_ref()
+                .is_some_and(|s| s.pending.is_some());
+            if !has_conn && !has_pending {
+                self.gateway.drain_slot_retained_receive(conn_id);
+                continue;
+            }
+            let slot_local_ip = self.gateway.slot_route(conn_id).and_then(|r| r.local_ip);
+            let transport = if has_conn {
+                self.gateway.poll_slot(conn_id, now, budget)
+            } else {
+                Ok(())
+            };
+            if self.slot_state[idx]
+                .as_ref()
+                .and_then(|s| s.pending.as_ref())
+                .is_some_and(|p| self.gateway.status(p.intent) == Some(Status::Aborted))
+            {
+                if !self.gateway.has_slot_connection(conn_id) {
+                    self.gateway.drain_slot_retained_receive(conn_id);
+                    let fresh_decoder =
+                        ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+                    if let Some(slot) = self.slot_state[idx].as_mut() {
+                        slot.decoder = fresh_decoder;
+                    }
+                }
+                if let Some(slot) = self.slot_state[idx].as_mut() {
+                    slot.pending = None;
+                }
+                continue;
+            }
+            let mut remaining = budget.max_bytes;
+            let mut exhausted = false;
+            let mut decode_err = None;
+            while remaining != 0 {
+                let cap = remaining.min(buffer.len());
+                let n = self.gateway.read_slot(conn_id, &mut buffer[..cap]);
+                if n == 0 {
+                    exhausted = true;
+                    break;
+                }
+                if self.slot_state[idx]
+                    .as_ref()
+                    .is_none_or(|s| s.pending.is_none())
+                {
+                    return Err(SessionError::Identity);
+                }
+                if let Err(e) = self.slot_state[idx]
+                    .as_mut()
+                    .expect("checked slot_state")
+                    .decoder
+                    .push(&buffer[..n])
+                {
+                    decode_err = Some(e);
+                    break;
+                }
+                remaining -= n;
+            }
+            if let Some(e) = decode_err {
+                if let Some(pending) = self.slot_state[idx].as_mut().and_then(|s| s.pending.take())
+                {
+                    self.isolate_broken_pool_slot(
+                        conn_id,
+                        pending.intent,
+                        &pending.command,
+                        received_mono_ns,
+                    )?;
+                    continue;
+                }
+                return Err(SessionError::Transport(e));
+            }
+            if exhausted && (!self.gateway.has_slot_connection(conn_id) || self.gateway.halted()) {
+                self.slot_state[idx]
+                    .as_mut()
+                    .expect("checked slot_state")
+                    .decoder
+                    .finish();
+            }
+            let next = match self.slot_state[idx]
+                .as_mut()
+                .expect("checked slot_state")
+                .decoder
+                .next_response()
+            {
+                Ok(next) => next,
+                Err(e) => {
+                    if let Some(pending) =
+                        self.slot_state[idx].as_mut().and_then(|s| s.pending.take())
+                    {
+                        self.isolate_broken_pool_slot(
+                            conn_id,
+                            pending.intent,
+                            &pending.command,
+                            received_mono_ns,
+                        )?;
+                        continue;
+                    }
+                    return Err(SessionError::Transport(e));
+                }
+            };
+            if let Some(raw) = next {
+                let pending = self.slot_state[idx]
+                    .as_mut()
+                    .and_then(|s| s.pending.take())
+                    .ok_or(SessionError::Identity)?;
+                let buffered_non_empty = !self.slot_state[idx]
+                    .as_mut()
+                    .expect("checked slot_state")
+                    .decoder
+                    .take_buffered()
+                    .is_empty();
+                if self
+                    .gateway
+                    .output_progress(pending.intent)
+                    .is_none_or(|p| p.accepted_bytes != p.total_bytes)
+                    || buffered_non_empty
+                {
+                    return Err(SessionError::Identity);
+                }
+                let sample_us =
+                    u32::try_from(received_mono_ns.saturating_sub(pending.sent_mono_ns) / 1_000)
+                        .unwrap_or(u32::MAX);
+                let _ = self
+                    .gateway
+                    .release_slot_inflight(conn_id, pending.slot_epoch);
+                let _ = self.gateway.note_slot_sample(
+                    conn_id,
+                    pending.slot_epoch,
+                    SampleKind::Order,
+                    sample_us,
+                );
+                if !self.gateway.has_slot_connection(conn_id) {
+                    self.gateway.drain_slot_retained_receive(conn_id);
+                    let fresh_decoder =
+                        ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+                    if let Some(slot) = self.slot_state[idx].as_mut() {
+                        slot.decoder = fresh_decoder;
+                    }
+                }
+                let reply = decode_reply(&pending.command, raw.status, &raw.body)
+                    .map_err(SessionError::Report)?;
+                let venue = SpotVenue::from_id(pending.command.command().context.request.venue)
+                    .ok_or(SessionError::Identity)?;
+                let is_rate_limit = raw.status == 429
+                    || matches!(&reply, Reply::RequestIssue { code } if is_venue_rate_limit_code(venue, code));
+                let reason = Self::doubt_reason_for_command(&pending.command);
+                if is_rate_limit
+                    && let (Some(limiter), Some(ip)) = (self.venue_limiter.as_mut(), slot_local_ip)
+                {
+                    let cooldown_until_ns =
+                        received_mono_ns.saturating_add(parse_retry_after_ns(&raw));
+                    let ip_key = resolve_slot_ip_key(limiter, Some(ip));
+                    let _ = limiter.note_ip_cooldown(ip_key, cooldown_until_ns);
+                    self.gateway
+                        .isolate_intent_in_doubt(pending.intent, reason)
+                        .map_err(SessionError::Gateway)?;
+                    self.completed_replies.push_back((pending.intent, reply));
+                    continue;
+                }
+                let http_hazard = is_http_account_hazard(raw.status);
+                match &reply {
+                    Reply::Order(snapshot) => {
+                        self.observe(&pending.command, snapshot, received_mono_ns)?;
+                    }
+                    Reply::Acknowledged { .. } => {}
+                    Reply::RequestIssue { code } => {
+                        let kind = classify_issue(venue, code);
+                        if http_hazard || kind == SpotIssueKind::AccountHazard {
+                            self.gateway.freeze_account();
+                        } else {
+                            match (&pending.command.command().body, kind) {
+                                (v::CommandBody::New(_), SpotIssueKind::DeterministicReject) => {
+                                    self.record_rejected_new(
+                                        &pending.command,
+                                        code,
+                                        received_mono_ns,
+                                    )?;
+                                }
+                                (
+                                    v::CommandBody::Cancel(_),
+                                    SpotIssueKind::DeterministicReject | SpotIssueKind::NotFound,
+                                ) => {}
+                                (
+                                    v::CommandBody::New(_),
+                                    SpotIssueKind::Ambiguous | SpotIssueKind::NotFound,
+                                ) => {
+                                    self.gateway
+                                        .isolate_intent_in_doubt(
+                                            pending.intent,
+                                            DoubtReason::PlaceAmbiguous,
+                                        )
+                                        .map_err(SessionError::Gateway)?;
+                                }
+                                (v::CommandBody::Cancel(_), SpotIssueKind::Ambiguous) => {
+                                    self.gateway
+                                        .isolate_intent_in_doubt(
+                                            pending.intent,
+                                            DoubtReason::CancelAmbiguous,
+                                        )
+                                        .map_err(SessionError::Gateway)?;
+                                }
+                                _ => {
+                                    self.gateway
+                                        .isolate_intent_in_doubt(pending.intent, reason)
+                                        .map_err(SessionError::Gateway)?;
+                                }
+                            }
+                        }
+                    }
+                    Reply::Unknown => {
+                        if http_hazard {
+                            self.gateway.freeze_account();
+                        } else {
+                            self.gateway
+                                .isolate_intent_in_doubt(pending.intent, reason)
+                                .map_err(SessionError::Gateway)?;
+                        }
+                    }
+                }
+                self.completed_replies.push_back((pending.intent, reply));
+                continue;
+            }
+            let should_check_pending = self.slot_state[idx]
+                .as_ref()
+                .is_some_and(|s| s.pending.is_some());
+            if should_check_pending {
+                let (intent, deadline) = {
+                    let p = self.slot_state[idx]
+                        .as_ref()
+                        .and_then(|s| s.pending.as_ref())
+                        .expect("checked pending");
+                    (p.intent, p.deadline)
+                };
+                if self.gateway.status(intent) == Some(Status::Aborted) {
+                    if !self.gateway.has_slot_connection(conn_id) {
+                        self.gateway.drain_slot_retained_receive(conn_id);
+                        let fresh_decoder = ResponseDecoder::new(256 * 1024, 128)
+                            .map_err(SessionError::Transport)?;
+                        if let Some(slot) = self.slot_state[idx].as_mut() {
+                            slot.decoder = fresh_decoder;
+                        }
+                    }
+                    if let Some(slot) = self.slot_state[idx].as_mut() {
+                        slot.pending = None;
+                    }
+                } else if now >= deadline
+                    || exhausted
+                        && (!self.gateway.has_slot_connection(conn_id)
+                            || self.gateway.halted()
+                            || transport.is_err())
+                {
+                    let pending = self.slot_state[idx]
+                        .as_mut()
+                        .and_then(|s| s.pending.take())
+                        .expect("checked pending");
+                    self.isolate_broken_pool_slot(
+                        conn_id,
+                        pending.intent,
+                        &pending.command,
+                        received_mono_ns,
+                    )?;
+                }
+            } else if !self.gateway.has_slot_connection(conn_id) && !self.gateway.halted() {
+                self.gateway.drain_slot_retained_receive(conn_id);
+                let fresh_decoder =
+                    ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+                if let Some(slot) = self.slot_state[idx].as_mut() {
+                    slot.decoder = fresh_decoder;
+                }
+            } else if let Err(e) = transport
+                && self.gateway.halted()
+            {
+                return Err(SessionError::Gateway(e));
+            }
+        }
+        let _ = self.poll_pool_dials(received_mono_ns);
+        Ok(())
     }
     fn drive(
         &mut self,

@@ -496,3 +496,73 @@ impl Config {
         })
     }
 }
+
+/// Declarative bootstrap configuration for a multi-source-IP [`super::MultiIpCommandQuota`].
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct MultiIpBootstrapConfig {
+    pub owner_id: [u8; 16],
+    pub risk_domain_id: [u8; 16],
+    pub account: u64,
+    pub source: Source,
+    pub local_ips: Vec<std::net::IpAddr>,
+    #[serde(default = "default_exch_warn_pct")]
+    pub exch_warn_pct: u8,
+}
+
+const fn default_exch_warn_pct() -> u8 {
+    super::DEFAULT_EXCH_WARN_PCT
+}
+
+impl MultiIpBootstrapConfig {
+    /// Builds a preallocated [`super::MultiIpCommandQuota`] bound to `domain`.
+    pub fn build(
+        &self,
+        domain: tickwire_clock::ClockDomain,
+    ) -> core::result::Result<super::MultiIpCommandQuota, super::MultiIpQuotaError> {
+        let (product, environment) = match self.source {
+            Source::SpotProduction => (
+                tickwire_venue::Product::Spot,
+                tickwire_venue::Environment::Production,
+            ),
+            Source::SpotTest => (
+                tickwire_venue::Product::Spot,
+                tickwire_venue::Environment::Test,
+            ),
+            Source::UsdmProduction => (
+                tickwire_venue::Product::LinearPerpetual,
+                tickwire_venue::Environment::Production,
+            ),
+            Source::UsdmTest => (
+                tickwire_venue::Product::LinearPerpetual,
+                tickwire_venue::Environment::Test,
+            ),
+        };
+        let ip_keys: Vec<super::IpKey> = self
+            .local_ips
+            .iter()
+            .copied()
+            .map(super::IpKey::from_ip)
+            .collect();
+        super::MultiIpCommandQuota::with_warn_pct(
+            super::CommandBinding {
+                owner_id: self.owner_id,
+                risk_domain_id: self.risk_domain_id,
+                account: self.account,
+                product,
+                environment,
+                domain,
+            },
+            &ip_keys,
+            self.exch_warn_pct,
+        )
+    }
+}
+
+/// Convenience helper constructing a multi-IP [`super::MultiIpCommandQuota`] from a [`super::CommandBinding`].
+pub fn build_multi_ip_command_quota(
+    binding: super::CommandBinding,
+    local_ips: &[super::IpKey],
+) -> core::result::Result<super::MultiIpCommandQuota, super::MultiIpQuotaError> {
+    super::MultiIpCommandQuota::new(binding, local_ips)
+}

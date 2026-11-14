@@ -217,6 +217,20 @@ impl PerOrderQueryDriver {
         self.rate_budget = Some(Box::new(budget));
     }
 
+    pub fn with_allow_query<R>(self, allow_query: R) -> Self
+    where
+        R: FnMut(u64) -> bool + Send + 'static,
+    {
+        self.with_rate_budget(allow_query)
+    }
+
+    pub fn set_allow_query<R>(&mut self, allow_query: R)
+    where
+        R: FnMut(u64) -> bool + Send + 'static,
+    {
+        self.set_rate_budget(allow_query);
+    }
+
     pub fn with_execution_network(mut self, network: LiveNetwork) -> Self {
         self.exec_network = Some(network);
         self
@@ -240,6 +254,22 @@ impl PerOrderQueryDriver {
         key
     }
 
+    /// Alias for [`Self::poll`] advancing one off-hot-path [`QueryDesk`] + pool reconnect step.
+    pub fn step<
+        'a,
+        B: Backend,
+        A: Authority,
+        T: FnMut() -> std::result::Result<u64, tickwire_gateway::Error>,
+        S: BlobStore,
+    >(
+        &mut self,
+        runner: &mut AccountRunner<'a, B, A, T, S>,
+        cut: Option<PrivateCut>,
+        now_mono_ns: u64,
+    ) -> std::result::Result<QueryStepOutcome, QueryDriverError> {
+        self.poll(runner, cut, now_mono_ns)
+    }
+
     /// Polls ready [`AsyncRestQuerier`] replies, applies order/fill reconciliations to `runner`,
     /// dispatches due [`QueryDesk`] asks, and optionally installs pre-warmed execution sockets.
     pub fn poll<
@@ -256,7 +286,14 @@ impl PerOrderQueryDriver {
     ) -> std::result::Result<QueryStepOutcome, QueryDriverError> {
         let mut outcome = QueryStepOutcome::default();
 
-        if let Some(network) = self.exec_network.as_ref() {
+        if runner.session().gateway().has_connection_pool() {
+            if !runner.halted() && !runner.account().frozen() {
+                let installed = runner.poll_pool_dials(now_mono_ns);
+                if installed > 0 {
+                    outcome.reconnected_execution = true;
+                }
+            }
+        } else if let Some(network) = self.exec_network.as_ref() {
             if !runner.halted() && !runner.account().frozen() && !runner.has_transport_connection()
             {
                 if !self.exec_reconnect_pending {
@@ -560,6 +597,15 @@ impl PerOrderQueryDriver {
         if let Some(budget) = self.rate_budget.as_mut()
             && !budget(now_mono_ns)
         {
+            if let Some(res) = runner
+                .query_desk_mut()
+                .and_then(|d| d.on_not_sent(&ticket, now_mono_ns))
+            {
+                outcome.resolutions.push(res);
+            }
+            return;
+        }
+        if !runner.session_mut().try_debit_query_budget(now_mono_ns) {
             if let Some(res) = runner
                 .query_desk_mut()
                 .and_then(|d| d.on_not_sent(&ticket, now_mono_ns))
@@ -1003,6 +1049,15 @@ impl PerOrderQueryDriver {
             if let Some(budget) = self.rate_budget.as_mut()
                 && !budget(now_mono_ns)
             {
+                if let Some(res) = runner
+                    .query_desk_mut()
+                    .and_then(|d| d.on_not_sent(&ticket, now_mono_ns))
+                {
+                    outcome.resolutions.push(res);
+                }
+                break;
+            }
+            if !runner.session_mut().try_debit_query_budget(now_mono_ns) {
                 if let Some(res) = runner
                     .query_desk_mut()
                     .and_then(|d| d.on_not_sent(&ticket, now_mono_ns))

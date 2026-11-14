@@ -59,13 +59,17 @@ impl<
         self.session.gateway().halted()
     }
     pub fn has_pending(&self) -> bool {
-        self.pending.is_some()
+        !self.inflight.is_empty() || self.session.has_queued_replies()
     }
     pub fn transport_needs_poll(&self) -> bool {
         self.has_pending()
             || (!self.halted()
-                && self.session.has_transport_connection()
-                && !self.session.gateway().transport_ready())
+                && if self.session.gateway().has_connection_pool() {
+                    self.session.pool_needs_poll()
+                } else {
+                    self.session.has_transport_connection()
+                        && !self.session.gateway().transport_ready()
+                })
     }
     pub fn execution_epoch(&self) -> u64 {
         self.session.connection_epoch()
@@ -127,7 +131,7 @@ impl<
     ) -> Result<CashProof> {
         self.freeze_cash();
         let cut = PrivateCut::stable(cuts)?;
-        if self.pending.is_some()
+        if self.has_pending()
             || self.halted() != replacement.is_some()
             || now.domain() != valid_until.domain()
             || now.nanos() == 0

@@ -21,6 +21,7 @@ use tickwire_runtime::{
 };
 use tickwire_spot_execution::{
     FillSource, Reply, RestSession, SessionError, SpotIssueKind, SpotVenue, classify_issue,
+    is_venue_rate_limit_code,
 };
 use tickwire_transport::IoBudget;
 use tickwire_venue::{CanonicalCommand, CommandBody, VenueOrderId};
@@ -63,7 +64,7 @@ pub struct AccountRunner<
     session: RestSession<'a, B, A, T>,
     queue: RecoveryQueue,
     origins: Origins<S>,
-    pending: Option<(u64, IntentKey)>,
+    inflight: BTreeMap<IntentKey, u64>,
     last: Option<MonoTime>,
     query_desk: Option<QueryDesk>,
     acked_native_ids: BTreeMap<OrderKey, VenueOrderId>,
@@ -84,7 +85,7 @@ impl<
             session,
             queue,
             origins: Origins::new(store),
-            pending: None,
+            inflight: BTreeMap::new(),
             last: None,
             query_desk: None,
             acked_native_ids: BTreeMap::new(),
@@ -129,6 +130,33 @@ impl<
     pub fn session(&self) -> &RestSession<'a, B, A, T> {
         &self.session
     }
+    pub fn session_mut(&mut self) -> &mut RestSession<'a, B, A, T> {
+        &mut self.session
+    }
+    pub fn poll_pool_dials(&mut self, now_mono_ns: u64) -> usize {
+        self.session.poll_pool_dials(now_mono_ns)
+    }
+    fn active_inflight_len(&self) -> usize {
+        self.inflight
+            .keys()
+            .filter(|&&k| self.session.gateway().status(k) != Some(Status::Aborted))
+            .count()
+    }
+    fn reap_aborted_inflight(&mut self, now_mono_ns: u64) {
+        let aborted_keys: Vec<IntentKey> = self
+            .inflight
+            .keys()
+            .copied()
+            .filter(|k| self.session.gateway().status(*k) == Some(Status::Aborted))
+            .collect();
+        for key in aborted_keys {
+            self.inflight.remove(&key);
+            self.origins.retire_intent(key, now_mono_ns);
+        }
+    }
+    pub fn inflight_count(&self) -> usize {
+        self.active_inflight_len()
+    }
     pub fn has_transport_connection(&self) -> bool {
         self.session.has_transport_connection()
     }
@@ -165,9 +193,11 @@ impl<
         self.session.gateway().journal_position()
     }
     pub fn available(&self) -> bool {
-        self.pending.is_none()
-            && !self.session.gateway().halted()
-            && self.session.has_transport_connection()
+        let active = self.active_inflight_len();
+        !self.session.gateway().halted()
+            && self.session.has_ready_slot()
+            && (self.session.gateway().has_connection_pool() || active == 0)
+            && active < tickwire_account_gateway::pool::MAX_ORDER_CONNECTIONS
     }
     pub fn scope(&self) -> &Scope {
         &self.session.gateway().baseline().snapshot().scope
@@ -193,6 +223,7 @@ impl<
         now: LocalTime,
     ) -> Result<bool> {
         self.clock(now)?;
+        self.reap_aborted_inflight(now.monotonic.nanos());
         strategy.on_account_history(self.session.gateway());
         health.account_frozen |= self.account().frozen();
         health.sender_halted |= self.session.gateway().halted();
@@ -224,11 +255,15 @@ impl<
                     | tickwire_account::Error::Limit,
                 ),
             ))) if !self.account().frozen() => Ok(true),
+            Err(Error::Session(SessionError::RateLimited(_))) if !self.account().frozen() => {
+                Ok(true)
+            }
             other => other.map(|_| true),
         }
     }
     pub fn submit(&mut self, sub: Submission, now: LocalTime) -> Result<Status> {
         self.clock(now)?;
+        self.reap_aborted_inflight(now.monotonic.nanos());
         let Submission {
             command,
             order_ids,
@@ -241,8 +276,17 @@ impl<
             epoch: r.intent_exec_epoch,
             intent_id: r.intent_id,
         };
-        if self.pending.is_some() && self.session.gateway().command(intent).is_none() {
-            return Err(Error::Busy);
+        let prior = self.session.gateway().command(intent).is_some();
+        if !prior {
+            if !self.session.gateway().has_connection_pool() {
+                if !self.inflight.is_empty() {
+                    return Err(Error::Busy);
+                }
+            } else if self.inflight.len() >= tickwire_account_gateway::pool::MAX_ORDER_CONNECTIONS
+                || !self.session.has_ready_slot()
+            {
+                return Err(Error::Busy);
+            }
         }
         let scope = self.scope();
         if r.risk_domain_id != scope.risk_domain_id
@@ -257,7 +301,6 @@ impl<
                 "strategy command scope or recovery digest mismatch",
             ));
         }
-        let prior = self.session.gateway().command(intent).is_some();
         let deadline = if prior {
             deadline
         } else {
@@ -281,22 +324,44 @@ impl<
             self.origins
                 .sync_account(self.session.gateway().account(), now.monotonic.nanos());
         }
-        let origin_check = match &c.body {
-            CommandBody::New(order) => match order_ids.as_slice() {
-                [id] if *id != [0; 16] => self.origins.register(
-                    &scope,
-                    intent,
-                    order.client_id.as_str(),
-                    *id,
-                    command.digest(),
-                    now.monotonic.nanos(),
-                ),
-                _ => Err(Error::Origin(
-                    "one nonzero local order ID is required for a new cash order",
-                )),
-            },
+        match &c.body {
+            CommandBody::New(order) => {
+                let [id] = order_ids.as_slice() else {
+                    self.session.stop_sending();
+                    return Err(Error::Origin(
+                        "one nonzero local order ID is required for a new cash order",
+                    ));
+                };
+                if *id == [0; 16] {
+                    self.session.stop_sending();
+                    return Err(Error::Origin(
+                        "one nonzero local order ID is required for a new cash order",
+                    ));
+                }
+                if !prior {
+                    self.session
+                        .precheck_submit(&command, now.monotonic.nanos())
+                        .map_err(Error::Session)?;
+                }
+                let same_prior_cmd =
+                    prior && self.session.gateway().command(intent) == Some(&command);
+                if !same_prior_cmd
+                    && let Err(e) = self.origins.register(
+                        &scope,
+                        intent,
+                        order.client_id.as_str(),
+                        *id,
+                        command.digest(),
+                        now.monotonic.nanos(),
+                    )
+                {
+                    self.session.stop_sending();
+                    return Err(e);
+                }
+            }
             CommandBody::Cancel(target) | CommandBody::Query(target) if order_ids.is_empty() => {
-                self.origins
+                let verify_origin = self
+                    .origins
                     .lookup(&scope, b"order", &target.order_id)
                     .and_then(|origin| {
                         let original = self
@@ -333,15 +398,23 @@ impl<
                             }
                         }
                         Ok(())
-                    })
+                    });
+                if let Err(e) = verify_origin {
+                    self.session.stop_sending();
+                    return Err(e);
+                }
+                if !prior {
+                    self.session
+                        .precheck_submit(&command, now.monotonic.nanos())
+                        .map_err(Error::Session)?;
+                }
             }
-            _ => Err(Error::Origin(
-                "unsupported cash order or local order ID count",
-            )),
-        };
-        if let Err(e) = origin_check {
-            self.session.stop_sending();
-            return Err(e);
+            _ => {
+                self.session.stop_sending();
+                return Err(Error::Origin(
+                    "unsupported cash order or local order ID count",
+                ));
+            }
         }
         if prior {
             return self
@@ -359,11 +432,19 @@ impl<
             self.session.stop_sending();
             return Err(Error::Closure(e));
         }
-        let status = status.map_err(Error::Session)?;
+        let status = match status {
+            Ok(s) => s,
+            Err(e) => {
+                if self.session.gateway().command(intent).is_none() {
+                    self.origins.retire_intent(intent, now.monotonic.nanos());
+                }
+                return Err(Error::Session(e));
+            }
+        };
         if status == Status::Aborted {
             self.origins.retire_intent(intent, now.monotonic.nanos());
         } else {
-            self.pending = Some((strategy, intent));
+            self.inflight.insert(intent, strategy);
         }
         Ok(status)
     }
@@ -376,14 +457,16 @@ impl<
         budget: IoBudget,
     ) -> Result<Option<Completion>> {
         self.clock(now)?;
-        let response = self
+        self.reap_aborted_inflight(now.monotonic.nanos());
+        let tagged = self
             .session
-            .poll(now.instant, now.monotonic.nanos(), budget)
+            .poll_tagged(now.instant, now.monotonic.nanos(), budget)
             .map_err(Error::Session)?;
-        if let Some(response) = response {
-            let (logical_strategy_id, intent) = self
-                .pending
-                .take()
+        self.reap_aborted_inflight(now.monotonic.nanos());
+        if let Some((intent, response)) = tagged {
+            let logical_strategy_id = self
+                .inflight
+                .remove(&intent)
                 .ok_or(Error::Origin("unsolicited response"))?;
             let command = self
                 .session
@@ -399,13 +482,27 @@ impl<
                 response,
             }));
         }
-        if let Some((_, key)) = self.pending
-            && self.session.gateway().status(key) == Some(Status::Aborted)
-        {
-            self.pending = None;
-            self.origins.retire_intent(key, now.monotonic.nanos());
-        }
         Ok(None)
+    }
+    /// Polls transport across all slots and drains every completed reply ready in this turn.
+    pub fn poll_all(
+        &mut self,
+        strategy: &mut impl Strategy,
+        now: LocalTime,
+        budget: IoBudget,
+    ) -> Result<Vec<Completion>> {
+        let mut out = Vec::new();
+        if let Some(first) = self.poll(strategy, now, budget)? {
+            out.push(first);
+            while self.session.has_queued_replies() {
+                if let Some(next) = self.poll(strategy, now, budget)? {
+                    out.push(next);
+                } else {
+                    break;
+                }
+            }
+        }
+        Ok(out)
     }
     fn on_completed_command(
         &mut self,
@@ -468,7 +565,10 @@ impl<
                 let is_ambiguous = match response {
                     Reply::Unknown => true,
                     Reply::RequestIssue { code } => SpotVenue::from_id(c.context.request.venue)
-                        .is_some_and(|v| classify_issue(v, code) == SpotIssueKind::Ambiguous),
+                        .is_some_and(|v| {
+                            classify_issue(v, code) == SpotIssueKind::Ambiguous
+                                || is_venue_rate_limit_code(v, code)
+                        }),
                     _ => false,
                 };
                 if is_ambiguous

@@ -212,7 +212,11 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 self.connection.as_mut().unwrap().take_finished();
                 self.websocket.as_mut().unwrap().control = None;
                 if slot.close {
-                    self.halt();
+                    if self.per_order_doubt_isolation && !self.account.frozen() {
+                        self.drop_broken_transport_isolated();
+                    } else {
+                        self.halt();
+                    }
                 }
             }
             SendState::NoBytes(_) | SendState::Failed(_) => self.on_transport_error(),

@@ -9,10 +9,12 @@ node; child-process spawning, shared-memory mappings, and policy grant rules liv
 
 ## Invariants and Change Guidelines
 
-* **Poll-order invariant (inputs before strategy intake)**: Each reactor turn in [src/node.rs](src/node.rs) must poll
-  clock calibration, public market streams, private account inputs, and `AccountGateway` completions before polling
-  `Strategy` for new submissions, then sample fresh `LocalTime` immediately prior to admission so fills and
-  cancellations settle available funds in the same turn.
+* **Poll-order invariant and bounded multi-completion drain**: Each reactor turn in [src/node.rs](src/node.rs) must
+  poll clock calibration, public market streams, private account inputs, and up to `16` queued `RestOwner` completions
+  (`has_queued_outcomes`, marking `report.runnable = true` if any remain) before polling `Strategy` for new
+  submissions, then sample fresh `LocalTime` immediately prior to admission so fills and cancellations across pooled
+  HTTP/1.1 slots (`mio::Token(100 + conn_id)` via `RestOwner::reregister_all`) or multiplexed WebSocket requests settle
+  available funds in the same turn.
 * **Staged `RecoveryBundle` completeness**: `RecoveryQueue::stage` and `LocalAuthority` in
   [src/authority.rs](src/authority.rs) require all 10 control/configuration/checkpoint dependency objects
   (`kinds 2..=11`), actual sequenced `EncodedInputs`, command object (`kind 13`), and paired account baseline/history

@@ -50,6 +50,7 @@ pub enum Error {
     Stopped,
     ReplayPending,
     Busy,
+    RateLimited(tickwire_quota::rate_limiter::RateReject),
     Transport(tickwire_transport::Error),
     Clock(tickwire_binance_private::Error),
 }
