@@ -386,21 +386,23 @@ impl Account {
             next.children.insert(key.client_id, merged);
         }
         for key in &old.legs {
-            let o = self.orders.get_mut(key).unwrap();
-            o.confirmed = true;
-            if (!o.uncreated
-                || !observed.children.as_slice().is_empty()
-                || matches!(
-                    observed.status,
-                    v::StructureStatus::Live
-                        | v::StructureStatus::Triggered
-                        | v::StructureStatus::Unknown
-                        | v::StructureStatus::Pending
-                ))
-                && o.reopen_aborted()?
-            {
+            let should_reopen = {
+                let o = self.orders.get_mut(key).unwrap();
+                o.confirmed = true;
+                !o.uncreated
+                    || !observed.children.as_slice().is_empty()
+                    || matches!(
+                        observed.status,
+                        v::StructureStatus::Live
+                            | v::StructureStatus::Triggered
+                            | v::StructureStatus::Unknown
+                            | v::StructureStatus::Pending
+                    )
+            };
+            if should_reopen && self.reopen_order(key)? {
                 self.frozen = true;
             }
+            let o = self.orders.get_mut(key).unwrap();
             if next.unknown {
                 o.observed_unknown = true;
                 self.frozen = true;

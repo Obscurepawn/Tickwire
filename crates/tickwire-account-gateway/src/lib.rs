@@ -321,6 +321,7 @@ pub struct AccountGateway<S: Backend, A: Authority, E: Encoder> {
     last_reactivation: Option<Box<tickwire_account::Reactivation>>,
     pending: Option<(IntentKey, u64)>,
     halted: bool,
+    per_order_doubt_isolation: bool,
 }
 struct Entry {
     command: CanonicalCommand,
@@ -469,6 +470,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             last_reactivation: None,
             pending: None,
             halted: false,
+            per_order_doubt_isolation: false,
         };
         gateway.refresh_completed_entries();
         Ok(gateway)
@@ -553,6 +555,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             last_reactivation,
             pending: None,
             halted: true,
+            per_order_doubt_isolation: false,
         };
         gateway.refresh_completed_entries();
         Ok(gateway)
@@ -705,7 +708,10 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.halted {
             return Err(Error::Halted);
         }
-        if self.pending.is_some() || self.websocket_blocks_application() {
+        if self.pending.is_some()
+            || self.connection.is_none()
+            || self.websocket_blocks_application()
+        {
             return Err(Error::Busy);
         }
         if self.websocket.is_none() {
@@ -842,7 +848,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             Err(error) => {
                 // queue does not accept application bytes, even when it fails.
                 self.abort(key)?;
-                self.halt();
+                self.on_transport_error();
                 Err(error.into())
             }
         }
@@ -857,7 +863,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         let driven = self
             .connection
             .as_mut()
-            .ok_or(Error::Halted)?
+            .ok_or(Error::Busy)?
             .drive(now, budget);
         if self.pending.is_some() {
             let report = self
@@ -869,6 +875,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         if let Some((key, _)) = self.pending
             && !self.halted
+            && self.connection.is_some()
             && driven.as_ref().is_ok_and(|r| !r.peer_closed)
         {
             let entry = &self.entries[&key];
@@ -883,7 +890,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                         return match driven {
                             Ok(_) => Ok(()),
                             Err(error) => {
-                                self.halt();
+                                self.on_transport_error();
                                 Err(error.into())
                             }
                         };
@@ -906,7 +913,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             let result = self
                 .connection
                 .as_mut()
-                .ok_or(Error::Halted)?
+                .ok_or(Error::Busy)?
                 .try_send(now, || {
                     authority
                         .current_gate(&entry.command, admission)
@@ -922,7 +929,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             match result {
                 Ok(report) => self.apply_report(report)?,
                 Err(error) => {
-                    self.halt();
+                    self.on_transport_error();
                     return Err(error.into());
                 }
             }
@@ -930,11 +937,11 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         match driven {
             Ok(report) if !report.peer_closed => Ok(()),
             Ok(_) => {
-                self.halt();
+                self.on_transport_error();
                 Ok(())
             }
             Err(error) => {
-                self.halt();
+                self.on_transport_error();
                 Err(error.into())
             }
         }
@@ -946,10 +953,10 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.pending.is_none() {
             return Err(Error::Invalid);
         }
-        let report = match self.connection.as_mut().ok_or(Error::Halted)?.cancel() {
+        let report = match self.connection.as_mut().ok_or(Error::Busy)?.cancel() {
             Ok(report) => report,
             Err(error) => {
-                self.halt();
+                self.on_transport_error();
                 return Err(error.into());
             }
         };
@@ -1484,10 +1491,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         registry: &tickwire_transport::mio::Registry,
         token: tickwire_transport::mio::Token,
     ) -> Result<()> {
+        if self.halted {
+            return Err(Error::Halted);
+        }
         Ok(self
             .connection
             .as_mut()
-            .ok_or(Error::Halted)?
+            .ok_or(Error::Busy)?
             .register(registry, token)?)
     }
     pub fn reregister(
@@ -1495,10 +1505,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         registry: &tickwire_transport::mio::Registry,
         token: tickwire_transport::mio::Token,
     ) -> Result<()> {
+        if self.halted {
+            return Err(Error::Halted);
+        }
         Ok(self
             .connection
             .as_mut()
-            .ok_or(Error::Halted)?
+            .ok_or(Error::Busy)?
             .reregister(registry, token)?)
     }
     fn apply_report(&mut self, report: SendReport) -> Result<()> {
@@ -1538,7 +1551,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 self.connection.as_mut().unwrap().take_finished();
                 self.pending = None;
             }
-            SendState::Failed(_) => self.halt(),
+            SendState::Failed(_) => self.on_transport_error(),
         }
         Ok(())
     }
@@ -1604,6 +1617,189 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 .get(k)
                 .is_some_and(|e| e.status == Status::Aborted)
         });
+    }
+
+    pub(crate) fn on_transport_error(&mut self) {
+        if self.per_order_doubt_isolation {
+            self.drop_broken_transport_isolated();
+        } else {
+            self.halt();
+        }
+    }
+
+    pub fn with_per_order_doubt_isolation(mut self, enabled: bool) -> Self {
+        self.per_order_doubt_isolation = enabled;
+        self
+    }
+
+    pub fn set_per_order_doubt_isolation(&mut self, enabled: bool) {
+        self.per_order_doubt_isolation = enabled;
+    }
+
+    pub fn per_order_doubt_isolation(&self) -> bool {
+        self.per_order_doubt_isolation
+    }
+
+    pub fn has_transport_connection(&self) -> bool {
+        self.connection.is_some()
+    }
+
+    pub fn isolate_intent_in_doubt(
+        &mut self,
+        key: IntentKey,
+        reason: tickwire_account::DoubtReason,
+    ) -> Result<Vec<tickwire_account::OrderKey>> {
+        let (command, orders) = {
+            let entry = self.entries.get(&key).ok_or(Error::Invalid)?;
+            let orders = entry
+                .committed
+                .as_ref()
+                .map(|c| c.admission.orders().to_vec())
+                .or_else(|| self.account.admission(key).map(|a| a.orders().to_vec()))
+                .unwrap_or_default();
+            (entry.command.clone(), orders)
+        };
+        let body = &command.command().body;
+        let instrument = command.command().context.instrument.instrument_id;
+        let mut affected = Vec::new();
+        if !orders.is_empty() {
+            if matches!(body, tickwire_venue::CommandBody::New(_)) && orders.len() == 1 {
+                let order_key = orders[0].clone();
+                if let Some(view) = self.account.order(&order_key) {
+                    if !view.aborted
+                        && !view.uncreated
+                        && !(view.terminal && view.remaining_quantity.atoms() == 0 && !view.unknown)
+                    {
+                        self.account
+                            .mark_order_in_doubt(&order_key, reason)
+                            .map_err(Error::Account)?;
+                        affected.push(order_key);
+                    }
+                } else {
+                    self.freeze_account();
+                    return Err(Error::Account(tickwire_account::Error::UnknownOrder));
+                }
+            } else {
+                self.freeze_account();
+                return Err(Error::Conflict);
+            }
+        } else {
+            match body {
+                tickwire_venue::CommandBody::Cancel(target)
+                | tickwire_venue::CommandBody::AmendKeepPriority { target, .. } => {
+                    if let Some(order_key) = self.account.resolve_order_target(instrument, target)
+                        && let Some(view) = self.account.order(&order_key)
+                        && !view.terminal
+                        && !view.uncreated
+                        && !view.aborted
+                    {
+                        self.account
+                            .mark_order_in_doubt(&order_key, reason)
+                            .map_err(Error::Account)?;
+                        affected.push(order_key);
+                    }
+                }
+                tickwire_venue::CommandBody::Query(_) => {}
+                _ => {
+                    self.freeze_account();
+                    return Err(Error::Conflict);
+                }
+            }
+        }
+        if let Some(entry) = self.entries.get_mut(&key) {
+            entry.status = Status::Unknown;
+        }
+        self.completed_mono_ns.remove(&key);
+        if self.pending.is_some_and(|(k, _)| k == key) {
+            self.pending = None;
+        }
+        Ok(affected)
+    }
+
+    pub fn clear_order_in_doubt(&mut self, key: &tickwire_account::OrderKey) -> Result<()> {
+        self.account
+            .clear_order_in_doubt(key)
+            .map_err(Error::Account)
+    }
+
+    pub fn drop_broken_transport_isolated(&mut self) -> Option<IntentKey> {
+        if let Some(connection) = self.connection.as_mut() {
+            let mut bytes = [0u8; 4096];
+            loop {
+                let available = self
+                    .max_receive_bytes
+                    .saturating_sub(self.retained_receive.len());
+                if available == 0 {
+                    break;
+                }
+                let limit = available.min(bytes.len());
+                let n = connection.read(&mut bytes[..limit]);
+                if n == 0 {
+                    break;
+                }
+                self.retained_receive.extend(&bytes[..n]);
+            }
+        }
+        self.connection = None;
+        self.websocket = None;
+        self.rest_started = false;
+        let failed_pending = self.pending.take().map(|(k, _)| k);
+        if let Some(key) = failed_pending {
+            let zero_bytes_unsent = self.entries.get(&key).is_some_and(|e| {
+                matches!(e.status, Status::Queued | Status::AwaitingCommit)
+                    && e.output.is_some_and(|p| p.accepted_bytes == 0)
+            });
+            if zero_bytes_unsent {
+                if self.abort(key).is_err() {
+                    self.halt();
+                }
+            } else {
+                let reason = match self.entries.get(&key).map(|e| &e.command.command().body) {
+                    Some(tickwire_venue::CommandBody::Cancel(_)) => {
+                        tickwire_account::DoubtReason::CancelAmbiguous
+                    }
+                    Some(tickwire_venue::CommandBody::AmendKeepPriority { .. }) => {
+                        tickwire_account::DoubtReason::AmendAmbiguous
+                    }
+                    _ => tickwire_account::DoubtReason::PlaceAmbiguous,
+                };
+                if self.isolate_intent_in_doubt(key, reason).is_err() {
+                    self.halt();
+                }
+            }
+        }
+        failed_pending
+    }
+
+    pub fn install_transport_connection(
+        &mut self,
+        connection: Connection,
+        limits: tickwire_transport::Limits,
+    ) -> Result<()> {
+        if self.halted || self.account.frozen() {
+            return Err(Error::Halted);
+        }
+        if self.connection.is_some() || self.pending.is_some() || !self.retained_receive.is_empty()
+        {
+            return Err(Error::Busy);
+        }
+        if [
+            limits.max_send_bytes,
+            limits.max_receive_bytes,
+            limits.tls_buffer_bytes,
+            limits.max_accept_bytes,
+        ]
+        .iter()
+        .any(|n| *n == 0 || *n > 16 * 1024 * 1024)
+        {
+            return Err(Error::Transport(tickwire_transport::Error::Bounds));
+        }
+        self.connection = Some(connection);
+        self.websocket = None;
+        self.rest_started = false;
+        self.max_send_bytes = limits.max_send_bytes;
+        self.max_receive_bytes = limits.max_receive_bytes;
+        Ok(())
     }
 }
 

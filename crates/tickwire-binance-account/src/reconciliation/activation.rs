@@ -452,6 +452,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
         }
         self.config.connection_epoch = cut.execution_connection_epoch;
         self.ingress.config.writer_epoch = cut.writer_epoch;
+        if let Some(desk) = &mut self.query_desk {
+            *desk = tickwire_account::QueryDesk::new(*desk.config());
+        }
         Ok(ActivationProof {
             binding,
             ledger: receipt.ledger_sequence,

@@ -20,9 +20,13 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
   ([src/lib.rs](src/lib.rs)) or WebSocket ([src/websocket.rs](src/websocket.rs)) transport, re-evaluate
   `Authority::commit_state` and `Authority::current_gate` (`now < lease_until`, matching `writer_epoch`,
   `strategy_generation`, `config_revision`, `owner_isolated`, `action_permitted`, and `market_valid`).
-* **Pre-first-byte abort vs. `MayHaveSent` retention**: Only a pre-first-byte gate refusal or transport proof that zero
-  application bytes left the process may append `AbortBeforeSend` and release holds; once a single byte is accepted or a
-  send stalls mid-stream, retain the reservation for venue reconciliation.
+* **Pre-first-byte abort vs. `MayHaveSent` retention and opt-in per-order doubt isolation**: Only a pre-first-byte gate
+  refusal or transport proof that zero application bytes left the process may append `AbortBeforeSend` and release
+  holds; once a single byte is accepted or a send stalls mid-stream, retain the reservation for venue reconciliation.
+  When `with_per_order_doubt_isolation(true)` is enabled, `drop_broken_transport_isolated` and `isolate_intent_in_doubt`
+  confine single-order `New`/`Cancel`/`AmendKeepPriority`/`Query` transport failures to `Status::Unknown` +
+  `Account::mark_order_in_doubt` without freezing `Account`, halting the gateway, or disturbing sibling `Flushed`
+  entries, allowing `install_transport_connection` to attach a fresh `Connection` once `retained_receive` is drained.
 * **Exact-prefix reactivation**: Keep recovery and live reactivation gates in [src/recovery.rs](src/recovery.rs) bound
   to the exact `HistoryFrontier` and `CanonicalBaseline` digest before opening replacement connections.
 * **Windowed entry reclamation and management headroom**: In `AccountGateway::evict_retired_entries`
@@ -35,7 +39,8 @@ socket framing (`tickwire-transport`) remain injected dependencies with no permi
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/binding.rs](src/binding.rs) ·
   [src/recovery.rs](src/recovery.rs) · [src/websocket.rs](src/websocket.rs) ·
-  [tests/submission.rs](tests/submission.rs) · [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
+  [tests/submission.rs](tests/submission.rs) · [tests/per_order_isolation.rs](tests/per_order_isolation.rs) ·
+  [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
   [tests/lifecycle.rs](tests/lifecycle.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/binance_rest.rs](tests/binance_rest.rs) · [tests/websocket.rs](tests/websocket.rs) ·

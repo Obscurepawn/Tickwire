@@ -10,7 +10,15 @@ pub(super) fn derive<S: Store, B: Backend, A: Authority, E: Encoder>(
     received: u64,
     raw: &[u8],
 ) -> Result<(RestDisposition, Vec<CanonicalEvent>)> {
-    derive_checked(input, gateway, binding, received, raw, true)
+    derive_checked(
+        input,
+        gateway,
+        binding,
+        received,
+        raw,
+        true,
+        gateway.per_order_doubt_isolation(),
+    )
 }
 fn derive_checked<S: Store, B: Backend, A: Authority, E: Encoder>(
     input: &AccountIngress<S>,
@@ -19,6 +27,7 @@ fn derive_checked<S: Store, B: Backend, A: Authority, E: Encoder>(
     received: u64,
     raw: &[u8],
     apply_candidate: bool,
+    emit_order_rejection: bool,
 ) -> Result<(RestDisposition, Vec<CanonicalEvent>)> {
     if raw.is_empty() || raw.len() > 32 * 1024 {
         return Err(Error::Capacity);
@@ -53,6 +62,7 @@ fn derive_checked<S: Store, B: Backend, A: Authority, E: Encoder>(
         decoded,
         b"tickwire.ws.observation.v1",
         apply_candidate,
+        emit_order_rejection,
     )
 }
 
@@ -158,7 +168,13 @@ impl<S: Store> AccountIngress<S> {
             };
         }
         if record.decision != ResponseDecision::Matched {
-            gateway.stop_sending();
+            if gateway.per_order_doubt_isolation()
+                && (record.raw.is_empty() || record.decision == ResponseDecision::Incomplete)
+            {
+                gateway.drop_broken_transport_isolated();
+            } else {
+                gateway.stop_sending();
+            }
         }
         self.commit_ws_response(gateway, record)
     }
@@ -169,15 +185,24 @@ impl<S: Store> AccountIngress<S> {
     ) -> Result<WsResponseOutcome> {
         self.validate_ws_response(&record, self.config.writer_epoch)?;
         self.verify_ws_response(gateway, &record)?;
-        if record.disposition != RestDisposition::Observed {
+        let bound_cmd = record
+            .binding
+            .and_then(|seq| self.ws_bindings().find(|b| b.sequence == seq))
+            .map(|b| (intent(&b.command), b.command.clone()));
+        let isolation = gateway.per_order_doubt_isolation();
+        if !isolation {
+            if record.disposition != RestDisposition::Observed {
+                gateway.freeze_account();
+            }
+        } else if record.disposition != RestDisposition::Observed
+            && is_category_b_ws_hazard(self, &record, bound_cmd.as_ref().map(|(_, c)| c))
+        {
             gateway.freeze_account();
         }
         let sequence = self.position().checked_add(1).ok_or(Error::Capacity)?;
         let count = record.events.len();
-        let request = record
-            .binding
-            .and_then(|seq| self.ws_bindings().find(|b| b.sequence == seq))
-            .map(|b| intent(&b.command));
+        let request = bound_cmd.as_ref().map(|(k, _)| *k);
+        let events_snapshot = record.events.clone();
         let mut records = vec![Record::WsResponse(record.clone())];
         for index in 0..count {
             records.push(Record::WsEffect {
@@ -227,6 +252,18 @@ impl<S: Store> AccountIngress<S> {
             }
         }
         self.cursor = self.records.len();
+        if isolation
+            && !gateway.account().frozen()
+            && let Some((req_key, cmd)) = &bound_cmd
+        {
+            crate::rest::persistence::apply_per_order_isolation(
+                gateway,
+                *req_key,
+                cmd,
+                record.disposition,
+                &events_snapshot,
+            );
+        }
         Ok(WsResponseOutcome {
             input: InputKey {
                 stream: self.input_stream(),
@@ -248,10 +285,15 @@ impl<S: Store> AccountIngress<S> {
             || r.disposition == RestDisposition::NoBytes
             || (r.decision != ResponseDecision::Matched
                 && (r.disposition != RestDisposition::Unknown || !r.events.is_empty()))
-            || (matches!(
-                r.disposition,
-                RestDisposition::Unknown | RestDisposition::Rejected
-            ) && !r.events.is_empty())
+            || (r.disposition == RestDisposition::Unknown && !r.events.is_empty())
+            || (r.disposition == RestDisposition::Rejected
+                && !r.events.is_empty()
+                && !(r.events.len() == 1
+                    && matches!(
+                        r.events[0].event().body,
+                        v::VenueEventBody::AmendmentRejected(_)
+                            | v::VenueEventBody::Rejected { .. }
+                    )))
         {
             return Err(Error::Identity);
         }
@@ -299,8 +341,19 @@ impl<S: Store> AccountIngress<S> {
                 .find(|b| Some(b.sequence) == r.binding)
                 .ok_or(Error::Identity)?;
             self.verify_ws_binding(gateway, b)?;
-            let (disposition, events) =
-                derive_checked(self, gateway, b, r.received, &r.raw, false)?;
+            let emit_order_rejection = r
+                .events
+                .iter()
+                .any(|e| matches!(e.event().body, v::VenueEventBody::Rejected { .. }));
+            let (disposition, events) = derive_checked(
+                self,
+                gateway,
+                b,
+                r.received,
+                &r.raw,
+                false,
+                emit_order_rejection,
+            )?;
             if disposition != r.disposition || events != r.events {
                 return Err(Error::Identity);
             }
@@ -414,4 +467,65 @@ pub(crate) fn decode(bytes: &[u8]) -> Result<ResponseRecord> {
         return Err(Error::Encoding);
     }
     Ok(out)
+}
+
+fn is_category_b_ws_hazard<S: Store>(
+    input: &AccountIngress<S>,
+    record: &ResponseRecord,
+    command: Option<&CanonicalCommand>,
+) -> bool {
+    let Some(cmd) = command else {
+        return true;
+    };
+    if !matches!(
+        cmd.command().body,
+        v::CommandBody::New(_)
+            | v::CommandBody::Cancel(_)
+            | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Query(_)
+    ) {
+        return true;
+    }
+    if record.decision != ResponseDecision::Matched {
+        return !(record.raw.is_empty() || record.decision == ResponseDecision::Incomplete);
+    }
+    if record.events.iter().any(|e| {
+        matches!(
+            &e.event().body,
+            v::VenueEventBody::Order(o) if o.status == v::OrderStatus::Unknown
+        )
+    }) {
+        return true;
+    }
+    let Ok(market) = input.market() else {
+        return true;
+    };
+    let Ok(decoded) = tickwire_binance::response::decode_websocket(market, &record.raw) else {
+        return true;
+    };
+    if matches!(decoded.status, 401 | 403 | 418 | 429) {
+        return true;
+    }
+    if (200..300).contains(&decoded.status) && record.disposition == RestDisposition::Unknown {
+        return true;
+    }
+    if matches!(
+        decoded.failure,
+        Some(
+            tickwire_binance::response::FailureKind::Banned
+                | tickwire_binance::response::FailureKind::RateLimited
+                | tickwire_binance::response::FailureKind::Authentication
+                | tickwire_binance::response::FailureKind::ClockSkew
+                | tickwire_binance::response::FailureKind::Partial
+        )
+    ) {
+        return true;
+    }
+    if decoded.failure == Some(tickwire_binance::response::FailureKind::Rejected)
+        && matches!(cmd.command().body, v::CommandBody::New(_))
+        && record.events.is_empty()
+    {
+        return true;
+    }
+    false
 }

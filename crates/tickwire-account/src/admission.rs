@@ -330,6 +330,7 @@ impl Account {
                 shadow_fee_credit: fee_zero,
                 created_mono_ns: now,
                 retired_mono_ns: None,
+                in_doubt: None,
             };
             self.index_order_insert(&order);
             self.orders.insert(order_key.clone(), order);
@@ -490,11 +491,9 @@ impl Account {
             return Err(Error::Frozen);
         }
         for key in &a.orders {
-            if self
-                .orders
-                .get(key)
-                .is_none_or(|o| o.aborted || o.unknown() || o.terminal)
-            {
+            if self.orders.get(key).is_none_or(|o| {
+                o.aborted || o.uncreated || o.in_doubt.is_some() || o.unknown() || o.terminal
+            }) {
                 return Err(Error::Unreconciled);
             }
         }
@@ -591,5 +590,56 @@ impl Account {
             self.refresh_order_retirement(key, stamp);
         }
         Ok(applied)
+    }
+
+    pub fn resolve_order_target(
+        &self,
+        instrument: u64,
+        target: &v::OrderTarget,
+    ) -> Option<OrderKey> {
+        let matches_target = |o: &Order| {
+            o.instrument == instrument
+                && o.key.intent.epoch == target.original_intent_exec_epoch
+                && target
+                    .client_id
+                    .as_ref()
+                    .is_none_or(|id| id == &o.key.client_id)
+                && target
+                    .venue_order_id
+                    .as_ref()
+                    .is_none_or(|id| o.native.as_ref() == Some(id))
+                && o.internal_id.is_none_or(|id| id == target.order_id)
+        };
+        let found = if let Some(cid) = &target.client_id {
+            self.orders_by_client_id
+                .get(&(instrument, cid.clone()))
+                .and_then(|keys| {
+                    keys.iter()
+                        .filter_map(|k| self.orders.get(k))
+                        .find(|o| matches_target(o))
+                })
+        } else if let Some(vid) = &target.venue_order_id {
+            self.orders_by_native_id
+                .get(&(instrument, vid.clone()))
+                .and_then(|keys| {
+                    keys.iter()
+                        .filter_map(|k| self.orders.get(k))
+                        .find(|o| matches_target(o))
+                })
+        } else {
+            self.orders_by_internal_id
+                .get(&target.order_id)
+                .and_then(|keys| {
+                    keys.iter()
+                        .filter_map(|k| self.orders.get(k))
+                        .find(|o| matches_target(o))
+                })
+                .or_else(|| {
+                    self.orders
+                        .values()
+                        .find(|o| o.internal_id.is_none() && matches_target(o))
+                })
+        };
+        found.map(|o| o.key.clone())
     }
 }

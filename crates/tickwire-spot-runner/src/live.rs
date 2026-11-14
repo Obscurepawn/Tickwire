@@ -32,10 +32,13 @@ use tickwire_spot_execution::{
     private::stream::{Channel, EventKind, PrivateStream, StreamConfig},
 };
 use tickwire_spot_runner::{
-    AccountRunner,
+    AccountRunner, PerOrderQueryDriver,
     reconcile::{CashUpdate, CashVerifier, PrivateCut},
 };
-use tickwire_transport::{IoBudget, Limits};
+use tickwire_transport::{
+    IoBudget, Limits, dialer::DialSecurity, rest_querier::RestQuerierConfig,
+    rustls::pki_types::ServerName,
+};
 
 const MAX_PRIVATE_AGE_NS: u64 = 45_000_000_000;
 const MAX_MARKET_AGE_NS: u64 = 1_000_000_000;
@@ -158,8 +161,11 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     };
     let dialer = std::sync::Arc::new(tickwire_transport::dialer::Dialer::new()?);
     let mut ws_network = network::LiveNetwork::new(ws_host, ws_port, tls.clone());
-    ws_network.attach_dialer(dialer, 1)?;
+    ws_network.attach_dialer(dialer.clone(), 1)?;
     ws_network.request_prewarm(0);
+    let mut exec_network =
+        network::LiveNetwork::new(rest_host, 443, tls.clone()).with_peers(vec![address]);
+    exec_network.attach_dialer(dialer, 2)?;
     cfg.bind(&mut objects, &base, existing)?;
     let mut verifier =
         CashVerifier::new(reconciliation_store, &cfg.expected_uid, cfg.baseline_utc_ms)?;
@@ -262,6 +268,45 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
     if matches!(storage_mode, StorageMode::InMemory | StorageMode::MmapAsync) {
         runner.set_retention_window_ns(Some(tickwire_account::DEFAULT_RETENTION_WINDOW_NS));
     }
+    let query_signing = std::sync::Arc::new(std::sync::Mutex::new(None::<(u64, Instant)>));
+    let mut query_driver = if trading && cfg.per_order_query_desk {
+        runner.enable_per_order_query_desk(tickwire_account::QueryConfig::default());
+        let shared_clock = std::sync::Arc::clone(&query_signing);
+        let server_name = ServerName::try_from(rest_host.to_owned())?;
+        Some(
+            PerOrderQueryDriver::new(
+                venue,
+                env,
+                RestQuerierConfig {
+                    host: rest_host.to_owned(),
+                    port: 443,
+                    initial_peers: vec![address],
+                    security: DialSecurity::Tls {
+                        server_name,
+                        config: tls.clone(),
+                    },
+                    ..RestQuerierConfig::default()
+                },
+                credentials.clone(),
+                move || {
+                    let calibrated = *shared_clock.lock().unwrap_or_else(|e| e.into_inner());
+                    if calibrated.is_some() {
+                        signing_time(calibrated)
+                    } else {
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .map_err(|_| tickwire_gateway::Error::Frozen)
+                    }
+                },
+            )
+            .map_err(|e| format!("per-order query driver init: {e}"))?
+            .with_execution_network(exec_network.clone()),
+        )
+    } else {
+        None
+    };
+    let mut exec_reconnect_pending = false;
     runner.freeze_cash();
     let scanner = Scanner::start(
         credentials.clone(),
@@ -330,6 +375,8 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
                 });
                 match activated {
                     Ok(true) => {
+                        *query_signing.lock().unwrap_or_else(|e| e.into_inner()) =
+                            owner.signing.get();
                         renew_at = Instant::now() + Duration::from_secs(30);
                         println!(
                             "{}",
@@ -382,6 +429,27 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         {
             owner.runner.poll(strategy, now, IoBudget::default())?;
         }
+        if let Some(driver) = query_driver.as_mut() {
+            driver
+                .poll(&mut owner.runner, current, now.monotonic.nanos())
+                .map_err(|e| format!("per-order query driver: {e}"))?;
+        } else if !owner.runner.halted()
+            && !owner.runner.account().frozen()
+            && !owner.runner.has_transport_connection()
+        {
+            if !exec_reconnect_pending {
+                exec_network.notify_disconnected(now.monotonic.nanos());
+                exec_reconnect_pending = true;
+            }
+            if let Some(ready) = exec_network.try_take_ready() {
+                owner
+                    .runner
+                    .install_transport_connection(ready.into_connection(), Limits::default())?;
+                exec_reconnect_pending = false;
+            }
+        } else if owner.runner.has_transport_connection() {
+            exec_reconnect_pending = false;
+        }
         if owner.signing.get().is_some() && owner.runner.halted() {
             owner.permission.set(None);
             return Err("execution transport halted; restart with a newer approved writer_epoch to reconcile outstanding orders".into());
@@ -410,6 +478,9 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         }
     }
     owner.permission.set(None);
+    if let Some(driver) = query_driver.as_ref() {
+        driver.stop();
+    }
     stream.stop()?;
     Ok(())
 }

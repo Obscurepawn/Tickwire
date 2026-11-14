@@ -57,6 +57,12 @@ impl Account {
         }
         if let Some(old) = &pending.rejected {
             return if old == &a.venue_code {
+                if self.orders[&pending.order].in_doubt == Some(DoubtReason::AmendAmbiguous) {
+                    let order_key = pending.order.clone();
+                    self.orders.get_mut(&order_key).unwrap().in_doubt = None;
+                    let stamp = self.last_mono_ns;
+                    self.refresh_order_retirement(&order_key, stamp);
+                }
                 Ok(Applied::Duplicate)
             } else {
                 Err(Error::Conflict)
@@ -65,6 +71,9 @@ impl Account {
         let order_key = pending.order.clone();
         self.next_sequence()?;
         let stamp = self.last_mono_ns;
+        if self.orders[&order_key].in_doubt == Some(DoubtReason::AmendAmbiguous) {
+            self.orders.get_mut(&order_key).unwrap().in_doubt = None;
+        }
         let entry = self.amendments.get_mut(&key).unwrap();
         entry.rejected = Some(a.venue_code.clone());
         entry.retired_mono_ns = Some(stamp);
@@ -126,11 +135,12 @@ impl Account {
         }
         let prior_order = order.clone();
         if !old.confirmed {
+            let reopened = self.reopen_order(&old.order)?;
             let o = self.orders.get_mut(&old.order).unwrap();
             if old.aborted
                 || old.rejected.is_some()
                 || o.effective != before
-                || o.reopen_aborted()?
+                || reopened
                 || o.filled.atoms() > after.atoms()
             {
                 o.observation_unreconciled = true;
@@ -146,7 +156,14 @@ impl Account {
         if let Some(observation) = &a.observation {
             self.observe(&old.order, observation)?;
         }
+        if self.orders[&old.order].in_doubt == Some(DoubtReason::AmendAmbiguous) {
+            self.orders.get_mut(&old.order).unwrap().in_doubt = None;
+        }
         if self.amendments[&request] == old && self.orders[&old.order] == prior_order {
+            if self.orders[&old.order].in_doubt != prior_order.in_doubt {
+                let stamp = self.last_mono_ns;
+                self.refresh_order_retirement(&old.order, stamp);
+            }
             return Ok(Applied::Duplicate);
         }
         let stamp = self.last_mono_ns;
@@ -225,6 +242,7 @@ impl Account {
             || o.uncreated
             || !o.confirmed
             || o.observation_unreconciled
+            || o.in_doubt.is_some()
             || self
                 .amendments
                 .values()
@@ -260,6 +278,7 @@ impl Account {
             || a.rejected.is_some()
             || !o.confirmed
             || o.observation_unreconciled
+            || o.in_doubt.is_some()
             || o.terminal
             || o.aborted
             || o.uncreated

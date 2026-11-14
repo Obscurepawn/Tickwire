@@ -2,9 +2,14 @@
 #![forbid(unsafe_code)]
 pub mod live_bootstrap;
 mod origins;
+pub mod query_desk_driver;
 pub mod reconcile;
 use origins::Origins;
-use tickwire_account::{IntentKey, Scope};
+pub use query_desk_driver::{PerOrderQueryDriver, QueryDriverError, QueryStepOutcome};
+use std::collections::BTreeMap;
+use tickwire_account::{
+    Applied, AskKind, IntentKey, OrderKey, QueryConfig, QueryDesk, RecoveryRecord, Scope,
+};
 use tickwire_account_gateway::{Authority, Status};
 use tickwire_account_journal::Backend;
 use tickwire_binance_clock::LocalTime;
@@ -14,9 +19,11 @@ use tickwire_runtime::{
     authority::RecoveryQueue,
     node::{Health, Strategy, Submission},
 };
-use tickwire_spot_execution::{FillSource, Reply, RestSession, SessionError};
+use tickwire_spot_execution::{
+    FillSource, Reply, RestSession, SessionError, SpotIssueKind, SpotVenue, classify_issue,
+};
 use tickwire_transport::IoBudget;
-use tickwire_venue::{CanonicalCommand, CommandBody};
+use tickwire_venue::{CanonicalCommand, CommandBody, VenueOrderId};
 #[derive(Debug)]
 pub enum Error {
     Session(SessionError),
@@ -58,6 +65,9 @@ pub struct AccountRunner<
     origins: Origins<S>,
     pending: Option<(u64, IntentKey)>,
     last: Option<MonoTime>,
+    query_desk: Option<QueryDesk>,
+    acked_native_ids: BTreeMap<OrderKey, VenueOrderId>,
+    expected_fill_atoms: BTreeMap<OrderKey, i128>,
 }
 impl<
     'a,
@@ -76,6 +86,9 @@ impl<
             origins: Origins::new(store),
             pending: None,
             last: None,
+            query_desk: None,
+            acked_native_ids: BTreeMap::new(),
+            expected_fill_atoms: BTreeMap::new(),
         }
     }
     /// Constructs an `AccountRunner` pre-populated with cold-bootstrapped open order origins.
@@ -98,6 +111,35 @@ impl<
             )?;
         }
         Ok(runner)
+    }
+    pub fn with_per_order_query_desk(mut self, config: QueryConfig) -> Self {
+        self.enable_per_order_query_desk(config);
+        self
+    }
+    pub fn enable_per_order_query_desk(&mut self, config: QueryConfig) {
+        self.session.set_per_order_doubt_isolation(true);
+        self.query_desk = Some(QueryDesk::new(config));
+    }
+    pub fn query_desk(&self) -> Option<&QueryDesk> {
+        self.query_desk.as_ref()
+    }
+    pub fn query_desk_mut(&mut self) -> Option<&mut QueryDesk> {
+        self.query_desk.as_mut()
+    }
+    pub fn session(&self) -> &RestSession<'a, B, A, T> {
+        &self.session
+    }
+    pub fn has_transport_connection(&self) -> bool {
+        self.session.has_transport_connection()
+    }
+    pub fn install_transport_connection(
+        &mut self,
+        connection: tickwire_transport::Connection,
+        limits: tickwire_transport::Limits,
+    ) -> Result<()> {
+        self.session
+            .install_transport_connection(connection, limits)
+            .map_err(Error::Session)
     }
     pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
         self.set_retention_window_ns(window_ns);
@@ -123,7 +165,9 @@ impl<
         self.session.gateway().journal_position()
     }
     pub fn available(&self) -> bool {
-        self.pending.is_none() && !self.session.gateway().halted()
+        self.pending.is_none()
+            && !self.session.gateway().halted()
+            && self.session.has_transport_connection()
     }
     pub fn scope(&self) -> &Scope {
         &self.session.gateway().baseline().snapshot().scope
@@ -345,8 +389,10 @@ impl<
                 .session
                 .gateway()
                 .command(intent)
+                .cloned()
                 .ok_or(Error::Origin("missing admitted request"))?;
-            strategy.on_request_reply(command, &response);
+            self.on_completed_command(&command, intent, &response, now.monotonic.nanos());
+            strategy.on_request_reply(&command, &response);
             return Ok(Some(Completion {
                 logical_strategy_id,
                 intent,
@@ -360,6 +406,280 @@ impl<
             self.origins.retire_intent(key, now.monotonic.nanos());
         }
         Ok(None)
+    }
+    fn on_completed_command(
+        &mut self,
+        command: &CanonicalCommand,
+        intent: IntentKey,
+        response: &Reply,
+        now_mono_ns: u64,
+    ) {
+        let c = command.command();
+        let instrument_id = c.context.instrument.instrument_id;
+        match &c.body {
+            CommandBody::New(order) => {
+                let order_key = OrderKey {
+                    intent,
+                    client_id: order.client_id.clone(),
+                };
+                if let Reply::Acknowledged { venue_order_id, .. } = response {
+                    if self.acked_native_ids.len() >= tickwire_account::MAX_ORDERS {
+                        let account = self.session.gateway().account();
+                        self.acked_native_ids.retain(|k, _| {
+                            account
+                                .order(k)
+                                .is_some_and(|v| !v.aborted && !v.uncreated && !v.terminal)
+                        });
+                    }
+                    self.acked_native_ids
+                        .insert(order_key.clone(), venue_order_id.clone());
+                }
+                if self.query_desk.is_some() {
+                    let uncreated = self
+                        .account()
+                        .order(&order_key)
+                        .is_some_and(|v| v.uncreated);
+                    if uncreated {
+                        self.acked_native_ids.remove(&order_key);
+                        self.expected_fill_atoms.remove(&order_key);
+                        if !self.account().is_intent_active(intent) {
+                            self.origins.retire_intent(intent, now_mono_ns);
+                        }
+                    } else if !self.account().frozen()
+                        && self.account().order_in_doubt(&order_key).is_some()
+                    {
+                        let native = self.known_native_order_id(&order_key);
+                        if !self.enqueue_query_desk_ask(
+                            order_key,
+                            instrument_id,
+                            native,
+                            AskKind::Place,
+                            true,
+                            now_mono_ns,
+                        ) {
+                            self.freeze_cash();
+                        }
+                    }
+                }
+            }
+            CommandBody::Cancel(target)
+                if self.query_desk.is_some() && !self.account().frozen() =>
+            {
+                let is_ambiguous = match response {
+                    Reply::Unknown => true,
+                    Reply::RequestIssue { code } => SpotVenue::from_id(c.context.request.venue)
+                        .is_some_and(|v| classify_issue(v, code) == SpotIssueKind::Ambiguous),
+                    _ => false,
+                };
+                if is_ambiguous
+                    && let Some(order_key) = self
+                        .account()
+                        .resolve_order_target(instrument_id, target)
+                        .or_else(|| {
+                            let scope = self.scope().clone();
+                            let origin = self
+                                .origins
+                                .lookup(&scope, b"order", &target.order_id)
+                                .ok()?;
+                            let client_id = target.client_id.clone()?;
+                            Some(OrderKey {
+                                intent: origin.intent,
+                                client_id,
+                            })
+                        })
+                    && self
+                        .account()
+                        .order(&order_key)
+                        .is_some_and(|v| !v.terminal && !v.uncreated && !v.aborted)
+                {
+                    let place_unacked = !self.is_order_confirmed_or_acked(&order_key);
+                    let native = self.known_native_order_id(&order_key);
+                    if !self.enqueue_query_desk_ask(
+                        order_key,
+                        instrument_id,
+                        native,
+                        AskKind::Cancel,
+                        place_unacked,
+                        now_mono_ns,
+                    ) {
+                        self.freeze_cash();
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    pub(crate) fn is_order_confirmed_or_acked(&self, key: &OrderKey) -> bool {
+        self.acked_native_ids.contains_key(key)
+            || self.account().venue_order_id(key).is_some()
+            || self
+                .account()
+                .order(key)
+                .is_some_and(|v| v.confirmed || v.filled_quantity.atoms() > 0 || v.terminal)
+    }
+    pub(crate) fn known_native_order_id(&self, key: &OrderKey) -> Option<VenueOrderId> {
+        self.account()
+            .venue_order_id(key)
+            .cloned()
+            .or_else(|| self.acked_native_ids.get(key).cloned())
+    }
+    pub(crate) fn record_acked_native_order_id(&mut self, key: OrderKey, native: VenueOrderId) {
+        self.acked_native_ids.insert(key, native);
+    }
+    pub(crate) fn note_expected_fill_atoms(&mut self, key: &OrderKey, atoms: i128) {
+        self.expected_fill_atoms
+            .entry(key.clone())
+            .and_modify(|cur| *cur = (*cur).max(atoms))
+            .or_insert(atoms);
+    }
+    pub(crate) fn expected_fill_atoms(&self, key: &OrderKey) -> i128 {
+        self.expected_fill_atoms.get(key).copied().unwrap_or(0)
+    }
+    pub(crate) fn clear_expected_fill_atoms(&mut self, key: &OrderKey) {
+        self.expected_fill_atoms.remove(key);
+    }
+    pub(crate) fn poll_due_query_ticket(
+        &mut self,
+        now_mono_ns: u64,
+    ) -> Option<tickwire_account::QueryTicket> {
+        let account = self.session.gateway().account();
+        let expected_fills = &self.expected_fill_atoms;
+        let desk = self.query_desk.as_mut()?;
+        desk.poll_due(now_mono_ns, |order, kind| {
+            account.order(order).is_some_and(|v| {
+                if v.aborted || v.uncreated {
+                    return false;
+                }
+                if kind == AskKind::Trades {
+                    let expected = expected_fills.get(order).copied().unwrap_or(0);
+                    account.order_in_doubt(order)
+                        == Some(tickwire_account::DoubtReason::FillCatchup)
+                        || expected > v.filled_quantity.atoms()
+                        || (v.terminal && !v.fee_reconciled)
+                } else {
+                    account.order_in_doubt(order).is_some()
+                        || (!v.terminal && kind == AskKind::Cancel)
+                }
+            })
+        })
+    }
+    pub(crate) fn enqueue_query_desk_ask(
+        &mut self,
+        order_key: OrderKey,
+        instrument_id: u64,
+        native: Option<VenueOrderId>,
+        kind: AskKind,
+        place_unacked: bool,
+        now_mono_ns: u64,
+    ) -> bool {
+        let Some(desk) = self.query_desk.as_mut() else {
+            return false;
+        };
+        let account = self.session.gateway().account();
+        desk.enqueue_ask(
+            order_key,
+            instrument_id,
+            native,
+            kind,
+            place_unacked,
+            now_mono_ns,
+            |k| {
+                account.order(k).is_some_and(|v| {
+                    !v.aborted
+                        && !v.uncreated
+                        && (!v.terminal
+                            || !v.fee_reconciled
+                            || account.order_in_doubt(k).is_some()
+                            || v.remaining_quantity.atoms() > 0)
+                })
+            },
+        )
+        .is_ok()
+    }
+    pub(crate) fn enqueue_query_desk_trades(&mut self, key: &OrderKey, now_mono_ns: u64) -> bool {
+        let Some((instrument, _)) = self.account().order_terms(key) else {
+            return false;
+        };
+        let instrument_id = instrument.instrument_id;
+        let native = self.known_native_order_id(key);
+        self.enqueue_query_desk_ask(
+            key.clone(),
+            instrument_id,
+            native,
+            AskKind::Trades,
+            false,
+            now_mono_ns,
+        )
+    }
+    pub(crate) fn close_uncreated_order(
+        &mut self,
+        key: &OrderKey,
+        code: &str,
+        now_mono_ns: u64,
+    ) -> Result<()> {
+        let cmd = self
+            .session
+            .gateway()
+            .command(key.intent)
+            .cloned()
+            .ok_or(Error::Origin(
+                "missing admitted command for uncreated order",
+            ))?;
+        self.session
+            .record_rejected_new(&cmd, code, now_mono_ns)
+            .map_err(Error::Session)?;
+        self.acked_native_ids.remove(key);
+        self.expected_fill_atoms.remove(key);
+        if let Some(desk) = self.query_desk.as_mut() {
+            desk.remove_order(key);
+        }
+        if !self.account().is_intent_active(key.intent) {
+            self.origins.retire_intent(key.intent, now_mono_ns);
+        }
+        Ok(())
+    }
+    pub(crate) fn close_terminal_fees_if_ready(
+        &mut self,
+        key: &OrderKey,
+        now_mono_ns: u64,
+    ) -> Result<bool> {
+        let Some(view) = self.account().order(key) else {
+            return Ok(false);
+        };
+        let mut closed = view.fee_reconciled;
+        if !closed
+            && self.account().check_fee_closure(key, view.filled_quantity) == Ok(Applied::New)
+        {
+            self.session
+                .gateway_mut()
+                .record_fact(RecoveryRecord::FeesReconciled {
+                    order: key.clone(),
+                    cumulative: view.filled_quantity,
+                })
+                .map_err(|e| Error::Session(SessionError::Gateway(e)))?;
+            closed = true;
+        }
+        if closed
+            && self.account().order(key).is_some_and(|v| {
+                v.terminal
+                    && self.account().order_in_doubt(key).is_none()
+                    && v.remaining_quantity.atoms() == 0
+            })
+        {
+            self.acked_native_ids.remove(key);
+            self.expected_fill_atoms.remove(key);
+            if let Some(desk) = self.query_desk.as_mut() {
+                desk.remove_order(key);
+            }
+            if !self.account().is_intent_active(key.intent) {
+                let stamp = self
+                    .account()
+                    .intent_retired_mono_ns(key.intent)
+                    .unwrap_or(now_mono_ns);
+                self.origins.retire_intent(key.intent, stamp);
+            }
+        }
+        Ok(closed)
     }
     /// The authenticated input owner supplies the verified private row and its durable source
     /// position. The original intent and local order ID come exclusively from the account index.

@@ -1,0 +1,27 @@
+{
+  "model": "L0_PerOrderIsolation",
+  "runs": 2,
+  "entries": 19,
+  "generated": {
+    "Init line 163, col 1 to line 163, col 4 of module L0_PerOrderIsolation": 2,
+    "SubmitOrder line 211, col 1 to line 211, col 19 of module L0_PerOrderIsolation": 4352,
+    "AbortUnsentBeforeFirstByte line 243, col 1 to line 243, col 29 of module L0_PerOrderIsolation": 4784,
+    "AcceptFirstByte line 273, col 1 to line 273, col 26 of module L0_PerOrderIsolation": 21760,
+    "FlushOrder line 297, col 1 to line 297, col 13 of module L0_PerOrderIsolation": 26808,
+    "TransportDropIsolated line 320, col 1 to line 320, col 24 of module L0_PerOrderIsolation": 26808,
+    "AmbiguousResponseIsolated line 350, col 1 to line 350, col 28 of module L0_PerOrderIsolation": 34224,
+    "InstallReplacementTransport line 378, col 1 to line 378, col 27 of module L0_PerOrderIsolation": 205520,
+    "VenueIndexLate line 401, col 1 to line 401, col 17 of module L0_PerOrderIsolation": 35460,
+    "DeliverDeterministicReject line 423, col 1 to line 423, col 29 of module L0_PerOrderIsolation": 34188,
+    "QueryNotFoundBeforeGrace line 460, col 1 to line 460, col 27 of module L0_PerOrderIsolation": 23984,
+    "QueryNotFoundAfterGrace line 487, col 1 to line 487, col 26 of module L0_PerOrderIsolation": 14592,
+    "DeliverVenueFlatCancel line 525, col 1 to line 525, col 25 of module L0_PerOrderIsolation": 57544,
+    "DeliverVenueFill line 558, col 1 to line 558, col 19 of module L0_PerOrderIsolation": 86948,
+    "DeliverDuplicateVenueFact line 596, col 1 to line 596, col 28 of module L0_PerOrderIsolation": 252976,
+    "ReconcileOrderFees line 617, col 1 to line 617, col 21 of module L0_PerOrderIsolation": 167120,
+    "AdversarialLateFactAfterUncreated line 653, col 1 to line 653, col 36 of module L0_PerOrderIsolation": 115844,
+    "EvictExpired line 687, col 1 to line 687, col 15 of module L0_PerOrderIsolation": 259260,
+    "AdvanceClock line 710, col 1 to line 710, col 12 of module L0_PerOrderIsolation": 177252
+  },
+  "model_sha256": "81571e5cbc602e533004c0f22cf64ef78f0008c76d292b08b86f4cf0f87b505d"
+}

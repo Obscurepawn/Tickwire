@@ -20,6 +20,8 @@ pub(super) struct Deployment {
     pub storage_mode: Option<tickwire_journal::StorageMode>,
     #[serde(default)]
     pub state_directory: Option<PathBuf>,
+    #[serde(default)]
+    pub per_order_query_desk: bool,
     pub baseline: PathBuf,
     pub expected_uid: String,
     pub baseline_utc_ms: u64,

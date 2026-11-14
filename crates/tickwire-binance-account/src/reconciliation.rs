@@ -400,7 +400,27 @@ impl ReadOnlyReconciler {
             .map_err(Error::Transport)
     }
 }
-fn authority(scope: &AccountScope) -> &'static str {
+pub(crate) fn bind_trade_page(
+    command: &CanonicalCommand,
+    identity: &v::OrderIdentity,
+    assets: &[tickwire_account::AssetSnapshot],
+    query: TradeQuery,
+    epoch: u64,
+    received: u64,
+    raw: &[u8],
+) -> Result<Vec<CanonicalEvent>> {
+    trades::bind_with_status(
+        command,
+        identity,
+        assets,
+        query,
+        epoch,
+        received,
+        raw,
+        v::OrderStatus::PartiallyFilled,
+    )
+}
+pub(crate) fn authority(scope: &AccountScope) -> &'static str {
     match (scope.market, scope.environment) {
         (Market::Spot, v::Environment::Production) => "api.binance.com",
         (Market::Spot, v::Environment::Test) => "testnet.binance.vision",
@@ -408,7 +428,7 @@ fn authority(scope: &AccountScope) -> &'static str {
         (Market::Usdm, v::Environment::Test) => "demo-fapi.binance.com",
     }
 }
-fn source(scope: &AccountScope, stamp: &SignedTime, now: &ClockSample) -> Result<()> {
+pub(crate) fn source(scope: &AccountScope, stamp: &SignedTime, now: &ClockSample) -> Result<()> {
     use tickwire_clock::Source;
     let expected = match (scope.market, scope.environment) {
         (Market::Spot, v::Environment::Production) => Source::SpotProduction,

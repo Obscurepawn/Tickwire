@@ -36,6 +36,29 @@ pub(super) fn bind(
     received: u64,
     raw: &[u8],
 ) -> Result<Vec<CanonicalEvent>> {
+    bind_with_status(
+        command,
+        identity,
+        assets,
+        query,
+        epoch,
+        received,
+        raw,
+        v::OrderStatus::Unknown,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn bind_with_status(
+    command: &CanonicalCommand,
+    identity: &v::OrderIdentity,
+    assets: &[tickwire_account::AssetSnapshot],
+    query: TradeQuery,
+    epoch: u64,
+    received: u64,
+    raw: &[u8],
+    status: v::OrderStatus,
+) -> Result<Vec<CanonicalEvent>> {
     query.validate()?;
     let rows: Vec<&serde_json::value::RawValue> =
         serde_json::from_slice(raw).map_err(|_| Error::Encoding)?;
@@ -144,7 +167,7 @@ pub(super) fn bind(
                 body: v::VenueEventBody::Fill(Box::new(v::FillEvent {
                     observation: v::OrderObservation {
                         order: identity.clone(),
-                        status: v::OrderStatus::Unknown,
+                        status,
                         side,
                         position_side: position,
                         original_quantity: None,

@@ -508,3 +508,12 @@ pub struct LiveOpenOrder {
     pub manager: ManagerIdentity,
     pub command_digest: v::Hash,
 }
+
+/// Volatile per-order transport/reconciliation doubt marker isolated to a single order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum DoubtReason {
+    PlaceAmbiguous,
+    CancelAmbiguous,
+    AmendAmbiguous,
+    FillCatchup,
+}

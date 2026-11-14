@@ -6,21 +6,25 @@ pub mod observe;
 pub mod private;
 pub mod recovery;
 pub use fills::{FillSource, trade_id};
-mod reports;
+pub mod reports;
 mod session;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
-pub use reports::{OrderSnapshot, Reply, ReportError, decode_reply};
+pub use reports::{
+    OrderSnapshot, Reply, ReportError, SpotIssueKind, classify_issue, decode_reply,
+    is_http_account_hazard,
+};
 use ring::hmac;
 use serde_json::{Map, Value, json};
 pub use session::{RestSession, SessionError};
 use tickwire_gateway::{EncodedRequest, Encoder, Error, Route};
-use tickwire_transport::http;
+use tickwire_transport::{http, rest_querier::BuiltRequest};
 pub use tickwire_venue::SpotVenue;
 use tickwire_venue::{
     CanonicalCommand, CommandBody, Environment, OrderSpec, OrderType, PositionSide, Product,
     ProductMode, Quantity, SelfTradePrevention, Side, TimeInForce,
 };
 
+#[derive(Clone, Copy)]
 pub struct Credentials<'a> {
     venue: SpotVenue,
     key: &'a str,
@@ -28,7 +32,7 @@ pub struct Credentials<'a> {
     passphrase: Option<&'a str>,
 }
 impl<'a> Credentials<'a> {
-    fn valid(&self) -> bool {
+    pub(crate) fn valid(&self) -> bool {
         let safe_header = |s: &str| {
             !s.is_empty() && s.len() <= 256 && s.bytes().all(|b| (0x21..=0x7e).contains(&b))
         };
@@ -36,6 +40,9 @@ impl<'a> Credentials<'a> {
             && !self.secret.is_empty()
             && self.secret.len() <= 1024
             && self.passphrase.is_none_or(safe_header)
+    }
+    pub fn venue(&self) -> SpotVenue {
+        self.venue
     }
     pub fn bybit(key: &'a str, secret: &'a [u8]) -> Self {
         Self {
@@ -290,73 +297,269 @@ impl<T: FnMut() -> Result<u64, Error>> Encoder for SpotEncoder<'_, T> {
         )
     }
 }
+fn sign_headers(
+    c: &Credentials<'_>,
+    environment: Environment,
+    ms: u64,
+    method: &str,
+    path: &str,
+    body: &[u8],
+) -> Result<Vec<(String, String)>, Error> {
+    if !c.valid() {
+        return Err(Error::Identity);
+    }
+    if ms == 0
+        || !path.starts_with('/')
+        || path.len() > 2048
+        || !path.bytes().all(|b| (0x21..=0x7e).contains(&b))
+    {
+        return Err(Error::Encoding);
+    }
+    let key = hmac::Key::new(hmac::HMAC_SHA256, c.secret);
+    let mut mac = hmac::Context::with_key(&key);
+    let host = authority(c.venue, environment);
+    let mut headers = vec![
+        ("Host".to_owned(), host.to_owned()),
+        ("Content-Type".to_owned(), "application/json".to_owned()),
+    ];
+    match c.venue {
+        SpotVenue::Bybit => {
+            let timestamp = ms.to_string();
+            mac.update(timestamp.as_bytes());
+            mac.update(c.key.as_bytes());
+            mac.update(b"5000");
+            match method {
+                "GET" => mac.update(
+                    path.split_once('?')
+                        .map_or("", |(_, query)| query)
+                        .as_bytes(),
+                ),
+                _ => mac.update(body),
+            }
+            let signature = hex(mac.sign().as_ref());
+            headers.extend([
+                ("X-BAPI-API-KEY".to_owned(), c.key.to_owned()),
+                ("X-BAPI-RECV-WINDOW".to_owned(), "5000".to_owned()),
+                ("X-BAPI-TIMESTAMP".to_owned(), timestamp),
+                ("X-BAPI-SIGN".to_owned(), signature),
+            ]);
+        }
+        SpotVenue::Okx => {
+            let timestamp = okx_timestamp(ms)?;
+            mac.update(timestamp.as_bytes());
+            mac.update(method.as_bytes());
+            mac.update(path.as_bytes());
+            mac.update(body);
+            let signature = STANDARD.encode(mac.sign().as_ref());
+            headers.extend([
+                ("OK-ACCESS-KEY".to_owned(), c.key.to_owned()),
+                (
+                    "OK-ACCESS-PASSPHRASE".to_owned(),
+                    c.passphrase.ok_or(Error::Identity)?.to_owned(),
+                ),
+                ("OK-ACCESS-TIMESTAMP".to_owned(), timestamp),
+                ("OK-ACCESS-SIGN".to_owned(), signature),
+            ]);
+            if environment == Environment::Test {
+                headers.push(("x-simulated-trading".to_owned(), "1".to_owned()));
+            }
+        }
+    }
+    Ok(headers)
+}
+
 fn sign(
     c: &Credentials<'_>,
     environment: Environment,
     ms: u64,
     request: &Request,
 ) -> Result<Vec<u8>, Error> {
-    if ms == 0 {
-        return Err(Error::Encoding);
-    }
-    let key = hmac::Key::new(hmac::HMAC_SHA256, c.secret);
-    let mut mac = hmac::Context::with_key(&key);
-    let host = authority(c.venue, environment);
-    let mut headers = vec![("Host", host), ("Content-Type", "application/json")];
-    let timestamp;
-    let signature;
-    match c.venue {
-        SpotVenue::Bybit => {
-            timestamp = ms.to_string();
-            mac.update(timestamp.as_bytes());
-            mac.update(c.key.as_bytes());
-            mac.update(b"5000");
-            match request.method {
-                "GET" => mac.update(
-                    request
-                        .path
-                        .split_once('?')
-                        .map_or("", |(_, query)| query)
-                        .as_bytes(),
-                ),
-                _ => mac.update(&request.body),
-            }
-            signature = hex(mac.sign().as_ref());
-            headers.extend([
-                ("X-BAPI-API-KEY", c.key),
-                ("X-BAPI-RECV-WINDOW", "5000"),
-                ("X-BAPI-TIMESTAMP", &timestamp),
-                ("X-BAPI-SIGN", &signature),
-            ]);
-        }
-        SpotVenue::Okx => {
-            timestamp = okx_timestamp(ms)?;
-            mac.update(timestamp.as_bytes());
-            mac.update(request.method.as_bytes());
-            mac.update(request.path.as_bytes());
-            mac.update(&request.body);
-            signature = STANDARD.encode(mac.sign().as_ref());
-            headers.extend([
-                ("OK-ACCESS-KEY", c.key),
-                ("OK-ACCESS-PASSPHRASE", c.passphrase.ok_or(Error::Identity)?),
-                ("OK-ACCESS-TIMESTAMP", &timestamp),
-                ("OK-ACCESS-SIGN", &signature),
-            ]);
-            if environment == Environment::Test {
-                headers.push(("x-simulated-trading", "1"));
-            }
-        }
-    }
-    let bytes = http::encode_request(
+    let owned = sign_headers(
+        c,
+        environment,
+        ms,
         request.method,
         &request.path,
-        &headers,
+        &request.body,
+    )?;
+    let refs: Vec<(&str, &str)> = owned
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+    http::encode_request(
+        request.method,
+        &request.path,
+        &refs,
         &request.body,
         16 * 1024,
     )
-    .map_err(|_| Error::Encoding)?;
-    Ok(bytes)
+    .map_err(|_| Error::Encoding)
 }
+
+/// Builds a Bybit V5 spot realtime order status path (`/v5/order/realtime?category=spot...[&symbol=...]&orderLinkId=...`).
+pub fn bybit_order_realtime_path(symbol: Option<&str>, client_id: &str) -> Result<String, Error> {
+    if !client_ok(SpotVenue::Bybit, client_id) {
+        return Err(Error::Encoding);
+    }
+    let mut path = String::from("/v5/order/realtime?category=spot");
+    if let Some(sym) = symbol {
+        if sym.len() > 64 || !symbol_ok(sym) {
+            return Err(Error::Encoding);
+        }
+        path.push_str("&symbol=");
+        path.push_str(sym);
+    }
+    path.push_str("&orderLinkId=");
+    path.push_str(client_id);
+    Ok(path)
+}
+
+/// Builds a Bybit V5 spot order history path (`/v5/order/history?category=spot...[&symbol=...]&orderLinkId=...`).
+pub fn bybit_order_history_path(symbol: Option<&str>, client_id: &str) -> Result<String, Error> {
+    if !client_ok(SpotVenue::Bybit, client_id) {
+        return Err(Error::Encoding);
+    }
+    let mut path = String::from("/v5/order/history?category=spot");
+    if let Some(sym) = symbol {
+        if sym.len() > 64 || !symbol_ok(sym) {
+            return Err(Error::Encoding);
+        }
+        path.push_str("&symbol=");
+        path.push_str(sym);
+    }
+    path.push_str("&orderLinkId=");
+    path.push_str(client_id);
+    Ok(path)
+}
+
+/// Builds a Bybit V5 spot execution/fills query path (`/v5/execution/list?category=spot...`).
+pub fn bybit_order_trades_path(
+    symbol: Option<&str>,
+    client_id: Option<&str>,
+    order_id: Option<&str>,
+) -> Result<String, Error> {
+    if client_id.is_none() && order_id.is_none() {
+        return Err(Error::Encoding);
+    }
+    let mut path = String::from("/v5/execution/list?category=spot");
+    if let Some(sym) = symbol {
+        if sym.len() > 64 || !symbol_ok(sym) {
+            return Err(Error::Encoding);
+        }
+        path.push_str("&symbol=");
+        path.push_str(sym);
+    }
+    if let Some(oid) = order_id {
+        if oid.len() > 64 || !symbol_ok(oid) {
+            return Err(Error::Encoding);
+        }
+        path.push_str("&orderId=");
+        path.push_str(oid);
+    }
+    if let Some(cid) = client_id {
+        if !client_ok(SpotVenue::Bybit, cid) {
+            return Err(Error::Encoding);
+        }
+        path.push_str("&orderLinkId=");
+        path.push_str(cid);
+    }
+    Ok(path)
+}
+
+/// Builds an OKX V5 spot order status query path (`/api/v5/trade/order?instId=...&clOrdId=...`).
+pub fn okx_order_status_path(inst_id: &str, client_id: &str) -> Result<String, Error> {
+    if inst_id.len() > 64 || !symbol_ok(inst_id) || !client_ok(SpotVenue::Okx, client_id) {
+        return Err(Error::Encoding);
+    }
+    Ok(format!(
+        "/api/v5/trade/order?instId={inst_id}&clOrdId={client_id}"
+    ))
+}
+
+/// Builds an OKX V5 spot fills query path (`/api/v5/trade/fills?instType=SPOT&instId=...[&ordId=...]`).
+pub fn okx_order_trades_path(inst_id: &str, order_id: Option<&str>) -> Result<String, Error> {
+    if inst_id.len() > 64 || !symbol_ok(inst_id) {
+        return Err(Error::Encoding);
+    }
+    let mut path = format!("/api/v5/trade/fills?instType=SPOT&instId={inst_id}");
+    if let Some(oid) = order_id {
+        if oid.len() > 64 || !symbol_ok(oid) {
+            return Err(Error::Encoding);
+        }
+        path.push_str("&ordId=");
+        path.push_str(oid);
+    }
+    Ok(path)
+}
+
+/// Signs an off-hot-path HTTP/1.1 `GET` request into a [`BuiltRequest`] suitable for `AsyncRestQuerier`.
+pub fn build_signed_get(
+    credentials: &Credentials<'_>,
+    environment: Environment,
+    utc_ms: u64,
+    path: String,
+) -> Result<BuiltRequest, Error> {
+    let headers = sign_headers(credentials, environment, utc_ms, "GET", &path, &[])?;
+    Ok(BuiltRequest {
+        method: "GET".to_owned(),
+        path,
+        headers,
+        body: Vec::new(),
+    })
+}
+
+/// Encodes a signed off-hot-path HTTP/1.1 `GET` request directly into wire bytes.
+pub fn encode_signed_get(
+    credentials: &Credentials<'_>,
+    environment: Environment,
+    utc_ms: u64,
+    path: &str,
+) -> Result<Vec<u8>, Error> {
+    sign(
+        credentials,
+        environment,
+        utc_ms,
+        &Request {
+            method: "GET",
+            path: path.to_owned(),
+            body: Vec::new(),
+        },
+    )
+}
+
+/// Builds a signed off-hot-path `OrderStatus` `GET` request for Bybit (`realtime` or `history`) or OKX.
+pub fn build_order_status_get(
+    credentials: &Credentials<'_>,
+    environment: Environment,
+    utc_ms: u64,
+    symbol: &str,
+    client_id: &str,
+    history_fallback: bool,
+) -> Result<BuiltRequest, Error> {
+    let path = match credentials.venue {
+        SpotVenue::Bybit if history_fallback => bybit_order_history_path(Some(symbol), client_id)?,
+        SpotVenue::Bybit => bybit_order_realtime_path(Some(symbol), client_id)?,
+        SpotVenue::Okx => okx_order_status_path(symbol, client_id)?,
+    };
+    build_signed_get(credentials, environment, utc_ms, path)
+}
+
+/// Builds a signed off-hot-path `OrderTrades` `GET` request for Bybit (`/v5/execution/list`) or OKX (`/api/v5/trade/fills`).
+pub fn build_order_trades_get(
+    credentials: &Credentials<'_>,
+    environment: Environment,
+    utc_ms: u64,
+    symbol: &str,
+    client_id: Option<&str>,
+    order_id: Option<&str>,
+) -> Result<BuiltRequest, Error> {
+    let path = match credentials.venue {
+        SpotVenue::Bybit => bybit_order_trades_path(Some(symbol), client_id, order_id)?,
+        SpotVenue::Okx => okx_order_trades_path(symbol, order_id)?,
+    };
+    build_signed_get(credentials, environment, utc_ms, path)
+}
+
 fn hex(bytes: &[u8]) -> String {
     const CHARS: &[u8; 16] = b"0123456789abcdef";
     let mut out = String::with_capacity(bytes.len() * 2);

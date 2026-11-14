@@ -10,7 +10,7 @@ pub(crate) mod amend_history;
 mod amend_tests;
 mod amendment;
 pub(crate) mod binding;
-mod persistence;
+pub(crate) mod persistence;
 pub(crate) mod structure;
 #[cfg(test)]
 mod tests;
@@ -78,11 +78,95 @@ pub struct RestOwner<S: Store, B: Backend, A: Authority, E: Encoder> {
     raw: Vec<u8>,
     pub(crate) pending: Option<Pending>,
     pub(crate) websocket: Option<crate::ws::owner::Runtime>,
+    pub(crate) query_desk: Option<tickwire_account::QueryDesk>,
     last_mono: Option<u64>,
 }
 impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
     pub fn execution_connection_epoch(&self) -> u64 {
         self.config.connection_epoch
+    }
+    pub fn with_per_order_query_desk(mut self, config: tickwire_account::QueryConfig) -> Self {
+        self.enable_per_order_query_desk(config);
+        self
+    }
+    pub fn enable_per_order_query_desk(&mut self, config: tickwire_account::QueryConfig) {
+        self.gateway.set_per_order_doubt_isolation(true);
+        let mut desk = tickwire_account::QueryDesk::new(config);
+        let now_mono = self.last_mono.unwrap_or(0);
+        let existing: Vec<(tickwire_account::OrderKey, tickwire_account::DoubtReason)> = self
+            .gateway
+            .account()
+            .in_doubt_orders()
+            .map(|(k, r)| (k.clone(), r))
+            .collect();
+        for (order_key, reason) in existing {
+            if let Some(reg) = self.ingress.registry.get(&order_key.intent) {
+                let instrument_id = reg.command.command().context.instrument.instrument_id;
+                let native = reg
+                    .orders
+                    .iter()
+                    .find(|o| o.client_id.as_ref() == Some(&order_key.client_id))
+                    .and_then(|o| o.venue_order_id.clone());
+                let confirmed = self
+                    .gateway
+                    .account()
+                    .order(&order_key)
+                    .is_some_and(|v| v.confirmed);
+                let (kind, place_unacked) = match reason {
+                    tickwire_account::DoubtReason::PlaceAmbiguous => {
+                        (tickwire_account::AskKind::Place, !confirmed)
+                    }
+                    tickwire_account::DoubtReason::CancelAmbiguous => {
+                        (tickwire_account::AskKind::Cancel, !confirmed)
+                    }
+                    tickwire_account::DoubtReason::AmendAmbiguous => {
+                        (tickwire_account::AskKind::Amend, !confirmed)
+                    }
+                    tickwire_account::DoubtReason::FillCatchup => {
+                        (tickwire_account::AskKind::Trades, false)
+                    }
+                };
+                let _ = desk.enqueue_ask(
+                    order_key,
+                    instrument_id,
+                    native,
+                    kind,
+                    place_unacked,
+                    now_mono,
+                    |k| self.gateway.account().order_in_doubt(k).is_some(),
+                );
+            }
+        }
+        self.query_desk = Some(desk);
+    }
+    pub fn query_desk(&self) -> Option<&tickwire_account::QueryDesk> {
+        self.query_desk.as_ref()
+    }
+    pub fn query_desk_mut(&mut self) -> Option<&mut tickwire_account::QueryDesk> {
+        self.query_desk.as_mut()
+    }
+    pub fn install_transport_connection(
+        &mut self,
+        connection: tickwire_transport::Connection,
+        limits: tickwire_transport::Limits,
+    ) -> Result<()> {
+        if self.pending.is_some() || self.websocket.is_some() {
+            return Err(Error::Busy);
+        }
+        let next_epoch = self
+            .config
+            .connection_epoch
+            .checked_add(1)
+            .ok_or(Error::Capacity)?;
+        let decoder = ResponseDecoder::new(self.config.max_response_bytes, self.config.max_headers)
+            .map_err(Error::Transport)?;
+        self.gateway
+            .install_transport_connection(connection, limits)
+            .map_err(Error::Gateway)?;
+        self.decoder = decoder;
+        self.raw.clear();
+        self.config.connection_epoch = next_epoch;
+        Ok(())
     }
     pub fn with_retention_window_ns(mut self, window_ns: Option<u64>) -> Self {
         self.set_retention_window_ns(window_ns);
@@ -117,6 +201,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             raw: Vec::new(),
             pending: None,
             websocket: None,
+            query_desk: None,
             last_mono: None,
         })
     }
@@ -171,7 +256,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             return self.poll_websocket_owner(now, received_mono_ns, budget);
         }
         // Even an EOF/error may have left a complete response in the bounded RX queue.
-        if !self.gateway.halted() {
+        if !self.gateway.halted() && self.gateway.has_transport_connection() {
             let _ = self.gateway.poll(now, budget);
         }
         let mut bytes = [0u8; 4096];
@@ -193,12 +278,12 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                 .checked_add(n)
                 .is_none_or(|n| n > self.config.max_response_bytes)
             {
-                self.gateway.stop_sending();
+                self.on_transport_fail();
                 return self.finish_unknown(received_mono_ns);
             }
             self.raw.extend_from_slice(&bytes[..n]);
             if self.decoder.push(&bytes[..n]).is_err() {
-                self.gateway.stop_sending();
+                self.on_transport_fail();
                 return self.finish_unknown(received_mono_ns);
             }
         }
@@ -206,13 +291,13 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
         if drained == budget.max_bytes && drained != 0 {
             return Ok(None);
         }
-        if self.gateway.halted() {
+        if self.gateway.halted() || !self.gateway.has_transport_connection() {
             self.decoder.finish();
         }
         let response = match self.decoder.next_response() {
             Ok(response) => response,
             Err(_) => {
-                self.gateway.stop_sending();
+                self.on_transport_fail();
                 return self.finish_unknown(received_mono_ns);
             }
         };
@@ -222,6 +307,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                 self.gateway.stop_sending();
                 return Err(Error::Identity);
             };
+            let cmd_for_desk = pending.command.clone();
             let key = intent(&pending.command);
             let complete = self
                 .gateway
@@ -239,7 +325,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                     Some(&response.body),
                 )
             } else {
-                self.gateway.stop_sending();
+                self.on_transport_fail();
                 self.ingress.persist_rest(
                     &mut self.gateway,
                     pending.command,
@@ -253,8 +339,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             self.decoder =
                 ResponseDecoder::new(self.config.max_response_bytes, self.config.max_headers)
                     .map_err(Error::Transport)?;
-            if outcome.is_err() {
-                self.gateway.stop_sending();
+            match &outcome {
+                Ok(_) => self.sync_query_desk_for_command(&cmd_for_desk, received_mono_ns),
+                Err(_) => self.gateway.stop_sending(),
             }
             return outcome.map(Some);
         }
@@ -269,32 +356,141 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                     applied_events: 0,
                 }));
             }
-            if self.gateway.halted() || now >= pending.deadline {
-                self.gateway.stop_sending();
+            if self.gateway.halted()
+                || !self.gateway.has_transport_connection()
+                || now >= pending.deadline
+            {
+                self.on_transport_fail();
                 return self.finish_unknown(received_mono_ns);
             }
         }
         Ok(None)
     }
+    fn on_transport_fail(&mut self) {
+        if self.gateway.per_order_doubt_isolation()
+            && !self.gateway.halted()
+            && !self.gateway.account().frozen()
+        {
+            self.gateway.drop_broken_transport_isolated();
+        } else {
+            self.gateway.stop_sending();
+        }
+    }
     fn finish_unknown(&mut self, received: u64) -> Result<Option<RestOutcome>> {
         let Some(pending) = self.pending.take() else {
             return Ok(None);
         };
+        let cmd_for_desk = pending.command.clone();
         let raw = std::mem::take(&mut self.raw);
         self.decoder =
             ResponseDecoder::new(self.config.max_response_bytes, self.config.max_headers)
                 .map_err(Error::Transport)?;
-        self.ingress
-            .persist_rest(
-                &mut self.gateway,
-                pending.command,
-                self.config.connection_epoch,
-                received,
-                0,
-                raw,
-                None,
+        let outcome = self.ingress.persist_rest(
+            &mut self.gateway,
+            pending.command,
+            self.config.connection_epoch,
+            received,
+            0,
+            raw,
+            None,
+        );
+        match &outcome {
+            Ok(_) => self.sync_query_desk_for_command(&cmd_for_desk, received),
+            Err(_) => self.gateway.stop_sending(),
+        }
+        outcome.map(Some)
+    }
+    pub(crate) fn sync_query_desk_for_command(
+        &mut self,
+        command: &CanonicalCommand,
+        now_mono_ns: u64,
+    ) {
+        if !self.gateway.per_order_doubt_isolation() || self.gateway.account().frozen() {
+            return;
+        }
+        let instrument_id = command.command().context.instrument.instrument_id;
+        let resolved = match &command.command().body {
+            v::CommandBody::New(_) => {
+                let key = intent(command);
+                self.ingress.registry.get(&key).and_then(|reg| {
+                    if reg.orders.len() != 1 {
+                        return None;
+                    }
+                    let cid = reg.orders[0].client_id.clone()?;
+                    let native = reg.orders[0].venue_order_id.clone();
+                    Some((
+                        tickwire_account::OrderKey {
+                            intent: key,
+                            client_id: cid,
+                        },
+                        native,
+                    ))
+                })
+            }
+            v::CommandBody::Cancel(target)
+            | v::CommandBody::AmendKeepPriority { target, .. }
+            | v::CommandBody::Query(target) => self
+                .gateway
+                .account()
+                .resolve_order_target(instrument_id, target)
+                .map(|order_key| {
+                    let native = self
+                        .ingress
+                        .registry
+                        .get(&order_key.intent)
+                        .and_then(|reg| {
+                            reg.orders
+                                .iter()
+                                .find(|o| o.client_id.as_ref() == Some(&order_key.client_id))
+                                .and_then(|o| o.venue_order_id.clone())
+                        });
+                    (order_key, native)
+                }),
+            _ => None,
+        };
+        let Some((order_key, native)) = resolved else {
+            return;
+        };
+        let Some(reason) = self.gateway.account().order_in_doubt(&order_key) else {
+            return;
+        };
+        let confirmed = self
+            .gateway
+            .account()
+            .order(&order_key)
+            .is_some_and(|v| v.confirmed);
+        let (kind, place_unacked) = match reason {
+            tickwire_account::DoubtReason::PlaceAmbiguous => {
+                (tickwire_account::AskKind::Place, !confirmed)
+            }
+            tickwire_account::DoubtReason::CancelAmbiguous => {
+                (tickwire_account::AskKind::Cancel, !confirmed)
+            }
+            tickwire_account::DoubtReason::AmendAmbiguous => {
+                (tickwire_account::AskKind::Amend, !confirmed)
+            }
+            tickwire_account::DoubtReason::FillCatchup => {
+                (tickwire_account::AskKind::Trades, false)
+            }
+        };
+        let account_ref = self.gateway.account();
+        let Some(desk) = &mut self.query_desk else {
+            return;
+        };
+        if desk
+            .enqueue_ask(
+                order_key,
+                instrument_id,
+                native,
+                kind,
+                place_unacked,
+                now_mono_ns,
+                |k| account_ref.order_in_doubt(k).is_some(),
             )
-            .map(Some)
+            .is_err()
+        {
+            self.gateway.freeze_account();
+        }
     }
     pub fn stop_sending(&mut self) {
         self.ingress.invalidate_ws_session();
@@ -320,7 +516,62 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                     && !self.websocket_deferred()))
     }
     pub fn ingest_private(&mut self, event: &PrivateEvent<'_>) -> Result<Outcome> {
-        self.ingress.ingest(&mut self.gateway, event)
+        let outcome = self.ingress.ingest(&mut self.gateway, event)?;
+        if self.gateway.per_order_doubt_isolation()
+            && self.query_desk.is_some()
+            && !self.gateway.account().frozen()
+        {
+            let now_mono_ns = event.received_mono_ns();
+            let fill_catchup_orders: Vec<_> = self
+                .gateway
+                .account()
+                .in_doubt_orders()
+                .filter(|&(_, r)| r == tickwire_account::DoubtReason::FillCatchup)
+                .map(|(k, _)| k.clone())
+                .collect();
+            for order_key in fill_catchup_orders {
+                let instrument_id = self
+                    .gateway
+                    .account()
+                    .order_terms(&order_key)
+                    .map(|(inst, _)| inst.instrument_id);
+                let native = self
+                    .gateway
+                    .account()
+                    .venue_order_id(&order_key)
+                    .cloned()
+                    .or_else(|| {
+                        self.ingress
+                            .registry
+                            .get(&order_key.intent)
+                            .and_then(|reg| {
+                                reg.orders
+                                    .iter()
+                                    .find(|o| o.client_id.as_ref() == Some(&order_key.client_id))
+                                    .and_then(|o| o.venue_order_id.clone())
+                            })
+                    });
+                if let Some(inst_id) = instrument_id {
+                    let account_ref = self.gateway.account();
+                    if let Some(desk) = &mut self.query_desk
+                        && desk
+                            .enqueue_ask(
+                                order_key,
+                                inst_id,
+                                native,
+                                tickwire_account::AskKind::Trades,
+                                false,
+                                now_mono_ns,
+                                |k| account_ref.order_in_doubt(k).is_some(),
+                            )
+                            .is_err()
+                    {
+                        self.gateway.freeze_account();
+                    }
+                }
+            }
+        }
+        Ok(outcome)
     }
     pub fn source_gap(&mut self, gap: &GapNotice) -> Result<InputKey> {
         self.ingress.source_gap(&mut self.gateway, gap)

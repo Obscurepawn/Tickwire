@@ -85,7 +85,12 @@ pub fn classify(market: Market, status: u16, code: Option<i64>, message: &str) -
                 | -1128
                 | -1130
                 | -2010
+                | -2019
+                | -2021
                 | -2038
+                | -4061
+                | -4164
+                | -5022
         )
     ) {
         FailureKind::Rejected

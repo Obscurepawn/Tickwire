@@ -10,9 +10,11 @@ An HTTP `200` response from a venue endpoint never closes fee reserves, clears u
 
 | Trigger Path | Preconditions | Throttling and Sender Rules |
 | --- | --- | --- |
-| Unhealthy / frozen recovery | `!healthy` (account frozen or private frontier unreconciled) | Runs immediately regardless of `fee_maintenance_interval_ns` or sender idle checks; failed rounds back off by `retry_ns`. |
+| Unhealthy / frozen recovery | `!healthy` (account frozen, execution gateway halted, or private frontier unreconciled) | Runs immediately regardless of `fee_maintenance_interval_ns` or sender idle checks; failed rounds back off by `retry_ns`. |
 | Qualification renewal | `now >= valid_until.saturating_sub(valid_for_ns / 2)` | Fires at the halfway mark of the persisted `Account::valid_until()` window—even on an empty account with zero orders and no income scan—once the outbound REST sender is idle; never deferred by the fee timer. |
-| Terminal fee maintenance | Healthy account with ≥ 1 non-aborted terminal order holding open fees, idle REST sender, and `now >= maintenance_at` | Waits for `fee_maintenance_interval_ns` after the previous completed round; failures back off by `retry_ns`. |
+| Terminal fee maintenance | Healthy account with ≥ 1 non-aborted, non-uncreated terminal order holding open fees (excluding orders actively isolated `in_doubt` while `gateway.per_order_doubt_isolation()` is enabled), idle REST sender, and `now >= maintenance_at` | Waits for `fee_maintenance_interval_ns` after the previous completed round; failures back off by `retry_ns`. |
+
+When per-order doubt isolation (`gateway.per_order_doubt_isolation()`) is enabled on `RestOwner`, a single-order `in_doubt` marker (`PlaceAmbiguous`, `CancelAmbiguous`, `AmendAmbiguous`, or `FillCatchup`) with `!account.frozen() && !gateway.halted()` is **not** treated as an account-wide freeze: `PerOrderQueryDriver` resolves that order's status, trade fills, and terminal fee closure off the hot path without invoking `BeginReconciliation`, whereas `Controller` continues to run whole-account snapshot reconciliation whenever `account.frozen() || gateway.halted()`, qualification renewal is due, or healthy non-`in_doubt` terminal fee maintenance becomes due.
 
 ## Core Invariants
 

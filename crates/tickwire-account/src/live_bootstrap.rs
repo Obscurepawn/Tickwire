@@ -353,6 +353,7 @@ impl Account {
                 shadow_fee_credit: fee_zero,
                 created_mono_ns: 0,
                 retired_mono_ns: None,
+                in_doubt: None,
             };
             account.index_order_insert(&order);
             account.orders.insert(order_key.clone(), order);

@@ -241,7 +241,7 @@ fn run_paper(name: &str, root: &Path) -> Result<()> {
     let open = account
         .order_keys()
         .filter_map(|k| account.order(k))
-        .filter(|order| !order.terminal && !order.aborted)
+        .filter(|order| !order.terminal && !order.aborted && !order.uncreated)
         .count();
     let quote = account.asset(quote_key).map_err(protocol_error)?;
     let summary = serde_json::json!({"profile":"local-paper","venue":name,"strategies":replies,"native_acknowledgements":replies.len(),"open_orders":open,"reserved_quote_atoms":quote.reserved.atoms().to_string(),"quote_exponent":c.context.instrument.quote.exponent,"account_wal_position":runner.position()});

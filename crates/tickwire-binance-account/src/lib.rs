@@ -9,6 +9,7 @@ use tickwire_venue::{self as v, CanonicalCommand, CanonicalEvent};
 pub mod account_facts;
 mod amendment;
 mod codec;
+pub mod query_desk_driver;
 pub mod reconciliation;
 mod registry;
 pub mod rest;
@@ -16,6 +17,10 @@ mod runtime;
 mod structure;
 pub mod ws;
 use codec::Record;
+pub use query_desk_driver::{
+    PerOrderQueryConfig, PerOrderQueryDriver, PerOrderQueryPermit, PerOrderQueryStep,
+    QueryOperation,
+};
 use registry::{OrderRegistry, Registration};
 pub const MAX_RECORD_BYTES: usize = 60 * 1024;
 

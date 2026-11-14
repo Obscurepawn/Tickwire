@@ -692,6 +692,9 @@ fn validate_learn(
     if let v::VenueEventBody::Structure(s) = &event.event().body {
         return validate_learn_structure(registry, overrides, event, s);
     }
+    if let v::VenueEventBody::Rejected { client_id, .. } = &event.event().body {
+        return validate_learn_rejected(registry, overrides, event, client_id.as_ref());
+    }
     let id = order(event)?;
     let key = IntentKey {
         epoch: id.original_intent_exec_epoch,
@@ -871,4 +874,39 @@ fn validate_learn_structure(
         }
     }
     Ok((key, updated))
+}
+
+fn validate_learn_rejected(
+    registry: &OrderRegistry,
+    overrides: Option<&BTreeMap<IntentKey, Registration>>,
+    event: &CanonicalEvent,
+    client_id: Option<&v::ClientId>,
+) -> Result<(IntentKey, Registration)> {
+    let Some(cid) = client_id else {
+        return Err(Error::Identity);
+    };
+    let identity = &event.event().identity;
+    let cid_key = Key64::from_str(cid.as_str()).ok_or(Error::Identity)?;
+    let &(key, idx) = registry
+        .by_client_id
+        .get(&(identity.instrument_id, cid_key))
+        .ok_or(Error::Identity)?;
+    let reg = get_reg(registry, overrides, &key).ok_or(Error::Identity)?;
+    let context = &reg.command.command().context;
+    if context.request.risk_domain_id != identity.risk_domain_id
+        || context.request.venue != identity.venue
+        || context.request.account != identity.account
+        || context.request.environment != identity.environment
+        || context.request.product != identity.product
+        || context.instrument.instrument_id != identity.instrument_id
+        || context.instrument.instrument_version != identity.instrument_version
+        || !matches!(reg.command.command().body, v::CommandBody::New(_))
+        || reg.orders.len() != 1
+        || idx != 0
+        || reg.orders[0].client_id.as_ref() != Some(cid)
+        || reg.orders[0].venue_order_id.is_some()
+    {
+        return Err(Error::Conflict);
+    }
+    Ok((key, reg.clone()))
 }

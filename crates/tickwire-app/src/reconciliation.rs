@@ -279,11 +279,10 @@ impl<'a> Controller<'a> {
             .map_err(|_| node::Error::Strategy)?;
         let healthy =
             frontier.reconciled && !node.account().frozen() && !node.rest().gateway().halted();
-        let terminal_fees_pending = node.account().order_keys().any(|key| {
-            node.account()
-                .order(key)
-                .is_some_and(|order| order.terminal && !order.aborted && !order.fee_reconciled)
-        });
+        let terminal_fees_pending = has_pending_terminal_fees(
+            node.account(),
+            node.rest().gateway().per_order_doubt_isolation(),
+        );
         if !self.work.should_start(
             healthy,
             node.rest().busy(),
@@ -317,7 +316,12 @@ impl<'a> Controller<'a> {
         };
         if !self.work.loaded {
             let input = node
-                .with_account_resources(|owner, _, _| owner.begin_reconciliation(&gap))?
+                .with_account_resources(|owner, _, _| {
+                    if !owner.gateway().has_transport_connection() && !owner.gateway().halted() {
+                        owner.stop_sending();
+                    }
+                    owner.begin_reconciliation(&gap)
+                })?
                 .map_err(node::Error::Account)?;
             self.plane
                 .input_applied(input.stream, node.rest().applied_position())
@@ -1125,9 +1129,24 @@ impl<'a> Controller<'a> {
     }
 }
 
+fn has_pending_terminal_fees(
+    account: &tickwire_account::Account,
+    per_order_isolation: bool,
+) -> bool {
+    account.order_keys().any(|key| {
+        if per_order_isolation && account.order_in_doubt(key).is_some() {
+            return false;
+        }
+        account
+            .order(key)
+            .is_some_and(|order| order.terminal && !order.aborted && !order.fee_reconciled)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::replay::income_tests::common as account_fixture;
 
     #[test]
     fn healthy_terminal_fee_maintenance_is_bounded_and_idle_only() {
@@ -1192,5 +1211,63 @@ mod tests {
         assert!(work.orders.is_empty());
         assert!(!work.loaded && !work.observed);
         assert_eq!(work.next_trade, 0);
+    }
+
+    #[test]
+    fn single_order_in_doubt_does_not_trigger_whole_account_freeze_or_fee_scan() {
+        let (snapshot, catalog, command) = account_fixture::fixture();
+        let mut account = tickwire_account::Account::from_snapshot(snapshot, catalog).unwrap();
+        let canonical = account_fixture::canonical(command.clone());
+        let admission = account.admit(&canonical, 60).unwrap();
+        let order_key = admission.orders()[0].clone();
+
+        account
+            .mark_order_in_doubt(&order_key, tickwire_account::DoubtReason::PlaceAmbiguous)
+            .unwrap();
+        assert!(!account.frozen());
+        assert!(!has_pending_terminal_fees(&account, true));
+        let work = OrderWork {
+            maintenance_at: 0,
+            ..OrderWork::default()
+        };
+        assert!(!work.should_start(
+            !account.frozen(),
+            false,
+            200,
+            has_pending_terminal_fees(&account, true),
+            10_000,
+            1_000,
+        ));
+
+        // Terminal order undergoing per-order FillCatchup (executedQty > local filled) stays
+        // excluded from Controller's whole-account fee maintenance while per-order isolation is enabled.
+        let v_event =
+            tickwire_venue::CanonicalEvent::new(account_fixture::terminal(&command, "0.001"))
+                .unwrap();
+        account.apply_event(&v_event).unwrap();
+        assert!(!account.frozen());
+        assert_eq!(
+            account.order_in_doubt(&order_key),
+            Some(tickwire_account::DoubtReason::FillCatchup)
+        );
+        assert!(!has_pending_terminal_fees(&account, true));
+        assert!(has_pending_terminal_fees(&account, false));
+        assert!(!work.should_start(
+            !account.frozen(),
+            false,
+            200,
+            has_pending_terminal_fees(&account, true),
+            10_000,
+            1_000,
+        ));
+
+        // Once the missing fill arrives, FillCatchup clears and normal terminal fee maintenance applies.
+        let fill = tickwire_venue::CanonicalEvent::new(account_fixture::fill(
+            &command, "1", "0.001", "60000", "60",
+        ))
+        .unwrap();
+        account.apply_event(&fill).unwrap();
+        assert_eq!(account.order_in_doubt(&order_key), None);
+        assert!(has_pending_terminal_fees(&account, true));
     }
 }

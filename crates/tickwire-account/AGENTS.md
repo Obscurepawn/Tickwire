@@ -12,9 +12,13 @@ I/O, sockets, or exchange wire formatting.
   transactional by mutating a cloned candidate before commit; freeze risk-increasing admissions on `Error::Conflict` or
   `RiskError::ArithmeticOverflow`, while keeping cancels, queries, and keep-priority reductions admissible
   ([src/amendments.rs](src/amendments.rs), [src/structures.rs](src/structures.rs)).
-* **Distinct lifecycle vs. economic evidence**: In [src/events.rs](src/events.rs) and
-  [src/calculation.rs](src/calculation.rs), hold reserves whenever `observed_cumulative` exceeds applied fills or fee
-  closure remains open; deduplicate facts by `(OrderKey, kind, id)` and reopen aborted tickets on execution evidence.
+* **Distinct lifecycle vs. economic evidence and per-order doubt isolation**: In [src/events.rs](src/events.rs),
+  [src/calculation.rs](src/calculation.rs), and [src/query_desk.rs](src/query_desk.rs), hold reserves whenever
+  `observed_cumulative` exceeds applied fills, fee closure remains open, or `in_doubt` (`DoubtReason`) is set;
+  exclude volatile `in_doubt` from `PartialEq for Order` for deterministic replay; close unconfirmed zero-fill
+  single-leg `VenueEventBody::Rejected` orders (`uncreated = true`, `fees_closed = true`) without freezing while
+  reopening via `Order::reopen_aborted` (`observation_unreconciled = true`, `frozen = true`) on any contradictory
+  execution fact; and schedule coalesced per-order status/trade queries in `QueryDesk` with zero post-init heap growth.
 * **Shared liquidity with isolated strategy authority**: Strategies share asset balances while preserving distinct
   `origin` and `manager` (`instance`, `generation`) identities across [src/handover.rs](src/handover.rs) so only the
   active manager can cancel, amend, or query an order.
@@ -31,10 +35,10 @@ I/O, sockets, or exchange wire formatting.
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/pool.rs](src/pool.rs) · [src/admission.rs](src/admission.rs) ·
-  [src/events.rs](src/events.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
-  [tests/admission.rs](tests/admission.rs) · [tests/windowed_eviction.rs](tests/windowed_eviction.rs) ·
-  [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/pool.rs](src/pool.rs) · [src/query_desk.rs](src/query_desk.rs) ·
+  [src/admission.rs](src/admission.rs) · [src/events.rs](src/events.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
+  [tests/query_desk.rs](tests/query_desk.rs) · [tests/admission.rs](tests/admission.rs) ·
+  [tests/windowed_eviction.rs](tests/windowed_eviction.rs) · [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
   [tests/amend.rs](tests/amend.rs) ·
   [tests/conditional.rs](tests/conditional.rs) · [tests/account_inputs.rs](tests/account_inputs.rs) ·
   [tests/facts.rs](tests/facts.rs) · [tests/futures.rs](tests/futures.rs) · [tests/handover.rs](tests/handover.rs) ·

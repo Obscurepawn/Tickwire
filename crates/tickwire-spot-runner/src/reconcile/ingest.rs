@@ -16,11 +16,11 @@ fn lane(source: [u8; 16], label: &[u8]) -> [u8; 16] {
     digest(&bytes)[..16].try_into().unwrap()
 }
 #[derive(Clone, Copy)]
-struct Input {
-    stream: [u8; 16],
-    seq: u64,
-    epoch: u64,
-    received: u64,
+pub(crate) struct Input {
+    pub(crate) stream: [u8; 16],
+    pub(crate) seq: u64,
+    pub(crate) epoch: u64,
+    pub(crate) received: u64,
 }
 impl Input {
     fn private(c: PrivateCut, kind: &[u8], received: u64) -> Self {
@@ -52,7 +52,13 @@ impl<
 {
     // A re-read of the same immutable REST row must reproduce its original ingress envelope.
     // The gateway still re-compares the canonical bytes before declaring it a duplicate.
-    fn rest_input(&self, cut: PrivateCut, kind: &[u8], row: &[u8], received: u64) -> Input {
+    pub(crate) fn rest_input(
+        &self,
+        cut: PrivateCut,
+        kind: &[u8],
+        row: &[u8],
+        received: u64,
+    ) -> Input {
         let mut i = Input::rest(cut, kind, row, received);
         if let Some(prior) = self.session.gateway().ingress_event(i.stream, i.seq) {
             i.epoch = prior.event().identity.source_connection_epoch;
@@ -60,7 +66,7 @@ impl<
         }
         i
     }
-    fn origin(&self, client: &str) -> Result<(Origin, OrderKey)> {
+    pub(crate) fn origin(&self, client: &str) -> Result<(Origin, OrderKey)> {
         let origin = self
             .origins
             .lookup(self.scope(), b"client", client.as_bytes())?;
@@ -81,7 +87,7 @@ impl<
         };
         Ok((origin, key))
     }
-    fn record_order(&mut self, remote: &RemoteOrder, i: Input) -> Result<()> {
+    pub(crate) fn record_order(&mut self, remote: &RemoteOrder, i: Input) -> Result<()> {
         let (origin, k) = self.origin(&remote.client_id)?;
 
         let cmd = self
@@ -186,6 +192,7 @@ impl<
         match channel {
             "balance" => Ok(CashUpdate::Reconcile), // A wallet notification forces a new complete inventory check.
             "fills" | "orders" => {
+                let mut fill_client: Option<String> = None;
                 if channel == "fills"
                     || (!bybit
                         && row["tradeId"]
@@ -205,6 +212,7 @@ impl<
                         &serde_json::to_vec(row)
                             .map_err(|_| Error::Origin("invalid private fill"))?,
                     )?;
+                    fill_client = Some(client.to_owned());
                 }
                 if channel == "orders" {
                     let order = decode_order_row(venue, row)
@@ -215,12 +223,82 @@ impl<
                         .account()
                         .order(&key)
                         .ok_or(Error::Origin("missing order"))?;
-                    if !compare::open(order.status)
-                        || compare::amount(order.cumulative, view.filled_quantity.scale())?
-                            != view.filled_quantity
+                    let cum_fixed =
+                        compare::amount(order.cumulative, view.filled_quantity.scale())?;
+                    if self.query_desk.is_none() {
+                        if !compare::open(order.status) || cum_fixed != view.filled_quantity {
+                            return Ok(CashUpdate::Reconcile);
+                        }
+                    } else if self.account().frozen()
+                        || cum_fixed.atoms() < view.filled_quantity.atoms()
                     {
                         return Ok(CashUpdate::Reconcile);
+                    } else if cum_fixed.atoms() > view.filled_quantity.atoms() {
+                        self.note_expected_fill_atoms(&key, cum_fixed.atoms());
+                        if !compare::open(order.status)
+                            || self.account().order_in_doubt(&key)
+                                != Some(tickwire_account::DoubtReason::CancelAmbiguous)
+                        {
+                            self.session
+                                .gateway_mut()
+                                .isolate_intent_in_doubt(
+                                    key.intent,
+                                    tickwire_account::DoubtReason::FillCatchup,
+                                )
+                                .map_err(|e| Error::Session(SessionError::Gateway(e)))?;
+                        }
+                        if !self.enqueue_query_desk_trades(&key, received_ns) {
+                            return Ok(CashUpdate::Reconcile);
+                        }
+                        return Ok(CashUpdate::Accounted);
+                    } else if !compare::open(order.status) {
+                        self.clear_expected_fill_atoms(&key);
+                        self.close_terminal_fees_if_ready(&key, received_ns)?;
+                        return Ok(if self.account().frozen() {
+                            CashUpdate::Reconcile
+                        } else {
+                            CashUpdate::Accounted
+                        });
+                    } else if self.account().order_in_doubt(&key).is_none() {
+                        self.clear_expected_fill_atoms(&key);
+                        if self
+                            .query_desk
+                            .as_ref()
+                            .is_some_and(|d| d.has_pending_cancel(&key))
+                        {
+                            self.session
+                                .gateway_mut()
+                                .isolate_intent_in_doubt(
+                                    key.intent,
+                                    tickwire_account::DoubtReason::CancelAmbiguous,
+                                )
+                                .map_err(|e| Error::Session(SessionError::Gateway(e)))?;
+                        } else if let Some(desk) = self.query_desk.as_mut() {
+                            desk.remove_order(&key);
+                        }
                     }
+                } else if let Some(client) = fill_client
+                    && self.query_desk.is_some()
+                    && !self.account().frozen()
+                {
+                    let (_, key) = self.origin(&client)?;
+                    if let Some(view) = self.account().order(&key) {
+                        if view.filled_quantity.atoms() >= self.expected_fill_atoms(&key) {
+                            self.clear_expected_fill_atoms(&key);
+                        } else if view.terminal
+                            || self.account().order_in_doubt(&key)
+                                != Some(tickwire_account::DoubtReason::CancelAmbiguous)
+                        {
+                            self.session
+                                .gateway_mut()
+                                .isolate_intent_in_doubt(
+                                    key.intent,
+                                    tickwire_account::DoubtReason::FillCatchup,
+                                )
+                                .map_err(|e| Error::Session(SessionError::Gateway(e)))?;
+                        }
+                    }
+                    self.close_terminal_fees_if_ready(&key, received_ns)?;
                 }
                 Ok(if self.account().frozen() {
                     CashUpdate::Reconcile

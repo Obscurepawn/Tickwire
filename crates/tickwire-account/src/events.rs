@@ -47,6 +47,9 @@ impl Account {
         if let v::VenueEventBody::AmendmentRejected(a) = &event.body {
             return self.reject_amendment(a, id.instrument_id);
         }
+        if let v::VenueEventBody::Rejected { client_id, .. } = &event.body {
+            return self.observe_rejected(client_id.as_ref(), id.instrument_id);
+        }
         let identity = match &event.body {
             v::VenueEventBody::Structure(_) => return Err(Error::Unreconciled),
             v::VenueEventBody::Amendment(_) => return Err(Error::Unreconciled),
@@ -104,6 +107,10 @@ impl Account {
                     self.refresh_order_retirement(&key, stamp);
                     self.next_sequence()?;
                     return Ok(Applied::New);
+                }
+                if self.orders[&key].in_doubt != prior_order.in_doubt {
+                    let stamp = self.last_mono_ns;
+                    self.refresh_order_retirement(&key, stamp);
                 }
                 return Ok(Applied::Duplicate);
             }
@@ -210,8 +217,9 @@ impl Account {
         Ok(())
     }
     fn mark_economic(&mut self, key: &OrderKey) -> Result<()> {
+        let reopened = self.reopen_order(key)?;
         let o = self.orders.get_mut(key).unwrap();
-        if o.reopen_aborted()? || o.fees_closed {
+        if reopened || o.fees_closed {
             self.frozen = true;
             o.fees_closed = false;
         }
@@ -334,6 +342,14 @@ impl Account {
             current.filled = filled;
             current.notional = o.notional.checked_add(notional)?;
             current.reduce = current.reduce.checked_sub(q)?.positive_part();
+            if current.in_doubt == Some(DoubtReason::FillCatchup)
+                && current
+                    .terminal_cumulative
+                    .is_none_or(|cum| cum == current.filled)
+                && current.observed_cumulative.atoms() <= current.filled.atoms()
+            {
+                current.in_doubt = None;
+            }
         }
         for delta in fill.fees.as_slice() {
             self.apply_fee(key, p, delta)?;
@@ -451,10 +467,11 @@ impl Account {
         ) || observation.order.venue_order_id.is_some()
         {
             o.confirmed = true;
-            if o.reopen_aborted()? {
+            if self.reopen_order(key)? {
                 self.frozen = true;
             }
         }
+        let o = self.orders.get_mut(key).unwrap();
         let terminal = matches!(
             observation.status,
             v::OrderStatus::Filled
@@ -489,6 +506,33 @@ impl Account {
             } else {
                 o.observation_unreconciled = true;
                 self.frozen = true;
+            }
+        }
+        if observation.status != v::OrderStatus::Unknown {
+            match o.in_doubt {
+                Some(DoubtReason::PlaceAmbiguous) if o.confirmed => {
+                    if o.terminal && o.terminal_cumulative != Some(o.filled) {
+                        o.in_doubt = Some(DoubtReason::FillCatchup);
+                    } else {
+                        o.in_doubt = None;
+                    }
+                }
+                Some(DoubtReason::CancelAmbiguous | DoubtReason::AmendAmbiguous) if o.terminal => {
+                    if o.terminal_cumulative == Some(o.filled)
+                        && o.observed_cumulative.atoms() <= o.filled.atoms()
+                    {
+                        o.in_doubt = None;
+                    } else {
+                        o.in_doubt = Some(DoubtReason::FillCatchup);
+                    }
+                }
+                Some(DoubtReason::FillCatchup)
+                    if o.terminal_cumulative == Some(o.filled)
+                        && o.observed_cumulative.atoms() <= o.filled.atoms() =>
+                {
+                    o.in_doubt = None;
+                }
+                _ => {}
             }
         }
         Ok(())
@@ -572,5 +616,67 @@ impl Account {
             }
         }
         Ok(())
+    }
+    fn observe_rejected(
+        &mut self,
+        client_id: Option<&v::ClientId>,
+        instrument: u64,
+    ) -> Result<Applied> {
+        let Some(cid) = client_id else {
+            return Err(Error::Unreconciled);
+        };
+        let matched: Vec<OrderKey> = self
+            .orders_by_client_id
+            .get(&(instrument, cid.clone()))
+            .map(|keys| {
+                keys.iter()
+                    .filter(|k| self.orders.get(*k).is_some_and(|o| !o.aborted))
+                    .cloned()
+                    .collect()
+            })
+            .unwrap_or_default();
+        if matched.is_empty() {
+            return Err(Error::UnknownOrder);
+        }
+        if matched.len() > 1 {
+            return Err(Error::Conflict);
+        }
+        let key = matched[0].clone();
+        let o = &self.orders[&key];
+        if o.uncreated {
+            return Ok(Applied::Duplicate);
+        }
+        if o.confirmed
+            || o.economic
+            || o.filled.atoms() != 0
+            || !o.paid.is_empty()
+            || o.terminal
+            || o.native.is_some()
+            || o.observed_unknown
+            || o.observation_unreconciled
+            || self.structures.values().any(|s| s.legs.contains(&key))
+        {
+            return Err(Error::Unreconciled);
+        }
+        let o = self.orders.get_mut(&key).unwrap();
+        o.uncreated = true;
+        o.fees_closed = true;
+        o.reduce = o.reduce.zero_like();
+        o.in_doubt = None;
+        o.recovery_unknown = false;
+        if self.orders_by_intent.get(&key.intent).is_some_and(|legs| {
+            legs.iter()
+                .all(|l| self.orders[l].aborted || self.orders[l].uncreated)
+        }) {
+            self.shadow_holds.remove(&key.intent);
+        }
+        let stamp = self.last_mono_ns;
+        self.refresh_order_retirement(&key, stamp);
+        self.next_sequence()?;
+        if self.evaluate().is_err() {
+            self.frozen = true;
+        }
+        self.check_reduce_consistency()?;
+        Ok(Applied::New)
     }
 }

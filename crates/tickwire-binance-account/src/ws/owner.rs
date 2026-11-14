@@ -278,7 +278,8 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
     ) -> Result<Option<RestOutcome>> {
         let mut runtime = self.websocket.take().ok_or(Error::Identity)?;
         let mut result = self.poll_ws(&mut runtime, now, mono, budget);
-        if (result.is_err() || self.gateway.halted())
+        let disconnected = !self.gateway.has_transport_connection() || runtime.stopped;
+        if (result.is_err() || self.gateway.halted() || disconnected)
             && let Some(session) = runtime.session.as_ref()
         {
             if !runtime.closed_event {
@@ -302,7 +303,15 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             }
             runtime.stopped = true;
             self.ingress.invalidate_ws_session();
-            self.gateway.stop_sending();
+            if self.gateway.per_order_doubt_isolation()
+                && result.is_ok()
+                && !self.gateway.halted()
+                && !self.gateway.account().frozen()
+            {
+                self.gateway.drop_broken_transport_isolated();
+            } else {
+                self.gateway.stop_sending();
+            }
         }
         self.websocket = Some(runtime);
         result
@@ -318,9 +327,14 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             return Ok(None);
         };
         if mono >= r.expires {
-            self.gateway.stop_sending();
+            if self.gateway.per_order_doubt_isolation() {
+                self.gateway.drop_broken_transport_isolated();
+                r.stopped = true;
+            } else {
+                self.gateway.stop_sending();
+            }
         }
-        if !r.stopped && !self.gateway.halted() {
+        if !r.stopped && !self.gateway.halted() && self.gateway.has_transport_connection() {
             let _ = self.gateway.poll_websocket(now, budget, || {
                 r.state
                     .control(session, r.control, r.operation, r.control_deadline)
@@ -372,6 +386,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                             mono,
                             message.payload,
                         )?;
+                        if let Some(p) = &pending {
+                            self.sync_query_desk_for_command(&p.command, mono);
+                        }
                         if let Some((status, failure)) = feedback {
                             r.state.feedback(status)?;
                             if matches!(
@@ -419,7 +436,9 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                         )?;
                         r.closed_event = true;
                         r.closing = true;
-                        self.gateway.freeze_account();
+                        if !self.gateway.per_order_doubt_isolation() {
+                            self.gateway.freeze_account();
+                        }
                         let deadline = now
                             .checked_add(Duration::from_nanos(r.control_timeout))
                             .ok_or(Error::Capacity)?;
@@ -439,7 +458,11 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                                 r.deferred = None;
                             }
                             Err(_) => {
-                                self.gateway.stop_sending();
+                                if self.gateway.per_order_doubt_isolation() {
+                                    self.gateway.drop_broken_transport_isolated();
+                                } else {
+                                    self.gateway.stop_sending();
+                                }
                                 r.stopped = true;
                             }
                         }
@@ -451,9 +474,15 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
         if let Some((_, _, deadline, mono_deadline)) = &r.deferred
             && (now >= *deadline || mono >= *mono_deadline)
         {
-            self.gateway.stop_sending();
+            if self.gateway.per_order_doubt_isolation() {
+                self.gateway.drop_broken_transport_isolated();
+                r.stopped = true;
+            } else {
+                self.gateway.stop_sending();
+            }
         }
         if !self.gateway.halted()
+            && self.gateway.has_transport_connection()
             && !self.gateway.websocket_control_pending()
             && let Some((opcode, payload, deadline, mono_deadline)) = r.deferred.take()
         {
@@ -484,8 +513,20 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                     applied_events: 0,
                 }));
             }
-            if self.gateway.halted() || now >= pending.deadline || r.stopped {
-                self.gateway.stop_sending();
+            if self.gateway.halted()
+                || !self.gateway.has_transport_connection()
+                || now >= pending.deadline
+                || r.stopped
+            {
+                if self.gateway.per_order_doubt_isolation()
+                    && !self.gateway.halted()
+                    && !self.gateway.account().frozen()
+                {
+                    self.gateway.drop_broken_transport_isolated();
+                    r.stopped = true;
+                } else {
+                    self.gateway.stop_sending();
+                }
                 let pending = self.pending.take().unwrap();
                 let out = self.ingress.persist_ws_response(
                     &mut self.gateway,
@@ -494,6 +535,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                     mono,
                     Vec::new(),
                 )?;
+                self.sync_query_desk_for_command(&pending.command, mono);
                 return Ok(Some(RestOutcome {
                     request: intent(&pending.command),
                     input: Some(out.input),

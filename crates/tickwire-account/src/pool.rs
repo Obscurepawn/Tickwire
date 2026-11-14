@@ -522,6 +522,64 @@ impl<K: Eq + Hash, V> WindowedTable<K, V> {
             Slot::Free { .. } => None,
         })
     }
+
+    /// Retains only entries satisfying `keep`, returning unretained slots to the free-list
+    /// in-place without heap allocation.
+    pub fn retain<F: FnMut(&K, &V) -> bool>(&mut self, mut keep: F) -> usize {
+        if self.is_empty() {
+            return 0;
+        }
+        let mut removed = 0usize;
+        for bucket in 0..self.buckets.len() {
+            let mut prev = NONE;
+            let mut cur = self.buckets[bucket];
+            while cur != NONE {
+                let idx = cur as usize;
+                let (should_keep, next) = match &self.slots[idx] {
+                    Slot::Occupied {
+                        next_in_bucket,
+                        key,
+                        value,
+                        ..
+                    } => (keep(key, value), *next_in_bucket),
+                    Slot::Free { .. } => unreachable!("corrupt bucket chain"),
+                };
+                if !should_keep {
+                    if prev == NONE {
+                        self.buckets[bucket] = next;
+                    } else if let Slot::Occupied {
+                        next_in_bucket: prev_next,
+                        ..
+                    } = &mut self.slots[prev as usize]
+                    {
+                        *prev_next = next;
+                    }
+                    let old = std::mem::replace(
+                        &mut self.slots[idx],
+                        Slot::Free {
+                            next_free: self.free_head,
+                        },
+                    );
+                    self.free_head = cur;
+                    if let Slot::Occupied {
+                        retired_at_mono_ns, ..
+                    } = old
+                    {
+                        if retired_at_mono_ns.is_some() {
+                            self.retired_count -= 1;
+                        } else {
+                            self.active_count -= 1;
+                        }
+                    }
+                    removed += 1;
+                } else {
+                    prev = cur;
+                }
+                cur = next;
+            }
+        }
+        removed
+    }
 }
 
 impl<K: Eq + Hash, V: PartialEq> PartialEq for WindowedTable<K, V> {

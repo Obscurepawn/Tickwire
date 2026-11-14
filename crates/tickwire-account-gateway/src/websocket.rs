@@ -29,7 +29,11 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.halted {
             return Err(Error::Halted);
         }
-        if self.rest_started || self.websocket.is_some() || self.pending.is_some() {
+        if self.rest_started
+            || self.websocket.is_some()
+            || self.pending.is_some()
+            || self.connection.is_none()
+        {
             return Err(Error::Busy);
         }
         let path = match self.config.route.product {
@@ -56,7 +60,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         Ok(())
     }
     pub fn websocket_ready(&self) -> bool {
-        !self.halted && self.websocket.as_ref().is_some_and(|s| s.ready)
+        !self.halted
+            && self.connection.is_some()
+            && self.websocket.as_ref().is_some_and(|s| s.ready)
     }
     pub fn websocket_control_pending(&self) -> bool {
         self.websocket.as_ref().is_some_and(|s| s.control.is_some())
@@ -114,7 +120,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         let result = self.poll_protocol(now, budget, &mut permit);
         if result.is_err() {
-            self.halt();
+            self.on_transport_error();
         }
         result
     }
@@ -127,25 +133,25 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         let driven = self
             .connection
             .as_mut()
-            .ok_or(Error::Halted)?
+            .ok_or(Error::Busy)?
             .drive(now, budget)?;
         if driven.peer_closed {
-            self.halt();
+            self.on_transport_error();
             return Ok(());
         }
         self.settle_control()?;
-        if self.halted {
+        if self.halted || self.connection.is_none() {
             return Ok(());
         }
         if self.websocket_control_pending() {
             let report = self
                 .connection
                 .as_mut()
-                .ok_or(Error::Halted)?
+                .ok_or(Error::Busy)?
                 .try_send(now, permit)?;
             self.check_control_report(report)?;
         }
-        if self.halted {
+        if self.halted || self.connection.is_none() {
             return Ok(());
         }
         if !self.websocket.as_ref().unwrap().ready {
@@ -209,7 +215,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                     self.halt();
                 }
             }
-            SendState::NoBytes(_) | SendState::Failed(_) => self.halt(),
+            SendState::NoBytes(_) | SendState::Failed(_) => self.on_transport_error(),
         }
         Ok(())
     }

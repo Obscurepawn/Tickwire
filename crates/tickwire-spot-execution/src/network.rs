@@ -562,6 +562,34 @@ pub struct OwnedCredentials {
     pass: Option<String>,
 }
 impl OwnedCredentials {
+    pub fn bybit(key: impl Into<String>, secret: impl Into<String>) -> Result<Self> {
+        let out = Self {
+            venue: SpotVenue::Bybit,
+            key: key.into(),
+            secret: secret.into(),
+            pass: None,
+        };
+        if !out.credentials().valid() {
+            return Err("invalid Bybit credential material".into());
+        }
+        Ok(out)
+    }
+    pub fn okx(
+        key: impl Into<String>,
+        secret: impl Into<String>,
+        passphrase: impl Into<String>,
+    ) -> Result<Self> {
+        let out = Self {
+            venue: SpotVenue::Okx,
+            key: key.into(),
+            secret: secret.into(),
+            pass: Some(passphrase.into()),
+        };
+        if !out.credentials().valid() {
+            return Err("invalid OKX credential material".into());
+        }
+        Ok(out)
+    }
     pub fn load(venue: SpotVenue) -> Result<Self> {
         Ok(Self {
             venue,

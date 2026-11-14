@@ -11,6 +11,7 @@ mod external;
 mod handover;
 mod live_bootstrap;
 pub mod pool;
+pub mod query_desk;
 mod recovery;
 mod structures;
 #[cfg(test)]
@@ -19,6 +20,10 @@ mod test_common;
 mod types;
 pub use live_bootstrap::LiveBootstrap;
 pub use pool::{PoolFull, WindowedTable};
+pub use query_desk::{
+    AskKind, MAX_REST_SLOTS, MAX_STATUS_ASKS, QueryConfig, QueryDesk, QueryResolution, QueryTicket,
+    SnapshotSummary,
+};
 use std::collections::{BTreeMap, BTreeSet};
 pub use tickwire_risk::Fixed;
 use tickwire_risk::{RiskError, Rounding};
@@ -74,6 +79,7 @@ struct Order {
     shadow_fee_credit: Fixed,
     created_mono_ns: u64,
     retired_mono_ns: Option<u64>,
+    in_doubt: Option<DoubtReason>,
 }
 impl PartialEq for Order {
     fn eq(&self, other: &Self) -> bool {
@@ -163,6 +169,7 @@ impl Order {
                 && self.remaining().map(|r| r.atoms() == 0).unwrap_or(false)))
             && !self.unknown()
             && !self.observation_unreconciled
+            && self.in_doubt.is_none()
             && self.reduce.atoms() == 0
     }
 }
@@ -216,6 +223,7 @@ pub struct Account {
     shadow_holds: BTreeMap<IntentKey, Vec<CapitalHold>>,
     uncovered_debits: BTreeMap<u64, Fixed>,
     shadow_unvalued: BTreeSet<u64>,
+    last_reactivation_sequence: u64,
     strategy_sequence_floors: BTreeMap<u64, IntentKey>,
     retention_window_ns: Option<u64>,
     last_mono_ns: u64,
@@ -263,6 +271,7 @@ impl Account {
             shadow_holds: BTreeMap::new(),
             uncovered_debits: BTreeMap::new(),
             shadow_unvalued: BTreeSet::new(),
+            last_reactivation_sequence: 0,
             strategy_sequence_floors: BTreeMap::new(),
             retention_window_ns: Some(DEFAULT_RETENTION_WINDOW_NS),
             last_mono_ns: 0,
@@ -912,7 +921,11 @@ impl Account {
                     self.admissions.remove(&mk);
                 }
             }
-            self.shadow_holds.remove(&intent);
+            if let Some(holds) = self.shadow_holds.remove(&intent) {
+                for hold in holds {
+                    let _ = self.add_uncovered(hold.wallet_id, hold.amount);
+                }
+            }
             self.admissions.remove(&intent);
         }
 
@@ -939,6 +952,51 @@ impl Account {
             evicted += 1;
         }
         evicted
+    }
+
+    pub(crate) fn reopen_order(&mut self, key: &OrderKey) -> Result<bool> {
+        let reopened = self.orders.get_mut(key).unwrap().reopen_aborted()?;
+        if reopened
+            && let Some(adm) = self.admissions.get(&key.intent)
+            && adm.sequence > self.last_reactivation_sequence
+            && !adm.capital.is_empty()
+        {
+            self.shadow_holds.insert(key.intent, adm.capital.clone());
+        }
+        Ok(reopened)
+    }
+
+    pub fn mark_order_in_doubt(&mut self, key: &OrderKey, reason: DoubtReason) -> Result<()> {
+        let o = self.orders.get_mut(key).ok_or(Error::UnknownOrder)?;
+        if o.aborted || o.uncreated {
+            return Err(Error::Unreconciled);
+        }
+        o.in_doubt = Some(reason);
+        o.retired_mono_ns = None;
+        if let Some(adm) = self.admissions.get_mut(&key.intent) {
+            adm.retired_mono_ns = None;
+        }
+        let stamp = self.last_mono_ns;
+        self.refresh_order_retirement(key, stamp);
+        Ok(())
+    }
+
+    pub fn clear_order_in_doubt(&mut self, key: &OrderKey) -> Result<()> {
+        let o = self.orders.get_mut(key).ok_or(Error::UnknownOrder)?;
+        o.in_doubt = None;
+        let stamp = self.last_mono_ns;
+        self.refresh_order_retirement(key, stamp);
+        Ok(())
+    }
+
+    pub fn order_in_doubt(&self, key: &OrderKey) -> Option<DoubtReason> {
+        self.orders.get(key)?.in_doubt
+    }
+
+    pub fn in_doubt_orders(&self) -> impl Iterator<Item = (&OrderKey, DoubtReason)> {
+        self.orders
+            .iter()
+            .filter_map(|(key, order)| order.in_doubt.map(|reason| (key, reason)))
     }
 }
 fn push_unique<T: PartialEq>(vec: &mut Vec<T>, item: T) {

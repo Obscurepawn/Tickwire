@@ -5,7 +5,7 @@ use tickwire_account::{Account, Fixed, OrderKey};
 use tickwire_account_codec::CanonicalBaseline;
 use tickwire_spot_execution::recovery::RemoteOrder;
 use tickwire_venue::{Decimal, OrderStatus, OrderType, Side};
-pub(super) fn amount(d: Decimal, scale: u8) -> Result<Fixed> {
+pub(crate) fn amount(d: Decimal, scale: u8) -> Result<Fixed> {
     Fixed::parse(&d.as_plain_string(), scale)
         .map_err(|_| Error::Origin("amount outside the asset scale"))
 }
@@ -32,7 +32,7 @@ fn quote(
         .map_err(|_| Error::Origin("trade value scale"))
     }
 }
-pub(super) fn open(s: OrderStatus) -> bool {
+pub(crate) fn open(s: OrderStatus) -> bool {
     matches!(s, OrderStatus::New | OrderStatus::PartiallyFilled)
 }
 pub(super) fn orders(e: &RestEvidence) -> Result<BTreeMap<&str, &RemoteOrder>> {
@@ -69,7 +69,7 @@ pub(super) fn orders(e: &RestEvidence) -> Result<BTreeMap<&str, &RemoteOrder>> {
     Ok(all)
 }
 
-pub(super) fn admitted_terms(account: &Account, k: &OrderKey, remote: &RemoteOrder) -> Result<()> {
+pub(crate) fn admitted_terms(account: &Account, k: &OrderKey, remote: &RemoteOrder) -> Result<()> {
     let (instrument, order) = account
         .order_terms(k)
         .ok_or(Error::Origin("unknown remote order"))?;
@@ -90,7 +90,7 @@ pub(super) fn admitted_terms(account: &Account, k: &OrderKey, remote: &RemoteOrd
     }
     Ok(())
 }
-pub(super) fn terms(account: &Account, k: &OrderKey, remote: &RemoteOrder) -> Result<()> {
+pub(crate) fn terms(account: &Account, k: &OrderKey, remote: &RemoteOrder) -> Result<()> {
     admitted_terms(account, k, remote)?;
     let view = account
         .order(k)
@@ -107,7 +107,7 @@ pub(super) fn terms(account: &Account, k: &OrderKey, remote: &RemoteOrder) -> Re
         }
         _ => false,
     };
-    if !valid || view.aborted || (view.terminal && open(remote.status)) {
+    if !valid || view.aborted || view.uncreated || (view.terminal && open(remote.status)) {
         return Err(Error::Origin(
             "unknown or contradictory native order lifecycle",
         ));
@@ -125,7 +125,7 @@ pub(super) fn account(
     for k in a.order_keys() {
         let local = a.order(k).ok_or(Error::Origin("missing order state"))?;
         let Some(o) = remote.get(k.client_id.as_str()).copied() else {
-            if local.aborted || (local.terminal && local.fee_reconciled) {
+            if local.aborted || local.uncreated || (local.terminal && local.fee_reconciled) {
                 continue;
             }
             return Err(Error::Origin(

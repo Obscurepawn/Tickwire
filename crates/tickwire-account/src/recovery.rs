@@ -203,6 +203,7 @@ impl Account {
             order.observed_unknown = false;
             order.recovery_unknown = false;
             order.observation_unreconciled = false;
+            order.in_doubt = None;
         }
         let keys: Vec<_> = candidate.orders.keys().cloned().collect();
         let stamp = candidate.last_mono_ns;
@@ -213,6 +214,7 @@ impl Account {
         candidate.rejected_event = None;
         candidate.valid_until = binding.valid_until;
         candidate.next_sequence()?;
+        candidate.last_reactivation_sequence = candidate.sequence;
         candidate.evaluate()?;
         *self = candidate;
         Ok(())

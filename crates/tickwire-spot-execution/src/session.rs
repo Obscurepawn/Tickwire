@@ -1,7 +1,10 @@
 //! Single-flight private session. AccountGateway remains the sole send and journal owner.
-use crate::{OrderSnapshot, Reply, ReportError, SpotEncoder, SpotVenue, decode_reply, hex};
+use crate::{
+    OrderSnapshot, Reply, ReportError, SpotEncoder, SpotIssueKind, SpotVenue, classify_issue,
+    decode_reply, hex, is_http_account_hazard,
+};
 use std::time::Instant;
-use tickwire_account::IntentKey;
+use tickwire_account::{DoubtReason, IntentKey};
 use tickwire_account_gateway::{AccountGateway, Authority, Status};
 use tickwire_account_journal::Backend;
 use tickwire_transport::{IoBudget, http::ResponseDecoder};
@@ -76,6 +79,97 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
     }
     pub fn connection_epoch(&self) -> u64 {
         self.connection_epoch
+    }
+    pub fn with_per_order_doubt_isolation(mut self, enabled: bool) -> Self {
+        self.gateway.set_per_order_doubt_isolation(enabled);
+        self
+    }
+    pub fn set_per_order_doubt_isolation(&mut self, enabled: bool) {
+        self.gateway.set_per_order_doubt_isolation(enabled);
+    }
+    pub fn per_order_doubt_isolation(&self) -> bool {
+        self.gateway.per_order_doubt_isolation()
+    }
+    pub fn has_transport_connection(&self) -> bool {
+        self.gateway.has_transport_connection()
+    }
+    pub fn install_transport_connection(
+        &mut self,
+        connection: tickwire_transport::Connection,
+        limits: tickwire_transport::Limits,
+    ) -> Result<()> {
+        if self.pending.is_some() {
+            return Err(SessionError::Busy);
+        }
+        let decoder = ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+        self.gateway
+            .install_transport_connection(connection, limits)
+            .map_err(SessionError::Gateway)?;
+        self.decoder = decoder;
+        Ok(())
+    }
+    /// Records a deterministic business rejection for an uncreated `New` order (`uncreated = true`),
+    /// releasing its Spot reservation without freezing `Account`.
+    pub fn record_rejected_new(
+        &mut self,
+        cmd: &v::CanonicalCommand,
+        code: &str,
+        received_mono_ns: u64,
+    ) -> Result<tickwire_account::Applied> {
+        let c = cmd.command();
+        let v::CommandBody::New(order) = &c.body else {
+            return Err(SessionError::Identity);
+        };
+        if received_mono_ns == 0 {
+            return Err(SessionError::Identity);
+        }
+        let venue_code = v::BoundedText::new(code).map_err(|_| SessionError::Identity)?;
+        let message = v::BoundedMessage::new(format!("spot_new_rejected:{code}"))
+            .map_err(|_| SessionError::Identity)?;
+        let mut seed = Vec::with_capacity(64 + code.len());
+        seed.extend_from_slice(b"tickwire.spot.new-reject.v1");
+        seed.extend_from_slice(&cmd.digest());
+        seed.extend_from_slice(code.as_bytes());
+        let hash = ring::digest::digest(&ring::digest::SHA256, &seed);
+        let mut input_stream: [u8; 16] = hash.as_ref()[..16].try_into().expect("sha256 prefix");
+        if input_stream == [0; 16] {
+            input_stream[0] = 1;
+        }
+        let input_sequence = 1u64;
+        let (epoch, received) = self
+            .gateway
+            .ingress_event(input_stream, input_sequence)
+            .map_or((self.connection_epoch, received_mono_ns), |prior| {
+                let id = &prior.event().identity;
+                (id.source_connection_epoch, id.received_mono_ns)
+            });
+        let r = &c.context.request;
+        let event = v::CanonicalEvent::new(v::VenueEvent {
+            identity: v::EventIdentity {
+                risk_domain_id: r.risk_domain_id,
+                venue: r.venue,
+                environment: r.environment,
+                account: r.account,
+                product: r.product,
+                instrument_id: c.context.instrument.instrument_id,
+                instrument_version: c.context.instrument.instrument_version,
+                source_connection_epoch: epoch,
+                source_sequence: Some(input_sequence),
+                event_id: v::BoundedText::new(hex(hash.as_ref()))
+                    .map_err(|_| SessionError::Identity)?,
+                venue_time_ns: None,
+                received_mono_ns: received,
+            },
+            body: v::VenueEventBody::Rejected {
+                client_id: Some(order.client_id.clone()),
+                venue_code,
+                message,
+            },
+        })
+        .map_err(|_| SessionError::Identity)?;
+        self.gateway
+            .record_ingress_event(input_stream, input_sequence, event)
+            .map_err(SessionError::Gateway)
     }
     pub fn reactivate(
         &mut self,
@@ -188,16 +282,53 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         }
         result
     }
+    fn doubt_reason_for_command(cmd: &v::CanonicalCommand) -> DoubtReason {
+        match &cmd.command().body {
+            v::CommandBody::Cancel(_) => DoubtReason::CancelAmbiguous,
+            v::CommandBody::AmendKeepPriority { .. } => DoubtReason::AmendAmbiguous,
+            _ => DoubtReason::PlaceAmbiguous,
+        }
+    }
+    fn drain_retained_receive(&mut self) {
+        let mut drain = [0u8; 4096];
+        while self.gateway.read(&mut drain) > 0 {}
+    }
+    fn isolate_broken_transport_pending(
+        &mut self,
+        intent: IntentKey,
+        cmd: &v::CanonicalCommand,
+    ) -> Result<Option<Reply>> {
+        self.gateway.drop_broken_transport_isolated();
+        self.drain_retained_receive();
+        self.decoder = ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+        if self.gateway.status(intent) == Some(Status::Aborted) {
+            return Ok(None);
+        }
+        self.gateway
+            .isolate_intent_in_doubt(intent, Self::doubt_reason_for_command(cmd))
+            .map_err(SessionError::Gateway)?;
+        Ok(Some(Reply::Unknown))
+    }
     fn drive(
         &mut self,
         now: Instant,
         received_mono_ns: u64,
         budget: IoBudget,
     ) -> Result<Option<Reply>> {
+        let isolated = self.gateway.per_order_doubt_isolation();
+        if isolated
+            && !self.gateway.halted()
+            && !self.gateway.has_transport_connection()
+            && self.pending.is_none()
+        {
+            self.drain_retained_receive();
+            return Ok(None);
+        }
         let transport = self.gateway.poll(now, budget);
         let mut buffer = [0; 4096];
         let mut remaining = budget.max_bytes;
         let mut exhausted = false;
+        let mut decode_err = None;
         while remaining != 0 {
             let cap = remaining.min(buffer.len());
             let n = self.gateway.read(&mut buffer[..cap]);
@@ -208,19 +339,83 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             if self.pending.is_none() {
                 return Err(SessionError::Identity);
             }
-            self.decoder
-                .push(&buffer[..n])
-                .map_err(SessionError::Transport)?;
+            if let Err(e) = self.decoder.push(&buffer[..n]) {
+                decode_err = Some(e);
+                break;
+            }
             remaining -= n;
         }
-        if exhausted && self.gateway.halted() {
+        if !isolated {
+            if let Some(e) = decode_err {
+                return Err(SessionError::Transport(e));
+            }
+            if exhausted && self.gateway.halted() {
+                self.decoder.finish();
+            }
+            if let Some(raw) = self
+                .decoder
+                .next_response()
+                .map_err(SessionError::Transport)?
+            {
+                let (intent, cmd, _) = self.pending.take().ok_or(SessionError::Identity)?;
+                if self
+                    .gateway
+                    .output_progress(intent)
+                    .is_none_or(|p| p.accepted_bytes != p.total_bytes)
+                    || !self.decoder.take_buffered().is_empty()
+                {
+                    return Err(SessionError::Identity);
+                }
+                let reply =
+                    decode_reply(&cmd, raw.status, &raw.body).map_err(SessionError::Report)?;
+                match &reply {
+                    Reply::Order(snapshot) => self.observe(&cmd, snapshot, received_mono_ns)?,
+                    Reply::Unknown | Reply::RequestIssue { .. } => self.gateway.freeze_account(),
+                    Reply::Acknowledged { .. } => {}
+                }
+                return Ok(Some(reply));
+            }
+            if let Some((key, _, deadline)) = &self.pending {
+                if self.gateway.status(*key) == Some(Status::Aborted) {
+                    self.pending = None;
+                    return Ok(None);
+                }
+                if now >= *deadline || exhausted && (self.gateway.halted() || transport.is_err()) {
+                    self.gateway.stop_sending();
+                    self.pending = None;
+                    return Ok(Some(Reply::Unknown));
+                }
+            } else if let Err(e) = transport {
+                return Err(SessionError::Gateway(e));
+            }
+            return Ok(None);
+        }
+
+        if let Some(e) = decode_err {
+            if self.pending.is_some()
+                && (!self.gateway.has_transport_connection() || transport.is_err())
+            {
+                let (intent, cmd, _) = self.pending.take().ok_or(SessionError::Identity)?;
+                return self.isolate_broken_transport_pending(intent, &cmd);
+            }
+            return Err(SessionError::Transport(e));
+        }
+        if exhausted && (!self.gateway.has_transport_connection() || self.gateway.halted()) {
             self.decoder.finish();
         }
-        if let Some(raw) = self
-            .decoder
-            .next_response()
-            .map_err(SessionError::Transport)?
-        {
+        let next = match self.decoder.next_response() {
+            Ok(next) => next,
+            Err(e) => {
+                if self.pending.is_some()
+                    && (!self.gateway.has_transport_connection() || transport.is_err())
+                {
+                    let (intent, cmd, _) = self.pending.take().ok_or(SessionError::Identity)?;
+                    return self.isolate_broken_transport_pending(intent, &cmd);
+                }
+                return Err(SessionError::Transport(e));
+            }
+        };
+        if let Some(raw) = next {
             let (intent, cmd, _) = self.pending.take().ok_or(SessionError::Identity)?;
             if self
                 .gateway
@@ -230,24 +425,89 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             {
                 return Err(SessionError::Identity);
             }
+            if !self.gateway.has_transport_connection() {
+                self.drain_retained_receive();
+                self.decoder =
+                    ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+            }
             let reply = decode_reply(&cmd, raw.status, &raw.body).map_err(SessionError::Report)?;
+            let venue = SpotVenue::from_id(cmd.command().context.request.venue)
+                .ok_or(SessionError::Identity)?;
+            let http_hazard = is_http_account_hazard(raw.status);
+            let reason = Self::doubt_reason_for_command(&cmd);
             match &reply {
                 Reply::Order(snapshot) => self.observe(&cmd, snapshot, received_mono_ns)?,
-                Reply::Unknown | Reply::RequestIssue { .. } => self.gateway.freeze_account(),
                 Reply::Acknowledged { .. } => {}
+                Reply::RequestIssue { code } => {
+                    let kind = classify_issue(venue, code);
+                    if http_hazard || kind == SpotIssueKind::AccountHazard {
+                        self.gateway.freeze_account();
+                    } else {
+                        match (&cmd.command().body, kind) {
+                            (v::CommandBody::New(_), SpotIssueKind::DeterministicReject) => {
+                                self.record_rejected_new(&cmd, code, received_mono_ns)?;
+                            }
+                            (
+                                v::CommandBody::Cancel(_),
+                                SpotIssueKind::DeterministicReject | SpotIssueKind::NotFound,
+                            ) => {}
+                            (
+                                v::CommandBody::New(_),
+                                SpotIssueKind::Ambiguous | SpotIssueKind::NotFound,
+                            ) => {
+                                self.gateway
+                                    .isolate_intent_in_doubt(intent, DoubtReason::PlaceAmbiguous)
+                                    .map_err(SessionError::Gateway)?;
+                            }
+                            (v::CommandBody::Cancel(_), SpotIssueKind::Ambiguous) => {
+                                self.gateway
+                                    .isolate_intent_in_doubt(intent, DoubtReason::CancelAmbiguous)
+                                    .map_err(SessionError::Gateway)?;
+                            }
+                            _ => {
+                                self.gateway
+                                    .isolate_intent_in_doubt(intent, reason)
+                                    .map_err(SessionError::Gateway)?;
+                            }
+                        }
+                    }
+                }
+                Reply::Unknown => {
+                    if http_hazard {
+                        self.gateway.freeze_account();
+                    } else {
+                        self.gateway
+                            .isolate_intent_in_doubt(intent, reason)
+                            .map_err(SessionError::Gateway)?;
+                    }
+                }
             }
             return Ok(Some(reply));
         }
         if let Some((key, _, deadline)) = &self.pending {
             if self.gateway.status(*key) == Some(Status::Aborted) {
+                if !self.gateway.has_transport_connection() {
+                    self.drain_retained_receive();
+                    self.decoder =
+                        ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+                }
                 self.pending = None;
                 return Ok(None);
             }
-            if now >= *deadline || exhausted && (self.gateway.halted() || transport.is_err()) {
-                self.gateway.stop_sending();
-                self.pending = None;
-                return Ok(Some(Reply::Unknown));
+            if now >= *deadline
+                || exhausted
+                    && (!self.gateway.has_transport_connection()
+                        || self.gateway.halted()
+                        || transport.is_err())
+            {
+                let (intent, cmd, _) = self.pending.take().ok_or(SessionError::Identity)?;
+                return self.isolate_broken_transport_pending(intent, &cmd);
             }
+        } else if !self.gateway.has_transport_connection() && !self.gateway.halted() {
+            self.drain_retained_receive();
+            self.decoder =
+                ResponseDecoder::new(256 * 1024, 128).map_err(SessionError::Transport)?;
+            return Ok(None);
         } else if let Err(e) = transport {
             return Err(SessionError::Gateway(e));
         }

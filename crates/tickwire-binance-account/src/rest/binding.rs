@@ -37,7 +37,126 @@ pub(crate) fn decide<S: Store, B: Backend, A: Authority, E: Encoder>(
         decoded,
         b"tickwire.rest.observation.v1",
         true,
+        gateway.per_order_doubt_isolation(),
     )
+}
+
+pub(crate) fn bounded_rejection_message(msg: &str, code: i64) -> Result<v::BoundedMessage<256>> {
+    let mut end = msg.len().min(256);
+    while end > 0 && !msg.is_char_boundary(end) {
+        end -= 1;
+    }
+    let slice = &msg[..end];
+    if slice.is_empty() {
+        v::BoundedMessage::new(format!("venue error {code}")).map_err(|_| Error::Encoding)
+    } else {
+        v::BoundedMessage::new(slice).map_err(|_| Error::Encoding)
+    }
+}
+
+pub(crate) fn order_rejection<S: Store>(
+    input: &AccountIngress<S>,
+    record: &RestRecord,
+    event_domain: &[u8],
+    code: i64,
+    msg: &str,
+) -> Result<CanonicalEvent> {
+    if record.query.is_some()
+        || record.structure_query.is_some()
+        || record.amendment_query.is_some()
+    {
+        return Err(Error::Identity);
+    }
+    let v::CommandBody::New(spec) = &record.command.command().body else {
+        return Err(Error::Identity);
+    };
+    let req_intent = intent(&record.command);
+    let reg = input.registry.get(&req_intent).ok_or(Error::Identity)?;
+    if reg.command != record.command
+        || reg.orders.len() != 1
+        || reg.orders[0].client_id.as_ref() != Some(&spec.client_id)
+    {
+        return Err(Error::Identity);
+    }
+    if let Some(q) = record.order_query
+        && (q.intent != req_intent || q.order_id != reg.orders[0].order_id || code != -2013)
+    {
+        return Err(Error::Identity);
+    }
+    let c = &reg.command.command().context;
+    let mut h = Context::new(&SHA256);
+    h.update(event_domain);
+    h.update(&record.command.digest());
+    h.update(&record.epoch.to_le_bytes());
+    h.update(&record.raw);
+    h.update(&0u64.to_le_bytes());
+    let event_id: String = h
+        .finish()
+        .as_ref()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    CanonicalEvent::new(v::VenueEvent {
+        identity: v::EventIdentity {
+            risk_domain_id: c.request.risk_domain_id,
+            venue: c.request.venue,
+            environment: c.request.environment,
+            account: c.request.account,
+            product: c.request.product,
+            instrument_id: c.instrument.instrument_id,
+            instrument_version: c.instrument.instrument_version,
+            source_connection_epoch: record.epoch,
+            source_sequence: None,
+            event_id: v::BoundedText::new(event_id).map_err(|_| Error::Encoding)?,
+            venue_time_ns: None,
+            received_mono_ns: record.received,
+        },
+        body: v::VenueEventBody::Rejected {
+            client_id: Some(spec.client_id.clone()),
+            venue_code: v::BoundedText::new(code.to_string()).map_err(|_| Error::Encoding)?,
+            message: bounded_rejection_message(msg, code)?,
+        },
+    })
+    .map_err(|_| Error::Encoding)
+}
+
+pub(crate) fn verify_rejection_raw<S: Store>(
+    input: &AccountIngress<S>,
+    record: &RestRecord,
+    event: &CanonicalEvent,
+) -> Result<()> {
+    let mut decoder =
+        ResponseDecoder::new(input.config.max_raw_bytes, 256).map_err(Error::Transport)?;
+    decoder.push(&record.raw).map_err(Error::Transport)?;
+    decoder.finish();
+    let response = decoder
+        .next_response()
+        .map_err(Error::Transport)?
+        .ok_or(Error::Encoding)?;
+    if response.status != record.status || !decoder.take_buffered().is_empty() {
+        return Err(Error::Identity);
+    }
+    let decoded = response::decode_rest(input.market()?, response.status, &response.body)
+        .map_err(|_| Error::Encoding)?;
+    let api_err = decoded.error.as_ref().ok_or(Error::Encoding)?;
+    if record.order_query.is_some() {
+        if decoded.failure != Some(FailureKind::NotFound) || api_err.code != -2013 {
+            return Err(Error::Identity);
+        }
+    } else if decoded.failure != Some(FailureKind::Rejected) {
+        return Err(Error::Identity);
+    }
+    let actual = order_rejection(
+        input,
+        record,
+        b"tickwire.rest.observation.v1",
+        api_err.code,
+        &api_err.msg,
+    )?;
+    if actual != *event {
+        return Err(Error::Identity);
+    }
+    Ok(())
 }
 
 pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
@@ -47,6 +166,7 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
     decoded: response::Response<'_>,
     event_domain: &[u8],
     apply_candidate: bool,
+    emit_order_rejection: bool,
 ) -> Result<(RestDisposition, Vec<CanonicalEvent>)> {
     let mut disposition = RestDisposition::Observed;
     let value = if let Some(kind) = decoded.failure {
@@ -63,6 +183,28 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
                 decoded.error.as_ref().ok_or(Error::Encoding)?.code,
             )?;
             if apply_candidate {
+                gateway
+                    .account()
+                    .clone()
+                    .apply_event(&event)
+                    .map_err(|_| Error::Identity)?;
+            }
+            return Ok((RestDisposition::Rejected, vec![event]));
+        }
+        if kind == FailureKind::Rejected
+            && emit_order_rejection
+            && record.order_query.is_none()
+            && record.query.is_none()
+            && record.structure_query.is_none()
+            && record.amendment_query.is_none()
+            && matches!(record.command.command().body, v::CommandBody::New(_))
+        {
+            let api_err = decoded.error.as_ref().ok_or(Error::Encoding)?;
+            let event = order_rejection(input, record, event_domain, api_err.code, &api_err.msg)?;
+            if apply_candidate {
+                if gateway.command(intent(&record.command)) != Some(&record.command) {
+                    return Err(Error::Identity);
+                }
                 gateway
                     .account()
                     .clone()

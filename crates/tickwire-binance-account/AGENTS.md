@@ -20,9 +20,16 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
   frames; quarantine unknown, unadmitted, or conflicting reports (`QuarantineReason`) rather than fabricating local
   order identities. Retire expired registrations, WS binding slots, and `InMemory`/`MmapAsync` prefix records past
   `retention_window_ns` via `evict_expired` while keeping active orders pinned.
-* **WebSocket and REST lifecycle binding**: Keep synchronous REST replies in [src/rest.rs](src/rest.rs) and WebSocket
-  trading plans/bindings in [src/ws.rs](src/ws.rs) tied to their durable admission digests and session epochs,
-  including late trade fills arriving after terminal order statuses.
+* **WebSocket and REST lifecycle binding, deterministic rejections, and per-order `QueryDesk` isolation**: Keep
+  synchronous REST replies in [src/rest.rs](src/rest.rs) and WebSocket trading plans/bindings in [src/ws.rs](src/ws.rs)
+  tied to their durable admission digests and session epochs, including late trade fills arriving after terminal order
+  statuses. When `RestOwner::with_per_order_query_desk` / `enable_per_order_query_desk` activates per-order doubt
+  isolation, emit deterministic `VenueEventBody::Rejected` events on single-order `CommandBody::New` creation rejections,
+  isolate Category A single-order transport/status ambiguities (`PlaceAmbiguous`, `CancelAmbiguous`, `AmendAmbiguous`,
+  `FillCatchup`) without freezing sibling orders, and resolve due `QueryDesk` asks off the hot path via
+  `PerOrderQueryDriver` in [src/query_desk_driver.rs](src/query_desk_driver.rs) over `AsyncRestQuerier` while still
+  freezing immediately on Category B account-wide hazards (`418`/`429`/`401`/`-1021`, stream gaps/quarantines,
+  `OrderStatus::Unknown`, multi-leg ambiguities, or `max_query_count` exhaustion).
 * **Evidence-complete reconciliation, keep-alive reuse, and cold bootstrap**: Require snapshot, open/conditional order,
   trade, amendment, structure, and USD-M income closures in [src/reconciliation.rs](src/reconciliation.rs) and
   [src/account_facts.rs](src/account_facts.rs) to converge against the exact account prefix before reactivating
@@ -33,7 +40,8 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
 
 ## Verification and Specifications
 
-* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/reconciliation.rs](src/reconciliation.rs) ·
+* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/query_desk_driver.rs](src/query_desk_driver.rs) ·
+  [src/reconciliation.rs](src/reconciliation.rs) ·
   [src/reconciliation/wire.rs](src/reconciliation/wire.rs) ·
   [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) ·
   [src/rest.rs](src/rest.rs) · [src/ws.rs](src/ws.rs) · [src/account_facts.rs](src/account_facts.rs) ·
@@ -41,7 +49,8 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
 * **Integration tests**: [tests/account_observation.rs](tests/account_observation.rs) ·
   [tests/hot_path_and_eviction.rs](tests/hot_path_and_eviction.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
-  [tests/network_ingress.rs](tests/network_ingress.rs) · [tests/persistence.rs](tests/persistence.rs)
+  [tests/network_ingress.rs](tests/network_ingress.rs) ·
+  [tests/per_order_query_desk.rs](tests/per_order_query_desk.rs) · [tests/persistence.rs](tests/persistence.rs)
 * **Specifications and models**: [binance-ws-trading.md](../../specs/implementation/binance-ws-trading.md) ·
   [reconciliation-controller.md](../../specs/implementation/reconciliation-controller.md) ·
   [spot-amend.md](../../specs/implementation/spot-amend.md) ·

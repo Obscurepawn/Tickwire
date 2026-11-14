@@ -13,10 +13,16 @@ strategy scheduling, balance math, and control leases remain outside this crate.
   `ProductMode::Spot` base-quantity orders (`tdMode: "cash"` on OKX, `category: "spot"` on Bybit) with validated ASCII
   credentials, symbols, and venue-bounded `client_id` lengths (`32` OKX, `36` Bybit); never implement `Debug` or error
   formatting that exposes API secrets or passphrases.
-* **Distinct acknowledgement, order-status, and fill evidence**: Keep synchronous HTTP acknowledgements in
+* **Distinct acknowledgement, order-status, fill, and error-classification evidence**: Keep synchronous HTTP
+  acknowledgements and venue error classification (`SpotIssueKind`, `classify_issue`, `is_http_account_hazard`) in
   [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from trade-level fills in
-  [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs); enforce
+  [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs); default unknown venue
+  codes conservatively to `SpotIssueKind::Ambiguous`, preserve `per_order_doubt_isolation() == false` by default, record
+  `VenueEventBody::Rejected` (`record_rejected_new`) only on `DeterministicReject` for `New` orders, and enforce
   `writer_epoch > durable_floor` when constructing `RestSession`.
+* **Signed off-hot-path REST `GET` builders**: Reuse `build_order_status_get`, `build_order_trades_get`, and `decode_fill_row`
+  in [src/lib.rs](src/lib.rs) and [src/recovery.rs](src/recovery.rs) for `AsyncRestQuerier` status and trade catch-up
+  without duplicating HMAC signing or native row validation.
 * **`StorageMode`-aware private capture and bounded `InMemory` windowing**: In
   [src/private/capture.rs](src/private/capture.rs) and [src/private/stream.rs](src/private/stream.rs), `StreamConfig`
   selects `StorageMode::InMemory` (`Journal<InMemoryStore>` + `InMemoryBlobStore` with zero disk directories/syscalls

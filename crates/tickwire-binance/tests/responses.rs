@@ -193,3 +193,32 @@ fn backend_timeout_and_unknown_new_error_codes_do_not_authorize_release() {
         );
     }
 }
+
+#[test]
+fn spot_and_usdm_deterministic_order_creation_rejections_preserve_409_partial() {
+    for market in [Market::Spot, Market::Usdm] {
+        for (code, msg) in [
+            (-2019, "Margin is insufficient."),
+            (-2021, "Order would immediately trigger."),
+            (
+                -4061,
+                "Order's position side does not match user's setting.",
+            ),
+            (-4164, "Order's notional must be no smaller than 5."),
+            (
+                -5022,
+                "Due to the order could not be executed as maker, the Post Only order will be rejected.",
+            ),
+        ] {
+            assert_eq!(
+                classify(market, 400, Some(code), msg),
+                FailureKind::Rejected,
+                "{market:?} {code}"
+            );
+        }
+        assert_eq!(
+            classify(market, 409, Some(-2021), "Cancel-replace partially failed."),
+            FailureKind::Partial
+        );
+    }
+}

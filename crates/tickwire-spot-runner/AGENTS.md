@@ -25,6 +25,13 @@ balance holds, WAL commits, and first-byte socket gates.
   disk `fsync`s), configure `AccountJournal` / `AccountGateway` / `AccountRunner` retention windows
   for `InMemory` and `MmapAsync`, and attach a background `Dialer` + `LiveNetwork` to
   `PrivateStream::start_with_network` so WebSocket TCP+TLS reconnects pre-warm off the hot path.
+* **Per-order `QueryDesk` and off-hot-path `PerOrderQueryDriver`**: Keep `query_desk().is_none()` as the default in
+  `AccountRunner` constructors for legacy dual-scan compatibility; when enabled via `with_per_order_query_desk` /
+  `enable_per_order_query_desk` (`per_order_query_desk: true` in [src/live/config.rs](src/live/config.rs)), isolate
+  ambiguous single-order outcomes and lagging WS `orders` fills (`DoubtReason::FillCatchup`) into `QueryDesk` without
+  freezing sibling strategies, drive Bybit (`realtime` -> `history`, `execution/list`) and OKX (`order`, `fills`) catch-up
+  plus `Dialer` execution reconnects in [src/query_desk_driver.rs](src/query_desk_driver.rs), and escalate Category B
+  `AccountHazard` or `max_query_count` exhaustion to `freeze_cash()`.
 * **Private-cut and REST proof before reactivation**: In [src/reconcile.rs](src/reconcile.rs) and
   [src/live/account.rs](src/live/account.rs), verify the durable private cursor, account WAL frontier, orders, fees, and
   balances before installing a recovered grant; drop qualification immediately if the private stream gaps or expires.
@@ -36,11 +43,12 @@ balance holds, WAL commits, and first-byte socket gates.
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/main.rs](src/main.rs) · [src/live.rs](src/live.rs) ·
   [src/origins.rs](src/origins.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
-  [src/reconcile.rs](src/reconcile.rs) · [src/live/account.rs](src/live/account.rs) ·
-  [src/producer.rs](src/producer.rs) · [tests/paper.rs](tests/paper.rs) ·
+  [src/query_desk_driver.rs](src/query_desk_driver.rs) · [src/reconcile.rs](src/reconcile.rs) ·
+  [src/live/account.rs](src/live/account.rs) · [src/producer.rs](src/producer.rs) · [tests/paper.rs](tests/paper.rs) ·
   [tests/first_byte.rs](tests/first_byte.rs) · [tests/in_memory_live.rs](tests/in_memory_live.rs) ·
-  [tests/live_bootstrap.rs](tests/live_bootstrap.rs) · [tests/qualification.rs](tests/qualification.rs) ·
-  [tests/live_entry.rs](tests/live_entry.rs) · [tests/reconcile_process.rs](tests/reconcile_process.rs)
+  [tests/live_bootstrap.rs](tests/live_bootstrap.rs) · [tests/per_order_query_desk.rs](tests/per_order_query_desk.rs) ·
+  [tests/qualification.rs](tests/qualification.rs) · [tests/live_entry.rs](tests/live_entry.rs) ·
+  [tests/reconcile_process.rs](tests/reconcile_process.rs)
 * **Specifications and models**: [spot-strategy-routing.md](../../specs/implementation/spot-strategy-routing.md) ·
   [spot-execution.md](../../specs/implementation/spot-execution.md) ·
   [spot-rest-recovery.md](../../specs/implementation/spot-rest-recovery.md) ·

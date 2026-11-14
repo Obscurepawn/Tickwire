@@ -1,6 +1,6 @@
 //! A stable private input cut plus two matching authenticated venue scans can advance one cash account.
-mod compare;
-mod ingest;
+pub(crate) mod compare;
+pub(crate) mod ingest;
 mod private_proof;
 mod proof;
 use crate::{AccountRunner, Error, Result};
@@ -62,7 +62,10 @@ impl<
         self.pending.is_some()
     }
     pub fn transport_needs_poll(&self) -> bool {
-        self.has_pending() || (!self.halted() && !self.session.gateway().transport_ready())
+        self.has_pending()
+            || (!self.halted()
+                && self.session.has_transport_connection()
+                && !self.session.gateway().transport_ready())
     }
     pub fn execution_epoch(&self) -> u64 {
         self.session.connection_epoch()
@@ -95,7 +98,7 @@ impl<
             .order_keys()
             .filter_map(|k| {
                 let o = account.order(k)?;
-                (!o.aborted && (!o.terminal || !o.fee_reconciled)).then(|| {
+                (!o.aborted && !o.uncreated && (!o.terminal || !o.fee_reconciled)).then(|| {
                     account
                         .order_terms(k)
                         .map(|(i, _)| OrderLookup {
@@ -188,6 +191,18 @@ impl<
                 &mut &*verifier,
             )
             .map_err(Error::Session)?;
+        if let Some(desk) = self.query_desk.as_mut() {
+            let keys: Vec<_> = self
+                .session
+                .gateway()
+                .account()
+                .order_keys()
+                .cloned()
+                .collect();
+            for key in keys {
+                desk.remove_order(&key);
+            }
+        }
         verifier.committed(&binding, two.end_ms);
         Ok(CashProof::committed(&binding, receipt, valid_until, reader))
     }

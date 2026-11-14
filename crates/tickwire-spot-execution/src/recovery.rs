@@ -180,3 +180,7 @@ pub use collect::{acquire, acquire_for, replay_evidence};
 pub fn decode_order_row(venue: SpotVenue, row: &Value) -> Result<RemoteOrder> {
     rows::order(venue, row)
 }
+
+pub fn decode_fill_row(venue: SpotVenue, row: &Value) -> Result<RemoteFill> {
+    rows::fill(venue, row).map(|(fill, _)| fill)
+}
