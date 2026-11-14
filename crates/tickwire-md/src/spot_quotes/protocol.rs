@@ -82,7 +82,47 @@ struct OkxBook<'a> {
 }
 
 impl<'a> Session<'a> {
+    #[inline]
     pub(super) fn bybit(&mut self, bytes: &[u8], received: u64) -> Result<Option<Quote<'a>>> {
+        match simd_json::decode_bybit(
+            bytes,
+            received,
+            self.backend,
+            self.config,
+            self.epoch,
+            &self.channel,
+            &mut self.acknowledged,
+            &self.price_step,
+            &self.quantity_step,
+        ) {
+            simd_json::FastOutcome::Decoded(res) => res,
+            simd_json::FastOutcome::Fallback => self.bybit_serde_oracle(bytes, received),
+        }
+    }
+
+    #[inline]
+    pub(super) fn okx(&mut self, bytes: &[u8], received: u64) -> Result<Option<Quote<'a>>> {
+        match simd_json::decode_okx(
+            bytes,
+            received,
+            self.backend,
+            self.config,
+            self.epoch,
+            &self.channel,
+            &mut self.acknowledged,
+            &self.price_step,
+            &self.quantity_step,
+        ) {
+            simd_json::FastOutcome::Decoded(res) => res,
+            simd_json::FastOutcome::Fallback => self.okx_serde_oracle(bytes, received),
+        }
+    }
+
+    pub(super) fn bybit_serde_oracle(
+        &mut self,
+        bytes: &[u8],
+        received: u64,
+    ) -> Result<Option<Quote<'a>>> {
         let m: Bybit<'_> = serde_json::from_slice(bytes)?;
         if let Some(op) = m.op {
             if op == "subscribe" && m.req_id == Some("twbbo") && m.success == Some(true) {
@@ -115,7 +155,11 @@ impl<'a> Session<'a> {
         .map(Some)
     }
 
-    pub(super) fn okx(&mut self, bytes: &[u8], received: u64) -> Result<Option<Quote<'a>>> {
+    pub(super) fn okx_serde_oracle(
+        &mut self,
+        bytes: &[u8],
+        received: u64,
+    ) -> Result<Option<Quote<'a>>> {
         if bytes == b"pong" {
             return Ok(None);
         }
