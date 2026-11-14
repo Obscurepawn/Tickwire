@@ -41,16 +41,10 @@ pub struct DecodedFrame<'a> {
     pub total_len: usize,
     pub hash: [u8; 32],
 }
-/// Castagnoli CRC-32C, reflected polynomial; no CPU-specific implementation.
+/// Hardware-accelerated Castagnoli CRC-32C with compile-time Slicing-by-8 fallback.
+#[inline]
 pub fn crc32c(input: &[u8]) -> u32 {
-    let mut crc = !0u32;
-    for &byte in input {
-        crc ^= u32::from(byte);
-        for _ in 0..8 {
-            crc = (crc >> 1) ^ (0x82f63b78 & 0u32.wrapping_sub(crc & 1));
-        }
-    }
-    !crc
+    crate::crc32c::crc32c(input)
 }
 fn u16_at(b: &[u8], n: usize) -> u16 {
     u16::from_le_bytes(b[n..n + 2].try_into().unwrap())
@@ -107,9 +101,12 @@ pub fn encode(header: &Header, payload: &[u8]) -> Result<Vec<u8>, Error> {
         b[n..n + 8].copy_from_slice(&value.to_le_bytes());
     }
     b[96..128].copy_from_slice(&header.previous_hash);
-    b[132..136].copy_from_slice(&crc32c(payload).to_le_bytes());
-    let header_crc = crc32c(&b[..HEADER_BYTES]);
-    b[128..132].copy_from_slice(&header_crc.to_le_bytes());
+    #[cfg(feature = "crc32")]
+    {
+        b[132..136].copy_from_slice(&crc32c(payload).to_le_bytes());
+        let header_crc = crc32c(&b[..HEADER_BYTES]);
+        b[128..132].copy_from_slice(&header_crc.to_le_bytes());
+    }
     b[HEADER_BYTES..HEADER_BYTES + payload.len()].copy_from_slice(payload);
     b[tail + 32..tail + 36].copy_from_slice(&(total as u32).to_le_bytes());
     b[tail + 36..].copy_from_slice(END_MAGIC);
@@ -138,11 +135,12 @@ pub(crate) fn decode_header(input: &[u8]) -> Result<(Header, usize, usize), Erro
     {
         return Err(Error::Quarantined("length or flags"));
     }
-    let mut crc_header = [0; HEADER_BYTES];
-    crc_header.copy_from_slice(b);
-    crc_header[128..132].fill(0);
-    if crc32c(&crc_header) != u32_at(b, 128) {
-        return Err(Error::Quarantined("header CRC"));
+    #[cfg(feature = "crc32")]
+    {
+        let header_bytes: &[u8; HEADER_BYTES] = b.try_into().unwrap();
+        if crate::crc32c::crc32c_header_masked(header_bytes) != u32_at(b, 128) {
+            return Err(Error::Quarantined("header CRC"));
+        }
     }
     Ok((
         Header {
@@ -172,6 +170,7 @@ pub fn decode(input: &[u8]) -> Result<DecodedFrame<'_>, Error> {
     if b[HEADER_BYTES + payload_len..tail].iter().any(|&n| n != 0) {
         return Err(Error::Quarantined("nonzero padding"));
     }
+    #[cfg(feature = "crc32")]
     if crc32c(payload) != u32_at(b, 132) {
         return Err(Error::Quarantined("payload CRC"));
     }

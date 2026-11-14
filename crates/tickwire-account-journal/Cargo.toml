@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+default = []
+crc32 = ["tickwire-journal/crc32"]
+
 [dependencies]
 tickwire-account = { path = "../tickwire-account" }
 tickwire-account-codec = { path = "../tickwire-account-codec" }

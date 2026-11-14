@@ -2,7 +2,7 @@
 
 `tickwire_config_fs::JournalStore` adapts an exclusively locked `tickwire-config-fs::Store` to the physical `tickwire_journal::store::Store` trait on Linux (returning `Error::Unsupported` on other operating systems). It executes every directory scan, segment creation, append, truncation, synchronization, and `MANIFEST.json` swap through pinned directory file descriptors.
 
-`JournalStore` owns directory inventory hygiene, segment inode/timestamp pinning across read-append-sync boundaries, and strict manifest compare-and-swap semantics. `tickwire-journal` owns WAL v1 batch framing, `crc32c`/`SHA-256` hash chains, contiguous sequence numbering, and `PhysicalFrontier` validation, while `tickwire-config-journal` owns the four-phase configuration operation state machine.
+`JournalStore` owns directory inventory hygiene, segment inode/timestamp pinning across read-append-sync boundaries, and strict manifest compare-and-swap semantics. `tickwire-journal` owns WAL v1 batch framing, `SHA-256` hash chains (plus optional hardware-accelerated Castagnoli `crc32c` frame checksums behind `tickwire-journal/crc32`, forwarded via `tickwire-config-journal/crc32` and off by default), contiguous sequence numbering, and `PhysicalFrontier` validation, while `tickwire-config-journal` owns the four-phase configuration operation state machine.
 
 ## State Model and Bounds
 
@@ -29,8 +29,9 @@
 ## Verification and References
 
 ```sh
-cargo test --locked -p tickwire-config-fs -p tickwire-journal
-cargo clippy --locked -p tickwire-config-fs --all-targets -- -D warnings
+cargo test --locked -p tickwire-config-fs -p tickwire-journal -p tickwire-config-journal
+cargo test --locked -p tickwire-journal -p tickwire-config-journal --features crc32
+cargo clippy --locked -p tickwire-config-fs -p tickwire-config-journal --all-targets -- -D warnings
 ```
 
 Linux test suites cover manifest drift detection, mismatched read/sync inode detection, ascending multi-segment recovery sync while holding a truncated final segment dirty, and real child-process `SIGKILL` cuts mid-write, pre-sync, post-sync, and post-receipt (noting that `SIGKILL` tests leave the host kernel running and do not by themselves simulate physical storage power loss).

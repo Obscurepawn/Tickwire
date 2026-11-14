@@ -11,7 +11,16 @@ publish = false
 [workspace.lints.rust]
 unsafe_code = "forbid"
 
+[profile.dev]
+overflow-checks = true
+
+[profile.test]
+overflow-checks = true
+
 [profile.release]
 overflow-checks = true
 lto = "thin"
 codegen-units = 1
+
+[profile.bench]
+overflow-checks = true
