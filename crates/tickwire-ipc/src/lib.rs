@@ -1,16 +1,29 @@
 //! Fixed-layout Tickwire wire ABI. Live shared-memory access is outside this crate.
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 
+#[forbid(unsafe_code)]
 mod wire;
 pub use wire::*;
+#[forbid(unsafe_code)]
 mod config;
 pub use config::*;
+#[forbid(unsafe_code)]
 mod checkpoint;
 pub use checkpoint::*;
+#[forbid(unsafe_code)]
 mod market_exact;
 pub use market_exact::*;
+#[forbid(unsafe_code)]
 mod snapshot;
 pub use snapshot::*;
+#[allow(unsafe_code)]
+mod crc32c;
+pub use crc32c::{
+    TABLES as CRC32C_SLICING8_TABLES, crc32c, crc32c_masked, crc32c_slicing8, crc32c_update,
+};
+#[allow(unsafe_code)]
+mod zerocopy;
+pub use zerocopy::{MarketStateRef, ZeroCopyRecord};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -20,6 +33,7 @@ pub enum Error {
     UnsupportedFeature,
     UnsupportedArchitecture,
     Bounds,
+    Unaligned,
     Checksum,
     ReservedNonzero,
     UnknownMessage,
@@ -89,21 +103,6 @@ fn schema(major: u16, minor: u16) -> Result<()> {
     Ok(())
 }
 
-/// Castagnoli CRC, reflected polynomial 0x82f63b78, init/xorout 0xffffffff.
-pub fn crc32c(bytes: &[u8]) -> u32 {
-    crc_masked(bytes, 0..0)
-}
-fn crc_masked(bytes: &[u8], zeros: core::ops::Range<usize>) -> u32 {
-    let mut crc = !0u32;
-    for (i, &byte) in bytes.iter().enumerate() {
-        crc ^= if zeros.contains(&i) { 0 } else { byte as u32 };
-        for _ in 0..8 {
-            crc = (crc >> 1) ^ (0x82f63b78 & (0u32.wrapping_sub(crc & 1)));
-        }
-    }
-    !crc
-}
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::large_enum_variant)] // Fixed stack storage avoids heap allocation on record decode.
 pub enum Record {
@@ -158,8 +157,11 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
         if h.record_crc32c != 0 || h.payload_crc32c != 0 {
             return Err(Error::Checksum);
         }
-    } else if crc_masked(raw, 112..120) != h.record_crc32c {
-        return Err(Error::Checksum);
+    } else {
+        #[cfg(feature = "crc32")]
+        if crc32c_masked(raw, 112..120) != h.record_crc32c {
+            return Err(Error::Checksum);
+        }
     }
     validate_fields(h.message_type, &raw[128..])?;
     if h.message_type != 259
@@ -201,6 +203,7 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
                         b.bid_count,
                         b.ask_count,
                     )?;
+                    #[cfg(feature = "crc32")]
                     if h.flags & 8 != 0
                         && crc32c(&raw[320..320 + count as usize * 16]) != h.payload_crc32c
                     {
@@ -324,9 +327,11 @@ pub fn validate_arena_block(
             .checked_sub(128 + u64::from(h.payload_length))
             .ok_or(Error::Bounds)?,
     )?)?;
-    if block.payload_crc32c != h.payload_crc32c
-        || (h.flags & 8 != 0 && crc32c(payload) != h.payload_crc32c)
-    {
+    if block.payload_crc32c != h.payload_crc32c {
+        return Err(Error::Checksum);
+    }
+    #[cfg(feature = "crc32")]
+    if h.flags & 8 != 0 && crc32c(payload) != h.payload_crc32c {
         return Err(Error::Checksum);
     }
     Ok(())
@@ -341,6 +346,16 @@ pub fn validate_arena_payload(
     let mut image = [0u8; 512];
     record.encode(&mut image)?;
     decode_record(&image)?;
+    validate_arena_payload_prechecked(record, bank, resource)
+}
+
+/// Validate arena block geometry and payload for a `MarketRecord` already checked by
+/// [`MarketRecord::from_aligned_bytes`] or [`decode_record`], avoiding a 512-byte stack copy.
+pub fn validate_arena_payload_prechecked(
+    record: &MarketRecord,
+    bank: &[u8],
+    resource: &ResourceHeader,
+) -> Result<()> {
     let h = &record.header;
     if h.message_type != 259
         || h.payload_kind != 2
@@ -416,7 +431,8 @@ impl<'a> ControlFrame<'a> {
         if raw.len() > 65536 || e.frame_bytes as usize != raw.len() || e.fd_count > 16 {
             return Err(Error::Bounds);
         }
-        if crc_masked(&raw[..128], 116..120) != e.header_crc32c
+        #[cfg(feature = "crc32")]
+        if crc32c_masked(&raw[..128], 116..120) != e.header_crc32c
             || crc32c(&raw[128..]) != e.body_crc32c
         {
             return Err(Error::Checksum);

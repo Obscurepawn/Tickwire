@@ -1,5 +1,5 @@
 use crate::{Error, Result, Strategy};
-use tickwire_ipc::{DepthLevel, RecordHeader, Wire};
+use tickwire_ipc::{DepthLevel, MarketRecord, MarketStateRef};
 use tickwire_join::JoinConsumer;
 use tickwire_market_source::replica as core;
 pub use tickwire_market_source::replica::DenseId;
@@ -114,6 +114,26 @@ impl MarketReplica {
     pub fn apply_dense(&mut self, bytes: &[u8], payload: &[u8]) -> Result<DenseId> {
         Ok(self.0.apply_dense(bytes, payload)?)
     }
+    pub fn apply_market_record(&mut self, record: &MarketRecord, payload: &[u8]) -> Result<u64> {
+        Ok(self.0.apply_market_record(record, payload)?)
+    }
+    pub fn apply_market_record_dense(
+        &mut self,
+        record: &MarketRecord,
+        payload: &[u8],
+    ) -> Result<DenseId> {
+        Ok(self.0.apply_market_record_dense(record, payload)?)
+    }
+    pub fn apply_state(&mut self, state: MarketStateRef<'_>, payload: &[u8]) -> Result<u64> {
+        Ok(self.0.apply_state(state, payload)?)
+    }
+    pub fn apply_state_dense(
+        &mut self,
+        state: MarketStateRef<'_>,
+        payload: &[u8],
+    ) -> Result<DenseId> {
+        Ok(self.0.apply_state_dense(state, payload)?)
+    }
     /// Consume complete ring records, ending each slot/block borrow before strategy code.
     pub fn drain<const B: usize, S: Strategy>(
         &mut self,
@@ -149,14 +169,14 @@ impl MarketReplica {
             let Some(guard) = consumer.borrow()? else {
                 break;
             };
-            let h = RecordHeader::decode(&guard.bytes()[..128])?;
-            let payload = if h.message_type == 259 {
+            let state = guard.as_market_state()?;
+            let payload = if state.header().message_type == 259 {
                 guard.depth_payload()?
             } else {
                 &[]
             };
             journal.market(guard.bytes(), payload)?;
-            let dense = self.apply_dense(guard.bytes(), payload)?;
+            let dense = self.apply_state_dense(state, payload)?;
             let seq = guard.sequence();
             drop(guard);
             consumer.apply(seq)?;

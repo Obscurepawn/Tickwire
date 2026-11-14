@@ -432,6 +432,7 @@ impl Wire for CursorPage {
         Ok(())
     }
 }
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RecordHeader {
     pub sequence: u64,
@@ -445,6 +446,7 @@ pub struct RecordHeader {
     pub payload_offset: u64,
     pub payload_length: u32,
     pub arena_class: u16,
+    pub _pad_38: [u8; 2],
     pub allocation_seq: u64,
     pub topic_or_scope_id: u64,
     pub feed_generation: u64,
@@ -456,6 +458,7 @@ pub struct RecordHeader {
     pub publish_mono_ns: u64,
     pub record_crc32c: u32,
     pub payload_crc32c: u32,
+    pub _pad_120: [u8; 8],
 }
 impl Wire for RecordHeader {
     const SIZE: usize = 128;
@@ -508,6 +511,7 @@ impl Wire for RecordHeader {
             payload_offset,
             payload_length,
             arena_class,
+            _pad_38: [0; 2],
             allocation_seq,
             topic_or_scope_id,
             feed_generation,
@@ -519,6 +523,7 @@ impl Wire for RecordHeader {
             publish_mono_ns,
             record_crc32c,
             payload_crc32c,
+            _pad_120: [0; 8],
         })
     }
     fn encode(&self, out: &mut [u8]) -> Result<()> {
@@ -537,6 +542,7 @@ impl Wire for RecordHeader {
         out[24..32].copy_from_slice(&self.payload_offset.to_le_bytes());
         out[32..36].copy_from_slice(&self.payload_length.to_le_bytes());
         out[36..38].copy_from_slice(&self.arena_class.to_le_bytes());
+        zero(&self._pad_38)?;
         out[40..48].copy_from_slice(&self.allocation_seq.to_le_bytes());
         out[48..56].copy_from_slice(&self.topic_or_scope_id.to_le_bytes());
         out[56..64].copy_from_slice(&self.feed_generation.to_le_bytes());
@@ -548,6 +554,7 @@ impl Wire for RecordHeader {
         out[104..112].copy_from_slice(&self.publish_mono_ns.to_le_bytes());
         out[112..116].copy_from_slice(&self.record_crc32c.to_le_bytes());
         out[116..120].copy_from_slice(&self.payload_crc32c.to_le_bytes());
+        zero(&self._pad_120)?;
         Ok(())
     }
 }
@@ -597,6 +604,7 @@ impl Wire for ArenaBlockHeader {
         Ok(())
     }
 }
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DepthLevel {
     pub price_ticks: i64,
@@ -685,6 +693,7 @@ impl Wire for TriggerRef {
         Ok(())
     }
 }
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MarketBody {
     pub venue_seq_first: u64,
@@ -715,6 +724,7 @@ pub struct MarketBody {
     pub source_schema_id: u32,
     pub snapshot_sequence: u64,
     pub coverage_depth: u32,
+    pub _pad_180: [u8; 4],
     pub instrument_catalog_version: u64,
     pub inline_levels: [DepthLevel; 12],
 }
@@ -799,6 +809,7 @@ impl Wire for MarketBody {
             source_schema_id,
             snapshot_sequence,
             coverage_depth,
+            _pad_180: [0; 4],
             instrument_catalog_version,
             inline_levels,
         })
@@ -836,6 +847,7 @@ impl Wire for MarketBody {
         out[164..168].copy_from_slice(&self.source_schema_id.to_le_bytes());
         out[168..176].copy_from_slice(&self.snapshot_sequence.to_le_bytes());
         out[176..180].copy_from_slice(&self.coverage_depth.to_le_bytes());
+        zero(&self._pad_180)?;
         out[184..192].copy_from_slice(&self.instrument_catalog_version.to_le_bytes());
         for (i, value) in self.inline_levels.iter().enumerate() {
             value.encode(&mut out[192 + i * 16..192 + (i + 1) * 16])?;
@@ -1083,15 +1095,15 @@ impl Default for ReportBody {
     fn default() -> Self {
         Self {
             logical_strategy_id: 0,
-            instance_id: core::array::from_fn(|_| 0),
+            instance_id: [0; 16],
             strategy_generation: 0,
             exec_generation: 0,
             authorization_epoch: 0,
             intent_seq: 0,
-            economic_intent_id: core::array::from_fn(|_| 0),
-            order_id: core::array::from_fn(|_| 0),
-            venue_order_id: core::array::from_fn(|_| 0),
-            venue_trade_id: core::array::from_fn(|_| 0),
+            economic_intent_id: [0; 16],
+            order_id: [0; 16],
+            venue_order_id: [0; 64],
+            venue_trade_id: [0; 32],
             exec_journal_seq: 0,
             report_seq: 0,
             owner_revision: 0,
@@ -1105,7 +1117,7 @@ impl Default for ReportBody {
             fee_asset_id: 0,
             asset_version: 0,
             event_mono_ns: 0,
-            reservation_id: core::array::from_fn(|_| 0),
+            reservation_id: [0; 16],
             status: 0,
             send_state: 0,
             cancel_state: 0,
@@ -1117,7 +1129,7 @@ impl Default for ReportBody {
             asset_exponent: 0,
             report_flags: 0,
             report_kind: 0,
-            aux_id: core::array::from_fn(|_| 0),
+            aux_id: [0; 16],
             aux_version: 0,
             value_0: 0,
             value_1: 0,
@@ -1310,23 +1322,23 @@ impl Default for OwnershipBody {
     fn default() -> Self {
         Self {
             logical_strategy_id: 0,
-            instance_id: core::array::from_fn(|_| 0),
+            instance_id: [0; 16],
             strategy_generation: 0,
             exec_generation: 0,
             exec_journal_seq: 0,
             report_seq: 0,
-            order_id: core::array::from_fn(|_| 0),
+            order_id: [0; 16],
             origin_strategy_id: 0,
-            origin_instance_id: core::array::from_fn(|_| 0),
+            origin_instance_id: [0; 16],
             origin_generation: 0,
             origin_intent_seq: 0,
             manager_strategy_id: 0,
-            manager_instance_id: core::array::from_fn(|_| 0),
+            manager_instance_id: [0; 16],
             manager_generation: 0,
             owner_revision: 0,
-            parent_order_id: core::array::from_fn(|_| 0),
-            list_id: core::array::from_fn(|_| 0),
-            venue_algo_id: core::array::from_fn(|_| 0),
+            parent_order_id: [0; 16],
+            list_id: [0; 16],
+            venue_algo_id: [0; 64],
             venue_algo_id_length: 0,
             relation_kind: 0,
             status: 0,
@@ -1455,6 +1467,7 @@ impl Wire for OwnershipRecord {
         Ok(())
     }
 }
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MarketRecord {
     pub header: RecordHeader,
@@ -3143,16 +3156,16 @@ pub struct ConfigControlBody {
 impl Default for ConfigControlBody {
     fn default() -> Self {
         Self {
-            operation_id: core::array::from_fn(|_| 0),
+            operation_id: [0; 16],
             operation_revision: 0,
             process_id_length: 0,
             target_host_id_length: 0,
             apply_class: 0,
             config_status: 0,
-            process_id: core::array::from_fn(|_| 0),
-            target_host_id: core::array::from_fn(|_| 0),
-            expected_instance_id: core::array::from_fn(|_| 0),
-            expected_boot_id: core::array::from_fn(|_| 0),
+            process_id: [0; 96],
+            target_host_id: [0; 96],
+            expected_instance_id: [0; 16],
+            expected_boot_id: [0; 16],
             expected_exec_generation: 0,
             config_revision: 0,
             base_revision: 0,
@@ -3160,28 +3173,28 @@ impl Default for ConfigControlBody {
             projection_object_bytes: 0,
             applied_event_seq: 0,
             risk_gate_revision: 0,
-            successor_binding_hash: core::array::from_fn(|_| 0),
-            global_config_hash: core::array::from_fn(|_| 0),
-            projection_hash: core::array::from_fn(|_| 0),
-            projection_object_hash: core::array::from_fn(|_| 0),
-            control_commit_ref: core::array::from_fn(|_| 0),
-            runtime_receipt_hash: core::array::from_fn(|_| 0),
-            file_receipt_hash: core::array::from_fn(|_| 0),
-            journal_receipt_hash: core::array::from_fn(|_| 0),
-            target_set_hash: core::array::from_fn(|_| 0),
+            successor_binding_hash: [0; 32],
+            global_config_hash: [0; 32],
+            projection_hash: [0; 32],
+            projection_object_hash: [0; 32],
+            control_commit_ref: [0; 32],
+            runtime_receipt_hash: [0; 32],
+            file_receipt_hash: [0; 32],
+            journal_receipt_hash: [0; 32],
+            target_set_hash: [0; 32],
             actor_kind: 0,
             file_kind: 0,
             projection_transport: 0,
             status_reason: 0,
             projection_format: 0,
-            issuer_boot_id: core::array::from_fn(|_| 0),
-            instance_slot_id: core::array::from_fn(|_| 0),
+            issuer_boot_id: [0; 16],
+            instance_slot_id: [0; 16],
             state_revision: 0,
-            projection_resource_id: core::array::from_fn(|_| 0),
-            completion_receipt_hash: core::array::from_fn(|_| 0),
-            base_global_config_hash: core::array::from_fn(|_| 0),
+            projection_resource_id: [0; 16],
+            completion_receipt_hash: [0; 32],
+            base_global_config_hash: [0; 32],
             config_flags: 0,
-            expected_host_boot_id: core::array::from_fn(|_| 0),
+            expected_host_boot_id: [0; 16],
             expected_runtime_revision: 0,
         }
     }
@@ -3686,10 +3699,12 @@ impl Wire for CheckpointSealReplyBody {
         Ok(())
     }
 }
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct DecimalWire {
     pub coefficient: [u8; 16],
     pub exponent: i8,
+    pub _pad_17: [u8; 7],
 }
 impl Wire for DecimalWire {
     const SIZE: usize = 24;
@@ -3703,6 +3718,7 @@ impl Wire for DecimalWire {
         Ok(Self {
             coefficient,
             exponent,
+            _pad_17: [0; 7],
         })
     }
     fn encode(&self, out: &mut [u8]) -> Result<()> {
@@ -3712,10 +3728,12 @@ impl Wire for DecimalWire {
         out.fill(0);
         out[0..16].copy_from_slice(&self.coefficient);
         out[16..17].copy_from_slice(&self.exponent.to_le_bytes());
+        zero(&self._pad_17)?;
         Ok(())
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketExactBody {
     pub source_id: u64,
     pub source_connection_epoch: u64,
@@ -3745,6 +3763,42 @@ pub struct MarketExactBody {
     pub reason: u16,
     pub side: u8,
     pub trade_flags: u8,
+    pub _pad_262: [u8; 122],
+}
+impl Default for MarketExactBody {
+    fn default() -> Self {
+        Self {
+            source_id: 0,
+            source_connection_epoch: 0,
+            source_schema_id: 0,
+            source_encoding: 0,
+            source_schema_version: 0,
+            value_validity: 0,
+            exchange_event_ns: 0,
+            transaction_time_ns: 0,
+            venue_seq_first: 0,
+            venue_seq_last: 0,
+            trade_id: 0,
+            price_ticks: 0,
+            quantity_lots: 0,
+            normal_quantity_lots: 0,
+            bid_price_ticks: 0,
+            bid_quantity_lots: 0,
+            ask_price_ticks: 0,
+            ask_quantity_lots: 0,
+            mark_price: DecimalWire::default(),
+            index_price: DecimalWire::default(),
+            estimated_settlement_price: DecimalWire::default(),
+            moving_average: DecimalWire::default(),
+            funding_rate: DecimalWire::default(),
+            next_funding_utc_ns: 0,
+            feed_state: 0,
+            reason: 0,
+            side: 0,
+            trade_flags: 0,
+            _pad_262: [0; 122],
+        }
+    }
 }
 impl Wire for MarketExactBody {
     const SIZE: usize = 384;
@@ -3823,6 +3877,7 @@ impl Wire for MarketExactBody {
             reason,
             side,
             trade_flags,
+            _pad_262: [0; 122],
         })
     }
     fn encode(&self, out: &mut [u8]) -> Result<()> {
@@ -3858,9 +3913,11 @@ impl Wire for MarketExactBody {
         out[258..260].copy_from_slice(&self.reason.to_le_bytes());
         out[260..261].copy_from_slice(&self.side.to_le_bytes());
         out[261..262].copy_from_slice(&self.trade_flags.to_le_bytes());
+        zero(&self._pad_262)?;
         Ok(())
     }
 }
+#[repr(C)]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct MarketExactRecord {
     pub header: RecordHeader,
@@ -4042,6 +4099,120 @@ impl Wire for ReplayAppliedBody {
         Ok(())
     }
 }
+#[cfg(not(target_endian = "little"))]
+compile_error!("tickwire-ipc zero-copy wire views require little-endian target");
+const _: () = {
+    assert!(
+        core::mem::size_of::<RecordHeader>() == 128 && core::mem::align_of::<RecordHeader>() == 8
+    );
+    assert!(core::mem::offset_of!(RecordHeader, sequence) == 0);
+    assert!(core::mem::offset_of!(RecordHeader, message_type) == 8);
+    assert!(core::mem::offset_of!(RecordHeader, schema_major) == 10);
+    assert!(core::mem::offset_of!(RecordHeader, schema_minor) == 12);
+    assert!(core::mem::offset_of!(RecordHeader, header_bytes) == 14);
+    assert!(core::mem::offset_of!(RecordHeader, flags) == 16);
+    assert!(core::mem::offset_of!(RecordHeader, payload_kind) == 20);
+    assert!(core::mem::offset_of!(RecordHeader, body_bytes) == 22);
+    assert!(core::mem::offset_of!(RecordHeader, payload_offset) == 24);
+    assert!(core::mem::offset_of!(RecordHeader, payload_length) == 32);
+    assert!(core::mem::offset_of!(RecordHeader, arena_class) == 36);
+    assert!(core::mem::offset_of!(RecordHeader, _pad_38) == 38);
+    assert!(core::mem::offset_of!(RecordHeader, allocation_seq) == 40);
+    assert!(core::mem::offset_of!(RecordHeader, topic_or_scope_id) == 48);
+    assert!(core::mem::offset_of!(RecordHeader, feed_generation) == 56);
+    assert!(core::mem::offset_of!(RecordHeader, producer_generation) == 64);
+    assert!(core::mem::offset_of!(RecordHeader, instrument_id) == 72);
+    assert!(core::mem::offset_of!(RecordHeader, instrument_version) == 80);
+    assert!(core::mem::offset_of!(RecordHeader, source_timestamp_ns) == 88);
+    assert!(core::mem::offset_of!(RecordHeader, ingress_mono_ns) == 96);
+    assert!(core::mem::offset_of!(RecordHeader, publish_mono_ns) == 104);
+    assert!(core::mem::offset_of!(RecordHeader, record_crc32c) == 112);
+    assert!(core::mem::offset_of!(RecordHeader, payload_crc32c) == 116);
+    assert!(core::mem::offset_of!(RecordHeader, _pad_120) == 120);
+    assert!(core::mem::size_of::<DepthLevel>() == 16 && core::mem::align_of::<DepthLevel>() == 8);
+    assert!(core::mem::offset_of!(DepthLevel, price_ticks) == 0);
+    assert!(core::mem::offset_of!(DepthLevel, qty_lots) == 8);
+    assert!(core::mem::size_of::<MarketBody>() == 384 && core::mem::align_of::<MarketBody>() == 8);
+    assert!(core::mem::offset_of!(MarketBody, venue_seq_first) == 0);
+    assert!(core::mem::offset_of!(MarketBody, venue_seq_last) == 8);
+    assert!(core::mem::offset_of!(MarketBody, venue_seq_previous) == 16);
+    assert!(core::mem::offset_of!(MarketBody, trade_id) == 24);
+    assert!(core::mem::offset_of!(MarketBody, exchange_event_ns) == 32);
+    assert!(core::mem::offset_of!(MarketBody, book_revision) == 40);
+    assert!(core::mem::offset_of!(MarketBody, price_ticks) == 48);
+    assert!(core::mem::offset_of!(MarketBody, qty_lots) == 56);
+    assert!(core::mem::offset_of!(MarketBody, bid_price_ticks) == 64);
+    assert!(core::mem::offset_of!(MarketBody, bid_qty_lots) == 72);
+    assert!(core::mem::offset_of!(MarketBody, ask_price_ticks) == 80);
+    assert!(core::mem::offset_of!(MarketBody, ask_qty_lots) == 88);
+    assert!(core::mem::offset_of!(MarketBody, mark_price_ticks) == 96);
+    assert!(core::mem::offset_of!(MarketBody, index_price_ticks) == 104);
+    assert!(core::mem::offset_of!(MarketBody, funding_rate_e12) == 112);
+    assert!(core::mem::offset_of!(MarketBody, next_funding_utc_ns) == 120);
+    assert!(core::mem::offset_of!(MarketBody, level_count) == 128);
+    assert!(core::mem::offset_of!(MarketBody, bid_count) == 132);
+    assert!(core::mem::offset_of!(MarketBody, ask_count) == 136);
+    assert!(core::mem::offset_of!(MarketBody, feed_state) == 140);
+    assert!(core::mem::offset_of!(MarketBody, reason) == 142);
+    assert!(core::mem::offset_of!(MarketBody, side) == 144);
+    assert!(core::mem::offset_of!(MarketBody, trade_flags) == 145);
+    assert!(core::mem::offset_of!(MarketBody, depth_flags) == 146);
+    assert!(core::mem::offset_of!(MarketBody, snapshot_id) == 148);
+    assert!(core::mem::offset_of!(MarketBody, source_schema_id) == 164);
+    assert!(core::mem::offset_of!(MarketBody, snapshot_sequence) == 168);
+    assert!(core::mem::offset_of!(MarketBody, coverage_depth) == 176);
+    assert!(core::mem::offset_of!(MarketBody, _pad_180) == 180);
+    assert!(core::mem::offset_of!(MarketBody, instrument_catalog_version) == 184);
+    assert!(core::mem::offset_of!(MarketBody, inline_levels) == 192);
+    assert!(
+        core::mem::size_of::<MarketRecord>() == 512 && core::mem::align_of::<MarketRecord>() == 8
+    );
+    assert!(core::mem::offset_of!(MarketRecord, header) == 0);
+    assert!(core::mem::offset_of!(MarketRecord, body) == 128);
+    assert!(core::mem::size_of::<DecimalWire>() == 24 && core::mem::align_of::<DecimalWire>() == 1);
+    assert!(core::mem::offset_of!(DecimalWire, coefficient) == 0);
+    assert!(core::mem::offset_of!(DecimalWire, exponent) == 16);
+    assert!(core::mem::offset_of!(DecimalWire, _pad_17) == 17);
+    assert!(
+        core::mem::size_of::<MarketExactBody>() == 384
+            && core::mem::align_of::<MarketExactBody>() == 8
+    );
+    assert!(core::mem::offset_of!(MarketExactBody, source_id) == 0);
+    assert!(core::mem::offset_of!(MarketExactBody, source_connection_epoch) == 8);
+    assert!(core::mem::offset_of!(MarketExactBody, source_schema_id) == 16);
+    assert!(core::mem::offset_of!(MarketExactBody, source_encoding) == 20);
+    assert!(core::mem::offset_of!(MarketExactBody, source_schema_version) == 22);
+    assert!(core::mem::offset_of!(MarketExactBody, value_validity) == 24);
+    assert!(core::mem::offset_of!(MarketExactBody, exchange_event_ns) == 32);
+    assert!(core::mem::offset_of!(MarketExactBody, transaction_time_ns) == 40);
+    assert!(core::mem::offset_of!(MarketExactBody, venue_seq_first) == 48);
+    assert!(core::mem::offset_of!(MarketExactBody, venue_seq_last) == 56);
+    assert!(core::mem::offset_of!(MarketExactBody, trade_id) == 64);
+    assert!(core::mem::offset_of!(MarketExactBody, price_ticks) == 72);
+    assert!(core::mem::offset_of!(MarketExactBody, quantity_lots) == 80);
+    assert!(core::mem::offset_of!(MarketExactBody, normal_quantity_lots) == 88);
+    assert!(core::mem::offset_of!(MarketExactBody, bid_price_ticks) == 96);
+    assert!(core::mem::offset_of!(MarketExactBody, bid_quantity_lots) == 104);
+    assert!(core::mem::offset_of!(MarketExactBody, ask_price_ticks) == 112);
+    assert!(core::mem::offset_of!(MarketExactBody, ask_quantity_lots) == 120);
+    assert!(core::mem::offset_of!(MarketExactBody, mark_price) == 128);
+    assert!(core::mem::offset_of!(MarketExactBody, index_price) == 152);
+    assert!(core::mem::offset_of!(MarketExactBody, estimated_settlement_price) == 176);
+    assert!(core::mem::offset_of!(MarketExactBody, moving_average) == 200);
+    assert!(core::mem::offset_of!(MarketExactBody, funding_rate) == 224);
+    assert!(core::mem::offset_of!(MarketExactBody, next_funding_utc_ns) == 248);
+    assert!(core::mem::offset_of!(MarketExactBody, feed_state) == 256);
+    assert!(core::mem::offset_of!(MarketExactBody, reason) == 258);
+    assert!(core::mem::offset_of!(MarketExactBody, side) == 260);
+    assert!(core::mem::offset_of!(MarketExactBody, trade_flags) == 261);
+    assert!(core::mem::offset_of!(MarketExactBody, _pad_262) == 262);
+    assert!(
+        core::mem::size_of::<MarketExactRecord>() == 512
+            && core::mem::align_of::<MarketExactRecord>() == 8
+    );
+    assert!(core::mem::offset_of!(MarketExactRecord, header) == 0);
+    assert!(core::mem::offset_of!(MarketExactRecord, body) == 128);
+};
 pub(crate) fn validate_fields(id: u16, raw: &[u8]) -> Result<()> {
     match id {
         257 => {

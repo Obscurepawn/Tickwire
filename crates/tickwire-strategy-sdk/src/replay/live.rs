@@ -290,6 +290,39 @@ impl<S: Strategy> Live<S> {
         sync_head(e, directory)?;
         Ok(out)
     }
+    pub fn is_recorded(&self) -> bool {
+        matches!(self.owner, Owner::Recorded(_))
+    }
+    pub fn apply_legacy_state(
+        &mut self,
+        state: tickwire_ipc::MarketStateRef<'_>,
+        payload: &[u8],
+    ) -> crate::Result<crate::market::DenseId> {
+        match &mut self.owner {
+            Owner::Legacy { replica, .. } => replica.apply_state_dense(state, payload),
+            Owner::Recorded(_) => Err(crate::Error::Identity),
+        }
+    }
+    pub fn finish_legacy_callback(
+        &mut self,
+        id: crate::market::DenseId,
+        now: u64,
+    ) -> crate::Result<Vec<CanonicalCommand>> {
+        match &mut self.owner {
+            Owner::Legacy {
+                strategy,
+                replica,
+                maximum_age,
+            } => {
+                let view = replica.view_dense(id).ok_or(crate::Error::Identity)?;
+                if !view.callback_ready_at(now, *maximum_age) {
+                    return Ok(vec![]);
+                }
+                Ok(strategy.on_market(view, now)?.into_iter().collect())
+            }
+            Owner::Recorded(_) => Err(crate::Error::Identity),
+        }
+    }
     pub fn market(
         &mut self,
         record: &[u8],

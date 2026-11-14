@@ -141,11 +141,20 @@ pub(super) fn aggregate_state(row: &Row) -> u16 {
 }
 pub(super) fn encode_state(state: &mut MarketState, out: &mut [u8; 512]) -> Result<()> {
     state.header_mut().record_crc32c = 0;
-    state.encode(out)?;
-    if state.header().flags & 8 != 0 {
-        let crc = crc32c(out);
-        state.header_mut().record_crc32c = crc;
+    #[cfg(not(feature = "crc32"))]
+    {
+        state.header_mut().flags &= !8;
+        state.header_mut().payload_crc32c = 0;
         state.encode(out)?;
+    }
+    #[cfg(feature = "crc32")]
+    {
+        state.encode(out)?;
+        if state.header().flags & 8 != 0 {
+            let crc = tickwire_ipc::crc32c(out);
+            state.header_mut().record_crc32c = crc;
+            out[112..116].copy_from_slice(&crc.to_le_bytes());
+        }
     }
     decode_record(out)?;
     Ok(())

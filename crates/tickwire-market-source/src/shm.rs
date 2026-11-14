@@ -13,7 +13,7 @@ use std::{
 use tickwire_clock::{ClockDomain, MonoTime};
 use tickwire_control::{ClientHandshake, ProcessIdentity, Session};
 use tickwire_control_sys::{Connection, ReceivedFrame};
-use tickwire_ipc::{ControlEnvelope, JoinBody, RecordHeader, ResourceHeader, Wire};
+use tickwire_ipc::{ControlEnvelope, JoinBody, ResourceHeader, Wire};
 use tickwire_join::{JoinConsumer, TopicRegistry};
 mod pending;
 mod transition;
@@ -284,13 +284,13 @@ impl ShmSource {
             let Some(guard) = self.client.consumer.borrow()? else {
                 break;
             };
-            let h = RecordHeader::decode(&guard.bytes()[..128])?;
-            let payload = if h.message_type == 259 {
+            let state = guard.as_market_state()?;
+            let payload = if state.header().message_type == 259 {
                 guard.depth_payload()?
             } else {
                 &[]
             };
-            let dense = self.client.replica.apply_dense(guard.bytes(), payload)?;
+            let dense = self.client.replica.apply_state_dense(state, payload)?;
             let seq = guard.sequence();
             drop(guard);
             self.client.consumer.apply(seq)?;

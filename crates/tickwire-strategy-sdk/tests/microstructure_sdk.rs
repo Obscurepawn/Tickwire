@@ -379,8 +379,10 @@ fn outbound_modify_roundtrip_encodes_kind_5_message_517_and_zero_order_count() {
 
     let mut raw_image = [0u8; 1024];
     wire_rec.encode(&mut raw_image).unwrap();
-    wire_rec.header.record_crc32c = crc32c(&raw_image);
-    wire_rec.encode(&mut raw_image).unwrap();
+    if wire_rec.header.flags & 8 != 0 {
+        wire_rec.header.record_crc32c = crc32c(&raw_image);
+        wire_rec.encode(&mut raw_image).unwrap();
+    }
     let Record::Intent(decoded_wire) = decode_record(&raw_image).unwrap() else {
         panic!("expected IntentRecord");
     };

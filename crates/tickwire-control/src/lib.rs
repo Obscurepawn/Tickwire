@@ -1,7 +1,7 @@
 //! Authenticated control-session and request-registration state.
 #![forbid(unsafe_code)]
 
-use tickwire_ipc::{ControlEnvelope, ControlFrame, HelloBody, WelcomeBody, Wire, crc32c};
+use tickwire_ipc::{ControlEnvelope, ControlFrame, HelloBody, WelcomeBody, Wire};
 
 const LIMIT: u64 = 1 << 63;
 const KNOWN_FEATURES: u64 = 0x3ff;
@@ -125,12 +125,22 @@ pub fn encode_frame(mut envelope: ControlEnvelope, body: &[u8]) -> Result<Vec<u8
     envelope.abi_minor = 0;
     envelope.header_bytes = ControlEnvelope::SIZE as u16;
     envelope.frame_bytes = length as u32;
-    envelope.body_crc32c = crc32c(body);
     envelope.header_crc32c = 0;
+    #[cfg(feature = "crc32")]
+    {
+        envelope.body_crc32c = tickwire_ipc::crc32c(body);
+    }
+    #[cfg(not(feature = "crc32"))]
+    {
+        envelope.body_crc32c = 0;
+    }
     let mut bytes = vec![0; length];
     envelope.encode(&mut bytes[..ControlEnvelope::SIZE])?;
-    envelope.header_crc32c = crc32c(&bytes[..ControlEnvelope::SIZE]);
-    envelope.encode(&mut bytes[..ControlEnvelope::SIZE])?;
+    #[cfg(feature = "crc32")]
+    {
+        envelope.header_crc32c = tickwire_ipc::crc32c(&bytes[..ControlEnvelope::SIZE]);
+        bytes[116..120].copy_from_slice(&envelope.header_crc32c.to_le_bytes());
+    }
     bytes[ControlEnvelope::SIZE..].copy_from_slice(body);
     ControlFrame::decode(&bytes)?;
     Ok(bytes)

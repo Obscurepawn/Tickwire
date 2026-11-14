@@ -126,7 +126,8 @@ pub(super) fn poll_frontier(
     let Some(guard) = client.consumer.borrow()? else {
         return Ok(false);
     };
-    let header = tickwire_ipc::RecordHeader::decode(&guard.bytes()[..128])?;
+    let state = guard.as_market_state()?;
+    let header = state.header();
     if header.ingress_mono_ns > now.nanos() {
         return Err(Error::Stale);
     }
@@ -142,12 +143,12 @@ pub(super) fn poll_frontier(
         .and_then(|n| n.checked_add(payload.len()))
         .filter(|n| *n <= tickwire_release::replay::MAX_BYTES)
         .ok_or(Error::Bounds)?;
+    client.catchup.try_reserve(1).map_err(|_| Error::Bounds)?;
+    let instrument = client.replica.apply_state(state, payload)?;
     let raw = guard.bytes().to_vec();
     let payload = payload.to_vec();
     let sequence = guard.sequence();
     drop(guard);
-    client.catchup.try_reserve(1).map_err(|_| Error::Bounds)?;
-    let instrument = client.replica.apply(&raw, &payload)?;
     client.consumer.apply(sequence)?;
     client
         .catchup

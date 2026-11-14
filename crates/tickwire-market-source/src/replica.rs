@@ -46,6 +46,15 @@ impl StateSlots {
         self.0[Self::index(category).ok_or(tickwire_ipc::Error::UnknownMessage)?] = Some(state);
         Ok(())
     }
+    fn insert_ref(&mut self, category: u8, state: MarketStateRef<'_>) -> tickwire_ipc::Result<()> {
+        let slot = &mut self.0[Self::index(category).ok_or(tickwire_ipc::Error::UnknownMessage)?];
+        match (slot.as_mut(), state) {
+            (Some(MarketState::Legacy(dst)), MarketStateRef::Legacy(src)) => dst.clone_from(src),
+            (Some(MarketState::Exact(dst)), MarketStateRef::Exact(src)) => dst.clone_from(src),
+            (_, s) => *slot = Some(s.to_owned_state()),
+        }
+        Ok(())
+    }
     fn contains_key(&self, category: &u8) -> bool {
         self.get(category).is_some()
     }
@@ -351,14 +360,57 @@ impl MarketReplica {
     }
     /// Resolve the stable wire ID once, then reuse the index for the callback view.
     pub fn apply_dense(&mut self, bytes: &[u8], payload: &[u8]) -> Result<DenseId> {
-        let result = self.apply_inner(bytes, payload);
+        let result = match MarketStateRef::from_aligned_slice(bytes) {
+            Ok(state) => self.apply_state_inner(state, payload),
+            Err(tickwire_ipc::Error::Unaligned) => {
+                let decoded = MarketState::decode(bytes).map_err(|e| {
+                    self.blocked = true;
+                    Error::from(e)
+                })?;
+                let state = match &decoded {
+                    MarketState::Legacy(r) => MarketStateRef::Legacy(r),
+                    MarketState::Exact(r) => MarketStateRef::Exact(r),
+                };
+                self.apply_state_inner(state, payload)
+            }
+            Err(e) => Err(e.into()),
+        };
         if result.is_err() {
             self.blocked = true;
         }
         result
     }
-    fn apply_inner(&mut self, bytes: &[u8], payload: &[u8]) -> Result<DenseId> {
-        let state = MarketState::decode(bytes)?;
+    /// Apply a zero-copy [`MarketRecord`] borrowed directly from shared memory.
+    pub fn apply_market_record(&mut self, record: &MarketRecord, payload: &[u8]) -> Result<u64> {
+        let index = self.apply_market_record_dense(record, payload)?;
+        Ok(self.books[index.index()].id)
+    }
+    /// Apply a zero-copy [`MarketRecord`] borrowed directly from shared memory and return its [`DenseId`].
+    pub fn apply_market_record_dense(
+        &mut self,
+        record: &MarketRecord,
+        payload: &[u8],
+    ) -> Result<DenseId> {
+        self.apply_state_dense(MarketStateRef::Legacy(record), payload)
+    }
+    /// Apply a zero-copy [`MarketStateRef`] borrowed directly from shared memory.
+    pub fn apply_state(&mut self, state: MarketStateRef<'_>, payload: &[u8]) -> Result<u64> {
+        let index = self.apply_state_dense(state, payload)?;
+        Ok(self.books[index.index()].id)
+    }
+    /// Apply a zero-copy [`MarketStateRef`] borrowed directly from shared memory and return its [`DenseId`].
+    pub fn apply_state_dense(
+        &mut self,
+        state: MarketStateRef<'_>,
+        payload: &[u8],
+    ) -> Result<DenseId> {
+        let result = self.apply_state_inner(state, payload);
+        if result.is_err() {
+            self.blocked = true;
+        }
+        result
+    }
+    fn apply_state_inner(&mut self, state: MarketStateRef<'_>, payload: &[u8]) -> Result<DenseId> {
         let h = state.header();
         if self.blocked
             || h.sequence != self.sequence.checked_add(1).ok_or(Error::Bounds)?
@@ -372,7 +424,7 @@ impl MarketReplica {
         if h.instrument_version != book.version {
             return Err(Error::Identity);
         }
-        if let MarketState::Exact(r) = &state {
+        if let MarketStateRef::Exact(r) = state {
             if !payload.is_empty() {
                 return Err(Error::Identity);
             }
@@ -383,8 +435,8 @@ impl MarketReplica {
             {
                 return Err(Error::Stale);
             }
-            book.states.insert(category, state.clone())?;
-        } else if let MarketState::Legacy(r) = &state {
+            book.states.insert_ref(category, state)?;
+        } else if let MarketStateRef::Legacy(r) = state {
             match h.message_type {
                 259 => {
                     validate_depth_payload(payload, r.body.bid_count, r.body.ask_count)?;
@@ -435,7 +487,7 @@ impl MarketReplica {
             }
             if matches!(h.message_type, 257 | 258 | 260 | 261) {
                 book.states
-                    .insert(market_state_category(h.message_type)?, state.clone())?;
+                    .insert_ref(market_state_category(h.message_type)?, state)?;
             }
         }
         book.published = h.publish_mono_ns;

@@ -40,3 +40,11 @@ tickwire-binance-public = { path = "../tickwire-binance-public", optional = true
 [features]
 default = ["runtime"]
 runtime = ["dep:tickwire-runtime","dep:tickwire-account-gateway","dep:tickwire-binance-account","dep:tickwire-binance-clock","dep:tickwire-binance-public"]
+crc32 = [
+    "tickwire-ipc/crc32",
+    "tickwire-shm/crc32",
+    "tickwire-snapshot/crc32",
+    "tickwire-control/crc32",
+    "tickwire-control-sys/crc32",
+    "tickwire-market-source/crc32",
+]

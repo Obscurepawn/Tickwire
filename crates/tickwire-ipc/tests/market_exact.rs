@@ -49,14 +49,17 @@ fn finer_than_tick_index_and_negative_funding_are_valid() {
     r.body.mark_price = DecimalWire {
         coefficient: 1179415i128.to_le_bytes(),
         exponent: -2,
+        ..Default::default()
     };
     r.body.index_price = DecimalWire {
         coefficient: 1178462659091i128.to_le_bytes(),
         exponent: -8,
+        ..Default::default()
     };
     r.body.funding_rate = DecimalWire {
         coefficient: (-3i128).to_le_bytes(),
         exponent: -4,
+        ..Default::default()
     };
     r.body.value_validity = 32;
     let raw = image(&r);
@@ -80,16 +83,19 @@ fn rejects_presence_mismatch_noncanonical_decimal_and_wrong_fields() {
     r.body.mark_price = DecimalWire {
         coefficient: 100i128.to_le_bytes(),
         exponent: 0,
+        ..Default::default()
     };
     r.body.index_price = DecimalWire {
         coefficient: 1i128.to_le_bytes(),
         exponent: 2,
+        ..Default::default()
     };
     assert!(decode_record(&image(&r)).is_err());
     r.body.mark_price = r.body.index_price.clone();
     r.body.funding_rate = DecimalWire {
         coefficient: (-3i128).to_le_bytes(),
         exponent: -4,
+        ..Default::default()
     };
     assert!(decode_record(&image(&r)).is_err());
     r.body.value_validity = 32;

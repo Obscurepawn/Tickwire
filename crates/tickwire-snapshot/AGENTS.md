@@ -17,11 +17,13 @@ control-channel descriptor offers and cursor activation belong in `tickwire-join
   checked offset arithmetic (`range`), 4096-byte page alignment between member regions in
   [src/builder.rs](src/builder.rs), zero-filled inter-section padding, and exact SHA-256
   verification of state, depth, and kind-7 `DepthCoverage` sections (`snapshot_kind` `6` or `7`).
-* **Required state liveness and expiry windows**: Verify
+* **Required state liveness, expiry windows, and `crc32` feature gate**: Verify
   `created_mono_ns <= now_mono_ns < expires_mono_ns` (`Error::Deadline`) during both build and
   reader validation. `ValidatedTopic::check_readiness` proves snapshot baseline validity and
   `required_states` (`QUOTE`, `TRADE`, `MARK_FUNDING`) presence, while live cursor catch-up and
-  execution gating remain with the caller.
+  execution gating remain with the caller. Optional `--features crc32` (`default = []`) controls
+  whether `builder::normalize_record` retains checksum flag `0x08` and computes `record_crc32c`
+  versus clearing `0x08` and writing `record_crc32c = 0`.
 
 ## Verification and Specifications
 

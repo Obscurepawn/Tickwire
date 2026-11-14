@@ -1,17 +1,24 @@
 # tickwire-shm
 
 `tickwire-shm` owns single-writer broadcast ring publication, reader lease tracking, variable-depth arena allocation,
-and cross-process watermark reclamation (`Producer<M>`, `Reader<B>`, `Publisher<M>`, `Subscriber<B>`, and
-`RecordBorrow`). Pure protocol state machines in [src/lib.rs](src/lib.rs) and [src/arena.rs](src/arena.rs) run under
-`#![deny(unsafe_code)]` without OS mappings, while [src/mapped.rs](src/mapped.rs) is the sole module permitted to
-discharge `tickwire-shm-sys` memory-access obligations; control-socket descriptor handshakes belong in `tickwire-join`.
+zero-copy `MarketRecord` / `MarketExactRecord` slot borrowing, and cross-process watermark reclamation (`Producer<M>`,
+`Reader<B>`, `Publisher<M>`, `Subscriber<B>`, and `RecordBorrow`). Pure protocol state machines in
+[src/lib.rs](src/lib.rs) and [src/arena.rs](src/arena.rs) run under `#![deny(unsafe_code)]` without OS mappings, while
+[src/mapped.rs](src/mapped.rs) (`#![deny(unsafe_op_in_unsafe_fn)]`) is the sole module permitted to discharge
+`tickwire-shm-sys` memory-access obligations; control-socket descriptor handshakes belong in `tickwire-join`.
 
 ## Invariants and Change Guidelines
 
-* **Guarded `RecordBorrow` lifetimes and release ordering**: `RecordBorrow` in [src/mapped.rs](src/mapped.rs) holds
-  `NonNull<[u8]>` (never `&'a [u8]`) so slice references cannot outlive the guard (`compile_fail` doctest) and
-  immutability ends strictly before `Drop` stores the updated `RELEASED` watermark with `Ordering::Release`.
-  `Subscriber::borrow` loads `PUBLISHED` with `Acquire` before reading slot or external arena bytes.
+* **Guarded `RecordBorrow` zero-copy views and release ordering**: `RecordBorrow` in [src/mapped.rs](src/mapped.rs)
+  holds `NonNull<[u8]>` (never `&'a [u8]`) so `bytes(&self)`, `as_market_record(&self)`,
+  `as_market_exact_record(&self)`, `as_market_state(&self)`, and `depth_payload(&self)` tie returned references strictly
+  to `&self` (`compile_fail` doctests `E0515` and `E0505`) and immutability ends strictly before `Drop` stores the
+  updated `RELEASED` watermark with `Ordering::Release`. `Subscriber::borrow` loads `PUBLISHED` with `Acquire` before
+  exposing 512-byte 8-byte-aligned (`SLOTS = 8192`) slot or external arena bytes.
+* **Compile-time `crc32` feature gate (`default = []`)**: By default (`not(feature = "crc32")`),
+  `Publisher::publish_market` clears flag `0x08` on `RecordHeader.flags`, writes zero `record_crc32c` / `payload_crc32c`
+  fields, and skips CRC32C computation across ring slots and `ArenaBlockHeader` depth blocks; `--features crc32`
+  restores hardware-accelerated `crc32c` / `crc32c_masked` generation and verification.
 * **Watermark sampling order**: When `Publisher::activate_join` or `Publisher::cursor_watermarks` samples a reader
   cursor page in [src/mapped.rs](src/mapped.rs), load `applied` and `released` before `read` (`Acquire` on each) so a
   monotonic `read` prefix covers both earlier watermarks (`applied <= read`, `released <= read`, `read <= published`).
@@ -25,7 +32,8 @@ discharge `tickwire-shm-sys` memory-access obligations; control-socket descripto
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/arena.rs](src/arena.rs) · [src/mapped.rs](src/mapped.rs) ·
+* **Source, benches, and tests**: [src/lib.rs](src/lib.rs) · [src/arena.rs](src/arena.rs) ·
+  [src/mapped.rs](src/mapped.rs) · [benches/market_record_borrow.rs](benches/market_record_borrow.rs) ·
   [tests/protocol.rs](tests/protocol.rs) · [tests/mapped.rs](tests/mapped.rs) ·
   [tests/join_pending.rs](tests/join_pending.rs)
 * **Specifications and models**: [shm-ring.md](../../specs/implementation/shm-ring.md) ·
@@ -36,6 +44,8 @@ discharge `tickwire-shm-sys` memory-access obligations; control-socket descripto
 
 ```sh
 cargo test --locked -p tickwire-shm --all-targets
+cargo test --locked -p tickwire-shm --features crc32 --all-targets
+cargo test --locked -p tickwire-shm --doc
 ./scripts/check-linux.sh
 ./scripts/check-tla.sh broadcast_ring
 ```

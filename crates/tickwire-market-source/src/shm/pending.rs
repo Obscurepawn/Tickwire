@@ -258,7 +258,8 @@ impl State {
         let Some(guard) = consumer.borrow()? else {
             return Ok(false);
         };
-        let header = RecordHeader::decode(&guard.bytes()[..128])?;
+        let state = guard.as_market_state()?;
+        let header = state.header();
         let payload = if header.message_type == 259 {
             guard.depth_payload()?
         } else {
@@ -276,10 +277,7 @@ impl State {
             self.bank.capacity as usize,
             record,
         )?;
-        self.replica
-            .as_mut()
-            .unwrap()
-            .apply(guard.bytes(), payload)?;
+        self.replica.as_mut().unwrap().apply_state(state, payload)?;
         let sequence = guard.sequence();
         drop(guard);
         consumer.apply(sequence)?;

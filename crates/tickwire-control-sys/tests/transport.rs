@@ -497,8 +497,12 @@ fn rejection_child() {
     let raw_fd = file.as_raw_fd();
     let count_fds = || std::fs::read_dir("/proc/self/fd").unwrap().count();
     let baseline = count_fds();
-    let mut bad_crc = frame(1);
-    bad_crc[128] ^= 1;
+    #[cfg(feature = "crc32")]
+    let bad_crc = {
+        let mut bad_crc = frame(1);
+        bad_crc[128] ^= 1;
+        bad_crc
+    };
     let mut duplicate = frame(2);
     duplicate[320 + 76..320 + 78].copy_from_slice(&0u16.to_le_bytes());
     checksum(&mut duplicate);
@@ -509,6 +513,7 @@ fn rejection_child() {
     oversized.resize(MAX_FRAME_BYTES + 1, 0);
     let cases = [
         ("short", vec![0; 127], 1, "protocol"),
+        #[cfg(feature = "crc32")]
         ("crc", bad_crc, 1, "protocol"),
         ("missing FD", frame(2), 1, "count"),
         ("extra FD", frame(1), 2, "count"),

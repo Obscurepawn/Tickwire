@@ -14,10 +14,15 @@ authenticating peer control frames and `ResourceHeader` digests, while strategy 
   bytes (`baseline_bytes`) and every post-snapshot `CatchupRecord` (bounded by `MAX_CATCHUP_BYTES = 64 MiB`)
   with its local `applied_mono_ns` so downstream strategy recovery can journal deterministic inputs before the
   first callback.
-* **Zero-allocation replica application**: `MarketReplica` ([src/replica.rs](src/replica.rs)) indexes
-  instruments via `FixedIndex` (`DenseId`), fixed `StateSlots`, and preallocated `DepthWorkspace` vectors.
-  Applying ring records or checking `MarketView` freshness must not allocate on the hot path or accept
-  mismatched `topic_id`, `feed_generation`, `ring_epoch`, or `instrument_version`.
+* **Zero-copy and zero-allocation replica application**: `ShmSource::drive` ([src/shm.rs](src/shm.rs)) and
+  `PendingJoin::drain_one` ([src/shm/pending.rs](src/shm/pending.rs)) borrow `MarketStateRef` (`&MarketRecord` /
+  `&MarketExactRecord`) directly from `RecordBorrow::as_market_state` without stack-decoding 512-byte ring slots.
+  `MarketReplica` ([src/replica.rs](src/replica.rs)) indexes instruments via `FixedIndex` (`DenseId`), fixed
+  `StateSlots`, and preallocated `DepthWorkspace` vectors; applying ring records (`apply_state`, `apply_state_dense`,
+  `apply_market_record`, `apply_market_record_dense`) or checking `MarketView` freshness must not allocate on the hot
+  path or accept mismatched `topic_id`, `feed_generation`, `ring_epoch`, or `instrument_version`. Optional
+  `--features crc32` (default OFF) forwards wire CRC32C verification across `tickwire-ipc`, `tickwire-shm`,
+  `tickwire-control`, and `tickwire-snapshot`.
 * **Fail-closed invalidation and bank transitions**: `MarketSource::stop`, ring sequence gaps, stale
   deadlines, or epoch freezes in [src/transition.rs](src/transition.rs),
   [src/shm/transition.rs](src/shm/transition.rs), and [src/retirement.rs](src/retirement.rs) must emit

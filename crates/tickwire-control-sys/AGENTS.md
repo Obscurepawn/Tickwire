@@ -8,11 +8,12 @@ belong in `tickwire-control` and `tickwire-supervisor` while retaining `#![forbi
 
 ## Invariants and Change Guidelines
 
-* **Bounded `SCM_RIGHTS` receipt and `CLOEXEC` cleanup**: In [src/linux.rs](src/linux.rs), receive packets
+* **Bounded `SCM_RIGHTS` receipt, `CLOEXEC` cleanup, and `crc32` forwarding**: In [src/linux.rs](src/linux.rs), receive packets
   with `MSG_CMSG_CLOEXEC`, immediately wrap every ancillary raw descriptor in `OwnedFd` before inspecting
   truncation (`MSG_TRUNC` / `MSG_CTRUNC`) or frame headers so rejected packets never leak descriptors, and
   enforce `MAX_FRAME_BYTES` (`65,536`), `MAX_FDS` (`16`), exact `ControlEnvelope::fd_count` parity, and
-  `SO_PEERCRED` (`PeerCredentials`).
+  `SO_PEERCRED` (`PeerCredentials`). Optional `--features crc32` (`default = []`) forwards `tickwire-ipc/crc32`
+  for `ControlFrame` checksum verification.
 * **Pinned inode directory hygiene**: `PrivateDirectory` and `OwnedEntry` ([src/linux.rs](src/linux.rs)) open
   directories with `O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC`, pin created entries via `O_PATH`, set
   modes through `/proc/self/fd/<fd>` without mutating process `umask`, and verify matching `(st_dev, st_ino)`

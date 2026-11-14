@@ -1,10 +1,14 @@
 //! Mapping SDK; only this module may discharge sys memory-access contracts.
+#![deny(unsafe_op_in_unsafe_fn)]
 use crate::{
     BankKey, Error, Freeze, Producer, Quiesced, ReadLease, Reader, SubscriptionKey, Watermarks,
 };
 use sha2::{Digest, Sha256};
 use std::{cell::RefCell, os::fd::OwnedFd, ptr::NonNull};
-use tickwire_ipc::{ArenaBlockHeader, DepthLevel, MarketRecord, ResourceHeader, Wire};
+use tickwire_ipc::{
+    ArenaBlockHeader, DepthLevel, MarketExactRecord, MarketRecord, MarketStateRef, ResourceHeader,
+    Wire,
+};
 use tickwire_shm_sys::{ReaderMapping, WriterMapping};
 
 const PAGE: usize = 4096;
@@ -446,11 +450,20 @@ impl<const M: usize> Publisher<M> {
         }
         self.refresh()?;
         self.arena.reclaim(self.protocol.refresh_min());
+        #[repr(C, align(8))]
+        #[derive(Clone, Copy)]
+        struct AlignedSlot([u8; 512]);
         let mut allocations = [None; 64];
-        let mut images = [[0u8; 512]; 64];
+        let mut images = [AlignedSlot([0u8; 512]); 64];
         let prepare = (|| {
             for (i, m) in messages.iter().enumerate() {
                 let mut record = m.record.clone();
+                #[cfg(not(feature = "crc32"))]
+                {
+                    record.header.flags &= !8;
+                    record.header.payload_crc32c = 0;
+                    record.header.record_crc32c = 0;
+                }
                 let expected = self
                     .published()
                     .checked_add(i as u64 + 1)
@@ -490,11 +503,18 @@ impl<const M: usize> Publisher<M> {
                     record.body.level_count = count;
                     record.body.inline_levels = Default::default();
                     record.header.payload_length = length as u32;
-                    record.header.payload_crc32c = if record.header.flags & 8 != 0 {
-                        tickwire_ipc::crc32c(&self.block_scratch[128..128 + length])
-                    } else {
-                        0
-                    };
+                    #[cfg(feature = "crc32")]
+                    {
+                        record.header.payload_crc32c = if record.header.flags & 8 != 0 {
+                            tickwire_ipc::crc32c(&self.block_scratch[128..128 + length])
+                        } else {
+                            0
+                        };
+                    }
+                    #[cfg(not(feature = "crc32"))]
+                    {
+                        record.header.payload_crc32c = 0;
+                    }
                     record.header.payload_offset = 0;
                     record.header.arena_class = 0;
                     record.header.allocation_seq = 0;
@@ -515,14 +535,15 @@ impl<const M: usize> Publisher<M> {
                     return Err(MappedError::Layout);
                 }
                 record.header.record_crc32c = 0;
-                record.encode(&mut images[i])?;
+                record.encode(&mut images[i].0)?;
+                #[cfg(feature = "crc32")]
                 if record.header.flags & 8 != 0 {
-                    let mut crc_image = images[i];
-                    crc_image[112..120].fill(0);
-                    record.header.record_crc32c = tickwire_ipc::crc32c(&crc_image);
-                    record.encode(&mut images[i])?;
+                    record.header.record_crc32c =
+                        tickwire_ipc::crc32c_masked(&images[i].0, 112..120);
+                    images[i].0[112..116]
+                        .copy_from_slice(&record.header.record_crc32c.to_le_bytes());
                 }
-                tickwire_ipc::decode_record(&images[i])?;
+                MarketRecord::from_aligned_bytes(&images[i].0)?;
             }
             Ok(())
         })();
@@ -547,7 +568,7 @@ impl<const M: usize> Publisher<M> {
                     let class = &self.header.class_descriptors[a.class];
                     let block = &mut self.block_scratch[..class.block_bytes as usize];
                     block.fill(0);
-                    let record = MarketRecord::decode(&images[i])?;
+                    let record = MarketRecord::from_aligned_bytes(&images[i].0)?;
                     ArenaBlockHeader {
                         allocation_seq: a.sequence,
                         payload_length: record.header.payload_length,
@@ -570,7 +591,7 @@ impl<const M: usize> Publisher<M> {
                 let slot = self.protocol.slot(claim.first() + i as u64)?;
                 // SAFETY: the batch claim protects this unpublished slot.
                 unsafe {
-                    self.bank.write_bytes(SLOTS + slot * 512, &images[i])?;
+                    self.bank.write_bytes(SLOTS + slot * 512, &images[i].0)?;
                 }
             }
             Ok::<_, MappedError>(())
@@ -826,12 +847,64 @@ impl<const B: usize> RecordBorrow<'_, B> {
         // and the resulting reference is limited to this borrow of the guard.
         unsafe { self.bytes.as_ref() }
     }
+    /// Borrow the 512-byte ring slot directly as a zero-copy `&MarketRecord` (`257..=263`).
+    ///
+    /// Soundness obligations discharged by `Subscriber::borrow` + `MarketRecord::from_aligned_slice`:
+    /// 1. **Slot width & alignment**: Market banks map page-aligned memory (`PAGE = 4096`),
+    ///    `SLOTS = 8192`, and `record_bytes = 512`, so every slot address is 512-byte (and
+    ///    therefore 8-byte) aligned; `from_aligned_slice` also verifies `align_offset == 0`
+    ///    and `len == 512` dynamically.
+    /// 2. **Initialized, non-aliased shared memory**: `Subscriber::borrow` observed
+    ///    `PUBLISHED >= sequence` with `Acquire` ordering and recorded an active `ReadLease`
+    ///    before constructing `self`. The single publisher refreshes `RELEASED` watermarks
+    ///    before reclaiming any slot, so no writer can mutate this slot until `Drop` of
+    ///    `RecordBorrow` releases `self.lease` with `Release` ordering.
+    /// 3. **Lifetime pinning**: The returned `&MarketRecord` borrows `&self`, preventing
+    ///    `RecordBorrow::drop` from running while `&MarketRecord` is live.
+    ///
+    /// ```compile_fail,E0515
+    /// use tickwire_ipc::MarketRecord;
+    /// use tickwire_shm::Subscriber;
+    /// fn escape(reader: &Subscriber<64>) -> &MarketRecord {
+    ///     let guard = reader.borrow().unwrap().unwrap();
+    ///     guard.as_market_record().unwrap()
+    /// }
+    /// ```
+    ///
+    /// ```compile_fail,E0505
+    /// use tickwire_shm::Subscriber;
+    /// fn use_after_drop(reader: &Subscriber<64>) -> i64 {
+    ///     let guard = reader.borrow().unwrap().unwrap();
+    ///     let rec = guard.as_market_record().unwrap();
+    ///     drop(guard);
+    ///     rec.body.bid_price_ticks
+    /// }
+    /// ```
+    #[inline]
+    pub fn as_market_record(&self) -> Result<&MarketRecord> {
+        Ok(MarketRecord::from_aligned_slice(self.bytes())?)
+    }
+    /// Borrow the 512-byte ring slot directly as a zero-copy `&MarketExactRecord` (`264..=266`).
+    #[inline]
+    pub fn as_market_exact_record(&self) -> Result<&MarketExactRecord> {
+        Ok(MarketExactRecord::from_aligned_slice(self.bytes())?)
+    }
+    /// Borrow the 512-byte ring slot directly as a zero-copy [`MarketStateRef`] (`257..=266`).
+    #[inline]
+    pub fn as_market_state(&self) -> Result<MarketStateRef<'_>> {
+        Ok(MarketStateRef::from_aligned_slice(self.bytes())?)
+    }
     /// The depth payload is retained by this guard, including an external block.
     /// No reference over unrelated, concurrently writable bank bytes is formed.
     pub fn depth_payload(&self) -> Result<&[u8]> {
-        let tickwire_ipc::Record::Market(record) = tickwire_ipc::decode_record(self.bytes())?
-        else {
-            return Err(MappedError::Layout);
+        let record = match self.as_market_record() {
+            Ok(record) => record,
+            Err(MappedError::Wire(
+                tickwire_ipc::Error::UnknownMessage | tickwire_ipc::Error::Bounds,
+            )) if tickwire_ipc::decode_record(self.bytes()).is_ok() => {
+                return Err(MappedError::Layout);
+            }
+            Err(e) => return Err(e),
         };
         if record.header.message_type != 259 {
             return Err(MappedError::Layout);
@@ -866,7 +939,7 @@ impl<const B: usize> RecordBorrow<'_, B> {
                 .bank
                 .read_bytes(offset as usize, class.block_bytes as usize)?
         };
-        tickwire_ipc::validate_arena_block(&record, block, resource, class)?;
+        tickwire_ipc::validate_arena_block(record, block, resource, class)?;
         Ok(&block[128..128 + h.payload_length as usize])
     }
 }

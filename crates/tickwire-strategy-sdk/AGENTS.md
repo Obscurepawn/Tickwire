@@ -21,9 +21,14 @@ deterministic handover replay ([src/replay.rs](src/replay.rs), [src/restore.rs](
   from `CanonicalRecord` without string/CBOR re-parsing. `FillWatermarkTracker` uses checked `tickwire_risk::Fixed` arithmetic exclusively
   (zero `f32`/`f64`) to reconcile early `ProjectedFill` / `OrderObservation` cumulative quantities with deduplicated `FillEvent` executions so
   inventory skew never double-counts across arbitrary status/trade interleavings, while `Strategy::on_projected_fill` defaults to a no-op.
-* **Freshness and callback gating**: `MarketView` ([src/market.rs](src/market.rs)) exposes borrowed local replica state to `Strategy::on_market`
-  only after JOIN baseline and catch-up records are journaled, rejecting stale or degraded (`feed_state != 2`) feeds; ordered account execution
-  updates arrive exclusively through `on_report` ([src/reports.rs](src/reports.rs)).
+* **Freshness, zero-copy market consumption, and `crc32` feature gate**: `MarketReplica::drain_recorded`
+  ([src/market.rs](src/market.rs)), legacy worker rings ([src/worker.rs](src/worker.rs)), and expansion rings
+  ([src/worker/expansion.rs](src/worker/expansion.rs)) consume `MarketStateRef` (`&MarketRecord` / `&MarketExactRecord`)
+  in place from `RecordBorrow::as_market_state` without 512-byte stack decodes. `MarketView` exposes borrowed local
+  replica state to `Strategy::on_market` only after JOIN baseline and catch-up records are journaled, rejecting stale
+  or degraded (`feed_state != 2`) feeds; ordered account execution updates arrive exclusively through `on_report`
+  ([src/reports.rs](src/reports.rs)). Optional `--features crc32` (`default = ["runtime"]` leaves `crc32` OFF) gates
+  checksum flag `0x08` and CRC32C computation on `IntentWriter` and `ReportWriter`.
 * **Deterministic replay and handover seals**: During migration or restart in [src/replay.rs](src/replay.rs), [src/restore.rs](src/restore.rs),
   and [src/recovery.rs](src/recovery.rs), feed the original recorded inputs and decision timestamps rather than wall-clock reads, and verify
   `HandoverSeal` checkpoint and account-report parity before live cutover.

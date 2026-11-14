@@ -250,7 +250,11 @@ fn header(
         schema_major: 1,
         header_bytes: 128,
         body_bytes: 384,
-        flags: 2 | 4 | 8,
+        flags: if cfg!(feature = "crc32") {
+            2 | 4 | 8
+        } else {
+            2 | 4
+        },
         topic_or_scope_id: h.topic_id,
         feed_generation: h.feed_generation,
         producer_generation: h.producer_generation,

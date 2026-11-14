@@ -218,12 +218,12 @@ impl<B: BlobStore> ReportWriter<B> {
             .checked_add(1)
             .ok_or(Error::Bounds)?;
         let bank = self.publisher.header();
-        let mut record = ReportRecord {
+        let record = ReportRecord {
             header: RecordHeader {
                 schema_major: 1,
                 schema_minor: 0,
                 message_type,
-                flags: 12,
+                flags: if cfg!(feature = "crc32") { 12 } else { 4 },
                 header_bytes: 128,
                 body_bytes: 384,
                 sequence,
@@ -251,8 +251,11 @@ impl<B: BlobStore> ReportWriter<B> {
         };
         let mut image = [0u8; 512];
         record.encode(&mut image)?;
-        record.header.record_crc32c = tickwire_ipc::crc32c(&image);
-        record.encode(&mut image)?;
+        #[cfg(feature = "crc32")]
+        {
+            let crc = tickwire_ipc::crc32c(&image);
+            image[112..116].copy_from_slice(&crc.to_le_bytes());
+        }
         tickwire_ipc::decode_record(&image)?;
         Ok(self.publisher.publish(&[&image])?)
     }

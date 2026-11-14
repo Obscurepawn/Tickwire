@@ -8,6 +8,10 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+default = []
+crc32 = ["tickwire-ipc/crc32", "tickwire-shm/crc32", "tickwire-snapshot/crc32"]
+
 [dependencies]
 tickwire-binance = { path = "../tickwire-binance" }
 tickwire-binance-public = { path = "../tickwire-binance-public" }

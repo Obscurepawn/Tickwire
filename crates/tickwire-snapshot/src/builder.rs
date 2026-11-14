@@ -128,11 +128,20 @@ fn normalize_record<S: MarketStateRecord>(record: &S, row: u64, out: &mut [u8; 5
     let mut normalized = record.clone();
     normalized.header_mut().sequence = row;
     normalized.header_mut().record_crc32c = 0;
-    normalized.encode(out)?;
-    if normalized.header().flags & 8 != 0 {
-        // All accepted snapshot records have no external payload and a zero payload CRC.
-        normalized.header_mut().record_crc32c = crc32c(out);
+    #[cfg(not(feature = "crc32"))]
+    {
+        normalized.header_mut().flags &= !8;
+        normalized.header_mut().payload_crc32c = 0;
         normalized.encode(out)?;
+    }
+    #[cfg(feature = "crc32")]
+    {
+        normalized.encode(out)?;
+        if normalized.header().flags & 8 != 0 {
+            // All accepted snapshot records have no external payload and a zero payload CRC.
+            normalized.header_mut().record_crc32c = crc32c(out);
+            out[112..116].copy_from_slice(&normalized.header().record_crc32c.to_le_bytes());
+        }
     }
     decode_record(out)?;
     Ok(())

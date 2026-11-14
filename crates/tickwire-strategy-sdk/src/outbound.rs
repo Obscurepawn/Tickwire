@@ -277,9 +277,17 @@ impl IntentWriter {
         )?;
         record.header.record_crc32c = 0;
         let mut image = [0u8; 1024];
-        record.encode(&mut image)?;
-        record.header.record_crc32c = crc32c(&image);
-        record.encode(&mut image)?;
+        #[cfg(not(feature = "crc32"))]
+        {
+            record.header.flags &= !8;
+            record.encode(&mut image)?;
+        }
+        #[cfg(feature = "crc32")]
+        {
+            record.encode(&mut image)?;
+            record.header.record_crc32c = crc32c(&image);
+            image[112..116].copy_from_slice(&record.header.record_crc32c.to_le_bytes());
+        }
         decode_record(&image)?;
         let seq = self.publisher.publish(&[&image])?;
         self.last_intent = c.strategy.strategy_intent_seq;
@@ -374,7 +382,7 @@ pub fn encode_intent(
             schema_major: 1,
             header_bytes: 128,
             body_bytes: 896,
-            flags: 4 | 8,
+            flags: if cfg!(feature = "crc32") { 4 | 8 } else { 4 },
             topic_or_scope_id: risk_scope,
             producer_generation: c.request.strategy_generation,
             instrument_id: c.instrument.instrument_id,
@@ -494,13 +502,24 @@ mod tests {
         let command = CanonicalCommand::new(crate::test_command::command()).unwrap();
         let mut store = CommandStore::new(tickwire_recovery::MockBlobStore::default());
         let receipt = store.put(&command).unwrap();
-        let mut record = encode_intent(&command, &receipt, 7, 60, 900).unwrap();
+        let record = encode_intent(&command, &receipt, 7, 60, 900).unwrap();
         assert_eq!(record.header.topic_or_scope_id, 900);
         assert_eq!(record.body.command_digest, command.digest());
         assert_eq!(record.body.triggers[0].sequence, 1);
-        let mut bytes = wire_image(&record).unwrap();
-        record.header.record_crc32c = crc32c(&bytes);
-        record.encode(&mut bytes).unwrap();
+        #[cfg(feature = "crc32")]
+        let bytes = {
+            let mut record = record;
+            let mut bytes = wire_image(&record).unwrap();
+            record.header.record_crc32c = crc32c(&bytes);
+            record.encode(&mut bytes).unwrap();
+            bytes
+        };
+        #[cfg(not(feature = "crc32"))]
+        let bytes = {
+            assert_eq!(record.header.flags & 8, 0);
+            assert_eq!(record.header.record_crc32c, 0);
+            wire_image(&record).unwrap()
+        };
         let Record::Intent(decoded) = decode_record(&bytes).unwrap() else {
             panic!("intent");
         };

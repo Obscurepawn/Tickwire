@@ -19,10 +19,11 @@ and account crates.
   `CanonicalCommand` at most once (`spent == true` bound to `action` digest). Preserve `V1` -> `V2`
   state-schema upgrade and deterministic source replay behavior tested in
   [tests/source_replay.rs](tests/source_replay.rs).
-* **Minimal binary entrypoints**: Keep
+* **Minimal binary entrypoints and `crc32` forwarding**: Keep
   [src/bin/tickwire-counting-worker.rs](src/bin/tickwire-counting-worker.rs) and
   [src/bin/tickwire-counting-v1-worker.rs](src/bin/tickwire-counting-v1-worker.rs) thin wrappers
-  around `registered::run` without ambient I/O or trading authority.
+  around `registered::run` without ambient I/O or trading authority, and forward optional
+  `--features crc32` (`default = []`) to `tickwire-strategy-sdk/crc32`.
 
 ## Verification and Specifications
 

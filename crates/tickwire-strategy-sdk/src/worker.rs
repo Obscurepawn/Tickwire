@@ -701,23 +701,37 @@ pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
                 let Some(guard) = consumer.borrow()? else {
                     break;
                 };
-                let raw: [u8; tickwire_ipc::MarketRecord::SIZE] =
-                    guard.bytes().try_into().map_err(|_| Error::Bounds)?;
-                let header =
-                    tickwire_ipc::RecordHeader::decode(&raw[..tickwire_ipc::RecordHeader::SIZE])?;
-                depth_payload.clear();
-                if header.message_type == 259 {
-                    depth_payload.extend_from_slice(guard.depth_payload()?);
-                }
+                let state = guard.as_market_state()?;
+                let instrument_id = state.header().instrument_id;
+                let is_depth = state.header().message_type == 259;
                 let seq = guard.sequence();
-                // Release the publisher slot before strategy code or storage I/O.
-                drop(guard);
-                crate::recovery::InputJournal::market(&mut recovery, &raw, &depth_payload)?;
-                let at = now(&mut clock)?;
-                crate::recovery::InputJournal::decision(&mut recovery, header.instrument_id, at)?;
-                // The actual callback and its input/checkpoint sync complete before
-                // the consumer watermark or an intent is exposed to another owner.
-                let commands = strategy.market(&raw, &depth_payload, at)?;
+                let commands = if recovery.is_none() && !strategy.is_recorded() {
+                    let payload = if is_depth {
+                        guard.depth_payload()?
+                    } else {
+                        &[]
+                    };
+                    let at = now(&mut clock)?;
+                    let id = strategy.apply_legacy_state(state, payload)?;
+                    // Release the publisher slot before strategy code or storage I/O.
+                    drop(guard);
+                    strategy.finish_legacy_callback(id, at)?
+                } else {
+                    let raw: [u8; tickwire_ipc::MarketRecord::SIZE] =
+                        guard.bytes().try_into().map_err(|_| Error::Bounds)?;
+                    depth_payload.clear();
+                    if is_depth {
+                        depth_payload.extend_from_slice(guard.depth_payload()?);
+                    }
+                    // Release the publisher slot before strategy code or storage I/O.
+                    drop(guard);
+                    crate::recovery::InputJournal::market(&mut recovery, &raw, &depth_payload)?;
+                    let at = now(&mut clock)?;
+                    crate::recovery::InputJournal::decision(&mut recovery, instrument_id, at)?;
+                    // The actual callback and its input/checkpoint sync complete before
+                    // the consumer watermark or an intent is exposed to another owner.
+                    strategy.market(&raw, &depth_payload, at)?
+                };
                 retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
                 consumer.apply(seq)?;
                 for command in commands {

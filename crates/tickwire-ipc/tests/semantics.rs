@@ -251,12 +251,29 @@ fn every_data_vector_passes_production_validation() {
 #[test]
 fn crc_reference_and_corruption() {
     assert_eq!(crc32c(b"123456789"), 0xe3069283);
+    assert_eq!(crc32c_slicing8(b"123456789"), 0xe3069283);
     let f = fixture();
+    for v in f["vectors"].as_array().unwrap() {
+        let raw = hex(v["hex"].as_str().unwrap());
+        assert_eq!(crc32c(&raw), crc32c_slicing8(&raw));
+        if v["layout"] == "ControlFrame" {
+            let e = ControlEnvelope::decode(&raw[..128]).unwrap();
+            assert_eq!(crc32c_masked(&raw[..128], 116..120), e.header_crc32c);
+            assert_eq!(crc32c(&raw[128..]), e.body_crc32c);
+        }
+    }
     let raw = bytes(&f, "freeze_complete_frame");
+    #[cfg(feature = "crc32")]
     for i in 0..raw.len() {
         let mut corrupt = raw.clone();
         corrupt[i] ^= 1;
         assert!(ControlFrame::decode(&corrupt).is_err(), "byte {i}");
+    }
+    #[cfg(not(feature = "crc32"))]
+    {
+        let mut corrupt = raw;
+        corrupt[116] ^= 1; // Corrupt header_crc32c only; default mode skips CRC verification.
+        assert!(ControlFrame::decode(&corrupt).is_ok());
     }
 }
 
@@ -412,12 +429,19 @@ fn record_crc_enabled_covers_payload_and_header() {
     record.header.payload_crc32c = crc32c(&raw[320..352]);
     record.encode(&mut raw).unwrap();
     // The record checksum excludes both checksum fields, including the payload checksum.
-    raw[112..120].fill(0);
-    record.header.record_crc32c = crc32c(&raw);
+    assert_eq!(crc32c_masked(&raw, 112..120), {
+        let mut copy = raw.clone();
+        copy[112..120].fill(0);
+        crc32c(&copy)
+    });
+    record.header.record_crc32c = crc32c_masked(&raw, 112..120);
     record.encode(&mut raw).unwrap();
     assert!(decode_record(&raw).is_ok());
     raw[320] ^= 1;
+    #[cfg(feature = "crc32")]
     assert_eq!(decode_record(&raw), Err(Error::Checksum));
+    #[cfg(not(feature = "crc32"))]
+    assert!(decode_record(&raw).is_ok());
 }
 
 #[test]
@@ -486,13 +510,89 @@ fn generated_layouts_match_current_contract() {
 fn feature_gate_precedes_configuration_body_parse() {
     let f = fixture();
     let mut raw = bytes(&f, "config_apply_frame");
-    raw[128] ^= 1; // Even a broken body is not parsed before feature admission.
+    mutate(
+        &mut raw,
+        "ControlFrame",
+        "body.actor_kind",
+        &Value::from(999),
+    );
     assert!(matches!(
         ControlFrame::decode_negotiated(&raw, 28),
         Err(Error::UnsupportedFeature)
     ));
+    #[cfg(feature = "crc32")]
     assert!(matches!(
         ControlFrame::decode_negotiated(&raw, 60),
         Err(Error::Checksum)
     ));
+    #[cfg(not(feature = "crc32"))]
+    assert!(matches!(
+        ControlFrame::decode_negotiated(&raw, 60),
+        Err(Error::InvalidEnum)
+    ));
+}
+
+#[repr(C, align(8))]
+struct Aligned512([u8; 512]);
+
+#[repr(C, align(8))]
+struct UnalignedBuf([u8; 520]);
+
+#[test]
+fn zerocopy_market_record_borrows_in_place_and_validates_alignment_and_invariants() {
+    let f = fixture();
+    for name in ["quote_one", "depth_inline_two_levels"] {
+        let raw_vec = bytes(&f, name);
+        let mut aligned = Aligned512([0u8; 512]);
+        aligned.0.copy_from_slice(&raw_vec);
+        let borrowed = MarketRecord::from_aligned_bytes(&aligned.0).unwrap();
+        assert_eq!(
+            (borrowed as *const MarketRecord) as usize,
+            aligned.0.as_ptr() as usize
+        );
+        let decoded = MarketRecord::decode(&aligned.0).unwrap();
+        assert_eq!(*borrowed, decoded);
+        assert_eq!(
+            MarketStateRef::from_aligned_bytes(&aligned.0).unwrap(),
+            MarketStateRef::Legacy(borrowed)
+        );
+
+        let mut unaligned = UnalignedBuf([0u8; 520]);
+        unaligned.0[1..513].copy_from_slice(&raw_vec);
+        assert_eq!(
+            MarketRecord::from_aligned_slice(&unaligned.0[1..513]),
+            Err(Error::Unaligned)
+        );
+        assert_eq!(
+            MarketStateRef::from_aligned_slice(&unaligned.0[1..513]),
+            Err(Error::Unaligned)
+        );
+    }
+
+    // Corrupting reserved padding or message_type is rejected deterministically.
+    let raw_vec = bytes(&f, "quote_one");
+    let mut bad_pad = Aligned512([0u8; 512]);
+    bad_pad.0.copy_from_slice(&raw_vec);
+    bad_pad.0[38] = 1;
+    assert_eq!(
+        MarketRecord::from_aligned_bytes(&bad_pad.0),
+        Err(Error::ReservedNonzero)
+    );
+    bad_pad.0[38] = 0;
+    bad_pad.0[120] = 1;
+    assert_eq!(
+        MarketRecord::from_aligned_bytes(&bad_pad.0),
+        Err(Error::ReservedNonzero)
+    );
+    bad_pad.0[120] = 0;
+    bad_pad.0[128 + 180] = 1;
+    assert_eq!(
+        MarketRecord::from_aligned_bytes(&bad_pad.0),
+        Err(Error::ReservedNonzero)
+    );
+    bad_pad.0[128 + 180] = 0;
+    assert_eq!(
+        MarketExactRecord::from_aligned_bytes(&bad_pad.0),
+        Err(Error::UnknownMessage)
+    );
 }

@@ -16,10 +16,12 @@ TLS sessions, and OS admission servers belong in `tickwire-md`.
 * **Preallocated dense slots and workspaces**: Resolve `InstrumentSlot` (`DenseId` in `FixedIndex`) and
   allocate `DepthWorkspace` / delta buffers (`MAX_DELTA_LEVELS = 4096`) during publisher construction so
   hot-path publication never resizes maps or replaces wire `instrument_id` identities.
-* **Exact JOIN cuts and topic expansion**: `TopicState` ([src/lib.rs](src/lib.rs)) tracks per-instrument
+* **Exact JOIN cuts, topic expansion, and `crc32` feature gate**: `TopicState` ([src/lib.rs](src/lib.rs)) tracks per-instrument
   `SideCoverage`, `revision`, and `sequence` so `build_topic_with_coverage` produces snapshots matching the
   exact ring frontier. Keep live instrument-set expansion isolated in [src/expansion.rs](src/expansion.rs),
-  preserving existing `DenseId` assignments and bank epoch handoffs.
+  preserving existing `DenseId` assignments and bank epoch handoffs. Optional `--features crc32` (default OFF)
+  controls whether outbound `MarketRecord` / `MarketExactRecord` headers set checksum flag `0x08` and compute
+  Castagnoli CRC32C.
 
 ## Verification and Specifications
 

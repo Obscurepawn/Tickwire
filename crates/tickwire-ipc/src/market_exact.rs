@@ -17,6 +17,7 @@ impl DecimalWire {
         Ok(Self {
             coefficient: coefficient.to_le_bytes(),
             exponent,
+            _pad_17: [0; 7],
         })
     }
     pub fn coefficient_value(&self) -> i128 {

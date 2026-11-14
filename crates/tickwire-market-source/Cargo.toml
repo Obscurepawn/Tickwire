@@ -8,6 +8,16 @@ publish.workspace = true
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
 
+[features]
+default = []
+crc32 = [
+    "tickwire-ipc/crc32",
+    "tickwire-shm/crc32",
+    "tickwire-snapshot/crc32",
+    "tickwire-control/crc32",
+    "tickwire-control-sys/crc32",
+]
+
 [dependencies]
 tickwire-instrument-index = { path = "../tickwire-instrument-index" }
 tickwire-ipc = { path = "../tickwire-ipc" }

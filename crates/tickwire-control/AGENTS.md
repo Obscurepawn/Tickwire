@@ -14,10 +14,11 @@ in `tickwire-control-store`.
   `nonce`, kernel-verified `ProcessIdentity` (`pid`, `uid`, `gid`), mandatory feature bits
   (`REQUIRED_FEATURES = 0x1c`), and strict `HELLO` (`control_epoch == 0`) -> `WELCOME`
   challenge-response transition before issuing a live `Session`.
-* **Monotonic session leases and sequence ordering**: `Session::validate` and `Session::encode`
+* **Monotonic session leases, sequence ordering, and `crc32` feature gate**: `Session::validate` and `Session::encode`
   enforce monotonic `now` timestamps (`Error::ClockRegression`), session lease expiry
-  (`Error::Expired`), `max_frame_bytes` caps, `crc32c` frame integrity, and bounded `< (1 << 63)`
-  sequence numbers.
+  (`Error::Expired`), `max_frame_bytes` caps, bounded `< (1 << 63)` sequence numbers, and optional Castagnoli
+  `crc32c` frame integrity (`--features crc32`; default OFF writes zero `header_crc32c` / `body_crc32c` fields on
+  authenticated local Unix `SEQPACKET` sockets).
 * **Single-mint `ExecutionTicket` idempotency**: Request admission in
   [src/requests.rs](src/requests.rs) hashes normalized request frames by `RequestKey` (`subject`,
   `epoch`, `request_id`). Identical retries return `Admission::Pending` or

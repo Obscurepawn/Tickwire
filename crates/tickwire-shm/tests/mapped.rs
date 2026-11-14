@@ -368,3 +368,90 @@ fn real_process_broadcast_to_1_2_4_8_16_32_consumers() {
         println!("shared broadcast: {consumers} independent processes, {COUNT} records each");
     }
 }
+
+#[test]
+fn zerocopy_market_record_borrow_and_crc32_mode_invariants() {
+    let mut h = header();
+    configure_market_arena(&mut h, &[(512, 64)]).unwrap();
+    let mut p = Publisher::<4>::create(h).unwrap();
+    let key = SubscriptionKey {
+        bank: p.key(),
+        instance: 7,
+        generation: 1,
+        cursor: 700,
+    };
+    let baseline = p.join(key).unwrap() - 1;
+    let r = unsafe {
+        Subscriber::<64>::attach(p.reader_fd().unwrap(), p.header().clone(), key, baseline).unwrap()
+    };
+    unsafe {
+        p.register_cursor(key, r.cursor_fd().unwrap()).unwrap();
+    }
+
+    let levels = [
+        tickwire_ipc::DepthLevel {
+            price_ticks: 1000,
+            qty_lots: 5,
+        },
+        tickwire_ipc::DepthLevel {
+            price_ticks: 1005,
+            qty_lots: 9,
+        },
+    ];
+    let rec = tickwire_ipc::MarketRecord {
+        header: tickwire_ipc::RecordHeader {
+            sequence: 1,
+            message_type: 259,
+            schema_major: 1,
+            header_bytes: 128,
+            flags: 6 | 8,
+            body_bytes: 384,
+            topic_or_scope_id: 10,
+            feed_generation: 1,
+            producer_generation: 1,
+            instrument_id: 42,
+            instrument_version: 1,
+            ingress_mono_ns: 100,
+            publish_mono_ns: 110,
+            ..Default::default()
+        },
+        body: tickwire_ipc::MarketBody {
+            venue_seq_first: 1,
+            venue_seq_last: 1,
+            book_revision: 1,
+            bid_count: 1,
+            ask_count: 1,
+            depth_flags: 1,
+            ..Default::default()
+        },
+    };
+    p.publish_market(&[MarketMessage {
+        record: &rec,
+        levels: &levels,
+    }])
+    .unwrap();
+
+    let guard = r.borrow().unwrap().unwrap();
+    let borrowed = guard.as_market_record().unwrap();
+    assert_eq!(
+        (borrowed as *const tickwire_ipc::MarketRecord) as usize,
+        guard.bytes().as_ptr() as usize
+    );
+    assert_eq!(borrowed.body.inline_levels[0], levels[0]);
+    assert_eq!(borrowed.body.inline_levels[1], levels[1]);
+    assert_eq!(guard.depth_payload().unwrap().len(), 32);
+    #[cfg(not(feature = "crc32"))]
+    {
+        assert_eq!(borrowed.header.flags & 8, 0);
+        assert_eq!(borrowed.header.record_crc32c, 0);
+        assert_eq!(borrowed.header.payload_crc32c, 0);
+    }
+    #[cfg(feature = "crc32")]
+    {
+        assert_ne!(borrowed.header.flags & 8, 0);
+        assert_ne!(borrowed.header.record_crc32c, 0);
+        assert_ne!(borrowed.header.payload_crc32c, 0);
+    }
+    drop(guard);
+    r.apply(1).unwrap();
+}
