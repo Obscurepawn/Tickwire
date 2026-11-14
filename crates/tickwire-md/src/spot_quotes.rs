@@ -5,8 +5,12 @@ use std::path::PathBuf;
 use tickwire_binance::decimal::Decimal;
 use tickwire_venue::SpotVenue;
 
+#[forbid(unsafe_code)]
 mod network;
+#[forbid(unsafe_code)]
 mod protocol;
+#[allow(unsafe_code)]
+pub mod simd_json;
 pub use network::{Notice, run, run_with};
 
 #[derive(Debug, Deserialize)]
@@ -77,12 +81,25 @@ pub struct Session<'a> {
     config: &'a QuoteConfig,
     epoch: u64,
     channel: String,
+    backend: simd_json::Backend,
+    price_step: simd_json::StepSpec,
+    quantity_step: simd_json::StepSpec,
     acknowledged: bool,
     failed: bool,
 }
 
 impl<'a> Session<'a> {
     pub fn new(config: &'a QuoteConfig, epoch: u64) -> Result<Self> {
+        Self::with_backend(config, epoch, simd_json::Backend::detect())
+    }
+
+    /// Creates a session pinned to an explicit SIMD/SWAR scanner backend (used for
+    /// cross-backend differential verification).
+    pub fn with_backend(
+        config: &'a QuoteConfig,
+        epoch: u64,
+        backend: simd_json::Backend,
+    ) -> Result<Self> {
         config.validate()?;
         if epoch == 0 {
             return Err(invalid("zero quote connection epoch"));
@@ -95,6 +112,9 @@ impl<'a> Session<'a> {
             config,
             epoch,
             channel,
+            backend,
+            price_step: simd_json::StepSpec::new(config.price_tick),
+            quantity_step: simd_json::StepSpec::new(config.quantity_step),
             acknowledged: false,
             failed: false,
         })
@@ -113,7 +133,18 @@ impl<'a> Session<'a> {
     }
 
     /// On any malformed, rejected or misrouted frame the session must reconnect.
+    #[inline]
     pub fn on_text(&mut self, bytes: &[u8], received_mono_ns: u64) -> Result<Option<Quote<'a>>> {
+        self.decode_fast(bytes, received_mono_ns)
+    }
+
+    /// Fast-path SIMD JSON + integer fixed-point decoder with automatic fallback to
+    /// [`Self::decode_serde_oracle`] on escaped or non-ASCII frames.
+    pub fn decode_fast(
+        &mut self,
+        bytes: &[u8],
+        received_mono_ns: u64,
+    ) -> Result<Option<Quote<'a>>> {
         if self.failed || bytes.len() > network::MAX_MESSAGE {
             self.failed = true;
             return Err(invalid("spot quote session failed or oversized frame"));
@@ -121,6 +152,24 @@ impl<'a> Session<'a> {
         let result = match self.config.venue {
             SpotVenue::Bybit => self.bybit(bytes, received_mono_ns),
             SpotVenue::Okx => self.okx(bytes, received_mono_ns),
+        };
+        self.failed = result.is_err();
+        result
+    }
+
+    /// Reference `serde_json` + `Decimal` oracle retained for fallback and differential testing.
+    pub fn decode_serde_oracle(
+        &mut self,
+        bytes: &[u8],
+        received_mono_ns: u64,
+    ) -> Result<Option<Quote<'a>>> {
+        if self.failed || bytes.len() > network::MAX_MESSAGE {
+            self.failed = true;
+            return Err(invalid("spot quote session failed or oversized frame"));
+        }
+        let result = match self.config.venue {
+            SpotVenue::Bybit => self.bybit_serde_oracle(bytes, received_mono_ns),
+            SpotVenue::Okx => self.okx_serde_oracle(bytes, received_mono_ns),
         };
         self.failed = result.is_err();
         result

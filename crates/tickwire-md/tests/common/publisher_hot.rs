@@ -170,7 +170,11 @@ impl Fixture {
             assert_eq!(block.payload_length, record.header.payload_length);
             let mut payload = vec![0; count * DepthLevel::SIZE];
             self.file.read_exact(&mut payload).unwrap();
-            assert_eq!(tickwire_ipc::crc32c(&payload), record.header.payload_crc32c);
+            if record.header.flags & 0x08 != 0 {
+                assert_eq!(tickwire_ipc::crc32c(&payload), record.header.payload_crc32c);
+            } else {
+                assert_eq!(record.header.payload_crc32c, 0);
+            }
             assert_eq!(block.payload_crc32c, record.header.payload_crc32c);
             payload
                 .as_chunks::<16>()

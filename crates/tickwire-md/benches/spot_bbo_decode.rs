@@ -38,8 +38,9 @@ fn measure(label: &str, config: &str, ack: &[u8], template: &str, count: usize) 
     samples.sort_unstable();
     let percentile = |p: usize| samples[(samples.len() * p).div_ceil(1000) - 1];
     println!(
-        "{label},{count},{},{},{}",
+        "{label},{count},{},{},{},{}",
         percentile(500),
+        percentile(900),
         percentile(990),
         percentile(999)
     );
@@ -50,7 +51,7 @@ fn main() {
         .map(|s| s.parse::<usize>().expect("positive sample count"))
         .unwrap_or(100_000);
     assert!((1..=10_000_000).contains(&count));
-    println!("venue,samples,p50_ns,p99_ns,p999_ns");
+    println!("venue,samples,p50_ns,p90_ns,p99_ns,p999_ns");
     measure(
         "bybit",
         include_str!("../examples/bybit-spot-quote.json"),
