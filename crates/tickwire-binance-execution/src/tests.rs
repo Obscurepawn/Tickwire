@@ -1505,3 +1505,263 @@ fn concurrent_websocket_plans_and_multi_ip_quota_ban_propagation() {
         let _ = p.join().unwrap();
     }
 }
+
+#[test]
+fn binance_warmup_interval_policy_activity_reset_and_unconsumed_command_guard() {
+    let (state, ns, c) = setup(5_000_000, None);
+    let (snapshot, catalog, _) = account_fixture::fixture();
+    let live_account = tickwire_account::Account::from_snapshot(snapshot, catalog).unwrap();
+
+    // 1. `warmup_interval_ns == 0` (default) never warms.
+    assert_eq!(state.warmup_interval_ns(), 0);
+    for t in [0u64, 1, 500_000, 5 * SECOND] {
+        assert!(
+            !state
+                .maybe_warm_hot_path_with_account(Some(&live_account), t)
+                .unwrap()
+        );
+    }
+    assert_eq!(state.warmup_count(), 0);
+
+    // 2. Positive interval (`500_000 ns`): fires only after idle >= 500_000 ns and resets on activity.
+    state.set_warmup_interval_ns(500_000).unwrap();
+    state.refresh_warmup_scratch(&live_account).unwrap();
+    state.record_activity(1_000_000);
+    assert!(
+        !state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 1_499_999)
+            .unwrap()
+    );
+    state.record_activity(1_300_000);
+    assert!(
+        !state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 1_799_999)
+            .unwrap()
+    );
+    assert!(
+        state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 1_800_000)
+            .unwrap()
+    );
+    assert_eq!(state.warmup_count(), 1);
+    assert_eq!(state.last_warm_ns(), 1_800_000);
+
+    // 3. Encoding a live command records activity AND blocks idle warming while unconsumed.
+    ns.set(2_000_000);
+    encode(&state, &c);
+    assert_eq!(state.last_activity_ns(), 2_000_000);
+    assert!(
+        !state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 3_000_000)
+            .unwrap()
+    );
+    assert_eq!(state.warmup_count(), 1);
+
+    // Consuming the command via `finish_gate` clears the unconsumed guard and records activity.
+    ns.set(3_100_000);
+    let p = state.prepare_gate(&c).unwrap();
+    let mut g = gate();
+    g.now = 3_100_000;
+    g.lease_until = 10 * SECOND;
+    state.finish_gate(&c, g, p).unwrap();
+    assert!(
+        !state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 3_599_999)
+            .unwrap()
+    );
+    assert!(
+        state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 3_600_000)
+            .unwrap()
+    );
+    assert_eq!(state.warmup_count(), 2);
+}
+
+#[test]
+fn binance_hundred_warmups_preserve_account_journal_quota_and_101st_live_ws_tls_order_succeeds() {
+    use tickwire_binance_account::{
+        AccountIngress,
+        rest::RestOwner,
+        ws::{ControlAction, WsConfig},
+    };
+    let (state, ns, command) = setup_market(5_000_000, None, false);
+    state.set_warmup_interval_ns(500_000).unwrap();
+    let (snapshot, catalog, _) = account_fixture::fixture();
+    let base = tickwire_account_codec::CanonicalBaseline::new(snapshot, catalog).unwrap();
+    let dir = gateway_fixture::Directory::new();
+    let account_dir = dir.0.join("account");
+    let input_dir = dir.0.join("input");
+    let mut input = AccountIngress::create(
+        tickwire_journal::store::FileStore::open(&input_dir).unwrap(),
+        tickwire_binance_account::Config {
+            physical: tickwire_journal::Config::new([31; 16], [1; 16]),
+            writer_epoch: 4,
+            baseline: base.clone(),
+            account_stream: [2; 16],
+            max_records: 32,
+            max_registrations: 8,
+            max_raw_bytes: 32768,
+            max_retained_bytes: 1 << 20,
+            income_baseline_authority: None,
+            income_association_authority: None,
+        },
+    )
+    .unwrap();
+    let session = input.reserve_ws_session([41; 16], [42; 32]).unwrap();
+    state
+        .websocket_control(&session, ControlAction::Connect, 1, SECOND)
+        .unwrap();
+    let key_hmac = tickwire_binance::auth::SigningKey::hmac(b"unit-test-secret").unwrap();
+    let encoder = state.encoder(Credentials {
+        account: 2,
+        environment: tickwire_venue::Environment::Test,
+        market: request::Market::Spot,
+        api_key: "unit-key",
+        signing_key: &key_hmac,
+    });
+    let mut config = gateway_fixture::config(&base);
+    config.route.authority = "ws-api.testnet.binance.vision".into();
+    let (connection, peer) = ws_peer(&config.route.authority, ReplyMode::Normal);
+    let authority = gateway_fixture::MockAuthority::default();
+    let gateway = tickwire_account_gateway::AccountGateway::create(
+        tickwire_account_journal::FileBackend::open(&account_dir).unwrap(),
+        config,
+        base,
+        state.authority(authority),
+        encoder,
+        connection,
+    )
+    .unwrap();
+    let mut owner = RestOwner::from_parts_websocket(
+        input,
+        gateway,
+        session,
+        Box::new(state.clone()),
+        WsConfig {
+            lifetime_ns: 10 * SECOND,
+            control_timeout_ns: SECOND,
+            max_messages_per_poll: 8,
+        },
+        Instant::now(),
+        100,
+    )
+    .unwrap();
+    let budget = tickwire_transport::IoBudget {
+        max_bytes: 65536,
+        max_syscalls: 64,
+    };
+    let end = Instant::now() + Duration::from_secs(5);
+    while !owner.websocket_ready() && Instant::now() < end {
+        owner.poll(Instant::now(), 100, budget).unwrap();
+        std::thread::yield_now();
+    }
+    assert!(owner.websocket_ready());
+
+    state.refresh_warmup_scratch(owner.account()).unwrap();
+    let base_t = 1_000_000u64;
+    state.record_activity(base_t);
+    assert_eq!(state.warmup_count(), 0);
+
+    let read_dir_bytes = |p: &std::path::Path| -> Vec<(String, Vec<u8>)> {
+        let mut out = Vec::new();
+        for e in std::fs::read_dir(p).unwrap() {
+            let e = e.unwrap();
+            if e.path().is_file() {
+                out.push((
+                    e.file_name().into_string().unwrap(),
+                    std::fs::read(e.path()).unwrap(),
+                ));
+            }
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0));
+        out
+    };
+
+    let base_before = owner.account().asset(account_fixture::key(1)).unwrap();
+    let quote_before = owner.account().asset(account_fixture::key(2)).unwrap();
+    let orders_before = owner.account().order_keys().count();
+    let journal_pos_before = owner.gateway().journal_position();
+    let account_files_before = read_dir_bytes(&account_dir);
+    let input_files_before = read_dir_bytes(&input_dir);
+    let ws_responses_before = owner.ingress().stored_ws_responses().count();
+    let quota_before = state
+        .with_resources(|_, q| q.remaining(key_window(), Class::Normal))
+        .unwrap();
+    let signed_len_before = state.0.borrow().signed.len();
+    let plans_len_before = state.0.borrow().plans.len();
+
+    // Run 100 consecutive hot-path warmup iterations (50 idle-triggered + 50 explicit)
+    // exercising both REST and WebSocket dry-run paths while the live TLS 1.3 WebSocket sits open.
+    let mut t = base_t;
+    for _ in 0..50 {
+        t += 500_000;
+        assert!(
+            state
+                .maybe_warm_hot_path_with_account(Some(owner.account()), t)
+                .unwrap()
+        );
+    }
+    for _ in 0..50 {
+        t += 500_000;
+        let bytes = state
+            .warm_hot_path_with_account(Some(owner.account()), t)
+            .unwrap();
+        assert!(bytes > 64);
+    }
+    assert_eq!(state.warmup_count(), 100);
+
+    // Assert 100% bit-for-bit invariance of Account, AccountJournal, InputJournal, signed/plans, and Quota!
+    let base_after = owner.account().asset(account_fixture::key(1)).unwrap();
+    let quote_after = owner.account().asset(account_fixture::key(2)).unwrap();
+    assert_eq!(
+        (base_after.available, base_after.reserved),
+        (base_before.available, base_before.reserved)
+    );
+    assert_eq!(
+        (quote_after.available, quote_after.reserved),
+        (quote_before.available, quote_before.reserved)
+    );
+    assert_eq!(owner.account().order_keys().count(), orders_before);
+    assert!(!owner.account().frozen());
+    assert_eq!(owner.gateway().journal_position(), journal_pos_before);
+    assert_eq!(read_dir_bytes(&account_dir), account_files_before);
+    assert_eq!(read_dir_bytes(&input_dir), input_files_before);
+    assert_eq!(
+        owner.ingress().stored_ws_responses().count(),
+        ws_responses_before
+    );
+    assert_eq!(
+        state
+            .with_resources(|_, q| q.remaining(key_window(), Class::Normal))
+            .unwrap(),
+        quota_before
+    );
+    assert_eq!(state.0.borrow().signed.len(), signed_len_before);
+    assert_eq!(state.0.borrow().plans.len(), plans_len_before);
+
+    // Step 101: Submit and flush a REAL signed order over the live TLS 1.3 WebSocket connection!
+    ns.set(100);
+    assert_eq!(
+        owner.submit(command.clone(), &[[7; 16]], 60, end).unwrap(),
+        tickwire_account_gateway::Status::AwaitingCommit
+    );
+    let mut outcome = None;
+    while Instant::now() < end {
+        let polled = owner.poll(Instant::now(), 100, budget).unwrap();
+        if let Some(res) = polled {
+            outcome = Some(res);
+            break;
+        }
+        std::thread::yield_now();
+    }
+    let outcome = outcome.expect("101st live TLS WS order reply");
+    assert_eq!(
+        outcome.disposition,
+        tickwire_binance_account::rest::RestDisposition::Observed
+    );
+    assert_eq!(outcome.applied_events, 1);
+    assert_eq!(owner.gateway().journal_position(), 2);
+    drop(owner);
+    let request = peer.join().unwrap();
+    assert_eq!(request["method"], "order.place");
+}

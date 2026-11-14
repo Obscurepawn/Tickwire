@@ -8,6 +8,7 @@ pub mod recovery;
 pub use fills::{FillSource, trade_id};
 pub mod reports;
 mod session;
+pub mod warmup;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 pub use reports::{
     ModifyReply, OrderRowExtras, OrderSnapshot, Reply, ReportError, SpotIssueKind, classify_issue,

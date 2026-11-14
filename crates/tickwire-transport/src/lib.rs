@@ -132,4 +132,6 @@ pub mod fix;
 pub mod http;
 pub mod order_router;
 pub mod rest_querier;
+pub mod warmup;
+pub use warmup::{TlsLoopbackWarmer, WarmupConfig, WarmupTracker};
 pub mod ws;

@@ -28,3 +28,7 @@ time = "=0.3.55"
 tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-risk = { path = "../tickwire-risk" }
 rcgen = "=0.14.10"
+
+[[bench]]
+name = "hotpath_warmup"
+harness = false

@@ -29,10 +29,17 @@ storage, and socket I/O live in adjacent crates.
 * **Immediate quota freeze on `418`/`429`**: Propagate HTTP or WebSocket `418`/`429` status feedback directly to
   `Endpoint::freeze()` (and `MultiIpCommandQuota::note_account_banned` on `418`) so subsequent outbound attempts halt
   before touching the socket.
+* **Side-effect-free idle-window hot-path cache warming (`warmup`)**: In [src/warmup.rs](src/warmup.rs) and
+  [src/lib.rs](src/lib.rs), `BinanceHotPathWarmer` and `SharedSessionState::maybe_warm_hot_path_with_account`
+  (`warmup_interval_ns == 0` disabled by default) refuse to fire while any unconsumed `SignedCommand` awaits first-byte
+  gate acceptance or while `now_mono_ns - last_activity_ns < warmup_interval_ns`, and dry-run stack `bookTicker` decode,
+  read-only `&Account` / `StpBook` / `Fixed` math, stack RFC 2104 HMAC-SHA256 signing + REST/RFC 6455 WS framing, and
+  `TlsLoopbackWarmer` roundtrips without touching `signed`, `plans`, `Endpoint` / `MultiIpCommandQuota`, `AccountJournal`,
+  or live TLS connections.
 
 ## Verification and Specifications
 
-* **Source and unit tests**: [src/lib.rs](src/lib.rs) · [src/tests.rs](src/tests.rs)
+* **Source and unit tests**: [src/lib.rs](src/lib.rs) · [src/warmup.rs](src/warmup.rs) · [src/tests.rs](src/tests.rs)
 * **Specifications and models**: [binance-execution.md](../../specs/implementation/binance-execution.md) ·
   [binance-ws-trading.md](../../specs/implementation/binance-ws-trading.md) ·
   [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md)

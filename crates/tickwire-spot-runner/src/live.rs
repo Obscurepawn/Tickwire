@@ -361,6 +361,11 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         signing,
         writer_epoch: cfg.policy.writer_epoch,
     };
+    if cfg.warmup_interval_ns > 0 {
+        owner
+            .runner
+            .set_warmup_interval_ns(cfg.warmup_interval_ns)?;
+    }
     let mut after = owner.resume()?;
     let mut outstanding: Option<(PrivateCut, u64)> = None;
     let mut retry_at = Instant::now();
@@ -392,6 +397,9 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
             Some(market) => market.poll(now.monotonic, MAX_MARKET_AGE_NS, 64, &mut sink)?,
             None => Default::default(),
         };
+        if market_work.runnable {
+            owner.runner.record_activity(now.monotonic.nanos());
+        }
         after = owner.drain(after)?;
         let current = owner.current(after, now.monotonic);
         if owner.permission.get().is_some()
@@ -415,6 +423,9 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
                     Ok(true) => {
                         if use_pool && !owner.runner.session().gateway().has_connection_pool() {
                             configure_pool(owner.runner.session_mut())?;
+                        }
+                        if cfg.warmup_interval_ns > 0 {
+                            let _ = owner.runner.refresh_warmup_scratch();
                         }
                         *query_signing.lock().unwrap_or_else(|e| e.into_inner()) =
                             owner.signing.get();
@@ -530,6 +541,13 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
             return Err("live strategy group failed".into());
         }
         if !market_work.runnable && !owner.runner.has_pending() {
+            if trading
+                && owner.permission.get().is_some()
+                && !owner.runner.halted()
+                && !owner.runner.account().frozen()
+            {
+                let _ = owner.runner.maybe_warm_hot_path(now.monotonic.nanos());
+            }
             std::thread::sleep(Duration::from_micros(100));
         } else {
             std::thread::yield_now();

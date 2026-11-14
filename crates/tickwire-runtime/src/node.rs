@@ -427,11 +427,29 @@ where
         self.poll_private(io, &mut report)?;
         self.poll_account(io, &mut report)?;
         self.poll_strategies(&mut report)?;
-        report.next_deadline_ns = Some(
-            report
-                .next_deadline_ns
-                .map_or(self.next_calibration, |d| d.min(self.next_calibration)),
-        );
+        let now_mono_ns = reading.local.monotonic.nanos();
+        if report.market_messages > 0
+            || report.private_messages > 0
+            || report.submissions > 0
+            || report.rest_completed
+            || report.runnable
+        {
+            self.session.record_activity(now_mono_ns);
+        } else if !self.rest.account().frozen()
+            && !self.rest.gateway().halted()
+            && self.rest.submission_ready()
+        {
+            let _ = self
+                .session
+                .maybe_warm_hot_path_with_account(Some(self.rest.account()), now_mono_ns);
+        }
+        let mut next_deadline = report
+            .next_deadline_ns
+            .map_or(self.next_calibration, |d| d.min(self.next_calibration));
+        if let Some(warm_due) = self.session.next_warmup_due_ns() {
+            next_deadline = next_deadline.min(warm_due);
+        }
+        report.next_deadline_ns = Some(next_deadline);
         Ok(report)
     }
     fn poll_clock(&mut self, now: u64, io: IoBudget) -> Result<()> {
@@ -827,5 +845,53 @@ where
                 .poll(&mut events, Some(Duration::from_nanos(wait)))
                 .map_err(Error::Io)?;
         }
+    }
+
+    pub fn with_warmup_interval_ns(mut self, warmup_interval_ns: u64) -> Result<Self> {
+        self.set_warmup_interval_ns(warmup_interval_ns)?;
+        Ok(self)
+    }
+
+    pub fn set_warmup_interval_ns(&mut self, warmup_interval_ns: u64) -> Result<()> {
+        self.session
+            .set_warmup_interval_ns(warmup_interval_ns)
+            .map_err(Error::Shared)?;
+        if warmup_interval_ns > 0 {
+            self.session
+                .refresh_warmup_scratch(self.rest.account())
+                .map_err(Error::Shared)?;
+        }
+        Ok(())
+    }
+
+    pub fn warmup_interval_ns(&self) -> u64 {
+        self.session.warmup_interval_ns()
+    }
+
+    pub fn warmup_count(&self) -> u64 {
+        self.session.warmup_count()
+    }
+
+    pub fn record_activity(&mut self, now_mono_ns: u64) {
+        self.session.record_activity(now_mono_ns);
+    }
+
+    pub fn warm_hot_path(&mut self, now_mono_ns: u64) -> Result<usize> {
+        self.session
+            .warm_hot_path_with_account(Some(self.rest.account()), now_mono_ns)
+            .map_err(Error::Shared)
+    }
+
+    pub fn maybe_warm_hot_path(&mut self, now_mono_ns: u64) -> Result<bool> {
+        if self.rest.account().frozen()
+            || self.rest.gateway().halted()
+            || !self.rest.submission_ready()
+        {
+            self.session.record_activity(now_mono_ns);
+            return Ok(false);
+        }
+        self.session
+            .maybe_warm_hot_path_with_account(Some(self.rest.account()), now_mono_ns)
+            .map_err(Error::Shared)
     }
 }

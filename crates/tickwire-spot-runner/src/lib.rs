@@ -1157,7 +1157,8 @@ impl<
                 return Err(Error::Origin("unrecognized private execution origin"));
             }
         };
-        self.session
+        let applied = self
+            .session
             .record_fill(
                 FillSource {
                     scope: &scope,
@@ -1170,6 +1171,65 @@ impl<
                 },
                 row,
             )
+            .map_err(Error::Session)?;
+        self.session.record_activity(received_ns);
+        Ok(applied)
+    }
+
+    pub fn with_warmup_interval_ns(mut self, warmup_interval_ns: u64) -> Result<Self> {
+        self.set_warmup_interval_ns(warmup_interval_ns)?;
+        Ok(self)
+    }
+
+    pub fn set_warmup_interval_ns(&mut self, warmup_interval_ns: u64) -> Result<()> {
+        self.session
+            .set_warmup_interval_ns(warmup_interval_ns)
             .map_err(Error::Session)
+    }
+
+    pub fn warmup_interval_ns(&self) -> u64 {
+        self.session.warmup_interval_ns()
+    }
+
+    pub fn warmup_count(&self) -> u64 {
+        self.session.warmup_count()
+    }
+
+    pub fn last_activity_ns(&self) -> u64 {
+        self.session.last_activity_ns()
+    }
+
+    pub fn last_warm_ns(&self) -> u64 {
+        self.session.last_warm_ns()
+    }
+
+    pub fn record_activity(&mut self, now_mono_ns: u64) {
+        self.session.record_activity(now_mono_ns);
+    }
+
+    pub fn refresh_warmup_scratch(&mut self) -> Result<()> {
+        self.session
+            .refresh_warmup_scratch()
+            .map_err(Error::Session)
+    }
+
+    pub fn warm_hot_path(&mut self, now_mono_ns: u64) -> Result<usize> {
+        self.session
+            .warm_hot_path(now_mono_ns)
+            .map_err(Error::Session)
+    }
+
+    pub fn maybe_warm_hot_path(&mut self, now_mono_ns: u64) -> Result<bool> {
+        if self.active_inflight_len() > 0 {
+            self.session.record_activity(now_mono_ns);
+            return Ok(false);
+        }
+        self.session
+            .maybe_warm_hot_path(now_mono_ns)
+            .map_err(Error::Session)
+    }
+
+    pub fn origin_counts(&self) -> (usize, usize, usize) {
+        self.origins.entry_counts()
     }
 }

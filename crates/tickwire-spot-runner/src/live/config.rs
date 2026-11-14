@@ -36,6 +36,8 @@ pub(super) struct Deployment {
     pub market_sources: Vec<ConnectConfig>,
     pub strategies: Vec<Queue>,
     pub stop_file: PathBuf,
+    #[serde(default)]
+    pub warmup_interval_ns: u64,
 }
 
 #[derive(Deserialize)]
