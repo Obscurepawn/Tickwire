@@ -2,6 +2,30 @@
 
 [November 2026 verification audit](audits/2026-11-05/README.md) · [Per-crate coverage and drift](audits/2026-11-05/inventory.md)
 
+## hotpath_ultralow_latency / L0_zerocopy_crc_gate — PASS (2026-11-15)
+
+- Mode: fault injection (`CrcEnabled = FALSE` default & `CrcEnabled = TRUE` opt-in).
+- Property: Lifetime-pinned `#[repr(C)]` 512-byte / 8-byte-aligned pure-integer `&MarketRecord` / `MarketStateRef` zero-copy SHM borrows (`ZeroNoAliasWhileBorrowed`, `ZeroCopyLayoutAndHeaderSoundness`), `RecordHeader` flag `0x08` (`CHECKSUM_PRESENT`) and CRC field consistency across `crc32` modes (`CrcGateModeConsistency`), and physical WAL SHA-256 `frame_hash` chain + `repeated_total_len` + `END_MAGIC` corruption quarantine and torn-tail truncation without CRC-32C (`WalRecoverySoundWithoutCrc`).
+- TLC: 288,000 / 887,900 distinct states (1,154,681 / 3,740,035 generated); depths 27 and 28; 14/14 actions covered. [Run log](execution_models/hotpath_ultralow_latency/L0_zerocopy_crc_gate/03_run_log.md)
+- Finding: verified(0 bugs across `tickwire-ipc`, `tickwire-shm`, `tickwire-market-source`, `tickwire-strategy-sdk`, and `tickwire-journal`). [Result and source map](execution_models/hotpath_ultralow_latency/L0_zerocopy_crc_gate/05_output.md)
+- Last synced: 2026-11-15 against `e5d9088` (2,075 line anchors).
+
+## hotpath_ultralow_latency / L1_idle_warmer_isolation — PASS (2026-11-15)
+
+- Mode: fault / interleaving & negative contrast guard (`WarmupInterval = 2` & `WarmupInterval = 0`).
+- Property: Bit-for-bit invariance of live `Account`, `AccountJournal`, `Origins` / `intent_seq`, SHM `published`, and `VenueRateLimiter` tokens across `WarmHotPath` (`LiveBusinessStateInvariance`), live `rustls::ClientConnection` AEAD nonce synchronization across interleaved `0..N` warmups and live orders (`LiveTlsNonceSynchronization`), isolated loopback `TlsLoopbackWarmer` client/server nonce lockstep (`DummyLoopbackTlsPairSynchronization`), and strict idle-window + disabled-mode gating (`WarmupStrictlyRespectsIdlePolicy`).
+- TLC: 45,550 / 3,690 distinct states (151,624 / 14,110 generated); depths 18 and 16; 9/9 actions covered. [Run log](execution_models/hotpath_ultralow_latency/L1_idle_warmer_isolation/03_run_log.md)
+- Finding: verified(0 bugs across `tickwire-transport`, `tickwire-spot-execution`, `tickwire-spot-runner`, `tickwire-binance-execution`, and `tickwire-runtime`). [Result and source map](execution_models/hotpath_ultralow_latency/L1_idle_warmer_isolation/05_output.md)
+- Last synced: 2026-11-15 against `e5d9088` (1,364 line anchors).
+
+## hotpath_ultralow_latency / L2_simd_decode_overflow — PASS (2026-11-15)
+
+- Mode: fault injection & oracle equivalence (`Bybit` `release` & `Okx` `bench`).
+- Property: Universal `FastOrFallbackDecode == SerdeOracleDecode` output and `Session` state equivalence across unescaped, reordered, escaped, chunk-boundary truncated, off-grid, crossed, and overflowing frames (`ExactOracleEquivalence`), strict positive spread and exact `TickStep` / `LotStep` divisibility on published `SpotQuote`s with `Unavailable` mapping on crossed/one-sided books (`TickLotAndPositiveSpreadSoundness`), zero silent wrap across `dev`/`test`/`release`/`bench` (`NoSilentArithmeticWrap`), and zero hot-path heap allocations or out-of-bounds vector loads (`ZeroHotPathHeapAllocation`).
+- TLC: 998 / 998 distinct states (27,369 / 27,369 generated); depth 7 for both; 12/12 actions covered. [Run log](execution_models/hotpath_ultralow_latency/L2_simd_decode_overflow/03_run_log.md)
+- Finding: verified(0 bugs across `tickwire-md` and workspace `Cargo.toml`). [Result and source map](execution_models/hotpath_ultralow_latency/L2_simd_decode_overflow/05_output.md)
+- Last synced: 2026-11-15 against `e5d9088` (1,899 line anchors).
+
 ## market_making_microstructure / L0_stp_modify — PASS (retired/fixed 4 bugs) (2026-11-14)
 
 - Mode: fault injection.

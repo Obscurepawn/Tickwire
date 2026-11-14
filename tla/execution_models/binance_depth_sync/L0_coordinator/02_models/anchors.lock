@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-11-14T23:16:28
+# anchors.lock — written by anchors.sh update on 2026-11-15T01:05:32
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 crates/tickwire-binance/src/depth_sync.rs	124	2924b4ded07703a990f35ff854315cd42ad4ec698690c5dc0fed713347db2d78
 crates/tickwire-binance/src/depth_sync.rs	125	a4e2542a887b27f13171042019abb452e83e4536034b7d79dc1f1eb873d67517
