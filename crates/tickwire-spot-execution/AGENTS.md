@@ -14,19 +14,28 @@ math, and control leases remain outside this crate.
   `ProductMode::Spot` base-quantity orders (`tdMode: "cash"` on OKX, `category: "spot"` on Bybit) with validated ASCII
   credentials, symbols, and venue-bounded `client_id` lengths (`32` OKX, `36` Bybit); never implement `Debug` or error
   formatting that exposes API secrets or passphrases.
-* **Distinct acknowledgement, order-status, fill, and error-classification evidence**: Keep synchronous HTTP
-  acknowledgements and venue error classification (`SpotIssueKind`, `classify_issue`, `is_http_account_hazard`,
-  `is_venue_rate_limit_code`) in [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from
-  trade-level fills in [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs);
-  default unknown venue codes conservatively to `SpotIssueKind::Ambiguous`, preserve `per_order_doubt_isolation() ==
-  false` by default in unpooled mode, record `VenueEventBody::Rejected` (`record_rejected_new`) only on
-  `DeterministicReject` for `New` orders, and enforce `writer_epoch > durable_floor` when constructing `RestSession`.
-* **Multi-connection exclusive HTTP/1.1 pool and `Place`/`Cancel`/`Query` isolated `VenueRateLimiter`**: Preserve 100%
-  single-connection `RestSession` semantics when `gateway.has_connection_pool() == false`. When pooled via
+* **Distinct acknowledgement, modification, order-status, fill, and error-classification evidence**: Keep synchronous
+  HTTP acknowledgements, in-place `CommandBody::Modify(ModifyOrder)` outcomes (`ModifyReply`, `decode_modify_reply`,
+  `record_modify_outcome`), and venue error/terminal reason classification (`SpotIssueKind`, `classify_issue`,
+  `classify_order_row_terminal_reason`, `extract_order_row_extras`, `is_http_account_hazard`, `is_venue_rate_limit_code`)
+  in [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from trade-level fills in
+  [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs); encode Bybit V5
+  `POST /v5/order/amend` (`X-BAPI-*` HMAC-SHA256) and OKX V5 `POST /api/v5/trade/amend-order` (`OK-ACCESS-*` Base64
+  HMAC-SHA256) in [src/lib.rs](src/lib.rs), default unknown venue codes conservatively to `SpotIssueKind::Ambiguous`,
+  preserve `per_order_doubt_isolation() == false` by default in unpooled mode, record `VenueEventBody::Rejected`
+  (`record_rejected_new`) only on `DeterministicReject` for `New` orders, emit `VenueEventBody::Modified` or
+  `VenueEventBody::ModifyRejected` without freezing `Account` on deterministic `Modify` responses, isolate ambiguous
+  `Modify` outcomes under `DoubtReason::AmendAmbiguous`, and enforce `writer_epoch > durable_floor` when constructing
+  `RestSession`.
+* **Multi-connection exclusive HTTP/1.1 pool and `Place`/`Modify`/`Cancel`/`Query` isolated `VenueRateLimiter`**: Preserve
+  100% single-connection `RestSession` semantics when `gateway.has_connection_pool() == false`. When pooled via
   `with_connection_pool` / `enable_connection_pool` in [src/session.rs](src/session.rs), enforce `SendSlot::Exclusive`
   per slot (`0..MAX_ORDER_CONNECTIONS`), derive non-zero `symbol_rate_key(instrument_id)` (auto-registering symbols on
-  `OkxSpot`), return `SessionError::RateLimited(RateReject)` **before** `gateway.submit_on_slot` when local `Place`,
-  `Cancel`, or `Query` budgets are full, correlate concurrent completions via `poll_tagged`, record microsecond RTTs via
+  `OkxSpot`), debit `CommandBody::Modify` from the order/amend quota (`allow_modify(..., counts_as_order: true)`) only
+  **after** `AccountGateway` admission succeeds (never burning tokens on local `CrossesBook`, `InsufficientAsset`,
+  `TooManyPendingActions`, or `NoChange` refusals, and never consuming cancel-only reserve), return
+  `SessionError::RateLimited(RateReject)` **before** `gateway.submit_on_slot` when local `Place`, `Modify`, `Cancel`, or
+  `Query` budgets are full, correlate concurrent completions via `poll_tagged`, record microsecond RTTs via
   `note_slot_sample(..., SampleKind::Order, sample_us)`, isolate single-slot drops via `drop_broken_slot_isolated`, and
   translate HTTP `429` / Bybit `10006` / OKX `50011` on multi-IP pooled slots into per-IP `note_ip_cooldown` +
   single-intent `in_doubt` without freezing `Account` (while HTTP `401`/`403`/`418` and auth hazards still freeze

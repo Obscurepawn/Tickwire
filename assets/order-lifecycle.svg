@@ -1,96 +1,139 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="760" height="360" viewBox="0 0 760 360"
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="476" viewBox="0 0 820 476"
      role="img" aria-labelledby="title description">
-  <title id="title">Order admission, selectable commit profile, first-byte gate, and recovery boundary</title>
-  <desc id="description">Four-stage order submission pipeline showing SelfDescribingClientId intake and fixed-point hold, selectable InMemory, MmapAsync, or LocalDurable journal and closure commit before send, grant re-verification immediately before the first TLS plaintext byte, and the deterministic split between proven zero-byte aborts releasing exposure versus partial sends or restarts freezing the account or cold-bootstrapping from exchange OpenOrders.</desc>
+  <title id="title">Institutional order admission, routing, and three-way outcome boundary</title>
+  <desc id="description">Four-stage institutional order pipeline showing SelfDescribingClientId intake with lock-free StpBook and Modify holds, selectable InMemory, MmapAsync, or fsync WAL commit before send, EWMA routing with per-IP rate limiting and first-byte grant re-verification, and pooled REST or WebSocket wire flush with ProjectedFill and trade deduplication, splitting into three outcomes: proven zero-byte or STP/quota aborts that immediately release holds, single-order timeouts or disconnects isolated to an off-thread per-order QueryDesk while peer orders keep trading, and full process restarts that freeze new risk or cold-bootstrap tw1 attribution from exchange OpenOrders until verified.</desc>
   <defs>
-    <marker id="arr-dark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+    <marker id="arr-dark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.2" markerHeight="6.2" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
     </marker>
     <marker id="arr-green" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#15803d"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#b45309"/>
     </marker>
     <marker id="arr-red" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#b91c1c"/>
     </marker>
     <style>
       text { font-family: "Inter", "Segoe UI", "DejaVu Sans", sans-serif; text-anchor: middle; }
-      .step-num { font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.4px; }
-      .box-title { font-size: 15.5px; font-weight: 700; fill: #0f172a; }
-      .box-sub { font-size: 13px; fill: #334155; }
-      .out-title-ok { font-size: 15px; font-weight: 700; fill: #14532d; }
-      .out-title-warn { font-size: 15px; font-weight: 700; fill: #7f1d1d; }
-      .out-sub { font-size: 13.5px; fill: #1e293b; }
-      .lbl-ok { font-size: 13px; font-weight: 700; fill: #15803d; }
-      .lbl-warn { font-size: 13px; font-weight: 700; fill: #b91c1c; }
+      .step-num { font-size: 14.15px; font-weight: 700; fill: #475569; }
+      .step-wal { font-size: 14.15px; font-weight: 700; fill: #92400e; }
+      .step-gate { font-size: 14.15px; font-weight: 700; fill: #1e40af; }
+      .step-wire { font-size: 14.15px; font-weight: 700; fill: #166534; }
+      .box-title { font-size: 14.8px; font-weight: 700; fill: #0f172a; }
+      .box-title-ok { font-size: 14.8px; font-weight: 700; fill: #14532d; }
+      .box-sub { font-size: 14.15px; fill: #334155; }
+      .out-title-ok { font-size: 15.5px; font-weight: 700; fill: #14532d; }
+      .out-title-amber { font-size: 15.5px; font-weight: 700; fill: #78350f; }
+      .out-title-warn { font-size: 15.5px; font-weight: 700; fill: #7f1d1d; }
+      .out-sub { font-size: 14.2px; fill: #1e293b; }
+      .lbl-ok { font-size: 14.2px; font-weight: 700; fill: #15803d; }
+      .lbl-amber { font-size: 14.2px; font-weight: 700; fill: #b45309; }
+      .lbl-warn { font-size: 14.2px; font-weight: 700; fill: #b91c1c; }
       .stage { fill: #f8fafc; stroke: #64748b; stroke-width: 1.8; }
       .stage-wal { fill: #fffbeb; stroke: #d97706; stroke-width: 2; }
       .stage-gate { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; }
       .stage-ok { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.8; }
+      .stage-amber { fill: #fffbeb; stroke: #d97706; stroke-width: 1.8; }
       .stage-freeze { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.8; }
-      .pill-ok { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.3; }
-      .pill-warn { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1.3; }
+      .pill-ok { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.4; }
+      .pill-amber { fill: #fffbeb; stroke: #fcd34d; stroke-width: 1.4; }
+      .pill-warn { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1.4; }
+      .div-ok { stroke: #86efac; stroke-width: 1.2; }
+      .div-amber { stroke: #fcd34d; stroke-width: 1.2; }
+      .div-warn { stroke: #fca5a5; stroke-width: 1.2; }
       .line { fill: none; stroke: #334155; stroke-width: 2.2; stroke-linejoin: round; }
       .line-ok { fill: none; stroke: #15803d; stroke-width: 2.2; stroke-linejoin: round; }
+      .line-amber { fill: none; stroke: #b45309; stroke-width: 2.2; stroke-linejoin: round; }
       .line-warn { fill: none; stroke: #b91c1c; stroke-width: 2.2; stroke-linejoin: round; }
     </style>
   </defs>
 
-  <rect width="760" height="360" rx="10" fill="#ffffff"/>
+  <rect width="820" height="476" rx="10" fill="#ffffff"/>
 
-  <!-- Top Pipeline Row (y = 20..122) -->
-  <rect class="stage" x="20" y="20" width="164" height="102" rx="8"/>
-  <text x="102" y="42" class="step-num">1 · INTAKE &amp; ENCODE</text>
-  <text x="102" y="65" class="box-title">Candidate Check</text>
-  <text x="102" y="86" class="box-sub">SelfDescribingClientId</text>
-  <text x="102" y="105" class="box-sub">Fixed-point hold</text>
+  <!-- Top Hot-Path Pipeline Row (y = 16..130) -->
+  <!-- Stage 1 -->
+  <rect class="stage" x="10" y="16" width="190" height="114" rx="8"/>
+  <text x="105" y="39" class="step-num">1 · INTAKE &amp; STP</text>
+  <text x="105" y="63" class="box-title">Candidate &amp; StpBook</text>
+  <text x="105" y="87" class="box-sub">SelfDescribingClientId</text>
+  <text x="105" y="109" class="box-sub">Lock-free STP &amp; Modify</text>
 
-  <path class="line" d="M184 71 H208" marker-end="url(#arr-dark)"/>
+  <path class="line" d="M200 73 H217" marker-end="url(#arr-dark)"/>
 
-  <rect class="stage-wal" x="210" y="20" width="174" height="102" rx="8"/>
-  <text x="297" y="42" class="step-num">2 · JOURNAL COMMIT</text>
-  <text x="297" y="65" class="box-title">Journal &amp; Closure</text>
-  <text x="297" y="86" class="box-sub">InMemory (default)</text>
-  <text x="297" y="105" class="box-sub">MmapAsync · fsync WAL</text>
+  <!-- Stage 2 -->
+  <rect class="stage-wal" x="220" y="16" width="196" height="114" rx="8"/>
+  <text x="318" y="39" class="step-wal">2 · COMMIT PROFILE</text>
+  <text x="318" y="63" class="box-title">Journal &amp; Closure</text>
+  <text x="318" y="87" class="box-sub">InMemory (0-disk default)</text>
+  <text x="318" y="109" class="box-sub">MmapAsync · fsync WAL</text>
 
-  <path class="line" d="M384 71 H408" marker-end="url(#arr-dark)"/>
+  <path class="line" d="M416 73 H433" marker-end="url(#arr-dark)"/>
 
-  <rect class="stage-gate" x="410" y="20" width="174" height="102" rx="8"/>
-  <text x="497" y="42" class="step-num">3 · FIRST-BYTE GATE</text>
-  <text x="497" y="65" class="box-title">Recheck Grant</text>
-  <text x="497" y="86" class="box-sub">Lease · epoch · deadline</text>
-  <text x="497" y="105" class="box-sub">Live feed &amp; private cut</text>
+  <!-- Stage 3 -->
+  <rect class="stage-gate" x="436" y="16" width="186" height="114" rx="8"/>
+  <text x="529" y="39" class="step-gate">3 · ROUTER &amp; GATE</text>
+  <text x="529" y="63" class="box-title">First-Byte &amp; Quota</text>
+  <text x="529" y="87" class="box-sub">EWMA · IP RateLimiter</text>
+  <text x="529" y="109" class="box-sub">Recheck lease &amp; live cut</text>
 
-  <path class="line-ok" d="M584 71 H608" marker-end="url(#arr-green)"/>
+  <path class="line-ok" d="M622 73 H639" marker-end="url(#arr-green)"/>
 
-  <rect class="stage-ok" x="610" y="20" width="130" height="102" rx="8"/>
-  <text x="675" y="42" class="step-num">4 · TLS WRITE</text>
-  <text x="675" y="65" class="out-title-ok">MayHaveSent</text>
-  <text x="675" y="86" class="box-sub">Flush signed</text>
-  <text x="675" y="105" class="box-sub">bytes to venue</text>
+  <!-- Stage 4 -->
+  <rect class="stage-ok" x="642" y="16" width="168" height="114" rx="8"/>
+  <text x="726" y="39" class="step-wire">4 · WIRE FLUSH</text>
+  <text x="726" y="63" class="box-title-ok">Pooled REST / WS</text>
+  <text x="726" y="87" class="box-sub">Signed frame write</text>
+  <text x="726" y="109" class="box-sub">ProjectedFill + dedup</text>
 
-  <!-- Dedicated Routing Corridor (y = 122..196) -->
-  <!-- Branch A: Proven 0-Byte Abort -->
-  <path class="line-ok" d="M480 122 V157 H192 V192" marker-end="url(#arr-green)"/>
-  <rect class="pill-ok" x="238" y="144" width="196" height="26" rx="13"/>
-  <text x="336" y="162" class="lbl-ok">0 bytes sent (NoBytes)</text>
+  <!-- Dedicated Non-Overlapping Routing Corridor (y = 130..244) -->
+  <!-- Branch A (Green): Stage 1 STP refusal + Stage 3 Quota/0-Byte abort -> Left Card -->
+  <path class="line-ok" d="M105 130 V145 H140 M468 130 V145 H140 V241" marker-end="url(#arr-green)"/>
+  <rect class="pill-ok" x="28" y="173" width="224" height="46" rx="10"/>
+  <text x="140" y="192" class="lbl-ok">0 bytes sent / STP</text>
+  <text x="140" y="211" class="lbl-ok">or Quota Refusal</text>
 
-  <!-- Branch B: Partial I/O or Restart -->
-  <path class="line-warn" d="M675 122 V192" marker-end="url(#arr-red)"/>
-  <rect class="pill-warn" x="502" y="144" width="162" height="26" rx="13"/>
-  <text x="583" y="162" class="lbl-warn">Partial I/O or restart</text>
+  <!-- Branch B (Amber): Single-order timeout / 5xx / disconnect -> Center Card -->
+  <path class="line-amber" d="M662 130 V159 H410 V241" marker-end="url(#arr-amber)"/>
+  <rect class="pill-amber" x="292" y="173" width="236" height="46" rx="10"/>
+  <text x="410" y="192" class="lbl-amber">Single-order timeout</text>
+  <text x="410" y="211" class="lbl-amber">5xx or disconnect</text>
 
-  <!-- Bottom Outcome Row (y = 196..340) -->
-  <rect class="stage-ok" x="28" y="196" width="328" height="144" rx="8"/>
-  <text x="192" y="224" class="out-title-ok">Proven Zero-Byte Abort</text>
-  <text x="192" y="249" class="out-sub">Verify no contradicting venue ack or fill</text>
-  <text x="192" y="271" class="out-sub">Commit Aborted record to AccountJournal</text>
-  <text x="192" y="293" class="out-sub">Release reserved capital immediately</text>
-  <text x="192" y="319" class="lbl-ok">Account remains active for peers</text>
+  <!-- Branch C (Red): Process crash / pod migration / cold start -> Right Card -->
+  <path class="line-warn" d="M766 130 V159 H680 V241" marker-end="url(#arr-red)"/>
+  <rect class="pill-warn" x="568" y="173" width="224" height="46" rx="10"/>
+  <text x="680" y="192" class="lbl-warn">Process crash · pod</text>
+  <text x="680" y="211" class="lbl-warn">migration · cold start</text>
 
-  <rect class="stage-freeze" x="396" y="196" width="344" height="144" rx="8"/>
-  <text x="568" y="224" class="out-title-warn">Uncertain Outcome / Cold Start</text>
-  <text x="568" y="249" class="out-sub">Retain full capital &amp; position holds</text>
-  <text x="568" y="271" class="out-sub">Continue booking fills &amp; cancellations</text>
-  <text x="568" y="293" class="out-sub">Reconcile WAL or cold-decode OpenOrders</text>
-  <text x="568" y="319" class="lbl-warn">Verify remote state to resume new risk</text>
+  <!-- Bottom 3 Outcome Cards (y = 244..460) -->
+  <!-- Left Card: Proven Zero-Byte Abort -->
+  <rect class="stage-ok" x="14" y="244" width="252" height="216" rx="8"/>
+  <text x="140" y="273" class="out-title-ok">Proven Zero-Byte Abort</text>
+  <line class="div-ok" x1="32" y1="288" x2="248" y2="288"/>
+  <text x="140" y="315" class="out-sub">Commit Aborted /</text>
+  <text x="140" y="336" class="out-sub">local TerminalReason</text>
+  <text x="140" y="367" class="out-sub">Release reserved hold</text>
+  <text x="140" y="388" class="out-sub">(or revert Modify delta)</text>
+  <text x="140" y="432" class="lbl-ok">Account &amp; peers stay active</text>
+
+  <!-- Center Card: Per-Order QueryDesk Isolation -->
+  <rect class="stage-amber" x="284" y="244" width="252" height="216" rx="8"/>
+  <text x="410" y="273" class="out-title-amber">Per-Order QueryDesk</text>
+  <line class="div-amber" x1="302" y1="288" x2="518" y2="288"/>
+  <text x="410" y="315" class="out-sub">Mark single order InDoubt</text>
+  <text x="410" y="336" class="out-sub">(retain its reserved hold)</text>
+  <text x="410" y="367" class="out-sub">Off-thread AsyncRestQuerier</text>
+  <text x="410" y="388" class="out-sub">backoff requery probe</text>
+  <text x="410" y="432" class="lbl-amber">Peer orders keep trading</text>
+
+  <!-- Right Card: Account Freeze / Cold Bootstrap -->
+  <rect class="stage-freeze" x="554" y="244" width="252" height="216" rx="8"/>
+  <text x="680" y="273" class="out-title-warn">Freeze / Cold Bootstrap</text>
+  <line class="div-warn" x1="572" y1="288" x2="788" y2="288"/>
+  <text x="680" y="315" class="out-sub">Replay WAL or stateless</text>
+  <text x="680" y="336" class="out-sub">exchange OpenOrders scan</text>
+  <text x="680" y="367" class="out-sub">Decode tw1... attribution</text>
+  <text x="680" y="388" class="out-sub">&amp; strategy sequence floors</text>
+  <text x="680" y="432" class="lbl-warn">Resume once venue verified</text>
 </svg>

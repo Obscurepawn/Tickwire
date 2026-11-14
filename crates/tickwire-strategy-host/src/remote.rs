@@ -283,6 +283,13 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
     pub fn failed(&self) -> bool {
         self.error.is_some() || self.strategy.error().is_some()
     }
+    /// Delivers a volatile strategy-attributed [`tickwire_account::ProjectedFill`] to the
+    /// remote host resolver without writing non-authoritative projections onto durable report rings.
+    pub fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
+        if !self.failed() && fill.strategy == self.identity.logical_strategy {
+            self.strategy.on_projected_fill(fill);
+        }
+    }
     /// Fail this owned instance after its startup configuration proof is rejected.
     /// Uses the normal fail-closed cleanup; it does not certify graceful retirement.
     pub fn reject_configuration(&mut self) {

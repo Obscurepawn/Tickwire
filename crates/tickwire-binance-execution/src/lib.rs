@@ -162,6 +162,9 @@ impl<C: SessionClock, B: DeliveryBudget> tickwire_binance_account::ws::SessionSt
         self.install_websocket_binding(binding)
             .map_err(|_| tickwire_binance_account::Error::Identity)
     }
+    fn discard_uncommitted(&mut self, digest: Hash) {
+        self.discard_uncommitted_websocket(digest);
+    }
     fn feedback(&mut self, status: u16) -> tickwire_binance_account::Result<()> {
         if matches!(status, 418 | 429) {
             let mut state = self
@@ -376,6 +379,20 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         }
         ws.binding = Some(binding);
         Ok(())
+    }
+    pub fn discard_uncommitted_websocket(&self, digest: Hash) {
+        let Ok(mut state) = self.0.try_borrow_mut() else {
+            return;
+        };
+        let has_committed_binding = state
+            .signed
+            .get(&digest)
+            .and_then(|r| r.websocket.as_ref())
+            .is_some_and(|w| w.binding.is_some());
+        if !has_committed_binding {
+            state.plans.remove(&digest);
+            state.signed.remove(&digest);
+        }
     }
     fn binding_ready(
         &self,

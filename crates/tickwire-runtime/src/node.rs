@@ -336,6 +336,27 @@ where
     pub fn rest(&self) -> &RestOwner<IS, AS, A, E> {
         &self.rest
     }
+    pub fn set_projected_fill(&mut self, enabled: bool) {
+        self.rest.set_projected_fill(enabled);
+    }
+    pub fn projected_fill_enabled(&self) -> bool {
+        self.rest.projected_fill_enabled()
+    }
+    pub fn drain_projected_fills(&mut self) -> Vec<tickwire_account::ProjectedFill> {
+        self.rest.drain_projected_fills()
+    }
+    pub fn pop_projected_fill(&mut self) -> Option<tickwire_account::ProjectedFill> {
+        self.rest.pop_projected_fill()
+    }
+    pub fn set_stp_enforcement(&mut self, enabled: bool) {
+        self.rest.set_stp_enforcement(enabled);
+    }
+    pub fn stp_enforcement(&self) -> bool {
+        self.rest.stp_enforcement()
+    }
+    pub fn stp_book(&self) -> &tickwire_account::StpBook {
+        self.rest.stp_book()
+    }
     /// Reconnect may sample the shared clock/quota itself; do not hold its RefCell borrow here.
     pub fn with_trading_owner<T>(
         &mut self,

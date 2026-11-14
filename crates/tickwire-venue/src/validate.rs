@@ -544,6 +544,52 @@ pub(crate) fn event(e: &VenueEvent) -> Result<(), Error> {
         return Err(Error::Identity);
     }
     match &e.body {
+        VenueEventBody::Modified(m) => {
+            if !nonzero(&m.target.order_id)
+                || m.target.expected_owner_revision == 0
+                || m.target.original_intent_exec_epoch == 0
+                || (m.target.client_id.is_none() && m.target.venue_order_id.is_none())
+            {
+                return Err(Error::Identity);
+            }
+            if let Some(intent) = m.intent
+                && (intent.epoch == 0
+                    || intent.intent_id == 0
+                    || m.target.original_intent_exec_epoch > intent.epoch)
+            {
+                return Err(Error::Identity);
+            }
+            positive(m.new_quantity)?;
+            if !m.new_price.is_positive() {
+                return Err(Error::Price);
+            }
+            if let Some(cum) = m.cumulative_filled {
+                if cum.coefficient() < 0 {
+                    return Err(Error::Quantity);
+                }
+                if cum.is_positive()
+                    && compare_positive(cum, m.new_quantity) == std::cmp::Ordering::Greater
+                {
+                    return Err(Error::Quantity);
+                }
+            }
+        }
+        VenueEventBody::ModifyRejected(m) => {
+            if !nonzero(&m.target.order_id)
+                || m.target.expected_owner_revision == 0
+                || m.target.original_intent_exec_epoch == 0
+                || (m.target.client_id.is_none() && m.target.venue_order_id.is_none())
+            {
+                return Err(Error::Identity);
+            }
+            if let Some(intent) = m.intent
+                && (intent.epoch == 0
+                    || intent.intent_id == 0
+                    || m.target.original_intent_exec_epoch > intent.epoch)
+            {
+                return Err(Error::Identity);
+            }
+        }
         VenueEventBody::AmendmentRejected(a) => {
             event_order(&a.order)?;
             if i.product != Product::Spot

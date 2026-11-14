@@ -48,6 +48,7 @@ pub trait SessionState {
     fn prepare(&mut self, plan: WsRequestPlan) -> Result<()>;
     fn signed_wire(&self, command: v::Hash) -> Result<SignedWire>;
     fn install(&mut self, binding: DurableWsBinding) -> Result<()>;
+    fn discard_uncommitted(&mut self, _command: v::Hash) {}
     fn feedback(&mut self, status: u16) -> Result<()>;
     fn control(
         &mut self,
@@ -283,6 +284,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             | v::CommandBody::CancelList(_)
             | v::CommandBody::CancelAlgo(_)
             | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Modify(_)
                 if ids.is_empty() => {}
             _ => return Err(Error::Unsupported),
         }
@@ -306,7 +308,27 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
                 | v::CommandBody::SpotList(_)
                 | v::CommandBody::Algo(_)
         ) {
-            self.ingress.register_command(command.clone(), ids)?;
+            let skip_reg = {
+                let mut precheck = self.gateway.account().clone();
+                match precheck.admit(&command, evaluated_at) {
+                    Ok(_) => false,
+                    Err(acc_err) => {
+                        !precheck.frozen()
+                            && crate::modify::is_non_freezing_account_refusal(&acc_err)
+                            && registry::prepare(
+                                &self.ingress.config,
+                                &self.ingress.registry,
+                                &command,
+                                ids,
+                                true,
+                            )
+                            .is_ok()
+                    }
+                }
+            };
+            if !skip_reg {
+                self.ingress.register_command(command.clone(), ids)?;
+            }
         }
         let runtime = self.websocket.as_mut().unwrap();
         let plan = self.ingress.plan_ws_request(
@@ -326,6 +348,14 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
         let status = match result {
             Ok(s) => s,
             Err(e) => {
+                if !self.gateway.halted()
+                    && !self.gateway.account().frozen()
+                    && !self.ingress.stopped()
+                    && e.classify_refusal_reason().is_some()
+                {
+                    runtime.state.discard_uncommitted(command.digest());
+                    return Err(e);
+                }
                 self.stop_sending();
                 return Err(e);
             }

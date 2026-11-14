@@ -1,7 +1,8 @@
 //! Single-flight and pooled multi-connection private session. AccountGateway remains the sole send and journal owner.
 use crate::{
-    OrderSnapshot, Reply, ReportError, SpotEncoder, SpotIssueKind, SpotVenue, classify_issue,
-    decode_reply, hex, is_http_account_hazard, is_venue_rate_limit_code,
+    ModifyReply, OrderSnapshot, Reply, ReportError, SpotEncoder, SpotIssueKind, SpotVenue,
+    classify_issue, decode_modify_reply, decode_reply, extract_error_message, hex,
+    is_http_account_hazard, is_venue_rate_limit_code,
 };
 use std::{
     collections::VecDeque,
@@ -60,6 +61,9 @@ fn can_afford_command(
 ) -> core::result::Result<(), RateReject> {
     match body {
         v::CommandBody::New(_) => limiter.can_afford_place(ip_key, sym_key, 1, evaluated_at),
+        v::CommandBody::Modify(_) => {
+            limiter.can_afford_modify(ip_key, sym_key, 1, true, evaluated_at)
+        }
         v::CommandBody::Cancel(_) => limiter.can_afford_cancel(ip_key, sym_key, 1, evaluated_at),
         v::CommandBody::Query(_) => limiter.can_afford_query(ip_key, 1, evaluated_at),
         _ => Ok(()),
@@ -76,6 +80,9 @@ fn allow_command(
     match body {
         v::CommandBody::New(_) => limiter
             .allow_place(ip_key, sym_key, 1, evaluated_at)
+            .map(|_| ()),
+        v::CommandBody::Modify(_) => limiter
+            .allow_modify(ip_key, sym_key, 1, true, evaluated_at)
             .map(|_| ()),
         v::CommandBody::Cancel(_) => limiter
             .allow_cancel(ip_key, sym_key, 1, evaluated_at)
@@ -493,7 +500,10 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         let body = &command.command().body;
         if let Some(limiter) = self.venue_limiter.as_mut()
             && limiter.preset() == VenuePreset::OkxSpot
-            && matches!(body, v::CommandBody::New(_) | v::CommandBody::Cancel(_))
+            && matches!(
+                body,
+                v::CommandBody::New(_) | v::CommandBody::Cancel(_) | v::CommandBody::Modify(_)
+            )
         {
             limiter
                 .register_symbol(sym_key)
@@ -574,6 +584,16 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         code: &str,
         received_mono_ns: u64,
     ) -> Result<tickwire_account::Applied> {
+        self.record_rejected_new_detail(cmd, code, None, received_mono_ns)
+    }
+
+    fn record_rejected_new_detail(
+        &mut self,
+        cmd: &v::CanonicalCommand,
+        code: &str,
+        venue_msg: Option<&str>,
+        received_mono_ns: u64,
+    ) -> Result<tickwire_account::Applied> {
         let c = cmd.command();
         let v::CommandBody::New(order) = &c.body else {
             return Err(SessionError::Identity);
@@ -582,8 +602,14 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             return Err(SessionError::Identity);
         }
         let venue_code = v::BoundedText::new(code).map_err(|_| SessionError::Identity)?;
-        let message = v::BoundedMessage::new(format!("spot_new_rejected:{code}"))
-            .map_err(|_| SessionError::Identity)?;
+        let fallback_msg = format!("spot_new_rejected:{code}");
+        let chosen_msg = venue_msg
+            .filter(|m| !m.trim().is_empty())
+            .and_then(|m| v::BoundedMessage::new(m).ok());
+        let message = match chosen_msg {
+            Some(m) => m,
+            None => v::BoundedMessage::new(fallback_msg).map_err(|_| SessionError::Identity)?,
+        };
         let mut seed = Vec::with_capacity(64 + code.len());
         seed.extend_from_slice(b"tickwire.spot.new-reject.v1");
         seed.extend_from_slice(&cmd.digest());
@@ -628,6 +654,130 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
         self.gateway
             .record_ingress_event(input_stream, input_sequence, event)
             .map_err(SessionError::Gateway)
+    }
+
+    /// Decodes and records a deterministic `Modified` or `ModifyRejected` ingress event for a
+    /// synchronous Bybit `/v5/order/amend` or OKX `/api/v5/trade/amend-order` response.
+    ///
+    /// Returns `Ok(true)` when a deterministic `Modified` or `ModifyRejected` outcome was applied
+    /// to `AccountGateway` without freezing the account, or `Ok(false)` when the HTTP response is
+    /// ambiguous or an account-wide hazard requiring caller isolation/freeze handling.
+    pub fn record_modify_outcome(
+        &mut self,
+        cmd: &v::CanonicalCommand,
+        http_status: u16,
+        raw_body: &[u8],
+        received_mono_ns: u64,
+    ) -> Result<bool> {
+        let c = cmd.command();
+        let v::CommandBody::Modify(m) = &c.body else {
+            return Err(SessionError::Identity);
+        };
+        if received_mono_ns == 0 {
+            return Err(SessionError::Identity);
+        }
+        let venue = SpotVenue::from_id(c.context.request.venue).ok_or(SessionError::Identity)?;
+        let instrument_id = c.context.instrument.instrument_id;
+        let (post_only, tif) = self
+            .gateway
+            .account()
+            .resolve_order_target(instrument_id, &m.target)
+            .and_then(|key| self.gateway.account().order_terms(&key))
+            .map(|(_, spec)| {
+                (
+                    spec.time_in_force == Some(v::TimeInForce::PostOnly),
+                    spec.time_in_force,
+                )
+            })
+            .unwrap_or((false, None));
+
+        let decoded = decode_modify_reply(cmd, http_status, raw_body, post_only, tif)
+            .map_err(SessionError::Report)?;
+
+        let body = match decoded {
+            ModifyReply::Unknown => return Ok(false),
+            ModifyReply::Modified(mut obs) => {
+                if let Some(intent) = obs.intent
+                    && self.gateway.account().is_confirmed_modification(intent)
+                    && let Some(order_key) = self
+                        .gateway
+                        .account()
+                        .resolve_order_target(instrument_id, &obs.target)
+                    && let Some((_, applied_spec)) = self.gateway.account().order_terms(&order_key)
+                {
+                    // If private WebSocket confirmed this modification (possibly with venue clamping)
+                    // before the synchronous HTTP acknowledgement arrived without explicit price/qty,
+                    // preserve the already-confirmed terms so ingress deduplication succeeds cleanly.
+                    if obs.new_price == m.price
+                        && let Some(px) = applied_spec.price
+                    {
+                        obs.new_price = px;
+                    }
+                    if obs.new_quantity == m.quantity
+                        && let v::Quantity::Base(q) = applied_spec.quantity
+                    {
+                        obs.new_quantity = q;
+                    }
+                }
+                v::VenueEventBody::Modified(Box::new(obs))
+            }
+            ModifyReply::Rejected {
+                rejection,
+                code_str,
+                ..
+            } => {
+                if is_http_account_hazard(http_status) {
+                    return Ok(false);
+                }
+                match classify_issue(venue, &code_str) {
+                    SpotIssueKind::DeterministicReject | SpotIssueKind::NotFound => {
+                        v::VenueEventBody::ModifyRejected(Box::new(rejection))
+                    }
+                    SpotIssueKind::Ambiguous | SpotIssueKind::AccountHazard => return Ok(false),
+                }
+            }
+        };
+
+        let mut seed = Vec::with_capacity(64);
+        seed.extend_from_slice(b"tickwire.spot.modify-outcome.v1");
+        seed.extend_from_slice(&cmd.digest());
+        let hash = ring::digest::digest(&ring::digest::SHA256, &seed);
+        let mut input_stream: [u8; 16] = hash.as_ref()[..16].try_into().expect("sha256 prefix");
+        if input_stream == [0; 16] {
+            input_stream[0] = 1;
+        }
+        let input_sequence = 1u64;
+        let (epoch, received) = self
+            .gateway
+            .ingress_event(input_stream, input_sequence)
+            .map_or((self.connection_epoch, received_mono_ns), |prior| {
+                let id = &prior.event().identity;
+                (id.source_connection_epoch, id.received_mono_ns)
+            });
+        let r = &c.context.request;
+        let event = v::CanonicalEvent::new(v::VenueEvent {
+            identity: v::EventIdentity {
+                risk_domain_id: r.risk_domain_id,
+                venue: r.venue,
+                environment: r.environment,
+                account: r.account,
+                product: r.product,
+                instrument_id,
+                instrument_version: c.context.instrument.instrument_version,
+                source_connection_epoch: epoch,
+                source_sequence: Some(input_sequence),
+                event_id: v::BoundedText::new(hex(hash.as_ref()))
+                    .map_err(|_| SessionError::Identity)?,
+                venue_time_ns: None,
+                received_mono_ns: received,
+            },
+            body,
+        })
+        .map_err(|_| SessionError::Identity)?;
+        self.gateway
+            .record_ingress_event(input_stream, input_sequence, event)
+            .map_err(SessionError::Gateway)?;
+        Ok(true)
     }
     pub fn reactivate(
         &mut self,
@@ -743,18 +893,18 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                 .gateway
                 .submit(command.clone(), evaluated_at, deadline)
                 .map_err(SessionError::Gateway)?;
-            if let Some(limiter) = self.venue_limiter.as_mut() {
-                let ip_key = resolve_slot_ip_key(limiter, None);
-                allow_command(
-                    limiter,
-                    &command.command().body,
-                    ip_key,
-                    sym_key,
-                    evaluated_at,
-                )
-                .map_err(SessionError::RateLimited)?;
-            }
             if result != Status::Aborted {
+                if let Some(limiter) = self.venue_limiter.as_mut() {
+                    let ip_key = resolve_slot_ip_key(limiter, None);
+                    allow_command(
+                        limiter,
+                        &command.command().body,
+                        ip_key,
+                        sym_key,
+                        evaluated_at,
+                    )
+                    .map_err(SessionError::RateLimited)?;
+                }
                 self.pending = Some((intent, command, deadline));
             }
             return Ok(result);
@@ -772,7 +922,7 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             && limiter.preset() == VenuePreset::OkxSpot
             && matches!(
                 command.command().body,
-                v::CommandBody::New(_) | v::CommandBody::Cancel(_)
+                v::CommandBody::New(_) | v::CommandBody::Cancel(_) | v::CommandBody::Modify(_)
             )
         {
             limiter
@@ -818,27 +968,27 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             .gateway
             .submit_on_slot(conn_id, command.clone(), evaluated_at, deadline)
             .map_err(SessionError::Gateway)?;
-        if let Some(limiter) = self.venue_limiter.as_mut() {
-            let ip_key = resolve_slot_ip_key(limiter, chosen_local_ip);
-            allow_command(
-                limiter,
-                &command.command().body,
-                ip_key,
-                sym_key,
-                evaluated_at,
-            )
-            .map_err(SessionError::RateLimited)?;
-        }
-        if status != Status::Aborted
-            && let Some(slot) = self.slot_state[usize::from(conn_id)].as_mut()
-        {
-            slot.pending = Some(SpotPending {
-                intent,
-                command,
-                deadline,
-                sent_mono_ns: evaluated_at,
-                slot_epoch,
-            });
+        if status != Status::Aborted {
+            if let Some(limiter) = self.venue_limiter.as_mut() {
+                let ip_key = resolve_slot_ip_key(limiter, chosen_local_ip);
+                allow_command(
+                    limiter,
+                    &command.command().body,
+                    ip_key,
+                    sym_key,
+                    evaluated_at,
+                )
+                .map_err(SessionError::RateLimited)?;
+            }
+            if let Some(slot) = self.slot_state[usize::from(conn_id)].as_mut() {
+                slot.pending = Some(SpotPending {
+                    intent,
+                    command,
+                    deadline,
+                    sent_mono_ns: evaluated_at,
+                    slot_epoch,
+                });
+            }
         }
         Ok(status)
     }
@@ -897,7 +1047,9 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
     fn doubt_reason_for_command(cmd: &v::CanonicalCommand) -> DoubtReason {
         match &cmd.command().body {
             v::CommandBody::Cancel(_) => DoubtReason::CancelAmbiguous,
-            v::CommandBody::AmendKeepPriority { .. } => DoubtReason::AmendAmbiguous,
+            v::CommandBody::Modify(_) | v::CommandBody::AmendKeepPriority { .. } => {
+                DoubtReason::AmendAmbiguous
+            }
             _ => DoubtReason::PlaceAmbiguous,
         }
     }
@@ -1154,7 +1306,16 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                     Reply::Order(snapshot) => {
                         self.observe(&pending.command, snapshot, received_mono_ns)?;
                     }
-                    Reply::Acknowledged { .. } => {}
+                    Reply::Acknowledged { .. } => {
+                        if matches!(pending.command.command().body, v::CommandBody::Modify(_)) {
+                            self.record_modify_outcome(
+                                &pending.command,
+                                raw.status,
+                                &raw.body,
+                                received_mono_ns,
+                            )?;
+                        }
+                    }
                     Reply::RequestIssue { code } => {
                         let kind = classify_issue(venue, code);
                         if http_hazard || kind == SpotIssueKind::AccountHazard {
@@ -1162,11 +1323,28 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                         } else {
                             match (&pending.command.command().body, kind) {
                                 (v::CommandBody::New(_), SpotIssueKind::DeterministicReject) => {
-                                    self.record_rejected_new(
+                                    let venue_msg = extract_error_message(venue, &raw.body);
+                                    self.record_rejected_new_detail(
                                         &pending.command,
                                         code,
+                                        venue_msg.as_deref(),
                                         received_mono_ns,
                                     )?;
+                                }
+                                (v::CommandBody::Modify(_), _) => {
+                                    if !self.record_modify_outcome(
+                                        &pending.command,
+                                        raw.status,
+                                        &raw.body,
+                                        received_mono_ns,
+                                    )? {
+                                        self.gateway
+                                            .isolate_intent_in_doubt(
+                                                pending.intent,
+                                                DoubtReason::AmendAmbiguous,
+                                            )
+                                            .map_err(SessionError::Gateway)?;
+                                    }
                                 }
                                 (
                                     v::CommandBody::Cancel(_),
@@ -1329,8 +1507,29 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                     decode_reply(&cmd, raw.status, &raw.body).map_err(SessionError::Report)?;
                 match &reply {
                     Reply::Order(snapshot) => self.observe(&cmd, snapshot, received_mono_ns)?,
+                    Reply::Acknowledged { .. } => {
+                        if matches!(cmd.command().body, v::CommandBody::Modify(_)) {
+                            self.record_modify_outcome(
+                                &cmd,
+                                raw.status,
+                                &raw.body,
+                                received_mono_ns,
+                            )?;
+                        }
+                    }
+                    Reply::RequestIssue { .. }
+                        if matches!(cmd.command().body, v::CommandBody::Modify(_)) =>
+                    {
+                        if !self.record_modify_outcome(
+                            &cmd,
+                            raw.status,
+                            &raw.body,
+                            received_mono_ns,
+                        )? {
+                            self.gateway.freeze_account();
+                        }
+                    }
                     Reply::Unknown | Reply::RequestIssue { .. } => self.gateway.freeze_account(),
-                    Reply::Acknowledged { .. } => {}
                 }
                 return Ok(Some(reply));
             }
@@ -1396,7 +1595,11 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             let reason = Self::doubt_reason_for_command(&cmd);
             match &reply {
                 Reply::Order(snapshot) => self.observe(&cmd, snapshot, received_mono_ns)?,
-                Reply::Acknowledged { .. } => {}
+                Reply::Acknowledged { .. } => {
+                    if matches!(cmd.command().body, v::CommandBody::Modify(_)) {
+                        self.record_modify_outcome(&cmd, raw.status, &raw.body, received_mono_ns)?;
+                    }
+                }
                 Reply::RequestIssue { code } => {
                     let kind = classify_issue(venue, code);
                     if http_hazard || kind == SpotIssueKind::AccountHazard {
@@ -1404,7 +1607,28 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
                     } else {
                         match (&cmd.command().body, kind) {
                             (v::CommandBody::New(_), SpotIssueKind::DeterministicReject) => {
-                                self.record_rejected_new(&cmd, code, received_mono_ns)?;
+                                let venue_msg = extract_error_message(venue, &raw.body);
+                                self.record_rejected_new_detail(
+                                    &cmd,
+                                    code,
+                                    venue_msg.as_deref(),
+                                    received_mono_ns,
+                                )?;
+                            }
+                            (v::CommandBody::Modify(_), _) => {
+                                if !self.record_modify_outcome(
+                                    &cmd,
+                                    raw.status,
+                                    &raw.body,
+                                    received_mono_ns,
+                                )? {
+                                    self.gateway
+                                        .isolate_intent_in_doubt(
+                                            intent,
+                                            DoubtReason::AmendAmbiguous,
+                                        )
+                                        .map_err(SessionError::Gateway)?;
+                                }
                             }
                             (
                                 v::CommandBody::Cancel(_),
@@ -1483,26 +1707,37 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             return Err(SessionError::Identity);
         };
         let client = snapshot.client_id.as_ref().ok_or(SessionError::Identity)?;
-        let mut candidates = self.gateway.account().order_keys().filter(|k| {
-            k.intent.epoch == target.original_intent_exec_epoch
-                && k.client_id == *client
-                && self.gateway.command(k.intent).is_some_and(|original| {
-                    original.command().context.instrument == c.context.instrument
-                })
-        });
-        let original = candidates.next().ok_or(SessionError::Identity)?.intent;
-        if candidates.next().is_some() {
+        let resolved_key = self
+            .gateway
+            .account()
+            .resolve_order_target(c.context.instrument.instrument_id, target)
+            .filter(|k| k.intent.epoch == target.original_intent_exec_epoch);
+        let order_key = if let Some(key) = resolved_key {
+            key
+        } else {
+            let mut candidates = self.gateway.account().order_keys().filter(|k| {
+                k.intent.epoch == target.original_intent_exec_epoch
+                    && k.client_id == *client
+                    && self.gateway.command(k.intent).is_some_and(|original| {
+                        original.command().context.instrument == c.context.instrument
+                    })
+            });
+            let found = candidates.next().ok_or(SessionError::Identity)?.clone();
+            if candidates.next().is_some() {
+                return Err(SessionError::Identity);
+            }
+            found
+        };
+        let original = order_key.intent;
+        let (inst, spec) = self
+            .gateway
+            .account()
+            .order_terms(&order_key)
+            .ok_or(SessionError::Identity)?;
+        if *inst != c.context.instrument {
             return Err(SessionError::Identity);
         }
-        drop(candidates);
-        let original_command = self
-            .gateway
-            .command(original)
-            .ok_or(SessionError::Identity)?;
-        let v::CommandBody::New(order) = &original_command.command().body else {
-            return Err(SessionError::Identity);
-        };
-        let v::Quantity::Base(size) = order.quantity else {
+        let v::Quantity::Base(size) = spec.quantity else {
             return Err(SessionError::Identity);
         };
         let executed = snapshot.cumulative_base;
@@ -1512,7 +1747,7 @@ impl<'a, B: Backend, A: Authority, T: FnMut() -> std::result::Result<u64, tickwi
             v::OrderStatus::PartiallyFilled => executed.is_positive() && executed != size,
             _ => true,
         };
-        if !consistent || order.side != snapshot.side {
+        if !consistent || spec.side != snapshot.side {
             return Err(SessionError::Identity);
         }
         let r = &c.context.request;

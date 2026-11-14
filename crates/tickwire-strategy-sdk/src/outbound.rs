@@ -4,9 +4,129 @@ use tickwire_recovery::{BlobStore, StoreKey};
 use tickwire_shm::Publisher;
 use tickwire_venue::CanonicalCommand;
 use tickwire_venue::{
-    ClientId, ClientIdDomain, CommandBody, CommandContext, SelfDescribingClientId,
-    SpotAdvancedCommand,
+    ClientId, ClientIdDomain, Command, CommandBody, CommandContext, Decimal, ModifyOrder,
+    OrderTarget, PositionSide, SelfDescribingClientId, Side, SpotAdvancedCommand,
 };
+
+/// Ergonomic alias for [`IntentWriter`] on the strategy outbound SPSC command lane.
+pub type OutboundWriter = IntentWriter;
+
+/// Builder for [`CommandBody::Modify`] (`command_kind = 5`, `message_type = 517`) that validates
+/// positive `price` and `quantity` plus non-zero `OrderTarget` identity before queuing to SPSC.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModifyRequest {
+    pub target: OrderTarget,
+    pub new_client_id: Option<ClientId>,
+    pub side: Side,
+    pub quantity: Decimal,
+    pub price: Decimal,
+    pub position_side: PositionSide,
+    pub reduce_only: bool,
+}
+
+impl ModifyRequest {
+    #[inline]
+    pub fn new(target: OrderTarget, side: Side, quantity: Decimal, price: Decimal) -> Self {
+        Self {
+            target,
+            new_client_id: None,
+            side,
+            quantity,
+            price,
+            position_side: PositionSide::Both,
+            reduce_only: false,
+        }
+    }
+
+    #[inline]
+    pub fn with_new_client_id(mut self, client_id: ClientId) -> Self {
+        self.new_client_id = Some(client_id);
+        self
+    }
+
+    /// Mints a deterministic `SelfDescribingClientId` for venues whose in-place modification
+    /// wire assigns a fresh `newClientOrderId` (for example, `REPLACEMENT_ORDER_LEG`).
+    pub fn with_minted_client_id(mut self, ctx: &CommandContext, leg: u8) -> Result<Self> {
+        let (client_id, _) = mint_self_describing_client_id(ctx, leg)?;
+        self.new_client_id = Some(client_id);
+        Ok(self)
+    }
+
+    #[inline]
+    pub fn with_position_side(mut self, position_side: PositionSide) -> Self {
+        self.position_side = position_side;
+        self
+    }
+
+    #[inline]
+    pub fn with_reduce_only(mut self, reduce_only: bool) -> Self {
+        self.reduce_only = reduce_only;
+        self
+    }
+
+    /// Validates strictly positive `quantity` and `price` and non-empty `OrderTarget` fields.
+    pub fn validate(&self) -> Result<()> {
+        if !self.quantity.is_positive() {
+            return Err(Error::Command(tickwire_venue::Error::Quantity));
+        }
+        if !self.price.is_positive() {
+            return Err(Error::Command(tickwire_venue::Error::Price));
+        }
+        if self.target.order_id == [0; 16]
+            || self.target.expected_owner_revision == 0
+            || self.target.original_intent_exec_epoch == 0
+            || (self.target.client_id.is_none() && self.target.venue_order_id.is_none())
+        {
+            return Err(Error::Command(tickwire_venue::Error::Identity));
+        }
+        Ok(())
+    }
+
+    pub fn into_modify_order(self) -> Result<ModifyOrder> {
+        self.validate()?;
+        Ok(ModifyOrder {
+            target: self.target,
+            new_client_id: self.new_client_id,
+            side: self.side,
+            quantity: self.quantity,
+            price: self.price,
+            position_side: self.position_side,
+            reduce_only: self.reduce_only,
+        })
+    }
+
+    /// Validates `self` and constructs a canonical CBOR [`CanonicalCommand`] checked against
+    /// `context` instrument tick/step bounds.
+    pub fn build_command(self, context: CommandContext) -> Result<CanonicalCommand> {
+        let modify = self.into_modify_order()?;
+        build_modify_command(context, modify)
+    }
+}
+
+/// Validates a [`ModifyOrder`] (`price > 0`, `quantity > 0`, valid `target`, and catalog
+/// tick/step alignment) and returns its [`CanonicalCommand`].
+pub fn build_modify_command(
+    context: CommandContext,
+    modify: ModifyOrder,
+) -> Result<CanonicalCommand> {
+    if !modify.quantity.is_positive() {
+        return Err(Error::Command(tickwire_venue::Error::Quantity));
+    }
+    if !modify.price.is_positive() {
+        return Err(Error::Command(tickwire_venue::Error::Price));
+    }
+    if modify.target.order_id == [0; 16]
+        || modify.target.expected_owner_revision == 0
+        || modify.target.original_intent_exec_epoch == 0
+        || (modify.target.client_id.is_none() && modify.target.venue_order_id.is_none())
+    {
+        return Err(Error::Command(tickwire_venue::Error::Identity));
+    }
+    Ok(CanonicalCommand::new(Command {
+        context,
+        body: CommandBody::Modify(modify),
+    })?)
+}
 
 /// Mint a canonical 32-character `[0-9a-z]` `SelfDescribingClientId` and its deterministic
 /// 16-byte internal order UUID from `CommandContext`.
@@ -164,6 +284,20 @@ impl IntentWriter {
         let seq = self.publisher.publish(&[&image])?;
         self.last_intent = c.strategy.strategy_intent_seq;
         Ok(seq)
+    }
+
+    /// Validates `request`, builds the canonical [`CommandBody::Modify`] command (`command_kind = 5`,
+    /// `message_type = 517`), persists it in `store`, and publishes it onto the SPSC intent ring.
+    pub fn publish_modify<B: BlobStore>(
+        &mut self,
+        context: CommandContext,
+        request: ModifyRequest,
+        store: &mut CommandStore<B>,
+        now: u64,
+    ) -> Result<(CanonicalCommand, u64)> {
+        let command = request.build_command(context)?;
+        let seq = self.publish(&command, store, now)?;
+        Ok((command, seq))
     }
 }
 pub fn encode_intent(

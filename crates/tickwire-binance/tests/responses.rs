@@ -222,3 +222,89 @@ fn spot_and_usdm_deterministic_order_creation_rejections_preserve_409_partial() 
         );
     }
 }
+
+#[test]
+fn modify_rejection_codes_avg_price_and_terminal_reason_classification_are_exact() {
+    use tickwire_binance::{
+        classify_order_update_reason,
+        events::{PrivateBody, PrivateStream, SessionContext, SessionIdentity, decode_private},
+        feed::TimeUnit,
+    };
+    use tickwire_venue::{Environment, TerminalReason};
+
+    for code in [-2022, -4003, -4014, -4016, -4024, -4131, -5021, -5027] {
+        assert_eq!(
+            classify(Market::Usdm, 400, Some(code), "modify rejected"),
+            FailureKind::Rejected,
+            "code {code}"
+        );
+    }
+
+    let reply = decode_order(
+        br#"{"symbol":"BTCUSDT","orderId":77,"clientOrderId":"u-1","status":"PARTIALLY_FILLED","price":"60000.0","avgPrice":"59950.25","origQty":"0.02","executedQty":"0.01"}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        reply
+            .average_price
+            .unwrap()
+            .rescale_exact(2)
+            .unwrap()
+            .mantissa(),
+        5_995_025
+    );
+
+    let usdm_session = SessionContext::new(
+        SessionIdentity {
+            risk_domain_id: [1; 16],
+            venue: 1,
+            environment: Environment::Test,
+            account: 2,
+            connection_epoch: 1,
+        },
+        Market::Usdm,
+        PrivateStream::UsdmListenKey,
+        TimeUnit::Milliseconds,
+    )
+    .unwrap();
+
+    let stp_frame = br#"{"e":"ORDER_TRADE_UPDATE","E":100,"T":99,"o":{"s":"BTCUSDT","c":"u-1","S":"BUY","o":"LIMIT","f":"GTC","q":"0.01","p":"60000","ap":"59980.5","x":"EXPIRED","X":"EXPIRED_IN_MATCH","i":77,"l":"0","z":"0.004","L":"0","T":99,"t":0,"m":false,"ps":"BOTH","V":"EXPIRE_MAKER"}}"#;
+    let decoded = decode_private::<4>(&usdm_session, stp_frame, 4096, 200).unwrap();
+    let PrivateBody::Order(order) = decoded.body() else {
+        panic!("expected order update");
+    };
+    assert_eq!(
+        order
+            .average_price
+            .unwrap()
+            .rescale_exact(1)
+            .unwrap()
+            .mantissa(),
+        599_805
+    );
+    assert_eq!(
+        order.self_trade_prevention_mode.as_deref(),
+        Some("EXPIRE_MAKER")
+    );
+    assert_eq!(
+        classify_order_update_reason(order),
+        Some(TerminalReason::SelfTradePreventedByVenue)
+    );
+
+    let gtx_frame = br#"{"e":"ORDER_TRADE_UPDATE","E":101,"T":100,"o":{"s":"BTCUSDT","c":"u-2","S":"BUY","o":"LIMIT","f":"GTX","q":"0.01","p":"60000","ap":"0","x":"EXPIRED","X":"EXPIRED","i":78,"l":"0","z":"0","L":"0","T":100,"t":0,"m":false,"ps":"BOTH","V":"NONE"}}"#;
+    let decoded_gtx = decode_private::<4>(&usdm_session, gtx_frame, 4096, 201).unwrap();
+    let PrivateBody::Order(gtx_order) = decoded_gtx.body() else {
+        panic!("expected order update");
+    };
+    assert_eq!(
+        classify_order_update_reason(gtx_order),
+        Some(TerminalReason::PostOnlyWouldTake)
+    );
+
+    let open_frame = br#"{"e":"ORDER_TRADE_UPDATE","E":102,"T":101,"o":{"s":"BTCUSDT","c":"u-3","S":"BUY","o":"LIMIT","f":"GTC","q":"0.01","p":"60000","ap":"0","x":"NEW","X":"NEW","i":79,"l":"0","z":"0","L":"0","T":101,"t":0,"m":false,"ps":"BOTH"}}"#;
+    let decoded_open = decode_private::<4>(&usdm_session, open_frame, 4096, 202).unwrap();
+    let PrivateBody::Order(open_order) = decoded_open.body() else {
+        panic!("expected order update");
+    };
+    assert_eq!(classify_order_update_reason(open_order), None);
+}

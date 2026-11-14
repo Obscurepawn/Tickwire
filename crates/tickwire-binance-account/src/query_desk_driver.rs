@@ -12,13 +12,13 @@ use crate::{
     rest::{RestDisposition, RestOwner},
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     net::{IpAddr, SocketAddr},
     sync::{Arc, Mutex},
 };
 use tickwire_account::{
-    Account, AskKind, DoubtReason, Fixed, MAX_REST_SLOTS, OrderKey, QueryResolution, QueryTicket,
-    RecoveryRecord, SnapshotSummary,
+    Account, AskKind, DoubtReason, Fixed, IntentKey, MAX_REST_SLOTS, OrderKey, QueryResolution,
+    QueryTicket, RecoveryRecord, SnapshotSummary,
 };
 use tickwire_account_gateway::{Authority, Encoder};
 use tickwire_account_journal::Backend;
@@ -145,6 +145,7 @@ struct InflightQuery {
     operation: QueryOperation,
     order_query: Option<OrderQuery>,
     trade_query: Option<TradeQuery>,
+    probed_spot_new_cid: Option<(IntentKey, v::ClientId)>,
 }
 
 type StagedTable = [Option<(u64, BuiltRequest)>; MAX_REST_SLOTS];
@@ -157,6 +158,7 @@ pub struct PerOrderQueryDriver {
     inflight: [Option<InflightQuery>; MAX_REST_SLOTS],
     trade_next_from_id: BTreeMap<OrderKey, u64>,
     expected_cumulative_atoms: BTreeMap<OrderKey, i128>,
+    spot_probed_new_cid_missing: BTreeSet<(OrderKey, IntentKey)>,
     next_epoch: u64,
     issued_requests: u64,
     last_clock: Option<ClockSample>,
@@ -220,6 +222,7 @@ impl PerOrderQueryDriver {
             inflight: std::array::from_fn(|_| None),
             trade_next_from_id: BTreeMap::new(),
             expected_cumulative_atoms: BTreeMap::new(),
+            spot_probed_new_cid_missing: BTreeSet::new(),
             issued_requests: 0,
             last_clock: None,
             faulted: false,
@@ -295,6 +298,10 @@ impl PerOrderQueryDriver {
         let now_sample = self.sample(clock)?;
         let now_mono_ns = now_sample.monotonic_ns();
         let mut step = PerOrderQueryStep::default();
+        let mut spot_fallback_tickets: [Option<QueryTicket>; MAX_REST_SLOTS] =
+            [const { None }; MAX_REST_SLOTS];
+        let mut spot_fallback_idx = 0usize;
+        let mut spot_fallback_len = 0usize;
 
         while let Some(reply) = self.querier.dequeue() {
             let slot = (reply.task.key >> TASK_SLOT_SHIFT) as usize;
@@ -316,7 +323,15 @@ impl PerOrderQueryDriver {
             {
                 continue;
             }
-            self.handle_reply(owner, inflight, reply, now_mono_ns, &mut step)?;
+            self.handle_reply(
+                owner,
+                inflight,
+                reply,
+                now_mono_ns,
+                &mut step,
+                &mut spot_fallback_tickets,
+                &mut spot_fallback_len,
+            )?;
         }
 
         if !owner.gateway.per_order_doubt_isolation()
@@ -333,10 +348,19 @@ impl PerOrderQueryDriver {
             .unwrap_or((1, 1));
 
         while !owner.account().frozen() {
+            let next_fallback = if spot_fallback_idx < spot_fallback_len {
+                let t = spot_fallback_tickets[spot_fallback_idx].take();
+                spot_fallback_idx += 1;
+                t
+            } else {
+                None
+            };
             let account_snapshot = owner.gateway.account();
-            let Some(ticket) = owner.query_desk.as_mut().and_then(|desk| {
-                desk.poll_due(now_mono_ns, |order, kind| {
-                    should_query_order(account_snapshot, order, kind)
+            let Some(ticket) = next_fallback.or_else(|| {
+                owner.query_desk.as_mut().and_then(|desk| {
+                    desk.poll_due(now_mono_ns, |order, kind| {
+                        should_query_order(account_snapshot, order, kind)
+                    })
                 })
             }) else {
                 break;
@@ -427,8 +451,26 @@ impl PerOrderQueryDriver {
                 break;
             }
 
-            let (built, order_query, trade_query) = match operation {
+            let (built, order_query, trade_query, probed_spot_new_cid) = match operation {
                 QueryOperation::OrderStatus => {
+                    let inst_id = command.command().context.instrument.instrument_id;
+                    let probed_new_cid = if self.config.scope.market == Market::Spot {
+                        crate::modify::find_unsettled_modify(&owner.gateway, inst_id, &ticket.order)
+                            .and_then(|(mod_intent, m)| {
+                                let new_cid = m.new_client_id?;
+                                if identity.client_id.as_ref() != Some(&new_cid)
+                                    && !self
+                                        .spot_probed_new_cid_missing
+                                        .contains(&(ticket.order.clone(), mod_intent))
+                                {
+                                    Some((mod_intent, new_cid))
+                                } else {
+                                    None
+                                }
+                            })
+                    } else {
+                        None
+                    };
                     let oq = OrderQuery {
                         intent: ticket.order.intent,
                         order_id: identity.order_id,
@@ -439,10 +481,11 @@ impl PerOrderQueryDriver {
                         &self.config,
                         &command,
                         &identity,
+                        probed_new_cid.as_ref().map(|(_, cid)| cid),
                         credentials,
                         stamp,
                     ) {
-                        Ok(req) => (req, Some(oq), None),
+                        Ok(req) => (req, Some(oq), None, probed_new_cid),
                         Err(_) => {
                             if let Some(res) = owner
                                 .query_desk
@@ -477,7 +520,7 @@ impl PerOrderQueryDriver {
                         credentials,
                         stamp,
                     ) {
-                        Ok(req) => (req, None, Some(tq)),
+                        Ok(req) => (req, None, Some(tq), None),
                         Err(_) => {
                             if let Some(res) = owner
                                 .query_desk
@@ -525,14 +568,28 @@ impl PerOrderQueryDriver {
                 operation,
                 order_query,
                 trade_query,
+                probed_spot_new_cid,
             });
             self.issued_requests = self.issued_requests.saturating_add(1);
             step.dispatched += 1;
         }
 
+        while spot_fallback_idx < spot_fallback_len {
+            if let Some(rem_ticket) = spot_fallback_tickets[spot_fallback_idx].take()
+                && let Some(res) = owner
+                    .query_desk
+                    .as_mut()
+                    .and_then(|d| d.on_not_sent(&rem_ticket, now_mono_ns))
+            {
+                step.resolutions.push(res);
+            }
+            spot_fallback_idx += 1;
+        }
+
         Ok(step)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn handle_reply<S: Store, B: Backend, A: Authority, E: Encoder>(
         &mut self,
         owner: &mut RestOwner<S, B, A, E>,
@@ -540,6 +597,8 @@ impl PerOrderQueryDriver {
         reply: RestReply,
         reply_mono_ns: u64,
         step: &mut PerOrderQueryStep,
+        spot_fallback_tickets: &mut [Option<QueryTicket>; MAX_REST_SLOTS],
+        spot_fallback_len: &mut usize,
     ) -> Result<()> {
         match reply.status {
             RestStatus::NotBuilt | RestStatus::Expired => {
@@ -646,6 +705,26 @@ impl PerOrderQueryDriver {
                     && dec.failure == Some(FailureKind::NotFound)
                     && dec.error.as_ref().is_some_and(|e| e.code == -2013)
                 {
+                    if let Some((mod_intent, _)) = inflight.probed_spot_new_cid {
+                        self.spot_probed_new_cid_missing
+                            .insert((inflight.ticket.order.clone(), mod_intent));
+                        if *spot_fallback_len < MAX_REST_SLOTS
+                            && owner
+                                .query_desk
+                                .as_ref()
+                                .is_some_and(|d| d.is_ticket_in_flight(&inflight.ticket))
+                        {
+                            spot_fallback_tickets[*spot_fallback_len] = Some(inflight.ticket);
+                            *spot_fallback_len += 1;
+                        } else if let Some(res) = owner
+                            .query_desk
+                            .as_mut()
+                            .and_then(|d| d.on_not_sent(&inflight.ticket, reply_mono_ns))
+                        {
+                            step.resolutions.push(res);
+                        }
+                        return Ok(());
+                    }
                     let order_confirmed = owner
                         .account()
                         .order(&inflight.ticket.order)
@@ -705,6 +784,10 @@ impl PerOrderQueryDriver {
                     }
                     return Ok(());
                 }
+                if let Some((mod_intent, _)) = inflight.probed_spot_new_cid {
+                    self.spot_probed_new_cid_missing
+                        .remove(&(inflight.ticket.order.clone(), mod_intent));
+                }
 
                 let outcome = match owner.ingress.persist_order_query(
                     &mut owner.gateway,
@@ -725,7 +808,7 @@ impl PerOrderQueryDriver {
                     }
                 };
                 if owner.account().frozen()
-                    || outcome.applied_events != 1
+                    || !(1..=2).contains(&outcome.applied_events)
                     || !matches!(
                         outcome.disposition,
                         RestDisposition::Observed | RestDisposition::NeedsReconciliation
@@ -746,10 +829,11 @@ impl PerOrderQueryDriver {
                     .ingress
                     .stored_rest()
                     .last()
-                    .and_then(|s| s.events.first())
-                    .and_then(|ev| match &ev.event().body {
-                        v::VenueEventBody::Order(o) => o.cumulative_quantity,
-                        _ => None,
+                    .and_then(|s| {
+                        s.events.iter().find_map(|ev| match &ev.event().body {
+                            v::VenueEventBody::Order(o) => o.cumulative_quantity,
+                            _ => None,
+                        })
                     })
                     .and_then(|d| {
                         Fixed::parse(&d.as_plain_string(), view.filled_quantity.scale()).ok()
@@ -778,7 +862,10 @@ impl PerOrderQueryDriver {
                         && !a.confirmed
                         && a.rejected.is_none()
                         && !a.aborted
-                });
+                }) && !crate::modify::has_unconfirmed_modify(
+                    &owner.gateway,
+                    &inflight.ticket.order,
+                );
                 let snap = SnapshotSummary {
                     confirmed: view.confirmed,
                     terminal: view.terminal,
@@ -1106,6 +1193,7 @@ fn build_order_status_request(
     config: &PerOrderQueryConfig,
     command: &v::CanonicalCommand,
     identity: &v::OrderIdentity,
+    override_client_id: Option<&v::ClientId>,
     credentials: &Credentials<'_>,
     stamp: SignedTime,
 ) -> Result<BuiltRequest> {
@@ -1122,7 +1210,11 @@ fn build_order_status_request(
             Value::String(command.command().context.instrument.symbol.as_str()),
         )
         .map_err(|_| Error::Encoding)?;
-    if let Some(native) = &identity.venue_order_id {
+    if let Some(override_cid) = override_client_id {
+        params
+            .push("origClientOrderId", Value::String(override_cid.as_str()))
+            .map_err(|_| Error::Encoding)?;
+    } else if let Some(native) = &identity.venue_order_id {
         let order = native
             .as_str()
             .parse::<u64>()

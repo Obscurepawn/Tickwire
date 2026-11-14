@@ -20,6 +20,7 @@ pub(super) struct Origins<S> {
     store: S,
     cache: WindowedTable<[u8; 32], Origin>,
     by_intent: WindowedTable<IntentKey, [[u8; 32]; 3]>,
+    aliases_by_intent: std::collections::BTreeMap<IntentKey, Vec<[u8; 32]>>,
     retention_window_ns: Option<u64>,
 }
 
@@ -51,6 +52,7 @@ impl<S: BlobStore> Origins<S> {
             store,
             cache: WindowedTable::with_capacity(DEFAULT_ORIGIN_SLOTS),
             by_intent: WindowedTable::with_capacity(DEFAULT_ORIGIN_ORDERS),
+            aliases_by_intent: std::collections::BTreeMap::new(),
             retention_window_ns: Some(DEFAULT_RETENTION_WINDOW_NS),
         }
     }
@@ -63,6 +65,7 @@ impl<S: BlobStore> Origins<S> {
             store,
             cache: WindowedTable::with_capacity(slots),
             by_intent: WindowedTable::with_capacity(orders),
+            aliases_by_intent: std::collections::BTreeMap::new(),
             retention_window_ns: Some(DEFAULT_RETENTION_WINDOW_NS),
         }
     }
@@ -88,6 +91,11 @@ impl<S: BlobStore> Origins<S> {
         for loc in &locators {
             self.cache.retire(loc, retired_at_mono_ns);
         }
+        if let Some(aliases) = self.aliases_by_intent.remove(&intent) {
+            for loc in aliases {
+                self.cache.retire(&loc, retired_at_mono_ns);
+            }
+        }
         true
     }
 
@@ -111,6 +119,51 @@ impl<S: BlobStore> Origins<S> {
             self.retire_intent(intent, stamp);
         }
         self.evict_expired(now_mono_ns);
+    }
+
+    pub fn precheck_register(
+        &mut self,
+        scope: &Scope,
+        intent: IntentKey,
+        client: &str,
+        order: [u8; 16],
+        command: [u8; 32],
+        now_mono_ns: u64,
+    ) -> Result<()> {
+        let mut intent_bytes = [0; 16];
+        intent_bytes[..8].copy_from_slice(&intent.epoch.to_be_bytes());
+        intent_bytes[8..16].copy_from_slice(&intent.intent_id.to_be_bytes());
+        let entry = Origin {
+            intent,
+            order,
+            digest: command,
+        };
+        let locators = [
+            locator(scope, b"intent", &intent_bytes),
+            locator(scope, b"order", &order),
+            locator(scope, b"client", client.as_bytes()),
+        ];
+        let win = self.retention_window_ns;
+        for loc in &locators {
+            if let Some(existing) = self.cache.get_live(loc, now_mono_ns, win)
+                && *existing != entry
+            {
+                return Err(Error::Origin("conflicting cached order origin"));
+            }
+        }
+        if locators
+            .iter()
+            .all(|loc| self.cache.get_live(loc, now_mono_ns, win) == Some(&entry))
+        {
+            return Ok(());
+        }
+        if self.is_at_capacity() {
+            self.evict_expired(now_mono_ns);
+            if self.is_at_capacity() {
+                return Err(Error::Origin("order origin pool capacity exhausted"));
+            }
+        }
+        Ok(())
     }
 
     pub fn register(
@@ -177,6 +230,43 @@ impl<S: BlobStore> Origins<S> {
                 .insert_or_evict(loc, entry, None, now_mono_ns, win)
                 .map_err(|_| Error::Origin("order origin pool capacity exhausted"))?;
         }
+        Ok(())
+    }
+
+    pub fn bind_client_alias(
+        &mut self,
+        scope: &Scope,
+        origin: Origin,
+        alias_client: &str,
+        now_mono_ns: u64,
+    ) -> Result<()> {
+        let loc = locator(scope, b"client", alias_client.as_bytes());
+        let win = self.retention_window_ns;
+        if let Some(existing) = self.cache.get_live(&loc, now_mono_ns, win) {
+            if *existing != origin {
+                return Err(Error::Origin("conflicting cached order origin"));
+            }
+            return Ok(());
+        }
+        let mut data = [0u8; 64];
+        data[..8].copy_from_slice(&origin.intent.epoch.to_be_bytes());
+        data[8..16].copy_from_slice(&origin.intent.intent_id.to_be_bytes());
+        data[16..32].copy_from_slice(&origin.order);
+        data[32..].copy_from_slice(&origin.digest);
+        let hash = digest(&data);
+        self.store
+            .put_sync(StoreKey::Object(hash), &data)
+            .map_err(Error::Storage)?;
+        self.store
+            .put_sync(StoreKey::Binding(loc), &hash)
+            .map_err(Error::Storage)?;
+        self.cache
+            .insert_or_evict(loc, origin, None, now_mono_ns, win)
+            .map_err(|_| Error::Origin("order origin pool capacity exhausted"))?;
+        self.aliases_by_intent
+            .entry(origin.intent)
+            .or_default()
+            .push(loc);
         Ok(())
     }
 

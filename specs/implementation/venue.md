@@ -23,6 +23,7 @@ digest  = SHA256(complete top-level encoding)
 | `VenueEvent` version `2` | Conditional / list structures | Encodes `VenueEventBody::Structure` observations (body tag `5`). |
 | `VenueEvent` version `3` | Spot keep-priority amendments | Encodes `Amendment` confirmations and `AmendmentRejected` observations (tags `6` and `7`). |
 | `VenueEvent` version `4` | Lifecycle-free trade rows | Encodes Bybit and OKX single-trade fills using `OrderStatus::Unreported` (status tag `9`), booking cash and fees without closing the order. |
+| `VenueEvent` version `5` | Native order modifications | Encodes `VenueEventBody::Modified` (`ModifyObservation`, body tag `8`) and `VenueEventBody::ModifyRejected` (`ModifyRejection`, body tag `9`) across both Spot and derivative products, preserving backward compatibility for tags `1..=7`. |
 
 ### Command Bodies and Multi-Leg Structures
 
@@ -61,6 +62,15 @@ For every verified `SelfDescribingClientId`, `deterministic_order_id(&ClientIdDo
 Every `VenueEvent` records `Scope`, `Product`, `instrument_version`, source `connection_epoch`, optional source sequence, native event ID, and timestamps. Reconnecting to a venue advances `connection_epoch` to record new session provenance, while the native venue trade ID continues to uniquely identify each economic fill. Uncorrelated venue events encode zero internal order and intent IDs and must carry a native venue order, list, or algo ID for downstream association.
 
 Fill payloads strictly separate order-level price and cumulative quantities from the individual execution's price, quantity, liquidity role, and native trade ID. Optional cumulative quote, `last_quote`, and `AssetDelta` realized PnL remain distinct (`None` when omitted by the venue). A single event may carry signed fees across up to **8 distinct assets**, each naming its asset ID, version, symbol, and exponent; duplicate asset identities within the same fee list fail validation, requiring adapters either to aggregate same-asset components or emit a dedicated fee event.
+
+### Native Modify Events and Fine-Grained `TerminalReason` Classification
+
+To support single-round-trip in-place price/quantity modifications (`CommandBody::Modify`, command tag `5`) as well as unsolicited exchange price-band/quantity clamps across both Spot and derivative venues, `VenueEventBody` adds two schema-`5` variants without altering tags `1..=7`:
+
+* **`VenueEventBody::Modified(Box<ModifyObservation>)` (tag `8`)**: Carries `target: OrderTarget`, optional `amendment_id: Option<VenueToken>`, optional `intent: Option<IntentKey>`, `prior_client_id` and `new_client_id`, optional `venue_order_id` (supporting native ID rotation on cancel-replace modify endpoints), venue-applied `new_quantity: Decimal` (`> 0`) and `new_price: Decimal` (`> 0`, which may differ from the requested values when clamped by a venue price band), and optional non-negative `cumulative_filled: Option<Decimal>` (`<= new_quantity`).
+* **`VenueEventBody::ModifyRejected(Box<ModifyRejection>)` (tag `9`)**: Carries `target: OrderTarget`, optional `amendment_id`, optional `intent`, optional `new_client_id`, optional `venue_order_id`, optional numeric venue error `code: Option<i64>`, and `reason: TerminalReason` encoded as a compact `u8` CBOR discriminant (`0..=16`, rejecting unknown discriminants with `Error::Enum`).
+
+`TerminalReason` (`Filled`, `UserCanceled`, `CrossesBook`, `SelfTradePreventedByVenue`, `PostOnlyWouldTake`, `ExpiredIocOrFok`, `ReduceOnlyClippedOrCanceled`, `InsufficientFunds`, `RateLimited`, `OrderNotOpen`, `TooManyPendingActions`, `InvalidPrice`, `InvalidQuantity`, `NoChange`, `AbortedBeforeSend`, `VenueRejected`, `Unknown`) provides `as_str()`, `is_benign_business_refusal()`, and zero-allocation classifiers (`classify_binance_reason` and `classify_spot_venue_reason`) mapping Binance, Bybit, and OKX error codes, STP cancel modes, GTX/Post-Only refusals, and IOC/FOK expiries without heap allocation.
 
 ## Core Invariants
 

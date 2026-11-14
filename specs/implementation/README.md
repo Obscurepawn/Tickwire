@@ -11,8 +11,8 @@ The account reducer and its gateway serialize competing strategy intents against
 | Specification | State Owner & Scope |
 | :--- | :--- |
 | [Single-Host Trading](single-host-trading.md) | Process topology, event-loop turn ordering, command intake gates, and end-to-end latency boundaries |
-| [Account State Machine](account.md) | Single-writer multi-asset balances, Spot/USDⓈ-M reservations, cold exchange bootstrap, strategy attribution, and freeze semantics |
-| [Account Gateway](account-gateway.md) | Dual-mode (`InMemory` / `MmapAsync` / `LocalDurable`) `Admit` commit, synchronous first-TLS-byte grant check, zero-byte `Aborted` proof, and reactivation |
+| [Account State Machine](account.md) | Single-writer multi-asset balances, Spot/USDⓈ-M reservations, lock-free `StpBook`, native `Modify`, `ProjectedFill`, per-order `QueryDesk`, cold exchange bootstrap, strategy attribution, and freeze semantics |
+| [Account Gateway](account-gateway.md) | Selectable (`InMemory` / `MmapAsync` / `LocalDurable`) `Admit` commit, pooled EWMA `OrderRouter`, per-order doubt isolation, synchronous first-TLS-byte grant check, zero-byte `Aborted` proof, and reactivation |
 | [Account Recovery Binding](account-recovery-binding.md) | Cryptographic binding between account admissions, historical prefixes, and verified recovery closures |
 | [Risk Core](risk-core.md) | Checked `i128` fixed-point arithmetic, conservative outward rounding, margin tiers, and delivery settlement |
 | [Venue Commands & Events](venue.md) | Canonical deterministic CBOR encoding, self-describing `ClientId` layout, and SHA-256 digests for trading commands and venue observations |

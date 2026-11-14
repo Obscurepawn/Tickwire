@@ -62,7 +62,8 @@ pub fn bind_order(
         }
     } else if matches!(c.body, v::CommandBody::Algo(_))
         || (o.client_id != spec.client_id.as_str()
-            && o.original_client_id.as_deref() != Some(spec.client_id.as_str()))
+            && o.original_client_id.as_deref() != Some(spec.client_id.as_str())
+            && identity.client_id.as_ref().map(|c| c.as_str()) != Some(o.client_id.as_ref()))
     {
         return Err(Error::IdentityMismatch);
     }

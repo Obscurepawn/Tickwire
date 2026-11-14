@@ -15,8 +15,10 @@ drives `tickwire-runtime`; domain math, codecs, and venue protocols remain in th
 * **Audited `unsafe` confinement in `hosted` and `market`**: Keep shared-memory ring/snapshot mapping and OS
   credential setup isolated inside [src/hosted.rs](src/hosted.rs) and [src/market.rs](src/market.rs), giving each
   worker its own cursor and distinct JOIN session within a supervisor epoch over one decoded market feed.
-* **Non-blocking multi-strategy fairness**: In [src/strategy.rs](src/strategy.rs), ensure a slow or faulted worker
-  never starves peer workers and that every `SubmissionResult` and account report routes to its originating member.
+* **Non-blocking multi-strategy fairness**: In [src/strategy.rs](src/strategy.rs) and [src/hosted.rs](src/hosted.rs),
+  ensure a slow or faulted worker never starves peer workers, every `SubmissionResult`, `ProjectedFill`
+  (`AppStrategy::on_projected_fill`), and account report routes exclusively to its originating `logical_strategy_id`
+  member, and in-place `CommandBody::Modify` descriptors enforce `order_ids.len() == 0`.
 * **Deterministic `replay`, `export`, and `observation`**: Preserve recorded inputs, reconciliation artifacts
   ([src/reconciliation.rs](src/reconciliation.rs)), and observation schemas ([src/observation.rs](src/observation.rs),
   [src/control.rs](src/control.rs)) during offline `replay` and `export` ([src/replay.rs](src/replay.rs)).

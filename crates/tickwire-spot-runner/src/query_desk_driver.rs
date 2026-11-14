@@ -18,8 +18,9 @@ use tickwire_account_gateway::Authority;
 use tickwire_account_journal::Backend;
 use tickwire_recovery::{BlobStore, digest};
 use tickwire_spot_execution::{
-    SessionError, SpotIssueKind, SpotVenue, build_order_status_get, build_order_trades_get,
-    classify_issue, is_http_account_hazard,
+    OrderRowExtras, SessionError, SpotIssueKind, SpotVenue, build_order_status_get,
+    build_order_trades_get, classify_issue, classify_order_row_terminal_reason,
+    extract_order_row_extras, is_http_account_hazard,
     network::{LiveNetwork, OwnedCredentials},
     recovery::{RemoteFill, RemoteOrder, decode_fill_row, decode_order_row},
 };
@@ -29,7 +30,7 @@ use tickwire_transport::{
         AsyncRestQuerier, BuiltRequest, RestQuerierConfig, RestReply, RestStatus, RestTask,
     },
 };
-use tickwire_venue::{Environment, VenueOrderId};
+use tickwire_venue::{Environment, Quantity, TerminalReason, TimeInForce, VenueOrderId};
 
 #[derive(Debug)]
 pub enum QueryDriverError {
@@ -430,7 +431,14 @@ impl PerOrderQueryDriver {
                         self.dispatch_bybit_history(runner, ticket, now_mono_ns, outcome);
                     }
                     QueryWireStep::OrderStatusPrimary | QueryWireStep::BybitOrderStatusHistory => {
-                        self.handle_order_not_found(runner, &ticket, &code, now_mono_ns, outcome)?;
+                        self.handle_order_not_found(
+                            runner,
+                            &ticket,
+                            &code,
+                            cut,
+                            now_mono_ns,
+                            outcome,
+                        )?;
                     }
                     QueryWireStep::OrderTrades => {
                         self.handle_order_trades(runner, &ticket, &[], cut, now_mono_ns, outcome)?;
@@ -469,6 +477,7 @@ impl PerOrderQueryDriver {
                             runner,
                             &ticket,
                             "not_found",
+                            cut,
                             now_mono_ns,
                             outcome,
                         )?;
@@ -478,7 +487,34 @@ impl PerOrderQueryDriver {
                         runner.freeze_cash();
                         QueryDriverError::Protocol("invalid REST order row")
                     })?;
-                    self.handle_order_snapshot(runner, &ticket, remote, cut, now_mono_ns, outcome)?;
+                    let row_extras = extract_order_row_extras(self.venue, &rows[0]);
+                    let (post_only, tif) = runner
+                        .account()
+                        .order_terms(&ticket.order)
+                        .map(|(_, s)| {
+                            (
+                                s.time_in_force == Some(TimeInForce::PostOnly),
+                                s.time_in_force,
+                            )
+                        })
+                        .unwrap_or((false, remote.time_in_force));
+                    let row_terminal_reason = classify_order_row_terminal_reason(
+                        self.venue,
+                        &rows[0],
+                        remote.status,
+                        post_only,
+                        tif,
+                    );
+                    self.handle_order_snapshot(
+                        runner,
+                        &ticket,
+                        remote,
+                        row_extras,
+                        row_terminal_reason,
+                        cut,
+                        now_mono_ns,
+                        outcome,
+                    )?;
                 } else {
                     runner.freeze_cash();
                     return Err(QueryDriverError::Protocol(
@@ -587,13 +623,14 @@ impl PerOrderQueryDriver {
                 return;
             }
         }
-        let Some((instrument, _)) = runner.account().order_terms(&ticket.order) else {
+        let Some((instrument, spec)) = runner.account().order_terms(&ticket.order) else {
             if let Some(desk) = runner.query_desk_mut() {
                 desk.remove_order(&ticket.order);
             }
             return;
         };
         let symbol = instrument.symbol.as_str().to_owned();
+        let active_client_id = spec.client_id.as_str().to_owned();
         if let Some(budget) = self.rate_budget.as_mut()
             && !budget(now_mono_ns)
         {
@@ -620,7 +657,7 @@ impl PerOrderQueryDriver {
             wire_key,
             step: QueryWireStep::BybitOrderStatusHistory,
             symbol,
-            client_id: ticket.order.client_id.as_str().to_owned(),
+            client_id: active_client_id,
             native_order_id: ticket
                 .native_order_id
                 .as_ref()
@@ -669,10 +706,25 @@ impl PerOrderQueryDriver {
         runner: &mut AccountRunner<'a, B, A, T, S>,
         ticket: &QueryTicket,
         code: &str,
+        cut: PrivateCut,
         now_mono_ns: u64,
         outcome: &mut QueryStepOutcome,
     ) -> std::result::Result<(), QueryDriverError> {
         let confirmed = runner.is_order_confirmed_or_acked(&ticket.order);
+        if confirmed
+            && runner.account().order_in_doubt(&ticket.order) == Some(DoubtReason::AmendAmbiguous)
+            && runner
+                .record_query_modify_rejected(
+                    &ticket.order,
+                    None,
+                    TerminalReason::OrderNotOpen,
+                    cut,
+                    now_mono_ns,
+                )
+                .is_err()
+        {
+            runner.freeze_cash();
+        }
         let res = runner
             .query_desk_mut()
             .and_then(|d| d.on_not_found(ticket, now_mono_ns, confirmed));
@@ -704,6 +756,7 @@ impl PerOrderQueryDriver {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn handle_order_snapshot<
         'a,
         B: Backend,
@@ -715,10 +768,75 @@ impl PerOrderQueryDriver {
         runner: &mut AccountRunner<'a, B, A, T, S>,
         ticket: &QueryTicket,
         remote: RemoteOrder,
+        row_extras: OrderRowExtras,
+        row_terminal_reason: Option<TerminalReason>,
         cut: PrivateCut,
         now_mono_ns: u64,
         outcome: &mut QueryStepOutcome,
     ) -> std::result::Result<(), QueryDriverError> {
+        let amend_in_doubt =
+            runner.account().order_in_doubt(&ticket.order) == Some(DoubtReason::AmendAmbiguous);
+        if amend_in_doubt || ticket.kind == AskKind::Amend {
+            let Some((instrument, spec)) = runner
+                .account()
+                .order_terms(&ticket.order)
+                .map(|(i, s)| (i.clone(), s.clone()))
+            else {
+                runner.freeze_cash();
+                return Err(QueryDriverError::Runner(crate::Error::Origin(
+                    "unknown remote order",
+                )));
+            };
+            if remote.symbol != instrument.symbol.as_str()
+                || (remote.client_id != ticket.order.client_id.as_str()
+                    && remote.client_id != spec.client_id.as_str())
+                || remote.side != spec.side
+                || remote.order_type != spec.order_type
+                || remote.time_in_force != spec.time_in_force
+                || runner
+                    .account()
+                    .venue_order_id(&ticket.order)
+                    .is_some_and(|id| id.as_str() != remote.native_id)
+            {
+                runner.freeze_cash();
+                return Err(QueryDriverError::Runner(crate::Error::Origin(
+                    "remote order terms differ from the admitted command",
+                )));
+            }
+            let terms_changed =
+                Quantity::Base(remote.qty) != spec.quantity || remote.price != spec.price;
+            if terms_changed {
+                let Some(new_px) = remote.price else {
+                    runner.freeze_cash();
+                    return Err(QueryDriverError::Protocol(
+                        "modified limit order missing price",
+                    ));
+                };
+                if let Err(e) =
+                    runner.record_query_modified(&ticket.order, &remote, new_px, cut, now_mono_ns)
+                {
+                    runner.freeze_cash();
+                    return Err(QueryDriverError::Runner(e));
+                }
+            } else if amend_in_doubt {
+                let reason = if compare::open(remote.status) {
+                    TerminalReason::VenueRejected
+                } else {
+                    TerminalReason::OrderNotOpen
+                };
+                if let Err(e) = runner.record_query_modify_rejected(
+                    &ticket.order,
+                    Some(&remote),
+                    reason,
+                    cut,
+                    now_mono_ns,
+                ) {
+                    runner.freeze_cash();
+                    return Err(QueryDriverError::Runner(e));
+                }
+            }
+        }
+
         if let Err(e) = compare::admitted_terms(runner.account(), &ticket.order, &remote) {
             runner.freeze_cash();
             return Err(QueryDriverError::Runner(e));
@@ -728,6 +846,19 @@ impl PerOrderQueryDriver {
             QueryDriverError::Protocol("invalid native order ID in status snapshot")
         })?;
         runner.record_acked_native_order_id(ticket.order.clone(), native);
+
+        if runner.projected_fill_enabled()
+            && remote.cumulative.is_positive()
+            && let Err(e) =
+                runner.apply_order_row_projected_fill(&ticket.order, remote.cumulative, row_extras)
+        {
+            runner.freeze_cash();
+            return Err(QueryDriverError::Runner(e));
+        }
+
+        if let Some(reason) = row_terminal_reason {
+            runner.note_order_terminal_reason(&ticket.order, reason);
+        }
 
         let Some(view) = runner.account().order(&ticket.order) else {
             return Ok(());
@@ -879,7 +1010,9 @@ impl PerOrderQueryDriver {
                 runner.freeze_cash();
                 QueryDriverError::Protocol("invalid REST fill row")
             })?;
-            if fill.client_id != ticket.order.client_id.as_str() {
+            if fill.client_id != ticket.order.client_id.as_str()
+                && fill.client_id != spec.client_id.as_str()
+            {
                 continue;
             }
             if fill.symbol != instrument.symbol.as_str()
@@ -1038,13 +1171,14 @@ impl PerOrderQueryDriver {
             if ticket.native_order_id.is_none() {
                 ticket.native_order_id = runner.known_native_order_id(&ticket.order);
             }
-            let Some((instrument, _)) = runner.account().order_terms(&ticket.order) else {
+            let Some((instrument, spec)) = runner.account().order_terms(&ticket.order) else {
                 if let Some(desk) = runner.query_desk_mut() {
                     desk.remove_order(&ticket.order);
                 }
                 continue;
             };
             let symbol = instrument.symbol.as_str().to_owned();
+            let active_client_id = spec.client_id.as_str().to_owned();
 
             if let Some(budget) = self.rate_budget.as_mut()
                 && !budget(now_mono_ns)
@@ -1078,7 +1212,7 @@ impl PerOrderQueryDriver {
                 wire_key,
                 step,
                 symbol,
-                client_id: ticket.order.client_id.as_str().to_owned(),
+                client_id: active_client_id,
                 native_order_id: ticket
                     .native_order_id
                     .as_ref()
@@ -1126,6 +1260,8 @@ fn canonical_order_raw(o: &RemoteOrder) -> std::result::Result<Vec<u8>, QueryDri
         &o.native_id,
         o.updated_ms,
         format!("{:?}", o.status),
+        o.qty.as_plain_string(),
+        o.price.map(|p| p.as_plain_string()),
         o.cumulative.as_plain_string(),
     ))
     .map_err(|_| QueryDriverError::Protocol("invalid REST order source"))

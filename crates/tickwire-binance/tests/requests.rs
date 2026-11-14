@@ -316,3 +316,84 @@ fn spot_market_sell_quote_quantity_is_sent_as_exact_string() {
     assert_eq!(v["params"]["quoteOrderQty"], "7.5");
     assert!(v["params"].get("quantity").is_none());
 }
+
+#[test]
+fn usdm_modify_rest_and_spot_modify_cancel_replace_encode_exact_wire_contracts() {
+    let mut c_usdm = usdm();
+    c_usdm.body = CommandBody::Modify(ModifyOrder {
+        target: target(),
+        new_client_id: None,
+        side: Side::Sell,
+        quantity: d(25, -3),
+        price: d(612505, -1),
+        position_side: PositionSide::Short,
+        reduce_only: false,
+    });
+    let p_usdm = prepared(c_usdm, Market::Usdm, Transport::Rest);
+    assert_eq!(p_usdm.method(), Method::Put);
+    assert!(p_usdm.path().starts_with("/fapi/v1/order?"));
+    assert!(p_usdm.path().contains("symbol=BTCUSDT"));
+    assert!(p_usdm.path().contains("orderId=123456789"));
+    assert!(p_usdm.path().contains("origClientOrderId=original-1"));
+    assert!(p_usdm.path().contains("side=SELL"));
+    assert!(p_usdm.path().contains("quantity=0.025"));
+    assert!(p_usdm.path().contains("price=61250.5"));
+    assert!(!p_usdm.path().contains("positionSide="));
+
+    let mut c_spot = command();
+    c_spot.body = CommandBody::Modify(ModifyOrder {
+        target: target(),
+        new_client_id: Some(text("spot-mod-2")),
+        side: Side::Buy,
+        quantity: d(2, -3),
+        price: d(59500, 0),
+        position_side: PositionSide::Both,
+        reduce_only: false,
+    });
+    let ws_spot = json(&prepared(
+        c_spot.clone(),
+        Market::Spot,
+        Transport::WebSocket,
+    ));
+    assert_eq!(ws_spot["method"], "order.cancelReplace");
+    assert_eq!(ws_spot["params"]["cancelReplaceMode"], "STOP_ON_FAILURE");
+    assert_eq!(ws_spot["params"]["cancelOrderId"], 123456789u64);
+    assert_eq!(ws_spot["params"]["cancelOrigClientOrderId"], "original-1");
+    assert_eq!(ws_spot["params"]["newClientOrderId"], "spot-mod-2");
+    assert_eq!(ws_spot["params"]["type"], "LIMIT");
+    assert_eq!(ws_spot["params"]["timeInForce"], "GTC");
+    assert_eq!(ws_spot["params"]["side"], "BUY");
+    assert_eq!(ws_spot["params"]["quantity"], "0.002");
+    assert_eq!(ws_spot["params"]["price"], "59500");
+
+    let rest_spot = prepared(c_spot, Market::Spot, Transport::Rest);
+    assert_eq!(rest_spot.method(), Method::Post);
+    assert!(rest_spot.path().starts_with("/api/v3/order/cancelReplace?"));
+    assert!(
+        rest_spot
+            .path()
+            .contains("cancelReplaceMode=STOP_ON_FAILURE")
+    );
+    assert!(rest_spot.path().contains("newClientOrderId=spot-mod-2"));
+
+    let key = SigningKey::hmac(b"test-only").unwrap();
+    let mut missing_cid = command();
+    missing_cid.body = CommandBody::Modify(ModifyOrder {
+        target: target(),
+        new_client_id: None,
+        side: Side::Buy,
+        quantity: d(2, -3),
+        price: d(59500, 0),
+        position_side: PositionSide::Both,
+        reduce_only: false,
+    });
+    assert!(matches!(
+        prepare(
+            &CanonicalCommand::new(missing_cid).unwrap(),
+            &credentials(&key, Market::Spot),
+            options(Transport::Rest),
+            16_384,
+        ),
+        Err(Error::UnsupportedCommand)
+    ));
+}

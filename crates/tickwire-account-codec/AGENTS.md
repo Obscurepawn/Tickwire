@@ -19,8 +19,9 @@ WAL framing, and authority policy belong to `tickwire-account-journal` and `tick
   contiguous (`position + 1 == record.sequence()`) so strategy report digests never depend on volatile receive
   cursors.
 * **Golden byte compatibility**: Treat `tickwire.account-baseline` and `tickwire.account-record` domain tags, field
-  order, and schema version `1` as durable compatibility boundaries; accompany any new `RecoveryRecord` variant with
-  hex/SHA-256 fixtures and single-byte mutation tests.
+  order, and schema version `1` as durable compatibility boundaries (embedding `tickwire-venue` commands and events
+  including native `Modify` and schema-5 `Modified`/`ModifyRejected` records without changing outer `CanonicalRecord`
+  framing); accompany any new `RecoveryRecord` variant with hex/SHA-256 fixtures and single-byte mutation tests.
 
 ## Verification and Specifications
 

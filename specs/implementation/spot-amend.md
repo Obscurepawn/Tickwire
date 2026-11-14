@@ -10,7 +10,7 @@ Separating amendment admission from principal release prevents under-reservation
 | --- | --- | --- |
 | Eligible target order | Plain Spot `LIMIT`/`GTC` order only (iceberg orders and conditional structure legs are rejected). | `tickwire-venue` & `tickwire-account/src/amendments.rs` |
 | Identity & ownership match | Exact `ClientId`, original intent execution epoch, internal and native order IDs, current `ManagerIdentity`, and `owner_revision`. | Checked at `Account::admit` and rechecked alongside known `filled` quantity before the first TLS byte. |
-| Quantity inequality | `booked_filled < proposed_total < current_effective_total`; at most **1** pending amendment per order. | `Account::admit` |
+| Quantity inequality | `booked_filled < proposed_total < current_effective_total`; at most **1** pending amendment or `PendingModify` per order (`Error::TooManyPendingActions` on concurrent in-flight actions; full price or quantity-increase updates use `CommandBody::Modify` / schema-`5` tags `8` and `9` documented in [account.md](account.md)). | `Account::admit` |
 | Event schema | `CanonicalEvent` **schema 3**, body tags **`6`** (`Amendment`) and **`7`** (`AmendmentRejected`); schemas `1` and `2` keep their exact byte meanings. | `tickwire-venue/src/codec.rs` |
 | History capacity | Bounded per-account amendment table; capacity exhaustion rejects new entries rather than evicting historical IDs needed for replay deduplication. | `tickwire-account/src/amendments.rs` |
 | State-digest domain | Outer digest **v4** embedding bounded **`amendment-state.v1`** preimage data for orders with amendment history. | Durable observation anomalies and liabilities affect the digest; recovery-injected `recovery_unknown` and `frozen` flags do not. |

@@ -1,4 +1,4 @@
-use crate::{Error, Hash};
+use crate::{Error, Hash, TerminalReason};
 
 /// Printable ASCII only; no truncation or case folding.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -126,10 +126,18 @@ impl Decimal {
 }
 
 pub type ClientId = BoundedText<64>;
+pub type ClientOrderId = ClientId;
 pub type VenueOrderId = BoundedText<64>;
+pub type VenueToken = BoundedText<64>;
 pub type VenueTradeId = BoundedText<32>;
 pub type Symbol = BoundedSymbol<64>;
 pub type AssetSymbol = BoundedSymbol<32>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct IntentKey {
+    pub epoch: u64,
+    pub intent_id: u64,
+}
 
 /// Stable numeric identities used by catalog, market data, commands and account journals.
 pub mod venue_id {
@@ -635,7 +643,33 @@ pub struct AmendmentRejection {
     pub venue_code: BoundedText<32>,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModifyObservation {
+    pub target: OrderTarget,
+    pub amendment_id: Option<VenueToken>,
+    pub intent: Option<IntentKey>,
+    pub prior_client_id: Option<ClientOrderId>,
+    pub new_client_id: Option<ClientOrderId>,
+    pub venue_order_id: Option<VenueOrderId>,
+    pub new_quantity: Decimal,
+    pub new_price: Decimal,
+    pub cumulative_filled: Option<Decimal>,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModifyRejection {
+    pub target: OrderTarget,
+    pub amendment_id: Option<VenueToken>,
+    pub intent: Option<IntentKey>,
+    pub new_client_id: Option<ClientOrderId>,
+    pub venue_order_id: Option<VenueOrderId>,
+    pub code: Option<i64>,
+    pub reason: TerminalReason,
+}
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VenueEventBody {
+    /// Schema 5/tag 8. Native or venue-initiated order price/quantity modification.
+    Modified(Box<ModifyObservation>),
+    /// Schema 5/tag 9. Rejected in-place order modification; resting order remains open unless closed separately.
+    ModifyRejected(Box<ModifyRejection>),
     /// Schema 3/tag 6. Only a matched amendment result changes effective quantity.
     Amendment(Box<AmendmentObservation>),
     /// Schema 3/tag 7. A rejected management request, not a rejected order.

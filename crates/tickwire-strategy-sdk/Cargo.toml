@@ -31,6 +31,7 @@ tickwire-clock-sys = { path = "../tickwire-clock-sys" }
 libc = "0.2"
 tickwire-runtime = { path = "../tickwire-runtime", optional = true }
 tickwire-account = { path = "../tickwire-account" }
+tickwire-risk = { path = "../tickwire-risk" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway", optional = true }
 tickwire-binance-account = { path = "../tickwire-binance-account", optional = true }
 tickwire-binance-clock = { path = "../tickwire-binance-clock", optional = true }
@@ -39,6 +40,3 @@ tickwire-binance-public = { path = "../tickwire-binance-public", optional = true
 [features]
 default = ["runtime"]
 runtime = ["dep:tickwire-runtime","dep:tickwire-account-gateway","dep:tickwire-binance-account","dep:tickwire-binance-clock","dep:tickwire-binance-public"]
-
-[dev-dependencies]
-tickwire-risk = { path = "../tickwire-risk" }

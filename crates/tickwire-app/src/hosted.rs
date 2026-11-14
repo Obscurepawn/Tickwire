@@ -324,6 +324,11 @@ impl AppStrategy for Strategy {
     fn instance(&self) -> Option<([u8; 16], u64)> {
         self.0.instance()
     }
+    fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
+        if !self.2.failed && fill.strategy == self.1 {
+            self.0.on_projected_fill(fill);
+        }
+    }
     fn failed(&self) -> bool {
         self.2.failed || self.0.failed()
     }
@@ -532,6 +537,11 @@ impl AppStrategy for RemoteStrategy {
 
     fn instance(&self) -> Option<([u8; 16], u64)> {
         Some(self.0.instance())
+    }
+    fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
+        if !self.2.failed && fill.strategy == self.1 {
+            self.0.on_projected_fill(fill);
+        }
     }
     fn failed(&self) -> bool {
         self.2.failed || self.0.failed()

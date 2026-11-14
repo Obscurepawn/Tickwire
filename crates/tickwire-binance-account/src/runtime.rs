@@ -309,7 +309,25 @@ impl<S: Store> AccountIngress<S> {
             | v::CommandBody::CancelReplace { .. }
             | v::CommandBody::SpotList(_)
             | v::CommandBody::Algo(_) => {
-                if let Err(error) = self.register_command(command.clone(), ids) {
+                let skip_reg = {
+                    let mut precheck = gateway.account().clone();
+                    match precheck.admit(&command, evaluated_at) {
+                        Ok(_) => false,
+                        Err(acc_err) => {
+                            !precheck.frozen()
+                                && crate::modify::is_non_freezing_account_refusal(&acc_err)
+                                && registry::prepare(
+                                    &self.config,
+                                    &self.registry,
+                                    &command,
+                                    ids,
+                                    true,
+                                )
+                                .is_ok()
+                        }
+                    }
+                };
+                if !skip_reg && let Err(error) = self.register_command(command.clone(), ids) {
                     if self.stopped {
                         gateway.freeze_account();
                     }
@@ -321,6 +339,7 @@ impl<S: Store> AccountIngress<S> {
             | v::CommandBody::CancelList(_)
             | v::CommandBody::CancelAlgo(_)
             | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Modify(_)
                 if ids.is_empty() => {}
             _ => return Err(Error::Unsupported),
         }
@@ -344,7 +363,25 @@ impl<S: Store> AccountIngress<S> {
             | v::CommandBody::CancelReplace { .. }
             | v::CommandBody::SpotList(_)
             | v::CommandBody::Algo(_) => {
-                if let Err(error) = self.register_command(command.clone(), ids) {
+                let skip_reg = {
+                    let mut precheck = gateway.account().clone();
+                    match precheck.admit(&command, evaluated_at) {
+                        Ok(_) => false,
+                        Err(acc_err) => {
+                            !precheck.frozen()
+                                && crate::modify::is_non_freezing_account_refusal(&acc_err)
+                                && registry::prepare(
+                                    &self.config,
+                                    &self.registry,
+                                    &command,
+                                    ids,
+                                    true,
+                                )
+                                .is_ok()
+                        }
+                    }
+                };
+                if !skip_reg && let Err(error) = self.register_command(command.clone(), ids) {
                     if self.stopped {
                         gateway.freeze_account();
                     }
@@ -356,6 +393,7 @@ impl<S: Store> AccountIngress<S> {
             | v::CommandBody::CancelList(_)
             | v::CommandBody::CancelAlgo(_)
             | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Modify(_)
                 if ids.is_empty() => {}
             _ => return Err(Error::Unsupported),
         }
@@ -422,12 +460,13 @@ impl<S: Store> AccountIngress<S> {
         }
         let key = self.append(Record::Event(meta, raw.to_vec(), decision.clone()))?;
         match decision {
-            Decision::Bound(event) => {
-                if let Err(error) = self.registry.learn(&event) {
+            Decision::Bound(bound_ev) => {
+                if let Err(error) = self.registry.learn(&bound_ev) {
                     self.stopped = true;
                     return Err(error);
                 }
-                let result = gateway.record_ingress_event(key.stream, key.sequence, *event);
+                modify::apply_projected_fill_from_private_event(self, gateway, event, &bound_ev);
+                let result = gateway.record_ingress_event(key.stream, key.sequence, *bound_ev);
                 match result {
                     Ok(applied) => {
                         self.cursor = self.records.len();
@@ -531,19 +570,31 @@ impl<S: Store> AccountIngress<S> {
             order.original_client_id.as_deref(),
         );
         let (reg, identity) = match candidates.as_slice() {
-            [] => return Decision::Quarantine(QuarantineReason::UnknownOrder),
             [one] => *one,
+            [] if matches!(self.market(), Ok(Market::Spot)) => {
+                let Some(found) = modify::find_spot_modify_registration(
+                    &self.registry,
+                    gateway,
+                    &order.symbol,
+                    &order.client_id,
+                ) else {
+                    return Decision::Quarantine(QuarantineReason::UnknownOrder);
+                };
+                found
+            }
+            [] => return Decision::Quarantine(QuarantineReason::UnknownOrder),
             _ => return Decision::Quarantine(QuarantineReason::AmbiguousOrder),
         };
         if gateway.command(intent(&reg.command)) != Some(&reg.command) {
             return Decision::Quarantine(QuarantineReason::UnadmittedOrder);
         }
-        let Ok(canonical) = event.bind_order(&reg.command, identity, &self.baseline_assets) else {
-            return Decision::Quarantine(QuarantineReason::BindingConflict);
-        };
         let canonical = if order.execution_type == "REPLACED" {
+            let Ok(ordinary) = event.bind_order(&reg.command, identity, &self.baseline_assets)
+            else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
             let Ok(bound) =
-                amendment::bind_private(gateway.account(), &reg.command, canonical, order)
+                amendment::bind_private(gateway.account(), &reg.command, ordinary, order)
             else {
                 return Decision::Quarantine(QuarantineReason::BindingConflict);
             };
@@ -561,8 +612,37 @@ impl<S: Store> AccountIngress<S> {
                 return Decision::Quarantine(QuarantineReason::UnadmittedOrder);
             }
             bound
+        } else if modify::should_bind_private_modify(gateway.account(), reg, identity, order) {
+            let Ok(market) = self.market() else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            let Ok(bind_id) =
+                modify::prepare_private_bind_identity(market, reg, identity, order, true)
+            else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            let Ok(ordinary) = event.bind_order(&reg.command, &bind_id, &self.baseline_assets)
+            else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            let Ok(bound) = modify::bind_private(reg, identity, &ordinary, order) else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            bound
         } else {
-            canonical
+            let Ok(market) = self.market() else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            let Ok(bind_id) =
+                modify::prepare_private_bind_identity(market, reg, identity, order, false)
+            else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            let Ok(ordinary) = event.bind_order(&reg.command, &bind_id, &self.baseline_assets)
+            else {
+                return Decision::Quarantine(QuarantineReason::BindingConflict);
+            };
+            ordinary
         };
         if gateway.account().clone().apply_event(&canonical).is_err() {
             return Decision::Quarantine(QuarantineReason::AccountRejected);

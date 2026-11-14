@@ -47,13 +47,31 @@ impl Account {
         if let v::VenueEventBody::AmendmentRejected(a) = &event.body {
             return self.reject_amendment(a, id.instrument_id);
         }
-        if let v::VenueEventBody::Rejected { client_id, .. } = &event.body {
-            return self.observe_rejected(client_id.as_ref(), id.instrument_id);
+        if let v::VenueEventBody::Modified(m) = &event.body {
+            return self.observe_modified(m, id.instrument_id);
+        }
+        if let v::VenueEventBody::ModifyRejected(r) = &event.body {
+            return self.reject_modification(r, id.instrument_id);
+        }
+        if let v::VenueEventBody::Rejected {
+            client_id,
+            venue_code,
+            message,
+        } = &event.body
+        {
+            return self.observe_rejected(
+                client_id.as_ref(),
+                venue_code,
+                message,
+                id.instrument_id,
+            );
         }
         let identity = match &event.body {
             v::VenueEventBody::Structure(_) => return Err(Error::Unreconciled),
             v::VenueEventBody::Amendment(_) => return Err(Error::Unreconciled),
             v::VenueEventBody::AmendmentRejected(_) => return Err(Error::Unreconciled),
+            v::VenueEventBody::Modified(_) => return Err(Error::Unreconciled),
+            v::VenueEventBody::ModifyRejected(_) => return Err(Error::Unreconciled),
             v::VenueEventBody::Fill(fill) => &fill.observation.order,
             v::VenueEventBody::Order(o) => &o.order,
             v::VenueEventBody::Fee { order, .. } => order,
@@ -130,7 +148,28 @@ impl Account {
                     self.apply_fee(&key, &p, delta)?;
                 }
             }
-            v::VenueEventBody::Order(o) => self.observe(&key, o)?,
+            v::VenueEventBody::Order(o) => {
+                if self.projected_fill_enabled
+                    && let Some(cum_dec) = o.cumulative_quantity
+                {
+                    let base_scale = self.orders[&key].original.scale();
+                    let cum = exact_decimal(cum_dec, base_scale)?;
+                    let price_input = match o.cumulative_quote {
+                        Some(cq) => {
+                            let quote_scale = asset_scale(&p.instrument.quote)?;
+                            let cqf = exact_decimal(cq, quote_scale)?;
+                            if cqf.atoms() > 0 {
+                                ProjectedPriceInput::CumulativeQuote { cum_quote: cqf }
+                            } else {
+                                ProjectedPriceInput::LimitFallback
+                            }
+                        }
+                        None => ProjectedPriceInput::LimitFallback,
+                    };
+                    let _ = self.on_cum_qty(&key, cum, price_input)?;
+                }
+                self.observe(&key, o)?;
+            }
             _ => unreachable!(),
         }
         let stamp = self.last_mono_ns;
@@ -159,21 +198,39 @@ impl Account {
         let matches_order = |o: &Order| {
             o.instrument == instrument
                 && o.key.intent == intent
-                && id.client_id.as_ref().is_none_or(|c| c == &o.key.client_id)
+                && id.client_id.as_ref().is_none_or(|c| o.has_client_id(c))
                 && id
                     .venue_order_id
                     .as_ref()
-                    .is_none_or(|n| o.native.as_ref().is_none_or(|old| old == n))
+                    .is_none_or(|n| o.native.is_none() || o.has_native_id(n))
         };
         if let Some(cid) = &id.client_id {
             let key = OrderKey {
                 intent,
                 client_id: cid.clone(),
             };
-            return match self.orders.get(&key) {
-                Some(o) if matches_order(o) => Ok(key),
-                _ => Err(Error::UnknownOrder),
-            };
+            if let Some(o) = self.orders.get(&key)
+                && matches_order(o)
+            {
+                return Ok(key);
+            }
+            if let Some(keys) = self.orders_by_client_id.get(&(instrument, cid.clone())) {
+                let mut matched: Option<OrderKey> = None;
+                for k in keys {
+                    if let Some(o) = self.orders.get(k)
+                        && matches_order(o)
+                    {
+                        if matched.is_some() {
+                            return Err(Error::UnknownOrder);
+                        }
+                        matched = Some(k.clone());
+                    }
+                }
+                if let Some(k) = matched {
+                    return Ok(k);
+                }
+            }
+            return Err(Error::UnknownOrder);
         }
         let Some(legs) = self.orders_by_intent.get(&intent) else {
             return Err(Error::UnknownOrder);
@@ -195,10 +252,15 @@ impl Account {
         let instrument = {
             let o = self.orders.get_mut(key).unwrap();
             if let Some(native) = &id.venue_order_id {
-                if o.native.as_ref().is_some_and(|old| old != native) {
+                if o.native
+                    .as_ref()
+                    .is_some_and(|old| old != native && !o.native_aliases.contains(native))
+                {
                     return Err(Error::Conflict);
                 }
-                o.native = Some(native.clone());
+                if o.native.is_none() {
+                    o.native = Some(native.clone());
+                }
             }
             if id.order_id != [0; 16] {
                 if o.internal_id.is_some_and(|old| old != id.order_id) {
@@ -258,11 +320,13 @@ impl Account {
             self.frozen = true;
         }
         let filled = o.filled.checked_add(q)?;
-        if filled.atoms() > o.effective.atoms()
+        let max_authorized_qty = self.authorized_quantity_bound(key)?;
+        let price_bound = self.authorized_price_bound(key)?;
+        if filled.atoms() > max_authorized_qty.atoms()
             || o.terminal_cumulative
                 .is_some_and(|cum| filled.atoms() > cum.atoms())
-            || (o.spec.side == v::Side::Buy && price.atoms() > o.price.atoms())
-            || (o.spec.side == v::Side::Sell && price.atoms() < o.price.atoms())
+            || (o.spec.side == v::Side::Buy && price.atoms() > price_bound.atoms())
+            || (o.spec.side == v::Side::Sell && price.atoms() < price_bound.atoms())
         {
             self.frozen = true;
         }
@@ -275,7 +339,7 @@ impl Account {
             )?;
             quote.nonnegative()?;
             let bound = q.mul_to(
-                o.price,
+                price_bound,
                 quote.scale(),
                 if o.spec.side == v::Side::Buy {
                     Rounding::Ceil
@@ -340,6 +404,7 @@ impl Account {
         {
             let current = self.orders.get_mut(key).unwrap();
             current.filled = filled;
+            current.projected_cum_qty = current.projected_cum_qty.max(current.filled)?;
             current.notional = o.notional.checked_add(notional)?;
             current.reduce = current.reduce.checked_sub(q)?.positive_part();
             if current.in_doubt == Some(DoubtReason::FillCatchup)
@@ -354,6 +419,7 @@ impl Account {
         for delta in fill.fees.as_slice() {
             self.apply_fee(key, p, delta)?;
         }
+        self.sync_order_in_stp_book(key)?;
         Ok(())
     }
     fn cashflow(&mut self, key: AssetKey, delta: Fixed, strategy: u64) -> Result<()> {
@@ -471,6 +537,7 @@ impl Account {
                 self.frozen = true;
             }
         }
+        let max_authorized_qty = self.authorized_quantity_bound(key)?;
         let o = self.orders.get_mut(key).unwrap();
         let terminal = matches!(
             observation.status,
@@ -485,9 +552,24 @@ impl Account {
         }
         if terminal {
             o.terminal = true;
+            if o.terminal_reason.is_none() {
+                o.terminal_reason = match observation.status {
+                    v::OrderStatus::Filled => Some(v::TerminalReason::Filled),
+                    v::OrderStatus::Canceled => Some(v::TerminalReason::UserCanceled),
+                    v::OrderStatus::Expired => Some(v::classify_binance_reason(
+                        None,
+                        "EXPIRED",
+                        None,
+                        o.spec.time_in_force,
+                        o.spec.time_in_force == Some(v::TimeInForce::PostOnly),
+                    )),
+                    v::OrderStatus::Rejected => Some(v::TerminalReason::VenueRejected),
+                    _ => None,
+                };
+            }
             if let Some(cum) = observation.cumulative_quantity {
                 let cum = exact_decimal(cum, o.original.scale())?;
-                if cum.atoms() < o.filled.atoms() || cum.atoms() > o.effective.atoms() {
+                if cum.atoms() < o.filled.atoms() || cum.atoms() > max_authorized_qty.atoms() {
                     o.observation_unreconciled = true;
                     self.frozen = true;
                 }
@@ -535,7 +617,55 @@ impl Account {
                 _ => {}
             }
         }
+        if terminal {
+            self.supersede_pending_modify_on_terminal(key)?;
+        }
+        self.sync_order_in_stp_book(key)?;
         Ok(())
+    }
+    fn authorized_quantity_bound(&self, key: &OrderKey) -> Result<Fixed> {
+        let o = &self.orders[key];
+        let mut bound = o.effective;
+        if let Some(pm) = &o.pending_modify {
+            bound = bound.max(pm.requested_quantity)?;
+        }
+        for m in self.modifications.values() {
+            if m.order == *key && !m.confirmed && !m.aborted && m.rejected.is_none() {
+                bound = bound.max(m.requested_quantity)?;
+            }
+        }
+        for a in self.amendments.values() {
+            if a.order == *key && !a.confirmed && !a.aborted && a.rejected.is_none() {
+                bound = bound.max(a.after)?;
+            }
+        }
+        Ok(bound)
+    }
+    fn authorized_price_bound(&self, key: &OrderKey) -> Result<Fixed> {
+        let o = &self.orders[key];
+        let mut bound = o.price;
+        let merge = |cur: Fixed, cand: Fixed| -> Result<Fixed> {
+            Ok(if o.spec.side == v::Side::Buy {
+                cur.max(cand)?
+            } else {
+                cur.min(cand)?
+            })
+        };
+        if let Some(pm) = &o.pending_modify {
+            bound = merge(bound, pm.requested_price)?;
+            bound = merge(bound, pm.prior_price)?;
+        }
+        for m in self.modifications.values() {
+            if m.order == *key && !m.aborted && m.rejected.is_none() {
+                bound = merge(bound, m.prior_price)?;
+                if let Some(applied_px) = m.applied_price {
+                    bound = merge(bound, applied_px)?;
+                } else {
+                    bound = merge(bound, m.requested_price)?;
+                }
+            }
+        }
+        Ok(bound)
     }
     fn fill_position(
         &mut self,
@@ -620,6 +750,8 @@ impl Account {
     fn observe_rejected(
         &mut self,
         client_id: Option<&v::ClientId>,
+        venue_code: &v::BoundedText<32>,
+        message: &v::BoundedMessage<256>,
         instrument: u64,
     ) -> Result<Applied> {
         let Some(cid) = client_id else {
@@ -658,18 +790,34 @@ impl Account {
         {
             return Err(Error::Unreconciled);
         }
+        let parsed_code = venue_code.as_str().parse::<i64>().ok();
+        let post_only = o.spec.time_in_force == Some(v::TimeInForce::PostOnly);
+        let tif = o.spec.time_in_force;
+        let reason = if self.scope.venue == v::venue_id::BINANCE {
+            v::classify_binance_reason(parsed_code, message.as_str(), None, tif, post_only)
+        } else {
+            v::classify_spot_venue_reason(
+                parsed_code,
+                venue_code.as_str(),
+                message.as_str(),
+                post_only,
+                tif,
+            )
+        };
         let o = self.orders.get_mut(&key).unwrap();
         o.uncreated = true;
         o.fees_closed = true;
         o.reduce = o.reduce.zero_like();
         o.in_doubt = None;
         o.recovery_unknown = false;
+        o.terminal_reason = Some(reason);
         if self.orders_by_intent.get(&key.intent).is_some_and(|legs| {
             legs.iter()
                 .all(|l| self.orders[l].aborted || self.orders[l].uncreated)
         }) {
             self.shadow_holds.remove(&key.intent);
         }
+        self.sync_order_in_stp_book(&key)?;
         let stamp = self.last_mono_ns;
         self.refresh_order_retirement(&key, stamp);
         self.next_sequence()?;

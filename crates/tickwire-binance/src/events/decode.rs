@@ -91,6 +91,9 @@ pub(super) fn decode<'a, const N: usize>(
             if let Some(s) = &w.reject {
                 text(s, 256, true)?;
             }
+            if let Some(s) = &w.stp_mode {
+                text(s, 64, true)?;
+            }
             let order_time_ns = time(w.order_time)?;
             if session.market == Market::Spot {
                 transaction = Some(order_time_ns);
@@ -107,7 +110,10 @@ pub(super) fn decode<'a, const N: usize>(
             ] {
                 nonnegative(d)?;
             }
-            for d in [w.cumulative_quote, w.last_quote].into_iter().flatten() {
+            for d in [w.cumulative_quote, w.average_price, w.last_quote]
+                .into_iter()
+                .flatten()
+            {
                 nonnegative(d)?;
             }
             if w.commission.is_some_and(|n| n.mantissa() != 0) && w.commission_asset.is_none() {
@@ -130,6 +136,7 @@ pub(super) fn decode<'a, const N: usize>(
                 price: w.price,
                 cumulative_quantity: w.cumulative,
                 cumulative_quote: w.cumulative_quote,
+                average_price: w.average_price,
                 last_quantity: w.last_quantity,
                 last_price: w.last_price,
                 last_quote: w.last_quote,
@@ -140,6 +147,7 @@ pub(super) fn decode<'a, const N: usize>(
                 maker: w.maker,
                 order_time_ns,
                 reject_reason: w.reject,
+                self_trade_prevention_mode: w.stp_mode.filter(|s| !s.is_empty()),
                 raw: order_raw,
             }))
         }
@@ -416,6 +424,8 @@ struct WireOrder<'a> {
     last_price: Decimal,
     #[serde(rename = "Z")]
     cumulative_quote: Option<Decimal>,
+    #[serde(rename = "ap")]
+    average_price: Option<Decimal>,
     #[serde(rename = "Y")]
     last_quote: Option<Decimal>,
     #[serde(rename = "n")]
@@ -434,6 +444,8 @@ struct WireOrder<'a> {
     realized_pnl: Option<Decimal>,
     #[serde(rename = "r", borrow)]
     reject: Option<Cow<'a, str>>,
+    #[serde(rename = "V", borrow)]
+    stp_mode: Option<Cow<'a, str>>,
     #[serde(rename = "st")]
     symbol_type: Option<u8>,
 }

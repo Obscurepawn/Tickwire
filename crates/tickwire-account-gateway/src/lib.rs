@@ -5,6 +5,7 @@ use std::{
     time::Instant,
 };
 use tickwire_account::{Account, Admission, Applied, IntentKey, RecoveryRecord};
+pub use tickwire_account::{ProjectedFill, ProjectedPriceInput, StpBook};
 use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord};
 use tickwire_account_journal::{AccountJournal, AppendReceipt, Backend, HistoryFrontier};
 pub use tickwire_gateway::{ConnectionConfig, EncodedRequest, Encoder, Route};
@@ -643,6 +644,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                     && !self.is_key_pending(**key)
                     && !self.account.is_intent_active(**key)
                     && !self.account.is_confirmed_amendment(**key)
+                    && !self.account.is_confirmed_modification(**key)
             })
             .min_by_key(|(key, entry)| {
                 (
@@ -783,7 +785,9 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 .entries
                 .iter()
                 .filter(|(k, e)| {
-                    is_management_command(&e.command) && !self.account.is_confirmed_amendment(**k)
+                    is_management_command(&e.command)
+                        && !self.account.is_confirmed_amendment(**k)
+                        && !self.account.is_confirmed_modification(**k)
                 })
                 .count();
             if mgmt_count >= tickwire_account::MAX_MANAGEMENT_ADMISSIONS
@@ -1740,6 +1744,74 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         self.per_order_doubt_isolation
     }
 
+    pub fn with_stp_enforcement(mut self, enabled: bool) -> Self {
+        self.account.set_stp_enforcement(enabled);
+        self
+    }
+
+    pub fn set_stp_enforcement(&mut self, enabled: bool) {
+        self.account.set_stp_enforcement(enabled);
+    }
+
+    pub fn stp_enforcement(&self) -> bool {
+        self.account.stp_enforcement()
+    }
+
+    pub fn stp_book(&self) -> &StpBook {
+        self.account.stp_book()
+    }
+
+    pub fn with_projected_fill(mut self, enabled: bool) -> Self {
+        self.account.set_projected_fill(enabled);
+        self
+    }
+
+    pub fn set_projected_fill(&mut self, enabled: bool) {
+        self.account.set_projected_fill(enabled);
+    }
+
+    pub fn projected_fill_enabled(&self) -> bool {
+        self.account.projected_fill_enabled()
+    }
+
+    pub fn on_cum_qty(
+        &mut self,
+        key: &tickwire_account::OrderKey,
+        cum_qty: tickwire_account::Fixed,
+        price_input: ProjectedPriceInput,
+    ) -> std::result::Result<Option<ProjectedFill>, tickwire_account::Error> {
+        self.account.on_cum_qty(key, cum_qty, price_input)
+    }
+
+    pub fn drain_projected_fills(&mut self) -> Vec<ProjectedFill> {
+        self.account.drain_projected_fills()
+    }
+
+    pub fn pop_projected_fill(&mut self) -> Option<ProjectedFill> {
+        self.account.pop_projected_fill()
+    }
+
+    pub fn order_projected_filled(
+        &self,
+        key: &tickwire_account::OrderKey,
+    ) -> Option<tickwire_account::Fixed> {
+        self.account.order_projected_filled(key)
+    }
+
+    pub fn order_terminal_reason(
+        &self,
+        key: &tickwire_account::OrderKey,
+    ) -> Option<tickwire_venue::TerminalReason> {
+        self.account.order_terminal_reason(key)
+    }
+
+    pub fn order_last_modify_rejection(
+        &self,
+        key: &tickwire_account::OrderKey,
+    ) -> Option<tickwire_venue::TerminalReason> {
+        self.account.order_last_modify_rejection(key)
+    }
+
     pub fn has_transport_connection(&self) -> bool {
         self.connection.is_some()
     }
@@ -1786,7 +1858,10 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         } else {
             match body {
                 tickwire_venue::CommandBody::Cancel(target)
-                | tickwire_venue::CommandBody::AmendKeepPriority { target, .. } => {
+                | tickwire_venue::CommandBody::AmendKeepPriority { target, .. }
+                | tickwire_venue::CommandBody::Modify(tickwire_venue::ModifyOrder {
+                    target, ..
+                }) => {
                     if let Some(order_key) = self.account.resolve_order_target(instrument, target)
                         && let Some(view) = self.account.order(&order_key)
                         && !view.terminal
@@ -1861,9 +1936,10 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                     Some(tickwire_venue::CommandBody::Cancel(_)) => {
                         tickwire_account::DoubtReason::CancelAmbiguous
                     }
-                    Some(tickwire_venue::CommandBody::AmendKeepPriority { .. }) => {
-                        tickwire_account::DoubtReason::AmendAmbiguous
-                    }
+                    Some(
+                        tickwire_venue::CommandBody::AmendKeepPriority { .. }
+                        | tickwire_venue::CommandBody::Modify(_),
+                    ) => tickwire_account::DoubtReason::AmendAmbiguous,
                     _ => tickwire_account::DoubtReason::PlaceAmbiguous,
                 };
                 if self.isolate_intent_in_doubt(key, reason).is_err() {
@@ -1907,5 +1983,6 @@ fn is_management_command(command: &CanonicalCommand) -> bool {
             | tickwire_venue::CommandBody::CancelList(_)
             | tickwire_venue::CommandBody::CancelAlgo(_)
             | tickwire_venue::CommandBody::AmendKeepPriority { .. }
+            | tickwire_venue::CommandBody::Modify(_)
     )
 }

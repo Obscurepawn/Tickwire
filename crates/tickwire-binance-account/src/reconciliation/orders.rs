@@ -244,7 +244,7 @@ impl ReadOnlyOrderReader {
             accepted: matches!(
                 disposition,
                 RestDisposition::Observed | RestDisposition::NeedsReconciliation
-            ) && applied_events == 1,
+            ) && (1..=2).contains(&applied_events),
         }))
     }
     pub fn register(

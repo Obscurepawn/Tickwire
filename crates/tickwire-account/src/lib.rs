@@ -10,9 +10,12 @@ mod events;
 mod external;
 mod handover;
 mod live_bootstrap;
+mod modifications;
 pub mod pool;
+mod projected_fill;
 pub mod query_desk;
 mod recovery;
+pub mod stp_book;
 mod structures;
 #[cfg(test)]
 #[path = "../tests/common/mod.rs"]
@@ -20,11 +23,13 @@ mod test_common;
 mod types;
 pub use live_bootstrap::LiveBootstrap;
 pub use pool::{PoolFull, WindowedTable};
+pub use projected_fill::{MAX_PROJECTED_FILLS, ProjectedFill, ProjectedPriceInput};
 pub use query_desk::{
     AskKind, MAX_REST_SLOTS, MAX_STATUS_ASKS, QueryConfig, QueryDesk, QueryResolution, QueryTicket,
     SnapshotSummary,
 };
 use std::collections::{BTreeMap, BTreeSet};
+pub use stp_book::{DEFAULT_STP_ORDERS_PER_SIDE, DEFAULT_STP_SYMBOLS, StpBook};
 pub use tickwire_risk::Fixed;
 use tickwire_risk::{RiskError, Rounding};
 use tickwire_venue as v;
@@ -77,6 +82,18 @@ struct Order {
     internal_id: Option<[u8; 16]>,
     owner_revision: u64,
     shadow_fee_credit: Fixed,
+    pending_modify: Option<modifications::PendingModify>,
+    known_quantities: Vec<Fixed>,
+    client_id_aliases: Vec<v::ClientId>,
+    native_aliases: Vec<v::VenueOrderId>,
+    exch_cum_qty: Fixed,
+    exch_cum_quote: Option<Fixed>,
+    exch_quote_qty: Fixed,
+    exch_avg_price: Option<Fixed>,
+    exch_avg_qty: Fixed,
+    projected_cum_qty: Fixed,
+    terminal_reason: Option<v::TerminalReason>,
+    last_modify_reject_reason: Option<v::TerminalReason>,
     created_mono_ns: u64,
     retired_mono_ns: Option<u64>,
     in_doubt: Option<DoubtReason>,
@@ -114,10 +131,22 @@ impl PartialEq for Order {
             && self.internal_id == other.internal_id
             && self.owner_revision == other.owner_revision
             && self.shadow_fee_credit == other.shadow_fee_credit
+            && self.pending_modify == other.pending_modify
+            && self.known_quantities == other.known_quantities
+            && self.client_id_aliases == other.client_id_aliases
+            && self.native_aliases == other.native_aliases
     }
 }
 impl Eq for Order {}
 impl Order {
+    pub(crate) fn has_client_id(&self, cid: &v::ClientId) -> bool {
+        &self.key.client_id == cid
+            || &self.spec.client_id == cid
+            || self.client_id_aliases.contains(cid)
+    }
+    pub(crate) fn has_native_id(&self, vid: &v::VenueOrderId) -> bool {
+        self.native.as_ref() == Some(vid) || self.native_aliases.contains(vid)
+    }
     // A contradictory venue fact restores the original liability before a later
     // reconciliation can reenable admission. It never allocates a new ticket.
     fn reopen_aborted(&mut self) -> Result<bool> {
@@ -131,6 +160,7 @@ impl Order {
         self.uncreated = false;
         self.fees_closed = false;
         self.retired_mono_ns = None;
+        self.terminal_reason = None;
         if matches!(self.spec.mode, v::ProductMode::Derivative { .. })
             && (self.spec.reduce_only
                 || matches!(
@@ -138,7 +168,7 @@ impl Order {
                     (v::PositionSide::Long, v::Side::Sell) | (v::PositionSide::Short, v::Side::Buy)
                 ))
         {
-            self.reduce = self.original.checked_sub(self.filled)?.positive_part();
+            self.reduce = self.effective.checked_sub(self.filled)?.positive_part();
         }
         Ok(true)
     }
@@ -161,6 +191,22 @@ impl Order {
                 .positive_part())
         }
     }
+    pub(crate) fn effective_remaining(&self) -> Result<Fixed> {
+        let base_rem = self.remaining()?;
+        if !self.aborted
+            && !self.uncreated
+            && !self.terminal
+            && let Some(pm) = &self.pending_modify
+        {
+            let new_rem = pm
+                .requested_quantity
+                .checked_sub(self.filled.max(self.observed_cumulative)?)?
+                .positive_part();
+            Ok(base_rem.max(new_rem)?)
+        } else {
+            Ok(base_rem)
+        }
+    }
     pub(crate) fn is_retirable(&self) -> bool {
         (self.aborted
             || self.uncreated
@@ -170,6 +216,7 @@ impl Order {
             && !self.unknown()
             && !self.observation_unreconciled
             && self.in_doubt.is_none()
+            && self.pending_modify.is_none()
             && self.reduce.atoms() == 0
     }
 }
@@ -213,6 +260,11 @@ pub struct Account {
     structures: BTreeMap<[u8; 16], structures::Structure>,
     structure_management: BTreeMap<IntentKey, structures::Management>,
     amendments: BTreeMap<IntentKey, amendments::Amendment>,
+    modifications: BTreeMap<IntentKey, modifications::ModificationRecord>,
+    stp_book: StpBook,
+    stp_enforcement: bool,
+    projected_fill_enabled: bool,
+    projected_fills: std::collections::VecDeque<ProjectedFill>,
     structure_observed: bool,
     admissions: BTreeMap<IntentKey, Admission>,
     facts: BTreeMap<FactKey, FactEntry>,
@@ -261,6 +313,11 @@ impl Account {
             structures: BTreeMap::new(),
             structure_management: BTreeMap::new(),
             amendments: BTreeMap::new(),
+            modifications: BTreeMap::new(),
+            stp_book: StpBook::with_capacity(MAX_INSTRUMENTS, MAX_ORDERS),
+            stp_enforcement: false,
+            projected_fill_enabled: false,
+            projected_fills: std::collections::VecDeque::new(),
             structure_observed: false,
             admissions: BTreeMap::new(),
             facts: BTreeMap::new(),
@@ -319,6 +376,12 @@ impl Account {
         }
         for p in catalog.entries {
             result.validate_policy(&p)?;
+            let tick_size =
+                decimal_lossless(p.instrument.price_tick).map_err(|_| Error::Catalog)?;
+            result
+                .stp_book
+                .register_instrument(p.instrument.instrument_id, tick_size)
+                .map_err(|_| Error::Catalog)?;
             if result
                 .catalog
                 .insert(p.instrument.instrument_id, p)
@@ -534,6 +597,56 @@ impl Account {
         self.amendments.get(&key).is_some_and(|a| a.confirmed)
     }
 
+    pub fn is_confirmed_modification(&self, key: IntentKey) -> bool {
+        self.modifications.get(&key).is_some_and(|m| m.confirmed)
+    }
+
+    pub fn with_stp_enforcement(mut self, enabled: bool) -> Self {
+        self.stp_enforcement = enabled;
+        self
+    }
+
+    pub fn set_stp_enforcement(&mut self, enabled: bool) {
+        self.stp_enforcement = enabled;
+    }
+
+    pub fn stp_enforcement(&self) -> bool {
+        self.stp_enforcement
+    }
+
+    pub fn stp_book(&self) -> &StpBook {
+        &self.stp_book
+    }
+
+    pub fn order_terminal_reason(&self, key: &OrderKey) -> Option<v::TerminalReason> {
+        self.orders.get(key)?.terminal_reason
+    }
+
+    pub fn order_last_modify_rejection(&self, key: &OrderKey) -> Option<v::TerminalReason> {
+        self.orders.get(key)?.last_modify_reject_reason
+    }
+
+    pub(crate) fn sync_order_in_stp_book(&mut self, key: &OrderKey) -> Result<()> {
+        let Some(o) = self.orders.get(key) else {
+            return Ok(());
+        };
+        if o.spec.order_type != v::OrderType::Limit {
+            return Ok(());
+        }
+        let instrument = o.instrument;
+        let side = o.spec.side;
+        let active =
+            !o.aborted && !o.uncreated && !o.terminal && o.effective_remaining()?.atoms() > 0;
+        if active {
+            let price = o.price;
+            let pending = o.pending_modify.as_ref().map(|pm| pm.requested_price);
+            self.stp_book
+                .upsert_order(instrument, side, key.clone(), price, pending)
+        } else {
+            self.stp_book.remove_order(instrument, side, key)
+        }
+    }
+
     pub fn is_intent_active(&self, key: IntentKey) -> bool {
         if let Some(legs) = self.orders_by_intent.get(&key) {
             if legs.iter().any(|leg| !self.is_order_retirable(leg)) {
@@ -562,6 +675,16 @@ impl Account {
                 }
                 return false;
             }
+            if let Some(m) = self.modifications.get(&key) {
+                if !m.aborted && !m.confirmed && m.rejected.is_none() && !m.superseded {
+                    return true;
+                }
+                if m.confirmed {
+                    return self.orders.contains_key(&m.order)
+                        && !self.is_order_retirable(&m.order);
+                }
+                return false;
+            }
             return adm.retired_mono_ns.is_none();
         }
         false
@@ -571,6 +694,7 @@ impl Account {
         if let Some(adm) = self.admissions.get_mut(&key)
             && adm.orders.is_empty()
             && !self.amendments.contains_key(&key)
+            && !self.modifications.contains_key(&key)
         {
             adm.retired_mono_ns = retired_mono_ns;
         }
@@ -614,6 +738,15 @@ impl Account {
                     return a.retired_mono_ns;
                 }
             }
+            if let Some(m) = self.modifications.get(&key) {
+                if m.confirmed {
+                    let order_retired = self.intent_retired_mono_ns(m.order.intent)?;
+                    return Some(m.retired_mono_ns.unwrap_or(0).max(order_retired));
+                }
+                if m.retired_mono_ns.is_some() {
+                    return m.retired_mono_ns;
+                }
+            }
             return adm.retired_mono_ns;
         }
         None
@@ -628,6 +761,13 @@ impl Account {
                 .amendments
                 .values()
                 .any(|a| a.order == *key && !a.aborted && !a.confirmed && a.rejected.is_none())
+            && !self.modifications.values().any(|m| {
+                m.order == *key
+                    && !m.aborted
+                    && !m.confirmed
+                    && m.rejected.is_none()
+                    && !m.superseded
+            })
     }
 
     pub(crate) fn is_structure_retirable(&self, s: &structures::Structure) -> bool {
@@ -733,11 +873,20 @@ impl Account {
     }
 
     pub(crate) fn index_order_remove(&mut self, order: &Order) {
-        let cid_key = (order.instrument, order.key.client_id.clone());
-        if let Some(vec) = self.orders_by_client_id.get_mut(&cid_key) {
-            vec.retain(|k| k != &order.key);
-            if vec.is_empty() {
-                self.orders_by_client_id.remove(&cid_key);
+        let mut cids = vec![order.key.client_id.clone(), order.spec.client_id.clone()];
+        cids.extend(order.client_id_aliases.iter().cloned());
+        if let Some(ref pm) = order.pending_modify
+            && let Some(ref cid) = pm.new_client_id
+        {
+            cids.push(cid.clone());
+        }
+        for cid in cids {
+            let cid_key = (order.instrument, cid);
+            if let Some(vec) = self.orders_by_client_id.get_mut(&cid_key) {
+                vec.retain(|k| k != &order.key);
+                if vec.is_empty() {
+                    self.orders_by_client_id.remove(&cid_key);
+                }
             }
         }
         if let Some(vec) = self.orders_by_intent.get_mut(&order.key.intent) {
@@ -746,8 +895,10 @@ impl Account {
                 self.orders_by_intent.remove(&order.key.intent);
             }
         }
-        if let Some(native) = &order.native {
-            let nid_key = (order.instrument, native.clone());
+        let mut nids: Vec<v::VenueOrderId> = order.native.iter().cloned().collect();
+        nids.extend(order.native_aliases.iter().cloned());
+        for native in nids {
+            let nid_key = (order.instrument, native);
             if let Some(vec) = self.orders_by_native_id.get_mut(&nid_key) {
                 vec.retain(|k| k != &order.key);
                 if vec.is_empty() {
@@ -763,6 +914,9 @@ impl Account {
                 self.orders_by_internal_id.remove(&internal_id);
             }
         }
+        let _ = self
+            .stp_book
+            .remove_order(order.instrument, order.spec.side, &order.key);
     }
 
     fn facts_for_order_expired(&self, key: &OrderKey, now_mono_ns: u64, window_ns: u64) -> bool {
@@ -788,9 +942,17 @@ impl Account {
                     .amendments
                     .get(&intent)
                     .is_none_or(|a| !a.confirmed && (a.aborted || a.rejected.is_some()))
+                && self.modifications.get(&intent).is_none_or(|m| {
+                    !m.confirmed
+                        && (m.aborted
+                            || m.rejected.is_some()
+                            || (m.superseded && !self.orders.contains_key(&m.order)))
+                })
         });
         if reclaimable {
             self.amendments.remove(&intent);
+            self.modifications.remove(&intent);
+            self.shadow_holds.remove(&intent);
             self.structure_management.remove(&intent);
             self.admissions.remove(&intent);
             true
@@ -810,6 +972,12 @@ impl Account {
                         .amendments
                         .get(intent)
                         .is_none_or(|a| !a.confirmed && (a.aborted || a.rejected.is_some()))
+                    && self.modifications.get(intent).is_none_or(|m| {
+                        !m.confirmed
+                            && (m.aborted
+                                || m.rejected.is_some()
+                                || (m.superseded && !self.orders.contains_key(&m.order)))
+                    })
             })
             .min_by_key(|(intent, adm)| {
                 (
@@ -854,6 +1022,13 @@ impl Account {
                             .filter(|a| a.order == *leg)
                             .all(|a| {
                                 pool::is_expired(a.retired_mono_ns, now_mono_ns, Some(window_ns))
+                            })
+                        && self
+                            .modifications
+                            .values()
+                            .filter(|m| m.order == *leg)
+                            .all(|m| {
+                                pool::is_expired(m.retired_mono_ns, now_mono_ns, Some(window_ns))
                             })
                 });
                 if !orders_ready {
@@ -902,6 +1077,20 @@ impl Account {
                         self.amendments.remove(&ak);
                         self.admissions.remove(&ak);
                     }
+                    let mod_keys: Vec<IntentKey> = self
+                        .modifications
+                        .iter()
+                        .filter_map(|(mk, m)| (m.order == leg_key).then_some(*mk))
+                        .collect();
+                    for mk in mod_keys {
+                        self.modifications.remove(&mk);
+                        if let Some(holds) = self.shadow_holds.remove(&mk) {
+                            for hold in holds {
+                                let _ = self.add_uncovered(hold.wallet_id, hold.amount);
+                            }
+                        }
+                        self.admissions.remove(&mk);
+                    }
                 }
             }
             let struct_ids: Vec<[u8; 16]> = self
@@ -941,12 +1130,19 @@ impl Account {
                 {
                     return None;
                 }
+                if let Some(m) = self.modifications.get(intent)
+                    && (m.confirmed || (!m.aborted && m.rejected.is_none() && !m.superseded))
+                {
+                    return None;
+                }
                 pool::is_expired(adm.retired_mono_ns, now_mono_ns, Some(window_ns))
                     .then_some(*intent)
             })
             .collect();
         for intent in evict_mgmt_intents {
             self.amendments.remove(&intent);
+            self.modifications.remove(&intent);
+            self.shadow_holds.remove(&intent);
             self.structure_management.remove(&intent);
             self.admissions.remove(&intent);
             evicted += 1;
@@ -956,12 +1152,14 @@ impl Account {
 
     pub(crate) fn reopen_order(&mut self, key: &OrderKey) -> Result<bool> {
         let reopened = self.orders.get_mut(key).unwrap().reopen_aborted()?;
-        if reopened
-            && let Some(adm) = self.admissions.get(&key.intent)
-            && adm.sequence > self.last_reactivation_sequence
-            && !adm.capital.is_empty()
-        {
-            self.shadow_holds.insert(key.intent, adm.capital.clone());
+        if reopened {
+            if let Some(adm) = self.admissions.get(&key.intent)
+                && adm.sequence > self.last_reactivation_sequence
+                && !adm.capital.is_empty()
+            {
+                self.shadow_holds.insert(key.intent, adm.capital.clone());
+            }
+            self.sync_order_in_stp_book(key)?;
         }
         Ok(reopened)
     }
@@ -1028,6 +1226,17 @@ fn exact_decimal(d: v::Decimal, scale: u8) -> Result<Fixed> {
         return Err(Error::Risk(RiskError::ScaleMismatch));
     }
     Ok(down)
+}
+fn decimal_lossless(d: v::Decimal) -> Result<Fixed> {
+    if d.exponent() <= 0 {
+        let scale = u8::try_from(-i16::from(d.exponent())).map_err(|_| Error::Catalog)?;
+        Ok(Fixed::from_atoms(d.coefficient(), scale)?)
+    } else {
+        let mul = 10i128
+            .checked_pow(d.exponent() as u32)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        Ok(Fixed::from_atoms(d.coefficient(), 0)?.checked_mul_int(mul)?)
+    }
 }
 fn side_code(side: v::PositionSide) -> u8 {
     match side {

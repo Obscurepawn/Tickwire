@@ -6,6 +6,8 @@ pub mod catalog;
 pub mod checkpoint;
 pub mod market;
 pub mod market_transition;
+#[forbid(unsafe_code)]
+pub mod microstructure;
 pub mod outbound;
 pub mod recovery;
 pub mod registered;
@@ -25,7 +27,16 @@ use tickwire_market_source::transition;
 #[allow(unsafe_code)]
 pub mod worker;
 pub use market::{MarketReplica, MarketView};
-pub use outbound::{CommandStore, IntentWriter, StoredCommand, mint_self_describing_client_id};
+pub use microstructure::{
+    DecodedReport, EffectiveFillDelta, FillWatermarkTracker, OrderClassificationHints,
+    OrderFillWatermarks, SettledFillDelta,
+};
+pub use outbound::{
+    CommandStore, IntentWriter, ModifyRequest, OutboundWriter, StoredCommand, build_modify_command,
+    mint_self_describing_client_id,
+};
+#[cfg(feature = "runtime")]
+pub use runtime::OutboundReader;
 use tickwire_venue::CanonicalCommand;
 
 #[derive(Debug)]
@@ -40,6 +51,7 @@ pub enum Error {
     Ring(tickwire_shm::MappedError),
     Storage(tickwire_recovery::Error),
     Command(tickwire_venue::Error),
+    Risk(tickwire_risk::RiskError),
     Control(tickwire_control::Error),
     Transport(tickwire_control_sys::Error),
     Io(std::io::Error),
@@ -84,6 +96,7 @@ from!(tickwire_join::Error, Join);
 from!(tickwire_shm::MappedError, Ring);
 from!(tickwire_recovery::Error, Storage);
 from!(tickwire_venue::Error, Command);
+from!(tickwire_risk::RiskError, Risk);
 from!(tickwire_control::Error, Control);
 from!(tickwire_control_sys::Error, Transport);
 from!(std::io::Error, Io);
@@ -141,6 +154,13 @@ pub trait Strategy {
     ) -> Result<Option<CanonicalCommand>> {
         self.on_report(report, context.now_ns())
     }
+    fn on_projected_fill_recorded(
+        &mut self,
+        fill: &tickwire_account::ProjectedFill,
+        context: &mut replay::ReplayContext<'_>,
+    ) -> Result<Option<CanonicalCommand>> {
+        self.on_projected_fill(fill, context.now_ns())
+    }
     fn on_timer(
         &mut self,
         _id: u64,
@@ -182,6 +202,15 @@ pub trait Strategy {
     fn on_report(
         &mut self,
         _report: &crate::reports::AccountReport,
+        _now_ns: u64,
+    ) -> Result<Option<CanonicalCommand>> {
+        Ok(None)
+    }
+    /// Optional volatile cumulative-quantity fill projection emitted before individual
+    /// trade executions settle. Defaults to a no-op so existing strategies compile unchanged.
+    fn on_projected_fill(
+        &mut self,
+        _fill: &tickwire_account::ProjectedFill,
         _now_ns: u64,
     ) -> Result<Option<CanonicalCommand>> {
         Ok(None)

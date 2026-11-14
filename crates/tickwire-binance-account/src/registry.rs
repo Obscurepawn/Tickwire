@@ -72,11 +72,42 @@ impl Ord for Key64 {
     }
 }
 
+#[derive(Clone, Default)]
+pub(crate) struct OrderAliases {
+    pub client_ids: Vec<v::ClientId>,
+    pub venue_order_ids: Vec<v::VenueOrderId>,
+}
+
 #[derive(Clone)]
 pub(crate) struct Registration {
     pub command: CanonicalCommand,
     pub ids: Vec<[u8; 16]>,
     pub orders: Vec<v::OrderIdentity>,
+    pub aliases: Vec<OrderAliases>,
+}
+
+impl Registration {
+    pub(crate) fn matches_client_id(&self, idx: usize, cid: &str) -> bool {
+        self.orders
+            .get(idx)
+            .and_then(|o| o.client_id.as_ref())
+            .is_some_and(|c| c.as_str() == cid)
+            || self
+                .aliases
+                .get(idx)
+                .is_some_and(|a| a.client_ids.iter().any(|c| c.as_str() == cid))
+    }
+
+    pub(crate) fn matches_venue_order_id(&self, idx: usize, vid: &str) -> bool {
+        self.orders
+            .get(idx)
+            .and_then(|o| o.venue_order_id.as_ref())
+            .is_some_and(|v| v.as_str() == vid)
+            || self
+                .aliases
+                .get(idx)
+                .is_some_and(|a| a.venue_order_ids.iter().any(|v| v.as_str() == vid))
+    }
 }
 
 #[derive(Clone, Default)]
@@ -176,6 +207,18 @@ impl OrderRegistry {
             {
                 self.by_venue_id.insert((inst_id, vid), (key, idx));
             }
+            if let Some(aliases) = reg.aliases.get(idx) {
+                for alias_cid in &aliases.client_ids {
+                    if let Some(k) = Key64::from_str(alias_cid.as_str()) {
+                        self.by_client_id.insert((inst_id, k), (key, idx));
+                    }
+                }
+                for alias_vid in &aliases.venue_order_ids {
+                    if let Some(k) = Key64::from_str(alias_vid.as_str()) {
+                        self.by_venue_id.insert((inst_id, k), (key, idx));
+                    }
+                }
+            }
             if let Some(list_id) = order.list_id {
                 self.by_list_id.insert(list_id, key);
             }
@@ -250,6 +293,22 @@ impl OrderRegistry {
             {
                 self.by_venue_id.remove(&(inst_id, vid));
             }
+            if let Some(aliases) = reg.aliases.get(idx) {
+                for alias_cid in &aliases.client_ids {
+                    if let Some(k) = Key64::from_str(alias_cid.as_str())
+                        && self.by_client_id.get(&(inst_id, k)) == Some(&(*key, idx))
+                    {
+                        self.by_client_id.remove(&(inst_id, k));
+                    }
+                }
+                for alias_vid in &aliases.venue_order_ids {
+                    if let Some(k) = Key64::from_str(alias_vid.as_str())
+                        && self.by_venue_id.get(&(inst_id, k)) == Some(&(*key, idx))
+                    {
+                        self.by_venue_id.remove(&(inst_id, k));
+                    }
+                }
+            }
             if let Some(list_id) = order.list_id
                 && self.by_list_id.get(&list_id) == Some(key)
             {
@@ -319,6 +378,31 @@ impl OrderRegistry {
     pub(crate) fn by_parent_order_id(&self, parent_order_id: [u8; 16]) -> Option<&Registration> {
         let intent = self.by_parent_order_id.get(&parent_order_id)?;
         self.registrations.get(intent)
+    }
+
+    #[inline]
+    pub(crate) fn lookup_by_order_id(&self, order_id: &[u8; 16]) -> Option<(IntentKey, usize)> {
+        self.by_order_id.get(order_id).copied()
+    }
+
+    #[inline]
+    pub(crate) fn lookup_by_venue_id(
+        &self,
+        inst_id: u64,
+        venue_order_id: &str,
+    ) -> Option<(IntentKey, usize)> {
+        let k = Key64::from_str(venue_order_id)?;
+        self.by_venue_id.get(&(inst_id, k)).copied()
+    }
+
+    #[inline]
+    pub(crate) fn lookup_by_client_id(
+        &self,
+        inst_id: u64,
+        client_id: &str,
+    ) -> Option<(IntentKey, usize)> {
+        let k = Key64::from_str(client_id)?;
+        self.by_client_id.get(&(inst_id, k)).copied()
     }
 
     /// Resolves `(Registration, OrderIdentity)` candidates for a private order frame in $O(\log N)$.
@@ -401,10 +485,7 @@ impl OrderRegistry {
                 && let Some(reg) = self.registrations.get(&intent)
                 && reg.command.command().context.instrument.symbol.as_str() == symbol
                 && let Some(o) = reg.orders.get(idx)
-                && (o.venue_algo_id.is_some()
-                    || o.client_id
-                        .as_ref()
-                        .is_some_and(|id| id.as_str() == client_order_id))
+                && (o.venue_algo_id.is_some() || reg.matches_client_id(idx, client_order_id))
                 && !out.iter().any(|(k, _, i)| *k == intent && *i == idx)
             {
                 out.push((intent, reg, idx));
@@ -569,10 +650,12 @@ pub(crate) fn prepare(
             algo_client_id: algo.map(|a| a.order.client_id.clone()),
         });
     }
+    let aliases = vec![OrderAliases::default(); orders.len()];
     Ok(Registration {
         command: command.clone(),
         ids: ids.to_vec(),
         orders,
+        aliases,
     })
 }
 
@@ -695,6 +778,12 @@ fn validate_learn(
     if let v::VenueEventBody::Rejected { client_id, .. } = &event.event().body {
         return validate_learn_rejected(registry, overrides, event, client_id.as_ref());
     }
+    if let v::VenueEventBody::Modified(m) = &event.event().body {
+        return validate_learn_modified(registry, overrides, event, m);
+    }
+    if let v::VenueEventBody::ModifyRejected(r) = &event.event().body {
+        return validate_learn_modify_rejected(registry, overrides, event, r);
+    }
     let id = order(event)?;
     let key = IntentKey {
         epoch: id.original_intent_exec_epoch,
@@ -713,16 +802,23 @@ fn validate_learn(
         .position(|o| o.order_id == id.order_id)
         .ok_or(Error::Identity)?;
     let old = &reg.orders[index];
-    if old.client_id != id.client_id
+    let client_matches = match (&old.client_id, &id.client_id) {
+        (None, None) => true,
+        (Some(_), Some(cid)) => reg.matches_client_id(index, cid.as_str()),
+        _ => false,
+    };
+    let venue_matches = match (&old.venue_order_id, &id.venue_order_id) {
+        (_, None) => false,
+        (None, Some(_)) => true,
+        (Some(_), Some(vid)) => reg.matches_venue_order_id(index, vid.as_str()),
+    };
+    if !client_matches
         || old.list_id != id.list_id
         || old.list_client_id != id.list_client_id
         || old.parent_order_id != id.parent_order_id
         || old.algo_client_id != id.algo_client_id
         || old.venue_algo_id != id.venue_algo_id
-        || old
-            .venue_order_id
-            .as_ref()
-            .is_some_and(|n| Some(n) != id.venue_order_id.as_ref())
+        || !venue_matches
         || old
             .venue_list_id
             .as_ref()
@@ -758,8 +854,180 @@ fn validate_learn(
         )?;
     }
     let mut updated = reg.clone();
-    updated.orders[index] = id.clone();
+    if updated.orders[index].venue_order_id.is_none() {
+        updated.orders[index].venue_order_id = id.venue_order_id.clone();
+    }
+    if updated.orders[index].venue_list_id.is_none() {
+        updated.orders[index].venue_list_id = id.venue_list_id.clone();
+    }
     Ok((key, updated))
+}
+
+fn check_client_id_conflict(
+    registry: &OrderRegistry,
+    overrides: Option<&BTreeMap<IntentKey, Registration>>,
+    inst_id: u64,
+    own_key: IntentKey,
+    own_order_id: [u8; 16],
+    client_id: &v::ClientId,
+) -> Result<()> {
+    let cid_key = Key64::from_str(client_id.as_str()).ok_or(Error::Identity)?;
+    if let Some(&(other_key, other_idx)) = registry.by_client_id.get(&(inst_id, cid_key)) {
+        if let Some(ov) = overrides
+            && ov.contains_key(&other_key)
+        {
+            // Checked via `overrides` loop below.
+        } else if other_key != own_key
+            || registry
+                .get(&other_key)
+                .and_then(|r| r.orders.get(other_idx))
+                .is_none_or(|o| o.order_id != own_order_id)
+        {
+            return Err(Error::Conflict);
+        }
+    }
+    if let Some(ov) = overrides {
+        for other_reg in ov.values() {
+            if other_reg.command.command().context.instrument.instrument_id == inst_id {
+                for (i, other) in other_reg.orders.iter().enumerate() {
+                    if other.order_id != own_order_id
+                        && other_reg.matches_client_id(i, client_id.as_str())
+                    {
+                        return Err(Error::Conflict);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn validate_learn_modified(
+    registry: &OrderRegistry,
+    overrides: Option<&BTreeMap<IntentKey, Registration>>,
+    event: &CanonicalEvent,
+    m: &v::ModifyObservation,
+) -> Result<(IntentKey, Registration)> {
+    let ev_id = &event.event().identity;
+    let sym_key_matches = |reg: &Registration| {
+        let ctx = &reg.command.command().context;
+        ctx.request.risk_domain_id == ev_id.risk_domain_id
+            && ctx.request.venue == ev_id.venue
+            && ctx.request.account == ev_id.account
+            && ctx.request.environment == ev_id.environment
+            && ctx.request.product == ev_id.product
+            && ctx.instrument.instrument_id == ev_id.instrument_id
+            && ctx.instrument.instrument_version == ev_id.instrument_version
+    };
+    let symbol = registry
+        .symbol_instruments
+        .iter()
+        .find_map(|(sk, set)| {
+            set.contains(&ev_id.instrument_id)
+                .then(|| std::str::from_utf8(sk.as_bytes()).ok())
+                .flatten()
+        })
+        .or_else(|| {
+            overrides.and_then(|ov| {
+                ov.values().find_map(|r| {
+                    (r.command.command().context.instrument.instrument_id == ev_id.instrument_id)
+                        .then_some(r.command.command().context.instrument.symbol.as_str())
+                })
+            })
+        })
+        .ok_or(Error::Identity)?;
+    let (key, reg, idx) = crate::modify::resolve_target_registration(
+        registry,
+        overrides,
+        ev_id.instrument_id,
+        symbol,
+        &m.target,
+    )?;
+    if !sym_key_matches(reg) {
+        return Err(Error::Identity);
+    }
+    let own_order_id = reg.orders[idx].order_id;
+    let mut updated = reg.clone();
+    while updated.aliases.len() < updated.orders.len() {
+        updated.aliases.push(OrderAliases::default());
+    }
+    if let Some(ref vid) = m.venue_order_id {
+        check_venue_order_conflict(
+            registry,
+            overrides,
+            ev_id.instrument_id,
+            key,
+            own_order_id,
+            vid,
+        )?;
+        if let Some(prev_vid) = updated.orders[idx].venue_order_id.replace(vid.clone())
+            && prev_vid != *vid
+            && !updated.aliases[idx].venue_order_ids.contains(&prev_vid)
+        {
+            updated.aliases[idx].venue_order_ids.push(prev_vid);
+        }
+    }
+    if let Some(ref cid) = m.new_client_id {
+        check_client_id_conflict(
+            registry,
+            overrides,
+            ev_id.instrument_id,
+            key,
+            own_order_id,
+            cid,
+        )?;
+        if updated.orders[idx].client_id.as_ref() != Some(cid)
+            && !updated.aliases[idx].client_ids.contains(cid)
+        {
+            updated.aliases[idx].client_ids.push(cid.clone());
+        }
+    }
+    Ok((key, updated))
+}
+
+fn validate_learn_modify_rejected(
+    registry: &OrderRegistry,
+    overrides: Option<&BTreeMap<IntentKey, Registration>>,
+    event: &CanonicalEvent,
+    r: &v::ModifyRejection,
+) -> Result<(IntentKey, Registration)> {
+    let ev_id = &event.event().identity;
+    let symbol = registry
+        .symbol_instruments
+        .iter()
+        .find_map(|(sk, set)| {
+            set.contains(&ev_id.instrument_id)
+                .then(|| std::str::from_utf8(sk.as_bytes()).ok())
+                .flatten()
+        })
+        .or_else(|| {
+            overrides.and_then(|ov| {
+                ov.values().find_map(|reg| {
+                    (reg.command.command().context.instrument.instrument_id == ev_id.instrument_id)
+                        .then_some(reg.command.command().context.instrument.symbol.as_str())
+                })
+            })
+        })
+        .ok_or(Error::Identity)?;
+    let (key, reg, _idx) = crate::modify::resolve_target_registration(
+        registry,
+        overrides,
+        ev_id.instrument_id,
+        symbol,
+        &r.target,
+    )?;
+    let ctx = &reg.command.command().context;
+    if ctx.request.risk_domain_id != ev_id.risk_domain_id
+        || ctx.request.venue != ev_id.venue
+        || ctx.request.account != ev_id.account
+        || ctx.request.environment != ev_id.environment
+        || ctx.request.product != ev_id.product
+        || ctx.instrument.instrument_id != ev_id.instrument_id
+        || ctx.instrument.instrument_version != ev_id.instrument_version
+    {
+        return Err(Error::Identity);
+    }
+    Ok((key, reg.clone()))
 }
 
 fn validate_learn_structure(

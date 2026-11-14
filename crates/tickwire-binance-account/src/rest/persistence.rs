@@ -154,7 +154,7 @@ impl<S: Store> AccountIngress<S> {
         };
         if let Some(body) = body
             && let Ok((disposition, events)) = binding::decide(self, gateway, &record, body)
-            && events.len() == 1
+            && (1..=2).contains(&events.len())
         {
             record.disposition = disposition;
             record.events = events;
@@ -368,8 +368,15 @@ impl<S: Store> AccountIngress<S> {
             self.push_encoded_record(rec, enc.len(), received_mono);
         }
         self.retained = retained;
+        let record_for_proj = record.clone();
         for (index, event) in record.events.into_iter().enumerate() {
             registry::learn(&mut self.registry, &event)?;
+            crate::modify::apply_projected_fill_from_rest_record(
+                self,
+                gateway,
+                &record_for_proj,
+                &event,
+            );
             if let Err(error) = gateway.record_ingress_event(
                 self.config.physical.stream_epoch,
                 sequence + index as u64 + 1,
@@ -498,6 +505,7 @@ impl<S: Store> AccountIngress<S> {
                     && matches!(
                         record.events[0].event().body,
                         v::VenueEventBody::AmendmentRejected(_)
+                            | v::VenueEventBody::ModifyRejected(_)
                             | v::VenueEventBody::Rejected { .. }
                     )))
         {
@@ -512,6 +520,7 @@ impl<S: Store> AccountIngress<S> {
         if record.amendment_query.is_some() {
             super::amend_history::verify_raw(self, record)?;
         }
+        let mut overrides: BTreeMap<IntentKey, Registration> = BTreeMap::new();
         for event in &record.events {
             self.check_event(&meta, event)?;
             if matches!(event.event().body, v::VenueEventBody::Rejected { .. }) {
@@ -524,7 +533,15 @@ impl<S: Store> AccountIngress<S> {
                     return Err(Error::Identity);
                 }
                 binding::verify_rejection_raw(self, record, event)?;
-                self.registry.check_learn(event)?;
+                self.registry.learn_with_overrides(&mut overrides, event)?;
+                continue;
+            }
+            if matches!(
+                event.event().body,
+                v::VenueEventBody::Modified(_) | v::VenueEventBody::ModifyRejected(_)
+            ) {
+                crate::modify::verify_raw(self, record, event)?;
+                self.registry.learn_with_overrides(&mut overrides, event)?;
                 continue;
             }
             if record.amendment_query.is_none()
@@ -561,7 +578,16 @@ impl<S: Store> AccountIngress<S> {
                 epoch: id.original_intent_exec_epoch,
                 intent_id: id.original_intent_id,
             };
-            let creating = &self.registry.get(&key).ok_or(Error::Identity)?.command;
+            let reg = overrides
+                .get(&key)
+                .or_else(|| self.registry.get(&key))
+                .ok_or(Error::Identity)?;
+            let creating = &reg.command;
+            let ord_idx = reg
+                .orders
+                .iter()
+                .position(|o| o.order_id == id.order_id)
+                .ok_or(Error::Identity)?;
             if record
                 .amendment_query
                 .is_some_and(|q| q.order_id != id.order_id || q.intent != intent(creating))
@@ -571,10 +597,12 @@ impl<S: Store> AccountIngress<S> {
                 || record
                     .query
                     .is_some_and(|q| q.order_id != id.order_id || q.intent != intent(creating))
-                || (record.query.is_none() && !binding::allowed(&record.command, creating, id))
+                || (record.query.is_none()
+                    && !binding::allowed_with_reg(&record.command, reg, ord_idx))
             {
                 return Err(Error::Identity);
             }
+            self.registry.learn_with_overrides(&mut overrides, event)?;
         }
         Ok(())
     }
@@ -593,6 +621,7 @@ pub(crate) fn is_category_b_rest_hazard_with_options<S: Store>(
         v::CommandBody::New(_)
             | v::CommandBody::Cancel(_)
             | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Modify(_)
             | v::CommandBody::Query(_)
     ) {
         return true;
@@ -643,9 +672,10 @@ pub(crate) fn is_category_b_rest_hazard_with_options<S: Store>(
                     tickwire_binance::response::FailureKind::Banned
                         | tickwire_binance::response::FailureKind::Authentication
                         | tickwire_binance::response::FailureKind::ClockSkew
-                        | tickwire_binance::response::FailureKind::Partial
                 )
-            ) {
+            ) || (decoded.failure == Some(tickwire_binance::response::FailureKind::Partial)
+                && record.disposition != RestDisposition::Rejected)
+            {
                 return true;
             }
             if decoded.failure == Some(tickwire_binance::response::FailureKind::RateLimited)
@@ -678,7 +708,7 @@ pub(crate) fn apply_per_order_isolation<B: Backend, A: Authority, E: Encoder>(
         RestDisposition::Unknown => {
             let reason = match &command.command().body {
                 v::CommandBody::Cancel(_) => tickwire_account::DoubtReason::CancelAmbiguous,
-                v::CommandBody::AmendKeepPriority { .. } => {
+                v::CommandBody::AmendKeepPriority { .. } | v::CommandBody::Modify(_) => {
                     tickwire_account::DoubtReason::AmendAmbiguous
                 }
                 v::CommandBody::New(_) | v::CommandBody::Query(_) => {
@@ -696,16 +726,33 @@ pub(crate) fn apply_per_order_isolation<B: Backend, A: Authority, E: Encoder>(
         RestDisposition::NeedsReconciliation => {
             let mut order_keys = Vec::new();
             for event in events {
-                if let Ok(id) = registry::order(event)
+                if let v::VenueEventBody::Modified(m) = &event.event().body {
+                    let inst_id = event.event().identity.instrument_id;
+                    if let Some(ok) = gateway.account().resolve_order_target(inst_id, &m.target) {
+                        order_keys.push(ok);
+                    }
+                } else if let Ok(id) = registry::order(event)
                     && let Some(cid) = id.client_id.clone()
                 {
-                    order_keys.push(tickwire_account::OrderKey {
-                        intent: IntentKey {
-                            epoch: id.original_intent_exec_epoch,
-                            intent_id: id.original_intent_id,
-                        },
-                        client_id: cid,
-                    });
+                    let inst_id = event.event().identity.instrument_id;
+                    let target = v::OrderTarget {
+                        order_id: id.order_id,
+                        expected_owner_revision: 0,
+                        original_intent_exec_epoch: id.original_intent_exec_epoch,
+                        client_id: Some(cid.clone()),
+                        venue_order_id: id.venue_order_id.clone(),
+                    };
+                    let ok = gateway
+                        .account()
+                        .resolve_order_target(inst_id, &target)
+                        .unwrap_or(tickwire_account::OrderKey {
+                            intent: IntentKey {
+                                epoch: id.original_intent_exec_epoch,
+                                intent_id: id.original_intent_id,
+                            },
+                            client_id: cid,
+                        });
+                    order_keys.push(ok);
                 }
             }
             if order_keys.is_empty() {
@@ -738,6 +785,16 @@ pub(crate) fn apply_per_order_isolation<B: Backend, A: Authority, E: Encoder>(
                                 .observation
                                 .as_ref()
                                 .and_then(|o| o.cumulative_quantity)
+                                .and_then(|q| {
+                                    tickwire_account::Fixed::parse(
+                                        &q.as_plain_string(),
+                                        view.filled_quantity.scale(),
+                                    )
+                                    .ok()
+                                })
+                                .is_none_or(|cum| cum.atoms() > view.filled_quantity.atoms()),
+                            v::VenueEventBody::Modified(m) => m
+                                .cumulative_filled
                                 .and_then(|q| {
                                     tickwire_account::Fixed::parse(
                                         &q.as_plain_string(),

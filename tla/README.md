@@ -6,19 +6,20 @@ The [November 2026 source audit](audits/2026-11-05/README.md) documents the late
 
 ## Running TLC Models
 
-From the workspace root, verify a single model family (requires a Java runtime):
+From the workspace root, verify one or more model families in parallel (requires a Java runtime):
 
 ```sh
 ./scripts/check-tla.sh submission
+./scripts/check-tla.sh account account_gateway market_making_microstructure
 ```
 
-Or run the entire formal verification suite across all model families:
+Or run the entire formal verification suite across all model families in parallel:
 
 ```sh
 ./scripts/check-tla.sh
 ```
 
-For each family, the runner verifies the SHA-256 digest of the pinned TLC 1.7.4 archive (`tla/tools/tla2tools.jar`), copies the `.tla` modules and `.cfg` bounds into a clean temporary directory, and runs exhaustive state-space exploration. A passing run requires zero states left on the queue, zero invariant violations, and nonzero successor coverage across modeled actions after the final configuration completes.
+For each family, the runner verifies the SHA-256 digest of the pinned TLC 1.7.4 archive (`tla/tools/tla2tools.jar`), stages every `.tla` module and its `.cfg` bounds into an isolated temporary directory, schedules `(model, .cfg)` explorations Longest-Processing-Time-First across a bounded worker pool (`TLA_JOBS`, default auto-sized from CPU cores and `MemAvailable`; per-JVM heap capped via `TLA_MAX_HEAP`, default `2560m`), and emits logs and coverage summaries in deterministic model order. A passing run requires zero states left on the queue, zero invariant violations, and nonzero successor coverage across modeled actions after all configurations for each model complete.
 
 ## Maintaining Source Alignment
 

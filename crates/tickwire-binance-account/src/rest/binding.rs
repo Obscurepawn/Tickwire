@@ -191,6 +191,49 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
             }
             return Ok((RestDisposition::Rejected, vec![event]));
         }
+        if matches!(record.command.command().body, v::CommandBody::Modify(_))
+            && record.order_query.is_none()
+            && record.query.is_none()
+            && record.structure_query.is_none()
+            && record.amendment_query.is_none()
+            && let Some((code, msg)) =
+                crate::modify::extract_spot_stop_on_failure_rejection(&decoded)
+        {
+            let event = crate::modify::rejection(input, record, event_domain, code, &msg)?;
+            if apply_candidate {
+                if gateway.command(intent(&record.command)) != Some(&record.command) {
+                    return Err(Error::Identity);
+                }
+                gateway
+                    .account()
+                    .clone()
+                    .apply_event(&event)
+                    .map_err(|_| Error::Identity)?;
+            }
+            return Ok((RestDisposition::Rejected, vec![event]));
+        }
+        if matches!(kind, FailureKind::Rejected | FailureKind::NotFound)
+            && record.order_query.is_none()
+            && record.query.is_none()
+            && record.structure_query.is_none()
+            && record.amendment_query.is_none()
+            && matches!(record.command.command().body, v::CommandBody::Modify(_))
+        {
+            let api_err = decoded.error.as_ref().ok_or(Error::Encoding)?;
+            let event =
+                crate::modify::rejection(input, record, event_domain, api_err.code, &api_err.msg)?;
+            if apply_candidate {
+                if gateway.command(intent(&record.command)) != Some(&record.command) {
+                    return Err(Error::Identity);
+                }
+                gateway
+                    .account()
+                    .clone()
+                    .apply_event(&event)
+                    .map_err(|_| Error::Identity)?;
+            }
+            return Ok((RestDisposition::Rejected, vec![event]));
+        }
         if kind == FailureKind::Rejected
             && emit_order_rejection
             && record.order_query.is_none()
@@ -253,6 +296,23 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
             },
             vec![observed],
         ));
+    }
+    if record.order_query.is_none()
+        && matches!(record.command.command().body, v::CommandBody::Modify(_))
+    {
+        let (disp, observed) =
+            crate::modify::bind_reply(input, record, event_domain, value.get().as_bytes())?;
+        if apply_candidate {
+            if gateway.command(intent(&record.command)) != Some(&record.command) {
+                return Err(Error::Identity);
+            }
+            gateway
+                .account()
+                .clone()
+                .apply_event(&observed)
+                .map_err(|_| Error::Identity)?;
+        }
+        return Ok((disp, vec![observed]));
     }
     let reports: Reports<'_> = serde_json::from_str(value.get()).map_err(|_| Error::Encoding)?;
     let mut events = Vec::new();
@@ -333,7 +393,11 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
             reply.order_id,
             &reply.client_order_id,
         );
+        if let Some(q) = record.order_query {
+            candidate_keys.insert(q.intent);
+        }
         candidate_keys.extend(overrides.keys().copied());
+        let is_spot = input.market()? == tickwire_binance::request::Market::Spot;
         let native = reply.order_id.to_string();
         let mut matches = Vec::new();
         for key in candidate_keys {
@@ -343,8 +407,9 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
             if reg.command.command().context.instrument.symbol.as_str() != reply.symbol {
                 continue;
             }
+            let inst_id = reg.command.command().context.instrument.instrument_id;
             for (n, id) in reg.orders.iter().enumerate() {
-                if !allowed(&record.command, &reg.command, id)
+                if !allowed_with_reg(&record.command, reg, n)
                     || record.order_query.is_some_and(|q| {
                         q.order_id != id.order_id || q.intent != intent(&reg.command)
                     })
@@ -353,31 +418,39 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
                 }
                 let matches_client =
                     if matches!(reg.command.command().body, v::CommandBody::Algo(_)) {
-                        id.venue_order_id
-                            .as_ref()
-                            .is_some_and(|id| id.as_str() == native)
+                        reg.matches_venue_order_id(n, &native)
                     } else {
-                        id.client_id
-                            .as_ref()
-                            .is_some_and(|c| c.as_str() == reply.client_order_id)
+                        reg.matches_client_id(n, &reply.client_order_id)
                     };
-                if matches_client
-                    && id
-                        .venue_order_id
-                        .as_ref()
-                        .is_none_or(|old| old.as_str() == native)
+                let matches_spot_rotated_modify = is_spot
+                    && record.order_query.is_some()
+                    && spec(&reg.command, n).ok().is_some_and(|sp| {
+                        let ok = tickwire_account::OrderKey {
+                            intent: intent(&reg.command),
+                            client_id: sp.client_id.clone(),
+                        };
+                        crate::modify::find_unsettled_modify(gateway, inst_id, &ok)
+                            .and_then(|(_, m)| m.new_client_id)
+                            .is_some_and(|nc| nc.as_str() == reply.client_order_id.as_ref())
+                    });
+                if (matches_client
+                    && (id.venue_order_id.is_none() || reg.matches_venue_order_id(n, &native)))
+                    || matches_spot_rotated_modify
                 {
                     matches.push((reg, n));
                 }
             }
         }
-        let [(reg, n)] = matches.as_slice() else {
+        let [(reg_ref, n)] = matches.as_slice() else {
             return Err(Error::Identity);
         };
-        if gateway.command(intent(&reg.command)) != Some(&reg.command) {
+        let n = *n;
+        let reg = (*reg_ref).clone();
+        let reg_key = intent(&reg.command);
+        if gateway.command(reg_key) != Some(&reg.command) {
             return Err(Error::Identity);
         }
-        let spec = spec(&reg.command, *n)?;
+        let spec = spec(&reg.command, n)?;
         if extra.side.is_some_and(|s| {
             s != match spec.side {
                 v::Side::Buy => "BUY",
@@ -392,7 +465,32 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
         }) {
             return Err(Error::Identity);
         }
-        let mut order = reg.orders[*n].clone();
+        if record.order_query.is_some()
+            && let Some(mod_ev) = crate::modify::bind_order_query_resolution(
+                gateway,
+                record,
+                &reg,
+                n,
+                &reply,
+                event_domain,
+                index,
+            )?
+        {
+            input
+                .registry
+                .learn_with_overrides(&mut overrides, &mod_ev)?;
+            if apply_candidate {
+                candidate
+                    .apply_event(&mod_ev)
+                    .map_err(|_| Error::Identity)?;
+            }
+            events.push(mod_ev);
+        }
+        let current_reg = overrides
+            .get(&reg_key)
+            .or_else(|| input.registry.get(&reg_key))
+            .ok_or(Error::Identity)?;
+        let mut order = current_reg.orders[n].clone();
         order.venue_order_id =
             Some(v::VenueOrderId::new(reply.order_id.to_string()).map_err(|_| Error::Encoding)?);
         if let Some(list) = extra.list_id.filter(|n| *n >= 0) {
@@ -481,7 +579,7 @@ pub(crate) fn decide_decoded<S: Store, B: Backend, A: Authority, E: Encoder>(
 fn decimal(n: tickwire_binance::decimal::Decimal) -> Result<v::Decimal> {
     v::Decimal::new(n.mantissa(), -(n.scale() as i8)).map_err(|_| Error::Encoding)
 }
-fn spec(command: &CanonicalCommand, index: usize) -> Result<&v::OrderSpec> {
+pub(crate) fn spec(command: &CanonicalCommand, index: usize) -> Result<&v::OrderSpec> {
     match &command.command().body {
         v::CommandBody::New(s) | v::CommandBody::CancelReplace { replacement: s, .. }
             if index == 0 =>
@@ -494,7 +592,10 @@ fn spec(command: &CanonicalCommand, index: usize) -> Result<&v::OrderSpec> {
     }
 }
 fn target(t: &v::OrderTarget, id: &v::OrderIdentity) -> bool {
-    t.order_id == id.order_id
+    if t.order_id == [0; 16] && t.client_id.is_none() && t.venue_order_id.is_none() {
+        return false;
+    }
+    (t.order_id == [0; 16] || t.order_id == id.order_id)
         && t.original_intent_exec_epoch == id.original_intent_exec_epoch
         && t.client_id
             .as_ref()
@@ -502,6 +603,38 @@ fn target(t: &v::OrderTarget, id: &v::OrderIdentity) -> bool {
         && t.venue_order_id
             .as_ref()
             .is_none_or(|n| Some(n) == id.venue_order_id.as_ref())
+}
+pub(crate) fn allowed_with_reg(request: &CanonicalCommand, reg: &Registration, idx: usize) -> bool {
+    let Some(id) = reg.orders.get(idx) else {
+        return false;
+    };
+    let a = &request.command().context;
+    let b = &reg.command.command().context;
+    if a.instrument != b.instrument
+        || a.request.account != b.request.account
+        || a.request.product != b.request.product
+        || a.request.environment != b.request.environment
+        || a.request.risk_domain_id != b.request.risk_domain_id
+    {
+        return false;
+    }
+    match &request.command().body {
+        v::CommandBody::Cancel(t) | v::CommandBody::Query(t) => {
+            crate::modify::target_matches_registration(t, reg, idx)
+                || (t.order_id == id.order_id
+                    && t.original_intent_exec_epoch == id.original_intent_exec_epoch
+                    && t.client_id
+                        .as_ref()
+                        .is_none_or(|c| reg.matches_client_id(idx, c.as_str()))
+                    && t.venue_order_id
+                        .as_ref()
+                        .is_none_or(|n| reg.matches_venue_order_id(idx, n.as_str())))
+        }
+        v::CommandBody::Modify(v::ModifyOrder { target: t, .. }) => {
+            crate::modify::target_matches_registration(t, reg, idx)
+        }
+        _ => allowed(request, &reg.command, id),
+    }
 }
 pub(super) fn allowed(
     request: &CanonicalCommand,
@@ -523,6 +656,9 @@ pub(super) fn allowed(
             request == creating
         }
         v::CommandBody::Cancel(t) | v::CommandBody::Query(t) => target(t, id),
+        v::CommandBody::Modify(v::ModifyOrder { target: t, .. }) => {
+            target(t, id) && id.parent_order_id.is_none() && id.list_id.is_none()
+        }
         v::CommandBody::AmendKeepPriority {
             target: t,
             new_client_id,

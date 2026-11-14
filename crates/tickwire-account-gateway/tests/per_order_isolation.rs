@@ -432,3 +432,128 @@ fn futures_per_order_isolation_locks_and_releases_shadow_hold_across_reconnect()
     let _ = peer1.join().unwrap();
     assert!(!peer2.join().unwrap().is_empty());
 }
+
+#[test]
+fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_stage4_apis() {
+    let (_dir, base_cmd, g, auth, peer1) = make(false, 16);
+    auth.policy.lock().unwrap().gate.now = 200;
+    let mut g = g.with_per_order_doubt_isolation(true);
+
+    g.set_stp_enforcement(true);
+    assert!(g.stp_enforcement());
+    g.set_projected_fill(true);
+    assert!(g.projected_fill_enabled());
+
+    // 1. Place and acknowledge Order 0 (resting Buy 0.001 BTC @ 60000 = 60 USDT) and sibling Order 1.
+    let (conn1, limits1, peer2) = dial_replacement("testnet.binance.vision", 16384);
+    let _ = g.drop_broken_transport_isolated();
+    g.install_transport_connection(conn1, limits1).unwrap();
+
+    let cmd0 = order_cmd(&base_cmd, 50, "mod-iso-0");
+    let key0 = intent_of(&cmd0);
+    g.submit(cmd0.clone(), 100, until()).unwrap();
+    drive_intent(&mut g, key0, Status::Flushed);
+    let order0_key = g.committed(key0).unwrap().admission().orders()[0].clone();
+    let oid0 = [50u8; 16];
+    g.record_event(ack_for(&cmd0, oid0, "v-mod-50", 105))
+        .unwrap();
+    assert_eq!(g.stp_book().best_bid_ticks(12).unwrap(), Some(6_000_000));
+
+    let cmd1 = order_cmd(&base_cmd, 51, "mod-sib-1");
+    let key1 = intent_of(&cmd1);
+    g.submit(cmd1, 106, until()).unwrap();
+    drive_intent(&mut g, key1, Status::Flushed);
+
+    // ProjectedFill pass-through on Gateway works without touching settled reserves.
+    let pf = g
+        .on_cum_qty(
+            &order0_key,
+            fixture::f(40_000),
+            ProjectedPriceInput::LimitFallback,
+        )
+        .unwrap()
+        .unwrap();
+    assert_eq!(pf.gap_quantity, fixture::f(40_000));
+    assert_eq!(
+        g.order_projected_filled(&order0_key),
+        Some(fixture::f(40_000))
+    );
+    assert_eq!(g.pop_projected_fill(), Some(pf));
+    assert!(g.drain_projected_fills().is_empty());
+
+    // 2. Switch to a small-budget peer so CommandBody::Modify stalls mid-send -> AmendAmbiguous!
+    let (conn2, limits2, peer3) = dial_replacement("testnet.binance.vision", 16);
+    let _ = g.drop_broken_transport_isolated();
+    g.install_transport_connection(conn2, limits2).unwrap();
+
+    let target0 = v::OrderTarget {
+        order_id: oid0,
+        expected_owner_revision: 1,
+        original_intent_exec_epoch: cmd0.command().context.request.intent_exec_epoch,
+        client_id: Some(fixture::venue::text("mod-iso-0")),
+        venue_order_id: Some(fixture::venue::text("v-mod-50")),
+    };
+    let mut mod_raw = cmd0.command().clone();
+    mod_raw.context.request.intent_id = 52;
+    mod_raw.context.request.recovery_object += 52;
+    mod_raw.body = v::CommandBody::Modify(v::ModifyOrder {
+        target: target0.clone(),
+        new_client_id: Some(fixture::venue::text("mod-iso-0-r1")),
+        side: v::Side::Buy,
+        quantity: fixture::venue::d(15, -4),
+        price: fixture::venue::d(60000, 0),
+        position_side: v::PositionSide::Both,
+        reduce_only: false,
+    });
+    let mod_cmd = fixture::canonical(mod_raw);
+    let mod_key = intent_of(&mod_cmd);
+    g.submit(mod_cmd, 110, until()).unwrap();
+    drive_intent(&mut g, mod_key, Status::PartiallyAccepted);
+    g.cancel_pending().unwrap();
+
+    // Only Order 0 is marked AmendAmbiguous; Gateway & Account stay live and sibling Order 1 stays Flushed!
+    assert!(!g.halted());
+    assert!(!g.account().frozen());
+    assert_eq!(g.status(key1), Some(Status::Flushed));
+    assert_eq!(g.status(mod_key), Some(Status::Unknown));
+    assert_eq!(
+        g.account().order_in_doubt(&order0_key),
+        Some(DoubtReason::AmendAmbiguous)
+    );
+    // Worst-case hold (0.0015 * 60000 = 90 + 60 sibling = 150 USDT) stays locked until venue resolution!
+    assert_eq!(
+        g.account().asset(fixture::key(2)).unwrap().reserved,
+        fixture::units(150)
+    );
+
+    // 3. VenueEventBody::ModifyRejected resolves AmendAmbiguous, releases +30 USDT hold, and records reason!
+    let mut mod_rej = fixture::venue::event();
+    mod_rej.identity.received_mono_ns = 150;
+    mod_rej.body = v::VenueEventBody::ModifyRejected(Box::new(v::ModifyRejection {
+        target: target0,
+        amendment_id: Some(fixture::venue::text("rej-52")),
+        intent: Some(mod_key),
+        new_client_id: Some(fixture::venue::text("mod-iso-0-r1")),
+        venue_order_id: Some(fixture::venue::text("v-mod-50")),
+        code: Some(-5022),
+        reason: v::TerminalReason::PostOnlyWouldTake,
+    }));
+    assert_eq!(
+        g.record_event(fixture::event(mod_rej)).unwrap(),
+        Applied::New
+    );
+    assert_eq!(g.account().order_in_doubt(&order0_key), None);
+    assert_eq!(
+        g.order_last_modify_rejection(&order0_key),
+        Some(v::TerminalReason::PostOnlyWouldTake)
+    );
+    assert_eq!(
+        g.account().asset(fixture::key(2)).unwrap().reserved,
+        fixture::units(120)
+    );
+
+    drop(g);
+    for p in [peer1, peer2, peer3] {
+        let _ = p.join().unwrap();
+    }
+}

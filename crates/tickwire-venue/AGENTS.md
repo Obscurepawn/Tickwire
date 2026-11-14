@@ -18,8 +18,9 @@ authority live outside this crate.
   uniquely identify semantic content.
 * **Body-specific event schema versions**: `event_version` in [src/lib.rs](src/lib.rs) pins each new `VenueEventBody`
   capability (`1` base, `2` `Structure`, `3` `Amendment`/`AmendmentRejected`, `4` `Fill` with
-  `OrderStatus::Unreported`); any new semantic variant requires a bumped version, older-version rejection test,
-  hex/SHA-256 vector in `tests/data/`, and matching update in
+  `OrderStatus::Unreported`, `5` `Modified`/`ModifyRejected` tags `8`/`9` with compact `TerminalReason` discriminants
+  and zero-allocation classifiers in [src/reasons.rs](src/reasons.rs)); any new semantic variant requires a bumped
+  version, older-version rejection test, hex/SHA-256 vector in `tests/data/`, and matching update in
   [journal-wire-v1.json](../../specs/contracts/journal-wire-v1.json).
 * **Distinct lifecycle, trade, and account-input facts**: Keep order acknowledgements/statuses, per-trade fills,
   synchronous `RequestReply` snapshots ([src/request_reply.rs](src/request_reply.rs)), and non-order cashflow
@@ -31,9 +32,11 @@ authority live outside this crate.
 
 ## Verification and Specifications
 
-* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/types.rs](src/types.rs) · [src/client_id.rs](src/client_id.rs) ·
+* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/types.rs](src/types.rs) · [src/reasons.rs](src/reasons.rs) ·
+  [src/client_id.rs](src/client_id.rs) ·
   [src/account.rs](src/account.rs) · [src/request_reply.rs](src/request_reply.rs) · [src/validate.rs](src/validate.rs)
 * **Integration tests**: [tests/commands.rs](tests/commands.rs) · [tests/events.rs](tests/events.rs) ·
+  [tests/modify_and_reasons.rs](tests/modify_and_reasons.rs) ·
   [tests/client_id.rs](tests/client_id.rs) · [tests/account_input.rs](tests/account_input.rs) ·
   [tests/amendment.rs](tests/amendment.rs) ·
   [tests/spot_extensions.rs](tests/spot_extensions.rs) · [tests/structures.rs](tests/structures.rs) ·

@@ -351,12 +351,25 @@ impl Account {
                 internal_id: Some(item.internal_id),
                 owner_revision: 1,
                 shadow_fee_credit: fee_zero,
+                pending_modify: None,
+                known_quantities: Vec::new(),
+                client_id_aliases: Vec::new(),
+                native_aliases: Vec::new(),
+                exch_cum_qty: item.filled,
+                exch_cum_quote: None,
+                exch_quote_qty: item.filled.zero_like(),
+                exch_avg_price: None,
+                exch_avg_qty: item.filled.zero_like(),
+                projected_cum_qty: item.filled,
+                terminal_reason: None,
+                last_modify_reject_reason: None,
                 created_mono_ns: 0,
                 retired_mono_ns: None,
                 in_doubt: None,
             };
             account.index_order_insert(&order);
             account.orders.insert(order_key.clone(), order);
+            account.sync_order_in_stp_book(&order_key)?;
 
             account
                 .strategy_sequence_floors

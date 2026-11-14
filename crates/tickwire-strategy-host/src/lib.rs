@@ -824,6 +824,18 @@ impl<R: RecoveryResolver + 'static, const M: usize> HostedStrategy<R, M> {
     pub fn publisher(&self) -> SharedPublisher<M> {
         self.publisher.clone()
     }
+    /// Delivers a volatile strategy-attributed [`tickwire_account::ProjectedFill`] to the
+    /// host resolver without writing non-authoritative projections onto durable report rings.
+    pub fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
+        if self.failed() || fill.strategy != self.logical_strategy_id {
+            return;
+        }
+        if let Some(started) = &mut self.started {
+            started.strategy.on_projected_fill(fill);
+        } else if let Some(resolver) = &mut self.resolver {
+            resolver.on_projected_fill(fill);
+        }
+    }
     /// Performs the existing lazy startup and maintenance without reading an intent.
     ///
     /// A false result means either waiting for live market data or a latched error;

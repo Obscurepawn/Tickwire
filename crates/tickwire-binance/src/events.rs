@@ -147,6 +147,7 @@ pub struct OrderUpdate<'a> {
     pub price: Decimal,
     pub cumulative_quantity: Decimal,
     pub cumulative_quote: Option<Decimal>,
+    pub average_price: Option<Decimal>,
     pub last_quantity: Decimal,
     pub last_price: Decimal,
     pub last_quote: Option<Decimal>,
@@ -157,7 +158,52 @@ pub struct OrderUpdate<'a> {
     pub maker: bool,
     pub order_time_ns: u64,
     pub reject_reason: Option<Cow<'a, str>>,
+    pub self_trade_prevention_mode: Option<Cow<'a, str>>,
     pub raw: &'a RawValue,
+}
+
+/// Zero-allocation terminal reason classification for a decoded Binance Spot or USDⓈ-M
+/// private-stream [`OrderUpdate`]. Returns `None` while the order remains non-terminal.
+pub fn classify_order_update_reason(wire: &OrderUpdate<'_>) -> Option<v::TerminalReason> {
+    let status = wire.status.trim();
+    let exec = wire.execution_type.trim();
+    let is_terminal = matches!(
+        status,
+        "FILLED" | "CANCELED" | "CANCELLED" | "EXPIRED" | "EXPIRED_IN_MATCH" | "REJECTED"
+    ) || exec.eq_ignore_ascii_case("TRADE_PREVENTION");
+    if !is_terminal {
+        return None;
+    }
+    let tif = match wire.time_in_force.as_ref() {
+        "GTC" => Some(v::TimeInForce::Gtc),
+        "IOC" => Some(v::TimeInForce::Ioc),
+        "FOK" => Some(v::TimeInForce::Fok),
+        "GTX" => Some(v::TimeInForce::PostOnly),
+        _ => None,
+    };
+    let post_only = wire.time_in_force == "GTX" || wire.order_type == "LIMIT_MAKER";
+    let stp_or_reason = if exec.eq_ignore_ascii_case("TRADE_PREVENTION")
+        || status.eq_ignore_ascii_case("EXPIRED_IN_MATCH")
+    {
+        Some("EXPIRED_IN_MATCH")
+    } else if let Some(r) = wire
+        .reject_reason
+        .as_deref()
+        .filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("NONE"))
+    {
+        Some(r)
+    } else {
+        wire.self_trade_prevention_mode
+            .as_deref()
+            .filter(|s| !s.is_empty() && !s.eq_ignore_ascii_case("NONE"))
+    };
+    Some(v::classify_binance_reason(
+        None,
+        status,
+        stp_or_reason,
+        tif,
+        post_only,
+    ))
 }
 
 #[derive(Debug, Deserialize)]

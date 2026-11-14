@@ -520,6 +520,7 @@ impl<S: Backend> AccountJournal<S> {
                     if !matches!(
                         command.command().body,
                         tickwire_venue::CommandBody::AmendKeepPriority { .. }
+                            | tickwire_venue::CommandBody::Modify(_)
                     ) {
                         self.retired_intents.insert(expected.intent, stamp);
                     }
@@ -530,6 +531,28 @@ impl<S: Backend> AccountJournal<S> {
             }
             RecoveryRecord::VenueEvent(ev) | RecoveryRecord::IngressEvent { event: ev, .. } => {
                 match &ev.event().body {
+                    tickwire_venue::VenueEventBody::Modified(m) => {
+                        if let Some(k) = m.intent {
+                            self.retired_intents.insert(
+                                IntentKey {
+                                    epoch: k.epoch,
+                                    intent_id: k.intent_id,
+                                },
+                                stamp,
+                            );
+                        }
+                    }
+                    tickwire_venue::VenueEventBody::ModifyRejected(m) => {
+                        if let Some(k) = m.intent {
+                            self.retired_intents.insert(
+                                IntentKey {
+                                    epoch: k.epoch,
+                                    intent_id: k.intent_id,
+                                },
+                                stamp,
+                            );
+                        }
+                    }
                     tickwire_venue::VenueEventBody::Amendment(a) => {
                         self.retired_intents.insert(
                             IntentKey {

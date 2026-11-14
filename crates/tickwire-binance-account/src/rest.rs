@@ -379,6 +379,35 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
     pub fn query_desk_mut(&mut self) -> Option<&mut tickwire_account::QueryDesk> {
         self.query_desk.as_mut()
     }
+    pub fn with_projected_fill(mut self, enabled: bool) -> Self {
+        self.gateway.set_projected_fill(enabled);
+        self
+    }
+    pub fn set_projected_fill(&mut self, enabled: bool) {
+        self.gateway.set_projected_fill(enabled);
+    }
+    pub fn projected_fill_enabled(&self) -> bool {
+        self.gateway.projected_fill_enabled()
+    }
+    pub fn drain_projected_fills(&mut self) -> Vec<tickwire_account::ProjectedFill> {
+        self.gateway.drain_projected_fills()
+    }
+    pub fn pop_projected_fill(&mut self) -> Option<tickwire_account::ProjectedFill> {
+        self.gateway.pop_projected_fill()
+    }
+    pub fn with_stp_enforcement(mut self, enabled: bool) -> Self {
+        self.gateway.set_stp_enforcement(enabled);
+        self
+    }
+    pub fn set_stp_enforcement(&mut self, enabled: bool) {
+        self.gateway.set_stp_enforcement(enabled);
+    }
+    pub fn stp_enforcement(&self) -> bool {
+        self.gateway.stp_enforcement()
+    }
+    pub fn stp_book(&self) -> &tickwire_account::StpBook {
+        self.gateway.stp_book()
+    }
     pub fn install_transport_connection(
         &mut self,
         connection: tickwire_transport::Connection,
@@ -599,6 +628,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             | v::CommandBody::CancelList(_)
             | v::CommandBody::CancelAlgo(_)
             | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Modify(_)
                 if order_ids.is_empty() => {}
             _ => return Err(Error::Unsupported),
         }
@@ -1298,6 +1328,7 @@ impl<S: Store, B: Backend, A: Authority, E: Encoder> RestOwner<S, B, A, E> {
             }
             v::CommandBody::Cancel(target)
             | v::CommandBody::AmendKeepPriority { target, .. }
+            | v::CommandBody::Modify(v::ModifyOrder { target, .. })
             | v::CommandBody::Query(target) => self
                 .gateway
                 .account()

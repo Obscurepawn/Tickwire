@@ -9,6 +9,7 @@ use tickwire_venue::{self as v, CanonicalCommand, CanonicalEvent};
 pub mod account_facts;
 mod amendment;
 mod codec;
+mod modify;
 pub mod query_desk_driver;
 pub mod reconciliation;
 mod registry;
@@ -66,6 +67,12 @@ impl std::fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
+impl Error {
+    /// Classifies non-freezing local admission or rate-limiter refusals into a structured `TerminalReason`.
+    pub fn classify_refusal_reason(&self) -> Option<v::TerminalReason> {
+        modify::classify_refusal_error(self)
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct InputKey {
     pub stream: [u8; 16],
@@ -463,6 +470,9 @@ impl<S: Store> AccountIngress<S> {
                         }
                         if matches!(event.event().body, v::VenueEventBody::Amendment(_)) {
                             input.check_amendment_raw(meta, raw, event)?;
+                        }
+                        if matches!(event.event().body, v::VenueEventBody::Modified(_)) {
+                            input.check_modify_raw(meta, raw, event)?;
                         }
                         registry::learn(&mut input.registry, event)?;
                     } else if let Decision::AccountBound(event) = decision {

@@ -235,12 +235,14 @@ impl<S: Store> AccountIngress<S> {
             self.push_encoded_record(rec, enc.len(), received_mono);
         }
         self.retained = retained;
+        let raw_snapshot = record.raw.clone();
         for (index, event) in record.events.iter().enumerate() {
             if let Err(error) = registry::learn(&mut self.registry, event) {
                 self.stopped = true;
                 gateway.freeze_account();
                 return Err(error);
             }
+            crate::modify::apply_projected_fill_from_ws_raw(self, gateway, &raw_snapshot, event);
             if let Err(error) = gateway.record_ingress_event(
                 self.input_stream(),
                 sequence + index as u64 + 1,
@@ -292,6 +294,7 @@ impl<S: Store> AccountIngress<S> {
                     && matches!(
                         r.events[0].event().body,
                         v::VenueEventBody::AmendmentRejected(_)
+                            | v::VenueEventBody::ModifyRejected(_)
                             | v::VenueEventBody::Rejected { .. }
                     )))
         {
@@ -482,6 +485,7 @@ fn is_category_b_ws_hazard<S: Store>(
         v::CommandBody::New(_)
             | v::CommandBody::Cancel(_)
             | v::CommandBody::AmendKeepPriority { .. }
+            | v::CommandBody::Modify(_)
             | v::CommandBody::Query(_)
     ) {
         return true;
@@ -516,9 +520,10 @@ fn is_category_b_ws_hazard<S: Store>(
                 | tickwire_binance::response::FailureKind::RateLimited
                 | tickwire_binance::response::FailureKind::Authentication
                 | tickwire_binance::response::FailureKind::ClockSkew
-                | tickwire_binance::response::FailureKind::Partial
         )
-    ) {
+    ) || (decoded.failure == Some(tickwire_binance::response::FailureKind::Partial)
+        && record.disposition != RestDisposition::Rejected)
+    {
         return true;
     }
     if decoded.failure == Some(tickwire_binance::response::FailureKind::Rejected)

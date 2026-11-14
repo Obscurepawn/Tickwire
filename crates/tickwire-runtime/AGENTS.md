@@ -9,12 +9,16 @@ node; child-process spawning, shared-memory mappings, and policy grant rules liv
 
 ## Invariants and Change Guidelines
 
-* **Poll-order invariant and bounded multi-completion drain**: Each reactor turn in [src/node.rs](src/node.rs) must
-  poll clock calibration, public market streams, private account inputs, and up to `16` queued `RestOwner` completions
-  (`has_queued_outcomes`, marking `report.runnable = true` if any remain) before polling `Strategy` for new
-  submissions, then sample fresh `LocalTime` immediately prior to admission so fills and cancellations across pooled
-  HTTP/1.1 slots (`mio::Token(100 + conn_id)` via `RestOwner::reregister_all`) or multiplexed WebSocket requests settle
-  available funds in the same turn.
+* **Poll-order invariant, early `ProjectedFill` / `StpBook` controls, and non-freezing strategy refusals**: Each reactor
+  turn in [src/node.rs](src/node.rs) must poll clock calibration, public market streams, private account inputs, and up
+  to `16` queued `RestOwner` completions (`has_queued_outcomes`, marking `report.runnable = true` if any remain) before
+  polling `Strategy` for new submissions, then sample fresh `LocalTime` immediately prior to admission so fills and
+  cancellations across pooled HTTP/1.1 slots (`mio::Token(100 + conn_id)` via `RestOwner::reregister_all`) or
+  multiplexed WebSocket requests settle available funds in the same turn. `CoreNode` exposes `set_projected_fill`,
+  `drain_projected_fills`, `pop_projected_fill`, `set_stp_enforcement`, and `stp_book`, and routes per-intent local
+  admission refusals (`CrossesBook`, `OrderNotOpen`, `TooManyPendingActions`, `InvalidPrice`, `InvalidQuantity`,
+  `NoChange`, `InsufficientAsset`, `InsufficientCapital`, `Limit`, `ManagementDenied`, `RateLimited`) back to
+  `Strategy::rejected` without freezing the account or halting outbound sessions.
 * **Staged `RecoveryBundle` completeness**: `RecoveryQueue::stage` and `LocalAuthority` in
   [src/authority.rs](src/authority.rs) require all 10 control/configuration/checkpoint dependency objects
   (`kinds 2..=11`), actual sequenced `EncodedInputs`, command object (`kind 13`), and paired account baseline/history

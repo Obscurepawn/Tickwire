@@ -214,6 +214,40 @@ class RunnerTests(unittest.TestCase):
         # The actual private-session logs above exercise branch-specific entries.
         self.assertIn('"entries": 2', result.stdout)
 
+    def test_runner_supports_multiple_model_families_in_parallel(self):
+        repo = Path(__file__).resolve().parents[1]
+        jar = repo / "tla/tools/tla2tools.jar"
+        if not jar.exists() or shutil.which("java") is None:
+            self.skipTest("local pinned TLC jar and Java required for runner smoke")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("check-tla.sh", "tlc_coverage.py"):
+                shutil.copyfile(repo / "scripts" / name, scripts / name)
+            tools = root / "tla/tools"
+            tools.mkdir(parents=True)
+            (tools / "tla2tools.jar").symlink_to(jar)
+            for fam, mod in (("alpha", "Alpha"), ("beta", "Beta"), ("unused", "Unused")):
+                models = root / f"tla/execution_models/{fam}/L0_smoke/02_models"
+                models.mkdir(parents=True)
+                (models / f"{mod}.tla").write_text(
+                    f"---- MODULE {mod} ----\nEXTENDS Naturals\nVARIABLE x\n"
+                    "Init == x = 0\nNext == x = 0 /\\ x' = 1\nSafe == x \\in 0..1\n====\n"
+                )
+                (models / f"{mod}.cfg").write_text(
+                    "INIT Init\nNEXT Next\nINVARIANT Safe\nCHECK_DEADLOCK FALSE\n"
+                )
+            result = subprocess.run(
+                ["bash", str(scripts / "check-tla.sh"), "beta", "alpha"],
+                capture_output=True, text=True, timeout=60,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('"model": "Alpha"', result.stdout)
+            self.assertIn('"model": "Beta"', result.stdout)
+            self.assertNotIn('"model": "Unused"', result.stdout)
+            self.assertLess(result.stdout.index('"model": "Alpha"'), result.stdout.index('"model": "Beta"'))
+
 
 if __name__ == "__main__":
     unittest.main()

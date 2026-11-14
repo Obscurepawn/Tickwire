@@ -6,10 +6,12 @@ pub mod query_desk_driver;
 pub mod reconcile;
 use origins::Origins;
 pub use query_desk_driver::{PerOrderQueryDriver, QueryDriverError, QueryStepOutcome};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use tickwire_account::{
-    Applied, AskKind, IntentKey, OrderKey, QueryConfig, QueryDesk, RecoveryRecord, Scope,
+    Applied, AskKind, DoubtReason, Fixed, IntentKey, OrderKey, QueryConfig, QueryDesk,
+    RecoveryRecord, Scope, classify_error_reason,
 };
+pub use tickwire_account::{ProjectedFill, ProjectedPriceInput, StpBook};
 use tickwire_account_gateway::{Authority, Status};
 use tickwire_account_journal::Backend;
 use tickwire_binance_clock::LocalTime;
@@ -24,6 +26,7 @@ use tickwire_spot_execution::{
     is_venue_rate_limit_code,
 };
 use tickwire_transport::IoBudget;
+pub use tickwire_venue::TerminalReason;
 use tickwire_venue::{CanonicalCommand, CommandBody, VenueOrderId};
 #[derive(Debug)]
 pub enum Error {
@@ -33,6 +36,17 @@ pub enum Error {
     Closure(tickwire_account_gateway::AuthorityError),
     Clock,
     Busy,
+}
+impl Error {
+    pub fn terminal_reason(&self) -> Option<TerminalReason> {
+        match self {
+            Self::Session(SessionError::Gateway(tickwire_account_gateway::Error::Account(err))) => {
+                Some(classify_error_reason(err))
+            }
+            Self::Session(SessionError::RateLimited(_)) => Some(TerminalReason::RateLimited),
+            _ => None,
+        }
+    }
 }
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -54,6 +68,12 @@ pub struct Completion {
     pub intent: IntentKey,
     pub response: Reply,
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StrategyRejection {
+    pub logical_strategy_id: u64,
+    pub intent: IntentKey,
+    pub reason: TerminalReason,
+}
 pub struct AccountRunner<
     'a,
     B: Backend,
@@ -69,6 +89,9 @@ pub struct AccountRunner<
     query_desk: Option<QueryDesk>,
     acked_native_ids: BTreeMap<OrderKey, VenueOrderId>,
     expected_fill_atoms: BTreeMap<OrderKey, i128>,
+    pending_modify_intents: BTreeMap<OrderKey, IntentKey>,
+    terminal_reasons: BTreeMap<OrderKey, TerminalReason>,
+    strategy_rejections: VecDeque<StrategyRejection>,
 }
 impl<
     'a,
@@ -90,6 +113,9 @@ impl<
             query_desk: None,
             acked_native_ids: BTreeMap::new(),
             expected_fill_atoms: BTreeMap::new(),
+            pending_modify_intents: BTreeMap::new(),
+            terminal_reasons: BTreeMap::new(),
+            strategy_rejections: VecDeque::new(),
         }
     }
     /// Constructs an `AccountRunner` pre-populated with cold-bootstrapped open order origins.
@@ -182,6 +208,92 @@ impl<
     pub fn retention_window_ns(&self) -> Option<u64> {
         self.origins.retention_window_ns()
     }
+    pub fn with_stp_enforcement(mut self, enabled: bool) -> Self {
+        self.set_stp_enforcement(enabled);
+        self
+    }
+    pub fn set_stp_enforcement(&mut self, enabled: bool) {
+        self.session.gateway_mut().set_stp_enforcement(enabled);
+    }
+    pub fn stp_enforcement(&self) -> bool {
+        self.session.gateway().stp_enforcement()
+    }
+    pub fn stp_book(&self) -> &StpBook {
+        self.session.gateway().stp_book()
+    }
+    pub fn with_projected_fill(mut self, enabled: bool) -> Self {
+        self.set_projected_fill(enabled);
+        self
+    }
+    pub fn set_projected_fill(&mut self, enabled: bool) {
+        self.session.gateway_mut().set_projected_fill(enabled);
+    }
+    pub fn projected_fill_enabled(&self) -> bool {
+        self.session.gateway().projected_fill_enabled()
+    }
+    pub fn drain_projected_fills(&mut self) -> Vec<ProjectedFill> {
+        self.session.gateway_mut().drain_projected_fills()
+    }
+    pub fn pop_projected_fill(&mut self) -> Option<ProjectedFill> {
+        self.session.gateway_mut().pop_projected_fill()
+    }
+    pub fn order_projected_filled(&self, key: &OrderKey) -> Option<Fixed> {
+        self.session.gateway().order_projected_filled(key)
+    }
+    pub fn order_terminal_reason(&self, key: &OrderKey) -> Option<TerminalReason> {
+        if let Some(&r) = self.terminal_reasons.get(key)
+            && r != TerminalReason::Unknown
+        {
+            return Some(r);
+        }
+        self.session
+            .gateway()
+            .order_terminal_reason(key)
+            .or_else(|| self.terminal_reasons.get(key).copied())
+    }
+    pub fn order_last_modify_rejection(&self, key: &OrderKey) -> Option<TerminalReason> {
+        self.session.gateway().order_last_modify_rejection(key)
+    }
+    pub fn drain_strategy_rejections(&mut self) -> Vec<StrategyRejection> {
+        self.strategy_rejections.drain(..).collect()
+    }
+    pub fn pop_strategy_rejection(&mut self) -> Option<StrategyRejection> {
+        self.strategy_rejections.pop_front()
+    }
+    pub fn last_strategy_rejection(&self) -> Option<&StrategyRejection> {
+        self.strategy_rejections.back()
+    }
+    fn push_strategy_rejection(
+        &mut self,
+        logical_strategy_id: u64,
+        intent: IntentKey,
+        reason: TerminalReason,
+    ) {
+        if self.strategy_rejections.len() >= tickwire_account::MAX_ORDERS {
+            self.strategy_rejections.pop_front();
+        }
+        self.strategy_rejections.push_back(StrategyRejection {
+            logical_strategy_id,
+            intent,
+            reason,
+        });
+    }
+    pub(crate) fn note_order_terminal_reason(&mut self, key: &OrderKey, reason: TerminalReason) {
+        if self.terminal_reasons.len() >= tickwire_account::MAX_ORDERS * 4
+            && !self.terminal_reasons.contains_key(key)
+        {
+            let account = self.session.gateway().account();
+            self.terminal_reasons
+                .retain(|k, _| account.order(k).is_some());
+        }
+        self.terminal_reasons.insert(key.clone(), reason);
+    }
+    pub(crate) fn pending_modify_intent(&self, key: &OrderKey) -> Option<IntentKey> {
+        self.pending_modify_intents.get(key).copied()
+    }
+    pub(crate) fn clear_pending_modify_intent(&mut self, key: &OrderKey) {
+        self.pending_modify_intents.remove(key);
+    }
     /// A trusted input owner calls this immediately on lost account qualification.
     pub fn stop_sending(&mut self) {
         self.session.stop_sending();
@@ -235,6 +347,12 @@ impl<
             return Ok(false);
         };
         let command = submission.command.clone();
+        let logical_strategy_id = command.command().context.strategy.logical_strategy_id;
+        let req = &command.command().context.request;
+        let intent = IntentKey {
+            epoch: req.intent_exec_epoch,
+            intent_id: req.intent_id,
+        };
         let result = self.submit(submission, now);
         strategy.on_submission(
             &command,
@@ -245,17 +363,49 @@ impl<
         );
         // The originating member received the refusal above. Continue with its peer.
         match result {
-            Err(Error::Session(SessionError::Gateway(
-                tickwire_account_gateway::Error::Account(tickwire_account::Error::ManagementDenied),
-            ))) => Ok(true),
-            Err(Error::Session(SessionError::Gateway(
-                tickwire_account_gateway::Error::Account(
-                    tickwire_account::Error::InsufficientAsset
-                    | tickwire_account::Error::InsufficientCapital
-                    | tickwire_account::Error::Limit,
-                ),
-            ))) if !self.account().frozen() => Ok(true),
+            Err(
+                ref err @ Error::Session(SessionError::Gateway(
+                    tickwire_account_gateway::Error::Account(
+                        tickwire_account::Error::ManagementDenied,
+                    ),
+                )),
+            ) => {
+                self.push_strategy_rejection(
+                    logical_strategy_id,
+                    intent,
+                    err.terminal_reason().unwrap_or(TerminalReason::Unknown),
+                );
+                Ok(true)
+            }
+            Err(
+                ref err @ Error::Session(SessionError::Gateway(
+                    tickwire_account_gateway::Error::Account(
+                        tickwire_account::Error::InsufficientAsset
+                        | tickwire_account::Error::InsufficientCapital
+                        | tickwire_account::Error::Limit
+                        | tickwire_account::Error::CrossesBook
+                        | tickwire_account::Error::OrderNotOpen
+                        | tickwire_account::Error::UnknownOrder
+                        | tickwire_account::Error::TooManyPendingActions
+                        | tickwire_account::Error::InvalidPrice
+                        | tickwire_account::Error::InvalidQuantity
+                        | tickwire_account::Error::NoChange,
+                    ),
+                )),
+            ) if !self.account().frozen() => {
+                self.push_strategy_rejection(
+                    logical_strategy_id,
+                    intent,
+                    err.terminal_reason().unwrap_or(TerminalReason::Unknown),
+                );
+                Ok(true)
+            }
             Err(Error::Session(SessionError::RateLimited(_))) if !self.account().frozen() => {
+                self.push_strategy_rejection(
+                    logical_strategy_id,
+                    intent,
+                    TerminalReason::RateLimited,
+                );
                 Ok(true)
             }
             other => other.map(|_| true),
@@ -324,6 +474,11 @@ impl<
             self.origins
                 .sync_account(self.session.gateway().account(), now.monotonic.nanos());
         }
+        let mut post_modify_bind: Option<(
+            origins::Origin,
+            OrderKey,
+            Option<tickwire_venue::ClientId>,
+        )> = None;
         match &c.body {
             CommandBody::New(order) => {
                 let [id] = order_ids.as_slice() else {
@@ -345,18 +500,41 @@ impl<
                 }
                 let same_prior_cmd =
                     prior && self.session.gateway().command(intent) == Some(&command);
-                if !same_prior_cmd
-                    && let Err(e) = self.origins.register(
+                if !same_prior_cmd {
+                    if let Err(e) = self.origins.precheck_register(
                         &scope,
                         intent,
                         order.client_id.as_str(),
                         *id,
                         command.digest(),
                         now.monotonic.nanos(),
-                    )
-                {
-                    self.session.stop_sending();
-                    return Err(e);
+                    ) {
+                        self.session.stop_sending();
+                        return Err(e);
+                    }
+                    let skip_origin_register = !prior && {
+                        let mut precheck = self.session.gateway().account().clone();
+                        match precheck.admit(&command, now.monotonic.nanos()) {
+                            Ok(_) => false,
+                            Err(acc_err) => {
+                                !precheck.frozen()
+                                    && classify_error_reason(&acc_err) != TerminalReason::Unknown
+                            }
+                        }
+                    };
+                    if !skip_origin_register
+                        && let Err(e) = self.origins.register(
+                            &scope,
+                            intent,
+                            order.client_id.as_str(),
+                            *id,
+                            command.digest(),
+                            now.monotonic.nanos(),
+                        )
+                    {
+                        self.session.stop_sending();
+                        return Err(e);
+                    }
                 }
             }
             CommandBody::Cancel(target) | CommandBody::Query(target) if order_ids.is_empty() => {
@@ -378,24 +556,25 @@ impl<
                         let CommandBody::New(order) = &original.command().body else {
                             return Err(Error::Origin("unexpected original command"));
                         };
-                        if target
-                            .client_id
-                            .as_ref()
-                            .is_none_or(|id| *id != order.client_id)
-                        {
+                        let key = tickwire_account::OrderKey {
+                            intent: origin.intent,
+                            client_id: order.client_id.clone(),
+                        };
+                        let account = self.session.gateway().account();
+                        if target.client_id.as_ref().is_none_or(|id| {
+                            *id != order.client_id
+                                && !account
+                                    .order_terms(&key)
+                                    .is_some_and(|(_, s)| *id == s.client_id)
+                        }) {
                             return Err(Error::Origin("original client ID required"));
                         }
                         // Both exchanges prioritize native IDs when both are supplied. The native ID
                         // must already be bound by independent account evidence before it can override the client ID.
-                        if let Some(native) = &target.venue_order_id {
-                            let key = tickwire_account::OrderKey {
-                                intent: origin.intent,
-                                client_id: order.client_id.clone(),
-                            };
-                            if self.session.gateway().account().venue_order_id(&key) != Some(native)
-                            {
-                                return Err(Error::Origin("unconfirmed native order ID"));
-                            }
+                        if let Some(native) = &target.venue_order_id
+                            && account.venue_order_id(&key) != Some(native)
+                        {
+                            return Err(Error::Origin("unconfirmed native order ID"));
                         }
                         Ok(())
                     });
@@ -408,6 +587,83 @@ impl<
                         .precheck_submit(&command, now.monotonic.nanos())
                         .map_err(Error::Session)?;
                 }
+            }
+            CommandBody::Modify(m) if order_ids.is_empty() => {
+                let instrument_id = c.context.instrument.instrument_id;
+                let origin_res = self.origins.lookup(&scope, b"order", &m.target.order_id);
+                let origin = match origin_res {
+                    Ok(origin) => origin,
+                    Err(_)
+                        if !prior
+                            && self
+                                .session
+                                .gateway()
+                                .account()
+                                .resolve_order_target(instrument_id, &m.target)
+                                .is_none() =>
+                    {
+                        return Err(Error::Session(SessionError::Gateway(
+                            tickwire_account_gateway::Error::Account(
+                                tickwire_account::Error::OrderNotOpen,
+                            ),
+                        )));
+                    }
+                    Err(e) => {
+                        self.session.stop_sending();
+                        return Err(e);
+                    }
+                };
+                let verify_origin = (|| {
+                    let original = self
+                        .session
+                        .gateway()
+                        .command(origin.intent)
+                        .ok_or(Error::Origin("unadmitted original order"))?;
+                    if origin.intent.epoch != m.target.original_intent_exec_epoch
+                        || original.digest() != origin.digest
+                        || original.command().context.instrument != c.context.instrument
+                    {
+                        return Err(Error::Origin("unexpected original order binding"));
+                    }
+                    let CommandBody::New(order) = &original.command().body else {
+                        return Err(Error::Origin("unexpected original command"));
+                    };
+                    let key = OrderKey {
+                        intent: origin.intent,
+                        client_id: order.client_id.clone(),
+                    };
+                    let account = self.session.gateway().account();
+                    let resolved = account.resolve_order_target(instrument_id, &m.target);
+                    if let Some(cid) = &m.target.client_id
+                        && *cid != order.client_id
+                        && !account
+                            .order_terms(&key)
+                            .is_some_and(|(_, s)| *cid == s.client_id)
+                        && resolved.as_ref() != Some(&key)
+                    {
+                        return Err(Error::Origin("original client ID required"));
+                    }
+                    if let Some(native) = &m.target.venue_order_id
+                        && account.venue_order_id(&key) != Some(native)
+                        && resolved.as_ref() != Some(&key)
+                    {
+                        return Err(Error::Origin("unconfirmed native order ID"));
+                    }
+                    Ok(key)
+                })();
+                let key = match verify_origin {
+                    Ok(k) => k,
+                    Err(e) => {
+                        self.session.stop_sending();
+                        return Err(e);
+                    }
+                };
+                if !prior {
+                    self.session
+                        .precheck_submit(&command, now.monotonic.nanos())
+                        .map_err(Error::Session)?;
+                }
+                post_modify_bind = Some((origin, key, m.new_client_id.clone()));
             }
             _ => {
                 self.session.stop_sending();
@@ -444,6 +700,20 @@ impl<
         if status == Status::Aborted {
             self.origins.retire_intent(intent, now.monotonic.nanos());
         } else {
+            if let Some((origin, key, new_cid)) = post_modify_bind {
+                self.pending_modify_intents.insert(key, intent);
+                if let Some(cid) = new_cid
+                    && let Err(e) = self.origins.bind_client_alias(
+                        &scope,
+                        origin,
+                        cid.as_str(),
+                        now.monotonic.nanos(),
+                    )
+                {
+                    self.session.stop_sending();
+                    return Err(e);
+                }
+            }
             self.inflight.insert(intent, strategy);
         }
         Ok(status)
@@ -606,6 +876,82 @@ impl<
                     }
                 }
             }
+            CommandBody::Modify(m) => {
+                let order_key = self
+                    .account()
+                    .resolve_order_target(instrument_id, &m.target)
+                    .or_else(|| {
+                        let scope = self.scope().clone();
+                        let origin = self
+                            .origins
+                            .lookup(&scope, b"order", &m.target.order_id)
+                            .ok()?;
+                        let orig_cmd = self.session.gateway().command(origin.intent)?;
+                        let CommandBody::New(orig_order) = &orig_cmd.command().body else {
+                            return None;
+                        };
+                        Some(OrderKey {
+                            intent: origin.intent,
+                            client_id: orig_order.client_id.clone(),
+                        })
+                    });
+                if let Some(order_key) = order_key {
+                    if let Reply::Acknowledged {
+                        venue_order_id,
+                        client_id,
+                    } = response
+                    {
+                        if self.acked_native_ids.len() >= tickwire_account::MAX_ORDERS {
+                            let account = self.session.gateway().account();
+                            self.acked_native_ids.retain(|k, _| {
+                                account
+                                    .order(k)
+                                    .is_some_and(|v| !v.aborted && !v.uncreated && !v.terminal)
+                            });
+                        }
+                        self.acked_native_ids
+                            .insert(order_key.clone(), venue_order_id.clone());
+                        if let Some(cid) = client_id
+                            && cid != &order_key.client_id
+                        {
+                            let scope = self.scope().clone();
+                            if let Ok(origin) =
+                                self.origins.lookup(&scope, b"order", &m.target.order_id)
+                            {
+                                let _ = self.origins.bind_client_alias(
+                                    &scope,
+                                    origin,
+                                    cid.as_str(),
+                                    now_mono_ns,
+                                );
+                            }
+                        }
+                    }
+                    if self.account().order_in_doubt(&order_key)
+                        != Some(DoubtReason::AmendAmbiguous)
+                    {
+                        self.pending_modify_intents.remove(&order_key);
+                    } else if self.query_desk.is_some()
+                        && !self.account().frozen()
+                        && self
+                            .account()
+                            .order(&order_key)
+                            .is_some_and(|v| !v.terminal && !v.uncreated && !v.aborted)
+                    {
+                        let native = self.known_native_order_id(&order_key);
+                        if !self.enqueue_query_desk_ask(
+                            order_key,
+                            instrument_id,
+                            native,
+                            AskKind::Amend,
+                            false,
+                            now_mono_ns,
+                        ) {
+                            self.freeze_cash();
+                        }
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -730,6 +1076,7 @@ impl<
             .map_err(Error::Session)?;
         self.acked_native_ids.remove(key);
         self.expected_fill_atoms.remove(key);
+        self.pending_modify_intents.remove(key);
         if let Some(desk) = self.query_desk.as_mut() {
             desk.remove_order(key);
         }
@@ -768,6 +1115,7 @@ impl<
         {
             self.acked_native_ids.remove(key);
             self.expected_fill_atoms.remove(key);
+            self.pending_modify_intents.remove(key);
             if let Some(desk) = self.query_desk.as_mut() {
                 desk.remove_order(key);
             }

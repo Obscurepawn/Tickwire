@@ -1,0 +1,22 @@
+{
+  "model": "L0_StpModify",
+  "runs": 2,
+  "entries": 14,
+  "generated": {
+    "Init line 261, col 1 to line 261, col 4 of module L0_StpModify": 2,
+    "AdmitNewOrder line 298, col 1 to line 298, col 23 of module L0_StpModify (302 5 335 9)": 19063,
+    "RefuseLocalStpOrPending line 341, col 1 to line 341, col 35 of module L0_StpModify": 190984,
+    "AdmitModify line 359, col 1 to line 359, col 38 of module L0_StpModify (370 5 412 9)": 31192,
+    "AbortModifyZeroBytes line 417, col 1 to line 417, col 23 of module L0_StpModify": 32590,
+    "FlushModifyToWire line 447, col 1 to line 447, col 20 of module L0_StpModify": 32590,
+    "ObserveModified line 511, col 1 to line 511, col 33 of module L0_StpModify": 81748,
+    "ObserveModifyRejected line 552, col 1 to line 552, col 24 of module L0_StpModify": 32590,
+    "PartialFillOpenOrder line 566, col 1 to line 566, col 23 of module L0_StpModify": 74243,
+    "TerminalCloseOrder line 582, col 1 to line 582, col 21 of module L0_StpModify (586 5 607 9)": 386148,
+    "LateModifyRejectedOnSuperseded line 611, col 1 to line 611, col 33 of module L0_StpModify": 28716,
+    "IsolateAmendAmbiguous line 628, col 1 to line 628, col 24 of module L0_StpModify": 32590,
+    "StepSpotNewCidNotFoundFallback line 646, col 1 to line 646, col 33 of module L0_StpModify": 864,
+    "ResolveAmendAmbiguousViaQuery line 662, col 1 to line 662, col 41 of module L0_StpModify": 65180
+  },
+  "model_sha256": "5d094752b331eabf93d8f56095f1d058f9c912dfdda2cb469de960c4cb100ed3"
+}

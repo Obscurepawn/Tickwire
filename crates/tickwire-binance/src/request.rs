@@ -458,6 +458,28 @@ fn command_params(
             }
             (Method::Put, "/fapi/v1/order", "order.modify")
         }
+        CommandBody::Modify(m) if market == Market::Spot => {
+            if m.reduce_only || m.position_side != PositionSide::Both {
+                return Err(Error::UnsupportedCommand);
+            }
+            let Some(id) = &m.new_client_id else {
+                return Err(Error::UnsupportedCommand);
+            };
+            p.text("cancelReplaceMode", "STOP_ON_FAILURE")?;
+            order_target(p, &m.target, market, true)?;
+            client_id(id.as_str(), market)?;
+            p.text("newClientOrderId", id.as_str())?;
+            p.text("side", side(m.side))?;
+            p.text("type", "LIMIT")?;
+            p.text("timeInForce", "GTC")?;
+            p.decimal("quantity", m.quantity)?;
+            p.decimal("price", m.price)?;
+            (
+                Method::Post,
+                "/api/v3/order/cancelReplace",
+                "order.cancelReplace",
+            )
+        }
         CommandBody::Algo(a) if market == Market::Usdm => {
             p.text("algoType", "CONDITIONAL")?;
             order_params(p, &a.order, market, true, timestamp, stamp)?;

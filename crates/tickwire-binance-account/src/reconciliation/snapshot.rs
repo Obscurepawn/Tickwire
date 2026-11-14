@@ -822,6 +822,7 @@ mod tests {
                 command: canonical,
                 ids: vec![identity.order_id],
                 orders: vec![identity],
+                aliases: vec![crate::registry::OrderAliases::default()],
             },
         );
         let balance=br#"{"canTrade":true,"accountType":"SPOT","balances":[{"asset":"BTC","free":"1","locked":"0"},{"asset":"USDT","free":"940","locked":"60"}]}"#;

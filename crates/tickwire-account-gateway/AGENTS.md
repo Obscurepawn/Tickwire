@@ -25,9 +25,12 @@ remain injected dependencies with no permissive defaults.
   refusal or transport proof that zero application bytes left the process may append `AbortBeforeSend` and release
   holds; once a single byte is accepted or a send stalls mid-stream, retain the reservation for venue reconciliation.
   When `with_per_order_doubt_isolation(true)` is enabled, `drop_broken_transport_isolated` and `isolate_intent_in_doubt`
-  confine single-order `New`/`Cancel`/`AmendKeepPriority`/`Query` transport failures to `Status::Unknown` +
-  `Account::mark_order_in_doubt` without freezing `Account`, halting the gateway, or disturbing sibling `Flushed`
-  entries, allowing `install_transport_connection` to attach a fresh `Connection` once `retained_receive` is drained.
+  confine single-order `New`/`Cancel`/`AmendKeepPriority`/`Modify`/`Query` transport failures to `Status::Unknown` +
+  `Account::mark_order_in_doubt` (`AmendAmbiguous` for both `AmendKeepPriority` and `Modify`) without freezing
+  `Account`, halting the gateway, or disturbing sibling `Flushed` entries, allowing `install_transport_connection` to
+  attach a fresh `Connection` once `retained_receive` is drained. `AccountGateway` also exposes zero-side-effect
+  pass-throughs for `StpBook`, `ProjectedFill` (`on_cum_qty`, `pop_projected_fill`, `drain_projected_fills`), and
+  per-order `TerminalReason` inspection.
 * **Multi-slot execution pool with single-writer admission**: Enabling `with_connection_pool` / `enable_connection_pool`
   ([src/pool.rs](src/pool.rs)) attaches up to `MAX_ORDER_CONNECTIONS` (`16`) `Exclusive` or `Shared` slots backed by
   `OrderConnectionPool` and automatically enables `per_order_doubt_isolation`. `pick_pool_slot` and

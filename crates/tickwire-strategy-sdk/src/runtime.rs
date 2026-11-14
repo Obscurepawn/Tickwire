@@ -29,7 +29,63 @@ pub trait RecoveryResolver {
         _result: &tickwire_venue::RequestReply,
     ) {
     }
+    fn on_projected_fill(&mut self, _fill: &tickwire_account::ProjectedFill) {}
 }
+
+/// Ergonomic alias for [`IntentReceiver`] on the execution-side SPSC command intake lane.
+pub type OutboundReader = IntentReceiver;
+
+/// Creates an in-process SPSC [`crate::outbound::OutboundWriter`] / [`OutboundReader`] pair
+/// backed by a newly created `Publisher<1>` shared-memory ring and `objects` blob reader.
+pub fn in_process_outbound_pair(
+    header: ResourceHeader,
+    consumer_instance: [u8; 16],
+    subscription_generation: u64,
+    cursor_id: [u8; 16],
+    objects: tickwire_recovery::FileBlobReader,
+    risk_domain: [u8; 16],
+    logical_strategy: u64,
+) -> Result<(crate::outbound::OutboundWriter, OutboundReader)> {
+    if consumer_instance == [0; 16] || cursor_id == [0; 16] || subscription_generation == 0 {
+        return Err(Error::Identity);
+    }
+    let mut publisher = tickwire_shm::Publisher::<1>::create(header)?;
+    let sub = SubscriptionKey {
+        bank: publisher.key(),
+        instance: u128::from_le_bytes(consumer_instance),
+        generation: subscription_generation,
+        cursor: u128::from_le_bytes(cursor_id),
+    };
+    publisher.join(sub)?;
+    let bank = publisher.header().clone();
+    let bank_fd = publisher.reader_fd()?;
+    // SAFETY: `publisher` is freshly created, owned exclusively by the returned
+    // single-writer `OutboundWriter`, and `sub` is its sole registered subscription.
+    let receiver = unsafe {
+        IntentReceiver::attach(
+            bank_fd,
+            bank.clone(),
+            sub,
+            objects,
+            risk_domain,
+            logical_strategy,
+        )?
+    };
+    let cursor_fd = receiver.cursor_fd()?;
+    // SAFETY: `cursor_fd` is the exact `Subscriber`-created cursor descriptor for `sub`.
+    unsafe {
+        publisher.register_cursor(sub, cursor_fd)?;
+    }
+    let writer = crate::outbound::OutboundWriter::new(
+        publisher,
+        logical_strategy,
+        bank.producer_instance,
+        bank.producer_generation,
+        risk_domain,
+    )?;
+    Ok((writer, receiver))
+}
+
 pub struct IntentReceiver {
     reader: Subscriber<4>,
     bank: ResourceHeader,
@@ -134,6 +190,9 @@ impl<R: RecoveryResolver, N: FnMut(&tickwire_binance_public::Notice<'_>) -> bool
     }
     pub fn resolver_mut(&mut self) -> &mut R {
         &mut self.resolver
+    }
+    pub fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
+        self.resolver.on_projected_fill(fill);
     }
     /// Drain shadow decisions without resolving/admitting or submitting them.
     /// The worker already persisted canonical bytes and actual decision inputs.

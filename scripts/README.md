@@ -38,7 +38,7 @@ python3 scripts/verify-documentation.py
 
 ## TLC Coverage Runner
 
-`./scripts/check-tla.sh` verifies the SHA-256 checksum of the pinned TLC 1.7.4 distribution (`tla/tools/tla2tools.jar`), stages each model family and its `.cfg` files into an isolated temporary directory, runs single-worker state exploration to completion (`0` states remaining on queue), and asserts that every modeled action generates successors via [`tlc_coverage.py`](tlc_coverage.py).
+`./scripts/check-tla.sh` verifies the SHA-256 checksum of the pinned TLC 1.7.4 distribution (`tla/tools/tla2tools.jar`), accepts zero, one, or multiple model-family names (`./scripts/check-tla.sh [family ...]`), stages each model and its `.cfg` files into an isolated temporary directory, executes single-worker (`-workers 1 -coverage 1`) configurations concurrently across a bounded LPT-scheduled worker pool (`TLA_JOBS` workers, `-Xmx${TLA_MAX_HEAP:-2560m}` per JVM) to completion (`0` states remaining on queue), and asserts in deterministic order that every modeled action generates successors via [`tlc_coverage.py`](tlc_coverage.py).
 
 To run unit tests for the TLC coverage parser itself:
 

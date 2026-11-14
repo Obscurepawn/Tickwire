@@ -89,6 +89,8 @@ pub trait AppStrategy: Strategy {
     fn instance(&self) -> Option<([u8; 16], u64)> {
         None
     }
+    /// Optional volatile cumulative-quantity fill projection attributed to a strategy member.
+    fn on_projected_fill(&mut self, _fill: &tickwire_account::ProjectedFill) {}
     fn failed(&self) -> bool;
 }
 
@@ -604,6 +606,18 @@ impl AppStrategy for MultiStrategy {
             .market_rejection(c)
     }
 
+    fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
+        if self.fatal || fill.strategy == 0 {
+            return;
+        }
+        if let Some(i) = self.members.iter().position(|m| m.id == fill.strategy) {
+            if let Some(s) = &mut self.members[i].strategy {
+                s.on_projected_fill(fill);
+            }
+            self.failed_member(i);
+        }
+    }
+
     fn failed(&self) -> bool {
         self.fatal
     }
@@ -856,5 +870,89 @@ mod multi_tests {
             )
             .is_err()
         );
+    }
+    #[test]
+    fn projected_fills_route_exclusively_to_matching_logical_strategy_member() {
+        use tickwire_account::{Fixed, OrderKey, ProjectedFill};
+        use tickwire_venue::{ClientId, IntentKey, PositionSide, Side};
+
+        struct ProjectedChild {
+            seen: Rc<Cell<u32>>,
+        }
+        impl AppStrategy for ProjectedChild {
+            fn on_projected_fill(&mut self, _fill: &ProjectedFill) {
+                self.seen.set(self.seen.get() + 1);
+            }
+            fn failed(&self) -> bool {
+                false
+            }
+        }
+        impl Strategy for ProjectedChild {
+            fn on_market(&mut self, _: &Notice<'_>) -> bool {
+                true
+            }
+            fn next(&mut self, _: &Account, _: Health, _: LocalTime) -> Option<Submission> {
+                None
+            }
+            fn on_submission(
+                &mut self,
+                _: &CanonicalCommand,
+                _: &tickwire_runtime::node::SubmissionResult<'_>,
+            ) {
+            }
+        }
+
+        let seen_1 = Rc::new(Cell::new(0));
+        let seen_2 = Rc::new(Cell::new(0));
+        let mut multi = MultiStrategy::new(
+            vec![
+                (
+                    1,
+                    Box::new(ProjectedChild {
+                        seen: seen_1.clone(),
+                    }),
+                ),
+                (
+                    2,
+                    Box::new(ProjectedChild {
+                        seen: seen_2.clone(),
+                    }),
+                ),
+            ],
+            policy(),
+        )
+        .unwrap();
+
+        let make_pf = |strategy: u64| ProjectedFill {
+            order: OrderKey {
+                intent: IntentKey {
+                    epoch: 1,
+                    intent_id: 7,
+                },
+                client_id: ClientId::new("tw1projectedtest").unwrap(),
+            },
+            instrument_id: 12,
+            strategy,
+            side: Side::Buy,
+            position_side: PositionSide::Both,
+            gap_quantity: Fixed::from_atoms(5, 3).unwrap(),
+            gap_price: Fixed::from_atoms(6_000_000, 2).unwrap(),
+            order_filled: Fixed::zero(3).unwrap(),
+            order_projected: Fixed::from_atoms(5, 3).unwrap(),
+            projected: true,
+        };
+
+        multi.on_projected_fill(&make_pf(2));
+        assert_eq!(seen_1.get(), 0);
+        assert_eq!(seen_2.get(), 1);
+
+        multi.on_projected_fill(&make_pf(99));
+        multi.on_projected_fill(&make_pf(0));
+        assert_eq!(seen_1.get(), 0);
+        assert_eq!(seen_2.get(), 1);
+
+        multi.on_projected_fill(&make_pf(1));
+        assert_eq!(seen_1.get(), 1);
+        assert_eq!(seen_2.get(), 1);
     }
 }

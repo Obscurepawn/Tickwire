@@ -4,7 +4,9 @@ use sha2::{Digest, Sha256};
 impl Account {
     pub fn strategy_orders_digest(&self, strategy: u64) -> v::Hash {
         let mut hash = Sha256::new();
-        if !self.amendments.is_empty() {
+        if !self.modifications.is_empty() {
+            hash.update(b"tickwire.strategy-orders.v5");
+        } else if !self.amendments.is_empty() {
             hash.update(b"tickwire.strategy-orders.v4");
         } else if self.conditional_state_version() == 3 {
             hash.update(b"tickwire.strategy-orders.v3");
@@ -32,6 +34,9 @@ impl Account {
         }
         if !self.amendments.is_empty() {
             hash.update(self.amendment_state_digest(Some(strategy)));
+        }
+        if !self.modifications.is_empty() {
+            hash.update(self.modification_state_digest(Some(strategy)));
         }
         hash.finalize().into()
     }

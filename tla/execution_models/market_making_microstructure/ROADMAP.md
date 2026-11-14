@@ -1,0 +1,6 @@
+# Lock-free `StpBook`, single-in-flight `Modify`, and `ProjectedFill` / `FillWatermarkTracker` models
+
+| Level | Result |
+| --- | --- |
+| [L0 lock-free `StpBook`, worst-case `Modify` holds, terminal supersede, & `AmendAmbiguous` query resolution](L0_stp_modify/05_output.md) | No self-trade crossing under `StpEnforced`, exact atomic `best_bid`/`best_ask` across dual-price `aggressive_ticks` and `swap_remove`, at most one pending modify per order, worst-case Spot and Futures `shadow_holds` solvency across venue clamping, exact resting rollback on `Aborted`/`ModifyRejected`/`Superseded`, and two-phase Spot `new_client_id -> orderId` query resolution passed across Spot and Futures configurations. |
+| [L1 `ProjectedFill` watermarks, `CHECK_STP` suppression, & `FillWatermarkTracker` zero-double-count skew](L1_projected_fill/05_output.md) | Monotonic `settled <= projected` watermarks, exact zero-double-count cumulative `effective_delta` across out-of-order status/trade interleavings and duplicate `trade_id`s, unpolluted settled ledger, stale-status no-op, `CHECK_STP` `self_cross` projection suppression, and exact `exch_quote_qty` gap-price denominators passed across multi-trade modify and `CHECK_STP` self-cross configurations. |

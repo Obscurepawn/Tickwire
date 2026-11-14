@@ -26,7 +26,8 @@ validity, and exchange reconciliation live above this layer.
 * **Optional windowed prefix compaction**: Keep `retention_window_ns` defaulting to `None` so standalone journals
   enforce `MAX_RECORDS` as modeled in `L0_AccountJournal.tla`; when `retention_window_ns` is enabled, advance
   `evicted_prefix` in `compact_before` so `position()` and `HistoryFrontier` stay continuous while active admissions in
-  `keep_admissions` retain their `AdmissionOrigin` and retry/conflict guards.
+  `keep_admissions` (including in-flight `AmendKeepPriority` and `Modify` intents until `Amendment`/`AmendmentRejected`
+  or `Modified`/`ModifyRejected` arrives) retain their `AdmissionOrigin` and retry/conflict guards.
 
 ## Verification and Specifications
 

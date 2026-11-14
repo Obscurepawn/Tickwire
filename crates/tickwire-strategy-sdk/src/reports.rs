@@ -39,6 +39,61 @@ pub enum AccountReport {
         record: CanonicalRecord,
     },
 }
+impl AccountReport {
+    /// Decodes this report into a zero-allocation [`crate::microstructure::DecodedReport`].
+    #[inline]
+    pub fn decode(&self) -> crate::microstructure::DecodedReport<'_> {
+        crate::microstructure::decode_report(self)
+    }
+
+    /// Decodes this report with explicit order classification hints.
+    #[inline]
+    pub fn decode_with_hints<'a>(
+        &'a self,
+        hints: crate::microstructure::OrderClassificationHints<'_>,
+    ) -> crate::microstructure::DecodedReport<'a> {
+        crate::microstructure::decode_report_with_hints(self, hints)
+    }
+
+    /// Extracts [`tickwire_venue::ModifyObservation`] when this report carries `VenueEventBody::Modified`.
+    #[inline]
+    pub fn modified(&self) -> Option<&tickwire_venue::ModifyObservation> {
+        self.decode().modified()
+    }
+
+    /// Extracts [`tickwire_venue::ModifyRejection`] when this report carries `VenueEventBody::ModifyRejected`.
+    #[inline]
+    pub fn modify_rejected(&self) -> Option<&tickwire_venue::ModifyRejection> {
+        self.decode().modify_rejected()
+    }
+
+    /// Extracts [`tickwire_venue::OrderObservation`] from an `Order` or `Fill` report.
+    #[inline]
+    pub fn order_observation(&self) -> Option<&tickwire_venue::OrderObservation> {
+        self.decode().order_observation()
+    }
+
+    /// Extracts [`tickwire_venue::FillEvent`] when this report carries `VenueEventBody::Fill`.
+    #[inline]
+    pub fn fill_event(&self) -> Option<&tickwire_venue::FillEvent> {
+        self.decode().fill_event()
+    }
+
+    /// Returns the classified [`tickwire_venue::TerminalReason`] for this report, if any.
+    #[inline]
+    pub fn terminal_reason(&self) -> Option<tickwire_venue::TerminalReason> {
+        self.decode().terminal_reason()
+    }
+
+    /// Returns the classified [`tickwire_venue::TerminalReason`] using explicit order hints.
+    #[inline]
+    pub fn terminal_reason_with_hints(
+        &self,
+        hints: crate::microstructure::OrderClassificationHints<'_>,
+    ) -> Option<tickwire_venue::TerminalReason> {
+        self.decode_with_hints(hints).terminal_reason()
+    }
+}
 pub struct ReportWriter<B> {
     publisher: Publisher<1>,
     store: B,
@@ -210,6 +265,42 @@ fn put_control_object(store: &mut impl BlobStore, bytes: &[u8]) -> Result<[u8; 3
     let digest = tickwire_recovery::digest(bytes);
     store.put_sync(StoreKey::Object(digest), bytes)?;
     Ok(digest)
+}
+
+/// Creates an in-process SPSC [`ReportWriter`] / [`ReportReceiver`] pair backed by a newly
+/// created `Publisher<1>` shared-memory report bank and `store` / `objects` blob namespace.
+pub fn in_process_report_pair<B: BlobStore>(
+    header: ResourceHeader,
+    subscription_generation: u64,
+    cursor_id: [u8; 16],
+    store: B,
+    objects: FileBlobReader,
+    identity: ReportIdentity,
+) -> Result<(ReportWriter<B>, ReportReceiver)> {
+    if cursor_id == [0; 16] || subscription_generation == 0 {
+        return Err(Error::Identity);
+    }
+    let mut publisher = Publisher::<1>::create(header)?;
+    let sub = SubscriptionKey {
+        bank: publisher.key(),
+        instance: u128::from_le_bytes(identity.instance_id),
+        generation: subscription_generation,
+        cursor: u128::from_le_bytes(cursor_id),
+    };
+    publisher.join(sub)?;
+    let bank = publisher.header().clone();
+    let bank_fd = publisher.reader_fd()?;
+    // SAFETY: `publisher` is freshly created, owned exclusively by the returned
+    // `ReportWriter`, and `sub` is its sole registered subscription.
+    let receiver =
+        unsafe { ReportReceiver::attach(bank_fd, bank, sub, objects, identity.clone())? };
+    let cursor_fd = receiver.cursor_fd()?;
+    // SAFETY: `cursor_fd` is the exact `Subscriber`-created cursor descriptor for `sub`.
+    unsafe {
+        publisher.register_cursor(sub, cursor_fd)?;
+    }
+    let writer = ReportWriter::new(publisher, store, identity)?;
+    Ok((writer, receiver))
 }
 
 pub struct ReportReceiver {

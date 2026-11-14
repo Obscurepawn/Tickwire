@@ -5,6 +5,7 @@ mod account;
 mod cbor;
 pub mod client_id;
 mod codec;
+mod reasons;
 mod request_reply;
 mod types;
 mod validate;
@@ -14,6 +15,7 @@ pub use client_id::{
     SELF_DESCRIBING_CLIENT_ID_LEN, SelfDescribingClientId,
 };
 use codec::Codec;
+pub use reasons::{TerminalReason, classify_binance_reason, classify_spot_venue_reason};
 pub use request_reply::{OrderSnapshot, RequestReply};
 use sha2::{Digest, Sha256};
 pub use types::*;
@@ -134,6 +136,7 @@ impl CanonicalEvent {
 
 fn event_version(body: &VenueEventBody) -> u64 {
     match body {
+        VenueEventBody::Modified(_) | VenueEventBody::ModifyRejected(_) => 5,
         VenueEventBody::Fill(f) if f.observation.status == OrderStatus::Unreported => 4,
         VenueEventBody::Amendment(_) | VenueEventBody::AmendmentRejected(_) => 3,
         VenueEventBody::Structure(_) => 2,

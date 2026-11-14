@@ -87,10 +87,18 @@ pub fn classify(market: Market, status: u16, code: Option<i64>, message: &str) -
                 | -2010
                 | -2019
                 | -2021
+                | -2022
                 | -2038
+                | -4003
+                | -4014
+                | -4016
+                | -4024
                 | -4061
+                | -4131
                 | -4164
+                | -5021
                 | -5022
+                | -5027
         )
     ) {
         FailureKind::Rejected
@@ -232,6 +240,8 @@ pub struct OrderReply<'a> {
     pub executed_quantity: Option<crate::decimal::Decimal>,
     #[serde(rename = "cummulativeQuoteQty", alias = "cumQuote")]
     pub cumulative_quote: Option<crate::decimal::Decimal>,
+    #[serde(default, rename = "avgPrice")]
+    pub average_price: Option<crate::decimal::Decimal>,
     #[serde(borrow)]
     pub fills: Option<&'a RawValue>,
 }
@@ -251,6 +261,7 @@ pub fn decode_order(bytes: &[u8]) -> Result<OrderReply<'_>> {
         r.original_quantity,
         r.executed_quantity,
         r.cumulative_quote,
+        r.average_price,
     ]
     .into_iter()
     .flatten()

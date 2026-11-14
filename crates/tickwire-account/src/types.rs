@@ -20,11 +20,7 @@ pub struct AssetAmount {
     pub key: AssetKey,
     pub amount: Fixed,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct IntentKey {
-    pub epoch: u64,
-    pub intent_id: u64,
-}
+pub use v::IntentKey;
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct OrderKey {
     pub intent: IntentKey,
@@ -268,10 +264,40 @@ pub enum Error {
     Unreconciled,
     Capacity,
     FactAfterAbort,
+    CrossesBook,
+    OrderNotOpen,
+    TooManyPendingActions,
+    InvalidPrice,
+    InvalidQuantity,
+    NoChange,
 }
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+impl std::error::Error for Error {}
 impl From<tickwire_risk::RiskError> for Error {
     fn from(e: tickwire_risk::RiskError) -> Self {
         Self::Risk(e)
+    }
+}
+pub fn classify_error_reason(err: &Error) -> v::TerminalReason {
+    match err {
+        Error::CrossesBook => v::TerminalReason::CrossesBook,
+        Error::OrderNotOpen | Error::UnknownOrder => v::TerminalReason::OrderNotOpen,
+        Error::TooManyPendingActions => v::TerminalReason::TooManyPendingActions,
+        Error::InvalidPrice => v::TerminalReason::InvalidPrice,
+        Error::InvalidQuantity => v::TerminalReason::InvalidQuantity,
+        Error::NoChange => v::TerminalReason::NoChange,
+        Error::InsufficientAsset
+        | Error::InsufficientCapital
+        | Error::Risk(
+            tickwire_risk::RiskError::InsufficientAsset
+            | tickwire_risk::RiskError::InsufficientCollateral
+            | tickwire_risk::RiskError::VenueAvailableCap,
+        ) => v::TerminalReason::InsufficientFunds,
+        _ => v::TerminalReason::Unknown,
     }
 }
 pub type Result<T> = std::result::Result<T, Error>;

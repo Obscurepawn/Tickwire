@@ -490,6 +490,8 @@ impl Account {
         o.uncreated = true;
         o.fees_closed = true;
         o.reduce = o.reduce.zero_like();
+        o.terminal_reason = Some(v::TerminalReason::UserCanceled);
+        candidate.sync_order_in_stp_book(&key)?;
         candidate
             .structures
             .get_mut(&b.structure_id)

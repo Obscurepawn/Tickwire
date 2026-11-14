@@ -1,0 +1,19 @@
+{
+  "model": "L1_ProjectedFill",
+  "runs": 2,
+  "entries": 11,
+  "generated": {
+    "Init line 110, col 1 to line 110, col 4 of module L1_ProjectedFill": 2,
+    "VenueExecuteTrade line 136, col 1 to line 136, col 17 of module L1_ProjectedFill": 144,
+    "DeliverStatusCumQuote line 154, col 1 to line 154, col 31 of module L1_ProjectedFill (179 5 200 9)": 439,
+    "DeliverStatusLimitFallback line 205, col 1 to line 205, col 36 of module L1_ProjectedFill (219 5 237 9)": 439,
+    "DeliverStaleStatus line 242, col 1 to line 242, col 29 of module L1_ProjectedFill": 1288,
+    "DeliverSettledFill line 261, col 1 to line 261, col 21 of module L1_ProjectedFill (269 5 290 9)": 731,
+    "DeliverDuplicateFill line 296, col 1 to line 296, col 23 of module L1_ProjectedFill": 766,
+    "ApplyOrderModifyIncrease line 313, col 1 to line 313, col 24 of module L1_ProjectedFill": 92,
+    "CancelOppositeCrossOrder line 329, col 1 to line 329, col 24 of module L1_ProjectedFill": 159,
+    "ObserveTerminalOrder line 345, col 1 to line 345, col 20 of module L1_ProjectedFill": 169,
+    "SuppressStatusOnTerminalOrder line 363, col 1 to line 363, col 29 of module L1_ProjectedFill": 169
+  },
+  "model_sha256": "bd3ed9e0f2fdb84b3972f4c16a1bd98f83f7f182ccc347ac049d29ffe05326f8"
+}

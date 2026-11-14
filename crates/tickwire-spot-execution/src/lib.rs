@@ -10,8 +10,9 @@ pub mod reports;
 mod session;
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 pub use reports::{
-    OrderSnapshot, Reply, ReportError, SpotIssueKind, classify_issue, decode_reply,
-    is_http_account_hazard, is_venue_rate_limit_code,
+    ModifyReply, OrderRowExtras, OrderSnapshot, Reply, ReportError, SpotIssueKind, classify_issue,
+    classify_order_row_terminal_reason, decode_modify_reply, decode_reply, extract_error_message,
+    extract_order_row_extras, is_http_account_hazard, is_venue_rate_limit_code,
 };
 use ring::hmac;
 use serde_json::{Map, Value, json};
@@ -249,6 +250,66 @@ fn parameters(venue: SpotVenue, cmd: &CanonicalCommand) -> Result<Request, Error
                 "/v5/order/cancel"
             } else {
                 "/api/v5/trade/cancel-order"
+            };
+            fields
+        }
+        CommandBody::Modify(m) => {
+            if m.position_side != PositionSide::Both
+                || m.reduce_only
+                || !m.quantity.is_positive()
+                || !m.price.is_positive()
+            {
+                return Err(Error::Encoding);
+            }
+            if m.target.client_id.is_none() && m.target.venue_order_id.is_none() {
+                return Err(Error::Encoding);
+            }
+            let mut fields = Map::new();
+            if bybit {
+                fields.insert("category".into(), json!("spot"));
+            }
+            fields.insert(
+                if bybit { "symbol" } else { "instId" }.into(),
+                json!(symbol),
+            );
+            if let Some(id) = &m.target.venue_order_id {
+                if !symbol_ok(id.as_str()) {
+                    return Err(Error::Encoding);
+                }
+                fields.insert(
+                    if bybit { "orderId" } else { "ordId" }.into(),
+                    json!(id.as_str()),
+                );
+            }
+            if let Some(id) = &m.target.client_id {
+                if !client_ok(venue, id.as_str()) {
+                    return Err(Error::Encoding);
+                }
+                fields.insert(
+                    if bybit { "orderLinkId" } else { "clOrdId" }.into(),
+                    json!(id.as_str()),
+                );
+            }
+            if let Some(req_id) = &m.new_client_id {
+                if !client_ok(venue, req_id.as_str()) {
+                    return Err(Error::Encoding);
+                }
+                if !bybit {
+                    fields.insert("reqId".into(), json!(req_id.as_str()));
+                }
+            }
+            fields.insert(
+                if bybit { "qty" } else { "newSz" }.into(),
+                json!(m.quantity.as_plain_string()),
+            );
+            fields.insert(
+                if bybit { "price" } else { "newPx" }.into(),
+                json!(m.price.as_plain_string()),
+            );
+            path = if bybit {
+                "/v5/order/amend"
+            } else {
+                "/api/v5/trade/amend-order"
             };
             fields
         }

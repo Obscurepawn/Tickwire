@@ -787,9 +787,10 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                     Some(tickwire_venue::CommandBody::Cancel(_)) => {
                         tickwire_account::DoubtReason::CancelAmbiguous
                     }
-                    Some(tickwire_venue::CommandBody::AmendKeepPriority { .. }) => {
-                        tickwire_account::DoubtReason::AmendAmbiguous
-                    }
+                    Some(
+                        tickwire_venue::CommandBody::AmendKeepPriority { .. }
+                        | tickwire_venue::CommandBody::Modify(_),
+                    ) => tickwire_account::DoubtReason::AmendAmbiguous,
                     _ => tickwire_account::DoubtReason::PlaceAmbiguous,
                 };
                 if self.isolate_intent_in_doubt(key, reason).is_err() {

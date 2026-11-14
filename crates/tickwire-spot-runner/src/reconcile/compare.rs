@@ -74,7 +74,8 @@ pub(crate) fn admitted_terms(account: &Account, k: &OrderKey, remote: &RemoteOrd
         .order_terms(k)
         .ok_or(Error::Origin("unknown remote order"))?;
     if remote.symbol != instrument.symbol.as_str()
-        || remote.client_id != k.client_id.as_str()
+        || (remote.client_id != k.client_id.as_str()
+            && remote.client_id != order.client_id.as_str())
         || remote.side != order.side
         || remote.order_type != order.order_type
         || remote.time_in_force != order.time_in_force
@@ -99,11 +100,11 @@ pub(crate) fn terms(account: &Account, k: &OrderKey, remote: &RemoteOrder) -> Re
     let valid = match remote.status {
         OrderStatus::New | OrderStatus::Rejected => cum.atoms() == 0,
         OrderStatus::PartiallyFilled => {
-            cum.atoms() > 0 && cum.atoms() < view.original_quantity.atoms()
+            cum.atoms() > 0 && cum.atoms() < view.effective_quantity.atoms()
         }
-        OrderStatus::Filled => cum == view.original_quantity,
+        OrderStatus::Filled => cum == view.effective_quantity,
         OrderStatus::Canceled | OrderStatus::Expired => {
-            cum.atoms() >= 0 && cum.atoms() <= view.original_quantity.atoms()
+            cum.atoms() >= 0 && cum.atoms() <= view.effective_quantity.atoms()
         }
         _ => false,
     };
@@ -124,7 +125,12 @@ pub(super) fn account(
     let mut holds: BTreeMap<String, Fixed> = BTreeMap::new();
     for k in a.order_keys() {
         let local = a.order(k).ok_or(Error::Origin("missing order state"))?;
-        let Some(o) = remote.get(k.client_id.as_str()).copied() else {
+        let current_cid = a.order_terms(k).map(|(_, s)| s.client_id.as_str());
+        let Some(o) = remote
+            .get(k.client_id.as_str())
+            .or_else(|| current_cid.and_then(|cid| remote.get(cid)))
+            .copied()
+        else {
             if local.aborted || local.uncreated || (local.terminal && local.fee_reconciled) {
                 continue;
             }
@@ -133,7 +139,7 @@ pub(super) fn account(
             ));
         };
         terms(a, k, o)?;
-        if !matched.insert(k.client_id.as_str())
+        if !matched.insert(o.client_id.as_str())
             || local.terminal == open(o.status)
             || amount(o.cumulative, local.filled_quantity.scale())? != local.filled_quantity
             || a.venue_order_id(k)
@@ -150,7 +156,7 @@ pub(super) fn account(
                 Side::Buy if o.order_type == OrderType::Limit => {
                     let price = o.price.ok_or(Error::Origin("open buy without price"))?;
                     let qty = o.qty.coefficient();
-                    let scale = local.original_quantity.scale();
+                    let scale = local.effective_quantity.scale();
                     let rem = local.remaining_quantity;
                     if qty <= 0 || rem.atoms() <= 0 {
                         return Err(Error::Origin("invalid open quantity"));
@@ -178,9 +184,11 @@ pub(super) fn account(
         }
     }
     for f in &e.fills {
-        let mut owned = a
-            .order_keys()
-            .filter(|k| k.client_id.as_str() == f.client_id);
+        let mut owned = a.order_keys().filter(|k| {
+            k.client_id.as_str() == f.client_id
+                || a.order_terms(k)
+                    .is_some_and(|(_, s)| s.client_id.as_str() == f.client_id)
+        });
         let key = owned.next().ok_or(Error::Origin("unowned execution"))?;
         let (instrument, spec) = a
             .order_terms(key)
@@ -297,9 +305,12 @@ pub(super) fn private_row(
         return Ok(());
     }
     let client = field("orderLinkId", "clOrdId")?;
-    let mut owners = account
-        .order_keys()
-        .filter(|k| k.client_id.as_str() == client);
+    let mut owners = account.order_keys().filter(|k| {
+        k.client_id.as_str() == client
+            || account
+                .order_terms(k)
+                .is_some_and(|(_, s)| s.client_id.as_str() == client)
+    });
     let key = owners
         .next()
         .ok_or(Error::Origin("private row has no admitted order"))?;

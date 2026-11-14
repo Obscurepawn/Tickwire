@@ -95,7 +95,11 @@ impl Account {
             let mgmt_count = self
                 .admissions
                 .iter()
-                .filter(|(k, a)| a.orders.is_empty() && !self.is_confirmed_amendment(**k))
+                .filter(|(k, a)| {
+                    a.orders.is_empty()
+                        && !self.is_confirmed_amendment(**k)
+                        && !self.is_confirmed_modification(**k)
+                })
                 .count();
             if mgmt_count >= MAX_MANAGEMENT_ADMISSIONS
                 && !self.reclaim_one_retired_management_admission()
@@ -148,6 +152,9 @@ impl Account {
                 self.refresh_order_retirement(&order_key, now);
             }
             return Ok(a);
+        }
+        if let v::CommandBody::Modify(m) = &c.body {
+            return self.admit_modify_candidate(command, m, &p, now);
         }
         let before = self.resources()?;
         let before_capital = self.calculate_capital()?;
@@ -282,6 +289,14 @@ impl Account {
             {
                 return Err(Error::Conflict);
             }
+            if self.stp_enforcement
+                && spec.order_type == v::OrderType::Limit
+                && self
+                    .stp_book
+                    .self_cross(p.instrument.instrument_id, spec.side, price)?
+            {
+                return Err(Error::CrossesBook);
+            }
             let fee_asset = if p.futures.is_some() {
                 &p.instrument.settlement
             } else if spec.side == v::Side::Buy {
@@ -328,12 +343,25 @@ impl Account {
                 internal_id: None,
                 owner_revision: 1,
                 shadow_fee_credit: fee_zero,
+                pending_modify: None,
+                known_quantities: Vec::new(),
+                client_id_aliases: Vec::new(),
+                native_aliases: Vec::new(),
+                exch_cum_qty: qzero,
+                exch_cum_quote: None,
+                exch_quote_qty: qzero,
+                exch_avg_price: None,
+                exch_avg_qty: qzero,
+                projected_cum_qty: qzero,
+                terminal_reason: None,
+                last_modify_reject_reason: None,
                 created_mono_ns: now,
                 retired_mono_ns: None,
                 in_doubt: None,
             };
             self.index_order_insert(&order);
             self.orders.insert(order_key.clone(), order);
+            self.sync_order_in_stp_book(&order_key)?;
             orders.push(order_key);
         }
         self.register_structure(c, &orders)?;
@@ -422,11 +450,11 @@ impl Account {
                 && target
                     .client_id
                     .as_ref()
-                    .is_none_or(|id| id == &o.key.client_id)
+                    .is_none_or(|id| o.has_client_id(id))
                 && target
                     .venue_order_id
                     .as_ref()
-                    .is_none_or(|id| o.native.as_ref() == Some(id))
+                    .is_none_or(|id| o.has_native_id(id))
                 && o.internal_id.is_none_or(|id| id == target.order_id)
         };
         let found = if let Some(cid) = &target.client_id {
@@ -497,6 +525,9 @@ impl Account {
                 return Err(Error::Unreconciled);
             }
         }
+        if let Some(rec) = self.modifications.get(&a.key) {
+            self.check_modification(a.key, rec)?;
+        }
         self.evaluate()
     }
     pub fn venue_shadow(&self, wallet: u64) -> Result<Fixed> {
@@ -530,6 +561,9 @@ impl Account {
         if self.amendments.contains_key(&a.key) {
             return self.abort_amendment(a.key);
         }
+        if self.modifications.contains_key(&a.key) {
+            return self.abort_modification(a.key);
+        }
         if a.orders.iter().all(|key| self.orders[key].aborted) {
             return Ok(Applied::Duplicate);
         }
@@ -546,9 +580,11 @@ impl Account {
             o.aborted = true;
             o.reduce = o.reduce.zero_like();
             o.fees_closed = true;
+            o.terminal_reason = Some(v::TerminalReason::AbortedBeforeSend);
         }
         candidate.shadow_holds.remove(&a.key);
         for key in &a.orders {
+            candidate.sync_order_in_stp_book(key)?;
             candidate.refresh_order_retirement(key, stamp);
         }
         if a.orders.is_empty()
@@ -603,11 +639,11 @@ impl Account {
                 && target
                     .client_id
                     .as_ref()
-                    .is_none_or(|id| id == &o.key.client_id)
+                    .is_none_or(|id| o.has_client_id(id))
                 && target
                     .venue_order_id
                     .as_ref()
-                    .is_none_or(|id| o.native.as_ref() == Some(id))
+                    .is_none_or(|id| o.has_native_id(id))
                 && o.internal_id.is_none_or(|id| id == target.order_id)
         };
         let found = if let Some(cid) = &target.client_id {

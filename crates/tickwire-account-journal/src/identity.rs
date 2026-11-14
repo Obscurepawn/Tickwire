@@ -191,6 +191,20 @@ pub(crate) fn record(
                 return Err(Error::Identity);
             }
             let order = match &event.body {
+                v::VenueEventBody::Modified(m) => {
+                    original_epoch(m.target.original_intent_exec_epoch, writer)?;
+                    if let Some(k) = m.intent {
+                        original_epoch(k.epoch, writer)?;
+                    }
+                    None
+                }
+                v::VenueEventBody::ModifyRejected(m) => {
+                    original_epoch(m.target.original_intent_exec_epoch, writer)?;
+                    if let Some(k) = m.intent {
+                        original_epoch(k.epoch, writer)?;
+                    }
+                    None
+                }
                 v::VenueEventBody::AmendmentRejected(a) => {
                     original_epoch(a.request_intent_exec_epoch, writer)?;
                     Some(&a.order)

@@ -177,6 +177,7 @@ impl Account {
         {
             adm.retired_mono_ns = Some(stamp);
         }
+        self.sync_order_in_stp_book(&old.order)?;
         self.refresh_order_retirement(&old.order, stamp);
         self.next_sequence()?;
         if self.evaluate().is_err() {
@@ -243,12 +244,16 @@ impl Account {
             || !o.confirmed
             || o.observation_unreconciled
             || o.in_doubt.is_some()
+        {
+            return Err(Error::Unreconciled);
+        }
+        if o.pending_modify.is_some()
             || self
                 .amendments
                 .values()
                 .any(|a| a.order == o.key && !a.aborted && !a.confirmed && a.rejected.is_none())
         {
-            return Err(Error::Unreconciled);
+            return Err(Error::TooManyPendingActions);
         }
         let after = exact_decimal(*new_quantity, o.original.scale())?;
         if after.atoms() <= o.filled.atoms() || after.atoms() >= o.effective.atoms() {
@@ -312,10 +317,20 @@ impl Account {
     pub(super) fn known_order_quantity(&self, key: &OrderKey, quantity: Fixed) -> bool {
         let o = &self.orders[key];
         quantity == o.original
-            || self
-                .amendments
-                .values()
-                .any(|a| a.order == *key && a.confirmed && a.after == quantity)
+            || quantity == o.effective
+            || o.pending_modify
+                .as_ref()
+                .is_some_and(|pm| pm.requested_quantity == quantity)
+            || o.known_quantities.contains(&quantity)
+            || self.amendments.values().any(|a| {
+                a.order == *key && !a.aborted && a.rejected.is_none() && a.after == quantity
+            })
+            || self.modifications.values().any(|m| {
+                m.order == *key
+                    && !m.aborted
+                    && m.rejected.is_none()
+                    && (m.requested_quantity == quantity || m.applied_quantity == Some(quantity))
+            })
     }
     pub fn amendments(&self) -> impl Iterator<Item = AmendmentView> + '_ {
         self.amendments.iter().map(|(intent, a)| AmendmentView {

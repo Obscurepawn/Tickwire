@@ -22,6 +22,14 @@ impl Codec for i8 {
         Self::try_from(r.int()?).map_err(|_| Error::IntegerOverflow)
     }
 }
+impl Codec for i64 {
+    fn write(&self, w: &mut Writer) {
+        w.int(i128::from(*self))
+    }
+    fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
+        Self::try_from(r.int()?).map_err(|_| Error::IntegerOverflow)
+    }
+}
 impl Codec for bool {
     fn write(&self, w: &mut Writer) {
         w.uint(u64::from(*self))
@@ -175,6 +183,26 @@ enumeration!(Liquidity;Unknown=0,Maker=1,Taker=2);
 enumeration!(StructureKind;Oco=1,Oto=2,Otoco=3,Algo=4);
 enumeration!(StructureStatus;Pending=1,Live=2,Triggered=3,Terminal=4,Rejected=5,Unknown=6);
 enumeration!(AmendmentSource;RestResponse=1,RestHistory=2,PrivateStream=3);
+enumeration!(
+    TerminalReason;
+    Filled=0,
+    UserCanceled=1,
+    CrossesBook=2,
+    SelfTradePreventedByVenue=3,
+    PostOnlyWouldTake=4,
+    ExpiredIocOrFok=5,
+    ReduceOnlyClippedOrCanceled=6,
+    InsufficientFunds=7,
+    RateLimited=8,
+    OrderNotOpen=9,
+    TooManyPendingActions=10,
+    InvalidPrice=11,
+    InvalidQuantity=12,
+    NoChange=13,
+    AbortedBeforeSend=14,
+    VenueRejected=15,
+    Unknown=16,
+);
 
 impl Codec for TimeInForce {
     fn write(&self, w: &mut Writer) {
@@ -480,6 +508,16 @@ impl Codec for SpotAdvancedCommand {
 impl Codec for VenueEventBody {
     fn write(&self, w: &mut Writer) {
         match self {
+            Self::ModifyRejected(x) => {
+                w.array(2);
+                w.uint(9);
+                x.write(w)
+            }
+            Self::Modified(x) => {
+                w.array(2);
+                w.uint(8);
+                x.write(w)
+            }
             Self::AmendmentRejected(x) => {
                 w.array(2);
                 w.uint(7);
@@ -532,6 +570,8 @@ impl Codec for VenueEventBody {
     fn read(r: &mut Reader<'_>) -> Result<Self, Error> {
         let n = r.len(4, 4)?;
         match (n, r.uint()?) {
+            (2, 9) => Ok(Self::ModifyRejected(Codec::read(r)?)),
+            (2, 8) => Ok(Self::Modified(Codec::read(r)?)),
             (2, 7) => Ok(Self::AmendmentRejected(Codec::read(r)?)),
             (2, 6) => Ok(Self::Amendment(Codec::read(r)?)),
             (2, 5) => Ok(Self::Structure(Codec::read(r)?)),
@@ -551,6 +591,7 @@ impl Codec for VenueEventBody {
         }
     }
 }
+structure!(IntentKey;epoch,intent_id);
 structure!(AssetRef;id,version,symbol,exponent);
 structure!(InstrumentBinding;instrument_id,instrument_version,catalog_version,catalog_hash,symbol,base,quote,settlement,price_tick,quantity_step,contract);
 structure!(RequestIdentity;risk_domain_id,venue,environment,account,product,intent_id,intent_exec_epoch,strategy_generation,config_revision,deadline,recovery_object);
@@ -581,3 +622,5 @@ structure!(StructureChild;order,reported_client_id);
 structure!(StructureObservation;parent,status,venue_status,children);
 structure!(AmendmentObservation;order,request_intent_id,request_intent_exec_epoch,request_digest,execution_source,execution_id,previous_quantity,new_quantity,observation);
 structure!(AmendmentRejection;order,request_intent_id,request_intent_exec_epoch,request_digest,venue_code);
+structure!(ModifyObservation;target,amendment_id,intent,prior_client_id,new_client_id,venue_order_id,new_quantity,new_price,cumulative_filled);
+structure!(ModifyRejection;target,amendment_id,intent,new_client_id,venue_order_id,code,reason);

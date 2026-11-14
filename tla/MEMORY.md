@@ -2,6 +2,22 @@
 
 [November 2026 verification audit](audits/2026-11-05/README.md) · [Per-crate coverage and drift](audits/2026-11-05/inventory.md)
 
+## market_making_microstructure / L0_stp_modify — PASS (retired/fixed 4 bugs) (2026-11-14)
+
+- Mode: fault injection.
+- Property: Lock-free `StpBook` atomic BBO (`best_bid_ticks`, `best_ask_ticks`), dual-price `aggressive_ticks` (`max` for `Buy`, `min` for `Sell`), `Vec::swap_remove` compaction, single-in-flight `PendingModify`, worst-case Spot principal and Futures `shadow_holds` reservations across venue clamping, partial/full fills superseding `PendingModify`, pre-admission local refusal non-burn, and two-phase Spot `new_client_id -> orderId` `AmendAmbiguous` query resolution.
+- TLC: 23,923 / 232,019; depth 12 for both. [Run log](execution_models/market_making_microstructure/L0_stp_modify/03_run_log.md)
+- Finding: retired(fixed, 4 cross-layer bugs in `supersede_pending_modify_on_terminal` + Spot `cancelReplace` reopen, historical/pending modify fill authorization bounds, `PerOrderQueryDriver` Spot `new_client_id` two-phase probe + WS rotated-leg binding, and pre-admission `VenueRateLimiter` / `Origins` non-burn). [Counterexamples](execution_models/market_making_microstructure/L0_stp_modify/04_counterexamples.md) · [Result and source map](execution_models/market_making_microstructure/L0_stp_modify/05_output.md)
+- Last synced: 2026-11-14 against `4f2d47a`.
+
+## market_making_microstructure / L1_projected_fill — PASS (retired/fixed 1 bug) (2026-11-14)
+
+- Mode: fault injection.
+- Property: Out-of-order cumulative status frames (`CumulativeQuote` & `LimitFallback`), settled-first and duplicate `FillEvent`s (`trade_id` dedup), `CHECK_STP` opposite-side `self_cross` suppression, `Modify` quantity increases after partial fill, exact `exch_quote_qty` incremental gap-price denominators, and strategy `FillWatermarkTracker` zero-double-count `effective_delta` inventory skew.
+- TLC: 676 / 356; depths 14 and 12. [Run log](execution_models/market_making_microstructure/L1_projected_fill/03_run_log.md)
+- Finding: retired(fixed, 1 cross-layer denominator-mismatch bug in `Order` and `OrderWatermarkEntry` tracking dedicated `exch_quote_qty` and `exch_avg_qty` watermarks across `LimitFallback` and settled-first fills). [Counterexamples](execution_models/market_making_microstructure/L1_projected_fill/04_counterexamples.md) · [Result and source map](execution_models/market_making_microstructure/L1_projected_fill/05_output.md)
+- Last synced: 2026-11-14 against `4f2d47a`.
+
 ## connection_router_quota / L0_pool_router — PASS (retired/fixed 4 bugs) (2026-11-14)
 
 - Mode: fault injection.

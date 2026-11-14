@@ -13,13 +13,20 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
   [src/codec.rs](src/codec.rs) persists every authenticated private message (`raw`, `connection_epoch`, `InputKey`,
   `TimeUnit`, and `StoredDecision`) into `tickwire-journal` within `MAX_RECORD_BYTES` (`60 KiB`) before mutating
   `AccountGateway` so recovery replays the exact arrival sequence.
-* **Strict order registration, $O(\log N)$ indexed correlation, and windowed eviction**: Correlate venue reports in
-  [src/registry.rs](src/registry.rs), [src/amendment.rs](src/amendment.rs), and [src/structure.rs](src/structure.rs)
-  against admitted `CanonicalCommand` registrations via `OrderRegistry`'s secondary indices (`by_client_id`,
-  `by_venue_id`, `by_list_client_id`, `by_algo_client_id`, `by_symbol`) without cloning the registry on private WS
-  frames; quarantine unknown, unadmitted, or conflicting reports (`QuarantineReason`) rather than fabricating local
-  order identities. Retire expired registrations, WS binding slots, and `InMemory`/`MmapAsync` prefix records past
-  `retention_window_ns` via `evict_expired` while keeping active orders pinned.
+* **Strict order registration, $O(\log N)$ indexed correlation, native `Modify`, and `ProjectedFill`**: Correlate venue
+  reports in [src/registry.rs](src/registry.rs), [src/modify.rs](src/modify.rs), [src/amendment.rs](src/amendment.rs),
+  and [src/structure.rs](src/structure.rs) against admitted `CanonicalCommand` registrations via `OrderRegistry`'s
+  secondary indices (`by_client_id`, `by_venue_id`, `by_list_client_id`, `by_algo_client_id`, `by_symbol`) and
+  alias-preserving `Registration` records without cloning the registry on private WS frames; quarantine unknown,
+  unadmitted, or conflicting reports (`QuarantineReason`) rather than fabricating local order identities. Bind native
+  `CommandBody::Modify` REST/WS replies, structured modify rejections (`VenueEventBody::ModifyRejected` with classified
+  `TerminalReason`), private-stream `AMENDMENT`/modified `(q, p)` updates (`VenueEventBody::Modified` preserving
+  venue-clamped `original_quantity` and `price`), and `AmendAmbiguous` REST status requeries without freezing peer
+  orders. When `RestOwner::set_projected_fill(true)` is enabled, extract Spot `Z` (`CumulativeQuote`) and USD-M
+  `ap`/`avgPrice` (`AveragePrice`) via `gateway.on_cum_qty` before applying non-trade order observations so early
+  `ProjectedFill` deltas never double-count later `TRADE` settlements. Retire expired registrations, WS binding slots,
+  and `InMemory`/`MmapAsync` prefix records past `retention_window_ns` via `evict_expired` while keeping active orders
+  pinned.
 * **WebSocket multiplexing, pooled REST routing, multi-IP quota, and per-order `QueryDesk` isolation**: Keep
   single-connection and pooled (`with_connection_pool` / `OrderConnectionPool`) REST replies in [src/rest.rs](src/rest.rs)
   and up to `MAX_SHARED_INFLIGHT` (`16`) concurrent `WsRequestId`-correlated WebSocket trading requests in
@@ -46,7 +53,8 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
 
 ## Verification and Specifications
 
-* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/query_desk_driver.rs](src/query_desk_driver.rs) ·
+* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/modify.rs](src/modify.rs) ·
+  [src/query_desk_driver.rs](src/query_desk_driver.rs) ·
   [src/reconciliation.rs](src/reconciliation.rs) ·
   [src/reconciliation/wire.rs](src/reconciliation/wire.rs) ·
   [src/reconciliation/live_bootstrap.rs](src/reconciliation/live_bootstrap.rs) ·
@@ -55,6 +63,7 @@ which journals raw wire evidence before applying bound `CanonicalEvent` or `Cano
 * **Integration tests**: [tests/account_observation.rs](tests/account_observation.rs) ·
   [tests/hot_path_and_eviction.rs](tests/hot_path_and_eviction.rs) ·
   [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
+  [tests/modify_projected_fill_stp.rs](tests/modify_projected_fill_stp.rs) ·
   [tests/multi_connection_router.rs](tests/multi_connection_router.rs) ·
   [tests/network_ingress.rs](tests/network_ingress.rs) ·
   [tests/per_order_query_desk.rs](tests/per_order_query_desk.rs) · [tests/persistence.rs](tests/persistence.rs)

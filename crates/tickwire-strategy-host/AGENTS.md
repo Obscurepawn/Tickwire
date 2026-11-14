@@ -20,7 +20,9 @@ callback logic lives in `tickwire-strategy-sdk` and cash/order risk lives in `ti
   bank or account report writer.
 * **Cold kernel observation vs hot intake**: Keep `/proc` and cgroup sampling (`observe_resources` in
   [src/resources.rs](src/resources.rs)) and control-frame observation queries
-  ([src/observation.rs](src/observation.rs)) off the hot SPSC `IntentReceiver` and `ReportWriter` paths.
+  ([src/observation.rs](src/observation.rs)) off the hot SPSC `IntentReceiver` and `ReportWriter` paths, and keep
+  optional strategy-attributed `on_projected_fill` notifications volatile rather than writing non-authoritative
+  projections onto durable `780` / `781` report rings.
 
 ## Verification and Specifications
 
@@ -30,6 +32,7 @@ callback logic lives in `tickwire-strategy-sdk` and cash/order risk lives in `ti
   [src/market_transition/tests.rs](src/market_transition/tests.rs) ·
   [src/resources/tests.rs](src/resources/tests.rs)
 * **Specifications and models**: [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
+  [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md) ·
   [supervisor-process.md](../../specs/implementation/supervisor-process.md) ·
   [runtime-observation.md](../../specs/implementation/runtime-observation.md) ·
   [Deploy two strategies](../../README.md#deploy-two-strategies) ·

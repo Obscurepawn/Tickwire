@@ -136,8 +136,32 @@ impl Account {
         }
     }
     pub(super) fn order_resources(&self, o: &Order) -> Result<BTreeMap<AssetKey, Fixed>> {
+        let mut out = self.order_resources_at(o, o.remaining()?, o.price)?;
+        if !o.aborted
+            && !o.uncreated
+            && !o.terminal
+            && let Some(pm) = &o.pending_modify
+        {
+            let new_rem = pm
+                .requested_quantity
+                .checked_sub(o.filled.max(o.observed_cumulative)?)?
+                .positive_part();
+            let mod_out = self.order_resources_at(o, new_rem, pm.requested_price)?;
+            for (k, v_mod) in mod_out {
+                let cur = out.get(&k).copied().unwrap_or(v_mod.zero_like());
+                out.insert(k, cur.max(v_mod)?);
+            }
+            out.retain(|_, n| n.atoms() != 0);
+        }
+        Ok(out)
+    }
+    fn order_resources_at(
+        &self,
+        o: &Order,
+        remaining: Fixed,
+        price: Fixed,
+    ) -> Result<BTreeMap<AssetKey, Fixed>> {
         let p = &self.catalog[&o.instrument];
-        let remaining = o.remaining()?;
         let mut out = BTreeMap::new();
         if o.aborted {
             return Ok(out);
@@ -150,7 +174,7 @@ impl Account {
                         asset_id: p.instrument.quote.id,
                     },
                     amount: remaining.mul_to(
-                        o.price,
+                        price,
                         asset_scale(&p.instrument.quote)?,
                         Rounding::Ceil,
                     )?,
@@ -171,7 +195,7 @@ impl Account {
             let scale = asset_scale(&self.assets[&key].baseline.asset)?;
             let paid = o.paid.get(&key).copied().unwrap_or(Fixed::zero(scale)?);
             let fee = if let Some(futures) = &p.futures {
-                let high = futures.stress_high.max(o.price)?;
+                let high = futures.stress_high.max(price)?;
                 let future = remaining.mul_to(high, scale, Rounding::Ceil)?;
                 self.fee_total(o.notional, p)?
                     .checked_add(self.fee_total(future, p)?)?
@@ -182,7 +206,7 @@ impl Account {
                 let future = if o.spec.side == v::Side::Buy {
                     remaining
                 } else {
-                    remaining.mul_to(o.price, scale, Rounding::Floor)?
+                    remaining.mul_to(price, scale, Rounding::Floor)?
                 };
                 // Reported past receipts can fund their own fees only after the receipt has arrived;
                 // the corresponding still-unreported commission remains a reservation.
@@ -295,7 +319,19 @@ impl Account {
                 .values()
                 .filter(|o| o.instrument == p.instrument.instrument_id && !o.aborted)
             {
-                let quantity = o.remaining()?;
+                let quantity = o.effective_remaining()?;
+                let price_bound = if !o.terminal
+                    && !o.uncreated
+                    && let Some(pm) = &o.pending_modify
+                {
+                    if o.spec.side == v::Side::Buy {
+                        o.price.max(pm.requested_price)?
+                    } else {
+                        o.price.min(pm.requested_price)?
+                    }
+                } else {
+                    o.price
+                };
                 orders.push(f::PendingOrder {
                     side: if o.spec.side == v::Side::Buy {
                         f::Side::Buy
@@ -303,7 +339,7 @@ impl Account {
                         f::Side::Sell
                     },
                     quantity,
-                    price_bound: o.price,
+                    price_bound,
                 });
                 match (o.spec.position_side, o.spec.side) {
                     (v::PositionSide::Long, v::Side::Buy) => {
@@ -328,6 +364,22 @@ impl Account {
                             .checked_sub(paid)?
                             .positive_part(),
                     )?;
+                    if !o.terminal
+                        && !o.uncreated
+                        && o.spec.side == v::Side::Sell
+                        && let Some(pm) = &o.pending_modify
+                    {
+                        let max_px = o.price.max(pm.requested_price)?;
+                        let base_px = fp.stress_high.max(price_bound)?;
+                        if max_px.atoms() > base_px.atoms() {
+                            let extra_notional = quantity
+                                .mul_to(max_px, scale, Rounding::Ceil)?
+                                .checked_sub(quantity.mul_to(base_px, scale, Rounding::Ceil)?)?
+                                .positive_part();
+                            past_fees =
+                                past_fees.checked_add(self.fee_total(extra_notional, p)?)?;
+                        }
+                    }
                 }
             }
             let one = self.position_quantity(p, v::PositionSide::Both)?;
@@ -446,7 +498,7 @@ impl Account {
                 .values()
                 .filter(|o| o.instrument == p.instrument.instrument_id)
             {
-                let q = o.remaining()?;
+                let q = o.effective_remaining()?;
                 if o.spec.side == v::Side::Buy {
                     buy = buy.checked_add(q)?
                 } else {
