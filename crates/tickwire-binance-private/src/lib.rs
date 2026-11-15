@@ -1,4 +1,5 @@
-//! Authenticated, bounded private stream sessions over actual nonblocking sockets.
+//! Stateless, authenticated, bounded Binance private user-data stream sessions over nonblocking
+//! sockets (`PrivateClient`), with redacted `Debug` output and zero local WAL state.
 #![forbid(unsafe_code)]
 use std::time::Instant;
 pub use tickwire_binance::{

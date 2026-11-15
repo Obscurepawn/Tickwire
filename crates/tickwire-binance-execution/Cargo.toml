@@ -9,27 +9,21 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-tickwire-binance-account = { path = "../tickwire-binance-account" }
 sha2 = "=0.10.9"
 tickwire-account = { path = "../tickwire-account" }
-tickwire-account-codec = { path = "../tickwire-account-codec" }
-tickwire-account-gateway = { path = "../tickwire-account-gateway" }
-tickwire-account-journal = { path = "../tickwire-account-journal" }
 tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-account = { path = "../tickwire-binance-account" }
 tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 tickwire-binance-quota = { path = "../tickwire-binance-quota" }
 tickwire-clock = { path = "../tickwire-clock" }
-tickwire-gateway = { path = "../tickwire-gateway" }
-tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-quota = { path = "../tickwire-quota" }
+tickwire-risk = { path = "../tickwire-risk" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
 
 [dev-dependencies]
-tickwire-binance-private = { path = "../tickwire-binance-private" }
 base64 = "=0.22.1"
-sha1 = "=0.10.6"
 rcgen = "=0.14.10"
-tickwire-risk = { path = "../tickwire-risk" }
+ring = "=0.17.14"
 serde_json = "1.0"
-tickwire-journal = { path = "../tickwire-journal" }
-tickwire-quota = { path = "../tickwire-quota" }
+sha1 = "=0.10.6"

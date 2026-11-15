@@ -2,16 +2,16 @@
 
 `tickwire-binance-private` (`#![forbid(unsafe_code)]`) drives authenticated Binance Spot WebSocket API user-data
 subscriptions (`SpotLogon` / `SpotSignature`) and USD-M listen-key private streams (`UsdmCreate` / `UsdmKeepalive` /
-`UsdmClose`) over nonblocking `tickwire-transport` sockets (`PrivateClient`). Account runtimes poll `PrivateClient`
-under explicit I/O budgets to receive ordered `PrivateEvent` frames and connection-epoch gap/disconnect notices.
-Durable event journaling and balance reconciliation belong to `tickwire-binance-account`.
+`UsdmClose`) over nonblocking `tickwire-transport` sockets (`PrivateClient`). Stateless runtimes poll `PrivateClient`
+under explicit I/O budgets to receive ordered `PrivateEvent` frames and connection-epoch gap/disconnect notices without
+local WAL files, complementing the multi-market ORS `GuardedValue` stream-token hooks in `tickwire-binance-account`.
 
 ## Invariants and Change Guidelines
 
 * **Epoch-scoped session freshness**: Every connect, logon, subscription, or listen-key renewal in
   [src/session.rs](src/session.rs) and [src/client.rs](src/client.rs) is bound to a non-zero `connection_epoch` and
   `AccountScope` (`risk_domain_id`, `venue == BINANCE`, `account`, `credential_generation`); any disconnect, protocol
-  error, missed heartbeat, or listen-key expiry invalidates freshness for that epoch and requires upstream
+  error, missed heartbeat, or listen-key expiry invalidates freshness for that epoch and triggers stateless upstream
   reconciliation.
 * **First-write clock revalidation for signed control frames**: Before sending signed Spot logon or subscription
   frames in [src/request.rs](src/request.rs) and [src/client.rs](src/client.rs), invoke `Clock::check_signed` against

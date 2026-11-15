@@ -1,8 +1,10 @@
-//! Side-effect-free hot-path cache and loopback TLS warmer for Binance Spot and USD-M REST/WebSocket execution.
+//! Side-effect-free hot-path cache and loopback TLS warmer for Binance Spot, USD-M, Coin-M, and
+//! European Options REST/WebSocket execution (`#![forbid(unsafe_code)]`).
 #![forbid(unsafe_code)]
 
 use sha2::{Digest, Sha256};
-use tickwire_account::{Account, Fixed};
+use tickwire_account::{Account, Fixed, OrderManager};
+use tickwire_binance_account::BinanceMsgParser;
 use tickwire_transport::{
     TlsLoopbackWarmer,
     warmup::{
@@ -186,7 +188,8 @@ fn push_slice(
     Ok(())
 }
 
-/// Preallocated hot-path dry-run engine owned by `SharedSessionState`.
+/// Preallocated side-effect-free hot-path dry-run engine warming instruction/data caches across
+/// Spot, USD-M, Coin-M, and European Options without touching live venue sockets.
 pub struct BinanceHotPathWarmer {
     rest_host: &'static str,
     rest_path_prefix: &'static [u8],
@@ -209,6 +212,19 @@ impl BinanceHotPathWarmer {
             match (product, environment) {
                 (Product::Spot, Environment::Production) => ("api.binance.com", b"/api/v3/order?"),
                 (Product::Spot, Environment::Test) => ("testnet.binance.vision", b"/api/v3/order?"),
+                (Product::UsdM, Environment::Production) => {
+                    ("fapi.binance.com", b"/fapi/v1/order?")
+                }
+                (Product::UsdM, Environment::Test) => {
+                    ("testnet.binancefuture.com", b"/fapi/v1/order?")
+                }
+                (Product::CoinM, Environment::Production) => {
+                    ("dapi.binance.com", b"/dapi/v1/order?")
+                }
+                (Product::CoinM, Environment::Test) => {
+                    ("testnet.binancefuture.com", b"/dapi/v1/order?")
+                }
+                (Product::Option, _) => ("eapi.binance.com", b"/eapi/v1/order?"),
                 (_, Environment::Production) => ("fapi.binance.com", b"/fapi/v1/order?"),
                 (_, Environment::Test) => ("testnet.binancefuture.com", b"/fapi/v1/order?"),
             };
@@ -238,6 +254,28 @@ impl BinanceHotPathWarmer {
 
     pub fn refresh_scratch_account(&mut self, account: &Account) {
         self.scratch_account = Some(account.clone());
+    }
+
+    /// Warms `OrderManager`'s atomic-BBO `OrsStpBook::self_cross` path and single-pass
+    /// `BinanceMsgParser` without mutating order slots or sending to any venue socket.
+    pub fn warm_order_manager<const CHECK_STP: bool>(
+        &mut self,
+        order_manager: &OrderManager<CHECK_STP>,
+        symbol_id: usize,
+        use_websocket: bool,
+        now_mono_ns: u64,
+    ) -> Result<usize, tickwire_transport::Error> {
+        let _ = order_manager
+            .stp_book()
+            .self_cross(symbol_id, Side::Buy, 5_000_000);
+        let parsed = BinanceMsgParser::parse(BINANCE_DUMMY_WS_ACK_JSON)
+            .map_err(|_| tickwire_transport::Error::Protocol("binance msg parser warmup"))?;
+        if parsed.http_status != Some(200) {
+            return Err(tickwire_transport::Error::Protocol(
+                "binance msg parser status",
+            ));
+        }
+        self.warm_once(use_websocket, None, now_mono_ns)
     }
 
     /// Executes one full side-effect-free Binance hot-path dry-run iteration.
@@ -444,12 +482,19 @@ mod unit_tests {
 
     #[test]
     fn binance_warmer_executes_both_rest_and_websocket_dry_runs() {
-        let mut warmer = BinanceHotPathWarmer::new(Product::Spot, Environment::Production).unwrap();
-        for i in 0..50u64 {
-            let rest_bytes = warmer.warm_once(false, None, i * 1_000_000).unwrap();
-            assert!(rest_bytes > BINANCE_DUMMY_HTTP_ACK.len());
-            let ws_bytes = warmer.warm_once(true, None, i * 1_000_000).unwrap();
-            assert!(ws_bytes > BINANCE_DUMMY_WS_ACK_JSON.len());
+        for product in [
+            Product::Spot,
+            Product::UsdM,
+            Product::CoinM,
+            Product::Options,
+        ] {
+            let mut warmer = BinanceHotPathWarmer::new(product, Environment::Production).unwrap();
+            for i in 0..8u64 {
+                let rest_bytes = warmer.warm_once(false, None, i * 1_000_000).unwrap();
+                assert!(rest_bytes > BINANCE_DUMMY_HTTP_ACK.len());
+                let ws_bytes = warmer.warm_once(true, None, i * 1_000_000).unwrap();
+                assert!(ws_bytes > BINANCE_DUMMY_WS_ACK_JSON.len());
+            }
         }
     }
 }

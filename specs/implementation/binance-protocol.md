@@ -1,57 +1,62 @@
-# Binance Order Signing and Wire Protocol
+# Binance Order Signing and Full-Market Wire Protocol
 
-`tickwire-binance` translates canonical Tickwire trading commands into signed REST HTTP targets or WebSocket JSON request envelopes, authenticates outgoing parameters with HMAC-SHA256, RSA, or Ed25519 keys, and classifies exchange HTTP/WebSocket replies into deterministic outcome categories. Every `PreparedRequest` binds its immutable wire payload directly to the originating `CanonicalCommand::digest()`.
+`tickwire-binance` translates canonical Tickwire trading commands and zero-allocation ORS order parameters into signed REST HTTP targets, form-urlencoded Options requests, or WebSocket JSON request envelopes across all four Binance markets: **Spot (`/api/v3`, `/ws-api/v3`), USD-M Futures (`/fapi/v1`, `/ws-fapi/v1`), Coin-M Futures (`/dapi/v1`, `/ws-dapi/v1`), and European Options (`/eapi/v1`)**. It authenticates outgoing parameters with HMAC-SHA256, RSA-SHA256, or Ed25519 PKCS#8 keys (`der` and `pem`), and classifies exchange HTTP/WebSocket replies and terminal order states into deterministic outcome categories.
 
-This layer is strictly stateless: it owns parameter formatting, cryptographic signing, and wire response classification in safe Rust (`#![forbid(unsafe_code)]`), while delegating margin-mode and account-configuration checks to the account coordinator and delegating durable admission, lease verification, retry policy, and reservation release to the [account gateway](account-gateway.md).
+Built in safe Rust (`#![forbid(unsafe_code)]`) with zero floating-point arithmetic, zero I/O, and zero local WAL dependencies, this layer owns parameter formatting, integer fixed-point ASCII scaling, cryptographic signing, stream URL decoration, and wire response/reason classification, while delegating order-slot ownership, STP books, multi-wallet holds, and `OrsQueryDesk` reconciliation to [`tickwire-account`](account.md) and [`tickwire-binance-account`](binance-ws-trading.md).
 
-## Protocol Model and Bounds
+## Protocol Model, Full-Market Endpoints, and Bounds
 
-`request::prepare(command, credentials, options, max_bytes)` verifies that `venue == 1` (Binance) and that the command's `account`, `environment`, and `Market` (`Spot` vs `Usdm`) match the selected `Credentials` before constructing any wire bytes (`Error::IdentityMismatch` otherwise).
+`request::prepare(command, credentials, options, max_bytes)` binds canonical Spot and USD-M commands to their `CanonicalCommand::digest()`, while `full_market` provides zero-allocation slice encoders (`&mut [u8] -> Result<usize>`) across all four `BinanceVenueMarket` domains (`Spot`, `Usdm`, `Coinm`, `Options`) for the stateless ORS `REQ`, `Dialer`, and `AsyncRestQuerier` paths:
+
+| Market | Order Entry Wire Protocol | User-Data Stream Auth | REST Query Path Prefix |
+| --- | --- | --- | --- |
+| **Spot** | WebSocket `/ws-api/v3` (`order.place`, `order.cancel`, `order.cancelReplace`, `order.amend.keepPriority`), Ed25519 `session.logon` | `userDataStream.subscribe` on the authenticated order/stream WebSocket pool (no listen key) | `/api/v3` (`order`, `openOrders`, `account`) |
+| **USD-M** | WebSocket `/ws-fapi/v1` (`order.place`, `order.cancel`, `order.modify`), Ed25519 `session.logon` | `POST`/`PUT /fapi/v1/listenKey`; `/ws/<key>` on colo (`fstream-mm`), `?listenKey=<key>` on public (`fstream`) | `/fapi/v1` (`order`, `openOrders`), `/fapi/v2` & `/fapi/v3` (`account`) |
+| **Coin-M** | WebSocket `/ws-dapi/v1` (`order.place`, `order.cancel`, `order.modify`), Ed25519 `session.logon` | `POST`/`PUT /dapi/v1/listenKey`; `/ws/<key>` on colo (`dstream-mm`), `?listenKey=<key>` on public (`dstream`) | `/dapi/v1` (`order`, `openOrders`, `account`) |
+| **Options** | HTTPS `/eapi/v1/order` (`POST` place, `DELETE` cancel), `application/x-www-form-urlencoded` body signed with HMAC-SHA256 + `X-MBX-APIKEY` | `POST`/`PUT /eapi/v1/listenKey`; `/ws/<key>` on colo, `?listenKey=<key>` on public (`fstream:443/private/ws`) | `/eapi/v1` (`order`, `openOrders`, `account`) |
 
 | Boundary | Rule or Limit | Enforcement |
 | --- | --- | --- |
-| Request size & arity | `1..=16,384` bytes (`MAX_REQUEST_BYTES`), `<= 64` parameters | Checked via bounded stack scratch before heap materialization. |
-| API key & request ID | API key `1..=256` (`A-Za-z0-9-_`); `request_id` `1..=64` printable ASCII (`33..=126`) | Rejects header/JSON injection and malformed correlation IDs. |
-| `recvWindow` | `1..=60,000,000` us; USD-M requires exact millisecond multiples (`% 1000 == 0`) | Spot fractional milliseconds serialize as 3-decimal numbers; integer milliseconds serialize as integers. |
-| Timestamp units | Spot accepts nonzero `Milliseconds` or `Microseconds`; USD-M accepts `Milliseconds` only | Endpoint-specific units also govern USD-M `goodTillDate` (`GTD`) timestamps. |
-| Conditional, modify & FIX fields | Preserves distinct USD-M `activatePrice` and `priceProtect`; encodes native USD-M `CommandBody::Modify` (`PUT /fapi/v1/order` / `"order.modify"`) and Spot `CommandBody::Modify` (`POST /api/v3/order/cancelReplace` / `"order.cancelReplace"` with `STOP_ON_FAILURE`); FIX `SenderCompID` uses permitted ASCII | Unsupported commands, parameter combinations, or endpoint/key algorithms fail at `prepare`. |
-| Response & event fields | `1..=1,048,576` bytes (`MAX_RESPONSE_BYTES`), error `msg <= 4,096` bytes, WS `id <= 256` bytes; decodes optional exact `avgPrice` on `OrderReply`, `ap` (`average_price`) and `V` (`self_trade_prevention_mode`) on `OrderUpdate` | Oversized, negative-quantity/price, or empty bodies return `Error::Capacity` or `Error::InvalidResponse`. |
-
-Both REST and WebSocket encoders populate a single shared `Params` collection prior to signing. REST signs the exact percent-encoded query string and uses that signed string directly as the HTTP request target; WebSocket signs the sorted parameter preimage and serializes the identical parameter set into JSON, eliminating any possibility of signing one parameter value while transmitting another.
+| Request size & arity | `1..=16,384` bytes (`MAX_REQUEST_BYTES`), `<= 64` parameters | Checked in bounded stack scratch buffers without partial writes. |
+| Key isolation & thread safety | `SigningKey: Send + Sync` (`HmacSha256`, `RsaSha256`, `Ed25519` from DER or PEM); omits `Debug`, `Clone`, and key export | Independent `SigningKey` instances constructed at startup for `REQ`, `Dialer`, and `AsyncRestQuerier` avoid cross-thread mutex contention. |
+| Time-in-force & order modifiers | `GTC`, `IOC`, `FOK`, `PostOnly` (`GTX` on USD-M/Coin-M/Options, `LIMIT_MAKER` on Spot), `GTD`, and `RPI` (`TimeInForce::Rpi`); `reduceOnly`, `positionSide`, and `selfTradePreventionMode` | Unsupported market/modifier combinations fail closed before signing. |
+| Fixed-point wire formatting | Exact integer `ticks` / `lots` scaled by `10^-scale` (`format_scaled_i64` and `Decimal`) | Zero floating-point conversions on financial or rate-limit paths. |
+| Response & event bounds | `1..=1,048,576` bytes (`MAX_RESPONSE_BYTES`), error `msg <= 4,096` bytes, WS `id <= 256` bytes | Oversized, negative-quantity/price, or malformed error payloads return `Error::Capacity` or `Error::InvalidResponse`. |
 
 ## Core Invariants
 
-* **Cryptographic command-digest binding**: `PreparedRequest` privately owns both the serialized wire bytes and the 32-byte `CanonicalCommand` SHA-256 digest (`verify_digest`), allowing the transport gate to prove before the first application byte leaves user space that the outgoing packet matches the durably admitted intent.
-* **No silent error-to-success promotion**: `response::decode_rest` probes JSON object responses for a negative `code` discriminator independently of `ApiError` struct deserialization. Consequently, an HTTP `200` carrying a malformed or truncated error object fails with `Error::InvalidResponse` rather than falling through to the success branch.
-* **Conservative unknown-execution classification**: Because releasing an account reservation on an ambiguous error risks unrecorded fills, the classifier maps HTTP `408`, documented execution-unknown codes (`-1000`, `-1001`, `-1006`, `-1007`), unrecognized negative server codes, and generic `5xx` responses to `FailureKind::Unknown`. Only explicitly documented deterministic failures map to `Rejected`.
+* **Single-preimage parameter signing**: REST query targets, Options form-urlencoded bodies, and WebSocket JSON parameter objects serialize and sign from one canonical parameter representation so the signed preimage always matches the transmitted fields byte-for-byte.
+* **No silent error-to-success promotion**: `response::decode_rest` inspects JSON responses for negative `code` discriminators independently of struct deserialization, ensuring malformed error bodies fail closed with `Error::InvalidResponse`.
+* **Exact ORS `TerminalReason` & `explainError` classification**:
+  * Ambiguous send/execution codes (`-1007` status unknown, `-1000` unknown error / try again later, `-1001`, `-1006`, HTTP `408`) classify as `TerminalReason::MKT_DELAYED` so the session retains open-order holds and schedules a `StatusAsk` rather than releasing funds prematurely.
+  * `X == "EXPIRED_IN_MATCH"` or `x == "TRADE_PREVENTION"` classifies as `TerminalReason::MKT_CANCELED_SELFTRADE`.
+  * `X == "EXPIRED"` maps `IOC`/`FOK` to `MKT_IOC_CANCELED`, `GTX` on Spot/Coin-M/Options to `MKT_REJECT_POST_ONLY`, and USD-M non-IOC/FOK expiry to `MKT_REDUCE_ONLY_CANCELED` (`MKT_CANCELED` on non-GTX Spot).
+  * Other cancellations resolve to `TerminalReason::NO_REASON` (`ADMIN_ACTION` if operator-initiated) while `pending_cxl > 0`, and `TerminalReason::MKT_CANCELED` otherwise.
 
 ## Response Classification Semantics
 
-`response::classify(market, status, code, message)` partitions exchange errors into eight `FailureKind` variants without ever retrying an order or mutating reservations:
+`response::classify(market, status, code, message)` and `full_market::explain_binance_error` partition exchange errors without hidden retries:
 
 * **`Banned`**: HTTP `418` IP auto-ban.
 * **`RateLimited`**: HTTP `429` or error codes `-1003` / `-1015`.
 * **`Partial`**: HTTP `409` cancel-replace or batch partial completion.
-* **`NotFound`**: Error codes `-2011` or `-2013` (missing cancel/query target).
+* **`NotFound`**: Error codes `-2011` or `-2013` (`MKT_REJECT_NO_SUCH_ORDER`).
 * **`Authentication`**: HTTP `401` or error codes `-1002`, `-1022`, `-2014`, `-2015`.
-* **`ClockSkew`**: Error code `-1021` (timestamp outside `recvWindow` or ahead of server).
-* **`Rejected`**: Deterministic parameter, filter, post-only, reduce-only, unmodified-order, or insufficient-balance codes (`-1013`, `-1014`, `-1020`, `-1100..=-1106`, `-1108`, `-1111`, `-1114..=-1121`, `-1128`, `-1130`, `-2010`, `-2019`, `-2021` when HTTP status `!= 409`, `-2022`, `-2038`, `-4003`, `-4014`, `-4016`, `-4024`, `-4061`, `-4131`, `-4164`, `-5021`, `-5022`, `-5027`), plus the documented USD-M HTTP `503` overload rejections (`code == -1008`, `"Service Unavailable."`, or `"Internal error; unable to process your request. Please try again."`). Private order updates also expose zero-allocation terminal reason classification via `events::classify_order_update_reason`, mapping `FILLED`, `EXPIRED_IN_MATCH`, `EXPIRED`, `CANCELED`, `REJECTED`, `timeInForce` (`GTX`/`IOC`/`FOK`), `LIMIT_MAKER`, and STP modes (`EXPIRE_MAKER`, `EXPIRE_TAKER`, `EXPIRE_BOTH`) into `tickwire_venue::TerminalReason`.
-* **`Unknown`**: HTTP `408`, codes `-1000`, `-1001`, `-1006`, `-1007`, all other `5xx` statuses, and any newly introduced or unrecognized venue error code.
+* **`ClockSkew`**: Error code `-1021` (timestamp outside `recvWindow`).
+* **`Rejected`**: Deterministic parameter, filter, post-only (`-5022`), reduce-only (`-2022`), no-change (`-5027`), self-trade, or insufficient-balance (`-2010`, `-2019`) codes.
+* **`Unknown` (`MKT_DELAYED`)**: HTTP `408`, `-1000`, `-1001`, `-1006`, `-1007`, generic `5xx`, and unrecognized negative server codes.
 
 ## Verification and References
 
 ```sh
-cargo test --locked -p tickwire-binance --test responses --test protocol_primitives --test protocol_server
+cargo test --locked -p tickwire-binance --all-targets
 ```
 
-Cryptographic vector tests validate published Binance HMAC-SHA256 and FIX Ed25519 vectors alongside an independent OpenSSL RSA vector. Local TLS loopback tests drive `PreparedRequest` over real `tickwire-transport` connections—capping per-call write acceptance to 17 bytes to exercise partial-write boundaries, verifying `command_digest()` before the first accepted application byte, validating REST and WebSocket signatures server-side, and decoding chunked HTTP and fragmented WebSocket responses.
-
 * [Protocol crate root and error taxonomy](../../crates/tickwire-binance/src/lib.rs)
+* [Full-market Spot/USD-M/Coin-M/Options wire encoders and classifiers](../../crates/tickwire-binance/src/full_market.rs)
 * [Canonical-to-wire request preparation](../../crates/tickwire-binance/src/request.rs)
 * [Shared REST/WebSocket parameter encoding](../../crates/tickwire-binance/src/params.rs)
-* [HMAC, RSA, and Ed25519 authentication](../../crates/tickwire-binance/src/auth.rs)
+* [HMAC, RSA, and Ed25519 DER/PEM authentication](../../crates/tickwire-binance/src/auth.rs)
 * [REST and WebSocket response classifier](../../crates/tickwire-binance/src/response.rs)
-* [Response classification test suite](../../crates/tickwire-binance/tests/responses.rs)
-* [Cryptographic primitive vector tests](../../crates/tickwire-binance/tests/protocol_primitives.rs)
-* [TLS loopback and 17-byte partial-send tests](../../crates/tickwire-binance/tests/protocol_server.rs)
-* [Account gateway specification](account-gateway.md)
+* [Stateless ORS account and `OrderManager` specification](account.md)
+* [Binance multi-market ORS session specification](binance-ws-trading.md)
