@@ -1,0 +1,31 @@
+{
+  "model": "L1_SymDepthSync",
+  "runs": 2,
+  "entries": 23,
+  "generated": {
+    "Init line 391, col 1 to line 391, col 4 of module L1_SymDepthSync": 2,
+    "Connect line 430, col 1 to line 430, col 7 of module L1_SymDepthSync": 26487,
+    "ConnectRejected line 467, col 1 to line 467, col 15 of module L1_SymDepthSync": 35993,
+    "Subscribe line 487, col 1 to line 487, col 9 of module L1_SymDepthSync": 35115,
+    "OldConnection line 508, col 1 to line 508, col 13 of module L1_SymDepthSync": 9760,
+    "OldSnapshot line 529, col 1 to line 529, col 11 of module L1_SymDepthSync": 3596,
+    "Request line 551, col 1 to line 551, col 7 of module L1_SymDepthSync": 13266,
+    "RequestBadState line 594, col 1 to line 594, col 15 of module L1_SymDepthSync": 19237,
+    "RequestBadDeadline line 614, col 1 to line 614, col 18 of module L1_SymDepthSync": 76176,
+    "RequestPending line 639, col 1 to line 639, col 14 of module L1_SymDepthSync": 7056,
+    "ClockRegression line 665, col 1 to line 665, col 15 of module L1_SymDepthSync": 26137,
+    "DeltaInvalid line 680, col 1 to line 680, col 12 of module L1_SymDepthSync": 65940,
+    "DeltaBuffer line 695, col 1 to line 695, col 11 of module L1_SymDepthSync": 2371680,
+    "DeltaApply line 750, col 1 to line 750, col 10 of module L1_SymDepthSync": 2160,
+    "SnapshotExpired line 801, col 1 to line 801, col 15 of module L1_SymDepthSync": 4824,
+    "SnapshotHttpFailure line 826, col 1 to line 826, col 19 of module L1_SymDepthSync": 4320,
+    "SnapshotInvalid line 851, col 1 to line 851, col 15 of module L1_SymDepthSync": 4320,
+    "SnapshotValid line 967, col 1 to line 967, col 13 of module L1_SymDepthSync": 11952,
+    "SnapshotDelayed line 971, col 1 to line 971, col 15 of module L1_SymDepthSync": 1008,
+    "SnapshotTransportFailure line 975, col 1 to line 975, col 24 of module L1_SymDepthSync": 9144,
+    "Expire line 1000, col 1 to line 1000, col 6 of module L1_SymDepthSync": 67932,
+    "Disconnect line 1035, col 1 to line 1035, col 10 of module L1_SymDepthSync": 35115,
+    "View line 1060, col 1 to line 1060, col 4 of module L1_SymDepthSync": 107337
+  },
+  "model_sha256": "6be638d0543cb8e53b68cf2d77351723f04cefe9d826ef67bbc8067edf0c5d78"
+}

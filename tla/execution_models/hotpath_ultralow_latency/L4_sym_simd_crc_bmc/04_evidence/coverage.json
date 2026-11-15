@@ -1,0 +1,15 @@
+{
+  "model": "L4_SymSimdCrcBmc",
+  "runs": 1,
+  "entries": 7,
+  "generated": {
+    "Init line 308, col 1 to line 308, col 4 of module L4_SymSimdCrcBmc": 60,
+    "StepSimd32 line 409, col 1 to line 409, col 10 of module L4_SymSimdCrcBmc": 12,
+    "StepSimd16 line 425, col 1 to line 425, col 10 of module L4_SymSimdCrcBmc": 24,
+    "StepSwar8 line 440, col 1 to line 440, col 9 of module L4_SymSimdCrcBmc": 60,
+    "StepScalar1 line 458, col 1 to line 458, col 11 of module L4_SymSimdCrcBmc": 108,
+    "AdvanceNextBlock64 line 474, col 1 to line 474, col 18 of module L4_SymSimdCrcBmc": 12,
+    "SampleDecimalTimestampAndCrc line 491, col 1 to line 491, col 28 of module L4_SymSimdCrcBmc": 540
+  },
+  "model_sha256": "2bddf22119af6b3230759978cb320bad54ea4cf9e6ad46f73b0dc631c33d11ab"
+}

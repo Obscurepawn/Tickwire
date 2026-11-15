@@ -1765,3 +1765,38 @@ fn binance_hundred_warmups_preserve_account_journal_quota_and_101st_live_ws_tls_
     let request = peer.join().unwrap();
     assert_eq!(request["method"], "order.place");
 }
+
+#[test]
+fn binance_cold_startup_clock_seeding_waits_full_warmup_interval() {
+    let (state, ns, _) = setup(5_000_000, None);
+    let (snapshot, catalog, _) = account_fixture::fixture();
+    let live_account = tickwire_account::Account::from_snapshot(snapshot, catalog).unwrap();
+
+    // Simulate cold host startup at CLOCK_MONOTONIC = 10_000_000 ns with zero prior activity.
+    ns.set(10_000_000);
+    assert_eq!(state.last_activity_ns(), 0);
+    assert_eq!(state.last_warm_ns(), 0);
+
+    state.set_warmup_interval_ns(500_000).unwrap();
+    assert_eq!(state.last_activity_ns(), 10_000_000);
+    assert_eq!(state.next_warmup_due_ns(), Some(10_500_000));
+
+    // Must not fire at 0 ns or 499_999 ns of idle time after cold enablement.
+    for t in [10_000_000u64, 10_250_000, 10_499_999] {
+        assert!(
+            !state
+                .maybe_warm_hot_path_with_account(Some(&live_account), t)
+                .unwrap()
+        );
+    }
+    assert_eq!(state.warmup_count(), 0);
+
+    // Fires once the full 500_000 ns idle window elapses.
+    assert!(
+        state
+            .maybe_warm_hot_path_with_account(Some(&live_account), 10_500_000)
+            .unwrap()
+    );
+    assert_eq!(state.warmup_count(), 1);
+    assert_eq!(state.last_warm_ns(), 10_500_000);
+}

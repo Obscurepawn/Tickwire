@@ -75,7 +75,29 @@ def final_counts(text: str, model: str) -> dict[str, int]:
     return counts
 
 
-def check_logs(paths: list[Path], model: str) -> dict:
+def verify_completed_run(text: str) -> tuple[int, int]:
+    """Validate a completed coverage-free scaling TLC run (0 queued states, no errors)."""
+    lines = text.splitlines()
+    successes = [i for i, line in enumerate(lines) if line == SUCCESS]
+    if len(successes) != 1 or any(line.startswith("Error:") for line in lines):
+        raise CoverageError("expected exactly one successful model checking run")
+    summaries = [(i, SUMMARY.fullmatch(line)) for i, line in enumerate(lines)]
+    summaries = [(i, match) for i, match in summaries if match is not None]
+    finished = [i for i, line in enumerate(lines) if line.startswith("Finished in ")]
+    if len(summaries) != 1 or len(finished) != 1:
+        raise CoverageError("missing unique final state summary or finish marker")
+    index, summary = summaries[0]
+    generated, distinct, queued = (int(value.replace(",", "")) for value in summary.groups())
+    if not (successes[0] < index < finished[0]) or queued != 0 or distinct == 0 or generated < distinct:
+        raise CoverageError("state exploration did not finish with an empty queue")
+    return generated, distinct
+
+
+def check_logs(
+    paths: list[Path],
+    model: str,
+    scaling_paths: list[Path] | None = None,
+) -> dict:
     if not paths:
         raise CoverageError("at least one completed configuration is required")
     totals: dict[str, int] = {}
@@ -94,20 +116,38 @@ def check_logs(paths: list[Path], model: str) -> dict:
                 raise CoverageError(f"{path}: declaration changed for action {name}")
             declarations[name] = declaration
             totals[key] = totals.get(key, 0) + value
+    extra_scaling = list(scaling_paths or [])
+    for spath in extra_scaling:
+        try:
+            verify_completed_run(spath.read_text())
+        except (OSError, UnicodeError, CoverageError) as error:
+            raise CoverageError(f"{spath}: {error}") from error
     missing = [key for key, value in totals.items() if value == 0]
     if missing:
         raise CoverageError("uncovered across all configurations: " + ", ".join(missing))
-    return {"model": model, "runs": len(paths), "entries": len(totals), "generated": totals}
+    return {
+        "model": model,
+        "runs": len(paths) + len(extra_scaling),
+        "entries": len(totals),
+        "generated": totals,
+    }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, help="Exact TLA module name")
     parser.add_argument("--model-file", type=Path, help="Frozen source used for all configurations")
+    parser.add_argument(
+        "--scaling-log",
+        action="append",
+        default=[],
+        type=Path,
+        help="Completed multi-worker scaling TLC log verified without AST coverage",
+    )
     parser.add_argument("logs", nargs="+", type=Path)
     args = parser.parse_args()
     try:
-        result = check_logs(args.logs, args.model)
+        result = check_logs(args.logs, args.model, scaling_paths=args.scaling_log)
         if args.model_file is not None:
             if args.model_file.stem != args.model:
                 raise CoverageError("model filename must match module name")

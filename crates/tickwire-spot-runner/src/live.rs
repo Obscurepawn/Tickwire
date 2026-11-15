@@ -365,6 +365,12 @@ pub(super) fn run(path: &Path, mode: Mode) -> Result<()> {
         owner
             .runner
             .set_warmup_interval_ns(cfg.warmup_interval_ns)?;
+        if owner.runner.last_activity_ns() == 0
+            && owner.runner.last_warm_ns() == 0
+            && let Ok(sample) = clock.sample()
+        {
+            owner.runner.record_activity(sample.monotonic.nanos());
+        }
     }
     let mut after = owner.resume()?;
     let mut outstanding: Option<(PrivateCut, u64)> = None;

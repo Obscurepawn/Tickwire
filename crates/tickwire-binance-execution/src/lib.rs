@@ -697,11 +697,21 @@ impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
         state
             .warmup_tracker
             .set_warmup_interval_ns(warmup_interval_ns);
-        if warmup_interval_ns > 0 && state.warmer.is_none() {
-            let warmer =
-                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
-                    .map_err(|_| Error::Encoding)?;
-            state.warmer = Some(Box::new(warmer));
+        if warmup_interval_ns > 0 {
+            if state.warmup_tracker.last_activity_ns() == 0
+                && state.warmup_tracker.last_warm_ns() == 0
+                && let Some(now_mono_ns) = state.sample_mono_ns()
+            {
+                state.warmup_tracker.record_activity(now_mono_ns);
+            }
+            if state.warmer.is_none() {
+                let warmer = warmup::BinanceHotPathWarmer::new(
+                    state.binding.product,
+                    state.binding.environment,
+                )
+                .map_err(|_| Error::Encoding)?;
+                state.warmer = Some(Box::new(warmer));
+            }
         }
         Ok(())
     }

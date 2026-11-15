@@ -1,5 +1,7 @@
-# L0 输出（尚未关闭）
+# Explicit state-machine & buffered FIFO replay verification of `tickwire_binance::depth_sync::DepthSync`
 
-两份主配置已完成，两份扩大配置仍在运行，当前没有本层最终 PASS 结论。实际进度见 [03_run_log.md](03_run_log.md)，模型范围与源码对应关系见 [01_reasoning.md](01_reasoning.md)。
+Across four completed explicit-state TLC configurations (`1,851,021` / `73,269` Spot primary, `1,876,613` / `73,897` USD-M primary, `75,516,208` / `3,491,866` Spot `Capacity = 2` scaling, and `75,549,956` / `3,492,316` USD-M `Capacity = 2` scaling; depths `14`, `13`, `14`, and `14`), all 7 state invariants (`TypeOK`, `PendingBelongs`, `LiveHasCompleteReplay`, `FirstIsBuffered`, `ClosedNotVisible`, `FailuresClose`, `ViewFreshAtCreation`) and all 6 transition properties (`OldCallbacksCannotMutate`, `RetryKeepsBufferedContent`, `StaleDoesNotRefresh`, `GenerationMonotonic`, `RequestMonotonic`, `SnapshotRetainsArrivalStamp`) hold with zero counterexamples. See [03_run_log.md](03_run_log.md), [01_reasoning.md](01_reasoning.md), and [06_notes.md](06_notes.md).
 
-模型和配置已冻结；四组完整结果、最终覆盖率和摘要齐备后再关闭本层。本文件当前不向下一层导出已完成验证的契约。
+- Fidelity: 22 source-cited `Next` transitions bound to `crates/tickwire-binance/src/depth_sync.rs` and `crates/tickwire-book/src/lib.rs` (`575` line anchors in [anchors.lock](02_models/anchors.lock)).
+- Model coverage: all `23/23` coverage entries (`Init` + 22 `Next` actions) fired with `>= 7,680` generated transitions across the primary configurations. [TLC action counts](04_evidence/coverage.json)
+- Symbolic lifting: finite-domain numeric bounds (`MaxId`, `MaxTime`, `Capacity`, `MaxEpoch`, `MaxGeneration`, `MaxRequest`) are lifted to full 64-bit `0 .. 2^64 - 1` `u64` arithmetic and unbounded trace depth ($\forall k \ge 0$) in [`../L1_sym_coordinator`](../L1_sym_coordinator/05_output.md).

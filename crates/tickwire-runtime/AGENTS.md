@@ -33,10 +33,12 @@ node; child-process spawning, shared-memory mappings, and policy grant rules liv
   and `tickwire-instrument-catalog` loading in [src/files.rs](src/files.rs) and [src/files/catalog.rs](src/files/catalog.rs)
   strictly on the startup path, never inside per-quote or per-order turns.
 * **Quiescent-turn hot-path cache warming**: In [src/node.rs](src/node.rs), `CoreNode` (`with_warmup_interval_ns`,
-  `set_warmup_interval_ns`, `maybe_warm_hot_path`) records activity on market events, private fills/completions, and
-  outbound submissions, bounds `mio::Poll` sleep via `next_warmup_due_ns`, and invokes
-  `SharedSessionState::maybe_warm_hot_path_with_account` only on quiescent turns (`!report.runnable`, zero turn events,
-  no queued outcomes, and `!rest.websocket_busy()`).
+  `set_warmup_interval_ns`, `maybe_warm_hot_path`) seeds `record_activity` from `self.time()` on cold enablement
+  (`warmup_interval_ns > 0 && last_activity_ns == 0 && last_warm_ns == 0`), records activity on market events, private
+  fills/completions, outbound submissions, `!submission_ready() || frozen() || halted()`, and transient warmup errors,
+  clamps `next_deadline` via `next_warmup_due_ns` strictly when `!frozen() && !halted() && submission_ready()` (preventing
+  `0ns` `mio::Poll` spins while unready or halted), and invokes `SharedSessionState::maybe_warm_hot_path_with_account`
+  only on ready quiescent turns.
 
 ## Verification and Specifications
 
@@ -44,10 +46,12 @@ node; child-process spawning, shared-memory mappings, and policy grant rules liv
   [src/node/strategy.rs](src/node/strategy.rs) · [src/authority.rs](src/authority.rs) ·
   [src/authority/historical.rs](src/authority/historical.rs) · [src/files.rs](src/files.rs) ·
   [src/files/catalog.rs](src/files/catalog.rs)
-* **Integration tests**: [tests/handover_closure.rs](tests/handover_closure.rs)
+* **Integration tests**: [tests/handover_closure.rs](tests/handover_closure.rs) ·
+  [income_network_tests.rs](../tickwire-app/src/reconciliation/income_network_tests.rs)
 * **Specifications and models**: [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
   [account-gateway.md](../../specs/implementation/account-gateway.md) ·
-  [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md)
+  [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md) ·
+  [hotpath_ultralow_latency](../../tla/execution_models/hotpath_ultralow_latency/ROADMAP.md)
 
 ```sh
 cargo test --locked -p tickwire-runtime --all-targets

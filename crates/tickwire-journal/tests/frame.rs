@@ -114,6 +114,44 @@ fn hardware_and_slicing8_agree_across_alignments_lengths_and_masks() {
 }
 
 #[test]
+fn crc32c_masked_clamps_out_of_bounds_and_inverted_ranges_without_panicking() {
+    let mut raw = [0u8; 160];
+    for (i, b) in raw.iter_mut().enumerate() {
+        *b = (i as u8).wrapping_mul(73).wrapping_add(19);
+    }
+
+    for len in [0usize, 1, 7, 8, 63, 64, 136, 160] {
+        let slice = &raw[..len];
+        #[allow(clippy::reversed_empty_ranges)]
+        let ranges = [
+            0..0,
+            0..len,
+            0..len + 17,
+            len / 2..len + 99,
+            len..len + 64,
+            len + 5..len + 80,
+            0..usize::MAX,
+            len..usize::MAX,
+            usize::MAX..usize::MAX,
+            8..4,
+            len + 10..4,
+            usize::MAX..0,
+        ];
+        for r in ranges {
+            let end = r.end.min(len);
+            let start = r.start.min(end);
+            let mut expected = slice.to_vec();
+            expected[start..end].fill(0);
+            assert_eq!(
+                crc32c_masked(slice, r.clone()),
+                crc32c(&expected),
+                "clamped masked CRC mismatch at len={len}, range={r:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn exact_contract_layout_and_hash_scope() {
     let h = header();
     let bytes = encode(&h, b"abc").unwrap();

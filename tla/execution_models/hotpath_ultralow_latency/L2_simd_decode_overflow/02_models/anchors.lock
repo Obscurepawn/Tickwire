@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-11-15T01:05:32
+# anchors.lock — written by anchors.sh update on 2026-11-15T05:00:58
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 Cargo.toml	14	5d1e0ea4fc193cd0e705f48e45a3a8831212c395333c4be924206fcb5696284f
 Cargo.toml	15	9d684c69786a195b373ca72c40230d27b20be68bfe72696c9cab12dd3af1622d

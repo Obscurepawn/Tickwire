@@ -1,0 +1,78 @@
+>>> Apalache [bmc length=2] module=L3_SymRingWarmerInductive
+# Usage statistics is ON. Thank you!
+# If you have changed your mind, disable the statistics with config --enable-stats=false.
+
+Output directory: /home/obscure/Tickwire/tla/execution_models/hotpath_ultralow_latency/L3_sym_ring_warmer_inductive/02_models/.apalache_tmp.2VUQEu/L3_SymRingWarmerInductive.tla/2026-11-15T02-56-19_9185217526785846239
+# APALACHE version: 0.63.0 | build: 67b8ec6                       I@02:56:19.065
+Tuning:                                                           I@02:56:19.076
+PASS #0: SanyParser                                               I@02:56:19.281
+PASS #1: TypeCheckerSnowcat                                       I@02:56:19.688
+ > Running Snowcat .::.                                           I@02:56:19.688
+ > Your types are purrfect!                                       I@02:56:20.241
+ > All expressions are typed                                      I@02:56:20.242
+PASS #2: ConfigurationPass                                        I@02:56:20.243
+  > Set the initialization predicate to Init                      I@02:56:20.247
+  > Set the transition predicate to Next                          I@02:56:20.247
+  > Set the constant initialization predicate to ConstInit        I@02:56:20.247
+  > Set an invariant to Diag_NextDueImpliesCanWarmAtU64Max        I@02:56:20.248
+PASS #3: DesugarerPass                                            I@02:56:20.256
+  > Desugaring...                                                 I@02:56:20.256
+PASS #4: InlinePass                                               I@02:56:20.412
+Leaving only relevant operators: ConstInit, ConstInitPrimed, Diag_NextDueImpliesCanWarmAtU64Max, Init, InitPrimed, Next I@02:56:20.413
+PASS #5: TemporalPass                                             I@02:56:20.495
+  > Rewriting temporal operators...                               I@02:56:20.495
+  > No temporal property specified, nothing to encode             I@02:56:20.495
+PASS #6: InlinePass                                               I@02:56:20.496
+Leaving only relevant operators: ConstInit, ConstInitPrimed, Diag_NextDueImpliesCanWarmAtU64Max, Init, InitPrimed, Next I@02:56:20.496
+PASS #7: PrimingPass                                              I@02:56:20.510
+  > Introducing ConstInitPrimed for ConstInit'                    I@02:56:20.515
+  > Introducing InitPrimed for Init'                              I@02:56:20.520
+PASS #8: VCGen                                                    I@02:56:20.521
+  > Producing verification conditions from the invariant Diag_NextDueImpliesCanWarmAtU64Max I@02:56:20.522
+  > VCGen produced 1 verification condition(s)                    I@02:56:20.530
+PASS #9: PreprocessingPass                                        I@02:56:20.535
+  > Before preprocessing: unique renaming                         I@02:56:20.535
+ > Applying standard transformations:                             I@02:56:20.540
+  > PrimePropagation                                              I@02:56:20.541
+  > Desugarer                                                     I@02:56:20.544
+  > UniqueRenamer                                                 I@02:56:20.553
+  > Normalizer                                                    I@02:56:20.559
+  > SetMembershipSimplifier                                       I@02:56:20.570
+  > Keramelizer                                                   I@02:56:20.577
+  > After preprocessing: UniqueRenamer                            I@02:56:20.590
+PASS #10: TransitionFinderPass                                    I@02:56:20.601
+  > Found 2 initializing transitions                              I@02:56:20.639
+  > Found 22 transitions                                          I@02:56:20.676
+  > Found constant initializer ConstInit                          I@02:56:20.677
+  > Applying unique renaming                                      I@02:56:20.680
+PASS #11: OptimizationPass                                        I@02:56:20.687
+ > Applying optimizations:                                        I@02:56:20.690
+  > ConstSimplifier                                               I@02:56:20.691
+  > ExprOptimizer                                                 I@02:56:20.713
+  > SetMembershipSimplifier                                       I@02:56:20.721
+  > ConstSimplifier                                               I@02:56:20.722
+PASS #12: AnalysisPass                                            I@02:56:20.735
+ > Marking skolemizable existentials and sets to be expanded...   I@02:56:20.737
+  > Skolemization                                                 I@02:56:20.737
+  > Expansion                                                     I@02:56:20.739
+  > Remove unused let-in defs                                     I@02:56:20.744
+ > Running analyzers...                                           I@02:56:20.749
+  > Introduced expression grades                                  I@02:56:20.756
+PASS #13: BoundedChecker                                          I@02:56:20.756
+State 0: Checking 1 state invariants                              I@02:56:21.032
+State 0: state invariant 0 holds.                                 I@02:56:21.045
+Step 0: picking a transition out of 1 transition(s)               I@02:56:21.048
+Step 1: Transition #0 is disabled                                 I@02:56:21.069
+Step 1: Transition #1 is disabled                                 I@02:56:21.076
+Step 1: Transition #2 is disabled                                 I@02:56:21.084
+Step 1: Transition #3 is disabled                                 I@02:56:21.088
+State 1: Checking 1 state invariants                              I@02:56:21.095
+Check the trace in: /home/obscure/Tickwire/tla/execution_models/hotpath_ultralow_latency/L3_sym_ring_warmer_inductive/02_models/.apalache_tmp.2VUQEu/L3_SymRingWarmerInductive.tla/2026-11-15T02-56-19_9185217526785846239/violation1.tla, /home/obscure/Tickwire/tla/execution_models/hotpath_ultralow_latency/L3_sym_ring_warmer_inductive/02_models/.apalache_tmp.2VUQEu/L3_SymRingWarmerInductive.tla/2026-11-15T02-56-19_9185217526785846239/MCviolation1.out, /home/obscure/Tickwire/tla/execution_models/hotpath_ultralow_latency/L3_sym_ring_warmer_inductive/02_models/.apalache_tmp.2VUQEu/L3_SymRingWarmerInductive.tla/2026-11-15T02-56-19_9185217526785846239/violation1.json, /home/obscure/Tickwire/tla/execution_models/hotpath_ultralow_latency/L3_sym_ring_warmer_inductive/02_models/.apalache_tmp.2VUQEu/L3_SymRingWarmerInductive.tla/2026-11-15T02-56-19_9185217526785846239/violation1.itf.json I@02:56:21.274
+State 1: state invariant 0 violated.                              I@02:56:21.275
+Found 1 error(s)                                                  I@02:56:21.277
+The outcome is: Error                                             I@02:56:21.280
+Checker has found an error                                        I@02:56:21.301
+It took me 0 days  0 hours  0 min  2 sec                          I@02:56:21.302
+Total time: 2.230 sec                                             I@02:56:21.302
+EXITCODE: ERROR (12)
+>>> [bmc length=2] elapsed: 3s (exit 12)

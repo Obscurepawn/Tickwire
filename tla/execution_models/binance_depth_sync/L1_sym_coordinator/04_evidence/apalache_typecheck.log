@@ -1,0 +1,18 @@
+>>> Apalache [typecheck] module=L1_SymDepthSync
+Picked up JAVA_TOOL_OPTIONS:  -Djava.io.tmpdir=/tmp/apalache_work.zcgBlu/java_tmp
+# Usage statistics is ON. Thank you!
+# If you have changed your mind, disable the statistics with config --enable-stats=false.
+
+Output directory: /tmp/apalache_work.zcgBlu/out/L1_SymDepthSync.tla/2026-11-15T19-18-54_13316903335353663625
+# APALACHE version: 0.63.0 | build: 67b8ec6                       I@19:18:54.561
+Type checking L1_SymDepthSync.tla                                 I@19:18:54.569
+PASS #0: SanyParser                                               I@19:18:54.722
+PASS #1: TypeCheckerSnowcat                                       I@19:18:55.930
+ > Running Snowcat .::.                                           I@19:18:55.930
+ > Your types are purrfect!                                       I@19:18:58.572
+ > All expressions are typed                                      I@19:18:58.573
+Type checker [OK]                                                 I@19:18:58.573
+It took me 0 days  0 hours  0 min  4 sec                          I@19:18:58.573
+Total time: 4.5 sec                                               I@19:18:58.573
+EXITCODE: OK
+>>> [typecheck] elapsed: 4s (exit 0)

@@ -1,0 +1,24 @@
+{
+  "model": "L1_SymCalibration",
+  "runs": 2,
+  "entries": 16,
+  "generated": {
+    "Init line 314, col 1 to line 314, col 4 of module L1_SymCalibration": 4,
+    "Advance line 358, col 1 to line 358, col 7 of module L1_SymCalibration": 47598,
+    "Capture line 383, col 1 to line 383, col 7 of module L1_SymCalibration": 2844,
+    "Jump line 410, col 1 to line 410, col 4 of module L1_SymCalibration": 11122,
+    "Begin line 438, col 1 to line 438, col 5 of module L1_SymCalibration": 27594,
+    "FinishNormal line 572, col 1 to line 572, col 12 of module L1_SymCalibration": 2498,
+    "FinishBad line 580, col 1 to line 580, col 9 of module L1_SymCalibration": 13254,
+    "FinishStale line 589, col 1 to line 589, col 11 of module L1_SymCalibration": 90065,
+    "Cancel line 599, col 1 to line 599, col 6 of module L1_SymCalibration": 4418,
+    "CancelStale line 620, col 1 to line 620, col 11 of module L1_SymCalibration": 61712,
+    "Read line 695, col 1 to line 695, col 4 of module L1_SymCalibration": 13797,
+    "ReadBackwards line 699, col 1 to line 699, col 13 of module L1_SymCalibration": 8576,
+    "ReadWrongDomain line 705, col 1 to line 705, col 15 of module L1_SymCalibration": 13797,
+    "Sign line 709, col 1 to line 709, col 4 of module L1_SymCalibration": 55188,
+    "CheckSend line 841, col 1 to line 841, col 9 of module L1_SymCalibration": 3240,
+    "CheckForeign line 850, col 1 to line 850, col 12 of module L1_SymCalibration": 13797
+  },
+  "model_sha256": "27329a421e786b93bd300103924ac86948eef36b20e5a73958a8d9f72f04ef71"
+}

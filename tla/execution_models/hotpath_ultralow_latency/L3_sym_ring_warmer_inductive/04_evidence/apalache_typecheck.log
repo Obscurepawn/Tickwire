@@ -1,0 +1,17 @@
+>>> Apalache [typecheck] module=L3_SymRingWarmerInductive
+# Usage statistics is ON. Thank you!
+# If you have changed your mind, disable the statistics with config --enable-stats=false.
+
+Output directory: /home/obscure/Tickwire/tla/execution_models/hotpath_ultralow_latency/L3_sym_ring_warmer_inductive/02_models/.apalache_tmp.QkK1wN/L3_SymRingWarmerInductive.tla/2026-11-15T02-52-26_6243961961662183955
+# APALACHE version: 0.63.0 | build: 67b8ec6                       I@02:52:27.047
+Type checking L3_SymRingWarmerInductive.tla                       I@02:52:27.055
+PASS #0: SanyParser                                               I@02:52:27.234
+PASS #1: TypeCheckerSnowcat                                       I@02:52:27.696
+ > Running Snowcat .::.                                           I@02:52:27.696
+ > Your types are purrfect!                                       I@02:52:28.287
+ > All expressions are typed                                      I@02:52:28.287
+Type checker [OK]                                                 I@02:52:28.288
+It took me 0 days  0 hours  0 min  1 sec                          I@02:52:28.288
+Total time: 1.234 sec                                             I@02:52:28.289
+EXITCODE: OK
+>>> [typecheck] elapsed: 2s (exit 0)

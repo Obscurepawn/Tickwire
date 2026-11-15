@@ -38,9 +38,9 @@ python3 scripts/verify-documentation.py
 
 ## TLC Coverage Runner
 
-`./scripts/check-tla.sh` verifies the SHA-256 checksum of the pinned TLC 1.7.4 distribution (`tla/tools/tla2tools.jar`), accepts zero, one, or multiple model-family names (`./scripts/check-tla.sh [family ...]`), stages each model and its `.cfg` files into an isolated temporary directory, executes single-worker (`-workers 1 -coverage 1`) configurations concurrently across a bounded LPT-scheduled worker pool (`TLA_JOBS` workers, `-Xmx${TLA_MAX_HEAP:-2560m}` per JVM) to completion (`0` states remaining on queue), and asserts in deterministic order that every modeled action generates successors via [`tlc_coverage.py`](tlc_coverage.py).
+`./scripts/check-tla.sh` verifies the SHA-256 checksum of the pinned TLC 1.7.4 distribution (`tla/tools/tla2tools.jar`), accepts zero, one, or multiple model-family names (`./scripts/check-tla.sh [family ...]`), stages each model and its `.cfg` files into an isolated temporary directory, emits zero-touch `@TLAPlusOperator` JVM bytecode overrides via [`tlc_native_overrides.py`](tlc_native_overrides.py) (accelerating 10-limb `L0_Calibration` `Word` arithmetic and memoizing `L0_DepthSync` `Events(t, g)` set enumeration without modifying frozen `.tla` sources or SHA-256 digests), schedules configurations in longest-processing-time (LPT) order across a CPU-core token pool (`TLA_JOBS` total cores, optional `-Xmx${TLA_MAX_HEAP}` override) to completion (`0` states remaining on queue), and asserts in deterministic order that every modeled action generates successors via [`tlc_coverage.py`](tlc_coverage.py). Coverage-basis configurations execute with `-workers 1 -coverage 60` (and C1 fast-JIT for small state spaces), while multi-million-state scaling configurations whose sibling `.cfg`s already cover all model actions execute with multi-worker `OffHeapDiskFPSet` and enlarged YoungGen sizing (falling back automatically to `-coverage 60` if any action were uncovered).
 
-To run unit tests for the TLC coverage parser itself:
+To run unit tests for the TLC coverage parser and native override emitter:
 
 ```sh
 python3 -m unittest discover -s scripts -p test_tlc_coverage.py

@@ -7,6 +7,7 @@ import shutil
 import subprocess
 
 from tlc_coverage import CoverageError, check_logs
+from tlc_native_overrides import emit_override_classes
 
 
 def block(a=1, b=0, model="Example"):
@@ -128,6 +129,31 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(CoverageError):
             self.check()
 
+    def test_scaling_logs_validate_completion_alongside_coverage_logs(self):
+        scaling_ok = SUCCESS + SUMMARY + FINISHED
+        with tempfile.TemporaryDirectory() as directory:
+            cov_p = Path(directory) / "cov.log"
+            scl_p = Path(directory) / "scale.log"
+            cov_p.write_text(run(3, 4))
+            scl_p.write_text(scaling_ok)
+            res = check_logs([cov_p], "Example", scaling_paths=[scl_p])
+            self.assertEqual(res["runs"], 2)
+            self.assertEqual(res["entries"], 3)
+
+            for bad in (
+                scaling_ok.replace(FINISHED, ""),
+                scaling_ok.replace("0 states left", "2 states left"),
+                scaling_ok + "Error: Invariant Safe is violated.\n",
+                scaling_ok + scaling_ok,
+            ):
+                scl_p.write_text(bad)
+                with self.assertRaises(CoverageError):
+                    check_logs([cov_p], "Example", scaling_paths=[scl_p])
+
+            scl_p.write_text(scaling_ok)
+            with self.assertRaises(CoverageError):
+                check_logs([], "Example", scaling_paths=[scl_p])
+
     def test_committed_gateway_logs_cover_58_entries(self):
         directory = Path(__file__).resolve().parents[1] / (
             "tla/execution_models/account_gateway/L0_guarded_account_output/04_evidence"
@@ -161,7 +187,7 @@ class RunnerTests(unittest.TestCase):
             root = Path(directory)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ("check-tla.sh", "tlc_coverage.py"):
+            for name in ("check-tla.sh", "tlc_coverage.py", "tlc_native_overrides.py"):
                 shutil.copyfile(repo / "scripts" / name, scripts / name)
             tools = root / "tla/tools"
             tools.mkdir(parents=True)
@@ -223,7 +249,7 @@ class RunnerTests(unittest.TestCase):
             root = Path(directory)
             scripts = root / "scripts"
             scripts.mkdir()
-            for name in ("check-tla.sh", "tlc_coverage.py"):
+            for name in ("check-tla.sh", "tlc_coverage.py", "tlc_native_overrides.py"):
                 shutil.copyfile(repo / "scripts" / name, scripts / name)
             tools = root / "tla/tools"
             tools.mkdir(parents=True)
@@ -247,6 +273,133 @@ class RunnerTests(unittest.TestCase):
             self.assertIn('"model": "Beta"', result.stdout)
             self.assertNotIn('"model": "Unused"', result.stdout)
             self.assertLess(result.stdout.index('"model": "Alpha"'), result.stdout.index('"model": "Beta"'))
+
+    def test_native_override_classes_preserve_word_semantics(self):
+        repo = Path(__file__).resolve().parents[1]
+        jar = repo / "tla/tools/tla2tools.jar"
+        if not jar.exists() or shutil.which("java") is None:
+            self.skipTest("local pinned TLC jar and Java required for override smoke")
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            emit_override_classes(out, include_depth_sync=True)
+            for cls in (
+                "TLCOverrides.class",
+                "L0_CalibrationOverrides.class",
+                "L0_DepthSyncOverrides.class",
+            ):
+                p = out / "tlc2" / "overrides" / cls
+                self.assertTrue(p.is_file(), cls)
+                self.assertEqual(p.read_bytes()[:4], b"\xca\xfe\xba\xbe")
+            # Verify `L0_CalibrationOverrides` produces identical Word values to TLA+ formulas:
+            (out / "L0_Calibration.tla").write_text(
+                "---- MODULE L0_Calibration ----\nEXTENDS Naturals\n"
+                "Word == [1..10 -> 0..999]\n"
+                "Zero == [i \\in 1..10 |-> 0]\nOne == [Zero EXCEPT ![1] = 1]\n"
+                "Add(a, b) == Zero\nSub(a, b) == Zero\nSatSub(a, b) == Zero\n"
+                "Lt(a, b) == FALSE\nLe(a, b) == FALSE\n"
+                "Shift(a, k) == Zero\nDrop(a, k) == Zero\nCeilDrop(a, k) == Zero\n"
+                "Half(a) == Zero\nMid(a, b) == Zero\nQuantized(a, k) == Zero\n"
+                "FractionCeil(a, m) == Zero\nUp(a, m) == Zero\nDown(a, m) == Zero\n"
+                "VARIABLE x\n"
+                "W999 == [Zero EXCEPT ![1] = 999]\n"
+                "Init == x = Add(W999, One)\n"
+                "Next == UNCHANGED x\n"
+                "Safe == /\\ x = [Zero EXCEPT ![2] = 1]\n"
+                "        /\\ Lt(W999, x)\n"
+                "        /\\ Sub(x, One) = W999\n"
+                "        /\\ SatSub(One, x) = Zero\n"
+                "        /\\ CeilDrop(One, 3) = One\n"
+                "        /\\ Up(One, 1) = [Zero EXCEPT ![1] = 2]\n"
+                "        /\\ Down(One, 1) = Zero\n"
+                "====\n"
+            )
+            (out / "L0_Calibration.cfg").write_text(
+                "INIT Init\nNEXT Next\nINVARIANT Safe\nCHECK_DEADLOCK FALSE\n"
+            )
+            res = subprocess.run(
+                [
+                    "java",
+                    "-Dtickwire.tlc.maxId=2",
+                    "-cp",
+                    f"{out}:{jar}",
+                    "tlc2.TLC",
+                    "-checkpoint",
+                    "0",
+                    "-workers",
+                    "1",
+                    "-config",
+                    "L0_Calibration.cfg",
+                    "L0_Calibration.tla",
+                ],
+                cwd=out,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+            self.assertIn(SUCCESS.strip(), res.stdout)
+
+    def test_depth_sync_overrides_preserve_spot_and_usdm_replay_semantics(self):
+        repo = Path(__file__).resolve().parents[1]
+        jar = repo / "tla/tools/tla2tools.jar"
+        if not jar.exists() or shutil.which("java") is None:
+            self.skipTest("local pinned TLC jar and Java required for override smoke")
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory)
+            emit_override_classes(out, include_depth_sync=True)
+            (out / "L0_DepthSync.tla").write_text(
+                "---- MODULE L0_DepthSync ----\n"
+                "EXTENDS Integers, Sequences\n"
+                "CONSTANT Policy\n"
+                "No == -1\n"
+                "Events(t, g) == {}\n"
+                "Classify(b, e) == \"Stale\"\n"
+                "Apply(b, e) == b\n"
+                "RECURSIVE Replay(_, _, _)\n"
+                "Replay(b, q, a) == [book |-> b, applied |-> a]\n"
+                "VARIABLE ok\n"
+                "B0 == [id |-> 1, stamp |-> No, qty |-> 0, phase |-> \"Bridging\", gen |-> 1]\n"
+                "E1 == [first |-> 0, last |-> 1, previous |-> 0, stamp |-> 1, gen |-> 1, qty |-> 1, valid |-> TRUE]\n"
+                "E2 == [first |-> 2, last |-> 2, previous |-> 1, stamp |-> 2, gen |-> 1, qty |-> 0, valid |-> TRUE]\n"
+                "R == Replay(B0, <<E1, E2>>, 0)\n"
+                "Init == ok = (\n"
+                "  /\\ Events(1, 2) # {}\n"
+                "  /\\ IF Policy = \"Spot\"\n"
+                "     THEN Classify(B0, E1) = \"Stale\" /\\ R.applied = 1 /\\ R.book.id = 2 /\\ R.book.phase = \"Live\"\n"
+                "     ELSE Classify(B0, E1) = \"Apply\" /\\ R.applied = 2 /\\ R.book.id = 2 /\\ R.book.phase = \"Live\"\n"
+                ")\n"
+                "Next == UNCHANGED ok\n"
+                "Safe == ok = TRUE\n"
+                "====\n"
+            )
+            for pol in ("Spot", "UsdM"):
+                (out / f"{pol}.cfg").write_text(
+                    f'CONSTANT Policy = "{pol}"\n'
+                    "INIT Init\nNEXT Next\nINVARIANT Safe\nCHECK_DEADLOCK FALSE\n"
+                )
+                res = subprocess.run(
+                    [
+                        "java",
+                        "-Dtickwire.tlc.maxId=2",
+                        f"-Dtickwire.tlc.policy={pol}",
+                        "-cp",
+                        f"{out}:{jar}",
+                        "tlc2.TLC",
+                        "-checkpoint",
+                        "0",
+                        "-workers",
+                        "1",
+                        "-config",
+                        f"{pol}.cfg",
+                        "L0_DepthSync.tla",
+                    ],
+                    cwd=out,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
+                self.assertIn(SUCCESS.strip(), res.stdout)
 
 
 if __name__ == "__main__":

@@ -46,10 +46,11 @@ onto dedicated worker threads behind allocation-free handoff primitives.
   and release externally owned `IpPool` peer leases at most once per installed link.
 * **Offline in-process loopback TLS 1.3 warmer (`warmup`)**: In [src/warmup.rs](src/warmup.rs) (`#![forbid(unsafe_code)]`),
   `WarmupConfig` (`warmup_interval_ns == 0` disables warming) and `WarmupTracker` gate idle-window cache warming without
-  syscalls, while `TlsLoopbackWarmer` pairs an isolated, purely in-memory TLS 1.3 `rustls::ClientConnection` and
-  `rustls::ServerConnection` over static embedded DER credentials (`const &[u8]`) and `[u8; 2048]` scratch buffers;
-  never write synthetic plaintext into any live `Connection` or `rustls::ClientConnection` (which would advance live
-  AEAD record nonces and cause `bad_record_mac` on the next real order).
+  syscalls and compute `next_due_ns()` via `checked_add` so `can_warm(now_ns) <==> next_due_ns().is_some_and(|due| now_ns >= due)`
+  holds across the full `0..=u64::MAX` domain, while `TlsLoopbackWarmer` pairs an isolated, purely in-memory TLS 1.3
+  `rustls::ClientConnection` and `rustls::ServerConnection` over static embedded DER credentials (`const &[u8]`) and
+  `[u8; 2048]` scratch buffers; never write synthetic plaintext into any live `Connection` or `rustls::ClientConnection`
+  (which would advance live AEAD record nonces and cause `bad_record_mac` on the next real order).
 
 ## Verification and Specifications
 
@@ -62,7 +63,8 @@ onto dedicated worker threads behind allocation-free handoff primitives.
   [tests/order_router_pool.rs](tests/order_router_pool.rs) · [tests/warmup.rs](tests/warmup.rs)
 * **Specifications and models**: [transport.md](../../specs/implementation/transport.md) ·
   [transport](../../tla/execution_models/transport/ROADMAP.md) ·
-  [gateway](../../tla/execution_models/gateway/ROADMAP.md)
+  [gateway](../../tla/execution_models/gateway/ROADMAP.md) ·
+  [hotpath_ultralow_latency](../../tla/execution_models/hotpath_ultralow_latency/ROADMAP.md)
 
 ```sh
 cargo test --locked -p tickwire-transport --all-targets

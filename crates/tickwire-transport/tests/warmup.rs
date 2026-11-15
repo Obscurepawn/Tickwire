@@ -327,3 +327,54 @@ fn steady_state_warm_step_keeps_scratch_address_and_heap_footprint_bounded() {
         );
     }
 }
+
+#[test]
+fn warmup_tracker_next_due_ns_checked_add_matches_can_warm_across_u64_domain() {
+    use tickwire_transport::warmup::{WarmupConfig, WarmupTracker};
+
+    let points = [
+        0u64,
+        1,
+        2,
+        500_000,
+        1_000_000,
+        u64::MAX / 2,
+        u64::MAX - 500_000,
+        u64::MAX - 2,
+        u64::MAX - 1,
+        u64::MAX,
+    ];
+
+    for &interval in &points {
+        for &act in &points {
+            for &warm in &points {
+                let mut tracker = WarmupTracker::new(WarmupConfig {
+                    warmup_interval_ns: interval,
+                });
+                if act > 0 {
+                    tracker.record_activity(act);
+                }
+                if warm > 0 {
+                    tracker.record_warm(warm);
+                }
+                let due = tracker.next_due_ns();
+                let anchor = act.max(warm);
+                if interval == 0 || anchor.checked_add(interval).is_none() {
+                    assert_eq!(
+                        due, None,
+                        "expected None for interval={interval}, act={act}, warm={warm}"
+                    );
+                } else {
+                    assert_eq!(due, Some(anchor + interval));
+                }
+                for &now in &points {
+                    assert_eq!(
+                        tracker.can_warm(now),
+                        due.is_some_and(|d| now >= d),
+                        "biconditional mismatch at interval={interval}, act={act}, warm={warm}, now={now}, due={due:?}"
+                    );
+                }
+            }
+        }
+    }
+}

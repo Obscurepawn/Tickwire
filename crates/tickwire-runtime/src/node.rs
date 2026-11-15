@@ -433,20 +433,18 @@ where
             || report.submissions > 0
             || report.rest_completed
             || report.runnable
+            || self.maybe_warm_hot_path(now_mono_ns).is_err()
         {
             self.session.record_activity(now_mono_ns);
-        } else if !self.rest.account().frozen()
-            && !self.rest.gateway().halted()
-            && self.rest.submission_ready()
-        {
-            let _ = self
-                .session
-                .maybe_warm_hot_path_with_account(Some(self.rest.account()), now_mono_ns);
         }
         let mut next_deadline = report
             .next_deadline_ns
             .map_or(self.next_calibration, |d| d.min(self.next_calibration));
-        if let Some(warm_due) = self.session.next_warmup_due_ns() {
+        if !self.rest.account().frozen()
+            && !self.rest.gateway().halted()
+            && self.rest.submission_ready()
+            && let Some(warm_due) = self.session.next_warmup_due_ns()
+        {
             next_deadline = next_deadline.min(warm_due);
         }
         report.next_deadline_ns = Some(next_deadline);
@@ -853,10 +851,21 @@ where
     }
 
     pub fn set_warmup_interval_ns(&mut self, warmup_interval_ns: u64) -> Result<()> {
+        let cold_unseeded = warmup_interval_ns > 0
+            && self.session.last_activity_ns() == 0
+            && self.session.last_warm_ns() == 0;
         self.session
             .set_warmup_interval_ns(warmup_interval_ns)
             .map_err(Error::Shared)?;
         if warmup_interval_ns > 0 {
+            if cold_unseeded
+                && self.session.last_activity_ns() == 0
+                && self.session.last_warm_ns() == 0
+                && let Ok(reading) = self.time()
+            {
+                self.session
+                    .record_activity(reading.local.monotonic.nanos());
+            }
             self.session
                 .refresh_warmup_scratch(self.rest.account())
                 .map_err(Error::Shared)?;

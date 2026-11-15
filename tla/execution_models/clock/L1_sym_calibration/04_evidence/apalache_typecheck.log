@@ -1,0 +1,17 @@
+>>> Apalache [typecheck] module=L1_SymCalibration
+# Usage statistics is ON. Thank you!
+# If you have changed your mind, disable the statistics with config --enable-stats=false.
+
+Output directory: /tmp/apalache_work.uFaP45/out/L1_SymCalibration.tla/2026-11-15T17-11-18_7521963081100415423
+# APALACHE version: 0.63.0 | build: 67b8ec6                       I@17:11:18.475
+Type checking L1_SymCalibration.tla                               I@17:11:18.480
+PASS #0: SanyParser                                               I@17:11:18.621
+PASS #1: TypeCheckerSnowcat                                       I@17:11:19.522
+ > Running Snowcat .::.                                           I@17:11:19.522
+ > Your types are purrfect!                                       I@17:11:21.294
+ > All expressions are typed                                      I@17:11:21.295
+Type checker [OK]                                                 I@17:11:21.295
+It took me 0 days  0 hours  0 min  2 sec                          I@17:11:21.295
+Total time: 2.816 sec                                             I@17:11:21.296
+EXITCODE: OK
+>>> [typecheck] elapsed: 3s (exit 0)

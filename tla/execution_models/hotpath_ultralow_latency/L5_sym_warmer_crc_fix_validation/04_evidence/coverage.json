@@ -1,0 +1,24 @@
+{
+  "model": "L5_SymWarmerCrcFixValidation",
+  "runs": 2,
+  "entries": 16,
+  "generated": {
+    "Init line 207, col 1 to line 207, col 4 of module L5_SymWarmerCrcFixValidation": 2,
+    "EnableWarmupColdStartup line 246, col 1 to line 246, col 23 of module L5_SymWarmerCrcFixValidation": 12,
+    "AdvanceClockMonotonic line 264, col 1 to line 264, col 21 of module L5_SymWarmerCrcFixValidation": 2586,
+    "SetNodeNotReady line 282, col 1 to line 282, col 15 of module L5_SymWarmerCrcFixValidation": 2221,
+    "RestoreNodeReady line 293, col 1 to line 293, col 16 of module L5_SymWarmerCrcFixValidation": 2221,
+    "BeginSignedInFlight line 305, col 1 to line 305, col 19 of module L5_SymWarmerCrcFixValidation": 1368,
+    "CompleteSignedInFlight line 318, col 1 to line 318, col 22 of module L5_SymWarmerCrcFixValidation": 1706,
+    "CoreNodeStepActive line 334, col 1 to line 334, col 18 of module L5_SymWarmerCrcFixValidation": 5152,
+    "CoreNodeStepIdleNotReady line 367, col 1 to line 367, col 24 of module L5_SymWarmerCrcFixValidation": 1288,
+    "CoreNodeStepIdleReadySignedBusy line 399, col 1 to line 399, col 31 of module L5_SymWarmerCrcFixValidation": 481,
+    "CoreNodeStepIdleReadyNotDue line 434, col 1 to line 434, col 27 of module L5_SymWarmerCrcFixValidation": 719,
+    "CoreNodeStepIdleReadyWarmOk line 466, col 1 to line 466, col 27 of module L5_SymWarmerCrcFixValidation": 88,
+    "CoreNodeStepIdleReadyWarmErr line 504, col 1 to line 504, col 28 of module L5_SymWarmerCrcFixValidation": 534,
+    "CoreNodeStepIdleBackwardJitter line 538, col 1 to line 538, col 30 of module L5_SymWarmerCrcFixValidation": 1568,
+    "SessionMaybeWarmAtBoundary line 590, col 1 to line 590, col 26 of module L5_SymWarmerCrcFixValidation": 392,
+    "EvaluateCrc32cMaskedPair line 619, col 1 to line 619, col 24 of module L5_SymWarmerCrcFixValidation": 313632
+  },
+  "model_sha256": "7d2fbde17fabba9975d0fab0179529aee1f22c365b26e1018a87325fc3c126f9"
+}

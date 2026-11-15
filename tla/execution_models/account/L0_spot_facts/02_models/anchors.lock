@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-11-15T01:05:32
+# anchors.lock — written by anchors.sh update on 2026-11-15T05:52:13
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 crates/tickwire-account/src/admission.rs	10	19fd5ba47a7da392693ca01c72c0e5dfb7c33adafd3a9c3fb9523c4d7cbd1b99
 crates/tickwire-account/src/admission.rs	11	e0da6ef89ecbd2f05476efc06a9013d7010407d5cb9ab43dc71797ade66a83dc
@@ -645,7 +645,6 @@ crates/tickwire-account/src/lib.rs	102	a3ef0e2c16ac01b888c1d70126c6e3749ee78ee5d
 crates/tickwire-account/src/lib.rs	103	71074dfeb1aaafdf60e7e427650e1acda44368de598c57d375c6d7f78131a569
 crates/tickwire-account/src/lib.rs	104	6854e6ba9d51ab5457c637f1728d9f009e4d98100e0f0356d564d34d110cff93
 crates/tickwire-account/src/lib.rs	105	b9257b23abe6b91d4b2a88b491c990f22fe135b82d309fed026c353c24df5597
-crates/tickwire-account/src/lib.rs	54	a65aa1168530b8f8ee901c0fb83542ea78a928f4078480a003e6ee7a022ede68
 crates/tickwire-account/src/lib.rs	56	13e6998f3617264cdbec22e84b0db93f49fb24f907ddaf51f4d4b295a44d1479
 crates/tickwire-account/src/lib.rs	57	59143adf6c1a5db3cfa84a55cf0936268f95a69dc951779b2becb0d38984a886
 crates/tickwire-account/src/lib.rs	58	768141e232f95f2629d04528eadc46418a7366b92001ddfaa07f30f48e4dfbd5

@@ -1,0 +1,18 @@
+>>> Apalache [typecheck] module=L2_SymRateLimiter
+Picked up JAVA_TOOL_OPTIONS:  -Djava.io.tmpdir=/tmp/apalache_work.Q2ls0v/java_tmp
+# Usage statistics is ON. Thank you!
+# If you have changed your mind, disable the statistics with config --enable-stats=false.
+
+Output directory: /tmp/apalache_work.Q2ls0v/out/L2_SymRateLimiter.tla/2026-11-15T19-04-37_2352122208844276281
+# APALACHE version: 0.63.0 | build: 67b8ec6                       I@19:04:37.622
+Type checking L2_SymRateLimiter.tla                               I@19:04:37.628
+PASS #0: SanyParser                                               I@19:04:37.768
+PASS #1: TypeCheckerSnowcat                                       I@19:04:38.570
+ > Running Snowcat .::.                                           I@19:04:38.570
+ > Your types are purrfect!                                       I@19:04:40.595
+ > All expressions are typed                                      I@19:04:40.595
+Type checker [OK]                                                 I@19:04:40.596
+It took me 0 days  0 hours  0 min  2 sec                          I@19:04:40.596
+Total time: 2.969 sec                                             I@19:04:40.596
+EXITCODE: OK
+>>> [typecheck] elapsed: 3s (exit 0)

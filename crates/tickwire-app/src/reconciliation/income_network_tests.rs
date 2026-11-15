@@ -889,3 +889,185 @@ fn tls_empty_account_renews_twice_and_failed_refresh_cannot_extend_recovered_dea
         second_until.unwrap()
     );
 }
+
+#[test]
+fn core_node_warmup_seeds_startup_clock_and_preserves_nonzero_idle_wait_when_unready_frozen_or_halted()
+ {
+    let temp = Temporary::new();
+    let server = Server::start(true, false);
+    let silent_rest = TcpListener::bind("127.0.0.1:0").unwrap();
+    silent_rest.set_nonblocking(true).unwrap();
+    let silent_rest_addr = silent_rest.local_addr().unwrap();
+    let domain = ClockDomain::new([71; 16], 1).unwrap();
+    let mut sys_clock = SystemClock::new(domain).unwrap();
+    let now = sys_clock.sample().unwrap().monotonic;
+    let admin = Ed25519KeyPair::from_seed_unchecked(&[42; 32]).unwrap();
+    let mut deploy = deployment(&temp.0, now.nanos(), &admin);
+    let (s, c, _) = fixture::futures_fixture();
+    let baseline = CanonicalBaseline::new(s, c).unwrap();
+    fs::write(&deploy.baseline, baseline.bytes()).unwrap();
+    let config = deploy.assemble(baseline.clone()).unwrap();
+    let plane = deploy.policy.build().unwrap();
+    let provider = deploy.policy.native_provider(&plane).unwrap();
+    let quota = deploy
+        .quota
+        .build(tickwire_quota::MockQuotaStore::default(), now)
+        .unwrap();
+    let keys = crate::config::CredentialMaterial {
+        api_key: "TEST-INCOME".into(),
+        signing_key: tickwire_binance::auth::SigningKey::hmac(SECRET).unwrap(),
+    };
+    let credentials = deploy.credentials(&baseline, &keys);
+    let deadline = Instant::now() + Duration::from_secs(8);
+    let make_network = || files::Networks {
+        websocket: None,
+        rest: tickwire_account_gateway::ConnectionConfig {
+            address: silent_rest_addr,
+            tls: server.tls.clone(),
+            limits: Limits::default(),
+            connect_deadline: deadline,
+        },
+        time: tickwire_binance_clock::NetworkConfig {
+            address: server.address,
+            tls: server.tls.clone(),
+        },
+        public: public::NetworkConfig {
+            stream_address: server.address,
+            snapshot_address: server.address,
+            tls: server.tls.clone(),
+        },
+        private: private::NetworkConfig {
+            stream_address: server.address,
+            management_address: Some(server.address),
+            tls: server.tls.clone(),
+        },
+    };
+    let mut node = files::open::<public::BinanceUsdM, _, _, _, 8, 8, 2>(
+        config,
+        make_network(),
+        credentials,
+        deploy.authentication(&keys),
+        quota.endpoint,
+        provider,
+        Observe,
+        Output,
+        Box::new(plane.observer()),
+    )
+    .unwrap();
+    node.set_market_source(Box::new(NoMarket(domain))).unwrap();
+    let _accepted_rest = silent_rest.accept();
+
+    // 1. Cold-startup clock seeding: enabling warmup seeds last_activity_ns from live monotonic clock.
+    let before_enable_ns = node.local_time().unwrap().monotonic.nanos();
+    assert_eq!(node.session().last_activity_ns(), 0);
+    node.set_warmup_interval_ns(500_000).unwrap();
+    let seeded_ns = node.session().last_activity_ns();
+    assert!(
+        seeded_ns >= before_enable_ns && seeded_ns > 0,
+        "expected cold startup activity seed >= {before_enable_ns}, got {seeded_ns}"
+    );
+    assert_eq!(
+        node.session().next_warmup_due_ns(),
+        Some(seeded_ns + 500_000)
+    );
+
+    // Settle time/private handshakes on an active ready node.
+    let mut settled = false;
+    while Instant::now() < deadline {
+        let report = node.step().unwrap();
+        if !report.runnable {
+            settled = true;
+            break;
+        }
+        thread::sleep(Duration::from_millis(1));
+    }
+    assert!(settled, "node did not reach quiescent turn");
+
+    // 2. !submission_ready() (pooled mode with zero ready slots): sleep past warmup_interval_ns
+    // (2 ms > 500 us); step() must NOT warm and must keep next_deadline_ns strictly in the future.
+    node.with_trading_owner(|rest| {
+        rest.enable_connection_pool(tickwire_transport::order_router::RouterConfig::default())
+            .unwrap();
+    });
+    assert!(!node.account().frozen());
+    assert!(!node.rest().gateway().halted());
+    assert!(!node.rest().submission_ready());
+    let warmups_before_unready = node.warmup_count();
+    thread::sleep(Duration::from_millis(2));
+    let before_unready_step_ns = node.local_time().unwrap().monotonic.nanos();
+    let unready_report = node.step().unwrap();
+    let after_unready_step_ns = node.local_time().unwrap().monotonic.nanos();
+    assert!(!unready_report.runnable);
+    assert_eq!(node.warmup_count(), warmups_before_unready);
+    assert!(node.session().last_activity_ns() >= before_unready_step_ns);
+    assert!(
+        unready_report.next_deadline_ns.unwrap() > after_unready_step_ns,
+        "unready node produced expired next_deadline_ns={:?} at now={after_unready_step_ns}",
+        unready_report.next_deadline_ns
+    );
+
+    // 3. halted(): stop_sending() and sleep past warmup_interval_ns again.
+    node.with_trading_owner(|rest| rest.stop_sending());
+    assert!(node.rest().gateway().halted());
+    thread::sleep(Duration::from_millis(2));
+    let before_halted_step_ns = node.local_time().unwrap().monotonic.nanos();
+    let halted_report = node.step().unwrap();
+    let after_halted_step_ns = node.local_time().unwrap().monotonic.nanos();
+    assert!(!halted_report.runnable);
+    assert_eq!(node.warmup_count(), warmups_before_unready);
+    assert!(node.session().last_activity_ns() >= before_halted_step_ns);
+    assert!(
+        halted_report.next_deadline_ns.unwrap() > after_halted_step_ns,
+        "halted node produced expired next_deadline_ns={:?} at now={after_halted_step_ns}",
+        halted_report.next_deadline_ns
+    );
+    node.stop();
+    drop(node);
+
+    // 4. frozen(): reopen under RecoverFrozen (`deploy.recover = true`) so account().frozen() == true.
+    deploy.recover = true;
+    let now2 = sys_clock.sample().unwrap().monotonic;
+    let config2 = deploy.assemble(baseline.clone()).unwrap();
+    let plane2 = deploy.policy.build().unwrap();
+    let provider2 = deploy.policy.native_provider(&plane2).unwrap();
+    let quota2 = deploy
+        .quota
+        .build(tickwire_quota::MockQuotaStore::default(), now2)
+        .unwrap();
+    let mut frozen_node = files::open::<public::BinanceUsdM, _, _, _, 8, 8, 2>(
+        config2,
+        make_network(),
+        deploy.credentials(&baseline, &keys),
+        deploy.authentication(&keys),
+        quota2.endpoint,
+        provider2,
+        Observe,
+        Output,
+        Box::new(plane2.observer()),
+    )
+    .unwrap();
+    frozen_node
+        .set_market_source(Box::new(NoMarket(domain)))
+        .unwrap();
+    frozen_node.set_warmup_interval_ns(500_000).unwrap();
+    assert!(frozen_node.account().frozen());
+    while Instant::now() < deadline {
+        if !frozen_node.step().unwrap().runnable {
+            break;
+        }
+        thread::sleep(Duration::from_millis(1));
+    }
+    thread::sleep(Duration::from_millis(2));
+    let before_frozen_step_ns = frozen_node.local_time().unwrap().monotonic.nanos();
+    let frozen_report = frozen_node.step().unwrap();
+    let after_frozen_step_ns = frozen_node.local_time().unwrap().monotonic.nanos();
+    assert!(!frozen_report.runnable);
+    assert_eq!(frozen_node.warmup_count(), 0);
+    assert!(frozen_node.session().last_activity_ns() >= before_frozen_step_ns);
+    assert!(
+        frozen_report.next_deadline_ns.unwrap() > after_frozen_step_ns,
+        "frozen node produced expired next_deadline_ns={:?} at now={after_frozen_step_ns}",
+        frozen_report.next_deadline_ns
+    );
+    frozen_node.stop();
+}

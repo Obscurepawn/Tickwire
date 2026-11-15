@@ -54,10 +54,11 @@ balance holds, WAL commits, and first-byte socket gates.
   [examples/baseline-template.cbor](examples/baseline-template.cbor)) confined to `paper` in [src/main.rs](src/main.rs).
 * **Idle-window hot-path cache warming (`warmup_interval_ns`)**: `AccountRunner` ([src/lib.rs](src/lib.rs)) and
   `Deployment` ([src/live/config.rs](src/live/config.rs), [src/live.rs](src/live.rs)) keep `warmup_interval_ns == 0`
-  disabled by default, record real market/order/fill activity via `record_activity`, refresh the scratch `Account` clone
-  only off the hot path after reconciliation, and invoke `maybe_warm_hot_path` strictly on idle reactor turns when
-  `active_inflight_len() == 0` so `Account`, `AccountJournal`, `Origins`, strategy `intent_seq`, `VenueRateLimiter`, and
-  live TLS sessions remain untouched.
+  disabled by default, seed `record_activity` from the live monotonic clock at `live` startup when
+  `cfg.warmup_interval_ns > 0`, record real market/order/fill activity via `record_activity`, refresh the scratch
+  `Account` clone only off the hot path after reconciliation, and invoke `maybe_warm_hot_path` strictly on idle reactor
+  turns when `active_inflight_len() == 0` so `Account`, `AccountJournal`, `Origins`, strategy `intent_seq`,
+  `VenueRateLimiter`, and live TLS sessions remain untouched.
 
 ## Verification and Specifications
 

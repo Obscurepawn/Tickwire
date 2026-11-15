@@ -1,0 +1,31 @@
+{
+  "model": "L0_DepthSync",
+  "runs": 4,
+  "entries": 23,
+  "generated": {
+    "Init line 76, col 1 to line 76, col 4 of module L0_DepthSync": 2,
+    "Connect line 82, col 1 to line 82, col 7 of module L0_DepthSync": 77810,
+    "ConnectRejected line 87, col 1 to line 87, col 15 of module L0_DepthSync": 154078,
+    "Subscribe line 90, col 1 to line 90, col 9 of module L0_DepthSync": 133034,
+    "OldConnection line 93, col 1 to line 93, col 13 of module L0_DepthSync": 79852,
+    "OldSnapshot line 96, col 1 to line 96, col 11 of module L0_DepthSync": 157956,
+    "Request line 100, col 1 to line 100, col 7 of module L0_DepthSync": 59440,
+    "RequestBadState line 109, col 1 to line 109, col 15 of module L0_DepthSync": 40030,
+    "RequestBadDeadline line 110, col 1 to line 110, col 18 of module L0_DepthSync": 478912,
+    "RequestPending line 113, col 1 to line 113, col 14 of module L0_DepthSync": 56320,
+    "ClockRegression line 119, col 1 to line 119, col 15 of module L0_DepthSync": 155772,
+    "DeltaInvalid line 122, col 1 to line 122, col 12 of module L0_DepthSync": 243678,
+    "DeltaBuffer line 126, col 1 to line 126, col 11 of module L0_DepthSync": 307504,
+    "DeltaApply line 134, col 1 to line 134, col 10 of module L0_DepthSync": 523280,
+    "SnapshotExpired line 145, col 1 to line 145, col 15 of module L0_DepthSync": 55680,
+    "SnapshotHttpFailure line 149, col 1 to line 149, col 19 of module L0_DepthSync": 32000,
+    "SnapshotInvalid line 154, col 1 to line 154, col 15 of module L0_DepthSync": 32000,
+    "SnapshotValid line 178, col 1 to line 178, col 13 of module L0_DepthSync": 184320,
+    "SnapshotDelayed line 179, col 1 to line 179, col 15 of module L0_DepthSync": 7680,
+    "SnapshotTransportFailure line 181, col 1 to line 181, col 24 of module L0_DepthSync": 87680,
+    "Expire line 185, col 1 to line 185, col 6 of module L0_DepthSync": 286074,
+    "Disconnect line 194, col 1 to line 194, col 10 of module L0_DepthSync": 133034,
+    "View line 198, col 1 to line 198, col 4 of module L0_DepthSync": 441498
+  },
+  "model_sha256": "5cf86194dd707b058fdebdd0b4d5255b7f491445b73c78c09bf53c59218f5c97"
+}

@@ -146,7 +146,8 @@ impl WarmupTracker {
         self.warm_count = self.warm_count.saturating_add(1);
     }
 
-    /// Returns the next monotonic timestamp at which warming becomes due when enabled.
+    /// Returns the next monotonic timestamp at which warming becomes due when enabled,
+    /// or `None` when disabled (`warmup_interval_ns == 0`) or `anchor + warmup_interval_ns > u64::MAX`.
     #[inline]
     pub const fn next_due_ns(&self) -> Option<u64> {
         if self.config.warmup_interval_ns == 0 {
@@ -157,7 +158,7 @@ impl WarmupTracker {
         } else {
             self.last_warm_ns
         };
-        Some(anchor.saturating_add(self.config.warmup_interval_ns))
+        anchor.checked_add(self.config.warmup_interval_ns)
     }
 
     /// Pure check returning `true` iff warming is enabled and idle time `>= warmup_interval_ns`.

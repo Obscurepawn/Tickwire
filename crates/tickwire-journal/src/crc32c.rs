@@ -177,22 +177,20 @@ pub fn crc32c_update(crc: u32, input: &[u8]) -> u32 {
     !update_dispatch(!crc, input)
 }
 
-/// Compute Castagnoli CRC-32C over `input` while treating `input[zero_range]` as zeros,
-/// without allocating or copying `input`.
+/// Compute Castagnoli CRC-32C over `input` while treating `input[zero_range]` (clamped to
+/// `input.len()`) as zeros, without allocating or copying `input`.
 pub fn crc32c_masked(input: &[u8], zero_range: Range<usize>) -> u32 {
-    assert!(
-        zero_range.start <= zero_range.end && zero_range.end <= input.len(),
-        "masked CRC range out of bounds"
-    );
     const ZEROS: [u8; 64] = [0u8; 64];
-    let mut state = update_dispatch(!0u32, &input[..zero_range.start]);
-    let mut remaining = zero_range.end - zero_range.start;
+    let end = zero_range.end.min(input.len());
+    let start = zero_range.start.min(end);
+    let mut state = update_dispatch(!0u32, &input[..start]);
+    let mut remaining = end - start;
     while remaining > 0 {
         let step = remaining.min(ZEROS.len());
         state = update_dispatch(state, &ZEROS[..step]);
         remaining -= step;
     }
-    state = update_dispatch(state, &input[zero_range.end..]);
+    state = update_dispatch(state, &input[end..]);
     !state
 }
 

@@ -1,0 +1,21 @@
+{
+  "model": "L2_SymRateLimiter",
+  "runs": 2,
+  "entries": 13,
+  "generated": {
+    "Init line 338, col 1 to line 338, col 4 of module L2_SymRateLimiter": 2,
+    "PlaceOrderSingle line 507, col 1 to line 507, col 16 of module L2_SymRateLimiter": 202784,
+    "PlaceOrderDuplicateFixed line 536, col 1 to line 536, col 24 of module L2_SymRateLimiter": 202784,
+    "RollingFirstMultiSpend line 559, col 1 to line 559, col 22 of module L2_SymRateLimiter": 101392,
+    "CancelOrder line 646, col 1 to line 646, col 11 of module L2_SymRateLimiter": 101392,
+    "QueryRequest line 674, col 1 to line 674, col 12 of module L2_SymRateLimiter": 101392,
+    "LocalAdmissionRejectNoBurn line 748, col 1 to line 748, col 26 of module L2_SymRateLimiter": 11419,
+    "ClockRegressionReject line 763, col 1 to line 763, col 21 of module L2_SymRateLimiter": 20328,
+    "NoteHttp429IpCooldown line 782, col 1 to line 782, col 21 of module L2_SymRateLimiter": 91352,
+    "NoteAccountCooldown line 804, col 1 to line 804, col 19 of module L2_SymRateLimiter": 45676,
+    "NoteHttp418AccountBan line 823, col 1 to line 823, col 21 of module L2_SymRateLimiter": 5783,
+    "ReconcileExchangeFixed line 843, col 1 to line 843, col 22 of module L2_SymRateLimiter": 101392,
+    "ReconcileExchangeRolling line 870, col 1 to line 870, col 24 of module L2_SymRateLimiter": 101392
+  },
+  "model_sha256": "28cb6ca02eb0c7af3aee3666ac61b785b44b7ff51019d51c66d9e63e131b4f95"
+}
