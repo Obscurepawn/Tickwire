@@ -28,11 +28,12 @@ Before enabling live strategy `REQ` admission on a `BybitUtaSession` or `OkxUtaS
 
 When a cancel NACK, ungraceful socket drop with unacknowledged in-flight commands, or response timeout leaves a specific order's venue state uncertain, only that order enters per-order inquiry in [`OrsQueryDesk`](../../crates/tickwire-account/src/ors_query_desk.rs) while unrelated orders on the account continue trading without interruption:
 
-1. **Off-hot-path signed REST builders (`UtaRestRequestBuilder`)**:
+1. **Off-hot-path signed REST builders (`UtaRestRequestBuilder` & `lookup_status_ask_target`)**:
    * Implements [`RestRequestBuilder`](../../crates/tickwire-transport/src/rest_querier.rs) for [`AsyncRestQuerier`](../../crates/tickwire-transport/src/rest_querier.rs) on cold housekeeping CPUs, spending only the `REQUEST` + `PER_IP` query quota (`OrsAccountQuota::allow_query`, strictly isolated from `ORDER` and `CANCEL` caps).
-   * **Bybit V5 single-order `StatusAsk`**: `GET /v5/order/realtime?category={spot|linear|inverse|option}&symbol=...&orderLinkId=...` (with optional `orderId=...` and `GET /v5/order/history` fallback when an order has aged out of the realtime cache, plus `GET /v5/execution/list` when individual trade attribution is requested).
-   * **OKX V5 single-order `StatusAsk`**: `GET /api/v5/trade/order?instId=...&clOrdId=...` (or `&ordId=...`, plus optional `GET /api/v5/trade/fills`).
-2. **Reconciliation (`decode_order_query_snapshot` -> `OrderManager::reconcile_query_snapshot`)**:
+   * Reads `(account_ref, symbol_id, client_id, venue_order_id)` directly from `OrderManager::lock_order(ors_order_id)` via `lookup_status_ask_target` (copying out inline ASCII identifiers and immediately releasing the fine-grained per-order spinlock before resolving `UtaSymbolBinding` and signing HTTP headers), requiring zero auxiliary `Mutex` registry on `REQ` or `RESP`.
+   * **Bybit V5 single-order `StatusAsk`**: `GET /v5/order/realtime?category={spot|linear|inverse|option}&symbol=...&orderLinkId=...` (with `&orderId=...` when known, `GET /v5/order/history` fallback when an order has aged out of the realtime cache, plus `GET /v5/execution/list` when individual trade attribution is requested).
+   * **OKX V5 single-order `StatusAsk`**: `GET /api/v5/trade/order?instId=...&clOrdId=...` (with `&ordId=...` when known, plus optional `GET /api/v5/trade/fills`).
+2. **Reconciliation (`decode_status_ask_snapshot` -> `OrderManager::reconcile_query_snapshot`)**:
    * Decodes the REST reply into [`OrsOrderQuerySnapshot`](../../crates/tickwire-account/src/order_manager.rs) (`Open`, `PartiallyFilled`, `Filled`, `Canceled`, `Expired`, or `NotFound`) alongside any individual `OrsFillObservation` rows.
    * Individual trade fills apply through `FillRecordPool` deduplication strictly before terminal remainder release so fill fees, positions, and wallet holds settle once across WebSocket notifications and REST queries.
    * If `reconcile_query_snapshot` returns `OrsQueryReconcileAction::DispatchCancel` (e.g., an order with a queued cancel confirmed `Open`), the session immediately dispatches the cancel over the UTA connection pool; inconclusive HTTP/transport errors call `OrderManager::on_query_inconclusive` for bounded exponential backoff retry.

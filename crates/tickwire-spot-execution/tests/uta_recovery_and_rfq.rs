@@ -406,7 +406,7 @@ fn ors_query_desk_status_ask_reconciles_fills_and_dispatches_coalesced_cancel() 
         private_stream_baton: None,
         rfq_hook: None,
     };
-    let mut session = BybitUtaSession::new(Arc::clone(&om), cfg).unwrap();
+    let session = BybitUtaSession::new(Arc::clone(&om), cfg).unwrap();
     let (conn0, mut srv0) = loopback_pair();
     session
         .install_order_connection(0, conn0, true, 1_700_000_000_000, 1_000)
@@ -486,7 +486,8 @@ fn ors_query_desk_status_ask_reconciles_fills_and_dispatches_coalesced_cancel() 
     let mut builder = UtaRestRequestBuilder::new(
         creds,
         Environment::Test,
-        session.status_ask_registry(),
+        Arc::clone(session.order_manager()),
+        session.symbols(),
         || 1_700_000_002_000,
     );
     let task = RestTask::status_ask(oid, 1, 2_000_000_000, 7_000_000_000);
@@ -706,7 +707,7 @@ fn rfq_quote_hook_defaults_to_not_supported_and_encodes_bybit_and_okx_rfq_endpoi
     assert!(!session.rfq_hook().has_quote(quote_req.ors_order_id));
 
     // 3. Also verify Bybit `/v5/rfq/{create-quote,cancel-all-quotes}` payload builder directly
-    let mut bybit_book = UtaRfqQuoteBook::new(8);
+    let bybit_book = UtaRfqQuoteBook::new(8);
     let mut bbuf = [0u8; 1024];
     let bybit_leg = RfqQuoteLeg {
         symbol: InlineAscii::try_from_str("BTC-25DEC26-90000-C").unwrap(),

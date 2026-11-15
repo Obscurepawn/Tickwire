@@ -15,7 +15,7 @@ use crate::{
     symbol_ok, trade_id_inline,
 };
 use serde_json::Value;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use tickwire_account::{
     InlineAscii, OrderManager, OrsBootstrapSummary, OrsExchangeBootstrapSnapshot, OrsFeeSpec,
     OrsFillObservation, OrsOrderQuerySnapshot, OrsQueriedOrderStatus, OrsRestBalanceRow,
@@ -76,8 +76,8 @@ impl UtaAssetBinding {
     }
 }
 
-/// Per-order target metadata registered before dispatching a `RestTask::status_ask` on the cold
-/// `AsyncRestQuerier` worker thread.
+/// Per-order target metadata extracted by value from [`OrderManager::lock_order`] when building or
+/// reconciling an `OrsQueryDesk` `StatusAsk` task off the hot path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StatusAskTarget {
     pub ors_order_id: u64,
@@ -89,49 +89,33 @@ pub struct StatusAskTarget {
     pub venue_order_id: InlineAscii<64>,
 }
 
-/// Off-hot-path registry shared between `UtaAccountSession` (`OrsQueryDesk` dispatcher) and the
-/// `housekeeping_cpus`-pinned `AsyncRestQuerier` [`UtaRestRequestBuilder`].
-#[derive(Debug, Default)]
-pub struct StatusAskRegistry {
-    entries: Mutex<Vec<StatusAskTarget>>,
-}
+/// Reads `(account_ref, symbol_id, client_id, venue_order_id)` under `OrderManager`'s fine-grained
+/// per-order spinlock, drops the spinlock immediately (zero allocation, formatting, or slice scan
+/// under the lock), and resolves the matching [`UtaSymbolBinding`].
+pub fn lookup_status_ask_target<const CHECK_STP: bool>(
+    order_manager: &OrderManager<CHECK_STP>,
+    symbols: &[UtaSymbolBinding],
+    ors_order_id: u64,
+) -> Option<(StatusAskTarget, UtaSymbolBinding)> {
+    let locked = order_manager.lock_order(ors_order_id)?;
+    let o = locked.order();
+    let account_ref = o.account_ref;
+    let symbol_id = o.symbol_id;
+    let client_id = o.client_id;
+    let venue_order_id = o.venue_order_id;
+    drop(locked);
 
-impl StatusAskRegistry {
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            entries: Mutex::new(Vec::with_capacity(64)),
-        }
-    }
-
-    pub fn upsert(&self, target: StatusAskTarget) {
-        if let Ok(mut guard) = self.entries.lock() {
-            if let Some(existing) = guard
-                .iter_mut()
-                .find(|e| e.ors_order_id == target.ors_order_id)
-            {
-                *existing = target;
-            } else {
-                guard.push(target);
-            }
-        }
-    }
-
-    pub fn get(&self, ors_order_id: u64) -> Option<StatusAskTarget> {
-        let guard = self.entries.lock().ok()?;
-        guard
-            .iter()
-            .copied()
-            .find(|e| e.ors_order_id == ors_order_id)
-    }
-
-    pub fn remove(&self, ors_order_id: u64) {
-        if let Ok(mut guard) = self.entries.lock()
-            && let Some(pos) = guard.iter().position(|e| e.ors_order_id == ors_order_id)
-        {
-            guard.swap_remove(pos);
-        }
-    }
+    let binding = *symbols.iter().find(|s| s.symbol_id == symbol_id)?;
+    let target = StatusAskTarget {
+        ors_order_id,
+        account_ref,
+        symbol_id,
+        product: binding.spec.product,
+        symbol: binding.symbol,
+        client_id,
+        venue_order_id,
+    };
+    Some((target, binding))
 }
 
 /// Builds the Bybit V5 or OKX V5 wallet-balance REST `GET` path for UTA cold bootstrap.
@@ -315,32 +299,40 @@ pub fn sign_get_built_request(
 /// [`RestRequestBuilder`] implementation driving `AsyncRestQuerier` off the hot path for Bybit V5
 /// and OKX V5 `ACCOUNT_SNAPSHOT`, `OPEN_ORDERS_SNAPSHOT`, and `OrsQueryDesk` `STATUS_ASK` tasks.
 ///
+/// For `STATUS_ASK`, `task.key` is `ors_order_id`; [`UtaRestRequestBuilder`] reads
+/// `(symbol_id, client_id, venue_order_id)` directly from [`OrderManager::lock_order`], releases
+/// the fine-grained per-order spinlock immediately, and formats/signs the request outside all locks
+/// with zero `Mutex` coordination on `REQ` or `RESP`.
+///
 /// For `OPEN_ORDERS_SNAPSHOT`, `task.key & 0x03` selects the Bybit `category` / OKX `instType` index
 /// (`0 = Spot`, `1 = Linear/Swap`, `2 = Inverse/Futures`, `3 = Option`).
-pub struct UtaRestRequestBuilder {
+pub struct UtaRestRequestBuilder<const CHECK_STP: bool = true> {
     credentials: OwnedCredentials,
     environment: Environment,
-    registry: Arc<StatusAskRegistry>,
+    order_manager: Arc<OrderManager<CHECK_STP>>,
+    symbols: Arc<[UtaSymbolBinding]>,
     clock_utc_ms: Box<dyn FnMut() -> u64 + Send>,
 }
 
-impl UtaRestRequestBuilder {
+impl<const CHECK_STP: bool> UtaRestRequestBuilder<CHECK_STP> {
     pub fn new(
         credentials: OwnedCredentials,
         environment: Environment,
-        registry: Arc<StatusAskRegistry>,
+        order_manager: Arc<OrderManager<CHECK_STP>>,
+        symbols: Arc<[UtaSymbolBinding]>,
         clock_utc_ms: impl FnMut() -> u64 + Send + 'static,
     ) -> Self {
         Self {
             credentials,
             environment,
-            registry,
+            order_manager,
+            symbols,
             clock_utc_ms: Box::new(clock_utc_ms),
         }
     }
 }
 
-impl RestRequestBuilder for UtaRestRequestBuilder {
+impl<const CHECK_STP: bool> RestRequestBuilder for UtaRestRequestBuilder<CHECK_STP> {
     fn build_request(
         &mut self,
         task: &RestTask,
@@ -375,7 +367,9 @@ impl RestRequestBuilder for UtaRestRequestBuilder {
                 }
             }
             query_kind::STATUS_ASK => {
-                let Some(target) = self.registry.get(task.key) else {
+                let Some((target, _binding)) =
+                    lookup_status_ask_target(&self.order_manager, &self.symbols, task.key)
+                else {
                     return Ok(None);
                 };
                 status_ask_order_path(venue, &target)

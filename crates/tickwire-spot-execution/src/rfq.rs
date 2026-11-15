@@ -4,6 +4,7 @@
 
 use crate::{SpotVenue, UtaVenueError, client_ok, symbol_ok, wire_encode::BufWriter};
 use tickwire_account::InlineAscii;
+use tickwire_transport::latency_tracer::{LockDomain, LockId, ThreadTag, TimedSpinLock};
 use tickwire_venue::{Product, Side, TerminalReason};
 
 /// Maximum legs inside one multi-leg UTA Options/Block RFQ quote.
@@ -122,7 +123,10 @@ pub struct RfqQuoteSnapshot {
 }
 
 /// Extension hook attached to `BybitUtaSession` / `OkxUtaSession` for UTA Options & Block RFQ quoting.
-pub trait RfqQuoteHook: Send {
+///
+/// Implementations are `Send + Sync` so `REQ` (`submit_quote`, `cancel_quotes`) and `RESP`
+/// (`on_quote_ack`, `on_quote_terminal`) operate concurrently via `&self` without coarse session locks.
+pub trait RfqQuoteHook: Send + Sync + std::fmt::Debug {
     /// Returns `true` when RFQ quoting is enabled on this session.
     fn is_enabled(&self) -> bool;
 
@@ -134,7 +138,7 @@ pub trait RfqQuoteHook: Send {
 
     /// Admits and encodes an outbound RFQ quote creation payload into `out_body`.
     fn submit_quote(
-        &mut self,
+        &self,
         venue: SpotVenue,
         req: &RfqQuoteRequest,
         out_body: &mut [u8],
@@ -142,17 +146,17 @@ pub trait RfqQuoteHook: Send {
 
     /// Marks matching RFQ quote(s) `PendingCancel` and encodes the cancellation payload into `out_body`.
     fn cancel_quotes(
-        &mut self,
+        &self,
         venue: SpotVenue,
         req: &RfqCancelQuotesRequest,
         out_body: &mut [u8],
     ) -> Result<BuiltRfqPayload, TerminalReason>;
 
     /// Transitions `ors_order_id` from `PendingNew` to `Open`, recording `venue_quote_id` when supplied.
-    fn on_quote_ack(&mut self, ors_order_id: u64, venue_quote_id: Option<&str>) -> bool;
+    fn on_quote_ack(&self, ors_order_id: u64, venue_quote_id: Option<&str>) -> bool;
 
     /// Releases the RFQ quote slot for `ors_order_id` upon fill, expiry, rejection, or cancellation.
-    fn on_quote_terminal(&mut self, ors_order_id: u64) -> bool;
+    fn on_quote_terminal(&self, ors_order_id: u64) -> bool;
 }
 
 /// Default disabled RFQ hook returning `TerminalReason::RFQ_QUOTE_NOT_SUPPORTED` (`RfqQuoteNotSupported`).
@@ -177,7 +181,7 @@ impl RfqQuoteHook for NoopRfqQuoteHook {
 
     #[inline]
     fn submit_quote(
-        &mut self,
+        &self,
         _venue: SpotVenue,
         _req: &RfqQuoteRequest,
         _out_body: &mut [u8],
@@ -187,7 +191,7 @@ impl RfqQuoteHook for NoopRfqQuoteHook {
 
     #[inline]
     fn cancel_quotes(
-        &mut self,
+        &self,
         _venue: SpotVenue,
         _req: &RfqCancelQuotesRequest,
         _out_body: &mut [u8],
@@ -196,21 +200,27 @@ impl RfqQuoteHook for NoopRfqQuoteHook {
     }
 
     #[inline]
-    fn on_quote_ack(&mut self, _ors_order_id: u64, _venue_quote_id: Option<&str>) -> bool {
+    fn on_quote_ack(&self, _ors_order_id: u64, _venue_quote_id: Option<&str>) -> bool {
         false
     }
 
     #[inline]
-    fn on_quote_terminal(&mut self, _ors_order_id: u64) -> bool {
+    fn on_quote_terminal(&self, _ors_order_id: u64) -> bool {
         false
     }
 }
 
-/// Preallocated, zero-hot-path-allocation RFQ quote book for Bybit V5 (`/v5/rfq/*`) and OKX V5 (`/api/v5/rfq/*`).
 #[derive(Debug)]
-pub struct UtaRfqQuoteBook {
+struct RfqBookInner {
     slots: Box<[Option<RfqQuoteSnapshot>]>,
     live_count: usize,
+}
+
+/// Preallocated, zero-hot-path-allocation RFQ quote book (`Send + Sync`, fine-grained
+/// `TimedSpinLock`) for Bybit V5 (`/v5/rfq/*`) and OKX V5 (`/api/v5/rfq/*`).
+#[derive(Debug)]
+pub struct UtaRfqQuoteBook {
+    inner: TimedSpinLock<RfqBookInner>,
 }
 
 impl Default for UtaRfqQuoteBook {
@@ -223,13 +233,20 @@ impl UtaRfqQuoteBook {
     pub fn new(capacity: usize) -> Self {
         let cap = capacity.max(1);
         Self {
-            slots: vec![None; cap].into_boxed_slice(),
-            live_count: 0,
+            inner: TimedSpinLock::new(
+                RfqBookInner {
+                    slots: vec![None; cap].into_boxed_slice(),
+                    live_count: 0,
+                },
+                LockId::new(LockDomain::GuardedValue, 0x0052_4651),
+            ),
         }
     }
 
     pub fn snapshot(&self, ors_order_id: u64) -> Option<RfqQuoteSnapshot> {
-        self.slots
+        let guard = self.inner.lock(ThreadTag::UNKNOWN);
+        guard
+            .slots
             .iter()
             .flatten()
             .find(|s| s.ors_order_id == ors_order_id)
@@ -482,77 +499,91 @@ impl RfqQuoteHook for UtaRfqQuoteBook {
 
     #[inline]
     fn has_quote(&self, ors_order_id: u64) -> bool {
-        ors_order_id != 0
-            && self
-                .slots
-                .iter()
-                .flatten()
-                .any(|s| s.ors_order_id == ors_order_id)
+        if ors_order_id == 0 {
+            return false;
+        }
+        let guard = self.inner.lock(ThreadTag::UNKNOWN);
+        guard
+            .slots
+            .iter()
+            .flatten()
+            .any(|s| s.ors_order_id == ors_order_id)
     }
 
     #[inline]
     fn open_quotes(&self) -> usize {
-        self.live_count
+        self.inner.lock(ThreadTag::UNKNOWN).live_count
     }
 
     fn submit_quote(
-        &mut self,
+        &self,
         venue: SpotVenue,
         req: &RfqQuoteRequest,
         out_body: &mut [u8],
     ) -> Result<BuiltRfqPayload, TerminalReason> {
-        if self.has_quote(req.ors_order_id) {
-            return Err(TerminalReason::ALLOCATION_ERROR);
-        }
-        let free_idx = self
-            .slots
-            .iter()
-            .position(Option::is_none)
-            .ok_or(TerminalReason::ALLOCATION_ERROR)?;
         let built = encode_rfq_create_quote_body_into(venue, req, out_body)
             .map_err(|_| TerminalReason::MKT_REJECT)?;
-        self.slots[free_idx] = Some(RfqQuoteSnapshot {
+        let snapshot = RfqQuoteSnapshot {
             ors_order_id: req.ors_order_id,
             strat_id: req.strat_id,
             state: RfqQuoteState::PendingNew,
             rfq_id: req.rfq_id,
             client_quote_id: req.client_quote_id,
             venue_quote_id: InlineAscii::empty(),
-        });
-        self.live_count += 1;
+        };
+        let mut guard = self.inner.lock(ThreadTag::REQ);
+        if guard
+            .slots
+            .iter()
+            .flatten()
+            .any(|s| s.ors_order_id == req.ors_order_id)
+        {
+            return Err(TerminalReason::ALLOCATION_ERROR);
+        }
+        let free_idx = guard
+            .slots
+            .iter()
+            .position(Option::is_none)
+            .ok_or(TerminalReason::ALLOCATION_ERROR)?;
+        guard.slots[free_idx] = Some(snapshot);
+        guard.live_count += 1;
+        drop(guard);
         Ok(built)
     }
 
     fn cancel_quotes(
-        &mut self,
+        &self,
         venue: SpotVenue,
         req: &RfqCancelQuotesRequest,
         out_body: &mut [u8],
     ) -> Result<BuiltRfqPayload, TerminalReason> {
         let mut effective = *req;
-        if let Some(target_id) = req.ors_order_id {
-            let Some(slot) = self
-                .slots
-                .iter_mut()
-                .flatten()
-                .find(|s| s.ors_order_id == target_id)
-            else {
-                return Err(TerminalReason::MKT_REJECT_NO_SUCH_ORDER);
-            };
-            slot.state = RfqQuoteState::PendingCancel;
-            if effective.rfq_id.is_none() {
-                effective.rfq_id = Some(slot.rfq_id);
-            }
-            if effective.client_quote_id.is_none() {
-                effective.client_quote_id = Some(slot.client_quote_id);
-            }
-            if effective.venue_quote_id.is_none() && !slot.venue_quote_id.is_empty() {
-                effective.venue_quote_id = Some(slot.venue_quote_id);
-            }
-        } else {
-            for slot in self.slots.iter_mut().flatten() {
-                if effective.rfq_id.is_none_or(|id| id == slot.rfq_id) {
-                    slot.state = RfqQuoteState::PendingCancel;
+        {
+            let mut guard = self.inner.lock(ThreadTag::REQ);
+            if let Some(target_id) = req.ors_order_id {
+                let Some(slot) = guard
+                    .slots
+                    .iter_mut()
+                    .flatten()
+                    .find(|s| s.ors_order_id == target_id)
+                else {
+                    return Err(TerminalReason::MKT_REJECT_NO_SUCH_ORDER);
+                };
+                slot.state = RfqQuoteState::PendingCancel;
+                if effective.rfq_id.is_none() {
+                    effective.rfq_id = Some(slot.rfq_id);
+                }
+                if effective.client_quote_id.is_none() {
+                    effective.client_quote_id = Some(slot.client_quote_id);
+                }
+                if effective.venue_quote_id.is_none() && !slot.venue_quote_id.is_empty() {
+                    effective.venue_quote_id = Some(slot.venue_quote_id);
+                }
+            } else {
+                for slot in guard.slots.iter_mut().flatten() {
+                    if effective.rfq_id.is_none_or(|id| id == slot.rfq_id) {
+                        slot.state = RfqQuoteState::PendingCancel;
+                    }
                 }
             }
         }
@@ -560,8 +591,10 @@ impl RfqQuoteHook for UtaRfqQuoteBook {
             .map_err(|_| TerminalReason::MKT_REJECT)
     }
 
-    fn on_quote_ack(&mut self, ors_order_id: u64, venue_quote_id: Option<&str>) -> bool {
-        let Some(slot) = self
+    fn on_quote_ack(&self, ors_order_id: u64, venue_quote_id: Option<&str>) -> bool {
+        let vqid_inline = venue_quote_id.and_then(InlineAscii::try_from_str);
+        let mut guard = self.inner.lock(ThreadTag::RESP);
+        let Some(slot) = guard
             .slots
             .iter_mut()
             .flatten()
@@ -572,22 +605,21 @@ impl RfqQuoteHook for UtaRfqQuoteBook {
         if slot.state == RfqQuoteState::PendingNew {
             slot.state = RfqQuoteState::Open;
         }
-        if let Some(vqid) = venue_quote_id
-            && let Some(inline) = InlineAscii::try_from_str(vqid)
-        {
+        if let Some(inline) = vqid_inline {
             slot.venue_quote_id = inline;
         }
         true
     }
 
-    fn on_quote_terminal(&mut self, ors_order_id: u64) -> bool {
-        for slot_opt in self.slots.iter_mut() {
+    fn on_quote_terminal(&self, ors_order_id: u64) -> bool {
+        let mut guard = self.inner.lock(ThreadTag::RESP);
+        for slot_opt in guard.slots.iter_mut() {
             if slot_opt
                 .as_ref()
                 .is_some_and(|s| s.ors_order_id == ors_order_id)
             {
                 *slot_opt = None;
-                self.live_count = self.live_count.saturating_sub(1);
+                guard.live_count = guard.live_count.saturating_sub(1);
                 return true;
             }
         }

@@ -7,6 +7,18 @@
 //! single-pick `SharedRateLimiter` admission (`pick -> spend -> NACK immediately`), zero-allocation
 //! single-pass `JsonScan`, `execution.fast` -> `execution` fee amendment (`amendment = true`), and
 //! server-maintenance `notice` graceful connection switchover with zero dropped open orders.
+//!
+//! # Concurrency & Lock Discipline (`Send + Sync`)
+//!
+//! `UtaAccountSession<CHECK_STP>` is `Send + Sync` and exposes `&self` across all `REQ` (`submit_*`)
+//! and `RESP` (`poll_resp`, `apply_*`, `poll_due_queries`) entry points so the dedicated `REQ` and
+//! `RESP` threads operate concurrently with zero coarse session locks and zero `std::sync::Mutex`:
+//! - `Order` (`OrderManager::lock_order`) and `Connection` (`LockedConnection`) spinlocks never
+//!   overlap.
+//! - Every helper spinlock (`slot.tracked`, `slot.resp_rx`, `private_stream_lock`, `router_lock`,
+//!   `publish_lock`, `venue_id_cache_lock`, `UtaRfqQuoteBook`) is a leaf `TimedSpinLock` held only
+//!   for fixed-size scalar/buffer swaps with zero heap allocation, zero logging, and zero protocol
+//!   parsing or wire formatting inside any critical section.
 
 // `UtaSubmitRefusal` returns `Option<OrsReport>` inline on the stack so `REQ` refusals never allocate.
 #![allow(clippy::result_large_err)]
@@ -24,9 +36,7 @@ use crate::{
     instrument_rate_scope, is_http_account_hazard, parse_positive_step_i64,
     parse_signed_scaled_i128,
     private::stream::UtaPrivateStream,
-    rest_bootstrap::{
-        StatusAskRegistry, StatusAskTarget, decode_status_ask_snapshot, parse_rest_fee,
-    },
+    rest_bootstrap::{decode_status_ask_snapshot, lookup_status_ask_target, parse_rest_fee},
     scan_bybit_frame, scan_okx_frame, symbol_rate_key, trade_id_inline, try_decode_http_response,
     try_decode_ws_server_frame,
     wire_encode::BufWriter,
@@ -35,7 +45,10 @@ use crate::{
 use std::{
     net::{IpAddr, Ipv4Addr},
     ops::{Deref, DerefMut},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU16, AtomicU32, AtomicU64, Ordering},
+    },
     time::Instant,
 };
 use tickwire_account::{
@@ -53,11 +66,15 @@ use tickwire_quota::{
 use tickwire_transport::{
     Connection, IoBudget, Limits,
     dialer::DialBaton,
+    latency_tracer::{LockDomain, LockId, ThreadTag, TimedSpinLock},
     links::{
         HttpsLink, LinkOps, LockedConnection, MAX_WS_INFLIGHT, RequestRef, SendOutcome, WsLink,
         WsLoginState,
     },
-    order_router::{MAX_ORDER_CONNECTIONS, OrderRouter, PublishedRoutes, RouterConfig, SendSlot},
+    order_router::{
+        MAX_ORDER_CONNECTIONS, OrderRouter, PublishedRoutes, RouterConfig, SampleKind, SendSlot,
+        UNMEASURED_SCORE,
+    },
     rest_querier::{AsyncRestQuerier, RestReply, RestStatus, RestTask, query_kind},
     ws::Opcode,
 };
@@ -75,6 +92,11 @@ const SLOT_RX_BUF_CAP: usize = 64 * 1024;
 
 /// Preallocated `(venue_order_id -> ors_order_id)` fallback ring capacity for venue frames omitting `client_id`.
 const VENUE_ID_CACHE_CAP: usize = 512;
+
+/// Maximum coalesced `cancel_on_ack` dispatches queued on the stack per decoded frame.
+const MAX_PENDING_CANCELS_PER_FRAME: usize = 32;
+
+const NO_PICKED_CONN: u16 = u16::MAX;
 
 /// Execution wire transport mode for a UTA session's outbound order connection pool.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -210,6 +232,35 @@ pub struct UtaPollReport {
     pub rate_limit_events: Vec<ExchRateLimitEvent>,
 }
 
+/// Stack-allocated `cancel_on_ack` collector avoiding all heap allocation on `RESP`.
+struct PendingCancelList {
+    ids: [u64; MAX_PENDING_CANCELS_PER_FRAME],
+    len: usize,
+}
+
+impl PendingCancelList {
+    #[inline]
+    const fn new() -> Self {
+        Self {
+            ids: [0; MAX_PENDING_CANCELS_PER_FRAME],
+            len: 0,
+        }
+    }
+
+    #[inline]
+    fn push(&mut self, ors_order_id: u64) {
+        if self.len < MAX_PENDING_CANCELS_PER_FRAME {
+            self.ids[self.len] = ors_order_id;
+            self.len += 1;
+        }
+    }
+
+    #[inline]
+    fn as_slice(&self) -> &[u64] {
+        &self.ids[..self.len]
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 enum InflightOpKind {
     #[default]
@@ -240,53 +291,148 @@ enum SlotWsSubPhase {
     Subscribed,
 }
 
+struct SlotRespRx {
+    rx_buf: Box<[u8]>,
+    rx_len: usize,
+    ws_sub_phase: SlotWsSubPhase,
+    last_ping_mono_ns: u64,
+    generation: u64,
+}
+
 struct OrderConnSlot {
     conn_id: u16,
     local_ip: Ipv4Addr,
     colo: bool,
+    max_inflight: u16,
     conn: LockedConnection,
     baton: Option<Arc<DialBaton>>,
-    draining: bool,
-    ws_authenticated: bool,
-    ws_sub_phase: SlotWsSubPhase,
-    rx_buf: Box<[u8]>,
-    rx_len: usize,
-    last_ping_mono_ns: u64,
-    tracked: [TrackedInflight; MAX_WS_INFLIGHT],
+    draining: AtomicBool,
+    ws_authenticated: AtomicBool,
+    established: AtomicBool,
+    ema_score_us: AtomicU32,
+    claimed_inflight: AtomicU16,
+    tracked: TimedSpinLock<[TrackedInflight; MAX_WS_INFLIGHT]>,
+    resp_rx: TimedSpinLock<SlotRespRx>,
 }
 
 impl OrderConnSlot {
-    fn new(conn_id: u16, local_ip: Ipv4Addr, colo: bool, baton: Option<Arc<DialBaton>>) -> Self {
+    fn new(
+        conn_id: u16,
+        local_ip: Ipv4Addr,
+        colo: bool,
+        max_inflight: u16,
+        baton: Option<Arc<DialBaton>>,
+    ) -> Self {
         Self {
             conn_id,
             local_ip,
             colo,
+            max_inflight,
             conn: LockedConnection::new(conn_id, None, None),
             baton,
-            draining: false,
-            ws_authenticated: false,
-            ws_sub_phase: SlotWsSubPhase::None,
-            rx_buf: vec![0u8; SLOT_RX_BUF_CAP].into_boxed_slice(),
-            rx_len: 0,
-            last_ping_mono_ns: 0,
-            tracked: [TrackedInflight::default(); MAX_WS_INFLIGHT],
+            draining: AtomicBool::new(false),
+            ws_authenticated: AtomicBool::new(false),
+            established: AtomicBool::new(false),
+            ema_score_us: AtomicU32::new(UNMEASURED_SCORE),
+            claimed_inflight: AtomicU16::new(0),
+            tracked: TimedSpinLock::new(
+                [TrackedInflight::default(); MAX_WS_INFLIGHT],
+                LockId::new(LockDomain::GuardedValue, 0x1000 | u32::from(conn_id)),
+            ),
+            resp_rx: TimedSpinLock::new(
+                SlotRespRx {
+                    rx_buf: vec![0u8; SLOT_RX_BUF_CAP].into_boxed_slice(),
+                    rx_len: 0,
+                    ws_sub_phase: SlotWsSubPhase::None,
+                    last_ping_mono_ns: 0,
+                    generation: 1,
+                },
+                LockId::new(LockDomain::GuardedValue, 0x2000 | u32::from(conn_id)),
+            ),
+        }
+    }
+
+    /// Atomically claims 1 in-flight slot before `SharedRateLimiter` spend.
+    ///
+    /// Returns `Some(true)` if this claim saturated `max_inflight` (caller should republish
+    /// `PublishedRoutes`), `Some(false)` if claimed with spare capacity remaining, or `None` if
+    /// the slot is unready, draining, or already at `max_inflight`.
+    #[inline]
+    fn try_claim_inflight(&self) -> Option<bool> {
+        if self.draining.load(Ordering::Acquire)
+            || !self.ws_authenticated.load(Ordering::Acquire)
+            || !self.established.load(Ordering::Acquire)
+            || !self.conn.is_ready_relaxed()
+        {
+            return None;
+        }
+        let mut cur = self.claimed_inflight.load(Ordering::Acquire);
+        loop {
+            if cur >= self.max_inflight {
+                return None;
+            }
+            match self.claimed_inflight.compare_exchange_weak(
+                cur,
+                cur + 1,
+                Ordering::SeqCst,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => {
+                    if self.draining.load(Ordering::SeqCst)
+                        || !self.ws_authenticated.load(Ordering::Acquire)
+                        || !self.established.load(Ordering::Acquire)
+                    {
+                        let _ = self.sub_claim_saturating();
+                        return None;
+                    }
+                    return Some(cur + 1 == self.max_inflight);
+                }
+                Err(observed) => cur = observed,
+            }
+        }
+    }
+
+    /// Releases 1 claimed in-flight slot, saturating at `0`. Returns `true` when transitioning
+    /// from `max_inflight` down to `max_inflight - 1`.
+    #[inline]
+    fn sub_claim_saturating(&self) -> bool {
+        let mut cur = self.claimed_inflight.load(Ordering::Acquire);
+        loop {
+            if cur == 0 {
+                return false;
+            }
+            match self.claimed_inflight.compare_exchange_weak(
+                cur,
+                cur - 1,
+                Ordering::SeqCst,
+                Ordering::Acquire,
+            ) {
+                Ok(_) => return cur == self.max_inflight,
+                Err(observed) => cur = observed,
+            }
         }
     }
 
     #[inline]
-    fn record_inflight(&mut self, entry: TrackedInflight) {
-        for slot in &mut self.tracked {
+    fn record_inflight(&self, caller: ThreadTag, entry: TrackedInflight) {
+        let mut guard = self.tracked.lock(caller);
+        for slot in guard.iter_mut() {
             if !slot.active {
                 *slot = entry;
                 return;
             }
         }
-        self.tracked[0] = entry;
+        guard[0] = entry;
     }
 
     #[inline]
-    fn take_inflight_by_reply_id(&mut self, reply_id: u64) -> Option<TrackedInflight> {
-        for slot in &mut self.tracked {
+    fn take_inflight_by_reply_id(
+        &self,
+        caller: ThreadTag,
+        reply_id: u64,
+    ) -> Option<TrackedInflight> {
+        let mut guard = self.tracked.lock(caller);
+        for slot in guard.iter_mut() {
             if slot.active && slot.reply_id == reply_id {
                 let out = *slot;
                 slot.active = false;
@@ -297,8 +443,9 @@ impl OrderConnSlot {
     }
 
     #[inline]
-    fn take_any_inflight(&mut self) -> Option<TrackedInflight> {
-        for slot in &mut self.tracked {
+    fn take_any_inflight(&self, caller: ThreadTag) -> Option<TrackedInflight> {
+        let mut guard = self.tracked.lock(caller);
+        for slot in guard.iter_mut() {
             if slot.active {
                 let out = *slot;
                 slot.active = false;
@@ -309,8 +456,10 @@ impl OrderConnSlot {
     }
 
     #[inline]
-    fn clear_tracked(&mut self) {
-        self.tracked = [TrackedInflight::default(); MAX_WS_INFLIGHT];
+    fn clear_tracked_and_claims(&self, caller: ThreadTag) {
+        let mut guard = self.tracked.lock(caller);
+        *guard = [TrackedInflight::default(); MAX_WS_INFLIGHT];
+        self.claimed_inflight.store(0, Ordering::SeqCst);
     }
 }
 
@@ -318,6 +467,11 @@ impl OrderConnSlot {
 struct VenueIdEntry {
     venue_order_id: InlineAscii<64>,
     ors_order_id: u64,
+}
+
+struct VenueIdCache {
+    entries: Box<[VenueIdEntry]>,
+    cursor: usize,
 }
 
 /// Full-product Unified Trading Account execution session (`1 UtaAccountSession = 1 Exchange UID`)
@@ -336,24 +490,24 @@ pub struct UtaAccountSession<const CHECK_STP: bool = true> {
     rate_limiter: Arc<SharedRateLimiter>,
     rate_overrides: AccountRateOverrides,
     ip_order_weight: u32,
-    router: OrderRouter,
+    router_lock: TimedSpinLock<OrderRouter>,
+    publish_lock: TimedSpinLock<()>,
     published_routes: Arc<PublishedRoutes>,
     colo_mask: u16,
-    last_picked_conn_id: Option<u16>,
-    next_reply_id: u64,
-    slots: Vec<OrderConnSlot>,
+    last_picked_conn_id: AtomicU16,
+    next_reply_id: AtomicU64,
+    slots: Box<[OrderConnSlot]>,
     limits: Limits,
     okx_ws_auto_subscribe_private: bool,
     private_conn: LockedConnection,
-    private_stream: UtaPrivateStream,
+    private_stream_lock: TimedSpinLock<UtaPrivateStream>,
+    private_subscribed: AtomicBool,
     private_baton: Option<Arc<DialBaton>>,
-    private_draining: bool,
-    symbols: Vec<UtaSymbolBinding>,
-    assets: Vec<UtaAssetBinding>,
+    private_draining: AtomicBool,
+    symbols: Arc<[UtaSymbolBinding]>,
+    assets: Arc<[UtaAssetBinding]>,
     rfq_hook: Box<dyn RfqQuoteHook>,
-    status_ask_registry: Arc<StatusAskRegistry>,
-    venue_id_cache: Box<[VenueIdEntry]>,
-    venue_id_cursor: usize,
+    venue_id_cache_lock: TimedSpinLock<VenueIdCache>,
 }
 
 impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
@@ -374,6 +528,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         let mut router = OrderRouter::new(cfg.router_config)?;
         let published_routes = Arc::new(PublishedRoutes::new());
         let send_slot = cfg.transport_mode.send_slot();
+        let max_inflight = send_slot.max_inflight();
 
         let mut slots = Vec::new();
         let mut ip_specs = Vec::new();
@@ -404,6 +559,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                     next_conn_id,
                     entry.local_ip,
                     entry.colo,
+                    max_inflight,
                     baton,
                 ));
                 next_conn_id += 1;
@@ -425,6 +581,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         let rfq_hook = cfg.rfq_hook.unwrap_or_else(|| Box::new(NoopRfqQuoteHook));
         let private_conn_id = next_conn_id;
         let private_stream = UtaPrivateStream::new(cfg.venue, SLOT_RX_BUF_CAP);
+        let acct_tag = u32::from(cfg.account_ref) << 8;
 
         let session = Self {
             venue: cfg.venue,
@@ -439,24 +596,39 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             rate_limiter: cfg.rate_limiter,
             rate_overrides: cfg.rate_overrides,
             ip_order_weight: cfg.ip_order_weight,
-            router,
+            router_lock: TimedSpinLock::new(
+                router,
+                LockId::new(LockDomain::GuardedValue, 0x3000 | acct_tag),
+            ),
+            publish_lock: TimedSpinLock::new(
+                (),
+                LockId::new(LockDomain::GuardedValue, 0x3100 | acct_tag),
+            ),
             published_routes,
             colo_mask,
-            last_picked_conn_id: None,
-            next_reply_id: 1,
-            slots,
+            last_picked_conn_id: AtomicU16::new(NO_PICKED_CONN),
+            next_reply_id: AtomicU64::new(1),
+            slots: slots.into_boxed_slice(),
             limits: cfg.limits,
             okx_ws_auto_subscribe_private: cfg.okx_ws_auto_subscribe_private,
             private_conn: LockedConnection::new(private_conn_id, None, None),
-            private_stream,
+            private_stream_lock: TimedSpinLock::new(
+                private_stream,
+                LockId::new(LockDomain::GuardedValue, 0x3200 | acct_tag),
+            ),
+            private_subscribed: AtomicBool::new(false),
             private_baton: cfg.private_stream_baton,
-            private_draining: false,
-            symbols: cfg.symbols,
-            assets: cfg.assets,
+            private_draining: AtomicBool::new(false),
+            symbols: cfg.symbols.into(),
+            assets: cfg.assets.into(),
             rfq_hook,
-            status_ask_registry: Arc::new(StatusAskRegistry::new()),
-            venue_id_cache: vec![VenueIdEntry::default(); VENUE_ID_CACHE_CAP].into_boxed_slice(),
-            venue_id_cursor: 0,
+            venue_id_cache_lock: TimedSpinLock::new(
+                VenueIdCache {
+                    entries: vec![VenueIdEntry::default(); VENUE_ID_CACHE_CAP].into_boxed_slice(),
+                    cursor: 0,
+                },
+                LockId::new(LockDomain::GuardedValue, 0x3300 | acct_tag),
+            ),
         };
         session.republish_routes()?;
         Ok(session)
@@ -512,9 +684,16 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         &self.rate_limiter
     }
 
+    /// Returns the immutable `UtaSymbolBinding` table shared with [`crate::UtaRestRequestBuilder`].
     #[inline]
-    pub fn status_ask_registry(&self) -> Arc<StatusAskRegistry> {
-        Arc::clone(&self.status_ask_registry)
+    pub fn symbols(&self) -> Arc<[UtaSymbolBinding]> {
+        Arc::clone(&self.symbols)
+    }
+
+    /// Returns the immutable `UtaAssetBinding` table for this account session.
+    #[inline]
+    pub fn assets(&self) -> Arc<[UtaAssetBinding]> {
+        Arc::clone(&self.assets)
     }
 
     #[inline]
@@ -526,7 +705,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     pub fn is_slot_draining(&self, conn_id: u16) -> bool {
         self.slots
             .get(usize::from(conn_id))
-            .is_some_and(|s| s.draining)
+            .is_some_and(|s| s.draining.load(Ordering::Acquire))
     }
 
     #[inline]
@@ -534,7 +713,11 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         let Some(slot) = self.slots.get(usize::from(conn_id)) else {
             return false;
         };
-        !slot.draining && slot.conn.is_ready_relaxed()
+        slot.established.load(Ordering::Acquire)
+            && slot.ws_authenticated.load(Ordering::Acquire)
+            && !slot.draining.load(Ordering::Acquire)
+            && slot.claimed_inflight.load(Ordering::Acquire) < slot.max_inflight
+            && slot.conn.is_ready_relaxed()
     }
 
     #[inline]
@@ -542,34 +725,42 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         self.rfq_hook.as_ref()
     }
 
-    #[inline]
-    pub fn rfq_hook_mut(&mut self) -> &mut dyn RfqQuoteHook {
-        self.rfq_hook.as_mut()
-    }
-
     pub fn set_rfq_hook(&mut self, hook: Box<dyn RfqQuoteHook>) {
         self.rfq_hook = hook;
     }
 
-    /// Injects an artificial EWMA score sample (in microseconds) on `conn_id` and republishes
+    /// Injects an EWMA RTT sample (in microseconds) on `conn_id` and republishes
     /// `PublishedRoutes` (used by `RESP` RTT sampling and deterministic router hysteresis tests).
     pub fn record_route_rtt_sample_us(
-        &mut self,
+        &self,
         conn_id: u16,
         rtt_us: u32,
     ) -> Result<(), UtaVenueError> {
-        let epoch = self
-            .router
-            .route(conn_id)
-            .ok_or(UtaVenueError::Bounds)?
-            .epoch;
-        self.router.note_sample(
-            conn_id,
-            epoch,
-            tickwire_transport::order_router::SampleKind::Ping,
-            rtt_us,
-        )?;
+        self.note_router_rtt_sample(conn_id, SampleKind::Ping, rtt_us)?;
         self.republish_routes()
+    }
+
+    #[inline]
+    fn note_router_rtt_sample(
+        &self,
+        conn_id: u16,
+        kind: SampleKind,
+        rtt_us: u32,
+    ) -> Result<(), UtaVenueError> {
+        let slot = self
+            .slots
+            .get(usize::from(conn_id))
+            .ok_or(UtaVenueError::Bounds)?;
+        let score = {
+            let mut router = self.router_lock.lock(ThreadTag::RESP);
+            let epoch = router.route(conn_id).ok_or(UtaVenueError::Bounds)?.epoch;
+            router.note_sample(conn_id, epoch, kind, rtt_us)?;
+            router
+                .route(conn_id)
+                .map_or(UNMEASURED_SCORE, |r| r.health.raw_score())
+        };
+        slot.ema_score_us.store(score, Ordering::Release);
+        Ok(())
     }
 
     /// Installs a connected `tickwire_transport::Connection` into order pool slot `conn_id`.
@@ -579,7 +770,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     ///   masked `auth`/`login` frame immediately and holds `ready = false` until `RESP` verifies
     ///   the venue auth acknowledgement.
     pub fn install_order_connection(
-        &mut self,
+        &self,
         conn_id: u16,
         conn: Connection,
         already_authenticated: bool,
@@ -587,6 +778,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         now_mono_ns: u64,
     ) -> Result<(), UtaVenueError> {
         let idx = usize::from(conn_id);
+        let slot = self.slots.get(idx).ok_or(UtaVenueError::Bounds)?;
         let max_rx = self.limits.max_receive_bytes.max(16 * 1024);
         let creds = self.credentials.credentials();
         let mode = self.transport_mode;
@@ -604,15 +796,30 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         };
 
-        let slot = self.slots.get_mut(idx).ok_or(UtaVenueError::Bounds)?;
         let prev = slot.conn.install(link);
         drop(prev);
-        slot.draining = false;
-        slot.rx_len = 0;
-        slot.last_ping_mono_ns = now_mono_ns;
-        slot.clear_tracked();
-        slot.ws_authenticated = mode == UtaTransportMode::PooledHttps || already_authenticated;
-        slot.ws_sub_phase = SlotWsSubPhase::None;
+        slot.draining.store(false, Ordering::SeqCst);
+        slot.clear_tracked_and_claims(ThreadTag::RESP);
+
+        let needs_fresh_buf = slot.resp_rx.lock(ThreadTag::RESP).rx_buf.is_empty();
+        let fresh_buf = needs_fresh_buf.then(|| vec![0u8; SLOT_RX_BUF_CAP].into_boxed_slice());
+        {
+            let mut rx_guard = slot.resp_rx.lock(ThreadTag::RESP);
+            if let Some(buf) = fresh_buf
+                && rx_guard.rx_buf.is_empty()
+            {
+                rx_guard.rx_buf = buf;
+            }
+            rx_guard.rx_len = 0;
+            rx_guard.ws_sub_phase = SlotWsSubPhase::None;
+            rx_guard.last_ping_mono_ns = now_mono_ns;
+            rx_guard.generation = rx_guard.generation.wrapping_add(1);
+        }
+
+        slot.ws_authenticated.store(
+            mode == UtaTransportMode::PooledHttps || already_authenticated,
+            Ordering::Release,
+        );
 
         if mode == UtaTransportMode::WebSocketTrade && !already_authenticated {
             let mut auth_json = [0u8; 512];
@@ -635,16 +842,22 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         }
 
-        let local_ip = self.slots[idx].local_ip;
-        self.router
-            .on_connected(conn_id, Some(IpAddr::V4(local_ip)), None)?;
+        let score = {
+            let mut router = self.router_lock.lock(ThreadTag::RESP);
+            router.on_connected(conn_id, Some(IpAddr::V4(slot.local_ip)), None)?;
+            router
+                .route(conn_id)
+                .map_or(UNMEASURED_SCORE, |r| r.health.raw_score())
+        };
+        slot.ema_score_us.store(score, Ordering::Release);
+        slot.established.store(true, Ordering::SeqCst);
         self.republish_routes()
     }
 
     /// Installs a connected WebSocket `Connection` onto the dedicated private stream slot and
     /// transmits its `op: "auth"` / `op: "login"` frame.
     pub fn install_private_connection(
-        &mut self,
+        &self,
         conn: Connection,
         utc_ms: u64,
         now_mono_ns: u64,
@@ -658,13 +871,24 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         )?);
         let prev = self.private_conn.install(link);
         drop(prev);
-        self.private_draining = false;
+        self.private_draining.store(false, Ordering::Release);
+        self.private_subscribed.store(false, Ordering::Release);
 
         let creds = self.credentials.credentials();
         let mut ws_frame = [0u8; 640];
-        let flen = self
-            .private_stream
-            .begin_login(&creds, utc_ms, now_mono_ns, &mut ws_frame)?;
+        let mut priv_stream = {
+            let mut guard = self.private_stream_lock.lock(ThreadTag::RESP);
+            core::mem::replace(&mut *guard, UtaPrivateStream::empty_placeholder(self.venue))
+        };
+        if !priv_stream.has_rx_capacity() {
+            priv_stream = UtaPrivateStream::new(self.venue, SLOT_RX_BUF_CAP);
+        }
+        let flen_res = priv_stream.begin_login(&creds, utc_ms, now_mono_ns, &mut ws_frame);
+        {
+            let mut guard = self.private_stream_lock.lock(ThreadTag::RESP);
+            *guard = priv_stream;
+        }
+        let flen = flen_res?;
         let outcome = self.private_conn.send_control_frame(&ws_frame[..flen]);
         if outcome != SendOutcome::Sent {
             return Err(UtaVenueError::Protocol(
@@ -674,18 +898,22 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         Ok(())
     }
 
-    /// Publishes an immutable `PublishedRoutes` snapshot from `self.router`, overriding `ready = false`
-    /// for any slot that is unauthenticated, at its in-flight limit, or draining for server maintenance.
+    /// Publishes an immutable `PublishedRoutes` snapshot from per-slot atomic readiness and EWMA
+    /// state, overriding `ready = false` for any slot that is unauthenticated, at `max_inflight`,
+    /// or draining for server maintenance.
     pub fn republish_routes(&self) -> Result<(), UtaVenueError> {
+        let _pub_guard = self.publish_lock.lock(ThreadTag::UNKNOWN);
         let mut scratch = [VenueOrderRoute::default(); MAX_ORDER_CONNECTIONS];
         let mut count = 0usize;
-        for slot in &self.slots {
-            let Some(r) = self.router.route(slot.conn_id) else {
-                continue;
-            };
-            let ready = !slot.draining
-                && slot.ws_authenticated
-                && r.established
+        for slot in self.slots.iter() {
+            let established = slot.established.load(Ordering::Acquire);
+            let ws_auth = slot.ws_authenticated.load(Ordering::Acquire);
+            let draining = slot.draining.load(Ordering::Acquire);
+            let claimed = slot.claimed_inflight.load(Ordering::Acquire);
+            let ready = established
+                && ws_auth
+                && !draining
+                && claimed < slot.max_inflight
                 && slot.conn.is_ready_relaxed();
             scratch[count] = VenueOrderRoute {
                 connection_id: slot.conn_id,
@@ -695,12 +923,59 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 // product_mask == 0 => matches all 6 UTA products on this UID session!
                 product_mask: 0,
                 local_ip: slot.local_ip.to_bits(),
-                ema_score_us: r.health.raw_score(),
+                ema_score_us: slot.ema_score_us.load(Ordering::Acquire),
             };
             count += 1;
         }
         self.published_routes.publish_routes(&scratch[..count])?;
         Ok(())
+    }
+
+    /// Picks a ready route from `PublishedRoutes` and atomically claims 1 in-flight slot before
+    /// `SharedRateLimiter` spend so back-to-back or concurrent `REQ` sends never collide on an
+    /// `Exclusive` (`PooledHttps`) or saturated `Shared` (`WebSocketTrade`) link.
+    fn pick_and_claim_route(&self, product: Product) -> Option<VenueOrderRoute> {
+        let raw_last = self.last_picked_conn_id.load(Ordering::Relaxed);
+        let last_cid = (raw_last != NO_PICKED_CONN).then_some(raw_last);
+        for _ in 0..MAX_ORDER_CONNECTIONS {
+            let route =
+                self.published_routes
+                    .pick(self.account_ref, Some(product), last_cid, false)?;
+            let slot = self.slots.get(usize::from(route.connection_id))?;
+            match slot.try_claim_inflight() {
+                Some(reached_max) => {
+                    if reached_max {
+                        let _ = self.republish_routes();
+                    }
+                    return Some(route);
+                }
+                None => {
+                    let _ = self.republish_routes();
+                }
+            }
+        }
+        None
+    }
+
+    #[inline]
+    fn release_claimed_inflight(&self, conn_id: u16) {
+        if let Some(slot) = self.slots.get(usize::from(conn_id))
+            && slot.sub_claim_saturating()
+        {
+            let _ = self.republish_routes();
+        }
+    }
+
+    #[inline]
+    fn rollback_failed_send(&self, conn_id: u16, reply_id: u64) {
+        if let Some(slot) = self.slots.get(usize::from(conn_id))
+            && slot
+                .take_inflight_by_reply_id(ThreadTag::REQ, reply_id)
+                .is_some()
+        {
+            let _ = slot.sub_claim_saturating();
+        }
+        let _ = self.republish_routes();
     }
 
     #[inline]
@@ -724,30 +999,35 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     }
 
     #[inline]
-    fn alloc_reply_id(&mut self) -> u64 {
-        let id = self.next_reply_id;
-        self.next_reply_id = self.next_reply_id.wrapping_add(1).max(1);
-        id
+    fn alloc_reply_id(&self) -> u64 {
+        loop {
+            let id = self.next_reply_id.fetch_add(1, Ordering::Relaxed);
+            if id != 0 {
+                return id;
+            }
+        }
     }
 
     #[inline]
-    fn remember_venue_order_id(&mut self, venue_order_id: &str, ors_order_id: u64) {
+    fn remember_venue_order_id(&self, venue_order_id: &str, ors_order_id: u64) {
         if venue_order_id.is_empty() || ors_order_id == 0 {
             return;
         }
         let Some(inline) = InlineAscii::try_from_str(venue_order_id) else {
             return;
         };
-        for entry in self.venue_id_cache.iter_mut() {
+        let mut cache = self.venue_id_cache_lock.lock(ThreadTag::RESP);
+        for entry in cache.entries.iter_mut() {
             if entry.ors_order_id == ors_order_id || entry.venue_order_id == inline {
                 entry.venue_order_id = inline;
                 entry.ors_order_id = ors_order_id;
                 return;
             }
         }
-        let idx = self.venue_id_cursor % self.venue_id_cache.len();
-        self.venue_id_cursor = self.venue_id_cursor.wrapping_add(1);
-        self.venue_id_cache[idx] = VenueIdEntry {
+        let len = cache.entries.len();
+        let idx = cache.cursor % len;
+        cache.cursor = cache.cursor.wrapping_add(1);
+        cache.entries[idx] = VenueIdEntry {
             venue_order_id: inline,
             ors_order_id,
         };
@@ -758,9 +1038,12 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         if venue_order_id.is_empty() {
             return None;
         }
-        self.venue_id_cache
+        let inline = InlineAscii::<64>::try_from_str(venue_order_id)?;
+        let cache = self.venue_id_cache_lock.lock(ThreadTag::RESP);
+        cache
+            .entries
             .iter()
-            .find(|e| e.ors_order_id != 0 && e.venue_order_id.as_str() == venue_order_id)
+            .find(|e| e.ors_order_id != 0 && e.venue_order_id == inline)
             .map(|e| e.ors_order_id)
     }
 
@@ -818,7 +1101,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     /// encodes the WS/HTTPS wire frame on the stack outside all spinlocks, executes the single-pick
     /// `PublishedRoutes::pick -> SharedRateLimiter` sequence, and dispatches over `LockedConnection`.
     pub fn submit_new_order(
-        &mut self,
+        &self,
         req: &OrsNewOrderRequest,
         mut params: UtaOrderParams,
         utc_ms: u64,
@@ -843,11 +1126,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         params.time_in_force = req.tif;
         params.post_only |= req.post_only;
         params.reduce_only = req.reduce_only;
-        if binding.spec.product == Product::Spot
-            && params.okx_td_mode == crate::OkxMarginMode::Cross
-        {
-            // Preserve explicit Cross if caller requested margin spot, or default Spot cleanly.
-        }
 
         let reply_id = self.alloc_reply_id();
         let mut wire_buf = [0u8; 2048];
@@ -902,12 +1180,14 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         };
 
-        let last_cid = self.last_picked_conn_id;
-        let acct_ref = self.account_ref;
         let prod = binding.spec.product;
-        let pub_routes = &self.published_routes;
+        let mut claimed_conn: Option<u16> = None;
         let (route, _permit) = match quota.pick_route_and_place_or_nack(
-            || pub_routes.pick(acct_ref, Some(prod), last_cid, false),
+            || {
+                let r = self.pick_and_claim_route(prod)?;
+                claimed_conn = Some(r.connection_id);
+                Some(r)
+            },
             scope,
             1,
             self.ip_order_weight,
@@ -918,6 +1198,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 RouteAdmissionReject::NoReadyConnection
                 | RouteAdmissionReject::MissingLocalIp { .. },
             ) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let rep = self.order_manager.on_rejected(
                     placed.ors_order_id,
                     None,
@@ -931,6 +1214,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 });
             }
             Err(RouteAdmissionReject::RateLimitedNack(rej)) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let rep = self.order_manager.on_rejected(
                     placed.ors_order_id,
                     None,
@@ -946,38 +1232,32 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         };
 
-        self.register_status_ask_target(
-            placed.ors_order_id,
-            &binding,
-            placed.client_id.as_str(),
-            "",
-        );
-
         let conn_id = route.connection_id;
+        let slot = &self.slots[usize::from(conn_id)];
+        slot.record_inflight(
+            ThreadTag::REQ,
+            TrackedInflight {
+                active: true,
+                reply_id,
+                ors_order_id: placed.ors_order_id,
+                symbol_id: req.symbol_id,
+                kind: InflightOpKind::New,
+                sent_mono_ns: req.now_mono_ns,
+            },
+        );
         let req_ref = RequestRef {
             order_key: placed.ors_order_id,
             client_seq: req.order_seqnum,
             sent_tsc: 0,
             sent_mono_ns: req.now_mono_ns,
         };
-        let send_outcome = self.slots[usize::from(conn_id)].conn.send_frame(
-            &wire_buf[..wire_len],
-            reply_id,
-            req_ref,
-        );
+        let send_outcome = slot
+            .conn
+            .send_frame(&wire_buf[..wire_len], reply_id, req_ref);
 
         match send_outcome {
             SendOutcome::Sent => {
-                self.last_picked_conn_id = Some(conn_id);
-                self.slots[usize::from(conn_id)].record_inflight(TrackedInflight {
-                    active: true,
-                    reply_id,
-                    ors_order_id: placed.ors_order_id,
-                    symbol_id: req.symbol_id,
-                    kind: InflightOpKind::New,
-                    sent_mono_ns: req.now_mono_ns,
-                });
-                let _ = self.republish_routes();
+                self.last_picked_conn_id.store(conn_id, Ordering::Relaxed);
                 Ok(UtaSubmitOutcome::Dispatched {
                     ors_order_id: placed.ors_order_id,
                     conn_id,
@@ -986,10 +1266,10 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 })
             }
             SendOutcome::ShortWriteRetired => {
+                self.rollback_failed_send(conn_id, reply_id);
                 let _ = self
                     .order_manager
                     .on_socket_drop(self.account_ref, req.now_mono_ns);
-                let _ = self.republish_routes();
                 Err(UtaSubmitRefusal::SendFailed {
                     ors_order_id: placed.ors_order_id,
                     outcome: send_outcome,
@@ -997,6 +1277,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 })
             }
             other => {
+                self.rollback_failed_send(conn_id, reply_id);
                 let rep = self.order_manager.on_rejected(
                     placed.ors_order_id,
                     None,
@@ -1004,7 +1285,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                     Some(TerminalReason::MKT_REJECT_MARKET_DOWN),
                     req.now_mono_ns,
                 );
-                let _ = self.republish_routes();
                 Err(UtaSubmitRefusal::SendFailed {
                     ors_order_id: placed.ors_order_id,
                     outcome: other,
@@ -1018,7 +1298,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     /// encodes on the stack outside all spinlocks, executes single-pick `SharedRateLimiter` admission,
     /// and transmits over `LockedConnection`.
     pub fn submit_modify_order(
-        &mut self,
+        &self,
         req: &OrsModifyRequest,
         utc_ms: u64,
     ) -> Result<UtaSubmitOutcome, UtaSubmitRefusal> {
@@ -1076,12 +1356,14 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         })?;
 
-        let last_cid = self.last_picked_conn_id;
-        let acct_ref = self.account_ref;
         let prod = binding.spec.product;
-        let pub_routes = &self.published_routes;
+        let mut claimed_conn: Option<u16> = None;
         let (route, _permit) = match quota.pick_route_and_place_or_nack(
-            || pub_routes.pick(acct_ref, Some(prod), last_cid, false),
+            || {
+                let r = self.pick_and_claim_route(prod)?;
+                claimed_conn = Some(r.connection_id);
+                Some(r)
+            },
             scope,
             1,
             self.ip_order_weight,
@@ -1092,6 +1374,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 RouteAdmissionReject::NoReadyConnection
                 | RouteAdmissionReject::MissingLocalIp { .. },
             ) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let rep = self.order_manager.on_modify_rejected(
                     disp.ors_order_id,
                     TerminalReason::MKT_REJECT_MARKET_DOWN,
@@ -1103,6 +1388,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 });
             }
             Err(RouteAdmissionReject::RateLimitedNack(rej)) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let rep = self.order_manager.on_modify_rejected(
                     disp.ors_order_id,
                     TerminalReason::RateLimited,
@@ -1117,32 +1405,33 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         };
 
         let conn_id = route.connection_id;
+        let slot = &self.slots[usize::from(conn_id)];
+        slot.record_inflight(
+            ThreadTag::REQ,
+            TrackedInflight {
+                active: true,
+                reply_id,
+                ors_order_id: disp.ors_order_id,
+                symbol_id: disp.symbol_id,
+                kind: InflightOpKind::Modify {
+                    new_price_ticks: disp.new_price_ticks,
+                    new_qty_lots: disp.new_qty_lots,
+                },
+                sent_mono_ns: req.now_mono_ns,
+            },
+        );
         let req_ref = RequestRef {
             order_key: disp.ors_order_id,
             client_seq: req.msg_seqnum,
             sent_tsc: 0,
             sent_mono_ns: req.now_mono_ns,
         };
-        let send_outcome = self.slots[usize::from(conn_id)].conn.send_frame(
-            &wire_buf[..wire_len],
-            reply_id,
-            req_ref,
-        );
+        let send_outcome = slot
+            .conn
+            .send_frame(&wire_buf[..wire_len], reply_id, req_ref);
         match send_outcome {
             SendOutcome::Sent => {
-                self.last_picked_conn_id = Some(conn_id);
-                self.slots[usize::from(conn_id)].record_inflight(TrackedInflight {
-                    active: true,
-                    reply_id,
-                    ors_order_id: disp.ors_order_id,
-                    symbol_id: disp.symbol_id,
-                    kind: InflightOpKind::Modify {
-                        new_price_ticks: disp.new_price_ticks,
-                        new_qty_lots: disp.new_qty_lots,
-                    },
-                    sent_mono_ns: req.now_mono_ns,
-                });
-                let _ = self.republish_routes();
+                self.last_picked_conn_id.store(conn_id, Ordering::Relaxed);
                 Ok(UtaSubmitOutcome::Dispatched {
                     ors_order_id: disp.ors_order_id,
                     conn_id,
@@ -1151,10 +1440,10 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 })
             }
             SendOutcome::ShortWriteRetired => {
+                self.rollback_failed_send(conn_id, reply_id);
                 let _ = self
                     .order_manager
                     .on_socket_drop(self.account_ref, req.now_mono_ns);
-                let _ = self.republish_routes();
                 Err(UtaSubmitRefusal::SendFailed {
                     ors_order_id: disp.ors_order_id,
                     outcome: send_outcome,
@@ -1162,12 +1451,12 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 })
             }
             other => {
+                self.rollback_failed_send(conn_id, reply_id);
                 let rep = self.order_manager.on_modify_rejected(
                     disp.ors_order_id,
                     TerminalReason::MKT_REJECT_MARKET_DOWN,
                     req.now_mono_ns,
                 );
-                let _ = self.republish_routes();
                 Err(UtaSubmitRefusal::SendFailed {
                     ors_order_id: disp.ors_order_id,
                     outcome: other,
@@ -1180,7 +1469,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     /// Outbound `REQ` hot path: admits a strategy `Cancel` via `OrderManager::request_cancel`,
     /// spending ONLY `CANCEL` + IP windows (never touching `ORDER` placement windows!).
     pub fn submit_cancel_order(
-        &mut self,
+        &self,
         req: &OrsCancelRequest,
         utc_ms: u64,
     ) -> Result<UtaSubmitOutcome, UtaSubmitRefusal> {
@@ -1209,7 +1498,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
     #[allow(clippy::too_many_arguments)]
     fn dispatch_wire_cancel(
-        &mut self,
+        &self,
         ors_order_id: u64,
         symbol_id: u32,
         client_id: &str,
@@ -1250,12 +1539,14 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         })?;
 
-        let last_cid = self.last_picked_conn_id;
-        let acct_ref = self.account_ref;
         let prod = binding.spec.product;
-        let pub_routes = &self.published_routes;
+        let mut claimed_conn: Option<u16> = None;
         let (route, _permit) = match quota.pick_route_and_cancel_or_nack(
-            || pub_routes.pick(acct_ref, Some(prod), last_cid, false),
+            || {
+                let r = self.pick_and_claim_route(prod)?;
+                claimed_conn = Some(r.connection_id);
+                Some(r)
+            },
             scope,
             self.ip_order_weight,
             now_mono_ns,
@@ -1265,6 +1556,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 RouteAdmissionReject::NoReadyConnection
                 | RouteAdmissionReject::MissingLocalIp { .. },
             ) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let rep = self.order_manager.on_cancel_rejected(
                     ors_order_id,
                     None,
@@ -1277,6 +1571,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 });
             }
             Err(RouteAdmissionReject::RateLimitedNack(rej)) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let rep = self.order_manager.on_cancel_rejected(
                     ors_order_id,
                     None,
@@ -1292,29 +1589,30 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         };
 
         let conn_id = route.connection_id;
+        let slot = &self.slots[usize::from(conn_id)];
+        slot.record_inflight(
+            ThreadTag::REQ,
+            TrackedInflight {
+                active: true,
+                reply_id,
+                ors_order_id,
+                symbol_id,
+                kind: InflightOpKind::Cancel,
+                sent_mono_ns: now_mono_ns,
+            },
+        );
         let req_ref = RequestRef {
             order_key: ors_order_id,
             client_seq: seq,
             sent_tsc: 0,
             sent_mono_ns: now_mono_ns,
         };
-        let send_outcome = self.slots[usize::from(conn_id)].conn.send_frame(
-            &wire_buf[..wire_len],
-            reply_id,
-            req_ref,
-        );
+        let send_outcome = slot
+            .conn
+            .send_frame(&wire_buf[..wire_len], reply_id, req_ref);
         match send_outcome {
             SendOutcome::Sent => {
-                self.last_picked_conn_id = Some(conn_id);
-                self.slots[usize::from(conn_id)].record_inflight(TrackedInflight {
-                    active: true,
-                    reply_id,
-                    ors_order_id,
-                    symbol_id,
-                    kind: InflightOpKind::Cancel,
-                    sent_mono_ns: now_mono_ns,
-                });
-                let _ = self.republish_routes();
+                self.last_picked_conn_id.store(conn_id, Ordering::Relaxed);
                 Ok(UtaSubmitOutcome::Dispatched {
                     ors_order_id,
                     conn_id,
@@ -1323,13 +1621,13 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 })
             }
             other => {
+                self.rollback_failed_send(conn_id, reply_id);
                 let rep = self.order_manager.on_cancel_rejected(
                     ors_order_id,
                     None,
                     TerminalReason::MKT_REJECT_MARKET_DOWN,
                     now_mono_ns,
                 );
-                let _ = self.republish_routes();
                 Err(UtaSubmitRefusal::SendFailed {
                     ors_order_id,
                     outcome: other,
@@ -1342,7 +1640,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     /// Submits an Options/Block `RFQ` quote via [`RfqQuoteHook::submit_quote`] (returning
     /// `TerminalReason::RFQ_QUOTE_NOT_SUPPORTED` when `NoopRfqQuoteHook` is active).
     pub fn submit_rfq_quote(
-        &mut self,
+        &self,
         req: &RfqQuoteRequest,
         utc_ms: u64,
         now_mono_ns: u64,
@@ -1384,11 +1682,13 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 });
             }
         };
-        let last_cid = self.last_picked_conn_id;
-        let acct_ref = self.account_ref;
-        let pub_routes = &self.published_routes;
+        let mut claimed_conn: Option<u16> = None;
         let (route, _permit) = match quota.pick_route_and_place_or_nack(
-            || pub_routes.pick(acct_ref, Some(Product::Option), last_cid, false),
+            || {
+                let r = self.pick_and_claim_route(Product::Option)?;
+                claimed_conn = Some(r.connection_id);
+                Some(r)
+            },
             scope,
             1,
             self.ip_order_weight,
@@ -1399,6 +1699,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 RouteAdmissionReject::NoReadyConnection
                 | RouteAdmissionReject::MissingLocalIp { .. },
             ) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let _ = self.rfq_hook.on_quote_terminal(req.ors_order_id);
                 return Err(UtaSubmitRefusal::NoReadyRoute {
                     ors_order_id: req.ors_order_id,
@@ -1406,6 +1709,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 });
             }
             Err(RouteAdmissionReject::RateLimitedNack(rej)) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 let _ = self.rfq_hook.on_quote_terminal(req.ors_order_id);
                 return Err(UtaSubmitRefusal::RateLimited {
                     ors_order_id: req.ors_order_id,
@@ -1417,28 +1723,29 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
         let reply_id = self.alloc_reply_id();
         let conn_id = route.connection_id;
-        let req_ref = RequestRef {
-            order_key: req.ors_order_id,
-            client_seq: reply_id,
-            sent_tsc: 0,
-            sent_mono_ns: now_mono_ns,
-        };
-        let outcome = self.slots[usize::from(conn_id)].conn.send_frame(
-            &wire_buf[..wire_len],
-            reply_id,
-            req_ref,
-        );
-        if outcome == SendOutcome::Sent {
-            self.last_picked_conn_id = Some(conn_id);
-            self.slots[usize::from(conn_id)].record_inflight(TrackedInflight {
+        let slot = &self.slots[usize::from(conn_id)];
+        slot.record_inflight(
+            ThreadTag::REQ,
+            TrackedInflight {
                 active: true,
                 reply_id,
                 ors_order_id: req.ors_order_id,
                 symbol_id: 0,
                 kind: InflightOpKind::RfqSubmit,
                 sent_mono_ns: now_mono_ns,
-            });
-            let _ = self.republish_routes();
+            },
+        );
+        let req_ref = RequestRef {
+            order_key: req.ors_order_id,
+            client_seq: reply_id,
+            sent_tsc: 0,
+            sent_mono_ns: now_mono_ns,
+        };
+        let outcome = slot
+            .conn
+            .send_frame(&wire_buf[..wire_len], reply_id, req_ref);
+        if outcome == SendOutcome::Sent {
+            self.last_picked_conn_id.store(conn_id, Ordering::Relaxed);
             Ok(UtaSubmitOutcome::Dispatched {
                 ors_order_id: req.ors_order_id,
                 conn_id,
@@ -1446,8 +1753,8 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 wire_len,
             })
         } else {
+            self.rollback_failed_send(conn_id, reply_id);
             let _ = self.rfq_hook.on_quote_terminal(req.ors_order_id);
-            let _ = self.republish_routes();
             Err(UtaSubmitRefusal::SendFailed {
                 ors_order_id: req.ors_order_id,
                 outcome,
@@ -1458,7 +1765,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
     /// Cancels one or all Options/Block `RFQ` quotes via [`RfqQuoteHook::cancel_quotes`].
     pub fn cancel_rfq_quotes(
-        &mut self,
+        &self,
         req: &RfqCancelQuotesRequest,
         utc_ms: u64,
         now_mono_ns: u64,
@@ -1491,11 +1798,13 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             reject: rej,
             report: None,
         })?;
-        let last_cid = self.last_picked_conn_id;
-        let acct_ref = self.account_ref;
-        let pub_routes = &self.published_routes;
+        let mut claimed_conn: Option<u16> = None;
         let (route, _permit) = match quota.pick_route_and_cancel_or_nack(
-            || pub_routes.pick(acct_ref, Some(Product::Option), last_cid, false),
+            || {
+                let r = self.pick_and_claim_route(Product::Option)?;
+                claimed_conn = Some(r.connection_id);
+                Some(r)
+            },
             scope,
             self.ip_order_weight,
             now_mono_ns,
@@ -1505,12 +1814,18 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 RouteAdmissionReject::NoReadyConnection
                 | RouteAdmissionReject::MissingLocalIp { .. },
             ) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 return Err(UtaSubmitRefusal::NoReadyRoute {
                     ors_order_id: oid,
                     report: None,
                 });
             }
             Err(RouteAdmissionReject::RateLimitedNack(rej)) => {
+                if let Some(cid) = claimed_conn {
+                    self.release_claimed_inflight(cid);
+                }
                 return Err(UtaSubmitRefusal::RateLimited {
                     ors_order_id: oid,
                     reject: rej,
@@ -1521,28 +1836,29 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
         let reply_id = self.alloc_reply_id();
         let conn_id = route.connection_id;
-        let req_ref = RequestRef {
-            order_key: oid,
-            client_seq: reply_id,
-            sent_tsc: 0,
-            sent_mono_ns: now_mono_ns,
-        };
-        let outcome = self.slots[usize::from(conn_id)].conn.send_frame(
-            &wire_buf[..wire_len],
-            reply_id,
-            req_ref,
-        );
-        if outcome == SendOutcome::Sent {
-            self.last_picked_conn_id = Some(conn_id);
-            self.slots[usize::from(conn_id)].record_inflight(TrackedInflight {
+        let slot = &self.slots[usize::from(conn_id)];
+        slot.record_inflight(
+            ThreadTag::REQ,
+            TrackedInflight {
                 active: true,
                 reply_id,
                 ors_order_id: oid,
                 symbol_id: 0,
                 kind: InflightOpKind::RfqCancel,
                 sent_mono_ns: now_mono_ns,
-            });
-            let _ = self.republish_routes();
+            },
+        );
+        let req_ref = RequestRef {
+            order_key: oid,
+            client_seq: reply_id,
+            sent_tsc: 0,
+            sent_mono_ns: now_mono_ns,
+        };
+        let outcome = slot
+            .conn
+            .send_frame(&wire_buf[..wire_len], reply_id, req_ref);
+        if outcome == SendOutcome::Sent {
+            self.last_picked_conn_id.store(conn_id, Ordering::Relaxed);
             Ok(UtaSubmitOutcome::Dispatched {
                 ors_order_id: oid,
                 conn_id,
@@ -1550,7 +1866,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 wire_len,
             })
         } else {
-            let _ = self.republish_routes();
+            self.rollback_failed_send(conn_id, reply_id);
             Err(UtaSubmitRefusal::SendFailed {
                 ors_order_id: oid,
                 outcome,
@@ -1561,9 +1877,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
     /// Single-threaded `RESP` poll loop: drives all order pool connections, dedicated private WS
     /// stream, `20s` WS heartbeats, graceful maintenance-drain completion, and `DialBaton`
-    /// replacement handoffs.
+    /// replacement handoffs with zero heap allocation on the steady-state receive path.
     pub fn poll_resp(
-        &mut self,
+        &self,
         now: Instant,
         now_mono_ns: u64,
         utc_ms: u64,
@@ -1573,13 +1889,13 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         let mut raw_chunk = [0u8; 16 * 1024];
 
         for idx in 0..self.slots.len() {
-            let conn_id = self.slots[idx].conn_id;
+            let slot = &self.slots[idx];
+            let conn_id = slot.conn_id;
 
             // 1. Poll raw socket/TLS bytes under `Connection` spinlock, then release immediately.
-            let poll_res =
-                self.slots[idx]
-                    .conn
-                    .poll_raw_rx(now, IoBudget::default(), &mut raw_chunk);
+            let poll_res = slot
+                .conn
+                .poll_raw_rx(now, IoBudget::default(), &mut raw_chunk);
             match poll_res {
                 Ok((drv, read_n)) => {
                     if read_n > 0 {
@@ -1592,7 +1908,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                             &mut report,
                         )?;
                     }
-                    if drv.peer_closed || self.slots[idx].conn.is_close_pending() {
+                    if drv.peer_closed || slot.conn.is_close_pending() {
                         self.handle_slot_disconnect(conn_id, now_mono_ns)?;
                     }
                 }
@@ -1604,46 +1920,60 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
             // 2. Send due `20s` WS heartbeat if authenticated and not draining.
             if self.transport_mode == UtaTransportMode::WebSocketTrade
-                && self.slots[idx].ws_authenticated
-                && !self.slots[idx].draining
-                && now_mono_ns.saturating_sub(self.slots[idx].last_ping_mono_ns)
-                    >= WS_PING_PERIOD_NS
+                && slot.ws_authenticated.load(Ordering::Acquire)
+                && !slot.draining.load(Ordering::Acquire)
             {
-                let mut pjson = [0u8; 32];
-                let plen = encode_ws_ping_into(self.venue, &mut pjson)?;
-                let mut pframe = [0u8; 48];
-                let flen = encode_ws_client_frame_into(
-                    Opcode::Text,
-                    &pjson[..plen],
-                    now_mono_ns ^ u64::from(conn_id),
-                    &mut pframe,
-                )?;
-                if self.slots[idx].conn.send_control_frame(&pframe[..flen]) == SendOutcome::Sent {
-                    self.slots[idx].last_ping_mono_ns = now_mono_ns;
+                let last_ping = slot.resp_rx.lock(ThreadTag::RESP).last_ping_mono_ns;
+                if now_mono_ns.saturating_sub(last_ping) >= WS_PING_PERIOD_NS {
+                    let mut pjson = [0u8; 32];
+                    let plen = encode_ws_ping_into(self.venue, &mut pjson)?;
+                    let mut pframe = [0u8; 48];
+                    let flen = encode_ws_client_frame_into(
+                        Opcode::Text,
+                        &pjson[..plen],
+                        now_mono_ns ^ u64::from(conn_id),
+                        &mut pframe,
+                    )?;
+                    if slot.conn.send_control_frame(&pframe[..flen]) == SendOutcome::Sent {
+                        slot.resp_rx.lock(ThreadTag::RESP).last_ping_mono_ns = now_mono_ns;
+                    }
                 }
             }
 
-            // 3. Complete graceful maintenance switchover once all in-flight replies have drained!
-            if self.slots[idx].draining && self.slots[idx].conn.inflight_relaxed() == 0 {
-                let can_retire_now = self.slots[idx]
+            // 3. Complete graceful maintenance switchover once all claimed and wire in-flight replies have drained!
+            if slot.draining.load(Ordering::SeqCst)
+                && slot.claimed_inflight.load(Ordering::SeqCst) == 0
+                && slot.conn.inflight_relaxed() == 0
+            {
+                let can_retire_now = slot
                     .baton
                     .as_ref()
                     .is_none_or(|b| b.state() == tickwire_transport::dialer::DialState::Ready);
                 if can_retire_now {
-                    let retired = self.slots[idx].conn.close_connection();
+                    slot.established.store(false, Ordering::SeqCst);
+                    slot.ws_authenticated.store(false, Ordering::Release);
+                    let retired = slot.conn.close_connection();
                     drop(retired);
-                    let _ = self.router.on_disconnect(conn_id);
-                    self.slots[idx].draining = false;
-                    self.slots[idx].ws_authenticated = false;
-                    self.slots[idx].rx_len = 0;
-                    self.slots[idx].clear_tracked();
+                    {
+                        let mut router = self.router_lock.lock(ThreadTag::RESP);
+                        let _ = router.on_disconnect(conn_id);
+                    }
+                    slot.ema_score_us.store(UNMEASURED_SCORE, Ordering::Release);
+                    slot.draining.store(false, Ordering::SeqCst);
+                    slot.clear_tracked_and_claims(ThreadTag::RESP);
+                    {
+                        let mut rx_guard = slot.resp_rx.lock(ThreadTag::RESP);
+                        rx_guard.rx_len = 0;
+                        rx_guard.ws_sub_phase = SlotWsSubPhase::None;
+                        rx_guard.generation = rx_guard.generation.wrapping_add(1);
+                    }
                     self.republish_routes()?;
                 }
             }
 
             // 4. Take ready pre-warmed `DialedLink` from cold `Dialer` when slot is empty.
-            if self.router.route(conn_id).is_some_and(|r| !r.established)
-                && let Some(link) = self.slots[idx].baton.as_ref().and_then(|b| b.take_ready())
+            if !slot.established.load(Ordering::Acquire)
+                && let Some(link) = slot.baton.as_ref().and_then(|b| b.take_ready())
             {
                 self.install_order_connection(
                     conn_id,
@@ -1673,6 +2003,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             if drv.peer_closed || self.private_conn.is_close_pending() {
                 let retired = self.private_conn.close_connection();
                 drop(retired);
+                self.private_subscribed.store(false, Ordering::Release);
                 let _ = self
                     .order_manager
                     .on_socket_drop(self.account_ref, now_mono_ns);
@@ -1681,16 +2012,31 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 }
             }
         }
-        if self.private_stream.is_subscribed() && !self.private_draining {
+        if self.private_subscribed.load(Ordering::Acquire)
+            && !self.private_draining.load(Ordering::Acquire)
+        {
             let mut pframe = [0u8; 48];
-            let flen = self
-                .private_stream
-                .encode_due_ping(now_mono_ns, &mut pframe)?;
+            let mut priv_stream = {
+                let mut guard = self.private_stream_lock.lock(ThreadTag::RESP);
+                core::mem::replace(&mut *guard, UtaPrivateStream::empty_placeholder(self.venue))
+            };
+            let ping_res = if priv_stream.has_rx_capacity() {
+                priv_stream.encode_due_ping(now_mono_ns, &mut pframe)
+            } else {
+                Ok(0)
+            };
+            if priv_stream.has_rx_capacity() {
+                let mut guard = self.private_stream_lock.lock(ThreadTag::RESP);
+                if !guard.has_rx_capacity() {
+                    *guard = priv_stream;
+                }
+            }
+            let flen = ping_res?;
             if flen > 0 {
                 let _ = self.private_conn.send_control_frame(&pframe[..flen]);
             }
         }
-        if self.private_draining
+        if self.private_draining.load(Ordering::Acquire)
             && let Some(link) = self.private_baton.as_ref().and_then(|b| b.take_ready())
         {
             self.install_private_connection(link.connection, utc_ms, now_mono_ns)?;
@@ -1704,7 +2050,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     /// (executes the exact single-pass `JsonScan` + graceful `notice` drain + `OrderManager` state
     /// transition pipeline without requiring kernel sockets).
     pub fn apply_order_ws_payload(
-        &mut self,
+        &self,
         conn_id: u16,
         payload: &[u8],
         now_mono_ns: u64,
@@ -1725,7 +2071,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
     /// Direct deterministic `RESP` HTTP/1.1 response injection helper on order slot `conn_id`.
     pub fn apply_order_https_bytes(
-        &mut self,
+        &self,
         conn_id: u16,
         raw_http: &[u8],
         now_mono_ns: u64,
@@ -1746,14 +2092,14 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
     /// Direct deterministic `RESP` private WS JSON payload injection helper.
     pub fn apply_private_ws_payload(
-        &mut self,
+        &self,
         payload: &[u8],
         now_mono_ns: u64,
         utc_ms: u64,
         out_reports: &mut Vec<OrsReport>,
     ) -> Result<UtaPollReport, UtaVenueError> {
         let mut report = UtaPollReport::default();
-        let mut pending_cancels = Vec::new();
+        let mut pending_cancels = PendingCancelList::new();
         let summary = match self.venue {
             SpotVenue::Bybit => scan_bybit_frame(payload, |ev| {
                 self.apply_scanned_event(
@@ -1777,22 +2123,23 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             })?,
         };
         report.frames_processed += 1;
-        if summary.graceful_drain_connection && !self.private_draining {
-            self.private_draining = true;
+        if summary.graceful_drain_connection && !self.private_draining.swap(true, Ordering::AcqRel)
+        {
             report.maintenance_drains_started += 1;
             if let Some(baton) = &self.private_baton {
                 let _ = baton.want(now_mono_ns);
             }
         }
-        self.dispatch_queued_cancels(&pending_cancels, now_mono_ns, utc_ms, &mut report);
+        self.dispatch_queued_cancels(pending_cancels.as_slice(), now_mono_ns, utc_ms, &mut report);
         Ok(report)
     }
 
     /// Polls due `OrsQueryDesk` entries (`StatusAsk` and exponential `RetryCancel`) for this account:
-    /// - Enqueues `RestTask::status_ask` onto `querier` for `StatusAsk` entries.
+    /// - Enqueues `RestTask::status_ask` onto `querier` for `StatusAsk` entries (`UtaRestRequestBuilder`
+    ///   reads `(symbol_id, client_id, venue_order_id)` directly via `OrderManager::lock_order`).
     /// - Dispatches `RetryCancel` frames over the session's shared connection pool.
     pub fn poll_due_queries(
-        &mut self,
+        &self,
         querier: Option<&AsyncRestQuerier>,
         now_mono_ns: u64,
         utc_ms: u64,
@@ -1812,20 +2159,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         let mut dispatched = 0usize;
         for action in actions.iter().copied().take(count) {
             match action {
-                DueQueryAction::StatusAsk {
-                    ors_order_id,
-                    symbol_id,
-                    ..
-                } => {
-                    let (cid, vid) = self.read_order_identifiers(ors_order_id);
-                    if let Some(binding) = self.find_symbol_by_id(symbol_id).copied() {
-                        self.register_status_ask_target(
-                            ors_order_id,
-                            &binding,
-                            cid.as_str(),
-                            vid.as_str(),
-                        );
-                    }
+                DueQueryAction::StatusAsk { ors_order_id, .. } => {
                     if let Some(q) = querier {
                         let task = RestTask::status_ask(
                             ors_order_id,
@@ -1869,7 +2203,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     /// [`decode_status_ask_snapshot`] and [`OrderManager::reconcile_query_snapshot`], automatically
     /// dispatching any coalesced `cancel_after` cancel request if the order is confirmed live!
     pub fn apply_status_ask_reply(
-        &mut self,
+        &self,
         reply: &RestReply,
         fills_body: Option<&[u8]>,
         now_mono_ns: u64,
@@ -1896,11 +2230,10 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             return Ok(OrsQueryReconcileAction::Resolved);
         }
 
-        let Some(target) = self.status_ask_registry.get(ors_order_id) else {
+        let Some((target, binding)) =
+            lookup_status_ask_target(&self.order_manager, &self.symbols, ors_order_id)
+        else {
             return Ok(OrsQueryReconcileAction::Resolved);
-        };
-        let Some(binding) = self.find_symbol_by_id(target.symbol_id).copied() else {
-            return Err(UtaVenueError::Encoding);
         };
 
         let decoded = match decode_status_ask_snapshot(
@@ -1949,14 +2282,12 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 now_mono_ns,
                 utc_ms,
             );
-        } else {
-            self.status_ask_registry.remove(ors_order_id);
         }
         Ok(action)
     }
 
     fn process_slot_raw_bytes(
-        &mut self,
+        &self,
         conn_id: u16,
         raw: &[u8],
         now_mono_ns: u64,
@@ -1964,25 +2295,71 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         out_reports: &mut Vec<OrsReport>,
         poll_report: &mut UtaPollReport,
     ) -> Result<(), UtaVenueError> {
+        if raw.is_empty() {
+            return Ok(());
+        }
         let idx = usize::from(conn_id);
-        let cur_len = self.slots[idx].rx_len;
-        let end = cur_len
-            .checked_add(raw.len())
-            .ok_or(UtaVenueError::Bounds)?;
-        if end > self.slots[idx].rx_buf.len() {
+        let slot = self.slots.get(idx).ok_or(UtaVenueError::Bounds)?;
+
+        // Swap the preallocated RX buffer out with a zero-allocation `Box::new([])` placeholder so
+        // all WS/HTTP decoding, `JsonScan`, and `OrderManager` updates run outside every spinlock.
+        let (mut rx_buf, mut rx_len, generation) = {
+            let mut guard = slot.resp_rx.lock(ThreadTag::RESP);
+            if guard.rx_buf.is_empty() {
+                return Err(UtaVenueError::Bounds);
+            }
+            let buf = core::mem::replace(&mut guard.rx_buf, Box::new([]));
+            (buf, guard.rx_len, guard.generation)
+        };
+
+        let proc_res = self.decode_and_apply_slot_rx(
+            conn_id,
+            &mut rx_buf,
+            &mut rx_len,
+            raw,
+            now_mono_ns,
+            utc_ms,
+            out_reports,
+            poll_report,
+        );
+
+        {
+            let mut guard = slot.resp_rx.lock(ThreadTag::RESP);
+            if guard.generation == generation && guard.rx_buf.is_empty() {
+                guard.rx_buf = rx_buf;
+                guard.rx_len = rx_len;
+            }
+        }
+
+        proc_res
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn decode_and_apply_slot_rx(
+        &self,
+        conn_id: u16,
+        rx_buf: &mut [u8],
+        rx_len: &mut usize,
+        raw: &[u8],
+        now_mono_ns: u64,
+        utc_ms: u64,
+        out_reports: &mut Vec<OrsReport>,
+        poll_report: &mut UtaPollReport,
+    ) -> Result<(), UtaVenueError> {
+        let slot = &self.slots[usize::from(conn_id)];
+        let end = rx_len.checked_add(raw.len()).ok_or(UtaVenueError::Bounds)?;
+        if end > rx_buf.len() {
             return Err(UtaVenueError::Bounds);
         }
-        self.slots[idx].rx_buf[cur_len..end].copy_from_slice(raw);
-        self.slots[idx].rx_len = end;
+        rx_buf[*rx_len..end].copy_from_slice(raw);
+        *rx_len = end;
 
         let mut consumed_total = 0usize;
-        match self.transport_mode {
+        let step_res: Result<(), UtaVenueError> = match self.transport_mode {
             UtaTransportMode::WebSocketTrade => loop {
-                let rx_len = self.slots[idx].rx_len;
-                let frame_opt =
-                    try_decode_ws_server_frame(&self.slots[idx].rx_buf[consumed_total..rx_len])?;
+                let frame_opt = try_decode_ws_server_frame(&rx_buf[consumed_total..*rx_len])?;
                 let Some(frame) = frame_opt else {
-                    break;
+                    break Ok(());
                 };
                 let frame_opcode = frame.opcode_raw;
                 let frame_consumed = frame.consumed;
@@ -1993,49 +2370,46 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 match frame_opcode {
                     9 => {
                         let mut pong_frame = [0u8; 160];
-                        let pslice = &self.slots[idx].rx_buf[payload_start..payload_end];
+                        let pslice = &rx_buf[payload_start..payload_end];
                         let flen = encode_ws_client_frame_into(
                             Opcode::Pong,
                             pslice,
                             now_mono_ns,
                             &mut pong_frame,
                         )?;
-                        let _ = self.slots[idx].conn.send_control_frame(&pong_frame[..flen]);
+                        let _ = slot.conn.send_control_frame(&pong_frame[..flen]);
                     }
                     8 => {
-                        self.slots[idx]
-                            .conn
-                            .request_close(tickwire_transport::latency_tracer::ThreadTag::RESP);
-                        break;
+                        slot.conn.request_close(ThreadTag::RESP);
+                        break Ok(());
                     }
                     1 => {
                         let mut stack_payload = [0u8; 16 * 1024];
                         let plen = payload_end - payload_start;
                         if plen <= stack_payload.len() {
-                            stack_payload[..plen].copy_from_slice(
-                                &self.slots[idx].rx_buf[payload_start..payload_end],
-                            );
-                            self.handle_slot_ws_text(
+                            stack_payload[..plen]
+                                .copy_from_slice(&rx_buf[payload_start..payload_end]);
+                            if let Err(e) = self.handle_slot_ws_text(
                                 conn_id,
                                 &stack_payload[..plen],
                                 now_mono_ns,
                                 utc_ms,
                                 out_reports,
                                 poll_report,
-                            )?;
+                            ) {
+                                break Err(e);
+                            }
                         } else {
-                            return Err(UtaVenueError::Bounds);
+                            break Err(UtaVenueError::Bounds);
                         }
                     }
                     _ => {}
                 }
             },
             UtaTransportMode::PooledHttps => loop {
-                let rx_len = self.slots[idx].rx_len;
-                let resp_opt =
-                    try_decode_http_response(&self.slots[idx].rx_buf[consumed_total..rx_len])?;
+                let resp_opt = try_decode_http_response(&rx_buf[consumed_total..*rx_len])?;
                 let Some(resp) = resp_opt else {
-                    break;
+                    break Ok(());
                 };
                 let http_status = resp.status;
                 let bapi_limit = resp.bapi_limit;
@@ -2049,11 +2423,11 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 let mut stack_body = [0u8; 16 * 1024];
                 let blen = body_end - body_start;
                 if blen > stack_body.len() {
-                    return Err(UtaVenueError::Bounds);
+                    break Err(UtaVenueError::Bounds);
                 }
-                stack_body[..blen].copy_from_slice(&self.slots[idx].rx_buf[body_start..body_end]);
+                stack_body[..blen].copy_from_slice(&rx_buf[body_start..body_end]);
 
-                self.handle_slot_http_response(
+                if let Err(e) = self.handle_slot_http_response(
                     conn_id,
                     http_status,
                     bapi_limit,
@@ -2064,22 +2438,21 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                     utc_ms,
                     out_reports,
                     poll_report,
-                )?;
+                ) {
+                    break Err(e);
+                }
             },
-        }
+        };
 
         if consumed_total > 0 {
-            let rx_len = self.slots[idx].rx_len;
-            self.slots[idx]
-                .rx_buf
-                .copy_within(consumed_total..rx_len, 0);
-            self.slots[idx].rx_len -= consumed_total;
+            rx_buf.copy_within(consumed_total..*rx_len, 0);
+            *rx_len -= consumed_total;
         }
-        Ok(())
+        step_res
     }
 
     fn handle_slot_ws_text(
-        &mut self,
+        &self,
         conn_id: u16,
         payload: &[u8],
         now_mono_ns: u64,
@@ -2088,17 +2461,18 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         poll_report: &mut UtaPollReport,
     ) -> Result<(), UtaVenueError> {
         let idx = usize::from(conn_id);
+        let slot = self.slots.get(idx).ok_or(UtaVenueError::Bounds)?;
         poll_report.frames_processed += 1;
 
-        if !self.slots[idx].ws_authenticated {
+        if !slot.ws_authenticated.load(Ordering::Acquire) {
             let login_out = match self.venue {
                 SpotVenue::Bybit => check_bybit_auth_reply(payload),
                 SpotVenue::Okx => check_okx_login_reply(payload),
             };
             match login_out {
                 WsLoginOutcome::Accepted => {
-                    let _ = self.slots[idx].conn.complete_ws_login();
-                    self.slots[idx].ws_authenticated = true;
+                    let _ = slot.conn.complete_ws_login();
+                    slot.ws_authenticated.store(true, Ordering::Release);
                     if self.venue == SpotVenue::Okx && self.okx_ws_auto_subscribe_private {
                         let mut sub_json = [0u8; 256];
                         let slen = encode_okx_subscribe_step_into(0, &mut sub_json)?;
@@ -2109,8 +2483,9 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                             now_mono_ns,
                             &mut sframe,
                         )?;
-                        let _ = self.slots[idx].conn.send_control_frame(&sframe[..flen]);
-                        self.slots[idx].ws_sub_phase = SlotWsSubPhase::Subscribing { next_step: 1 };
+                        let _ = slot.conn.send_control_frame(&sframe[..flen]);
+                        slot.resp_rx.lock(ThreadTag::RESP).ws_sub_phase =
+                            SlotWsSubPhase::Subscribing { next_step: 1 };
                     }
                     self.republish_routes()?;
                     return Ok(());
@@ -2123,7 +2498,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             }
         }
 
-        let mut pending_cancels = Vec::new();
+        let mut pending_cancels = PendingCancelList::new();
         let mut saw_sub_ack = false;
         let summary = match self.venue {
             SpotVenue::Bybit => scan_bybit_frame(payload, |ev| {
@@ -2155,25 +2530,26 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             })?,
         };
 
-        if saw_sub_ack
-            && let SlotWsSubPhase::Subscribing { next_step } = self.slots[idx].ws_sub_phase
-        {
-            let mut sub_json = [0u8; 256];
-            let slen = encode_okx_subscribe_step_into(next_step, &mut sub_json)?;
-            if slen == 0 {
-                self.slots[idx].ws_sub_phase = SlotWsSubPhase::Subscribed;
-            } else {
-                let mut sframe = [0u8; 300];
-                let flen = encode_ws_client_frame_into(
-                    Opcode::Text,
-                    &sub_json[..slen],
-                    now_mono_ns ^ u64::from(next_step),
-                    &mut sframe,
-                )?;
-                let _ = self.slots[idx].conn.send_control_frame(&sframe[..flen]);
-                self.slots[idx].ws_sub_phase = SlotWsSubPhase::Subscribing {
-                    next_step: next_step + 1,
-                };
+        if saw_sub_ack {
+            let phase = slot.resp_rx.lock(ThreadTag::RESP).ws_sub_phase;
+            if let SlotWsSubPhase::Subscribing { next_step } = phase {
+                let mut sub_json = [0u8; 256];
+                let slen = encode_okx_subscribe_step_into(next_step, &mut sub_json)?;
+                if slen == 0 {
+                    slot.resp_rx.lock(ThreadTag::RESP).ws_sub_phase = SlotWsSubPhase::Subscribed;
+                } else {
+                    let mut sframe = [0u8; 300];
+                    let flen = encode_ws_client_frame_into(
+                        Opcode::Text,
+                        &sub_json[..slen],
+                        now_mono_ns ^ u64::from(next_step),
+                        &mut sframe,
+                    )?;
+                    let _ = slot.conn.send_control_frame(&sframe[..flen]);
+                    slot.resp_rx.lock(ThreadTag::RESP).ws_sub_phase = SlotWsSubPhase::Subscribing {
+                        next_step: next_step + 1,
+                    };
+                }
             }
         }
 
@@ -2188,13 +2564,13 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         }
 
         self.republish_routes()?;
-        self.dispatch_queued_cancels(&pending_cancels, now_mono_ns, utc_ms, poll_report);
+        self.dispatch_queued_cancels(pending_cancels.as_slice(), now_mono_ns, utc_ms, poll_report);
         Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
     fn handle_slot_http_response(
-        &mut self,
+        &self,
         conn_id: u16,
         http_status: u16,
         bapi_limit: Option<u64>,
@@ -2207,10 +2583,14 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         poll_report: &mut UtaPollReport,
     ) -> Result<(), UtaVenueError> {
         let idx = usize::from(conn_id);
+        let slot = self.slots.get(idx).ok_or(UtaVenueError::Bounds)?;
         poll_report.frames_processed += 1;
 
-        let req_ref = self.slots[idx].conn.complete_https_reply();
-        let tracked = self.slots[idx].take_any_inflight();
+        let req_ref = slot.conn.complete_https_reply();
+        let tracked = slot.take_any_inflight(ThreadTag::RESP);
+        if tracked.is_some() {
+            let _ = slot.sub_claim_saturating();
+        }
         let sent_ns = req_ref
             .map(|rr| rr.sent_mono_ns)
             .or_else(|| tracked.map(|tr| tr.sent_mono_ns));
@@ -2219,15 +2599,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             && now_mono_ns >= sent_mono_ns
         {
             let rtt_us = ((now_mono_ns - sent_mono_ns) / 1_000).min(u64::from(u32::MAX)) as u32;
-            if let Some(route) = self.router.route(conn_id) {
-                let epoch = route.epoch;
-                let _ = self.router.note_sample(
-                    conn_id,
-                    epoch,
-                    tickwire_transport::order_router::SampleKind::Order,
-                    rtt_us,
-                );
-            }
+            let _ = self.note_router_rtt_sample(conn_id, SampleKind::Order, rtt_us);
         }
 
         if let (Some(limit), Some(rem)) = (bapi_limit, bapi_limit_status) {
@@ -2280,7 +2652,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             return Ok(());
         }
 
-        let mut pending_cancels = Vec::new();
+        let mut pending_cancels = PendingCancelList::new();
         let mut applied_reply = false;
         let summary = match self.venue {
             SpotVenue::Bybit => scan_bybit_frame(body, |ev| {
@@ -2361,12 +2733,12 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         }
 
         self.republish_routes()?;
-        self.dispatch_queued_cancels(&pending_cancels, now_mono_ns, utc_ms, poll_report);
+        self.dispatch_queued_cancels(pending_cancels.as_slice(), now_mono_ns, utc_ms, poll_report);
         Ok(())
     }
 
     fn process_private_raw_bytes(
-        &mut self,
+        &self,
         raw: &[u8],
         now_mono_ns: u64,
         utc_ms: u64,
@@ -2374,14 +2746,18 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         poll_report: &mut UtaPollReport,
     ) -> Result<(), UtaVenueError> {
         let mut tx_buf = [0u8; 1024];
-        let mut pending_cancels = Vec::new();
-        let venue = self.venue;
-        // Collect borrowed frame events via a local helper using raw slice indices is avoided by
-        // splitting `private_stream` borrow from `self` fields:
-        let mut priv_stream = core::mem::replace(
-            &mut self.private_stream,
-            UtaPrivateStream::new(venue, 16 * 1024),
-        );
+        let mut pending_cancels = PendingCancelList::new();
+
+        // Swap `UtaPrivateStream` out of its leaf spinlock with a zero-allocation placeholder so
+        // RFC 6455 frame decoding, `JsonScan`, and `OrderManager` updates execute outside all spinlocks.
+        let mut priv_stream = {
+            let mut guard = self.private_stream_lock.lock(ThreadTag::RESP);
+            core::mem::replace(&mut *guard, UtaPrivateStream::empty_placeholder(self.venue))
+        };
+        if !priv_stream.has_rx_capacity() {
+            return Ok(());
+        }
+
         let res = priv_stream.on_raw_bytes(raw, now_mono_ns, &mut tx_buf, |ev| {
             self.apply_scanned_event(
                 None,
@@ -2392,7 +2768,15 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                 poll_report,
             );
         });
-        self.private_stream = priv_stream;
+        let subscribed = priv_stream.is_subscribed();
+        {
+            let mut guard = self.private_stream_lock.lock(ThreadTag::RESP);
+            if !guard.has_rx_capacity() {
+                *guard = priv_stream;
+                self.private_subscribed.store(subscribed, Ordering::Release);
+            }
+        }
+
         let (summary, tx_len) = res?;
         if tx_len > 0 {
             let _ = self.private_conn.send_control_frame(&tx_buf[..tx_len]);
@@ -2400,32 +2784,36 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         if summary.events_emitted > 0 {
             poll_report.frames_processed += 1;
         }
-        if summary.graceful_drain_connection && !self.private_draining {
-            self.private_draining = true;
+        if summary.graceful_drain_connection && !self.private_draining.swap(true, Ordering::AcqRel)
+        {
             poll_report.maintenance_drains_started += 1;
             if let Some(baton) = &self.private_baton {
                 let _ = baton.want(now_mono_ns);
             }
         }
-        self.dispatch_queued_cancels(&pending_cancels, now_mono_ns, utc_ms, poll_report);
+        self.dispatch_queued_cancels(pending_cancels.as_slice(), now_mono_ns, utc_ms, poll_report);
         Ok(())
     }
 
     fn apply_scanned_event(
-        &mut self,
+        &self,
         conn_id: Option<u16>,
         ev: UtaFrameEvent<'_>,
         now_mono_ns: u64,
         out_reports: &mut Vec<OrsReport>,
-        pending_cancels: &mut Vec<u64>,
+        pending_cancels: &mut PendingCancelList,
         _poll_report: &mut UtaPollReport,
     ) {
         match ev {
             UtaFrameEvent::CommandReply(rep) => {
                 if let Some(cid) = conn_id {
+                    let slot = &self.slots[usize::from(cid)];
                     let tracked = rep.reply_id.and_then(|rid| {
-                        let req_ref = self.slots[usize::from(cid)].conn.match_ws_reply(rid);
-                        let tr = self.slots[usize::from(cid)].take_inflight_by_reply_id(rid);
+                        let req_ref = slot.conn.match_ws_reply(rid);
+                        let tr = slot.take_inflight_by_reply_id(ThreadTag::RESP, rid);
+                        if tr.is_some() {
+                            let _ = slot.sub_claim_saturating();
+                        }
                         let sent_ns = req_ref
                             .map(|rr| rr.sent_mono_ns)
                             .or_else(|| tr.map(|t| t.sent_mono_ns));
@@ -2436,15 +2824,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                             let rtt_us = ((now_mono_ns - sent_mono_ns) / 1_000)
                                 .min(u64::from(u32::MAX))
                                 as u32;
-                            if let Some(route) = self.router.route(cid) {
-                                let epoch = route.epoch;
-                                let _ = self.router.note_sample(
-                                    cid,
-                                    epoch,
-                                    tickwire_transport::order_router::SampleKind::Order,
-                                    rtt_us,
-                                );
-                            }
+                            let _ = self.note_router_rtt_sample(cid, SampleKind::Order, rtt_us);
                         }
                         tr
                     });
@@ -2472,13 +2852,13 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     }
 
     fn apply_command_reply_with_tracked(
-        &mut self,
+        &self,
         _conn_id: u16,
         rep: UtaCommandReply<'_>,
         tracked: Option<TrackedInflight>,
         now_mono_ns: u64,
         out_reports: &mut Vec<OrsReport>,
-        pending_cancels: &mut Vec<u64>,
+        pending_cancels: &mut PendingCancelList,
     ) {
         let ors_order_id = tracked
             .map(|t| t.ors_order_id)
@@ -2489,7 +2869,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
         if !rep.order_id.is_empty() {
             self.remember_venue_order_id(rep.order_id, oid);
-            self.update_status_ask_venue_id(oid, rep.order_id);
         }
 
         let op_kind = tracked.map(|t| t.kind).unwrap_or(match rep.op {
@@ -2631,7 +3010,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
     #[allow(clippy::too_many_arguments)]
     fn apply_tracked_error(
-        &mut self,
+        &self,
         tr: TrackedInflight,
         err_code: Option<i64>,
         msg: &str,
@@ -2654,7 +3033,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                     now_mono_ns,
                 ) {
                     out_reports.push(rep);
-                    self.status_ask_registry.remove(oid);
                 }
             }
             InflightOpKind::Modify { .. } => {
@@ -2696,11 +3074,11 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     }
 
     fn apply_order_row(
-        &mut self,
+        &self,
         row: &UtaOrderRow<'_>,
         now_mono_ns: u64,
         out_reports: &mut Vec<OrsReport>,
-        pending_cancels: &mut Vec<u64>,
+        pending_cancels: &mut PendingCancelList,
     ) {
         let binding_opt = self.find_symbol_by_name(row.symbol).copied();
         let prod_hint = binding_opt.map(|b| b.spec.product);
@@ -2709,7 +3087,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         };
         if !row.order_id.is_empty() {
             self.remember_venue_order_id(row.order_id, oid);
-            self.update_status_ask_venue_id(oid, row.order_id);
         }
         let Some(binding) = binding_opt.or_else(|| {
             let sid = self.read_order_symbol_id(oid)?;
@@ -2813,7 +3190,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                         })
                 {
                     out_reports.push(rep);
-                    self.status_ask_registry.remove(oid);
                 }
             }
             OrderStatus::Rejected => {
@@ -2837,7 +3213,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
                         .on_rejected(oid, None, msg, explicit_reason, now_mono_ns)
                 {
                     out_reports.push(rep);
-                    self.status_ask_registry.remove(oid);
                 }
             }
             _ => {}
@@ -2845,7 +3220,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     }
 
     fn apply_exec_row(
-        &mut self,
+        &self,
         row: &UtaExecRow<'_>,
         now_mono_ns: u64,
         out_reports: &mut Vec<OrsReport>,
@@ -2912,11 +3287,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             received_mono_ns: now_mono_ns,
         };
         if let Ok(Some(rep)) = self.order_manager.on_fill(&obs) {
-            if let OrsReport::Fill(f) = &rep
-                && f.order_retired
-            {
-                self.status_ask_registry.remove(oid);
-            }
             out_reports.push(rep);
         }
     }
@@ -2982,16 +3352,16 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     }
 
     fn initiate_graceful_maintenance_drain(
-        &mut self,
+        &self,
         conn_id: u16,
         now_mono_ns: u64,
         poll_report: &mut UtaPollReport,
     ) -> Result<(), UtaVenueError> {
         let idx = usize::from(conn_id);
-        if self.slots[idx].draining {
+        let slot = self.slots.get(idx).ok_or(UtaVenueError::Bounds)?;
+        if slot.draining.swap(true, Ordering::SeqCst) {
             return Ok(());
         }
-        self.slots[idx].draining = true;
         poll_report.maintenance_drains_started += 1;
 
         // Immediately republish `ready = false` so `REQ` routes zero new orders to this socket!
@@ -2999,15 +3369,12 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
 
         // Trigger cold `Dialer` pre-warm on this slot's baton (or any idle sibling baton) so a
         // replacement link establishes in parallel while in-flight replies drain!
-        if let Some(baton) = &self.slots[idx].baton {
+        if let Some(baton) = &slot.baton {
             let _ = baton.want(now_mono_ns);
         }
-        for sib in &self.slots {
+        for sib in self.slots.iter() {
             if sib.conn_id != conn_id
-                && self
-                    .router
-                    .route(sib.conn_id)
-                    .is_some_and(|r| !r.established)
+                && !sib.established.load(Ordering::Acquire)
                 && let Some(baton) = &sib.baton
             {
                 let _ = baton.want(now_mono_ns);
@@ -3016,27 +3383,35 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         Ok(())
     }
 
-    fn handle_slot_disconnect(
-        &mut self,
-        conn_id: u16,
-        now_mono_ns: u64,
-    ) -> Result<(), UtaVenueError> {
+    fn handle_slot_disconnect(&self, conn_id: u16, now_mono_ns: u64) -> Result<(), UtaVenueError> {
         let idx = usize::from(conn_id);
-        let had_inflight = self.slots[idx].conn.inflight_relaxed() > 0;
-        let retired = self.slots[idx].conn.close_connection();
+        let slot = self.slots.get(idx).ok_or(UtaVenueError::Bounds)?;
+        let had_inflight =
+            slot.claimed_inflight.load(Ordering::Acquire) > 0 || slot.conn.inflight_relaxed() > 0;
+        slot.established.store(false, Ordering::SeqCst);
+        slot.ws_authenticated.store(false, Ordering::Release);
+        let retired = slot.conn.close_connection();
         drop(retired);
-        self.slots[idx].draining = false;
-        self.slots[idx].ws_authenticated = false;
-        self.slots[idx].rx_len = 0;
-        self.slots[idx].clear_tracked();
-        let _ = self.router.on_disconnect(conn_id);
+        slot.draining.store(false, Ordering::SeqCst);
+        slot.clear_tracked_and_claims(ThreadTag::RESP);
+        {
+            let mut rx_guard = slot.resp_rx.lock(ThreadTag::RESP);
+            rx_guard.rx_len = 0;
+            rx_guard.ws_sub_phase = SlotWsSubPhase::None;
+            rx_guard.generation = rx_guard.generation.wrapping_add(1);
+        }
+        {
+            let mut router = self.router_lock.lock(ThreadTag::RESP);
+            let _ = router.on_disconnect(conn_id);
+        }
+        slot.ema_score_us.store(UNMEASURED_SCORE, Ordering::Release);
         self.republish_routes()?;
         if had_inflight {
             let _ = self
                 .order_manager
                 .on_socket_drop(self.account_ref, now_mono_ns);
         }
-        if let Some(baton) = &self.slots[idx].baton {
+        if let Some(baton) = &slot.baton {
             let _ = baton.want(now_mono_ns);
         }
         Ok(())
@@ -3093,7 +3468,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
         self.record_venue_rate_telemetry(conn_id, 100, 100, now_mono_ns, poll_report);
     }
 
-    fn handle_rfq_http_reply(&mut self, tr: TrackedInflight, http_status: u16, body: &[u8]) {
+    fn handle_rfq_http_reply(&self, tr: TrackedInflight, http_status: u16, body: &[u8]) {
         if http_status != 200 {
             if tr.kind == InflightOpKind::RfqSubmit {
                 let _ = self.rfq_hook.on_quote_terminal(tr.ors_order_id);
@@ -3120,7 +3495,7 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
     }
 
     fn dispatch_queued_cancels(
-        &mut self,
+        &self,
         ors_order_ids: &[u64],
         now_mono_ns: u64,
         utc_ms: u64,
@@ -3145,31 +3520,6 @@ impl<const CHECK_STP: bool> UtaAccountSession<CHECK_STP> {
             {
                 poll_report.pending_cancels_dispatched += 1;
             }
-        }
-    }
-
-    fn register_status_ask_target(
-        &self,
-        ors_order_id: u64,
-        binding: &UtaSymbolBinding,
-        client_id: &str,
-        venue_order_id: &str,
-    ) {
-        self.status_ask_registry.upsert(StatusAskTarget {
-            ors_order_id,
-            account_ref: self.account_ref,
-            symbol_id: binding.symbol_id,
-            product: binding.spec.product,
-            symbol: binding.symbol,
-            client_id: InlineAscii::lossy_ascii(client_id),
-            venue_order_id: InlineAscii::lossy_ascii(venue_order_id),
-        });
-    }
-
-    fn update_status_ask_venue_id(&self, ors_order_id: u64, venue_order_id: &str) {
-        if let Some(mut existing) = self.status_ask_registry.get(ors_order_id) {
-            existing.venue_order_id = InlineAscii::lossy_ascii(venue_order_id);
-            self.status_ask_registry.upsert(existing);
         }
     }
 
@@ -3536,3 +3886,11 @@ impl<const CHECK_STP: bool> DerefMut for OkxUtaSession<CHECK_STP> {
         &mut self.0
     }
 }
+
+const fn assert_send_sync<T: Send + Sync>() {}
+const _: () = {
+    assert_send_sync::<UtaAccountSession<true>>();
+    assert_send_sync::<UtaAccountSession<false>>();
+    assert_send_sync::<BybitUtaSession<true>>();
+    assert_send_sync::<OkxUtaSession<true>>();
+};

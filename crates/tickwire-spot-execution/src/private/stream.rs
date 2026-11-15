@@ -53,6 +53,27 @@ impl UtaPrivateStream {
         }
     }
 
+    /// Zero-allocation empty placeholder (`Box::new([])` performs zero heap allocation and zero
+    /// deallocation on drop) used by `RESP` to swap [`UtaPrivateStream`] out of its fine-grained
+    /// spinlock while decoding WebSocket frames outside all locks.
+    #[inline]
+    pub fn empty_placeholder(venue: SpotVenue) -> Self {
+        Self {
+            venue,
+            phase: UtaPrivatePhase::Disconnected,
+            rx_buf: Box::new([]),
+            rx_len: 0,
+            last_rx_mono_ns: 0,
+            last_ping_mono_ns: 0,
+            frame_seq: 1,
+        }
+    }
+
+    #[inline]
+    pub const fn has_rx_capacity(&self) -> bool {
+        !self.rx_buf.is_empty()
+    }
+
     #[inline]
     pub const fn venue(&self) -> SpotVenue {
         self.venue

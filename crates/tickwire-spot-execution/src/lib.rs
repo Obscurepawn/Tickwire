@@ -27,9 +27,16 @@
 //!   and Bybit connection-retire/maintenance frames in one `JsonScan` pass, immediately marking the
 //!   retiring link unpickable (`ready = false`) in `PublishedRoutes`, requesting `Dialer` to pre-warm
 //!   a replacement link in parallel, draining in-flight replies, and preserving 100% of open orders.
-//! - **Lock Discipline & Memory Safety**: `#![forbid(unsafe_code)]`, zero floating-point arithmetic,
-//!   and zero heap allocation, logging, or JSON/HTTP/WS parsing while holding any spinlock. `Order`
-//!   and `Connection` spinlocks never overlap.
+//! - **Concurrent `Send + Sync` `REQ`/`RESP` Sharing & Lock Discipline**: [`UtaAccountSession`],
+//!   [`BybitUtaSession`], [`OkxUtaSession`], and [`rfq::RfqQuoteHook`] are `Send + Sync` and take
+//!   `&self` across every `REQ` (`submit_new_order`, `submit_modify_order`, `submit_cancel_order`,
+//!   `submit_rfq_quote`, `cancel_rfq_quotes`) and `RESP` (`poll_resp`, `apply_order_ws_payload`,
+//!   `apply_order_https_bytes`, `apply_private_ws_payload`, `poll_due_queries`,
+//!   `apply_status_ask_reply`) entry point so dedicated `REQ` and `RESP` threads share one
+//!   `Arc<UtaAccountSession>` concurrently. `#![forbid(unsafe_code)]`, zero floating-point
+//!   arithmetic, zero `Mutex` on `REQ`/`RESP` (`UtaRestRequestBuilder` reads order metadata directly
+//!   via `OrderManager::lock_order`), and zero heap allocation, logging, or JSON/HTTP/WS parsing
+//!   while holding any spinlock. `Order` and `Connection` spinlocks never overlap.
 
 #![forbid(unsafe_code)]
 
@@ -60,8 +67,8 @@ pub use json_parser::{
     parse_signed_scaled_i128, scan_bybit_frame, scan_okx_frame,
 };
 pub use rest_bootstrap::{
-    DecodedStatusAsk, UtaAssetBinding, UtaBootstrapDecoder, UtaRestRequestBuilder,
-    UtaSymbolBinding, decode_status_ask_snapshot,
+    DecodedStatusAsk, StatusAskTarget, UtaAssetBinding, UtaBootstrapDecoder, UtaRestRequestBuilder,
+    UtaSymbolBinding, decode_status_ask_snapshot, lookup_status_ask_target,
 };
 pub use rfq::{
     BuiltRfqPayload, DEFAULT_MAX_OPEN_RFQ_QUOTES, MAX_RFQ_LEGS, NoopRfqQuoteHook,

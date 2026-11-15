@@ -204,7 +204,7 @@ fn bybit_ws_trade_pool_supports_16_inflight_9_8_ewma_hysteresis_and_fast_fill_am
         private_stream_baton: None,
         rfq_hook: None,
     };
-    let mut session = BybitUtaSession::new(Arc::clone(&om), cfg).unwrap();
+    let session = BybitUtaSession::new(Arc::clone(&om), cfg).unwrap();
 
     // Install two WS trade connections (`already_authenticated = true` on slot 0, unauthenticated handshake on slot 1)
     let (conn0, mut srv0) = loopback_pair();
@@ -471,7 +471,7 @@ fn single_pick_rate_limiter_never_retries_another_ip_and_isolates_cancels_plus_d
         private_stream_baton: None,
         rfq_hook: None,
     };
-    let mut session = OkxUtaSession::new(Arc::clone(&om), cfg).unwrap();
+    let session = OkxUtaSession::new(Arc::clone(&om), cfg).unwrap();
 
     let mut servers = Vec::new();
     for cid in 0..4u16 {
@@ -690,7 +690,7 @@ fn okx_64008_maintenance_notice_switches_connections_gracefully_with_zero_droppe
         private_stream_baton: None,
         rfq_hook: None,
     };
-    let mut session = OkxUtaSession::new(Arc::clone(&om), cfg).unwrap();
+    let session = OkxUtaSession::new(Arc::clone(&om), cfg).unwrap();
 
     let (conn0, _srv0) = loopback_pair();
     let (conn1, _srv1) = loopback_pair();
@@ -911,4 +911,447 @@ fn okx_64008_maintenance_notice_switches_connections_gracefully_with_zero_droppe
     assert_ne!(routes_after[0].connection_id, OrderRoute::NO_CONNECTION);
     assert!(om.lock_order(oid1).is_some());
     assert!(om.lock_order(oid2).is_some());
+}
+
+fn try_decode_masked_ws_client_frame(buf: &[u8]) -> Option<(Vec<u8>, usize)> {
+    if buf.len() < 6 {
+        return None;
+    }
+    let masked = (buf[1] & 0x80) != 0;
+    assert!(masked, "client WS frame must be masked per RFC 6455");
+    let len7 = usize::from(buf[1] & 0x7f);
+    let (payload_len, hdr_len) = if len7 < 126 {
+        (len7, 2usize)
+    } else if len7 == 126 {
+        if buf.len() < 8 {
+            return None;
+        }
+        (usize::from(u16::from_be_bytes([buf[2], buf[3]])), 4usize)
+    } else {
+        if buf.len() < 14 {
+            return None;
+        }
+        let mut b = [0u8; 8];
+        b.copy_from_slice(&buf[2..10]);
+        (u64::from_be_bytes(b) as usize, 10usize)
+    };
+    let total = hdr_len + 4 + payload_len;
+    if buf.len() < total {
+        return None;
+    }
+    let mask = &buf[hdr_len..hdr_len + 4];
+    let mut out = Vec::with_capacity(payload_len);
+    for (idx, &byte) in buf[hdr_len + 4..total].iter().enumerate() {
+        out.push(byte ^ mask[idx & 3]);
+    }
+    Some((out, total))
+}
+
+fn extract_json_str_field<'a>(json: &'a str, key: &str) -> Option<&'a str> {
+    let needle = format!("\"{key}\":\"");
+    let start = json.find(&needle)? + needle.len();
+    let end = start + json[start..].find('"')?;
+    Some(&json[start..end])
+}
+
+#[test]
+fn concurrent_req_and_resp_threads_drive_shared_arc_uta_session_safely() {
+    use std::{
+        io::Write as _,
+        sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    };
+
+    // Part A: Concurrent `REQ` + `RESP` + loopback WS venue threads over `Arc<BybitUtaSession>` (`Shared` 16-in-flight)
+    let symbols = uta_symbols_bybit();
+    let om = build_om(SpotVenue::Bybit, &symbols);
+    let limiter = Arc::new(SharedRateLimiter::new());
+    let cfg = UtaSessionConfig {
+        venue: SpotVenue::Bybit,
+        environment: Environment::Test,
+        account_ref: 1,
+        exchange_uid: 77_001,
+        risk_domain_id: [0x42; 16],
+        epoch: 1,
+        credentials: OwnedCredentials::bybit("BYBIT_MT_KEY", "bybit_mt_secret").unwrap(),
+        transport_mode: UtaTransportMode::WebSocketTrade,
+        pool: vec![
+            UtaConnPoolEntry::new(Ipv4Addr::new(10, 20, 0, 1), 1).with_colo(true),
+            UtaConnPoolEntry::new(Ipv4Addr::new(10, 20, 0, 2), 1),
+        ],
+        router_config: RouterConfig::default(),
+        limits: Limits::default(),
+        symbols,
+        assets: vec![
+            UtaAssetBinding::new("BTC", AssetKey::new(1, 1), 6).unwrap(),
+            UtaAssetBinding::new("USDT", AssetKey::new(1, 2), 6).unwrap(),
+        ],
+        rate_limiter: Arc::clone(&limiter),
+        rate_overrides: AccountRateOverrides::default(),
+        ip_order_weight: 1,
+        okx_ws_auto_subscribe_private: false,
+        private_stream_baton: None,
+        rfq_hook: None,
+    };
+    let session = Arc::new(BybitUtaSession::new(Arc::clone(&om), cfg).unwrap());
+
+    let (conn0, srv0) = loopback_pair();
+    let (conn1, srv1) = loopback_pair();
+    let (priv_conn, mut priv_srv) = loopback_pair();
+    session
+        .install_order_connection(0, conn0, true, 1_700_000_000_000, 1_000)
+        .unwrap();
+    session
+        .install_order_connection(1, conn1, true, 1_700_000_000_000, 1_000)
+        .unwrap();
+    session
+        .install_private_connection(priv_conn, 1_700_000_000_000, 1_000)
+        .unwrap();
+
+    // Drain initial private WS auth frame and send back Bybit auth + subscribe acks
+    let mut priv_rx = [0u8; 1024];
+    assert!(read_loopback(&mut priv_srv, &mut priv_rx) > 0);
+    priv_srv
+        .write_all(&ws_server_frame(
+            Opcode::Text,
+            br#"{"op":"auth","success":true,"ret_msg":""}"#,
+        ))
+        .unwrap();
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let front_acks = Arc::new(AtomicUsize::new(0));
+    let open_acks = Arc::new(AtomicUsize::new(0));
+    let cancel_terminals = Arc::new(AtomicUsize::new(0));
+
+    // Spawn mock Bybit WS trade + private server thread handling `srv0`, `srv1`, and `priv_srv`
+    let stop_srv = Arc::clone(&stop);
+    let srv_handle = std::thread::spawn(move || {
+        let mut s0 = srv0;
+        let mut s1 = srv1;
+        let mut p_srv = priv_srv;
+        let mut acc0 = Vec::new();
+        let mut acc1 = Vec::new();
+        let mut scratch = [0u8; 4096];
+
+        while !stop_srv.load(Ordering::Acquire) {
+            let mut progressed = false;
+            for (sock, acc) in [(&mut s0, &mut acc0), (&mut s1, &mut acc1)] {
+                if let Ok(n) = sock.read(&mut scratch)
+                    && n > 0
+                {
+                    acc.extend_from_slice(&scratch[..n]);
+                    progressed = true;
+                }
+                while let Some((payload, used)) = try_decode_masked_ws_client_frame(acc) {
+                    acc.drain(..used);
+                    let txt = core::str::from_utf8(&payload).unwrap();
+                    let Some(req_id) = extract_json_str_field(txt, "reqId") else {
+                        continue;
+                    };
+                    let op = extract_json_str_field(txt, "op").unwrap_or("order.create");
+                    if op == "order.create" {
+                        let cl_id = extract_json_str_field(txt, "orderLinkId").unwrap_or("");
+                        let sym = extract_json_str_field(txt, "symbol").unwrap_or("BTCUSDT");
+                        let cat = extract_json_str_field(txt, "category").unwrap_or("spot");
+                        let v_oid = format!("bybit-mt-{req_id}");
+                        let reply = format!(
+                            r#"{{"reqId":"{req_id}","retCode":0,"retMsg":"OK","op":"order.create","data":{{"orderId":"{v_oid}","orderLinkId":"{cl_id}"}}}}"#
+                        );
+                        sock.write_all(&ws_server_frame(Opcode::Text, reply.as_bytes()))
+                            .unwrap();
+                        let push_open = format!(
+                            r#"{{"topic":"order","data":[{{"category":"{cat}","symbol":"{sym}","orderId":"{v_oid}","orderLinkId":"{cl_id}","orderStatus":"New","timeInForce":"GTC","side":"Buy","price":"48000","qty":"0.01","cumExecQty":"0"}}]}}"#
+                        );
+                        p_srv
+                            .write_all(&ws_server_frame(Opcode::Text, push_open.as_bytes()))
+                            .unwrap();
+                    } else if op == "order.cancel" {
+                        let cl_id = extract_json_str_field(txt, "orderLinkId").unwrap_or("");
+                        let v_oid = extract_json_str_field(txt, "orderId").unwrap_or("");
+                        let sym = extract_json_str_field(txt, "symbol").unwrap_or("BTCUSDT");
+                        let cat = extract_json_str_field(txt, "category").unwrap_or("spot");
+                        let reply = format!(
+                            r#"{{"reqId":"{req_id}","retCode":0,"retMsg":"OK","op":"order.cancel","data":{{"orderId":"{v_oid}","orderLinkId":"{cl_id}"}}}}"#
+                        );
+                        sock.write_all(&ws_server_frame(Opcode::Text, reply.as_bytes()))
+                            .unwrap();
+                        let push_cxl = format!(
+                            r#"{{"topic":"order","data":[{{"category":"{cat}","symbol":"{sym}","orderId":"{v_oid}","orderLinkId":"{cl_id}","orderStatus":"Cancelled","cancelType":"CancelByUser","timeInForce":"GTC","side":"Buy","price":"48000","qty":"0.01","cumExecQty":"0"}}]}}"#
+                        );
+                        p_srv
+                            .write_all(&ws_server_frame(Opcode::Text, push_cxl.as_bytes()))
+                            .unwrap();
+                    }
+                }
+            }
+            if !progressed {
+                std::thread::yield_now();
+            }
+        }
+    });
+
+    // Spawn dedicated `RESP` thread driving `&session` concurrently with `REQ`
+    let stop_resp = Arc::clone(&stop);
+    let session_resp = Arc::clone(&session);
+    let front_acks_resp = Arc::clone(&front_acks);
+    let open_acks_resp = Arc::clone(&open_acks);
+    let cancel_terminals_resp = Arc::clone(&cancel_terminals);
+    let resp_handle = std::thread::spawn(move || {
+        let mut reports = Vec::with_capacity(64);
+        let mut tick = 0u64;
+        while !stop_resp.load(Ordering::Acquire) {
+            tick += 1;
+            reports.clear();
+            session_resp
+                .poll_resp(
+                    Instant::now(),
+                    10_000 + tick * 100,
+                    1_700_000_000_010 + tick,
+                    &mut reports,
+                )
+                .unwrap();
+            for rep in &reports {
+                match rep {
+                    OrsReport::FrontAck(_) => {
+                        front_acks_resp.fetch_add(1, Ordering::Release);
+                    }
+                    OrsReport::Ack(_) => {
+                        open_acks_resp.fetch_add(1, Ordering::Release);
+                    }
+                    OrsReport::Canceled(_) => {
+                        cancel_terminals_resp.fetch_add(1, Ordering::Release);
+                    }
+                    _ => {}
+                }
+            }
+            if reports.is_empty() {
+                std::thread::yield_now();
+            }
+        }
+    });
+
+    // `REQ` thread dispatches 20 concurrent UTA orders across Spot, LinearPerp, InverseFutures, and Options via `&session`!
+    const ORDER_COUNT: usize = 20;
+    let mut placed_oids = Vec::with_capacity(ORDER_COUNT);
+    for i in 0..ORDER_COUNT {
+        let seq = (i + 1) as u64;
+        let sym_id = (i % 4) as u32;
+        let req = OrsNewOrderRequest {
+            strat_id: 0,
+            account_ref: 1,
+            msg_seqnum: seq,
+            order_seqnum: seq,
+            symbol_id: sym_id,
+            side: Side::Buy,
+            price_ticks: 48_000,
+            qty_lots: 10,
+            tif: TimeInForce::Gtc,
+            post_only: false,
+            reduce_only: false,
+            check_stp: false,
+            dry_run: false,
+            now_mono_ns: 20_000 + seq * 50,
+        };
+        let params = if sym_id == 0 {
+            UtaOrderParams::cash_spot_limit(TimeInForce::Gtc)
+        } else {
+            UtaOrderParams::cross_derivative_limit(TimeInForce::Gtc, false)
+        };
+        match session
+            .submit_new_order(&req, params, 1_700_000_000_100 + seq)
+            .unwrap()
+        {
+            UtaSubmitOutcome::Dispatched { ors_order_id, .. } => placed_oids.push(ors_order_id),
+            other => panic!("expected Dispatched in concurrent REQ test, got {other:?}"),
+        }
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while open_acks.load(Ordering::Acquire) < ORDER_COUNT {
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for concurrent WS open acks (got {} front, {} open)",
+            front_acks.load(Ordering::Acquire),
+            open_acks.load(Ordering::Acquire)
+        );
+        std::thread::yield_now();
+    }
+    assert_eq!(front_acks.load(Ordering::Acquire), ORDER_COUNT);
+
+    // Now `REQ` cancels all 20 open orders concurrently while `RESP` continues polling!
+    for (idx, &oid) in placed_oids.iter().enumerate() {
+        let cxl_seq = (ORDER_COUNT + 1 + idx) as u64;
+        let cxl = OrsCancelRequest {
+            strat_id: 0,
+            account_ref: 1,
+            msg_seqnum: cxl_seq,
+            ors_order_id: oid,
+            now_mono_ns: 90_000 + cxl_seq * 50,
+        };
+        match session
+            .submit_cancel_order(&cxl, 1_700_000_000_500 + cxl_seq)
+            .unwrap()
+        {
+            UtaSubmitOutcome::Dispatched { .. } => {}
+            other => panic!("expected cancel Dispatched, got {other:?}"),
+        }
+    }
+
+    while cancel_terminals.load(Ordering::Acquire) < ORDER_COUNT {
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for concurrent WS cancel terminals (got {})",
+            cancel_terminals.load(Ordering::Acquire)
+        );
+        std::thread::yield_now();
+    }
+
+    stop.store(true, Ordering::Release);
+    resp_handle.join().unwrap();
+    srv_handle.join().unwrap();
+
+    // Part B: Concurrent Exclusive `PooledHttps` claiming on `Arc<OkxUtaSession>` across 4 sockets
+    let okx_syms = uta_symbols_okx();
+    let okx_om = build_om(SpotVenue::Okx, &okx_syms);
+    let okx_cfg = UtaSessionConfig {
+        venue: SpotVenue::Okx,
+        environment: Environment::Test,
+        account_ref: 1,
+        exchange_uid: 88_777,
+        risk_domain_id: [0x42; 16],
+        epoch: 1,
+        credentials: OwnedCredentials::okx("OKX_MT_KEY", "okx_mt_secret", "okx_mt_pass").unwrap(),
+        transport_mode: UtaTransportMode::PooledHttps,
+        pool: vec![UtaConnPoolEntry::new(Ipv4Addr::new(10, 30, 0, 1), 4)],
+        router_config: RouterConfig::default(),
+        limits: Limits::default(),
+        symbols: okx_syms,
+        assets: vec![
+            UtaAssetBinding::new("BTC", AssetKey::new(1, 1), 6).unwrap(),
+            UtaAssetBinding::new("USDT", AssetKey::new(1, 2), 6).unwrap(),
+        ],
+        rate_limiter: Arc::new(SharedRateLimiter::new()),
+        rate_overrides: AccountRateOverrides::default(),
+        ip_order_weight: 1,
+        okx_ws_auto_subscribe_private: false,
+        private_stream_baton: None,
+        rfq_hook: None,
+    };
+    let okx_session = Arc::new(OkxUtaSession::new(Arc::clone(&okx_om), okx_cfg).unwrap());
+    let mut http_srvs = Vec::new();
+    for cid in 0..4u16 {
+        let (conn, srv) = loopback_pair();
+        okx_session
+            .install_order_connection(cid, conn, true, 1_700_000_000_000, 1_000)
+            .unwrap();
+        http_srvs.push(srv);
+    }
+
+    // Dispatch 4 concurrent PooledHttps orders: atomic in-flight claiming must assign each to a distinct Exclusive slot `{0, 1, 2, 3}`!
+    let mut claimed_conns = Vec::new();
+    for idx in 0..4u64 {
+        let seq = idx + 1;
+        let req = OrsNewOrderRequest {
+            strat_id: 0,
+            account_ref: 1,
+            msg_seqnum: seq,
+            order_seqnum: seq,
+            symbol_id: 1,
+            side: Side::Buy,
+            price_ticks: 42_000 - (idx as i64 * 10),
+            qty_lots: 5,
+            tif: TimeInForce::Gtc,
+            post_only: false,
+            reduce_only: false,
+            check_stp: true,
+            dry_run: false,
+            now_mono_ns: 10_000 + idx * 10,
+        };
+        match okx_session
+            .submit_new_order(
+                &req,
+                UtaOrderParams::cross_derivative_limit(TimeInForce::Gtc, false),
+                1_700_000_000_010 + idx,
+            )
+            .unwrap()
+        {
+            UtaSubmitOutcome::Dispatched { conn_id, .. } => claimed_conns.push(conn_id),
+            other => panic!("expected Exclusive HTTPS Dispatched, got {other:?}"),
+        }
+    }
+    claimed_conns.sort_unstable();
+    assert_eq!(claimed_conns, vec![0, 1, 2, 3]);
+
+    // A 5th order while all 4 Exclusive HTTPS links are in-flight must refuse cleanly with `NoReadyRoute`!
+    let req5 = OrsNewOrderRequest {
+        strat_id: 0,
+        account_ref: 1,
+        msg_seqnum: 5,
+        order_seqnum: 5,
+        symbol_id: 1,
+        side: Side::Buy,
+        price_ticks: 41_900,
+        qty_lots: 5,
+        tif: TimeInForce::Gtc,
+        post_only: false,
+        reduce_only: false,
+        check_stp: true,
+        dry_run: false,
+        now_mono_ns: 11_000,
+    };
+    assert!(matches!(
+        okx_session
+            .submit_new_order(
+                &req5,
+                UtaOrderParams::cross_derivative_limit(TimeInForce::Gtc, false),
+                1_700_000_000_015
+            )
+            .unwrap_err(),
+        UtaSubmitRefusal::NoReadyRoute { .. }
+    ));
+
+    // Complete all 4 HTTP replies from server sockets while `RESP` thread polls `&okx_session`
+    let okx_stop = Arc::new(AtomicBool::new(false));
+    let okx_acks = Arc::new(AtomicUsize::new(0));
+    let okx_stop_resp = Arc::clone(&okx_stop);
+    let okx_session_resp = Arc::clone(&okx_session);
+    let okx_acks_resp = Arc::clone(&okx_acks);
+    let okx_resp_thread = std::thread::spawn(move || {
+        let mut reps = Vec::new();
+        while !okx_stop_resp.load(Ordering::Acquire) {
+            reps.clear();
+            okx_session_resp
+                .poll_resp(Instant::now(), 20_000, 1_700_000_000_020, &mut reps)
+                .unwrap();
+            for r in &reps {
+                if matches!(r, OrsReport::FrontAck(_)) {
+                    okx_acks_resp.fetch_add(1, Ordering::Release);
+                }
+            }
+            std::thread::yield_now();
+        }
+    });
+
+    let mut req_buf = [0u8; 2048];
+    for (cid, srv) in http_srvs.iter_mut().enumerate() {
+        assert!(read_loopback(srv, &mut req_buf) > 0);
+        let body = format!(
+            r#"{{"code":"0","msg":"","data":[{{"ordId":"okx-http-{cid}","sCode":"0","sMsg":""}}]}}"#
+        );
+        let resp = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        srv.write_all(resp.as_bytes()).unwrap();
+    }
+
+    let http_deadline = Instant::now() + Duration::from_secs(2);
+    while okx_acks.load(Ordering::Acquire) < 4 {
+        assert!(
+            Instant::now() < http_deadline,
+            "timed out waiting for concurrent PooledHttps FrontAcks"
+        );
+        std::thread::yield_now();
+    }
+    okx_stop.store(true, Ordering::Release);
+    okx_resp_thread.join().unwrap();
 }
