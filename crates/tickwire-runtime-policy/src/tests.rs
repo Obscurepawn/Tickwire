@@ -1,464 +1,194 @@
-use super::*;
-use tickwire_account::Account;
-#[path = "../../tickwire-account/tests/common/mod.rs"]
-mod fixture;
-fn domain() -> ClockDomain {
-    ClockDomain::new([8; 16], 1).unwrap()
+use crate::{
+    AccountAuthSpec, ControlPlane, Mode, OrsRuntimePolicy, PolicyAction, PolicyConfig,
+    PolicyConfigError,
+};
+use tickwire_venue::{ALL_ORS_STRATS, RefusalReason};
+
+fn sample_policy() -> OrsRuntimePolicy {
+    let cfg = PolicyConfig {
+        initial_mode: Mode::Trading,
+        strategies: vec![1, 2, 7],
+        enabled_accounts: vec![
+            AccountAuthSpec::new(2, "acct_primary", vec![1, 7]),
+            AccountAuthSpec::new(5, "acct_secondary", vec![1, 2]),
+        ],
+        default_active: true,
+        default_enabled: true,
+    };
+    OrsRuntimePolicy::from_config(&cfg).expect("valid policy config")
 }
-fn now(n: u64) -> MonoTime {
-    MonoTime::new(domain(), n)
-}
-fn feed_key() -> FeedKey {
-    FeedKey {
-        topic_id: 1,
-        instrument_id: 12,
-    }
-}
-fn setup() -> (ControlPlane, Account, CanonicalCommand, Admission) {
-    let (mut account, c) = fixture::setup();
-    let command = fixture::canonical(c);
-    let admission = account.admit(&command, 60).unwrap();
-    let plane = ControlPlane::new(Config {
-        scope: fixture::fixture().0.scope,
-        product: Product::Spot,
-        executor_id: [1; 16],
-        owner_generation: 1,
-        writer_epoch: 4,
-        domain: domain(),
-        versions: Versions {
-            config_revision: 6,
-            risk_policy_version: 10,
-            order_config_version: 11,
-            catalog_version: 14,
-            catalog_hash: [5; 32],
-        },
-        max_strategies: 4,
-        max_feeds: 4,
-        marks_per_feed: 2,
-    })
-    .unwrap();
-    (plane, account, command, admission)
-}
-fn grant() -> StrategyGrant {
-    StrategyGrant {
-        logical_strategy_id: 8,
-        instance_id: [2; 16],
-        strategy_generation: 5,
-        authorization_epoch: 9,
-        config_revision: 6,
-        valid_until_ns: 1000,
-        actions: Actions {
-            submit: true,
-            cancel: true,
-            query: true,
-            amend: true,
-        },
-        required_feeds: vec![FeedRequirement {
-            key: feed_key(),
-            instrument_version: 13,
-            max_age_ns: 30,
-            max_sequence_lag: 2,
-        }],
-    }
-}
+
 #[test]
-fn stale_worker_exit_preserves_the_current_grant_and_expiry() {
-    let (plane, _, _, _) = setup();
-    prepare(&plane);
-    plane.stop_strategy_instance(8, [73; 16], 6).unwrap();
+fn account_ref_zero_routes_to_first_authorized_in_enabled_order() {
+    let policy = sample_policy();
+    assert_eq!(policy.enabled_accounts(), &[2, 5]);
+
+    // Strategy 1 is in both acct 2 (first) and acct 5 (second) -> 0 resolves to 2!
+    assert_eq!(policy.resolve_account_ref(0, 1), Ok(2));
+    assert_eq!(policy.resolve_account_ref(2, 1), Ok(2));
+    assert_eq!(policy.resolve_account_ref(5, 1), Ok(5));
+
+    // Strategy 2 is only in acct 5 -> 0 resolves to 5; explicit 2 is routing mismatch!
+    assert_eq!(policy.resolve_account_ref(0, 2), Ok(5));
     assert_eq!(
-        plane.strategy_instance_authorized(8, [2; 16], 5, now(70)),
-        Ok(true)
+        policy.resolve_account_ref(2, 2),
+        Err(RefusalReason::RejectRoutingIdMismatch)
+    );
+    assert_eq!(policy.resolve_account_ref(5, 2), Ok(5));
+
+    // Strategy 3 is unknown -> 0 gives InvalidStratId; known acct gives RejectRoutingIdMismatch; unknown acct gives InvalidAccountId.
+    assert_eq!(
+        policy.resolve_account_ref(0, 3),
+        Err(RefusalReason::InvalidStratId)
     );
     assert_eq!(
-        plane.strategy_instance_authorized(8, [73; 16], 6, now(70)),
-        Ok(false)
+        policy.resolve_account_ref(2, 3),
+        Err(RefusalReason::RejectRoutingIdMismatch)
     );
     assert_eq!(
-        plane.strategy_instance_authorized(8, [2; 16], 5, now(1000)),
-        Ok(false)
+        policy.resolve_account_ref(99, 1),
+        Err(RefusalReason::InvalidAccountId)
     );
-    plane.stop_strategy_instance(8, [2; 16], 5).unwrap();
     assert_eq!(
-        plane.strategy_instance_authorized(8, [2; 16], 5, now(70)),
-        Ok(false)
+        policy.resolve_account_ref(0, ALL_ORS_STRATS),
+        Err(RefusalReason::InvalidStratId)
     );
-    assert_eq!(plane.install_strategy_grant(grant()), Err(Error::Stale));
 }
+
 #[test]
-fn revoke_never_restores_an_old_generation_with_a_new_authorization_epoch() {
-    let (plane, _, _, _) = setup();
-    prepare(&plane);
-    plane.stop_strategy(8).unwrap();
-    let mut old = grant();
-    old.authorization_epoch += 1;
-    assert_eq!(plane.install_strategy_grant(old.clone()), Err(Error::Stale));
-    old.strategy_generation += 1;
-    old.instance_id = [75; 16];
-    plane.install_strategy_grant(old).unwrap();
+fn granular_account_strat_enable_isolates_accounts_and_keeps_cancels_open() {
+    let policy = sample_policy();
+
+    // Initially strategy 1 can trade on both account 2 and account 5.
+    assert_eq!(policy.evaluate(PolicyAction::NewOrder, 0, 1), Ok(2));
+    assert_eq!(policy.evaluate(PolicyAction::NewOrder, 5, 1), Ok(5));
+
+    // Disable strategy 1 ONLY on account 2: account 2 refuses NewOrder/Modify/RfqQuote with AdminAction,
+    // while Cancel on account 2 and NewOrder on account 5 continue succeeding!
+    assert_eq!(policy.set_strat_enabled(2, 1, false), Ok(true));
+    assert!(!policy.is_strat_enabled(2, 1));
+    assert!(policy.is_strat_enabled(5, 1));
+    assert!(policy.is_global_strat_enabled(1));
+
+    assert_eq!(
+        policy.evaluate(PolicyAction::NewOrder, 2, 1),
+        Err(RefusalReason::AdminAction)
+    );
+    assert_eq!(
+        policy.evaluate(PolicyAction::Modify, 2, 1),
+        Err(RefusalReason::AdminAction)
+    );
+    assert_eq!(
+        policy.evaluate(PolicyAction::RfqQuote, 2, 1),
+        Err(RefusalReason::AdminAction)
+    );
+    assert_eq!(policy.evaluate(PolicyAction::Cancel, 2, 1), Ok(2));
+    assert_eq!(policy.evaluate(PolicyAction::NewOrder, 5, 1), Ok(5));
+
+    // Global strategy disable refuses both accounts with AdminAction while still allowing Cancel.
+    assert_eq!(policy.set_global_strat_enabled(1, false), Ok(true));
+    assert_eq!(
+        policy.evaluate(PolicyAction::NewOrder, 5, 1),
+        Err(RefusalReason::AdminAction)
+    );
+    assert_eq!(policy.evaluate(PolicyAction::Cancel, 5, 1), Ok(5));
 }
-fn owner() -> OwnerLease {
-    OwnerLease {
-        executor_id: [1; 16],
-        owner_generation: 1,
-        writer_epoch: 4,
-        lease_epoch: 1,
-        domain: domain(),
-        valid_until_ns: 1000,
-        isolation_record: [1; 32],
-    }
+
+#[test]
+fn mode_transitions_and_active_flag_enforce_exact_refusal_reasons() {
+    let policy: ControlPlane = sample_policy();
+    assert_eq!(policy.mode(), Mode::Trading);
+
+    // Suspend -> ManageOnly / RestrictedCancelOnly
+    assert_eq!(policy.suspend(), Mode::Trading);
+    assert_eq!(policy.mode(), Mode::RestrictedCancelOnly);
+    assert_eq!(
+        policy.evaluate(PolicyAction::NewOrder, 0, 1),
+        Err(RefusalReason::RestrictedCancelOnly)
+    );
+    assert_eq!(policy.evaluate(PolicyAction::Cancel, 0, 1), Ok(2));
+    assert_eq!(policy.evaluate(PolicyAction::Query, 5, 2), Ok(5));
+
+    // Resume -> Trading
+    assert_eq!(policy.resume(), Mode::ManageOnly);
+    assert_eq!(policy.evaluate(PolicyAction::NewOrder, 0, 1), Ok(2));
+
+    // SetActive(false) -> refuses with InvalidStratId while keeping DOP login intact
+    assert_eq!(policy.try_login(1), Ok(()));
+    assert_eq!(policy.try_login(1), Err(RefusalReason::InvalidStratId));
+    assert!(policy.is_connected(1));
+    assert_eq!(policy.set_active(1, false), Ok(true));
+    assert!(policy.is_connected(1));
+    assert_eq!(
+        policy.evaluate(PolicyAction::NewOrder, 0, 1),
+        Err(RefusalReason::InvalidStratId)
+    );
+    assert_eq!(policy.set_active(1, true), Ok(false));
+    assert_eq!(policy.evaluate(PolicyAction::NewOrder, 0, 1), Ok(2));
+    assert!(policy.logout(1));
+    assert!(!policy.is_connected(1));
+    assert_eq!(policy.try_login(1), Ok(()));
+
+    // Stop -> refuses strategy orders and cancels, allows AdminCancel
+    assert_eq!(policy.stop(), Mode::Trading);
+    assert_eq!(
+        policy.evaluate(PolicyAction::NewOrder, 0, 1),
+        Err(RefusalReason::MarketRejectMarketDown)
+    );
+    assert_eq!(
+        policy.evaluate(PolicyAction::Cancel, 0, 1),
+        Err(RefusalReason::MarketRejectMarketDown)
+    );
+    assert_eq!(
+        policy.evaluate(PolicyAction::AdminCancel, 0, ALL_ORS_STRATS),
+        Ok(0)
+    );
 }
-fn prepare(plane: &ControlPlane) {
-    plane.install_owner_lease(owner()).unwrap();
-    plane.install_strategy_grant(grant()).unwrap();
-    plane.set_mode(1, Mode::Trading).unwrap();
-    plane
-        .update_feed(FeedUpdate {
-            key: feed_key(),
-            instrument_version: 13,
-            feed_generation: 1,
-            ring_epoch: 1,
-            sequence: 1,
-            published_at: now(48),
+
+#[test]
+fn config_validation_rejects_bad_refs_names_and_strats() {
+    assert_eq!(
+        PolicyConfig::default().validate(),
+        Err(PolicyConfigError::EmptyEnabledAccounts)
+    );
+
+    let bad_zero = PolicyConfig {
+        enabled_accounts: vec![AccountAuthSpec::new(0, "acct0", vec![1])],
+        ..PolicyConfig::default()
+    };
+    assert_eq!(
+        bad_zero.validate(),
+        Err(PolicyConfigError::InvalidAccountRef(0))
+    );
+
+    let bad_dot = PolicyConfig {
+        enabled_accounts: vec![AccountAuthSpec::new(1, "acct.bad", vec![1])],
+        ..PolicyConfig::default()
+    };
+    assert_eq!(
+        bad_dot.validate(),
+        Err(PolicyConfigError::InvalidAccountName("acct.bad".into()))
+    );
+
+    let bad_all_strats = PolicyConfig {
+        enabled_accounts: vec![AccountAuthSpec::new(1, "acct1", vec![ALL_ORS_STRATS])],
+        ..PolicyConfig::default()
+    };
+    assert_eq!(
+        bad_all_strats.validate(),
+        Err(PolicyConfigError::ReservedStratId(ALL_ORS_STRATS))
+    );
+
+    let bad_unwhitelisted = PolicyConfig {
+        strategies: vec![1],
+        enabled_accounts: vec![AccountAuthSpec::new(1, "acct1", vec![1, 2])],
+        ..PolicyConfig::default()
+    };
+    assert_eq!(
+        bad_unwhitelisted.validate(),
+        Err(PolicyConfigError::UnwhitelistedAccountStratId {
+            account_ref: 1,
+            strat_id: 2,
         })
-        .unwrap();
-    plane.private_connected(1).unwrap();
-    plane.private_gap(1, 1).unwrap();
-    plane.private_connected(1).unwrap();
-}
-struct Verifier;
-impl ReconciliationVerifier for Verifier {
-    fn verify(&mut self, r: &ReconciliationRequest) -> Result<()> {
-        if r.query_coverage_digest != [3; 32] {
-            Err(Error::Unreconciled)
-        } else {
-            Ok(())
-        }
-    }
-}
-fn reconciliation(plane: &ControlPlane) -> ReconciliationRequest {
-    let f = plane.private_frontier().unwrap();
-    ReconciliationRequest {
-        scope: fixture::fixture().0.scope,
-        product: Product::Spot,
-        input_stream: [9; 16],
-        writer_epoch: 4,
-        connection_epoch: f.connection_epoch,
-        gap_generation: f.gap_generation,
-        through_sequence: f.through_sequence,
-        account_epoch: 1,
-        ledger_sequence: 0,
-        baseline_digest: [1; 32],
-        history_digest: [2; 32],
-        query_coverage_digest: [3; 32],
-        valid_until: now(1000),
-    }
-}
-#[test]
-fn initial_and_receiving_states_cannot_trade_until_reconciliation() {
-    let (p, _, c, a) = setup();
-    assert!(p.evaluate(&c, &a, now(60)).is_err());
-    prepare(&p);
-    assert_eq!(p.evaluate(&c, &a, now(60)), Err(Error::Unreconciled));
-    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
-        .unwrap();
-    let gate = p.evaluate(&c, &a, now(60)).unwrap();
-    assert!(gate.market_valid);
-    assert_eq!(gate.lease_until, 78); // feed publication + max age is a final-gate deadline
-}
-#[test]
-fn phases_do_not_mint_source_gaps_and_new_writer_revokes_old_permissions() {
-    let (p, _, _, _) = setup();
-    prepare(&p);
-    p.private_disconnected(1).unwrap();
-    p.private_connected(1).unwrap();
-    p.private_uncertain(1).unwrap();
-    assert_eq!(p.private_frontier().unwrap().gap_generation, 1);
-    let mut next = owner();
-    next.writer_epoch += 1;
-    next.lease_epoch += 1;
-    p.replace_writer(2, next).unwrap();
-    let s = p.0.borrow();
-    assert_eq!(s.mode, Mode::Stopped);
-    assert!(s.strategies.values().all(|g| g.current.is_none()));
-    assert!(s.private.reconciled.is_none());
-    drop(s);
-    assert!(p.install_owner_lease(owner()).is_err());
-    assert!(p.install_strategy_grant(grant()).is_err());
-}
-#[test]
-fn revoked_grants_and_gap_tokens_cannot_be_reinstalled_or_replayed() {
-    let (p, _, c, a) = setup();
-    prepare(&p);
-    let old = reconciliation(&p);
-    p.complete_reconciliation(old.clone(), &mut Verifier)
-        .unwrap();
-    p.private_gap(1, 2).unwrap();
-    p.private_connected(1).unwrap();
-    assert!(p.complete_reconciliation(old, &mut Verifier).is_err());
-    assert!(p.evaluate(&c, &a, now(60)).is_err());
-    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
-        .unwrap();
-    p.revoke_strategy(8, 9).unwrap();
-    assert!(p.install_strategy_grant(grant()).is_err());
-    assert!(p.evaluate(&c, &a, now(60)).is_err());
-}
-#[test]
-fn revoked_quote_generation_keeps_its_subscription_until_a_successor_arrives() {
-    use tickwire_runtime::{market, node::Observer};
-
-    let (plane, _, command, admission) = setup();
-    prepare(&plane);
-    plane
-        .complete_reconciliation(reconciliation(&plane), &mut Verifier)
-        .unwrap();
-    assert!(
-        plane
-            .evaluate(&command, &admission, now(60))
-            .unwrap()
-            .market_valid
     );
-    let mut observer = plane.observer();
-    let observation = |generation, sequence, live| market::FeedObservation {
-        key: market::FeedKey {
-            topic_id: 1,
-            instrument_id: 12,
-        },
-        instrument_version: 13,
-        feed_generation: generation,
-        ring_epoch: generation,
-        sequence,
-        published_at: now(49),
-        received_at: now(49),
-        live,
-    };
-
-    for (seq, live) in [(3, false), (4, false), (6, true)] {
-        assert!(
-            observer.market_observed(observation(1, seq, live)),
-            "lost subscription at {seq}"
-        );
-        assert_eq!(
-            plane.evaluate(&command, &admission, now(60)),
-            Err(Error::Denied)
-        );
-    }
-    assert!(observer.market_observed(observation(2, 1, true)));
-    let (mut account, mut successor) = fixture::setup();
-    let mut trigger = successor.context.triggers.as_slice()[0].clone();
-    trigger.feed_generation = 2;
-    trigger.ring_epoch = 2;
-    successor.context.triggers = tickwire_venue::BoundedList::new(vec![trigger]).unwrap();
-    let successor = fixture::canonical(successor);
-    let new_admission = account.admit(&successor, 60).unwrap();
-    assert!(
-        plane
-            .evaluate(&successor, &new_admission, now(60))
-            .unwrap()
-            .market_valid
-    );
-    assert_eq!(
-        plane.evaluate(&command, &admission, now(60)),
-        Err(Error::Denied)
-    );
-    assert!(!observer.market_observed(observation(1, 7, true)));
-    assert!(observer.market_observed(observation(2, 3, false)));
-    assert!(observer.market_observed(observation(2, 4, false)));
-    assert!(!observer.market_observed(observation(2, 3, false)));
-}
-
-#[test]
-fn market_generations_missing_dependencies_and_expiry_deny() {
-    let (p, _, c, a) = setup();
-    prepare(&p);
-    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
-        .unwrap();
-    assert!(p.evaluate(&c, &a, now(78)).is_err());
-    let (p, _, c, a) = setup();
-    prepare(&p);
-    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
-        .unwrap();
-    p.update_feed(FeedUpdate {
-        key: feed_key(),
-        instrument_version: 13,
-        feed_generation: 2,
-        ring_epoch: 2,
-        sequence: 1,
-        published_at: now(49),
-    })
-    .unwrap();
-    assert!(p.evaluate(&c, &a, now(60)).is_err());
-    let mut g = grant();
-    g.authorization_epoch = 10;
-    g.required_feeds.push(FeedRequirement {
-        key: FeedKey {
-            topic_id: 2,
-            instrument_id: 12,
-        },
-        instrument_version: 13,
-        max_age_ns: 30,
-        max_sequence_lag: 0,
-    });
-    p.install_strategy_grant(g).unwrap();
-    assert!(p.evaluate(&c, &a, now(60)).is_err());
-}
-#[test]
-fn reconciliation_rechecks_live_prefix_after_the_verifier_returns() {
-    struct Racing {
-        plane: ControlPlane,
-    }
-    impl ReconciliationVerifier for Racing {
-        fn verify(&mut self, _: &ReconciliationRequest) -> Result<()> {
-            self.plane.private_gap(1, 2)
-        }
-    }
-    let (p, _, c, a) = setup();
-    prepare(&p);
-    assert!(
-        p.complete_reconciliation(reconciliation(&p), &mut Racing { plane: p.clone() })
-            .is_err()
-    );
-    assert!(p.evaluate(&c, &a, now(60)).is_err());
-}
-#[test]
-fn management_query_survives_strategy_revoke_and_private_gap() {
-    let (p, mut account, c, _) = setup();
-    prepare(&p);
-    p.revoke_strategy(8, 9).unwrap();
-    p.private_gap(1, 2).unwrap();
-    p.invalidate_feed(feed_key(), 1, 1).unwrap();
-    p.install_management_grant(ManagementGrant {
-        authorization_epoch: 10,
-        config_revision: 6,
-        valid_until_ns: 1000,
-        cancel: true,
-        query: true,
-        strategies: vec![8],
-    })
-    .unwrap();
-    let mut query = c.command().clone();
-    query.context.request.intent_id = 4;
-    query.context.strategy.authorization_epoch = 10;
-    query.body = CommandBody::Query(tickwire_venue::OrderTarget {
-        order_id: [9; 16],
-        expected_owner_revision: 1,
-        original_intent_exec_epoch: 4,
-        client_id: Some(fixture::venue::text("test-1")),
-        venue_order_id: None,
-    });
-    let query = fixture::canonical(query);
-    let admitted = account.admit(&query, 60).unwrap();
-    assert!(p.evaluate(&query, &admitted, now(60)).is_ok());
-    p.revoke_owner(1).unwrap();
-    assert!(p.evaluate(&query, &admitted, now(60)).is_err());
-}
-#[test]
-fn reducing_amend_uses_its_strategy_permission_while_private_and_market_are_frozen() {
-    use tickwire_venue as v;
-    let (p, mut account, c, _) = setup();
-    prepare(&p);
-    let mut ack = fixture::venue::event();
-    let v::VenueEventBody::Fill(f) = ack.body else {
-        unreachable!()
-    };
-    let mut observation = f.observation;
-    observation.status = v::OrderStatus::New;
-    observation.cumulative_quantity = Some(fixture::venue::d(0, 0));
-    let target = v::OrderTarget {
-        order_id: observation.order.order_id,
-        expected_owner_revision: 1,
-        original_intent_exec_epoch: 4,
-        client_id: observation.order.client_id.clone(),
-        venue_order_id: observation.order.venue_order_id.clone(),
-    };
-    ack.body = v::VenueEventBody::Order(Box::new(observation));
-    account.apply_event(&fixture::event(ack)).unwrap();
-    account.freeze();
-    p.private_gap(1, 2).unwrap();
-    p.invalidate_feed(feed_key(), 1, 1).unwrap();
-    let mut command = c.command().clone();
-    command.context.request.intent_id = 4;
-    command.body = CommandBody::AmendKeepPriority {
-        target,
-        new_quantity: fixture::venue::d(8, -4),
-        new_client_id: Some(fixture::venue::text("test-1")),
-    };
-    let command = fixture::canonical(command);
-    let admission = account.admit(&command, 61).unwrap();
-    let gate = p
-        .evaluate(&command, &admission, now(62))
-        .expect("explicit amend grant permits a verified decrease");
-    assert!(!gate.market_valid);
-    p.revoke_strategy(8, 9).unwrap();
-    p.install_management_grant(ManagementGrant {
-        authorization_epoch: 9,
-        config_revision: 6,
-        valid_until_ns: 1000,
-        cancel: true,
-        query: true,
-        strategies: vec![8],
-    })
-    .unwrap();
-    assert!(
-        p.evaluate(&command, &admission, now(63)).is_err(),
-        "cancel/query grants cannot authorize amendment"
-    );
-}
-#[test]
-fn current_clock_domain_and_monotonicity_are_sticky() {
-    struct Clock(MonoTime);
-    impl PolicyClock for Clock {
-        fn domain(&self) -> ClockDomain {
-            domain()
-        }
-        fn sample(&mut self) -> Result<MonoTime> {
-            Ok(self.0)
-        }
-    }
-    let (p, _, c, a) = setup();
-    prepare(&p);
-    p.complete_reconciliation(reconciliation(&p), &mut Verifier)
-        .unwrap();
-    let mut provider = p.provider(Clock(now(60))).unwrap();
-    assert!(provider.current(&c, &a).is_ok());
-    provider.clock.0 = now(59);
-    assert!(provider.current(&c, &a).is_err());
-    provider.clock.0 = now(61);
-    assert!(provider.current(&c, &a).is_err());
-}
-
-#[test]
-fn health_must_sample_after_a_gate_callback_advanced_the_shared_clock() {
-    use tickwire_runtime::node::{Health, Observer};
-
-    let local = |n| tickwire_binance_clock::LocalTime {
-        instant: std::time::Instant::now(),
-        monotonic: now(n),
-    };
-    let (stale, _, command, admission) = setup();
-    prepare(&stale);
-    stale
-        .complete_reconciliation(reconciliation(&stale), &mut Verifier)
-        .unwrap();
-    let sampled_before_poll = local(60);
-    assert!(stale.evaluate(&command, &admission, now(61)).is_ok());
-    assert!(
-        !stale
-            .observer()
-            .health(Health::default(), sampled_before_poll)
-    );
-    // A later timestamp cannot undo a real observer rollback fault.
-    assert_eq!(
-        stale.evaluate(&command, &admission, now(62)),
-        Err(Error::Clock)
-    );
-
-    let (fresh, _, command, admission) = setup();
-    prepare(&fresh);
-    fresh
-        .complete_reconciliation(reconciliation(&fresh), &mut Verifier)
-        .unwrap();
-    assert!(fresh.evaluate(&command, &admission, now(61)).is_ok());
-    assert!(fresh.observer().health(Health::default(), local(62)));
-    assert!(fresh.evaluate(&command, &admission, now(63)).is_ok());
 }

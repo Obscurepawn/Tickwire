@@ -4,7 +4,6 @@ use common::*;
 use std::time::Instant;
 use tickwire_account::{LiveOpenOrder, ManagerIdentity, OrderKey};
 use tickwire_account_gateway::*;
-use tickwire_account_journal::InMemoryBackend;
 use tickwire_transport::IoBudget;
 use tickwire_venue::{self as v, ClientIdDomain, SelfDescribingClientId};
 
@@ -66,16 +65,9 @@ fn in_memory_gateway_bootstraps_from_live_exchange_and_manages_imported_order() 
     let (connection, peer) = peer(&cfg.route.authority, 16384);
     let auth = MockAuthority::default();
 
-    // Pure volatile InMemoryBackend — zero temporary directories or disk files!
-    let mut g = AccountGateway::create_from_live_exchange(
-        InMemoryBackend::new(),
-        cfg,
-        live,
-        auth,
-        TestEncoder,
-        connection,
-    )
-    .unwrap();
+    // Pure stateless in-memory gateway — zero WAL or disk files.
+    let mut g = AccountGateway::create_from_live_exchange(cfg, live, auth, TestEncoder, connection)
+        .unwrap();
 
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,

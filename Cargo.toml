@@ -2,6 +2,7 @@
 members = [
     "crates/tickwire-account",
     "crates/tickwire-account-codec",
+    "crates/tickwire-account-gateway",
     "crates/tickwire-binance",
     "crates/tickwire-binance-clock",
     "crates/tickwire-binance-private",
@@ -24,26 +25,25 @@ members = [
     "crates/tickwire-md",
     "crates/tickwire-quota",
     "crates/tickwire-risk",
+    "crates/tickwire-runtime",
+    "crates/tickwire-runtime-policy",
     "crates/tickwire-shm",
     "crates/tickwire-shm-sys",
     "crates/tickwire-snapshot",
     "crates/tickwire-strategy-example",
+    "crates/tickwire-strategy-host",
     "crates/tickwire-strategy-sdk",
     "crates/tickwire-supervisor",
     "crates/tickwire-transport",
     "crates/tickwire-venue",
 ]
 exclude = [
-    "crates/tickwire-account-gateway",
     "crates/tickwire-app",
     "crates/tickwire-binance-account",
     "crates/tickwire-binance-execution",
     "crates/tickwire-lab",
-    "crates/tickwire-runtime",
-    "crates/tickwire-runtime-policy",
     "crates/tickwire-spot-execution",
     "crates/tickwire-spot-runner",
-    "crates/tickwire-strategy-host",
 ]
 resolver = "3"
 

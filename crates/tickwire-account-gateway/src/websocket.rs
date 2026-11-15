@@ -1,21 +1,24 @@
-//! Closed protocol-control operations. Application Text frames use normal admission.
+//! Bounded WebSocket upgrade and protocol-control operations (`Ping` / `Pong` / `Close`).
+
 use crate::*;
 use tickwire_transport::{
     http::ResponseDecoder,
     ws::{ClientHandshake, Opcode},
 };
 
-/// Carries only WebSocket control payloads; no application Text variant exists.
+/// Carries only WebSocket control payloads; application frames use normal command admission.
 pub enum WebSocketControl<'a> {
     Ping(&'a [u8]),
     Pong(&'a [u8]),
     Close(&'a [u8]),
 }
+
 #[derive(Clone, Copy)]
 struct ControlSlot {
     token: u64,
     close: bool,
 }
+
 pub(crate) struct WebSocketState {
     handshake: Option<ClientHandshake>,
     response: ResponseDecoder,
@@ -23,8 +26,9 @@ pub(crate) struct WebSocketState {
     ready: bool,
     control: Option<ControlSlot>,
 }
-impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
-    /// Queue the fixed venue Upgrade only. This method does no output I/O.
+
+impl<A: Authority, E: Encoder> AccountGateway<A, E> {
+    /// Queues the HTTP/1.1 WebSocket upgrade handshake without immediate socket I/O.
     pub fn begin_websocket(&mut self, deadline: Instant) -> Result<()> {
         if self.halted {
             return Err(Error::Halted);
@@ -36,15 +40,13 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         {
             return Err(Error::Busy);
         }
-        let path = match self.config.route.product {
-            tickwire_venue::Product::Spot => "/ws-api/v3",
-            tickwire_venue::Product::LinearPerpetual | tickwire_venue::Product::LinearFuture => {
-                "/ws-fapi/v1"
-            }
-            _ => return Err(Error::Identity),
-        };
-        let handshake =
-            ClientHandshake::new(&self.config.route.authority, path, &[], self.max_send_bytes)?;
+        let path = self.config.route.default_ws_path()?.to_owned();
+        let handshake = ClientHandshake::new(
+            &self.config.route.authority,
+            &path,
+            &[],
+            self.max_send_bytes,
+        )?;
         let send = PreparedSend::new(handshake.request(), deadline, self.max_send_bytes)?;
         let token = self.connection.as_mut().ok_or(Error::Halted)?.queue(send)?;
         self.websocket = Some(WebSocketState {
@@ -59,20 +61,24 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         });
         Ok(())
     }
+
     pub fn websocket_ready(&self) -> bool {
         !self.halted
             && self.connection.is_some()
             && self.websocket.as_ref().is_some_and(|s| s.ready)
     }
+
     pub fn websocket_control_pending(&self) -> bool {
         self.websocket.as_ref().is_some_and(|s| s.control.is_some())
     }
+
     pub(crate) fn websocket_blocks_application(&self) -> bool {
         self.websocket
             .as_ref()
             .is_some_and(|s| !s.ready || s.control.is_some())
     }
-    /// Queue a bounded control frame only at an application frame boundary.
+
+    /// Queues a bounded WebSocket control frame at an application frame boundary.
     pub fn queue_websocket_control(
         &mut self,
         control: WebSocketControl<'_>,
@@ -101,8 +107,8 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         });
         Ok(())
     }
-    /// `permit` applies only to Upgrade/Ping/Pong/Close. Business frames always
-    /// use Authority::commit_state/current_gate inside the normal account poll.
+
+    /// Drives WebSocket upgrade or control frames; delegates to `poll` once ready and idle.
     pub fn poll_websocket(
         &mut self,
         now: Instant,
@@ -124,6 +130,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         result
     }
+
     fn poll_protocol(
         &mut self,
         now: Instant,
@@ -186,6 +193,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         }
         Ok(())
     }
+
     fn settle_control(&mut self) -> Result<()> {
         if !self.websocket_control_pending() {
             return Ok(());
@@ -197,6 +205,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             .ok_or(Error::Invalid)?;
         self.check_control_report(report)
     }
+
     fn check_control_report(&mut self, report: SendReport) -> Result<()> {
         let slot = self
             .websocket

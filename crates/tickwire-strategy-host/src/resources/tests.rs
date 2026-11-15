@@ -101,7 +101,10 @@ fn spec(root: &Path) -> LaunchSpec {
             trust_profile: 1,
             host_boot: [1; 16],
             namespace: [2; 16],
-            build_hash: tickwire_recovery::digest(&std::fs::read(&executable).unwrap()),
+            build_hash: {
+                use sha2::{Digest, Sha256};
+                Sha256::digest(std::fs::read(&executable).unwrap()).into()
+            },
             qualification_hash: [3; 32],
             manifest_hash: [4; 32],
         },

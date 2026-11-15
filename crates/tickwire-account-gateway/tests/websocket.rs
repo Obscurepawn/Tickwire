@@ -6,13 +6,11 @@ use tickwire_transport::IoBudget;
 
 #[test]
 fn websocket_upgrade_is_control_only_and_does_not_create_an_admission() {
-    let dir = Directory::new();
     let (baseline, command) = baseline(false);
     let mut cfg = config(&baseline);
-    cfg.route.authority = "ws-api.testnet.binance.vision".into();
+    cfg.route.authority = "ws-api.venue.invalid".into();
     let (connection, peer) = peer(&cfg.route.authority, 16384);
     let mut g = AccountGateway::create(
-        tickwire_account_journal::FileBackend::open(&dir.0).unwrap(),
         cfg,
         baseline,
         MockAuthority::default(),
@@ -31,7 +29,7 @@ fn websocket_upgrade_is_control_only_and_does_not_create_an_admission() {
             std::thread::yield_now();
         }
     }
-    assert_eq!(g.journal_position(), 0);
+    assert_eq!(g.entry_count(), 0);
     drop(g);
     let bytes = peer.join().unwrap();
     started.unwrap();

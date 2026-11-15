@@ -1,403 +1,91 @@
-//! Concrete file-backed assembly of the Binance trading owners.
-mod catalog;
-use crate::{
-    authority::{GateProvider, LocalAuthority, RecoveryQueue},
-    node::{self, Bindings, CoreNode, Observer, Strategy},
-};
-use std::path::PathBuf;
-use tickwire_account_gateway::{AccountGateway, ConnectionConfig, VerifiedLiveBootstrap};
-use tickwire_account_journal::AccountBackend;
-use tickwire_binance::request::Credentials;
-use tickwire_binance_account::{
-    AccountIngress,
-    reconciliation::bootstrap::ImportedOrderRegistration,
-    rest::{RestConfig, RestOwner},
-};
-use tickwire_binance_clock::{self as time, BinanceTimeClient, SystemClock};
-use tickwire_binance_execution::{
-    self as execution, GateAuthority, RestEncoder, SharedSessionState,
-};
-use tickwire_binance_private as private;
-use tickwire_binance_public as public;
-use tickwire_binance_quota::Endpoint;
-use tickwire_journal::{PhysicalFrontier, StorageMode, store::JournalStore};
-use tickwire_recovery::{RuntimeBlobStore, SharedBlobStore};
-pub type SharedRecoveryStore = SharedBlobStore<RuntimeBlobStore>;
-// A copied cross-host journal needs its original certified frontier.
-fn check_local_history(path: &std::path::Path) -> node::Result<()> {
-    for marker in ["FAILOVER-IN-PROGRESS", "FAILOVER-COMPLETE.json"] {
-        match std::fs::symlink_metadata(path.join(marker)) {
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(node::Error::Io(error)),
-            Ok(_) => return Err(node::Error::Config),
-        }
-    }
-    Ok(())
-}
+//! Cold-startup and off-thread `SIGUSR1` static Risk Management System (`RMS`) configuration file
+//! loader for [`crate::OrderRoutingSystem`] and [`crate::OrsProcess`].
+//!
+//! All file I/O and [`RmsConfigTable`] parsing execute strictly off the `REQ`/`RESP` hot paths on
+//! `housekeeping_cpus`. If reading, parsing, or validating a reloaded RMS configuration fails on
+//! `SIGUSR1`, [`reload_rms_from_file`] returns an [`RmsFileError`] while preserving the previously
+//! active [`tickwire_risk::RmsEngine`] symbol limits unchanged.
 
-#[derive(Clone, Copy)]
-pub struct FixedDeliveryBudget(pub u64);
-impl execution::DeliveryBudget for FixedDeliveryBudget {
-    fn remaining_ns(
-        &mut self,
-        _: &tickwire_venue::CanonicalCommand,
-        _: &tickwire_clock::SignedTime,
-        _: &time::LocalTime,
-    ) -> execution::Result<u64> {
-        if self.0 == 0 {
-            return Err(execution::Error::Invalid);
-        }
-        Ok(self.0)
-    }
-}
-pub struct Directories {
-    pub account: PathBuf,
-    pub input: PathBuf,
-    pub recovery: PathBuf,
-}
-// Startup-only descriptor retains both physical frontiers without heap indirection.
-#[allow(clippy::large_enum_variant)]
-pub enum OpenMode {
-    Create,
-    CreateFromLiveExchange {
-        live: Box<VerifiedLiveBootstrap>,
-        imported: Vec<ImportedOrderRegistration>,
-    },
-    RecoverFrozen {
-        account_required: Option<PhysicalFrontier>,
-        input_required: Option<PhysicalFrontier>,
+use std::fmt;
+use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
+
+use tickwire_risk::{RmsConfigError, RmsConfigTable, RmsEngine, RmsReloadHandle};
+
+/// Error returned when loading or reloading a static RMS configuration file.
+#[derive(Debug)]
+pub enum RmsFileError {
+    /// Reading the static RMS configuration file failed.
+    Io { path: PathBuf, source: io::Error },
+    /// Parsing or validating the RMS symbol limit table failed.
+    Config {
+        path: PathBuf,
+        error: RmsConfigError,
     },
 }
-pub struct Configuration {
-    pub instrument_catalog: Option<std::sync::Arc<tickwire_instrument_catalog::Catalog>>,
-    pub storage_mode: StorageMode,
-    pub directories: Option<Directories>,
-    pub mode: OpenMode,
-    pub account: tickwire_account_gateway::Config,
-    pub input: tickwire_binance_account::Config,
-    pub rest: RestConfig,
-    pub websocket: Option<tickwire_binance_account::ws::WsConfig>,
-    pub time: time::Config,
-    pub market: public::Config,
-    pub private: private::SessionConfig,
-    pub private_first_connection_epoch: u64,
-    pub command: execution::Config,
-    pub command_binding: tickwire_binance_quota::CommandBinding,
-    pub command_delivery_budget_ns: u64,
-    pub runtime: node::Config,
-    pub bindings: Bindings,
-    pub maximum_staged_commands: usize,
-    pub maximum_staged_bytes: usize,
-}
-pub struct Networks {
-    pub websocket: Option<ConnectionConfig>,
-    pub rest: ConnectionConfig,
-    pub time: time::NetworkConfig,
-    pub public: public::NetworkConfig,
-    pub private: private::NetworkConfig,
-}
-type Time = BinanceTimeClient<SystemClock>;
-pub type FileNode<'a, P, G, S, O, const L: usize, const U: usize, const B: usize> = CoreNode<
-    'a,
-    P,
-    SystemClock,
-    SystemClock,
-    FixedDeliveryBudget,
-    JournalStore,
-    AccountBackend,
-    GateAuthority<LocalAuthority<SharedRecoveryStore, G>, Time, FixedDeliveryBudget>,
-    RestEncoder<'a, Time, FixedDeliveryBudget>,
-    S,
-    O,
-    L,
-    U,
-    B,
->;
 
-/// Constructs real TLS clients and local persistence owners (`InMemory`, `MmapAsync`, or `LocalDurable`).
-/// Credentials and authority policy are explicit caller inputs; this function does not grant trading rights.
-// Startup binds independently owned network, policy, clock and strategy services.
-#[allow(clippy::too_many_arguments)]
-pub fn open<'a, P, G, S, O, const L: usize, const U: usize, const B: usize>(
-    config: Configuration,
-    networks: Networks,
-    credentials: Credentials<'a>,
-    authentication: private::Authentication<'a>,
-    quota: Endpoint,
-    policy: G,
-    strategy: S,
-    output: O,
-    observer: Box<dyn Observer + 'a>,
-) -> node::Result<FileNode<'a, P, G, S, O, L, U, B>>
-where
-    P: public::DepthPolicy,
-    G: GateProvider,
-    S: Strategy,
-    O: public::PublicSink,
-{
-    config.validate_instrument_catalog()?;
-    if config.time.domain != config.market.domain
-        || config.time.source != config.market.source
-        || config.command_delivery_budget_ns == 0
-    {
-        return Err(node::Error::Config);
+impl fmt::Display for RmsFileError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Io { path, source } => {
+                write!(f, "failed to read RMS config {}: {source}", path.display())
+            }
+            Self::Config { path, error } => {
+                write!(f, "invalid RMS config {}: {error}", path.display())
+            }
+        }
     }
-    let (blobs_raw, backend, input) = match config.storage_mode {
-        StorageMode::InMemory => {
-            if matches!(config.mode, OpenMode::RecoverFrozen { .. }) {
-                return Err(node::Error::Config);
-            }
-            (
-                RuntimeBlobStore::in_memory(),
-                AccountBackend::open(StorageMode::InMemory, None).map_err(node::Error::Io)?,
-                JournalStore::open(StorageMode::InMemory, None).map_err(node::Error::Io)?,
-            )
-        }
-        StorageMode::MmapAsync | StorageMode::LocalDurable => {
-            let dirs = config.directories.as_ref().ok_or(node::Error::Config)?;
-            if dirs.account == dirs.input
-                || dirs.account == dirs.recovery
-                || dirs.input == dirs.recovery
-            {
-                return Err(node::Error::Config);
-            }
-            for path in [&dirs.account, &dirs.input, &dirs.recovery] {
-                if !path.is_absolute() {
-                    return Err(node::Error::Config);
-                }
-                check_local_history(path)?;
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).map_err(node::Error::Io)?;
-                }
-            }
-            let blobs_raw = match config.storage_mode {
-                StorageMode::MmapAsync => RuntimeBlobStore::mmap_async(&dirs.recovery),
-                StorageMode::LocalDurable => RuntimeBlobStore::local_durable(&dirs.recovery),
-                StorageMode::InMemory => unreachable!(),
-            }
-            .map_err(|e| {
-                node::Error::Recovery(tickwire_account_gateway::AuthorityError::Recovery(e))
-            })?;
-            (
-                blobs_raw,
-                AccountBackend::open(config.storage_mode, Some(&dirs.account))
-                    .map_err(node::Error::Io)?,
-                JournalStore::open(config.storage_mode, Some(&dirs.input))
-                    .map_err(node::Error::Io)?,
-            )
-        }
-    };
-    let clock = SystemClock::new(config.time.domain).map_err(|_| node::Error::Config)?;
-    let time =
-        BinanceTimeClient::new(config.time, networks.time, clock).map_err(node::Error::Clock)?;
-    let shared = SharedSessionState::new(
-        time,
-        quota,
-        config.command_binding,
-        FixedDeliveryBudget(config.command_delivery_budget_ns),
-        config.command,
-    )
-    .map_err(node::Error::Shared)?;
-    let queue = RecoveryQueue::new(config.maximum_staged_commands, config.maximum_staged_bytes)
-        .map_err(node::Error::Recovery)?;
-    let blobs = SharedBlobStore::new(blobs_raw);
-    let local = LocalAuthority::new(
-        blobs.clone(),
-        queue.clone(),
-        policy,
-        config.command_binding.owner_id,
-    );
-    let websocket_settings = config
-        .websocket
-        .map(|session| {
-            execution::credential_reference(
-                &credentials,
-                config.private.scope.credential_generation,
-            )
-            .map(|credential_ref_digest| {
-                tickwire_binance_account::ws::WebSocketSettings {
-                    execution_instance: config.command_binding.owner_id,
-                    credential_ref_digest,
-                    session,
-                }
-            })
+}
+
+impl std::error::Error for RmsFileError {}
+
+/// Reads and validates an [`RmsConfigTable`] from `path` during cold startup.
+pub fn load_rms_config_file(path: &Path) -> Result<RmsConfigTable, RmsFileError> {
+    let raw = fs::read_to_string(path).map_err(|source| RmsFileError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    RmsConfigTable::parse_str(&raw).map_err(|error| RmsFileError::Config {
+        path: path.to_path_buf(),
+        error,
+    })
+}
+
+/// Constructs a flat [`RmsEngine`] with `symbol_count` slots and applies the initial static RMS
+/// table at `path`.
+pub fn build_rms_engine_from_file(
+    symbol_count: usize,
+    path: &Path,
+) -> Result<(RmsEngine, RmsReloadHandle), RmsFileError> {
+    let table = load_rms_config_file(path)?;
+    let engine = RmsEngine::new(symbol_count);
+    let handle = engine.reload_handle();
+    handle
+        .apply_table(&table)
+        .map_err(|error| RmsFileError::Config {
+            path: path.to_path_buf(),
+            error,
+        })?;
+    Ok((engine, handle))
+}
+
+/// Reloads `path` off-thread (`SIGUSR1` handler) into `reload_handle`.
+///
+/// On any file-read, syntax, or validation error, returns `Err(RmsFileError)` without mutating
+/// any active symbol limit or advancing `reload_handle.generation()`.
+pub fn reload_rms_from_file(
+    path: &Path,
+    reload_handle: &RmsReloadHandle,
+) -> Result<u64, RmsFileError> {
+    let raw = fs::read_to_string(path).map_err(|source| RmsFileError::Io {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    reload_handle
+        .reload_limits(&raw)
+        .map_err(|error| RmsFileError::Config {
+            path: path.to_path_buf(),
+            error,
         })
-        .transpose()
-        .map_err(node::Error::Shared)?;
-    let authority = shared.authority(local);
-    let encoder = shared.encoder(credentials);
-    let execution_connection = match (config.websocket.is_some(), networks.websocket) {
-        (true, Some(connection)) => connection,
-        (false, None) => networks.rest,
-        _ => return Err(node::Error::Config),
-    };
-    let (gateway, ingress, ws_session, opened) = match config.mode {
-        OpenMode::Create => {
-            let baseline = config.input.baseline.clone();
-            let mut ingress = AccountIngress::create(input, config.input)
-                .map_err(node::Error::Account)?
-                .with_closure_store(blobs.clone());
-            let opened = shared
-                .with_resources(|clock, _| clock.sample())
-                .map_err(node::Error::Shared)?
-                .map_err(node::Error::Clock)?
-                .local;
-            let ws_session = if let Some(settings) = websocket_settings {
-                let session = ingress
-                    .reserve_ws_session(settings.execution_instance, settings.credential_ref_digest)
-                    .map_err(node::Error::Account)?;
-                let deadline = opened
-                    .monotonic
-                    .nanos()
-                    .checked_add(settings.session.control_timeout_ns)
-                    .ok_or(node::Error::Config)?;
-                shared
-                    .websocket_control(
-                        &session,
-                        tickwire_binance_account::ws::ControlAction::Connect,
-                        1,
-                        deadline,
-                    )
-                    .map_err(node::Error::Shared)?;
-                Some(session)
-            } else {
-                None
-            };
-            let gateway = AccountGateway::create(
-                backend,
-                config.account,
-                baseline,
-                authority,
-                encoder,
-                execution_connection,
-            )
-            .map_err(|e| node::Error::Account(tickwire_binance_account::Error::Gateway(e)))?;
-            (gateway, ingress, ws_session, Some(opened))
-        }
-        OpenMode::CreateFromLiveExchange { live, imported } => {
-            let mut ingress =
-                AccountIngress::create_from_live_exchange(input, config.input, &imported)
-                    .map_err(node::Error::Account)?
-                    .with_closure_store(blobs.clone());
-            let opened = shared
-                .with_resources(|clock, _| clock.sample())
-                .map_err(node::Error::Shared)?
-                .map_err(node::Error::Clock)?
-                .local;
-            let ws_session = if let Some(settings) = websocket_settings {
-                let session = ingress
-                    .reserve_ws_session(settings.execution_instance, settings.credential_ref_digest)
-                    .map_err(node::Error::Account)?;
-                let deadline = opened
-                    .monotonic
-                    .nanos()
-                    .checked_add(settings.session.control_timeout_ns)
-                    .ok_or(node::Error::Config)?;
-                shared
-                    .websocket_control(
-                        &session,
-                        tickwire_binance_account::ws::ControlAction::Connect,
-                        1,
-                        deadline,
-                    )
-                    .map_err(node::Error::Shared)?;
-                Some(session)
-            } else {
-                None
-            };
-            let gateway = AccountGateway::create_from_live_exchange(
-                backend,
-                config.account,
-                *live,
-                authority,
-                encoder,
-                execution_connection,
-            )
-            .map_err(|e| node::Error::Account(tickwire_binance_account::Error::Gateway(e)))?;
-            (gateway, ingress, ws_session, Some(opened))
-        }
-        OpenMode::RecoverFrozen {
-            account_required,
-            input_required,
-        } => {
-            let ingress = AccountIngress::recover(input, config.input, input_required.as_ref())
-                .map_err(node::Error::Account)?
-                .with_closure_store(blobs.clone());
-            let mut verifier = ingress.activation_verifier();
-            let gateway = AccountGateway::recover_with_reactivation(
-                backend,
-                config.account,
-                authority,
-                encoder,
-                account_required.as_ref(),
-                &mut verifier,
-            )
-            .map_err(|e| node::Error::Account(tickwire_binance_account::Error::Gateway(e)))?;
-            (gateway, ingress, None, None)
-        }
-    };
-    let rest = match (websocket_settings, ws_session, opened) {
-        (Some(settings), Some(session), Some(opened)) => RestOwner::from_parts_websocket(
-            ingress,
-            gateway,
-            session,
-            Box::new(shared.clone()),
-            settings.session,
-            opened.instant,
-            opened.monotonic.nanos(),
-        ),
-        (Some(settings), None, _) => RestOwner::from_parts_websocket_recovered(
-            ingress,
-            gateway,
-            Box::new(shared.clone()),
-            settings,
-        ),
-        (None, None, _) => RestOwner::from_parts(ingress, gateway, config.rest),
-        _ => return Err(node::Error::Config),
-    }
-    .map_err(node::Error::Account)?;
-    let clock = SystemClock::new(config.market.domain).map_err(|_| node::Error::Config)?;
-    let public = public::PublicDepthClient::new(config.market, networks.public, clock)
-        .map_err(node::Error::Market)?;
-    let private = private::PrivateClient::new(
-        config.private,
-        authentication,
-        networks.private,
-        config.private_first_connection_epoch,
-    )
-    .map_err(node::Error::Private)?;
-    CoreNode::new(
-        public,
-        private,
-        rest,
-        shared,
-        queue,
-        strategy,
-        output,
-        observer,
-        config.runtime,
-        config.bindings,
-    )
-}
-
-#[cfg(test)]
-mod legacy_directory_tests {
-    use super::*;
-    #[test]
-    fn a_restore_directory_cannot_start_as_a_local_writer() {
-        let root =
-            std::env::temp_dir().join(format!("tickwire-old-restore-{}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
-        check_local_history(&root).unwrap();
-        for name in ["FAILOVER-IN-PROGRESS", "FAILOVER-COMPLETE.json"] {
-            let marker = root.join(name);
-            std::fs::write(&marker, b"legacy marker").unwrap();
-            assert!(matches!(
-                check_local_history(&root),
-                Err(node::Error::Config)
-            ));
-            std::fs::remove_file(marker).unwrap();
-        }
-        std::fs::remove_dir(root).unwrap();
-    }
 }

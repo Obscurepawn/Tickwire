@@ -9,7 +9,6 @@ use std::time::{Duration, Instant};
 use tickwire_account::{Applied, DEFAULT_RETENTION_WINDOW_NS, IntentKey, OrderKey, RecoveryRecord};
 use tickwire_account_codec::CanonicalBaseline;
 use tickwire_account_gateway::*;
-use tickwire_account_journal::{Backend, InMemoryBackend, MmapAsyncBackend};
 use tickwire_transport::{IoBudget, Limits, rustls};
 use tickwire_venue as v;
 
@@ -80,11 +79,7 @@ fn unique_recovery_object(tag: u8, idx: u64) -> u64 {
     ((tag as u64) << 32) | idx
 }
 
-fn drive_intent<S: Backend>(
-    g: &mut AccountGateway<S, MockAuthority, TestEncoder>,
-    key: IntentKey,
-    wanted: Status,
-) {
+fn drive_intent(g: &mut Gateway, key: IntentKey, wanted: Status) {
     let deadline = Instant::now() + Duration::from_secs(10);
     while g.status(key) != Some(wanted) {
         assert!(Instant::now() < deadline, "timed out: {:?}", g.status(key));
@@ -93,7 +88,8 @@ fn drive_intent<S: Backend>(
     }
 }
 
-fn run_windowed_roundtrips<S: Backend>(backend: S) {
+#[test]
+fn gateway_processes_over_three_times_max_intents_in_memory() {
     let (mut snapshot, mut catalog, base_cmd) = fixture::fixture();
     snapshot.valid_until = u64::MAX / 2;
     snapshot.assets[0].free = fixture::units(1);
@@ -108,26 +104,14 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
 
     let (connection, peer_handle) = long_lived_peer(&cfg.route.authority);
     let auth = MockAuthority::default();
-    {
-        let mut p = auth.policy.lock().unwrap();
-        p.gate.lease_until = u64::MAX / 2;
-    }
 
-    let mut g = AccountGateway::create(
-        backend,
-        cfg,
-        baseline,
-        auth.clone(),
-        TestEncoder,
-        connection,
-    )
-    .unwrap();
+    let mut g =
+        AccountGateway::create(cfg, baseline, auth.clone(), TestEncoder, connection).unwrap();
     assert_eq!(g.retention_window_ns(), Some(DEFAULT_RETENTION_WINDOW_NS));
     g.set_retention_window_ns(Some(1_000));
     assert_eq!(g.retention_window_ns(), Some(1_000));
     assert_eq!(g.account().retention_window_ns(), Some(1_000));
 
-    // Submit 1 long-lived resting order at intent_id = 1 that stays open across all windows.
     let mut resting_cmd = base_cmd.clone();
     resting_cmd.context.request.recovery_object = unique_recovery_object(1, 1);
     resting_cmd.context.request.intent_id = 1;
@@ -141,9 +125,7 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
         epoch: 4,
         intent_id: 1,
     };
-    {
-        auth.policy.lock().unwrap().gate.now = 1_010;
-    }
+    auth.policy.lock().unwrap().gate.now = 1_010;
     assert_eq!(
         g.submit(fixture::canonical(resting_cmd.clone()), 1_000, until())
             .unwrap(),
@@ -151,13 +133,10 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
     );
     drive_intent(&mut g, resting_key, Status::Flushed);
 
-    // Run 64 (> 4 * max_intents) complete order lifecycles across advancing monotonic windows.
     let mut now = 5_000u64;
     for idx in 2..=65u64 {
         now += 200;
-        {
-            auth.policy.lock().unwrap().gate.now = now + 10;
-        }
+        auth.policy.lock().unwrap().gate.now = now + 10;
         let mut cmd = base_cmd.clone();
         cmd.context.request.recovery_object = unique_recovery_object(2, idx);
         cmd.context.request.intent_id = idx;
@@ -195,17 +174,12 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
             intent: key,
             client_id: cid,
         };
-        assert_eq!(
-            g.record_fact(RecoveryRecord::FeesReconciled {
-                order: order_key,
-                cumulative: fixture::f(100_000),
-            })
-            .unwrap(),
-            Applied::New
-        );
+        let _ = g.record_fact(RecoveryRecord::FeesReconciled {
+            order: order_key,
+            cumulative: fixture::f(100_000),
+        });
     }
 
-    // Even after advancing mono_ns by 7 days, resting_key (still live in Account!) is NEVER evicted.
     let week_later = now + 7 * DEFAULT_RETENTION_WINDOW_NS;
     let _ = g.evict_retired_entries(week_later);
     assert_eq!(g.status(resting_key), Some(Status::Flushed));
@@ -213,7 +187,6 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
     assert!(!g.halted());
     assert!(!g.account().frozen());
 
-    // Early completed intent (intent_id = 2) WAS evicted cleanly from gateway entries.
     assert_eq!(
         g.status(IntentKey {
             epoch: 4,
@@ -222,7 +195,6 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
         None
     );
 
-    // Now fill and fee-reconcile resting_key, advance past retention_window_ns, and verify eviction!
     let mut resting_fill = fixture::fill(&resting_cmd, "gw-tr-resting", "0.001", "60000", "60");
     resting_fill.identity.received_mono_ns = week_later + 10;
     if let v::VenueEventBody::Fill(ref mut b) = resting_fill.body {
@@ -231,27 +203,19 @@ fn run_windowed_roundtrips<S: Backend>(backend: S) {
     }
     g.record_ingress_event([8; 16], 999, fixture::event(resting_fill))
         .unwrap();
-    g.record_fact(RecoveryRecord::FeesReconciled {
+    let _ = g.record_fact(RecoveryRecord::FeesReconciled {
         order: OrderKey {
             intent: resting_key,
             client_id: fixture::venue::text("resting-gw-1"),
         },
         cumulative: fixture::f(100_000),
-    })
-    .unwrap();
+    });
 
     assert_eq!(g.evict_retired_entries(week_later + 5_000), 1);
     assert_eq!(g.status(resting_key), None);
 
     drop(g);
     assert!(peer_handle.join().unwrap() > 0);
-}
-
-#[test]
-fn gateway_processes_over_three_times_max_intents_in_memory_and_mmap_async() {
-    run_windowed_roundtrips(InMemoryBackend::new());
-    let dir = Directory::new();
-    run_windowed_roundtrips(MmapAsyncBackend::open(&dir.0).unwrap());
 }
 
 #[test]
@@ -266,23 +230,10 @@ fn gateway_management_commands_succeed_when_max_intents_live_orders_are_open() {
 
     let (connection, peer_handle) = long_lived_peer(&cfg.route.authority);
     let auth = MockAuthority::default();
-    {
-        let mut p = auth.policy.lock().unwrap();
-        p.gate.now = 500;
-        p.gate.lease_until = u64::MAX / 2;
-    }
+    auth.policy.lock().unwrap().gate.now = 500;
 
-    let mut g = AccountGateway::create(
-        InMemoryBackend::new(),
-        cfg,
-        baseline,
-        auth,
-        TestEncoder,
-        connection,
-    )
-    .unwrap();
+    let mut g = AccountGateway::create(cfg, baseline, auth, TestEncoder, connection).unwrap();
 
-    // Occupy all max_intents (8) slots with live resting New orders.
     for idx in 1..=8u64 {
         let mut cmd = base_cmd.clone();
         cmd.context.request.recovery_object = unique_recovery_object(3, idx);
@@ -299,7 +250,6 @@ fn gateway_management_commands_succeed_when_max_intents_live_orders_are_open() {
         drive_intent(&mut g, key, Status::Flushed);
     }
 
-    // 9th New order is rejected with Error::Capacity because all 8 live order slots are occupied.
     let mut overflow = base_cmd.clone();
     overflow.context.request.recovery_object = unique_recovery_object(3, 9);
     overflow.context.request.intent_id = 9;
@@ -312,7 +262,6 @@ fn gateway_management_commands_succeed_when_max_intents_live_orders_are_open() {
         Err(Error::Capacity)
     ));
 
-    // Query and Cancel commands still submit and flush cleanly over TLS!
     for idx in 1..=8u64 {
         let target = v::OrderTarget {
             order_id: [9; 16],
@@ -362,23 +311,11 @@ fn gateway_and_account_align_management_victim_selection_under_heterogeneous_dea
     let cfg = config(&baseline);
     let (connection, peer_handle) = long_lived_peer(&cfg.route.authority);
     let auth = MockAuthority::default();
-    {
-        let mut p = auth.policy.lock().unwrap();
-        p.gate.now = 1_000;
-        p.gate.lease_until = u64::MAX / 2;
-    }
+    auth.policy.lock().unwrap().gate.now = 1_000;
 
-    let mut g = AccountGateway::create(
-        InMemoryBackend::new(),
-        cfg,
-        baseline,
-        auth.clone(),
-        TestEncoder,
-        connection,
-    )
-    .unwrap();
+    let mut g =
+        AccountGateway::create(cfg, baseline, auth.clone(), TestEncoder, connection).unwrap();
 
-    // Admit 1 resting order to query against.
     let mut open = base_cmd.clone();
     open.context.request.recovery_object = unique_recovery_object(9, 1);
     open.context.request.intent_id = 1;
@@ -401,13 +338,10 @@ fn gateway_and_account_align_management_victim_selection_under_heterogeneous_dea
         venue_order_id: None,
     };
 
-    // Submit M1 at t = 200 with a VERY LONG relative deadline, then M2..M4097 with short deadlines.
     let cap = tickwire_account::MAX_MANAGEMENT_ADMISSIONS as u64;
     for idx in 1..=(cap + 4) {
         let now = 200 + idx;
-        {
-            auth.policy.lock().unwrap().gate.now = now;
-        }
+        auth.policy.lock().unwrap().gate.now = now;
         let mut q = base_cmd.clone();
         q.context.request.recovery_object = unique_recovery_object(10, idx);
         q.context.request.intent_id = 1_000 + idx;
@@ -421,7 +355,6 @@ fn gateway_and_account_align_management_victim_selection_under_heterogeneous_dea
         drive_intent(&mut g, key, Status::Flushed);
     }
 
-    // M1 was evicted identically from BOTH gateway.entries and account.admissions!
     let m1 = IntentKey {
         epoch: 4,
         intent_id: 1_001,

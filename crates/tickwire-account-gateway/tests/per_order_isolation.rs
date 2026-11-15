@@ -95,7 +95,7 @@ fn ack_for(
 
 #[test]
 fn default_gateway_halts_and_marks_flushed_siblings_unknown_when_isolation_disabled() {
-    let (_dir, base_cmd, mut g, _auth, peer1) = make(false, 16);
+    let (base_cmd, mut g, _auth, peer1) = make(false, 16);
     assert!(!g.per_order_doubt_isolation());
 
     let cmd0 = order_cmd(&base_cmd, 10, "sib-0");
@@ -120,7 +120,7 @@ fn default_gateway_halts_and_marks_flushed_siblings_unknown_when_isolation_disab
 
 #[test]
 fn per_order_isolation_preserves_flushed_sibling_reconnects_admits_new_order_and_closes_rejected() {
-    let (_dir, base_cmd, g, auth, peer1) = make(false, 16);
+    let (base_cmd, g, auth, peer1) = make(false, 16);
     auth.policy.lock().unwrap().gate.now = 200;
     let mut g = g
         .with_per_order_doubt_isolation(true)
@@ -128,32 +128,28 @@ fn per_order_isolation_preserves_flushed_sibling_reconnects_admits_new_order_and
     assert!(g.per_order_doubt_isolation());
     assert!(g.has_transport_connection());
 
-    // 1. Order 0 submits and flushes cleanly.
     let cmd0 = order_cmd(&base_cmd, 10, "iso-order-0");
     let key0 = intent_of(&cmd0);
     g.submit(cmd0.clone(), 100, until()).unwrap();
     drive_intent(&mut g, key0, Status::Flushed);
-    let order0_key = g.committed(key0).unwrap().admission().orders()[0].clone();
+    let order0_key = g.admission(key0).unwrap().orders()[0].clone();
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(60)
     );
 
-    // 2. Order 1 accepts partial bytes (MayHaveSent) and then suffers a transport send failure.
     let cmd1 = order_cmd(&base_cmd, 11, "iso-order-1");
     let key1 = intent_of(&cmd1);
     g.submit(cmd1.clone(), 110, until()).unwrap();
     drive_intent(&mut g, key1, Status::PartiallyAccepted);
     assert!(g.output_progress(key1).unwrap().accepted_bytes > 0);
-    let order1_key = g.committed(key1).unwrap().admission().orders()[0].clone();
+    let order1_key = g.admission(key1).unwrap().orders()[0].clone();
 
-    // Poll past a send-expiry timestamp or cancel mid-stream -> SendState::Failed routes to drop_broken_transport_isolated!
     let _ = g.poll(
         Instant::now() + Duration::from_secs(60),
         IoBudget::default(),
     );
 
-    // Only Order 1 is isolated in doubt; Order 0 stays Flushed, and Gateway + Account stay live & unfrozen!
     assert!(!g.halted());
     assert!(!g.account().frozen());
     assert!(!g.has_transport_connection());
@@ -169,7 +165,6 @@ fn per_order_isolation_preserves_flushed_sibling_reconnects_admits_new_order_and
         fixture::units(120)
     );
 
-    // Submitting before replacement transport is installed returns Busy without halting or mutating Account.
     let cmd2 = order_cmd(&base_cmd, 12, "iso-order-2");
     let key2 = intent_of(&cmd2);
     assert!(matches!(
@@ -182,8 +177,7 @@ fn per_order_isolation_preserves_flushed_sibling_reconnects_admits_new_order_and
         fixture::units(120)
     );
 
-    // 3. Install a fresh replacement TLS connection and immediately admit & flush Order 2 while Order 1 stays locked!
-    let (conn2, limits2, peer2) = dial_replacement("testnet.binance.vision", 16384);
+    let (conn2, limits2, peer2) = dial_replacement(SPOT_HOST, 16384);
     g.install_transport_connection(conn2, limits2).unwrap();
     assert!(g.has_transport_connection());
 
@@ -197,12 +191,10 @@ fn per_order_isolation_preserves_flushed_sibling_reconnects_admits_new_order_and
         fixture::units(180)
     );
 
-    // Eviction never reclaims the isolated Unknown / in-doubt Order 1 regardless of elapsed time.
     let _ = g.evict_retired_entries(50_000);
     assert_eq!(g.status(key1), Some(Status::Unknown));
     assert!(g.account().order(&order1_key).is_some());
 
-    // 4. VenueEventBody::Rejected closes Order 1 as uncreated and releases its 60-unit reservation cleanly!
     assert_eq!(
         g.record_ingress_event([7; 16], 1, rejected_for(&cmd1, "iso-order-1", 200))
             .unwrap(),
@@ -226,11 +218,10 @@ fn per_order_isolation_preserves_flushed_sibling_reconnects_admits_new_order_and
 
 #[test]
 fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_structures_halt() {
-    let (_dir, base_cmd, g, auth, peer1) = make(false, 16);
+    let (base_cmd, g, auth, peer1) = make(false, 16);
     auth.policy.lock().unwrap().gate.now = 200;
     let mut g = g.with_per_order_doubt_isolation(true);
 
-    // 1. Zero-byte unsent drop aborts cleanly and refunds reservation without freezing.
     let unsent = order_cmd(&base_cmd, 20, "unsent-0");
     let unsent_key = intent_of(&unsent);
     assert_eq!(g.submit(unsent, 60, until()).unwrap(), Status::Queued);
@@ -247,15 +238,14 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
         fixture::units(0)
     );
 
-    // 2. Admit, flush, and ack a resting order, then isolate Query, AmendKeepPriority, and Cancel mid-send!
-    let (conn2, limits2, peer2) = dial_replacement("testnet.binance.vision", 16);
+    let (conn2, limits2, peer2) = dial_replacement(SPOT_HOST, 16);
     g.install_transport_connection(conn2, limits2).unwrap();
 
     let live_order = order_cmd(&base_cmd, 21, "live-order-21");
     let live_key = intent_of(&live_order);
     g.submit(live_order.clone(), 70, until()).unwrap();
     drive_intent(&mut g, live_key, Status::Flushed);
-    let okey = g.committed(live_key).unwrap().admission().orders()[0].clone();
+    let okey = g.admission(live_key).unwrap().orders()[0].clone();
     let oid = [21u8; 16];
     g.record_event(ack_for(&live_order, oid, "v-live-21", 75))
         .unwrap();
@@ -268,7 +258,6 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
         venue_order_id: Some(fixture::venue::text("v-live-21")),
     };
 
-    // 2a. Query mid-send failure marks Query Unknown without marking the order in doubt.
     let mut query_raw = live_order.command().clone();
     query_raw.context.request.intent_id = 22;
     query_raw.context.request.recovery_object += 22;
@@ -282,8 +271,7 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
     assert_eq!(g.status(query_key), Some(Status::Unknown));
     assert_eq!(g.account().order_in_doubt(&okey), None);
 
-    // 2b. AmendKeepPriority mid-send failure marks target order AmendAmbiguous.
-    let (conn3, limits3, peer3) = dial_replacement("testnet.binance.vision", 16);
+    let (conn3, limits3, peer3) = dial_replacement(SPOT_HOST, 16);
     g.install_transport_connection(conn3, limits3).unwrap();
     let mut amend_raw = live_order.command().clone();
     amend_raw.context.request.intent_id = 23;
@@ -305,7 +293,6 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
         Some(DoubtReason::AmendAmbiguous)
     );
 
-    // Resolve AmendAmbiguous via AmendmentRejected, then test Cancel mid-send failure -> CancelAmbiguous.
     let mut amend_rej = fixture::venue::event();
     amend_rej.body = v::VenueEventBody::AmendmentRejected(Box::new(v::AmendmentRejection {
         order: v::OrderIdentity {
@@ -329,7 +316,7 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
     g.record_event(fixture::event(amend_rej)).unwrap();
     assert_eq!(g.account().order_in_doubt(&okey), None);
 
-    let (conn4, limits4, peer4) = dial_replacement("testnet.binance.vision", 16);
+    let (conn4, limits4, peer4) = dial_replacement(SPOT_HOST, 16);
     g.install_transport_connection(conn4, limits4).unwrap();
     let mut cancel_raw = live_order.command().clone();
     cancel_raw.context.request.intent_id = 24;
@@ -347,8 +334,7 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
         Some(DoubtReason::CancelAmbiguous)
     );
 
-    // 3. Multi-leg SpotList mid-send failure falls back to full halt() + account.frozen()!
-    let (conn5, limits5, peer5) = dial_replacement("testnet.binance.vision", 16);
+    let (conn5, limits5, peer5) = dial_replacement(SPOT_HOST, 16);
     g.install_transport_connection(conn5, limits5).unwrap();
     let mut list_raw = base_cmd.command().clone();
     list_raw.context.request.intent_id = 30;
@@ -382,19 +368,18 @@ fn per_order_isolation_aborts_unsent_and_isolates_cancel_amend_query_while_struc
 
 #[test]
 fn futures_per_order_isolation_locks_and_releases_shadow_hold_across_reconnect() {
-    let (_dir, base_cmd, g, auth, peer1) = make(true, 16);
+    let (base_cmd, g, auth, peer1) = make(true, 16);
     auth.policy.lock().unwrap().gate.now = 200;
     let mut g = g.with_per_order_doubt_isolation(true);
     let initial_shadow = g.account().venue_shadow(1).unwrap();
 
-    // Order 1 stalls mid-send -> isolated in PlaceAmbiguous with shadow hold retained.
     let cmd1 = order_cmd(&base_cmd, 40, "fut-iso-1");
     let key1 = intent_of(&cmd1);
     g.submit(cmd1.clone(), 100, until()).unwrap();
     drive_intent(&mut g, key1, Status::PartiallyAccepted);
     let shadow_after_1 = g.account().venue_shadow(1).unwrap();
     assert!(shadow_after_1.atoms() < initial_shadow.atoms());
-    let order1_key = g.committed(key1).unwrap().admission().orders()[0].clone();
+    let order1_key = g.admission(key1).unwrap().orders()[0].clone();
 
     let _ = g.poll(
         Instant::now() + Duration::from_secs(60),
@@ -408,8 +393,7 @@ fn futures_per_order_isolation_locks_and_releases_shadow_hold_across_reconnect()
     );
     assert_eq!(g.account().venue_shadow(1).unwrap(), shadow_after_1);
 
-    // Reconnect and immediately flush sibling Futures Order 2.
-    let (conn2, limits2, peer2) = dial_replacement("demo-fapi.binance.com", 16384);
+    let (conn2, limits2, peer2) = dial_replacement(FUTURES_HOST, 16384);
     g.install_transport_connection(conn2, limits2).unwrap();
     let cmd2 = order_cmd(&base_cmd, 41, "fut-iso-2");
     let key2 = intent_of(&cmd2);
@@ -418,7 +402,6 @@ fn futures_per_order_isolation_locks_and_releases_shadow_hold_across_reconnect()
     let shadow_after_2 = g.account().venue_shadow(1).unwrap();
     assert!(shadow_after_2.atoms() < shadow_after_1.atoms());
 
-    // Authoritative Rejected for Order 1 releases Order 1's shadow hold while Order 2 remains open.
     assert_eq!(
         g.record_event(rejected_for(&cmd1, "fut-iso-1", 150))
             .unwrap(),
@@ -435,7 +418,7 @@ fn futures_per_order_isolation_locks_and_releases_shadow_hold_across_reconnect()
 
 #[test]
 fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_stage4_apis() {
-    let (_dir, base_cmd, g, auth, peer1) = make(false, 16);
+    let (base_cmd, g, auth, peer1) = make(false, 16);
     auth.policy.lock().unwrap().gate.now = 200;
     let mut g = g.with_per_order_doubt_isolation(true);
 
@@ -444,8 +427,7 @@ fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_sta
     g.set_projected_fill(true);
     assert!(g.projected_fill_enabled());
 
-    // 1. Place and acknowledge Order 0 (resting Buy 0.001 BTC @ 60000 = 60 USDT) and sibling Order 1.
-    let (conn1, limits1, peer2) = dial_replacement("testnet.binance.vision", 16384);
+    let (conn1, limits1, peer2) = dial_replacement(SPOT_HOST, 16384);
     let _ = g.drop_broken_transport_isolated();
     g.install_transport_connection(conn1, limits1).unwrap();
 
@@ -453,7 +435,7 @@ fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_sta
     let key0 = intent_of(&cmd0);
     g.submit(cmd0.clone(), 100, until()).unwrap();
     drive_intent(&mut g, key0, Status::Flushed);
-    let order0_key = g.committed(key0).unwrap().admission().orders()[0].clone();
+    let order0_key = g.admission(key0).unwrap().orders()[0].clone();
     let oid0 = [50u8; 16];
     g.record_event(ack_for(&cmd0, oid0, "v-mod-50", 105))
         .unwrap();
@@ -464,7 +446,6 @@ fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_sta
     g.submit(cmd1, 106, until()).unwrap();
     drive_intent(&mut g, key1, Status::Flushed);
 
-    // ProjectedFill pass-through on Gateway works without touching settled reserves.
     let pf = g
         .on_cum_qty(
             &order0_key,
@@ -481,8 +462,7 @@ fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_sta
     assert_eq!(g.pop_projected_fill(), Some(pf));
     assert!(g.drain_projected_fills().is_empty());
 
-    // 2. Switch to a small-budget peer so CommandBody::Modify stalls mid-send -> AmendAmbiguous!
-    let (conn2, limits2, peer3) = dial_replacement("testnet.binance.vision", 16);
+    let (conn2, limits2, peer3) = dial_replacement(SPOT_HOST, 16);
     let _ = g.drop_broken_transport_isolated();
     g.install_transport_connection(conn2, limits2).unwrap();
 
@@ -511,7 +491,6 @@ fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_sta
     drive_intent(&mut g, mod_key, Status::PartiallyAccepted);
     g.cancel_pending().unwrap();
 
-    // Only Order 0 is marked AmendAmbiguous; Gateway & Account stay live and sibling Order 1 stays Flushed!
     assert!(!g.halted());
     assert!(!g.account().frozen());
     assert_eq!(g.status(key1), Some(Status::Flushed));
@@ -520,13 +499,11 @@ fn per_order_isolation_isolates_native_modify_to_amend_ambiguous_and_exposes_sta
         g.account().order_in_doubt(&order0_key),
         Some(DoubtReason::AmendAmbiguous)
     );
-    // Worst-case hold (0.0015 * 60000 = 90 + 60 sibling = 150 USDT) stays locked until venue resolution!
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(150)
     );
 
-    // 3. VenueEventBody::ModifyRejected resolves AmendAmbiguous, releases +30 USDT hold, and records reason!
     let mut mod_rej = fixture::venue::event();
     mod_rej.identity.received_mono_ns = 150;
     mod_rej.body = v::VenueEventBody::ModifyRejected(Box::new(v::ModifyRejection {

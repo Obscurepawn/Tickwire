@@ -1,130 +1,188 @@
-//! Explicit deployment inputs. Loading configuration grants no private-stream
-//! reconciliation status; all absolute deadlines use the declared clock domain.
-use super::*;
+//! Static startup configuration and validation for [`crate::OrsRuntimePolicy`].
+
+use crate::{MAX_STRAT_ID, Mode};
 use serde::{Deserialize, Serialize};
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Environment {
-    Production,
-    Test,
+use std::collections::BTreeSet;
+use std::fmt;
+use tickwire_venue::ALL_ORS_STRATS;
+
+/// Per-account strategy authorization descriptor in `enabled_accounts` order.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountAuthSpec {
+    /// Unique `1`-based account reference (`1..=255`).
+    pub account_ref: u8,
+    /// Non-empty logical account block name (cannot contain `.`).
+    pub name: String,
+    /// Non-empty list of strategy IDs (`0..=254`) permitted to route orders onto this account.
+    pub strategies: Vec<u8>,
 }
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Product {
-    Spot,
-    LinearPerpetual,
-    LinearFuture,
-}
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Domain {
-    pub process_instance: [u8; 16],
-    pub generation: u64,
-}
-impl Domain {
-    pub fn build(self) -> Result<ClockDomain> {
-        ClockDomain::new(self.process_instance, self.generation).map_err(|_| Error::Identity)
-    }
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Scope {
-    pub risk_domain_id: [u8; 16],
-    pub venue: u32,
-    pub environment: Environment,
-    pub account: u64,
-}
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Lease {
-    pub lease_epoch: u64,
-    pub valid_until_ns: u64,
-    pub isolation_record: Hash,
-}
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Config {
-    pub scope: Scope,
-    pub product: Product,
-    pub executor_id: [u8; 16],
-    pub owner_generation: u64,
-    pub writer_epoch: u64,
-    pub domain: Domain,
-    pub versions: Versions,
-    pub max_strategies: usize,
-    pub max_feeds: usize,
-    pub marks_per_feed: usize,
-    pub control_revision: u64,
-    pub mode: Mode,
-    pub owner_lease: Option<Lease>,
-    pub strategy_grants: Vec<StrategyGrant>,
-    pub management_grant: Option<ManagementGrant>,
-}
-impl Config {
-    pub fn domain(&self) -> Result<ClockDomain> {
-        self.domain.build()
-    }
-    pub fn scope(&self) -> tickwire_account::Scope {
-        tickwire_account::Scope {
-            risk_domain_id: self.scope.risk_domain_id,
-            venue: self.scope.venue,
-            environment: match self.scope.environment {
-                Environment::Production => tickwire_venue::Environment::Production,
-                Environment::Test => tickwire_venue::Environment::Test,
-            },
-            account: self.scope.account,
+
+impl AccountAuthSpec {
+    pub fn new(account_ref: u8, name: impl Into<String>, strategies: Vec<u8>) -> Self {
+        Self {
+            account_ref,
+            name: name.into(),
+            strategies,
         }
     }
-    pub fn product(&self) -> tickwire_venue::Product {
-        match self.product {
-            Product::Spot => tickwire_venue::Product::Spot,
-            Product::LinearPerpetual => tickwire_venue::Product::LinearPerpetual,
-            Product::LinearFuture => tickwire_venue::Product::LinearFuture,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+/// Static startup configuration for [`crate::OrsRuntimePolicy`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PolicyConfig {
+    /// Initial ORS process mode (defaults to [`Mode::Trading`]).
+    #[serde(default)]
+    pub initial_mode: Mode,
+    /// Optional explicit process-wide strategy whitelist (`0..=254`). When empty, the union of all
+    /// `enabled_accounts[*].strategies` forms the configured whitelist; when non-empty, every
+    /// per-account strategy ID must appear in `strategies`.
+    #[serde(default)]
+    pub strategies: Vec<u8>,
+    /// Enabled accounts in deterministic configuration order (`account_ref = 0` picks the first
+    /// entry whose `strategies` contains `strat_id`).
+    pub enabled_accounts: Vec<AccountAuthSpec>,
+    /// Whether configured strategies start `active = true` (default `true`, matching `11 logon-process.md`).
+    #[serde(default = "default_true")]
+    pub default_active: bool,
+    /// Whether configured `(account_ref, strat_id)` pairs start `enabled = true` (default `true`).
+    #[serde(default = "default_true")]
+    pub default_enabled: bool,
+}
+
+impl Default for PolicyConfig {
+    fn default() -> Self {
+        Self {
+            initial_mode: Mode::Trading,
+            strategies: Vec::new(),
+            enabled_accounts: Vec::new(),
+            default_active: true,
+            default_enabled: true,
         }
     }
-    pub fn build(&self) -> Result<ControlPlane> {
-        if self.strategy_grants.len() > self.max_strategies {
-            return Err(Error::Capacity);
+}
+
+/// Startup validation failure for [`PolicyConfig`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PolicyConfigError {
+    EmptyEnabledAccounts,
+    InvalidAccountRef(u8),
+    DuplicateAccountRef(u8),
+    InvalidAccountName(String),
+    DuplicateAccountName(String),
+    EmptyAccountStrategies(u8),
+    ReservedStratId(u8),
+    DuplicateWhitelistStratId(u8),
+    DuplicateAccountStratId { account_ref: u8, strat_id: u8 },
+    UnwhitelistedAccountStratId { account_ref: u8, strat_id: u8 },
+}
+
+impl fmt::Display for PolicyConfigError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::EmptyEnabledAccounts => f.write_str("enabled_accounts must not be empty"),
+            Self::InvalidAccountRef(r) => {
+                write!(f, "account_ref {r} must be in 1..=255")
+            }
+            Self::DuplicateAccountRef(r) => {
+                write!(f, "duplicate account_ref {r} in enabled_accounts")
+            }
+            Self::InvalidAccountName(name) => {
+                write!(
+                    f,
+                    "invalid account name '{name}' (must be non-empty and contain no '.')"
+                )
+            }
+            Self::DuplicateAccountName(name) => {
+                write!(f, "duplicate account name '{name}' in enabled_accounts")
+            }
+            Self::EmptyAccountStrategies(r) => {
+                write!(f, "account_ref {r} must authorize at least one strategy")
+            }
+            Self::ReservedStratId(s) => {
+                write!(f, "strat_id {s} exceeds MAX_STRAT_ID ({MAX_STRAT_ID})")
+            }
+            Self::DuplicateWhitelistStratId(s) => {
+                write!(f, "duplicate strat_id {s} in strategies whitelist")
+            }
+            Self::DuplicateAccountStratId {
+                account_ref,
+                strat_id,
+            } => write!(
+                f,
+                "duplicate strat_id {strat_id} in account_ref {account_ref}"
+            ),
+            Self::UnwhitelistedAccountStratId {
+                account_ref,
+                strat_id,
+            } => write!(
+                f,
+                "account_ref {account_ref} authorizes strat_id {strat_id} absent from strategies whitelist"
+            ),
         }
-        let domain = self.domain()?;
-        let plane = ControlPlane::new(super::Config {
-            scope: self.scope(),
-            product: self.product(),
-            executor_id: self.executor_id,
-            owner_generation: self.owner_generation,
-            writer_epoch: self.writer_epoch,
-            domain,
-            versions: self.versions,
-            max_strategies: self.max_strategies,
-            max_feeds: self.max_feeds,
-            marks_per_feed: self.marks_per_feed,
-        })?;
-        if let Some(lease) = self.owner_lease {
-            plane.install_owner_lease(OwnerLease {
-                executor_id: self.executor_id,
-                owner_generation: self.owner_generation,
-                writer_epoch: self.writer_epoch,
-                lease_epoch: lease.lease_epoch,
-                domain,
-                valid_until_ns: lease.valid_until_ns,
-                isolation_record: lease.isolation_record,
-            })?;
-        }
-        for grant in &self.strategy_grants {
-            plane.install_strategy_grant(grant.clone())?;
-        }
-        if let Some(grant) = &self.management_grant {
-            plane.install_management_grant(grant.clone())?;
-        }
-        plane.set_mode(self.control_revision, self.mode)?;
-        Ok(plane)
     }
-    pub fn native_provider(
-        &self,
-        plane: &ControlPlane,
-    ) -> Result<PolicyGate<tickwire_clock_sys::SystemClock>> {
-        let clock =
-            tickwire_clock_sys::SystemClock::new(self.domain()?).map_err(|_| Error::Clock)?;
-        plane.provider(clock)
+}
+
+impl std::error::Error for PolicyConfigError {}
+
+impl PolicyConfig {
+    /// Validates account references, names, and strategy allow-lists.
+    pub fn validate(&self) -> Result<(), PolicyConfigError> {
+        if self.enabled_accounts.is_empty() {
+            return Err(PolicyConfigError::EmptyEnabledAccounts);
+        }
+
+        let mut whitelist = BTreeSet::new();
+        for &sid in &self.strategies {
+            if sid == ALL_ORS_STRATS {
+                return Err(PolicyConfigError::ReservedStratId(sid));
+            }
+            if !whitelist.insert(sid) {
+                return Err(PolicyConfigError::DuplicateWhitelistStratId(sid));
+            }
+        }
+
+        let mut seen_refs = BTreeSet::new();
+        let mut seen_names = BTreeSet::new();
+        for acct in &self.enabled_accounts {
+            if acct.account_ref == 0 {
+                return Err(PolicyConfigError::InvalidAccountRef(0));
+            }
+            if !seen_refs.insert(acct.account_ref) {
+                return Err(PolicyConfigError::DuplicateAccountRef(acct.account_ref));
+            }
+            if acct.name.is_empty() || acct.name.contains('.') {
+                return Err(PolicyConfigError::InvalidAccountName(acct.name.clone()));
+            }
+            if !seen_names.insert(acct.name.clone()) {
+                return Err(PolicyConfigError::DuplicateAccountName(acct.name.clone()));
+            }
+            if acct.strategies.is_empty() {
+                return Err(PolicyConfigError::EmptyAccountStrategies(acct.account_ref));
+            }
+
+            let mut acct_strats = BTreeSet::new();
+            for &sid in &acct.strategies {
+                if sid == ALL_ORS_STRATS {
+                    return Err(PolicyConfigError::ReservedStratId(sid));
+                }
+                if !acct_strats.insert(sid) {
+                    return Err(PolicyConfigError::DuplicateAccountStratId {
+                        account_ref: acct.account_ref,
+                        strat_id: sid,
+                    });
+                }
+                if !whitelist.is_empty() && !whitelist.contains(&sid) {
+                    return Err(PolicyConfigError::UnwhitelistedAccountStratId {
+                        account_ref: acct.account_ref,
+                        strat_id: sid,
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 }

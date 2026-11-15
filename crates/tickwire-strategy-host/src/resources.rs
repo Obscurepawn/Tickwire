@@ -1,8 +1,25 @@
-//! Explicit startup resource policy, independent of execution authorization.
-use super::*;
-use serde::{Deserialize, Serialize};
-use tickwire_supervisor::{ResourceLimits, ResourcePlan};
+//! Explicit startup cgroup v2 resource policy (`GroupResources`, `ProcessResources`), independent
+//! of execution authorization.
+#![forbid(unsafe_code)]
 
+use std::path::PathBuf;
+#[cfg(test)]
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
+
+use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use tickwire_control::Identity;
+use tickwire_control::ProcessIdentity;
+#[cfg(test)]
+use tickwire_control_sys::PrivateDirectory;
+use tickwire_supervisor::{LaunchSpec, Registry, ResourceLimits, ResourcePlan};
+
+use crate::{Error, Result};
+
+/// Explicit Linux cgroup v2 CPU, NUMA, and memory ceiling for one supervised worker process.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct GroupResources {
@@ -11,8 +28,9 @@ pub struct GroupResources {
     pub numa_node: u32,
     pub memory_max: u64,
 }
+
 impl GroupResources {
-    fn plan(&self) -> Result<ResourcePlan> {
+    pub(crate) fn plan(&self) -> Result<ResourcePlan> {
         let raw = self.cgroup.as_os_str().as_encoded_bytes();
         if self.cpus.len() > 4096
             || !self.cgroup.is_absolute()
@@ -37,11 +55,13 @@ impl GroupResources {
     }
 }
 
+/// Validated startup resource plan for a supervised strategy worker.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "ResourceConfig")]
 pub struct ProcessResources {
     pub worker: GroupResources,
 }
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ResourceConfig {
@@ -51,6 +71,7 @@ struct ResourceConfig {
     #[serde(default, rename = "rollback")]
     _rollback: Option<GroupResources>,
 }
+
 impl From<ResourceConfig> for ProcessResources {
     fn from(config: ResourceConfig) -> Self {
         Self {
@@ -58,18 +79,20 @@ impl From<ResourceConfig> for ProcessResources {
         }
     }
 }
+
 impl ProcessResources {
+    /// Validate cgroup path normalization, CPU set bounds, NUMA node bounds, and `memory_max`.
     pub fn validate(&self) -> Result<()> {
         self.worker.plan()?;
         Ok(())
     }
 }
 
-pub(super) fn validate(resources: Option<&ProcessResources>) -> Result<()> {
+pub(crate) fn validate(resources: Option<&ProcessResources>) -> Result<()> {
     resources.map_or(Ok(()), ProcessResources::validate)
 }
 
-pub(super) fn spawn(
+pub(crate) fn spawn(
     registry: &mut Registry,
     spec: LaunchSpec,
     resources: Option<&ProcessResources>,
