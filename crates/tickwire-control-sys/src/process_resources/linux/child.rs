@@ -1,48 +1,6 @@
 use super::*;
+pub(super) use crate::affinity::Mask;
 use std::{io, os::unix::process::CommandExt};
-const WORDS: usize = 4096 / usize::BITS as usize;
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) struct Mask([usize; WORDS]);
-impl Mask {
-    pub(super) fn new(cpus: &[u32]) -> Self {
-        let mut mask = Self([0; WORDS]);
-        for cpu in cpus {
-            mask.0[*cpu as usize / usize::BITS as usize] |= 1usize << (*cpu % usize::BITS);
-        }
-        mask
-    }
-    pub(super) fn read(pid: u32) -> io::Result<Self> {
-        let pid: libc::pid_t = pid
-            .try_into()
-            .map_err(|_| io::Error::from_raw_os_error(libc::EINVAL))?;
-        let mut result = Self([0; WORDS]);
-        // SAFETY: initialized aligned storage holds exactly the mask byte size passed to libc.
-        if unsafe { libc::sched_getaffinity(pid, size_of::<Self>(), result.0.as_mut_ptr().cast()) }
-            < 0
-        {
-            return Err(io::Error::last_os_error());
-        }
-        Ok(result)
-    }
-    pub(super) fn apply(&self) -> io::Result<()> {
-        // SAFETY: mask is initialized, aligned, and lives through the syscall; PID 0 is this child.
-        if unsafe { libc::sched_setaffinity(0, size_of::<Self>(), self.0.as_ptr().cast()) } < 0 {
-            return Err(io::Error::last_os_error());
-        }
-        if Self::read(0)? != *self {
-            return Err(io::Error::from_raw_os_error(libc::EINVAL));
-        }
-        Ok(())
-    }
-    #[cfg(test)]
-    pub(super) fn cpus(&self) -> Vec<u32> {
-        (0..4096)
-            .filter(|cpu| {
-                self.0[*cpu as usize / usize::BITS as usize] & (1usize << (*cpu % usize::BITS)) != 0
-            })
-            .collect()
-    }
-}
 
 pub(super) struct Setup {
     procs: File,

@@ -2,9 +2,12 @@
 
 `tickwire-control-sys` is the audited Linux OS boundary (`#![deny(unsafe_op_in_unsafe_fn)]`) for `AF_UNIX`
 `SOCK_SEQPACKET` control sockets (`ControlListener`, `PendingConnection`, `Connection`), `0o700` pinned
-directories (`PrivateDirectory`), sealed ELF execution (`ExecutableImage`), and `/proc` + cgroup v2 process
-resource inspection (`ResourceObservation`). Higher-level session handshakes and supervisor state machines
-belong in `tickwire-control` and `tickwire-supervisor` while retaining `#![forbid(unsafe_code)]`.
+directories (`PrivateDirectory`), sealed ELF execution (`ExecutableImage`), thread-level CPU affinity and
+core isolation (`CpuSet`, `pin_current_thread`, `current_thread_affinity`, `spawn_pinned_thread`,
+`validate_cpu_isolation`), and `/proc` + cgroup v2 process resource inspection (`ResourceObservation`).
+Higher-level session handshakes, execution runtimes, and supervisor state machines belong in
+`tickwire-control`, `tickwire-supervisor`, and runtime crates while retaining `#![forbid(unsafe_code)]` with
+zero raw `libc::sched_setaffinity` calls outside this crate.
 
 ## Invariants and Change Guidelines
 
@@ -24,16 +27,25 @@ belong in `tickwire-control` and `tickwire-supervisor` while retaining `#![forbi
   the writable descriptor before `exec` (`ETXTBSY`) in favor of an `O_RDONLY | O_CLOEXEC` reader, prevents
   `Command` program replacement in `spawn`, and checks `/proc/<pid>/exe` inode/device and seals in
   `matches_process`.
+* **Audited thread CPU affinity, read-back verification, and core isolation**: In [src/affinity.rs](src/affinity.rs),
+  represent CPU sets (`CpuSet`) over a 4,096-bit (512-byte) stack `Mask` (`0..4096`) shared with `pre_exec`
+  and `/proc` observation. `validate_cpu_isolation` enforces `< 4096`, pairwise distinct hot-thread cores,
+  and `hot_cpus ∩ housekeeping_cpus == ∅` at cold startup. `pin_current_thread` calls `sched_setaffinity(0, ...)`
+  and immediately calls `sched_getaffinity(0, ...)` to verify exact equality with `cpus`, failing immediately
+  if the kernel masked off offline cores or narrowed via cgroup `cpuset.cpus.effective`. `spawn_pinned_thread`
+  completes a synchronous startup handshake before running `f()`, dropping `f` without executing it and
+  returning `Err` synchronously if pinning fails.
 * **Process resource parsing**: Keep Linux `/proc/<pid>` and cgroup v2 readers in
   [src/process_resources/linux.rs](src/process_resources/linux.rs) separated from pure parsers in
   [src/process_resources/parse.rs](src/process_resources/parse.rs).
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/linux.rs](src/linux.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/affinity.rs](src/affinity.rs) · [src/linux.rs](src/linux.rs) ·
   [src/executable.rs](src/executable.rs) · [src/process_resources.rs](src/process_resources.rs) ·
-  [tests/transport.rs](tests/transport.rs) · [tests/executable.rs](tests/executable.rs) ·
-  [tests/process_resources.rs](tests/process_resources.rs) · [tests/platform.rs](tests/platform.rs)
+  [tests/affinity.rs](tests/affinity.rs) · [tests/transport.rs](tests/transport.rs) ·
+  [tests/executable.rs](tests/executable.rs) · [tests/process_resources.rs](tests/process_resources.rs) ·
+  [tests/platform.rs](tests/platform.rs)
 * **Specifications**: [control-transport.md](../../specs/implementation/control-transport.md) ·
   [supervisor-process.md](../../specs/implementation/supervisor-process.md) ·
   [runtime-observation.md](../../specs/implementation/runtime-observation.md)

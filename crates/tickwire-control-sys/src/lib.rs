@@ -1,4 +1,11 @@
-//! Bounded Linux control packets with owned, close-on-exec descriptor receipt.
+//! Audited Linux OS boundary for `AF_UNIX` `SOCK_SEQPACKET` control sockets, `0o700` pinned
+//! directories, sealed `memfd` ELF execution, thread-level CPU affinity (`CpuSet`,
+//! `pin_current_thread`, `current_thread_affinity`, `spawn_pinned_thread`,
+//! `validate_cpu_isolation`), and `/proc` + cgroup v2 process resource inspection.
+//!
+//! Higher-level business, transport, and supervision crates retain `#![forbid(unsafe_code)]` and
+//! delegate all raw descriptor, `memfd`, cgroup, and `sched_setaffinity` / `sched_getaffinity`
+//! syscalls through this crate (`#![deny(unsafe_op_in_unsafe_fn)]`).
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use std::io;
@@ -75,6 +82,12 @@ mod executable;
 pub use executable::ExecutableImage;
 #[cfg(not(target_os = "linux"))]
 pub use unsupported::ExecutableImage;
+
+mod affinity;
+pub use affinity::{
+    CpuSet, MAX_CPUS, current_thread_affinity, pin_current_thread, spawn_pinned_thread,
+    validate_cpu_isolation,
+};
 
 mod process_resources;
 pub use process_resources::{ResourceDomain, ResourceLimits, ResourceObservation};
