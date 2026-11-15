@@ -920,11 +920,27 @@ impl<T> GuardedValue<T> {
     }
 }
 
-impl<T: Clone> GuardedValue<T> {
-    /// Convenience clone accessor for cold background threads (`Dialer` / `AsyncRestQuerier`).
-    pub fn get_cloned(&self, reader: ThreadTag) -> (T, u64) {
+impl<T: Copy> GuardedValue<T> {
+    /// Zero-allocation stack copy accessor returning `(value, generation)`.
+    #[inline]
+    pub fn get(&self, reader: ThreadTag) -> (T, u64) {
         let guard = self.lock.lock(reader);
-        (guard.0.clone(), guard.1)
+        (guard.0, guard.1)
+    }
+}
+
+impl<T: AsRef<[u8]>> GuardedValue<T> {
+    /// Copies the guarded byte slice into caller-provided `out` under the spinlock with zero heap
+    /// allocation, returning `Some((len, generation))` or `None` if `out` is too small.
+    #[inline]
+    pub fn copy_bytes(&self, reader: ThreadTag, out: &mut [u8]) -> Option<(usize, u64)> {
+        let guard = self.lock.lock(reader);
+        let bytes = guard.0.as_ref();
+        if bytes.len() > out.len() {
+            return None;
+        }
+        out[..bytes.len()].copy_from_slice(bytes);
+        Some((bytes.len(), guard.1))
     }
 }
 

@@ -302,7 +302,9 @@ impl DialBaton {
     /// publishes a newly established `DialedLink`.
     pub fn set_ready_waker(&self, waker: Arc<Waker>) {
         let mut guard = self.ready_waker.lock(ThreadTag::RESP);
-        *guard = Some(waker);
+        let prev = guard.replace(waker);
+        drop(guard);
+        drop(prev);
     }
 
     pub fn state(&self) -> DialState {
@@ -419,7 +421,9 @@ impl DialBaton {
 
     fn set_waker(&self, waker: Arc<Waker>) {
         let mut guard = self.dialer_waker.lock(ThreadTag::RESP);
-        *guard = Some(waker);
+        let prev = guard.replace(waker);
+        drop(guard);
+        drop(prev);
     }
 
     fn notify_dialer_waker(&self) {
@@ -1351,10 +1355,13 @@ fn build_ws_upgrade_path(spec: &DialSpec) -> Option<WsUpgradeTarget> {
             ..
         } => {
             let full_path = if let Some(gv) = url_token {
-                let (tok, _) = gv.get_cloned(ThreadTag::DIALER);
-                if tok.is_empty() {
+                // Copy token onto stack under GuardedValue spinlock so zero heap allocation occurs under lock.
+                let mut tok_buf = [0u8; 256];
+                let (tok_len, _) = gv.copy_bytes(ThreadTag::DIALER, &mut tok_buf)?;
+                if tok_len == 0 {
                     return None;
                 }
+                let tok = core::str::from_utf8(&tok_buf[..tok_len]).ok()?;
                 if path_prefix.ends_with('/') {
                     format!("{path_prefix}{tok}")
                 } else {

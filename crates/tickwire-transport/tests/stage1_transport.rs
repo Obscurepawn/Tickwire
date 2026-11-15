@@ -237,6 +237,14 @@ fn dialer_ws_login_challenge_early_frames_replay_and_guarded_listen_key() {
         listen_key.set(ThreadTag::REST_QUERY, "lk_live_abc123".to_owned()),
         2
     );
+    let mut stack_tok = [0u8; 32];
+    assert_eq!(
+        listen_key.copy_bytes(ThreadTag::DIALER, &mut stack_tok),
+        Some((14, 2))
+    );
+    assert_eq!(&stack_tok[..14], b"lk_live_abc123");
+    let epoch_gv = GuardedValue::new(42u64, 2, None);
+    assert_eq!(epoch_gv.get(ThreadTag::RESP), (42, 1));
 
     let server = thread::spawn(move || {
         let (sock, _) = listener.accept().unwrap();
