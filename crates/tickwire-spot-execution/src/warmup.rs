@@ -1,29 +1,36 @@
-//! Side-effect-free hot-path cache and loopback TLS warmer for Bybit V5 and OKX V5 spot sessions.
+//! Side-effect-free hot-path instruction/data-cache and loopback TLS warmer (`UtaHotPathWarmer`)
+//! for Bybit V5 and OKX V5 Unified Trading Account sessions.
+//!
+//! Exercises the exact `REQ` and `RESP` hot-path stages — BBO JSON scan, `OrderManager` `dry_run`
+//! admission + `OrsStpBook` check, stack WS/HTTPS wire encoding, in-memory `TlsLoopbackWarmer`
+//! AES-GCM record encryption/decryption, and single-pass `JsonScan` reply parsing — with zero
+//! persistent state mutation, zero network I/O, and zero rate-limiter consumption.
+
 #![forbid(unsafe_code)]
 
-use crate::{SpotVenue, authority};
-use base64::{Engine as _, engine::general_purpose::STANDARD};
-use ring::hmac;
-use tickwire_account::{Account, Fixed};
-use tickwire_transport::{
-    TlsLoopbackWarmer,
-    warmup::{
-        WARMUP_SCRATCH_BYTES, decode_http_response_slice, encode_http_request_into,
-        find_json_field, write_u64_ascii,
-    },
+use crate::{
+    BybitUtaParser, Credentials, Environment, OkxUtaParser, SpotVenue, UtaNewOrderWireInput,
+    UtaOrderParams, encode_bybit_new_order_arg, encode_bybit_ws_trade_envelope_into,
+    encode_okx_new_order_arg, encode_okx_ws_trade_envelope_into, encode_signed_https_post_into,
+    encode_ws_client_frame_into, try_decode_http_response, wire_encode::BufWriter,
 };
-use tickwire_venue::{Environment, Side};
+use tickwire_account::{
+    OrderManager, OrderManagerConfig, OrsAccountDomainConfig, OrsNewOrderRequest, OrsSymbolSpec,
+};
+use tickwire_transport::{TlsLoopbackWarmer, warmup::find_json_field, ws::Opcode};
+use tickwire_venue::{AssetKey, Product, Side, TimeInForce};
 
 const SYNTHETIC_API_KEY: &str = "tw-warmup-synthetic-key";
 const SYNTHETIC_PASSPHRASE: &str = "tw-warmup-synthetic-pass";
-const SYNTHETIC_HMAC_SECRET: &[u8] = b"tickwire-spot-hotpath-warmup-synthetic-secret-v1";
+const SYNTHETIC_HMAC_SECRET: &[u8] = b"tickwire-uta-hotpath-warmup-synthetic-secret-v2";
 
 const SAMPLE_BYBIT_BBO: &[u8] = br#"{"topic":"orderbook.1.BTCUSDT","type":"snapshot","ts":1700000000123,"data":{"s":"BTCUSDT","b":[["50000.00","0.2500"]],"a":[["50000.50","0.4000"]],"u":1042,"seq":9001}}"#;
-const SAMPLE_OKX_BBO: &[u8] = br#"{"arg":{"channel":"bbo-tbt","instId":"BTC-USDT"},"data":[{"asks":[["50000.50","0.4000","0","2"]],"bids":[["50000.00","0.2500","0","3"]],"ts":"1700000000123","seqId":9001}]}"#;
+const SAMPLE_OKX_BBO: &[u8] = br#"{"arg":{"channel":"bbo-tbt","instId":"BTC-USDT-SWAP"},"data":[{"asks":[["50000.50","0.4000","0","2"]],"bids":[["50000.00","0.2500","0","3"]],"ts":"1700000000123","seqId":9001}]}"#;
 
-const BYBIT_DUMMY_HTTP_ACK: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 81\r\n\r\n{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"orderId\":\"10000001\",\"orderLinkId\":\"warm1\"}}";
+const BYBIT_DUMMY_HTTP_ACK: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nX-Bapi-Limit: 100\r\nX-Bapi-Limit-Status: 99\r\nContent-Length: 81\r\n\r\n{\"retCode\":0,\"retMsg\":\"OK\",\"result\":{\"orderId\":\"10000001\",\"orderLinkId\":\"warm1\"}}";
 const OKX_DUMMY_HTTP_ACK: &[u8] = b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 81\r\n\r\n{\"code\":\"0\",\"msg\":\"\",\"data\":[{\"ordId\":\"10000001\",\"clOrdId\":\"warm1\",\"sCode\":\"0\"}]}";
 
+/// Decoded top-of-book ticks and lots used during cache warmup.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DecodedSampleBbo {
     pub bid_ticks: i64,
@@ -84,21 +91,6 @@ pub fn parse_decimal_scaled(raw: &[u8], frac_digits: u8) -> Option<i64> {
 }
 
 #[inline]
-fn parse_u64_ascii(raw: &[u8]) -> Option<u64> {
-    if raw.is_empty() || raw.len() > 20 {
-        return None;
-    }
-    let mut out = 0u64;
-    for &b in raw {
-        if !b.is_ascii_digit() {
-            return None;
-        }
-        out = out.checked_mul(10)?.checked_add(u64::from(b - b'0'))?;
-    }
-    Some(out)
-}
-
-#[inline]
 fn extract_first_pair_after<'a>(json: &'a [u8], marker: &[u8]) -> Option<(&'a [u8], &'a [u8])> {
     let mut pos = 0usize;
     while pos + marker.len() < json.len() {
@@ -150,7 +142,7 @@ pub fn decode_sample_spot_bbo(venue: SpotVenue, frame: &[u8]) -> Option<DecodedS
     let ask_ticks = parse_decimal_scaled(ask_px_raw, 2)?;
     let bid_lots = parse_decimal_scaled(bid_qty_raw, 4)?;
     let ask_lots = parse_decimal_scaled(ask_qty_raw, 4)?;
-    let sequence = parse_u64_ascii(seq_raw)?;
+    let sequence = tickwire_transport::json_scan::parse_u64_ascii(seq_raw)?;
 
     if bid_ticks <= 0 || ask_ticks <= bid_ticks || bid_lots <= 0 || ask_lots <= 0 {
         return None;
@@ -164,323 +156,274 @@ pub fn decode_sample_spot_bbo(venue: SpotVenue, frame: &[u8]) -> Option<DecodedS
     })
 }
 
-#[inline]
-fn write_hex_lower_32(digest: &[u8], out: &mut [u8; 64]) {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    for (idx, &byte) in digest.iter().take(32).enumerate() {
-        out[idx * 2] = HEX[usize::from(byte >> 4)];
-        out[idx * 2 + 1] = HEX[usize::from(byte & 0x0f)];
-    }
+/// Periodic hot-path warmup schedule parameters.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UtaWarmupConfig {
+    pub period_ns: u64,
+    pub venue: SpotVenue,
+    pub environment: Environment,
 }
 
-#[inline]
-fn format_okx_iso_timestamp(now_ns: u64, out: &mut [u8; 24]) {
-    // Fixed valid ISO-8601 prefix `2026-11-14T15:30:SS.MMMZ` with deterministic SS.MMM digits.
-    let template = b"2026-11-14T15:30:00.000Z";
-    out.copy_from_slice(template);
-    let total_ms = (now_ns / 1_000_000) % 60_000;
-    let secs = (total_ms / 1_000) as u8;
-    let millis = (total_ms % 1_000) as u16;
-    out[17] = b'0' + (secs / 10);
-    out[18] = b'0' + (secs % 10);
-    out[20] = b'0' + ((millis / 100) as u8);
-    out[21] = b'0' + (((millis / 10) % 10) as u8);
-    out[22] = b'0' + ((millis % 10) as u8);
-}
+impl UtaWarmupConfig {
+    pub const DEFAULT_PERIOD_NS: u64 = 100_000_000;
 
-#[inline]
-fn push_slice(
-    dst: &mut [u8],
-    cursor: &mut usize,
-    bytes: &[u8],
-) -> Result<(), tickwire_transport::Error> {
-    let end = cursor
-        .checked_add(bytes.len())
-        .ok_or(tickwire_transport::Error::Bounds)?;
-    if end > dst.len() {
-        return Err(tickwire_transport::Error::Bounds);
-    }
-    dst[*cursor..end].copy_from_slice(bytes);
-    *cursor = end;
-    Ok(())
-}
-
-/// Preallocated hot-path dry-run engine owned by `RestSession`.
-pub struct SpotHotPathWarmer {
-    venue: SpotVenue,
-    environment: Environment,
-    host: &'static str,
-    instrument_id: u64,
-    symbol_buf: [u8; 32],
-    symbol_len: usize,
-    sample_price: Fixed,
-    sample_notional_atoms: i128,
-    sample_fee_atoms: i128,
-    money_scale: u8,
-    synthetic_key: hmac::Key,
-    scratch_account: Account,
-    tls_warmer: TlsLoopbackWarmer,
-    req_scratch: [u8; WARMUP_SCRATCH_BYTES],
-    ack_scratch: [u8; 512],
-}
-
-impl SpotHotPathWarmer {
-    pub fn new(
-        venue: SpotVenue,
-        environment: Environment,
-        instrument_id: u64,
-        symbol: &str,
-        sample_price: Fixed,
-        money_scale: u8,
-        scratch_account: Account,
-    ) -> Result<Self, tickwire_transport::Error> {
-        let sym_bytes = symbol.as_bytes();
-        if sym_bytes.is_empty() || sym_bytes.len() > 32 {
-            return Err(tickwire_transport::Error::Bounds);
-        }
-        let mut symbol_buf = [0u8; 32];
-        symbol_buf[..sym_bytes.len()].copy_from_slice(sym_bytes);
-
-        let ack_payload = match venue {
-            SpotVenue::Bybit => BYBIT_DUMMY_HTTP_ACK,
-            SpotVenue::Okx => OKX_DUMMY_HTTP_ACK,
-        };
-        let tls_warmer = TlsLoopbackWarmer::new()?.with_ack_payload(ack_payload);
-
-        let scale_clamped = money_scale.min(18);
-        let mut unit_atoms: i128 = 1;
-        let mut rem = scale_clamped;
-        while rem > 0 {
-            unit_atoms = unit_atoms.saturating_mul(10);
-            rem -= 1;
-        }
-        let sample_notional_atoms = unit_atoms.saturating_mul(50);
-        let sample_fee_atoms = (unit_atoms / 10).max(1);
-
-        Ok(Self {
+    pub const fn new(venue: SpotVenue, environment: Environment) -> Self {
+        Self {
+            period_ns: Self::DEFAULT_PERIOD_NS,
             venue,
             environment,
-            host: authority(venue, environment),
-            instrument_id,
-            symbol_buf,
-            symbol_len: sym_bytes.len(),
-            sample_price,
-            sample_notional_atoms,
-            sample_fee_atoms,
-            money_scale: scale_clamped,
-            synthetic_key: hmac::Key::new(hmac::HMAC_SHA256, SYNTHETIC_HMAC_SECRET),
-            scratch_account,
-            tls_warmer,
-            req_scratch: [0u8; WARMUP_SCRATCH_BYTES],
-            ack_scratch: [0u8; 512],
+        }
+    }
+
+    pub const fn with_period_ns(mut self, period_ns: u64) -> Self {
+        self.period_ns = period_ns;
+        self
+    }
+}
+
+/// Compatibility alias for [`UtaWarmupConfig`].
+pub type SpotWarmupConfig = UtaWarmupConfig;
+
+/// Metrics returned by one side-effect-free [`UtaHotPathWarmer`] cycle.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct UtaWarmupReport {
+    pub http_status: u16,
+    pub request_bytes: usize,
+    pub ws_frame_bytes: usize,
+    pub response_bytes: usize,
+    pub runs: u64,
+}
+
+/// Compatibility alias for [`UtaWarmupReport`].
+pub type SpotWarmupReport = UtaWarmupReport;
+
+/// Preallocated side-effect-free hot-path warmer for Bybit V5 and OKX V5 UTA execution.
+pub struct UtaHotPathWarmer {
+    cfg: UtaWarmupConfig,
+    order_manager: OrderManager<true>,
+    spec: OrsSymbolSpec,
+    symbol_name: &'static str,
+    tls_loopback: TlsLoopbackWarmer,
+    next_seq: u64,
+    last_warm_ns: Option<u64>,
+    runs: u64,
+}
+
+/// Compatibility alias for [`UtaHotPathWarmer`].
+pub type SpotHotPathWarmer = UtaHotPathWarmer;
+
+impl UtaHotPathWarmer {
+    pub fn new(cfg: UtaWarmupConfig) -> Result<Self, String> {
+        let tls_loopback =
+            TlsLoopbackWarmer::new().map_err(|e| format!("TLS loopback warmer init: {e}"))?;
+        let spec = OrsSymbolSpec {
+            symbol_id: 0,
+            instrument_id: 1,
+            product: Product::LinearPerpetual,
+            wallet_id: 1,
+            base_asset_id: 1,
+            base_scale: 8,
+            quote_asset_id: 2,
+            quote_scale: 6,
+            settlement_asset_id: 2,
+            settlement_scale: 6,
+            price_tick_atoms: 1,
+            price_scale: 2,
+            qty_step_atoms: 1,
+            qty_scale: 4,
+            contract_size_atoms: 1,
+            contract_scale: 0,
+            initial_margin_bps: 1_000,
+        };
+        let domain = OrsAccountDomainConfig {
+            account_ref: 1,
+            risk_domain_id: [0x55; 16],
+            venue: cfg.venue.venue_id(),
+            environment: cfg.environment,
+            exchange_account_id: 99_001,
+            epoch: 1,
+        };
+        let mut om_cfg = OrderManagerConfig::single_account_default(domain, vec![spec]);
+        om_cfg.slots_per_strat = 64;
+        let order_manager = OrderManager::new(om_cfg)?;
+        order_manager
+            .wallet_ledger()
+            .set_balance(1, AssetKey::new(1, 2), 6, 1_000_000_000_000, 0)
+            .map_err(|e| format!("warmup ledger init: {e}"))?;
+        order_manager
+            .dop_state()
+            .configure_strategy(0, &[1])
+            .map_err(|e| format!("warmup dop configure: {e:?}"))?;
+        order_manager
+            .dop_state()
+            .login(0, 1)
+            .map_err(|e| format!("warmup dop login: {e:?}"))?;
+        let symbol_name = match cfg.venue {
+            SpotVenue::Bybit => "BTCUSDT",
+            SpotVenue::Okx => "BTC-USDT-SWAP",
+        };
+
+        Ok(Self {
+            cfg,
+            order_manager,
+            spec,
+            symbol_name,
+            tls_loopback,
+            next_seq: 1,
+            last_warm_ns: None,
+            runs: 0,
         })
     }
 
-    /// Refreshes the isolated scratch `Account` snapshot outside the active order path.
-    pub fn refresh_scratch_account(&mut self, account: &Account) {
-        self.scratch_account = account.clone();
-    }
-
     #[inline]
-    pub fn scratch_addr(&self) -> usize {
-        self.req_scratch.as_ptr() as usize
+    pub const fn runs(&self) -> u64 {
+        self.runs
     }
 
-    /// Runs all 4 hot-path stages without mutating any live `Account`, `AccountJournal`, `OrderRouter`,
-    /// `VenueRateLimiter`, or live `rustls::ClientConnection`.
-    pub fn warm_once(
-        &mut self,
-        live_account: &Account,
-        now_mono_ns: u64,
-    ) -> Result<usize, tickwire_transport::Error> {
-        // 1. Stack-decode representative venue BBO frame.
-        let sample_frame = match self.venue {
+    /// Runs a warmup cycle only when `now_mono_ns - last_warm_ns >= cfg.period_ns`.
+    pub fn maybe_warm(&mut self, now_mono_ns: u64, utc_ms: u64) -> Option<UtaWarmupReport> {
+        if let Some(prev) = self.last_warm_ns
+            && now_mono_ns.saturating_sub(prev) < self.cfg.period_ns
+        {
+            return None;
+        }
+        let rep = self.warm_once(now_mono_ns, utc_ms).ok()?;
+        self.last_warm_ns = Some(now_mono_ns);
+        Some(rep)
+    }
+
+    /// Executes one full side-effect-free `REQ` + TLS + `RESP` warmup pass.
+    pub fn warm_once(&mut self, now_mono_ns: u64, utc_ms: u64) -> Result<UtaWarmupReport, String> {
+        let sample_bbo = match self.cfg.venue {
             SpotVenue::Bybit => SAMPLE_BYBIT_BBO,
             SpotVenue::Okx => SAMPLE_OKX_BBO,
         };
-        let bbo = decode_sample_spot_bbo(self.venue, sample_frame).ok_or(
-            tickwire_transport::Error::Protocol("warmup sample bbo decode"),
-        )?;
+        let bbo = decode_sample_spot_bbo(self.cfg.venue, sample_bbo)
+            .ok_or_else(|| "invalid warmup sample BBO".to_owned())?;
 
-        // 2. Read-only risk, lease, STP self-cross, and exact Fixed arithmetic dry-run.
-        let _live_gate = !live_account.frozen()
-            && live_account.account_epoch() > 0
-            && live_account.valid_until() > 0
-            && !self.scratch_account.frozen();
-        if self.instrument_id != 0 {
-            let _ = live_account.stp_book().self_cross(
-                self.instrument_id,
-                Side::Buy,
-                self.sample_price,
-            );
-            let _ = self.scratch_account.stp_book().self_cross(
-                self.instrument_id,
-                Side::Buy,
-                self.sample_price,
-            );
-        }
-        let notional = Fixed::from_atoms(self.sample_notional_atoms, self.money_scale)
-            .map_err(|_| tickwire_transport::Error::Protocol("warmup fixed notional"))?;
-        let fee = Fixed::from_atoms(self.sample_fee_atoms, self.money_scale)
-            .map_err(|_| tickwire_transport::Error::Protocol("warmup fixed fee"))?;
-        let total_reserve = notional
-            .checked_add(fee)
-            .and_then(|v| v.checked_mul_int(1))
-            .map_err(|_| tickwire_transport::Error::Protocol("warmup fixed reserve"))?;
-        let _ = total_reserve.positive();
+        let seq = self.next_seq;
+        self.next_seq = self.next_seq.wrapping_add(1).max(1);
+        let req = OrsNewOrderRequest {
+            strat_id: 0,
+            account_ref: 1,
+            msg_seqnum: seq,
+            order_seqnum: seq,
+            symbol_id: 0,
+            side: Side::Buy,
+            price_ticks: bbo.bid_ticks,
+            qty_lots: bbo.bid_lots,
+            tif: TimeInForce::Rpi,
+            post_only: true,
+            reduce_only: false,
+            check_stp: true,
+            dry_run: true,
+            now_mono_ns,
+        };
+        let placed = self
+            .order_manager
+            .place_order(&req)
+            .map_err(|e| format!("warmup dry_run place_order failed: {:?}", e.reason))?;
+        debug_assert!(!placed.should_send_to_venue);
 
-        // 3. Synthetic HMAC-SHA256 signing + stack HTTP/1.1 POST request framing.
-        let sym = &self.symbol_buf[..self.symbol_len];
-        let mut body_buf = [0u8; 256];
-        let mut body_len = 0usize;
-        let seq_tag = bbo.sequence.wrapping_add(now_mono_ns / 1_000_000) % 1_000_000;
-        let mut seq_digits = [0u8; 20];
-        let seq_digits_len = write_u64_ascii(&mut seq_digits, seq_tag)?;
-
-        let req_len = match self.venue {
-            SpotVenue::Bybit => {
-                push_slice(
-                    &mut body_buf,
-                    &mut body_len,
-                    b"{\"category\":\"spot\",\"symbol\":\"",
-                )?;
-                push_slice(&mut body_buf, &mut body_len, sym)?;
-                push_slice(
-                    &mut body_buf,
-                    &mut body_len,
-                    b"\",\"side\":\"Buy\",\"orderType\":\"Limit\",\"qty\":\"0.001\",\"price\":\"50000.00\",\"timeInForce\":\"GTC\",\"orderLinkId\":\"tw1warm",
-                )?;
-                push_slice(&mut body_buf, &mut body_len, &seq_digits[..seq_digits_len])?;
-                push_slice(&mut body_buf, &mut body_len, b"\"}")?;
-
-                let ts_ms = 1_700_000_000_000u64.wrapping_add(now_mono_ns / 1_000_000);
-                let mut ts_buf = [0u8; 20];
-                let ts_len = write_u64_ascii(&mut ts_buf, ts_ms)?;
-                let ts_str = std::str::from_utf8(&ts_buf[..ts_len])
-                    .map_err(|_| tickwire_transport::Error::Protocol("warmup ts utf8"))?;
-
-                let mut ctx = hmac::Context::with_key(&self.synthetic_key);
-                ctx.update(&ts_buf[..ts_len]);
-                ctx.update(SYNTHETIC_API_KEY.as_bytes());
-                ctx.update(b"5000");
-                ctx.update(&body_buf[..body_len]);
-                let tag = ctx.sign();
-                let mut sig_hex = [0u8; 64];
-                write_hex_lower_32(tag.as_ref(), &mut sig_hex);
-                let sig_str = std::str::from_utf8(&sig_hex)
-                    .map_err(|_| tickwire_transport::Error::Protocol("warmup sig utf8"))?;
-
-                let headers = [
-                    ("Host", self.host),
-                    ("Content-Type", "application/json"),
-                    ("X-BAPI-API-KEY", SYNTHETIC_API_KEY),
-                    ("X-BAPI-TIMESTAMP", ts_str),
-                    ("X-BAPI-RECV-WINDOW", "5000"),
-                    ("X-BAPI-SIGN", sig_str),
-                ];
-                encode_http_request_into(
-                    &mut self.req_scratch,
-                    "POST",
-                    "/v5/order/create",
-                    &headers,
-                    &body_buf[..body_len],
-                )?
-            }
-            SpotVenue::Okx => {
-                push_slice(&mut body_buf, &mut body_len, b"{\"instId\":\"")?;
-                push_slice(&mut body_buf, &mut body_len, sym)?;
-                push_slice(
-                    &mut body_buf,
-                    &mut body_len,
-                    b"\",\"tdMode\":\"cash\",\"side\":\"buy\",\"ordType\":\"limit\",\"sz\":\"0.001\",\"px\":\"50000.00\",\"clOrdId\":\"tw1warm",
-                )?;
-                push_slice(&mut body_buf, &mut body_len, &seq_digits[..seq_digits_len])?;
-                push_slice(&mut body_buf, &mut body_len, b"\"}")?;
-
-                let mut iso_buf = [0u8; 24];
-                format_okx_iso_timestamp(now_mono_ns, &mut iso_buf);
-                let iso_str = std::str::from_utf8(&iso_buf)
-                    .map_err(|_| tickwire_transport::Error::Protocol("warmup iso utf8"))?;
-
-                let mut ctx = hmac::Context::with_key(&self.synthetic_key);
-                ctx.update(&iso_buf);
-                ctx.update(b"POST/api/v5/trade/order");
-                ctx.update(&body_buf[..body_len]);
-                let tag = ctx.sign();
-                let mut sig_b64 = [0u8; 44];
-                let written = STANDARD
-                    .encode_slice(tag.as_ref(), &mut sig_b64)
-                    .map_err(|_| tickwire_transport::Error::Protocol("warmup b64 encode"))?;
-                let sig_str = std::str::from_utf8(&sig_b64[..written])
-                    .map_err(|_| tickwire_transport::Error::Protocol("warmup b64 utf8"))?;
-
-                if self.environment == Environment::Test {
-                    let headers = [
-                        ("Host", self.host),
-                        ("Content-Type", "application/json"),
-                        ("OK-ACCESS-KEY", SYNTHETIC_API_KEY),
-                        ("OK-ACCESS-SIGN", sig_str),
-                        ("OK-ACCESS-TIMESTAMP", iso_str),
-                        ("OK-ACCESS-PASSPHRASE", SYNTHETIC_PASSPHRASE),
-                        ("x-simulated-trading", "1"),
-                    ];
-                    encode_http_request_into(
-                        &mut self.req_scratch,
-                        "POST",
-                        "/api/v5/trade/order",
-                        &headers,
-                        &body_buf[..body_len],
-                    )?
-                } else {
-                    let headers = [
-                        ("Host", self.host),
-                        ("Content-Type", "application/json"),
-                        ("OK-ACCESS-KEY", SYNTHETIC_API_KEY),
-                        ("OK-ACCESS-SIGN", sig_str),
-                        ("OK-ACCESS-TIMESTAMP", iso_str),
-                        ("OK-ACCESS-PASSPHRASE", SYNTHETIC_PASSPHRASE),
-                    ];
-                    encode_http_request_into(
-                        &mut self.req_scratch,
-                        "POST",
-                        "/api/v5/trade/order",
-                        &headers,
-                        &body_buf[..body_len],
-                    )?
-                }
-            }
+        let params = UtaOrderParams::cross_derivative_limit(TimeInForce::Rpi, false);
+        let input = UtaNewOrderWireInput {
+            symbol: self.symbol_name,
+            spec: &self.spec,
+            side: req.side,
+            price_ticks: req.price_ticks,
+            qty_lots: req.qty_lots,
+            client_id: placed.client_id.as_str(),
+            params,
         };
 
-        // 4. Isolated in-memory TLS 1.3 encrypt + decrypt roundtrip + 200 OK ack parse.
-        let ack_template = match self.venue {
+        let mut arg_buf = [0u8; 768];
+        let mut w = BufWriter::new(&mut arg_buf);
+        match self.cfg.venue {
+            SpotVenue::Bybit => encode_bybit_new_order_arg(&input, &mut w)
+                .map_err(|e| format!("bybit arg encode: {e}"))?,
+            SpotVenue::Okx => encode_okx_new_order_arg(&input, &mut w)
+                .map_err(|e| format!("okx arg encode: {e}"))?,
+        }
+        let arg_len = w.written();
+
+        // 1. Warm WS trade envelope + RFC 6455 masked client framing.
+        let mut ws_env = [0u8; 1024];
+        let env_len = match self.cfg.venue {
+            SpotVenue::Bybit => encode_bybit_ws_trade_envelope_into(
+                seq,
+                utc_ms.max(1_700_000_000_000),
+                "order.create",
+                &arg_buf[..arg_len],
+                &mut ws_env,
+            )
+            .map_err(|e| format!("bybit ws env: {e}"))?,
+            SpotVenue::Okx => {
+                encode_okx_ws_trade_envelope_into(seq, "order", &arg_buf[..arg_len], &mut ws_env)
+                    .map_err(|e| format!("okx ws env: {e}"))?
+            }
+        };
+        let mut ws_frame = [0u8; 1280];
+        let ws_frame_bytes = encode_ws_client_frame_into(
+            Opcode::Text,
+            &ws_env[..env_len],
+            seq ^ utc_ms,
+            &mut ws_frame,
+        )
+        .map_err(|e| format!("ws mask encode: {e}"))?;
+
+        // 2. Warm signed HTTPS POST + rustls AES-GCM loopback + zero-alloc HTTP/JsonScan decode.
+        let creds = match self.cfg.venue {
+            SpotVenue::Bybit => Credentials::bybit(SYNTHETIC_API_KEY, SYNTHETIC_HMAC_SECRET),
+            SpotVenue::Okx => Credentials::okx(
+                SYNTHETIC_API_KEY,
+                SYNTHETIC_HMAC_SECRET,
+                SYNTHETIC_PASSPHRASE,
+            ),
+        };
+        let path = match self.cfg.venue {
+            SpotVenue::Bybit => "/v5/order/create",
+            SpotVenue::Okx => "/api/v5/trade/order",
+        };
+        let mut http_req = [0u8; 2048];
+        let request_bytes = encode_signed_https_post_into(
+            &creds,
+            self.cfg.environment,
+            utc_ms.max(1_700_000_000_000),
+            path,
+            &arg_buf[..arg_len],
+            &mut http_req,
+        )
+        .map_err(|e| format!("https post encode: {e}"))?;
+
+        let raw_ack = match self.cfg.venue {
             SpotVenue::Bybit => BYBIT_DUMMY_HTTP_ACK,
             SpotVenue::Okx => OKX_DUMMY_HTTP_ACK,
         };
-        let (req_dec, ack_dec) = self.tls_warmer.warm_step_exchange(
-            &self.req_scratch[..req_len],
-            ack_template,
-            &mut self.ack_scratch,
-        )?;
-        let (status, ack_body) = decode_http_response_slice(&self.ack_scratch[..ack_dec])?;
-        if status != 200 {
-            return Err(tickwire_transport::Error::Protocol("warmup ack status"));
-        }
-        match self.venue {
+        let mut plain_rx = [0u8; 2048];
+        let (_req_n, rx_n) = self
+            .tls_loopback
+            .warm_step_exchange(&http_req[..request_bytes], raw_ack, &mut plain_rx)
+            .map_err(|e| format!("tls loopback roundtrip: {e}"))?;
+        let http_resp = try_decode_http_response(&plain_rx[..rx_n])
+            .map_err(|e| format!("http decode: {e}"))?
+            .ok_or_else(|| "incomplete warmup HTTP response".to_owned())?;
+        match self.cfg.venue {
             SpotVenue::Bybit => {
-                if find_json_field(ack_body, b"\"retCode\"") != Some(b"0")
-                    || find_json_field(ack_body, b"\"orderId\"").is_none()
-                {
-                    return Err(tickwire_transport::Error::Protocol("warmup bybit ack body"));
-                }
+                let _ =
+                    BybitUtaParser::scan(http_resp.body).map_err(|e| format!("bybit scan: {e}"))?;
             }
             SpotVenue::Okx => {
-                if find_json_field(ack_body, b"\"code\"") != Some(b"0")
-                    || find_json_field(ack_body, b"\"ordId\"").is_none()
-                {
-                    return Err(tickwire_transport::Error::Protocol("warmup okx ack body"));
-                }
+                let _ = OkxUtaParser::scan(http_resp.body).map_err(|e| format!("okx scan: {e}"))?;
             }
         }
-        Ok(req_dec.saturating_add(ack_dec))
+
+        self.runs += 1;
+        Ok(UtaWarmupReport {
+            http_status: http_resp.status,
+            request_bytes,
+            ws_frame_bytes,
+            response_bytes: rx_n,
+            runs: self.runs,
+        })
     }
 }

@@ -1,87 +1,31 @@
 # tickwire-spot-execution
 
-`tickwire-spot-execution` (`#![forbid(unsafe_code)]`) implements authenticated Bybit V5 and OKX V5 cash-spot REST
-request signing (`SpotEncoder`), single-flight and multi-connection pooled gateway sessions (`RestSession`), EWMA
-`OrderRouter` + `VenueRateLimiter` routing, synchronous response classification (`decode_reply`), `StorageMode`-aware
-private WebSocket stream capture (`private`), background dialer connection handoff (`network::{LiveNetwork,
-SocketConnection}`), and UID-bound REST recovery collection (`recovery`, `observe`, and the `tickwire-spot-observe`
-binary). `tickwire-spot-runner` drives `RestSession` over an injected `AccountGateway`; strategy scheduling, balance
-math, and control leases remain outside this crate.
+`tickwire-spot-execution` (`#![forbid(unsafe_code)]`) implements stateless, full-product Unified Trading Account (UTA) ORS execution for Bybit V5 (`BybitUtaSession`) and OKX V5 (`OkxUtaSession`), covering Spot, Linear/Inverse Perpetuals, Linear/Inverse Dated Futures, and Options (`Product::{Spot, LinearPerp, InversePerp, LinearFutures, InverseFutures, Options}`), Retail Price Improvement (`TimeInForce::Rpi`), optional Options/Block `RFQ` quote hooks (`RfqQuoteHook`), server maintenance `notice` graceful connection switchover, zero-allocation single-pass `JsonScan` frame parsing, `FillRecordPool` `amendment = true` fee patching, `OrsQueryDesk` single-order reconciliation, and stateless cold Exchange REST bootstrap.
 
-## Invariants and Change Guidelines
+## Module Architecture & Single-Writer Ownership
 
-* **Strict cash-spot parameter domain and secret redaction**: `SpotEncoder` in [src/lib.rs](src/lib.rs) accepts only
-  `ProductMode::Spot` base-quantity orders (`tdMode: "cash"` on OKX, `category: "spot"` on Bybit) with validated ASCII
-  credentials, symbols, and venue-bounded `client_id` lengths (`32` OKX, `36` Bybit); never implement `Debug` or error
-  formatting that exposes API secrets or passphrases.
-* **Distinct acknowledgement, modification, order-status, fill, and error-classification evidence**: Keep synchronous
-  HTTP acknowledgements, in-place `CommandBody::Modify(ModifyOrder)` outcomes (`ModifyReply`, `decode_modify_reply`,
-  `record_modify_outcome`), and venue error/terminal reason classification (`SpotIssueKind`, `classify_issue`,
-  `classify_order_row_terminal_reason`, `extract_order_row_extras`, `is_http_account_hazard`, `is_venue_rate_limit_code`)
-  in [src/reports.rs](src/reports.rs) and [src/session.rs](src/session.rs) separate from trade-level fills in
-  [src/fills.rs](src/fills.rs) and private stream frames in [src/private.rs](src/private.rs); encode Bybit V5
-  `POST /v5/order/amend` (`X-BAPI-*` HMAC-SHA256) and OKX V5 `POST /api/v5/trade/amend-order` (`OK-ACCESS-*` Base64
-  HMAC-SHA256) in [src/lib.rs](src/lib.rs), default unknown venue codes conservatively to `SpotIssueKind::Ambiguous`,
-  preserve `per_order_doubt_isolation() == false` by default in unpooled mode, record `VenueEventBody::Rejected`
-  (`record_rejected_new`) only on `DeterministicReject` for `New` orders, emit `VenueEventBody::Modified` or
-  `VenueEventBody::ModifyRejected` without freezing `Account` on deterministic `Modify` responses, isolate ambiguous
-  `Modify` outcomes under `DoubtReason::AmendAmbiguous`, and enforce `writer_epoch > durable_floor` when constructing
-  `RestSession`.
-* **Multi-connection exclusive HTTP/1.1 pool and `Place`/`Modify`/`Cancel`/`Query` isolated `VenueRateLimiter`**: Preserve
-  100% single-connection `RestSession` semantics when `gateway.has_connection_pool() == false`. When pooled via
-  `with_connection_pool` / `enable_connection_pool` in [src/session.rs](src/session.rs), enforce `SendSlot::Exclusive`
-  per slot (`0..MAX_ORDER_CONNECTIONS`), derive non-zero `symbol_rate_key(instrument_id)` (auto-registering symbols on
-  `OkxSpot`), debit `CommandBody::Modify` from the order/amend quota (`allow_modify(..., counts_as_order: true)`) only
-  **after** `AccountGateway` admission succeeds (never burning tokens on local `CrossesBook`, `InsufficientAsset`,
-  `TooManyPendingActions`, or `NoChange` refusals, and never consuming cancel-only reserve), return
-  `SessionError::RateLimited(RateReject)` **before** `gateway.submit_on_slot` when local `Place`, `Modify`, `Cancel`, or
-  `Query` budgets are full, correlate concurrent completions via `poll_tagged`, record microsecond RTTs via
-  `note_slot_sample(..., SampleKind::Order, sample_us)`, isolate single-slot drops via `drop_broken_slot_isolated`, and
-  translate HTTP `429` / Bybit `10006` / OKX `50011` on multi-IP pooled slots into per-IP `note_ip_cooldown` +
-  single-intent `in_doubt` without freezing `Account` (while HTTP `401`/`403`/`418` and auth hazards still freeze
-  `Account` immediately).
-* **Signed off-hot-path REST `GET` builders**: Reuse `build_order_status_get`, `build_order_trades_get`, and `decode_fill_row`
-  in [src/lib.rs](src/lib.rs) and [src/recovery.rs](src/recovery.rs) for `AsyncRestQuerier` status and trade catch-up
-  without duplicating HMAC signing or native row validation.
-* **`StorageMode`-aware private capture and bounded `InMemory` windowing**: In
-  [src/private/capture.rs](src/private/capture.rs) and [src/private/stream.rs](src/private/stream.rs), `StreamConfig`
-  selects `StorageMode::InMemory` (`Journal<InMemoryStore>` + `InMemoryBlobStore` with zero disk directories/syscalls
-  and bounded ring trimming of consumed descriptors/frame blobs past `max_descriptors`), `StorageMode::MmapAsync`
-  (`Journal<MmapAsyncStore>` + `AsyncFileBlobStore`), or `StorageMode::LocalDurable` (strict `0o077` owner-only
-  directory checks with `Journal<FileStore>` + `FileBlobStore`).
-* **Off-hot-path background reconnects and calibrated venue timestamps**: Use `LiveNetwork` (`attach_pool_slot`,
-  `create_pool_baton`) and `SocketConnection` in [src/network.rs](src/network.rs) to integrate optional `Dialer` +
-  `DialBaton` pre-warmed TCP+TLS reconnects across `1..=N` local source IPs off the `AccountRunner` hot path, and supply
-  calibrated UTC milliseconds via the injected `time` closure in `SpotEncoder` and `network::venue_time`, failing closed
-  when time calibration is unavailable.
-* **Replayable UID-bound REST recovery transcripts**: `RestReader` in [src/recovery.rs](src/recovery.rs) and `observe`
-  in [src/observe.rs](src/observe.rs) execute an identical paging and cashflow verification plan on live collection
-  and local replay, refusing unsupported margin, transfer, or non-cash activity (`src/recovery/cash_flows.rs`,
-  `src/recovery/profile.rs`).
-* **Side-effect-free idle-window hot-path cache warming (`warmup`)**: In [src/warmup.rs](src/warmup.rs) and
-  [src/session.rs](src/session.rs), `SpotHotPathWarmer` and `RestSession::maybe_warm_hot_path` (`warmup_interval_ns == 0`
-  disabled by default) execute only when no request or reply is in-flight and `now_mono_ns - last_activity_ns >=
-  warmup_interval_ns`, exercising sample BBO decode, read-only `&Account` + startup-cloned `scratch_account` +
-  `StpBook::self_cross` + exact `Fixed` reserve math, synthetic HMAC-SHA256 hex/Base64 HTTP `POST` framing, and
-  `TlsLoopbackWarmer` roundtrips without mutating live `Account`, `AccountJournal`, `OrderRouter`, `VenueRateLimiter`, or
-  live TLS connections.
+* **[`src/lib.rs`](src/lib.rs)**: Public venue identity (`SpotVenue`), credential types (`Credentials`, `OwnedCredentials`), UTA product/margin/position descriptors (`OkxMarginMode`, `BybitPositionIdx`, `bybit_category_for_product`, `okx_inst_type_for_product`), endpoint resolvers, and crate re-exports.
+* **[`src/ws_envelope.rs`](src/ws_envelope.rs)**: Zero-allocation stack WebSocket login, subscription step state machine, and heartbeat (`ping`/`pong`) builders/verifiers for OKX V5 (`op: "login"` Base64 HMAC-SHA256 `"{ts}GET/users/self/verify"`, step `0` `orders` `instType: "ANY"`, step `1` `balance_and_position`, `20s` text `"ping"`/`"pong"`) and Bybit V5 (`op: "auth"` hex HMAC-SHA256 `"GET/realtime{expires}"`, private `["order", "execution", "execution.fast", "wallet"]`, `20s` `{"op":"ping"}`).
+* **[`src/wire_encode.rs`](src/wire_encode.rs)**: Zero-allocation stack wire encoders for Bybit V5 and OKX V5 WebSocket trade frames (`WsLink` `Shared` 16-in-flight) and pooled HTTP/1.1 keep-alive `POST` requests (`HttpsLink` `Exclusive`), supporting all six UTA products, `reduceOnly`, `positionIdx` / `posSide`, `tdMode`, `smpType`, and `TimeInForce::Rpi` (`"RPI"` on Bybit, `ordType: "rpi"` on OKX).
+* **[`src/json_parser.rs`](src/json_parser.rs)**: Single-pass zero-allocation `JsonScan` parsers (`BybitUtaParser`, `OkxUtaParser`, implementing `tickwire_transport::json_scan::MsgParser`) decoding synchronous WS/HTTPS order/amend/cancel replies, private `order`/`orders` projections (`ProjectedFill` + deterministic `TerminalReason` classification), `execution.fast` (no fee) -> full `execution` fee amendments (`amendment = true`), multi-wallet balances, rate-limit codes/headers (`429`, Bybit `10006`, OKX `50011`), and server maintenance notices (`{"event":"notice","code":"64008",...}` -> `graceful_drain_connection = true`).
+* **[`src/rfq.rs`](src/rfq.rs)**: Optional `RfqQuoteHook` extension (`has_quote`, `open_quotes`, `submit_quote`, `cancel_quotes`) with default `NoopRfqQuoteHook` (`TerminalReason::RFQ_QUOTE_NOT_SUPPORTED`) and preallocated `UtaRfqQuoteBook` encoding Bybit `/v5/rfq/*` and OKX `/api/v5/rfq/*` payloads.
+* **[`src/session.rs`](src/session.rs)**: `UtaAccountSession`, `BybitUtaSession`, and `OkxUtaSession` binding `OrderManager`, shared `[local_ip, count]` connection pools (`OrderRoute.product_mask = 0`), `PublishedRoutes::pick` (`9/8` EWMA hysteresis) -> `OrsAccountQuota` (`SharedRateLimiter`, immediate NACK on limit without retrying another connection), `dry_run` execution, graceful maintenance `notice` connection drain + `Dialer` replacement switchover, and `OrsQueryDesk` scheduling.
+* **[`src/rest_bootstrap.rs`](src/rest_bootstrap.rs)**: Signed off-hot-path REST `GET` builders (`UtaRestRequestBuilder` for `AsyncRestQuerier`), single-order `StatusAsk` snapshot decoders (`OrsOrderQuerySnapshot`), and cold-startup Exchange REST snapshot normalizers (`UtaBootstrapDecoder` -> `OrsExchangeBootstrapSnapshot` reconstructed via `tw1...` `SelfDescribingClientId`).
+* **[`src/private.rs`](src/private.rs), [`src/network.rs`](src/network.rs), [`src/observe.rs`](src/observe.rs), [`src/warmup.rs`](src/warmup.rs), [`src/bin/tickwire-spot-observe.rs`](src/bin/tickwire-spot-observe.rs)**: Stateless TLS/WebSocket transport helpers, side-effect-free hot-path cache & loopback TLS warmer (`UtaHotPathWarmer` / `SpotHotPathWarmer`), and read-only CLI observer.
 
-## Verification and Specifications
+## Non-Negotiable Invariants
 
-* **Source and binaries**: [src/lib.rs](src/lib.rs) · [src/session.rs](src/session.rs) ·
-  [src/warmup.rs](src/warmup.rs) · [src/reports.rs](src/reports.rs) · [src/fills.rs](src/fills.rs) ·
-  [src/private.rs](src/private.rs) · [src/network.rs](src/network.rs) · [src/recovery.rs](src/recovery.rs) ·
-  [src/observe.rs](src/observe.rs) · [src/bin/tickwire-spot-observe.rs](src/bin/tickwire-spot-observe.rs) ·
-  [benches/hotpath_warmup.rs](benches/hotpath_warmup.rs)
-* **Integration tests**: [tests/protocol.rs](tests/protocol.rs) · [tests/session.rs](tests/session.rs) ·
-  [tests/private.rs](tests/private.rs) · [tests/recovery.rs](tests/recovery.rs) ·
-  [tests/observations.rs](tests/observations.rs)
-* **Specifications and models**: [spot-execution.md](../../specs/implementation/spot-execution.md) ·
-  [spot-rest-recovery.md](../../specs/implementation/spot-rest-recovery.md) ·
-  [spot_roundtrip](../../tla/execution_models/spot_roundtrip/ROADMAP.md) ·
-  [strategy_intake](../../tla/execution_models/strategy_intake/ROADMAP.md)
+1. **Pure Stateless Execution**: Zero local write-ahead log, journal, blob store, or disk recovery state. Cold boot and restart recover solely from authenticated Exchange REST snapshots (`Account + Positions + OpenOrders`) and `tw1...` `SelfDescribingClientId`, keeping gateway receipts (`FrontAck`), matching-engine book acceptance (`Ack`), cumulative order-status projections (`ProjectedFill`), and granular trade fills (`Fill` + `amendment = true` fee updates) distinct.
+2. **Fine-Grained Spinlock Discipline**: Never overlap `Order` (`OrderManager`) and `Connection` (`LockedConnection`) spinlocks; acquire `OrsStpBook` only while holding a single `Order` spinlock; perform zero logging, zero heap allocation, and zero JSON/HTTP/WebSocket parsing under any spinlock.
+3. **Exact Fixed-Point Math & `#![forbid(unsafe_code)]`**: Integer price ticks, integer quantity lots, and `Fixed` / `i128` scaled atoms only; zero floating-point arithmetic in financial, routing, or rate-limit paths.
+
+## Governing Specifications & Verification
+
+* **Specifications**: [spot-execution.md](../../specs/implementation/spot-execution.md) · [spot-rest-recovery.md](../../specs/implementation/spot-rest-recovery.md)
 
 ```sh
+cargo fmt --all -- --check
+cargo clippy --locked -p tickwire-spot-execution --all-targets -- -D warnings
 cargo test --locked -p tickwire-spot-execution --all-targets
-./scripts/check-tla.sh spot_roundtrip
+python3 scripts/verify-documentation.py
 ```

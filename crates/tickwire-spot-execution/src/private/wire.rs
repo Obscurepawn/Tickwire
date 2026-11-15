@@ -1,4 +1,4 @@
-//! The adapter shared by durable private intake and the short-lived network observer.
+//! Read-only WebSocket observation adapter for the stateless network observer (`tickwire-spot-observe`).
 use super::{Batch, PrivateFeed, Reaction};
 use crate::{Credentials, SpotVenue, network::Result};
 use std::{
@@ -14,7 +14,7 @@ pub(super) enum Event {
     Idle,
     Control,
     Ready,
-    Data(Batch, Vec<u8>),
+    Data(Batch),
 }
 #[derive(Clone, Copy)]
 pub(super) struct Timing {
@@ -60,7 +60,6 @@ pub(super) struct Socket<S> {
     seen: Instant,
     ping: Instant,
     timing: Timing,
-    idle: bool,
 }
 impl<S: Read + Write> Socket<S> {
     pub(super) fn open(
@@ -102,14 +101,9 @@ impl<S: Read + Write> Socket<S> {
             seen: started,
             ping: started,
             timing,
-            idle: false,
         })
     }
-    pub(super) fn awaiting_input(&self) -> bool {
-        self.idle
-    }
     pub(super) fn step(&mut self, mut pending: impl FnMut()) -> Result<Event> {
-        self.idle = false;
         let now = Instant::now();
         if !self.ready && now.duration_since(self.started) >= self.timing.setup {
             return Err("private subscription timed out".into());
@@ -136,8 +130,6 @@ impl<S: Read + Write> Socket<S> {
                 if n > 0 {
                     pending();
                     self.ws.push(&buf[..n])?;
-                } else {
-                    self.idle = self.ws.at_message_boundary();
                 }
                 Ok(Event::Idle)
             }
@@ -150,7 +142,7 @@ impl<S: Read + Write> Socket<S> {
                             frame(&mut self.io, Opcode::Text, &serde_json::to_vec(&sub)?)?;
                             Ok(Event::Control)
                         }
-                        Reaction::Data(batch) => Ok(Event::Data(batch, msg.payload)),
+                        Reaction::Data(batch) => Ok(Event::Data(batch)),
                         Reaction::Control if !self.ready && self.feed.subscribed() => {
                             self.ready = true;
                             Ok(Event::Ready)

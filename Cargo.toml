@@ -27,6 +27,7 @@ members = [
     "crates/tickwire-shm",
     "crates/tickwire-shm-sys",
     "crates/tickwire-snapshot",
+    "crates/tickwire-spot-execution",
     "crates/tickwire-strategy-example",
     "crates/tickwire-strategy-sdk",
     "crates/tickwire-supervisor",
@@ -41,7 +42,6 @@ exclude = [
     "crates/tickwire-lab",
     "crates/tickwire-runtime",
     "crates/tickwire-runtime-policy",
-    "crates/tickwire-spot-execution",
     "crates/tickwire-spot-runner",
     "crates/tickwire-strategy-host",
 ]

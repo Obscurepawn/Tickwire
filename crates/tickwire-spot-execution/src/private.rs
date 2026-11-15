@@ -1,6 +1,5 @@
 //! Authenticated observation protocol for one Bybit or OKX private WebSocket connection.
 //! A confirmed subscription is not permission to emit orders or a remote history watermark.
-mod capture;
 pub mod stream;
 mod wire;
 use crate::{
@@ -252,7 +251,7 @@ impl PrivateFeed {
     }
 }
 
-/// Bounded read-only diagnostics. Uses the same authenticated socket as durable intake.
+/// Bounded read-only stateless private-stream observation.
 pub fn sample(
     stream: impl std::io::Read + std::io::Write,
     host: &str,
@@ -281,7 +280,7 @@ pub fn sample(
                     json!({"kind":"subscribed","coverage":"current_connection_only","fresh_risk_qualified":false}),
                 )?;
             }
-            wire::Event::Data(b, _) => {
+            wire::Event::Data(b) => {
                 messages += 1;
                 emit(
                     json!({"kind":"private_data","session_message":messages,"channel":b.channel,"rows":b.rows}),

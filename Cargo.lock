@@ -1304,6 +1304,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-spot-execution"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "rcgen",
+ "ring",
+ "serde",
+ "serde_json",
+ "tickwire-account",
+ "tickwire-account-codec",
+ "tickwire-clock",
+ "tickwire-ipc",
+ "tickwire-quota",
+ "tickwire-risk",
+ "tickwire-transport",
+ "tickwire-venue",
+ "time",
+]
+
+[[package]]
 name = "tickwire-strategy-example"
 version = "0.1.0"
 dependencies = [
