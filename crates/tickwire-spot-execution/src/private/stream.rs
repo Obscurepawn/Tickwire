@@ -1,373 +1,311 @@
-//! One authenticated WebSocket producer per cash account. A native frame is stored once by
-//! digest, followed by a WAL descriptor under the configured `StorageMode` (`InMemory`,
-//! `MmapAsync`, or `LocalDurable`). Each row advances the local cursor.
-//! The recent-status check reads only a try-locked snapshot. A drain uses the sorted message
-//! index to read bounded immutable payloads. Opening a persistent archive validates its full
-//! prefix. Persistent indices are capped at `max_descriptors` messages or transitions; `InMemory`
-//! capture trims old consumed descriptors and frame blobs in a bounded window so long-running
-//! stateless streams never halt at `1,000,000` frames. A Ready record describes the current
-//! connection. A remote history cut requires reconciliation.
-//! See the [Bybit private WS](https://bybit-exchange.github.io/docs/v5/ws/connect) and
-//! [OKX private WS](https://www.okx.com/docs-v5/en/#overview-websocket) contracts.
-use super::capture::{Capture, IndexState, Kind, SharedObjects};
-use super::{endpoint, wire};
-use crate::{Credentials, SpotVenue, network, network::Result, recovery::RestReader};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::{
-    net::ToSocketAddrs,
-    path::PathBuf,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::Duration,
+//! Stateless single-threaded `RESP` private WebSocket state machine (`UtaPrivateStream`) for
+//! Bybit V5 (`/v5/private`) and OKX V5 (`/ws/v5/private`) Unified Trading Accounts.
+//!
+//! Operates strictly on the `RESP` thread with zero `Mutex`, zero shared index state, and zero
+//! local persistence, driving authentication (`op: "auth"` / `op: "login"`), multi-step UTA
+//! topic subscription (`["order","execution","execution.fast","wallet"]` on Bybit; step 0
+//! `orders` `instType: "ANY"` + step 1 `balance_and_position` on OKX), `20s` heartbeat frames,
+//! and single-pass `JsonScan` event extraction.
+
+use crate::{
+    Credentials, SpotVenue, UtaFrameEvent, UtaScanSummary, UtaVenueError, WS_PING_PERIOD_NS,
+    check_bybit_auth_reply, check_okx_login_reply, encode_bybit_auth_into,
+    encode_bybit_private_subscribe_step_into, encode_okx_login_into,
+    encode_okx_subscribe_step_into, encode_ws_client_frame_into, encode_ws_ping_into,
+    scan_bybit_frame, scan_okx_frame, try_decode_ws_server_frame, ws_envelope::WsLoginOutcome,
 };
-use tickwire_account::Scope;
-use tickwire_journal::StorageMode;
-use tickwire_transport::{mono_now_ns, rustls};
+use tickwire_transport::ws::Opcode;
 
-pub const DEFAULT_MAX_DESCRIPTORS: usize = 1_000_000;
+/// Authentication and subscription phase of a single-threaded [`UtaPrivateStream`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum UtaPrivatePhase {
+    Disconnected,
+    Authenticating,
+    Subscribing { next_step: u8 },
+    Subscribed,
+    DrainingForMaintenance,
+    Failed,
+}
 
-#[derive(Clone)]
-pub struct StreamConfig {
-    pub storage_mode: StorageMode,
-    pub directory: PathBuf,
-    pub scope: Scope,
-    pub uid: String,
-    pub stream_id: [u8; 16],
-    pub boot_id: [u8; 16],
-    pub max_descriptors: usize,
+/// Preallocated single-threaded `RESP` private WebSocket protocol driver.
+pub struct UtaPrivateStream {
+    venue: SpotVenue,
+    phase: UtaPrivatePhase,
+    rx_buf: Box<[u8]>,
+    rx_len: usize,
+    last_rx_mono_ns: u64,
+    last_ping_mono_ns: u64,
+    frame_seq: u64,
 }
-impl StreamConfig {
-    pub fn in_memory(
-        scope: Scope,
-        uid: impl Into<String>,
-        stream_id: [u8; 16],
-        boot_id: [u8; 16],
-    ) -> Self {
+
+impl UtaPrivateStream {
+    /// Allocates a single-threaded `RESP` private WebSocket driver with fixed RX capacity.
+    pub fn new(venue: SpotVenue, rx_capacity: usize) -> Self {
+        let cap = rx_capacity.max(16 * 1024);
         Self {
-            storage_mode: StorageMode::InMemory,
-            directory: PathBuf::new(),
-            scope,
-            uid: uid.into(),
-            stream_id,
-            boot_id,
-            max_descriptors: DEFAULT_MAX_DESCRIPTORS,
+            venue,
+            phase: UtaPrivatePhase::Disconnected,
+            rx_buf: vec![0u8; cap].into_boxed_slice(),
+            rx_len: 0,
+            last_rx_mono_ns: 0,
+            last_ping_mono_ns: 0,
+            frame_seq: 1,
         }
     }
-    pub fn mmap_async(
-        directory: impl Into<PathBuf>,
-        scope: Scope,
-        uid: impl Into<String>,
-        stream_id: [u8; 16],
-        boot_id: [u8; 16],
-    ) -> Self {
+
+    /// Zero-allocation empty placeholder (`Box::new([])` performs zero heap allocation and zero
+    /// deallocation on drop) used by `RESP` to swap [`UtaPrivateStream`] out of its fine-grained
+    /// spinlock while decoding WebSocket frames outside all locks.
+    #[inline]
+    pub fn empty_placeholder(venue: SpotVenue) -> Self {
         Self {
-            storage_mode: StorageMode::MmapAsync,
-            directory: directory.into(),
-            scope,
-            uid: uid.into(),
-            stream_id,
-            boot_id,
-            max_descriptors: DEFAULT_MAX_DESCRIPTORS,
+            venue,
+            phase: UtaPrivatePhase::Disconnected,
+            rx_buf: Box::new([]),
+            rx_len: 0,
+            last_rx_mono_ns: 0,
+            last_ping_mono_ns: 0,
+            frame_seq: 1,
         }
     }
-    pub fn local_durable(
-        directory: impl Into<PathBuf>,
-        scope: Scope,
-        uid: impl Into<String>,
-        stream_id: [u8; 16],
-        boot_id: [u8; 16],
-    ) -> Self {
-        Self {
-            storage_mode: StorageMode::LocalDurable,
-            directory: directory.into(),
-            scope,
-            uid: uid.into(),
-            stream_id,
-            boot_id,
-            max_descriptors: DEFAULT_MAX_DESCRIPTORS,
-        }
+
+    #[inline]
+    pub const fn has_rx_capacity(&self) -> bool {
+        !self.rx_buf.is_empty()
     }
-    pub fn with_max_descriptors(mut self, max_descriptors: usize) -> Self {
-        self.max_descriptors = max_descriptors;
-        self
+
+    #[inline]
+    pub const fn venue(&self) -> SpotVenue {
+        self.venue
     }
-}
-#[derive(Debug, Copy, Clone, Deserialize, Serialize, PartialEq, Eq)]
-pub enum Channel {
-    Orders,
-    Fills,
-    Balance,
-}
-#[derive(Debug, PartialEq)]
-pub enum EventKind {
-    Started { boot_id: [u8; 16] },
-    Ready,
-    Data { channel: Channel, row: Value },
-    Gap { reason: String },
-}
-#[derive(Debug, PartialEq)]
-pub struct StreamEvent {
-    pub sequence: u64,
-    pub epoch: u64,
-    pub received_ns: u64,
-    pub kind: EventKind,
-}
-#[derive(Clone, Copy, Debug, Default)]
-pub struct StreamStatus {
-    pub epoch: u64,
-    pub durable_sequence: u64,
-    pub last_received_ns: u64,
-    pub ready: bool,
-}
-impl StreamStatus {
-    pub fn current(&self, epoch: u64, applied: u64, now: u64, maximum_age_ns: u64) -> bool {
-        self.ready
-            && epoch != 0
-            && self.epoch == epoch
-            && applied == self.durable_sequence
-            && maximum_age_ns != 0
-            && now
-                .checked_sub(self.last_received_ns)
-                .is_some_and(|age| age <= maximum_age_ns)
+
+    #[inline]
+    pub const fn phase(&self) -> UtaPrivatePhase {
+        self.phase
     }
-}
-pub(super) struct Shared {
-    pub config: StreamConfig,
-    pub index: Mutex<IndexState>,
-    pub status: Mutex<StreamStatus>,
-    pub objects: SharedObjects,
-    pub stop: AtomicBool,
-    pub failed: AtomicBool,
-    pub initial_sequence: u64,
-}
-#[derive(Clone)]
-pub struct StreamReader(pub(super) Arc<Shared>);
-impl StreamReader {
-    /// A storage, clock or worker failure terminates intake. A lost socket reconnects instead.
-    pub fn failed(&self) -> bool {
-        self.0.failed.load(Ordering::Acquire)
+
+    #[inline]
+    pub const fn is_subscribed(&self) -> bool {
+        matches!(self.phase, UtaPrivatePhase::Subscribed)
     }
-    /// Check an existing account cut against the prefix that was already durable on open.
-    pub fn has_initial_cursor(&self, epoch: u64, sequence: u64) -> bool {
-        self.0.has_initial_cursor(epoch, sequence)
-    }
-    pub fn config(&self) -> &StreamConfig {
-        &self.0.config
-    }
-    pub fn status(&self) -> Option<StreamStatus> {
-        let status = self.0.status.try_lock().ok()?;
-        (!self.0.stop.load(Ordering::Acquire) && !self.failed()).then_some(*status)
-    }
-    /// Number of descriptors currently retained in the in-memory index window.
-    pub fn retained_descriptors(&self) -> usize {
-        self.0.index.lock().map_or(0, |idx| idx.entries.len())
-    }
-    /// Read at most 256 consecutive sealed rows or state transitions after a local cursor.
-    pub fn drain(&self, after: u64, limit: usize) -> Result<Vec<StreamEvent>> {
-        self.0.drain(after, limit)
-    }
-}
-pub struct PrivateStream {
-    reader: StreamReader,
-    worker: Option<thread::JoinHandle<std::result::Result<(), String>>>,
-}
-impl PrivateStream {
-    pub fn start(
-        config: StreamConfig,
+
+    /// Resets stream state upon socket handoff and encodes the masked WebSocket auth/login frame into `out`.
+    pub fn begin_login(
+        &mut self,
         credentials: &Credentials<'_>,
-        tls: Arc<rustls::ClientConfig>,
-        monotonic: impl Fn() -> u64 + Send + 'static,
-    ) -> Result<Self> {
-        let venue = credentials.venue;
-        if !credentials.valid() || config.scope.venue != venue.id() {
-            return Err("invalid private account credentials or venue".into());
-        }
-        let key = credentials.key.to_owned();
-        let secret = credentials.secret.to_vec();
-        let pass = credentials.passphrase.map(str::to_owned);
-        let environment = config.scope.environment;
-        let uid = config.uid.clone();
-        let mut capture = Capture::open(config)?;
-        let reader = capture.reader();
-        let worker = thread::Builder::new()
-            .name("spot-private".into())
-            .spawn(move || {
-                let creds = Credentials {
-                    venue,
-                    key: &key,
-                    secret: &secret,
-                    passphrase: pass.as_deref(),
-                };
-                let (host, path) = endpoint(venue, environment);
-                let dial = || {
-                    let rest = RestReader::new(&creds, environment, tls.clone())?;
-                    rest.verify_uid(&uid)?;
-                    let port = if venue == SpotVenue::Okx { 8443 } else { 443 };
-                    let stream =
-                        network::tls_at(host, (host, port).to_socket_addrs()?, tls.clone())?;
-                    stream
-                        .sock
-                        .set_read_timeout(Some(Duration::from_millis(50)))?;
-                    wire::Socket::open(
-                        stream,
-                        host,
-                        path,
-                        &creds,
-                        || rest.now_ms(),
-                        wire::Timing::default(),
-                    )
-                };
-                run(&mut capture, monotonic, dial, |_| {}).map_err(|e| e.to_string())
-            })?;
-        Ok(Self {
-            reader,
-            worker: Some(worker),
-        })
+        utc_ms: u64,
+        now_mono_ns: u64,
+        out: &mut [u8],
+    ) -> Result<usize, UtaVenueError> {
+        self.rx_len = 0;
+        self.last_rx_mono_ns = now_mono_ns;
+        self.last_ping_mono_ns = now_mono_ns;
+        let mut json_buf = [0u8; 512];
+        let json_len = match self.venue {
+            SpotVenue::Bybit => encode_bybit_auth_into(credentials, utc_ms, &mut json_buf)?,
+            SpotVenue::Okx => encode_okx_login_into(credentials, utc_ms, &mut json_buf)?,
+        };
+        self.phase = UtaPrivatePhase::Authenticating;
+        self.next_masked_frame(Opcode::Text, &json_buf[..json_len], out)
     }
 
-    pub fn start_with_network(
-        config: StreamConfig,
-        credentials: &Credentials<'_>,
-        tls: Arc<rustls::ClientConfig>,
-        ws_network: network::LiveNetwork,
-        monotonic: impl Fn() -> u64 + Send + 'static,
-    ) -> Result<Self> {
-        let venue = credentials.venue;
-        if !credentials.valid() || config.scope.venue != venue.id() {
-            return Err("invalid private account credentials or venue".into());
+    /// Encodes a due `20s` WebSocket text heartbeat into `out` when `now_mono_ns - last_ping_mono_ns >= 20s`.
+    pub fn encode_due_ping(
+        &mut self,
+        now_mono_ns: u64,
+        out: &mut [u8],
+    ) -> Result<usize, UtaVenueError> {
+        if !matches!(
+            self.phase,
+            UtaPrivatePhase::Subscribing { .. } | UtaPrivatePhase::Subscribed
+        ) {
+            return Ok(0);
         }
-        let key = credentials.key.to_owned();
-        let secret = credentials.secret.to_vec();
-        let pass = credentials.passphrase.map(str::to_owned);
-        let environment = config.scope.environment;
-        let uid = config.uid.clone();
-        let mut capture = Capture::open(config)?;
-        let reader = capture.reader();
-        let worker = thread::Builder::new()
-            .name("spot-private".into())
-            .spawn(move || {
-                let creds = Credentials {
-                    venue,
-                    key: &key,
-                    secret: &secret,
-                    passphrase: pass.as_deref(),
-                };
-                let (host, path) = endpoint(venue, environment);
-                let disconnect_net = ws_network.clone();
-                let dial = || {
-                    ws_network.request_prewarm(0);
-                    let rest = RestReader::new(&creds, environment, tls.clone())?;
-                    rest.verify_uid(&uid)?;
-                    let mut stream = ws_network.connect_or_take()?;
-                    stream.set_read_timeout(Some(Duration::from_millis(50)));
-                    wire::Socket::open(
-                        stream,
-                        host,
-                        path,
-                        &creds,
-                        || rest.now_ms(),
-                        wire::Timing::default(),
-                    )
-                };
-                let on_disconnect = move |backoff: Duration| {
-                    let due = mono_now_ns().saturating_add(
-                        u64::try_from((backoff / 2).as_nanos()).unwrap_or(u64::MAX),
-                    );
-                    disconnect_net.notify_disconnected(due);
-                };
-                run(&mut capture, monotonic, dial, on_disconnect).map_err(|e| e.to_string())
-            })?;
-        Ok(Self {
-            reader,
-            worker: Some(worker),
-        })
+        if now_mono_ns.saturating_sub(self.last_ping_mono_ns) < WS_PING_PERIOD_NS {
+            return Ok(0);
+        }
+        let mut ping_json = [0u8; 32];
+        let plen = encode_ws_ping_into(self.venue, &mut ping_json)?;
+        self.last_ping_mono_ns = now_mono_ns;
+        self.next_masked_frame(Opcode::Text, &ping_json[..plen], out)
     }
 
-    pub fn reader(&self) -> StreamReader {
-        self.reader.clone()
-    }
-    pub fn stop(mut self) -> Result<()> {
-        self.reader.0.stop.store(true, Ordering::Release);
-        let worker = self.worker.take().ok_or("private reader already stopped")?;
-        worker.thread().unpark();
-        worker
-            .join()
-            .map_err(|_| "private reader panicked")?
-            .map_err(Into::into)
-    }
-}
-impl Drop for PrivateStream {
-    fn drop(&mut self) {
-        self.reader.0.stop.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            worker.thread().unpark();
-            let _ = worker.join();
+    /// Appends raw TLS-decrypted bytes into the preallocated RX buffer and processes all complete
+    /// RFC 6455 server frames via single-pass `JsonScan` without heap allocation.
+    ///
+    /// Any outbound follow-up control frame (subscription step or RFC 6455 `Pong`) is written into
+    /// `out_tx` (`out_tx_written` returns the byte length to transmit).
+    pub fn on_raw_bytes(
+        &mut self,
+        raw: &[u8],
+        now_mono_ns: u64,
+        out_tx: &mut [u8],
+        mut on_event: impl FnMut(UtaFrameEvent<'_>),
+    ) -> Result<(UtaScanSummary, usize), UtaVenueError> {
+        if raw.is_empty() {
+            return Ok((UtaScanSummary::default(), 0));
         }
-    }
-}
-fn run<S: std::io::Read + std::io::Write>(
-    capture: &mut Capture,
-    clock: impl Fn() -> u64,
-    mut dial: impl FnMut() -> Result<wire::Socket<S>>,
-    mut on_disconnect: impl FnMut(Duration),
-) -> Result<()> {
-    let mut backoff = Duration::from_secs(1);
-    let shared = capture.reader().0;
-    if capture.open_epoch() {
-        capture.gap("process_restart", clock())?;
-    }
-    while !shared.stop.load(Ordering::Acquire) {
-        capture.begin(clock())?;
-        let mut served = false;
-        let mut loss = "connection_or_identity_failed";
-        if let Ok(mut socket) = dial() {
-            loss = "connection_lost";
-            let mut ingress = clock();
-            while !shared.stop.load(Ordering::Acquire) {
-                let event = match socket.step(|| {
-                    capture.pending();
-                    ingress = clock();
-                }) {
-                    Ok(e) => e,
-                    Err(_) => {
-                        capture.pending();
-                        break;
+        let end = self
+            .rx_len
+            .checked_add(raw.len())
+            .ok_or(UtaVenueError::Bounds)?;
+        if end > self.rx_buf.len() {
+            self.phase = UtaPrivatePhase::Failed;
+            return Err(UtaVenueError::Bounds);
+        }
+        self.rx_buf[self.rx_len..end].copy_from_slice(raw);
+        self.rx_len = end;
+        self.last_rx_mono_ns = now_mono_ns;
+
+        let mut agg = UtaScanSummary::default();
+        let mut tx_pos = 0usize;
+        let mut consumed_total = 0usize;
+
+        loop {
+            let frame_opt = try_decode_ws_server_frame(&self.rx_buf[consumed_total..self.rx_len])?;
+            let Some(frame) = frame_opt else {
+                break;
+            };
+            let opcode_raw = frame.opcode_raw;
+            let frame_consumed = frame.consumed;
+            let payload_len = frame.payload.len();
+            let payload_start = consumed_total + (frame_consumed - payload_len);
+            let payload_end = consumed_total + frame_consumed;
+            consumed_total += frame_consumed;
+
+            match opcode_raw {
+                9 => {
+                    let mut ping_buf = [0u8; 128];
+                    if payload_len > ping_buf.len() {
+                        return Err(UtaVenueError::Bounds);
                     }
-                };
-                let now = ingress;
-                match event {
-                    wire::Event::Idle => {}
-                    wire::Event::Control => capture.touch(now)?,
-                    wire::Event::Ready => {
-                        capture.append(Kind::Ready, now)?;
-                        served = true;
-                    }
-                    wire::Event::Data(batch, frame) => capture.data(batch, &frame, now)?,
+                    ping_buf[..payload_len]
+                        .copy_from_slice(&self.rx_buf[payload_start..payload_end]);
+                    let n = self.next_masked_frame(
+                        Opcode::Pong,
+                        &ping_buf[..payload_len],
+                        &mut out_tx[tx_pos..],
+                    )?;
+                    tx_pos += n;
                 }
-                capture.settled(socket.awaiting_input())?;
+                8 => {
+                    self.phase = UtaPrivatePhase::Disconnected;
+                    break;
+                }
+                1 => {
+                    let mut text_buf = [0u8; 16 * 1024];
+                    if payload_len > text_buf.len() {
+                        return Err(UtaVenueError::Bounds);
+                    }
+                    text_buf[..payload_len]
+                        .copy_from_slice(&self.rx_buf[payload_start..payload_end]);
+                    let step_tx = self.handle_text_payload(
+                        &text_buf[..payload_len],
+                        &mut out_tx[tx_pos..],
+                        &mut agg,
+                        &mut on_event,
+                    )?;
+                    tx_pos += step_tx;
+                }
+                _ => {}
             }
-            if shared.stop.load(Ordering::Acquire) {
-                let _ = socket.close();
-            }
         }
-        let stop = shared.stop.load(Ordering::Acquire);
-        capture.gap(if stop { "stopped" } else { loss }, clock())?;
-        if stop {
-            break;
-        }
-        if served {
-            backoff = Duration::from_secs(1);
-        }
-        on_disconnect(backoff);
-        thread::park_timeout(backoff);
-        backoff = (backoff * 2).min(Duration::from_secs(30));
-    }
-    Ok(())
-}
 
-#[cfg(test)]
-mod tests;
+        if consumed_total > 0 {
+            self.rx_buf.copy_within(consumed_total..self.rx_len, 0);
+            self.rx_len -= consumed_total;
+        }
+        Ok((agg, tx_pos))
+    }
+
+    fn handle_text_payload(
+        &mut self,
+        payload: &[u8],
+        out_tx: &mut [u8],
+        agg: &mut UtaScanSummary,
+        on_event: &mut impl FnMut(UtaFrameEvent<'_>),
+    ) -> Result<usize, UtaVenueError> {
+        if self.phase == UtaPrivatePhase::Authenticating {
+            let outcome = match self.venue {
+                SpotVenue::Bybit => check_bybit_auth_reply(payload),
+                SpotVenue::Okx => check_okx_login_reply(payload),
+            };
+            match outcome {
+                WsLoginOutcome::Accepted => {
+                    let mut sub_json = [0u8; 256];
+                    let slen = self.encode_sub_step(0, &mut sub_json)?;
+                    self.phase = UtaPrivatePhase::Subscribing { next_step: 1 };
+                    return self.next_masked_frame(Opcode::Text, &sub_json[..slen], out_tx);
+                }
+                WsLoginOutcome::Rejected => {
+                    self.phase = UtaPrivatePhase::Failed;
+                    return Err(UtaVenueError::Identity);
+                }
+                WsLoginOutcome::NotLoginFrame => {}
+            }
+        }
+
+        let mut saw_sub_ok = false;
+        let summary = match self.venue {
+            SpotVenue::Bybit => scan_bybit_frame(payload, |ev| {
+                if let UtaFrameEvent::Control {
+                    op: "subscribe",
+                    success: true,
+                } = ev
+                {
+                    saw_sub_ok = true;
+                }
+                on_event(ev);
+            }),
+            SpotVenue::Okx => scan_okx_frame(payload, |ev| {
+                if let UtaFrameEvent::Control {
+                    op: "subscribe",
+                    success: true,
+                } = ev
+                {
+                    saw_sub_ok = true;
+                }
+                on_event(ev);
+            }),
+        }?;
+
+        agg.events_emitted = agg.events_emitted.saturating_add(summary.events_emitted);
+        agg.rate_limited |= summary.rate_limited;
+        if summary.graceful_drain_connection {
+            agg.graceful_drain_connection = true;
+            self.phase = UtaPrivatePhase::DrainingForMaintenance;
+        }
+
+        if saw_sub_ok && let UtaPrivatePhase::Subscribing { next_step } = self.phase {
+            let mut sub_json = [0u8; 256];
+            let slen = self.encode_sub_step(next_step, &mut sub_json)?;
+            if slen == 0 {
+                self.phase = UtaPrivatePhase::Subscribed;
+            } else {
+                self.phase = UtaPrivatePhase::Subscribing {
+                    next_step: next_step + 1,
+                };
+                return self.next_masked_frame(Opcode::Text, &sub_json[..slen], out_tx);
+            }
+        }
+        Ok(0)
+    }
+
+    fn encode_sub_step(&self, step: u8, out: &mut [u8]) -> Result<usize, UtaVenueError> {
+        match self.venue {
+            SpotVenue::Bybit => encode_bybit_private_subscribe_step_into(step, out),
+            SpotVenue::Okx => encode_okx_subscribe_step_into(step, out),
+        }
+    }
+
+    fn next_masked_frame(
+        &mut self,
+        opcode: Opcode,
+        payload: &[u8],
+        out: &mut [u8],
+    ) -> Result<usize, UtaVenueError> {
+        let seed = self.frame_seq;
+        self.frame_seq = self.frame_seq.wrapping_add(1);
+        encode_ws_client_frame_into(opcode, payload, seed, out)
+    }
+}

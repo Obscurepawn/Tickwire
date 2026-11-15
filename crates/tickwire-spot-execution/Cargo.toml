@@ -9,13 +9,12 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-tickwire-recovery = { path = "../tickwire-recovery" }
-tickwire-journal = { path = "../tickwire-journal" }
-tickwire-gateway = { path = "../tickwire-gateway" }
-tickwire-account-gateway = { path = "../tickwire-account-gateway" }
-tickwire-account-journal = { path = "../tickwire-account-journal" }
 tickwire-account = { path = "../tickwire-account" }
+tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-clock = { path = "../tickwire-clock" }
+tickwire-ipc = { path = "../tickwire-ipc" }
 tickwire-quota = { path = "../tickwire-quota" }
+tickwire-risk = { path = "../tickwire-risk" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
 serde = { version = "1", features = ["derive"] }
@@ -25,8 +24,6 @@ base64 = "=0.22.1"
 time = "=0.3.55"
 
 [dev-dependencies]
-tickwire-account-codec = { path = "../tickwire-account-codec" }
-tickwire-risk = { path = "../tickwire-risk" }
 rcgen = "=0.14.10"
 
 [[bench]]

@@ -310,6 +310,7 @@ impl LiveNetwork {
             port: self.port,
             initial_peers: self.peers.clone(),
             local_ip: self.local_ip,
+            nic: None,
             security: DialSecurity::Tls {
                 server_name,
                 config: self.tls.clone(),
@@ -344,6 +345,7 @@ impl LiveNetwork {
             port: self.port,
             initial_peers: self.peers.clone(),
             local_ip: local_ip.or(self.local_ip),
+            nic: None,
             security: DialSecurity::Tls {
                 server_name,
                 config: self.tls.clone(),
@@ -379,22 +381,37 @@ impl LiveNetwork {
         Ok(spec)
     }
 
-    /// Attaches one exclusive HTTP/1.1 pool slot onto `session` backed by `dialer`.
-    pub fn attach_pool_slot<B, A, T>(
+    /// Registers an independent WebSocket [`DialBaton`] slot on `dialer` with an optional bound
+    /// `local_ip`, performing TCP + TLS + RFC 6455 `101 Switching Protocols` off the hot path.
+    pub fn create_ws_pool_baton(
         &self,
-        session: &mut crate::RestSession<'_, B, A, T>,
         dialer: &Arc<Dialer>,
         slot_id: u64,
+        ws_path: &str,
         local_ip: Option<IpAddr>,
-        ip_pool: Option<Arc<std::sync::Mutex<tickwire_transport::dialer::IpPool>>>,
-    ) -> Result<u16>
-    where
-        B: tickwire_account_journal::Backend,
-        A: tickwire_account_gateway::Authority,
-        T: FnMut() -> std::result::Result<u64, tickwire_gateway::Error>,
-    {
-        let spec = self.build_pool_slot_spec(dialer, slot_id, local_ip, ip_pool)?;
-        Ok(session.add_pool_slot(spec, self.limits)?)
+    ) -> Result<Arc<DialBaton>> {
+        let server_name = ServerName::try_from(self.host.clone())?;
+        let spec = DialSpec {
+            host: self.host.clone(),
+            port: self.port,
+            initial_peers: self.peers.clone(),
+            local_ip: local_ip.or(self.local_ip),
+            nic: None,
+            security: DialSecurity::Tls {
+                server_name,
+                config: self.tls.clone(),
+            },
+            limits: self.limits,
+            transport: DialTransport::WebSocket {
+                host: self.host.clone(),
+                path: ws_path.to_owned(),
+                extra_headers: Vec::new(),
+            },
+            connect_timeout: self.connect_timeout,
+            dial_timeout: self.connect_timeout.max(Duration::from_secs(5)),
+            backoff: self.backoff,
+        };
+        Ok(dialer.add_slot(slot_id, spec)?)
     }
 
     /// Requests the background [`Dialer`] to establish the next TCP+TLS connection off the hot path.
