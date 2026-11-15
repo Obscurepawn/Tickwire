@@ -1,59 +1,76 @@
 # tickwire-account
 
-`tickwire-account` (`#![forbid(unsafe_code)]`) owns the single-writer in-memory state machine for one risk domain:
-multi-asset balances, holds, derivative positions, orders, conditional structures, amendments, external cashflows, and
-strategy handovers. Gateways and journal replay drive `Account` with validated `CanonicalCommand`, `CanonicalEvent`,
-and `RecoveryRecord` inputs, performing pure state reduction over `tickwire-risk` and `tickwire-venue` without disk
-I/O, sockets, or exchange wire formatting.
+`tickwire-account` (`#![forbid(unsafe_code)]`) owns both the zero-allocation Unified ORS `OrderManager` execution engine
+(`OrderManager<CHECK_STP>`, `FillRecordPool`, `OrsStpBook`, `DopState`, `OrsQueryDesk`, `UtaWalletLedger`) and the
+single-domain deterministic `Account` state machine over `tickwire-risk`, `tickwire-venue`, and `tickwire-shm-sys` with
+zero local WAL, zero disk I/O, and zero floating-point arithmetic.
 
 ## Invariants and Change Guidelines
 
-* **Candidate-first admission, native `Modify`, and `StpBook` discipline**: Keep `Account::admit`
-  ([src/admission.rs](src/admission.rs)) transactional by mutating a cloned candidate before commit; freeze
-  risk-increasing admissions on `Error::Conflict` or `RiskError::ArithmeticOverflow`, while keeping cancels, queries,
-  and keep-priority reductions admissible ([src/amendments.rs](src/amendments.rs),
-  [src/structures.rs](src/structures.rs)). Maintain cache-line-aligned integer-tick BBO state in
-  [src/stp_book.rs](src/stp_book.rs) across all limit order transitions (including dual-price pending `Modify`
-  aggressiveness), gating `Error::CrossesBook` admission refusals on `stp_enforcement`, and hold worst-case Spot asset
-  and derivative margin/limit exposure in [src/modifications.rs](src/modifications.rs) and
-  [src/calculation.rs](src/calculation.rs) while a single `PendingModify` is in flight.
-* **Distinct lifecycle vs. economic evidence, `ProjectedFill`, and per-order doubt isolation**: In
-  [src/events.rs](src/events.rs), [src/projected_fill.rs](src/projected_fill.rs),
-  [src/calculation.rs](src/calculation.rs), and [src/query_desk.rs](src/query_desk.rs), hold reserves whenever
-  `observed_cumulative` exceeds applied fills, fee closure remains open, or `in_doubt` (`DoubtReason`) is set; emit
-  volatile `ProjectedFill` deltas from `on_cum_qty` using pure-integer Half-Even rounding without ever mutating settled
-  `Order.filled`, `Asset`, `Position`, `facts`, or `CanonicalRecord`; exclude volatile `in_doubt`, projection
-  watermarks, and diagnostic `TerminalReason` fields from `PartialEq for Order` for deterministic replay; close
-  unconfirmed zero-fill single-leg `VenueEventBody::Rejected` orders (`uncreated = true`, `fees_closed = true`) without
-  freezing while reopening via `Order::reopen_aborted` (`observation_unreconciled = true`, `frozen = true`) on any
-  contradictory execution fact; and schedule coalesced per-order status/trade queries in `QueryDesk` with zero
-  post-init heap growth.
-* **Shared liquidity with isolated strategy authority**: Strategies share asset balances while preserving distinct
-  `origin` and `manager` (`instance`, `generation`) identities across [src/handover.rs](src/handover.rs) so only the
-  active manager can cancel, amend, or query an order.
-* **Account-level inputs, cold exchange bootstrap, and recovery**: Route non-order cashflows, income associations, and
-  reconciliation closures through [src/account_inputs.rs](src/account_inputs.rs), [src/external.rs](src/external.rs),
-  and [src/recovery.rs](src/recovery.rs), and reconstruct stateless cold-start open orders, shared-pool (`strategy 0`)
-  settled balances/positions, external lock isolation, and per-strategy `(epoch, intent_id)` sequence floors through
-  `Account::from_live_exchange` in [src/live_bootstrap.rs](src/live_bootstrap.rs).
-* **Active-protected windowed eviction, `O(log N)` indices, and management headroom**: Keep [src/pool.rs](src/pool.rs)
-  (`WindowedTable`) free of steady-state heap allocations, synchronize `orders_by_client_id`, `orders_by_native_id`,
-  `orders_by_internal_id`, and `orders_by_intent` across admission, venue ID binding, recovery, bootstrap, and eviction,
-  never evict an active or unreconciled order (`!Order::is_retirable`), and preserve dedicated
-  `MAX_MANAGEMENT_ADMISSIONS` headroom so cancels and queries never starve behind `MAX_ORDERS` live orders.
+* **Zero-allocation ORS slot pool, `dry_run` scratch slots, and immediate retirement**:
+  - Keep `OrderManager<CHECK_STP>` ([src/order_manager.rs](src/order_manager.rs)) backed by startup-preallocated
+    (`MlockedSlice`) power-of-two per-strategy order slot rings (`slot_idx = base + (seqnum & (slots_per_strat - 1))`)
+    plus one dedicated `dry_run` scratch slot per strategy (`0..=254`).
+  - Refuse slot collisions on `Claimed` or `Live` occupants immediately with `RefusalReason::ALLOCATION_ERROR` without
+    resizing or evicting active orders; inspect `dry_run` **only** at slot selection and at transport-send skip.
+  - Transition terminal orders (full fill, cancel to zero, or definitive reject) immediately to `SlotState::Retired` and
+    unlink from `OrsStpBook` in the **same call**—never retain slots waiting on `fee_reconciled`.
+* **Fine-grained spinlock hierarchy & lock-free send-path STP**:
+  - Synchronize ORS critical paths via [src/spinlock.rs](src/spinlock.rs) (`TtasSpinLock`, `CachePadded`) with zero
+    coarse process-wide mutexes, zero logging, zero heap allocation, and zero protocol parsing under any spinlock.
+  - Enforce `LockedOrder -> LockedSymbolBook` lock ordering at compile time via `OrderLockProof` in
+    [src/ors_stp.rs](src/ors_stp.rs). Publish each symbol's opposite-side best price in an `AtomicI64` word so send-path
+    `self_cross` is 100% lock-free, while maintaining dual old+new price STP entries during strategy (`3.8`) and venue
+    (`3.7`) modifications.
+  - Multi-order admin scans (`set_strat_enabled`, filtered `find_orders`, `on_socket_drop`) lock and release one order at
+    a time in ascending `(strat_id, slot_offset)` order.
+* **`FillRecordPool` deduplication & post-trade fee `amendment` (`TRADE_LITE` / rebates)**:
+  - Route ORS executions through the `2^fill_map_exponent` bucket `FillRecordPool` ([src/fill_record.rs](src/fill_record.rs))
+    keyed by `(ors_order_id, exec_ref, side, symbol_id)` with lazy `fill_memory_s` overwrite reuse.
+  - Deduplicate identical fills arriving on both order socket replies and private streams (`Duplicate`), and emit
+    `OrsReport::Fill { amendment: true, .. }` when `TRADE_LITE` (`fee == None`) is followed by a full trade/fee patch or
+    post-trade commission/rebate revision—updating wallet fee delta **only** in [src/uta_ledger.rs](src/uta_ledger.rs)
+    without double-applying fill quantities, holds, or positions (even after the order slot has already retired!).
+* **Microstructure, `DopState`, `OrsQueryDesk`, and stateless Exchange REST bootstrap**:
+  - Maintain `One ack` (`PendingNew -> Open` once; second ack on `Open` is a no-op unless venue-modified price/qty moved),
+    optional `FrontAck`, `pending_cxl` cancel reason attribution (`NO_REASON` vs `MKT_CANCELED` / `MKT_IOC_CANCELED` /
+    `MKT_REJECT_POST_ONLY` / `MKT_REDUCE_ONLY_CANCELED` / `MKT_CANCELED_SELFTRADE` / `ADMIN_ACTION`),
+    `cancel-before-ack` (`allow_cancel_before_ack`), and `ProjectedFill` (`on_cum_qty`) watermarks so terminal cancels
+    release `cxl_qty = effective_qty - projected_fill_qty` without double-deduction.
+  - Enforce dual-sequence `login`, `account_ref` routing (`0` -> first authorized account; unauthorized ->
+    `REJECT_ROUTING_ID_MISMATCH`), and granular `(account_ref, strat_id)` `set_strat_enabled` in
+    [src/dop_state.rs](src/dop_state.rs).
+  - Drive per-account `StatusAsk` reconciliation, `Place`+`Cancel` `cancel_after` coalescing, `Cancel` exponential backoff
+    (`1s..=64s`, max `8` attempts), fills-before-cancel snapshot settlement, non-`Live` full-table cleanup, and optional
+    `max_query_count` dead-slot release (`INTERNAL_CANCEL`) in [src/ors_query_desk.rs](src/ors_query_desk.rs).
+  - Recover statelessly on cold boot exclusively from Exchange REST snapshots (`Account + OpenOrders`) +
+    `SelfDescribingClientId` (`tw1...`) via `OrderManager::bootstrap_from_exchange` and `Account::from_live_exchange`
+    ([src/live_bootstrap.rs](src/live_bootstrap.rs)).
+* **In-place `Account` state machine (zero whole-account cloning)**:
+  - Mutate `Account` ([src/admission.rs](src/admission.rs), [src/events.rs](src/events.rs),
+    [src/modifications.rs](src/modifications.rs), [src/structures.rs](src/structures.rs),
+    [src/account_inputs.rs](src/account_inputs.rs), [src/external.rs](src/external.rs),
+    [src/recovery.rs](src/recovery.rs)) in place or over lightweight single-domain local rollbacks—never clone `Account`
+    or `catalog` (`Arc<BTreeMap<u64, InstrumentPolicy>>`), retire terminal zero-remainder orders immediately without
+    waiting on `fee_reconciled`, and absorb `TRADE_LITE` / fee-patch updates without freezing.
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/pool.rs](src/pool.rs) · [src/query_desk.rs](src/query_desk.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/order_manager.rs](src/order_manager.rs) ·
+  [src/fill_record.rs](src/fill_record.rs) · [src/ors_stp.rs](src/ors_stp.rs) ·
+  [src/dop_state.rs](src/dop_state.rs) · [src/ors_query_desk.rs](src/ors_query_desk.rs) ·
+  [src/uta_ledger.rs](src/uta_ledger.rs) · [src/spinlock.rs](src/spinlock.rs) ·
+  [src/pool.rs](src/pool.rs) · [src/query_desk.rs](src/query_desk.rs) ·
   [src/stp_book.rs](src/stp_book.rs) · [src/projected_fill.rs](src/projected_fill.rs) ·
   [src/modifications.rs](src/modifications.rs) · [src/admission.rs](src/admission.rs) ·
   [src/events.rs](src/events.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
+  [tests/ors_order_manager.rs](tests/ors_order_manager.rs) ·
   [tests/stp_modify_projected_fill.rs](tests/stp_modify_projected_fill.rs) ·
   [tests/query_desk.rs](tests/query_desk.rs) · [tests/admission.rs](tests/admission.rs) ·
   [tests/windowed_eviction.rs](tests/windowed_eviction.rs) · [tests/live_bootstrap.rs](tests/live_bootstrap.rs) ·
-  [tests/amend.rs](tests/amend.rs) ·
-  [tests/conditional.rs](tests/conditional.rs) · [tests/account_inputs.rs](tests/account_inputs.rs) ·
-  [tests/facts.rs](tests/facts.rs) · [tests/futures.rs](tests/futures.rs) · [tests/handover.rs](tests/handover.rs) ·
+  [tests/amend.rs](tests/amend.rs) · [tests/conditional.rs](tests/conditional.rs) ·
+  [tests/account_inputs.rs](tests/account_inputs.rs) · [tests/facts.rs](tests/facts.rs) ·
+  [tests/futures.rs](tests/futures.rs) · [tests/handover.rs](tests/handover.rs) ·
   [tests/nonincreasing.rs](tests/nonincreasing.rs) · [tests/recovery.rs](tests/recovery.rs) ·
   [tests/edge_cases.rs](tests/edge_cases.rs)
 * **Specifications and models**: [account.md](../../specs/implementation/account.md) ·

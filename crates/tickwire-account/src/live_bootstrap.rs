@@ -341,7 +341,7 @@ impl Account {
                 recovery_unknown: false,
                 observation_unreconciled: false,
                 terminal: false,
-                fees_closed: false,
+                fee_reconciled: false,
                 aborted: false,
                 uncreated: false,
                 economic: item.filled.atoms() > 0,

@@ -171,7 +171,7 @@ macro_rules! enumeration {
     };
 }
 enumeration!(v::Environment; Production=1,Test=2);
-enumeration!(v::Product; Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6);
+enumeration!(v::Product; Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6,UsdM=7,CoinM=8);
 enumeration!(v::PositionSide; Both=1,Long=2,Short=3);
 enumeration!(v::PositionMode; OneWay=1,Hedge=2);
 enumeration!(v::MarginMode; Cross=1,Isolated=2);

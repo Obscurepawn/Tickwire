@@ -8,4 +8,8 @@ publish.workspace = true
 [dependencies]
 sha2 = "=0.10.9"
 tickwire-risk = { path = "../tickwire-risk" }
+tickwire-shm-sys = { path = "../tickwire-shm-sys" }
 tickwire-venue = { path = "../tickwire-venue" }
+
+[lints]
+workspace = true

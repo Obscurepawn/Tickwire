@@ -1,9 +1,11 @@
 # tickwire-shm-sys
 
-`tickwire-shm-sys` is the audited Linux shared-memory and `memfd` boundary
-(`#![deny(unsafe_op_in_unsafe_fn)]`) providing `WriterMapping`, `ReaderMapping`, `ImmutableMapping`,
-and `ImmutableResource`. Higher-level ring reclamation and JOIN coordination live in `tickwire-shm`
-and `tickwire-join`; this crate isolates `memfd_create`, `fcntl` file seals, `mmap` / `munmap`,
+`tickwire-shm-sys` is the audited Linux shared-memory (`memfd`) and startup page-locking (`mlock`)
+boundary (`#![deny(unsafe_op_in_unsafe_fn)]`) providing `WriterMapping`, `ReaderMapping`,
+`ImmutableMapping`, `ImmutableResource`, and the safe `mlock` helpers (`MlockPolicy`,
+`MlockOutcome`, `mlock_slice`, `munlock_slice`, `try_mlock_slice`, `MlockedSlice`, `MlockedBox`).
+Higher-level ring reclamation and JOIN coordination live in `tickwire-shm` and `tickwire-join`;
+this crate isolates `memfd_create`, `fcntl` file seals, `mmap` / `munmap`, `mlock` / `munlock`,
 `MADV_DONTFORK`, and aligned 64-bit atomic loads and stores on 4096-byte-paged little-endian
 `x86_64` and `aarch64` Linux.
 
@@ -27,18 +29,20 @@ and `tickwire-join`; this crate isolates `memfd_create`, `fcntl` file seals, `mm
 * **Resource envelope verification**: [src/resource.rs](src/resource.rs) (`ImmutableResource`)
   checks the 4096-byte `ResourceHeader` and SHA-256 content hash against externally authenticated
   metadata, leaving interior section and JOIN business checks to `tickwire-snapshot`.
-* **Preallocated file-backed `MAP_SHARED` segments**: [src/mapped_file.rs](src/mapped_file.rs)
-  (`MappedSegment`, `MappedCursorPage`) isolates `posix_fallocate`, `MAP_SHARED | MAP_POPULATE`
-  pre-faulting, `MADV_DONTFORK`, non-overlapping byte copies, release-ordered cursor publication, and
-  background `fdatasync` descriptors for `MmapAsyncStore` so same-host `SIGKILL` crashes retain the
-  kernel page-cache prefix without hot-path `write(2)` or synchronous `fsync` syscalls.
+* **Audited startup `mlock` boundary**: [src/mlock.rs](src/mlock.rs) encapsulates `libc::mlock` and
+  `libc::munlock` so downstream `#![forbid(unsafe_code)]` crates (`tickwire-account`) can pin
+  preallocated hot slot pools at cold startup. `MlockedSlice<T>` and `MlockedBox<T>` pass raw
+  allocation addresses and `size_of_val` directly to the kernel without constructing `&[u8]`
+  references over struct padding or interior atomics, support `MlockPolicy::{Disabled, BestEffort,
+  Strict}` for unprivileged CI environments where `RLIMIT_MEMLOCK` is constrained, and unlock on
+  `Drop` when `outcome == MlockOutcome::Locked`.
 
 ## Verification and Specifications
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/immutable.rs](src/immutable.rs) ·
-  [src/resource.rs](src/resource.rs) · [src/mapped_file.rs](src/mapped_file.rs) ·
+  [src/resource.rs](src/resource.rs) · [src/mlock.rs](src/mlock.rs) ·
   [tests/mapping.rs](tests/mapping.rs) · [tests/immutable.rs](tests/immutable.rs) ·
-  [tests/mapped_file.rs](tests/mapped_file.rs) · [tests/process.rs](tests/process.rs)
+  [tests/mlock.rs](tests/mlock.rs) · [tests/process.rs](tests/process.rs)
 * **Specifications**: [shm-mapping.md](../../specs/implementation/shm-mapping.md) ·
   [immutable-resource.md](../../specs/implementation/immutable-resource.md)
 

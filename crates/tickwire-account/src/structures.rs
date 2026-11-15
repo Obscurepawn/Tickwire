@@ -170,7 +170,7 @@ impl Account {
         &mut self,
         command: &v::Command,
         orders: &[OrderKey],
-    ) -> Result<()> {
+    ) -> Result<Option<[u8; 16]>> {
         let (id, client, kind) = match &command.body {
             v::CommandBody::SpotList(l) => (
                 l.list_id,
@@ -186,7 +186,7 @@ impl Account {
                 &a.order.client_id,
                 v::StructureKind::Algo,
             ),
-            _ => return Ok(()),
+            _ => return Ok(None),
         };
         let list = kind != v::StructureKind::Algo;
         let r = &command.context.request;
@@ -222,7 +222,7 @@ impl Account {
                 retired_mono_ns: None,
             },
         );
-        Ok(())
+        Ok(Some(id))
     }
 
     pub(super) fn structure_management(&self, command: &v::Command) -> Result<Management> {
@@ -344,6 +344,10 @@ impl Account {
             v::StructureStatus::Terminal | v::StructureStatus::Rejected
         );
         next.unknown |= observed.status == v::StructureStatus::Unknown;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let mut validated_children = Vec::with_capacity(observed.children.as_slice().len());
         for child in observed.children.as_slice() {
             let id = &child.order;
             let key = OrderKey {
@@ -375,7 +379,18 @@ impl Account {
             if native_conflict || internal_conflict {
                 return Err(Error::Conflict);
             }
-            self.bind_native(&key, id)?;
+            let ord = &self.orders[&key];
+            if let Some(native) = &id.venue_order_id
+                && ord
+                    .native
+                    .as_ref()
+                    .is_some_and(|old_n| old_n != native && !ord.native_aliases.contains(native))
+            {
+                return Err(Error::Conflict);
+            }
+            if id.order_id != [0; 16] && ord.internal_id.is_some_and(|old_i| old_i != id.order_id) {
+                return Err(Error::Conflict);
+            }
             let mut merged = child.clone();
             if merged.reported_client_id.is_none() {
                 merged.reported_client_id = next
@@ -383,7 +398,11 @@ impl Account {
                     .get(&key.client_id)
                     .and_then(|p| p.reported_client_id.clone());
             }
-            next.children.insert(key.client_id, merged);
+            next.children.insert(key.client_id.clone(), merged);
+            validated_children.push((key, id));
+        }
+        for (key, id) in validated_children {
+            self.bind_native(&key, id)?;
         }
         for key in &old.legs {
             let should_reopen = {
@@ -485,25 +504,56 @@ impl Account {
         {
             return self.freeze_error(Error::Unreconciled);
         }
-        let mut candidate = self.clone();
-        let o = candidate.orders.get_mut(&key).unwrap();
-        o.uncreated = true;
-        o.fees_closed = true;
-        o.reduce = o.reduce.zero_like();
-        o.terminal_reason = Some(v::TerminalReason::UserCanceled);
-        candidate.sync_order_in_stp_book(&key)?;
-        candidate
-            .structures
-            .get_mut(&b.structure_id)
-            .unwrap()
-            .closure = Some(Box::new(b.clone()));
-        candidate.structure_observed = true;
-        let stamp = candidate.last_mono_ns;
-        candidate.refresh_order_retirement(&key, stamp);
-        candidate.next_sequence()?;
-        candidate.frozen = true;
-        candidate.evaluate()?;
-        *self = candidate;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let (prior_reduce, prior_fee_reconciled, prior_reason, prior_retired) = {
+            let o = &self.orders[&key];
+            (
+                o.reduce,
+                o.fee_reconciled,
+                o.terminal_reason,
+                o.retired_mono_ns,
+            )
+        };
+        let prior_structure_observed = self.structure_observed;
+        let prior_frozen = self.frozen;
+        {
+            let o = self.orders.get_mut(&key).unwrap();
+            o.uncreated = true;
+            o.fee_reconciled = true;
+            o.reduce = o.reduce.zero_like();
+            o.terminal_reason = Some(v::TerminalReason::UserCanceled);
+        }
+        let step: Result<()> = (|| {
+            self.sync_order_in_stp_book(&key)?;
+            self.structures.get_mut(&b.structure_id).unwrap().closure = Some(Box::new(b.clone()));
+            self.structure_observed = true;
+            let stamp = self.last_mono_ns;
+            self.refresh_order_retirement(&key, stamp);
+            self.evaluate()?;
+            Ok(())
+        })();
+        if let Err(e) = step {
+            if let Some(o) = self.orders.get_mut(&key) {
+                o.uncreated = false;
+                o.fee_reconciled = prior_fee_reconciled;
+                o.reduce = prior_reduce;
+                o.terminal_reason = prior_reason;
+                o.retired_mono_ns = prior_retired;
+            }
+            if let Some(st) = self.structures.get_mut(&b.structure_id) {
+                st.closure = None;
+            }
+            self.structure_observed = prior_structure_observed;
+            self.frozen = prior_frozen;
+            let _ = self.sync_order_in_stp_book(&key);
+            let stamp = self.last_mono_ns;
+            self.refresh_order_retirement(&key, stamp);
+            return Err(e);
+        }
+        self.next_sequence()?;
+        self.frozen = true;
         Ok(Applied::New)
     }
 }

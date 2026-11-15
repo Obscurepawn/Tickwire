@@ -13,13 +13,11 @@ impl Account {
             }
             return self.freeze_error(Error::Conflict);
         }
-        let mut candidate = self.clone();
-        match candidate.admit_candidate(command, now) {
-            Ok(a) => {
-                *self = candidate;
-                Ok(a)
-            }
+        let prior_last_mono_ns = self.last_mono_ns;
+        match self.admit_candidate(command, now) {
+            Ok(a) => Ok(a),
             Err(e) => {
+                self.last_mono_ns = prior_last_mono_ns;
                 if matches!(
                     e,
                     Error::Risk(RiskError::ArithmeticOverflow) | Error::Conflict
@@ -56,11 +54,10 @@ impl Account {
         {
             return Err(Error::Stale);
         }
-        let p = self
-            .catalog
+        let catalog = std::sync::Arc::clone(&self.catalog);
+        let p = catalog
             .get(&ctx.instrument.instrument_id)
-            .ok_or(Error::Catalog)?
-            .clone();
+            .ok_or(Error::Catalog)?;
         if p.instrument != ctx.instrument || p.product != r.product {
             return Err(Error::Catalog);
         }
@@ -75,10 +72,6 @@ impl Account {
         if increases && self.frozen {
             return Err(Error::Frozen);
         }
-        if now > 0 {
-            self.last_mono_ns = self.last_mono_ns.max(now);
-            self.evict_expired(now);
-        }
         let key = IntentKey {
             epoch: r.intent_exec_epoch,
             intent_id: r.intent_id,
@@ -91,7 +84,31 @@ impl Account {
         {
             return Err(Error::Stale);
         }
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        if now > 0 {
+            self.last_mono_ns = self.last_mono_ns.max(now);
+            self.evict_expired(now);
+        }
         if !increases {
+            let mut structure_management = None;
+            let mut pending_amendment = None;
+            match &c.body {
+                v::CommandBody::Cancel(target) | v::CommandBody::Query(target) => {
+                    self.check_target(target, strategy, manager, p.instrument.instrument_id)?
+                }
+                v::CommandBody::CancelList(_) | v::CommandBody::CancelAlgo(_) => {
+                    structure_management = Some(self.structure_management(c)?);
+                }
+                v::CommandBody::AmendKeepPriority { .. } => {
+                    if self.amendments.len() >= MAX_FACTS {
+                        return Err(Error::Capacity);
+                    }
+                    pending_amendment = Some(self.prepare_amendment(command)?);
+                }
+                _ => return Err(Error::Unsupported),
+            }
             let mgmt_count = self
                 .admissions
                 .iter()
@@ -106,25 +123,13 @@ impl Account {
             {
                 return Err(Error::Capacity);
             }
-            let mut structure_management = None;
-            let mut amended_order = None;
-            match &c.body {
-                v::CommandBody::Cancel(target) | v::CommandBody::Query(target) => {
-                    self.check_target(target, strategy, manager, p.instrument.instrument_id)?
-                }
-                v::CommandBody::CancelList(_) | v::CommandBody::CancelAlgo(_) => {
-                    structure_management = Some(self.structure_management(c)?);
-                }
-                v::CommandBody::AmendKeepPriority { .. } => {
-                    if self.amendments.len() >= MAX_FACTS {
-                        return Err(Error::Capacity);
-                    }
-                    let pending = self.prepare_amendment(command)?;
-                    amended_order = Some(pending.order.clone());
-                    self.amendments.insert(key, pending);
-                }
-                _ => return Err(Error::Unsupported),
-            }
+            let amended_order = if let Some(pending) = pending_amendment {
+                let ord_key = pending.order.clone();
+                self.amendments.insert(key, pending);
+                Some(ord_key)
+            } else {
+                None
+            };
             self.next_sequence()?;
             let retired_mono_ns = if amended_order.is_some() {
                 None
@@ -154,7 +159,7 @@ impl Account {
             return Ok(a);
         }
         if let v::CommandBody::Modify(m) = &c.body {
-            return self.admit_modify_candidate(command, m, &p, now);
+            return self.admit_modify_candidate(command, m, p, now);
         }
         let before = self.resources()?;
         let before_capital = self.calculate_capital()?;
@@ -184,239 +189,267 @@ impl Account {
         if order_admissions >= MAX_ORDERS || self.orders.len() + specs.len() > MAX_ORDERS {
             return Err(Error::Capacity);
         }
-        let mut orders = Vec::new();
-        for spec in specs {
-            let q = match spec.quantity {
-                v::Quantity::Base(q) => exact_decimal(q, asset_scale(&p.instrument.base)?)?,
-                _ => return Err(Error::UnboundedExecution),
-            };
-            if !matches!(
-                spec.order_type,
-                v::OrderType::Limit | v::OrderType::StopLimit | v::OrderType::TakeProfitLimit
-            ) {
-                return Err(Error::UnboundedExecution);
-            }
-            let price_scale = p
-                .futures
-                .as_ref()
-                .map(|x| x.stress_high.scale())
-                .unwrap_or(asset_scale(&p.instrument.quote)?);
-            let price = exact_decimal(spec.price.ok_or(Error::UnboundedExecution)?, price_scale)?;
-            let qzero = q.zero_like();
-            let mut reduce = qzero;
-            if let Some(fp) = &p.futures {
-                if spec.mode
-                    != (v::ProductMode::Derivative {
-                        position_mode: fp.position_mode,
-                        margin_mode: fp.margin_mode,
-                    })
-                {
-                    return Err(Error::Catalog);
-                }
-                let reducing = spec.reduce_only
-                    || matches!(
-                        (spec.position_side, spec.side),
-                        (v::PositionSide::Long, v::Side::Sell)
-                            | (v::PositionSide::Short, v::Side::Buy)
-                    );
-                if reducing {
-                    let actual = self.position_quantity(&p, spec.position_side)?;
-                    let existing: Vec<_> = self
-                        .orders
-                        .values()
-                        .filter(|o| {
-                            o.instrument == p.instrument.instrument_id
-                                && o.spec.position_side == spec.position_side
-                        })
-                        .map(|o| o.reduce)
-                        .collect();
-                    let side = match spec.position_side {
-                        v::PositionSide::Both => reservation::PositionSide::Both,
-                        v::PositionSide::Long => reservation::PositionSide::Long,
-                        v::PositionSide::Short => reservation::PositionSide::Short,
-                    };
-                    let allocation = reservation::allocate_reduce(
-                        actual,
-                        &existing,
-                        q,
-                        exact_decimal(p.instrument.quantity_step, q.scale())?,
-                        false,
-                        side,
-                    )?;
-                    let buy = allocation.side == tickwire_risk::futures::Side::Buy;
-                    if buy != (spec.side == v::Side::Buy)
-                        || allocation.reduce_only != spec.reduce_only
-                    {
-                        return Err(Error::Identity);
-                    }
-                    reduce = allocation.allocated;
-                }
-            } else {
-                if spec.mode != v::ProductMode::Spot {
-                    return Err(Error::Unsupported);
-                }
-                let spending_asset = if spec.side == v::Side::Buy {
-                    p.instrument.quote.id
-                } else {
-                    p.instrument.base.id
+        let mut orders = Vec::with_capacity(specs.len());
+        let mut inserted_structure: Option<[u8; 16]> = None;
+        let committed: Result<(Vec<AssetAmount>, Vec<CapitalHold>)> = (|| {
+            for spec in specs {
+                let q = match spec.quantity {
+                    v::Quantity::Base(q) => exact_decimal(q, asset_scale(&p.instrument.base)?)?,
+                    _ => return Err(Error::UnboundedExecution),
                 };
-                if self.assets[&AssetKey {
-                    wallet_id: p.wallet_id,
-                    asset_id: spending_asset,
-                }]
-                    .baseline
-                    .exclusive_fee_pool
-                {
-                    return Err(Error::InsufficientAsset);
-                }
-                if spec.side == v::Side::Sell
-                    && self.fee_rate(&p)?.atoms() > Fixed::one(18)?.atoms()
-                {
+                if !matches!(
+                    spec.order_type,
+                    v::OrderType::Limit | v::OrderType::StopLimit | v::OrderType::TakeProfitLimit
+                ) {
                     return Err(Error::UnboundedExecution);
                 }
+                let price_scale = p
+                    .futures
+                    .as_ref()
+                    .map(|x| x.stress_high.scale())
+                    .unwrap_or(asset_scale(&p.instrument.quote)?);
+                let price =
+                    exact_decimal(spec.price.ok_or(Error::UnboundedExecution)?, price_scale)?;
+                let qzero = q.zero_like();
+                let mut reduce = qzero;
+                if let Some(fp) = &p.futures {
+                    if spec.mode
+                        != (v::ProductMode::Derivative {
+                            position_mode: fp.position_mode,
+                            margin_mode: fp.margin_mode,
+                        })
+                    {
+                        return Err(Error::Catalog);
+                    }
+                    let reducing = spec.reduce_only
+                        || matches!(
+                            (spec.position_side, spec.side),
+                            (v::PositionSide::Long, v::Side::Sell)
+                                | (v::PositionSide::Short, v::Side::Buy)
+                        );
+                    if reducing {
+                        let actual = self.position_quantity(p, spec.position_side)?;
+                        let existing: Vec<_> = self
+                            .orders
+                            .values()
+                            .filter(|o| {
+                                o.instrument == p.instrument.instrument_id
+                                    && o.spec.position_side == spec.position_side
+                            })
+                            .map(|o| o.reduce)
+                            .collect();
+                        let side = match spec.position_side {
+                            v::PositionSide::Both => reservation::PositionSide::Both,
+                            v::PositionSide::Long => reservation::PositionSide::Long,
+                            v::PositionSide::Short => reservation::PositionSide::Short,
+                        };
+                        let allocation = reservation::allocate_reduce(
+                            actual,
+                            &existing,
+                            q,
+                            exact_decimal(p.instrument.quantity_step, q.scale())?,
+                            false,
+                            side,
+                        )?;
+                        let buy = allocation.side == tickwire_risk::futures::Side::Buy;
+                        if buy != (spec.side == v::Side::Buy)
+                            || allocation.reduce_only != spec.reduce_only
+                        {
+                            return Err(Error::Identity);
+                        }
+                        reduce = allocation.allocated;
+                    }
+                } else {
+                    if spec.mode != v::ProductMode::Spot {
+                        return Err(Error::Unsupported);
+                    }
+                    let spending_asset = if spec.side == v::Side::Buy {
+                        p.instrument.quote.id
+                    } else {
+                        p.instrument.base.id
+                    };
+                    if self.assets[&AssetKey {
+                        wallet_id: p.wallet_id,
+                        asset_id: spending_asset,
+                    }]
+                        .baseline
+                        .exclusive_fee_pool
+                    {
+                        return Err(Error::InsufficientAsset);
+                    }
+                    if spec.side == v::Side::Sell
+                        && self.fee_rate(p)?.atoms() > Fixed::one(18)?.atoms()
+                    {
+                        return Err(Error::UnboundedExecution);
+                    }
+                }
+                let order_key = OrderKey {
+                    intent: key,
+                    client_id: spec.client_id.clone(),
+                };
+                if self.orders.contains_key(&order_key) {
+                    return Err(Error::Conflict);
+                }
+                if self
+                    .orders_by_client_id
+                    .get(&(p.instrument.instrument_id, spec.client_id.clone()))
+                    .is_some_and(|keys| keys.iter().any(|k| !self.orders[k].aborted))
+                {
+                    return Err(Error::Conflict);
+                }
+                if self.stp_enforcement
+                    && spec.order_type == v::OrderType::Limit
+                    && self
+                        .stp_book
+                        .self_cross(p.instrument.instrument_id, spec.side, price)?
+                {
+                    return Err(Error::CrossesBook);
+                }
+                let fee_asset = if p.futures.is_some() {
+                    &p.instrument.settlement
+                } else if spec.side == v::Side::Buy {
+                    &p.instrument.base
+                } else {
+                    &p.instrument.quote
+                };
+                let fee_zero = Fixed::zero(asset_scale(fee_asset)?)?;
+                let order = Order {
+                    key: order_key.clone(),
+                    digest: command.digest(),
+                    instrument: p.instrument.instrument_id,
+                    strategy,
+                    origin: ManagerIdentity {
+                        instance: ctx.strategy.instance_id,
+                        generation: r.strategy_generation,
+                    },
+                    manager: ManagerIdentity {
+                        instance: ctx.strategy.instance_id,
+                        generation: r.strategy_generation,
+                    },
+                    spec,
+                    amendable: matches!(c.body, v::CommandBody::New(_)),
+                    original: q,
+                    effective: q,
+                    observed_cumulative: qzero,
+                    filled: qzero,
+                    price,
+                    received: fee_zero,
+                    notional: Fixed::zero(asset_scale(&p.instrument.settlement)?)?,
+                    paid: BTreeMap::new(),
+                    terminal_cumulative: None,
+                    observed_unknown: false,
+                    recovery_unknown: false,
+                    observation_unreconciled: false,
+                    terminal: false,
+                    fee_reconciled: false,
+                    aborted: false,
+                    uncreated: false,
+                    economic: false,
+                    confirmed: false,
+                    reduce,
+                    native: None,
+                    internal_id: None,
+                    owner_revision: 1,
+                    shadow_fee_credit: fee_zero,
+                    pending_modify: None,
+                    known_quantities: Vec::new(),
+                    client_id_aliases: Vec::new(),
+                    native_aliases: Vec::new(),
+                    exch_cum_qty: qzero,
+                    exch_cum_quote: None,
+                    exch_quote_qty: qzero,
+                    exch_avg_price: None,
+                    exch_avg_qty: qzero,
+                    projected_cum_qty: qzero,
+                    terminal_reason: None,
+                    last_modify_reject_reason: None,
+                    created_mono_ns: now,
+                    retired_mono_ns: None,
+                    in_doubt: None,
+                };
+                self.index_order_insert(&order);
+                self.orders.insert(order_key.clone(), order);
+                orders.push(order_key.clone());
+                self.sync_order_in_stp_book(&order_key)?;
             }
-            let order_key = OrderKey {
-                intent: key,
-                client_id: spec.client_id.clone(),
-            };
-            if self.orders.contains_key(&order_key) {
-                return Err(Error::Conflict);
+            inserted_structure = self.register_structure(c, &orders)?;
+            self.evaluate()?;
+            let after_capital = self.calculate_capital()?;
+            let mut capital = Vec::new();
+            for (&wallet, &(asset, after)) in &after_capital {
+                let before = before_capital
+                    .get(&wallet)
+                    .map(|x| x.1)
+                    .unwrap_or(after.zero_like());
+                let delta = after.checked_sub(before)?.positive_part();
+                let available = self.venue_shadow(wallet)?;
+                if delta.atoms() > available.atoms() {
+                    return Err(Error::InsufficientCapital);
+                }
+                if delta.atoms() > 0 {
+                    capital.push(CapitalHold {
+                        wallet_id: wallet,
+                        settlement_asset: asset,
+                        amount: delta,
+                    });
+                }
             }
-            if self
-                .orders_by_client_id
-                .get(&(p.instrument.instrument_id, spec.client_id.clone()))
-                .is_some_and(|keys| keys.iter().any(|k| !self.orders[k].aborted))
-            {
-                return Err(Error::Conflict);
+            let mut fee_capacity: BTreeMap<_, _> =
+                capital.iter().map(|h| (h.wallet_id, h.amount)).collect();
+            for order_key in &orders {
+                let o = &self.orders[order_key];
+                let pp = &catalog[&o.instrument];
+                if pp.futures.is_some() {
+                    let fee_key = self.fee_asset(pp, o);
+                    let fee = self
+                        .order_resources(o)?
+                        .get(&fee_key)
+                        .copied()
+                        .unwrap_or(o.shadow_fee_credit.zero_like());
+                    let available = fee_capacity
+                        .get(&pp.wallet_id)
+                        .copied()
+                        .unwrap_or(fee.zero_like());
+                    let credit = fee.min(available)?;
+                    fee_capacity.insert(pp.wallet_id, available.checked_sub(credit)?);
+                    self.orders.get_mut(order_key).unwrap().shadow_fee_credit = credit;
+                }
             }
-            if self.stp_enforcement
-                && spec.order_type == v::OrderType::Limit
-                && self
-                    .stp_book
-                    .self_cross(p.instrument.instrument_id, spec.side, price)?
-            {
-                return Err(Error::CrossesBook);
+            let after = self.resources()?;
+            let mut resources = Vec::new();
+            for (&asset_key, &amount) in &after {
+                let delta = amount
+                    .checked_sub(
+                        before
+                            .get(&asset_key)
+                            .copied()
+                            .unwrap_or(amount.zero_like()),
+                    )?
+                    .positive_part();
+                if delta.atoms() > 0 {
+                    resources.push(AssetAmount {
+                        key: asset_key,
+                        amount: delta,
+                    })
+                }
             }
-            let fee_asset = if p.futures.is_some() {
-                &p.instrument.settlement
-            } else if spec.side == v::Side::Buy {
-                &p.instrument.base
-            } else {
-                &p.instrument.quote
-            };
-            let fee_zero = Fixed::zero(asset_scale(fee_asset)?)?;
-            let order = Order {
-                key: order_key.clone(),
-                digest: command.digest(),
-                instrument: p.instrument.instrument_id,
-                strategy,
-                origin: ManagerIdentity {
-                    instance: ctx.strategy.instance_id,
-                    generation: r.strategy_generation,
-                },
-                manager: ManagerIdentity {
-                    instance: ctx.strategy.instance_id,
-                    generation: r.strategy_generation,
-                },
-                spec,
-                amendable: matches!(c.body, v::CommandBody::New(_)),
-                original: q,
-                effective: q,
-                observed_cumulative: qzero,
-                filled: qzero,
-                price,
-                received: fee_zero,
-                notional: Fixed::zero(asset_scale(&p.instrument.settlement)?)?,
-                paid: BTreeMap::new(),
-                terminal_cumulative: None,
-                observed_unknown: false,
-                recovery_unknown: false,
-                observation_unreconciled: false,
-                terminal: false,
-                fees_closed: false,
-                aborted: false,
-                uncreated: false,
-                economic: false,
-                confirmed: false,
-                reduce,
-                native: None,
-                internal_id: None,
-                owner_revision: 1,
-                shadow_fee_credit: fee_zero,
-                pending_modify: None,
-                known_quantities: Vec::new(),
-                client_id_aliases: Vec::new(),
-                native_aliases: Vec::new(),
-                exch_cum_qty: qzero,
-                exch_cum_quote: None,
-                exch_quote_qty: qzero,
-                exch_avg_price: None,
-                exch_avg_qty: qzero,
-                projected_cum_qty: qzero,
-                terminal_reason: None,
-                last_modify_reject_reason: None,
-                created_mono_ns: now,
-                retired_mono_ns: None,
-                in_doubt: None,
-            };
-            self.index_order_insert(&order);
-            self.orders.insert(order_key.clone(), order);
-            self.sync_order_in_stp_book(&order_key)?;
-            orders.push(order_key);
-        }
-        self.register_structure(c, &orders)?;
-        self.evaluate()?;
-        let after_capital = self.calculate_capital()?;
-        let mut capital = Vec::new();
-        for (&wallet, &(asset, after)) in &after_capital {
-            let before = before_capital
-                .get(&wallet)
-                .map(|x| x.1)
-                .unwrap_or(after.zero_like());
-            let delta = after.checked_sub(before)?.positive_part();
-            let available = self.venue_shadow(wallet)?;
-            if delta.atoms() > available.atoms() {
-                return Err(Error::InsufficientCapital);
+            Ok((resources, capital))
+        })();
+
+        let (resources, capital) = match committed {
+            Ok(pair) => pair,
+            Err(e) => {
+                for ok in &orders {
+                    if let Some(removed) = self.orders.remove(ok) {
+                        self.index_order_remove(&removed);
+                    }
+                }
+                if let Some(sid) = inserted_structure {
+                    self.structures.remove(&sid);
+                }
+                return Err(e);
             }
-            if delta.atoms() > 0 {
-                capital.push(CapitalHold {
-                    wallet_id: wallet,
-                    settlement_asset: asset,
-                    amount: delta,
-                });
-            }
-        }
-        let mut fee_capacity: BTreeMap<_, _> =
-            capital.iter().map(|h| (h.wallet_id, h.amount)).collect();
-        for order_key in &orders {
-            let o = &self.orders[order_key];
-            let pp = &self.catalog[&o.instrument];
-            if pp.futures.is_some() {
-                let key = self.fee_asset(pp, o);
-                let fee = self
-                    .order_resources(o)?
-                    .get(&key)
-                    .copied()
-                    .unwrap_or(o.shadow_fee_credit.zero_like());
-                let available = fee_capacity
-                    .get(&pp.wallet_id)
-                    .copied()
-                    .unwrap_or(fee.zero_like());
-                let credit = fee.min(available)?;
-                fee_capacity.insert(pp.wallet_id, available.checked_sub(credit)?);
-                self.orders.get_mut(order_key).unwrap().shadow_fee_credit = credit;
-            }
-        }
-        let after = self.resources()?;
-        let mut resources = Vec::new();
-        for (&key, &amount) in &after {
-            let delta = amount
-                .checked_sub(before.get(&key).copied().unwrap_or(amount.zero_like()))?
-                .positive_part();
-            if delta.atoms() > 0 {
-                resources.push(AssetAmount { key, amount: delta })
-            }
-        }
+        };
         self.next_sequence()?;
         let admission = Admission {
             digest: command.digest(),
@@ -553,7 +586,7 @@ impl Account {
         )?
         .available)
     }
-    /// Only call after the exact AbortedBeforeSend record has reached the journal completion point.
+    /// Releases an admitted command that was locally aborted before reaching the venue.
     pub fn apply_abort(&mut self, a: &Admission) -> Result<Applied> {
         if self.admissions.get(&a.key) != Some(a) {
             return self.freeze_error(Error::Identity);
@@ -573,27 +606,28 @@ impl Account {
         }) {
             return self.freeze_error(Error::Unreconciled);
         }
-        let mut candidate = self.clone();
-        let stamp = candidate.last_mono_ns;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let stamp = self.last_mono_ns;
         for key in &a.orders {
-            let o = candidate.orders.get_mut(key).unwrap();
+            let o = self.orders.get_mut(key).unwrap();
             o.aborted = true;
             o.reduce = o.reduce.zero_like();
-            o.fees_closed = true;
+            o.fee_reconciled = true;
             o.terminal_reason = Some(v::TerminalReason::AbortedBeforeSend);
         }
-        candidate.shadow_holds.remove(&a.key);
+        self.shadow_holds.remove(&a.key);
         for key in &a.orders {
-            candidate.sync_order_in_stp_book(key)?;
-            candidate.refresh_order_retirement(key, stamp);
+            self.sync_order_in_stp_book(key)?;
+            self.refresh_order_retirement(key, stamp);
         }
         if a.orders.is_empty()
-            && let Some(adm) = candidate.admissions.get_mut(&a.key)
+            && let Some(adm) = self.admissions.get_mut(&a.key)
         {
             adm.retired_mono_ns.get_or_insert(stamp);
         }
-        candidate.next_sequence()?;
-        *self = candidate;
+        self.next_sequence()?;
         Ok(Applied::New)
     }
     /// Check a proposed local fee closure against the ledger at its current sequence.
@@ -602,7 +636,7 @@ impl Account {
         if !o.terminal || o.terminal_cumulative != Some(cumulative) || o.filled != cumulative {
             return Err(Error::Unreconciled);
         }
-        if o.fees_closed {
+        if o.fee_reconciled {
             return Ok(Applied::Duplicate);
         }
         self.sequence
@@ -621,7 +655,7 @@ impl Account {
             })?;
         if applied == Applied::New {
             self.next_sequence()?;
-            self.orders.get_mut(key).unwrap().fees_closed = true;
+            self.orders.get_mut(key).unwrap().fee_reconciled = true;
             let stamp = self.last_mono_ns;
             self.refresh_order_retirement(key, stamp);
         }

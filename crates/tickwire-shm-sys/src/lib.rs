@@ -1,8 +1,13 @@
-//! Linux shared mappings and the small unsafe boundary used by the ring SDK.
+//! Audited Linux shared-memory (`memfd`) and startup page-locking (`mlock`) boundary.
 //!
-//! Memory access is unsafe even after checking offsets: the caller must uphold
-//! the cross-process publication/reclamation protocol and consistent atomic
-//! access widths. No reference or pointer to an atomic is exported.
+//! Exposes single-writer shared mappings ([`WriterMapping`], [`ReaderMapping`]), sealed immutable
+//! resources ([`ImmutableMapping`], [`ImmutableResource`]), and safe physical-page locking helpers
+//! ([`MlockPolicy`], [`MlockOutcome`], [`mlock_slice`], [`munlock_slice`], [`try_mlock_slice`],
+//! [`MlockedSlice`], [`MlockedBox`]) so downstream crates remain `#![forbid(unsafe_code)]`.
+//!
+//! Shared-mapping memory access remains `unsafe` even after checking offsets: the caller must
+//! uphold the cross-process publication/reclamation protocol and consistent atomic access widths.
+//! No reference or pointer to an atomic is exported across process boundaries.
 #![deny(unsafe_op_in_unsafe_fn)]
 
 use std::fmt;
@@ -18,10 +23,13 @@ pub const IMMUTABLE_SEALS: i32 = 0x0f;
 pub type Result<T> = std::result::Result<T, Error>;
 
 mod immutable;
-pub mod mapped_file;
+pub mod mlock;
 mod resource;
 pub use immutable::ImmutableMapping;
-pub use mapped_file::{CursorState, MappedCursorPage, MappedSegment, align_page_capacity};
+pub use mlock::{
+    MlockOutcome, MlockPolicy, MlockedBox, MlockedSlice, mlock_slice, munlock_slice,
+    try_mlock_slice,
+};
 pub use resource::ImmutableResource;
 
 #[derive(Debug)]
@@ -285,7 +293,7 @@ impl ReaderMapping {
     target_has_atomic = "64",
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
-mod platform {
+pub(crate) mod platform {
     use super::*;
     use std::ffi::CString;
     use std::os::fd::{AsRawFd, FromRawFd};
@@ -473,7 +481,7 @@ mod os_tests {
     target_has_atomic = "64",
     any(target_arch = "x86_64", target_arch = "aarch64")
 )))]
-mod platform {
+pub(crate) mod platform {
     use super::*;
     pub fn check() -> Result<()> {
         Err(Error::UnsupportedPlatform)

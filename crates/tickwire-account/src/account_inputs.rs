@@ -105,22 +105,23 @@ impl Account {
             {
                 return Err(Error::Identity);
             }
-            let mut candidate = self.clone();
+            self.sequence
+                .checked_add(1)
+                .ok_or(RiskError::ArithmeticOverflow)?;
+            let mut inserted = BTreeMap::new();
             for input in &baseline.covered {
-                candidate.check_account_identity(&input.input().identity)?;
+                self.check_account_identity(&input.input().identity)?;
                 if input.input().identity.wallet_id != baseline.wallet_id {
                     return Err(Error::Identity);
                 }
                 let v::AccountInputBody::Income(row) = &input.input().body else {
                     return Err(Error::Identity);
                 };
-                candidate.account_delta(baseline.wallet_id, &row.delta)?;
+                self.account_delta(baseline.wallet_id, &row.delta)?;
                 if row.venue_time_ms > baseline.through_time_ms {
                     return Err(Error::Identity);
                 }
-                if candidate
-                    .account_inputs
-                    .incomes
+                if inserted
                     .insert(
                         income_key(row),
                         IncomeEntry {
@@ -133,12 +134,11 @@ impl Account {
                     return Err(Error::Conflict);
                 }
             }
-            candidate
-                .account_inputs
+            self.account_inputs.incomes = inserted;
+            self.account_inputs
                 .baseline
                 .insert(baseline.wallet_id, baseline.clone());
-            candidate.next_sequence()?;
-            *self = candidate;
+            self.next_sequence()?;
             Ok(Applied::New)
         })();
         if result.is_err() {
@@ -147,12 +147,8 @@ impl Account {
         result
     }
     pub fn apply_account_input(&mut self, input: &v::CanonicalAccountInput) -> Result<Applied> {
-        let mut candidate = self.clone();
-        match candidate.apply_account_candidate(input) {
-            Ok(out) => {
-                *self = candidate;
-                Ok(out)
-            }
+        match self.apply_account_candidate(input) {
+            Ok(out) => Ok(out),
             Err(e) => {
                 self.frozen = true;
                 if self.account_inputs.rejected.is_none() {
@@ -208,34 +204,87 @@ impl Account {
                 if self.account_inputs.size() >= MAX_FACTS {
                     return Err(Error::Capacity);
                 }
+                self.sequence
+                    .checked_add(1)
+                    .ok_or(RiskError::ArithmeticOverflow)?;
                 let delta = self.account_delta(id.wallet_id, &row.delta)?;
                 let after_baseline = self
                     .account_inputs
                     .baseline
                     .get(&id.wallet_id)
                     .is_some_and(|b| row.venue_time_ms > b.through_time_ms);
+                let component = if after_baseline {
+                    component_key(row)
+                } else {
+                    None
+                };
+                if let Some(comp) = &component
+                    && let Some(trade) = self.account_inputs.components.get(comp)
+                    && (trade.wallet != id.wallet_id
+                        || trade.delta != row.delta
+                        || self
+                            .account_inputs
+                            .aliases
+                            .get(comp)
+                            .is_some_and(|old| old != &key))
+                {
+                    return Err(Error::Conflict);
+                }
                 let status = if after_baseline && row.income_type.as_str() == "FUNDING_FEE" {
-                    // Real income is booked exactly once. Attribution and funding-period
-                    // coverage remain unresolved; future reserves are not released here.
-                    let a = self.assets.get_mut(&delta.key).unwrap();
-                    a.cashflow = a.cashflow.checked_add(delta.amount)?;
-                    add_owner(&mut a.ownership, 0, delta.amount)?;
-                    if delta.amount.atoms() < 0 {
-                        a.other_debits = a.other_debits.checked_sub(delta.amount)?;
+                    let (new_cashflow, new_owner_0, new_other_debits) = {
+                        let a = self.assets.get(&delta.key).unwrap();
+                        let new_cashflow = a.cashflow.checked_add(delta.amount)?;
+                        let old_owner_0 = a
+                            .ownership
+                            .get(&0)
+                            .copied()
+                            .unwrap_or(delta.amount.zero_like());
+                        let new_owner_0 = old_owner_0.checked_add(delta.amount)?;
+                        let new_other_debits = if delta.amount.atoms() < 0 {
+                            a.other_debits.checked_sub(delta.amount)?
+                        } else {
+                            a.other_debits
+                        };
+                        (new_cashflow, new_owner_0, new_other_debits)
+                    };
+                    let funding_side = if delta.amount.atoms() < 0 {
+                        let neg = delta.amount.checked_neg()?;
                         if self.catalog.values().any(|p| {
                             p.wallet_id == id.wallet_id
                                 && p.instrument.settlement.id == delta.key.asset_id
                         }) {
-                            self.add_uncovered(id.wallet_id, delta.amount.checked_neg()?)?;
+                            let old_uncovered = self
+                                .uncovered_debits
+                                .get(&id.wallet_id)
+                                .copied()
+                                .unwrap_or(neg.zero_like());
+                            Some((true, old_uncovered.checked_add(neg)?))
                         } else {
-                            self.shadow_unvalued.insert(id.wallet_id);
+                            None
                         }
                     } else {
-                        add(
-                            &mut self.account_inputs.credit_holds,
-                            delta.key,
-                            delta.amount,
-                        )?;
+                        let old_hold = self
+                            .account_inputs
+                            .credit_holds
+                            .get(&delta.key)
+                            .copied()
+                            .unwrap_or(delta.amount.zero_like());
+                        Some((false, old_hold.checked_add(delta.amount)?))
+                    };
+                    let a = self.assets.get_mut(&delta.key).unwrap();
+                    a.cashflow = new_cashflow;
+                    a.ownership.insert(0, new_owner_0);
+                    a.other_debits = new_other_debits;
+                    match funding_side {
+                        Some((true, new_uncovered)) => {
+                            self.uncovered_debits.insert(id.wallet_id, new_uncovered);
+                        }
+                        Some((false, new_hold)) => {
+                            self.account_inputs.credit_holds.insert(delta.key, new_hold);
+                        }
+                        None => {
+                            self.shadow_unvalued.insert(id.wallet_id);
+                        }
                     }
                     IncomeStatus::Booked
                 } else {
@@ -248,8 +297,8 @@ impl Account {
                         status,
                     },
                 );
-                if after_baseline && let Some(component) = component_key(row) {
-                    self.match_income_component(&key, &component)?;
+                if let Some(comp) = component {
+                    self.match_income_component(&key, &comp)?;
                 }
                 if self.account_inputs.incomes[&key].status != IncomeStatus::Trade {
                     self.frozen = true;
@@ -266,7 +315,11 @@ impl Account {
                 if self.account_inputs.size() >= MAX_FACTS {
                     return Err(Error::Capacity);
                 }
+                self.sequence
+                    .checked_add(1)
+                    .ok_or(RiskError::ArithmeticOverflow)?;
                 let mut unresolved = o.reason.as_str() != "ORDER";
+                let mut pending_caps: BTreeMap<AssetKey, Fixed> = BTreeMap::new();
                 for balance in o.balances.as_slice() {
                     let delta = self.account_delta(
                         id.wallet_id,
@@ -285,15 +338,12 @@ impl Account {
                         unresolved = true;
                     }
                     if delta.amount.atoms() < total.atoms() {
-                        let old = self
-                            .account_inputs
-                            .caps
+                        let old = pending_caps
                             .get(&delta.key)
                             .copied()
+                            .or_else(|| self.account_inputs.caps.get(&delta.key).copied())
                             .unwrap_or(total);
-                        self.account_inputs
-                            .caps
-                            .insert(delta.key, old.min(delta.amount)?);
+                        pending_caps.insert(delta.key, old.min(delta.amount)?);
                     }
                 }
                 for observed in o.positions.as_slice() {
@@ -317,7 +367,6 @@ impl Account {
                     }
                     let mut quantity =
                         exact_decimal(observed.quantity, asset_scale(&p.instrument.base)?)?;
-                    // USD-M reports SHORT positionAmt as signed negative quantity.
                     if observed.side == v::PositionSide::Short {
                         quantity = quantity.checked_neg()?;
                     }
@@ -327,6 +376,9 @@ impl Account {
                     if self.position_quantity(p, observed.side)? != quantity {
                         unresolved = true;
                     }
+                }
+                for (cap_key, cap_val) in pending_caps {
+                    self.account_inputs.caps.insert(cap_key, cap_val);
                 }
                 self.account_inputs
                     .observations
@@ -378,12 +430,20 @@ impl Account {
         self.account_inputs.incomes.get_mut(key).unwrap().status = IncomeStatus::Trade;
         Ok(true)
     }
-    /// Called only within the same candidate transaction as the original fill.
     pub(super) fn register_fill_components(
         &mut self,
         key: &OrderKey,
         p: &InstrumentPolicy,
         fill: &v::FillEvent,
+    ) -> Result<bool> {
+        self.register_fill_components_mode(key, p, fill, false)
+    }
+    pub(super) fn register_fill_components_mode(
+        &mut self,
+        key: &OrderKey,
+        p: &InstrumentPolicy,
+        fill: &v::FillEvent,
+        allow_fee_amend: bool,
     ) -> Result<bool> {
         if p.futures.is_none() {
             return Ok(false);
@@ -412,7 +472,18 @@ impl Account {
             };
             if let Some(old) = self.account_inputs.components.get(&component) {
                 if old != &value {
-                    return Err(Error::Conflict);
+                    if allow_fee_amend
+                        && kind == 1
+                        && old.order == *key
+                        && old.wallet == p.wallet_id
+                    {
+                        self.account_inputs
+                            .components
+                            .insert(component.clone(), value);
+                        changed = true;
+                    } else {
+                        return Err(Error::Conflict);
+                    }
                 }
             } else {
                 if self.account_inputs.size() >= MAX_FACTS {
