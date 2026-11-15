@@ -1,46 +1,17 @@
-# tickwire-strategy-host
+# `tickwire-strategy-host` Engineering Guide (`AGENTS.md`)
 
-`tickwire-strategy-host` owns parent-side strategy child lifecycle, authenticated intent/report lane setup, MD
-admission registration (`RemoteHostedStrategy` in [src/remote.rs](src/remote.rs)), runtime readiness proofs
-([src/readiness.rs](src/readiness.rs)), market bank transition coordination
-([src/market_transition.rs](src/market_transition.rs)), and fresh state/resource observation
-([src/observation.rs](src/observation.rs), [src/resources.rs](src/resources.rs)). Crate-wide
-`#![deny(unsafe_code)]` confines `unsafe` launch entrypoints to audited supervisor/SHM peer boundaries; worker
-callback logic lives in `tickwire-strategy-sdk` and cash/order risk lives in `tickwire-account`.
+Governing specification: [`specs/implementation/runtime-observation.md`](../../specs/implementation/runtime-observation.md).
 
-## Invariants and Change Guidelines
+## Single-Writer & Process Topology Ownership
 
-* **Authenticated child and MD admission ordering**: In [src/lib.rs](src/lib.rs) and
-  [src/remote.rs](src/remote.rs), spawn the sealed worker binary via `tickwire-supervisor::Registry` inside a
-  `0o700` `PrivateDirectory`, register the child's actual kernel PID/UID/GID with `tickwire-md` before
-  signalling `market_admission_ready`, and verify `Identity`, `logical_strategy`, and `generation` on both
-  `intent.sock` and `report.sock` before accepting commands or publishing reports.
-* **Isolated per-worker cursors and fault containment**: An exited, timed-out, or unauthenticated worker must
-  close its own readiness gate (`ControlPlane`) without corrupting sibling workers sharing the same market
-  bank or account report writer.
-* **Cold kernel observation vs hot intake**: Keep `/proc` and cgroup sampling (`observe_resources` in
-  [src/resources.rs](src/resources.rs)) and control-frame observation queries
-  ([src/observation.rs](src/observation.rs)) off the hot SPSC `IntentReceiver` and `ReportWriter` paths, and keep
-  optional strategy-attributed `on_projected_fill` notifications volatile rather than writing non-authoritative
-  projections onto durable `780` / `781` report rings.
+`tickwire-strategy-host` supervises sealed strategy worker processes (`tickwire-supervisor`) and samples cold-path OS / cgroup v2 telemetry in Tickwire's pure stateless 3-process shared-memory topology:
 
-## Verification and Specifications
+- **External `tickwire-md` SHM Join Only:** Supervised strategy workers always attach to an external `tickwire-md` market-data publisher (`tickwire_market_source::ConnectConfig`). Embedded local-publisher fallbacks and cutover state machines are absent. After spawning the sealed ELF via `Registry`, `RemoteHostedStrategy` registers the one-shot `tickwire_md::server::Admission` ticket bound to the actual kernel `ProcessIdentity` (`pid`, `uid`, `gid`).
+- **Stateless Inline SHM Lanes & DOP Wiring (`remote.rs`):** Provisions a `0o700` `PrivateDirectory`, binds authenticated `intent.sock` and `report.sock` Unix `SOCK_SEQPACKET` listeners, verifies kernel `SO_PEERCRED` + sealed `/proc/<pid>/exe` identity, and exchanges `F_SEAL_FUTURE_WRITE` `memfd` descriptors to form `IntentReader` (`1,024B` `IntentRecord`) and `ReportWriter` (`512B` `ReportRecord`) with zero disk-backed queue or blob store. Also provides audited cross-thread SPSC ring attachment factories (`prepare_cross_thread_intent_lane`, `prepare_cross_thread_report_lane`) so `"tw-ors-req"` and `"tw-ors-resp"` map their SPSC rings directly on their pinned hot threads without `unsafe impl Send`.
+- **Cold-Path Double-Sampled Observation (`observation.rs`, `readiness.rs`, `resources.rs`):** Samples `LiveChildObservation` (`pid`, `start_ticks`, `host_boot`, `image_hash`) before and after optional cgroup v2 `LiveResourceObservation` (`DoubleSampledObservation` / `FreshObservation`), failing closed with `ObservationError::IdentityChanged` if the child exited or was recycled mid-read, and combines process liveness with `OrsRuntimePolicy` (`Mode`, `is_logged_in`, `is_active`, `is_enabled`) inside `WorkerReadiness`.
 
-* **Source and unit tests**: [src/lib.rs](src/lib.rs) · [src/remote.rs](src/remote.rs) ·
-  [src/readiness.rs](src/readiness.rs) · [src/market_transition.rs](src/market_transition.rs) ·
-  [src/observation.rs](src/observation.rs) · [src/resources.rs](src/resources.rs) ·
-  [src/market_transition/tests.rs](src/market_transition/tests.rs) ·
-  [src/resources/tests.rs](src/resources/tests.rs)
-* **Specifications and models**: [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
-  [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md) ·
-  [supervisor-process.md](../../specs/implementation/supervisor-process.md) ·
-  [runtime-observation.md](../../specs/implementation/runtime-observation.md) ·
-  [Deploy two strategies](../../README.md#deploy-two-strategies) ·
-  [worker_handover](../../tla/execution_models/worker_handover/ROADMAP.md) ·
-  [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md)
+## Safety & Hygiene Invariants
 
-```sh
-cargo test --locked -p tickwire-strategy-host --all-targets
-python3 scripts/run-two-strategies.py
-./scripts/check-tla.sh worker_handover
-```
+1. `#![deny(unsafe_code)]` and `#![deny(unsafe_op_in_unsafe_fn)]`: `unsafe` blocks exist strictly at documented `IntentReader::attach`, `ReportReceiver::attach`, and `Publisher::register_cursor` SHM attachment boundaries.
+2. Zero direct raw C-ABI dependency—all OS credential, `/proc`, cgroup v2, signal, and CPU-affinity operations delegate to `tickwire-control-sys` and `tickwire-supervisor`.
+3. Zero integer-violating float arithmetic, zero WAL/journal/checkpoint disk state, and zero venue-specific dependencies.

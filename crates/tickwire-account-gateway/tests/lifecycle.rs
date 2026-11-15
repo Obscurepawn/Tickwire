@@ -3,23 +3,9 @@ use common::*;
 use std::time::Instant;
 use tickwire_account::{Applied, AssetAmount, IntentKey, RecoveryRecord};
 use tickwire_account_gateway::*;
-use tickwire_account_journal::FileBackend;
 use tickwire_transport::IoBudget;
 use tickwire_venue as v;
 
-fn reopen(dir: &Directory, auth: MockAuthority) -> Gateway {
-    let (b, _) = baseline(false);
-    let mut cfg = config(&b);
-    cfg.writer_epoch = 5;
-    AccountGateway::recover(
-        FileBackend::open(&dir.0).unwrap(),
-        cfg,
-        auth,
-        TestEncoder,
-        None,
-    )
-    .unwrap()
-}
 fn action(c: &v::CanonicalCommand, query: bool) -> v::CanonicalCommand {
     let mut cmd = c.command().clone();
     cmd.context.request.intent_id += 1;
@@ -39,6 +25,7 @@ fn action(c: &v::CanonicalCommand, query: bool) -> v::CanonicalCommand {
     };
     fixture::canonical(cmd)
 }
+
 fn drive_key(g: &mut Gateway, key: IntentKey, wanted: Status) {
     let deadline = until();
     while g.status(key) != Some(wanted) {
@@ -47,137 +34,64 @@ fn drive_key(g: &mut Gateway, key: IntentKey, wanted: Status) {
         std::thread::yield_now();
     }
 }
+
 #[test]
-fn recovered_admission_is_unknown_with_no_active_receipt_or_resend() {
-    let (dir, c, mut g, auth, peer) = make(false, 1);
-    g.submit(c.clone(), 60, until()).unwrap();
-    let required = g
-        .committed(intent())
-        .unwrap()
-        .receipt()
-        .physical_frontier()
-        .clone();
-    drop(g);
-    assert!(peer.join().unwrap().is_empty());
-    let (b, _) = baseline(false);
-    let mut cfg = config(&b);
-    cfg.writer_epoch = 5;
-    let mut restored = Gateway::recover(
-        FileBackend::open(&dir.0).unwrap(),
-        cfg,
-        auth.clone(),
-        TestEncoder,
-        Some(&required),
-    )
-    .unwrap();
-    assert!(restored.halted() && restored.account().frozen());
-    assert!(restored.committed(intent()).is_none());
-    assert_eq!(
-        restored.account().asset(fixture::key(2)).unwrap().reserved,
-        fixture::units(60)
-    );
-    assert_eq!(restored.submit(c, 9000, until()).unwrap(), Status::Unknown);
-    assert_eq!(auth.policy.lock().unwrap().prepare_calls, 1);
+fn authority_denial_or_foreign_account_binding_never_queues_or_reserves() {
+    let (c, mut g, auth, peer) = make(false, 1);
+    auth.policy.lock().unwrap().deny_authorize = true;
     assert!(matches!(
-        restored.poll(Instant::now(), IoBudget::default()),
-        Err(Error::Halted)
+        g.submit(c.clone(), 60, until()),
+        Err(Error::Authority(AuthorityError::Denied))
     ));
-}
-#[test]
-fn aborted_admission_remains_aborted_after_reopen() {
-    let (dir, c, mut g, auth, peer) = make(false, 1);
-    g.submit(c.clone(), 60, until()).unwrap();
-    g.cancel_pending().unwrap();
-    drop(g);
-    assert!(peer.join().unwrap().is_empty());
-    let mut restored = reopen(&dir, auth);
-    assert_eq!(restored.submit(c, 9000, until()).unwrap(), Status::Aborted);
-    assert_eq!(restored.journal_position(), 2);
+    assert!(!g.halted());
+    assert_eq!(g.entry_count(), 0);
     assert_eq!(
-        restored.account().asset(fixture::key(2)).unwrap().reserved,
+        g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(0)
     );
+
+    let mut wrong = c.command().clone();
+    wrong.context.request.account = 999;
+    assert!(matches!(
+        g.submit(fixture::canonical(wrong), 60, until()),
+        Err(Error::Identity)
+    ));
+    assert_eq!(
+        g.account().asset(fixture::key(2)).unwrap().reserved,
+        fixture::units(0)
+    );
+    drop(g);
+    assert!(peer.join().unwrap().is_empty());
 }
-#[test]
-fn missing_baseline_or_history_object_rejects_recovery() {
-    for kind in [14, 15] {
-        let (dir, c, mut g, auth, peer) = make(false, 1);
-        g.submit(c, 60, until()).unwrap();
-        drop(g);
-        peer.join().unwrap();
-        let mut blobs = auth.blobs.0.lock().unwrap();
-        let manifest = blobs
-            .iter()
-            .find_map(|(k, b)| matches!(k, tickwire_recovery::StoreKey::Manifest(_)).then_some(b))
-            .unwrap();
-        let manifest = tickwire_recovery::RecoveryManifest::decode(manifest).unwrap();
-        let object = manifest.objects.iter().find(|o| o.kind == kind).unwrap();
-        blobs.remove(&tickwire_recovery::StoreKey::Object(object.content_hash));
-        drop(blobs);
-        let (b, _) = baseline(false);
-        assert!(
-            Gateway::recover(
-                FileBackend::open(&dir.0).unwrap(),
-                config(&b),
-                auth,
-                TestEncoder,
-                None
-            )
-            .is_err()
-        );
-    }
-}
-#[test]
-fn dependency_rejection_or_foreign_account_binding_never_queues_or_reserves() {
-    for which in 0..3 {
-        let (_dir, c, mut g, auth, peer) = make(false, 1);
-        {
-            let mut p = auth.policy.lock().unwrap();
-            p.deny_prepare = which == 0;
-            p.wrong_baseline = which == 1;
-            p.wrong_history = which == 2;
-        }
-        assert!(g.submit(c, 60, until()).is_err());
-        assert!(g.halted());
-        assert_eq!(g.journal_position(), 0);
-        assert_eq!(
-            g.account().asset(fixture::key(2)).unwrap().reserved,
-            fixture::units(0)
-        );
-        drop(g);
-        assert!(peer.join().unwrap().is_empty());
-    }
-}
+
 #[test]
 fn every_fresh_gate_requirement_is_checked_before_first_acceptance() {
-    for which in 0..9 {
-        let (_dir, c, mut g, auth, peer) = make(false, 1);
+    for which in 0..7 {
+        let (c, mut g, auth, peer) = make(false, 1);
         g.submit(c, 60, until()).unwrap();
         {
             let mut p = auth.policy.lock().unwrap();
             match which {
-                0 => p.gate.owner_isolated = false,
-                1 => p.gate.action_permitted = false,
-                2 => p.gate.market_valid = false,
-                3 => p.gate.writer_epoch += 1,
-                4 => p.gate.strategy_generation += 1,
-                5 => p.gate.config_revision += 1,
-                6 => p.gate.lease_until = p.gate.now,
-                7 => p.gate.now = 101,
-                8 => p.gate.now = 59,
+                0 => p.gate.action_permitted = false,
+                1 => p.gate.market_valid = false,
+                2 => p.gate.writer_epoch += 1,
+                3 => p.gate.strategy_generation += 1,
+                4 => p.gate.config_revision += 1,
+                5 => p.gate.now = 101,
+                6 => p.gate.now = 59,
                 _ => unreachable!(),
             }
         }
         drive(&mut g, Status::Aborted);
-        assert_eq!(g.journal_position(), 2);
         assert_eq!(auth.policy.lock().unwrap().gate_calls, 1);
         drop(g);
         assert!(peer.join().unwrap().is_empty());
     }
 }
+
 #[test]
 fn zero_io_budget_is_not_evidence_for_refunding_an_order() {
-    let (_dir, c, mut g, _auth, peer) = make(false, 1);
+    let (c, mut g, _auth, peer) = make(false, 1);
     g.submit(c, 60, until()).unwrap();
     assert!(
         g.poll(
@@ -190,7 +104,6 @@ fn zero_io_budget_is_not_evidence_for_refunding_an_order() {
         .is_err()
     );
     assert_eq!(g.status(intent()), Some(Status::Unknown));
-    assert_eq!(g.journal_position(), 1);
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(60)
@@ -198,9 +111,10 @@ fn zero_io_budget_is_not_evidence_for_refunding_an_order() {
     drop(g);
     peer.join().unwrap();
 }
+
 #[test]
-fn exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record() {
-    let (_dir, c, mut g, _auth, peer) = make(false, 1);
+fn exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_entry() {
+    let (c, mut g, _auth, peer) = make(false, 1);
     g.submit(c.clone(), 60, until()).unwrap();
     let mut conflict = c.command().clone();
     conflict.context.request.deadline += 1;
@@ -209,7 +123,7 @@ fn exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record() 
         Err(Error::Conflict)
     ));
     assert_eq!(g.submit(c, 60, until()).unwrap(), Status::Unknown);
-    assert_eq!(g.journal_position(), 1);
+    assert_eq!(g.entry_count(), 1);
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(60)
@@ -217,11 +131,12 @@ fn exact_retry_survives_halt_but_conflicting_retry_freezes_without_new_record() 
     drop(g);
     assert!(peer.join().unwrap().is_empty());
 }
+
 #[test]
 fn public_fact_entry_cannot_forge_admission_or_zero_acceptance() {
-    let (_dir, c, mut g, _auth, peer) = make(false, 1);
+    let (c, mut g, _auth, peer) = make(false, 1);
     g.submit(c.clone(), 60, until()).unwrap();
-    let image = g.committed(intent()).unwrap().admission().image();
+    let image = g.admission(intent()).unwrap().image();
     for record in [
         RecoveryRecord::Admit {
             command: Box::new(c.clone()),
@@ -235,7 +150,6 @@ fn public_fact_entry_cannot_forge_admission_or_zero_acceptance() {
     ] {
         assert!(matches!(g.record_fact(record), Err(Error::Invalid)));
     }
-    assert_eq!(g.journal_position(), 1);
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(60)
@@ -243,9 +157,10 @@ fn public_fact_entry_cannot_forge_admission_or_zero_acceptance() {
     drop(g);
     assert!(peer.join().unwrap().is_empty());
 }
+
 #[test]
-fn repeated_trade_keeps_new_observation_and_replays_cashflow_once() {
-    let (dir, c, mut g, auth, peer) = make(false, 16384);
+fn repeated_trade_keeps_new_observation_and_applies_cashflow_once() {
+    let (c, mut g, _auth, peer) = make(false, 16384);
     g.submit(c.clone(), 60, until()).unwrap();
     drive(&mut g, Status::Flushed);
     let mut trade = fixture::fill(c.command(), "t1", "0.0004", "50000", "20");
@@ -263,20 +178,17 @@ fn repeated_trade_keeps_new_observation_and_replays_cashflow_once() {
     fill.observation.status = v::OrderStatus::Canceled;
     fill.observation.cumulative_quantity = Some("0.0004".parse().unwrap());
     assert_eq!(g.record_event(fixture::event(trade)).unwrap(), Applied::New);
-    assert_eq!(g.journal_position(), 4);
     let before = g.account().asset(fixture::key(2)).unwrap();
     assert_eq!(before.total, fixture::units(980));
     assert_eq!(before.reserved, fixture::units(0));
     drop(g);
     peer.join().unwrap();
-    let restored = reopen(&dir, auth);
-    assert_eq!(restored.journal_position(), 4);
-    assert_eq!(restored.account().asset(fixture::key(2)).unwrap(), before);
 }
+
 #[test]
 fn externally_frozen_account_can_still_cancel_and_query_on_healthy_connection() {
     for query in [false, true] {
-        let (_dir, c, mut g, auth, peer) = make(false, 16384);
+        let (c, mut g, auth, peer) = make(false, 16384);
         g.submit(c.clone(), 60, until()).unwrap();
         drive(&mut g, Status::Flushed);
         g.record_event(fixture::event(fixture::fee(
@@ -292,7 +204,6 @@ fn externally_frozen_account_can_still_cancel_and_query_on_healthy_connection() 
         {
             let mut p = auth.policy.lock().unwrap();
             p.gate.now = 1001;
-            p.gate.lease_until = 2000;
             p.gate.market_valid = false;
         }
         g.submit(cancel, 1000, until()).unwrap();
@@ -312,99 +223,25 @@ fn externally_frozen_account_can_still_cancel_and_query_on_healthy_connection() 
         assert!(!peer.join().unwrap().is_empty());
     }
 }
-#[test]
-fn reducer_error_preserves_external_input_and_recovery_refuses_to_skip_it() {
-    let (dir, c, mut g, auth, peer) = make(false, 16384);
-    g.submit(c.clone(), 60, until()).unwrap();
-    drive(&mut g, Status::Flushed);
-    g.record_event(fixture::event(fixture::fill(
-        c.command(),
-        "t1",
-        "0.0004",
-        "50000",
-        "20",
-    )))
-    .unwrap();
-    assert!(matches!(
-        g.record_event(fixture::event(fixture::fill(
-            c.command(),
-            "t1",
-            "0.0005",
-            "50000",
-            "25"
-        ))),
-        Err(Error::Account(tickwire_account::Error::Conflict))
-    ));
-    assert_eq!(g.journal_position(), 3);
-    assert!(g.account().frozen());
-    assert!(!g.halted());
-    drop(g);
-    peer.join().unwrap();
-    let (b, _) = baseline(false);
-    assert!(
-        Gateway::recover(
-            FileBackend::open(&dir.0).unwrap(),
-            config(&b),
-            auth,
-            TestEncoder,
-            None
-        )
-        .is_err()
-    );
-}
-#[test]
-fn frozen_recovery_accepts_durable_reconciliation_but_never_new_admission() {
-    let (dir, c, mut g, auth, peer) = make(false, 1);
-    g.submit(c, 60, until()).unwrap();
-    drop(g);
-    peer.join().unwrap();
-    let mut restored = reopen(&dir, auth);
-    restored
-        .record_fact(RecoveryRecord::UnattributedCashFlow {
-            id: fixture::venue::text("external"),
-            delta: AssetAmount {
-                key: fixture::key(2),
-                amount: fixture::units(5),
-            },
-        })
-        .unwrap();
-    assert_eq!(restored.journal_position(), 2);
-    assert_eq!(
-        restored.account().asset(fixture::key(2)).unwrap().total,
-        fixture::units(1005)
-    );
-    assert!(restored.halted() && restored.account().frozen());
-}
 
 #[test]
-fn rejected_fee_closure_keeps_the_wal_replayable_and_the_reservation_live() {
-    let (dir, c, mut g, auth, peer) = make(false, 16384);
-    g.submit(c.clone(), 60, until()).unwrap();
-    drive(&mut g, Status::Flushed);
-    let order = g.account().admission(intent()).unwrap().orders()[0].clone();
-    for cumulative in ["0.001", "0"] {
-        g.record_event(fixture::event(fixture::terminal(c.command(), cumulative)))
-            .unwrap();
-    }
-    let view = g.account().order(&order).unwrap();
-    let position = g.journal_position();
-    let ledger = g.account().ledger_sequence();
-    let frontier = g.history_frontier().digest();
-    assert!(matches!(
-        g.record_fact(RecoveryRecord::FeesReconciled {
-            order: order.clone(),
-            cumulative: view.filled_quantity,
-        }),
-        Err(Error::Account(tickwire_account::Error::Unreconciled))
-    ));
-    assert!(g.account().frozen());
-    assert_eq!(g.journal_position(), position);
-    assert_eq!(g.account().ledger_sequence(), ledger);
-    assert_eq!(g.history_frontier().digest(), frontier);
+fn halted_gateway_accepts_reconciliation_facts_but_never_new_admission() {
+    let (c, mut g, _auth, peer) = make(false, 1);
+    g.submit(c, 60, until()).unwrap();
+    g.stop_sending();
+    assert!(g.halted() && g.account().frozen());
+    g.record_fact(RecoveryRecord::UnattributedCashFlow {
+        id: fixture::venue::text("external"),
+        delta: AssetAmount {
+            key: fixture::key(2),
+            amount: fixture::units(5),
+        },
+    })
+    .unwrap();
+    assert_eq!(
+        g.account().asset(fixture::key(2)).unwrap().total,
+        fixture::units(1005)
+    );
     drop(g);
     peer.join().unwrap();
-    let restored = reopen(&dir, auth);
-    assert_eq!(restored.history_frontier().digest(), frontier);
-    assert!(restored.account().frozen());
-    assert!(!restored.account().order(&order).unwrap().fee_reconciled);
 }

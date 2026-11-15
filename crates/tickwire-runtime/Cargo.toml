@@ -9,27 +9,35 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-tickwire-instrument-catalog = { path = "../tickwire-instrument-catalog" }
-tickwire-release = { path = "../tickwire-release" }
-tickwire-account-codec = { path = "../tickwire-account-codec" }
+mio = { version = "=1.2.4", default-features = false, features = ["net", "os-poll"] }
 tickwire-account = { path = "../tickwire-account" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
-tickwire-account-journal = { path = "../tickwire-account-journal" }
-tickwire-binance = { path = "../tickwire-binance" }
-tickwire-binance-account = { path = "../tickwire-binance-account" }
-tickwire-binance-clock = { path = "../tickwire-binance-clock" }
-tickwire-binance-execution = { path = "../tickwire-binance-execution" }
-tickwire-binance-private = { path = "../tickwire-binance-private" }
-tickwire-binance-public = { path = "../tickwire-binance-public" }
-tickwire-binance-quota = { path = "../tickwire-binance-quota" }
-tickwire-binance-session = { path = "../tickwire-binance-session" }
-tickwire-book = { path = "../tickwire-book" }
 tickwire-clock = { path = "../tickwire-clock" }
-tickwire-journal = { path = "../tickwire-journal" }
-tickwire-market-source = { path = "../tickwire-market-source" }
-tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-clock-sys = { path = "../tickwire-clock-sys" }
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+tickwire-instrument-catalog = { path = "../tickwire-instrument-catalog" }
+tickwire-ipc = { path = "../tickwire-ipc" }
+tickwire-quota = { path = "../tickwire-quota" }
+tickwire-risk = { path = "../tickwire-risk" }
+tickwire-runtime-policy = { path = "../tickwire-runtime-policy" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [dev-dependencies]
-tickwire-risk = { path = "../tickwire-risk" }
+sha2 = "=0.10.9"
+tickwire-strategy-host = { path = "../tickwire-strategy-host" }
+
+[features]
+default = []
+crc32 = [
+    "tickwire-ipc/crc32",
+    "tickwire-shm/crc32",
+    "tickwire-control/crc32",
+    "tickwire-control-sys/crc32",
+    "tickwire-strategy-sdk/crc32",
+]

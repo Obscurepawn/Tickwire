@@ -1,38 +1,18 @@
-# tickwire-runtime-policy
+# `tickwire-runtime-policy` Engineering Guide (`AGENTS.md`)
 
-`tickwire-runtime-policy` (`#![forbid(unsafe_code)]`) owns the in-memory control-plane policy reducer (`ControlPlane`)
-that combines supervisor `OwnerLease` fencing, `StrategyGrant` and `ManagementGrant` permissions, market-feed
-freshness (`FeedRequirement`, `FeedUpdate`), and verified private-state reconciliation (`ReconciliationRequest`) into
-`tickwire-account-gateway::Gate` decisions. Single-threaded trading runtimes feed authenticated control updates, feed
-marks, and private connection state into `ControlPlane` and attach it as a `GateProvider`; OS process isolation,
-network I/O, and cryptographic proof generation belong to upstream callers.
+Governing specification: [`specs/implementation/runtime-policy.md`](../../specs/implementation/runtime-policy.md).
 
-## Invariants and Change Guidelines
+## Role and Ownership
 
-* **Conjunction of lease, mode, reconciliation, and grant at every gate**: In [src/lib.rs](src/lib.rs), `Gate`
-  evaluation samples `PolicyClock` synchronously and requires a live `OwnerLease` (`now < valid_until_ns`, matching
-  `executor_id`, `owner_generation`, `writer_epoch`, and `ClockDomain`) before permitting any command; `Mode::Stopped`
-  blocks all actions, `Mode::ManageOnly` permits only risk-reducing cancels and queries, and `Mode::Trading`
-  additionally requires fresh `required_feeds` and reconciled private state for risk increases.
-* **Surviving `ManagementGrant` for revocations**: Keep `ManagementGrant` authorization independent of revoked or
-  expired `StrategyGrant` slots so the executor can still cancel or query outstanding orders for named strategies
-  without opening new exposure.
-* **Exact-prefix reconciliation binding**: `ReconciliationVerifier::verify` must attest the exact
-  `(scope, product, writer_epoch, input_stream, connection_epoch, gap_generation, through_sequence, baseline_digest, history_digest, query_coverage_digest)`
-  tuple; a raw socket reconnect never restores reconciliation on its own.
-* **Monotonic epoch and generation ratchets**: Enforce non-decreasing `lease_epoch`, `authorization_epoch`,
-  `strategy_generation`, and `FeedUpdate` sequence/timestamp marks across [src/lib.rs](src/lib.rs) and
-  [src/bootstrap.rs](src/bootstrap.rs), rejecting stale or conflicting control inputs.
+`tickwire-runtime-policy` provides the stateless, venue-agnostic control policy (`OrsRuntimePolicy` / `ControlPlane`) for the unified Order Routing System (ORS) execution process:
 
-## Verification and Specifications
+- **Stateless process `Mode`:** Lock-free atomic mode transitions across `Mode::Trading`, `Mode::ManageOnly` (`Mode::RestrictedCancelOnly`), and `Mode::Stopped`.
+- **Strategy whitelist & account routing:** `O(1)` validation of `strat_id` (`0..=254`; `255` reserved for `ALL_ORS_STRATS`), `account_ref = 0` resolution to the first authorized account in `enabled_accounts` order, and explicit `account_ref = 1..=255` authorization checks (`InvalidStratId`, `InvalidAccountId`, `RejectRoutingIdMismatch`).
+- **Granular `active`, `connected`, and `(account_ref, strat_id)` `enabled` bitsets:** Atomic `Ordering::AcqRel` bitsets supporting DOP single-login gating, strategy-wide enable/disable, and per-`(account_ref, strat_id)` enable/disable (`AdminAction`) without touching sibling accounts or holding any mutex.
 
-* **Source and unit tests**: [src/lib.rs](src/lib.rs) · [src/bootstrap.rs](src/bootstrap.rs) ·
-  [src/tests.rs](src/tests.rs)
-* **Specifications and models**: [runtime-policy.md](../../specs/implementation/runtime-policy.md) ·
-  [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md) ·
-  [spot_roundtrip](../../tla/execution_models/spot_roundtrip/ROADMAP.md) ·
-  [quote_delivery](../../tla/execution_models/quote_delivery/ROADMAP.md)
+## Non-Negotiable Invariants
 
-```sh
-cargo test --locked -p tickwire-runtime-policy --all-targets
-```
+1. `#![forbid(unsafe_code)]` and exact integer/bitset arithmetic only (zero floating-point types).
+2. **Venue agnosticism:** Zero dependencies on exchange-specific adapter crates, local WAL/journal crates, lease renewal/preemption, or SHM quote freshness watermarks.
+3. **Zero hot-path allocation:** `evaluate`, `resolve_account_ref`, `mode`, `set_mode`, `set_active`, `try_connect`, `disconnect`, `set_global_strat_enabled`, and `set_strat_enabled` execute in `O(1)` stack/atomic instructions with zero heap allocation.
+4. **Code-Doc Lockstep:** Keep [`specs/implementation/runtime-policy.md`](../../specs/implementation/runtime-policy.md), this `AGENTS.md`, and [`src/lib.rs`](src/lib.rs) `//!` rustdoc synchronized on any API or behavioral change.

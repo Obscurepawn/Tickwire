@@ -1,141 +1,61 @@
-# Single-Host Trading Architecture
+# Stateless Single-Host 3-Process Trading Runtime (`tickwire-runtime`)
 
-A single-host Tickwire deployment runs the public market-data publisher, hosted strategy workers, and the account execution runtime on one Linux machine. Each public market source binds at startup to a specific venue, native instrument symbol, and immutable catalog version, while each strategy worker subscribes to normalized shared-memory market streams and submits canonical trading commands into a single account risk domain. Within that risk domain, one account process acts as the sole state writer: it serializes competing claims on cash and margin, persists recovery dependencies and economic facts to a local write-ahead journal, and gates every outbound wire transmission right before the first plaintext byte enters TLS. Exchange and product coverage across deployments is summarized in the [exchange support matrix](../../README.md#exchange-support).
+## Topology Overview
 
-Separating market decoding, strategy execution, and account ownership into distinct OS processes isolates tail-latency interference and process faults without introducing cross-host consensus on the order path. The market-data publisher decodes native WebSocket frames once for any number of local readers; the strategy host supervises child worker processes and routes execution reports back to the originating strategy; and the account gateway enforces financial and authorization invariants even if a worker stalls, crashes, or submits stale intents.
+Tickwire executes live trading on a single Linux host as three cooperating, pure stateless shared-memory (`memfd`-sealed) processes with **zero local WAL, journal, blob-store, owner-lease, or dynamic config-patch files**:
 
-## Components and Data Flow
+1. **Market-Data Publisher (`tickwire-md`):** Sole owner of public exchange market-data feeds, sequence continuity, order-book maintenance, and SHM broadcast rings (`MarketRecord` / `MarketExactRecord`).
+2. **Strategy Workers (`tickwire-strategy-sdk` / `tickwire-strategy-host`):** Join `tickwire-md` SHM broadcast rings, complete DOP logon (`DopLogin` -> `DopEcho` + `OrsSessions`) over a `0o700` Unix control socket, publish inline 1,024-byte `IntentRecord`s, and consume inline 512-byte `ReportRecord`s.
+3. **Unified Venue-Agnostic ORS Process ([`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs)):** `1 ORS process = 1 Venue`, managing `1..N` `AccountSession`s (`1 AccountSession = 1 Exchange UID`, `account_ref = 1..=255` with `0` routing to the strategy's first authorized account), holding **zero public market-data connections and zero SHM quote subscriptions**.
 
-```mermaid
-flowchart LR
-    V[Public exchange feed] -->|native WebSocket frames| MD[Market-data process]
-    MD -->|JOIN baseline and shared ring| A[Strategy worker A]
-    MD -->|same ring, independent cursor| B[Strategy worker B]
-    MD -->|market state and freshness| GW
-    A -->|intent reference| Host[Strategy host]
-    B -->|intent reference| Host
-    Host -->|canonical command, deadline, recovery inputs| GW[Account gateway]
-    GW -->|admission and economic facts| WAL[(Account journal)]
-    GW -->|signed request after first-write check| Venue[Exchange order endpoint]
-    Venue -->|acknowledgement or status| Adapter[Execution adapter]
-    Private[Private feed] -->|orders and trades| Adapter
-    Adapter -->|matched status or individual fill| GW
-    WAL -->|baseline and ordered reports| Host
-    Host -->|account updates| A
-    Host -->|account updates| B
-```
+[`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs) compiles under `#![forbid(unsafe_code)]`, performs zero floating-point arithmetic, and depends on **zero venue-specific crates**—all exchange protocol framing and REST payloads plug into the generic `VenueSession` trait ([`session.rs`](../../crates/tickwire-runtime/src/session.rs)).
 
-The public market-data feed and each hosted strategy execute in separate processes, whereas the strategy host and `AccountGateway` share the single-threaded account process. When configured with market sources, the account process also attaches directly to the shared-memory publisher so `ControlPlane` can verify feed liveness, sequence lag, and quote age independently of strategy claims before admitting risk-increasing orders.
+## Reproduce Native Quote Decoding
 
-| Component | Owner / Caller | Contract and Data Boundary |
-| --- | --- | --- |
-| Venue decoder | Market-data input thread | `Session::on_text` consumes venue subscription acknowledgements and quotes carrying source epoch, venue sequence, exchange and local receive timestamps, instrument identity, and integer bid/ask ticks and lots. |
-| Shared publisher & JOIN | Market-data owner | `TopicPublisher::on_spot_quote` writes normalized quote and feed-health records into a shared-memory ring; JOIN supplies a consistent snapshot baseline and starting ring cursor to workers that attach after startup. |
-| Strategy implementation | SDK worker process | `Strategy::on_market` receives a borrowed `MarketView`, reads normalized top-of-book state via `best_quote()`, updates worker-private algorithm state, and optionally emits a `CanonicalCommand`. |
-| Intent writer & strategy host | SDK worker and account runtime | `IntentWriter::publish` persists canonical command bytes and transmits an intent reference over IPC; the receiving host resolves the payload, checks worker instance and intent sequence, and constructs a `Submission` carrying local order IDs, send deadline, and recovery dependencies. |
-| Account gateway | Account runtime | `AccountGateway::submit` evaluates risk on a candidate `Account` and synchronizes recovery dependencies plus `Admit` to the WAL; `poll` rechecks the live `Gate` immediately before the first TLS write, while byte-identical retries return the stored status. |
-| Execution adapter | Gateway and private-input owner | Signs outbound native requests and correlates inbound acknowledgements, order-status snapshots, and individual trade fills back to the admitted order before journaling each economic transition. |
+In the stateless 3-process architecture, public quote decoding and book reconstruction execute exclusively inside `tickwire-md` and strategy workers—never inside `tickwire-runtime`. When strategy workers decode a quote from `tickwire-md`, they stamp `IntentBody::tick_mono_ns` with the triggering quote's local monotonic receipt timestamp (`CLOCK_MONOTONIC_RAW` / monotonic clock). To verify native quote decoding in isolation, run the market-data publisher and strategy SDK suites (`cargo test --locked -p tickwire-md -p tickwire-strategy-sdk`); to verify ORS stale-quote enforcement against `tick_mono_ns`, run `cargo test --locked -p tickwire-runtime --all-targets`.
 
-## Core Invariants
+## Venue-Agnostic `VenueSession` Trait (`session.rs`)
 
-* **Startup binding and epoch isolation**: Venue symbol formatting, decimal price/quantity scales, TLS session configuration, and ring capacity are bound during startup or reconnect rather than on the per-quote path. Every reconnect advances the source epoch and withholds trading eligibility until a fresh quote arrives on the new epoch.
-* **Independent reader cursors over shared market memory**: Multiple strategy workers read the same memory-mapped publication ring through independent cursors. A slow worker never blocks publication or peers; if its cursor falls behind the retained ring window, it must re-synchronize through a fresh JOIN baseline before emitting new triggers.
-* **Single-writer serialization per risk domain**: Strategies maintain independent logical IDs, instance UUIDs, and monotonic intent sequences, while one `AccountGateway` serializes every reservation against shared balances. All processes attached to an account point to the same journal directory and contend on one exclusive writer lock held for the writer's lifetime.
-* **Configurable commit persistence (`InMemory`, `MmapAsync`, `LocalDurable`) and first-byte re-verification**: No request enters the outbound socket queue until its recovery closure and `Admit` record commit to the configured `StorageMode`: `InMemory` (default stateless RAM store for ephemeral public-cloud Pods using `SelfDescribingClientId` + cold exchange REST bootstrap), `MmapAsync` (preallocated `MAP_SHARED` segments + `MMAP-CURSOR.bin` + background `fdatasync` thread delivering ~100 ns hot-path commits with 100% deterministic `SIGKILL` recovery), or `LocalDurable` (synchronous `fsync` before queueing). If transport fails after partial acceptance, the reservation remains locked until venue reconciliation proves the terminal outcome.
-* **Cluster-restore rejection on single-host state**: Moving an existing deployment requires copying the matching account journal, recovery object store, and input journal from the same history. Startup rejects directories carrying legacy cluster markers (`FAILOVER-IN-PROGRESS` or `FAILOVER-COMPLETE.json`) and rejects scalar business journals configured with `LegacySyncReplica` (`Error::UnsupportedProfile`), while still verifying historical strategy-handover evidence during replay.
+Each `AccountSession<S: VenueSession>` pairs generic ORS state (`AccountSpec`, `PublishedRoutes`, `UrlConnections` pools, `OrsAccountQuota`, `OrsQueryDesk`, `AsyncRestQuerier`, `GuardedValue` stream token) with a venue driver `S`:
 
-## State Transitions and Failure Semantics
+- **Outbound Order Hooks (`REQ` thread):**
+  - `submit_new`, `submit_cancel`, `submit_modify` (backed by default generic orchestration over `encode_new_order`, `encode_cancel_order`, `encode_modify_order`, and `build_order_spends`):
+    1. Runs `OrderManager` reservation + lock-free atomic `OrsStpBook` self-cross check (`Order` spinlock acquired and released before touching any connection).
+    2. Honors `dry_run` (`IntentBody::intent_flags & DRY_RUN != 0`): uses `OrderManager`'s scratch slot, immediately releases the reservation, and skips route selection, rate-limiter spend, and socket write.
+    3. Selects a ready route via `PublishedRoutes::pick` respecting `OrderRoute.product_mask`, then executes `SharedRateLimiter::pick_and_spend_or_nack` on the picked connection's `local_ip`—**NACKing immediately (`RefusalReason::RateLimited`) without retrying another connection** if either account or IP budget refuses.
+    4. Encodes the venue wire frame into caller-supplied stack/thread scratch storage and calls `LockedConnection::send_frame` without holding any `Order` spinlock.
+- **Optional RFQ Quote Hooks:**
+  - `has_quote` (`false`), `open_quotes` (`0`), `submit_quote`, and `cancel_quotes`, defaulting to immediate refusal with `RefusalReason::RfqQuoteNotSupported`.
+- **Inbound & Session Lifecycle Hooks (`RESP` & `Dialer`):**
+  - `connection_url`, `encode_login`, `awaits_login_reply`, `login_reply`, `login_challenge`, `encode_subscribe`, `fix_session`, `fix_logon`, `is_pong`, `reply_to_ping`, `reply_id`, `encode_ping`, `on_message`, and `on_disconnected`.
+  - `SessionMessageEffects` carries `OrsVenueEvent`s, rising-edge `ExchRateLimitEvent`s, `query_status` requests (`OrsQueryDesk`), `stream_token_expired` notifications, and `graceful_drain_connection: bool` for OKX/Bybit server-maintenance `notice` smooth switchover (unpublishing the draining slot from `PublishedRoutes`, requesting a fresh replacement connection from `Dialer`, and closing the draining socket once in-flight requests reach zero).
+- **Off-Hot-Path REST Hooks (`AsyncRestQuerier` & Cold Bootstrap):**
+  - `has_stream_token`, `stream_token_query`, `on_stream_token_reply`, `open_orders_queries`, `order_status_query`, `status_query_delay_ms`, `apply_status`, and cold-start `bootstrap_snapshots`.
 
-### Event-Loop Turn Ordering
+## `OrderRoutingSystem<S>` and Thread / CPU Isolation (`ors.rs`, `node.rs`)
 
-In the Binance `CoreNode` runtime, a single event-loop turn polls the calibrated clock, public market stream, authenticated private stream, and up to `16` completed execution outcomes (`RestOwner::has_queued_outcomes`, keeping `Report::runnable = true` if additional completions remain queued) *before* polling strategies for outbound commands. `CoreNode` exposes `set_projected_fill`, `drain_projected_fills`, and `set_stp_enforcement` over `RestOwner`, allowing strategies and hosts to consume volatile `ProjectedFill` estimates ahead of `TRADE` frames and enforce local `StpBook` self-trade prevention (`Error::CrossesBook`) prior to wire transmission. When `RestOwner` runs in pooled HTTP/1.1 mode (`has_connection_pool()`), `CoreNode::registrations` registers active pool slots under `mio::Token(100 + conn_id)` via `RestOwner::reregister_all` while preserving `mio::Token(6)` in single-connection mode. Because inbound fills, modifications (`VenueEventBody::Modified` / `ModifyRejected`), and cancellations across all pooled links or multiplexed WebSocket requests are journaled and applied to `Account` earlier in the turn, subsequent strategy submissions in the same turn are evaluated against up-to-date balances, positions, and `StpBook` price levels. Local admission refusals (`CrossesBook`, `OrderNotOpen`, `TooManyPendingActions`, `InvalidPrice`, `InvalidQuantity`, `NoChange`, `InsufficientAsset`, `InsufficientCapital`, `Limit`, `ManagementDenied`) classify into `TerminalReason` via `tickwire_binance_account::Error::classify_refusal_reason`, remove the staged `RecoveryBundle`, and report a per-intent refusal to `Strategy::on_submission` without freezing `Account`, halting `CoreNode`, or deducting venue rate-limit quota. The runtime refreshes monotonic time after account polling and again prior to each submission, and enforces explicit `IoBudget` slices and `maximum_commands_per_turn` limits so a chatty feed or strategy cannot starve private-stream processing. When configured via `CoreNode::with_warmup_interval_ns` / `set_warmup_interval_ns` (`0` = disabled by default, seeding `record_activity` from `self.time()` when enabled from `last_activity_ns == 0 && last_warm_ns == 0` so cold startup waits a full `warmup_interval_ns`), `CoreNode` records activity on any turn with market messages, private messages, REST completions, strategy submissions, or `report.runnable`, routes quiescent turns through `CoreNode::maybe_warm_hot_path(now_ns)` (which advances `record_activity(now_ns)` whenever `frozen() || halted() || !submission_ready()`, and also records activity if `maybe_warm_hot_path` returns `Err(_)`), and clamps `mio::Poll` `next_deadline_ns` to `next_warmup_due_ns()` strictly when `!frozen() && !halted() && submission_ready()` so unready or halted nodes never busy-spin on `0ns` reactor sleeps.
+`OrsProcess<S>` ([`node.rs`](../../crates/tickwire-runtime/src/node.rs)) enforces strict hot-vs-cold core isolation validated at startup via `tickwire_control_sys::validate_cpu_isolation(&[("req_cpu", req_cpu), ("resp_cpu", resp_cpu)], housekeeping_cpus.as_ref())`:
 
-### Command Intake Gate
+1. **`REQ` Hot Thread (`req_cpu`, busy-spin, zero `sleep`):**
+   - Polls strategy `IntentReader`s (`1,024B` `IntentRecord`s).
+   - Enforces the **microsecond stale-order gate**: when `max_order_age_ns > 0` (default `23_000` ns = `23 us`) and `intent.tick_mono_ns > 0`, if `now_mono_ns.saturating_sub(intent.tick_mono_ns) > max_order_age_ns`, refuses that single order immediately with `RefusalReason::RejectStaleOrder` (`Nack` `ReportRecord`) **without freezing any account or strategy**.
+   - Checks [`OrsRuntimePolicy`](runtime-policy.md), flat lock-free `RmsEngine`, `OrderManager` (`account-gateway` / [`command-binding.md`](command-binding.md)), `PublishedRoutes`, and `SharedRateLimiter`.
+   - Drains the lock-free `control -> REQ` `AdminCommands` queue when idle (`CancelOne`, `CancelAll`, `Suspend`, `Resume`, `SetStratEnabled`, `SetActive`, `LogoutClient`, `RmsReload`).
+2. **`RESP` Hot Thread (`resp_cpu`, `mio::Poll` with configurable `epoll_wait_ms`, default `0`):**
+   - Harvests ready connections from `Dialer` (`DialBaton`), drives `LockedConnection` socket reads/heartbeats, applies `VenueSession::on_message` / `on_disconnected` to `OrderManager` and `RmsReloadHandle::record_execution_fee`, drains `AsyncRestQuerier` replies (`OrsQueryDesk`), drains `control -> RESP` `AdminCommands` (`QueryOpen`, `Dump`, `ForceClose`, `ResendHeartbeat`), and publishes 512-byte `ReportRecord`s (`Ack`, `FrontAck`, `Nack`, `CancelNack`, `Fill`, `Canceled`, `Modified`, `ModifyRejected`, `ExchRateLimit`, `OrsRestricted`, `OrsShutDown`).
+3. **Cold Housekeeping Threads (`housekeeping_cpus`):**
+   - Every non-hot thread—`Dialer` (`tw-dialer`), per-account `AsyncRestQuerier` (`tw-rest-query`), `LatencyTracer` sink (`tw-lat-trace`), DOP `ControlServer` (`tw-ors-ctrl`), and the `main` `SignalWaiter` loop—is explicitly pinned to `housekeeping_cpus` via `spawn_pinned_thread` / `pin_current_thread` so inheriting a parent `taskset` never leaks background activity onto `req_cpu` or `resp_cpu`.
 
-Both file-backed strategy queues and the hosted strategy IPC receiver pre-screen incoming commands through `Health::intake` before invoking candidate risk evaluation:
+## DOP `ControlServer`, `AdminCommands`, and OS Signal Lifecycle (`admin.rs`, `files.rs`)
 
-* **Wait before readiness**: If the clock is not yet calibrated (`!calibrated`) or the outbound gateway is halted (`sender_halted`), `Health::intake` returns `Intake::Wait` so queued requests stay buffered rather than failing spuriously during startup or transient transport halts.
-* **Strict monotonic deadline expiration**: Once clock and sender state permit evaluation, `Health::intake` compares `command.context.request.deadline` against `now.monotonic.nanos()`. A deadline equal to or earlier than sampled monotonic time returns `Intake::Expired` (`Intake::DeadlineOverflow` if `Instant` conversion overflows).
-* **Administrative priority under degraded health**: Fresh `Cancel`, `CancelList`, `CancelAlgo`, and `Query` commands return `Intake::Ready(deadline)` even when market data is stale, the private stream is disconnected, or `Account` is frozen, allowing risk reduction and state inspection during incidents. All other commands wait until `Health::ready()` confirms `calibrated`, `market_live`, `private_receiving`, `!account_frozen`, and `!sender_halted`.
-
-`Health::intake` performs only enum pattern matches and checked integer subtractions with zero heap allocations. Passing intake schedules the command for gateway review; final permission to transmit still depends on durable admission and the synchronous first-byte `Gate` check inside `AccountGateway::poll`.
-
-## Performance and Cost
-
-| Architectural Decision | Saturation and Failure Behavior | Hot-Path Cost Profile |
-| --- | --- | --- |
-| Bind adapter and catalog at startup | Configuration or ownership changes pause new risk; restart replays unresolved exposure before reactivation. | Per-quote processing pays only fixed-point tick/lot conversion and integer comparisons; TLS handshakes, schema validation, and buffer allocation stay off the trading path. |
-| Fan out market data via shared ring | A lagging worker loses its ring window and re-enters JOIN without delaying the publisher or healthy strategies. | One JSON parse and shared-memory write serve all local readers; each worker pays only its own cache-line reads and local replica update. |
-| Single-writer account gateway | Competing workers queue behind one writer; bounded per-turn command budgets cap cross-worker head-of-line delay. | Eliminates cross-process locking on balances; end-to-end order tail latency includes local WAL `fsync` and TLS first-write readiness. |
-
-On the Bybit and OKX public spot feed path, a single-slot bounded channel connects the WebSocket reader thread to the shared-memory publisher thread; if the slot is full, backpressure blocks the reader directly rather than growing an unbounded heap queue. Each complete two-sided BBO update writes two 512-byte ring records—one carrying exact integer quote ticks and lots alongside the receive timestamp, and one carrying feed health. Allocation-counting integration tests confirm zero heap allocations from the first acknowledged BBO text frame through shared-memory publication after startup (excluding kernel socket reads, TLS decryption, worker scheduling, checkpoints, and strategy callbacks).
-
-### Reproduce native quote decoding
-
-```sh
-taskset -c 2 cargo bench --locked -p tickwire-md --bench spot_bbo_decode
-```
-
-The benchmark starts a timer on a complete native JSON text frame in memory and stops after constructing the integer quote input passed to the publisher, including the timer's own clock-read overhead while excluding TLS, cross-thread handoff, ring publication, worker wakeups, and disk I/O. Each release-build round measures 100,000 two-sided frames per venue following 4,096 warm-up frames. Across five rounds pinned to CPU 2 on a shared Ryzen 7 8845H host under WSL2, the median of the five reported percentiles was:
-
-| Venue | p50 | p99 | p99.9 | Per-round p99.9 range |
-| --- | ---: | ---: | ---: | ---: |
-| Bybit | 601 ns | 1,393 ns | 10,811 ns | 3.1 – 27.1 µs |
-| OKX | 872 ns | 1,483 ns | 13,085 ns | 3.8 – 24.8 µs |
-
-### Reproduce idle-window hot-path & loopback TLS cache warming
-
-```sh
-taskset -c 2 cargo bench --locked -p tickwire-spot-execution --bench hotpath_warmup
-```
-
-`hotpath_warmup` (`#![forbid(unsafe_code)]`, integer-only percentile accounting) measures:
-
-1. Bidirectional TLS 1.3 encrypt + decrypt + AEAD tag verification on the isolated in-memory `TlsLoopbackWarmer::warm_step_exchange` pair (10,000 iterations, zero syscalls, zero steady-state heap allocations);
-2. `RestSession::maybe_warm_hot_path` active-skip check cost (`now_ns - last_activity_ns < warmup_interval_ns`) and full 4-stage dry-run cost when due (sample BBO decode + read-only `&Account` / `StpBook::self_cross` + synthetic HMAC-SHA256 HTTP `POST` frame + `TlsLoopbackWarmer` roundtrip + `200 OK` JSON ack decode, 5,000 iterations); and
-3. Interleaved **Cold** vs **Warmed** first-order execution latency (240 rounds per venue) on a *separate* live `SpotEncoder` + established in-memory `rustls` TLS 1.3 session + `decode_reply`, immediately following a 32 MiB LLC stride-64B sweep and multi-branch `SHA-512` / `serde_json` L1i + BTB thrash.
-
-Pinned to CPU 2 on an `AMD Ryzen 7 8845H w/ Radeon 780M Graphics` host running `Linux 6.18.58.1-microsoft-standard-WSL2 #1 SMP PREEMPT_DYNAMIC x86_64` (1-min load average `0.61–0.64`):
-
-| Path / Scenario | Venue | p50 | p90 | p99 | p99.9 | Notes / Speedup |
-| --- | --- | ---: | ---: | ---: | ---: | --- |
-| `TlsLoopbackWarmer::warm_step_exchange` | TLS 1.3 loopback | 761 ns | 792 ns | 1,002 ns | 13,095 ns | Bidirectional encrypt + decrypt, 0 syscalls |
-| `RestSession::maybe_warm_hot_path` (active skip) | Bybit / OKX | 5 ns | — | — | — | Syscall-free `WarmupTracker` timestamp check |
-| `RestSession::maybe_warm_hot_path` (full 4-stage) | Bybit V5 Spot | 2,384 ns | 2,425 ns | 3,156 ns | 21,571 ns | Stack BBO + `Account`/`StpBook` + HMAC + TLS 1.3 |
-| `RestSession::maybe_warm_hot_path` (full 4-stage) | OKX V5 Spot | 2,274 ns | 2,805 ns | 3,738 ns | 26,983 ns | Stack BBO + `Account`/`StpBook` + Base64 HMAC + TLS 1.3 |
-| First live order after 32 MiB LLC + L1i thrash (**Cold**) | Bybit V5 Spot | 19,047 ns | — | 50,287 ns | 85,926 ns | Separate live `SpotEncoder` + live TLS 1.3 pair |
-| First live order after 32 MiB LLC + L1i thrash (**Warmed**) | Bybit V5 Spot | **13,637 ns** | — | **36,230 ns** | **50,507 ns** | **1.39x (-28.4%) p50**, **1.38x (-27.9%) p99** |
-| First live order after 32 MiB LLC + L1i thrash (**Cold**) | OKX V5 Spot | 20,189 ns | — | 62,321 ns | 76,278 ns | Separate live `SpotEncoder` + live TLS 1.3 pair |
-| First live order after 32 MiB LLC + L1i thrash (**Warmed**) | OKX V5 Spot | **14,668 ns** | — | **42,131 ns** | **54,235 ns** | **1.37x (-27.3%) p50**, **1.47x (-32.3%) p99** |
-
-### Cold First-Order Baseline (Binance `spot-fill` Fixture)
-
-The Linux `spot-fill` lab fixture measures `eligible_quote_to_order_ns` across a complete local loop. After waiting for account reconciliation and a worker receipt confirming positive account position, the exchange fixture starts a monotonic timer when it first prepares a 60,000 USDT BTC bid in a depth snapshot or WebSocket frame, and stops the timer in the same exchange process immediately after reading the complete signed order HTTP request (prior to signature verification). The sample is emitted only after that order passes validation, the private fill is delivered, and the worker consumes all 11 durable account records. Unlike the [deployment latency budget](../contracts/deployment-reference-v1.json), which ends at the account process's first application write on a separate endpoint, `eligible_quote_to_order_ns` spans local TLS transport, ring publication, OS worker scheduling, strategy callback, recovery-closure persistence, WAL admission, and loopback return transport.
-
-On a shared Ryzen 7 8845H host under WSL2 (release build, fresh account store per run, fixture/publisher/worker/account pinned across CPUs 0–3, where the cold first order also persists the worker executable into the recovery store), five consecutive cold runs recorded:
-
-| Recovery Dependency Persistence Strategy | Five Cold First Orders, in Run Order (ms) | Median |
-| --- | --- | ---: |
-| Store dependencies, then reopen and `fsync` before binding | 207.7, 172.0, 1150.2, 242.4, 236.3 | 236.3 ms |
-| Verify and `fsync` supplied bytes once, then bind | 1459.6, 143.0, 101.7, 94.1, 119.0 | 119.0 ms |
-
-Syscall tracing of one cold order per implementation recorded 66 versus 36 account-process `fsync` calls (plus 2 `fdatasync` calls in each), with 64 and 34 of those `fsync` calls attributable to synchronizing recovery objects and their directory entries; concurrently, the worker process issued up to 305 sync calls on its own live input log while quotes arrived. Steady-state warm-order percentiles (p50/p99/p99.9) after initial dependency caching remain to be measured on dedicated bare-metal hardware.
+- **DOP Logon & Control (`admin.rs`):** Authenticates peers on the Unix-domain control socket, handles `DopLogin` (`effective_seq = max(login_seq, next_order_seqnum)` + `last_recv_seqnum = 0` -> `DopEcho` + `OrsSessions`), `DopLogout` (enqueuing `CancelAll` for that `strat_id`), idle `DopHeartBeat`, and operator commands (`set_strat_enabled(account_ref, strat_id, enabled)` auto-canceling open orders when `enabled == false`).
+- **OS Signals & Graceful Shutdown (`node.rs`, `files.rs`):** Before spawning any worker thread, `OrsProcess` masks `SIGUSR1`, `SIGUSR2`, `SIGINT`, and `SIGTERM` via `block_ors_signals_current_thread()` and polls `SignalWaiter` on `housekeeping_cpus`:
+  - `SIGUSR1`: Reads static RMS configuration via [`files.rs`](../../crates/tickwire-runtime/src/files.rs) off the hot path and calls `RmsReloadHandle::reload_limits` (retaining previous active `RmsEngine` limits on any I/O or parse error!) plus posts `QueryOpen` + `Dump` to `RESP`.
+  - `SIGUSR2`: Posts emergency `CancelAll(ALL_STRATS)` to `REQ` and transitions policy to `Mode::ManageOnly` (`OrsRestricted`).
+  - `SIGINT` / `SIGTERM`: Stops and joins `REQ` -> dispatches cancels for all open orders and RFQ quotes and waits up to `2s` (`shutdown_drain_timeout`) for open order and quote counts to reach `0` -> broadcasts `OrsShutDown` `ReportRecord` (`ALL_STRATS`) to every attached strategy ring -> stops `ControlServer` -> stops and joins `RESP`, `Dialer`, `AsyncRestQuerier`s, and `LatencyTracer`.
 
 ## Acceptance
 
-1. Feed identical fresh and expired new orders, cancellations, and queries through both the file-backed queue and the strategy IPC receiver, verifying `Health::intake` behavior exactly at `deadline` (`Intake::Expired`) and one nanosecond before `deadline` (`Intake::Ready`).
-2. Run two strategy workers sharing a single risk domain and submit competing orders against the same cash balance; verify that both workers preserve distinct logical and instance identities, the admitted order reserves funds once, and crashing or halting one worker leaves its peer operational.
-3. Across each supported venue, match outbound native symbol, client order ID, price, and quantity against the originating `CanonicalCommand`, then replay an acknowledgement, a terminal order-status report, and a duplicate trade fill—verifying that only the trade event books exact execution price and fee once.
-4. Instrument and report input-to-publication, publication-to-callback, intent-to-admission, and admission-to-first-byte intervals separately across p50, p99, and p99.9 under both steady load and bursts on the target host, keeping loopback fixture timings distinct from production capacity claims.
-
-## Verification and References
-
-```sh
-cargo test --locked -p tickwire-md --test spot_quotes
-cargo test --locked -p tickwire-runtime -p tickwire-app
-```
-
-* Application entrypoint and runtime loop: [tickwire-app](../../crates/tickwire-app/src/main.rs), [CoreNode runtime](../../crates/tickwire-runtime/src/node.rs), [single-host reference config](../../config/reference.toml), [two-strategy deployment guide](../../README.md#deploy-two-strategies)
-* Public market decoding and shared-memory fanout: [spot quote decoder](../../crates/tickwire-md/src/spot_quotes.rs), [quote allocation tests](../../crates/tickwire-md/tests/spot_quotes.rs), [BBO decode benchmark](../../crates/tickwire-md/benches/spot_bbo_decode.rs), [market publisher](../../crates/tickwire-market-publisher/src/spot.rs), [JOIN protocol](../../crates/tickwire-join/src/lib.rs), [public spot input spec](spot-quote-input.md)
-* Strategy SDK and worker replay log: [strategy SDK](../../crates/tickwire-strategy-sdk/src/lib.rs), [market view](../../crates/tickwire-strategy-sdk/src/market.rs), [outbound intent writer](../../crates/tickwire-strategy-sdk/src/outbound.rs), [IPC runtime](../../crates/tickwire-strategy-sdk/src/runtime.rs), [live worker input log](../../crates/tickwire-strategy-sdk/src/replay/live.rs), [worker input spec](strategy-input-consumption.md)
-* Account admission, recovery, and venue execution: [account gateway](../../crates/tickwire-account-gateway/src/lib.rs), [account gateway spec](account-gateway.md), [recovery dependency closure](recovery-closure.md), [Bybit and OKX spot execution](spot-execution.md), [spot-fill lab fixture](../../crates/tickwire-lab/README.md), [deployment latency contract](../contracts/deployment-reference-v1.json), [last cluster-capable revision](https://github.com/Obscurepawn/Tickwire/tree/dc50649ebdcada26f7740181c16139cd3b32064a)
+1. `req_cpu == resp_cpu` and `hot_cpus ∩ housekeeping_cpus != ∅` fail fast before spawning threads; `None` defaults run cleanly on single-core CI; and when spawned from a parent thread pinned to a single hot CPU (`taskset` simulation) with `housekeeping_cpus = Some(hk)`, kernel `/proc/self/task/<tid>/status` (`Cpus_allowed_list`) reports `hk` for `ControlServer`, `Dialer`, `AsyncRestQuerier`, and `LatencyTracer`.
+2. Spinlock hierarchy holds unconditionally: `Order` and `Connection` locks never overlap; `StpBook` is locked only beneath a single `Order` lock; zero logging, heap allocation, or protocol parsing occurs under any spinlock.
+3. Verified by `cargo test --locked -p tickwire-runtime --all-targets` (`tests/cpu_isolation.rs` and `tests/ors_runtime.rs`).

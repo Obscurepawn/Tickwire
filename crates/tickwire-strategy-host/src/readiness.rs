@@ -1,238 +1,157 @@
-use super::*;
-use tickwire_ipc::HandoverReadyBody;
-mod cache;
-mod fresh;
-pub(crate) struct ReadyProof {
-    fresh: fresh::State,
-    deferred: Option<HandoverReadyBody>,
-    resources: Option<ProcessResources>,
-    context: Option<cache::Context>,
-    cache: cache::Cache,
-    directory: Option<PathBuf>,
-    identity: Identity,
-    last: Option<HandoverReadyBody>,
-    account_input: Option<[u8; 32]>,
-    receipt: PathBuf,
-    exec_identity: Identity,
-    confirmed: Option<u64>,
-    seal_sequence: u64,
+//! Stateless strategy worker readiness (`ReadyProof`, `WorkerReadiness`) evaluated strictly from
+//! live process liveness, SHM ring attachment state, and [`OrsRuntimePolicy`].
+#![forbid(unsafe_code)]
+
+use tickwire_ipc::ALL_STRATS;
+use tickwire_runtime_policy::{Mode, OrsRuntimePolicy};
+use tickwire_strategy_sdk::Bootstrap;
+
+use crate::{Error, ProcessResources, Result};
+
+/// Immutable startup identity and control-lane proof established when a supervised worker connects.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReadyProof {
+    strat_id: u8,
+    logical_strategy_id: u64,
+    instance_id: [u8; 16],
+    generation: u64,
+    default_account_ref: u8,
+    intent_epoch: u64,
+    report_epoch: u64,
+    resources_constrained: bool,
 }
+
 impl ReadyProof {
-    pub fn new(config: &Bootstrap, resources: Option<ProcessResources>) -> Result<Self> {
-        resources::validate(resources.as_ref())?;
-        let directory = if config.publish_checkpoints {
-            let template: tickwire_strategy_sdk::recovery::Template = worker::read_config(
-                config.recovery_template.as_ref().ok_or(Error::Invalid)?,
-                2 * 1024 * 1024,
-            )?;
-            if template.owner != config.market.local.instance {
-                return Err(Error::Invalid);
-            }
-            Some(template.output_directory)
-        } else {
-            None
-        };
+    /// Construct a [`ReadyProof`] from a validated [`Bootstrap`] and optional [`ProcessResources`].
+    pub fn new(bootstrap: &Bootstrap, resources: Option<&ProcessResources>) -> Result<Self> {
+        bootstrap.validate()?;
+        if bootstrap.strat_id == ALL_STRATS
+            || bootstrap.instance_id == [0; 16]
+            || bootstrap.generation == 0
+        {
+            return Err(Error::Invalid);
+        }
+        if let Some(res) = resources {
+            res.validate()?;
+        }
+        let intent_ep = bootstrap.intent.as_ref().ok_or(Error::Invalid)?;
+        let report_ep = bootstrap.report.as_ref().ok_or(Error::Invalid)?;
+        if intent_ep.control_epoch == 0 || report_ep.control_epoch == 0 {
+            return Err(Error::Invalid);
+        }
         Ok(Self {
-            fresh: Default::default(),
-            deferred: None,
-            context: None,
-            cache: Default::default(),
-            directory,
-            identity: config.market.local.identity(),
-            last: None,
-            account_input: None,
-            receipt: config.report_directory.join(format!(
-                "CONSUMED-{}-{}.json",
-                config
-                    .market
-                    .local
-                    .instance
-                    .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect::<String>(),
-                config.market.local.generation
-            )),
-            exec_identity: config.report.peer.identity(),
-            confirmed: None,
-            seal_sequence: 0,
-            resources,
+            strat_id: bootstrap.strat_id,
+            logical_strategy_id: bootstrap.logical_strategy_id,
+            instance_id: bootstrap.instance_id,
+            generation: bootstrap.generation,
+            default_account_ref: bootstrap.account_ref,
+            intent_epoch: intent_ep.control_epoch,
+            report_epoch: report_ep.control_epoch,
+            resources_constrained: resources.is_some(),
         })
     }
-    pub fn poll(
-        &mut self,
-        lane: &mut AuthenticatedChild,
-        now: u64,
-        clock: &mut SystemClock,
-    ) -> Result<u64> {
-        self.poll_with(
-            lane,
-            now,
-            || Ok(clock.sample()?.monotonic.nanos()),
-            |_, _, _| Ok(false),
-        )
+
+    #[inline]
+    pub const fn strat_id(&self) -> u8 {
+        self.strat_id
     }
-    pub fn poll_with(
-        &mut self,
-        lane: &mut AuthenticatedChild,
-        mut now: u64,
-        mut receive_time: impl FnMut() -> Result<u64>,
-        mut extra: impl FnMut(&ControlEnvelope, &[u8], u64) -> Result<bool>,
-    ) -> Result<u64> {
-        self.fresh.flush(lane, now)?;
-        if self.fresh.active.is_none()
-            && let Some(body) = self.deferred.take()
-        {
-            self.observe(body, lane, now)?;
-        }
-        for _ in 0..16 {
-            let packet = match lane.connection.try_recv() {
-                Ok(Some(p)) => p,
-                Ok(None) => break,
-                Err(e) => return Err(e.into()),
-            };
-            if !packet.fds().is_empty() {
-                return Err(Error::Invalid);
-            }
-            now = receive_time()?;
-            let frame = lane.session.validate(packet.bytes(), now)?;
-            if self.observe_fresh_reply(&frame.envelope, frame.body)? {
-                continue;
-            }
-            if extra(&frame.envelope, frame.body, now)? {
-                continue;
-            }
-            if frame.envelope.opcode != 37 || frame.envelope.flags != 32 {
-                return Err(Error::Invalid);
-            }
-            let body = HandoverReadyBody::decode(frame.body)?;
-            if self.fresh.active.is_some() {
-                self.fresh.announcement(&body)?;
-                self.deferred = Some(body);
-            } else {
-                self.observe(body, lane, now)?;
-            }
-        }
-        Ok(now)
+
+    #[inline]
+    pub const fn logical_strategy_id(&self) -> u64 {
+        self.logical_strategy_id
     }
-    fn context(&mut self, lane: &AuthenticatedChild, now: u64) -> Result<cache::Context> {
-        let context = cache::Context::from_lane(lane);
-        if context.identity != self.identity
-            || !context.live(now)
-            || self.context.as_ref().is_some_and(|old| old != &context)
-        {
-            self.cache.clear();
-            self.account_input = None;
-            return Err(Error::Invalid);
-        }
-        Ok(context)
+
+    #[inline]
+    pub const fn instance_id(&self) -> [u8; 16] {
+        self.instance_id
     }
-    fn observe(
-        &mut self,
-        body: HandoverReadyBody,
-        lane: &AuthenticatedChild,
-        now: u64,
-    ) -> Result<()> {
-        let context = match self.context(lane, now) {
-            Ok(value) => value,
-            Err(error) => {
-                self.cache.clear();
-                self.account_input = None;
-                return Err(error);
-            }
-        };
-        let pid = lane.process.pid;
-        if body.instance_id != self.identity.instance
-            || body.strategy_generation != self.identity.generation
-            || body.logical_strategy_id != self.identity.logical_strategy
-        {
-            return Err(Error::Invalid);
-        }
-        if let Some(previous) = &self.last {
-            if previous == &body {
-                return Ok(());
-            }
-            if body.ready_sequence <= previous.ready_sequence
-                || body.exec_report_sequence < previous.exec_report_sequence
-            {
-                return Err(Error::Invalid);
-            }
-        }
-        let (account_input, _) = self.cache.load(
-            self.directory.as_ref().ok_or(Error::Invalid)?,
-            &context,
-            &body,
-            now,
-        )?;
-        self.context = Some(context);
-        eprintln!(
-            "{}",
-            serde_json::json!({"event":"strategy_ready","worker_pid":pid,"ready_sequence":body.ready_sequence,"instance":body.instance_id,"generation":body.strategy_generation,"checkpoint_digest":body.checkpoint_digest,"exec_report_sequence":body.exec_report_sequence,"orders_digest":body.orders_digest,"ledger_sequence":body.ledger_sequence,"input_seal_digest":body.input_seal_digest})
-        );
-        self.account_input = Some(account_input);
-        self.last = Some(body);
-        Ok(())
+
+    #[inline]
+    pub const fn generation(&self) -> u64 {
+        self.generation
     }
-    pub fn confirm(
-        &mut self,
-        reports: &Reports,
-        sub: tickwire_shm::SubscriptionKey,
-        lane: &AuthenticatedChild,
-        now: u64,
-    ) -> Result<()> {
-        self.context(lane, now)?;
-        let Some(body) = &self.last else {
-            return Ok(());
-        };
-        if self.confirmed == Some(body.ready_sequence) {
-            return Ok(());
-        }
-        if lane.session.peer() != &self.identity
-            || lane.process.pid == 0
-            || now >= lane.session.deadline()
-        {
-            return Err(Error::Invalid);
-        }
-        if self.account_input.is_none()
-            || self.account_input != reports.account_input_digest(body.exec_report_sequence)
-            || !reports.confirms_cursor(
-                sub,
-                body.exec_report_sequence,
-                body.report_ring_sequence,
-            )?
-        {
-            return Ok(());
-        }
-        let receipt = serde_json::json!({"schema":1,"host_pid":std::process::id(),"worker_pid":lane.process.pid,"worker_uid":lane.process.uid,"worker_gid":lane.process.gid,
-            "exec_instance":self.exec_identity.instance,"exec_generation":self.exec_identity.generation,"host_boot":self.exec_identity.host_boot,
-            "instance":self.identity.instance,"generation":self.identity.generation,"logical_strategy":self.identity.logical_strategy,"build_hash":self.identity.build_hash,
-            "cursor_resource":sub.cursor.to_le_bytes(),"subscription_generation":sub.generation,"bank_resource":sub.bank.resource.to_le_bytes(),"ring_epoch":sub.bank.ring_epoch,
-            "ready_sequence":body.ready_sequence,"account_position":body.exec_report_sequence,"report_sequence":body.report_ring_sequence,"account_input_digest":self.account_input,
-            "ledger_sequence":body.ledger_sequence,"orders_digest":body.orders_digest,"checkpoint_digest":body.checkpoint_digest,"input_seal_digest":body.input_seal_digest,"confirmed_mono_ns":now});
-        write_json(&self.receipt, &receipt)?;
-        self.confirmed = Some(body.ready_sequence);
-        eprintln!(
-            "{}",
-            serde_json::json!({"event":"strategy_reports_consumed","worker_pid":lane.process.pid,"instance":self.identity.instance,"generation":self.identity.generation,"account_position":body.exec_report_sequence,"report_sequence":body.report_ring_sequence,"ready_sequence":body.ready_sequence})
-        );
-        Ok(())
+
+    #[inline]
+    pub const fn default_account_ref(&self) -> u8 {
+        self.default_account_ref
+    }
+
+    #[inline]
+    pub const fn intent_epoch(&self) -> u64 {
+        self.intent_epoch
+    }
+
+    #[inline]
+    pub const fn report_epoch(&self) -> u64 {
+        self.report_epoch
+    }
+
+    #[inline]
+    pub const fn resources_constrained(&self) -> bool {
+        self.resources_constrained
     }
 }
 
-#[cfg(test)]
-pub(super) fn test_proof(identity: Identity) -> ReadyProof {
-    ReadyProof {
-        fresh: Default::default(),
-        deferred: None,
-        resources: None,
-        context: None,
-        cache: Default::default(),
-        directory: None,
-        identity: identity.clone(),
-        last: None,
-        account_input: None,
-        receipt: PathBuf::new(),
-        exec_identity: identity,
-        confirmed: None,
-        seal_sequence: 0,
+/// Stateless point-in-time readiness snapshot combining process liveness, SHM ring watermarks,
+/// and [`OrsRuntimePolicy`] admission flags.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorkerReadiness {
+    pub proof: ReadyProof,
+    pub resolved_account_ref: u8,
+    pub process_alive: bool,
+    pub lanes_attached: bool,
+    pub mode: Mode,
+    pub dop_logged_in: bool,
+    pub active: bool,
+    pub account_enabled: bool,
+    pub intent_last_msg_seqnum: u64,
+    pub report_next_seq: u64,
+}
+
+impl WorkerReadiness {
+    /// Evaluate [`WorkerReadiness`] for `proof` against `policy` and live lane watermarks.
+    pub fn evaluate(
+        proof: &ReadyProof,
+        policy: &OrsRuntimePolicy,
+        account_ref_override: Option<u8>,
+        process_alive: bool,
+        lanes_attached: bool,
+        intent_last_msg_seqnum: u64,
+        report_next_seq: u64,
+    ) -> Result<Self> {
+        let requested_ref = account_ref_override.unwrap_or(proof.default_account_ref);
+        let resolved_account_ref = policy
+            .resolve_account_ref(requested_ref, proof.strat_id)
+            .map_err(|_| Error::Invalid)?;
+        Ok(Self {
+            proof: proof.clone(),
+            resolved_account_ref,
+            process_alive,
+            lanes_attached,
+            mode: policy.mode(),
+            dop_logged_in: policy.is_connected(proof.strat_id),
+            active: policy.is_active(proof.strat_id),
+            account_enabled: policy.is_strat_enabled(resolved_account_ref, proof.strat_id),
+            intent_last_msg_seqnum,
+            report_next_seq,
+        })
+    }
+
+    /// Returns `true` iff the worker process is alive, SHM lanes are attached, ORS is in
+    /// [`Mode::Trading`], and the strategy is both `active` and `enabled` on `resolved_account_ref`.
+    #[inline]
+    pub const fn is_ready_to_trade(&self) -> bool {
+        self.process_alive
+            && self.lanes_attached
+            && matches!(self.mode, Mode::Trading)
+            && self.active
+            && self.account_enabled
+    }
+
+    /// Returns `true` iff the worker process is alive, SHM lanes are attached, and ORS is not
+    /// [`Mode::Stopped`] (cancels remain permitted in [`Mode::ManageOnly`]).
+    #[inline]
+    pub const fn can_manage_orders(&self) -> bool {
+        self.process_alive && self.lanes_attached && !matches!(self.mode, Mode::Stopped)
     }
 }

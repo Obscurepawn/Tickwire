@@ -1,906 +1,600 @@
-use crate::authority::RecoveryQueue;
+//! Multi-threaded `OrsProcess<S: VenueSession>` coordinator (`8.2`), CPU-isolated hot/cold worker
+//! spawning, OS signal handling (`SIGUSR1`, `SIGUSR2`, `SIGINT`, `SIGTERM`), and ordered graceful
+//! shutdown (`REQ` join -> open-order/quote drain -> `OrsShutDown` broadcast -> `ControlServer` ->
+//! `RESP` + `Dialer`).
+
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
+use std::sync::{Arc, Mutex, OnceLock, mpsc};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use tickwire_account::Account;
-use tickwire_account_gateway::{Authority, Encoder};
-use tickwire_account_journal::Backend;
-use tickwire_binance_account::{Outcome as InputOutcome, rest::RestOwner};
-use tickwire_binance_clock::{self as clock, BinanceTimeClient, LocalTime, MonotonicClock};
-use tickwire_binance_execution::{DeliveryBudget, SharedSessionState};
-use tickwire_binance_private as private;
-use tickwire_binance_public as public;
-use tickwire_binance_quota as quota;
-use tickwire_binance_session::ClockAdapter;
-use tickwire_journal::store::Store;
-use tickwire_transport::{IoBudget, mio};
-mod strategy;
-pub use strategy::{AccountHistory, Strategy, Submission, SubmissionResult};
 
-#[derive(Debug)]
-pub enum Error {
-    Config,
-    Clock(clock::Error),
-    Shared(tickwire_binance_execution::Error),
-    Market(public::Error),
-    Private(private::Error),
-    Account(tickwire_binance_account::Error),
-    Recovery(tickwire_account_gateway::AuthorityError),
-    Io(std::io::Error),
-    Strategy,
-    Stopped,
+use mio::Waker;
+use tickwire_account::{OrderManager, OrderManagerConfig, OrsOrderFilter};
+use tickwire_account_gateway::AccountManager;
+use tickwire_control_sys::{
+    ControlListener, CpuSet, OrsSignal, SignalWaiter, block_ors_signals_current_thread,
+    current_tid, pin_current_thread, spawn_pinned_thread,
+};
+use tickwire_ipc::ALL_STRATS;
+use tickwire_quota::shared::SharedRateLimiter;
+use tickwire_risk::{RmsEngine, RmsReloadHandle};
+use tickwire_runtime_policy::{Mode, OrsRuntimePolicy};
+use tickwire_transport::LatencyTracer;
+use tickwire_transport::dialer::Dialer;
+
+use crate::admin::{
+    AdminCommands, ControlServer, ControlServerConfig, ReqAdminCommand, RespAdminCommand,
+};
+use crate::files::reload_rms_from_file;
+use crate::ors::{AccountSession, OrderRoutingSystem, OrsCpuConfig, OrsRuntimeConfig};
+use crate::session::VenueSession;
+
+/// Default graceful-shutdown drain timeout while waiting for open orders and RFQ quotes to reach
+/// zero (`2s`, `human-docs/8.2`).
+pub const DEFAULT_SHUTDOWN_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
+
+/// Configuration for spawning and supervising a multi-threaded [`OrsProcess`].
+#[derive(Clone, Debug)]
+pub struct OrsProcessConfig {
+    /// Optional Unix `SOCK_SEQPACKET` path bound by [`ControlServer`] (`"tw-ors-ctrl"`).
+    pub control_socket_path: Option<PathBuf>,
+    /// DOP [`ControlServer`] parameters (`housekeeping_cpus` defaults to
+    /// `OrsCpuConfig::housekeeping_cpus` when unset).
+    pub control_config: ControlServerConfig,
+    /// Optional static RMS limits file reloaded off-thread upon `SIGUSR1`.
+    pub rms_config_path: Option<PathBuf>,
+    /// Maximum time to wait for canceled open orders and RFQ quotes to hit `0` during shutdown.
+    pub shutdown_drain_timeout: Duration,
+    /// Whether `block_ors_signals_current_thread()` is invoked before spawning threads so only
+    /// `main`'s [`SignalWaiter`] receives `SIGINT`, `SIGTERM`, `SIGUSR1`, and `SIGUSR2`.
+    pub block_signals_on_spawn: bool,
 }
-pub type Result<T> = std::result::Result<T, Error>;
-impl std::fmt::Display for Error {
+
+impl Default for OrsProcessConfig {
+    fn default() -> Self {
+        Self {
+            control_socket_path: None,
+            control_config: ControlServerConfig::default(),
+            rms_config_path: None,
+            shutdown_drain_timeout: DEFAULT_SHUTDOWN_DRAIN_TIMEOUT,
+            block_signals_on_spawn: true,
+        }
+    }
+}
+
+/// Outcome returned by [`OrsProcess::handle_signal`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum OrsSignalOutcome {
+    /// `SIGUSR1`: reloaded static RMS limits off-thread (retaining previous limits on `Err`) and
+    /// enqueued `QueryOpen` + `Dump` on `RESP`.
+    ReloadedRms { generation: Result<u64, String> },
+    /// `SIGUSR2`: entered `Mode::ManageOnly`, enqueued emergency `CancelAll`, and broadcast
+    /// `OrsRestricted`.
+    EmergencyCancelAll,
+    /// `SIGINT` or `SIGTERM`: executed ordered graceful shutdown.
+    ShutdownInitiated,
+}
+
+/// Live multi-threaded single-venue Unified ORS execution process (`1 ORS process = 1 Venue`).
+///
+/// Isolates dedicated `REQ` (`req_cpu`) and `RESP` (`resp_cpu`) hot threads from cold
+/// `housekeeping_cpus` workers (`ControlServer`, `Dialer`, per-account `AsyncRestQuerier`,
+/// `LatencyTracer`, and `main` `SignalWaiter`).
+pub struct OrsProcess<S: VenueSession> {
+    cpu: OrsCpuConfig,
+    policy: Arc<OrsRuntimePolicy>,
+    order_manager: Arc<OrderManager<true>>,
+    rms_reload: RmsReloadHandle,
+    rms_config_path: Option<PathBuf>,
+    rate_limiter: Arc<SharedRateLimiter>,
+    accounts: Vec<Arc<AccountSession<S>>>,
+    admin: AdminCommands,
+    control_server: Option<ControlServer>,
+    dialer: Arc<Dialer>,
+    tracer: Arc<LatencyTracer>,
+    resp_waker: Arc<Waker>,
+    req_stop: Arc<AtomicBool>,
+    resp_stop: Arc<AtomicBool>,
+    shut_down: AtomicBool,
+    req_tid: Arc<AtomicI32>,
+    resp_tid: Arc<AtomicI32>,
+    worker_init_err: Arc<OnceLock<String>>,
+    req_join: Mutex<Option<JoinHandle<()>>>,
+    resp_join: Mutex<Option<JoinHandle<()>>>,
+    shutdown_drain_timeout: Duration,
+}
+
+impl<S: VenueSession> std::fmt::Debug for OrsProcess<S> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        f.debug_struct("OrsProcess")
+            .field("cpu", &self.cpu)
+            .field("req_tid", &self.req_tid())
+            .field("resp_tid", &self.resp_tid())
+            .field("control_server_tid", &self.control_server_tid())
+            .field("dialer_tid", &self.dialer_tid())
+            .field("latency_tracer_tid", &self.latency_tracer_tid())
+            .field("shut_down", &self.is_shut_down())
+            .finish_non_exhaustive()
     }
 }
-impl std::error::Error for Error {}
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Health {
-    pub calibrated: bool,
-    pub market_live: bool,
-    pub private_receiving: bool,
-    pub account_frozen: bool,
-    pub sender_halted: bool,
-}
-/// The intake check schedules a command for account review. The account gateway
-/// owns the durable admission and the final authorization at the socket.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Intake {
-    Wait,
-    Expired,
-    DeadlineOverflow,
-    Ready(Instant),
-}
-impl Health {
-    pub fn intake(&self, command: &tickwire_venue::Command, now: LocalTime) -> Intake {
-        use tickwire_venue::CommandBody::{Cancel, CancelAlgo, CancelList, Query};
-        if !self.calibrated || self.sender_halted {
-            return Intake::Wait;
+
+impl<S: VenueSession> OrsProcess<S> {
+    /// Masks `SIGINT`, `SIGTERM`, `SIGUSR1`, and `SIGUSR2` on the calling thread first (when
+    /// `process_config.block_signals_on_spawn` is `true`) so every cold helper spawned during
+    /// [`OrderRoutingSystem::build`] (`LatencyTracer`, `Dialer`, `AsyncRestQuerier`) as well as
+    /// `ControlServer`, `REQ`, and `RESP` inherits the blocked signal mask, then builds, runs
+    /// `setup`, and spawns [`OrsProcess`].
+    #[allow(clippy::too_many_arguments)]
+    pub fn build_and_spawn<F>(
+        runtime_config: OrsRuntimeConfig,
+        account_manager: &AccountManager,
+        allowed_strategies: &[u8],
+        order_manager_config: OrderManagerConfig,
+        rms_engine: RmsEngine,
+        sessions: Vec<(u8, Arc<S>)>,
+        process_config: OrsProcessConfig,
+        setup: F,
+    ) -> Result<Self, String>
+    where
+        F: FnOnce(&mut OrderRoutingSystem<S>) -> Result<(), String>,
+    {
+        runtime_config
+            .cpu
+            .validate()
+            .map_err(|e| format!("CPU isolation validation failed: {e}"))?;
+        if process_config.block_signals_on_spawn {
+            block_ors_signals_current_thread()
+                .map_err(|e| format!("failed to block ORS signals before build: {e}"))?;
         }
-        let Some(remaining) = command
-            .context
-            .request
-            .deadline
-            .checked_sub(now.monotonic.nanos())
-        else {
-            return Intake::Expired;
-        };
-        if remaining == 0 {
-            return Intake::Expired;
-        }
-        let administrative = matches!(
-            command.body,
-            Cancel(_) | CancelAlgo(_) | CancelList(_) | Query(_)
-        );
-        if !administrative && !self.ready() {
-            return Intake::Wait;
-        }
-        match now.instant.checked_add(Duration::from_nanos(remaining)) {
-            Some(deadline) => Intake::Ready(deadline),
-            None => Intake::DeadlineOverflow,
-        }
+        let mut ors = OrderRoutingSystem::build(
+            runtime_config,
+            account_manager,
+            allowed_strategies,
+            order_manager_config,
+            rms_engine,
+            sessions,
+        )?;
+        setup(&mut ors)?;
+        let mut cfg = process_config;
+        cfg.block_signals_on_spawn = false;
+        Self::spawn(ors, cfg)
     }
 
-    pub fn ready(&self) -> bool {
-        self.calibrated
-            && self.market_live
-            && self.private_receiving
-            && !self.account_frozen
-            && !self.sender_halted
+    /// Validates CPU isolation, optionally masks ORS signals on the calling thread, starts any
+    /// configured DOP [`ControlServer`], and spawns pinned `"tw-ors-req"` (`req_cpu`) and
+    /// `"tw-ors-resp"` (`resp_cpu`) hot-path threads.
+    pub fn spawn(ors: OrderRoutingSystem<S>, config: OrsProcessConfig) -> Result<Self, String> {
+        Self::spawn_inner(ors, config, None)
     }
-}
-/// Trusted runtime notifications for the control owner. A Receiving state alone
-/// does not acknowledge reconciliation or authorize account activation.
-pub trait Observer {
-    fn market_observed(&mut self, _observation: crate::market::FeedObservation) -> bool {
-        true
+
+    /// Spawns [`OrsProcess`] using a pre-bound [`ControlListener`] for DOP control connections.
+    pub fn spawn_with_control_listener(
+        ors: OrderRoutingSystem<S>,
+        config: OrsProcessConfig,
+        listener: ControlListener,
+    ) -> Result<Self, String> {
+        Self::spawn_inner(ors, config, Some(listener))
     }
-    fn market_invalidated(&mut self, _invalidation: crate::market::Invalidation) -> bool {
-        true
-    }
-    /// The continuous, fully processed input-WAL prefix, including non-event
-    /// records and REST child effects. Notifications may advance by a batch.
-    fn input_applied(
-        &mut self,
-        _input: tickwire_binance_account::InputKey,
-        _account: &Account,
-    ) -> bool {
-        true
-    }
-    fn private_state(&mut self, _state: private::SessionStatus) -> bool {
-        true
-    }
-    fn private_gap(&mut self, _gap: &private::GapNotice) -> bool {
-        true
-    }
-    fn private_source(&mut self, _gap: &private::GapToken) -> bool {
-        true
-    }
-    fn private_applied(
-        &mut self,
-        _connection_epoch: u64,
-        _outcome: InputOutcome,
-        _account: &Account,
-    ) -> bool {
-        true
-    }
-    fn health(&mut self, _health: Health, _now: LocalTime) -> bool {
-        true
-    }
-}
-pub struct NoObserver;
-impl Observer for NoObserver {}
-/// An observer is optional when the strategy executes in this process.
-pub struct NoPublisher;
-impl public::PublicSink for NoPublisher {
-    fn on_notice(&mut self, _: public::Notice<'_>) -> bool {
-        true
-    }
-}
-struct Fanout<'a, S, O> {
-    strategy: &'a mut S,
-    output: &'a mut O,
-}
-struct MarketObserver<'a>(&'a mut dyn Observer);
-impl crate::market::MarketSink for MarketObserver<'_> {
-    fn observed(&mut self, observation: crate::market::FeedObservation) -> bool {
-        self.0.market_observed(observation)
-    }
-    fn invalidated(&mut self, invalidation: crate::market::Invalidation) -> bool {
-        self.0.market_invalidated(invalidation)
-    }
-}
-impl<S: Strategy, O: public::PublicSink> public::PublicSink for Fanout<'_, S, O> {
-    fn on_notice(&mut self, n: public::Notice<'_>) -> bool {
-        self.strategy.on_market(&n) && self.output.on_notice(n)
-    }
-}
-#[derive(Clone)]
-pub struct Bindings {
-    pub time: quota::TimeBinding,
-    pub private: quota::PrivateBinding,
-    pub public: quota::PublicBinding,
-}
-#[derive(Clone, Copy)]
-pub struct Config {
-    pub calibration_interval_ns: u64,
-    pub calibration_retry_ns: u64,
-    pub maximum_book_age_ns: u64,
-    pub private_delivery_budget_ns: u64,
-    /// Total I/O capacity is split equally across the four network owners.
-    pub io: IoBudget,
-    pub public: public::PollBudget,
-    pub private: private::PollBudget,
-    pub maximum_commands_per_turn: usize,
-    /// Zero enables a busy polling loop; positive values cap reactor sleep.
-    pub maximum_idle_wait_ns: u64,
-}
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Report {
-    pub health: Health,
-    pub market_messages: usize,
-    pub private_messages: usize,
-    pub submissions: usize,
-    pub rest_completed: bool,
-    pub runnable: bool,
-    pub next_deadline_ns: Option<u64>,
-}
-pub struct CoreNode<
-    'a,
-    P,
-    MC,
-    TC,
-    DB,
-    IS,
-    AS,
-    A,
-    E,
-    S,
-    O,
-    const L: usize,
-    const U: usize,
-    const B: usize,
-> where
-    P: public::DepthPolicy,
-    MC: MonotonicClock,
-    TC: MonotonicClock,
-    DB: DeliveryBudget,
-    IS: Store,
-    AS: Backend,
-    A: Authority,
-    E: Encoder,
-    S: Strategy,
-    O: public::PublicSink,
-{
-    market: public::PublicDepthClient<P, MC, L, U, B>,
-    external_market: Option<Box<dyn crate::market::MarketSource + 'a>>,
-    external_market_failed: bool,
-    private: private::PrivateClient<'a>,
-    rest: RestOwner<IS, AS, A, E>,
-    session: SharedSessionState<BinanceTimeClient<TC>, DB>,
-    recovery: RecoveryQueue,
-    strategy: S,
-    output: O,
-    observer: Box<dyn Observer + 'a>,
-    config: Config,
-    bindings: Bindings,
-    next_calibration: u64,
-    registered_time: Option<u64>,
-    registered_rest: bool,
-    stopped: bool,
-}
-impl<'a, P, MC, TC, DB, IS, AS, A, E, S, O, const L: usize, const U: usize, const B: usize>
-    CoreNode<'a, P, MC, TC, DB, IS, AS, A, E, S, O, L, U, B>
-where
-    P: public::DepthPolicy,
-    MC: MonotonicClock,
-    TC: MonotonicClock,
-    DB: DeliveryBudget,
-    IS: Store,
-    AS: Backend,
-    A: Authority,
-    E: Encoder,
-    S: Strategy,
-    O: public::PublicSink,
-{
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        market: public::PublicDepthClient<P, MC, L, U, B>,
-        private: private::PrivateClient<'a>,
-        rest: RestOwner<IS, AS, A, E>,
-        session: SharedSessionState<BinanceTimeClient<TC>, DB>,
-        recovery: RecoveryQueue,
-        strategy: S,
-        output: O,
-        observer: Box<dyn Observer + 'a>,
-        config: Config,
-        bindings: Bindings,
-    ) -> Result<Self> {
-        if config.calibration_interval_ns == 0
-            || config.calibration_retry_ns == 0
-            || config.maximum_book_age_ns == 0
-            || config.private_delivery_budget_ns == 0
-            || config.io.max_syscalls < 8
-            || config.io.max_syscalls > 1024
-            || config.io.max_bytes < 4
-            || config.io.max_bytes > 16 * 1024 * 1024
-            || config.maximum_commands_per_turn == 0
-            || config.maximum_commands_per_turn > 32
-            || config.maximum_idle_wait_ns > 1_000_000_000
-            || bindings.time.domain != bindings.private.domain
-            || bindings.time.domain != bindings.public.domain
-            || bindings.time.source != bindings.public.source
-            || private.current_gap().scope() != &bindings.private.scope
-        {
-            return Err(Error::Config);
+
+    fn spawn_inner(
+        mut ors: OrderRoutingSystem<S>,
+        mut config: OrsProcessConfig,
+        prebound_listener: Option<ControlListener>,
+    ) -> Result<Self, String> {
+        let cpu = ors.config().cpu.clone();
+        cpu.validate()
+            .map_err(|e| format!("CPU isolation validation failed: {e}"))?;
+
+        let req_cpuset = cpu
+            .req_cpu
+            .map(CpuSet::single)
+            .transpose()
+            .map_err(|e| format!("invalid req_cpu: {e}"))?;
+        let resp_cpuset = cpu
+            .resp_cpu
+            .map(CpuSet::single)
+            .transpose()
+            .map_err(|e| format!("invalid resp_cpu: {e}"))?;
+
+        if config.block_signals_on_spawn {
+            block_ors_signals_current_thread()
+                .map_err(|e| format!("failed to block ORS signals before thread spawn: {e}"))?;
         }
-        let bound = session
-            .with_resources(|t, _| {
-                t.domain() == bindings.time.domain && t.source() == bindings.time.source
-            })
-            .map_err(Error::Shared)?;
-        if !bound {
-            return Err(Error::Config);
+
+        if config.control_config.housekeeping_cpus.is_none() {
+            config.control_config.housekeeping_cpus = cpu.housekeeping_cpus.clone();
         }
+
+        let policy = Arc::clone(ors.policy());
+        let order_manager = Arc::clone(ors.order_manager());
+        let rms_reload = ors.rms_reload_handle().clone();
+        let rate_limiter = Arc::clone(ors.rate_limiter());
+        let accounts = ors.accounts().to_vec();
+        let admin = ors.admin().clone();
+        let dialer = Arc::clone(ors.dialer());
+        let tracer = Arc::clone(ors.latency_tracer());
+        let resp_waker = Arc::clone(ors.resp_waker());
+        let dop_infos = ors.dop_account_infos();
+
+        let control_server = if let Some(listener) = prebound_listener {
+            Some(ControlServer::from_listener(
+                listener,
+                config.control_config.clone(),
+                Arc::clone(&policy),
+                Arc::clone(&order_manager),
+                dop_infos,
+                admin.clone(),
+            )?)
+        } else if let Some(ref sock_path) = config.control_socket_path {
+            Some(ControlServer::bind_and_start(
+                sock_path,
+                config.control_config.clone(),
+                Arc::clone(&policy),
+                Arc::clone(&order_manager),
+                dop_infos,
+                admin.clone(),
+            )?)
+        } else {
+            None
+        };
+
+        let (req_seed, resp_seed) = match ors.take_worker_seeds() {
+            Ok(pair) => pair,
+            Err(e) => {
+                if let Some(ref ctrl) = control_server {
+                    ctrl.stop();
+                }
+                return Err(e);
+            }
+        };
+
+        let req_stop = Arc::new(AtomicBool::new(false));
+        let resp_stop = Arc::new(AtomicBool::new(false));
+        let req_tid = Arc::new(AtomicI32::new(0));
+        let resp_tid = Arc::new(AtomicI32::new(0));
+        let worker_init_err = Arc::new(OnceLock::new());
+
+        let (resp_ready_tx, resp_ready_rx) = mpsc::sync_channel::<()>(1);
+        let resp_stop_cl = Arc::clone(&resp_stop);
+        let resp_tid_cl = Arc::clone(&resp_tid);
+        let resp_err_cl = Arc::clone(&worker_init_err);
+        let resp_handle =
+            match spawn_pinned_thread("tw-ors-resp", resp_cpuset.as_ref(), move || {
+                if let Ok(tid) = current_tid() {
+                    resp_tid_cl.store(tid, Ordering::Release);
+                }
+                let _ = resp_ready_tx.send(());
+                match resp_seed.into_worker() {
+                    Ok(mut resp_worker) => resp_worker.run_loop(&resp_stop_cl),
+                    Err(e) => {
+                        let _ = resp_err_cl.set(format!("tw-ors-resp lane init failed: {e}"));
+                    }
+                }
+            }) {
+                Ok(h) => h,
+                Err(e) => {
+                    if let Some(ref ctrl) = control_server {
+                        ctrl.stop();
+                    }
+                    return Err(format!("failed to spawn tw-ors-resp: {e}"));
+                }
+            };
+        let _ = resp_ready_rx.recv();
+
+        let (req_ready_tx, req_ready_rx) = mpsc::sync_channel::<()>(1);
+        let req_stop_cl = Arc::clone(&req_stop);
+        let req_tid_cl = Arc::clone(&req_tid);
+        let req_err_cl = Arc::clone(&worker_init_err);
+        let req_handle = match spawn_pinned_thread("tw-ors-req", req_cpuset.as_ref(), move || {
+            if let Ok(tid) = current_tid() {
+                req_tid_cl.store(tid, Ordering::Release);
+            }
+            let _ = req_ready_tx.send(());
+            match req_seed.into_worker() {
+                Ok(mut req_worker) => req_worker.run_loop(&req_stop_cl),
+                Err(e) => {
+                    let _ = req_err_cl.set(format!("tw-ors-req lane init failed: {e}"));
+                }
+            }
+        }) {
+            Ok(h) => h,
+            Err(e) => {
+                resp_stop.store(true, Ordering::Release);
+                let _ = resp_waker.wake();
+                let _ = resp_handle.join();
+                if let Some(ref ctrl) = control_server {
+                    ctrl.stop();
+                }
+                return Err(format!("failed to spawn tw-ors-req: {e}"));
+            }
+        };
+        let _ = req_ready_rx.recv();
+
         Ok(Self {
-            market,
-            external_market: None,
-            external_market_failed: false,
-            private,
-            rest,
-            session,
-            recovery,
-            strategy,
-            output,
-            observer,
-            config,
-            bindings,
-            next_calibration: 0,
-            registered_time: None,
-            registered_rest: false,
-            stopped: false,
+            cpu,
+            policy,
+            order_manager,
+            rms_reload,
+            rms_config_path: config.rms_config_path,
+            rate_limiter,
+            accounts,
+            admin,
+            control_server,
+            dialer,
+            tracer,
+            resp_waker,
+            req_stop,
+            resp_stop,
+            shut_down: AtomicBool::new(false),
+            req_tid,
+            resp_tid,
+            worker_init_err,
+            req_join: Mutex::new(Some(req_handle)),
+            resp_join: Mutex::new(Some(resp_handle)),
+            shutdown_drain_timeout: config.shutdown_drain_timeout,
         })
     }
-    fn time(&self) -> Result<clock::ClockReading> {
-        self.session
-            .with_resources(|t, _| t.sample())
-            .map_err(Error::Shared)?
-            .map_err(Error::Clock)
-    }
-    pub fn account(&self) -> &Account {
-        self.rest.account()
-    }
-    /// Installs an independently authenticated MD subscription before the first
-    /// turn. The local public client remains unstarted and opens no connection.
-    pub fn set_market_source(
-        &mut self,
-        source: Box<dyn crate::market::MarketSource + 'a>,
-    ) -> Result<()> {
-        if self.next_calibration != 0
-            || self.stopped
-            || self.external_market.is_some()
-            || source.domain() != self.bindings.time.domain
-        {
-            return Err(Error::Config);
-        }
-        self.external_market = Some(source);
-        Ok(())
-    }
-    pub fn strategy(&self) -> &S {
-        &self.strategy
-    }
-    pub fn strategy_mut(&mut self) -> &mut S {
-        &mut self.strategy
-    }
-    pub fn rest(&self) -> &RestOwner<IS, AS, A, E> {
-        &self.rest
-    }
-    pub fn set_projected_fill(&mut self, enabled: bool) {
-        self.rest.set_projected_fill(enabled);
-    }
-    pub fn projected_fill_enabled(&self) -> bool {
-        self.rest.projected_fill_enabled()
-    }
-    pub fn drain_projected_fills(&mut self) -> Vec<tickwire_account::ProjectedFill> {
-        self.rest.drain_projected_fills()
-    }
-    pub fn pop_projected_fill(&mut self) -> Option<tickwire_account::ProjectedFill> {
-        self.rest.pop_projected_fill()
-    }
-    pub fn set_stp_enforcement(&mut self, enabled: bool) {
-        self.rest.set_stp_enforcement(enabled);
-    }
-    pub fn stp_enforcement(&self) -> bool {
-        self.rest.stp_enforcement()
-    }
-    pub fn stp_book(&self) -> &tickwire_account::StpBook {
-        self.rest.stp_book()
-    }
-    /// Reconnect may sample the shared clock/quota itself; do not hold its RefCell borrow here.
-    pub fn with_trading_owner<T>(
-        &mut self,
-        operation: impl FnOnce(&mut RestOwner<IS, AS, A, E>) -> T,
-    ) -> T {
-        operation(&mut self.rest)
+
+    /// Returns any deferred `IntentLaneFactory` / `ReportLaneFactory` initialization error.
+    pub fn worker_init_error(&self) -> Option<&str> {
+        self.worker_init_err.get().map(String::as_str)
     }
 
-    pub fn session(&self) -> &SharedSessionState<BinanceTimeClient<TC>, DB> {
-        &self.session
+    /// Returns the Linux kernel TID (`SYS_gettid`) of `"tw-ors-req"`.
+    pub fn req_tid(&self) -> Option<i32> {
+        let tid = self.req_tid.load(Ordering::Acquire);
+        (tid > 0).then_some(tid)
     }
-    /// Supplies the actual account, calibrated clock and shared limiter to a
-    /// reconciliation owner without creating a second mutable session owner.
-    pub fn with_account_resources<T>(
-        &mut self,
-        operation: impl FnOnce(
-            &mut RestOwner<IS, AS, A, E>,
-            &mut BinanceTimeClient<TC>,
-            &mut quota::Endpoint,
-        ) -> T,
-    ) -> Result<T> {
-        let rest = &mut self.rest;
-        self.session
-            .with_resources(|time, quota| operation(rest, time, quota))
-            .map_err(Error::Shared)
+
+    /// Returns the Linux kernel TID (`SYS_gettid`) of `"tw-ors-resp"`.
+    pub fn resp_tid(&self) -> Option<i32> {
+        let tid = self.resp_tid.load(Ordering::Acquire);
+        (tid > 0).then_some(tid)
     }
-    pub fn with_strategy_and_account_resources<T>(
-        &mut self,
-        operation: impl FnOnce(
-            &mut S,
-            &mut RestOwner<IS, AS, A, E>,
-            &mut BinanceTimeClient<TC>,
-            &mut quota::Endpoint,
-        ) -> T,
-    ) -> Result<T> {
-        let strategy = &mut self.strategy;
-        let rest = &mut self.rest;
-        self.session
-            .with_resources(|time, quota| operation(strategy, rest, time, quota))
-            .map_err(Error::Shared)
+
+    /// Returns the Linux kernel TID (`SYS_gettid`) of `"tw-ors-ctrl"` when DOP `ControlServer` is
+    /// enabled.
+    pub fn control_server_tid(&self) -> Option<i32> {
+        self.control_server
+            .as_ref()
+            .and_then(ControlServer::worker_tid)
     }
-    pub fn local_time(&self) -> Result<LocalTime> {
-        self.time().map(|reading| reading.local)
+
+    /// Returns the Linux kernel TID (`SYS_gettid`) of `"tw-dialer"`.
+    pub fn dialer_tid(&self) -> Option<i32> {
+        self.dialer.worker_tid()
     }
-    pub fn private_status(&self) -> private::SessionStatus {
-        self.private.status()
+
+    /// Returns the Linux kernel TID (`SYS_gettid`) of `"tw-latency-sink"`.
+    pub fn latency_tracer_tid(&self) -> Option<i32> {
+        self.tracer.sink_tid()
     }
-    pub fn private_gap(&self) -> &private::GapToken {
-        self.private.current_gap()
-    }
-    /// Call after the account owner installs a fresh REST connection.
-    pub fn connection_replaced(&mut self) {
-        self.registered_rest = false;
-        self.rest.reset_mio_registrations();
-    }
-    pub fn replay_pending(&mut self, maximum: usize) -> Result<usize> {
-        self.rest.replay_pending(maximum).map_err(Error::Account)
-    }
-    fn step_inner(&mut self) -> Result<Report> {
-        let mut report = Report::default();
-        let reading = self.time()?;
-        let io = IoBudget {
-            max_syscalls: self.config.io.max_syscalls / 4,
-            max_bytes: self.config.io.max_bytes / 4,
-        };
-        self.poll_clock(reading.local.monotonic.nanos(), io)?;
-        self.poll_market(reading.local, io, &mut report)?;
-        self.poll_private(io, &mut report)?;
-        self.poll_account(io, &mut report)?;
-        self.poll_strategies(&mut report)?;
-        let now_mono_ns = reading.local.monotonic.nanos();
-        if report.market_messages > 0
-            || report.private_messages > 0
-            || report.submissions > 0
-            || report.rest_completed
-            || report.runnable
-            || self.maybe_warm_hot_path(now_mono_ns).is_err()
-        {
-            self.session.record_activity(now_mono_ns);
-        }
-        let mut next_deadline = report
-            .next_deadline_ns
-            .map_or(self.next_calibration, |d| d.min(self.next_calibration));
-        if !self.rest.account().frozen()
-            && !self.rest.gateway().halted()
-            && self.rest.submission_ready()
-            && let Some(warm_due) = self.session.next_warmup_due_ns()
-        {
-            next_deadline = next_deadline.min(warm_due);
-        }
-        report.next_deadline_ns = Some(next_deadline);
-        Ok(report)
-    }
-    fn poll_clock(&mut self, now: u64, io: IoBudget) -> Result<()> {
-        let binding = self.bindings.time;
-        let interval = self.config.calibration_interval_ns;
-        let retry = self.config.calibration_retry_ns;
-        let next = &mut self.next_calibration;
-        self.session
-            .with_resources(|time, quota| -> Result<()> {
-                let mut permit = quota.time(binding);
-                if time.in_flight().is_none() && now >= *next {
-                    *next = now.checked_add(retry).ok_or(Error::Config)?;
-                    match time.start(&mut permit) {
-                        Ok(_) => {}
-                        Err(clock::Error::Denied | clock::Error::Transport) => return Ok(()),
-                        Err(e) => return Err(Error::Clock(e)),
-                    }
-                }
-                if time.in_flight().is_some() {
-                    let polled = time.poll(&mut permit, io).map_err(Error::Clock)?;
-                    if let Some(outcome) = polled.outcome {
-                        *next = now
-                            .checked_add(if outcome.calibration.is_ok() {
-                                interval
-                            } else {
-                                retry
-                            })
-                            .ok_or(Error::Config)?;
-                    }
-                }
-                Ok(())
-            })
-            .map_err(Error::Shared)??;
-        Ok(())
-    }
-    fn poll_market(&mut self, now: LocalTime, io: IoBudget, report: &mut Report) -> Result<()> {
-        if let Some(market) = &mut self.external_market {
-            if !self.external_market_failed {
-                let mut sink = MarketObserver(self.observer.as_mut());
-                match market.poll(
-                    now.monotonic,
-                    self.config.maximum_book_age_ns,
-                    self.config.public.max_notifications,
-                    &mut sink,
-                ) {
-                    Ok(md) => {
-                        report.market_messages = md.records;
-                        report.runnable |= md.runnable;
-                        report.next_deadline_ns = md.next_deadline_ns;
-                    }
-                    Err(_) => {
-                        // A market failure closes its dependent risk gates while
-                        // the account continues processing facts and cancellations.
-                        self.external_market_failed = true;
-                        market.stop(&mut sink).map_err(|_| Error::Strategy)?;
-                    }
-                }
-            }
-        } else {
-            let binding = self.bindings.public;
-            let market = &mut self.market;
-            let mut sink = Fanout {
-                strategy: &mut self.strategy,
-                output: &mut self.output,
-            };
-            let mut budget = self.config.public;
-            budget.io = io;
-            let md = self
-                .session
-                .with_resources(|_, quota| -> Result<public::PollReport> {
-                    let mut permit = quota.public(binding);
-                    if market.status().phase == public::Phase::Idle {
-                        match market.start(&mut permit) {
-                            Ok(()) | Err(public::Error::Denied | public::Error::Transport) => {}
-                            Err(e) => return Err(Error::Market(e)),
-                        }
-                    }
-                    market
-                        .poll(&mut permit, budget, &mut sink)
-                        .map_err(Error::Market)
-                })
-                .map_err(Error::Shared)??;
-            report.market_messages = md.decoded;
-            report.runnable |= md.runnable;
-            report.next_deadline_ns = md.next_deadline_ns;
-        }
-        Ok(())
-    }
-    fn poll_private(&mut self, io: IoBudget, report: &mut Report) -> Result<()> {
-        let binding = self.bindings.private.clone();
-        let scope = binding.scope.clone();
-        let delivery_ns = self.config.private_delivery_budget_ns;
-        let mut delivery =
-            move |_: &private::AccountScope, _: &private::SignedTime, _: &private::ClockSample| {
-                Ok(delivery_ns)
-            };
-        let mut budget = self.config.private;
-        budget.io = io;
-        let private = &mut self.private;
-        let rest = &mut self.rest;
-        let strategy = &mut self.strategy;
-        let observer = &mut self.observer;
-        let mut input_error = None;
-        let pd = self
-            .session
-            .with_resources(|time, quota| -> Result<private::PollReport> {
-                let mut adapter =
-                    ClockAdapter::new(time, scope, &mut delivery).map_err(Error::Private)?;
-                let mut permit = quota.private(binding);
-                private
-                    .poll(&mut adapter, budget, &mut permit, |notice| {
-                        let result = match notice {
-                            private::Delivery::Event(event) => {
-                                let epoch = event.session().identity().connection_epoch;
-                                rest.ingest_private(&event).and_then(|outcome| {
-                                    if rest.latest_applied_input().is_some_and(|input| {
-                                        !observer.input_applied(input, rest.account())
-                                    }) {
-                                        return Err(tickwire_binance_account::Error::Identity);
-                                    }
-                                    if !observer.private_applied(epoch, outcome, rest.account()) {
-                                        return Err(tickwire_binance_account::Error::Identity);
-                                    }
-                                    strategy.on_private(outcome, rest.account());
-                                    Ok(())
-                                })
-                            }
-                            private::Delivery::Gap(gap) => {
-                                if !observer.private_gap(&gap) {
-                                    return Err(private::Error::Sink);
-                                }
-                                rest.source_gap(&gap).map(|_| ())
-                            }
-                            private::Delivery::State(state) => {
-                                if !observer.private_state(state) {
-                                    return Err(private::Error::Sink);
-                                }
-                                Ok(())
-                            }
-                            private::Delivery::Control(_) => Ok(()),
-                        };
-                        if let Err(error) = result {
-                            input_error = Some(error);
-                            return Err(private::Error::Sink);
-                        }
-                        Ok(())
-                    })
-                    .map_err(Error::Private)
-            })
-            .map_err(Error::Shared)?;
-        if let Some(error) = input_error {
-            return Err(Error::Account(error));
-        }
-        let pd = pd?;
-        if !self.observer.private_source(self.private.current_gap()) {
-            return Err(Error::Private(private::Error::Sink));
-        }
-        report.private_messages = pd.messages;
-        report.runnable |= pd.yielded;
-        Ok(())
-    }
-    fn poll_account(&mut self, io: IoBudget, report: &mut Report) -> Result<()> {
-        let fresh = self.time()?;
-        let mut completed = 0usize;
-        if let Some(outcome) = self
-            .rest
-            .poll(fresh.local.instant, fresh.local.monotonic.nanos(), io)
-            .map_err(Error::Account)?
-        {
-            report.rest_completed = true;
-            completed += 1;
-            if outcome
-                .input
-                .or_else(|| self.rest.latest_applied_input())
-                .is_some_and(|input| !self.observer.input_applied(input, self.rest.account()))
+
+    /// Returns `(account_ref, worker_tid)` for every account configured with an `AsyncRestQuerier`
+    /// (`"tw-rest-query"`).
+    pub fn rest_querier_tids(&self) -> Vec<(u8, i32)> {
+        let mut out = Vec::new();
+        for acct in &self.accounts {
+            if let Some(rq) = acct.rest_querier()
+                && let Some(tid) = rq.worker_tid()
             {
-                return Err(Error::Strategy);
+                out.push((acct.account_ref(), tid));
             }
-            self.strategy.on_rest(outcome, self.rest.account());
         }
-        while completed < 16 && self.rest.has_queued_outcomes() {
-            let Some(outcome) = self
-                .rest
-                .poll(fresh.local.instant, fresh.local.monotonic.nanos(), io)
-                .map_err(Error::Account)?
-            else {
-                break;
-            };
-            report.rest_completed = true;
-            completed += 1;
-            if outcome
-                .input
-                .or_else(|| self.rest.latest_applied_input())
-                .is_some_and(|input| !self.observer.input_applied(input, self.rest.account()))
-            {
-                return Err(Error::Strategy);
-            }
-            self.strategy.on_rest(outcome, self.rest.account());
-        }
-        if self.rest.has_queued_outcomes() {
-            report.runnable = true;
-        }
-        if self
-            .rest
-            .latest_applied_input()
-            .is_some_and(|input| !self.observer.input_applied(input, self.rest.account()))
-        {
-            return Err(Error::Strategy);
-        }
-        self.strategy.on_account_history(self.rest.gateway());
-        Ok(())
+        out
     }
-    fn poll_strategies(&mut self, report: &mut Report) -> Result<()> {
-        // Polling the account sender may run an authorization callback that
-        // samples a newer trusted time. Health must follow that callback with
-        // a fresh sample instead of presenting the pre-poll time as current.
-        let fresh = self.time()?;
-        report.health = Health {
-            calibrated: fresh.signed.is_some(),
-            market_live: if let Some(market) = &self.external_market {
-                !self.external_market_failed
-                    && market.is_live(fresh.local.monotonic, self.config.maximum_book_age_ns)
-            } else {
-                self.market.view(self.config.maximum_book_age_ns).is_ok()
-            },
-            private_receiving: self.private.status().phase == private::Phase::Receiving,
-            account_frozen: self.rest.account().frozen(),
-            sender_halted: self.rest.gateway().halted(),
-        };
-        self.strategy.on_health(report.health, fresh.local);
-        if !self.observer.health(report.health, fresh.local) {
-            return Err(Error::Strategy);
-        }
-        for _ in 0..self.config.maximum_commands_per_turn {
-            if !self.rest.submission_ready() {
-                break;
-            }
-            // Prior submissions may synchronize recovery data and sample the
-            // policy clock. Each new callback starts with a current sample.
-            let fresh = self.time()?;
-            let Some(submission) =
-                self.strategy
-                    .next(self.rest.account(), report.health, fresh.local)
-            else {
-                break;
-            };
-            let digest = submission.command.digest();
-            if digest != submission.recovery.command_digest {
-                return Err(Error::Config);
-            }
-            self.recovery
-                .stage(submission.recovery)
-                .map_err(Error::Recovery)?;
-            let submitted_at = self.time()?;
-            let result = self.rest.submit(
-                submission.command.clone(),
-                &submission.order_ids,
-                submitted_at.local.monotonic.nanos(),
-                submission.deadline,
-            );
-            self.strategy.on_submission(
-                &submission.command,
-                &result
-                    .as_ref()
-                    .copied()
-                    .map_err(|e| e as &(dyn std::error::Error + 'static)),
-            );
-            // Any successful prepare persisted the complete closure before Admit.
-            // A denied submit leaves no new send capability, so the staged copy is disposable.
-            self.recovery.remove(digest).map_err(Error::Recovery)?;
-            report.submissions += 1;
-        }
-        Ok(())
+
+    #[inline]
+    pub fn cpu_config(&self) -> &OrsCpuConfig {
+        &self.cpu
     }
-    pub fn step(&mut self) -> Result<Report> {
-        if self.stopped {
-            return Err(Error::Stopped);
-        }
-        let result = self.step_inner();
-        if result.is_err() {
-            self.stop();
-        }
-        result
+
+    #[inline]
+    pub fn policy(&self) -> &Arc<OrsRuntimePolicy> {
+        &self.policy
     }
-    pub fn stop(&mut self) {
-        self.stopped = true;
-        self.rest.stop_sending();
-        let _ = self.private.stop(private::StopMode::Disconnect);
-        if let Some(market) = &mut self.external_market {
-            let _ = market.stop(&mut MarketObserver(self.observer.as_mut()));
-        } else {
-            let mut sink = Fanout {
-                strategy: &mut self.strategy,
-                output: &mut self.output,
-            };
-            let _ = self.market.stop(&mut sink);
-        }
+
+    #[inline]
+    pub fn order_manager(&self) -> &Arc<OrderManager<true>> {
+        &self.order_manager
     }
-    fn registrations(&mut self, registry: &mio::Registry) -> Result<()> {
-        if self.external_market.is_none() {
-            self.market
-                .reregister(
-                    registry,
-                    public::IoTokens {
-                        stream: mio::Token(1),
-                        snapshot: mio::Token(2),
+
+    #[inline]
+    pub fn rms_reload_handle(&self) -> &RmsReloadHandle {
+        &self.rms_reload
+    }
+
+    #[inline]
+    pub fn rate_limiter(&self) -> &Arc<SharedRateLimiter> {
+        &self.rate_limiter
+    }
+
+    #[inline]
+    pub fn accounts(&self) -> &[Arc<AccountSession<S>>] {
+        &self.accounts
+    }
+
+    #[inline]
+    pub fn control_server(&self) -> Option<&ControlServer> {
+        self.control_server.as_ref()
+    }
+
+    #[inline]
+    pub fn admin(&self) -> &AdminCommands {
+        &self.admin
+    }
+
+    #[inline]
+    pub fn dialer(&self) -> &Arc<Dialer> {
+        &self.dialer
+    }
+
+    #[inline]
+    pub fn latency_tracer(&self) -> &Arc<LatencyTracer> {
+        &self.tracer
+    }
+
+    #[inline]
+    pub fn is_shut_down(&self) -> bool {
+        self.shut_down.load(Ordering::Acquire)
+    }
+
+    /// Returns the total count of non-closed orders in [`OrderManager`] plus open RFQ maker quotes
+    /// across all enabled [`AccountSession`]s.
+    pub fn open_order_and_quote_count(&self) -> usize {
+        let mut ids = [0u64; 4096];
+        let open_orders = self
+            .order_manager
+            .find_orders(&OrsOrderFilter::default(), &mut ids);
+        let open_quotes: usize = self
+            .accounts
+            .iter()
+            .map(|a| a.session().open_quotes())
+            .sum();
+        open_orders.saturating_add(open_quotes)
+    }
+
+    /// Dispatches a single [`OrsSignal`] (`SIGUSR1`, `SIGUSR2`, `SIGINT`, `SIGTERM`, `8.2`).
+    pub fn handle_signal(&self, signal: OrsSignal) -> OrsSignalOutcome {
+        match signal {
+            OrsSignal::SigUsr1 => {
+                let generation = match self.rms_config_path.as_deref() {
+                    Some(path) => match reload_rms_from_file(path, &self.rms_reload) {
+                        Ok(new_gen) => {
+                            let _ = self.admin.post_req(ReqAdminCommand::RmsReload {
+                                generation: new_gen,
+                            });
+                            Ok(new_gen)
+                        }
+                        Err(err) => Err(err.to_string()),
                     },
-                )
-                .map_err(Error::Market)?;
+                    None => Ok(self.rms_reload.generation()),
+                };
+                let _ = self
+                    .admin
+                    .post_resp(RespAdminCommand::QueryOpen { account_ref: None });
+                let _ = self
+                    .admin
+                    .post_resp(RespAdminCommand::Dump { account_ref: None });
+                OrsSignalOutcome::ReloadedRms { generation }
+            }
+            OrsSignal::SigUsr2 => {
+                self.policy.set_mode(Mode::ManageOnly);
+                let _ = self.admin.post_req(ReqAdminCommand::CancelAll {
+                    strat_id: ALL_STRATS,
+                    account_ref: None,
+                    symbol_id: None,
+                });
+                let _ = self
+                    .admin
+                    .post_resp(RespAdminCommand::BroadcastOrsRestricted);
+                OrsSignalOutcome::EmergencyCancelAll
+            }
+            OrsSignal::SigInt | OrsSignal::SigTerm => {
+                self.shutdown();
+                OrsSignalOutcome::ShutdownInitiated
+            }
         }
-        self.private
-            .reregister(
-                registry,
-                private::RegistrationTokens {
-                    stream: mio::Token(3),
-                    management: mio::Token(4),
-                },
-            )
-            .map_err(Error::Private)?;
-        let registered = &mut self.registered_time;
-        self.session
-            .with_resources(|t, _| -> Result<()> {
-                if let Some(progress) = t.in_flight() {
-                    if *registered == Some(progress.connection_epoch) {
-                        t.reregister(registry, mio::Token(5))
-                            .map_err(Error::Clock)?;
-                    } else {
-                        t.register(registry, mio::Token(5)).map_err(Error::Clock)?;
-                        *registered = Some(progress.connection_epoch);
-                    }
+    }
+
+    /// Pins the calling `main` thread to `housekeeping_cpus` (when configured) and polls `waiter`
+    /// until `SIGINT`/`SIGTERM` (or external [`Self::shutdown`]) terminates the process (`8.2`).
+    pub fn run_signal_loop(
+        &self,
+        waiter: &SignalWaiter,
+        poll_timeout: Duration,
+    ) -> Result<Option<OrsSignal>, String> {
+        if let Some(ref hk) = self.cpu.housekeeping_cpus {
+            pin_current_thread(hk)
+                .map_err(|e| format!("failed to pin main signal loop to housekeeping_cpus: {e}"))?;
+        }
+        while !self.is_shut_down() {
+            let maybe_sig = waiter
+                .wait_timeout(poll_timeout)
+                .map_err(|e| format!("SignalWaiter::wait_timeout failed: {e}"))?;
+            if let Some(sig) = maybe_sig {
+                let outcome = self.handle_signal(sig);
+                if matches!(outcome, OrsSignalOutcome::ShutdownInitiated) {
+                    return Ok(Some(sig));
                 }
-                Ok(())
-            })
-            .map_err(Error::Shared)??;
-        if !self.rest.gateway().halted() {
-            if self.rest.has_connection_pool() {
-                self.rest.reregister_all(registry).map_err(Error::Account)?;
-            } else {
-                if self.registered_rest {
-                    self.rest.reregister(registry, mio::Token(6))
-                } else {
-                    self.rest.register(registry, mio::Token(6))
-                }
-                .map_err(Error::Account)?;
             }
-            self.registered_rest = true;
         }
-        Ok(())
+        Ok(None)
     }
-    /// Runs the actual network owners on one event-loop thread. The caller controls
-    /// shutdown and can stop after a decision, a duration, or a supervisor signal.
-    pub fn run(&mut self, mut keep_running: impl FnMut(&Self, &Report) -> bool) -> Result<()> {
-        self.run_with_maintenance(|_, _| Ok(()), |node, report| keep_running(node, report))
-    }
-    /// Maintenance runs after inputs have been persisted and before the reactor
-    /// sleeps. It may drive read-only reconciliation and register its connection
-    /// with token values 7 and above.
-    pub fn run_with_maintenance(
-        &mut self,
-        mut maintenance: impl FnMut(&mut Self, &mio::Registry) -> Result<()>,
-        mut keep_running: impl FnMut(&Self, &Report) -> bool,
-    ) -> Result<()> {
-        let mut reactor = mio::Poll::new().map_err(Error::Io)?;
-        let mut events = mio::Events::with_capacity(16);
-        loop {
-            let report = self.step()?;
-            if let Err(error) = maintenance(self, reactor.registry()) {
-                self.stop();
-                return Err(error);
-            }
-            if !keep_running(self, &report) {
-                self.stop();
-                return Ok(());
-            }
-            self.registrations(reactor.registry())?;
-            let now = self.time()?.local;
-            let mut wait = self.config.maximum_idle_wait_ns;
-            if report.runnable {
-                wait = 0;
-            }
-            if let Some(deadline) = report.next_deadline_ns {
-                wait = wait.min(deadline.saturating_sub(now.monotonic.nanos()));
-            }
-            if let Some(deadline) = self.private.next_deadline() {
-                wait = wait.min(
-                    deadline
-                        .saturating_duration_since(now.instant)
-                        .as_nanos()
-                        .min(u64::MAX as u128) as u64,
-                );
-            }
-            reactor
-                .poll(&mut events, Some(Duration::from_nanos(wait)))
-                .map_err(Error::Io)?;
+
+    /// Executes the deterministic ordered ORS shutdown sequence (`human-docs/8.2`):
+    /// 1. Transition policy to [`Mode::Stopped`] and stop & join `REQ` (`"tw-ors-req"`).
+    /// 2. Enqueue [`RespAdminCommand::ShutdownCancelAll`] so `RESP` transmits cancels for all open
+    ///    orders and RFQ quotes, polling up to `shutdown_drain_timeout` (`2s` default) for open
+    ///    count to hit `0`.
+    /// 3. Broadcast `OrsShutDown` (`ReportRecord`) onto all strategy report rings.
+    /// 4. Stop DOP [`ControlServer`] (`"tw-ors-ctrl"`).
+    /// 5. Stop & join `RESP` (`"tw-ors-resp"`), `Dialer`, per-account `AsyncRestQuerier`s, and
+    ///    `LatencyTracer`.
+    pub fn shutdown(&self) {
+        if self.shut_down.swap(true, Ordering::AcqRel) {
+            return;
         }
-    }
 
-    pub fn with_warmup_interval_ns(mut self, warmup_interval_ns: u64) -> Result<Self> {
-        self.set_warmup_interval_ns(warmup_interval_ns)?;
-        Ok(self)
-    }
-
-    pub fn set_warmup_interval_ns(&mut self, warmup_interval_ns: u64) -> Result<()> {
-        let cold_unseeded = warmup_interval_ns > 0
-            && self.session.last_activity_ns() == 0
-            && self.session.last_warm_ns() == 0;
-        self.session
-            .set_warmup_interval_ns(warmup_interval_ns)
-            .map_err(Error::Shared)?;
-        if warmup_interval_ns > 0 {
-            if cold_unseeded
-                && self.session.last_activity_ns() == 0
-                && self.session.last_warm_ns() == 0
-                && let Ok(reading) = self.time()
-            {
-                self.session
-                    .record_activity(reading.local.monotonic.nanos());
-            }
-            self.session
-                .refresh_warmup_scratch(self.rest.account())
-                .map_err(Error::Shared)?;
-        }
-        Ok(())
-    }
-
-    pub fn warmup_interval_ns(&self) -> u64 {
-        self.session.warmup_interval_ns()
-    }
-
-    pub fn warmup_count(&self) -> u64 {
-        self.session.warmup_count()
-    }
-
-    pub fn record_activity(&mut self, now_mono_ns: u64) {
-        self.session.record_activity(now_mono_ns);
-    }
-
-    pub fn warm_hot_path(&mut self, now_mono_ns: u64) -> Result<usize> {
-        self.session
-            .warm_hot_path_with_account(Some(self.rest.account()), now_mono_ns)
-            .map_err(Error::Shared)
-    }
-
-    pub fn maybe_warm_hot_path(&mut self, now_mono_ns: u64) -> Result<bool> {
-        if self.rest.account().frozen()
-            || self.rest.gateway().halted()
-            || !self.rest.submission_ready()
+        // Step 1: Stop & join REQ so no new intents enter OrderManager.
+        self.policy.set_mode(Mode::Stopped);
+        self.req_stop.store(true, Ordering::Release);
+        if let Some(req_h) = self
+            .req_join
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
         {
-            self.session.record_activity(now_mono_ns);
-            return Ok(false);
+            let _ = req_h.join();
         }
-        self.session
-            .maybe_warm_hot_path_with_account(Some(self.rest.account()), now_mono_ns)
-            .map_err(Error::Shared)
+
+        // Step 2: Cancel all remaining open orders & RFQ quotes and wait up to `2s` for drain.
+        self.admin.reset_shutdown_broadcast();
+        let _ = self.admin.post_resp(RespAdminCommand::ShutdownCancelAll);
+        let drain_deadline = Instant::now() + self.shutdown_drain_timeout;
+        while self.open_order_and_quote_count() > 0 && Instant::now() < drain_deadline {
+            let _ = self.resp_waker.wake();
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        // Step 3: Publish `OrsShutDown` (`ReportRecord`) to all strategy lanes.
+        let _ = self.admin.post_resp(RespAdminCommand::BroadcastOrsShutDown);
+        let bcast_deadline = Instant::now() + Duration::from_millis(250);
+        while !self.admin.is_shutdown_broadcast_done() && Instant::now() < bcast_deadline {
+            let _ = self.resp_waker.wake();
+            std::thread::sleep(Duration::from_millis(1));
+        }
+
+        // Step 4: Stop DOP ControlServer.
+        if let Some(ref ctrl) = self.control_server {
+            ctrl.stop();
+        }
+
+        // Step 5: Stop & join RESP, Dialer, per-account AsyncRestQuerier, and LatencyTracer.
+        self.resp_stop.store(true, Ordering::Release);
+        let _ = self.resp_waker.wake();
+        if let Some(resp_h) = self
+            .resp_join
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .take()
+        {
+            let _ = resp_h.join();
+        }
+
+        self.dialer.stop();
+        for acct in &self.accounts {
+            if let Some(rq) = acct.rest_querier() {
+                rq.stop();
+            }
+        }
+        self.tracer.stop();
+    }
+}
+
+impl<S: VenueSession> Drop for OrsProcess<S> {
+    fn drop(&mut self) {
+        self.shutdown();
     }
 }

@@ -1,6 +1,12 @@
-//! Multi-slot execution connection pool and allocation-free EWMA route selection.
+//! Multi-slot execution connection pool, allocation-free EWMA route selection, and
+//! `SharedRateLimiter` single-pick NACK admission (`AccountGateway`).
+
 use crate::*;
 use std::net::SocketAddr;
+use tickwire_quota::rate_limiter::{IpKey, MAX_SPENDS_PER_CALL, RatePermit};
+use tickwire_quota::shared::{
+    InstrumentScope, OrsAccountQuota, RouteAdmissionReject, SharedRateLimiter, SharedSpend,
+};
 pub use tickwire_transport::order_router::{
     MAX_ORDER_CONNECTIONS, MAX_SHARED_INFLIGHT, OrderConnectionPool, OrderRoute, OrderRouter,
     OrderSlotSpec, RouteHealth, RouterConfig, SampleKind, SendSlot,
@@ -63,22 +69,10 @@ impl GatewayPool {
     }
 
     #[inline]
-    pub(crate) fn has_any_pending(&self) -> bool {
-        self.slot_io.iter().any(|io| io.pending_send.is_some())
-    }
-
-    #[inline]
     pub(crate) fn is_key_pending(&self, key: IntentKey) -> bool {
         self.slot_io
             .iter()
             .any(|io| io.pending_send.is_some_and(|(k, _, _)| k == key))
-    }
-
-    #[inline]
-    pub(crate) fn has_any_retained_receive(&self) -> bool {
-        self.slot_io
-            .iter()
-            .any(|io| !io.retained_receive.is_empty())
     }
 
     pub(crate) fn clear_pending_for_key(&mut self, key: IntentKey) {
@@ -165,7 +159,15 @@ pub(crate) fn validate_transport_limits(limits: Limits) -> Result<()> {
     Ok(())
 }
 
-impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
+#[inline]
+fn ip_key_from_opt(ip: Option<std::net::IpAddr>) -> IpKey {
+    match ip {
+        Some(addr) => IpKey::from_ip(addr),
+        None => IpKey::NONE,
+    }
+}
+
+impl<A: Authority, E: Encoder> AccountGateway<A, E> {
     pub fn with_connection_pool(mut self, config: RouterConfig) -> Result<Self> {
         self.enable_connection_pool(config)?;
         Ok(self)
@@ -411,6 +413,96 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         picked
     }
 
+    /// Selects a single ready slot matching `sym_type`, spends `quota` on that slot's `local_ip`
+    /// via `SharedRateLimiter::pick_and_spend_or_nack` (**never** retrying a sibling connection on
+    /// rate-limit exhaustion!), and submits `command` on the chosen slot.
+    #[allow(clippy::too_many_arguments)]
+    pub fn submit_pooled_with_quota(
+        &mut self,
+        sym_type: u32,
+        limiter: &SharedRateLimiter,
+        quota: &OrsAccountQuota<'_>,
+        scope: InstrumentScope,
+        ip_weight: u32,
+        command: CanonicalCommand,
+        evaluated_at: u64,
+        deadline: Instant,
+    ) -> Result<(u16, Status, u64, RatePermit)> {
+        let key = binding::intent(&command);
+        if let Some(old) = self.entries.get(&key) {
+            if old.command.bytes() == command.bytes() {
+                let (cid, ep) = self
+                    .pool
+                    .as_ref()
+                    .and_then(|p| p.slot_bindings.get(&key))
+                    .copied()
+                    .unwrap_or((0, 0));
+                return Ok((
+                    cid,
+                    old.status,
+                    ep,
+                    RatePermit {
+                        granted_at_ns: evaluated_at,
+                        spends_applied: 0,
+                    },
+                ));
+            }
+            self.halt();
+            return Err(Error::Conflict);
+        }
+        if self.halted {
+            return Err(Error::Halted);
+        }
+
+        // Single-pick route + SharedRateLimiter spend on picked connection's local_ip:
+        // If rate-limited on that connection's IP or account window, NACK immediately without
+        // retrying another connection!
+        let is_cancel = matches!(
+            command.command().body,
+            tickwire_venue::CommandBody::Cancel(_)
+                | tickwire_venue::CommandBody::CancelList(_)
+                | tickwire_venue::CommandBody::CancelAlgo(_)
+        );
+        let is_query = matches!(
+            command.command().body,
+            tickwire_venue::CommandBody::Query(_)
+        );
+
+        let ((picked_conn_id, _), permit) = limiter
+            .pick_and_spend_or_nack(
+                || {
+                    let cid = self.pick_pool_slot(sym_type)?;
+                    let ip_key = ip_key_from_opt(self.slot_route(cid).and_then(|r| r.local_ip));
+                    Some((cid, ip_key))
+                },
+                |&(_cid, ip_key), buf: &mut [SharedSpend; MAX_SPENDS_PER_CALL]| {
+                    if is_cancel {
+                        quota
+                            .build_cancel_spends(ip_key, scope, ip_weight, buf)
+                            .map_err(RouteAdmissionReject::RateLimitedNack)
+                    } else if is_query {
+                        quota
+                            .build_query_spends(ip_key, ip_weight, buf)
+                            .map_err(RouteAdmissionReject::RateLimitedNack)
+                    } else {
+                        quota
+                            .build_place_spends(ip_key, scope, 1, ip_weight, buf)
+                            .map_err(RouteAdmissionReject::RateLimitedNack)
+                    }
+                },
+                evaluated_at,
+            )
+            .map_err(|rej| match rej {
+                RouteAdmissionReject::NoReadyConnection
+                | RouteAdmissionReject::MissingLocalIp { .. } => Error::NoReadyRoute,
+                RouteAdmissionReject::RateLimitedNack(r) => Error::RateLimited(r),
+            })?;
+
+        let (status, epoch) =
+            self.submit_on_slot(picked_conn_id, command, evaluated_at, deadline)?;
+        Ok((picked_conn_id, status, epoch, permit))
+    }
+
     pub fn submit_on_slot(
         &mut self,
         conn_id: u16,
@@ -455,7 +547,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             io.max_send_bytes
         };
         let (send, initial_status) =
-            self.admit_and_journal(key, command, evaluated_at, deadline, max_send_bytes)?;
+            self.admit_in_memory(key, command, evaluated_at, deadline, max_send_bytes)?;
         let acquire_res = self
             .pool
             .as_mut()
@@ -469,7 +561,6 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
                 Ok((initial_status, epoch))
             }
             Err(error) => {
-                // queue never accepts application bytes, even when it fails.
                 self.abort(key)?;
                 let _ = self.drop_broken_slot_isolated(
                     conn_id,
@@ -526,37 +617,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             && driven.as_ref().is_ok_and(|r| !r.peer_closed)
         {
             let entry = &self.entries[&key];
-            if entry.output.is_some_and(|p| p.accepted_bytes == 0) {
-                let committed = entry.committed.as_ref().ok_or(Error::Invalid)?;
-                match self
-                    .authority
-                    .commit_state(&committed.admission, &committed.receipt)
-                {
-                    Ok(CommitState::Pending) => {
-                        self.entries.get_mut(&key).unwrap().status = Status::AwaitingCommit;
-                        return match driven {
-                            Ok(_) => Ok(()),
-                            Err(error) => {
-                                let _ = self.drop_broken_slot_isolated(
-                                    conn_id,
-                                    self.last_mono_ns,
-                                    true,
-                                );
-                                Err(error.into())
-                            }
-                        };
-                    }
-                    Ok(CommitState::Ready) => {
-                        self.entries.get_mut(&key).unwrap().status = Status::Queued;
-                    }
-                    Err(_) => {
-                        self.cancel_slot_pending(conn_id)?;
-                        return Ok(());
-                    }
-                }
-            }
-            let entry = &self.entries[&key];
-            let admission = &entry.committed.as_ref().ok_or(Error::Invalid)?.admission;
+            let admission = entry.admission.as_ref().ok_or(Error::Invalid)?;
             let authority = &mut self.authority;
             let account = &self.account;
             let epoch = self.config.writer_epoch;
@@ -775,7 +836,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         };
         if let Some(key) = failed_pending {
             let zero_bytes_unsent = self.entries.get(&key).is_some_and(|e| {
-                matches!(e.status, Status::Queued | Status::AwaitingCommit)
+                matches!(e.status, Status::Queued)
                     && e.output.is_some_and(|p| p.accepted_bytes == 0)
             });
             if zero_bytes_unsent {
@@ -864,13 +925,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
         if self.halted {
             return Err(Error::Halted);
         }
-        let path = match self.config.route.product {
-            tickwire_venue::Product::Spot => "/ws-api/v3",
-            tickwire_venue::Product::LinearPerpetual | tickwire_venue::Product::LinearFuture => {
-                "/ws-fapi/v1"
-            }
-            _ => return Err(Error::Identity),
-        };
+        let path = self.config.route.default_ws_path()?.to_owned();
         let authority = &self.config.route.authority;
         let gpool = self.pool.as_mut().ok_or(Error::Invalid)?;
         let idx = usize::from(conn_id);
@@ -886,7 +941,7 @@ impl<S: Backend, A: Authority, E: Encoder> AccountGateway<S, A, E> {
             return Err(Error::Busy);
         }
         let max_send_bytes = io.max_send_bytes;
-        let handshake = ClientHandshake::new(authority, path, &[], max_send_bytes)?;
+        let handshake = ClientHandshake::new(authority, &path, &[], max_send_bytes)?;
         let send = PreparedSend::new(handshake.request(), deadline, max_send_bytes)?;
         let token = gpool
             .pool

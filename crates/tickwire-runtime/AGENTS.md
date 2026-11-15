@@ -1,58 +1,38 @@
-# tickwire-runtime
+# `tickwire-runtime` Engineering Guide and Invariants
 
-`tickwire-runtime` (`#![forbid(unsafe_code)]`) owns the single-threaded trading event loop (`node`), local
-`RecoveryManifest` staging and verification (`authority::LocalAuthority`, `authority::RecoveryQueue`), and startup
-file/catalog loaders (`files`) that wire clock calibration, public market data, private account ingress, and
-`AccountGateway` together. Executable assemblies (`tickwire-app` and `tickwire-spot-runner`) instantiate and poll this
-node; child-process spawning, shared-memory mappings, and policy grant rules live in `tickwire-app` and
-`tickwire-runtime-policy`.
+Governing specification: [`specs/implementation/single-host-trading.md`](../../specs/implementation/single-host-trading.md).
 
-## Invariants and Change Guidelines
+## 1. Purpose and Venue-Agnostic Boundary
 
-* **Poll-order invariant, early `ProjectedFill` / `StpBook` controls, and non-freezing strategy refusals**: Each reactor
-  turn in [src/node.rs](src/node.rs) must poll clock calibration, public market streams, private account inputs, and up
-  to `16` queued `RestOwner` completions (`has_queued_outcomes`, marking `report.runnable = true` if any remain) before
-  polling `Strategy` for new submissions, then sample fresh `LocalTime` immediately prior to admission so fills and
-  cancellations across pooled HTTP/1.1 slots (`mio::Token(100 + conn_id)` via `RestOwner::reregister_all`) or
-  multiplexed WebSocket requests settle available funds in the same turn. `CoreNode` exposes `set_projected_fill`,
-  `drain_projected_fills`, `pop_projected_fill`, `set_stp_enforcement`, and `stp_book`, and routes per-intent local
-  admission refusals (`CrossesBook`, `OrderNotOpen`, `TooManyPendingActions`, `InvalidPrice`, `InvalidQuantity`,
-  `NoChange`, `InsufficientAsset`, `InsufficientCapital`, `Limit`, `ManagementDenied`, `RateLimited`) back to
-  `Strategy::rejected` without freezing the account or halting outbound sessions.
-* **Staged `RecoveryBundle` completeness**: `RecoveryQueue::stage` and `LocalAuthority` in
-  [src/authority.rs](src/authority.rs) require all 10 control/configuration/checkpoint dependency objects
-  (`kinds 2..=11`), actual sequenced `EncodedInputs`, command object (`kind 13`), and paired account baseline/history
-  (`14`/`15`) synchronized in `BlobStore` before returning a `VerifiedClosure`, and verify worker handover chains in
-  [src/authority/historical.rs](src/authority/historical.rs).
-* **Administrative bypass during degraded `Health`**: `Health::intake` in [src/node.rs](src/node.rs) holds new
-  risk-increasing orders in `Intake::Wait` whenever `!market_live`, `!private_receiving`, or `account_frozen`, while
-  still forwarding `Cancel`, `CancelAlgo`, `CancelList`, and `Query` commands as long as the clock is calibrated and
-  the sender is not halted.
-* **Startup-only storage-mode and catalog wiring**: Keep `StorageMode` selection (`InMemory`, `MmapAsync`,
-  `LocalDurable`), `OpenMode` (`Create`, `CreateFromLiveExchange`, `RecoverFrozen`), and JSON/CBOR baseline, credential,
-  and `tickwire-instrument-catalog` loading in [src/files.rs](src/files.rs) and [src/files/catalog.rs](src/files/catalog.rs)
-  strictly on the startup path, never inside per-quote or per-order turns.
-* **Quiescent-turn hot-path cache warming**: In [src/node.rs](src/node.rs), `CoreNode` (`with_warmup_interval_ns`,
-  `set_warmup_interval_ns`, `maybe_warm_hot_path`) seeds `record_activity` from `self.time()` on cold enablement
-  (`warmup_interval_ns > 0 && last_activity_ns == 0 && last_warm_ns == 0`), records activity on market events, private
-  fills/completions, outbound submissions, `!submission_ready() || frozen() || halted()`, and transient warmup errors,
-  clamps `next_deadline` via `next_warmup_due_ns` strictly when `!frozen() && !halted() && submission_ready()` (preventing
-  `0ns` `mio::Poll` spins while unready or halted), and invokes `SharedSessionState::maybe_warm_hot_path_with_account`
-  only on ready quiescent turns.
+`tickwire-runtime` implements the generic, venue-agnostic Unified Order Routing System (`ORS`) process framework for Tickwire's stateless 3-process shared-memory topology (`1 ORS process = 1 Venue`, `1 AccountSession = 1 Exchange UID`):
 
-## Verification and Specifications
+- **Generic code never names a venue:** Zero dependencies on exchange-specific adapter crates. All venue wire framing, login/subscription handshakes, ping/pong framing, inbound event decoding, and REST reconciliation queries plug into [`VenueSession`](src/session.rs).
+- **Zero market-data ownership:** Holds zero public market-data sockets and zero SHM quote subscriptions. Quote freshness on `REQ` is enforced strictly against `IntentBody::tick_mono_ns` (`max_order_age_ns`, default `23_000 ns` = `23 us`), refusing only the stale order (`RefusalReason::RejectStaleOrder`) without freezing any account or strategy.
+- **Pure stateless memory & cold REST bootstrap:** Zero WAL, journal, blob-store, owner-lease, or handover files. Cold startup seeds `OrderManager` exclusively via `VenueSession::bootstrap_snapshots` (`Account + OpenOrders`) paired with `SelfDescribingClientId` (`tw1...`).
 
-* **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/node.rs](src/node.rs) ·
-  [src/node/strategy.rs](src/node/strategy.rs) · [src/authority.rs](src/authority.rs) ·
-  [src/authority/historical.rs](src/authority/historical.rs) · [src/files.rs](src/files.rs) ·
-  [src/files/catalog.rs](src/files/catalog.rs)
-* **Integration tests**: [tests/handover_closure.rs](tests/handover_closure.rs) ·
-  [income_network_tests.rs](../tickwire-app/src/reconciliation/income_network_tests.rs)
-* **Specifications and models**: [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
-  [account-gateway.md](../../specs/implementation/account-gateway.md) ·
-  [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md) ·
-  [hotpath_ultralow_latency](../../tla/execution_models/hotpath_ultralow_latency/ROADMAP.md)
+## 2. Thread / CPU Isolation & Spinlock Hierarchy
+
+- **`#![forbid(unsafe_code)]` and zero floating-point arithmetic** across the entire crate; all Linux CPU pinning and signal syscalls delegate to [`tickwire-control-sys`](../tickwire-control-sys/AGENTS.md).
+- **Disjoint hot vs. housekeeping cores (`OrsCpuConfig`):**
+  - Validated at startup via `validate_cpu_isolation(&[("req_cpu", req_cpu), ("resp_cpu", resp_cpu)], housekeeping_cpus.as_ref())` (`req_cpu != resp_cpu`, `hot_cpus ∩ housekeeping_cpus == ∅`).
+  - `REQ` (`tw-ors-req`) busy-spins with zero `sleep` on `req_cpu`, polling strategy `IntentReader`s (`1,024B`) and draining `control -> REQ` `AdminCommands` when idle.
+  - `RESP` (`tw-ors-resp`) drives `mio::Poll` (`epoll_wait_ms`, default `0`) on `resp_cpu`, owning all `ReportWriter`s (`512B`) as sole writer.
+  - Every cold thread—`Dialer` (`tw-dialer`), per-account `AsyncRestQuerier` (`tw-rest-query`), `LatencyTracer` (`tw-latency-sink`), DOP `ControlServer` (`tw-ors-ctrl`), and the `main` `SignalWaiter` loop—is explicitly pinned to `housekeeping_cpus`.
+- **Spinlock hierarchy (non-negotiable):**
+  - Never overlap `Order` and `Connection` spinlocks (`OrderManager` releases `LockedOrder` before `REQ` calls `LockedConnection::send_frame`; `RESP` releases `LockedConnection` before calling `OrderManager`).
+  - Acquire `OrsStpBook` only beneath a held `LockedOrder` (`OrderLockProof`); send-path STP reads atomic opposite-side BBO lock-free.
+  - Zero logging, zero heap allocation, and zero protocol parsing while holding any spinlock.
+
+## 3. Single-Pick Rate Limiting & `dry_run` Discipline
+
+- Outbound route admission picks one ready connection matching `OrderRoute.product_mask` and spends against `SharedRateLimiter` using that picked connection's `local_ip`. If account or IP quota refuses, `REQ` **NACKs immediately (`RefusalReason::RateLimited`) without retrying another connection**.
+- `dry_run` (`IntentBody::intent_flags & DRY_RUN != 0`) uses `OrderManager`'s dedicated per-strategy scratch slot, releases holds immediately, and skips route selection, rate-limiter spend, and socket writes.
+
+## 4. Verification
 
 ```sh
+cargo fmt --all -- --check
 cargo test --locked -p tickwire-runtime --all-targets
+cargo clippy --locked -p tickwire-runtime --all-targets -- -D warnings
+python3 scripts/verify-documentation.py
 ```

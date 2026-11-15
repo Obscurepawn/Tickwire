@@ -1,5 +1,268 @@
-//! Strategy connects directly to independent MD; execution owns only intent/report lanes.
-use super::*;
+//! Supervised strategy worker launcher (`RemoteLaunch`, `RemoteHostedStrategy`) and audited
+//! cross-thread SPSC SHM lane attachment helpers (`prepare_cross_thread_intent_lane`,
+//! `prepare_cross_thread_report_lane`).
+
+use std::{
+    fs::OpenOptions,
+    io::Write,
+    os::{fd::AsFd, unix::fs::OpenOptionsExt},
+    path::{Path, PathBuf},
+    sync::mpsc,
+    time::{Duration, Instant},
+};
+
+use serde::Serialize;
+use sha2::{Digest, Sha256};
+use tickwire_clock_sys::SystemClock;
+use tickwire_control::{Identity, Policy, ProcessIdentity, Session};
+use tickwire_control_sys::{ControlListener, PrivateDirectory};
+use tickwire_ipc::{ALL_STRATS, IntentRecord, ReportBody, ResourceHeader};
+use tickwire_market_source::protocol::{
+    Endpoint, accept_offer, cursor_header, resource_offer, wire_bytes,
+};
+use tickwire_runtime_policy::OrsRuntimePolicy;
+use tickwire_shm::{BankKey, Publisher, SubscriptionKey};
+use tickwire_strategy_sdk::{
+    Bootstrap, IntentReader, IntentWriter, ReportIdentity, ReportReceiver, ReportWriter,
+};
+use tickwire_supervisor::{
+    AuthenticatedChild, ExitObservation, LaunchSpec, LiveResourceObservation, Registry,
+};
+
+use crate::{
+    Error, ProcessResources, Result,
+    observation::{
+        DoubleSampledObservation, FreshObservation, ObservationError, ObservationRequest,
+    },
+    readiness::{ReadyProof, WorkerReadiness},
+    resources,
+};
+
+/// Deferred `Send + 'static` factory invoked on `"tw-ors-req"` after CPU pinning to attach an
+/// [`IntentReader`] directly on its owning thread.
+pub type CrossThreadIntentReaderFactory =
+    Box<dyn FnOnce() -> std::result::Result<IntentReader, String> + Send + 'static>;
+
+/// Deferred `Send + 'static` factory invoked on `"tw-ors-resp"` after CPU pinning to create and
+/// attach a [`ReportWriter`] directly on its owning thread.
+pub type CrossThreadReportWriterFactory =
+    Box<dyn FnOnce() -> std::result::Result<ReportWriter, String> + Send + 'static>;
+
+/// Completes the strategy-side [`IntentWriter`] registration once `"tw-ors-req"` has attached its
+/// [`IntentReader`] cursor descriptor.
+pub struct CrossThreadIntentStarter {
+    publisher: Publisher<1>,
+    sub: SubscriptionKey,
+    strat_id: u8,
+    producer_instance: [u8; 16],
+    producer_generation: u64,
+    next_order_seqnum: u64,
+    cursor_rx: mpsc::Receiver<std::os::fd::OwnedFd>,
+    ack_tx: mpsc::SyncSender<()>,
+}
+
+impl CrossThreadIntentStarter {
+    /// Receive the reader cursor descriptor from `"tw-ors-req"`, register it on the `Publisher<1>`,
+    /// release the `"tw-ors-req"` factory barrier, and return the ready [`IntentWriter`].
+    #[allow(unsafe_code)]
+    pub fn finish(mut self, timeout: Duration) -> Result<IntentWriter> {
+        let cursor_fd = self
+            .cursor_rx
+            .recv_timeout(timeout)
+            .map_err(|_| Error::Timeout)?;
+        // SAFETY: `cursor_fd` is the exact `Subscriber` cursor descriptor produced by
+        // `IntentReader::attach` for `self.sub`.
+        unsafe {
+            self.publisher.register_cursor(self.sub, cursor_fd)?;
+        }
+        let writer = IntentWriter::with_arena(
+            self.publisher,
+            Some(self.sub),
+            None,
+            self.strat_id,
+            self.producer_instance,
+            self.producer_generation,
+            self.next_order_seqnum,
+        )?;
+        let _ = self.ack_tx.send(());
+        Ok(writer)
+    }
+}
+
+/// Prepare a cross-thread SPSC `1,024B` `IntentRecord` SHM ring pair without `unsafe impl Send`.
+///
+/// Pass the returned [`CrossThreadIntentReaderFactory`] into `OrderRoutingSystem::register_intent_lane_factory`,
+/// spawn `OrsProcess`, and then call [`CrossThreadIntentStarter::finish`] on the strategy thread.
+#[allow(unsafe_code)]
+pub fn prepare_cross_thread_intent_lane(
+    bank_header: ResourceHeader,
+    subscription_generation: u64,
+    cursor_id: [u8; 16],
+    strat_id: u8,
+    next_order_seqnum: u64,
+) -> Result<(CrossThreadIntentStarter, CrossThreadIntentReaderFactory)> {
+    if strat_id == ALL_STRATS
+        || cursor_id == [0; 16]
+        || subscription_generation == 0
+        || next_order_seqnum == 0
+    {
+        return Err(Error::Invalid);
+    }
+    let producer_instance = bank_header.producer_instance;
+    let producer_generation = bank_header.producer_generation;
+    let consumer_instance = bank_header.consumer_instance;
+    let mut publisher = Publisher::<1>::create(bank_header)?;
+    let sub = SubscriptionKey {
+        bank: publisher.key(),
+        instance: u128::from_le_bytes(consumer_instance),
+        generation: subscription_generation,
+        cursor: u128::from_le_bytes(cursor_id),
+    };
+    publisher.join(sub)?;
+    let bank = publisher.header().clone();
+    let bank_fd = publisher.reader_fd()?;
+    let (cursor_tx, cursor_rx) = mpsc::sync_channel(1);
+    let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+
+    let reader_factory: CrossThreadIntentReaderFactory = Box::new(move || {
+        // SAFETY: `publisher` is freshly created, exclusively owned by `CrossThreadIntentStarter`,
+        // and blocks on `ack_rx` until `register_cursor` completes before any slot is published.
+        let reader = unsafe { IntentReader::attach(bank_fd, bank, sub, None) }
+            .map_err(|e| format!("IntentReader::attach failed: {e}"))?;
+        let cursor_fd = reader
+            .cursor_fd()
+            .map_err(|e| format!("IntentReader::cursor_fd failed: {e}"))?;
+        cursor_tx
+            .send(cursor_fd)
+            .map_err(|_| "CrossThreadIntentStarter dropped before cursor handoff".to_string())?;
+        ack_rx
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|e| format!("timed out waiting for IntentWriter cursor registration: {e}"))?;
+        Ok(reader)
+    });
+
+    Ok((
+        CrossThreadIntentStarter {
+            publisher,
+            sub,
+            strat_id,
+            producer_instance,
+            producer_generation,
+            next_order_seqnum,
+            cursor_rx,
+            ack_tx,
+        },
+        reader_factory,
+    ))
+}
+
+/// Completes the strategy-side [`ReportReceiver`] attachment once `"tw-ors-resp"` has created its
+/// `512B` `ReportRecord` `Publisher<1>`.
+pub struct CrossThreadReportStarter {
+    identity: ReportIdentity,
+    offer_rx: mpsc::Receiver<(std::os::fd::OwnedFd, ResourceHeader, SubscriptionKey)>,
+    cursor_tx: mpsc::SyncSender<std::os::fd::OwnedFd>,
+    ack_rx: mpsc::Receiver<()>,
+}
+
+impl CrossThreadReportStarter {
+    /// Receive the read-only report ring `memfd` from `"tw-ors-resp"`, attach [`ReportReceiver`],
+    /// return its cursor descriptor, wait for registration completion, and return [`ReportReceiver`].
+    #[allow(unsafe_code)]
+    pub fn finish(self, timeout: Duration) -> Result<ReportReceiver> {
+        let (bank_fd, bank, sub) = self
+            .offer_rx
+            .recv_timeout(timeout)
+            .map_err(|_| Error::Timeout)?;
+        // SAFETY: `"tw-ors-resp"` exclusively owns the freshly created `Publisher<1>` and waits on
+        // `cursor_tx` + `register_cursor` before publishing any `ReportRecord`.
+        let receiver = unsafe { ReportReceiver::attach(bank_fd, bank, sub, None, self.identity) }?;
+        let cursor_fd = receiver.cursor_fd()?;
+        self.cursor_tx
+            .send(cursor_fd)
+            .map_err(|_| Error::Disconnected)?;
+        self.ack_rx
+            .recv_timeout(timeout)
+            .map_err(|_| Error::Timeout)?;
+        Ok(receiver)
+    }
+}
+
+/// Prepare a cross-thread SPSC `512B` `ReportRecord` SHM ring pair without `unsafe impl Send`.
+///
+/// Pass the returned [`CrossThreadReportWriterFactory`] into `OrderRoutingSystem::register_report_lane_factory`,
+/// spawn `OrsProcess`, and then call [`CrossThreadReportStarter::finish`] on the strategy thread.
+#[allow(unsafe_code)]
+pub fn prepare_cross_thread_report_lane(
+    header: ResourceHeader,
+    subscription_generation: u64,
+    cursor_id: [u8; 16],
+    identity: ReportIdentity,
+) -> Result<(CrossThreadReportStarter, CrossThreadReportWriterFactory)> {
+    if identity.strat_id == ALL_STRATS
+        || identity.instance_id == [0; 16]
+        || identity.strategy_generation == 0
+        || cursor_id == [0; 16]
+        || subscription_generation == 0
+    {
+        return Err(Error::Invalid);
+    }
+    let (offer_tx, offer_rx) = mpsc::sync_channel(1);
+    let (cursor_tx, cursor_rx) = mpsc::sync_channel(1);
+    let (ack_tx, ack_rx) = mpsc::sync_channel(1);
+    let writer_identity = identity.clone();
+
+    let writer_factory: CrossThreadReportWriterFactory = Box::new(move || {
+        let mut publisher = Publisher::<1>::create(header)
+            .map_err(|e| format!("Report Publisher::create failed: {e}"))?;
+        let sub = SubscriptionKey {
+            bank: publisher.key(),
+            instance: u128::from_le_bytes(writer_identity.instance_id),
+            generation: subscription_generation,
+            cursor: u128::from_le_bytes(cursor_id),
+        };
+        publisher
+            .join(sub)
+            .map_err(|e| format!("Report Publisher::join failed: {e}"))?;
+        let bank = publisher.header().clone();
+        let bank_fd = publisher
+            .reader_fd()
+            .map_err(|e| format!("Report Publisher::reader_fd failed: {e}"))?;
+        offer_tx
+            .send((bank_fd, bank, sub))
+            .map_err(|_| "CrossThreadReportStarter dropped before bank offer".to_string())?;
+        let cursor_fd = cursor_rx
+            .recv_timeout(Duration::from_secs(5))
+            .map_err(|e| format!("timed out waiting for ReportReceiver cursor: {e}"))?;
+        // SAFETY: `cursor_fd` is the exact `Subscriber` cursor descriptor produced by
+        // `ReportReceiver::attach` for `sub`.
+        unsafe {
+            publisher
+                .register_cursor(sub, cursor_fd)
+                .map_err(|e| format!("Report Publisher::register_cursor failed: {e}"))?;
+        }
+        let writer = ReportWriter::with_arena(publisher, Some(sub), None, writer_identity)
+            .map_err(|e| format!("ReportWriter::with_arena failed: {e}"))?;
+        let _ = ack_tx.send(());
+        Ok(writer)
+    });
+
+    Ok((
+        CrossThreadReportStarter {
+            identity,
+            offer_rx,
+            cursor_tx,
+            ack_rx,
+        },
+        writer_factory,
+    ))
+}
+
+/// Optional callback invoked right after `RemoteHostedStrategy::launch` writes the worker's
+/// `tickwire-md` admission ticket and before blocking on `intent.sock` / `report.sock` handshakes.
+pub type AdmissionRegisteredHook = Box<dyn FnOnce(ProcessIdentity) -> Result<()> + Send>;
+
+/// Static launch specification for one supervised out-of-process strategy worker.
 pub struct RemoteLaunch {
     pub resources: Option<ProcessResources>,
     pub spec: LaunchSpec,
@@ -9,116 +272,139 @@ pub struct RemoteLaunch {
     pub parent_process: ProcessIdentity,
     pub md_admission_directory: PathBuf,
     pub snapshot_id: [u8; 16],
+    pub on_admission_registered: Option<AdmissionRegisteredHook>,
 }
-type Intake<R> = RuntimeStrategy<R, fn(&tickwire_binance_public::Notice<'_>) -> bool>;
-pub struct RemoteHostedStrategy<R> {
-    pub(crate) readiness: readiness::ReadyProof,
-    pub(crate) market_transition: market_transition::MarketTransition,
-    pub(crate) report_sub: tickwire_shm::SubscriptionKey,
-    pub(crate) strategy: Intake<R>,
-    pub(crate) reports: Reports,
-    pub(crate) registry: Registry,
-    pub(crate) identity: Identity,
-    pub(crate) intent: AuthenticatedChild,
-    pub(crate) report: AuthenticatedChild,
-    pub(crate) clock: SystemClock,
-    pub(crate) policy: ControlPlane,
-    pub(crate) error: Option<Error>,
-    pub(crate) _directory: PrivateDirectory,
-    pub(crate) _intent_listener: ControlListener,
-    pub(crate) _report_listener: ControlListener,
-}
-impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
-    /// Explicit cold kernel sample; normal control polling does not perform it.
-    pub fn observe_resources(&mut self) -> Result<tickwire_supervisor::LiveResourceObservation> {
-        Ok(self.registry.observe_resources(self.identity.instance)?)
-    }
 
+/// Attached ORS-side inline SHM rings (`1,024B` `IntentReader` and `512B` `ReportWriter`) for a
+/// supervised strategy worker.
+pub struct StrategyLanes {
+    pub intent_reader: IntentReader,
+    pub report_writer: ReportWriter,
+}
+
+/// Parent-owned supervisor handle for one stateless out-of-process strategy worker.
+///
+/// The worker connects directly to an external `tickwire-md` SHM publisher and exchanges inline
+/// `IntentRecord` (`1,024B`) and `ReportRecord` (`512B`) slots over sealed `memfd` rings.
+pub struct RemoteHostedStrategy {
+    readiness: ReadyProof,
+    report_sub: SubscriptionKey,
+    lanes: Option<StrategyLanes>,
+    registry: Registry,
+    identity: Identity,
+    _intent: AuthenticatedChild,
+    report: AuthenticatedChild,
+    clock: SystemClock,
+    exited: Option<ExitObservation>,
+    _directory: PrivateDirectory,
+    _intent_listener: ControlListener,
+    _report_listener: ControlListener,
+}
+
+impl RemoteHostedStrategy {
+    /// Spawn a sealed strategy worker ELF, register its one-shot `tickwire-md` admission ticket,
+    /// authenticate both `intent.sock` and `report.sock` Unix `SOCK_SEQPACKET` lanes against the
+    /// owned kernel `ProcessIdentity` + sealed `/proc/<pid>/exe`, and attach [`StrategyLanes`].
+    ///
     /// # Safety
-    /// Control-provided policies identify qualified MD, strategy and execution
-    /// SDK builds. The launcher owns Child until its actual exit is observed.
+    /// Caller must ensure `config.spec`, `config.bootstrap`, and `config.supervisor` identify
+    /// qualified `tickwire-md`, strategy, and ORS execution peers obeying the single-writer SPSC
+    /// SHM ring release invariants.
     #[allow(unsafe_code)]
-    pub unsafe fn launch(
-        mut config: RemoteLaunch,
-        resolver: R,
-        policy: ControlPlane,
-    ) -> Result<Self> {
-        if config.bootstrap.preflight_job.is_some() {
-            return Err(Error::Invalid);
-        }
+    pub unsafe fn launch(mut config: RemoteLaunch) -> Result<Self> {
         resources::validate(config.resources.as_ref())?;
-        let external = config
-            .bootstrap
-            .external_market
-            .as_ref()
-            .ok_or(Error::Invalid)?;
-        if config.spec.identity != external.endpoint.local.identity()
-            || config.spec.identity != config.bootstrap.intent.local.identity()
-            || config.spec.identity != config.bootstrap.report.local.identity()
-            || config.bootstrap.market.peer.identity() != external.endpoint.peer.identity()
-            || config.bootstrap.report.peer.identity() != config.bootstrap.intent.peer.identity()
-            || config.parent_process.pid != std::process::id()
+        if config.parent_process.pid != std::process::id()
             || config.spec.uid != config.parent_process.uid
             || config.spec.gid != config.parent_process.gid
             || config.supervisor.role != 1
+            || config.snapshot_id == [0; 16]
+            || config.spec.identity != config.bootstrap.market.endpoint.local.identity()
         {
             return Err(Error::Invalid);
         }
-        let domain = external.domain()?;
-        let mut clock = SystemClock::new(domain)?;
-        let deadline = Instant::now()
-            .checked_add(Duration::from_millis(config.bootstrap.startup_timeout_ms))
-            .ok_or(Error::Invalid)?;
-        let directory = PrivateDirectory::create_in(&config.directory_parent, "tickwire-strategy")?;
-        config.bootstrap.intent.path = directory.path().join("intent.sock");
-        config.bootstrap.report.path = directory.path().join("report.sock");
-        config.bootstrap.market_admission_ready = Some(directory.path().join("md-ready.json"));
-        let bootstrap_file = directory.path().join("worker.json");
-        match std::fs::DirBuilder::new()
-            .mode(0o700)
-            .create(&config.bootstrap.command_directory)
+
+        let directory = PrivateDirectory::create_in(&config.directory_parent, "tw-s")?;
+        let intent_sock = directory.path().join("intent.sock");
+        let report_sock = directory.path().join("report.sock");
+
         {
-            Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(e) => return Err(e.into()),
+            let intent_ep = config.bootstrap.intent.as_mut().ok_or(Error::Invalid)?;
+            intent_ep.path = intent_sock.clone();
+            intent_ep.peer_pid = config.parent_process.pid;
+            intent_ep.peer_uid = config.parent_process.uid;
+            intent_ep.peer_gid = config.parent_process.gid;
         }
-        for endpoint in [&mut config.bootstrap.intent, &mut config.bootstrap.report] {
-            endpoint.peer_pid = config.parent_process.pid;
-            endpoint.peer_uid = config.parent_process.uid;
-            endpoint.peer_gid = config.parent_process.gid;
+        {
+            let report_ep = config.bootstrap.report.as_mut().ok_or(Error::Invalid)?;
+            report_ep.path = report_sock.clone();
+            report_ep.peer_pid = config.parent_process.pid;
+            report_ep.peer_uid = config.parent_process.uid;
+            report_ep.peer_gid = config.parent_process.gid;
         }
-        let intent_listener = ControlListener::bind(&config.bootstrap.intent.path)?;
-        let report_listener = ControlListener::bind(&config.bootstrap.report.path)?;
-        let report_header = config.bootstrap.report_resource()?;
-        if report_header.producer_instance != config.bootstrap.report.peer.instance
-            || report_header.producer_generation != config.bootstrap.report.peer.generation
+
+        let intent_ep = config.bootstrap.intent.clone().ok_or(Error::Invalid)?;
+        let report_ep = config.bootstrap.report.clone().ok_or(Error::Invalid)?;
+        if config.spec.identity != intent_ep.local.identity()
+            || config.spec.identity != report_ep.local.identity()
+            || report_ep.peer.identity() != intent_ep.peer.identity()
+            || config.bootstrap.instance_id != config.spec.identity.instance
+            || config.bootstrap.generation != config.spec.identity.generation
+            || config.bootstrap.logical_strategy_id != config.spec.identity.logical_strategy
+        {
+            return Err(Error::Invalid);
+        }
+
+        let intent_header = config.bootstrap.intent_resource()?.ok_or(Error::Invalid)?;
+        if intent_header.consumer_instance != intent_ep.peer.instance
+            || intent_header.producer_instance != config.spec.identity.instance
+            || intent_header.producer_generation != config.spec.identity.generation
+            || intent_header.host_boot_id != config.spec.identity.host_boot
+            || intent_header.namespace_id != config.spec.identity.namespace
+        {
+            return Err(Error::Invalid);
+        }
+
+        let report_header = config.bootstrap.report_resource()?.ok_or(Error::Invalid)?;
+        if report_header.producer_instance != report_ep.peer.instance
+            || report_header.producer_generation != report_ep.peer.generation
             || report_header.consumer_instance != config.spec.identity.instance
             || report_header.host_boot_id != config.spec.identity.host_boot
             || report_header.namespace_id != config.spec.identity.namespace
         {
             return Err(Error::Invalid);
         }
-        let report_publisher = tickwire_shm::Publisher::<1>::create(report_header)?;
-        config.bootstrap.report_header = wire_bytes(report_publisher.header())?;
-        let report_objects =
-            tickwire_recovery::FileBlobStore::open(&config.bootstrap.report_directory)?;
-        write_json(&bootstrap_file, &config.bootstrap)?;
-        config.spec.arguments = vec![
-            "--bootstrap".into(),
-            bootstrap_file.to_str().ok_or(Error::Invalid)?.into(),
-        ];
+
+        let intent_listener = ControlListener::bind(&intent_sock)?;
+        let report_listener = ControlListener::bind(&report_sock)?;
+
+        let report_publisher = Publisher::<1>::create(report_header)?;
+        config.bootstrap.report_header = Some(wire_bytes(report_publisher.header())?);
+        let proof = ReadyProof::new(&config.bootstrap, config.resources.as_ref())?;
+
+        let domain = config.bootstrap.market.domain()?;
+        let mut clock = SystemClock::new(domain)?;
+        let deadline = Instant::now()
+            .checked_add(Duration::from_millis(config.bootstrap.startup_timeout_ms))
+            .ok_or(Error::Invalid)?;
+
+        let bootstrap_file = directory.path().join("worker.json");
+        write_private_json(&bootstrap_file, &config.bootstrap)?;
+        if config.spec.arguments.is_empty() {
+            config.spec.arguments = vec![
+                "--bootstrap".into(),
+                bootstrap_file.to_str().ok_or(Error::Invalid)?.into(),
+            ];
+        }
+
         let mut registry = Registry::new(1)?;
         let child = resources::spawn(
             &mut registry,
             config.spec.clone(),
             config.resources.as_ref(),
         )?;
+
         let admission = tickwire_md::server::Admission {
-            client: config
-                .bootstrap
-                .external_market
-                .clone()
-                .ok_or(Error::Invalid)?,
+            client: config.bootstrap.market.clone(),
             pid: child.pid,
             uid: child.uid,
             gid: child.gid,
@@ -126,114 +412,139 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             supervisor_pid: config.parent_process.pid,
             snapshot_id: config.snapshot_id,
         };
-        tickwire_md::server::register_admission(&config.md_admission_directory, &admission)
-            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
-        write_json(
-            config
-                .bootstrap
-                .market_admission_ready
-                .as_ref()
-                .ok_or(Error::Invalid)?,
-            &true,
-        )?;
-        // Registry owns this same child; a second lane does not manufacture another process identity.
-        let authenticated = registry.accept(
-            &intent_listener,
-            server_policy(&config.bootstrap.intent, child),
-            clock.sample()?.monotonic.nanos(),
-            deadline,
-        )?;
-        // SAFETY: this launcher owns the qualified child authenticated above.
-        let (receiver, intent) =
-            unsafe { connect_intent(&config.bootstrap, authenticated, &mut clock, deadline)? };
-        let expected = registry.process(config.spec.identity.instance)?;
-        let mut report_connection = report_listener.accept(deadline)?;
-        let credentials = report_connection.peer_credentials();
-        let report_process = ProcessIdentity {
-            pid: credentials.pid,
-            uid: credentials.uid,
-            gid: credentials.gid,
-        };
-        if report_process != expected {
-            return Err(Error::Invalid);
+        if let Err(err) =
+            tickwire_md::server::register_admission(&config.md_admission_directory, &admission)
+        {
+            let _ = registry.terminate(config.spec.identity.instance);
+            return Err(Error::Io(std::io::Error::other(err.to_string())));
         }
-        let hello = report_connection.recv(deadline)?;
-        if !hello.fds().is_empty() {
-            return Err(Error::Invalid);
+
+        if let Some(hook) = config.on_admission_registered.take()
+            && let Err(err) = hook(child)
+        {
+            let _ = registry.terminate(config.spec.identity.instance);
+            return Err(err);
         }
-        let (report_session, welcome) = Session::accept(
-            &server_policy(&config.bootstrap.report, child),
-            report_process,
-            hello.bytes(),
-            clock.sample()?.monotonic.nanos(),
-        )?;
-        report_connection.send(&welcome, &[], deadline)?;
-        registry.process(config.spec.identity.instance)?;
-        let report_sub = tickwire_shm::SubscriptionKey {
-            bank: report_publisher.key(),
-            instance: u128::from_le_bytes(config.spec.identity.instance),
-            generation: config.bootstrap.report_subscription_generation,
-            cursor: u128::from_le_bytes(config.bootstrap.report_cursor_id),
-        };
-        let mut report = AuthenticatedChild {
-            connection: report_connection,
-            session: report_session,
-            process: report_process,
-        };
-        // SAFETY: this launcher retains the qualified owned child and authenticated lane.
-        let reports = unsafe {
-            connect_reports(
-                report_publisher,
-                report_objects,
-                report_sub,
-                ReportIdentity {
-                    logical_strategy_id: config.spec.identity.logical_strategy,
-                    instance_id: config.spec.identity.instance,
-                    strategy_generation: config.spec.identity.generation,
-                    risk_domain: config.bootstrap.risk_domain,
-                },
-                &mut report,
-                &mut clock,
+
+        let mut report_publisher = Some(report_publisher);
+        let handshake_result = (|| -> Result<(
+            AuthenticatedChild,
+            IntentReader,
+            AuthenticatedChild,
+            SubscriptionKey,
+            ReportWriter,
+        )> {
+            let mut intent_auth = registry.accept(
+                &intent_listener,
+                server_policy(&intent_ep, child),
+                clock.sample()?.monotonic.nanos(),
                 deadline,
-            )?
+            )?;
+            // SAFETY: `intent_auth` is the verified owned child speaking over `intent.sock`.
+            let intent_reader = unsafe {
+                accept_intent_ring(&config.bootstrap, &intent_ep, &mut intent_auth, &mut clock, deadline)?
+            };
+
+            let expected = registry.process(config.spec.identity.instance)?;
+            let mut report_conn = report_listener.accept(deadline)?;
+            let creds = report_conn.peer_credentials();
+            let report_proc = ProcessIdentity {
+                pid: creds.pid,
+                uid: creds.uid,
+                gid: creds.gid,
+            };
+            if report_proc != expected {
+                return Err(Error::Invalid);
+            }
+            let hello = report_conn.recv(deadline)?;
+            if !hello.fds().is_empty() {
+                return Err(Error::Invalid);
+            }
+            let (report_session, welcome) = Session::accept(
+                &server_policy(&report_ep, child),
+                report_proc,
+                hello.bytes(),
+                clock.sample()?.monotonic.nanos(),
+            )?;
+            report_conn.send(&welcome, &[], deadline)?;
+            registry.process(config.spec.identity.instance)?;
+
+            let publisher = report_publisher.take().ok_or(Error::Invalid)?;
+            let report_sub = SubscriptionKey {
+                bank: publisher.key(),
+                instance: u128::from_le_bytes(config.spec.identity.instance),
+                generation: config.bootstrap.report_subscription_generation,
+                cursor: u128::from_le_bytes(config.bootstrap.report_cursor_id),
+            };
+            let mut report_auth = AuthenticatedChild {
+                connection: report_conn,
+                session: report_session,
+                process: report_proc,
+            };
+            // SAFETY: `report_auth` is the verified owned child speaking over `report.sock`.
+            let report_writer = unsafe {
+                offer_report_ring(
+                    &config.bootstrap,
+                    publisher,
+                    report_sub,
+                    &mut report_auth,
+                    &mut clock,
+                    deadline,
+                )?
+            };
+            Ok((intent_auth, intent_reader, report_auth, report_sub, report_writer))
+        })();
+
+        let (intent, intent_reader, report, report_sub, report_writer) = match handshake_result {
+            Ok(tuple) => tuple,
+            Err(err) => {
+                let _ = registry.terminate(config.spec.identity.instance);
+                return Err(err);
+            }
         };
-        fn ignore(_: &tickwire_binance_public::Notice<'_>) -> bool {
-            true
-        }
-        let market_transition = market_transition::MarketTransition::new(
-            config
-                .bootstrap
-                .external_market
-                .clone()
-                .ok_or(Error::Invalid)?,
-            config.bootstrap.command_directory.join("merged-inputs"),
-            report_process,
-        );
+
         Ok(Self {
-            market_transition,
-            readiness: readiness::ReadyProof::new(&config.bootstrap, config.resources.clone())?,
+            readiness: proof,
             report_sub,
-            strategy: RuntimeStrategy::new(
-                receiver,
-                resolver,
-                ignore as fn(&tickwire_binance_public::Notice<'_>) -> bool,
-            ),
-            reports,
+            lanes: Some(StrategyLanes {
+                intent_reader,
+                report_writer,
+            }),
             registry,
             identity: config.spec.identity,
-            clock,
-            policy,
-            error: None,
-            intent,
+            _intent: intent,
             report,
+            clock,
+            exited: None,
             _directory: directory,
             _intent_listener: intent_listener,
             _report_listener: report_listener,
         })
     }
-    /// Actual owned remote consumer; discovering it grants no market authority.
+
+    #[inline]
+    pub const fn proof(&self) -> &ReadyProof {
+        &self.readiness
+    }
+
+    #[inline]
+    pub const fn identity(&self) -> &Identity {
+        &self.identity
+    }
+
+    #[inline]
+    pub const fn report_subscription(&self) -> SubscriptionKey {
+        self.report_sub
+    }
+
+    #[inline]
+    pub fn child_process(&self) -> ProcessIdentity {
+        self.report.process
+    }
+
+    /// Returns `(pid, instance_id, generation)` of the live worker for `tickwire-md` diagnostics.
     pub fn market_consumer(&self) -> Option<(u32, [u8; 16], u64)> {
-        if self.failed() {
+        if self.exited.is_some() {
             return None;
         }
         Some((
@@ -242,329 +553,268 @@ impl<R: RecoveryResolver + 'static> RemoteHostedStrategy<R> {
             self.identity.generation,
         ))
     }
-    /// Caller has accepted the operation through its trusted runtime control authority.
-    pub fn arm_market(
+
+    /// Move the attached [`StrategyLanes`] (`IntentReader` + `ReportWriter`) to a single-threaded
+    /// ORS driver while keeping process supervision and cold observation on `self`.
+    pub fn take_lanes(&mut self) -> Option<StrategyLanes> {
+        self.lanes.take()
+    }
+
+    /// Poll one inbound `1,024B` [`IntentRecord`] when `StrategyLanes` remain owned by `self`.
+    pub fn poll_intent(&mut self) -> Result<Option<(IntentRecord, Option<Vec<u8>>)>> {
+        let lanes = self.lanes.as_mut().ok_or(Error::LanesDetached)?;
+        Ok(lanes.intent_reader.poll()?)
+    }
+
+    /// Publish one outbound `512B` `ReportRecord` when `StrategyLanes` remain owned by `self`.
+    pub fn publish_report(
         &mut self,
-        approval: &tickwire_market_source::transition::Approval,
-    ) -> Result<()> {
-        self.readiness
-            .observation_idle(self.clock.sample()?.monotonic.nanos())?;
-        self.registry.process(self.identity.instance)?;
-        self.market_transition.arm(
-            approval,
-            &self.report,
-            &mut self.reports,
-            self.clock.sample()?.monotonic.nanos(),
-        )
+        body: ReportBody,
+        instrument_version: u64,
+        arena_payload: Option<&[u8]>,
+        now_mono_ns: u64,
+    ) -> Result<u64> {
+        let lanes = self.lanes.as_mut().ok_or(Error::LanesDetached)?;
+        Ok(lanes.report_writer.publish_report(
+            body,
+            instrument_version,
+            arena_payload,
+            now_mono_ns,
+        )?)
     }
-    pub fn commit_market(
+
+    /// Non-blocking child reap check. If the supervised worker exited, marks `strat_id` inactive
+    /// on `policy` (when provided) and caches the [`ExitObservation`].
+    pub fn maintain(
         &mut self,
-        commit: &tickwire_market_source::transition::Commit,
-    ) -> Result<()> {
-        self.readiness
-            .observation_idle(self.clock.sample()?.monotonic.nanos())?;
-        self.registry.process(self.identity.instance)?;
-        self.market_transition.commit(
-            commit,
-            &self.report,
-            &mut self.reports,
-            self.clock.sample()?.monotonic.nanos(),
-        )
-    }
-    pub fn market_transition(&self) -> Option<&tickwire_market_source::transition::Receipt> {
-        self.market_transition.receipt()
-    }
-    pub fn market_rejection(&self) -> Option<u32> {
-        self.market_transition.rejection()
-    }
-    pub fn instance(&self) -> ([u8; 16], u64) {
-        (self.identity.instance, self.identity.generation)
-    }
-    pub fn failed(&self) -> bool {
-        self.error.is_some() || self.strategy.error().is_some()
-    }
-    /// Delivers a volatile strategy-attributed [`tickwire_account::ProjectedFill`] to the
-    /// remote host resolver without writing non-authoritative projections onto durable report rings.
-    pub fn on_projected_fill(&mut self, fill: &tickwire_account::ProjectedFill) {
-        if !self.failed() && fill.strategy == self.identity.logical_strategy {
-            self.strategy.on_projected_fill(fill);
-        }
-    }
-    /// Fail this owned instance after its startup configuration proof is rejected.
-    /// Uses the normal fail-closed cleanup; it does not certify graceful retirement.
-    pub fn reject_configuration(&mut self) {
-        if self.error.is_none() {
-            self.fail(Error::Invalid);
-        }
-    }
-    pub(crate) fn fail(&mut self, e: Error) {
-        eprintln!(
-            "{}",
-            serde_json::json!({"event":"strategy_host_failed","instance":self.identity.instance,"generation":self.identity.generation,"error":e.to_string()})
-        );
-        let _ = self.policy.stop_strategy_instance(
-            self.identity.logical_strategy,
-            self.identity.instance,
-            self.identity.generation,
-        );
-        self.strategy.start_quiesce();
-        let _ = self.registry.terminate(self.identity.instance);
-        self.error = Some(e);
-    }
-    pub(crate) fn maintain(&mut self) -> Result<()> {
-        if !self.registry.observe_exits()?.is_empty() {
-            return Err(Error::NotReady);
-        }
-        self.registry.process(self.identity.instance)?;
-        let now = self.clock.sample()?.monotonic.nanos();
-        self.market_transition.flush(&mut self.report, now)?;
-        let now = self.readiness.poll_with(
-            &mut self.report,
-            now,
-            || Ok(self.clock.sample()?.monotonic.nanos()),
-            |envelope, bytes, received_at| {
-                self.market_transition.observe(envelope, bytes, received_at)
-            },
-        )?;
-        self.readiness
-            .confirm(&self.reports, self.report_sub, &self.report, now)?;
-        if now >= self.report.session.deadline() {
-            return Err(Error::NotReady);
-        }
-        {
-            let lane = &mut self.intent;
-            if now >= lane.session.deadline() {
-                return Err(Error::NotReady);
-            }
-            match lane.connection.try_recv() {
-                Ok(Some(packet)) => {
-                    lane.session.validate(packet.bytes(), now)?;
-                    return Err(Error::NotReady);
+        policy: Option<&OrsRuntimePolicy>,
+    ) -> Result<Option<&ExitObservation>> {
+        if self.exited.is_none() {
+            let mut exits = self.registry.observe_exits()?;
+            if let Some(obs) = exits.pop() {
+                if let Some(pol) = policy {
+                    let _ = pol.set_active(self.readiness.strat_id(), false);
                 }
-                Ok(None) => {}
-                Err(e) => return Err(e.into()),
+                self.exited = Some(obs);
             }
         }
-        Ok(())
+        Ok(self.exited.as_ref())
     }
-    fn report_result(&mut self, r: Result<()>) -> bool {
-        match r {
-            Ok(()) => true,
-            Err(Error::Sdk(tickwire_strategy_sdk::Error::Ring(
-                tickwire_shm::MappedError::Protocol(tickwire_shm::Error::Full),
-            ))) => false,
-            Err(e) => {
-                self.fail(e);
-                false
+
+    /// Evaluate stateless [`WorkerReadiness`] against `policy`.
+    pub fn readiness(&mut self, policy: &OrsRuntimePolicy) -> Result<WorkerReadiness> {
+        let _ = self.maintain(Some(policy))?;
+        let alive = self.exited.is_none() && self.registry.process(self.identity.instance).is_ok();
+        let (last_msg, next_rep) = match self.lanes.as_ref() {
+            Some(l) => (
+                l.intent_reader.last_msg_seqnum(),
+                l.report_writer.next_report_seq(),
+            ),
+            None => (0, 0),
+        };
+        WorkerReadiness::evaluate(
+            &self.readiness,
+            policy,
+            None,
+            alive,
+            true,
+            last_msg,
+            next_rep,
+        )
+    }
+
+    /// Explicit cold-path cgroup v2 resource sample (`LiveResourceObservation`).
+    pub fn observe_resources(&mut self) -> Result<LiveResourceObservation> {
+        Ok(self.registry.observe_resources(self.identity.instance)?)
+    }
+
+    /// Explicit cold-path double-sampled `/proc` + optional cgroup v2 read.
+    pub fn observe_double_sampled(
+        &mut self,
+        require_resources: bool,
+    ) -> std::result::Result<DoubleSampledObservation, ObservationError> {
+        DoubleSampledObservation::sample(
+            &mut self.registry,
+            self.identity.instance,
+            require_resources,
+        )
+    }
+
+    /// Explicit cold-path bounded-age [`FreshObservation`] sample.
+    pub fn observe_fresh(
+        &mut self,
+        policy: &OrsRuntimePolicy,
+        request: &ObservationRequest,
+    ) -> std::result::Result<FreshObservation, ObservationError> {
+        let (last_msg, next_rep) = match self.lanes.as_ref() {
+            Some(l) => (
+                l.intent_reader.last_msg_seqnum(),
+                l.report_writer.next_report_seq(),
+            ),
+            None => (0, 0),
+        };
+        FreshObservation::collect(
+            &mut self.registry,
+            &mut self.clock,
+            &self.readiness,
+            policy,
+            request,
+            true,
+            last_msg,
+            next_rep,
+        )
+    }
+
+    /// Terminate the owned child process cleanly via `Registry::terminate` and mark `strat_id`
+    /// inactive on `policy` when supplied.
+    pub fn terminate(&mut self, policy: Option<&OrsRuntimePolicy>) -> Result<&ExitObservation> {
+        if self.exited.is_none() {
+            let obs = self.registry.terminate(self.identity.instance)?;
+            if let Some(pol) = policy {
+                let _ = pol.set_active(self.readiness.strat_id(), false);
             }
+            self.exited = Some(obs);
         }
-    }
-}
-impl<R: RecoveryResolver + 'static> tickwire_runtime::node::Strategy for RemoteHostedStrategy<R> {
-    fn on_market(&mut self, _: &tickwire_binance_public::Notice<'_>) -> bool {
-        !self.failed()
-    }
-    fn next(
-        &mut self,
-        a: &tickwire_account::Account,
-        h: tickwire_runtime::node::Health,
-        n: tickwire_binance_clock::LocalTime,
-    ) -> Option<tickwire_runtime::node::Submission> {
-        if self.failed() {
-            return None;
-        }
-        if let Err(e) = self.maintain() {
-            self.fail(e);
-            return None;
-        }
-        let next = tickwire_runtime::node::Strategy::next(&mut self.strategy, a, h, n);
-        if self.strategy.error().is_some() {
-            self.fail(Error::NotReady);
-            None
-        } else {
-            next
-        }
-    }
-    fn on_account_baseline(
-        &mut self,
-        b: &tickwire_account_codec::CanonicalBaseline,
-        _: &tickwire_account::Account,
-    ) -> bool {
-        if self.failed() {
-            return false;
-        }
-        let r = (|| {
-            self.reports
-                .publish_baseline(b, self.clock.sample()?.monotonic.nanos())?;
-            self.readiness.record_report_prefix(&self.reports);
-            Ok(())
-        })();
-        self.report_result(r)
-    }
-    fn account_report_position(&self) -> Option<u64> {
-        Some(self.reports.last_position())
-    }
-    fn on_account_record(
-        &mut self,
-        p: u64,
-        r: &tickwire_account_codec::CanonicalRecord,
-        _: &tickwire_account_codec::CanonicalBaseline,
-        _: &tickwire_account::Account,
-    ) -> bool {
-        if self.failed() {
-            return false;
-        }
-        let result = (|| {
-            self.reports
-                .publish_record(p, r, self.clock.sample()?.monotonic.nanos())?;
-            self.readiness.record_report_prefix(&self.reports);
-            Ok(())
-        })();
-        self.report_result(result)
-    }
-    fn on_submission(
-        &mut self,
-        c: &tickwire_venue::CanonicalCommand,
-        r: &tickwire_runtime::node::SubmissionResult<'_>,
-    ) {
-        tickwire_runtime::node::Strategy::on_submission(&mut self.strategy, c, r)
-    }
-    fn on_request_reply(
-        &mut self,
-        c: &tickwire_venue::CanonicalCommand,
-        r: &tickwire_venue::RequestReply,
-    ) {
-        tickwire_runtime::node::Strategy::on_request_reply(&mut self.strategy, c, r)
+        Ok(self.exited.as_ref().expect("exit observation stored"))
     }
 }
 
-/// Shared by qualified launch modes only. The caller owns the authenticated
-/// child and guarantees the SDK cursor and immutable mapping contracts.
+fn server_policy(endpoint: &Endpoint, child: ProcessIdentity) -> Policy {
+    let mut p = endpoint.policy();
+    std::mem::swap(&mut p.local, &mut p.peer);
+    p.peer_process = child;
+    p
+}
+
+fn write_private_json<T: Serialize>(path: &Path, value: &T) -> Result<()> {
+    let bytes = serde_json::to_vec_pretty(value)?;
+    let parent = path.parent().ok_or(Error::Invalid)?;
+    let file_name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .ok_or(Error::Invalid)?;
+    let tmp = parent.join(format!(".{file_name}.tmp-{}", std::process::id()));
+    let _ = std::fs::remove_file(&tmp);
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&tmp)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    drop(file);
+    std::fs::rename(&tmp, path)?;
+    Ok(())
+}
+
 #[allow(unsafe_code)]
-pub(super) unsafe fn connect_reports(
-    mut publisher: tickwire_shm::Publisher<1>,
-    objects: tickwire_recovery::FileBlobStore,
-    sub: tickwire_shm::SubscriptionKey,
-    identity: ReportIdentity,
-    lane: &mut AuthenticatedChild,
+unsafe fn accept_intent_ring(
+    bootstrap: &Bootstrap,
+    intent_ep: &Endpoint,
+    auth: &mut AuthenticatedChild,
     clock: &mut SystemClock,
     deadline: Instant,
-) -> Result<Reports> {
-    if lane.session.peer().instance != identity.instance_id
-        || sub.instance.to_le_bytes() != identity.instance_id
-        || publisher.header().consumer_instance != identity.instance_id
+) -> Result<IntentReader> {
+    let mut expected = bootstrap.intent_resource()?.ok_or(Error::Invalid)?;
+    if expected.consumer_instance != intent_ep.peer.instance
+        || expected.producer_instance != bootstrap.instance_id
+        || expected.producer_generation != bootstrap.generation
+        || expected.host_boot_id != intent_ep.local.host_boot
+        || expected.namespace_id != intent_ep.local.namespace
     {
         return Err(Error::Invalid);
     }
-    publisher.join(sub)?;
-    let membership = publisher.membership_version();
-    let expiry = lane.session.deadline();
-    let offer = worker::resource_offer(
-        &lane.session,
-        publisher.header(),
-        [14; 16],
-        expiry,
-        membership,
-        false,
-    )?;
-    let fd = publisher.reader_fd()?;
-    lane.connection.send(&offer, &[fd.as_fd()], deadline)?;
-    let header = worker::cursor_header(publisher.header(), sub)?;
-    let cursor = worker::accept_offer(
-        &mut lane.session,
-        lane.connection.recv(deadline)?,
-        &header,
-        [15; 16],
-        expiry,
-        membership,
-        false,
-        clock.sample()?.monotonic.nanos(),
-    )?;
-    // SAFETY: the qualified launcher retains this exact authenticated child's cursor.
-    unsafe {
-        publisher.register_cursor(sub, cursor)?;
-    }
-    Ok(ReportWriter::new(publisher, objects, identity)?)
-}
-
-/// Reuses the original qualified launcher intent attachment after authenticating
-/// the actual owned process. No second process or synthetic cursor is created.
-#[allow(unsafe_code)]
-pub(crate) unsafe fn connect_intent(
-    config: &Bootstrap,
-    authenticated: AuthenticatedChild,
-    clock: &mut SystemClock,
-    deadline: Instant,
-) -> Result<(IntentReceiver, AuthenticatedChild)> {
-    let authenticated_uid = authenticated.process.uid;
-    let logical_strategy = authenticated.session.peer().logical_strategy;
-    let AuthenticatedChild {
-        mut connection,
-        mut session,
-        process: actual,
-    } = authenticated;
-    let mut bank = config.intent_resource()?;
-    bank.descriptor_hash = [0; 32];
-    // Publisher computes this immutable digest before creating the actual mapping.
-    bank.descriptor_hash = header_hash(&bank)?;
-    let membership = bank
+    expected.descriptor_hash = [0; 32];
+    expected.descriptor_hash = Sha256::digest(wire_bytes(&expected)?).into();
+    let membership = expected
         .initial_membership_version
         .checked_add(1)
         .ok_or(Error::Invalid)?;
-    let expires = session.deadline();
-    let fd = worker::accept_offer(
-        &mut session,
-        connection.recv(deadline)?,
-        &bank,
+    let expires = auth.session.deadline();
+    let now = clock.sample()?.monotonic.nanos();
+    let packet = auth.connection.recv(deadline)?;
+    let bank_fd = accept_offer(
+        &mut auth.session,
+        packet,
+        &expected,
         [7; 16],
         expires,
         membership,
         false,
-        clock.sample()?.monotonic.nanos(),
+        now,
     )?;
-    let sub = tickwire_shm::SubscriptionKey {
-        bank: tickwire_shm::BankKey {
-            resource: u128::from_le_bytes(bank.resource_id),
-            channel: u128::from_le_bytes(bank.channel_id),
-            channel_epoch: bank.channel_epoch,
-            ring_epoch: bank.ring_epoch,
-            feed_generation: bank.feed_generation,
+    let sub = SubscriptionKey {
+        bank: BankKey {
+            resource: u128::from_le_bytes(expected.resource_id),
+            channel: u128::from_le_bytes(expected.channel_id),
+            channel_epoch: expected.channel_epoch,
+            ring_epoch: expected.ring_epoch,
+            feed_generation: expected.feed_generation,
         },
-        instance: u128::from_le_bytes(config.intent.peer.instance),
-        generation: config.intent_subscription_generation,
-        cursor: u128::from_le_bytes(config.intent_cursor_id),
+        instance: u128::from_le_bytes(intent_ep.peer.instance),
+        generation: bootstrap.intent_subscription_generation,
+        cursor: u128::from_le_bytes(bootstrap.intent_cursor_id),
     };
-    let objects =
-        tickwire_recovery::FileBlobReader::open(&config.command_directory, authenticated_uid)?;
-    // SAFETY: the same actual authenticated child is the sole writer and uses the qualified worker SDK.
-    let receiver = unsafe {
-        IntentReceiver::attach(
-            fd,
-            bank.clone(),
-            sub,
-            objects,
-            config.risk_domain,
-            logical_strategy,
-        )?
-    };
-    let cursor_header = worker::cursor_header(&bank, sub)?;
-    let cursor = receiver.cursor_fd()?;
-    let offered = worker::resource_offer(
-        &session,
-        &cursor_header,
-        [8; 16],
-        session.deadline(),
+    // SAFETY: Caller verified `auth` is the single authenticated strategy writer for `expected`.
+    let reader = unsafe { IntentReader::attach(bank_fd, expected.clone(), sub, None)? };
+    let cursor_fd = reader.cursor_fd()?;
+    let ch = cursor_header(&expected, sub)?;
+    let reply = resource_offer(&auth.session, &ch, [8; 16], expires, membership, false)?;
+    auth.connection
+        .send(&reply, &[cursor_fd.as_fd()], deadline)?;
+    Ok(reader)
+}
+
+#[allow(unsafe_code)]
+unsafe fn offer_report_ring(
+    bootstrap: &Bootstrap,
+    mut publisher: Publisher<1>,
+    report_sub: SubscriptionKey,
+    auth: &mut AuthenticatedChild,
+    clock: &mut SystemClock,
+    deadline: Instant,
+) -> Result<ReportWriter> {
+    publisher.join(report_sub)?;
+    let membership = publisher.membership_version();
+    let expires = auth.session.deadline();
+    let offered = resource_offer(
+        &auth.session,
+        publisher.header(),
+        [14; 16],
+        expires,
         membership,
         false,
     )?;
-    connection.send(&offered, &[cursor.as_fd()], deadline)?;
-
-    Ok((
-        receiver,
-        AuthenticatedChild {
-            connection,
-            session,
-            process: actual,
+    let bank_fd = publisher.reader_fd()?;
+    auth.connection
+        .send(&offered, &[bank_fd.as_fd()], deadline)?;
+    let ch = cursor_header(publisher.header(), report_sub)?;
+    let now = clock.sample()?.monotonic.nanos();
+    let packet = auth.connection.recv(deadline)?;
+    let cursor_fd = accept_offer(
+        &mut auth.session,
+        packet,
+        &ch,
+        [15; 16],
+        expires,
+        membership,
+        false,
+        now,
+    )?;
+    // SAFETY: `cursor_fd` is the exact `Subscriber` cursor descriptor verified via `accept_offer`
+    // for `report_sub`.
+    unsafe {
+        publisher.register_cursor(report_sub, cursor_fd)?;
+    }
+    let writer = ReportWriter::with_arena(
+        publisher,
+        Some(report_sub),
+        None,
+        ReportIdentity {
+            strat_id: bootstrap.strat_id,
+            instance_id: bootstrap.instance_id,
+            strategy_generation: bootstrap.generation,
         },
-    ))
+    )?;
+    Ok(writer)
 }

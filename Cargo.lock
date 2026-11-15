@@ -1014,6 +1014,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-account-gateway"
+version = "0.1.0"
+dependencies = [
+ "rcgen",
+ "serde",
+ "serde_json",
+ "tickwire-account",
+ "tickwire-account-codec",
+ "tickwire-quota",
+ "tickwire-risk",
+ "tickwire-transport",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-binance"
 version = "0.1.0"
 dependencies = [
@@ -1275,6 +1290,43 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-runtime"
+version = "0.1.0"
+dependencies = [
+ "mio",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-account",
+ "tickwire-account-gateway",
+ "tickwire-clock",
+ "tickwire-clock-sys",
+ "tickwire-control",
+ "tickwire-control-sys",
+ "tickwire-instrument-catalog",
+ "tickwire-ipc",
+ "tickwire-quota",
+ "tickwire-risk",
+ "tickwire-runtime-policy",
+ "tickwire-shm",
+ "tickwire-strategy-host",
+ "tickwire-strategy-sdk",
+ "tickwire-transport",
+ "tickwire-venue",
+]
+
+[[package]]
+name = "tickwire-runtime-policy"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tickwire-clock",
+ "tickwire-clock-sys",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-shm"
 version = "0.1.0"
 dependencies = [
@@ -1317,6 +1369,31 @@ dependencies = [
  "tickwire-shm",
  "tickwire-snapshot",
  "tickwire-strategy-sdk",
+ "tickwire-venue",
+]
+
+[[package]]
+name = "tickwire-strategy-host"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+ "tickwire-account",
+ "tickwire-clock",
+ "tickwire-clock-sys",
+ "tickwire-control",
+ "tickwire-control-sys",
+ "tickwire-instrument-catalog",
+ "tickwire-ipc",
+ "tickwire-join",
+ "tickwire-market-source",
+ "tickwire-md",
+ "tickwire-runtime-policy",
+ "tickwire-shm",
+ "tickwire-shm-sys",
+ "tickwire-strategy-sdk",
+ "tickwire-supervisor",
  "tickwire-venue",
 ]
 

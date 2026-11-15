@@ -151,10 +151,7 @@ fn rejected_for(cmd: &v::CanonicalCommand, client_id: &str, mono_ns: u64) -> v::
     fixture::event(ev)
 }
 
-fn make_pooled(
-    router_cfg: RouterConfig,
-) -> (Directory, v::CanonicalCommand, Gateway, MockAuthority) {
-    let dir = Directory::new();
+fn make_pooled(router_cfg: RouterConfig) -> (v::CanonicalCommand, Gateway, MockAuthority) {
     let (snap, mut cat, raw_base) = fixture::fixture();
     cat.entries[0]
         .strategy_limits
@@ -162,37 +159,17 @@ fn make_pooled(
     let b = tickwire_account_codec::CanonicalBaseline::new(snap, cat).unwrap();
     let base_cmd = fixture::canonical(raw_base);
     let cfg = config(&b);
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = listener.local_addr().unwrap();
-    let tls = Arc::new(
-        rustls::ClientConfig::builder()
-            .with_root_certificates(rustls::RootCertStore::empty())
-            .with_no_client_auth(),
-    );
-    let initial_conn = ConnectionConfig {
-        address,
-        tls,
-        limits: Limits::default(),
-        connect_deadline: until(),
-    };
     let auth = MockAuthority::default();
-    let g = AccountGateway::create(
-        tickwire_account_journal::FileBackend::open(&dir.0).unwrap(),
-        cfg,
-        b,
-        auth.clone(),
-        TestEncoder,
-        initial_conn,
-    )
-    .unwrap();
-    let _ = listener.accept();
-    let g = g.with_connection_pool(router_cfg).unwrap();
-    (dir, base_cmd, g, auth)
+    let g = AccountGateway::create_unconnected(cfg, b, auth.clone(), TestEncoder)
+        .unwrap()
+        .with_connection_pool(router_cfg)
+        .unwrap();
+    (base_cmd, g, auth)
 }
 
 #[test]
 fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_inflight() {
-    let (_dir, base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
+    let (base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
     auth.policy.lock().unwrap().gate.now = 200;
     assert!(g.has_connection_pool());
     assert!(g.per_order_doubt_isolation());
@@ -200,7 +177,7 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
 
     let mut peers = Vec::new();
     for expected_id in 0..3u16 {
-        let (conn, limits, peer_handle) = dial_slot_peer("testnet.binance.vision", 16384);
+        let (conn, limits, peer_handle) = dial_slot_peer(SPOT_HOST, 16384);
         let cid = g
             .add_pool_slot(
                 OrderSlotSpec::with_connection(SendSlot::Exclusive, conn),
@@ -211,7 +188,6 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
         peers.push(peer_handle);
     }
 
-    // Submit 3 New orders concurrently before any HTTP response returns; router round-robins 0 -> 1 -> 2.
     let cmd0 = order_cmd(&base_cmd, 10, "pool-ex-0");
     let cmd1 = order_cmd(&base_cmd, 11, "pool-ex-1");
     let cmd2 = order_cmd(&base_cmd, 12, "pool-ex-2");
@@ -232,23 +208,17 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
     let (st2, ep2) = g.submit_on_slot(s2, cmd2.clone(), 102, until()).unwrap();
     assert_eq!((st2, ep2), (Status::Queued, 1));
 
-    // Sequential admission in AccountJournal (seq 1, 2, 3) and exact total reservation (3 * 60 = 180).
-    assert_eq!(g.committed(key0).unwrap().receipt().sequence(), 1);
-    assert_eq!(g.committed(key1).unwrap().receipt().sequence(), 2);
-    assert_eq!(g.committed(key2).unwrap().receipt().sequence(), 3);
-    assert_eq!(g.journal_position(), 3);
+    assert_eq!(g.entry_count(), 3);
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(180)
     );
 
-    // Byte-identical retry precedes busy check and returns stored status + epoch.
     assert_eq!(
         g.submit_on_slot(0, cmd0.clone(), 103, until()).unwrap(),
         (Status::Queued, ep0)
     );
 
-    // Drive all 3 slots concurrently to Status::Flushed while HTTP replies are still in-flight.
     let deadline = until();
     while [key0, key1, key2]
         .iter()
@@ -267,7 +237,6 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
         assert_eq!(g.slot_route(cid).unwrap().health.inflight(), 1);
     }
 
-    // Attempting a 4th order while all 3 Exclusive slots still hold inflight == 1 returns None / Busy!
     let cmd3 = order_cmd(&base_cmd, 13, "pool-ex-3");
     let key3 = intent_of(&cmd3);
     assert_eq!(g.pick_pool_slot(0), None);
@@ -279,10 +248,9 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
         g.submit_on_slot(1, cmd3.clone(), 104, until()),
         Err(Error::Busy)
     ));
-    assert_eq!(g.journal_position(), 3);
+    assert_eq!(g.entry_count(), 3);
     assert_eq!(g.status(key3), None);
 
-    // Releasing inflight on slot 1 with an RTT sample makes slot 1 immediately ready again!
     assert!(g.note_slot_sample(1, ep1, SampleKind::Order, 420).unwrap());
     assert!(g.release_slot_inflight(1, ep1).unwrap());
     assert_eq!(g.slot_route(1).unwrap().health.inflight(), 0);
@@ -291,7 +259,7 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
     assert_eq!(g.pick_pool_slot(0), Some(1));
     let (st3, ep3) = g.submit_on_slot(1, cmd3, 105, until()).unwrap();
     assert_eq!((st3, ep3), (Status::Queued, 1));
-    assert_eq!(g.committed(key3).unwrap().receipt().sequence(), 4);
+    assert_eq!(g.entry_count(), 4);
     drive_slot_intent(&mut g, 1, key3, Status::Flushed);
 
     drop(g);
@@ -305,13 +273,12 @@ fn concurrent_exclusive_multi_connection_dispatch_round_robins_and_gates_infligh
 
 #[test]
 fn single_slot_mid_send_drop_isolates_order_and_preserves_siblings() {
-    let (_dir, base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
+    let (base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
     auth.policy.lock().unwrap().gate.now = 200;
 
-    // Slot 0 uses max_accept = 16 to deterministically stage a mid-send drop (accepted_bytes > 0).
-    let (conn0, limits0, peer0) = dial_slot_peer("testnet.binance.vision", 16);
-    let (conn1, limits1, peer1) = dial_slot_peer("testnet.binance.vision", 16384);
-    let (conn2, limits2, peer2) = dial_slot_peer("testnet.binance.vision", 16384);
+    let (conn0, limits0, peer0) = dial_slot_peer(SPOT_HOST, 16);
+    let (conn1, limits1, peer1) = dial_slot_peer(SPOT_HOST, 16384);
+    let (conn2, limits2, peer2) = dial_slot_peer(SPOT_HOST, 16384);
     assert_eq!(
         g.add_pool_slot(
             OrderSlotSpec::with_connection(SendSlot::Exclusive, conn0),
@@ -351,11 +318,10 @@ fn single_slot_mid_send_drop_isolates_order_and_preserves_siblings() {
     drive_slot_intent(&mut g, 1, key1, Status::Flushed);
     drive_slot_intent(&mut g, 2, key2, Status::Flushed);
 
-    let order0_key = g.committed(key0).unwrap().admission().orders()[0].clone();
-    let order1_key = g.committed(key1).unwrap().admission().orders()[0].clone();
-    let order2_key = g.committed(key2).unwrap().admission().orders()[0].clone();
+    let order0_key = g.admission(key0).unwrap().orders()[0].clone();
+    let order1_key = g.admission(key1).unwrap().orders()[0].clone();
+    let order2_key = g.admission(key2).unwrap().orders()[0].clone();
 
-    // Expire slot 0 mid-send -> isolates ONLY slot 0's order into PlaceAmbiguous!
     let _ = g.poll_slot(
         0,
         Instant::now() + Duration::from_secs(60),
@@ -380,7 +346,6 @@ fn single_slot_mid_send_drop_isolates_order_and_preserves_siblings() {
     assert_eq!(g.account().order_in_doubt(&order1_key), None);
     assert_eq!(g.account().order_in_doubt(&order2_key), None);
 
-    // Slots 1 and 2 continue admitting and flushing new orders uninterrupted while slot 0 is down!
     assert!(g.release_slot_inflight(1, ep1).unwrap());
     assert!(g.release_slot_inflight(2, ep2).unwrap());
 
@@ -403,8 +368,7 @@ fn single_slot_mid_send_drop_isolates_order_and_preserves_siblings() {
     assert_ne!(pick_b, 0);
     assert_ne!(pick_a, pick_b);
 
-    // Reconnect slot 0 via install_pool_connection and immediately flush an order on slot 0!
-    let (conn0_new, limits0_new, peer0_new) = dial_slot_peer("testnet.binance.vision", 16384);
+    let (conn0_new, limits0_new, peer0_new) = dial_slot_peer(SPOT_HOST, 16384);
     let new_ep0 = g
         .install_pool_connection(0, conn0_new, None, limits0_new)
         .unwrap();
@@ -414,7 +378,6 @@ fn single_slot_mid_send_drop_isolates_order_and_preserves_siblings() {
     g.submit_on_slot(0, cmd5, 120, until()).unwrap();
     drive_slot_intent(&mut g, 0, key5, Status::Flushed);
 
-    // Authoritative Rejected for slot 0's ambiguous order releases its reservation cleanly!
     assert_eq!(
         g.record_ingress_event([8; 16], 1, rejected_for(&cmd0, "slot0-drop", 250))
             .unwrap(),
@@ -431,11 +394,11 @@ fn single_slot_mid_send_drop_isolates_order_and_preserves_siblings() {
 
 #[test]
 fn pre_first_byte_gate_denial_aborts_and_releases_slot_inflight() {
-    let (_dir, base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
+    let (base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
     auth.policy.lock().unwrap().gate.now = 200;
 
-    let (conn0, limits0, peer0) = dial_slot_peer("testnet.binance.vision", 16384);
-    let (conn1, limits1, peer1) = dial_slot_peer("testnet.binance.vision", 16384);
+    let (conn0, limits0, peer0) = dial_slot_peer(SPOT_HOST, 16384);
+    let (conn1, limits1, peer1) = dial_slot_peer(SPOT_HOST, 16384);
     g.add_pool_slot(
         OrderSlotSpec::with_connection(SendSlot::Exclusive, conn0),
         limits0,
@@ -447,7 +410,6 @@ fn pre_first_byte_gate_denial_aborts_and_releases_slot_inflight() {
     )
     .unwrap();
 
-    // Complete TLS handshake on slot 1 before submitting so the next poll_slot hits try_send immediately.
     let deadline = until();
     while !g.slot_transport_ready(1) {
         assert!(Instant::now() < deadline, "slot 1 TLS handshake timed out");
@@ -455,14 +417,12 @@ fn pre_first_byte_gate_denial_aborts_and_releases_slot_inflight() {
         thread::yield_now();
     }
 
-    // Deny action_permitted right before first byte on slot 1.
     auth.policy.lock().unwrap().gate.action_permitted = false;
 
     let cmd1 = order_cmd(&base_cmd, 30, "gate-denied-slot1");
     let key1 = intent_of(&cmd1);
     let (st1, ep1) = g.submit_on_slot(1, cmd1, 100, until()).unwrap();
     assert_eq!((st1, ep1), (Status::Queued, 1));
-    assert_eq!(g.journal_position(), 1);
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(60)
@@ -471,9 +431,7 @@ fn pre_first_byte_gate_denial_aborts_and_releases_slot_inflight() {
 
     g.poll_slot(1, Instant::now(), IoBudget::default()).unwrap();
 
-    // Zero bytes crossed TLS -> Aborted journaled, reservation released, and inflight == 0 on slot 1!
     assert_eq!(g.status(key1), Some(Status::Aborted));
-    assert_eq!(g.journal_position(), 2);
     assert_eq!(
         g.account().asset(fixture::key(2)).unwrap().reserved,
         fixture::units(0)
@@ -485,7 +443,6 @@ fn pre_first_byte_gate_denial_aborts_and_releases_slot_inflight() {
     assert_eq!(g.slot_route(1).unwrap().health.inflight(), 0);
     assert_eq!(g.slot_pending_intent(1), None);
 
-    // Re-enable gate and confirm slot 1 immediately admits and flushes a subsequent order on the same epoch!
     auth.policy.lock().unwrap().gate.action_permitted = true;
     let cmd2 = order_cmd(&base_cmd, 31, "gate-allowed-slot1");
     let key2 = intent_of(&cmd2);
@@ -500,10 +457,10 @@ fn pre_first_byte_gate_denial_aborts_and_releases_slot_inflight() {
 
 #[test]
 fn shared_slot_multiplexes_up_to_sixteen_inflight_frames() {
-    let (_dir, base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
+    let (base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
     auth.policy.lock().unwrap().gate.now = 300;
 
-    let (conn0, limits0, peer0) = dial_slot_peer("testnet.binance.vision", 16384);
+    let (conn0, limits0, peer0) = dial_slot_peer(SPOT_HOST, 16384);
     let cid = g
         .add_pool_slot(
             OrderSlotSpec::with_connection(SendSlot::Shared, conn0),
@@ -538,7 +495,6 @@ fn shared_slot_multiplexes_up_to_sixteen_inflight_frames() {
         assert_eq!(g.slot_route(0).unwrap().health.inflight(), (i + 1) as u16);
     }
 
-    // At inflight == 16, Shared slot is saturated until responses release inflight tokens.
     assert_eq!(
         g.slot_route(0).unwrap().health.inflight(),
         MAX_SHARED_INFLIGHT
@@ -551,7 +507,6 @@ fn shared_slot_multiplexes_up_to_sixteen_inflight_frames() {
         Err(Error::Busy)
     ));
 
-    // Release 3 responses -> inflight drops 16 -> 13, opening room for a 17th multiplexed frame!
     for expected in [15u16, 14, 13] {
         assert!(g.release_slot_inflight(0, 1).unwrap());
         assert_eq!(g.slot_route(0).unwrap().health.inflight(), expected);
@@ -563,7 +518,6 @@ fn shared_slot_multiplexes_up_to_sixteen_inflight_frames() {
     drive_slot_intent(&mut g, 0, extra_key, Status::Flushed);
     assert_eq!(g.slot_route(0).unwrap().health.inflight(), 14);
 
-    // Stale epoch release is a safe no-op.
     assert!(!g.release_slot_inflight(0, 999).unwrap());
     assert_eq!(g.slot_route(0).unwrap().health.inflight(), 14);
 
@@ -579,21 +533,20 @@ fn shared_slot_multiplexes_up_to_sixteen_inflight_frames() {
 
 #[test]
 fn pick_pool_slot_filtered_fails_over_across_local_ip_quotas() {
-    let (_dir, _base_cmd, mut g, _auth) = make_pooled(RouterConfig::new(1, 4, 2));
+    let (_base_cmd, mut g, _auth) = make_pooled(RouterConfig::new(1, 4, 2));
 
     let ip0 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 1));
     let ip1 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 2));
     let ip2 = IpAddr::V4(Ipv4Addr::new(10, 0, 1, 3));
     let mut peers = Vec::new();
     for ip in [ip0, ip1, ip2] {
-        let (conn, limits, peer_handle) = dial_slot_peer("testnet.binance.vision", 16384);
+        let (conn, limits, peer_handle) = dial_slot_peer(SPOT_HOST, 16384);
         let mut spec = OrderSlotSpec::with_connection(SendSlot::Exclusive, conn);
         spec.local_ip = Some(ip);
         g.add_pool_slot(spec, limits).unwrap();
         peers.push(peer_handle);
     }
 
-    // Calibrate EWMA scores (ema_min_samples = 2): slot 0 = 500 us, slot 1 = 1200 us, slot 2 = 2000 us.
     for _ in 0..2 {
         assert!(g.note_slot_sample(0, 1, SampleKind::Order, 500).unwrap());
         assert!(g.note_slot_sample(1, 1, SampleKind::Order, 1200).unwrap());
@@ -603,23 +556,17 @@ fn pick_pool_slot_filtered_fails_over_across_local_ip_quotas() {
     assert_eq!(g.slot_route(1).unwrap().health.score(), Some(1200));
     assert_eq!(g.slot_route(2).unwrap().health.score(), Some(2000));
 
-    // Unfiltered pick selects best EWMA slot 0 (500 us).
     assert_eq!(g.pick_pool_slot(0), Some(0));
-
-    // Filtering out ip0 (e.g. ip0 exhausted weight / 429 cooldown) seamlessly fails over to slot 1 (1200 us)!
     assert_eq!(
         g.pick_pool_slot_filtered(0, |r| r.local_ip != Some(ip0)),
         Some(1)
     );
-
-    // Filtering out both ip0 and ip1 selects slot 2 (2000 us); filtering all returns None.
     assert_eq!(
         g.pick_pool_slot_filtered(0, |r| r.local_ip == Some(ip2)),
         Some(2)
     );
     assert_eq!(g.pick_pool_slot_filtered(0, |_| false), None);
 
-    // Verify 9/8 hysteresis when last_conn_id passes allow: bring slot 1 within 9/8 of 500 us (<= 562 us).
     for _ in 0..16 {
         g.note_slot_sample(1, 1, SampleKind::Order, 510).unwrap();
     }
@@ -628,7 +575,6 @@ fn pick_pool_slot_filtered_fails_over_across_local_ip_quotas() {
         g.pick_pool_slot_filtered(0, |r| r.local_ip == Some(ip1)),
         Some(1)
     );
-    // Now last_conn_id == Some(1), and slot 1 passes allow and is within 9/8 of slot 0 -> sticks to slot 1!
     assert_eq!(g.pick_pool_slot_filtered(0, |_| true), Some(1));
 
     drop(g);
@@ -639,10 +585,9 @@ fn pick_pool_slot_filtered_fails_over_across_local_ip_quotas() {
 
 #[test]
 fn pool_baton_harvest_retained_receive_and_unsent_strategy_termination() {
-    let (_dir, base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
+    let (base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
     auth.policy.lock().unwrap().gate.now = 200;
 
-    // 1. Harvest a background DialBaton link on slot 0 via poll_pool_dials without blocking.
     let baton = Arc::new(DialBaton::new());
     let slot0 = g
         .add_pool_slot(
@@ -656,19 +601,18 @@ fn pool_baton_harvest_retained_receive_and_unsent_strategy_termination() {
     assert_eq!(g.poll_pool_dials(1_000), 0);
     assert!(baton.claim(1_000));
     let http_reply = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\n{}".to_vec();
-    let (dialed_conn, _limits, peer0) =
-        dial_responding_peer("testnet.binance.vision", http_reply.clone());
+    let (dialed_conn, _limits, peer0) = dial_responding_peer(SPOT_HOST, http_reply.clone());
     let peer_addr = dialed_conn.peer_addr_target();
     assert!(baton.deliver_ready(DialedLink {
         connection: dialed_conn,
         peer: peer_addr,
         connect_rtt_us: 310,
+        early_ws_frames: std::collections::VecDeque::new(),
     }));
     assert_eq!(g.poll_pool_dials(1_100), 1);
     assert!(g.slot_route(0).unwrap().established);
 
-    // Add slot 1 with a second strategy's unsent order to verify targeted terminate_unsent_strategy.
-    let (conn1, limits1, peer1) = dial_slot_peer("testnet.binance.vision", 16384);
+    let (conn1, limits1, peer1) = dial_slot_peer(SPOT_HOST, 16384);
     g.add_pool_slot(
         OrderSlotSpec::with_connection(SendSlot::Exclusive, conn1),
         limits1,
@@ -708,7 +652,6 @@ fn pool_baton_harvest_retained_receive_and_unsent_strategy_termination() {
     assert_eq!(g.status(key_s2), Some(Status::Queued));
     assert_eq!(g.slot_route(1).unwrap().health.inflight(), 1);
 
-    // 2. Submit and flush a fresh order on slot 0, then read HTTP response from retained_receive after peer EOF!
     let cmd_live = order_cmd(&base_cmd, 52, "slot0-eof-reply");
     let key_live = intent_of(&cmd_live);
     g.submit_on_slot(0, cmd_live, 130, until()).unwrap();
@@ -739,13 +682,12 @@ fn pool_baton_harvest_retained_receive_and_unsent_strategy_termination() {
 
 #[test]
 fn poll_pool_dials_preserves_unread_eof_retained_receive_until_drained() {
-    let (_dir, base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
+    let (base_cmd, mut g, auth) = make_pooled(RouterConfig::default());
     auth.policy.lock().unwrap().gate.now = 200;
 
     let baton = Arc::new(DialBaton::new());
     let http_reply = b"HTTP/1.1 200 OK\r\nContent-Length: 15\r\n\r\n{\"orderId\":777}".to_vec();
-    let (conn0, limits0, peer0) =
-        dial_responding_peer("testnet.binance.vision", http_reply.clone());
+    let (conn0, limits0, peer0) = dial_responding_peer(SPOT_HOST, http_reply.clone());
     let mut spec0 = OrderSlotSpec::with_connection(SendSlot::Exclusive, conn0);
     spec0.baton = Some(Arc::clone(&baton));
     spec0.backoff = DialBackoff::new(0, 10);
@@ -757,7 +699,6 @@ fn poll_pool_dials_preserves_unread_eof_retained_receive_until_drained() {
     g.submit_on_slot(0, cmd, 150, until()).unwrap();
     drive_slot_intent(&mut g, 0, key, Status::Flushed);
 
-    // Wait until peer sends response + close_notify and poll_slot moves unread bytes into retained_receive.
     let deadline = until();
     while g.has_slot_connection(0) {
         assert!(Instant::now() < deadline, "timed out waiting for peer EOF");
@@ -766,17 +707,16 @@ fn poll_pool_dials_preserves_unread_eof_retained_receive_until_drained() {
     }
     assert_eq!(g.slot_route(0).unwrap().epoch, 2);
 
-    // Background dialer immediately delivers a fresh Ready connection onto baton BEFORE read_slot drains retained_receive!
     let _ = baton.claim(300);
-    let (conn_re, _limits_re, peer_re) = dial_slot_peer("testnet.binance.vision", 16384);
+    let (conn_re, _limits_re, peer_re) = dial_slot_peer(SPOT_HOST, 16384);
     let re_peer = conn_re.peer_addr_target();
     assert!(baton.deliver_ready(DialedLink {
         connection: conn_re,
         peer: re_peer,
         connect_rtt_us: 120,
+        early_ws_frames: std::collections::VecDeque::new(),
     }));
 
-    // poll_pool_dials MUST NOT harvest the Ready baton or clobber retained_receive while unread bytes remain!
     assert_eq!(g.poll_pool_dials(400), 0);
     assert!(!g.has_slot_connection(0));
 
@@ -791,7 +731,6 @@ fn poll_pool_dials_preserves_unread_eof_retained_receive_until_drained() {
     }
     assert_eq!(rx, http_reply);
 
-    // Now that retained_receive is empty, poll_pool_dials harvests the Ready link immediately!
     assert_eq!(g.poll_pool_dials(401), 1);
     assert!(g.has_slot_connection(0));
     assert_eq!(g.slot_route(0).unwrap().epoch, 3);
