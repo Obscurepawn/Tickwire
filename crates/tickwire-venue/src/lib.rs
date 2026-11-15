@@ -1,4 +1,6 @@
-//! Immutable, bounded exchange commands and facts with deterministic CBOR identities.
+//! Stateless ORS domain model, multi-product routing, `tw1` self-describing client IDs,
+//! execution reports (`FrontAck`, `Fill`), `TerminalReason` classifiers, and deterministic CBOR
+//! identities for exchange commands and normalized observations.
 #![forbid(unsafe_code)]
 
 mod account;
@@ -11,11 +13,14 @@ mod types;
 mod validate;
 pub use account::*;
 pub use client_id::{
-    ClientIdDomain, DecodedClientId, PARENT_STRUCTURE_LEG, REPLACEMENT_ORDER_LEG,
+    ALL_ORS_STRATS, ClientIdDomain, DecodedClientId, PARENT_STRUCTURE_LEG, REPLACEMENT_ORDER_LEG,
     SELF_DESCRIBING_CLIENT_ID_LEN, SelfDescribingClientId,
 };
 use codec::Codec;
-pub use reasons::{TerminalReason, classify_binance_reason, classify_spot_venue_reason};
+pub use reasons::{
+    RefusalReason, TerminalReason, classify_binance_reason, classify_ors_cancel_reason,
+    classify_spot_venue_reason,
+};
 pub use request_reply::{OrderSnapshot, RequestReply};
 use sha2::{Digest, Sha256};
 pub use types::*;

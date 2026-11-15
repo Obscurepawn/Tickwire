@@ -304,6 +304,7 @@ fn time_in_force(t: Option<v::TimeInForce>) -> Option<&'static str> {
         v::TimeInForce::Fok => "FOK",
         v::TimeInForce::PostOnly => "GTX",
         v::TimeInForce::Gtd { .. } => "GTD",
+        v::TimeInForce::Rpi => "RPI",
     })
 }
 

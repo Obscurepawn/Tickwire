@@ -165,7 +165,7 @@ macro_rules! enumeration {
         fn read(r:&mut Reader<'_>)->Result<Self,Error>{match r.uint()?{$($tag=>Ok(Self::$v),)+_=>Err(Error::Enum)}}
     }};
 }
-enumeration!(Product;Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6);
+enumeration!(Product;Spot=1,LinearPerpetual=2,InversePerpetual=3,Option=4,LinearFuture=5,InverseFuture=6,UsdM=7,CoinM=8);
 enumeration!(Environment;Production=1,Test=2);
 enumeration!(Side;Buy=1,Sell=2);
 enumeration!(PositionSide;Both=1,Long=2,Short=3);
@@ -202,6 +202,20 @@ enumeration!(
     AbortedBeforeSend=14,
     VenueRejected=15,
     Unknown=16,
+    NoReason=17,
+    MarketCanceled=18,
+    MarketDelayed=19,
+    RejectStaleOrder=20,
+    AllocationError=21,
+    UnexpectedMsgSeqnum=22,
+    InvalidStratId=23,
+    InvalidAccountId=24,
+    RejectRoutingIdMismatch=25,
+    AdminAction=26,
+    RestrictedCancelOnly=27,
+    MarketRejectMarketDown=28,
+    RfqQuoteNotSupported=29,
+    InternalCancel=30,
 );
 
 impl Codec for TimeInForce {
@@ -217,6 +231,7 @@ impl Codec for TimeInForce {
             Self::Fok => 3,
             Self::PostOnly => 4,
             Self::Gtd { .. } => 5,
+            Self::Rpi => 6,
         });
         if let Self::Gtd { expire_utc_ns } = self {
             expire_utc_ns.write(w)
@@ -232,6 +247,7 @@ impl Codec for TimeInForce {
             (2, 5) => Ok(Self::Gtd {
                 expire_utc_ns: Codec::read(r)?,
             }),
+            (1, 6) => Ok(Self::Rpi),
             _ => Err(Error::Enum),
         }
     }

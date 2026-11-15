@@ -1,4 +1,4 @@
-//! Self-describing, domain-authenticated 32-character `[0-9a-z]` `ClientId` encoding.
+//! Self-describing, domain-authenticated 32-character `[0-9a-z]` `ClientId` encoding (`tw1...`).
 
 use crate::{ClientId, CommandContext, Environment, Error, Product};
 use sha2::{Digest, Sha256};
@@ -6,11 +6,14 @@ use sha2::{Digest, Sha256};
 pub const SELF_DESCRIBING_CLIENT_ID_LEN: usize = 32;
 pub const REPLACEMENT_ORDER_LEG: u8 = 1;
 pub const PARENT_STRUCTURE_LEG: u8 = 15;
+pub const ALL_ORS_STRATS: u8 = u8::MAX;
 
-const PREFIX: &[u8; 2] = b"t1";
-const ALPHABET: &[u8; 32] = b"0123456789abcdefghjkmnpqrstvwxyz";
-const TAG_MASK: u64 = (1u64 << 34) - 1;
+const PREFIX: &[u8; 3] = b"tw1";
+const BASE36_LEN: usize = 29;
+const ALPHABET: &[u8; 36] = b"0123456789abcdefghijklmnopqrstuvwxyz";
+const TAG_MASK: u64 = (1u64 << 30) - 1;
 const MAX_INTENT_ID: u64 = (1u64 << 63) - 1;
+const TOP_LIMB_LIMIT: u64 = 1u64 << 18;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ClientIdDomain {
@@ -63,6 +66,37 @@ impl SelfDescribingClientId {
         Ok(candidate)
     }
 
+    /// Constructs a `SelfDescribingClientId` for an ORS strategy (`strat_id` in `0..=254`,
+    /// rejecting `255 = ALL_ORS_STRATS`), mapping `logical_strategy_id = strat_id + 1`.
+    pub fn from_ors_order(
+        strat_id: u8,
+        leg: u8,
+        epoch: u32,
+        order_seqnum: u64,
+    ) -> Result<Self, Error> {
+        if strat_id == ALL_ORS_STRATS {
+            return Err(Error::Identity);
+        }
+        let candidate = Self {
+            logical_strategy_id: u16::from(strat_id) + 1,
+            leg,
+            epoch,
+            intent_id: order_seqnum,
+        };
+        candidate.validate()?;
+        Ok(candidate)
+    }
+
+    /// Returns the 0-based ORS `strat_id` (`0..=254`) when `logical_strategy_id` is in `1..=255`.
+    #[inline]
+    pub const fn ors_strat_id(&self) -> Option<u8> {
+        if self.logical_strategy_id >= 1 && self.logical_strategy_id <= 255 {
+            Some((self.logical_strategy_id - 1) as u8)
+        } else {
+            None
+        }
+    }
+
     pub fn validate(&self) -> Result<(), Error> {
         if self.logical_strategy_id == 0 || self.epoch == 0 || self.intent_id == 0 {
             return Err(Error::Identity);
@@ -75,24 +109,30 @@ impl SelfDescribingClientId {
 
     pub fn encode(&self, domain: &ClientIdDomain) -> Result<ClientId, Error> {
         self.validate()?;
-        let tag_34 = compute_tag_34(domain, self);
+        let tag_30 = compute_tag_30(domain, self);
         let upper_116 = ((self.logical_strategy_id as u128) << 100)
             | ((self.leg as u128) << 96)
             | ((self.epoch as u128) << 64)
             | (self.intent_id as u128);
 
+        let mut limbs = [
+            ((upper_116 as u64) << 30) | (tag_30 & TAG_MASK),
+            ((upper_116 >> 34) & u128::from(u64::MAX)) as u64,
+            (upper_116 >> 98) as u64,
+        ];
+
         let mut buf = [0u8; SELF_DESCRIBING_CLIENT_ID_LEN];
-        buf[..2].copy_from_slice(PREFIX);
-        for i in 0..30 {
-            let idx = if i < 23 {
-                ((upper_116 >> (111 - 5 * i)) & 0x1f) as usize
-            } else if i == 23 {
-                ((((upper_116 & 1) as usize) << 4) | (((tag_34 >> 30) & 0x0f) as usize)) & 0x1f
-            } else {
-                ((tag_34 >> (25 - 5 * (i - 24))) & 0x1f) as usize
-            };
-            buf[2 + i] = ALPHABET[idx];
+        buf[..3].copy_from_slice(PREFIX);
+        for pos in (0..BASE36_LEN).rev() {
+            let mut rem = 0u128;
+            for limb in limbs.iter_mut().rev() {
+                let cur = (rem << 64) | u128::from(*limb);
+                *limb = (cur / 36) as u64;
+                rem = cur % 36;
+            }
+            buf[3 + pos] = ALPHABET[rem as usize];
         }
+        debug_assert_eq!(limbs, [0, 0, 0]);
         let s = core::str::from_utf8(&buf).map_err(|_| Error::Text)?;
         ClientId::new(s)
     }
@@ -103,24 +143,32 @@ impl SelfDescribingClientId {
 
     pub fn decode_str(raw: &str, domain: &ClientIdDomain) -> DecodedClientId {
         let bytes = raw.as_bytes();
-        if bytes.len() != SELF_DESCRIBING_CLIENT_ID_LEN || &bytes[..2] != PREFIX {
+        if bytes.len() != SELF_DESCRIBING_CLIENT_ID_LEN || &bytes[..3] != PREFIX {
             return DecodedClientId::External;
         }
-        let mut upper_116 = 0u128;
-        let mut tag_34 = 0u64;
-        for (i, &b) in bytes[2..].iter().enumerate() {
-            let Some(v) = decode_base32_byte(b) else {
+        let mut limbs = [0u64; 3];
+        for &b in &bytes[3..] {
+            let Some(digit) = decode_base36_byte(b) else {
                 return DecodedClientId::External;
             };
-            if i < 23 {
-                upper_116 |= (v as u128) << (111 - 5 * i);
-            } else if i == 23 {
-                upper_116 |= ((v >> 4) & 1) as u128;
-                tag_34 |= ((v & 0x0f) as u64) << 30;
-            } else {
-                tag_34 |= (v as u64) << (25 - 5 * (i - 24));
+            let mut carry = u128::from(digit);
+            for limb in &mut limbs {
+                let cur = u128::from(*limb) * 36 + carry;
+                *limb = cur as u64;
+                carry = cur >> 64;
+            }
+            if carry != 0 {
+                return DecodedClientId::External;
             }
         }
+        if limbs[2] >= TOP_LIMB_LIMIT {
+            return DecodedClientId::External;
+        }
+        let tag_30 = limbs[0] & TAG_MASK;
+        let upper_116 = (u128::from(limbs[2]) << 98)
+            | (u128::from(limbs[1]) << 34)
+            | u128::from(limbs[0] >> 30);
+
         let candidate = Self {
             logical_strategy_id: ((upper_116 >> 100) & 0xffff) as u16,
             leg: ((upper_116 >> 96) & 0x0f) as u8,
@@ -130,7 +178,7 @@ impl SelfDescribingClientId {
         if candidate.validate().is_err() {
             return DecodedClientId::External;
         }
-        if compute_tag_34(domain, &candidate) != tag_34 {
+        if compute_tag_30(domain, &candidate) != tag_30 {
             return DecodedClientId::External;
         }
         DecodedClientId::Managed(candidate)
@@ -150,9 +198,9 @@ impl SelfDescribingClientId {
     }
 }
 
-fn compute_tag_34(domain: &ClientIdDomain, id: &SelfDescribingClientId) -> u64 {
+fn compute_tag_30(domain: &ClientIdDomain, id: &SelfDescribingClientId) -> u64 {
     let mut hasher = Sha256::new();
-    hasher.update(b"tickwire.client-id.v1");
+    hasher.update(b"tickwire.client-id.tw1");
     hash_domain_and_fields(&mut hasher, domain, id);
     let digest = hasher.finalize();
     let mut head = [0u8; 8];
@@ -172,28 +220,17 @@ fn hash_domain_and_fields(
         Environment::Test => 2,
     }]);
     hasher.update(domain.account.to_le_bytes());
-    hasher.update([match domain.product {
-        Product::Spot => 1,
-        Product::LinearPerpetual => 2,
-        Product::InversePerpetual => 3,
-        Product::Option => 4,
-        Product::LinearFuture => 5,
-        Product::InverseFuture => 6,
-    }]);
+    hasher.update([domain.product.code()]);
     hasher.update(id.logical_strategy_id.to_le_bytes());
     hasher.update([id.leg]);
     hasher.update(id.epoch.to_le_bytes());
     hasher.update(id.intent_id.to_le_bytes());
 }
 
-const fn decode_base32_byte(b: u8) -> Option<u8> {
+const fn decode_base36_byte(b: u8) -> Option<u8> {
     match b {
         b'0'..=b'9' => Some(b - b'0'),
-        b'a'..=b'h' => Some(10 + (b - b'a')),
-        b'j' | b'k' => Some(18 + (b - b'j')),
-        b'm' | b'n' => Some(20 + (b - b'm')),
-        b'p'..=b't' => Some(22 + (b - b'p')),
-        b'v'..=b'z' => Some(27 + (b - b'v')),
+        b'a'..=b'z' => Some(10 + (b - b'a')),
         _ => None,
     }
 }

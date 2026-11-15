@@ -1,4 +1,6 @@
-//! Literal wire samples for fields added after the original v1 sample set.
+//! Literal wire samples for inline SHM ORS records, DOP logon frames, and extended layouts.
+#![forbid(unsafe_code)]
+
 use tickwire_ipc::*;
 
 fn hex(raw: &str) -> Vec<u8> {
@@ -11,24 +13,116 @@ fn hex(raw: &str) -> Vec<u8> {
 }
 
 #[test]
-fn intent_command_binding_has_fixed_offsets() {
+fn inline_intent_body_has_fixed_offsets() {
+    let mut cid = [0u8; 40];
+    cid[..32].copy_from_slice(b"tw100000000000000000000000000001");
     let value = IntentBody {
-        command_digest: core::array::from_fn(|i| i as u8),
-        command_bytes: 0x01020304,
+        msg_seqnum: 7,
+        order_seqnum: 9,
+        tick_mono_ns: 1_234_567,
+        price_ticks: -42,
+        qty_lots: 500,
+        arena_offset: 8320,
+        arena_len: 256,
+        command_kind: intent_kind::NEW_ORDER,
+        strat_id: 12,
+        account_ref: 3,
+        time_in_force: tif_code::RPI,
+        intent_flags: intent_flags::BYPASS_RMS | intent_flags::POST_ONLY,
+        client_id_len: 32,
+        client_id: cid,
         ..Default::default()
     };
     let mut raw = vec![0xCC; IntentBody::SIZE];
     value.encode(&mut raw).unwrap();
+    assert_eq!(u64::from_le_bytes(raw[0..8].try_into().unwrap()), 7);
+    assert_eq!(u64::from_le_bytes(raw[8..16].try_into().unwrap()), 9);
     assert_eq!(
-        &raw[304..340],
-        hex(concat!(
-            "000102030405060708090a0b0c0d0e0f",
-            "101112131415161718191a1b1c1d1e1f04030201"
-        ))
+        u64::from_le_bytes(raw[24..32].try_into().unwrap()),
+        1_234_567
     );
-    assert!(raw[..304].iter().all(|b| *b == 0));
-    assert!(raw[340..].iter().all(|b| *b == 0));
+    assert_eq!(i64::from_le_bytes(raw[88..96].try_into().unwrap()), -42);
+    assert_eq!(i64::from_le_bytes(raw[96..104].try_into().unwrap()), 500);
+    assert_eq!(u64::from_le_bytes(raw[152..160].try_into().unwrap()), 8320);
+    assert_eq!(u32::from_le_bytes(raw[160..164].try_into().unwrap()), 256);
+    assert_eq!(u16::from_le_bytes(raw[164..166].try_into().unwrap()), 1);
+    assert_eq!(raw[170], 12);
+    assert_eq!(raw[171], 3);
+    assert_eq!(raw[174], tif_code::RPI);
+    assert_eq!(raw[179], intent_flags::BYPASS_RMS | intent_flags::POST_ONLY);
+    assert_eq!(raw[181], 32);
+    assert_eq!(&raw[184..216], b"tw100000000000000000000000000001");
+    assert!(raw[360..384].iter().all(|&b| b == 0));
     assert_eq!(IntentBody::decode(&raw).unwrap(), value);
+}
+
+#[test]
+fn inline_report_body_and_dop_frames_have_fixed_offsets() {
+    let report = ReportBody {
+        report_seq: 11,
+        orig_seqnum: 7,
+        order_seqnum: 9,
+        ors_order_id: 9001,
+        fee_units: -25,
+        report_kind: report_kind::FILL,
+        order_status: 3,
+        reason: 0,
+        strat_id: 12,
+        account_ref: 3,
+        liquidity: 1,
+        amendment: 1,
+        has_fee: 1,
+        asset_exponent: -8,
+        ..Default::default()
+    };
+    let mut raw = vec![0xCC; ReportBody::SIZE];
+    report.encode(&mut raw).unwrap();
+    assert_eq!(u64::from_le_bytes(raw[0..8].try_into().unwrap()), 11);
+    assert_eq!(u64::from_le_bytes(raw[8..16].try_into().unwrap()), 7);
+    assert_eq!(i64::from_le_bytes(raw[136..144].try_into().unwrap()), -25);
+    assert_eq!(
+        u16::from_le_bytes(raw[184..186].try_into().unwrap()),
+        report_kind::FILL
+    );
+    assert_eq!(raw[192], 12);
+    assert_eq!(raw[193], 3);
+    assert_eq!(raw[197], 1);
+    assert_eq!(raw[199], 1);
+    assert_eq!(raw[200] as i8, -8);
+    assert_eq!(ReportBody::decode(&raw).unwrap(), report);
+
+    let login = DopLoginBody {
+        next_source_seqnum: 100,
+        client_id: 77,
+        strat_id: 5,
+        ..Default::default()
+    };
+    let mut login_raw = vec![0xCC; DopLoginBody::SIZE];
+    login.encode(&mut login_raw).unwrap();
+    assert_eq!(u64::from_le_bytes(login_raw[0..8].try_into().unwrap()), 100);
+    assert_eq!(u32::from_le_bytes(login_raw[8..12].try_into().unwrap()), 77);
+    assert_eq!(login_raw[12], 5);
+    assert_eq!(DopLoginBody::decode(&login_raw).unwrap(), login);
+
+    let echo = DopEchoBody {
+        next_source_order_seqnum: 105,
+        tx_key: 0xAA,
+        rx_key: 0xBB,
+        tx_len: 4_202_496,
+        rx_len: 4_202_496,
+        hb_interval_ms: 500,
+        strat_id: 5,
+        connected: 1,
+        enabled: 1,
+        market_connected: 1,
+        ready_to_trade: 1,
+        ..Default::default()
+    };
+    let mut echo_raw = vec![0xCC; DopEchoBody::SIZE];
+    echo.encode(&mut echo_raw).unwrap();
+    assert_eq!(echo_raw[38], 5);
+    assert_eq!(&echo_raw[39..43], &[1, 1, 1, 1]);
+    assert_eq!(DopEchoBody::decode(&echo_raw).unwrap(), echo);
 }
 
 #[test]

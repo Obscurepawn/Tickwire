@@ -67,9 +67,12 @@ pub(crate) fn instrument(i: &InstrumentBinding, p: Product) -> Result<(), Error>
     }
     match (p, i.contract) {
         (Product::Spot, ContractKind::Cash)
-        | (Product::LinearPerpetual | Product::InversePerpetual, ContractKind::Perpetual) => {}
+        | (
+            Product::LinearPerpetual | Product::InversePerpetual | Product::UsdM | Product::CoinM,
+            ContractKind::Perpetual,
+        ) => {}
         (
-            Product::LinearFuture | Product::InverseFuture,
+            Product::LinearFuture | Product::InverseFuture | Product::UsdM | Product::CoinM,
             ContractKind::Delivery { expiry_utc_ns },
         ) if expiry_utc_ns > 0 => {}
         (
@@ -96,13 +99,7 @@ fn order_with_peg(o: &OrderSpec, c: &CommandContext, peg: Option<Peg>) -> Result
                 return Err(Error::ProductCombination);
             }
         }
-        (
-            Product::LinearPerpetual
-            | Product::InversePerpetual
-            | Product::LinearFuture
-            | Product::InverseFuture,
-            ProductMode::Derivative { position_mode, .. },
-        ) => {
+        (prod, ProductMode::Derivative { position_mode, .. }) if prod.is_derivative() => {
             if (position_mode == PositionMode::OneWay) != (o.position_side == PositionSide::Both) {
                 return Err(Error::ProductCombination);
             }
@@ -124,6 +121,11 @@ fn order_with_peg(o: &OrderSpec, c: &CommandContext, peg: Option<Peg>) -> Result
     if (o.price.is_some() && !limit)
         || (limit && o.price.is_none() && peg.is_none())
         || o.time_in_force.is_some() != limit
+    {
+        return Err(Error::OrderCombination);
+    }
+    if o.time_in_force == Some(TimeInForce::Rpi)
+        && (o.order_type != OrderType::Limit || o.iceberg_quantity.is_some() || peg.is_some())
     {
         return Err(Error::OrderCombination);
     }
@@ -179,16 +181,12 @@ fn order_with_peg(o: &OrderSpec, c: &CommandContext, peg: Option<Peg>) -> Result
             }
         }
         Quantity::ClosePosition => {
-            if !matches!(
-                p,
-                Product::LinearPerpetual
-                    | Product::InversePerpetual
-                    | Product::LinearFuture
-                    | Product::InverseFuture
-            ) || !matches!(
-                o.order_type,
-                OrderType::StopMarket | OrderType::TakeProfitMarket
-            ) || o.reduce_only
+            if !p.is_derivative()
+                || !matches!(
+                    o.order_type,
+                    OrderType::StopMarket | OrderType::TakeProfitMarket
+                )
+                || o.reduce_only
             {
                 return Err(Error::OrderCombination);
             }
@@ -374,7 +372,10 @@ pub(crate) fn command(c: &Command) -> Result<(), Error> {
                     }
                     if !matches!(o.order_type, OrderType::Limit | OrderType::Market)
                         || !matches!(o.quantity, Quantity::Base(_))
-                        || o.time_in_force == Some(TimeInForce::PostOnly)
+                        || matches!(
+                            o.time_in_force,
+                            Some(TimeInForce::PostOnly | TimeInForce::Rpi)
+                        )
                     {
                         return Err(Error::OrderCombination);
                     }
@@ -677,7 +678,11 @@ fn structure(s: &StructureObservation, product: Product) -> Result<(), Error> {
         return Err(Error::Identity);
     }
     let algo = p.kind == StructureKind::Algo;
-    if (algo && !matches!(product, Product::LinearPerpetual | Product::LinearFuture))
+    if (algo
+        && !matches!(
+            product,
+            Product::LinearPerpetual | Product::LinearFuture | Product::UsdM
+        ))
         || (!algo && product != Product::Spot)
     {
         return Err(Error::ProductCombination);

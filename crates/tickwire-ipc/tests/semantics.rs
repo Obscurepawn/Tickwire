@@ -50,8 +50,16 @@ fn mutate(raw: &mut [u8], layout: &str, path: &str, value: &Value) {
     for (i, part) in parts.iter().enumerate() {
         if name == "ControlFrame" {
             if *part == "body" {
+                let opcode = u16::from_le_bytes([raw[14], raw[15]]);
                 offset += 128;
-                name = "ConfigControlBody";
+                name = match opcode {
+                    96 => "DopLoginBody",
+                    97 => "DopLogoutBody",
+                    98 => "DopEchoBody",
+                    99 => "OrsSessionsBody",
+                    100 => "DopHeartBeatBody",
+                    _ => "ConfigControlBody",
+                };
                 continue;
             }
             name = "ControlEnvelope";
@@ -178,7 +186,7 @@ fn run_case(name: &str) {
                     frame_rehash(&mut raw);
                 }
                 let frame = ControlFrame::decode(&raw)?;
-                if frame.envelope.opcode >= 80 {
+                if (80..=84).contains(&frame.envelope.opcode) {
                     validate_config_binding(&frame, &config_context(&c["context"])).map(|_| ())
                 } else {
                     Ok(())
@@ -228,7 +236,7 @@ fn run_case(name: &str) {
 #[test]
 fn all_declared_semantic_cases() {
     let f = fixture();
-    assert_eq!(f["semantic_cases"].as_array().unwrap().len(), 33);
+    assert_eq!(f["semantic_cases"].as_array().unwrap().len(), 40);
     for case in f["semantic_cases"].as_array().unwrap() {
         run_case(case["name"].as_str().unwrap());
     }
@@ -595,4 +603,133 @@ fn zerocopy_market_record_borrows_in_place_and_validates_alignment_and_invariant
         MarketExactRecord::from_aligned_bytes(&bad_pad.0),
         Err(Error::UnknownMessage)
     );
+}
+
+#[repr(C, align(8))]
+struct Aligned1024([u8; 1024]);
+
+#[repr(C, align(8))]
+struct Unaligned1032([u8; 1032]);
+
+#[test]
+fn zerocopy_intent_and_report_and_shm_arena_and_dop_feature_gate() {
+    let f = fixture();
+    for name in [
+        "new_limit_intent",
+        "cancel_all_intent",
+        "rpi_limit_intent",
+        "rfq_quote_intent",
+    ] {
+        let raw_vec = bytes(&f, name);
+        let mut aligned = Aligned1024([0u8; 1024]);
+        aligned.0.copy_from_slice(&raw_vec);
+        let borrowed = IntentRecord::from_aligned_bytes(&aligned.0).unwrap();
+        assert_eq!(
+            (borrowed as *const IntentRecord) as usize,
+            aligned.0.as_ptr() as usize
+        );
+        assert_eq!(*borrowed, IntentRecord::decode(&aligned.0).unwrap());
+
+        let mut unaligned = Unaligned1032([0u8; 1032]);
+        unaligned.0[1..1025].copy_from_slice(&raw_vec);
+        assert_eq!(
+            IntentRecord::from_aligned_slice(&unaligned.0[1..1025]),
+            Err(Error::Unaligned)
+        );
+    }
+
+    for name in [
+        "fill_report",
+        "front_ack_report",
+        "fill_amendment_report",
+        "exch_rate_limit_report",
+        "ors_shutdown_report",
+    ] {
+        let raw_vec = bytes(&f, name);
+        let mut aligned = Aligned512([0u8; 512]);
+        aligned.0.copy_from_slice(&raw_vec);
+        let borrowed = ReportRecord::from_aligned_bytes(&aligned.0).unwrap();
+        assert_eq!(
+            (borrowed as *const ReportRecord) as usize,
+            aligned.0.as_ptr() as usize
+        );
+        assert_eq!(*borrowed, ReportRecord::decode(&aligned.0).unwrap());
+    }
+
+    // Optional SHM Arena oversize payload validation (zero disk I/O).
+    let mut intent = IntentRecord::decode(&bytes(&f, "new_limit_intent")).unwrap();
+    intent.header.payload_kind = 2;
+    intent.header.payload_length = 48;
+    intent.header.payload_offset = 8192 + 128;
+    intent.header.arena_class = 1;
+    intent.header.allocation_seq = intent.header.sequence;
+    intent.body.arena_offset = 8192 + 128;
+    intent.body.arena_len = 48;
+    let mut intent_slot = Aligned1024([0u8; 1024]);
+    intent.encode(&mut intent_slot.0).unwrap();
+    let borrowed_intent = IntentRecord::from_aligned_bytes(&intent_slot.0).unwrap();
+
+    let mut r = ResourceHeader {
+        resource_id: [9; 16],
+        resource_kind: 2,
+        ring_epoch: 4,
+        arena_offset: 8192,
+        arena_bytes: 512,
+        resource_bytes: 8704,
+        arena_class_count: 1,
+        ..Default::default()
+    };
+    r.class_descriptors[0] = ArenaClass {
+        class_id: 1,
+        block_bytes: 512,
+        block_count: 1,
+        payload_limit: 384,
+        offset: 8192,
+        length: 512,
+    };
+    let block = ArenaBlockHeader {
+        allocation_seq: intent.header.sequence,
+        payload_length: 48,
+        class_id: 1,
+        ring_epoch: 4,
+        resource_id: [9; 16],
+        payload_crc32c: 0,
+    };
+    let mut bank = vec![0u8; 8704];
+    block.encode(&mut bank[8192..8320]).unwrap();
+    bank[8320..8320 + 48].fill(0xA5);
+    let slice = validate_intent_arena_payload(borrowed_intent, &bank, &r).unwrap();
+    assert_eq!(slice.len(), 48);
+    assert!(slice.iter().all(|&b| b == 0xA5));
+
+    let mut report = ReportRecord::decode(&bytes(&f, "fill_report")).unwrap();
+    report.header.payload_kind = 2;
+    report.header.payload_length = 48;
+    report.header.payload_offset = 8192 + 128;
+    report.header.arena_class = 1;
+    report.header.allocation_seq = report.header.sequence;
+    report.body.arena_offset = 8192 + 128;
+    report.body.arena_len = 48;
+    let mut report_slot = Aligned512([0u8; 512]);
+    report.encode(&mut report_slot.0).unwrap();
+    let borrowed_report = ReportRecord::from_aligned_bytes(&report_slot.0).unwrap();
+    let rep_slice = validate_report_arena_payload(borrowed_report, &bank, &r).unwrap();
+    assert_eq!(rep_slice, slice);
+
+    // DOP control frames require DOP_PROTOCOL_FEATURE_MASK under decode_negotiated.
+    for dop_vec in [
+        "dop_login_frame",
+        "dop_logout_frame",
+        "dop_echo_frame",
+        "ors_sessions_frame",
+        "dop_heartbeat_frame",
+    ] {
+        let raw = bytes(&f, dop_vec);
+        assert_eq!(
+            ControlFrame::decode_negotiated(&raw, 0).unwrap_err(),
+            Error::UnsupportedFeature
+        );
+        assert!(ControlFrame::decode_negotiated(&raw, DOP_PROTOCOL_FEATURE_MASK).is_ok());
+        assert!(ControlFrame::decode(&raw).is_ok());
+    }
 }
