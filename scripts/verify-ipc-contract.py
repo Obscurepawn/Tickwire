@@ -105,8 +105,9 @@ for tag,opcode,flags,status in [('request',41,1,0),('applied',42,10,0),('rejecte
  env=decode('ControlEnvelope',bytes.fromhex(vs['rebuild_rollback_'+tag+'_header']['hex']))
  assert (env['opcode'],env['flags'],env['status'])==(opcode,flags,status)
 # Independent selected field offsets and signed encoding checks.
-a=bytes.fromhex(vs['new_limit_intent']['hex']);assert int.from_bytes(a[128+120:128+128],'little',signed=True)==6500000;assert int.from_bytes(a[128+384+24:128+384+32],'little')==101
-b=bytes.fromhex(vs['fill_report']['hex']);assert b[128+256:128+264]==bytes.fromhex('bfffffffffffffff');assert b[128+316]==248
+a=bytes.fromhex(vs['new_limit_intent']['hex']);assert int.from_bytes(a[128+88:128+96],'little',signed=True)==6500000;assert a[128+170]==3 and a[128+179]==20;assert int.from_bytes(a[128+384+24:128+384+32],'little')==101
+b=bytes.fromhex(vs['fill_report']['hex']);assert b[128+136:128+144]==bytes.fromhex('bfffffffffffffff');assert b[128+200]==248
+ba=bytes.fromhex(vs['fill_amendment_report']['hex']);assert ba[128+197]==1 and int.from_bytes(ba[128+136:128+144],'little',signed=True)==-15
 p=s['profiles']['production_reference'];m=p['market'];assert m['capacity']&(m['capacity']-1)==0;assert m['arena_offset']==8192+m['capacity']*m['record_bytes'];off=m['arena_offset'];arena=0
 for c in m['arena_classes']:
  assert c['offset']==off and c['offset']%4096==0;assert c['length']==c['block_count']*c['block_bytes'];assert c['payload_limit']<=c['block_bytes']-128
@@ -131,23 +132,56 @@ def iszero(v):
  if isinstance(v,list):return all(iszero(x) for x in v)
  if isinstance(v,str):return set(v)<=set('0')
  return v==0
+def validate_inline_or_arena(mh,b):
+ if b['arena_len']==0:
+  if b['arena_offset'] or mh['payload_kind'] or mh['payload_length'] or mh['payload_offset'] or mh['arena_class'] or mh['allocation_seq']:fail('Malformed')
+ else:
+  if mh['payload_kind']!=2 or b['arena_len']>65536 or b['arena_offset']<128 or mh['payload_length']!=b['arena_len'] or mh['payload_offset']!=b['arena_offset'] or not 1<=mh['arena_class']<=4 or mh['allocation_seq']!=mh['sequence']:fail('Malformed')
+def validate_padded_hex(hex_str,length,max_len):
+ if not 0<=length<=max_len:fail('Bounds')
+ raw_b=bytes.fromhex(hex_str)
+ if any(raw_b[length:]):fail('ReservedNonzero')
 def validate_message(d):
  mh=d['header'];b=d['body'];mid=mh['message_type'];m=next((x for x in s['messages'] if x['id']==mid),None)
  if not m:fail('UnknownMessage')
- c=s['message_constraints'][m['name']]
+ c=s['message_constraints'][m['name']];blayout=layouts[m['body_layout']]
  for field,value in b.items():
   if field not in c['allowed_fields'] and not iszero(value):fail('ReservedNonzero')
- if 'value_validity_allowed_mask'in c:
-  mask=b['value_validity']
-  if mask&~c['value_validity_allowed_mask'] or mask&c['value_validity_required_mask']!=c['value_validity_required_mask']:fail('Malformed')
-  for bit,field in enumerate(s['report_value_fields']):
-   if not(mask&(1<<bit)) and b[field]!=0:fail('Malformed')
-  if b['report_kind']!=c['report_kind']:fail('Malformed')
+ for f in blayout['fields']:
+  fn=f['name']
+  if fn in c['allowed_fields'] and f['type'] in formats:
+   ev=s['enums'].get(fn);bv=s['bitsets'].get(fn)
+   if ev and b[fn] not in (set(ev.values())|{0}):fail('InvalidEnum')
+   if bv and (b[fn]&~sum(1<<bit for bit in bv.values())):fail('Malformed')
+ if 'report_kind'in c and b['report_kind']!=c['report_kind']:fail('Malformed')
  if 'command_kind'in c and b['command_kind']!=c['command_kind']:fail('Malformed')
  if m['channel']=='StrategyIntent':
+  if b['msg_seqnum']==0:fail('Malformed')
+  if b['msg_seqnum']>=(1<<63) or b['order_seqnum']>=(1<<63) or b['orig_order_seqnum']>=(1<<63):fail('SequenceExhausted')
+  if b['strat_id']==255 and mid not in (521,525):fail('InvalidEnum')
   if not 0<=b['trigger_count']<=8:fail('Bounds')
   if any(not iszero(x) for x in b['triggers'][b['trigger_count']:]):fail('ReservedNonzero')
-  if mh['body_bytes']!=896 or mh['payload_kind'] or mh['feed_generation']:fail('Malformed')
+  for t in b['triggers'][:b['trigger_count']]:
+   if not t['topic_id'] or not t['sequence'] or not t['feed_generation']:fail('Identity')
+   if t['sequence']>=(1<<63) or t['feed_generation']>=(1<<63):fail('SequenceExhausted')
+  validate_padded_hex(b['client_id'],b['client_id_len'],40)
+  validate_padded_hex(b['orig_client_id'],b['orig_client_id_len'],40)
+  validate_padded_hex(b['venue_order_id'],b['venue_order_id_len'],64)
+  if mh['body_bytes']!=896 or mh['feed_generation']:fail('Malformed')
+  validate_inline_or_arena(mh,b)
+ if m['channel']=='ExecutionReport' and m['body_layout']=='ReportBody':
+  if b['report_seq']==0:fail('Malformed')
+  if b['report_seq']>=(1<<63) or b['orig_seqnum']>=(1<<63) or b['order_seqnum']>=(1<<63):fail('SequenceExhausted')
+  if b['reason']>30:fail('InvalidEnum')
+  if b['strat_id']==255 and mid not in (777,778,779):fail('InvalidEnum')
+  if b['amendment']>1 or b['projected']>1 or b['has_fee']>1 or b['hard_limit_hit']>1:fail('InvalidEnum')
+  if b['amendment']==1 and b['projected']==1:fail('Malformed')
+  if b['has_fee']==0 and (b['fee_units'] or b['fee_asset_id'] or b['asset_exponent']):fail('Malformed')
+  validate_padded_hex(b['client_id'],b['client_id_len'],40)
+  validate_padded_hex(b['venue_order_id'],b['venue_order_id_len'],64)
+  validate_padded_hex(b['venue_trade_id'],b['venue_trade_id_len'],32)
+  if mh['body_bytes']!=384 or mh['feed_generation']:fail('Malformed')
+  validate_inline_or_arena(mh,b)
  if m['name']=='Depth':
   if b['level_count']!=b['bid_count']+b['ask_count'] or mh['payload_length']!=b['level_count']*16:fail('Malformed')
   if mh['payload_kind']==1 and (b['level_count']>12 or any(not iszero(x) for x in b['inline_levels'][b['level_count']:])):fail('Malformed')
@@ -272,6 +306,34 @@ def validate_config_control(v,ctx,mutations=None):
  if not ctx.get('proof_objects_prevalidated'):fail('RecoveryEvidence')
  return True
 
+def validate_dop_control(v,mutations=None):
+ raw=bytes.fromhex(v['hex']);env=decode('ControlEnvelope',raw[:128]);op=env['opcode']
+ op_spec=next(x for x in s['control_opcodes'] if x['id']==op)
+ b=decode(op_spec['body_layout'],raw[128:])
+ for path,value in (mutations or {}).items():
+  target=b if path.startswith('body.') else env;target[path.split('.')[-1]]=value
+ if env['flags'] not in op_spec['allowed_flags'] or env['fd_count'] or (env['flags']==18)!=(env['status']!=0):fail('Malformed')
+ if op==96:
+  if b['next_source_seqnum']>=(1<<63):fail('SequenceExhausted')
+  if b['strat_id']==255:fail('InvalidEnum')
+ elif op==97:
+  if b['reason']>30 or b['strat_id']==255 or b['cancel_on_logout']>1:fail('InvalidEnum')
+ elif op==98:
+  if b['next_source_order_seqnum']>=(1<<63):fail('SequenceExhausted')
+  if b['refusal_reason']>30 or b['strat_id']==255 or b['connected']>1 or b['enabled']>1 or b['market_connected']>1 or b['ready_to_trade']>1:fail('InvalidEnum')
+  if b['ready_to_trade']==1 and (not b['connected'] or not b['enabled'] or not b['market_connected']):fail('Malformed')
+  if env['flags']==18 and b['ready_to_trade']!=0:fail('Malformed')
+ elif op==99:
+  if b['session_count']>32:fail('Bounds')
+  if any(not iszero(x) for x in b['sessions'][b['session_count']:]):fail('ReservedNonzero')
+  for row in b['sessions'][:b['session_count']]:
+   if (row['product_mask']&~0xff) or row['strat_id']==255 or row['authorized']>1 or row['colo']>1 or row['ready']>1:fail('InvalidEnum')
+ elif op==100:
+  if b['next_order_seqnum']>=(1<<63):fail('SequenceExhausted')
+  if b['ready_to_trade']>1:fail('InvalidEnum')
+ else:fail('UnknownMessage')
+ return True
+
 # Exercise semantic validation for every fixed data-message vector.
 for v in vs.values():
  if v['layout'] in ['MarketRecord','IntentRecord','ReportRecord','OwnershipRecord']:validate_message(decode(v['layout'],bytes.fromhex(v['hex'])))
@@ -289,6 +351,7 @@ for case in vv['semantic_cases']:
    elif v['layout']=='ControlFrame':
     opcode=decode('ControlEnvelope',bytes.fromhex(v['hex'])[:128])['opcode']
     if 80<=opcode<=84:validate_config_control(v,case['context'],case.get('mutations'))
+    elif 96<=opcode<=100:validate_dop_control(v,case.get('mutations'))
     else:validate_typed_response(v)
    else:
     decoded=decode(v['layout'],bytes.fromhex(v['hex']))

@@ -21,6 +21,17 @@ REPR_C_ALIGN = {
     "DecimalWire": 1,
     "MarketExactBody": 8,
     "MarketExactRecord": 8,
+    "TriggerRef": 8,
+    "IntentBody": 8,
+    "IntentRecord": 8,
+    "ReportBody": 8,
+    "ReportRecord": 8,
+    "DopLoginBody": 8,
+    "DopLogoutBody": 2,
+    "DopEchoBody": 8,
+    "MktSession": 4,
+    "OrsSessionsBody": 8,
+    "DopHeartBeatBody": 8,
 }
 
 

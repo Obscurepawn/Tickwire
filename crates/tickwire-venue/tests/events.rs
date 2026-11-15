@@ -64,7 +64,7 @@ fn parent_native_ids_and_rejection_text_are_preserved() {
     e.body = VenueEventBody::Rejected {
         client_id: Some(text("client")),
         venue_code: text("-2010"),
-        message: BoundedMessage::new("Insufficient balance / 余额不足").unwrap(),
+        message: BoundedMessage::new("Insufficient balance / €0.00 remaining").unwrap(),
     };
     let c = CanonicalEvent::new(e.clone()).unwrap();
     assert_eq!(CanonicalEvent::decode(c.bytes()).unwrap().event(), &e);

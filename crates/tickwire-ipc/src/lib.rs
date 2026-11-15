@@ -1,4 +1,6 @@
-//! Fixed-layout Tickwire wire ABI. Live shared-memory access is outside this crate.
+//! Fixed-layout Tickwire wire ABI for inline SHM market, intent, and ORS report records,
+//! optional SHM Arena oversize payloads, DOP logon control frames, and zero-copy views.
+//! Live shared-memory mapping and atomic cursor synchronization live outside this crate.
 #![deny(unsafe_code)]
 
 #[forbid(unsafe_code)]
@@ -23,7 +25,117 @@ pub use crc32c::{
 };
 #[allow(unsafe_code)]
 mod zerocopy;
-pub use zerocopy::{MarketStateRef, ZeroCopyRecord};
+pub use zerocopy::{MarketStateRef, ZeroCopyIntentRecord, ZeroCopyRecord};
+
+/// Wildcard strategy identifier (`255`) permitted only on `CancelAll` / `CancelAllRfqQuotes`
+/// intents and venue-wide broadcast ORS reports (`ExchRateLimit`, `OrsShutDown`, `OrsRestricted`).
+pub const ALL_STRATS: u8 = 255;
+
+/// Negotiated control capability bit (`10`) gating DOP opcodes (`96..=100`) in
+/// [`ControlFrame::decode_negotiated`].
+pub const DOP_PROTOCOL_FEATURE_BIT: u32 = 10;
+/// Feature bitmask (`1 << 10`) for DOP control opcodes (`96..=100`).
+pub const DOP_PROTOCOL_FEATURE_MASK: u64 = 1 << DOP_PROTOCOL_FEATURE_BIT;
+
+/// Inline strategy intent `command_kind` and `RecordHeader.message_type` constants.
+#[forbid(unsafe_code)]
+pub mod intent_kind {
+    pub const NEW_ORDER: u16 = 1;
+    pub const CANCEL: u16 = 2;
+    pub const CANCEL_REPLACE: u16 = 3;
+    pub const AMEND_KEEP_PRIORITY: u16 = 4;
+    pub const MODIFY: u16 = 5;
+    pub const QUERY_ORDER: u16 = 6;
+    pub const CANCEL_LIST: u16 = 7;
+    pub const CANCEL_ALGO: u16 = 8;
+    pub const CANCEL_ALL: u16 = 9;
+    pub const NEW_RFQ_QUOTE: u16 = 10;
+    pub const MODIFY_RFQ_QUOTE: u16 = 11;
+    pub const CANCEL_RFQ_QUOTE: u16 = 12;
+    pub const CANCEL_ALL_RFQ_QUOTES: u16 = 13;
+
+    pub const MSG_NEW_ORDER: u16 = 513;
+    pub const MSG_CANCEL: u16 = 514;
+    pub const MSG_CANCEL_REPLACE: u16 = 515;
+    pub const MSG_AMEND_KEEP_PRIORITY: u16 = 516;
+    pub const MSG_MODIFY: u16 = 517;
+    pub const MSG_QUERY_ORDER: u16 = 518;
+    pub const MSG_CANCEL_LIST: u16 = 519;
+    pub const MSG_CANCEL_ALGO: u16 = 520;
+    pub const MSG_CANCEL_ALL: u16 = 521;
+    pub const MSG_NEW_RFQ_QUOTE: u16 = 522;
+    pub const MSG_MODIFY_RFQ_QUOTE: u16 = 523;
+    pub const MSG_CANCEL_RFQ_QUOTE: u16 = 524;
+    pub const MSG_CANCEL_ALL_RFQ_QUOTES: u16 = 525;
+}
+
+/// Bitmask flags for [`IntentBody::intent_flags`].
+#[forbid(unsafe_code)]
+pub mod intent_flags {
+    pub const BYPASS_RMS: u8 = 1 << 0;
+    pub const DRY_RUN: u8 = 1 << 1;
+    pub const CHECK_STP: u8 = 1 << 2;
+    pub const REDUCE_ONLY: u8 = 1 << 3;
+    pub const POST_ONLY: u8 = 1 << 4;
+    pub const QUOTE_AMOUNT: u8 = 1 << 5;
+    pub const PRICE_PROTECT: u8 = 1 << 6;
+    pub const CLOSE_POSITION: u8 = 1 << 7;
+}
+
+/// Wire codes for [`IntentBody::time_in_force`].
+#[forbid(unsafe_code)]
+pub mod tif_code {
+    pub const NONE: u8 = 0;
+    pub const GTC: u8 = 1;
+    pub const IOC: u8 = 2;
+    pub const FOK: u8 = 3;
+    pub const POST_ONLY: u8 = 4;
+    pub const GTD: u8 = 5;
+    pub const RPI: u8 = 6;
+}
+
+/// Inline ORS report `report_kind` and `RecordHeader.message_type` constants.
+#[forbid(unsafe_code)]
+pub mod report_kind {
+    pub const ACK: u16 = 1;
+    pub const FRONT_ACK: u16 = 2;
+    pub const NACK: u16 = 3;
+    pub const CANCEL_NACK: u16 = 4;
+    pub const FILL: u16 = 5;
+    pub const CANCELED: u16 = 6;
+    pub const MODIFIED: u16 = 7;
+    pub const MODIFY_REJECTED: u16 = 8;
+    pub const EXCH_RATE_LIMIT: u16 = 9;
+    pub const ORS_SHUT_DOWN: u16 = 10;
+    pub const ORS_RESTRICTED: u16 = 11;
+    pub const RFQ_QUOTE_ACK: u16 = 12;
+    pub const RFQ_QUOTE_NACK: u16 = 13;
+
+    pub const MSG_ACK: u16 = 769;
+    pub const MSG_FRONT_ACK: u16 = 770;
+    pub const MSG_NACK: u16 = 771;
+    pub const MSG_CANCEL_NACK: u16 = 772;
+    pub const MSG_FILL: u16 = 773;
+    pub const MSG_CANCELED: u16 = 774;
+    pub const MSG_MODIFIED: u16 = 775;
+    pub const MSG_MODIFY_REJECTED: u16 = 776;
+    pub const MSG_EXCH_RATE_LIMIT: u16 = 777;
+    pub const MSG_ORS_SHUT_DOWN: u16 = 778;
+    pub const MSG_ORS_RESTRICTED: u16 = 779;
+    pub const MSG_RFQ_QUOTE_ACK: u16 = 780;
+    pub const MSG_RFQ_QUOTE_NACK: u16 = 781;
+    pub const MSG_ORDER_OWNERSHIP: u16 = 782;
+}
+
+/// Direct Order Entry Protocol (DOP) logon and session opcodes carried inside [`ControlFrame`].
+#[forbid(unsafe_code)]
+pub mod dop_opcode {
+    pub const DOP_LOGIN: u16 = 96;
+    pub const DOP_LOGOUT: u16 = 97;
+    pub const DOP_ECHO: u16 = 98;
+    pub const ORS_SESSIONS: u16 = 99;
+    pub const DOP_HEART_BEAT: u16 = 100;
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
@@ -113,7 +225,97 @@ pub enum Record {
     Ownership(OwnershipRecord),
 }
 
-/// Decode an entire fixed record. Arena-backed depth additionally needs `validate_arena_payload`.
+pub(crate) fn validate_inline_or_arena_header(
+    h: &RecordHeader,
+    arena_offset: u64,
+    arena_len: u32,
+) -> Result<()> {
+    if arena_len == 0 {
+        if arena_offset != 0
+            || h.payload_kind != 0
+            || h.payload_length != 0
+            || h.payload_offset != 0
+            || h.arena_class != 0
+            || h.allocation_seq != 0
+            || h.payload_crc32c != 0
+        {
+            return Err(Error::Malformed);
+        }
+    } else if h.payload_kind != 2
+        || arena_len > 65536
+        || arena_offset < 128
+        || h.payload_length != arena_len
+        || h.payload_offset != arena_offset
+        || !(1..=4).contains(&h.arena_class)
+        || h.allocation_seq != h.sequence
+    {
+        return Err(Error::Malformed);
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_intent_semantics(r: &IntentRecord, body_raw: &[u8]) -> Result<()> {
+    let h = &r.header;
+    let b = &r.body;
+    if h.feed_generation != 0 || b.msg_seqnum == 0 {
+        return Err(Error::Malformed);
+    }
+    seq(b.msg_seqnum)?;
+    seq(b.order_seqnum)?;
+    seq(b.orig_order_seqnum)?;
+    if b.strat_id == ALL_STRATS && !matches!(h.message_type, 521 | 525) {
+        return Err(Error::InvalidEnum);
+    }
+    if b.trigger_count > 8 {
+        return Err(Error::Bounds);
+    }
+    zero(&body_raw[384 + usize::from(b.trigger_count) * 64..])?;
+    for t in &b.triggers[..usize::from(b.trigger_count)] {
+        zero(&t._pad_60)?;
+        if t.topic_id == 0 || t.sequence == 0 || t.feed_generation == 0 {
+            return Err(Error::Identity);
+        }
+        seq(t.sequence)?;
+        seq(t.feed_generation)?;
+    }
+    padded(&b.client_id, usize::from(b.client_id_len))?;
+    padded(&b.orig_client_id, usize::from(b.orig_client_id_len))?;
+    padded(&b.venue_order_id, usize::from(b.venue_order_id_len))?;
+    validate_inline_or_arena_header(h, b.arena_offset, b.arena_len)
+}
+
+pub(crate) fn validate_report_semantics(r: &ReportRecord) -> Result<()> {
+    let h = &r.header;
+    let b = &r.body;
+    if h.feed_generation != 0 || b.report_seq == 0 {
+        return Err(Error::Malformed);
+    }
+    seq(b.report_seq)?;
+    seq(b.orig_seqnum)?;
+    seq(b.order_seqnum)?;
+    if b.reason > 30 {
+        return Err(Error::InvalidEnum);
+    }
+    if b.strat_id == ALL_STRATS && !matches!(h.message_type, 777..=779) {
+        return Err(Error::InvalidEnum);
+    }
+    if b.amendment > 1 || b.projected > 1 || b.has_fee > 1 || b.hard_limit_hit > 1 {
+        return Err(Error::InvalidEnum);
+    }
+    if b.amendment == 1 && b.projected == 1 {
+        return Err(Error::Malformed);
+    }
+    if b.has_fee == 0 && (b.fee_units != 0 || b.fee_asset_id != 0 || b.asset_exponent != 0) {
+        return Err(Error::Malformed);
+    }
+    padded(&b.client_id, usize::from(b.client_id_len))?;
+    padded(&b.venue_order_id, usize::from(b.venue_order_id_len))?;
+    padded(&b.venue_trade_id, usize::from(b.venue_trade_id_len))?;
+    validate_inline_or_arena_header(h, b.arena_offset, b.arena_len)
+}
+
+/// Decode an entire fixed record. Arena-backed payloads additionally validate against
+/// `validate_arena_payload`, `validate_intent_arena_payload`, or `validate_report_arena_payload`.
 pub fn decode_record(raw: &[u8]) -> Result<Record> {
     let h = RecordHeader::decode(bounded(raw, 0, 128)?)?;
     schema(h.schema_major, h.schema_minor)?;
@@ -146,8 +348,8 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
         }
     }
     let size = match h.message_type {
-        257..=266 | 769..=781 => 512,
-        513..=520 => 1024,
+        257..=266 | 769..=782 => 512,
+        513..=525 => 1024,
         _ => return Err(Error::UnknownMessage),
     };
     if raw.len() != size || h.body_bytes as usize != size - 128 {
@@ -164,7 +366,7 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
         }
     }
     validate_fields(h.message_type, &raw[128..])?;
-    if h.message_type != 259
+    if matches!(h.message_type, 257 | 258 | 260..=266 | 782)
         && (h.payload_kind != 0
             || h.payload_length != 0
             || h.payload_offset != 0
@@ -227,31 +429,24 @@ pub fn decode_record(raw: &[u8]) -> Result<Record> {
             validate_exact(&r)?;
             Ok(Record::MarketExact(r))
         }
-        513..=520 => {
+        513..=525 => {
             let r = IntentRecord::decode(raw)?;
-            if r.body.trigger_count > 8 || r.body.reduce_only > 1 {
-                return Err(Error::Bounds);
-            }
-            zero(&raw[512 + r.body.trigger_count as usize * 64..])?;
-            for t in &r.body.triggers[..r.body.trigger_count as usize] {
-                if t.topic_id == 0 || t.sequence == 0 || t.feed_generation == 0 {
-                    return Err(Error::Identity);
-                }
-                seq(t.sequence)?;
-            }
+            validate_intent_semantics(&r, &raw[128..])?;
             Ok(Record::Intent(r))
         }
-        779 => Ok(Record::Ownership(OwnershipRecord::decode(raw)?)),
+        782 => {
+            let r = OwnershipRecord::decode(raw)?;
+            padded(
+                &r.body.venue_algo_id,
+                usize::from(r.body.venue_algo_id_length),
+            )?;
+            seq(r.body.report_seq)?;
+            seq(r.body.origin_intent_seq)?;
+            Ok(Record::Ownership(r))
+        }
         _ => {
             let r = ReportRecord::decode(raw)?;
-            padded(
-                &r.body.venue_order_id,
-                r.body.venue_order_id_length as usize,
-            )?;
-            padded(
-                &r.body.venue_trade_id,
-                r.body.venue_trade_id_length as usize,
-            )?;
+            validate_report_semantics(&r)?;
             Ok(Record::Report(r))
         }
     }
@@ -296,14 +491,12 @@ pub fn validate_depth_payload(raw: &[u8], bids: u32, asks: u32) -> Result<()> {
     validate_levels(raw, bids, asks)
 }
 
-/// Validate exactly one immutable, retained block, never a slice over mutable neighbours.
-pub fn validate_arena_block(
-    record: &MarketRecord,
-    bytes: &[u8],
+fn validate_arena_block_bytes<'a>(
+    h: &RecordHeader,
+    bytes: &'a [u8],
     resource: &ResourceHeader,
     class: &ArenaClass,
-) -> Result<()> {
-    let h = &record.header;
+) -> Result<&'a [u8]> {
     if bytes.len() != class.block_bytes as usize || bytes.len() < 128 {
         return Err(Error::Bounds);
     }
@@ -319,7 +512,6 @@ pub fn validate_arena_block(
         return Err(Error::Identity);
     }
     let payload = bounded(bytes, 128, u64::from(h.payload_length))?;
-    validate_depth_payload(payload, record.body.bid_count, record.body.ask_count)?;
     zero(bounded(
         bytes,
         128 + u64::from(h.payload_length),
@@ -334,34 +526,15 @@ pub fn validate_arena_block(
     if h.flags & 8 != 0 && crc32c(payload) != h.payload_crc32c {
         return Err(Error::Checksum);
     }
-    Ok(())
+    Ok(payload)
 }
 
-/// Immutable arena bytes after the caller has observed publication and retained its borrow.
-pub fn validate_arena_payload(
-    record: &MarketRecord,
-    bank: &[u8],
+fn locate_and_validate_arena_slice<'a>(
+    h: &RecordHeader,
+    bank: &'a [u8],
     resource: &ResourceHeader,
-) -> Result<()> {
-    let mut image = [0u8; 512];
-    record.encode(&mut image)?;
-    decode_record(&image)?;
-    validate_arena_payload_prechecked(record, bank, resource)
-}
-
-/// Validate arena block geometry and payload for a `MarketRecord` already checked by
-/// [`MarketRecord::from_aligned_bytes`] or [`decode_record`], avoiding a 512-byte stack copy.
-pub fn validate_arena_payload_prechecked(
-    record: &MarketRecord,
-    bank: &[u8],
-    resource: &ResourceHeader,
-) -> Result<()> {
-    let h = &record.header;
-    if h.message_type != 259
-        || h.payload_kind != 2
-        || resource.arena_class_count > 4
-        || h.arena_class == 0
-    {
+) -> Result<&'a [u8]> {
+    if h.payload_kind != 2 || resource.arena_class_count > 4 || h.arena_class == 0 {
         return Err(Error::Malformed);
     }
     if resource.resource_bytes != bank.len() as u64 {
@@ -403,7 +576,80 @@ pub fn validate_arena_payload_prechecked(
         return Err(Error::Bounds);
     }
     let bytes = bounded(bank, offset, u64::from(class.block_bytes))?;
-    validate_arena_block(record, bytes, resource, class)
+    validate_arena_block_bytes(h, bytes, resource, class)
+}
+
+/// Validate exactly one immutable, retained block, never a slice over mutable neighbours.
+pub fn validate_arena_block(
+    record: &MarketRecord,
+    bytes: &[u8],
+    resource: &ResourceHeader,
+    class: &ArenaClass,
+) -> Result<()> {
+    let payload = validate_arena_block_bytes(&record.header, bytes, resource, class)?;
+    validate_depth_payload(payload, record.body.bid_count, record.body.ask_count)
+}
+
+/// Immutable arena bytes after the caller has observed publication and retained its borrow.
+pub fn validate_arena_payload(
+    record: &MarketRecord,
+    bank: &[u8],
+    resource: &ResourceHeader,
+) -> Result<()> {
+    let mut image = [0u8; 512];
+    record.encode(&mut image)?;
+    decode_record(&image)?;
+    validate_arena_payload_prechecked(record, bank, resource)
+}
+
+/// Validate arena block geometry and payload for a `MarketRecord` already checked by
+/// [`MarketRecord::from_aligned_bytes`] or [`decode_record`], avoiding a 512-byte stack copy.
+pub fn validate_arena_payload_prechecked(
+    record: &MarketRecord,
+    bank: &[u8],
+    resource: &ResourceHeader,
+) -> Result<()> {
+    if record.header.message_type != 259 {
+        return Err(Error::Malformed);
+    }
+    let payload = locate_and_validate_arena_slice(&record.header, bank, resource)?;
+    validate_depth_payload(payload, record.body.bid_count, record.body.ask_count)
+}
+
+/// Validate and borrow an oversize in-memory SHM Arena payload bound to an [`IntentRecord`]
+/// (`payload_kind == 2`, zero disk I/O).
+pub fn validate_intent_arena_payload<'a>(
+    record: &IntentRecord,
+    bank: &'a [u8],
+    resource: &ResourceHeader,
+) -> Result<&'a [u8]> {
+    if !(513..=525).contains(&record.header.message_type) || record.body.arena_len == 0 {
+        return Err(Error::Malformed);
+    }
+    validate_inline_or_arena_header(
+        &record.header,
+        record.body.arena_offset,
+        record.body.arena_len,
+    )?;
+    locate_and_validate_arena_slice(&record.header, bank, resource)
+}
+
+/// Validate and borrow an oversize in-memory SHM Arena payload bound to a [`ReportRecord`]
+/// (`payload_kind == 2`, zero disk I/O).
+pub fn validate_report_arena_payload<'a>(
+    record: &ReportRecord,
+    bank: &'a [u8],
+    resource: &ResourceHeader,
+) -> Result<&'a [u8]> {
+    if !(769..=781).contains(&record.header.message_type) || record.body.arena_len == 0 {
+        return Err(Error::Malformed);
+    }
+    validate_inline_or_arena_header(
+        &record.header,
+        record.body.arena_offset,
+        record.body.arena_len,
+    )?;
+    locate_and_validate_arena_slice(&record.header, bank, resource)
 }
 
 #[derive(Debug, Clone)]
@@ -412,10 +658,15 @@ pub struct ControlFrame<'a> {
     pub body: &'a [u8],
 }
 impl<'a> ControlFrame<'a> {
-    /// Check negotiated feature requirements before decoding a configuration body.
+    /// Check negotiated feature requirements before decoding a gated extension body.
     pub fn decode_negotiated(raw: &'a [u8], negotiated_features: u64) -> Result<Self> {
         let envelope = ControlEnvelope::decode(bounded(raw, 0, 128)?)?;
         if (80..=84).contains(&envelope.opcode) && negotiated_features & 32 == 0 {
+            return Err(Error::UnsupportedFeature);
+        }
+        if (96..=100).contains(&envelope.opcode)
+            && negotiated_features & DOP_PROTOCOL_FEATURE_MASK == 0
+        {
             return Err(Error::UnsupportedFeature);
         }
         Self::decode(raw)
@@ -488,6 +739,65 @@ impl<'a> ControlFrame<'a> {
             {
                 return Err(Error::Malformed);
             }
+        }
+        match e.opcode {
+            dop_opcode::DOP_LOGIN => {
+                let b = DopLoginBody::decode(&raw[128..])?;
+                seq(b.next_source_seqnum)?;
+                if b.strat_id == ALL_STRATS {
+                    return Err(Error::InvalidEnum);
+                }
+            }
+            dop_opcode::DOP_LOGOUT => {
+                let b = DopLogoutBody::decode(&raw[128..])?;
+                if b.reason > 30 || b.strat_id == ALL_STRATS || b.cancel_on_logout > 1 {
+                    return Err(Error::InvalidEnum);
+                }
+            }
+            dop_opcode::DOP_ECHO => {
+                let b = DopEchoBody::decode(&raw[128..])?;
+                seq(b.next_source_order_seqnum)?;
+                if b.refusal_reason > 30
+                    || b.strat_id == ALL_STRATS
+                    || b.connected > 1
+                    || b.enabled > 1
+                    || b.market_connected > 1
+                    || b.ready_to_trade > 1
+                {
+                    return Err(Error::InvalidEnum);
+                }
+                if (b.ready_to_trade == 1
+                    && (b.connected == 0 || b.enabled == 0 || b.market_connected == 0))
+                    || (e.flags == 18 && b.ready_to_trade != 0)
+                {
+                    return Err(Error::Malformed);
+                }
+            }
+            dop_opcode::ORS_SESSIONS => {
+                let b = OrsSessionsBody::decode(&raw[128..])?;
+                if b.session_count > 32 {
+                    return Err(Error::Bounds);
+                }
+                zero(&raw[128 + 16 + usize::from(b.session_count) * 16..])?;
+                for row in &b.sessions[..usize::from(b.session_count)] {
+                    if row.product_mask & !0x00ff != 0
+                        || row.strat_id == ALL_STRATS
+                        || row.authorized > 1
+                        || row.colo > 1
+                        || row.ready > 1
+                    {
+                        return Err(Error::InvalidEnum);
+                    }
+                }
+            }
+            dop_opcode::DOP_HEART_BEAT => {
+                let b = DopHeartBeatBody::decode(&raw[128..])?;
+                seq(b.next_order_seqnum)?;
+                if b.ready_to_trade > 1 {
+                    return Err(Error::InvalidEnum);
+                }
+            }
+            _ => {}
         }
         Ok(Self {
             envelope: e,

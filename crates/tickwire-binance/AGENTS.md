@@ -21,9 +21,10 @@ and receive typed Rust values or signed byte buffers without I/O, clocks, or hid
   `-4061`, `-4131`, `-4164`, `-5021`, `-5022`, `-5027` while keeping `409` as `FailureKind::Partial`), `418`/`429`
   limits, and malformed replies never collapse into silent retries. Encode native `CommandBody::Modify` on USD-M
   (`PUT /fapi/v1/order`, WS `"order.modify"`) and Spot (`POST /api/v3/order/cancelReplace`, WS `"order.cancelReplace"`
-  with `STOP_ON_FAILURE`), preserve `avgPrice`/`ap` and `V` (`selfTradePreventionMode`) across [src/response.rs](src/response.rs)
-  and [src/events.rs](src/events.rs), expose `classify_order_update_reason`, and bind private execution reports to
-  durable local commands in [src/events.rs](src/events.rs).
+  with `STOP_ON_FAILURE`), preserve `avgPrice`/`ap`, `V` (`selfTradePreventionMode`), and `TimeInForce` mappings
+  (`GTC`/`IOC`/`FOK`/`GTX`/`GTD`/`RPI`) across [src/response.rs](src/response.rs) and [src/events.rs](src/events.rs),
+  expose `classify_order_update_reason`, and bind private execution reports to durable local commands in
+  [src/events.rs](src/events.rs).
 * **Depth snapshot bridge**: Keep Spot and USD-M `lastUpdateId`/`U`/`u`/`pu` bridging rules in
   [src/depth_sync.rs](src/depth_sync.rs) allocation-bounded and reset to a fresh snapshot cycle on any sequence gap.
 

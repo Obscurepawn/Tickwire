@@ -1,6 +1,7 @@
 use tickwire_venue::{
-    ClientId, ClientIdDomain, DecodedClientId, Environment, PARENT_STRUCTURE_LEG, Product,
-    REPLACEMENT_ORDER_LEG, SELF_DESCRIBING_CLIENT_ID_LEN, SelfDescribingClientId, venue_id,
+    ALL_ORS_STRATS, ClientId, ClientIdDomain, DecodedClientId, Environment, PARENT_STRUCTURE_LEG,
+    Product, REPLACEMENT_ORDER_LEG, SELF_DESCRIBING_CLIENT_ID_LEN, SelfDescribingClientId,
+    venue_id,
 };
 
 fn sample_domain() -> ClientIdDomain {
@@ -40,7 +41,7 @@ fn round_trips_boundary_fields_and_satisfies_okx_bybit_binance_charset() {
         let encoded = id.encode(&domain).expect("valid self-describing ClientId");
         let raw = encoded.as_str();
         assert_eq!(raw.len(), SELF_DESCRIBING_CLIENT_ID_LEN);
-        assert!(raw.starts_with("t1"));
+        assert!(raw.starts_with("tw1"));
         // Strictly ASCII lowercase alphanumeric: valid for OKX (<=32 alnum), Bybit (<=36), Binance (<=36).
         assert!(
             raw.bytes()
@@ -54,6 +55,19 @@ fn round_trips_boundary_fields_and_satisfies_okx_bybit_binance_charset() {
         assert_ne!(uuid, [0; 16]);
         assert_eq!(uuid, id.deterministic_order_id(&domain));
     }
+
+    // ORS 0..=254 strat_id helper round-trips and rejects 255 (ALL_ORS_STRATS).
+    for strat_id in [0u8, 7, 254] {
+        let ors_id = SelfDescribingClientId::from_ors_order(strat_id, 0, 5, 10_001).unwrap();
+        assert_eq!(ors_id.ors_strat_id(), Some(strat_id));
+        let wire = ors_id.encode(&domain).unwrap();
+        assert!(wire.as_str().starts_with("tw1"));
+        assert_eq!(
+            SelfDescribingClientId::decode(&wire, &domain),
+            DecodedClientId::Managed(ors_id)
+        );
+    }
+    assert!(SelfDescribingClientId::from_ors_order(ALL_ORS_STRATS, 0, 1, 1).is_err());
 }
 
 #[test]
@@ -97,7 +111,7 @@ fn rejects_zero_or_out_of_range_fields_on_encode() {
 }
 
 #[test]
-fn classifies_manual_tampered_and_cross_domain_ids_as_external() {
+fn classifies_manual_tampered_overflow_and_cross_domain_ids_as_external() {
     let domain = sample_domain();
     let id = SelfDescribingClientId {
         logical_strategy_id: 7,
@@ -107,14 +121,20 @@ fn classifies_manual_tampered_and_cross_domain_ids_as_external() {
     };
     let encoded = id.encode(&domain).unwrap();
 
-    // Manual / legacy client IDs classify cleanly as External.
-    let manual = ClientId::new("manual-order-2026-btc-01").unwrap();
-    assert_eq!(
-        SelfDescribingClientId::decode(&manual, &domain),
-        DecodedClientId::External
-    );
+    // Manual, legacy t1, or overflow base36 client IDs classify cleanly as External.
+    for ext in [
+        "manual-order-2026-btc-01",
+        "t1000000000000000000000000000000",
+        "tw1zzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+    ] {
+        let cid = ClientId::new(ext).unwrap();
+        assert_eq!(
+            SelfDescribingClientId::decode(&cid, &domain),
+            DecodedClientId::External
+        );
+    }
 
-    // Wrong account, venue, environment, product, or risk_domain_id fails the 34-bit domain tag.
+    // Wrong account, venue, environment, product, or risk_domain_id fails the 30-bit domain tag.
     let mut wrong_account = domain;
     wrong_account.account += 1;
     assert_eq!(
@@ -136,14 +156,16 @@ fn classifies_manual_tampered_and_cross_domain_ids_as_external() {
         DecodedClientId::External
     );
 
-    let mut wrong_product = domain;
-    wrong_product.product = Product::LinearPerpetual;
-    assert_eq!(
-        SelfDescribingClientId::decode(&encoded, &wrong_product),
-        DecodedClientId::External
-    );
+    for prod in [Product::LinearPerpetual, Product::UsdM, Product::CoinM] {
+        let mut wrong_product = domain;
+        wrong_product.product = prod;
+        assert_eq!(
+            SelfDescribingClientId::decode(&encoded, &wrong_product),
+            DecodedClientId::External
+        );
+    }
 
-    // Flipping any character in the 30-char payload fails tag verification.
+    // Flipping any character in the 29-char base36 payload fails tag verification.
     let mut tampered_bytes = encoded.as_str().as_bytes().to_vec();
     tampered_bytes[10] = if tampered_bytes[10] == b'0' {
         b'1'

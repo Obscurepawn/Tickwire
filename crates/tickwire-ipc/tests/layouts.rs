@@ -242,7 +242,7 @@ fn layout_intentbody() {
         assert_eq!(IntentBody::decode(&vec![0; length]), Err(Error::Bounds));
         assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
     }
-    for i in 340..384 {
+    for i in 360..384 {
         raw[i] = 1;
         assert_eq!(IntentBody::decode(&raw), Err(Error::ReservedNonzero));
         raw[i] = 0;
@@ -258,7 +258,7 @@ fn layout_reportbody() {
         assert_eq!(ReportBody::decode(&vec![0; length]), Err(Error::Bounds));
         assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
     }
-    for i in 376..384 {
+    for i in 360..384 {
         raw[i] = 1;
         assert_eq!(ReportBody::decode(&raw), Err(Error::ReservedNonzero));
         raw[i] = 0;
@@ -864,6 +864,113 @@ fn layout_replayappliedbody() {
     for i in 164..256 {
         raw[i] = 1;
         assert_eq!(ReplayAppliedBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_doploginbody() {
+    let value = DopLoginBody::default();
+    let mut raw = vec![0xCC; 32];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(DopLoginBody::decode(&raw).unwrap(), value);
+    for length in [0, 31, 33] {
+        assert_eq!(DopLoginBody::decode(&vec![0; length]), Err(Error::Bounds));
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 13..32 {
+        raw[i] = 1;
+        assert_eq!(DopLoginBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_doplogoutbody() {
+    let value = DopLogoutBody::default();
+    let mut raw = vec![0xCC; 16];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(DopLogoutBody::decode(&raw).unwrap(), value);
+    for length in [0, 15, 17] {
+        assert_eq!(DopLogoutBody::decode(&vec![0; length]), Err(Error::Bounds));
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 4..16 {
+        raw[i] = 1;
+        assert_eq!(DopLogoutBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_dopechobody() {
+    let value = DopEchoBody::default();
+    let mut raw = vec![0xCC; 96];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(DopEchoBody::decode(&raw).unwrap(), value);
+    for length in [0, 95, 97] {
+        assert_eq!(DopEchoBody::decode(&vec![0; length]), Err(Error::Bounds));
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 43..48 {
+        raw[i] = 1;
+        assert_eq!(DopEchoBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+    for i in 80..96 {
+        raw[i] = 1;
+        assert_eq!(DopEchoBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_mktsession() {
+    let value = MktSession::default();
+    let mut raw = vec![0xCC; 16];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(MktSession::decode(&raw).unwrap(), value);
+    for length in [0, 15, 17] {
+        assert_eq!(MktSession::decode(&vec![0; length]), Err(Error::Bounds));
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 11..16 {
+        raw[i] = 1;
+        assert_eq!(MktSession::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_orssessionsbody() {
+    let value = OrsSessionsBody::default();
+    let mut raw = vec![0xCC; 528];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(OrsSessionsBody::decode(&raw).unwrap(), value);
+    for length in [0, 527, 529] {
+        assert_eq!(
+            OrsSessionsBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 11..16 {
+        raw[i] = 1;
+        assert_eq!(OrsSessionsBody::decode(&raw), Err(Error::ReservedNonzero));
+        raw[i] = 0;
+    }
+}
+#[test]
+fn layout_dopheartbeatbody() {
+    let value = DopHeartBeatBody::default();
+    let mut raw = vec![0xCC; 32];
+    value.encode(&mut raw).unwrap();
+    assert_eq!(DopHeartBeatBody::decode(&raw).unwrap(), value);
+    for length in [0, 31, 33] {
+        assert_eq!(
+            DopHeartBeatBody::decode(&vec![0; length]),
+            Err(Error::Bounds)
+        );
+        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
+    }
+    for i in 18..32 {
+        raw[i] = 1;
+        assert_eq!(DopHeartBeatBody::decode(&raw), Err(Error::ReservedNonzero));
         raw[i] = 0;
     }
 }

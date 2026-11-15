@@ -89,48 +89,91 @@ fn modified_and_modify_rejected_roundtrip_schema_five_on_spot_and_perpetual() {
 }
 
 #[test]
-fn all_seventeen_terminal_reasons_roundtrip_and_unknown_discriminant_rejects() {
-    let all = [
-        TerminalReason::Filled,
-        TerminalReason::UserCanceled,
-        TerminalReason::CrossesBook,
-        TerminalReason::SelfTradePreventedByVenue,
-        TerminalReason::PostOnlyWouldTake,
-        TerminalReason::ExpiredIocOrFok,
-        TerminalReason::ReduceOnlyClippedOrCanceled,
-        TerminalReason::InsufficientFunds,
-        TerminalReason::RateLimited,
-        TerminalReason::OrderNotOpen,
-        TerminalReason::TooManyPendingActions,
-        TerminalReason::InvalidPrice,
-        TerminalReason::InvalidQuantity,
-        TerminalReason::NoChange,
-        TerminalReason::AbortedBeforeSend,
-        TerminalReason::VenueRejected,
-        TerminalReason::Unknown,
-    ];
-    assert_eq!(all.len(), 17);
+fn all_terminal_reasons_roundtrip_and_unknown_discriminant_rejects() {
+    assert_eq!(TerminalReason::ALL.len(), 31);
 
     let mut digests = std::collections::BTreeSet::new();
-    for reason in all {
+    for (expected_code, reason) in TerminalReason::ALL.iter().copied().enumerate() {
+        assert_eq!(reason.code() as usize, expected_code);
+        assert_eq!(TerminalReason::from_code(reason.code()), Some(reason));
         assert!(!reason.as_str().is_empty());
+        assert!(!reason.ors_name().is_empty());
         assert_eq!(reason.to_string(), reason.as_str());
         let encoded = CanonicalEvent::new(sample_modify_rejected(Product::Spot, reason)).unwrap();
         let decoded = CanonicalEvent::decode(encoded.bytes()).unwrap();
         assert_eq!(decoded, encoded);
         assert!(digests.insert(encoded.digest()));
     }
+    assert_eq!(TerminalReason::from_code(31), None);
 
-    // Mutate the compact u8 reason discriminant at the end of ModifyRejection from 16 (Unknown) to 17.
-    let unknown_ev = CanonicalEvent::new(sample_modify_rejected(
+    // Verify all ORS constant aliases map to their expected canonical variants.
+    assert_eq!(TerminalReason::NO_REASON, TerminalReason::NoReason);
+    assert_eq!(TerminalReason::MKT_CANCELED, TerminalReason::MarketCanceled);
+    assert_eq!(
+        TerminalReason::MKT_IOC_CANCELED,
+        TerminalReason::ExpiredIocOrFok
+    );
+    assert_eq!(
+        TerminalReason::MKT_REJECT_POST_ONLY,
+        TerminalReason::PostOnlyWouldTake
+    );
+    assert_eq!(
+        TerminalReason::MKT_REDUCE_ONLY_CANCELED,
+        TerminalReason::ReduceOnlyClippedOrCanceled
+    );
+    assert_eq!(
+        TerminalReason::MKT_CANCELED_SELFTRADE,
+        TerminalReason::SelfTradePreventedByVenue
+    );
+    assert_eq!(TerminalReason::MKT_DELAYED, TerminalReason::MarketDelayed);
+    assert_eq!(
+        TerminalReason::REJECT_STALE_ORDER,
+        TerminalReason::RejectStaleOrder
+    );
+    assert_eq!(
+        TerminalReason::ALLOCATION_ERROR,
+        TerminalReason::AllocationError
+    );
+    assert_eq!(
+        TerminalReason::UNEXPECTED_MSG_SEQNUM,
+        TerminalReason::UnexpectedMsgSeqnum
+    );
+    assert_eq!(
+        TerminalReason::INVALID_STRAT_ID,
+        TerminalReason::InvalidStratId
+    );
+    assert_eq!(
+        TerminalReason::INVALID_ACCOUNT_ID,
+        TerminalReason::InvalidAccountId
+    );
+    assert_eq!(
+        TerminalReason::REJECT_ROUTING_ID_MISMATCH,
+        TerminalReason::RejectRoutingIdMismatch
+    );
+    assert_eq!(TerminalReason::ADMIN_ACTION, TerminalReason::AdminAction);
+    assert_eq!(
+        TerminalReason::RESTRICTED_CANCEL_ONLY,
+        TerminalReason::RestrictedCancelOnly
+    );
+    assert_eq!(
+        TerminalReason::MKT_REJECT_MARKET_DOWN,
+        TerminalReason::MarketRejectMarketDown
+    );
+    assert_eq!(
+        TerminalReason::RFQ_QUOTE_NOT_SUPPORTED,
+        TerminalReason::RfqQuoteNotSupported
+    );
+
+    // Mutate the trailing CBOR u8 discriminant of InternalCancel (30 -> [0x18, 30]) to 31.
+    let last_ev = CanonicalEvent::new(sample_modify_rejected(
         Product::Spot,
-        TerminalReason::Unknown,
+        TerminalReason::InternalCancel,
     ))
     .unwrap();
-    let mut bad = unknown_ev.bytes().to_vec();
+    let mut bad = last_ev.bytes().to_vec();
     let last = bad.len() - 1;
-    assert_eq!(bad[last], 16);
-    bad[last] = 17;
+    assert_eq!(bad[last], 30);
+    bad[last] = 31;
     assert_eq!(CanonicalEvent::decode(&bad).unwrap_err(), Error::Enum);
 }
 
@@ -443,5 +486,34 @@ fn benign_refusal_predicate_and_binance_spot_venue_classifiers_are_exact() {
             Some(TimeInForce::Ioc)
         ),
         TerminalReason::ExpiredIocOrFok
+    );
+
+    // Stateless ORS cancel/reject classifier distinguishes NO_REASON vs MKT_CANCELED, RPI, MKT_DELAYED, and MKT_REJECT_MARKET_DOWN.
+    assert_eq!(
+        classify_ors_cancel_reason(None, "CANCELED", None, Some(TimeInForce::Gtc), false, true),
+        TerminalReason::NO_REASON
+    );
+    assert_eq!(
+        classify_ors_cancel_reason(None, "CANCELED", None, Some(TimeInForce::Gtc), false, false),
+        TerminalReason::MKT_CANCELED
+    );
+    assert_eq!(
+        classify_ors_cancel_reason(None, "EXPIRED", None, Some(TimeInForce::Rpi), false, false),
+        TerminalReason::MKT_REJECT_POST_ONLY
+    );
+    assert_eq!(
+        classify_ors_cancel_reason(
+            Some(-1007),
+            "Timeout waiting for backend",
+            None,
+            None,
+            false,
+            false
+        ),
+        TerminalReason::MKT_DELAYED
+    );
+    assert_eq!(
+        classify_ors_cancel_reason(Some(-1008), "Market is closed", None, None, false, false),
+        TerminalReason::MKT_REJECT_MARKET_DOWN
     );
 }

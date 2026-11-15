@@ -139,7 +139,7 @@ pub struct IntentKey {
     pub intent_id: u64,
 }
 
-/// Stable numeric identities used by catalog, market data, commands and account journals.
+/// Stable numeric identities used by catalog, market data, commands, and stateless ORS gateways.
 pub mod venue_id {
     pub const BINANCE: u32 = 1;
     pub const BYBIT: u32 = 2;
@@ -171,7 +171,7 @@ impl SpotVenue {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Product {
     Spot,
     LinearPerpetual,
@@ -179,6 +179,202 @@ pub enum Product {
     Option,
     LinearFuture,
     InverseFuture,
+    UsdM,
+    CoinM,
+}
+
+impl Product {
+    #[allow(non_upper_case_globals)]
+    pub const Options: Self = Self::Option;
+    #[allow(non_upper_case_globals)]
+    pub const LinearPerp: Self = Self::LinearPerpetual;
+    #[allow(non_upper_case_globals)]
+    pub const InversePerp: Self = Self::InversePerpetual;
+    #[allow(non_upper_case_globals)]
+    pub const LinearFutures: Self = Self::LinearFuture;
+    #[allow(non_upper_case_globals)]
+    pub const InverseFutures: Self = Self::InverseFuture;
+
+    pub const ALL: [Self; 8] = [
+        Self::Spot,
+        Self::LinearPerpetual,
+        Self::InversePerpetual,
+        Self::Option,
+        Self::LinearFuture,
+        Self::InverseFuture,
+        Self::UsdM,
+        Self::CoinM,
+    ];
+
+    #[inline]
+    pub const fn code(self) -> u8 {
+        match self {
+            Self::Spot => 1,
+            Self::LinearPerpetual => 2,
+            Self::InversePerpetual => 3,
+            Self::Option => 4,
+            Self::LinearFuture => 5,
+            Self::InverseFuture => 6,
+            Self::UsdM => 7,
+            Self::CoinM => 8,
+        }
+    }
+
+    #[inline]
+    pub const fn from_code(code: u8) -> Option<Self> {
+        match code {
+            1 => Some(Self::Spot),
+            2 => Some(Self::LinearPerpetual),
+            3 => Some(Self::InversePerpetual),
+            4 => Some(Self::Option),
+            5 => Some(Self::LinearFuture),
+            6 => Some(Self::InverseFuture),
+            7 => Some(Self::UsdM),
+            8 => Some(Self::CoinM),
+            _ => None,
+        }
+    }
+
+    #[inline]
+    pub const fn mask_bit(self) -> u16 {
+        1u16 << (self.code() - 1)
+    }
+
+    #[inline]
+    pub const fn is_derivative(self) -> bool {
+        matches!(
+            self,
+            Self::LinearPerpetual
+                | Self::InversePerpetual
+                | Self::LinearFuture
+                | Self::InverseFuture
+                | Self::UsdM
+                | Self::CoinM
+        )
+    }
+}
+
+/// Wallet-partitioned asset identifier (`(wallet_id, asset_id)`) separating Spot, USD-M,
+/// COIN-M, and Options collateral pools inside a unified master account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct AssetKey {
+    pub wallet_id: u16,
+    pub asset_id: u64,
+}
+
+impl AssetKey {
+    #[inline]
+    pub const fn new(wallet_id: u16, asset_id: u64) -> Self {
+        Self {
+            wallet_id,
+            asset_id,
+        }
+    }
+}
+
+/// Candidate venue order-entry session descriptor used by stateless ORS multi-product routing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct OrderRoute {
+    pub connection_id: u16,
+    pub account_ref: u8,
+    pub ready: bool,
+    pub colo: bool,
+    pub product_mask: u16,
+    pub local_ip: u32,
+    pub ema_score_us: u32,
+}
+
+impl Default for OrderRoute {
+    fn default() -> Self {
+        Self {
+            connection_id: Self::NO_CONNECTION,
+            account_ref: 0,
+            ready: false,
+            colo: false,
+            product_mask: 0,
+            local_ip: 0,
+            ema_score_us: Self::UNMEASURED_SCORE,
+        }
+    }
+}
+
+impl OrderRoute {
+    pub const NO_CONNECTION: u16 = u16::MAX;
+    pub const UNMEASURED_SCORE: u32 = u32::MAX;
+
+    #[inline]
+    pub const fn new(product_mask: u16) -> Self {
+        Self {
+            connection_id: 0,
+            account_ref: 0,
+            ready: true,
+            colo: false,
+            product_mask,
+            local_ip: 0,
+            ema_score_us: Self::UNMEASURED_SCORE,
+        }
+    }
+
+    /// Returns `true` when `product_mask == 0` (universal session) or contains `product`.
+    #[inline]
+    pub const fn matches_product(&self, product: Option<Product>) -> bool {
+        match product {
+            None => true,
+            Some(_) if self.product_mask == 0 => true,
+            Some(p) => (self.product_mask & p.mask_bit()) != 0,
+        }
+    }
+}
+
+/// Selects a ready `OrderRoute` matching `product` using integer `9/8` EWMA hysteresis
+/// (`candidate.ema_score_us * 9 < current.ema_score_us * 8`) to prevent route oscillation.
+pub fn pick_order_route(
+    routes: &[OrderRoute],
+    product: Option<Product>,
+    last_connection_id: u16,
+    force_last: bool,
+) -> Option<u16> {
+    let last_route = if last_connection_id != OrderRoute::NO_CONNECTION {
+        routes.iter().find(|r| {
+            r.connection_id == last_connection_id && r.ready && r.matches_product(product)
+        })
+    } else {
+        None
+    };
+    if force_last && let Some(r) = last_route {
+        return Some(r.connection_id);
+    }
+
+    let mut best: Option<&OrderRoute> = last_route;
+    for candidate in routes {
+        if !candidate.ready
+            || candidate.connection_id == OrderRoute::NO_CONNECTION
+            || !candidate.matches_product(product)
+        {
+            continue;
+        }
+        let Some(curr) = best else {
+            best = Some(candidate);
+            continue;
+        };
+        if candidate.connection_id == curr.connection_id {
+            continue;
+        }
+        let cand_measured = candidate.ema_score_us != OrderRoute::UNMEASURED_SCORE;
+        let curr_measured = curr.ema_score_us != OrderRoute::UNMEASURED_SCORE;
+        let better = match (cand_measured, curr_measured) {
+            (true, false) => true,
+            (false, true) => false,
+            (false, false) => candidate.colo && !curr.colo,
+            (true, true) => {
+                (u64::from(candidate.ema_score_us) * 9) < (u64::from(curr.ema_score_us) * 8)
+            }
+        };
+        if better {
+            best = Some(candidate);
+        }
+    }
+    best.map(|r| r.connection_id)
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionRight {
@@ -256,6 +452,7 @@ pub enum TimeInForce {
     Fok,
     PostOnly,
     Gtd { expire_utc_ns: u64 },
+    Rpi,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Quantity {
@@ -302,7 +499,7 @@ pub struct RequestIdentity {
 pub struct StrategyContext {
     pub logical_strategy_id: u64,
     pub instance_id: [u8; 16],
-    /// Strategy IPC sequence; not an executor-assigned WAL or reservation sequence.
+    /// Strategy IPC sequence; not an executor-assigned reservation sequence.
     pub strategy_intent_seq: u64,
     pub authorization_epoch: u64,
     pub risk_policy_version: u64,
@@ -575,6 +772,86 @@ pub struct FillEvent {
     pub liquidity: Liquidity,
     /// Each amount is signed asset cash flow: debit negative, rebate positive.
     pub fees: BoundedList<AssetDelta, 8>,
+}
+
+/// Stateless ORS exchange gateway front-acknowledgement (`FrontAck`), distinct from book acceptance.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FrontAck {
+    pub ors_order_id: u64,
+    pub strat_id: u8,
+    pub account_ref: u8,
+    pub order_seqnum: u64,
+    pub orig_seqnum: u64,
+    pub client_id: Option<ClientId>,
+    pub venue_order_id: Option<VenueOrderId>,
+    pub received_mono_ns: u64,
+}
+
+impl FrontAck {
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.ors_order_id == 0 || self.order_seqnum == 0 || self.strat_id == u8::MAX {
+            return Err(Error::Identity);
+        }
+        Ok(())
+    }
+}
+
+/// Stateless ORS execution fill report (`Fill`), supporting both real/projected executions and
+/// post-trade fee/rebate updates (`amendment == true`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Fill {
+    pub ors_order_id: u64,
+    pub strat_id: u8,
+    pub account_ref: u8,
+    pub order_seqnum: u64,
+    pub exec_ref: u64,
+    pub trade_id: Option<VenueTradeId>,
+    pub side: Side,
+    pub liquidity: Liquidity,
+    pub last_quantity: Decimal,
+    pub last_price: Decimal,
+    pub cumulative_filled: Decimal,
+    pub cumulative_projected: Decimal,
+    pub fee: Option<AssetDelta>,
+    pub amendment: bool,
+    pub projected: bool,
+    pub received_mono_ns: u64,
+}
+
+impl Fill {
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.ors_order_id == 0 || self.order_seqnum == 0 || self.strat_id == u8::MAX {
+            return Err(Error::Identity);
+        }
+        if self.amendment && self.projected {
+            return Err(Error::OrderCombination);
+        }
+        if self.amendment {
+            if self.fee.is_none() {
+                return Err(Error::Field);
+            }
+            if self.last_quantity.coefficient() < 0 {
+                return Err(Error::Quantity);
+            }
+            if self.last_price.coefficient() < 0 {
+                return Err(Error::Price);
+            }
+        } else {
+            if !self.last_quantity.is_positive() {
+                return Err(Error::Quantity);
+            }
+            if !self.last_price.is_positive() {
+                return Err(Error::Price);
+            }
+        }
+        if self.cumulative_filled.coefficient() < 0 || self.cumulative_projected.coefficient() < 0 {
+            return Err(Error::Quantity);
+        }
+        if let Some(fee) = &self.fee {
+            crate::validate::cashflow(fee)?;
+        }
+        Ok(())
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StructureKind {

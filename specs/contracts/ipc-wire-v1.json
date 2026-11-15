@@ -1190,242 +1190,274 @@
       "alignment": 8,
       "fields": [
         {
-          "name": "logical_strategy_id",
+          "name": "msg_seqnum",
           "type": "u64",
           "offset": 0,
           "size": 8
         },
         {
-          "name": "instance_id",
-          "type": "bytes",
+          "name": "order_seqnum",
+          "type": "u64",
           "offset": 8,
-          "size": 16,
-          "count": 16
+          "size": 8
         },
         {
-          "name": "strategy_generation",
+          "name": "orig_order_seqnum",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "tick_mono_ns",
           "type": "u64",
           "offset": 24,
           "size": 8
         },
         {
-          "name": "exec_generation",
+          "name": "created_mono_ns",
           "type": "u64",
           "offset": 32,
           "size": 8
         },
         {
-          "name": "authorization_epoch",
+          "name": "valid_until_mono_ns",
           "type": "u64",
           "offset": 40,
           "size": 8
         },
         {
-          "name": "config_version",
+          "name": "expire_utc_ns",
           "type": "u64",
           "offset": 48,
           "size": 8
         },
         {
-          "name": "intent_seq",
+          "name": "instrument_id",
           "type": "u64",
           "offset": 56,
           "size": 8
         },
         {
-          "name": "economic_intent_id",
-          "type": "bytes",
+          "name": "strategy_generation",
+          "type": "u64",
           "offset": 64,
-          "size": 16,
-          "count": 16
+          "size": 8
         },
         {
-          "name": "created_mono_ns",
+          "name": "exec_generation",
+          "type": "u64",
+          "offset": 72,
+          "size": 8
+        },
+        {
+          "name": "config_version",
           "type": "u64",
           "offset": 80,
           "size": 8
         },
         {
-          "name": "valid_until_mono_ns",
-          "type": "u64",
-          "offset": 88,
-          "size": 8
-        },
-        {
-          "name": "order_id",
-          "type": "bytes",
-          "offset": 96,
-          "size": 16,
-          "count": 16
-        },
-        {
-          "name": "expected_owner_revision",
-          "type": "u64",
-          "offset": 112,
-          "size": 8
-        },
-        {
           "name": "price_ticks",
           "type": "i64",
-          "offset": 120,
+          "offset": 88,
           "size": 8
         },
         {
           "name": "qty_lots",
           "type": "i64",
-          "offset": 128,
+          "offset": 96,
           "size": 8
         },
         {
           "name": "stop_price_ticks",
           "type": "i64",
-          "offset": 136,
+          "offset": 104,
           "size": 8
         },
         {
           "name": "quote_amount_units",
           "type": "i64",
+          "offset": 112,
+          "size": 8
+        },
+        {
+          "name": "iceberg_qty_lots",
+          "type": "i64",
+          "offset": 120,
+          "size": 8
+        },
+        {
+          "name": "rfq_ask_price_ticks",
+          "type": "i64",
+          "offset": 128,
+          "size": 8
+        },
+        {
+          "name": "rfq_ask_qty_lots",
+          "type": "i64",
+          "offset": 136,
+          "size": 8
+        },
+        {
+          "name": "rfq_id",
+          "type": "u64",
           "offset": 144,
           "size": 8
         },
         {
-          "name": "hedge_group_id",
-          "type": "bytes",
+          "name": "arena_offset",
+          "type": "u64",
           "offset": 152,
-          "size": 16,
-          "count": 16
+          "size": 8
         },
         {
-          "name": "leg_id",
+          "name": "arena_len",
           "type": "u32",
-          "offset": 168,
+          "offset": 160,
           "size": 4
-        },
-        {
-          "name": "trigger_count",
-          "type": "u16",
-          "offset": 172,
-          "size": 2
         },
         {
           "name": "command_kind",
           "type": "u16",
-          "offset": 174,
+          "offset": 164,
           "size": 2
+        },
+        {
+          "name": "trigger_count",
+          "type": "u16",
+          "offset": 166,
+          "size": 2
+        },
+        {
+          "name": "leg_id",
+          "type": "u16",
+          "offset": 168,
+          "size": 2
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 170,
+          "size": 1
+        },
+        {
+          "name": "account_ref",
+          "type": "u8",
+          "offset": 171,
+          "size": 1
         },
         {
           "name": "side",
           "type": "u8",
-          "offset": 176,
+          "offset": 172,
           "size": 1
         },
         {
           "name": "order_type",
           "type": "u8",
-          "offset": 177,
+          "offset": 173,
           "size": 1
         },
         {
           "name": "time_in_force",
           "type": "u8",
-          "offset": 178,
+          "offset": 174,
           "size": 1
         },
         {
           "name": "position_side",
           "type": "u8",
-          "offset": 179,
-          "size": 1
-        },
-        {
-          "name": "reduce_only",
-          "type": "u8",
-          "offset": 180,
+          "offset": 175,
           "size": 1
         },
         {
           "name": "stp_mode",
           "type": "u8",
-          "offset": 181,
+          "offset": 176,
           "size": 1
         },
         {
           "name": "working_price",
           "type": "u8",
-          "offset": 182,
+          "offset": 177,
+          "size": 1
+        },
+        {
+          "name": "intent_product",
+          "type": "u8",
+          "offset": 178,
           "size": 1
         },
         {
           "name": "intent_flags",
           "type": "u8",
+          "offset": 179,
+          "size": 1
+        },
+        {
+          "name": "cancel_replace_mode",
+          "type": "u8",
+          "offset": 180,
+          "size": 1
+        },
+        {
+          "name": "client_id_len",
+          "type": "u8",
+          "offset": 181,
+          "size": 1
+        },
+        {
+          "name": "orig_client_id_len",
+          "type": "u8",
+          "offset": 182,
+          "size": 1
+        },
+        {
+          "name": "venue_order_id_len",
+          "type": "u8",
           "offset": 183,
           "size": 1
         },
         {
-          "name": "expire_utc_ns",
-          "type": "u64",
+          "name": "client_id",
+          "type": "bytes",
           "offset": 184,
-          "size": 8
+          "size": 40,
+          "count": 40
         },
         {
-          "name": "list_id",
-          "type": "bytes",
-          "offset": 192,
-          "size": 16,
-          "count": 16
-        },
-        {
-          "name": "parent_order_id",
-          "type": "bytes",
-          "offset": 208,
-          "size": 16,
-          "count": 16
-        },
-        {
-          "name": "recovery_manifest_hash",
+          "name": "orig_client_id",
           "type": "bytes",
           "offset": 224,
-          "size": 32,
-          "count": 32
+          "size": 40,
+          "count": 40
         },
         {
-          "name": "catalog_hash",
+          "name": "venue_order_id",
           "type": "bytes",
-          "offset": 256,
-          "size": 32,
-          "count": 32
+          "offset": 264,
+          "size": 64,
+          "count": 64
         },
         {
-          "name": "risk_policy_version",
-          "type": "u64",
-          "offset": 288,
-          "size": 8
-        },
-        {
-          "name": "order_config_version",
-          "type": "u64",
-          "offset": 296,
-          "size": 8
-        },
-        {
-          "name": "command_digest",
+          "name": "instance_id",
           "type": "bytes",
-          "count": 32,
-          "offset": 304,
-          "size": 32
+          "offset": 328,
+          "size": 16,
+          "count": 16
         },
         {
-          "name": "command_bytes",
-          "type": "u32",
-          "offset": 336,
-          "size": 4
+          "name": "order_id",
+          "type": "bytes",
+          "offset": 344,
+          "size": 16,
+          "count": 16
         },
         {
           "name": "reserved_0",
           "type": "bytes",
-          "count": 44,
-          "offset": 340,
-          "size": 44,
+          "offset": 360,
+          "size": 24,
+          "count": 24,
           "reserved": true
         },
         {
@@ -1436,7 +1468,7 @@
           "count": 8
         }
       ],
-      "description": ""
+      "description": "Inline SHM strategy order/RFQ intent body with optional SHM Arena oversize descriptor."
     },
     {
       "name": "ReportBody",
@@ -1444,268 +1476,313 @@
       "alignment": 8,
       "fields": [
         {
-          "name": "logical_strategy_id",
+          "name": "report_seq",
           "type": "u64",
           "offset": 0,
           "size": 8
         },
         {
-          "name": "instance_id",
-          "type": "bytes",
+          "name": "orig_seqnum",
+          "type": "u64",
           "offset": 8,
-          "size": 16,
-          "count": 16
+          "size": 8
         },
         {
-          "name": "strategy_generation",
+          "name": "order_seqnum",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "ors_order_id",
           "type": "u64",
           "offset": 24,
           "size": 8
         },
         {
-          "name": "exec_generation",
+          "name": "instrument_id",
           "type": "u64",
           "offset": 32,
           "size": 8
         },
         {
-          "name": "authorization_epoch",
+          "name": "event_mono_ns",
           "type": "u64",
           "offset": 40,
           "size": 8
         },
         {
-          "name": "intent_seq",
+          "name": "exchange_time_ns",
           "type": "u64",
           "offset": 48,
           "size": 8
         },
         {
-          "name": "economic_intent_id",
-          "type": "bytes",
+          "name": "exec_ref",
+          "type": "u64",
           "offset": 56,
-          "size": 16,
-          "count": 16
+          "size": 8
         },
         {
-          "name": "order_id",
-          "type": "bytes",
+          "name": "strategy_generation",
+          "type": "u64",
+          "offset": 64,
+          "size": 8
+        },
+        {
+          "name": "exec_generation",
+          "type": "u64",
           "offset": 72,
-          "size": 16,
-          "count": 16
+          "size": 8
+        },
+        {
+          "name": "quantity_lots",
+          "type": "i64",
+          "offset": 80,
+          "size": 8
+        },
+        {
+          "name": "cumulative_qty_lots",
+          "type": "i64",
+          "offset": 88,
+          "size": 8
+        },
+        {
+          "name": "projected_qty_lots",
+          "type": "i64",
+          "offset": 96,
+          "size": 8
+        },
+        {
+          "name": "leaves_qty_lots",
+          "type": "i64",
+          "offset": 104,
+          "size": 8
+        },
+        {
+          "name": "price_ticks",
+          "type": "i64",
+          "offset": 112,
+          "size": 8
+        },
+        {
+          "name": "last_qty_lots",
+          "type": "i64",
+          "offset": 120,
+          "size": 8
+        },
+        {
+          "name": "last_price_ticks",
+          "type": "i64",
+          "offset": 128,
+          "size": 8
+        },
+        {
+          "name": "fee_units",
+          "type": "i64",
+          "offset": 136,
+          "size": 8
+        },
+        {
+          "name": "realized_pnl_units",
+          "type": "i64",
+          "offset": 144,
+          "size": 8
+        },
+        {
+          "name": "fee_asset_id",
+          "type": "u64",
+          "offset": 152,
+          "size": 8
+        },
+        {
+          "name": "arena_offset",
+          "type": "u64",
+          "offset": 160,
+          "size": 8
+        },
+        {
+          "name": "arena_len",
+          "type": "u32",
+          "offset": 168,
+          "size": 4
+        },
+        {
+          "name": "venue_errno",
+          "type": "i32",
+          "offset": 172,
+          "size": 4
+        },
+        {
+          "name": "rate_limit_limit",
+          "type": "u32",
+          "offset": 176,
+          "size": 4
+        },
+        {
+          "name": "rate_limit_count",
+          "type": "u32",
+          "offset": 180,
+          "size": 4
+        },
+        {
+          "name": "report_kind",
+          "type": "u16",
+          "offset": 184,
+          "size": 2
+        },
+        {
+          "name": "order_status",
+          "type": "u16",
+          "offset": 186,
+          "size": 2
+        },
+        {
+          "name": "reason",
+          "type": "u16",
+          "offset": 188,
+          "size": 2
+        },
+        {
+          "name": "rate_limit_interval_num",
+          "type": "u16",
+          "offset": 190,
+          "size": 2
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 192,
+          "size": 1
+        },
+        {
+          "name": "account_ref",
+          "type": "u8",
+          "offset": 193,
+          "size": 1
+        },
+        {
+          "name": "side",
+          "type": "u8",
+          "offset": 194,
+          "size": 1
+        },
+        {
+          "name": "position_side",
+          "type": "u8",
+          "offset": 195,
+          "size": 1
+        },
+        {
+          "name": "liquidity",
+          "type": "u8",
+          "offset": 196,
+          "size": 1
+        },
+        {
+          "name": "amendment",
+          "type": "u8",
+          "offset": 197,
+          "size": 1
+        },
+        {
+          "name": "projected",
+          "type": "u8",
+          "offset": 198,
+          "size": 1
+        },
+        {
+          "name": "has_fee",
+          "type": "u8",
+          "offset": 199,
+          "size": 1
+        },
+        {
+          "name": "asset_exponent",
+          "type": "i8",
+          "offset": 200,
+          "size": 1
+        },
+        {
+          "name": "report_flags",
+          "type": "u8",
+          "offset": 201,
+          "size": 1
+        },
+        {
+          "name": "rate_limit_type",
+          "type": "u8",
+          "offset": 202,
+          "size": 1
+        },
+        {
+          "name": "rate_limit_interval_unit",
+          "type": "u8",
+          "offset": 203,
+          "size": 1
+        },
+        {
+          "name": "hard_limit_hit",
+          "type": "u8",
+          "offset": 204,
+          "size": 1
+        },
+        {
+          "name": "client_id_len",
+          "type": "u8",
+          "offset": 205,
+          "size": 1
+        },
+        {
+          "name": "venue_order_id_len",
+          "type": "u8",
+          "offset": 206,
+          "size": 1
+        },
+        {
+          "name": "venue_trade_id_len",
+          "type": "u8",
+          "offset": 207,
+          "size": 1
+        },
+        {
+          "name": "client_id",
+          "type": "bytes",
+          "offset": 208,
+          "size": 40,
+          "count": 40
         },
         {
           "name": "venue_order_id",
           "type": "bytes",
-          "offset": 88,
+          "offset": 248,
           "size": 64,
           "count": 64
         },
         {
           "name": "venue_trade_id",
           "type": "bytes",
-          "offset": 152,
+          "offset": 312,
           "size": 32,
           "count": 32
         },
         {
-          "name": "exec_journal_seq",
-          "type": "u64",
-          "offset": 184,
-          "size": 8
-        },
-        {
-          "name": "report_seq",
-          "type": "u64",
-          "offset": 192,
-          "size": 8
-        },
-        {
-          "name": "owner_revision",
-          "type": "u64",
-          "offset": 200,
-          "size": 8
-        },
-        {
-          "name": "quantity",
-          "type": "i64",
-          "offset": 208,
-          "size": 8
-        },
-        {
-          "name": "cumulative_qty",
-          "type": "i64",
-          "offset": 216,
-          "size": 8
-        },
-        {
-          "name": "leaves_qty",
-          "type": "i64",
-          "offset": 224,
-          "size": 8
-        },
-        {
-          "name": "price_ticks",
-          "type": "i64",
-          "offset": 232,
-          "size": 8
-        },
-        {
-          "name": "last_qty",
-          "type": "i64",
-          "offset": 240,
-          "size": 8
-        },
-        {
-          "name": "last_price_ticks",
-          "type": "i64",
-          "offset": 248,
-          "size": 8
-        },
-        {
-          "name": "fee_units",
-          "type": "i64",
-          "offset": 256,
-          "size": 8
-        },
-        {
-          "name": "fee_asset_id",
-          "type": "u64",
-          "offset": 264,
-          "size": 8
-        },
-        {
-          "name": "asset_version",
-          "type": "u64",
-          "offset": 272,
-          "size": 8
-        },
-        {
-          "name": "event_mono_ns",
-          "type": "u64",
-          "offset": 280,
-          "size": 8
-        },
-        {
-          "name": "reservation_id",
+          "name": "order_id",
           "type": "bytes",
-          "offset": 288,
-          "size": 16,
-          "count": 16
-        },
-        {
-          "name": "status",
-          "type": "u16",
-          "offset": 304,
-          "size": 2
-        },
-        {
-          "name": "send_state",
-          "type": "u8",
-          "offset": 306,
-          "size": 1
-        },
-        {
-          "name": "cancel_state",
-          "type": "u8",
-          "offset": 307,
-          "size": 1
-        },
-        {
-          "name": "side",
-          "type": "u8",
-          "offset": 308,
-          "size": 1
-        },
-        {
-          "name": "position_side",
-          "type": "u8",
-          "offset": 309,
-          "size": 1
-        },
-        {
-          "name": "reason",
-          "type": "u16",
-          "offset": 310,
-          "size": 2
-        },
-        {
-          "name": "venue_order_id_length",
-          "type": "u16",
-          "offset": 312,
-          "size": 2
-        },
-        {
-          "name": "venue_trade_id_length",
-          "type": "u16",
-          "offset": 314,
-          "size": 2
-        },
-        {
-          "name": "asset_exponent",
-          "type": "i8",
-          "offset": 316,
-          "size": 1
-        },
-        {
-          "name": "report_flags",
-          "type": "u8",
-          "offset": 317,
-          "size": 1
-        },
-        {
-          "name": "report_kind",
-          "type": "u16",
-          "offset": 318,
-          "size": 2
-        },
-        {
-          "name": "aux_id",
-          "type": "bytes",
-          "offset": 320,
-          "size": 16,
-          "count": 16
-        },
-        {
-          "name": "aux_version",
-          "type": "u64",
-          "offset": 336,
-          "size": 8
-        },
-        {
-          "name": "value_0",
-          "type": "i64",
           "offset": 344,
-          "size": 8
-        },
-        {
-          "name": "value_1",
-          "type": "i64",
-          "offset": 352,
-          "size": 8
-        },
-        {
-          "name": "value_2",
-          "type": "i64",
-          "offset": 360,
-          "size": 8
-        },
-        {
-          "name": "value_validity",
-          "type": "u64",
-          "offset": 368,
-          "size": 8
+          "size": 16,
+          "count": 16
         },
         {
           "name": "reserved_0",
           "type": "bytes",
-          "count": 8,
-          "offset": 376,
-          "size": 8,
+          "offset": 360,
+          "size": 24,
+          "count": 24,
           "reserved": true
         }
       ],
-      "description": ""
+      "description": "Inline SHM ORS execution report and broadcast body with optional SHM Arena oversize descriptor."
     },
     {
       "name": "OwnershipBody",
@@ -1738,7 +1815,7 @@
           "size": 8
         },
         {
-          "name": "exec_journal_seq",
+          "name": "ors_order_id",
           "type": "u64",
           "offset": 40,
           "size": 8
@@ -5065,6 +5142,323 @@
           "reserved": true
         }
       ]
+    },
+    {
+      "name": "DopLoginBody",
+      "size": 32,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "next_source_seqnum",
+          "type": "u64",
+          "offset": 0,
+          "size": 8
+        },
+        {
+          "name": "client_id",
+          "type": "u32",
+          "offset": 8,
+          "size": 4
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 12,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 13,
+          "size": 19,
+          "count": 19,
+          "reserved": true
+        }
+      ],
+      "description": "DOP logon request body establishing strategy identity and outbound sequence floor."
+    },
+    {
+      "name": "DopLogoutBody",
+      "size": 16,
+      "alignment": 2,
+      "fields": [
+        {
+          "name": "reason",
+          "type": "u16",
+          "offset": 0,
+          "size": 2
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 2,
+          "size": 1
+        },
+        {
+          "name": "cancel_on_logout",
+          "type": "u8",
+          "offset": 3,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 4,
+          "size": 12,
+          "count": 12,
+          "reserved": true
+        }
+      ],
+      "description": "DOP logout request or notification body."
+    },
+    {
+      "name": "DopEchoBody",
+      "size": 96,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "next_source_order_seqnum",
+          "type": "u64",
+          "offset": 0,
+          "size": 8
+        },
+        {
+          "name": "tx_key",
+          "type": "u64",
+          "offset": 8,
+          "size": 8
+        },
+        {
+          "name": "rx_key",
+          "type": "u64",
+          "offset": 16,
+          "size": 8
+        },
+        {
+          "name": "tx_len",
+          "type": "u32",
+          "offset": 24,
+          "size": 4
+        },
+        {
+          "name": "rx_len",
+          "type": "u32",
+          "offset": 28,
+          "size": 4
+        },
+        {
+          "name": "hb_interval_ms",
+          "type": "u32",
+          "offset": 32,
+          "size": 4
+        },
+        {
+          "name": "refusal_reason",
+          "type": "u16",
+          "offset": 36,
+          "size": 2
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 38,
+          "size": 1
+        },
+        {
+          "name": "connected",
+          "type": "u8",
+          "offset": 39,
+          "size": 1
+        },
+        {
+          "name": "enabled",
+          "type": "u8",
+          "offset": 40,
+          "size": 1
+        },
+        {
+          "name": "market_connected",
+          "type": "u8",
+          "offset": 41,
+          "size": 1
+        },
+        {
+          "name": "ready_to_trade",
+          "type": "u8",
+          "offset": 42,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 43,
+          "size": 5,
+          "count": 5,
+          "reserved": true
+        },
+        {
+          "name": "tx_resource_id",
+          "type": "bytes",
+          "offset": 48,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "rx_resource_id",
+          "type": "bytes",
+          "offset": 64,
+          "size": 16,
+          "count": 16
+        },
+        {
+          "name": "reserved_1",
+          "type": "bytes",
+          "offset": 80,
+          "size": 16,
+          "count": 16,
+          "reserved": true
+        }
+      ],
+      "description": "DOP logon echo and readiness state response carrying TX/RX SHM ring descriptors."
+    },
+    {
+      "name": "MktSession",
+      "size": 16,
+      "alignment": 4,
+      "fields": [
+        {
+          "name": "local_ip",
+          "type": "u32",
+          "offset": 0,
+          "size": 4
+        },
+        {
+          "name": "product_mask",
+          "type": "u16",
+          "offset": 4,
+          "size": 2
+        },
+        {
+          "name": "account_ref",
+          "type": "u8",
+          "offset": 6,
+          "size": 1
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 7,
+          "size": 1
+        },
+        {
+          "name": "authorized",
+          "type": "u8",
+          "offset": 8,
+          "size": 1
+        },
+        {
+          "name": "colo",
+          "type": "u8",
+          "offset": 9,
+          "size": 1
+        },
+        {
+          "name": "ready",
+          "type": "u8",
+          "offset": 10,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 11,
+          "size": 5,
+          "count": 5,
+          "reserved": true
+        }
+      ],
+      "description": "Authorized ORS account session entry advertised in OrsSessionsBody."
+    },
+    {
+      "name": "OrsSessionsBody",
+      "size": 528,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "server_mono_ns",
+          "type": "u64",
+          "offset": 0,
+          "size": 8
+        },
+        {
+          "name": "session_count",
+          "type": "u16",
+          "offset": 8,
+          "size": 2
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 10,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 11,
+          "size": 5,
+          "count": 5,
+          "reserved": true
+        },
+        {
+          "name": "sessions",
+          "type": "MktSession",
+          "offset": 16,
+          "size": 512,
+          "count": 32
+        }
+      ],
+      "description": "Table of up to 32 ORS account sessions and product routing masks."
+    },
+    {
+      "name": "DopHeartBeatBody",
+      "size": 32,
+      "alignment": 8,
+      "fields": [
+        {
+          "name": "mono_ns",
+          "type": "u64",
+          "offset": 0,
+          "size": 8
+        },
+        {
+          "name": "next_order_seqnum",
+          "type": "u64",
+          "offset": 8,
+          "size": 8
+        },
+        {
+          "name": "strat_id",
+          "type": "u8",
+          "offset": 16,
+          "size": 1
+        },
+        {
+          "name": "ready_to_trade",
+          "type": "u8",
+          "offset": 17,
+          "size": 1
+        },
+        {
+          "name": "reserved_0",
+          "type": "bytes",
+          "offset": 18,
+          "size": 14,
+          "count": 14,
+          "reserved": true
+        }
+      ],
+      "description": "Periodic DOP liveness and sequence watermark frame."
     }
   ],
   "enums": {
@@ -5208,14 +5602,19 @@
       "Stopped": 5
     },
     "command_kind": {
-      "New": 1,
+      "NewOrder": 1,
       "Cancel": 2,
       "CancelReplace": 3,
       "AmendKeepPriority": 4,
       "Modify": 5,
-      "Query": 6,
+      "QueryOrder": 6,
       "CancelList": 7,
-      "CancelAlgo": 8
+      "CancelAlgo": 8,
+      "CancelAll": 9,
+      "NewRfqQuote": 10,
+      "ModifyRfqQuote": 11,
+      "CancelRfqQuote": 12,
+      "CancelAllRfqQuotes": 13
     },
     "side": {
       "None": 0,
@@ -5229,7 +5628,8 @@
       "StopLimit": 3,
       "StopMarket": 4,
       "TakeProfitLimit": 5,
-      "TakeProfitMarket": 6
+      "TakeProfitMarket": 6,
+      "TrailingStop": 7
     },
     "time_in_force": {
       "None": 0,
@@ -5237,7 +5637,8 @@
       "IOC": 2,
       "FOK": 3,
       "PostOnly": 4,
-      "GTD": 5
+      "GTD": 5,
+      "RPI": 6
     },
     "position_side": {
       "None": 0,
@@ -5256,7 +5657,8 @@
     "working_price": {
       "None": 0,
       "ContractPrice": 1,
-      "MarkPrice": 2
+      "MarkPrice": 2,
+      "IndexPrice": 3
     },
     "intent_status": {
       "Received": 1,
@@ -5268,6 +5670,7 @@
       "Resolved": 7
     },
     "order_status": {
+      "None": 0,
       "Pending": 1,
       "New": 2,
       "PartiallyFilled": 3,
@@ -5275,7 +5678,8 @@
       "Canceled": 5,
       "Expired": 6,
       "Rejected": 7,
-      "Unknown": 8
+      "Unknown": 8,
+      "FrontAcked": 9
     },
     "send_state": {
       "NotSubmitted": 0,
@@ -5436,24 +5840,61 @@
       "CaptureExact": 0,
       "CaptureExactAndPause": 1,
       "ObserveCurrent": 2
+    },
+    "report_kind": {
+      "Ack": 1,
+      "FrontAck": 2,
+      "Nack": 3,
+      "CancelNack": 4,
+      "Fill": 5,
+      "Canceled": 6,
+      "Modified": 7,
+      "ModifyRejected": 8,
+      "ExchRateLimit": 9,
+      "OrsShutDown": 10,
+      "OrsRestricted": 11,
+      "RfqQuoteAck": 12,
+      "RfqQuoteNack": 13
+    },
+    "intent_product": {
+      "None": 0,
+      "Spot": 1,
+      "LinearPerp": 2,
+      "InversePerp": 3,
+      "Options": 4,
+      "LinearFutures": 5,
+      "InverseFutures": 6,
+      "UsdM": 7,
+      "CoinM": 8
+    },
+    "cancel_replace_mode": {
+      "None": 0,
+      "StopOnFailure": 1,
+      "AllowFailure": 2
+    },
+    "liquidity": {
+      "Unknown": 0,
+      "Maker": 1,
+      "Taker": 2
+    },
+    "rate_limit_type": {
+      "None": 0,
+      "RequestWeight": 1,
+      "Orders": 2,
+      "RawRequests": 3
+    },
+    "rate_limit_interval_unit": {
+      "None": 0,
+      "Second": 1,
+      "Minute": 2,
+      "Hour": 3,
+      "Day": 4
     }
   },
   "bitsets": {
     "config_flags": {
       "GlobalOperation": 0,
       "SuccessorBinding": 1
-    },
-    "report_value_validity": {
-      "Quantity": 0,
-      "CumulativeQty": 1,
-      "LeavesQty": 2,
-      "Price": 3,
-      "LastQty": 4,
-      "LastPrice": 5,
-      "Fee": 6,
-      "Value0": 7,
-      "Value1": 8,
-      "Value2": 9
     },
     "features": {
       "RecordCRC32C": 0,
@@ -5465,7 +5906,9 @@
       "ExactDepthCoverage": 6,
       "CanonicalIntentReference": 7,
       "CanonicalAccountReference": 8,
-      "ExactMarketEvents": 9
+      "ExactMarketEvents": 9,
+      "DopProtocol": 10,
+      "InlineOrsRecords": 11
     },
     "record_flags": {
       "SourceTimeValid": 0,
@@ -5491,9 +5934,14 @@
       "GuardianCancel": 6
     },
     "intent_flags": {
-      "QuoteAmount": 0,
-      "PriceProtect": 1,
-      "ClosePosition": 2
+      "BypassRms": 0,
+      "DryRun": 1,
+      "CheckStp": 2,
+      "ReduceOnly": 3,
+      "PostOnly": 4,
+      "QuoteAmount": 5,
+      "PriceProtect": 6,
+      "ClosePosition": 7
     },
     "depth_flags": {
       "AbsoluteQuantities": 0,
@@ -5507,7 +5955,9 @@
     "report_flags": {
       "Correction": 0,
       "ExternalOrigin": 1,
-      "RecoveryReplay": 2
+      "RecoveryReplay": 2,
+      "Broadcast": 3,
+      "Simulated": 4
     },
     "coverage_flags": {
       "Limited": 0,
@@ -5523,6 +5973,16 @@
     "position_modes": {
       "OneWay": 0,
       "Hedge": 1
+    },
+    "product_mask": {
+      "Spot": 0,
+      "LinearPerp": 1,
+      "InversePerp": 2,
+      "Options": 3,
+      "LinearFutures": 4,
+      "InverseFutures": 5,
+      "UsdM": 6,
+      "CoinM": 7
     }
   },
   "messages": [
@@ -5577,150 +6037,192 @@
     },
     {
       "id": 513,
-      "name": "New",
+      "name": "NewOrder",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "New"
+      "description": "Inline SHM NewOrder intent"
     },
     {
       "id": 514,
       "name": "Cancel",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "Cancel"
+      "description": "Inline SHM Cancel intent"
     },
     {
       "id": 515,
       "name": "CancelReplace",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "CancelReplace"
+      "description": "Inline SHM CancelReplace intent"
     },
     {
       "id": 516,
       "name": "AmendKeepPriority",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "AmendKeepPriority"
+      "description": "Inline SHM AmendKeepPriority intent"
     },
     {
       "id": 517,
       "name": "Modify",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "Modify"
+      "description": "Inline SHM Modify intent"
     },
     {
       "id": 518,
       "name": "QueryOrder",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "QueryOrder"
+      "description": "Inline SHM QueryOrder intent"
     },
     {
       "id": 519,
       "name": "CancelList",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "CancelList"
+      "description": "Inline SHM CancelList intent"
     },
     {
       "id": 520,
       "name": "CancelAlgo",
       "channel": "StrategyIntent",
       "body_layout": "IntentBody",
-      "description": "CancelAlgo"
+      "description": "Inline SHM CancelAlgo intent"
+    },
+    {
+      "id": 521,
+      "name": "CancelAll",
+      "channel": "StrategyIntent",
+      "body_layout": "IntentBody",
+      "description": "Inline SHM CancelAll intent"
+    },
+    {
+      "id": 522,
+      "name": "NewRfqQuote",
+      "channel": "StrategyIntent",
+      "body_layout": "IntentBody",
+      "description": "Inline SHM NewRfqQuote intent"
+    },
+    {
+      "id": 523,
+      "name": "ModifyRfqQuote",
+      "channel": "StrategyIntent",
+      "body_layout": "IntentBody",
+      "description": "Inline SHM ModifyRfqQuote intent"
+    },
+    {
+      "id": 524,
+      "name": "CancelRfqQuote",
+      "channel": "StrategyIntent",
+      "body_layout": "IntentBody",
+      "description": "Inline SHM CancelRfqQuote intent"
+    },
+    {
+      "id": 525,
+      "name": "CancelAllRfqQuotes",
+      "channel": "StrategyIntent",
+      "body_layout": "IntentBody",
+      "description": "Inline SHM CancelAllRfqQuotes intent"
     },
     {
       "id": 769,
-      "name": "IntentStatus",
+      "name": "Ack",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "IntentStatus"
+      "description": "Inline SHM Ack ORS report"
     },
     {
       "id": 770,
-      "name": "OrderState",
+      "name": "FrontAck",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "OrderState"
+      "description": "Inline SHM FrontAck ORS report"
     },
     {
       "id": 771,
-      "name": "Fill",
+      "name": "Nack",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "Fill"
+      "description": "Inline SHM Nack ORS report"
     },
     {
       "id": 772,
-      "name": "Balance",
+      "name": "CancelNack",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "Balance"
+      "description": "Inline SHM CancelNack ORS report"
     },
     {
       "id": 773,
-      "name": "Position",
+      "name": "Fill",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "Position"
+      "description": "Inline SHM Fill ORS report"
     },
     {
       "id": 774,
-      "name": "Reservation",
+      "name": "Canceled",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "Reservation"
+      "description": "Inline SHM Canceled ORS report"
     },
     {
       "id": 775,
-      "name": "GrantState",
+      "name": "Modified",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "GrantState"
+      "description": "Inline SHM Modified ORS report"
     },
     {
       "id": 776,
-      "name": "ResyncRequired",
+      "name": "ModifyRejected",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "ResyncRequired"
+      "description": "Inline SHM ModifyRejected ORS report"
     },
     {
       "id": 777,
-      "name": "LedgerAdjustment",
+      "name": "ExchRateLimit",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "LedgerAdjustment"
+      "description": "Inline SHM ExchRateLimit ORS report"
     },
     {
       "id": 778,
-      "name": "ExecutionSnapshotRef",
+      "name": "OrsShutDown",
       "channel": "ExecutionReport",
       "body_layout": "ReportBody",
-      "description": "ExecutionSnapshotRef"
+      "description": "Inline SHM OrsShutDown ORS report"
     },
     {
       "id": 779,
+      "name": "OrsRestricted",
+      "channel": "ExecutionReport",
+      "body_layout": "ReportBody",
+      "description": "Inline SHM OrsRestricted ORS report"
+    },
+    {
+      "id": 780,
+      "name": "RfqQuoteAck",
+      "channel": "ExecutionReport",
+      "body_layout": "ReportBody",
+      "description": "Inline SHM RfqQuoteAck ORS report"
+    },
+    {
+      "id": 781,
+      "name": "RfqQuoteNack",
+      "channel": "ExecutionReport",
+      "body_layout": "ReportBody",
+      "description": "Inline SHM RfqQuoteNack ORS report"
+    },
+    {
+      "id": 782,
       "name": "OrderOwnership",
       "channel": "ExecutionReport",
       "body_layout": "OwnershipBody",
       "description": "origin, current manager and list/algo parent-child relationships"
-    },
-    {
-      "id": 780,
-      "name": "CanonicalAccountBaseline",
-      "channel": "ExecutionReport",
-      "body_layout": "ReportBody",
-      "description": "SHA-256 reference to complete durable canonical account data"
-    },
-    {
-      "id": 781,
-      "name": "CanonicalAccountRecord",
-      "channel": "ExecutionReport",
-      "body_layout": "ReportBody",
-      "description": "SHA-256 reference to complete durable canonical account data"
     },
     {
       "id": 264,
@@ -6131,6 +6633,62 @@
         18,
         32
       ]
+    },
+    {
+      "id": 96,
+      "name": "DOP_LOGIN",
+      "body_layout": "DopLoginBody",
+      "response_layout": "DopEchoBody",
+      "response_opcode": 98,
+      "allowed_flags": [
+        1
+      ]
+    },
+    {
+      "id": 97,
+      "name": "DOP_LOGOUT",
+      "body_layout": "DopLogoutBody",
+      "response_layout": "StatusBody",
+      "response_opcode": 49,
+      "allowed_flags": [
+        1,
+        32
+      ]
+    },
+    {
+      "id": 98,
+      "name": "DOP_ECHO",
+      "body_layout": "DopEchoBody",
+      "response_layout": null,
+      "response_opcode": null,
+      "allowed_flags": [
+        10,
+        18,
+        32
+      ]
+    },
+    {
+      "id": 99,
+      "name": "ORS_SESSIONS",
+      "body_layout": "OrsSessionsBody",
+      "response_layout": null,
+      "response_opcode": null,
+      "allowed_flags": [
+        10,
+        32
+      ]
+    },
+    {
+      "id": 100,
+      "name": "DOP_HEART_BEAT",
+      "body_layout": "DopHeartBeatBody",
+      "response_layout": "DopHeartBeatBody",
+      "response_opcode": 100,
+      "allowed_flags": [
+        1,
+        10,
+        32
+      ]
     }
   ],
   "variable_bodies": {
@@ -6384,674 +6942,6 @@
         "instrument_catalog_version"
       ]
     },
-    "New": {
-      "message_id": 513,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expire_utc_ns",
-        "hedge_group_id",
-        "instance_id",
-        "intent_flags",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_type",
-        "position_side",
-        "price_ticks",
-        "qty_lots",
-        "quote_amount_units",
-        "recovery_manifest_hash",
-        "reduce_only",
-        "risk_policy_version",
-        "side",
-        "stop_price_ticks",
-        "stp_mode",
-        "strategy_generation",
-        "time_in_force",
-        "trigger_count",
-        "triggers",
-        "valid_until_mono_ns",
-        "working_price",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 1
-    },
-    "Cancel": {
-      "message_id": 514,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "hedge_group_id",
-        "instance_id",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "recovery_manifest_hash",
-        "risk_policy_version",
-        "strategy_generation",
-        "valid_until_mono_ns",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 2
-    },
-    "CancelReplace": {
-      "message_id": 515,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "expire_utc_ns",
-        "hedge_group_id",
-        "instance_id",
-        "intent_flags",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "order_type",
-        "position_side",
-        "price_ticks",
-        "qty_lots",
-        "quote_amount_units",
-        "recovery_manifest_hash",
-        "reduce_only",
-        "risk_policy_version",
-        "side",
-        "stop_price_ticks",
-        "stp_mode",
-        "strategy_generation",
-        "time_in_force",
-        "trigger_count",
-        "triggers",
-        "valid_until_mono_ns",
-        "working_price",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 3
-    },
-    "AmendKeepPriority": {
-      "message_id": 516,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "hedge_group_id",
-        "instance_id",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "qty_lots",
-        "recovery_manifest_hash",
-        "risk_policy_version",
-        "strategy_generation",
-        "trigger_count",
-        "triggers",
-        "valid_until_mono_ns",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 4
-    },
-    "Modify": {
-      "message_id": 517,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "hedge_group_id",
-        "instance_id",
-        "intent_flags",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "position_side",
-        "price_ticks",
-        "qty_lots",
-        "recovery_manifest_hash",
-        "reduce_only",
-        "risk_policy_version",
-        "side",
-        "strategy_generation",
-        "trigger_count",
-        "triggers",
-        "valid_until_mono_ns",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 5
-    },
-    "QueryOrder": {
-      "message_id": 518,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "hedge_group_id",
-        "instance_id",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "recovery_manifest_hash",
-        "risk_policy_version",
-        "strategy_generation",
-        "valid_until_mono_ns",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 6
-    },
-    "CancelList": {
-      "message_id": 519,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "hedge_group_id",
-        "instance_id",
-        "intent_seq",
-        "leg_id",
-        "list_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "recovery_manifest_hash",
-        "risk_policy_version",
-        "strategy_generation",
-        "valid_until_mono_ns",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 7
-    },
-    "CancelAlgo": {
-      "message_id": 520,
-      "body_layout": "IntentBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "catalog_hash",
-        "command_kind",
-        "config_version",
-        "created_mono_ns",
-        "economic_intent_id",
-        "exec_generation",
-        "expected_owner_revision",
-        "hedge_group_id",
-        "instance_id",
-        "intent_seq",
-        "leg_id",
-        "logical_strategy_id",
-        "order_config_version",
-        "order_id",
-        "parent_order_id",
-        "recovery_manifest_hash",
-        "risk_policy_version",
-        "strategy_generation",
-        "valid_until_mono_ns",
-        "command_digest",
-        "command_bytes"
-      ],
-      "command_kind": 8
-    },
-    "IntentStatus": {
-      "message_id": 769,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "economic_intent_id",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "instance_id",
-        "intent_seq",
-        "logical_strategy_id",
-        "order_id",
-        "owner_revision",
-        "position_side",
-        "price_ticks",
-        "quantity",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "reservation_id",
-        "send_state",
-        "side",
-        "status",
-        "strategy_generation",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 9,
-      "value_validity_required_mask": 0,
-      "report_kind": 1
-    },
-    "OrderState": {
-      "message_id": 770,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "cancel_state",
-        "cumulative_qty",
-        "economic_intent_id",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "instance_id",
-        "intent_seq",
-        "leaves_qty",
-        "logical_strategy_id",
-        "order_id",
-        "owner_revision",
-        "position_side",
-        "price_ticks",
-        "quantity",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "reservation_id",
-        "send_state",
-        "side",
-        "status",
-        "strategy_generation",
-        "value_validity",
-        "venue_order_id",
-        "venue_order_id_length"
-      ],
-      "value_validity_allowed_mask": 15,
-      "value_validity_required_mask": 0,
-      "report_kind": 2
-    },
-    "Fill": {
-      "message_id": 771,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "asset_exponent",
-        "asset_version",
-        "authorization_epoch",
-        "cancel_state",
-        "cumulative_qty",
-        "economic_intent_id",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "fee_asset_id",
-        "fee_units",
-        "instance_id",
-        "intent_seq",
-        "last_price_ticks",
-        "last_qty",
-        "leaves_qty",
-        "logical_strategy_id",
-        "order_id",
-        "owner_revision",
-        "position_side",
-        "price_ticks",
-        "quantity",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "reservation_id",
-        "send_state",
-        "side",
-        "status",
-        "strategy_generation",
-        "value_validity",
-        "venue_order_id",
-        "venue_order_id_length",
-        "venue_trade_id",
-        "venue_trade_id_length"
-      ],
-      "value_validity_allowed_mask": 127,
-      "value_validity_required_mask": 48,
-      "report_kind": 3
-    },
-    "Balance": {
-      "message_id": 772,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "asset_exponent",
-        "asset_version",
-        "authorization_epoch",
-        "aux_version",
-        "cumulative_qty",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "fee_asset_id",
-        "instance_id",
-        "leaves_qty",
-        "logical_strategy_id",
-        "quantity",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "strategy_generation",
-        "value_0",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 135,
-      "value_validity_required_mask": 7,
-      "report_kind": 4
-    },
-    "Position": {
-      "message_id": 773,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "asset_exponent",
-        "asset_version",
-        "authorization_epoch",
-        "aux_version",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "fee_asset_id",
-        "instance_id",
-        "logical_strategy_id",
-        "position_side",
-        "price_ticks",
-        "quantity",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "strategy_generation",
-        "value_0",
-        "value_1",
-        "value_2",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 905,
-      "value_validity_required_mask": 1,
-      "report_kind": 5
-    },
-    "Reservation": {
-      "message_id": 774,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "asset_exponent",
-        "asset_version",
-        "authorization_epoch",
-        "economic_intent_id",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "fee_asset_id",
-        "instance_id",
-        "intent_seq",
-        "logical_strategy_id",
-        "order_id",
-        "owner_revision",
-        "quantity",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "reservation_id",
-        "status",
-        "strategy_generation",
-        "value_0",
-        "value_1",
-        "value_2",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 897,
-      "value_validity_required_mask": 385,
-      "report_kind": 6
-    },
-    "GrantState": {
-      "message_id": 775,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "aux_version",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "instance_id",
-        "logical_strategy_id",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "status",
-        "strategy_generation",
-        "value_0",
-        "value_1",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 384,
-      "value_validity_required_mask": 384,
-      "report_kind": 7
-    },
-    "ResyncRequired": {
-      "message_id": 776,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "aux_version",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "instance_id",
-        "logical_strategy_id",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "strategy_generation",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 0,
-      "value_validity_required_mask": 0,
-      "report_kind": 8
-    },
-    "LedgerAdjustment": {
-      "message_id": 777,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "asset_exponent",
-        "asset_version",
-        "authorization_epoch",
-        "aux_id",
-        "aux_version",
-        "economic_intent_id",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "fee_asset_id",
-        "fee_units",
-        "instance_id",
-        "intent_seq",
-        "logical_strategy_id",
-        "order_id",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "status",
-        "strategy_generation",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 64,
-      "value_validity_required_mask": 64,
-      "report_kind": 9
-    },
-    "ExecutionSnapshotRef": {
-      "message_id": 778,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "authorization_epoch",
-        "aux_id",
-        "aux_version",
-        "event_mono_ns",
-        "exec_generation",
-        "exec_journal_seq",
-        "instance_id",
-        "logical_strategy_id",
-        "reason",
-        "report_flags",
-        "report_kind",
-        "report_seq",
-        "strategy_generation",
-        "value_0",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 128,
-      "value_validity_required_mask": 128,
-      "report_kind": 10
-    },
-    "OrderOwnership": {
-      "message_id": 779,
-      "body_layout": "OwnershipBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "logical_strategy_id",
-        "instance_id",
-        "strategy_generation",
-        "exec_generation",
-        "exec_journal_seq",
-        "report_seq",
-        "order_id",
-        "origin_strategy_id",
-        "origin_instance_id",
-        "origin_generation",
-        "origin_intent_seq",
-        "manager_strategy_id",
-        "manager_instance_id",
-        "manager_generation",
-        "owner_revision",
-        "parent_order_id",
-        "list_id",
-        "venue_algo_id",
-        "venue_algo_id_length",
-        "relation_kind",
-        "status",
-        "reason"
-      ]
-    },
-    "CanonicalAccountBaseline": {
-      "message_id": 780,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "logical_strategy_id",
-        "instance_id",
-        "strategy_generation",
-        "exec_generation",
-        "exec_journal_seq",
-        "report_seq",
-        "event_mono_ns",
-        "report_kind",
-        "aux_id",
-        "aux_version",
-        "value_0",
-        "value_1",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 384,
-      "value_validity_required_mask": 384,
-      "report_kind": 11
-    },
-    "CanonicalAccountRecord": {
-      "message_id": 781,
-      "body_layout": "ReportBody",
-      "unlisted_fields_must_be_zero": true,
-      "allowed_fields": [
-        "logical_strategy_id",
-        "instance_id",
-        "strategy_generation",
-        "exec_generation",
-        "exec_journal_seq",
-        "report_seq",
-        "event_mono_ns",
-        "report_kind",
-        "aux_id",
-        "aux_version",
-        "value_0",
-        "value_1",
-        "value_validity"
-      ],
-      "value_validity_allowed_mask": 384,
-      "value_validity_required_mask": 384,
-      "report_kind": 12
-    },
     "TradeExact": {
       "message_id": 264,
       "body_layout": "MarketExactBody",
@@ -7122,20 +7012,1027 @@
         "funding_rate",
         "next_funding_utc_ns"
       ]
+    },
+    "NewOrder": {
+      "message_id": 513,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "expire_utc_ns",
+        "iceberg_qty_lots",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "order_type",
+        "position_side",
+        "price_ticks",
+        "qty_lots",
+        "quote_amount_units",
+        "side",
+        "stop_price_ticks",
+        "stp_mode",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "time_in_force",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "working_price"
+      ],
+      "command_kind": 1
+    },
+    "Cancel": {
+      "message_id": 514,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "position_side",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 2
+    },
+    "CancelReplace": {
+      "message_id": 515,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "cancel_replace_mode",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "expire_utc_ns",
+        "iceberg_qty_lots",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "order_type",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "position_side",
+        "price_ticks",
+        "qty_lots",
+        "quote_amount_units",
+        "side",
+        "stop_price_ticks",
+        "stp_mode",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "time_in_force",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len",
+        "working_price"
+      ],
+      "command_kind": 3
+    },
+    "AmendKeepPriority": {
+      "message_id": 516,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "qty_lots",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 4
+    },
+    "Modify": {
+      "message_id": 517,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "position_side",
+        "price_ticks",
+        "qty_lots",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "time_in_force",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 5
+    },
+    "QueryOrder": {
+      "message_id": 518,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 6
+    },
+    "CancelList": {
+      "message_id": 519,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 7
+    },
+    "CancelAlgo": {
+      "message_id": 520,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 8
+    },
+    "CancelAll": {
+      "message_id": 521,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_seqnum",
+        "position_side",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns"
+      ],
+      "command_kind": 9
+    },
+    "NewRfqQuote": {
+      "message_id": 522,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "expire_utc_ns",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "price_ticks",
+        "qty_lots",
+        "rfq_ask_price_ticks",
+        "rfq_ask_qty_lots",
+        "rfq_id",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "time_in_force",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns"
+      ],
+      "command_kind": 10
+    },
+    "ModifyRfqQuote": {
+      "message_id": 523,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "expire_utc_ns",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "price_ticks",
+        "qty_lots",
+        "rfq_ask_price_ticks",
+        "rfq_ask_qty_lots",
+        "rfq_id",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "time_in_force",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 11
+    },
+    "CancelRfqQuote": {
+      "message_id": 524,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_id",
+        "order_seqnum",
+        "orig_client_id",
+        "orig_client_id_len",
+        "orig_order_seqnum",
+        "rfq_id",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "command_kind": 12
+    },
+    "CancelAllRfqQuotes": {
+      "message_id": 525,
+      "body_layout": "IntentBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "command_kind",
+        "config_version",
+        "created_mono_ns",
+        "exec_generation",
+        "instance_id",
+        "instrument_id",
+        "intent_flags",
+        "intent_product",
+        "leg_id",
+        "msg_seqnum",
+        "order_seqnum",
+        "rfq_id",
+        "strat_id",
+        "strategy_generation",
+        "tick_mono_ns",
+        "trigger_count",
+        "triggers",
+        "valid_until_mono_ns"
+      ],
+      "command_kind": 13
+    },
+    "Ack": {
+      "message_id": 769,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "cumulative_qty_lots",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "projected_qty_lots",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 1
+    },
+    "FrontAck": {
+      "message_id": 770,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 2
+    },
+    "Nack": {
+      "message_id": 771,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 3
+    },
+    "CancelNack": {
+      "message_id": 772,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "cumulative_qty_lots",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 4
+    },
+    "Fill": {
+      "message_id": 773,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "amendment",
+        "arena_len",
+        "arena_offset",
+        "asset_exponent",
+        "client_id",
+        "client_id_len",
+        "cumulative_qty_lots",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "fee_asset_id",
+        "fee_units",
+        "has_fee",
+        "instrument_id",
+        "last_price_ticks",
+        "last_qty_lots",
+        "leaves_qty_lots",
+        "liquidity",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "projected",
+        "projected_qty_lots",
+        "quantity_lots",
+        "realized_pnl_units",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len",
+        "venue_trade_id",
+        "venue_trade_id_len"
+      ],
+      "report_kind": 5
+    },
+    "Canceled": {
+      "message_id": 774,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "cumulative_qty_lots",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "projected_qty_lots",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 6
+    },
+    "Modified": {
+      "message_id": 775,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "cumulative_qty_lots",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "projected_qty_lots",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 7
+    },
+    "ModifyRejected": {
+      "message_id": 776,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "cumulative_qty_lots",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "position_side",
+        "price_ticks",
+        "projected_qty_lots",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 8
+    },
+    "ExchRateLimit": {
+      "message_id": 777,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "hard_limit_hit",
+        "instrument_id",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "rate_limit_count",
+        "rate_limit_interval_num",
+        "rate_limit_interval_unit",
+        "rate_limit_limit",
+        "rate_limit_type",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 9
+    },
+    "OrsShutDown": {
+      "message_id": 778,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 10
+    },
+    "OrsRestricted": {
+      "message_id": 779,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 11
+    },
+    "RfqQuoteAck": {
+      "message_id": 780,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "last_price_ticks",
+        "last_qty_lots",
+        "leaves_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "price_ticks",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 12
+    },
+    "RfqQuoteNack": {
+      "message_id": 781,
+      "body_layout": "ReportBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "account_ref",
+        "arena_len",
+        "arena_offset",
+        "client_id",
+        "client_id_len",
+        "event_mono_ns",
+        "exchange_time_ns",
+        "exec_generation",
+        "exec_ref",
+        "instrument_id",
+        "last_price_ticks",
+        "last_qty_lots",
+        "order_id",
+        "order_seqnum",
+        "order_status",
+        "orig_seqnum",
+        "ors_order_id",
+        "price_ticks",
+        "quantity_lots",
+        "reason",
+        "report_flags",
+        "report_kind",
+        "report_seq",
+        "side",
+        "strat_id",
+        "strategy_generation",
+        "venue_errno",
+        "venue_order_id",
+        "venue_order_id_len"
+      ],
+      "report_kind": 13
+    },
+    "OrderOwnership": {
+      "message_id": 782,
+      "body_layout": "OwnershipBody",
+      "unlisted_fields_must_be_zero": true,
+      "allowed_fields": [
+        "logical_strategy_id",
+        "instance_id",
+        "strategy_generation",
+        "exec_generation",
+        "ors_order_id",
+        "report_seq",
+        "order_id",
+        "origin_strategy_id",
+        "origin_instance_id",
+        "origin_generation",
+        "origin_intent_seq",
+        "manager_strategy_id",
+        "manager_instance_id",
+        "manager_generation",
+        "owner_revision",
+        "parent_order_id",
+        "list_id",
+        "venue_algo_id",
+        "venue_algo_id_length",
+        "relation_kind",
+        "status",
+        "reason"
+      ]
     }
   },
-  "report_value_fields": [
-    "quantity",
-    "cumulative_qty",
-    "leaves_qty",
-    "price_ticks",
-    "last_qty",
-    "last_price_ticks",
-    "fee_units",
-    "value_0",
-    "value_1",
-    "value_2"
-  ],
   "resource_kind_constraints": {
     "MarketBank": {
       "id": 1,
@@ -7610,5 +8507,19 @@
     "timeout_effect": "discard_query_without_stopping_callbacks",
     "send": "bounded_nonblocking_same_response_retry",
     "authorization": "explicitly_approved_supporting_sdk_build_and_authenticated_current_report_session"
+  },
+  "dop_protocol": {
+    "required_feature_bit": 10,
+    "required_feature_mask": 1024,
+    "all_strats": 255,
+    "max_sessions": 32,
+    "opcodes": {
+      "DOP_LOGIN": 96,
+      "DOP_LOGOUT": 97,
+      "DOP_ECHO": 98,
+      "ORS_SESSIONS": 99,
+      "DOP_HEART_BEAT": 100
+    },
+    "ready_to_trade_rule": "ready_to_trade == 1 requires connected == 1, enabled == 1, and market_connected == 1"
   }
 }
