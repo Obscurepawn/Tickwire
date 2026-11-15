@@ -1,10 +1,250 @@
-//! Typed Binance request classification over one shared local quota owner.
+//! Typed Binance request classification, multi-source-IP command/query budget isolation, and
+//! process-wide cross-account ORS quota admission (`SharedBinanceOrsQuota`) across Spot, USD-M,
+//! COIN-M, and European Options (`#![forbid(unsafe_code)]`).
+//!
+//! Binds directly to `tickwire-venue`, `tickwire-binance`, and `tickwire-binance-private` with
+//! zero dependency on legacy `tickwire-binance-account` state, zero floating-point arithmetic,
+//! and strict separation between `ORDER`, `CANCEL`, and `QUERY` budgets.
 #![forbid(unsafe_code)]
 pub mod bootstrap;
+
+/// Stateless WebSocket trading session identity descriptors for `Endpoint::consume_command_session`.
+pub mod ws {
+    use tickwire_venue as v;
+
+    /// Domain-separated account scope bound to a WebSocket trading session.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct SessionScope {
+        pub risk_domain_id: [u8; 16],
+        pub venue: u32,
+        pub environment: v::Environment,
+        pub account: u64,
+    }
+
+    /// Immutable identity of a single-owner WebSocket trading session.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub struct SessionIdentity {
+        pub input_stream: [u8; 16],
+        pub account_stream: [u8; 16],
+        pub baseline_digest: v::Hash,
+        pub scope: SessionScope,
+        pub product: v::Product,
+        pub execution_instance: [u8; 16],
+        pub writer_epoch: u64,
+        pub connection_epoch: u64,
+        pub credential_ref_digest: v::Hash,
+    }
+}
+
+/// Stateless read-reconciliation query descriptors and permit traits for `Endpoint::consume_read`.
+pub mod reconciliation {
+    use tickwire_binance_private::{AccountScope, ClockSample};
+    pub use tickwire_venue::IntentKey;
+
+    /// Phase of an authenticated read-only REST query.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ReadOperation {
+        Connect,
+        TradePage,
+    }
+
+    /// Authenticated trade-history page query descriptor.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct TradeQuery {
+        pub intent: IntentKey,
+        pub order_id: [u8; 16],
+        /// Inclusive native trade ID. Zero starts the endpoint's available retained range.
+        pub from_id: u64,
+        pub limit: u16,
+        pub private_connection_epoch: u64,
+        pub gap_generation: u64,
+    }
+
+    /// Permit gate invoked before each trade-history connect or page request.
+    pub trait ReadPermit {
+        fn allow(
+            &mut self,
+            scope: &AccountScope,
+            query: &TradeQuery,
+            request_epoch: u64,
+            operation: ReadOperation,
+            now: &ClockSample,
+        ) -> bool;
+    }
+
+    impl<F: FnMut(&AccountScope, &TradeQuery, u64, ReadOperation, &ClockSample) -> bool> ReadPermit
+        for F
+    {
+        fn allow(
+            &mut self,
+            s: &AccountScope,
+            q: &TradeQuery,
+            e: u64,
+            o: ReadOperation,
+            n: &ClockSample,
+        ) -> bool {
+            self(s, q, e, o, n)
+        }
+    }
+
+    /// Cold-startup and gap-recovery snapshot query descriptors.
+    pub mod bootstrap {
+        use super::{AccountScope, ClockSample, ReadOperation};
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub enum SnapshotKind {
+            Account,
+            OpenOrders,
+            ConditionalOrders,
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct SnapshotQuery {
+            pub kind: SnapshotKind,
+            pub private_connection_epoch: u64,
+            pub gap_generation: u64,
+        }
+
+        pub trait SnapshotPermit {
+            fn allow(
+                &mut self,
+                scope: &AccountScope,
+                query: SnapshotQuery,
+                request_epoch: u64,
+                operation: ReadOperation,
+                now: &ClockSample,
+            ) -> bool;
+        }
+    }
+
+    /// Single-order REST status query descriptors.
+    pub mod orders {
+        use super::{AccountScope, ClockSample, IntentKey, ReadOperation};
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct OrderQuery {
+            pub intent: IntentKey,
+            pub order_id: [u8; 16],
+            pub private_connection_epoch: u64,
+            pub gap_generation: u64,
+        }
+
+        pub trait OrderPermit {
+            fn allow(
+                &mut self,
+                scope: &AccountScope,
+                query: &OrderQuery,
+                request_epoch: u64,
+                operation: ReadOperation,
+                now: &ClockSample,
+            ) -> bool;
+        }
+    }
+
+    /// Parent order-list / conditional structure query descriptors.
+    pub mod structures {
+        use super::{AccountScope, ClockSample, IntentKey, ReadOperation};
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct StructureQuery {
+            pub intent: IntentKey,
+            pub structure_id: [u8; 16],
+            pub private_connection_epoch: u64,
+            pub gap_generation: u64,
+        }
+
+        pub trait StructurePermit {
+            fn allow(
+                &mut self,
+                scope: &AccountScope,
+                query: &StructureQuery,
+                request_epoch: u64,
+                operation: ReadOperation,
+                now: &ClockSample,
+            ) -> bool;
+        }
+    }
+
+    /// Spot execution amendment / keep-priority history query descriptors.
+    pub mod amendments {
+        use super::{AccountScope, ClockSample, IntentKey, ReadOperation};
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct AmendmentQuery {
+            pub intent: IntentKey,
+            pub order_id: [u8; 16],
+            pub from_execution_id: u64,
+            pub limit: u16,
+            pub private_connection_epoch: u64,
+            pub gap_generation: u64,
+        }
+
+        pub trait AmendmentPermit {
+            fn allow(
+                &mut self,
+                scope: &AccountScope,
+                query: &AmendmentQuery,
+                request_epoch: u64,
+                operation: ReadOperation,
+                now: &ClockSample,
+            ) -> bool;
+        }
+    }
+
+    /// USD-M bounded income-history query descriptors.
+    pub mod income {
+        use super::{AccountScope, ClockSample, ReadOperation};
+
+        pub const MAX_INCOME_ROWS: usize = 16;
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub enum IncomeUse {
+            BaselineCoverage,
+            Account,
+        }
+
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        pub struct IncomeQuery {
+            pub start_time_ms: u64,
+            pub end_time_ms: u64,
+            pub limit: u16,
+            pub private_connection_epoch: u64,
+            pub gap_generation: u64,
+            pub purpose: IncomeUse,
+        }
+
+        impl IncomeQuery {
+            pub fn validate(self) -> crate::Result<()> {
+                if self.start_time_ms > self.end_time_ms
+                    || self.end_time_ms > i64::MAX as u64
+                    || self.limit == 0
+                    || usize::from(self.limit) > MAX_INCOME_ROWS
+                    || self.private_connection_epoch == 0
+                    || self.gap_generation == 0
+                {
+                    return Err(crate::Error::Identity);
+                }
+                Ok(())
+            }
+        }
+
+        pub trait IncomePermit {
+            fn allow(
+                &mut self,
+                scope: &AccountScope,
+                query: &IncomeQuery,
+                request_epoch: u64,
+                operation: ReadOperation,
+                now: &ClockSample,
+            ) -> bool;
+        }
+    }
+}
+
+use self::reconciliation as read;
 pub use quota::{Class, Consumed, Cost};
 use sha2::{Digest, Sha256};
 pub use tickwire_binance::request::Transport;
-use tickwire_binance_account::reconciliation as read;
 use tickwire_binance_clock as time;
 use tickwire_binance_private as private;
 use tickwire_binance_public as public;
@@ -205,7 +445,7 @@ impl Endpoint {
     pub fn consume_command_session(
         &mut self,
         binding: &CommandBinding,
-        session: &tickwire_binance_account::ws::SessionIdentity,
+        session: &ws::SessionIdentity,
         operation: u64,
         action: CommandSessionAction,
         now: MonoTime,
@@ -1653,5 +1893,570 @@ impl MultiIpCommandQuota {
             .find(|id| id.interval_s == interval_s)
             .ok_or(MultiIpQuotaError::Invalid)?;
         self.reconcile_rate_limit_header(win_id, reported_used, now_ns)
+    }
+}
+
+pub use tickwire_quota::rate_limiter::{MAX_SPENDS_PER_CALL, RateRule};
+pub use tickwire_quota::shared::{
+    AccountRateOverrides, ExchRateLimitEvent, ExchRateLimitLevel, IpBudgetSpec, OrsAccountQuota,
+    OrsVenueProfile, RouteAdmissionReject, SharedRateLimiter, SharedSpend, SharedWindowHandle,
+    VenueRateLimitRow, route_ip_key,
+};
+
+/// Binance execution market line inside a unified multi-product ORS (`1 ORS process = 1 Venue`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[repr(u8)]
+pub enum BinanceMarket {
+    Spot = 1,
+    Usdm = 2,
+    Coinm = 3,
+    Options = 4,
+}
+
+impl BinanceMarket {
+    pub const ALL: [Self; 4] = [Self::Spot, Self::Usdm, Self::Coinm, Self::Options];
+
+    #[inline]
+    pub const fn code(self) -> u64 {
+        self as u64
+    }
+
+    #[inline]
+    pub const fn profile(self) -> OrsVenueProfile {
+        match self {
+            Self::Spot => OrsVenueProfile::BinanceSpot,
+            Self::Usdm => OrsVenueProfile::BinanceUsdm,
+            Self::Coinm => OrsVenueProfile::BinanceCoinm,
+            Self::Options => OrsVenueProfile::BinanceOptions,
+        }
+    }
+
+    #[inline]
+    pub const fn from_product(product: venue::Product) -> Self {
+        match product {
+            venue::Product::Spot => Self::Spot,
+            venue::Product::LinearPerpetual
+            | venue::Product::LinearFuture
+            | venue::Product::UsdM => Self::Usdm,
+            venue::Product::InversePerpetual
+            | venue::Product::InverseFuture
+            | venue::Product::CoinM => Self::Coinm,
+            venue::Product::Option => Self::Options,
+        }
+    }
+
+    /// Returns the `OrderRoute.product_mask` bitmask served by this Binance market line.
+    #[inline]
+    pub const fn product_mask(self) -> u16 {
+        match self {
+            Self::Spot => venue::Product::Spot.mask_bit(),
+            Self::Usdm => {
+                venue::Product::LinearPerpetual.mask_bit()
+                    | venue::Product::LinearFuture.mask_bit()
+                    | venue::Product::UsdM.mask_bit()
+            }
+            Self::Coinm => {
+                venue::Product::InversePerpetual.mask_bit()
+                    | venue::Product::InverseFuture.mask_bit()
+                    | venue::Product::CoinM.mask_bit()
+            }
+            Self::Options => venue::Product::Option.mask_bit(),
+        }
+    }
+
+    /// Returns the shared cross-account IP weight [`RateLimitId`] (`account = 0`) for `(self, local_ip)`.
+    #[inline]
+    pub const fn ip_window_id(self, local_ip: IpKey) -> RateLimitId {
+        let (interval_s, _, flags) = self.profile().defaults().shared_ip_budget;
+        RateLimitId {
+            local_ip,
+            interval_s,
+            account: 0,
+            flags: RateFlags::PER_IP.union(flags),
+            symbol: self.code(),
+        }
+    }
+
+    /// Returns the primary account `ORDER` [`RateLimitId`] for `(account_ref, self)`.
+    #[inline]
+    pub const fn primary_order_window_id(self, account_ref: u8) -> Option<RateLimitId> {
+        match self.profile().defaults().account_order_primary {
+            Some((interval_s, _, flags)) if account_ref != 0 => {
+                Some(RateRule::product(account_ref as u64, interval_s, flags, 1, self.code()).id)
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns the secondary account `ORDER` [`RateLimitId`] for `(account_ref, self)`, if any.
+    #[inline]
+    pub const fn secondary_order_window_id(self, account_ref: u8) -> Option<RateLimitId> {
+        match self.profile().defaults().account_order_secondary {
+            Some((interval_s, _, flags)) if account_ref != 0 => {
+                Some(RateRule::product(account_ref as u64, interval_s, flags, 1, self.code()).id)
+            }
+            _ => None,
+        }
+    }
+}
+
+/// Classifies a [`CommandAction`] across all four Binance market lines (`Spot`, `Usdm`, `Coinm`, `Options`)
+/// into isolated `ORDER`, `MODIFY`, `CANCEL`, or `QUERY` budgets.
+pub fn classify_market_command_action(
+    market: BinanceMarket,
+    transport: Transport,
+    action: CommandAction,
+) -> core::result::Result<ActionBudgetClass, MultiIpQuotaError> {
+    match market {
+        BinanceMarket::Spot => classify_command_action(Source::SpotProduction, transport, action),
+        BinanceMarket::Usdm => classify_command_action(Source::UsdmProduction, transport, action),
+        BinanceMarket::Coinm => {
+            let new_ip_weight = match transport {
+                Transport::Rest => 1,
+                Transport::WebSocket => 0,
+            };
+            match action {
+                CommandAction::New | CommandAction::Algo => Ok(ActionBudgetClass::Order {
+                    order_units: 1,
+                    ip_weight: new_ip_weight,
+                }),
+                CommandAction::Modify => Ok(ActionBudgetClass::Modify {
+                    counts_as_order: true,
+                    ip_weight: 1,
+                }),
+                CommandAction::Cancel | CommandAction::CancelAlgo => {
+                    Ok(ActionBudgetClass::Cancel { ip_weight: 1 })
+                }
+                CommandAction::Query => Ok(ActionBudgetClass::Query { ip_weight: 1 }),
+                CommandAction::CancelReplace
+                | CommandAction::AdvancedCancelReplace
+                | CommandAction::PeggedNew
+                | CommandAction::Sor
+                | CommandAction::SpotList { .. }
+                | CommandAction::CancelList
+                | CommandAction::Amend => Err(MultiIpQuotaError::UnsupportedAction),
+            }
+        }
+        BinanceMarket::Options => {
+            let new_ip_weight = match transport {
+                Transport::Rest => 1,
+                Transport::WebSocket => 0,
+            };
+            match action {
+                CommandAction::New => Ok(ActionBudgetClass::Order {
+                    order_units: 1,
+                    ip_weight: new_ip_weight,
+                }),
+                CommandAction::Modify => Ok(ActionBudgetClass::Modify {
+                    counts_as_order: true,
+                    ip_weight: 1,
+                }),
+                CommandAction::Cancel => Ok(ActionBudgetClass::Cancel { ip_weight: 1 }),
+                CommandAction::Query => Ok(ActionBudgetClass::Query { ip_weight: 1 }),
+                CommandAction::Algo
+                | CommandAction::CancelAlgo
+                | CommandAction::CancelReplace
+                | CommandAction::AdvancedCancelReplace
+                | CommandAction::PeggedNew
+                | CommandAction::Sor
+                | CommandAction::SpotList { .. }
+                | CommandAction::CancelList
+                | CommandAction::Amend => Err(MultiIpQuotaError::UnsupportedAction),
+            }
+        }
+    }
+}
+
+/// Classifies a reconciliation/query [`ReadAction`] across all four Binance market lines.
+pub fn classify_market_read_action(
+    market: BinanceMarket,
+    action: ReadAction,
+) -> core::result::Result<ActionBudgetClass, MultiIpQuotaError> {
+    match market {
+        BinanceMarket::Spot => classify_read_action(Source::SpotProduction, action),
+        BinanceMarket::Usdm => classify_read_action(Source::UsdmProduction, action),
+        BinanceMarket::Coinm | BinanceMarket::Options => {
+            let ip_weight = match action {
+                ReadAction::Connect => 1,
+                ReadAction::TradePage => 5,
+                ReadAction::AccountSnapshot => 5,
+                ReadAction::OpenOrders => 40,
+                ReadAction::ConditionalOrders => 40,
+                ReadAction::OrderQuery => 1,
+                ReadAction::Income => 30,
+                ReadAction::StructureQuery => 1,
+                ReadAction::AmendmentHistory => return Err(MultiIpQuotaError::UnsupportedAction),
+            };
+            Ok(ActionBudgetClass::Query { ip_weight })
+        }
+    }
+}
+
+/// Pre-installed `(account_ref, market)` `ORDER` window handles inside [`SharedBinanceOrsQuota`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct BinanceAccountMarketHandles {
+    pub market: BinanceMarket,
+    pub account_ref: u8,
+    pub order_primary: SharedWindowHandle,
+    pub order_secondary: Option<SharedWindowHandle>,
+}
+
+/// Process-wide multi-account, multi-market Binance ORS quota facade over [`SharedRateLimiter`].
+///
+/// Shares per-IP request-weight windows (`account = 0`, `ips = [{ ip, ip_weight_min }]`) across
+/// all `AccountSession`s (`account_ref = 1..=255`) bound to the same `local_ip`, isolates per-account
+/// per-market `ORDER` caps across Spot (`100/10s`, `200,000/86,400s`), USD-M (`300/10s`, `1,200/60s`),
+/// COIN-M (`1,200/60s`), and Options (`100/10s`, `1,200/60s`), enforces single-pick NACK admission
+/// (`pick -> spend(route.local_ip) -> NACK immediately`), and emits rising-edge [`ExchRateLimitEvent`]s
+/// at `exch_warn_pct` (`80%`) and `100%` ceiling.
+#[derive(Clone, Debug)]
+pub struct SharedBinanceOrsQuota {
+    limiter: std::sync::Arc<SharedRateLimiter>,
+}
+
+impl Default for SharedBinanceOrsQuota {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SharedBinanceOrsQuota {
+    /// Creates a new [`SharedBinanceOrsQuota`] with default `4,096` slots and `80%` warn threshold.
+    pub fn new() -> Self {
+        Self {
+            limiter: std::sync::Arc::new(SharedRateLimiter::new()),
+        }
+    }
+
+    /// Wraps an existing process-wide [`SharedRateLimiter`].
+    pub fn from_limiter(limiter: std::sync::Arc<SharedRateLimiter>) -> Self {
+        Self { limiter }
+    }
+
+    /// Creates a [`SharedBinanceOrsQuota`] with explicit `table_slots` and `exch_warn_pct`.
+    pub fn with_config(
+        table_slots: usize,
+        exch_warn_pct: u8,
+    ) -> core::result::Result<Self, RateReject> {
+        Ok(Self {
+            limiter: std::sync::Arc::new(SharedRateLimiter::with_config(
+                table_slots,
+                exch_warn_pct,
+            )?),
+        })
+    }
+
+    #[inline]
+    pub fn limiter(&self) -> &SharedRateLimiter {
+        &self.limiter
+    }
+
+    #[inline]
+    pub fn limiter_arc(&self) -> &std::sync::Arc<SharedRateLimiter> {
+        &self.limiter
+    }
+
+    /// Installs `ORS.RATE_LIMITER.ips = [{ ip, ip_weight_min }]` for `market`.
+    ///
+    /// Every `AccountSession` bound to `ip` shares the installed `(ip, market)` weight window.
+    pub fn install_ip_budgets(
+        &self,
+        market: BinanceMarket,
+        ips: &[IpBudgetSpec],
+    ) -> core::result::Result<(), RateReject> {
+        let (_, default_limit, _) = market.profile().defaults().shared_ip_budget;
+        for entry in ips {
+            let ip_key = IpKey::from_ip(entry.ip);
+            if ip_key.is_none() {
+                return Err(RateReject::Invalid);
+            }
+            let limit = if entry.ip_weight_min == 0 {
+                default_limit
+            } else {
+                entry.ip_weight_min
+            };
+            self.limiter.add(RateRule {
+                id: market.ip_window_id(ip_key),
+                limit,
+            })?;
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn resolve_ip_window(
+        &self,
+        market: BinanceMarket,
+        local_ip: IpKey,
+    ) -> core::result::Result<SharedWindowHandle, RateReject> {
+        if local_ip.is_none() {
+            return Err(RateReject::Invalid);
+        }
+        let (_, default_limit, _) = market.profile().defaults().shared_ip_budget;
+        self.limiter.add(RateRule {
+            id: market.ip_window_id(local_ip),
+            limit: default_limit,
+        })
+    }
+
+    /// Pre-registers `(account_ref, market)` `ORDER` windows with optional `ACCOUNT_MANAGER` cap overrides.
+    pub fn register_account(
+        &self,
+        market: BinanceMarket,
+        account_ref: u8,
+        overrides: AccountRateOverrides,
+    ) -> core::result::Result<BinanceAccountMarketHandles, RateReject> {
+        if account_ref == 0 {
+            return Err(RateReject::Invalid);
+        }
+        let defaults = market.profile().defaults();
+        let (p_int, p_def, p_flags) = defaults.account_order_primary.ok_or(RateReject::Invalid)?;
+        let p_cap = overrides.primary_order_limit.unwrap_or(p_def);
+        let order_primary = self.limiter.add(RateRule::product(
+            u64::from(account_ref),
+            p_int,
+            p_flags,
+            p_cap,
+            market.code(),
+        ))?;
+
+        let order_secondary = match defaults.account_order_secondary {
+            Some((s_int, s_def, s_flags)) => {
+                let s_cap = overrides.secondary_order_limit.unwrap_or(s_def);
+                Some(self.limiter.add(RateRule::product(
+                    u64::from(account_ref),
+                    s_int,
+                    s_flags,
+                    s_cap,
+                    market.code(),
+                ))?)
+            }
+            None => None,
+        };
+
+        Ok(BinanceAccountMarketHandles {
+            market,
+            account_ref,
+            order_primary,
+            order_secondary,
+        })
+    }
+
+    fn build_command_spends(
+        &self,
+        market: BinanceMarket,
+        account_ref: u8,
+        local_ip: IpKey,
+        transport: Transport,
+        action: CommandAction,
+        out: &mut [SharedSpend; MAX_SPENDS_PER_CALL],
+    ) -> core::result::Result<usize, MultiIpQuotaError> {
+        if account_ref == 0 || local_ip.is_none() {
+            return Err(MultiIpQuotaError::Identity);
+        }
+        let budget = classify_market_command_action(market, transport, action)?;
+        let defaults = market.profile().defaults();
+        let mut len = 0usize;
+
+        let (order_units, ip_weight) = match budget {
+            ActionBudgetClass::Order {
+                order_units,
+                ip_weight,
+            } => (order_units, ip_weight),
+            ActionBudgetClass::Modify {
+                counts_as_order,
+                ip_weight,
+            } => (u32::from(counts_as_order), ip_weight),
+            ActionBudgetClass::Cancel { ip_weight } | ActionBudgetClass::Query { ip_weight } => {
+                (0, ip_weight)
+            }
+        };
+
+        if order_units > 0 {
+            if let Some((p_int, p_def, p_flags)) = defaults.account_order_primary {
+                out[len] = SharedSpend::rule(
+                    RateRule::product(u64::from(account_ref), p_int, p_flags, p_def, market.code()),
+                    order_units,
+                );
+                len += 1;
+            }
+            if let Some((s_int, s_def, s_flags)) = defaults.account_order_secondary {
+                out[len] = SharedSpend::rule(
+                    RateRule::product(u64::from(account_ref), s_int, s_flags, s_def, market.code()),
+                    order_units,
+                );
+                len += 1;
+            }
+        } else {
+            // Even when order_units == 0 (Cancel/Query/Spot Amend), verify account ban/cooldown!
+            if let Some((p_int, p_def, p_flags)) = defaults.account_order_primary {
+                out[len] = SharedSpend::rule(
+                    RateRule::product(u64::from(account_ref), p_int, p_flags, p_def, market.code()),
+                    0,
+                );
+                len += 1;
+            }
+        }
+
+        let ip_handle = self.resolve_ip_window(market, local_ip)?;
+        out[len] = SharedSpend::handle(ip_handle, ip_weight);
+        len += 1;
+        Ok(len)
+    }
+
+    /// Spends `(account_ref, market)` and shared `(local_ip, market)` budgets for an outbound command.
+    pub fn spend_command_for_ip(
+        &self,
+        market: BinanceMarket,
+        account_ref: u8,
+        local_ip: IpKey,
+        transport: Transport,
+        action: CommandAction,
+        now_ns: u64,
+    ) -> core::result::Result<RatePermit, MultiIpQuotaError> {
+        let mut buf = [SharedSpend::rule(RateRule::account(1, 1, RateFlags::REQUEST, 1), 0);
+            MAX_SPENDS_PER_CALL];
+        let len =
+            self.build_command_spends(market, account_ref, local_ip, transport, action, &mut buf)?;
+        self.limiter.allow(&buf[..len], now_ns).map_err(Into::into)
+    }
+
+    /// Enforces `pick connection -> spend(conn.local_ip) -> on limit exceeded return NACK immediately`
+    /// (`pick_once` is invoked at most once; never retries another connection on rate-limit hit).
+    pub fn pick_route_and_spend_command_or_nack<FPick>(
+        &self,
+        market: BinanceMarket,
+        account_ref: u8,
+        transport: Transport,
+        action: CommandAction,
+        pick_once: FPick,
+        now_ns: u64,
+    ) -> core::result::Result<(venue::OrderRoute, RatePermit), RouteAdmissionReject>
+    where
+        FPick: FnOnce() -> Option<venue::OrderRoute>,
+    {
+        self.limiter.pick_and_spend_or_nack(
+            pick_once,
+            |route, buf| {
+                let local_ip = route_ip_key(route)?;
+                self.build_command_spends(market, account_ref, local_ip, transport, action, buf)
+                    .map_err(|err| match err {
+                        MultiIpQuotaError::Rate(r) => RouteAdmissionReject::RateLimitedNack(r),
+                        MultiIpQuotaError::AccountBanned => {
+                            RouteAdmissionReject::RateLimitedNack(RateReject::Frozen {
+                                account: u64::from(account_ref),
+                            })
+                        }
+                        _ => RouteAdmissionReject::RateLimitedNack(RateReject::Invalid),
+                    })
+            },
+            now_ns,
+        )
+    }
+
+    /// Spends pure IP request weight for `AsyncRestQuerier` / `QueryDesk` background queries on `local_ip`
+    /// (verifying `account_ref` is not frozen while never touching `ORDER` windows).
+    pub fn spend_query_for_ip(
+        &self,
+        market: BinanceMarket,
+        account_ref: u8,
+        local_ip: IpKey,
+        action: ReadAction,
+        now_ns: u64,
+    ) -> core::result::Result<RatePermit, MultiIpQuotaError> {
+        if account_ref == 0 || local_ip.is_none() {
+            return Err(MultiIpQuotaError::Identity);
+        }
+        self.limiter.check_account(u64::from(account_ref), now_ns)?;
+        let ActionBudgetClass::Query { ip_weight } = classify_market_read_action(market, action)?
+        else {
+            return Err(MultiIpQuotaError::Invalid);
+        };
+        let ip_handle = self.resolve_ip_window(market, local_ip)?;
+        let spends = [SharedSpend::handle(ip_handle, ip_weight)];
+        self.limiter.allow(&spends, now_ns).map_err(Into::into)
+    }
+
+    /// Applies HTTP/WebSocket status feedback (`429` -> per-IP cooldown across all accounts on `local_ip`;
+    /// `418` -> freezes `account_ref` across all IPs).
+    pub fn observe_http_status(
+        &self,
+        account_ref: u8,
+        local_ip: IpKey,
+        status: u16,
+        retry_until_ns: u64,
+    ) -> core::result::Result<(), MultiIpQuotaError> {
+        match status {
+            429 => self
+                .limiter
+                .note_ip_cooldown(local_ip, retry_until_ns)
+                .map_err(Into::into),
+            418 => {
+                if account_ref == 0 {
+                    return Err(MultiIpQuotaError::Identity);
+                }
+                let acct = u64::from(account_ref);
+                self.limiter.note_account_cooldown(acct, retry_until_ns)?;
+                self.limiter.freeze_account(acct).map_err(Into::into)
+            }
+            _ => Ok(()),
+        }
+    }
+
+    /// Reconciles an arbitrary venue `rateLimits[]` row into a rising-edge [`ExchRateLimitEvent`].
+    pub fn reconcile_venue_usage(
+        &self,
+        id: RateLimitId,
+        reported_count: u64,
+        reported_limit: u64,
+        now_ns: u64,
+    ) -> core::result::Result<Option<ExchRateLimitEvent>, RateReject> {
+        self.limiter
+            .reconcile_venue_usage(id, reported_count, reported_limit, now_ns)
+    }
+
+    /// Reconciles an exchange-reported `REQUEST_WEIGHT` row on `(market, local_ip)`.
+    pub fn reconcile_ip_weight(
+        &self,
+        market: BinanceMarket,
+        local_ip: IpKey,
+        reported_count: u64,
+        reported_limit: u64,
+        now_ns: u64,
+    ) -> core::result::Result<Option<ExchRateLimitEvent>, RateReject> {
+        if local_ip.is_none() {
+            return Err(RateReject::Invalid);
+        }
+        self.limiter.reconcile_venue_usage(
+            market.ip_window_id(local_ip),
+            reported_count,
+            reported_limit,
+            now_ns,
+        )
+    }
+
+    /// Reconciles an exchange-reported `ORDERS` row for `(market, account_ref, interval_s)`.
+    pub fn reconcile_order_count(
+        &self,
+        market: BinanceMarket,
+        account_ref: u8,
+        interval_s: u32,
+        reported_count: u64,
+        reported_limit: u64,
+        now_ns: u64,
+    ) -> core::result::Result<Option<ExchRateLimitEvent>, RateReject> {
+        if account_ref == 0 {
+            return Err(RateReject::Invalid);
+        }
+        let id = [
+            market.primary_order_window_id(account_ref),
+            market.secondary_order_window_id(account_ref),
+        ]
+        .into_iter()
+        .flatten()
+        .find(|candidate| candidate.interval_s == interval_s)
+        .ok_or(RateReject::Invalid)?;
+        self.limiter
+            .reconcile_venue_usage(id, reported_count, reported_limit, now_ns)
     }
 }

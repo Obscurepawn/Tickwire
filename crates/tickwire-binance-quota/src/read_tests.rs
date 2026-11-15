@@ -101,7 +101,7 @@ fn fixture() -> (Endpoint, ReadBinding, WindowKey) {
 fn read_attempts_dedupe_per_connection_and_bind_the_complete_query() {
     let (mut endpoint, b, key) = fixture();
     let query = read::TradeQuery {
-        intent: tickwire_account::IntentKey {
+        intent: read::IntentKey {
             epoch: 1,
             intent_id: 1,
         },
@@ -192,7 +192,7 @@ fn order_reader_uses_its_own_attempt_namespace() {
     use read::orders::{OrderPermit as _, OrderQuery};
     let (mut endpoint, b, key) = fixture();
     let query = OrderQuery {
-        intent: tickwire_account::IntentKey {
+        intent: read::IntentKey {
             epoch: 1,
             intent_id: 1,
         },
@@ -234,7 +234,7 @@ fn parent_reader_uses_exact_structure_identity_and_an_independent_attempt_namesp
     use read::structures::{StructurePermit as _, StructureQuery};
     let (mut endpoint, b, key) = fixture();
     let query = StructureQuery {
-        intent: tickwire_account::IntentKey {
+        intent: read::IntentKey {
             epoch: 1,
             intent_id: 1,
         },

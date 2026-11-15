@@ -13,3 +13,7 @@ crc32 = ["tickwire-ipc/crc32"]
 [dependencies]
 libc = "0.2"
 tickwire-ipc = { path = "../tickwire-ipc" }
+
+[[test]]
+name = "ors_signal_main"
+harness = false

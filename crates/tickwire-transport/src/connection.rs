@@ -5,33 +5,54 @@ use std::{
     io::{Read, Write},
     net::{IpAddr, Shutdown, SocketAddr},
 };
+
 const HARD_LIMIT: usize = 16 * 1024 * 1024;
+
 struct SendSlot {
     prepared: PreparedSend,
     report: SendReport,
 }
+
 pub struct Connection {
     socket: Option<TcpStream>,
     tls: Option<rustls::ClientConnection>,
     connected: bool,
+    retired: bool,
     peer_addr: SocketAddr,
     local_ip: Option<IpAddr>,
+    nic: Option<String>,
     limits: Limits,
     connect_deadline: Instant,
     rx: VecDeque<u8>,
     send: Option<SendSlot>,
     next_id: u64,
 }
+
 impl std::fmt::Debug for Connection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Connection")
             .field("peer_addr", &self.peer_addr)
             .field("local_ip", &self.local_ip)
+            .field("nic", &self.nic)
             .field("connected", &self.connected)
+            .field("retired", &self.retired)
             .field("ready", &self.is_ready())
             .finish_non_exhaustive()
     }
 }
+
+fn map_control_err(err: tickwire_control_sys::Error) -> Error {
+    match err {
+        tickwire_control_sys::Error::InvalidResources => Error::Bounds,
+        tickwire_control_sys::Error::System { source, .. } => Error::Io(source),
+        tickwire_control_sys::Error::UnsupportedPlatform => Error::Io(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "socket bind requires supported linux target",
+        )),
+        other => Error::Io(io::Error::other(other.to_string())),
+    }
+}
+
 impl Connection {
     pub fn connect(
         address: SocketAddr,
@@ -39,11 +60,25 @@ impl Connection {
         limits: Limits,
         deadline: Instant,
     ) -> Result<Self> {
-        Self::connect_from(address, None, security, limits, deadline)
+        Self::connect_from_with_nic(address, None, None, security, limits, deadline)
     }
+
     pub fn connect_from(
         address: SocketAddr,
         local_ip: Option<IpAddr>,
+        security: Security,
+        limits: Limits,
+        deadline: Instant,
+    ) -> Result<Self> {
+        Self::connect_from_with_nic(address, local_ip, None, security, limits, deadline)
+    }
+
+    /// Initiates a nonblocking TCP/TLS connection, optionally binding to `nic` (`SO_BINDTODEVICE`,
+    /// taking precedence over `local_ip` when both are provided) or `local_ip` (`bind(ip:0)`).
+    pub fn connect_from_with_nic(
+        address: SocketAddr,
+        local_ip: Option<IpAddr>,
+        nic: Option<&str>,
         security: Security,
         limits: Limits,
         deadline: Instant,
@@ -59,7 +94,8 @@ impl Connection {
         {
             return Err(Error::Bounds);
         }
-        if let Some(ip) = local_ip
+        if nic.is_none()
+            && let Some(ip) = local_ip
             && ip.is_ipv4() != address.is_ipv4()
         {
             return Err(Error::Bounds);
@@ -78,17 +114,29 @@ impl Connection {
                 Some(tls)
             }
         };
-        let socket = match local_ip {
-            None => TcpStream::connect(address)?,
-            Some(ip) => sys_tcp::connect_bound(ip, address)?,
+        let socket = match (nic, local_ip) {
+            (None, None) => {
+                let s = TcpStream::connect(address)?;
+                s.set_nodelay(true)?;
+                s
+            }
+            (nic_opt, lip_opt) => {
+                let std_stream = tickwire_control_sys::open_bound_nonblocking_tcp_stream(
+                    address, lip_opt, nic_opt,
+                )
+                .map_err(map_control_err)?;
+                TcpStream::from_std(std_stream)
+            }
         };
-        socket.set_nodelay(true)?;
+        let effective_local_ip = if nic.is_some() { None } else { local_ip };
         Ok(Self {
             socket: Some(socket),
             tls,
             connected: false,
+            retired: false,
             peer_addr: address,
-            local_ip,
+            local_ip: effective_local_ip,
+            nic: nic.map(str::to_owned),
             limits,
             connect_deadline: deadline,
             rx: VecDeque::with_capacity(limits.max_receive_bytes),
@@ -96,15 +144,36 @@ impl Connection {
             next_id: 1,
         })
     }
+
     pub fn local_ip(&self) -> Option<IpAddr> {
         self.local_ip
     }
+
+    pub fn nic(&self) -> Option<&str> {
+        self.nic.as_deref()
+    }
+
     pub fn peer_addr_target(&self) -> SocketAddr {
         self.peer_addr
     }
+
     pub fn is_tcp_connected(&self) -> bool {
-        self.socket.is_some() && self.connected
+        !self.retired && self.socket.is_some() && self.connected
     }
+
+    pub fn is_retired(&self) -> bool {
+        self.retired
+    }
+
+    pub fn retire(&mut self) {
+        self.retire_with_failure(Failure::Cancelled);
+    }
+
+    fn retire_with_failure(&mut self, why: Failure) {
+        self.retired = true;
+        self.fail(why);
+    }
+
     fn interest(&self) -> Interest {
         if !self.connected
             || self.tls.as_ref().is_some_and(|t| t.wants_write())
@@ -117,22 +186,26 @@ impl Connection {
             Interest::READABLE
         }
     }
+
     pub fn register(&mut self, registry: &Registry, token: Token) -> Result<()> {
         let interest = self.interest();
         registry.register(self.socket.as_mut().ok_or(Error::Closed)?, token, interest)?;
         Ok(())
     }
+
     pub fn reregister(&mut self, registry: &Registry, token: Token) -> Result<()> {
         let interest = self.interest();
         registry.reregister(self.socket.as_mut().ok_or(Error::Closed)?, token, interest)?;
         Ok(())
     }
+
     pub fn deregister(&mut self, registry: &Registry) -> Result<()> {
         registry.deregister(self.socket.as_mut().ok_or(Error::Closed)?)?;
         Ok(())
     }
+
     pub fn queue(&mut self, prepared: PreparedSend) -> Result<u64> {
-        if self.socket.is_none() {
+        if self.retired || self.socket.is_none() {
             return Err(Error::Closed);
         }
         if self.send.is_some() {
@@ -155,14 +228,94 @@ impl Connection {
         });
         Ok(id)
     }
+
+    /// Writes one complete wire frame without heap allocation on the hot `REQ` path.
+    ///
+    /// If a TCP partial write (`0 < n < frame.len()`), EOF, or TLS partial/short write (`write_tls`
+    /// hitting `WouldBlock`, EOF, or I/O error while `tls.wants_write()` remains `true`) occurs,
+    /// the connection immediately retires itself (`is_retired() == true`) and shuts down the
+    /// underlying socket so truncated frames or desynchronized TLS records never escape.
+    pub fn send_frame_nonblocking(&mut self, frame: &[u8]) -> Result<()> {
+        if self.retired || self.socket.is_none() {
+            return Err(Error::Closed);
+        }
+        if !self.is_ready() || self.send.is_some() {
+            return Err(Error::Busy);
+        }
+        if frame.is_empty() || frame.len() > self.limits.max_send_bytes {
+            return Err(Error::Bounds);
+        }
+
+        if let Some(tls) = self.tls.as_mut() {
+            if tls.wants_write() {
+                return Err(Error::Busy);
+            }
+            match tls.writer().write(frame) {
+                Ok(n) if n == frame.len() => {}
+                Ok(0) => return Err(Error::Bounds),
+                Ok(_) | Err(_) => {
+                    self.retire_with_failure(Failure::Tls);
+                    return Err(Error::Closed);
+                }
+            }
+            let socket = self.socket.as_mut().unwrap();
+            while tls.wants_write() {
+                match tls.write_tls(socket) {
+                    Ok(0) => {
+                        self.retire_with_failure(Failure::Disconnected);
+                        return Err(Error::Closed);
+                    }
+                    Ok(_) => {}
+                    Err(e) if e.kind() == io::ErrorKind::Interrupted => continue,
+                    Err(_) => {
+                        self.retire_with_failure(Failure::Io);
+                        return Err(Error::Closed);
+                    }
+                }
+            }
+            Ok(())
+        } else {
+            match self.socket.as_mut().unwrap().write(frame) {
+                Ok(n) if n == frame.len() => Ok(()),
+                Ok(0) => {
+                    self.retire_with_failure(Failure::Disconnected);
+                    Err(Error::Closed)
+                }
+                Ok(_) => {
+                    self.retire_with_failure(Failure::Io);
+                    Err(Error::Closed)
+                }
+                Err(e)
+                    if matches!(
+                        e.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) =>
+                {
+                    Err(Error::Busy)
+                }
+                Err(e) => {
+                    self.retire_with_failure(Failure::Io);
+                    Err(Error::Io(e))
+                }
+            }
+        }
+    }
+
     pub fn is_ready(&self) -> bool {
-        self.socket.is_some()
+        !self.retired
+            && self.socket.is_some()
             && self.connected
             && self.tls.as_ref().is_none_or(|t| !t.is_handshaking())
     }
+
+    pub fn rx_len(&self) -> usize {
+        self.rx.len()
+    }
+
     pub fn send_report(&self) -> Option<SendReport> {
         self.send.as_ref().map(|s| s.report)
     }
+
     pub fn take_finished(&mut self) -> Option<SendReport> {
         if self.send.as_ref().is_some_and(|s| {
             matches!(
@@ -175,6 +328,7 @@ impl Connection {
             None
         }
     }
+
     fn reject(&mut self, why: Failure) {
         if let Some(s) = self.send.as_mut()
             && matches!(s.report.state, SendState::Queued | SendState::MayHaveSent)
@@ -186,6 +340,7 @@ impl Connection {
             };
         }
     }
+
     fn fail(&mut self, why: Failure) {
         self.reject(why);
         if let Some(s) = self.socket.take() {
@@ -193,6 +348,7 @@ impl Connection {
         }
         self.tls = None;
     }
+
     fn expire(&mut self, now: Instant) {
         if self.send.as_ref().is_some_and(|s| {
             now >= s.prepared.deadline
@@ -205,6 +361,7 @@ impl Connection {
             }
         }
     }
+
     pub fn cancel(&mut self) -> Result<SendReport> {
         let accepted = self
             .send
@@ -219,6 +376,7 @@ impl Connection {
         }
         Ok(self.send.as_ref().unwrap().report)
     }
+
     pub fn try_send(
         &mut self,
         now: Instant,
@@ -270,6 +428,7 @@ impl Connection {
         self.mark_flushed();
         Ok(self.send_report().unwrap())
     }
+
     fn mark_flushed(&mut self) {
         if self.socket.is_some()
             && self.tls.as_ref().is_none_or(|t| !t.wants_write())
@@ -280,6 +439,7 @@ impl Connection {
             s.report.state = SendState::Flushed
         }
     }
+
     pub fn read(&mut self, out: &mut [u8]) -> usize {
         let n = out.len().min(self.rx.len());
         for b in &mut out[..n] {
@@ -287,6 +447,7 @@ impl Connection {
         }
         n
     }
+
     fn drain_plaintext(&mut self, max_bytes: usize) -> Result<usize> {
         let mut n = 0;
         let Some(tls) = self.tls.as_mut() else {
@@ -310,12 +471,13 @@ impl Connection {
         }
         Ok(n)
     }
+
     pub fn drive(&mut self, now: Instant, budget: IoBudget) -> Result<DriveReport> {
         if budget.max_syscalls == 0 || budget.max_bytes == 0 {
             return Err(Error::Bounds);
         }
         self.expire(now.max(Instant::now()));
-        if self.socket.is_none() {
+        if self.retired || self.socket.is_none() {
             return Err(Error::Closed);
         }
         if !self.is_ready() && now.max(Instant::now()) >= self.connect_deadline {
@@ -448,17 +610,20 @@ impl Connection {
         Ok(report)
     }
 }
+
 fn retry(e: &io::Error) -> bool {
     matches!(
         e.kind(),
         io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
     )
 }
+
 struct BudgetIo<'a> {
     socket: &'a mut TcpStream,
     report: &'a mut DriveReport,
     budget: IoBudget,
 }
+
 impl BudgetIo<'_> {
     fn available(&self) -> io::Result<usize> {
         let n = self.budget.max_bytes - self.report.network_read - self.report.network_written;
@@ -469,6 +634,7 @@ impl BudgetIo<'_> {
         }
     }
 }
+
 impl Read for BudgetIo<'_> {
     fn read(&mut self, out: &mut [u8]) -> io::Result<usize> {
         let n = out.len().min(self.available()?);
@@ -478,6 +644,7 @@ impl Read for BudgetIo<'_> {
         Ok(n)
     }
 }
+
 impl Write for BudgetIo<'_> {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
         let n = bytes.len().min(self.available()?);
@@ -488,202 +655,5 @@ impl Write for BudgetIo<'_> {
     }
     fn flush(&mut self) -> io::Result<()> {
         Ok(())
-    }
-}
-
-#[allow(unsafe_code)]
-mod sys_tcp {
-    use mio::net::TcpStream;
-    use std::{
-        io,
-        net::{IpAddr, SocketAddr},
-    };
-
-    #[cfg(all(
-        target_os = "linux",
-        any(
-            target_arch = "x86_64",
-            target_arch = "aarch64",
-            target_arch = "x86",
-            target_arch = "riscv64"
-        )
-    ))]
-    mod imp {
-        use mio::net::TcpStream;
-        use std::{
-            ffi::{c_int, c_void},
-            io,
-            net::{IpAddr, SocketAddr},
-            os::fd::{AsRawFd, FromRawFd, OwnedFd},
-        };
-
-        const AF_INET: c_int = 2;
-        const AF_INET6: c_int = 10;
-        const SOCK_STREAM: c_int = 1;
-        const SOCK_NONBLOCK: c_int = 0o4000;
-        const SOCK_CLOEXEC: c_int = 0o2000000;
-        const EINPROGRESS: i32 = 115;
-
-        #[repr(C)]
-        struct SockAddrIn {
-            sin_family: u16,
-            sin_port: u16,
-            s_addr: u32,
-            sin_zero: [u8; 8],
-        }
-
-        #[repr(C)]
-        struct SockAddrIn6 {
-            sin6_family: u16,
-            sin6_port: u16,
-            sin6_flowinfo: u32,
-            sin6_addr: [u8; 16],
-            sin6_scope_id: u32,
-        }
-
-        unsafe extern "C" {
-            fn socket(domain: c_int, ty: c_int, protocol: c_int) -> c_int;
-            fn bind(sockfd: c_int, addr: *const c_void, addrlen: u32) -> c_int;
-            fn connect(sockfd: c_int, addr: *const c_void, addrlen: u32) -> c_int;
-        }
-
-        pub(super) fn connect_bound(local_ip: IpAddr, peer: SocketAddr) -> io::Result<TcpStream> {
-            let domain = match local_ip {
-                IpAddr::V4(_) => AF_INET,
-                IpAddr::V6(_) => AF_INET6,
-            };
-            let ty = SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC;
-            // SAFETY: `socket` takes integer flags only and returns either `-1` or a fresh owned fd.
-            let raw = unsafe { socket(domain, ty, 0) };
-            if raw < 0 {
-                return Err(io::Error::last_os_error());
-            }
-            // SAFETY: `raw >= 0` is a newly created descriptor owned exclusively by this call.
-            let fd = unsafe { OwnedFd::from_raw_fd(raw) };
-
-            raw_bind(&fd, SocketAddr::new(local_ip, 0))?;
-            raw_connect(&fd, peer)?;
-
-            let std_stream = std::net::TcpStream::from(fd);
-            Ok(TcpStream::from_std(std_stream))
-        }
-
-        fn raw_bind(fd: &OwnedFd, addr: SocketAddr) -> io::Result<()> {
-            let res = match addr {
-                SocketAddr::V4(v4) => {
-                    let sin = SockAddrIn {
-                        sin_family: AF_INET as u16,
-                        sin_port: v4.port().to_be(),
-                        s_addr: u32::from_ne_bytes(v4.ip().octets()),
-                        sin_zero: [0; 8],
-                    };
-                    // SAFETY: `sin` matches Linux `struct sockaddr_in` ABI, is fully initialized, and outlives `bind`.
-                    unsafe {
-                        bind(
-                            fd.as_raw_fd(),
-                            (&raw const sin).cast::<c_void>(),
-                            std::mem::size_of::<SockAddrIn>() as u32,
-                        )
-                    }
-                }
-                SocketAddr::V6(v6) => {
-                    let sin6 = SockAddrIn6 {
-                        sin6_family: AF_INET6 as u16,
-                        sin6_port: v6.port().to_be(),
-                        sin6_flowinfo: v6.flowinfo(),
-                        sin6_addr: v6.ip().octets(),
-                        sin6_scope_id: v6.scope_id(),
-                    };
-                    // SAFETY: `sin6` matches Linux `struct sockaddr_in6` ABI, is fully initialized, and outlives `connect`.
-                    unsafe {
-                        bind(
-                            fd.as_raw_fd(),
-                            (&raw const sin6).cast::<c_void>(),
-                            std::mem::size_of::<SockAddrIn6>() as u32,
-                        )
-                    }
-                }
-            };
-            if res < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(())
-            }
-        }
-
-        fn raw_connect(fd: &OwnedFd, addr: SocketAddr) -> io::Result<()> {
-            let res = match addr {
-                SocketAddr::V4(v4) => {
-                    let sin = SockAddrIn {
-                        sin_family: AF_INET as u16,
-                        sin_port: v4.port().to_be(),
-                        s_addr: u32::from_ne_bytes(v4.ip().octets()),
-                        sin_zero: [0; 8],
-                    };
-                    // SAFETY: `sin` matches Linux `struct sockaddr_in` ABI, is fully initialized, and outlives `connect`.
-                    unsafe {
-                        connect(
-                            fd.as_raw_fd(),
-                            (&raw const sin).cast::<c_void>(),
-                            std::mem::size_of::<SockAddrIn>() as u32,
-                        )
-                    }
-                }
-                SocketAddr::V6(v6) => {
-                    let sin6 = SockAddrIn6 {
-                        sin6_family: AF_INET6 as u16,
-                        sin6_port: v6.port().to_be(),
-                        sin6_flowinfo: v6.flowinfo(),
-                        sin6_addr: v6.ip().octets(),
-                        sin6_scope_id: v6.scope_id(),
-                    };
-                    // SAFETY: `sin6` matches Linux `struct sockaddr_in6` ABI, is fully initialized, and outlives `connect`.
-                    unsafe {
-                        connect(
-                            fd.as_raw_fd(),
-                            (&raw const sin6).cast::<c_void>(),
-                            std::mem::size_of::<SockAddrIn6>() as u32,
-                        )
-                    }
-                }
-            };
-            if res == 0 {
-                return Ok(());
-            }
-            let err = io::Error::last_os_error();
-            if err.raw_os_error() == Some(EINPROGRESS) {
-                Ok(())
-            } else {
-                Err(err)
-            }
-        }
-    }
-
-    #[cfg(not(all(
-        target_os = "linux",
-        any(
-            target_arch = "x86_64",
-            target_arch = "aarch64",
-            target_arch = "x86",
-            target_arch = "riscv64"
-        )
-    )))]
-    mod imp {
-        use mio::net::TcpStream;
-        use std::{
-            io,
-            net::{IpAddr, SocketAddr},
-        };
-
-        pub(super) fn connect_bound(_local_ip: IpAddr, _peer: SocketAddr) -> io::Result<TcpStream> {
-            Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                "local_ip TCP bind requires supported linux target",
-            ))
-        }
-    }
-
-    pub(super) fn connect_bound(local_ip: IpAddr, peer: SocketAddr) -> io::Result<TcpStream> {
-        imp::connect_bound(local_ip, peer)
     }
 }

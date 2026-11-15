@@ -1,66 +1,61 @@
 # tickwire-transport
 
-`tickwire-transport` (`#![deny(unsafe_code)]`, `#![deny(unsafe_op_in_unsafe_fn)]` with a single audited `sys_tcp`
-local-IP socket-bind boundary in [src/connection.rs](src/connection.rs)) owns explicitly driven, nonblocking TCP (`mio`),
-TLS (`rustls` with
-early data disabled), HTTP/1.1 (`http`), WebSocket (`ws`), and FIX (`fix`) framing under bounded byte and syscall
-budgets (`Limits`, `IoBudget`), hot-path EWMA execution route selection and multi-connection pool lifecycle
-(`order_router`), together with optional off-hot-path background connection dialing (`dialer`) and
-asynchronous HTTP/1.1 REST reconciliation querying (`rest_querier`). Hot-path `REQ`/`RESP` loops drive `Connection`,
-`OrderConnectionPool`, and protocol framers on single-threaded reactors, while `Dialer` (`"tw-dialer"`) and
-`AsyncRestQuerier` (`"tw-rest-query"`) isolate DNS resolution, TCP/TLS/WS `101` handshakes, and status HTTP queries
-onto dedicated worker threads behind allocation-free handoff primitives.
+`tickwire-transport` (`#![forbid(unsafe_code)]`) owns explicitly driven nonblocking TCP (`mio`), TLS (`rustls` with
+early data disabled), HTTP/1.1 (`http`), WebSocket (`ws`), and FIX (`fix`) codecs; vtable-free multi-protocol execution
+links and `[local_ip, count]` multi-connection pools (`links`); zero-allocation single-pass JSON execution scanning
+(`json_scan`); lock-free double-buffered EWMA execution routing (`order_router`); hardware `rdtsc` stage and spinlock
+contention tracing (`latency_tracer`); offline TLS 1.3 cache warming (`warmup`); and `housekeeping_cpus`-pinned
+background connection dialing (`dialer`) and asynchronous HTTPS reconciliation querying (`rest_querier`). Socket
+device/IP binding delegates to [`tickwire-control-sys`](../tickwire-control-sys/AGENTS.md) and hardware cycle-counter
+reads delegate to [`tickwire-clock-sys`](../tickwire-clock-sys/AGENTS.md).
 
 ## Invariants and Change Guidelines
 
-* **First-application-byte gate boundary**: In [src/connection.rs](src/connection.rs), invoke the caller's gate
-  callback immediately before copying the very first application byte into `rustls::ClientConnection` or the plain
-  `TcpStream`; if the gate refuses or the deadline has already passed while `accepted_bytes == 0`, report
-  `SendState::NoBytes` and never emit application bytes.
-* **Conservative `MayHaveSent` vs. `Flushed` accounting**: Once at least one application byte enters the TLS buffer or
-  kernel socket (`accepted_bytes > 0`), transition to `SendState::MayHaveSent` and report `SendState::Flushed` only
-  after all application bytes and pending TLS ciphertexts are written to the socket; any post-first-byte failure
-  reports `SendState::Failed` while preserving `accepted_bytes`.
-* **Local source-IP binding (`connect_from`)**: Reject IPv4/IPv6 family mismatches between `address` and `local_ip`
-  with `Error::Bounds` before opening a socket, bind `SocketAddr::new(ip, 0)` on a nonblocking close-on-exec TCP
-  socket (`sys_tcp`) wrapped immediately in `OwnedFd` -> `mio::net::TcpStream`, enable `TCP_NODELAY`, and preserve
-  `local_ip()` and `peer_addr_target()`.
-* **TLS 0-RTT prohibition and bounded buffers**: Reject `ClientConfig` instances with `enable_early_data == true`
-  (`Error::Protocol("early data disabled")`), enforce `HARD_LIMIT` (16 MiB) across `Limits`, and honor `IoBudget`
-  (`max_syscalls`, `max_bytes`) on every `drive` step so one peer cannot starve the reactor.
-* **Single-hand `DialBaton` and `IpPool` discipline**: In [src/dialer.rs](src/dialer.rs), preserve disjoint ownership
-  across `DialState::{Idle, Wanted, Dialing, Ready, Stopped}` (`Stopped` is terminal), resolve DNS only on
-  `"tw-dialer"`, deregister sockets from `"tw-dialer"`'s `mio::Poll` before `deliver_ready`, and rank `IpPool` spares
-  (`in_use == 0`) by `max(avg_rtt_us, last_rtt_us)` (`1/30` integer EWMA) before busy peers.
-* **Reply-slot reservation and send-time signing**: In [src/rest_querier.rs](src/rest_querier.rs), keep producer
-  `enqueue` zero-allocation, pull tasks only while
-  `waiting.len() + usize::from(inflight.is_some()) + reply_queue.len() < capacity`, invoke `RestRequestBuilder` at
-  actual send time, and count only `accepted_bytes > 0` attempts toward `query_count`.
-* **Strict protocol framing**: Keep HTTP response/chunk parsing in [src/http.rs](src/http.rs), RFC 6455
-  masking/control-frame validation in [src/ws.rs](src/ws.rs), and FIX checksum/body-length framing in
-  [src/fix.rs](src/fix.rs) bounded against `max_receive_bytes`.
-* **Epoch-fenced integer EWMA order routing**: In [src/order_router.rs](src/order_router.rs), forbid `unsafe` and
-  floating-point arithmetic, keep `pick`, `acquire_inflight`, `release_inflight`, `note_sample`, and `on_disconnect`
-  allocation-free over fixed `MAX_ORDER_CONNECTIONS` (`16`) slots, never multiply `ema_us` by `inflight`, enforce
-  `9/8` hysteresis (`last_score * 8 <= best_score * 9`), fence stale samples/releases with monotonic `epoch` tokens,
-  and release externally owned `IpPool` peer leases at most once per installed link.
-* **Offline in-process loopback TLS 1.3 warmer (`warmup`)**: In [src/warmup.rs](src/warmup.rs) (`#![forbid(unsafe_code)]`),
-  `WarmupConfig` (`warmup_interval_ns == 0` disables warming) and `WarmupTracker` gate idle-window cache warming without
-  syscalls and compute `next_due_ns()` via `checked_add` so `can_warm(now_ns) <==> next_due_ns().is_some_and(|due| now_ns >= due)`
-  holds across the full `0..=u64::MAX` domain, while `TlsLoopbackWarmer` pairs an isolated, purely in-memory TLS 1.3
-  `rustls::ClientConnection` and `rustls::ServerConnection` over static embedded DER credentials (`const &[u8]`) and
-  `[u8; 2048]` scratch buffers; never write synthetic plaintext into any live `Connection` or `rustls::ClientConnection`
-  (which would advance live AEAD record nonces and cause `bad_record_mac` on the next real order).
+* **Zero `unsafe` & audited OS delegation**: Keep `#![forbid(unsafe_code)]` at crate root. Route `SO_BINDTODEVICE`
+  (`nic` taking precedence over `local_ip`) and nonblocking `bind` + `connect` through
+  `tickwire_control_sys::open_bound_nonblocking_tcp_stream`, CPU pinning through
+  `tickwire_control_sys::spawn_pinned_thread`, and TSC reads through `tickwire_clock_sys::rdtsc`.
+* **First-application-byte gate & partial/short-write self-retirement**: Preserve `Connection::try_send` synchronous
+  gate and `MayHaveSent` / `Flushed` invariants in [src/connection.rs](src/connection.rs). On
+  `Connection::send_frame_nonblocking` / `LockedConnection::send_frame`, any TCP partial write (`0 < n < len`), EOF, or
+  TLS `write_tls` `WouldBlock`/EOF/error while `tls.wants_write()` remains `true` immediately retires and shuts down the
+  socket, sets `close_pending`, and triggers `mio::Waker::wake()` (`eventfd`) outside the spinlock.
+* **Fine-grained spinlock purity & lock hierarchy**: In [src/links.rs](src/links.rs) and
+  [src/latency_tracer.rs](src/latency_tracer.rs), `TimedSpinLock`, `LockedConnection`, and `GuardedValue` spin strictly
+  in userspace via `try_lock()`, never overlap with any `Order` or `StpBook` spinlock, and perform **zero logging, zero
+  heap allocation, and zero protocol parsing** while held.
+* **Zero-allocation single-pass `JsonScan` / `MsgParser`**: In [src/json_scan.rs](src/json_scan.rs), scan venue frames
+  in one bounded pass without `Vec`, `String`, `Box`, `serde_json::Value`, or floating-point math, extracting synonymous
+  Binance/OKX/Bybit IDs, checked integer ticks/lots, fees, `rateLimits[]`, and error codes/messages as borrowed slices.
+* **Vtable-free `LinkOps` & multi-connection pools**: Keep `LinkOps` (`WsLink`, `HttpsLink`, `FixLink`) free of `dyn`
+  dispatch; preserve `WsLink` `16`-slot `reply_id` correlation, `loginChallenge` auth, and FIFO `early_frames` replay;
+  preserve `FixLink` `Logon`/`Heartbeat`/`TestRequest`/`ResendRequest` and `64`-slot `RefSeqNum` `Reject` hints; and
+  allow `UrlConnections` to open multi-socket WS, HTTPS, or FIX pools per `[local_ip, count]` and `product_mask` with
+  zero mutual exclusion.
+* **Integer EWMA routing & lock-free `PublishedRoutes`**: In [src/order_router.rs](src/order_router.rs), use integer
+  math only, honor `SampleMask` (`IN_BAND` default, `ALL` enabling `SampleKind::Tcping`), enforce `9/8` hysteresis
+  (`last_score * 8 <= best_score * 9`), and publish `tickwire_venue::OrderRoute` snapshots via double-buffered
+  Acquire/Release `PublishedRoutes`.
+* **`housekeeping_cpus` worker pinning**: Spawn `"tw-dialer"` ([src/dialer.rs](src/dialer.rs)), `"tw-rest-query"`
+  ([src/rest_querier.rs](src/rest_querier.rs)), and `"tw-latency-sink"`
+  ([src/latency_tracer.rs](src/latency_tracer.rs)) via `spawn_pinned_thread(..., housekeeping_cpus, ...)` **before**
+  creating `mio::Poll`, resolving DNS, performing TCP/TLS handshakes, or allocating worker buffers.
+* **Live TLS nonce preservation (`warmup`)**: Never write synthetic plaintext into a live `Connection`; keep
+  [src/warmup.rs](src/warmup.rs) isolated to its in-memory loopback TLS 1.3 pair.
 
 ## Verification and Specifications
 
 * **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/connection.rs](src/connection.rs) ·
-  [src/order_router.rs](src/order_router.rs) · [src/warmup.rs](src/warmup.rs) · [src/dialer.rs](src/dialer.rs) ·
+  [src/json_scan.rs](src/json_scan.rs) · [src/links.rs](src/links.rs) ·
+  [src/order_router.rs](src/order_router.rs) · [src/latency_tracer.rs](src/latency_tracer.rs) ·
+  [src/warmup.rs](src/warmup.rs) · [src/dialer.rs](src/dialer.rs) ·
   [src/rest_querier.rs](src/rest_querier.rs) · [src/http.rs](src/http.rs) ·
   [src/ws.rs](src/ws.rs) · [src/fix.rs](src/fix.rs)
 * **Integration tests**: [tests/framing.rs](tests/framing.rs) · [tests/network.rs](tests/network.rs) ·
   [tests/dialer_and_querier.rs](tests/dialer_and_querier.rs) ·
-  [tests/order_router_pool.rs](tests/order_router_pool.rs) · [tests/warmup.rs](tests/warmup.rs)
+  [tests/order_router_pool.rs](tests/order_router_pool.rs) · [tests/warmup.rs](tests/warmup.rs) ·
+  [tests/housekeeping_affinity.rs](tests/housekeeping_affinity.rs) ·
+  [tests/stage1_transport.rs](tests/stage1_transport.rs)
 * **Specifications and models**: [transport.md](../../specs/implementation/transport.md) ·
   [transport](../../tla/execution_models/transport/ROADMAP.md) ·
   [gateway](../../tla/execution_models/gateway/ROADMAP.md) ·
@@ -68,5 +63,6 @@ onto dedicated worker threads behind allocation-free handoff primitives.
 
 ```sh
 cargo test --locked -p tickwire-transport --all-targets
+cargo clippy --locked -p tickwire-transport --all-targets -- -D warnings
 ./scripts/check-tla.sh transport
 ```

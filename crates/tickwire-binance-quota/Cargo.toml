@@ -14,11 +14,7 @@ tickwire-clock = { path = "../tickwire-clock" }
 tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 tickwire-binance-private = { path = "../tickwire-binance-private" }
 tickwire-binance-public = { path = "../tickwire-binance-public" }
-tickwire-binance-account = { path = "../tickwire-binance-account" }
 tickwire-binance = { path = "../tickwire-binance" }
 tickwire-venue = { path = "../tickwire-venue" }
 sha2 = "=0.10.9"
 serde = { version = "=1.0.229", features = ["derive"] }
-
-[dev-dependencies]
-tickwire-account = { path = "../tickwire-account" }

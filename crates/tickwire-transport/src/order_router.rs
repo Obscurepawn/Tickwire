@@ -1,4 +1,5 @@
-//! Allocation-free integer EWMA execution order router and multi-connection pool.
+//! Allocation-free integer EWMA execution order router, lock-free double-buffered
+//! `PublishedRoutes` snapshots, and multi-connection pool.
 #![forbid(unsafe_code)]
 
 use crate::{
@@ -7,10 +8,15 @@ use crate::{
 };
 use std::{
     net::{IpAddr, SocketAddr},
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
 };
+use tickwire_venue::{OrderRoute as VenueOrderRoute, Product};
 
 pub const MAX_ORDER_CONNECTIONS: usize = 16;
+pub const MAX_PUBLISHED_ROUTES: usize = 64;
 pub const MAX_SHARED_INFLIGHT: u16 = 16;
 pub const UNMEASURED_SCORE: u32 = u32::MAX;
 
@@ -39,9 +45,45 @@ pub enum SampleKind {
 }
 
 impl SampleKind {
+    /// Returns `true` for passive in-band wire RTT samples (`Order`, `Ping`, `App`).
+    /// Active out-of-band `Tcping` probes are gated via [`SampleMask::TCPING`] / [`OrderRouter::note_tcping_sample`].
     #[inline]
     pub const fn updates_route_ewma(self) -> bool {
         matches!(self, Self::Order | Self::Ping | Self::App)
+    }
+
+    #[inline]
+    pub const fn bit(self) -> u8 {
+        match self {
+            Self::Order => SampleMask::ORDER.0,
+            Self::Ping => SampleMask::PING.0,
+            Self::App => SampleMask::APP.0,
+            Self::Tcping => SampleMask::TCPING.0,
+        }
+    }
+}
+
+/// Bitmask selecting which [`SampleKind`] sources feed [`RouteHealth`] EWMA scoring.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SampleMask(pub u8);
+
+impl SampleMask {
+    pub const ORDER: Self = Self(1 << 0);
+    pub const PING: Self = Self(1 << 1);
+    pub const APP: Self = Self(1 << 2);
+    pub const TCPING: Self = Self(1 << 3);
+    pub const IN_BAND: Self = Self(Self::ORDER.0 | Self::PING.0 | Self::APP.0);
+    pub const ALL: Self = Self(Self::IN_BAND.0 | Self::TCPING.0);
+
+    #[inline]
+    pub const fn contains(self, kind: SampleKind) -> bool {
+        (self.0 & kind.bit()) != 0
+    }
+}
+
+impl Default for SampleMask {
+    fn default() -> Self {
+        Self::IN_BAND
     }
 }
 
@@ -203,19 +245,37 @@ fn next_epoch(current: u64) -> u64 {
     current.wrapping_add(1).max(1)
 }
 
+#[inline]
+fn ipv4_key(ip: Option<IpAddr>) -> u32 {
+    match ip {
+        Some(IpAddr::V4(v4)) => u32::from_be_bytes(v4.octets()),
+        Some(IpAddr::V6(v6)) => {
+            let octets = v6.octets();
+            u32::from_be_bytes([octets[12], octets[13], octets[14], octets[15]])
+        }
+        None => 0,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct OrderRouter {
     slots: [Option<OrderRoute>; MAX_ORDER_CONNECTIONS],
     config: RouterConfig,
+    sample_mask: SampleMask,
     last_conn_id: Option<u16>,
 }
 
 impl OrderRouter {
     pub fn new(config: RouterConfig) -> Result<Self> {
+        Self::with_sample_mask(config, SampleMask::IN_BAND)
+    }
+
+    pub fn with_sample_mask(config: RouterConfig, sample_mask: SampleMask) -> Result<Self> {
         config.validate()?;
         Ok(Self {
             slots: [None; MAX_ORDER_CONNECTIONS],
             config,
+            sample_mask,
             last_conn_id: None,
         })
     }
@@ -223,6 +283,16 @@ impl OrderRouter {
     #[inline]
     pub const fn config(&self) -> RouterConfig {
         self.config
+    }
+
+    #[inline]
+    pub const fn sample_mask(&self) -> SampleMask {
+        self.sample_mask
+    }
+
+    #[inline]
+    pub fn set_sample_mask(&mut self, sample_mask: SampleMask) {
+        self.sample_mask = sample_mask;
     }
 
     #[inline]
@@ -370,8 +440,22 @@ impl OrderRouter {
         sample_us: u32,
     ) -> Result<bool> {
         let cfg = self.config;
+        let mask = self.sample_mask;
         let route = self.slot_mut(conn_id)?;
-        if !route.established || route.epoch != epoch || !kind.updates_route_ewma() {
+        if !route.established || route.epoch != epoch || !mask.contains(kind) {
+            return Ok(false);
+        }
+        route.health.note_sample(sample_us, cfg);
+        Ok(true)
+    }
+
+    /// Explicitly folds an active `SampleKind::Tcping` probe RTT into `RouteHealth` regardless of
+    /// whether `SampleMask::TCPING` is set on the passive `note_sample` mask.
+    #[inline]
+    pub fn note_tcping_sample(&mut self, conn_id: u16, epoch: u64, sample_us: u32) -> Result<bool> {
+        let cfg = self.config;
+        let route = self.slot_mut(conn_id)?;
+        if !route.established || route.epoch != epoch {
             return Ok(false);
         }
         route.health.note_sample(sample_us, cfg);
@@ -440,6 +524,233 @@ impl OrderRouter {
             self.last_conn_id = picked;
         }
         picked
+    }
+}
+
+struct AtomicRouteSlot {
+    w0: AtomicU64,
+    w1: AtomicU64,
+}
+
+impl AtomicRouteSlot {
+    const fn empty() -> Self {
+        Self {
+            w0: AtomicU64::new(VenueOrderRoute::NO_CONNECTION as u64),
+            w1: AtomicU64::new((VenueOrderRoute::UNMEASURED_SCORE as u64) << 32),
+        }
+    }
+
+    #[inline]
+    fn store_relaxed(&self, route: VenueOrderRoute) {
+        let w0 = u64::from(route.connection_id)
+            | (u64::from(route.account_ref) << 16)
+            | (u64::from(route.ready) << 24)
+            | (u64::from(route.colo) << 25)
+            | (u64::from(route.product_mask) << 32);
+        let w1 = u64::from(route.local_ip) | (u64::from(route.ema_score_us) << 32);
+        self.w0.store(w0, Ordering::Relaxed);
+        self.w1.store(w1, Ordering::Relaxed);
+    }
+
+    #[inline]
+    fn load_relaxed(&self) -> VenueOrderRoute {
+        let w0 = self.w0.load(Ordering::Relaxed);
+        let w1 = self.w1.load(Ordering::Relaxed);
+        VenueOrderRoute {
+            connection_id: (w0 & 0xffff) as u16,
+            account_ref: ((w0 >> 16) & 0xff) as u8,
+            ready: ((w0 >> 24) & 1) != 0,
+            colo: ((w0 >> 25) & 1) != 0,
+            product_mask: ((w0 >> 32) & 0xffff) as u16,
+            local_ip: (w1 & 0xffff_ffff) as u32,
+            ema_score_us: (w1 >> 32) as u32,
+        }
+    }
+}
+
+/// Lock-free double-buffered route snapshot table written by `RESP` and queried by `REQ` via
+/// Acquire/Release index publication (`9/8` integer EWMA hysteresis).
+pub struct PublishedRoutes {
+    banks: [[AtomicRouteSlot; MAX_PUBLISHED_ROUTES]; 2],
+    /// Packs `(generation: u32) << 32 | (len: u16) << 8 | (active_bank: u8)`.
+    header: AtomicU64,
+}
+
+impl std::fmt::Debug for PublishedRoutes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PublishedRoutes")
+            .field("generation", &self.generation())
+            .field("len", &self.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl Default for PublishedRoutes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl PublishedRoutes {
+    pub fn new() -> Self {
+        Self {
+            banks: [
+                core::array::from_fn(|_| AtomicRouteSlot::empty()),
+                core::array::from_fn(|_| AtomicRouteSlot::empty()),
+            ],
+            header: AtomicU64::new(0),
+        }
+    }
+
+    #[inline]
+    fn unpack_header(h: u64) -> (u32, usize, usize) {
+        let generation = (h >> 32) as u32;
+        let len = (((h >> 8) & 0xffff) as usize).min(MAX_PUBLISHED_ROUTES);
+        let bank = (h & 1) as usize;
+        (generation, len, bank)
+    }
+
+    #[inline]
+    pub fn generation(&self) -> u32 {
+        Self::unpack_header(self.header.load(Ordering::Acquire)).0
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        Self::unpack_header(self.header.load(Ordering::Acquire)).1
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Single-writer (`RESP`) publication of a fresh immutable route snapshot.
+    pub fn publish_routes(&self, routes: &[VenueOrderRoute]) -> Result<u32> {
+        if routes.len() > MAX_PUBLISHED_ROUTES {
+            return Err(Error::Bounds);
+        }
+        let (cur_gen, _, cur_bank) = Self::unpack_header(self.header.load(Ordering::Acquire));
+        let next_bank = 1 - cur_bank;
+        let target = &self.banks[next_bank];
+        for (idx, route) in routes.iter().copied().enumerate() {
+            target[idx].store_relaxed(route);
+        }
+        let next_gen = cur_gen.wrapping_add(1);
+        let next_header =
+            (u64::from(next_gen) << 32) | ((routes.len() as u64) << 8) | (next_bank as u64);
+        self.header.store(next_header, Ordering::Release);
+        Ok(next_gen)
+    }
+
+    /// Publishes all registered slots from an [`OrderRouter`] into `PublishedRoutes`.
+    pub fn publish_router(
+        &self,
+        account_ref: u8,
+        colo_mask: u16,
+        router: &OrderRouter,
+    ) -> Result<u32> {
+        let mut scratch = [VenueOrderRoute::default(); MAX_ORDER_CONNECTIONS];
+        let mut count = 0usize;
+        for (bit_idx, slot) in router.routes().iter().enumerate() {
+            let Some(r) = slot.as_ref() else {
+                continue;
+            };
+            scratch[count] = VenueOrderRoute {
+                connection_id: r.conn_id,
+                account_ref,
+                ready: r.is_ready(),
+                colo: ((colo_mask >> (bit_idx.min(15))) & 1) != 0,
+                product_mask: (r.product_mask & 0xffff) as u16,
+                local_ip: ipv4_key(r.local_ip),
+                ema_score_us: r.health.raw_score(),
+            };
+            count += 1;
+        }
+        self.publish_routes(&scratch[..count])
+    }
+
+    /// Copies the currently published snapshot into caller-provided stack storage.
+    #[inline]
+    pub fn snapshot(&self, out: &mut [VenueOrderRoute; MAX_PUBLISHED_ROUTES]) -> usize {
+        let (_, len, bank) = Self::unpack_header(self.header.load(Ordering::Acquire));
+        let active = &self.banks[bank];
+        for (dst, src) in out.iter_mut().zip(active.iter()).take(len) {
+            *dst = src.load_relaxed();
+        }
+        len
+    }
+
+    /// Lock-free zero-allocation `REQ` route selection using `9/8` integer EWMA hysteresis
+    /// (`last_score * 8 <= best_score * 9`), warmup round-robin across unmeasured routes, and
+    /// lowest `connection_id` tie-breaking.
+    #[inline]
+    pub fn pick(
+        &self,
+        account_ref: u8,
+        product: Option<Product>,
+        last_conn_id: Option<u16>,
+        force: bool,
+    ) -> Option<VenueOrderRoute> {
+        let (_, len, bank) = Self::unpack_header(self.header.load(Ordering::Acquire));
+        let active = &self.banks[bank];
+
+        let mut first_eligible: Option<VenueOrderRoute> = None;
+        let mut next_after_last: Option<VenueOrderRoute> = None;
+        let mut best_measured: Option<VenueOrderRoute> = None;
+        let mut last_measured: Option<VenueOrderRoute> = None;
+
+        for slot in active.iter().take(len) {
+            let r = slot.load_relaxed();
+            if r.connection_id == VenueOrderRoute::NO_CONNECTION {
+                continue;
+            }
+            if account_ref != 0 && r.account_ref != 0 && r.account_ref != account_ref {
+                continue;
+            }
+            if !((force || r.ready) && r.matches_product(product)) {
+                continue;
+            }
+
+            if first_eligible.is_none_or(|f| r.connection_id < f.connection_id) {
+                first_eligible = Some(r);
+            }
+            if let Some(last_cid) = last_conn_id
+                && r.connection_id > last_cid
+                && next_after_last.is_none_or(|nxt| r.connection_id < nxt.connection_id)
+            {
+                next_after_last = Some(r);
+            }
+            if r.ema_score_us != VenueOrderRoute::UNMEASURED_SCORE {
+                if best_measured.is_none_or(|best| {
+                    (r.ema_score_us, r.connection_id) < (best.ema_score_us, best.connection_id)
+                }) {
+                    best_measured = Some(r);
+                }
+                if last_conn_id == Some(r.connection_id) {
+                    last_measured = Some(r);
+                }
+            }
+        }
+
+        let first = first_eligible?;
+        match best_measured {
+            None => {
+                if last_conn_id.is_some() {
+                    next_after_last.or(Some(first))
+                } else {
+                    Some(first)
+                }
+            }
+            Some(best) => {
+                if let Some(last) = last_measured
+                    && u64::from(last.ema_score_us) * 8 <= u64::from(best.ema_score_us) * 9
+                {
+                    return Some(last);
+                }
+                Some(best)
+            }
+        }
     }
 }
 
@@ -746,6 +1057,11 @@ impl OrderConnectionPool {
     }
 
     #[inline]
+    pub fn note_tcping_sample(&mut self, conn_id: u16, epoch: u64, sample_us: u32) -> Result<bool> {
+        self.router.note_tcping_sample(conn_id, epoch, sample_us)
+    }
+
+    #[inline]
     pub fn connection(&self, conn_id: u16) -> Option<&Connection> {
         self.slots
             .get(usize::from(conn_id))?
@@ -806,27 +1122,36 @@ impl OrderConnectionPool {
         self.router.slot_count()
     }
 
+    pub fn established_count(&self) -> usize {
+        self.router.established_count()
+    }
+
+    pub fn ready_count(&self, sym_type: u32) -> usize {
+        self.router.ready_count(sym_type)
+    }
+
     #[inline]
     pub fn has_ready_capacity(&self, sym_type: u32) -> bool {
         self.router.has_ready_capacity(sym_type)
     }
 
-    #[inline]
-    pub fn established_count(&self) -> usize {
-        self.router.established_count()
-    }
-
-    #[inline]
-    pub fn ready_count(&self, sym_type: u32) -> usize {
-        self.router.ready_count(sym_type)
+    pub fn shutdown_all(&mut self) {
+        for entry in &mut self.slots {
+            if let Some(slot) = entry.as_mut() {
+                let _old_conn = slot.connection.take();
+                slot.release_leased_peer();
+                slot.peer_addr = None;
+                let _ = self.router.on_disconnect(slot.conn_id);
+                if let Some(baton) = slot.baton.as_ref() {
+                    baton.stop();
+                }
+            }
+        }
     }
 }
 
 impl Drop for OrderConnectionPool {
     fn drop(&mut self) {
-        for slot in self.slots.iter_mut().flatten() {
-            let _ = slot.connection.take();
-            slot.release_leased_peer();
-        }
+        self.shutdown_all();
     }
 }

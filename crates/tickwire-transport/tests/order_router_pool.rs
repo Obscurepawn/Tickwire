@@ -531,6 +531,7 @@ fn loopback_tcp_dialer_and_order_connection_pool_concurrent_flush_and_auto_recon
         port: addr.port(),
         initial_peers: vec![addr],
         local_ip: Some(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+        nic: None,
         security: DialSecurity::Plain,
         limits: Limits::default(),
         transport: DialTransport::PlainOrTls,
