@@ -1498,20 +1498,18 @@ impl<const CHECK_STP: bool> OrderManager<CHECK_STP> {
         }
 
         locked.order_mut().pending_cxl = locked.order().pending_cxl.saturating_add(1);
+        let is_pending_new = locked.order().status == OrsOrderStatus::PendingNew;
+        if is_pending_new {
+            locked.order_mut().cancel_on_ack = true;
+        }
+        let o = *locked.order();
+        drop(locked);
+
         let coalesced_in_query_desk = self
             .query_desk
             .mark_cancel_after(resolved_account, req.ors_order_id);
+        let should_send_now = !coalesced_in_query_desk && !is_pending_new;
 
-        let should_send_now = if coalesced_in_query_desk {
-            false
-        } else if locked.order().status == OrsOrderStatus::PendingNew {
-            locked.order_mut().cancel_on_ack = true;
-            false
-        } else {
-            true
-        };
-
-        let o = *locked.order();
         Ok(OrsCancelDispatch {
             ors_order_id: o.ors_order_id,
             account_ref: o.account_ref,
@@ -1900,6 +1898,7 @@ impl<const CHECK_STP: bool> OrderManager<CHECK_STP> {
                     let fully_filled = o.filled_qty_lots >= o.effective_qty_lots;
                     if fully_filled {
                         self.close_and_retire_locked(&mut locked);
+                        drop(locked);
                         self.query_desk
                             .complete_order(o.account_ref, o.ors_order_id);
                     }
@@ -2069,6 +2068,7 @@ impl<const CHECK_STP: bool> OrderManager<CHECK_STP> {
         };
 
         self.close_and_retire_locked(&mut locked);
+        drop(locked);
         self.query_desk
             .complete_order(o.account_ref, o.ors_order_id);
 
@@ -2176,6 +2176,7 @@ impl<const CHECK_STP: bool> OrderManager<CHECK_STP> {
         }
 
         self.close_and_retire_locked(&mut locked);
+        drop(locked);
         self.query_desk
             .complete_order(o.account_ref, o.ors_order_id);
 
@@ -2366,6 +2367,7 @@ impl<const CHECK_STP: bool> OrderManager<CHECK_STP> {
                     locked.order_mut().cancel_on_ack = true;
                 }
                 let o = *locked.order();
+                drop(locked);
                 out.push(OrsAutoCancelTarget {
                     ors_order_id: o.ors_order_id,
                     strat_id: o.strat_id,
@@ -2499,6 +2501,7 @@ impl<const CHECK_STP: bool> OrderManager<CHECK_STP> {
             .effective_qty_lots
             .saturating_sub(o.projected_fill_qty_lots);
         self.close_and_retire_locked(&mut locked);
+        drop(locked);
         self.query_desk
             .complete_order(o.account_ref, o.ors_order_id);
         Some(OrsReport::Canceled(OrsCanceledReport {
