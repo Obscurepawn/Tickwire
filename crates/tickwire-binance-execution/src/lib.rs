@@ -1,976 +1,310 @@
-//! Shared original-signature state for REST encoding and the first-output gate.
+//! Unified stateless full-market Binance ORS execution runtime (`tickwire-binance-execution`)
+//! across Spot, USD-M, Coin-M, and European Options (`#![forbid(unsafe_code)]`).
+//!
+//! # Architecture & State Ownership
+//! - **Pure Stateless 3-Process Topology (Zero Local WAL / Thread-Safe `Send + Sync`)**: Built directly on
+//!   [`tickwire_binance_account::BinanceSession`], [`tickwire_account::OrderManager`],
+//!   [`tickwire_transport::AsyncRestQuerier`], and [`tickwire_binance_quota::SharedBinanceOrsQuota`]
+//!   with zero local disk journals or legacy gateway dependencies.
+//! - **Disjoint Thread Isolation**:
+//!   * `REQ` (`req_cpu`): calls `&BinanceSession::submit_new` / `submit_cancel` / `submit_modify`.
+//!   * `RESP` (`resp_cpu`): owns [`BinanceExecutionEngine`] (`BinanceConnectionSet`), drives socket
+//!     reads into `BinanceSession::on_message`, reaps disconnects into `on_disconnected`, drains
+//!     due `OrsQueryDesk` tasks into `AsyncRestQuerier`, and applies `RestReply`s via
+//!     `apply_rest_reply`.
+//!   * `housekeeping_cpus`: runs `Dialer` and `AsyncRestQuerier` (`BinanceRestRequestBuilder`).
+
 #![forbid(unsafe_code)]
-use sha2::{Digest, Sha256};
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
-use tickwire_account::Admission;
-use tickwire_account_gateway::{AdmissionRequest, Authority, AuthorityError, Gate};
-use tickwire_binance::request::{self, Credentials, RequestOptions, Timestamp, Transport};
-use tickwire_binance_account::ws::{DurableWsBinding, SessionIdentity, SignedWire, WsRequestPlan};
-use tickwire_binance_clock::{BinanceTimeClient, ClockReading, LocalTime, MonotonicClock};
-use tickwire_binance_quota::{CommandBinding, Endpoint, MultiIpCommandQuota};
-use tickwire_clock::{ClockDomain, SignedTime, Source, TimeUnit};
-use tickwire_gateway::{EncodedRequest, Encoder};
-use tickwire_recovery::VerifiedClosure;
-use tickwire_transport::http;
-use tickwire_venue::{CanonicalCommand, Hash};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Error {
-    Invalid,
-    Busy,
-    Identity,
-    Capacity,
-    MissingSignature,
-    Denied,
-    Clock(tickwire_binance_clock::Error),
-    Quota(tickwire_binance_quota::Error),
-    Encoding,
-}
-pub type Result<T> = core::result::Result<T, Error>;
-/// Public credential reference only: no signing secret is serialized.
-pub fn credential_reference(credentials: &Credentials<'_>, generation: u64) -> Result<Hash> {
-    if generation == 0
-        || credentials.account == 0
-        || credentials.api_key.is_empty()
-        || credentials.api_key.len() > 256
-    {
-        return Err(Error::Identity);
-    }
-    let mut h = Sha256::new();
-    h.update(b"tickwire.ws.credential-reference.v1");
-    h.update(credentials.account.to_le_bytes());
-    h.update(generation.to_le_bytes());
-    h.update([match credentials.market {
-        request::Market::Spot => 1,
-        request::Market::Usdm => 2,
-    }]);
-    h.update([match credentials.environment {
-        tickwire_venue::Environment::Production => 1,
-        tickwire_venue::Environment::Test => 2,
-    }]);
-    h.update((credentials.api_key.len() as u32).to_le_bytes());
-    h.update(credentials.api_key.as_bytes());
-    Ok(h.finalize().into())
-}
-
-/// A trusted calibrated source. Implementations check the original stamp and
-/// return the very sample used by that check, with no intervening callback.
-pub trait SessionClock {
-    fn source(&self) -> Source;
-    fn domain(&self) -> ClockDomain;
-    fn sample(&mut self) -> tickwire_binance_clock::Result<ClockReading>;
-    fn check_send_sample(
-        &mut self,
-        stamp: &SignedTime,
-        recv_window_ns: u64,
-        budget_ns: u64,
-    ) -> tickwire_binance_clock::Result<LocalTime>;
-}
-impl<C: MonotonicClock> SessionClock for BinanceTimeClient<C> {
-    fn source(&self) -> Source {
-        self.source()
-    }
-    fn domain(&self) -> ClockDomain {
-        self.domain()
-    }
-    fn sample(&mut self) -> tickwire_binance_clock::Result<ClockReading> {
-        self.sample()
-    }
-    fn check_send_sample(
-        &mut self,
-        stamp: &SignedTime,
-        window: u64,
-        budget: u64,
-    ) -> tickwire_binance_clock::Result<LocalTime> {
-        self.check_send_sample(stamp, window, budget)
-    }
-}
-pub trait DeliveryBudget {
-    /// Conservative remaining time from the final gate to venue timestamp validation.
-    fn remaining_ns(
-        &mut self,
-        command: &CanonicalCommand,
-        stamp: &SignedTime,
-        now: &LocalTime,
-    ) -> Result<u64>;
-}
-impl<F: FnMut(&CanonicalCommand, &SignedTime, &LocalTime) -> Result<u64>> DeliveryBudget for F {
-    fn remaining_ns(&mut self, c: &CanonicalCommand, s: &SignedTime, n: &LocalTime) -> Result<u64> {
-        self(c, s, n)
-    }
-}
-pub const DEFAULT_RETENTION_WINDOW_NS: u64 = tickwire_account::DEFAULT_RETENTION_WINDOW_NS;
-
-#[derive(Debug, Clone, Copy)]
-pub struct Config {
-    pub recv_window_micros: u64,
-    pub max_http_bytes: usize,
-    pub max_signed_commands: usize,
-}
-struct SignedRequest {
-    stamp: SignedTime,
-    window_ns: u64,
-    created_mono_ns: u64,
-    deadline_mono_ns: u64,
-    consumed_mono_ns: Option<u64>,
-    authority: String,
-    bytes: Vec<u8>,
-    websocket: Option<SignedWebSocket>,
-}
-struct SignedWebSocket {
-    plan: WsRequestPlan,
-    wire: SignedWire,
-    binding: Option<DurableWsBinding>,
-}
-struct PreparedGate {
-    stamp: SignedTime,
-    window_ns: u64,
-    budget_ns: u64,
-    before: LocalTime,
-}
-struct State<C, B> {
-    clock: C,
-    quota: Endpoint,
-    multi_ip_quota: Option<MultiIpCommandQuota>,
-    binding: CommandBinding,
-    budget: B,
-    config: Config,
-    retention_window_ns: Option<u64>,
-    signed: BTreeMap<Hash, SignedRequest>,
-    websocket: Option<SessionIdentity>,
-    plans: BTreeMap<Hash, WsRequestPlan>,
-    warmup_tracker: tickwire_transport::WarmupTracker,
-    warmer: Option<Box<warmup::BinanceHotPathWarmer>>,
-}
-/// Clones share one runtime state. It cannot cross threads or mint send authority.
-pub struct SharedSessionState<C, B>(Rc<RefCell<State<C, B>>>);
-impl<C, B> Clone for SharedSessionState<C, B> {
-    fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
-    }
-}
-impl<C: SessionClock, B: DeliveryBudget> tickwire_binance_account::ws::SessionState
-    for SharedSessionState<C, B>
-{
-    fn prepare(&mut self, plan: WsRequestPlan) -> tickwire_binance_account::Result<()> {
-        self.prepare_websocket(plan)
-            .map_err(|_| tickwire_binance_account::Error::Identity)
-    }
-    fn signed_wire(&self, digest: Hash) -> tickwire_binance_account::Result<SignedWire> {
-        self.websocket_wire(digest)
-            .map_err(|_| tickwire_binance_account::Error::Identity)
-    }
-    fn install(&mut self, binding: DurableWsBinding) -> tickwire_binance_account::Result<()> {
-        self.install_websocket_binding(binding)
-            .map_err(|_| tickwire_binance_account::Error::Identity)
-    }
-    fn discard_uncommitted(&mut self, digest: Hash) {
-        self.discard_uncommitted_websocket(digest);
-    }
-    fn feedback(&mut self, status: u16) -> tickwire_binance_account::Result<()> {
-        if matches!(status, 418 | 429) {
-            let mut state = self
-                .0
-                .try_borrow_mut()
-                .map_err(|_| tickwire_binance_account::Error::Stopped)?;
-            state.quota.freeze();
-            if status == 418
-                && let Some(mq) = state.multi_ip_quota.as_mut()
-            {
-                let _ = mq.note_account_banned(None);
-            }
-        }
-        Ok(())
-    }
-    fn control(
-        &mut self,
-        session: &tickwire_binance_account::ws::DurableWsSession,
-        action: tickwire_binance_account::ws::ControlAction,
-        operation: u64,
-        deadline: u64,
-    ) -> bool {
-        self.websocket_control(session, action, operation, deadline)
-            .is_ok()
-    }
-}
-impl<C: SessionClock, B: DeliveryBudget> SharedSessionState<C, B> {
-    pub fn new(
-        clock: C,
-        quota: Endpoint,
-        binding: CommandBinding,
-        budget: B,
-        config: Config,
-    ) -> Result<Self> {
-        if config.recv_window_micros == 0
-            || config.recv_window_micros > 60_000_000
-            || config.max_http_bytes == 0
-            || config.max_http_bytes > 16 * 1024 * 1024
-            || config.max_signed_commands == 0
-            || config.max_signed_commands > 4096
-        {
-            return Err(Error::Invalid);
-        }
-        if binding.owner_id == [0; 16]
-            || binding.risk_domain_id == [0; 16]
-            || binding.account == 0
-            || binding.domain != clock.domain()
-            || binding.domain != quota.consumer().clock_domain()
-            || source(&binding)? != clock.source()
-        {
-            return Err(Error::Identity);
-        }
-        Ok(Self(Rc::new(RefCell::new(State {
-            clock,
-            quota,
-            multi_ip_quota: None,
-            binding,
-            budget,
-            config,
-            retention_window_ns: Some(DEFAULT_RETENTION_WINDOW_NS),
-            signed: BTreeMap::new(),
-            websocket: None,
-            plans: BTreeMap::new(),
-            warmup_tracker: tickwire_transport::WarmupTracker::disabled(),
-            warmer: None,
-        }))))
-    }
-    pub fn with_multi_ip_quota(self, quota: MultiIpCommandQuota) -> Result<Self> {
-        self.set_multi_ip_quota(quota)?;
-        Ok(self)
-    }
-    pub fn set_multi_ip_quota(&self, quota: MultiIpCommandQuota) -> Result<()> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        let b = quota.binding();
-        if b.owner_id != state.binding.owner_id
-            || b.risk_domain_id != state.binding.risk_domain_id
-            || b.account != state.binding.account
-            || b.product != state.binding.product
-            || b.environment != state.binding.environment
-            || b.domain != state.binding.domain
-        {
-            return Err(Error::Identity);
-        }
-        state.multi_ip_quota = Some(quota);
-        Ok(())
-    }
-    pub fn has_multi_ip_quota(&self) -> Result<bool> {
-        let state = self.0.try_borrow().map_err(|_| Error::Busy)?;
-        Ok(state.multi_ip_quota.is_some())
-    }
-    pub fn multi_ip_quota<T>(
-        &self,
-        f: impl FnOnce(Option<&mut MultiIpCommandQuota>) -> T,
-    ) -> Result<T> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        Ok(f(state.multi_ip_quota.as_mut()))
-    }
-    pub fn set_retention_window_ns(&self, window_ns: Option<u64>) {
-        if let Ok(mut state) = self.0.try_borrow_mut() {
-            state.retention_window_ns = window_ns;
-        }
-    }
-    pub fn retention_window_ns(&self) -> Option<u64> {
-        self.0
-            .try_borrow()
-            .ok()
-            .and_then(|state| state.retention_window_ns)
-    }
-    pub fn websocket_control(
-        &self,
-        session: &tickwire_binance_account::ws::DurableWsSession,
-        action: tickwire_binance_account::ws::ControlAction,
-        operation: u64,
-        deadline: u64,
-    ) -> Result<()> {
-        use tickwire_binance_account::ws::ControlAction as C;
-        use tickwire_binance_quota::CommandSessionAction as Q;
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        if !session.is_current() {
-            return Err(Error::Identity);
-        }
-        let sampled = state.clock.sample().map_err(Error::Clock)?.local;
-        let now = sampled.monotonic;
-        if now.domain() != state.binding.domain || now.nanos() >= deadline {
-            return Err(Error::Denied);
-        }
-        let binding = state.binding;
-        let kind = match action {
-            C::Connect => Q::Connect,
-            C::Upgrade => Q::Upgrade,
-            C::Ping => Q::Ping,
-            C::Pong => Q::Pong,
-            C::Close => Q::Close,
-        };
-        state
-            .quota
-            .consume_command_session(&binding, session.identity(), operation, kind, now)
-            .map_err(Error::Quota)?;
-        Ok(())
-    }
-    pub fn prepare_websocket(&self, plan: WsRequestPlan) -> Result<()> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        state.bind(plan.command())?;
-        if !plan.is_current()
-            || state.signed.values().any(|r| r.websocket.is_none())
-            || state.websocket.as_ref().is_some_and(|s| {
-                s != plan.session()
-                    && (s.input_stream != plan.session().input_stream
-                        || s.account_stream != plan.session().account_stream
-                        || s.baseline_digest != plan.session().baseline_digest
-                        || s.scope != plan.session().scope
-                        || s.product != plan.session().product
-                        || s.connection_epoch >= plan.session().connection_epoch
-                        || s.writer_epoch > plan.session().writer_epoch
-                        || state.plans.values().any(WsRequestPlan::is_current))
-            })
-        {
-            return Err(Error::Identity);
-        }
-        let digest = plan.command().digest();
-        if let Some(old) = state.plans.get(&digest) {
-            return if old.input() == plan.input()
-                && old.request_id() == plan.request_id()
-                && old.is_current()
-            {
-                Ok(())
-            } else {
-                Err(Error::Identity)
-            };
-        }
-        if state.plans.len() >= state.config.max_signed_commands {
-            let now_mono_ns = state.sample_mono_ns().unwrap_or(plan.created_mono_ns());
-            state.evict_expired(now_mono_ns);
-            if state.plans.len() >= state.config.max_signed_commands {
-                return Err(Error::Capacity);
-            }
-        }
-        let created_mono_ns = state.sample_mono_ns().unwrap_or(plan.created_mono_ns());
-        state.warmup_tracker.record_activity(created_mono_ns);
-        let plan = plan.with_created_mono_ns(created_mono_ns);
-        state.websocket = Some(plan.session().clone());
-        state.plans.insert(digest, plan);
-        Ok(())
-    }
-    pub fn websocket_wire(&self, digest: Hash) -> Result<SignedWire> {
-        self.0
-            .try_borrow()
-            .map_err(|_| Error::Busy)?
-            .signed
-            .get(&digest)
-            .and_then(|r| r.websocket.as_ref())
-            .filter(|w| w.plan.is_current())
-            .map(|w| w.wire.clone())
-            .ok_or(Error::MissingSignature)
-    }
-    pub fn install_websocket_binding(&self, binding: DurableWsBinding) -> Result<()> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        let saved = state
-            .signed
-            .get_mut(&binding.command_digest())
-            .ok_or(Error::MissingSignature)?;
-        let ws = saved.websocket.as_mut().ok_or(Error::Identity)?;
-        if !binding.matches_plan(&ws.plan)
-            || binding.signed_wire() != &ws.wire
-            || binding.frame_bytes() != saved.bytes.len()
-            || binding.frame_hash() != Hash::from(Sha256::digest(&saved.bytes))
-        {
-            return Err(Error::Identity);
-        }
-        if let Some(old) = &ws.binding {
-            if old.input() != binding.input() || old.record_digest() != binding.record_digest() {
-                return Err(Error::Identity);
-            }
-            return Ok(());
-        }
-        ws.binding = Some(binding);
-        Ok(())
-    }
-    pub fn discard_uncommitted_websocket(&self, digest: Hash) {
-        let Ok(mut state) = self.0.try_borrow_mut() else {
-            return;
-        };
-        let has_committed_binding = state
-            .signed
-            .get(&digest)
-            .and_then(|r| r.websocket.as_ref())
-            .is_some_and(|w| w.binding.is_some());
-        if !has_committed_binding {
-            state.plans.remove(&digest);
-            state.signed.remove(&digest);
-        }
-    }
-    fn binding_ready(
-        &self,
-        admission: &Admission,
-        receipt: &tickwire_account_journal::AppendReceipt,
-    ) -> Result<bool> {
-        let state = self.0.try_borrow().map_err(|_| Error::Busy)?;
-        let Some(_) = state.websocket else {
-            return Ok(true);
-        };
-        let saved = state
-            .signed
-            .get(&admission.command_digest())
-            .ok_or(Error::MissingSignature)?;
-        let ws = saved.websocket.as_ref().ok_or(Error::Identity)?;
-        let Some(binding) = &ws.binding else {
-            return Ok(false);
-        };
-        if !binding.matches_plan(&ws.plan)
-            || binding.signed_wire() != &ws.wire
-            || binding.account_sequence() != receipt.sequence()
-            || binding.record_digest() != receipt.record_digest()
-            || binding.physical_frontier() != receipt.physical_frontier()
-        {
-            return Err(Error::Identity);
-        }
-        Ok(true)
-    }
-    pub fn encoder<'a>(&self, credentials: Credentials<'a>) -> RestEncoder<'a, C, B> {
-        RestEncoder {
-            shared: self.clone(),
-            credentials,
-        }
-    }
-    pub fn authority<A: Authority>(&self, inner: A) -> GateAuthority<A, C, B> {
-        GateAuthority {
-            inner,
-            shared: self.clone(),
-        }
-    }
-    /// The runtime owner drives calibration and borrows permits sequentially here.
-    /// Reentrant use fails with Busy instead of panicking or bypassing the gate.
-    pub fn with_resources<T>(&self, f: impl FnOnce(&mut C, &mut Endpoint) -> T) -> Result<T> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        let State { clock, quota, .. } = &mut *state;
-        Ok(f(clock, quota))
-    }
-    pub fn signed_stamp(&self, digest: Hash) -> Result<Option<SignedTime>> {
-        Ok(self
-            .0
-            .try_borrow()
-            .map_err(|_| Error::Busy)?
-            .signed
-            .get(&digest)
-            .map(|r| r.stamp))
-    }
-    fn encode(
-        &self,
-        credentials: &Credentials<'_>,
-        command: &CanonicalCommand,
-    ) -> Result<EncodedRequest> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        state.bind(command)?;
-        let expected_market = match state.binding.product {
-            tickwire_venue::Product::Spot => request::Market::Spot,
-            _ => request::Market::Usdm,
-        };
-        if credentials.account != state.binding.account
-            || credentials.environment != state.binding.environment
-            || credentials.market != expected_market
-        {
-            return Err(Error::Identity);
-        }
-        let digest = command.digest();
-        if let Some(prior) = state.signed.get(&digest) {
-            if prior
-                .websocket
-                .as_ref()
-                .is_some_and(|w| !w.plan.is_current())
-            {
-                return Err(Error::Identity);
-            }
-            return EncodedRequest::new(digest, prior.authority.clone(), prior.bytes.clone())
-                .map_err(|_| Error::Encoding);
-        }
-        let reading = if state.signed.len() >= state.config.max_signed_commands {
-            let sampled = state.clock.sample().map_err(Error::Clock);
-            if let Ok(ref r) = sampled
-                && r.local.monotonic.domain() == state.binding.domain
-            {
-                state.evict_expired(r.local.monotonic.nanos());
-            }
-            if state.signed.len() >= state.config.max_signed_commands {
-                return Err(Error::Capacity);
-            }
-            sampled?
-        } else {
-            state.clock.sample().map_err(Error::Clock)?
-        };
-        let stamp = reading.signed.ok_or(Error::MissingSignature)?;
-        if stamp.source() != source(&state.binding)?
-            || stamp.domain() != state.binding.domain
-            || reading.local.monotonic.domain() != state.binding.domain
-            || reading.local.monotonic.nanos() >= command.command().context.request.deadline
-        {
-            return Err(Error::Identity);
-        }
-        let timestamp = match stamp.unit() {
-            TimeUnit::Milliseconds => Timestamp::Milliseconds(stamp.timestamp()),
-            TimeUnit::Microseconds => Timestamp::Microseconds(stamp.timestamp()),
-        };
-        let plan = if state.websocket.is_some() {
-            Some(
-                state
-                    .plans
-                    .get(&digest)
-                    .filter(|p| p.is_current())
-                    .ok_or(Error::Identity)?
-                    .clone(),
-            )
-        } else {
-            None
-        };
-        let transport = if plan.is_some() {
-            Transport::WebSocket
-        } else {
-            Transport::Rest
-        };
-        let prepared = request::prepare(
-            command,
-            credentials,
-            RequestOptions {
-                transport,
-                timestamp,
-                recv_window_micros: state.config.recv_window_micros,
-                request_id: plan.as_ref().map_or("rest", |p| p.request_id().as_str()),
-            },
-            request::MAX_REQUEST_BYTES,
-        )
-        .map_err(|_| Error::Encoding)?;
-        let bytes = if plan.is_some() {
-            tickwire_transport::ws::encode_client(
-                tickwire_transport::ws::Opcode::Text,
-                prepared.payload(),
-                state.config.max_http_bytes,
-            )
-            .map_err(|_| Error::Encoding)?
-        } else {
-            http::encode_request(
-                prepared.method().as_str(),
-                prepared.path(),
-                &[
-                    ("Host", prepared.authority()),
-                    (
-                        "X-MBX-APIKEY",
-                        prepared.api_key_header().ok_or(Error::Encoding)?,
-                    ),
-                ],
-                prepared.payload(),
-                state.config.max_http_bytes,
-            )
-            .map_err(|_| Error::Encoding)?
-        };
-        let authority = prepared.authority().to_owned();
-        let encoded = EncodedRequest::new(digest, authority.clone(), bytes.clone())
-            .map_err(|_| Error::Encoding)?;
-        let window_ns = state
-            .config
-            .recv_window_micros
-            .checked_mul(1000)
-            .ok_or(Error::Invalid)?;
-        let created_mono_ns = reading.local.monotonic.nanos();
-        let deadline_mono_ns = command.command().context.request.deadline;
-        state.signed.insert(
-            digest,
-            SignedRequest {
-                stamp,
-                window_ns,
-                created_mono_ns,
-                deadline_mono_ns,
-                consumed_mono_ns: None,
-                authority,
-                websocket: plan.map(|plan| SignedWebSocket {
-                    plan,
-                    binding: None,
-                    wire: SignedWire {
-                        source: stamp.source(),
-                        domain: stamp.domain(),
-                        timestamp: stamp.timestamp(),
-                        unit: stamp.unit(),
-                        window_ns,
-                        request_hash: Sha256::digest(prepared.payload()).into(),
-                        frame_hash: Sha256::digest(&bytes).into(),
-                        request_bytes: prepared.payload().len() as u32,
-                        frame_bytes: bytes.len() as u32,
-                    },
-                }),
-                bytes,
-            },
-        );
-        state.warmup_tracker.record_activity(created_mono_ns);
-        Ok(encoded)
-    }
-    fn prepare_gate(&self, command: &CanonicalCommand) -> Result<PreparedGate> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        state.bind(command)?;
-        let saved = state
-            .signed
-            .get(&command.digest())
-            .ok_or(Error::MissingSignature)?;
-        let (stamp, window_ns) = (saved.stamp, saved.window_ns);
-        let before = state.clock.sample().map_err(Error::Clock)?.local;
-        if before.monotonic.domain() != state.binding.domain {
-            return Err(Error::Identity);
-        }
-        let budget_ns = state.budget.remaining_ns(command, &stamp, &before)?;
-        Ok(PreparedGate {
-            stamp,
-            window_ns,
-            budget_ns,
-            before,
-        })
-    }
-    /// Runs after all budget and policy callbacks, inside the first-accept gate.
-    fn finish_gate(
-        &self,
-        command: &CanonicalCommand,
-        mut gate: Gate,
-        prepared: PreparedGate,
-    ) -> Result<Gate> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        state.bind(command)?;
-        let r = &command.command().context.request;
-        if !gate.owner_isolated
-            || !gate.action_permitted
-            || gate.writer_epoch != r.intent_exec_epoch
-            || gate.strategy_generation != r.strategy_generation
-            || gate.config_revision != r.config_revision
-        {
-            return Err(Error::Denied);
-        }
-        let saved = state
-            .signed
-            .get(&command.digest())
-            .ok_or(Error::MissingSignature)?;
-        if saved.stamp != prepared.stamp || saved.window_ns != prepared.window_ns {
-            return Err(Error::Identity);
-        }
-        let transport = if let Some(ws) = &saved.websocket {
-            if ws
-                .binding
-                .as_ref()
-                .is_none_or(|b| !b.matches_plan(&ws.plan) || b.signed_wire() != &ws.wire)
-            {
-                return Err(Error::Denied);
-            }
-            Transport::WebSocket
-        } else {
-            Transport::Rest
-        };
-        let final_time = state
-            .clock
-            .check_send_sample(&prepared.stamp, prepared.window_ns, prepared.budget_ns)
-            .map_err(Error::Clock)?;
-        let now = final_time.monotonic;
-        if now.domain() != state.binding.domain
-            || now.nanos() < prepared.before.monotonic.nanos()
-            || final_time.instant < prepared.before.instant
-            || now.nanos() < gate.now
-            || now.nanos() >= gate.lease_until
-            || now.nanos() >= r.deadline
-        {
-            return Err(Error::Denied);
-        }
-        let binding = state.binding;
-        state
-            .quota
-            .consume_command(&binding, command, transport, now)
-            .map_err(Error::Quota)?;
-        if let Some(saved) = state.signed.get_mut(&command.digest())
-            && saved.consumed_mono_ns.is_none()
-        {
-            saved.consumed_mono_ns = Some(now.nanos());
-        }
-        state.warmup_tracker.record_activity(now.nanos());
-        gate.now = now.nanos();
-        Ok(gate)
-    }
-
-    pub fn with_warmup_interval_ns(self, warmup_interval_ns: u64) -> Result<Self> {
-        self.set_warmup_interval_ns(warmup_interval_ns)?;
-        Ok(self)
-    }
-
-    pub fn set_warmup_interval_ns(&self, warmup_interval_ns: u64) -> Result<()> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        state
-            .warmup_tracker
-            .set_warmup_interval_ns(warmup_interval_ns);
-        if warmup_interval_ns > 0 {
-            if state.warmup_tracker.last_activity_ns() == 0
-                && state.warmup_tracker.last_warm_ns() == 0
-                && let Some(now_mono_ns) = state.sample_mono_ns()
-            {
-                state.warmup_tracker.record_activity(now_mono_ns);
-            }
-            if state.warmer.is_none() {
-                let warmer = warmup::BinanceHotPathWarmer::new(
-                    state.binding.product,
-                    state.binding.environment,
-                )
-                .map_err(|_| Error::Encoding)?;
-                state.warmer = Some(Box::new(warmer));
-            }
-        }
-        Ok(())
-    }
-
-    pub fn warmup_interval_ns(&self) -> u64 {
-        self.0
-            .try_borrow()
-            .map_or(0, |s| s.warmup_tracker.warmup_interval_ns())
-    }
-
-    pub fn warmup_count(&self) -> u64 {
-        self.0
-            .try_borrow()
-            .map_or(0, |s| s.warmup_tracker.warm_count())
-    }
-
-    pub fn last_activity_ns(&self) -> u64 {
-        self.0
-            .try_borrow()
-            .map_or(0, |s| s.warmup_tracker.last_activity_ns())
-    }
-
-    pub fn last_warm_ns(&self) -> u64 {
-        self.0
-            .try_borrow()
-            .map_or(0, |s| s.warmup_tracker.last_warm_ns())
-    }
-
-    pub fn next_warmup_due_ns(&self) -> Option<u64> {
-        self.0
-            .try_borrow()
-            .ok()
-            .and_then(|s| s.warmup_tracker.next_due_ns())
-    }
-
-    pub fn record_activity(&self, now_mono_ns: u64) {
-        if let Ok(mut state) = self.0.try_borrow_mut() {
-            state.warmup_tracker.record_activity(now_mono_ns);
-        }
-    }
-
-    pub fn refresh_warmup_scratch(&self, account: &tickwire_account::Account) -> Result<()> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        if state.warmer.is_none() {
-            let warmer =
-                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
-                    .map_err(|_| Error::Encoding)?;
-            state.warmer = Some(Box::new(warmer));
-        }
-        if let Some(warmer) = state.warmer.as_mut() {
-            warmer.refresh_scratch_account(account);
-        }
-        Ok(())
-    }
-
-    pub fn warm_hot_path(&self, now_mono_ns: u64) -> Result<usize> {
-        self.warm_hot_path_with_account(None, now_mono_ns)
-    }
-
-    pub fn warm_hot_path_with_account(
-        &self,
-        account: Option<&tickwire_account::Account>,
-        now_mono_ns: u64,
-    ) -> Result<usize> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        if state.warmer.is_none() {
-            let warmer =
-                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
-                    .map_err(|_| Error::Encoding)?;
-            state.warmer = Some(Box::new(warmer));
-        }
-        let use_ws = state.websocket.is_some();
-        let bytes = state
-            .warmer
-            .as_mut()
-            .expect("warmer initialized")
-            .warm_once(use_ws, account, now_mono_ns)
-            .map_err(|_| Error::Encoding)?;
-        state.warmup_tracker.record_warm(now_mono_ns);
-        Ok(bytes)
-    }
-
-    pub fn maybe_warm_hot_path(&self, now_mono_ns: u64) -> Result<bool> {
-        self.maybe_warm_hot_path_with_account(None, now_mono_ns)
-    }
-
-    pub fn maybe_warm_hot_path_with_account(
-        &self,
-        account: Option<&tickwire_account::Account>,
-        now_mono_ns: u64,
-    ) -> Result<bool> {
-        let mut state = self.0.try_borrow_mut().map_err(|_| Error::Busy)?;
-        if state.warmup_tracker.warmup_interval_ns() == 0 {
-            return Ok(false);
-        }
-        // Skip warming if any signed command has not yet passed the first-output gate.
-        let has_unconsumed_signed = state
-            .signed
-            .values()
-            .any(|req| req.consumed_mono_ns.is_none() && now_mono_ns < req.deadline_mono_ns);
-        if has_unconsumed_signed {
-            state.warmup_tracker.record_activity(now_mono_ns);
-            return Ok(false);
-        }
-        if !state.warmup_tracker.can_warm(now_mono_ns) {
-            return Ok(false);
-        }
-        if state.warmer.is_none() {
-            let warmer =
-                warmup::BinanceHotPathWarmer::new(state.binding.product, state.binding.environment)
-                    .map_err(|_| Error::Encoding)?;
-            state.warmer = Some(Box::new(warmer));
-        }
-        let use_ws = state.websocket.is_some();
-        state
-            .warmer
-            .as_mut()
-            .expect("warmer initialized")
-            .warm_once(use_ws, account, now_mono_ns)
-            .map_err(|_| Error::Encoding)?;
-        state.warmup_tracker.record_warm(now_mono_ns);
-        Ok(true)
-    }
-}
-impl<C: SessionClock, B> State<C, B> {
-    fn sample_mono_ns(&mut self) -> Option<u64> {
-        let reading = self.clock.sample().ok()?;
-        (reading.local.monotonic.domain() == self.binding.domain)
-            .then_some(reading.local.monotonic.nanos())
-    }
-    fn evict_expired(&mut self, now_mono_ns: u64) {
-        let Some(window_ns) = self.retention_window_ns else {
-            return;
-        };
-        let expired_at = |t: u64| now_mono_ns >= t.saturating_add(window_ns);
-        self.plans.retain(|digest, plan| {
-            let consumed = self
-                .signed
-                .get(digest)
-                .and_then(|r| r.consumed_mono_ns)
-                .is_some_and(expired_at);
-            let superseded = !plan.is_current() && expired_at(plan.created_mono_ns());
-            let past_deadline =
-                now_mono_ns >= plan.deadline_mono_ns() && expired_at(plan.deadline_mono_ns());
-            !(consumed || superseded || past_deadline)
-        });
-        self.signed.retain(|_, req| {
-            let consumed = req.consumed_mono_ns.is_some_and(expired_at);
-            let superseded = req
-                .websocket
-                .as_ref()
-                .is_some_and(|ws| !ws.plan.is_current() && expired_at(req.created_mono_ns));
-            let past_deadline =
-                now_mono_ns >= req.deadline_mono_ns && expired_at(req.deadline_mono_ns);
-            let past_sig_window = expired_at(req.created_mono_ns.saturating_add(req.window_ns));
-            !(consumed || superseded || past_deadline || past_sig_window)
-        });
-    }
-    fn bind(&self, command: &CanonicalCommand) -> Result<()> {
-        let r = &command.command().context.request;
-        if self.clock.domain() != self.binding.domain
-            || self.clock.source() != source(&self.binding)?
-            || r.venue != 1
-            || r.risk_domain_id != self.binding.risk_domain_id
-            || r.account != self.binding.account
-            || r.product != self.binding.product
-            || r.environment != self.binding.environment
-        {
-            return Err(Error::Identity);
-        }
-        Ok(())
-    }
-}
-pub struct RestEncoder<'a, C, B> {
-    shared: SharedSessionState<C, B>,
-    credentials: Credentials<'a>,
-}
-impl<C: SessionClock, B: DeliveryBudget> Encoder for RestEncoder<'_, C, B> {
-    fn encode(&mut self, command: &CanonicalCommand) -> tickwire_gateway::Result<EncodedRequest> {
-        self.shared
-            .encode(&self.credentials, command)
-            .map_err(|e| match e {
-                Error::Identity => tickwire_gateway::Error::Identity,
-                Error::Capacity => tickwire_gateway::Error::Capacity,
-                Error::Busy => tickwire_gateway::Error::Busy,
-                _ => tickwire_gateway::Error::Encoding,
-            })
-    }
-}
-pub struct GateAuthority<A, C, B> {
-    inner: A,
-    shared: SharedSessionState<C, B>,
-}
-impl<A: Authority, C: SessionClock, B: DeliveryBudget> Authority for GateAuthority<A, C, B> {
-    fn verify_handover(
-        &mut self,
-        baseline: &tickwire_account_codec::CanonicalBaseline,
-        record: &tickwire_account_codec::CanonicalRecord,
-        prior: &[tickwire_account_codec::CanonicalRecord],
-    ) -> std::result::Result<(), AuthorityError> {
-        self.inner.verify_handover(baseline, record, prior)
-    }
-    fn commit_state(
-        &mut self,
-        admission: &tickwire_account::Admission,
-        receipt: &tickwire_account_journal::AppendReceipt,
-    ) -> core::result::Result<tickwire_account_gateway::CommitState, AuthorityError> {
-        if !self
-            .shared
-            .binding_ready(admission, receipt)
-            .map_err(|_| AuthorityError::Denied)?
-        {
-            return Ok(tickwire_account_gateway::CommitState::Pending);
-        }
-        self.inner.commit_state(admission, receipt)
-    }
-    fn prepare(
-        &mut self,
-        request: AdmissionRequest<'_>,
-    ) -> core::result::Result<VerifiedClosure, AuthorityError> {
-        self.inner.prepare(request)
-    }
-    fn verify(
-        &mut self,
-        request: AdmissionRequest<'_>,
-    ) -> core::result::Result<VerifiedClosure, AuthorityError> {
-        self.inner.verify(request)
-    }
-    fn current_gate(
-        &mut self,
-        command: &CanonicalCommand,
-        admission: &Admission,
-    ) -> core::result::Result<Gate, AuthorityError> {
-        let prepared = self
-            .shared
-            .prepare_gate(command)
-            .map_err(|_| AuthorityError::Denied)?;
-        let gate = self.inner.current_gate(command, admission)?;
-        self.shared
-            .finish_gate(command, gate, prepared)
-            .map_err(|_| AuthorityError::Denied)
-    }
-}
-fn source(b: &CommandBinding) -> Result<Source> {
-    use tickwire_venue::{Environment, Product};
-    match (b.product, b.environment) {
-        (Product::Spot, Environment::Production) => Ok(Source::SpotProduction),
-        (Product::Spot, Environment::Test) => Ok(Source::SpotTest),
-        (Product::LinearPerpetual | Product::LinearFuture, Environment::Production) => {
-            Ok(Source::UsdmProduction)
-        }
-        (Product::LinearPerpetual | Product::LinearFuture, Environment::Test) => {
-            Ok(Source::UsdmTest)
-        }
-        _ => Err(Error::Identity),
-    }
-}
 
 pub mod warmup;
 
-#[cfg(test)]
-mod tests;
+use std::sync::Arc;
+
+use tickwire_account::{DueQueryAction, OrderManager};
+use tickwire_binance_quota::SharedBinanceOrsQuota;
+use tickwire_transport::mio::Waker;
+use tickwire_transport::{
+    Error as TransportError,
+    latency_tracer::LatencyTracer,
+    rest_querier::{
+        AsyncRestQuerier, BuiltRequest, RestReply, RestRequestBuilder, RestStatus, RestTask,
+        query_kind,
+    },
+};
+
+pub use tickwire_binance_account::{
+    BinanceAccountSpec, BinanceAssetBinding, BinanceBootstrapCatalog, BinanceBootstrapError,
+    BinanceCancelOutcome, BinanceConfigError, BinanceConnectionSet, BinanceEventSink,
+    BinanceLoginReply, BinanceMarketAuth, BinanceMarketConfig, BinanceModifyOutcome,
+    BinanceMsgParser, BinanceNewOrderIntent, BinanceParsedFrame, BinanceRateLimitRow,
+    BinanceRequestKind, BinanceRequestRef, BinanceResolvedMarketUrls, BinanceRestCall,
+    BinanceSession, BinanceSessionError, BinanceStatusApplyOutcome, BinanceSubmitOutcome,
+    BinanceSymbolBinding, BinanceUrlId, BinanceVenueMarket, DEFAULT_ORDER_RECV_WINDOW_MS,
+    DEFAULT_STATUS_QUERY_DELAY_MS, DEFAULT_WS_PING_PERIOD_S, ExchRateLimitNotice,
+    LISTEN_KEY_REFRESH_S, ReapedOrderLink, STATUS_QUERY_RECV_WINDOW_MS, UrlRole,
+    resolve_market_urls,
+};
+pub use warmup::{
+    BinanceHotPathWarmer, DecodedBinanceSampleBbo, decode_sample_binance_book_ticker,
+};
+
+const CANCEL_FLAG_BIT: u64 = 1u64 << 63;
+
+/// Encodes `(ors_order_id, BinanceRequestKind)` into a `RestTask::key` for `STATUS_ASK`.
+#[inline]
+pub const fn pack_status_task_key(ors_order_id: u64, cancel_origin: bool) -> u64 {
+    if cancel_origin {
+        ors_order_id | CANCEL_FLAG_BIT
+    } else {
+        ors_order_id & !CANCEL_FLAG_BIT
+    }
+}
+
+/// Unpacks a `STATUS_ASK` `RestTask::key` into `(ors_order_id, BinanceRequestKind)`.
+#[inline]
+pub const fn unpack_status_task_key(task_key: u64) -> (u64, BinanceRequestKind) {
+    let ors_order_id = task_key & !CANCEL_FLAG_BIT;
+    let kind = if (task_key & CANCEL_FLAG_BIT) != 0 {
+        BinanceRequestKind::Cancel
+    } else {
+        BinanceRequestKind::Place
+    };
+    (ors_order_id, kind)
+}
+
+/// `Send + 'static` [`RestRequestBuilder`] adapter signing `STATUS_ASK` (`recvWindow=60000`) and
+/// `listenKey` (`POST` / `PUT`) requests on `"tw-rest-query"` (`housekeeping_cpus`) using
+/// [`BinanceSession`]'s dedicated `rest_query_signer`.
+pub struct BinanceRestRequestBuilder<const CHECK_STP: bool = true> {
+    session: Arc<BinanceSession<CHECK_STP>>,
+    market: BinanceVenueMarket,
+    wall_clock_ms: Box<dyn FnMut() -> u64 + Send>,
+}
+
+impl<const CHECK_STP: bool> BinanceRestRequestBuilder<CHECK_STP> {
+    pub fn new(
+        session: Arc<BinanceSession<CHECK_STP>>,
+        market: BinanceVenueMarket,
+        wall_clock_ms: impl FnMut() -> u64 + Send + 'static,
+    ) -> Self {
+        Self {
+            session,
+            market,
+            wall_clock_ms: Box::new(wall_clock_ms),
+        }
+    }
+}
+
+impl<const CHECK_STP: bool> RestRequestBuilder for BinanceRestRequestBuilder<CHECK_STP> {
+    fn build_request(
+        &mut self,
+        task: &RestTask,
+        _host: &str,
+        _scratch: &mut Vec<u8>,
+    ) -> Result<Option<BuiltRequest>, TransportError> {
+        let wall_ms = (self.wall_clock_ms)();
+        let call_opt = match task.kind {
+            query_kind::LISTEN_KEY_CREATE => self
+                .session
+                .stream_token_query(self.market, false)
+                .map_err(|_| TransportError::Protocol("stream_token_query create"))?,
+            query_kind::LISTEN_KEY_KEEPALIVE => self
+                .session
+                .stream_token_query(self.market, true)
+                .map_err(|_| TransportError::Protocol("stream_token_query keepalive"))?,
+            query_kind::STATUS_ASK => {
+                let (ors_order_id, kind) = unpack_status_task_key(task.key);
+                match self.session.order_status_query(ors_order_id, kind, wall_ms) {
+                    Ok(call) => Some(call),
+                    Err(BinanceSessionError::OrderNotFound(_)) => None,
+                    Err(_) => return Err(TransportError::Protocol("order_status_query failed")),
+                }
+            }
+            query_kind::ACCOUNT_SNAPSHOT => self
+                .session
+                .account_bootstrap_queries(wall_ms)
+                .map_err(|_| TransportError::Protocol("account_bootstrap_queries"))?
+                .into_iter()
+                .find(|c| c.market == self.market),
+            query_kind::OPEN_ORDERS_SNAPSHOT => self
+                .session
+                .open_orders_queries(wall_ms)
+                .map_err(|_| TransportError::Protocol("open_orders_queries"))?
+                .into_iter()
+                .find(|c| c.market == self.market),
+            _ => None,
+        };
+
+        let Some(call) = call_opt else {
+            return Ok(None);
+        };
+        Ok(Some(BuiltRequest {
+            method: String::from(call.method),
+            path: call.target,
+            headers: vec![(String::from("X-MBX-APIKEY"), call.api_key)],
+            body: Vec::new(),
+        }))
+    }
+}
+
+/// `RESP`-thread execution coordinator pairing an `Arc<BinanceSession<CHECK_STP>>` (shared with
+/// `REQ`, `Dialer`, and `AsyncRestQuerier`) with its per-market [`BinanceConnectionSet`].
+#[derive(Debug)]
+pub struct BinanceExecutionEngine<const CHECK_STP: bool = true> {
+    session: Arc<BinanceSession<CHECK_STP>>,
+    connections: BinanceConnectionSet,
+}
+
+impl<const CHECK_STP: bool> BinanceExecutionEngine<CHECK_STP> {
+    pub fn configure(
+        spec: BinanceAccountSpec,
+        order_manager: Arc<OrderManager<CHECK_STP>>,
+        quota: SharedBinanceOrsQuota,
+        catalog: Arc<BinanceBootstrapCatalog>,
+        resp_waker: Option<Arc<Waker>>,
+        tracer: Option<Arc<LatencyTracer>>,
+    ) -> Result<Self, BinanceSessionError> {
+        let (session, connections) =
+            BinanceSession::configure(spec, order_manager, quota, catalog, resp_waker, tracer)?;
+        Ok(Self {
+            session,
+            connections,
+        })
+    }
+
+    #[inline]
+    pub fn session(&self) -> &Arc<BinanceSession<CHECK_STP>> {
+        &self.session
+    }
+
+    #[inline]
+    pub fn connections(&self) -> &BinanceConnectionSet {
+        &self.connections
+    }
+
+    #[inline]
+    pub fn connections_mut(&mut self) -> &mut BinanceConnectionSet {
+        &mut self.connections
+    }
+
+    /// Reaps any disconnected order/stream links and routes in-flight Options `HttpsLink` requests
+    /// into [`BinanceSession::on_disconnected`].
+    pub fn reap_disconnects(
+        &mut self,
+        now_mono_ns: u64,
+        sink: &mut impl BinanceEventSink,
+    ) -> Result<usize, BinanceSessionError> {
+        let mut reaped = Vec::new();
+        let n = self
+            .connections
+            .reap_close_pending(now_mono_ns, &mut reaped)?;
+        for link in reaped {
+            self.session
+                .on_disconnected(link.conn_id, link.inflight, now_mono_ns, sink);
+        }
+        Ok(n)
+    }
+
+    /// Enqueues a `listenKey` create (`keepalive == false`) or keepalive (`keepalive == true`)
+    /// task onto `querier` (`13.9`).
+    pub fn enqueue_listen_key_task(
+        &self,
+        market: BinanceVenueMarket,
+        keepalive: bool,
+        querier: &AsyncRestQuerier,
+    ) -> bool {
+        if !self.session.needs_stream_token(market) {
+            return false;
+        }
+        let kind = if keepalive {
+            query_kind::LISTEN_KEY_KEEPALIVE
+        } else {
+            query_kind::LISTEN_KEY_CREATE
+        };
+        querier.enqueue(RestTask::cold_snapshot(kind, market as u64))
+    }
+
+    /// Polls due `OrsQueryDesk` actions on `RESP`, enqueuing `StatusAsk` tasks (both `Place` and
+    /// exponential-backoff `Cancel` asks) onto the matching market's `AsyncRestQuerier`.
+    pub fn pump_due_queries<'a>(
+        &self,
+        now_mono_ns: u64,
+        mut querier_for_market: impl FnMut(BinanceVenueMarket) -> Option<&'a AsyncRestQuerier>,
+    ) -> usize {
+        let mut due_buf = [DueQueryAction::StatusAsk {
+            ors_order_id: 0,
+            account_ref: 0,
+            symbol_id: 0,
+            attempt: 0,
+            cancel_after: false,
+        }; 32];
+        let om = self.session.order_manager();
+        let n = om.query_desk().poll_due(
+            self.session.account_ref(),
+            now_mono_ns,
+            &mut due_buf,
+            |s_idx, oid| om.is_slot_live(s_idx, oid),
+        );
+
+        let mut handled = 0usize;
+        for action in due_buf.iter().copied().take(n) {
+            let (ors_order_id, symbol_id, cancel_origin) = match action {
+                DueQueryAction::StatusAsk {
+                    ors_order_id,
+                    symbol_id,
+                    cancel_after,
+                    ..
+                } => (ors_order_id, symbol_id, cancel_after),
+                DueQueryAction::RetryCancel {
+                    ors_order_id,
+                    symbol_id,
+                    ..
+                } => (ors_order_id, symbol_id, true),
+            };
+            let Some(binding) = self.session.catalog().symbol(symbol_id) else {
+                continue;
+            };
+            if let Some(q) = querier_for_market(binding.market) {
+                let key = pack_status_task_key(ors_order_id, cancel_origin);
+                if q.enqueue(RestTask::status_ask(key, 1, 0, 0)) {
+                    handled += 1;
+                }
+            }
+        }
+        handled
+    }
+
+    /// Applies one completed [`RestReply`] drained from `AsyncRestQuerier` on `RESP`.
+    pub fn apply_rest_reply(
+        &self,
+        market: BinanceVenueMarket,
+        reply: &RestReply,
+        now_mono_ns: u64,
+        sink: &mut impl BinanceEventSink,
+    ) -> Result<(), BinanceSessionError> {
+        match reply.task.kind {
+            query_kind::LISTEN_KEY_CREATE | query_kind::LISTEN_KEY_KEEPALIVE => {
+                let _ = self
+                    .session
+                    .on_stream_token_reply(market, reply.http_code, &reply.body)?;
+                Ok(())
+            }
+            query_kind::STATUS_ASK => {
+                let (ors_order_id, kind) = unpack_status_task_key(reply.task.key);
+                let answered = matches!(reply.status, RestStatus::Ok | RestStatus::HttpError)
+                    && reply.http_code > 0;
+                let _ = self.session.apply_status(
+                    ors_order_id,
+                    kind,
+                    answered,
+                    reply.http_code,
+                    &reply.body,
+                    now_mono_ns,
+                    sink,
+                )?;
+                Ok(())
+            }
+            _ => Ok(()),
+        }
+    }
+}

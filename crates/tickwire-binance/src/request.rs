@@ -755,6 +755,7 @@ fn order_params(
             TimeInForce::Fok => "FOK",
             TimeInForce::PostOnly if market == Market::Spot && kind == "LIMIT_MAKER" => "",
             TimeInForce::PostOnly if market == Market::Usdm => "GTX",
+            TimeInForce::Rpi if o.order_type == OrderType::Limit => "RPI",
             TimeInForce::Gtd { expire_utc_ns } if market == Market::Usdm => {
                 let now_seconds = timestamp
                     / match stamp {

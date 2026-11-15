@@ -179,9 +179,12 @@ pub fn classify_order_update_reason(wire: &OrderUpdate<'_>) -> Option<v::Termina
         "IOC" => Some(v::TimeInForce::Ioc),
         "FOK" => Some(v::TimeInForce::Fok),
         "GTX" => Some(v::TimeInForce::PostOnly),
+        "RPI" => Some(v::TimeInForce::Rpi),
         _ => None,
     };
-    let post_only = wire.time_in_force == "GTX" || wire.order_type == "LIMIT_MAKER";
+    let post_only = wire.time_in_force == "GTX"
+        || wire.time_in_force == "RPI"
+        || wire.order_type == "LIMIT_MAKER";
     let stp_or_reason = if exec.eq_ignore_ascii_case("TRADE_PREVENTION")
         || status.eq_ignore_ascii_case("EXPIRED_IN_MATCH")
     {

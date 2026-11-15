@@ -1,51 +1,45 @@
-# Account Reconciliation and Terminal Fee Maintenance
+# Per-Account `OrsQueryDesk` Reconciliation and Stateless Cold REST Bootstrap
 
-`Controller` (`tickwire-app/src/reconciliation.rs`) drives authenticated read-only REST queries, trade-history pagination, optional USDⓈ-M income scans, and three-snapshot parity proofs for Binance Spot and USDⓈ-M accounts. It serves two distinct roles under one state machine: restoring trading eligibility when an account is frozen or unreconciled, and—on an already-healthy account—periodically closing outstanding terminal-order fee allowances (`FeesReconciled`) and renewing time-bounded trading qualification (`Reactivated`) before expiry.
+`tickwire-binance-account` recovers order certainty and cold-startup state across **Spot, USD-M Futures, Coin-M Futures, and European Options** without any local WAL, journal, or disk checkpoint. Runtime ambiguity resolution runs per order on the cold `AsyncRestQuerier` / `OrsQueryDesk` path while sibling orders and accounts continue trading at full hot-path speed, and process startup reconstructs open-order holds, STP books, balances, positions, and per-strategy sequence floors directly from authenticated Exchange REST snapshots paired with `SelfDescribingClientId` (`tw1...`).
 
-An HTTP `200` response from a venue endpoint never closes fee reserves, clears unknown order flags, or enables risk-increasing admissions on its own. Every reconciliation or renewal round must persist raw query responses to the input WAL, verify contiguous pagination coverage, match remote snapshots against the exact `Account` ledger sequence and continuous private-stream frontier, and synchronize the resulting proof record in `AccountJournal`.
+## Per-Order `OrsQueryDesk` Status Queries (`status_query_delay_ms = 6000`)
 
-## State Model, Triggers, and Configuration Bounds
+Whenever an outbound `Place`, `Cancel`, or `Modify` receives an ambiguous venue outcome (`-1007` send/execution status unknown, `-1000` unknown error / try again later, `-1001`, `-1006`, HTTP `408`, or an Options `HttpsLink` disconnect/timeout with an in-flight `BinanceRequestRef`), `BinanceSession` isolates only that order into `OrderManager::query_desk()`:
 
-`Config` requires nonzero `reader_id` (matching `ReadBinding.owner_id`), `first_request_epoch`, `first_execution_connection_epoch`, `retry_ns`, `valid_for_ns`, and `fee_maintenance_interval_ns` (defaulting to `1_000_000_000` ns / `1 s`; `0` is rejected at construction). `OrderWork::should_start` initiates a reconciliation round under three independent conditions:
-
-| Trigger Path | Preconditions | Throttling and Sender Rules |
+| Event / Condition | Delay & Wire Request | Resolution Semantics (`apply_status`) |
 | --- | --- | --- |
-| Unhealthy / frozen recovery | `!healthy` (account frozen, execution gateway halted, or private frontier unreconciled) | Runs immediately regardless of `fee_maintenance_interval_ns` or sender idle checks; failed rounds back off by `retry_ns`. |
-| Qualification renewal | `now >= valid_until.saturating_sub(valid_for_ns / 2)` | Fires at the halfway mark of the persisted `Account::valid_until()` window—even on an empty account with zero orders and no income scan—once the outbound REST sender is idle; never deferred by the fee timer. |
-| Terminal fee maintenance | Healthy account with ≥ 1 non-aborted, non-uncreated terminal order holding open fees (excluding orders actively isolated `in_doubt` while `gateway.per_order_doubt_isolation()` is enabled), idle REST sender, and `now >= maintenance_at` | Waits for `fee_maintenance_interval_ns` after the previous completed round; failures back off by `retry_ns`. |
+| Ambiguous `Place` (`MKT_DELAYED`) or Options `Place` link drop | `status_query_delay_ms = 6000` (`6 s`, exceeding the `5 s` order `recvWindow`), signed `GET /{api/v3,fapi/v1,dapi/v1,eapi/v1}/order` with `recvWindow=60000` and `origClientOrderId` (`clientOrderId` on Options) | Order remains `PendingNew` (`WaitMkt`) holding its collateral reservation. Once settled by the private stream, `order_status_query` returns `None` and sends nothing. |
+| Ambiguous `Cancel` (`MKT_DELAYED`) or Options `Cancel` link drop | Emits `CancelRejected` (`MKT_DELAYED`), keeps `pending_cxl > 0` counted, and schedules a `Cancel` status ask (`6000 ms` delay), coalescing onto any existing ask for the same `ors_order_id` | First takes back one counted cancel: if the order is terminal (`CANCELED`/`EXPIRED`), settles as `NO_REASON`; if still `NEW`/`PARTIALLY_FILLED`, emits `CancelRejected` (`MKT_REJECT`) and re-queries while any additional cancel remains counted. |
+| `-2013` (`Order does not exist`) on `StatusAsk` | Answered deterministic `400` / `-2013` | Closes a `PendingNew` (`WaitMkt`) order immediately as `Rejected` (`MKT_REJECT_NO_SUCH_ORDER`), releasing its hold and STP entry. |
+| Transport failure, timeout, or transient HTTP `5xx`/`429` | Unanswered or inconclusive reply | For `PendingNew` (`Place` ask): calls `OrderManager::on_query_inconclusive`, retrying every `1 s` until `max_query_count` releases the wedged slot with `TerminalReason::INTERNAL_CANCEL`. For an acked order's `Cancel`: schedules exponential backoff (`1, 2, 4, 8, 16, 32, 64 s`) up to `8` attempts (`MAX_CANCEL_BACKOFF_ATTEMPTS`). |
 
-When per-order doubt isolation (`gateway.per_order_doubt_isolation()`) is enabled on `RestOwner`, a single-order `in_doubt` marker (`PlaceAmbiguous`, `CancelAmbiguous`, `AmendAmbiguous`, or `FillCatchup`) with `!account.frozen() && !gateway.halted()` is **not** treated as an account-wide freeze: `PerOrderQueryDriver` resolves that order's status, trade fills, and terminal fee closure off the hot path without invoking `BeginReconciliation`, whereas `Controller` continues to run whole-account snapshot reconciliation whenever `account.frozen() || gateway.halted()`, qualification renewal is due, or healthy non-`in_doubt` terminal fee maintenance becomes due.
+## Listen-Key Lifecycle (`stream_token_query`)
 
-## Core Invariants
+For USD-M (`/fapi/v1/listenKey`), Coin-M (`/dapi/v1/listenKey`), and Options (`/eapi/v1/listenKey`)—Spot uses `userDataStream.subscribe` on its WebSocket order/stream pool and returns `None`—`BinanceSession` manages the stream token off the hot path via `AsyncRestQuerier`:
 
-* **Fresh candidate work on every round**: Each round reloads target orders, conditional structures, and amendments directly from the current `Account` state; a new round never reuses a cached empty order set from an earlier round, even when `connection_epoch` and `gap_generation` remain unchanged.
-* **Authoritative persisted expiry deadline**: Renewal timing derives strictly from `Account::valid_until()`, established by the genesis baseline or the latest durable `Reactivated` record. Starting a round, waiting on a busy REST sender, failing a query, or scheduling `retry_ns` backoff never extends `valid_until`; once `now >= valid_until`, `ControlPlane` denies new risk-increasing orders immediately.
-* **Proven trade coverage before `FeesReconciled`**: Closing an order's remaining fee budget requires querying the order, paginating its trade history contiguously from initial cursor `0`, and confirming that booked fills match reported cumulative quantity.
-* **Ledger-advancing closures invalidate earlier snapshots**: Whenever an intermediate step—such as USDⓈ-M `AccountInputsReconciled` (account tag `14`)—advances `Account::ledger_sequence()`, any remote snapshots bound to the earlier ledger sequence are discarded, and all three snapshots (account, open orders, conditional orders) must be re-collected against the new `ledger_sequence` before `Reactivated` can commit.
+1. **Create (`refresh == false`)**: Issues `POST /{fapi,dapi,eapi}/v1/listenKey` with `X-MBX-APIKEY`. `on_stream_token_reply` extracts `"listenKey"` via `tickwire_transport::json_scan` and stores it inside that market's `GuardedValue<InlineAscii<128>>` so `Dialer::connection_url` can dial `/ws/<key>` (colo) or `?listenKey=<key>` (public).
+2. **Keepalive (`refresh == true`)**: Issues `PUT /{fapi,dapi,eapi}/v1/listenKey` every `stream_token_refresh_s` (`1800 s` default); `on_stream_token_reply` validates absence of an error code without overwriting the active key.
+3. **Expiry (`listenKeyExpired`)**: Receiving `listenKeyExpired` on the private stream clears that market's `GuardedValue` token and sets `stream_token_expired = true`, reconnecting only the stream pool and triggering a fresh `POST` while order sockets stay uninterrupted.
 
-## State Transitions and Failure Semantics
+## Stateless Cold Startup from Exchange REST Snapshots
 
-### Standard Round Execution
+On cold boot or restart, `bootstrap::decode_market_bootstrap_snapshot` and `BinanceSession::bootstrap_from_rest_snapshots` (`src/bootstrap.rs`) parse authenticated `Account + OpenOrders` REST responses using zero-float `tickwire_transport::json_scan` decoders across all configured markets:
 
-During an active round, private WebSocket frames continue to append to the durable input WAL while `Controller` shares rate-limit quotas, pagination limits, and `IoBudget` across its read-only clients (`ReadOnlyOrderReader`, `ReadOnlyAmendmentReader`, `ReadOnlyStructureReader`, `ReadOnlyReconciler`, and `AccountSnapshotReader`). All read-only REST clients share `WireReadPool` ([`src/reconciliation/wire.rs`](../../crates/tickwire-binance-account/src/reconciliation/wire.rs)), which retains clean HTTP/1.1 keep-alive TLS sockets across sequential `GET` queries (`WireRead::reuse_or_connect` / `take_idle_connection`) and optionally adopts pre-warmed sockets from a background `Dialer` (`DialBaton`) before falling back to a fresh `Connection::connect`:
+* **Spot**: `GET /api/v3/account` (`balances: [{asset, free, locked}]`) + `GET /api/v3/openOrders`.
+* **USD-M**: `GET /fapi/v2/account` or `/fapi/v3/account` (`assets`, `positions`) + `GET /fapi/v1/openOrders`.
+* **Coin-M**: `GET /dapi/v1/account` (`assets`, `positions`) + `GET /dapi/v1/openOrders`.
+* **Options**: `GET /eapi/v1/account` (`asset: [{asset, marginBalance, available, locked}]`) + `GET /eapi/v1/openOrders` (`clientOrderId`).
 
-1. **Begin and query**: After `BeginReconciliation`, the controller queries each loaded order, structure, and amendment, paginates trades from cursor `0`, and commits `FeesReconciled` for qualifying terminal orders.
-2. **Optional USDⓈ-M income scan (`income_account_scan`)**: For wallets with an existing approved `IncomeBaseline` (without one, only `income_baseline_import` can establish initial coverage; choosing a `lookback_ms` window never invents a completeness frontier), `Controller` queries `[calibrated_now - lookback_ms, calibrated_now]` within configured `interval_ns`, per-page `limit`, and `maximum_queries`. In `IncomeUse::Account` mode, raw HTTP bytes and per-row effects persist to the input WAL before order/snapshot checks; if eligible `Booked` funding rows reconcile via tag `14`, prior snapshots are dropped and re-collected at the updated ledger sequence. Unknown observations or pending debits—including unexplained transfers whose net balance cancels to zero—keep `Account` frozen and schedule `retry_ns` backoff.
-3. **Three-snapshot parity and `Reactivated`**: Once account, open-order, and conditional-order snapshots match the current `Account` state and continuous input prefix, `AccountGateway::reactivate` synchronizes `Reactivated` and updates `ControlPlane` via `ActivationProof`. Success resets per-round cursors and schedules `maintenance_at = now.saturating_add(fee_maintenance_interval_ns)`.
-4. **Failure or frontier change**: Any HTTP/transport error (such as a `503` snapshot response) or any mid-round change in private `(connection_epoch, gap_generation)` discards partial per-round state, leaving `Account` frozen and preserving its original `valid_until` deadline across crash replay.
-
-### Cold Stateless Bootstrap (`bootstrap_from_remote_snapshots`)
-
-When a Binance Spot or USDⓈ-M node boots without local journal state (`StorageMode::InMemory` or an empty state directory configured for cold bootstrap), `tickwire-binance-account::reconciliation::snapshot::bootstrap_from_remote_snapshots` parses authenticated Spot (`/api/v3/account` + `/api/v3/openOrders`) or USDⓈ-M (`/fapi/v3/account` + `/fapi/v1/openOrders`) snapshots, attributes settled balances and net positions to `strategy 0`, decodes every domain-matching `SelfDescribingClientId` open order into `LiveOpenOrder` entries and `AccountIngress` `OrderRegistry` bindings, and constructs a live `Account` with per-strategy `(epoch, intent_id)` sequence floors—requiring zero historical fill pagination on startup.
+Each market's collateral balances map into `AssetKey { wallet_id, asset_id }` inside `UtaWalletLedger`, net derivative positions populate `OrsRestPositionRow`, and every open order carrying a valid domain-authenticated 32-character `[0-9a-z]` `SelfDescribingClientId` (`tw1...`) reconstructs its exact `(strat_id, epoch, order_seqnum)` slot in `OrderManager`, restoring `OrsStpBook` entries, open-order holds, and per-strategy monotonic sequence floors without touching local disk files.
 
 ## Verification and References
 
 ```sh
-cargo test --locked -p tickwire-app -p tickwire-binance-account
+cargo test --locked -p tickwire-binance-account --all-targets
 ```
 
-Loopback TLS integration tests exercise the production `Controller` against a local exchange peer across single-charge funding-fee reconciliation, unexplained transfers held pending, consecutive renewals on an empty account, and `503` snapshot faults followed by reopening both WALs and their recovery closure stores.
-
-* Controller and proof implementations: [reconciliation controller and renewal scheduler](../../crates/tickwire-app/src/reconciliation.rs), [app income scan integration](../../crates/tickwire-app/src/reconciliation/income.rs), [ActivationProof](../../crates/tickwire-binance-account/src/reconciliation/activation.rs), [trade pagination reconciler](../../crates/tickwire-binance-account/src/reconciliation/trades.rs), [remote snapshot verifier](../../crates/tickwire-binance-account/src/reconciliation/snapshot.rs), [account record codec](../../crates/tickwire-account-codec/src/codec.rs)
-* Network test suite: [income and renewal loopback TLS tests](../../crates/tickwire-app/src/reconciliation/income_network_tests.rs)
-* Related specifications: [multi-asset account state machine](account.md), [account gateway](account-gateway.md), [order submission policy](runtime-policy.md), [USDⓈ-M income and account observations](usdm-account-facts.md), [conditional orders](conditional-orders.md)
+* [Stateless cold REST snapshot parser and bootstrap builder](../../crates/tickwire-binance-account/src/bootstrap.rs)
+* [Unified `BinanceSession` `OrsQueryDesk` and `listenKey` hooks](../../crates/tickwire-binance-account/src/session.rs)
+* [Preallocated per-account `OrsQueryDesk` state machine](../../crates/tickwire-account/src/ors_query_desk.rs)
+* [Stateless `OrderManager` and `tw1` client-ID recovery](account.md)
+* [Binance multi-market session specification](binance-ws-trading.md)

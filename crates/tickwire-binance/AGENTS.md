@@ -1,42 +1,46 @@
 # tickwire-binance
 
 `tickwire-binance` (`#![forbid(unsafe_code)]`) owns pure, socket-free protocol codecs, cryptographic request signing
-(`auth::SigningKey`), REST/WS request formatting, response classification, incremental depth synchronization
-(`depth_sync`), and market/private event parsing for Binance Spot and USD-M Futures. Session drivers
-(`tickwire-binance-public`, `tickwire-binance-private`, `tickwire-binance-execution`) feed wire slices into this crate
-and receive typed Rust values or signed byte buffers without I/O, clocks, or hidden retries.
+(`auth::SigningKey` over `HmacSha256`, `RsaSha256`, and `Ed25519` DER/PEM), REST/WebSocket/HTTPS request formatting
+across Spot, USD-M, Coin-M, and European Options (`request` and `full_market`), response classification, incremental
+depth synchronization (`depth_sync`), and market/private event parsing. Session drivers (`tickwire-binance-public`,
+`tickwire-binance-private`, `tickwire-binance-account`, `tickwire-binance-execution`) feed wire slices into this crate
+and receive typed Rust values or signed byte buffers without I/O, clocks, floats, or hidden retries.
 
 ## Invariants and Change Guidelines
 
-* **Secret isolation and endpoint-algorithm matrix**: `SigningKey` in [src/auth.rs](src/auth.rs) omits `Debug`, `Clone`,
-  and key export, and `Endpoint::permits` restricts each endpoint (`SpotRest`, `UsdmRest`, `UsdmWebSocket`, session/FIX
-  logons) to supported algorithms (`HmacSha256`, `RsaSha256`, `Ed25519`); sign canonical preimages in
-  [src/request.rs](src/request.rs) and [src/params.rs](src/params.rs) before percent-encoding REST signatures once.
-* **Exact decimal scaling and time units**: Convert ASCII decimals in [src/decimal.rs](src/decimal.rs) without floating
+* **Secret isolation, `Send + Sync` keys, and endpoint-algorithm matrix**: `SigningKey` in [src/auth.rs](src/auth.rs)
+  omits `Debug`, `Clone`, and key export while satisfying `Send + Sync` (constructing independent instances from DER or
+  PEM via `ed25519_pem` / `rsa_pem` for isolated ORS threads), and `Endpoint::permits` restricts each endpoint
+  (`SpotRest`, `SpotWebSocket`, `UsdmRest`, `UsdmWebSocket`, `CoinmRest`, `CoinmWebSocket`, `OptionsRest`, and
+  session/FIX logons) to supported algorithms; sign canonical preimages in [src/request.rs](src/request.rs),
+  [src/full_market.rs](src/full_market.rs), and [src/params.rs](src/params.rs) before percent-encoding REST signatures
+  once.
+* **Exact decimal scaling and time units**: Convert ASCII decimals and scaled integer ticks/lots in
+  [src/decimal.rs](src/decimal.rs) and [src/full_market.rs](src/full_market.rs) (`format_scaled_i64`) without floating
   point, and preserve explicit millisecond vs. microsecond `TimeUnit` metadata across [src/feed.rs](src/feed.rs),
   [src/market.rs](src/market.rs), and [src/events.rs](src/events.rs).
-* **Distinct transport vs. venue rejection evidence and `TerminalReason` classification**: Classify HTTP/WS responses in
-  [src/response.rs](src/response.rs) so definite venue rejections (including Spot/USD-M order-creation and `Modify`
-  rejections `-2010`, `-2019`, `-2021` when HTTP status `!= 409`, `-2022`, `-2038`, `-4003`, `-4014`, `-4016`, `-4024`,
-  `-4061`, `-4131`, `-4164`, `-5021`, `-5022`, `-5027` while keeping `409` as `FailureKind::Partial`), `418`/`429`
-  limits, and malformed replies never collapse into silent retries. Encode native `CommandBody::Modify` on USD-M
-  (`PUT /fapi/v1/order`, WS `"order.modify"`) and Spot (`POST /api/v3/order/cancelReplace`, WS `"order.cancelReplace"`
-  with `STOP_ON_FAILURE`), preserve `avgPrice`/`ap`, `V` (`selfTradePreventionMode`), and `TimeInForce` mappings
-  (`GTC`/`IOC`/`FOK`/`GTX`/`GTD`/`RPI`) across [src/response.rs](src/response.rs) and [src/events.rs](src/events.rs),
-  expose `classify_order_update_reason`, and bind private execution reports to durable local commands in
-  [src/events.rs](src/events.rs).
+* **Full-market ORS wire framing and `TerminalReason` classification**: Encode zero-allocation `session.logon`,
+  `userDataStream.subscribe`, Spot/USD-M/Coin-M WebSocket `order.place` / `order.cancel` / `order.modify` /
+  `order.cancelReplace`, Options form-urlencoded HMAC-SHA256 `POST`/`DELETE /eapi/v1/order`, colocation vs. public
+  listen-key stream URL decoration, and signed REST `order`/`openOrders`/`account` targets in
+  [src/full_market.rs](src/full_market.rs). Preserve `TimeInForce` mappings (`GTC`/`IOC`/`FOK`/`GTX`/`GTD`/`RPI`) across
+  [src/request.rs](src/request.rs), [src/events.rs](src/events.rs), and [src/full_market.rs](src/full_market.rs), and
+  classify ambiguous (`MKT_DELAYED`) vs. deterministic venue outcomes via `response::classify`,
+  `full_market::explain_binance_error`, and `full_market::classify_binance_terminal_reason`.
 * **Depth snapshot bridge**: Keep Spot and USD-M `lastUpdateId`/`U`/`u`/`pu` bridging rules in
   [src/depth_sync.rs](src/depth_sync.rs) allocation-bounded and reset to a fresh snapshot cycle on any sequence gap.
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/auth.rs](src/auth.rs) · [src/request.rs](src/request.rs) ·
-  [src/response.rs](src/response.rs) · [src/events.rs](src/events.rs) · [src/depth_sync.rs](src/depth_sync.rs) ·
-  [tests/requests.rs](tests/requests.rs) · [tests/request_extensions.rs](tests/request_extensions.rs) ·
-  [tests/responses.rs](tests/responses.rs) · [tests/private_events.rs](tests/private_events.rs) ·
-  [tests/private_structures.rs](tests/private_structures.rs) · [tests/market_events.rs](tests/market_events.rs) ·
-  [tests/feed.rs](tests/feed.rs) · [tests/depth_sync.rs](tests/depth_sync.rs) ·
-  [tests/depth_workspace.rs](tests/depth_workspace.rs) · [tests/sbe_depth.rs](tests/sbe_depth.rs)
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/auth.rs](src/auth.rs) · [src/full_market.rs](src/full_market.rs)
+  · [src/request.rs](src/request.rs) · [src/response.rs](src/response.rs) · [src/events.rs](src/events.rs) ·
+  [src/depth_sync.rs](src/depth_sync.rs) · [tests/requests.rs](tests/requests.rs) ·
+  [tests/request_extensions.rs](tests/request_extensions.rs) · [tests/responses.rs](tests/responses.rs) ·
+  [tests/private_events.rs](tests/private_events.rs) · [tests/private_structures.rs](tests/private_structures.rs) ·
+  [tests/market_events.rs](tests/market_events.rs) · [tests/feed.rs](tests/feed.rs) ·
+  [tests/depth_sync.rs](tests/depth_sync.rs) · [tests/depth_workspace.rs](tests/depth_workspace.rs) ·
+  [tests/sbe_depth.rs](tests/sbe_depth.rs)
 * **Specifications and models**: [binance-protocol.md](../../specs/implementation/binance-protocol.md) ·
   [binance-streams.md](../../specs/implementation/binance-streams.md) ·
   [binance-depth-sync.md](../../specs/implementation/binance-depth-sync.md) ·

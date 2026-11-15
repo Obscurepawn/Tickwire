@@ -1046,6 +1046,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-binance-account"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "rcgen",
+ "ring",
+ "serde_json",
+ "sha1",
+ "tickwire-account",
+ "tickwire-binance",
+ "tickwire-binance-quota",
+ "tickwire-clock",
+ "tickwire-quota",
+ "tickwire-risk",
+ "tickwire-transport",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-binance-clock"
 version = "0.1.0"
 dependencies = [
@@ -1055,6 +1074,28 @@ dependencies = [
  "tickwire-clock",
  "tickwire-clock-sys",
  "tickwire-transport",
+]
+
+[[package]]
+name = "tickwire-binance-execution"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "rcgen",
+ "ring",
+ "serde_json",
+ "sha1",
+ "sha2",
+ "tickwire-account",
+ "tickwire-binance",
+ "tickwire-binance-account",
+ "tickwire-binance-clock",
+ "tickwire-binance-quota",
+ "tickwire-clock",
+ "tickwire-quota",
+ "tickwire-risk",
+ "tickwire-transport",
+ "tickwire-venue",
 ]
 
 [[package]]

@@ -4,7 +4,9 @@ members = [
     "crates/tickwire-account-codec",
     "crates/tickwire-account-gateway",
     "crates/tickwire-binance",
+    "crates/tickwire-binance-account",
     "crates/tickwire-binance-clock",
+    "crates/tickwire-binance-execution",
     "crates/tickwire-binance-private",
     "crates/tickwire-binance-public",
     "crates/tickwire-binance-quota",
@@ -39,8 +41,6 @@ members = [
 ]
 exclude = [
     "crates/tickwire-app",
-    "crates/tickwire-binance-account",
-    "crates/tickwire-binance-execution",
     "crates/tickwire-lab",
     "crates/tickwire-spot-execution",
     "crates/tickwire-spot-runner",
