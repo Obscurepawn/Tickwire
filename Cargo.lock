@@ -1065,6 +1065,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "tickwire-binance-quota"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "sha2",
+ "tickwire-binance",
+ "tickwire-binance-clock",
+ "tickwire-binance-private",
+ "tickwire-binance-public",
+ "tickwire-clock",
+ "tickwire-quota",
+ "tickwire-venue",
+]
+
+[[package]]
 name = "tickwire-binance-sbe"
 version = "0.1.0"
 
@@ -1206,6 +1221,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "tickwire-clock",
+ "tickwire-venue",
 ]
 
 [[package]]
@@ -1265,6 +1281,9 @@ dependencies = [
  "rcgen",
  "rustls",
  "sha1",
+ "tickwire-clock-sys",
+ "tickwire-control-sys",
+ "tickwire-venue",
 ]
 
 [[package]]

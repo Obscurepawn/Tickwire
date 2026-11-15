@@ -1,6 +1,10 @@
-//! Bounded, explicitly driven nonblocking network transport.
-#![deny(unsafe_code)]
-#![deny(unsafe_op_in_unsafe_fn)]
+//! Bounded, explicitly driven `#![forbid(unsafe_code)]` nonblocking network transport,
+//! vtable-free multi-protocol execution `LinkOps` (`WsLink`, `HttpsLink`, `FixLink`),
+//! zero-allocation single-pass `JsonScan` / `MsgParser`, lock-free `PublishedRoutes` EWMA routing,
+//! hardware `rdtsc` `LatencyTracer` & `TimedSpinLock`, and `housekeeping_cpus`-pinned `Dialer` and
+//! `AsyncRestQuerier` workers.
+#![forbid(unsafe_code)]
+
 pub use mio;
 pub use rustls;
 use std::{
@@ -8,6 +12,7 @@ use std::{
     sync::{Arc, OnceLock},
     time::Instant,
 };
+
 #[derive(Debug)]
 pub enum Error {
     Bounds,
@@ -34,6 +39,7 @@ impl From<rustls::Error> for Error {
     }
 }
 pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Limits {
     pub max_send_bytes: usize,
@@ -51,6 +57,7 @@ impl Default for Limits {
         }
     }
 }
+
 #[derive(Clone, Copy, Debug)]
 pub struct IoBudget {
     pub max_syscalls: usize,
@@ -64,6 +71,7 @@ impl Default for IoBudget {
         }
     }
 }
+
 pub enum Security {
     Plain,
     Tls {
@@ -71,6 +79,7 @@ pub enum Security {
         config: Arc<rustls::ClientConfig>,
     },
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Failure {
     Deadline,
@@ -80,6 +89,7 @@ pub enum Failure {
     Io,
     Tls,
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SendState {
     Queued,
@@ -88,6 +98,7 @@ pub enum SendState {
     NoBytes(Failure),
     Failed(Failure),
 }
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SendReport {
     pub id: u64,
@@ -95,6 +106,7 @@ pub struct SendReport {
     pub accepted_bytes: usize,
     pub total_bytes: usize,
 }
+
 pub struct PreparedSend {
     bytes: Vec<u8>,
     deadline: Instant,
@@ -110,6 +122,7 @@ impl PreparedSend {
         })
     }
 }
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct DriveReport {
     pub ready: bool,
@@ -119,18 +132,35 @@ pub struct DriveReport {
     pub syscalls: usize,
     pub peer_closed: bool,
 }
+
 pub type ClockFn = Arc<dyn Fn() -> u64 + Send + Sync>;
+
 pub fn mono_now_ns() -> u64 {
     static EPOCH: OnceLock<Instant> = OnceLock::new();
     let base = *EPOCH.get_or_init(Instant::now);
     1_000_000_000u64.saturating_add(u64::try_from(base.elapsed().as_nanos()).unwrap_or(u64::MAX))
 }
+
 mod connection;
 pub use connection::Connection;
 pub mod dialer;
 pub mod fix;
 pub mod http;
+pub mod json_scan;
+pub use json_scan::{JsonScan, MsgParser, ScannedExecFrame, ScannedRateLimit};
+pub mod latency_tracer;
+pub use latency_tracer::{
+    FindingKind, LatencyFinding, LatencyTracer, LatencyTracerConfig, LockDomain, LockId, MarkSite,
+    ThreadTag, ThreadTracer, TimedSpinLock,
+};
+pub mod links;
+pub use links::{
+    FixInboundAction, FixLink, FixSessionConfig, FixSessionState, GuardedValue, HttpsLink,
+    LinkKind, LinkOps, LockedConnection, ReplyIdSlot, RequestRef, SendOutcome, UrlBindPair,
+    UrlConnections, WsLink, WsLoginChallenge, WsLoginState,
+};
 pub mod order_router;
+pub use order_router::{PublishedRoutes, SampleMask};
 pub mod rest_querier;
 pub mod warmup;
 pub use warmup::{TlsLoopbackWarmer, WarmupConfig, WarmupTracker};

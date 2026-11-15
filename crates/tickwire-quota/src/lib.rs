@@ -1,4 +1,6 @@
-//! Supervisor allocations and single-owner local request quota consumption.
+//! Durable supervisor quota allocation (`Coordinator`, `ExecLimiter`, `FileQuotaStore`),
+//! single-owner multi-IP rate limiting (`rate_limiter`), and process-wide cross-account lock-free
+//! atomic ORS rate limiting (`shared::SharedRateLimiter`, `OrsVenueProfile`, `ExchRateLimitEvent`).
 #![forbid(unsafe_code)]
 
 pub use tickwire_clock::{ClockDomain, MonoTime};
@@ -919,3 +921,11 @@ mod preparation_tests {
 
 pub mod files;
 pub mod rate_limiter;
+pub mod shared;
+
+pub use shared::{
+    AccountRateOverrides, DEFAULT_SHARED_TABLE_SLOTS, ExchRateLimitEvent, ExchRateLimitLevel,
+    InstrumentScope, IpBudgetSpec, OrsAccountQuota, OrsVenueProfile, ROLLING_SUB_BUCKETS,
+    RouteAdmissionReject, SharedRateLimiter, SharedSpend, SharedWindowHandle, SpendTarget,
+    VenueRateDefaults, VenueRateLimitRow, route_ip_key,
+};

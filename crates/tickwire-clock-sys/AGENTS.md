@@ -2,16 +2,25 @@
 
 `tickwire-clock-sys` is the audited native clock boundary (`#![deny(unsafe_op_in_unsafe_fn)]`) that
 pairs `std::time::Instant` with the platform's suspend-aware monotonic clock into `SystemSample`
-values bound to one externally assigned `ClockDomain`. Supervisor or runtime startup supplies the
-`ClockDomain`, I/O loops consume `SystemSample::instant` for kernel deadlines, and `tickwire-clock`
-owns exchange-time interval calibration while keeping downstream crates `#![forbid(unsafe_code)]`.
+values bound to one externally assigned `ClockDomain`, and provides inline hardware cycle-counter
+reads (`rdtsc`, `rdtsc_serialized`) plus exact integer `TscCalibration` for zero-overhead hot-path
+latency tracing. Supervisor or runtime startup supplies the `ClockDomain` and calibrates TSC rate
+off the hot path, I/O loops consume `SystemSample::instant` for kernel deadlines, `LatencyTracer`
+consumes `rdtsc()`, and `tickwire-clock` owns exchange-time interval calibration while keeping
+downstream crates `#![forbid(unsafe_code)]`.
 
 ## Invariants and Change Guidelines
 
-* **Audited `clock_gettime` FFI**: Isolate the single `unsafe` call to `libc::clock_gettime` inside
-  `native_nanos` in [src/lib.rs](src/lib.rs), using `CLOCK_BOOTTIME` on Linux and
-  `CLOCK_MONOTONIC_RAW` on macOS with a stack-initialized `libc::timespec` that never escapes the
-  call frame. Non-supported targets return `Error::Unsupported`.
+* **Audited `clock_gettime` and hardware counter FFI/intrinsics**: Isolate `unsafe` calls to
+  `libc::clock_gettime` (`native_nanos`, using `CLOCK_BOOTTIME` on Linux and `CLOCK_MONOTONIC_RAW`
+  on macOS with a stack-initialized `libc::timespec`) and architecture cycle-counter intrinsics/asm
+  (`_rdtsc` / `_mm_lfence` on `x86_64`, `cntvct_el0` on `aarch64`) strictly inside
+  [src/lib.rs](src/lib.rs) with documented `// SAFETY:` comments. Non-supported targets return
+  `Error::Unsupported` from `SystemClock::new` and fall back to `Instant`-anchored monotonic
+  nanoseconds in `rdtsc()`.
+* **Exact integer TSC calibration**: Keep `TscCalibration` (`cycles_per_ms >= 1_000`) in `u128`
+  checked/saturating integer arithmetic—never introduce floating-point math in cycle/nanosecond
+  conversions.
 * **Checked `timespec` decoding**: Keep `decode_timespec` strict in `i128`/`u64` checked
   arithmetic—reject negative `tv_sec` or `tv_nsec` outside `0..1_000_000_000` with
   `Error::InvalidTime`, and reject `u64` nanosecond wraparound with `Error::Overflow`.

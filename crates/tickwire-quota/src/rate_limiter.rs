@@ -1473,8 +1473,12 @@ impl RateLimiter {
 pub enum VenuePreset {
     BinanceSpot,
     BinanceUsdm,
+    BinanceCoinm,
+    BinanceOptions,
     BybitSpot,
+    BybitUta,
     OkxSpot,
+    OkxUta,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -1563,7 +1567,32 @@ impl VenueRateLimiter {
                     ip_window_ids.push(rule.id);
                 }
             }
-            VenuePreset::BybitSpot => {
+            VenuePreset::BinanceCoinm => {
+                let o60 = RateRule::account(account, 60, RateFlags::ORDER, 1_200);
+                limiter.add(o60)?;
+                account_order_ids.push(o60.id);
+                for &ip in local_ips {
+                    let rule =
+                        RateRule::ip(ip, 60, RateFlags::REQUEST.union(RateFlags::WEIGHT), 2_400);
+                    limiter.add(rule)?;
+                    ip_window_ids.push(rule.id);
+                }
+            }
+            VenuePreset::BinanceOptions => {
+                let o10 = RateRule::account(account, 10, RateFlags::ORDER, 100);
+                let o60 = RateRule::account(account, 60, RateFlags::ORDER, 1_200);
+                limiter.add(o10)?;
+                limiter.add(o60)?;
+                account_order_ids.push(o10.id);
+                account_order_ids.push(o60.id);
+                for &ip in local_ips {
+                    let rule =
+                        RateRule::ip(ip, 60, RateFlags::REQUEST.union(RateFlags::WEIGHT), 2_400);
+                    limiter.add(rule)?;
+                    ip_window_ids.push(rule.id);
+                }
+            }
+            VenuePreset::BybitSpot | VenuePreset::BybitUta => {
                 let ord =
                     RateRule::account(account, 1, RateFlags::ORDER.union(RateFlags::ROLLING), 20);
                 let cxl =
@@ -1583,7 +1612,7 @@ impl VenueRateLimiter {
                     ip_window_ids.push(rule.id);
                 }
             }
-            VenuePreset::OkxSpot => {
+            VenuePreset::OkxSpot | VenuePreset::OkxUta => {
                 let ord = RateRule::account(
                     account,
                     2,
@@ -1698,7 +1727,7 @@ impl VenueRateLimiter {
             return Err(RateReject::Capacity);
         }
         let handles = match self.preset {
-            VenuePreset::OkxSpot => {
+            VenuePreset::OkxSpot | VenuePreset::OkxUta => {
                 let ord_rule = RateRule::symbol(
                     self.account,
                     2,
@@ -1725,13 +1754,16 @@ impl VenueRateLimiter {
                     cancel_id: cxl_rule.id,
                 }
             }
-            VenuePreset::BinanceSpot | VenuePreset::BinanceUsdm | VenuePreset::BybitSpot => {
-                SymbolHandles {
-                    symbol,
-                    order_id: RateLimitId::default(),
-                    cancel_id: RateLimitId::default(),
-                }
-            }
+            VenuePreset::BinanceSpot
+            | VenuePreset::BinanceUsdm
+            | VenuePreset::BinanceCoinm
+            | VenuePreset::BinanceOptions
+            | VenuePreset::BybitSpot
+            | VenuePreset::BybitUta => SymbolHandles {
+                symbol,
+                order_id: RateLimitId::default(),
+                cancel_id: RateLimitId::default(),
+            },
         };
         self.symbols.insert(insert_pos, handles);
         Ok(())
@@ -1811,7 +1843,7 @@ impl VenueRateLimiter {
                 buf[2] = Spend::new(ip_win, weight);
                 3
             }
-            VenuePreset::BinanceUsdm => {
+            VenuePreset::BinanceUsdm | VenuePreset::BinanceOptions => {
                 buf[0] = Spend::new(self.account_order_ids[0], order_units);
                 buf[1] = Spend::new(self.account_order_ids[1], order_units);
                 if weight > 0 {
@@ -1821,7 +1853,16 @@ impl VenueRateLimiter {
                     2
                 }
             }
-            VenuePreset::BybitSpot => {
+            VenuePreset::BinanceCoinm => {
+                buf[0] = Spend::new(self.account_order_ids[0], order_units);
+                if weight > 0 {
+                    buf[1] = Spend::new(ip_win, weight);
+                    2
+                } else {
+                    1
+                }
+            }
+            VenuePreset::BybitSpot | VenuePreset::BybitUta => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -1829,7 +1870,7 @@ impl VenueRateLimiter {
                 buf[1] = Spend::new(ip_win, 1);
                 2
             }
-            VenuePreset::OkxSpot => {
+            VenuePreset::OkxSpot | VenuePreset::OkxUta => {
                 if symbol == 0 || weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -1864,7 +1905,7 @@ impl VenueRateLimiter {
         now_ns: u64,
     ) -> core::result::Result<RatePermit, RateReject> {
         let ip_win = self.precheck_route(local_ip, now_ns)?;
-        if self.preset == VenuePreset::OkxSpot {
+        if matches!(self.preset, VenuePreset::OkxSpot | VenuePreset::OkxUta) {
             if symbol == 0 {
                 return Err(RateReject::Invalid);
             }
@@ -1897,10 +1938,11 @@ impl VenueRateLimiter {
         now_ns: u64,
     ) -> core::result::Result<(), RateReject> {
         let ip_win = self.precheck_route(local_ip, now_ns)?;
-        if self.preset == VenuePreset::OkxSpot && symbol == 0 {
+        let is_okx = matches!(self.preset, VenuePreset::OkxSpot | VenuePreset::OkxUta);
+        if is_okx && symbol == 0 {
             return Err(RateReject::Invalid);
         }
-        if self.preset == VenuePreset::OkxSpot && self.lookup_symbol(symbol).is_none() {
+        if is_okx && self.lookup_symbol(symbol).is_none() {
             if self.symbols.len() >= MAX_VENUE_SYMBOLS
                 || self.limiter.window_count().saturating_add(2) > self.limiter.max_windows
             {
@@ -1959,7 +2001,7 @@ impl VenueRateLimiter {
                     len = 1;
                 }
             }
-            VenuePreset::BinanceUsdm => {
+            VenuePreset::BinanceUsdm | VenuePreset::BinanceOptions => {
                 if counts_as_order {
                     buf[0] = Spend::new(self.account_order_ids[0], 1);
                     buf[1] = Spend::new(self.account_order_ids[1], 1);
@@ -1970,7 +2012,17 @@ impl VenueRateLimiter {
                     len += 1;
                 }
             }
-            VenuePreset::BybitSpot => {
+            VenuePreset::BinanceCoinm => {
+                if counts_as_order {
+                    buf[0] = Spend::new(self.account_order_ids[0], 1);
+                    len = 1;
+                }
+                if weight > 0 {
+                    buf[len] = Spend::new(ip_win, weight);
+                    len += 1;
+                }
+            }
+            VenuePreset::BybitSpot | VenuePreset::BybitUta => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -1983,7 +2035,7 @@ impl VenueRateLimiter {
                 buf[1] = Spend::new(ip_win, 1);
                 len = 2;
             }
-            VenuePreset::OkxSpot => {
+            VenuePreset::OkxSpot | VenuePreset::OkxUta => {
                 if symbol == 0 || weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -2014,7 +2066,7 @@ impl VenueRateLimiter {
         now_ns: u64,
     ) -> core::result::Result<RatePermit, RateReject> {
         let ip_win = self.precheck_route(local_ip, now_ns)?;
-        if self.preset == VenuePreset::OkxSpot && counts_as_order {
+        if matches!(self.preset, VenuePreset::OkxSpot | VenuePreset::OkxUta) && counts_as_order {
             if symbol == 0 {
                 return Err(RateReject::Invalid);
             }
@@ -2043,7 +2095,7 @@ impl VenueRateLimiter {
         now_ns: u64,
     ) -> core::result::Result<(), RateReject> {
         let ip_win = self.precheck_route(local_ip, now_ns)?;
-        if self.preset == VenuePreset::OkxSpot && counts_as_order {
+        if matches!(self.preset, VenuePreset::OkxSpot | VenuePreset::OkxUta) && counts_as_order {
             if symbol == 0 {
                 return Err(RateReject::Invalid);
             }
@@ -2089,7 +2141,7 @@ impl VenueRateLimiter {
                 let spends = [Spend::new(ip_win, weight)];
                 self.limiter.allow(&spends, now_ns)
             }
-            VenuePreset::BinanceUsdm => {
+            VenuePreset::BinanceUsdm | VenuePreset::BinanceCoinm | VenuePreset::BinanceOptions => {
                 if weight == 0 {
                     self.limiter.advance_clock_only(now_ns)?;
                     return Ok(RatePermit {
@@ -2100,7 +2152,7 @@ impl VenueRateLimiter {
                 let spends = [Spend::new(ip_win, weight)];
                 self.limiter.allow(&spends, now_ns)
             }
-            VenuePreset::BybitSpot => {
+            VenuePreset::BybitSpot | VenuePreset::BybitUta => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -2108,7 +2160,7 @@ impl VenueRateLimiter {
                 let spends = [Spend::new(cxl_id, 1), Spend::new(ip_win, 1)];
                 self.limiter.allow(&spends, now_ns)
             }
-            VenuePreset::OkxSpot => {
+            VenuePreset::OkxSpot | VenuePreset::OkxUta => {
                 if symbol == 0 || weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -2139,14 +2191,14 @@ impl VenueRateLimiter {
                 let spends = [Spend::new(ip_win, weight)];
                 self.limiter.can_afford(&spends, now_ns)
             }
-            VenuePreset::BinanceUsdm => {
+            VenuePreset::BinanceUsdm | VenuePreset::BinanceCoinm | VenuePreset::BinanceOptions => {
                 if weight == 0 {
                     return Ok(());
                 }
                 let spends = [Spend::new(ip_win, weight)];
                 self.limiter.can_afford(&spends, now_ns)
             }
-            VenuePreset::BybitSpot => {
+            VenuePreset::BybitSpot | VenuePreset::BybitUta => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -2154,7 +2206,7 @@ impl VenueRateLimiter {
                 let spends = [Spend::new(cxl_id, 1), Spend::new(ip_win, 1)];
                 self.limiter.can_afford(&spends, now_ns)
             }
-            VenuePreset::OkxSpot => {
+            VenuePreset::OkxSpot | VenuePreset::OkxUta => {
                 if symbol == 0 || weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -2185,14 +2237,20 @@ impl VenueRateLimiter {
     ) -> core::result::Result<RatePermit, RateReject> {
         let ip_win = self.precheck_route(local_ip, now_ns)?;
         match self.preset {
-            VenuePreset::BinanceSpot | VenuePreset::BinanceUsdm => {
+            VenuePreset::BinanceSpot
+            | VenuePreset::BinanceUsdm
+            | VenuePreset::BinanceCoinm
+            | VenuePreset::BinanceOptions => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
                 let spends = [Spend::new(ip_win, weight)];
                 self.limiter.allow(&spends, now_ns)
             }
-            VenuePreset::BybitSpot | VenuePreset::OkxSpot => {
+            VenuePreset::BybitSpot
+            | VenuePreset::BybitUta
+            | VenuePreset::OkxSpot
+            | VenuePreset::OkxUta => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
@@ -2212,14 +2270,20 @@ impl VenueRateLimiter {
     ) -> core::result::Result<(), RateReject> {
         let ip_win = self.precheck_route(local_ip, now_ns)?;
         match self.preset {
-            VenuePreset::BinanceSpot | VenuePreset::BinanceUsdm => {
+            VenuePreset::BinanceSpot
+            | VenuePreset::BinanceUsdm
+            | VenuePreset::BinanceCoinm
+            | VenuePreset::BinanceOptions => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }
                 let spends = [Spend::new(ip_win, weight)];
                 self.limiter.can_afford(&spends, now_ns)
             }
-            VenuePreset::BybitSpot | VenuePreset::OkxSpot => {
+            VenuePreset::BybitSpot
+            | VenuePreset::BybitUta
+            | VenuePreset::OkxSpot
+            | VenuePreset::OkxUta => {
                 if weight == 0 {
                     return Err(RateReject::Invalid);
                 }

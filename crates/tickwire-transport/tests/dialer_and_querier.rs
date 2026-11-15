@@ -290,11 +290,7 @@ fn dial_baton_state_machine_backoff_and_multithreaded_races() {
                 let conn =
                     Connection::connect(addr, Security::Plain, Limits::default(), test_deadline())
                         .unwrap();
-                assert!(dialer_baton.deliver_ready(DialedLink {
-                    connection: conn,
-                    peer: addr,
-                    connect_rtt_us: 42,
-                }));
+                assert!(dialer_baton.deliver_ready(DialedLink::new(conn, addr, 42)));
                 produced += 1;
             } else {
                 thread::yield_now();
@@ -387,6 +383,7 @@ fn dialer_tls_websocket_101_upgrade_preserves_coalesced_frames_and_reregisters()
         port: addr.port(),
         initial_peers: vec![addr],
         local_ip: Some(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+        nic: None,
         security: DialSecurity::Tls {
             server_name: "localhost".try_into().unwrap(),
             config: client_cfg,
@@ -484,6 +481,7 @@ fn dialer_dead_peer_failover_and_exponential_reconnect_backoff() {
         port: live_addr.port(),
         initial_peers: vec![dead_addr, live_addr],
         local_ip: None,
+        nic: None,
         security: DialSecurity::Plain,
         limits: Limits::default(),
         transport: DialTransport::PlainOrTls,

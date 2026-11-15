@@ -1,4 +1,7 @@
-//! Off-hot-path asynchronous HTTP/1.1 REST reconciliation and status querier.
+//! Off-hot-path `housekeeping_cpus`-pinned asynchronous HTTP/1.1 REST reconciliation and status
+//! querier (`"tw-rest-query"`) over lock-free SPSC task and reply rings.
+#![forbid(unsafe_code)]
+
 pub use crate::dialer::DialSecurity;
 use crate::{
     ClockFn, Connection, Error, IoBudget, Limits, PreparedSend, Result, SendState, dialer::IpPool,
@@ -8,18 +11,30 @@ use mio::{Events, Poll, Token, Waker};
 use std::{
     net::{IpAddr, SocketAddr, ToSocketAddrs},
     sync::{
-        Arc, Mutex,
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        Arc, Mutex, TryLockError,
+        atomic::{AtomicBool, AtomicI32, AtomicU64, AtomicUsize, Ordering},
+        mpsc,
     },
-    thread::{self, JoinHandle},
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
+use tickwire_control_sys::{CpuSet, current_tid, spawn_pinned_thread};
 
 const HARD_LIMIT: usize = 16 * 1024 * 1024;
 const MAX_RING_CAPACITY: usize = 65_536;
 const WAKE_TOKEN: Token = Token(0);
 const CONN_TOKEN: Token = Token(1);
 const DNS_REFRESH_COOLDOWN: Duration = Duration::from_millis(500);
+
+/// Well-known ORS background REST query kinds (`Account + OpenOrders`, `listenKey`/`urlToken`
+/// lifecycle, and `QueryDesk` single-order `StatusAsk`).
+pub mod query_kind {
+    pub const ACCOUNT_SNAPSHOT: u32 = 1;
+    pub const OPEN_ORDERS_SNAPSHOT: u32 = 2;
+    pub const LISTEN_KEY_CREATE: u32 = 3;
+    pub const LISTEN_KEY_KEEPALIVE: u32 = 4;
+    pub const STATUS_ASK: u32 = 5;
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RestTask {
@@ -28,6 +43,35 @@ pub struct RestTask {
     pub max_query_count: u32,
     pub start_mono_ns: u64,
     pub end_mono_ns: u64,
+}
+
+impl RestTask {
+    #[inline]
+    pub const fn cold_snapshot(kind: u32, key: u64) -> Self {
+        Self {
+            key,
+            kind,
+            max_query_count: 3,
+            start_mono_ns: 0,
+            end_mono_ns: 0,
+        }
+    }
+
+    #[inline]
+    pub const fn status_ask(
+        order_key: u64,
+        max_query_count: u32,
+        start_mono_ns: u64,
+        end_mono_ns: u64,
+    ) -> Self {
+        Self {
+            key: order_key,
+            kind: query_kind::STATUS_ASK,
+            max_query_count,
+            start_mono_ns,
+            end_mono_ns,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,12 +132,18 @@ pub struct RestQuerierConfig {
     pub port: u16,
     pub initial_peers: Vec<SocketAddr>,
     pub local_ip: Option<IpAddr>,
+    /// Optional Linux network interface (`SO_BINDTODEVICE`), taking precedence over `local_ip`.
+    pub nic: Option<String>,
     pub security: DialSecurity,
     pub limits: Limits,
     pub capacity: usize,
     pub connect_timeout_ms: u64,
     pub interval_ms: u64,
     pub timeout_ms: u64,
+    /// Optional housekeeping CPU mask applied before `"tw-rest-query"` allocates `mio::Poll` or buffers.
+    pub housekeeping_cpus: Option<CpuSet>,
+    /// Optional `RESP` / owner `mio::Waker` (`eventfd`) triggered whenever a `RestReply` is posted.
+    pub reply_waker: Option<Arc<Waker>>,
 }
 
 impl Default for RestQuerierConfig {
@@ -103,12 +153,15 @@ impl Default for RestQuerierConfig {
             port: 443,
             initial_peers: Vec::new(),
             local_ip: None,
+            nic: None,
             security: DialSecurity::Plain,
             limits: Limits::default(),
             capacity: 256,
             connect_timeout_ms: 5_000,
             interval_ms: 100,
             timeout_ms: 5_000,
+            housekeeping_cpus: None,
+            reply_waker: None,
         }
     }
 }
@@ -133,13 +186,21 @@ impl RestQuerierConfig {
         {
             return Err(Error::Bounds);
         }
+        if let Some(iface) = self.nic.as_deref()
+            && (iface.is_empty()
+                || iface.len() > tickwire_control_sys::MAX_INTERFACE_NAME_LEN
+                || !iface.bytes().all(|b| b.is_ascii_graphic()))
+        {
+            return Err(Error::Bounds);
+        }
         if self.host.is_empty() {
             return Err(Error::Protocol("empty host"));
         }
         if self.initial_peers.is_empty() && self.port == 0 {
             return Err(Error::Bounds);
         }
-        if let Some(lip) = self.local_ip
+        if self.nic.is_none()
+            && let Some(lip) = self.local_ip
             && !self.initial_peers.is_empty()
             && self
                 .initial_peers
@@ -154,97 +215,148 @@ impl RestQuerierConfig {
     }
 }
 
-struct RingInner<T> {
-    slots: Box<[Option<T>]>,
-    head: usize,
-    tail: usize,
-    len: usize,
+struct RingSlot<T> {
+    seq: AtomicU64,
+    cell: Mutex<Option<T>>,
 }
 
-struct FixedRing<T> {
+/// `#![forbid(unsafe_code)]` lock-free bounded Vyukov ring: Acquire/Release sequence numbers
+/// establish exclusive per-slot ownership before `try_lock()`, guaranteeing zero futex syscalls and
+/// zero heap allocation after construction.
+struct SpscRing<T> {
     capacity: usize,
+    slots: Box<[RingSlot<T>]>,
+    head: AtomicU64,
+    tail: AtomicU64,
     len: AtomicUsize,
-    inner: Mutex<RingInner<T>>,
 }
 
-impl<T> FixedRing<T> {
+impl<T> SpscRing<T> {
     fn new(capacity: usize) -> Self {
-        let mut slots = Vec::with_capacity(capacity);
-        slots.resize_with(capacity, || None);
+        let slots = (0..capacity)
+            .map(|idx| RingSlot {
+                seq: AtomicU64::new(idx as u64),
+                cell: Mutex::new(None),
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
         Self {
             capacity,
+            slots,
+            head: AtomicU64::new(0),
+            tail: AtomicU64::new(0),
             len: AtomicUsize::new(0),
-            inner: Mutex::new(RingInner {
-                slots: slots.into_boxed_slice(),
-                head: 0,
-                tail: 0,
-                len: 0,
-            }),
         }
     }
 
+    #[inline]
     fn len(&self) -> usize {
-        self.len.load(Ordering::SeqCst)
+        self.len.load(Ordering::Acquire)
     }
 
+    #[inline]
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     fn push(&self, item: T) -> bool {
-        if self.len.load(Ordering::Acquire) >= self.capacity {
-            return false;
+        let mut pos = self.tail.load(Ordering::Relaxed);
+        loop {
+            let slot = &self.slots[(pos as usize) % self.capacity];
+            let seq = slot.seq.load(Ordering::Acquire);
+            let diff = (seq as i64).wrapping_sub(pos as i64);
+            if diff == 0 {
+                match self.tail.compare_exchange_weak(
+                    pos,
+                    pos.wrapping_add(1),
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                ) {
+                    Ok(_) => {
+                        let mut guard = loop {
+                            match slot.cell.try_lock() {
+                                Ok(g) => break g,
+                                Err(TryLockError::Poisoned(p)) => break p.into_inner(),
+                                Err(TryLockError::WouldBlock) => core::hint::spin_loop(),
+                            }
+                        };
+                        *guard = Some(item);
+                        drop(guard);
+                        self.len.fetch_add(1, Ordering::AcqRel);
+                        slot.seq.store(pos.wrapping_add(1), Ordering::Release);
+                        return true;
+                    }
+                    Err(cur) => pos = cur,
+                }
+            } else if diff < 0 {
+                return false;
+            } else {
+                pos = self.tail.load(Ordering::Relaxed);
+            }
         }
-        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.len >= self.capacity {
-            return false;
-        }
-        let tail = guard.tail;
-        guard.slots[tail] = Some(item);
-        guard.tail = if tail + 1 == self.capacity {
-            0
-        } else {
-            tail + 1
-        };
-        guard.len += 1;
-        self.len.store(guard.len, Ordering::SeqCst);
-        true
     }
 
     fn pop(&self) -> Option<T> {
-        if self.len.load(Ordering::Acquire) == 0 {
-            return None;
+        let mut pos = self.head.load(Ordering::Relaxed);
+        loop {
+            let slot = &self.slots[(pos as usize) % self.capacity];
+            let seq = slot.seq.load(Ordering::Acquire);
+            let expected = pos.wrapping_add(1);
+            let diff = (seq as i64).wrapping_sub(expected as i64);
+            if diff == 0 {
+                match self.head.compare_exchange_weak(
+                    pos,
+                    pos.wrapping_add(1),
+                    Ordering::Relaxed,
+                    Ordering::Relaxed,
+                ) {
+                    Ok(_) => {
+                        let mut guard = loop {
+                            match slot.cell.try_lock() {
+                                Ok(g) => break g,
+                                Err(TryLockError::Poisoned(p)) => break p.into_inner(),
+                                Err(TryLockError::WouldBlock) => core::hint::spin_loop(),
+                            }
+                        };
+                        let item = guard.take();
+                        drop(guard);
+                        self.len.fetch_sub(1, Ordering::AcqRel);
+                        slot.seq
+                            .store(pos.wrapping_add(self.capacity as u64), Ordering::Release);
+                        return item;
+                    }
+                    Err(cur) => pos = cur,
+                }
+            } else if diff < 0 {
+                return None;
+            } else {
+                pos = self.head.load(Ordering::Relaxed);
+            }
         }
-        let mut guard = self.inner.lock().unwrap_or_else(|e| e.into_inner());
-        if guard.len == 0 {
-            return None;
-        }
-        let head = guard.head;
-        let item = guard.slots[head].take();
-        guard.head = if head + 1 == self.capacity {
-            0
-        } else {
-            head + 1
-        };
-        guard.len -= 1;
-        self.len.store(guard.len, Ordering::SeqCst);
-        item
     }
 }
 
 struct SharedState {
     capacity: usize,
-    task_queue: FixedRing<RestTask>,
-    reply_queue: FixedRing<RestReply>,
+    task_queue: SpscRing<RestTask>,
+    reply_queue: SpscRing<RestReply>,
     wake_pending: AtomicBool,
     stopped: AtomicBool,
-    waker: Waker,
+    worker_tid: AtomicI32,
+    waker: Arc<Waker>,
+    reply_waker: Option<Arc<Waker>>,
 }
 
 impl SharedState {
     fn notify_worker(&self) {
         if !self.wake_pending.swap(true, Ordering::SeqCst) {
             let _ = self.waker.wake();
+        }
+    }
+
+    fn notify_reply_consumer(&self) {
+        if let Some(w) = self.reply_waker.as_ref() {
+            let _ = w.wake();
         }
     }
 }
@@ -258,6 +370,7 @@ impl std::fmt::Debug for AsyncRestQuerier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AsyncRestQuerier")
             .field("capacity", &self.shared.capacity)
+            .field("worker_tid", &self.worker_tid())
             .field("pending_tasks", &self.pending_tasks())
             .field("pending_replies", &self.pending_replies())
             .finish_non_exhaustive()
@@ -269,30 +382,66 @@ impl AsyncRestQuerier {
         Self::with_clock(config, builder, Arc::new(mono_now_ns))
     }
 
+    /// Spawns `"tw-rest-query"` via `tickwire_control_sys::spawn_pinned_thread` bound to
+    /// `config.housekeeping_cpus` **before** creating `mio::Poll`, Worker buffers, DNS, or sockets.
     pub fn with_clock<B: RestRequestBuilder>(
         config: RestQuerierConfig,
         builder: B,
         clock: ClockFn,
     ) -> Result<Self> {
         config.validate()?;
-        let poll = Poll::new()?;
-        let waker = Waker::new(poll.registry(), WAKE_TOKEN)?;
-        let shared = Arc::new(SharedState {
-            capacity: config.capacity,
-            task_queue: FixedRing::new(config.capacity),
-            reply_queue: FixedRing::new(config.capacity),
-            wake_pending: AtomicBool::new(false),
-            stopped: AtomicBool::new(false),
-            waker,
-        });
-        let worker_shared = Arc::clone(&shared);
-        let handle = thread::Builder::new()
-            .name("tw-rest-query".to_owned())
-            .spawn(move || run_query_worker(poll, config, builder, worker_shared, clock))?;
+        let hk_cpus = config.housekeeping_cpus.clone();
+        let capacity = config.capacity;
+        let reply_waker = config.reply_waker.clone();
+
+        let (startup_tx, startup_rx) = mpsc::sync_channel::<Result<Arc<SharedState>>>(1);
+
+        let handle = spawn_pinned_thread("tw-rest-query", hk_cpus.as_ref(), move || {
+            let tid = current_tid().unwrap_or(0);
+            let poll = match Poll::new() {
+                Ok(p) => p,
+                Err(e) => {
+                    let _ = startup_tx.send(Err(Error::Io(e)));
+                    return;
+                }
+            };
+            let waker = match Waker::new(poll.registry(), WAKE_TOKEN) {
+                Ok(w) => Arc::new(w),
+                Err(e) => {
+                    let _ = startup_tx.send(Err(Error::Io(e)));
+                    return;
+                }
+            };
+            let shared = Arc::new(SharedState {
+                capacity,
+                task_queue: SpscRing::new(capacity),
+                reply_queue: SpscRing::new(capacity),
+                wake_pending: AtomicBool::new(false),
+                stopped: AtomicBool::new(false),
+                worker_tid: AtomicI32::new(tid),
+                waker,
+                reply_waker,
+            });
+            let worker_shared = Arc::clone(&shared);
+            if startup_tx.send(Ok(shared)).is_err() {
+                return;
+            }
+            run_query_worker(poll, config, builder, worker_shared, clock);
+        })
+        .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+
+        let shared = startup_rx.recv().map_err(|_| Error::Closed)??;
+
         Ok(Self {
             shared,
             worker: Mutex::new(Some(handle)),
         })
+    }
+
+    /// Returns the Linux kernel TID (`SYS_gettid`) of `"tw-rest-query"`.
+    pub fn worker_tid(&self) -> Option<i32> {
+        let tid = self.shared.worker_tid.load(Ordering::Acquire);
+        (tid > 0).then_some(tid)
     }
 
     pub fn capacity(&self) -> usize {
@@ -401,9 +550,10 @@ impl WorkerConnState {
     fn new(config: &RestQuerierConfig) -> Self {
         let mut ip_pool = IpPool::new();
         for &addr in &config.initial_peers {
-            if config
-                .local_ip
-                .is_none_or(|lip| lip.is_ipv4() == addr.is_ipv4())
+            if config.nic.is_some()
+                || config
+                    .local_ip
+                    .is_none_or(|lip| lip.is_ipv4() == addr.is_ipv4())
             {
                 ip_pool.add_ip(addr);
             }
@@ -457,9 +607,10 @@ impl WorkerConnState {
         self.last_dns = Some(Instant::now());
         if let Ok(addrs) = (config.host.as_str(), config.port).to_socket_addrs() {
             for addr in addrs {
-                if config
-                    .local_ip
-                    .is_none_or(|lip| lip.is_ipv4() == addr.is_ipv4())
+                if config.nic.is_some()
+                    || config
+                        .local_ip
+                        .is_none_or(|lip| lip.is_ipv4() == addr.is_ipv4())
                 {
                     self.ip_pool.add_ip(addr);
                 }
@@ -478,9 +629,10 @@ impl WorkerConnState {
         };
         let started_at = Instant::now();
         let connect_deadline = started_at + Duration::from_millis(config.connect_timeout_ms);
-        let mut conn = match Connection::connect_from(
+        let mut conn = match Connection::connect_from_with_nic(
             peer,
             config.local_ip,
+            config.nic.as_deref(),
             config.security.to_security(),
             config.limits,
             connect_deadline,
@@ -522,9 +674,10 @@ fn task_backoff_ns(interval_ms: u64, timeout_ms: u64, query_count: u32) -> u64 {
     ms.saturating_mul(1_000_000)
 }
 
-fn post_reply(reply_queue: &FixedRing<RestReply>, reply: RestReply) {
-    let ok = reply_queue.push(reply);
+fn post_reply(shared: &SharedState, reply: RestReply) {
+    let ok = shared.reply_queue.push(reply);
     debug_assert!(ok, "reply-slot reservation invariant violated");
+    shared.notify_reply_consumer();
 }
 
 fn reply_from_waiting_expiry(w: WaitingTask) -> RestReply {
@@ -639,7 +792,7 @@ fn run_query_worker<B: RestRequestBuilder>(
             let end = waiting[idx].task.end_mono_ns;
             if end != 0 && now_mono >= end {
                 let w = waiting.remove(idx);
-                post_reply(&shared.reply_queue, reply_from_waiting_expiry(w));
+                post_reply(&shared, reply_from_waiting_expiry(w));
             } else {
                 idx += 1;
             }
@@ -677,7 +830,7 @@ fn run_query_worker<B: RestRequestBuilder>(
 
             let w = waiting.remove(pick_idx);
             if w.task.end_mono_ns != 0 && now_mono >= w.task.end_mono_ns {
-                post_reply(&shared.reply_queue, reply_from_waiting_expiry(w));
+                post_reply(&shared, reply_from_waiting_expiry(w));
                 continue;
             }
 
@@ -686,7 +839,7 @@ fn run_query_worker<B: RestRequestBuilder>(
                 Ok(Some(b)) => b,
                 Ok(None) | Err(_) => {
                     post_reply(
-                        &shared.reply_queue,
+                        &shared,
                         RestReply {
                             task: w.task,
                             status: RestStatus::NotBuilt,
@@ -731,7 +884,7 @@ fn run_query_worker<B: RestRequestBuilder>(
                 Ok(bytes) => bytes,
                 Err(_) => {
                     post_reply(
-                        &shared.reply_queue,
+                        &shared,
                         RestReply {
                             task: w.task,
                             status: RestStatus::NotBuilt,
@@ -750,7 +903,7 @@ fn run_query_worker<B: RestRequestBuilder>(
                 Ok(p) => p,
                 Err(_) => {
                     post_reply(
-                        &shared.reply_queue,
+                        &shared,
                         RestReply {
                             task: w.task,
                             status: RestStatus::NotBuilt,
@@ -768,7 +921,7 @@ fn run_query_worker<B: RestRequestBuilder>(
                 Ok(d) => d,
                 Err(_) => {
                     post_reply(
-                        &shared.reply_queue,
+                        &shared,
                         RestReply {
                             task: w.task,
                             status: RestStatus::NotBuilt,
@@ -808,7 +961,7 @@ fn run_query_worker<B: RestRequestBuilder>(
                 &mut conn_state,
                 &mut inflight,
                 &mut waiting,
-                &shared.reply_queue,
+                &shared,
                 &clock,
             );
         }
@@ -831,7 +984,7 @@ fn run_query_worker<B: RestRequestBuilder>(
                     &config,
                     now_mono,
                     &mut waiting,
-                    &shared.reply_queue,
+                    &shared,
                 );
             }
         }
@@ -969,7 +1122,7 @@ fn finish_or_retry_transport(
     config: &RestQuerierConfig,
     now_mono_ns: u64,
     waiting: &mut Vec<WaitingTask>,
-    reply_queue: &FixedRing<RestReply>,
+    shared: &SharedState,
 ) {
     let backoff = task_backoff_ns(config.interval_ms, config.timeout_ms, query_count);
     let next_send_ns = now_mono_ns.saturating_add(backoff);
@@ -991,7 +1144,7 @@ fn finish_or_retry_transport(
         status
     };
     post_reply(
-        reply_queue,
+        shared,
         RestReply {
             task,
             status: final_status,
@@ -1010,7 +1163,7 @@ fn finish_or_retry_response(
     config: &RestQuerierConfig,
     now_mono_ns: u64,
     waiting: &mut Vec<WaitingTask>,
-    reply_queue: &FixedRing<RestReply>,
+    shared: &SharedState,
 ) {
     let http_code = resp.status;
     let headers = convert_headers(resp.headers);
@@ -1018,7 +1171,7 @@ fn finish_or_retry_response(
 
     if (200..300).contains(&http_code) {
         post_reply(
-            reply_queue,
+            shared,
             RestReply {
                 task,
                 status: RestStatus::Ok,
@@ -1050,7 +1203,7 @@ fn finish_or_retry_response(
     }
 
     post_reply(
-        reply_queue,
+        shared,
         RestReply {
             task,
             status: RestStatus::HttpError,
@@ -1079,7 +1232,7 @@ fn step_inflight(
     conn_state: &mut WorkerConnState,
     inflight: &mut Option<InflightTask>,
     waiting: &mut Vec<WaitingTask>,
-    reply_queue: &FixedRing<RestReply>,
+    shared: &SharedState,
     clock: &ClockFn,
 ) {
     let now = Instant::now();
@@ -1098,7 +1251,7 @@ fn step_inflight(
             config,
             now_mono,
             waiting,
-            reply_queue,
+            shared,
         );
         return;
     }
@@ -1118,7 +1271,7 @@ fn step_inflight(
             config,
             now_mono,
             waiting,
-            reply_queue,
+            shared,
         );
         return;
     }
@@ -1159,7 +1312,7 @@ fn step_inflight(
                     config,
                     now_mono,
                     waiting,
-                    reply_queue,
+                    shared,
                 );
                 return;
             }
@@ -1200,7 +1353,7 @@ fn step_inflight(
                     config,
                     now_mono,
                     waiting,
-                    reply_queue,
+                    shared,
                 );
                 return;
             }
@@ -1216,14 +1369,7 @@ fn step_inflight(
         }
         if post_flush_drive_err || post_flush_peer_closed {
             drain_and_complete_after_flush(
-                poll,
-                config,
-                conn_state,
-                inflight,
-                waiting,
-                reply_queue,
-                clock,
-                true,
+                poll, config, conn_state, inflight, waiting, shared, clock, true,
             );
             return;
         }
@@ -1245,7 +1391,7 @@ fn step_inflight(
         conn_state,
         inflight,
         waiting,
-        reply_queue,
+        shared,
         clock,
         peer_closed,
     );
@@ -1258,7 +1404,7 @@ fn drain_and_complete_after_flush(
     conn_state: &mut WorkerConnState,
     inflight: &mut Option<InflightTask>,
     waiting: &mut Vec<WaitingTask>,
-    reply_queue: &FixedRing<RestReply>,
+    shared: &SharedState,
     clock: &ClockFn,
     peer_closed: bool,
 ) {
@@ -1279,7 +1425,7 @@ fn drain_and_complete_after_flush(
                 config,
                 now_mono,
                 waiting,
-                reply_queue,
+                shared,
             );
             return;
         }
@@ -1309,7 +1455,7 @@ fn drain_and_complete_after_flush(
                 config,
                 now_mono,
                 waiting,
-                reply_queue,
+                shared,
             );
         }
         Ok(None) if peer_closed => {
@@ -1331,7 +1477,7 @@ fn drain_and_complete_after_flush(
                         config,
                         now_mono,
                         waiting,
-                        reply_queue,
+                        shared,
                     );
                 }
                 _ => {
@@ -1343,7 +1489,7 @@ fn drain_and_complete_after_flush(
                         config,
                         now_mono,
                         waiting,
-                        reply_queue,
+                        shared,
                     );
                 }
             }
@@ -1360,7 +1506,7 @@ fn drain_and_complete_after_flush(
                 config,
                 now_mono,
                 waiting,
-                reply_queue,
+                shared,
             );
         }
     }

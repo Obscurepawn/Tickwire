@@ -4,10 +4,13 @@
 `SOCK_SEQPACKET` control sockets (`ControlListener`, `PendingConnection`, `Connection`), `0o700` pinned
 directories (`PrivateDirectory`), sealed ELF execution (`ExecutableImage`), thread-level CPU affinity and
 core isolation (`CpuSet`, `pin_current_thread`, `current_thread_affinity`, `spawn_pinned_thread`,
-`validate_cpu_isolation`), and `/proc` + cgroup v2 process resource inspection (`ResourceObservation`).
-Higher-level session handshakes, execution runtimes, and supervisor state machines belong in
-`tickwire-control`, `tickwire-supervisor`, and runtime crates while retaining `#![forbid(unsafe_code)]` with
-zero raw `libc::sched_setaffinity` calls outside this crate.
+`validate_cpu_isolation`, `current_tid`), network-device socket binding (`bind_socket_device`,
+`open_bound_nonblocking_tcp_stream`, `connect_bound_tcp_blocking`), synchronous ORS signal masking and
+waiting (`OrsSignal`, `block_ors_signals_current_thread`, `SignalWaiter`), and `/proc` + cgroup v2 process
+resource inspection (`ResourceObservation`). Higher-level session handshakes, transport drivers, execution
+runtimes, and supervisor state machines belong in `tickwire-control`, `tickwire-transport`,
+`tickwire-supervisor`, and runtime crates while retaining `#![forbid(unsafe_code)]` with zero raw affinity,
+`gettid`, `SO_BINDTODEVICE`, or `pthread_sigmask` / `sigtimedwait` calls outside this crate.
 
 ## Invariants and Change Guidelines
 
@@ -35,15 +38,23 @@ zero raw `libc::sched_setaffinity` calls outside this crate.
   if the kernel masked off offline cores or narrowed via cgroup `cpuset.cpus.effective`. `spawn_pinned_thread`
   completes a synchronous startup handshake before running `f()`, dropping `f` without executing it and
   returning `Err` synchronously if pinning fails.
+* **Audited socket device binding and synchronous ORS signal delivery**: In [src/ors_os.rs](src/ors_os.rs),
+  `bind_socket_device` validates `1..=15` printable ASCII interface bytes (`< libc::IFNAMSIZ`, no interior NUL
+  or whitespace) before calling `setsockopt(SOL_SOCKET, SO_BINDTODEVICE)`. `open_bound_nonblocking_tcp_stream`
+  and `connect_bound_tcp_blocking` apply `interface` (`SO_BINDTODEVICE`) with strict precedence over `local_ip`
+  when both are provided. `block_ors_signals_current_thread` masks `SIGINT`, `SIGTERM`, `SIGUSR1`, and
+  `SIGUSR2` via `pthread_sigmask(SIG_BLOCK, ...)` before ORS hot/housekeeping threads spawn, and
+  `SignalWaiter::wait_timeout` polls them via `sigtimedwait` (mapping `EAGAIN`/`EINTR` to `Ok(None)`).
 * **Process resource parsing**: Keep Linux `/proc/<pid>` and cgroup v2 readers in
   [src/process_resources/linux.rs](src/process_resources/linux.rs) separated from pure parsers in
   [src/process_resources/parse.rs](src/process_resources/parse.rs).
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/affinity.rs](src/affinity.rs) · [src/linux.rs](src/linux.rs) ·
-  [src/executable.rs](src/executable.rs) · [src/process_resources.rs](src/process_resources.rs) ·
-  [tests/affinity.rs](tests/affinity.rs) · [tests/transport.rs](tests/transport.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/affinity.rs](src/affinity.rs) · [src/ors_os.rs](src/ors_os.rs) ·
+  [src/linux.rs](src/linux.rs) · [src/executable.rs](src/executable.rs) · [src/process_resources.rs](src/process_resources.rs) ·
+  [tests/affinity.rs](tests/affinity.rs) · [tests/ors_os.rs](tests/ors_os.rs) ·
+  [tests/ors_signal_main.rs](tests/ors_signal_main.rs) · [tests/transport.rs](tests/transport.rs) ·
   [tests/executable.rs](tests/executable.rs) · [tests/process_resources.rs](tests/process_resources.rs) ·
   [tests/platform.rs](tests/platform.rs)
 * **Specifications**: [control-transport.md](../../specs/implementation/control-transport.md) ·
