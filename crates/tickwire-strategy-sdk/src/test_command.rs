@@ -1,11 +1,16 @@
+#![forbid(unsafe_code)]
 #![allow(dead_code)]
+
 use tickwire_venue::*;
+
 pub fn d(n: i128, e: i8) -> Decimal {
     Decimal::new(n, e).unwrap()
 }
+
 pub fn text<const N: usize>(s: &str) -> BoundedText<N> {
     BoundedText::new(s).unwrap()
 }
+
 pub fn asset(id: u64, symbol: &str) -> AssetRef {
     AssetRef {
         id,
@@ -14,6 +19,7 @@ pub fn asset(id: u64, symbol: &str) -> AssetRef {
         exponent: -8,
     }
 }
+
 pub fn command() -> Command {
     Command {
         context: CommandContext {

@@ -1,5 +1,6 @@
 //! Exercise the deployed CLI, catalog qualification and restart boundary without venue access.
 #![cfg(target_os = "linux")]
+#![forbid(unsafe_code)]
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
@@ -56,8 +57,7 @@ fn spot_market_cli_qualifies_catalog_and_preserves_the_bank_generation_across_re
         let cfg = root.join("md.json");
         let mut config = json!({"source":source,"resource":resource,"catalog":{"path":catalog_path,
             "reference":format!("artifact://lab/spot@sha256:{hash:x}")},"clock_generation":1,"source_id":1,"instrument_set_version":1,
-            "server":{"socket":root.join("md.sock"),"admission_directory":admissions,"control_directory":root.join("control"),
-            "control_stream":([1u8;16]),"control_domain":([2u8;16]),"control_writer_epoch":1}});
+            "server":{"socket":root.join("md.sock"),"admission_directory":admissions}});
         let mut command = Command::new(env!("CARGO_BIN_EXE_tickwire-md"));
         command.arg("--spot-market").arg(&cfg);
         config["source"]["instrument_version"] = 2.into();
@@ -65,12 +65,12 @@ fn spot_market_cli_qualifies_catalog_and_preserves_the_bank_generation_across_re
         let rejected = command.output().unwrap();
         assert!(!rejected.status.success());
         assert!(String::from_utf8_lossy(&rejected.stderr).contains("catalog"));
-        assert!(!root.join("control").exists());
+        assert!(!root.join("topic.json.active").exists());
 
         config["source"]["instrument_version"] = 1.into();
         write(&cfg, &config);
         let mut owner = Running(command.stderr(Stdio::piped()).spawn().unwrap());
-        let header = root.join("control/spot-market.active");
+        let header = root.join("topic.json.active");
         let deadline = Instant::now() + Duration::from_secs(5);
         while !header.exists() {
             assert!(

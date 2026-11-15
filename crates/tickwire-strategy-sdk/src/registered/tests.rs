@@ -1,158 +1,162 @@
+use std::{
+    cell::Cell,
+    os::unix::fs::{PermissionsExt, symlink},
+    rc::Rc,
+    sync::atomic::{AtomicU64, Ordering},
+};
+
 use super::*;
-use crate::restore::RestoreFactory;
-use std::{cell::Cell, os::unix::fs::PermissionsExt, rc::Rc};
+
 #[derive(Clone)]
-struct Factory {
+struct TestFactory {
+    schema: u64,
     config: VersionedBytes,
 }
-impl RestoreFactory for Factory {
+
+impl UserFactory for TestFactory {
     type Running = crate::ObserveOnly;
+
     fn state_schema(&self) -> u64 {
-        restore::OBSERVE_SCHEMA
+        self.schema
     }
-    fn configuration(&self, _: &restore::Target) -> restore::Result<VersionedBytes> {
+
+    fn configuration(&self, _: &TargetIdentity) -> Result<VersionedBytes> {
         Ok(self.config.clone())
     }
-    fn validate_checkpoint(&self, b: &[u8]) -> restore::Result<()> {
-        if b == b"TWOBS001" {
-            Ok(())
-        } else {
-            Err(restore::Error::State)
-        }
-    }
-}
-impl UserFactory for Factory {
-    fn create(&self) -> restore::Result<crate::ObserveOnly> {
+
+    fn create(&self) -> Result<Self::Running> {
         Ok(crate::ObserveOnly)
     }
 }
-struct Registered(Rc<Cell<u32>>);
-impl Registration for Registered {
-    type Factory = Factory;
-    type Source = crate::replay::native::Factory;
+
+struct TestRegistration {
+    calls: Rc<Cell<u32>>,
+    schema: u64,
+}
+
+impl Registration for TestRegistration {
+    type Factory = TestFactory;
+
     fn id(&self) -> &'static str {
-        "test_observer"
+        "test_observer_v1"
     }
-    fn configure(&self, _: &restore::Target, c: &VersionedBytes) -> restore::Result<Factory> {
-        self.0.set(self.0.get() + 1);
-        if c.bytes != b"actual-user-parameters" {
-            return Err(restore::Error::Input);
+
+    fn configure(&self, _target: &TargetIdentity, c: &VersionedBytes) -> Result<Self::Factory> {
+        self.calls.set(self.calls.get() + 1);
+        if c.bytes != b"{\"minimum_observations\":2}" {
+            return Err(Error::Input);
         }
-        Ok(Factory { config: c.clone() })
-    }
-    fn source(&self, schema: u64) -> crate::replay::Result<Self::Source> {
-        Ok(crate::replay::native::Factory { schema })
+        Ok(TestFactory {
+            schema: self.schema,
+            config: c.clone(),
+        })
     }
 }
-struct Files {
-    directory: PathBuf,
-    files: LoadedFiles,
+
+struct TempFixture {
+    dir: PathBuf,
     binding: FactoryBinding,
 }
-impl Drop for Files {
+
+impl Drop for TempFixture {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.directory);
+        let _ = std::fs::remove_dir_all(&self.dir);
     }
 }
-static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-fn fixture() -> Files {
-    fixture_with_bootstrap(None)
-}
-fn fixture_with_bootstrap(bootstrap: Option<Vec<u8>>) -> Files {
-    let directory = std::env::temp_dir().join(format!(
-        "tw-registered-{}-{}",
+
+static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+
+fn make_fixture() -> TempFixture {
+    let dir = std::env::temp_dir().join(format!(
+        "tw-stateless-reg-{}-{}",
         std::process::id(),
-        COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        NEXT_ID.fetch_add(1, Ordering::Relaxed)
     ));
-    std::fs::create_dir(&directory).unwrap();
-    std::fs::set_permissions(&directory, std::fs::Permissions::from_mode(0o700)).unwrap();
-    let mut artifacts = Vec::new();
-    let mut locations = Vec::new();
-    for (i, role) in [
-        Role::Binary,
-        Role::HostConfig,
-        Role::Bootstrap,
-        Role::StrategyConfig,
-    ]
-    .into_iter()
-    .enumerate()
-    {
-        let bytes = if i == 2 && bootstrap.is_some() {
-            bootstrap.clone().unwrap()
-        } else if i == 3 {
-            b"actual-user-parameters".to_vec()
-        } else {
-            vec![i as u8 + 1; 8]
-        };
-        let path = directory.join(format!("{i}"));
-        std::fs::write(&path, &bytes).unwrap();
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
-        artifacts.push(tickwire_release::Artifact {
-            role: role.clone(),
-            object: tickwire_release::Object::of(&bytes),
-        });
-        locations.push(tickwire_release::files::Location { role, path });
-    }
+    std::fs::create_dir(&dir).unwrap();
+    std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let payload = b"{\"minimum_observations\":2}";
+    let cfg_path = dir.join("params.json");
+    std::fs::write(&cfg_path, payload).unwrap();
+    std::fs::set_permissions(&cfg_path, std::fs::Permissions::from_mode(0o600)).unwrap();
     let binding = FactoryBinding {
-        id: "test_observer".into(),
-        configuration_file: locations[3].path.clone(),
-        configuration: artifacts[3].object,
+        id: "test_observer_v1".into(),
+        state_schema: 0x5457_5f4f_4253_0001,
+        configuration_file: cfg_path,
+        configuration: ArtifactDigest::of(payload),
         revision: 4,
     };
-    let files = tickwire_release::files::load(&artifacts, &locations).unwrap();
-    Files {
-        directory,
-        files,
-        binding,
-    }
+    TempFixture { dir, binding }
 }
-fn target() -> restore::Target {
-    restore::Target {
-        instance: [1; 16],
+
+fn sample_target() -> TargetIdentity {
+    TargetIdentity {
+        logical_strategy_id: 3,
+        strat_id: 7,
+        instance_id: [1; 16],
         generation: 2,
-        logical_strategy: 3,
-        command: None,
-        minimum_bid_ticks: 0,
-        enabled: false,
+        account_ref: 1,
     }
-}
-#[test]
-fn qualified_user_configuration_executes_registered_decoder_and_retains_exact_bytes() {
-    let f = fixture();
-    let calls = Rc::new(Cell::new(0));
-    let factory = configure(&Registered(calls.clone()), &f.binding, &target(), &f.files).unwrap();
-    assert_eq!(calls.get(), 1);
-    assert_eq!(
-        factory.parameters,
-        VersionedBytes {
-            revision: 4,
-            bytes: b"actual-user-parameters".to_vec()
-        }
-    );
-}
-#[test]
-fn wrong_registration_or_unbound_path_does_not_run_user_code() {
-    let f = fixture();
-    let calls = Rc::new(Cell::new(0));
-    let r = Registered(calls.clone());
-    let mut bad = f.binding.clone();
-    bad.id = "not_registered".into();
-    assert!(configure(&r, &bad, &target(), &f.files).is_err());
-    bad = f.binding.clone();
-    bad.configuration_file = f.directory.join("same-bytes-unbound");
-    std::fs::write(&bad.configuration_file, b"actual-user-parameters").unwrap();
-    assert!(configure(&r, &bad, &target(), &f.files).is_err());
-    assert_eq!(calls.get(), 0);
 }
 
 #[test]
-fn catalog_direct_registered_configuration_rejects_before_user_factory() {
-    let config = crate::replay::live::tests::bootstrap(std::path::Path::new("/unused"));
-    let mut config = config;
-    config.instrument_catalog =
-        Some(crate::replay::application::catalog_tests::catalog().artifact());
-    let f = fixture_with_bootstrap(Some(serde_json::to_vec(&config).unwrap()));
+fn stateless_factory_binding_verifies_sha256_and_constructs_strategy() {
+    let f = make_fixture();
     let calls = Rc::new(Cell::new(0));
-    assert!(configure(&Registered(calls.clone()), &f.binding, &target(), &f.files).is_err());
+    let reg = TestRegistration {
+        calls: Rc::clone(&calls),
+        schema: 0x5457_5f4f_4253_0001,
+    };
+    let configured = configure_from_file(&reg, &f.binding, &sample_target()).unwrap();
+    assert_eq!(calls.get(), 1);
+    assert_eq!(configured.parameters().revision, 4);
+    assert_eq!(
+        configured.parameters().bytes,
+        b"{\"minimum_observations\":2}"
+    );
+    let _running = configured.create().unwrap();
+}
+
+#[test]
+fn tampered_digest_wrong_id_or_bad_permissions_fail_before_user_configure() {
+    let f = make_fixture();
+    let calls = Rc::new(Cell::new(0));
+    let reg = TestRegistration {
+        calls: Rc::clone(&calls),
+        schema: 0x5457_5f4f_4253_0001,
+    };
+
+    // Wrong registration_id fails before invoking `Registration::configure`.
+    let mut wrong_id = f.binding.clone();
+    wrong_id.id = "wrong_id".into();
+    assert!(configure_from_file(&reg, &wrong_id, &sample_target()).is_err());
     assert_eq!(calls.get(), 0);
+
+    // Tampered SHA-256 fails before invoking `Registration::configure`.
+    let mut bad_sha = f.binding.clone();
+    bad_sha.configuration.sha256[0] ^= 0xff;
+    assert!(configure_from_file(&reg, &bad_sha, &sample_target()).is_err());
+    assert_eq!(calls.get(), 0);
+
+    // Symlink configuration_file is rejected by `read_trusted_bytes`.
+    let link_path = f.dir.join("symlink-params.json");
+    symlink(&f.binding.configuration_file, &link_path).unwrap();
+    let mut symlink_binding = f.binding.clone();
+    symlink_binding.configuration_file = link_path;
+    assert!(configure_from_file(&reg, &symlink_binding, &sample_target()).is_err());
+    assert_eq!(calls.get(), 0);
+
+    // World-writable file is rejected by `read_trusted_bytes`.
+    let writable_path = f.dir.join("writable-params.json");
+    std::fs::write(&writable_path, b"{\"minimum_observations\":2}").unwrap();
+    std::fs::set_permissions(&writable_path, std::fs::Permissions::from_mode(0o666)).unwrap();
+    let mut writable_binding = f.binding.clone();
+    writable_binding.configuration_file = writable_path;
+    assert!(configure_from_file(&reg, &writable_binding, &sample_target()).is_err());
+    assert_eq!(calls.get(), 0);
+
+    // Mismatched `state_schema` fails after `configure`.
+    let mut wrong_schema = f.binding.clone();
+    wrong_schema.state_schema = 999;
+    assert!(configure_from_file(&reg, &wrong_schema, &sample_target()).is_err());
+    assert_eq!(calls.get(), 1);
 }

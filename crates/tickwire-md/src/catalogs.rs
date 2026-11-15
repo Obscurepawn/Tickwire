@@ -98,6 +98,7 @@ impl Catalogs {
         }
         Ok(())
     }
+    #[cfg(all(test, target_os = "linux"))]
     pub(crate) fn objects(&self) -> Vec<Vec<u8>> {
         self.documents
             .iter()

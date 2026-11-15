@@ -9,6 +9,9 @@ use std::{io::ErrorKind, path::PathBuf, sync::mpsc, time::Duration};
 use tickwire_book::BookKey;
 use tickwire_clock::{ClockDomain, MonoTime};
 use tickwire_clock_sys::SystemClock;
+use tickwire_control_sys::{
+    CpuSet, pin_current_thread, spawn_pinned_thread, validate_cpu_isolation,
+};
 use tickwire_instrument_catalog::{Catalog, Market};
 use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_join::{JoinOwner, TopicRegistry};
@@ -28,6 +31,10 @@ pub struct Config {
     pub source_id: u32,
     pub instrument_set_version: u64,
     pub server: ServerConfig,
+    #[serde(default)]
+    pub reactor_cpu: Option<u32>,
+    #[serde(default, with = "config::cpu_set_serde")]
+    pub housekeeping_cpus: Option<CpuSet>,
 }
 
 fn now(clock: &mut SystemClock) -> Result<u64> {
@@ -95,8 +102,7 @@ impl Config {
     }
 }
 
-// Called under the control journal's exclusive writer lock. The image names
-// the bank clients must JOIN; a restarted process cannot reuse its generation.
+// The active header names the bank clients must JOIN; a restarted process cannot reuse its generation.
 fn publish_header(file: &std::path::Path, header: &ResourceHeader) -> Result<()> {
     match std::fs::symlink_metadata(file) {
         Ok(_) => {
@@ -118,6 +124,10 @@ fn publish_header(file: &std::path::Path, header: &ResourceHeader) -> Result<()>
 }
 
 pub fn run(config: Config) -> Result<()> {
+    validate_cpu_isolation(
+        &[("reactor_cpu", config.reactor_cpu)],
+        config.housekeeping_cpus.as_ref(),
+    )?;
     let resource: config::ResourceSpec =
         serde_json::from_slice(&config::read(&config.resource, 1024 * 1024)?)?;
     let domain = ClockDomain::new(resource.identity.host_boot, config.clock_generation)
@@ -132,28 +142,32 @@ pub fn run(config: Config) -> Result<()> {
     let mut topic = config.topic(&resource, key)?;
     spot_quotes::Session::new(&config.source, 1)?;
     let mut server = Server::open(&resource.identity, &config.server)?;
-    let active = config.server.control_directory.join("spot-market.active");
+    let active = config::active_resource_path(&config.resource)?;
     publish_header(&active, topic.split().0.header())?;
     let (tx, rx) = mpsc::sync_channel(1);
-    std::thread::Builder::new()
-        .name("spot-public-ws".into())
-        .spawn(move || {
-            let run = || -> Result<()> {
-                let mut clock = SystemClock::new(domain)
-                    .map_err(|e| invalid(&format!("spot input clock: {e:?}")))?;
-                spot_quotes::run_with(
-                    &config.source,
-                    || now(&mut clock),
-                    |notice| {
-                        tx.send(Ok(notice.publication(key)?))
-                            .map_err(|_| invalid("spot topic owner closed"))
-                    },
-                )
-            };
-            if let Err(e) = run() {
-                let _ = tx.send(Err(e.to_string()));
-            }
-        })?;
+    let source = config.source;
+    let housekeeping = config.housekeeping_cpus;
+    let reactor_cpu = config.reactor_cpu;
+    spawn_pinned_thread("md-cold", housekeeping.as_ref(), move || {
+        let run = || -> Result<()> {
+            let mut clock = SystemClock::new(domain)
+                .map_err(|e| invalid(&format!("spot input clock: {e:?}")))?;
+            spot_quotes::run_with(
+                &source,
+                || now(&mut clock),
+                |notice| {
+                    tx.send(Ok(notice.publication(key)?))
+                        .map_err(|_| invalid("spot topic owner closed"))
+                },
+            )
+        };
+        if let Err(e) = run() {
+            let _ = tx.send(Err(e.to_string()));
+        }
+    })?;
+    if let Some(cpu) = reactor_cpu {
+        pin_current_thread(&CpuSet::single(cpu)?)?;
+    }
     eprintln!(
         "{}",
         serde_json::json!({"event":"spot_market_started","topic":resource.topic_id,"active_resource":active})

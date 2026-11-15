@@ -1,4 +1,4 @@
-//! Single in-flight, launcher-authorized expansion driven beside the live owners.
+//! Single in-flight, launcher-authorized live topic expansion driven beside the live owners.
 use super::*;
 use crate::expansion::{Plan, Prepared};
 use crate::server::Admission;
@@ -7,14 +7,13 @@ use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use tickwire_market_publisher::TopicExpansion;
 use tickwire_market_source::transition::{Approval, Commit, MAX_CONTROL_BYTES, Phase, Receipt};
-mod durable;
 mod install;
 mod io;
 mod warming;
-use crate::recovery::Phase as RecoveryPhase;
-use durable::After;
 
 const SCAN_NS: u64 = 10_000_000;
+const MAX_OPERATION_HISTORY: usize = 128;
+
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Effective {
     pub schema: u16,
@@ -37,7 +36,6 @@ pub struct Record {
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Stage {
-    Reserving,
     Building,
     Warming,
     Arming,
@@ -48,8 +46,6 @@ enum Stage {
 }
 #[derive(Clone, Copy)]
 enum Action {
-    StartupEffective,
-    Persist(After),
     Plan,
     Build,
     Arm,
@@ -74,19 +70,15 @@ struct Flight {
     stage: Stage,
     irreversible: bool,
     record: Record,
-    build: Option<cold::Task>,
-    installation: Option<cold::Task>,
 }
 pub(super) struct Control {
     config: config::ExpansionControl,
-    worker: cold::Worker,
     action: Option<Action>,
     flight: Option<Flight>,
     reporting: Option<Record>,
     history: BTreeMap<[u8; 16], Record>,
     last_bytes: Option<[u8; 32]>,
     next_scan: u64,
-    durable: Option<durable::Durable>,
 }
 fn encode<T: Serialize>(value: &T, maximum: usize) -> Result<Vec<u8>> {
     let bytes = serde_json::to_vec(value)?;
@@ -96,11 +88,7 @@ fn encode<T: Serialize>(value: &T, maximum: usize) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 impl Control {
-    pub(super) fn new(
-        config: config::ExpansionControl,
-        current: &Config,
-        banks: &[ResourceHeader],
-    ) -> Result<(Self, config::FeedIndex, crate::catalogs::Catalogs)> {
+    pub(super) fn new(config: config::ExpansionControl, current: &Config) -> Result<Self> {
         config.validate()?;
         match config::read(&config.effective_path, crate::expansion::MAX_PLAN_BYTES) {
             Ok(bytes) => {
@@ -119,46 +107,36 @@ impl Control {
                     .is_some_and(|e| e.kind() == std::io::ErrorKind::NotFound) => {}
             Err(error) => return Err(error),
         }
-        let (durable, index, catalogs) = durable::open(&config, current, banks)?;
-        Ok((
-            Self {
-                config,
-                worker: cold::Worker::new()?,
-                action: None,
-                flight: None,
-                reporting: None,
-                history: BTreeMap::new(),
-                last_bytes: None,
-                next_scan: 0,
-                durable,
-            },
-            index,
-            catalogs,
-        ))
+        Ok(Self {
+            config,
+            action: None,
+            flight: None,
+            reporting: None,
+            history: BTreeMap::new(),
+            last_bytes: None,
+            next_scan: 0,
+        })
     }
-    fn submit(&mut self, action: Action, task: cold::Task) -> Result<()> {
-        self.worker.submit(task)?;
+
+    pub(super) fn operation_room(&self, id: [u8; 16]) -> bool {
+        self.history.contains_key(&id) || self.history.len() < MAX_OPERATION_HISTORY
+    }
+
+    fn submit(&mut self, runtime: &mut Runtime, action: Action, task: cold::Task) -> Result<()> {
+        runtime.cold.submit(task)?;
         self.action = Some(action);
         Ok(())
     }
+
     pub(super) fn poll(&mut self, runtime: &mut Runtime, now: u64) -> Result<bool> {
-        if let Some(result) = self.worker.poll()? {
+        if let Some(result) = runtime.cold.poll()? {
             let action = self
                 .action
                 .take()
                 .ok_or_else(|| invalid("MD cold reply without request"))?;
-            if matches!(action, Action::Persist(_) | Action::StartupEffective) && result.is_err() {
-                return Err(invalid(&format!(
-                    "MD recovery persistence failed: {}",
-                    result.err().unwrap()
-                )));
-            }
             if let Err(error) = self.reply(action, result, runtime, now) {
                 self.fail(runtime, error.to_string())?;
             }
-        }
-        if !self.startup_ready(runtime)? {
-            return Ok(false);
         }
         if let Some(mut flight) = self.flight.take() {
             let result = if now >= flight.plan.warmup_deadline_mono_ns {
@@ -171,32 +149,25 @@ impl Control {
                 self.fail(runtime, error.to_string())?;
             }
         }
-        if !self.worker.busy() {
-            if let Some(phase) = self.durable.as_ref().and_then(|d| d.report_phase) {
-                self.persist(After::Report, phase, runtime)?;
-                return Ok(false);
-            }
+        if !runtime.cold.busy() {
             if let Some(record) = &self.reporting {
-                self.submit(
-                    Action::Report,
-                    cold::Task::Write(vec![(
-                        self.config.result_path.clone(),
-                        encode(record, MAX_CONTROL_BYTES)?,
-                    )]),
-                )?;
+                let task = cold::Task::Write(vec![(
+                    self.config.result_path.clone(),
+                    encode(record, MAX_CONTROL_BYTES)?,
+                )]);
+                self.submit(runtime, Action::Report, task)?;
             } else if self.flight.is_none() && now >= self.next_scan {
                 self.next_scan = now.saturating_add(SCAN_NS);
-                self.submit(
-                    Action::Plan,
-                    cold::Task::Read(vec![(
-                        self.config.plan_path.clone(),
-                        crate::expansion::MAX_PLAN_BYTES,
-                    )]),
-                )?;
+                let task = cold::Task::Read(vec![(
+                    self.config.plan_path.clone(),
+                    crate::expansion::MAX_PLAN_BYTES,
+                )]);
+                self.submit(runtime, Action::Plan, task)?;
             }
         }
         Ok(false)
     }
+
     fn fail(&mut self, runtime: &mut Runtime, message: String) -> Result<()> {
         if let Some(mut flight) = self.flight.take() {
             if flight.irreversible {
@@ -213,34 +184,24 @@ impl Control {
             self.history
                 .insert(flight.plan.operation_id, flight.record.clone());
             self.reporting = Some(flight.record);
-            if let Some(durable) = &mut self.durable {
-                durable.closed |= flight.irreversible;
-                durable.report_phase = Some(if durable.closed {
-                    RecoveryPhase::Revoking
-                } else {
-                    RecoveryPhase::Ready
-                });
-            }
         } else {
-            // Invalid requests have no runtime effect; never report them as applied.
             eprintln!(
                 "{}",
                 serde_json::json!({"event":"md_expansion_rejected","error":message})
             );
             if self.reporting.is_some() {
-                return Err(invalid("MD expansion result persistence failed"));
+                return Err(invalid("MD expansion result write failed"));
             }
         }
         Ok(())
     }
+
     fn advance(&mut self, flight: &mut Flight, runtime: &mut Runtime, now: u64) -> Result<()> {
-        if !flight.record.runtime_applied
-            && !matches!(flight.stage, Stage::Building | Stage::Reserving)
-        {
+        if !flight.record.runtime_applied && !matches!(flight.stage, Stage::Building) {
             warming::poll(flight, runtime)?;
         }
         let now = runtime.clock.sample()?.monotonic.nanos().max(now);
-        if self.worker.busy() {
+        if runtime.cold.busy() {
             return Ok(());
         }
         match flight.stage {
@@ -266,10 +227,10 @@ impl Control {
                     })
                     .collect::<Result<Vec<_>>>()?;
                 flight.stage = Stage::Arming;
-                self.submit(Action::Arm, cold::Task::Write(files))?;
+                self.submit(runtime, Action::Arm, cold::Task::Write(files))?;
             }
             Stage::Arming if now >= self.next_scan => {
-                self.read_receipts(flight, Action::Armed, now)?
+                self.read_receipts(runtime, flight, Action::Armed, now)?
             }
             Stage::Quiescing => {
                 if runtime.server.expansion_quiesced(
@@ -281,13 +242,20 @@ impl Control {
                 }
             }
             Stage::Rejoining if now >= self.next_scan => {
-                self.read_receipts(flight, Action::Activated, now)?
+                self.read_receipts(runtime, flight, Action::Activated, now)?
             }
             _ => {}
         }
         Ok(())
     }
-    fn read_receipts(&mut self, flight: &Flight, action: Action, now: u64) -> Result<()> {
+
+    fn read_receipts(
+        &mut self,
+        runtime: &mut Runtime,
+        flight: &Flight,
+        action: Action,
+        now: u64,
+    ) -> Result<()> {
         self.next_scan = now.saturating_add(SCAN_NS);
         let files = flight
             .plan
@@ -304,6 +272,6 @@ impl Control {
                 )
             })
             .collect();
-        self.submit(action, cold::Task::Read(files))
+        self.submit(runtime, action, cold::Task::Read(files))
     }
 }

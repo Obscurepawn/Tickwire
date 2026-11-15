@@ -1,150 +1,82 @@
-//! Economic context shared by live execution, saved views and source replay.
-use crate::{
-    bootstrap::{Bootstrap, JoinBootstrap, MAX_BOOTSTRAP_BYTES},
-    replay::{Error, Result},
-};
-use std::sync::Arc;
-pub use tickwire_instrument_catalog::Catalog;
-use tickwire_ipc::Wire;
-use tickwire_release::{Object, replay::Source};
+//! Stateless economic instrument catalog verification (`catalog::from_json_bytes`,
+//! `validate_startup`, `validate_market`, `validate_join`, `validate_command`).
+#![forbid(unsafe_code)]
 
-pub fn object(catalog: &Catalog) -> Object {
-    // Catalog construction verified this digest; its private raw body is immutable.
-    Object {
-        digest: catalog.artifact_hash(),
-        bytes: catalog.raw_bytes().len() as u64,
+use std::sync::Arc;
+
+use sha2::{Digest, Sha256};
+pub use tickwire_instrument_catalog::{Artifact, Catalog, Market};
+use tickwire_ipc::{ResourceHeader, Wire};
+
+use crate::{
+    Error, Result,
+    bootstrap::{Bootstrap, JoinBootstrap, MAX_PARAM_BYTES},
+};
+
+/// Decode and verify an immutable `Catalog` JSON payload (`<= 2 MiB`), optionally checking an
+/// expected artifact SHA-256 digest before canonical economic decoding.
+pub fn from_json_bytes(raw: &[u8], expected_sha256: Option<[u8; 32]>) -> Result<Catalog> {
+    if raw.len() > tickwire_instrument_catalog::MAX_BYTES {
+        return Err(Error::Bounds);
     }
-}
-pub fn resolve_bootstrap(config: &Bootstrap) -> Result<Option<Arc<Catalog>>> {
-    config
-        .instrument_catalog
-        .as_ref()
-        .map(|a| a.catalog().map(Arc::new).map_err(|_| Error::Identity))
-        .transpose()
-}
-pub fn reject_lifecycle(config: &Bootstrap) -> Result<()> {
-    if config.instrument_catalog.is_some() {
-        Err(Error::Unsupported)
-    } else {
-        Ok(())
-    }
-}
-/// Older generic factories may name opaque deployment inputs. Only an enabled
-/// typed catalog is new authority here; ordinary Bootstrap decoders remain strict.
-pub(crate) fn reject_lifecycle_bytes(bytes: &[u8]) -> Result<()> {
-    if serde_json::from_slice::<serde_json::Value>(bytes)
-        .ok()
-        .and_then(|v| v.get("instrument_catalog").cloned())
-        .is_some_and(|v| !v.is_null())
+    let actual: [u8; 32] = Sha256::digest(raw).into();
+    if let Some(expected) = expected_sha256
+        && expected != actual
     {
-        return Err(Error::Unsupported);
-    }
-    Ok(())
-}
-pub fn resolve_dependency9(
-    bytes: &[u8],
-    source: &Source,
-    expected: Option<Object>,
-) -> Result<Option<Arc<Catalog>>> {
-    if bytes.len() > MAX_BOOTSTRAP_BYTES {
-        return Err(Error::Capacity);
-    }
-    let config: Bootstrap = serde_json::from_slice(bytes).map_err(|_| Error::Identity)?;
-    let catalog = resolve_bootstrap(&config)?;
-    if catalog.as_deref().map(object) != expected {
         return Err(Error::Identity);
     }
-    if catalog.is_some() {
-        let id = &config.market.local;
-        if id.instance != source.instance
-            || id.generation != source.generation
-            || id.logical_strategy != source.logical_strategy
-            || id.build_hash != source.binary_digest
-            || id.host_boot != source.clock.boot_id
-            || config.clock_generation != source.clock.generation
-        {
+    Ok(Catalog::decode(raw, actual)?)
+}
+
+/// Resolve an optional startup [`Catalog`] from either `config.instrument_catalog` or
+/// `config.catalog_file` (with optional `config.catalog_digest`), rejecting ambiguous combinations.
+pub fn resolve_bootstrap(config: &Bootstrap) -> Result<Option<Arc<Catalog>>> {
+    if config.instrument_catalog.is_some() && config.catalog_file.is_some() {
+        return Err(Error::Identity);
+    }
+    if config.catalog_digest.is_some() && config.catalog_file.is_none() {
+        return Err(Error::Identity);
+    }
+    if let Some(artifact) = &config.instrument_catalog {
+        return Ok(Some(Arc::new(artifact.catalog()?)));
+    }
+    if let Some(path) = &config.catalog_file {
+        if !path.is_absolute() {
             return Err(Error::Identity);
         }
+        let raw = crate::worker::read_trusted_bytes(path, MAX_PARAM_BYTES)?;
+        if let Some(digest) = &config.catalog_digest {
+            digest.verify(&raw, MAX_PARAM_BYTES)?;
+        }
+        let catalog = from_json_bytes(&raw, config.catalog_digest.map(|d| d.sha256))?;
+        return Ok(Some(Arc::new(catalog)));
     }
-    Ok(catalog)
+    Ok(None)
 }
-/// Called before construction and again against the writer's copied kind9.
-pub fn validate_dependency(config: &Bootstrap, bytes: &[u8]) -> Result<()> {
-    if config.instrument_catalog.is_none() {
-        return Ok(());
-    }
-    if bytes.len() > MAX_BOOTSTRAP_BYTES {
-        return Err(Error::Capacity);
-    }
-    let saved: Bootstrap = serde_json::from_slice(bytes).map_err(|_| Error::Identity)?;
-    if saved.instrument_catalog != config.instrument_catalog
-        || saved.market.local.identity() != config.market.local.identity()
-        || saved.clock_generation != config.clock_generation
-    {
+
+/// Validate the optional startup [`Catalog`] against the worker's subscribed `tickwire-md` topic
+/// (`catalog_hash`, `catalog_version`, and per-instrument `(instrument_id, instrument_version)`).
+pub fn validate_startup(config: &Bootstrap) -> Result<Option<Arc<Catalog>>> {
+    let Some(catalog) = resolve_bootstrap(config)? else {
+        return Ok(None);
+    };
+    if config.market.catalog_hash != catalog.catalog_hash() {
         return Err(Error::Identity);
     }
-    resolve_bootstrap(&saved)?;
-    Ok(())
-}
-pub fn validate_startup(config: &Bootstrap) -> crate::Result<()> {
-    if config.preflight_job.is_some() {
-        return Err(Error::Unsupported.into());
-    }
-    let Some(catalog) = resolve_bootstrap(config)? else {
-        return Ok(());
-    };
-    if config.factory.is_none() || !config.publish_checkpoints {
-        return Err(Error::Unsupported.into());
-    }
-    let path = config.recovery_template.as_ref().ok_or(Error::Identity)?;
-    let template: crate::recovery::Template = crate::worker::read_config(path, 2 * 1024 * 1024)?;
-    let dependency = template
-        .dependencies
-        .iter()
-        .find(|d| d.kind == 9)
-        .ok_or(Error::Identity)?;
-    let bytes = crate::recovery::read(&dependency.path, MAX_BOOTSTRAP_BYTES)?;
-    if tickwire_recovery::digest(&bytes) != dependency.digest {
-        return Err(Error::Identity.into());
-    }
-    validate_dependency(config, &bytes)?;
-    let market = config.external_market.as_ref().ok_or(Error::Unsupported)?;
-    if market.catalog_hash != catalog.catalog_hash() {
-        return Err(Error::Identity.into());
-    }
-    let bank =
-        tickwire_ipc::ResourceHeader::decode(&market.bank_header).map_err(|_| Error::Identity)?;
+    let bank = ResourceHeader::decode(&config.market.bank_header).map_err(|_| Error::Identity)?;
     validate_market(
         &catalog,
         &bank,
-        market.instruments.iter().map(|i| (i.id, i.version)),
+        config.market.instruments.iter().map(|i| (i.id, i.version)),
     )?;
-    Ok(())
+    Ok(Some(catalog))
 }
-pub fn validate_baseline(
-    catalog: &Catalog,
-    baseline: &tickwire_account_codec::CanonicalBaseline,
-) -> Result<()> {
-    let snapshot = baseline.snapshot();
-    if snapshot.scope.venue != catalog.venue()
-        || snapshot.scope.environment != catalog.environment()
-        || snapshot
-            .assets
-            .iter()
-            .any(|a| !catalog.asset_matches(&a.asset))
-        || baseline
-            .catalog()
-            .entries
-            .iter()
-            .any(|i| !catalog.instrument_matches(i.product, &i.instrument))
-    {
-        return Err(Error::Identity);
-    }
-    Ok(())
-}
+
+/// Verify that a market ring `ResourceHeader` and subscribed `(instrument_id, instrument_version)`
+/// list match `catalog`.
 pub fn validate_market(
     catalog: &Catalog,
-    bank: &tickwire_ipc::ResourceHeader,
+    bank: &ResourceHeader,
     instruments: impl IntoIterator<Item = (u64, u64)>,
 ) -> Result<()> {
     if bank.catalog_version != catalog.catalog_version() {
@@ -165,6 +97,8 @@ pub fn validate_market(
     }
     Ok(())
 }
+
+/// Verify a `JoinBootstrap` descriptor against `catalog`.
 pub fn validate_join(catalog: &Catalog, join: &JoinBootstrap) -> Result<()> {
     let (bank, _, _, registry) = join.decode().map_err(|_| Error::Identity)?;
     if registry.catalog_hash != catalog.catalog_hash() {
@@ -179,6 +113,9 @@ pub fn validate_join(catalog: &Catalog, join: &JoinBootstrap) -> Result<()> {
             .map(|i| (i.instrument_id, i.instrument_version)),
     )
 }
+
+/// Verify that a [`tickwire_venue::CanonicalCommand`] matches `catalog` venue, environment,
+/// product, and `InstrumentBinding`.
 pub fn validate_command(
     catalog: &Catalog,
     command: &tickwire_venue::CanonicalCommand,
@@ -189,24 +126,6 @@ pub fn validate_command(
         || !catalog.instrument_matches(context.request.product, &context.instrument)
     {
         return Err(Error::Identity);
-    }
-    Ok(())
-}
-pub fn validate_checkpoint(
-    checkpoint: &tickwire_release::replay::Checkpoint,
-    catalog: Option<&Catalog>,
-) -> Result<()> {
-    if tickwire_release::replay::source::catalog_binding(checkpoint)? != catalog.map(object) {
-        return Err(Error::Identity);
-    }
-    let views = crate::replay::application::observed::inspect(checkpoint)?;
-    if let Some(catalog) = catalog {
-        for account in views.accounts() {
-            validate_baseline(catalog, account.baseline())?;
-        }
-        for market in views.markets() {
-            validate_market(catalog, market.bank(), market.instruments().iter().copied())?;
-        }
     }
     Ok(())
 }

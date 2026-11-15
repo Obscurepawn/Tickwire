@@ -1,27 +1,47 @@
-//! Complete durable account records referenced by the execution report ring.
-use crate::{Error, Result};
-use std::os::fd::OwnedFd;
-use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord};
-use tickwire_ipc::{RecordHeader, ReportBody, ReportRecord, ResourceHeader, Wire};
-use tickwire_recovery::{BlobStore, FileBlobReader, StoreKey};
-use tickwire_shm::{Publisher, Subscriber, SubscriptionKey};
+//! Zero-copy 512-byte `ReportRecord` shared-memory decoding (`FrontAck`, `Ack`, `Nack`,
+//! `CancelNack`, `Fill` with `Execution` / `FeeAmendment` / `Projected` distinction, `Canceled`,
+//! `Modified`, `ModifyRejected`, `ExchRateLimit`, `OrsShutDown`, `OrsRestricted`, and RFQ replies).
+#![deny(unsafe_code)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
+use std::os::fd::OwnedFd;
+
+use tickwire_ipc::{
+    ALL_STRATS, RecordHeader, ReportBody, ReportRecord, ResourceHeader, Wire, report_kind,
+};
+use tickwire_shm::{Publisher, Subscriber, SubscriptionKey};
+use tickwire_venue::{
+    ClientId, FrontAck, Liquidity, OrderStatus, PositionSide, Side, TerminalReason, VenueOrderId,
+    VenueTradeId,
+};
+
+use crate::{
+    Error, Result,
+    arena::{ShmArenaReader, ShmArenaWriter, in_process_arena_pair},
+};
+
+const SEQUENCE_LIMIT: u64 = 1 << 63;
+
+/// Required `ResourceHeader::required_features` bit for the 512-byte SPSC report ring (`resource_kind = 3`).
 pub const FEATURE: u64 = 1 << 8;
+
+/// Strategy worker identity bound to a 512-byte execution report ring (`resource_kind = 3`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ReportIdentity {
-    pub logical_strategy_id: u64,
+    pub strat_id: u8,
     pub instance_id: [u8; 16],
     pub strategy_generation: u64,
-    pub risk_domain: [u8; 16],
 }
+
 impl ReportIdentity {
-    fn validate(&self, bank: &ResourceHeader) -> Result<()> {
-        if self.logical_strategy_id == 0
+    #[forbid(unsafe_code)]
+    pub fn validate(&self, bank: &ResourceHeader) -> Result<()> {
+        if self.strat_id == ALL_STRATS
             || self.instance_id == [0; 16]
             || self.strategy_generation == 0
-            || self.risk_domain == [0; 16]
+            || self.strategy_generation >= SEQUENCE_LIMIT
             || bank.resource_kind != 3
-            || bank.record_bytes != 512
+            || bank.record_bytes != ReportRecord::SIZE as u32
             || bank.required_features & FEATURE == 0
             || bank.risk_scope == 0
             || bank.consumer_instance != self.instance_id
@@ -31,255 +51,792 @@ impl ReportIdentity {
         Ok(())
     }
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum AccountReport {
-    Baseline(CanonicalBaseline),
-    Record {
-        position: u64,
-        record: CanonicalRecord,
-    },
+
+/// Explicit semantic classification of `ReportRecord` `Fill` (`773`) messages.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FillKind {
+    /// Authoritative per-trade execution (`amendment == false && projected == false`).
+    Execution,
+    /// Post-trade commission or maker-rebate adjustment (`amendment == true`); never changes fill quantities.
+    FeeAmendment,
+    /// Early cumulative order-status fill projection (`projected == true`).
+    Projected,
 }
-impl AccountReport {
-    /// Decodes this report into a zero-allocation [`crate::microstructure::DecodedReport`].
-    #[inline]
-    pub fn decode(&self) -> crate::microstructure::DecodedReport<'_> {
-        crate::microstructure::decode_report(self)
+
+/// Signed asset fee/rebate attached to a [`FillReport`] (`has_fee == 1`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FillFee {
+    pub fee_units: i64,
+    pub fee_asset_id: u64,
+    pub asset_exponent: i8,
+}
+
+/// Decoded payload of a `ReportRecord` `Fill` (`773`, `report_kind = 5`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FillReport {
+    pub kind: FillKind,
+    pub exec_ref: u64,
+    pub trade_id: Option<VenueTradeId>,
+    pub liquidity: Liquidity,
+    pub last_qty_lots: i64,
+    pub last_price_ticks: i64,
+    pub cumulative_qty_lots: i64,
+    pub projected_qty_lots: i64,
+    pub leaves_qty_lots: i64,
+    pub realized_pnl_units: i64,
+    pub fee: Option<FillFee>,
+}
+
+/// Decoded payload of a `ReportRecord` `ExchRateLimit` (`777`, `report_kind = 9`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RateLimitReport {
+    pub rate_limit_type: u8,
+    pub interval_unit: u8,
+    pub interval_num: u16,
+    pub limit: u32,
+    pub count: u32,
+    pub hard_limit_hit: bool,
+}
+
+/// Typed variant carried by an inbound [`ExecutionReport`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecutionReportKind {
+    Ack,
+    FrontAck,
+    Nack,
+    CancelNack,
+    Fill(FillReport),
+    Canceled,
+    Modified,
+    ModifyRejected,
+    ExchRateLimit(RateLimitReport),
+    OrsShutDown,
+    OrsRestricted,
+    RfqQuoteAck,
+    RfqQuoteNack,
+}
+
+/// Validated strategy-facing view of a 512-byte `ReportRecord` SHM slot.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutionReport {
+    pub ring_sequence: u64,
+    pub report_seq: u64,
+    pub message_type: u16,
+    pub strat_id: u8,
+    pub account_ref: u8,
+    pub ors_order_id: u64,
+    pub order_seqnum: u64,
+    pub orig_seqnum: u64,
+    pub order_id: [u8; 16],
+    pub instrument_id: u64,
+    pub instrument_version: u64,
+    pub strategy_generation: u64,
+    pub exec_generation: u64,
+    pub event_mono_ns: u64,
+    pub exchange_time_ns: u64,
+    pub order_status: OrderStatus,
+    pub reason: TerminalReason,
+    pub venue_errno: i32,
+    pub side: Option<Side>,
+    pub position_side: Option<PositionSide>,
+    pub quantity_lots: i64,
+    pub cumulative_qty_lots: i64,
+    pub projected_qty_lots: i64,
+    pub leaves_qty_lots: i64,
+    pub price_ticks: i64,
+    pub report_flags: u8,
+    pub client_id: Option<ClientId>,
+    pub venue_order_id: Option<VenueOrderId>,
+    pub kind: ExecutionReportKind,
+    pub arena_payload: Option<Vec<u8>>,
+}
+
+#[forbid(unsafe_code)]
+impl ExecutionReport {
+    /// Construct an [`ExecutionReport`] from a zero-copy validated [`ReportRecord`] and optional
+    /// retained SHM Arena payload slice.
+    pub fn from_wire(record: &ReportRecord, arena_payload: Option<&[u8]>) -> Result<Self> {
+        let h = &record.header;
+        let b = &record.body;
+        if (b.arena_len > 0) != arena_payload.is_some() {
+            return Err(Error::Bounds);
+        }
+        let order_status = decode_order_status(b.order_status)?;
+        let reason = TerminalReason::from_code(b.reason)
+            .ok_or(Error::Wire(tickwire_ipc::Error::InvalidEnum))?;
+        let side = decode_side(b.side)?;
+        let position_side = decode_position_side(b.position_side)?;
+        let client_id = decode_optional_text::<40, 64>(&b.client_id, b.client_id_len)?;
+        let venue_order_id =
+            decode_optional_text::<64, 64>(&b.venue_order_id, b.venue_order_id_len)?;
+
+        let kind = match h.message_type {
+            report_kind::MSG_ACK => ExecutionReportKind::Ack,
+            report_kind::MSG_FRONT_ACK => ExecutionReportKind::FrontAck,
+            report_kind::MSG_NACK => ExecutionReportKind::Nack,
+            report_kind::MSG_CANCEL_NACK => ExecutionReportKind::CancelNack,
+            report_kind::MSG_FILL => {
+                if b.amendment == 1 && b.projected == 1 {
+                    return Err(Error::Wire(tickwire_ipc::Error::Malformed));
+                }
+                let fill_kind = if b.amendment == 1 {
+                    FillKind::FeeAmendment
+                } else if b.projected == 1 {
+                    FillKind::Projected
+                } else {
+                    FillKind::Execution
+                };
+                let liquidity = decode_liquidity(b.liquidity)?;
+                let trade_id =
+                    decode_optional_text::<32, 32>(&b.venue_trade_id, b.venue_trade_id_len)?;
+                let fee = if b.has_fee == 1 {
+                    Some(FillFee {
+                        fee_units: b.fee_units,
+                        fee_asset_id: b.fee_asset_id,
+                        asset_exponent: b.asset_exponent,
+                    })
+                } else {
+                    None
+                };
+                if fill_kind == FillKind::FeeAmendment && fee.is_none() {
+                    return Err(Error::Wire(tickwire_ipc::Error::Malformed));
+                }
+                ExecutionReportKind::Fill(FillReport {
+                    kind: fill_kind,
+                    exec_ref: b.exec_ref,
+                    trade_id,
+                    liquidity,
+                    last_qty_lots: b.last_qty_lots,
+                    last_price_ticks: b.last_price_ticks,
+                    cumulative_qty_lots: b.cumulative_qty_lots,
+                    projected_qty_lots: b.projected_qty_lots,
+                    leaves_qty_lots: b.leaves_qty_lots,
+                    realized_pnl_units: b.realized_pnl_units,
+                    fee,
+                })
+            }
+            report_kind::MSG_CANCELED => ExecutionReportKind::Canceled,
+            report_kind::MSG_MODIFIED => ExecutionReportKind::Modified,
+            report_kind::MSG_MODIFY_REJECTED => ExecutionReportKind::ModifyRejected,
+            report_kind::MSG_EXCH_RATE_LIMIT => {
+                ExecutionReportKind::ExchRateLimit(RateLimitReport {
+                    rate_limit_type: b.rate_limit_type,
+                    interval_unit: b.rate_limit_interval_unit,
+                    interval_num: b.rate_limit_interval_num,
+                    limit: b.rate_limit_limit,
+                    count: b.rate_limit_count,
+                    hard_limit_hit: b.hard_limit_hit == 1,
+                })
+            }
+            report_kind::MSG_ORS_SHUT_DOWN => ExecutionReportKind::OrsShutDown,
+            report_kind::MSG_ORS_RESTRICTED => ExecutionReportKind::OrsRestricted,
+            report_kind::MSG_RFQ_QUOTE_ACK => ExecutionReportKind::RfqQuoteAck,
+            report_kind::MSG_RFQ_QUOTE_NACK => ExecutionReportKind::RfqQuoteNack,
+            _ => return Err(Error::Wire(tickwire_ipc::Error::UnknownMessage)),
+        };
+
+        Ok(Self {
+            ring_sequence: h.sequence,
+            report_seq: b.report_seq,
+            message_type: h.message_type,
+            strat_id: b.strat_id,
+            account_ref: b.account_ref,
+            ors_order_id: b.ors_order_id,
+            order_seqnum: b.order_seqnum,
+            orig_seqnum: b.orig_seqnum,
+            order_id: b.order_id,
+            instrument_id: b.instrument_id,
+            instrument_version: h.instrument_version,
+            strategy_generation: b.strategy_generation,
+            exec_generation: b.exec_generation,
+            event_mono_ns: b.event_mono_ns,
+            exchange_time_ns: b.exchange_time_ns,
+            order_status,
+            reason,
+            venue_errno: b.venue_errno,
+            side,
+            position_side,
+            quantity_lots: b.quantity_lots,
+            cumulative_qty_lots: b.cumulative_qty_lots,
+            projected_qty_lots: b.projected_qty_lots,
+            leaves_qty_lots: b.leaves_qty_lots,
+            price_ticks: b.price_ticks,
+            report_flags: b.report_flags,
+            client_id,
+            venue_order_id,
+            kind,
+            arena_payload: arena_payload.map(<[u8]>::to_vec),
+        })
     }
 
-    /// Decodes this report with explicit order classification hints.
     #[inline]
-    pub fn decode_with_hints<'a>(
-        &'a self,
-        hints: crate::microstructure::OrderClassificationHints<'_>,
-    ) -> crate::microstructure::DecodedReport<'a> {
-        crate::microstructure::decode_report_with_hints(self, hints)
+    pub fn fill(&self) -> Option<&FillReport> {
+        match &self.kind {
+            ExecutionReportKind::Fill(f) => Some(f),
+            _ => None,
+        }
     }
 
-    /// Extracts [`tickwire_venue::ModifyObservation`] when this report carries `VenueEventBody::Modified`.
     #[inline]
-    pub fn modified(&self) -> Option<&tickwire_venue::ModifyObservation> {
-        self.decode().modified()
+    pub fn is_execution_fill(&self) -> bool {
+        matches!(
+            &self.kind,
+            ExecutionReportKind::Fill(f) if f.kind == FillKind::Execution
+        )
     }
 
-    /// Extracts [`tickwire_venue::ModifyRejection`] when this report carries `VenueEventBody::ModifyRejected`.
     #[inline]
-    pub fn modify_rejected(&self) -> Option<&tickwire_venue::ModifyRejection> {
-        self.decode().modify_rejected()
+    pub fn is_amendment_fill(&self) -> bool {
+        matches!(
+            &self.kind,
+            ExecutionReportKind::Fill(f) if f.kind == FillKind::FeeAmendment
+        )
     }
 
-    /// Extracts [`tickwire_venue::OrderObservation`] from an `Order` or `Fill` report.
     #[inline]
-    pub fn order_observation(&self) -> Option<&tickwire_venue::OrderObservation> {
-        self.decode().order_observation()
+    pub fn is_projected_fill(&self) -> bool {
+        matches!(
+            &self.kind,
+            ExecutionReportKind::Fill(f) if f.kind == FillKind::Projected
+        )
     }
 
-    /// Extracts [`tickwire_venue::FillEvent`] when this report carries `VenueEventBody::Fill`.
-    #[inline]
-    pub fn fill_event(&self) -> Option<&tickwire_venue::FillEvent> {
-        self.decode().fill_event()
+    /// Convert a `FrontAck` (`770`) report into a validated [`tickwire_venue::FrontAck`].
+    pub fn to_venue_front_ack(&self) -> Result<Option<FrontAck>> {
+        if self.kind != ExecutionReportKind::FrontAck {
+            return Ok(None);
+        }
+        let ack = FrontAck {
+            ors_order_id: self.ors_order_id,
+            strat_id: self.strat_id,
+            account_ref: self.account_ref,
+            order_seqnum: self.order_seqnum,
+            orig_seqnum: self.orig_seqnum,
+            client_id: self.client_id.clone(),
+            venue_order_id: self.venue_order_id.clone(),
+            received_mono_ns: self.event_mono_ns,
+        };
+        ack.validate()?;
+        Ok(Some(ack))
     }
 
-    /// Returns the classified [`tickwire_venue::TerminalReason`] for this report, if any.
+    /// Classified [`TerminalReason`] when non-`Unknown` or implied by a terminal [`OrderStatus`].
     #[inline]
-    pub fn terminal_reason(&self) -> Option<tickwire_venue::TerminalReason> {
-        self.decode().terminal_reason()
+    pub fn terminal_reason(&self) -> Option<TerminalReason> {
+        if self.reason != TerminalReason::Unknown {
+            Some(self.reason)
+        } else if self.order_status == OrderStatus::Filled {
+            Some(TerminalReason::Filled)
+        } else {
+            None
+        }
     }
 
-    /// Returns the classified [`tickwire_venue::TerminalReason`] using explicit order hints.
+    /// Returns `true` when this report closes an order's resting lifecycle (`Nack`, `Canceled`,
+    /// or `OrderStatus::Filled | Canceled | Expired | Rejected` on non-rejection management events).
     #[inline]
-    pub fn terminal_reason_with_hints(
-        &self,
-        hints: crate::microstructure::OrderClassificationHints<'_>,
-    ) -> Option<tickwire_venue::TerminalReason> {
-        self.decode_with_hints(hints).terminal_reason()
+    pub fn is_order_lifecycle_terminal(&self) -> bool {
+        match &self.kind {
+            ExecutionReportKind::Nack | ExecutionReportKind::Canceled => true,
+            ExecutionReportKind::CancelNack
+            | ExecutionReportKind::ModifyRejected
+            | ExecutionReportKind::ExchRateLimit(_)
+            | ExecutionReportKind::OrsShutDown
+            | ExecutionReportKind::OrsRestricted
+            | ExecutionReportKind::RfqQuoteAck
+            | ExecutionReportKind::RfqQuoteNack => false,
+            ExecutionReportKind::Fill(f) if f.kind == FillKind::FeeAmendment => false,
+            ExecutionReportKind::Ack
+            | ExecutionReportKind::FrontAck
+            | ExecutionReportKind::Fill(_)
+            | ExecutionReportKind::Modified => matches!(
+                self.order_status,
+                OrderStatus::Filled
+                    | OrderStatus::Canceled
+                    | OrderStatus::Expired
+                    | OrderStatus::Rejected
+            ),
+        }
     }
 }
-pub struct ReportWriter<B> {
+
+#[forbid(unsafe_code)]
+fn decode_optional_text<const RAW_N: usize, const BOUND_N: usize>(
+    raw: &[u8; RAW_N],
+    len: u8,
+) -> Result<Option<tickwire_venue::BoundedText<BOUND_N>>> {
+    let len_usize = usize::from(len);
+    if len_usize == 0 {
+        if raw.iter().any(|&b| b != 0) {
+            return Err(Error::Wire(tickwire_ipc::Error::ReservedNonzero));
+        }
+        return Ok(None);
+    }
+    if len_usize > RAW_N || len_usize > BOUND_N || raw[len_usize..].iter().any(|&b| b != 0) {
+        return Err(Error::Wire(tickwire_ipc::Error::Bounds));
+    }
+    let text = core::str::from_utf8(&raw[..len_usize])
+        .map_err(|_| Error::Wire(tickwire_ipc::Error::Malformed))?;
+    Ok(Some(tickwire_venue::BoundedText::<BOUND_N>::new(text)?))
+}
+
+#[forbid(unsafe_code)]
+const fn decode_side(code: u8) -> Result<Option<Side>> {
+    match code {
+        0 => Ok(None),
+        1 => Ok(Some(Side::Buy)),
+        2 => Ok(Some(Side::Sell)),
+        _ => Err(Error::Wire(tickwire_ipc::Error::InvalidEnum)),
+    }
+}
+
+#[forbid(unsafe_code)]
+const fn decode_position_side(code: u8) -> Result<Option<PositionSide>> {
+    match code {
+        0 => Ok(None),
+        1 => Ok(Some(PositionSide::Both)),
+        2 => Ok(Some(PositionSide::Long)),
+        3 => Ok(Some(PositionSide::Short)),
+        _ => Err(Error::Wire(tickwire_ipc::Error::InvalidEnum)),
+    }
+}
+
+#[forbid(unsafe_code)]
+const fn decode_liquidity(code: u8) -> Result<Liquidity> {
+    match code {
+        0 => Ok(Liquidity::Unknown),
+        1 => Ok(Liquidity::Maker),
+        2 => Ok(Liquidity::Taker),
+        _ => Err(Error::Wire(tickwire_ipc::Error::InvalidEnum)),
+    }
+}
+
+#[forbid(unsafe_code)]
+const fn decode_order_status(code: u16) -> Result<OrderStatus> {
+    match code {
+        0 => Ok(OrderStatus::Unknown),
+        1 => Ok(OrderStatus::Pending),
+        2 => Ok(OrderStatus::New),
+        3 => Ok(OrderStatus::PartiallyFilled),
+        4 => Ok(OrderStatus::Filled),
+        5 => Ok(OrderStatus::Canceled),
+        6 => Ok(OrderStatus::Expired),
+        7 => Ok(OrderStatus::Rejected),
+        8 => Ok(OrderStatus::Unreported),
+        9 => Ok(OrderStatus::Unknown),
+        _ => Err(Error::Wire(tickwire_ipc::Error::InvalidEnum)),
+    }
+}
+
+/// ORS-side SPSC writer encoding 512-byte `ReportRecord` replies onto a strategy's report ring
+/// (with optional in-memory `ShmArenaWriter` strictly for oversize payloads).
+pub struct ReportWriter {
     publisher: Publisher<1>,
-    store: B,
+    subscription: Option<SubscriptionKey>,
+    arena: Option<ShmArenaWriter>,
     identity: ReportIdentity,
-    baseline: Option<[u8; 32]>,
-    baseline_sequence: u64,
-    last_position: u64,
-    last_digest: [u8; 32],
-    account_input: Option<tickwire_account_codec::InputSeal>,
+    next_report_seq: u64,
 }
-impl<B: BlobStore> ReportWriter<B> {
-    pub fn new(publisher: Publisher<1>, store: B, identity: ReportIdentity) -> Result<Self> {
+
+impl ReportWriter {
+    #[forbid(unsafe_code)]
+    pub fn new(publisher: Publisher<1>, identity: ReportIdentity) -> Result<Self> {
+        Self::with_arena(publisher, None, None, identity)
+    }
+
+    #[forbid(unsafe_code)]
+    pub fn with_arena(
+        publisher: Publisher<1>,
+        subscription: Option<SubscriptionKey>,
+        arena: Option<ShmArenaWriter>,
+        identity: ReportIdentity,
+    ) -> Result<Self> {
         identity.validate(publisher.header())?;
         Ok(Self {
             publisher,
-            store,
+            subscription,
+            arena,
             identity,
-            baseline: None,
-            baseline_sequence: 0,
-            last_position: 0,
-            last_digest: [0; 32],
-            account_input: None,
+            next_report_seq: 1,
         })
     }
+
+    #[inline]
+    #[forbid(unsafe_code)]
     pub fn publisher(&mut self) -> &mut Publisher<1> {
         &mut self.publisher
     }
-    /// Actual attached report bank, not a caller-provided bootstrap template.
+
+    #[inline]
+    #[forbid(unsafe_code)]
     pub fn header(&self) -> &ResourceHeader {
         self.publisher.header()
     }
+
+    #[inline]
+    #[forbid(unsafe_code)]
     pub fn identity(&self) -> &ReportIdentity {
         &self.identity
     }
-    /// Synchronize control artifacts in the same immutable object namespace the
-    /// authenticated child reads. This never publishes a report or advances its cursor.
-    pub fn put_object(&mut self, bytes: &[u8]) -> Result<[u8; 32]> {
-        put_control_object(&mut self.store, bytes)
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn next_report_seq(&self) -> u64 {
+        self.next_report_seq
     }
-    pub fn last_position(&self) -> u64 {
-        self.last_position
-    }
-    /// The baseline occupies the first report slot; ordered records follow one-for-one.
-    pub fn account_input_digest(&self, position: u64) -> Option<[u8; 32]> {
-        self.account_input
-            .as_ref()
-            .filter(|s| s.position() == position)
-            .map(|s| s.digest())
-    }
-    pub fn confirms_cursor(
-        &self,
-        sub: SubscriptionKey,
-        position: u64,
-        sequence: u64,
-    ) -> Result<bool> {
-        if self.baseline.is_none()
-            || position > self.last_position
-            || self.baseline_sequence.checked_add(position) != Some(sequence)
-            || sub.instance.to_le_bytes() != self.identity.instance_id
+
+    /// Encode and publish a 512-byte `ReportRecord` (`message_type = 768 + body.report_kind`).
+    #[forbid(unsafe_code)]
+    pub fn publish_report(
+        &mut self,
+        mut body: ReportBody,
+        instrument_version: u64,
+        arena_payload: Option<&[u8]>,
+        now_mono_ns: u64,
+    ) -> Result<u64> {
+        if !(1..=13).contains(&body.report_kind) {
+            return Err(Error::Wire(tickwire_ipc::Error::InvalidEnum));
+        }
+        let message_type = 768 + body.report_kind;
+        if body.strat_id != self.identity.strat_id
+            && !(body.strat_id == ALL_STRATS && (777..=779).contains(&message_type))
         {
-            return Ok(false);
-        }
-        let cursor = self.publisher.cursor_watermarks(sub)?;
-        Ok(cursor.applied >= sequence && cursor.released >= sequence)
-    }
-    pub fn publish_baseline(&mut self, baseline: &CanonicalBaseline, now: u64) -> Result<u64> {
-        if baseline.snapshot().scope.risk_domain_id != self.identity.risk_domain {
             return Err(Error::Identity);
         }
-        if let Some(old) = self.baseline {
-            return if old == baseline.digest() {
-                Ok(self.baseline_sequence)
-            } else {
-                Err(Error::Identity)
-            };
-        }
-        let sequence = self.publish(780, 11, 0, baseline.digest(), baseline.bytes(), now)?;
-        self.account_input = Some(
-            tickwire_account_codec::InputSeal::new(baseline.digest())
-                .map_err(|_| Error::Identity)?,
-        );
-        self.baseline = Some(baseline.digest());
-        self.baseline_sequence = sequence;
-        Ok(sequence)
-    }
-    pub fn publish_record(
-        &mut self,
-        position: u64,
-        record: &CanonicalRecord,
-        now: u64,
-    ) -> Result<u64> {
-        if self.baseline != Some(record.baseline()) || position != record.sequence() {
-            return Err(Error::Identity);
-        }
-        if position == self.last_position && record.digest() == self.last_digest {
-            return Ok(self.publisher.published());
-        }
-        if position != self.last_position.checked_add(1).ok_or(Error::Bounds)? {
-            return Err(Error::Identity);
-        }
-        let mut account_input = self.account_input.clone().ok_or(Error::NotReady)?;
-        account_input.apply(record).map_err(|_| Error::Identity)?;
-        let sequence = self.publish(781, 12, position, record.digest(), record.bytes(), now)?;
-        self.account_input = Some(account_input);
-        self.last_position = position;
-        self.last_digest = record.digest();
-        Ok(sequence)
-    }
-    fn publish(
-        &mut self,
-        message_type: u16,
-        kind: u16,
-        position: u64,
-        digest: [u8; 32],
-        bytes: &[u8],
-        now: u64,
-    ) -> Result<u64> {
-        self.store.put_sync(StoreKey::Object(digest), bytes)?;
+
         let sequence = self
             .publisher
             .published()
             .checked_add(1)
-            .ok_or(Error::Bounds)?;
+            .filter(|&v| v < SEQUENCE_LIMIT)
+            .ok_or(Error::Sequence)?;
+        let report_seq = self.next_report_seq;
+        let next_rep = report_seq
+            .checked_add(1)
+            .filter(|&v| v < SEQUENCE_LIMIT)
+            .ok_or(Error::Sequence)?;
+
+        let arena_meta = match arena_payload {
+            None => None,
+            Some(payload) => {
+                let released = match self.subscription {
+                    Some(sub) => self.publisher.cursor_watermarks(sub)?.released,
+                    None => 0,
+                };
+                let arena = self.arena.as_mut().ok_or(Error::NotReady)?;
+                Some(arena.write_payload(sequence, released, payload)?)
+            }
+        };
+
+        let (
+            payload_kind,
+            payload_offset,
+            payload_length,
+            arena_class,
+            allocation_seq,
+            payload_crc32c,
+        ) = match arena_meta {
+            None => (0u16, 0u64, 0u32, 0u16, 0u64, 0u32),
+            Some(meta) => (
+                2u16,
+                meta.payload_offset,
+                meta.payload_length,
+                meta.class_id,
+                meta.allocation_seq,
+                meta.payload_crc32c,
+            ),
+        };
+
         let bank = self.publisher.header();
-        let record = ReportRecord {
+        body.report_seq = report_seq;
+        body.strategy_generation = self.identity.strategy_generation;
+        body.exec_generation = bank.producer_generation;
+        if body.event_mono_ns == 0 {
+            body.event_mono_ns = now_mono_ns;
+        }
+        body.arena_offset = payload_offset;
+        body.arena_len = payload_length;
+        sanitize_report_body(&mut body, message_type);
+
+        let flags = {
+            let mut f = if now_mono_ns != 0 { 4u32 } else { 0u32 };
+            if cfg!(feature = "crc32") {
+                f |= 8;
+            }
+            f
+        };
+
+        #[cfg_attr(not(feature = "crc32"), allow(unused_mut))]
+        let mut record = ReportRecord {
             header: RecordHeader {
+                sequence,
+                message_type,
                 schema_major: 1,
                 schema_minor: 0,
-                message_type,
-                flags: if cfg!(feature = "crc32") { 12 } else { 4 },
                 header_bytes: 128,
+                flags,
+                payload_kind,
                 body_bytes: 384,
-                sequence,
+                payload_offset,
+                payload_length,
+                arena_class,
+                _pad_38: [0; 2],
+                allocation_seq,
                 topic_or_scope_id: bank.risk_scope,
+                feed_generation: 0,
                 producer_generation: bank.producer_generation,
-                publish_mono_ns: now,
-                ..Default::default()
+                instrument_id: body.instrument_id,
+                instrument_version,
+                source_timestamp_ns: 0,
+                ingress_mono_ns: 0,
+                publish_mono_ns: now_mono_ns,
+                record_crc32c: 0,
+                payload_crc32c: if cfg!(feature = "crc32") {
+                    payload_crc32c
+                } else {
+                    0
+                },
+                _pad_120: [0; 8],
             },
-            body: ReportBody {
-                logical_strategy_id: self.identity.logical_strategy_id,
-                instance_id: self.identity.instance_id,
-                strategy_generation: self.identity.strategy_generation,
-                exec_generation: bank.producer_generation,
-                exec_journal_seq: position,
-                report_seq: sequence,
-                event_mono_ns: now,
-                report_kind: kind,
-                aux_id: digest[..16].try_into().unwrap(),
-                aux_version: bytes.len() as u64,
-                value_0: i64::from_le_bytes(digest[16..24].try_into().unwrap()),
-                value_1: i64::from_le_bytes(digest[24..32].try_into().unwrap()),
-                value_validity: 384,
-                ..Default::default()
-            },
+            body,
         };
-        let mut image = [0u8; 512];
+
+        let mut image = [0u8; ReportRecord::SIZE];
         record.encode(&mut image)?;
         #[cfg(feature = "crc32")]
         {
-            let crc = tickwire_ipc::crc32c(&image);
-            image[112..116].copy_from_slice(&crc.to_le_bytes());
+            record.header.record_crc32c = tickwire_ipc::crc32c_masked(&image, 112..120);
+            image[112..116].copy_from_slice(&record.header.record_crc32c.to_le_bytes());
         }
         tickwire_ipc::decode_record(&image)?;
-        Ok(self.publisher.publish(&[&image])?)
+        let published = self.publisher.publish(&[&image])?;
+        self.next_report_seq = next_rep;
+        Ok(published)
     }
 }
 
-fn put_control_object(store: &mut impl BlobStore, bytes: &[u8]) -> Result<[u8; 32]> {
-    if bytes.is_empty() || bytes.len() > tickwire_recovery::MAX_OBJECT_BYTES {
-        return Err(Error::Bounds);
+#[forbid(unsafe_code)]
+fn sanitize_report_body(b: &mut ReportBody, message_type: u16) {
+    if message_type != report_kind::MSG_FILL {
+        b.last_qty_lots = 0;
+        b.last_price_ticks = 0;
+        b.fee_units = 0;
+        b.realized_pnl_units = 0;
+        b.fee_asset_id = 0;
+        b.liquidity = 0;
+        b.amendment = 0;
+        b.projected = 0;
+        b.has_fee = 0;
+        b.asset_exponent = 0;
+        b.venue_trade_id_len = 0;
+        b.venue_trade_id = [0; 32];
+    } else if b.has_fee == 0 {
+        b.fee_units = 0;
+        b.fee_asset_id = 0;
+        b.asset_exponent = 0;
     }
-    let digest = tickwire_recovery::digest(bytes);
-    store.put_sync(StoreKey::Object(digest), bytes)?;
-    Ok(digest)
+    if message_type != report_kind::MSG_EXCH_RATE_LIMIT {
+        b.rate_limit_limit = 0;
+        b.rate_limit_count = 0;
+        b.rate_limit_interval_num = 0;
+        b.rate_limit_type = 0;
+        b.rate_limit_interval_unit = 0;
+        b.hard_limit_hit = 0;
+    }
+    match message_type {
+        report_kind::MSG_FRONT_ACK => {
+            b.cumulative_qty_lots = 0;
+            b.projected_qty_lots = 0;
+        }
+        report_kind::MSG_NACK => {
+            b.cumulative_qty_lots = 0;
+            b.projected_qty_lots = 0;
+            b.leaves_qty_lots = 0;
+        }
+        report_kind::MSG_CANCEL_NACK => {
+            b.projected_qty_lots = 0;
+        }
+        report_kind::MSG_EXCH_RATE_LIMIT
+        | report_kind::MSG_ORS_SHUT_DOWN
+        | report_kind::MSG_ORS_RESTRICTED => {
+            b.quantity_lots = 0;
+            b.cumulative_qty_lots = 0;
+            b.projected_qty_lots = 0;
+            b.leaves_qty_lots = 0;
+            b.price_ticks = 0;
+            b.side = 0;
+            b.position_side = 0;
+        }
+        report_kind::MSG_RFQ_QUOTE_ACK => {
+            b.cumulative_qty_lots = 0;
+            b.projected_qty_lots = 0;
+            b.position_side = 0;
+        }
+        report_kind::MSG_RFQ_QUOTE_NACK => {
+            b.cumulative_qty_lots = 0;
+            b.projected_qty_lots = 0;
+            b.leaves_qty_lots = 0;
+            b.position_side = 0;
+        }
+        _ => {}
+    }
 }
 
-/// Creates an in-process SPSC [`ReportWriter`] / [`ReportReceiver`] pair backed by a newly
-/// created `Publisher<1>` shared-memory report bank and `store` / `objects` blob namespace.
-pub fn in_process_report_pair<B: BlobStore>(
+/// Strategy-side zero-copy SPSC consumer for 512-byte `ReportRecord` SHM slots.
+pub struct ReportReceiver {
+    reader: Subscriber<4>,
+    bank: ResourceHeader,
+    arena: Option<ShmArenaReader>,
+    identity: ReportIdentity,
+    last_report_seq: u64,
+}
+
+impl ReportReceiver {
+    /// Attach to an authenticated `F_SEAL_FUTURE_WRITE` report ring `memfd`.
+    ///
+    /// # Safety
+    /// The ORS execution process must be the sole writer obeying the `Publisher<1>` release protocol.
+    #[allow(unsafe_code)]
+    pub unsafe fn attach(
+        fd: OwnedFd,
+        bank: ResourceHeader,
+        subscription: SubscriptionKey,
+        arena: Option<ShmArenaReader>,
+        identity: ReportIdentity,
+    ) -> Result<Self> {
+        identity.validate(&bank)?;
+        if subscription.instance.to_le_bytes() != identity.instance_id {
+            return Err(Error::Identity);
+        }
+        let first = bank.first_seq.checked_sub(1).ok_or(Error::Bounds)?;
+        // SAFETY: caller guarantees the sole writer and exact registered cursor gate.
+        let reader = unsafe { Subscriber::attach(fd, bank.clone(), subscription, first)? };
+        Ok(Self {
+            reader,
+            bank,
+            arena,
+            identity,
+            last_report_seq: 0,
+        })
+    }
+
+    #[forbid(unsafe_code)]
+    pub fn cursor_fd(&self) -> Result<OwnedFd> {
+        Ok(self.reader.cursor_fd()?)
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn header(&self) -> &ResourceHeader {
+        &self.bank
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn identity(&self) -> &ReportIdentity {
+        &self.identity
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn last_report_seq(&self) -> u64 {
+        self.last_report_seq
+    }
+
+    #[forbid(unsafe_code)]
+    pub fn start_quiesce(&self) {
+        self.reader.start_quiesce();
+    }
+
+    #[forbid(unsafe_code)]
+    pub fn quiesced(&self) -> Result<tickwire_shm::Quiesced> {
+        Ok(self.reader.quiesced()?)
+    }
+
+    /// Borrow and validate the next 512-byte `ReportRecord` in place (`ReportRecord::from_aligned_bytes`)
+    /// without copying onto the stack, passing an optional retained arena slice while the slot guard is held.
+    #[allow(unsafe_code)]
+    pub fn poll_zero_copy<F>(&mut self, mut f: F) -> Result<bool>
+    where
+        F: FnMut(&ReportRecord, Option<&[u8]>) -> Result<()>,
+    {
+        let Some(guard) = self.reader.borrow()? else {
+            return Ok(false);
+        };
+        let raw_arr: &[u8; ReportRecord::SIZE] =
+            guard.bytes().try_into().map_err(|_| Error::Bounds)?;
+        let record = ReportRecord::from_aligned_bytes(raw_arr)?;
+        let h = &record.header;
+        let b = &record.body;
+        if !(report_kind::MSG_ACK..=report_kind::MSG_RFQ_QUOTE_NACK).contains(&h.message_type)
+            || h.topic_or_scope_id != self.bank.risk_scope
+            || h.producer_generation != self.bank.producer_generation
+            || b.strategy_generation != self.identity.strategy_generation
+            || b.exec_generation != self.bank.producer_generation
+            || (b.strat_id != self.identity.strat_id
+                && !(b.strat_id == ALL_STRATS && (777..=779).contains(&h.message_type)))
+        {
+            return Err(Error::Identity);
+        }
+        if b.report_seq != self.last_report_seq.checked_add(1).ok_or(Error::Sequence)? {
+            return Err(Error::Sequence);
+        }
+        let payload_slice = if b.arena_len > 0 {
+            let arena = self.arena.as_ref().ok_or(Error::NotReady)?;
+            // SAFETY: `guard` holds the live ring borrow for `h.sequence`, preventing
+            // `ShmArenaWriter` from reclaiming or mutating this arena block until `guard` drops.
+            Some(unsafe { arena.read_retained_payload(h)? })
+        } else {
+            None
+        };
+        f(record, payload_slice)?;
+        let seq = guard.sequence();
+        let rep_seq = b.report_seq;
+        drop(guard);
+        self.reader.apply(seq)?;
+        self.last_report_seq = rep_seq;
+        Ok(true)
+    }
+
+    /// Poll and decode the next [`ExecutionReport`].
+    #[forbid(unsafe_code)]
+    pub fn poll(&mut self) -> Result<Option<ExecutionReport>> {
+        let mut out = None;
+        self.poll_zero_copy(|record, payload| {
+            out = Some(ExecutionReport::from_wire(record, payload)?);
+            Ok(())
+        })?;
+        Ok(out)
+    }
+
+    // Fallible polling distinguishes an empty live ring from an exhausted iterator.
+    #[allow(clippy::should_implement_trait)]
+    #[forbid(unsafe_code)]
+    pub fn next(&mut self) -> Result<Option<ExecutionReport>> {
+        self.poll()
+    }
+}
+
+/// Create an in-process `(ReportWriter, ReportReceiver)` pair over a sealed `memfd` report ring.
+#[allow(unsafe_code)]
+pub fn in_process_report_pair(
     header: ResourceHeader,
     subscription_generation: u64,
     cursor_id: [u8; 16],
-    store: B,
-    objects: FileBlobReader,
     identity: ReportIdentity,
-) -> Result<(ReportWriter<B>, ReportReceiver)> {
+) -> Result<(ReportWriter, ReportReceiver)> {
+    in_process_report_pair_with_arena(header, None, subscription_generation, cursor_id, identity)
+}
+
+/// Create an in-process `(ReportWriter, ReportReceiver)` pair with an optional sealed `ShmArena`.
+#[allow(unsafe_code)]
+pub fn in_process_report_pair_with_arena(
+    header: ResourceHeader,
+    arena_header: Option<ResourceHeader>,
+    subscription_generation: u64,
+    cursor_id: [u8; 16],
+    identity: ReportIdentity,
+) -> Result<(ReportWriter, ReportReceiver)> {
     if cursor_id == [0; 16] || subscription_generation == 0 {
         return Err(Error::Identity);
     }
@@ -291,226 +848,23 @@ pub fn in_process_report_pair<B: BlobStore>(
         cursor: u128::from_le_bytes(cursor_id),
     };
     publisher.join(sub)?;
+    let (arena_writer, arena_reader) = match arena_header {
+        None => (None, None),
+        Some(ah) => {
+            let (w, r) = in_process_arena_pair(ah)?;
+            (Some(w), Some(r))
+        }
+    };
     let bank = publisher.header().clone();
     let bank_fd = publisher.reader_fd()?;
-    // SAFETY: `publisher` is freshly created, owned exclusively by the returned
-    // `ReportWriter`, and `sub` is its sole registered subscription.
+    // SAFETY: `publisher` is freshly created and exclusively owned by `ReportWriter`.
     let receiver =
-        unsafe { ReportReceiver::attach(bank_fd, bank, sub, objects, identity.clone())? };
+        unsafe { ReportReceiver::attach(bank_fd, bank, sub, arena_reader, identity.clone())? };
     let cursor_fd = receiver.cursor_fd()?;
-    // SAFETY: `cursor_fd` is the exact `Subscriber`-created cursor descriptor for `sub`.
+    // SAFETY: `cursor_fd` is the exact `Subscriber` cursor descriptor for `sub`.
     unsafe {
         publisher.register_cursor(sub, cursor_fd)?;
     }
-    let writer = ReportWriter::new(publisher, store, identity)?;
+    let writer = ReportWriter::with_arena(publisher, Some(sub), arena_writer, identity)?;
     Ok((writer, receiver))
-}
-
-pub struct ReportReceiver {
-    reader: Subscriber<4>,
-    bank: ResourceHeader,
-    objects: FileBlobReader,
-    identity: ReportIdentity,
-    baseline: Option<[u8; 32]>,
-    last_position: u64,
-}
-impl ReportReceiver {
-    /// # Safety
-    /// The authenticated execution owner retains this registered cursor and is
-    /// the only writer. It follows the shared bank's borrow and release protocol.
-    pub unsafe fn attach(
-        fd: OwnedFd,
-        bank: ResourceHeader,
-        subscription: SubscriptionKey,
-        objects: FileBlobReader,
-        identity: ReportIdentity,
-    ) -> Result<Self> {
-        identity.validate(&bank)?;
-        if subscription.instance.to_le_bytes() != identity.instance_id {
-            return Err(Error::Identity);
-        }
-        let first = bank.first_seq.checked_sub(1).ok_or(Error::Bounds)?;
-        // SAFETY: the caller establishes the qualified owner and exact registered gate.
-        let reader = unsafe { Subscriber::attach(fd, bank.clone(), subscription, first)? };
-        Ok(Self {
-            reader,
-            bank,
-            objects,
-            identity,
-            baseline: None,
-            last_position: 0,
-        })
-    }
-    pub fn cursor_fd(&self) -> Result<OwnedFd> {
-        Ok(self.reader.cursor_fd()?)
-    }
-    pub fn header(&self) -> &ResourceHeader {
-        &self.bank
-    }
-    pub fn last_position(&self) -> u64 {
-        self.last_position
-    }
-    pub fn last_ring_sequence(&self) -> Result<u64> {
-        self.bank
-            .first_seq
-            .checked_add(self.last_position)
-            .ok_or(Error::Bounds)
-    }
-    pub fn start_quiesce(&self) {
-        self.reader.start_quiesce();
-    }
-    pub fn quiesced(&self) -> Result<tickwire_shm::Quiesced> {
-        Ok(self.reader.quiesced()?)
-    }
-    // Fallible polling distinguishes an empty live ring from an exhausted iterator.
-    #[allow(clippy::should_implement_trait)]
-    pub fn next(&mut self) -> Result<Option<AccountReport>> {
-        let Some(guard) = self.reader.borrow()? else {
-            return Ok(None);
-        };
-        let report = resolve(&self.objects, guard.bytes(), &self.bank, &self.identity)?;
-        match &report {
-            AccountReport::Baseline(b) => {
-                if self.baseline.is_some() || self.last_position != 0 {
-                    return Err(Error::Identity);
-                }
-                self.baseline = Some(b.digest());
-            }
-            AccountReport::Record { position, record } => {
-                if self.baseline != Some(record.baseline())
-                    || *position != self.last_position.checked_add(1).ok_or(Error::Bounds)?
-                {
-                    return Err(Error::Identity);
-                }
-                self.last_position = *position;
-            }
-        }
-        let sequence = guard.sequence();
-        drop(guard);
-        self.reader.apply(sequence)?;
-        Ok(Some(report))
-    }
-}
-pub fn resolve(
-    objects: &FileBlobReader,
-    raw: &[u8],
-    bank: &ResourceHeader,
-    identity: &ReportIdentity,
-) -> Result<AccountReport> {
-    identity.validate(bank)?;
-    let tickwire_ipc::Record::Report(record) = tickwire_ipc::decode_record(raw)? else {
-        return Err(Error::Identity);
-    };
-    let h = &record.header;
-    let b = &record.body;
-    if !matches!(h.message_type, 780 | 781)
-        || h.topic_or_scope_id != bank.risk_scope
-        || h.producer_generation != bank.producer_generation
-        || b.logical_strategy_id != identity.logical_strategy_id
-        || b.instance_id != identity.instance_id
-        || b.strategy_generation != identity.strategy_generation
-        || b.exec_generation != bank.producer_generation
-        || b.report_seq != h.sequence
-        || b.event_mono_ns != h.publish_mono_ns
-    {
-        return Err(Error::Identity);
-    }
-    let mut hash = [0u8; 32];
-    hash[..16].copy_from_slice(&b.aux_id);
-    hash[16..24].copy_from_slice(&b.value_0.to_le_bytes());
-    hash[24..].copy_from_slice(&b.value_1.to_le_bytes());
-    let size = usize::try_from(b.aux_version).map_err(|_| Error::Bounds)?;
-    let maximum = if h.message_type == 780 {
-        tickwire_account_codec::MAX_BASELINE_BYTES
-    } else {
-        tickwire_account_codec::MAX_RECORD_BYTES
-    };
-    if size == 0 || size > maximum {
-        return Err(Error::Bounds);
-    }
-    let bytes = objects.get_object(hash, size)?;
-    if bytes.len() != size {
-        return Err(Error::Identity);
-    }
-    if h.message_type == 780 {
-        let baseline = CanonicalBaseline::decode(&bytes).map_err(|_| Error::Identity)?;
-        if b.exec_journal_seq != 0
-            || baseline.digest() != hash
-            || baseline.snapshot().scope.risk_domain_id != identity.risk_domain
-        {
-            return Err(Error::Identity);
-        }
-        Ok(AccountReport::Baseline(baseline))
-    } else {
-        let record = CanonicalRecord::decode(&bytes).map_err(|_| Error::Identity)?;
-        if record.digest() != hash || record.sequence() != b.exec_journal_seq {
-            return Err(Error::Identity);
-        }
-        Ok(AccountReport::Record {
-            position: b.exec_journal_seq,
-            record,
-        })
-    }
-}
-
-#[cfg(test)]
-mod control_object_tests {
-    use super::*;
-    use std::os::unix::fs::MetadataExt;
-
-    #[test]
-    fn replay_control_objects_are_readable_by_the_actual_child_reader() {
-        let path = std::env::temp_dir().join(format!(
-            "tickwire-report-control-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let mut store = tickwire_recovery::FileBlobStore::open(&path).unwrap();
-        let reader = FileBlobReader::open(&path, std::fs::metadata(&path).unwrap().uid()).unwrap();
-        // Reproduce the prior Host/worker mismatch using actual files: the
-        // preflight probe namespace is not the report object namespace.
-        let prior = b"install control";
-        let hash = tickwire_recovery::digest(prior);
-        let hex = hash.iter().map(|b| format!("{b:02x}")).collect::<String>();
-        std::fs::write(path.join(format!("{hex}.bin")), prior).unwrap();
-        assert!(reader.get_object(hash, 1024).is_err());
-        for bytes in [
-            b"install control".as_slice(),
-            b"source completion",
-            b"rollback completion",
-        ] {
-            let digest =
-                put_control_object(&mut store, bytes).expect("control writer must complete");
-            assert_eq!(reader.get_object(digest, 1024).unwrap(), bytes);
-            assert_eq!(put_control_object(&mut store, bytes).unwrap(), digest);
-        }
-        drop(store);
-        std::fs::remove_dir_all(path).unwrap();
-    }
-
-    #[test]
-    fn failed_sync_does_not_return_a_publishable_object_and_bounds_precede_store() {
-        struct Failed {
-            calls: usize,
-        }
-        impl BlobStore for Failed {
-            fn get(&self, _: StoreKey, _: usize) -> tickwire_recovery::Result<Vec<u8>> {
-                Err(tickwire_recovery::Error::Missing)
-            }
-            fn put_sync(&mut self, _: StoreKey, _: &[u8]) -> tickwire_recovery::Result<()> {
-                self.calls += 1;
-                Err(tickwire_recovery::Error::Io(std::io::Error::other(
-                    "injected sync failure",
-                )))
-            }
-        }
-        let mut store = Failed { calls: 0 };
-        assert!(put_control_object(&mut store, &[]).is_err());
-        assert_eq!(store.calls, 0);
-        assert!(put_control_object(&mut store, b"control bytes").is_err());
-        assert_eq!(store.calls, 1);
-    }
 }

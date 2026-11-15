@@ -1,43 +1,55 @@
-//! Strategy-owned market replica and canonical-command SPSC publication.
-#![deny(unsafe_code)]
-pub mod account_checkpoint;
+//! Stateless strategy worker SDK for the 3-process shared-memory topology (`tickwire-md` +
+//! strategy workers + unified ORS execution process).
+//!
+//! Each strategy worker connects directly to `tickwire-md` shared-memory broadcast rings
+//! ([`MarketReplica`], [`MarketView`]) at an independent reader cursor, authenticates with the
+//! ORS execution process over the Direct Order Entry (`DOP`) handshake ([`DopSession`]:
+//! `DopLogin` -> `DopEcho` + `OrsSessions`, `DopHeartBeat`, `DopLogout`), encodes outbound orders,
+//! cancels, modifies, cancel-alls, and RFQ quotes directly into 1,024-byte `IntentRecord`
+//! shared-memory slots ([`IntentWriter`], [`OutboundIntent`]), and decodes inbound 512-byte
+//! `ReportRecord` shared-memory replies in place ([`ReportReceiver`], [`ExecutionReport`]) with
+//! zero local WAL, journal, blob-store, or checkpoint state.
+//!
+//! Optional `worker_cpu` and `housekeeping_cpus` isolation is enforced at cold startup via
+//! [`tickwire_control_sys::validate_cpu_isolation`], spawning `"strategy-cold"` housekeeping onto
+//! `housekeeping_cpus` before pinning the hot polling thread to `worker_cpu`.
+
+pub mod arena;
 pub mod bootstrap;
 pub mod catalog;
-pub mod checkpoint;
+pub mod dop;
 pub mod market;
-pub mod market_transition;
-#[forbid(unsafe_code)]
 pub mod microstructure;
 pub mod outbound;
-pub mod recovery;
 pub mod registered;
-pub mod replay;
-#[allow(unsafe_code)]
 pub mod reports;
-pub mod restore;
-pub mod retirement;
-#[cfg(feature = "runtime")]
-#[allow(unsafe_code)]
-pub mod runtime;
-#[cfg(test)]
-#[path = "../tests/common/market_transition.rs"]
-mod transition_fixture;
-#[cfg(test)]
-use tickwire_market_source::transition;
-#[allow(unsafe_code)]
 pub mod worker;
-pub use market::{MarketReplica, MarketView};
+
+pub use arena::{ArenaSliceMeta, ShmArenaReader, ShmArenaWriter};
+pub use bootstrap::{ArtifactDigest, Bootstrap, MAX_BOOTSTRAP_BYTES, MAX_PARAM_BYTES};
+pub use dop::{
+    DEFAULT_MAX_ORDER_AGE_NS, DopConfig, DopControlEvent, DopSession, accept_dop_login,
+    local_seqpacket_pair,
+};
+pub use market::{DenseId, MarketReplica, MarketView};
 pub use microstructure::{
-    DecodedReport, EffectiveFillDelta, FillWatermarkTracker, OrderClassificationHints,
-    OrderFillWatermarks, SettledFillDelta,
+    EffectiveFillDelta, FeeAmendmentOutcome, FillWatermarkTracker, OrderClassificationHints,
+    OrderFillWatermarks, ReportFillOutcome, SettledFillDelta, classify_order_status,
+    classify_venue_rejection, decimal_to_fixed_exact, decimal_to_fixed_half_even,
 };
 pub use outbound::{
-    CommandStore, IntentWriter, ModifyRequest, OutboundWriter, StoredCommand, build_modify_command,
-    mint_self_describing_client_id,
+    IntentOpcode, IntentReader, IntentWriter, ModifyRequest, OutboundIntent, OutboundReader,
+    OutboundWriter, PublishedIntent, build_modify_command, encode_intent_record,
+    in_process_intent_pair, in_process_intent_pair_with_arena, mint_self_describing_client_id,
+    ticks_from_decimal,
 };
-#[cfg(feature = "runtime")]
-pub use runtime::OutboundReader;
-use tickwire_venue::CanonicalCommand;
+pub use reports::{
+    ExecutionReport, ExecutionReportKind, FillFee, FillKind, FillReport, RateLimitReport,
+    ReportIdentity, ReportReceiver, ReportWriter, in_process_report_pair,
+    in_process_report_pair_with_arena,
+};
+use tickwire_venue::{CanonicalCommand, TerminalReason};
+pub use worker::{WorkerDriver, WorkerStepOutcome};
 
 #[derive(Debug)]
 pub enum Error {
@@ -49,24 +61,34 @@ pub enum Error {
     Wire(tickwire_ipc::Error),
     Join(tickwire_join::Error),
     Ring(tickwire_shm::MappedError),
-    Storage(tickwire_recovery::Error),
+    ShmSys(tickwire_shm_sys::Error),
     Command(tickwire_venue::Error),
+    Catalog(tickwire_instrument_catalog::Error),
     Risk(tickwire_risk::RiskError),
     Control(tickwire_control::Error),
     Transport(tickwire_control_sys::Error),
     Io(std::io::Error),
     Json(serde_json::Error),
     Clock(tickwire_clock_sys::Error),
-    Release(tickwire_release::Error),
-    Restore(restore::Error),
-    Replay(replay::Error),
+    DopRefused {
+        reason: TerminalReason,
+        status: u16,
+    },
+    UnauthorizedAccount {
+        account_ref: u8,
+    },
     Identity,
+    Sequence,
     Bounds,
     Stale,
     NotReady,
     Deadline,
+    Unsupported,
+    Input,
 }
+
 impl Error {
+    #[forbid(unsafe_code)]
     pub(crate) fn context(self, stage: &'static str) -> Self {
         Self::Context {
             stage,
@@ -74,44 +96,51 @@ impl Error {
         }
     }
 }
+
 pub type Result<T> = std::result::Result<T, Error>;
+
 impl std::fmt::Display for Error {
+    #[forbid(unsafe_code)]
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{self:?}")
     }
 }
+
 impl std::error::Error for Error {}
+
 macro_rules! from {
-    ($t:ty,$v:ident) => {
+    ($t:ty, $v:ident) => {
         impl From<$t> for Error {
+            #[forbid(unsafe_code)]
             fn from(e: $t) -> Self {
                 Self::$v(e)
             }
         }
     };
 }
+
 from!(tickwire_market_source::Error, Source);
 from!(tickwire_ipc::Error, Wire);
 from!(tickwire_join::Error, Join);
 from!(tickwire_shm::MappedError, Ring);
-from!(tickwire_recovery::Error, Storage);
+from!(tickwire_shm_sys::Error, ShmSys);
 from!(tickwire_venue::Error, Command);
+from!(tickwire_instrument_catalog::Error, Catalog);
 from!(tickwire_risk::RiskError, Risk);
 from!(tickwire_control::Error, Control);
 from!(tickwire_control_sys::Error, Transport);
 from!(std::io::Error, Io);
 from!(serde_json::Error, Json);
 from!(tickwire_clock_sys::Error, Clock);
-from!(tickwire_release::Error, Release);
-from!(restore::Error, Restore);
-from!(replay::Error, Replay);
-/// A worker calls the strategy with its current market view and decision time.
-/// Return a canonical command to request account admission, or `None` to observe.
+
+/// Stateless strategy decision interface invoked by [`MarketReplica::drain`] and [`WorkerDriver`].
+///
+/// Return `Some(OutboundIntent)` to publish an inline 1,024-byte `IntentRecord` onto the ORS
+/// shared-memory ring, or `None` to observe without emitting an order.
 ///
 /// ```
 /// use tickwire_ipc::MarketState;
-/// use tickwire_strategy_sdk::{MarketView, Result, Strategy};
-/// use tickwire_venue::CanonicalCommand;
+/// use tickwire_strategy_sdk::{MarketView, OutboundIntent, Result, Strategy};
 ///
 /// #[derive(Default)]
 /// struct Spread {
@@ -123,7 +152,7 @@ from!(replay::Error, Replay);
 ///         &mut self,
 ///         view: MarketView<'_>,
 ///         _now_ns: u64,
-///     ) -> Result<Option<CanonicalCommand>> {
+///     ) -> Result<Option<OutboundIntent>> {
 ///         self.last_spread_ticks = match view.best_quote() {
 ///             Some(MarketState::Exact(q)) if q.body.feed_state == 2 => {
 ///                 Some(q.body.ask_price_ticks - q.body.bid_price_ticks)
@@ -135,147 +164,75 @@ from!(replay::Error, Replay);
 /// }
 /// ```
 pub trait Strategy {
-    /// None preserves the old callback API, without claiming complete-tail replay.
-    fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
-        Ok(None)
-    }
-    /// Deterministic callback variants used by the versioned input owner.
-    fn on_market_recorded(
-        &mut self,
-        view: MarketView<'_>,
-        context: &mut replay::ReplayContext<'_>,
-    ) -> Result<Option<CanonicalCommand>> {
-        self.on_market(view, context.now_ns())
-    }
-    fn on_report_recorded(
-        &mut self,
-        report: &reports::AccountReport,
-        context: &mut replay::ReplayContext<'_>,
-    ) -> Result<Option<CanonicalCommand>> {
-        self.on_report(report, context.now_ns())
-    }
-    fn on_projected_fill_recorded(
-        &mut self,
-        fill: &tickwire_account::ProjectedFill,
-        context: &mut replay::ReplayContext<'_>,
-    ) -> Result<Option<CanonicalCommand>> {
-        self.on_projected_fill(fill, context.now_ns())
-    }
-    fn on_timer(
-        &mut self,
-        _id: u64,
-        _generation: u64,
-        _context: &mut replay::ReplayContext<'_>,
-    ) -> Result<Option<CanonicalCommand>> {
-        Err(Error::NotReady)
-    }
-    fn on_external(
-        &mut self,
-        _source: &tickwire_release::replay::StreamKey,
-        _schema: u64,
-        _bytes: &[u8],
-        _context: &mut replay::ReplayContext<'_>,
-    ) -> Result<Option<CanonicalCommand>> {
-        Err(Error::NotReady)
-    }
-    fn apply_config(
-        &mut self,
-        _bytes: &[u8],
-        _context: &mut replay::ReplayContext<'_>,
-    ) -> Result<()> {
-        Err(Error::NotReady)
-    }
-    fn apply_model(
-        &mut self,
-        _id: u16,
-        _bytes: &[u8],
-        _context: &mut replay::ReplayContext<'_>,
-    ) -> Result<()> {
-        Err(Error::NotReady)
-    }
-    /// Exact initial strategy state for its approved replay/checkpoint schema.
-    fn checkpoint(&self) -> Result<Vec<u8>> {
-        Err(Error::NotReady)
-    }
-    /// Ordered execution-owned account baseline and durable records. The worker
-    /// retains the exact canonical object as a recovery input before this call.
+    /// Invoked on each drained market update once the instrument view is ready.
+    fn on_market(&mut self, view: MarketView<'_>, now_ns: u64) -> Result<Option<OutboundIntent>>;
+
+    /// Invoked on each inbound 512-byte `ReportRecord` (`FrontAck`, `Ack`, `Nack`, `CancelNack`,
+    /// `Fill` [`Execution`, `FeeAmendment`, `Projected`], `Canceled`, `Modified`,
+    /// `ModifyRejected`, `ExchRateLimit`, `OrsShutDown`, `OrsRestricted`, `RfqQuoteAck`,
+    /// `RfqQuoteNack`).
     fn on_report(
         &mut self,
-        _report: &crate::reports::AccountReport,
+        _report: &ExecutionReport,
         _now_ns: u64,
-    ) -> Result<Option<CanonicalCommand>> {
+    ) -> Result<Option<OutboundIntent>> {
         Ok(None)
     }
-    /// Optional volatile cumulative-quantity fill projection emitted before individual
-    /// trade executions settle. Defaults to a no-op so existing strategies compile unchanged.
+
+    /// Optional volatile cumulative-quantity fill projection callback.
     fn on_projected_fill(
         &mut self,
         _fill: &tickwire_account::ProjectedFill,
         _now_ns: u64,
-    ) -> Result<Option<CanonicalCommand>> {
+    ) -> Result<Option<OutboundIntent>> {
         Ok(None)
     }
-    fn on_market(&mut self, view: MarketView<'_>, now_ns: u64) -> Result<Option<CanonicalCommand>>;
 }
-#[derive(Default)]
+
+/// Built-in stateless observer strategy that never emits orders.
+#[derive(Clone, Copy, Debug, Default)]
 pub struct ObserveOnly;
+
 impl Strategy for ObserveOnly {
-    fn apply_config(
-        &mut self,
-        bytes: &[u8],
-        context: &mut replay::ReplayContext<'_>,
-    ) -> Result<()> {
-        replay::native::apply_observe(bytes, context)
-    }
-    fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
-        Ok(Some(replay::native::observe()))
-    }
-    fn checkpoint(&self) -> Result<Vec<u8>> {
-        Ok(b"TWOBS001".to_vec())
-    }
-    fn on_market(&mut self, _: MarketView<'_>, _: u64) -> Result<Option<CanonicalCommand>> {
+    #[forbid(unsafe_code)]
+    fn on_market(&mut self, _: MarketView<'_>, _: u64) -> Result<Option<OutboundIntent>> {
         Ok(None)
     }
 }
-/// Explicit opt-in, single-shot demonstration. The complete order and authority
-/// context are supplied by the launcher; this strategy never invents credentials.
+
+/// Explicit opt-in single-shot demonstration strategy. Complete order parameters are supplied by
+/// the static startup configuration; this strategy never invents credentials or persists disk state.
+#[derive(Clone, Debug)]
 pub struct FixedDemo {
     command: Option<CanonicalCommand>,
-    original: CanonicalCommand,
+    strat_id: u8,
+    account_ref: u8,
     minimum_bid_ticks: i64,
     enabled: bool,
 }
+
 impl FixedDemo {
-    pub fn new(command: CanonicalCommand, minimum_bid_ticks: i64, enabled: bool) -> Self {
+    #[forbid(unsafe_code)]
+    pub fn new(
+        command: CanonicalCommand,
+        strat_id: u8,
+        account_ref: u8,
+        minimum_bid_ticks: i64,
+        enabled: bool,
+    ) -> Self {
         Self {
-            original: command.clone(),
             command: Some(command),
+            strat_id,
+            account_ref,
             minimum_bid_ticks,
             enabled,
         }
     }
 }
+
 impl Strategy for FixedDemo {
-    fn apply_config(
-        &mut self,
-        bytes: &[u8],
-        context: &mut replay::ReplayContext<'_>,
-    ) -> Result<()> {
-        replay::native::apply_demo(self, true, bytes, context)
-    }
-    fn replay_registration(&self) -> Result<Option<replay::native::Registration>> {
-        Ok(Some(replay::native::demo(self, restore::DEMO_V1_SCHEMA)?))
-    }
-    fn checkpoint(&self) -> Result<Vec<u8>> {
-        let mut b = b"TWFD0001".to_vec();
-        b.push(u8::from(self.enabled && self.command.is_some()));
-        b.extend(self.minimum_bid_ticks.to_le_bytes());
-        let cmd = self.command.as_ref().unwrap_or(&self.original);
-        b.extend((cmd.bytes().len() as u32).to_le_bytes());
-        b.extend(cmd.bytes());
-        Ok(b)
-    }
-    fn on_market(&mut self, view: MarketView<'_>, now: u64) -> Result<Option<CanonicalCommand>> {
+    #[forbid(unsafe_code)]
+    fn on_market(&mut self, view: MarketView<'_>, now: u64) -> Result<Option<OutboundIntent>> {
         if !self.enabled || !view.live() {
             return Ok(None);
         }
@@ -293,14 +250,17 @@ impl Strategy for FixedDemo {
         let mut command = template.command().clone();
         command.context.strategy.created_mono_ns = now;
         command.context.triggers = tickwire_venue::BoundedList::new(vec![view.trigger_at(now)])?;
-        let out = CanonicalCommand::new(command)?;
+        let canonical = CanonicalCommand::new(command)?;
+        let intent = OutboundIntent::from_canonical_command(
+            &canonical,
+            self.strat_id,
+            self.account_ref,
+            view.tick_mono_ns(),
+        )?;
         self.command = None;
-        Ok(Some(out))
+        Ok(Some(intent))
     }
 }
 
-#[cfg(test)]
-#[path = "../../tickwire-account/tests/common/mod.rs"]
-mod account_fixture;
 #[cfg(test)]
 mod test_command;

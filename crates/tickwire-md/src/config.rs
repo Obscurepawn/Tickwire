@@ -1,4 +1,7 @@
-use crate::{Result, invalid};
+use crate::{
+    Result, invalid,
+    quota::{FeedSource, PublicQuotaConfig},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{File, OpenOptions},
@@ -9,6 +12,7 @@ use std::{
     sync::Arc,
 };
 use tickwire_binance_public as public;
+use tickwire_control_sys::CpuSet;
 use tickwire_market_source::protocol::IdentityConfig;
 use tickwire_transport::rustls;
 use tickwire_venue as v;
@@ -16,6 +20,46 @@ mod expansion;
 mod feed_index;
 pub use expansion::ExpansionControl;
 pub use feed_index::FeedIndex;
+
+pub mod cpu_set_serde {
+    use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error};
+    use tickwire_control_sys::CpuSet;
+
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Repr {
+        List(Vec<u32>),
+        Text(String),
+    }
+
+    pub fn serialize<S: Serializer>(
+        value: &Option<CpuSet>,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        match value {
+            Some(set) => set.as_slice().serialize(serializer),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Option<CpuSet>, D::Error> {
+        let Some(repr) = Option::<Repr>::deserialize(deserializer)? else {
+            return Ok(None);
+        };
+        match repr {
+            Repr::List(cpus) => CpuSet::from_cpus(cpus)
+                .map(Some)
+                .map_err(|e| D::Error::custom(e.to_string())),
+            Repr::Text(text) => text
+                .parse::<CpuSet>()
+                .map(Some)
+                .map_err(|e| D::Error::custom(e.to_string())),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Asset {
@@ -98,7 +142,7 @@ impl Instrument {
 #[serde(deny_unknown_fields)]
 pub struct Feed {
     pub owner_id: [u8; 16],
-    pub source: tickwire_binance_quota::bootstrap::Source,
+    pub source: FeedSource,
     pub instrument: Instrument,
     pub venue_id: u32,
     pub stream_id: u64,
@@ -269,12 +313,18 @@ pub struct Config {
     pub clock_generation: u64,
     pub socket: PathBuf,
     pub admission_directory: PathBuf,
-    pub quota_directory: PathBuf,
-    pub quota: tickwire_binance_quota::bootstrap::Config,
-    pub control_directory: PathBuf,
-    pub control_stream: [u8; 16],
-    pub control_domain: [u8; 16],
-    pub control_writer_epoch: u64,
+    #[serde(default)]
+    pub quota: PublicQuotaConfig,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_join_requests: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reactor_cpu: Option<u32>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "cpu_set_serde"
+    )]
+    pub housekeeping_cpus: Option<CpuSet>,
     pub feeds: Vec<Feed>,
     pub topics: Vec<Topic>,
     pub maximum_idle_ns: u64,
@@ -284,20 +334,28 @@ pub struct Config {
     pub expansion: Option<ExpansionControl>,
 }
 pub fn read(path: &Path, max: usize) -> Result<Vec<u8>> {
-    let file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
-        .open(path)?;
-    let meta = file.metadata()?;
-    if !meta.is_file() || meta.mode() & 0o022 != 0 || meta.len() > max as u64 {
-        return Err(invalid("trusted file type/permission/size"));
+    for _ in 0..4 {
+        let sym = std::fs::symlink_metadata(path)?;
+        if !sym.file_type().is_file() || sym.mode() & 0o022 != 0 || sym.len() > max as u64 {
+            return Err(invalid("trusted file type/permission/size"));
+        }
+        let file = File::open(path)?;
+        let meta = file.metadata()?;
+        if !meta.is_file() || meta.mode() & 0o022 != 0 || meta.len() > max as u64 {
+            return Err(invalid("trusted file type/permission/size"));
+        }
+        if (meta.dev(), meta.ino()) != (sym.dev(), sym.ino()) {
+            // Concurrent atomic rename replaced a regular file; re-verify symlink_metadata.
+            continue;
+        }
+        let mut out = Vec::new();
+        file.take(max as u64 + 1).read_to_end(&mut out)?;
+        if out.len() > max {
+            return Err(invalid("file size"));
+        }
+        return Ok(out);
     }
-    let mut out = Vec::new();
-    file.take(max as u64 + 1).read_to_end(&mut out)?;
-    if out.len() > max {
-        return Err(invalid("file size"));
-    }
-    Ok(out)
+    Err(invalid("trusted file concurrent replacement"))
 }
 pub fn write<T: Serialize>(path: &Path, value: &T) -> Result<()> {
     let bytes = serde_json::to_vec(value)?;
@@ -433,7 +491,7 @@ pub struct ResourceSpec {
     pub arena_classes: Vec<(u32, u32)>,
 }
 impl ResourceSpec {
-    /// Explicit feature negotiation is required before publishing types 264–266.
+    /// Explicit feature negotiation is required before publishing types 264-266.
     pub fn header_with_exact_events(&self) -> Result<tickwire_ipc::ResourceHeader> {
         let mut h = self.header()?;
         h.required_features |= tickwire_ipc::EXACT_MARKET_EVENTS;
