@@ -23,7 +23,6 @@ impl Fixture {
             serde_json::from_str(include_str!("../../../examples/md.json")).unwrap();
         config.identity.arch = if cfg!(target_arch = "aarch64") { 2 } else { 1 };
         config.socket = directory.path().join("md.sock");
-        config.control_directory = directory.path().join("control");
         config.admission_directory = directory.path().join("admissions");
         fs::create_dir(&config.admission_directory).unwrap();
         fs::set_permissions(
@@ -192,6 +191,7 @@ impl Fixture {
             snapshot_id: [80 + id; 16],
         }
     }
+    #[allow(unsafe_code)]
     pub fn pending(&mut self, id: u8) -> (PendingJoin, Admission) {
         let admission = self.admission(id);
         register_admission(&self.config.admission_directory, &admission).unwrap();

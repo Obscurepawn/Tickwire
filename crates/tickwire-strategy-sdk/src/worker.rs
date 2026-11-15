@@ -1,52 +1,368 @@
-//! Qualified worker: authenticated launcher policies are the unsafe SHM admission boundary.
-use crate::bootstrap::{Bootstrap, Endpoint, JoinBootstrap};
-mod expansion;
-mod observation;
-use crate::market_transition as transition_control;
-use crate::{CommandStore, Error, IntentWriter, MarketReplica, Result, Strategy};
+//! Stateless strategy worker runtime, trusted configuration reader (`std::fs` metadata checks), CPU affinity
+//! isolation (`worker_cpu` vs. `strategy-cold` on `housekeeping_cpus`), and hot-loop driver.
+
 use std::{
-    fs::OpenOptions,
+    fs::{self, File},
     io::Read,
-    os::{
-        fd::AsFd,
-        unix::fs::{MetadataExt, OpenOptionsExt},
-    },
+    os::{fd::AsFd, unix::fs::MetadataExt},
     path::Path,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
+    thread::JoinHandle,
     time::{Duration, Instant},
 };
+
 use tickwire_clock_sys::SystemClock;
 use tickwire_control::{ClientHandshake, ProcessIdentity, Session};
-use tickwire_control_sys::Connection;
-use tickwire_ipc::{ControlEnvelope, Wire};
-use tickwire_market_source::transition::{Approval, Commit, Phase, Receipt};
-use tickwire_shm::{Publisher, SubscriptionKey};
+use tickwire_control_sys::{
+    Connection, CpuSet, pin_current_thread, spawn_pinned_thread, validate_cpu_isolation,
+};
+use tickwire_ipc::ControlFrame;
+use tickwire_join::JoinConsumer;
+pub use tickwire_market_source::protocol::{
+    accept_offer, activation_ack, cursor_header, descriptor, offer_id, resource_offer,
+};
+use tickwire_shm::{BankKey, Publisher, SubscriptionKey};
+use tickwire_venue::TerminalReason;
 
-pub fn read_config<T: serde::de::DeserializeOwned>(path: &Path, maximum: usize) -> Result<T> {
-    let file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC | libc::O_NONBLOCK)
-        .open(path)?;
-    let m = file.metadata()?;
-    if !m.is_file() || m.mode() & 0o022 != 0 || m.len() > maximum as u64 {
+use crate::{
+    Error, FixedDemo, MarketReplica, ObserveOnly, Result, Strategy,
+    bootstrap::{Bootstrap, Endpoint, MAX_PARAM_BYTES},
+    dop::{DopControlEvent, DopSession},
+    outbound::{IntentWriter, OutboundIntent},
+    reports::{ExecutionReportKind, ReportIdentity, ReportReceiver},
+};
+
+/// Read an immutable trusted file (`<= maximum` bytes) using pure `std::fs`, rejecting symlinks,
+/// verifying `(dev, ino)` continuity across `symlink_metadata` and `File::open` (retrying up to
+/// 4 times on concurrent atomic rename), and rejecting group/world-writable permissions.
+#[forbid(unsafe_code)]
+pub fn read_trusted_bytes(path: &Path, maximum: usize) -> Result<Vec<u8>> {
+    let mut attempts = 0u8;
+    let (file, meta) = loop {
+        let sym = fs::symlink_metadata(path)?;
+        if sym.file_type().is_symlink() || !sym.is_file() {
+            return Err(Error::Identity);
+        }
+        let file = File::open(path)?;
+        let meta = file.metadata()?;
+        if !meta.is_file() {
+            return Err(Error::Identity);
+        }
+        if (meta.dev(), meta.ino()) == (sym.dev(), sym.ino()) {
+            break (file, meta);
+        }
+        attempts += 1;
+        if attempts >= 4 {
+            return Err(Error::Identity);
+        }
+    };
+    if meta.mode() & 0o022 != 0 {
         return Err(Error::Identity);
     }
-    let mut bytes = Vec::new();
+    if meta.len() > maximum as u64 {
+        return Err(Error::Bounds);
+    }
+    let mut bytes = Vec::with_capacity(usize::try_from(meta.len()).unwrap_or(0));
     file.take(maximum as u64 + 1).read_to_end(&mut bytes)?;
     if bytes.len() > maximum {
         return Err(Error::Bounds);
     }
+    Ok(bytes)
+}
+
+/// Read and strictly deserialize a JSON configuration document (`<= maximum` bytes).
+#[forbid(unsafe_code)]
+pub fn read_config<T: serde::de::DeserializeOwned>(path: &Path, maximum: usize) -> Result<T> {
+    let bytes = read_trusted_bytes(path, maximum)?;
     Ok(serde_json::from_slice(&bytes)?)
 }
+
+/// Validate `worker_cpu ∩ housekeeping_cpus == ∅` via `tickwire_control_sys::validate_cpu_isolation`.
+#[forbid(unsafe_code)]
+pub fn validate_affinity(
+    worker_cpu: Option<u32>,
+    housekeeping_cpus: Option<&CpuSet>,
+) -> Result<()> {
+    validate_cpu_isolation(&[("worker_cpu", worker_cpu)], housekeeping_cpus)?;
+    Ok(())
+}
+
+/// Spawn a cold worker housekeeping thread (`"strategy-cold"`) onto `housekeeping_cpus`
+/// via `tickwire_control_sys::spawn_pinned_thread` *before* running any cold closure body,
+/// escaping any single-core `taskset` mask inherited by the parent process.
+#[forbid(unsafe_code)]
+pub fn spawn_housekeeping<F, T>(housekeeping_cpus: Option<&CpuSet>, f: F) -> Result<JoinHandle<T>>
+where
+    F: FnOnce() -> T + Send + 'static,
+    T: Send + 'static,
+{
+    Ok(spawn_pinned_thread("strategy-cold", housekeeping_cpus, f)?)
+}
+
+/// Validate CPU isolation and pin the calling hot strategy thread to `worker_cpu` when configured
+/// (with mandatory `sched_getaffinity` read-back verification inside `tickwire-control-sys`).
+#[forbid(unsafe_code)]
+pub fn pin_worker_thread(
+    worker_cpu: Option<u32>,
+    housekeeping_cpus: Option<&CpuSet>,
+) -> Result<()> {
+    validate_affinity(worker_cpu, housekeeping_cpus)?;
+    if let Some(cpu) = worker_cpu {
+        let set = CpuSet::single(cpu)?;
+        pin_current_thread(&set)?;
+    }
+    Ok(())
+}
+
+/// Summary of work performed in a single non-blocking [`WorkerDriver::step`] iteration.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct WorkerStepOutcome {
+    pub reports_processed: usize,
+    pub market_records_processed: usize,
+    pub intents_published: usize,
+    pub dop_events_processed: usize,
+    pub heartbeat_sent: bool,
+    pub ors_shutdown: bool,
+    pub peer_logged_out: bool,
+}
+
+/// Composable stateless strategy hot-loop driver consuming `tickwire-md` SHM updates and inbound
+/// 512B `ReportRecord` replies while publishing inline 1024B `IntentRecord` commands.
+pub struct WorkerDriver<S> {
+    replica: MarketReplica,
+    dop: Option<DopSession>,
+    intent_writer: Option<IntentWriter>,
+    report_receiver: Option<ReportReceiver>,
+    strategy: S,
+    default_account_ref: u8,
+    maximum_market_age_ns: u64,
+    poll_records: usize,
+    ors_shutdown: bool,
+    peer_logged_out: bool,
+}
+
+impl<S: Strategy> WorkerDriver<S> {
+    #[forbid(unsafe_code)]
+    pub fn new(
+        replica: MarketReplica,
+        dop: Option<DopSession>,
+        mut intent_writer: Option<IntentWriter>,
+        report_receiver: Option<ReportReceiver>,
+        strategy: S,
+        maximum_market_age_ns: u64,
+        poll_records: usize,
+    ) -> Result<Self> {
+        if maximum_market_age_ns == 0 || poll_records == 0 || poll_records > 4096 {
+            return Err(Error::Bounds);
+        }
+        if let (Some(d), Some(w)) = (&dop, &mut intent_writer) {
+            w.sync_from_dop(d)?;
+        }
+        Ok(Self {
+            replica,
+            dop,
+            intent_writer,
+            report_receiver,
+            strategy,
+            default_account_ref: 0,
+            maximum_market_age_ns,
+            poll_records,
+            ors_shutdown: false,
+            peer_logged_out: false,
+        })
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn with_default_account_ref(mut self, account_ref: u8) -> Self {
+        self.default_account_ref = account_ref;
+        self
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn strategy(&self) -> &S {
+        &self.strategy
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn strategy_mut(&mut self) -> &mut S {
+        &mut self.strategy
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn replica(&self) -> &MarketReplica {
+        &self.replica
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn dop(&self) -> Option<&DopSession> {
+        self.dop.as_ref()
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn dop_mut(&mut self) -> Option<&mut DopSession> {
+        self.dop.as_mut()
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn intent_writer(&self) -> Option<&IntentWriter> {
+        self.intent_writer.as_ref()
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn report_receiver(&self) -> Option<&ReportReceiver> {
+        self.report_receiver.as_ref()
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn ors_shutdown(&self) -> bool {
+        self.ors_shutdown
+    }
+
+    #[inline]
+    #[forbid(unsafe_code)]
+    pub fn peer_logged_out(&self) -> bool {
+        self.peer_logged_out
+    }
+
+    /// Execute one non-blocking hot-path iteration: drain `ReportRecord` replies, drain
+    /// `MarketRecord`/`MarketExactRecord` updates, emit resulting `IntentRecord`s, and service
+    /// `DopSession` control events/heartbeats.
+    #[forbid(unsafe_code)]
+    pub fn step<const B: usize>(
+        &mut self,
+        consumer: &JoinConsumer<B>,
+        now_mono_ns: u64,
+    ) -> Result<WorkerStepOutcome> {
+        let mut outcome = WorkerStepOutcome {
+            ors_shutdown: self.ors_shutdown,
+            peer_logged_out: self.peer_logged_out,
+            ..Default::default()
+        };
+
+        for _ in 0..self.poll_records {
+            let Some(rx) = &mut self.report_receiver else {
+                break;
+            };
+            let Some(report) = rx.poll()? else {
+                break;
+            };
+            outcome.reports_processed += 1;
+            if matches!(report.kind, ExecutionReportKind::OrsShutDown) {
+                self.ors_shutdown = true;
+                outcome.ors_shutdown = true;
+            }
+            if let Some(intent) = self.strategy.on_report(&report, now_mono_ns)?
+                && !self.ors_shutdown
+                && !self.peer_logged_out
+            {
+                publish_outbound(
+                    &mut self.dop,
+                    &mut self.intent_writer,
+                    self.default_account_ref,
+                    intent,
+                    now_mono_ns,
+                )
+                .map_err(|e| e.context("report intent"))?;
+                outcome.intents_published += 1;
+            }
+        }
+
+        let dop_ref = &mut self.dop;
+        let writer_ref = &mut self.intent_writer;
+        let default_account_ref = self.default_account_ref;
+        let halted = self.ors_shutdown || self.peer_logged_out;
+        let mut emitted_from_market = 0usize;
+        let market_count = self.replica.drain(
+            consumer,
+            &mut self.strategy,
+            now_mono_ns,
+            self.maximum_market_age_ns,
+            self.poll_records,
+            |intent| {
+                if halted {
+                    return Ok(());
+                }
+                publish_outbound(
+                    dop_ref,
+                    writer_ref,
+                    default_account_ref,
+                    intent,
+                    now_mono_ns,
+                )
+                .map_err(|e| e.context("market intent"))?;
+                emitted_from_market += 1;
+                Ok(())
+            },
+        )?;
+        outcome.market_records_processed = market_count;
+        outcome.intents_published += emitted_from_market;
+
+        if let Some(dop) = &mut self.dop {
+            for _ in 0..self.poll_records {
+                let Some(ev) = dop.try_recv(now_mono_ns)? else {
+                    break;
+                };
+                outcome.dop_events_processed += 1;
+                if let DopControlEvent::PeerLogout { .. } = ev {
+                    self.peer_logged_out = true;
+                    outcome.peer_logged_out = true;
+                    break;
+                }
+            }
+            if !self.peer_logged_out {
+                let hb_deadline = Instant::now() + Duration::from_millis(50);
+                outcome.heartbeat_sent = dop.maybe_send_heartbeat(now_mono_ns, hb_deadline)?;
+            }
+        }
+
+        Ok(outcome)
+    }
+}
+
+#[forbid(unsafe_code)]
+fn publish_outbound(
+    dop: &mut Option<DopSession>,
+    writer: &mut Option<IntentWriter>,
+    default_account_ref: u8,
+    mut intent: OutboundIntent,
+    now_mono_ns: u64,
+) -> Result<()> {
+    let writer = writer.as_mut().ok_or(Error::NotReady)?;
+    if intent.account_ref == 0 && default_account_ref != 0 {
+        intent.account_ref = default_account_ref;
+    }
+    if let Some(dop_session) = dop {
+        writer.publish_with_dop(dop_session, &intent, now_mono_ns)?;
+    } else {
+        writer.publish(&intent, now_mono_ns)?;
+    }
+    Ok(())
+}
+
+#[forbid(unsafe_code)]
 fn now(clock: &mut SystemClock) -> Result<u64> {
     Ok(clock.sample()?.monotonic.nanos())
 }
-// Crate-private shared boundary. Only qualified run/registered entrypoints call
-// this after validating the exact launch identities and approved resource.
+
+#[allow(unsafe_code)]
 pub(crate) fn connect_market(
     config: &tickwire_market_source::ConnectConfig,
     clock: &mut SystemClock,
 ) -> Result<tickwire_market_source::Client> {
-    // SAFETY: the trusted launcher admits this exact qualified child and MD identity.
+    // SAFETY: the qualified launcher/worker authenticates the `tickwire-md` peer identity and
+    // immutable `F_SEAL_FUTURE_WRITE` topic descriptors before attaching.
     Ok(unsafe {
         tickwire_market_source::Client::connect(config, &mut || {
             clock
@@ -56,19 +372,33 @@ pub(crate) fn connect_market(
         })?
     })
 }
-// Same qualified execution-owned report boundary, shared by normal and capture
-// workers. This is deliberately not a public safe SHM attachment API.
+
+#[allow(unsafe_code)]
+pub(crate) fn register_intent_cursor(
+    publisher: &mut Publisher<1>,
+    sub: SubscriptionKey,
+    cursor_fd: std::os::fd::OwnedFd,
+) -> Result<()> {
+    // SAFETY: the authenticated ORS peer supplied the exact cursor descriptor bound to `sub`.
+    unsafe {
+        publisher.register_cursor(sub, cursor_fd)?;
+    }
+    Ok(())
+}
+
+#[allow(unsafe_code)]
 pub(crate) fn attach_reports(
     fd: std::os::fd::OwnedFd,
     bank: tickwire_ipc::ResourceHeader,
     subscription: SubscriptionKey,
-    objects: tickwire_recovery::FileBlobReader,
-    identity: crate::reports::ReportIdentity,
-) -> Result<crate::reports::ReportReceiver> {
-    // SAFETY: the authenticated execution owner is the qualified sole writer and
-    // has registered this exact pending gate before offering the read-only bank.
-    unsafe { crate::reports::ReportReceiver::attach(fd, bank, subscription, objects, identity) }
+    identity: ReportIdentity,
+) -> Result<ReportReceiver> {
+    // SAFETY: the authenticated ORS execution owner is the sole writer and registered `subscription`
+    // before offering the sealed read-only report ring descriptor.
+    unsafe { ReportReceiver::attach(fd, bank, subscription, None, identity) }
 }
+
+#[forbid(unsafe_code)]
 pub(crate) fn connect(
     ep: &Endpoint,
     clock: &mut SystemClock,
@@ -94,37 +424,35 @@ pub(crate) fn connect(
     )?;
     Ok((connection, session))
 }
-use tickwire_market_source::protocol::activated;
-pub use tickwire_market_source::protocol::{
-    accept_offer, activation_ack, cursor_header, descriptor, offer_id, resource_offer,
-};
-pub(crate) struct IntentLane {
-    pub connection: Connection,
-    pub session: Session,
-    pub writer: IntentWriter,
-    pub store: CommandStore<tickwire_recovery::FileBlobStore>,
+
+struct IntentLane {
+    connection: Connection,
+    session: Session,
+    writer: IntentWriter,
 }
-/// Called by qualified startup modes only, preserving the original intent
-/// mapping/cursor contract and the actual execution peer credentials.
-pub(crate) fn connect_intent(
+
+#[forbid(unsafe_code)]
+fn connect_intent(
     config: &Bootstrap,
+    ep: &Endpoint,
+    dop: Option<&DopSession>,
     clock: &mut SystemClock,
     deadline: Instant,
 ) -> Result<IntentLane> {
-    let (mut intent, mut intent_session) = connect(&config.intent, clock, deadline, [6; 16])?;
-    let h = config.intent_resource()?;
-    if h.consumer_instance != config.intent.peer.instance
-        || h.producer_instance != config.intent.local.instance
-        || h.producer_generation != config.intent.local.generation
-        || h.host_boot_id != config.intent.local.host_boot
-        || h.namespace_id != config.intent.local.namespace
+    let (mut intent, mut intent_session) = connect(ep, clock, deadline, [6; 16])?;
+    let h = config.intent_resource()?.ok_or(Error::Identity)?;
+    if h.consumer_instance != ep.peer.instance
+        || h.producer_instance != config.instance_id
+        || h.producer_generation != config.generation
+        || h.host_boot_id != ep.local.host_boot
+        || h.namespace_id != ep.local.namespace
     {
         return Err(Error::Identity);
     }
     let mut publisher = Publisher::<1>::create(h)?;
     let sub = SubscriptionKey {
         bank: publisher.key(),
-        instance: u128::from_le_bytes(config.intent.peer.instance),
+        instance: u128::from_le_bytes(ep.peer.instance),
         generation: config.intent_subscription_generation,
         cursor: u128::from_le_bytes(config.intent_cursor_id),
     };
@@ -152,270 +480,59 @@ pub(crate) fn connect_intent(
         false,
         now(clock)?,
     )?;
-    // SAFETY: the registered execution peer is authenticated, qualified, and its
-    // cursor descriptor exactly binds the pending subscription and immutable header.
-    unsafe {
-        publisher.register_cursor(sub, cursor)?;
-    }
-    let writer = IntentWriter::new(
+    register_intent_cursor(&mut publisher, sub, cursor)?;
+    let next_order_seqnum = dop.map_or(1, |d| d.next_order_seqnum().max(1));
+    let mut writer = IntentWriter::with_arena(
         publisher,
-        config.intent.local.logical_strategy,
-        config.intent.local.instance,
-        config.intent.local.generation,
-        config.risk_domain,
+        Some(sub),
+        None,
+        config.strat_id,
+        config.instance_id,
+        config.generation,
+        next_order_seqnum,
     )?;
-    let store = CommandStore::new(tickwire_recovery::FileBlobStore::open(
-        &config.command_directory,
-    )?);
+    if let Some(d) = dop {
+        writer.sync_from_dop(d)?;
+    }
     Ok(IntentLane {
         connection: intent,
         session: intent_session,
         writer,
-        store,
     })
 }
-/// Runs until authenticated QUIESCE, expired control lease, or a closed/invalid resource.
-/// # Safety
-/// The launcher authenticates qualified Publisher/Subscriber processes and enforces
-/// the exact immutable resource and truthful cursor lifetime contracts for both lanes.
-pub unsafe fn run<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
-    crate::catalog::validate_startup(&config)?;
-    if config.version != 1
-        || config.maximum_market_age_ns == 0
-        || config.poll_records == 0
-        || config.poll_records > 4096
-        || config.startup_timeout_ms == 0
-        || config.startup_timeout_ms > 60000
-        || config.idle_sleep_us > 1_000_000
-        || config.market.local.role != 3
-        || config.intent.local.role != 3
-        || config.market.local.instance != config.intent.local.instance
-        || config.market.local.generation != config.intent.local.generation
-        || config.market.peer.role != 2
-        || config.intent.peer.role != 4
-        || config.report.local.identity() != config.market.local.identity()
-        || config.report.peer.identity() != config.intent.peer.identity()
-    {
-        return Err(Error::Identity);
-    }
-    let domain =
-        tickwire_clock::ClockDomain::new(config.market.local.host_boot, config.clock_generation)
-            .map_err(|_| Error::Identity)?;
-    let mut clock = SystemClock::new(domain)?;
-    let deadline = Instant::now()
-        .checked_add(Duration::from_millis(config.startup_timeout_ms))
-        .ok_or(Error::Bounds)?;
-    let remote = config.external_market.is_some();
-    let (
-        mut market,
-        mut market_session,
-        consumer,
-        mut replica,
-        snapshot_bytes,
-        baseline_now,
-        catchup,
-        join_config,
-        bank,
-        j,
-    ) = if let Some(external) = &config.external_market {
-        if external.endpoint.local.identity() != config.market.local.identity()
-            || external.endpoint.peer.identity() != config.market.peer.identity()
-            || external.domain()? != domain
-            || external.maximum_levels != config.maximum_levels
-        {
-            return Err(Error::Identity);
-        }
-        let ready = config
-            .market_admission_ready
-            .as_ref()
-            .ok_or(Error::Identity)?;
-        loop {
-            match read_config::<bool>(ready, 16) {
-                Ok(true) => break,
-                Err(Error::Io(e))
-                    if e.kind() == std::io::ErrorKind::NotFound && Instant::now() < deadline =>
-                {
-                    std::thread::sleep(Duration::from_millis(1))
-                }
-                _ => return Err(Error::NotReady),
-            }
-        }
-        let client = connect_market(external, &mut clock)?;
-        (
-            client.connection,
-            client.session,
-            client.consumer,
-            MarketReplica::from_core(client.replica),
-            client.baseline_bytes,
-            client.baseline_now,
-            client.catchup,
-            client.baseline,
-            client.bank,
-            client.join,
-        )
-    } else {
-        let (mut market, mut market_session) =
-            connect(&config.market, &mut clock, deadline, [1; 16])?;
-        let join_config: JoinBootstrap = loop {
-            match read_config(&config.join_file, 2 * 1024 * 1024) {
-                Ok(v) => break v,
-                Err(Error::Io(e))
-                    if e.kind() == std::io::ErrorKind::NotFound && Instant::now() < deadline =>
-                {
-                    std::thread::sleep(Duration::from_millis(1))
-                }
-                Err(e) => return Err(e),
-            }
-        };
-        let (bank, snapshot, j, registry) = join_config.decode()?;
-        if j.subscriber_instance != config.market.local.instance
-            || j.logical_strategy_id != config.market.local.logical_strategy
-            || bank.producer_instance != config.market.peer.instance
-            || bank.producer_generation != config.market.peer.generation
-            || bank.host_boot_id != config.market.local.host_boot
-            || bank.namespace_id != config.market.local.namespace
-            || bank.required_features & 64 == 0
-        {
-            return Err(Error::Identity);
-        }
-        let fd = accept_offer(
-            &mut market_session,
-            market.recv(deadline)?,
-            &bank,
-            offer_id(&j, 1),
-            j.readiness_deadline_mono_ns,
-            j.membership_version,
-            false,
-            now(&mut clock)?,
-        )?;
-        let sf = accept_offer(
-            &mut market_session,
-            market.recv(deadline)?,
-            &snapshot,
-            offer_id(&j, 2),
-            j.readiness_deadline_mono_ns,
-            j.membership_version,
-            true,
-            now(&mut clock)?,
-        )?;
-        // SAFETY: exact trusted launcher identities and authenticated descriptors have
-        // been checked. This entry point is only for qualified Publisher/Subscriber SDKs.
-        let mut consumer = unsafe {
-            tickwire_join::JoinConsumer::<4>::attach(
-                fd,
-                sf,
-                bank.clone(),
-                snapshot,
-                j.clone(),
-                registry,
-                now(&mut clock)?,
-            )?
-        };
-        let baseline_now = now(&mut clock)?;
-        let (replica, snapshot_bytes) = consumer.load_baseline(baseline_now, |topic| {
-            Ok((
-                MarketReplica::load(j.topic_id, j.ring_epoch, topic, config.maximum_levels)?,
-                topic.bytes().to_vec(),
-            ))
-        })?;
-        (
-            market,
-            market_session,
-            consumer,
-            replica,
-            snapshot_bytes,
-            baseline_now,
-            Vec::new(),
-            join_config,
-            bank,
-            j,
-        )
-    };
-    let mut recovery = if let Some(path) = &config.recovery_template {
-        let template: crate::recovery::Template = read_config(path, 2 * 1024 * 1024)?;
-        if template.owner != config.market.local.instance {
-            return Err(Error::Identity);
-        }
-        let snapshot = crate::recovery::snapshot_payload(
-            &join_config,
-            &snapshot_bytes,
-            baseline_now,
-            config.maximum_levels,
-        )?;
-        let writer = crate::recovery::RecoveryWriter::new(
-            template,
-            &strategy.checkpoint()?,
-            &snapshot,
-            config.maximum_market_age_ns,
-        )?;
-        writer.verify_catalog(&config)?;
-        Some(writer)
-    } else {
-        if config.demo_enabled {
-            return Err(Error::NotReady);
-        }
-        None
-    };
-    for record in catchup {
-        crate::recovery::InputJournal::market(&mut recovery, &record.record, &record.payload)?;
-        // Recovery starts inactive. Record the actual pre-activation apply time;
-        // replay applies the input but does not invoke strategy code at this cut.
-        crate::recovery::InputJournal::decision(
-            &mut recovery,
-            record.instrument,
-            record.applied_mono_ns,
-        )?;
-    }
-    if !remote {
-        let (cursor, fd) = consumer.cursor_offer(&market_session, [2; 16])?;
-        market.send(&cursor, &[fd.as_fd()], deadline)?;
-        for frame in consumer.read_ready_frames(&market_session, [[3; 16], [4; 16]])? {
-            market.send(&frame, &[], deadline)?;
-        }
-        // Catch up without running strategy code before activation.
-        replica.drain_recorded(
-            &consumer,
-            &mut crate::ObserveOnly,
-            now(&mut clock)?,
-            config.poll_records,
-            &mut recovery,
-            |_, _| Ok(()),
-        )?;
-        let ready = consumer.join_ready_frame(&market_session, [5; 16], now(&mut clock)?)?;
-        market.send(&ready, &[], deadline)?;
-        activated(
-            &mut market_session,
-            market.recv(deadline)?,
-            &j,
-            [5; 16],
-            now(&mut clock)?,
-        )?;
-    }
-    let IntentLane {
-        connection: intent,
-        session: intent_session,
-        writer,
-        store,
-    } = connect_intent(&config, &mut clock, deadline)?;
-    let (mut report, mut report_session) = connect(&config.report, &mut clock, deadline, [13; 16])?;
-    let report_bank = config.report_resource()?;
-    if report_bank.consumer_instance != config.report.local.instance
-        || report_bank.producer_instance != config.report.peer.instance
-        || report_bank.producer_generation != config.report.peer.generation
-        || report_bank.host_boot_id != config.report.local.host_boot
-        || report_bank.namespace_id != config.report.local.namespace
+
+struct ReportLane {
+    connection: Connection,
+    session: Session,
+    receiver: ReportReceiver,
+}
+
+#[forbid(unsafe_code)]
+fn connect_report(
+    config: &Bootstrap,
+    ep: &Endpoint,
+    clock: &mut SystemClock,
+    deadline: Instant,
+) -> Result<ReportLane> {
+    let (mut report, mut report_session) = connect(ep, clock, deadline, [13; 16])?;
+    let report_bank = config.report_resource()?.ok_or(Error::Identity)?;
+    if report_bank.consumer_instance != config.instance_id
+        || report_bank.producer_instance != ep.peer.instance
+        || report_bank.producer_generation != ep.peer.generation
+        || report_bank.host_boot_id != ep.local.host_boot
+        || report_bank.namespace_id != ep.local.namespace
     {
         return Err(Error::Identity);
     }
     let report_sub = SubscriptionKey {
-        bank: tickwire_shm::BankKey {
+        bank: BankKey {
             resource: u128::from_le_bytes(report_bank.resource_id),
             channel: u128::from_le_bytes(report_bank.channel_id),
             channel_epoch: report_bank.channel_epoch,
             ring_epoch: report_bank.ring_epoch,
             feed_generation: report_bank.feed_generation,
         },
-        instance: u128::from_le_bytes(config.report.local.instance),
+        instance: u128::from_le_bytes(config.instance_id),
         generation: config.report_subscription_generation,
         cursor: u128::from_le_bytes(config.report_cursor_id),
     };
@@ -432,23 +549,19 @@ pub unsafe fn run<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
         expires,
         report_membership,
         false,
-        now(&mut clock)?,
+        now(clock)?,
     )?;
-    let objects =
-        tickwire_recovery::FileBlobReader::open(&config.report_directory, config.report.peer_uid)?;
-    let reports = attach_reports(
+    let receiver = attach_reports(
         fd,
         report_bank.clone(),
         report_sub,
-        objects,
-        crate::reports::ReportIdentity {
-            logical_strategy_id: config.report.local.logical_strategy,
-            instance_id: config.report.local.instance,
-            strategy_generation: config.report.local.generation,
-            risk_domain: config.risk_domain,
+        ReportIdentity {
+            strat_id: config.strat_id,
+            instance_id: config.instance_id,
+            strategy_generation: config.generation,
         },
     )?;
-    let cursor = reports.cursor_fd()?;
+    let cursor = receiver.cursor_fd()?;
     let ch = cursor_header(&report_bank, report_sub)?;
     let offer = resource_offer(
         &report_session,
@@ -459,856 +572,371 @@ pub unsafe fn run<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
         false,
     )?;
     report.send(&offer, &[cursor.as_fd()], deadline)?;
-    if let Some(w) = &mut recovery {
-        w.set_active();
-    }
-    let strategy =
-        crate::replay::live::Live::new(&config, strategy, bank, replica, now(&mut clock)?)?;
-    if let Some(anchor) = strategy.anchor_bytes()? {
-        recovery
-            .as_mut()
-            .ok_or(Error::NotReady)?
-            .merged_anchor(&anchor)?;
-    }
-    run_attached(Attached {
-        config,
-        clock,
-        market,
-        market_session,
-        consumer,
-        j,
-        intent,
-        intent_session,
-        writer,
-        store,
-        report,
-        report_session,
-        report_bank,
-        report_sub,
-        report_membership,
-        reports,
-        recovery,
-        strategy,
-        account_mirror: crate::account_checkpoint::AccountMirror::default(),
-        merged_journal_sequence: 0,
-        ready_sequence: 0,
+    Ok(ReportLane {
+        connection: report,
+        session: report_session,
+        receiver,
     })
 }
 
-pub(crate) struct Attached<S> {
-    pub config: Bootstrap,
-    pub clock: SystemClock,
-    pub market: Connection,
-    pub market_session: Session,
-    pub consumer: tickwire_join::JoinConsumer<4>,
-    pub j: tickwire_ipc::JoinBody,
-    pub intent: Connection,
-    pub intent_session: Session,
-    pub writer: IntentWriter,
-    pub store: CommandStore<tickwire_recovery::FileBlobStore>,
-    pub report: Connection,
-    pub report_session: Session,
-    pub report_bank: tickwire_ipc::ResourceHeader,
-    pub report_sub: SubscriptionKey,
-    pub report_membership: u64,
-    pub reports: crate::reports::ReportReceiver,
-    pub recovery: Option<crate::recovery::RecoveryWriter>,
-    pub strategy: crate::replay::live::Live<S>,
-    pub account_mirror: crate::account_checkpoint::AccountMirror,
-    pub merged_journal_sequence: u64,
-    pub ready_sequence: u64,
-}
-pub(crate) fn run_attached<S: Strategy>(state: Attached<S>) -> Result<()> {
-    let Attached {
-        config,
-        mut clock,
-        mut market,
-        mut market_session,
-        mut consumer,
-        mut j,
-        mut intent,
-        mut intent_session,
-        mut writer,
-        mut store,
-        mut report,
-        mut report_session,
-        report_bank,
-        report_sub,
-        report_membership,
-        mut reports,
-        mut recovery,
-        mut strategy,
-        mut account_mirror,
-        mut merged_journal_sequence,
-        mut ready_sequence,
-    } = state;
-    let domain = clock.domain();
-    let remote = config.external_market.is_some();
-    let mut pending_observation: Option<observation::Pending> = None;
-    // Periodic READY is a latest-state announcement, not a per-request receipt.
-    // Keep one unsent announcement so a slow control reader cannot stop inputs.
-    let mut pending_ready: Option<Vec<u8>> = None;
-    let mut current_market = config.external_market.clone();
-    let mut expansion: Option<expansion::Expansion> = None;
-    let mut expansion_replies = std::collections::VecDeque::<Vec<u8>>::new();
-    let mut depth_payload = Vec::new();
-    loop {
-        let n = now(&mut clock)?;
-        let transition_paused = expansion.as_ref().is_some_and(|x| x.paused());
-        if expansion
-            .as_ref()
-            .is_some_and(|x| x.active() && n >= x.approval.deadline_mono_ns)
-        {
-            if transition_paused {
-                return Err(Error::Deadline);
-            }
-            expansion = None;
-            expansion_replies.clear();
+/// Internal safe entrypoint invoked by [`crate::registered::run`] and [`run_builtin`] after
+/// startup identity and digest checks pass.
+#[forbid(unsafe_code)]
+pub(crate) fn run_qualified<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
+    config.validate()?;
+    crate::catalog::validate_startup(&config)?;
+
+    // Spawn `"strategy-cold"` housekeeping onto `housekeeping_cpus` BEFORE pinning the hot
+    // thread to `worker_cpu` so cold housekeeping never inherits `worker_cpu` and escapes any
+    // external single-core `taskset` parent mask.
+    let stop_cold = Arc::new(AtomicBool::new(false));
+    let cold_ticks = Arc::new(AtomicU64::new(0));
+    let stop_flag = Arc::clone(&stop_cold);
+    let ticks_flag = Arc::clone(&cold_ticks);
+    let cold_handle = spawn_housekeeping(config.housekeeping_cpus.as_ref(), move || {
+        while !stop_flag.load(Ordering::Acquire) {
+            ticks_flag.fetch_add(1, Ordering::Relaxed);
+            std::thread::sleep(Duration::from_millis(10));
         }
-        if (!transition_paused && n >= market_session.deadline())
-            || n >= intent_session.deadline()
-            || n >= report_session.deadline()
+    })?;
+
+    let run_result = run_hot_worker(&config, strategy);
+    stop_cold.store(true, Ordering::Release);
+    let _ = cold_handle.join();
+    run_result
+}
+
+#[forbid(unsafe_code)]
+fn run_hot_worker<S: Strategy>(config: &Bootstrap, strategy: S) -> Result<()> {
+    pin_worker_thread(config.worker_cpu, config.housekeeping_cpus.as_ref())?;
+
+    let domain = config.market.domain()?;
+    let mut clock = SystemClock::new(domain)?;
+    let deadline = Instant::now()
+        .checked_add(Duration::from_millis(config.startup_timeout_ms))
+        .ok_or(Error::Bounds)?;
+    let startup_timeout = Duration::from_millis(config.startup_timeout_ms);
+
+    let mut client = connect_market(&config.market, &mut clock)?;
+
+    let dop = if let (Some(sock), Some(dop_cfg)) = (&config.dop_socket, &config.dop) {
+        Some(DopSession::connect_and_login(
+            sock,
+            dop_cfg.clone(),
+            0,
+            now(&mut clock)?,
+            startup_timeout,
+        )?)
+    } else {
+        None
+    };
+
+    let (mut intent_ctrl, intent_writer) = match &config.intent {
+        Some(ep) => {
+            let lane = connect_intent(config, ep, dop.as_ref(), &mut clock, deadline)?;
+            (Some((lane.connection, lane.session)), Some(lane.writer))
+        }
+        None => (None, None),
+    };
+
+    let (mut report_ctrl, report_receiver) = match &config.report {
+        Some(ep) => {
+            let lane = connect_report(config, ep, &mut clock, deadline)?;
+            (Some((lane.connection, lane.session)), Some(lane.receiver))
+        }
+        None => (None, None),
+    };
+
+    let mut driver = WorkerDriver::new(
+        MarketReplica::from_core(client.replica),
+        dop,
+        intent_writer,
+        report_receiver,
+        strategy,
+        config.maximum_market_age_ns,
+        config.poll_records,
+    )?
+    .with_default_account_ref(config.account_ref);
+
+    loop {
+        let now_ns = now(&mut clock)?;
+        if now_ns >= client.session.deadline()
+            || intent_ctrl
+                .as_ref()
+                .is_some_and(|(_, s)| now_ns >= s.deadline())
+            || report_ctrl
+                .as_ref()
+                .is_some_and(|(_, s)| now_ns >= s.deadline())
         {
             return Err(Error::Deadline);
         }
-        let mut report_count = 0;
-        for _ in 0..config.poll_records {
-            if transition_paused {
-                break;
-            }
-            let Some(value) = reports.next()? else {
-                break;
-            };
-            report_count += 1;
-            let at = now(&mut clock)?;
-            if let Some(w) = &mut recovery {
-                w.account_report(&value, at)?;
-            }
-            let commands = strategy.report(&value, at)?;
-            retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
-            for command in commands {
-                prepare_and_publish(
-                    || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
-                    || now(&mut clock),
-                    |published_at| {
-                        writer
-                            .publish(&command, &mut store, published_at)
-                            .map(|_| ())
-                    },
-                )
-                .map_err(|e| e.context("report intent"))?;
-            }
-            if config.publish_checkpoints {
-                account_mirror.observe(&value)?;
-            }
+
+        let outcome = driver.step(&client.consumer, now_ns)?;
+        if outcome.ors_shutdown || outcome.peer_logged_out {
+            break;
         }
-        if config.publish_checkpoints && report_count > 0 {
-            if let Some((cut, _)) = strategy.committed() {
-                recovery
-                    .as_mut()
-                    .ok_or(Error::NotReady)?
-                    .merged_checkpoint(cut)?;
-            }
-            ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
-            let ready = account_mirror.ready(
-                &config.market.local,
-                reports.last_ring_sequence()?,
-                ready_sequence,
-                recovery.as_ref().ok_or(Error::NotReady)?,
-                &strategy.checkpoint()?,
-            )?;
-            let mut request_id = config.market.local.instance;
-            request_id[..8].copy_from_slice(&ready_sequence.to_le_bytes());
-            let frame = report_session.encode(
-                ControlEnvelope {
-                    opcode: 37,
-                    flags: 32,
-                    request_id,
-                    ..Default::default()
-                },
-                &crate::bootstrap::wire_bytes(&ready)?,
-            )?;
-            pending_ready = Some(frame);
+
+        if poll_market_quiesce(
+            &mut client.connection,
+            &mut client.session,
+            &client.consumer,
+            now_ns,
+        )? {
+            break;
         }
-        if let Some(query) = &mut pending_observation {
-            let done = query.drive(
-                account_mirror.position(),
-                || now(&mut clock),
-                |request, seal| {
-                    pending_ready = None;
-                    if let Some((cut, _)) = strategy.committed() {
-                        recovery
-                            .as_mut()
-                            .ok_or(Error::NotReady)?
-                            .merged_checkpoint(cut)?;
-                    }
-                    ready_sequence = ready_sequence.checked_add(1).ok_or(Error::Bounds)?;
-                    let ready = account_mirror.ready(
-                        &config.market.local,
-                        reports.last_ring_sequence()?,
-                        ready_sequence,
-                        recovery.as_ref().ok_or(Error::NotReady)?,
-                        &strategy.checkpoint()?,
-                    )?;
-                    // The query may replace the last unsent periodic snapshot.
-                    // Preserve its new state for ordinary consumption receipts too,
-                    // including when no subsequent account record ever arrives.
-                    let mut request_id = config.market.local.instance;
-                    request_id[..8].copy_from_slice(&ready_sequence.to_le_bytes());
-                    pending_ready = Some(report_session.encode(
-                        ControlEnvelope {
-                            opcode: 37,
-                            flags: 32,
-                            request_id,
-                            ..Default::default()
-                        },
-                        &crate::bootstrap::wire_bytes(&ready)?,
-                    )?);
-                    let reply = tickwire_ipc::CheckpointSealReplyBody {
-                        challenge: seal.challenge,
-                        report_sequence: seal.report_sequence,
-                        seal_mode: seal.seal_mode,
-                        schema: 1,
-                        ready,
-                    };
-                    Ok(report_session.encode(
-                        ControlEnvelope {
-                            opcode: 40,
-                            flags: 10,
-                            ..request.clone()
-                        },
-                        &crate::bootstrap::wire_bytes(&reply)?,
-                    )?)
-                },
-                |bytes| transition_control::try_send(&mut report, bytes),
-            )?;
-            if done {
-                pending_observation = None;
-            }
-        }
-        // Request-bound responses get the next available slot ahead of periodic
-        // announcements. An unsent periodic value may be replaced by a newer one.
-        observation::send_announcement(
-            &mut pending_ready,
-            pending_observation.is_some() || !expansion_replies.is_empty(),
-            |frame| transition_control::try_send(&mut report, frame),
-        )?;
-        let count = if transition_paused {
-            0
-        } else {
-            let mut count = 0;
-            while count < config.poll_records {
-                let Some(guard) = consumer.borrow()? else {
-                    break;
-                };
-                let state = guard.as_market_state()?;
-                let instrument_id = state.header().instrument_id;
-                let is_depth = state.header().message_type == 259;
-                let seq = guard.sequence();
-                let commands = if recovery.is_none() && !strategy.is_recorded() {
-                    let payload = if is_depth {
-                        guard.depth_payload()?
-                    } else {
-                        &[]
-                    };
-                    let at = now(&mut clock)?;
-                    let id = strategy.apply_legacy_state(state, payload)?;
-                    // Release the publisher slot before strategy code or storage I/O.
-                    drop(guard);
-                    strategy.finish_legacy_callback(id, at)?
-                } else {
-                    let raw: [u8; tickwire_ipc::MarketRecord::SIZE] =
-                        guard.bytes().try_into().map_err(|_| Error::Bounds)?;
-                    depth_payload.clear();
-                    if is_depth {
-                        depth_payload.extend_from_slice(guard.depth_payload()?);
-                    }
-                    // Release the publisher slot before strategy code or storage I/O.
-                    drop(guard);
-                    crate::recovery::InputJournal::market(&mut recovery, &raw, &depth_payload)?;
-                    let at = now(&mut clock)?;
-                    crate::recovery::InputJournal::decision(&mut recovery, instrument_id, at)?;
-                    // The actual callback and its input/checkpoint sync complete before
-                    // the consumer watermark or an intent is exposed to another owner.
-                    strategy.market(&raw, &depth_payload, at)?
-                };
-                retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
-                consumer.apply(seq)?;
-                for command in commands {
-                    prepare_and_publish(
-                        || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
-                        || now(&mut clock),
-                        |published_at| {
-                            writer
-                                .publish(&command, &mut store, published_at)
-                                .map(|_| ())
-                        },
-                    )
-                    .map_err(|e| e.context("market intent"))?;
-                }
-                count += 1;
-            }
-            let commands = strategy.timers(now(&mut clock)?, config.poll_records.min(32))?;
-            retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
-            for command in commands {
-                prepare_and_publish(
-                    || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
-                    || now(&mut clock),
-                    |published_at| {
-                        writer
-                            .publish(&command, &mut store, published_at)
-                            .map(|_| ())
-                    },
-                )
-                .map_err(|e| e.context("timer intent"))?;
-            }
-            count
-        };
-        // Each complete drain has ended all payload references before control handling.
-        if let Some(bytes) = expansion_replies.front()
-            && transition_control::try_send(&mut report, bytes)?
+        if let Some((conn, sess)) = &mut intent_ctrl
+            && poll_control_quiesce(conn, sess, now_ns)?
         {
-            expansion_replies.pop_front();
+            break;
         }
-        if let Some(x) = &mut expansion {
-            if let Some(bytes) = &x.market_reply
-                && transition_control::try_send(&mut market, bytes)?
-            {
-                x.market_reply = None;
-            }
-            if let Some(pending) = &mut x.pending {
-                pending.poll(
-                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
-                    config.poll_records,
-                )?;
-                if let Some(client) = pending.take_client() {
-                    x.candidate = Some(client);
-                    x.pending = None;
-                }
-            }
-            let ready = if let Some(client) = &mut x.candidate {
-                expansion::poll_frontier(
-                    client,
-                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
-                    x.approval.deadline_mono_ns,
-                    config.maximum_market_age_ns,
-                )?
-            } else {
-                false
-            };
-            if ready {
-                let mut client = x.candidate.take().ok_or(Error::NotReady)?;
-                let at = now(&mut clock)?;
-                let previous_applied = x.previous_applied()?;
-                let receipt = Receipt::activated(
-                    &x.approval,
-                    std::process::id(),
-                    previous_applied,
-                    &client,
-                    tickwire_clock::MonoTime::new(domain, at),
-                )?;
-                strategy.transition_market(
-                    crate::replay::live::MarketTransitionRequest {
-                        operation_id: x.approval.operation_id,
-                        approval_digest: x.approval.approval_digest,
-                        previous_applied,
-                        maximum_levels: config.maximum_levels,
-                    },
-                    &client,
-                    at,
-                )?;
-                retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
-                let (checkpoint, _) = strategy.committed().ok_or(Error::NotReady)?;
-                recovery
-                    .as_mut()
-                    .ok_or(Error::NotReady)?
-                    .merged_checkpoint(checkpoint)?;
-                let object = strategy.store_object(&serde_json::to_vec(&receipt)?)?;
-                x.approval.validate_receipt(
-                    &receipt,
-                    std::process::id(),
-                    Phase::Activated,
-                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
-                )?;
-                // Persistence may outlive the new session or receive QUIESCE.
-                // Recheck the retained client before enabling any callback.
-                if !expansion::poll_frontier(
-                    &mut client,
-                    tickwire_clock::MonoTime::new(domain, now(&mut clock)?),
-                    x.approval.deadline_mono_ns,
-                    config.maximum_market_age_ns,
-                )? {
-                    return Err(Error::NotReady);
-                }
-                let (commit, request) = x.commit.as_ref().ok_or(Error::NotReady)?;
-                let reply = transition_control::encode_reply(&report_session, request, object)?;
-                market = client.connection;
-                market_session = client.session;
-                consumer = client.consumer;
-                j = client.join;
-                current_market = Some(commit.config.clone());
-                x.receipt = receipt;
-                x.activated = Some(object);
-                x.pending = None;
-                expansion::queue(&mut expansion_replies, reply)?;
-            }
+        if let Some((conn, sess)) = &mut report_ctrl
+            && poll_control_quiesce(conn, sess, now_ns)?
+        {
+            break;
         }
-        if !expansion.as_ref().is_some_and(|x| x.paused()) {
-            match market.try_recv() {
-                Ok(Some(packet)) => {
-                    if !packet.fds().is_empty() {
-                        return Err(Error::Identity);
-                    }
-                    let envelope = ControlEnvelope::decode(&packet.bytes()[..128])?;
-                    if envelope.opcode == 20 {
-                        if let Some(x) = &mut expansion {
-                            if x.active() {
-                                if envelope.request_id
-                                    != tickwire_market_source::transition::quiesce_request_id(
-                                        x.approval.operation_id,
-                                        transition_control::subscription(&x.approval.previous)?,
-                                    )
-                                {
-                                    return Err(Error::Identity);
-                                }
-                                let at = now(&mut clock)?;
-                                let response =
-                                    consumer.quiesce(&mut market_session, packet.bytes(), at)?;
-                                let receipt = Receipt::quiesced(
-                                    &x.approval,
-                                    std::process::id(),
-                                    consumer.watermarks().applied,
-                                    tickwire_clock::MonoTime::new(domain, at),
-                                )?;
-                                let object =
-                                    strategy.store_object(&serde_json::to_vec(&receipt)?)?;
-                                x.receipt = receipt;
-                                x.quiesced = Some(object);
-                                x.market_reply = Some(response);
-                                expansion::queue(
-                                    &mut expansion_replies,
-                                    transition_control::encode_reply(
-                                        &report_session,
-                                        &x.arm,
-                                        object,
-                                    )?,
-                                )?;
-                            } else {
-                                let response = consumer.quiesce(
-                                    &mut market_session,
-                                    packet.bytes(),
-                                    now(&mut clock)?,
-                                )?;
-                                market.send(
-                                    &response,
-                                    &[],
-                                    Instant::now() + Duration::from_secs(1),
-                                )?;
-                                return Ok(());
-                            }
-                        } else {
-                            let response = consumer.quiesce(
-                                &mut market_session,
-                                packet.bytes(),
-                                now(&mut clock)?,
-                            )?;
-                            market.send(&response, &[], Instant::now() + Duration::from_secs(1))?;
-                            return Ok(());
-                        }
-                    } else {
-                        market_session.validate(packet.bytes(), now(&mut clock)?)?;
-                        return Err(Error::NotReady);
-                    }
-                    // The approved old consumer is detached; subsequent work remains in this process.
-                }
-                Ok(None) => {}
-                Err(e) => return Err(e.into()),
-            }
-        }
-        match intent.try_recv() {
-            Ok(Some(packet)) => {
-                intent_session.validate(packet.bytes(), now(&mut clock)?)?;
-                return Err(Error::NotReady);
-            }
-            Ok(None) => {}
-            Err(e) => return Err(e.into()),
-        }
-        match report.try_recv() {
-            Ok(Some(packet)) => {
-                if !packet.fds().is_empty() {
-                    return Err(Error::Identity);
-                }
-                let received_at = now(&mut clock)?;
-                let frame = report_session.validate(packet.bytes(), received_at)?;
-                if pending_observation
-                    .as_ref()
-                    .is_some_and(|query| query.expired(received_at))
-                {
-                    pending_observation = None;
-                }
-                if frame.envelope.opcode == 41 {
-                    use tickwire_release::replay::{ControlInput, canonical};
-                    let body = tickwire_ipc::ReplayControlBody::decode(frame.body)?;
-                    let objects = tickwire_recovery::FileBlobReader::open(
-                        &config.report_directory,
-                        config.report.peer_uid,
-                    )?;
-                    let raw = objects
-                        .get_object(body.object_digest, tickwire_release::replay::MAX_BYTES)?;
-                    if matches!(
-                        body.replay_kind,
-                        transition_control::ARM | transition_control::COMMIT
-                    ) {
-                        if body.instance_id != config.report.local.instance
-                            || body.strategy_generation != config.report.local.generation
-                            || body.logical_strategy_id != config.report.local.logical_strategy
-                            || body.object_bytes != raw.len() as u64
-                            || raw.len() > transition_control::MAX_BYTES
-                        {
-                            return Err(Error::Identity);
-                        }
-                        let at = tickwire_clock::MonoTime::new(domain, now(&mut clock)?);
-                        if body.replay_kind == transition_control::ARM {
-                            let approval = match Approval::decode(&raw) {
-                                Ok(value) => value,
-                                Err(_) => {
-                                    expansion::queue(
-                                        &mut expansion_replies,
-                                        transition_control::encode_rejection(
-                                            &report_session,
-                                            &body,
-                                            transition_control::INVALID,
-                                        )?,
-                                    )?;
-                                    continue;
-                                }
-                            };
-                            transition_control::verify_request(
-                                &frame.envelope,
-                                &body,
-                                &approval,
-                                &raw,
-                                at.nanos(),
-                                report_session.deadline(),
-                            )?;
-                            if let Some(x) = &expansion
-                                && x.approval.digest()? == approval.digest()?
-                            {
-                                expansion::queue(
-                                    &mut expansion_replies,
-                                    transition_control::encode_reply(
-                                        &report_session,
-                                        &body,
-                                        x.quiesced.unwrap_or(x.armed),
-                                    )?,
-                                )?;
-                                continue;
-                            }
-                            let rejection = expansion::arm_rejection(
-                                &approval,
-                                current_market.as_ref(),
-                                strategy.supports_market_transition(),
-                                pending_observation.is_some()
-                                    || expansion.as_ref().is_some_and(|x| x.active()),
-                                at,
-                            );
-                            if let Some(status) = rejection {
-                                expansion::queue(
-                                    &mut expansion_replies,
-                                    transition_control::encode_rejection(
-                                        &report_session,
-                                        &body,
-                                        status,
-                                    )?,
-                                )?;
-                                continue;
-                            }
-                            strategy.store_object(&raw)?;
-                            let receipt = Receipt::armed(&approval, std::process::id(), at)?;
-                            let armed = strategy.store_object(&serde_json::to_vec(&receipt)?)?;
-                            expansion::queue(
-                                &mut expansion_replies,
-                                transition_control::encode_reply(&report_session, &body, armed)?,
-                            )?;
-                            expansion = Some(expansion::Expansion {
-                                approval,
-                                arm: body,
-                                armed,
-                                receipt,
-                                quiesced: None,
-                                commit: None,
-                                activated: None,
-                                pending: None,
-                                candidate: None,
-                                market_reply: None,
-                            });
-                        } else {
-                            let Some(x) = &mut expansion else {
-                                expansion::queue(
-                                    &mut expansion_replies,
-                                    transition_control::encode_rejection(
-                                        &report_session,
-                                        &body,
-                                        transition_control::INVALID,
-                                    )?,
-                                )?;
-                                continue;
-                            };
-                            transition_control::verify_request(
-                                &frame.envelope,
-                                &body,
-                                &x.approval,
-                                &raw,
-                                at.nanos(),
-                                report_session.deadline(),
-                            )?;
-                            let commit = Commit::decode(&raw)?;
-                            if let Some((old, _)) = &x.commit {
-                                if serde_json::to_vec(old)? != raw {
-                                    return Err(Error::Identity);
-                                }
-                                if let Some(object) = x.activated {
-                                    expansion::queue(
-                                        &mut expansion_replies,
-                                        transition_control::encode_reply(
-                                            &report_session,
-                                            &body,
-                                            object,
-                                        )?,
-                                    )?;
-                                }
-                                continue;
-                            }
-                            if !x.paused() {
-                                expansion::queue(
-                                    &mut expansion_replies,
-                                    transition_control::encode_rejection(
-                                        &report_session,
-                                        &body,
-                                        transition_control::BUSY,
-                                    )?,
-                                )?;
-                                continue;
-                            }
-                            commit.validate(&x.approval, x.previous_applied()?, at)?;
-                            strategy.store_object(&raw)?;
-                            // SAFETY: authenticated qualified Host approved this exact successor;
-                            // the same immutable bank and cursor contracts as startup still apply.
-                            let pending = unsafe {
-                                tickwire_market_source::PendingJoin::new(&commit.config, at)?
-                            };
-                            x.commit = Some((commit, body));
-                            x.pending = Some(pending);
-                        }
-                        continue;
-                    }
-                    if expansion.as_ref().is_some_and(|x| x.active()) {
-                        return Err(Error::NotReady);
-                    }
-                    let input = ControlInput::decode(&raw)?;
-                    let (expected, _) = strategy.committed().ok_or(Error::NotReady)?;
-                    crate::replay::control::verify_request(
-                        &frame.envelope,
-                        &body,
-                        &input,
-                        expected,
-                        now(&mut clock)?,
-                        report_session.deadline(),
-                    )?;
-                    let ControlInput::Auxiliary { input, .. } = input else {
-                        return Err(Error::Identity);
-                    };
-                    let commands = strategy.auxiliary(input, now(&mut clock)?)?;
-                    retain_merged(&strategy, &mut recovery, &mut merged_journal_sequence)?;
-                    let (cut, commit) = strategy.committed().ok_or(Error::NotReady)?;
-                    let bytes = canonical(&(body.object_digest, cut.cut.clone(), commit))?;
-                    let object = strategy.store_object(&bytes)?;
-                    if now(&mut clock)? >= body.valid_until_mono_ns {
-                        return Err(Error::Deadline);
-                    }
-                    for command in commands {
-                        prepare_and_publish(
-                            || recovery.as_mut().ok_or(Error::NotReady)?.prepare(&command),
-                            || now(&mut clock),
-                            |at| writer.publish(&command, &mut store, at).map(|_| ()),
-                        )?;
-                    }
-                    let reply = tickwire_ipc::ReplayAppliedBody {
-                        instance_id: body.instance_id,
-                        strategy_generation: body.strategy_generation,
-                        logical_strategy_id: body.logical_strategy_id,
-                        challenge: body.challenge,
-                        valid_until_mono_ns: body.valid_until_mono_ns,
-                        object_digest: object.digest,
-                        object_bytes: object.bytes,
-                        expected_sequence: body.expected_sequence,
-                        expected_cut_digest: body.expected_cut_digest,
-                        operation_id: body.operation_id,
-                        operation_revision: body.operation_revision,
-                        schema: 1,
-                        replay_kind: body.replay_kind,
-                    };
-                    let raw = report_session.encode(
-                        ControlEnvelope {
-                            opcode: 42,
-                            flags: 10,
-                            ..frame.envelope.clone()
-                        },
-                        &crate::bootstrap::wire_bytes(&reply)?,
-                    )?;
-                    if now(&mut clock)? >= body.valid_until_mono_ns {
-                        return Err(Error::Deadline);
-                    }
-                    report.send(&raw, &[], Instant::now() + Duration::from_millis(100))?;
-                    continue;
-                }
-                if frame.envelope.opcode == 39 {
-                    let seal = match crate::checkpoint::verify_request(
-                        &frame.envelope,
-                        frame.body,
-                        &config.report.local,
-                        received_at,
-                        report_session.deadline(),
-                    ) {
-                        Ok(seal) => seal,
-                        // Only structurally and identity-valid continuous queries
-                        // use this error. Delayed diagnostics do not stop trading.
-                        Err(Error::Deadline) => continue,
-                        Err(error) => return Err(error),
-                    };
-                    if seal.seal_mode == crate::checkpoint::OBSERVE_CURRENT {
-                        if config.publish_checkpoints
-                            && pending_observation.is_none()
-                            && !expansion.as_ref().is_some_and(|x| x.active())
-                        {
-                            pending_observation =
-                                Some(observation::Pending::new(frame.envelope.clone(), seal)?);
-                        }
-                        continue;
-                    }
-                    return Err(Error::Identity);
-                }
-                if !remote || expansion.as_ref().is_some_and(|x| x.active()) {
-                    return Err(Error::Identity);
-                }
-                let mut proof = crate::retirement::check_request(
-                    &frame.envelope,
-                    frame.body,
-                    &report_bank,
-                    report_sub,
-                    report_membership,
-                )?;
-                let request = frame.envelope.clone();
-                // No callback or borrowed payload remains. The report acknowledgement
-                // is delayed until MD confirms the real mapped cursor detach.
-                reports.start_quiesce();
-                let released = reports.quiesced()?;
-                proof.released_seq = released.watermarks().released;
-                proof.applied_seq = released.watermarks().applied;
-                proof.evidence_kind = 1;
-                let until = Instant::now() + Duration::from_secs(3);
-                crate::retirement::depart_market(
-                    &mut market,
-                    &mut market_session,
-                    &consumer,
-                    &j,
-                    request.request_id,
-                    &mut clock,
-                    until,
-                )?;
-                let response = report_session.encode(
-                    ControlEnvelope {
-                        flags: 10,
-                        ..request
-                    },
-                    &crate::bootstrap::wire_bytes(&proof)?,
-                )?;
-                report
-                    .send(&response, &[], until)
-                    .map_err(|e| Error::from(e).context("retirement: send Host quiesced"))?;
-                return Ok(());
-            }
-            Ok(None) => {}
-            Err(e) => return Err(e.into()),
-        }
-        if count == 0 && report_count == 0 {
-            let sampled = now(&mut clock)?;
-            let delay = Duration::from_micros(config.idle_sleep_us);
-            let delay = strategy
-                .next_deadline()
-                .map(|at| delay.min(Duration::from_nanos(at.saturating_sub(sampled))))
-                .unwrap_or(delay);
-            std::thread::sleep(delay);
+
+        if outcome.reports_processed == 0
+            && outcome.market_records_processed == 0
+            && outcome.dop_events_processed == 0
+            && config.idle_sleep_us > 0
+        {
+            std::thread::sleep(Duration::from_micros(config.idle_sleep_us));
         }
     }
-}
 
-fn retain_merged<S: Strategy>(
-    owner: &crate::replay::live::Live<S>,
-    recovery: &mut Option<crate::recovery::RecoveryWriter>,
-    sequence: &mut u64,
-) -> Result<()> {
-    for row in owner.recorded_after(*sequence) {
-        recovery.as_mut().ok_or(Error::NotReady)?.merged_row(row)?;
-        *sequence = row.sequence;
+    if let Some(rx) = &driver.report_receiver {
+        rx.start_quiesce();
+    }
+    if let Some(dop) = &mut driver.dop {
+        let logout_deadline = Instant::now() + Duration::from_millis(250);
+        let _ = dop.logout(false, TerminalReason::AdminAction, logout_deadline);
     }
     Ok(())
 }
 
-// Recovery preparation can block in fsync. Publication must observe the real
-// clock after that work, rather than reuse the decision or loop-start timestamp.
-fn prepare_and_publish(
-    prepare: impl FnOnce() -> Result<()>,
-    sample: impl FnOnce() -> Result<u64>,
-    publish: impl FnOnce(u64) -> Result<()>,
-) -> Result<()> {
-    prepare().map_err(|e| e.context("recovery prepare"))?;
-    let now = sample().map_err(|e| e.context("publication clock"))?;
-    publish(now).map_err(|e| e.context("intent publish"))
+#[forbid(unsafe_code)]
+fn poll_market_quiesce(
+    conn: &mut Connection,
+    session: &mut Session,
+    consumer: &JoinConsumer<4>,
+    now_ns: u64,
+) -> Result<bool> {
+    let Some(msg) = conn.try_recv()? else {
+        return Ok(false);
+    };
+    if !msg.fds().is_empty() {
+        return Err(Error::Identity);
+    }
+    let reply = consumer.quiesce(session, msg.bytes(), now_ns)?;
+    let send_deadline = Instant::now() + Duration::from_millis(100);
+    let _ = conn.send(&reply, &[], send_deadline);
+    Ok(true)
 }
 
-#[cfg(test)]
-mod publication_tests {
-    use super::*;
-    use std::cell::Cell;
-
-    #[test]
-    fn publication_samples_after_preparation_and_checks_the_current_deadline() {
-        // Decision at 50 is later than loop entry (40). Preparation may finish
-        // either before or at the command's exclusive deadline (100).
-        for finished in [60, 100] {
-            let clock = Cell::new(40);
-            let published = Cell::new(false);
-            let result = prepare_and_publish(
-                || {
-                    clock.set(finished);
-                    Ok(())
+#[forbid(unsafe_code)]
+fn poll_control_quiesce(conn: &mut Connection, session: &mut Session, now_ns: u64) -> Result<bool> {
+    let Some(msg) = conn.try_recv()? else {
+        return Ok(false);
+    };
+    if !msg.fds().is_empty() {
+        return Err(Error::Identity);
+    }
+    let frame: ControlFrame<'_> = session.validate(msg.bytes(), now_ns)?;
+    match frame.envelope.opcode {
+        20 => {
+            let ack = session.encode(
+                tickwire_ipc::ControlEnvelope {
+                    opcode: 21,
+                    flags: 10,
+                    request_id: frame.envelope.request_id,
+                    ..Default::default()
                 },
-                || Ok(clock.get()),
-                |at| {
-                    assert_eq!(at, finished);
-                    if !(50..100).contains(&at) {
-                        return Err(Error::Deadline);
-                    }
-                    published.set(true);
-                    Ok(())
-                },
-            );
-            assert_eq!(result.is_ok(), finished < 100);
-            assert_eq!(published.get(), finished < 100);
-            if let Err(e) = result {
-                assert!(e.to_string().contains("intent publish"));
-            }
+                &[],
+            )?;
+            let send_deadline = Instant::now() + Duration::from_millis(100);
+            let _ = conn.send(&ack, &[], send_deadline);
+            Ok(true)
         }
+        _ => Ok(false),
+    }
+}
+
+/// Run the built-in stateless worker (`ObserveOnly` or `FixedDemo`) from a validated [`Bootstrap`].
+#[forbid(unsafe_code)]
+pub fn run_builtin(config: Bootstrap) -> Result<()> {
+    config.validate()?;
+    crate::catalog::validate_startup(&config)?;
+    if config.factory.is_some() {
+        return Err(Error::Identity);
+    }
+    if config.demo_enabled {
+        let path = config.demo_command_file.as_ref().ok_or(Error::NotReady)?;
+        let bytes = read_trusted_bytes(path, MAX_PARAM_BYTES)?;
+        let command = tickwire_venue::CanonicalCommand::decode(&bytes)?;
+        let strategy = FixedDemo::new(
+            command,
+            config.strat_id,
+            config.account_ref,
+            config.demo_minimum_bid_ticks,
+            true,
+        );
+        run_qualified(config, strategy)
+    } else {
+        run_qualified(config, ObserveOnly)
+    }
+}
+
+/// Run a qualified stateless worker until `QUIESCE`, `DopLogout`, `OrsShutDown`, or lease expiry.
+///
+/// # Safety
+/// The caller/launcher must guarantee that peer `tickwire-md` and ORS processes obey the single-writer
+/// `F_SEAL_FUTURE_WRITE` shared-memory ring contracts for all offered descriptors.
+#[allow(unsafe_code)]
+pub unsafe fn run<S: Strategy>(config: Bootstrap, strategy: S) -> Result<()> {
+    run_qualified(config, strategy)
+}
+
+/// Complete an authenticated in-process `JOIN` handshake (`prepare` -> `deliver` -> `attach` ->
+/// `load_baseline` -> `receive_cursor` -> `read_ready` -> `join_ready`) against an owned
+/// [`tickwire_join::JoinOwner`], returning an active `(JoinConsumer<4>, MarketReplica)` at an
+/// independent reader cursor (`0` disk writes).
+#[allow(clippy::too_many_arguments)]
+#[allow(unsafe_code)]
+pub fn in_process_join_consumer<const M: usize, S, F>(
+    owner: &mut tickwire_join::JoinOwner<M>,
+    supervisor: &mut Session,
+    store: &mut S,
+    admin_request: &[u8],
+    registration: &tickwire_join::SubscriberRegistration,
+    snapshot_id: [u8; 16],
+    maximum_levels: usize,
+    now_mono_ns: u64,
+    build: F,
+) -> Result<(JoinConsumer<4>, MarketReplica)>
+where
+    S: tickwire_control::RequestStore,
+    F: FnOnce(&tickwire_join::JoinPlan) -> tickwire_ipc::Result<tickwire_snapshot::BuiltTopic>,
+{
+    use sha2::{Digest, Sha256};
+    use tickwire_control::{Identity, Policy};
+    use tickwire_join::PrepareOutcome;
+
+    let sub = registration.subscription;
+    match owner.prepare(
+        supervisor,
+        store,
+        admin_request,
+        registration,
+        snapshot_id,
+        now_mono_ns,
+        build,
+    )? {
+        PrepareOutcome::Prepared { subscription, .. } if subscription == sub => {}
+        _ => return Err(Error::NotReady),
     }
 
-    #[test]
-    fn failed_preparation_never_samples_or_publishes() {
-        let result = prepare_and_publish(
-            || Err(Error::NotReady),
-            || panic!("sample after failed preparation"),
-            |_| panic!("publish after failed preparation"),
-        );
-        assert!(result.unwrap_err().to_string().contains("recovery prepare"));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let (mut server_conn, mut client_conn) = crate::dop::local_seqpacket_pair(deadline)?;
+    let creds = server_conn.peer_credentials();
+    let process = ProcessIdentity {
+        pid: creds.pid,
+        uid: creds.uid,
+        gid: creds.gid,
+    };
+    let h = owner.header();
+    let owner_id = Identity {
+        instance: h.producer_instance,
+        generation: h.producer_generation,
+        role: 2,
+        logical_strategy: 0,
+        host_boot: h.host_boot_id,
+        namespace: h.namespace_id,
+        build_hash: registration.identity.build_hash,
+        qualification_hash: registration.identity.qualification_hash,
+        manifest_hash: registration.identity.manifest_hash,
+        arch: h.target_arch,
+        trust_profile: registration.identity.trust_profile,
+    };
+    let nonce: [u8; 32] = Sha256::digest(now_mono_ns.to_le_bytes()).into();
+    let server_policy = Policy {
+        local: owner_id.clone(),
+        peer: registration.identity.clone(),
+        peer_process: process,
+        required_features: 0x1c,
+        supported_features: 0x1f | 64 | 512,
+        control_epoch: 1,
+        lease_duration_ns: 60_000_000_000,
+        max_frame_bytes: 65_536,
+        nonce,
+    };
+    let client_policy = Policy {
+        local: registration.identity.clone(),
+        peer: owner_id,
+        ..server_policy.clone()
+    };
+    let hello = ClientHandshake::new(client_policy, [1; 16])?;
+    let (mut server_sess, welcome) =
+        Session::accept(&server_policy, process, hello.hello(), now_mono_ns)?;
+    let mut client_sess = hello.finish(process, &welcome, now_mono_ns)?;
+
+    owner.deliver(
+        sub,
+        &mut server_sess,
+        &mut server_conn,
+        now_mono_ns,
+        deadline,
+    )?;
+
+    let j = owner.join(sub)?.clone();
+    let bank = owner.header().clone();
+    let snapshot_hdr = owner.snapshot_header(sub)?.clone();
+    let registry = owner.registry().clone();
+
+    let fd = accept_offer(
+        &mut client_sess,
+        client_conn.recv(deadline)?,
+        &bank,
+        offer_id(&j, 1),
+        j.readiness_deadline_mono_ns,
+        j.membership_version,
+        false,
+        now_mono_ns,
+    )?;
+    let sf = accept_offer(
+        &mut client_sess,
+        client_conn.recv(deadline)?,
+        &snapshot_hdr,
+        offer_id(&j, 2),
+        j.readiness_deadline_mono_ns,
+        j.membership_version,
+        true,
+        now_mono_ns,
+    )?;
+
+    // SAFETY: `owner` is exclusively borrowed and owns the sealed bank/snapshot descriptors.
+    let mut consumer = unsafe {
+        JoinConsumer::<4>::attach(fd, sf, bank, snapshot_hdr, j.clone(), registry, now_mono_ns)?
+    };
+    let mut replica = consumer.load_baseline(now_mono_ns, |topic| {
+        MarketReplica::load(j.topic_id, j.ring_epoch, topic, maximum_levels)
+    })?;
+
+    let (cursor_frame, cursor_fd) = consumer.cursor_offer(&client_sess, [2; 16])?;
+    client_conn.send(&cursor_frame, &[cursor_fd.as_fd()], deadline)?;
+    let cursor_packet = server_conn.recv(deadline)?;
+    // SAFETY: `cursor_packet` carries the exact cursor descriptor produced by `consumer`.
+    unsafe {
+        owner.receive_cursor(sub, &mut server_sess, cursor_packet, now_mono_ns)?;
     }
+
+    for frame in consumer.read_ready_frames(&client_sess, [[3; 16], [4; 16]])? {
+        owner.read_ready(sub, &mut server_sess, &frame, now_mono_ns)?;
+    }
+
+    let mut obs = ObserveOnly;
+    replica.drain(&consumer, &mut obs, now_mono_ns, u64::MAX, 4096, |_| Ok(()))?;
+    let ready = consumer.join_ready_frame(&client_sess, [5; 16], now_mono_ns)?;
+    owner.join_ready(sub, &mut server_sess, &ready, now_mono_ns)?;
+
+    Ok((consumer, replica))
 }

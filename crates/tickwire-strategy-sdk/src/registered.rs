@@ -1,18 +1,81 @@
-//! Launch a registered strategy with the configuration bound to its worker profile.
-use crate::restore::RestoreFactory;
-use crate::{Error, Result, Strategy, restore};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use tickwire_release::{Role, files::LoadedFiles, replay::VersionedBytes};
+//! Stateless strategy parameter validation, SHA-256 `FactoryBinding` verification, and safe
+//! `Registration` worker startup (`0` dynamic config-patch or replay state).
+#![forbid(unsafe_code)]
 
+use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
+use tickwire_ipc::ALL_STRATS;
+
+use crate::{
+    Error, Result, Strategy,
+    bootstrap::{ArtifactDigest, Bootstrap, MAX_BOOTSTRAP_BYTES, MAX_PARAM_BYTES},
+};
+
+const SEQUENCE_LIMIT: u64 = 1 << 63;
+
+/// Immutable configuration payload paired with its positive monotonically ordered revision.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VersionedBytes {
+    pub revision: u64,
+    pub bytes: Vec<u8>,
+}
+
+/// Verified identity of the target strategy worker instance receiving a parameter document.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TargetIdentity {
+    pub logical_strategy_id: u64,
+    pub strat_id: u8,
+    pub instance_id: [u8; 16],
+    pub generation: u64,
+    pub account_ref: u8,
+}
+
+impl TargetIdentity {
+    pub fn validate(&self) -> Result<()> {
+        if self.logical_strategy_id == 0
+            || self.strat_id == ALL_STRATS
+            || self.instance_id == [0; 16]
+            || self.generation == 0
+            || self.generation >= SEQUENCE_LIMIT
+        {
+            return Err(Error::Identity);
+        }
+        Ok(())
+    }
+
+    pub fn from_bootstrap(config: &Bootstrap) -> Result<Self> {
+        if config.demo_enabled
+            || config.demo_command_file.is_some()
+            || config.demo_minimum_bid_ticks != 0
+        {
+            return Err(Error::Identity);
+        }
+        let target = Self {
+            logical_strategy_id: config.logical_strategy_id,
+            strat_id: config.strat_id,
+            instance_id: config.instance_id,
+            generation: config.generation,
+            account_ref: config.account_ref,
+        };
+        target.validate()?;
+        Ok(target)
+    }
+}
+
+/// Cryptographically bound parameter descriptor inside [`Bootstrap`].
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FactoryBinding {
+    #[serde(alias = "registration_id")]
     pub id: String,
+    pub state_schema: u64,
     pub configuration_file: PathBuf,
-    pub configuration: tickwire_release::Object,
+    pub configuration: ArtifactDigest,
     pub revision: u64,
 }
+
 impl FactoryBinding {
     pub fn validate(&self) -> Result<()> {
         if self.id.is_empty()
@@ -21,93 +84,83 @@ impl FactoryBinding {
                 .id
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+            || self.state_schema == 0
             || !self.configuration_file.is_absolute()
             || self.revision == 0
+            || self.revision >= SEQUENCE_LIMIT
         {
             return Err(Error::Identity);
         }
-        self.configuration.validate(2 * 1024 * 1024)?;
-        Ok(())
+        self.configuration.validate(MAX_PARAM_BYTES)
     }
 }
-/// A factory creates a fresh strategy using exactly its decoded configuration.
-pub trait UserFactory: restore::RestoreFactory + Clone {
-    fn create(&self) -> restore::Result<Self::Running>;
+
+/// Typed factory constructing a fresh stateless [`Strategy`] from its validated parameters.
+pub trait UserFactory: Clone {
+    type Running: Strategy;
+
+    fn state_schema(&self) -> u64;
+
+    fn configuration(&self, target: &TargetIdentity) -> Result<VersionedBytes>;
+
+    fn create(&self) -> Result<Self::Running>;
 }
+
+/// Static registration implemented by a user strategy binary (`tickwire-strategy-example`).
 pub trait Registration {
     type Factory: UserFactory;
-    type Source: crate::replay::application::BusinessFactory;
+
     fn id(&self) -> &'static str;
-    fn configure(
-        &self,
-        target: &restore::Target,
-        config: &VersionedBytes,
-    ) -> restore::Result<Self::Factory>;
-    fn source(&self, schema: u64) -> crate::replay::Result<Self::Source>;
+
+    fn configure(&self, target: &TargetIdentity, config: &VersionedBytes) -> Result<Self::Factory>;
 }
-#[derive(Clone)]
+
+/// Validated strategy factory paired with its exact verified parameter bytes.
+#[derive(Clone, Debug)]
 pub struct Configured<F> {
     factory: F,
     parameters: VersionedBytes,
 }
-/// Verify the configuration path, digest and target before calling the factory.
-pub fn configure<R: Registration>(
-    registration: &R,
-    binding: &FactoryBinding,
-    target: &restore::Target,
-    files: &LoadedFiles,
-) -> Result<Configured<R::Factory>> {
-    if let Some(bytes) = files.bytes(&Role::Bootstrap) {
-        crate::catalog::reject_lifecycle_bytes(bytes)?;
+
+impl<F> Configured<F> {
+    #[inline]
+    pub fn parameters(&self) -> &VersionedBytes {
+        &self.parameters
     }
-    binding.validate()?;
-    if registration.id() != binding.id
-        || files.path(&Role::StrategyConfig) != Some(binding.configuration_file.as_path())
-        || target.instance == [0; 16]
-        || target.generation == 0
-        || target.logical_strategy == 0
-        || target.command.is_some()
-        || target.enabled
-        || target.minimum_bid_ticks != 0
-    {
-        return Err(Error::Identity);
+
+    #[inline]
+    pub fn factory(&self) -> &F {
+        &self.factory
     }
-    if files.object(&Role::StrategyConfig) != Some(binding.configuration) {
-        return Err(Error::Identity);
-    }
-    let bytes = files.bytes(&Role::StrategyConfig).ok_or(Error::Identity)?;
-    if bytes.is_empty() || bytes.len() > 2 * 1024 * 1024 {
-        return Err(Error::Bounds);
-    }
-    files.recheck()?;
-    let configured = configure_bytes(registration, binding, target, bytes)?;
-    files.recheck()?;
-    Ok(configured)
 }
-fn configure_bytes<R: Registration>(
+
+impl<F: UserFactory> Configured<F> {
+    pub fn create(&self) -> Result<F::Running> {
+        self.factory.create()
+    }
+}
+
+/// Verify `binding`, `target`, and `bytes` (`(len, sha256)`) *before* invoking user `Registration::configure`.
+pub fn configure_bytes<R: Registration>(
     registration: &R,
     binding: &FactoryBinding,
-    target: &restore::Target,
+    target: &TargetIdentity,
     bytes: &[u8],
 ) -> Result<Configured<R::Factory>> {
     binding.validate()?;
-    if registration.id() != binding.id
-        || target.instance == [0; 16]
-        || target.generation == 0
-        || target.logical_strategy == 0
-        || target.command.is_some()
-        || target.enabled
-        || target.minimum_bid_ticks != 0
-    {
+    target.validate()?;
+    if registration.id() != binding.id {
         return Err(Error::Identity);
     }
-    binding.configuration.verify(bytes, 2 * 1024 * 1024)?;
+    binding.configuration.verify(bytes, MAX_PARAM_BYTES)?;
     let parameters = VersionedBytes {
         revision: binding.revision,
         bytes: bytes.to_vec(),
     };
     let factory = registration.configure(target, &parameters)?;
-    if factory.configuration(target)? != parameters {
+    if factory.state_schema() != binding.state_schema
+        || factory.configuration(target)? != parameters
+    {
         return Err(Error::Identity);
     }
     Ok(Configured {
@@ -116,90 +169,41 @@ fn configure_bytes<R: Registration>(
     })
 }
 
-impl<F: UserFactory> Configured<F> {
-    pub fn create(&self) -> Result<F::Running> {
-        let strategy = self.factory.create()?;
-        self.factory.validate_checkpoint(&strategy.checkpoint()?)?;
-        let registration = strategy.replay_registration()?.ok_or(Error::NotReady)?;
-        if registration.schema != self.factory.state_schema()
-            || registration.config != self.parameters
-        {
-            return Err(Error::Identity);
-        }
-        Ok(strategy)
-    }
-}
-
-fn target_identity(config: &crate::bootstrap::Bootstrap) -> Result<restore::Target> {
-    if config.demo_enabled
-        || config.demo_command_file.is_some()
-        || config.demo_minimum_bid_ticks != 0
-    {
+/// Read `&binding.configuration_file` safely (`read_trusted_bytes`) and validate via [`configure_bytes`].
+pub fn configure_from_file<R: Registration>(
+    registration: &R,
+    binding: &FactoryBinding,
+    target: &TargetIdentity,
+) -> Result<Configured<R::Factory>> {
+    binding.validate()?;
+    target.validate()?;
+    if registration.id() != binding.id {
         return Err(Error::Identity);
     }
-    Ok(restore::Target {
-        instance: config.market.local.instance,
-        generation: config.market.local.generation,
-        logical_strategy: config.market.local.logical_strategy,
-        command: None,
-        minimum_bid_ticks: 0,
-        enabled: false,
-    })
+    let bytes = crate::worker::read_trusted_bytes(&binding.configuration_file, MAX_PARAM_BYTES)?;
+    configure_bytes(registration, binding, target, &bytes)
 }
-/// Run a statically registered strategy or replay its recorded inputs.
-/// # Safety
-/// The supervisor admits qualified SHM peers, keeps artifact paths immutable,
-/// and enforces the exact resource/cursor lifetime contract of `worker::run`.
-#[allow(unsafe_code)]
-pub unsafe fn run<R: Registration>(
+
+/// Validate `--bootstrap <PATH>`, CPU isolation, optional `Catalog`, and `FactoryBinding` before
+/// launching the stateless worker runtime.
+pub fn run<R: Registration>(
     registration: &R,
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> Result<()> {
     let mut args = args.into_iter();
     let mode = args.next().ok_or(Error::Identity)?;
     let path = PathBuf::from(args.next().ok_or(Error::Identity)?);
-    if args.next().is_some() {
+    if args.next().is_some() || mode.to_str() != Some("--bootstrap") {
         return Err(Error::Identity);
     }
-    match mode.to_str().ok_or(Error::Identity)? {
-        "--source-replay" => {
-            let job: crate::replay::process::SourceJob =
-                crate::worker::read_config(&path, 2 * 1024 * 1024)?;
-            let catalog = crate::replay::process::resolve_catalog(&job)?;
-            let business = registration.source(job.source.state_schema)?;
-            crate::replay::process::run_source(
-                &job,
-                &crate::replay::application::ApplicationFactory {
-                    binary_digest: job.source.binary_digest,
-                    business,
-                }
-                .with_catalog(catalog),
-            )?;
-        }
-        "--bootstrap" => {
-            let config: crate::bootstrap::Bootstrap =
-                crate::worker::read_config(&path, crate::bootstrap::MAX_BOOTSTRAP_BYTES)?;
-            crate::catalog::validate_startup(&config)?;
-            let binding = config.factory.as_ref().ok_or(Error::NotReady)?;
-            binding.validate()?;
-            if binding.id != registration.id() {
-                return Err(Error::NotReady);
-            }
-            let target = target_identity(&config)?;
-            let bytes = tickwire_release::files::read_object(
-                &binding.configuration_file,
-                binding.configuration,
-            )?;
-            let factory = configure_bytes(registration, binding, &target, &bytes)?;
-            let strategy = factory.create()?;
-            // SAFETY: the caller supplies the qualified supervisor contract.
-            unsafe {
-                crate::worker::run(config, strategy)?;
-            }
-        }
-        _ => return Err(Error::Identity),
-    }
-    Ok(())
+    let config: Bootstrap = crate::worker::read_config(&path, MAX_BOOTSTRAP_BYTES)?;
+    config.validate()?;
+    crate::catalog::validate_startup(&config)?;
+    let binding = config.factory.as_ref().ok_or(Error::NotReady)?;
+    let target = TargetIdentity::from_bootstrap(&config)?;
+    let configured = configure_from_file(registration, binding, &target)?;
+    let strategy = configured.create()?;
+    crate::worker::run_qualified(config, strategy)
 }
 
 #[cfg(test)]

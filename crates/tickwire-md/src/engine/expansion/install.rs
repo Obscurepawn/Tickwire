@@ -93,11 +93,6 @@ impl Control {
             admissions: flight.next_admissions.clone(),
             files,
         };
-        if self.durable.is_some() {
-            flight.installation = Some(task);
-            self.persist(After::Applied, RecoveryPhase::Applied, runtime)
-        } else {
-            self.submit(Action::Install, task)
-        }
+        self.submit(runtime, Action::Install, task)
     }
 }

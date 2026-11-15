@@ -55,7 +55,7 @@ pub(super) fn poll(flight: &mut Flight, runtime: &mut Runtime) -> Result<()> {
         };
         let report = feed
             .client
-            .poll(&mut runtime.quota.endpoint.public(feed.binding), &mut sink)?;
+            .poll(&mut runtime.quota.permit(feed.binding), &mut sink)?;
         if let Some(error) = sink.error {
             return Err(error);
         }
@@ -72,7 +72,7 @@ pub(super) fn poll(flight: &mut Flight, runtime: &mut Runtime) -> Result<()> {
             };
             let report = event.client.poll(
                 public::PollBudget::default(),
-                &mut runtime.quota.endpoint.public(event.binding),
+                &mut runtime.quota.permit(event.binding),
                 &mut sink,
             )?;
             if let Some(error) = sink.error {

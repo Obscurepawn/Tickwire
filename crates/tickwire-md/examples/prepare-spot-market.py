@@ -59,9 +59,10 @@ def main():
         "resource": str(root / "resource.json"), "clock_generation": 1,
         "source_id": 1, "instrument_set_version": 1, "source": source,
         "catalog": {"path": str(catalog_path), "reference": f"artifact://demo/catalog/{args.venue}@sha256:{digest}"},
-        "server": {"socket": str(root / "md.sock"), "admission_directory": str(root / "admissions"),
-                   "control_directory": str(root / "control"), "control_stream": list(uuid.uuid4().bytes),
-                   "control_domain": list(uuid.uuid4().bytes), "control_writer_epoch": 1},
+        "server": {
+            "socket": str(root / "md.sock"),
+            "admission_directory": str(root / "admissions"),
+        },
     }
     write_json(root / "market.json", config)
     print(root / "market.json")

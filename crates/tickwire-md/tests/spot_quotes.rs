@@ -254,6 +254,7 @@ fn snapshot_and_ring_deliver_exact_bbo_then_invalidate_without_inventing_depth()
             (201, 3, 202)
         );
         // SAFETY: this fd and authenticated subscription belong to the bank above.
+        #[allow(unsafe_code)]
         let reader =
             unsafe { Subscriber::<64>::attach(reader_fd, bank_header, sub, baseline).unwrap() };
         let apply_pair =

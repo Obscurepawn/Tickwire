@@ -1,4 +1,7 @@
-use crate::{Result, config, invalid};
+use crate::{
+    Result, config, invalid,
+    request_store::{BoundedRequestStore, DEFAULT_MAX_JOIN_REQUESTS},
+};
 use serde::{Deserialize, Serialize};
 use std::{
     os::unix::fs::MetadataExt,
@@ -15,6 +18,7 @@ use tickwire_market_source::{
 };
 use tickwire_shm::SubscriptionKey;
 pub type TopicOwner = tickwire_market_publisher::TopicPublisher<32>;
+#[forbid(unsafe_code)]
 mod expansion;
 #[cfg(all(test, target_os = "linux"))]
 mod expansion_tests;
@@ -108,7 +112,7 @@ fn policy(a: &Admission) -> Policy {
 fn supervisor_session(a: &Admission, now: u64) -> Result<(Session, Session)> {
     // The private admission is the supervisor's authorization. These local
     // logical sessions submit that already-approved exact request to JoinOwner's
-    // durable idempotency reducer; they do not authenticate an unknown process.
+    // bounded in-memory idempotency store; they do not authenticate an unknown process.
     let mut client = a.client.endpoint.policy();
     client.local = a.supervisor.identity();
     client.peer = a.client.endpoint.peer.identity();
@@ -168,7 +172,7 @@ pub struct Server {
     admissions: PathBuf,
     identity: IdentityConfig,
     peers: Vec<Peer>,
-    requests: tickwire_control_store::DurableRequests<tickwire_journal::store::FileStore>,
+    requests: BoundedRequestStore,
     expansions: Vec<expansion::Expansion>,
 }
 fn requires_rebuild_on_remove(stage: Stage) -> bool {
@@ -178,16 +182,14 @@ fn requires_rebuild_on_remove(stage: Stage) -> bool {
     )
 }
 
-/// Authenticated subscriber admission and its durable control ledger.
+/// Authenticated subscriber admission and bounded in-memory JOIN idempotency configuration.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ServerConfig {
     pub socket: PathBuf,
     pub admission_directory: PathBuf,
-    pub control_directory: PathBuf,
-    pub control_stream: [u8; 16],
-    pub control_domain: [u8; 16],
-    pub control_writer_epoch: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_join_requests: Option<usize>,
 }
 
 impl Server {
@@ -197,10 +199,7 @@ impl Server {
             &ServerConfig {
                 socket: c.socket.clone(),
                 admission_directory: c.admission_directory.clone(),
-                control_directory: c.control_directory.clone(),
-                control_stream: c.control_stream,
-                control_domain: c.control_domain,
-                control_writer_epoch: c.control_writer_epoch,
+                max_join_requests: c.max_join_requests,
             },
         )
     }
@@ -213,21 +212,8 @@ impl Server {
         if !m.is_dir() || m.mode() & 0o077 != 0 {
             return Err(invalid("MD admission directory permissions"));
         }
-        let store = tickwire_journal::store::FileStore::open(&c.control_directory)?;
-        let cfg = tickwire_control_store::Config {
-            physical: tickwire_journal::Config::new(c.control_stream, c.control_domain),
-            writer_epoch: c.control_writer_epoch,
-            owner: identity.instance,
-            max_requests: 8192,
-            max_pending: 128,
-            max_response_bytes: 65536,
-            max_retained_bytes: 64 * 1024 * 1024,
-        };
-        let requests = if c.control_directory.join("MANIFEST.json").exists() {
-            tickwire_control_store::DurableRequests::recover(store, cfg, None)?
-        } else {
-            tickwire_control_store::DurableRequests::create(store, cfg)?
-        };
+        let requests =
+            BoundedRequestStore::new(c.max_join_requests.unwrap_or(DEFAULT_MAX_JOIN_REQUESTS))?;
         Ok(Self {
             listener: ControlListener::bind(&c.socket)?,
             admissions: c.admission_directory.clone(),
@@ -237,6 +223,11 @@ impl Server {
             expansions: Vec::new(),
         })
     }
+
+    pub fn request_store(&self) -> &BoundedRequestStore {
+        &self.requests
+    }
+
     pub fn poll(&mut self, topics: &mut [TopicOwner], now: u64) -> Result<()> {
         if self.peers.len() < 128 {
             match self.listener.try_accept() {
@@ -493,6 +484,7 @@ impl Server {
         let (owner, _) = topics[t].split();
         match p.stage {
             Stage::Cursor => {
+                #[allow(unsafe_code)]
                 // SAFETY: private supervisor admission bound this exact actual
                 // process and qualified build before its authenticated HELLO.
                 unsafe {
@@ -525,8 +517,6 @@ impl Server {
                             p.connection.send(&reply, &[], p.deadline)?;
                             return Ok(());
                         }
-                        // The cursor may have caught up while the failed attempt
-                        // was being checked. Activation still requires its real transition.
                         owner.join_ready(sub, session, packet.bytes(), now)?;
                     }
                     Err(error) => return Err(error.into()),
@@ -600,6 +590,7 @@ impl Server {
 }
 
 #[cfg(test)]
+#[forbid(unsafe_code)]
 mod admission_tests {
     use super::*;
     use tickwire_market_source::protocol::Endpoint;
@@ -723,6 +714,7 @@ mod admission_tests {
 }
 
 #[cfg(test)]
+#[forbid(unsafe_code)]
 mod retirement_tests {
     use super::*;
     #[test]

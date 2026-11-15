@@ -1,56 +1,22 @@
 # tickwire-strategy-sdk
 
-`tickwire-strategy-sdk` owns the worker-side `Strategy` trait, local `MarketReplica` / `MarketView` wrapper ([src/market.rs](src/market.rs)),
-durable command store and SPSC `IntentWriter` / `OutboundWriter` ([src/outbound.rs](src/outbound.rs)), ordered `ReportReceiver` / `ReportWriter`
-([src/reports.rs](src/reports.rs)), microstructure report views and pure-`Fixed` `FillWatermarkTracker` ([src/microstructure.rs](src/microstructure.rs)),
-checkpoints ([src/checkpoint.rs](src/checkpoint.rs), [src/account_checkpoint.rs](src/account_checkpoint.rs)),
-deterministic handover replay ([src/replay.rs](src/replay.rs), [src/restore.rs](src/restore.rs)), and worker event loop
-([src/worker.rs](src/worker.rs), [src/registered.rs](src/registered.rs)). Crate-wide `#![deny(unsafe_code)]` isolates SHM attachment inside
-`reports`, `runtime`, and `worker`; parent process supervision and risk admission live in `tickwire-strategy-host` and `tickwire-account`.
+`tickwire-strategy-sdk` owns the stateless worker-side `Strategy` trait, local `MarketReplica` / `MarketView` wrapper ([src/market.rs](src/market.rs)), Direct Order Entry (`DOP`) control client ([src/dop.rs](src/dop.rs)), inline 1,024-byte SPSC `IntentWriter` / `IntentReader` ([src/outbound.rs](src/outbound.rs)), zero-copy 512-byte `ReportReceiver` / `ReportWriter` ([src/reports.rs](src/reports.rs)), optional in-memory `ShmArenaWriter` / `ShmArenaReader` ([src/arena.rs](src/arena.rs)), pure-`Fixed` `FillWatermarkTracker` and rejection classifiers ([src/microstructure.rs](src/microstructure.rs)), economic catalog validation ([src/catalog.rs](src/catalog.rs)), cryptographic `FactoryBinding` startup parameter validation ([src/bootstrap.rs](src/bootstrap.rs), [src/registered.rs](src/registered.rs)), and hot-loop worker driver with CPU affinity isolation ([src/worker.rs](src/worker.rs)). Crate-wide `unsafe_code = "deny"` restricts `unsafe` strictly to audited shared-memory ring/arena attachment boundaries (`arena`, `outbound`, `reports`, `worker`), with `#![forbid(unsafe_code)]` enforced on `bootstrap`, `catalog`, `dop`, `market`, `microstructure`, `registered`, and `bin/tickwire-strategy-worker.rs` and all OS affinity/socket operations delegated to `tickwire-control-sys`.
 
 ## Invariants and Change Guidelines
 
-* **Command-before-ring publication, `ModifyRequest`, and self-describing IDs**: `IntentWriter` (`OutboundWriter` in [src/outbound.rs](src/outbound.rs))
-  commits the `CanonicalCommand` blob in `CommandStore` (`RuntimeBlobStore`: `InMemory`, `MmapAsync`, or
-  `LocalDurable`)—bound to its triggering input cursor, `now_ns` decision timestamp, and monotonic strategy output
-  sequence—before publishing the `IntentRecord` reference onto the shared-memory ring (`command_kind = 5`, `message_type = 517`, and
-  `recovery::order_count == 0` for `CommandBody::Modify`), validates positive price/quantity in `ModifyRequest`, and provides
-  `mint_self_describing_client_id` so outbound orders carry `SelfDescribingClientId` attribution on the venue wire.
-* **Microstructure report decoding and zero-double-counting `FillWatermarkTracker`**: `AccountReport::decode` ([src/reports.rs](src/reports.rs),
-  [src/microstructure.rs](src/microstructure.rs)) surfaces `ModifyObservation`, `ModifyRejection`, and classified `TerminalReason` values directly
-  from `CanonicalRecord` without string/CBOR re-parsing. `FillWatermarkTracker` uses checked `tickwire_risk::Fixed` arithmetic exclusively
-  (zero `f32`/`f64`) to reconcile early `ProjectedFill` / `OrderObservation` cumulative quantities with deduplicated `FillEvent` executions so
-  inventory skew never double-counts across arbitrary status/trade interleavings, while `Strategy::on_projected_fill` defaults to a no-op.
-* **Freshness, zero-copy market consumption, and `crc32` feature gate**: `MarketReplica::drain_recorded`
-  ([src/market.rs](src/market.rs)), legacy worker rings ([src/worker.rs](src/worker.rs)), and expansion rings
-  ([src/worker/expansion.rs](src/worker/expansion.rs)) consume `MarketStateRef` (`&MarketRecord` / `&MarketExactRecord`)
-  in place from `RecordBorrow::as_market_state` without 512-byte stack decodes. `MarketView` exposes borrowed local
-  replica state to `Strategy::on_market` only after JOIN baseline and catch-up records are journaled, rejecting stale
-  or degraded (`feed_state != 2`) feeds; ordered account execution updates arrive exclusively through `on_report`
-  ([src/reports.rs](src/reports.rs)). Optional `--features crc32` (`default = ["runtime"]` leaves `crc32` OFF) gates
-  checksum flag `0x08` and CRC32C computation on `IntentWriter` and `ReportWriter`.
-* **Deterministic replay and handover seals**: During migration or restart in [src/replay.rs](src/replay.rs), [src/restore.rs](src/restore.rs),
-  and [src/recovery.rs](src/recovery.rs), feed the original recorded inputs and decision timestamps rather than wall-clock reads, and verify
-  `HandoverSeal` checkpoint and account-report parity before live cutover.
-* **Non-world-writable config reads**: `worker::read_config` ([src/worker.rs](src/worker.rs)) opens bootstrap files with
-  `O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK` and rejects group/world-writable modes (`0o022`).
+* **Pure stateless SHM topology (zero local WAL, blob store, or file queue)**: Strategy workers hold zero local persistence across runs. Cold startup and reconnect authenticate over `DopSession` (`DopLogin` -> `DopEcho` + `OrsSessions`), adopt `next_order_seqnum = max(1, echo.next_source_order_seqnum)`, reset transport `msg_seqnum` to `1`, inspect authorized `MktSession` entries (`account_ref = 1..=255`, with `0` resolving to the strategy's first authorized account), maintain `DopHeartBeat` at `hb_interval_ms`, and send `DopLogout` on clean shutdown.
+* **Inline 1,024-byte `IntentRecord` encoding & `tick_mono_ns` propagation**: `OutboundIntent` and `IntentWriter` ([src/outbound.rs](src/outbound.rs)) encode `NewOrder`, `Cancel`, `CancelReplace`, `AmendKeepPriority`, `Modify` (`ModifyRequest`), `CancelAll`, and RFQ quote opcodes (`513..=525`) directly into 1,024-byte SHM ring slots with integer `price_ticks`/`qty_lots`, `TimeInForce::Rpi` (`tif_code::RPI = 6`), `tw1...` `SelfDescribingClientId`, and `tick_mono_ns` from `MarketView::tick_mono_ns()` for ORS `max_order_age_ns` (`23 µs` default) staleness checks. Optional `ShmArenaWriter` (`payload_kind = 2`) is used strictly in memory for oversize payloads (`<= 64 KiB`), never touching disk.
+* **Zero-copy 512-byte `ReportRecord` consumption & `FillKind` separation**: `ReportReceiver::poll_zero_copy` ([src/reports.rs](src/reports.rs)) validates and borrows `&ReportRecord` in place (`ReportRecord::from_aligned_bytes`) across all 13 report kinds (`FrontAck`, `Ack`, `Nack`, `CancelNack`, `Fill`, `Canceled`, `Modified`, `ModifyRejected`, `ExchRateLimit`, `OrsShutDown`, `OrsRestricted`, `RfqQuoteAck`, `RfqQuoteNack`). `Fill` (`773`) strictly distinguishes `FillKind::Execution`, `FillKind::FeeAmendment` (`amendment == true`, which never alters filled-quantity watermarks), and `FillKind::Projected` (`projected == true`); `FillWatermarkTracker` ([src/microstructure.rs](src/microstructure.rs)) reconciles them using pure integer/256-bit `Fixed` arithmetic (`0` floating-point instructions).
+* **CPU affinity isolation & trusted file reads (`tickwire-control-sys` + `std::fs`)**: `Bootstrap::validate` and `worker::validate_affinity` enforce `worker_cpu ∩ housekeeping_cpus == ∅` via `tickwire_control_sys::validate_cpu_isolation`. `worker::run_qualified` spawns `"strategy-cold"` onto `housekeeping_cpus` via `spawn_pinned_thread` *before* pinning the hot thread to `worker_cpu` via `pin_current_thread`, escaping any single-core `taskset` parent mask. `worker::read_trusted_bytes` rejects symlinks, verifies `(dev, ino)` continuity, and rejects group/world-writable permissions (`mode & 0o022 == 0`) using pure `std::fs`.
 
 ## Verification and Specifications
 
-* **Source and binaries**: [src/lib.rs](src/lib.rs) · [src/market.rs](src/market.rs) · [src/outbound.rs](src/outbound.rs) ·
-  [src/reports.rs](src/reports.rs) · [src/microstructure.rs](src/microstructure.rs) · [src/worker.rs](src/worker.rs) ·
-  [src/registered.rs](src/registered.rs) · [src/replay.rs](src/replay.rs) ·
-  [src/restore.rs](src/restore.rs) · [src/bin/tickwire-strategy-worker.rs](src/bin/tickwire-strategy-worker.rs)
-* **Integration tests**: [tests/source_replay.rs](tests/source_replay.rs) · [tests/microstructure_sdk.rs](tests/microstructure_sdk.rs)
-* **Specifications and models**: [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md) ·
-  [strategy-parameter-consumption.md](../../specs/implementation/strategy-parameter-consumption.md) ·
-  [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
-  [recovery-closure.md](../../specs/implementation/recovery-closure.md) ·
-  [worker_handover](../../tla/execution_models/worker_handover/ROADMAP.md) ·
-  [quote_delivery](../../tla/execution_models/quote_delivery/ROADMAP.md)
+* **Source and binaries**: [src/lib.rs](src/lib.rs) · [src/dop.rs](src/dop.rs) · [src/outbound.rs](src/outbound.rs) · [src/reports.rs](src/reports.rs) · [src/arena.rs](src/arena.rs) · [src/microstructure.rs](src/microstructure.rs) · [src/market.rs](src/market.rs) · [src/catalog.rs](src/catalog.rs) · [src/bootstrap.rs](src/bootstrap.rs) · [src/registered.rs](src/registered.rs) · [src/worker.rs](src/worker.rs) · [src/bin/tickwire-strategy-worker.rs](src/bin/tickwire-strategy-worker.rs)
+* **Integration tests**: [tests/microstructure_sdk.rs](tests/microstructure_sdk.rs)
+* **Specifications**: [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md) · [strategy-parameter-consumption.md](../../specs/implementation/strategy-parameter-consumption.md) · [join.md](../../specs/implementation/join.md) · [instrument-catalog.md](../../specs/implementation/instrument-catalog.md)
 
 ```sh
 cargo test --locked -p tickwire-strategy-sdk --all-targets
 cargo test --locked -p tickwire-strategy-sdk --doc
-./scripts/check-tla.sh worker_handover
+cargo clippy --locked -p tickwire-strategy-sdk --all-targets -- -D warnings
 ```

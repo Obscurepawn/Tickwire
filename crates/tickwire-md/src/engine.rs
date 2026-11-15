@@ -1,13 +1,13 @@
-//! Single MD process, independent bounded network owner per instrument.
+//! Single stateless MD process, independent bounded network owner per instrument,
+//! and optional `reactor_cpu` / `housekeeping_cpus` (`md-cold`) thread isolation.
 mod cold;
 #[cfg(test)]
 mod dense_tests;
 pub mod expansion;
 mod owners;
-mod restart_validation;
 mod tokens;
 use owners::{EventFeed, Feed};
-type Quota = tickwire_binance_quota::bootstrap::Built<tickwire_quota::files::FileQuotaStore>;
+type Quota = crate::quota::PublicQuota;
 use crate::{
     Result,
     config::{self, Config},
@@ -17,6 +17,7 @@ use crate::{
 use std::{collections::BTreeSet, time::Duration};
 use tickwire_binance_public as public;
 use tickwire_clock_sys::SystemClock;
+use tickwire_control_sys::{CpuSet, pin_current_thread, validate_cpu_isolation};
 use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_join::{JoinOwner, TopicRegistry};
 use tickwire_market_publisher::{Fault, FaultSink, InstrumentConfig, InstrumentSlot};
@@ -91,7 +92,7 @@ fn topic_registry(
     let mut catalog = None;
     for f in &c.feeds {
         if f.topics.contains(&h.topic_id) {
-            let (source, _) = (f.source.build(), ());
+            let source = f.source.build();
             let instrument = f.instrument.build(source)?;
             if instrument.catalog_version != h.catalog_version
                 || catalog.is_some_and(|x| x != instrument.catalog_hash)
@@ -152,8 +153,8 @@ fn topic_registry(
         specs,
     ))
 }
-/// Runs public network owners and authenticated JOIN service until a fatal local
-/// configuration/storage/clock error. Network reconnects remain per instrument.
+/// Runs public network owners and authenticated JOIN service in memory with optional
+/// hot `reactor_cpu` and cold `housekeeping_cpus` (`md-cold`) thread affinity isolation.
 pub struct Runtime {
     config: Config,
     index: config::FeedIndex,
@@ -171,6 +172,7 @@ pub struct Runtime {
     first: usize,
     tokens: tokens::Tokens,
     revision: u64,
+    cold: cold::Worker,
     expansion: Option<expansion::Control>,
 }
 #[derive(Clone, Copy, Debug)]
@@ -193,6 +195,10 @@ fn canonical_bank(mut header: ResourceHeader) -> Result<ResourceHeader> {
 }
 impl Runtime {
     pub fn new(c: Config) -> Result<Self> {
+        validate_cpu_isolation(
+            &[("reactor_cpu", c.reactor_cpu)],
+            c.housekeeping_cpus.as_ref(),
+        )?;
         if c.feeds.is_empty()
             || c.feeds.len() > 32
             || c.topics.is_empty()
@@ -202,6 +208,9 @@ impl Runtime {
         {
             return Err(invalid("MD owner bounds"));
         }
+        // Spawn `md-cold` onto `housekeeping_cpus` BEFORE executing cold construction tasks
+        // and BEFORE pinning the current reactor thread to `reactor_cpu`.
+        let mut cold = cold::Worker::new(c.housekeeping_cpus.as_ref())?;
         let banks = c
             .topics
             .iter()
@@ -212,26 +221,18 @@ impl Runtime {
                 )?)?)
             })
             .collect::<Result<Vec<_>>>()?;
-        let (expansion, index, catalogs) = if let Some(control) = c.expansion.clone() {
-            let (control, index, catalogs) = expansion::Control::new(control, &c, &banks)?;
-            (Some(control), index, catalogs)
+        let index = config::FeedIndex::new(&c.feeds)?;
+        let catalogs = crate::catalogs::Catalogs::load(&c)?;
+        let expansion = if let Some(control) = c.expansion.clone() {
+            Some(expansion::Control::new(control, &c)?)
         } else {
-            (
-                None,
-                config::FeedIndex::new(&c.feeds)?,
-                crate::catalogs::Catalogs::load(&c)?,
-            )
+            None
         };
         let revision = c.expansion.as_ref().map_or(1, |c| c.initial_revision);
         let domain = tickwire_clock::ClockDomain::new(c.identity.host_boot, c.clock_generation)
             .map_err(|e| invalid(&format!("clock {e:?}")))?;
         let mut clock = SystemClock::new(domain)?;
-        let store = tickwire_quota::files::FileQuotaStore::open(&c.quota_directory)
-            .map_err(|e| invalid(&format!("quota store {e:?}")))?;
-        let mut quota = c
-            .quota
-            .build(store, clock.sample()?.monotonic)
-            .map_err(|e| invalid(&format!("quota {e:?}")))?;
+        let mut quota = c.quota.build(domain, clock.sample()?.monotonic)?;
         let mut topics = Vec::new();
         let mut topic_ids = BTreeSet::new();
         for (t, h) in c.topics.iter().zip(banks) {
@@ -262,10 +263,9 @@ impl Runtime {
         }
         let poll = public::mio::Poll::new()?;
         let events = public::mio::Events::with_capacity(256);
-        let mut feeds = Vec::new();
-        let mut event_feeds = Vec::new();
         let mut identities = BTreeSet::new();
         let mut tokens = tokens::Tokens::default();
+        let mut reserved_tokens = Vec::with_capacity(c.feeds.len());
         for f in &c.feeds {
             if !identities.insert(f.owner_id)
                 || f.topics.is_empty()
@@ -284,14 +284,30 @@ impl Runtime {
                     return Err(invalid("duplicate event owner/kind/source"));
                 }
             }
-            let reserved = owners::Reserved::new(&mut tokens, f.events.len())?;
-            let mut built = owners::build(f, domain, &index, reserved)?;
+            reserved_tokens.push(owners::Reserved::new(&mut tokens, f.events.len())?);
+        }
+        let cold_index = config::FeedIndex::restore(&c.feeds, index.instrument_ids())?;
+        let cold::Output::Built(built_feeds) = cold.run_blocking(cold::Task::Build {
+            feeds: c.feeds.clone(),
+            index: cold_index,
+            domain,
+            tokens: reserved_tokens,
+        })?
+        else {
+            return Err(invalid("unexpected md-cold startup output"));
+        };
+        let mut feeds = Vec::with_capacity(built_feeds.len());
+        let mut event_feeds = Vec::new();
+        for (f, mut built) in c.feeds.iter().zip(built_feeds) {
             built.attach(f, &mut topics)?;
             built.start(poll.registry(), &mut quota)?;
             feeds.push(built.feed);
             event_feeds.extend(built.events);
         }
         let server = Server::new(&c)?;
+        if let Some(cpu) = c.reactor_cpu {
+            pin_current_thread(&CpuSet::single(cpu)?)?;
+        }
         // Keep old mapped owners alive: outstanding guards/cursors may still refer
         // to them. Explicit control supplies each successor; never recycle in place.
         let retired: Vec<Vec<JoinOwner<32>>> = (0..topics.len()).map(|_| Vec::new()).collect();
@@ -312,9 +328,16 @@ impl Runtime {
             first: 0,
             tokens,
             revision,
+            cold,
             expansion,
         })
     }
+
+    /// Returns the Linux kernel thread ID (`tid`) of the background `md-cold` worker.
+    pub fn cold_tid(&self) -> u32 {
+        self.cold.tid()
+    }
+
     /// Drive one round over network owners, authenticated JOIN, and expansion control.
     pub fn poll_once(&mut self) -> Result<PollReport> {
         let mut report = self.poll_live()?;
@@ -343,7 +366,6 @@ impl Runtime {
             server,
             retired,
             first,
-            expansion,
             ..
         } = self;
 
@@ -358,9 +380,7 @@ impl Runtime {
                 instrument: f.instrument,
                 clock,
             };
-            let r = f
-                .client
-                .poll(&mut quota.endpoint.public(f.binding), &mut sink)?;
+            let r = f.client.poll(&mut quota.permit(f.binding), &mut sink)?;
             runnable |= r.runnable;
             if let Some(t) = r.next_deadline_ns {
                 next = Some(next.map_or(t, |old| old.min(t)));
@@ -380,7 +400,7 @@ impl Runtime {
             };
             let report = f.client.poll(
                 public::PollBudget::default(),
-                &mut quota.endpoint.public(f.binding),
+                &mut quota.permit(f.binding),
                 &mut sink,
             )?;
             runnable |= report.runnable;
@@ -420,11 +440,6 @@ impl Runtime {
                             .ok_or_else(|| invalid("sequence exhausted"))?;
                         h.descriptor_hash = [0; 32];
                         let h = canonical_bank(h)?;
-                        if let Some(control) = expansion.as_mut()
-                            && !control.reserve_bank(i, &h)?
-                        {
-                            continue;
-                        }
                         let registry = topics[i].split().0.registry().clone();
                         let replacement = JoinOwner::new(Publisher::<32>::create(h)?, registry)?;
                         retired[i].push(topics[i].replace_bank(replacement, now)?);

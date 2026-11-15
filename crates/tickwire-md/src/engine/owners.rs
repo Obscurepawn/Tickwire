@@ -1,4 +1,5 @@
 use super::*;
+use crate::quota::PublicBinding;
 use tokens::Tokens;
 type Spot = public::PublicDepthClient<public::BinanceSpot, SystemClock, LEVELS, UPDATES, BUFFER>;
 type Usdm = public::PublicDepthClient<public::BinanceUsdM, SystemClock, LEVELS, UPDATES, BUFFER>;
@@ -50,7 +51,7 @@ impl Client {
 pub(super) struct Feed {
     pub(super) client: Client,
     pub(super) tokens: public::IoTokens,
-    pub(super) binding: tickwire_binance_quota::PublicBinding,
+    pub(super) binding: PublicBinding,
     pub(super) instrument: u64,
     pub(super) topics: Vec<(usize, InstrumentSlot)>,
 }
@@ -59,7 +60,7 @@ pub(super) struct EventFeed {
     pub(super) token: public::mio::Token,
     pub(super) kind: public::EventKind,
     pub(super) source: u64,
-    pub(super) binding: tickwire_binance_quota::PublicBinding,
+    pub(super) binding: PublicBinding,
     pub(super) instrument: u64,
     pub(super) topics: Vec<(usize, InstrumentSlot)>,
 }
@@ -91,14 +92,12 @@ impl Built {
     ) -> Result<()> {
         self.feed
             .client
-            .start(&mut quota.endpoint.public(self.feed.binding))?;
+            .start(&mut quota.permit(self.feed.binding))?;
         self.feed
             .client
             .register(registry, self.feed.tokens, false)?;
         for event in &mut self.events {
-            event
-                .client
-                .start(&mut quota.endpoint.public(event.binding))?;
+            event.client.start(&mut quota.permit(event.binding))?;
             event.client.register(registry, event.token)?;
         }
         Ok(())
@@ -146,7 +145,7 @@ pub(super) fn build(
     tokens: Reserved,
 ) -> Result<Built> {
     let (config, network) = f.build(domain, index)?;
-    let binding = tickwire_binance_quota::PublicBinding {
+    let binding = PublicBinding {
         owner_id: f.owner_id,
         source: f.source.build(),
         domain,
@@ -181,7 +180,7 @@ pub(super) fn build(
             token,
             kind: event.kind.kind(),
             source: event.stream_id,
-            binding: tickwire_binance_quota::PublicBinding {
+            binding: PublicBinding {
                 owner_id: event.owner_id,
                 source: f.source.build(),
                 domain,

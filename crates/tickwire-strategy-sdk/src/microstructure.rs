@@ -1,17 +1,20 @@
-//! Strategy-side execution report views, terminal-reason classification, and monotonic
-//! pure-`Fixed` fill watermark tracking (`human-docs/3.5` & `3.9`).
+//! Strategy-side terminal-reason classification and monotonic pure-`Fixed` fill watermark
+//! tracking across `Execution`, `Projected`, and post-trade `FeeAmendment` reports.
 //!
 //! All watermark and incremental price calculations operate strictly over checked
 //! `tickwire_risk::Fixed` integers with zero floating-point arithmetic and zero `unsafe` code.
+#![forbid(unsafe_code)]
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
-use tickwire_account::{OrderKey, ProjectedFill, ProjectedPriceInput, RecoveryRecord};
-use tickwire_account_codec::{CanonicalBaseline, CanonicalRecord};
+use tickwire_account::{OrderKey, ProjectedFill, ProjectedPriceInput};
 use tickwire_risk::{Fixed, RiskError, Rounding};
 use tickwire_venue as v;
 
-use crate::{Error, Result, reports::AccountReport};
+use crate::{
+    Error, Result,
+    reports::{ExecutionReport, ExecutionReportKind, FillFee, FillKind, FillReport},
+};
 
 const MAX_FIXED_SCALE: u8 = 38;
 
@@ -55,335 +58,6 @@ impl<'a> OrderClassificationHints<'a> {
     pub const fn with_stp_mode_or_reason(mut self, token: &'a str) -> Self {
         self.stp_mode_or_reason = Some(token);
         self
-    }
-}
-
-/// Zero-allocation borrowed strategy view over an [`AccountReport`] or [`CanonicalRecord`].
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DecodedReport<'a> {
-    Baseline(&'a CanonicalBaseline),
-    Admitted {
-        position: u64,
-        command: &'a v::CanonicalCommand,
-        evaluated_at: u64,
-    },
-    Aborted {
-        position: u64,
-        intent: v::IntentKey,
-        command_digest: v::Hash,
-        reason: v::TerminalReason,
-    },
-    Modified {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        observation: &'a v::ModifyObservation,
-        terminal_reason: Option<v::TerminalReason>,
-    },
-    ModifyRejected {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        rejection: &'a v::ModifyRejection,
-    },
-    Order {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        observation: &'a v::OrderObservation,
-        terminal_reason: Option<v::TerminalReason>,
-    },
-    Fill {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        fill: &'a v::FillEvent,
-        terminal_reason: Option<v::TerminalReason>,
-    },
-    OrderRejected {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        client_id: Option<&'a v::ClientId>,
-        venue_code: &'a str,
-        message: &'a str,
-        reason: v::TerminalReason,
-    },
-    Amendment {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        observation: &'a v::AmendmentObservation,
-    },
-    AmendmentRejected {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        rejection: &'a v::AmendmentRejection,
-        reason: v::TerminalReason,
-    },
-    Fee {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        order: &'a v::OrderIdentity,
-        fee_id: &'a str,
-        deltas: &'a [v::AssetDelta],
-    },
-    Structure {
-        position: u64,
-        identity: &'a v::EventIdentity,
-        observation: &'a v::StructureObservation,
-    },
-    Administrative {
-        position: u64,
-        record: &'a RecoveryRecord,
-    },
-}
-
-impl<'a> DecodedReport<'a> {
-    #[inline]
-    pub fn modified(&self) -> Option<&'a v::ModifyObservation> {
-        match self {
-            Self::Modified { observation, .. } => Some(observation),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn modify_rejected(&self) -> Option<&'a v::ModifyRejection> {
-        match self {
-            Self::ModifyRejected { rejection, .. } => Some(rejection),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn order_observation(&self) -> Option<&'a v::OrderObservation> {
-        match self {
-            Self::Order { observation, .. } => Some(observation),
-            Self::Fill { fill, .. } => Some(&fill.observation),
-            _ => None,
-        }
-    }
-
-    #[inline]
-    pub fn fill_event(&self) -> Option<&'a v::FillEvent> {
-        match self {
-            Self::Fill { fill, .. } => Some(fill),
-            _ => None,
-        }
-    }
-
-    /// Classified [`v::TerminalReason`] carried or implied by this report event.
-    ///
-    /// For [`Self::ModifyRejected`] and [`Self::AmendmentRejected`], this returns the refusal
-    /// reason for the management request itself; use [`Self::is_order_lifecycle_terminal`] to
-    /// check whether the resting order itself transitioned to a terminal state.
-    #[inline]
-    pub fn terminal_reason(&self) -> Option<v::TerminalReason> {
-        match self {
-            Self::Aborted { reason, .. }
-            | Self::OrderRejected { reason, .. }
-            | Self::AmendmentRejected { reason, .. } => Some(*reason),
-            Self::ModifyRejected { rejection, .. } => Some(rejection.reason),
-            Self::Modified {
-                terminal_reason, ..
-            }
-            | Self::Order {
-                terminal_reason, ..
-            }
-            | Self::Fill {
-                terminal_reason, ..
-            } => *terminal_reason,
-            Self::Baseline(_)
-            | Self::Admitted { .. }
-            | Self::Amendment { .. }
-            | Self::Fee { .. }
-            | Self::Structure { .. }
-            | Self::Administrative { .. } => None,
-        }
-    }
-
-    /// Returns `true` when this report closes an order's resting lifecycle (for example,
-    /// `Filled`, `UserCanceled`, `Expired`, `OrderRejected`, or `Modified` down to cumulative fill).
-    #[inline]
-    pub fn is_order_lifecycle_terminal(&self) -> bool {
-        matches!(
-            self,
-            Self::Order {
-                terminal_reason: Some(_),
-                ..
-            } | Self::Fill {
-                terminal_reason: Some(_),
-                ..
-            } | Self::Modified {
-                terminal_reason: Some(_),
-                ..
-            } | Self::OrderRejected { .. }
-        )
-    }
-}
-
-/// Decode an [`AccountReport`] into a typed [`DecodedReport`] using default classification hints.
-#[inline]
-pub fn decode_report(report: &AccountReport) -> DecodedReport<'_> {
-    decode_report_with_hints(report, OrderClassificationHints::default())
-}
-
-/// Decode an [`AccountReport`] into a typed [`DecodedReport`] with explicit order hints.
-pub fn decode_report_with_hints<'a>(
-    report: &'a AccountReport,
-    hints: OrderClassificationHints<'_>,
-) -> DecodedReport<'a> {
-    match report {
-        AccountReport::Baseline(baseline) => DecodedReport::Baseline(baseline),
-        AccountReport::Record { position, record } => {
-            decode_recovery_record_with_hints(*position, record.record(), hints)
-        }
-    }
-}
-
-/// Decode a [`CanonicalRecord`] directly into a [`DecodedReport`].
-#[inline]
-pub fn decode_canonical_record(record: &CanonicalRecord) -> DecodedReport<'_> {
-    decode_canonical_record_with_hints(record, OrderClassificationHints::default())
-}
-
-/// Decode a [`CanonicalRecord`] directly into a [`DecodedReport`] with explicit order hints.
-#[inline]
-pub fn decode_canonical_record_with_hints<'a>(
-    record: &'a CanonicalRecord,
-    hints: OrderClassificationHints<'_>,
-) -> DecodedReport<'a> {
-    decode_recovery_record_with_hints(record.sequence(), record.record(), hints)
-}
-
-/// Decode a [`RecoveryRecord`] directly into a [`DecodedReport`].
-#[inline]
-pub fn decode_recovery_record(position: u64, record: &RecoveryRecord) -> DecodedReport<'_> {
-    decode_recovery_record_with_hints(position, record, OrderClassificationHints::default())
-}
-
-/// Decode a [`RecoveryRecord`] with explicit order hints.
-pub fn decode_recovery_record_with_hints<'a>(
-    position: u64,
-    record: &'a RecoveryRecord,
-    hints: OrderClassificationHints<'_>,
-) -> DecodedReport<'a> {
-    match record {
-        RecoveryRecord::Admit {
-            command,
-            evaluated_at,
-            ..
-        } => DecodedReport::Admitted {
-            position,
-            command,
-            evaluated_at: *evaluated_at,
-        },
-        RecoveryRecord::Aborted {
-            intent,
-            command_digest,
-        } => DecodedReport::Aborted {
-            position,
-            intent: *intent,
-            command_digest: *command_digest,
-            reason: v::TerminalReason::AbortedBeforeSend,
-        },
-        RecoveryRecord::VenueEvent(ev) | RecoveryRecord::IngressEvent { event: ev, .. } => {
-            decode_venue_event(position, ev.event(), hints)
-        }
-        other => DecodedReport::Administrative {
-            position,
-            record: other,
-        },
-    }
-}
-
-fn decode_venue_event<'a>(
-    position: u64,
-    event: &'a v::VenueEvent,
-    hints: OrderClassificationHints<'_>,
-) -> DecodedReport<'a> {
-    let identity = &event.identity;
-    match &event.body {
-        v::VenueEventBody::Modified(observation) => {
-            let terminal_reason = (observation.cumulative_filled == Some(observation.new_quantity))
-                .then_some(v::TerminalReason::Filled);
-            DecodedReport::Modified {
-                position,
-                identity,
-                observation,
-                terminal_reason,
-            }
-        }
-        v::VenueEventBody::ModifyRejected(rejection) => DecodedReport::ModifyRejected {
-            position,
-            identity,
-            rejection,
-        },
-        v::VenueEventBody::Order(observation) => {
-            let terminal_reason = classify_order_status(identity.venue, observation.status, hints);
-            DecodedReport::Order {
-                position,
-                identity,
-                observation,
-                terminal_reason,
-            }
-        }
-        v::VenueEventBody::Fill(fill) => {
-            let terminal_reason =
-                classify_order_status(identity.venue, fill.observation.status, hints);
-            DecodedReport::Fill {
-                position,
-                identity,
-                fill,
-                terminal_reason,
-            }
-        }
-        v::VenueEventBody::Rejected {
-            client_id,
-            venue_code,
-            message,
-        } => {
-            let reason = classify_venue_rejection(
-                identity.venue,
-                venue_code.as_str(),
-                message.as_str(),
-                hints,
-            );
-            DecodedReport::OrderRejected {
-                position,
-                identity,
-                client_id: client_id.as_ref(),
-                venue_code: venue_code.as_str(),
-                message: message.as_str(),
-                reason,
-            }
-        }
-        v::VenueEventBody::Amendment(observation) => DecodedReport::Amendment {
-            position,
-            identity,
-            observation,
-        },
-        v::VenueEventBody::AmendmentRejected(rejection) => {
-            let reason =
-                classify_venue_rejection(identity.venue, rejection.venue_code.as_str(), "", hints);
-            DecodedReport::AmendmentRejected {
-                position,
-                identity,
-                rejection,
-                reason,
-            }
-        }
-        v::VenueEventBody::Fee {
-            order,
-            fee_id,
-            deltas,
-        } => DecodedReport::Fee {
-            position,
-            identity,
-            order,
-            fee_id: fee_id.as_str(),
-            deltas: deltas.as_slice(),
-        },
-        v::VenueEventBody::Structure(observation) => DecodedReport::Structure {
-            position,
-            identity,
-            observation,
-        },
     }
 }
 
@@ -615,6 +289,27 @@ impl SettledFillDelta {
     }
 }
 
+/// Post-trade fee/rebate adjustment observed via `FillKind::FeeAmendment` (`amendment == true`);
+/// fill quantity watermarks remain unchanged.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeeAmendmentOutcome {
+    pub exec_ref: u64,
+    pub trade_id: Option<v::VenueTradeId>,
+    pub fee: FillFee,
+    pub confirmed_filled: Fixed,
+    pub projected_filled: Fixed,
+}
+
+/// Unified outcome returned by [`FillWatermarkTracker::on_fill_report`] and
+/// [`FillWatermarkTracker::on_execution_report`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReportFillOutcome {
+    Execution(SettledFillDelta),
+    Projected(Option<EffectiveFillDelta>),
+    FeeAmendment(FeeAmendmentOutcome),
+    NonFill(Option<EffectiveFillDelta>),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct TradeDedupKey {
     order: OrderKey,
@@ -638,12 +333,12 @@ struct OrderWatermarkEntry {
     retired: bool,
 }
 
-/// Bounded, pure-`Fixed` strategy-side fill watermark tracker (`human-docs/3.5` & `3.9`).
+/// Bounded, pure-`Fixed` strategy-side fill watermark tracker.
 ///
-/// Reconciles early volatile cumulative-quantity observations (`ProjectedFill`,
-/// `OrderObservation`, or `Fixed` cumulative quantities) with authoritative deduplicated
-/// `FillEvent` executions so market-making quote skew reacts on the earliest signal with
-/// **zero double-counting** when trade executions subsequently settle.
+/// Reconciles early volatile cumulative-quantity observations (`FillKind::Projected`,
+/// `ProjectedFill`, `OrderObservation`, or `Fixed` cumulative quantities) with authoritative
+/// deduplicated `FillKind::Execution` fills while keeping post-trade `FillKind::FeeAmendment`
+/// fee/rebate updates strictly decoupled from quantity watermarks (`0` double-counting).
 pub struct FillWatermarkTracker {
     max_orders: usize,
     max_trades: usize,
@@ -726,7 +421,7 @@ impl FillWatermarkTracker {
         Ok(())
     }
 
-    /// Sum of deduplicated settled [`v::FillEvent`] quantities for `order`.
+    /// Sum of deduplicated settled `Execution` fill quantities for `order`.
     #[inline]
     pub fn confirmed_filled(&self, order: &OrderKey) -> Option<Fixed> {
         let idx = *self.index.get(order)?;
@@ -741,7 +436,7 @@ impl FillWatermarkTracker {
         e.projected_cum_qty.max(e.confirmed_filled).ok()
     }
 
-    /// Currently projected quantity not yet backed by settled [`v::FillEvent`]s
+    /// Currently projected quantity not yet backed by settled `Execution` fills
     /// (`projected_filled - confirmed_filled >= 0`).
     #[inline]
     pub fn unsettled_projected(&self, order: &OrderKey) -> Option<Fixed> {
@@ -787,6 +482,122 @@ impl FillWatermarkTracker {
         }
         self.purge_order_trades(&evicted.order);
         true
+    }
+
+    /// Feeds a decoded SHM [`FillReport`] (`Execution`, `Projected`, or `FeeAmendment`) into the
+    /// watermark tracker using exact integer lot/tick scaling.
+    pub fn on_fill_report(
+        &mut self,
+        order: &OrderKey,
+        fill: &FillReport,
+        lot_step: v::Decimal,
+        price_tick: v::Decimal,
+        base_scale: u8,
+        price_scale: u8,
+    ) -> Result<ReportFillOutcome> {
+        match fill.kind {
+            FillKind::FeeAmendment => {
+                let fee = fill.fee.ok_or(Error::Input)?;
+                let idx = self.ensure_entry(order, base_scale, price_scale, None)?;
+                let entry = &self.entries[idx];
+                let projected_filled = entry.projected_cum_qty.max(entry.confirmed_filled)?;
+                Ok(ReportFillOutcome::FeeAmendment(FeeAmendmentOutcome {
+                    exec_ref: fill.exec_ref,
+                    trade_id: fill.trade_id.clone(),
+                    fee,
+                    confirmed_filled: entry.confirmed_filled,
+                    projected_filled,
+                }))
+            }
+            FillKind::Projected => {
+                let lots = fill.projected_qty_lots.max(fill.cumulative_qty_lots);
+                if lots < 0 {
+                    return Err(Error::Risk(RiskError::InvalidInput));
+                }
+                let cum_qty = lots_to_fixed_exact(lots, lot_step, base_scale)?;
+                let est_px = if fill.last_price_ticks > 0 {
+                    Some(lots_to_fixed_exact(
+                        fill.last_price_ticks,
+                        price_tick,
+                        price_scale,
+                    )?)
+                } else {
+                    None
+                };
+                let delta = self.on_cumulative_quantity(
+                    order,
+                    cum_qty,
+                    ProjectedPriceInput::LimitFallback,
+                    est_px,
+                    price_scale,
+                )?;
+                Ok(ReportFillOutcome::Projected(delta))
+            }
+            FillKind::Execution => {
+                if fill.last_qty_lots <= 0 || fill.last_price_ticks <= 0 {
+                    return Err(Error::Risk(RiskError::InvalidInput));
+                }
+                let last_qty = lots_to_fixed_exact(fill.last_qty_lots, lot_step, base_scale)?;
+                let last_px = lots_to_fixed_exact(fill.last_price_ticks, price_tick, price_scale)?;
+                let tid = fill.trade_id.as_ref().map(v::VenueTradeId::as_str);
+                let settled = self.on_fill_fixed(order, tid, last_qty, last_px)?;
+                Ok(ReportFillOutcome::Execution(settled))
+            }
+        }
+    }
+
+    /// Feeds an inbound SHM [`ExecutionReport`] into the tracker, handling `Fill` (`Execution`,
+    /// `Projected`, `FeeAmendment`), cumulative status advancements on `Ack`/`Modified`/`Canceled`,
+    /// and automatic slot retirement on terminal lifecycle states.
+    pub fn on_execution_report(
+        &mut self,
+        order: &OrderKey,
+        report: &ExecutionReport,
+        lot_step: v::Decimal,
+        price_tick: v::Decimal,
+        base_scale: u8,
+        price_scale: u8,
+    ) -> Result<ReportFillOutcome> {
+        let outcome = match &report.kind {
+            ExecutionReportKind::Fill(fill) => {
+                self.on_fill_report(order, fill, lot_step, price_tick, base_scale, price_scale)?
+            }
+            ExecutionReportKind::Ack
+            | ExecutionReportKind::Modified
+            | ExecutionReportKind::Canceled => {
+                let limit_px = if report.price_ticks > 0 {
+                    Some(lots_to_fixed_exact(
+                        report.price_ticks,
+                        price_tick,
+                        price_scale,
+                    )?)
+                } else {
+                    None
+                };
+                let cum_lots = report.projected_qty_lots.max(report.cumulative_qty_lots);
+                if cum_lots > 0 {
+                    let cum_qty = lots_to_fixed_exact(cum_lots, lot_step, base_scale)?;
+                    let delta = self.on_cumulative_quantity(
+                        order,
+                        cum_qty,
+                        ProjectedPriceInput::LimitFallback,
+                        limit_px,
+                        price_scale,
+                    )?;
+                    ReportFillOutcome::NonFill(delta)
+                } else {
+                    if limit_px.is_some() {
+                        self.ensure_entry(order, base_scale, price_scale, limit_px)?;
+                    }
+                    ReportFillOutcome::NonFill(None)
+                }
+            }
+            _ => ReportFillOutcome::NonFill(None),
+        };
+        if report.is_order_lifecycle_terminal() {
+            self.mark_retired(order);
+        }
+        Ok(outcome)
     }
 
     /// Feeds an [`Account::on_cum_qty`](tickwire_account::Account::on_cum_qty) [`ProjectedFill`]
@@ -906,7 +717,6 @@ impl FillWatermarkTracker {
             entry.limit_price = Some(px);
         }
 
-        // Stale out-of-order cumulative status guard (`human-docs/3.5`).
         if cum_qty.atoms() < entry.exch_cum_qty.atoms() {
             return Ok(None);
         }
@@ -1128,8 +938,18 @@ impl FillWatermarkTracker {
     }
 }
 
+fn lots_to_fixed_exact(units: i64, step: v::Decimal, target_scale: u8) -> Result<Fixed> {
+    if !step.is_positive() {
+        return Err(Error::Risk(RiskError::InvalidInput));
+    }
+    let coeff = i128::from(units)
+        .checked_mul(step.coefficient())
+        .ok_or(Error::Risk(RiskError::ArithmeticOverflow))?;
+    let dec = v::Decimal::new(coeff, step.exponent())?;
+    decimal_to_fixed_exact(dec, target_scale)
+}
+
 /// Converts a [`v::Decimal`] to [`Fixed`] at `target_scale` without loss of precision.
-/// Rejects fractional precision finer than `target_scale`.
 pub fn decimal_to_fixed_exact(value: v::Decimal, target_scale: u8) -> Result<Fixed> {
     if target_scale > MAX_FIXED_SCALE {
         return Err(Error::Risk(RiskError::InvalidScale));

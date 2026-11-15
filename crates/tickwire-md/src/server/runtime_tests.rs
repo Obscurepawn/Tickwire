@@ -4,8 +4,6 @@ use tickwire_market_source::{FeedObservation, Invalidation, MarketSink, MarketSo
 mod catalog;
 mod fixture;
 mod network;
-mod restart;
-mod restart_failure;
 use fixture::Fixture;
 
 #[test]
@@ -265,9 +263,10 @@ fn effective_write_failure_after_commit_keeps_new_bank_closed_and_has_no_success
     rejected.bank_header = wire_bytes(&f.bank()).unwrap();
     // SAFETY: this is the same owned qualified child and exact trusted successor as above;
     // the Server must reject its admission while the post-cut failure remains latched.
-    assert!(
-        unsafe { tickwire_market_source::Client::connect(&rejected, &mut || Ok(f.now())) }.is_err()
-    );
+    #[allow(unsafe_code)]
+    let rejected_result =
+        unsafe { tickwire_market_source::Client::connect(&rejected, &mut || Ok(f.now())) };
+    assert!(rejected_result.is_err());
     f.stop();
 }
 

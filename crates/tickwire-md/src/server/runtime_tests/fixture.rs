@@ -21,19 +21,9 @@ pub struct Fixture {
 }
 impl Fixture {
     pub fn new() -> Self {
-        Self::with_recovery(false, false)
-    }
-    pub fn new_with_recovery() -> Self {
-        Self::with_recovery(true, false)
-    }
-    pub fn new_with_recovery_paused_trade() -> Self {
-        Self::with_recovery(true, true)
-    }
-    fn with_recovery(recovery: bool, paused_trade: bool) -> Self {
-        Self::configured(recovery, paused_trade, |_, _, _| {}, true)
+        Self::configured(false, |_, _, _| {}, true)
     }
     pub(super) fn configured(
-        recovery: bool,
         paused_trade: bool,
         setup: impl FnOnce(&Path, &mut config::Config, &mut config::Feed),
         wait_ready: bool,
@@ -50,37 +40,11 @@ impl Fixture {
         )
         .unwrap();
         let now = clock.sample().unwrap().monotonic.nanos();
-        let until = now + 120_000_000_000;
-        config.quota_directory = path.join("quota");
-        config.control_directory = path.join("journal");
         config.admission_directory = path.join("admissions");
         config.socket = path.join("market.sock");
         for dir in [&config.admission_directory, &path.join("consumers")] {
             fs::create_dir(dir).unwrap();
             fs::set_permissions(dir, fs::Permissions::from_mode(0o700)).unwrap();
-        }
-        config.quota.consumer_lease_until_ns = until;
-        config.quota.policy_starts_ns = now;
-        config.quota.policy_ends_ns = until;
-        for window in &mut config.quota.windows {
-            window.starts_ns = now;
-            window.ends_ns = until;
-        }
-        for grant in &mut config.quota.grants {
-            grant.expires_ns = until;
-        }
-        for rule in &mut config.quota.rules {
-            if rule.api_weight == 250 {
-                rule.api_weight = 5;
-                if recovery {
-                    // These feeds request limit=5: charge that same actual
-                    // snapshot weight, leaving old grants fully retained.
-                    for cost in &mut rule.costs {
-                        assert_eq!(cost.units, 250);
-                        cost.units = 5;
-                    }
-                }
-            }
         }
         let old = if paused_trade {
             network::Network::start_paused_trade(&path.join("old.der"), "BTCUSDT", 99)
@@ -125,23 +89,12 @@ impl Fixture {
         )
         .unwrap();
         config.expansion = Some(config::ExpansionControl {
-            recovery: recovery.then(|| crate::recovery::Config {
-                directory: path.join("recovery"),
-                restart_from: None,
-            }),
             plan_path: path.join("plan.json"),
             result_path: path.join("result.json"),
             effective_path: path.join("effective.json"),
             consumer_directory: path.join("consumers"),
             initial_revision: 1,
         });
-        if recovery {
-            config.quota.consumer_instance = config.identity.instance;
-            config.quota.consumer_generation = config.identity.generation;
-            // A failed old process retains its grant. Leave real window capacity
-            // for a new owner without resetting or reclaiming the old budget.
-            config.quota.grants[0].costs[0].units = 350;
-        }
         setup(path, &mut config, &mut addition);
         let input = path.join("config.json");
         config::write(&input, &config).unwrap();
@@ -266,6 +219,7 @@ impl Fixture {
     }
     // This is the original qualified mapping seam, shared by successful JOINs
     // and negative protocol tests against this exact owned MD process.
+    #[allow(unsafe_code)]
     pub fn connect_client(
         &mut self,
         admission: &Admission,
@@ -275,22 +229,6 @@ impl Fixture {
         unsafe {
             tickwire_market_source::Client::connect(&admission.client, &mut || Ok(self.now()))
         }
-    }
-    pub fn stop_process(&mut self) {
-        let _ = self.child.kill();
-        self.child.wait().unwrap();
-    }
-    pub fn spawn_config(&mut self, config: config::Config, label: &str) {
-        assert!(
-            self.child.try_wait().unwrap().is_some(),
-            "old MD is still live"
-        );
-        let root = self._root.path();
-        let input = root.join(format!("{label}.json"));
-        self.log = root.join(format!("{label}.log"));
-        config::write(&input, &config).unwrap();
-        self.child = spawn(&input, &self.log);
-        self.config = config;
     }
     pub fn plan(&mut self, old: &Admission) -> crate::expansion::Plan {
         let bank = self.bank();
