@@ -16,7 +16,6 @@ pub struct Stamp {
     pub control_commit_ref: String,
     pub process_boot_id: String,
     pub applied_event_seq: u64,
-    pub journal_receipt_ref: String,
     pub instance_slot_id: String,
 }
 pub const MAX_FILE_BYTES: usize = 8 * 1024 * 1024;
@@ -98,7 +97,6 @@ fn expected_value(object: &ProjectionObject, stamp: &Stamp) -> Result<Value> {
         || stamp.process_boot_id.len() != 36
         || stamp.instance_slot_id.len() != 36
         || stamp.control_commit_ref.len() > 1024
-        || stamp.journal_receipt_ref.len() > 1024
         || stamp.applied_event_seq >= 1 << 63
         || (stamp.kind == Kind::Desired && stamp.applied_event_seq != 0)
         || (stamp.kind == Kind::Effective
@@ -118,7 +116,6 @@ fn expected_value(object: &ProjectionObject, stamp: &Stamp) -> Result<Value> {
             "control_commit_ref":stamp.control_commit_ref,
             "process_boot_id":stamp.process_boot_id,
             "applied_event_seq":stamp.applied_event_seq.to_string(),
-            "journal_receipt_ref":stamp.journal_receipt_ref,
             "render_version":1,
             "global_config_hash":hex(binding.global_hash),
             "projection_hash":hex(binding.projection_hash),

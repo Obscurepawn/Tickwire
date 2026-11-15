@@ -70,40 +70,6 @@ frame=bytes.fromhex(vs['freeze_complete_frame']['hex']);e=decode('ControlEnvelop
 for v in vs.values():
  if v['layout']=='ControlFrame':
   raw=bytes.fromhex(v['hex']);ev=decode('ControlEnvelope',raw[:128]);assert ev['frame_bytes']==len(raw);assert crc(raw[128:])==ev['body_crc32c'];head=bytearray(raw[:128]);head[116:120]=bytes(4);assert crc(head)==ev['header_crc32c']
-# Two-phase market control reuses the fixed replay body without treating its plan digest as a cursor.
-assert s['enums']['replay_kind']['MarketArm']==6 and s['enums']['replay_kind']['MarketCommit']==7
-for name,kind in [('market_arm_control_body',6),('market_commit_control_body',7)]:
- body=decode('ReplayControlBody',bytes.fromhex(vs[name]['hex']))
- assert body['replay_kind']==kind and body['expected_sequence']==0
- assert body['expected_cut_digest']=='08'*32 and body['operation_revision']==10
-assert s['market_transition_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
-assert decode('ControlEnvelope',bytes.fromhex(vs['market_arm_rejected_header']['hex']))['flags']==18
-# CaptureSeal fixes a complete account prefix and Contract before reporting a window.
-assert s['enums']['replay_kind']['CaptureSeal']==8
-capture=decode('ReplayControlBody',bytes.fromhex(vs['capture_seal_control_body']['hex']))
-assert capture['replay_kind']==8 and capture['expected_sequence']==19 and capture['operation_revision']==1
-assert capture['expected_cut_digest']=='08'*32
-assert s['capture_seal_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
-for tag,opcode,flags,status in [('request',41,1,0),('applied',42,10,0),('rejected',42,18,2)]:
- env=decode('ControlEnvelope',bytes.fromhex(vs['capture_seal_'+tag+'_header']['hex']))
- assert (env['opcode'],env['flags'],env['status'])==(opcode,flags,status)
-# RebuildInstall preserves a captured warm frontier and operation revision.
-assert s['enums']['replay_kind']['RebuildInstall']==9
-install=decode('ReplayControlBody',bytes.fromhex(vs['rebuild_install_control_body']['hex']))
-assert install['replay_kind']==9 and install['expected_sequence']==19 and install['operation_revision']==10
-assert install['expected_cut_digest']=='08'*32
-assert s['rebuild_install_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
-for tag,opcode,flags,status in [('request',41,1,0),('applied',42,10,0),('rejected',42,18,2)]:
- env=decode('ControlEnvelope',bytes.fromhex(vs['rebuild_install_'+tag+'_header']['hex']))
- assert (env['opcode'],env['flags'],env['status'])==(opcode,flags,status)
-# RebuildRollback attaches an independent probe to the original installation.
-assert s['enums']['replay_kind']['RebuildRollback']==10
-rollback=decode('ReplayControlBody',bytes.fromhex(vs['rebuild_rollback_control_body']['hex']))
-assert rollback['replay_kind']==10 and rollback['expected_sequence']==0 and rollback['operation_revision']==10
-assert s['rebuild_rollback_control']['rejection_status']=={'Unsupported':1,'Busy':2,'Invalid':3}
-for tag,opcode,flags,status in [('request',41,1,0),('applied',42,10,0),('rejected',42,18,2)]:
- env=decode('ControlEnvelope',bytes.fromhex(vs['rebuild_rollback_'+tag+'_header']['hex']))
- assert (env['opcode'],env['flags'],env['status'])==(opcode,flags,status)
 # Independent selected field offsets and signed encoding checks.
 a=bytes.fromhex(vs['new_limit_intent']['hex']);assert int.from_bytes(a[128+88:128+96],'little',signed=True)==6500000;assert a[128+170]==3 and a[128+179]==20;assert int.from_bytes(a[128+384+24:128+384+32],'little')==101
 b=bytes.fromhex(vs['fill_report']['hex']);assert b[128+136:128+144]==bytes.fromhex('bfffffffffffffff');assert b[128+200]==248
@@ -338,8 +304,6 @@ def validate_dop_control(v,mutations=None):
 for v in vs.values():
  if v['layout'] in ['MarketRecord','IntentRecord','ReportRecord','OwnershipRecord']:validate_message(decode(v['layout'],bytes.fromhex(v['hex'])))
 semantic_checked=0
-assert s['enums']['checkpoint_seal_mode']=={'CaptureExact':0,'CaptureExactAndPause':1,'ObserveCurrent':2}
-assert s['checkpoint_observation']['mode']==2 and s['checkpoint_observation']['report_watermark']=='minimum'
 for case in vv['semantic_cases']:
  outcome='accept'
  try:
@@ -360,16 +324,6 @@ for case in vv['semantic_cases']:
      for key in keys[:-1]:target=target[key]
      target[keys[-1]]=value
     if v['layout'] in ['MarketRecord','IntentRecord','ReportRecord','OwnershipRecord']:validate_message(decoded)
-    elif v['layout']=='CheckpointSealReplyBody':
-     ctx=case['context'];request=decode('CheckpointSealBody',bytes.fromhex(vs[ctx['request_vector']]['hex']));ready=decoded['ready']
-     request.update(ctx.get('request_mutations',{}));mode=request['seal_mode']
-     if request['schema']!=1 or iszero(request['challenge']):fail('Identity')
-     if mode not in (0,1,2) or decoded['seal_mode']!=mode or decoded['schema']!=1:fail('Identity')
-     if decoded['challenge']!=request['challenge'] or decoded['report_sequence']!=request['report_sequence']:fail('Identity')
-     for field in ('instance_id','logical_strategy_id','strategy_generation'):
-      if ready[field]!=request[field]:fail('Identity')
-     if ready['ready_sequence']<=ctx['previous_ready_sequence']:fail('Identity')
-     if (ready['exec_report_sequence']<request['report_sequence'] if mode==2 else ready['exec_report_sequence']!=request['report_sequence']):fail('Identity')
     elif v['layout']=='GrantBody':
      ctx=case['context'];lease=decode('ExecLeaseBody',bytes.fromhex(vs[ctx['exec_lease_vector']]['hex']));now=ctx['now_mono_ns']
      assert lease['deadline_mono_ns']-lease['issued_mono_ns']==s['profiles']['production_reference']['exec_lease_ms']*1000000

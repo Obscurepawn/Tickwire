@@ -1,7 +1,7 @@
 # tickwire-ipc
 
 `tickwire-ipc` defines the fixed-layout little-endian binary wire ABI (`Wire` trait, `Record`, `#[repr(C)]` zero-copy
-market, inline intent, and inline ORS report views, DOP logon control frames, checkpoints, snapshots, and
+market, inline intent, and inline ORS report views, DOP logon control frames, snapshots, and
 `ResourceHeader`) over owned or borrowed byte slices. Crate-level `[lints.rust] unsafe_code = "deny"` and
 `#[forbid(unsafe_code)]` on every general codec module keep all non-audited code safe, isolating `#[allow(unsafe_code)]`
 + `#![deny(unsafe_op_in_unsafe_fn)]` strictly to [src/crc32c.rs](src/crc32c.rs) and [src/zerocopy.rs](src/zerocopy.rs).
@@ -26,7 +26,7 @@ Live shared-memory mapping, atomic publication barriers, and descriptor passing 
   Modify / CancelAll / RFQ fields) and execution reports (`Ack`, `FrontAck`, `Nack`, `CancelNack`, `Fill` with
   `amendment` fee/rebate updates, `Canceled`, `Modified`, `ModifyRejected`, `ExchRateLimit`, `OrsShutDown`,
   `OrsRestricted`, `RfqQuoteAck`, `RfqQuoteNack`, compact `TerminalReason` `0..=30`, `orig_seqnum`) directly inside the
-  SHM ring slot with zero `FileBlobStore` or disk I/O. Oversize payloads bind an in-memory SHM Arena block
+  SHM ring slot with zero disk blob files or filesystem I/O. Oversize payloads bind an in-memory SHM Arena block
   (`payload_kind == 2`, `arena_offset == header.payload_offset >= 128`, `arena_len == header.payload_length`) validated
   by `validate_intent_arena_payload` and `validate_report_arena_payload`.
 * **DOP logon and heartbeat control frames (`96..=100`)**: `ControlFrame::decode` validates `DopLogin` (`96`),
@@ -53,13 +53,12 @@ Live shared-memory mapping, atomic publication barriers, and descriptor passing 
 
 * **Source, benches, and tools**: [src/lib.rs](src/lib.rs) · [src/crc32c.rs](src/crc32c.rs) ·
   [src/zerocopy.rs](src/zerocopy.rs) · [src/wire.rs](src/wire.rs) · [src/config.rs](src/config.rs) ·
-  [src/checkpoint.rs](src/checkpoint.rs) · [src/market_exact.rs](src/market_exact.rs) ·
+  [src/market_exact.rs](src/market_exact.rs) ·
   [src/snapshot.rs](src/snapshot.rs) · [benches/crc32c_and_zerocopy.rs](benches/crc32c_and_zerocopy.rs) ·
   [tools/generate.py](tools/generate.py) · [tools/exact_event_fixtures.py](tools/exact_event_fixtures.py)
 * **Integration tests**: [tests/layouts.rs](tests/layouts.rs) · [tests/layout_extensions.rs](tests/layout_extensions.rs)
   · [tests/market_exact.rs](tests/market_exact.rs) · [tests/release_layouts.rs](tests/release_layouts.rs) ·
-  [tests/replay_control.rs](tests/replay_control.rs) · [tests/semantics.rs](tests/semantics.rs) ·
-  [tests/vectors.rs](tests/vectors.rs)
+  [tests/semantics.rs](tests/semantics.rs) · [tests/vectors.rs](tests/vectors.rs)
 * **Specifications and contracts**: [ipc-codec.md](../../specs/implementation/ipc-codec.md) ·
   [ipc-wire-v1.json](../../specs/contracts/ipc-wire-v1.json) ·
   [ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json)

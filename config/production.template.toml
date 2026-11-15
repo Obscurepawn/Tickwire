@@ -38,7 +38,7 @@ cpus = [
 numa_node = 0
 memory_limit_bytes = 1073741824
 artifact_ref = "REQUIRED:/processes/0/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-config"
 
 [[processes]]
@@ -49,10 +49,15 @@ activation = "active"
 cpus = [
     8,
 ]
+reactor_cpu = 8
+housekeeping_cpus = [
+    0,
+    1,
+]
 numa_node = 0
 memory_limit_bytes = 4294967296
 artifact_ref = "REQUIRED:/processes/3/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-md"
 
 [[processes]]
@@ -62,12 +67,86 @@ role = "exec"
 activation = "active"
 cpus = [
     10,
+    12,
 ]
+req_cpu = 10
+resp_cpu = 12
+housekeeping_cpus = [
+    2,
+    3,
+]
+epoll_wait_ms = 0
+max_order_age_ns = 23000
 numa_node = 0
 memory_limit_bytes = 8589934592
 artifact_ref = "REQUIRED:/processes/4/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-exec"
+
+[processes.order_manager]
+slots_per_strat = 1024
+fill_map_exponent = 14
+fill_memory_s = 300
+max_query_count = 64
+
+[processes.rms]
+max_order_notional = "REQUIRED_DECIMAL"
+max_pos_notional = "REQUIRED_DECIMAL"
+fat_finger_ratio = "REQUIRED_DECIMAL"
+1s = { max_new_orders = 50, max_order_qty = "REQUIRED_DECIMAL" }
+5s = { max_new_orders = 150, max_order_qty = "REQUIRED_DECIMAL" }
+10s = { max_new_orders = 250, max_order_qty = "REQUIRED_DECIMAL" }
+
+[[processes.enabled_accounts]]
+account_ref = 1
+account_id = "spot-main"
+strategies = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+]
+nic = "REQUIRED_NIC"
+local_ip = "REQUIRED_LOCAL_IP"
+
+[processes.enabled_accounts.urls]
+order = [ [ "REQUIRED_LOCAL_IP", 2 ] ]
+stream = [ [ "REQUIRED_LOCAL_IP", 1 ] ]
+
+[processes.enabled_accounts.rate_limit]
+orders_10s = 50
+orders_min = 1600
+request_weight_min = 6000
+
+[[processes.enabled_accounts]]
+account_ref = 2
+strategies = [
+    1,
+    2,
+]
+nic = "REQUIRED_NIC"
+local_ip = "REQUIRED_LOCAL_IP"
+
+[processes.enabled_accounts.urls]
+order = [ [ "REQUIRED_LOCAL_IP", 2 ] ]
+stream = [ [ "REQUIRED_LOCAL_IP", 1 ] ]
+
+[processes.enabled_accounts.rate_limit]
+orders_10s = 50
+orders_min = 1600
+request_weight_min = 6000
 
 [[processes]]
 id = "md-usdm-a"
@@ -77,10 +156,15 @@ activation = "active"
 cpus = [
     9,
 ]
+reactor_cpu = 9
+housekeeping_cpus = [
+    0,
+    1,
+]
 numa_node = 0
 memory_limit_bytes = 4294967296
 artifact_ref = "REQUIRED:/processes/6/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-md"
 
 [[processes]]
@@ -90,60 +174,68 @@ role = "exec"
 activation = "active"
 cpus = [
     11,
+    13,
 ]
+req_cpu = 11
+resp_cpu = 13
+housekeeping_cpus = [
+    2,
+    3,
+]
+epoll_wait_ms = 0
+max_order_age_ns = 23000
 numa_node = 0
 memory_limit_bytes = 8589934592
 artifact_ref = "REQUIRED:/processes/7/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-exec"
 
-[[processes]]
-id = "recorder-a"
-host_id = "host-a"
-role = "recorder"
-activation = "active"
-cpus = [
+[processes.order_manager]
+slots_per_strat = 1024
+fill_map_exponent = 14
+fill_memory_s = 300
+max_query_count = 64
+
+[processes.rms]
+max_order_notional = "REQUIRED_DECIMAL"
+max_pos_notional = "REQUIRED_DECIMAL"
+fat_finger_ratio = "REQUIRED_DECIMAL"
+1s = { max_new_orders = 50, max_order_qty = "REQUIRED_DECIMAL" }
+5s = { max_new_orders = 150, max_order_qty = "REQUIRED_DECIMAL" }
+10s = { max_new_orders = 250, max_order_qty = "REQUIRED_DECIMAL" }
+
+[[processes.enabled_accounts]]
+account_ref = 1
+account_id = "usdm-main"
+strategies = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
     15,
+    16,
 ]
-numa_node = 0
-memory_limit_bytes = 4294967296
-artifact_ref = "REQUIRED:/processes/10/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-recorder"
+nic = "REQUIRED_NIC"
+local_ip = "REQUIRED_LOCAL_IP"
 
-[[processes]]
-id = "input-writer-a"
-host_id = "host-a"
-role = "input-writer"
-activation = "active"
-cpus = [
-    48,
-    49,
-    50,
-    51,
-]
-numa_node = 1
-memory_limit_bytes = 8589934592
-artifact_ref = "REQUIRED:/processes/11/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-input-writer"
+[processes.enabled_accounts.urls]
+order = [ [ "REQUIRED_LOCAL_IP", 2 ] ]
+stream = [ [ "REQUIRED_LOCAL_IP", 1 ] ]
 
-[[processes]]
-id = "snapshot-worker-a"
-host_id = "host-a"
-role = "snapshot-worker"
-activation = "active"
-cpus = [
-    52,
-    53,
-    54,
-    55,
-]
-numa_node = 1
-memory_limit_bytes = 8589934592
-artifact_ref = "REQUIRED:/processes/12/artifact_ref"
-restart_policy = "recover-gated"
-os_identity = "tickwire-snapshot-worker"
+[processes.enabled_accounts.rate_limit]
+orders_10s = 50
+orders_min = 1200
+request_weight_min = 2400
 
 [[processes]]
 id = "strategy-01-active"
@@ -153,10 +245,15 @@ activation = "active"
 cpus = [
     16,
 ]
+worker_cpu = 16
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/23/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -167,10 +264,15 @@ activation = "active"
 cpus = [
     17,
 ]
+worker_cpu = 17
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/25/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -181,10 +283,15 @@ activation = "active"
 cpus = [
     18,
 ]
+worker_cpu = 18
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/27/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -195,10 +302,15 @@ activation = "active"
 cpus = [
     19,
 ]
+worker_cpu = 19
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/29/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -209,10 +321,15 @@ activation = "active"
 cpus = [
     20,
 ]
+worker_cpu = 20
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/31/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -223,10 +340,15 @@ activation = "active"
 cpus = [
     21,
 ]
+worker_cpu = 21
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/33/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -237,10 +359,15 @@ activation = "active"
 cpus = [
     22,
 ]
+worker_cpu = 22
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/35/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -251,10 +378,15 @@ activation = "active"
 cpus = [
     23,
 ]
+worker_cpu = 23
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/37/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -265,10 +397,15 @@ activation = "active"
 cpus = [
     24,
 ]
+worker_cpu = 24
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/39/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -279,10 +416,15 @@ activation = "active"
 cpus = [
     25,
 ]
+worker_cpu = 25
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/41/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -293,10 +435,15 @@ activation = "active"
 cpus = [
     26,
 ]
+worker_cpu = 26
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/43/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -307,10 +454,15 @@ activation = "active"
 cpus = [
     27,
 ]
+worker_cpu = 27
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/45/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -321,10 +473,15 @@ activation = "active"
 cpus = [
     28,
 ]
+worker_cpu = 28
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/47/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -335,10 +492,15 @@ activation = "active"
 cpus = [
     29,
 ]
+worker_cpu = 29
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/49/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -349,10 +511,15 @@ activation = "active"
 cpus = [
     30,
 ]
+worker_cpu = 30
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/51/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[processes]]
@@ -363,10 +530,15 @@ activation = "active"
 cpus = [
     31,
 ]
+worker_cpu = 31
+housekeeping_cpus = [
+    4,
+    5,
+]
 numa_node = 0
 memory_limit_bytes = 2147483648
 artifact_ref = "REQUIRED:/processes/53/artifact_ref"
-restart_policy = "recover-gated"
+restart_policy = "supervisor-gated"
 os_identity = "tickwire-strategy"
 
 [[venues]]
@@ -471,9 +643,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/0/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/0/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/0/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -510,9 +680,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/2/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/2/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/2/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -549,9 +717,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/4/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/4/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/4/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -588,9 +754,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/6/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/6/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/6/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -627,9 +791,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/8/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/8/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/8/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -666,9 +828,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/10/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/10/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/10/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -705,9 +865,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/12/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/12/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/12/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -744,9 +902,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/14/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/14/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/14/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -783,9 +939,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/16/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/16/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/16/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -822,9 +976,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/18/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/18/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/18/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -861,9 +1013,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/20/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/20/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/20/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -900,9 +1050,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/22/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/22/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/22/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -939,9 +1087,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/24/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/24/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/24/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -978,9 +1124,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/26/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/26/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/26/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1017,9 +1161,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/28/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/28/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/28/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1056,9 +1198,7 @@ topic_ids = [
     1,
     2,
 ]
-state_schema_ref = "REQUIRED:/strategies/30/state_schema_ref"
 parameter_schema_ref = "REQUIRED:/strategies/30/parameter_schema_ref"
-recovery_contract_ref = "REQUIRED:/strategies/30/recovery_contract_ref"
 subscriptions_on_loss = "freeze-new-risk"
 trust_profile = "qualified_sdk"
 
@@ -1161,21 +1301,6 @@ settlement_fee_schedule_ref = "REQUIRED:/risk_policies/1/settlement_fee_schedule
 auto_rollover = false
 expiry_resets_positions = false
 
-[journal]
-commit_profile = "InMemory"
-root_dir = "/var/lib/tickwire/journal"
-segment_bytes = 268435456
-max_frame_bytes = 1048576
-group_max_records = 32
-group_max_bytes = 65536
-group_max_wait_us = 25
-pending_new_risk_bytes = 16777216
-snapshot_every_records = 100000
-snapshot_every_bytes = 536870912
-retained_snapshot_count = 2
-disk_warn_percent = 80
-disk_freeze_percent = 90
-
 [control]
 strategy_grant_lifetime_ms = 60000
 strategy_progress_interval_ms = 10
@@ -1227,9 +1352,8 @@ owner = "tickwire-config"
 retain_last_good = 2
 durability = "fsync-file-rename-fsync-directory"
 manual_edit_policy = "quarantine-and-reconcile"
-startup_policy = "journal-verified-effective-then-reconcile"
+startup_policy = "stateless-exchange-snapshot-bootstrap"
 strict_drift_gate = true
-journal_max_bytes = 268435456
 projection_policy_revision = 1
 projection_policy_ref = "REQUIRED:/local_config/projection_policy_ref"
 bootstrap_locator_path = "/etc/tickwire/bootstrap/config-locator.toml"
@@ -1260,7 +1384,6 @@ reconnect_max_ms = 30000
 deployment_manifest_ref = "REQUIRED:/qualification/deployment_manifest_ref"
 protocol_entitlements_ref = "REQUIRED:/qualification/protocol_entitlements_ref"
 host_inventory_ref = "REQUIRED:/qualification/host_inventory_ref"
-storage_power_loss_report_ref = "REQUIRED:/qualification/storage_power_loss_report_ref"
 risk_acceptance_ref = "REQUIRED:/qualification/risk_acceptance_ref"
 full_send_p99_us = 300
 full_send_p999_us = 1000

@@ -255,6 +255,9 @@ fn entity_key(path: &[String]) -> Option<&'static str> {
         }
         [group] if group == "strategies" => Some("process_id"),
         [group, field] if group == "ipc" && field == "topics" => Some("id"),
+        [group, _, field] if group == "processes" && field == "enabled_accounts" => {
+            Some("account_ref")
+        }
         [group, _, field] if group == "strategies" && field == "risk_budgets" => Some("account_id"),
         _ => None,
     }
@@ -437,10 +440,6 @@ fn classify(
             (Class::Hot, false, true)
         }
         "observability" => (Class::RollingRestart, false, true),
-        "journal" if matches!(field, "disk_warn_percent" | "disk_freeze_percent") => {
-            (Class::RollingRestart, increases(old, new)?, true)
-        }
-        "journal" => (Class::RollingRestart, false, true),
         "control" => (
             Class::Quiesce,
             matches!(
@@ -477,11 +476,7 @@ fn classify(
             if path.len() == 3
                 && matches!(
                     field,
-                    "process_id"
-                        | "logical_strategy_id"
-                        | "state_schema_ref"
-                        | "recovery_contract_ref"
-                        | "trust_profile"
+                    "process_id" | "logical_strategy_id" | "trust_profile"
                 ) =>
         {
             (Class::RollingRestart, false, true)

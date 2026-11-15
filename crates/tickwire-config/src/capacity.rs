@@ -294,6 +294,18 @@ fn host_capacity(
         housekeeping.insert(cpu);
         claimed.insert(mapped.physical());
     }
+    for process in processes.iter().filter(|p| p["host_id"] == host.id) {
+        if let Some(proc_cold) = process.get("housekeeping_cpus") {
+            for cpu in proc_cold.as_array().ok_or(Error::Schema)? {
+                let cpu = cpu.as_u64().ok_or(Error::Schema)? as u32;
+                let mapped = cpus
+                    .get(&cpu)
+                    .ok_or(Error::Semantic("inventory missing cpu"))?;
+                housekeeping.insert(cpu);
+                claimed.insert(mapped.physical());
+            }
+        }
+    }
     let mut private_bytes = 0;
     for process in processes.iter().filter(|p| p["host_id"] == host.id) {
         private_bytes = add(private_bytes, number(process, "memory_limit_bytes")?)?;

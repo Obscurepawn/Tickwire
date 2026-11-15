@@ -298,95 +298,6 @@
       "minItems": 1,
       "x-change-class": "Quiesce"
     },
-    "journal": {
-      "type": "object",
-      "properties": {
-        "commit_profile": {
-          "type": "string",
-          "enum": [
-            "InMemory",
-            "MmapAsync",
-            "LocalDurable"
-          ]
-        },
-        "root_dir": {
-          "type": "string",
-          "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
-        },
-        "segment_bytes": {
-          "type": "integer",
-          "minimum": 1048576,
-          "maximum": 1099511627776
-        },
-        "max_frame_bytes": {
-          "type": "integer",
-          "minimum": 1024,
-          "maximum": 1073741824
-        },
-        "group_max_records": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 1024
-        },
-        "group_max_bytes": {
-          "type": "integer",
-          "minimum": 4096,
-          "maximum": 16777216
-        },
-        "group_max_wait_us": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100000
-        },
-        "pending_new_risk_bytes": {
-          "type": "integer",
-          "minimum": 1048576,
-          "maximum": 1073741824
-        },
-        "snapshot_every_records": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 9007199254740991
-        },
-        "snapshot_every_bytes": {
-          "type": "integer",
-          "minimum": 1048576,
-          "maximum": 9007199254740991
-        },
-        "retained_snapshot_count": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 64
-        },
-        "disk_warn_percent": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 99
-        },
-        "disk_freeze_percent": {
-          "type": "integer",
-          "minimum": 2,
-          "maximum": 99
-        }
-      },
-      "required": [
-        "commit_profile",
-        "root_dir",
-        "segment_bytes",
-        "max_frame_bytes",
-        "group_max_records",
-        "group_max_bytes",
-        "group_max_wait_us",
-        "pending_new_risk_bytes",
-        "snapshot_every_records",
-        "snapshot_every_bytes",
-        "retained_snapshot_count",
-        "disk_warn_percent",
-        "disk_freeze_percent"
-      ],
-      "additionalProperties": false,
-      "x-change-class": "RollingRestart"
-    },
     "control": {
       "type": "object",
       "properties": {
@@ -452,15 +363,10 @@
           "const": "quarantine-and-reconcile"
         },
         "startup_policy": {
-          "const": "journal-verified-effective-then-reconcile"
+          "const": "stateless-exchange-snapshot-bootstrap"
         },
         "strict_drift_gate": {
           "const": true
-        },
-        "journal_max_bytes": {
-          "type": "integer",
-          "minimum": 1048576,
-          "maximum": 1099511627776
         },
         "projection_policy_revision": {
           "type": "integer",
@@ -485,7 +391,6 @@
         "manual_edit_policy",
         "startup_policy",
         "strict_drift_gate",
-        "journal_max_bytes",
         "projection_policy_revision",
         "projection_policy_ref",
         "bootstrap_locator_path"
@@ -630,10 +535,6 @@
           "type": "string",
           "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
         },
-        "storage_power_loss_report_ref": {
-          "type": "string",
-          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
-        },
         "risk_acceptance_ref": {
           "type": "string",
           "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
@@ -653,7 +554,6 @@
         "deployment_manifest_ref",
         "protocol_entitlements_ref",
         "host_inventory_ref",
-        "storage_power_loss_report_ref",
         "risk_acceptance_ref",
         "full_send_p99_us",
         "full_send_p999_us"
@@ -671,7 +571,6 @@
     "strategies",
     "accounts",
     "risk_policies",
-    "journal",
     "control",
     "local_config",
     "observability",
@@ -754,10 +653,7 @@
             "supervisor",
             "md",
             "exec",
-            "strategy",
-            "recorder",
-            "input-writer",
-            "snapshot-worker"
+            "strategy"
           ]
         },
         "activation": {
@@ -772,6 +668,63 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "req_cpu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "resp_cpu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "reactor_cpu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "worker_cpu": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4095
+        },
+        "housekeeping_cpus": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4095
+          },
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true
+        },
+        "epoll_wait_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 0
+        },
+        "max_order_age_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000000,
+          "default": 23000
+        },
+        "enabled_accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/EnabledAccount"
+          },
+          "minItems": 1,
+          "maxItems": 255
+        },
+        "order_manager": {
+          "$ref": "#/$defs/OrderManager"
+        },
+        "rms": {
+          "$ref": "#/$defs/RmsLimits"
         },
         "numa_node": {
           "type": "integer",
@@ -790,7 +743,7 @@
         "restart_policy": {
           "type": "string",
           "enum": [
-            "recover-gated",
+            "supervisor-gated",
             "never"
           ]
         },
@@ -810,6 +763,185 @@
         "artifact_ref",
         "restart_policy",
         "os_identity"
+      ],
+      "additionalProperties": false
+    },
+    "EnabledAccount": {
+      "type": "object",
+      "properties": {
+        "account_ref": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "account_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,62}$"
+        },
+        "strategies": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 254
+          },
+          "minItems": 1,
+          "maxItems": 255,
+          "uniqueItems": true
+        },
+        "nic": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9._-]{1,15}$"
+        },
+        "local_ip": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "urls": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 32,
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_-]{0,31}$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 64,
+            "items": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "minLength": 2,
+                  "maxLength": 64
+                },
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 64
+                }
+              ],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "rate_limit": {
+          "type": "object",
+          "properties": {
+            "orders_10s": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "orders_min": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000000
+            },
+            "request_weight_min": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000000
+            }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "account_ref",
+        "strategies",
+        "urls"
+      ],
+      "additionalProperties": false
+    },
+    "OrderManager": {
+      "type": "object",
+      "properties": {
+        "slots_per_strat": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "fill_map_exponent": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 22
+        },
+        "fill_memory_s": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "max_query_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1024
+        }
+      },
+      "required": [
+        "slots_per_strat",
+        "fill_map_exponent",
+        "fill_memory_s",
+        "max_query_count"
+      ],
+      "additionalProperties": false
+    },
+    "RmsWindow": {
+      "type": "object",
+      "properties": {
+        "max_new_orders": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000000
+        },
+        "max_order_qty": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        }
+      },
+      "required": [
+        "max_new_orders",
+        "max_order_qty"
+      ],
+      "additionalProperties": false
+    },
+    "RmsLimits": {
+      "type": "object",
+      "properties": {
+        "max_order_notional": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "max_pos_notional": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "fat_finger_ratio": {
+          "type": "string",
+          "pattern": "^(?=.*[1-9])(0|[1-9][0-9]{0,17})(\\.[0-9]{1,18})?$"
+        },
+        "1s": {
+          "$ref": "#/$defs/RmsWindow"
+        },
+        "5s": {
+          "$ref": "#/$defs/RmsWindow"
+        },
+        "10s": {
+          "$ref": "#/$defs/RmsWindow"
+        }
+      },
+      "required": [
+        "max_order_notional",
+        "max_pos_notional",
+        "fat_finger_ratio",
+        "1s",
+        "5s",
+        "10s"
       ],
       "additionalProperties": false
     },
@@ -1314,15 +1446,7 @@
           "minItems": 1,
           "uniqueItems": true
         },
-        "state_schema_ref": {
-          "type": "string",
-          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
-        },
         "parameter_schema_ref": {
-          "type": "string",
-          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
-        },
-        "recovery_contract_ref": {
           "type": "string",
           "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
         },
@@ -1404,9 +1528,7 @@
         "role",
         "account_ids",
         "topic_ids",
-        "state_schema_ref",
         "parameter_schema_ref",
-        "recovery_contract_ref",
         "params",
         "subscriptions_on_loss",
         "trust_profile",
@@ -1546,10 +1668,6 @@
           "type": "string",
           "pattern": "^(0|[1-9][0-9]{0,18})$"
         },
-        "journal_receipt_ref": {
-          "type": "string",
-          "pattern": "^artifact://[a-z][a-z0-9-]*/[a-z0-9][a-z0-9/_-]*@sha256:[0-9a-f]{64}$"
-        },
         "render_version": {
           "const": 1
         },
@@ -1578,7 +1696,6 @@
         "control_commit_ref",
         "process_boot_id",
         "applied_event_seq",
-        "journal_receipt_ref",
         "render_version",
         "global_config_hash",
         "projection_hash",
@@ -2181,95 +2298,6 @@
           },
           "minItems": 0
         },
-        "journal": {
-          "type": "object",
-          "properties": {
-            "commit_profile": {
-              "type": "string",
-              "enum": [
-                "InMemory",
-                "MmapAsync",
-                "LocalDurable"
-              ]
-            },
-            "root_dir": {
-              "type": "string",
-              "pattern": "^/(?:[a-zA-Z0-9_-]+/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*$"
-            },
-            "segment_bytes": {
-              "type": "integer",
-              "minimum": 1048576,
-              "maximum": 1099511627776
-            },
-            "max_frame_bytes": {
-              "type": "integer",
-              "minimum": 1024,
-              "maximum": 1073741824
-            },
-            "group_max_records": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 1024
-            },
-            "group_max_bytes": {
-              "type": "integer",
-              "minimum": 4096,
-              "maximum": 16777216
-            },
-            "group_max_wait_us": {
-              "type": "integer",
-              "minimum": 0,
-              "maximum": 100000
-            },
-            "pending_new_risk_bytes": {
-              "type": "integer",
-              "minimum": 1048576,
-              "maximum": 1073741824
-            },
-            "snapshot_every_records": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 9007199254740991
-            },
-            "snapshot_every_bytes": {
-              "type": "integer",
-              "minimum": 1048576,
-              "maximum": 9007199254740991
-            },
-            "retained_snapshot_count": {
-              "type": "integer",
-              "minimum": 2,
-              "maximum": 64
-            },
-            "disk_warn_percent": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 99
-            },
-            "disk_freeze_percent": {
-              "type": "integer",
-              "minimum": 2,
-              "maximum": 99
-            }
-          },
-          "required": [
-            "commit_profile",
-            "root_dir",
-            "segment_bytes",
-            "max_frame_bytes",
-            "group_max_records",
-            "group_max_bytes",
-            "group_max_wait_us",
-            "pending_new_risk_bytes",
-            "snapshot_every_records",
-            "snapshot_every_bytes",
-            "retained_snapshot_count",
-            "disk_warn_percent",
-            "disk_freeze_percent"
-          ],
-          "additionalProperties": false,
-          "x-change-class": "RollingRestart"
-        },
         "local_config": {
           "type": "object",
           "properties": {
@@ -2299,15 +2327,10 @@
               "const": "quarantine-and-reconcile"
             },
             "startup_policy": {
-              "const": "journal-verified-effective-then-reconcile"
+              "const": "stateless-exchange-snapshot-bootstrap"
             },
             "strict_drift_gate": {
               "const": true
-            },
-            "journal_max_bytes": {
-              "type": "integer",
-              "minimum": 1048576,
-              "maximum": 1099511627776
             },
             "projection_policy_revision": {
               "type": "integer",
@@ -2332,7 +2355,6 @@
             "manual_edit_policy",
             "startup_policy",
             "strict_drift_gate",
-            "journal_max_bytes",
             "projection_policy_revision",
             "projection_policy_ref",
             "bootstrap_locator_path"
@@ -2717,14 +2739,14 @@
     }
   ],
   "x-semantic-checks": [
-    "CFG-S01 unique IDs, references, process roles and account risk-domain ownership",
+    "CFG-S01 unique IDs, references, process roles, enabled_accounts account_ref in 1..=255 and account risk-domain ownership",
     "CFG-S02 finite JSON-safe integers; decimal strings; no TOML datetime, float, unresolved placeholder or source _materialization",
     "CFG-S03 Unique active strategy and process identities with bounded subscriptions",
-    "CFG-S04 ring power-of-two, ABI record sizes, actual arena class allocation and all resources <= host SHM budget",
-    "CFG-S05 CPU and NUMA inventory, exclusive hot-loop cores, physical and OS-identity containment",
-    "CFG-S06 One local account writer per venue, product and account identity",
-    "CFG-S07 Ordered session heartbeat, disk and reconnect thresholds",
-    "CFG-S08 account/product/modes and signed venue metadata, fees, tiers, budgets and entitlements match",
+    "CFG-S04 ring and order_manager slots_per_strat power-of-two, ABI record sizes, actual arena class allocation and all resources <= host SHM budget",
+    "CFG-S05 CPU and NUMA inventory, exclusive hot-loop cores (< 4096), req_cpu != resp_cpu, disjoint hot vs sorted housekeeping_cpus, physical and OS-identity containment",
+    "CFG-S06 One local account writer per venue, product and account identity across multi-UID ORS enabled_accounts",
+    "CFG-S07 Ordered session heartbeat, rolling RMS windows and reconnect thresholds",
+    "CFG-S08 account/product/modes and signed venue metadata, fees, tiers, budgets, RMS limits and entitlements match",
     "CFG-S09 live forbids fixture/.invalid/REQUIRED; resolves immutable artifacts and authorized secret refs; validates complete deployment manifest",
     "CFG-S10 strategy parameters validate pinned parameter schema; free strategy parameters currently require Quiesce; path and direction classifications are defined in specs/implementation/config-candidate.md",
     "CFG-S11 no unreferenced identities or secret material; secure endpoint allowlist, namespace/environment consistency",

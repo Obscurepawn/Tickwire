@@ -1,14 +1,14 @@
 # Machine-Readable Contracts and Golden Vectors
 
-Files in this directory define exact binary layouts, fixed-point rounding vectors, catalog digests, and configuration schemas shared across components and languages. Whenever a wire format, schema field, or risk formula changes in `crates/`, update the corresponding contract and run its independent Python validator before committing.
+Files in this directory define exact binary layouts, fixed-point rounding vectors, catalog digests, and static configuration schemas shared across components and languages. Whenever a wire format, schema field, or risk formula changes in `crates/`, update the corresponding contract and run its independent Python validator before committing.
 
 | Contract Artifact | Normative Boundary Fixed | Independent Validator |
 | :--- | :--- | :--- |
-| [IPC Wire Layout](ipc-wire-v1.json) & [Golden Vectors](ipc-vectors-v1.json) | Exact byte offsets, alignment, inline 1024B `IntentRecord` and 512B `ReportRecord` slots, DOP logon frames, zero-filled reserved fields, type tags, Castagnoli CRC32C checksums, and positive/negative decode cases | `python3 scripts/verify-ipc-contract.py` |
-| [Risk Vectors](risk-vectors-v1.json) | Asset scales, Spot/USDⓈ-M margin and fee formulas, collateral haircuts, outward rounding directions, and expected fixed-point outputs | `python3 scripts/verify-risk-vectors.py` |
-| [Instrument Catalog](instrument-catalog-v1.json) | Canonical asset and contract economics, deterministic byte serialization, SHA-256 hash, and semantic digest | `python3 scripts/verify-instrument-catalog.py` |
-| [System Config Schema](system-config.schema.json) | Static deployment configuration, permission-scoped process projections, identities, and numeric resource bounds | `python3 scripts/verify-config-contract.py` |
-| [Reference Deployment](deployment-reference-v1.json) | Single-host resource envelopes and engineering latency budgets across stages | `python3 scripts/verify-config-contract.py` |
+| [IPC Wire Layout](ipc-wire-v1.json) & [Golden Vectors](ipc-vectors-v1.json) | Exact ABI 1.0 byte offsets and alignment across `48` fixed layouts and `38` control opcodes, inline `1024B` `IntentRecord` and `512B` `ReportRecord` slots, DOP logon frames (`DopLogin` / `DopEcho` / `OrsSessions`), zero-filled reserved fields, Castagnoli CRC32C checksums, and `86` byte vectors / `32` semantic cases | `/tmp/tickwire-contracts/bin/python scripts/verify-ipc-contract.py` |
+| [Risk Vectors](risk-vectors-v1.json) | Asset scales, Spot/USDⓈ-M margin and fee formulas, collateral haircuts, outward rounding directions, and expected fixed-point outputs | `/tmp/tickwire-contracts/bin/python scripts/verify-risk-vectors.py` |
+| [Instrument Catalog](instrument-catalog-v1.json) | Canonical asset and contract economics, deterministic byte serialization, SHA-256 hash, and semantic digest | `/tmp/tickwire-contracts/bin/python scripts/verify-instrument-catalog.py` |
+| [System Config Schema](system-config.schema.json) | Stateless 3-process deployment schema, permission-scoped process projections, hot vs. `housekeeping_cpus` CPU isolation (`0..4095`), multi-UID `enabled_accounts` (`account_ref = 1..255`), `order_manager`, and static `rms` limits (`1s`/`5s`/`10s`) | `/tmp/tickwire-contracts/bin/python scripts/verify-config-contract.py` |
+| [Reference Deployment](deployment-reference-v1.json) | Single-host stateless resource envelopes (`5,910,888,448` bytes exact SHM capacity) and engineering latency budgets across stages | `/tmp/tickwire-contracts/bin/python scripts/verify-config-contract.py` |
 
 ## Running Contract Checks
 

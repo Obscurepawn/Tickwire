@@ -1,6 +1,6 @@
-//! Pure static configuration parsing, schema/semantic validation, scoped process
-//! projections, and rollout plan synthesis (zero runtime config-patch, file, or
-//! journal authority).
+//! Pure static configuration parsing, schema and CPU/ORS semantic validation,
+//! scoped process projections, and rollout plan synthesis (zero runtime
+//! configuration patches, disk blob files, or local write-ahead logs).
 #![forbid(unsafe_code)]
 
 use serde_json::Value;
@@ -105,6 +105,15 @@ impl Candidate {
                 .ok_or(Error::Schema)?
                 .entry("cluster_scope".to_owned())
                 .or_insert(Value::Bool(false));
+        }
+        for process in value["processes"].as_array_mut().ok_or(Error::Schema)? {
+            let map = process.as_object_mut().ok_or(Error::Schema)?;
+            if map.get("role").and_then(Value::as_str) == Some("exec") {
+                map.entry("epoll_wait_ms".to_owned())
+                    .or_insert_with(|| Value::from(0u64));
+                map.entry("max_order_age_ns".to_owned())
+                    .or_insert_with(|| Value::from(23_000u64));
+            }
         }
         Self::parse(
             Format::Json,
