@@ -1,4 +1,6 @@
-//! Versioned configuration values. No process, file or trading authority.
+//! Pure static configuration parsing, schema/semantic validation, scoped process
+//! projections, and rollout plan synthesis (zero runtime config-patch, file, or
+//! journal authority).
 #![forbid(unsafe_code)]
 
 use serde_json::Value;
@@ -11,7 +13,6 @@ pub mod changes;
 pub mod delivery;
 pub mod locator;
 pub mod materialized;
-pub mod patch;
 pub mod plan;
 pub mod prepared;
 pub mod projection;

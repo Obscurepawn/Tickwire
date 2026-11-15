@@ -430,7 +430,6 @@ fn rules_identity_matches_the_declared_files_in_the_actual_workspace() {
         "crates/tickwire-config/src/changes.rs",
         "crates/tickwire-config/src/delivery.rs",
         "crates/tickwire-config/src/lib.rs",
-        "crates/tickwire-config/src/patch.rs",
         "crates/tickwire-config/src/plan.rs",
         "crates/tickwire-config/src/plan/dependencies.rs",
         "crates/tickwire-config/src/plan/encoded.rs",
@@ -440,7 +439,6 @@ fn rules_identity_matches_the_declared_files_in_the_actual_workspace() {
         "crates/tickwire-config/src/strict.rs",
         "crates/tickwire-config/src/validation.rs",
         "rust-toolchain.toml",
-        "specs/contracts/config-patch.schema.json",
         "specs/contracts/system-config.schema.json",
     ];
     assert!(files.windows(2).all(|p| p[0] < p[1]));

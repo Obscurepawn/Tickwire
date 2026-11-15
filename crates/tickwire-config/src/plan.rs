@@ -3,8 +3,7 @@ use crate::{
     Candidate, Error, Hash, Result,
     changes::Class,
     delivery::{DeliveryKind, ProjectionDelivery},
-    patch::Head,
-    prepared::PreparedCandidate,
+    prepared::{Head, PreparedCandidate},
     projection::Projection,
     strict,
 };

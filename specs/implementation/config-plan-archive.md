@@ -2,7 +2,7 @@
 
 `tickwire-config::plan::EncodedPlan` provides the canonical serialized representation for persisting, reviewing, and re-opening a `ComputedPlan` across control-plane approval and rollout stages. Saving a plan captures the exact base configuration identity, successor revision, planner options, affected accounts, per-process projection hashes, required transition classes, and execution preconditions in a single domain-separated `SHA-256` artifact.
 
-Decoding an `EncodedPlan` proves only that the saved JSON document is canonically formatted, structurally self-consistent, and matches its expected digest. Verifying that the plan faithfully reflects a specific configuration transition requires `ComputedPlan::verify_encoded`, and proving that running processes actually applied the rollout requires independent local journal and runtime observation receipts.
+Decoding an `EncodedPlan` proves only that the saved JSON document is canonically formatted, structurally self-consistent, and matches its expected digest. Verifying that the plan faithfully reflects a specific static configuration transition requires `ComputedPlan::verify_encoded`, and proving that running processes launched with a given static projection requires independent supervisor and runtime observation checks.
 
 ## State Model and Bounds
 
@@ -14,7 +14,7 @@ An `EncodedPlan` is an RFC 8785 canonical JSON object bounded by `MAX_BYTES = 1 
 | Revision & ETag binding | Canonical decimal strings in `1..=2^63 - 1` (no leading zeros or signs); `base_etag` must equal `"\"cfg-<base_revision>-<base_hash_hex>\""` |
 | Root `preconditions` | Strictly sorted, duplicate-free `[CurrentAuthority, ContentQualification, RetainedRegistryHead]` |
 | `targets` map (`1..=4,096`) | Keyed by valid process IDs; each entry binds `action`, `required_class`, `old_projection`, `new_projection`, `old_host`, `new_host`, `accounts`, `changes` (JSON Pointers), and target `preconditions` |
-| `plan::rules_digest()` | Domain-separated `SHA-256` (`"tickwire.config.planning-rules.v1\0"`) over 19 length-framed source, schema, Cargo manifest/lockfile, and toolchain inputs; stored alongside—never inside—the plan bytes |
+| `plan::rules_digest()` | Domain-separated `SHA-256` (`"tickwire.config.planning-rules.v1\0"`) over 17 length-framed source, schema, Cargo manifest/lockfile, and toolchain inputs; stored alongside—never inside—the plan bytes |
 
 ## Core Invariants
 
@@ -41,4 +41,4 @@ The `plan_archive` suite tests full plan round-tripping, `verify_encoded` base-r
 
 * Encoded plan verifier and rules digest: [encoded.rs](../../crates/tickwire-config/src/plan/encoded.rs), [rules.rs](../../crates/tickwire-config/src/plan/rules.rs), [plan.rs](../../crates/tickwire-config/src/plan.rs)
 * Archive round-trip and mutation tests: [plan_archive.rs](../../crates/tickwire-config/tests/plan_archive.rs)
-* Related specifications: [Configuration candidates and rollout plans](config-candidate.md), [Local configuration journal](config-local-journal.md), [Local configuration materializer](config-materializer.md)
+* Related specifications: [Configuration candidates and rollout plans](config-candidate.md), [Configuration locator](config-locator.md)

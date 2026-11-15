@@ -5,7 +5,6 @@ import jsonschema
 
 root=pathlib.Path(__file__).resolve().parents[1]
 schema=json.loads((root/'specs/contracts/system-config.schema.json').read_text())
-patch_schema=json.loads((root/'specs/contracts/config-patch.schema.json').read_text())
 reference=tomllib.loads((root/'config/reference.toml').read_text())
 template=tomllib.loads((root/'config/production.template.toml').read_text())
 jsonschema.Draft202012Validator.check_schema(schema)
@@ -108,17 +107,10 @@ for label,mutate in [('duplicate-process',lambda c:c['processes'].append(copy.de
     except AssertionError:pass
     else:raise AssertionError('missed negative case '+label)
 
-# Validate the actual API input variants and independent process-file schemas.
+# Validate the independent process-file schemas.
 from referencing import Registry, Resource
 import hashlib
 registry=Registry().with_resource(schema['$id'],Resource.from_contents(schema))
-patch_validator=jsonschema.Draft202012Validator(patch_schema)
-etag='"cfg-1-'+('a'*64)+'"'
-patch={'base_etag':etag,'changes':[{'op':'replace','selector':{'collection':'risk_policies','id':'spot-risk'},'path':'/max_order_quote','value':'500.00'}]}
-patch_validator.validate(patch)
-for bad_op in ['test','copy','move']:
-    bad=copy.deepcopy(patch);bad['changes'][0]['op']=bad_op;assert list(patch_validator.iter_errors(bad))
-bad=copy.deepcopy(patch);bad['changes'][0]['path']='/allowed_symbols/0';assert list(patch_validator.iter_errors(bad))
 def component(name):return jsonschema.Draft202012Validator({'$ref':schema['$id']+'#/$defs/'+name},registry=registry,format_checker=jsonschema.FormatChecker())
 def digest(value):return 'sha256:'+hashlib.sha256(json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 strategy=reference['strategies'][0];process=next(p for p in reference['processes'] if p['id']==strategy['process_id'])
@@ -136,4 +128,4 @@ locator={'locator_version':1,'generation':'1','cluster_id':reference['identity']
 locator['checksum']=digest(locator);component('ConfigLocator').validate(locator)
 bad=copy.deepcopy(locator);bad['active_root']='/var/lib/..';assert list(component('ConfigLocator').iter_errors(bad))
 print(json.dumps({'reference_schema_errors':0, 'template_expected_errors':len(template_errors),
-                  'config_patch':'passed', 'projection_and_locator':'passed', 'capacity':result}, indent=2))
+                  'projection_and_locator':'passed', 'capacity':result}, indent=2))

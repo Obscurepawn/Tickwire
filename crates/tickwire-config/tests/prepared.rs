@@ -2,8 +2,7 @@ use serde_json::json;
 use tickwire_config::{
     Candidate, Error, Format, Limits,
     changes::{Authority, Class, Role, RoleGrant},
-    patch::{Head, ScopedPatch},
-    prepared::{Input, PreparedCandidate},
+    prepared::{Head, Input, PreparedCandidate},
 };
 fn base() -> Candidate {
     Candidate::parse(
@@ -149,30 +148,10 @@ fn full_candidate_checks_both_base_identity_and_etag() {
     );
 }
 #[test]
-fn scoped_patch_keeps_account_authority_and_normalizes_only_configuration_defaults() {
+fn revision_bounds_reject_zero_and_top_bit() {
     let base = base();
-    let head = Head::new(2, &base).unwrap();
-    let patch = json!({"base_etag":head.etag(),"changes":[{
-        "op":"replace","selector":{"collection":"risk_policies","id":base.value()["risk_policies"][0]["id"]},
-        "path":"/max_gross_quote","value":"10000"
-    }]});
-    let patch =
-        ScopedPatch::parse(&serde_json::to_vec(&patch).unwrap(), Limits::default()).unwrap();
-    let prepared = PreparedCandidate::prepare(
-        &head,
-        &head.etag(),
-        &base,
-        Input::Patch(&patch),
-        &editor(false),
-        Limits::default(),
-    )
-    .unwrap();
-    assert_eq!(
-        prepared.candidate().value()["risk_policies"][0]["max_gross_quote"],
-        "10000"
-    );
-    assert_eq!(prepared.changes().accounts(), &["spot-main".into()].into());
-    assert!(!prepared.changes().requires_cluster_admin());
+    assert_eq!(Head::new(0, &base), Err(Error::Revision));
+    assert_eq!(Head::new(1 << 63, &base), Err(Error::Revision));
 }
 #[test]
 fn forbidden_runtime_identity_changes_remain_forbidden_after_normalization() {

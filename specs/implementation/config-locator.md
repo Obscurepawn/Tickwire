@@ -2,7 +2,7 @@
 
 `tickwire-config::locator::Locator` parses, validates, and hashes the fixed `ConfigLocator` bootstrap pointer from either JSON or TOML, establishing a format-independent content identity (`Locator::hash()`) and cryptographic predecessor chain across configuration-directory migrations.
 
-`Locator` owns pure schema, path-hygiene, checksum, and successor-link validation (`validate_successor`). It confers no root-activation authority on its own: host bootstrap code independently verifies the migration journal, on-disk file inventory, and prior writer termination before switching an active configuration root.
+`Locator` owns pure schema, path-hygiene, checksum, and successor-link validation (`validate_successor`). It confers no root-activation authority on its own: host bootstrap code independently verifies static startup configuration files and prior process termination before switching an active configuration root.
 
 ## State Model and Bounds
 
@@ -36,4 +36,4 @@ Automated tests verify JSON/TOML hash equivalence, `checksum` tamper rejection, 
 
 * Locator implementation and schema contract: [locator.rs](../../crates/tickwire-config/src/locator.rs), [system-config.schema.json](../contracts/system-config.schema.json)
 * Locator test suite: [locator.rs](../../crates/tickwire-config/tests/locator.rs)
-* Related specifications: [Configuration candidates](config-candidate.md), [Linux configuration file store](config-file-store.md), [Local configuration journal](config-local-journal.md)
+* Related specifications: [Configuration candidates](config-candidate.md), [Archived rollout plans](config-plan-archive.md)

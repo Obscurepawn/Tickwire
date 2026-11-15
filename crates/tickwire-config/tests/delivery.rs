@@ -5,8 +5,7 @@ use tickwire_config::{
     artifacts::{ArtifactCatalog, CatalogLimits},
     changes::{Authority, Role, RoleGrant},
     delivery::{DeliveryKind, ProjectionDelivery, ProjectionLimits, ProjectionSet},
-    patch::Head,
-    prepared::{Input, PreparedCandidate},
+    prepared::{Head, Input, PreparedCandidate},
     projection_object::ProjectionObject,
 };
 

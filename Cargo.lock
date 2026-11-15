@@ -1003,105 +1003,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-account-codec"
-version = "0.1.0"
-dependencies = [
- "sha2",
- "tickwire-account",
- "tickwire-journal",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-account-gateway"
-version = "0.1.0"
-dependencies = [
- "rcgen",
- "ring",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-journal",
- "tickwire-binance",
- "tickwire-gateway",
- "tickwire-journal",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-transport",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-account-journal"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-journal",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-app"
-version = "0.1.0"
-dependencies = [
- "allocation-counter",
- "base64 0.22.1",
- "libc",
- "rcgen",
- "ring",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-account-journal",
- "tickwire-binance",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-execution",
- "tickwire-binance-private",
- "tickwire-binance-public",
- "tickwire-binance-quota",
- "tickwire-binance-session",
- "tickwire-book",
- "tickwire-clock",
- "tickwire-clock-sys",
- "tickwire-config",
- "tickwire-control",
- "tickwire-control-store",
- "tickwire-control-sys",
- "tickwire-instrument-catalog",
- "tickwire-ipc",
- "tickwire-join",
- "tickwire-journal",
- "tickwire-market-publisher",
- "tickwire-market-source",
- "tickwire-md",
- "tickwire-quota",
- "tickwire-recovery",
- "tickwire-release",
- "tickwire-risk",
- "tickwire-runtime",
- "tickwire-runtime-policy",
- "tickwire-shm",
- "tickwire-snapshot",
- "tickwire-strategy-host",
- "tickwire-strategy-sdk",
- "tickwire-supervisor",
- "tickwire-transport",
- "tickwire-venue",
-]
-
-[[package]]
 name = "tickwire-binance"
 version = "0.1.0"
 dependencies = [
@@ -1119,32 +1020,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-binance-account"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "rcgen",
- "ring",
- "serde",
- "serde_json",
- "sha1",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-account-journal",
- "tickwire-binance",
- "tickwire-binance-private",
- "tickwire-clock",
- "tickwire-gateway",
- "tickwire-journal",
- "tickwire-quota",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-transport",
- "tickwire-venue",
-]
-
-[[package]]
 name = "tickwire-binance-clock"
 version = "0.1.0"
 dependencies = [
@@ -1154,34 +1029,6 @@ dependencies = [
  "tickwire-clock",
  "tickwire-clock-sys",
  "tickwire-transport",
-]
-
-[[package]]
-name = "tickwire-binance-execution"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "rcgen",
- "serde_json",
- "sha1",
- "sha2",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-account-journal",
- "tickwire-binance",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-private",
- "tickwire-binance-quota",
- "tickwire-clock",
- "tickwire-gateway",
- "tickwire-journal",
- "tickwire-quota",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-transport",
- "tickwire-venue",
 ]
 
 [[package]]
@@ -1218,23 +1065,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-binance-quota"
-version = "0.1.0"
-dependencies = [
- "serde",
- "sha2",
- "tickwire-account",
- "tickwire-binance",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-private",
- "tickwire-binance-public",
- "tickwire-clock",
- "tickwire-quota",
- "tickwire-venue",
-]
-
-[[package]]
 name = "tickwire-binance-sbe"
 version = "0.1.0"
 
@@ -1255,19 +1085,6 @@ dependencies = [
 [[package]]
 name = "tickwire-book"
 version = "0.1.0"
-
-[[package]]
-name = "tickwire-business-journal"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "tickwire-execution",
- "tickwire-journal",
- "tickwire-journal-codec",
- "tickwire-recovery",
-]
 
 [[package]]
 name = "tickwire-clock"
@@ -1293,39 +1110,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-config-fs"
-version = "0.1.0"
-dependencies = [
- "getrandom 0.2.17",
- "libc",
- "sha2",
- "tickwire-journal",
-]
-
-[[package]]
-name = "tickwire-config-journal"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "tickwire-config-fs",
- "tickwire-journal",
-]
-
-[[package]]
-name = "tickwire-config-materializer"
-version = "0.1.0"
-dependencies = [
- "serde_json",
- "sha2",
- "tickwire-config",
- "tickwire-config-fs",
- "tickwire-config-journal",
- "tickwire-journal",
-]
-
-[[package]]
 name = "tickwire-control"
 version = "0.1.0"
 dependencies = [
@@ -1335,40 +1119,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-control-store"
-version = "0.1.0"
-dependencies = [
- "tickwire-control",
- "tickwire-ipc",
- "tickwire-journal",
-]
-
-[[package]]
 name = "tickwire-control-sys"
 version = "0.1.0"
 dependencies = [
  "libc",
  "tickwire-ipc",
-]
-
-[[package]]
-name = "tickwire-execution"
-version = "0.1.0"
-
-[[package]]
-name = "tickwire-gateway"
-version = "0.1.0"
-dependencies = [
- "rcgen",
- "ring",
- "tickwire-binance",
- "tickwire-business-journal",
- "tickwire-execution",
- "tickwire-journal",
- "tickwire-journal-codec",
- "tickwire-recovery",
- "tickwire-transport",
- "tickwire-venue",
 ]
 
 [[package]]
@@ -1408,50 +1163,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-journal"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "tickwire-shm-sys",
-]
-
-[[package]]
-name = "tickwire-journal-codec"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "tickwire-lab"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "rcgen",
- "ring",
- "rustls",
- "serde",
- "serde_json",
- "sha1",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-app",
- "tickwire-clock",
- "tickwire-clock-sys",
- "tickwire-ipc",
- "tickwire-market-source",
- "tickwire-md",
- "tickwire-recovery",
- "tickwire-shm",
- "tickwire-strategy-sdk",
- "tickwire-venue",
-]
-
-[[package]]
 name = "tickwire-market-publisher"
 version = "0.1.0"
 dependencies = [
@@ -1487,53 +1198,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-md"
-version = "0.1.0"
-dependencies = [
- "allocation-counter",
- "base64 0.22.1",
- "libc",
- "rcgen",
- "serde",
- "serde_json",
- "sha1",
- "sha2",
- "tickwire-binance",
- "tickwire-binance-clock",
- "tickwire-binance-public",
- "tickwire-binance-quota",
- "tickwire-book",
- "tickwire-clock",
- "tickwire-clock-sys",
- "tickwire-config",
- "tickwire-control",
- "tickwire-control-store",
- "tickwire-control-sys",
- "tickwire-instrument-catalog",
- "tickwire-instrument-index",
- "tickwire-ipc",
- "tickwire-join",
- "tickwire-journal",
- "tickwire-market-publisher",
- "tickwire-market-source",
- "tickwire-quota",
- "tickwire-shm",
- "tickwire-snapshot",
- "tickwire-transport",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-mock"
-version = "0.1.0"
-dependencies = [
- "tickwire-book",
- "tickwire-execution",
- "tickwire-ipc",
- "tickwire-risk",
-]
-
-[[package]]
 name = "tickwire-quota"
 version = "0.1.0"
 dependencies = [
@@ -1545,81 +1209,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "tickwire-recovery"
-version = "0.1.0"
-dependencies = [
- "libc",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "tickwire-release"
-version = "0.1.0"
-dependencies = [
- "libc",
- "serde",
- "serde_json",
- "sha2",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-ipc",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-venue",
-]
-
-[[package]]
 name = "tickwire-risk"
 version = "0.1.0"
 dependencies = [
  "serde_json",
-]
-
-[[package]]
-name = "tickwire-runtime"
-version = "0.1.0"
-dependencies = [
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-account-journal",
- "tickwire-binance",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-execution",
- "tickwire-binance-private",
- "tickwire-binance-public",
- "tickwire-binance-quota",
- "tickwire-binance-session",
- "tickwire-book",
- "tickwire-clock",
- "tickwire-instrument-catalog",
- "tickwire-journal",
- "tickwire-market-source",
- "tickwire-recovery",
- "tickwire-release",
- "tickwire-risk",
- "tickwire-transport",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-runtime-policy"
-version = "0.1.0"
-dependencies = [
- "serde",
- "tickwire-account",
- "tickwire-account-gateway",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-private",
- "tickwire-clock",
- "tickwire-clock-sys",
- "tickwire-risk",
- "tickwire-runtime",
- "tickwire-venue",
 ]
 
 [[package]]
@@ -1649,151 +1242,6 @@ dependencies = [
  "tickwire-control-sys",
  "tickwire-ipc",
  "tickwire-shm-sys",
-]
-
-[[package]]
-name = "tickwire-spot-execution"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "rcgen",
- "ring",
- "serde",
- "serde_json",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-account-journal",
- "tickwire-gateway",
- "tickwire-journal",
- "tickwire-quota",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-transport",
- "tickwire-venue",
- "time",
-]
-
-[[package]]
-name = "tickwire-spot-runner"
-version = "0.1.0"
-dependencies = [
- "base64 0.22.1",
- "rcgen",
- "ring",
- "serde",
- "serde_json",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-account-journal",
- "tickwire-app",
- "tickwire-binance-clock",
- "tickwire-binance-public",
- "tickwire-book",
- "tickwire-clock",
- "tickwire-gateway",
- "tickwire-join",
- "tickwire-journal",
- "tickwire-market-publisher",
- "tickwire-market-source",
- "tickwire-md",
- "tickwire-quota",
- "tickwire-recovery",
- "tickwire-risk",
- "tickwire-runtime",
- "tickwire-runtime-policy",
- "tickwire-shm",
- "tickwire-snapshot",
- "tickwire-spot-execution",
- "tickwire-transport",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-strategy-example"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "tickwire-control-sys",
- "tickwire-ipc",
- "tickwire-recovery",
- "tickwire-release",
- "tickwire-snapshot",
- "tickwire-strategy-sdk",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-strategy-host"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-binance",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-public",
- "tickwire-book",
- "tickwire-clock",
- "tickwire-clock-sys",
- "tickwire-control",
- "tickwire-control-store",
- "tickwire-control-sys",
- "tickwire-instrument-catalog",
- "tickwire-ipc",
- "tickwire-join",
- "tickwire-journal",
- "tickwire-market-publisher",
- "tickwire-market-source",
- "tickwire-md",
- "tickwire-recovery",
- "tickwire-release",
- "tickwire-risk",
- "tickwire-runtime",
- "tickwire-runtime-policy",
- "tickwire-shm",
- "tickwire-snapshot",
- "tickwire-strategy-sdk",
- "tickwire-supervisor",
- "tickwire-venue",
-]
-
-[[package]]
-name = "tickwire-strategy-sdk"
-version = "0.1.0"
-dependencies = [
- "libc",
- "serde",
- "serde_json",
- "sha2",
- "tickwire-account",
- "tickwire-account-codec",
- "tickwire-account-gateway",
- "tickwire-binance-account",
- "tickwire-binance-clock",
- "tickwire-binance-public",
- "tickwire-clock",
- "tickwire-clock-sys",
- "tickwire-control",
- "tickwire-control-sys",
- "tickwire-instrument-catalog",
- "tickwire-ipc",
- "tickwire-join",
- "tickwire-market-source",
- "tickwire-recovery",
- "tickwire-release",
- "tickwire-risk",
- "tickwire-runtime",
- "tickwire-shm",
- "tickwire-shm-sys",
- "tickwire-snapshot",
- "tickwire-venue",
 ]
 
 [[package]]

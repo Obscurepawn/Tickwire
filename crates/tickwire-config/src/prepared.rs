@@ -1,13 +1,35 @@
-//! Complete candidate preparation; no deployment or commit authority.
+//! Complete static candidate preparation; no deployment or commit authority.
 use crate::{
     Candidate, Error, Hash, Limits, Result,
     changes::{Authority, ChangeSet, Role},
-    patch::{Head, ScopedPatch},
 };
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Head {
+    revision: u64,
+    hash: Hash,
+}
+impl Head {
+    pub fn new(revision: u64, candidate: &Candidate) -> Result<Self> {
+        if !(1..1 << 63).contains(&revision) {
+            return Err(Error::Revision);
+        }
+        Ok(Self {
+            revision,
+            hash: candidate.hash(),
+        })
+    }
+    pub fn etag(&self) -> String {
+        let hash: String = self.hash.iter().map(|b| format!("{b:02x}")).collect();
+        format!("\"cfg-{}-{hash}\"", self.revision)
+    }
+    pub fn hash(&self) -> Hash {
+        self.hash
+    }
+}
 
 pub enum Input<'a> {
     Full(&'a Candidate),
-    Patch(&'a ScopedPatch),
 }
 pub struct PreparedCandidate {
     base_hash: Hash,
@@ -33,9 +55,6 @@ impl PreparedCandidate {
                 }
                 candidate.normalized_configuration(limits)?
             }
-            Input::Patch(patch) => patch
-                .apply(head, if_match, base, authority)?
-                .normalized_configuration(limits)?,
         };
         let comparison = base.normalized_configuration(limits)?;
         let changes = ChangeSet::between(&comparison, &candidate)?;

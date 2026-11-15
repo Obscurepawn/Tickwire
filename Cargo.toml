@@ -1,5 +1,50 @@
 [workspace]
-members = ["crates/*"]
+members = [
+    "crates/tickwire-account",
+    "crates/tickwire-binance",
+    "crates/tickwire-binance-clock",
+    "crates/tickwire-binance-private",
+    "crates/tickwire-binance-public",
+    "crates/tickwire-binance-sbe",
+    "crates/tickwire-binance-session",
+    "crates/tickwire-book",
+    "crates/tickwire-clock",
+    "crates/tickwire-clock-sys",
+    "crates/tickwire-config",
+    "crates/tickwire-control",
+    "crates/tickwire-control-sys",
+    "crates/tickwire-instrument-catalog",
+    "crates/tickwire-instrument-index",
+    "crates/tickwire-ipc",
+    "crates/tickwire-join",
+    "crates/tickwire-market-publisher",
+    "crates/tickwire-market-source",
+    "crates/tickwire-quota",
+    "crates/tickwire-risk",
+    "crates/tickwire-shm",
+    "crates/tickwire-shm-sys",
+    "crates/tickwire-snapshot",
+    "crates/tickwire-supervisor",
+    "crates/tickwire-transport",
+    "crates/tickwire-venue",
+]
+exclude = [
+    "crates/tickwire-account-codec",
+    "crates/tickwire-account-gateway",
+    "crates/tickwire-app",
+    "crates/tickwire-binance-account",
+    "crates/tickwire-binance-execution",
+    "crates/tickwire-binance-quota",
+    "crates/tickwire-lab",
+    "crates/tickwire-md",
+    "crates/tickwire-runtime",
+    "crates/tickwire-runtime-policy",
+    "crates/tickwire-spot-execution",
+    "crates/tickwire-spot-runner",
+    "crates/tickwire-strategy-example",
+    "crates/tickwire-strategy-host",
+    "crates/tickwire-strategy-sdk",
+]
 resolver = "3"
 
 [workspace.package]

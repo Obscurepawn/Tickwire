@@ -26,10 +26,6 @@ const SOURCES: &[(&str, &[u8])] = &[
         include_bytes!("../lib.rs"),
     ),
     (
-        "crates/tickwire-config/src/patch.rs",
-        include_bytes!("../patch.rs"),
-    ),
-    (
         "crates/tickwire-config/src/plan.rs",
         include_bytes!("../plan.rs"),
     ),
@@ -64,10 +60,6 @@ const SOURCES: &[(&str, &[u8])] = &[
     (
         "rust-toolchain.toml",
         include_bytes!("../../../../rust-toolchain.toml"),
-    ),
-    (
-        "specs/contracts/config-patch.schema.json",
-        include_bytes!("../../../../specs/contracts/config-patch.schema.json"),
     ),
     (
         "specs/contracts/system-config.schema.json",

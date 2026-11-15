@@ -4,8 +4,7 @@ use tickwire_config::{
     Candidate, Format, Limits,
     artifacts::{ArtifactCatalog, CatalogLimits},
     changes::{Authority, Role, RoleGrant},
-    patch::Head,
-    prepared::{Input, PreparedCandidate},
+    prepared::{Head, Input, PreparedCandidate},
 };
 
 pub(super) fn parse(v: &Value) -> Candidate {
