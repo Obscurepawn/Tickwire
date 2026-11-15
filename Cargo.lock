@@ -999,6 +999,17 @@ version = "0.1.0"
 dependencies = [
  "sha2",
  "tickwire-risk",
+ "tickwire-shm-sys",
+ "tickwire-venue",
+]
+
+[[package]]
+name = "tickwire-account-codec"
+version = "0.1.0"
+dependencies = [
+ "sha2",
+ "tickwire-account",
+ "tickwire-risk",
  "tickwire-venue",
 ]
 

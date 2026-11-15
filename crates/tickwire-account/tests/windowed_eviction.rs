@@ -167,12 +167,13 @@ fn active_and_unreconciled_orders_are_never_evicted_regardless_of_age() {
     f1.identity.received_mono_ns = 1_100;
     account.apply_event(&event(f1.clone())).unwrap();
 
-    // 2. Terminal order whose fees are NOT reconciled yet (!fees_closed).
+    // 2. Terminal order whose fees are NOT reconciled yet (!fee_reconciled):
+    // terminal zero-remainder orders retire immediately without waiting on fee closure!
     let mut c2 = base_cmd.clone();
     c2.context.request.intent_id = 2;
     c2.context.request.deadline = 100_000;
     if let v::CommandBody::New(ref mut s) = c2.body {
-        s.client_id = venue::text("unclosed-fees");
+        s.client_id = venue::text("immediate-retire");
     }
     let a2 = account.admit(&canonical(c2.clone()), 1_000).unwrap();
     let k2 = a2.orders()[0].clone();
@@ -185,6 +186,7 @@ fn active_and_unreconciled_orders_are_never_evicted_regardless_of_age() {
     account.apply_event(&event(f2)).unwrap();
     assert!(account.order(&k2).unwrap().terminal);
     assert!(!account.order(&k2).unwrap().fee_reconciled);
+    assert!(!account.is_intent_active(k2.intent));
 
     // 3. Confirmed resting order with an in-flight unconfirmed AmendKeepPriority.
     let mut c3 = base_cmd.clone();
@@ -221,14 +223,14 @@ fn active_and_unreconciled_orders_are_never_evicted_regardless_of_age() {
     };
     let a_amend = account.admit(&canonical(amend), 1_400).unwrap();
 
-    // Advance mono_ns by 30 days: NONE of k1, k2, k3, or early-trade-1 may be evicted!
+    // Advance mono_ns by 30 days: k2 (terminal retired) is evicted immediately without waiting
+    // on fee_reconciled, whereas active orders k1 and k3 (and early-trade-1) are NEVER evicted!
     let thirty_days_ns = 30 * DEFAULT_RETENTION_WINDOW_NS;
-    assert_eq!(account.evict_expired(thirty_days_ns), 0);
+    assert_eq!(account.evict_expired(thirty_days_ns), 1);
+    assert!(account.order(&k2).is_none());
     assert!(account.order(&k1).is_some());
-    assert!(account.order(&k2).is_some());
     assert!(account.order(&k3).is_some());
     assert!(account.is_intent_active(k1.intent));
-    assert!(account.is_intent_active(k2.intent));
     assert!(account.is_intent_active(k3.intent));
     assert!(account.is_intent_active(a_amend.intent()));
 
@@ -239,13 +241,6 @@ fn active_and_unreconciled_orders_are_never_evicted_regardless_of_age() {
         account.apply_event(&event(f1_dup)).unwrap(),
         Applied::Duplicate
     );
-
-    // Once k2's fees are reconciled and another window passes, ONLY k2 is evicted!
-    account.reconcile_fees(&k2, f(100_000)).unwrap();
-    assert_eq!(account.evict_expired(thirty_days_ns + 2_000), 1);
-    assert!(account.order(&k2).is_none());
-    assert!(account.order(&k1).is_some());
-    assert!(account.order(&k3).is_some());
 }
 
 #[test]

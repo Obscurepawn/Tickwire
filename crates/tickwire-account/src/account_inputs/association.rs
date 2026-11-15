@@ -73,9 +73,8 @@ impl Account {
         w.finish()
     }
 
-    /// Applies data whose authority, exact WAL interval, snapshots and input
-    /// dependencies have already been verified by the durable owner. No funding,
-    /// order liability or risk reserve is released here.
+    /// Applies data whose authority, snapshots and input dependencies have already
+    /// been verified by the caller. No funding, order liability or risk reserve is released here.
     pub fn associate_income_observations(
         &mut self,
         binding: &IncomeObservationsAssociated,
@@ -89,31 +88,28 @@ impl Account {
         }
         let result = (|| {
             self.check_association(binding)?;
-            let mut candidate = self.clone();
+            self.sequence
+                .checked_add(1)
+                .ok_or(RiskError::ArithmeticOverflow)?;
+            self.evaluate()?;
             for group in &binding.associations {
-                candidate
-                    .account_inputs
+                self.account_inputs
                     .observations
                     .insert(group.observation_digest, false);
-                candidate
-                    .account_inputs
+                self.account_inputs
                     .associated_observations
                     .insert(group.observation_digest, binding.request_id);
                 for income in &group.incomes {
-                    candidate
-                        .account_inputs
+                    self.account_inputs
                         .associated_incomes
                         .insert(key(income), group.observation_digest);
                 }
             }
-            candidate
-                .account_inputs
+            self.account_inputs
                 .associations
                 .insert(binding.request_id, binding.clone());
-            candidate.next_sequence()?;
-            candidate.frozen = true;
-            candidate.evaluate()?;
-            *self = candidate;
+            self.next_sequence()?;
+            self.frozen = true;
             Ok(Applied::New)
         })();
         if result.is_err() {

@@ -6,7 +6,7 @@ use crate::{Account, Error, OrderKey, Result};
 pub const MAX_PROJECTED_FILLS: usize = 1024;
 
 /// Volatile early execution projection derived from advancing cumulative exchange quantity.
-/// Never mutates settled `Order.filled`, `Asset` balances, `Position`, `facts`, or `AccountJournal`.
+/// Never mutates settled `Order.filled`, `Asset` balances, `Position`, or `facts`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProjectedFill {
     pub order: OrderKey,

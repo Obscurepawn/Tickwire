@@ -1,8 +1,10 @@
-# Single-Writer Shared-Memory Mappings on Linux
+# Single-Writer Shared-Memory Mappings and Page Locking on Linux
 
-`tickwire-shm-sys` implements the kernel-enforced single-writer shared-memory primitive (`WriterMapping` and `ReaderMapping`) backing Tickwire's broadcast rings and per-subscriber cursor pages. By mapping a zero-filled Linux `memfd` `MAP_SHARED | PROT_READ | PROT_WRITE` inside its sole creator *before* applying the `F_SEAL_FUTURE_WRITE` seal profile (`0x17`), the creator retains its established writable mapping while the Linux kernel permanently denies `write(2)`/`pwrite(2)` syscalls, file growth or truncation, new shared writable mappings, and `mprotect(..., PROT_WRITE)` upgrades on any subsequently exported file descriptor.
+`tickwire-shm-sys` implements the kernel-enforced single-writer shared-memory primitive (`WriterMapping` and `ReaderMapping`) backing Tickwire's broadcast rings and per-subscriber cursor pages, immutable resource mappings (`ImmutableMapping` and `ImmutableResource`), and the audited `mlock(2)` / `munlock(2)` boundary used to pin preallocated hot-path tables in physical RAM at startup.
 
-This layer owns Linux `memfd` creation, page-size and seal verification, `MADV_DONTFORK` virtual-memory isolation, and aligned 64-bit acquire/release atomic accessors. It intentionally keeps byte-slice and atomic accessors `unsafe` and performs neither Tickwire header validation nor slot reclamation: `tickwire-shm` owns the ring publication/borrow state machine that prevents concurrent overwrites of borrowed slots, while `tickwire-control-sys` and `tickwire-control` own authenticated `SCM_RIGHTS` descriptor delivery. Linux `memfd` visibility resides solely in volatile RAM and provides zero disk durability.
+By mapping a zero-filled Linux `memfd` `MAP_SHARED | PROT_READ | PROT_WRITE` inside its sole creator *before* applying the `F_SEAL_FUTURE_WRITE` seal profile (`0x17`), the creator retains its established writable mapping while the Linux kernel permanently denies `write(2)`/`pwrite(2)` syscalls, file growth or truncation, new shared writable mappings, and `mprotect(..., PROT_WRITE)` upgrades on any subsequently exported file descriptor.
+
+This layer owns Linux `memfd` creation, page-size and seal verification, `MADV_DONTFORK` virtual-memory isolation, aligned 64-bit acquire/release atomic accessors, and startup heap/slice `mlock` helpers. It intentionally keeps shared-mapping byte-slice and atomic accessors `unsafe` and performs neither ring slot reclamation nor `SCM_RIGHTS` delivery: `tickwire-shm` owns the ring publication/borrow state machine that prevents concurrent overwrites of borrowed slots, while `tickwire-control-sys` and `tickwire-control` own authenticated `SCM_RIGHTS` descriptor delivery. Linux `memfd` visibility resides solely in volatile RAM with zero local disk state.
 
 ## State Model and Bounds
 
@@ -29,25 +31,30 @@ Supported targets are restricted at compile and runtime to little-endian 64-bit 
   1. Atomic offsets are accessed exclusively as aligned 64-bit atomics across all processes after initial pre-seal initialization, and byte slices (`read_bytes` / `write_bytes`) never overlap live atomic fields.
   2. `write_bytes` runs only under exclusive slot/block ownership when no reader holds a live reference to that range.
   3. `read_bytes` runs only after an `Acquire` load has observed the writer's `Release` publication and while a live reader reservation (`RecordBorrow` in `tickwire-shm::mapped`) prevents the writer from reclaiming the slot—establishing the 8-byte-aligned (`SLOTS = 8192`, `record_bytes = 512`), immutable byte-slice precondition required for zero-copy `&MarketRecord` / `&MarketExactRecord` references (`RecordBorrow::as_market_record`, `as_market_exact_record`, and `as_market_state`).
-* **Platform and resource failures**: Non-Linux or non-4-KiB-page hosts fail deterministically with `UnsupportedPlatform` or `PlatformMismatch`. Any failure in `ftruncate`, `mmap`, `madvise(MADV_DONTFORK)`, or seal verification unmaps any partial mapping and closes the owned descriptor immediately. Deployment-specific latency properties—such as `mlock`, hugepage policy, CPU core isolation, page-fault pre-warming, and NUMA placement—require independent host configuration and measurement.
+* **Platform and resource failures**: Non-Linux or non-4-KiB-page hosts fail deterministically with `UnsupportedPlatform` or `PlatformMismatch`. Any failure in `ftruncate`, `mmap`, `madvise(MADV_DONTFORK)`, or seal verification unmaps any partial mapping and closes the owned descriptor immediately.
 
-## Memory-Mapped File Segments and Cursor Pages (`MappedSegment`, `MappedCursorPage`)
+## Startup Page Locking (`mlock_slice`, `try_mlock_slice`, `MlockedSlice`, `MlockedBox`)
 
-To eliminate hot-path `write(2)` and synchronous `fdatasync(2)` syscalls in `MmapAsync` journal persistence while keeping downstream journal crates `#![forbid(unsafe_code)]`, `tickwire-shm-sys::mapped_file` encapsulates regular-file `MAP_SHARED` mappings behind a safe, single-writer boundary:
+To keep downstream crates such as `tickwire-account` `#![forbid(unsafe_code)]` while locking preallocated hot-path tables (`OrderManager` slot pools and `FillRecord` hash buckets) into physical RAM at cold startup, `tickwire-shm-sys::mlock` encapsulates `libc::mlock` and `libc::munlock` behind safe APIs:
 
-* **`MappedSegment`**: Opens or creates a regular file (`0600`, `O_RDWR | O_CLOEXEC | O_NOFOLLOW`), acquires a non-blocking exclusive `flock(LOCK_EX | LOCK_NB)`, extends or verifies the file to a 4,096-byte page-aligned capacity, maps it `PROT_READ | PROT_WRITE` with `MAP_SHARED`, applies `MADV_DONTFORK`, and pre-faults writable pages during startup/segment creation so hot-path `write_at(offset, bytes)` executes a bounds-checked memory copy directly into the Linux page cache (`~100 ns`, zero syscalls, zero minor page faults on pre-warmed pages). `duplicate_sync_fd()` clones a `CLOEXEC` descriptor for an asynchronous background flusher thread to invoke `fdatasync` without contending on the mapped pointer, and `truncate_unmap(logical_len)` unmaps the segment before `ftruncate` trims unused preallocated trailing zeros on segment rotation or graceful shutdown.
-* **`MappedCursorPage` (`MMAP-CURSOR.bin`)**: Maps a single 4,096-byte file containing two cache-line-isolated 128-byte slots (`slot 0` at byte `0`, `slot 1` at byte `128`). Each commit writes `(magic = "TWMC0001", generation, segment_id, logical_len, sha256)` into the alternate slot after a `Release` fence over the segment payload. Because both mappings are `MAP_SHARED` in the kernel page cache, an abrupt process crash (`SIGKILL` or panic) preserves the highest valid `generation` slot, allowing reopen recovery to `ftruncate` the active preallocated segment to `logical_len` before scanning `TWAL0001` frames.
+* **`MlockPolicy` and `MlockOutcome`**:
+  * `MlockPolicy::Disabled` skips `mlock(2)` and returns `MlockOutcome::NotRequested`.
+  * `MlockPolicy::BestEffort` (default) attempts `mlock(2)` and degrades cleanly to `MlockOutcome::SkippedLimitOrPermission` when `RLIMIT_MEMLOCK` or `CAP_IPC_LOCK` denies locking (`ENOMEM`, `EPERM`, or `EAGAIN`), allowing identical binaries to run in unprivileged CI containers and production hosts with `LimitMEMLOCK=infinity`.
+  * `MlockPolicy::Strict` requires `mlock(2)` to succeed on non-empty allocations and returns `Error::System { operation: "mlock", .. }` on kernel failure.
+* **Byte-slice and typed-container wrappers**:
+  * `mlock_slice(bytes: &[u8]) -> Result<()>`, `munlock_slice(bytes: &[u8]) -> Result<()>`, and `try_mlock_slice(bytes: &[u8], policy: MlockPolicy) -> Result<MlockOutcome>` operate on initialized byte slices; empty slices succeed as no-ops (`MlockOutcome::NotRequested`).
+  * `MlockedSlice<T>` and `MlockedBox<T>` convert startup `Vec<T>` / `Box<T>` allocations into fixed-address heap storage (`Box<[T]>` / `Box<T>`) and pass `(ptr, size_of_val)` directly to `libc::mlock` without forming `&[u8]` references over struct padding or interior atomics. When `outcome == MlockOutcome::Locked`, `Drop` invokes `libc::munlock` over the exact owned range before freeing the allocation so repeated test teardowns do not exhaust process `RLIMIT_MEMLOCK`.
 
 ## Verification and References
 
 ```sh
-cargo test --locked -p tickwire-shm-sys
+cargo test --locked -p tickwire-shm-sys --all-targets
 cargo clippy --locked -p tickwire-shm-sys --all-targets -- -D warnings
 cargo rustc --locked -p tickwire-shm-sys --release -- --emit=asm
 ```
 
-The Linux test suite spawns a real child reader process before the parent writes 60 KiB and verifies full payload visibility across `store_u64_release` / `load_u64_acquire`, alongside regression tests for `0x17` seal bits, zero-filled pages, `FD_CLOEXEC`, `MADV_DONTFORK` `/proc/self/smaps` flags, `EACCES` on `mprotect` write upgrades, misaligned atomics, and non-page-multiple lengths. On the archived Linux `6.8.0-117-generic` AArch64 target (4,096-byte pages), `store_u64_release` lowers to `stlr` and `load_u64_acquire` lowers to `ldr` followed by `dmb ishld`.
+The Linux test suite spawns a real child reader process before the parent writes 60 KiB and verifies full payload visibility across `store_u64_release` / `load_u64_acquire`, alongside regression tests for `0x17` seal bits, zero-filled pages, `FD_CLOEXEC`, `MADV_DONTFORK` `/proc/self/smaps` flags, `EACCES` on `mprotect` write upgrades, misaligned atomics, non-page-multiple lengths, and `mlock` / `munlock` policy behavior under both normal and constrained `RLIMIT_MEMLOCK` budgets.
 
-* Implementation: [lib.rs](../../crates/tickwire-shm-sys/src/lib.rs)
-* Test suites: [mapping.rs](../../crates/tickwire-shm-sys/tests/mapping.rs), [process.rs](../../crates/tickwire-shm-sys/tests/process.rs)
+* Implementation: [lib.rs](../../crates/tickwire-shm-sys/src/lib.rs), [mlock.rs](../../crates/tickwire-shm-sys/src/mlock.rs)
+* Test suites: [mapping.rs](../../crates/tickwire-shm-sys/tests/mapping.rs), [immutable.rs](../../crates/tickwire-shm-sys/tests/immutable.rs), [mlock.rs](../../crates/tickwire-shm-sys/tests/mlock.rs), [process.rs](../../crates/tickwire-shm-sys/tests/process.rs)
 * Related specifications: [Shared-memory broadcast ring](shm-ring.md), [Immutable Linux resources](immutable-resource.md), [Control transport](control-transport.md)

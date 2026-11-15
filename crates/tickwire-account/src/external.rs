@@ -29,40 +29,63 @@ impl Account {
         if self.external_facts.len() >= MAX_FACTS {
             return Err(Error::Capacity);
         }
-        let mut candidate = self.clone();
-        let a = candidate
-            .assets
-            .get_mut(&delta.key)
-            .ok_or(Error::Identity)?;
-        a.cashflow = a.cashflow.checked_add(delta.amount)?;
-        if delta.amount.atoms() < 0 {
-            a.other_debits = a.other_debits.checked_add(delta.amount.checked_neg()?)?;
-        }
-        add_owner(&mut a.ownership, 0, delta.amount)?;
-        if delta.amount.atoms() < 0 && candidate.venue_available.contains_key(&delta.key.wallet_id)
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let (new_cashflow, new_other_debits, new_owner_0) = {
+            let a = self.assets.get(&delta.key).ok_or(Error::Identity)?;
+            let new_cashflow = a.cashflow.checked_add(delta.amount)?;
+            let new_other_debits = if delta.amount.atoms() < 0 {
+                a.other_debits.checked_add(delta.amount.checked_neg()?)?
+            } else {
+                a.other_debits
+            };
+            let old_owner = a
+                .ownership
+                .get(&0)
+                .copied()
+                .unwrap_or(delta.amount.zero_like());
+            let new_owner_0 = old_owner.checked_add(delta.amount)?;
+            (new_cashflow, new_other_debits, new_owner_0)
+        };
+        let uncovered_update = if delta.amount.atoms() < 0
+            && self.venue_available.contains_key(&delta.key.wallet_id)
         {
             let wallet = delta.key.wallet_id;
-            let settlement = candidate
+            let settlement = self
                 .catalog
                 .values()
                 .find(|p| p.wallet_id == wallet && p.futures.is_some())
                 .map(|p| p.instrument.settlement.id);
             if settlement == Some(delta.key.asset_id) {
-                let old = candidate
+                let old = self
                     .uncovered_debits
                     .get(&wallet)
                     .copied()
                     .unwrap_or(delta.amount.zero_like());
-                candidate
-                    .uncovered_debits
-                    .insert(wallet, old.checked_sub(delta.amount)?);
+                Some(Ok((wallet, old.checked_sub(delta.amount)?)))
             } else {
-                candidate.shadow_unvalued.insert(wallet);
+                Some(Err(wallet))
             }
+        } else {
+            None
+        };
+
+        let a = self.assets.get_mut(&delta.key).unwrap();
+        a.cashflow = new_cashflow;
+        a.other_debits = new_other_debits;
+        a.ownership.insert(0, new_owner_0);
+        match uncovered_update {
+            Some(Ok((wallet, amount))) => {
+                self.uncovered_debits.insert(wallet, amount);
+            }
+            Some(Err(wallet)) => {
+                self.shadow_unvalued.insert(wallet);
+            }
+            None => {}
         }
-        candidate.external_facts.insert(key, value);
-        candidate.next_sequence()?;
-        *self = candidate;
+        self.external_facts.insert(key, value);
+        self.next_sequence()?;
         Ok(Applied::New)
     }
     /// Replaces the observed actual position and puts the delta into the unattributed bucket.
@@ -92,8 +115,10 @@ impl Account {
         if self.external_facts.len() >= MAX_FACTS {
             return Err(Error::Capacity);
         }
-        let mut candidate = self.clone();
-        let p = candidate.catalog.get(&instrument).ok_or(Error::Catalog)?;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let p = self.catalog.get(&instrument).ok_or(Error::Catalog)?;
         let mode = p.futures.as_ref().ok_or(Error::Unsupported)?.position_mode;
         if (side == v::PositionSide::Both) != (mode == v::PositionMode::OneWay)
             || quantity.scale() != asset_scale(&p.instrument.base)?
@@ -101,24 +126,31 @@ impl Account {
             return Err(Error::Identity);
         }
         entry.positive()?;
-        let position = candidate
-            .positions
-            .entry((instrument, side_code(side)))
-            .or_insert(Position {
-                quantity: quantity.zero_like(),
-                entry,
-                ownership: BTreeMap::new(),
-            });
-        add_owner(
-            &mut position.ownership,
-            0,
-            quantity.checked_sub(position.quantity)?,
-        )?;
+        let pos_key = (instrument, side_code(side));
+        let (prior_qty, prior_owner_0) = match self.positions.get(&pos_key) {
+            Some(existing) => (
+                existing.quantity,
+                existing
+                    .ownership
+                    .get(&0)
+                    .copied()
+                    .unwrap_or(quantity.zero_like()),
+            ),
+            None => (quantity.zero_like(), quantity.zero_like()),
+        };
+        let delta_qty = quantity.checked_sub(prior_qty)?;
+        let new_owner_0 = prior_owner_0.checked_add(delta_qty)?;
+
+        let position = self.positions.entry(pos_key).or_insert(Position {
+            quantity: quantity.zero_like(),
+            entry,
+            ownership: BTreeMap::new(),
+        });
+        position.ownership.insert(0, new_owner_0);
         position.quantity = quantity;
         position.entry = entry;
-        candidate.external_facts.insert(fact, value);
-        candidate.next_sequence()?;
-        *self = candidate;
+        self.external_facts.insert(fact, value);
+        self.next_sequence()?;
         Ok(Applied::New)
     }
     /// Signed quantity moves between virtual owners; the actual position is unchanged.
@@ -130,17 +162,37 @@ impl Account {
         to: u64,
         quantity: Fixed,
     ) -> Result<()> {
-        let mut candidate = self.clone();
-        let position = candidate
-            .positions
-            .get_mut(&(instrument, side_code(side)))
-            .ok_or(Error::Identity)?;
-        transfer(&mut position.ownership, from, to, quantity)?;
-        candidate.next_sequence()?;
-        if candidate.check_limits().is_err() {
-            candidate.frozen = true;
+        if from == to {
+            return Err(Error::Identity);
         }
-        *self = candidate;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let pos_key = (instrument, side_code(side));
+        let (new_from, new_to) = {
+            let position = self.positions.get(&pos_key).ok_or(Error::Identity)?;
+            let old_from = position
+                .ownership
+                .get(&from)
+                .copied()
+                .unwrap_or(quantity.zero_like());
+            let old_to = position
+                .ownership
+                .get(&to)
+                .copied()
+                .unwrap_or(quantity.zero_like());
+            (
+                old_from.checked_sub(quantity)?,
+                old_to.checked_add(quantity)?,
+            )
+        };
+        let position = self.positions.get_mut(&pos_key).unwrap();
+        position.ownership.insert(from, new_from);
+        position.ownership.insert(to, new_to);
+        self.next_sequence()?;
+        if self.check_limits().is_err() {
+            self.frozen = true;
+        }
         Ok(())
     }
 }

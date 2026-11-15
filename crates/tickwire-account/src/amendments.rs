@@ -133,6 +133,24 @@ impl Account {
         {
             return Err(Error::Capacity);
         }
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        if let Some(observation) = &a.observation {
+            if let Some(q) = observation.original_quantity
+                && !self.known_order_quantity(&old.order, exact_decimal(q, order.original.scale())?)
+            {
+                return Err(Error::Conflict);
+            }
+            if observation.side != order.spec.side
+                || observation.position_side != order.spec.position_side
+            {
+                return Err(Error::Identity);
+            }
+            if let Some(cum) = observation.cumulative_quantity {
+                let _ = exact_decimal(cum, order.original.scale())?;
+            }
+        }
         let prior_order = order.clone();
         if !old.confirmed {
             let reopened = self.reopen_order(&old.order)?;

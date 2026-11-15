@@ -11,9 +11,5 @@ tickwire-risk = { path = "../tickwire-risk" }
 tickwire-venue = { path = "../tickwire-venue" }
 sha2 = "=0.10.9"
 
-[dev-dependencies]
-tickwire-journal = { path = "../tickwire-journal" }
-tickwire-recovery = { path = "../tickwire-recovery" }
-
 [lints]
 workspace = true

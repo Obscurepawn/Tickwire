@@ -1,36 +1,13 @@
+#![forbid(unsafe_code)]
+
 mod common;
 use common::*;
-use std::{
-    path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
-};
 use tickwire_account::{Account, RecoveryRecord};
 use tickwire_account_codec::*;
-use tickwire_journal::{Config, Journal, store::FileStore};
-use tickwire_recovery::{BlobStore, FileBlobStore, StoreKey};
 
-struct Temp(PathBuf);
-impl Temp {
-    fn new() -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!(
-            "tickwire-account-codec-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir(&path).unwrap();
-        Self(path)
-    }
-}
-impl Drop for Temp {
-    fn drop(&mut self) {
-        std::fs::remove_dir_all(&self.0).unwrap();
-    }
-}
 #[test]
-fn real_blob_and_wal_reopen_restore_spot_and_usdm_resources() {
+fn in_memory_stateless_baseline_and_record_replay_restores_spot_and_usdm_resources() {
     for (snapshot, catalog, cmd) in [fixture(), futures_fixture()] {
-        let temp = Temp::new();
         let baseline = CanonicalBaseline::new(snapshot, catalog).unwrap();
         let mut live =
             Account::from_snapshot(baseline.snapshot().clone(), baseline.catalog().clone())
@@ -43,6 +20,7 @@ fn real_blob_and_wal_reopen_restore_spot_and_usdm_resources() {
             event(fill(&cmd, "stored-trade", "0.4", "100", "40"))
         };
         live.apply_event(&fill).unwrap();
+
         let inputs = [
             RecoveryRecord::Admit {
                 command: Box::new(command),
@@ -51,43 +29,31 @@ fn real_blob_and_wal_reopen_restore_spot_and_usdm_resources() {
             },
             RecoveryRecord::VenueEvent(Box::new(fill)),
         ];
-        let mut blobs = FileBlobStore::open(temp.0.join("objects")).unwrap();
-        blobs
-            .put_sync(StoreKey::Object(baseline.digest()), baseline.bytes())
-            .unwrap();
-        let mut journal = Journal::create(
-            FileStore::open(temp.0.join("wal")).unwrap(),
-            Config::new([2; 16], [1; 16]),
-        )
-        .unwrap();
-        let mut required = None;
+
+        let baseline_bytes = baseline.bytes().to_vec();
+        let mut seal_write = InputSeal::new(baseline.digest()).unwrap();
+        let mut wire_records = Vec::with_capacity(inputs.len());
         for (index, input) in inputs.into_iter().enumerate() {
             let encoded = CanonicalRecord::new(baseline.digest(), index as u64 + 1, input).unwrap();
-            let receipt = journal.append_batch(5, &[encoded.bytes()]).unwrap();
-            required = Some(receipt.frontier().clone());
+            seal_write.apply(&encoded).unwrap();
+            wire_records.push((index as u64 + 1, encoded.bytes().to_vec()));
         }
-        drop(journal);
-        drop(blobs);
-        let blobs = FileBlobStore::open(temp.0.join("objects")).unwrap();
-        let loaded = CanonicalBaseline::decode(
-            &blobs
-                .get(StoreKey::Object(baseline.digest()), MAX_BASELINE_BYTES)
-                .unwrap(),
-        )
-        .unwrap();
+
+        let loaded = CanonicalBaseline::decode(&baseline_bytes).unwrap();
         assert_eq!(loaded.digest(), baseline.digest());
-        let (_journal, recovery) = Journal::recover(
-            FileStore::open(temp.0.join("wal")).unwrap(),
-            required.as_ref(),
-        )
-        .unwrap();
-        let mut decoded = Vec::new();
-        for record in recovery.records {
-            let encoded = CanonicalRecord::decode(&record.payload).unwrap();
-            assert_eq!(encoded.sequence(), record.seq);
+
+        let mut seal_read = InputSeal::new(loaded.digest()).unwrap();
+        let mut decoded = Vec::with_capacity(wire_records.len());
+        for (expected_seq, payload) in &wire_records {
+            let encoded = CanonicalRecord::decode(payload).unwrap();
+            assert_eq!(encoded.sequence(), *expected_seq);
             assert_eq!(encoded.baseline(), loaded.digest());
+            seal_read.apply(&encoded).unwrap();
             decoded.push(encoded.record().clone());
         }
+        assert_eq!(seal_read.position(), 2);
+        assert_eq!(seal_read.digest(), seal_write.digest());
+
         let restored = Account::recover(
             loaded.snapshot().clone(),
             loaded.catalog().clone(),

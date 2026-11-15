@@ -15,6 +15,25 @@ pub struct AssetKey {
     pub wallet_id: u64,
     pub asset_id: u64,
 }
+impl From<v::AssetKey> for AssetKey {
+    #[inline]
+    fn from(k: v::AssetKey) -> Self {
+        Self {
+            wallet_id: u64::from(k.wallet_id),
+            asset_id: k.asset_id,
+        }
+    }
+}
+impl TryFrom<AssetKey> for v::AssetKey {
+    type Error = Error;
+    #[inline]
+    fn try_from(k: AssetKey) -> Result<Self> {
+        Ok(Self {
+            wallet_id: u16::try_from(k.wallet_id).map_err(|_| Error::Identity)?,
+            asset_id: k.asset_id,
+        })
+    }
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AssetAmount {
     pub key: AssetKey,

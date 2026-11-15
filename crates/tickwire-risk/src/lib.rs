@@ -1,4 +1,7 @@
-//! Checked fixed-point risk calculations. No I/O, floating point, or exchange dependency.
+//! Checked fixed-point risk arithmetic, flat lock-free per-symbol RMS (`RmsEngine`), margin
+//! formulas, reservation reducers, and bounded delivery settlement.
+//!
+//! Zero `unsafe`, zero floating-point operations, zero I/O, and zero exchange wire dependencies.
 #![forbid(unsafe_code)]
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +55,12 @@ pub type Result<T> = core::result::Result<T, RiskError>;
 pub mod fixed;
 pub mod futures;
 pub mod reservation;
+pub mod rms;
 pub mod settlement;
 pub mod spot;
 pub use fixed::{Fixed, Rounding};
+pub use rms::{
+    FatFingerRatio, RmsConfigError, RmsConfigErrorKind, RmsConfigTable, RmsEngine, RmsOrderCheck,
+    RmsRejectReason, RmsReloadHandle, RmsSide, RollingWindow, SymbolLimitConfig, SymbolLimits,
+    WindowTier,
+};

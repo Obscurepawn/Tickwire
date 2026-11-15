@@ -71,7 +71,7 @@ impl Account {
                                 o.spec.mode == v::ProductMode::Spot
                                     && o.terminal
                                     && o.observation_unreconciled
-                                    && !o.fees_closed
+                                    && !o.fee_reconciled
                                     && o.filled == *cumulative
                                     && o.terminal_cumulative
                                         .is_some_and(|q| q.atoms() > cumulative.atoms())
@@ -130,7 +130,7 @@ impl Account {
                 && !order.uncreated
                 && (!order.terminal
                     || order.terminal_cumulative != Some(order.filled)
-                    || !order.fees_closed)
+                    || !order.fee_reconciled)
             {
                 order.recovery_unknown = true;
             }
@@ -145,11 +145,9 @@ impl Account {
 }
 
 impl Account {
-    /// Apply an already-verified durable reconciliation decision; this does not
+    /// Apply an already-verified reconciliation decision; this does not
     /// itself establish provenance of remote snapshots or historical closure.
     pub fn apply_reactivation(&mut self, binding: &Reactivation) -> Result<()> {
-        // Existing snapshot-only proofs do not close income history or unexplained
-        // account observations. The versioned income coverage path must do so.
         if self.unresolved_account_inputs() != 0 {
             return self.freeze_error(Error::Unreconciled);
         }
@@ -172,14 +170,13 @@ impl Account {
         {
             return Err(Error::Identity);
         }
-        let mut candidate = self.clone();
-        if binding.venue_available.len() != candidate.venue_available.len()
+        if binding.venue_available.len() != self.venue_available.len()
             || binding.venue_available.windows(2).any(|w| w[0].0 >= w[1].0)
         {
             return Err(Error::Identity);
         }
         for (wallet, available) in &binding.venue_available {
-            if candidate
+            if self
                 .venue_available
                 .get(wallet)
                 .is_none_or(|old| old.scale() != available.scale())
@@ -187,36 +184,76 @@ impl Account {
             {
                 return Err(Error::Identity);
             }
-            candidate.venue_available.insert(*wallet, *available);
         }
-        // The authenticated balance already includes all orders and cashflows
-        // checked by the reconciliation proof. New requests start new shadow holds.
-        candidate.shadow_holds.clear();
-        candidate.uncovered_debits.clear();
-        candidate.shadow_unvalued.clear();
-        for order in candidate.orders.values_mut() {
-            order.shadow_fee_credit = order.shadow_fee_credit.zero_like();
-        }
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
 
-        candidate.last_mono_ns = candidate.last_mono_ns.max(binding.evaluated_at);
-        for order in candidate.orders.values_mut() {
+        let prior_venue_available = self.venue_available.clone();
+        for (wallet, available) in &binding.venue_available {
+            self.venue_available.insert(*wallet, *available);
+        }
+        let prior_shadow_holds = std::mem::take(&mut self.shadow_holds);
+        let prior_uncovered_debits = std::mem::take(&mut self.uncovered_debits);
+        let prior_shadow_unvalued = std::mem::take(&mut self.shadow_unvalued);
+        let prior_last_mono_ns = self.last_mono_ns;
+        let prior_orders: Vec<_> = self
+            .orders
+            .iter()
+            .map(|(k, o)| {
+                (
+                    k.clone(),
+                    o.shadow_fee_credit,
+                    o.observed_unknown,
+                    o.recovery_unknown,
+                    o.observation_unreconciled,
+                    o.in_doubt,
+                    o.retired_mono_ns,
+                )
+            })
+            .collect();
+
+        for order in self.orders.values_mut() {
+            order.shadow_fee_credit = order.shadow_fee_credit.zero_like();
             order.observed_unknown = false;
             order.recovery_unknown = false;
             order.observation_unreconciled = false;
             order.in_doubt = None;
         }
-        let keys: Vec<_> = candidate.orders.keys().cloned().collect();
-        let stamp = candidate.last_mono_ns;
-        for k in keys {
-            candidate.refresh_order_retirement(&k, stamp);
+        self.last_mono_ns = self.last_mono_ns.max(binding.evaluated_at);
+        let keys: Vec<_> = self.orders.keys().cloned().collect();
+        let stamp = self.last_mono_ns;
+        for k in &keys {
+            self.refresh_order_retirement(k, stamp);
         }
-        candidate.frozen = false;
-        candidate.rejected_event = None;
-        candidate.valid_until = binding.valid_until;
-        candidate.next_sequence()?;
-        candidate.last_reactivation_sequence = candidate.sequence;
-        candidate.evaluate()?;
-        *self = candidate;
+
+        if let Err(e) = self.evaluate() {
+            self.venue_available = prior_venue_available;
+            self.shadow_holds = prior_shadow_holds;
+            self.uncovered_debits = prior_uncovered_debits;
+            self.shadow_unvalued = prior_shadow_unvalued;
+            self.last_mono_ns = prior_last_mono_ns;
+            for (k, credit, obs_unk, rec_unk, obs_unrec, doubt, retired) in prior_orders {
+                if let Some(o) = self.orders.get_mut(&k) {
+                    o.shadow_fee_credit = credit;
+                    o.observed_unknown = obs_unk;
+                    o.recovery_unknown = rec_unk;
+                    o.observation_unreconciled = obs_unrec;
+                    o.in_doubt = doubt;
+                    o.retired_mono_ns = retired;
+                }
+            }
+            for k in &keys {
+                self.refresh_order_retirement(k, prior_last_mono_ns);
+            }
+            return Err(e);
+        }
+
+        self.frozen = false;
+        self.rejected_event = None;
+        self.valid_until = binding.valid_until;
+        self.next_sequence()?;
+        self.last_reactivation_sequence = self.sequence;
         Ok(())
     }
 }

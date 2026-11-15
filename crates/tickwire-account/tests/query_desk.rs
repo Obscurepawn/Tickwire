@@ -1032,7 +1032,7 @@ fn contradicted_uncreated_or_aborted_futures_order_restores_shadow_holds_and_evi
         "reopen_order must restore unrefreshed Futures shadow_holds on contradicted uncreated order"
     );
 
-    // 2. Evicting a filled+fees_closed Futures order before Reactivated must preserve shadow hold in venue_shadow!
+    // 2. Evicting a terminal retired Futures order before Reactivated must preserve shadow hold in venue_shadow!
     let mut fut2 = Account::from_snapshot(fs, fc)
         .unwrap()
         .with_retention_window_ns(Some(1_000));

@@ -37,16 +37,24 @@ impl Account {
             return Err(Error::Catalog);
         }
         for other in self.catalog.values().filter(|x| x.wallet_id == p.wallet_id) {
-            if (other.product == v::Product::Spot) != (p.product == v::Product::Spot) {
+            if other.futures.is_none() != p.futures.is_none() {
                 return Err(Error::Catalog);
             }
         }
-        let refs = match p.product {
-            v::Product::Spot if p.futures.is_none() => {
-                vec![&p.instrument.base, &p.instrument.quote]
-            }
-            v::Product::LinearPerpetual | v::Product::LinearFuture if p.futures.is_some() => {
-                vec![&p.instrument.settlement]
+        let spot_refs = [&p.instrument.base, &p.instrument.quote];
+        let deriv_refs = [&p.instrument.settlement];
+        let refs: &[&v::AssetRef] = match p.product {
+            v::Product::Spot | v::Product::Option if p.futures.is_none() => &spot_refs,
+            v::Product::LinearPerpetual
+            | v::Product::LinearFuture
+            | v::Product::UsdM
+            | v::Product::InversePerpetual
+            | v::Product::InverseFuture
+            | v::Product::CoinM
+            | v::Product::Option
+                if p.futures.is_some() =>
+            {
+                &deriv_refs
             }
             _ => return Err(Error::Unsupported),
         };
@@ -57,7 +65,7 @@ impl Account {
                     wallet_id: p.wallet_id,
                     asset_id: asset.id,
                 })
-                .is_some_and(|a| a.baseline.asset == *asset)
+                .is_some_and(|a| a.baseline.asset == **asset)
             {
                 return Err(Error::Catalog);
             }
@@ -84,7 +92,11 @@ impl Account {
                 Fixed::one(0)?,
                 f::BracketInterpretation::EffectiveAsReturned,
             )?;
-            if p.product == v::Product::LinearFuture && fp.funding_settlements != 0 {
+            if matches!(
+                p.product,
+                v::Product::LinearFuture | v::Product::InverseFuture
+            ) && fp.funding_settlements != 0
+            {
                 return Err(Error::Catalog);
             }
             for other in self.catalog.values().filter(|x| x.wallet_id == p.wallet_id) {
@@ -190,7 +202,7 @@ impl Account {
             };
             add(&mut out, principal.key, principal.amount)?;
         }
-        if !o.fees_closed {
+        if !o.fee_reconciled {
             let key = self.fee_asset(p, o);
             let scale = asset_scale(&self.assets[&key].baseline.asset)?;
             let paid = o.paid.get(&key).copied().unwrap_or(Fixed::zero(scale)?);
@@ -356,7 +368,7 @@ impl Account {
                     }
                     _ => {}
                 }
-                if !o.fees_closed {
+                if !o.fee_reconciled {
                     let paid = o.paid.get(&self.fee_asset(p, o)).copied().unwrap_or(zero);
                     past_fees = past_fees.checked_add(
                         self.fee_total(o.notional, p)?

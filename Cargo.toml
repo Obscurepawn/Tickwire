@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/tickwire-account",
+    "crates/tickwire-account-codec",
     "crates/tickwire-binance",
     "crates/tickwire-binance-clock",
     "crates/tickwire-binance-private",
@@ -29,7 +30,6 @@ members = [
     "crates/tickwire-venue",
 ]
 exclude = [
-    "crates/tickwire-account-codec",
     "crates/tickwire-account-gateway",
     "crates/tickwire-app",
     "crates/tickwire-binance-account",

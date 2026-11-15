@@ -1,4 +1,9 @@
-//! Bounded immutable account recovery objects.
+//! Deterministic canonical CBOR serialization, structural validation, and SHA-256 content
+//! addressing for stateless in-memory `tickwire-account` snapshots, transition records, and
+//! contiguous input seals (`CanonicalBaseline`, `CanonicalRecord`, and `InputSeal`).
+//!
+//! All encoding and decoding paths operate strictly on bounded in-memory byte slices with zero
+//! disk I/O, zero unsafe code (`#![forbid(unsafe_code)]`), and zero floating-point arithmetic.
 #![forbid(unsafe_code)]
 use sha2::{Digest, Sha256};
 use tickwire_account::{Catalog, RecoveryRecord, Snapshot};
@@ -7,7 +12,7 @@ mod codec;
 mod validate;
 use codec::Codec;
 pub const MAX_BASELINE_BYTES: usize = 2 * 1024 * 1024;
-/// Leaves room for a begin/data/seal batch in the physical WAL's 64 KiB limit.
+/// Upper bound on an encoded `CanonicalRecord` frame (`60 KiB`).
 pub const MAX_RECORD_BYTES: usize = 60 * 1024;
 pub const MAX_ADMISSION_ORDERS: usize = 3;
 pub const MAX_OWNERS: usize = 1024;

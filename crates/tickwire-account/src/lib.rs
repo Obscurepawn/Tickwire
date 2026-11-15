@@ -1,4 +1,44 @@
-//! Single-owner multi-asset reservations and economic attribution.
+//! Zero-allocation ORS `OrderManager` slot pool, `FillRecordPool`, lock-free atomic-BBO
+//! `OrsStpBook`, `DopState` strategy session table, `OrsQueryDesk`, multi-wallet `UtaWalletLedger`,
+//! and single-domain `Account` state machine (`#![forbid(unsafe_code)]`).
+//!
+//! # Architecture & Hot-Path Guarantees
+//!
+//! 1. **Zero-Allocation ORS `OrderManager<CHECK_STP>` ([`order_manager`])**:
+//!    - Preallocates power-of-two per-strategy order slot rings (`255 * slots_per_strat`) plus
+//!      dedicated per-strategy `dry_run` scratch slots in an optional `mlock(2)`-backed
+//!      [`tickwire_shm_sys::MlockedSlice`].
+//!    - Refuses slot collisions on `Claimed`/`Live` occupants immediately with
+//!      `RefusalReason::ALLOCATION_ERROR` without resizing or evicting active orders.
+//!    - Enforces fine-grained per-order spinlocks ([`order_manager::LockedOrder`]) and compile-time
+//!      `LockedOrder -> LockedSymbolBook` lock ordering via [`ors_stp::OrderLockProof`], while
+//!      send-path `self_cross` reads each symbol's published `AtomicI64` opposite-side best price
+//!      with zero spinlocks.
+//!    - Transitions full fills, cancels to zero, and rejects immediately to
+//!      [`order_manager::SlotState::Retired`] and unlinks from [`ors_stp::OrsStpBook`] in the same
+//!      call—never waiting on `fee_reconciled`.
+//! 2. **Deduplicated Fills & Post-Trade Fee Amendments ([`fill_record`])**:
+//!    - Preallocated `2^fill_map_exponent` bucket [`fill_record::FillRecordPool`] keyed by
+//!      `(ors_order_id, exec_ref, side, symbol_id)` with lazy `fill_memory_s` overwrite reuse.
+//!    - Deduplicates identical executions across order replies and private streams, and upgrades
+//!      `TRADE_LITE` (`fee == None`) or post-trade commission/rebate patches into `amendment = true`
+//!      reports that adjust wallet fee deltas only without double-applying fill quantities, holds,
+//!      or positions.
+//! 3. **Strategy Sessions, Reconciliation, Multi-Wallet UTA & Cold Bootstrap**:
+//!    - [`dop_state::DopState`]: `strat_id` (`0..=254`), dual-sequence `login` handshake,
+//!      `account_ref` routing (`0` -> first authorized account), and granular `(account_ref, strat_id)`
+//!      `set_strat_enabled` returning open orders for auto-cancellation.
+//!    - [`ors_query_desk::OrsQueryDesk`]: `StatusAsk` scheduling on `-1007`/`-1000`/`MKT_DELAYED`
+//!      and socket drops, `Place`+`Cancel` `cancel_after` coalescing, `Cancel` exponential backoff
+//!      (`1s..=64s`, max `8` attempts), fills-before-cancel snapshot reconciliation, non-`Live`
+//!      eviction on full table, and optional `max_query_count` dead-slot release.
+//!    - [`uta_ledger::UtaWalletLedger`] & `bootstrap_from_exchange`: multi-wallet Spot/USD-M/Coin-M/
+//!      Options/Perp/Futures balances keyed by `(account_ref, AssetKey)` and cold recovery from
+//!      Exchange REST snapshots (`Account + OpenOrders`) + `SelfDescribingClientId` (`tw1...`).
+//! 4. **In-Place Single-Domain `Account` State Machine**:
+//!    - Zero whole-struct `Account` cloning across `admit`, `apply_event`, `apply_account_input`,
+//!      `apply_external`, and `apply_record`; immediate slot retirement without waiting on
+//!      `fee_reconciled`; and `TRADE_LITE` / fee-patch `amendment` reconciliation without freezing.
 #![forbid(unsafe_code)]
 #[cfg(test)]
 extern crate self as tickwire_account;
@@ -6,34 +46,66 @@ mod account_inputs;
 mod admission;
 mod amendments;
 mod calculation;
+pub mod dop_state;
 mod events;
 mod external;
+pub mod fill_record;
 mod handover;
 mod live_bootstrap;
 mod modifications;
+pub mod order_manager;
+pub mod ors_query_desk;
+pub mod ors_stp;
 pub mod pool;
 mod projected_fill;
 pub mod query_desk;
 mod recovery;
+pub mod spinlock;
 pub mod stp_book;
 mod structures;
 #[cfg(test)]
 #[path = "../tests/common/mod.rs"]
 mod test_common;
 mod types;
+pub mod uta_ledger;
+pub use dop_state::{ACCOUNT_REF_SLOTS, BitMask256, DopLoginAck, DopState, MAX_ORS_STRATS};
+pub use fill_record::{
+    FILL_BUCKET_WAYS, FillKey, FillObservationInput, FillRecordOutcome, FillRecordPool, OrsFeeSpec,
+    trade_id_to_exec_ref,
+};
 pub use live_bootstrap::LiveBootstrap;
+pub use order_manager::{
+    InlineAscii, LockedOrder, OrderManager, OrderManagerConfig, OrsAccountDomainConfig,
+    OrsAckOutcome, OrsAckReport, OrsAutoCancelTarget, OrsBootstrapSummary, OrsCancelDispatch,
+    OrsCancelObservation, OrsCancelRejectedReport, OrsCancelRequest, OrsCanceledReport,
+    OrsExchangeBootstrapSnapshot, OrsFillObservation, OrsFillReport, OrsFrontAckReport,
+    OrsModifiedReport, OrsModifyDispatch, OrsModifyRejectedReport, OrsModifyRequest,
+    OrsNewOrderRequest, OrsOrder, OrsOrderFilter, OrsOrderQuerySnapshot, OrsOrderRefusal,
+    OrsOrderStatus, OrsPlaceOutcome, OrsQueriedOrderStatus, OrsQueryReconcileAction,
+    OrsRejectedReport, OrsReport, OrsRestBalanceRow, OrsRestOpenOrderRow, OrsRestPositionRow,
+    OrsVenueEvent, SlotState, encode_tw1_client_id_inline, make_ors_order_id, split_ors_order_id,
+};
+pub use ors_query_desk::{
+    DEFAULT_QUERY_BASE_BACKOFF_NS, DueQueryAction, MAX_CANCEL_BACKOFF_ATTEMPTS, OrsQueryDesk,
+    OrsQueryEntry, OrsQueryOrigin, cancel_backoff_delay_ns, is_ambiguous_venue_outcome,
+};
+pub use ors_stp::{EMPTY_ASK_TICKS, EMPTY_BID_TICKS, LockedSymbolBook, OrderLockProof, OrsStpBook};
 pub use pool::{PoolFull, WindowedTable};
 pub use projected_fill::{MAX_PROJECTED_FILLS, ProjectedFill, ProjectedPriceInput};
 pub use query_desk::{
     AskKind, MAX_REST_SLOTS, MAX_STATUS_ASKS, QueryConfig, QueryDesk, QueryResolution, QueryTicket,
     SnapshotSummary,
 };
+pub use spinlock::{CachePadded, SpinLockGuard, TtasSpinLock};
 use std::collections::{BTreeMap, BTreeSet};
 pub use stp_book::{DEFAULT_STP_ORDERS_PER_SIDE, DEFAULT_STP_SYMBOLS, StpBook};
 pub use tickwire_risk::Fixed;
 use tickwire_risk::{RiskError, Rounding};
 use tickwire_venue as v;
 pub use types::*;
+pub use uta_ledger::{
+    MAX_WALLET_ASSETS_PER_ACCOUNT, OrsSymbolSpec, UtaWalletLedger, WalletAssetBalance,
+};
 
 #[derive(Debug, Clone)]
 struct Asset {
@@ -72,7 +144,7 @@ struct Order {
     recovery_unknown: bool,
     observation_unreconciled: bool,
     terminal: bool,
-    fees_closed: bool,
+    fee_reconciled: bool,
     aborted: bool,
     uncreated: bool,
     economic: bool,
@@ -121,7 +193,7 @@ impl PartialEq for Order {
             && self.recovery_unknown == other.recovery_unknown
             && self.observation_unreconciled == other.observation_unreconciled
             && self.terminal == other.terminal
-            && self.fees_closed == other.fees_closed
+            && self.fee_reconciled == other.fee_reconciled
             && self.aborted == other.aborted
             && self.uncreated == other.uncreated
             && self.economic == other.economic
@@ -158,7 +230,7 @@ impl Order {
         }
         self.aborted = false;
         self.uncreated = false;
-        self.fees_closed = false;
+        self.fee_reconciled = false;
         self.retired_mono_ns = None;
         self.terminal_reason = None;
         if matches!(self.spec.mode, v::ProductMode::Derivative { .. })
@@ -210,9 +282,7 @@ impl Order {
     pub(crate) fn is_retirable(&self) -> bool {
         (self.aborted
             || self.uncreated
-            || (self.terminal
-                && self.fees_closed
-                && self.remaining().map(|r| r.atoms() == 0).unwrap_or(false)))
+            || (self.terminal && self.remaining().map(|r| r.atoms() == 0).unwrap_or(false)))
             && !self.unknown()
             && !self.observation_unreconciled
             && self.in_doubt.is_none()
@@ -250,7 +320,7 @@ pub struct Account {
     revisions: Revisions,
     valid_until: u64,
     assets: BTreeMap<AssetKey, Asset>,
-    catalog: BTreeMap<u64, InstrumentPolicy>,
+    catalog: std::sync::Arc<BTreeMap<u64, InstrumentPolicy>>,
     positions: BTreeMap<(u64, u8), Position>,
     orders: BTreeMap<OrderKey, Order>,
     orders_by_client_id: BTreeMap<(u64, v::ClientId), Vec<OrderKey>>,
@@ -303,7 +373,7 @@ impl Account {
             revisions: snapshot.revisions,
             valid_until: snapshot.valid_until,
             assets: BTreeMap::new(),
-            catalog: BTreeMap::new(),
+            catalog: std::sync::Arc::new(BTreeMap::new()),
             positions: BTreeMap::new(),
             orders: BTreeMap::new(),
             orders_by_client_id: BTreeMap::new(),
@@ -374,22 +444,26 @@ impl Account {
                 return Err(Error::InvalidSnapshot);
             }
         }
+        let mut built_catalog = BTreeMap::new();
         for p in catalog.entries {
+            result.catalog = std::sync::Arc::new(built_catalog);
             result.validate_policy(&p)?;
+            built_catalog =
+                std::sync::Arc::try_unwrap(result.catalog).unwrap_or_else(|a| (*a).clone());
             let tick_size =
                 decimal_lossless(p.instrument.price_tick).map_err(|_| Error::Catalog)?;
             result
                 .stp_book
                 .register_instrument(p.instrument.instrument_id, tick_size)
                 .map_err(|_| Error::Catalog)?;
-            if result
-                .catalog
+            if built_catalog
                 .insert(p.instrument.instrument_id, p)
                 .is_some()
             {
                 return Err(Error::Catalog);
             }
         }
+        result.catalog = std::sync::Arc::new(built_catalog);
         for p in snapshot.positions {
             let policy = result.catalog.get(&p.instrument_id).ok_or(Error::Catalog)?;
             if policy.futures.is_none()
@@ -508,7 +582,7 @@ impl Account {
                 reduce_allocation: o.reduce,
                 unknown: o.unknown(),
                 terminal: o.terminal,
-                fee_reconciled: o.fees_closed,
+                fee_reconciled: o.fee_reconciled,
                 aborted: o.aborted,
                 uncreated: o.uncreated,
                 confirmed: o.confirmed,
@@ -552,7 +626,7 @@ impl Account {
         self.frozen = true;
         Err(error)
     }
-    /// Changes ownership only. The caller journals this ordered fact before applying it.
+    /// Changes ownership only across strategies without altering actual asset balances.
     pub fn transfer_asset_attribution(
         &mut self,
         key: AssetKey,
@@ -560,15 +634,30 @@ impl Account {
         to: u64,
         amount: Fixed,
     ) -> Result<()> {
-        let mut candidate = self.clone();
-        let a = candidate.assets.get_mut(&key).ok_or(Error::Identity)?;
-        amount.nonnegative()?;
-        transfer(&mut a.ownership, from, to, amount)?;
-        candidate.next_sequence()?;
-        if candidate.check_limits().is_err() {
-            candidate.frozen = true;
+        if from == to {
+            return Err(Error::Identity);
         }
-        *self = candidate;
+        amount.nonnegative()?;
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let (new_from, new_to) = {
+            let a = self.assets.get(&key).ok_or(Error::Identity)?;
+            let old_from = a
+                .ownership
+                .get(&from)
+                .copied()
+                .unwrap_or(amount.zero_like());
+            let old_to = a.ownership.get(&to).copied().unwrap_or(amount.zero_like());
+            (old_from.checked_sub(amount)?, old_to.checked_add(amount)?)
+        };
+        let a = self.assets.get_mut(&key).unwrap();
+        a.ownership.insert(from, new_from);
+        a.ownership.insert(to, new_to);
+        self.next_sequence()?;
+        if self.check_limits().is_err() {
+            self.frozen = true;
+        }
         Ok(())
     }
 
@@ -1271,11 +1360,4 @@ fn add_owner(map: &mut BTreeMap<u64, Fixed>, owner: u64, n: Fixed) -> Result<()>
     let old = map.get(&owner).copied().unwrap_or(n.zero_like());
     map.insert(owner, old.checked_add(n)?);
     Ok(())
-}
-fn transfer(map: &mut BTreeMap<u64, Fixed>, from: u64, to: u64, n: Fixed) -> Result<()> {
-    if from == to {
-        return Err(Error::Identity);
-    }
-    add_owner(map, from, n.checked_neg()?)?;
-    add_owner(map, to, n)
 }

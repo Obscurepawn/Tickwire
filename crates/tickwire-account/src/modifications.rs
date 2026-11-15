@@ -1,5 +1,5 @@
 use sha2::{Digest, Sha256};
-use tickwire_risk::{Fixed, reservation};
+use tickwire_risk::{Fixed, RiskError, reservation};
 use tickwire_venue as v;
 
 use super::{
@@ -81,20 +81,9 @@ impl Account {
             epoch: ctx.request.intent_exec_epoch,
             intent_id: ctx.request.intent_id,
         };
-        let mgmt_count = self
-            .admissions
-            .iter()
-            .filter(|(k, a)| {
-                a.orders.is_empty()
-                    && !self.is_confirmed_amendment(**k)
-                    && !self.is_confirmed_modification(**k)
-            })
-            .count();
-        if mgmt_count >= MAX_MANAGEMENT_ADMISSIONS
-            && !self.reclaim_one_retired_management_admission()
-        {
-            return Err(Error::Capacity);
-        }
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
         if self.modifications.len() >= MAX_FACTS {
             return Err(Error::Capacity);
         }
@@ -247,13 +236,36 @@ impl Account {
             }
         }
 
+        let mgmt_count = self
+            .admissions
+            .iter()
+            .filter(|(k, a)| {
+                a.orders.is_empty()
+                    && !self.is_confirmed_amendment(**k)
+                    && !self.is_confirmed_modification(**k)
+            })
+            .count();
+        if mgmt_count >= MAX_MANAGEMENT_ADMISSIONS
+            && !self.reclaim_one_retired_management_admission()
+        {
+            return Err(Error::Capacity);
+        }
+
         let prior_price = self.orders[&order_key].price;
         let prior_effective = self.orders[&order_key].effective;
-        let fee_credit_zero = self.orders[&order_key].shadow_fee_credit.zero_like();
+        let prior_reduce = self.orders[&order_key].reduce;
+        let prior_shadow_fee_credit = self.orders[&order_key].shadow_fee_credit;
+        let fee_credit_zero = prior_shadow_fee_credit.zero_like();
+        let new_reduce = prior_reduce.checked_add(extra_reduce)?;
+        let added_cid = m
+            .new_client_id
+            .as_ref()
+            .filter(|cid| !self.orders[&order_key].has_client_id(cid))
+            .cloned();
 
         {
             let o_mut = self.orders.get_mut(&order_key).unwrap();
-            o_mut.reduce = o_mut.reduce.checked_add(extra_reduce)?;
+            o_mut.reduce = new_reduce;
             o_mut.pending_modify = Some(PendingModify {
                 intent: key,
                 command_digest: command.digest(),
@@ -269,9 +281,7 @@ impl Account {
             });
         }
 
-        if let Some(ref cid) = m.new_client_id
-            && !self.orders[&order_key].has_client_id(cid)
-        {
+        if let Some(ref cid) = added_cid {
             push_unique(
                 self.orders_by_client_id
                     .entry((instrument, cid.clone()))
@@ -280,73 +290,92 @@ impl Account {
             );
         }
 
-        self.sync_order_in_stp_book(&order_key)?;
-        self.evaluate()?;
+        let committed: Result<(Vec<AssetAmount>, Vec<CapitalHold>)> = (|| {
+            self.sync_order_in_stp_book(&order_key)?;
+            self.evaluate()?;
 
-        let after_capital = self.calculate_capital()?;
-        let mut capital = Vec::new();
-        for (&wallet, &(asset, after)) in &after_capital {
-            let prev = before_capital
-                .get(&wallet)
-                .map(|x| x.1)
-                .unwrap_or(after.zero_like());
-            let delta = after.checked_sub(prev)?.positive_part();
-            let available = self.venue_shadow(wallet)?;
-            if delta.atoms() > available.atoms() {
-                return Err(Error::InsufficientCapital);
-            }
-            if delta.atoms() > 0 {
-                capital.push(CapitalHold {
-                    wallet_id: wallet,
-                    settlement_asset: asset,
-                    amount: delta,
-                });
-            }
-        }
-
-        if p.futures.is_some() {
-            let fee_key = self.fee_asset(p, &self.orders[&order_key]);
-            let after_order_fee = self
-                .order_resources(&self.orders[&order_key])?
-                .get(&fee_key)
-                .copied()
-                .unwrap_or(fee_credit_zero);
-            let fee_delta = after_order_fee
-                .checked_sub(before_order_fee)?
-                .positive_part();
-            let cap_avail = capital
-                .iter()
-                .find(|h| h.wallet_id == p.wallet_id)
-                .map(|h| h.amount)
-                .unwrap_or(fee_credit_zero);
-            let extra_credit = fee_delta.min(cap_avail)?;
-            if extra_credit.atoms() > 0 {
-                let o_mut = self.orders.get_mut(&order_key).unwrap();
-                o_mut.shadow_fee_credit = o_mut.shadow_fee_credit.checked_add(extra_credit)?;
-                if let Some(pm) = o_mut.pending_modify.as_mut() {
-                    pm.extra_shadow_fee_credit = extra_credit;
+            let after_capital = self.calculate_capital()?;
+            let mut capital = Vec::new();
+            for (&wallet, &(asset, after)) in &after_capital {
+                let prev = before_capital
+                    .get(&wallet)
+                    .map(|x| x.1)
+                    .unwrap_or(after.zero_like());
+                let delta = after.checked_sub(prev)?.positive_part();
+                let available = self.venue_shadow(wallet)?;
+                if delta.atoms() > available.atoms() {
+                    return Err(Error::InsufficientCapital);
+                }
+                if delta.atoms() > 0 {
+                    capital.push(CapitalHold {
+                        wallet_id: wallet,
+                        settlement_asset: asset,
+                        amount: delta,
+                    });
                 }
             }
-        }
 
-        let after = self.resources()?;
-        let mut resources = Vec::new();
-        for (&asset_key, &amount) in &after {
-            let delta = amount
-                .checked_sub(
-                    before
-                        .get(&asset_key)
-                        .copied()
-                        .unwrap_or(amount.zero_like()),
-                )?
-                .positive_part();
-            if delta.atoms() > 0 {
-                resources.push(AssetAmount {
-                    key: asset_key,
-                    amount: delta,
-                });
+            if p.futures.is_some() {
+                let fee_key = self.fee_asset(p, &self.orders[&order_key]);
+                let after_order_fee = self
+                    .order_resources(&self.orders[&order_key])?
+                    .get(&fee_key)
+                    .copied()
+                    .unwrap_or(fee_credit_zero);
+                let fee_delta = after_order_fee
+                    .checked_sub(before_order_fee)?
+                    .positive_part();
+                let cap_avail = capital
+                    .iter()
+                    .find(|h| h.wallet_id == p.wallet_id)
+                    .map(|h| h.amount)
+                    .unwrap_or(fee_credit_zero);
+                let extra_credit = fee_delta.min(cap_avail)?;
+                if extra_credit.atoms() > 0 {
+                    let o_mut = self.orders.get_mut(&order_key).unwrap();
+                    o_mut.shadow_fee_credit = o_mut.shadow_fee_credit.checked_add(extra_credit)?;
+                    if let Some(pm) = o_mut.pending_modify.as_mut() {
+                        pm.extra_shadow_fee_credit = extra_credit;
+                    }
+                }
             }
-        }
+
+            let after = self.resources()?;
+            let mut resources = Vec::new();
+            for (&asset_key, &amount) in &after {
+                let delta = amount
+                    .checked_sub(
+                        before
+                            .get(&asset_key)
+                            .copied()
+                            .unwrap_or(amount.zero_like()),
+                    )?
+                    .positive_part();
+                if delta.atoms() > 0 {
+                    resources.push(AssetAmount {
+                        key: asset_key,
+                        amount: delta,
+                    });
+                }
+            }
+            Ok((resources, capital))
+        })();
+
+        let (resources, capital) = match committed {
+            Ok(pair) => pair,
+            Err(e) => {
+                if let Some(o_mut) = self.orders.get_mut(&order_key) {
+                    o_mut.reduce = prior_reduce;
+                    o_mut.pending_modify = None;
+                    o_mut.shadow_fee_credit = prior_shadow_fee_credit;
+                }
+                if let Some(ref cid) = added_cid {
+                    self.remove_client_id_index(instrument, cid, &order_key);
+                }
+                let _ = self.sync_order_in_stp_book(&order_key);
+                return Err(e);
+            }
+        };
 
         self.next_sequence()?;
         if !capital.is_empty() {
@@ -514,6 +543,51 @@ impl Account {
             return Ok(Applied::Duplicate);
         }
 
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
+        let pre_validated_cum = match m.cumulative_filled {
+            Some(cum_dec) => {
+                let cum = exact_decimal(cum_dec, base_scale)?;
+                cum.nonnegative()?;
+                Some(cum)
+            }
+            None => None,
+        };
+        let tentative_cid_check = prior_order
+            .pending_modify
+            .as_ref()
+            .and_then(|pm| pm.new_client_id.clone());
+        let effective_cid_check = m.new_client_id.clone().or(tentative_cid_check);
+        if let Some(ref cid) = effective_cid_check
+            && cid != &prior_order.spec.client_id
+            && self
+                .orders_by_client_id
+                .get(&(instrument, cid.clone()))
+                .is_some_and(|keys| {
+                    keys.iter()
+                        .any(|k| k != &order_key && !self.orders[k].aborted)
+                })
+        {
+            return Err(Error::Conflict);
+        }
+        if let Some(ref vid) = m.venue_order_id
+            && self
+                .orders_by_native_id
+                .get(&(instrument, vid.clone()))
+                .is_some_and(|keys| keys.iter().any(|k| k != &order_key))
+        {
+            return Err(Error::Conflict);
+        }
+        if m.target.order_id != [0; 16]
+            && prior_order
+                .internal_id
+                .is_some_and(|old| old != m.target.order_id)
+        {
+            return Err(Error::Conflict);
+        }
+        let _ = pre_validated_cum;
+
         if self.reopen_order(&order_key)? {
             self.frozen = true;
         }
@@ -531,7 +605,7 @@ impl Account {
             o.terminal = false;
             o.terminal_cumulative = None;
             o.terminal_reason = None;
-            o.fees_closed = false;
+            o.fee_reconciled = false;
             o.retired_mono_ns = None;
         }
 
@@ -778,6 +852,9 @@ impl Account {
             }
         }
 
+        self.sequence
+            .checked_add(1)
+            .ok_or(RiskError::ArithmeticOverflow)?;
         self.rollback_pending_modify(&order_key, request_intent)?;
         if let Some(req) = request_intent {
             self.shadow_holds.remove(&req);

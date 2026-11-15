@@ -189,7 +189,7 @@ impl Account {
                 o.confirmed,
                 o.economic,
                 o.terminal,
-                o.fees_closed,
+                o.fee_reconciled,
                 o.aborted,
             ] {
                 w.byte(u8::from(b));
@@ -247,20 +247,20 @@ impl Account {
             if self.account_inputs.closures.len() == MAX_FACTS {
                 return Err(Error::Capacity);
             }
-            let mut candidate = self.clone();
-            for e in candidate.account_inputs.incomes.values_mut() {
+            self.sequence
+                .checked_add(1)
+                .ok_or(RiskError::ArithmeticOverflow)?;
+            self.evaluate()?;
+            for e in self.account_inputs.incomes.values_mut() {
                 if e.status == IncomeStatus::Booked {
                     e.status = IncomeStatus::Reconciled;
                 }
             }
-            candidate
-                .account_inputs
+            self.account_inputs
                 .closures
                 .insert(binding.history_digest, binding.clone());
-            candidate.next_sequence()?;
-            candidate.frozen = true;
-            candidate.evaluate()?;
-            *self = candidate;
+            self.next_sequence()?;
+            self.frozen = true;
             Ok(Applied::New)
         })();
         if result.is_err() {
