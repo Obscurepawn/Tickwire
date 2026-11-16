@@ -1,10 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="820" height="476" viewBox="0 0 820 476"
+<svg xmlns="http://www.w3.org/2000/svg" width="780" height="618" viewBox="0 0 780 618"
      role="img" aria-labelledby="title description">
-  <title id="title">Institutional order admission, routing, and three-way outcome boundary</title>
-  <desc id="description">Four-stage institutional order pipeline showing SelfDescribingClientId intake with lock-free StpBook and Modify holds, selectable InMemory, MmapAsync, or fsync WAL commit before send, EWMA routing with per-IP rate limiting and first-byte grant re-verification, and pooled REST or WebSocket wire flush with ProjectedFill and trade deduplication, splitting into three outcomes: proven zero-byte or STP/quota aborts that immediately release holds, single-order timeouts or disconnects isolated to an off-thread per-order QueryDesk while peer orders keep trading, and full process restarts that freeze new risk or cold-bootstrap tw1 attribution from exchange OpenOrders until verified.</desc>
+  <title id="title">Stateless ultra-low-latency order lifecycle across REQ, LinkOps, and RESP</title>
+  <desc id="description">Stateless order lifecycle: 1024-byte Strategy IntentRecord enters REQ on req_cpu through the 23-microsecond stale gate, flat RmsEngine, lock-free atomic BBO StpBook::self_cross, OrderRouter::pick 9/8 EWMA selection with SharedRateLimiter local_ip and account quotas, and LinkOps wire send without overlapping Order and Connection spinlocks; Venue replies enter RESP on resp_cpu via single-pass JsonScan into distinct One ack (FrontAck or Ack), ProjectedFill, and FillRecordPool (Fill trade deduplication plus amendment = true fee patch) facts, OrsQueryDesk doubt recovery on cold housekeeping_cpus, and immediate RETIRED slot reclamation plus StpBook unlink without waiting on fees_closed.</desc>
   <defs>
     <marker id="arr-dark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.2" markerHeight="6.2" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#1d4ed8"/>
     </marker>
     <marker id="arr-green" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#15803d"/>
@@ -12,128 +15,149 @@
     <marker id="arr-amber" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#b45309"/>
     </marker>
-    <marker id="arr-red" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
-      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#b91c1c"/>
+    <marker id="arr-indigo" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
+      <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#4338ca"/>
     </marker>
     <style>
       text { font-family: "Inter", "Segoe UI", "DejaVu Sans", sans-serif; text-anchor: middle; }
-      .step-num { font-size: 14.15px; font-weight: 700; fill: #475569; }
-      .step-wal { font-size: 14.15px; font-weight: 700; fill: #92400e; }
-      .step-gate { font-size: 14.15px; font-weight: 700; fill: #1e40af; }
-      .step-wire { font-size: 14.15px; font-weight: 700; fill: #166534; }
-      .box-title { font-size: 14.8px; font-weight: 700; fill: #0f172a; }
-      .box-title-ok { font-size: 14.8px; font-weight: 700; fill: #14532d; }
-      .box-sub { font-size: 14.15px; fill: #334155; }
-      .out-title-ok { font-size: 15.5px; font-weight: 700; fill: #14532d; }
-      .out-title-amber { font-size: 15.5px; font-weight: 700; fill: #78350f; }
-      .out-title-warn { font-size: 15.5px; font-weight: 700; fill: #7f1d1d; }
-      .out-sub { font-size: 14.2px; fill: #1e293b; }
-      .lbl-ok { font-size: 14.2px; font-weight: 700; fill: #15803d; }
-      .lbl-amber { font-size: 14.2px; font-weight: 700; fill: #b45309; }
-      .lbl-warn { font-size: 14.2px; font-weight: 700; fill: #b91c1c; }
-      .stage { fill: #f8fafc; stroke: #64748b; stroke-width: 1.8; }
-      .stage-wal { fill: #fffbeb; stroke: #d97706; stroke-width: 2; }
-      .stage-gate { fill: #eff6ff; stroke: #2563eb; stroke-width: 2; }
-      .stage-ok { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.8; }
-      .stage-amber { fill: #fffbeb; stroke: #d97706; stroke-width: 1.8; }
-      .stage-freeze { fill: #fef2f2; stroke: #dc2626; stroke-width: 1.8; }
+      .band-h-req { font-size: 15.2px; font-weight: 700; fill: #1e3a8a; }
+      .band-h-resp { font-size: 15.2px; font-weight: 700; fill: #115e59; }
+      .step-req { font-size: 13.2px; font-weight: 700; fill: #1d4ed8; }
+      .step-resp { font-size: 13.2px; font-weight: 700; fill: #0f766e; }
+      .box-title { font-size: 14.2px; font-weight: 700; fill: #0f172a; }
+      .box-sub { font-size: 13px; fill: #334155; }
+      .pill-green-txt { font-size: 13px; font-weight: 700; fill: #15803d; }
+      .pill-blue-txt { font-size: 13px; font-weight: 700; fill: #1e3a8a; }
+      .out-title-ok { font-size: 14.8px; font-weight: 700; fill: #14532d; }
+      .out-title-amber { font-size: 14.8px; font-weight: 700; fill: #78350f; }
+      .out-title-indigo { font-size: 14.8px; font-weight: 700; fill: #312e81; }
+      .out-sub { font-size: 13px; fill: #1e293b; }
+      .out-foot-ok { font-size: 12.8px; font-weight: 700; fill: #15803d; }
+      .out-foot-amber { font-size: 12.8px; font-weight: 700; fill: #b45309; }
+      .out-foot-indigo { font-size: 12.8px; font-weight: 700; fill: #4338ca; }
+      .band-req { fill: #f8fafc; stroke: #3b82f6; stroke-width: 2; }
+      .band-resp { fill: #f8fafc; stroke: #0d9488; stroke-width: 2; }
+      .card { fill: #ffffff; stroke: #94a3b8; stroke-width: 1.6; }
+      .card-wire { fill: #eff6ff; stroke: #2563eb; stroke-width: 1.8; }
+      .card-retire { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.8; }
+      .out-ok { fill: #f0fdf4; stroke: #16a34a; stroke-width: 1.8; }
+      .out-amber { fill: #fffbeb; stroke: #d97706; stroke-width: 1.8; }
+      .out-indigo { fill: #f5f3ff; stroke: #6366f1; stroke-width: 1.8; stroke-dasharray: 6 3; }
       .pill-ok { fill: #f0fdf4; stroke: #86efac; stroke-width: 1.4; }
-      .pill-amber { fill: #fffbeb; stroke: #fcd34d; stroke-width: 1.4; }
-      .pill-warn { fill: #fef2f2; stroke: #fca5a5; stroke-width: 1.4; }
+      .pill-blue { fill: #eff6ff; stroke: #93c5fd; stroke-width: 1.4; }
       .div-ok { stroke: #86efac; stroke-width: 1.2; }
       .div-amber { stroke: #fcd34d; stroke-width: 1.2; }
-      .div-warn { stroke: #fca5a5; stroke-width: 1.2; }
-      .line { fill: none; stroke: #334155; stroke-width: 2.2; stroke-linejoin: round; }
+      .div-indigo { stroke: #c7d2fe; stroke-width: 1.2; }
+      .line-dark { fill: none; stroke: #334155; stroke-width: 2.2; stroke-linejoin: round; }
+      .line-blue { fill: none; stroke: #1d4ed8; stroke-width: 2.2; stroke-linejoin: round; }
       .line-ok { fill: none; stroke: #15803d; stroke-width: 2.2; stroke-linejoin: round; }
       .line-amber { fill: none; stroke: #b45309; stroke-width: 2.2; stroke-linejoin: round; }
-      .line-warn { fill: none; stroke: #b91c1c; stroke-width: 2.2; stroke-linejoin: round; }
+      .line-indigo { fill: none; stroke: #4338ca; stroke-width: 2.1; stroke-dasharray: 5 3.5; stroke-linejoin: round; }
     </style>
   </defs>
 
-  <rect width="820" height="476" rx="10" fill="#ffffff"/>
+  <rect width="780" height="618" rx="10" fill="#ffffff"/>
 
-  <!-- Top Hot-Path Pipeline Row (y = 16..130) -->
+  <!-- Band 1: REQ Spin Thread (req_cpu) Outbound Pipeline -->
+  <rect class="band-req" x="14" y="14" width="752" height="158" rx="9"/>
+  <text x="390" y="38" class="band-h-req">REQ Spin Thread (req_cpu) — Outbound Intent Admission, Routing &amp; Wire Send</text>
+
   <!-- Stage 1 -->
-  <rect class="stage" x="10" y="16" width="190" height="114" rx="8"/>
-  <text x="105" y="39" class="step-num">1 · INTAKE &amp; STP</text>
-  <text x="105" y="63" class="box-title">Candidate &amp; StpBook</text>
-  <text x="105" y="87" class="box-sub">SelfDescribingClientId</text>
-  <text x="105" y="109" class="box-sub">Lock-free STP &amp; Modify</text>
+  <rect class="card" x="28" y="50" width="230" height="108" rx="7"/>
+  <text x="143" y="72" class="step-req">1 · INTENT &amp; 23 µs GATE</text>
+  <text x="143" y="95" class="box-title">Strategy Intent 1024B</text>
+  <text x="143" y="117" class="box-sub">23 µs stale gate · tw1... ID</text>
+  <text x="143" y="139" class="box-sub">Flat RmsEngine (1s/5s/10s)</text>
 
-  <path class="line" d="M200 73 H217" marker-end="url(#arr-dark)"/>
+  <path class="line-dark" d="M258 104 H272" marker-end="url(#arr-dark)"/>
 
   <!-- Stage 2 -->
-  <rect class="stage-wal" x="220" y="16" width="196" height="114" rx="8"/>
-  <text x="318" y="39" class="step-wal">2 · COMMIT PROFILE</text>
-  <text x="318" y="63" class="box-title">Journal &amp; Closure</text>
-  <text x="318" y="87" class="box-sub">InMemory (0-disk default)</text>
-  <text x="318" y="109" class="box-sub">MmapAsync · fsync WAL</text>
+  <rect class="card" x="275" y="50" width="230" height="108" rx="7"/>
+  <text x="390" y="72" class="step-req">2 · ATOMIC STP &amp; ROUTER</text>
+  <text x="390" y="95" class="box-title">StpBook::self_cross</text>
+  <text x="390" y="117" class="box-sub">Lock-free atomic BBO read</text>
+  <text x="390" y="139" class="box-sub">OrderRouter::pick (9/8 EWMA)</text>
 
-  <path class="line" d="M416 73 H433" marker-end="url(#arr-dark)"/>
+  <path class="line-blue" d="M505 104 H519" marker-end="url(#arr-blue)"/>
 
   <!-- Stage 3 -->
-  <rect class="stage-gate" x="436" y="16" width="186" height="114" rx="8"/>
-  <text x="529" y="39" class="step-gate">3 · ROUTER &amp; GATE</text>
-  <text x="529" y="63" class="box-title">First-Byte &amp; Quota</text>
-  <text x="529" y="87" class="box-sub">EWMA · IP RateLimiter</text>
-  <text x="529" y="109" class="box-sub">Recheck lease &amp; live cut</text>
+  <rect class="card-wire" x="522" y="50" width="230" height="108" rx="7"/>
+  <text x="637" y="72" class="step-req">3 · QUOTA &amp; LINKOPS SEND</text>
+  <text x="637" y="95" class="box-title">SharedRateLimiter + Wire</text>
+  <text x="637" y="117" class="box-sub">local_ip + account quotas</text>
+  <text x="637" y="139" class="box-sub">LinkOps WS / HTTPS / FIX</text>
 
-  <path class="line-ok" d="M622 73 H639" marker-end="url(#arr-green)"/>
+  <!-- Corridor between REQ and RESP -->
+  <path class="line-ok" d="M143 158 V180" marker-end="url(#arr-green)"/>
+  <path class="line-ok" d="M390 158 V180" marker-end="url(#arr-green)"/>
+  <rect class="pill-ok" x="28" y="183" width="448" height="31" rx="15.5"/>
+  <text x="252" y="203" class="pill-green-txt">0-Byte Gate / RMS / STP / Quota Reject -&gt; Release Hold</text>
+
+  <path class="line-blue" d="M637 158 V225" marker-end="url(#arr-blue)"/>
+  <rect class="pill-blue" x="490" y="183" width="262" height="31" rx="15.5"/>
+  <text x="621" y="203" class="pill-blue-txt">Venue Wire Replies &amp; Executions</text>
+
+  <!-- Band 2: RESP Epoll Thread (resp_cpu) Inbound Decode & Slot Retirement -->
+  <rect class="band-resp" x="14" y="228" width="752" height="158" rx="9"/>
+  <text x="390" y="252" class="band-h-resp">RESP Epoll Thread (resp_cpu) — Single-Pass Decode, Fills &amp; Immediate Retirement</text>
 
   <!-- Stage 4 -->
-  <rect class="stage-ok" x="642" y="16" width="168" height="114" rx="8"/>
-  <text x="726" y="39" class="step-wire">4 · WIRE FLUSH</text>
-  <text x="726" y="63" class="box-title-ok">Pooled REST / WS</text>
-  <text x="726" y="87" class="box-sub">Signed frame write</text>
-  <text x="726" y="109" class="box-sub">ProjectedFill + dedup</text>
+  <rect class="card" x="28" y="264" width="230" height="108" rx="7"/>
+  <text x="143" y="286" class="step-resp">4 · JSONSCAN &amp; ONE ACK</text>
+  <text x="143" y="309" class="box-title">Single-Pass JsonScan</text>
+  <text x="143" y="331" class="box-sub">One ack: FrontAck / Ack</text>
+  <text x="143" y="353" class="box-sub">Link resting order in StpBook</text>
 
-  <!-- Dedicated Non-Overlapping Routing Corridor (y = 130..244) -->
-  <!-- Branch A (Green): Stage 1 STP refusal + Stage 3 Quota/0-Byte abort -> Left Card -->
-  <path class="line-ok" d="M105 130 V145 H140 M468 130 V145 H140 V241" marker-end="url(#arr-green)"/>
-  <rect class="pill-ok" x="28" y="173" width="224" height="46" rx="10"/>
-  <text x="140" y="192" class="lbl-ok">0 bytes sent / STP</text>
-  <text x="140" y="211" class="lbl-ok">or Quota Refusal</text>
+  <path class="line-dark" d="M258 318 H272" marker-end="url(#arr-dark)"/>
 
-  <!-- Branch B (Amber): Single-order timeout / 5xx / disconnect -> Center Card -->
-  <path class="line-amber" d="M662 130 V159 H410 V241" marker-end="url(#arr-amber)"/>
-  <rect class="pill-amber" x="292" y="173" width="236" height="46" rx="10"/>
-  <text x="410" y="192" class="lbl-amber">Single-order timeout</text>
-  <text x="410" y="211" class="lbl-amber">5xx or disconnect</text>
+  <!-- Stage 5 -->
+  <rect class="card" x="275" y="264" width="230" height="108" rx="7"/>
+  <text x="390" y="286" class="step-resp">5 · PROJECTEDFILL &amp; FILLS</text>
+  <text x="390" y="309" class="box-title">FillRecordPool Dedup</text>
+  <text x="390" y="331" class="box-sub">ProjectedFill status delta</text>
+  <text x="390" y="353" class="box-sub">Fill + amendment = true fee</text>
 
-  <!-- Branch C (Red): Process crash / pod migration / cold start -> Right Card -->
-  <path class="line-warn" d="M766 130 V159 H680 V241" marker-end="url(#arr-red)"/>
-  <rect class="pill-warn" x="568" y="173" width="224" height="46" rx="10"/>
-  <text x="680" y="192" class="lbl-warn">Process crash · pod</text>
-  <text x="680" y="211" class="lbl-warn">migration · cold start</text>
+  <path class="line-ok" d="M505 318 H519" marker-end="url(#arr-green)"/>
 
-  <!-- Bottom 3 Outcome Cards (y = 244..460) -->
-  <!-- Left Card: Proven Zero-Byte Abort -->
-  <rect class="stage-ok" x="14" y="244" width="252" height="216" rx="8"/>
-  <text x="140" y="273" class="out-title-ok">Proven Zero-Byte Abort</text>
-  <line class="div-ok" x1="32" y1="288" x2="248" y2="288"/>
-  <text x="140" y="315" class="out-sub">Commit Aborted /</text>
-  <text x="140" y="336" class="out-sub">local TerminalReason</text>
-  <text x="140" y="367" class="out-sub">Release reserved hold</text>
-  <text x="140" y="388" class="out-sub">(or revert Modify delta)</text>
-  <text x="140" y="432" class="lbl-ok">Account &amp; peers stay active</text>
+  <!-- Stage 6 -->
+  <rect class="card-retire" x="522" y="264" width="230" height="108" rx="7"/>
+  <text x="637" y="286" class="step-resp">6 · IMMEDIATE RETIRED</text>
+  <text x="637" y="309" class="box-title">Unlink StpBook &amp; Retire</text>
+  <text x="637" y="331" class="box-sub">Immediate RETIRED slot</text>
+  <text x="637" y="353" class="box-sub">Without waiting fees_closed</text>
 
-  <!-- Center Card: Per-Order QueryDesk Isolation -->
-  <rect class="stage-amber" x="284" y="244" width="252" height="216" rx="8"/>
-  <text x="410" y="273" class="out-title-amber">Per-Order QueryDesk</text>
-  <line class="div-amber" x1="302" y1="288" x2="518" y2="288"/>
-  <text x="410" y="315" class="out-sub">Mark single order InDoubt</text>
-  <text x="410" y="336" class="out-sub">(retain its reserved hold)</text>
-  <text x="410" y="367" class="out-sub">Off-thread AsyncRestQuerier</text>
-  <text x="410" y="388" class="out-sub">backoff requery probe</text>
-  <text x="410" y="432" class="lbl-amber">Peer orders keep trading</text>
+  <!-- Bottom Branches to 3 Outcome / Recovery Boundaries -->
+  <path class="line-ok" d="M143 386 V429" marker-end="url(#arr-green)"/>
+  <path class="line-amber" d="M390 386 V429" marker-end="url(#arr-amber)"/>
+  <path class="line-indigo" d="M637 386 V429" marker-end="url(#arr-indigo)"/>
 
-  <!-- Right Card: Account Freeze / Cold Bootstrap -->
-  <rect class="stage-freeze" x="554" y="244" width="252" height="216" rx="8"/>
-  <text x="680" y="273" class="out-title-warn">Freeze / Cold Bootstrap</text>
-  <line class="div-warn" x1="572" y1="288" x2="788" y2="288"/>
-  <text x="680" y="315" class="out-sub">Replay WAL or stateless</text>
-  <text x="680" y="336" class="out-sub">exchange OpenOrders scan</text>
-  <text x="680" y="367" class="out-sub">Decode tw1... attribution</text>
-  <text x="680" y="388" class="out-sub">&amp; strategy sequence floors</text>
-  <text x="680" y="432" class="lbl-warn">Resume once venue verified</text>
+  <!-- Outcome 1: ReportRecord SHM Replies & Post-Retire Fee Amendments -->
+  <rect class="out-ok" x="14" y="432" width="242" height="170" rx="8"/>
+  <text x="135" y="459" class="out-title-ok">ReportRecord SHM (512B)</text>
+  <line class="div-ok" x1="30" y1="472" x2="240" y2="472"/>
+  <text x="135" y="497" class="out-sub">Distinct FrontAck / Ack,</text>
+  <text x="135" y="518" class="out-sub">ProjectedFill, and Fill facts</text>
+  <text x="135" y="544" class="out-sub">Late amendment = true updates</text>
+  <text x="135" y="565" class="out-sub">FillRecordPool after RETIRED</text>
+  <text x="135" y="590" class="out-foot-ok">Zero stall on fees_closed</text>
+
+  <!-- Outcome 2: Per-Order OrsQueryDesk Doubt Recovery -->
+  <rect class="out-amber" x="269" y="432" width="242" height="170" rx="8"/>
+  <text x="390" y="459" class="out-title-amber">OrsQueryDesk Recovery</text>
+  <line class="div-amber" x1="285" y1="472" x2="495" y2="472"/>
+  <text x="390" y="497" class="out-sub">Timeout / 5xx / disconnect</text>
+  <text x="390" y="518" class="out-sub">isolates single InDoubt order</text>
+  <text x="390" y="544" class="out-sub">Cold housekeeping_cpus</text>
+  <text x="390" y="565" class="out-sub">AsyncRestQuerier probe</text>
+  <text x="390" y="590" class="out-foot-amber">Peer orders keep trading</text>
+
+  <!-- Outcome 3: Stateless Exchange Snapshot Bootstrap -->
+  <rect class="out-indigo" x="524" y="432" width="242" height="170" rx="8"/>
+  <text x="645" y="459" class="out-title-indigo">Cold REST + tw1... Boot</text>
+  <line class="div-indigo" x1="540" y1="472" x2="750" y2="472"/>
+  <text x="645" y="497" class="out-sub">Stateless Exchange REST</text>
+  <text x="645" y="518" class="out-sub">Account + OpenOrders scan</text>
+  <text x="645" y="544" class="out-sub">Verify tw1... MAC attribution</text>
+  <text x="645" y="565" class="out-sub">&amp; per-strategy seq floors</text>
+  <text x="645" y="590" class="out-foot-indigo">Zero disk WAL or local state</text>
 </svg>

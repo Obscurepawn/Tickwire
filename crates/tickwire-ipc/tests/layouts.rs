@@ -729,58 +729,6 @@ fn layout_restoreappliedbody() {
     }
 }
 #[test]
-fn layout_checkpointsealbody() {
-    let value = CheckpointSealBody::default();
-    let mut raw = vec![0xCC; 96];
-    value.encode(&mut raw).unwrap();
-    assert_eq!(CheckpointSealBody::decode(&raw).unwrap(), value);
-    for length in [0, 95, 97] {
-        assert_eq!(
-            CheckpointSealBody::decode(&vec![0; length]),
-            Err(Error::Bounds)
-        );
-        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
-    }
-    for i in 68..96 {
-        raw[i] = 1;
-        assert_eq!(
-            CheckpointSealBody::decode(&raw),
-            Err(Error::ReservedNonzero)
-        );
-        raw[i] = 0;
-    }
-}
-#[test]
-fn layout_checkpointsealreplybody() {
-    let value = CheckpointSealReplyBody::default();
-    let mut raw = vec![0xCC; 256];
-    value.encode(&mut raw).unwrap();
-    assert_eq!(CheckpointSealReplyBody::decode(&raw).unwrap(), value);
-    for length in [0, 255, 257] {
-        assert_eq!(
-            CheckpointSealReplyBody::decode(&vec![0; length]),
-            Err(Error::Bounds)
-        );
-        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
-    }
-    for i in 28..32 {
-        raw[i] = 1;
-        assert_eq!(
-            CheckpointSealReplyBody::decode(&raw),
-            Err(Error::ReservedNonzero)
-        );
-        raw[i] = 0;
-    }
-    for i in 224..256 {
-        raw[i] = 1;
-        assert_eq!(
-            CheckpointSealReplyBody::decode(&raw),
-            Err(Error::ReservedNonzero)
-        );
-        raw[i] = 0;
-    }
-}
-#[test]
 fn layout_decimalwire() {
     let value = DecimalWire::default();
     let mut raw = vec![0xCC; 24];
@@ -827,44 +775,6 @@ fn layout_marketexactrecord() {
             Err(Error::Bounds)
         );
         assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
-    }
-}
-#[test]
-fn layout_replaycontrolbody() {
-    let value = ReplayControlBody::default();
-    let mut raw = vec![0xCC; 256];
-    value.encode(&mut raw).unwrap();
-    assert_eq!(ReplayControlBody::decode(&raw).unwrap(), value);
-    for length in [0, 255, 257] {
-        assert_eq!(
-            ReplayControlBody::decode(&vec![0; length]),
-            Err(Error::Bounds)
-        );
-        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
-    }
-    for i in 164..256 {
-        raw[i] = 1;
-        assert_eq!(ReplayControlBody::decode(&raw), Err(Error::ReservedNonzero));
-        raw[i] = 0;
-    }
-}
-#[test]
-fn layout_replayappliedbody() {
-    let value = ReplayAppliedBody::default();
-    let mut raw = vec![0xCC; 256];
-    value.encode(&mut raw).unwrap();
-    assert_eq!(ReplayAppliedBody::decode(&raw).unwrap(), value);
-    for length in [0, 255, 257] {
-        assert_eq!(
-            ReplayAppliedBody::decode(&vec![0; length]),
-            Err(Error::Bounds)
-        );
-        assert_eq!(value.encode(&mut vec![0; length]), Err(Error::Bounds));
-    }
-    for i in 164..256 {
-        raw[i] = 1;
-        assert_eq!(ReplayAppliedBody::decode(&raw), Err(Error::ReservedNonzero));
-        raw[i] = 0;
     }
 }
 #[test]

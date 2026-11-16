@@ -21,10 +21,6 @@ fn stamp(kind: Kind) -> Stamp {
             "20000000-0000-4000-8000-000000000002".into()
         },
         applied_event_seq: if kind == Kind::Desired { 0 } else { 1234 },
-        journal_receipt_ref: format!(
-            "artifact://agent/journal/config-41@sha256:{}",
-            "34".repeat(32)
-        ),
         instance_slot_id: "30000000-0000-4000-8000-000000000003".into(),
     }
 }
@@ -103,13 +99,6 @@ fn materialization_rejects_metadata_substitution_even_with_a_new_file_hash() {
             json!("20000000-0000-4000-8000-000000000099"),
         ),
         ("applied_event_seq", json!("1235")),
-        (
-            "journal_receipt_ref",
-            json!(format!(
-                "artifact://agent/journal/other@sha256:{}",
-                "34".repeat(32)
-            )),
-        ),
         (
             "instance_slot_id",
             json!("30000000-0000-4000-8000-000000000099"),
@@ -227,7 +216,7 @@ fn materialization_preserves_nested_parameter_values_and_large_exact_integers() 
         "empty_array":[],
         "maximum":9_007_199_254_740_991_i64,
         "minimum":-9_007_199_254_740_991_i64,
-        "text":"中文\n\"quote\"\\slash\t",
+        "text":"é\n\"quote\"\\slash\t",
         "mixed":[true, 12, "0.00000001", {"threshold":"1.50"}, [3, false]]
     });
     let candidate = Candidate::parse(

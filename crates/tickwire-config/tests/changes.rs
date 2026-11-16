@@ -40,7 +40,7 @@ fn logging_is_hot_but_listener_and_storage_paths_require_replacement() {
         v["observability"]["diagnostic_level"] = "debug".into()
     });
     assert_eq!(ChangeSet::between(&c, &n).unwrap().class(), Class::Hot);
-    for section in ["observability", "journal", "local_config"] {
+    for section in ["observability", "local_config"] {
         let n = changed(&c, |v| {
             if section == "observability" {
                 v[section]["metrics_listen_uri"] = "https://other.fixture.invalid:9445".into();
@@ -210,7 +210,7 @@ fn parameter_names_cannot_masquerade_as_hot_budget_fields() {
     });
     assert_eq!(ChangeSet::between(&c, &n).unwrap().class(), Class::Quiesce);
     let n = changed(&c, |v| {
-        v["strategies"][0]["params"]["state_schema_ref"] = "custom-value".into();
+        v["strategies"][0]["params"]["trust_profile"] = "custom-value".into();
     });
     assert_eq!(ChangeSet::between(&c, &n).unwrap().class(), Class::Quiesce);
     let c = changed(&reference(), |v| {
@@ -274,9 +274,9 @@ fn administrative_roles_include_scoped_read_access_without_operator_authority() 
 }
 
 #[test]
-fn delaying_disk_freeze_requires_risk_admin_even_with_cluster_authority() {
+fn extending_intent_ttl_requires_risk_admin_even_with_cluster_authority() {
     let c = reference();
-    let n = changed(&c, |v| v["journal"]["disk_freeze_percent"] = 99.into());
+    let n = changed(&c, |v| v["timeouts"]["intent_ttl_us"] = 10_000.into());
     let changes = ChangeSet::between(&c, &n).unwrap();
     assert!(changes.requires_risk_admin());
     assert!(

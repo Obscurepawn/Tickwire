@@ -310,7 +310,7 @@ pub fn project(
     out.insert("identity".into(), root["identity"].clone());
     out.insert("process".into(), process.clone());
     out.insert("host".into(), host.clone());
-    for key in ["journal", "local_config", "timeouts"] {
+    for key in ["local_config", "timeouts"] {
         out.insert(key.into(), root[key].clone());
     }
     out.insert(

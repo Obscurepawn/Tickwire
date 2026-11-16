@@ -142,17 +142,4 @@ fn preflight_control_literal_payloads_keep_fixed_layout() {
     let mut encoded = vec![0; 128];
     value.encode(&mut encoded).unwrap();
     assert_eq!(encoded, bytes);
-    let bytes = literal(include_str!("fixtures/exact-events/checkpoint-seal.hex"));
-    let value = CheckpointSealBody::decode(&bytes).unwrap();
-    assert_eq!(value.schema, 2);
-    assert_eq!(value.report_sequence, 4);
-    let mut encoded = vec![0; 96];
-    value.encode(&mut encoded).unwrap();
-    assert_eq!(encoded, bytes);
-    let bytes = literal(include_str!("fixtures/exact-events/checkpoint-sealed.hex"));
-    let value = CheckpointSealReplyBody::decode(&bytes).unwrap();
-    assert_eq!(value.ready.ledger_sequence, 7);
-    let mut encoded = vec![0; 256];
-    value.encode(&mut encoded).unwrap();
-    assert_eq!(encoded, bytes);
 }

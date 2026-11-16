@@ -2,14 +2,13 @@
   "format": "tickwire-single-host-reference-1",
   "profile_id": "TW-SingleHost-v1",
   "hosts": 1,
-  "default_storage_profile": "InMemory",
   "max_active_strategies": 32,
   "sample_active_strategies": 16,
   "sample_risk_domains": 2,
   "resource_limit_bytes": 8589934592,
   "intent_expiry_us": 5000,
   "latency_budget_us": {
-    "interval": "complete market tick to first application write, including local durable admission",
+    "interval": "complete market tick to wire order dispatch across stateless SHM rings",
     "p99": 300,
     "p999": 1000
   }

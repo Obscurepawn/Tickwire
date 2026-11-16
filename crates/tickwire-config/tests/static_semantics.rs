@@ -143,3 +143,211 @@ fn cluster_role_scope_is_explicit_and_has_no_ambiguous_account_list() {
     .unwrap();
     assert!(ambiguous.validate_static().is_err());
 }
+
+#[test]
+fn cpu_isolation_rejects_equal_req_resp_housekeeping_overlap_and_bad_cpu_lists() {
+    // Positive baseline: normalized_configuration fills exec defaults cleanly.
+    let mut trimmed = reference().value().clone();
+    for p in trimmed["processes"].as_array_mut().unwrap() {
+        if p["role"] == "exec" {
+            p.as_object_mut().unwrap().remove("epoll_wait_ms");
+            p.as_object_mut().unwrap().remove("max_order_age_ns");
+        }
+    }
+    let normalized = Candidate::parse(
+        Format::Json,
+        &serde_json::to_vec(&trimmed).unwrap(),
+        Limits::default(),
+    )
+    .unwrap()
+    .normalized_configuration(Limits::default())
+    .unwrap();
+    normalized.validate_static().unwrap();
+    for p in normalized.value()["processes"].as_array().unwrap() {
+        if p["role"] == "exec" {
+            assert_eq!(p["epoll_wait_ms"], 0);
+            assert_eq!(p["max_order_age_ns"], 23_000);
+        }
+    }
+
+    for (label, mutation) in [
+        (
+            "req_cpu == resp_cpu",
+            (|v: &mut Value| {
+                let exec = v["processes"]
+                    .as_array_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .find(|p| p["id"] == "exec-spot-a")
+                    .unwrap();
+                exec["req_cpu"] = 10.into();
+                exec["resp_cpu"] = 10.into();
+            }) as fn(&mut Value),
+        ),
+        ("hot_cpus overlaps process housekeeping_cpus", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["housekeeping_cpus"] = json!([2, 10]);
+        }),
+        ("worker_cpu overlaps host housekeeping_cpus", |v| {
+            let strat = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "strategy-01-active")
+                .unwrap();
+            strat["cpus"] = json!([4]);
+            strat["worker_cpu"] = 4.into();
+        }),
+        ("reactor_cpu overlaps process housekeeping_cpus", |v| {
+            let md = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "md-spot-a")
+                .unwrap();
+            md["housekeeping_cpus"] = json!([0, 8]);
+        }),
+        ("cpu >= 4096", |v| {
+            let strat = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "strategy-01-active")
+                .unwrap();
+            strat["cpus"] = json!([4096]);
+            strat["worker_cpu"] = 4096.into();
+        }),
+        ("empty housekeeping_cpus", |v| {
+            v["processes"][1]["housekeeping_cpus"] = json!([]);
+        }),
+        ("duplicate housekeeping_cpus", |v| {
+            v["processes"][1]["housekeeping_cpus"] = json!([0, 0]);
+        }),
+        ("unsorted housekeeping_cpus", |v| {
+            v["processes"][1]["housekeeping_cpus"] = json!([1, 0]);
+        }),
+        ("wrong role cpu field", |v| {
+            let md = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "md-spot-a")
+                .unwrap();
+            md["req_cpu"] = 8.into();
+        }),
+    ] {
+        assert!(
+            changed(mutation).validate_static().is_err(),
+            "expected failure for {label}"
+        );
+    }
+}
+
+#[test]
+fn multi_uid_ors_order_manager_and_rms_semantic_bounds_are_enforced() {
+    for (label, mutation) in [
+        (
+            "non-power-of-two slots_per_strat (1000)",
+            (|v: &mut Value| {
+                let exec = v["processes"]
+                    .as_array_mut()
+                    .unwrap()
+                    .iter_mut()
+                    .find(|p| p["id"] == "exec-spot-a")
+                    .unwrap();
+                exec["order_manager"]["slots_per_strat"] = 1000.into();
+            }) as fn(&mut Value),
+        ),
+        ("zero slots_per_strat", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["order_manager"]["slots_per_strat"] = 0.into();
+        }),
+        ("account_ref == 0", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["enabled_accounts"][0]["account_ref"] = 0.into();
+        }),
+        ("account_ref > 255", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["enabled_accounts"][0]["account_ref"] = 256.into();
+        }),
+        ("duplicate account_ref", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["enabled_accounts"][1]["account_ref"] = 1.into();
+        }),
+        ("foreign account_id in enabled_accounts", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["enabled_accounts"][1]["account_id"] = "usdm-main".into();
+        }),
+        ("invalid url local_ip", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["enabled_accounts"][0]["urls"]["order"] = json!([["0.0.0.0", 2]]);
+        }),
+        ("rms max_order_notional > max_pos_notional", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["rms"]["max_order_notional"] = "200000.00".into();
+        }),
+        ("rms fat_finger_ratio > 1", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["rms"]["fat_finger_ratio"] = "1.5".into();
+        }),
+        ("rms non-monotonic rolling window", |v| {
+            let exec = v["processes"]
+                .as_array_mut()
+                .unwrap()
+                .iter_mut()
+                .find(|p| p["id"] == "exec-spot-a")
+                .unwrap();
+            exec["rms"]["5s"]["max_new_orders"] = 10.into();
+        }),
+    ] {
+        assert!(
+            changed(mutation).validate_static().is_err(),
+            "expected failure for {label}"
+        );
+    }
+}

@@ -1,17 +1,17 @@
 # Test, Contract, and Formal Verification Guide
 
-Tickwire validates behavior across four complementary layers: workspace-wide Rust unit/integration tests, multi-process Linux IPC and TLS laboratories, language-independent Python contract validators, and exhaustive TLC finite-state model checking. Run all commands below from the workspace root.
+Tickwire validates behavior across four complementary layers: 42-crate Rust unit/integration/doc tests, multi-process Linux SHM/affinity and loopback TLS laboratories, language-independent Python contract validators, and exhaustive TLC/Apalache formal verification. Run all commands below from the workspace root.
 
 ## Core Verification Matrix
 
 | Verification Layer | Command | What It Exercises |
 | :--- | :--- | :--- |
-| **Rust Workspace & Lints** | `./scripts/check-rust.sh` | Formatting (`cargo fmt`), workspace unit/integration/doc tests, and `cargo clippy -- -D warnings` |
-| **Linux Multi-Process IPC** | `./scripts/check-linux.sh` | Real `memfd` seals, `SCM_RIGHTS` FD passing, `SO_PEERCRED` auth, and cross-process JOIN (requires Docker) |
-| **End-to-End Binance Lab** | `./scripts/run-core-chain-linux.sh spot-fill release` | Full Binance Spot order lifecycle over loopback TLS, WAL persistence, worker reports, and fee closure |
-| **Shared-Feed Multi-Strategy** | `python3 scripts/run-two-strategies.py` | Single public quote feed consumed by two supervised worker PIDs with independent cursors and checkpoints |
+| **Rust Workspace & Lints** | `./scripts/check-rust.sh` | Formatting (`cargo fmt`), `--locked` unit/integration/doc tests across all 42 crates, and `cargo clippy -- -D warnings` |
+| **Linux Multi-Process IPC & CPU Affinity** | `./scripts/check-linux.sh` | Real `memfd` seals, `SCM_RIGHTS` FD passing, `SO_PEERCRED` auth, cross-process JOIN, and `/proc/self/task/<tid>/status` `housekeeping_cpus` CPU-isolation tests (native Linux or Docker via `TICKWIRE_LINUX_DOCKER=1`) |
+| **Stateless 3-Process Trading Lab** | `./scripts/run-core-chain-linux.sh spot-fill release` | Stateless 3-process Binance Spot lifecycle (`tickwire-md` + `tickwire-strategy-worker` + unified ORS `tickwire-app`) over loopback TLS with inline SHM rings, DOP logon, cold REST `tw1...` bootstrap, and fee closure |
+| **Shared-Feed Multi-Strategy** | `python3 scripts/run-two-strategies.py` | Single `tickwire-md` quote feed consumed by two supervised worker PIDs at independent `memfd` ring cursors |
 | **BBO Decode Benchmark** | `cargo bench --locked -p tickwire-md --bench spot_bbo_decode` | Per-frame p50 / p99 / p99.9 latency for Bybit and OKX JSON-to-integer quote normalization |
-| **Order-Book Benchmark** | `cargo bench -p tickwire-book --bench depth_apply` | Release-build price-level update latency across sparse and dense book workloads |
+| **Order-Book Benchmark** | `cargo bench --locked -p tickwire-book --bench depth_apply` | Release-build price-level update latency across sparse and dense book workloads |
 | **TLA+ Model Checking** | `./scripts/check-tla.sh` | Exhaustive TLC state-space exploration and nonzero action coverage across all model families (requires Java) |
 
 ---
@@ -27,12 +27,12 @@ python3 -m venv /tmp/tickwire-contracts
 python3 scripts/verify-documentation.py
 ```
 
-* **[`verify-design-contracts.py`](verify-design-contracts.py)** orchestrates all contract validators and checks WAL v1 header/trailer geometry and canonical venue-event byte vectors:
-  * **[`verify-ipc-contract.py`](verify-ipc-contract.py)** validates ABI 1.0 field widths, offsets, zeroed reserved regions, CRC32C checksums, and semantic rejection cases.
+* **[`verify-design-contracts.py`](verify-design-contracts.py)** orchestrates all four independent machine-contract validators:
+  * **[`verify-ipc-contract.py`](verify-ipc-contract.py)** validates ABI 1.0 field widths, offsets, zeroed reserved regions, Castagnoli CRC32C checksums, inline `1024B` `IntentRecord` / `512B` `ReportRecord` slots, DOP logon opcodes, and semantic rejection cases across `48` fixed layouts and `86` golden vectors.
   * **[`verify-risk-vectors.py`](verify-risk-vectors.py)** independently recomputes Spot and USDⓈ-M reservations, haircuts, and outward rounding in arbitrary-precision decimal math.
   * **[`verify-instrument-catalog.py`](verify-instrument-catalog.py)** verifies canonical catalog serialization, SHA-256 digests, and economic hashes.
-  * **[`verify-config-contract.py`](verify-config-contract.py)** validates `config/reference.toml`, scoped projections, JSON schemas, and cross-field rejection cases.
-* **[`verify-documentation.py`](verify-documentation.py)** checks English-only prose, fenced code blocks, local file links, and Markdown heading anchors across all guides and specifications.
+  * **[`verify-config-contract.py`](verify-config-contract.py)** validates `config/reference.toml`, `config/production.template.toml`, `system-config.schema.json`, scoped projections, exact SHM capacity (`5,910,888,448` bytes), `housekeeping_cpus` vs. hot-core isolation (`hot_cpus ∩ housekeeping_cpus == ∅`), multi-UID `enabled_accounts`, `order_manager`, and static `rms` limits.
+* **[`verify-documentation.py`](verify-documentation.py)** checks English-only prose (zero CJK characters), balanced fenced code blocks, local file links, and Markdown heading anchors across all guides and specifications.
 
 ---
 

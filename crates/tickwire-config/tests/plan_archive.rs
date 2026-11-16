@@ -353,8 +353,8 @@ fn every_emitted_lifecycle_action_and_explicit_options_can_be_read_back() {
                     .as_array_mut()
                     .unwrap()
                     .iter_mut()
-                    .find(|p| p["id"] == "recorder-a")
-                    .unwrap()["id"] = "recorder-new".into()
+                    .find(|p| p["id"] == "supervisor-host-a")
+                    .unwrap()["id"] = "supervisor-host-b".into()
             }
         }
         let next = if kind == 4 {

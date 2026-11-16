@@ -50,7 +50,7 @@ fn affected(change: &Change, p: &Value, root: &Value) -> bool {
                 true
             }
         }
-        "journal" | "local_config" | "timeouts" => true,
+        "local_config" | "timeouts" => true,
         "observability" => path.get(1).is_none_or(|field| {
             p["observability"].get(field).is_some()
                 || field == "metrics_identity_ref"

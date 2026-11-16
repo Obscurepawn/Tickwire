@@ -10,9 +10,6 @@ pub use wire::*;
 mod config;
 pub use config::*;
 #[forbid(unsafe_code)]
-mod checkpoint;
-pub use checkpoint::*;
-#[forbid(unsafe_code)]
 mod market_exact;
 pub use market_exact::*;
 #[forbid(unsafe_code)]
@@ -698,26 +695,6 @@ impl<'a> ControlFrame<'a> {
             return Err(Error::Malformed);
         }
         validate_control_body(e.opcode, e.flags, &raw[128..])?;
-        if matches!(e.opcode, 41 | 42) {
-            let b = ReplayControlBody::decode(&raw[128..])?;
-            if (e.flags == 18
-                && (!(6..=10).contains(&b.replay_kind) || !(1..=3).contains(&e.status)))
-                || is_zero(&b.instance_id)
-                || b.strategy_generation == 0
-                || b.logical_strategy_id == 0
-                || is_zero(&b.challenge)
-                || b.valid_until_mono_ns == 0
-                || is_zero(&b.object_digest)
-                || !(1..=67108864).contains(&b.object_bytes)
-                || is_zero(&b.expected_cut_digest)
-                || is_zero(&b.operation_id)
-                || b.operation_revision == 0
-                || b.schema != 1
-                || !(1..=10).contains(&b.replay_kind)
-            {
-                return Err(Error::Malformed);
-            }
-        }
         if e.opcode == 3 {
             let offer = OfferPrefix::decode(&raw[128..192])?;
             if offer.descriptor_count != e.fd_count {

@@ -226,9 +226,9 @@ fn retired_and_added_processes_remain_in_the_union_with_their_own_projection() {
         .as_array_mut()
         .unwrap()
         .iter_mut()
-        .find(|p| p["id"] == "recorder-a")
+        .find(|p| p["id"] == "supervisor-host-a")
         .unwrap();
-    p["id"] = "recorder-new".into();
+    p["id"] = "supervisor-host-b".into();
     let next = pinned(v.clone(), policy(&v), &mut catalog);
     let delivery = ProjectionDelivery::prepare(
         &old,
@@ -238,16 +238,20 @@ fn retired_and_added_processes_remain_in_the_union_with_their_own_projection() {
     )
     .unwrap();
     assert_eq!(
-        delivery.targets()["recorder-a"].kind(),
+        delivery.targets()["supervisor-host-a"].kind(),
         DeliveryKind::Retired
     );
-    assert!(delivery.targets()["recorder-a"].new_projection().is_none());
+    assert!(
+        delivery.targets()["supervisor-host-a"]
+            .new_projection()
+            .is_none()
+    );
     assert_eq!(
-        delivery.targets()["recorder-new"].kind(),
+        delivery.targets()["supervisor-host-b"].kind(),
         DeliveryKind::Added
     );
     assert!(
-        delivery.targets()["recorder-new"]
+        delivery.targets()["supervisor-host-b"]
             .old_projection()
             .is_none()
     );
@@ -343,8 +347,8 @@ fn retired_target_gets_its_original_payload_bound_to_the_new_delivery_hash() {
         .as_array_mut()
         .unwrap()
         .iter_mut()
-        .find(|p| p["id"] == "recorder-a")
-        .unwrap()["id"] = "recorder-new".into();
+        .find(|p| p["id"] == "supervisor-host-a")
+        .unwrap()["id"] = "supervisor-host-b".into();
     let next = pinned(v.clone(), policy(&v), &mut catalog);
     let delivery = ProjectionDelivery::prepare(
         &old,
@@ -353,7 +357,11 @@ fn retired_target_gets_its_original_payload_bound_to_the_new_delivery_hash() {
         ProjectionLimits::default(),
     )
     .unwrap();
-    for process in ["recorder-a", "recorder-new", "strategy-01-active"] {
+    for process in [
+        "supervisor-host-a",
+        "supervisor-host-b",
+        "strategy-01-active",
+    ] {
         let object =
             ProjectionObject::for_delivery(2, &delivery, process, 4 * 1024 * 1024).unwrap();
         assert_eq!(object.binding().global_hash, next.hash());
@@ -362,8 +370,10 @@ fn retired_target_gets_its_original_payload_bound_to_the_new_delivery_hash() {
         assert_eq!(object.payload()["process"]["id"], process);
     }
     let retired =
-        ProjectionObject::for_delivery(2, &delivery, "recorder-a", 4 * 1024 * 1024).unwrap();
-    let source = delivery.targets()["recorder-a"].old_projection().unwrap();
+        ProjectionObject::for_delivery(2, &delivery, "supervisor-host-a", 4 * 1024 * 1024).unwrap();
+    let source = delivery.targets()["supervisor-host-a"]
+        .old_projection()
+        .unwrap();
     assert_eq!(retired.payload(), source.value());
     assert_eq!(retired.binding().projection_hash, source.hash());
     assert_ne!(retired.binding().global_hash, source.global_hash());

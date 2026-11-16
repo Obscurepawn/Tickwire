@@ -204,13 +204,13 @@ fn retirement_and_addition_keep_each_side_and_require_real_lifecycle_evidence() 
         .as_array_mut()
         .unwrap()
         .iter_mut()
-        .find(|p| p["id"] == "recorder-a")
+        .find(|p| p["id"] == "supervisor-host-a")
         .unwrap();
-    process["id"] = "recorder-new".into();
+    process["id"] = "supervisor-host-b".into();
     let next = pinned(v.clone(), policy(&v), &mut catalog);
     let plan = compute(&old, &next, &catalog, 1, PlanOptions::default()).unwrap();
-    let old_target = &plan.targets()["recorder-a"];
-    let new_target = &plan.targets()["recorder-new"];
+    let old_target = &plan.targets()["supervisor-host-a"];
+    let new_target = &plan.targets()["supervisor-host-b"];
     assert_eq!(old_target.action(), Action::Retire);
     assert_eq!(new_target.action(), Action::RollingRestart);
     assert!(old_target.old_projection().is_some() && old_target.new_projection().is_none());

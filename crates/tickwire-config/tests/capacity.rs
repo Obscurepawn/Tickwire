@@ -93,6 +93,19 @@ fn sparse_os_cpu_ids_use_actual_numa_and_physical_core_mapping() {
         for cpu in process["cpus"].as_array_mut().unwrap() {
             *cpu = (cpu.as_u64().unwrap() + 1024).into();
         }
+        for pin in ["req_cpu", "resp_cpu", "reactor_cpu", "worker_cpu"] {
+            if let Some(val) = process.get_mut(pin) {
+                *val = (val.as_u64().unwrap() + 1024).into();
+            }
+        }
+        if let Some(cold) = process
+            .get_mut("housekeeping_cpus")
+            .and_then(Value::as_array_mut)
+        {
+            for cpu in cold {
+                *cpu = (cpu.as_u64().unwrap() + 1024).into();
+            }
+        }
     }
     for host in i["hosts"].as_array_mut().unwrap() {
         for cpu in host["cpus"].as_array_mut().unwrap() {
