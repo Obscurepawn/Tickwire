@@ -1,5 +1,5 @@
 //! Stateless strategy parameter validation, SHA-256 `FactoryBinding` verification, and safe
-//! `Registration` worker startup (`0` dynamic config-patch or replay state).
+//! `Registration` worker startup (`0` runtime parameter patches or replay state).
 #![forbid(unsafe_code)]
 
 use std::path::PathBuf;

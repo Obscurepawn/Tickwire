@@ -1,7 +1,7 @@
 # tickwire-binance-public
 
 `tickwire-binance-public` (`#![forbid(unsafe_code)]`) drives nonblocking Binance Spot (JSON and SBE v1) and USD-M
-public market-data sessions over `tickwire-transport`, pairing live WSS incremental streams (`Lane::Stream`) with
+public market-data sessions (`DepthStreamClient`, `PublicEventClient`) over `tickwire-transport`, pairing live WSS incremental streams (`Lane::Stream`) with
 HTTPS depth snapshots (`Lane::Snapshot`) to maintain a synchronized `tickwire-book` replica. Market-source publishers
 poll the client with bounded `PollBudget` quotas and consume `Notice` callbacks (`Sync`, `Gap`, `Http`); shared-memory
 ring publication and strategy fan-out belong upstream.

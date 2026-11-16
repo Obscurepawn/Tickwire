@@ -30,7 +30,7 @@ fn ping_and_close_echo_the_original_payload_then_rebuild() {
         assert_eq!(read_frame(&mut stream), (8, vec![3, 232]));
         done.send(()).unwrap();
     });
-    let mut client = PublicDepthClient::<BinanceSpot, _, 8, 8, 8>::new(
+    let mut client = DepthStreamClient::<BinanceSpot, _, 8, 8, 8>::new(
         config::<BinanceSpot>(Source::SpotTest, SubscribeMode::RawUrl),
         network,
         Clock(Instant::now()),

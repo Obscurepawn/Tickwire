@@ -57,7 +57,7 @@ struct Budget {
     turns: usize,
     notices: usize,
 }
-pub struct PublicDepthClient<P, C, const L: usize, const U: usize, const B: usize> {
+pub struct DepthStreamClient<P, C, const L: usize, const U: usize, const B: usize> {
     config: Config,
     network: NetworkConfig,
     sbe: Option<SbeAccess>,
@@ -87,7 +87,7 @@ fn instant(now: LocalTime, ns: u64) -> Result<Instant> {
         .ok_or(Error::Exhausted)
 }
 impl<P: DepthPolicy, C: MonotonicClock, const L: usize, const U: usize, const B: usize>
-    PublicDepthClient<P, C, L, U, B>
+    DepthStreamClient<P, C, L, U, B>
 {
     pub fn new(config: Config, network: NetworkConfig, clock: C) -> Result<Self> {
         protocol::validate::<P, L, U, B>(&config, &network)?;

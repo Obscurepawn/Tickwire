@@ -78,7 +78,7 @@ fn live<P: DepthPolicy + Send + 'static>(source: Source, mode: SubscribeMode) {
         reply(&mut snapshot, &common::snapshot::<P>(100));
         finished.recv_timeout(Duration::from_secs(5)).unwrap();
     });
-    let mut client = PublicDepthClient::<P, _, 8, 8, 8>::new(
+    let mut client = DepthStreamClient::<P, _, 8, 8, 8>::new(
         config::<P>(source, mode),
         network,
         Clock(Instant::now()),

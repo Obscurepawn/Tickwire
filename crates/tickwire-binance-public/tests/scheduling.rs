@@ -89,7 +89,7 @@ fn pending_response(failed: bool) {
         }
     });
     let clock = Arc::new(AtomicU64::new(0));
-    let mut c = PublicDepthClient::<BinanceSpot, _, 8, 8, 8>::new(
+    let mut c = DepthStreamClient::<BinanceSpot, _, 8, 8, 8>::new(
         config::<BinanceSpot>(Source::SpotTest, SubscribeMode::RawUrl),
         network,
         TickClock {

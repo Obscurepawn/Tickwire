@@ -19,7 +19,7 @@ CONSTANTS
   Venue       - spot venue protocol {"Bybit", "Okx"}:
                 crates/tickwire-md/src/spot_quotes.rs:27-33
   Profile     - Cargo build profile {"dev", "test", "release", "bench"}:
-                Cargo.toml:58-71
+                Cargo.toml:57-69
   TickStep    - exact instrument price tick step (`StepSpec`):
                 crates/tickwire-md/src/spot_quotes/simd_json.rs:94-141
   LotStep     - exact instrument quantity lot step (`StepSpec`):
@@ -81,7 +81,7 @@ ASSUME
     /\ MaxIntBound >= 20
     /\ MaxSteps >= 3
 
-\* Every Cargo profile in root `Cargo.toml:58-71` has `overflow-checks = true`.
+\* Every Cargo profile in root `Cargo.toml:57-69` has `overflow-checks = true`.
 ProfileOverflowChecks(p) ==
     p \in AllProfiles
 
@@ -472,7 +472,7 @@ CheckValidFixedPointArithmetic ==
         hotpath_heap_allocs, simd_oob_reads
        >>
 
-\* 11. Boundary overflow test across dev/test/release/bench (`Cargo.toml:58-71`).
+\* 11. Boundary overflow test across dev/test/release/bench (`Cargo.toml:57-69`).
 TrapOverflowingArithmeticInProfile(op) ==
     /\ op \in OverflowOps
     /\ step_count < MaxSteps

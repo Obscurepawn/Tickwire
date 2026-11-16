@@ -676,7 +676,7 @@ fn run_hot_worker<S: Strategy>(config: &Bootstrap, strategy: S) -> Result<()> {
             break;
         }
 
-        if poll_market_quiesce(
+        if poll_quiesce_market(
             &mut client.connection,
             &mut client.session,
             &client.consumer,
@@ -715,7 +715,7 @@ fn run_hot_worker<S: Strategy>(config: &Bootstrap, strategy: S) -> Result<()> {
 }
 
 #[forbid(unsafe_code)]
-fn poll_market_quiesce(
+fn poll_quiesce_market(
     conn: &mut Connection,
     session: &mut Session,
     consumer: &JoinConsumer<4>,

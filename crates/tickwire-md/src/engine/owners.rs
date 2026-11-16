@@ -1,8 +1,8 @@
 use super::*;
 use crate::quota::PublicBinding;
 use tokens::Tokens;
-type Spot = public::PublicDepthClient<public::BinanceSpot, SystemClock, LEVELS, UPDATES, BUFFER>;
-type Usdm = public::PublicDepthClient<public::BinanceUsdM, SystemClock, LEVELS, UPDATES, BUFFER>;
+type Spot = public::DepthStreamClient<public::BinanceSpot, SystemClock, LEVELS, UPDATES, BUFFER>;
+type Usdm = public::DepthStreamClient<public::BinanceUsdM, SystemClock, LEVELS, UPDATES, BUFFER>;
 pub(super) enum Client {
     Spot(Box<Spot>),
     Usdm(Box<Usdm>),

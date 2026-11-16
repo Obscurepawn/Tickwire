@@ -54,7 +54,7 @@ fn a_late_gap_rebuilds_on_the_same_healthy_subscription() {
         ended.recv_timeout(Duration::from_secs(5)).unwrap();
     });
     let now = Arc::new(AtomicU64::new(0));
-    let mut c = PublicDepthClient::<BinanceSpot, _, 8, 8, 8>::new(
+    let mut c = DepthStreamClient::<BinanceSpot, _, 8, 8, 8>::new(
         config::<BinanceSpot>(Source::SpotTest, SubscribeMode::RawUrl),
         network,
         ClockNow {

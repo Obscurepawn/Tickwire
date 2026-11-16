@@ -58,7 +58,8 @@ reads delegate to [`tickwire-clock-sys`](../tickwire-clock-sys/AGENTS.md).
   [tests/stage1_transport.rs](tests/stage1_transport.rs)
 * **Specifications and models**: [transport.md](../../specs/implementation/transport.md) ·
   [transport](../../tla/execution_models/transport/ROADMAP.md) ·
-  [gateway](../../tla/execution_models/gateway/ROADMAP.md) ·
+  [hotpath_decoupling](../../tla/execution_models/hotpath_decoupling/ROADMAP.md) ·
+  [connection_router_quota](../../tla/execution_models/connection_router_quota/ROADMAP.md) ·
   [hotpath_ultralow_latency](../../tla/execution_models/hotpath_ultralow_latency/ROADMAP.md)
 
 ```sh

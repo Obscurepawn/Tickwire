@@ -12,8 +12,8 @@ authenticating peer control frames and `ResourceHeader` digests, while strategy 
 * **Verbatim baseline and catch-up retention**: During `PendingJoin` -> `Client` onboarding in
   [src/shm.rs](src/shm.rs) and [src/shm/pending.rs](src/shm/pending.rs), retain the exact sealed snapshot
   bytes (`baseline_bytes`) and every post-snapshot `CatchupRecord` (bounded by `MAX_CATCHUP_BYTES = 64 MiB`)
-  with its local `applied_mono_ns` so downstream strategy recovery can journal deterministic inputs before the
-  first callback.
+  with its local `applied_mono_ns` so downstream strategy consumers observe a gap-free baseline-to-live
+  stream before the first callback.
 * **Zero-copy and zero-allocation replica application**: `ShmSource::drive` ([src/shm.rs](src/shm.rs)) and
   `PendingJoin::drain_one` ([src/shm/pending.rs](src/shm/pending.rs)) borrow `MarketStateRef` (`&MarketRecord` /
   `&MarketExactRecord`) directly from `RecordBorrow::as_market_state` without stack-decoding 512-byte ring slots.
@@ -39,7 +39,7 @@ authenticating peer control frames and `ResourceHeader` digests, while strategy 
   [join.md](../../specs/implementation/join.md) ·
   [market-expansion.md](../../specs/implementation/market-expansion.md) ·
   [quote_delivery](../../tla/execution_models/quote_delivery/ROADMAP.md) ·
-  [worker_handover](../../tla/execution_models/worker_handover/ROADMAP.md)
+  [join_owner](../../tla/execution_models/join_owner/ROADMAP.md)
 
 ```sh
 cargo test --locked -p tickwire-market-source --all-targets

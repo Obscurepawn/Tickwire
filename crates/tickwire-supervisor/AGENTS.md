@@ -31,10 +31,10 @@ isolated in `tickwire-control-sys`, while domain-specific strategy or market-dat
 * **Specifications and models**: [supervisor-process.md](../../specs/implementation/supervisor-process.md) ·
   [control-session.md](../../specs/implementation/control-session.md) ·
   [runtime-observation.md](../../specs/implementation/runtime-observation.md) ·
-  [worker_handover](../../tla/execution_models/worker_handover/ROADMAP.md)
+  [control_requests](../../tla/execution_models/control_requests/ROADMAP.md)
 
 ```sh
 cargo test --locked -p tickwire-supervisor --all-targets
 ./scripts/check-linux.sh
-./scripts/check-tla.sh worker_handover
+./scripts/check-tla.sh control_requests
 ```

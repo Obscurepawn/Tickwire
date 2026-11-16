@@ -79,7 +79,7 @@ zero local WAL, zero disk I/O, and zero floating-point arithmetic.
   [usdm-account-facts.md](../../specs/implementation/usdm-account-facts.md) ·
   [spot-strategy-routing.md](../../specs/implementation/spot-strategy-routing.md) ·
   [account](../../tla/execution_models/account/ROADMAP.md) ·
-  [cash_evidence](../../tla/execution_models/cash_evidence/ROADMAP.md) ·
+  [query_desk](../../tla/execution_models/query_desk/ROADMAP.md) ·
   [strategy_intake](../../tla/execution_models/strategy_intake/ROADMAP.md)
 
 ```sh

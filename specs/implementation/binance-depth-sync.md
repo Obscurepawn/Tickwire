@@ -2,7 +2,7 @@
 
 `DepthSync<P, LEVELS, UPDATES, BUFFER>` coordinates an asynchronous WebSocket diff stream with an HTTPS `/depth` snapshot for a single catalog-bound Binance instrument (`BinanceSpot` or `BinanceUsdM`). It owns a heap-boxed `Book<P, LEVELS, UPDATES>` (boxed once at construction so large inline level arrays do not bloat caller stack frames), a pre-reserved bounded delta FIFO, and monotonic connection, book-generation, and snapshot-request tokens.
 
-`DepthSync` owns the local book state machine and sequence-bridging buffer, while its caller (`PublicDepthClient`) owns sockets, TLS, timers, rate-limit permits, and backoff scheduling. Readers can borrow a `BookView` only after the snapshot and every buffered delta have passed sequence and structural validation.
+`DepthSync` owns the local book state machine and sequence-bridging buffer, while its caller (`DepthStreamClient`) owns sockets, TLS, timers, rate-limit permits, and backoff scheduling. Readers can borrow a `BookView` only after the snapshot and every buffered delta have passed sequence and structural validation.
 
 ## State Model and Bounds
 

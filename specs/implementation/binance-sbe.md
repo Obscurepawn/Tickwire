@@ -2,7 +2,7 @@
 
 `tickwire-binance-sbe` decodes fixed-layout Simple Binary Encoding (SBE) market-data frames for Binance Spot production without runtime XML parsing, dynamic reflection, or `unsafe` code (`#![forbid(unsafe_code)]`). Compile-time layout constants are generated offline from upstream `stream_1_0.xml` pinned at commit `f4a9c0be68235f758b46f571f7313c63d1306b25` (`schemaId = 1`, `version = 0`), covering four templates: trades (`TradesStreamEvent`), best bid/ask (`BestBidAskStreamEvent`), 20-level partial book snapshots (`DepthSnapshotStreamEvent`), and incremental depth diffs (`DepthDiffStreamEvent`).
 
-This crate owns binary framing validation and fixed-point tick/lot normalization, while `PublicDepthClient::new_sbe` and `PublicEventClient` own transport lifecycle and `TopicPublisher` owns shared-memory publication ([binance-market-events.md](binance-market-events.md)).
+This crate owns binary framing validation and fixed-point tick/lot normalization, while `DepthStreamClient::new_sbe` and `PublicEventClient` own transport lifecycle and `TopicPublisher` owns shared-memory publication ([binance-market-events.md](binance-market-events.md)).
 
 ## Binary Schema and Normalization Bounds
 
@@ -15,7 +15,7 @@ Before returning a borrowed `Frame` view, `decode_frame` validates the complete 
 ## Core Invariants
 
 * **API-key isolation between WSS and HTTPS**: Configuring `sbe_api_key_file` on a Binance Spot production feed connects the WebSocket client to `stream-sbe.binance.com` with TLS hostname verification and attaches the Ed25519 `X-MBX-APIKEY` header solely on the WebSocket HTTP `Upgrade` request (no private cryptographic signing key is required). Initial and rebuild REST `/api/v3/depth` snapshots still query `api.binance.com` *without* transmitting that API key.
-* **Subscription ACK gate before REST snapshot**: Both raw stream URLs and explicit JSON subscription frames are supported on SBE connections. Because binary depth frames may arrive on the wire before the explicit text subscription ACK, `PublicDepthClient::new_sbe` buffers incoming binary diffs and withholds the HTTPS `/api/v3/depth` snapshot request until the exact subscription ACK is confirmed.
+* **Subscription ACK gate before REST snapshot**: Both raw stream URLs and explicit JSON subscription frames are supported on SBE connections. Because binary depth frames may arrive on the wire before the explicit text subscription ACK, `DepthStreamClient::new_sbe` buffers incoming binary diffs and withholds the HTTPS `/api/v3/depth` snapshot request until the exact subscription ACK is confirmed.
 * **Depth-20 non-substitution**: Incremental SBE diffs (`U..=u`, zero-quantity removals) feed the standard Spot `DepthSync` reducer under the exact same stale-token discard, generation, replay, capacity, and partial-coverage rules as JSON depth. An SBE depth-20 snapshot proves coverage only `Through(last_price)` on non-empty sides (or `Unknown` on empty sides) and can never substitute for the REST `/api/v3/depth` baseline to initialize an incremental diff book.
 
 ## Transitions and Failure Semantics

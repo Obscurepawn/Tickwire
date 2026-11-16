@@ -158,7 +158,7 @@ pub fn run_with_binding(
     cfg.depth.instrument.instrument_id = instrument_id;
     cfg.depth.key = book_key;
     cfg.depth.time_unit = TimeUnit::Microseconds;
-    let mut client = PublicDepthClient::<BinanceSpot, _, 32, 32, 8>::new_sbe(
+    let mut client = DepthStreamClient::<BinanceSpot, _, 32, 32, 8>::new_sbe(
         cfg,
         network,
         Clock(Instant::now()),

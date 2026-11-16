@@ -36,7 +36,7 @@
  *       crates/tickwire-binance/src/decimal.rs:4-94
  *       crates/tickwire-binance/src/feed.rs:352-375
  *   - Workspace all-profile `overflow-checks = true`:
- *       Cargo.toml:58-71
+ *       Cargo.toml:57-69
  *   - `configure_shm_arena_header` & `ShmArenaReader::read_retained_payload`:
  *       crates/tickwire-strategy-sdk/src/arena.rs:17-58
  *       crates/tickwire-strategy-sdk/src/arena.rs:72-210

@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-11-16T07:44:09
+# anchors.lock — written by anchors.sh update on 2026-11-16T10:09:34
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 crates/tickwire-market-publisher/src/lib.rs	153	b64858a692dcca2b1c3a9fc6fae83f0f47f9c8dfcca421b56dd096a96cfd2683
 crates/tickwire-market-publisher/src/lib.rs	154	ec145359806b4d76369fa3b2fd0dff8c4b756701bcd384e15d32ac72766c8068
@@ -787,7 +787,7 @@ crates/tickwire-strategy-sdk/src/worker.rs	675	2f11e58390349e12e568f870e020d19bd
 crates/tickwire-strategy-sdk/src/worker.rs	676	4db5ea8a8ef990da0450f18c52190a62c763c398bf16a971a45977aad35a0cd1
 crates/tickwire-strategy-sdk/src/worker.rs	677	2a44168318e224e1f830fe9ab620aa00dd4f7b3fb19ef4399abf59593cf0756d
 crates/tickwire-strategy-sdk/src/worker.rs	678	e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-crates/tickwire-strategy-sdk/src/worker.rs	679	a206745da1e93042b1a00cb0322b284a32e0f2b24ac73136198c8d68c0639ba6
+crates/tickwire-strategy-sdk/src/worker.rs	679	77ca774d64a957931eb89c3d5b21b687b09949d30c47122ba55c0fc3fd80c32c
 crates/tickwire-strategy-sdk/src/worker.rs	680	1d05fc19c2e19d03f9256336e4aeda5a7bef88f8ebac036f2a533e17c607ba33
 crates/tickwire-strategy-sdk/src/worker.rs	681	3e000c9072bfefd5c10304e7c9d918e7da7022123461125927de9298f7a413f8
 crates/tickwire-strategy-sdk/src/worker.rs	682	2c1fdcdfeda679f1155367eaee3ea7e3f8f95f4c953b5b63410fcdadfa06c795

@@ -2,7 +2,7 @@
 
 ## Topology Overview
 
-Tickwire executes live trading on a single Linux host as three cooperating, pure stateless shared-memory (`memfd`-sealed) processes with **zero local WAL, journal, blob-store, owner-lease, or dynamic config-patch files**:
+Tickwire executes live trading on a single Linux host as three cooperating, pure stateless shared-memory (`memfd`-sealed) processes with **zero local WAL, journal, disk blob files, HA-lease files, or runtime parameter patches**:
 
 1. **Market-Data Publisher (`tickwire-md`):** Sole owner of public exchange market-data feeds, sequence continuity, order-book maintenance, and SHM broadcast rings (`MarketRecord` / `MarketExactRecord`).
 2. **Strategy Workers (`tickwire-strategy-sdk` / `tickwire-strategy-host`):** Join `tickwire-md` SHM broadcast rings, complete DOP logon (`DopLogin` -> `DopEcho` + `OrsSessions`) over a `0o700` Unix control socket, publish inline 1,024-byte `IntentRecord`s, and consume inline 512-byte `ReportRecord`s.

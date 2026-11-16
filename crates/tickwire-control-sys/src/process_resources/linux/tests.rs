@@ -44,7 +44,7 @@ fn fake_filesystem_and_symlink_components_never_create_a_domain() {
     std::fs::remove_dir_all(directory.path()).unwrap();
 }
 #[test]
-fn actual_cgroup_root_rejects_configuration_and_has_an_exclusive_owner_lease() {
+fn actual_cgroup_root_rejects_configuration_and_holds_exclusive_cgroup_lock() {
     let path = Path::new("/sys/fs/cgroup");
     let one = files::directory(path).unwrap();
     files::cgroupfs(&one).unwrap();

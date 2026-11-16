@@ -1,8 +1,8 @@
 mod common;
 use common::*;
 use std::{process::Command, time::Instant};
-type Spot = PublicDepthClient<BinanceSpot, Clock, 5000, 5000, 64>;
-type Usdm = PublicDepthClient<BinanceUsdM, Clock, 5000, 5000, 64>;
+type Spot = DepthStreamClient<BinanceSpot, Clock, 5000, 5000, 64>;
+type Usdm = DepthStreamClient<BinanceUsdM, Clock, 5000, 5000, 64>;
 #[test]
 fn production_depth_owners_construct_on_default_worker_stack() {
     let output = Command::new(std::env::current_exe().unwrap())

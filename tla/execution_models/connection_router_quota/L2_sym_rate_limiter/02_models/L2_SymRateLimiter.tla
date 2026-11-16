@@ -44,7 +44,7 @@ VARIABLES
   (* @type: Bool; *)
   cfg_allow_ban,
 
-  (* --- Global monotonic clock & cooldown/ban state (`rate_limiter.rs:1058,1117-1305`) --- *)
+  (* --- Global monotonic clock & cooldown/ban state (`crates/tickwire-quota/src/rate_limiter.rs:1058,1117-1305`) --- *)
   (* @type: Int; *)
   last_now_ns,
   (* @type: Bool; *)
@@ -56,7 +56,7 @@ VARIABLES
   (* @type: Int; *)
   ip2_cd_until_ns,
 
-  (* --- Account `ORDER` `FixedWindow` (`1s`, `rate_limiter.rs:500-614`) --- *)
+  (* --- Account `ORDER` `FixedWindow` (`1s`, `crates/tickwire-quota/src/rate_limiter.rs:500-614`) --- *)
   (* @type: Bool; *)
   ord_ep_some,
   (* @type: Int; *)
@@ -66,7 +66,7 @@ VARIABLES
   (* @type: Bool; *)
   ord_warn,
 
-  (* --- Symbol `CANCEL` `FixedWindow` (`1s`, `rate_limiter.rs:500-614`) --- *)
+  (* --- Symbol `CANCEL` `FixedWindow` (`1s`, `crates/tickwire-quota/src/rate_limiter.rs:500-614`) --- *)
   (* @type: Bool; *)
   cxl_ep_some,
   (* @type: Int; *)
@@ -76,7 +76,7 @@ VARIABLES
   (* @type: Bool; *)
   cxl_warn,
 
-  (* --- Per-IP `REQUEST | WEIGHT` 2-slot `RollingWindow` (`60s`, `rate_limiter.rs:616-847`) --- *)
+  (* --- Per-IP `REQUEST | WEIGHT` 2-slot `RollingWindow` (`60s`, `crates/tickwire-quota/src/rate_limiter.rs:616-847`) --- *)
   (* @type: Int; *)
   ip1_len,
   (* @type: Int; *)
@@ -186,7 +186,7 @@ U64SatSub(a, b) == IF a >= b THEN a - b ELSE 0
 Max2(a, b) == IF a >= b THEN a ELSE b
 Min2(a, b) == IF a <= b THEN a ELSE b
 
-(* --- Pure `QF_LIA` FixedWindow Operators (`rate_limiter.rs:520-614`) --- *)
+(* --- Pure `QF_LIA` FixedWindow Operators (`crates/tickwire-quota/src/rate_limiter.rs:520-614`) --- *)
 FixedEpochIdx(t) == IF BoundedMode THEN (t \div 2) ELSE (t \div 1000000000)
 
 FixedNextEpochNs(ep) ==
@@ -205,7 +205,7 @@ FixedAdvWarn(ep_some, ep_idx, warn, now_ns) ==
 FixedRetryAfterNs(now_ns) ==
   U64SatSub(FixedNextEpochNs(FixedEpochIdx(now_ns)), now_ns)
 
-(* Exact `u64::checked_add` equivalence (`rate_limiter.rs:568-571,588-590`): *)
+(* Exact `u64::checked_add` equivalence (`crates/tickwire-quota/src/rate_limiter.rs:568-571,588-590`): *)
 CheckedAdd2Le(a, b, cap) ==
   /\ (a + b <= EffU64Max)
   /\ (a + b <= cap)
@@ -215,7 +215,7 @@ CheckedAdd3Le(a, b, c, cap) ==
   /\ (a + b + c <= EffU64Max)
   /\ (a + b + c <= cap)
 
-(* --- Pure `QF_LIA` 2-Slot RollingWindow Operators (`rate_limiter.rs:649-846`) --- *)
+(* --- Pure `QF_LIA` 2-Slot RollingWindow Operators (`crates/tickwire-quota/src/rate_limiter.rs:649-846`) --- *)
 RollIntervalNs == IF BoundedMode THEN 3 ELSE (60 * 1000000000)
 
 RollExp0(len, s0_ts, now_ns) ==
@@ -294,7 +294,7 @@ RollPost1U(el, e0_ts, e1_ts, e1_u, req, now_ns) ==
   ELSE IF el = 1 THEN req
   ELSE (e1_u + req)
 
-(* Explicit `RollingWindow::put_back` (`rate_limiter.rs:828-846`) on post-take state: *)
+(* Explicit `RollingWindow::put_back` (`crates/tickwire-quota/src/rate_limiter.rs:828-846`) on post-take state: *)
 RollPutBackLen(coalesced, post_len) ==
   IF coalesced THEN post_len ELSE (post_len - 1)
 
@@ -314,14 +314,14 @@ RollPutBack1U(coalesced, post_len, p1_u, req) ==
   ELSE IF (~coalesced) /\ (post_len = 2) THEN 0
   ELSE p1_u
 
-(* Precheck route cooldowns (`precheck_route` / `precheck_spends`, `rate_limiter.rs:1263-1328`): *)
+(* Precheck route cooldowns (`precheck_route` / `precheck_spends`, `crates/tickwire-quota/src/rate_limiter.rs:1263-1328`): *)
 RoutePrecheckCode(ip_cd_until, now_ns) ==
   IF acct_frozen THEN REJ_FROZEN
   ELSE IF now_ns < acct_cd_until_ns THEN REJ_ACCT_CD
   ELSE IF now_ns < ip_cd_until THEN REJ_IP_CD
   ELSE REJ_OK
 
-(* Exchange warning threshold (`u128::from(reported) * 100 >= u128::from(cap) * 80`, `rate_limiter.rs:1438-1440`): *)
+(* Exchange warning threshold (`u128::from(reported) * 100 >= u128::from(cap) * 80`, `crates/tickwire-quota/src/rate_limiter.rs:1438-1440`): *)
 ReconcileWarn80(reported, cap) ==
   (reported * 100) >= (cap * 80)
 
@@ -381,13 +381,13 @@ ExecFixedThenIp1(now_ns, f_ep_s, f_ep, f_used, f_warn, f_cap, u1, u2, has_u2, w,
       ewn == RollEffWarn(ip1_len, ip1_s0_ts, ip1_s0_u, ip1_s1_ts, ip1_s1_u, ip1_warn, now_ns)
       exp_u == RollExpiredUnits(ip1_len, ip1_s0_ts, ip1_s0_u, ip1_s1_ts, ip1_s1_u, now_ns)
 
-      (* Read-only `can_afford` (`rate_limiter.rs:1338-1372`): *)
+      (* Read-only `can_afford` (`crates/tickwire-quota/src/rate_limiter.rs:1338-1372`): *)
       ca_f1 == CheckedAdd2Le(adv_f_u, u1, f_cap)
       ca_f2 == IF has_u2 THEN (ca_f1 /\ CheckedAdd3Le(adv_f_u, u1, u2, f_cap)) ELSE ca_f1
       ca_ip == RollCanTake(el, e0_ts, e1_ts, eu, w, cfg_ip_wt_cap, now_ns)
       ca_code == IF pre # REJ_OK THEN pre ELSE IF (ca_f2 /\ ca_ip) THEN REJ_OK ELSE REJ_EXHAUSTED
 
-      (* Transactional `allow` + reverse `put_back` (`rate_limiter.rs:1385-1415`): *)
+      (* Transactional `allow` + reverse `put_back` (`crates/tickwire-quota/src/rate_limiter.rs:1385-1415`): *)
       s1_ok == CheckedAdd2Le(adv_f_u, u1, f_cap)
       u_after1 == adv_f_u + u1
       s2_ok == IF has_u2 THEN (s1_ok /\ CheckedAdd2Le(u_after1, u2, f_cap)) ELSE s1_ok
@@ -532,7 +532,7 @@ PlaceOrderSingle ==
             ip_failover_ok, local_reject_noburn_ok
           >>
 
-(* Duplicate `RateLimitId` spend `[AcctOrder(u1), AcctOrder(u2), IpWeight(w)]` (`rate_limiter.rs:1344-1410`): *)
+(* Duplicate `RateLimitId` spend `[AcctOrder(u1), AcctOrder(u2), IpWeight(w)]` (`crates/tickwire-quota/src/rate_limiter.rs:1344-1410`): *)
 PlaceOrderDuplicateFixed ==
   /\ CanStep
   /\ \E now_ns \in TimeDom, u1 \in UnitDom, u2 \in UnitDom, w \in UnitDom:
@@ -555,7 +555,7 @@ PlaceOrderDuplicateFixed ==
             ip_failover_ok, local_reject_noburn_ok
           >>
 
-(* `[IpWeight1(w), AcctOrder(u)]` directly exercising `RollingWindow::put_back` (`RollingCoalesced` & `RollingPushed`, `rate_limiter.rs:828-846`): *)
+(* `[IpWeight1(w), AcctOrder(u)]` directly exercising `RollingWindow::put_back` (`RollingCoalesced` & `RollingPushed`, `crates/tickwire-quota/src/rate_limiter.rs:828-846`): *)
 RollingFirstMultiSpend ==
   /\ CanStep
   /\ \E now_ns \in TimeDom, w \in UnitDom, u \in UnitDom:
@@ -642,7 +642,7 @@ RollingFirstMultiSpend ==
             ip_failover_ok, local_reject_noburn_ok
           >>
 
-(* `VenueRateLimiter::allow_cancel` — strictly isolated from `AcctOrder` (`rate_limiter.rs:2076-2175`): *)
+(* `VenueRateLimiter::allow_cancel` — strictly isolated from `AcctOrder` (`crates/tickwire-quota/src/rate_limiter.rs:2076-2175`): *)
 CancelOrder ==
   /\ CanStep
   /\ \E ip \in {1, 2}, now_ns \in TimeDom, w \in UnitDom:
@@ -670,7 +670,7 @@ CancelOrder ==
             ip_failover_ok, local_reject_noburn_ok
           >>
 
-(* `VenueRateLimiter::allow_query` — strictly isolated from BOTH `AcctOrder` and `SymCancel` (`rate_limiter.rs:2180-2231`): *)
+(* `VenueRateLimiter::allow_query` — strictly isolated from BOTH `AcctOrder` and `SymCancel` (`crates/tickwire-quota/src/rate_limiter.rs:2180-2231`): *)
 QueryRequest ==
   /\ CanStep
   /\ \E ip \in {1, 2}, now_ns \in TimeDom, w \in UnitDom:
@@ -778,7 +778,7 @@ ClockRegressionReject ==
             bicond_ok, rollback_exact_ok, isolation_ok, ip_failover_ok, u64_u128_safe_ok
           >>
 
-(* `note_ip_cooldown`: HTTP `429` cools down ONLY `ip` (`rate_limiter.rs:1117-1169,1740-1750`): *)
+(* `note_ip_cooldown`: HTTP `429` cools down ONLY `ip` (`crates/tickwire-quota/src/rate_limiter.rs:1117-1169,1740-1750`): *)
 NoteHttp429IpCooldown ==
   /\ CanStep
   /\ \E ip \in {1, 2}, until_ns \in TimeDom:
@@ -819,7 +819,7 @@ NoteAccountCooldown ==
             local_reject_noburn_ok, u64_u128_safe_ok
           >>
 
-(* `freeze_account`: HTTP `418` permanently freezes the account (`rate_limiter.rs:1199-1235,1757-1765`): *)
+(* `freeze_account`: HTTP `418` permanently freezes the account (`crates/tickwire-quota/src/rate_limiter.rs:1199-1235,1757-1765`): *)
 NoteHttp418AccountBan ==
   /\ CanStep
   /\ cfg_allow_ban
@@ -839,7 +839,7 @@ NoteHttp418AccountBan ==
        bicond_ok, rollback_exact_ok, isolation_ok, local_reject_noburn_ok, u64_u128_safe_ok
      >>
 
-(* `reconcile_exchange_usage` on `FixedWindow` (`rate_limiter.rs:1422-1448`): *)
+(* `reconcile_exchange_usage` on `FixedWindow` (`crates/tickwire-quota/src/rate_limiter.rs:1422-1448`): *)
 ReconcileExchangeFixed ==
   /\ CanStep
   /\ \E now_ns \in TimeDom, reported \in ReportDom:
@@ -866,7 +866,7 @@ ReconcileExchangeFixed ==
             bicond_ok, rollback_exact_ok, isolation_ok, ip_failover_ok, local_reject_noburn_ok
           >>
 
-(* `reconcile_exchange_usage` on `RollingWindow` (`rate_limiter.rs:1449-1468`): *)
+(* `reconcile_exchange_usage` on `RollingWindow` (`crates/tickwire-quota/src/rate_limiter.rs:1449-1468`): *)
 ReconcileExchangeRolling ==
   /\ CanStep
   /\ \E now_ns \in TimeDom, reported \in ReportDom:
