@@ -1,469 +1,421 @@
-//! Process owner for the explicit laboratory deployment.
-use crate::{Result, Scenario};
+//! Stateless 3-process laboratory orchestrator (`tickwire-md` + `tickwire-app` +
+//! `tickwire-strategy-worker`).
+//!
+//! Verifies sealed `memfd` market broadcast, cold Exchange REST `Account + OpenOrders` + `tw1...`
+//! `SelfDescribingClientId` recovery, `DOP` sequence-floor continuity (`order_seqnum = 3 -> 4`),
+//! Ed25519 `/ws-api/v3` order placement & commission fill settlement, `SIGUSR2` emergency cancel of
+//! the cold-recovered resting order, `SIGTERM` graceful `OrsShutDown` worker exit, and exact
+//! `Fixed` post-fill balance accounting—with zero local WAL, journal, or disk blob files.
+
+#![forbid(unsafe_code)]
+
+use std::fs::{self, File};
+use std::io::{BufRead, BufReader};
+use std::os::unix::fs::MetadataExt;
+use std::os::unix::process::CommandExt;
+use std::path::Path;
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
+
 use serde_json::{Value, json};
-use std::{
-    fs::{self, File},
-    io::{BufRead, BufReader, Write},
-    os::unix::{fs::MetadataExt, process::CommandExt},
-    path::Path,
-    process::{Child, Command, Stdio},
-    time::{Duration, Instant},
-};
-struct Children(Vec<Child>);
-impl Drop for Children {
+use tickwire_app::OrsShutdownSummary;
+use tickwire_market_source::protocol::IdentityConfig;
+
+use crate::model::{LAB_COLD_OPEN_SEQNUM, expected_post_fill_balances};
+use crate::{Result, Scenario};
+
+struct ManagedChildren(Vec<(String, Child)>);
+
+impl Drop for ManagedChildren {
     fn drop(&mut self) {
-        for c in self.0.iter_mut().rev() {
-            let _ = c.kill();
-            let _ = c.wait();
+        for (_, child) in self.0.iter_mut().rev() {
+            let _ = child.kill();
+            let _ = child.wait();
         }
     }
 }
-/// Spawned before admission is published. exec preserves the PID held by the launcher.
+
+/// Spawned before `tickwire-md` one-shot admission is written; `exec` preserves the exact OS PID
+/// recorded in `md/admissions/` when launching `tickwire-strategy-worker --bootstrap <config>`.
 pub fn child_exec(config: &Path, gate: &Path, binary: &Path) -> Result<()> {
-    let until = Instant::now() + Duration::from_secs(30);
+    let deadline = Instant::now() + Duration::from_secs(30);
     while !gate.is_file() {
-        if Instant::now() >= until {
-            return Err("admission gate timeout".into());
+        if Instant::now() >= deadline {
+            return Err("strategy worker admission gate timed out".into());
         }
         std::thread::sleep(Duration::from_millis(2));
     }
     Err(Command::new(binary)
-        .args(["run", "--config"])
+        .arg("--bootstrap")
         .arg(config)
         .exec()
         .into())
 }
+
+/// Executes a generated single-use loopback [`Scenario`] end-to-end on Linux.
 pub fn run(s: &Scenario) -> Result<()> {
     if !cfg!(target_os = "linux") {
-        return Err("the process scenario requires the Linux shared-memory backend".into());
+        return Err("tickwire-lab 3-process execution requires Linux memfd + AF_UNIX".into());
     }
+    s.validate()?;
+
     let domain = tickwire_clock::ClockDomain::new(s.boot, 1).map_err(|_| "clock domain")?;
-    let now = tickwire_clock_sys::SystemClock::new(domain)?
+    let now_mono_ns = tickwire_clock_sys::SystemClock::new(domain)?
         .sample()?
         .monotonic
         .nanos();
-    if now >= s.valid_until_ns {
-        return Err("scenario authorization expired; generate a new directory".into());
+    if now_mono_ns >= s.valid_until_ns {
+        return Err("scenario authorization window expired; generate a fresh directory".into());
     }
     if s.root.join("STARTED").exists() {
         return Err("scenario directories are single-use".into());
     }
-    crate::generate::write(&s.root.join("STARTED"), b"local laboratory\n")?;
-    let scenario = s.root.join("scenario.json");
-    let mut children = Children(vec![]);
-    let mut fixture = Command::new(s.bin_directory.join("tickwire-lab"));
-    fixture.arg("serve").arg("--config").arg(&scenario);
-    children.0.push(spawn(fixture, s, "fixture")?);
-    wait_file(
+    crate::generate::write_private(&s.root.join("STARTED"), b"started\n")?;
+
+    let scenario_path = s.root.join("scenario.json");
+    let mut children = ManagedChildren(Vec::new());
+
+    // 1. Start deterministic TLS exchange fixture.
+    let mut fixture_cmd = Command::new(s.bin_directory.join("tickwire-lab"));
+    fixture_cmd.arg("serve").arg("--config").arg(&scenario_path);
+    children
+        .0
+        .push(("fixture".into(), spawn_logged(fixture_cmd, s, "fixture")?));
+    wait_for_path(
         &s.root.join("fixture.ready"),
         &mut children,
         Duration::from_secs(10),
     )?;
-    let mut md = Command::new(s.bin_directory.join("tickwire-md"));
-    md.arg("--config").arg(&s.md_config);
-    children.0.push(spawn(md, s, "md")?);
-    let md_pid = children.0.last().ok_or("MD child")?.id();
-    wait_file(
+
+    // 2. Start `tickwire-md` public Spot depth publisher.
+    let mut md_cmd = Command::new(s.bin_directory.join("tickwire-md"));
+    md_cmd.arg("--config").arg(&s.md_config);
+    children
+        .0
+        .push(("md".into(), spawn_logged(md_cmd, s, "md")?));
+    let md_pid = children.0.last().ok_or("missing md child")?.1.id();
+    wait_for_path(
         &s.root.join("md/market.sock"),
         &mut children,
-        Duration::from_secs(30),
+        Duration::from_secs(20),
     )?;
-    let mut app: Value = serde_json::from_slice(&fs::read(&s.app_config)?)?;
-    for source in app["market_sources"].as_array_mut().ok_or("MD sources")? {
-        source["endpoint"]["peer_pid"] = json!(md_pid);
+
+    // 3. Start `tickwire-app` stateless ORS process (cold-bootstraps from TLS REST `account` +
+    //    `openOrders`, binds `dop.sock` + `intent.sock` + `report.sock`, logs onto `/ws-api/v3`
+    //    with Ed25519, and subscribes to private user-data events).
+    let mut ors_cmd = Command::new(s.bin_directory.join("tickwire-app"));
+    ors_cmd.args(["run", "--config"]).arg(&s.app_config);
+    children
+        .0
+        .push(("ors".into(), spawn_logged(ors_cmd, s, "ors")?));
+    let ors_pid = children.0.last().ok_or("missing ors child")?.1.id();
+    for required in ["ors/dop.sock", "ors/intent.sock", "ors/report.sock"] {
+        wait_for_path(
+            &s.root.join(required),
+            &mut children,
+            Duration::from_secs(20),
+        )?;
     }
-    replace_json(&s.app_config, &app)?;
-    let mut worker: Value = serde_json::from_slice(&fs::read(&s.worker_bootstrap)?)?;
-    worker["external_market"]["endpoint"]["peer_pid"] = json!(md_pid);
-    replace_json(&s.worker_bootstrap, &worker)?;
-    let gate = s.root.join("exec.gate");
-    let mut exec = Command::new(s.bin_directory.join("tickwire-lab"));
-    exec.arg("child-exec")
-        .arg(&s.app_config)
-        .arg(&gate)
-        .arg(s.bin_directory.join("tickwire-app"));
-    exec.stdout(Stdio::from(File::create(
-        s.root.join("logs/exec.stdout.log"),
-    )?))
-    .stderr(Stdio::piped())
-    .current_dir(&s.root);
-    let mut child = exec.spawn()?;
-    let pid = child.id();
-    let stderr = child.stderr.take().ok_or("exec stderr")?;
-    let arm = s.root.join("ARM");
-    let log = s.root.join("logs/exec.stderr.log");
-    let exec_log = std::thread::spawn(move || {
-        let Ok(mut out) = File::create(log) else {
-            return;
-        };
-        let mut account_ready = false;
-        let mut worker_ready = false;
-        let mut feed_armed = false;
-        for line in BufReader::new(stderr).lines() {
-            let Ok(line) = line else { break };
-            let _ = writeln!(out, "{line}");
-            if feed_armed {
-                continue;
-            }
-            if let Ok(entry) = serde_json::from_str::<Value>(&line) {
-                match entry["event"].as_str() {
-                    Some("account_reconciled") => account_ready = true,
-                    Some("strategy_reports_consumed")
-                        if entry["account_position"].as_u64().is_some_and(|p| p > 0) =>
-                    {
-                        worker_ready = true;
-                    }
-                    _ => {}
-                }
-                if account_ready && worker_ready {
-                    feed_armed =
-                        crate::generate::write(&arm, b"account and worker ready\n").is_ok();
-                }
-            }
-        }
-    });
-    children.0.push(child);
-    let client: tickwire_market_source::ConnectConfig =
-        serde_json::from_value(app["market_sources"][0].clone())?;
-    let supervisor = serde_json::from_value(app["strategy"]["config"]["supervisor"].clone())?;
-    let metadata = fs::metadata(&s.root)?;
-    let admission = tickwire_md::server::Admission {
-        client,
-        pid,
-        uid: metadata.uid(),
-        gid: metadata.gid(),
-        supervisor,
-        supervisor_pid: std::process::id(),
-        snapshot_id: [67; 16],
-    };
-    tickwire_md::server::register_admission(&s.root.join("md/admissions"), &admission)
-        .map_err(|e| e.to_string())?;
-    crate::generate::write(&gate, b"admitted\n")?;
-    let until = Instant::now() + Duration::from_secs(90);
-    let exec_index = children.0.len() - 1;
-    let status = loop {
-        if let Some(status) = children.0[exec_index].try_wait()? {
-            break status;
-        }
-        for (i, c) in children.0.iter_mut().enumerate() {
-            if i != exec_index
-                && let Some(status) = c.try_wait()?
-            {
-                return Err(format!("required process {i} exited: {status}").into());
-            }
-        }
-        if Instant::now() >= until {
-            let _ = crate::generate::write(&s.root.join("STOP"), b"deadline\n");
-            return Err("scenario process timeout".into());
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    };
-    let _ = crate::generate::write(&s.root.join("STOP"), b"complete\n");
-    if !status.success() {
-        return Err(format!("exec exited: {status}; see logs/exec.stderr.log").into());
-    }
-    // All live writer handles are closed before offline recovery reads private copies.
+
+    // 4. Patch `md_pid` and `ors_pid` into `strategy/bootstrap.json`, register the one-shot
+    //    `tickwire-md` admission ticket for `worker_pid`, and release `worker.gate`.
+    let mut worker_json: Value = serde_json::from_slice(&fs::read(&s.worker_bootstrap)?)?;
+    worker_json["market"]["endpoint"]["peer_pid"] = json!(md_pid);
+    worker_json["intent"]["peer_pid"] = json!(ors_pid);
+    worker_json["report"]["peer_pid"] = json!(ors_pid);
+    replace_private_json(&s.worker_bootstrap, &worker_json)?;
+
+    let gate_path = s.root.join("worker.gate");
+    let mut worker_cmd = Command::new(s.bin_directory.join("tickwire-lab"));
+    worker_cmd
+        .arg("child-exec")
+        .arg(&s.worker_bootstrap)
+        .arg(&gate_path)
+        .arg(s.bin_directory.join("tickwire-strategy-worker"));
+    children
+        .0
+        .push(("worker".into(), spawn_logged(worker_cmd, s, "worker")?));
+    let worker_pid = children.0.last().ok_or("missing worker child")?.1.id();
+
+    let connect_cfg: tickwire_market_source::ConnectConfig =
+        serde_json::from_value(worker_json["market"].clone())?;
+    let supervisor_id: IdentityConfig =
+        serde_json::from_slice(&fs::read(s.root.join("supervisor.json"))?)?;
+    let root_meta = fs::metadata(&s.root)?;
+    let admission_path = tickwire_md::server::admission_path(
+        &s.root.join("md/admissions"),
+        worker_pid,
+        connect_cfg.request_id,
+    )
+    .map_err(|e| e.to_string())?;
+    tickwire_md::server::register_admission(
+        &s.root.join("md/admissions"),
+        &tickwire_md::server::Admission {
+            client: connect_cfg,
+            pid: worker_pid,
+            uid: root_meta.uid(),
+            gid: root_meta.gid(),
+            supervisor: supervisor_id,
+            supervisor_pid: std::process::id(),
+            snapshot_id: [67; 16],
+        },
+    )
+    .map_err(|e| e.to_string())?;
+    crate::generate::write_private(&gate_path, b"admitted\n")?;
+
+    // Wait for `tickwire-strategy-worker` to complete `JOIN` + `DOP` + SHM lane attachment and for
+    // `"tw-ors-resp"` to complete `/ws-api/v3` Ed25519 `session.logon` + `userDataStream.subscribe`,
+    // then arm the 60,000.00 BTCUSDT bid in `fixture`.
+    let _ = admission_path;
+    wait_for_path(
+        &s.root.join("PRIVATE_SUBSCRIBED"),
+        &mut children,
+        Duration::from_secs(20),
+    )?;
+    std::thread::sleep(Duration::from_millis(150));
+    ensure_all_alive(&mut children)?;
+    crate::generate::write_private(&s.root.join("ARM"), b"armed\n")?;
+
+    // 5. Wait for `fixture.jsonl` to record `"private_fill_sent"`, then trigger `SIGUSR2`
+    //    (`EmergencyCancelAll` canceling the cold-recovered resting order `19`) followed by
+    //    `SIGTERM` (`OrsShutDown` -> clean `tickwire-strategy-worker` & `tickwire-app` exit 0).
+    let audit_path = s.root.join("fixture.jsonl");
+    wait_for_audit_event(
+        &audit_path,
+        "private_fill_sent",
+        &mut children,
+        Duration::from_secs(20),
+    )?;
+    std::thread::sleep(Duration::from_millis(120));
+
+    send_posix_signal("USR2", ors_pid)?;
+    wait_for_audit_event(
+        &audit_path,
+        "cold_order_canceled",
+        &mut children,
+        Duration::from_secs(10),
+    )?;
+    std::thread::sleep(Duration::from_millis(80));
+
+    send_posix_signal("TERM", ors_pid)?;
+
+    // Both `worker` (on `OrsShutDown`) and `ors` (after writing `account-report.json`) must exit 0!
+    wait_clean_exit(&mut children, "worker", Duration::from_secs(10))?;
+    wait_clean_exit(&mut children, "ors", Duration::from_secs(10))?;
+
+    let _ = crate::generate::write_private(&s.root.join("STOP"), b"complete\n");
     drop(children);
-    exec_log.join().map_err(|_| "execution log reader failed")?;
-    let deployment =
-        tickwire_app::config::Deployment::read(&s.app_config).map_err(|e| e.to_string())?;
-    let exported = s.root.join("export");
-    let report = tickwire_app::replay::export(&deployment, &exported).map_err(|e| e.to_string())?;
-    check_account(&report)?;
-    let count = report["account_records"]
-        .as_u64()
-        .ok_or("account record count")?;
-    check_reports(s, &exported, &report, pid, count)?;
-    let elapsed_ns = check_fee_closure(s, &exported, count)?;
-    crate::generate::json_file(&s.root.join("account-report.json"), &report)?;
-    let result = json!({"event":"laboratory_spot_fill_complete","account_fill_verified":true,"eligible_quote_to_order_ns":elapsed_ns,"account_records":count,"worker_report_position_verified":count,"account_report":s.root.join("account-report.json"),"fixture_audit":s.root.join("fixture.jsonl"),"account_wal":s.root.join("exec/account"),"input_wal":s.root.join("exec/input"),"logs":s.root.join("logs")});
-    crate::generate::json_file(&s.root.join("run-result.json"), &result)?;
+
+    // 6. Verify `account-report.json` (`OrsShutdownSummary`) and `fixture.jsonl` audit trail.
+    let summary_bytes = fs::read(s.root.join("account-report.json"))?;
+    let summary: OrsShutdownSummary = serde_json::from_slice(&summary_bytes)?;
+    verify_shutdown_summary(&summary)?;
+    let (elapsed_ns, verified_client_id) = verify_fixture_audit(&audit_path)?;
+
+    let result = json!({
+        "event": "laboratory_spot_fill_complete",
+        "topology": "stateless_3_process_shm",
+        "account_fill_verified": true,
+        "cold_rest_recovery_verified": true,
+        "cold_recovered_seqnum": LAB_COLD_OPEN_SEQNUM,
+        "live_order_seqnum": LAB_COLD_OPEN_SEQNUM + 1,
+        "live_client_id": verified_client_id,
+        "eligible_quote_to_order_ns": elapsed_ns,
+        "open_orders_at_shutdown": summary.open_order_and_quote_count,
+        "account_report": s.root.join("account-report.json"),
+        "fixture_audit": audit_path,
+        "logs": s.root.join("logs")
+    });
+    crate::generate::write_json(&s.root.join("run-result.json"), &result)?;
     println!("{}", serde_json::to_string_pretty(&result)?);
     Ok(())
 }
-fn spawn(mut command: Command, s: &Scenario, name: &str) -> Result<Child> {
-    command
-        .stdout(Stdio::from(File::create(
-            s.root.join(format!("logs/{name}.stdout.log")),
-        )?))
-        .stderr(Stdio::from(File::create(
-            s.root.join(format!("logs/{name}.stderr.log")),
-        )?))
-        .current_dir(&s.root);
-    Ok(command.spawn()?)
-}
-fn wait_file(path: &Path, children: &mut Children, timeout: Duration) -> Result<()> {
-    let until = Instant::now() + timeout;
-    while !path.exists() {
-        for c in &mut children.0 {
-            if let Some(status) = c.try_wait()? {
-                return Err(format!("child {} exited {status}", c.id()).into());
-            }
-        }
-        if Instant::now() >= until {
-            return Err(format!("readiness timeout: {}", path.display()).into());
-        }
-        std::thread::sleep(Duration::from_millis(2));
+
+fn verify_shutdown_summary(summary: &OrsShutdownSummary) -> Result<()> {
+    if summary.venue != "binance" {
+        return Err(format!("expected venue 'binance', got '{}'", summary.venue).into());
     }
-    Ok(())
-}
-fn replace_json(path: &Path, value: &Value) -> Result<()> {
-    let temporary = path.with_extension("updated.json");
-    crate::generate::json_file(&temporary, value)?;
-    fs::rename(temporary, path)?;
-    File::open(path.parent().ok_or("parent")?)?.sync_all()?;
+    if summary.open_order_and_quote_count != 0 {
+        return Err(format!(
+            "expected 0 open orders after SIGUSR2 + fill, got {}",
+            summary.open_order_and_quote_count
+        )
+        .into());
+    }
+    let (expected_btc, expected_usdt) = expected_post_fill_balances();
+    let btc = summary
+        .balances
+        .iter()
+        .find(|b| b.wallet_id == 1 && b.asset_id == 1)
+        .ok_or("missing BTC balance in account-report.json")?;
+    let usdt = summary
+        .balances
+        .iter()
+        .find(|b| b.wallet_id == 1 && b.asset_id == 2)
+        .ok_or("missing USDT balance in account-report.json")?;
+
+    if btc.free_atoms != expected_btc.atoms().to_string() || btc.locked_atoms != "0" {
+        return Err(format!(
+            "unexpected post-fill BTC balance: free={} locked={} (expected free={})",
+            btc.free_atoms,
+            btc.locked_atoms,
+            expected_btc.atoms()
+        )
+        .into());
+    }
+    if usdt.free_atoms != expected_usdt.atoms().to_string() || usdt.locked_atoms != "0" {
+        return Err(format!(
+            "unexpected post-fill USDT balance: free={} locked={} (expected free={})",
+            usdt.free_atoms,
+            usdt.locked_atoms,
+            expected_usdt.atoms()
+        )
+        .into());
+    }
     Ok(())
 }
 
-fn hash_field(value: &Value, key: &str) -> Result<[u8; 32]> {
-    Ok(serde_json::from_value(value[key].clone())?)
-}
-fn check_reports(
-    s: &Scenario,
-    exported: &Path,
-    report: &Value,
-    exec_pid: u32,
-    count: u64,
-) -> Result<()> {
-    let bootstrap: tickwire_strategy_sdk::bootstrap::Bootstrap =
-        serde_json::from_slice(&fs::read(&s.worker_bootstrap)?)?;
-    let identity = &bootstrap.report.local;
-    let name = identity
-        .instance
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect::<String>();
-    let receipt_path = bootstrap
-        .report_directory
-        .join(format!("CONSUMED-{name}-{}.json", identity.generation));
-    let bytes = fs::read(&receipt_path)?;
-    if bytes.len() > 16 * 1024 {
-        return Err("consumption receipt capacity".into());
-    }
-    let receipt: Value = serde_json::from_slice(&bytes)?;
-    let pid = receipt["worker_pid"]
-        .as_u64()
-        .and_then(|n| u32::try_from(n).ok())
-        .filter(|p| *p > 0)
-        .ok_or("worker pid")?;
-    let market = bootstrap
-        .external_market
-        .as_ref()
-        .ok_or("external market admission")?;
-    let admission_path =
-        tickwire_md::server::admission_path(&s.root.join("md/admissions"), pid, market.request_id)
-            .map_err(|e| e.to_string())?;
-    let admitted =
-        tickwire_md::config::read(&admission_path, 2 * 1024 * 1024).map_err(|e| e.to_string())?;
-    let admission: tickwire_md::server::Admission = serde_json::from_slice(&admitted)?;
-    if admission.pid != pid
-        || admission.supervisor_pid != exec_pid
-        || admission.client.endpoint.local.identity() != identity.identity()
-    {
-        return Err("worker admission differs from authenticated consumption receipt".into());
-    }
-    let baseline = tickwire_account_codec::CanonicalBaseline::decode(&fs::read(
-        exported.join("baseline.cbor"),
-    )?)
-    .map_err(|e| format!("baseline {e:?}"))?;
-    let mut input = tickwire_account_codec::InputSeal::new(baseline.digest())
-        .map_err(|e| format!("input {e:?}"))?;
-    let mut records = Vec::new();
-    for position in 1..=count {
-        let record = tickwire_account_codec::CanonicalRecord::decode(&fs::read(
-            exported
-                .join("records")
-                .join(format!("{position:020}.cbor")),
-        )?)
-        .map_err(|e| format!("record {e:?}"))?;
-        input.apply(&record).map_err(|e| format!("input {e:?}"))?;
-        records.push(record.record().clone());
-    }
-    let account = tickwire_account::Account::recover(
-        baseline.snapshot().clone(),
-        baseline.catalog().clone(),
-        &records,
-    )
-    .map_err(|e| format!("worker mirror {e:?}"))?;
-    let expected = json!({"schema":1,"host_pid":exec_pid,"instance":identity.instance,"generation":identity.generation,"logical_strategy":identity.logical_strategy,"host_boot":identity.host_boot,"build_hash":identity.build_hash,
-        "exec_instance":bootstrap.report.peer.instance,"exec_generation":bootstrap.report.peer.generation,"worker_uid":admission.uid,"worker_gid":admission.gid,
-        "account_position":count,"account_input_digest":input.digest(),"ledger_sequence":account.ledger_sequence(),"orders_digest":account.strategy_orders_digest(identity.logical_strategy),"cursor_resource":bootstrap.report_cursor_id,"subscription_generation":bootstrap.report_subscription_generation});
-    for (key, value) in expected.as_object().ok_or("receipt expected")? {
-        if receipt[key] != *value {
-            return Err(format!("worker report confirmation mismatch: {key}").into());
-        }
-    }
-    if receipt["ledger_sequence"] != report["ledger_sequence"]
-        || receipt["report_sequence"].as_u64()
-            != bootstrap
-                .report_resource()
-                .map_err(|e| e.to_string())?
-                .first_seq
-                .checked_add(count)
-    {
-        return Err("worker terminal report cut differs from account WAL".into());
-    }
-    let seal_hash = hash_field(&receipt, "input_seal_digest")?;
-    let recovery = bootstrap
-        .recovery_template
-        .as_ref()
-        .ok_or("recovery template")?;
-    let template: tickwire_strategy_sdk::recovery::Template =
-        serde_json::from_slice(&fs::read(recovery)?)?;
-    let object = |h: [u8; 32]| -> Result<Vec<u8>> {
-        let filename = h.iter().map(|b| format!("{b:02x}")).collect::<String>();
-        let b = fs::read(template.output_directory.join(format!("{filename}.bin")))?;
-        if tickwire_recovery::digest(&b) != h {
-            return Err("worker durable object hash".into());
-        }
-        Ok(b)
-    };
-    let seal = tickwire_recovery::HandoverSeal::decode(&object(seal_hash)?)?;
-    if seal.account_input_digest != input.digest()
-        || seal.report_position != count
-        || seal.instance != identity.instance
-        || seal.generation != identity.generation
-        || seal.ledger_sequence != account.ledger_sequence()
-        || seal.orders_digest != account.strategy_orders_digest(identity.logical_strategy)
-        || seal.checkpoint_digest != hash_field(&receipt, "checkpoint_digest")?
-    {
-        return Err("worker final durable checkpoint cut".into());
-    }
-    seal.verify_checkpoint(&object(seal.checkpoint_digest)?)?;
-    if object(seal.account_input_digest)? != input.object_bytes() {
-        return Err("worker canonical account input seal".into());
-    }
-    let mut last = None;
-    for line in BufReader::new(File::open(s.root.join("logs/exec.stderr.log"))?).lines() {
+fn verify_fixture_audit(audit_path: &Path) -> Result<(u64, String)> {
+    let file = File::open(audit_path)?;
+    let mut saw_cold = false;
+    let mut saw_logon = false;
+    let mut saw_fill = false;
+    let mut saw_cancel = false;
+    let mut elapsed_ns: Option<u64> = None;
+    let mut live_cid: Option<String> = None;
+
+    for line in BufReader::new(file).lines() {
         let line = line?;
-        if line.len() > 64 * 1024 {
-            return Err("execution log line capacity".into());
+        if line.trim().is_empty() {
+            continue;
         }
-        if let Ok(v) = serde_json::from_str::<Value>(&line)
-            && v["event"] == "strategy_ready"
-            && v["worker_pid"] == pid
-        {
-            last = Some(v);
-        }
-    }
-    let last = last.ok_or("missing authenticated worker terminal READY")?;
-    for key in [
-        "ready_sequence",
-        "checkpoint_digest",
-        "orders_digest",
-        "ledger_sequence",
-        "input_seal_digest",
-    ] {
-        if last[key] != receipt[key] {
-            return Err("last authenticated READY was not confirmed by actual cursor".into());
-        }
-    }
-    if last["exec_report_sequence"] != count {
-        return Err("worker did not finish the final account report".into());
-    }
-    Ok(())
-}
-fn fixed_equals(value: &Value, numerator: i128, denominator: i128) -> bool {
-    let Some(atoms) = value["atoms"].as_str().and_then(|s| s.parse::<i128>().ok()) else {
-        return false;
-    };
-    let Some(scale) = value["scale"].as_u64().filter(|s| *s <= 18) else {
-        return false;
-    };
-    atoms.checked_mul(denominator) == numerator.checked_mul(10i128.pow(scale as u32))
-}
-fn check_account(report: &Value) -> Result<()> {
-    if report["frozen"] != true
-        || report["input_facts_not_in_account"] != 0
-        || !report["rejected_event_sha256"].is_null()
-    {
-        return Err("account recovery has unapplied or rejected facts".into());
-    }
-    let orders = report["orders"].as_array().ok_or("orders")?;
-    if orders.len() != 1
-        || orders[0]["client_id"] != "lab-spot-1"
-        || orders[0]["terminal"] != true
-        || orders[0]["aborted"] != false
-        || orders[0]["fee_reconciled"] != true
-        || orders[0]["unknown"] != false
-        || !fixed_equals(&orders[0]["filled_quantity"], 1, 1000)
-        || !fixed_equals(&orders[0]["remaining_quantity"], 0, 1)
-    {
-        return Err("expected filled laboratory order is missing".into());
-    }
-    let assets = report["assets"].as_array().ok_or("assets")?;
-    for (symbol, n, d) in [("BTC", 1001, 1000), ("USDT", 940, 1)] {
-        let row = assets
-            .iter()
-            .find(|r| r["symbol"] == symbol)
-            .ok_or("asset")?;
-        if !fixed_equals(&row["total"], n, d) {
-            return Err(format!("unexpected recovered {symbol} balance").into());
-        }
-    }
-    Ok(())
-}
-fn check_fee_closure(s: &Scenario, exported: &Path, count: u64) -> Result<u64> {
-    let mut fees = false;
-    let mut activations = 0;
-    for position in 1..=count {
-        let raw = fs::read(
-            exported
-                .join("records")
-                .join(format!("{position:020}.cbor")),
-        )?;
-        let record = tickwire_account_codec::CanonicalRecord::decode(&raw)
-            .map_err(|e| format!("record: {e:?}"))?;
-        match record.record() {
-            tickwire_account::RecoveryRecord::FeesReconciled { .. } => fees = true,
-            tickwire_account::RecoveryRecord::Reactivated(_) => activations += 1,
+        let val: Value = serde_json::from_str(&line)?;
+        match val["event"].as_str() {
+            Some("cold_bootstrap_served") => saw_cold = true,
+            Some("ws_session_logon_verified") => saw_logon = true,
+            Some("eligible_quote_to_order") => {
+                elapsed_ns = val["elapsed_ns"].as_u64();
+            }
+            Some("order_accepted") => {
+                if val["order_seqnum"].as_u64() != Some(LAB_COLD_OPEN_SEQNUM + 1) {
+                    return Err("live order did not advance past cold-recovered seqnum".into());
+                }
+                live_cid = val["client_id"].as_str().map(str::to_owned);
+            }
+            Some("private_fill_sent") => saw_fill = true,
+            Some("cold_order_canceled") => saw_cancel = true,
             _ => {}
         }
     }
-    let audit = fs::read_to_string(s.root.join("fixture.jsonl"))?;
-    let requests = audit
-        .lines()
-        .filter_map(|l| serde_json::from_str::<Value>(l).ok())
-        .collect::<Vec<_>>();
-    if !fees
-        || activations < 2
-        || !["/api/v3/order", "/api/v3/myTrades"].iter().all(|path| {
-            requests.iter().any(|v| {
-                v["event"] == "http"
-                    && v["method"] == "GET"
-                    && v["path"] == *path
-                    && v["status"] == 200
-            })
-        })
-    {
-        return Err(
-            "terminal fees lack the complete actual query and durable reconciliation chain".into(),
-        );
+
+    if !(saw_cold && saw_logon && saw_fill && saw_cancel) {
+        return Err(format!(
+            "incomplete fixture audit trail (cold={saw_cold}, logon={saw_logon}, fill={saw_fill}, cancel={saw_cancel})"
+        )
+        .into());
     }
-    let intervals: Vec<_> = requests
-        .iter()
-        .filter(|entry| entry["event"] == "eligible_quote_to_order")
-        .collect();
-    let [sample] = intervals.as_slice() else {
-        return Err("expected one signed order for the eligible market quote".into());
-    };
-    sample["elapsed_ns"]
-        .as_u64()
-        .ok_or_else(|| "invalid fixture interval".into())
+    Ok((
+        elapsed_ns.ok_or("missing eligible_quote_to_order elapsed_ns")?,
+        live_cid.ok_or("missing order_accepted client_id")?,
+    ))
 }
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn result_check_requires_exact_economic_fill() {
-        let mut report = json!({"frozen":true,"input_facts_not_in_account":0,"rejected_event_sha256":null,"orders":[{"client_id":"lab-spot-1","terminal":true,"aborted":false,"fee_reconciled":true,"unknown":false,"filled_quantity":{"atoms":"100000","scale":8},"remaining_quantity":{"atoms":"0","scale":8}}],"assets":[{"symbol":"BTC","total":{"atoms":"100100000","scale":8}},{"symbol":"USDT","total":{"atoms":"94000000000","scale":8}}]});
-        check_account(&report).unwrap();
-        for field in ["fee_reconciled", "unknown"] {
-            let mut incomplete = report.clone();
-            incomplete["orders"][0][field] = json!(field == "unknown");
-            assert!(check_account(&incomplete).is_err());
+
+fn spawn_logged(mut cmd: Command, s: &Scenario, name: &str) -> Result<Child> {
+    cmd.stdout(Stdio::from(File::create(
+        s.root.join(format!("logs/{name}.stdout.log")),
+    )?))
+    .stderr(Stdio::from(File::create(
+        s.root.join(format!("logs/{name}.stderr.log")),
+    )?))
+    .current_dir(&s.root);
+    Ok(cmd.spawn()?)
+}
+
+fn ensure_all_alive(children: &mut ManagedChildren) -> Result<()> {
+    for (name, child) in &mut children.0 {
+        if let Some(status) = child.try_wait()? {
+            return Err(format!("process '{name}' exited prematurely with {status}").into());
         }
-        report["orders"][0]["filled_quantity"]["atoms"] = json!("0");
-        assert!(check_account(&report).is_err());
     }
+    Ok(())
+}
+
+fn wait_for_path(path: &Path, children: &mut ManagedChildren, timeout: Duration) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    while !path.exists() {
+        ensure_all_alive(children)?;
+        if Instant::now() >= deadline {
+            return Err(format!("timed out waiting for {}", path.display()).into());
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    Ok(())
+}
+
+fn wait_for_audit_event(
+    audit_path: &Path,
+    expected_event: &str,
+    children: &mut ManagedChildren,
+    timeout: Duration,
+) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        if let Ok(raw) = fs::read_to_string(audit_path) {
+            for line in raw.lines() {
+                if let Ok(val) = serde_json::from_str::<Value>(line)
+                    && val["event"].as_str() == Some(expected_event)
+                {
+                    return Ok(());
+                }
+            }
+        }
+        ensure_all_alive(children)?;
+        if Instant::now() >= deadline {
+            return Err(format!("timed out waiting for fixture event '{expected_event}'").into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn wait_clean_exit(
+    children: &mut ManagedChildren,
+    target_name: &str,
+    timeout: Duration,
+) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    let (_, child) = children
+        .0
+        .iter_mut()
+        .find(|(n, _)| n == target_name)
+        .ok_or_else(|| format!("unknown child '{target_name}'"))?;
+    loop {
+        if let Some(status) = child.try_wait()? {
+            if !status.success() {
+                return Err(format!("process '{target_name}' exited with {status}").into());
+            }
+            return Ok(());
+        }
+        if Instant::now() >= deadline {
+            return Err(format!("timed out waiting for '{target_name}' clean exit").into());
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+}
+
+fn send_posix_signal(signal_name: &str, pid: u32) -> Result<()> {
+    let status = Command::new("kill")
+        .args(["-s", signal_name, &pid.to_string()])
+        .status()?;
+    if !status.success() {
+        return Err(format!("kill -s {signal_name} {pid} failed with {status}").into());
+    }
+    Ok(())
+}
+
+fn replace_private_json(path: &Path, value: &Value) -> Result<()> {
+    let tmp = path.with_extension("updated.json");
+    crate::generate::write_json(&tmp, value)?;
+    fs::rename(&tmp, path)?;
+    File::open(path.parent().ok_or("missing parent dir")?)?.sync_all()?;
+    Ok(())
 }

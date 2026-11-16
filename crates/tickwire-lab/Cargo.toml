@@ -1,5 +1,6 @@
 [package]
 name = "tickwire-lab"
+description = "Stateless 3-process Linux loopback harness for tickwire-md, tickwire-app, and tickwire-strategy-worker"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,22 +10,32 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+base64 = "=0.22.1"
+rcgen = "=0.14.10"
+ring = "=0.17.14"
+rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "=1.0.145"
-ring = "=0.17.14"
-rcgen = "=0.14.10"
 sha1 = "=0.10.6"
-base64 = "=0.22.1"
+sha2 = "0.10"
 tickwire-account = { path = "../tickwire-account" }
-tickwire-account-codec = { path = "../tickwire-account-codec" }
+tickwire-account-gateway = { path = "../tickwire-account-gateway" }
 tickwire-app = { path = "../tickwire-app" }
+tickwire-binance = { path = "../tickwire-binance" }
+tickwire-binance-account = { path = "../tickwire-binance-account" }
 tickwire-clock = { path = "../tickwire-clock" }
 tickwire-clock-sys = { path = "../tickwire-clock-sys" }
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+tickwire-instrument-catalog = { path = "../tickwire-instrument-catalog" }
 tickwire-ipc = { path = "../tickwire-ipc" }
-tickwire-shm = { path = "../tickwire-shm" }
 tickwire-market-source = { path = "../tickwire-market-source" }
 tickwire-md = { path = "../tickwire-md" }
-tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-quota = { path = "../tickwire-quota" }
+tickwire-risk = { path = "../tickwire-risk" }
+tickwire-runtime = { path = "../tickwire-runtime" }
+tickwire-shm = { path = "../tickwire-shm" }
+tickwire-strategy-host = { path = "../tickwire-strategy-host" }
 tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
+tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
-rustls = { version = "=0.23.46", default-features = false, features = ["std", "ring", "tls12"] }

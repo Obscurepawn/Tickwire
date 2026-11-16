@@ -1,40 +1,27 @@
-# tickwire-lab
+# `tickwire-lab` Engineering Guide (`AGENTS.md`)
 
-`tickwire-lab` (`#![forbid(unsafe_code)]`) owns the loopback-only multi-process integration
-laboratory (`tickwire-lab`), combining a local rustls/HMAC Binance exchange counterpart
-([src/fixture.rs](src/fixture.rs)), ephemeral certificate and configuration generator
-([src/generate.rs](src/generate.rs)), PID-gated process launcher ([src/launch.rs](src/launch.rs)),
-and post-run journal/accounting verifier ([src/model.rs](src/model.rs)). Production binaries never
-load this crate; real `tickwire-md`, `tickwire-app`, and strategy workers execute unmodified against
-the local TLS fixture.
+## 1. Crate Scope and Loopback Fencing
 
-## Invariants and Change Guidelines
+`tickwire-lab` owns the explicit, loopback-only 3-process Linux verification laboratory exercising:
+1. **`tickwire-md`**: Public market-data depth snapshot & WebSocket stream synchronization and sealed `memfd` shared-memory ring broadcast.
+2. **`tickwire-app`**: Unified stateless single-venue ORS execution process (`1 ORS process = 1 Venue`), cold-recovering balances, open-order holds, and per-strategy sequence floors exclusively from authenticated Exchange REST snapshots (`GET /api/v3/account` + `GET /api/v3/openOrders` + 32-character `[0-9a-z]` `SelfDescribingClientId` `tw1...` tokens), authenticating `/ws-api/v3` via Ed25519 `session.logon`, and handling `SIGUSR2` (`EmergencyCancelAll`) and `SIGTERM` (`OrsShutDown` + `account-report.json`).
+3. **`tickwire-strategy-worker`**: Stateless strategy worker joining `tickwire-md` over `SCM_RIGHTS`, completing the `DOP` dual-seqnum handshake (`DopSession::connect_and_login`), publishing an inline `1,024B` `IntentRecord` (`order_seqnum = 4`, advancing past cold-recovered `order_seqnum = 3`), and draining inbound `512B` `ReportRecord` replies (`Ack`, `Fill`, `OrsRestricted`, `OrsShutDown`).
 
-* **Loopback and single-use scenario fencing**: `Scenario::read` ([src/lib.rs](src/lib.rs)) and
-  `fixture::serve` ([src/fixture.rs](src/fixture.rs)) require `schema == 1`, `fixture_only == true`,
-  loopback `SocketAddr` peers, absolute paths, unexpired `valid_until_ns` in the host `ClockDomain`,
-  and absence of a prior `STARTED` marker so laboratory credentials and directories cannot leak onto
-  external interfaces or be replayed accidentally.
-* **PID-preserving admission handshake**: In [src/launch.rs](src/launch.rs), spawn child processes
-  via `child-exec` waiting on a gate file and `CommandExt::exec` into the target binary so the
-  launcher registers exact kernel PIDs for MD/control admission before releasing the gate, arming
-  live quote flow (`ARM`) only after observing `account_reconciled` and `strategy_reports_consumed`.
-* **End-to-end economic and journal verification**: Changes to fixture event sequencing
-  ([src/fixture.rs](src/fixture.rs)) or scenario generation ([src/generate.rs](src/generate.rs))
-  must satisfy the independent cash, fee, reservation, and worker-report assertions in
-  [src/model.rs](src/model.rs) and the Linux core-chain runner ([README.md](README.md)).
+Production deployments never load `tickwire-lab`. [`Scenario::validate`](src/lib.rs) rejects any non-loopback address, relative path, or `fixture_only == false` configuration.
 
-## Verification and Specifications
+## 2. Module Layout & Invariants
 
-* **Source and guide**: [src/lib.rs](src/lib.rs) · [src/main.rs](src/main.rs) ·
-  [src/fixture.rs](src/fixture.rs) · [src/generate.rs](src/generate.rs) ·
-  [src/launch.rs](src/launch.rs) · [src/model.rs](src/model.rs) · [README.md](README.md)
-* **Specifications and models**:
-  [single-host-trading.md](../../specs/implementation/single-host-trading.md) ·
-  [binance-execution.md](../../specs/implementation/binance-execution.md) ·
-  [binance_roundtrip](../../tla/execution_models/binance_roundtrip/ROADMAP.md)
+* [`src/lib.rs`](src/lib.rs): `#![forbid(unsafe_code)]` crate root and `Scenario` fencing validator.
+* [`src/model.rs`](src/model.rs): Exact `Fixed` fixed-point scenario balances/fees (`0.06000000 USDT` commission), `spot_client_id_domain`, cold `tw1...` `SelfDescribingClientId`, and `CanonicalCommand` builder.
+* [`src/generate.rs`](src/generate.rs): Generates single-use `0o700` scenario directories (`<= 65` byte root path for `AF_UNIX` `SOCK_SEQPACKET` sockets), ephemeral TLS trust anchors, Ed25519 + HMAC keys, `md/config.json`, `ors/config.json`, and `strategy/bootstrap.json` with zero local WAL, journal, or disk blob files.
+* [`src/fixture.rs`](src/fixture.rs): Deterministic TLS Binance Spot counterpart verifying REST HMAC signatures, Ed25519 `session.logon`, and 32-character `tw1...` client IDs while recording `fixture.jsonl`.
+* [`src/launch.rs`](src/launch.rs): Spawns the 3 real Linux processes + `fixture`, verifies cold recovery, live quote-to-order round-trip, `SIGUSR2` + `SIGTERM` ordered drain, and exact post-fill `Fixed` balances.
+* [`src/main.rs`](src/main.rs): `tickwire-lab` CLI (`generate`, `serve`, `run`, and internal PID-preserving `child-exec`).
+
+## 3. Verification
 
 ```sh
 cargo test --locked -p tickwire-lab --all-targets
-./scripts/run-core-chain-linux.sh spot-fill
+cargo clippy --locked -p tickwire-lab --all-targets -- -D warnings
+./scripts/run-core-chain-linux.sh
 ```

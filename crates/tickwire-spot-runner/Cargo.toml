@@ -1,6 +1,6 @@
 [package]
 name = "tickwire-spot-runner"
-description = "Shared spot strategy intake and local Bybit and OKX execution profile"
+description = "Stateless Unified Trading Account (Bybit V5 and OKX V5) ORS runtime adapter and runner"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
@@ -15,30 +15,31 @@ rcgen = "=0.14.10"
 ring = "=0.17.14"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 tickwire-account = { path = "../tickwire-account" }
-tickwire-account-codec = { path = "../tickwire-account-codec" }
 tickwire-account-gateway = { path = "../tickwire-account-gateway" }
-tickwire-account-journal = { path = "../tickwire-account-journal" }
-tickwire-app = { path = "../tickwire-app" }
-tickwire-binance-clock = { path = "../tickwire-binance-clock" }
 tickwire-clock = { path = "../tickwire-clock" }
-tickwire-gateway = { path = "../tickwire-gateway" }
-tickwire-market-source = { path = "../tickwire-market-source" }
+tickwire-clock-sys = { path = "../tickwire-clock-sys" }
+tickwire-control = { path = "../tickwire-control" }
+tickwire-control-sys = { path = "../tickwire-control-sys" }
+tickwire-ipc = { path = "../tickwire-ipc" }
 tickwire-quota = { path = "../tickwire-quota" }
-tickwire-journal = { path = "../tickwire-journal" }
-tickwire-recovery = { path = "../tickwire-recovery" }
+tickwire-risk = { path = "../tickwire-risk" }
 tickwire-runtime = { path = "../tickwire-runtime" }
 tickwire-runtime-policy = { path = "../tickwire-runtime-policy" }
 tickwire-spot-execution = { path = "../tickwire-spot-execution" }
+tickwire-strategy-host = { path = "../tickwire-strategy-host" }
+tickwire-strategy-sdk = { path = "../tickwire-strategy-sdk" }
 tickwire-transport = { path = "../tickwire-transport" }
 tickwire-venue = { path = "../tickwire-venue" }
 
 [dev-dependencies]
-tickwire-binance-public = { path = "../tickwire-binance-public" }
+allocation-counter = "=0.8.1"
+sha1 = "=0.10.6"
 tickwire-book = { path = "../tickwire-book" }
 tickwire-join = { path = "../tickwire-join" }
 tickwire-market-publisher = { path = "../tickwire-market-publisher" }
+tickwire-market-source = { path = "../tickwire-market-source" }
 tickwire-md = { path = "../tickwire-md" }
-tickwire-risk = { path = "../tickwire-risk" }
 tickwire-shm = { path = "../tickwire-shm" }
 tickwire-snapshot = { path = "../tickwire-snapshot" }

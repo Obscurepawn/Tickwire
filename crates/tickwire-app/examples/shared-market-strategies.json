@@ -1,13 +1,67 @@
 {
-  "mode": "multi",
-  "members": [
+  "venue": "binance",
+  "environment": "test",
+  "cpu": {
+    "epoll_wait_ms": 0
+  },
+  "max_order_age_ns": 23000,
+  "allowed_strategies": [1, 2],
+  "account_manager": {
+    "enabled_accounts": ["spot_main"],
+    "spot_main": {
+      "account_ref": 1,
+      "exchange_account_id": 100001,
+      "strategies": [1, 2],
+      "local_ip": "127.0.0.1",
+      "credentials": {
+        "key": "example-binance-key",
+        "secret": "example-binance-hmac-secret"
+      },
+      "urls": {
+        "binance-spot-order": {
+          "local_ip/connection_count": [["127.0.0.1", 1]]
+        }
+      }
+    }
+  },
+  "binance_markets": [
     {
-      "logical_strategy_id": 1,
-      "strategy": { "mode": "hosted", "config": "/srv/tickwire/strategies/maker/host.json" }
+      "market": "spot"
+    }
+  ],
+  "binance_symbols": [
+    {
+      "symbol_id": 0,
+      "instrument_id": 1001,
+      "market": "spot",
+      "venue_symbol": "BTCUSDT",
+      "wallet_id": 0,
+      "base_asset_id": 1,
+      "base_scale": 8,
+      "quote_asset_id": 2,
+      "quote_scale": 8,
+      "settlement_asset_id": 2,
+      "settlement_scale": 8,
+      "price_tick_atoms": 1000000,
+      "price_scale": 8,
+      "qty_step_atoms": 1000,
+      "qty_scale": 8
+    }
+  ],
+  "binance_assets": [
+    {
+      "market": "spot",
+      "asset_code": "BTC",
+      "wallet_id": 0,
+      "asset_id": 1,
+      "scale": 8
     },
     {
-      "logical_strategy_id": 2,
-      "strategy": { "mode": "hosted", "config": "/srv/tickwire/strategies/hedger/host.json" }
+      "market": "spot",
+      "asset_code": "USDT",
+      "wallet_id": 0,
+      "asset_id": 2,
+      "scale": 8
     }
   ]
 }
