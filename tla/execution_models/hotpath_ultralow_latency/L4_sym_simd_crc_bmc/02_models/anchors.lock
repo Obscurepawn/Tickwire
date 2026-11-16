@@ -1,4 +1,4 @@
-# anchors.lock — written by anchors.sh update on 2026-11-16T10:10:34
+# anchors.lock — written by anchors.sh update on 2026-11-17T00:39:15
 # path<TAB>line<TAB>sha256(of that line's current text)  — re-read with 'anchors.sh check'
 Cargo.toml	57	5d1e0ea4fc193cd0e705f48e45a3a8831212c395333c4be924206fcb5696284f
 Cargo.toml	58	9d684c69786a195b373ca72c40230d27b20be68bfe72696c9cab12dd3af1622d
@@ -979,7 +979,7 @@ crates/tickwire-strategy-sdk/src/arena.rs	206	2a44168318e224e1f830fe9ab620aa00dd
 crates/tickwire-strategy-sdk/src/arena.rs	207	d517d677052c8d29928198e6a95ae3210640e0ef0d7a1d76b8fbe0d3ad741b6c
 crates/tickwire-strategy-sdk/src/arena.rs	208	28d86778615f6af47bb1bc4f40face756749768e5111f114cfa234a5060c25af
 crates/tickwire-strategy-sdk/src/arena.rs	209	ac052a4003f8526911b987b4a7f0e43b01d60720ce0287dd8e5196a63152f0b6
-crates/tickwire-strategy-sdk/src/arena.rs	21	12b07b05b75db93a15cbef174a5279b0d827638f06db605cc0807a27bbf581ff
+crates/tickwire-strategy-sdk/src/arena.rs	21	bd0ef1e9eadea165a700c760bd65ecb6293e8a148dd736bf2cece1a3458f3363
 crates/tickwire-strategy-sdk/src/arena.rs	210	d10b36aa74a59bcf4a88185837f658afaf3646eff2bb16c3928d0e9335e945d2
 crates/tickwire-strategy-sdk/src/arena.rs	22	b8583103b0cd77b50884321a7f10c0c378bd890de35be962b9e8b4062e96aac6
 crates/tickwire-strategy-sdk/src/arena.rs	23	d0c25a97bed5063592b44489a439af9ac350344db2b2cbcc032848aa794cd5db
