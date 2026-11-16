@@ -49,7 +49,7 @@ An archived microbenchmark comparing the planner against commit `df8bd2d` execut
 * **4,096 active levels, 16 scattered quantity updates**: Median p50 decreased from `958 ns` to `542 ns`, and p99.9 decreased from `3,000 ns` to `1,625 ns`.
 * **512 active levels, 512 scattered updates**: Median p50 moved from `8,750 ns` to `8,792 ns` with overlapping run-to-run ranges.
 
-Re-run the criterion suites on the pinned target deployment host before adopting these figures as latency budgets.
+Re-run the benchmark suites (`cargo bench -p tickwire-book`) on the pinned target deployment host before adopting these figures as latency budgets.
 
 ## Verification and References
 

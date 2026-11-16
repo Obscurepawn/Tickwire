@@ -27,7 +27,9 @@ processes load immutable static startup configuration only and hold zero filesys
 
 ## Verification and Specifications
 
-* **Source**: [src/lib.rs](src/lib.rs) · [src/validation.rs](src/validation.rs) · [src/projection.rs](src/projection.rs) ·
+* **Source**: [src/lib.rs](src/lib.rs) · [src/strict.rs](src/strict.rs) · [src/validation.rs](src/validation.rs) ·
+  [src/artifacts.rs](src/artifacts.rs) · [src/capacity.rs](src/capacity.rs) · [src/changes.rs](src/changes.rs) ·
+  [src/delivery.rs](src/delivery.rs) · [src/projection.rs](src/projection.rs) ·
   [src/projection_object.rs](src/projection_object.rs) · [src/prepared.rs](src/prepared.rs) · [src/plan.rs](src/plan.rs) ·
   [src/materialized.rs](src/materialized.rs) · [src/locator.rs](src/locator.rs)
 * **Integration tests**: [tests/candidate.rs](tests/candidate.rs) · [tests/static_semantics.rs](tests/static_semantics.rs) ·

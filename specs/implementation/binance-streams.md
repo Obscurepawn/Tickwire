@@ -2,7 +2,7 @@
 
 `tickwire-binance::feed` and `tickwire-binance::events` decode complete HTTP response bodies and WebSocket payloads for Binance Spot and USD-M Futures into strongly typed, fixed-point Rust representations. Callers supply the target `Market`, `InstrumentBinding`, `BookKey`, or `SessionContext` up front so every decoded observation is bound to an explicit catalog and session identity.
 
-Both modules are pure, side-effect-free decoders: parsing a depth snapshot, incremental diff, execution report, or account balance patch never mutates an order book, alters account cash or reservations, grants risk capacity, or establishes stream continuity on its own. Network lifecycle, snapshot bridging, durable accounting, and reconciliation belong to separate single-writer state owners.
+Both modules are pure, side-effect-free decoders: parsing a depth snapshot, incremental diff, execution report, or account balance patch never mutates an order book, alters account cash or reservations, grants risk capacity, or establishes stream continuity on its own. Network lifecycle, snapshot bridging, stateless in-memory accounting, and reconciliation belong to separate single-writer state owners.
 
 ## Wire Schemas and Bounds
 
@@ -20,7 +20,7 @@ All decimal fields are parsed directly from ASCII text into exact fixed-point `D
 ## Core Invariants
 
 * **Exact economic sign and non-synthesis rules**: A positive exchange commission maps to a negative cash flow, whereas a negative commission represents a fee rebate. USD-M realized PnL remains isolated in its settlement asset. If the venue omits a quoted notional amount (`cumulative_quote` or `last_quote`), the decoder leaves it `None` rather than synthesizing an approximate product from price and quantity.
-* **External `u64` ID vs local `u32` `BookKey` separation**: IPC records, journals, logs, and economic bindings always carry the full nonzero `u64` catalog `instrument_id`. By contrast, `BookKey` pairs nonzero `venue` and `source` IDs with an owner-assigned `u32` dense slot (where slot `0` is valid via [instrument-index.md](instrument-index.md)); callers must never derive `BookKey.instrument` by truncating a 64-bit external ID.
+* **External `u64` ID vs local `u32` `BookKey` separation**: IPC records, in-memory transition records, logs, and economic bindings always carry the full nonzero `u64` catalog `instrument_id`. By contrast, `BookKey` pairs nonzero `venue` and `source` IDs with an owner-assigned `u32` dense slot (where slot `0` is valid via [instrument-index.md](instrument-index.md)); callers must never derive `BookKey.instrument` by truncating a 64-bit external ID.
 * **Zero partial side effects on failed workspace decode**: `DepthWorkspace::new(max_total_levels)` reserves combined bid-plus-ask level storage (`1..=5,000` levels; the shared-memory publisher configures `4,096`). `decode_diff_into` and `decode_sbe_diff_into` return a `DepthUpdateRef` borrowing that workspace until the next exclusive call, guaranteeing that any malformed input leaves no observable partial update. (Fixed-array `decode_diff::<N>` and `decode_sbe_diff::<N>` retain per-side `N` bounds up to `MAX_DEPTH_LEVELS = 5,000` and `MAX_MARKET_MESSAGE_BYTES = 16 MiB`.)
 
 ## Transitions and Failure Semantics

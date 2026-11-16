@@ -1,6 +1,6 @@
 //! Preallocated per-order status and trade reconciliation scheduler (`QueryDesk`).
 //!
-//! Coalesces at most one [`StatusAsk`] per [`OrderKey`] across up to [`MAX_STATUS_ASKS`]
+//! Coalesces at most one `StatusAsk` per [`OrderKey`] across up to [`MAX_STATUS_ASKS`]
 //! (`MAX_ORDERS + 32`) preallocated arena slots and dispatches at most [`MAX_REST_SLOTS`] (`32`)
 //! concurrent wire calls without post-initialization heap growth.
 

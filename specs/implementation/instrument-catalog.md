@@ -40,12 +40,12 @@ Every runtime component validates catalog bindings during startup before opening
 | Consumer | Startup and Lifecycle Enforcement |
 | --- | --- |
 | **Configuration service** | Binds each approved catalog artifact to its deployment venue name, market, and environment; schema validity alone never activates a runtime. |
-| **Binance `tickwire-md`** | Optional `Config.catalogs` pins up to 32 approved raw artifacts (`<= 2 MiB` combined). Every configured feed is checked before acquiring quota, opening sockets, creating SHM banks, or persisting recovery state. Live expansions must draw exclusively from those already-pinned catalogs. |
+| **Binance `tickwire-md`** | Optional `Config.catalogs` pins up to 32 approved raw artifacts (`<= 2 MiB` combined) in memory (`Catalogs::load`). Every configured feed is checked before acquiring quota, opening sockets, or creating SHM banks. Live expansions must draw exclusively from those already-pinned in-memory catalogs. |
 | **Bybit / OKX `tickwire-md`** | `--spot-market` requires an approved `Production` `Spot` catalog matching the exact numeric venue, `Cash` product, symbol, instrument/catalog versions, and both increments. (`--spot-quotes` takes explicit CLI config for diagnostics and does not assert catalog approval.) |
-| **Account `tickwire-app`** | Compares optional `Deployment.instrument_catalog` against all baseline assets, instruments, scope, environment, configured feeds, and command routing; balances, fees, permissions, and risk limits remain with their dedicated owners. |
+| **ORS `tickwire-app`** | Validates optional `OrsAppConfig.instrument_catalog` (`CatalogVerificationConfig`: `path`, `expected_sha256`, optional `expected_catalog_version`) via `Catalog::decode` at cold startup before constructing `BinanceBootstrapCatalog` / `UtaVenueSession` bindings; balances, fees, permissions, and risk limits remain with their dedicated owners. |
 | **Registered strategy** | Requires matching bootstrap metadata, projected catalog reference, and deployment inputs, verifying both the account binding and live JOIN snapshot headers before invoking user callbacks. |
 
-When Binance `tickwire-md` recovery is enabled, the recovery store persists the approved raw catalog artifacts alongside logical checkpoints and revalidates them on restart. Missing or substituted catalog bytes, downgrading a catalog-enabled configuration to unconfigured, or changing instrument economics across a live expansion fails closed. Even after logical catalog recovery succeeds, a restarted market-data process must warm live upstream feeds and require fresh consumer JOINs.
+On cold startup or restart, `tickwire-md` and `tickwire-app` verify their configured static catalog files against pinned SHA-256 digests solely in memory (with zero local recovery checkpoints or WAL files). Missing or substituted catalog bytes, downgrading a catalog-enabled configuration to unconfigured, or changing instrument economics across a live expansion fails closed, and a restarted market-data process warms live upstream feeds and requires fresh consumer JOINs.
 
 ## Verification and References
 

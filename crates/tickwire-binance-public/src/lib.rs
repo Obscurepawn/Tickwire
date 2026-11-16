@@ -1,4 +1,4 @@
-//! Explicitly driven public Binance JSON depth: WSS subscription plus HTTPS snapshot.
+//! Explicitly driven Binance public market-data sessions (`DepthStreamClient` JSON/SBE depth + `PublicEventClient`).
 #![forbid(unsafe_code)]
 use std::{net::SocketAddr, sync::Arc};
 pub use tickwire_binance::{

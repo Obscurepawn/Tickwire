@@ -33,14 +33,18 @@ and receive typed Rust values or signed byte buffers without I/O, clocks, floats
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/auth.rs](src/auth.rs) · [src/full_market.rs](src/full_market.rs)
-  · [src/request.rs](src/request.rs) · [src/response.rs](src/response.rs) · [src/events.rs](src/events.rs) ·
-  [src/depth_sync.rs](src/depth_sync.rs) · [tests/requests.rs](tests/requests.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/auth.rs](src/auth.rs) · [src/buffer.rs](src/buffer.rs) ·
+  [src/decimal.rs](src/decimal.rs) · [src/full_market.rs](src/full_market.rs) · [src/market.rs](src/market.rs) ·
+  [src/params.rs](src/params.rs) · [src/request.rs](src/request.rs) · [src/response.rs](src/response.rs) ·
+  [src/events.rs](src/events.rs) · [src/feed.rs](src/feed.rs) · [src/depth_sync.rs](src/depth_sync.rs) ·
+  [tests/full_market_ors.rs](tests/full_market_ors.rs) · [tests/protocol_primitives.rs](tests/protocol_primitives.rs) ·
+  [tests/protocol_server.rs](tests/protocol_server.rs) · [tests/requests.rs](tests/requests.rs) ·
   [tests/request_extensions.rs](tests/request_extensions.rs) · [tests/responses.rs](tests/responses.rs) ·
   [tests/private_events.rs](tests/private_events.rs) · [tests/private_structures.rs](tests/private_structures.rs) ·
-  [tests/market_events.rs](tests/market_events.rs) · [tests/feed.rs](tests/feed.rs) ·
-  [tests/depth_sync.rs](tests/depth_sync.rs) · [tests/depth_workspace.rs](tests/depth_workspace.rs) ·
-  [tests/sbe_depth.rs](tests/sbe_depth.rs)
+  [tests/private_server.rs](tests/private_server.rs) · [tests/market_events.rs](tests/market_events.rs) ·
+  [tests/market_server.rs](tests/market_server.rs) · [tests/feed.rs](tests/feed.rs) ·
+  [tests/depth_sync.rs](tests/depth_sync.rs) · [tests/depth_sync_server.rs](tests/depth_sync_server.rs) ·
+  [tests/depth_workspace.rs](tests/depth_workspace.rs) · [tests/sbe_depth.rs](tests/sbe_depth.rs)
 * **Specifications and models**: [binance-protocol.md](../../specs/implementation/binance-protocol.md) ·
   [binance-streams.md](../../specs/implementation/binance-streams.md) ·
   [binance-depth-sync.md](../../specs/implementation/binance-depth-sync.md) ·
