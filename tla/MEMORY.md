@@ -2,9 +2,11 @@
 
 [November 2026 Stateless Multi-UID ORS Audit](audits/2026-11-16/README.md) · [Model Family Roadmap](ROADMAP.md) · [Verification Profile](PROFILE.md) · [Case Law](LESSONS.md)
 
+Aggregate inventory across `tla/execution_models/`: **`21` model families, `40` finite-state TLC 2.19 models, `11` Apalache 0.63.0 + Z3 Snowcat symbolic `IndInv` models, and `44,618` zero-drift SHA-256 Rust source line anchors** verified on `main` (`4c52ff7`).
+
 ---
 
-## Stateless Multi-UID ORS Families (2026-11-16, `main` @ `438551c`)
+## Stateless Multi-UID ORS Families (2026-11-16, `main` @ `4c52ff7`)
 
 ### `request_budget / L0_shared_ors_limiter + L1_sym_shared_limiter` — PASS
 
@@ -27,13 +29,13 @@
 ### `transport`, `hotpath_decoupling` & `hotpath_ultralow_latency` — PASS
 
 - **Mode:** Exhaustive TLC (`transport/L0_first_output`, `hotpath_decoupling/{L0_dial_querier,L1_windowed_pool}`, `hotpath_ultralow_latency/{L0,L1,L2}`) + Dual-engine Symbolic Apalache `0.63.0` + Z3 (`transport/L1_sym_dual_thread_switchover` and `hotpath_ultralow_latency/{L3,L4,L5}`, `IndInv` + `ConstInit`).
-- **Property:** Lock-free `DialBaton` connection handoff, strict non-overlapping `LockedOrder` vs. `LockedConnection` spinlock hierarchy (`LockedOrder -> StpBook` leaf-only acquisition, lock-free atomic BBO `self_cross`), TLS short-write connection self-retirement, server maintenance `notice` (`64008`) smooth drain and switchover without dropping in-flight replies, lifetime-pinned zero-copy SHM borrows, isolated `TlsLoopbackWarmer` AEAD nonces, and SIMD BBO oracle parity.
-- **Apalache/Z3 & TLC:** `transport/L0` `688` / `3,928` / `5,944` / `2,832` distinct (`16/16` actions); `transport/L1_SymDualThreadSwitchover` `IndInv` `PASS` (`NoError`, `4s`), BMC `k=8` `PASS` (`5.35s`), TLC `2,056` distinct (`26/26` actions); `hotpath_decoupling/L0` `42,272` / `283,734` distinct (`21/21` actions); `hotpath_decoupling/L1` `51,469` / `340,142` distinct (`17/17` actions); `hotpath_ultralow_latency` `L0..L5` TLC + `L3/L4/L5` Apalache `IndInv` `PASS` (`NoError`, `100%` action coverage); `11,395` line anchors (`0` drift). [Transport roadmap](execution_models/transport/ROADMAP.md) · [Decoupling roadmap](execution_models/hotpath_decoupling/ROADMAP.md) · [Ultra-low-latency roadmap](execution_models/hotpath_ultralow_latency/ROADMAP.md)
+- **Property:** Lock-free `DialBaton` connection handoff, strict non-overlapping `LockedOrder` vs. `LockedConnection` spinlock hierarchy (`LockedOrder -> OrsStpBook` leaf-only acquisition, lock-free atomic BBO `self_cross`), TLS short-write connection self-retirement, server maintenance `notice` (`64008`) smooth drain and switchover without dropping in-flight replies, lifetime-pinned zero-copy SHM borrows, isolated `TlsLoopbackWarmer` AEAD nonces, and SIMD BBO oracle parity.
+- **Apalache/Z3 & TLC:** `transport/L0` `688` / `3,928` / `5,944` / `2,832` distinct (`16/16` actions); `transport/L1_SymDualThreadSwitchover` `IndInv` `PASS` (`NoError`, `4s`), BMC `k=8` `PASS` (`5.35s`), TLC `2,056` distinct (`26/26` actions); `hotpath_decoupling/L0` `42,272` / `283,734` distinct (`21/21` actions); `hotpath_decoupling/L1` `51,469` / `340,142` distinct (`17/17` actions); `hotpath_ultralow_latency` `L0..L5` TLC + `L3/L4/L5` Apalache `IndInv` `PASS` (`NoError`, `100%` action coverage); `11,393` line anchors (`0` drift). [Transport roadmap](execution_models/transport/ROADMAP.md) · [Decoupling roadmap](execution_models/hotpath_decoupling/ROADMAP.md) · [Ultra-low-latency roadmap](execution_models/hotpath_ultralow_latency/ROADMAP.md)
 
 ### `account`, `binance_roundtrip` & `spot_roundtrip` — PASS
 
 - **Mode:** Exhaustive TLC (`account/L0_ors_slot_fill_recycle`, `binance_roundtrip/L0_binance_ors_bootstrap`, `spot_roundtrip/L0_uta_ors_bootstrap`) + Dual-engine Symbolic Apalache `0.63.0` + Z3 (`account/L1_sym_ors_order_lifecycle`, `IndInv` + `ConstInit`).
-- **Property:** Power-of-two `OrderManager` 4-state (`EMPTY -> CLAIMED -> LIVE -> RETIRED`) slot recycle with post-lock `(strat_id, seqnum)` identity recheck, immediate `RETIRED` + `StpBook` unlink on `Canceled`/`Rejected`/`Filled` without waiting on fee closure, `FrontAck`/`Ack` separation, `cxl_qty = order_qty - projected_fill_qty`, `FillRecordPool` trade-ID deduplication with `amendment = true` fee/rebate updates, unified multi-wallet `AssetKey` solvency, and cold Exchange REST `Account + OpenOrders` + `tw1...` `SelfDescribingClientId` recovery.
+- **Property:** Power-of-two `OrderManager` 4-state (`EMPTY -> CLAIMED -> LIVE -> RETIRED` / `SlotState::Retired`) slot recycle with post-lock `(strat_id, seqnum)` identity recheck, immediate retirement + `OrsStpBook` unlink on `Canceled`/`Rejected`/`Filled` without waiting on `fee_reconciled`, `FrontAck`/`Ack` separation, `cxl_qty = order_qty - projected_fill_qty`, `FillRecordPool` trade-ID deduplication with `amendment = true` fee/rebate updates, unified multi-wallet `AssetKey` solvency, and cold Exchange REST `Account + OpenOrders` + `tw1...` `SelfDescribingClientId` recovery.
 - **Apalache/Z3 & TLC:** `account/L0` `97,889` / `220` distinct (`14/14` actions); `account/L1_SymOrsOrderLifecycle` `IndInv` `PASS` (`101` VCs, `NoError`, `4s`), BMC `k=5` `PASS` (`7s`), TLC `870` / `1,382` distinct (`12/12` actions); `binance_roundtrip/L0` `211` / `211` distinct (`8/8` actions); `spot_roundtrip/L0` `2,773` / `2,773` distinct (`10/10` actions); `9,876` line anchors (`0` drift). [Account roadmap](execution_models/account/ROADMAP.md) · [Binance roundtrip roadmap](execution_models/binance_roundtrip/ROADMAP.md) · [Spot roundtrip roadmap](execution_models/spot_roundtrip/ROADMAP.md)
 
 ### `query_desk / L0_ors_query_desk + L1_sym_ors_query_desk` — PASS
@@ -44,7 +46,7 @@
 
 ---
 
-## Retained Core Market-Data, SHM, Microstructure, Risk & Clock Families (`main` @ `438551c`)
+## Retained Core Market-Data, SHM, Microstructure, Risk & Clock Families (`main` @ `4c52ff7`)
 
 - **`binance_depth_sync` (`L0_coordinator` + `L1_sym_coordinator`):** TLC (`4` configs + `2` symbolic smoke configs, `23/23` actions) + Apalache/Z3 64-bit `IndInv` (`NoError`, `1,267` anchors, `0` drift). [Roadmap](execution_models/binance_depth_sync/ROADMAP.md)
 - **`clock` (`L0_calibration` + `L1_sym_calibration`) & `system_clock` (`L0_native_owner`):** TLC (`4` + `2` + `4` configs, `16/16` and `21/21` actions) + Apalache/Z3 64-bit/`u128` `IndInv` (`NoError`, `956` anchors, `0` drift). [Clock roadmap](execution_models/clock/ROADMAP.md) · [System clock roadmap](execution_models/system_clock/ROADMAP.md)

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="760" height="996" viewBox="0 0 760 996"
      role="img" aria-labelledby="title description">
   <title id="title">Tickwire stateless 3-process Linux shared-memory architecture</title>
-  <desc id="description">Stateless 3-process Linux shared-memory trading architecture: tickwire-md decodes public venue feeds on hot reactor_cpu with cold md-cold housekeeping_cpus into a memfd-sealed SPMC market ring; 1..M tickwire-strategy-worker processes on worker_cpu consume independent market cursors and exchange inline 1024-byte IntentRecord and 512-byte ReportRecord SPSC shared-memory rings plus DOP Unix socket bootstrap with a unified per-venue ORS process hosting 1..N multi-UID AccountSessions, disjoint REQ spin (req_cpu) and RESP epoll (resp_cpu) hot threads, SharedRateLimiter, LinkOps WS/HTTPS/FIX with SO_BINDTODEVICE, and cold housekeeping_cpus Dialer, AsyncRestQuerier/OrsQueryDesk, LatencyTracer, SignalWaiter, and Exchange REST tw1 bootstrap.</desc>
+  <desc id="description">Stateless 3-process Linux shared-memory trading architecture: tickwire-md decodes public venue feeds on hot reactor_cpu with cold md-cold housekeeping_cpus into a memfd-sealed SPMC market ring; 1..M tickwire-strategy-worker processes on worker_cpu consume independent market cursors and exchange inline 1024-byte IntentRecord and 512-byte ReportRecord SPSC shared-memory rings plus DOP and Unix control sockets (DopLogin and SCM_RIGHTS memfd attach) with a unified per-venue ORS process hosting 1..N multi-UID AccountSessions, disjoint REQ spin (req_cpu) and RESP epoll (resp_cpu) hot threads, SharedRateLimiter, LinkOps WS/HTTPS/FIX with SO_BINDTODEVICE, and cold housekeeping_cpus Dialer, ControlServer, AsyncRestQuerier/OrsQueryDesk, LatencyTracer, SignalWaiter, and Exchange REST tw1 bootstrap.</desc>
   <defs>
     <marker id="arrow-slate" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
@@ -109,8 +109,8 @@
   <text x="137" y="486" class="edge-sub">Inline New · Modify · Cancel</text>
 
   <rect class="pill-teal" x="264" y="446" width="232" height="50" rx="8"/>
-  <text x="380" y="467" class="edge-teal">DOP Unix Control Socket</text>
-  <text x="380" y="486" class="edge-sub">SCM_RIGHTS memfd attach</text>
+  <text x="380" y="467" class="edge-teal">DOP &amp; Unix Control Sockets</text>
+  <text x="380" y="486" class="edge-sub">DopLogin · SCM_RIGHTS attach</text>
 
   <rect class="pill" x="506" y="446" width="234" height="50" rx="8"/>
   <text x="623" y="467" class="edge-lbl">ReportRecord SHM (512B)</text>
@@ -126,15 +126,15 @@
   <rect class="mod-req" x="32" y="596" width="338" height="112" rx="6"/>
   <text x="201" y="620" class="h-hot-blue">REQ Spin Thread (req_cpu)</text>
   <text x="201" y="643" class="sub-mod">23 µs stale gate · Flat RmsEngine</text>
-  <text x="201" y="665" class="sub-mod">Atomic BBO StpBook::self_cross</text>
-  <text x="201" y="687" class="sub-mod">OrderRouter::pick (9/8 EWMA) · tw1...</text>
+  <text x="201" y="665" class="sub-mod">Atomic BBO OrsStpBook::self_cross</text>
+  <text x="201" y="687" class="sub-mod">PublishedRoutes::pick (9/8 EWMA)</text>
 
   <!-- Hot Core 2: RESP Epoll Thread -->
   <rect class="mod-resp" x="390" y="596" width="338" height="112" rx="6"/>
   <text x="559" y="620" class="h-hot-teal">RESP Epoll Thread (resp_cpu)</text>
   <text x="559" y="643" class="sub-mod">epoll_wait_ms = 0 · Single-pass JsonScan</text>
   <text x="559" y="665" class="sub-mod">One ack (FrontAck/Ack) · ProjectedFill</text>
-  <text x="559" y="687" class="sub-mod">FillRecordPool (amendment) · RETIRED</text>
+  <text x="559" y="687" class="sub-mod">FillRecordPool (amendment) · Retired</text>
 
   <!-- Internal ORS Handoffs -->
   <path class="wire-blue" d="M201 708 V721" marker-end="url(#arrow-blue)"/>
@@ -151,7 +151,7 @@
   <!-- Cold Housekeeping Actors -->
   <rect class="mod-async" x="390" y="724" width="338" height="114" rx="6"/>
   <text x="559" y="748" class="h-async">Cold housekeeping_cpus (Disjoint)</text>
-  <text x="559" y="771" class="sub-mod">Dialer (DNS + TLS) · SignalWaiter</text>
+  <text x="559" y="771" class="sub-mod">Dialer · ControlServer · SignalWaiter</text>
   <text x="559" y="793" class="sub-mod">AsyncRestQuerier / OrsQueryDesk</text>
   <text x="559" y="815" class="sub-mod">LatencyTracer · Cold REST tw1... boot</text>
 

@@ -17,8 +17,8 @@ Tickwire targets **Linux** in production and process-level integration tests. Ke
 2. **System utilities:** OpenSSL headers/libraries and GNU `binutils` (`strip`, used by Linux process harnesses when preparing worker binaries).
 3. **Python 3.11+:** Used for documentation link checking, golden-vector and JSON Schema verification (`jsonschema` in `scripts/requirements-design.txt`), and multi-process demonstration launchers.
 4. **Optional verification tools:**
-   * **Docker:** Optional isolated container mode (`TICKWIRE_LINUX_DOCKER=1`) for `./scripts/check-linux.sh` and `./scripts/run-core-chain-linux.sh` (both also support native Linux execution).
-   * **Java (JRE 11+) / Apalache:** Required for `./scripts/check-tla.sh` (executes the pinned TLC 1.7.4 model checker in `tla/tools/tla2tools.jar`) and symbolic inductive checks.
+   * **Docker:** Optional isolated container mode (`TICKWIRE_LINUX_DOCKER=1` or `--docker`) for `./scripts/check-linux.sh` and `./scripts/run-core-chain-linux.sh` (both default to native execution on Linux hosts).
+   * **Java (JRE 11+) / Apalache 0.63.0:** Required for `./scripts/check-tla.sh` (executes `anchors.lock` SHA-256 verification, the pinned TLC 2.19 model checker in `tla/tools/tla2tools.jar` [`v1.7.4` release], and—when `tla/tools/apalache/lib/apalache.jar`, `APALACHE_JAR`, or `APALACHE_BIN` is present—Snowcat-typed Apalache/Z3 symbolic inductive checks).
 
 ---
 
@@ -31,7 +31,7 @@ Tickwire targets **Linux** in production and process-level integration tests. Ke
   * [`specs/implementation/`](specs/implementation/README.md) — All 53 per-module behavioral contracts, state machines, and resource bounds.
   * [`specs/contracts/`](specs/contracts/README.md) — Machine-readable JSON schemas and language-independent golden test vectors.
   * `specs/evidence/` — Historical acceptance archives with byte-exact SHA-256 manifests (**never edit archived files**).
-* **`tla/`** — Finite-state TLC and symbolic Apalache TLA+ specifications anchored to concrete Rust source revisions (see [`tla/ROADMAP.md`](tla/ROADMAP.md)).
+* **`tla/`** — 21 model families (`40` finite-state TLC 2.19 models and `11` Snowcat-typed symbolic Apalache 0.63.0 `IndInv` models) anchored via `anchors.lock` SHA-256 digests to concrete Rust source lines (see [`tla/ROADMAP.md`](tla/ROADMAP.md)).
 * **`scripts/`** — Rust, Linux IPC/affinity, contract, documentation, and TLA+ verification runners (see [`scripts/README.md`](scripts/README.md)).
 * **`assets/`** — Hand-authored architectural SVG diagrams ([`assets/architecture.svg`](assets/architecture.svg) and [`assets/order-lifecycle.svg`](assets/order-lifecycle.svg)) verified down to 320px viewport width.
 
@@ -45,7 +45,7 @@ Before changing observable behavior or public APIs, identify the single writer o
 
 1. Update the governing specification in [`specs/implementation/`](specs/implementation/README.md), the crate's local `AGENTS.md`, and its crate-root `//!` rustdoc in lockstep with concrete inputs, state transitions, refusal/doubt/freeze semantics, and acceptance criteria.
 2. Add positive and negative unit or integration tests in the owning crate covering the target transition and boundary conditions.
-3. Implement the change in safe, checked Rust (`#![forbid(unsafe_code)]` outside the four audited OS/wire boundaries, checked integer ticks/lots/`Fixed` math with zero floats, and zero logging, allocation, or parsing while holding any spinlock).
+3. Implement the change in safe, checked Rust (`[workspace.lints.rust] unsafe_code = "forbid"` outside the audited OS/clock/control, zero-copy/SIMD wire, and seal-verified `memfd` attachment boundaries under `#![deny(unsafe_op_in_unsafe_fn)]`, checked integer ticks/lots/`Fixed` math with zero floats, and zero logging, allocation, or parsing while holding any spinlock).
 
 ### 2. Keep Cross-Language Contracts Synchronized
 
