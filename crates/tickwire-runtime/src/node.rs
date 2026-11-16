@@ -1,4 +1,4 @@
-//! Multi-threaded `OrsProcess<S: VenueSession>` coordinator (`8.2`), CPU-isolated hot/cold worker
+//! Multi-threaded `OrsProcess<S: VenueSession>` coordinator, CPU-isolated hot/cold worker
 //! spawning, OS signal handling (`SIGUSR1`, `SIGUSR2`, `SIGINT`, `SIGTERM`), and ordered graceful
 //! shutdown (`REQ` join -> open-order/quote drain -> `OrsShutDown` broadcast -> `ControlServer` ->
 //! `RESP` + `Dialer`).
@@ -31,7 +31,7 @@ use crate::ors::{AccountSession, OrderRoutingSystem, OrsCpuConfig, OrsRuntimeCon
 use crate::session::VenueSession;
 
 /// Default graceful-shutdown drain timeout while waiting for open orders and RFQ quotes to reach
-/// zero (`2s`, `human-docs/8.2`).
+/// zero (`2s`).
 pub const DEFAULT_SHUTDOWN_DRAIN_TIMEOUT: Duration = Duration::from_secs(2);
 
 /// Configuration for spawning and supervising a multi-threaded [`OrsProcess`].
@@ -455,7 +455,7 @@ impl<S: VenueSession> OrsProcess<S> {
         open_orders.saturating_add(open_quotes)
     }
 
-    /// Dispatches a single [`OrsSignal`] (`SIGUSR1`, `SIGUSR2`, `SIGINT`, `SIGTERM`, `8.2`).
+    /// Dispatches a single [`OrsSignal`] (`SIGUSR1`, `SIGUSR2`, `SIGINT`, `SIGTERM`).
     pub fn handle_signal(&self, signal: OrsSignal) -> OrsSignalOutcome {
         match signal {
             OrsSignal::SigUsr1 => {
@@ -499,7 +499,7 @@ impl<S: VenueSession> OrsProcess<S> {
     }
 
     /// Pins the calling `main` thread to `housekeeping_cpus` (when configured) and polls `waiter`
-    /// until `SIGINT`/`SIGTERM` (or external [`Self::shutdown`]) terminates the process (`8.2`).
+    /// until `SIGINT`/`SIGTERM` (or external [`Self::shutdown`]) terminates the process.
     pub fn run_signal_loop(
         &self,
         waiter: &SignalWaiter,
@@ -523,7 +523,7 @@ impl<S: VenueSession> OrsProcess<S> {
         Ok(None)
     }
 
-    /// Executes the deterministic ordered ORS shutdown sequence (`human-docs/8.2`):
+    /// Executes the deterministic ordered ORS shutdown sequence:
     /// 1. Transition policy to [`Mode::Stopped`] and stop & join `REQ` (`"tw-ors-req"`).
     /// 2. Enqueue [`RespAdminCommand::ShutdownCancelAll`] so `RESP` transmits cancels for all open
     ///    orders and RFQ quotes, polling up to `shutdown_drain_timeout` (`2s` default) for open

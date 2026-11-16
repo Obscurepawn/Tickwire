@@ -390,7 +390,7 @@ impl OrsRuntimePolicy {
         Ok(self.global_strat_enabled.set(strat_id, enabled))
     }
 
-    /// Returns the strategy-wide `enabled` flag echoed at `DopLogin` (`11 logon-process.md`).
+    /// Returns the strategy-wide `enabled` flag echoed at `DopLogin` (`DopEcho`).
     #[inline]
     pub fn is_global_strat_enabled(&self, strat_id: u8) -> bool {
         self.is_whitelisted(strat_id) && self.global_strat_enabled.contains(strat_id)

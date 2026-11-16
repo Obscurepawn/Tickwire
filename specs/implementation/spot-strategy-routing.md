@@ -1,6 +1,6 @@
 # Shared UTA Strategy Routing for Bybit V5 and OKX V5
 
-`UtaVenueSession` (`tickwire-spot-runner`) connects [`tickwire-spot-execution`](../../crates/tickwire-spot-execution/src/lib.rs) directly to [`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs)'s generic `OrderRoutingSystem<S>` and `OrsProcess<S>`, multiplexing inline `1,024B` `IntentRecord` commands from `1..N` strategy workers across `1..N` Unified Trading Account (`AccountSession`) instances (`1 ORS process = 1 Venue`, `1 AccountSession = 1 Exchange UID`, `account_ref = 1..=255`).
+`UtaVenueSession` (`BybitVenueSession` and `OkxVenueSession` in `tickwire-spot-runner`, and integrated alongside `BinanceVenueSession` inside `tickwire-app`'s `UnifiedVenueSession`) connects [`tickwire-spot-execution`](../../crates/tickwire-spot-execution/src/lib.rs) directly to [`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs)'s generic `OrderRoutingSystem<S>` and `OrsProcess<S>`, multiplexing inline `1,024B` `IntentRecord` commands from `1..N` strategy workers across `1..N` Unified Trading Account (`AccountSession`) instances (`1 ORS process = 1 Venue`, `1 AccountSession = 1 Exchange UID`, `account_ref = 1..=255`).
 
 ## State Ownership and Routing Architecture
 

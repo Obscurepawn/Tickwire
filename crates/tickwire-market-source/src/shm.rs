@@ -61,7 +61,7 @@ impl ConnectConfig {
         })
     }
 }
-/// A completed actual JOIN. The baseline is retained verbatim for strategy recovery.
+/// A completed actual JOIN retaining the verbatim baseline snapshot in memory.
 pub struct Client {
     pub consumer: JoinConsumer<4>,
     pub replica: MarketReplica,
@@ -71,7 +71,7 @@ pub struct Client {
     pub baseline_bytes: Vec<u8>,
     pub baseline_now: u64,
     /// Exact post-snapshot records consumed before activation, with the actual
-    /// local apply time. A strategy must journal them before its first callback.
+    /// local apply time, giving strategies a gap-free catch-up prefix in memory.
     pub catchup: Vec<CatchupRecord>,
     pub bank: ResourceHeader,
     pub join: JoinBody,

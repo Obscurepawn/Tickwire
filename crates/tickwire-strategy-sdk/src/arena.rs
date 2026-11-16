@@ -18,7 +18,7 @@ const HEADER_BYTES: usize = 4096;
 const BLOCK_HEADER_BYTES: u32 = 128;
 const MAX_ARENA_PAYLOAD_BYTES: u32 = 65_536;
 
-/// Allocation metadata returned by [`ArenaWriter::write_payload`] prior to ring publication.
+/// Allocation metadata returned by [`ShmArenaWriter::write_payload`] prior to ring publication.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ArenaSliceMeta {
     pub class_id: u16,

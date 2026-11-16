@@ -1,5 +1,5 @@
 //! Lock-free `AdminCommands` rings (`control -> REQ` and `control -> RESP`) and
-//! `housekeeping_cpus`-pinned DOP `ControlServer` (`"tw-ors-ctrl"`, `10 §2.6`, `11`).
+//! `housekeeping_cpus`-pinned DOP `ControlServer` (`"tw-ors-ctrl"`).
 
 use std::net::IpAddr;
 use std::path::Path;
@@ -22,7 +22,7 @@ use tickwire_runtime_policy::{Mode, OrsRuntimePolicy};
 use tickwire_transport::{LockDomain, LockId, ThreadTag, TimedSpinLock, mono_now_ns};
 use tickwire_venue::RefusalReason;
 
-/// Default DOP idle heartbeat interval (`1,021 ms`, `human-docs/11`).
+/// Default DOP idle heartbeat interval (`1,021 ms`).
 pub const DEFAULT_DOP_HB_INTERVAL_MS: u32 = 1_021;
 
 /// Default bounded capacity of each `AdminQueue`.
@@ -147,7 +147,7 @@ impl<T> AdminQueue<T> {
     }
 }
 
-/// Administrative commands posted to the `REQ` thread (`8.2`, drained when outbound rings are idle).
+/// Administrative commands posted to the `REQ` thread (drained when outbound rings are idle).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ReqAdminCommand {
     /// Cancel a single open order by `ors_order_id`.
@@ -183,7 +183,7 @@ pub enum ReqAdminCommand {
     RmsReload { generation: u64 },
 }
 
-/// Administrative commands posted to the `RESP` thread (`8.2`, woken immediately via `mio::Waker`).
+/// Administrative commands posted to the `RESP` thread (woken immediately via `mio::Waker`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RespAdminCommand {
     /// Enqueue `OpenOrders` diagnostic REST queries on `account_ref` (`None` = all accounts).
@@ -351,8 +351,8 @@ struct LiveStrategyPeer {
 ///
 /// Handles strategy `DopLogin` (`effective_seq = max(login_seq, next_order_seqnum)` +
 /// `last_recv_seqnum = 0` -> `DopEcho` + `OrsSessions`), `DopLogout` (`CancelAll` for that
-/// `strat_id`), abrupt socket drops (clearing `connected` without canceling resting orders, per
-/// `human-docs/11`), idle `DopHeartBeat` emission, and operator `set_strat_enabled` commands.
+/// `strat_id`), abrupt socket drops (clearing `connected` without canceling resting orders while
+/// preserving sequence floors), idle `DopHeartBeat` emission, and operator `set_strat_enabled` commands.
 pub struct ControlServer {
     stopped: Arc<AtomicBool>,
     worker_tid: Arc<AtomicI32>,
@@ -446,7 +446,7 @@ impl ControlServer {
 
     /// Operator command toggling `(account_ref, strat_id)` (`account_ref = 0` applies globally
     /// across all accounts). Immediately updates atomic policy flags and enqueues `SetStratEnabled`
-    /// onto `REQ` so disabling auto-cancels open orders on the target scope (`human-docs/11`).
+    /// onto `REQ` so disabling auto-cancels open orders on the target scope.
     pub fn set_strat_enabled(
         &self,
         account_ref: u8,

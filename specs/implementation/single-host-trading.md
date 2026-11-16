@@ -8,7 +8,7 @@ Tickwire executes live trading on a single Linux host as three cooperating, pure
 2. **Strategy Workers (`tickwire-strategy-sdk` / `tickwire-strategy-host`):** Join `tickwire-md` SHM broadcast rings, complete DOP logon (`DopLogin` -> `DopEcho` + `OrsSessions`) over a `0o700` Unix control socket, publish inline 1,024-byte `IntentRecord`s, and consume inline 512-byte `ReportRecord`s.
 3. **Unified Venue-Agnostic ORS Process ([`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs)):** `1 ORS process = 1 Venue`, managing `1..N` `AccountSession`s (`1 AccountSession = 1 Exchange UID`, `account_ref = 1..=255` with `0` routing to the strategy's first authorized account), holding **zero public market-data connections and zero SHM quote subscriptions**.
 
-[`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs) compiles under `#![forbid(unsafe_code)]`, performs zero floating-point arithmetic, and depends on **zero venue-specific crates**—all exchange protocol framing and REST payloads plug into the generic `VenueSession` trait ([`session.rs`](../../crates/tickwire-runtime/src/session.rs)).
+[`tickwire-runtime`](../../crates/tickwire-runtime/src/lib.rs) compiles under `#![forbid(unsafe_code)]`, performs zero floating-point arithmetic, and depends on **zero venue-specific crates**—all exchange protocol framing and REST payloads plug into the generic `VenueSession` trait ([`session.rs`](../../crates/tickwire-runtime/src/session.rs)), implemented by `BinanceVenueSession` (`BinanceSession` in `tickwire-app` / `tickwire-binance-session` for Spot, USD-M, Coin-M, and European Options), `UtaVenueSession` (`BybitVenueSession` / `OkxVenueSession` in [`tickwire-spot-runner`](spot-strategy-routing.md) for 6-product Bybit V5 and OKX V5 Unified Trading Accounts), and `UnifiedVenueSession` in `tickwire-app`.
 
 ## Reproduce Native Quote Decoding
 
@@ -44,7 +44,7 @@ Each `AccountSession<S: VenueSession>` pairs generic ORS state (`AccountSpec`, `
 2. **`RESP` Hot Thread (`resp_cpu`, `mio::Poll` with configurable `epoll_wait_ms`, default `0`):**
    - Harvests ready connections from `Dialer` (`DialBaton`), drives `LockedConnection` socket reads/heartbeats, applies `VenueSession::on_message` / `on_disconnected` to `OrderManager` and `RmsReloadHandle::record_execution_fee`, drains `AsyncRestQuerier` replies (`OrsQueryDesk`), drains `control -> RESP` `AdminCommands` (`QueryOpen`, `Dump`, `ForceClose`, `ResendHeartbeat`), and publishes 512-byte `ReportRecord`s (`Ack`, `FrontAck`, `Nack`, `CancelNack`, `Fill`, `Canceled`, `Modified`, `ModifyRejected`, `ExchRateLimit`, `OrsRestricted`, `OrsShutDown`).
 3. **Cold Housekeeping Threads (`housekeeping_cpus`):**
-   - Every non-hot thread—`Dialer` (`tw-dialer`), per-account `AsyncRestQuerier` (`tw-rest-query`), `LatencyTracer` sink (`tw-lat-trace`), DOP `ControlServer` (`tw-ors-ctrl`), and the `main` `SignalWaiter` loop—is explicitly pinned to `housekeeping_cpus` via `spawn_pinned_thread` / `pin_current_thread` so inheriting a parent `taskset` never leaks background activity onto `req_cpu` or `resp_cpu`.
+   - Every non-hot thread—`Dialer` (`tw-dialer`), per-account `AsyncRestQuerier` (`tw-rest-query`), `LatencyTracer` sink (`tw-latency-sink`), DOP `ControlServer` (`tw-ors-ctrl`), and the `main` `SignalWaiter` loop—is explicitly pinned to `housekeeping_cpus` via `spawn_pinned_thread` / `pin_current_thread` so inheriting a parent `taskset` never leaks background activity onto `req_cpu` or `resp_cpu`.
 
 ## DOP `ControlServer`, `AdminCommands`, and OS Signal Lifecycle (`admin.rs`, `files.rs`)
 

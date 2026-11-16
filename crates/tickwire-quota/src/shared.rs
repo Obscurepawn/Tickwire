@@ -58,7 +58,7 @@ impl IpBudgetSpec {
 }
 
 /// Built-in ORS venue rate-limit profile covering Binance (Spot, USD-M, COIN-M, Options),
-/// OKX UTA, and Bybit UTA (`human-docs/5.2 venue-limits.md`).
+/// OKX UTA, and Bybit UTA (`specs/implementation/quota.md`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum OrsVenueProfile {
     BinanceSpot,
@@ -903,7 +903,7 @@ impl SharedRateLimiter {
 
     /// Installs `rule` if absent, returning its [`SharedWindowHandle`].
     ///
-    /// As specified in `human-docs/5`, the first insert of `rule.id` keeps its `limit`; any
+    /// By contract (`specs/implementation/quota.md`), the first insert of `rule.id` keeps its `limit`; any
     /// subsequent `add` with the same `RateLimitId` returns the existing handle.
     pub fn add(&self, rule: RateRule) -> core::result::Result<SharedWindowHandle, RateReject> {
         let interval_ns = Self::validate_rule(rule)?;

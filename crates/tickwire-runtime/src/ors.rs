@@ -57,7 +57,7 @@ use crate::session::{
     SubmitNewOutcome, UrlRole, VenueSession,
 };
 
-/// Default microsecond stale-order gate on `REQ` (`23,000 ns` = `23 us`, `human-docs/2`, `8.2`).
+/// Default microsecond stale-order gate on `REQ` (`23,000 ns` = `23 us`).
 pub const DEFAULT_MAX_ORDER_AGE_NS: u64 = 23_000;
 
 /// Default cross-thread `REQ -> RESP` synchronous report queue capacity.
@@ -71,7 +71,7 @@ const RAW_RX_BUFFER_BYTES: usize = 64 * 1024;
 
 const RESP_WAKE_TOKEN: Token = Token(0);
 
-/// Hot vs. cold CPU affinity & epoll wait configuration for an ORS execution process (`8.2`).
+/// Hot vs. cold CPU affinity & epoll wait configuration for an ORS execution process.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct OrsCpuConfig {
     /// Dedicated core for the `REQ` outbound busy-spin thread (`None` = unpinned).

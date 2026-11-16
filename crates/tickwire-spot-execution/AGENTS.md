@@ -4,7 +4,7 @@
 
 ## Module Architecture & Single-Writer Ownership
 
-* **[`src/lib.rs`](src/lib.rs)**: Public venue identity (`SpotVenue`), credential types (`Credentials`, `OwnedCredentials`), UTA product/margin/position descriptors (`OkxMarginMode`, `BybitPositionIdx`, `bybit_category_for_product`, `okx_inst_type_for_product`), endpoint resolvers, and crate re-exports.
+* **[`src/lib.rs`](src/lib.rs)**: Public venue identity (`SpotVenue`), borrowed credential signing (`Credentials`), UTA product/margin/position descriptors (`BybitCategory::from_product`, `OkxInstType::from_product`, `OkxMarginMode`, `BybitPositionIdx`), endpoint resolvers, and crate re-exports (`OwnedCredentials` lives in [`src/network.rs`](src/network.rs)).
 * **[`src/ws_envelope.rs`](src/ws_envelope.rs)**: Zero-allocation stack WebSocket login, subscription step state machine, and heartbeat (`ping`/`pong`) builders/verifiers for OKX V5 (`op: "login"` Base64 HMAC-SHA256 `"{ts}GET/users/self/verify"`, step `0` `orders` `instType: "ANY"`, step `1` `balance_and_position`, `20s` text `"ping"`/`"pong"`) and Bybit V5 (`op: "auth"` hex HMAC-SHA256 `"GET/realtime{expires}"`, private `["order", "execution", "execution.fast", "wallet"]`, `20s` `{"op":"ping"}`).
 * **[`src/wire_encode.rs`](src/wire_encode.rs)**: Zero-allocation stack wire encoders for Bybit V5 and OKX V5 WebSocket trade frames (`WsLink` `Shared` 16-in-flight) and pooled HTTP/1.1 keep-alive `POST` requests (`HttpsLink` `Exclusive`), supporting all six UTA products, `reduceOnly`, `positionIdx` / `posSide`, `tdMode`, `smpType`, and `TimeInForce::Rpi` (`"RPI"` on Bybit, `ordType: "rpi"` on OKX).
 * **[`src/json_parser.rs`](src/json_parser.rs)**: Single-pass zero-allocation `JsonScan` parsers (`BybitUtaParser`, `OkxUtaParser`, implementing `tickwire_transport::json_scan::MsgParser`) decoding synchronous WS/HTTPS order/amend/cancel replies, private `order`/`orders` projections (`ProjectedFill` + deterministic `TerminalReason` classification), `execution.fast` (no fee) -> full `execution` fee amendments (`amendment = true`), multi-wallet balances, rate-limit codes/headers (`429`, Bybit `10006`, OKX `50011`), and server maintenance notices (`{"event":"notice","code":"64008",...}` -> `graceful_drain_connection = true`).
@@ -21,6 +21,7 @@
 
 ## Governing Specifications & Verification
 
+* **Benchmarks & integration tests**: [benches/hotpath_warmup.rs](benches/hotpath_warmup.rs) · [tests/observations.rs](tests/observations.rs) · [tests/uta_protocol_and_scan.rs](tests/uta_protocol_and_scan.rs) · [tests/uta_recovery_and_rfq.rs](tests/uta_recovery_and_rfq.rs) · [tests/uta_sessions.rs](tests/uta_sessions.rs)
 * **Specifications**: [spot-execution.md](../../specs/implementation/spot-execution.md) · [spot-rest-recovery.md](../../specs/implementation/spot-rest-recovery.md)
 
 ```sh

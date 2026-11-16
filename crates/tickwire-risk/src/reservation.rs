@@ -18,8 +18,8 @@ impl Money {
         })
     }
 }
-/// Single-writer aggregate for one asset. Order identity, replay and journal
-/// ownership belong to the executor; this type never releases on a timeout.
+/// Single-writer aggregate for one asset. Order identity, deduplication, and
+/// venue reconciliation belong to `tickwire-account`; timeouts release zero.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ReservationAccount {
     available: Money,

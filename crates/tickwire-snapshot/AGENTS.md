@@ -1,7 +1,7 @@
 # tickwire-snapshot
 
-`tickwire-snapshot` (`#![forbid(unsafe_code)]`) owns cold-path construction (`build_topic` in
-[src/builder.rs](src/builder.rs)) and authenticated-context validation (`validate` and
+`tickwire-snapshot` (`#![forbid(unsafe_code)]`) owns cold-path construction (`build_topic` and
+`build_topic_with_coverage` in [src/builder.rs](src/builder.rs)) and authenticated-context validation (`validate` and
 `ValidatedTopic` in [src/lib.rs](src/lib.rs)) of immutable normalized topic snapshots used when a
 strategy joins a live market feed. Shared-memory `memfd` sealing belongs in `tickwire-shm-sys`, and
 control-channel descriptor offers and cursor activation belong in `tickwire-join`.
