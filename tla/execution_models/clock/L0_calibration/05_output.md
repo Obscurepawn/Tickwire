@@ -1,9 +1,5 @@
-# L0 校准验证结果
+# L0 calibration verification output
 
-当前仍在完成四个配置的最终穷举。边界配置已通过；其余配置完成后统一记录状态数、最终覆盖和源码哈希。模型没有开放的源码候选。
+PASS across all four bounded configurations (`boundary`, `primary`, `rounding`, `usdm`) with zero open source candidates; unbounded 64-bit symbolic induction across all drift rates is additionally proved in [`../L1_sym_calibration/05_output.md`](../L1_sym_calibration/05_output.md).
 
-15个不变量覆盖状态类型、故障清除、令牌与区间身份、序号不复用、旧输入无副作用、单调观察、成功读取的范围、精确签名量化、发送条件、连续服务端真值覆盖、预算内窗口、拒绝样本保留原区间、读取不延长有效期及故障撤销。
-
-核心状态转换按 `begin`、`finish`、`cancel`、`read`、`sign_time`、`check_send` 六个可变方法逐项转录。`new` 的选定合法配置成为初态，构造拒绝由Rust测试覆盖；`status` 和字段 getter 没有状态转换。网络客户端、提供者和 TLS 不属于本级状态机。
-
-算术助手与独立服务端真值条件已由 market 只读审阅通过。root 的最终模型与证据审阅在结果冻结后记录。
+All 15 safety invariants hold across state typing, fault clearing, token and interval identity, serial non-reuse, side-effect-free stale rejection, monotonic observation, valid read bounds, exact signature quantization, send-gate bounds, continuous server-truth containment, delivery-budget windows, anchor preservation on rejected samples, non-extension of validity on reads, and fault revocation across `begin`, `finish`, `cancel`, `read`, `sign_time`, and `check_send`.

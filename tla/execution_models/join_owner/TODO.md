@@ -1,3 +1,3 @@
-# JOIN 后续工作
+# JOIN follow-up
 
-L0 已完成源码审阅、四配置穷举、动作覆盖和 1221 行锚点。后续代码具备持久代次登记及退出证据接口时建立 L1；当前 Owner 累计登记上限为 M，不自动复用历史条目。
+`L0_pending_activation` completed source review, exhaustive 4-configuration BFS, full union action coverage, and locked source anchors (`anchors.lock`). Future `L1` work covers generation rotation and process-exit holder reclamation beyond the bounded in-memory `M`-entry registration table.

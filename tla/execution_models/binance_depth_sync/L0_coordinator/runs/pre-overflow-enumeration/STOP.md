@@ -1,5 +1,5 @@
-# 求值优化前的运行
+# Runs prior to quantifier pushdown
 
-本目录保存优化前的模型与配置。两个主配置实际完成 PASS；扩大 Spot 与最初无约束可达性探测运行到中途，由作者发送 SIGTERM 停止，真实进程退出码为 143。停止原因是满队列分支仍逐个枚举与 Reset 无关的事件，重复生成相同后继。没有将中止结果计为安全性 PASS，也没有改小配置域。
+This directory archives the model and configurations prior to pushing the event quantifier into the non-full branch of `DeltaBuffer`. Both primary Spot and USD-M runs completed with `PASS`, while the scaled Spot run and initial unconstrained reachability probe were manually stopped via `SIGTERM` (exit code `143`) because the full-buffer overflow branch redundantly enumerated every event in `Events` despite producing identical `Reset` successors. Aborted runs were never counted as `PASS`, and no parameter bounds were shrunk.
 
-优化后的四组结果另存于上级 runs。优化只是把事件量词移到非满队列分支，后继与事件无关且量词集合非空的等价理由已由 ipc 独立复核。扩大 USD-M 配置在此版本未运行；文件保留当时拟用的完整输入域。
+Completed runs for all four configurations using the equivalence-preserving quantifier placement live in the parent `runs/` directory; the scaled USD-M configuration file here preserves the intended input bounds from that snapshot.

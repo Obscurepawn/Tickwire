@@ -1,218 +1,74 @@
-# lessons.md — case law: how a TLC violation fools you, and the rules that prevent it
+# Verification Case Law (`LESSONS.md`)
 
-> **Read this before classifying any violation as a finding.** Every rule below comes
-> from a real verification mistake (a false positive that looked airtight, or a true
-> positive nearly thrown away). They are written repo-agnostic on purpose — they
-> transfer to any codebase. When you start a new repo, `init` copies this file into the
-> workspace as `LESSONS.md`; grow it there with that repo's own refutations.
+> **Read this before classifying any TLC or Apalache counterexample as a finding.** Every rule below comes from a concrete formal-verification false positive or subtle true positive. Apply the triage checklist first so model artifacts are separated cleanly from real production defects.
 
-The single most common failure mode: **TLC faithfully reports a violation of a model
-that is looser than the system** — the model omitted a guard the code actually has. The
-violation is then information about the *model*, not the *system*. Most of the rules
-below are ways to catch that before you call it a bug. The exceptions (R4) are the
-mirror case: a *faithful* model whose finding is real-but-conditional on a fact only the
-owner holds.
+The single most common failure mode is **a model looser than the production code** — omitting a caller invariant, lock recheck, or dispatch serialization that the implementation enforces. Such a counterexample diagnoses the *model*, not the *system*.
 
 ---
 
 ## Table of Contents
 
-- The triage checklist (before reporting any violation as candidate+)
-- R1 — Denotation, witness, obligations, conditionality
-- R2 — A claimed race needs its threads
-- R3 — Non-terminal states, and mismatched gates over different sets
-- R4 — A faithful model can still raise a conditional finding
-- R5 — A frozen assumption is a precondition too
-- The counterpoint — what a finding that survives the checklist looks like
-
-## The triage checklist (run before reporting any violation as candidate+)
-
-This checklist is also the procedure the **`review`** command runs *adversarially* — a fresh
-pass (ideally an independent agent) that tries to *refute* a candidate: survives → confirmed
-(true positive); falls to any item → retired/refuted (false positive, model artifact, or
-hallucination).
-
-1. **Denotation.** What does each modeled value *denote*, per its producer? (R1.1)
-2. **Witness.** Does the violation carry a *semantic* witness — data actually
-   wrong/missing/lost — not just a label difference? (R1.2)
-3. **Omitted obligations.** Whose obligations (caller contracts, dispatch invariants,
-   status fallbacks, producer ordering) did the model assume away? Did you search *all*
-   relevant trees, including out-of-component callers? (R1.3, R5)
-4. **Conditionality.** Is severity stated as *conditional on* a precisely-named open
-   precondition, rather than escalated on an assumed answer? (R1.4)
-5. **Designed regime.** Is the bound you'd refute on actually closed, or is the design
-   moving it? (R4.4–R4.5)
-
-If every box is clean and the violation still stands, you have a credible candidate.
+- [The Triage Checklist](#the-triage-checklist)
+- [R1 — Denotation, Witness, Obligations, Conditionality](#r1--denotation-witness-obligations-conditionality)
+- [R2 — A Claimed Race Needs Its Runtime Threads](#r2--a-claimed-race-needs-its-runtime-threads)
+- [R3 — Non-Terminal States and Mismatched Threshold Sets](#r3--non-terminal-states-and-mismatched-threshold-sets)
+- [R4 — Domain Bounds and Forward-Looking Regimes](#r4--domain-bounds-and-forward-looking-regimes)
+- [R5 — Verify Frozen Concurrency Assumptions Against Topology](#r5--verify-frozen-concurrency-assumptions-against-topology)
+- [R6 — Tickwire Stateless ORS & Symbolic `QF_LIA` Lessons](#r6--tickwire-stateless-ors--symbolic-qf_lia-lessons)
 
 ---
 
-## R1 — Denotation, witness, obligations, conditionality
+## The Triage Checklist
 
-A "staleness" / "lost data" / "violated invariant" finding is the easiest to get wrong.
+Run this adversarial checklist before promoting any counterexample to `candidate` or `confirmed`:
 
-- **R1.1 — Denotation before invariant.** Before asserting any watermark/counter
-  invariant (`X ≥ Y`), establish *from the producer* what `X` denotes: a sync **progress**
-  marker (a low value means data is lagging / missing) or a content **boundary** marker
-  (a low value means there simply is no data past it). Only the first kind can be
-  "stale". A value below a threshold is not automatically "behind". Write the denotation,
-  with the producer's `file:line`, into the `var ↔ code` map.
-
-- **R1.2 — Staleness needs a witness.** A "stale read" / "lost write" claim must exhibit a
-  concrete *write in the gap* — data that exists in `(served, needed]` and is not
-  returned. A violation whose trace shows only a *version-label* difference, with no data
-  actually different, has proven nothing. Encode the witness in the model (e.g. a
-  `has_data_in_gap` flag the violating state must set) so a label-only "violation" cannot
-  fire.
-
-- **R1.3 — Model the caller's obligations (they may live outside the component).** The
-  guard that makes the system safe may be a *producer/caller contract* enforced in
-  **another module of this repo** (or, if `PROFILE.md` lists it, another source root) — an
-  ordering guarantee, a push-before-read, a value semantics. Enumerate the API's obligations
-  (ordering, value semantics, cadence) and either model them or list them as explicit
-  `ASSUME`-level open questions **before** classifying. Search the rest of the repo (and the
-  roots the profile lists) for the producer first — a missing guard found one directory over
-  flips a "bug" to an artifact. This extends to **tests and design docs**: the tests show
-  what the API *permits*; the design docs show where the bound is *headed*. (If the producer
-  genuinely lives in a *different repo* than the one the skill is scoped to, say so as an
-  open question and have the user add that root to `PROFILE.md` — don't silently reach
-  outside the repo.)
-
-- **R1.4 — Hold severity until the precondition is discharged.** When a finding turns on
-  one fact you cannot settle from the code, classify it **candidate, conditional on that
-  fact**, pose the fact as one precise owner question, and *do not* escalate on the
-  assumed answer. The answer **is** the finding — it cuts to confirmed or refuted either
-  way. Conditionality is honesty about where the truth lives, not pessimism.
+1. **Denotation (R1.1):** What does each modeled variable denote at its producer (`file:line`) — a progress watermark or a content boundary?
+2. **Semantic Witness (R1.2):** Does the counterexample exhibit lost, corrupted, double-counted, or over-committed state rather than a purely internal label difference?
+3. **Caller Obligations (R1.3, R5):** Which producer, router, or spinlock invariants in sibling crates constrain the input domain?
+4. **Conditionality (R1.4):** If a finding depends on an external deployment or venue bound, state severity conditionally on that exact precondition.
+5. **Designed Regime (R4.4–R4.5):** Check both current constants and the governing specification under [`specs/implementation/`](../specs/implementation/README.md).
 
 ---
 
-## R2 — A claimed race needs its threads
+## R1 — Denotation, Witness, Obligations, Conditionality
 
-**The mistake.** Model a non-atomic read-modify-write as racing on two threads and
-"confirm" a lost update — when in production every caller for that object is serialized
-on a single owning run-to-completion worker, so the race cannot occur.
-
-**The rule.** A threading precondition discharged "from the caller code" must survive the
-**entire** dispatch + transport stack: dispatch keys, worker pinning, reactor/ack
-delivery. The model's concurrency must be the *runtime's* concurrency, not the source
-file's apparent one. (Mirror image in R5.)
+- **R1.1 — Denotation before invariant:** Establish from the producer's `file:line` whether a counter or sequence number denotes progress or a closed upper bound, and record that mapping in the `var <-> code` header.
+- **R1.2 — Staleness and loss require a concrete witness:** Encode an explicit witness predicate (for example, an unapplied fill delta, over-released hold, or aliased borrow slot) so label-only divergences cannot masquerade as safety violations.
+- **R1.3 — Model cross-crate caller obligations:** Check caller contracts across the workspace (`tickwire-runtime`, `tickwire-account`, `tickwire-transport`, `tickwire-quota`, `tickwire-shm`) before classifying a module-local trace as reachable.
+- **R1.4 — Hold severity conditional until discharged:** State open domain assumptions explicitly rather than escalating on an unverified guess.
 
 ---
 
-## R3 — Don't collapse non-terminal states; don't conflate two gates over different sets
+## R2 — A Claimed Race Needs Its Runtime Threads
 
-**The mistakes.** (a) Map a *non-terminal* status that triggers a fallback (e.g. "no full
-page → fall back to a quorum read") to a *terminal* failure — manufacturing a
-user-visible error the system doesn't have. (b) Read one threshold (`count ≥ k`) as a
-success gate when it actually filters a *different set* than you assumed — manufacturing
-a contradiction.
-
-**The rule.** For every modeled status/gate, verify (a) terminal vs non-terminal — what
-retry/fallback consumes it — and (b) *which set* a threshold counts. Two thresholds over
-different sets are not "the same check done twice".
+A concurrency race claimed on a struct method must be reachable through the actual thread topology (`REQ` spin thread, `RESP` epoll thread, and cold `housekeeping_cpus` workers such as `Dialer` and `QueryDesk`). Single-writer thread-local state cannot race with itself; shared cross-thread structures (`OrderManager` slots, `LockedConnection`, `DialBaton`, `SharedRateLimiter`) must be modeled at their exact atomic/spinlock boundaries.
 
 ---
 
-## R4 — A *faithful* model can still raise a conditional finding (and "the answer is the finding" cuts toward refuted too)
+## R3 — Non-Terminal States and Mismatched Threshold Sets
 
-Sometimes the spec is exact — not looser than the code — but its *domain* is bounded by an
-external policy the model can't contain (an allocation rule, a service/provisioning
-constraint, a design intent). TLC's violation over the *unconstrained* domain is then a
-candidate **conditional on that bound**.
-
-- **R4.1 — Discharge a domain bound with its owner, not by re-reading the code.** When the
-  code is already faithful, re-reading it won't resolve the finding; the bound lives with
-  whoever owns the allocation/deployment/design rule. The bound may be a **design**
-  invariant (an encoding only needs N bits) *or* a **deployment** invariant (a VM size ×
-  config guarantees a cap) — both are owner-held facts, settled in one precise question
-  with a single concrete witness.
-
-- **R4.2 — Symmetric honesty.** The same conditional-severity discipline that graduates a
-  finding to **confirmed** when the owner says "yes, reachable" discharges it to
-  **refuted (safe by design)** when the owner says "unreachable by design". The owner's
-  answer flips the status, not your prior.
-
-- **R4.3 — Keep the demonstration as a tripwire.** A refuted-by-bound config is not
-  deleted. Retained as a *bound demonstration*, it shows exactly what breaks if the design
-  ever admits the excluded input — a regression tripwire against a future change that
-  widens the domain. (Pair it with a hardening note: assert the bound in code.)
-
-- **R4.4 — "Closed" means the design isn't moving it either.** A finding is "discharged
-  from code" only when the bounding value is in-tree **and not slated to change by the
-  design/roadmap**. A constant the current binary happens to hold (a level count, a size
-  cap) is **not** closed if a design doc plans to widen it. Before downgrading on a
-  code-level bound, **read the design doc / roadmap for that bound**, not just the source
-  and tests. When unsure whether a bound is closed, it is an owner question — keep the
-  finding candidate (R1.4).
-
-- **R4.5 — Model the designed regime, not only the deployed one.** When a subsystem is
-  mid-migration, also check the property under the *target* design. A defect the current
-  partial deployment masks but the intended design exposes is a high-value
-  **forward-looking candidate** — caught before it ships, usually with a cheap fix.
+Verify for every status code and counter threshold:
+1. Whether a rejection or uncertain send status is terminal or routes into `OrsQueryDesk` doubt resolution (`StatusAsk` / `Cancel` retry).
+2. Exactly which set a threshold counts (for example, `order_qty - projected_fill_qty` vs. settled fills, or per-account `ORDER` fixed windows vs. cross-account shared IP rolling sub-buckets).
 
 ---
 
-## R5 — A *frozen assumption* is a precondition too: verify it against the topology, not a comment
+## R4 — Domain Bounds and Forward-Looking Regimes
 
-**The setup.** A level froze a concurrency assumption — "all writers live on one worker;
-the write path is serialized under one lock" — quoting a code comment to make progress.
-The assumption turned out false: one shared instance, sharded by a key *orthogonal* to
-the thread-dispatch key, is reached from multiple workers concurrently; the per-shard
-lock exists precisely because of that. A lock-free pre-check outside the lock was a real
-TOCTOU.
-
-**Why this is the mirror image of R2.** R2: a *claimed race* must survive the dispatch
-stack — there the runtime concurrency was *less* than the source suggested. R5: a
-*claimed serialization* was not real — the runtime concurrency was *more* than a comment
-claimed. The discipline is identical and symmetric: **the model's concurrency must be the
-runtime's concurrency** — applied to assumptions, not just findings.
-
-- **R5.1 — The checklist cuts both ways.** A violation that has *already* enumerated its
-  rescue/recovery paths, carried its semantic witness, and pinned its one open fact
-  converts to **confirmed** the moment that fact lands — with no re-litigation. Rigor
-  spent refuting false positives is rigor banked for confirming the real one. (A finding
-  that survives all of R1–R5 is credible; an *assumption* that hasn't faced the same
-  scrutiny is not yet earned.)
-
-- **R5.2 — A frozen assumption is a hypothesis, not a fact.** Freezing "it's serialized /
-  single-writer" to make progress is fine, but it carries a debt: the level whose concern
-  *is* that assumption must **re-derive it from the ownership + sharding topology** — who
-  owns the instance? how is it sharded? is the shard key the same as the thread-dispatch
-  key? — not from a code comment. A comment is evidence of *intent*, not of runtime
-  behavior, and it goes stale when the design changes.
-
-- **R5.3 — The lock that "shouldn't be needed" is the tell.** If the code holds a
-  per-shard lock and takes it on *read* paths while a comment claims single-writer,
-  believe the lock: it is there because the authors expect concurrent access. Treat the
-  contradiction as a finding to discharge, not noise to ignore.
+- **R4.1–R4.3 — Retain boundary tripwires:** When safety holds under an explicit protocol or configuration invariant (such as `RingCapacity >= 2` or `max_order_age_ns = 23_000`), encode the assumption in `ASSUME` / `ValidConfig` and retain boundary `.cfg` files as regression tripwires.
+- **R4.4–R4.5 — Verify target production topology:** Model the stateless multi-UID ORS execution pipeline directly rather than relying on retired single-account assumptions.
 
 ---
 
-## The counterpoint — what a finding that *survives* the checklist looks like
+## R5 — Verify Frozen Concurrency Assumptions Against Topology
 
-The rules above mostly retire false positives. A finding that graduates candidate →
-confirmed did four things the refuted ones didn't:
+- **R5.1–R5.3 — Believe locks and atomic orderings over stale prose:** Whenever a structure carries per-slot spinlocks (`LockedOrder`, `LockedConnection`, `StpBook`) or `AcqRel` generation tags, derive concurrency invariants from the actual lock hierarchy (`LockedOrder` and `LockedConnection` never overlap; `StpBook` is acquired strictly as a leaf under `LockedOrder`, while send-path self-trade checks read atomic BBO prices lock-free).
 
-1. **Denotation was concrete (R1.1).** Every modeled value mapped to a plain
-   counter/flag/state — no watermark whose semantics could be misread.
-2. **The violation carried a behavior witness (R1.2).** A difference in what the system
-   *does* (e.g. a computed-but-never-delivered response; a duplicated entry), not a label.
-3. **Caller obligations were enumerated *before* classification (R1.3).** Every wake-up /
-   recovery / rescue path was grep-exhausted; the model was made *more generous* than the
-   code, so the violation survives the "your model starved the system" rebuttal.
-4. **Severity stayed conditional until discharge (R1.4).** One precisely-stated owner fact
-   open; nothing escalated on an assumed answer; the owner's affirmative — not your
-   optimism — flipped the status.
+---
 
-Make your model **more generous** than the code where you're unsure (extra recovery
-ticks, an adversary bounded only by the protocol). A violation that survives a generous
-model is the dual of the looser-than-code failure shape — and that's what makes it
-credible.
+## R6 — Tickwire Stateless ORS & Symbolic `QF_LIA` Lessons
 
-## Tickwire audit, 2026-11-05
-
-A passing account reducer can reject an inconsistent terminal total while its caller has already synchronized the decision to disk. Verify the live caller and the next writer's replay of the same prefix together. [Fee closure review](execution_models/cash_evidence/L0_terminal_fees/06_review.md)
-
-An unchanged source line can coexist with changed recovery semantics. The legacy crash/receipt model retained all 269 of its line hashes after the mock runtime acquired persistent zero-byte aborts. Include the current producer and the replay consumer in drift reviews. [Historical boundary review](audits/2026-11-05/legacy-boundaries.md)
-
-Use the authorization sample as the observation point in cross-thread first-write properties. The transport checks the command deadline again before writing. The private reader can observe a socket event in between. [Sample-to-byte witness](execution_models/spot_roundtrip/L0_live_account/04_counterexamples.md)
+1. **Post-lock slot identity recheck on power-of-two `OrderManager` rings:** Because `slot = seqnum & mask` aliases modulo `capacity` once terminal orders transition immediately to `RETIRED` without waiting on late fee amendments, any lock acquisition by slot index must re-verify `(strat_id, seqnum)` inside `LockedOrder` before mutating order state ([`account`](execution_models/account/ROADMAP.md)).
+2. **Separate order-status projections (`ProjectedFill`), trade executions (`Fill`), and fee amendments (`amendment = true`):** Deduplicating trades in `FillRecordPool` while allowing `amendment = true` fee/rebate patches prevents both double position application and false terminal conflicts after immediate `OrderManager` slot retirement ([`account`](execution_models/account/ROADMAP.md), [`market_making_microstructure`](execution_models/market_making_microstructure/ROADMAP.md)).
+3. **Linearize `u32` epoch modulo over 64-bit nanosecond domains in Apalache/Z3 (`QF_LIA`):** In `AtomicFixedWindow::try_take` (`epoch = ((now_ns / 1_000_000_000) as u32)`), nested Euclidean division plus modulo `((t \div 10^9) % 2^32)` over existential `u64` timestamps stalls SMT modulo elimination. Because `0 <= (t \div 10^9) < 5 * 2^32` across all `t \in 0 .. 2^64 - 1`, expressing `WrapU32` as a 5-branch piecewise-linear subtraction is bit-for-bit identical over the entire `u64` domain and solves in seconds ([`request_budget`](execution_models/request_budget/L1_sym_shared_limiter/04_counterexamples.md)).
+4. **Observation-point precision across `REQ`, `RESP`, and `Dialer`:** Model `max_order_age_ns` (`23,000 ns`) staleness checks at `REQ` intake before route/quota spend, and verify connection switchover across `DialBaton` + maintenance `notice` (`64008`) draining so in-flight replies on retiring sockets are never dropped ([`strategy_intake`](execution_models/strategy_intake/ROADMAP.md), [`hotpath_decoupling`](execution_models/hotpath_decoupling/ROADMAP.md)).

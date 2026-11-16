@@ -1,5 +1,5 @@
-# 私有流模型事项
+# Binance private session follow-up
 
-已完成：L0 v2四配置、独立源码映射审阅及末轮动作覆盖。本地截止缺陷已修复；旧v1源码与结果保留历史范围。
+Completed: `L0_session_lifecycle` `v2` across four configurations, independent source-mapping audit, and full union action coverage. The post-callback local monotonic deadline check is verified; historical `v1` artifacts remain archived under `04_evidence/runs/pre-final-sample-v2/`.
 
-后续：L1展开双连接调度和控制帧完成边界；L2组合账户恢复。源码变更时先检查本级anchors.lock，再判断是否需要版本修订。
+Next: expand dual-connection scheduling and control-frame completion boundaries in `L1`, and compose exchange-snapshot recovery gating in `L2`. Run `anchors.sh check` whenever `tickwire-binance-private` or `tickwire-transport` changes.

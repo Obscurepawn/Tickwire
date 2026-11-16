@@ -1,10 +1,10 @@
-# TLC runs
+# Run log — `L1_IdleWarmerIsolation`
 
-TLC 2.19 from the repository-pinned jar (`tla/tools/tla2tools.jar`), single worker (`-workers 1`), breadth-first search with action coverage (`-coverage 1`). From the workspace root run `./scripts/check-tla.sh hotpath_ultralow_latency`.
-
-| Profile | Generated | Distinct | Depth | Remaining | Runtime |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| [Enabled idle-window warmer (`WarmupInterval = 2`) interleaved with live ticks, orders, acks, & pings (`L1_IdleWarmerIsolation.cfg`)](04_evidence/L1_IdleWarmerIsolation.log) | 151,624 | 45,550 | 18 | 0 | 3s |
-| [Disabled warmer policy (`WarmupInterval = 0`) verifying zero warmup runs (`L1_IdleWarmerIsolation_Disabled.cfg`)](04_evidence/L1_IdleWarmerIsolation_Disabled.log) | 14,110 | 3,690 | 16 | 0 | 2s |
-
-Both searches verified all five invariants (`TypeOK`, `LiveBusinessStateInvariance`, `LiveTlsNonceSynchronization`, `DummyLoopbackTlsPairSynchronization`, `WarmupStrictlyRespectsIdlePolicy`) to exhaustion (`0 states left on queue`). Every one of the 8 `Next` actions (`9` coverage entries including `Init`) fired with `> 0` generated successor states across the completed configurations. [Aggregate action coverage](04_evidence/coverage.json)
+- **Engine**: TLC (`./scripts/check-tla.sh hotpath_ultralow_latency`)
+- **Model**: [02_models/L1_IdleWarmerIsolation.tla](02_models/L1_IdleWarmerIsolation.tla)
+- **Run 1 (`WarmupInterval = 2`)**: [02_models/L1_IdleWarmerIsolation.cfg](02_models/L1_IdleWarmerIsolation.cfg)
+  - States: `151,624` generated, `45,550` distinct, `0` left on queue, depth `18`, wall time `01s`.
+  - Verdict: `0` errors (`TypeOK`, `LiveBusinessStateInvariance`, `LiveTlsNonceSynchronization`, `DummyLoopbackTlsPairSynchronization`, `WarmupStrictlyRespectsIdlePolicy` all hold).
+- **Run 2 (`WarmupInterval = 0`)**: [02_models/L1_IdleWarmerIsolation_Disabled.cfg](02_models/L1_IdleWarmerIsolation_Disabled.cfg)
+  - States: `14,110` generated, `3,690` distinct, `0` left on queue, depth `16`, wall time `00s`.
+  - Verdict: `0` errors; combined coverage `9/9` entries (`Init` + all `8` `Next` actions) fired with `> 0` generated states.

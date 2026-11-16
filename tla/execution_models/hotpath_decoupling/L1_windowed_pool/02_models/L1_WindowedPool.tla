@@ -1,61 +1,66 @@
 ---------------------------- MODULE L1_WindowedPool ----------------------------
 EXTENDS Naturals, FiniteSets, Sequences
 
-CONSTANTS NumOrders, MaxOrders, NumMgmt, MaxMgmt, Window, MaxTime, MaxRecords
+CONSTANTS NumOrders, MaxOrders, NumMgmt, MaxMgmt, MaxWays, Window, MaxTime
 
 (*
-Code-faithful model of active-protected time-windowed pools (WindowedTable),
-coupled Account + AccountGateway order/management/fact retention, separate
-management headroom reclamation, and AccountJournal prefix compaction.
+Code-faithful model of pure stateless active-protected time-windowed pools
+(WindowedTable), associative O(1) FillRecordPool trade_id deduplication and
+post-trade fee/rebate amendment (amendment = true), coupled Account +
+AccountGateway order/management/fact retention, per-order transport-doubt
+isolation, and eager management headroom reclamation.
 
 Variable <-> Rust source mapping and state/watermark denotations:
 - now: monotonic clock step in 1..MaxTime representing now_mono_ns / evaluated_at
   and Account.last_mono_ns,
   crates/tickwire-account/src/pool.rs:47-56,
-  crates/tickwire-account/src/lib.rs:788-796,
-  crates/tickwire-account-gateway/src/lib.rs:629-640.
+  crates/tickwire-account/src/lib.rs:1085-1093,
+  crates/tickwire-account-gateway/src/lib.rs:614-625.
 - acct_orders: Account.orders table over OrderIntents tracking present, filled,
-  term_cum (terminal_cumulative), terminal, aborted, unknown, fees_closed,
-  amend_inflight, amend_done, and retired_at (retired_mono_ns),
+  term_cum (terminal_cumulative), terminal, aborted, unknown (observed_unknown),
+  in_doubt (Order.in_doubt), amend_inflight, amend_done, and retired_at
+  (retired_mono_ns),
   crates/tickwire-account/src/pool.rs:28-40,
   crates/tickwire-account/src/pool.rs:363-493,
-  crates/tickwire-account/src/lib.rs:139-167,
-  crates/tickwire-account/src/lib.rs:594-655.
+  crates/tickwire-account/src/lib.rs:247-291,
+  crates/tickwire-account/src/lib.rs:844-912.
 - acct_adm, adm_retired_at: Account.admissions state ("absent", "active", "retired")
   and Admission.retired_mono_ns separating order-creating caps (MAX_ORDERS) from
   management headroom (MAX_MANAGEMENT_ADMISSIONS + eager reclaim),
-  crates/tickwire-account/src/types.rs:7-12,
-  crates/tickwire-account/src/lib.rs:520-592,
-  crates/tickwire-account/src/lib.rs:755-911,
-  crates/tickwire-account/src/admission.rs:78-104,
-  crates/tickwire-account/src/admission.rs:169-176.
-- facts: Account.facts FactEntry.recorded_mono_ns per order's trade execution
-  (0 when absent), enforcing trade-ID deduplication and facts_for_order_expired,
-  crates/tickwire-account/src/events.rs:88-93,
-  crates/tickwire-account/src/lib.rs:564-576,
-  crates/tickwire-account/src/lib.rs:740-753,
-  crates/tickwire-account/src/lib.rs:841-855.
-- pending_send, gw_status, gw_eval_at, gw_completed_at: AccountGateway.pending,
-  AccountGateway.entries status/evaluated_at, and AccountGateway.completed_mono_ns
-  across submit, apply_report(Flushed), abort, evict_retired_entries, and
-  reclaim_one_retired_management_entry,
-  crates/tickwire-account-gateway/src/lib.rs:569-662,
-  crates/tickwire-account-gateway/src/lib.rs:678-809,
-  crates/tickwire-account-gateway/src/lib.rs:1509-1559.
-- evicted_prefix, journal_records, journal_slots, origin_present, frontier_pos:
-  AccountJournal.evicted_prefix, AccountJournal.records suffix, AdmissionSlot
-  ("absent", "in_records", "retained"), AccountJournal.admission_origins keys,
-  and rolling HistoryFrontier / position() watermark across compact_before and
-  maybe_compact_journal,
-  crates/tickwire-account-gateway/src/lib.rs:664-677,
-  crates/tickwire-account-journal/src/lib.rs:173-210,
-  crates/tickwire-account-journal/src/lib.rs:508-652,
-  crates/tickwire-account-journal/src/lib.rs:725-794,
-  crates/tickwire-account-journal/src/lib.rs:821-823.
+  crates/tickwire-account/src/types.rs:7-8,
+  crates/tickwire-account/src/lib.rs:739-842,
+  crates/tickwire-account/src/lib.rs:1026-1080,
+  crates/tickwire-account/src/admission.rs:90-191.
+- fill_ways: associative ways in a FillRecordPool bucket (FillBucket.ways) keyed by
+  FillKey (ors_order_id, exec_ref, side, symbol_id), storing occupied, ord,
+  fee_state ("omitted" for TRADE_LITE, "fee1", "fee2"), and recorded_at
+  (recorded_mono_ns) for O(1) duplicate suppression, post-trade fee delta
+  amendment (FillRecordOutcome::Amended), and oldest-expired-way reclamation,
+  crates/tickwire-account/src/fill_record.rs:16-31,
+  crates/tickwire-account/src/fill_record.rs:68-121,
+  crates/tickwire-account/src/fill_record.rs:171-277.
+- facts, wallet_fee: Account.facts FactEntry.recorded_mono_ns per order's trade
+  execution (0 when absent) and net settled fee atoms booked on the Account wallet
+  across reverse_prior_fee + apply_fee,
+  crates/tickwire-account/src/lib.rs:294-314,
+  crates/tickwire-account/src/lib.rs:1011-1024,
+  crates/tickwire-account/src/events.rs:60-103,
+  crates/tickwire-account/src/events.rs:220-359.
+- pending_send, gw_status, gw_eval_at, gw_completed_at: AccountGateway.pending /
+  GatewayPool.slot_io pending_send, AccountGateway.entries status/evaluated_at, and
+  AccountGateway.completed_mono_ns across submit, apply_report(Flushed), abort,
+  drop_broken_transport_isolated / isolate_intent_in_doubt, evict_retired_entries,
+  and reclaim_one_retired_management_entry,
+  crates/tickwire-account-gateway/src/lib.rs:544-769,
+  crates/tickwire-account-gateway/src/lib.rs:1153-1211,
+  crates/tickwire-account-gateway/src/lib.rs:1343-1475,
+  crates/tickwire-account-gateway/src/pool.rs:54-86,
+  crates/tickwire-account-gateway/src/pool.rs:840-862.
 - ever_orders, ever_mgmt, ghost_orders, ghost_retire_at, admit_count,
-  fact_first_at, trade_book_count, overflow_reclaimed, total_appends:
-  ghost specification observers (never read by transition guards) used strictly
-  to verify ActiveNeverEvicted, WindowDedupPreserved, and FrontierContinuity.
+  fact_first_at, fact_last_at, trade_book_count, ghost_expected_fee,
+  overflow_reclaimed: ghost specification observers (never read by live table
+  eviction logic) used strictly to verify ActiveNeverEvicted, WindowDedupPreserved,
+  and FillAmendmentExactness.
 *)
 
 VARIABLES
@@ -63,43 +68,44 @@ VARIABLES
     acct_orders,
     acct_adm,
     adm_retired_at,
+    fill_ways,
     facts,
+    wallet_fee,
     pending_send,
     gw_status,
     gw_eval_at,
     gw_completed_at,
-    evicted_prefix,
-    journal_records,
-    journal_slots,
-    origin_present,
-    frontier_pos,
     ever_orders,
     ever_mgmt,
     ghost_orders,
     ghost_retire_at,
     admit_count,
     fact_first_at,
+    fact_last_at,
     trade_book_count,
-    overflow_reclaimed,
-    total_appends
+    ghost_expected_fee,
+    overflow_reclaimed
 
 vars == <<
-    now, acct_orders, acct_adm, adm_retired_at, facts, pending_send,
-    gw_status, gw_eval_at, gw_completed_at, evicted_prefix, journal_records,
-    journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-    ghost_orders, ghost_retire_at, admit_count, fact_first_at,
-    trade_book_count, overflow_reclaimed, total_appends
+    now, acct_orders, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+    pending_send, gw_status, gw_eval_at, gw_completed_at, ever_orders,
+    ever_mgmt, ghost_orders, ghost_retire_at, admit_count, fact_first_at,
+    fact_last_at, trade_book_count, ghost_expected_fee, overflow_reclaimed
 >>
 
 OrderIntents == 1..NumOrders
 MgmtIntents == (NumOrders + 1)..(NumOrders + NumMgmt)
 AllIntents == 1..(NumOrders + NumMgmt)
-MaxAppends == (8 * NumOrders) + (3 * NumMgmt)
-HalfRecords == MaxRecords \div 2
+Ways == 1..MaxWays
 
 AdmStates == {"absent", "active", "retired"}
-GwStatuses == {"absent", "Queued", "Flushed", "Aborted"}
-SlotStates == {"absent", "in_records", "retained"}
+GwStatuses == {"absent", "Queued", "Flushed", "Aborted", "Unknown"}
+FeeStates == {"omitted", "fee1", "fee2"}
+
+FeeVal(fs) ==
+    IF fs = "omitted" THEN 0
+    ELSE IF fs = "fee1" THEN 1
+    ELSE 2
 
 NoneOrder == [
     present |-> FALSE,
@@ -108,7 +114,7 @@ NoneOrder == [
     terminal |-> FALSE,
     aborted |-> FALSE,
     unknown |-> FALSE,
-    fees_closed |-> FALSE,
+    in_doubt |-> FALSE,
     amend_inflight |-> FALSE,
     amend_done |-> FALSE,
     retired_at |-> 0
@@ -121,15 +127,24 @@ OrderValues == [
     terminal: BOOLEAN,
     aborted: BOOLEAN,
     unknown: BOOLEAN,
-    fees_closed: BOOLEAN,
+    in_doubt: BOOLEAN,
     amend_inflight: BOOLEAN,
     amend_done: BOOLEAN,
     retired_at: 0..MaxTime
 ]
 
-JournalElemValues == [
-    seq: 1..MaxAppends,
-    admit_intent: 0..(NumOrders + NumMgmt)
+EmptyWay == [
+    occupied |-> FALSE,
+    ord |-> 0,
+    fee_state |-> "omitted",
+    recorded_at |-> 0
+]
+
+WayValues == [
+    occupied: BOOLEAN,
+    ord: 0..NumOrders,
+    fee_state: FeeStates,
+    recorded_at: 0..MaxTime
 ]
 
 Max(a, b) == IF a >= b THEN a ELSE b
@@ -140,8 +155,8 @@ IsExpired(stamp, t) ==
     /\ stamp > 0
     /\ t >= stamp + Window
 
-\* Order::remaining() == 0 and Account::is_order_retirable().
-\* crates/tickwire-account/src/lib.rs:142-167, crates/tickwire-account/src/lib.rs:594-603.
+\* Order::remaining() == 0, Order::is_retirable(), and Account::is_order_retirable().
+\* crates/tickwire-account/src/lib.rs:250-291, crates/tickwire-account/src/lib.rs:844-860.
 OrderRemainingZero(o) ==
     \/ o.aborted
     \/ (o.terminal /\ o.term_cum = o.filled)
@@ -149,8 +164,9 @@ OrderRemainingZero(o) ==
 OrderRetirable(o) ==
     /\ o.present
     /\ ~o.unknown
+    /\ ~o.in_doubt
     /\ ~o.amend_inflight
-    /\ (o.aborted \/ (o.terminal /\ o.fees_closed /\ OrderRemainingZero(o)))
+    /\ (o.aborted \/ (o.terminal /\ OrderRemainingZero(o)))
 
 IsOpenOrder(orders_fn, k) ==
     /\ orders_fn[k].present
@@ -158,7 +174,7 @@ IsOpenOrder(orders_fn, k) ==
     /\ ~orders_fn[k].terminal
 
 \* Account::is_intent_active and Account::intent_retired_mono_ns.
-\* crates/tickwire-account/src/lib.rs:520-592.
+\* crates/tickwire-account/src/lib.rs:739-842.
 IntentActive(orders_fn, adm_fn, i) ==
     IF i \in OrderIntents THEN
         orders_fn[i].present /\ ~OrderRetirable(orders_fn[i])
@@ -176,7 +192,7 @@ IntentRetireStamp(orders_fn, facts_fn, adm_fn, adm_ret_fn, i) ==
         IF adm_fn[i] = "retired" THEN adm_ret_fn[i] ELSE 0
 
 \* AccountGateway::refresh_completed_entries.
-\* crates/tickwire-account-gateway/src/lib.rs:569-595.
+\* crates/tickwire-account-gateway/src/lib.rs:549-574.
 RefreshCompleted(orders_fn, facts_fn, adm_fn, adm_ret_fn, gw_st_fn, gw_ev_fn, gw_comp_fn, pend, t) ==
     [i \in AllIntents |->
         IF gw_st_fn[i] \in {"Aborted", "Flushed"}
@@ -188,7 +204,8 @@ RefreshCompleted(orders_fn, facts_fn, adm_fn, adm_ret_fn, gw_st_fn, gw_ev_fn, gw
         ELSE 0]
 
 \* Coupled Account::evict_expired + AccountGateway::evict_retired_entries predicates.
-\* crates/tickwire-account/src/lib.rs:788-911, crates/tickwire-account-gateway/src/lib.rs:629-662.
+\* Note that AccountGateway::evict_retired_entries also guards !self.account.has_admission(key).
+\* crates/tickwire-account/src/lib.rs:1085-1255, crates/tickwire-account-gateway/src/lib.rs:614-652.
 OrderEvictableAt(orders_fn, facts_fn, k, t) ==
     /\ orders_fn[k].present
     /\ OrderRetirable(orders_fn[k])
@@ -231,6 +248,7 @@ AfterEvictGwStatus(orders_fn, facts_fn, adm_fn, adm_ret_fn, gw_st_fn, gw_ev_fn, 
         IF gw_st_fn[i] \in {"Aborted", "Flushed"}
            /\ pend # i
            /\ ~IntentActive(o1, a1, i)
+           /\ a1[i] = "absent"
            /\ IsExpired(comp1[i], t)
         THEN "absent"
         ELSE gw_st_fn[i]]
@@ -245,8 +263,8 @@ AfterEvictGwComp(orders_fn, facts_fn, adm_fn, adm_ret_fn, gw_st_fn, gw_ev_fn, gw
     IN [i \in AllIntents |-> IF st2[i] = "absent" THEN 0 ELSE comp1[i]]
 
 \* Pool occupancy and eager management reclamation helpers.
-\* crates/tickwire-account/src/lib.rs:755-783, crates/tickwire-account/src/admission.rs:94-104,
-\* crates/tickwire-account/src/admission.rs:169-176, crates/tickwire-account-gateway/src/lib.rs:597-625.
+\* crates/tickwire-account/src/lib.rs:1026-1080, crates/tickwire-account/src/admission.rs:112-125,
+\* crates/tickwire-account/src/admission.rs:184-191, crates/tickwire-account-gateway/src/lib.rs:576-610.
 OrderGatewayCount(gw_st_fn) ==
     Cardinality({k \in OrderIntents : gw_st_fn[k] # "absent"})
 
@@ -278,92 +296,68 @@ PickOldestGwMgmt(cands, gw_comp_fn, gw_ev_fn) ==
             \/ (gw_comp_fn[m] = gw_comp_fn[n] /\ gw_ev_fn[m] < gw_ev_fn[n])
             \/ (gw_comp_fn[m] = gw_comp_fn[n] /\ gw_ev_fn[m] = gw_ev_fn[n] /\ m <= n)
 
-PickOldestAcctMgmt(cands, adm_ret_fn) ==
-    CHOOSE m \in cands :
-        \A n \in cands :
-            \/ adm_ret_fn[m] < adm_ret_fn[n]
-            \/ (adm_ret_fn[m] = adm_ret_fn[n] /\ m <= n)
+\* FillRecordPool associative way selection: prefer first empty way, else oldest expired way.
+\* crates/tickwire-account/src/fill_record.rs:238-277.
+FreeWays(ways_fn) ==
+    {w \in Ways : ~ways_fn[w].occupied}
 
-\* AccountJournal::compact_before(keep_admissions, max_retained) pure state transformer.
-\* crates/tickwire-account-journal/src/lib.rs:582-652.
-KeepSet(adm_fn, gw_st_fn) ==
-    {i \in AllIntents : adm_fn[i] # "absent" \/ gw_st_fn[i] # "absent"}
+ExpiredWays(ways_fn, t) ==
+    {w \in Ways : ways_fn[w].occupied /\ IsExpired(ways_fn[w].recorded_at, t)}
 
-CompactPrefix(ev_pref, recs) ==
-    IF Len(recs) <= HalfRecords
-    THEN ev_pref
-    ELSE ev_pref + (Len(recs) - HalfRecords)
+HasUsableWay(ways_fn, t) ==
+    FreeWays(ways_fn) # {} \/ ExpiredWays(ways_fn, t) # {}
 
-CompactRecs(recs) ==
-    IF Len(recs) <= HalfRecords
-    THEN recs
-    ELSE SubSeq(recs, (Len(recs) - HalfRecords) + 1, Len(recs))
+PickFillWay(ways_fn, t) ==
+    IF FreeWays(ways_fn) # {} THEN
+        CHOOSE w \in FreeWays(ways_fn) : \A u \in FreeWays(ways_fn) : w <= u
+    ELSE
+        CHOOSE w \in ExpiredWays(ways_fn, t) :
+            \A u \in ExpiredWays(ways_fn, t) :
+                \/ ways_fn[w].recorded_at < ways_fn[u].recorded_at
+                \/ (ways_fn[w].recorded_at = ways_fn[u].recorded_at /\ w <= u)
 
-CompactSlots(recs, slots_fn, keep_set) ==
-    LET slots1 == [i \in AllIntents |->
-            IF slots_fn[i] = "retained" /\ i \notin keep_set
-            THEN "absent"
-            ELSE slots_fn[i]]
-    IN IF Len(recs) <= HalfRecords
-       THEN slots1
-       ELSE LET trim == Len(recs) - HalfRecords
-            IN [i \in AllIntents |->
-                IF \E j \in 1..trim : recs[j].admit_intent = i
-                THEN IF i \in keep_set /\ slots1[i] = "in_records"
-                     THEN "retained"
-                     ELSE "absent"
-                ELSE slots1[i]]
+InFillPool(ways_fn, k) ==
+    \E w \in Ways : ways_fn[w].occupied /\ ways_fn[w].ord = k
 
-CompactOrigins(recs, slots_fn, origins_set, keep_set) ==
-    LET stale == {i \in origins_set : slots_fn[i] = "retained" /\ i \notin keep_set}
-        orig1 == origins_set \ stale
-    IN IF Len(recs) <= HalfRecords
-       THEN orig1
-       ELSE LET trim == Len(recs) - HalfRecords
-                dropped == {i \in AllIntents :
-                    /\ i \notin keep_set
-                    /\ \E j \in 1..trim : recs[j].admit_intent = i}
-            IN orig1 \ dropped
+FindFillWay(ways_fn, k) ==
+    CHOOSE w \in Ways : ways_fn[w].occupied /\ ways_fn[w].ord = k
 
 Init ==
     /\ now = 1
     /\ acct_orders = [k \in OrderIntents |-> NoneOrder]
     /\ acct_adm = [i \in AllIntents |-> "absent"]
     /\ adm_retired_at = [i \in AllIntents |-> 0]
+    /\ fill_ways = [w \in Ways |-> EmptyWay]
     /\ facts = [k \in OrderIntents |-> 0]
+    /\ wallet_fee = [k \in OrderIntents |-> 0]
     /\ pending_send = 0
     /\ gw_status = [i \in AllIntents |-> "absent"]
     /\ gw_eval_at = [i \in AllIntents |-> 0]
     /\ gw_completed_at = [i \in AllIntents |-> 0]
-    /\ evicted_prefix = 0
-    /\ journal_records = <<>>
-    /\ journal_slots = [i \in AllIntents |-> "absent"]
-    /\ origin_present = {}
-    /\ frontier_pos = 0
     /\ ever_orders = {}
     /\ ever_mgmt = {}
     /\ ghost_orders = [k \in OrderIntents |-> NoneOrder]
     /\ ghost_retire_at = [i \in AllIntents |-> 0]
     /\ admit_count = [i \in AllIntents |-> 0]
     /\ fact_first_at = [k \in OrderIntents |-> 0]
+    /\ fact_last_at = [k \in OrderIntents |-> 0]
     /\ trade_book_count = [k \in OrderIntents |-> 0]
+    /\ ghost_expected_fee = [k \in OrderIntents |-> 0]
     /\ overflow_reclaimed = {}
-    /\ total_appends = 0
 
 \* Monotonic clock ticks across retention windows.
 Tick ==
     /\ now < MaxTime
     /\ now' = now + 1
     /\ UNCHANGED <<
-        acct_orders, acct_adm, adm_retired_at, facts, pending_send, gw_status,
-        gw_eval_at, gw_completed_at, evicted_prefix, journal_records,
-        journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-        ghost_orders, ghost_retire_at, admit_count, fact_first_at,
-        trade_book_count, overflow_reclaimed, total_appends
+        acct_orders, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+        pending_send, gw_status, gw_eval_at, gw_completed_at, ever_orders,
+        ever_mgmt, ghost_orders, ghost_retire_at, admit_count, fact_first_at,
+        fact_last_at, trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 \* Explicit lazy eviction sweep across Account and AccountGateway.
-\* crates/tickwire-account/src/lib.rs:788-911, crates/tickwire-account-gateway/src/lib.rs:629-662.
+\* crates/tickwire-account/src/lib.rs:1085-1255, crates/tickwire-account-gateway/src/lib.rs:614-652.
 EvictExpired ==
     /\ LET o1 == AfterEvictOrders(acct_orders, facts, now)
            f1 == AfterEvictFacts(acct_orders, facts, now)
@@ -379,17 +373,14 @@ EvictExpired ==
           /\ gw_status' = st1
           /\ gw_completed_at' = cp1
     /\ UNCHANGED <<
-        now, pending_send, gw_eval_at, evicted_prefix, journal_records,
-        journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-        ghost_orders, ghost_retire_at, admit_count, fact_first_at,
-        trade_book_count, overflow_reclaimed, total_appends
+        now, fill_ways, wallet_fee, pending_send, gw_eval_at, ever_orders,
+        ever_mgmt, ghost_orders, ghost_retire_at, admit_count, fact_first_at,
+        fact_last_at, trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 \* Submit a fresh order-creating New intent in monotonic strategy intent_id order:
-\* runs evict_retired_entries(now), enforces MaxOrders cap, maybe_compact_journal,
-\* and appends Admit(k) to AccountJournal.
-\* crates/tickwire-account/src/admission.rs:78-93, crates/tickwire-account/src/admission.rs:169-176,
-\* crates/tickwire-account-gateway/src/lib.rs:678-809.
+\* runs evict_retired_entries(now) and enforces MaxOrders cap.
+\* crates/tickwire-account/src/admission.rs:90-191, crates/tickwire-account-gateway/src/lib.rs:696-769.
 SubmitNewOrder ==
     /\ pending_send = 0
     /\ Cardinality(ever_orders) < NumOrders
@@ -409,13 +400,6 @@ SubmitNewOrder ==
                  st2 == [st1 EXCEPT ![k] = "Queued"]
                  ev2 == [gw_eval_at EXCEPT ![k] = now]
                  cp2 == [cp1 EXCEPT ![k] = 0]
-                 need_comp == (Len(journal_records) + 1 >= MaxRecords)
-                 keep == KeepSet(a2, st1)
-                 ep_base == IF need_comp THEN CompactPrefix(evicted_prefix, journal_records) ELSE evicted_prefix
-                 recs_base == IF need_comp THEN CompactRecs(journal_records) ELSE journal_records
-                 slots_base == IF need_comp THEN CompactSlots(journal_records, journal_slots, keep) ELSE journal_slots
-                 orig_base == IF need_comp THEN CompactOrigins(journal_records, journal_slots, origin_present, keep) ELSE origin_present
-                 next_seq == ep_base + Len(recs_base) + 1
              IN /\ acct_orders' = o2
                 /\ facts' = f1
                 /\ acct_adm' = a2
@@ -424,23 +408,21 @@ SubmitNewOrder ==
                 /\ gw_status' = st2
                 /\ gw_eval_at' = ev2
                 /\ gw_completed_at' = cp2
-                /\ evicted_prefix' = ep_base
-                /\ journal_records' = Append(recs_base, [seq |-> next_seq, admit_intent |-> k])
-                /\ journal_slots' = [slots_base EXCEPT ![k] = "in_records"]
-                /\ origin_present' = orig_base \cup {k}
-                /\ frontier_pos' = frontier_pos + 1
                 /\ ever_orders' = ever_orders \cup {k}
                 /\ ghost_orders' = [ghost_orders EXCEPT ![k] = new_ord]
                 /\ ghost_retire_at' = [ghost_retire_at EXCEPT ![k] = 0]
                 /\ admit_count' = [admit_count EXCEPT ![k] = @ + 1]
-                /\ total_appends' = total_appends + 1
-    /\ UNCHANGED <<now, ever_mgmt, fact_first_at, trade_book_count, overflow_reclaimed>>
+    /\ UNCHANGED <<
+        now, fill_ways, wallet_fee, ever_mgmt, fact_first_at, fact_last_at,
+        trade_book_count, ghost_expected_fee, overflow_reclaimed
+       >>
 
 \* Submit a Cancel/Query management intent targeting an open order in monotonic
-\* intent_id order: uses independent MaxMgmt headroom and eagerly reclaims the oldest
-\* retired management entry when full, even when all MaxOrders slots hold live orders.
-\* crates/tickwire-account/src/lib.rs:755-783, crates/tickwire-account/src/admission.rs:94-147,
-\* crates/tickwire-account-gateway/src/lib.rs:597-625, crates/tickwire-account-gateway/src/lib.rs:705-745.
+\* intent_id order: uses independent MaxMgmt headroom and atomically reclaims the
+\* oldest retired management entry across AccountGateway and Account when full,
+\* even when all MaxOrders slots hold live resting orders.
+\* crates/tickwire-account/src/lib.rs:1026-1080, crates/tickwire-account/src/admission.rs:94-159,
+\* crates/tickwire-account-gateway/src/lib.rs:576-610, crates/tickwire-account-gateway/src/lib.rs:708-722.
 SubmitManagement ==
     /\ pending_send = 0
     /\ Cardinality(ever_mgmt) < NumMgmt
@@ -451,33 +433,22 @@ SubmitManagement ==
            st1 == AfterEvictGwStatus(acct_orders, facts, acct_adm, adm_retired_at, gw_status, gw_eval_at, gw_completed_at, 0, now)
            cp1 == AfterEvictGwComp(acct_orders, facts, acct_adm, adm_retired_at, gw_status, gw_eval_at, gw_completed_at, 0, now)
            gw_cands == ReclaimableGatewayMgmt(st1, a1, 0)
-           ac_cands == ReclaimableAccountMgmt(a1)
            m == NumOrders + Cardinality(ever_mgmt) + 1
        IN /\ \E k \in OrderIntents : IsOpenOrder(o1, k)
           /\ (MgmtGatewayCount(st1) < MaxMgmt \/ gw_cands # {})
-          /\ (MgmtAccountCount(a1) < MaxMgmt \/ ac_cands # {})
-          /\ LET gw_victim == IF MgmtGatewayCount(st1) >= MaxMgmt THEN PickOldestGwMgmt(gw_cands, cp1, gw_eval_at) ELSE 0
-                 ac_victim == IF MgmtAccountCount(a1) >= MaxMgmt THEN PickOldestAcctMgmt(ac_cands, ar1) ELSE 0
-                 st_recl == IF gw_victim # 0 THEN [st1 EXCEPT ![gw_victim] = "absent"] ELSE st1
-                 cp_recl == IF gw_victim # 0 THEN [cp1 EXCEPT ![gw_victim] = 0] ELSE cp1
-                 a_recl == IF ac_victim # 0 THEN [a1 EXCEPT ![ac_victim] = "absent"] ELSE a1
-                 ar_recl == IF ac_victim # 0 THEN [ar1 EXCEPT ![ac_victim] = 0] ELSE ar1
+          /\ LET victim == IF MgmtGatewayCount(st1) >= MaxMgmt THEN PickOldestGwMgmt(gw_cands, cp1, gw_eval_at) ELSE 0
+                 st_recl == IF victim # 0 THEN [st1 EXCEPT ![victim] = "absent"] ELSE st1
+                 cp_recl == IF victim # 0 THEN [cp1 EXCEPT ![victim] = 0] ELSE cp1
+                 a_recl == IF victim # 0 THEN [a1 EXCEPT ![victim] = "absent"] ELSE a1
+                 ar_recl == IF victim # 0 THEN [ar1 EXCEPT ![victim] = 0] ELSE ar1
                  a2 == [a_recl EXCEPT ![m] = "active"]
                  ar2 == [ar_recl EXCEPT ![m] = 0]
                  st2 == [st_recl EXCEPT ![m] = "Queued"]
                  ev2 == [gw_eval_at EXCEPT ![m] = now]
                  cp2 == [cp_recl EXCEPT ![m] = 0]
-                 need_comp == (Len(journal_records) + 1 >= MaxRecords)
-                 keep == KeepSet(a2, st_recl)
-                 ep_base == IF need_comp THEN CompactPrefix(evicted_prefix, journal_records) ELSE evicted_prefix
-                 recs_base == IF need_comp THEN CompactRecs(journal_records) ELSE journal_records
-                 slots_base == IF need_comp THEN CompactSlots(journal_records, journal_slots, keep) ELSE journal_slots
-                 orig_base == IF need_comp THEN CompactOrigins(journal_records, journal_slots, origin_present, keep) ELSE origin_present
-                 next_seq == ep_base + Len(recs_base) + 1
-                 reclaimed_set ==
-                     (IF gw_victim # 0 THEN {gw_victim} ELSE {})
-                     \cup (IF ac_victim # 0 THEN {ac_victim} ELSE {})
-             IN /\ acct_orders' = o1
+                 reclaimed_set == IF victim # 0 THEN {victim} ELSE {}
+             IN /\ MgmtAccountCount(a_recl) < MaxMgmt
+                /\ acct_orders' = o1
                 /\ facts' = f1
                 /\ acct_adm' = a2
                 /\ adm_retired_at' = ar2
@@ -485,22 +456,19 @@ SubmitManagement ==
                 /\ gw_status' = st2
                 /\ gw_eval_at' = ev2
                 /\ gw_completed_at' = cp2
-                /\ evicted_prefix' = ep_base
-                /\ journal_records' = Append(recs_base, [seq |-> next_seq, admit_intent |-> m])
-                /\ journal_slots' = [slots_base EXCEPT ![m] = "in_records"]
-                /\ origin_present' = orig_base \cup {m}
-                /\ frontier_pos' = frontier_pos + 1
                 /\ ever_mgmt' = ever_mgmt \cup {m}
                 /\ ghost_retire_at' = [ghost_retire_at EXCEPT ![m] = 0]
                 /\ admit_count' = [admit_count EXCEPT ![m] = @ + 1]
                 /\ overflow_reclaimed' = overflow_reclaimed \cup reclaimed_set
-                /\ total_appends' = total_appends + 1
-    /\ UNCHANGED <<now, ever_orders, ghost_orders, fact_first_at, trade_book_count>>
+    /\ UNCHANGED <<
+        now, fill_ways, wallet_fee, ever_orders, ghost_orders, fact_first_at,
+        fact_last_at, trade_book_count, ghost_expected_fee
+       >>
 
 \* Byte-identical retry of an admitted intent within its active/retention window:
 \* hits gateway/account dedup without double-admitting; if prematurely evicted,
 \* increments admit_count to trip WindowDedupPreserved.
-\* crates/tickwire-account/src/admission.rs:4-15, crates/tickwire-account-gateway/src/lib.rs:685-688.
+\* crates/tickwire-account-gateway/src/lib.rs:662-665, crates/tickwire-account-gateway/src/pool.rs:429-435.
 RetryDuplicateIntent ==
     /\ \E i \in (ever_orders \cup (ever_mgmt \ overflow_reclaimed)) :
         /\ (ghost_retire_at[i] = 0 \/ now < ghost_retire_at[i] + Window)
@@ -508,16 +476,15 @@ RetryDuplicateIntent ==
            THEN UNCHANGED admit_count
            ELSE admit_count' = [admit_count EXCEPT ![i] = @ + 1]
     /\ UNCHANGED <<
-        now, acct_orders, acct_adm, adm_retired_at, facts, pending_send,
-        gw_status, gw_eval_at, gw_completed_at, evicted_prefix,
-        journal_records, journal_slots, origin_present, frontier_pos,
+        now, acct_orders, acct_adm, adm_retired_at, fill_ways, facts,
+        wallet_fee, pending_send, gw_status, gw_eval_at, gw_completed_at,
         ever_orders, ever_mgmt, ghost_orders, ghost_retire_at, fact_first_at,
-        trade_book_count, overflow_reclaimed, total_appends
+        fact_last_at, trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 \* Outbound TLS frame flushed (apply_report(SendState::Flushed)): retires management
 \* admission at now and refreshes gateway completion stamps.
-\* crates/tickwire-account-gateway/src/lib.rs:1509-1525.
+\* crates/tickwire-account-gateway/src/lib.rs:1173-1180.
 FlushPending ==
     /\ pending_send # 0
     /\ LET i == pending_send
@@ -535,39 +502,29 @@ FlushPending ==
                 THEN [ghost_retire_at EXCEPT ![i] = cp1[i]]
                 ELSE ghost_retire_at
     /\ UNCHANGED <<
-        now, acct_orders, facts, gw_eval_at, evicted_prefix, journal_records,
-        journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-        ghost_orders, admit_count, fact_first_at, trade_book_count,
-        overflow_reclaimed, total_appends
+        now, acct_orders, fill_ways, facts, wallet_fee, gw_eval_at,
+        ever_orders, ever_mgmt, ghost_orders, admit_count, fact_first_at,
+        fact_last_at, trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 \* Zero-byte unsent abort: marks order/management admission aborted and retired at now,
-\* refreshes completion stamps, and appends Aborted record to AccountJournal.
-\* crates/tickwire-account/src/admission.rs:540-560, crates/tickwire-account-gateway/src/lib.rs:1532-1559.
+\* releasing holds and refreshing completion stamps.
+\* crates/tickwire-account/src/admission.rs:590-632, crates/tickwire-account-gateway/src/lib.rs:1181-1211.
 AbortPending ==
     /\ pending_send # 0
     /\ LET i == pending_send
            o1 == IF i \in OrderIntents
                  THEN [acct_orders EXCEPT ![i].aborted = TRUE,
-                                          ![i].fees_closed = TRUE,
                                           ![i].retired_at = now]
                  ELSE acct_orders
            g1 == IF i \in OrderIntents
                  THEN [ghost_orders EXCEPT ![i].aborted = TRUE,
-                                           ![i].fees_closed = TRUE,
                                            ![i].retired_at = now]
                  ELSE ghost_orders
            a1 == [acct_adm EXCEPT ![i] = "retired"]
            ar1 == [adm_retired_at EXCEPT ![i] = now]
            st1 == [gw_status EXCEPT ![i] = "Aborted"]
            cp1 == RefreshCompleted(o1, facts, a1, ar1, st1, gw_eval_at, gw_completed_at, 0, now)
-           need_comp == (Len(journal_records) + 1 >= MaxRecords)
-           keep == KeepSet(a1, st1)
-           ep_base == IF need_comp THEN CompactPrefix(evicted_prefix, journal_records) ELSE evicted_prefix
-           recs_base == IF need_comp THEN CompactRecs(journal_records) ELSE journal_records
-           slots_base == IF need_comp THEN CompactSlots(journal_records, journal_slots, keep) ELSE journal_slots
-           orig_base == IF need_comp THEN CompactOrigins(journal_records, journal_slots, origin_present, keep) ELSE origin_present
-           next_seq == ep_base + Len(recs_base) + 1
        IN /\ pending_send' = 0
           /\ acct_orders' = o1
           /\ ghost_orders' = g1
@@ -576,139 +533,238 @@ AbortPending ==
           /\ gw_status' = st1
           /\ gw_completed_at' = cp1
           /\ ghost_retire_at' = [ghost_retire_at EXCEPT ![i] = cp1[i]]
-          /\ evicted_prefix' = ep_base
-          /\ journal_records' = Append(recs_base, [seq |-> next_seq, admit_intent |-> 0])
-          /\ journal_slots' = slots_base
-          /\ origin_present' = orig_base
-          /\ frontier_pos' = frontier_pos + 1
-          /\ total_appends' = total_appends + 1
     /\ UNCHANGED <<
-        now, facts, gw_eval_at, ever_orders, ever_mgmt, admit_count,
-        fact_first_at, trade_book_count, overflow_reclaimed
+        now, fill_ways, facts, wallet_fee, gw_eval_at, ever_orders, ever_mgmt,
+        admit_count, fact_first_at, fact_last_at, trade_book_count,
+        ghost_expected_fee, overflow_reclaimed
+       >>
+
+\* Mid-send socket disconnect after accepted_bytes > 0 (per_order_doubt_isolation):
+\* marks only the affected order PlaceAmbiguous (in_doubt = TRUE) and Status::Unknown
+\* without halting the gateway, blocking order eviction until venue resolution.
+\* crates/tickwire-account-gateway/src/lib.rs:1343-1475, crates/tickwire-account-gateway/src/pool.rs:846-862.
+IsolatePendingInDoubt ==
+    /\ pending_send \in OrderIntents
+    /\ LET k == pending_send
+           o1 == [acct_orders EXCEPT ![k].in_doubt = TRUE, ![k].retired_at = 0]
+           g1 == [ghost_orders EXCEPT ![k].in_doubt = TRUE, ![k].retired_at = 0]
+           st1 == [gw_status EXCEPT ![k] = "Unknown"]
+       IN /\ pending_send' = 0
+          /\ acct_orders' = o1
+          /\ ghost_orders' = g1
+          /\ gw_status' = st1
+          /\ gw_completed_at' = [gw_completed_at EXCEPT ![k] = 0]
+    /\ UNCHANGED <<
+        now, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+        gw_eval_at, ever_orders, ever_mgmt, ghost_retire_at, admit_count,
+        fact_first_at, fact_last_at, trade_book_count, ghost_expected_fee,
+        overflow_reclaimed
        >>
 
 \* Venue reports terminal order status with cumulative = 1 BEFORE trade execution arrives:
 \* terminal = TRUE, term_cum = 1, filled = 0 => non-zero remaining() blocks eviction!
-\* crates/tickwire-account/src/lib.rs:142-167, crates/tickwire-account/src/events.rs:458-494.
+\* crates/tickwire-account/src/lib.rs:250-291, crates/tickwire-account/src/events.rs:824-880.
 ObserveTerminalPendingFill ==
     /\ \E k \in OrderIntents :
-        /\ gw_status[k] = "Flushed"
+        /\ gw_status[k] \in {"Flushed", "Unknown"}
         /\ acct_orders[k].present
         /\ ~acct_orders[k].aborted
         /\ ~acct_orders[k].terminal
         /\ acct_orders[k].filled = 0
         /\ ~acct_orders[k].amend_inflight
-        /\ LET o1 == [acct_orders EXCEPT ![k].terminal = TRUE, ![k].term_cum = 1, ![k].retired_at = 0]
-               g1 == [ghost_orders EXCEPT ![k].terminal = TRUE, ![k].term_cum = 1, ![k].retired_at = 0]
-               need_comp == (Len(journal_records) + 1 >= MaxRecords)
-               keep == KeepSet(acct_adm, gw_status)
-               ep_base == IF need_comp THEN CompactPrefix(evicted_prefix, journal_records) ELSE evicted_prefix
-               recs_base == IF need_comp THEN CompactRecs(journal_records) ELSE journal_records
-               slots_base == IF need_comp THEN CompactSlots(journal_records, journal_slots, keep) ELSE journal_slots
-               orig_base == IF need_comp THEN CompactOrigins(journal_records, journal_slots, origin_present, keep) ELSE origin_present
-               next_seq == ep_base + Len(recs_base) + 1
+        /\ LET o1 == [acct_orders EXCEPT ![k].terminal = TRUE,
+                                         ![k].term_cum = 1,
+                                         ![k].in_doubt = FALSE,
+                                         ![k].retired_at = 0]
+               g1 == [ghost_orders EXCEPT ![k].terminal = TRUE,
+                                          ![k].term_cum = 1,
+                                          ![k].in_doubt = FALSE,
+                                          ![k].retired_at = 0]
            IN /\ acct_orders' = o1
               /\ ghost_orders' = g1
-              /\ evicted_prefix' = ep_base
-              /\ journal_records' = Append(recs_base, [seq |-> next_seq, admit_intent |-> 0])
-              /\ journal_slots' = slots_base
-              /\ origin_present' = orig_base
-              /\ frontier_pos' = frontier_pos + 1
-              /\ total_appends' = total_appends + 1
     /\ UNCHANGED <<
-        now, acct_adm, adm_retired_at, facts, pending_send, gw_status,
-        gw_eval_at, gw_completed_at, ever_orders, ever_mgmt, ghost_retire_at,
-        admit_count, fact_first_at, trade_book_count, overflow_reclaimed
+        now, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+        pending_send, gw_status, gw_eval_at, gw_completed_at, ever_orders,
+        ever_mgmt, ghost_retire_at, admit_count, fact_first_at, fact_last_at,
+        trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
-\* Venue trade execution books 1 lot fill and records FactKey at recorded_mono_ns = now;
-\* order becomes terminal with term_cum = 1, but fees_closed = FALSE keeps it non-retirable!
-\* crates/tickwire-account/src/events.rs:36-145, crates/tickwire-account/src/lib.rs:559-582.
-BookTradeFill ==
+\* Authoritative venue Canceled status with zero cumulative fill resolves open or
+\* in_doubt order cleanly and marks it retired at now when !unknown and !amend_inflight.
+\* crates/tickwire-account/src/events.rs:824-880, crates/tickwire-account/src/lib.rs:871-912.
+ObserveTerminalCanceled ==
     /\ \E k \in OrderIntents :
-        /\ gw_status[k] = "Flushed"
+        /\ gw_status[k] \in {"Flushed", "Unknown"}
+        /\ acct_orders[k].present
+        /\ ~acct_orders[k].aborted
+        /\ ~acct_orders[k].terminal
+        /\ acct_orders[k].filled = 0
+        /\ ~acct_orders[k].amend_inflight
+        /\ LET base_o == [acct_orders[k] EXCEPT !.terminal = TRUE,
+                                                !.term_cum = 0,
+                                                !.in_doubt = FALSE]
+               retirable == OrderRetirable(base_o)
+               final_o == [base_o EXCEPT !.retired_at = IF retirable THEN now ELSE 0]
+               o1 == [acct_orders EXCEPT ![k] = final_o]
+               g1 == [ghost_orders EXCEPT ![k] = final_o]
+               a1 == [acct_adm EXCEPT ![k] = IF retirable THEN "retired" ELSE "active"]
+               ar1 == [adm_retired_at EXCEPT ![k] = IF retirable THEN now ELSE 0]
+               cp1 == RefreshCompleted(o1, facts, a1, ar1, gw_status, gw_eval_at, gw_completed_at, pending_send, now)
+           IN /\ acct_orders' = o1
+              /\ ghost_orders' = g1
+              /\ acct_adm' = a1
+              /\ adm_retired_at' = ar1
+              /\ gw_completed_at' = cp1
+              /\ ghost_retire_at' =
+                    IF retirable
+                    THEN [ghost_retire_at EXCEPT ![k] = Max(now, cp1[k])]
+                    ELSE ghost_retire_at
+    /\ UNCHANGED <<
+        now, fill_ways, facts, wallet_fee, pending_send, gw_status, gw_eval_at,
+        ever_orders, ever_mgmt, admit_count, fact_first_at, fact_last_at,
+        trade_book_count, ghost_expected_fee, overflow_reclaimed
+       >>
+
+\* Venue trade execution (TRADE_LITE with omitted fee or full TRADE with fee1):
+\* FillRecordPool::record_or_amend inserts into an empty or oldest-expired bucket way,
+\* books 1 lot fill, settles initial fee, records FactEntry at now, clears in_doubt,
+\* and retires the order iff OrderRetirable holds.
+\* crates/tickwire-account/src/fill_record.rs:171-277, crates/tickwire-account/src/events.rs:381-385.
+BookTradeFill ==
+    /\ \E k \in OrderIntents, init_fee \in {"omitted", "fee1"} :
+        /\ gw_status[k] \in {"Flushed", "Unknown"}
         /\ acct_orders[k].present
         /\ ~acct_orders[k].aborted
         /\ acct_orders[k].filled = 0
+        /\ ~(acct_orders[k].terminal /\ acct_orders[k].term_cum = 0)
         /\ ~acct_orders[k].amend_inflight
-        /\ LET o1 == [acct_orders EXCEPT ![k].filled = 1,
-                                         ![k].term_cum = 1,
-                                         ![k].terminal = TRUE,
-                                         ![k].retired_at = 0]
-               g1 == [ghost_orders EXCEPT ![k].filled = 1,
-                                          ![k].term_cum = 1,
-                                          ![k].terminal = TRUE,
-                                          ![k].retired_at = 0]
+        /\ ~InFillPool(fill_ways, k)
+        /\ HasUsableWay(fill_ways, now)
+        /\ LET w == PickFillWay(fill_ways, now)
+               base_o == [acct_orders[k] EXCEPT !.filled = 1,
+                                                !.term_cum = 1,
+                                                !.terminal = TRUE,
+                                                !.in_doubt = FALSE]
+               retirable == OrderRetirable(base_o)
+               final_o == [base_o EXCEPT !.retired_at = IF retirable THEN now ELSE 0]
+               o1 == [acct_orders EXCEPT ![k] = final_o]
+               g1 == [ghost_orders EXCEPT ![k] = final_o]
                f1 == [facts EXCEPT ![k] = now]
-               need_comp == (Len(journal_records) + 1 >= MaxRecords)
-               keep == KeepSet(acct_adm, gw_status)
-               ep_base == IF need_comp THEN CompactPrefix(evicted_prefix, journal_records) ELSE evicted_prefix
-               recs_base == IF need_comp THEN CompactRecs(journal_records) ELSE journal_records
-               slots_base == IF need_comp THEN CompactSlots(journal_records, journal_slots, keep) ELSE journal_slots
-               orig_base == IF need_comp THEN CompactOrigins(journal_records, journal_slots, origin_present, keep) ELSE origin_present
-               next_seq == ep_base + Len(recs_base) + 1
-           IN /\ acct_orders' = o1
+               a1 == [acct_adm EXCEPT ![k] = IF retirable THEN "retired" ELSE "active"]
+               ar1 == [adm_retired_at EXCEPT ![k] = IF retirable THEN now ELSE 0]
+               cp1 == RefreshCompleted(o1, f1, a1, ar1, gw_status, gw_eval_at, gw_completed_at, pending_send, now)
+               fv == FeeVal(init_fee)
+           IN /\ fill_ways' = [fill_ways EXCEPT ![w] = [
+                     occupied |-> TRUE,
+                     ord |-> k,
+                     fee_state |-> init_fee,
+                     recorded_at |-> now]]
+              /\ acct_orders' = o1
               /\ ghost_orders' = g1
               /\ facts' = f1
+              /\ wallet_fee' = [wallet_fee EXCEPT ![k] = fv]
+              /\ acct_adm' = a1
+              /\ adm_retired_at' = ar1
+              /\ gw_completed_at' = cp1
+              /\ ghost_retire_at' =
+                    IF retirable
+                    THEN [ghost_retire_at EXCEPT ![k] = Max(now, cp1[k])]
+                    ELSE ghost_retire_at
               /\ fact_first_at' = [fact_first_at EXCEPT ![k] = now]
+              /\ fact_last_at' = [fact_last_at EXCEPT ![k] = now]
               /\ trade_book_count' = [trade_book_count EXCEPT ![k] = @ + 1]
-              /\ evicted_prefix' = ep_base
-              /\ journal_records' = Append(recs_base, [seq |-> next_seq, admit_intent |-> 0])
-              /\ journal_slots' = slots_base
-              /\ origin_present' = orig_base
-              /\ frontier_pos' = frontier_pos + 1
-              /\ total_appends' = total_appends + 1
+              /\ ghost_expected_fee' = [ghost_expected_fee EXCEPT ![k] = fv]
     /\ UNCHANGED <<
-        now, acct_adm, adm_retired_at, pending_send, gw_status, gw_eval_at,
-        gw_completed_at, ever_orders, ever_mgmt, ghost_retire_at, admit_count,
-        overflow_reclaimed
+        now, pending_send, gw_status, gw_eval_at, ever_orders, ever_mgmt,
+        admit_count, overflow_reclaimed
        >>
 
-\* Duplicate trade_id execution within retention window: deduplicated via facts[k] > 0;
-\* if fact were prematurely evicted while order still present, increments trade_book_count!
-\* crates/tickwire-account/src/events.rs:88-93.
+\* Redundant trade_id execution (late TRADE_LITE or byte-identical TRADE across order
+\* socket and user stream): deduplicated via FillRecordPool (within retention_ns) and
+\* Account.facts (while resident); if missing prematurely, increments trade_book_count!
+\* crates/tickwire-account/src/fill_record.rs:181-205, crates/tickwire-account/src/events.rs:246-359.
 DuplicateTradeFill ==
     /\ \E k \in ever_orders :
         /\ fact_first_at[k] > 0
-        /\ (acct_orders[k].present \/ now < fact_first_at[k] + Window)
-        /\ IF facts[k] > 0
-           THEN UNCHANGED trade_book_count
-           ELSE trade_book_count' = [trade_book_count EXCEPT ![k] = @ + 1]
+        /\ (acct_orders[k].present \/ now < fact_last_at[k] + Window)
+        /\ LET pool_ok == (now >= fact_last_at[k] + Window) \/ InFillPool(fill_ways, k)
+               acct_ok == facts[k] > 0
+           IN IF pool_ok /\ acct_ok
+              THEN UNCHANGED trade_book_count
+              ELSE trade_book_count' = [trade_book_count EXCEPT ![k] = @ + 1]
     /\ UNCHANGED <<
-        now, acct_orders, acct_adm, adm_retired_at, facts, pending_send,
-        gw_status, gw_eval_at, gw_completed_at, evicted_prefix,
-        journal_records, journal_slots, origin_present, frontier_pos,
+        now, acct_orders, acct_adm, adm_retired_at, fill_ways, facts,
+        wallet_fee, pending_send, gw_status, gw_eval_at, gw_completed_at,
         ever_orders, ever_mgmt, ghost_orders, ghost_retire_at, admit_count,
-        fact_first_at, overflow_reclaimed, total_appends
+        fact_first_at, fact_last_at, ghost_expected_fee, overflow_reclaimed
+       >>
+
+\* Post-trade fee upgrade (TRADE arriving after TRADE_LITE) or fee/rebate revision
+\* (FillRecordOutcome::Amended, amendment = true): reverses previous_fee and applies
+\* new_fee delta ONLY to wallet_fee without re-booking filled quantity, while refreshing
+\* FillSlot.recorded_mono_ns, FactEntry.recorded_mono_ns, and retirement timestamps!
+\* crates/tickwire-account/src/fill_record.rs:188-233, crates/tickwire-account/src/events.rs:272-331.
+AmendTradeFee ==
+    /\ \E k \in OrderIntents, new_fee \in {"fee1", "fee2"} :
+        /\ acct_orders[k].present
+        /\ acct_orders[k].filled = 1
+        /\ InFillPool(fill_ways, k)
+        /\ LET w == FindFillWay(fill_ways, k)
+               prev_fs == fill_ways[w].fee_state
+               prev_val == FeeVal(prev_fs)
+               new_val == FeeVal(new_fee)
+               delta == new_val - prev_val
+               f1 == [facts EXCEPT ![k] = now]
+               retirable == OrderRetirable(acct_orders[k])
+               ar1 == IF retirable
+                      THEN [adm_retired_at EXCEPT ![k] = Max(acct_orders[k].retired_at, now)]
+                      ELSE adm_retired_at
+               cp1 == RefreshCompleted(acct_orders, f1, acct_adm, ar1, gw_status, gw_eval_at, gw_completed_at, pending_send, now)
+           IN /\ new_val > prev_val
+              /\ fill_ways' = [fill_ways EXCEPT ![w].fee_state = new_fee,
+                                                ![w].recorded_at = Max(@, now)]
+              /\ facts' = f1
+              /\ wallet_fee' = [wallet_fee EXCEPT ![k] = @ + delta]
+              /\ adm_retired_at' = ar1
+              /\ gw_completed_at' = cp1
+              /\ fact_last_at' = [fact_last_at EXCEPT ![k] = now]
+              /\ ghost_expected_fee' = [ghost_expected_fee EXCEPT ![k] = new_val]
+              /\ ghost_retire_at' =
+                    IF retirable
+                    THEN [ghost_retire_at EXCEPT ![k] = Max(@, Max(now, cp1[k]))]
+                    ELSE ghost_retire_at
+    /\ UNCHANGED <<
+        now, acct_orders, acct_adm, pending_send, gw_status, gw_eval_at,
+        ever_orders, ever_mgmt, ghost_orders, admit_count, fact_first_at,
+        trade_book_count, overflow_reclaimed
        >>
 
 \* Venue ambiguity / user-stream gap latches observed_unknown = TRUE, permanently
-\* blocking retirement regardless of terminal status, fee closure, or clock advance.
-\* crates/tickwire-account/src/lib.rs:139-141, crates/tickwire-account/src/lib.rs:164,
-\* crates/tickwire-account/src/events.rs:468-475.
+\* blocking retirement regardless of terminal status or clock advance.
+\* crates/tickwire-account/src/lib.rs:247-291, crates/tickwire-account/src/events.rs:820-823.
 MarkOrderUnknown ==
     /\ \E k \in OrderIntents :
-        /\ gw_status[k] = "Flushed"
+        /\ gw_status[k] \in {"Flushed", "Unknown"}
         /\ acct_orders[k].present
         /\ ~acct_orders[k].aborted
-        /\ ~acct_orders[k].fees_closed
+        /\ ~acct_orders[k].terminal
         /\ ~acct_orders[k].unknown
         /\ acct_orders' = [acct_orders EXCEPT ![k].unknown = TRUE, ![k].retired_at = 0]
         /\ ghost_orders' = [ghost_orders EXCEPT ![k].unknown = TRUE, ![k].retired_at = 0]
     /\ UNCHANGED <<
-        now, acct_adm, adm_retired_at, facts, pending_send, gw_status,
-        gw_eval_at, gw_completed_at, evicted_prefix, journal_records,
-        journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-        ghost_retire_at, admit_count, fact_first_at, trade_book_count,
-        overflow_reclaimed, total_appends
+        now, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+        pending_send, gw_status, gw_eval_at, gw_completed_at, ever_orders,
+        ever_mgmt, ghost_retire_at, admit_count, fact_first_at, fact_last_at,
+        trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 \* In-flight amendment on an open order blocks Account::is_order_retirable until resolved.
-\* crates/tickwire-account/src/lib.rs:594-603, crates/tickwire-account/src/admission.rs:114-118.
+\* crates/tickwire-account/src/lib.rs:844-860, crates/tickwire-account/src/admission.rs:104-138.
 StartInflightAmend ==
     /\ \E k \in OrderIntents :
         /\ gw_status[k] = "Flushed"
         /\ IsOpenOrder(acct_orders, k)
+        /\ ~acct_orders[k].in_doubt
         /\ ~acct_orders[k].amend_inflight
         /\ ~acct_orders[k].amend_done
         /\ acct_orders' = [acct_orders EXCEPT ![k].amend_inflight = TRUE,
@@ -718,15 +774,14 @@ StartInflightAmend ==
                                                 ![k].amend_done = TRUE,
                                                 ![k].retired_at = 0]
     /\ UNCHANGED <<
-        now, acct_adm, adm_retired_at, facts, pending_send, gw_status,
-        gw_eval_at, gw_completed_at, evicted_prefix, journal_records,
-        journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-        ghost_retire_at, admit_count, fact_first_at, trade_book_count,
-        overflow_reclaimed, total_appends
+        now, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+        pending_send, gw_status, gw_eval_at, gw_completed_at, ever_orders,
+        ever_mgmt, ghost_retire_at, admit_count, fact_first_at, fact_last_at,
+        trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 \* Amendment rejected/confirmed resolves in-flight amendment protection on the order.
-\* crates/tickwire-account/src/amendments.rs:167-230, crates/tickwire-account/src/lib.rs:594-626.
+\* crates/tickwire-account/src/amendments.rs:171-205, crates/tickwire-account/src/lib.rs:844-912.
 FinishInflightAmend ==
     /\ \E k \in OrderIntents :
         /\ acct_orders[k].present
@@ -734,84 +789,10 @@ FinishInflightAmend ==
         /\ acct_orders' = [acct_orders EXCEPT ![k].amend_inflight = FALSE]
         /\ ghost_orders' = [ghost_orders EXCEPT ![k].amend_inflight = FALSE]
     /\ UNCHANGED <<
-        now, acct_adm, adm_retired_at, facts, pending_send, gw_status,
-        gw_eval_at, gw_completed_at, evicted_prefix, journal_records,
-        journal_slots, origin_present, frontier_pos, ever_orders, ever_mgmt,
-        ghost_retire_at, admit_count, fact_first_at, trade_book_count,
-        overflow_reclaimed, total_appends
-       >>
-
-\* Authenticated fee closure on a terminal zero-remaining order: sets fees_closed = TRUE,
-\* retires the order iff !unknown and !amend_inflight, refreshes gateway completion,
-\* and appends FeesReconciled to AccountJournal.
-\* crates/tickwire-account/src/admission.rs:562-591, crates/tickwire-account/src/lib.rs:614-655.
-ReconcileOrderFees ==
-    /\ \E k \in OrderIntents :
-        /\ acct_orders[k].present
-        /\ acct_orders[k].terminal
-        /\ acct_orders[k].term_cum = acct_orders[k].filled
-        /\ ~acct_orders[k].fees_closed
-        /\ LET base_o == [acct_orders[k] EXCEPT !.fees_closed = TRUE]
-               retirable == OrderRetirable(base_o)
-               final_o == [base_o EXCEPT !.retired_at = IF retirable THEN now ELSE 0]
-               o1 == [acct_orders EXCEPT ![k] = final_o]
-               g1 == [ghost_orders EXCEPT ![k] = final_o]
-               a1 == [acct_adm EXCEPT ![k] = IF retirable THEN "retired" ELSE "active"]
-               ar1 == [adm_retired_at EXCEPT ![k] = IF retirable THEN Max(now, facts[k]) ELSE 0]
-               cp1 == RefreshCompleted(o1, facts, a1, ar1, gw_status, gw_eval_at, gw_completed_at, pending_send, now)
-               need_comp == (Len(journal_records) + 1 >= MaxRecords)
-               keep == KeepSet(a1, gw_status)
-               ep_base == IF need_comp THEN CompactPrefix(evicted_prefix, journal_records) ELSE evicted_prefix
-               recs_base == IF need_comp THEN CompactRecs(journal_records) ELSE journal_records
-               slots_base == IF need_comp THEN CompactSlots(journal_records, journal_slots, keep) ELSE journal_slots
-               orig_base == IF need_comp THEN CompactOrigins(journal_records, journal_slots, origin_present, keep) ELSE origin_present
-               next_seq == ep_base + Len(recs_base) + 1
-           IN /\ acct_orders' = o1
-              /\ ghost_orders' = g1
-              /\ acct_adm' = a1
-              /\ adm_retired_at' = ar1
-              /\ gw_completed_at' = cp1
-              /\ ghost_retire_at' =
-                    IF retirable /\ cp1[k] > 0
-                    THEN [ghost_retire_at EXCEPT ![k] = cp1[k]]
-                    ELSE ghost_retire_at
-              /\ evicted_prefix' = ep_base
-              /\ journal_records' = Append(recs_base, [seq |-> next_seq, admit_intent |-> 0])
-              /\ journal_slots' = slots_base
-              /\ origin_present' = orig_base
-              /\ frontier_pos' = frontier_pos + 1
-              /\ total_appends' = total_appends + 1
-    /\ UNCHANGED <<
-        now, facts, pending_send, gw_status, gw_eval_at, ever_orders,
-        ever_mgmt, admit_count, fact_first_at, trade_book_count,
-        overflow_reclaimed
-       >>
-
-\* Explicit AccountJournal::compact_before(keep, MaxRecords \div 2) prefix trim.
-\* crates/tickwire-account-journal/src/lib.rs:582-652, crates/tickwire-account-gateway/src/lib.rs:664-677.
-CompactJournal ==
-    /\ Len(journal_records) > HalfRecords
-    /\ LET o1 == AfterEvictOrders(acct_orders, facts, now)
-           f1 == AfterEvictFacts(acct_orders, facts, now)
-           a1 == AfterEvictAdm(acct_orders, facts, acct_adm, adm_retired_at, now)
-           ar1 == AfterEvictAdmRet(acct_orders, facts, acct_adm, adm_retired_at, now)
-           st1 == AfterEvictGwStatus(acct_orders, facts, acct_adm, adm_retired_at, gw_status, gw_eval_at, gw_completed_at, pending_send, now)
-           cp1 == AfterEvictGwComp(acct_orders, facts, acct_adm, adm_retired_at, gw_status, gw_eval_at, gw_completed_at, pending_send, now)
-           keep == KeepSet(a1, st1)
-       IN /\ acct_orders' = o1
-          /\ facts' = f1
-          /\ acct_adm' = a1
-          /\ adm_retired_at' = ar1
-          /\ gw_status' = st1
-          /\ gw_completed_at' = cp1
-          /\ evicted_prefix' = CompactPrefix(evicted_prefix, journal_records)
-          /\ journal_records' = CompactRecs(journal_records)
-          /\ journal_slots' = CompactSlots(journal_records, journal_slots, keep)
-          /\ origin_present' = CompactOrigins(journal_records, journal_slots, origin_present, keep)
-    /\ UNCHANGED <<
-        now, pending_send, gw_eval_at, frontier_pos, ever_orders, ever_mgmt,
-        ghost_orders, ghost_retire_at, admit_count, fact_first_at,
-        trade_book_count, overflow_reclaimed, total_appends
+        now, acct_adm, adm_retired_at, fill_ways, facts, wallet_fee,
+        pending_send, gw_status, gw_eval_at, gw_completed_at, ever_orders,
+        ever_mgmt, ghost_retire_at, admit_count, fact_first_at, fact_last_at,
+        trade_book_count, ghost_expected_fee, overflow_reclaimed
        >>
 
 Next ==
@@ -822,14 +803,15 @@ Next ==
     \/ RetryDuplicateIntent
     \/ FlushPending
     \/ AbortPending
+    \/ IsolatePendingInDoubt
     \/ ObserveTerminalPendingFill
+    \/ ObserveTerminalCanceled
     \/ BookTradeFill
     \/ DuplicateTradeFill
+    \/ AmendTradeFee
     \/ MarkOrderUnknown
     \/ StartInflightAmend
     \/ FinishInflightAmend
-    \/ ReconcileOrderFees
-    \/ CompactJournal
 
 Spec == Init /\ [][Next]_vars
 
@@ -838,26 +820,23 @@ TypeOK ==
     /\ acct_orders \in [OrderIntents -> OrderValues]
     /\ acct_adm \in [AllIntents -> AdmStates]
     /\ adm_retired_at \in [AllIntents -> 0..MaxTime]
+    /\ fill_ways \in [Ways -> WayValues]
     /\ facts \in [OrderIntents -> 0..MaxTime]
+    /\ wallet_fee \in [OrderIntents -> 0..2]
     /\ pending_send \in 0..(NumOrders + NumMgmt)
     /\ gw_status \in [AllIntents -> GwStatuses]
     /\ gw_eval_at \in [AllIntents -> 0..MaxTime]
     /\ gw_completed_at \in [AllIntents -> 0..MaxTime]
-    /\ evicted_prefix \in 0..MaxAppends
-    /\ Len(journal_records) <= MaxRecords
-    /\ \A j \in 1..Len(journal_records) : journal_records[j] \in JournalElemValues
-    /\ journal_slots \in [AllIntents -> SlotStates]
-    /\ origin_present \subseteq AllIntents
-    /\ frontier_pos \in 0..MaxAppends
     /\ ever_orders \subseteq OrderIntents
     /\ ever_mgmt \subseteq MgmtIntents
     /\ ghost_orders \in [OrderIntents -> OrderValues]
     /\ ghost_retire_at \in [AllIntents -> 0..MaxTime]
     /\ admit_count \in [AllIntents -> 0..2]
     /\ fact_first_at \in [OrderIntents -> 0..MaxTime]
+    /\ fact_last_at \in [OrderIntents -> 0..MaxTime]
     /\ trade_book_count \in [OrderIntents -> 0..2]
+    /\ ghost_expected_fee \in [OrderIntents -> 0..2]
     /\ overflow_reclaimed \subseteq MgmtIntents
-    /\ total_appends \in 0..MaxAppends
     /\ OrderGatewayCount(gw_status) <= MaxOrders
     /\ OrderAccountCount(acct_orders, acct_adm) <= MaxOrders
     /\ MgmtGatewayCount(gw_status) <= MaxMgmt
@@ -867,12 +846,13 @@ GhostNonRetirable(k) ==
     LET g == ghost_orders[k]
     IN /\ g.present
        /\ \/ g.unknown
+          \/ g.in_doubt
           \/ g.amend_inflight
-          \/ (~g.aborted /\ (~g.terminal \/ g.term_cum # g.filled \/ ~g.fees_closed))
+          \/ (~g.aborted /\ (~g.terminal \/ g.term_cum # g.filled))
 
-\* No non-retirable order (live resting, unknown, unclosed fees, non-zero remaining,
-\* or in-flight amendment) is EVER evicted from Account or AccountGateway regardless
-\* of how far now advances across retention windows.
+\* No non-retirable order (live resting, unknown, in_doubt transport ambiguity,
+\* non-zero remaining, or in-flight amendment) is EVER evicted from Account or
+\* AccountGateway regardless of how far now advances across retention windows.
 ActiveNeverEvicted ==
     \A k \in ever_orders :
         GhostNonRetirable(k) =>
@@ -882,9 +862,9 @@ ActiveNeverEvicted ==
             /\ acct_orders[k].retired_at = 0
             /\ gw_completed_at[k] = 0
 
-\* Within [recorded_at, recorded_at + Window), duplicate IntentKeys and duplicate
-\* trade_id fills remain resident and are deterministically deduplicated with zero
-\* double-admission or double-booking.
+\* Within [retired_at, retired_at + Window) and [recorded_at, recorded_at + Window),
+\* duplicate IntentKeys and duplicate trade_id fills remain resident across Account,
+\* AccountGateway, and FillRecordPool with zero double-admission or double-booking.
 WindowDedupPreserved ==
     /\ \A i \in AllIntents : admit_count[i] <= 1
     /\ \A k \in ever_orders :
@@ -894,12 +874,26 @@ WindowDedupPreserved ==
             => /\ acct_orders[k].present
                /\ acct_adm[k] # "absent"
                /\ gw_status[k] # "absent")
-        /\ ((fact_first_at[k] > 0 /\ (GhostNonRetirable(k) \/ now < fact_first_at[k] + Window))
-            => facts[k] = fact_first_at[k])
+        /\ ((fact_last_at[k] > 0 /\ now < fact_last_at[k] + Window)
+            => /\ facts[k] = fact_last_at[k]
+               /\ InFillPool(fill_ways, k))
+        /\ ((fact_last_at[k] > 0 /\ GhostNonRetirable(k))
+            => facts[k] = fact_last_at[k])
     /\ \A m \in (ever_mgmt \ overflow_reclaimed) :
         (ghost_retire_at[m] = 0 \/ now < ghost_retire_at[m] + Window)
         => /\ acct_adm[m] # "absent"
            /\ gw_status[m] # "absent"
+
+\* Post-trade TRADE_LITE -> TRADE fee upgrades and fee/rebate amendments
+\* (amendment = true) settle exact fee deltas without re-booking filled quantity
+\* or aliasing distinct keys inside FillRecordPool ways.
+FillAmendmentExactness ==
+    /\ \A k \in OrderIntents :
+        /\ acct_orders[k].filled <= 1
+        /\ wallet_fee[k] = ghost_expected_fee[k]
+    /\ \A w1, w2 \in Ways :
+        (w1 # w2 /\ fill_ways[w1].occupied /\ fill_ways[w2].occupied)
+        => fill_ways[w1].ord # fill_ways[w2].ord
 
 \* Even when all MaxOrders slots hold live resting orders, whenever the outbound wire
 \* is idle (pending_send = 0) and an open order exists, Cancel/Query headroom is
@@ -910,24 +904,4 @@ ManagementNeverStarved ==
            \/ ReclaimableGatewayMgmt(gw_status, acct_adm, pending_send) # {})
        /\ (MgmtAccountCount(acct_adm) < MaxMgmt
            \/ ReclaimableAccountMgmt(acct_adm) # {})
-
-\* Journal prefix compaction (evicted_prefix) preserves contiguous logical sequence
-\* numbers, rolling HistoryFrontier equivalence, and retained AdmissionOrigins for
-\* every active or still-resident intent across Account and AccountGateway.
-FrontierContinuity ==
-    /\ evicted_prefix + Len(journal_records) = total_appends
-    /\ frontier_pos = total_appends
-    /\ \A j \in 1..Len(journal_records) :
-        journal_records[j].seq = evicted_prefix + j
-    /\ \A i \in AllIntents :
-        (IntentActive(acct_orders, acct_adm, i) \/ acct_adm[i] # "absent" \/ gw_status[i] # "absent")
-        => /\ i \in origin_present
-           /\ journal_slots[i] \in {"in_records", "retained"}
-    /\ \A i \in AllIntents :
-        journal_slots[i] = "in_records"
-        => (\E j \in 1..Len(journal_records) : journal_records[j].admit_intent = i)
-    /\ \A i \in AllIntents :
-        (i \in origin_present
-         /\ ~\E j \in 1..Len(journal_records) : journal_records[j].admit_intent = i)
-        => journal_slots[i] = "retained"
 =============================================================================

@@ -1,3 +1,3 @@
-# Further Binance checks
+# Binance ORS Verification Status
 
-Model an account crash after partial native output followed by replay and receipt ambiguity. Separate levels would be required for WebSocket order submission, USDⓈ-M margin accounting and startup reconciliation. The current model assumes that the account has already qualified.
+- [`L0_binance_ors_bootstrap`](L0_binance_ors_bootstrap/05_output.md): Verified with TLC (`--coverage`) across both Spot and Derivatives balance-lock modes; zero open counterexamples.

@@ -1,15 +1,9 @@
-# L1 推理与覆盖见证
+# L1 modeling rationale and coverage witnesses
 
-L1 检查部分深度下的知识含义：已知数量能否与完整内容一致、返回的已知最佳价是否真为该版本最优，以及未知价位是否保留另一种相容内容。每次配置细化一侧；Bid 和 Ask 使用相反的价格优先级，分别运行。双侧失败原子性继续由 L0 的两个独立内容见证检查。
+Verifies partial-depth epistemic soundness: every `Known(q)` quantity matches `world`, every `Known` best level equals the true best price of `world`, and every `Unknown` quantity admits two distinct `world` assignments (`0` and `1`) compatible with stored local state. Bid and Ask sides use opposite price ordering and are checked in dedicated configurations.
 
-`local` 与 `world` 是有限价格到数量的函数。`local[p]=0` 表示不存储价位；`world` 可以在本地覆盖范围外保留正数量。快照先选完整内容与截断位置，只写入截断内正数量；Through 用实际最差非零价位确定。完整快照直接使用 Complete，即使为空。对应 `coverage()` 的三分支都保留。
+`local` and `world` map bounded prices to quantities (`local[p] = 0` means unstored; `world` may hold positive quantities outside the local `Through` cutoff). Installing a partial snapshot writes positive levels within the cutoff and sets `Through` to the worst nonzero stored level (or `Unknown` if empty), whereas a full snapshot sets `Complete` even when empty.
 
-接受增量对 local 与 world 应用同一组绝对数量更新：正数插入或改量，零删除。保留值 -1 表示该价位不在批次中。完成后正数量价位数量不得超过容量，否则只进入 Invalid。L1 只生成规范化、去重的价位更新，价格输入错误、原始零项个数、批次长度、数组排序、双侧 crossed 检查与具体 SequencePolicy 由 L0 的校验分类或 Rust 测试承担。`IgnoreStale`、`RejectIdentity`、`Invalidate` 是 L0 的内容效果投影；时间与序号数值不在 L1 重复展开。
+Accepted deltas apply identical absolute updates to `local` and `world` (`> 0` upsert, `0` delete, `-1` untouched), transitioning to `Invalid` if net nonzero levels exceed capacity. Coverage boundaries remain fixed across deltas: a positive update outside `Through` makes `quantity(p)` return `Known(q)`, while deleting it removes the entry without leaving a zero tombstone so `quantity(p)` reverts to `Unknown`. If all levels inside `Through` are deleted, remaining out-of-window levels cannot prove global optimality, so `best` conservatively returns `Unknown`; `ObserveHiddenBest` explicitly witnesses states where an unstored out-of-window level in `world` beats every stored level.
 
-coverage 在增量期间保持不变。某个范围外价位的正数量被更新后，quantity 可以返回 Known(q)；如果该价位后来被删，零值不留下 tombstone，quantity 仍返回 Unknown。若删除了全部范围内价位，存储中剩下的范围外价位也不足以证明全侧最佳价，best 返回 Unknown。`ObserveHiddenBest` 要求完整内容中确有未存储的更优价，防止把 Unknown 分支只检查成一个标签。
-
-`Compatible(w)` 描述与已知内容相容的完整侧：所有已存正数和覆盖范围内的零均一致。对每个 Unknown quantity，模型分别把那个隐藏价改为 0 和 1，检查两种 world 都相容。因此没有把范围外缺价偷换为 Known(0)。best 的 Unknown 可以是保守结果；有限价格域中并非每个 Unknown best 都必然存在两个不同最优价，模型不要求这种额外完备性。
-
-主配置价格为 1..3，容量为 2、数量为 0/1、generation 为 0..1，可容纳已知边界、未知中间价与已学习的更差价。Bid 扩展到四价格/容量 3、三代次；Ask 扩展为三价格/容量 2、数量 0..2、三代次。容量刻意小于价格域，拒绝动作有可达前提。所有 15 个 Next 动作都检查 generated>0；其中六个只读观察分别验证 Known best、隐藏 best、Unknown zero、Known zero、范围外正数和 Complete empty。对非 Live 状态单独检查不能读取。
-
-本层采用单所有者 API 的源码转录及明确的输入契约。view 的成功代表此刻满足 L0 freshness；没有定时自动作废的借用，也没有自动关闭执行端风险开关的代码。后者是未来真实调用方集成的单独验证任务。
+Primary Bid/Ask configurations use prices `1..3`, capacity `2`, quantities `0..1`, and `generation \in 0..1`; `L1_BidScaling` expands to 4 prices, capacity `3`, and 3 generations, while `L1_AskScaling` expands to quantities `0..2` and 3 generations. Six read-observation actions witness `Known` best, hidden best, `Unknown` zero, `Known` zero, `Known` beyond coverage, and `Complete` empty, plus `ObserveNotLive`.

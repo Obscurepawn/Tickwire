@@ -1,5 +1,5 @@
-# 输入
+# Input
 
-目标是 `crates/tickwire-transport/src/connection.rs` 的发送生命周期。`PreparedSend` 保存不可变报文和期限，`queue` 只占用有界槽，`try_send` 才能首次接受，`drive` 只冲刷已接受数据。源码在 TLS 明文接受后保留 `accepted_bytes`，即使尚无密文进入 socket 也不能返回 NoBytes。
+Target: the single-slot outbound send lifecycle in `crates/tickwire-transport/src/connection.rs:11-29` and `crates/tickwire-transport/src/connection.rs:207-611`. `PreparedSend` holds immutable wire bytes and a monotonic deadline; `Connection::queue` (`crates/tickwire-transport/src/connection.rs:207-230`) claims the bounded slot without writing bytes; `Connection::try_send` (`crates/tickwire-transport/src/connection.rs:380-430`) enforces the synchronous first-output authorization closure and re-checks the deadline before accepting any plaintext; and `Connection::drive` (`crates/tickwire-transport/src/connection.rs:475-611`) flushes already-accepted TLS ciphertext and records `SendState::Flushed` (`crates/tickwire-transport/src/connection.rs:432-441` and `crates/tickwire-transport/src/connection.rs:546`) before evaluating receive-side EOF. Once TLS accepts plaintext (`accepted_bytes > 0`), `reject` / `fail` / `expire` / `cancel` (`crates/tickwire-transport/src/connection.rs:332-378`) can never fabricate `SendState::NoBytes`, even if zero ciphertext bytes have reached the kernel socket yet.
 
-真实 socket 回归已经发现并修复解密读取超过每次预算、EOF 提前丢弃未读取明文、完整冲刷后同一次读取 EOF 导致完成记录延后等问题。它们来自实际测试，不是 TLC 发现。原始日志放在 `docs/validation/transport/`。
+Socket-level regressions covering bounded plaintext decryption per call, draining decrypted bytes before EOF teardown, and recording `Flushed` before same-turn peer EOF are enforced by the integration test suite under [crates/tickwire-transport/tests](../../../../crates/tickwire-transport/tests).

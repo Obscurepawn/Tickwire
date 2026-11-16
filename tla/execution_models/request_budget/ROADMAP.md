@@ -1,5 +1,6 @@
-# Request budget models
+# Process-wide ORS `SharedRateLimiter` models
 
 | Level | Result |
 | --- | --- |
-| [L0 shared window](L0_shared_window/05_output.md) | Total budget, protected recovery capacity and retained consumption passed in both bounded configurations. |
+| [L0 multi-account & multi-IP `SharedRateLimiter` + `pick_and_spend_or_nack`](L0_shared_ors_limiter/05_output.md) | Cross-account shared `RateRule::ip` (`account = 0`) + isolated per-account `ORDER`/`CANCEL`/`REQUEST` caps, reverse-order `put_back_undo` multi-bucket rollback preserving sibling sub-bucket counts, strict single-pick `pick -> spend(local_ip) -> NACK without retry`, per-IP `429` vs. per-account `418` isolation, and rising-edge `80%`/`100%` `ExchRateLimitEvent` hysteresis latch verified to 0 queue states with 100% action coverage across single-IP contention and multi-IP routing configurations. |
+| [L1 symbolic 64-bit/`u128` inductive `SharedRateLimiter`](L1_sym_shared_limiter/05_output.md) | Apalache `0.63.0` + Z3 `QF_LIA` unbounded symbolic induction (`IndInv`, $\forall k \ge 0$) + 64-bit/`u128` `BMC` + dual-engine TLC (`100%` action coverage) prove `SharedAndAccountCapsRespected`, `TransactionalRollbackExact`, `SinglePickNeverRetriesSibling`, `CrossAccountFreezeAndCancelIsolation`, `RisingEdgeExchLatchExact` (`exch_latch_ceil => exch_latch_warn`), and `U64AndU128OverflowSafe` over `0 .. 2^64 - 1` timestamps and arbitrary window limits. |

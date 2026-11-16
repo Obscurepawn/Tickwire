@@ -1,14 +1,14 @@
-# v2 执行记录
+# `v2` TLC run log
 
-复现命令：`python3 tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/run.py`。脚本冻结模型/配置副本，逐个运行固定TLC jar、Java24、单worker、2GiB堆及独立临时目录；每份日志首行记录实际命令。
+Reproduce with `./scripts/check-tla.sh binance_private_session` (or the evidence runner `python3 tla/execution_models/binance_private_session/L0_session_lifecycle/04_evidence/run.py`, which runs the pinned `tla2tools.jar` single-worker with a `2 GiB` heap and isolated scratch directories).
 
-| 配置 | generated | distinct | depth | 墙钟秒 | 结果 |
+| Configuration | Generated | Distinct | Depth | Wall time (s) | Result |
 | --- | ---: | ---: | ---: | ---: | --- |
-| L0_PrivateSession_v2.cfg | 24,478 | 12,018 | 27 | 2.778 | PASS |
-| L0_PrivateSession_v2_buffer.cfg | 2,244 | 1,043 | 20 | 1.304 | PASS |
-| L0_PrivateSession_v2_logon.cfg | 3,476 | 1,881 | 28 | 1.371 | PASS |
-| L0_PrivateSession_v2_usdm.cfg | 536,304 | 267,643 | 34 | 17.798 | PASS |
+| `L0_PrivateSession_v2.cfg` | 24,478 | 12,018 | 27 | 2.778 | PASS |
+| `L0_PrivateSession_v2_buffer.cfg` | 2,244 | 1,043 | 20 | 1.304 | PASS |
+| `L0_PrivateSession_v2_logon.cfg` | 3,476 | 1,881 | 28 | 1.371 | PASS |
+| `L0_PrivateSession_v2_usdm.cfg` | 536,304 | 267,643 | 34 | 17.798 | PASS |
 
-检查16项不变量。动作覆盖只取每份日志最后完整块，按产品配置取并集；逐动作计数、源码/model/jar/cfg/log SHA见results.json。旧v1模型和日志保存在runs/pre-final-sample-v2及验证目录的源码归档。
+All 16 safety invariants held with `0` states remaining on queue. Action coverage is taken from the final complete coverage block of each log and unioned across product configurations; per-action counts and artifact SHA-256 digests are recorded in `04_evidence/results.json`, while historical `v1` runs remain under `04_evidence/runs/pre-final-sample-v2/`.
 
-每份末块包含32个入口，跨配置并集为 Init+33 Next，全部至少在一个配置中 generated>0。USD-M 不执行签名预算回调，GateBudgetExpires 和 FinalSampleExpired 在该配置为0，Spot 配置覆盖这两个入口。独立审阅据源码要求为预算动作增加 Signed guard，修前运行单独保存在 runs/pre-signed-review。
+Each log emits 32 coverage entries, and the union across the four configurations covers `Init` + all 33 `Next` actions with `generated > 0` (`GateBudgetExpires` and `FinalSampleExpired` are `0` on USD-M because USD-M `listenKey` management does not run signed `DeliveryBudget` callbacks, and are covered in the Spot configurations).

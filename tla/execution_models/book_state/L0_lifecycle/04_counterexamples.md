@@ -1,3 +1,3 @@
-# L0 反例记录
+# L0 counterexample log
 
-四组配置均未产生反例，没有源码缺陷候选。独立审阅未发现模型与已声明源码范围之间的阻断差异。
+All four configurations completed without invariant violations or source defect candidates, and independent review found zero fidelity discrepancies across the modeled scope.

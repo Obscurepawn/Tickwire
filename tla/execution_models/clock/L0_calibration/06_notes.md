@@ -1,7 +1,5 @@
-# 数值与接口要点
+# Numerical and interface notes
 
-服务端毫秒输入、本地纳秒计时、签名毫秒或微秒具有不同量化边界。把一秒缩成一个小整数会改变向外舍入和严格未来界；本级保留真实1e9纳秒，以十个基数1000的分段整数避开 TLC 原生32位限制。Python样例与TLC自检分别核对数值，主模型每个初态再执行同一组算术断言。
+Venue server timestamps arrive in milliseconds, local clocks sample in nanoseconds, and signed payloads quantize to milliseconds or microseconds. Rescaling `1 s` to a tiny toy integer would distort outward rounding and strict future bounds, so L0 preserves exact `10^9 ns` scale via 10-limb base-1000 integers verified against Python test vectors.
 
-令牌过期与实例故障的检查顺序不同：旧采样回复在观察时间前拒绝，不能用错误时间使新请求故障；当前请求则先观察时间，再消耗 pending。签名发送检查保留签名时实际量化出的 T，重新读取当前区间后比较，正常刷新不会自动把旧 T 改成新的中点。
-
-连续速率是外部时间源契约。模型独立推进真实服务器时间，并在请求期间任选隐藏采样时刻；跳变会撤销已有真值保证。核心可以拒绝已检测的大幅调整，但无法凭一条报文检测任意未观察跳变。后续网络组合须保持样本与请求的真实关联，并按首次输出的实际期限重新检查。
+Stale sample tokens are rejected before observing monotonic time so delayed stale replies cannot fault a newer calibration request, whereas active tokens observe monotonic time before consuming `pending`. `check_send` retains the original quantized timestamp `T` recorded at `sign_time` and validates it against the latest refreshed interval without mutating `T`.

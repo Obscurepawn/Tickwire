@@ -1,7 +1,7 @@
-# 广播 ring 验证状态
+# Broadcast ring verification roadmap
 
-| 级别 | 状态 | 结论 |
+| Level | Status | Summary |
 | --- | --- | --- |
-| L0_publish_borrow_reclaim | PASS | 五 cfg 全部通过；容量 64、满环及双读者回收；独立审阅完成 |
-| L1_identity_rotation | 计划 | 控制面与 bank 代次 |
-| L2_exit_reclaim | 计划 | 退出证据与资源回收 |
+| `L0_publish_borrow_reclaim` | PASS | All five configurations passed at `Capacity = 64`, covering full-ring wraparound and two-reader reclamation |
+| `L1_identity_rotation` | Planned | Control-plane identity and bank generation rotation |
+| `L2_exit_reclaim` | Planned | Process-exit evidence and mapping reclamation |

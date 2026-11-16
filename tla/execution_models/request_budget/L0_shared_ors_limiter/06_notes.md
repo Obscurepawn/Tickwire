@@ -1,0 +1,5 @@
+# Review notes — `L0_SharedOrsLimiter`
+
+1. **Cross-account shared rolling sub-bucket `put_back` precision**: When Account 1 and Account 2 coalesce debits into the same `AtomicRollingWindow` `sub_tick` slot (`crates/tickwire-quota/src/shared.rs:507-642`) and Account 2 subsequently rejects on its per-account `ORDER` cap, `AtomicRollingWindow::put_back` subtracts only Account 2's `units` (`slot_tick == booked_tick && slot_count >= req`), preserving Account 1's booked weight.
+2. **Strict single-pick NACK discipline**: `SharedRateLimiter::pick_and_spend_or_nack` (`crates/tickwire-quota/src/shared.rs:1329-1355`) invokes `pick_once` once and propagates `RateLimitedNack` immediately on bucket rejection rather than hunting across sibling sockets on the `REQ` hot path.
+3. **Monotone `exch_latch` bit implication (`exch_latch # 2`)**: Because `exch_warn_pct <= 100` (`80%` default), `reported_count >= reported_limit` implies `reported_count * 100 >= reported_limit * exch_warn_pct`, so `LATCH_CEIL_ACTIVE` (`2`) never activates without `LATCH_WARN_ACTIVE` (`1`).

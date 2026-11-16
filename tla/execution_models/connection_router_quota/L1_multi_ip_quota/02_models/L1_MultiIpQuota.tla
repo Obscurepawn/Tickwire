@@ -24,30 +24,28 @@ account-wide HTTP `418` freeze.
 
 Variable <-> Rust source mapping:
 - clock: monotonic timestamp (`now_ns`) in `0..MaxClock`,
-  crates/tickwire-quota/src/rate_limiter.rs:1308-1425.
+  crates/tickwire-quota/src/rate_limiter.rs:1338-1409.
 - acct_order_epoch, acct_order_used, acct_order_warn, sym_cancel_epoch, sym_cancel_used:
   `FixedWindow` state (`current_epoch_idx`, `used`, `warn_active`) for account `ORDER` and symbol
   `CANCEL` windows,
-  crates/tickwire-quota/src/rate_limiter.rs:514-614,
+  crates/tickwire-quota/src/rate_limiter.rs:500-614,
   crates/tickwire-quota/src/rate_limiter.rs:1422-1460.
 - ip_entries, ip_peak, ip_warn: per-IP `RollingWindow` bounded ring (`entries[head..head+len]`,
   `observed_exchange_peak`, `warn_active`) with sliding expiration and same-`now_ns` coalescing,
-  crates/tickwire-quota/src/rate_limiter.rs:616-842,
+  crates/tickwire-quota/src/rate_limiter.rs:617-842,
   crates/tickwire-quota/src/rate_limiter.rs:1422-1460.
 - ip_cooldown_until, acct_frozen: `IpCooldownEntry` (`note_ip_cooldown`, `check_ip`, HTTP `429`)
   and `AccountCooldownEntry` (`freeze_account`, `check_account`, HTTP `418`),
-  crates/tickwire-quota/src/rate_limiter.rs:1117-1296,
-  crates/tickwire-binance-quota/src/lib.rs:1578-1615.
+  crates/tickwire-quota/src/rate_limiter.rs:1117-1225,
+  crates/tickwire-binance-quota/src/lib.rs:1525-1615.
 - rollback_exact, local_reject_preserved: step-by-step witness flags for transactional `allow`
   reverse-order `put_back` unwinding (`WindowUndo::{Fixed, RollingCoalesced, RollingPushed}`) and
-  pre-admission local `Account::admit` rejection non-burn,
+  pre-admission local `OrderManager::place_order` / `Account::admit` rejection non-burn,
   crates/tickwire-quota/src/rate_limiter.rs:1338-1409,
-  crates/tickwire-quota/src/rate_limiter.rs:1847-2232,
-  crates/tickwire-binance-quota/src/lib.rs:1163-1576,
-  crates/tickwire-binance-account/src/rest.rs:509-685,
-  crates/tickwire-binance-account/src/ws/owner.rs:259-360,
-  crates/tickwire-spot-execution/src/session.rs:486-552,
-  crates/tickwire-spot-execution/src/session.rs:711-844.
+  crates/tickwire-quota/src/rate_limiter.rs:1921-2268,
+  crates/tickwire-binance-quota/src/lib.rs:1598-1655,
+  crates/tickwire-account-gateway/src/pool.rs:420-480,
+  crates/tickwire-spot-execution/src/session.rs:1103-1196.
 *)
 
 ASSUME
@@ -359,8 +357,8 @@ MultiWinDupSpends(ip) ==
     <<[kind |-> "IpWeight",  ip |-> ip, units |-> 1],
       [kind |-> "AcctOrder", ip |-> 0,  units |-> 1]>>
 
-\* Route filter mirroring pick_pool_slot_filtered + can_afford_quota_on_ip
-\* (crates/tickwire-binance-account/src/rest.rs:581-649).
+\* Route filter mirroring pick_pool_slot_filtered + can_afford_ip
+\* (crates/tickwire-account-gateway/src/pool.rs:337-365, crates/tickwire-binance-quota/src/lib.rs:1598-1635).
 AffordableIpsFor(spends_fn(_)) ==
     {ip \in Ips : CanAffordEval(spends_fn(ip), clock).ok}
 

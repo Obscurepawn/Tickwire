@@ -240,7 +240,7 @@ MulByUnit(val, u) ==
 Max2(a, b) == IF a >= b THEN a ELSE b
 SatSub(a, b) == IF a > b THEN a - b ELSE 0
 
-(* Exact `QF_LIA` transcription of `scale_up(value, drift_ppb)` (`lib.rs:401-404`):
+(* Exact `QF_LIA` transcription of `scale_up(value, drift_ppb)` (`crates/tickwire-clock/src/lib.rs:401-404`):
  * `(value * (PPB + drift_ppb) + PPB - 1) \div PPB` using literal divisors per `DriftCase`. *)
 ScaleUpRaw(val, dc) ==
   IF BoundedMode
@@ -252,7 +252,7 @@ ScaleUpRaw(val, dc) ==
          [] dc = 2 -> (val * 1000100000 + 999999999) \div 1000000000
          [] OTHER -> (val * 1001000000 + 999999999) \div 1000000000
 
-(* Exact `QF_LIA` transcription of `lower_advance` in `project` (`lib.rs:407`): *)
+(* Exact `QF_LIA` transcription of `lower_advance` in `project` (`crates/tickwire-clock/src/lib.rs:407`): *)
 ScaleDownRaw(val, dc) ==
   IF BoundedMode
   THEN CASE dc = 0 -> val

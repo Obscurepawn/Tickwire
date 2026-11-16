@@ -1,0 +1,9 @@
+# Verification Output Summary — `L1_SymSharedLimiter`
+
+## Proven Invariants (All Step Depths `k >= 0` Over 64-Bit / 128-Bit Integer Domains)
+
+1. **`SharedAndAccountCapsRespected`:** Cross-account shared IP rolling sub-bucket sums (`ip1_sum`, `ip2_sum`) never exceed `cfg_shared_ip_cap` (`2 .. 2^28 - 1`), and per-account `ORDER` (`a1_ord_used`, `a2_ord_used`) and `CANCEL` (`a1_cxl_used`) fixed-window counters never exceed their configured `u32` limits across arbitrary `u64` nanosecond jumps and `u32` epoch wraparounds (`WrapU32(now_ns \div 10^9)`).
+2. **`TransactionalRollbackExact`:** Both `[AcctOrd, SharedIp]` (`AtomicFixedWindow::put_back`) and `[SharedIp, AcctOrd]` (`AtomicRollingWindow::put_back`, both coalesced into a sibling account's active sub-bucket and freshly pushed sub-buckets) unwind `100%` of tentative reservations on downstream rejection while preserving sibling account units bit-for-bit.
+3. **`SinglePickNeverRetriesSibling`:** When `PublishedRoutes::pick` selects an `OrderRoute` whose local IP rejects (rolling cap or `429` cooldown), `pick_route_and_place_or_nack` returns immediate NACK without touching any sibling IP bucket (`crates/tickwire-quota/src/shared.rs:1329-1355`, `1762-1806`).
+4. **`CrossAccountFreezeAndCancelIsolation`:** Account 1's HTTP `418` permanent freeze (`acct1_frozen`) and temporary account cooldown (`acct1_cd_until_ns`) never block sibling Account 2 on shared `ip1`, and Account 1 `ORDER` exhaustion never blocks Account 1 `CANCEL` or `QueryDesk` spends.
+5. **`RisingEdgeExchLatchExact` & `U64AndU128OverflowSafe`:** `reconcile_venue_usage` (`rep * 100 >= limit * 80` and `rep >= limit` in `u128`) satisfies `exch_latch_ceil => exch_latch_warn`, emits `ExchRateLimit` strictly on rising threshold crossings without mutating local admission buckets, and cannot overflow `u128` for any `u64` `reported_count` and `u32` `reported_limit`.

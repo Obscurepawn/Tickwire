@@ -1,15 +1,15 @@
 ---------------------------- MODULE L0_QuotePair_v2 ----------------------------
 EXTENDS Naturals, Sequences, FiniteSets
 
-\* Fixed runtime policy. var <-> code and actor map:
+\* Fixed MarketSink observer. var <-> code and actor map:
 \* h      owner batch log (abstract SHM slots); crates/tickwire-market-publisher/src/spot.rs:100-159
 \* t      current monotonic reading; crates/tickwire-market-source/src/shm.rs:223-237
 \* base, pos accepted JOIN/member frontier and applied sequence per process;
-\*        crates/tickwire-market-source/src/replica.rs:274-316 and crates/tickwire-market-source/src/replica.rs:428-443
-\* callback last observed SDK emission (ghost witness); crates/tickwire-strategy-sdk/src/replay/live.rs:299-335
-\* mark   latest accepted observation sequence; valid is Feed.live;
-\*        crates/tickwire-runtime-policy/src/lib.rs:605-670
-\* failed Sources member terminal poll bit; crates/tickwire-app/src/market.rs:206-245
+\*        crates/tickwire-market-source/src/replica.rs:265-331 and crates/tickwire-market-source/src/replica.rs:413-499
+\* callback last observed SDK emission (ghost witness); crates/tickwire-strategy-sdk/src/market.rs:227-267
+\* mark   latest accepted observation sequence; valid is continuous feed gate;
+\*        crates/tickwire-market-source/src/lib.rs:56-75 and crates/tickwire-market-source/src/shm.rs:283-322
+\* failed ShmSource terminal stopped latch on Error::Sink; crates/tickwire-market-source/src/shm.rs:200-215 and crates/tickwire-market-source/src/shm.rs:330-363
 \* Single owner and two independent readers. No transport failure is injected.
 CONSTANT MaxBatches, LastTime, Age
 VARIABLES h, t, base, pos, callback, mark, valid, failed
@@ -21,7 +21,7 @@ Batch(p) == (p+1) \div 2
 B(l,i,u) == [live |-> l, ing |-> i, pub |-> u]
 Fresh(a,n) == a <= n /\ n-a <= Age
 EndLive(p) == p > 0 /\ p % 2 = 0 /\ h[Batch(p)].live
-\* Stale batches carry the previous exact quote's ingress (crates/tickwire-market-publisher/src/spot.rs:58-74 and crates/tickwire-market-publisher/src/spot.rs:107-122).
+\* Stale batches carry the previous exact quote's ingress (crates/tickwire-market-publisher/src/spot.rs:58-75 and crates/tickwire-market-publisher/src/spot.rs:107-122).
 Rec(p) ==
   LET b == Batch(p)
       v == h[b]
@@ -29,11 +29,11 @@ Rec(p) ==
       prior == Max({i \in 1..b : h[i].live})
   IN [q |-> quote, live |-> v.live, stamp |-> v.pub,
       ing |-> IF quote THEN h[prior].ing ELSE v.ing]
-\* snapshot crates/tickwire-snapshot/src/builder.rs:445-452 and crates/tickwire-snapshot/src/builder.rs:518-530 sorts feed before exact quote and gives local ordinals.
+\* snapshot crates/tickwire-snapshot/src/builder.rs:453-462 and crates/tickwire-snapshot/src/builder.rs:500-544 sorts feed before exact quote and gives local ordinals.
 Slot(c,p,isQuote) ==
   LET n == Max({i \in 1..p : Rec(i).q = isQuote})
   IN [seq |-> IF n <= c THEN (IF isQuote THEN 2 ELSE 1) ELSE n, row |-> Rec(n)]
-\* MarketView::complete_quote and callback_ready_at, crates/tickwire-market-source/src/replica.rs:127-174.
+\* MarketView::complete_quote and callback_ready_at, crates/tickwire-market-source/src/replica.rs:136-183.
 View(c,p) ==
   LET f == Slot(c,p,FALSE)
       q == Slot(c,p,TRUE)
@@ -48,18 +48,18 @@ Init ==
   /\ callback=[seq |-> 0, at |-> 0] /\ mark=0 /\ valid=FALSE /\ failed=FALSE
 
 \* PublishLive and PublishStale are the atomic batches from crates/tickwire-market-publisher/src/spot.rs:129-159 and
-\* crates/tickwire-shm/src/mapped.rs:393-436. Writer rejects clock regression, crates/tickwire-market-publisher/src/spot.rs:90-98.
+\* crates/tickwire-shm/src/mapped.rs:397-445. Writer rejects clock regression, crates/tickwire-market-publisher/src/spot.rs:90-99.
 Publish(l) ==
   /\ Len(h)<MaxBatches
   /\ \E received \in h[Len(h)].ing..t : h'=Append(h,B(l,received,t))
   /\ UNCHANGED <<t,base,pos,callback,mark,valid,failed>>
 PublishLive == Publish(TRUE)
 PublishStale == Publish(FALSE)
-\* Clock advances between nonblocking polls; crates/tickwire-md/src/spot_market.rs:160-169.
+\* Clock advances between nonblocking polls; crates/tickwire-md/src/spot_market.rs:175-188.
 Tick == /\ t<LastTime /\ t'=t+1 /\ UNCHANGED <<h,base,pos,callback,mark,valid,failed>>
-\* Admitted JOIN and complete prefix: crates/tickwire-md/src/server.rs:331-355,
-\* crates/tickwire-market-publisher/src/lib.rs:153-203. Only the account announces
-\* an initial observation (crates/tickwire-market-source/src/shm.rs:268-278); crates/tickwire-strategy-sdk/src/worker.rs:339-365 initializes the SDK.
+\* Admitted JOIN and complete prefix: crates/tickwire-md/src/server.rs:322-370,
+\* crates/tickwire-market-publisher/src/lib.rs:153-220. Subscriber announces
+\* an initial observation (crates/tickwire-market-source/src/shm.rs:268-278); crates/tickwire-strategy-sdk/src/worker.rs:360-375 initializes the SDK.
 AtJoin(r) ==
   /\ base[r]=0 /\ EndLive(End)
   /\ base'=[base EXCEPT ![r]=End] /\ pos'=[pos EXCEPT ![r]=End]
@@ -68,7 +68,7 @@ JoinSdk ==
 JoinAccount ==
   /\ AtJoin("account") /\ mark'=End /\ valid'=TRUE
   /\ UNCHANGED <<h,t,callback,failed>>
-\* crates/tickwire-strategy-sdk/src/worker.rs:698-733 and crates/tickwire-strategy-sdk/src/replay/live.rs:299-335 apply each row and decide once.
+\* crates/tickwire-strategy-sdk/src/worker.rs:610-716 and crates/tickwire-strategy-sdk/src/market.rs:227-267 apply each row and decide once.
 SdkRead ==
   LET n == pos["sdk"]+1 IN
   /\ base["sdk"]>0 /\ n<=End
@@ -76,11 +76,11 @@ SdkRead ==
   /\ LET v == View(base["sdk"],n)
      IN callback'=IF v.pair /\ Fresh(v.qtime,t) THEN [seq |-> n,at |-> t] ELSE callback
   /\ UNCHANGED <<h,t,base,mark,valid,failed>>
-\* crates/tickwire-market-source/src/shm.rs:293-321 reports each noncontinuous state, even if it is the trailing quote.
-\* apply_feed accepts forward observations independently of the sticky trade gate.
+\* crates/tickwire-market-source/src/shm.rs:283-322 reports each noncontinuous state, even if it is the trailing quote.
+\* MarketSink accepts forward observations independently of the sticky continuity gate.
 \* For an active cursor n is distinct from mark; JOIN supplied its initial, nonzero mark.
 \* Identity is fixed by the authenticated JOIN. Sequence and publication time remain checked.
-\* crates/tickwire-market-source/src/shm.rs:337-344 maps a rejected observation to error. crates/tickwire-app/src/market.rs:206-245 latches failed.
+\* crates/tickwire-market-source/src/shm.rs:330-363 maps a rejected observation to Error::Sink and latches stopped.
 AccountRead ==
   LET n == pos["account"]+1 IN
   /\ base["account"]>0 /\ ~failed /\ n<=End

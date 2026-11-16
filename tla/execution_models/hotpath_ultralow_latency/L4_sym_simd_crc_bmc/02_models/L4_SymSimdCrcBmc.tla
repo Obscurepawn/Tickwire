@@ -1,47 +1,46 @@
 ---- MODULE L4_SymSimdCrcBmc ----
 (*
  * Symbolic Bounded Model Checking & Inductive Verification (Mode S1 + Mode S2) for:
- *   Target 3a (Opt #3): `simd_json` 64-byte block scanner (`AVX2` 32B, `SSE2`/`NEON`
- *     16B, `SWAR` 8B, scalar 1B tail) memory bounds and `< 64` bit-shift safety across
- *     ALL symbolic buffer lengths `0 <= frame_len <= 65536` (`MAX_MESSAGE = 16384`),
- *     eliminating `L2`'s 7 discrete sample lengths `{15,16,31,32,63,64,97}`.
- *   Target 3b (Opt #3): Exact mathematical equivalence (`FastVsOracleExactEquivalence`)
- *     between `simd_json::parse_positive_units` + `StepSpec` (`u64` fast path + `u128`
- *     `gcd`-reduced fallback) and `Decimal::parse` + `tickwire_binance::feed::units`
- *     across full 19-digit 64-bit mantissas (`0 .. 10^19 - 1`), leading/trailing zeros,
- *     decimal-point edge cases, `u64` intermediate multiplication overflow, off-grid
- *     remainders, and `i64::MAX` (`2^63 - 1`) overflow traps (`QF_LIA`).
- *   Target 3c (Opt #4): Full 64-bit `millis.checked_mul(1_000_000)` (`0 .. 2^64 - 1`)
- *     and all-profile (`dev`, `test`, `bench`, `release`) checked arithmetic trapping
- *     (`NoSilentArithmeticWrap`).
- *   Target 1b (Opt #1): `tickwire_ipc::crc32c_masked` arbitrary `Range<usize>` clamping,
- *     8-byte `as_chunks::<8>()` + 64-byte zero-chunk partition algebra across symbolic
- *     `0 <= buf_len <= 1048576` and arbitrary `mask_start`, `mask_end` (including
- *     inverted `mask_start > mask_end`, OOB `mask_end > buf_len`, and unaligned word
- *     boundaries), plus `tickwire_journal::crc32c_header_masked` 136-byte framing and
- *     `Diag_JournalCrcMaskedTotalOnOobRange` API contract comparison.
+ *   Target 1 (SIMD/SWAR/Scalar Block Scanner): `simd_json` 64-byte block scanner
+ *     (`AVX2` 32B, `SSE2`/`NEON` 16B, `SWAR` 8B, scalar 1B tail) memory bounds
+ *     and `< 64` bit-shift safety across ALL symbolic buffer lengths
+ *     `0 <= frame_len <= 65536` (`MAX_MESSAGE = 16384`).
+ *   Target 2 (64-Bit / 128-Bit Fixed-Point Oracle): Exact mathematical equivalence
+ *     (`FastVsOracleExactEquivalence`) between `simd_json::parse_positive_units` +
+ *     `StepSpec` (`u64` fast path + `u128` `gcd`-reduced fallback) and
+ *     `Decimal::parse` + `tickwire_binance::feed::units` across full 19-digit
+ *     64-bit mantissas (`0 .. 10^19 - 1`), leading/trailing zeros, decimal-point
+ *     edge cases, `u64` intermediate multiplication overflow, off-grid remainders,
+ *     and `i64::MAX` (`2^63 - 1`) overflow traps (`QF_LIA`).
+ *   Target 3 (All-Profile Overflow Trapping): Full 64-bit `millis * 1_000_000`
+ *     (`0 .. 2^64 - 1`) and all-profile (`dev`, `test`, `bench`, `release`)
+ *     checked arithmetic trapping (`NoSilentArithmeticWrap`).
+ *   Target 4 (SHM Arena Layout & Retaining Slice Bounds): `configure_shm_arena_header`
+ *     and `ShmArenaReader::read_retained_payload` 64-byte block alignment, 128-byte
+ *     `BLOCK_HEADER_BYTES` prefix, 4 KiB page rounding (`HEADER_BYTES = 4096`),
+ *     and zero-OOB retained slice offsets across `1 <= payload_len <= 65536` and
+ *     `1 <= block_count <= 4096` (`ArenaHeaderAndBlockBoundsExact`).
  *
  * Verified production Rust anchors:
  *   - Frame cap `MAX_MESSAGE = 16 * 1024` & `Session::decode_fast` / `QuoteConfig::validate`:
  *       crates/tickwire-md/src/spot_quotes/network.rs:18
  *       crates/tickwire-md/src/spot_quotes.rs:40-55
- *       crates/tickwire-md/src/spot_quotes.rs:143-176
- *       crates/tickwire-md/src/spot_quotes/protocol.rs:201-240
+ *       crates/tickwire-md/src/spot_quotes.rs:137-176
+ *       crates/tickwire-md/src/spot_quotes/protocol.rs:86-240
  *   - `StepSpec`, `Scanner::load_next_block`, `AVX2`/`SSE2`/`NEON`/`SWAR`/scalar loops:
- *       crates/tickwire-md/src/spot_quotes/simd_json.rs:117-140
- *       crates/tickwire-md/src/spot_quotes/simd_json.rs:265-469
+ *       crates/tickwire-md/src/spot_quotes/simd_json.rs:117-145
+ *       crates/tickwire-md/src/spot_quotes/simd_json.rs:189-469
  *       crates/tickwire-md/src/spot_quotes/simd_json.rs:675-694
  *   - `parse_positive_units` (`u64` fast path + `u128` `from_parts`) & `Decimal`/`units`:
  *       crates/tickwire-md/src/spot_quotes/simd_json.rs:523-621
- *       crates/tickwire-md/src/spot_quotes/simd_json.rs:1277-1280
- *       crates/tickwire-binance/src/decimal.rs:34-94
- *       crates/tickwire-binance/src/feed.rs:384-419
+ *       crates/tickwire-binance/src/decimal.rs:4-94
+ *       crates/tickwire-binance/src/feed.rs:352-375
  *   - Workspace all-profile `overflow-checks = true`:
- *       Cargo.toml:15-26
- *   - `crc32c_masked` & `crc32c_header_masked` slice/chunk framing:
- *       crates/tickwire-ipc/src/crc32c.rs:154-168
- *       crates/tickwire-journal/src/crc32c.rs:180-235
- *       crates/tickwire-journal/src/frame.rs:138-145
+ *       Cargo.toml:58-71
+ *   - `configure_shm_arena_header` & `ShmArenaReader::read_retained_payload`:
+ *       crates/tickwire-strategy-sdk/src/arena.rs:17-58
+ *       crates/tickwire-strategy-sdk/src/arena.rs:72-210
+ *       crates/tickwire-strategy-sdk/src/arena.rs:439-502
  *)
 EXTENDS Integers
 
@@ -50,7 +49,6 @@ CONSTANTS
   BoundedMode
 
 VARIABLES
-  (* --- Target 3a: SIMD/SWAR/scalar block scanner state --- *)
   (* @type: Int; *)
   backend_id,
   (* @type: Int; *)
@@ -71,7 +69,6 @@ VARIABLES
   last_shift_bits,
   (* @type: Bool; *)
   movemask_upper32_zero,
-  (* --- Target 3b & 3c: 64-bit/128-bit decimal & timestamp oracle state --- *)
   (* @type: Int; *)
   step_case,
   (* @type: Int; *)
@@ -110,37 +107,28 @@ VARIABLES
   profile_id,
   (* @type: Bool; *)
   checked_overflow_trapped,
-  (* --- Target 1b: `crc32c_masked` & `crc32c_header_masked` state --- *)
   (* @type: Int; *)
-  buf_len,
+  arena_class_case,
   (* @type: Int; *)
-  mask_start,
+  arena_payload_len,
   (* @type: Int; *)
-  mask_end,
+  arena_block_count,
   (* @type: Int; *)
-  clamped_start,
+  arena_block_idx,
   (* @type: Int; *)
-  clamped_end,
+  arena_raw_bytes,
   (* @type: Int; *)
-  prefix_words8,
+  arena_bytes,
   (* @type: Int; *)
-  prefix_rem8,
-  (* @type: Int; *)
-  zero_chunks64,
-  (* @type: Int; *)
-  zero_rem64,
-  (* @type: Int; *)
-  suffix_words8,
-  (* @type: Int; *)
-  suffix_rem8,
-  (* @type: Bool; *)
-  journal_masked_assert_ok
+  arena_payload_offset
 
+(* @type: <<Int, Int, Bool, Int, Int, Int, Int, Int, Int, Bool>>; *)
 simdVars == <<
   backend_id, frame_len, frame_oversized, block_base, block_end, offset,
   last_read_start, last_read_end, last_shift_bits, movemask_upper32_zero
 >>
 
+(* @type: <<Int, Int, Bool, Bool, Int, Bool, Bool, Int, Int, Int, Bool, Int, Bool, Int, Int, Bool, Int, Int, Bool>>; *)
 arithVars == <<
   step_case, str_len, has_minus, has_invalid_char, dot_count,
   digit_before_dot, digit_after_dot, total_digits, frac_scale, mantissa,
@@ -148,12 +136,13 @@ arithVars == <<
   profile_id, checked_overflow_trapped
 >>
 
-crcVars == <<
-  buf_len, mask_start, mask_end, clamped_start, clamped_end,
-  prefix_words8, prefix_rem8, zero_chunks64, zero_rem64,
-  suffix_words8, suffix_rem8, journal_masked_assert_ok
+(* @type: <<Int, Int, Int, Int, Int, Int, Int>>; *)
+arenaVars == <<
+  arena_class_case, arena_payload_len, arena_block_count, arena_block_idx,
+  arena_raw_bytes, arena_bytes, arena_payload_offset
 >>
 
+(* @type: <<Int, Int, Bool, Int, Int, Int, Int, Int, Int, Bool, Int, Int, Bool, Bool, Int, Bool, Bool, Int, Int, Int, Bool, Int, Bool, Int, Int, Bool, Int, Int, Bool, Int, Int, Int, Int, Int, Int, Int>>; *)
 vars == <<
   backend_id, frame_len, frame_oversized, block_base, block_end, offset,
   last_read_start, last_read_end, last_shift_bits, movemask_upper32_zero,
@@ -161,14 +150,18 @@ vars == <<
   digit_before_dot, digit_after_dot, total_digits, frac_scale, mantissa,
   fast_ok, fast_units, oracle_ok, oracle_units, ts_ms, ts_ok, ts_ns,
   profile_id, checked_overflow_trapped,
-  buf_len, mask_start, mask_end, clamped_start, clamped_end,
-  prefix_words8, prefix_rem8, zero_chunks64, zero_rem64,
-  suffix_words8, suffix_rem8, journal_masked_assert_ok
+  arena_class_case, arena_payload_len, arena_block_count, arena_block_idx,
+  arena_raw_bytes, arena_bytes, arena_payload_offset
 >>
 
-(* Constants < 2^31 for SANY; exact 64-bit / 19-digit bounds in Apalache Z3. *)
 (* @type: Int; *)
 MaxMessageBytes == 16384
+
+(* @type: Int; *)
+ArenaHeaderBytes == 4096
+
+(* @type: Int; *)
+BlockHeaderBytes == 128
 
 (* @type: Int; *)
 Pow30 == 1073741824
@@ -194,7 +187,6 @@ EffU64Max == IF BoundedMode THEN 100 ELSE SymU64Max
 (* @type: Int; *)
 EffTsScale == IF BoundedMode THEN 10 ELSE 1000000
 
-(* Finite sets evaluated ONLY when `BoundedMode = TRUE` in explicit TLC. *)
 (* @type: Set(Int); *)
 FiniteBackends == 0..2
 
@@ -210,22 +202,32 @@ FiniteProfiles == 0..3
 (* @type: (Int, Int) => Int; *)
 Min2(a, b) == IF a <= b THEN a ELSE b
 
+(* Linear `ArenaClass` payload limits (`1024B`, `4096B`, `65536B`) & 64B-aligned block sizes
+ * (`crates/tickwire-strategy-sdk/src/arena.rs:79-104`). *)
+(* @type: (Int) => Int; *)
+ArenaClassLimit(ac) ==
+  IF ac = 0 THEN 1024
+  ELSE IF ac = 1 THEN 4096
+  ELSE 65536
+
+(* @type: (Int) => Int; *)
+ArenaClassBlockBytes(ac) ==
+  IF ac = 0 THEN 1152
+  ELSE IF ac = 1 THEN 4224
+  ELSE 65664
+
 (* @type: (Int, Int) => Int; *)
-Max2(a, b) == IF a >= b THEN a ELSE b
+ArenaRawBytes(ac, bcnt) ==
+  IF ac = 0 THEN bcnt * 1152
+  ELSE IF ac = 1 THEN bcnt * 4224
+  ELSE bcnt * 65664
 
-(* ========================================================================= *)
-(* Exact `QF_LIA` Fixed-Point Models: `simd_json` vs `Decimal` + `feed`      *)
-(* ========================================================================= *)
-(* Three linear `StepSpec` profiles (`QuoteConfig::validate` guarantees step > 0):
- *   step_case = 0: step = 0.01   (`mantissa = 1`,     `scale = 2`) — power-of-10 tick
- *   step_case = 1: step = 0.25   (`mantissa = 25`,    `scale = 2`) — non-unit tick
- *   step_case = 2: step = 5.0000 (`mantissa = 50000`, `scale = 4`) — exercises `u64`
- *     `mantissa * 10^4 > u64::MAX` overflow delegating to `u128` `gcd`-reduced
- *     `parse_positive_units_from_parts` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:571-576` vs `crates/tickwire-binance/src/feed.rs:384-419`)! *)
+(* @type: (Int, Int) => Int; *)
+ArenaPayloadOffset(ac, bidx) ==
+  IF ac = 0 THEN ArenaHeaderBytes + (bidx * 1152) + BlockHeaderBytes
+  ELSE IF ac = 1 THEN ArenaHeaderBytes + (bidx * 4224) + BlockHeaderBytes
+  ELSE ArenaHeaderBytes + (bidx * 65664) + BlockHeaderBytes
 
-(* Linear scaled numerator & denominator for `(step_case, frac_scale)` with `frac_scale <= 4`:
- * In `feed::units` (`crates/tickwire-binance/src/feed.rs:396-410`) and `parse_positive_units` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:568-621`),
- * exact ratio is `(mantissa * 10^(max(S, F) - F)) / (step_m * 10^(max(S, F) - S))`. *)
 (* @type: (Int, Int, Int) => Int; *)
 ScaledNumer(sc, fscale, m) ==
   IF sc = 0 \/ sc = 1 THEN
@@ -250,11 +252,8 @@ ScaledDenom(sc, fscale) ==
     ELSE IF fscale = 3 THEN 250
     ELSE 2500
   ELSE
-    (* sc = 2: step_mantissa = 50000, step_scale = 4, fscale \in 0..4 *)
     50000
 
-(* Exact syntactic + numeric predicate of `simd_json::parse_positive_units`
- * (`crates/tickwire-md/src/spot_quotes/simd_json.rs:523-621`). *)
 (* @type: (Int, Int, Bool, Bool, Int, Bool, Bool, Int, Int, Int) => Bool; *)
 FastSyntaxAndRangeOk(sc, slen, minus, badch, dots, dbefore, dafter, digits, fscale, m) ==
   /\ slen >= 1 /\ slen <= 20
@@ -267,11 +266,6 @@ FastSyntaxAndRangeOk(sc, slen, minus, badch, dots, dbefore, dafter, digits, fsca
   /\ ((ScaledNumer(sc, fscale, m) \div ScaledDenom(sc, fscale)) > 0)
   /\ ((ScaledNumer(sc, fscale, m) \div ScaledDenom(sc, fscale)) <= EffI64Max)
 
-(* Exact syntactic + numeric predicate of `Decimal::parse` + `feed::units` + `n > 0`
- * (`crates/tickwire-md/src/spot_quotes/protocol.rs:210-218`, `crates/tickwire-binance/src/decimal.rs:34-94`, `crates/tickwire-binance/src/feed.rs:384-419`).
- * Note: `Decimal::parse` has NO `slen <= 20` check, accepts leading `'-'` (producing
- * `signed <= 0`, later rejected by `feed::units` `value.mantissa() <= 0`), and checks
- * `digits <= 19` + at most one internal `'.'`. Z3 proves equivalence over ALL inputs! *)
 (* @type: (Int, Int, Bool, Bool, Int, Bool, Bool, Int, Int, Int) => Bool; *)
 OracleSyntaxAndRangeOk(sc, slen, minus, badch, dots, dbefore, dafter, digits, fscale, m) ==
   /\ slen >= 1
@@ -284,7 +278,6 @@ OracleSyntaxAndRangeOk(sc, slen, minus, badch, dots, dbefore, dafter, digits, fs
   /\ ((ScaledNumer(sc, fscale, m) \div ScaledDenom(sc, fscale)) > 0)
   /\ ((ScaledNumer(sc, fscale, m) \div ScaledDenom(sc, fscale)) <= EffI64Max)
 
-(* Exact byte-slice consistency constraints relating length, sign, dots, digits & mantissa. *)
 (* @type: (Int, Bool, Bool, Int, Bool, Bool, Int, Int, Int) => Bool; *)
 ValidDecimalInputShape(slen, minus, badch, dots, dbefore, dafter, digits, fscale, m) ==
   /\ slen >= 0 /\ slen <= 32
@@ -319,7 +312,6 @@ Init ==
   /\ last_read_end = 0
   /\ last_shift_bits = 0
   /\ movemask_upper32_zero = TRUE
-  (* --- Target 3b & 3c symbolic initial sample --- *)
   /\ IF BoundedMode
      THEN /\ step_case = 0
           /\ str_len = 4
@@ -333,6 +325,10 @@ Init ==
           /\ mantissa = 125
           /\ ts_ms = 5
           /\ profile_id \in FiniteProfiles
+          /\ arena_class_case = 0
+          /\ arena_payload_len = 512
+          /\ arena_block_count = 4
+          /\ arena_block_idx = 2
      ELSE /\ step_case \in Int /\ step_case >= 0 /\ step_case <= 2
           /\ str_len \in Int
           /\ has_minus \in BOOLEAN
@@ -349,6 +345,10 @@ Init ==
              )
           /\ ts_ms \in Int /\ ts_ms >= 0 /\ ts_ms <= EffU64Max
           /\ profile_id \in Int /\ profile_id >= 0 /\ profile_id <= 3
+          /\ arena_class_case \in Int /\ arena_class_case >= 0 /\ arena_class_case <= 2
+          /\ arena_payload_len \in Int /\ arena_payload_len >= 1 /\ arena_payload_len <= ArenaClassLimit(arena_class_case)
+          /\ arena_block_count \in Int /\ arena_block_count >= 1 /\ arena_block_count <= 4096
+          /\ arena_block_idx \in Int /\ arena_block_idx >= 0 /\ arena_block_idx < arena_block_count
   /\ fast_ok = FastSyntaxAndRangeOk(
        step_case, str_len, has_minus, has_invalid_char, dot_count,
        digit_before_dot, digit_after_dot, total_digits, frac_scale, mantissa
@@ -376,36 +376,14 @@ Init ==
   /\ checked_overflow_trapped =
        ((ts_ms * EffTsScale > EffU64Max) \/
         ((ScaledNumer(step_case, frac_scale, mantissa) \div ScaledDenom(step_case, frac_scale)) > EffI64Max))
-  (* --- Target 1b symbolic `crc32c_masked` initial sample --- *)
-  /\ IF BoundedMode
-     THEN /\ buf_len = 136
-          /\ mask_start = 128
-          /\ mask_end = 132
-     ELSE /\ buf_len \in Int /\ buf_len >= 0 /\ buf_len <= 1048576
-          /\ mask_start \in Int /\ mask_start >= 0 /\ mask_start <= 2097152
-          /\ mask_end \in Int /\ mask_end >= 0 /\ mask_end <= 2097152
-  /\ LET cs == Min2(mask_start, buf_len)
-         ce == Max2(Min2(mask_end, buf_len), cs)
-         plen == cs
-         zlen == ce - cs
-         slen == buf_len - ce
+  /\ LET raw_b == ArenaRawBytes(arena_class_case, arena_block_count)
+         pg_b  == ((raw_b + 4095) \div 4096) * 4096
      IN
-     /\ clamped_start = cs
-     /\ clamped_end = ce
-     /\ prefix_words8 = plen \div 8
-     /\ prefix_rem8 = plen % 8
-     /\ zero_chunks64 = zlen \div 64
-     /\ zero_rem64 = zlen % 64
-     /\ suffix_words8 = slen \div 8
-     /\ suffix_rem8 = slen % 8
-     /\ journal_masked_assert_ok = (mask_start <= mask_end /\ mask_end <= buf_len)
+     /\ arena_raw_bytes = raw_b
+     /\ arena_bytes = pg_b
+     /\ arena_payload_offset = ArenaPayloadOffset(arena_class_case, arena_block_idx)
 
-(* ========================================================================= *)
-(* Target 3a Transitions — Exact Vector / SWAR / Scalar Loop Stepping        *)
-(* ========================================================================= *)
-
-(* `scan_block_avx2`: `while offset + 32 <= len` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:281-294`).
- * Casts `_mm256_movemask_epi8(...) as u32 as u64` before `<< offset` (`offset \in {0,32}`). *)
+(* `scan_block_avx2` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:363-418`). *)
 StepSimd32 ==
   /\ ~frame_oversized
   /\ backend_id = 0
@@ -417,11 +395,10 @@ StepSimd32 ==
   /\ offset' = offset + 32
   /\ UNCHANGED <<
        backend_id, frame_len, frame_oversized, block_base, block_end,
-       arithVars, crcVars
+       arithVars, arenaVars
      >>
 
-(* `scan_block_avx2` 16B tail (`crates/tickwire-md/src/spot_quotes/simd_json.rs:296-300`) & `scan_block_sse2` / `neon`
- * `while offset + 16 <= len` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:336-350`). *)
+(* `scan_block_sse2` / `scan_block_neon` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:342-362`, `crates/tickwire-md/src/spot_quotes/simd_json.rs:435-469`). *)
 StepSimd16 ==
   /\ ~frame_oversized
   /\ (backend_id = 1 \/ (backend_id = 0 /\ offset + 32 > (block_end - block_base)))
@@ -433,10 +410,10 @@ StepSimd16 ==
   /\ offset' = offset + 16
   /\ UNCHANGED <<
        backend_id, frame_len, frame_oversized, block_base, block_end,
-       arithVars, crcVars
+       arithVars, arenaVars
      >>
 
-(* `scan_tail_swar_scalar`: `while offset + 8 <= len` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:420-435`). *)
+(* `scan_tail_swar_scalar` 8B loop (`crates/tickwire-md/src/spot_quotes/simd_json.rs:256-302`). *)
 StepSwar8 ==
   /\ ~frame_oversized
   /\ (backend_id = 2
@@ -450,11 +427,10 @@ StepSwar8 ==
   /\ offset' = offset + 8
   /\ UNCHANGED <<
        backend_id, frame_len, frame_oversized, block_base, block_end,
-       arithVars, crcVars
+       arithVars, arenaVars
      >>
 
-(* `scan_tail_swar_scalar`: `while offset < len` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:437-466`):
- * executes `let bit = 1u64 << offset` (`offset <= 63 < 64`). *)
+(* `scan_tail_swar_scalar` 1B scalar tail (`crates/tickwire-md/src/spot_quotes/simd_json.rs:256-302`). *)
 StepScalar1 ==
   /\ ~frame_oversized
   /\ offset + 8 > (block_end - block_base)
@@ -466,11 +442,10 @@ StepScalar1 ==
   /\ offset' = offset + 1
   /\ UNCHANGED <<
        backend_id, frame_len, frame_oversized, block_base, block_end,
-       arithVars, crcVars
+       arithVars, arenaVars
      >>
 
-(* `Scanner::load_next_block` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:675-694`):
- * `base = scanned_to; end = (base + 64).min(bytes.len())`. *)
+(* `Scanner::load_next_block` (`crates/tickwire-md/src/spot_quotes/simd_json.rs:675-694`). *)
 AdvanceNextBlock64 ==
   /\ ~frame_oversized
   /\ offset = (block_end - block_base)
@@ -483,12 +458,11 @@ AdvanceNextBlock64 ==
   /\ last_shift_bits' = 0
   /\ movemask_upper32_zero' = TRUE
   /\ UNCHANGED <<
-       backend_id, frame_len, frame_oversized, arithVars, crcVars
+       backend_id, frame_len, frame_oversized, arithVars, arenaVars
      >>
 
-(* Re-evaluates decimal + timestamp + CRC masked slicing on fresh inputs so TLC
- * covers arithmetic/CRC transitions and Apalache multi-step BMC explores sequences. *)
-SampleDecimalTimestampAndCrc ==
+(* Re-evaluates decimal + timestamp + SHM arena block offsets (`crates/tickwire-strategy-sdk/src/arena.rs:72-210`). *)
+SampleDecimalTimestampAndArena ==
   /\ (frame_oversized \/ (offset = (block_end - block_base) /\ block_end = frame_len))
   /\ IF BoundedMode
      THEN /\ ~has_minus
@@ -497,16 +471,14 @@ SampleDecimalTimestampAndCrc ==
                LET slen == (IF m = 0 THEN 1 ELSE 2) + 1
                    digs == (IF m = 0 THEN 1 ELSE 2)
                    ts   == (IF m = 55 THEN 15 ELSE 5)
-                   mstart == (IF sc = 2 THEN 140 ELSE 112)
-                   mend   == (IF sc = 0 THEN 112 ELSE 120)
+                   ac   == sc
+                   plen == ArenaClassLimit(ac)
+                   bcnt == 3
+                   bidx == 2
+                   raw_b == ArenaRawBytes(ac, bcnt)
+                   pg_b  == ((raw_b + 4095) \div 4096) * 4096
                    fok  == FastSyntaxAndRangeOk(sc, slen, TRUE, FALSE, 0, TRUE, FALSE, digs, 0, m)
                    ook  == OracleSyntaxAndRangeOk(sc, slen, TRUE, FALSE, 0, TRUE, FALSE, digs, 0, m)
-                   blen == 128
-                   cs   == Min2(mstart, blen)
-                   ce   == Max2(Min2(mend, blen), cs)
-                   plen == cs
-                   zlen == ce - cs
-                   suflen == blen - ce
                IN
                /\ step_case' = sc
                /\ str_len' = slen
@@ -529,47 +501,28 @@ SampleDecimalTimestampAndCrc ==
                /\ checked_overflow_trapped' =
                     ((ts * EffTsScale > EffU64Max) \/
                      ((ScaledNumer(sc, 0, m) \div ScaledDenom(sc, 0)) > EffI64Max))
-               /\ buf_len' = blen
-               /\ mask_start' = mstart
-               /\ mask_end' = mend
-               /\ clamped_start' = cs
-               /\ clamped_end' = ce
-               /\ prefix_words8' = plen \div 8
-               /\ prefix_rem8' = plen % 8
-               /\ zero_chunks64' = zlen \div 64
-               /\ zero_rem64' = zlen % 64
-               /\ suffix_words8' = suflen \div 8
-               /\ suffix_rem8' = suflen % 8
-               /\ journal_masked_assert_ok' = (mstart <= mend /\ mend <= blen)
-     ELSE \E sc \in Int :
-          \E slen \in Int :
-          \E neg \in BOOLEAN :
-          \E badch \in BOOLEAN :
-          \E dots \in Int :
-          \E dbefore \in BOOLEAN :
-          \E dafter \in BOOLEAN :
-          \E digs \in Int :
-          \E fscale \in Int :
-          \E m \in Int :
-          \E ts \in Int :
-          \E prof \in Int :
-          \E blen \in Int :
-          \E mstart \in Int :
-          \E mend \in Int :
+               /\ arena_class_case' = ac
+               /\ arena_payload_len' = plen
+               /\ arena_block_count' = bcnt
+               /\ arena_block_idx' = bidx
+               /\ arena_raw_bytes' = raw_b
+               /\ arena_bytes' = pg_b
+               /\ arena_payload_offset' = ArenaPayloadOffset(ac, bidx)
+     ELSE \E sc \in Int, slen \in Int, neg \in BOOLEAN, badch \in BOOLEAN, dots \in Int :
+          \E dbefore \in BOOLEAN, dafter \in BOOLEAN, digs \in Int, fscale \in Int, m \in Int :
+          \E ts \in Int, prof \in Int, ac \in Int, plen \in Int, bcnt \in Int, bidx \in Int :
             /\ sc >= 0 /\ sc <= 2
             /\ ValidDecimalInputShape(slen, neg, badch, dots, dbefore, dafter, digs, fscale, m)
             /\ ts >= 0 /\ ts <= EffU64Max
             /\ prof >= 0 /\ prof <= 3
-            /\ blen >= 0 /\ blen <= 1048576
-            /\ mstart >= 0 /\ mstart <= 2097152
-            /\ mend >= 0 /\ mend <= 2097152
+            /\ ac >= 0 /\ ac <= 2
+            /\ plen >= 1 /\ plen <= ArenaClassLimit(ac)
+            /\ bcnt >= 1 /\ bcnt <= 4096
+            /\ bidx >= 0 /\ bidx < bcnt
             /\ LET fok == FastSyntaxAndRangeOk(sc, slen, neg, badch, dots, dbefore, dafter, digs, fscale, m)
                    ook == OracleSyntaxAndRangeOk(sc, slen, neg, badch, dots, dbefore, dafter, digs, fscale, m)
-                   cs  == Min2(mstart, blen)
-                   ce  == Max2(Min2(mend, blen), cs)
-                   plen == cs
-                   zlen == ce - cs
-                   suflen == blen - ce
+                   raw_b == ArenaRawBytes(ac, bcnt)
+                   pg_b  == ((raw_b + 4095) \div 4096) * 4096
                IN
                /\ step_case' = sc
                /\ str_len' = slen
@@ -592,18 +545,13 @@ SampleDecimalTimestampAndCrc ==
                /\ checked_overflow_trapped' =
                     ((ts * EffTsScale > EffU64Max) \/
                      ((ScaledNumer(sc, fscale, m) \div ScaledDenom(sc, fscale)) > EffI64Max))
-               /\ buf_len' = blen
-               /\ mask_start' = mstart
-               /\ mask_end' = mend
-               /\ clamped_start' = cs
-               /\ clamped_end' = ce
-               /\ prefix_words8' = plen \div 8
-               /\ prefix_rem8' = plen % 8
-               /\ zero_chunks64' = zlen \div 64
-               /\ zero_rem64' = zlen % 64
-               /\ suffix_words8' = suflen \div 8
-               /\ suffix_rem8' = suflen % 8
-               /\ journal_masked_assert_ok' = (mstart <= mend /\ mend <= blen)
+               /\ arena_class_case' = ac
+               /\ arena_payload_len' = plen
+               /\ arena_block_count' = bcnt
+               /\ arena_block_idx' = bidx
+               /\ arena_raw_bytes' = raw_b
+               /\ arena_bytes' = pg_b
+               /\ arena_payload_offset' = ArenaPayloadOffset(ac, bidx)
   /\ UNCHANGED simdVars
 
 Next ==
@@ -612,13 +560,9 @@ Next ==
   \/ StepSwar8
   \/ StepScalar1
   \/ AdvanceNextBlock64
-  \/ SampleDecimalTimestampAndCrc
+  \/ SampleDecimalTimestampAndArena
 
 Spec == Init /\ [][Next]_vars
-
-(* ========================================================================= *)
-(* Safety Invariants (Verified across ALL 64-bit/128-bit symbolic domains)   *)
-(* ========================================================================= *)
 
 TypeOK ==
   /\ backend_id \in Int /\ backend_id >= 0 /\ backend_id <= 2
@@ -651,21 +595,14 @@ TypeOK ==
   /\ ts_ns \in Int
   /\ profile_id \in Int /\ profile_id >= 0 /\ profile_id <= 3
   /\ checked_overflow_trapped \in BOOLEAN
-  /\ buf_len \in Int /\ buf_len >= 0 /\ buf_len <= 1048576
-  /\ mask_start \in Int
-  /\ mask_end \in Int
-  /\ clamped_start \in Int
-  /\ clamped_end \in Int
-  /\ prefix_words8 \in Int
-  /\ prefix_rem8 \in Int
-  /\ zero_chunks64 \in Int
-  /\ zero_rem64 \in Int
-  /\ suffix_words8 \in Int
-  /\ suffix_rem8 \in Int
-  /\ journal_masked_assert_ok \in BOOLEAN
+  /\ arena_class_case \in Int /\ arena_class_case >= 0 /\ arena_class_case <= 2
+  /\ arena_payload_len \in Int /\ arena_payload_len >= 1 /\ arena_payload_len <= ArenaClassLimit(arena_class_case)
+  /\ arena_block_count \in Int /\ arena_block_count >= 1 /\ arena_block_count <= 4096
+  /\ arena_block_idx \in Int /\ arena_block_idx >= 0 /\ arena_block_idx < arena_block_count
+  /\ arena_raw_bytes \in Int
+  /\ arena_bytes \in Int
+  /\ arena_payload_offset \in Int
 
-(* 1. Zero OOB vector/SWAR/scalar reads and valid `< 64` bit shifts across ALL
- *    symbolic `0 <= frame_len <= 65536` and all 4 backends (`AVX2`/`SSE2`/`NEON`/`SWAR`). *)
 ZeroVectorOobAndValidShift ==
   /\ (frame_oversized <=> (frame_len > MaxMessageBytes))
   /\ (frame_oversized => (block_base = 0 /\ block_end = 0 /\ offset = 0 /\ last_read_end = 0))
@@ -677,18 +614,12 @@ ZeroVectorOobAndValidShift ==
   /\ last_shift_bits < 64
   /\ movemask_upper32_zero
 
-(* 2. Exact mathematical equivalence between `simd_json::parse_positive_units` +
- *    `StepSpec` and `Decimal::parse` + `tickwire_binance::feed::units` (`n > 0`)
- *    across ALL 19-digit 64-bit mantissas, leading/trailing zeros, dot edge cases,
- *    `u64`-intermediate-overflow `u128` fallback (`step_case = 2`), and `i64::MAX`! *)
 FastVsOracleExactEquivalence ==
   /\ (fast_ok <=> oracle_ok)
   /\ (fast_units = oracle_units)
   /\ (fast_ok => (fast_units > 0 /\ fast_units <= EffI64Max))
   /\ ((~fast_ok) => (fast_units = 0 /\ oracle_units = 0))
 
-(* 3. Full 64-bit timestamp & fixed-point checked arithmetic overflow trapping across
- *    all Cargo profiles (`dev`, `test`, `bench`, `release`). *)
 NoSilentArithmeticWrap ==
   /\ (ts_ok <=> (ts_ms * EffTsScale <= EffU64Max))
   /\ (ts_ok => (ts_ns = ts_ms * EffTsScale /\ ts_ns >= 0 /\ ts_ns <= EffU64Max))
@@ -696,33 +627,25 @@ NoSilentArithmeticWrap ==
   /\ (((ScaledNumer(step_case, frac_scale, mantissa) \div ScaledDenom(step_case, frac_scale)) > EffI64Max) =>
        (~fast_ok /\ ~oracle_ok /\ checked_overflow_trapped))
 
-(* 4. `tickwire_ipc::crc32c_masked` clamping + `as_chunks::<8>()` + 64B zero-chunk
- *    stream partition exactness across arbitrary `buf_len`, `mask_start`, `mask_end`,
- *    plus 136B `tickwire_journal::crc32c_header_masked` layout (`16*8 + 8 = 136`). *)
-CrcMaskedSlicePartitionExact ==
-  /\ 0 <= clamped_start
-  /\ clamped_start <= clamped_end
-  /\ clamped_end <= buf_len
-  /\ prefix_words8 >= 0 /\ 0 <= prefix_rem8 /\ prefix_rem8 < 8
-  /\ (prefix_words8 * 8 + prefix_rem8 = clamped_start)
-  /\ zero_chunks64 >= 0 /\ 0 <= zero_rem64 /\ zero_rem64 < 64
-  /\ (zero_chunks64 * 64 + zero_rem64 = (clamped_end - clamped_start))
-  /\ suffix_words8 >= 0 /\ 0 <= suffix_rem8 /\ suffix_rem8 < 8
-  /\ (suffix_words8 * 8 + suffix_rem8 = (buf_len - clamped_end))
-  /\ ((prefix_words8 * 8 + prefix_rem8)
-      + (zero_chunks64 * 64 + zero_rem64)
-      + (suffix_words8 * 8 + suffix_rem8) = buf_len)
-  (* `crc32c_header_masked` fixed 136B journal frame header: 16 words `[0..128]` + 1 masked word `[128..136]` *)
-  /\ (16 * 8 + 8 = 136)
+(* 4. `configure_shm_arena_header` & `ShmArenaReader::read_retained_payload`
+ *    (`crates/tickwire-strategy-sdk/src/arena.rs:72-210`, `crates/tickwire-strategy-sdk/src/arena.rs:439-502`):
+ *    64B block alignment, 128B `ArenaBlockHeader` prefix, zero OOB retained slice reads,
+ *    and exact 4 KiB page rounding (`resource_bytes % 4096 == 0`). *)
+ArenaHeaderAndBlockBoundsExact ==
+  /\ (ArenaClassBlockBytes(arena_class_case) % 64 = 0)
+  /\ (BlockHeaderBytes + arena_payload_len <= ArenaClassBlockBytes(arena_class_case))
+  /\ (ArenaHeaderBytes + BlockHeaderBytes <= arena_payload_offset)
+  /\ (arena_payload_offset + arena_payload_len <= ArenaHeaderBytes + arena_raw_bytes)
+  /\ (arena_raw_bytes <= arena_bytes)
+  /\ ((ArenaHeaderBytes + arena_bytes) % 4096 = 0)
 
 SafetyConjunction ==
   /\ TypeOK
   /\ ZeroVectorOobAndValidShift
   /\ FastVsOracleExactEquivalence
   /\ NoSilentArithmeticWrap
-  /\ CrcMaskedSlicePartitionExact
+  /\ ArenaHeaderAndBlockBoundsExact
 
-(* Mode S2 Inductive Invariant for `L4` (proves unbounded block-scan induction too!). *)
 IndInv ==
   /\ TypeOK
   /\ ZeroVectorOobAndValidShift
@@ -731,8 +654,6 @@ IndInv ==
        digit_before_dot, digit_after_dot, total_digits, frac_scale, mantissa
      )
   /\ ts_ms >= 0 /\ ts_ms <= EffU64Max
-  /\ mask_start >= 0 /\ mask_start <= 2097152
-  /\ mask_end >= 0 /\ mask_end <= 2097152
   /\ fast_ok = FastSyntaxAndRangeOk(
        step_case, str_len, has_minus, has_invalid_char, dot_count,
        digit_before_dot, digit_after_dot, total_digits, frac_scale, mantissa
@@ -754,17 +675,11 @@ IndInv ==
   /\ checked_overflow_trapped =
        ((ts_ms * EffTsScale > EffU64Max) \/
         ((ScaledNumer(step_case, frac_scale, mantissa) \div ScaledDenom(step_case, frac_scale)) > EffI64Max))
-  /\ clamped_start = Min2(mask_start, buf_len)
-  /\ clamped_end = Max2(Min2(mask_end, buf_len), clamped_start)
+  /\ arena_raw_bytes = ArenaRawBytes(arena_class_case, arena_block_count)
+  /\ arena_bytes = ((arena_raw_bytes + 4095) \div 4096) * 4096
+  /\ arena_payload_offset = ArenaPayloadOffset(arena_class_case, arena_block_idx)
   /\ FastVsOracleExactEquivalence
   /\ NoSilentArithmeticWrap
-  /\ CrcMaskedSlicePartitionExact
-
-(* Diagnostic query (`crates/tickwire-journal/src/crc32c.rs:182-197` vs
- * `crates/tickwire-ipc/src/crc32c.rs:154-168`):
- * `tickwire_ipc::crc32c_masked` clamps arbitrary `Range<usize>`, whereas
- * `tickwire_journal::crc32c::crc32c_masked` asserts `start <= end && end <= len`. *)
-Diag_JournalCrcMaskedTotalOnOobRange ==
-  journal_masked_assert_ok
+  /\ ArenaHeaderAndBlockBoundsExact
 
 ====

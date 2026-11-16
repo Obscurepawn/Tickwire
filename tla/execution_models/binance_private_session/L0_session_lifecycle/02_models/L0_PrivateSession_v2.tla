@@ -13,7 +13,7 @@ CONSTANTS Product, Logon, MaxEpoch, MaxRequests, Capacity, MaxEvents
 \* crates/tickwire-binance-private/src/client.rs:1338-1455
 \* gap/remoteUnknown: crates/tickwire-binance-private/src/client.rs:328-399
 \* request freshness and original stamp: crates/tickwire-binance-private/src/request.rs:65-89; crates/tickwire-binance-private/src/request.rs:318-339
-\* accepted-byte monotonicity/first-output closure: crates/tickwire-transport/src/connection.rs:178-237
+\* accepted-byte monotonicity/first-output closure: crates/tickwire-transport/src/connection.rs:380-441
 \* Reset/Reject/Fail/StopOnFailure/Complete/RevokeEOF are expression helpers for cited APIs.
 \* received/emitted are bounded input/observation histories, not extra production queues.
 \* Actual key lifetime: crates/tickwire-binance-private/src/client.rs:14

@@ -1,13 +1,10 @@
-# 输出
+# Output
 
-PASS。四个有限配置检查了首次接受必须经过当前门禁、零接受过期/取消后不再输出、部分接受后的失败保留证据，以及取走结果后排队新报文不会使旧 NoBytes 复活。TLS 配置保留应用明文先被接受、之后才冲刷的状态；普通 TCP 配置在接受时同步记录本机输出。
+PASS. Four exhaustive finite configurations (`primary`, `two_sends`, `larger_buffer`, `plain`) verify that first byte acceptance strictly requires a passing synchronous gate check, zero-accepted expiry or cancellation never emits bytes while leaving the live connection reusable, post-acceptance failures or cancellations preserve `MayHaveSent` / `Failed` evidence without ever fabricating `NoBytes`, and taking terminal reports to queue subsequent sends never resurrects retired `NoBytes` frames. TLS configurations preserve the intermediate state where plaintext is accepted into `rustls` before ciphertext reaches the socket, while plain TCP records local socket output synchronously on acceptance.
 
 ## Fidelity & coverage
 
-- 源码范围是 `Connection` 的发送槽与连接状态：queue、is_ready、send_report/take_finished、reject/fail、expire/cancel、try_send、mark_flushed，以及 drive 中的建连和已有输出冲刷分支。
-- TLS 配置含 19 个具名 Next 动作，普通 TCP 配置含 16 个；全部有源码锚点和 `generated > 0`。这是模型动作覆盖和设计范围映射，不是 Rust 二进制行覆盖。
-- 所有模型变量都有 `var ↔ code` 说明。TLS 容量使用应用字节单位，握手占位、零写、短写和错误保留接口允许的结果；真实 TLS 记录布局和密码学由库与系统测试验证。
-- 所有配置无未解释的零覆盖动作。唯一连接、至多两项历史报文、独立有限截止时间是本级边界；不推导业务 ACK、重连活性、精确内存上限或网卡输出截止。
-- risk_core 独立只读审阅源码和模型，确认同步门禁、闭包后截止检查、历史 NoBytes、取消/失败保留接受证据与源码一致；未发现阻断候选。审阅者没有独立重跑 TLC，运行结果来自已归档日志。
-
-下一阶段可把 `accepted_bytes > 0` 作为 Gateway 的不确定发送证据；`Flushed` 只表示本地输出完成，不能解除资金预留或代替业务 ACK。
+- **Anchored Rust scope**: `Connection` send-slot and lifecycle methods in `crates/tickwire-transport/src/connection.rs` (`SendSlot` and `Connection` at `11-29`, `queue` at `207-230`, `is_ready` at `304-309`, `send_report` / `take_finished` at `315-330`, `reject` / `fail` / `expire` / `cancel` at `332-378`, `try_send` at `380-430`, `mark_flushed` at `432-441`, and `drive` at `475-611`).
+- **Action coverage**: TLS configurations exercise all 19 named `Next` actions (`generated > 0`), and `plain` exercises all 16 non-TLS `Next` actions (`generated > 0`) with `0 states left on queue`.
+- **State-to-code mapping**: Every state variable in [L0_FirstOutput.tla](02_models/L0_FirstOutput.tla) maps directly to `Connection` / `SendSlot` fields. TLS capacities use abstract application-byte units while preserving `WouldBlock`, short writes, handshake buffer pressure, and socket errors.
+- **Boundary**: `Flushed` witnesses local socket output completion only; it never releases order holds or substitutes for venue execution acknowledgements. Multi-thread `REQ`/`RESP` non-overlapping spinlock discipline, `send_frame_nonblocking` short-write self-retirement (`ShortWriteRetired -> OrsQueryDesk`), `DialBaton` handoff, and graceful maintenance drain (`64008`) are verified in [L1_sym_dual_thread_switchover](../L1_sym_dual_thread_switchover/05_output.md).
