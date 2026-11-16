@@ -1,20 +1,67 @@
-use crate::*;
+//! Stateless 3-process laboratory directory & configuration generator (`tickwire-md`,
+//! `tickwire-app`, and `tickwire-strategy-worker`) with zero WAL, journal, or disk blob files.
+
+#![forbid(unsafe_code)]
+
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
+use std::net::{SocketAddr, TcpListener};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
+use std::path::Path;
+
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD as BASE64;
 use ring::rand::{SecureRandom, SystemRandom};
+use ring::signature::{Ed25519KeyPair, KeyPair};
 use serde_json::{Value, json};
-use std::{
-    fs::{self, File, OpenOptions},
-    io::Write,
-    net::TcpListener,
-    os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt},
-    path::Path,
+use sha2::{Digest, Sha256};
+use tickwire_account_gateway::AccountManagerConfig;
+use tickwire_app::{
+    BinanceAssetConfig, BinanceMarketConfigBlock, BinanceMarketKind, BinanceSymbolConfig,
+    ExternalStrategyLaneConfig, OrsAppConfig, OrsVenueKind, UtaCpuSpec, UtaEndpointConfig,
+    UtaEnvironmentKind, UtaTransportKind,
 };
-use tickwire_ipc::ResourceHeader;
+use tickwire_ipc::{ResourceHeader, Wire};
 use tickwire_market_source::protocol::{Endpoint, IdentityConfig, Instrument, wire_bytes};
-use tickwire_recovery::digest;
-const LIFE: u64 = 3_600_000_000_000;
+use tickwire_strategy_sdk::DopConfig;
+use tickwire_strategy_sdk::bootstrap::Bootstrap;
+
+use crate::model::{
+    LAB_ACCOUNT_REF, LAB_BTC_INSTRUMENT_ID, LAB_CATALOG_HASH, LAB_CATALOG_VERSION,
+    LAB_COLD_OPEN_SEQNUM, LAB_EXCHANGE_UID, LAB_INSTRUMENT_VERSION, LAB_LOGICAL_STRATEGY_ID,
+    LAB_RISK_DOMAIN, LAB_STRAT_ID, build_demo_command,
+};
+use crate::{Result, Scenario};
+
+const SCENARIO_LIFETIME_NS: u64 = 3_600_000_000_000; // 1 hour
+/// Generous 2-second order-age ceiling for unpinned debug-build 3-process laboratory scheduling.
+const LAB_MAX_ORDER_AGE_NS: u64 = 2_000_000_000;
+
+fn sha256_bytes(bytes: &[u8]) -> [u8; 32] {
+    Sha256::digest(bytes).into()
+}
+
+fn read_linux_boot_id() -> Result<[u8; 16]> {
+    let raw = fs::read_to_string("/proc/sys/kernel/random/boot_id")?;
+    let hex_only: String = raw.chars().filter(|c| c.is_ascii_hexdigit()).collect();
+    if hex_only.len() != 32 {
+        return Err("unexpected /proc/sys/kernel/random/boot_id length".into());
+    }
+    let mut boot = [0u8; 16];
+    for (idx, pair) in hex_only.as_bytes().as_chunks::<2>().0.iter().enumerate() {
+        let s = core::str::from_utf8(pair)?;
+        boot[idx] = u8::from_str_radix(s, 16)?;
+    }
+    Ok(boot)
+}
+
+/// Generates a fresh, single-use `0o700` laboratory directory at `root` referencing stripped
+/// binaries in `bins`.
 pub fn generate(root: &Path, bins: &Path) -> Result<Scenario> {
     if !root.is_absolute() || !bins.is_absolute() || root.as_os_str().len() > 65 {
-        return Err("absolute root <=65 bytes and binary directory required".into());
+        return Err(
+            "absolute root (<= 65 bytes for AF_UNIX sockets) and binary dir required".into(),
+        );
     }
     for bin in [
         "tickwire-app",
@@ -23,259 +70,518 @@ pub fn generate(root: &Path, bins: &Path) -> Result<Scenario> {
         "tickwire-lab",
     ] {
         if !bins.join(bin).is_file() {
-            return Err(format!("build binary before generation: {bin}").into());
+            return Err(format!("missing required binary in {}: {bin}", bins.display()).into());
         }
     }
+
     fs::DirBuilder::new().mode(0o700).create(root)?;
-    for d in [
+    for subdir in [
         "tls",
         "keys",
         "md",
         "md/admissions",
-        "md/control",
-        "exec",
-        "exec/control-inbox",
-        "exec/control-wal",
-        "host",
-        "host/control",
-        "host/runtime",
+        "ors",
         "strategy",
-        "strategy/commands",
-        "strategy/recovery",
-        "strategy/dependencies",
         "logs",
     ] {
-        directory(&root.join(d))?;
+        create_private_dir(&root.join(subdir))?;
     }
-    let mut boot = [0; 16];
-    SystemRandom::new().fill(&mut boot).map_err(|_| "random")?;
-    let domain = tickwire_clock::ClockDomain::new(boot, 1).map_err(|_| "clock identity")?;
-    let now = tickwire_clock_sys::SystemClock::new(domain)?
+
+    let rng = SystemRandom::new();
+    let boot = read_linux_boot_id()?;
+
+    let clock_domain =
+        tickwire_clock::ClockDomain::new(boot, 1).map_err(|_| "ClockDomain::new failed")?;
+    let now_mono_ns = tickwire_clock_sys::SystemClock::new(clock_domain)?
         .sample()?
         .monotonic
         .nanos();
-    let expires = now.checked_add(LIFE).ok_or("clock bounds")?;
-    let (baseline, command) = crate::model::model(now, expires)?;
-    write(&root.join("baseline.bin"), baseline.bytes())?;
-    write(&root.join("strategy/command.bin"), command.bytes())?;
-    let listen = free_address()?;
-    let (ca, fixture_cert, fixture_key) = certificates()?;
-    for (name, bytes) in [
-        ("ca.der", ca),
-        ("fixture.der", fixture_cert),
-        ("fixture.pk8", fixture_key),
-    ] {
-        write(&root.join("tls").join(name), &bytes)?;
-    }
-    write(&root.join("keys/api-key"), b"LAB-ONLY-API-KEY")?;
-    let mut secret = [0u8; 32];
-    SystemRandom::new()
-        .fill(&mut secret)
-        .map_err(|_| "random")?;
-    write(&root.join("keys/api-secret"), &secret)?;
-    let uid = fs::metadata(root)?.uid();
-    let gid = fs::metadata(root)?.gid();
-    let md = identity(
+    let valid_until_ns = now_mono_ns
+        .checked_add(SCENARIO_LIFETIME_NS)
+        .ok_or("clock deadline overflow")?;
+
+    let demo_cmd = build_demo_command(now_mono_ns, valid_until_ns)?;
+    write_private(&root.join("strategy/command.bin"), demo_cmd.bytes())?;
+
+    let listen = reserve_loopback_port()?;
+    let tls_bundle = generate_loopback_tls()?;
+    write_private(&root.join("tls/ca.der"), &tls_bundle.ca_der)?;
+    write_private(&root.join("tls/ca.pem"), tls_bundle.ca_pem.as_bytes())?;
+    write_private(&root.join("tls/fixture.der"), &tls_bundle.leaf_der)?;
+    write_private(&root.join("tls/fixture.pk8"), &tls_bundle.leaf_pk8)?;
+
+    write_private(&root.join("keys/api-key"), b"LAB_SPOT_API_KEY_01")?;
+    let mut raw_secret = [0u8; 16];
+    rng.fill(&mut raw_secret)
+        .map_err(|_| "SystemRandom hmac secret failed")?;
+    let hex_secret: String = raw_secret.iter().map(|b| format!("{b:02x}")).collect();
+    write_private(&root.join("keys/api-secret"), hex_secret.as_bytes())?;
+
+    let ed_pkcs8 = Ed25519KeyPair::generate_pkcs8(&rng).map_err(|_| "Ed25519 keygen failed")?;
+    let ed_pair =
+        Ed25519KeyPair::from_pkcs8(ed_pkcs8.as_ref()).map_err(|_| "Ed25519 parse failed")?;
+    let ed_pem = format!(
+        "-----BEGIN PRIVATE KEY-----\n{}\n-----END PRIVATE KEY-----\n",
+        BASE64.encode(ed_pkcs8.as_ref())
+    );
+    write_private(&root.join("keys/ed25519.pem"), ed_pem.as_bytes())?;
+    write_private(
+        &root.join("keys/ed25519.pub"),
+        ed_pair.public_key().as_ref(),
+    )?;
+
+    let meta = fs::metadata(root)?;
+    let uid = meta.uid();
+    let gid = meta.gid();
+
+    let md_id = build_identity(
         3,
         2,
         0,
         1,
         boot,
-        digest(&fs::read(bins.join("tickwire-md"))?),
+        sha256_bytes(&fs::read(bins.join("tickwire-md"))?),
     );
-    let exec = identity(
+    let ors_id = build_identity(
         4,
         4,
         0,
         1,
         boot,
-        digest(&fs::read(bins.join("tickwire-app"))?),
+        sha256_bytes(&fs::read(bins.join("tickwire-app"))?),
     );
-    let strategy = identity(
+    let strategy_id = build_identity(
         2,
         3,
-        8,
+        LAB_LOGICAL_STRATEGY_ID,
         5,
         boot,
-        digest(&fs::read(bins.join("tickwire-strategy-worker"))?),
+        sha256_bytes(&fs::read(bins.join("tickwire-strategy-worker"))?),
     );
-    let supervisor = identity(
+    let supervisor_id = build_identity(
         9,
         1,
         0,
         1,
         boot,
-        digest(&fs::read(bins.join("tickwire-lab"))?),
+        sha256_bytes(&fs::read(bins.join("tickwire-lab"))?),
     );
-    let resource = tickwire_md::config::ResourceSpec {
-        identity: md.clone(),
-        resource_id: ([101; 16]),
-        channel_id: ([102; 16]),
+    write_json(
+        &root.join("supervisor.json"),
+        &serde_json::to_value(&supervisor_id)?,
+    )?;
+
+    // 1. `tickwire-md` SHM topic resource & static configuration (`0` disk WAL).
+    let md_resource = tickwire_md::config::ResourceSpec {
+        identity: md_id.clone(),
+        resource_id: [101; 16],
+        channel_id: [102; 16],
         topic_id: 101,
         channel_epoch: 1,
         ring_epoch: 1,
         feed_generation: 1,
-        catalog_version: 14,
+        catalog_version: LAB_CATALOG_VERSION,
         first_seq: 1,
         initial_membership_version: 1,
-        capacity: 4096,
-        created_mono_ns: now,
-        arena_classes: vec![(4096, 256), (65536, 64)],
+        capacity: 1024,
+        created_mono_ns: now_mono_ns,
+        arena_classes: vec![(4096, 128), (65536, 32)],
     }
     .header()
     .map_err(|e| e.to_string())?;
-    write(&root.join("md/topic.bin"), &wire_bytes(&resource)?)?;
-    let endpoint = |local: IdentityConfig, peer: IdentityConfig, name: &str| Endpoint {
-        path: root.join(name),
-        local,
-        peer,
-        peer_pid: 1,
-        peer_uid: uid,
-        peer_gid: gid,
-        required_features: 0x5e,
-        supported_features: 511,
-        control_epoch: 1,
-        lease_duration_ns: LIFE,
-        max_frame_bytes: 65536,
-        nonce: ([61; 32]),
+    write_private(&root.join("md/topic.bin"), &wire_bytes(&md_resource)?)?;
+
+    let asset =
+        |id: u64, sym: &str| json!({ "id": id, "version": 1, "symbol": sym, "exponent": -8 });
+    let btc_instrument = json!({
+        "id": LAB_BTC_INSTRUMENT_ID,
+        "version": LAB_INSTRUMENT_VERSION,
+        "catalog_version": LAB_CATALOG_VERSION,
+        "catalog_hash": LAB_CATALOG_HASH,
+        "symbol": "BTCUSDT",
+        "base": asset(1, "BTC"),
+        "quote": asset(2, "USDT"),
+        "settlement": asset(2, "USDT"),
+        "price_tick": "0.01",
+        "quantity_step": "0.00001",
+        "expiry_utc_ns": null
+    });
+    let md_config = json!({
+        "identity": md_id,
+        "clock_generation": 1,
+        "socket": root.join("md/market.sock"),
+        "admission_directory": root.join("md/admissions"),
+        "feeds": [{
+            "owner_id": ([42u8; 16]),
+            "source": "spot_test",
+            "instrument": btc_instrument,
+            "venue_id": 1,
+            "stream_id": 1,
+            "first_connection_epoch": 1,
+            "first_operation": 1,
+            "initial_book_generation": 1,
+            "snapshot_limit": 100,
+            "stream_address": listen.to_string(),
+            "snapshot_address": listen.to_string(),
+            "trust_anchors": [root.join("tls/ca.der")],
+            "topics": [101]
+        }],
+        "topics": [{
+            "resource": root.join("md/topic.bin"),
+            "instrument_set_version": 1,
+            "maximum_levels": 100,
+            "maximum_cache_bytes": 1_048_576,
+            "maximum_snapshot_bytes": 2_097_152,
+            "maximum_delta_bytes": 2_097_152
+        }],
+        "maximum_idle_ns": 1_000_000
+    });
+    write_json(&root.join("md/config.json"), &md_config)?;
+
+    // 2. Inline `1,024B` `IntentRecord` and `512B` `ReportRecord` SPSC SHM bank headers.
+    let intent_hdr = build_spsc_bank_header(2, &strategy_id, &ors_id, now_mono_ns)?;
+    let report_hdr = build_spsc_bank_header(3, &ors_id, &strategy_id, now_mono_ns)?;
+    tickwire_shm::validate_bank(&intent_hdr).map_err(|e| format!("intent bank invalid: {e}"))?;
+    tickwire_shm::validate_bank(&report_hdr).map_err(|e| format!("report bank invalid: {e}"))?;
+
+    let mk_endpoint =
+        |local: IdentityConfig, peer: IdentityConfig, rel_sock: &str, epoch: u64, nonce_tag: u8| {
+            Endpoint {
+                path: root.join(rel_sock),
+                local,
+                peer,
+                peer_pid: 1, // Patched in `launch::run` once `tickwire-md` and `tickwire-app` PIDs exist.
+                peer_uid: uid,
+                peer_gid: gid,
+                required_features: 0x1c,
+                supported_features: 0x3ff,
+                control_epoch: epoch,
+                lease_duration_ns: SCENARIO_LIFETIME_NS,
+                max_frame_bytes: 65_536,
+                nonce: [nonce_tag; 32],
+            }
+        };
+
+    let worker_md_ep = mk_endpoint(
+        strategy_id.clone(),
+        md_id.clone(),
+        "md/market.sock",
+        1,
+        0x61,
+    );
+    let worker_intent_ep = mk_endpoint(
+        strategy_id.clone(),
+        ors_id.clone(),
+        "ors/intent.sock",
+        10,
+        0x62,
+    );
+    let worker_report_ep = mk_endpoint(
+        strategy_id.clone(),
+        ors_id.clone(),
+        "ors/report.sock",
+        11,
+        0x63,
+    );
+
+    // 3. Static `rms.cfg` and `OrsAppConfig` for `tickwire-app` (`1 ORS process = 1 Venue`).
+    let rms_text = "\
+symbol_id=0 enabled=true max_qty=1000000 max_notional=1000000000000 new_count=1000/5000/10000 order_qty=1000000/5000000/10000000
+symbol_id=1 enabled=true max_qty=1000000 max_notional=1000000000000 new_count=1000/5000/10000 order_qty=1000000/5000000/10000000
+";
+    write_private(&root.join("ors/rms.cfg"), rms_text.as_bytes())?;
+
+    let acct_mgr_doc = json!({
+        "enabled_accounts": ["spot_main"],
+        "spot_main": {
+            "account_ref": LAB_ACCOUNT_REF,
+            "exchange_account_id": LAB_EXCHANGE_UID,
+            "strategies": [LAB_STRAT_ID],
+            "local_ip": "127.0.0.1",
+            "epoch": 1,
+            "risk_domain_id": LAB_RISK_DOMAIN,
+            "credentials": {
+                "key": "LAB_SPOT_API_KEY_01",
+                "secret": hex_secret
+            },
+            "urls": {
+                "binance-spot-order": { "local_ip/connection_count": [["127.0.0.1", 1]] }
+            }
+        }
+    });
+    let account_manager: AccountManagerConfig = serde_json::from_value(acct_mgr_doc)?;
+
+    let tls_ep = |path: &str| UtaEndpointConfig {
+        host: String::from("localhost"),
+        port: listen.port(),
+        path: path.to_owned(),
+        tls: true,
+        ca_pem_path: Some(root.join("tls/ca.pem")),
+        initial_peers: vec![listen],
     };
-    let connect =
-        |local: IdentityConfig, cursor: u8, request: u8| tickwire_market_source::ConnectConfig {
-            endpoint: endpoint(local, md.clone(), "md/market.sock"),
-            bank_header: wire_bytes(&resource).unwrap(),
-            catalog_hash: ([5; 32]),
+
+    let ors_app_cfg = OrsAppConfig {
+        venue: OrsVenueKind::Binance,
+        environment: UtaEnvironmentKind::Test,
+        uta_transport: UtaTransportKind::Ws,
+        cpu: UtaCpuSpec {
+            req_cpu: None,
+            resp_cpu: None,
+            housekeeping_cpus: Vec::new(),
+            epoll_wait_ms: 1,
+        },
+        max_order_age_ns: LAB_MAX_ORDER_AGE_NS,
+        rms_on_dry_run: true,
+        exec_generation: 1,
+        instrument_version: LAB_INSTRUMENT_VERSION,
+        ws_ping_interval_ms: 15_000,
+        slots_per_strat: 64,
+        ors_instance: Some(ors_id.instance),
+        allowed_strategies: vec![LAB_STRAT_ID],
+        account_manager,
+        binance_markets: vec![BinanceMarketConfigBlock {
+            market: BinanceMarketKind::Spot,
+            ed25519_pem_path: Some(root.join("keys/ed25519.pem")),
+            order_endpoint: Some(tls_ep("/ws-api/v3")),
+            stream_endpoint: None,
+            rest_endpoint: Some(tls_ep("")),
+            stream_colo: true,
+        }],
+        // Dense `symbol_id = 0..=1` so `symbol_id = 1` matches `LAB_BTC_INSTRUMENT_ID = 1`.
+        binance_symbols: vec![
+            BinanceSymbolConfig {
+                symbol_id: 0,
+                instrument_id: Some(999),
+                market: BinanceMarketKind::Spot,
+                venue_symbol: String::from("ETHUSDT"),
+                wallet_id: 1,
+                base_asset_id: 3,
+                base_scale: 8,
+                quote_asset_id: 2,
+                quote_scale: 8,
+                settlement_asset_id: 2,
+                settlement_scale: 8,
+                price_tick_atoms: 1_000_000,
+                price_scale: 8,
+                qty_step_atoms: 1_000,
+                qty_scale: 8,
+                contract_size_atoms: 1,
+                contract_scale: 0,
+                initial_margin_bps: 10_000,
+                default_fee_asset_code: Some(String::from("USDT")),
+            },
+            BinanceSymbolConfig {
+                symbol_id: 1,
+                instrument_id: Some(LAB_BTC_INSTRUMENT_ID),
+                market: BinanceMarketKind::Spot,
+                venue_symbol: String::from("BTCUSDT"),
+                wallet_id: 1,
+                base_asset_id: 1,
+                base_scale: 8,
+                quote_asset_id: 2,
+                quote_scale: 8,
+                settlement_asset_id: 2,
+                settlement_scale: 8,
+                price_tick_atoms: 1_000_000, // 0.01 USDT
+                price_scale: 8,
+                qty_step_atoms: 1_000, // 0.00001 BTC (`100` lots == `0.001` BTC)
+                qty_scale: 8,
+                contract_size_atoms: 1,
+                contract_scale: 0,
+                initial_margin_bps: 10_000,
+                default_fee_asset_code: Some(String::from("USDT")),
+            },
+        ],
+        binance_assets: vec![
+            BinanceAssetConfig {
+                market: BinanceMarketKind::Spot,
+                asset_code: String::from("BTC"),
+                wallet_id: 1,
+                asset_id: 1,
+                scale: 8,
+            },
+            BinanceAssetConfig {
+                market: BinanceMarketKind::Spot,
+                asset_code: String::from("USDT"),
+                wallet_id: 1,
+                asset_id: 2,
+                scale: 8,
+            },
+            BinanceAssetConfig {
+                market: BinanceMarketKind::Spot,
+                asset_code: String::from("ETH"),
+                wallet_id: 1,
+                asset_id: 3,
+                scale: 8,
+            },
+        ],
+        binance_order_recv_window_ms: 5_000,
+        binance_status_query_delay_ms: 400,
+        uta_symbols: Vec::new(),
+        uta_assets: Vec::new(),
+        uta_order_endpoint: None,
+        uta_stream_endpoint: None,
+        uta_rest_endpoint: None,
+        uta_enable_rfq_quotes: false,
+        instrument_catalog: None,
+        rms_config_path: Some(root.join("ors/rms.cfg")),
+        control_socket_path: Some(root.join("ors/dop.sock")),
+        dop_hb_interval_ms: Some(40),
+        external_strategy_lanes: vec![ExternalStrategyLaneConfig {
+            strat_id: LAB_STRAT_ID,
+            instance_id: strategy_id.instance,
+            strategy_generation: strategy_id.generation,
+            intent_endpoint: worker_intent_ep.clone(),
+            intent_header_bytes: wire_bytes(&intent_hdr)?.to_vec(),
+            intent_cursor_id: [35; 16],
+            intent_subscription_generation: 1,
+            report_endpoint: worker_report_ep.clone(),
+            report_header_bytes: wire_bytes(&report_hdr)?.to_vec(),
+            report_cursor_id: [36; 16],
+            report_subscription_generation: 1,
+            clock_domain: 1,
+            handshake_timeout_ms: 30_000,
+        }],
+        summary_output_path: Some(root.join("account-report.json")),
+    };
+    write_json(
+        &root.join("ors/config.json"),
+        &serde_json::to_value(&ors_app_cfg)?,
+    )?;
+
+    // 4. `tickwire-strategy-worker` `Bootstrap` (`DOP` + inline `IntentRecord` + `ReportRecord`).
+    let bootstrap = Bootstrap {
+        version: 1,
+        logical_strategy_id: LAB_LOGICAL_STRATEGY_ID,
+        strat_id: LAB_STRAT_ID,
+        instance_id: strategy_id.instance,
+        generation: strategy_id.generation,
+        account_ref: LAB_ACCOUNT_REF,
+        worker_cpu: None,
+        housekeeping_cpus: None,
+        market: tickwire_market_source::ConnectConfig {
+            endpoint: worker_md_ep,
+            bank_header: wire_bytes(&md_resource)?.to_vec(),
+            catalog_hash: LAB_CATALOG_HASH,
             instrument_set_version: 1,
             instruments: vec![Instrument {
-                id: 12,
-                version: 13,
-                required_states: 1,
+                id: LAB_BTC_INSTRUMENT_ID,
+                version: LAB_INSTRUMENT_VERSION,
+                required_states: 0,
             }],
-            cursor_id: ([cursor; 16]),
+            cursor_id: [31; 16],
             subscription_generation: 1,
-            request_id: ([request; 16]),
+            request_id: [32; 16],
             maximum_levels: 100,
-            startup_timeout_ms: 30000,
+            startup_timeout_ms: 30_000,
             clock_generation: 1,
-        };
-    let external = connect(strategy.clone(), 31, 32);
-    let exec_source = connect(exec.clone(), 33, 34);
-    let intent = bank(2, &strategy, &exec, now);
-    let report = bank(3, &exec, &strategy, now);
-    for (name, header) in [("intent", &intent), ("report", &report)] {
-        tickwire_shm::validate_bank(header).map_err(|error|format!("generated {name} bank: features={:#x},kind={},record_bytes={},capacity={}: {error}",header.required_features,header.resource_kind,header.record_bytes,header.capacity))?;
-    }
-    let bootstrap = tickwire_strategy_sdk::bootstrap::Bootstrap {
-        instrument_catalog: None,
-        version: 1,
-        market: endpoint(strategy.clone(), md.clone(), "unused-market.sock"),
-        external_market: Some(external),
-        market_admission_ready: None,
-        intent: endpoint(strategy.clone(), exec.clone(), "unused-intent.sock"),
-        report: endpoint(strategy.clone(), exec.clone(), "unused-report.sock"),
-        report_header: wire_bytes(&report)?,
-        report_cursor_id: ([36; 16]),
-        report_subscription_generation: 1,
-        report_directory: root.join("exec/reports"),
-        join_file: root.join("strategy/join.json"),
-        intent_header: wire_bytes(&intent)?,
-        intent_cursor_id: ([35; 16]),
+        },
+        dop_socket: Some(root.join("ors/dop.sock")),
+        dop: Some(DopConfig {
+            strat_id: LAB_STRAT_ID,
+            client_id: 1,
+            local_instance: strategy_id.instance,
+            peer_instance: ors_id.instance,
+            control_epoch: 1,
+            expected_peer_uid: Some(uid),
+            max_order_age_ns: LAB_MAX_ORDER_AGE_NS,
+        }),
+        intent: Some(worker_intent_ep),
+        intent_header: Some(wire_bytes(&intent_hdr)?.to_vec()),
+        intent_cursor_id: [35; 16],
         intent_subscription_generation: 1,
-        risk_domain: ([1; 16]),
-        command_directory: root.join("strategy/commands"),
+        report: Some(worker_report_ep),
+        report_header: Some(wire_bytes(&report_hdr)?.to_vec()),
+        report_cursor_id: [36; 16],
+        report_subscription_generation: 1,
+        risk_domain: LAB_RISK_DOMAIN,
+        instrument_catalog: None,
+        catalog_file: None,
+        catalog_digest: None,
+        factory: None,
         clock_generation: 1,
-        startup_timeout_ms: 30000,
+        startup_timeout_ms: 30_000,
         maximum_market_age_ns: 10_000_000_000,
         maximum_levels: 100,
         poll_records: 64,
         idle_sleep_us: 100,
-        recovery_template: Some(root.join("strategy/recovery-template.json")),
-        publish_checkpoints: true,
-        preflight_job: None,
-        factory: None,
         demo_enabled: true,
         demo_command_file: Some(root.join("strategy/command.bin")),
-        demo_minimum_bid_ticks: 6_000_000,
+        demo_minimum_bid_ticks: 6_000_000, // Fires once `fixture` raises BTCUSDT bid to 60,000.00!
     };
-    json_file(
+    write_json(
         &root.join("strategy/bootstrap.json"),
         &serde_json::to_value(&bootstrap)?,
     )?;
-    let policy = policy(boot, expires);
-    let asset = |id, s: &str| json!({"id":id,"version":1,"symbol":s,"exponent":-8});
-    let instrument = json!({"id":12,"version":13,"catalog_version":14,"catalog_hash":( [5;32] ),"symbol":"BTCUSDT","base":asset(1,"BTC"),"quote":asset(2,"USDT"),"settlement":asset(2,"USDT"),"price_tick":"0.01","quantity_step":"0.00001","expiry_utc_ns":null});
-    let md_config = json!({"identity":md,"clock_generation":1,"socket":root.join("md/market.sock"),"admission_directory":root.join("md/admissions"),"quota_directory":root.join("md/quota"),"quota":quota(now,expires,40,true),"control_directory":root.join("md/control"),"control_stream":( [50;16] ),"control_domain":( [51;16] ),"control_writer_epoch":1,"feeds":[{"owner_id":( [42;16] ),"source":"spot_test","instrument":instrument,"venue_id":1,"stream_id":1,"first_connection_epoch":1,"first_operation":1,"initial_book_generation":1,"snapshot_limit":100,"stream_address":listen.to_string(),"snapshot_address":listen.to_string(),"trust_anchors":[root.join("tls/ca.der")],"topics":[101]}],"topics":[{"resource":root.join("md/topic.bin"),"instrument_set_version":1,"maximum_levels":100,"maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152}],"maximum_idle_ns":1_000_000});
-    json_file(&root.join("md/config.json"), &md_config)?;
-    let app = deployment(
-        root,
-        bins,
-        boot,
-        now,
-        expires,
-        uid,
-        gid,
-        listen,
-        supervisor,
-        exec_source,
-        policy,
-    );
-    json_file(&root.join("exec/config.json"), &app)?;
-    dependencies(root, bins, &app, &baseline)?;
+
     let scenario = Scenario {
-        schema: 1,
+        schema: 2,
         fixture_only: true,
-        root: root.into(),
-        bin_directory: bins.into(),
+        root: root.to_path_buf(),
+        bin_directory: bins.to_path_buf(),
         listen,
-        valid_until_ns: expires,
+        valid_until_ns,
         boot,
+        risk_domain_id: LAB_RISK_DOMAIN,
+        exchange_uid: LAB_EXCHANGE_UID,
+        strat_id: LAB_STRAT_ID,
+        cold_open_order_seqnum: LAB_COLD_OPEN_SEQNUM,
         certificate: root.join("tls/fixture.der"),
         private_key: root.join("tls/fixture.pk8"),
         api_key: root.join("keys/api-key"),
         api_secret: root.join("keys/api-secret"),
+        ed25519_public_key: root.join("keys/ed25519.pub"),
         md_config: root.join("md/config.json"),
-        app_config: root.join("exec/config.json"),
+        app_config: root.join("ors/config.json"),
         worker_bootstrap: root.join("strategy/bootstrap.json"),
     };
-    json_file(
+    write_json(
         &root.join("scenario.json"),
         &serde_json::to_value(&scenario)?,
     )?;
     Ok(scenario)
 }
-fn identity(
+
+fn build_identity(
     id: u8,
     role: u16,
-    strategy: u64,
+    logical_strategy: u64,
     generation: u64,
-    boot: [u8; 16],
-    build: [u8; 32],
+    host_boot: [u8; 16],
+    build_hash: [u8; 32],
 ) -> IdentityConfig {
     IdentityConfig {
-        instance: ([id; 16]),
+        instance: [id; 16],
         generation,
         role,
-        logical_strategy: strategy,
-        host_boot: boot,
-        namespace: ([8; 16]),
-        build_hash: build,
-        qualification_hash: digest(
-            b"tickwire SDK qualification source contract for local laboratory",
-        ),
-        manifest_hash: digest(b"local single Spot strategy scenario"),
+        logical_strategy,
+        host_boot,
+        namespace: [8; 16],
+        build_hash,
+        qualification_hash: sha256_bytes(b"tickwire-stateless-3proc-lab-qualification"),
+        manifest_hash: sha256_bytes(b"tickwire-stateless-3proc-spot-fill"),
         arch: if cfg!(target_arch = "x86_64") { 1 } else { 2 },
         trust_profile: 1,
     }
 }
-fn bank(
+
+fn build_spsc_bank_header(
     kind: u16,
     producer: &IdentityConfig,
     consumer: &IdentityConfig,
-    now: u64,
-) -> ResourceHeader {
-    let size = if kind == 2 { 1024 } else { 512 };
-    ResourceHeader {
+    created_mono_ns: u64,
+) -> Result<ResourceHeader> {
+    let record_bytes: u32 = if kind == 2 { 1024 } else { 512 };
+    let capacity: u32 = 256;
+    let feature_bit: u64 = if kind == 2 {
+        tickwire_strategy_sdk::outbound::FEATURE
+    } else {
+        tickwire_strategy_sdk::reports::FEATURE
+    };
+    let mut header = ResourceHeader {
         magic: *b"TWIPC001",
         abi_major: 1,
+        abi_minor: 0,
         header_bytes: 4096,
         resource_kind: kind,
         target_arch: producer.arch,
@@ -283,9 +589,9 @@ fn bank(
         atomic_width: 8,
         page_shift: 12,
         isolation_shift: 7,
-        record_bytes: size,
-        capacity: 1024,
-        resource_bytes: 8192 + 1024 * u64::from(size),
+        record_bytes,
+        capacity,
+        resource_bytes: 8192 + u64::from(capacity) * u64::from(record_bytes),
         resource_id: [70 + kind as u8; 16],
         channel_id: [74 + kind as u8; 16],
         producer_instance: producer.instance,
@@ -295,7 +601,7 @@ fn bank(
         namespace_id: producer.namespace,
         channel_epoch: 1,
         ring_epoch: 1,
-        feed_generation: 0,
+        feed_generation: 1,
         first_seq: 1,
         initial_membership_version: 1,
         producer_page_offset: 4096,
@@ -304,150 +610,67 @@ fn bank(
         schema_major: 1,
         clock_domain: 1,
         trust_profile: 1,
-        risk_scope: 1,
-        required_features: 0x1c | if kind == 2 { 128 } else { 256 },
+        risk_scope: LAB_EXCHANGE_UID,
+        required_features: 0x1c | feature_bit,
         qos: 1,
-        created_mono_ns: now,
+        event_class: if kind == 2 { 8 } else { 9 },
+        created_mono_ns,
         ..Default::default()
-    }
-}
-fn quota(now: u64, end: u64, id: u8, md: bool) -> Value {
-    let mut rules = vec![];
-    let mut add = |action: Value, weight: u32, messages: u32, recovery: bool| {
-        rules.push(json!({"source":"spot_test","action":action,"class":if recovery{"recovery"}else{"normal"},"api_weight":weight,"websocket_messages":messages,"costs":[{"window":"lab-budget","units":1}]}))
     };
-    for lane in ["stream", "snapshot"] {
-        for kind in [
-            "connect",
-            "upgrade",
-            "subscribe",
-            "pong",
-            "close",
-            "snapshot",
-        ] {
-            add(
-                json!({"family":"public","lane":lane,"kind":kind}),
-                if kind == "snapshot" { 5 } else { 0 },
-                u32::from(["subscribe", "pong", "close"].contains(&kind)),
-                false,
-            );
-        }
-    }
-    if !md {
-        for kind in ["connect", "query"] {
-            add(
-                json!({"family":"time","kind":kind}),
-                u32::from(kind == "query"),
-                0,
-                true,
-            );
-        }
-        for kind in [
-            "stream_connect",
-            "upgrade",
-            "pong",
-            "close",
-            "spot_subscribe_signature",
-            "spot_status",
-            "spot_subscriptions",
-            "spot_unsubscribe",
-        ] {
-            let api = kind.starts_with("spot_");
-            add(
-                json!({"family":"private","kind":kind}),
-                if api || kind == "stream_connect" {
-                    2
-                } else {
-                    0
-                },
-                u32::from(api || ["pong", "close"].contains(&kind)),
-                true,
-            );
-        }
-        for kind in [
-            "connect",
-            "trade_page",
-            "account_snapshot",
-            "open_orders",
-            "conditional_orders",
-            "order_query",
-        ] {
-            add(json!({"family":"read","kind":kind}), 0, 0, true);
-        }
-        for kind in ["new", "cancel", "query"] {
-            add(
-                json!({"family":"command","transport":"rest","action":{"kind":kind}}),
-                0,
-                0,
-                kind != "new",
-            );
-        }
-    }
-    json!({"supervisor_generation":1,"consumer_instance":( [id;16] ),"consumer_generation":1,"consumer_lease_until_ns":end,"producer_id":( [id+1;16] ),"policy_generation":1,"policy_starts_ns":now,"policy_ends_ns":end,"windows":[{"name":"lab-budget","namespace":( [90;16] ),"scope":"ip","subject":( [id;16] ),"pool":1,"window":1,"revision":1,"starts_ns":now,"ends_ns":end,"limit":100000,"recovery_reserve":50000}],"grants":[{"request_id":1,"class":"normal","expires_ns":end,"costs":[{"window":"lab-budget","units":50000}]},{"request_id":2,"class":"recovery","expires_ns":end,"costs":[{"window":"lab-budget","units":50000}]}],"rules":rules})
+    let mut page = [0u8; ResourceHeader::SIZE];
+    header.descriptor_hash = [0; 32];
+    header
+        .encode(&mut page)
+        .map_err(|e| format!("ResourceHeader::encode failed: {e:?}"))?;
+    header.descriptor_hash = sha256_bytes(&page);
+    Ok(header)
 }
-fn dependencies(
-    root: &Path,
-    bins: &Path,
-    app: &Value,
-    baseline: &tickwire_account_codec::CanonicalBaseline,
-) -> Result<()> {
-    let mut deps = vec![];
-    for kind in 2..=11u8 {
-        let bytes = match kind {
-            2 => baseline.bytes().to_vec(),
-            3 => serde_json::to_vec(
-                &json!({"initial_strategy_sequence":1,"account_baseline":baseline.digest()}),
-            )?,
-            4 => serde_json::to_vec(&app["policy"]["strategy_grants"])?,
-            5 => serde_json::to_vec(&app["policy"]["owner_lease"])?,
-            6 => serde_json::to_vec(&app["policy"])?,
-            7 => serde_json::to_vec(
-                &json!({"scenario":"spot-new-fill","revision":1,"strategy":( [2;16] ),"generation":5}),
-            )?,
-            8 => fs::read(bins.join("tickwire-strategy-worker"))?,
-            9 => serde_json::to_vec(app)?,
-            10 => include_bytes!("../../../specs/contracts/ipc-wire-v1.json").to_vec(),
-            11 => fs::read(root.join("strategy/command.bin"))?,
-            _ => unreachable!(),
-        };
-        let path = root.join(format!("strategy/dependencies/{kind}.bin"));
-        write(&path, &bytes)?;
-        deps.push(tickwire_strategy_sdk::recovery::DependencyFile {
-            kind,
-            schema_id: if kind == 11 {
-                tickwire_strategy_sdk::recovery::CHECKPOINT_SCHEMA
-            } else {
-                1
-            },
-            owner: ([2; 16]),
-            path,
-            digest: digest(&bytes),
-        });
-    }
-    let template = tickwire_strategy_sdk::recovery::Template {
-        dependencies: deps,
-        declared_rebuild: false,
-        fault_model_id: digest(b"local durable files and process restart"),
-        pin_id: ([91; 16]),
-        owner: ([2; 16]),
-        input_stream: ([92; 16]),
-        output_directory: root.join("strategy/recovery"),
-        maximum_input_bytes: 32 * 1024 * 1024,
-        order_ids: vec![([7; 16])],
-    };
-    json_file(
-        &root.join("strategy/recovery-template.json"),
-        &serde_json::to_value(template)?,
-    )
+
+fn reserve_loopback_port() -> Result<SocketAddr> {
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    Ok(listener.local_addr()?)
 }
-fn free_address() -> Result<std::net::SocketAddr> {
-    Ok(TcpListener::bind("127.0.0.1:0")?.local_addr()?)
+
+struct GeneratedTlsBundle {
+    ca_der: Vec<u8>,
+    ca_pem: String,
+    leaf_der: Vec<u8>,
+    leaf_pk8: Vec<u8>,
 }
-fn directory(path: &Path) -> Result<()> {
+
+fn generate_loopback_tls() -> Result<GeneratedTlsBundle> {
+    use rcgen::{BasicConstraints, CertificateParams, DistinguishedName, IsCa, Issuer, KeyPair};
+    let mut ca_params = CertificateParams::default();
+    ca_params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
+    ca_params.distinguished_name = DistinguishedName::new();
+    let ca_key = KeyPair::generate()?;
+    let ca_cert = ca_params.self_signed(&ca_key)?;
+    let issuer = Issuer::new(ca_params, ca_key);
+
+    let leaf_params = CertificateParams::new(vec![
+        "localhost".into(),
+        "127.0.0.1".into(),
+        "testnet.binance.vision".into(),
+        "stream.testnet.binance.vision".into(),
+        "ws-api.testnet.binance.vision".into(),
+    ])?;
+    let leaf_key = KeyPair::generate()?;
+    let leaf_cert = leaf_params.signed_by(&leaf_key, &issuer)?;
+    Ok(GeneratedTlsBundle {
+        ca_der: ca_cert.der().to_vec(),
+        ca_pem: ca_cert.pem(),
+        leaf_der: leaf_cert.der().to_vec(),
+        leaf_pk8: leaf_key.serialize_der(),
+    })
+}
+
+pub fn create_private_dir(path: &Path) -> Result<()> {
     fs::DirBuilder::new().mode(0o700).create(path)?;
+    File::open(path.parent().ok_or("missing parent directory")?)?.sync_all()?;
     Ok(())
 }
-pub(crate) fn write(path: &Path, bytes: &[u8]) -> Result<()> {
+
+pub fn write_private(path: &Path, bytes: &[u8]) -> Result<()> {
     let mut f = OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -455,59 +678,12 @@ pub(crate) fn write(path: &Path, bytes: &[u8]) -> Result<()> {
         .open(path)?;
     f.write_all(bytes)?;
     f.sync_all()?;
-    File::open(path.parent().ok_or("parent")?)?.sync_all()?;
+    File::open(path.parent().ok_or("missing parent directory")?)?.sync_all()?;
     Ok(())
 }
-pub(crate) fn json_file(path: &Path, v: &Value) -> Result<()> {
-    write(path, &serde_json::to_vec_pretty(v)?)
-}
-type Certificates = (Vec<u8>, Vec<u8>, Vec<u8>);
-fn certificates() -> Result<Certificates> {
-    use rcgen::*;
-    let mut params = CertificateParams::new(vec![])?;
-    params.is_ca = IsCa::Ca(BasicConstraints::Unconstrained);
-    params.key_usages = vec![
-        KeyUsagePurpose::KeyCertSign,
-        KeyUsagePurpose::DigitalSignature,
-    ];
-    let key = rcgen::KeyPair::generate()?;
-    let ca = params.self_signed(&key)?;
-    let issuer = Issuer::new(params, key);
-    let leaf = |names: Vec<String>| -> Result<(Vec<u8>, Vec<u8>)> {
-        let mut p = CertificateParams::new(names)?;
-        p.extended_key_usages = vec![
-            ExtendedKeyUsagePurpose::ServerAuth,
-            ExtendedKeyUsagePurpose::ClientAuth,
-        ];
-        let k = rcgen::KeyPair::generate()?;
-        let c = p.signed_by(&k, &issuer)?;
-        Ok((c.der().to_vec(), k.serialize_der()))
-    };
-    let (fixture, fkey) = leaf(vec![
-        "testnet.binance.vision".into(),
-        "ws-api.testnet.binance.vision".into(),
-        "stream.testnet.binance.vision".into(),
-    ])?;
-    Ok((ca.der().to_vec(), fixture, fkey))
-}
 
-fn policy(boot: [u8; 16], expires: u64) -> Value {
-    json!({"scope":{"risk_domain_id":( [1;16] ),"venue":1,"environment":"test","account":2},"product":"spot","executor_id":( [4;16] ),"owner_generation":1,"writer_epoch":4,"domain":{"process_instance":boot,"generation":1},"versions":{"config_revision":6,"risk_policy_version":10,"order_config_version":11,"catalog_version":14,"catalog_hash":( [5;32] )},"max_strategies":8,"max_feeds":8,"marks_per_feed":1024,"control_revision":1,"mode":"trading","owner_lease":{"lease_epoch":1,"valid_until_ns":expires,"isolation_record":digest(b"lab initial exclusive owner, held child, no predecessor")},"strategy_grants":[{"logical_strategy_id":8,"instance_id":( [2;16] ),"strategy_generation":5,"authorization_epoch":9,"config_revision":6,"valid_until_ns":expires,"actions":{"submit":true,"cancel":true,"query":true,"amend":false},"required_feeds":[{"key":{"topic_id":101,"instrument_id":12},"instrument_version":13,"max_age_ns":10_000_000_000u64,"max_sequence_lag":1024}]}],"management_grant":null})
-}
-
-#[allow(clippy::too_many_arguments)]
-fn deployment(
-    root: &Path,
-    bins: &Path,
-    boot: [u8; 16],
-    now: u64,
-    expires: u64,
-    uid: u32,
-    gid: u32,
-    listen: std::net::SocketAddr,
-    supervisor: IdentityConfig,
-    exec_source: tickwire_market_source::ConnectConfig,
-    policy: Value,
-) -> Value {
-    json!({"baseline":root.join("baseline.bin"),"directories":{"account":root.join("exec/account"),"input":root.join("exec/input"),"recovery":root.join("exec/recovery")},"recover":false,"product":"spot","boot_id":boot,"clock_generation":1,"owner_id":( [4;16] ),"writer_epoch":4,"initial_writer_epoch":4,"account_stream":( [52;16] ),"input_stream":( [53;16] ),"first_connection_epoch":1,"instrument_id":12,"book_source":1,"credential":{"api_key_file":root.join("keys/api-key"),"signing_key_file":root.join("keys/api-secret"),"algorithm":"hmac","generation":1,"spot_logon":false},"network":{"rest":listen.to_string(),"time":listen.to_string(),"public_stream":listen.to_string(),"snapshot":listen.to_string(),"private_stream":listen.to_string(),"private_management":null,"trust_anchors":[root.join("tls/ca.der")]},"clock":{"max_round_trip_ns":500_000_000,"max_width_ns":1_000_000_000u64,"max_age_ns":30_000_000_000u64,"quantization_error_ns":1_000_000,"drift_ppb":100000,"max_adjustment_ns":1_000_000_000u64,"calibration_interval_ns":5_000_000_000u64,"calibration_retry_ns":100_000_000},"tuning":{"connect_timeout_ns":10_000_000_000u64,"request_timeout_ns":10_000_000_000u64,"delivery_budget_ns":1_000_000,"recv_window_micros":5_000_000,"maximum_book_age_ns":10_000_000_000u64,"maximum_idle_wait_ns":1_000_000,"snapshot_limit":100,"maximum_intents":64,"maximum_input_records":4096,"maximum_input_bytes":64*1024*1024,"wal_segment_bytes":8*1024*1024},"policy":policy,"quota":quota(now,expires,43,false),"strategy":{"mode":"hosted","config":{"bootstrap":root.join("strategy/bootstrap.json"),"market_resource":root.join("md/topic.bin"),"md_admission_directory":root.join("md/admissions"),"executable":bins.join("tickwire-strategy-worker"),"working_directory":root,"uid":uid,"gid":gid,"supervisor":supervisor,"directory_parent":root.join("host/runtime"),"control_directory":root.join("host/control"),"control_stream":( [54;16] ),"control_domain":( [55;16] ),"control_writer_epoch":1,"snapshot_id":( [56;16] ),"market_cursor_id":( [31;16] ),"subscription_generation":1,"instrument_set_version":1,"maximum_levels_per_side":100,"maximum_cache_bytes":1048576,"maximum_snapshot_bytes":2097152,"maximum_delta_bytes":2097152,"recovery_directory":root.join("strategy/recovery")}},"market_sources":[exec_source],"reconciliation":{"enabled":true,"reader_id":( [44;16] ),"first_request_epoch":1,"first_execution_connection_epoch":100,"retry_ns":100_000_000,"valid_for_ns":30_000_000_000u64},"control":{"inbox_directory":root.join("exec/control-inbox"),"journal_directory":root.join("exec/control-wal"),"stream_epoch":( [57;16] ),"recover":false,"segment_max_bytes":8*1024*1024,"maximum_commands":1024,"maximum_per_poll":16,"startup_consumer_lease_until_ns":expires},"stop_file":root.join("STOP"),"maximum_runtime_ns":60_000_000_000u64})
+pub fn write_json(path: &Path, value: &Value) -> Result<()> {
+    let mut raw = serde_json::to_vec_pretty(value)?;
+    raw.push(b'\n');
+    write_private(path, &raw)
 }

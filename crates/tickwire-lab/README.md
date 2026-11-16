@@ -1,46 +1,29 @@
-# Linux Trading Lab (`tickwire-lab`)
+# `tickwire-lab` — Stateless 3-Process Linux Loopback Laboratory
 
-`tickwire-lab` exercises Tickwire's complete multi-process trading pipeline on Linux against a deterministic, loopback-only TLS exchange fixture. Unlike unit mocks, the laboratory spawns real OS processes—`tickwire-md`, `tickwire-strategy-worker`, and `tickwire-app`—verifying sealed `memfd` rings, `SCM_RIGHTS` descriptor handshakes, durable WAL commits, TLS order signing, fee reconciliation, and return execution reports end to end.
+`tickwire-lab` exercises Tickwire's complete stateless 3-process Linux trading topology end-to-end against a deterministic loopback TLS exchange fixture:
 
----
+1. **`tickwire-md`**: Synchronizes a TLS Binance Spot order book (`/api/v3/depth` + `/ws/...`) and broadcasts normalized market records into a `F_SEAL_FUTURE_WRITE`-sealed `memfd` shared-memory ring.
+2. **`tickwire-app`**: Cold-recovers balances, resting open-order holds, and per-strategy `DOP` sequence floors (`order_seqnum = 3 -> 4`) from authenticated Exchange REST snapshots (`GET /api/v3/account` + `GET /api/v3/openOrders` + `tw1...` `SelfDescribingClientId`), authenticates `/ws-api/v3` via Ed25519 `session.logon`, routes outbound orders, settles commission-bearing fills, cancels the cold-recovered resting order on `SIGUSR2`, and drains cleanly on `SIGTERM` with zero local write-ahead logs or disk blob files.
+3. **`tickwire-strategy-worker`**: Joins `tickwire-md` over `SCM_RIGHTS`, completes `DOP` login on `ors/dop.sock`, writes an inline `1,024B` `IntentRecord` upon observing the `60,000.00` `BTCUSDT` bid, consumes `512B` `ReportRecord` replies, and exits cleanly on `OrsShutDown`.
 
-## Run the Containerized `spot-fill` Scenario
+## Running End-to-End on Linux
 
-With Docker running, execute the full Binance Spot roundtrip from the workspace root:
+Run the automated core-chain script from the workspace root (runs natively on Linux by default, or inside Docker when `TICKWIRE_LINUX_DOCKER=1`):
 
 ```sh
-./scripts/run-core-chain-linux.sh spot-fill
+./scripts/run-core-chain-linux.sh
 ```
 
-Append `release` (`./scripts/run-core-chain-linux.sh spot-fill release`) to build and measure optimized release binaries.
-
-### Lifecycle and Observable Outputs
-
-1. **Startup & Reconciliation:** The lab starts the local TLS exchange, market-data process, strategy worker, and account runtime. The account reconciles against the venue and delivers its initial baseline report to the worker.
-2. **Trigger & Order Execution:** Once the worker confirms receipt of its account baseline, the exchange publishes an eligible BTC quote, prompting the worker to submit a `0.001` BTC limit buy order.
-3. **Accounting & Verification:** After validating the signed order request, emitting the private fill, and completing terminal fee reconciliation, the harness writes `run-result.json` and `account-report.json` under `.tools/lab-results/<run-id>/`.
-
-Verify that the output contains:
-
-* `"laboratory_spot_fill_complete"` and `"worker_report_position_verified"`.
-* Final reconciled balances of `1.001` BTC and `940` USDT, with all ordered account records consumed by the worker.
-* `eligible_quote_to_order_ns` — a single monotonic latency observation measured inside the exchange fixture from the moment the eligible depth update is prepared to the moment the complete signed HTTP order arrives (spanning local TLS, market decoding, SHM ring publication, OS worker scheduling, strategy callback, WAL `fsync`, and outbound TLS transmission).
-
----
-
-## Run Native Host Binaries Directly
-
-On a Linux host with the pinned Rust toolchain and GNU `binutils` (`strip`), you can run the scenario without Docker. Use a short temporary directory path so Unix domain control sockets fit comfortably within kernel path limits:
+Or invoke `tickwire-lab` manually with a short (`<= 65` bytes) single-use output directory:
 
 ```sh
-cargo build --locked -p tickwire-lab -p tickwire-app -p tickwire-md -p tickwire-strategy-sdk --bins
-run_dir=$(mktemp -d /tmp/tw-lab.XXXXXX)
-mkdir "$run_dir/bin"
+cargo build --locked -p tickwire-lab -p tickwire-app -p tickwire-md \
+  -p tickwire-strategy-sdk -p tickwire-strategy-example --bins
+mkdir -p /tmp/tw-lab-bin
 for name in tickwire-lab tickwire-app tickwire-md tickwire-strategy-worker; do
-    strip --strip-debug -o "$run_dir/bin/$name" "target/debug/$name"
+  install -m 0755 "target/debug/$name" "/tmp/tw-lab-bin/$name"
+  strip --strip-debug "/tmp/tw-lab-bin/$name"
 done
-"$run_dir/bin/tickwire-lab" generate --scenario spot-fill --out "$run_dir/run" --bin-dir "$run_dir/bin"
-"$run_dir/bin/tickwire-lab" run --config "$run_dir/run/scenario.json"
+/tmp/tw-lab-bin/tickwire-lab generate --scenario spot-fill --out /tmp/tw-lab-run --bin-dir /tmp/tw-lab-bin
+/tmp/tw-lab-bin/tickwire-lab run --config /tmp/tw-lab-run/scenario.json
 ```
-
-During `generate` and `run`, the launcher computes SHA-256 digests of the stripped executables, binds each child's expected `PID` and OS credentials, and transfers shared-memory descriptors exclusively over authenticated Unix sockets.

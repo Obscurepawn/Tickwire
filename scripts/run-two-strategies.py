@@ -19,6 +19,9 @@ import time
 
 REPO = Path(__file__).resolve().parents[1]
 MD_EXAMPLES = REPO / "crates/tickwire-md/examples"
+CARGO_BIN = Path.home() / ".cargo/bin"
+if CARGO_BIN.is_dir():
+    os.environ["PATH"] = f"{CARGO_BIN}:{os.environ.get('PATH', '')}"
 
 
 def run(*args, **kwargs):
@@ -179,7 +182,11 @@ def main():
         with (root/"market.log").open("w") as log:
             md = subprocess.Popen([md_bin, "--spot-market", config], cwd=REPO, stderr=log)
             until = time.monotonic() + 35
-            while not (root/"control/spot-market.active").exists() or (ready and not ready.is_set()):
+            while (
+                not (root / "resource.json.active").exists()
+                or not (root / "md.sock").exists()
+                or (ready and not ready.is_set())
+            ):
                 if md.poll() is not None or time.monotonic() >= until:
                     raise RuntimeError("public market did not start: " + (root/"market.log").read_text()[-800:])
                 time.sleep(0.05)

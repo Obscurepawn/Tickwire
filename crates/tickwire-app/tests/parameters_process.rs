@@ -1,279 +1,670 @@
-//! Actual App assembly with an independently built registered worker and a real
-//! MD JOIN server/Publisher in a parent thread. No exchange execution is enabled.
-#![cfg(target_os = "linux")]
-#![recursion_limit = "256"]
-#[path = "../../tickwire-account/tests/common/mod.rs"]
-mod account_fixture;
-#[path = "projection_launch/channels.rs"]
-mod channels;
-#[path = "parameters_process/external_spot.rs"]
-mod external_spot;
-#[path = "parameters_process/fixture.rs"]
-mod fixture;
-#[path = "parameters_process/inputs.rs"]
-mod inputs;
-#[path = "parameters_process/market.rs"]
-mod market;
-#[path = "projection_launch/runtime.rs"]
-mod runtime;
-#[path = "parameters_process/spot.rs"]
-mod spot;
-use fixture::Fixture;
+//! Integration tests for statically registered strategy parameter validation (`FactoryBinding`
+//! and `Parameters`), parent-owned `RemoteHostedStrategy` process supervision, and the shared
+//! external `tickwire-md` spot market walkthrough (`scripts/run-two-strategies.py`).
+
+#![deny(unsafe_code)]
+#![deny(unsafe_op_in_unsafe_fn)]
+
+use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::thread;
+use std::time::{Duration, Instant};
 
-fn worker() -> PathBuf {
-    std::fs::canonicalize(
-        std::env::var_os("TICKWIRE_PARAMETERS_WORKER").expect("explicit frozen counting worker"),
-    )
-    .unwrap()
-}
+use serde::Deserialize;
+use sha2::{Digest, Sha256};
+use tickwire_clock::{ClockDomain, MonoTime};
+use tickwire_clock_sys::SystemClock;
+use tickwire_control::Identity;
+use tickwire_instrument_catalog::Catalog;
+use tickwire_ipc::{MarketState, ResourceHeader, Wire};
+use tickwire_market_source::{
+    Client, ConnectConfig,
+    protocol::{Endpoint, IdentityConfig, Instrument, wire_bytes},
+};
+use tickwire_md::server::{Admission, register_admission};
+use tickwire_runtime_policy::{Mode, OrsRuntimePolicy, PolicyConfig};
+use tickwire_strategy_example::{Parameters, V2};
+use tickwire_strategy_host::{ObservationRequest, RemoteHostedStrategy, RemoteLaunch};
+use tickwire_strategy_sdk::{
+    Bootstrap, MarketReplica as SdkMarketReplica, ObserveOnly,
+    bootstrap::ArtifactDigest,
+    registered::{FactoryBinding, Registration as _, TargetIdentity, VersionedBytes},
+};
+use tickwire_supervisor::{LaunchSpec, current_process_identity};
 
-#[test]
-#[ignore = "requires fixed release TICKWIRE_PARAMETERS_WORKER; actual safe App startup"]
-fn projected_parameters_reject_mismatch_before_worker_start() {
-    let mut f = Fixture::new(&worker(), 1, 100);
-    f.bind_projection(true);
-    let result = f.build();
-    let error = match result {
-        Ok(_) => panic!("mismatched projection parameters reached actual hosted worker"),
-        Err(error) => error.to_string(),
-    };
-    assert!(error.contains("parameter"), "unexpected rejection: {error}");
-    f.assert_no_worker();
-}
+const QUOTE_REQUIRED_STATES: u8 = 1;
 
-#[test]
-#[ignore = "requires fixed release TICKWIRE_PARAMETERS_WORKER; actual safe App startup"]
-fn registered_parameters_fixture_runs_without_projection_binding() {
-    let f = Fixture::new(&worker(), 1, 100);
-    let mut owner = f.build().unwrap();
-    f.seed(&mut *owner);
-    f.market.publish(100);
-    f.wait_checkpoint(&mut *owner, |checkpoint| {
-        checkpoint.runtime.effects.count == 1
-    });
-    assert!(!owner.failed());
-    let command = f.assert_command(100);
-    assert_eq!(f.next_ready(&mut *owner).unwrap().command, command);
-}
-
-#[test]
-#[ignore = "requires fixed release TICKWIRE_PARAMETERS_WORKER; actual parameter consumer"]
-fn projected_parameters_reach_real_registered_consumer() {
-    let mut f = Fixture::new(&worker(), 1, 100);
-    f.bind_projection(false);
-    let mut owner = f
-        .build()
-        .expect("matching parameters must reach the actual worker");
-    f.seed(&mut *owner);
-    f.market.publish(100);
-    f.wait_checkpoint(&mut *owner, |checkpoint| {
-        checkpoint.runtime.effects.count == 1
-    });
-    f.prove(&mut *owner);
-    assert!(!owner.failed());
-    f.assert_command(100);
-}
-
-fn business(c: &tickwire_release::replay::Checkpoint) -> serde_json::Value {
-    serde_json::from_slice(
-        &tickwire_strategy_sdk::replay::application::business_bytes(&c.business).unwrap(),
-    )
-    .unwrap()
-}
-
-#[test]
-#[ignore = "requires fixed release TICKWIRE_PARAMETERS_WORKER; actual callback thresholds"]
-fn projected_observation_and_bid_thresholds_change_actual_worker_effects() {
-    for (minimum_observations, minimum_bid_ticks) in [(1, 100), (8, 100), (1, 101)] {
-        let mut f = Fixture::new(&worker(), minimum_observations, minimum_bid_ticks);
-        f.bind_projection(false);
-        let mut owner = f.build().unwrap();
-        f.seed(&mut *owner);
-        f.prove(&mut *owner);
-        let sequence = f.market.publish(100);
-        let initial = f.wait_consumed(&mut *owner, sequence);
-        let initial_count = business(&initial)["observations"].as_u64().unwrap();
-        assert!(
-            initial_count > 0 && initial_count < 8,
-            "actual initial callbacks: {initial_count}"
-        );
-        assert_eq!(initial.runtime.config.bytes, f.params);
-        assert_eq!(
-            initial.runtime.effects.count,
-            u64::from(minimum_observations == 1 && minimum_bid_ticks == 100)
-        );
-        if minimum_observations == 8 {
-            let mut current = initial;
-            while business(&current)["observations"].as_u64().unwrap() < 8 {
-                assert_eq!(current.runtime.effects.count, 0);
-                let sequence = f.market.publish(100);
-                current = f.wait_consumed(&mut *owner, sequence);
-            }
-            assert_eq!(current.runtime.effects.count, 1);
-        } else if minimum_bid_ticks == 101 {
-            assert_eq!(business(&initial)["spent"], false);
-            let sequence = f.market.publish(101);
-            let current = f.wait_consumed(&mut *owner, sequence);
-            assert_eq!(current.runtime.effects.count, 1);
-        }
-        let command = f.assert_command(minimum_bid_ticks);
-        let sequence = f.market.publish(minimum_bid_ticks);
-        let final_state = f.wait_consumed(&mut *owner, sequence);
-        assert_eq!(final_state.runtime.effects.count, 1);
-        assert_eq!(business(&final_state)["spent"], true);
-        let submission = f
-            .next_ready(&mut *owner)
-            .expect("actual intent may be delivered only after parameter proof");
-        assert_eq!(submission.command, command);
-        assert!(f.next_ready(&mut *owner).is_none());
-        println!(
-            "{}",
-            serde_json::json!({"case":"parameter_threshold","minimum_observations":minimum_observations,"minimum_bid_ticks":minimum_bid_ticks,"initial_observations":initial_count,"final_observations":business(&final_state)["observations"],"effects":final_state.runtime.effects.count,"intent_digest":command.digest(),"no_gateway_submission":true})
-        );
+fn target_arch_code() -> u16 {
+    if cfg!(target_arch = "x86_64") {
+        1
+    } else if cfg!(target_arch = "aarch64") {
+        2
+    } else {
+        panic!("unsupported architecture")
     }
 }
 
-struct Paused(u32);
-impl Paused {
-    fn new(pid: u32) -> Self {
-        assert!(
-            std::process::Command::new("kill")
+fn intent_bank_header(
+    resource_tag: u8,
+    producer_instance: [u8; 16],
+    producer_generation: u64,
+    consumer_instance: [u8; 16],
+    host_boot_id: [u8; 16],
+    namespace_id: [u8; 16],
+) -> ResourceHeader {
+    let capacity = 64u32;
+    let record_bytes = 1024u32;
+    ResourceHeader {
+        magic: *b"TWIPC001",
+        abi_major: 1,
+        abi_minor: 0,
+        header_bytes: 4096,
+        resource_kind: 2,
+        endian: 1,
+        atomic_width: 8,
+        page_shift: 12,
+        isolation_shift: 7,
+        target_arch: target_arch_code(),
+        resource_id: [resource_tag; 16],
+        channel_id: [resource_tag.wrapping_add(1); 16],
+        channel_epoch: 1,
+        ring_epoch: 1,
+        feed_generation: 1,
+        producer_instance,
+        producer_generation,
+        consumer_instance,
+        host_boot_id,
+        namespace_id,
+        risk_scope: 100,
+        producer_page_offset: 4096,
+        slot_offset: 8192,
+        capacity,
+        record_bytes,
+        resource_bytes: 8192 + u64::from(capacity) * u64::from(record_bytes),
+        first_seq: 1,
+        initial_membership_version: 1,
+        max_consumers: 1,
+        required_features: 0x1c | tickwire_strategy_sdk::outbound::FEATURE,
+        schema_major: 1,
+        clock_domain: 1,
+        qos: 1,
+        event_class: 8,
+        ..Default::default()
+    }
+}
+
+fn report_bank_header(
+    resource_tag: u8,
+    producer_instance: [u8; 16],
+    producer_generation: u64,
+    consumer_instance: [u8; 16],
+    host_boot_id: [u8; 16],
+    namespace_id: [u8; 16],
+) -> ResourceHeader {
+    let capacity = 64u32;
+    let record_bytes = 512u32;
+    ResourceHeader {
+        magic: *b"TWIPC001",
+        abi_major: 1,
+        abi_minor: 0,
+        header_bytes: 4096,
+        resource_kind: 3,
+        endian: 1,
+        atomic_width: 8,
+        page_shift: 12,
+        isolation_shift: 7,
+        target_arch: target_arch_code(),
+        resource_id: [resource_tag; 16],
+        channel_id: [resource_tag.wrapping_add(1); 16],
+        channel_epoch: 1,
+        ring_epoch: 1,
+        feed_generation: 1,
+        producer_instance,
+        producer_generation,
+        consumer_instance,
+        host_boot_id,
+        namespace_id,
+        risk_scope: 100,
+        producer_page_offset: 4096,
+        slot_offset: 8192,
+        capacity,
+        record_bytes,
+        resource_bytes: 8192 + u64::from(capacity) * u64::from(record_bytes),
+        first_seq: 1,
+        initial_membership_version: 1,
+        max_consumers: 1,
+        required_features: 0x1c | tickwire_strategy_sdk::reports::FEATURE,
+        schema_major: 1,
+        clock_domain: 1,
+        qos: 1,
+        event_class: 9,
+        ..Default::default()
+    }
+}
+
+#[test]
+fn counting_registration_validates_sha256_factory_binding_and_rejects_tampering() {
+    let params = Parameters {
+        schema: 1,
+        enabled: false,
+        minimum_observations: 1,
+        minimum_bid_ticks: 0,
+        command: None,
+    };
+    let raw = params.bytes().expect("canonical parameter JSON");
+    let digest = ArtifactDigest::of(&raw);
+    let target = TargetIdentity {
+        logical_strategy_id: 101,
+        strat_id: 1,
+        instance_id: [0x11; 16],
+        generation: 1,
+        account_ref: 0,
+    };
+    let factory = tickwire_strategy_example::Registration::v2()
+        .configure(
+            &target,
+            &VersionedBytes {
+                revision: 1,
+                bytes: raw.clone(),
+            },
+        )
+        .expect("valid V2 counting registration");
+    assert!(digest.verify(&raw, 4096).is_ok());
+
+    let mut tampered = raw;
+    tampered[0] = b' ';
+    assert!(digest.verify(&tampered, 4096).is_err());
+    let _ = factory;
+}
+
+mod external_spot {
+    use super::*;
+
+    #[derive(Deserialize)]
+    struct DemoMarketJson {
+        resource: PathBuf,
+        clock_generation: u64,
+        instrument_set_version: u64,
+        source: DemoSourceJson,
+        catalog: DemoCatalogRef,
+        server: DemoServerJson,
+    }
+
+    #[derive(Deserialize)]
+    struct DemoSourceJson {
+        instrument_id: u64,
+        instrument_version: u64,
+    }
+
+    #[derive(Deserialize)]
+    struct DemoCatalogRef {
+        path: PathBuf,
+    }
+
+    #[derive(Deserialize)]
+    struct DemoServerJson {
+        socket: PathBuf,
+        admission_directory: PathBuf,
+    }
+
+    #[derive(Deserialize)]
+    struct DemoResourceJson {
+        identity: IdentityConfig,
+    }
+
+    struct PausedPid(u32);
+
+    impl PausedPid {
+        fn pause(pid: u32) -> Self {
+            let status = std::process::Command::new("kill")
                 .args(["-STOP", &pid.to_string()])
                 .status()
-                .unwrap()
-                .success()
-        );
-        let guard = Self(pid);
-        let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        loop {
-            let status = std::fs::read_to_string(format!("/proc/{pid}/status")).unwrap();
-            if status
-                .lines()
-                .any(|l| l.starts_with("State:") && l.contains('T'))
-            {
-                break;
-            }
-            assert!(std::time::Instant::now() < until);
-            std::thread::yield_now();
+                .expect("invoke kill -STOP on tickwire-md");
+            assert!(status.success(), "kill -STOP {pid} failed");
+            Self(pid)
         }
-        guard
     }
-}
-impl Drop for Paused {
-    fn drop(&mut self) {
-        let _ = std::process::Command::new("kill")
-            .args(["-CONT", &self.0.to_string()])
-            .status();
-    }
-}
 
-#[test]
-#[ignore = "requires fixed release TICKWIRE_PARAMETERS_WORKER; real pending checkpoint challenge"]
-fn pending_parameter_query_holds_an_actual_queued_intent_until_fresh_proof() {
-    let mut f = Fixture::new(&worker(), 1, 100);
-    f.bind_projection(false);
-    let mut owner = f.build().unwrap();
-    f.seed(&mut *owner);
-    let published = f.market.publish(100);
-    let checkpoint = f.wait_durable(|c| {
-        c.runtime.markets[0].sequence >= published && c.runtime.effects.count == 1
-    });
-    assert_eq!(business(&checkpoint)["spent"], true);
-    let command = f.assert_command(100);
-    let pid = owner.observation_process(f.target()).unwrap().process().pid;
-    let paused = Paused::new(pid);
-    assert!(owner.projection_parameters(f.target()).is_none());
-    for _ in 0..3 {
-        assert!(
-            f.next_ready(&mut *owner).is_none(),
-            "queued actual intent escaped the pending parameter gate"
+    impl Drop for PausedPid {
+        fn drop(&mut self) {
+            let _ = std::process::Command::new("kill")
+                .args(["-CONT", &self.0.to_string()])
+                .status();
+        }
+    }
+
+    #[test]
+    #[ignore = "driven by scripts/run-two-strategies.py"]
+    #[allow(unsafe_code)]
+    fn two_registered_workers_read_external_spot_market() {
+        let root = PathBuf::from(
+            std::env::var("TICKWIRE_SPOT_DEMO").expect("TICKWIRE_SPOT_DEMO must be set"),
         );
-        assert!(owner.projection_parameters(f.target()).is_none());
-        assert!(!owner.failed());
-    }
-    assert!(
-        owner.poll_observation(f.target()).is_err(),
-        "external caller cannot steal startup query response"
-    );
-    drop(paused);
-    f.prove(&mut *owner);
-    let submission = f
-        .next_ready(&mut *owner)
-        .expect("fresh proof unlocks the original queued intent");
-    assert_eq!(submission.command, command);
-    assert!(f.next_ready(&mut *owner).is_none());
-    println!(
-        "{}",
-        serde_json::json!({"case":"pending_parameter_gate","pid":pid,"effect_before_query":checkpoint.runtime.effects.count,"intent_digest":command.digest(),"pending_delivered":false,"fresh_proof_then_same_intent":true,"no_gateway_submission":true})
-    );
-}
-
-#[test]
-#[ignore = "requires fixed release TICKWIRE_PARAMETERS_WORKER; actual query failure closes owner"]
-fn expired_parameter_query_rejects_queued_intent_and_reaps_worker() {
-    let mut f = Fixture::new(&worker(), 1, 100);
-    f.bind_projection(false);
-    f.host["projection_parameters"]["timeout_ns"] = 50_000_000u64.into();
-    let mut owner = f.build().unwrap();
-    f.seed(&mut *owner);
-    let published = f.market.publish(100);
-    let state = f.wait_durable(|c| {
-        c.runtime.markets[0].sequence >= published && c.runtime.effects.count == 1
-    });
-    assert_eq!(business(&state)["spent"], true);
-    let pid = owner.observation_process(f.target()).unwrap().process().pid;
-    let paused = Paused::new(pid);
-    let until = std::time::Instant::now() + std::time::Duration::from_secs(5);
-    while !owner.failed() {
-        assert!(f.next_ready(&mut *owner).is_none());
-        assert!(owner.projection_parameters(f.target()).is_none());
-        assert!(
-            std::time::Instant::now() < until,
-            "query must fail at its original deadline"
+        let md_pid: u32 = std::env::var("TICKWIRE_SPOT_PID")
+            .expect("TICKWIRE_SPOT_PID must be set")
+            .parse()
+            .expect("valid TICKWIRE_SPOT_PID");
+        let worker_bin = PathBuf::from(
+            std::env::var("TICKWIRE_PARAMETERS_WORKER")
+                .expect("TICKWIRE_PARAMETERS_WORKER must be set"),
         );
-        std::thread::sleep(std::time::Duration::from_millis(2));
-    }
-    assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists());
-    drop(paused);
-    assert!(f.next_ready(&mut *owner).is_none());
-    println!(
-        "{}",
-        serde_json::json!({"case":"parameter_query_expired","pid":pid,"effect_was_pending":true,"delivered":false,"proof":false,"reaped":true})
-    );
-}
+        let target_seq: u64 = std::env::var("TICKWIRE_SPOT_FIXTURE_SEQUENCE")
+            .ok()
+            .map(|s| s.parse().expect("valid TICKWIRE_SPOT_FIXTURE_SEQUENCE"))
+            .unwrap_or(1);
 
-#[test]
-#[ignore = "requires fixed TICKWIRE_PARAMETERS_WORKER; two real workers share one MD feed"]
-fn two_active_strategies_consume_one_market_update_and_submit_independently() {
-    let worker = worker();
-    let first = Fixture::new(&worker, 1, 100);
-    let peer = first.market.peer(2);
-    let second = Fixture::new_with_market(&worker, 1, 100, peer);
-    let slots = [&first, &second].map(|fixture| {
-        let host = fixture.root.join("host.json");
-        std::fs::write(&host, serde_json::to_vec(&fixture.host).unwrap()).unwrap();
-        serde_json::json!({
-            "logical_strategy_id": fixture.target().logical_strategy_id,
-            "strategy": {"mode":"hosted","config": host},
+        let market_cfg: DemoMarketJson =
+            serde_json::from_slice(&std::fs::read(root.join("market.json")).unwrap()).unwrap();
+        let resource_cfg: DemoResourceJson =
+            serde_json::from_slice(&std::fs::read(&market_cfg.resource).unwrap()).unwrap();
+        let active_path = tickwire_md::config::active_resource_path(&market_cfg.resource).unwrap();
+        let active_bytes = std::fs::read(&active_path).expect("read active MD ResourceHeader");
+        let active_hdr = ResourceHeader::decode(&active_bytes).expect("decode active MD header");
+
+        let catalog_bytes = std::fs::read(&market_cfg.catalog.path).unwrap();
+        let catalog_digest = ArtifactDigest::of(&catalog_bytes);
+        let catalog = Catalog::decode(&catalog_bytes, catalog_digest.sha256).unwrap();
+
+        let parent = current_process_identity().expect("current_process_identity");
+        let worker_elf_bytes = std::fs::read(&worker_bin).expect("read stripped worker binary");
+        let worker_build_hash: [u8; 32] = Sha256::digest(&worker_elf_bytes).into();
+        let self_exe = std::fs::canonicalize(std::env::current_exe().unwrap()).unwrap();
+        let self_build_hash: [u8; 32] = Sha256::digest(std::fs::read(&self_exe).unwrap()).into();
+
+        let md_peer = resource_cfg.identity.identity();
+        let host_boot = md_peer.host_boot;
+        let namespace = md_peer.namespace;
+
+        let params = Parameters {
+            schema: 1,
+            enabled: false,
+            minimum_observations: 1,
+            minimum_bid_ticks: 0,
+            command: None,
+        };
+        let params_bytes = params.bytes().unwrap();
+        let params_file = root.join("counting-params.json");
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut f = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&params_file)
+                .unwrap();
+            std::io::Write::write_all(&mut f, &params_bytes).unwrap();
+            f.sync_all().unwrap();
+        }
+        let params_digest = ArtifactDigest::of(&params_bytes);
+
+        let supervisor_id = Identity {
+            instance: [0x70; 16],
+            generation: 1,
+            role: 1,
+            logical_strategy: 0,
+            host_boot,
+            namespace,
+            build_hash: self_build_hash,
+            qualification_hash: md_peer.qualification_hash,
+            manifest_hash: md_peer.manifest_hash,
+            arch: target_arch_code(),
+            trust_profile: md_peer.trust_profile,
+        };
+        let ors_id = Identity {
+            instance: [0x90; 16],
+            generation: 1,
+            role: 4,
+            logical_strategy: 0,
+            host_boot,
+            namespace,
+            build_hash: self_build_hash,
+            qualification_hash: md_peer.qualification_hash,
+            manifest_hash: md_peer.manifest_hash,
+            arch: target_arch_code(),
+            trust_profile: md_peer.trust_profile,
+        };
+
+        let launch_worker = |slot: u8| -> RemoteHostedStrategy {
+            let strat_id = slot;
+            let logical_id = 100 + u64::from(slot);
+            let instance = [0x30 + slot; 16];
+            let worker_id = Identity {
+                instance,
+                generation: 1,
+                role: 3,
+                logical_strategy: logical_id,
+                host_boot,
+                namespace,
+                build_hash: worker_build_hash,
+                qualification_hash: md_peer.qualification_hash,
+                manifest_hash: md_peer.manifest_hash,
+                arch: target_arch_code(),
+                trust_profile: md_peer.trust_profile,
+            };
+            let md_ep = Endpoint {
+                path: market_cfg.server.socket.clone(),
+                local: (&worker_id).into(),
+                peer: (&md_peer).into(),
+                peer_pid: md_pid,
+                peer_uid: parent.uid,
+                peer_gid: parent.gid,
+                required_features: 0x1c,
+                supported_features: 0x3ff,
+                control_epoch: 1,
+                lease_duration_ns: 60_000_000_000,
+                max_frame_bytes: 65_536,
+                nonce: [0x50 + slot; 32],
+            };
+            let intent_ep = Endpoint {
+                path: PathBuf::from("/placeholder/intent.sock"),
+                local: (&worker_id).into(),
+                peer: (&ors_id).into(),
+                peer_pid: parent.pid,
+                peer_uid: parent.uid,
+                peer_gid: parent.gid,
+                required_features: 0x1c,
+                supported_features: 0x3ff,
+                control_epoch: u64::from(slot),
+                lease_duration_ns: 60_000_000_000,
+                max_frame_bytes: 65_536,
+                nonce: [0x60 + slot; 32],
+            };
+            let report_ep = Endpoint {
+                path: PathBuf::from("/placeholder/report.sock"),
+                local: (&worker_id).into(),
+                peer: (&ors_id).into(),
+                peer_pid: parent.pid,
+                peer_uid: parent.uid,
+                peer_gid: parent.gid,
+                required_features: 0x1c,
+                supported_features: 0x3ff,
+                control_epoch: 10 + u64::from(slot),
+                lease_duration_ns: 60_000_000_000,
+                max_frame_bytes: 65_536,
+                nonce: [0x70 + slot; 32],
+            };
+
+            let intent_hdr = intent_bank_header(
+                0x10 + slot * 4,
+                instance,
+                1,
+                ors_id.instance,
+                host_boot,
+                namespace,
+            );
+            let report_hdr = report_bank_header(
+                0x20 + slot * 4,
+                ors_id.instance,
+                1,
+                instance,
+                host_boot,
+                namespace,
+            );
+
+            let bootstrap = Bootstrap {
+                version: 1,
+                logical_strategy_id: logical_id,
+                strat_id,
+                instance_id: instance,
+                generation: 1,
+                account_ref: 0,
+                worker_cpu: None,
+                housekeeping_cpus: None,
+                market: ConnectConfig {
+                    endpoint: md_ep,
+                    bank_header: active_bytes.clone(),
+                    catalog_hash: catalog.catalog_hash(),
+                    instrument_set_version: market_cfg.instrument_set_version,
+                    instruments: vec![Instrument {
+                        id: market_cfg.source.instrument_id,
+                        version: market_cfg.source.instrument_version,
+                        required_states: QUOTE_REQUIRED_STATES,
+                    }],
+                    cursor_id: [0x80 + slot; 16],
+                    subscription_generation: 1,
+                    request_id: [0x90 + slot; 16],
+                    maximum_levels: 1,
+                    startup_timeout_ms: 15_000,
+                    clock_generation: market_cfg.clock_generation,
+                },
+                dop_socket: None,
+                dop: None,
+                intent: Some(intent_ep),
+                intent_header: Some(wire_bytes(&intent_hdr).unwrap()),
+                intent_cursor_id: [0xA0 + slot; 16],
+                intent_subscription_generation: 1,
+                report: Some(report_ep),
+                report_header: Some(wire_bytes(&report_hdr).unwrap()),
+                report_cursor_id: [0xB0 + slot; 16],
+                report_subscription_generation: 1,
+                risk_domain: [0; 16],
+                instrument_catalog: None,
+                catalog_file: Some(market_cfg.catalog.path.clone()),
+                catalog_digest: Some(catalog_digest),
+                factory: Some(FactoryBinding {
+                    id: String::from("counting_example"),
+                    state_schema: V2,
+                    configuration_file: params_file.clone(),
+                    configuration: params_digest,
+                    revision: 1,
+                }),
+                clock_generation: market_cfg.clock_generation,
+                startup_timeout_ms: 15_000,
+                maximum_market_age_ns: 30_000_000_000,
+                maximum_levels: 1,
+                poll_records: 64,
+                idle_sleep_us: 200,
+                demo_enabled: false,
+                demo_command_file: None,
+                demo_minimum_bid_ticks: 0,
+            };
+
+            let spec = LaunchSpec {
+                executable: worker_bin.clone(),
+                arguments: Vec::new(),
+                working_directory: root.clone(),
+                environment: BTreeMap::new(),
+                uid: parent.uid,
+                gid: parent.gid,
+                identity: worker_id,
+                inherit_output: false,
+            };
+
+            let paused_md = PausedPid::pause(md_pid);
+
+            // SAFETY: `tickwire-md` (`md_pid`) and `tickwire-counting-worker` (`worker_bin`) are
+            // sealed local executables adhering to the single-writer SPSC SHM ring contracts.
+            unsafe {
+                RemoteHostedStrategy::launch(RemoteLaunch {
+                    resources: None,
+                    spec,
+                    bootstrap,
+                    directory_parent: std::env::temp_dir(),
+                    supervisor: supervisor_id.clone(),
+                    parent_process: parent,
+                    md_admission_directory: market_cfg.server.admission_directory.clone(),
+                    snapshot_id: [0xC0 + slot; 16],
+                    on_admission_registered: Some(Box::new(move |_| {
+                        drop(paused_md);
+                        Ok(())
+                    })),
+                })
+                .expect("launch tickwire-counting-worker")
+            }
+        };
+
+        let mut worker_a = launch_worker(1);
+        let mut worker_b = launch_worker(2);
+        let pid_a = worker_a.child_process().pid;
+        let pid_b = worker_b.child_process().pid;
+        assert_ne!(pid_a, pid_b, "workers must run in distinct OS processes");
+
+        // Attach an independent observer cursor to read the exact published `venue_seq_last`.
+        let observer_id = Identity {
+            instance: [0x3F; 16],
+            generation: 1,
+            role: 3,
+            logical_strategy: 199,
+            host_boot,
+            namespace,
+            build_hash: self_build_hash,
+            qualification_hash: md_peer.qualification_hash,
+            manifest_hash: md_peer.manifest_hash,
+            arch: target_arch_code(),
+            trust_profile: md_peer.trust_profile,
+        };
+        let observer_connect = ConnectConfig {
+            endpoint: Endpoint {
+                path: market_cfg.server.socket.clone(),
+                local: (&observer_id).into(),
+                peer: (&md_peer).into(),
+                peer_pid: md_pid,
+                peer_uid: parent.uid,
+                peer_gid: parent.gid,
+                required_features: 0x1c,
+                supported_features: 0x3ff,
+                control_epoch: 1,
+                lease_duration_ns: 60_000_000_000,
+                max_frame_bytes: 65_536,
+                nonce: [0x5F; 32],
+            },
+            bank_header: active_bytes,
+            catalog_hash: catalog.catalog_hash(),
+            instrument_set_version: market_cfg.instrument_set_version,
+            instruments: vec![Instrument {
+                id: market_cfg.source.instrument_id,
+                version: market_cfg.source.instrument_version,
+                required_states: QUOTE_REQUIRED_STATES,
+            }],
+            cursor_id: [0x8F; 16],
+            subscription_generation: 1,
+            request_id: [0x9F; 16],
+            maximum_levels: 1,
+            startup_timeout_ms: 15_000,
+            clock_generation: market_cfg.clock_generation,
+        };
+        register_admission(
+            &market_cfg.server.admission_directory,
+            &Admission {
+                client: observer_connect.clone(),
+                pid: parent.pid,
+                uid: parent.uid,
+                gid: parent.gid,
+                supervisor: (&supervisor_id).into(),
+                supervisor_pid: parent.pid,
+                snapshot_id: [0xCF; 16],
+            },
+        )
+        .expect("register observer admission");
+
+        let domain = ClockDomain::new(host_boot, market_cfg.clock_generation).unwrap();
+        let mut clock = SystemClock::new(domain).unwrap();
+        // SAFETY: `md_pid` is the live `tickwire-md` owner of `active_hdr`.
+        let observer = unsafe {
+            Client::connect(
+                &observer_connect,
+                &mut || -> tickwire_market_source::Result<MonoTime> {
+                    clock
+                        .sample()
+                        .map(|s| s.monotonic)
+                        .map_err(|_| tickwire_market_source::Error::Identity)
+                },
+            )
+            .expect("observer Client::connect")
+        };
+        let observer_consumer = observer.consumer;
+        let mut observer_replica = SdkMarketReplica::from_core(observer.replica);
+
+        // Signal loopback fixture (when present) that both strategy workers are subscribed & ready.
+        std::fs::write(root.join("workers.ready"), b"ready\n").unwrap();
+
+        let policy = OrsRuntimePolicy::from_config(&PolicyConfig {
+            initial_mode: Mode::Trading,
+            strategies: vec![1, 2],
+            enabled_accounts: vec![tickwire_runtime_policy::AccountAuthSpec::new(
+                1,
+                "obs-acct",
+                vec![1, 2],
+            )],
+            default_active: true,
+            default_enabled: true,
         })
-    });
-    let group =
-        serde_json::from_value(serde_json::json!({"mode":"multi","members":slots})).unwrap();
-    let mut owner =
-        tickwire_app::launch::build(&group, &first.runtime, first.policy.clone()).unwrap();
-    first.seed(&mut *owner);
-    let sequence = first.market.publish(100);
-    let a = first.wait_consumed(&mut *owner, sequence);
-    let b = second.wait_consumed(&mut *owner, sequence);
-    assert_eq!(a.runtime.markets, b.runtime.markets);
-    let one = first.assert_command(100);
-    let two = second.assert_command(100);
-    let received = [
-        first.next_ready(&mut *owner).unwrap().command,
-        first.next_ready(&mut *owner).unwrap().command,
-    ];
-    assert_ne!(one.digest(), two.digest());
-    assert!(received.contains(&one) && received.contains(&two));
-    assert!(first.next_ready(&mut *owner).is_none());
+        .unwrap();
+
+        let extract_quote = |rep: &SdkMarketReplica| -> Option<(u64, i64, i64)> {
+            let view = rep.view(market_cfg.source.instrument_id)?;
+            match view.best_quote()? {
+                MarketState::Exact(r) => Some((
+                    r.body.venue_seq_last,
+                    r.body.bid_price_ticks,
+                    r.body.ask_price_ticks,
+                )),
+                MarketState::Legacy(r) => Some((
+                    r.body.venue_seq_last,
+                    r.body.bid_price_ticks,
+                    r.body.ask_price_ticks,
+                )),
+            }
+        };
+
+        let mut latest_quote = extract_quote(&observer_replica).unwrap_or((0, 0, 0));
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while latest_quote.0 < target_seq {
+            assert!(
+                Instant::now() < deadline,
+                "timed out waiting for quote_sequence >= {target_seq} (last={})",
+                latest_quote.0
+            );
+            let now_ns = clock.sample().unwrap().monotonic.nanos();
+            let mut obs = ObserveOnly;
+            observer_replica
+                .drain(&observer_consumer, &mut obs, now_ns, u64::MAX, 64, |_| {
+                    Ok(())
+                })
+                .unwrap();
+            if let Some(q) = extract_quote(&observer_replica) {
+                latest_quote = q;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+
+        // Allow both workers a brief tick to drain the final slot, then verify both remain healthy.
+        thread::sleep(Duration::from_millis(25));
+        let obs_req = ObservationRequest {
+            max_sample_age_ns: 500_000_000,
+            account_ref: 1,
+            require_resources: false,
+        };
+        let fresh_a = worker_a
+            .observe_fresh(&policy, &obs_req)
+            .expect("fresh observation for worker A");
+        let fresh_b = worker_b
+            .observe_fresh(&policy, &obs_req)
+            .expect("fresh observation for worker B");
+        assert!(fresh_a.readiness.is_ready_to_trade());
+        assert!(fresh_b.readiness.is_ready_to_trade());
+
+        let _ = worker_a.terminate(Some(&policy)).unwrap();
+        let _ = worker_b.terminate(Some(&policy)).unwrap();
+
+        let (observed_seq, bid_ticks, ask_ticks) = latest_quote;
+        let summary = serde_json::json!({
+            "event": "two_strategies_observed",
+            "two_strategies_observed": true,
+            "market_pid": md_pid,
+            "topic": active_hdr.topic_id,
+            "topic_id": active_hdr.topic_id,
+            "instrument_id": market_cfg.source.instrument_id,
+            "worker_pids": [pid_a, pid_b],
+            "quote_sequence": observed_seq,
+            "bid_ticks": bid_ticks,
+            "ask_ticks": ask_ticks,
+            "strategy_effects": 0,
+        });
+        std::fs::write(
+            root.join("result.json"),
+            format!("{}\n", serde_json::to_string_pretty(&summary).unwrap()),
+        )
+        .unwrap();
+    }
 }

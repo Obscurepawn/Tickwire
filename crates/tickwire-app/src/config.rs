@@ -1,741 +1,698 @@
-use crate::{Result, invalid};
-use serde::Deserialize;
-use std::{
-    net::{SocketAddr, ToSocketAddrs},
-    path::{Path, PathBuf},
-    sync::Arc,
-    time::{Duration, Instant},
-};
-use tickwire_account_codec::CanonicalBaseline;
-use tickwire_binance::{
-    auth::SigningKey,
-    request::{Credentials, Market},
-};
-use tickwire_binance_clock as time;
-use tickwire_binance_private as private;
-use tickwire_binance_public as public;
-use tickwire_clock::{ClockDomain, Source};
-use tickwire_runtime::{files, node};
-use tickwire_transport::{Limits, rustls};
-use tickwire_venue::{Environment, Product};
+//! Immutable static JSON configuration schema (`OrsAppConfig`) for the unified stateless ORS
+//! execution process (`tickwire-app`, `1 ORS process = 1 Venue`).
+//!
+//! Supports `Binance` (`Spot`, `Usdm`, `Coinm`, `Options`), `Bybit` (`UTA`), and `Okx` (`UTA`)
+//! with optional static `InstrumentCatalog` digest/binding verification, static RMS configuration,
+//! DOP `ControlServer` socket configuration, and external Unix `SOCK_SEQPACKET` strategy lane
+//! descriptors—with zero local WAL, journal, lease, or dynamic configuration patch state.
 
-pub const PUBLIC_BOOK_LEVELS: usize = 5000;
-pub const PUBLIC_DEPTH_UPDATES: usize = 5000;
-pub const PUBLIC_BUFFERED_EVENTS: usize = 64;
+#![forbid(unsafe_code)]
 
-fn public_limits(io: Limits) -> public::Limits {
-    public::Limits {
-        io,
-        request_bytes: 16 * 1024,
-        message_bytes: 1024 * 1024,
-        http_bytes: 4 * 1024 * 1024,
-        http_headers: 64,
-        control_frames: 16,
-        timestamp_segments: 1024,
-        total_buffer_bytes: 64 * 1024 * 1024,
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use tickwire_account::{OrderManagerConfig, OrsSymbolSpec};
+use tickwire_account_gateway::{AccountManager, AccountManagerConfig};
+use tickwire_binance::auth::SigningKey;
+use tickwire_binance::full_market::BinanceVenueMarket;
+use tickwire_binance_account::{
+    BinanceAssetBinding, BinanceBootstrapCatalog, BinanceSymbolBinding,
+    DEFAULT_ORDER_RECV_WINDOW_MS, DEFAULT_STATUS_QUERY_DELAY_MS,
+};
+use tickwire_instrument_catalog::Catalog;
+use tickwire_risk::RmsEngine;
+use tickwire_runtime::{
+    ControlServerConfig, DEFAULT_MAX_ORDER_AGE_NS, OrsProcessConfig, OrsRuntimeConfig,
+    build_rms_engine_from_file,
+};
+use tickwire_spot_execution::SpotVenue;
+use tickwire_spot_execution::network::OwnedCredentials;
+use tickwire_spot_execution::rest_bootstrap::{UtaAssetBinding, UtaSymbolBinding};
+use tickwire_spot_execution::rfq::{DEFAULT_MAX_OPEN_RFQ_QUOTES, UtaRfqQuoteBook};
+use tickwire_spot_runner::{
+    UtaAssetConfig, UtaCpuSpec, UtaEndpointConfig, UtaEndpointSpec, UtaEnvironmentKind,
+    UtaSymbolConfig, UtaTransportKind, UtaVenueSession, UtaVenueSessionConfig,
+};
+use tickwire_venue::{AssetKey, Product, venue_id};
+
+use crate::binance_session::{
+    BinanceMarketEndpoint, BinanceVenueSession, BinanceVenueSessionConfig,
+};
+use crate::external_lanes::ExternalStrategyLaneConfig;
+use crate::venue::UnifiedVenueSession;
+
+fn default_max_order_age_ns() -> u64 {
+    DEFAULT_MAX_ORDER_AGE_NS
+}
+
+fn default_exec_generation() -> u64 {
+    1
+}
+
+fn default_instrument_version() -> u64 {
+    1
+}
+
+fn default_ws_ping_interval_ms() -> u64 {
+    15_000
+}
+
+fn default_slots_per_strat() -> usize {
+    1_024
+}
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_contract_size_atoms() -> i128 {
+    1
+}
+
+fn default_initial_margin_bps() -> u32 {
+    10_000
+}
+
+fn default_order_recv_window_ms() -> u32 {
+    DEFAULT_ORDER_RECV_WINDOW_MS
+}
+
+fn default_binance_status_delay_ms() -> u64 {
+    DEFAULT_STATUS_QUERY_DELAY_MS
+}
+
+/// Venue selector for `tickwire-app` (`1 ORS process = 1 Venue`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum OrsVenueKind {
+    Binance,
+    Bybit,
+    Okx,
+}
+
+impl OrsVenueKind {
+    #[inline]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Binance => "binance",
+            Self::Bybit => "bybit",
+            Self::Okx => "okx",
+        }
+    }
+
+    #[inline]
+    pub const fn numeric_venue_id(self) -> u32 {
+        match self {
+            Self::Binance => venue_id::BINANCE,
+            Self::Bybit => SpotVenue::Bybit.venue_id(),
+            Self::Okx => SpotVenue::Okx.venue_id(),
+        }
     }
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Deployment {
-    #[serde(default, rename = "replication")]
-    _local_replication: (),
-    #[serde(default, rename = "lifecycle")]
-    _local_lifecycle: (),
-    #[serde(default, rename = "shadow_loader")]
-    _local_loader: (),
-    pub baseline: PathBuf,
-    #[serde(default)]
-    pub instrument_catalog: Option<CatalogFile>,
-    #[serde(default, alias = "commit_profile")]
-    pub storage_mode: Option<tickwire_journal::StorageMode>,
-    #[serde(default)]
-    pub directories: Option<Directories>,
-    pub recover: bool,
-    pub product: ProductName,
-    pub boot_id: [u8; 16],
-    pub clock_generation: u64,
-    pub owner_id: [u8; 16],
-    pub writer_epoch: u64,
-    pub initial_writer_epoch: u64,
-    pub account_stream: [u8; 16],
-    pub input_stream: [u8; 16],
-    pub first_connection_epoch: u64,
-    #[serde(default)]
-    pub trading_websocket: Option<TradingWebSocket>,
-    pub instrument_id: u64,
-    pub book_source: u32,
-    pub credential: CredentialConfig,
-    pub network: Network,
-    pub clock: ClockConfig,
-    pub tuning: Tuning,
-    pub policy: tickwire_runtime_policy::bootstrap::Config,
-    pub quota: tickwire_binance_quota::bootstrap::Config,
-    pub strategy: crate::strategy::Config,
-    /// Authenticated direct MD subscriptions. Empty selects the local public client.
-    #[serde(default)]
-    pub market_sources: Vec<tickwire_market_source::ConnectConfig>,
-    #[serde(default)]
-    pub market_transition: Option<crate::control::market::Config>,
-    pub reconciliation: crate::reconciliation::Config,
-    #[serde(default)]
-    pub income_baseline_authority:
-        Option<tickwire_binance_account::reconciliation::income_import::IncomeBaselineAuthority>,
-    #[serde(default)]
-    pub income_association_authority:
-        Option<tickwire_binance_account::reconciliation::income_association::AssociationAuthority>,
-    #[serde(default)]
-    pub control: Option<crate::control::Config>,
-    #[serde(default)]
-    pub observation: Option<crate::observation::Config>,
-    pub stop_file: PathBuf,
-    pub maximum_runtime_ns: u64,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct CatalogFile {
-    pub reference: String,
-    pub path: PathBuf,
-}
-impl CatalogFile {
-    fn load(&self) -> Result<Arc<tickwire_instrument_catalog::Catalog>> {
-        let digest = tickwire_config::artifacts::reference_hash(&self.reference)
-            .map_err(|_| invalid("instrument catalog artifact reference"))?;
-        let raw = read_file(&self.path, tickwire_instrument_catalog::MAX_BYTES)?;
-        tickwire_instrument_catalog::Catalog::decode(&raw, digest)
-            .map(Arc::new)
-            .map_err(|_| invalid("instrument catalog content"))
-    }
-}
-#[derive(Clone, Copy, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct TradingWebSocket {
-    pub lifetime_ns: u64,
-    pub control_timeout_ns: u64,
-    pub max_messages_per_poll: usize,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Directories {
-    pub account: PathBuf,
-    pub input: PathBuf,
-    pub recovery: PathBuf,
-}
-#[derive(Clone, Copy, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ProductName {
+/// Serde-friendly Binance trading product family (`"spot"`, `"usdm"`, `"coinm"`, `"options"`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum BinanceMarketKind {
     Spot,
     Usdm,
-    UsdmFuture,
+    Coinm,
+    Options,
 }
-impl ProductName {
-    pub fn market(self) -> Market {
+
+impl BinanceMarketKind {
+    #[inline]
+    pub const fn to_market(self) -> BinanceVenueMarket {
         match self {
-            Self::Spot => Market::Spot,
-            Self::Usdm | Self::UsdmFuture => Market::Usdm,
+            Self::Spot => BinanceVenueMarket::Spot,
+            Self::Usdm => BinanceVenueMarket::Usdm,
+            Self::Coinm => BinanceVenueMarket::Coinm,
+            Self::Options => BinanceVenueMarket::Options,
         }
     }
-    pub fn product(self) -> Product {
+
+    #[inline]
+    pub const fn default_product(self) -> Product {
         match self {
             Self::Spot => Product::Spot,
-            Self::Usdm => Product::LinearPerpetual,
-            Self::UsdmFuture => Product::LinearFuture,
+            Self::Usdm => Product::UsdM,
+            Self::Coinm => Product::CoinM,
+            Self::Options => Product::Option,
         }
     }
 }
-#[derive(Deserialize)]
+
+/// Per-market endpoint and optional Ed25519 key configuration for Binance accounts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CredentialConfig {
-    pub api_key_file: PathBuf,
-    pub signing_key_file: PathBuf,
-    pub algorithm: KeyAlgorithm,
-    pub generation: u64,
-    pub spot_logon: bool,
-}
-#[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum KeyAlgorithm {
-    Hmac,
-    RsaPkcs8,
-    Ed25519Pkcs8,
-}
-pub struct CredentialMaterial {
-    pub api_key: String,
-    pub signing_key: SigningKey,
-}
-impl CredentialConfig {
-    pub fn load(&self) -> Result<CredentialMaterial> {
-        let raw = read_file(&self.api_key_file, 256)?;
-        let api_key = String::from_utf8(raw)?
-            .trim_end_matches(['\r', '\n'])
-            .to_owned();
-        if api_key.is_empty() {
-            return Err(invalid("empty API key"));
-        }
-        let secret = read_file(&self.signing_key_file, 16 * 1024)?;
-        let key = match self.algorithm {
-            KeyAlgorithm::Hmac => SigningKey::hmac(&secret),
-            KeyAlgorithm::RsaPkcs8 => SigningKey::rsa_pkcs8(&secret),
-            KeyAlgorithm::Ed25519Pkcs8 => SigningKey::ed25519_pkcs8(&secret),
-        }
-        .map_err(|_| invalid("invalid signing key"))?;
-        Ok(CredentialMaterial {
-            api_key,
-            signing_key: key,
-        })
-    }
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Network {
-    /// DNS name:port or pinned IP:port. Protocol authority/SNI is fixed by product.
-    pub rest: String,
+pub struct BinanceMarketConfigBlock {
+    pub market: BinanceMarketKind,
     #[serde(default)]
-    pub trading_websocket: Option<String>,
-    pub time: String,
-    pub public_stream: String,
-    pub snapshot: String,
-    pub private_stream: String,
-    pub private_management: Option<String>,
-    /// DER trust anchors; hostname validation remains enabled.
-    pub trust_anchors: Vec<PathBuf>,
+    pub ed25519_pem_path: Option<PathBuf>,
+    #[serde(default)]
+    pub order_endpoint: Option<UtaEndpointConfig>,
+    #[serde(default)]
+    pub stream_endpoint: Option<UtaEndpointConfig>,
+    #[serde(default)]
+    pub rest_endpoint: Option<UtaEndpointConfig>,
+    #[serde(default)]
+    pub stream_colo: bool,
 }
-impl Network {
-    pub fn resolve(&self, connect_ns: u64) -> Result<files::Networks> {
-        if self.trust_anchors.is_empty() || self.trust_anchors.len() > 128 {
-            return Err(invalid("trust anchor count"));
+
+/// Static Binance asset binding entry.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BinanceAssetConfig {
+    pub market: BinanceMarketKind,
+    pub asset_code: String,
+    #[serde(default)]
+    pub wallet_id: u16,
+    pub asset_id: u64,
+    pub scale: u8,
+}
+
+impl BinanceAssetConfig {
+    pub fn to_binding(&self) -> BinanceAssetBinding {
+        BinanceAssetBinding {
+            market: self.market.to_market(),
+            asset_code: self.asset_code.clone(),
+            key: AssetKey {
+                wallet_id: self.wallet_id,
+                asset_id: self.asset_id,
+            },
+            scale: self.scale,
         }
-        let mut roots = rustls::RootCertStore::empty();
-        for path in &self.trust_anchors {
-            roots.add(rustls::pki_types::CertificateDer::from(read_file(
-                path,
-                1024 * 1024,
-            )?))?;
-        }
-        let tls = Arc::new(
-            rustls::ClientConfig::builder()
-                .with_root_certificates(roots)
-                .with_no_client_auth(),
-        );
-        fn resolve(name: &str) -> Result<SocketAddr> {
-            name.to_socket_addrs()?
-                .next()
-                .ok_or_else(|| invalid("address has no DNS results"))
-        }
-        Ok(files::Networks {
-            websocket: self
-                .trading_websocket
-                .as_ref()
-                .map(|name| -> Result<_> {
-                    Ok(tickwire_account_gateway::ConnectionConfig {
-                        address: resolve(name)?,
-                        tls: tls.clone(),
-                        limits: Limits::default(),
-                        connect_deadline: Instant::now()
-                            .checked_add(Duration::from_nanos(connect_ns))
-                            .ok_or_else(|| invalid("connect timeout"))?,
-                    })
-                })
-                .transpose()?,
-            rest: tickwire_account_gateway::ConnectionConfig {
-                address: resolve(&self.rest)?,
-                tls: tls.clone(),
-                limits: Limits::default(),
-                connect_deadline: Instant::now()
-                    .checked_add(Duration::from_nanos(connect_ns))
-                    .ok_or_else(|| invalid("connect timeout"))?,
-            },
-            time: time::NetworkConfig {
-                address: resolve(&self.time)?,
-                tls: tls.clone(),
-            },
-            public: public::NetworkConfig {
-                stream_address: resolve(&self.public_stream)?,
-                snapshot_address: resolve(&self.snapshot)?,
-                tls: tls.clone(),
-            },
-            private: private::NetworkConfig {
-                stream_address: resolve(&self.private_stream)?,
-                management_address: self
-                    .private_management
-                    .as_deref()
-                    .map(resolve)
-                    .transpose()?,
-                tls,
-            },
+    }
+}
+
+/// Static Binance symbol binding entry (`symbol_id` must form a dense `0..N` sequence).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BinanceSymbolConfig {
+    pub symbol_id: u32,
+    #[serde(default)]
+    pub instrument_id: Option<u64>,
+    pub market: BinanceMarketKind,
+    pub venue_symbol: String,
+    #[serde(default)]
+    pub wallet_id: u16,
+    pub base_asset_id: u64,
+    pub base_scale: u8,
+    pub quote_asset_id: u64,
+    pub quote_scale: u8,
+    pub settlement_asset_id: u64,
+    pub settlement_scale: u8,
+    pub price_tick_atoms: i128,
+    pub price_scale: u8,
+    pub qty_step_atoms: i128,
+    pub qty_scale: u8,
+    #[serde(default = "default_contract_size_atoms")]
+    pub contract_size_atoms: i128,
+    #[serde(default)]
+    pub contract_scale: u8,
+    #[serde(default = "default_initial_margin_bps")]
+    pub initial_margin_bps: u32,
+    #[serde(default)]
+    pub default_fee_asset_code: Option<String>,
+}
+
+impl BinanceSymbolConfig {
+    pub fn to_binding(&self) -> Result<BinanceSymbolBinding, String> {
+        let spec = OrsSymbolSpec {
+            symbol_id: self.symbol_id,
+            instrument_id: self.instrument_id.unwrap_or(u64::from(self.symbol_id)),
+            product: self.market.default_product(),
+            wallet_id: self.wallet_id,
+            base_asset_id: self.base_asset_id,
+            base_scale: self.base_scale,
+            quote_asset_id: self.quote_asset_id,
+            quote_scale: self.quote_scale,
+            settlement_asset_id: self.settlement_asset_id,
+            settlement_scale: self.settlement_scale,
+            price_tick_atoms: self.price_tick_atoms,
+            price_scale: self.price_scale,
+            qty_step_atoms: self.qty_step_atoms,
+            qty_scale: self.qty_scale,
+            contract_size_atoms: self.contract_size_atoms,
+            contract_scale: self.contract_scale,
+            initial_margin_bps: self.initial_margin_bps,
+        };
+        spec.validate()
+            .map_err(|r| format!("invalid OrsSymbolSpec for '{}': {r:?}", self.venue_symbol))?;
+        Ok(BinanceSymbolBinding {
+            symbol_id: self.symbol_id,
+            market: self.market.to_market(),
+            venue_symbol: self.venue_symbol.clone(),
+            spec,
+            default_fee_asset_code: self.default_fee_asset_code.clone(),
         })
     }
 }
-#[derive(Deserialize)]
+
+/// Optional static `InstrumentCatalog` JSON verification block.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ClockConfig {
-    pub max_round_trip_ns: u64,
-    pub max_width_ns: u64,
-    pub max_age_ns: u64,
-    pub quantization_error_ns: u64,
-    pub drift_ppb: u64,
-    pub max_adjustment_ns: u64,
-    pub calibration_interval_ns: u64,
-    pub calibration_retry_ns: u64,
+pub struct CatalogVerificationConfig {
+    pub path: PathBuf,
+    #[serde(default)]
+    pub expected_catalog_version: Option<u64>,
+    #[serde(default)]
+    pub expected_sha256_hex: Option<String>,
 }
-#[derive(Deserialize)]
+
+/// Complete immutable startup configuration for `tickwire-app` (`1 ORS process = 1 Venue`).
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Tuning {
-    pub connect_timeout_ns: u64,
-    pub request_timeout_ns: u64,
-    pub delivery_budget_ns: u64,
-    pub recv_window_micros: u64,
-    pub maximum_book_age_ns: u64,
-    pub maximum_idle_wait_ns: u64,
-    pub snapshot_limit: usize,
-    pub maximum_intents: usize,
-    pub maximum_input_records: usize,
-    pub maximum_input_bytes: usize,
-    pub wal_segment_bytes: u64,
-}
-pub fn read_file(path: &Path, maximum: usize) -> Result<Vec<u8>> {
-    if !path.is_absolute() {
-        return Err(invalid("configuration paths must be absolute"));
-    }
-    let metadata = std::fs::symlink_metadata(path)?;
-    if !metadata.is_file() || metadata.len() > maximum as u64 {
-        return Err(invalid("file type or size"));
-    }
-    let bytes = std::fs::read(path)?;
-    if bytes.len() > maximum {
-        return Err(invalid("file exceeds configured bound"));
-    }
-    Ok(bytes)
-}
-impl Deployment {
-    pub fn read(path: &Path) -> Result<Self> {
-        Ok(serde_json::from_slice(&read_file(path, 4 * 1024 * 1024)?)?)
-    }
-    pub fn domain(&self) -> Result<ClockDomain> {
-        ClockDomain::new(self.boot_id, self.clock_generation).map_err(|_| invalid("clock domain"))
-    }
-    pub fn baseline(&self) -> Result<CanonicalBaseline> {
-        CanonicalBaseline::decode(&read_file(&self.baseline, 16 * 1024 * 1024)?)
-            .map_err(|_| invalid("canonical baseline"))
-    }
-    pub fn source(&self, b: &CanonicalBaseline) -> Source {
-        match (self.product, b.snapshot().scope.environment) {
-            (ProductName::Spot, Environment::Production) => Source::SpotProduction,
-            (ProductName::Spot, Environment::Test) => Source::SpotTest,
-            (ProductName::Usdm | ProductName::UsdmFuture, Environment::Production) => {
-                Source::UsdmProduction
-            }
-            (ProductName::Usdm | ProductName::UsdmFuture, Environment::Test) => Source::UsdmTest,
-        }
-    }
-    pub fn credentials<'a>(
-        &self,
-        b: &CanonicalBaseline,
-        key: &'a CredentialMaterial,
-    ) -> Credentials<'a> {
-        Credentials {
-            api_key: &key.api_key,
-            signing_key: &key.signing_key,
-            market: self.product.market(),
-            account: b.snapshot().scope.account,
-            environment: b.snapshot().scope.environment,
-        }
-    }
-    pub fn authentication<'a>(&self, key: &'a CredentialMaterial) -> private::Authentication<'a> {
-        match self.product {
-            ProductName::Usdm | ProductName::UsdmFuture => private::Authentication::UsdmApiKey {
-                api_key: &key.api_key,
-            },
-            ProductName::Spot if self.credential.spot_logon => private::Authentication::SpotLogon {
-                api_key: &key.api_key,
-                signing_key: &key.signing_key,
-            },
-            ProductName::Spot => private::Authentication::SpotSignature {
-                api_key: &key.api_key,
-                signing_key: &key.signing_key,
-            },
-        }
-    }
-    fn public_instrument(
-        &self,
-        baseline: &CanonicalBaseline,
-    ) -> Result<(tickwire_venue::InstrumentBinding, tickwire_book::BookKey)> {
-        if self.instrument_id == 0 {
-            return Err(invalid("instrument id must be nonzero"));
-        }
-        // CanonicalBaseline fixes the complete catalog order (at most 64 IDs).
-        // This slot is local to that owner's catalog, while the binding retains
-        // the full external ID for normalized events and strategy inputs.
-        let (slot, entry) = baseline
-            .catalog()
-            .entries
-            .iter()
-            .enumerate()
-            .find(|(_, entry)| {
-                entry.instrument.instrument_id == self.instrument_id
-                    && entry.product == self.product.product()
-            })
-            .ok_or_else(|| invalid("instrument not in baseline catalog"))?;
-        Ok((
-            entry.instrument.clone(),
-            tickwire_book::BookKey {
-                venue: baseline.snapshot().scope.venue,
-                instrument: slot
-                    .try_into()
-                    .map_err(|_| invalid("local book slot exceeds u32"))?,
-                source: self.book_source,
-            },
-        ))
-    }
-    pub fn resolved_storage_mode(&self) -> tickwire_journal::StorageMode {
-        self.storage_mode.unwrap_or(if self.directories.is_some() {
-            tickwire_journal::StorageMode::LocalDurable
-        } else {
-            tickwire_journal::StorageMode::InMemory
-        })
-    }
-    pub fn assemble(&self, baseline: CanonicalBaseline) -> Result<files::Configuration> {
-        let instrument_catalog = self
-            .instrument_catalog
-            .as_ref()
-            .map(CatalogFile::load)
-            .transpose()?;
-        if instrument_catalog.as_ref().is_some_and(|c| {
-            self.policy.versions.catalog_hash != c.catalog_hash()
-                || self.policy.versions.catalog_version != c.catalog_version()
-        }) {
-            return Err(invalid("instrument catalog policy identity"));
-        }
-        if self.trading_websocket.is_some() != self.network.trading_websocket.is_some() {
-            return Err(invalid(
-                "WS settings and WS address must be configured together",
-            ));
-        }
-        let scope = baseline.snapshot().scope.clone();
-        let (instrument, book_key) = self.public_instrument(&baseline)?;
-        let domain = self.domain()?;
-        if self
-            .policy
-            .domain()
-            .map_err(|_| invalid("policy clock domain"))?
-            != domain
-            || self.policy.scope() != scope
-            || self.policy.product() != self.product.product()
-            || self.policy.writer_epoch != self.writer_epoch
-            || self.policy.executor_id != self.owner_id
-            || self.account_stream == self.input_stream
-        {
-            return Err(invalid("deployment identity mismatch"));
-        }
-        let source = self.source(&baseline);
-        let market = self.product.market();
-        let private_scope = private::AccountScope {
-            risk_domain_id: scope.risk_domain_id,
-            venue: scope.venue,
-            account: scope.account,
-            environment: scope.environment,
-            market,
-            credential_generation: self.credential.generation,
-        };
-        let io = Limits::default();
-        if self
-            .income_association_authority
-            .as_ref()
-            .is_some_and(|a| a.execution_instance != self.owner_id)
-        {
-            return Err(invalid("income association executor identity mismatch"));
-        }
-        let t = &self.tuning;
-        let physical = |stream| tickwire_journal::Config {
-            domain: scope.risk_domain_id,
-            stream_epoch: stream,
-            segment_max_bytes: t.wal_segment_bytes,
-        };
-        let authority = match (source, self.trading_websocket.is_some()) {
-            (Source::SpotProduction, true) => "ws-api.binance.com",
-            (Source::SpotTest, true) => "ws-api.testnet.binance.vision",
-            (Source::UsdmProduction, true) => "ws-fapi.binance.com",
-            (Source::UsdmTest, true) => "testnet.binancefuture.com",
-            (Source::SpotProduction, _) => "api.binance.com",
-            (Source::SpotTest, _) => "testnet.binance.vision",
-            (Source::UsdmProduction, _) => "fapi.binance.com",
-            (Source::UsdmTest, _) => "demo-fapi.binance.com",
-        };
-        let mut private = private::SessionConfig::new(private_scope.clone());
-        private.timing.connect_ns = t.connect_timeout_ns;
-        private.timing.request_ns = t.request_timeout_ns;
-        private.timing.recv_window_micros = t.recv_window_micros;
-        let public = public::Config {
-            owner_id: self.owner_id,
-            source,
-            domain,
-            first_connection_epoch: self.first_connection_epoch,
-            first_operation: 1,
-            depth: tickwire_binance::depth_sync::Config {
-                instrument,
-                key: book_key,
-                time_unit: tickwire_binance::feed::TimeUnit::Milliseconds,
-                snapshot_limit: t.snapshot_limit,
-                max_message_bytes: 1024 * 1024,
-                initial_book_generation: 1,
-                previous_connection_epoch: self
-                    .first_connection_epoch
-                    .checked_sub(1)
-                    .ok_or_else(|| invalid("connection epoch"))?,
-            },
-            subscribe: public::SubscribeMode::RawUrl,
-            speed: public::DepthSpeed::Ms100,
-            timing: public::Timing {
-                connect_ns: t.connect_timeout_ns,
-                request_ns: t.request_timeout_ns,
-                first_event_ns: 30_000_000_000,
-                heartbeat_ns: 600_000_000_000,
-                pong_ns: 5_000_000_000,
-                rotate_ns: 82_800_000_000_000,
-                backoff_ns: 100_000_000,
-                max_backoff_ns: 30_000_000_000,
-            },
-            limits: public_limits(io),
-        };
-        let c = &self.clock;
-        let storage_mode = self.resolved_storage_mode();
-        if storage_mode == tickwire_journal::StorageMode::InMemory && self.recover {
-            return Err(invalid("cannot recover local WAL in InMemory storage_mode"));
-        }
-        if storage_mode != tickwire_journal::StorageMode::InMemory && self.directories.is_none() {
-            return Err(invalid(
-                "directories are required for MmapAsync and LocalDurable storage_mode",
-            ));
-        }
-        let configuration = files::Configuration {
-            instrument_catalog,
-            storage_mode,
-            websocket: self
-                .trading_websocket
-                .map(|w| tickwire_binance_account::ws::WsConfig {
-                    lifetime_ns: w.lifetime_ns,
-                    control_timeout_ns: w.control_timeout_ns,
-                    max_messages_per_poll: w.max_messages_per_poll,
-                }),
-            directories: self.directories.as_ref().map(|d| files::Directories {
-                account: d.account.clone(),
-                input: d.input.clone(),
-                recovery: d.recovery.clone(),
-            }),
-            mode: if self.recover {
-                files::OpenMode::RecoverFrozen {
-                    account_required: None,
-                    input_required: None,
-                }
-            } else {
-                files::OpenMode::Create
-            },
-            account: tickwire_account_gateway::Config {
-                journal: tickwire_account_journal::Config {
-                    physical: physical(self.account_stream),
-                    baseline_digest: baseline.digest(),
-                    initial_writer_epoch: self.initial_writer_epoch,
-                    scope: scope.clone(),
-                },
-                writer_epoch: self.writer_epoch,
-                route: tickwire_account_gateway::Route {
-                    venue: scope.venue,
-                    account: scope.account,
-                    environment: scope.environment,
-                    product: self.product.product(),
-                    authority: authority.to_owned(),
-                },
-                max_intents: t.maximum_intents,
-            },
-            input: tickwire_binance_account::Config {
-                income_baseline_authority: self.income_baseline_authority.clone(),
-                income_association_authority: self.income_association_authority.clone(),
-                physical: physical(self.input_stream),
-                writer_epoch: self.writer_epoch,
-                baseline,
-                account_stream: self.account_stream,
-                max_records: t.maximum_input_records,
-                max_registrations: t.maximum_intents,
-                max_raw_bytes: 32 * 1024,
-                max_retained_bytes: t.maximum_input_bytes,
-            },
-            rest: tickwire_binance_account::rest::RestConfig {
-                connection_epoch: self.first_connection_epoch,
-                max_response_bytes: 32 * 1024,
-                max_headers: 64,
-            },
-            time: time::Config {
-                source,
-                domain,
-                calibration: time::CalibrationConfig {
-                    max_round_trip_ns: c.max_round_trip_ns,
-                    max_width_ns: c.max_width_ns,
-                    max_age_ns: c.max_age_ns,
-                    quantization_error_ns: c.quantization_error_ns,
-                    drift_ppb: c.drift_ppb,
-                    max_adjustment_ns: c.max_adjustment_ns,
-                },
-                unit: time::TimeUnit::Milliseconds,
-                first_sample_serial: 1,
-                first_connection_epoch: self.first_connection_epoch,
-                connect_timeout_ns: t.connect_timeout_ns,
-                request_timeout_ns: t.request_timeout_ns,
-                max_response_bytes: 16 * 1024,
-                max_headers: 64,
-                io,
-            },
-            market: public,
-            private,
-            private_first_connection_epoch: self.first_connection_epoch,
-            command: tickwire_binance_execution::Config {
-                recv_window_micros: t.recv_window_micros,
-                max_http_bytes: 16 * 1024,
-                max_signed_commands: t.maximum_intents,
-            },
-            command_binding: tickwire_binance_quota::CommandBinding {
-                owner_id: self.owner_id,
-                risk_domain_id: scope.risk_domain_id,
-                account: scope.account,
-                product: self.product.product(),
-                environment: scope.environment,
-                domain,
-            },
-            command_delivery_budget_ns: t.delivery_budget_ns,
-            runtime: node::Config {
-                calibration_interval_ns: c.calibration_interval_ns,
-                calibration_retry_ns: c.calibration_retry_ns,
-                maximum_book_age_ns: t.maximum_book_age_ns,
-                private_delivery_budget_ns: t.delivery_budget_ns,
-                io: tickwire_transport::IoBudget {
-                    max_syscalls: 64,
-                    max_bytes: 256 * 1024,
-                },
-                public: public::PollBudget::default(),
-                private: private::PollBudget::default(),
-                maximum_commands_per_turn: 1,
-                maximum_idle_wait_ns: t.maximum_idle_wait_ns,
-            },
-            bindings: node::Bindings {
-                time: tickwire_binance_quota::TimeBinding {
-                    owner_id: self.owner_id,
-                    source,
-                    domain,
-                },
-                private: tickwire_binance_quota::PrivateBinding {
-                    owner_id: self.owner_id,
-                    scope: private_scope,
-                    domain,
-                },
-                public: tickwire_binance_quota::PublicBinding {
-                    owner_id: self.owner_id,
-                    source,
-                    domain,
-                },
-            },
-            maximum_staged_commands: 32,
-            maximum_staged_bytes: 128 * 1024 * 1024,
-        };
-        configuration
-            .validate_instrument_catalog()
-            .map_err(|_| invalid("instrument catalog runtime economics"))?;
-        Ok(configuration)
-    }
+pub struct OrsAppConfig {
+    pub venue: OrsVenueKind,
+    #[serde(default)]
+    pub environment: UtaEnvironmentKind,
+    #[serde(default)]
+    pub uta_transport: UtaTransportKind,
+    #[serde(default)]
+    pub cpu: UtaCpuSpec,
+    #[serde(default = "default_max_order_age_ns")]
+    pub max_order_age_ns: u64,
+    #[serde(default = "default_true")]
+    pub rms_on_dry_run: bool,
+    #[serde(default = "default_exec_generation")]
+    pub exec_generation: u64,
+    #[serde(default = "default_instrument_version")]
+    pub instrument_version: u64,
+    #[serde(default = "default_ws_ping_interval_ms")]
+    pub ws_ping_interval_ms: u64,
+    #[serde(default = "default_slots_per_strat")]
+    pub slots_per_strat: usize,
+    #[serde(default)]
+    pub ors_instance: Option<[u8; 16]>,
+    pub allowed_strategies: Vec<u8>,
+    pub account_manager: AccountManagerConfig,
+
+    // Binance-specific blocks (when `venue == "binance"`):
+    #[serde(default)]
+    pub binance_markets: Vec<BinanceMarketConfigBlock>,
+    #[serde(default)]
+    pub binance_symbols: Vec<BinanceSymbolConfig>,
+    #[serde(default)]
+    pub binance_assets: Vec<BinanceAssetConfig>,
+    #[serde(default = "default_order_recv_window_ms")]
+    pub binance_order_recv_window_ms: u32,
+    #[serde(default = "default_binance_status_delay_ms")]
+    pub binance_status_query_delay_ms: u64,
+
+    // Bybit / OKX UTA-specific blocks (when `venue == "bybit" | "okx"`):
+    #[serde(default)]
+    pub uta_symbols: Vec<UtaSymbolConfig>,
+    #[serde(default)]
+    pub uta_assets: Vec<UtaAssetConfig>,
+    #[serde(default)]
+    pub uta_order_endpoint: Option<UtaEndpointConfig>,
+    #[serde(default)]
+    pub uta_stream_endpoint: Option<UtaEndpointConfig>,
+    #[serde(default)]
+    pub uta_rest_endpoint: Option<UtaEndpointConfig>,
+    #[serde(default)]
+    pub uta_enable_rfq_quotes: bool,
+
+    // Optional Cold-Path Catalog, RMS, DOP Control Socket, Strategy Lanes, and Summary Output:
+    #[serde(default)]
+    pub instrument_catalog: Option<CatalogVerificationConfig>,
+    #[serde(default)]
+    pub rms_config_path: Option<PathBuf>,
+    #[serde(default)]
+    pub control_socket_path: Option<PathBuf>,
+    #[serde(default)]
+    pub dop_hb_interval_ms: Option<u32>,
+    #[serde(default)]
+    pub external_strategy_lanes: Vec<ExternalStrategyLaneConfig>,
+    #[serde(default)]
+    pub summary_output_path: Option<PathBuf>,
 }
 
-#[cfg(test)]
-#[path = "../../tickwire-binance/tests/common/mod.rs"]
-mod venue_fixture;
+/// Prepared cold-startup components ready to spawn `OrsProcess<UnifiedVenueSession>`.
+pub struct PreparedOrsApp {
+    pub venue: OrsVenueKind,
+    pub runtime_config: OrsRuntimeConfig,
+    pub account_manager: AccountManager,
+    pub allowed_strategies: Vec<u8>,
+    pub order_manager_config: OrderManagerConfig,
+    pub rms_engine: RmsEngine,
+    pub sessions: Vec<(u8, Arc<UnifiedVenueSession>)>,
+    pub process_config: OrsProcessConfig,
+    pub external_lanes: Vec<ExternalStrategyLaneConfig>,
+    pub catalog_version: Option<u64>,
+    pub summary_output_path: Option<PathBuf>,
+}
 
-#[cfg(test)]
-#[path = "config_instrument_tests.rs"]
-mod instrument_tests;
+type PreparedSessions = (Vec<OrsSymbolSpec>, Vec<(u8, Arc<UnifiedVenueSession>)>);
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct UnusedClock;
-    impl time::MonotonicClock for UnusedClock {
-        fn sample(&mut self) -> time::Result<time::LocalTime> {
-            panic!("constructing the public owner must not sample or perform I/O");
-        }
-    }
-
-    fn construct<P: public::DepthPolicy>(source: Source, snapshot_limit: usize) {
-        let mut instrument = venue_fixture::command().context.instrument;
-        if P::MARKET == Market::Usdm {
-            instrument.contract = tickwire_venue::ContractKind::Perpetual;
-        }
-        let config = public::Config {
-            owner_id: [1; 16],
-            source,
-            domain: ClockDomain::new([2; 16], 1).unwrap(),
-            first_connection_epoch: 1,
-            first_operation: 1,
-            depth: public::DepthConfig {
-                instrument,
-                key: tickwire_book::BookKey {
-                    venue: 1,
-                    instrument: 12,
-                    source: 1,
-                },
-                time_unit: public::TimeUnit::Milliseconds,
-                snapshot_limit,
-                max_message_bytes: 1024 * 1024,
-                initial_book_generation: 1,
-                previous_connection_epoch: 0,
-            },
-            subscribe: public::SubscribeMode::RawUrl,
-            speed: public::DepthSpeed::Ms100,
-            timing: public::Timing {
-                connect_ns: 1_000_000_000,
-                request_ns: 1_000_000_000,
-                first_event_ns: 30_000_000_000,
-                heartbeat_ns: 600_000_000_000,
-                pong_ns: 5_000_000_000,
-                rotate_ns: 82_800_000_000_000,
-                backoff_ns: 100_000_000,
-                max_backoff_ns: 30_000_000_000,
-            },
-            limits: public_limits(Limits::default()),
-        };
-        let network = || public::NetworkConfig {
-            stream_address: "127.0.0.1:1".parse().unwrap(),
-            snapshot_address: "127.0.0.1:2".parse().unwrap(),
-            tls: Arc::new(
-                rustls::ClientConfig::builder()
-                    .with_root_certificates(rustls::RootCertStore::empty())
-                    .with_no_client_auth(),
-            ),
-        };
-        type Client<P> = public::PublicDepthClient<
-            P,
-            UnusedClock,
-            PUBLIC_BOOK_LEVELS,
-            PUBLIC_DEPTH_UPDATES,
-            PUBLIC_BUFFERED_EVENTS,
-        >;
-        let mut undersized = config.clone();
-        undersized.limits.total_buffer_bytes = 16 * 1024 * 1024;
-        assert!(matches!(
-            Client::<P>::new(undersized, network(), UnusedClock),
-            Err(public::Error::Bounds)
+fn parse_sha256_hex(hex_str: &str) -> Result<[u8; 32], String> {
+    if hex_str.len() != 64 {
+        return Err(format!(
+            "expected 64-character SHA-256 hex digest, got {} characters",
+            hex_str.len()
         ));
-        assert!(Client::<P>::new(config, network(), UnusedClock).is_ok());
+    }
+    let mut out = [0u8; 32];
+    for (idx, chunk) in hex_str.as_bytes().as_chunks::<2>().0.iter().enumerate() {
+        let s = core::str::from_utf8(chunk).map_err(|_| String::from("non-ASCII hex"))?;
+        out[idx] = u8::from_str_radix(s, 16)
+            .map_err(|_| format!("invalid hex byte '{s}' in catalog digest"))?;
+    }
+    Ok(out)
+}
+
+fn verify_static_catalog(cfg: &CatalogVerificationConfig) -> Result<u64, String> {
+    let bytes = std::fs::read(&cfg.path)
+        .map_err(|e| format!("failed to read catalog {}: {e}", cfg.path.display()))?;
+    let expected_hash: [u8; 32] = match &cfg.expected_sha256_hex {
+        Some(hex_str) => parse_sha256_hex(hex_str)?,
+        None => Sha256::digest(&bytes).into(),
+    };
+    let catalog = Catalog::decode(&bytes, expected_hash)
+        .map_err(|e| format!("Catalog::decode failed on {}: {e:?}", cfg.path.display()))?;
+    if let Some(expected_ver) = cfg.expected_catalog_version
+        && catalog.catalog_version() != expected_ver
+    {
+        return Err(format!(
+            "catalog version mismatch: expected {expected_ver}, found {}",
+            catalog.catalog_version()
+        ));
+    }
+    Ok(catalog.catalog_version())
+}
+
+impl OrsAppConfig {
+    pub fn from_file(path: &Path) -> Result<Self, String> {
+        let raw = std::fs::read_to_string(path)
+            .map_err(|e| format!("failed to read OrsAppConfig {}: {e}", path.display()))?;
+        serde_json::from_str(&raw)
+            .map_err(|e| format!("invalid OrsAppConfig JSON {}: {e}", path.display()))
     }
 
-    #[test]
-    fn public_owner_constructs_at_both_products_maximum_snapshot_depth() {
-        // The production owner is large; avoid the test harness's 2 MiB stack.
-        std::thread::Builder::new()
-            .stack_size(32 * 1024 * 1024)
-            .spawn(|| {
-                construct::<tickwire_book::BinanceSpot>(Source::SpotTest, 5000);
-                construct::<tickwire_book::BinanceUsdM>(Source::UsdmTest, 1000);
-            })
-            .unwrap()
-            .join()
-            .unwrap();
+    pub fn prepare(&self) -> Result<PreparedOrsApp, String> {
+        if self.allowed_strategies.is_empty() {
+            return Err(String::from("allowed_strategies must not be empty"));
+        }
+        let catalog_version = match &self.instrument_catalog {
+            Some(cat_cfg) => Some(verify_static_catalog(cat_cfg)?),
+            None => None,
+        };
+
+        let cpu = self.cpu.to_ors_cpu_config()?;
+        let account_manager = AccountManager::from_config(&self.account_manager)
+            .map_err(|e| format!("AccountManager validation failed: {e}"))?;
+        let env = self.environment.to_environment();
+
+        let (symbol_specs, sessions) = match self.venue {
+            OrsVenueKind::Binance => self.prepare_binance_sessions(&account_manager)?,
+            OrsVenueKind::Bybit => self.prepare_uta_sessions(SpotVenue::Bybit, &account_manager)?,
+            OrsVenueKind::Okx => self.prepare_uta_sessions(SpotVenue::Okx, &account_manager)?,
+        };
+
+        let max_sym_id = symbol_specs
+            .iter()
+            .map(|s| usize::from(u16::try_from(s.symbol_id).unwrap_or(u16::MAX)))
+            .max()
+            .unwrap_or(0);
+        let symbol_slots = max_sym_id.saturating_add(1);
+
+        let rms_engine = if let Some(rms_path) = &self.rms_config_path {
+            let (engine, _) = build_rms_engine_from_file(symbol_slots, rms_path)
+                .map_err(|e| format!("RMS config load failed: {e}"))?;
+            engine
+        } else {
+            let engine = RmsEngine::new(symbol_slots);
+            let mut default_table = String::new();
+            for s in &symbol_specs {
+                default_table.push_str(&format!(
+                    "symbol_id={} enabled=true max_qty=1000000000 max_notional=1000000000000000 new_count=10000/50000/100000 order_qty=1000000000/5000000000/10000000000\n",
+                    s.symbol_id
+                ));
+            }
+            engine
+                .reload_handle()
+                .reload_limits(&default_table)
+                .map_err(|e| format!("default RmsEngine setup failed: {e}"))?;
+            engine
+        };
+
+        let account_domains: Vec<_> = account_manager
+            .specs()
+            .iter()
+            .map(|spec| spec.to_domain_config(self.venue.numeric_venue_id(), env))
+            .collect();
+        let first_dom = account_domains
+            .first()
+            .copied()
+            .ok_or_else(|| String::from("at least one enabled account is required"))?;
+        let mut order_manager_config =
+            OrderManagerConfig::single_account_default(first_dom, symbol_specs);
+        order_manager_config.accounts = account_domains;
+        order_manager_config.slots_per_strat = self.slots_per_strat;
+
+        let runtime_config = OrsRuntimeConfig {
+            cpu,
+            max_order_age_ns: self.max_order_age_ns,
+            rms_on_dry_run: self.rms_on_dry_run,
+            exec_generation: self.exec_generation,
+            instrument_version: catalog_version.unwrap_or(self.instrument_version),
+            ws_ping_interval_ms: self.ws_ping_interval_ms,
+            ..OrsRuntimeConfig::default()
+        };
+
+        let mut control_config = ControlServerConfig::default();
+        if let Some(ors_inst) = self.ors_instance {
+            control_config.ors_instance = ors_inst;
+        }
+        if let Some(hb_ms) = self.dop_hb_interval_ms {
+            control_config.hb_interval_ms = hb_ms;
+        }
+        let process_config = OrsProcessConfig {
+            control_socket_path: self.control_socket_path.clone(),
+            control_config,
+            rms_config_path: self.rms_config_path.clone(),
+            ..OrsProcessConfig::default()
+        };
+
+        Ok(PreparedOrsApp {
+            venue: self.venue,
+            runtime_config,
+            account_manager,
+            allowed_strategies: self.allowed_strategies.clone(),
+            order_manager_config,
+            rms_engine,
+            sessions,
+            process_config,
+            external_lanes: self.external_strategy_lanes.clone(),
+            catalog_version,
+            summary_output_path: self.summary_output_path.clone(),
+        })
+    }
+
+    fn prepare_binance_sessions(
+        &self,
+        account_manager: &AccountManager,
+    ) -> Result<PreparedSessions, String> {
+        if self.binance_markets.is_empty() {
+            return Err(String::from(
+                "binance_markets must not be empty when venue == 'binance'",
+            ));
+        }
+        if self.binance_symbols.is_empty() {
+            return Err(String::from(
+                "binance_symbols must not be empty when venue == 'binance'",
+            ));
+        }
+        let sym_bindings: Vec<BinanceSymbolBinding> = self
+            .binance_symbols
+            .iter()
+            .map(BinanceSymbolConfig::to_binding)
+            .collect::<Result<_, _>>()?;
+        let specs: Vec<OrsSymbolSpec> = sym_bindings.iter().map(|b| b.spec).collect();
+        let asset_bindings: Vec<BinanceAssetBinding> = self
+            .binance_assets
+            .iter()
+            .map(BinanceAssetConfig::to_binding)
+            .collect();
+        let catalog = Arc::new(
+            BinanceBootstrapCatalog::new(sym_bindings, asset_bindings)
+                .map_err(|e| format!("BinanceBootstrapCatalog::new failed: {e:?}"))?,
+        );
+
+        let env = self.environment.to_environment();
+        let mut sessions = Vec::with_capacity(account_manager.specs().len());
+        for acct_spec in account_manager.specs() {
+            let creds = acct_spec.credentials.as_ref().ok_or_else(|| {
+                format!(
+                    "Binance account '{}' is missing credentials",
+                    acct_spec.name
+                )
+            })?;
+            let mut markets = Vec::with_capacity(self.binance_markets.len());
+            for m_blk in &self.binance_markets {
+                let m = m_blk.market.to_market();
+                let default_order_path = m.ws_order_path().unwrap_or("/eapi/v1/order");
+                let order_ep = match &m_blk.order_endpoint {
+                    Some(ep) => ep.to_endpoint_spec(default_order_path)?,
+                    None => UtaEndpointSpec::manual(default_order_path),
+                };
+                let stream_ep = match &m_blk.stream_endpoint {
+                    Some(ep) => Some(ep.to_endpoint_spec("/ws")?),
+                    None => None,
+                };
+                let rest_ep = match &m_blk.rest_endpoint {
+                    Some(ep) => Some(ep.to_rest_endpoint()?),
+                    None => None,
+                };
+                let ed25519_signer = match &m_blk.ed25519_pem_path {
+                    Some(pem_path) => {
+                        let pem = std::fs::read_to_string(pem_path).map_err(|e| {
+                            format!("failed to read Ed25519 PEM {}: {e}", pem_path.display())
+                        })?;
+                        Some(SigningKey::ed25519_pem(&pem).map_err(|e| {
+                            format!("invalid Ed25519 PEM {}: {e:?}", pem_path.display())
+                        })?)
+                    }
+                    None => None,
+                };
+                let hmac_signer = SigningKey::hmac(creds.secret().as_bytes())
+                    .map_err(|e| format!("invalid HMAC secret on '{}': {e:?}", acct_spec.name))?;
+                markets.push(BinanceMarketEndpoint {
+                    market: m,
+                    api_key: creds.key().to_owned(),
+                    ed25519_signer,
+                    hmac_signer,
+                    order_endpoint: order_ep,
+                    stream_endpoint: stream_ep,
+                    rest_endpoint: rest_ep,
+                    stream_colo: m_blk.stream_colo,
+                });
+            }
+
+            let mut s_cfg = BinanceVenueSessionConfig::new(
+                env,
+                acct_spec.exchange_account_id,
+                acct_spec.risk_domain_id,
+                Arc::clone(&catalog),
+                markets,
+            );
+            s_cfg.order_recv_window_ms = self.binance_order_recv_window_ms;
+            s_cfg.status_query_delay_ms = self.binance_status_query_delay_ms;
+            let session = BinanceVenueSession::new(s_cfg)?;
+            sessions.push((
+                acct_spec.account_ref,
+                Arc::new(UnifiedVenueSession::Binance(session)),
+            ));
+        }
+
+        Ok((specs, sessions))
+    }
+
+    fn prepare_uta_sessions(
+        &self,
+        spot_venue: SpotVenue,
+        account_manager: &AccountManager,
+    ) -> Result<PreparedSessions, String> {
+        if self.uta_symbols.is_empty() {
+            return Err(format!(
+                "uta_symbols must not be empty when venue == '{}'",
+                spot_venue.as_str()
+            ));
+        }
+        let sym_bindings: Vec<UtaSymbolBinding> = self
+            .uta_symbols
+            .iter()
+            .map(UtaSymbolConfig::to_binding)
+            .collect::<Result<_, _>>()?;
+        let specs: Vec<OrsSymbolSpec> = sym_bindings.iter().map(|b| b.spec).collect();
+        let asset_bindings: Vec<UtaAssetBinding> = self
+            .uta_assets
+            .iter()
+            .map(UtaAssetConfig::to_binding)
+            .collect::<Result<_, _>>()?;
+
+        let env = self.environment.to_environment();
+        let transport_mode = self.uta_transport.to_transport_mode();
+        let default_order_path = match (spot_venue, transport_mode) {
+            (SpotVenue::Bybit, tickwire_spot_execution::UtaTransportMode::WebSocketTrade) => {
+                "/v5/trade"
+            }
+            (SpotVenue::Bybit, tickwire_spot_execution::UtaTransportMode::PooledHttps) => {
+                "/v5/order/create"
+            }
+            (SpotVenue::Okx, tickwire_spot_execution::UtaTransportMode::WebSocketTrade) => {
+                "/ws/v5/private"
+            }
+            (SpotVenue::Okx, tickwire_spot_execution::UtaTransportMode::PooledHttps) => {
+                "/api/v5/trade/order"
+            }
+        };
+        let default_stream_path = match spot_venue {
+            SpotVenue::Bybit => "/v5/private",
+            SpotVenue::Okx => "/ws/v5/private",
+        };
+        let order_ep = match &self.uta_order_endpoint {
+            Some(ep) => ep.to_endpoint_spec(default_order_path)?,
+            None => UtaEndpointSpec::manual(default_order_path),
+        };
+        let stream_ep = match &self.uta_stream_endpoint {
+            Some(ep) => Some(ep.to_endpoint_spec(default_stream_path)?),
+            None => None,
+        };
+        let rest_ep = match &self.uta_rest_endpoint {
+            Some(ep) => Some(ep.to_rest_endpoint()?),
+            None => None,
+        };
+
+        let mut sessions = Vec::with_capacity(account_manager.specs().len());
+        for acct_spec in account_manager.specs() {
+            let creds_cfg = acct_spec.credentials.as_ref().ok_or_else(|| {
+                format!("UTA account '{}' is missing credentials", acct_spec.name)
+            })?;
+            let owned_creds = match spot_venue {
+                SpotVenue::Bybit => OwnedCredentials::bybit(creds_cfg.key(), creds_cfg.secret()),
+                SpotVenue::Okx => OwnedCredentials::okx(
+                    creds_cfg.key(),
+                    creds_cfg.secret(),
+                    creds_cfg.passphrase(),
+                ),
+            }
+            .map_err(|e| format!("invalid credentials on '{}': {e}", acct_spec.name))?;
+            let rfq_hook: Option<Box<dyn tickwire_spot_execution::RfqQuoteHook>> =
+                if self.uta_enable_rfq_quotes {
+                    Some(Box::new(UtaRfqQuoteBook::new(DEFAULT_MAX_OPEN_RFQ_QUOTES)))
+                } else {
+                    None
+                };
+            let session = UtaVenueSession::new(UtaVenueSessionConfig {
+                venue: spot_venue,
+                environment: env,
+                exchange_uid: acct_spec.exchange_account_id,
+                risk_domain_id: acct_spec.risk_domain_id,
+                credentials: owned_creds,
+                transport_mode,
+                order_endpoint: order_ep.clone(),
+                stream_endpoint: stream_ep.clone(),
+                rest_endpoint: rest_ep.clone(),
+                symbols: sym_bindings.clone(),
+                assets: asset_bindings.clone(),
+                ip_order_weight: 1,
+                status_query_delay_ms: 1_000,
+                okx_ws_auto_subscribe_private: true,
+                rfq_hook,
+                clock_utc_ms: None,
+                bootstrap_override: None,
+            })?;
+            let wrapped = match spot_venue {
+                SpotVenue::Bybit => UnifiedVenueSession::BybitUta(session),
+                SpotVenue::Okx => UnifiedVenueSession::OkxUta(session),
+            };
+            sessions.push((acct_spec.account_ref, Arc::new(wrapped)));
+        }
+
+        Ok((specs, sessions))
     }
 }
