@@ -28,7 +28,12 @@ Governing specification: [`specs/implementation/single-host-trading.md`](../../s
 - Outbound route admission picks one ready connection matching `OrderRoute.product_mask` and spends against `SharedRateLimiter` using that picked connection's `local_ip`. If account or IP quota refuses, `REQ` **NACKs immediately (`RefusalReason::RateLimited`) without retrying another connection**.
 - `dry_run` (`IntentBody::intent_flags & DRY_RUN != 0`) uses `OrderManager`'s dedicated per-strategy scratch slot, releases holds immediately, and skips route selection, rate-limiter spend, and socket writes.
 
-## 4. Verification
+## 4. Module Layout and Verification
+
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/session.rs](src/session.rs) ·
+  [src/ors.rs](src/ors.rs) · [src/admin.rs](src/admin.rs) · [src/files.rs](src/files.rs) ·
+  [src/node.rs](src/node.rs) · [tests/ors_runtime.rs](tests/ors_runtime.rs) ·
+  [tests/cpu_isolation.rs](tests/cpu_isolation.rs)
 
 ```sh
 cargo fmt --all -- --check

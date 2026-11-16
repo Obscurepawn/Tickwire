@@ -18,7 +18,7 @@ Or invoke `tickwire-lab` manually with a short (`<= 65` bytes) single-use output
 
 ```sh
 cargo build --locked -p tickwire-lab -p tickwire-app -p tickwire-md \
-  -p tickwire-strategy-sdk -p tickwire-strategy-example --bins
+  -p tickwire-strategy-sdk --bins
 mkdir -p /tmp/tw-lab-bin
 for name in tickwire-lab tickwire-app tickwire-md tickwire-strategy-worker; do
   install -m 0755 "target/debug/$name" "/tmp/tw-lab-bin/$name"
@@ -27,3 +27,10 @@ done
 /tmp/tw-lab-bin/tickwire-lab generate --scenario spot-fill --out /tmp/tw-lab-run --bin-dir /tmp/tw-lab-bin
 /tmp/tw-lab-bin/tickwire-lab run --config /tmp/tw-lab-run/scenario.json
 ```
+
+## Subcommands and `Scenario` JSON Fencing
+
+* `tickwire-lab generate [--scenario spot-fill] --out DIR --bin-dir DIR`: Creates a single-use `0o700` scenario directory (`<= 65`-byte absolute path), ephemeral TLS trust anchors, Ed25519 + HMAC keys, `md/config.json`, `ors/config.json`, `strategy/bootstrap.json`, and `scenario.json`.
+* `tickwire-lab serve --config PATH`: Runs the standalone loopback TLS Binance Spot fixture against `scenario.json`.
+* `tickwire-lab run --config PATH`: Orchestrates the 3-process run (`tickwire-md`, `tickwire-app`, `tickwire-strategy-worker`) plus `serve`, using internal `child-exec` to preserve the worker's OS PID across `tickwire-md` admission registration.
+* `Scenario` (`schema = 2`, `<= 64 KiB`, `#[serde(deny_unknown_fields)]`): Enforces `fixture_only == true`, loopback `listen` IP, absolute `root` and `bin_directory` paths, non-zero `exchange_uid` and `strat_id`, and `cold_open_order_seqnum = 3`.

@@ -14,5 +14,5 @@ Governing specification: [`specs/implementation/runtime-policy.md`](../../specs/
 
 1. `#![forbid(unsafe_code)]` and exact integer/bitset arithmetic only (zero floating-point types).
 2. **Venue agnosticism:** Zero dependencies on exchange-specific adapter crates, local WAL/journal crates, lease renewal/preemption, or SHM quote freshness watermarks.
-3. **Zero hot-path allocation:** `evaluate`, `resolve_account_ref`, `mode`, `set_mode`, `set_active`, `try_connect`, `disconnect`, `set_global_strat_enabled`, and `set_strat_enabled` execute in `O(1)` stack/atomic instructions with zero heap allocation.
-4. **Code-Doc Lockstep:** Keep [`specs/implementation/runtime-policy.md`](../../specs/implementation/runtime-policy.md), this `AGENTS.md`, and [`src/lib.rs`](src/lib.rs) `//!` rustdoc synchronized on any API or behavioral change.
+3. **Zero hot-path allocation:** `evaluate`, `resolve_account_ref`, `mode`, `set_mode`, `set_active`, `try_login`, `logout`, `is_connected`, `set_global_strat_enabled`, and `set_strat_enabled` execute in `O(1)` stack/atomic instructions with zero heap allocation.
+4. **Module layout & Code-Doc Lockstep:** Source modules live in [`src/lib.rs`](src/lib.rs), [`src/bootstrap.rs`](src/bootstrap.rs), and [`src/tests.rs`](src/tests.rs). Keep [`specs/implementation/runtime-policy.md`](../../specs/implementation/runtime-policy.md), this `AGENTS.md`, and [`src/lib.rs`](src/lib.rs) `//!` rustdoc synchronized on any API or behavioral change.

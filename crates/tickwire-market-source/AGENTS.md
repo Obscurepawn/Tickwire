@@ -30,8 +30,10 @@ authenticating peer control frames and `ResourceHeader` digests, while strategy 
 
 ## Verification and Specifications
 
-* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/shm.rs](src/shm.rs) · [src/replica.rs](src/replica.rs)
-  · [src/replica/checkpoint.rs](src/replica/checkpoint.rs) · [src/transition.rs](src/transition.rs) ·
+* **Source and tests**: [src/lib.rs](src/lib.rs) · [src/protocol.rs](src/protocol.rs) ·
+  [src/shm.rs](src/shm.rs) · [src/shm/pending.rs](src/shm/pending.rs) ·
+  [src/shm/transition.rs](src/shm/transition.rs) · [src/replica.rs](src/replica.rs) ·
+  [src/replica/checkpoint.rs](src/replica/checkpoint.rs) · [src/transition.rs](src/transition.rs) ·
   [src/retirement.rs](src/retirement.rs) · [tests/replica_dense.rs](tests/replica_dense.rs)
 * **Specifications and models**:
   [strategy-input-consumption.md](../../specs/implementation/strategy-input-consumption.md) ·

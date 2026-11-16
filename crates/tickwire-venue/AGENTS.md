@@ -41,7 +41,8 @@ files; signing, HTTP/WS framing, and live balance/margin authority live outside 
 
 * **Source entrypoints**: [src/lib.rs](src/lib.rs) · [src/types.rs](src/types.rs) · [src/reasons.rs](src/reasons.rs) ·
   [src/client_id.rs](src/client_id.rs) · [src/account.rs](src/account.rs) ·
-  [src/request_reply.rs](src/request_reply.rs) · [src/validate.rs](src/validate.rs)
+  [src/request_reply.rs](src/request_reply.rs) · [src/cbor.rs](src/cbor.rs) · [src/codec.rs](src/codec.rs) ·
+  [src/validate.rs](src/validate.rs)
 * **Integration tests**: [tests/commands.rs](tests/commands.rs) · [tests/events.rs](tests/events.rs) ·
   [tests/modify_and_reasons.rs](tests/modify_and_reasons.rs) · [tests/client_id.rs](tests/client_id.rs) ·
   [tests/account_input.rs](tests/account_input.rs) · [tests/amendment.rs](tests/amendment.rs) ·

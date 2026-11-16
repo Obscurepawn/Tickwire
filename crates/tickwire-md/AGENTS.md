@@ -11,7 +11,8 @@ and [src/spot_quotes/protocol.rs](src/spot_quotes/protocol.rs)—enforce `#[forb
 ## Invariants and Change Guidelines
 
 * **Hot-path vs cold-path separation & CPU affinity isolation**: Prebind `Catalog` entries ([src/catalogs.rs](src/catalogs.rs)), dense feed slots
-  ([src/config/feed_index.rs](src/config/feed_index.rs)), socket poll registrations, and decoder scratch ([src/engine/cold.rs](src/engine/cold.rs))
+  ([src/config/feed_index.rs](src/config/feed_index.rs)), `DepthStreamClient` and `PublicEventClient` owners ([src/engine/owners.rs](src/engine/owners.rs)),
+  socket poll registrations, and decoder scratch ([src/engine/cold.rs](src/engine/cold.rs))
   during startup or warming. Validate optional `reactor_cpu` and `housekeeping_cpus` via `tickwire_control_sys::validate_cpu_isolation` (`reactor_cpu ∩ housekeeping_cpus == ∅`),
   spawn the `"md-cold"` worker via `spawn_pinned_thread` *before* running cold tasks or pinning `reactor_cpu` so `"md-cold"` escapes any single-core
   parent `taskset` mask, and pin the reactor thread via `pin_current_thread` exclusively through `tickwire-control-sys`. Steady-state quote and depth publication in
@@ -37,8 +38,9 @@ and [src/spot_quotes/protocol.rs](src/spot_quotes/protocol.rs)—enforce `#[forb
 
 ## Verification and Specifications
 
-* **Source, examples, and benchmarks**: [src/lib.rs](src/lib.rs) · [src/main.rs](src/main.rs) · [src/engine.rs](src/engine.rs) ·
-  [src/request_store.rs](src/request_store.rs) · [src/quota.rs](src/quota.rs) · [src/server.rs](src/server.rs) ·
+* **Source, examples, and benchmarks**: [src/lib.rs](src/lib.rs) · [src/main.rs](src/main.rs) · [src/catalogs.rs](src/catalogs.rs) ·
+  [src/config.rs](src/config.rs) · [src/engine.rs](src/engine.rs) · [src/engine/owners.rs](src/engine/owners.rs) ·
+  [src/expansion.rs](src/expansion.rs) · [src/request_store.rs](src/request_store.rs) · [src/quota.rs](src/quota.rs) · [src/server.rs](src/server.rs) ·
   [src/spot_quotes.rs](src/spot_quotes.rs) · [src/spot_quotes/simd_json.rs](src/spot_quotes/simd_json.rs) ·
   [src/spot_market.rs](src/spot_market.rs) · [benches/spot_bbo_decode.rs](benches/spot_bbo_decode.rs) ·
   [examples/spot-market.md](examples/spot-market.md) · [Deploy two strategies](../../README.md#deploy-two-strategies)

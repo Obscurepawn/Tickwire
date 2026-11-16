@@ -20,7 +20,7 @@ Each worker runs in its own OS process with a dedicated shared-memory reader cur
 
 To arm the worker to emit an order in an integration harness or deployment:
 
-1. Set the bootstrap `FactoryBinding` registration identifier to `"counting_example"` and `state_schema` to `V2` (`tickwire-counting-worker`) or `V1` (`tickwire-counting-v1-worker`).
+1. Set `FactoryBinding.id` (JSON `"id"` or alias `"registration_id"`) to `"counting_example"` and `state_schema` to `V2` (`tickwire-counting-worker`) or `V1` (`tickwire-counting-v1-worker`).
 2. Encode a `Parameters` value via `Parameters::bytes()` and supply its absolute file path, byte length, SHA-256 digest (`ArtifactDigest::of`), and positive configuration revision in `Bootstrap.factory`:
    * `enabled`: Enables single-shot order emission once thresholds are met.
    * `minimum_observations`: Minimum count of accepted market callbacks required before acting.

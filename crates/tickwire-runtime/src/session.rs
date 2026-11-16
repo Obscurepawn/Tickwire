@@ -273,7 +273,7 @@ impl SessionVenueEvent {
 }
 
 /// Request emitted by `on_message` / `on_disconnected` to schedule per-order `OrsQueryDesk`
-/// status reconciliation (`13.8`).
+/// status reconciliation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct QueryStatusRequest {
     pub ors_order_id: u64,
@@ -281,7 +281,7 @@ pub struct QueryStatusRequest {
 }
 
 /// Batch of side-effects emitted by [`VenueSession::on_message`] or [`VenueSession::on_disconnected`]
-/// on the `RESP` thread (`8.4`, `8.8`).
+/// on the `RESP` thread.
 #[derive(Clone, Debug, Default)]
 pub struct SessionMessageEffects {
     /// Order lifecycle updates applied through `OrderManager`.
@@ -294,7 +294,7 @@ pub struct SessionMessageEffects {
     pub direct_reports: Vec<ReportBody>,
     /// Set `true` when `listenKeyExpired` / `urlToken` expiry requires immediate stream-token rotation.
     pub stream_token_expired: bool,
-    /// Set `true` on OKX/Bybit server maintenance `notice` (`8.8`) to unpublish this connection from
+    /// Set `true` on OKX/Bybit server maintenance `notice` to unpublish this connection from
     /// active routing immediately, dial a replacement connection, and close once in-flight count hits `0`.
     pub graceful_drain_connection: bool,
 }

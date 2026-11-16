@@ -229,7 +229,7 @@ impl ModifyRequest {
         })
     }
 
-    /// Validates `self` and constructs a canonical CBOR [`CanonicalCommand`] checked against
+    /// Validates `self` and constructs a canonical CBOR [`tickwire_venue::CanonicalCommand`] checked against
     /// `context` instrument tick/step bounds.
     pub fn build_command(
         self,

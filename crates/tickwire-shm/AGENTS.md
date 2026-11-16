@@ -1,7 +1,9 @@
 # tickwire-shm
 
-`tickwire-shm` owns single-writer broadcast ring publication, reader lease tracking, variable-depth arena allocation,
-zero-copy `MarketRecord` / `MarketExactRecord` slot borrowing, and cross-process watermark reclamation (`Producer<M>`,
+`tickwire-shm` owns single-writer broadcast and SPSC ring publication (`resource_kind` `1..=3`: `512`-byte market,
+`1,024`-byte inline `IntentRecord`, and `512`-byte inline `ReportRecord` / `OwnershipRecord` banks), reader lease
+tracking, variable-depth market arena allocation (`configure_market_arena` on `resource_kind == 1`), zero-copy
+`MarketRecord` / `MarketExactRecord` slot borrowing, and cross-process watermark reclamation (`Producer<M>`,
 `Reader<B>`, `Publisher<M>`, `Subscriber<B>`, and `RecordBorrow`). Pure protocol state machines in
 [src/lib.rs](src/lib.rs) and [src/arena.rs](src/arena.rs) run under `#![deny(unsafe_code)]` without OS mappings, while
 [src/mapped.rs](src/mapped.rs) (`#![deny(unsafe_op_in_unsafe_fn)]`) is the sole module permitted to discharge

@@ -45,7 +45,7 @@ pub struct PolicyConfig {
     /// Enabled accounts in deterministic configuration order (`account_ref = 0` picks the first
     /// entry whose `strategies` contains `strat_id`).
     pub enabled_accounts: Vec<AccountAuthSpec>,
-    /// Whether configured strategies start `active = true` (default `true`, matching `11 logon-process.md`).
+    /// Whether configured strategies start `active = true` (default `true`).
     #[serde(default = "default_true")]
     pub default_active: bool,
     /// Whether configured `(account_ref, strat_id)` pairs start `enabled = true` (default `true`).

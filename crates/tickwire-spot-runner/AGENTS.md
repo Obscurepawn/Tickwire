@@ -16,10 +16,10 @@
 
 ## Module Layout and Verification
 
-* [`src/session.rs`](src/session.rs): `UtaVenueSession` implementing `tickwire_runtime::VenueSession`.
+* [`src/lib.rs`](src/lib.rs) & [`src/session.rs`](src/session.rs): Crate root and `UtaVenueSession` (`BybitVenueSession` / `OkxVenueSession`) implementing `tickwire_runtime::VenueSession`.
 * [`src/config.rs`](src/config.rs): Static JSON configuration (`SpotRunnerConfig`) and PEM CA loader.
 * [`src/runner.rs`](src/runner.rs): `inspect_config`, `spawn_uta_ors_process`, and `run_until_signal` (`SIGUSR1` RMS reload + `QueryOpen` + `Dump`, `SIGUSR2` `CancelAll`, `SIGINT`/`SIGTERM` `2s` drain + `OrsShutDown`).
-* [`src/paper_peer.rs`](src/paper_peer.rs) & [`src/main.rs`](src/main.rs): Ephemeral loopback TLS exchange peer and CLI (`inspect`, `run`, `paper bybit|okx`).
+* [`src/paper_peer.rs`](src/paper_peer.rs), [`src/main.rs`](src/main.rs), [`tests/uta_ors_runtime.rs`](tests/uta_ors_runtime.rs), & [`tests/reconcile_cli.rs`](tests/reconcile_cli.rs): Ephemeral loopback TLS exchange peer, CLI (`inspect --config PATH`, `run --config PATH`, `paper <bybit|okx> [SUMMARY_PATH]`), and end-to-end integration tests.
 * **Specifications**: [spot-strategy-routing.md](../../specs/implementation/spot-strategy-routing.md) · [spot-execution.md](../../specs/implementation/spot-execution.md) · [spot-rest-recovery.md](../../specs/implementation/spot-rest-recovery.md)
 
 ```sh

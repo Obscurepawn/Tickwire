@@ -12,7 +12,8 @@ Live shared-memory mapping, atomic publication barriers, and descriptor passing 
 
 * **Codegen, `#[repr(C)]` layouts, and contract parity**: [src/wire.rs](src/wire.rs), [tests/layouts.rs](tests/layouts.rs),
   and [tests/vectors.rs](tests/vectors.rs) are generated from [ipc-wire-v1.json](../../specs/contracts/ipc-wire-v1.json)
-  and [ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json) via [tools/generate.py](tools/generate.py)
+  (`48` fixed layouts, `54` enums, `14` bitsets, `37` ring message types, and `38` control opcodes)
+  and [ipc-vectors-v1.json](../../specs/contracts/ipc-vectors-v1.json) (`86` golden vectors and `32` semantic cases) via [tools/generate.py](tools/generate.py)
   (recording `WIRE_CONTRACT_SHA256`). Zero-copy SHM ring and DOP logon structures (`RecordHeader`, `DepthLevel`,
   `MarketBody`, `MarketRecord`, `DecimalWire`, `MarketExactBody`, `MarketExactRecord`, `TriggerRef`, `IntentBody`,
   `IntentRecord`, `ReportBody`, `ReportRecord`, `DopLoginBody`, `DopLogoutBody`, `DopEchoBody`, `MktSession`,
