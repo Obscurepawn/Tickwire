@@ -1,5 +1,5 @@
-# Binance model levels
+# Binance ORS Model Levels
 
-| Boundary | Current level | Result |
+| Boundary | Current Level | Result |
 | --- | --- | --- |
-| Hosted worker, spot account and native REST | [L0 spot REST](L0_spot_rest/05_output.md) | Safety PASS with two exhaustive configurations and two reachability witnesses |
+| Stateless Binance multi-market `AccountSession`, `SelfDescribingClientId` REST bootstrap, `listenKey` stream rotation, and `Order` / `Connection` non-overlapping dispatch | [`L0_binance_ors_bootstrap`](L0_binance_ors_bootstrap/05_output.md) | Safety PASS across Spot (`BalancesIncludeOpenOrderLocks = TRUE`) and Derivatives (`BalancesIncludeOpenOrderLocks = FALSE`) configurations with 100% action coverage |

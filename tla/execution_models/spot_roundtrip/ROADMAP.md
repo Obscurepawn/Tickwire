@@ -1,5 +1,5 @@
-# Spot roundtrip levels
+# UTA ORS Roundtrip Levels
 
 | Level | Contract | Result |
 | --- | --- | --- |
-| [L0](L0_live_account/05_output.md) | Paired quote, two member queues, cash admission, first TLS byte, REST acknowledgement, private fill, reconciliation and restart | Bounded safety and conditional progress. A second concurrent order can legitimately abort with zero bytes. |
+| [`L0_uta_ors_bootstrap`](L0_uta_ors_bootstrap/05_output.md) | Stateless Bybit V5 / OKX V5 UTA REST bootstrap, `AssetKey` multi-wallet holds, `product_mask` connection failover (`WebSocketTrade` + `PooledHttps`), fast-exec fee amendment, and zero-disk restart | Safety PASS across both `WebSocketTrade` (`MaxInflightPerConn = 2`) and `PooledHttps` (`MaxInflightPerConn = 1`) configurations with 100% action coverage |

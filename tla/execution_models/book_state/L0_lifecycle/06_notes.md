@@ -1,3 +1,3 @@
-# L0 审阅备注
+# L0 review notes
 
-root 对照 `SequencePolicy` 与五个公共方法独立审阅通过。按审阅意见在范围中明确了 generation=0 是有限起点、源码构造可接收任意 u64，以及 u64::MAX 和自定义 policy 未被有限配置证明。未修改盘口源码。
+Independent review against `SequencePolicy` and the five public `Book` methods passed with zero open issues, documenting that `generation = 0` is the bounded model starting point (whereas `Book::new` accepts any `u64`, with `u64::MAX` saturation covered by Rust unit tests).

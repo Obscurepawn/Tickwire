@@ -1,7 +1,11 @@
 #!/usr/bin/env bash
-# Reproduce the submitted finite models using the pinned upstream TLC jar.
+# Reproduce the submitted finite-state TLC models, zero-drift source-anchor
+# lockfiles (`02_models/anchors.lock`), and Snowcat-typed Apalache/Z3 symbolic
+# inductive specifications (`IndInv`).
 # Supports zero, one, or multiple model-family arguments and executes all
-# (model, .cfg) pairs across a CPU-budgeted LPT scheduler:
+# (model, .cfg) pairs and symbolic proofs across a CPU-budgeted LPT scheduler:
+#   - `anchors.lock` SHA-256 verification checks every cited Rust source line
+#     before launching JVMs and fails closed on any missing or drifted anchor.
 #   - Coverage basis configurations run with `-coverage 60` (`-workers 1..4`
 #     scaled by state count, C1 fast-JIT only below 25k states, C2 JIT above) to
 #     prove 100% nonzero action coverage without 1-minute AST cost-tree dumps.
@@ -11,6 +15,10 @@
 #     bisimulation quotients in isolated scratch directories) and automatically
 #     re-run against the untouched `.tla`/`.cfg` with `-coverage 60` if any action
 #     were ever left uncovered.
+#   - When Apalache (`tla/tools/apalache/lib/apalache.jar` or `APALACHE_BIN`) is
+#     installed, Snowcat-typed specifications defining `IndInv` run static type
+#     checking plus unbounded `base` (`Init => IndInv`), `step` (`IndInv /\ Next => IndInv'`),
+#     and safety entailment checks concurrently across the bounded worker pool.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 repo_dir="$PWD"
@@ -166,6 +174,143 @@ def discover_model_dirs(roots: list[Path]) -> list[Path]:
             if cfg.is_file():
                 found.add(cfg.parent)
     return sorted(found)
+
+
+def verify_anchor_locks(root_dir: Path, model_dirs: list[Path]) -> tuple[bool, str | None]:
+    if os.environ.get("TLA_SKIP_ANCHORS", "").strip() == "1":
+        return True, None
+    require_locks = (root_dir / "Cargo.toml").is_file()
+    file_cache: dict[str, list[bytes] | None] = {}
+    sha_cache: dict[tuple[str, int], str] = {}
+    drifts: list[str] = []
+    locks_checked = 0
+    lines_checked = 0
+
+    def load_lines(rel_path: str) -> list[bytes] | None:
+        if rel_path in file_cache:
+            return file_cache[rel_path]
+        try:
+            raw = (root_dir / rel_path).read_bytes()
+        except OSError:
+            file_cache[rel_path] = None
+            return None
+        if not raw:
+            parts: list[bytes] = []
+        else:
+            parts = raw.split(b"\n")
+            if raw.endswith(b"\n"):
+                parts.pop()
+        file_cache[rel_path] = parts
+        return parts
+
+    for src_dir in model_dirs:
+        lock = src_dir / "anchors.lock"
+        rel_lvl = (
+            str(src_dir.parent.relative_to(root_dir))
+            if src_dir.parent.is_relative_to(root_dir)
+            else str(src_dir.parent)
+        )
+        if not lock.is_file():
+            if require_locks:
+                drifts.append(f"MISSING anchors.lock [{rel_lvl}]")
+            continue
+        locks_checked += 1
+        for raw_ln in lock.read_text(errors="replace").splitlines():
+            if not raw_ln or raw_ln.startswith("#"):
+                continue
+            cols = raw_ln.split("\t")
+            if len(cols) < 3 or not cols[1].isdigit():
+                continue
+            path_s, line_s, old_sha = cols[0], cols[1], cols[2].strip()
+            ln = int(line_s)
+            lines_checked += 1
+            lines = load_lines(path_s)
+            if lines is None:
+                drifts.append(f"DRIFT  {path_s}:{ln}   [{rel_lvl}]  (file missing)")
+                continue
+            if ln < 1 or ln > len(lines):
+                drifts.append(f"DRIFT  {path_s}:{ln}   [{rel_lvl}]  (line out of range)")
+                continue
+            key = (path_s, ln)
+            cur_sha = sha_cache.get(key)
+            if cur_sha is None:
+                cur_sha = hashlib.sha256(lines[ln - 1]).hexdigest()
+                sha_cache[key] = cur_sha
+            if cur_sha != old_sha:
+                drifts.append(f"DRIFT  {path_s}:{ln}   [{rel_lvl}]")
+
+    if drifts:
+        msg = "\n".join(drifts[:50])
+        if len(drifts) > 50:
+            msg += f"\n... and {len(drifts) - 50} additional drifted anchor(s)"
+        return False, msg
+
+    if locks_checked > 0:
+        print(
+            f"anchors.lock check: {lines_checked} anchor line(s) across {locks_checked} lock(s); 0 changed",
+            file=sys.stderr,
+            flush=True,
+        )
+    return True, None
+
+
+INDINV_DEF_RE = re.compile(r"^\s*IndInv\s*==", re.M)
+CINIT_DEF_RE = re.compile(r"^\s*ConstInit\s*==", re.M)
+SAFETY_CONJ_RE = re.compile(r"^\s*(SafetyConjunction|SafetyInv)\s*==", re.M)
+
+
+def discover_apalache_jar(root_dir: Path) -> tuple[Path | None, list[str]]:
+    if os.environ.get("TLA_SKIP_APALACHE", "").strip() == "1":
+        return None, []
+    candidates: list[Path] = []
+    env_jar = os.environ.get("APALACHE_JAR", "").strip()
+    if env_jar:
+        candidates.append(Path(env_jar))
+    env_bin = os.environ.get("APALACHE_BIN", "").strip()
+    if env_bin:
+        bp = Path(env_bin).resolve()
+        candidates.append(bp.parent.parent / "lib" / "apalache.jar")
+    candidates.append(root_dir / "tla" / "tools" / "apalache" / "lib" / "apalache.jar")
+    which_bin = shutil.which("apalache-mc")
+    if which_bin:
+        wp = Path(which_bin).resolve()
+        candidates.append(wp.parent.parent / "lib" / "apalache.jar")
+
+    found_jar: Path | None = None
+    for cand in candidates:
+        if cand.is_file():
+            found_jar = cand
+            break
+    if found_jar is None:
+        return None, []
+
+    compat_args: list[str] = []
+    try:
+        probe = subprocess.run(
+            ["java", "--sun-misc-unsafe-memory-access=allow", "-version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+        if probe.returncode == 0:
+            compat_args.append("--sun-misc-unsafe-memory-access=allow")
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return found_jar, compat_args
+
+
+def parse_apalache_spec(tla_file: Path) -> dict | None:
+    try:
+        txt = tla_file.read_text(errors="ignore")
+    except OSError:
+        return None
+    if "@type:" not in txt or not INDINV_DEF_RE.search(txt):
+        return None
+    m_safe = SAFETY_CONJ_RE.search(txt)
+    return {
+        "has_cinit": bool(CINIT_DEF_RE.search(txt)),
+        "safety_op": m_safe.group(1) if m_safe else None,
+    }
 
 
 def is_archive_log(rel_parts: tuple[str, ...]) -> bool:
@@ -360,6 +505,13 @@ def main() -> int:
     if not model_dirs:
         return 0
 
+    anchors_ok, anchor_err = verify_anchor_locks(repo_dir, model_dirs)
+    if not anchors_ok:
+        print(anchor_err, file=sys.stderr)
+        return 1
+
+    apalache_jar, apalache_compat_args = discover_apalache_jar(repo_dir)
+
     with tempfile.TemporaryDirectory() as scratch_s:
         scratch = Path(scratch_s)
         override_base = None
@@ -396,6 +548,7 @@ def main() -> int:
                 frozen_cfgs.append(dst)
 
             weights, cov_indices = plan_model_configs(src_dir, tla_src, cfg_srcs)
+            sym_spec = parse_apalache_spec(frozen_tla) if apalache_jar is not None else None
 
             scale_dir: Path | None = None
             if (
@@ -423,6 +576,7 @@ def main() -> int:
                         cfg_txt = cfg_txt.rstrip() + f"\nVIEW {view_name}\n"
                     (scale_dir / cfg_dst.name).write_text(cfg_txt)
 
+            total_subtasks = len(frozen_cfgs) + (1 if sym_spec is not None else 0)
             models.append({
                 "idx": m_idx,
                 "src_dir": src_dir,
@@ -433,6 +587,9 @@ def main() -> int:
                 "frozen_cfgs": frozen_cfgs,
                 "cov_indices": cov_indices,
                 "num_cfgs": len(frozen_cfgs),
+                "total_subtasks": total_subtasks,
+                "sym_spec": sym_spec,
+                "sym_result": None,  # dict | None
                 "results": [None] * len(frozen_cfgs),  # (rc, log_path, has_coverage)
                 "done_count": 0,
                 "verifying": False,
@@ -445,6 +602,7 @@ def main() -> int:
                 tier, score = weights[c_idx]
                 est_states = score if tier >= 2 else 0
                 pending_tasks.append({
+                    "kind": "tlc",
                     "priority": (-tier, -score, m_idx, c_idx),
                     "m_idx": m_idx,
                     "c_idx": c_idx,
@@ -454,11 +612,25 @@ def main() -> int:
                     "est_states": est_states,
                 })
 
+            if sym_spec is not None:
+                pending_tasks.append({
+                    "kind": "apalache",
+                    "priority": (-2, -250_000, m_idx, len(frozen_cfgs)),
+                    "m_idx": m_idx,
+                    "c_idx": len(frozen_cfgs),
+                    "cfg_dst": frozen_tla,
+                    "use_cov": True,
+                    "req_cores": max(1, min(2, total_cores)),
+                    "est_states": 0,
+                })
+
         has_ultra = any(
-            (not t["use_cov"]) and t["est_states"] >= ULTRA_THRESHOLD
+            t["kind"] == "tlc" and (not t["use_cov"]) and t["est_states"] >= ULTRA_THRESHOLD
             for t in pending_tasks
         )
         for task in pending_tasks:
+            if task["kind"] == "apalache":
+                continue
             est_states = task["est_states"]
             if task["use_cov"]:
                 if est_states >= MULTI_COV_4W_THRESHOLD:
@@ -637,6 +809,101 @@ def main() -> int:
             shutil.rmtree(java_tmp, ignore_errors=True)
             return rc, log_path
 
+        def invoke_apalache(
+            group_dir: Path,
+            tla_name: str,
+            sym_spec: dict,
+        ) -> tuple[int, dict | str]:
+            sym_dir = Path(tempfile.mkdtemp(prefix="apalache.", dir=group_dir))
+            user_home = sym_dir / "home"
+            tlaplus_cfg_dir = user_home / ".tlaplus"
+            tlaplus_cfg_dir.mkdir(parents=True, exist_ok=True)
+            (tlaplus_cfg_dir / "apalache.cfg").write_text("common {\n  enable-stats = false\n}\n")
+
+            heap = explicit_heap if explicit_heap is not None else "2560m"
+            phases: list[tuple[str, str, str, int]] = [
+                ("base", "Init", "IndInv", 0),
+                ("step", "IndInv", "IndInv", 1),
+            ]
+            if sym_spec["safety_op"] is not None:
+                phases.append(("entailment", "IndInv", sym_spec["safety_op"], 0))
+
+            passed_phases: list[str] = []
+            try:
+                for phase_name, init_op, inv_op, length in phases:
+                    if stop_event.is_set():
+                        return (1, "Apalache interrupted")
+                    phase_tmp = sym_dir / f"tmp_{phase_name}"
+                    phase_out = sym_dir / f"out_{phase_name}"
+                    phase_tmp.mkdir(parents=True, exist_ok=True)
+                    phase_out.mkdir(parents=True, exist_ok=True)
+                    phase_log = sym_dir / f"{phase_name}.log"
+
+                    cmd = [
+                        "java",
+                        *apalache_compat_args,
+                        "-XX:+TieredCompilation",
+                        "-XX:TieredStopAtLevel=1",
+                        "-XX:ParallelGCThreads=2",
+                        "-XX:ConcGCThreads=1",
+                        f"-Xmx{heap}",
+                        "-XX:+UseG1GC",
+                        "-XX:G1PeriodicGCInterval=600000",
+                        "-XX:+G1PeriodicGCInvokesConcurrent",
+                        f"-Duser.home={user_home}",
+                        f"-Djava.io.tmpdir={phase_tmp}",
+                        "-jar",
+                        str(apalache_jar),
+                        "check",
+                        f"--init={init_op}",
+                        "--next=Next",
+                        f"--inv={inv_op}",
+                        f"--length={length}",
+                        "--no-deadlock",
+                        f"--out-dir={phase_out}",
+                    ]
+                    if sym_spec["has_cinit"]:
+                        cmd.append("--cinit=ConstInit")
+                    cmd.append(tla_name)
+
+                    with open(phase_log, "wb") as lf:
+                        proc = subprocess.Popen(
+                            cmd,
+                            cwd=group_dir,
+                            stdout=lf,
+                            stderr=subprocess.STDOUT,
+                            start_new_session=True,
+                        )
+                        with cond:
+                            if stop_event.is_set():
+                                terminate_procs([proc])
+                            else:
+                                active_procs.add(proc)
+                        try:
+                            rc = proc.wait()
+                        finally:
+                            with cond:
+                                active_procs.discard(proc)
+
+                    log_txt = phase_log.read_text(errors="replace")
+                    shutil.rmtree(phase_tmp, ignore_errors=True)
+                    shutil.rmtree(phase_out, ignore_errors=True)
+                    if (
+                        rc != 0
+                        or "All expressions are typed" not in log_txt
+                        or "The outcome is: NoError" not in log_txt
+                        or "EXITCODE: OK" not in log_txt
+                    ):
+                        return (
+                            rc if rc != 0 else 1,
+                            f"Apalache {phase_name} failed for {tla_name} (rc={rc}):\n{log_txt}",
+                        )
+                    passed_phases.append(phase_name)
+            finally:
+                shutil.rmtree(sym_dir, ignore_errors=True)
+
+            return (0, {"status": "NoError", "phases": passed_phases})
+
         def flush_ready_locked() -> tuple[int, str | None] | None:
             nonlocal next_emit
             while next_emit < len(models):
@@ -682,6 +949,8 @@ def main() -> int:
                     scaling_paths=[lp for _, lp in scale_entries],
                 )
                 cov["model_sha256"] = hashlib.sha256(m["frozen_tla"].read_bytes()).hexdigest()
+                if m["sym_result"] is not None:
+                    cov["apalache_inductive"] = m["sym_result"]
             except CoverageError as err:
                 # Failsafe: if sibling coverage configs left an action uncovered while
                 # scaling configs ran without `-coverage`, re-run the scaling configs
@@ -727,6 +996,8 @@ def main() -> int:
                     try:
                         cov = check_logs(cov_logs, m["model_name"])
                         cov["model_sha256"] = hashlib.sha256(m["frozen_tla"].read_bytes()).hexdigest()
+                        if m["sym_result"] is not None:
+                            cov["apalache_inductive"] = m["sym_result"]
                     except (OSError, CoverageError) as err2:
                         cov = err2
                 else:
@@ -765,11 +1036,14 @@ def main() -> int:
                         # otherwise idle, let it claim all available cores so no tail
                         # cores sit idle.
                         if (
-                            not head["use_cov"]
+                            head["kind"] == "tlc"
+                            and not head["use_cov"]
                             and head["est_states"] >= MEGA_THRESHOLD
                             and avail_cores == total_cores
                             and not any(
-                                not t["use_cov"] and t["est_states"] >= SCALING_THRESHOLD
+                                t["kind"] == "tlc"
+                                and not t["use_cov"]
+                                and t["est_states"] >= SCALING_THRESHOLD
                                 for t in pending_tasks
                             )
                         ):
@@ -788,6 +1062,45 @@ def main() -> int:
                 c_idx = task["c_idx"]
                 req_cores = task["req_cores"]
                 m = models[m_idx]
+
+                if task["kind"] == "apalache":
+                    try:
+                        sym_rc, sym_payload = invoke_apalache(
+                            m["group_dir"],
+                            m["frozen_tla"].name,
+                            m["sym_spec"],
+                        )
+                    finally:
+                        with cond:
+                            avail_cores += req_cores
+                            cond.notify_all()
+
+                    need_verify = False
+                    to_kill = []
+                    with cond:
+                        if stop_event.is_set():
+                            return
+                        m["done_count"] += 1
+                        if sym_rc != 0:
+                            stop_event.set()
+                            if first_failure is None:
+                                first_failure = (m_idx, c_idx, sym_rc, str(sym_payload))
+                            to_kill = list(active_procs)
+                            pending_tasks.clear()
+                            cond.notify_all()
+                        else:
+                            m["sym_result"] = sym_payload
+                            if m["done_count"] == m["total_subtasks"] and not m["verifying"]:
+                                m["verifying"] = True
+                                need_verify = True
+
+                    if to_kill:
+                        terminate_procs(to_kill)
+                        return
+                    if need_verify:
+                        verify_completed_model(m_idx)
+                    continue
+
                 exec_dir = (
                     m["scale_dir"]
                     if (not task["use_cov"] and m["scale_dir"] is not None)
@@ -821,7 +1134,7 @@ def main() -> int:
                         to_kill = list(active_procs)
                         pending_tasks.clear()
                         cond.notify_all()
-                    elif m["done_count"] == m["num_cfgs"] and not m["verifying"]:
+                    elif m["done_count"] == m["total_subtasks"] and not m["verifying"]:
                         m["verifying"] = True
                         need_verify = True
 

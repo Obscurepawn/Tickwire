@@ -3,12 +3,12 @@ EXTENDS Naturals, Integers, Sequences, FiniteSets, TLC
 
 \* var <-> code: one owner, synchronous public API calls; no reset/reconstruction.
 \* owner: local construction, publication, and move into TimeClient
-\*   crates/tickwire-clock-sys/src/lib.rs:52-85
+\*   crates/tickwire-clock-sys/src/lib.rs:57-91
 \*   crates/tickwire-binance-clock/src/client.rs:33-72
 \* native.last/fault: Guard last successful pair and permanent native fault
-\*   crates/tickwire-clock-sys/src/lib.rs:28-50
+\*   crates/tickwire-clock-sys/src/lib.rs:33-56
 \* NativeSample: native_nanos error or Guard comparison; no native call after fault
-\*   crates/tickwire-clock-sys/src/lib.rs:68-118
+\*   crates/tickwire-clock-sys/src/lib.rs:73-123
 \* NativeError: actual MonotonicClock impl maps the error, preserving input domain
 \*   crates/tickwire-binance-clock/src/lib.rs:36-55
 \* client.lastI/fatal: provider classification and Instant check, before core read
@@ -42,7 +42,7 @@ EmptyClient(d) == [domain |-> d,lastI |-> -1,fatal |-> "None",core |-> EmptyCore
 NativeError(e) == CASE e="Backwards" -> "TimeBackwards"
  [] e="Overflow" -> "Overflow" [] OTHER -> "Faulted"
 
-\* crates/tickwire-clock-sys/src/lib.rs:68-85
+\* crates/tickwire-clock-sys/src/lib.rs:73-90
 NativeSample(s,v,e) ==
  IF s.fault THEN [state |-> s,err |-> "Faulted",reads |-> 0]
  ELSE IF e#"Ok" THEN [state |-> [s EXCEPT !.fault=TRUE],err |-> e,reads |-> 1]
@@ -96,7 +96,7 @@ Record(q,v,e,nativeError,providerError) ==
    (p.owner#"Client" \/ p.client.fatal#"None" \/ providerError#"Ok" \/ v.i<p.client.lastI \/ q.client.lastI=v.i),
  !.temporaryOK=p.temporaryOK /\ (providerError \notin Temporary \/ q.client.fatal=p.client.fatal)]
 
-\* crates/tickwire-clock-sys/src/lib.rs:57-64
+\* crates/tickwire-clock-sys/src/lib.rs:62-69
 Construct(v,e) == /\ p.owner="Absent" /\ Bound
  /\ LET r==NativeSample(EmptyNative,v,e)
         q==[p EXCEPT !.native=r.state,!.nativeReads=@+r.reads,
@@ -115,7 +115,7 @@ MoveToClient == /\ Mode="Native" /\ p.owner="Direct"
 NewGeneric == /\ Mode="Generic" /\ p.owner="Absent"
  /\ p'=[p EXCEPT !.owner="Client",!.client=EmptyClient(1),!.construction="Generic"]
 
-\* crates/tickwire-clock-sys/src/lib.rs:68-85
+\* crates/tickwire-clock-sys/src/lib.rs:73-90
 Direct(v,e) == /\ p.owner="Direct" /\ Bound
  /\ LET r==NativeSample(p.native,v,e)
         q==[p EXCEPT !.native=r.state,!.nativeReads=@+r.reads]

@@ -1,9 +1,10 @@
-# Account consumption after a quote outage
+# Subscriber consumption after a quote outage
 
-One authenticated publisher, one execution subscription and one SDK reader share the same bounded market history. The account joins at a complete quote. The publisher may send an unavailable quote in the same generation and resume with a fresh pair. The execution subscription must accept every ordered observation and keep the generation closed to trading from the first invalidation onward. The [original model](../L0_pair/05_output.md) and its [five-state counterexample](../L0_pair/04_counterexamples.md) describe the earlier observer.
+One authenticated `tickwire-md` publisher, one `MarketSink` subscriber, and one `tickwire-strategy-sdk` reader share the same bounded SHM market history. The subscriber joins at a complete quote. The publisher may send an unavailable quote in the same generation and resume with a fresh pair. The `MarketSink` subscriber must accept every ordered observation without latching `Error::Sink` while keeping the generation's continuity gate closed from the first invalidation onward. The [original model](../L0_pair/05_output.md) and its [five-state counterexample](../L0_pair/04_counterexamples.md) describe the pre-fix observer.
 
 Source boundaries in this revision:
 
-* The publisher emits the stale feed state followed by the stale exact quote at `crates/tickwire-market-publisher/src/spot.rs:100-159`.
-* The reader identifies complete pairs and authenticated JOIN cuts at `crates/tickwire-market-source/src/replica.rs:127-174`. Ring registration and polling are at `crates/tickwire-market-source/src/shm.rs:268-321`. A false sink result retires the source at `crates/tickwire-app/src/market.rs:206-245`.
-* The observer selects the subscription input at `crates/tickwire-runtime-policy/src/lib.rs:1063-1081`. Generation, sequence, timestamp and sticky permission are updated at `crates/tickwire-runtime-policy/src/lib.rs:605-670`. The order gate reads this live bit and the referenced generation at `crates/tickwire-runtime-policy/src/lib.rs:1029-1047`.
+* The publisher emits the stale feed state followed by the stale exact quote at `crates/tickwire-market-publisher/src/spot.rs:100-159` and commits atomic batches via `crates/tickwire-shm/src/mapped.rs:397-445`.
+* The reader identifies complete pairs and authenticated JOIN cuts at `crates/tickwire-market-source/src/replica.rs:136-183`, `crates/tickwire-market-source/src/replica.rs:265-331`, and `crates/tickwire-market-source/src/replica.rs:413-499`. Ring registration, polling, and `Error::Sink` `stopped` latching are at `crates/tickwire-market-source/src/shm.rs:200-215` and `crates/tickwire-market-source/src/shm.rs:268-363`.
+* Strategy quote readiness and `MarketSink` observation contracts are at `crates/tickwire-strategy-sdk/src/worker.rs:610-716`, `crates/tickwire-strategy-sdk/src/market.rs:227-267`, and `crates/tickwire-market-source/src/lib.rs:56-75`.
+

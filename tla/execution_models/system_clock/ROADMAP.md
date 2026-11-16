@@ -1,7 +1,7 @@
-# 系统时钟验证进度
+# System clock verification roadmap
 
-| 阶段 | 当前工作 | 后续 |
+| Level | Status | Next |
 | --- | --- | --- |
-| L0_native_owner | 四配置 PASS，14 不变量，20 动作均覆盖，231 anchors 零漂移 | 已冻结，独立证据复核完成 |
-| TimeClient 网络 L0 | 待规划 | 明确网络与校准核心的组合边界 |
-| 私有流时钟 adapter L0 | 待规划 | 明确预算回调与最终检查的不可重入顺序 |
+| `L0_native_owner` | 4 configurations PASS, 14 invariants, all 20 `Next` actions covered, zero anchor drift | Frozen, independent evidence audit complete |
+| `TimeClient` network L0 | Planned | Compose HTTPS sample-token lifecycle with `Calibrator` |
+| Private-stream clock adapter | Verified in `binance_private_session` (`v2`) | Non-reentrant budget callback and post-callback final monotonic sample |

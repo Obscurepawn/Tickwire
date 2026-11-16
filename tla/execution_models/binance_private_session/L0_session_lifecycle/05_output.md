@@ -1,7 +1,7 @@
-# v2 输出
+# `v2` verification output
 
-PASS：原四个有限配置检查16项不变量，无反例。新增三项转移保留回调前second、回调后的真实Mono和末次拒绝；ExpiredCallbackNeverAccepted检查跨截止的请求始终零接受。其余生命周期性质保留，精确结果见[03_run_log.md](03_run_log.md)。
+PASS: all four bounded configurations verified all 16 safety invariants without counterexamples. Three added transitions separate the pre-callback `second` sample, post-callback monotonic advance, and final deadline rejection; `ExpiredCallbackNeverAccepted` proves requests whose budget callback crosses the local deadline accept zero bytes (`NoBytes`), while all 15 lifecycle invariants from `v1` continue to hold. See [03_run_log.md](03_run_log.md).
 
-Fidelity：所有转移保留源码引用，无未确认的源码步骤。模型仍覆盖建连/升级、准备/首次接受、回复、认证/订阅、续期/关闭、缺口排空及错误停止；诊断查询、精确帧预算和核心时钟区间数学不在本层。时间是实际默认值的有限毫秒输入，字节接受是零/部分/全部。
+Fidelity: every transition cites its Rust source lines with zero unresolved branches across connection upgrade, request preparation and first-accept gating, reply correlation, Spot logon/signed subscription, USD-M `listenKey` creation/renewal/close, prior-epoch gap draining, and permanent `SinkFailure` stop. Diagnostic queries, frame-level byte budgets, and clock-calibration interval arithmetic are verified separately.
 
-本次缺陷由组合调用顺序审阅提出，真实HTTPS/WSS回归确认，root与risk_core独立核对；不是旧TLC发现。旧PASS未覆盖预算回调后的独立时间样本，保持历史范围。
+The post-callback deadline bug was identified during cross-crate composition review of `PrivateClient` + `ClockAdapter`, reproduced with a native HTTPS/WSS Red test, and verified to exhaustion in `v2`.

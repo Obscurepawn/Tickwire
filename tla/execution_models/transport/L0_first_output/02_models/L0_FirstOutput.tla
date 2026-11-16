@@ -1,12 +1,12 @@
 --------------------------- MODULE L0_FirstOutput ---------------------------
 EXTENDS Naturals, FiniteSets, TLC
 \* var <-> code map; exclusive Connection calls with finite IO outcomes.
-\* conn: socket/connected/is_handshaking, crates/tickwire-transport/src/connection.rs:13-21.
-\* current/nextId/state/accepted/deadline: SendSlot and queue, crates/tickwire-transport/src/connection.rs:9-12.
-\* wire/buffered: write_tls local-output witness, crates/tickwire-transport/src/connection.rs:318-343.
-\* gate/authorized: synchronous closure result at first writer.write, crates/tickwire-transport/src/connection.rs:178-227.
-\* now: monotonic now.max(Instant::now()), crates/tickwire-transport/src/connection.rs:152-197.
-\* tlsBlocked: TLS output capacity from set_buffer_limit, crates/tickwire-transport/src/connection.rs:43-52.
+\* conn: socket/connected/retired/is_handshaking, crates/tickwire-transport/src/connection.rs:16-29,304-309.
+\* current/nextId/state/accepted/deadline: SendSlot and queue, crates/tickwire-transport/src/connection.rs:11-14,207-230.
+\* wire/buffered: write_tls local-output witness, crates/tickwire-transport/src/connection.rs:528-546.
+\* gate/authorized: synchronous closure result at first writer.write, crates/tickwire-transport/src/connection.rs:380-430.
+\* now: monotonic now.max(Instant::now()), crates/tickwire-transport/src/connection.rs:352-399,479-486.
+\* tlsBlocked: TLS output capacity from set_buffer_limit, crates/tickwire-transport/src/connection.rs:105-115.
 \* Faults: zero/partial write, connection/TLS failure, expiration. No request retry/reconnect.
 CONSTANTS TLS, Bytes, Capacity, MaxSends, MaxTime
 ASSUME /\ Bytes >= 2 /\ Capacity >= 1 /\ MaxSends >= 1 /\ MaxTime >= 2
@@ -23,42 +23,42 @@ Init ==
  /\ wire=[i \in Ids |-> 0] /\ deadline=[i \in Ids |-> 0]
  /\ authorized=[i \in Ids |-> FALSE]
  /\ buffered=0 /\ now=0 /\ gate=TRUE /\ tlsBlocked=FALSE
-\* queue only owns the immutable prepared bytes. crates/tickwire-transport/src/connection.rs:90-113
+\* queue only owns the immutable prepared bytes. crates/tickwire-transport/src/connection.rs:207-230
 Queue(d) ==
  /\ Live /\ current=0 /\ nextId<=MaxSends /\ d \in 1..MaxTime
  /\ current'=nextId /\ nextId'=nextId+1
  /\ state'=[state EXCEPT ![nextId]="Queued"]
  /\ deadline'=[deadline EXCEPT ![nextId]=d]
  /\ UNCHANGED <<conn,accepted,wire,buffered,now,gate,authorized,tlsBlocked>>
-\* drive take_error + peer_addr, crates/tickwire-transport/src/connection.rs:281-310
+\* drive take_error + peer_addr, crates/tickwire-transport/src/connection.rs:488-516
 Connect ==
  /\ conn="Connecting" /\ conn'=IF TLS THEN "Handshake" ELSE "Ready"
  /\ UNCHANGED <<current,nextId,state,accepted,wire,buffered,deadline,now,gate,authorized,tlsBlocked>>
-\* rustls process_new_packets permits is_ready, crates/tickwire-transport/src/connection.rs:373-380
+\* rustls process_new_packets permits is_ready, crates/tickwire-transport/src/connection.rs:304-309,579-585
 Handshake(blocked) ==
  /\ TLS /\ conn="Handshake" /\ conn'="Ready" /\ tlsBlocked'=blocked
  /\ UNCHANGED <<current,nextId,state,accepted,wire,buffered,deadline,now,gate,authorized>>
-\* drive writes existing handshake ciphertext, never the prepared application. crates/tickwire-transport/src/connection.rs:322-343
+\* drive writes existing handshake ciphertext, never the prepared application. crates/tickwire-transport/src/connection.rs:528-544
 FlushHandshake ==
  /\ TLS /\ Live /\ tlsBlocked /\ tlsBlocked'=FALSE
  /\ UNCHANGED <<conn,current,nextId,state,accepted,wire,buffered,deadline,now,gate,authorized>>
-\* Zero accept and non-ready paths retain Queued/MayHaveSent. crates/tickwire-transport/src/connection.rs:183-187,213-223
+\* Zero accept and non-ready paths retain Queued/MayHaveSent. crates/tickwire-transport/src/connection.rs:386-389,415-425
 TryPending ==
  /\ Fresh /\ conn # "Ready" /\ UNCHANGED vars
 TryZero ==
  /\ Fresh /\ conn="Ready" /\ (accepted[current]>0 \/ gate)
  /\ UNCHANGED vars
-\* Denied synchronous first-output closure. crates/tickwire-transport/src/connection.rs:188-192
+\* Denied synchronous first-output closure. crates/tickwire-transport/src/connection.rs:390-394
 Deny ==
  /\ Fresh /\ conn="Ready" /\ accepted[current]=0 /\ ~gate
  /\ state'=[state EXCEPT ![current]="NoBytes"]
  /\ UNCHANGED <<conn,current,nextId,accepted,wire,buffered,deadline,now,gate,authorized,tlsBlocked>>
-\* Gate duration can cross the deadline; the second check rejects before writer. crates/tickwire-transport/src/connection.rs:193-197
+\* Gate duration can cross the deadline; the second check rejects before writer. crates/tickwire-transport/src/connection.rs:395-399
 ExpireInGate ==
  /\ Fresh /\ conn="Ready" /\ accepted[current]=0 /\ gate
  /\ now'=deadline[current] /\ state'=[state EXCEPT ![current]="NoBytes"]
  /\ UNCHANGED <<conn,current,nextId,accepted,wire,buffered,deadline,gate,authorized,tlsBlocked>>
-\* First accepted bytes; plaintext count rises before later IO failure. crates/tickwire-transport/src/connection.rs:199-227
+\* First accepted bytes; plaintext count rises before later IO failure. crates/tickwire-transport/src/connection.rs:401-430
 FirstAccept(n) ==
  /\ Fresh /\ conn="Ready" /\ state[current]="Queued" /\ gate
  /\ n \in 1..Bytes /\ (~TLS \/ (~tlsBlocked /\ n<=Capacity-buffered))
@@ -68,7 +68,7 @@ FirstAccept(n) ==
  /\ buffered'=IF TLS THEN buffered+n ELSE 0
  /\ state'=[state EXCEPT ![current]=IF ~TLS /\ n=Bytes THEN "Flushed" ELSE "MayHaveSent"]
  /\ UNCHANGED <<conn,current,nextId,deadline,now,gate,tlsBlocked>>
-\* Continuation is already uncertain; no fresh gate is required. crates/tickwire-transport/src/connection.rs:188-227
+\* Continuation is already uncertain; no fresh gate is required. crates/tickwire-transport/src/connection.rs:390-430
 Continue(n) ==
  /\ Fresh /\ conn="Ready" /\ state[current]="MayHaveSent"
  /\ n \in 1..(Bytes-accepted[current]) /\ (~TLS \/ (~tlsBlocked /\ n<=Capacity-buffered))
@@ -77,13 +77,13 @@ Continue(n) ==
  /\ buffered'=IF TLS THEN buffered+n ELSE 0
  /\ state'=[state EXCEPT ![current]=IF ~TLS /\ accepted[current]+n=Bytes THEN "Flushed" ELSE "MayHaveSent"]
  /\ UNCHANGED <<conn,current,nextId,deadline,now,gate,authorized,tlsBlocked>>
-\* drive expiry precedes flushing; completed output recorded before receive EOF. crates/tickwire-transport/src/connection.rs:269-279,322-343
+\* drive expiry precedes flushing; completed output recorded before receive EOF. crates/tickwire-transport/src/connection.rs:479-486,528-546
 Flush(n) ==
  /\ TLS /\ Fresh /\ conn="Ready" /\ n \in 1..buffered
  /\ wire'=[wire EXCEPT ![current]=@+n] /\ buffered'=buffered-n
  /\ state'=[state EXCEPT ![current]=IF wire[current]+n=Bytes THEN "Flushed" ELSE @]
  /\ UNCHANGED <<conn,current,nextId,accepted,deadline,now,gate,authorized,tlsBlocked>>
-\* expire zero acceptance is permanent but leaves a usable connection. crates/tickwire-transport/src/connection.rs:152-163
+\* expire zero acceptance is permanent but leaves a usable connection. crates/tickwire-transport/src/connection.rs:352-363
 ExpireQueued ==
  /\ Active /\ now>=deadline[current] /\ accepted[current]=0
  /\ state'=[state EXCEPT ![current]="NoBytes"]
@@ -92,7 +92,7 @@ ExpireAccepted ==
  /\ Active /\ now>=deadline[current] /\ accepted[current]>0
  /\ conn'="Closed" /\ state'=[state EXCEPT ![current]="Failed"] /\ buffered'=0 /\ tlsBlocked'=FALSE
  /\ UNCHANGED <<current,nextId,accepted,wire,deadline,now,gate,authorized>>
-\* cancel closes an accepted send and cannot manufacture NoBytes. crates/tickwire-transport/src/connection.rs:164-177
+\* cancel closes an accepted send and cannot manufacture NoBytes. crates/tickwire-transport/src/connection.rs:365-378
 CancelQueued ==
  /\ current # 0 /\ state[current]="Queued"
  /\ state'=[state EXCEPT ![current]="NoBytes"]
@@ -102,12 +102,12 @@ CancelAccepted ==
  /\ conn'="Closed" /\ buffered'=0 /\ tlsBlocked'=FALSE
  /\ state'=[state EXCEPT ![current]=IF @="MayHaveSent" THEN "Failed" ELSE @]
  /\ UNCHANGED <<current,nextId,accepted,wire,deadline,now,gate,authorized>>
-\* socket/TLS failure and connect timeout share fail(). crates/tickwire-transport/src/connection.rs:134-151
+\* socket/TLS failure and connect timeout share fail(). crates/tickwire-transport/src/connection.rs:332-350
 FailConnection ==
  /\ Live /\ conn'="Closed" /\ buffered'=0 /\ tlsBlocked'=FALSE
  /\ state'=IF Active THEN [state EXCEPT ![current]=IF accepted[current]=0 THEN "NoBytes" ELSE "Failed"] ELSE state
  /\ UNCHANGED <<current,nextId,accepted,wire,deadline,now,gate,authorized>>
-\* terminal report collection leaves evidence in this model's history. crates/tickwire-transport/src/connection.rs:119-133
+\* terminal report collection leaves evidence in this model's history. crates/tickwire-transport/src/connection.rs:315-330
 Take ==
  /\ current # 0 /\ state[current] \in Terminal /\ current'=0
  /\ UNCHANGED <<conn,nextId,state,accepted,wire,buffered,deadline,now,gate,authorized,tlsBlocked>>

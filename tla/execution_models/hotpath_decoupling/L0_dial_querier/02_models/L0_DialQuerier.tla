@@ -5,61 +5,61 @@ CONSTANTS Capacity, TaskCount, MaxQueryCount, MaxDialGen, MaxTime
 
 (*
 Code-faithful model of off-hot-path TCP/TLS connection dialing (DialBaton + IpPool)
-and bounded asynchronous HTTP querying (AsyncRestQuerier + FixedRing).
+and bounded asynchronous HTTP querying (AsyncRestQuerier + SpscRing).
 
 Variable <-> Rust source mapping and state/watermark denotations:
 - now: discrete monotonic clock step in 0..MaxTime representing ClockFn readings,
-  crates/tickwire-transport/src/dialer.rs:289-307,
-  crates/tickwire-transport/src/rest_querier.rs:636-646.
+  crates/tickwire-transport/src/dialer.rs:338-356,
+  crates/tickwire-transport/src/rest_querier.rs:789-799.
 - baton_state: DialBaton.state atomic state machine ("Idle", "Wanted", "Dialing",
-  "Ready", "Stopped"), crates/tickwire-transport/src/dialer.rs:164-184,
-  crates/tickwire-transport/src/dialer.rs:226-232.
+  "Ready", "Stopped"), crates/tickwire-transport/src/dialer.rs:177-195,
+  crates/tickwire-transport/src/dialer.rs:264-271.
 - baton_due: DialBaton.due_mono_ns earliest step at which "tw-dialer" may claim
-  Wanted -> Dialing, crates/tickwire-transport/src/dialer.rs:206-212,
-  crates/tickwire-transport/src/dialer.rs:273-307,
-  crates/tickwire-transport/src/dialer.rs:319-330.
+  Wanted -> Dialing, crates/tickwire-transport/src/dialer.rs:217-223,
+  crates/tickwire-transport/src/dialer.rs:322-356,
+  crates/tickwire-transport/src/dialer.rs:370-381.
 - baton_failures: DialBaton.failures consecutive failed attempts in the active
   want cycle (reset to 0 on take_ready and reset),
-  crates/tickwire-transport/src/dialer.rs:250-259,
-  crates/tickwire-transport/src/dialer.rs:319-359.
-- staged_link: DialBaton.product: Mutex<Option<DialedLink>> staged between
+  crates/tickwire-transport/src/dialer.rs:290-299,
+  crates/tickwire-transport/src/dialer.rs:370-410.
+- staged_link: DialBaton.product: TimedSpinLock<Option<DialedLink>> staged between
   deliver_ready and take_ready/reset/stop,
-  crates/tickwire-transport/src/dialer.rs:220-231,
-  crates/tickwire-transport/src/dialer.rs:309-370.
+  crates/tickwire-transport/src/dialer.rs:264-271,
+  crates/tickwire-transport/src/dialer.rs:358-420.
 - active_attempt: ManagedSlot.active: Option<ActiveAttempt> owned exclusively by
-  the "tw-dialer" worker thread during TCP+TLS connect,
-  crates/tickwire-transport/src/dialer.rs:729-738,
-  crates/tickwire-transport/src/dialer.rs:879-933.
+  the "tw-dialer" worker thread during TCP+TLS/WS/FIX connect,
+  crates/tickwire-transport/src/dialer.rs:966-985,
+  crates/tickwire-transport/src/dialer.rs:1283-1339.
 - leased_peer: ManagedSlot.leased_peer: Option<SocketAddr> (0 = None, 1..2 = peer)
   tracking the peer leased to the session across reconnect failover,
-  crates/tickwire-transport/src/dialer.rs:734,
-  crates/tickwire-transport/src/dialer.rs:836-845,
-  crates/tickwire-transport/src/dialer.rs:928-932.
+  crates/tickwire-transport/src/dialer.rs:983,
+  crates/tickwire-transport/src/dialer.rs:1239-1248,
+  crates/tickwire-transport/src/dialer.rs:1334-1338.
 - pool_present, peer_in_use, peer_failed: IpPool.peers membership, PeerEntry.in_use
   lease count, and PeerEntry.last_failed penalty / zero-lease eviction on
   note_syn(peer, None) when len > 1,
-  crates/tickwire-transport/src/dialer.rs:23-35,
-  crates/tickwire-transport/src/dialer.rs:92-162.
+  crates/tickwire-transport/src/dialer.rs:33-46,
+  crates/tickwire-transport/src/dialer.rs:103-173.
 - owner_link, dial_gen, was_stopped: session owner's adopted DialedLink from
   take_ready, monotone dial generation witness (0..MaxDialGen), and terminal stop
-  witness, crates/tickwire-transport/src/dialer.rs:332-370.
+  witness, crates/tickwire-transport/src/dialer.rs:383-420.
 - issued, task_queue, reply_queue: submitted RestTask IDs and lock-free SPSC
-  FixedRing<RestTask> / FixedRing<RestReply> queues of capacity Capacity,
-  crates/tickwire-transport/src/rest_querier.rs:164-233,
-  crates/tickwire-transport/src/rest_querier.rs:310-335.
+  SpscRing<RestTask> / SpscRing<RestReply> queues of capacity Capacity,
+  crates/tickwire-transport/src/rest_querier.rs:226-348,
+  crates/tickwire-transport/src/rest_querier.rs:459-488.
 - waiting: worker-private Vec<WaitingTask> holding pulled/retryable tasks gated by
-  waiting.len() + usize::from(inflight.is_some()) + reply_queue.len() < capacity,
-  crates/tickwire-transport/src/rest_querier.rs:357-363,
-  crates/tickwire-transport/src/rest_querier.rs:621-646.
+  waiting.len() + usize::from(inflight.is_some()) + shared.reply_queue.len() < config.capacity,
+  crates/tickwire-transport/src/rest_querier.rs:515-520,
+  crates/tickwire-transport/src/rest_querier.rs:774-799.
 - inflight: worker-private Option<InflightTask> tracking the single active HTTP
   exchange and counted_send latch,
-  crates/tickwire-transport/src/rest_querier.rs:365-373,
-  crates/tickwire-transport/src/rest_querier.rs:1065-1252.
+  crates/tickwire-transport/src/rest_querier.rs:522-530,
+  crates/tickwire-transport/src/rest_querier.rs:1218-1398.
 - last_reply, accepted_writes: consumer's last dequeued RestReply and ghost count
   of attempts where accepted_bytes > 0 on the transport,
-  crates/tickwire-transport/src/rest_querier.rs:42-52,
-  crates/tickwire-transport/src/rest_querier.rs:325-327,
-  crates/tickwire-transport/src/rest_querier.rs:1065-1074.
+  crates/tickwire-transport/src/rest_querier.rs:89-97,
+  crates/tickwire-transport/src/rest_querier.rs:470-476,
+  crates/tickwire-transport/src/rest_querier.rs:1218-1227.
 *)
 
 VARIABLES
@@ -123,12 +123,12 @@ RemoveAt(seq, idx) ==
 
 \* Task 2 represents an unbuildable request kind (Ok(None) -> RestStatus::NotBuilt);
 \* Tasks 1 and 2 carry deadline MaxTime while Task 3 (when configured) has end_mono_ns = 0.
-\* crates/tickwire-transport/src/rest_querier.rs:25-33, crates/tickwire-transport/src/rest_querier.rs:685-701.
+\* crates/tickwire-transport/src/rest_querier.rs:40-75, crates/tickwire-transport/src/rest_querier.rs:838-854.
 Buildable(t) == t # 2
 EndNs(t) == IF t = 3 /\ MaxQueryCount > 0 THEN 0 ELSE MaxTime
 
 \* IpPool::take_ip / quality_key / replace_with_unused selection order.
-\* crates/tickwire-transport/src/dialer.rs:115-162.
+\* crates/tickwire-transport/src/dialer.rs:126-173.
 QualityRank(p) == IF peer_failed[p] THEN 2 ELSE 1
 
 BetterPeer(in_use_fn, p, q) ==
@@ -143,7 +143,7 @@ PickBestPeer(candidates, in_use_fn) ==
 InflightCount == IF inflight = NoneInflight THEN 0 ELSE 1
 
 \* can_retry(task, query_count, next_send_ns) and reply_from_waiting_expiry(w).
-\* crates/tickwire-transport/src/rest_querier.rs:530-578.
+\* crates/tickwire-transport/src/rest_querier.rs:683-731.
 CanRetry(t, qc, next_ns) ==
     /\ (MaxQueryCount = 0 \/ qc < MaxQueryCount)
     /\ (EndNs(t) = 0 \/ next_ns < EndNs(t))
@@ -207,7 +207,7 @@ Tick ==
        >>
 
 \* Session owner requests a fresh connection (Idle -> Wanted).
-\* crates/tickwire-transport/src/dialer.rs:273-287.
+\* crates/tickwire-transport/src/dialer.rs:322-336.
 OwnerWant ==
     /\ baton_state = "Idle"
     /\ dial_gen < MaxDialGen
@@ -222,7 +222,7 @@ OwnerWant ==
 
 \* "tw-dialer" claims Wanted -> Dialing when now >= due_mono_ns and leases a peer
 \* via replace_with_unused on reconnect or take_ip on initial dial.
-\* crates/tickwire-transport/src/dialer.rs:289-307, crates/tickwire-transport/src/dialer.rs:827-888.
+\* crates/tickwire-transport/src/dialer.rs:338-356, crates/tickwire-transport/src/dialer.rs:1239-1293.
 DialerClaim ==
     /\ baton_state = "Wanted"
     /\ now >= baton_due
@@ -250,7 +250,7 @@ DialerClaim ==
        >>
 
 \* "tw-dialer" completes non-blocking TCP + TLS handshake on its private socket.
-\* crates/tickwire-transport/src/dialer.rs:955-1007.
+\* crates/tickwire-transport/src/dialer.rs:1399-1435.
 DialerHandshakeStep ==
     /\ baton_state = "Dialing"
     /\ active_attempt # NoneLink
@@ -264,7 +264,7 @@ DialerHandshakeStep ==
        >>
 
 \* "tw-dialer" publishes the handshaked link via deliver_ready (Dialing -> Ready).
-\* crates/tickwire-transport/src/dialer.rs:309-317, crates/tickwire-transport/src/dialer.rs:908-933.
+\* crates/tickwire-transport/src/dialer.rs:358-368, crates/tickwire-transport/src/dialer.rs:1313-1339.
 DialerDeliverReady ==
     /\ baton_state = "Dialing"
     /\ active_attempt # NoneLink
@@ -283,7 +283,7 @@ DialerDeliverReady ==
 
 \* If owner concurrently called reset() or stop(), "tw-dialer" aborts its private
 \* attempt and releases the peer lease without mutating DialBaton.product.
-\* crates/tickwire-transport/src/dialer.rs:890-906, crates/tickwire-transport/src/dialer.rs:930-944.
+\* crates/tickwire-transport/src/dialer.rs:1295-1311, crates/tickwire-transport/src/dialer.rs:1385-1388.
 DialerAbortStale ==
     /\ active_attempt # NoneLink
     /\ baton_state # "Dialing"
@@ -301,8 +301,8 @@ DialerAbortStale ==
 
 \* TCP/TLS connect failure or timeout: release peer, note_syn(peer, None) (evicting
 \* failed peer iff in_use == 0 and len > 1), increment failures, back off to Wanted.
-\* crates/tickwire-transport/src/dialer.rs:92-113, crates/tickwire-transport/src/dialer.rs:319-330,
-\* crates/tickwire-transport/src/dialer.rs:890-906.
+\* crates/tickwire-transport/src/dialer.rs:103-124, crates/tickwire-transport/src/dialer.rs:370-381,
+\* crates/tickwire-transport/src/dialer.rs:1295-1311.
 DialerFail ==
     /\ baton_state = "Dialing"
     /\ active_attempt # NoneLink
@@ -323,7 +323,7 @@ DialerFail ==
        >>
 
 \* Session owner adopts Ready link (Ready -> Idle) and resets failures/due to 0.
-\* crates/tickwire-transport/src/dialer.rs:332-345.
+\* crates/tickwire-transport/src/dialer.rs:383-396.
 OwnerTakeReady ==
     /\ baton_state = "Ready"
     /\ owner_link' = staged_link
@@ -338,7 +338,7 @@ OwnerTakeReady ==
        >>
 
 \* Session owner resets non-Stopped baton back to Idle, dropping any staged link.
-\* crates/tickwire-transport/src/dialer.rs:347-359.
+\* crates/tickwire-transport/src/dialer.rs:398-410.
 OwnerReset ==
     /\ baton_state # "Stopped"
     /\ (baton_state # "Idle" \/ baton_failures > 0 \/ baton_due > 0)
@@ -353,7 +353,7 @@ OwnerReset ==
        >>
 
 \* Session owner permanently stops baton (any -> Stopped), dropping any staged link.
-\* crates/tickwire-transport/src/dialer.rs:361-370.
+\* crates/tickwire-transport/src/dialer.rs:412-420.
 OwnerStop ==
     /\ baton_state # "Stopped"
     /\ staged_link' = NoneLink
@@ -366,7 +366,7 @@ OwnerStop ==
        >>
 
 \* Producer enqueues a REST task onto the bounded SPSC task_queue.
-\* crates/tickwire-transport/src/rest_querier.rs:188-209, crates/tickwire-transport/src/rest_querier.rs:312-319.
+\* crates/tickwire-transport/src/rest_querier.rs:262-297, crates/tickwire-transport/src/rest_querier.rs:459-468.
 ProducerEnqueue ==
     /\ Len(task_queue) < Capacity
     /\ \E t \in Tasks \ issued :
@@ -381,7 +381,7 @@ ProducerEnqueue ==
 
 \* Worker pulls a task only when waiting + inflight + reply_queue < Capacity,
 \* reserving a guaranteed reply slot before accepting work.
-\* crates/tickwire-transport/src/rest_querier.rs:621-633.
+\* crates/tickwire-transport/src/rest_querier.rs:774-786.
 WorkerPullTask ==
     /\ Len(task_queue) > 0
     /\ Len(waiting) + InflightCount + Len(reply_queue) < Capacity
@@ -397,7 +397,7 @@ WorkerPullTask ==
 
 \* Waiting task whose end_mono_ns has passed posts reply unconditionally to reply_queue
 \* (Expired with query_count = 0 when never sent, else last 5xx/transport error).
-\* crates/tickwire-transport/src/rest_querier.rs:525-572, crates/tickwire-transport/src/rest_querier.rs:636-646.
+\* crates/tickwire-transport/src/rest_querier.rs:677-725, crates/tickwire-transport/src/rest_querier.rs:789-799.
 WorkerExpireWaiting ==
     /\ ExpiredWaiting # {}
     /\ LET idx == FirstExpiredIdx
@@ -412,7 +412,7 @@ WorkerExpireWaiting ==
        >>
 
 \* Unbuildable request posts RestStatus::NotBuilt with query_count == 0.
-\* crates/tickwire-transport/src/rest_querier.rs:662-701.
+\* crates/tickwire-transport/src/rest_querier.rs:815-854.
 WorkerNotBuilt ==
     /\ inflight = NoneInflight
     /\ ExpiredWaiting = {}
@@ -430,7 +430,7 @@ WorkerNotBuilt ==
        >>
 
 \* Worker starts next eligible buildable task on a ready connection with counted = FALSE.
-\* crates/tickwire-transport/src/rest_querier.rs:662-682, crates/tickwire-transport/src/rest_querier.rs:745-755.
+\* crates/tickwire-transport/src/rest_querier.rs:815-835, crates/tickwire-transport/src/rest_querier.rs:945-954.
 WorkerStartSend ==
     /\ inflight = NoneInflight
     /\ ExpiredWaiting = {}
@@ -448,7 +448,7 @@ WorkerStartSend ==
        >>
 
 \* Zero-byte transport failure before accepted_bytes > 0 leaves query_count unchanged.
-\* crates/tickwire-transport/src/rest_querier.rs:965-1004, crates/tickwire-transport/src/rest_querier.rs:1140-1206.
+\* crates/tickwire-transport/src/rest_querier.rs:1118-1157, crates/tickwire-transport/src/rest_querier.rs:1293-1359.
 WorkerZeroByteFail ==
     /\ inflight # NoneInflight
     /\ ~inflight.counted
@@ -474,7 +474,7 @@ WorkerZeroByteFail ==
 
 \* Transport accepts > 0 request bytes: sync_counted_send latches counted_send and
 \* increments query_count exactly once for this attempt.
-\* crates/tickwire-transport/src/rest_querier.rs:1065-1074, crates/tickwire-transport/src/rest_querier.rs:1146-1185.
+\* crates/tickwire-transport/src/rest_querier.rs:1218-1227, crates/tickwire-transport/src/rest_querier.rs:1299-1338.
 WorkerAcceptBytes ==
     /\ inflight # NoneInflight
     /\ ~inflight.counted
@@ -488,7 +488,7 @@ WorkerAcceptBytes ==
        >>
 
 \* Post-accept transport failure or HTTP 5xx retries up to CanRetry or posts final error.
-\* crates/tickwire-transport/src/rest_querier.rs:965-1004, crates/tickwire-transport/src/rest_querier.rs:1034-1062.
+\* crates/tickwire-transport/src/rest_querier.rs:1118-1157, crates/tickwire-transport/src/rest_querier.rs:1187-1215.
 WorkerRetryOrFailAfterSend ==
     /\ inflight # NoneInflight
     /\ inflight.counted
@@ -511,7 +511,7 @@ WorkerRetryOrFailAfterSend ==
        >>
 
 \* HTTP 2xx (Ok) or non-retryable 4xx (HttpError) posts terminal reply immediately.
-\* crates/tickwire-transport/src/rest_querier.rs:1019-1032, crates/tickwire-transport/src/rest_querier.rs:1052-1062.
+\* crates/tickwire-transport/src/rest_querier.rs:1172-1185, crates/tickwire-transport/src/rest_querier.rs:1205-1215.
 WorkerCompleteResponse ==
     /\ inflight # NoneInflight
     /\ inflight.counted
@@ -527,7 +527,7 @@ WorkerCompleteResponse ==
 
 \* Consumer (RESP) dequeues a completed reply; no fairness is assumed so consumer
 \* may stall arbitrarily while the worker executes.
-\* crates/tickwire-transport/src/rest_querier.rs:211-232, crates/tickwire-transport/src/rest_querier.rs:325-327.
+\* crates/tickwire-transport/src/rest_querier.rs:299-337, crates/tickwire-transport/src/rest_querier.rs:470-476.
 ConsumerDequeue ==
     /\ Len(reply_queue) > 0
     /\ last_reply' = Head(reply_queue)

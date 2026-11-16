@@ -1,3 +1,3 @@
-# 反例
+# Counterexamples
 
-本级四个配置均通过，未产生安全反例。源码开发期间的解密预算、EOF 排空和本地完成记录问题来自真实 socket 回归，记录在 [传输验证证据](../../../../docs/validation/transport/README.md)。这些问题不归因于 TLC。
+All four finite configurations (`primary`, `two_sends`, `larger_buffer`, `plain`) pass with zero safety counterexamples. Socket-level edge cases discovered during transport implementation — bounded plaintext decryption per call, draining buffered plaintext prior to EOF teardown, and recording `SendState::Flushed` (`mark_flushed`) before receive-side EOF — are covered by deterministic socket regression tests in [crates/tickwire-transport/tests](../../../../crates/tickwire-transport/tests).

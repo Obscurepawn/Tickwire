@@ -1,5 +1,0 @@
-# Durable and volatile state
-
-The journal retains the order key, command identity and sequence. Dependency storage and the journal survive a process crash. `CommitAndLoseReceipt` makes the record durable without delivering its receipt to the volatile reducer. `Resume` retries the local append for the same recorded identity. The test environment can supply a mismatched receipt, which returns the caller to idle before dispatch.
-
-The sender can receive an ACK, a pending response, an unknown outcome or a zero-byte rejection. The model counts dispatch separately from acceptance. Restart rebuilds unknown exposure from durable intents. The Rust mock journals `AbortedBeforeSend` when the transport returns zero accepted bytes. This model retains only intent records across a crash, so it can conservatively restore the reservation in that case. The ordered abort model covers persistence and replay of that terminal event. A recovered reservation can exceed simulated capital while frozen. [Source anchors](02_models/anchors.lock) · [Current ordered abort model](../../mock_abort/ROADMAP.md)

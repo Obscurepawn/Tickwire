@@ -1,6 +1,6 @@
-# JOIN 验证进度
+# JOIN verification roadmap
 
-| 层级 | 范围 | 状态 |
+| Level | Scope | Status |
 | --- | --- | --- |
-| L0_pending_activation | 固定身份、pending gate、追平、幂等及协作回收 | 四配置 PASS；独立审阅通过 |
-| L1_recovery_generation | 持久 owner 恢复、代次重用、pidfd 与全部 holder 退出证据 | 尚未实现对应生产接口 |
+| `L0_pending_activation` | Fixed authenticated identities, pending baseline gate, catch-up activation, idempotent retries, and cooperative detachment | 4 configurations PASS; independent review complete |
+| `L1_recovery_generation` | Subscription generation rotation and process-exit holder reclamation | Planned |

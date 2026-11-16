@@ -1,14 +1,10 @@
 # Post-fix CTI strengthening & validation notes — `L5_SymWarmerCrcFixValidation`
 
-## 1. Mode S2 CTI Strengthening (`SafetyConjunction` $\to$ `IndInv`)
-- **Step-1 CTI without coupling lemmas** ([apalache_cti_safety_only.log](04_evidence/apalache_cti_safety_only.log), [cti_safety_only_witness.tla](04_evidence/cti_safety_only_witness.tla)): Checking `SafetyConjunction /\ Next => SafetyConjunction'` directly fails in `4.281s` (`rc=12`). Z3 constructs an unreachable predecessor state (`warmup_configured = FALSE`, `last_activity_ns = 18446744073709551614`, `now_ns = 18446744073709551615`, `startup_seeded = TRUE`) in which `EnableWarmupColdStartup` sees `last_activity_ns != 0`, skips cold seeding, and sets `startup_clock_ns' = 2^64 - 1 > last_activity_ns' = 2^64 - 2`, violating `last_activity_ns >= startup_clock_ns`.
-- **Synthesized CTI lemmas (`02_models/L5_SymWarmerCrcFixValidation.tla:752-784`)**:
-  1. `CTI_StartupPreEnableClean` (`lines 752-762`): before `EnableWarmupColdStartup`, `last_activity_ns = 0 /\ last_warm_ns = 0 /\ ~startup_seeded`.
-  2. `CTI_ClockMonotonicOrder` (`lines 766-773`): `startup_clock_ns <= now_ns`, `sample_ns <= now_ns`, `last_activity_ns <= now_ns`, `last_warm_ns <= now_ns`, `first_warm_ns <= now_ns`, and `warm_count = 0 => (first_warm_ns = 0 /\ last_warm_ns = 0)`.
-  3. `CTI_Crc_DerivedRegisters` (`lines 776-783`): binds `journal_start`, `journal_end`, `ipc_start`, `ipc_end`, and `probe_idx` to the exact clamping formulas of `tickwire-journal` and `tickwire-ipc`.
+## 1. Mode S2 CTI Strengthening (`SafetyConjunction` -> `IndInv`)
+- Checking `SafetyConjunction /\ Next => SafetyConjunction'` directly without coupling lemmas allows an unreachable predecessor state with `warmup_configured = FALSE` and `last_activity_ns > 0`, causing `EnableWarmupColdStartup` to skip cold seeding.
+- **Synthesized CTI lemmas (`02_models/L5_SymWarmerCrcFixValidation.tla:571-598`)**:
+  1. `CTI_StartupPreEnableClean` (`lines 571-580`): before `EnableWarmupColdStartup`, `last_activity_ns = 0 /\ last_warm_ns = 0 /\ ~startup_seeded`.
+  2. `CTI_ClockMonotonicOrder` (`lines 583-590`): `startup_clock_ns <= now_ns`, `sample_ns <= now_ns`, `last_activity_ns <= now_ns`, `last_warm_ns <= now_ns`, `first_warm_ns <= now_ns`, and `warm_count = 0 => (first_warm_ns = 0 /\ last_warm_ns = 0)`.
 
-## 2. Subtle Cross-Fix Interactions Proved by Z3
-1. **Fix 1 + Fix 2 eliminate `0ns` poll spins even at `now_ns == u64::MAX`**:
-   - Pre-fix `next_due_ns` (`saturating_add`) returned `Some(u64::MAX)` whenever `anchor + warmup_interval_ns > u64::MAX`, which at `now_ns == u64::MAX` would yield `can_warm(u64::MAX) == false` alongside `warm_due.saturating_sub(u64::MAX) == 0` even when `node_ready == true`. Replacing `saturating_add` with `checked_add` (`crates/tickwire-transport/src/warmup.rs:161`) together with `CoreNode::step_inner`'s ready-gated deadline clamp and error/unready `record_activity` (`crates/tickwire-runtime/src/node.rs:431-451, 894-905`) makes `~last_runnable => step_wait_ns > 0` hold across all `0 .. 2^64 - 1` states.
-2. **Fix 4 inverted-range cut-point vs. stream-equivalence subtlety**:
-   - On an inverted range `mask_start > mask_end` inside `0..buf_len` (e.g. `7..3` with `buf_len = 10`), `tickwire_journal::crc32c::crc32c_masked` (`end = 3; start = min(7, 3) = 3`) clamps to `3..3`, whereas `tickwire_ipc::crc32c_masked` (`start = 7; end = max(3, 7) = 7`) clamps to `7..7`. Both zero-mask `0` bytes (`end - start == 0`) and stream the unmasked buffer `buf[..k] || buf[k..] == buf[..]` through associative Castagnoli CRC-32C `update`, which Z3 confirms for every symbolic byte index `probe_idx \in 0 .. buf_len - 1` (`JournalByteZeroed <=> IpcByteZeroed`).
+## 2. Cross-Fix Interaction at `now_ns == u64::MAX`
+- Pre-fix `next_due_ns` (`saturating_add`) returned `Some(u64::MAX)` whenever `anchor + warmup_interval_ns > u64::MAX`, which at `now_ns == u64::MAX` produced `can_warm(u64::MAX) == false` alongside `warm_due.saturating_sub(u64::MAX) == 0`. Replacing `saturating_add` with `checked_add` (`crates/tickwire-transport/src/warmup.rs:152-177`) makes `next_due_ns()` return `None` upon `u64` overflow, preserving `~last_runnable => step_wait_ns > 0` across all `0 .. 2^64 - 1` states.

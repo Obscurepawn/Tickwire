@@ -1,3 +1,7 @@
-# Binance spot execution
+# Binance ORS Bootstrap & Multi-Market Session Verification Plan
 
-The Binance app joins the public market-data SHM, launches a hosted strategy and drives a shared time/quota session, REST owner and private input owner from a single account loop. This ladder follows a real Binance spot order from one covered depth update to a worker-visible account fact. [L0](L0_spot_rest/05_output.md) starts from an authenticated and reconciled account. A future level could add partially written requests and process recovery to this composition.
+Source scope: [`crates/tickwire-binance-account`](../../../crates/tickwire-binance-account/src/session.rs), [`crates/tickwire-binance-execution`](../../../crates/tickwire-binance-execution/src/lib.rs), [`crates/tickwire-account`](../../../crates/tickwire-account/src/order_manager.rs), and [`crates/tickwire-venue`](../../../crates/tickwire-venue/src/client_id.rs).
+
+| Level | Focus |
+| --- | --- |
+| [`L0_binance_ors_bootstrap`](L0_binance_ors_bootstrap/05_output.md) | Stateless cold REST bootstrap (`Account + OpenOrders`) with `BalancesIncludeOpenOrderLocks` (`Spot` `free + locked` vs derivatives wallet balance), `SelfDescribingClientId` (`tw1...`) domain-keyed MAC attribution vs unmanaged foreign orders (`managed_only`), `DopState` watermark recovery, `GuardedValue` `listenKey` / user-stream lifecycle, non-overlapping `Order` -> `Connection` spinlock order dispatch, distinct `FrontAck` / `Ack` / `ProjectedFill` (`cumQty`) / `Fill` (`tradeId`) progression, and zero-disk cold restart recovery |

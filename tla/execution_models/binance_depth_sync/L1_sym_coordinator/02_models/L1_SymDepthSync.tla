@@ -65,7 +65,7 @@ VARIABLES
   (* @type: Int; *)
   clock_ns,
 
-  (* --- `pending: Option<PendingSnapshot>` (`depth_sync.rs:118-122,228-263`) --- *)
+  (* --- `pending: Option<(SnapshotToken, u64)>` (`crates/tickwire-binance/src/depth_sync.rs:134` and `crates/tickwire-binance/src/depth_sync.rs:230-264`) --- *)
   (* @type: Bool; *)
   pending_some,
   (* @type: Int; *)
@@ -77,7 +77,7 @@ VARIABLES
   (* @type: Int; *)
   pending_deadline_ns,
 
-  (* --- Symbolic `VecDeque<DepthUpdate>` + `first_u` (`depth_sync.rs:296-304,439-443`) --- *)
+  (* --- Symbolic `VecDeque<DepthUpdate>` + `first_u` (`crates/tickwire-binance/src/depth_sync.rs:301-310` and `crates/tickwire-binance/src/depth_sync.rs:468-472`) --- *)
   (* @type: Int; *)
   buf_len,
   (* @type: Bool; *)
@@ -133,7 +133,7 @@ VARIABLES
   (* @type: Int; *)
   book_gen,
 
-  (* --- Accepted snapshot origin witness (`depth_sync.rs:325-365`) --- *)
+  (* --- Accepted snapshot origin witness (`crates/tickwire-binance/src/depth_sync.rs:347-400`) --- *)
   (* @type: Bool; *)
   origin_some,
   (* @type: Int; *)
@@ -143,7 +143,7 @@ VARIABLES
   (* @type: Int; *)
   origin_req,
 
-  (* --- Pre-Solver Skolem witness for `issued` `SnapshotToken`s (`depth_sync.rs:252-261`) --- *)
+  (* --- Pre-Solver Skolem witness for `issued` `SnapshotToken`s (`crates/tickwire-binance/src/depth_sync.rs:254-264`) --- *)
   (* @type: Bool; *)
   sk_iss_some,
   (* @type: Int; *)
@@ -201,7 +201,7 @@ MaxBoundedSteps == 6
 POL_SPOT == 1
 POL_USDM == 2
 
-(* Coordinator `State` (`depth_sync.rs:42-55`): *)
+(* Coordinator `State` (`crates/tickwire-binance/src/depth_sync.rs:74-80`): *)
 PH_DISCONNECTED == 0
 PH_BUFFERING == 1
 PH_BRIDGING == 2
@@ -271,7 +271,7 @@ GoodClock(t) == (~clock_some) \/ (t >= clock_ns)
 ReadyRequest == (phase = PH_BUFFERING) /\ sub /\ first_some
 
 (* Exact `BinanceSpot` & `BinanceUsdM` sequence rule (`crates/tickwire-book/src/lib.rs:182-224`):
- * Note that in `BinanceSpot::classify` (`lib.rs:185-190`), `e_last <= b_id` is checked BEFORE
+ * Note that in `BinanceSpot::classify` (`crates/tickwire-book/src/lib.rs:185-190`), `e_last <= b_id` is checked BEFORE
  * `e_first > b_id + 1`. When `e_last <= EffU64Max` and `e_last > b_id`, `b_id < EffU64Max` holds
  * strictly, so `b_id + 1 <= EffU64Max` never overflows `u64::MAX`! *)
 ClassifyBook(pol, b_ph, b_id, e_first, e_last, e_prev) ==
@@ -320,7 +320,7 @@ ApplyQty(pol, b_ph, b_id, b_st_some, b_st, b_qty, e_first, e_last, e_prev, e_st,
       nph == ApplyPhase(pol, b_ph, b_id, b_st_some, b_st, e_first, e_last, e_prev, e_st, e_val)
   IN IF (c = CLS_STALE) \/ (nph = BK_INVALID) THEN b_qty ELSE e_qty
 
-(* Helper macros for Exhaust / Reset transitions (`depth_sync.rs:439-476`): *)
+(* Helper macros for Exhaust / Reset transitions (`crates/tickwire-binance/src/depth_sync.rs:468-505`): *)
 ClearBufSlots ==
   /\ buf_head_first' = 0 /\ buf_head_last' = 0 /\ buf_head_prev' = 0
   /\ buf_head_stamp' = 0 /\ buf_head_qty' = 0 /\ buf_head_valid' = TRUE /\ buf_head_gen' = 0
@@ -425,7 +425,7 @@ Init ==
   /\ old_cb_ok = TRUE /\ retry_keep_ok = TRUE /\ stale_keep_ok = TRUE
   /\ gen_mono_ok = TRUE /\ req_mono_ok = TRUE /\ snap_stamp_ok = TRUE /\ u64_safe_ok = TRUE
 
-(* --- Public Coordinator Transitions (`depth_sync.rs:202-438`) --- *)
+(* --- Public Coordinator Transitions (`crates/tickwire-binance/src/depth_sync.rs:204-462`) --- *)
 
 Connect ==
   /\ CanStep
@@ -863,7 +863,7 @@ SnapshotInvalid ==
             old_cb_ok, retry_keep_ok, stale_keep_ok, req_mono_ok, snap_stamp_ok
           >>
 
-(* Atomic snapshot install + buffered delta replay (`depth_sync.rs:349-370`): *)
+(* Atomic snapshot install + buffered delta replay (`crates/tickwire-binance/src/depth_sync.rs:381-399`): *)
 SnapshotResponse(want_delayed) ==
   /\ CanStep
   /\ pending_some

@@ -1,5 +1,5 @@
-# 输入
+# L1 input
 
-继承 L0 请求登记与完成逻辑，增加 `Session.check_time/validate/renew`。固定一个已成功握手的会话：初始 now=1、deadline=1+Lease、revision=1、closed=false；相应构造与初始状态见 `crates/tickwire-control/src/lib.rs:247-282`。身份和协商的字节级检查仍由 Rust 测试负责。
+Extends `L0_registry` request admission and completion with `Session::{check_time, validate, renew}` for an established authenticated session (`now = 1`, `deadline = 1 + Lease`, `revision = 1`, `closed = false`; see `crates/tickwire-control/src/lib.rs:247-282`).
 
-时间检查、帧检查和续租来自 `crates/tickwire-control/src/lib.rs:386-457`；请求部分源锚点与 L0 一致。没有后台线程隐式续租，没有自动过期定时器；过期在下次 validate/renew 的 check_time 处变为永久关闭。
+Monotonic clock validation, frame validation, and lease renewal follow `crates/tickwire-control/src/lib.rs:386-457` alongside the `requests.rs` anchors from `L0_registry`. No background thread renews or expires sessions implicitly: expiration latches permanent `closed = true` on the next `validate` or `renew` call (`check_time`).

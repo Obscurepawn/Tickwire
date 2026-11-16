@@ -25,22 +25,24 @@ Variable <-> Rust source mapping:
   `Order.{filled, exch_cum_qty, exch_quote_qty, exch_avg_qty, projected_cum_qty,
   terminal, effective}`, `Account::apply_event` (`FactKey` trade deduplication),
   and `Account::on_cum_qty`,
-  crates/tickwire-account/src/lib.rs:325-370,
-  crates/tickwire-account/src/events.rs:84-175,
-  crates/tickwire-account/src/projected_fill.rs:60-280,
-  crates/tickwire-account/src/modifications.rs:633-668.
+  crates/tickwire-account/src/lib.rs:125-172,
+  crates/tickwire-account/src/events.rs:219-363,
+  crates/tickwire-account/src/events.rs:562-695,
+  crates/tickwire-account/src/projected_fill.rs:60-279,
+  crates/tickwire-account/src/modifications.rs:707-755.
 - opp_cross_open, crossed_projection_emitted:
   `CHECK_STP` suppression via `self.stp_enforcement && self.stp_book.self_cross(...)`
   inside `Account::on_cum_qty`,
-  crates/tickwire-account/src/projected_fill.rs:134-142,
+  crates/tickwire-account/src/projected_fill.rs:134-145,
   crates/tickwire-account/src/stp_book.rs:189-204.
 - strat_confirmed, strat_projected, strat_seen_trades, strat_emitted_skew,
   strat_retired:
   `OrderWatermarkEntry` and `FillWatermarkTracker::{on_projected_fill,
   on_cumulative_quantity, on_fill_fixed, mark_retired}`,
-  crates/tickwire-strategy-sdk/src/microstructure.rs:622-655,
-  crates/tickwire-strategy-sdk/src/microstructure.rs:770-1065,
-  crates/tickwire-strategy-sdk/src/microstructure.rs:1205-1277.
+  crates/tickwire-strategy-sdk/src/microstructure.rs:320-351,
+  crates/tickwire-strategy-sdk/src/microstructure.rs:465-472,
+  crates/tickwire-strategy-sdk/src/microstructure.rs:605-875,
+  crates/tickwire-strategy-sdk/src/microstructure.rs:1025-1182.
 *)
 
 MaxTrades == Cardinality(Trades)
@@ -149,8 +151,8 @@ VenueExecuteTrade ==
 
 \* 2. Out-of-order or current CumulativeQuote status arrives at Account::on_cum_qty
 \* and propagates any ProjectedFill to FillWatermarkTracker::on_projected_fill
-\* (crates/tickwire-account/src/projected_fill.rs:60-245,
-\*  crates/tickwire-strategy-sdk/src/microstructure.rs:794-835).
+\* (crates/tickwire-account/src/projected_fill.rs:60-258,
+\*  crates/tickwire-strategy-sdk/src/microstructure.rs:605-644).
 DeliverStatusCumQuote(snap_qty) ==
     LET snap_quote == SumQuote(PrefixSet(snap_qty))
         prev_quote_notional == SumQuote(PrefixSet(exch_quote_qty))
@@ -201,7 +203,7 @@ DeliverStatusCumQuote(snap_qty) ==
 
 \* 3. Status frame without cumulative quote (LimitFallback) advances exch_cum_qty
 \* while preserving exch_quote_qty denominator for later CumulativeQuote frames
-\* (crates/tickwire-account/src/projected_fill.rs:215-245).
+\* (crates/tickwire-account/src/projected_fill.rs:215-258).
 DeliverStatusLimitFallback(snap_qty) ==
     LET stp_blocked == (CheckStp /\ opp_cross_open)
         new_acct_proj ==
@@ -237,8 +239,8 @@ DeliverStatusLimitFallback(snap_qty) ==
        >>
 
 \* 4. Out-of-order stale status (cum_qty <= exch_cum_qty) is a strict no-op
-\* (crates/tickwire-account/src/projected_fill.rs:88-96,
-\*  crates/tickwire-strategy-sdk/src/microstructure.rs:895-902).
+\* (crates/tickwire-account/src/projected_fill.rs:129-132,
+\*  crates/tickwire-strategy-sdk/src/microstructure.rs:720-722).
 DeliverStaleStatus(stale_qty) ==
     /\ ~stale_tested
     /\ exch_cum_qty >= 1
@@ -256,8 +258,9 @@ DeliverStaleStatus(stale_qty) ==
        >>
 
 \* 5. Out-of-order settled FillEvent(t) arrives at Account::apply_event and
-\* FillWatermarkTracker::on_fill_fixed (crates/tickwire-account/src/events.rs:84-144,
-\* crates/tickwire-strategy-sdk/src/microstructure.rs:995-1065).
+\* FillWatermarkTracker::on_fill_fixed (crates/tickwire-account/src/events.rs:219-363,
+\* crates/tickwire-account/src/events.rs:562-695,
+\* crates/tickwire-strategy-sdk/src/microstructure.rs:805-875).
 DeliverSettledFill(t) ==
     LET new_settled == settled_filled + 1
         new_acct_proj == Max(acct_projected_qty, new_settled)
@@ -291,8 +294,8 @@ DeliverSettledFill(t) ==
 
 \* 6. Duplicate trade_id replay is deduplicated in both Account.facts and
 \* FillWatermarkTracker.seen_trades with zero effective_delta
-\* (crates/tickwire-account/src/events.rs:109-134,
-\*  crates/tickwire-strategy-sdk/src/microstructure.rs:1009-1028).
+\* (crates/tickwire-account/src/events.rs:219-363,
+\*  crates/tickwire-strategy-sdk/src/microstructure.rs:826-853).
 DeliverDuplicateFill(t) ==
     /\ ~dup_tested
     /\ t \in acct_seen_trades
@@ -308,8 +311,8 @@ DeliverDuplicateFill(t) ==
        >>
 
 \* 7. Modify increases order quantity after partial fill while keeping watermarks
-\* monotonic and unretired (crates/tickwire-account/src/modifications.rs:633-668,
-\* crates/tickwire-strategy-sdk/src/microstructure.rs:770-777).
+\* monotonic and unretired (crates/tickwire-account/src/modifications.rs:707-755,
+\* crates/tickwire-strategy-sdk/src/microstructure.rs:648-684).
 ApplyOrderModifyIncrease ==
     /\ ~order_terminal
     /\ cur_qty < MaxModifiedQty
@@ -341,7 +344,7 @@ CancelOppositeCrossOrder ==
        >>
 
 \* 9. Order becomes terminal (canceled or fully settled) and retires strategy watermark
-\* once settled fills catch up (crates/tickwire-account/src/events.rs:553-625).
+\* once settled fills catch up (crates/tickwire-account/src/events.rs:770-896).
 ObserveTerminalOrder ==
     /\ ~order_terminal
     /\ settled_filled = venue_executed
@@ -358,8 +361,8 @@ ObserveTerminalOrder ==
        >>
 
 \* 10. Late status frame on a terminal/retired order never emits ProjectedFill
-\* (crates/tickwire-account/src/projected_fill.rs:81-87,
-\*  crates/tickwire-strategy-sdk/src/microstructure.rs:804-808).
+\* (crates/tickwire-account/src/projected_fill.rs:124-127,
+\*  crates/tickwire-strategy-sdk/src/microstructure.rs:605-644).
 SuppressStatusOnTerminalOrder ==
     /\ order_terminal
     /\ ~terminal_suppress_tested

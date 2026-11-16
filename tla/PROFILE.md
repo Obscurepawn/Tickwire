@@ -1,20 +1,21 @@
-# Verification scope
+# Tickwire Formal Verification Profile (`PROFILE.md`)
 
-The November 5 audit uses the Linux single-host workspace at `9b2ed63`. It includes Binance, Bybit and OKX source code and all Cargo workspace members in the coverage inventory. Market publishers, independent strategy producers, the serialized account owner and asynchronous private capture have separate observation points. The formal models project documented interfaces onto finite state domains. Venue truth, kernel/TLS behavior and the Rust memory model need their own evidence. [Current audit](audits/2026-11-05/README.md)
+## 1. System Under Verification
 
-## Historical scope of the original ladders
+Tickwire is a pure stateless 3-process Linux shared-memory (`memfd`-sealed) ultra-low-latency trading system anchored to `main` (`438551c`) ([November 2026 audit](audits/2026-11-16/README.md)):
 
-目标是验证单所有者交易 reducer 的资金预留、发送准入和崩溃恢复，再逐层加入行情、IPC、多进程接管。用户的完整目标仍覆盖 Binance 现货与 USDⓈ-M；当前模型结论按各级实际覆盖范围记录。
+- **Market-Data Publisher (`tickwire-md`):** Sole owner of public exchange WebSocket/REST depth feeds, sequence-continuity state machines, audited SIMD BBO parsers, bounded in-memory JOIN idempotency state, and SPMC `memfd` broadcast rings (`crates/tickwire-md`, `crates/tickwire-market-publisher`, `crates/tickwire-market-source`, `crates/tickwire-book`, `crates/tickwire-binance`, `crates/tickwire-shm`, `crates/tickwire-join`).
+- **Strategy Workers (`tickwire-strategy-host` / `tickwire-strategy-sdk`):** Independent SHM ring readers exchanging fixed-size `IntentRecord` (`1024B`) and `ReportRecord` (`512B`) messages with the ORS execution process (`crates/tickwire-strategy-sdk`, `crates/tickwire-strategy-host`, `crates/tickwire-control`).
+- **Unified Multi-UID ORS Execution Process (`1 ORS = 1 Venue`):** Manages `1..N` `AccountSession`s (`account_ref = 1..255`, with `0` resolving to the strategy's default authorized account) across dedicated `REQ` (`req_cpu`) and `RESP` (`resp_cpu`) hot threads isolated from cold `housekeeping_cpus` (`Dialer`, `OrsQueryDesk`, `LatencyTracer`, `ControlServer`). Recovers cold startup state exclusively from authenticated Exchange REST `Account + OpenOrders` snapshots paired with 32-character `[0-9a-z]` `tw1...` `SelfDescribingClientId` attribution (`crates/tickwire-runtime`, `crates/tickwire-account`, `crates/tickwire-account-gateway`, `crates/tickwire-runtime-policy`, `crates/tickwire-risk`, `crates/tickwire-transport`, `crates/tickwire-quota`, `crates/tickwire-binance-account`, `crates/tickwire-binance-execution`, `crates/tickwire-binance-private`, `crates/tickwire-binance-quota`, `crates/tickwire-spot-execution`, `crates/tickwire-clock`, `crates/tickwire-clock-sys`, `crates/tickwire-venue`).
 
-- 源码：`crates/tickwire-execution`、`crates/tickwire-mock`、`crates/tickwire-book`、`crates/tickwire-risk`、`crates/tickwire-ipc`、`crates/tickwire-shm`、`crates/tickwire-shm-sys`、`crates/tickwire-control`、`crates/tickwire-control-sys`、`crates/tickwire-journal`、`crates/tickwire-business-journal`、`crates/tickwire-recovery`、`crates/tickwire-join`。设计依据：`docs/design/`、接口依据：`docs/implementation/`、实现契约：`specs/implementation/`。
-- 排除：第三方 toolchain、`target/`、未实现的实盘 TLS/WS/FIX、真实 SQL/KV 和跨主机副本。物理 WAL/FileStore、业务日志与恢复依赖已有独立模型和真实文件测试；完成点分别记在相应模型中。mock 的持久化含义是对象跨模拟 exec 重启存活，不能据此证明 fsync 或机器掉电。
-- Rust Cargo workspace；`Engine` 的变更使用 `&mut self`，`MockRuntime` 同步串行调用 `reserve → commit → accept_commit → begin_send → exchange.submit → result`。选定模型没有两个线程同时写 Engine；故障级允许进程在这些操作之间崩溃。
-- 当前关键状态：订单槽固定容量；订单 request 固定 commit_profile；durable 代表满足该 profile 的回执已经接受；MayHaveSent 代表已授权给传输层但缺乏完整终结证据；恢复将全部 durable intent 置为 MayHaveSent 并冻结准入。
-- 故障模型：日志操作失败、记录已保存但回执丢失、发送结果未知、exec 进程重启。日志和交易所 mock 跨重启存活；不注入数据篡改、磁盘丢失或伪造回执。
-- 模型边界使用 const-generic 容量的小实例：L0 两/三 intent，L1 一/二 intent、最多一/两次重启；数值预算归一到小正整数以穷举准入竞争。边界覆盖不是对生产容量的性能证明。
-- Toolchain：TLC 1.7.4；机器路径位于被忽略的 `config.env`。`run_tlc.sh --det --coverage` 固定单 worker 并清理 scratch。现有 Java 8 可执行此 TLC 版本的 smoke；正式运行结果另记录。
+## 2. Concurrency & Lock-Hierarchy Boundaries
 
-- 控制请求当前由同步 `&mut Session`/`&mut MockRequestStore` 串行处理。L0 验证登记，L1 加入单调期限；Linux FD/认证由真实进程测试覆盖。生产 launcher 需保持同一 time namespace 并保证 epoch/nonce 不复用。
-- 物理 WAL L0 使用固定段、帧粒度的写入/同步/收据/崩溃模型；分段与 manifest 的真实实现已有 Rust 故障回归，形式模型留待 L1。没有外部可信前缀时，不声称检测成功同步后媒体无声删除整个尾批。
-- 当前 Mock 按 intent/fact 的实际保存顺序恢复，NoBytes 中止先保存再释放；旧 submission L1/L2 的恢复组合因此保留为历史版本。mock_abort 验证当前零成交、零费用子集，交易结果记录组合尚需新版本模型。
-- recovery_closure 区分文件内容、重命名可见、目录同步完成和验证结果交付。business_journal 在受信授权与依赖完成后同步 WAL，并重新采样发送条件；模型固定身份与有界无成交场景，不推导真实网络发包期限。
+- **Non-overlapping fine-grained spinlocks:** `LockedOrder` and `LockedConnection` spinlocks never overlap (`REQ` releases `LockedOrder` before acquiring `LockedConnection` to transmit a frame; `RESP` releases `LockedConnection` before acquiring `LockedOrder` to apply a venue event).
+- **Leaf-only `StpBook` lock:** `StpBook` is acquired strictly while holding a single `LockedOrder` spinlock during resting-order insert, modify, or terminal unlink; send-path self-trade prevention (`self_cross`) reads published atomic best bid/ask ticks without locking `StpBook`.
+- **Cold-thread handoffs:** `Dialer` hands freshly authenticated sockets to hot-path `OrderRouter` pools via lock-free `DialBaton` slots; `OrsQueryDesk` resolves uncertain orders (`-1007`, `-1000`, `MKT_DELAYED`, socket drops) asynchronously without blocking `REQ` or `RESP`.
+
+## 3. Toolchain & Verification Gates
+
+- **Finite-State Model Checking (`TLC 2.19`):** Pinned `tla/tools/tla2tools.jar` (`SHA-256: 936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88`), orchestrated by `./scripts/check-tla.sh` with LPT multi-core scheduling, zero-touch `@TLAPlusOperator` bytecode overrides for large arithmetic/replay state spaces, and mandatory 100% nonzero action coverage (`scripts/tlc_coverage.py`).
+- **Symbolic 64-Bit / 128-Bit Induction & BMC (`Apalache 0.63.0 + Z3`):** Snowcat-typed symbolic specifications (`L*_Sym*.tla`) verify inductive invariants (`IndInv`) and overflow-free `u32`/`u64`/`u128` linear integer arithmetic (`QF_LIA`) across unbounded execution horizons (`\forall k >= 0`).
+- **Zero-Drift Source Anchors (`anchors.lock`):** Every modeled level under `tla/execution_models/*/L*/02_models/` tracks SHA-256 digests of its cited core-crate Rust source lines in `anchors.lock`, verified automatically by `anchors.sh check tla` and `./scripts/check-tla.sh`.

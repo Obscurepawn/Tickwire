@@ -1,4 +1,4 @@
-# 时钟验证待办
+# Clock verification follow-up
 
-- `L0_calibration` 四配置 TLC 全量穷举与 `L1_sym_calibration` 无界 64 位符号归纳 (`Apalache + Z3`) 均已完成，16/16 动作覆盖与源码锚点零漂移。
-- 网络客户端、系统时钟提供者与发送协调器组合留待后续层级。
+- Both `L0_calibration` (4-configuration exhaustive TLC) and `L1_sym_calibration` (unbounded 64-bit symbolic induction via `Apalache + Z3`) are complete with `16/16` action coverage and zero anchor drift.
+- Native OS clock owner and private-session budget-callback composition are verified in `system_clock` and `binance_private_session`.

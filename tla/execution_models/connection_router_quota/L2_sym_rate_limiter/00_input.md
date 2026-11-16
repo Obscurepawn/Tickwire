@@ -1,0 +1,3 @@
+# Can unbounded 64-bit timestamps, arbitrary window capacities, or `u128` threshold arithmetic violate `RateLimiter` invariants?
+
+Can `RateLimiter` and `VenueRateLimiter` (`crates/tickwire-quota/src/rate_limiter.rs:500-847`, `1117-1469`, `1921-2268`) violate window caps, diverge between `can_afford` and `allow` on duplicate `RateLimitId` spends, leak debits during reverse-order `put_back` rollback, or overflow `u64`/`u128` arithmetic near `u64::MAX` across arbitrary capacities (`1 .. 2^64 - 1`) and unbounded trace depth (`k >= 0`)? [Quota specification](../../../../specs/implementation/quota.md)

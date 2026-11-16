@@ -1,13 +1,13 @@
 --------------------------- MODULE L0_CashEnvelope ---------------------------
 EXTENDS Integers
-\* Code revision 9b2ed63. One serial spot Account, price=1, fees=0, exact same-scale atoms.
-\* rest   remaining signed quantities; crates/tickwire-account/src/lib.rs:99-112,
-\*        calculation.rs:138-167,438-457. Positive is buy, negative is sell (model encoding).
-\* delta  per-strategy base cashflow; account/src/events.rs:214-257,296-305; quote flow=-base.
-\* used   occupied logical order slots; admission.rs:121-151,233-256,297-300.
+\* One serial spot Account, price=1, fees=0, exact same-scale atoms.
+\* rest   remaining signed quantities; crates/tickwire-account/src/lib.rs:250-281,
+\*        crates/tickwire-account/src/calculation.rs:150-204 and crates/tickwire-account/src/calculation.rs:502-521.
+\* delta  per-strategy base cashflow; crates/tickwire-account/src/events.rs:626-641 and crates/tickwire-account/src/events.rs:696-706.
+\* used   occupied logical order slots; crates/tickwire-account/src/admission.rs:184-192, crates/tickwire-account/src/admission.rs:286-307 and crates/tickwire-account/src/admission.rs:370-374.
 \* result, before = observable disposition, pre-refusal economic state (historical ghost);
-\*        account/src/admission.rs:4-31; account-gateway/src/lib.rs:421-430.
-\* frozen = post-fact account gate; account/src/events.rs:120-129. MaxQty and limits finite.
+\*        crates/tickwire-account/src/admission.rs:4-30, crates/tickwire-account-gateway/src/lib.rs:655-694 and crates/tickwire-risk/src/rms.rs:1192-1255.
+\* frozen = post-fact account gate; crates/tickwire-account/src/events.rs:458-460 and crates/tickwire-account/src/admission.rs:72-74.
 CONSTANT Base, Quote, BaseLock, QuoteLock, SecondShort, MaxQty, AbsCap, GrossCap, MemberCap
 VARIABLES rest, delta, used, result, before, frozen
 vars == <<rest,delta,used,result,before,frozen>>
@@ -27,8 +27,8 @@ Buy(r) == Pos(r[1])+Pos(r[2])
 Sell(r) == Pos(-r[1])+Pos(-r[2])
 
 \* Account::asset passes synthetic coverage=0, actual_debit=0, remaining_reserve=resource sum.
-\* crates/tickwire-account/src/calculation.rs:229-265,410-436; account_inputs.rs:474-497;
-\* crates/tickwire-risk/src/spot.rs:134-181 and fixed.rs:134-165 checked at one scale.
+\* crates/tickwire-account/src/calculation.rs:265-304, crates/tickwire-account/src/calculation.rs:474-501 and crates/tickwire-account/src/account_inputs.rs:545-566;
+\* crates/tickwire-risk/src/spot.rs:134-182 and crates/tickwire-risk/src/fixed.rs:134-189 checked at one scale.
 Spare(total,locked,credit,debit,hold) ==
   LET localFree == (total+credit-debit)-locked-hold
       venueCap == (total-locked)+credit-debit-Pos(hold)
@@ -38,7 +38,7 @@ Cash(r,d) ==
   LET cr == Pos(d[1])+Pos(d[2]) dr == Pos(-d[1])+Pos(-d[2])
   IN /\ Spare(Base,BaseLock,cr,dr,Sell(r))>=0
      /\ Spare(Quote,QuoteLock,dr,cr,Buy(r))>=0
-\* crates/tickwire-account/src/calculation.rs:438-457,478-515. Bucket zero has no orders.
+\* crates/tickwire-account/src/calculation.rs:502-582. Bucket zero has no orders.
 Limits(r,d) ==
   LET actual == BaseNow(d)
       strategy == [i \in M |-> Abs(Own(d,i))+Abs(r[i])]
@@ -50,7 +50,7 @@ Allowed(r,d) == Cash(r,d) /\ Limits(r,d)
 Econ == <<rest,delta,used>>
 Init == /\ rest=Zero /\ delta=Zero /\ used={} /\ frozen=FALSE
         /\ result="start" /\ before = <<Zero,Zero,{}>>
-\* Git source: crates/tickwire-account/src/admission.rs:4-31,143-159,233-256,297-300.
+\* Git source: crates/tickwire-account/src/admission.rs:4-30, crates/tickwire-account/src/admission.rs:184-192 and crates/tickwire-account/src/admission.rs:370-472.
 Admit ==
   \E m \in M \ used, q \in ((-MaxQty)..MaxQty) \ {0} :
     LET r == [rest EXCEPT ![m]=q] IN
@@ -60,15 +60,15 @@ Refuse ==
   \E m \in M \ used, q \in ((-MaxQty)..MaxQty) \ {0} :
     /\ ~Allowed([rest EXCEPT ![m]=q],delta)
     /\ before'=Econ /\ result'="refused" /\ UNCHANGED <<rest,delta,used,frozen>>
-\* crates/tickwire-account/src/events.rs:180-235,244-269,296-305,125-129.
+\* crates/tickwire-account/src/events.rs:458-460, crates/tickwire-account/src/events.rs:562-644 and crates/tickwire-account/src/events.rs:675-706.
 Fill ==
   \E m \in M : \E lots \in 1..Abs(rest[m]) :
     LET n == IF rest[m]>0 THEN lots ELSE -lots
         d == [delta EXCEPT ![m]=@+n] r == [rest EXCEPT ![m]=@-n]
     IN /\ rest'=r /\ delta'=d /\ frozen'=(frozen \/ ~Allowed(r,d))
        /\ result'="fill" /\ UNCHANGED <<used,before>>
-\* Terminal cancellation with exact cumulative records. account/src/lib.rs:99-112;
-\* crates/tickwire-account/src/events.rs:119-129,363-459. No blind release on a cancel ACK.
+\* Terminal cancellation with exact cumulative records. crates/tickwire-account/src/lib.rs:250-265;
+\* crates/tickwire-account/src/events.rs:458-460 and crates/tickwire-account/src/events.rs:813-895. No blind release on a cancel ACK.
 Cancel ==
   \E m \in M :
    /\ rest[m]#0 /\ rest'=[rest EXCEPT ![m]=0] /\ result'="terminal"

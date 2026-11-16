@@ -1,4 +1,0 @@
-  ok execution_models/recovery_closure/L0_publish_verify: 203 line anchor(s) -> execution_models/recovery_closure/L0_publish_verify/02_models/anchors.lock
-anchors.sh update: baselined 1 level(s); 203 line(s) tracked (unresolved/out-of-range anchors warned above, not failed)
-anchors.sh check: 203 anchor line(s) across 1 lock(s); 0 changed
-no drift — cited lines unchanged since baseline

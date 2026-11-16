@@ -1,86 +1,69 @@
 ---------------------- MODULE L0_ZeroCopyAndCrcGate ----------------------
-EXTENDS Naturals, Integers, Sequences, FiniteSets
+EXTENDS Naturals, Integers, FiniteSets
 
 CONSTANTS
     Consumers,
     RingCapacity,
     MaxRingSeq,
-    MaxWalBatches,
+    MaxArenaBlocks,
     CrcEnabled
 
 (*
 ============================ var <-> code map ============================
-Code-faithful model of Optimization #1 (compile-time `crc32` feature gate across
-`tickwire-ipc` and `tickwire-journal`) and Optimization #5 (`#[repr(C)]` 512-byte
-8-byte-aligned pure-integer `MarketRecord` zero-copy `&MarketRecord` borrow over
-`tickwire-shm::RecordBorrow`).
+Code-faithful model of pure shared-memory (`memfd`) zero-copy record borrowing
+(`tickwire-shm::RecordBorrow`), release-watermark-gated `ShmArenaWriter` /
+`ShmArenaReader` oversize payload reclamation (`tickwire-strategy-sdk::arena`),
+and compile-time `crc32` feature gating with zero local WAL or disk state.
 
 CONSTANTS
-  Consumers     - SPMC strategy reader set (e.g. {1, 2})
-  RingCapacity  - ring slot count (power-of-two finite ring, e.g. 2)
-  MaxRingSeq    - maximum published sequence (> RingCapacity to force wraparound)
-  MaxWalBatches - maximum sealed WAL batches in segment
-  CrcEnabled    - compile-time `cfg!(feature = "crc32")` mode:
-                  crates/tickwire-ipc/Cargo.toml:14-16,
-                  crates/tickwire-journal/Cargo.toml:12-14
+  Consumers      - SPMC strategy subscriber set (e.g. {1, 2})
+  RingCapacity   - ring slot count (power-of-two finite ring, e.g. 2)
+  MaxRingSeq     - maximum published sequence (> RingCapacity to force wraparound)
+  MaxArenaBlocks - `ArenaClass.block_count` in `ShmArenaWriter`:
+                   crates/tickwire-strategy-sdk/src/arena.rs:263-270,
+                   crates/tickwire-strategy-sdk/src/arena.rs:325-337
+  CrcEnabled     - compile-time `cfg!(feature = "crc32")` mode:
+                   crates/tickwire-strategy-sdk/src/arena.rs:339-348
 
 VARIABLES
   ring_slots[s]      - 512B 8B-aligned shared-memory slot image & ABI layout metadata:
-                       crates/tickwire-shm/src/mapped.rs:447-615,
-                       crates/tickwire-ipc/src/wire.rs:437-458,
-                       crates/tickwire-ipc/src/wire.rs:698-725,
-                       crates/tickwire-ipc/src/wire.rs:1472-1479,
-                       crates/tickwire-ipc/src/wire.rs:4103-4215,
-                       crates/tickwire-ipc/tools/generate.py:16-24,
-                       crates/tickwire-ipc/tools/generate.py:154-245.
+                       crates/tickwire-shm/src/mapped.rs:455-614,
+                       crates/tickwire-shm/src/mapped.rs:825-945.
                        write_gen increments on every producer slot mutation.
+  arena_blocks[b]    - `ShmArenaWriter` block state (`owner_seq`, `payload_crc`,
+                       `corrupted`, `write_gen`):
+                       crates/tickwire-strategy-sdk/src/arena.rs:241-386,
+                       crates/tickwire-strategy-sdk/src/arena.rs:400-502.
   prod_state         - producer two-phase write state {"Idle", "Writing"}:
-                       crates/tickwire-shm/src/lib.rs:275-312,
-                       crates/tickwire-shm/src/mapped.rs:466-515.
+                       crates/tickwire-shm/src/lib.rs:280-332,
+                       crates/tickwire-shm/src/mapped.rs:460-556.
   prod_writing_slot  - physical slot index currently being overwritten (-1 if Idle).
   published_seq      - producer `PUBLISHED` release watermark:
-                       crates/tickwire-shm/src/mapped.rs:511-515.
-                       DENOTES: complete-publication content boundary.
+                       crates/tickwire-shm/src/lib.rs:327-332,
+                       crates/tickwire-shm/src/mapped.rs:536-556.
   cached_min_rel     - producer conservative cached minimum `RELEASED` watermark:
-                       crates/tickwire-shm/src/lib.rs:251-312,
+                       crates/tickwire-shm/src/lib.rs:256-318,
                        crates/tickwire-shm/src/mapped.rs:359-407.
-                       DENOTES: lower bound on slots no longer borrowed by any consumer.
   obs_rel[c]         - producer-sampled `RELEASED` watermark for consumer c:
                        crates/tickwire-shm/src/mapped.rs:359-380.
   cons_read[c]       - consumer `read` sequence watermark:
-                       crates/tickwire-shm/src/mapped.rs:737-766.
+                       crates/tickwire-shm/src/lib.rs:471-502,
+                       crates/tickwire-shm/src/mapped.rs:737-770.
   cons_rel[c]        - consumer `RELEASED` sequence watermark (advances ONLY on Drop):
-                       crates/tickwire-shm/src/mapped.rs:768-793,
+                       crates/tickwire-shm/src/lib.rs:503-525,
+                       crates/tickwire-shm/src/mapped.rs:772-793,
                        crates/tickwire-shm/src/mapped.rs:946-952.
-  active_borrow[c]   - live `RecordBorrow<'a>` guard pinning slot & `snap_gen`:
+  active_borrow[c]   - live `RecordBorrow<'a, B>` guard pinning slot & arena block:
                        crates/tickwire-shm/src/mapped.rs:825-952,
-                       crates/tickwire-market-source/src/shm.rs:283-309,
-                       crates/tickwire-market-source/src/replica.rs:383-498,
-                       crates/tickwire-strategy-sdk/src/worker.rs:701-737.
-  zc_last_outcome    - result of `RecordBorrow::as_market_record` / `from_aligned_bytes`:
-                       crates/tickwire-ipc/src/zerocopy.rs:46-286,
-                       crates/tickwire-ipc/src/crc32c.rs:45-120,
-                       crates/tickwire-ipc/src/lib.rs:284-396.
-  wal_state          - `tickwire-journal` segment lifecycle {"Open","Crashed","Recovered","Quarantined"}:
-                       crates/tickwire-journal/src/journal.rs:207-408.
-  wal_frames         - physical WAL frames (`BatchBegin`, `DataRecord`, `BatchSeal`) with
-                       `header_crc`, `payload_crc`, SHA-256 `prev_hash -> frame_hash`,
-                       `repeated_len_ok`, and `end_magic_ok`:
-                       crates/tickwire-journal/src/frame.rs:75-193,
-                       crates/tickwire-journal/src/crc32c.rs:45-126.
-  wal_sealed_batches - durable `BatchSeal` count before crash:
-                       crates/tickwire-journal/src/journal.rs:292-365.
-  wal_recovered_batches - batch count restored by `Journal::recover`:
-                       crates/tickwire-journal/src/journal.rs:375-408.
-  ring_fault_used    - bounds ring corruption fault injection to 1 per run.
+                       crates/tickwire-market-source/src/shm.rs:284-309,
+                       crates/tickwire-strategy-sdk/src/worker.rs:243-310,
+                       crates/tickwire-runtime/src/ors.rs:1487-1503.
+  zc_last_outcome    - result of `RecordBorrow::as_market_record` / `depth_payload`
+                       and `ShmArenaReader::read_retained_payload`:
+                       crates/tickwire-shm/src/mapped.rs:884-945,
+                       crates/tickwire-strategy-sdk/src/arena.rs:439-502.
+  ring_fault_used    - bounds ring or arena bit-flip fault injection to 1 per run.
   probe_tested       - bounds misaligned/wrong-size cast rejection probe to 1 per run.
-
-FAULTS MODELED:
-  - arbitrary slow/stalled consumer holding `RecordBorrow` across producer wraparound;
-  - unaligned / wrong-size / non-market (`ReportNonMarket`) zero-copy cast attempts;
-  - shared-memory bit-flip corruption under `CrcEnabled = TRUE`;
-  - crash mid-batch leaving an unsealed torn WAL tail;
-  - offline storage bit-flip inside a sealed WAL frame under both `CrcEnabled` modes.
 ==========================================================================
 *)
 
@@ -88,13 +71,14 @@ ASSUME
     /\ Consumers # {}
     /\ RingCapacity >= 2
     /\ MaxRingSeq > RingCapacity
-    /\ MaxWalBatches >= 1
+    /\ MaxArenaBlocks >= 1
     /\ CrcEnabled \in BOOLEAN
 
 Slots == 0..(RingCapacity - 1)
-MsgTypes == {"None", "MarketBbo", "MarketDepthInline", "ReportNonMarket"}
-PublishableMsgTypes == {"MarketBbo", "MarketDepthInline", "ReportNonMarket"}
-MarketMsgTypes == {"MarketBbo", "MarketDepthInline"}
+ArenaBlocks == 1..MaxArenaBlocks
+MsgTypes == {"None", "MarketBbo", "MarketDepthArena", "ReportNonMarket"}
+PublishableMsgTypes == {"MarketBbo", "MarketDepthArena", "ReportNonMarket"}
+MarketMsgTypes == {"MarketBbo", "MarketDepthArena"}
 ProdStates == {"Idle", "Writing"}
 ZcOutcomes == {
     "Init",
@@ -103,8 +87,6 @@ ZcOutcomes == {
     "ErrWrongMsgType",
     "ErrChecksum"
 }
-WalStates == {"Open", "Crashed", "Recovered", "Quarantined"}
-WalFrameKinds == {"BatchBegin", "DataRecord", "BatchSeal"}
 
 SlotOf(seq) == (seq - 1) % RingCapacity
 
@@ -113,19 +95,13 @@ MinSet(S) == CHOOSE x \in S : \A y \in S : x <= y
 ExpectedRecordCrc(seq, mtype) ==
     IF ~CrcEnabled THEN 0
     ELSE IF mtype = "MarketBbo" THEN seq * 10 + 1
-    ELSE IF mtype = "MarketDepthInline" THEN seq * 10 + 2
+    ELSE IF mtype = "MarketDepthArena" THEN seq * 10 + 2
     ELSE seq * 10 + 3
 
 ExpectedPayloadCrc(seq, mtype) ==
     IF ~CrcEnabled THEN 0
-    ELSE IF mtype = "MarketDepthInline" THEN seq * 20 + 7
+    ELSE IF mtype = "MarketDepthArena" THEN seq * 20 + 7
     ELSE 0
-
-ExpectedWalCrc(batch, ord) ==
-    IF ~CrcEnabled THEN 0 ELSE batch * 100 + ord
-
-ExpectedWalHash(prev_hash, batch, ord, h_crc, p_crc) ==
-    ((prev_hash * 31 + batch * 17 + ord * 13 + h_crc + p_crc) % 997) + 1
 
 EmptySlot == [
     initialized          |-> FALSE,
@@ -135,6 +111,7 @@ EmptySlot == [
     seq                  |-> 0,
     schema_ok            |-> FALSE,
     msg_type             |-> "None",
+    arena_block          |-> 0,
     flag_0x08            |-> FALSE,
     record_crc           |-> 0,
     payload_crc          |-> 0,
@@ -142,16 +119,26 @@ EmptySlot == [
     write_gen            |-> 0
 ]
 
+EmptyArenaBlock == [
+    owner_seq   |-> 0,
+    payload_crc |-> 0,
+    corrupted   |-> FALSE,
+    write_gen   |-> 0
+]
+
 NoBorrow == [
     active     |-> FALSE,
     seq        |-> 0,
     slot       |-> 0,
     snap_gen   |-> 0,
+    arena_blk  |-> 0,
+    arena_gen  |-> 0,
     view_valid |-> FALSE
 ]
 
 VARIABLES
     ring_slots,
+    arena_blocks,
     prod_state,
     prod_writing_slot,
     published_seq,
@@ -161,22 +148,18 @@ VARIABLES
     cons_rel,
     active_borrow,
     zc_last_outcome,
-    wal_state,
-    wal_frames,
-    wal_sealed_batches,
-    wal_recovered_batches,
     ring_fault_used,
     probe_tested
 
 vars == <<
-    ring_slots, prod_state, prod_writing_slot, published_seq, cached_min_rel,
-    obs_rel, cons_read, cons_rel, active_borrow, zc_last_outcome,
-    wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
-    ring_fault_used, probe_tested
+    ring_slots, arena_blocks, prod_state, prod_writing_slot, published_seq,
+    cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
+    zc_last_outcome, ring_fault_used, probe_tested
 >>
 
 Init ==
     /\ ring_slots = [s \in Slots |-> EmptySlot]
+    /\ arena_blocks = [b \in ArenaBlocks |-> EmptyArenaBlock]
     /\ prod_state = "Idle"
     /\ prod_writing_slot = -1
     /\ published_seq = 0
@@ -186,12 +169,15 @@ Init ==
     /\ cons_rel = [c \in Consumers |-> 0]
     /\ active_borrow = [c \in Consumers |-> NoBorrow]
     /\ zc_last_outcome = "Init"
-    /\ wal_state = "Open"
-    /\ wal_frames = <<>>
-    /\ wal_sealed_batches = 0
-    /\ wal_recovered_batches = 0
     /\ ring_fault_used = FALSE
     /\ probe_tested = FALSE
+
+ReclaimedArena(blocks, rel_seq) ==
+    [b \in ArenaBlocks |->
+        IF blocks[b].owner_seq # 0 /\ blocks[b].owner_seq <= rel_seq
+        THEN [blocks[b] EXCEPT !.owner_seq = 0]
+        ELSE blocks[b]
+    ]
 
 \* Producer samples consumer RELEASED watermarks (`crates/tickwire-shm/src/mapped.rs:359-407`).
 ProducerObserveWatermarks ==
@@ -201,60 +187,85 @@ ProducerObserveWatermarks ==
        IN /\ obs_rel' = new_obs
           /\ cached_min_rel' = MinSet({new_obs[c] : c \in Consumers})
     /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
+        ring_slots, arena_blocks, prod_state, prod_writing_slot, published_seq,
         cons_read, cons_rel, active_borrow, zc_last_outcome,
-        wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
         ring_fault_used, probe_tested
        >>
 
-\* Producer claims and begins writing next 512B slot (`crates/tickwire-shm/src/mapped.rs:447-510`, `crates/tickwire-shm/src/mapped.rs:582-615`).
+\* Explicit `ShmArenaWriter::reclaim(released_seq)` (`crates/tickwire-strategy-sdk/src/arena.rs:291-299`).
+ArenaReclaimReleased ==
+    /\ prod_state = "Idle"
+    /\ \E b \in ArenaBlocks :
+        arena_blocks[b].owner_seq # 0 /\ arena_blocks[b].owner_seq <= cached_min_rel
+    /\ arena_blocks' = ReclaimedArena(arena_blocks, cached_min_rel)
+    /\ UNCHANGED <<
+        ring_slots, prod_state, prod_writing_slot, published_seq,
+        cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
+        zc_last_outcome, ring_fault_used, probe_tested
+       >>
+
+\* Producer claims slot (and optional `ShmArenaWriter::write_payload` block) before publishing
+\* (`crates/tickwire-shm/src/mapped.rs:460-556`, `crates/tickwire-strategy-sdk/src/arena.rs:304-386`).
 ProducerBeginWrite(mtype) ==
     /\ prod_state = "Idle"
     /\ published_seq < MaxRingSeq
     /\ mtype \in PublishableMsgTypes
     /\ LET next_seq == published_seq + 1
            slot     == SlotOf(next_seq)
+           reclaimed == ReclaimedArena(arena_blocks, cached_min_rel)
+           free_blks == {b \in ArenaBlocks : reclaimed[b].owner_seq = 0}
        IN /\ next_seq - cached_min_rel <= RingCapacity
-          /\ prod_state' = "Writing"
-          /\ prod_writing_slot' = slot
-          /\ ring_slots' = [ring_slots EXCEPT ![slot] = [
-                initialized          |-> TRUE,
-                byte_size            |-> 512,
-                align_bytes          |-> 8,
-                has_invalid_bit_type |-> FALSE,
-                seq                  |-> next_seq,
-                schema_ok            |-> TRUE,
-                msg_type             |-> mtype,
-                flag_0x08            |-> CrcEnabled,
-                record_crc           |-> ExpectedRecordCrc(next_seq, mtype),
-                payload_crc          |-> ExpectedPayloadCrc(next_seq, mtype),
-                corrupted            |-> FALSE,
-                write_gen            |-> ring_slots[slot].write_gen + 1
-             ]]
+          /\ (mtype = "MarketDepthArena" => free_blks # {})
+          /\ LET ablk == IF mtype = "MarketDepthArena" THEN MinSet(free_blks) ELSE 0
+                 pcrc == ExpectedPayloadCrc(next_seq, mtype)
+             IN /\ prod_state' = "Writing"
+                /\ prod_writing_slot' = slot
+                /\ arena_blocks' =
+                       IF ablk = 0 THEN reclaimed
+                       ELSE [reclaimed EXCEPT ![ablk] = [
+                                owner_seq   |-> next_seq,
+                                payload_crc |-> pcrc,
+                                corrupted   |-> FALSE,
+                                write_gen   |-> reclaimed[ablk].write_gen + 1
+                            ]]
+                /\ ring_slots' = [ring_slots EXCEPT ![slot] = [
+                      initialized          |-> TRUE,
+                      byte_size            |-> 512,
+                      align_bytes          |-> 8,
+                      has_invalid_bit_type |-> FALSE,
+                      seq                  |-> next_seq,
+                      schema_ok            |-> TRUE,
+                      msg_type             |-> mtype,
+                      arena_block          |-> ablk,
+                      flag_0x08            |-> CrcEnabled,
+                      record_crc           |-> ExpectedRecordCrc(next_seq, mtype),
+                      payload_crc          |-> pcrc,
+                      corrupted            |-> FALSE,
+                      write_gen            |-> ring_slots[slot].write_gen + 1
+                   ]]
     /\ UNCHANGED <<
         published_seq, cached_min_rel, obs_rel, cons_read, cons_rel,
-        active_borrow, zc_last_outcome, wal_state, wal_frames,
-        wal_sealed_batches, wal_recovered_batches, ring_fault_used, probe_tested
+        active_borrow, zc_last_outcome, ring_fault_used, probe_tested
        >>
 
-\* Producer commits slot publication via release store (`crates/tickwire-shm/src/mapped.rs:511-515`).
+\* Producer commits slot publication via release store (`crates/tickwire-shm/src/mapped.rs:536-556`).
 ProducerPublishSlot ==
     /\ prod_state = "Writing"
     /\ prod_state' = "Idle"
     /\ prod_writing_slot' = -1
     /\ published_seq' = published_seq + 1
     /\ UNCHANGED <<
-        ring_slots, cached_min_rel, obs_rel, cons_read, cons_rel,
-        active_borrow, zc_last_outcome, wal_state, wal_frames,
-        wal_sealed_batches, wal_recovered_batches, ring_fault_used, probe_tested
+        ring_slots, arena_blocks, cached_min_rel, obs_rel, cons_read, cons_rel,
+        active_borrow, zc_last_outcome, ring_fault_used, probe_tested
        >>
 
-\* Consumer acquires a lifetime-pinned RecordBorrow (`crates/tickwire-shm/src/mapped.rs:737-766`, `crates/tickwire-shm/src/mapped.rs:825-853`).
+\* Consumer acquires a lifetime-pinned `RecordBorrow` (`crates/tickwire-shm/src/mapped.rs:737-770`, `crates/tickwire-shm/src/mapped.rs:825-880`).
 ConsumerAcquireBorrow(c) ==
     /\ ~active_borrow[c].active
     /\ cons_read[c] < published_seq
     /\ LET next_seq == cons_read[c] + 1
            slot     == SlotOf(next_seq)
+           ablk     == ring_slots[slot].arena_block
        IN /\ ring_slots[slot].seq = next_seq
           /\ cons_read' = [cons_read EXCEPT ![c] = next_seq]
           /\ active_borrow' = [active_borrow EXCEPT ![c] = [
@@ -262,21 +273,28 @@ ConsumerAcquireBorrow(c) ==
                 seq        |-> next_seq,
                 slot       |-> slot,
                 snap_gen   |-> ring_slots[slot].write_gen,
+                arena_blk  |-> ablk,
+                arena_gen  |-> IF ablk = 0 THEN 0 ELSE arena_blocks[ablk].write_gen,
                 view_valid |-> FALSE
              ]]
     /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
+        ring_slots, arena_blocks, prod_state, prod_writing_slot, published_seq,
         cached_min_rel, obs_rel, cons_rel, zc_last_outcome,
-        wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
         ring_fault_used, probe_tested
        >>
 
-\* Consumer invokes RecordBorrow::as_market_record -> from_aligned_bytes (`crates/tickwire-shm/src/mapped.rs:886-943`, `crates/tickwire-ipc/src/zerocopy.rs:146-286`).
+\* Consumer validates zero-copy `RecordBorrow` + optional `ShmArenaReader::read_retained_payload`
+\* (`crates/tickwire-shm/src/mapped.rs:884-945`, `crates/tickwire-strategy-sdk/src/arena.rs:439-502`).
 ConsumerCastMarketRecord(c) ==
     /\ active_borrow[c].active
     /\ ~active_borrow[c].view_valid
     /\ LET slot == active_borrow[c].slot
            s    == ring_slots[slot]
+           ablk == s.arena_block
+           arena_ok ==
+               (ablk = 0) \/
+               /\ arena_blocks[ablk].owner_seq = s.seq
+               /\ (~CrcEnabled \/ (~arena_blocks[ablk].corrupted /\ arena_blocks[ablk].payload_crc = s.payload_crc))
            crc_ok ==
                IF ~s.flag_0x08 THEN
                    /\ s.record_crc = 0
@@ -293,234 +311,77 @@ ConsumerCastMarketRecord(c) ==
           ELSE IF s.msg_type \notin MarketMsgTypes THEN
               /\ zc_last_outcome' = "ErrWrongMsgType"
               /\ UNCHANGED active_borrow
-          ELSE IF ~crc_ok THEN
+          ELSE IF ~(crc_ok /\ arena_ok) THEN
               /\ zc_last_outcome' = "ErrChecksum"
               /\ UNCHANGED active_borrow
           ELSE
               /\ zc_last_outcome' = "OkMarketView"
               /\ active_borrow' = [active_borrow EXCEPT ![c].view_valid = TRUE]
     /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
+        ring_slots, arena_blocks, prod_state, prod_writing_slot, published_seq,
         cached_min_rel, obs_rel, cons_read, cons_rel,
-        wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
         ring_fault_used, probe_tested
        >>
 
-\* Boundary probe on MarketRecord::from_aligned_bytes with unaligned or wrong-size slice (`crates/tickwire-ipc/src/zerocopy.rs:76-123`).
+\* Boundary probe on header/alignment validation (`crates/tickwire-shm/src/mapped.rs:70-152`, `crates/tickwire-strategy-sdk/src/arena.rs:160-210`).
 RejectMisalignedOrBadSizeProbe ==
     /\ published_seq = 0
     /\ ~probe_tested
     /\ probe_tested' = TRUE
     /\ zc_last_outcome' = "ErrWrongSizeOrAlign"
     /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
+        ring_slots, arena_blocks, prod_state, prod_writing_slot, published_seq,
         cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
-        wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
         ring_fault_used
        >>
 
-\* Fault injection (CrcEnabled mode): flip a payload bit on an unborrowed published slot (`crates/tickwire-ipc/src/zerocopy.rs:102-122`).
-InjectSlotBitFlipWhenCrcEnabled(s) ==
+\* Fault injection (`CrcEnabled = TRUE`): flip a payload bit on an unborrowed published slot or its arena block
+\* (`crates/tickwire-shm/src/mapped.rs:884-945`, `crates/tickwire-strategy-sdk/src/arena.rs:439-502`).
+InjectBitFlipWhenCrcEnabled(s, flip_arena) ==
     /\ CrcEnabled
     /\ ~ring_fault_used
     /\ prod_state = "Idle"
     /\ ring_slots[s].initialized
     /\ ring_slots[s].msg_type \in MarketMsgTypes
+    /\ (flip_arena =>
+        /\ ring_slots[s].arena_block # 0
+        /\ arena_blocks[ring_slots[s].arena_block].owner_seq = ring_slots[s].seq
+        /\ \A c \in Consumers : ~(active_borrow[c].active /\ active_borrow[c].arena_blk = ring_slots[s].arena_block))
     /\ \A c \in Consumers : ~(active_borrow[c].active /\ active_borrow[c].slot = s)
     /\ ring_fault_used' = TRUE
-    /\ ring_slots' = [ring_slots EXCEPT ![s].corrupted = TRUE]
+    /\ IF flip_arena
+       THEN /\ arena_blocks' = [arena_blocks EXCEPT ![ring_slots[s].arena_block].corrupted = TRUE]
+            /\ UNCHANGED ring_slots
+       ELSE /\ ring_slots' = [ring_slots EXCEPT ![s].corrupted = TRUE]
+            /\ UNCHANGED arena_blocks
     /\ UNCHANGED <<
         prod_state, prod_writing_slot, published_seq, cached_min_rel,
         obs_rel, cons_read, cons_rel, active_borrow, zc_last_outcome,
-        wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
         probe_tested
        >>
 
-\* Dropping RecordBorrow ends `&MarketRecord` lifetime and advances RELEASED (`crates/tickwire-shm/src/mapped.rs:946-952`, `crates/tickwire-market-source/src/shm.rs:283-296`).
+\* Dropping `RecordBorrow` ends `&MarketRecord` and `&[u8]` arena slice lifetimes and advances `RELEASED`
+\* (`crates/tickwire-shm/src/mapped.rs:946-952`, `crates/tickwire-market-source/src/shm.rs:284-309`).
 ConsumerDropBorrow(c) ==
     /\ active_borrow[c].active
     /\ active_borrow' = [active_borrow EXCEPT ![c] = NoBorrow]
     /\ cons_rel' = [cons_rel EXCEPT ![c] = cons_read[c]]
     /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
+        ring_slots, arena_blocks, prod_state, prod_writing_slot, published_seq,
         cached_min_rel, obs_rel, cons_read, zc_last_outcome,
-        wal_state, wal_frames, wal_sealed_batches, wal_recovered_batches,
-        ring_fault_used, probe_tested
-       >>
-
-\* Append a complete sealed 3-frame WAL batch [BatchBegin, DataRecord, BatchSeal] (`crates/tickwire-journal/src/frame.rs:75-118`, `crates/tickwire-journal/src/journal.rs:140-198`).
-WalAppendSealedBatch ==
-    /\ wal_state = "Open"
-    /\ wal_sealed_batches < MaxWalBatches
-    /\ LET b == wal_sealed_batches + 1
-           h0 == IF Len(wal_frames) = 0 THEN 0 ELSE wal_frames[Len(wal_frames)].frame_hash
-           hc1 == ExpectedWalCrc(b, 1)
-           pc1 == ExpectedWalCrc(b, 1)
-           fh1 == ExpectedWalHash(h0, b, 1, hc1, pc1)
-           f1  == [
-               batch           |-> b,
-               kind            |-> "BatchBegin",
-               header_crc      |-> hc1,
-               payload_crc     |-> pc1,
-               prev_hash       |-> h0,
-               frame_hash      |-> fh1,
-               repeated_len_ok |-> TRUE,
-               end_magic_ok    |-> TRUE,
-               complete        |-> TRUE,
-               bit_flipped     |-> FALSE
-           ]
-           hc2 == ExpectedWalCrc(b, 2)
-           pc2 == ExpectedWalCrc(b, 2)
-           fh2 == ExpectedWalHash(fh1, b, 2, hc2, pc2)
-           f2  == [
-               batch           |-> b,
-               kind            |-> "DataRecord",
-               header_crc      |-> hc2,
-               payload_crc     |-> pc2,
-               prev_hash       |-> fh1,
-               frame_hash      |-> fh2,
-               repeated_len_ok |-> TRUE,
-               end_magic_ok    |-> TRUE,
-               complete        |-> TRUE,
-               bit_flipped     |-> FALSE
-           ]
-           hc3 == ExpectedWalCrc(b, 3)
-           pc3 == ExpectedWalCrc(b, 3)
-           fh3 == ExpectedWalHash(fh2, b, 3, hc3, pc3)
-           f3  == [
-               batch           |-> b,
-               kind            |-> "BatchSeal",
-               header_crc      |-> hc3,
-               payload_crc     |-> pc3,
-               prev_hash       |-> fh2,
-               frame_hash      |-> fh3,
-               repeated_len_ok |-> TRUE,
-               end_magic_ok    |-> TRUE,
-               complete        |-> TRUE,
-               bit_flipped     |-> FALSE
-           ]
-       IN /\ wal_frames' = wal_frames \o <<f1, f2, f3>>
-          /\ wal_sealed_batches' = b
-    /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
-        cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
-        zc_last_outcome, wal_state, wal_recovered_batches,
-        ring_fault_used, probe_tested
-       >>
-
-\* Crash mid-batch leaving an unsealed BatchBegin + incomplete/torn DataRecord tail (`crates/tickwire-journal/src/journal.rs:240-365`).
-WalCrashWithTornTail ==
-    /\ wal_state = "Open"
-    /\ wal_sealed_batches >= 1
-    /\ LET b   == wal_sealed_batches + 1
-           h0  == wal_frames[Len(wal_frames)].frame_hash
-           hc1 == ExpectedWalCrc(b, 1)
-           pc1 == ExpectedWalCrc(b, 1)
-           fh1 == ExpectedWalHash(h0, b, 1, hc1, pc1)
-           f_begin == [
-               batch           |-> b,
-               kind            |-> "BatchBegin",
-               header_crc      |-> hc1,
-               payload_crc     |-> pc1,
-               prev_hash       |-> h0,
-               frame_hash      |-> fh1,
-               repeated_len_ok |-> TRUE,
-               end_magic_ok    |-> TRUE,
-               complete        |-> TRUE,
-               bit_flipped     |-> FALSE
-           ]
-           f_torn == [
-               batch           |-> b,
-               kind            |-> "DataRecord",
-               header_crc      |-> ExpectedWalCrc(b, 2),
-               payload_crc     |-> ExpectedWalCrc(b, 2),
-               prev_hash       |-> fh1,
-               frame_hash      |-> 0,
-               repeated_len_ok |-> FALSE,
-               end_magic_ok    |-> FALSE,
-               complete        |-> FALSE,
-               bit_flipped     |-> FALSE
-           ]
-       IN /\ wal_frames' = wal_frames \o <<f_begin, f_torn>>
-          /\ wal_state' = "Crashed"
-    /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
-        cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
-        zc_last_outcome, wal_sealed_batches, wal_recovered_batches,
-        ring_fault_used, probe_tested
-       >>
-
-\* Crash + storage bit-flip inside a sealed WAL frame (`crates/tickwire-journal/src/frame.rs:162-193`).
-WalCrashAndCorruptSealedFrame(idx) ==
-    /\ wal_state = "Open"
-    /\ wal_sealed_batches >= 1
-    /\ idx \in 1..Len(wal_frames)
-    /\ wal_frames' = [wal_frames EXCEPT
-        ![idx].bit_flipped = TRUE,
-        ![idx].frame_hash = 0
-       ]
-    /\ wal_state' = "Crashed"
-    /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
-        cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
-        zc_last_outcome, wal_sealed_batches, wal_recovered_batches,
-        ring_fault_used, probe_tested
-       >>
-
-SealedPrefixValid ==
-    /\ Len(wal_frames) >= 3 * wal_sealed_batches
-    /\ \A i \in 1..(3 * wal_sealed_batches) :
-        LET f    == wal_frames[i]
-            prev == IF i = 1 THEN 0 ELSE wal_frames[i - 1].frame_hash
-            ord  == ((i - 1) % 3) + 1
-        IN /\ f.complete
-           /\ ~f.bit_flipped
-           /\ f.prev_hash = prev
-           /\ f.repeated_len_ok
-           /\ f.end_magic_ok
-           /\ f.frame_hash = ExpectedWalHash(prev, f.batch, ord, f.header_crc, f.payload_crc)
-           /\ (CrcEnabled => (f.header_crc = ExpectedWalCrc(f.batch, ord) /\ f.payload_crc = ExpectedWalCrc(f.batch, ord)))
-
-\* Journal::recover validates SHA-256 chain + trailer and truncates only unsealed torn tail (`crates/tickwire-journal/src/journal.rs:366-408`).
-WalRecoverTruncateTornTail ==
-    /\ wal_state = "Crashed"
-    /\ SealedPrefixValid
-    /\ \A j \in (3 * wal_sealed_batches + 1)..Len(wal_frames) : ~wal_frames[j].bit_flipped
-    /\ wal_frames' = SubSeq(wal_frames, 1, 3 * wal_sealed_batches)
-    /\ wal_recovered_batches' = wal_sealed_batches
-    /\ wal_state' = "Recovered"
-    /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
-        cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
-        zc_last_outcome, wal_sealed_batches, ring_fault_used, probe_tested
-       >>
-
-\* Journal::recover quarantines corrupted sealed frames via SHA-256 chain / trailer even when CrcEnabled = FALSE (`crates/tickwire-journal/src/frame.rs:162-193`, `crates/tickwire-journal/src/journal.rs:240-365`).
-WalRecoverQuarantineCorruption ==
-    /\ wal_state = "Crashed"
-    /\ ~SealedPrefixValid
-    /\ wal_state' = "Quarantined"
-    /\ UNCHANGED <<
-        ring_slots, prod_state, prod_writing_slot, published_seq,
-        cached_min_rel, obs_rel, cons_read, cons_rel, active_borrow,
-        zc_last_outcome, wal_frames, wal_sealed_batches, wal_recovered_batches,
         ring_fault_used, probe_tested
        >>
 
 Next ==
     \/ ProducerObserveWatermarks
+    \/ ArenaReclaimReleased
     \/ (\E mtype \in PublishableMsgTypes : ProducerBeginWrite(mtype))
     \/ ProducerPublishSlot
     \/ (\E c \in Consumers : ConsumerAcquireBorrow(c))
     \/ (\E c \in Consumers : ConsumerCastMarketRecord(c))
     \/ RejectMisalignedOrBadSizeProbe
-    \/ (\E s \in Slots : InjectSlotBitFlipWhenCrcEnabled(s))
+    \/ (\E s \in Slots, fa \in BOOLEAN : InjectBitFlipWhenCrcEnabled(s, fa))
     \/ (\E c \in Consumers : ConsumerDropBorrow(c))
-    \/ WalAppendSealedBatch
-    \/ WalCrashWithTornTail
-    \/ (\E idx \in 1..(3 * MaxWalBatches) : WalCrashAndCorruptSealedFrame(idx))
-    \/ WalRecoverTruncateTornTail
-    \/ WalRecoverQuarantineCorruption
 
 Spec == Init /\ [][Next]_vars
 
@@ -535,9 +396,6 @@ TypeOK ==
     /\ cons_read \in [Consumers -> 0..MaxRingSeq]
     /\ cons_rel \in [Consumers -> 0..MaxRingSeq]
     /\ zc_last_outcome \in ZcOutcomes
-    /\ wal_state \in WalStates
-    /\ wal_sealed_batches \in 0..MaxWalBatches
-    /\ wal_recovered_batches \in 0..MaxWalBatches
     /\ ring_fault_used \in BOOLEAN
     /\ probe_tested \in BOOLEAN
     /\ \A s \in Slots :
@@ -548,17 +406,24 @@ TypeOK ==
         /\ ring_slots[s].seq \in 0..MaxRingSeq
         /\ ring_slots[s].schema_ok \in BOOLEAN
         /\ ring_slots[s].msg_type \in MsgTypes
+        /\ ring_slots[s].arena_block \in ({0} \cup ArenaBlocks)
         /\ ring_slots[s].flag_0x08 \in BOOLEAN
         /\ ring_slots[s].corrupted \in BOOLEAN
         /\ ring_slots[s].write_gen \in 0..MaxRingSeq
+    /\ \A b \in ArenaBlocks :
+        /\ arena_blocks[b].owner_seq \in 0..MaxRingSeq
+        /\ arena_blocks[b].corrupted \in BOOLEAN
+        /\ arena_blocks[b].write_gen \in 0..MaxRingSeq
     /\ \A c \in Consumers :
         /\ active_borrow[c].active \in BOOLEAN
         /\ active_borrow[c].seq \in 0..MaxRingSeq
         /\ active_borrow[c].slot \in Slots
         /\ active_borrow[c].snap_gen \in 0..MaxRingSeq
+        /\ active_borrow[c].arena_blk \in ({0} \cup ArenaBlocks)
+        /\ active_borrow[c].arena_gen \in 0..MaxRingSeq
         /\ active_borrow[c].view_valid \in BOOLEAN
 
-\* Proves zero Rust `&MarketRecord` aliasing / mutation UB while any RecordBorrow is alive.
+\* Proves zero Rust `&MarketRecord` aliasing / mutation UB while any `RecordBorrow` is alive.
 ZeroNoAliasWhileBorrowed ==
     \A c \in Consumers :
         active_borrow[c].active =>
@@ -580,34 +445,31 @@ ZeroCopyLayoutAndHeaderSoundness ==
                /\ s.schema_ok
                /\ s.msg_type \in MarketMsgTypes
 
-\* Proves compile-time crc32 gate clears 0x08 & CRC fields when disabled and rejects corruption when enabled.
+\* Proves compile-time `crc32` gate clears 0x08 & CRC fields when disabled and rejects slot/arena corruption when enabled.
 CrcGateModeConsistency ==
     /\ (~CrcEnabled =>
         /\ (\A s \in Slots :
             ring_slots[s].initialized =>
                 (~ring_slots[s].flag_0x08 /\ ring_slots[s].record_crc = 0 /\ ring_slots[s].payload_crc = 0))
-        /\ (\A i \in 1..Len(wal_frames) :
-            wal_frames[i].header_crc = 0 /\ wal_frames[i].payload_crc = 0))
+        /\ (\A b \in ArenaBlocks : arena_blocks[b].payload_crc = 0))
     /\ (CrcEnabled =>
         /\ (\A s \in Slots :
             ring_slots[s].initialized =>
                 (ring_slots[s].flag_0x08 /\ ring_slots[s].record_crc > 0))
         /\ (\A c \in Consumers :
             (active_borrow[c].active /\ active_borrow[c].view_valid) =>
-                ~ring_slots[active_borrow[c].slot].corrupted))
+                LET s == ring_slots[active_borrow[c].slot]
+                IN /\ ~s.corrupted
+                   /\ (s.arena_block # 0 => ~arena_blocks[s.arena_block].corrupted)))
 
-\* Proves WAL SHA-256 chain + repeated_total_len + END_MAGIC quarantine sealed-batch bit flips and truncate torn tails even without CRC32C.
-WalRecoverySoundWithoutCrc ==
-    /\ (wal_state = "Recovered" =>
-        /\ wal_recovered_batches = wal_sealed_batches
-        /\ Len(wal_frames) = 3 * wal_sealed_batches
-        /\ \A i \in 1..Len(wal_frames) :
-            /\ wal_frames[i].complete
-            /\ ~wal_frames[i].bit_flipped
-            /\ wal_frames[i].repeated_len_ok
-            /\ wal_frames[i].end_magic_ok)
-    /\ (wal_state = "Quarantined" =>
-        /\ wal_recovered_batches = 0
-        /\ \E i \in 1..(3 * wal_sealed_batches) : wal_frames[i].bit_flipped)
+\* Proves `ShmArenaWriter::reclaim(released_seq)` NEVER reclaims or overwrites an arena block pinned by a live `RecordBorrow`.
+ArenaBorrowLifetimeSoundness ==
+    \A c \in Consumers :
+        (active_borrow[c].active /\ active_borrow[c].arena_blk # 0) =>
+            LET b   == active_borrow[c]
+                blk == arena_blocks[b.arena_blk]
+            IN /\ blk.owner_seq = b.seq
+               /\ blk.write_gen = b.arena_gen
+               /\ cached_min_rel < b.seq
 
 =============================================================================

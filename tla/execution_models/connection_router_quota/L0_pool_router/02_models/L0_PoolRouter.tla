@@ -12,48 +12,49 @@ CONSTANTS
     MaxDisconnects
 
 (*
-Code-faithful model of Stage 3 pooled order routing (`OrderRouter` + `OrderConnectionPool`),
-`AccountGateway` multi-slot pool (`submit_on_slot`, `apply_slot_report`, `drop_broken_slot_isolated`,
-`poll_pool_dials_filtered`), `RestOwner`/`RestSession`/`AccountRunner` `SlotPending`/`SpotPending`
-fencing and pre-read `Status::Aborted` reaping, and `WsOwner` multiplexed `inflight` (`WsRequestId`
-out-of-order replies + `Runtime.draining_eof` pre-EOF frame draining).
+Code-faithful model of pooled order routing (`OrderRouter` + `OrderConnectionPool` +
+`PublishedRoutes`), `AccountGateway` multi-slot pool (`submit_on_slot`, `apply_slot_report`,
+`drop_broken_slot_isolated`, `poll_pool_dials_filtered`), unified session pending-slot fencing
+(`UnifiedBinanceSession` / `UnifiedUtaSession`), and multiplexed WebSocket pre-EOF frame draining.
 
 Variable <-> Rust source mapping:
 - slot_established, slot_epoch, slot_inflight, ema_us, ema_samples, last_pick_slot,
-  router_pick_sound: `OrderRoute`, `RouteHealth`, `OrderRouter::{on_connected, on_disconnect,
-  acquire_inflight, release_inflight, note_sample, pick}`, and `AccountGateway::pick_pool_slot_filtered`,
-  crates/tickwire-transport/src/order_router.rs:18-32,
-  crates/tickwire-transport/src/order_router.rs:88-176,
-  crates/tickwire-transport/src/order_router.rs:308-444,
-  crates/tickwire-account-gateway/src/pool.rs:331-412.
+  router_pick_sound: `RouteHealth`, `OrderRoute`, `OrderRouter::{on_connected, on_disconnect,
+  acquire_inflight, release_inflight, note_sample, pick}`, `PublishedRoutes::pick`, and
+  `AccountGateway::pick_pool_slot_filtered`,
+  crates/tickwire-transport/src/order_router.rs:130-140,
+  crates/tickwire-transport/src/order_router.rs:180-194,
+  crates/tickwire-transport/src/order_router.rs:220-232,
+  crates/tickwire-transport/src/order_router.rs:378-445,
+  crates/tickwire-transport/src/order_router.rs:466-515,
+  crates/tickwire-transport/src/order_router.rs:688-745,
+  crates/tickwire-account-gateway/src/pool.rs:333-365.
 - baton_ready, disconnects_used: `DialBaton` (`DialState::Ready`) and `OrderConnectionPool::
   {poll_dials_filtered, disconnect_slot}` + `AccountGateway::poll_pool_dials_filtered`,
-  crates/tickwire-transport/src/order_router.rs:630-715,
-  crates/tickwire-account-gateway/src/pool.rs:288-329.
+  crates/tickwire-transport/src/order_router.rs:941-1015,
+  crates/tickwire-account-gateway/src/pool.rs:290-330.
 - pending_send, retained_rx: `SlotIo.pending_send` and `SlotIo.retained_receive` across
   `submit_on_slot`, `apply_slot_report`, `read_slot`, and `drop_broken_slot_isolated`,
-  crates/tickwire-account-gateway/src/pool.rs:414-482,
-  crates/tickwire-account-gateway/src/pool.rs:629-801,
-  crates/tickwire-account-gateway/src/websocket.rs:200-226.
-- rest_slot_pending: `RestOwner.pool_slots[conn_id].pending` and `RestSession.pool_slots[conn_id].pending`
-  (including pre-read `Status::Aborted` reaping and `poll_pool_dials` `pending.is_none()` guard),
-  crates/tickwire-binance-account/src/rest.rs:235-270,
-  crates/tickwire-binance-account/src/rest.rs:818-1092,
-  crates/tickwire-spot-execution/src/session.rs:263-306,
-  crates/tickwire-spot-execution/src/session.rs:924-1269,
-  crates/tickwire-spot-runner/src/lib.rs:136-159.
-- ws_draining_eof: `WsOwner` `Runtime.draining_eof` keeping unread pre-EOF WS replies open until
-  drained before isolating unanswered `Flushed` requests in doubt,
-  crates/tickwire-binance-account/src/ws/owner.rs:259-360,
-  crates/tickwire-binance-account/src/ws/owner.rs:455-735.
+  crates/tickwire-account-gateway/src/pool.rs:506-540,
+  crates/tickwire-account-gateway/src/pool.rs:690-765,
+  crates/tickwire-account-gateway/src/pool.rs:792-835,
+  crates/tickwire-account-gateway/src/websocket.rs:209-225.
+- rest_slot_pending: per-slot exclusive in-flight request correlation and `poll_dials` drain guard
+  across `AccountGateway` and unified venue sessions,
+  crates/tickwire-binance-account/src/session.rs:857-930,
+  crates/tickwire-spot-execution/src/session.rs:417-470,
+  crates/tickwire-spot-execution/src/session.rs:937-980.
+- ws_draining_eof: multiplexed WebSocket pre-EOF reply draining before isolating unanswered
+  in-flight requests in doubt,
+  crates/tickwire-account-gateway/src/pool.rs:749-775,
+  crates/tickwire-binance-account/src/session.rs:914-955.
 - tx_stage, tx_slot, tx_epoch, tx_bytes_sent, tx_hold_locked, tx_in_doubt, tx_in_query_desk,
   tx_abort_pending_reap, tx_resp_epoch: per-command gateway `Entry.status`, `accepted_bytes > 0`,
-  `Account` reservation hold, `Order.in_doubt`, `QueryDesk` registration, pending owner reap flag,
-  and matched response epoch witness,
-  crates/tickwire-account-gateway/src/pool.rs:414-801,
-  crates/tickwire-binance-account/src/rest.rs:859-1092,
-  crates/tickwire-binance-account/src/ws/owner.rs:489-735,
-  crates/tickwire-spot-runner/src/lib.rs:264-465.
+  order hold, `in_doubt` / `OrsQueryDesk` registration, pending reap flag, and matched response
+  epoch witness,
+  crates/tickwire-account-gateway/src/pool.rs:690-745,
+  crates/tickwire-account-gateway/src/pool.rs:792-835,
+  crates/tickwire-spot-execution/src/session.rs:1235-1295.
 *)
 
 Slots == ExclusiveSlots \cup SharedSlots
@@ -130,8 +131,8 @@ BestMeasuredSlot ==
 
 AfterLastSlots == {s \in EligibleSlots : last_pick_slot # 0 /\ s > last_pick_slot}
 
-\* Exact transcription of OrderRouter::pick (crates/tickwire-transport/src/order_router.rs:382-434)
-\* and AccountGateway::pick_pool_slot_filtered (crates/tickwire-account-gateway/src/pool.rs:335-412).
+\* Exact transcription of OrderRouter::pick (crates/tickwire-transport/src/order_router.rs:466-515)
+\* and AccountGateway::pick_pool_slot_filtered (crates/tickwire-account-gateway/src/pool.rs:337-365).
 PickedSlot ==
     IF EligibleSlots = {} THEN 0
     ELSE
@@ -226,7 +227,7 @@ SubmitPickedSlot(tx) ==
        >>
 
 \* 2. Zero-byte SendState::NoBytes in AccountGateway::apply_slot_report
-\* (crates/tickwire-account-gateway/src/pool.rs:666-680):
+\* (crates/tickwire-account-gateway/src/pool.rs:715-735):
 \* releases router inflight once and aborts reservation without marking in_doubt.
 AbortZeroBytesInPoll(s) ==
     LET tx == pending_send[s] IN
@@ -248,10 +249,9 @@ AbortZeroBytesInPoll(s) ==
         tx_slot, tx_epoch, tx_bytes_sent, tx_resp_epoch
        >>
 
-\* 3. Pre-read Status::Aborted reaping in RestOwner / RestSession / AccountRunner
-\* (crates/tickwire-binance-account/src/rest.rs:859-873,
-\* crates/tickwire-spot-execution/src/session.rs:290-306,
-\* crates/tickwire-spot-runner/src/lib.rs:145-155):
+\* 3. Pre-read Status::Aborted reaping in pooled session slots
+\* (crates/tickwire-account-gateway/src/pool.rs:663-685,
+\* crates/tickwire-spot-execution/src/session.rs:961-980):
 \* clears rest_slot_pending before reading socket bytes and WITHOUT a duplicate release_slot_inflight.
 ReapAbortedRestPending(s) ==
     LET tx == rest_slot_pending[s] IN
@@ -269,7 +269,7 @@ ReapAbortedRestPending(s) ==
        >>
 
 \* 4. First plaintext byte accepted into TLS/socket (SendState::MayHaveSent,
-\* crates/tickwire-account-gateway/src/pool.rs:652-654).
+\* crates/tickwire-account-gateway/src/pool.rs:700-706).
 PartialAcceptOnSlot(s) ==
     LET tx == pending_send[s] IN
     /\ tx # 0
@@ -285,7 +285,7 @@ PartialAcceptOnSlot(s) ==
        >>
 
 \* 5. Request bytes fully flushed (SendState::Flushed,
-\* crates/tickwire-account-gateway/src/pool.rs:655-665):
+\* crates/tickwire-account-gateway/src/pool.rs:707-714):
 \* clears pending_send while keeping slot_inflight acquired until response or broken-slot finalization.
 FlushOnSlot(s) ==
     LET tx == pending_send[s] IN
@@ -304,7 +304,7 @@ FlushOnSlot(s) ==
 
 \* 6. Live response decoded on established slot (HTTP reply on Exclusive or out-of-order WsRequestId on Shared):
 \* releases slot_inflight for matching epoch and updates integer EWMA
-\* (crates/tickwire-transport/src/order_router.rs:138-150).
+\* (crates/tickwire-transport/src/order_router.rs:180-194).
 CompleteLiveReply(tx, sample) ==
     LET s == tx_slot[tx] IN
     /\ tx_stage[tx] = "Flushed"
@@ -327,10 +327,10 @@ CompleteLiveReply(tx, sample) ==
        >>
 
 \* 7. Peer delivers >= 1 complete reply frame(s) and closes TCP/TLS before owner drains them:
-\* drop_broken_slot_isolated / poll_ws retains unread reply bytes in retained_rx, disconnects the slot
+\* drop_broken_slot_isolated retains unread reply bytes in retained_rx, disconnects the slot
 \* (bumping epoch & resetting router health), aborts any 0-byte Queued pending_send, and isolates any
-\* MayHaveSent pending_send (crates/tickwire-account-gateway/src/pool.rs:747-801,
-\* crates/tickwire-binance-account/src/ws/owner.rs:455-504).
+\* MayHaveSent pending_send (crates/tickwire-account-gateway/src/pool.rs:792-835,
+\* crates/tickwire-binance-account/src/session.rs:914-955).
 PeerReplyThenEof(s) ==
     /\ slot_established[s]
     /\ disconnects_used < MaxDisconnects
@@ -369,7 +369,7 @@ PeerReplyThenEof(s) ==
 \* 8. Transport drops with zero unread response frames (peer reset, write error, or WS Close/expiry):
 \* aborts 0-byte Queued pending_send, isolates MayHaveSent pending_send, and leaves Flushed entries
 \* for post-EOF FinalizeBrokenSlotPending without freezing sibling slots
-\* (crates/tickwire-account-gateway/src/pool.rs:731-801).
+\* (crates/tickwire-account-gateway/src/pool.rs:792-835).
 DisconnectWithoutReply(s) ==
     LET ptx == pending_send[s]
         p_zero == ptx # 0 /\ tx_stage[ptx] = "Queued" /\ ~tx_bytes_sent[ptx]
@@ -402,7 +402,7 @@ DisconnectWithoutReply(s) ==
        >>
 
 \* 9. Off-hot-path DialWorker publishes a ready replacement connection onto DialBaton
-\* (crates/tickwire-transport/src/order_router.rs:650-675), potentially BEFORE retained_rx or stale SlotPending drains!
+\* (crates/tickwire-transport/src/order_router.rs:945-985), potentially BEFORE retained_rx or stale SlotPending drains!
 BatonBecomeReady(s) ==
     /\ ~slot_established[s]
     /\ ~baton_ready[s]
@@ -416,9 +416,8 @@ BatonBecomeReady(s) ==
        >>
 
 \* 10. Owner drains a buffered pre-EOF reply from retained_receive / WS decoder after socket EOF
-\* (crates/tickwire-binance-account/src/rest.rs:875-952,
-\* crates/tickwire-spot-execution/src/session.rs:1025-1155,
-\* crates/tickwire-binance-account/src/ws/owner.rs:463-660).
+\* (crates/tickwire-account-gateway/src/pool.rs:749-775,
+\* crates/tickwire-binance-account/src/session.rs:914-955).
 \* Epoch-fenced release_inflight is a safe no-op on the disconnected epoch, and response binds strictly to tx_epoch[tx].
 DrainRetainedReply(s, tx) ==
     LET rem_rx == retained_rx[s] \ {tx}
@@ -444,9 +443,8 @@ DrainRetainedReply(s, tx) ==
 
 \* 11. Once retained_rx is empty on a disconnected slot, owner finalizes remaining broken pending
 \* transactions into InDoubt + QueryDesk and clears rest_slot_pending / ws_draining_eof
-\* (crates/tickwire-binance-account/src/rest.rs:957-1092,
-\* crates/tickwire-spot-execution/src/session.rs:1160-1269,
-\* crates/tickwire-binance-account/src/ws/owner.rs:675-735).
+\* (crates/tickwire-account-gateway/src/pool.rs:792-835,
+\* crates/tickwire-spot-execution/src/session.rs:459-470).
 FinalizeBrokenSlotPending(s) ==
     LET targets == FlushedAnyEpochOnSlot(s) IN
     /\ ~slot_established[s]
@@ -467,9 +465,8 @@ FinalizeBrokenSlotPending(s) ==
         tx_abort_pending_reap, tx_resp_epoch
        >>
 
-\* 12. Guarded poll_pool_dials_filtered (crates/tickwire-account-gateway/src/pool.rs:292-329,
-\* crates/tickwire-binance-account/src/rest.rs:235-270,
-\* crates/tickwire-spot-execution/src/session.rs:263-289):
+\* 12. Guarded poll_pool_dials_filtered (crates/tickwire-account-gateway/src/pool.rs:294-330,
+\* crates/tickwire-binance-account/src/session.rs:857-910):
 \* installs a ready DialBaton connection ONLY when pending_send, retained_rx, and owner pending are empty!
 HarvestReadyBaton(s) ==
     /\ ~slot_established[s]

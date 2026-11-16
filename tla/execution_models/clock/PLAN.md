@@ -1,10 +1,10 @@
-# 时钟核心验证计划
+# Clock calibration verification plan
 
-L0 校准模型按单个 `Calibrator` 的 `&mut self` 方法原子调用转录。外部环境可推进单调时间、在请求与接收之间采样服务端值，以及产生旧回复、坏样本或已检测的跳变。网络客户端、时钟提供者与 TLS 不进入本级。
+The `clock` ladder models single-owner `&mut Calibrator` atomic transitions under an adversary that advances local monotonic time, samples venue server time anywhere inside `[m0, m1]`, and injects stale replies, malformed samples, or server clock jumps. Transport clients, OS clock providers, and TLS belong to separate models (`system_clock` and `binance_private_session`).
 
-| 层级 | 范围 |
-|---|---|
-| L0_calibration | 令牌生命周期、区间计算、向外舍入、故障撤销、精确签名发送检查（10 段精确分段整数 + `@TLAPlusOperator` 字节码等价加速） |
-| L1_sym_calibration | `Apalache + Z3` 线性整数 (`QF_LIA`) 无界归纳证明 ($\forall k \ge 0$) 与全 `0 .. 2^64 - 1` / `u128` 漂移锥连续真值包含性验证 + 有界 TLC 全动作覆盖门禁 |
+| Level | Scope |
+| --- | --- |
+| `L0_calibration` | Sample token lifecycle, interval uncertainty outward rounding, fault revocation, and exact signed-send window checks using 10-limb base-1000 exact integers (`@TLAPlusOperator` bytecode-accelerated) |
+| `L1_sym_calibration` | `Apalache + Z3` (`QF_LIA`) unbounded mathematical induction (`\A k >= 0`) over full `0 .. 2^64 - 1` / `u128` drift cones proving continuous server-truth containment + bounded TLC full action coverage |
 
-时间和量化单位保持真实纳秒数值；工具的原生整数限制通过精确分段整数表示处理。隐藏采样时刻的真值按独立速率规则推进，包络性质只在连续速率契约成立时检查。后续网络组合需另外制定层级。
+Nanosecond, microsecond, and millisecond units match production constants (`1e9`, `1e3`, `1e6`) without rescaling, preserving exact outward-rounding and strict future-bound arithmetic.

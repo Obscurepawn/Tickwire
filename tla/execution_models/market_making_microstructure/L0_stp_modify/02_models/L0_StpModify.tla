@@ -19,7 +19,7 @@ single-in-flight order modification (`PendingModify` + `ModificationRecord`),
 worst-case Spot principal and Futures `shadow_holds` reservations, `client_id`
 rotation and rollback, partial/full fills racing with in-flight modifications
 (`supersede_pending_modify_on_terminal`), and `AmendAmbiguous` per-order query
-resolution (`PerOrderQueryDriver` including Spot 2-phase `new_client_id` ->
+resolution (`QueryDesk` + `AccountSession` including Spot 2-phase `new_client_id` ->
 `orderId` fallback).
 
 Variable <-> Rust source mapping:
@@ -27,36 +27,37 @@ Variable <-> Rust source mapping:
   `SymbolSlot.{buy_orders, sell_orders, best_bid_ticks, best_ask_ticks}`,
   `StpBook::{self_cross, self_cross_excluding, upsert_order, remove_order}`, and
   `aggressive_ticks` (`max` for `Buy`, `min` for `Sell`),
-  crates/tickwire-account/src/stp_book.rs:43-105,
+  crates/tickwire-account/src/stp_book.rs:45-103,
   crates/tickwire-account/src/stp_book.rs:174-239,
   crates/tickwire-account/src/stp_book.rs:293-395,
   crates/tickwire-account/src/stp_book.rs:443-450.
 - status, price, eff_qty, filled, cid_gen, cid_aliases, vid_gen, in_doubt:
   `Order` lifecycle, resting terms, client-ID & native-ID aliases, and `DoubtReason`,
-  crates/tickwire-account/src/lib.rs:295-375,
-  crates/tickwire-account/src/admission.rs:180-260,
-  crates/tickwire-account/src/events.rs:499-625.
+  crates/tickwire-account/src/lib.rs:125-172,
+  crates/tickwire-account/src/admission.rs:286-374,
+  crates/tickwire-account/src/events.rs:770-896.
 - pm_active, pm_sent, pm_req_px, pm_req_qty, pm_rot_cid, pm_tent_cid, shadow_hold,
   mod_seq, mod_superseded, mod_rejected, mod_aborted, last_rollback_kind,
   pre_mod_px, pre_mod_qty, pre_mod_cid:
   `PendingModify`, `ModificationRecord`, `admit_modify_candidate`,
   `abort_modification`, `observe_modified`, `reject_modification`, and
   `supersede_pending_modify_on_terminal`,
-  crates/tickwire-account/src/modifications.rs:11-65,
-  crates/tickwire-account/src/modifications.rs:67-385,
-  crates/tickwire-account/src/modifications.rs:430-894,
-  crates/tickwire-account/src/calculation.rs:115-175.
+  crates/tickwire-account/src/modifications.rs:12-65,
+  crates/tickwire-account/src/modifications.rs:67-421,
+  crates/tickwire-account/src/modifications.rs:459-928,
+  crates/tickwire-account/src/calculation.rs:150-240.
 - query_phase:
-  `PerOrderQueryDriver` `AmendAmbiguous` resolution (Spot `origClientOrderId = new_client_id`
-  probe with immediate `-2013` fallback to `orderId` / `orig_client_id`),
-  crates/tickwire-binance-account/src/query_desk_driver.rs:420-690,
-  crates/tickwire-binance-account/src/modify.rs:604-815.
+  `QueryDesk` + `AccountSession` `AmendAmbiguous` resolution (Spot `origClientOrderId = new_client_id`
+  probe with `-2013` fallback to `orderId` / `orig_client_id`),
+  crates/tickwire-account/src/query_desk.rs:647-868,
+  crates/tickwire-binance-account/src/session.rs:2885-3205.
 - quota_spent, origins_active, refused_local:
-  pre-admission local STP/modify refusal non-burn in `RestSession::submit_pooled_inner`,
-  `AccountRunner::submit`, `RestOwner::submit`, and `WsOwner::submit_websocket`,
-  crates/tickwire-spot-execution/src/session.rs:730-780,
-  crates/tickwire-spot-runner/src/lib.rs:285-335,
-  crates/tickwire-spot-runner/src/origins.rs:115-175.
+  pre-wire local STP/modify refusal non-burn in `AccountSession::{submit_new_order,
+  submit_modify_order}`, `AccountSession::submit_modify`, and `AccountGateway::abort`,
+  crates/tickwire-spot-execution/src/session.rs:1103-1185,
+  crates/tickwire-spot-execution/src/session.rs:1300-1375,
+  crates/tickwire-binance-account/src/session.rs:1986-2124,
+  crates/tickwire-account-gateway/src/lib.rs:1195-1212.
 *)
 
 Orders == BuyOrders \cup SellOrders
@@ -207,8 +208,9 @@ SelfCrossExcluding(o, cand_px) ==
     \* Opposite-side slots never contain `o`, so excluding `o` checks opposite atomic BBO.
     SelfCrossForSide(IsBuy(o), cand_px)
 
-\* Reservation holds (crates/tickwire-account/src/calculation.rs:115-205, 320-384
-\* and crates/tickwire-account/src/modifications.rs:240-355).
+\* Reservation holds (crates/tickwire-account/src/calculation.rs:150-240,
+\* crates/tickwire-account/src/calculation.rs:316-473,
+\* and crates/tickwire-account/src/modifications.rs:240-385).
 StressHigh == CHOOSE m \in AllPrices : \A p \in AllPrices : p <= m
 
 MarginUnitPx(o, px) ==
@@ -294,7 +296,7 @@ Init ==
     /\ refused_local = 0
 
 \* 1. Admit a new limit order via Account::admit + StpBook::upsert_order
-\* (crates/tickwire-account/src/admission.rs:195-255, crates/tickwire-account/src/stp_book.rs:293-357).
+\* (crates/tickwire-account/src/admission.rs:286-374, crates/tickwire-account/src/stp_book.rs:293-357).
 AdmitNewOrder(o, px, q) ==
     LET add_quote == IF FuturesMarginMode \/ IsBuy(o) THEN q * MarginUnitPx(o, px) ELSE 0
         add_base == IF ~FuturesMarginMode /\ ~IsBuy(o) THEN q ELSE 0
@@ -336,8 +338,8 @@ AdmitNewOrder(o, px, q) ==
 
 \* 2. Local CrossesBook or TooManyPendingActions refusal before wire/quota commit
 \* (crates/tickwire-account/src/modifications.rs:133-192,
-\*  crates/tickwire-spot-runner/src/lib.rs:285-335,
-\*  crates/tickwire-spot-execution/src/session.rs:730-780).
+\*  crates/tickwire-binance-account/src/session.rs:1986-2124,
+\*  crates/tickwire-spot-execution/src/session.rs:1103-1185).
 RefuseLocalStpOrPending(o, cand_px) ==
     /\ refused_local = 0
     /\ cand_px \in AllowedPrices(o)
@@ -355,7 +357,7 @@ RefuseLocalStpOrPending(o, cand_px) ==
        >>
 
 \* 3. Admit single-in-flight Modify with dual-price StpBook & worst-case hold
-\* (crates/tickwire-account/src/modifications.rs:67-385).
+\* (crates/tickwire-account/src/modifications.rs:67-421).
 AdmitModify(o, new_px, new_q, rot_cid) ==
     LET old_q_hold == OrderQuoteHold(o)
         new_q_hold == Max(RestingQuoteNotional(o), PendingQuoteNotional(o, new_px, new_q))
@@ -412,8 +414,8 @@ AdmitModify(o, new_px, new_q, rot_cid) ==
        >>
 
 \* 4. Zero-byte abort before wire send rolls back PendingModify without burning quota
-\* (crates/tickwire-account/src/modifications.rs:430-454,
-\*  crates/tickwire-spot-execution/src/session.rs:760-775).
+\* (crates/tickwire-account/src/modifications.rs:459-483,
+\*  crates/tickwire-account-gateway/src/lib.rs:1195-1212).
 AbortModifyZeroBytes(o) ==
     /\ status[o] = "Open"
     /\ pm_active[o]
@@ -507,7 +509,7 @@ ApplyModifiedTerms(o, app_px, app_q) ==
     /\ last_rollback_kind' = [last_rollback_kind EXCEPT ![o] = "None"]
 
 \* 6. Venue observes Modified (including clamped price/qty) on live sent request
-\* (crates/tickwire-account/src/modifications.rs:456-745).
+\* (crates/tickwire-account/src/modifications.rs:485-819).
 ObserveModified(o, app_px, app_q) ==
     /\ status[o] = "Open"
     /\ pm_active[o]
@@ -548,7 +550,7 @@ ApplyModifyRejectedRollback(o) ==
     /\ last_rollback_kind' = [last_rollback_kind EXCEPT ![o] = "Rejected"]
 
 \* 7. Venue rejects Modify (e.g., -5022 PostOnly / -2021) and restores resting state
-\* (crates/tickwire-account/src/modifications.rs:747-823).
+\* (crates/tickwire-account/src/modifications.rs:821-886).
 ObserveModifyRejected(o) ==
     /\ status[o] = "Open"
     /\ pm_active[o]
@@ -562,7 +564,7 @@ ObserveModifyRejected(o) ==
        >>
 
 \* 8. Partial fill arrives on open order (including while PendingModify is in flight)
-\* (crates/tickwire-account/src/events.rs:291-475).
+\* (crates/tickwire-account/src/events.rs:562-695).
 PartialFillOpenOrder(o) ==
     /\ status[o] = "Open"
     /\ filled[o] + 1 < eff_qty[o]
@@ -577,8 +579,8 @@ PartialFillOpenOrder(o) ==
        >>
 
 \* 9. Full fill or Cancel closes order; swap_remove updates StpBook and supersedes any
-\* in-flight PendingModify (crates/tickwire-account/src/events.rs:553-625,
-\* crates/tickwire-account/src/modifications.rs:825-851).
+\* in-flight PendingModify (crates/tickwire-account/src/events.rs:770-896,
+\* crates/tickwire-account/src/modifications.rs:903-928).
 TerminalCloseOrder(o) ==
     LET rem == RemoveFromStp(o)
         had_pm == pm_active[o]
@@ -607,7 +609,7 @@ TerminalCloseOrder(o) ==
        >>
 
 \* 10. Late ModifyRejected arrives after terminal close superseded PendingModify
-\* (crates/tickwire-account/src/modifications.rs:747-823).
+\* (crates/tickwire-account/src/modifications.rs:821-886).
 LateModifyRejectedOnSuperseded(o) ==
     /\ status[o] = "Terminal"
     /\ mod_superseded[o]
@@ -624,7 +626,8 @@ LateModifyRejectedOnSuperseded(o) ==
        >>
 
 \* 11. Transport disconnect after flush isolates order in AmendAmbiguous and schedules
-\* PerOrderQueryDriver (crates/tickwire-binance-account/src/query_desk_driver.rs:420-520).
+\* QueryDesk status ask (crates/tickwire-account/src/query_desk.rs:271-368,
+\* crates/tickwire-account/src/ors_query_desk.rs:165-229).
 IsolateAmendAmbiguous(o) ==
     /\ status[o] = "Open"
     /\ pm_active[o]
@@ -641,8 +644,9 @@ IsolateAmendAmbiguous(o) ==
         pre_mod_px, pre_mod_qty, pre_mod_cid, quota_spent, origins_active, refused_local
        >>
 
-\* 12. Spot PerOrderQueryDriver -2013 on new_client_id immediately falls back in-poll
-\* to original orderId probe without sleeping (crates/tickwire-binance-account/src/query_desk_driver.rs:585-670).
+\* 12. Spot QueryDesk / AccountSession -2013 on new_client_id falls back
+\* to original orderId probe (crates/tickwire-account/src/query_desk.rs:647-760,
+\* crates/tickwire-binance-account/src/session.rs:2885-2939).
 StepSpotNewCidNotFoundFallback(o) ==
     /\ status[o] = "Open"
     /\ pm_active[o]
@@ -657,8 +661,9 @@ StepSpotNewCidNotFoundFallback(o) ==
         pre_mod_px, pre_mod_qty, pre_mod_cid, quota_spent, origins_active, refused_local
        >>
 
-\* 13. PerOrderQueryDriver resolves AmendAmbiguous via authenticated order query
-\* (crates/tickwire-binance-account/src/modify.rs:604-815).
+\* 13. QueryDesk + AccountSession resolves AmendAmbiguous via authenticated order query
+\* (crates/tickwire-account/src/query_desk.rs:762-868,
+\*  crates/tickwire-binance-account/src/session.rs:2948-3205).
 ResolveAmendAmbiguousViaQuery(o, applied) ==
     /\ status[o] = "Open"
     /\ pm_active[o]

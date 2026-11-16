@@ -1,9 +1,8 @@
-# 账户预留验证计划
+# ORS Account & Order-Slot Lifecycle Verification Plan
 
-源码范围为 `crates/tickwire-account`。每个 `Account` 只有一个可变所有者；公开方法通过候选副本计算再整体替换，模型以一次公开调用为原子动作。调用方负责先同步事实 WAL，模型不替调用方建立持久化完成点。
+Source scope: [`crates/tickwire-account`](../../../crates/tickwire-account/src/lib.rs). In the unified ORS execution process (`1 ORS process = 1 Venue`), [`OrderManager`](../../../crates/tickwire-account/src/order_manager.rs) coordinates fine-grained per-slot `TtasSpinLock` transitions between the outbound `REQ` thread and inbound `RESP` thread without coarse process-wide locks or local disk journals.
 
-| 层级 | 内容 |
-|---|---|
-| L0_spot_facts | 两种资产、有界买单、费用、终态、迟到和重复事实、中止与未知状态 |
-| L1_reduce_shadow | USD-M 独占减仓分配、实际仓位、费用消耗与 venue shadow |
-| L2_closed_baseline | 已存在订单 coverage、闭合基线替换；须先完成对应实现 |
+| Level | Focus |
+| --- | --- |
+| [`L0_ors_slot_fill_recycle`](L0_ors_slot_fill_recycle/05_output.md) | Exhaustive finite-state TLC verification of power-of-two `OrderSlot` 4-state transitions (`EMPTY -> CLAIMED -> LIVE -> RETIRED`), `lock_order` pre-lock/post-lock identity rechecks across modular `(seq & slot_mask)` recycling, `OrsStpBook` send-path atomic best-price admission and immediate terminal unlinking without waiting on post-trade fee settlement, `dry_run` immediate `Canceled(DRY_RUN)` retirement, `FrontAck` / `Ack` / `ProjectedFill` / `Fill` ordering, `FillRecordPool` trade deduplication + `amendment = true` fee patching, and `UtaWalletLedger` multi-wallet solvency |
+| [`L1_sym_ors_order_lifecycle`](L1_sym_ors_order_lifecycle/05_output.md) | Dual-engine symbolic 64-bit / 128-bit verification (Apalache Z3 `QF_LIA` inductive invariant + BMC alongside TLC `BoundedMode` action coverage) proving modular `seqnum` slot collision safety (`seq' = seq + cfg_slots_cap`), `FillRecordPool::record_or_amend` idempotency, and `UtaWalletLedger` solvency across arbitrary `u64` quantities/ticks and `i128` asset balances |

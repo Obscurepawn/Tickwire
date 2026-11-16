@@ -1,7 +1,7 @@
-# JOIN owner 验证计划
+# JOIN owner verification plan
 
-源码根为 `crates/tickwire-join`，同时读入 `tickwire-shm` 的实际 pending cursor、激活及退出检查。L0 验证固定已认证身份下的准备、交付、追平、超时和协作回收；L1 留给持久 owner 恢复、订阅代次重用和退出 holder 证明。既有 ring L0 和 control L0/L1 分别提供槽位保护与认证请求前提，本级没有宣称自动完成它们之间的形式细化。
+Targets `crates/tickwire-join` paired with live pending-cursor registration, activation, and quiescence detachment in `crates/tickwire-shm`. `L0_pending_activation` verifies preparation, `SCM_RIGHTS` delivery, catch-up, timeout expiration, and cooperative detachment under authenticated identities; `broadcast_ring` L0 and `control_requests` L0/L1 cover underlying slot reclamation and control-session request idempotency.
 
-owner 的发布和控制方法持有同一 `&mut JoinOwner`，构造闭包执行期间不能重入发布。消费者是独立进程，可以在 owner 构造其他订阅、等待 socket 或处理控制调用之间读取并推进实际 cursor。所有者只在有效 READY 后采纳 pending cursor 的 released。副作用之后构造、交付和存储错误均保留门禁。
+Owner publication and control handlers serialize on `&mut JoinOwner`, while subscribers run in separate processes and may advance their shared cursors concurrently between owner calls. `JoinOwner` adopts a subscriber's live `released` cursor watermark only after a valid `JOIN_READY` confirms catch-up; preparation, delivery, or timeout failures retain the pending baseline gate.
 
-容量固定为源码最小值 64。主配置在 S=4 的有限发布窗口中枚举构造/交付失败与超时；两个 wrap 配置从合法可达前缀开始：全部读者在 S=4 登记并完成映射/资源确认，owner 发布 5..68，读者已释放并应用 5..67，但仍 pending。模型继续枚举第 68 条的活引用及第 69 条的槽位复用。该前缀由真实 SDK 可执行步骤构成，并与 Linux Rust 测试的 64 条门禁见证一致。
+Ring capacity is fixed to the real minimum (`64`). Primary configurations explore preparation/delivery failures and timeouts from `S = 4`, while two `wrap` configurations start from a reachable full-ring prefix where subscribers registered at `S = 4`, the owner published `5..68`, and subscribers released/applied `5..67` while still `Pending`, testing live borrow protection at `68` and physical slot reuse at `69`.

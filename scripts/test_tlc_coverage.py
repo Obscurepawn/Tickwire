@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
 """Regression tests for completed, per-model TLC coverage aggregation."""
 from pathlib import Path
-import tempfile
-import unittest
+import hashlib
 import shutil
 import subprocess
+import sys
+import tempfile
+import unittest
 
-from tlc_coverage import CoverageError, check_logs
-from tlc_native_overrides import emit_override_classes
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from tlc_coverage import CoverageError, check_logs  # noqa: E402
+from tlc_native_overrides import emit_override_classes  # noqa: E402
 
 
 def block(a=1, b=0, model="Example"):
@@ -154,15 +158,15 @@ class CoverageTests(unittest.TestCase):
             with self.assertRaises(CoverageError):
                 check_logs([], "Example", scaling_paths=[scl_p])
 
-    def test_committed_gateway_logs_cover_58_entries(self):
+    def test_committed_shared_ors_limiter_logs_cover_14_entries(self):
         directory = Path(__file__).resolve().parents[1] / (
-            "tla/execution_models/account_gateway/L0_guarded_account_output/04_evidence"
+            "tla/execution_models/request_budget/L0_shared_ors_limiter/04_evidence"
         )
-        paths = [directory / f"L0_AccountGateway_v2{suffix}.log"
-                 for suffix in ("", "_boundary", "_two", "_crashes")]
-        result = check_logs(paths, "L0_AccountGateway_v2")
-        self.assertEqual(result["runs"], 4)
-        self.assertEqual(result["entries"], 58)
+        paths = [directory / f"L0_SharedOrsLimiter{suffix}.log"
+                 for suffix in ("", "_multi_ip")]
+        result = check_logs(paths, "L0_SharedOrsLimiter")
+        self.assertEqual(result["runs"], 2)
+        self.assertEqual(result["entries"], 14)
         self.assertTrue(all(value > 0 for value in result["generated"].values()))
 
     def test_private_product_configs_have_complementary_next_branches(self):
@@ -400,6 +404,51 @@ class RunnerTests(unittest.TestCase):
                 )
                 self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
                 self.assertIn(SUCCESS.strip(), res.stdout)
+
+    def test_runner_verifies_anchors_lock_and_detects_drift(self):
+        repo = Path(__file__).resolve().parents[1]
+        jar = repo / "tla/tools/tla2tools.jar"
+        if not jar.exists() or shutil.which("java") is None:
+            self.skipTest("local pinned TLC jar and Java required for runner smoke")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scripts = root / "scripts"
+            scripts.mkdir()
+            for name in ("check-tla.sh", "tlc_coverage.py", "tlc_native_overrides.py"):
+                shutil.copyfile(repo / "scripts" / name, scripts / name)
+            tools = root / "tla/tools"
+            tools.mkdir(parents=True)
+            (tools / "tla2tools.jar").symlink_to(jar)
+            src_rs = root / "crates/demo/src/lib.rs"
+            src_rs.parent.mkdir(parents=True)
+            src_rs.write_text("pub const CAP: u64 = 2;\n")
+            line_sha = hashlib.sha256(b"pub const CAP: u64 = 2;").hexdigest()
+            models = root / "tla/execution_models/demo/L0_smoke/02_models"
+            models.mkdir(parents=True)
+            (models / "Demo.tla").write_text(
+                "---- MODULE Demo ----\nEXTENDS Naturals\nVARIABLE x\n"
+                "Init == x = 0\nNext == x = 0 /\\ x' = 1\nSafe == x \\in 0..1\n====\n"
+            )
+            (models / "Demo.cfg").write_text(
+                "INIT Init\nNEXT Next\nINVARIANT Safe\nCHECK_DEADLOCK FALSE\n"
+            )
+            (models / "anchors.lock").write_text(
+                f"crates/demo/src/lib.rs\t1\t{line_sha}\n"
+            )
+            ok_res = subprocess.run(
+                ["bash", str(scripts / "check-tla.sh")],
+                capture_output=True, text=True, timeout=60,
+            )
+            self.assertEqual(ok_res.returncode, 0, ok_res.stdout + ok_res.stderr)
+            self.assertIn("anchors.lock check: 1 anchor line(s) across 1 lock(s); 0 changed", ok_res.stderr)
+
+            src_rs.write_text("pub const CAP: u64 = 3;\n")
+            drift_res = subprocess.run(
+                ["bash", str(scripts / "check-tla.sh")],
+                capture_output=True, text=True, timeout=60,
+            )
+            self.assertNotEqual(drift_res.returncode, 0)
+            self.assertIn("DRIFT  crates/demo/src/lib.rs:1", drift_res.stderr)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,3 @@
-# 反例
+# L0 counterexamples
 
-正式配置没有性质反例。完成响应关联与租约算术错误分类的完善来自源码审阅及 Rust Red/Green，不归因为 TLC 发现。
+Zero invariant violations occurred across all three configurations. Ticket completion correlation and lease arithmetic error classification were tightened during Rust Red/Green review prior to freezing the model.
