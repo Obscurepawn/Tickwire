@@ -262,7 +262,18 @@ fn try_recv_drains_queued_frames_and_fds_before_closed() {
             );
         }
     }
-    assert!(matches!(server.try_recv(), Err(Error::Closed)));
+    // Sibling tests in this binary call `fork()` + `execve()`, briefly holding a
+    // duplicated `FD_CLOEXEC` descriptor until `execve()` completes.
+    let until = deadline();
+    loop {
+        match server.try_recv() {
+            Err(Error::Closed) => break,
+            Ok(None) if Instant::now() < until => std::thread::sleep(Duration::from_millis(1)),
+            Ok(None) => panic!("timed out waiting for Closed from try_recv after sender drop"),
+            Ok(Some(_)) => panic!("unexpected extra frame from try_recv after sender drop"),
+            Err(err) => panic!("expected Closed from try_recv after sender drop, got {err}"),
+        }
+    }
 }
 
 #[test]
