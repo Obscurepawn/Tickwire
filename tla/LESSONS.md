@@ -1,6 +1,6 @@
 # Verification Case Law (`LESSONS.md`)
 
-> **Read this before classifying any TLC or Apalache counterexample as a finding.** Every rule below comes from a concrete formal-verification false positive or subtle true positive. Apply the triage checklist first so model artifacts are separated cleanly from real production defects.
+> **Read this before classifying any TLC or Apalache counterexample as a finding.** Every rule below comes from a concrete formal-verification false positive or subtle true positive across Tickwire's `21` model families (`40` TLC models and `11` Apalache Snowcat symbolic `IndInv` models). Apply the triage checklist first so model artifacts are separated cleanly from real production defects.
 
 The single most common failure mode is **a model looser than the production code** — omitting a caller invariant, lock recheck, or dispatch serialization that the implementation enforces. Such a counterexample diagnoses the *model*, not the *system*.
 
@@ -41,7 +41,7 @@ Run this adversarial checklist before promoting any counterexample to `candidate
 
 ## R2 — A Claimed Race Needs Its Runtime Threads
 
-A concurrency race claimed on a struct method must be reachable through the actual thread topology (`REQ` spin thread, `RESP` epoll thread, and cold `housekeeping_cpus` workers such as `Dialer` and `QueryDesk`). Single-writer thread-local state cannot race with itself; shared cross-thread structures (`OrderManager` slots, `LockedConnection`, `DialBaton`, `SharedRateLimiter`) must be modeled at their exact atomic/spinlock boundaries.
+A concurrency race claimed on a struct method must be reachable through the actual thread topology (`REQ` spin thread, `RESP` epoll thread, and cold `housekeeping_cpus` workers such as `Dialer` and `OrsQueryDesk` / `QueryDesk`). Single-writer thread-local state cannot race with itself; shared cross-thread structures (`OrderManager` slots, `LockedConnection`, `DialBaton`, `SharedRateLimiter`) must be modeled at their exact atomic/spinlock boundaries.
 
 ---
 
@@ -62,7 +62,7 @@ Verify for every status code and counter threshold:
 
 ## R5 — Verify Frozen Concurrency Assumptions Against Topology
 
-- **R5.1–R5.3 — Believe locks and atomic orderings over stale prose:** Whenever a structure carries per-slot spinlocks (`LockedOrder`, `LockedConnection`, `StpBook`) or `AcqRel` generation tags, derive concurrency invariants from the actual lock hierarchy (`LockedOrder` and `LockedConnection` never overlap; `StpBook` is acquired strictly as a leaf under `LockedOrder`, while send-path self-trade checks read atomic BBO prices lock-free).
+- **R5.1–R5.3 — Believe locks and atomic orderings over stale prose:** Whenever a structure carries per-slot spinlocks (`LockedOrder`, `LockedConnection`, `OrsStpBook` / `StpBook`) or `AcqRel` generation tags, derive concurrency invariants from the actual lock hierarchy (`LockedOrder` and `LockedConnection` never overlap; `OrsStpBook` is acquired strictly as a leaf under `LockedOrder`, while send-path self-trade checks read atomic BBO prices lock-free).
 
 ---
 

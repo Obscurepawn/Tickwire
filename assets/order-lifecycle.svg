@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="780" height="618" viewBox="0 0 780 618"
      role="img" aria-labelledby="title description">
   <title id="title">Stateless ultra-low-latency order lifecycle across REQ, LinkOps, and RESP</title>
-  <desc id="description">Stateless order lifecycle: 1024-byte Strategy IntentRecord enters REQ on req_cpu through the 23-microsecond stale gate, flat RmsEngine, lock-free atomic BBO StpBook::self_cross, OrderRouter::pick 9/8 EWMA selection with SharedRateLimiter local_ip and account quotas, and LinkOps wire send without overlapping Order and Connection spinlocks; Venue replies enter RESP on resp_cpu via single-pass JsonScan into distinct One ack (FrontAck or Ack), ProjectedFill, and FillRecordPool (Fill trade deduplication plus amendment = true fee patch) facts, OrsQueryDesk doubt recovery on cold housekeeping_cpus, and immediate RETIRED slot reclamation plus StpBook unlink without waiting on fees_closed.</desc>
+  <desc id="description">Stateless order lifecycle: 1024-byte Strategy IntentRecord enters REQ on req_cpu through the 23-microsecond stale gate, flat RmsEngine, lock-free atomic BBO OrsStpBook::self_cross, PublishedRoutes::pick (OrderRouter 9/8 EWMA) selection with SharedRateLimiter local_ip and account quotas, and LinkOps wire send without overlapping Order and Connection spinlocks; Venue replies enter RESP on resp_cpu via single-pass JsonScan into distinct One ack (FrontAck or Ack), ProjectedFill, and FillRecordPool (Fill trade deduplication plus amendment = true fee patch) facts, OrsQueryDesk doubt recovery on cold housekeeping_cpus, and immediate SlotState::Retired slot reclamation plus OrsStpBook unlink without waiting on fee_reconciled.</desc>
   <defs>
     <marker id="arr-dark" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6.2" markerHeight="6.2" orient="auto-start-reverse">
       <path d="M0.5 1 L9.5 5 L0.5 9 z" fill="#334155"/>
@@ -74,9 +74,9 @@
   <!-- Stage 2 -->
   <rect class="card" x="275" y="50" width="230" height="108" rx="7"/>
   <text x="390" y="72" class="step-req">2 · ATOMIC STP &amp; ROUTER</text>
-  <text x="390" y="95" class="box-title">StpBook::self_cross</text>
+  <text x="390" y="95" class="box-title">OrsStpBook::self_cross</text>
   <text x="390" y="117" class="box-sub">Lock-free atomic BBO read</text>
-  <text x="390" y="139" class="box-sub">OrderRouter::pick (9/8 EWMA)</text>
+  <text x="390" y="139" class="box-sub">PublishedRoutes::pick (9/8)</text>
 
   <path class="line-blue" d="M505 104 H519" marker-end="url(#arr-blue)"/>
 
@@ -106,7 +106,7 @@
   <text x="143" y="286" class="step-resp">4 · JSONSCAN &amp; ONE ACK</text>
   <text x="143" y="309" class="box-title">Single-Pass JsonScan</text>
   <text x="143" y="331" class="box-sub">One ack: FrontAck / Ack</text>
-  <text x="143" y="353" class="box-sub">Link resting order in StpBook</text>
+  <text x="143" y="353" class="box-sub">Link resting in OrsStpBook</text>
 
   <path class="line-dark" d="M258 318 H272" marker-end="url(#arr-dark)"/>
 
@@ -121,10 +121,10 @@
 
   <!-- Stage 6 -->
   <rect class="card-retire" x="522" y="264" width="230" height="108" rx="7"/>
-  <text x="637" y="286" class="step-resp">6 · IMMEDIATE RETIRED</text>
-  <text x="637" y="309" class="box-title">Unlink StpBook &amp; Retire</text>
-  <text x="637" y="331" class="box-sub">Immediate RETIRED slot</text>
-  <text x="637" y="353" class="box-sub">Without waiting fees_closed</text>
+  <text x="637" y="286" class="step-resp">6 · IMMEDIATE RETIRE</text>
+  <text x="637" y="309" class="box-title">Unlink OrsStpBook &amp; Retire</text>
+  <text x="637" y="331" class="box-sub">Immediate SlotState::Retired</text>
+  <text x="637" y="353" class="box-sub">No wait on fee_reconciled</text>
 
   <!-- Bottom Branches to 3 Outcome / Recovery Boundaries -->
   <path class="line-ok" d="M143 386 V429" marker-end="url(#arr-green)"/>
@@ -138,8 +138,8 @@
   <text x="135" y="497" class="out-sub">Distinct FrontAck / Ack,</text>
   <text x="135" y="518" class="out-sub">ProjectedFill, and Fill facts</text>
   <text x="135" y="544" class="out-sub">Late amendment = true updates</text>
-  <text x="135" y="565" class="out-sub">FillRecordPool after RETIRED</text>
-  <text x="135" y="590" class="out-foot-ok">Zero stall on fees_closed</text>
+  <text x="135" y="565" class="out-sub">FillRecordPool after Retired</text>
+  <text x="135" y="590" class="out-foot-ok">Zero stall on fee_reconciled</text>
 
   <!-- Outcome 2: Per-Order OrsQueryDesk Doubt Recovery -->
   <rect class="out-amber" x="269" y="432" width="242" height="170" rx="8"/>
