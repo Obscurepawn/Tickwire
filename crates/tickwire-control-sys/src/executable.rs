@@ -95,7 +95,7 @@ impl ExecutableImage {
     pub fn reader(&self) -> Result<File> {
         read_descriptor(&self.file)
     }
-    /// Executes the fixed descriptor, preserving the approved source as argv[0].
+    /// Executes the fixed descriptor, preserving the approved source as `argv[0]`.
     /// The callback may set arguments/environment/credentials/stdio, but replacing
     /// Command's program is rejected before spawning any child.
     pub fn spawn(&self, configure: impl FnOnce(&mut Command)) -> Result<Child> {

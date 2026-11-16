@@ -48,11 +48,13 @@ zero local WAL, zero disk I/O, and zero floating-point arithmetic.
     ([src/live_bootstrap.rs](src/live_bootstrap.rs)).
 * **In-place `Account` state machine (zero whole-account cloning)**:
   - Mutate `Account` ([src/admission.rs](src/admission.rs), [src/events.rs](src/events.rs),
-    [src/modifications.rs](src/modifications.rs), [src/structures.rs](src/structures.rs),
+    [src/amendments.rs](src/amendments.rs), [src/modifications.rs](src/modifications.rs),
+    [src/calculation.rs](src/calculation.rs), [src/structures.rs](src/structures.rs),
     [src/account_inputs.rs](src/account_inputs.rs), [src/external.rs](src/external.rs),
-    [src/recovery.rs](src/recovery.rs)) in place or over lightweight single-domain local rollbacks—never clone `Account`
-    or `catalog` (`Arc<BTreeMap<u64, InstrumentPolicy>>`), retire terminal zero-remainder orders immediately without
-    waiting on `fee_reconciled`, and absorb `TRADE_LITE` / fee-patch updates without freezing.
+    [src/handover.rs](src/handover.rs), [src/recovery.rs](src/recovery.rs), [src/types.rs](src/types.rs)) in place or
+    over lightweight single-domain local rollbacks—never clone `Account` or `catalog`
+    (`Arc<BTreeMap<u64, InstrumentPolicy>>`), retire terminal zero-remainder orders immediately without waiting on
+    `fee_reconciled`, and absorb `TRADE_LITE` / fee-patch updates without freezing.
 
 ## Verification and Specifications
 
@@ -62,8 +64,12 @@ zero local WAL, zero disk I/O, and zero floating-point arithmetic.
   [src/uta_ledger.rs](src/uta_ledger.rs) · [src/spinlock.rs](src/spinlock.rs) ·
   [src/pool.rs](src/pool.rs) · [src/query_desk.rs](src/query_desk.rs) ·
   [src/stp_book.rs](src/stp_book.rs) · [src/projected_fill.rs](src/projected_fill.rs) ·
-  [src/modifications.rs](src/modifications.rs) · [src/admission.rs](src/admission.rs) ·
-  [src/events.rs](src/events.rs) · [src/live_bootstrap.rs](src/live_bootstrap.rs) ·
+  [src/amendments.rs](src/amendments.rs) · [src/modifications.rs](src/modifications.rs) ·
+  [src/calculation.rs](src/calculation.rs) · [src/admission.rs](src/admission.rs) ·
+  [src/events.rs](src/events.rs) · [src/structures.rs](src/structures.rs) ·
+  [src/account_inputs.rs](src/account_inputs.rs) · [src/external.rs](src/external.rs) ·
+  [src/handover.rs](src/handover.rs) · [src/recovery.rs](src/recovery.rs) ·
+  [src/live_bootstrap.rs](src/live_bootstrap.rs) · [src/types.rs](src/types.rs) ·
   [tests/ors_order_manager.rs](tests/ors_order_manager.rs) ·
   [tests/stp_modify_projected_fill.rs](tests/stp_modify_projected_fill.rs) ·
   [tests/query_desk.rs](tests/query_desk.rs) · [tests/admission.rs](tests/admission.rs) ·

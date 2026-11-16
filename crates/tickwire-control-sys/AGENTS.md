@@ -52,11 +52,11 @@ runtimes, and supervisor state machines belong in `tickwire-control`, `tickwire-
 ## Verification and Specifications
 
 * **Source and tests**: [src/lib.rs](src/lib.rs) · [src/affinity.rs](src/affinity.rs) · [src/ors_os.rs](src/ors_os.rs) ·
-  [src/linux.rs](src/linux.rs) · [src/executable.rs](src/executable.rs) · [src/process_resources.rs](src/process_resources.rs) ·
-  [tests/affinity.rs](tests/affinity.rs) · [tests/ors_os.rs](tests/ors_os.rs) ·
-  [tests/ors_signal_main.rs](tests/ors_signal_main.rs) · [tests/transport.rs](tests/transport.rs) ·
-  [tests/executable.rs](tests/executable.rs) · [tests/process_resources.rs](tests/process_resources.rs) ·
-  [tests/platform.rs](tests/platform.rs)
+  [src/linux.rs](src/linux.rs) · [src/unsupported.rs](src/unsupported.rs) · [src/executable.rs](src/executable.rs) ·
+  [src/process_resources.rs](src/process_resources.rs) · [tests/affinity.rs](tests/affinity.rs) ·
+  [tests/ors_os.rs](tests/ors_os.rs) · [tests/ors_signal_main.rs](tests/ors_signal_main.rs) ·
+  [tests/transport.rs](tests/transport.rs) · [tests/executable.rs](tests/executable.rs) ·
+  [tests/process_resources.rs](tests/process_resources.rs) · [tests/platform.rs](tests/platform.rs)
 * **Specifications**: [control-transport.md](../../specs/implementation/control-transport.md) ·
   [supervisor-process.md](../../specs/implementation/supervisor-process.md) ·
   [runtime-observation.md](../../specs/implementation/runtime-observation.md)

@@ -4,8 +4,8 @@
 authenticated local control sessions (`ClientHandshake`, `Session`, `Policy`, `Identity`,
 `ProcessIdentity`) and idempotent request registration (`RequestStore`, `Admission`,
 `ExecutionTicket` in [src/requests.rs](src/requests.rs)). Unix `SEQPACKET` sockets and `SCM_RIGHTS`
-transfers live in `tickwire-control-sys`, and durable `tickwire-journal` request persistence lives
-in `tickwire-control-store`.
+transfers live in `tickwire-control-sys`, while `RequestStore` / `MockRequestStore` tracks request
+outcomes strictly in memory for the active control session (zero local disk journals).
 
 ## Invariants and Change Guidelines
 
@@ -24,7 +24,7 @@ in `tickwire-control-store`.
   `epoch`, `request_id`). Identical retries return `Admission::Pending` or
   `Admission::Completed(Completion)`, payload mismatches return `Error::Conflict`, and only the
   first `insert_received` mints a non-cloneable `ExecutionTicket` whose `complete` checks response
-  opcode, flags, and `state_version` parity before persisting.
+  opcode, flags, and `state_version` parity before recording in `RequestStore`.
 
 ## Verification and Specifications
 

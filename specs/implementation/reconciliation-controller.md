@@ -23,7 +23,7 @@ For USD-M (`/fapi/v1/listenKey`), Coin-M (`/dapi/v1/listenKey`), and Options (`/
 
 ## Stateless Cold Startup from Exchange REST Snapshots
 
-On cold boot or restart, `bootstrap::decode_market_bootstrap_snapshot` and `BinanceSession::bootstrap_from_rest_snapshots` (`src/bootstrap.rs`) parse authenticated `Account + OpenOrders` REST responses using zero-float `tickwire_transport::json_scan` decoders across all configured markets:
+On cold boot or restart, `bootstrap::build_market_bootstrap_snapshot` / `bootstrap::bootstrap_market_into_order_manager` and `BinanceSession::bootstrap_market_from_rest` (`src/bootstrap.rs` and `src/session.rs`, paired with `account_bootstrap_queries` and `open_orders_queries`) parse authenticated `Account + OpenOrders` REST responses using zero-float `tickwire_transport::json_scan` decoders across all configured markets:
 
 * **Spot**: `GET /api/v3/account` (`balances: [{asset, free, locked}]`) + `GET /api/v3/openOrders`.
 * **USD-M**: `GET /fapi/v2/account` or `/fapi/v3/account` (`assets`, `positions`) + `GET /fapi/v1/openOrders`.

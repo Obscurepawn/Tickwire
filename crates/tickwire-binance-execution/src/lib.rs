@@ -4,7 +4,7 @@
 //! # Architecture & State Ownership
 //! - **Pure Stateless 3-Process Topology (Zero Local WAL / Thread-Safe `Send + Sync`)**: Built directly on
 //!   [`tickwire_binance_account::BinanceSession`], [`tickwire_account::OrderManager`],
-//!   [`tickwire_transport::AsyncRestQuerier`], and [`tickwire_binance_quota::SharedBinanceOrsQuota`]
+//!   [`tickwire_transport::rest_querier::AsyncRestQuerier`], and [`tickwire_binance_quota::SharedBinanceOrsQuota`]
 //!   with zero local disk journals or legacy gateway dependencies.
 //! - **Disjoint Thread Isolation**:
 //!   * `REQ` (`req_cpu`): calls `&BinanceSession::submit_new` / `submit_cancel` / `submit_modify`.

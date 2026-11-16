@@ -16,10 +16,12 @@
 
 ## Module Layout and Verification
 
+* [`src/lib.rs`](src/lib.rs) & [`src/main.rs`](src/main.rs): Library exports and CLI entrypoint (`tickwire-app <inspect --config PATH | run --config PATH>`).
 * [`src/binance_session.rs`](src/binance_session.rs): Full-market `BinanceVenueSession` (`Spot`, `Usdm`, `Coinm`, `Options`).
 * [`src/venue.rs`](src/venue.rs): `UnifiedVenueSession` enum (`Binance`, `BybitUta`, `OkxUta`).
 * [`src/external_lanes.rs`](src/external_lanes.rs): Out-of-process Unix `SOCK_SEQPACKET` SPSC lane factories for `tickwire-strategy-worker`.
-* [`src/config.rs`](src/config.rs) & [`src/runtime.rs`](src/runtime.rs): Static `OrsAppConfig`, catalog verification, and `OrsProcess` signal lifecycle (`SIGUSR1`, `SIGUSR2`, `SIGINT`/`SIGTERM`).
+* [`src/config.rs`](src/config.rs) & [`src/runtime.rs`](src/runtime.rs): Static `OrsAppConfig`, `CatalogVerificationConfig` verification, and `OrsProcess` signal lifecycle (`SIGUSR1`, `SIGUSR2`, `SIGINT`/`SIGTERM`).
+* **Examples & integration tests**: [examples/shared-market-strategies.json](examples/shared-market-strategies.json) · [tests/ors_binance_full_market.rs](tests/ors_binance_full_market.rs) · [tests/catalog_process.rs](tests/catalog_process.rs) · [tests/parameters_process.rs](tests/parameters_process.rs) · [tests/projection_launch.rs](tests/projection_launch.rs)
 * **Specifications**: [account.md](../../specs/implementation/account.md) · [binance-execution.md](../../specs/implementation/binance-execution.md) · [spot-strategy-routing.md](../../specs/implementation/spot-strategy-routing.md) · [instrument-catalog.md](../../specs/implementation/instrument-catalog.md)
 
 ```sh
